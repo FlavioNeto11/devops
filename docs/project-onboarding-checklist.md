@@ -278,7 +278,7 @@ Duas opcoes (escolha uma):
       ConfigMap com label `grafana_dashboard`.
 - [ ] **Rollback testado**: saber reverter (`kubectl rollout undo` / `helm rollback` /
       Argo CD) — veja [`deployment-flow.md`](./deployment-flow.md), secao 8.
-- [ ] **Dominio real (futuro)**: para `www.xpto.com`, trocar `app.host` e ajustar
+- [ ] **Dominio real (futuro)**: para `nvit.io`, trocar `app.host` e ajustar
       HTTPS/tunel — veja [`local-domain-setup.md`](./local-domain-setup.md).
 
 ---

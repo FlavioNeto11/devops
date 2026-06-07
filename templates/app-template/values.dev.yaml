@@ -2,7 +2,7 @@
 # values.dev.yaml — Valores para o ambiente DEV/real (host publico + GHCR).
 # -----------------------------------------------------------------------------
 # Igual ao local, porem:
-#   * host = www.xpto.com (dominio real futuro, mesmo layout de paths)
+#   * host = nvit.io (dominio real futuro, mesmo layout de paths)
 #   * registry = ghcr.io/flavioneto11 (imagens enviadas pelo CI)
 #   * defaults.imagePullPolicy = Always (sempre puxa a tag mais recente)
 #   * images apontam para <registry>/<app.name>/<serviceName>:<tag>
@@ -22,7 +22,7 @@
 app:
   name: aplicacao1
   namespace: apps
-  host: www.xpto.com
+  host: nvit.io
   basePath: /aplicacao1
 
 # Registry do GHCR (minusculas). Quando definido, a imagem efetiva e:

@@ -4,7 +4,7 @@ Este documento descreve a **convencao de roteamento** da Plataforma DevOps Local
 **host unico**: quando ha `StripPrefix` e quando **nao** ha, **por que** frontends usam
 base path (e nao strip), **por que** APIs usam `StripPrefix`, como o **Traefik resolve a
 prioridade** entre `/<base>` e `/<base>/api`, exemplos completos de `IngressRoute` +
-`Middleware`, a **tabela das rotas** do dominio e a **versao para `www.xpto.com`**.
+`Middleware`, a **tabela das rotas** do dominio e a **versao para `nvit.io`**.
 
 > Pre-requisito conceitual: o [`new-project-contract.md`](./new-project-contract.md)
 > (campos `expose`, `stripPrefix`, `path`, `basePath`). Visao geral em
@@ -278,7 +278,7 @@ spec:
 
 ## 7. Tabela das rotas do dominio (host unico)
 
-Host local: **`xpto.localhost`** | Host real futuro: **`www.xpto.com`** (mesmo layout).
+Host local: **`xpto.localhost`** | Host real futuro: **`nvit.io`** (mesmo layout).
 Todas as rotas locais usam o entrypoint **`web` (HTTP/80)**; **`websecure` (HTTPS/443)**
 fica **pendente** (self-signed) — veja [`SECURITY.md`](../SECURITY.md) e
 [`local-domain-setup.md`](./local-domain-setup.md).
@@ -310,25 +310,25 @@ aplicacao** em vez de `VITE_BASE_PATH`.
 
 ---
 
-## 8. Versao para o dominio real `www.xpto.com`
+## 8. Versao para o dominio real `nvit.io`
 
 O layout de paths e **identico**; muda apenas o **host** (e, idealmente, HTTPS). Para
 migrar uma rota do local para o real:
 
-1. **Troque o `host`** no `devops.yaml` (`app.host: www.xpto.com`) e/ou no `match` das
-   `IngressRoute` (`Host(`www.xpto.com`)`).
+1. **Troque o `host`** no `devops.yaml` (`app.host: nvit.io`) e/ou no `match` das
+   `IngressRoute` (`Host(`nvit.io`)`).
 2. **Mantenha os mesmos `PathPrefix`, `priority` e `Middleware`** (a logica de strip nao
    muda).
 3. **Ajuste as URLs externas** dos componentes que embutem a URL publica:
-   - Argo CD: `configs.cm.url: https://www.xpto.com/argocd`.
-   - Grafana: `root_url: https://www.xpto.com/grafana`.
-   - Console (`ConfigMap`): `ARGOCD_URL`/`GRAFANA_URL` apontando para `www.xpto.com`.
+   - Argo CD: `configs.cm.url: https://nvit.io/argocd`.
+   - Grafana: `root_url: https://nvit.io/grafana`.
+   - Console (`ConfigMap`): `ARGOCD_URL`/`GRAFANA_URL` apontando para `nvit.io`.
    - Frontends: `VITE_BASE_PATH` **nao muda** (continua `/<base>/`, e relativo ao host).
 4. **Habilite HTTPS** (`websecure`) com certificado valido (Let's Encrypt/ACME no Traefik)
    ou via **Cloudflare Tunnel** com TLS gerenciado — veja
    [`local-domain-setup.md`](./local-domain-setup.md).
 
-### 8.1 Exemplo: IngressRoute da API para `www.xpto.com` (HTTPS)
+### 8.1 Exemplo: IngressRoute da API para `nvit.io` (HTTPS)
 
 ```yaml
 apiVersion: traefik.io/v1alpha1
@@ -340,7 +340,7 @@ spec:
   entryPoints:
     - websecure                              # HTTPS/porta 443
   routes:
-    - match: Host(`www.xpto.com`) && PathPrefix(`/aplicacao1/api`)
+    - match: Host(`nvit.io`) && PathPrefix(`/aplicacao1/api`)
       kind: Rule
       priority: 100
       services:
@@ -357,9 +357,9 @@ spec:
     certResolver: letsencrypt
 ```
 
-> Tabela de rotas para `www.xpto.com` (mesmos paths do local):
+> Tabela de rotas para `nvit.io` (mesmos paths do local):
 > `/devops`, `/devops/api`, `/argocd`, `/grafana`, `/aplicacao1`, `/aplicacao1/api`,
-> `/aplicacao1/worker` — apenas com `Host(`www.xpto.com`)` e (idealmente) `websecure`.
+> `/aplicacao1/worker` — apenas com `Host(`nvit.io`)` e (idealmente) `websecure`.
 
 ---
 
@@ -371,7 +371,7 @@ spec:
 - [ ] Middleware StripPrefix da app no **namespace da app** (nao no `traefik`).
 - [ ] `health.path` informado como o **processo** o ve (na raiz, apos o strip).
 - [ ] Worker: `expose: false` (a menos que queira expor o health).
-- [ ] Para `www.xpto.com`: trocar `Host(...)`, usar `websecure`+TLS, atualizar URLs
+- [ ] Para `nvit.io`: trocar `Host(...)`, usar `websecure`+TLS, atualizar URLs
       externas (Argo/Grafana/Console).
 
 ---

@@ -73,5 +73,5 @@ Para abrir um dashboard ja existente diretamente pelo UID, use a URL:
 http://xpto.localhost/grafana/d/cluster-overview
 ```
 
-> Em producao (`https://www.xpto.com/grafana`), o mesmo caminho de UID se aplica,
+> Em producao (`https://nvit.io/grafana`), o mesmo caminho de UID se aplica,
 > trocando apenas o host.

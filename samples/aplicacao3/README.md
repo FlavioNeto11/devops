@@ -2,7 +2,7 @@
 
 App gerado por `scripts/new-app.ps1` no padrao da plataforma DevOps local.
 
-- Host: http://xpto.localhost/aplicacao3  (real futuro: http://www.xpto.com/aplicacao3)
+- Host: http://xpto.localhost/aplicacao3  (real futuro: http://nvit.io/aplicacao3)
 - Namespace: apps · Servicos: frontend, api, api2, worker
 
 ## Publicar LOCAL (imagens :local)

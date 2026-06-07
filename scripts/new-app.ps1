@@ -307,7 +307,7 @@ spec:
   }
 }
 # IngressRoute (rotas ordenadas por prioridade desc; mais especifico vence)
-$hostMatch = "(Host($bt$AppHost$bt) || Host(${bt}www.xpto.com$bt))"
+$hostMatch = "(Host($bt$AppHost$bt) || Host(${bt}nvit.io$bt))"
 [void]$k.AppendLine("apiVersion: traefik.io/v1alpha1")
 [void]$k.AppendLine("kind: IngressRoute")
 [void]$k.AppendLine("metadata:")
@@ -343,7 +343,7 @@ $readme = @"
 
 App gerado por ``scripts/new-app.ps1`` no padrao da plataforma DevOps local.
 
-- Host: http://$AppHost$BasePath  (real futuro: http://www.xpto.com$BasePath)
+- Host: http://$AppHost$BasePath  (real futuro: http://nvit.io$BasePath)
 - Namespace: $Namespace · Servicos: $($Services -join ', ')
 
 ## Publicar LOCAL (imagens :local)

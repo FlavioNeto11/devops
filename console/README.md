@@ -80,7 +80,7 @@ host unico sob o subpath `/devops`:
 
 ### Roteamento (Traefik) e convencao de prefixos
 
-Duas rotas no mesmo host, atendendo `xpto.localhost` (local) e `www.xpto.com`
+Duas rotas no mesmo host, atendendo `xpto.localhost` (local) e `nvit.io`
 (real futuro), no entryPoint `web` (HTTP/80):
 
 | Rota          | PathPrefix    | priority | Servico            | StripPrefix              |

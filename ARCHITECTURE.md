@@ -152,7 +152,7 @@ Todos os namespaces sao criados pela plataforma (pelo `bootstrap.ps1`).
 
 ### 4.3 Tabela de rotas (host unico)
 
-Host local: `xpto.localhost` | Host real futuro: `www.xpto.com`.
+Host local: `xpto.localhost` | Host real futuro: `nvit.io`.
 
 | Path                  | Service               | StripPrefix              | Prioridade relativa | Notas                                              |
 |-----------------------|-----------------------|--------------------------|---------------------|----------------------------------------------------|
@@ -222,7 +222,7 @@ Schema usado por templates e esteira:
 app:
   name: aplicacao1          # nome da aplicacao
   namespace: apps           # namespace de deploy
-  host: xpto.localhost      # host (local) / www.xpto.com (real)
+  host: xpto.localhost      # host (local) / nvit.io (real)
   basePath: aplicacao1      # subpath base (sem barras)
 services:
   frontend:                 # serviceName -> definicao

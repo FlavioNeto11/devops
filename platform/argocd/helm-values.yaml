@@ -120,7 +120,7 @@ configs:
   # ---------------------------------------------------------------------------
   # ConfigMap principal (argocd-cm). 'url' e a URL externa usada para links,
   # callbacks e na UI. No laboratorio aponta para o host local sob /argocd.
-  # Para o ambiente real futuro, troque para https://www.xpto.com/argocd.
+  # Para o ambiente real futuro, troque para https://nvit.io/argocd.
   # ---------------------------------------------------------------------------
   cm:
     url: http://xpto.localhost/argocd

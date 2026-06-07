@@ -53,7 +53,7 @@ ao registry. O fluxo via GHCR fica disponivel para quando voce quiser publicar d
 
 ## Roteamento por path (host unico)
 
-Host local: `xpto.localhost` | Host real futuro: `www.xpto.com` (mesmo layout de paths).
+Host local: `xpto.localhost` | Host real futuro: `nvit.io` (mesmo layout de paths).
 
 Todas as rotas locais usam o entrypoint `web` (HTTP/porta 80). O `websecure`
 (HTTPS/porta 443) fica documentado como **pendente** (certificado self-signed) — ver

@@ -1,7 +1,7 @@
 # =============================================================================
 # ingressroute.yaml - IngressRoute (Traefik) da aplicacao1
 # -----------------------------------------------------------------------------
-# Roteamento no host unico (local: xpto.localhost ; real futuro: www.xpto.com):
+# Roteamento no host unico (local: xpto.localhost ; real futuro: nvit.io):
 #   /aplicacao1/api -> API (priority 20, COM Middleware StripPrefix api-strip)
 #   /aplicacao1     -> frontend (priority 10, SEM strip)
 #
@@ -24,7 +24,7 @@ spec:
     - web
   routes:
     # --- API: caminho mais especifico, prioridade maior, COM strip ---
-    - match: (Host(`xpto.localhost`) || Host(`www.xpto.com`)) && PathPrefix(`/aplicacao1/api`)
+    - match: (Host(`xpto.localhost`) || Host(`nvit.io`)) && PathPrefix(`/aplicacao1/api`)
       kind: Rule
       priority: 20
       services:
@@ -33,7 +33,7 @@ spec:
       middlewares:
         - name: api-strip
     # --- Frontend: caminho generico, prioridade menor, SEM strip ---
-    - match: (Host(`xpto.localhost`) || Host(`www.xpto.com`)) && PathPrefix(`/aplicacao1`)
+    - match: (Host(`xpto.localhost`) || Host(`nvit.io`)) && PathPrefix(`/aplicacao1`)
       kind: Rule
       priority: 10
       services:

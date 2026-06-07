@@ -1,7 +1,7 @@
 # =============================================================================
 # aplicacao2 - app de exemplo MULTI-SERVICO (frontend + api + api2)
 # -----------------------------------------------------------------------------
-# Roteamento (host unico xpto.localhost / www.xpto.com):
+# Roteamento (host unico xpto.localhost / nvit.io):
 #   /aplicacao2        -> frontend  (sem strip,  priority 10)
 #   /aplicacao2/api    -> api       (StripPrefix /aplicacao2/api,  priority 30)
 #   /aplicacao2/api2   -> api2      (StripPrefix /aplicacao2/api2, priority 40)
@@ -351,7 +351,7 @@ spec:
     - web
   routes:
     # api2 (mais especifico) -> priority MAIOR para vencer /aplicacao2/api
-    - match: (Host(`xpto.localhost`) || Host(`www.xpto.com`)) && PathPrefix(`/aplicacao2/api2`)
+    - match: (Host(`xpto.localhost`) || Host(`nvit.io`)) && PathPrefix(`/aplicacao2/api2`)
       kind: Rule
       priority: 40
       services:
@@ -360,7 +360,7 @@ spec:
       middlewares:
         - name: aplicacao2-api2-strip
     # api
-    - match: (Host(`xpto.localhost`) || Host(`www.xpto.com`)) && PathPrefix(`/aplicacao2/api`)
+    - match: (Host(`xpto.localhost`) || Host(`nvit.io`)) && PathPrefix(`/aplicacao2/api`)
       kind: Rule
       priority: 30
       services:
@@ -369,7 +369,7 @@ spec:
       middlewares:
         - name: aplicacao2-api-strip
     # frontend (generico)
-    - match: (Host(`xpto.localhost`) || Host(`www.xpto.com`)) && PathPrefix(`/aplicacao2`)
+    - match: (Host(`xpto.localhost`) || Host(`nvit.io`)) && PathPrefix(`/aplicacao2`)
       kind: Rule
       priority: 10
       services:

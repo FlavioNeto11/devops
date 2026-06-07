@@ -270,7 +270,7 @@ spec:
   entryPoints:
     - web
   routes:
-    - match: (Host(`xpto.localhost`) || Host(`www.xpto.com`)) && PathPrefix(`/aplicacao3/api2`)
+    - match: (Host(`xpto.localhost`) || Host(`nvit.io`)) && PathPrefix(`/aplicacao3/api2`)
       kind: Rule
       priority: 36
       services:
@@ -278,7 +278,7 @@ spec:
           port: 8080
       middlewares:
         - name: aplicacao3-api2-strip
-    - match: (Host(`xpto.localhost`) || Host(`www.xpto.com`)) && PathPrefix(`/aplicacao3/api`)
+    - match: (Host(`xpto.localhost`) || Host(`nvit.io`)) && PathPrefix(`/aplicacao3/api`)
       kind: Rule
       priority: 35
       services:
@@ -286,7 +286,7 @@ spec:
           port: 8080
       middlewares:
         - name: aplicacao3-api-strip
-    - match: (Host(`xpto.localhost`) || Host(`www.xpto.com`)) && PathPrefix(`/aplicacao3`)
+    - match: (Host(`xpto.localhost`) || Host(`nvit.io`)) && PathPrefix(`/aplicacao3`)
       kind: Rule
       priority: 10
       services:
