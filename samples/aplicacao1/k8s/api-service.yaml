@@ -1,0 +1,24 @@
+# =============================================================================
+# api-service.yaml - Service (ClusterIP) da API da aplicacao1
+# -----------------------------------------------------------------------------
+# Exposto internamente na porta 8080. Roteado externamente pelo IngressRoute
+# do Traefik em /aplicacao1/api (com Middleware StripPrefix api-strip).
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: aplicacao1-api
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: aplicacao1
+    app.kubernetes.io/component: api
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: aplicacao1
+    app.kubernetes.io/component: api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP

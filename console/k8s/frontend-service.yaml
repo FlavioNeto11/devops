@@ -1,0 +1,29 @@
+# =============================================================================
+# frontend-service.yaml - Service (ClusterIP) do frontend do DevOps Console
+# -----------------------------------------------------------------------------
+# Exposto internamente na porta 80. Roteado externamente pelo IngressRoute em
+# /devops (sem StripPrefix; a SPA e servida sob o subpath /devops/).
+#
+# Aplicar com:
+#   kubectl apply -f C:/devops/console/k8s/frontend-service.yaml
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: console-frontend
+  namespace: devops-system
+  labels:
+    app.kubernetes.io/name: console-frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: devops-console
+    app.kubernetes.io/managed-by: devops-platform
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: console-frontend
+    app.kubernetes.io/component: frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

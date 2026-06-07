@@ -1,0 +1,107 @@
+# =============================================================================
+# Values do kube-prometheus-stack (Helm) — perfil ENXUTO para laboratorio local
+# =============================================================================
+# Objetivo: subir Prometheus + node-exporter + kube-state-metrics consumindo
+# o minimo de recursos possivel no cluster do Docker Desktop (Windows).
+#
+# Instalacao tipica:
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm repo update
+#   helm upgrade --install kube-prometheus-stack \
+#     prometheus-community/kube-prometheus-stack \
+#     -n observability --create-namespace \
+#     -f C:/devops/platform/observability/prometheus-values.yaml \
+#     -f C:/devops/platform/observability/grafana-values.yaml
+#
+# OBSERVACAO: o Grafana faz parte deste mesmo chart. Os valores do Grafana
+# ficam no arquivo grafana-values.yaml (bloco de topo 'grafana:').
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Componentes que NAO usamos no laboratorio (mantidos enxutos)
+# -----------------------------------------------------------------------------
+alertmanager:
+  # Sem alertas no laboratorio. Reduz CPU/memoria e remove um StatefulSet.
+  enabled: false
+
+# -----------------------------------------------------------------------------
+# Coletores de metricas do cluster (habilitados)
+# -----------------------------------------------------------------------------
+nodeExporter:
+  # Exporta metricas do host (CPU, memoria, disco, rede).
+  enabled: true
+
+kubeStateMetrics:
+  # Exporta o estado dos objetos do Kubernetes (pods, deployments, etc.).
+  enabled: true
+
+# Sub-chart kube-state-metrics: recursos pequenos para o laboratorio.
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# Sub-chart prometheus-node-exporter: recursos pequenos.
+prometheus-node-exporter:
+  # Docker Desktop (WSL2): o mount do rootfs do host ("/" -> /host/root) falha
+  # com "path / is mounted on / but it is not a shared or slave mount", levando
+  # o pod a CrashLoopBackOff. Desabilitamos APENAS esse mount; o node-exporter
+  # segue coletando metricas via /proc e /sys (metricas de filesystem do host
+  # ficam limitadas, aceitavel no laboratorio).
+  hostRootFsMount:
+    enabled: false
+  resources:
+    requests:
+      cpu: 10m
+      memory: 24Mi
+    limits:
+      cpu: 50m
+      memory: 64Mi
+
+# -----------------------------------------------------------------------------
+# Servidor Prometheus
+# -----------------------------------------------------------------------------
+prometheus:
+  prometheusSpec:
+    # Retencao curta: laboratorio nao precisa de historico longo.
+    retention: 2d
+
+    # IMPORTANTE: raspar TODOS os ServiceMonitor/PodMonitor do cluster,
+    # mesmo os que NAO tem o label release=kube-prometheus-stack.
+    # Por padrao o chart so seleciona os seus proprios; com 'false' aqui,
+    # um selector NULO passa a significar "selecionar tudo".
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+
+    # (Tambem aplicamos a mesma logica para regras e probes, por consistencia.)
+    ruleSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+
+    # Sem PVC no laboratorio: ao OMITIR 'storageSpec', o Prometheus usa
+    # emptyDir (efemero). Os dados sao perdidos ao recriar o pod — aceitavel
+    # para um ambiente de testes local.
+    # storageSpec: {}   # <- intencionalmente OMITIDO (emptyDir)
+
+    # Recursos pequenos para caber no Docker Desktop.
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 768Mi
+
+    # Como o Alertmanager esta desabilitado, nao configuramos endpoints dele.
+    # (O chart ja lida com isso quando alertmanager.enabled=false.)
+
+# -----------------------------------------------------------------------------
+# Regras de alerta padrao do chart: mantemos habilitadas (sao baratas) porem,
+# como o Alertmanager esta desligado, elas apenas aparecem no Prometheus.
+# Caso queira reduzir ainda mais, e possivel desabilitar grupos em defaultRules.
+# -----------------------------------------------------------------------------
+defaultRules:
+  create: true

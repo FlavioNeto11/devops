@@ -1,0 +1,67 @@
+# =============================================================================
+# values.yaml — Valores PADRAO do chart (fallback).
+# -----------------------------------------------------------------------------
+# Na pratica, sempre forneca um arquivo de ambiente explicito:
+#   helm template ./ -f values.local.yaml
+#   helm upgrade --install aplicacao1 ./ -n apps -f values.local.yaml
+#
+# Estes defaults espelham o laboratorio local (values.local.yaml) e existem
+# apenas para que um "helm template ./" sem -f nao quebre por valores ausentes.
+# =============================================================================
+
+app:
+  name: aplicacao1
+  namespace: apps
+  host: xpto.localhost
+  basePath: /aplicacao1
+
+# Registry vazio = imagens locais do laboratorio (nao enviadas ao GHCR).
+registry: ''
+
+defaults:
+  imagePullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+publish:
+  commitSha: local
+  branch: local
+  imageTag: local
+  deployedAt: ''
+  runId: ''
+
+services:
+  frontend:
+    type: frontend
+    image: aplicacao1-frontend
+    tag: local
+    port: 80
+    expose: true
+    stripPrefix: false
+    env:
+      VITE_BASE_PATH: /aplicacao1/
+
+  api:
+    type: api
+    path: /api
+    image: aplicacao1-api
+    tag: local
+    port: 8080
+    expose: true
+    stripPrefix: true
+    health:
+      path: /health
+
+  worker:
+    type: worker
+    image: aplicacao1-worker
+    tag: local
+    port: 8081
+    expose: false
+    health:
+      path: /health

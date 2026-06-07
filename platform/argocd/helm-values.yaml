@@ -1,0 +1,151 @@
+# =============================================================================
+# Argo CD - values do chart oficial argo/argo-cd
+# =============================================================================
+# Perfil: LABORATORIO LOCAL (Docker Desktop, contexto kube: docker-desktop).
+#
+# Objetivo deste arquivo:
+#   - Rodar o Argo CD atras do Traefik no subpath /argocd (host unico).
+#   - Reduzir o footprint (sem HA, sem dex, sem notifications, sem applicationset).
+#   - Manter recursos minimos para nao sobrecarregar a maquina de desenvolvimento.
+#
+# Como aplicar (exemplo, ver tambem os scripts da plataforma):
+#   helm repo add argo https://argoproj.github.io/argo-helm
+#   helm upgrade --install argocd argo/argo-cd \
+#     --namespace argocd --create-namespace \
+#     -f C:/devops/platform/argocd/helm-values.yaml
+#
+# Roteamento (consistente com o contrato da plataforma):
+#   /argocd -> Argo CD server. O server roda com --insecure (TLS terminado/omitido
+#   no laboratorio) e com rootpath /argocd, de modo que a UI e a API funcionam
+#   sob o subpath sem precisar de StripPrefix no Traefik.
+#   A IngressRoute do Traefik para /argocd e definida nos manifests do Traefik,
+#   NAO aqui (mantemos o Ingress nativo do chart desabilitado).
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Alta disponibilidade DESABILITADA.
+# Em laboratorio rodamos uma unica replica de cada componente (sem Redis HA).
+# Para producao real, habilite redis-ha e aumente replicas do controller/server.
+# -----------------------------------------------------------------------------
+redis-ha:
+  enabled: false
+
+# -----------------------------------------------------------------------------
+# Application Controller: reconcilia o estado desejado (Git) com o cluster.
+# Uma unica replica em laboratorio. Recursos minimos.
+# -----------------------------------------------------------------------------
+controller:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# -----------------------------------------------------------------------------
+# Repo Server: faz o clone do repositorio Git e renderiza os manifests
+# (kustomize/helm/plain YAML). Uma replica e recursos minimos em laboratorio.
+# -----------------------------------------------------------------------------
+repoServer:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# -----------------------------------------------------------------------------
+# API/Web Server (UI + API REST/gRPC).
+# Rodamos com --insecure pois o TLS e terminado fora (ou ainda pendente no
+# laboratorio - HTTPS/websecure documentado como pendente, self-signed).
+# O Ingress nativo do chart fica DESABILITADO: usamos a IngressRoute do Traefik.
+# -----------------------------------------------------------------------------
+server:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
+  # Ingress nativo do chart desabilitado de proposito (usamos CRD do Traefik).
+  ingress:
+    enabled: false
+
+# -----------------------------------------------------------------------------
+# Dex (SSO/OIDC) DESABILITADO.
+# Em laboratorio usamos o usuario local 'admin' (senha inicial no Secret
+# argocd-initial-admin-secret). Para SSO real, habilite o dex e configure os
+# connectors em configs.cm (dex.config).
+# -----------------------------------------------------------------------------
+dex:
+  enabled: false
+
+# -----------------------------------------------------------------------------
+# Notifications Controller DESABILITADO (reduz footprint).
+# Habilite quando quiser alertas (Slack/email/etc.) sobre status de sync.
+# -----------------------------------------------------------------------------
+notifications:
+  enabled: false
+
+# -----------------------------------------------------------------------------
+# ApplicationSet Controller DESABILITADO (reduz footprint).
+# Habilite quando precisar gerar Applications dinamicamente (generators).
+# No padrao app-of-apps usamos Applications estaticas, entao nao e necessario.
+# -----------------------------------------------------------------------------
+applicationSet:
+  enabled: false
+
+# -----------------------------------------------------------------------------
+# Configuracoes globais do Argo CD.
+# -----------------------------------------------------------------------------
+configs:
+  # ---------------------------------------------------------------------------
+  # Parametros de linha de comando dos componentes (vira o ConfigMap
+  # argocd-cmd-params-cm). Aqui ativamos o modo insecure e o subpath /argocd.
+  # ---------------------------------------------------------------------------
+  params:
+    # Server sem TLS proprio: o Traefik faz o roteamento HTTP (web) no laboratorio.
+    server.insecure: true
+    # rootpath: prefixo onde o server atende (equivale a --rootpath /argocd).
+    server.rootpath: /argocd
+    # basehref: usado pela UI (tag <base href>) para resolver assets sob o subpath.
+    server.basehref: /argocd/
+
+  # ---------------------------------------------------------------------------
+  # ConfigMap principal (argocd-cm). 'url' e a URL externa usada para links,
+  # callbacks e na UI. No laboratorio aponta para o host local sob /argocd.
+  # Para o ambiente real futuro, troque para https://www.xpto.com/argocd.
+  # ---------------------------------------------------------------------------
+  cm:
+    url: http://xpto.localhost/argocd
+
+  # ---------------------------------------------------------------------------
+  # Politicas de RBAC (argocd-rbac-cm).
+  # Em laboratorio mantemos a politica padrao (admin local). Defina aqui
+  # 'policy.csv' e 'policy.default' quando integrar SSO/grupos.
+  # ---------------------------------------------------------------------------
+  rbac: {}
+
+# =============================================================================
+# COMO HABILITAR AUTO-SYNC (GitOps automatico) DEPOIS:
+# -----------------------------------------------------------------------------
+# O auto-sync NAO e configurado neste values do Helm; ele e definido por
+# Application (campo spec.syncPolicy.automated). Para ligar:
+#   1) Edite a Application desejada (ex.: platform/argocd/apps/devops-platform.yaml)
+#      e descomente o bloco:
+#         syncPolicy:
+#           automated:
+#             prune: true
+#             selfHeal: true
+#   2) Reaplique a Application (kubectl apply -f ...) ou deixe o app-of-apps
+#      reconciliar. A partir dai o Argo CD sincroniza sozinho a cada mudanca no Git.
+#
+# Dica: comece em sync MANUAL para validar o laboratorio, e so depois ative o
+# automated + prune + selfHeal por Application, conforme a confianca aumentar.
+# =============================================================================

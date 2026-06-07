@@ -1,0 +1,22 @@
+{{- /*
+ConfigMap 'app-healthchecks' — mapeia serviceName -> health.path.
+A tela Health do DevOps Console le este ConfigMap para saber em qual caminho
+checar a saude de cada service. So inclui services que definem health.path.
+*/ -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-healthchecks
+  namespace: {{ .Values.app.namespace }}
+  labels:
+    {{- include "app-template.commonLabels" (dict "root" . "name" "" "component" "healthchecks") | nindent 4 }}
+  annotations:
+    devops.flavioneto/app: {{ .Values.app.name | quote }}
+data:
+  {{- range $name, $svc := .Values.services }}
+  {{- with $svc.health }}
+  {{- if .path }}
+  {{ $name }}: {{ .path | quote }}
+  {{- end }}
+  {{- end }}
+  {{- end }}

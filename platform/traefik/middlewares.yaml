@@ -1,0 +1,84 @@
+# ============================================================================
+# Middlewares reutilizaveis do Traefik (namespace: traefik)
+# ============================================================================
+# Estes Middlewares sao genericos e compartilhados por varias rotas da
+# plataforma. Como o provider CRD esta com allowCrossNamespace: true (ver
+# values.yaml), IngressRoutes de outros namespaces podem referencia-los como:
+#       traefik-compress@kubernetescrd        (sintaxe provider)
+#   ou via campo namespace no item middlewares de uma IngressRoute, ex.:
+#       middlewares:
+#         - name: compress
+#           namespace: traefik
+#
+# IMPORTANTE: Middlewares de StripPrefix sao ESPECIFICOS de cada app
+# (o prefixo removido depende do basePath+path da app). Por isso eles NAO
+# ficam aqui — devem ser criados no namespace da propria aplicacao
+# (ex.: namespace 'apps' para a aplicacao1). Aqui ficam apenas middlewares
+# transversais (compressao, headers de seguranca, redirect HTTPS).
+#
+# Aplicar com:
+#   kubectl apply -f C:/devops/platform/traefik/middlewares.yaml
+# ----------------------------------------------------------------------------
+---
+# compress: habilita compressao (gzip/br) das respostas. Reduz o tamanho do
+# trafego de frontends (SPA) e APIs. Sem parametros = comportamento padrao.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: compress
+  namespace: traefik
+  labels:
+    app.kubernetes.io/managed-by: devops-platform
+    app.kubernetes.io/part-of: devops-platform
+spec:
+  compress: {}
+---
+# secure-headers: cabecalhos de seguranca basicos aplicaveis a todas as rotas.
+#   - frameDeny: define X-Frame-Options: DENY (anti clickjacking).
+#   - contentTypeNosniff: X-Content-Type-Options: nosniff.
+#   - browserXssFilter: X-XSS-Protection (legado, mas inofensivo).
+#   - stsSeconds: Strict-Transport-Security (HSTS). So tem efeito real sob
+#     HTTPS; em HTTP local o navegador ignora. Mantido para quando habilitar-
+#     mos TLS (ver values.yaml). Use stsIncludeSubdomains/stsPreload apenas
+#     em producao com HTTPS estavel.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: secure-headers
+  namespace: traefik
+  labels:
+    app.kubernetes.io/managed-by: devops-platform
+    app.kubernetes.io/part-of: devops-platform
+spec:
+  headers:
+    frameDeny: true
+    contentTypeNosniff: true
+    browserXssFilter: true
+    stsSeconds: 31536000
+    # Em producao com HTTPS, considere habilitar tambem:
+    # stsIncludeSubdomains: true
+    # stsPreload: true
+---
+# redirect-https: redireciona HTTP -> HTTPS.
+# ATENCAO: DESABILITADO por padrao no laboratorio local. Em ambiente local
+# sem certificado valido, este redirect quebraria o acesso por HTTP
+# (http://xpto.localhost). Por isso o recurso esta COMENTADO.
+#
+# Como habilitar no futuro (apos configurar TLS/self-signed - ver values.yaml):
+#   1) Descomente o bloco abaixo e aplique este arquivo.
+#   2) Adicione este middleware (name: redirect-https, namespace: traefik) nas
+#      IngressRoutes do entryPoint 'web' que devem forcar HTTPS.
+#
+# apiVersion: traefik.io/v1alpha1
+# kind: Middleware
+# metadata:
+#   name: redirect-https
+#   namespace: traefik
+#   labels:
+#     app.kubernetes.io/managed-by: devops-platform
+#     app.kubernetes.io/part-of: devops-platform
+# spec:
+#   redirectScheme:
+#     scheme: https
+#     permanent: true
+#     # port: "443"   # normalmente desnecessario; o entrypoint websecure ja usa 443

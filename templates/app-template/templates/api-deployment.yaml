@@ -1,0 +1,69 @@
+{{- /*
+Gera um Deployment para cada service com type == "api" OU "api2".
+APIs sao expostas com StripPrefix (o Traefik remove o prefixo completo
+basePath+path), entao o processo enxerga rotas a partir da raiz.
+Probes (liveness/readiness) usam health.path quando definido.
+*/ -}}
+{{- range $name, $svc := .Values.services }}
+{{- if or (eq $svc.type "api") (eq $svc.type "api2") }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "app-template.fullname" (dict "root" $ "name" $name) }}
+  namespace: {{ $.Values.app.namespace }}
+  labels:
+    {{- include "app-template.commonLabels" (dict "root" $ "name" $name "component" $svc.type) | nindent 4 }}
+  annotations:
+    {{- include "app-template.publishAnnotations" $ | nindent 4 }}
+spec:
+  replicas: {{ default 1 $svc.replicas }}
+  selector:
+    matchLabels:
+      {{- include "app-template.selectorLabels" (dict "root" $ "name" $name) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "app-template.commonLabels" (dict "root" $ "name" $name "component" $svc.type) | nindent 8 }}
+      annotations:
+        {{- include "app-template.publishAnnotations" $ | nindent 8 }}
+    spec:
+      containers:
+        - name: {{ $name }}
+          image: {{ include "app-template.image" (dict "root" $ "name" $name "svc" $svc) }}
+          imagePullPolicy: {{ $.Values.defaults.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ $svc.port }}
+              protocol: TCP
+          {{- with $svc.env }}
+          env:
+            {{- range $k, $v := . }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+          {{- end }}
+          {{- with $svc.health }}
+          {{- if .path }}
+          livenessProbe:
+            httpGet:
+              path: {{ .path }}
+              port: {{ $svc.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 2
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: {{ .path }}
+              port: {{ $svc.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          {{- end }}
+          {{- end }}
+          resources:
+            {{- include "app-template.resources" (dict "root" $ "svc" $svc) | nindent 12 }}
+{{- end }}
+{{- end }}

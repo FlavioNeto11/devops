@@ -1,0 +1,31 @@
+# =============================================================================
+# configmap.yaml - Configuracao publica do DevOps Console
+# -----------------------------------------------------------------------------
+# Contem apenas valores NAO sensiveis (URLs externas e metadados de UI). Estes
+# dados sao injetados no backend como variaveis de ambiente e expostos pela API
+# para o frontend montar os links rapidos (Argo CD, Grafana, Traefik).
+#
+# Importante: NUNCA coloque segredos aqui. Para credenciais use Secret
+# (ver secret.example.yaml nos templates da plataforma).
+#
+# Aplicar com:
+#   kubectl apply -f C:/devops/console/k8s/configmap.yaml
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: console-config
+  namespace: devops-system
+  labels:
+    app.kubernetes.io/name: console-backend
+    app.kubernetes.io/part-of: devops-console
+    app.kubernetes.io/managed-by: devops-platform
+data:
+  # Nome da plataforma exibido na interface do Console.
+  PLATFORM_NAME: "Plataforma DevOps Local"
+  # URLs externas (host unico local). Em producao troque xpto.localhost por
+  # www.xpto.com mantendo os mesmos paths.
+  ARGOCD_URL: "http://xpto.localhost/argocd"
+  GRAFANA_URL: "http://xpto.localhost/grafana"
+  # O dashboard do Traefik fica em host proprio (ver dashboard-ingressroute.yaml).
+  TRAEFIK_URL: "http://traefik.localhost/dashboard"

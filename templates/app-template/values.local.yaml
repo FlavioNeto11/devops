@@ -1,0 +1,73 @@
+# =============================================================================
+# values.local.yaml — Valores para o LABORATORIO LOCAL (Docker Desktop).
+# -----------------------------------------------------------------------------
+# Estes valores sao derivados do contrato canonico (app.yaml) e ajustados para
+# o ambiente local: imagens buildadas localmente (registry vazio => usa o nome
+# da imagem direto) e imagePullPolicy IfNotPresent.
+#
+# Uso:
+#   helm template ./ -f values.local.yaml
+#   helm upgrade --install aplicacao1 ./ -n apps -f values.local.yaml
+# =============================================================================
+
+app:
+  name: aplicacao1
+  namespace: apps
+  host: xpto.localhost
+  basePath: /aplicacao1
+
+# Registry vazio = imagens LOCAIS do laboratorio (nao enviadas ao GHCR).
+# Quando vazio, a imagem efetiva e: <service.image>:<service.tag>.
+registry: ''
+
+# Padroes aplicados a todos os services (podem ser sobrescritos por service).
+defaults:
+  imagePullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+# Informacoes de publicacao injetadas pelo CI/CD. No local, valores fixos.
+# Estes campos viram annotations nos Deployments e entradas no ConfigMap,
+# permitindo que o DevOps Console exiba o que esta implantado.
+publish:
+  commitSha: local
+  branch: local
+  imageTag: local
+  deployedAt: ''
+  runId: ''
+
+services:
+  frontend:
+    type: frontend
+    image: aplicacao1-frontend
+    tag: local
+    port: 80
+    expose: true
+    stripPrefix: false
+    env:
+      VITE_BASE_PATH: /aplicacao1/
+
+  api:
+    type: api
+    path: /api
+    image: aplicacao1-api
+    tag: local
+    port: 8080
+    expose: true
+    stripPrefix: true
+    health:
+      path: /health
+
+  worker:
+    type: worker
+    image: aplicacao1-worker
+    tag: local
+    port: 8081
+    expose: false
+    health:
+      path: /health

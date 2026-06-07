@@ -1,0 +1,59 @@
+# =============================================================================
+# Argo CD Application: devops-platform (padrao "app-of-apps")
+# =============================================================================
+# Esta e a Application RAIZ (ponto de entrada GitOps). Ela aponta para o
+# diretorio platform/argocd/apps deste repositorio e, com directory.recurse=true,
+# o Argo CD descobre e gerencia TODAS as demais Applications ali declaradas
+# (ex.: sample-app.yaml). Ou seja: gerenciando esta unica Application, voce
+# gerencia toda a plataforma de forma declarativa.
+#
+# Estado inicial: sync MANUAL (seguro para validar o laboratorio).
+# Para GitOps automatico, descomente o bloco "automated" mais abaixo.
+# =============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: devops-platform
+  # As Applications do Argo CD vivem no namespace do proprio Argo CD.
+  namespace: argocd
+  # Finalizer: garante que, ao deletar esta Application, o Argo CD faca a
+  # limpeza em cascata dos recursos gerenciados (e das Applications filhas).
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  # Projeto padrao do Argo CD (sem restricoes adicionais de origem/destino).
+  project: default
+
+  # ---------------------------------------------------------------------------
+  # Origem (Git): este mesmo repositorio, pasta com as Applications filhas.
+  # ---------------------------------------------------------------------------
+  source:
+    repoURL: https://github.com/FlavioNeto11/devops
+    path: platform/argocd/apps
+    targetRevision: main
+    directory:
+      # recurse=true: percorre subpastas e aplica todos os manifests de
+      # Application encontrados (este e o coracao do padrao app-of-apps).
+      recurse: true
+
+  # ---------------------------------------------------------------------------
+  # Destino: o proprio cluster onde o Argo CD roda (Docker Desktop local).
+  # As Applications filhas vivem no namespace argocd; cada uma define o
+  # namespace de destino dos SEUS recursos (ex.: apps).
+  # ---------------------------------------------------------------------------
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+
+  # ---------------------------------------------------------------------------
+  # Politica de sincronizacao: MANUAL no laboratorio.
+  # Sincronize pela UI (/argocd) ou via CLI: `argocd app sync devops-platform`.
+  #
+  # OPT-IN: para ligar o GitOps automatico (prune + self-heal), descomente:
+  # syncPolicy:
+  #   automated:
+  #     prune: true      # remove recursos que sairam do Git
+  #     selfHeal: true   # reverte mudancas manuais feitas no cluster
+  #   syncOptions:
+  #     - CreateNamespace=true
+  # ---------------------------------------------------------------------------

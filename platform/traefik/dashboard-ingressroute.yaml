@@ -1,0 +1,109 @@
+# ============================================================================
+# IngressRoute do Dashboard do Traefik (namespace: traefik)
+# ============================================================================
+# Expoe o dashboard/API interna do Traefik (api@internal) de forma controlada
+# via IngressRoute, em vez de usar o modo inseguro (api.insecure=false no
+# values.yaml).
+#
+# Acesso (local): http://traefik.localhost/dashboard/
+#   (a barra final em /dashboard/ e importante para os assets do dashboard)
+#   A API fica em:  http://traefik.localhost/api/...
+#
+# PRE-REQUISITO (hosts do Windows):
+#   Adicione a entrada abaixo em C:\Windows\System32\drivers\etc\hosts:
+#       127.0.0.1 traefik.localhost
+#   (Editar o arquivo hosts exige privilegios de Administrador.)
+#
+# ALTERNATIVA — expor no host principal (xpto.localhost) sob um path:
+#   Se preferir nao mexer no hosts/usar outro host, troque o match para algo
+#   como:  Host(`xpto.localhost`) && PathPrefix(`/traefik`)
+#   e adicione um Middleware StripPrefix removendo /traefik antes de chegar ao
+#   api@internal (o dashboard espera servir a partir da raiz). Exemplo de
+#   middleware StripPrefix esta comentado ao final deste arquivo.
+#
+# Aplicar com:
+#   kubectl apply -f C:/devops/platform/traefik/dashboard-ingressroute.yaml
+# ----------------------------------------------------------------------------
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: traefik-dashboard
+  namespace: traefik
+  labels:
+    app.kubernetes.io/managed-by: devops-platform
+    app.kubernetes.io/part-of: devops-platform
+spec:
+  # entryPoint 'web' (HTTP/porta 80). HTTPS (websecure) fica pendente ate
+  # configurarmos TLS self-signed (ver values.yaml / middlewares.yaml).
+  entryPoints:
+    - web
+  routes:
+    # Match na sintaxe do Traefik (valores entre crases). Casa o host
+    # traefik.localhost e os paths do dashboard (/dashboard) e da API (/api).
+    - match: Host(`traefik.localhost`) && (PathPrefix(`/dashboard`) || PathPrefix(`/api`))
+      kind: Rule
+      # Prioridade explicita para garantir que esta rota especifica de host
+      # vença rotas mais genericas, se houver.
+      priority: 1000
+      services:
+        # Service interno do Traefik que serve o dashboard e a API.
+        - name: api@internal
+          kind: TraefikService
+      middlewares:
+        # Compressao das respostas do dashboard (middleware do namespace traefik).
+        - name: compress
+          namespace: traefik
+        # Cabecalhos de seguranca basicos.
+        - name: secure-headers
+          namespace: traefik
+  # --- TLS (PENDENTE - self-signed) ------------------------------------------
+  # Para servir o dashboard em HTTPS, mude entryPoints para [websecure],
+  # configure o Secret TLS (ver values.yaml) e descomente:
+  # tls: {}
+---
+# ----------------------------------------------------------------------------
+# ALTERNATIVA (comentada): expor o dashboard em xpto.localhost/traefik
+# ----------------------------------------------------------------------------
+# Caso opte por usar o host principal com path /traefik, o dashboard precisa
+# que o prefixo seja removido (StripPrefix), pois ele espera servir a partir
+# da raiz. Crie o middleware abaixo e uma IngressRoute correspondente.
+#
+# apiVersion: traefik.io/v1alpha1
+# kind: Middleware
+# metadata:
+#   name: traefik-dashboard-stripprefix
+#   namespace: traefik
+#   labels:
+#     app.kubernetes.io/managed-by: devops-platform
+#     app.kubernetes.io/part-of: devops-platform
+# spec:
+#   stripPrefix:
+#     prefixes:
+#       - /traefik
+# ---
+# apiVersion: traefik.io/v1alpha1
+# kind: IngressRoute
+# metadata:
+#   name: traefik-dashboard-subpath
+#   namespace: traefik
+#   labels:
+#     app.kubernetes.io/managed-by: devops-platform
+#     app.kubernetes.io/part-of: devops-platform
+# spec:
+#   entryPoints:
+#     - web
+#   routes:
+#     - match: Host(`xpto.localhost`) && PathPrefix(`/traefik`)
+#       kind: Rule
+#       priority: 1000
+#       services:
+#         - name: api@internal
+#           kind: TraefikService
+#       middlewares:
+#         - name: traefik-dashboard-stripprefix
+#           namespace: traefik
+#         - name: compress
+#           namespace: traefik
+#         - name: secure-headers
+#           namespace: traefik

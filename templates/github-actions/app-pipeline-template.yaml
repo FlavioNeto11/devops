@@ -1,0 +1,134 @@
+# =============================================================================
+# Template de pipeline para REPOSITORIOS DE APLICACAO
+# -----------------------------------------------------------------------------
+# COMO USAR (leia antes de copiar):
+#
+#   1) Este arquivo e um TEMPLATE. Copie-o para o repo da SUA aplicacao em:
+#        .github/workflows/pipeline.yaml   (o nome do arquivo e livre)
+#
+#   2) Os workflows reutilizaveis (build/push e deploy) NAO ficam aqui: eles
+#      vivem no repositorio CENTRAL da plataforma (FlavioNeto11/devops) e sao
+#      consumidos cross-repo via 'uses:' apontando para .github/workflows@main:
+#        uses: FlavioNeto11/devops/.github/workflows/reusable-build-push.yaml@main
+#        uses: FlavioNeto11/devops/.github/workflows/reusable-deploy-k8s.yaml@main
+#
+#   3) Pre-requisito: o repo da app precisa ter um 'devops.yaml' na RAIZ
+#      (descritor canonico). O job 'discover' le as chaves de 'services' desse
+#      arquivo e monta a matrix de build (um build por service).
+#
+#   4) Laboratorio LOCAL: o job 'deploy' roda em um self-hosted runner Windows
+#      (Docker Desktop + kubectl no contexto docker-desktop). O deploy SO
+#      acontece se esse runner estiver ATIVO; sem ele, o job fica em fila.
+#      No GitHub hospedado nao ha acesso ao cluster local.
+#
+# Estrutura esperada do devops.yaml (resumo do contrato):
+#   app:      { name, namespace, host, basePath }
+#   services: <serviceName> -> { type, path, image, port, expose, stripPrefix, env, health }
+# =============================================================================
+name: app-pipeline
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # discover: le o devops.yaml e gera a lista (matrix) de services a buildar.
+  # Usa o yq do mikefarah para extrair as chaves do mapa 'services'.
+  # ---------------------------------------------------------------------------
+  discover:
+    name: Descobrir services (devops.yaml)
+    runs-on: ubuntu-latest
+
+    outputs:
+      # JSON com a lista de services, ex.: ["frontend","api","worker"].
+      services: ${{ steps.list.outputs.services }}
+      # Nome da app extraido de app.name (usado nos jobs seguintes).
+      app: ${{ steps.appmeta.outputs.app }}
+      # Namespace extraido de app.namespace (com fallback para 'apps').
+      namespace: ${{ steps.appmeta.outputs.namespace }}
+
+    steps:
+      - name: Checkout do codigo
+        uses: actions/checkout@v4
+
+      # Instala o yq (mikefarah) — binario Go, NAO o yq baseado em Python.
+      - name: Instalar yq (mikefarah)
+        uses: mikefarah/yq@v4
+
+      # Extrai as chaves do mapa 'services' do devops.yaml como array JSON.
+      - name: Listar services
+        id: list
+        run: |
+          set -euo pipefail
+          if [ ! -f devops.yaml ]; then
+            echo "ERRO: devops.yaml nao encontrado na raiz do repositorio." >&2
+            exit 1
+          fi
+          # -o=json + -I=0 produz JSON em linha unica: ["frontend","api",...]
+          services="$(yq -o=json -I=0 '.services | keys' devops.yaml)"
+          if [ -z "$services" ] || [ "$services" = "null" ] || [ "$services" = "[]" ]; then
+            echo "ERRO: nenhum service encontrado em '.services' do devops.yaml." >&2
+            exit 1
+          fi
+          echo "Services descobertos: $services"
+          echo "services=$services" >> "$GITHUB_OUTPUT"
+
+      # Extrai metadados gerais da app (name e namespace).
+      - name: Extrair metadados da app
+        id: appmeta
+        run: |
+          set -euo pipefail
+          app="$(yq -r '.app.name' devops.yaml)"
+          namespace="$(yq -r '.app.namespace // "apps"' devops.yaml)"
+          if [ -z "$app" ] || [ "$app" = "null" ]; then
+            echo "ERRO: '.app.name' ausente no devops.yaml." >&2
+            exit 1
+          fi
+          echo "app=$app" >> "$GITHUB_OUTPUT"
+          echo "namespace=$namespace" >> "$GITHUB_OUTPUT"
+          echo "App: $app | Namespace: $namespace"
+
+  # ---------------------------------------------------------------------------
+  # build: para cada service descoberto, chama o workflow reutilizavel central
+  # de build/push (matrix). 'secrets: inherit' repassa o GITHUB_TOKEN.
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build e push
+    needs: discover
+    permissions:
+      packages: write
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # A matrix vem do output JSON do job discover.
+        service: ${{ fromJSON(needs.discover.outputs.services) }}
+    uses: FlavioNeto11/devops/.github/workflows/reusable-build-push.yaml@main
+    with:
+      app: ${{ needs.discover.outputs.app }}
+      service: ${{ matrix.service }}
+      # Ajuste 'context'/'dockerfile' por service se necessario. Por padrao,
+      # contexto na raiz e Dockerfile padrao. Convencao sugerida: cada service
+      # em ./services/<service> com seu proprio Dockerfile.
+      context: ./services/${{ matrix.service }}
+      dockerfile: ./services/${{ matrix.service }}/Dockerfile
+    secrets: inherit
+
+  # ---------------------------------------------------------------------------
+  # deploy: apos os builds, chama o workflow reutilizavel central de deploy.
+  # Roda no self-hosted runner local (definido dentro do workflow reutilizavel).
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Deploy K8s local
+    needs: [discover, build]
+    uses: FlavioNeto11/devops/.github/workflows/reusable-deploy-k8s.yaml@main
+    with:
+      app: ${{ needs.discover.outputs.app }}
+      namespace: ${{ needs.discover.outputs.namespace }}
+      # Caminho dos manifests no repo da app. Ajuste conforme sua estrutura.
+      manifestsPath: ./k8s
+      # Tag da imagem para rastreio: SHA curto do commit atual.
+      imageTag: ${{ github.sha }}
+    secrets: inherit

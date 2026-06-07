@@ -1,0 +1,21 @@
+apiVersion: v2
+name: app-template
+version: 0.1.0
+description: >-
+  Chart Helm reutilizavel que transforma o contrato canonico devops.yaml
+  (descritor da aplicacao) em recursos Kubernetes: Deployments, Services
+  ClusterIP, ConfigMaps, exemplo de Secret e rotas de Ingress do Traefik
+  (IngressRoute + Middleware StripPrefix). Segue a convencao de roteamento
+  por subpath usada pela plataforma DevOps local: frontends servidos no
+  subpath sem strip de prefixo e APIs com StripPrefix do prefixo completo.
+type: application
+appVersion: "0.1.0"
+keywords:
+  - devops
+  - traefik
+  - kubernetes
+  - plataforma
+home: https://github.com/FlavioNeto11/devops
+maintainers:
+  - name: FlavioNeto11
+    url: https://github.com/FlavioNeto11

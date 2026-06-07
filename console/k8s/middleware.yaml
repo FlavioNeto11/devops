@@ -1,0 +1,27 @@
+# =============================================================================
+# middleware.yaml - Middleware StripPrefix da API do DevOps Console
+# -----------------------------------------------------------------------------
+# Remove o prefixo COMPLETO /devops/api antes de encaminhar para o backend.
+# Assim, /devops/api/health chega no console-backend como /health.
+#
+# Convencao da plataforma: APIs usam stripPrefix=true; frontends NAO usam strip.
+# Este Middleware fica no MESMO namespace do servico (devops-system), pois o
+# prefixo removido e especifico desta app.
+#
+# Aplicar com:
+#   kubectl apply -f C:/devops/console/k8s/middleware.yaml
+# =============================================================================
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: console-api-strip
+  namespace: devops-system
+  labels:
+    app.kubernetes.io/name: console-backend
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: devops-console
+    app.kubernetes.io/managed-by: devops-platform
+spec:
+  stripPrefix:
+    prefixes:
+      - /devops/api

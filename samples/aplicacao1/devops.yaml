@@ -1,0 +1,66 @@
+# =============================================================================
+# devops.yaml - Contrato canonico da aplicacao "aplicacao1"
+# -----------------------------------------------------------------------------
+# Este e o descritor canonico desta aplicacao. Ele descreve como a app deve
+# ser publicada pela plataforma DevOps local (roteamento, imagens, portas,
+# health checks e variaveis de ambiente).
+#
+# Convencao de roteamento (resumo):
+#   - Frontends (SPA): expose=true, stripPrefix=false. Servidos no subpath;
+#     o build usa base path = /aplicacao1/ (VITE_BASE_PATH).
+#   - APIs: expose=true, stripPrefix=true. O Middleware StripPrefix do Traefik
+#     remove o prefixo COMPLETO (basePath+path), entao a API ve rotas na raiz
+#     (ex.: /aplicacao1/api/health -> backend recebe /health).
+#   - Worker: expose=false (sem ingress). Possui health interno para probes.
+#
+# Host local: xpto.localhost  | Host real futuro: www.xpto.com
+# =============================================================================
+
+app:
+  name: aplicacao1
+  namespace: apps
+  host: xpto.localhost
+  basePath: /aplicacao1
+
+services:
+  # ---------------------------------------------------------------------------
+  # Frontend (SPA React+Vite servido por nginx).
+  # Servido no subpath /aplicacao1/ SEM strip de prefixo.
+  # ---------------------------------------------------------------------------
+  frontend:
+    type: frontend
+    path: /
+    image: ghcr.io/flavioneto11/aplicacao1/frontend
+    port: 80
+    expose: true
+    stripPrefix: false
+    env:
+      VITE_BASE_PATH: /aplicacao1/
+
+  # ---------------------------------------------------------------------------
+  # API (Express). Exposta em /aplicacao1/api COM strip de prefixo.
+  # O Traefik remove /aplicacao1/api, entao o processo ve /health, /version etc.
+  # ---------------------------------------------------------------------------
+  api:
+    type: api
+    path: /api
+    image: ghcr.io/flavioneto11/aplicacao1/api
+    port: 8080
+    expose: true
+    stripPrefix: true
+    env:
+      APP_VERSION: local
+    health:
+      path: /health
+
+  # ---------------------------------------------------------------------------
+  # Worker (processo de background). Nao exposto via ingress.
+  # Mantem um servidor http minimo apenas para o health check dos probes.
+  # ---------------------------------------------------------------------------
+  worker:
+    type: worker
+    image: ghcr.io/flavioneto11/aplicacao1/worker
+    port: 8081
+    expose: false
+    health:
+      path: /health

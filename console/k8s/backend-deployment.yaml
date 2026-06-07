@@ -1,0 +1,108 @@
+# =============================================================================
+# backend-deployment.yaml - Deployment do backend do DevOps Console
+# -----------------------------------------------------------------------------
+# Backend Node.js (Express + @kubernetes/client-node), SOMENTE LEITURA, que
+# expoe a API REST + SSE consumida pelo frontend. Usa a ServiceAccount
+# 'console' (RBAC apenas get/list/watch) para falar com a API do cluster.
+#
+# Imagem LOCAL do laboratorio: console-backend:local (imagePullPolicy
+# IfNotPresent -> nunca tenta puxar do registry; usa a imagem ja buildada
+# localmente com `docker build -t console-backend:local -f Dockerfile.backend .`).
+#
+# Aplicar com:
+#   kubectl apply -f C:/devops/console/k8s/backend-deployment.yaml
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: console-backend
+  namespace: devops-system
+  labels:
+    app.kubernetes.io/name: console-backend
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: devops-console
+    app.kubernetes.io/managed-by: devops-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: console-backend
+      app.kubernetes.io/component: backend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: console-backend
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/part-of: devops-console
+    spec:
+      # ServiceAccount com permissoes somente leitura (ver rbac.yaml).
+      serviceAccountName: console
+      containers:
+        - name: backend
+          image: console-backend:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3001
+          env:
+            # Porta em que o Express escuta (consumida por src/index.js).
+            - name: PORT
+              value: "3001"
+            # Metadados/URLs externas vindos do ConfigMap console-config.
+            - name: PLATFORM_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: console-config
+                  key: PLATFORM_NAME
+            - name: ARGOCD_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: console-config
+                  key: ARGOCD_URL
+            - name: GRAFANA_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: console-config
+                  key: GRAFANA_URL
+            - name: TRAEFIK_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: console-config
+                  key: TRAEFIK_URL
+          # Probes no endpoint /health do backend (porta 3001).
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          # Recursos pequenos: e um backend leve de leitura.
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "64Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"
+          # Hardening basico do container (somente leitura no nivel de processo).
+          securityContext:
+            runAsNonRoot: true
+            # A imagem node:20-alpine traz o usuario 'node' (uid/gid 1000).
+            # Sem runAsUser, o kubelet recusa o container (runAsNonRoot + image
+            # roda como root). Fixamos 1000 para satisfazer o nao-root.
+            runAsUser: 1000
+            runAsGroup: 1000
+            allowPrivilegeEscalation: false
+            # readOnlyRootFilesystem relaxado (false): evita CrashLoop caso o
+            # runtime Node precise de escrita temporaria. Hardening principal
+            # mantido: nao-root, sem priv-escalation, drop ALL caps + RBAC RO.
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL

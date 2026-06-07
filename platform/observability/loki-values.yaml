@@ -1,0 +1,144 @@
+# =============================================================================
+# Values do chart grafana/loki (modo single-binary) — perfil de laboratorio
+# =============================================================================
+# Objetivo: rodar o Loki da forma mais leve possivel no Docker Desktop.
+#
+# Instalacao:
+#   helm repo add grafana https://grafana.github.io/helm-charts
+#   helm repo update
+#   helm upgrade --install loki grafana/loki \
+#     -n observability --create-namespace \
+#     -f C:/devops/platform/observability/loki-values.yaml
+#
+# COLETA DE LOGS (promtail): este chart sobe APENAS o Loki. O agente de coleta
+# (promtail) e instalado SEPARADAMENTE e deve apontar para o endpoint:
+#     http://loki.observability:3100
+# Exemplo:
+#   helm upgrade --install promtail grafana/promtail -n observability \
+#     --set "config.clients[0].url=http://loki.observability:3100/loki/api/v1/push"
+# =============================================================================
+
+# Modo de implantacao: single binary (tudo em um processo).
+deploymentMode: SingleBinary
+
+loki:
+  # Sem autenticacao/multi-tenancy no laboratorio.
+  auth_enabled: false
+
+  commonConfig:
+    # Apenas 1 replica -> fator de replicacao precisa ser 1.
+    replication_factor: 1
+
+  # Armazenamento em sistema de arquivos local (sem object storage).
+  storage:
+    type: filesystem
+
+  # Schema de armazenamento (TSDB + index por periodo). Necessario para o
+  # Loku funcionar com filesystem; data de inicio fixa no passado.
+  schemaConfig:
+    configs:
+      - from: "2024-01-01"
+        store: tsdb
+        object_store: filesystem
+        schema: v13
+        index:
+          prefix: index_
+          period: 24h
+
+  # Limites razoaveis para um ambiente pequeno.
+  limits_config:
+    retention_period: 72h            # ~3 dias de logs
+    ingestion_rate_mb: 8
+    ingestion_burst_size_mb: 16
+    max_streams_per_user: 5000
+    max_entries_limit_per_query: 5000
+    reject_old_samples: true
+    reject_old_samples_max_age: 168h
+    allow_structured_metadata: true
+
+  # Compactor cuida da retencao no filesystem.
+  compactor:
+    retention_enabled: true
+    delete_request_store: filesystem
+
+  # Sem cache distribuido no laboratorio (mantem o consumo baixo).
+  # (Os blocos chunksCache/resultsCache abaixo desabilitam os memcached.)
+
+# -----------------------------------------------------------------------------
+# Topologia single-binary
+# -----------------------------------------------------------------------------
+singleBinary:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  persistence:
+    # Habilitado para nao perder os indices a cada restart; tamanho pequeno.
+    enabled: true
+    size: 2Gi
+
+# -----------------------------------------------------------------------------
+# Zera os demais alvos de escala do chart (nao usados em single-binary)
+# -----------------------------------------------------------------------------
+backend:
+  replicas: 0
+read:
+  replicas: 0
+write:
+  replicas: 0
+ingester:
+  replicas: 0
+querier:
+  replicas: 0
+queryFrontend:
+  replicas: 0
+queryScheduler:
+  replicas: 0
+distributor:
+  replicas: 0
+compactor:
+  replicas: 0
+indexGateway:
+  replicas: 0
+bloomCompactor:
+  replicas: 0
+bloomGateway:
+  replicas: 0
+
+# -----------------------------------------------------------------------------
+# Caches desabilitados (memcached) — mantem o laboratorio leve
+# -----------------------------------------------------------------------------
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+
+# -----------------------------------------------------------------------------
+# Monitoramento e self-monitoring DESABILITADOS para ficar leve
+# -----------------------------------------------------------------------------
+monitoring:
+  dashboards:
+    enabled: false
+  rules:
+    enabled: false
+  serviceMonitor:
+    enabled: false
+  selfMonitoring:
+    enabled: false
+    grafanaAgent:
+      installOperator: false
+  lokiCanary:
+    enabled: false
+
+# O chart pode tentar subir um teste (canary/gateway); desligamos o que nao
+# precisamos no single-binary minimo.
+test:
+  enabled: false
+
+gateway:
+  # Sem gateway nginx: acessamos o Service do Loki diretamente em :3100.
+  enabled: false

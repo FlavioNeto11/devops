@@ -1,0 +1,149 @@
+# =============================================================================
+# Workflow reutilizavel: build e push de imagem para o GHCR
+# -----------------------------------------------------------------------------
+# Esta e a copia FUNCIONAL (consumida cross-repo) em:
+#   C:/devops/.github/workflows/reusable-build-push.yaml
+#
+# O ARQUIVO CANONICO (fonte da verdade) fica em:
+#   C:/devops/templates/github-actions/reusable-build-push.yaml
+# Mantenha os dois em sincronia. Esta copia precisa existir em .github/workflows
+# porque o GitHub Actions so permite chamar workflows reutilizaveis
+# (workflow_call) que estejam dentro de .github/workflows. Repos de aplicacao
+# consomem este workflow via:
+#   uses: FlavioNeto11/devops/.github/workflows/reusable-build-push.yaml@main
+#
+# O que faz: builda a imagem de UM service e faz push para o GitHub Container
+# Registry (GHCR) com tags por SHA do commit, por branch e 'latest' na branch
+# default. Use uma chamada (matrix) por service da aplicacao.
+#
+# Convencao de nome de imagem (contrato da plataforma):
+#   ghcr.io/flavioneto11/<app>/<service>:<tag>
+#   (o owner do GHCR e sempre minusculo: flavioneto11)
+# =============================================================================
+name: reusable-build-push
+
+on:
+  workflow_call:
+    inputs:
+      app:
+        description: "Nome da aplicacao (primeiro segmento do path da imagem)."
+        type: string
+        required: true
+      service:
+        description: "Nome do service a buildar (segundo segmento do path da imagem)."
+        type: string
+        required: true
+      context:
+        description: "Diretorio de contexto do build Docker."
+        type: string
+        required: false
+        default: "."
+      dockerfile:
+        description: "Caminho do Dockerfile (relativo a raiz do repo)."
+        type: string
+        required: false
+        default: "Dockerfile"
+    outputs:
+      image-tag:
+        description: "SHA curto do commit usado como tag principal da imagem."
+        value: ${{ jobs.build.outputs.image-tag }}
+
+jobs:
+  build:
+    name: Build e push (${{ inputs.app }}/${{ inputs.service }})
+    runs-on: ubuntu-latest
+
+    # Permissoes minimas: escrever pacotes (GHCR) e ler o conteudo do repo.
+    permissions:
+      packages: write
+      contents: read
+
+    outputs:
+      # SHA curto (7 caracteres) exposto para jobs posteriores (ex.: deploy).
+      image-tag: ${{ steps.shortsha.outputs.sha }}
+
+    steps:
+      # -----------------------------------------------------------------------
+      # 1) Checkout do codigo do repositorio chamador.
+      # -----------------------------------------------------------------------
+      - name: Checkout do codigo
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      # 2) Calcula o SHA curto do commit (usado como output e tag principal).
+      # -----------------------------------------------------------------------
+      - name: Calcular SHA curto
+        id: shortsha
+        run: echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      # -----------------------------------------------------------------------
+      # 3) Configura o Buildx (builder com suporte a cache e multi-stage).
+      # -----------------------------------------------------------------------
+      - name: Configurar Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # -----------------------------------------------------------------------
+      # 4) Login no GHCR usando o token automatico do workflow.
+      #    github.actor = usuario que disparou; GITHUB_TOKEN tem packages:write.
+      # -----------------------------------------------------------------------
+      - name: Login no GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # -----------------------------------------------------------------------
+      # 5) Metadados (tags + labels OCI) para a imagem.
+      #    Imagem base: ghcr.io/flavioneto11/<app>/<service>
+      #    Tags geradas:
+      #      - SHA curto do commit (ex.: a1b2c3d)
+      #      - nome da branch/ref (ex.: main, feature-x) com '/' saneado
+      #      - 'latest' somente na branch default do repo
+      # -----------------------------------------------------------------------
+      - name: Extrair metadados (tags e labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/flavioneto11/${{ inputs.app }}/${{ inputs.service }}
+          tags: |
+            type=sha,format=short
+            type=ref,event=branch
+            type=ref,event=tag
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      # -----------------------------------------------------------------------
+      # 6) Build e push da imagem.
+      #    - context/file vem dos inputs.
+      #    - push: sempre true (este workflow existe para publicar no GHCR).
+      #    - tags/labels: gerados pelo metadata-action acima.
+      #    - cache: GitHub Actions cache (gha) para acelerar builds.
+      # -----------------------------------------------------------------------
+      - name: Build e push da imagem
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # -----------------------------------------------------------------------
+      # 7) Resumo legivel no painel do Actions (Job Summary).
+      # -----------------------------------------------------------------------
+      - name: Resumo do build
+        run: |
+          {
+            echo "### Imagem publicada no GHCR"
+            echo ""
+            echo "- **Aplicacao:** ${{ inputs.app }}"
+            echo "- **Service:** ${{ inputs.service }}"
+            echo "- **SHA curto:** \`${{ steps.shortsha.outputs.sha }}\`"
+            echo ""
+            echo "**Tags:**"
+            echo '```'
+            echo "${{ steps.meta.outputs.tags }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

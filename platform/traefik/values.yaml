@@ -1,0 +1,184 @@
+# ============================================================================
+# Values do chart traefik/traefik para o cluster local (Docker Desktop)
+# ============================================================================
+# Repositorio do chart:
+#   helm repo add traefik https://traefik.github.io/charts
+#   helm repo update
+#
+# Instalar/atualizar (idempotente) no namespace 'traefik':
+#   helm upgrade --install traefik traefik/traefik \
+#     --namespace traefik --create-namespace \
+#     -f C:/devops/platform/traefik/values.yaml
+#
+# Observacoes gerais:
+#   - Cluster local: Docker Desktop (contexto kube: docker-desktop).
+#   - service.type LoadBalancer: o Docker Desktop mapeia o LoadBalancer para
+#     localhost, entao web (80) e websecure (443) ficam acessiveis em
+#     http://xpto.localhost e (futuramente) https://xpto.localhost.
+# ----------------------------------------------------------------------------
+
+# Apenas 1 replica no laboratorio local (suficiente para Docker Desktop).
+deployment:
+  enabled: true
+  replicas: 1
+
+# ----------------------------------------------------------------------------
+# Entrypoints / portas
+# ----------------------------------------------------------------------------
+# web      -> porta 80  (HTTP)   -> rotas locais usam este entrypoint.
+# websecure-> porta 443 (HTTPS)  -> reservado para quando habilitarmos TLS.
+#
+# IMPORTANTE: NAO forcamos redirect HTTP->HTTPS aqui. Em ambiente local sem
+# certificado valido, redirecionar para HTTPS quebraria o acesso por HTTP.
+# Para habilitar redirect/HTTPS no futuro, veja o bloco comentado abaixo e o
+# arquivo middlewares.yaml (middleware 'redirect-https').
+ports:
+  web:
+    port: 8000          # porta interna do container
+    expose:
+      default: true
+    exposedPort: 80     # porta publicada no LoadBalancer (localhost:80)
+    protocol: TCP
+    # --- Como habilitar redirect HTTP->HTTPS no futuro (DESABILITADO) ---
+    # redirectTo:
+    #   port: websecure
+    #   priority: 10
+  websecure:
+    port: 8443          # porta interna do container
+    expose:
+      default: true
+    exposedPort: 443    # porta publicada no LoadBalancer (localhost:443)
+    protocol: TCP
+    # TLS no websecure sera configurado quando tivermos certificado.
+    # Por enquanto deixamos sem 'tls.enabled: true' para nao exigir cert.
+    # tls:
+    #   enabled: true
+  # Porta interna do Traefik para metricas/healthchecks (nao exposta).
+  traefik:
+    port: 9000
+    expose:
+      default: false
+    protocol: TCP
+  metrics:
+    port: 9100
+    expose:
+      default: false
+    protocol: TCP
+
+# Tipo de Service. Docker Desktop atribui um LoadBalancer que aponta para
+# localhost, portanto as portas 80/443 ficam disponiveis na maquina host.
+service:
+  enabled: true
+  type: LoadBalancer
+
+# ----------------------------------------------------------------------------
+# Providers
+# ----------------------------------------------------------------------------
+# Habilitamos o provider de CRDs (IngressRoute/Middleware) e o provider de
+# Ingress classico. allowCrossNamespace permite que uma IngressRoute referencie
+# Middlewares/Services em outro namespace (ex.: rotas no namespace 'apps'
+# usando Middlewares da propria app, ou o dashboard via api@internal).
+providers:
+  kubernetesCRD:
+    enabled: true
+    allowCrossNamespace: true
+    # allowExternalNameServices: permite Service do tipo ExternalName.
+    allowExternalNameServices: true
+  kubernetesIngress:
+    enabled: true
+    allowExternalNameServices: true
+    # publishedService garante o IP/host correto no status dos Ingress.
+    publishedService:
+      enabled: true
+
+# IngressClass: registra 'traefik' como classe padrao do cluster, para que
+# Ingress sem ingressClassName sejam tratados pelo Traefik.
+ingressClass:
+  enabled: true
+  isDefaultClass: true
+
+# ----------------------------------------------------------------------------
+# API / Dashboard
+# ----------------------------------------------------------------------------
+# Dashboard habilitado, porem 'insecure: false': NAO expomos o dashboard pela
+# porta interna 9000 sem autenticacao. A exposicao e feita de forma controlada
+# via IngressRoute apontando para o service interno api@internal
+# (veja dashboard-ingressroute.yaml).
+api:
+  dashboard: true
+  insecure: false
+
+# ----------------------------------------------------------------------------
+# Logs
+# ----------------------------------------------------------------------------
+# Log geral em nivel INFO e log de acesso (accessLog) habilitado para
+# auditoria/observabilidade.
+logs:
+  general:
+    level: INFO
+  access:
+    enabled: true
+
+# ----------------------------------------------------------------------------
+# Metricas (Prometheus)
+# ----------------------------------------------------------------------------
+# Expomos metricas no formato Prometheus para serem raspadas pelo
+# kube-prometheus-stack. addRoutersLabels/addServicesLabels enriquecem as
+# series com labels de router/service.
+metrics:
+  prometheus:
+    enabled: true
+    addEntryPointsLabels: true
+    addRoutersLabels: true
+    addServicesLabels: true
+    # Cria um ServiceMonitor para o Prometheus Operator descobrir o alvo.
+    # DESABILITADO por padrao: o install-platform.ps1 instala o Traefik ANTES
+    # do kube-prometheus-stack, entao a CRD 'ServiceMonitor' ainda nao existe e
+    # o helm install do Traefik falharia. As metricas continuam expostas em
+    # /metrics (metrics.prometheus.enabled: true). Apos instalar a observabili-
+    # dade, reative o ServiceMonitor com:
+    #   helm upgrade traefik traefik/traefik -n traefik \
+    #     -f C:/devops/platform/traefik/values.yaml \
+    #     --set metrics.prometheus.serviceMonitor.enabled=true
+    # (ou mude 'enabled' para true aqui e rode scripts/install-traefik.ps1 de novo).
+    serviceMonitor:
+      enabled: false
+      # namespace onde o ServiceMonitor sera criado (onde roda o Prometheus).
+      namespace: observability
+
+# Recursos modestos, adequados ao laboratorio local.
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "256Mi"
+
+# Probes padrao do chart (mantidas explicitas para clareza).
+readinessProbe:
+  failureThreshold: 1
+  initialDelaySeconds: 2
+  periodSeconds: 10
+  successThreshold: 1
+  timeoutSeconds: 2
+livenessProbe:
+  failureThreshold: 3
+  initialDelaySeconds: 2
+  periodSeconds: 10
+  successThreshold: 1
+  timeoutSeconds: 2
+
+# ----------------------------------------------------------------------------
+# COMO HABILITAR HTTPS / REDIRECT NO FUTURO (pendente - self-signed)
+# ----------------------------------------------------------------------------
+# 1) Gerar um certificado self-signed (ou usar mkcert) para *.localhost e
+#    criar um Secret TLS no namespace 'traefik', por exemplo:
+#       kubectl -n traefik create secret tls xpto-localhost-tls \
+#         --cert=tls.crt --key=tls.key
+# 2) Configurar um TLSStore default apontando para esse Secret OU referenciar
+#    o Secret nas IngressRoutes (entryPoints [websecure], tls: {}).
+# 3) Para forcar redirect HTTP->HTTPS, descomente o bloco 'redirectTo' no
+#    entrypoint 'web' acima, OU aplique o Middleware 'redirect-https'
+#    (middlewares.yaml) nas IngressRoutes desejadas.
+# Enquanto isso, o trafego local permanece em HTTP (entryPoint web).

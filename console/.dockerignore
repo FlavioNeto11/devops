@@ -1,0 +1,11 @@
+# Contexto de build = pasta console/. Mantemos o contexto enxuto e evitamos
+# copiar dependencias/artefatos do host para dentro da imagem (o `npm ci`
+# reinstala tudo de forma reproduzivel no estagio de build).
+**/node_modules
+**/dist
+**/.vite
+**/*.log
+**/.env
+**/.env.local
+**/.git
+**/.gitignore

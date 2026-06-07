@@ -1,0 +1,65 @@
+# =============================================================================
+# frontend-deployment.yaml - Deployment do frontend do DevOps Console
+# -----------------------------------------------------------------------------
+# SPA React + Vite buildada com base path /devops/ e servida por nginx na porta
+# 80. NAO usa StripPrefix (convencao de frontends): o conteudo e servido sob o
+# subpath /devops/. O endpoint /healthz e definido no nginx.conf da imagem.
+#
+# Imagem LOCAL do laboratorio: console-frontend:local (imagePullPolicy
+# IfNotPresent -> usa a imagem buildada com
+# `docker build -t console-frontend:local -f Dockerfile.frontend .`).
+#
+# Aplicar com:
+#   kubectl apply -f C:/devops/console/k8s/frontend-deployment.yaml
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: console-frontend
+  namespace: devops-system
+  labels:
+    app.kubernetes.io/name: console-frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: devops-console
+    app.kubernetes.io/managed-by: devops-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: console-frontend
+      app.kubernetes.io/component: frontend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: console-frontend
+        app.kubernetes.io/component: frontend
+        app.kubernetes.io/part-of: devops-console
+    spec:
+      containers:
+        - name: frontend
+          image: console-frontend:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+          # Probes no endpoint /healthz do nginx (porta 80).
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          # Recursos pequenos: nginx servindo estaticos.
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "16Mi"
+            limits:
+              cpu: "100m"
+              memory: "64Mi"

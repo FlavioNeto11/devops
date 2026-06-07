@@ -1,0 +1,100 @@
+# =============================================================================
+# Values do Grafana — compativel com o kube-prometheus-stack (Helm)
+# =============================================================================
+# Este arquivo usa o bloco de topo 'grafana:' porque o Grafana e um SUB-CHART
+# do kube-prometheus-stack. Aplique-o JUNTO com prometheus-values.yaml:
+#
+#   helm upgrade --install kube-prometheus-stack \
+#     prometheus-community/kube-prometheus-stack \
+#     -n observability --create-namespace \
+#     -f C:/devops/platform/observability/prometheus-values.yaml \
+#     -f C:/devops/platform/observability/grafana-values.yaml
+#
+# Roteamento: o Grafana e servido em subpath /grafana atraves do Traefik
+# (IngressRoute na plataforma). Por isso usamos serve_from_sub_path=true e
+# root_url apontando para http://xpto.localhost/grafana.
+# =============================================================================
+
+grafana:
+  # ---------------------------------------------------------------------------
+  # Credenciais de administrador
+  # ---------------------------------------------------------------------------
+  # ATENCAO: senha trivial APENAS para laboratorio.
+  # COMENTARIO: trocar em producao (de preferencia via Secret/admin.existingSecret).
+  adminPassword: "admin"
+
+  # ---------------------------------------------------------------------------
+  # Configuracao do grafana.ini
+  # ---------------------------------------------------------------------------
+  grafana.ini:
+    server:
+      # URL publica completa, ja incluindo o subpath /grafana.
+      root_url: "http://xpto.localhost/grafana"
+      # Faz o Grafana servir os assets a partir do subpath (atras do Traefik).
+      serve_from_sub_path: true
+    # Login anonimo desabilitado (padrao). Em laboratorio voce loga com admin/admin.
+    auth.anonymous:
+      enabled: false
+
+  # ---------------------------------------------------------------------------
+  # Persistencia
+  # ---------------------------------------------------------------------------
+  persistence:
+    # Sem PVC no laboratorio: dados (ex.: dashboards criados na UI) sao efemeros.
+    # Dashboards provisionados por ConfigMap (sidecar) sobrevivem a recriacao.
+    enabled: false
+
+  # ---------------------------------------------------------------------------
+  # Fontes de dados adicionais (alem do Prometheus, que o chart ja cria)
+  # ---------------------------------------------------------------------------
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      access: proxy
+      # Servico do Loki single-binary no namespace observability.
+      url: "http://loki.observability:3100"
+      isDefault: false
+      jsonData:
+        # Sem multi-tenancy no laboratorio (auth_enabled=false no Loki).
+        maxLines: 1000
+
+  # ---------------------------------------------------------------------------
+  # Sidecar de provisionamento (dashboards e datasources via ConfigMap)
+  # ---------------------------------------------------------------------------
+  sidecar:
+    dashboards:
+      # Provisiona automaticamente dashboards a partir de ConfigMaps que tenham
+      # o label 'grafana_dashboard'. Ex.: cluster-overview.json publicado como
+      # ConfigMap com esse label.
+      enabled: true
+      label: grafana_dashboard
+      # Procura ConfigMaps em todos os namespaces (facilita publicar dashboards
+      # junto das apps). Ajuste para um namespace especifico se preferir.
+      searchNamespace: ALL
+      # Pasta onde os dashboards aparecem na UI do Grafana.
+      folder: /tmp/dashboards
+      provider:
+        foldersFromFilesStructure: false
+    datasources:
+      # Permite provisionar datasources extras via ConfigMap (label abaixo).
+      enabled: true
+      label: grafana_datasource
+
+  # ---------------------------------------------------------------------------
+  # Recursos pequenos para o laboratorio
+  # ---------------------------------------------------------------------------
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+
+  # ---------------------------------------------------------------------------
+  # Service do Grafana
+  # ---------------------------------------------------------------------------
+  # O acesso externo e feito pelo Traefik (IngressRoute /grafana), entao o
+  # Service interno pode permanecer ClusterIP (padrao do chart).
+  service:
+    type: ClusterIP

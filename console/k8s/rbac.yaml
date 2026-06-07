@@ -1,0 +1,87 @@
+# =============================================================================
+# rbac.yaml - RBAC SOMENTE LEITURA do DevOps Console
+# -----------------------------------------------------------------------------
+# PRINCIPIO DE MENOR PRIVILEGIO (least privilege):
+# O DevOps Console e uma ferramenta de OBSERVACAO. Ele apenas LE o estado do
+# cluster para exibi-lo (em tempo real, via watch/SSE). Por isso o ClusterRole
+# abaixo concede EXCLUSIVAMENTE os verbos 'get', 'list' e 'watch'. NAO existe
+# nenhum verbo de escrita (create, update, patch, delete, deletecollection).
+# Mesmo que o codigo do backend possua metodos de escrita do client-node, o
+# cluster recusaria qualquer tentativa de mutacao por causa deste RBAC.
+#
+# Por que ClusterRole (e nao Role)?
+#   O Console mostra recursos de MULTIPLOS namespaces (apps, apps-dev,
+#   apps-prod-local, argocd, observability, traefik, devops-system, ...). Um
+#   ClusterRole + ClusterRoleBinding concede leitura em todo o cluster, o que e
+#   adequado para um painel de visao geral. Ainda assim, continua sendo
+#   somente leitura.
+#
+# Aplicar com:
+#   kubectl apply -f C:/devops/console/k8s/rbac.yaml
+# =============================================================================
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: console-readonly
+  labels:
+    app.kubernetes.io/name: console-backend
+    app.kubernetes.io/part-of: devops-console
+    app.kubernetes.io/managed-by: devops-platform
+rules:
+  # --- core API group ("") ---------------------------------------------------
+  # pods e pods/log: listar Pods e ler logs (o Console transmite logs por SSE).
+  # services/endpoints: mapear exposicao interna dos servicos.
+  # events: exibir eventos recentes (warnings, scheduling, pulls de imagem).
+  # configmaps: inspecionar configuracao das apps (NUNCA secrets).
+  # namespaces: listar/filtrar os namespaces gerenciados pela plataforma.
+  - apiGroups: [""]
+    resources:
+      - pods
+      - pods/log
+      - services
+      - events
+      - configmaps
+      - namespaces
+      - endpoints
+    verbs: ["get", "list", "watch"]
+  # --- apps API group --------------------------------------------------------
+  # Cargas de trabalho controladoras: status de rollout, replicas, etc.
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+      - replicasets
+      - daemonsets
+      - statefulsets
+    verbs: ["get", "list", "watch"]
+  # --- Traefik CRDs (traefik.io/v1alpha1) ------------------------------------
+  # IngressRoutes e Middlewares descrevem o roteamento HTTP da plataforma.
+  # O Console os le para exibir como cada app esta exposta no host unico.
+  - apiGroups: ["traefik.io"]
+    resources:
+      - ingressroutes
+      - middlewares
+    verbs: ["get", "list", "watch"]
+  # --- Ingress nativo (networking.k8s.io) ------------------------------------
+  # Compatibilidade: caso algum componente use Ingress padrao em vez de CRD.
+  - apiGroups: ["networking.k8s.io"]
+    resources:
+      - ingresses
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: console-readonly
+  labels:
+    app.kubernetes.io/name: console-backend
+    app.kubernetes.io/part-of: devops-console
+    app.kubernetes.io/managed-by: devops-platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: console-readonly
+subjects:
+  - kind: ServiceAccount
+    name: console
+    namespace: devops-system

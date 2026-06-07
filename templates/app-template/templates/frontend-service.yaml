@@ -1,0 +1,24 @@
+{{- /*
+Gera um Service ClusterIP para cada service com type == "frontend".
+*/ -}}
+{{- range $name, $svc := .Values.services }}
+{{- if eq $svc.type "frontend" }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "app-template.fullname" (dict "root" $ "name" $name) }}
+  namespace: {{ $.Values.app.namespace }}
+  labels:
+    {{- include "app-template.commonLabels" (dict "root" $ "name" $name "component" $svc.type) | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "app-template.selectorLabels" (dict "root" $ "name" $name) | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ $svc.port }}
+      targetPort: {{ $svc.port }}
+      protocol: TCP
+{{- end }}
+{{- end }}

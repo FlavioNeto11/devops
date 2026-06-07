@@ -1,0 +1,30 @@
+# =============================================================================
+# backend-service.yaml - Service (ClusterIP) do backend do DevOps Console
+# -----------------------------------------------------------------------------
+# Exposto internamente na porta 3001. Roteado externamente pelo IngressRoute em
+# /devops/api (com Middleware StripPrefix console-api-strip, que remove
+# /devops/api antes de chegar ao backend -> ex.: /devops/api/health -> /health).
+#
+# Aplicar com:
+#   kubectl apply -f C:/devops/console/k8s/backend-service.yaml
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: console-backend
+  namespace: devops-system
+  labels:
+    app.kubernetes.io/name: console-backend
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: devops-console
+    app.kubernetes.io/managed-by: devops-platform
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: console-backend
+    app.kubernetes.io/component: backend
+  ports:
+    - name: http
+      port: 3001
+      targetPort: http
+      protocol: TCP

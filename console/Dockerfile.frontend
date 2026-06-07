@@ -1,0 +1,46 @@
+# =============================================================================
+# Dockerfile.frontend — DevOps Console (frontend React + Vite)
+# -----------------------------------------------------------------------------
+# Build multi-stage. O CONTEXTO de build e a pasta `console/` (por isso os COPY
+# referenciam `frontend/...`).
+#
+#   Build local (imagem do laboratorio, NAO enviada ao registry):
+#     docker build -t console-frontend:local -f Dockerfile.frontend .
+#       (executado de dentro de C:/devops/console)
+#
+# A imagem final usa imagePullPolicy: IfNotPresent no cluster.
+# A SPA e gerada com base '/devops/' (ver vite.config.js) e servida pelo nginx
+# sob o subpath /devops/ (ver frontend/nginx.conf).
+# =============================================================================
+
+# ----------------------------------------------------------------- Stage 1: build
+FROM node:20-alpine AS build
+WORKDIR /app
+
+# Copia apenas os manifests primeiro para aproveitar o cache de camadas do Docker:
+# enquanto package*.json nao mudar, o `npm ci` nao roda de novo.
+COPY frontend/package*.json ./
+
+# Instalacao reproduzivel. Se nao houver package-lock.json, cai para `npm install`.
+RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+# Copia o restante do codigo do frontend e gera o build de producao em /app/dist.
+COPY frontend/ ./
+RUN npm run build
+
+# ----------------------------------------------------------------- Stage 2: runtime
+FROM nginx:alpine AS runtime
+
+# Configuracao do nginx que serve a SPA sob /devops/ (alias + try_files).
+COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+
+# Artefatos estaticos buildados (base /devops/) servidos pelo nginx.
+COPY --from=build /app/dist /usr/share/nginx/html
+
+EXPOSE 80
+
+# Health check do container alinhado ao endpoint `location = /healthz` do nginx.
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget -qO- http://127.0.0.1/healthz || exit 1
+
+# nginx:alpine ja define o CMD padrao (nginx -g 'daemon off;').

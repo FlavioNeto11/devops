@@ -1,0 +1,80 @@
+# =============================================================================
+# values.dev.yaml — Valores para o ambiente DEV/real (host publico + GHCR).
+# -----------------------------------------------------------------------------
+# Igual ao local, porem:
+#   * host = www.xpto.com (dominio real futuro, mesmo layout de paths)
+#   * registry = ghcr.io/flavioneto11 (imagens enviadas pelo CI)
+#   * defaults.imagePullPolicy = Always (sempre puxa a tag mais recente)
+#   * images apontam para <registry>/<app.name>/<serviceName>:<tag>
+#
+# Observacao sobre a imagem efetiva:
+#   Como o registry NAO esta vazio, a imagem final e computada pelos templates
+#   como: <registry>/<app.name>/<serviceName>:<service.tag>
+#   Ex.: ghcr.io/flavioneto11/aplicacao1/api:<sha>
+#   O campo service.image abaixo e mantido por compatibilidade/clareza, mas
+#   nao e usado quando o registry esta definido.
+#
+# Uso:
+#   helm template ./ -f values.dev.yaml
+#   helm upgrade --install aplicacao1 ./ -n apps -f values.dev.yaml
+# =============================================================================
+
+app:
+  name: aplicacao1
+  namespace: apps
+  host: www.xpto.com
+  basePath: /aplicacao1
+
+# Registry do GHCR (minusculas). Quando definido, a imagem efetiva e:
+# <registry>/<app.name>/<serviceName>:<service.tag>
+registry: 'ghcr.io/flavioneto11'
+
+defaults:
+  imagePullPolicy: Always
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+# No CI estes valores sao preenchidos com o SHA do commit, branch, etc.
+# O imageTag normalmente e o SHA do commit (tambem ha tags de branch e latest).
+publish:
+  commitSha: latest
+  branch: main
+  imageTag: latest
+  deployedAt: ''
+  runId: ''
+
+services:
+  frontend:
+    type: frontend
+    image: ghcr.io/flavioneto11/aplicacao1/frontend
+    tag: latest
+    port: 80
+    expose: true
+    stripPrefix: false
+    env:
+      VITE_BASE_PATH: /aplicacao1/
+
+  api:
+    type: api
+    path: /api
+    image: ghcr.io/flavioneto11/aplicacao1/api
+    tag: latest
+    port: 8080
+    expose: true
+    stripPrefix: true
+    health:
+      path: /health
+
+  worker:
+    type: worker
+    image: ghcr.io/flavioneto11/aplicacao1/worker
+    tag: latest
+    port: 8081
+    expose: false
+    health:
+      path: /health

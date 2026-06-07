@@ -1,0 +1,26 @@
+{{- /*
+ConfigMap com metadados da aplicacao e informacoes de publicacao.
+O DevOps Console le este ConfigMap (somente leitura) para exibir o que esta
+implantado: app, basePath, host e dados do commit/branch/tag/deploy/run.
+*/ -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "app-template.appName" . }}-meta
+  namespace: {{ .Values.app.namespace }}
+  labels:
+    {{- include "app-template.commonLabels" (dict "root" . "name" "" "component" "metadata") | nindent 4 }}
+  annotations:
+    {{- include "app-template.publishAnnotations" . | nindent 4 }}
+data:
+  # Metadados da aplicacao
+  app.name: {{ .Values.app.name | quote }}
+  app.namespace: {{ .Values.app.namespace | quote }}
+  app.host: {{ .Values.app.host | quote }}
+  app.basePath: {{ .Values.app.basePath | quote }}
+  # Informacoes de publicacao (CI/CD)
+  publish.commitSha: {{ .Values.publish.commitSha | default "" | quote }}
+  publish.branch: {{ .Values.publish.branch | default "" | quote }}
+  publish.imageTag: {{ .Values.publish.imageTag | default "" | quote }}
+  publish.deployedAt: {{ .Values.publish.deployedAt | default "" | quote }}
+  publish.runId: {{ .Values.publish.runId | default "" | quote }}

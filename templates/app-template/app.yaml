@@ -1,0 +1,65 @@
+# =============================================================================
+# devops.yaml — EXEMPLO CANONICO do descritor de aplicacao da plataforma.
+# -----------------------------------------------------------------------------
+# Este arquivo demonstra o schema do contrato compartilhado. Ele descreve a
+# aplicacao de forma declarativa; a plataforma (CI + Helm) traduz este
+# descritor nos valores do chart (values.*.yaml) e, a partir deles, nos
+# recursos Kubernetes finais.
+#
+# Schema:
+#   app:
+#     name      -> nome logico da aplicacao (usado em labels e rotas)
+#     namespace -> namespace Kubernetes de destino
+#     host      -> host de entrada no Traefik (local: *.localhost)
+#     basePath  -> subpath base onde a app e servida (ex.: /aplicacao1)
+#   services: mapa serviceName -> definicao do servico
+#     type       -> frontend | api | worker | api2
+#     path       -> subpath relativo ao basePath (apenas para api/api2; ex.: /api)
+#     image      -> nome da imagem (sem registry; o registry vem dos valores)
+#     port       -> porta do container/Service
+#     expose     -> se true, ganha rota no Ingress (Traefik)
+#     stripPrefix-> se true, o Middleware remove o prefixo COMPLETO (base+path)
+#     env        -> mapa de variaveis de ambiente do container
+#     health     -> { path } usado por probes e pela tela Health do Console
+#
+# CONVENCAO DE ROTEAMENTO (critica):
+#   * frontend (SPA): expose=true, stripPrefix=FALSE. Build com base path
+#     = /<basePath>/ (ex.: VITE_BASE_PATH=/aplicacao1/). O nginx serve sob
+#     esse subpath, portanto NAO se remove o prefixo.
+#   * api/api2/worker-health: expose=true, stripPrefix=TRUE. O Middleware
+#     StripPrefix remove o prefixo COMPLETO (basePath+path), entao a API ve
+#     rotas na raiz (ex.: /aplicacao1/api/health -> backend recebe /health).
+# =============================================================================
+app:
+  name: aplicacao1
+  namespace: apps
+  host: xpto.localhost
+  basePath: /aplicacao1
+
+services:
+  frontend:
+    type: frontend
+    image: aplicacao1-frontend
+    port: 80
+    expose: true
+    stripPrefix: false
+    env:
+      VITE_BASE_PATH: /aplicacao1/
+
+  api:
+    type: api
+    path: /api
+    image: aplicacao1-api
+    port: 8080
+    expose: true
+    stripPrefix: true
+    health:
+      path: /health
+
+  worker:
+    type: worker
+    image: aplicacao1-worker
+    port: 8081
+    expose: false
+    health:
+      path: /health

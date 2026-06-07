@@ -1,0 +1,46 @@
+# ==========================================================================
+# .gitignore — Plataforma DevOps Local
+# Protege segredos, artefatos de build, estado do runner e arquivos de IDE/OS.
+# Os arquivos de exemplo (*.example, incluindo *.env.example) permanecem
+# RASTREADOS para servir de modelo seguro. Ver SECURITY.md.
+# ==========================================================================
+
+# --- Dependencias e artefatos de build ---
+node_modules/
+dist/
+build/
+bin/
+obj/
+coverage/
+*.tgz
+
+# --- Logs ---
+*.log
+
+# --- Segredos: variaveis de ambiente ---
+# Ignora .env e qualquer *.env, MAS mantem os exemplos *.env.example
+.env
+*.env
+!*.env.example
+!.env.example
+
+# --- Segredos: manifests de Secret do Kubernetes ---
+secret.yaml
+*.secret.yaml
+secrets/
+
+# --- Kubeconfig (credenciais de acesso ao cluster) ---
+kubeconfig
+
+# --- Runner self-hosted (credenciais e estado) ---
+runner/
+
+# --- Diagnosticos coletados localmente ---
+diagnostics/
+
+# --- Arquivos de IDE / Sistema Operacional ---
+.vs/
+.DS_Store
+
+# --- Garantir que TODOS os arquivos de exemplo fiquem rastreados ---
+!*.example

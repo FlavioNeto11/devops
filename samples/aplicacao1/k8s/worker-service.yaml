@@ -1,0 +1,24 @@
+# =============================================================================
+# worker-service.yaml - Service (ClusterIP) do worker da aplicacao1
+# -----------------------------------------------------------------------------
+# Exposto APENAS internamente na porta 8081 (health/observabilidade interna).
+# NAO ha IngressRoute para o worker (expose=false no devops.yaml).
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: aplicacao1-worker
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: aplicacao1
+    app.kubernetes.io/component: worker
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: aplicacao1
+    app.kubernetes.io/component: worker
+  ports:
+    - name: http
+      port: 8081
+      targetPort: http
+      protocol: TCP

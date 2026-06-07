@@ -1,0 +1,98 @@
+# ============================================================================
+# Namespaces da plataforma DevOps
+# ============================================================================
+# Este arquivo cria os 7 namespaces gerenciados pela plataforma.
+# Todos os namespaces sao rotulados com:
+#   - app.kubernetes.io/managed-by: devops-platform  (gerenciamento)
+#   - devops-platform/purpose: <proposito>           (proposito do namespace)
+#
+# Aplicar com:
+#   kubectl apply -f C:/devops/platform/namespaces/namespaces.yaml
+#
+# Contexto kube esperado: docker-desktop
+# ----------------------------------------------------------------------------
+---
+# devops-system: componentes internos da plataforma (Console backend/frontend,
+# ServiceAccount RBAC somente-leitura usada pelo Console, etc.).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: devops-system
+  labels:
+    app.kubernetes.io/managed-by: devops-platform
+    app.kubernetes.io/part-of: devops-platform
+    devops-platform/purpose: platform-system
+    kubernetes.io/metadata.name: devops-system
+---
+# traefik: Ingress controller (Traefik via Helm). Hospeda os Middlewares
+# reutilizaveis e as IngressRoutes da plataforma (dashboard, etc.).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: traefik
+  labels:
+    app.kubernetes.io/managed-by: devops-platform
+    app.kubernetes.io/part-of: devops-platform
+    devops-platform/purpose: ingress
+    kubernetes.io/metadata.name: traefik
+---
+# argocd: GitOps (Argo CD). Exposto no host unico em /argocd
+# (argocd server --insecure, rootpath /argocd).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+  labels:
+    app.kubernetes.io/managed-by: devops-platform
+    app.kubernetes.io/part-of: devops-platform
+    devops-platform/purpose: gitops
+    kubernetes.io/metadata.name: argocd
+---
+# observability: stack de observabilidade (kube-prometheus-stack: Prometheus,
+# Grafana, Alertmanager). Grafana exposto em /grafana (serve_from_sub_path).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: observability
+  labels:
+    app.kubernetes.io/managed-by: devops-platform
+    app.kubernetes.io/part-of: devops-platform
+    devops-platform/purpose: observability
+    kubernetes.io/metadata.name: observability
+---
+# apps: namespace padrao para aplicacoes de usuario (ex.: aplicacao1).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: apps
+  labels:
+    app.kubernetes.io/managed-by: devops-platform
+    app.kubernetes.io/part-of: devops-platform
+    devops-platform/purpose: applications
+    devops-platform/environment: default
+    kubernetes.io/metadata.name: apps
+---
+# apps-dev: ambiente de desenvolvimento das aplicacoes.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: apps-dev
+  labels:
+    app.kubernetes.io/managed-by: devops-platform
+    app.kubernetes.io/part-of: devops-platform
+    devops-platform/purpose: applications
+    devops-platform/environment: dev
+    kubernetes.io/metadata.name: apps-dev
+---
+# apps-prod-local: ambiente de "producao local" (simulacao de prod no cluster
+# Docker Desktop). Mesmo layout de paths do ambiente real futuro.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: apps-prod-local
+  labels:
+    app.kubernetes.io/managed-by: devops-platform
+    app.kubernetes.io/part-of: devops-platform
+    devops-platform/purpose: applications
+    devops-platform/environment: prod-local
+    kubernetes.io/metadata.name: apps-prod-local

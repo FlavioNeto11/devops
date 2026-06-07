@@ -1,0 +1,69 @@
+# =============================================================================
+# ingressroute.yaml - Roteamento HTTP do DevOps Console (Traefik)
+# -----------------------------------------------------------------------------
+# Expoe o Console no host unico, sob /devops, no entryPoint 'web' (HTTP/80).
+# HTTPS (websecure) fica PENDENTE ate configurarmos TLS self-signed.
+#
+# Duas rotas no MESMO host. A regra mais especifica/longa deve vencer; por
+# seguranca definimos 'priority' explicito (maior numero = maior prioridade),
+# garantindo que /devops/api (API) vença /devops (frontend):
+#
+#   priority 20  ->  /devops/api  -> console-backend:3001  (com StripPrefix)
+#   priority 10  ->  /devops      -> console-frontend:80   (sem strip)
+#
+# Hosts atendidos: xpto.localhost (local) e www.xpto.com (real futuro, mesmo
+# layout de paths).
+#
+# Aplicar com:
+#   kubectl apply -f C:/devops/console/k8s/ingressroute.yaml
+# =============================================================================
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: console
+  namespace: devops-system
+  labels:
+    app.kubernetes.io/name: devops-console
+    app.kubernetes.io/part-of: devops-console
+    app.kubernetes.io/managed-by: devops-platform
+spec:
+  # entryPoint 'web' (HTTP/porta 80). HTTPS (websecure) pendente (self-signed).
+  entryPoints:
+    - web
+  routes:
+    # --- Rota 1: API do Console (mais especifica) --------------------------
+    # PathPrefix /devops/api. Prioridade MAIOR para vencer /devops. O
+    # Middleware console-api-strip remove /devops/api -> backend recebe /...
+    - match: (Host(`xpto.localhost`) || Host(`www.xpto.com`)) && PathPrefix(`/devops/api`)
+      kind: Rule
+      priority: 20
+      services:
+        - name: console-backend
+          port: 3001
+      middlewares:
+        # StripPrefix da API (namespace devops-system; mesmo da rota).
+        - name: console-api-strip
+          namespace: devops-system
+        # Compressao e headers de seguranca transversais (namespace traefik).
+        - name: compress
+          namespace: traefik
+        - name: secure-headers
+          namespace: traefik
+    # --- Rota 2: Frontend (SPA) do Console (mais generica) -----------------
+    # PathPrefix /devops. SEM StripPrefix: a SPA e servida sob o subpath
+    # /devops/ (build com base path /devops/).
+    - match: (Host(`xpto.localhost`) || Host(`www.xpto.com`)) && PathPrefix(`/devops`)
+      kind: Rule
+      priority: 10
+      services:
+        - name: console-frontend
+          port: 80
+      middlewares:
+        - name: compress
+          namespace: traefik
+        - name: secure-headers
+          namespace: traefik
+  # --- TLS (PENDENTE - self-signed) ----------------------------------------
+  # Para servir em HTTPS, mude entryPoints para [websecure], configure o Secret
+  # TLS e descomente:
+  # tls: {}

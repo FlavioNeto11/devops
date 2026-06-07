@@ -1,0 +1,63 @@
+{{- /*
+Gera um Deployment para cada service com type == "worker".
+Workers NAO recebem Service de ingress (nao sao expostos via Traefik).
+Quando health.path esta definido, configura-se uma livenessProbe HTTP
+(util para workers que sobem um pequeno endpoint /health).
+*/ -}}
+{{- range $name, $svc := .Values.services }}
+{{- if eq $svc.type "worker" }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "app-template.fullname" (dict "root" $ "name" $name) }}
+  namespace: {{ $.Values.app.namespace }}
+  labels:
+    {{- include "app-template.commonLabels" (dict "root" $ "name" $name "component" $svc.type) | nindent 4 }}
+  annotations:
+    {{- include "app-template.publishAnnotations" $ | nindent 4 }}
+spec:
+  replicas: {{ default 1 $svc.replicas }}
+  selector:
+    matchLabels:
+      {{- include "app-template.selectorLabels" (dict "root" $ "name" $name) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "app-template.commonLabels" (dict "root" $ "name" $name "component" $svc.type) | nindent 8 }}
+      annotations:
+        {{- include "app-template.publishAnnotations" $ | nindent 8 }}
+    spec:
+      containers:
+        - name: {{ $name }}
+          image: {{ include "app-template.image" (dict "root" $ "name" $name "svc" $svc) }}
+          imagePullPolicy: {{ $.Values.defaults.imagePullPolicy }}
+          {{- if $svc.port }}
+          ports:
+            - name: http
+              containerPort: {{ $svc.port }}
+              protocol: TCP
+          {{- end }}
+          {{- with $svc.env }}
+          env:
+            {{- range $k, $v := . }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+          {{- end }}
+          {{- with $svc.health }}
+          {{- if and .path $svc.port }}
+          livenessProbe:
+            httpGet:
+              path: {{ .path }}
+              port: {{ $svc.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          {{- end }}
+          {{- end }}
+          resources:
+            {{- include "app-template.resources" (dict "root" $ "svc" $svc) | nindent 12 }}
+{{- end }}
+{{- end }}

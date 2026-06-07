@@ -1,0 +1,38 @@
+# syntax=docker/dockerfile:1
+#
+# Dockerfile do backend do DevOps Console (somente leitura).
+# -----------------------------------------------------------
+# Contexto de build esperado: a pasta "console" (C:/devops/console).
+#   docker build -f Dockerfile.backend -t console-backend:local .
+# Por isso os caminhos de COPY usam o prefixo "backend/...".
+#
+# Imagem LOCAL do laboratorio: console-backend:local
+# (buildada localmente, NAO enviada ao registry; imagePullPolicy: IfNotPresent).
+
+FROM node:20-alpine
+
+# Diretorio de trabalho da aplicacao dentro do container.
+WORKDIR /app
+
+# Ambiente de producao (desabilita devDependencies em libs que checam NODE_ENV).
+ENV NODE_ENV=production
+
+# 1) Copia apenas os manifestos de dependencias primeiro para aproveitar o
+#    cache de camadas do Docker (so reinstala quando package*.json mudam).
+COPY backend/package*.json ./
+
+# 2) Instalacao limpa e reprodutivel quando ha lockfile (npm ci); senao cai
+#    para npm install. Em ambos os casos, somente dependencias de producao.
+RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi
+
+# 3) Copia o codigo-fonte do backend.
+COPY backend/src ./src
+
+# Porta HTTP do backend (alinhada a src/index.js e ao Service ClusterIP).
+EXPOSE 3001
+
+# Roda como usuario nao-root 'node' (uid 1000) ja presente na imagem oficial.
+USER node
+
+# Comando de inicializacao.
+CMD ["node", "src/index.js"]

@@ -1,0 +1,176 @@
+# =============================================================================
+# Workflow reutilizavel: deploy no Kubernetes local (Docker Desktop)
+# -----------------------------------------------------------------------------
+# Esta e a copia FUNCIONAL (consumida cross-repo) em:
+#   C:/devops/.github/workflows/reusable-deploy-k8s.yaml
+#
+# O ARQUIVO CANONICO (fonte da verdade) fica em:
+#   C:/devops/templates/github-actions/reusable-deploy-k8s.yaml
+# Mantenha os dois em sincronia. Esta copia precisa existir em .github/workflows
+# porque o GitHub Actions so permite chamar workflows reutilizaveis
+# (workflow_call) que estejam dentro de .github/workflows. Repos de aplicacao
+# consomem este workflow via:
+#   uses: FlavioNeto11/devops/.github/workflows/reusable-deploy-k8s.yaml@main
+#
+# O que faz: aplica os manifests no cluster local (contexto docker-desktop) e
+# anota o Deployment com metadados de rastreabilidade (commit, branch, imagem,
+# horario e run-id). Roda em um SELF-HOSTED runner Windows que tem acesso ao
+# kubectl/contexto local — o GitHub hospedado NAO alcanca o cluster local.
+#
+# IMPORTANTE (laboratorio local): este job so executa se o self-hosted runner
+# (labels: self-hosted, windows, docker-desktop, local-k8s, flavio-devops)
+# estiver ATIVO e registrado no repo. Caso contrario, o job fica em fila.
+# =============================================================================
+name: reusable-deploy-k8s
+
+on:
+  workflow_call:
+    inputs:
+      app:
+        description: "Nome da aplicacao (usado em logs/anotacoes e como nome do Deployment alvo)."
+        type: string
+        required: true
+      namespace:
+        description: "Namespace Kubernetes de destino."
+        type: string
+        required: false
+        default: "apps"
+      manifestsPath:
+        description: "Caminho (no repo) com os manifests a aplicar via kubectl apply -f."
+        type: string
+        required: false
+        default: "./k8s"
+      imageTag:
+        description: "Tag da imagem implantada (ex.: SHA curto). Apenas para anotacao/rastreio."
+        type: string
+        required: false
+        default: ""
+
+jobs:
+  deploy:
+    name: Deploy K8s local (${{ inputs.app }})
+    # Self-hosted runner Windows com acesso ao cluster local (Docker Desktop).
+    runs-on: [self-hosted, windows, docker-desktop, local-k8s, flavio-devops]
+
+    # Todos os steps deste job usam PowerShell 7 (pwsh).
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      # -----------------------------------------------------------------------
+      # 1) Checkout do codigo (necessario para acessar os manifests do repo).
+      # -----------------------------------------------------------------------
+      - name: Checkout do codigo
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      # 2) Validar contexto do kubectl.
+      #    Trava de seguranca: so deployamos no cluster local 'docker-desktop'.
+      #    Se o contexto atual for outro, falha imediatamente (evita deploy
+      #    acidental em cluster errado).
+      # -----------------------------------------------------------------------
+      - name: Validar contexto do kubectl (docker-desktop)
+        run: |
+          $ErrorActionPreference = "Stop"
+          Write-Host "==> Validando contexto do kubectl"
+          $ctx = (kubectl config current-context).Trim()
+          Write-Host "    Contexto atual: '$ctx'"
+          if ($ctx -ne "docker-desktop") {
+            Write-Host "ERRO: contexto esperado 'docker-desktop', encontrado '$ctx'." -ForegroundColor Red
+            Write-Host "      Abortando para evitar deploy em cluster incorreto." -ForegroundColor Red
+            exit 1
+          }
+          Write-Host "    OK: contexto 'docker-desktop' confirmado." -ForegroundColor Green
+
+      # -----------------------------------------------------------------------
+      # 3) Garantir que o namespace de destino existe (idempotente).
+      # -----------------------------------------------------------------------
+      - name: Garantir namespace
+        run: |
+          $ErrorActionPreference = "Stop"
+          $ns = "${{ inputs.namespace }}"
+          Write-Host "==> Garantindo namespace '$ns'"
+          # create --dry-run=client + apply: idempotente (cria ou nao faz nada).
+          kubectl create namespace $ns --dry-run=client -o yaml | kubectl apply -f -
+          if ($LASTEXITCODE -ne 0) { throw "Falha ao garantir o namespace '$ns'." }
+
+      # -----------------------------------------------------------------------
+      # 4) Aplicar manifests.
+      #    Estrategia padrao: kubectl apply -f <manifestsPath> (recursivo).
+      #
+      #    ALTERNATIVA via Helm (descomente e ajuste se a app usar chart):
+      #      helm upgrade --install "${{ inputs.app }}" "${{ inputs.manifestsPath }}" `
+      #        --namespace "${{ inputs.namespace }}" --create-namespace `
+      #        --set image.tag="${{ inputs.imageTag }}" --wait
+      # -----------------------------------------------------------------------
+      - name: Aplicar manifests (kubectl apply)
+        run: |
+          $ErrorActionPreference = "Stop"
+          $path = "${{ inputs.manifestsPath }}"
+          $ns   = "${{ inputs.namespace }}"
+          Write-Host "==> Aplicando manifests de '$path' no namespace '$ns'"
+          if (-not (Test-Path $path)) {
+            throw "Caminho de manifests nao encontrado: '$path'."
+          }
+          kubectl apply -n $ns -f $path --recursive
+          if ($LASTEXITCODE -ne 0) { throw "Falha no 'kubectl apply' dos manifests." }
+          Write-Host "    OK: manifests aplicados." -ForegroundColor Green
+
+      # -----------------------------------------------------------------------
+      # 5) Anotar o Deployment com metadados de rastreabilidade.
+      #    Usa --overwrite para ser idempotente entre execucoes.
+      #    O nome do Deployment segue a convencao: <app>.
+      # -----------------------------------------------------------------------
+      - name: Anotar Deployment (rastreabilidade)
+        run: |
+          $ErrorActionPreference = "Stop"
+          $app = "${{ inputs.app }}"
+          $ns  = "${{ inputs.namespace }}"
+          $tag = "${{ inputs.imageTag }}"
+          # Horario do deploy em UTC, formato ISO 8601.
+          $deployedAt = (Get-Date -AsUTC).ToString("yyyy-MM-ddTHH:mm:ssZ")
+
+          Write-Host "==> Anotando deployment '$app' no namespace '$ns'"
+          kubectl annotate deployment $app -n $ns --overwrite `
+            "devops.flavioneto/commit-sha=${{ github.sha }}" `
+            "devops.flavioneto/branch=${{ github.ref_name }}" `
+            "devops.flavioneto/image-tag=$tag" `
+            "devops.flavioneto/deployed-at=$deployedAt" `
+            "devops.flavioneto/run-id=${{ github.run_id }}"
+          if ($LASTEXITCODE -ne 0) { throw "Falha ao anotar o deployment '$app'." }
+          Write-Host "    OK: anotacoes aplicadas (deployed-at=$deployedAt)." -ForegroundColor Green
+
+      # -----------------------------------------------------------------------
+      # 6) Aguardar a conclusao do rollout do Deployment.
+      # -----------------------------------------------------------------------
+      - name: Aguardar rollout
+        run: |
+          $ErrorActionPreference = "Stop"
+          $app = "${{ inputs.app }}"
+          $ns  = "${{ inputs.namespace }}"
+          Write-Host "==> Aguardando rollout do deployment '$app' (namespace '$ns')"
+          kubectl rollout status deployment/$app -n $ns --timeout=180s
+          if ($LASTEXITCODE -ne 0) { throw "Rollout do deployment '$app' nao concluiu com sucesso." }
+          Write-Host "    OK: rollout concluido." -ForegroundColor Green
+
+      # -----------------------------------------------------------------------
+      # 7) Resumo do deploy no painel do Actions (Job Summary).
+      # -----------------------------------------------------------------------
+      - name: Resumo do deploy
+        if: always()
+        run: |
+          $deployedAt = (Get-Date -AsUTC).ToString("yyyy-MM-ddTHH:mm:ssZ")
+          $lines = @(
+            "### Deploy no Kubernetes local",
+            "",
+            "- **Aplicacao:** ${{ inputs.app }}",
+            "- **Namespace:** ${{ inputs.namespace }}",
+            "- **Manifests:** ``${{ inputs.manifestsPath }}``",
+            "- **Image tag:** ``${{ inputs.imageTag }}``",
+            "- **Commit:** ``${{ github.sha }}``",
+            "- **Branch:** ``${{ github.ref_name }}``",
+            "- **Run ID:** ``${{ github.run_id }}``",
+            "- **Horario (UTC):** $deployedAt"
+          )
+          $lines -join "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
