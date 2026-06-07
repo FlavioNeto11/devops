@@ -376,6 +376,76 @@ Add-Content $h "127.0.0.1`txpto.localhost"
 
 ---
 
+## 14. SPA (Vite/React) em branco sob subpath: MIME dos assets + cache Cloudflare
+
+Sintoma: uma SPA servida num subpath (ex.: o **DevOps Console** em `/devops/`) responde
+`200` e o HTML carrega, mas a **pagina fica em branco** no navegador. Apps de frontend
+estaticos (so `index.html`, como aplicacao1/2/3) NAO sao afetados — o problema aparece
+quando ha bundles separados (`/assets/*.js`, `*.css`).
+
+### 14.1 Causa raiz no nginx: `alias` com captura de regex serve `octet-stream`
+
+Um `location` por **regex** que usa `alias` com a variavel de captura faz o nginx perder
+o tipo por extensao e cair no `default_type` (`application/octet-stream`). Com
+`<script type="module">` + o header `X-Content-Type-Options: nosniff` (do middleware
+`secure-headers`), o navegador **recusa executar** o modulo e a SPA nao monta → tela branca.
+
+```nginx
+# ERRADO - alias com captura $1 de regex -> mime vira application/octet-stream
+location ~* ^/devops/(assets/.*\.(?:js|css))$ {
+    alias /usr/share/nginx/html/$1;
+}
+
+# CERTO - prefixo + alias ESTATICO (sem variavel) -> mime.types aplicado (js/css corretos)
+location /devops/assets/ {
+    alias /usr/share/nginx/html/assets/;
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+}
+```
+
+Diagnostico (compare o `content-type` no ORIGIN vs no publico):
+
+```powershell
+# ORIGIN (Traefik -> nginx direto): tem que ser application/javascript / text/css
+curl.exe -s -o NUL -w "%{content_type}`n" -H "Host: dev.nvit.com.br" http://127.0.0.1/devops/assets/<arquivo>.js
+# PUBLICO
+curl.exe -s -o NUL -w "%{content_type}`n" https://dev.nvit.com.br/devops/assets/<arquivo>.js
+```
+
+### 14.2 A Cloudflare cacheia o `octet-stream` antigo (immutable/1y)
+
+Mesmo depois de corrigir o nginx, o publico pode continuar `octet-stream`: a borda da
+Cloudflare cacheia `.js`/`.css` por extensao e, como os assets vinham com
+`Cache-Control: public, immutable, max-age=31536000`, a resposta ERRADA fica presa por 1 ano.
+Confirme pelos headers:
+
+```powershell
+curl.exe -sI https://dev.nvit.com.br/devops/assets/<arquivo>.js | Select-String 'content-type|cf-cache-status|cache-control'
+# cf-cache-status: HIT + content-type: application/octet-stream = cache velho
+# Teste com cache-buster (ignora a borda): deve voltar application/javascript
+curl.exe -s -o NUL -w "%{content_type}`n" "https://dev.nvit.com.br/devops/assets/<arquivo>.js?v=1"
+```
+
+Solucoes (qualquer uma):
+- **Purgar o cache** no painel Cloudflare → *Caching → Purge Everything* (ou por URL). O HTML
+  (`text/html`) e `DYNAMIC` (nao cacheado), entao basta invalidar os assets.
+- **Mudar o nome dos assets** (self-contained, sem painel): no `vite.config.js`, ajuste o
+  padrao de saida para gerar URLs novas (cache MISS), ex. separador `.`:
+  ```js
+  build: { rollupOptions: { output: {
+    entryFileNames: 'assets/[name].[hash].js',
+    chunkFileNames: 'assets/[name].[hash].js',
+    assetFileNames: 'assets/[name].[hash][extname]',
+  } } }
+  ```
+
+> Atencao: o token dentro de `~/.cloudflared/cert.pem` (gerado pelo `cloudflared tunnel login`)
+> **nao** e um API Token Bearer valido para o endpoint `purge_cache` (retorna 401 / code 10000).
+> Para purgar via API e preciso um API Token com permissao *Zone → Cache Purge*.
+
+---
+
 ## Ainda com problemas?
 
 Colete um diagnostico completo e revise os logs indicados:
