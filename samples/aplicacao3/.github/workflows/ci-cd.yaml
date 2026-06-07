@@ -1,0 +1,24 @@
+name: ci-cd-aplicacao3
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: {}
+jobs:
+  build:
+    strategy:
+      matrix:
+        service: [ frontend, api, api2, worker ]
+    uses: FlavioNeto11/devops/.github/workflows/reusable-build-push.yaml@main
+    with:
+      app: aplicacao3
+      service: ${{ matrix.service }}
+      context: ./${{ matrix.service }}
+    secrets: inherit
+  deploy:
+    needs: build
+    uses: FlavioNeto11/devops/.github/workflows/reusable-deploy-k8s.yaml@main
+    with:
+      app: aplicacao3
+      namespace: apps
+      manifestsPath: ./k8s
+    secrets: inherit

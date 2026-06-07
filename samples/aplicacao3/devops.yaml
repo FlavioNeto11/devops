@@ -1,0 +1,39 @@
+# Contrato gerado por new-app.ps1 (ver ~/.claude/CLAUDE.md e docs/new-project-contract.md)
+app:
+  name: aplicacao3
+  namespace: apps
+  host: xpto.localhost
+  basePath: /aplicacao3
+services:
+  frontend:
+    type: frontend
+    path: /
+    image: ghcr.io/flavioneto11/aplicacao3/frontend
+    port: 80
+    expose: true
+    stripPrefix: false
+  api:
+    type: api
+    path: /api
+    image: ghcr.io/flavioneto11/aplicacao3/api
+    port: 8080
+    expose: true
+    stripPrefix: true
+    health: { path: /health }
+  api2:
+    type: api2
+    path: /api2
+    image: ghcr.io/flavioneto11/aplicacao3/api2
+    port: 8080
+    expose: true
+    stripPrefix: true
+    health: { path: /health }
+  worker:
+    type: worker
+    path: /worker
+    image: ghcr.io/flavioneto11/aplicacao3/worker
+    port: 8081
+    expose: false
+    stripPrefix: true
+    health: { path: /health }
+
