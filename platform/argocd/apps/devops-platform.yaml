@@ -49,11 +49,11 @@ spec:
   # Politica de sincronizacao: MANUAL no laboratorio.
   # Sincronize pela UI (/argocd) ou via CLI: `argocd app sync devops-platform`.
   #
-  # OPT-IN: para ligar o GitOps automatico (prune + self-heal), descomente:
-  # syncPolicy:
-  #   automated:
-  #     prune: true      # remove recursos que sairam do Git
-  #     selfHeal: true   # reverte mudancas manuais feitas no cluster
-  #   syncOptions:
-  #     - CreateNamespace=true
+  # GitOps automatico LIGADO (prune + self-heal). Repo publico -> Argo clona sem credenciais.
+  syncPolicy:
+    automated:
+      prune: true      # remove recursos que sairam do Git
+      selfHeal: true   # reverte mudancas manuais feitas no cluster
+    syncOptions:
+      - CreateNamespace=true
   # ---------------------------------------------------------------------------

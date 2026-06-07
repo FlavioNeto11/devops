@@ -276,6 +276,103 @@ existir no `docker images` local — nao ha push para registry no fluxo `:local`
 
 ---
 
+## 13. Docker Desktop / WSL2: crash no boot, habilitar k8s, node-exporter, Argo CD subpath
+
+Armadilhas reais encontradas ao subir a plataforma neste host (Windows Server + WSL2).
+
+### 13.1 Habilitar o Kubernetes sem a GUI
+
+O CLI `docker desktop` (v0.2.x) **nao** tem toggle de Kubernetes. Habilite via arquivo de
+settings e reinicie:
+
+```powershell
+$f = "$env:APPDATA\Docker\settings-store.json"
+Copy-Item $f "$f.bak" -Force
+$j = Get-Content $f -Raw | ConvertFrom-Json
+$j | Add-Member -NotePropertyName KubernetesEnabled -NotePropertyValue $true -Force
+$j | ConvertTo-Json -Depth 10 | Set-Content $f -Encoding utf8
+docker desktop restart
+# Aguarde (1a vez leva alguns minutos):
+kubectl get nodes        # docker-desktop deve ficar Ready
+```
+
+(Equivale a Docker Desktop -> Settings -> Kubernetes -> *Enable Kubernetes* -> Apply.)
+
+### 13.2 Docker Desktop crasha no boot apos um force-kill ("An unexpected error occurred")
+
+Sintoma: ao iniciar, aparece *"Docker Desktop encountered an unexpected error"* citando
+`...\Docker\run\dockerInference` ou `...\docker-secrets-engine\engine.sock`
+(*"The file cannot be accessed by the system"*). Causa: um encerramento forcado deixou
+sockets AF_UNIX orfaos que o Docker nao consegue remover no boot.
+
+**Nao** clique em *"Reset to factory defaults"* (apaga imagens/containers/config). Recuperacao:
+
+```powershell
+# 1) Parar tudo
+Get-Process -Name "Docker Desktop","com.docker.backend","com.docker.build" -EA SilentlyContinue | Stop-Process -Force -EA SilentlyContinue
+Stop-Service com.docker.service -Force -EA SilentlyContinue
+wsl --shutdown
+
+# 2) Tirar as pastas de socket do caminho (nao da para deletar; renomeie)
+$ts = Get-Date -Format yyyyMMdd-HHmmss
+Get-ChildItem -Force $env:LOCALAPPDATA -Directory | Where-Object { $_.Name -like 'docker-*' } |
+    ForEach-Object { Rename-Item $_.FullName "$($_.Name).broken-$ts" }
+if (Test-Path "$env:LOCALAPPDATA\Docker\run") { Rename-Item "$env:LOCALAPPDATA\Docker\run" "run.broken-$ts" }
+
+# 3) Desativar o Docker AI (Inference manager costuma falhar nesse cenario)
+$f = "$env:APPDATA\Docker\settings-store.json"; $j = Get-Content $f -Raw | ConvertFrom-Json
+$j | Add-Member EnableDockerAI $false -Force
+$j | ConvertTo-Json -Depth 10 | Set-Content $f -Encoding utf8
+
+# 4) Subir limpo
+Start-Service com.docker.service
+Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+```
+
+### 13.3 node-exporter em CrashLoopBackOff (kube-prometheus-stack)
+
+Sintoma: `prometheus-node-exporter` em `CrashLoopBackOff` com
+`path / is mounted on / but it is not a shared or slave mount`. Causa: o mount do rootfs
+do host nao funciona no backend WSL2. Fix (ja aplicado em
+`platform/observability/prometheus-values.yaml`):
+
+```yaml
+prometheus-node-exporter:
+  hostRootFsMount:
+    enabled: false
+```
+
+Reinstale a observabilidade apos o ajuste:
+
+```powershell
+helm uninstall kube-prometheus-stack -n observability
+.\scripts\install-observability.ps1
+```
+
+### 13.4 Argo CD em `/argocd` abre em branco (assets 404)
+
+Sintoma: `/argocd` responde 200, mas a UI nao renderiza; o HTML traz `<base href="/">`
+mesmo com `server.rootpath`/`server.basehref` corretos no configmap/env (quirk do Argo CD
+atras de subpath). Use o **port-forward** (confiavel):
+
+```powershell
+kubectl port-forward svc/argocd-server -n argocd 8080:80
+# Acesse http://localhost:8080
+```
+
+### 13.5 Append no arquivo hosts "gruda" na ultima linha
+
+Se o `hosts` nao terminar com quebra de linha, um `Add-Content` cola a nova entrada na
+ultima linha existente (corrompe ambas). Garanta o newline antes:
+
+```powershell
+$h = "$env:SystemRoot\System32\drivers\etc\hosts"
+if ((Get-Content $h -Raw) -notmatch "`n$") { Add-Content $h "" }
+Add-Content $h "127.0.0.1`txpto.localhost"
+```
+
+---
+
 ## Ainda com problemas?
 
 Colete um diagnostico completo e revise os logs indicados:
