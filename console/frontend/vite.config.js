@@ -21,6 +21,21 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   base: '/devops/',
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        // Nomes de asset com separador "." (index.<hash>.js) em vez de "-".
+        // Motivo: os assets antigos (index-<hash>.js) foram cacheados na borda da
+        // Cloudflare como application/octet-stream (bug de mime no nginx, ja
+        // corrigido) com Cache-Control immutable/1y. Trocar o padrao de nome gera
+        // URLs novas (cache MISS) servidas com o mime correto. O [hash] continua
+        // refletindo o conteudo nos builds seguintes.
+        entryFileNames: 'assets/[name].[hash].js',
+        chunkFileNames: 'assets/[name].[hash].js',
+        assetFileNames: 'assets/[name].[hash][extname]',
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {
