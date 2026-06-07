@@ -28,6 +28,8 @@ param(
   [string]$Namespace = 'apps',
   [string]$AppHost = 'xpto.localhost',
   [string]$OutDir = 'C:\devops\samples',
+  [string]$ArgoAppsDir = 'C:\devops\platform\argocd\apps',
+  [switch]$NoArgo,
   [switch]$Force
 )
 
@@ -360,6 +362,48 @@ Confira tambem no DevOps Console: http://$AppHost/devops
 "@
 Set-Content (Join-Path $root 'README.md') $readme -Encoding utf8
 
+# ---------------------------------------------------------------- Argo CD Application (GitOps)
+$argoMsg = ""
+if (-not $NoArgo) {
+  $repoRoot = 'C:\devops'
+  if ($root.StartsWith($repoRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+    $relK8s = (($root.Substring($repoRoot.Length).TrimStart('\') -replace '\\', '/')) + '/k8s'
+  }
+  else {
+    $relK8s = "samples/$Name/k8s"
+    Write-Host "  -> AVISO: app fora de C:\devops; ajuste source.path da Application do Argo manualmente."
+  }
+  New-Item -ItemType Directory -Force -Path $ArgoAppsDir | Out-Null
+  $argoApp = @"
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: $Name
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/FlavioNeto11/devops
+    path: $relK8s
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: $Namespace
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+"@
+  $argoPath = Join-Path $ArgoAppsDir "$Name.yaml"
+  Set-Content $argoPath $argoApp -Encoding utf8
+  $argoMsg = "$argoPath  (commit + push para o app-of-apps colocar a app sob GitOps)"
+  Write-Host "  -> Argo Application gerada: $argoPath"
+}
+
 # ---------------------------------------------------------------- resumo
 Write-Host "`n[OK] App '$Name' gerado em: $root"
 Write-Host "`nProximos passos (LOCAL):"
@@ -368,3 +412,4 @@ Write-Host "  kubectl apply -f `"$(Join-Path $root "k8s\$Name.yaml")`""
 Write-Host "`nRotas que serao publicadas:"
 foreach ($r in ($routes | Sort-Object -Property Prio -Descending)) { Write-Host ("  http://{0}{1}   (priority {2} -> {3}:{4})" -f $AppHost, $r.Prefix, $r.Prio, $r.Svc, $r.Port) }
 Write-Host "`nContrato: $(Join-Path $root 'devops.yaml')  |  Console: http://$AppHost/devops"
+if ($argoMsg) { Write-Host "GitOps:   $argoMsg" }
