@@ -10,6 +10,15 @@ kind: Deployment
 metadata:
   name: aplicacao1-api
   namespace: apps
+  annotations:
+    # Metadados de publicacao lidos pela aba "Publicacoes" do DevOps Console.
+    # No pipeline real, o reusable-deploy-k8s.yaml grava estes valores dinamicamente.
+    devops.flavioneto/commitSha: "d6a8437"
+    devops.flavioneto/branch: "main"
+    devops.flavioneto/imageTag: "local"
+    devops.flavioneto/deployedAt: "2026-06-07T17:57:00Z"
+    devops.flavioneto/runId: "manual-publish-001"
+    devops.flavioneto/image: "aplicacao1-api:local"
   labels:
     app.kubernetes.io/name: aplicacao1
     app.kubernetes.io/component: api

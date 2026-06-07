@@ -1,0 +1,377 @@
+# =============================================================================
+# aplicacao2 - app de exemplo MULTI-SERVICO (frontend + api + api2)
+# -----------------------------------------------------------------------------
+# Roteamento (host unico xpto.localhost / www.xpto.com):
+#   /aplicacao2        -> frontend  (sem strip,  priority 10)
+#   /aplicacao2/api    -> api       (StripPrefix /aplicacao2/api,  priority 30)
+#   /aplicacao2/api2   -> api2      (StripPrefix /aplicacao2/api2, priority 40)
+#
+# IMPORTANTE: /aplicacao2/api2 e PREFIXADO por /aplicacao2/api -> api2 PRECISA de
+# priority MAIOR que api para o match mais especifico vencer.
+#
+# Sem builds: frontend = nginx:alpine + ConfigMap; api/api2 reusam
+# aplicacao1-api:local (servem /health,/version,/hello na raiz pos-strip),
+# diferenciados por APP_VERSION. Annotations devops.flavioneto/* alimentam a aba
+# "Publicacoes" do DevOps Console.
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aplicacao2-frontend
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: aplicacao2
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: aplicacao2
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>Aplicacao 2 (multi-servico)</title>
+      <style>
+        body { font-family: system-ui, sans-serif; background:#0f172a; color:#e2e8f0; padding:2rem; }
+        .card { background:#1e293b; border-radius:12px; padding:1.5rem 2rem; max-width:780px; margin:0 auto; box-shadow:0 10px 30px rgba(0,0,0,.4); }
+        h1 { margin-top:0; } code { background:#334155; padding:.15rem .4rem; border-radius:6px; }
+        a { color:#7dd3fc; } pre { background:#0b1220; padding:1rem; border-radius:8px; overflow:auto; }
+        .ok { color:#34d399; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <h1>Aplicacao 2 publicada via DevOps local</h1>
+        <p class="ok">App <b>multi-servico</b>: frontend + <code>api</code> + <code>api2</code>, roteados por path no mesmo host.</p>
+        <ul>
+          <li><a href="/aplicacao2/api/version">/aplicacao2/api/version</a></li>
+          <li><a href="/aplicacao2/api2/version">/aplicacao2/api2/version</a></li>
+        </ul>
+        <h3>api</h3><pre id="api">carregando...</pre>
+        <h3>api2</h3><pre id="api2">carregando...</pre>
+      </div>
+      <script>
+        const base = '/aplicacao2';
+        const show = (id, url) => fetch(url)
+          .then(r => r.json())
+          .then(d => document.getElementById(id).textContent = JSON.stringify(d, null, 2))
+          .catch(e => document.getElementById(id).textContent = 'erro: ' + e);
+        show('api',  base + '/api/version');
+        show('api2', base + '/api2/version');
+      </script>
+    </body>
+    </html>
+  default.conf: |
+    server {
+      listen 80;
+      location = /healthz { return 200 'ok'; add_header Content-Type text/plain; }
+      location = /aplicacao2 { return 301 /aplicacao2/; }
+      location /aplicacao2/ {
+        alias /usr/share/nginx/html/;
+        index index.html;
+        try_files $uri $uri/ /aplicacao2/index.html;
+      }
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aplicacao2-config
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: aplicacao2
+data:
+  APP_NAME: aplicacao2
+  BASE_PATH: /aplicacao2
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aplicacao2-frontend
+  namespace: apps
+  annotations:
+    devops.flavioneto/commitSha: "d6a8437"
+    devops.flavioneto/branch: "main"
+    devops.flavioneto/imageTag: "alpine"
+    devops.flavioneto/deployedAt: "2026-06-07T18:50:00Z"
+    devops.flavioneto/runId: "manual-publish-002"
+    devops.flavioneto/image: "nginx:alpine"
+  labels:
+    app.kubernetes.io/name: aplicacao2
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: aplicacao2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: aplicacao2
+      app.kubernetes.io/component: frontend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: aplicacao2
+        app.kubernetes.io/component: frontend
+        app.kubernetes.io/part-of: aplicacao2
+    spec:
+      containers:
+        - name: frontend
+          image: nginx:alpine
+          ports:
+            - name: http
+              containerPort: 80
+          volumeMounts:
+            - name: web
+              mountPath: /usr/share/nginx/html/index.html
+              subPath: index.html
+            - name: web
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "16Mi"
+            limits:
+              cpu: "100m"
+              memory: "64Mi"
+      volumes:
+        - name: web
+          configMap:
+            name: aplicacao2-frontend
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aplicacao2-frontend
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: aplicacao2
+spec:
+  selector:
+    app.kubernetes.io/name: aplicacao2
+    app.kubernetes.io/component: frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aplicacao2-api
+  namespace: apps
+  annotations:
+    devops.flavioneto/commitSha: "d6a8437"
+    devops.flavioneto/branch: "main"
+    devops.flavioneto/imageTag: "local"
+    devops.flavioneto/deployedAt: "2026-06-07T18:50:00Z"
+    devops.flavioneto/runId: "manual-publish-002"
+    devops.flavioneto/image: "aplicacao1-api:local"
+  labels:
+    app.kubernetes.io/name: aplicacao2
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: aplicacao2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: aplicacao2
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: aplicacao2
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: aplicacao2
+    spec:
+      containers:
+        - name: api
+          image: aplicacao1-api:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+            - name: APP_VERSION
+              value: "aplicacao2-api-1.0"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 8
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "32Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aplicacao2-api
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: aplicacao2
+spec:
+  selector:
+    app.kubernetes.io/name: aplicacao2
+    app.kubernetes.io/component: api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aplicacao2-api2
+  namespace: apps
+  annotations:
+    devops.flavioneto/commitSha: "d6a8437"
+    devops.flavioneto/branch: "main"
+    devops.flavioneto/imageTag: "local"
+    devops.flavioneto/deployedAt: "2026-06-07T18:50:00Z"
+    devops.flavioneto/runId: "manual-publish-002"
+    devops.flavioneto/image: "aplicacao1-api:local"
+  labels:
+    app.kubernetes.io/name: aplicacao2
+    app.kubernetes.io/component: api2
+    app.kubernetes.io/part-of: aplicacao2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: aplicacao2
+      app.kubernetes.io/component: api2
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: aplicacao2
+        app.kubernetes.io/component: api2
+        app.kubernetes.io/part-of: aplicacao2
+    spec:
+      containers:
+        - name: api2
+          image: aplicacao1-api:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+            - name: APP_VERSION
+              value: "aplicacao2-api2-2.0"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 8
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "32Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aplicacao2-api2
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: aplicacao2
+spec:
+  selector:
+    app.kubernetes.io/name: aplicacao2
+    app.kubernetes.io/component: api2
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: aplicacao2-api-strip
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: aplicacao2
+spec:
+  stripPrefix:
+    prefixes:
+      - /aplicacao2/api
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: aplicacao2-api2-strip
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: aplicacao2
+spec:
+  stripPrefix:
+    prefixes:
+      - /aplicacao2/api2
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: aplicacao2
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: aplicacao2
+    app.kubernetes.io/part-of: aplicacao2
+spec:
+  entryPoints:
+    - web
+  routes:
+    # api2 (mais especifico) -> priority MAIOR para vencer /aplicacao2/api
+    - match: (Host(`xpto.localhost`) || Host(`www.xpto.com`)) && PathPrefix(`/aplicacao2/api2`)
+      kind: Rule
+      priority: 40
+      services:
+        - name: aplicacao2-api2
+          port: 8080
+      middlewares:
+        - name: aplicacao2-api2-strip
+    # api
+    - match: (Host(`xpto.localhost`) || Host(`www.xpto.com`)) && PathPrefix(`/aplicacao2/api`)
+      kind: Rule
+      priority: 30
+      services:
+        - name: aplicacao2-api
+          port: 8080
+      middlewares:
+        - name: aplicacao2-api-strip
+    # frontend (generico)
+    - match: (Host(`xpto.localhost`) || Host(`www.xpto.com`)) && PathPrefix(`/aplicacao2`)
+      kind: Rule
+      priority: 10
+      services:
+        - name: aplicacao2-frontend
+          port: 80

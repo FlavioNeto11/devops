@@ -1,0 +1,53 @@
+# =============================================================================
+# Contrato devops.yaml - aplicacao2 (MULTI-SERVICO: frontend + api + api2)
+# -----------------------------------------------------------------------------
+# Demonstra o padrao da plataforma com DOIS backends de API no mesmo host/path.
+# Convencao de roteamento:
+#   /aplicacao2        -> frontend (stripPrefix=false; SPA servida no subpath)
+#   /aplicacao2/api    -> api      (stripPrefix=true)
+#   /aplicacao2/api2   -> api2     (stripPrefix=true; PRIORIDADE maior que /api,
+#                                   pois /aplicacao2/api2 e prefixado por /aplicacao2/api)
+# No laboratorio reaproveitamos imagens locais (sem build novo): o frontend usa
+# nginx:alpine + ConfigMap; api e api2 reusam aplicacao1-api:local.
+# =============================================================================
+app:
+  name: aplicacao2
+  namespace: apps
+  host: xpto.localhost          # real futuro: www.xpto.com
+  basePath: /aplicacao2
+
+services:
+  frontend:
+    type: frontend
+    path: /
+    image: ghcr.io/flavioneto11/aplicacao2/frontend   # local: nginx:alpine + ConfigMap
+    port: 80
+    expose: true
+    stripPrefix: false
+    env:
+      VITE_BASE_PATH: /aplicacao2/
+
+  api:
+    type: api
+    path: /api
+    image: ghcr.io/flavioneto11/aplicacao2/api         # local: aplicacao1-api:local
+    port: 8080
+    expose: true
+    stripPrefix: true
+    health:
+      path: /health
+    env:
+      APP_VERSION: aplicacao2-api-1.0
+
+  api2:
+    type: api2
+    path: /api2
+    image: ghcr.io/flavioneto11/aplicacao2/api2        # local: aplicacao1-api:local
+    port: 8080
+    expose: true
+    stripPrefix: true
+    priority: 40                                        # > api (vence o prefixo /api)
+    health:
+      path: /health
+    env:
+      APP_VERSION: aplicacao2-api2-2.0
