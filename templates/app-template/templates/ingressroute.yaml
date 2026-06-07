@@ -12,7 +12,7 @@ Convencao de roteamento (critica):
     Middleware StripPrefix (remove o prefixo COMPLETO), com priority MAIOR para
     vencer o frontend no mesmo host (o prefixo mais especifico ganha).
 
-Hosts: incluimos app.host E nvit.io (quando diferentes) usando a forma
+Hosts: incluimos app.host E dev.nvit.com.br (quando diferentes) usando a forma
 Host(`a`, `b`) do Traefik, para que o mesmo layout de paths funcione no host
 local e no dominio real.
 
@@ -21,7 +21,7 @@ HTTPS/websecure: pendente (certificado self-signed). Por enquanto so web.
 */ -}}
 {{- $root := . -}}
 {{- $appHost := .Values.app.host -}}
-{{- $realHost := "nvit.io" -}}
+{{- $realHost := "dev.nvit.com.br" -}}
 {{- /* Monta a lista de hosts (sem duplicar) para a clausula Host(...) */ -}}
 {{- $hosts := list $appHost -}}
 {{- if ne $appHost $realHost -}}

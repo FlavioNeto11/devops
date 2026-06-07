@@ -134,7 +134,7 @@ Invoke-External -FilePath 'helm' -Arguments $promtailArgs
 # -----------------------------------------------------------------------------
 # IngressRoute para /grafana (here-string canalizada para kubectl apply -f -).
 # SEM StripPrefix: o Grafana usa serve_from_sub_path (ver grafana-values.yaml).
-# entryPoints [web]; Hosts xpto.localhost e nvit.io.
+# entryPoints [web]; Hosts xpto.localhost e dev.nvit.com.br.
 # -----------------------------------------------------------------------------
 Write-Section 'Observabilidade :: IngressRoute (/grafana)'
 $grafanaRoute = @'
@@ -151,7 +151,7 @@ spec:
     - web
   routes:
     - kind: Rule
-      match: (Host(`xpto.localhost`) || Host(`nvit.io`)) && PathPrefix(`/grafana`)
+      match: (Host(`xpto.localhost`) || Host(`dev.nvit.com.br`)) && PathPrefix(`/grafana`)
       priority: 10
       services:
         - name: kube-prometheus-stack-grafana

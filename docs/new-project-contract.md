@@ -66,7 +66,7 @@ services:                   # mapa serviceName -> definicao
 |-------------|--------|-------------|----------------------------------------------------------------------------------------------------|--------------------|
 | `name`      | string | **Sim**     | Nome logico da aplicacao. Usado em labels, nos nomes dos recursos (`<name>-<service>`) e nas rotas. Use minusculas e hifens. | `aplicacao1`       |
 | `namespace` | string | **Sim**     | Namespace Kubernetes onde a app e implantada. Deve ser um dos namespaces da plataforma.            | `apps`             |
-| `host`      | string | **Sim**     | Host de entrada no Traefik. Local: `xpto.localhost`. Real futuro: `nvit.io`.                  | `xpto.localhost`   |
+| `host`      | string | **Sim**     | Host de entrada no Traefik. Local: `xpto.localhost`. Real futuro: `dev.nvit.com.br`.                  | `xpto.localhost`   |
 | `basePath`  | string | **Sim**     | Subpath base sob o qual a app inteira e servida no host unico. Convencao: `/<name>`.               | `/aplicacao1`      |
 
 ### Observacoes sobre `app`
@@ -78,7 +78,7 @@ services:                   # mapa serviceName -> definicao
   `apps-dev` (desenvolvimento), `apps-prod-local` ("producao" local). Os demais
   (`devops-system`, `traefik`, `argocd`, `observability`) sao **reservados** a plataforma.
 - **`host`**: no laboratorio sempre `xpto.localhost`. O mesmo layout de paths vale para o
-  dominio real `nvit.io` — basta trocar o `host`. Veja
+  dominio real `dev.nvit.com.br` — basta trocar o `host`. Veja
   [`local-domain-setup.md`](./local-domain-setup.md).
 - **`basePath`**: define onde a app aparece no host unico. Aceita-se `/<name>` (com barra)
   como forma canonica. Internamente a plataforma normaliza barras; mantenha **consistencia**
@@ -331,7 +331,7 @@ Cenario: uma segunda aplicacao com um **frontend** (SPA), uma **API publica** (`
 #   - api (publica):  /aplicacao2/api  COM StripPrefix -> backend ve a raiz.
 #   - api2 (admin):   /aplicacao2/api2 COM StripPrefix -> backend ve a raiz.
 #
-# Host local: xpto.localhost  | Host real futuro: nvit.io
+# Host local: xpto.localhost  | Host real futuro: dev.nvit.com.br
 # Convencao: frontend NUNCA faz strip; APIs SEMPRE fazem strip; /api e /api2
 # tem priority MAIOR que /aplicacao2 (prefixos mais especificos vencem).
 # =============================================================================
@@ -414,8 +414,8 @@ services:
 | API (health)               | <http://xpto.localhost/aplicacao2/api/health>    |
 | API2 (health)              | <http://xpto.localhost/aplicacao2/api2/health>   |
 
-> No dominio real, troque `app.host` para `nvit.io` (mesmos paths): as URLs viram
-> `https://nvit.io/aplicacao2`, `.../aplicacao2/api/health`, etc.
+> No dominio real, troque `app.host` para `dev.nvit.com.br` (mesmos paths): as URLs viram
+> `https://dev.nvit.com.br/aplicacao2`, `.../aplicacao2/api/health`, etc.
 
 ---
 
@@ -435,7 +435,7 @@ services:
 
 - [`path-routing-pattern.md`](./path-routing-pattern.md) — convencao de roteamento,
   StripPrefix, prioridade, exemplos de `IngressRoute`/`Middleware`, tabela de rotas e
-  versao `nvit.io`.
+  versao `dev.nvit.com.br`.
 - [`project-onboarding-checklist.md`](./project-onboarding-checklist.md) — checklist para
   colocar a app na esteira.
 - [`deployment-flow.md`](./deployment-flow.md) — publicar (local e via Actions/GHCR),

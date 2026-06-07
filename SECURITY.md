@@ -101,7 +101,7 @@ Justificativa:
   **`websecure` (HTTPS/443)** fica **pendente**, pois exigiria um certificado
   **self-signed** (o navegador exibiria aviso de seguranca). Para o laboratorio em
   `xpto.localhost`, HTTP e suficiente.
-- **Como endurecer para o dominio real (`nvit.io`):**
+- **Como endurecer para o dominio real (`dev.nvit.com.br`):**
   1. Emitir um certificado valido (ex.: Let's Encrypt via ACME no Traefik, ou um
      certificado corporativo) e habilitar o entrypoint `websecure`.
   2. Redirecionar `web` → `websecure` (HTTP → HTTPS) com um `Middleware` de redirect.

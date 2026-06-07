@@ -6,7 +6,7 @@ Deployments, Services ClusterIP, ConfigMaps, exemplo de Secret e rotas de
 Ingress do **Traefik** (`IngressRoute` + `Middleware` de `StripPrefix`).
 
 O chart segue a **convencao de roteamento por subpath** da plataforma: o mesmo
-host (`xpto.localhost` no local, `nvit.io` no real) serve varias apps,
+host (`xpto.localhost` no local, `dev.nvit.com.br` no real) serve varias apps,
 cada uma sob um `basePath` (ex.: `/aplicacao1`).
 
 ---
@@ -36,7 +36,7 @@ Instalar / atualizar no namespace `apps` (ambiente local):
 helm upgrade --install aplicacao1 ./ -n apps -f values.local.yaml
 ```
 
-Ambiente DEV/real (host `nvit.io`, imagens no GHCR):
+Ambiente DEV/real (host `dev.nvit.com.br`, imagens no GHCR):
 
 ```powershell
 helm upgrade --install aplicacao1 ./ -n apps -f values.dev.yaml

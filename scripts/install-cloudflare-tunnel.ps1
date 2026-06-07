@@ -2,12 +2,12 @@
 <#
 .SYNOPSIS
   Instala o conector do Cloudflare Tunnel (cloudflared) como servico Windows,
-  ligando os dominios (nvit.io / nvit.com.br) ao Traefik local (localhost:80)
+  ligando os dominios (dev.nvit.com.br / nvit.com.br) ao Traefik local (localhost:80)
   SEM abrir portas/firewall. O TLS publico (HTTPS) e terminado na Cloudflare.
 .DESCRIPTION
   Modelo "remotely-managed": o tunnel e criado no painel da Cloudflare (Zero Trust),
   e este script apenas instala o conector com o TOKEN. As regras de Public Hostname
-  (nvit.io -> http://localhost:80) ficam no painel. Guia completo em
+  (dev.nvit.com.br -> http://localhost:80) ficam no painel. Guia completo em
   docs/cloudflare-tunnel-setup.md.
 .EXAMPLE
   .\scripts\install-cloudflare-tunnel.ps1                       # mostra os passos manuais
@@ -19,7 +19,7 @@ param(
   [string]$TunnelToken,                 # modo painel (Zero Trust) - exige cartao
   [switch]$Cli,                         # modo CLI-managed (SEM cartao) - recomendado
   [string]$TunnelName = 'nvit-local',
-  [string]$TunnelDomain = 'nvit.io',
+  [string]$TunnelDomain = 'dev.nvit.com.br',
   [switch]$Uninstall
 )
 Set-StrictMode -Version Latest
@@ -53,10 +53,10 @@ if ($Cli) {
   }
   Write-Host "Login OK (cert.pem encontrado)."
   # Criar o tunnel (idempotente)
-  $tun = cloudflared tunnel list --output json 2>$null | ConvertFrom-Json | Where-Object { $_.name -eq $TunnelName } | Select-Object -First 1
+  $tun = @(cloudflared tunnel list --output json 2>$null | ConvertFrom-Json) | Where-Object { $_ -and $_.name -eq $TunnelName } | Select-Object -First 1
   if (-not $tun) {
     cloudflared tunnel create $TunnelName 2>&1 | Out-Host
-    $tun = cloudflared tunnel list --output json 2>$null | ConvertFrom-Json | Where-Object { $_.name -eq $TunnelName } | Select-Object -First 1
+    $tun = @(cloudflared tunnel list --output json 2>$null | ConvertFrom-Json) | Where-Object { $_ -and $_.name -eq $TunnelName } | Select-Object -First 1
   }
   else { Write-Host "Tunnel '$TunnelName' ja existe." }
   if (-not $tun) { throw "Falha ao criar/listar o tunnel '$TunnelName'." }
@@ -108,7 +108,7 @@ if (-not $TunnelToken) {
 ============================================================================
 Faca UMA vez (detalhes em docs/cloudflare-tunnel-setup.md):
 
- 1) Conta Cloudflare (gratis) -> Add a site -> adicione 'nvit.io' (e 'nvit.com.br').
+ 1) Conta Cloudflare (gratis) -> Add a site -> adicione 'dev.nvit.com.br' (e 'nvit.com.br').
     A Cloudflare importa os registros atuais. Depois, na HOSTINGER, troque os
     NAMESERVERS do dominio pelos dois que a Cloudflare indicar.
 
@@ -118,14 +118,14 @@ Faca UMA vez (detalhes em docs/cloudflare-tunnel-setup.md):
  3) Na tela "Install connector" (Windows), COPIE o TOKEN (string longa eyJ...).
 
  4) Aba "Public Hostnames" do tunnel -> Add:
-       Subdomain: (vazio)   Domain: nvit.io   ->  Service: HTTP   URL: localhost:80
-    (opcional) Subdomain: *  Domain: nvit.io  ->  Service: HTTP   URL: localhost:80
+       Subdomain: (vazio)   Domain: dev.nvit.com.br   ->  Service: HTTP   URL: localhost:80
+    (opcional) Subdomain: *  Domain: dev.nvit.com.br  ->  Service: HTTP   URL: localhost:80
 
  5) Rode de novo, agora com o token:
        .\scripts\install-cloudflare-tunnel.ps1 -TunnelToken <SEU_TOKEN>
 
- 6) (Redirect nvit.com.br -> nvit.io) Cloudflare -> dominio nvit.com.br ->
-    Rules -> Redirect Rules -> dynamic redirect para https://nvit.io + path.
+ 6) (Redirect nvit.com.br -> dev.nvit.com.br) Cloudflare -> dominio nvit.com.br ->
+    Rules -> Redirect Rules -> dynamic redirect para https://dev.nvit.com.br + path.
 ============================================================================
 "@
   return
@@ -138,5 +138,5 @@ Start-Sleep -Seconds 4
 $svc = Get-Service cloudflared -ErrorAction SilentlyContinue
 if ($svc) { Write-Host ("[OK] Servico cloudflared: {0}" -f $svc.Status) } else { Write-Host "[AVISO] servico cloudflared nao encontrado; verifique a saida acima." }
 Write-Host "`nO tunnel liga os Public Hostnames (no painel) ao Traefik local (localhost:80)."
-Write-Host "Valide (apos o DNS propagar): https://nvit.io/devops  e  https://nvit.io/aplicacao1"
-Write-Host "Lembre: as rotas internas ja aceitam o host nvit.io (scripts/set-domain.ps1)."
+Write-Host "Valide (apos o DNS propagar): https://dev.nvit.com.br/devops  e  https://dev.nvit.com.br/aplicacao1"
+Write-Host "Lembre: as rotas internas ja aceitam o host dev.nvit.com.br (scripts/set-domain.ps1)."

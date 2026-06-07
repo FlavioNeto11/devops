@@ -11,7 +11,7 @@
 #   priority 20  ->  /devops/api  -> console-backend:3001  (com StripPrefix)
 #   priority 10  ->  /devops      -> console-frontend:80   (sem strip)
 #
-# Hosts atendidos: xpto.localhost (local) e nvit.io (real futuro, mesmo
+# Hosts atendidos: xpto.localhost (local) e dev.nvit.com.br (real futuro, mesmo
 # layout de paths).
 #
 # Aplicar com:
@@ -34,7 +34,7 @@ spec:
     # --- Rota 1: API do Console (mais especifica) --------------------------
     # PathPrefix /devops/api. Prioridade MAIOR para vencer /devops. O
     # Middleware console-api-strip remove /devops/api -> backend recebe /...
-    - match: (Host(`xpto.localhost`) || Host(`nvit.io`)) && PathPrefix(`/devops/api`)
+    - match: (Host(`xpto.localhost`) || Host(`dev.nvit.com.br`)) && PathPrefix(`/devops/api`)
       kind: Rule
       priority: 20
       services:
@@ -52,7 +52,7 @@ spec:
     # --- Rota 2: Frontend (SPA) do Console (mais generica) -----------------
     # PathPrefix /devops. SEM StripPrefix: a SPA e servida sob o subpath
     # /devops/ (build com base path /devops/).
-    - match: (Host(`xpto.localhost`) || Host(`nvit.io`)) && PathPrefix(`/devops`)
+    - match: (Host(`xpto.localhost`) || Host(`dev.nvit.com.br`)) && PathPrefix(`/devops`)
       kind: Rule
       priority: 10
       services:

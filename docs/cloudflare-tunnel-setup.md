@@ -1,11 +1,11 @@
-# Expor a plataforma na internet com Cloudflare Tunnel (nvit.io / nvit.com.br)
+# Expor a plataforma na internet com Cloudflare Tunnel (dev.nvit.com.br / nvit.com.br)
 
 Guia para publicar a plataforma DevOps local (cluster do Docker Desktop) nos dominios
-reais **`nvit.io`** (principal) e **`nvit.com.br`** (redireciona para o principal), usando
+reais **`dev.nvit.com.br`** (principal) e **`nvit.com.br`** (redireciona para o principal), usando
 **Cloudflare Tunnel** — **gratis**, **sem abrir portas/firewall**, funciona atras de NAT e
 com **HTTPS automatico**.
 
-> Pre-requisito ja feito: as IngressRoutes do Traefik aceitam o host `nvit.io`
+> Pre-requisito ja feito: as IngressRoutes do Traefik aceitam o host `dev.nvit.com.br`
 > (via [`set-domain.ps1`](../scripts/set-domain.ps1)). O `xpto.localhost` continua valendo
 > para dev local.
 
@@ -19,12 +19,12 @@ com **HTTPS automatico**.
                                                                       v
                                                             Traefik (localhost:80)
                                                                       |
-                                                      IngressRoute (Host nvit.io + PathPrefix)
+                                                      IngressRoute (Host dev.nvit.com.br + PathPrefix)
                                                                       v
                                                    console / aplicacao1 / grafana / argocd ...
 ```
 
-- O **TLS publico** (`https://nvit.io`) e terminado na **Cloudflare** (Universal SSL).
+- O **TLS publico** (`https://dev.nvit.com.br`) e terminado na **Cloudflare** (Universal SSL).
 - O **`cloudflared`** roda como **servico Windows** nesta maquina e cria um tunnel de saida
   ate a Cloudflare — por isso **nao precisa abrir portas** nem ter IP publico.
 - A Cloudflare encaminha o trafego do hostname para `http://localhost:80` (Traefik), que faz
@@ -39,23 +39,23 @@ tunnel **CLI-managed** **nao** usa o Zero Trust e **nao pede cartao**. Pre-requi
 dominio ja **Active** na Cloudflare (Passo 1 abaixo — voce ja fez).
 
 ```powershell
-# 1) Autenticar (abre o navegador; escolha o dominio nvit.io; SEM cartao)
+# 1) Autenticar (abre o navegador; escolha o dominio dev.nvit.com.br; SEM cartao)
 cloudflared tunnel login
 
 # 2) Criar tunnel + config + rota DNS + servico (faz tudo)
 cd C:\devops
-.\scripts\install-cloudflare-tunnel.ps1 -Cli -TunnelDomain nvit.io
+.\scripts\install-cloudflare-tunnel.ps1 -Cli -TunnelDomain dev.nvit.com.br
 
 # 3) Validar (apos o DNS propagar)
-#    https://nvit.io/devops    https://nvit.io/aplicacao1
+#    https://dev.nvit.com.br/devops    https://dev.nvit.com.br/aplicacao1
 ```
 
 O script cria o tunnel `nvit-local`, grava `C:\cloudflared\config.yml`
-(ingress `nvit.io -> http://localhost:80`), cria o CNAME `nvit.io -> <id>.cfargotunnel.com`
+(ingress `dev.nvit.com.br -> http://localhost:80`), cria o CNAME `dev.nvit.com.br -> <id>.cfargotunnel.com`
 e instala o servico Windows. Se o servico nao subir, rode em 1o plano para testar:
 `cloudflared --config C:\cloudflared\config.yml tunnel run nvit-local`.
 
-> HTTPS continua automatico (Universal SSL). Redirect `nvit.com.br -> nvit.io`: ver Passo 5.
+> HTTPS continua automatico (Universal SSL). Redirect `nvit.com.br -> dev.nvit.com.br`: ver Passo 5.
 > Os Passos 2–4 abaixo sao o **Caminho B (painel/Zero Trust)** — so use se preferir o token
 > (exige cartao).
 
@@ -64,10 +64,10 @@ e instala o servico Windows. Se o servico nao subir, rode em 1o plano para testa
 ## Passo 1 — Adicionar os dominios na Cloudflare (e trocar os nameservers na Hostinger)
 
 1. Crie uma conta **gratis** em <https://dash.cloudflare.com> (se ainda nao tiver).
-2. **Add a site** → digite `nvit.io` → plano **Free**. A Cloudflare **importa** os registros
+2. **Add a site** → digite `dev.nvit.com.br` → plano **Free**. A Cloudflare **importa** os registros
    DNS atuais (confira se o que ja existe — e-mail, etc. — foi importado).
 3. A Cloudflare mostra **2 nameservers** (ex.: `xxx.ns.cloudflare.com`). Copie-os.
-4. Na **Hostinger**: *Dominios → (nvit.io) Gerenciar → DNS / Nameservers →* troque para
+4. Na **Hostinger**: *Dominios → (dev.nvit.com.br) Gerenciar → DNS / Nameservers →* troque para
    **nameservers personalizados** e cole os 2 da Cloudflare. Salve.
 5. Repita os passos 2–4 para **`nvit.com.br`**.
 
@@ -94,8 +94,8 @@ Na aba **Public Hostnames** do tunnel, clique **Add a public hostname**:
 
 | Subdomain | Domain    | Type | URL              |
 |-----------|-----------|------|------------------|
-| (vazio)   | `nvit.io` | HTTP | `localhost:80`   |
-| `*`       | `nvit.io` | HTTP | `localhost:80`   | (opcional, p/ subdominios futuros)
+| (vazio)   | `dev.nvit.com.br` | HTTP | `localhost:80`   |
+| `*`       | `dev.nvit.com.br` | HTTP | `localhost:80`   | (opcional, p/ subdominios futuros)
 
 > Use **HTTP** e `localhost:80` (o Traefik). O HTTPS publico e da Cloudflare; o tunnel ja e
 > criptografado.
@@ -121,22 +121,22 @@ Get-Service cloudflared
 Valide (apos o dominio ficar Active e o servico rodando):
 
 ```text
-https://nvit.io/devops
-https://nvit.io/aplicacao1
-https://nvit.io/aplicacao1/api/health
-https://nvit.io/grafana
+https://dev.nvit.com.br/devops
+https://dev.nvit.com.br/aplicacao1
+https://dev.nvit.com.br/aplicacao1/api/health
+https://dev.nvit.com.br/grafana
 ```
 
 ---
 
-## Passo 5 — Redirecionar `nvit.com.br` → `nvit.io`
+## Passo 5 — Redirecionar `nvit.com.br` → `dev.nvit.com.br`
 
 Opcao recomendada (no edge, sem tocar no cluster): **Redirect Rule** da Cloudflare.
 
 1. Cloudflare → dominio **`nvit.com.br`** → **Rules → Redirect Rules → Create rule**.
 2. *When incoming requests match:* `Hostname equals nvit.com.br` (ou "All incoming requests").
 3. *Then:* **Dynamic** redirect → Expression:
-   `concat("https://nvit.io", http.request.uri.path)` → Status **301**, *Preserve query string*.
+   `concat("https://dev.nvit.com.br", http.request.uri.path)` → Status **301**, *Preserve query string*.
 4. Deploy.
 
 (Alternativa: adicionar `nvit.com.br` como Public Hostname do tunnel apontando para
@@ -146,7 +146,7 @@ Opcao recomendada (no edge, sem tocar no cluster): **Redirect Rule** da Cloudfla
 
 ## HTTPS / SSL
 
-- **Universal SSL** (gratis) cobre `https://nvit.io` automaticamente.
+- **Universal SSL** (gratis) cobre `https://dev.nvit.com.br` automaticamente.
 - Em **SSL/TLS → Overview**, deixe o modo em **Full** (o tunnel ja protege o trecho ate a
   origem). Opcional: **Edge Certificates → Always Use HTTPS = On**.
 - O Traefik continua em HTTP interno (entrypoint `web`); nao precisa de certificado local.
@@ -158,7 +158,7 @@ Opcao recomendada (no edge, sem tocar no cluster): **Redirect Rule** da Cloudfla
 As rotas internas sao parametrizadas: para trocar o host primario, rode
 
 ```powershell
-.\scripts\set-domain.ps1 -PrimaryHost <novo.dominio> -OldHost nvit.io
+.\scripts\set-domain.ps1 -PrimaryHost <novo.dominio> -OldHost dev.nvit.com.br
 git -C C:/devops add -A; git -C C:/devops commit -m "chore: dominio <novo>"; git -C C:/devops push
 .\scripts\set-domain.ps1 -PrimaryHost <novo.dominio> -ApplyOnly
 ```
@@ -169,14 +169,14 @@ E ajuste os Public Hostnames do tunnel (Passo 3) para o novo dominio.
 
 ## Troubleshooting
 
-- **`https://nvit.io` nao abre**: confirme o dominio **Active** na Cloudflare (nameservers
+- **`https://dev.nvit.com.br` nao abre**: confirme o dominio **Active** na Cloudflare (nameservers
   propagados) e o `Get-Service cloudflared` = **Running**. Veja logs:
   `Get-Content "$env:ProgramData\Cloudflare\cloudflared\cloudflared.log" -Tail 50` (ou os
   logs do servico em *Event Viewer*).
 - **502/523 (origem indisponivel)**: o Traefik precisa estar de pe em `localhost:80`
   (`kubectl get pods -n traefik`) e o Public Hostname apontando para `localhost:80`.
 - **404 na app**: a rota interna precisa aceitar o host. Rode `set-domain.ps1` (Passo 0) e
-  confira no Console: <https://nvit.io/devops>.
+  confira no Console: <https://dev.nvit.com.br/devops>.
 - **Tunnel "Down" no painel**: reinstale o conector: `.\scripts\install-cloudflare-tunnel.ps1 -Uninstall` e depois com o token de novo.
 - **Reverter**: `.\scripts\install-cloudflare-tunnel.ps1 -Uninstall` remove o servico; o
   acesso local por `xpto.localhost` continua funcionando.

@@ -40,11 +40,11 @@ if (-not $SkipTools) { Banner "1/7 Ferramentas (winget, idempotente)"; & "$here\
 else { Banner "1/7 Ferramentas (pulado)" }
 
 if (-not $SkipHosts) {
-  Banner "2/7 Arquivo hosts (xpto.localhost / nvit.io / traefik.localhost)"
+  Banner "2/7 Arquivo hosts (xpto.localhost / dev.nvit.com.br / traefik.localhost)"
   $hf = "$env:WINDIR\System32\drivers\etc\hosts"
   $c = Get-Content $hf -Raw -ErrorAction SilentlyContinue
   if ($c -and ($c -notmatch "`n$")) { Add-Content -Path $hf -Value "" }   # garante newline antes do append
-  foreach ($h in 'xpto.localhost', 'nvit.io', 'traefik.localhost') {
+  foreach ($h in 'xpto.localhost', 'dev.nvit.com.br', 'traefik.localhost') {
     if (-not $c -or ($c -notmatch ('\b' + [regex]::Escape($h) + '\b'))) { Add-Content -Path $hf -Value "127.0.0.1`t$h"; Write-Host "  + $h" }
     else { Write-Host "  = $h (ja existe)" }
   }

@@ -15,7 +15,7 @@ consistente com o **contrato compartilhado** da plataforma.
 | Guia                                                                  | Para que serve                                                                                                  |
 |-----------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------|
 | [`new-project-contract.md`](./new-project-contract.md)                | Referencia completa do `devops.yaml`: cada campo de `app`/`services`, tipos, `expose`/`stripPrefix`/`env`/`health`/`port`/`path`, exemplos por tipo e exemplo `aplicacao2`. |
-| [`path-routing-pattern.md`](./path-routing-pattern.md)                | Convencao de roteamento: quando ha strip e quando nao; base path do frontend; StripPrefix das APIs; prioridade `/<base>` vs `/<base>/api`; exemplos de IngressRoute+Middleware; tabela de rotas; versao `nvit.io`. |
+| [`path-routing-pattern.md`](./path-routing-pattern.md)                | Convencao de roteamento: quando ha strip e quando nao; base path do frontend; StripPrefix das APIs; prioridade `/<base>` vs `/<base>/api`; exemplos de IngressRoute+Middleware; tabela de rotas; versao `dev.nvit.com.br`. |
 | [`github-runner-setup.md`](./github-runner-setup.md)                  | Self-hosted runner: pre-requisitos, registration token (caminho exato na UI), `install-github-runner.ps1 -Token`, labels, servico, validacoes e troubleshooting. |
 | [`local-domain-setup.md`](./local-domain-setup.md)                    | Arquivo `hosts` do Windows; dominio real (DNS A/CNAME, firewall, port-forward); Cloudflare Tunnel; ngrok; notas de HTTPS. |
 | [`deployment-flow.md`](./deployment-flow.md)                          | Fluxo fim-a-fim: instalar (bootstrap), resetar, publicar frontend/API/worker (local e Actions/GHCR), reverter, ver logs, diagnosticar, Argo CD, Grafana, DevOps Console. |
@@ -51,7 +51,7 @@ Mapa de onde cada topico e tratado nesta documentacao:
 
 ## Contrato compartilhado (lembrete rapido)
 
-- **Host local**: `xpto.localhost` | **Host real futuro**: `nvit.io` (mesmo layout de paths).
+- **Host local**: `xpto.localhost` | **Host real futuro**: `dev.nvit.com.br` (mesmo layout de paths).
 - **Contexto Kubernetes**: `docker-desktop`. **Raiz do repo**: `C:/devops`.
 - **Namespaces**: `devops-system`, `traefik`, `argocd`, `observability`, `apps`, `apps-dev`,
   `apps-prod-local`.

@@ -121,7 +121,7 @@ Invoke-External -FilePath 'kubectl' -Arguments @(
 # -----------------------------------------------------------------------------
 # IngressRoute para /argocd (here-string canalizada para kubectl apply -f -).
 # SEM StripPrefix: o argocd-server usa rootpath /argocd (ver helm-values.yaml).
-# entryPoints [web]; Hosts xpto.localhost e nvit.io.
+# entryPoints [web]; Hosts xpto.localhost e dev.nvit.com.br.
 # kubectl apply e idempotente.
 # -----------------------------------------------------------------------------
 Write-Section 'Argo CD :: IngressRoute (/argocd)'
@@ -139,7 +139,7 @@ spec:
     - web
   routes:
     - kind: Rule
-      match: (Host(`xpto.localhost`) || Host(`nvit.io`)) && PathPrefix(`/argocd`)
+      match: (Host(`xpto.localhost`) || Host(`dev.nvit.com.br`)) && PathPrefix(`/argocd`)
       priority: 10
       services:
         - name: argocd-server

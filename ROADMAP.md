@@ -80,7 +80,7 @@ Legenda: `[ ]` pendente · `[x]` concluido.
 
 - [ ] **HTTPS real**: emitir certificado valido e habilitar o entrypoint `websecure`
       (hoje pendente com self-signed) — ver [`SECURITY.md`](./SECURITY.md).
-- [ ] **Cloudflare Tunnel**: expor a plataforma para `nvit.io` sem abrir portas no
+- [ ] **Cloudflare Tunnel**: expor a plataforma para `dev.nvit.com.br` sem abrir portas no
       roteador, com TLS gerenciado.
 - [ ] **`aplicacao2`**: adicionar uma segunda aplicacao usando o mesmo modelo de
       `devops.yaml` e o mesmo layout de paths.

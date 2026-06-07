@@ -13,7 +13,7 @@
 app:
   name: aplicacao2
   namespace: apps
-  host: xpto.localhost          # real futuro: nvit.io
+  host: xpto.localhost          # real futuro: dev.nvit.com.br
   basePath: /aplicacao2
 
 services:
