@@ -94,9 +94,11 @@ spec:
           port: 80
 "@ | kubectl apply -f - 2>&1 | Out-Host
 
-# Apps sob GitOps (aplicacao1/2/3): aplicar so se o Git ja estiver atualizado
-# (rode o commit/push antes; assim o apply casa com o Git e o Argo nao reverte).
-foreach ($d in (Get-ChildItem -Directory "$repo\samples" -ErrorAction SilentlyContinue | ForEach-Object { Join-Path $_.FullName 'k8s' })) {
-  if (Test-Path $d) { kubectl apply -f $d 2>&1 | Where-Object { $_ -match 'ingressroute|middleware' } | Out-Host }
+# Apps sob GitOps (aplicacao1/2/3): NAO usar kubectl apply (o selfHeal do Argo reverteria).
+# Forca o Argo a puxar o commit novo do Git -> garanta que o commit/push JA foi feito.
+$apps = kubectl get applications -n argocd -o name 2>$null
+if ($apps) {
+  Write-Host "  Apps sob GitOps -> forcando refresh/sync do Argo (requer commit/push previo):"
+  foreach ($a in $apps) { kubectl -n argocd annotate $a argocd.argoproj.io/refresh=hard --overwrite 2>$null | Out-Null; Write-Host "    refresh: $a" }
 }
 Write-Host "`n[OK] Rotas reaplicadas. Host primario: $PrimaryHost (local preservado: $LocalHost)."
