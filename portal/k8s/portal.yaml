@@ -1,0 +1,95 @@
+# =============================================================================
+# Portal NovaIT - landing publica na RAIZ (/) de dev.nvit.com.br
+# -----------------------------------------------------------------------------
+# Lista dinamicamente as apps publicadas (le /devops/api/ingressroutes do Console,
+# somente leitura) + atalhos para Console/Grafana/Argo CD.
+#
+# Roteamento: IngressRoute com PathPrefix("/") e priority 1 (a MENOR) — assim os
+# paths especificos (/devops, /aplicacao1, /grafana, /argocd...) sempre vencem, e
+# so a raiz "/" cai no portal. Fica no namespace devops-system (componente da
+# plataforma), por isso NAO aparece na propria lista (que filtra o namespace apps).
+#
+# Imagem local: portal-frontend:local (build em portal/frontend; IfNotPresent).
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portal
+  namespace: devops-system
+  labels:
+    app.kubernetes.io/name: portal
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: devops-portal
+    app.kubernetes.io/managed-by: devops-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: portal
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: portal
+        app.kubernetes.io/component: frontend
+        app.kubernetes.io/part-of: devops-portal
+    spec:
+      containers:
+        - name: portal
+          image: portal-frontend:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "16Mi"
+            limits:
+              cpu: "100m"
+              memory: "64Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: portal
+  namespace: devops-system
+  labels:
+    app.kubernetes.io/part-of: devops-portal
+spec:
+  selector:
+    app.kubernetes.io/name: portal
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: portal
+  namespace: devops-system
+  labels:
+    app.kubernetes.io/name: portal
+    app.kubernetes.io/part-of: devops-portal
+spec:
+  entryPoints:
+    - web
+  routes:
+    # PathPrefix("/") com priority 1 (a MENOR): so a raiz cai aqui; os demais paths vencem.
+    - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/`)
+      kind: Rule
+      priority: 1
+      services:
+        - name: portal
+          port: 80
+      middlewares:
+        - name: compress
+          namespace: traefik
+        - name: secure-headers
+          namespace: traefik

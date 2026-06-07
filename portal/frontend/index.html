@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NovaIT — Portal de Tecnologia</title>
+  <meta name="description" content="Portal de tecnologia da NovaIT — aplicações e ferramentas publicadas." />
+  <style>
+    :root{
+      --bg:#0b1020; --bg2:#0f152b; --card:#151c34; --card2:#1b2542;
+      --txt:#e7ecf6; --muted:#93a0bd; --line:#26314f;
+      --accent:#5b8cff; --accent2:#8b5cf6; --ok:#34d399;
+    }
+    *{box-sizing:border-box} html,body{margin:0}
+    body{
+      font-family:system-ui,Segoe UI,Roboto,sans-serif; color:var(--txt);
+      background:
+        radial-gradient(1100px 500px at 80% -10%, rgba(91,140,255,.18), transparent 60%),
+        radial-gradient(900px 500px at -10% 10%, rgba(139,92,246,.16), transparent 55%),
+        var(--bg);
+      min-height:100vh;
+    }
+    .wrap{max-width:1100px;margin:0 auto;padding:0 24px}
+    header{display:flex;align-items:center;justify-content:space-between;padding:22px 0}
+    .brand{display:flex;align-items:center;gap:12px;font-weight:800;font-size:1.45rem;letter-spacing:.3px}
+    .brand .logo{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-weight:900}
+    .brand b{color:var(--accent)}
+    nav a{color:var(--muted);text-decoration:none;margin-left:18px;font-size:.95rem}
+    nav a:hover{color:var(--txt)}
+    .hero{padding:42px 0 18px}
+    .hero h1{font-size:2.3rem;margin:.2rem 0;line-height:1.15}
+    .hero h1 span{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+    .hero p{color:var(--muted);font-size:1.08rem;max-width:680px}
+    .section{margin:30px 0}
+    .section h2{font-size:1.15rem;margin:0 0 4px;display:flex;align-items:center;gap:10px}
+    .section .sub{color:var(--muted);font-size:.9rem;margin:0 0 16px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+    .card{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--line);
+      border-radius:16px;padding:18px;transition:transform .12s ease,border-color .12s ease}
+    .card:hover{transform:translateY(-3px);border-color:var(--accent)}
+    .card .top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+    .card h3{margin:0;font-size:1.1rem;text-transform:capitalize}
+    .dot{width:9px;height:9px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 4px rgba(52,211,153,.16)}
+    .muted{color:var(--muted);font-size:.85rem;margin:.1rem 0 .8rem;word-break:break-all}
+    .btn{display:inline-block;margin-top:6px;padding:9px 14px;border-radius:10px;font-weight:600;font-size:.9rem;
+      text-decoration:none;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2))}
+    .btn:hover{filter:brightness(1.08)}
+    .links{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px}
+    .links a{font-size:.8rem;color:var(--accent);text-decoration:none;border:1px solid var(--line);
+      padding:4px 9px;border-radius:8px}
+    .links a:hover{border-color:var(--accent)}
+    .tool .ti{font-size:1.5rem}
+    footer{color:var(--muted);font-size:.85rem;text-align:center;padding:34px 0;border-top:1px solid var(--line);margin-top:30px}
+    .pill{font-size:.72rem;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 9px}
+    #status{font-size:.8rem;color:var(--muted)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand"><span class="logo">N</span> nova<b>IT</b></div>
+      <nav>
+        <a href="/devops">Console</a>
+        <a href="/grafana">Grafana</a>
+        <a href="/argocd">Argo CD</a>
+      </nav>
+    </header>
+
+    <section class="hero">
+      <span class="pill">Plataforma DevOps · NovaIT</span>
+      <h1>Portal de <span>Tecnologia</span></h1>
+      <p>Aplicações e serviços publicados pela esteira de desenvolvimento da NovaIT.
+         A lista abaixo é <b>dinâmica</b> — novos sistemas aparecem automaticamente assim que são publicados.</p>
+    </section>
+
+    <section class="section">
+      <h2>🚀 Aplicações publicadas</h2>
+      <p class="sub" id="status">Carregando aplicações…</p>
+      <div class="grid" id="apps"></div>
+    </section>
+
+    <section class="section">
+      <h2>🛠️ Plataforma &amp; Ferramentas</h2>
+      <p class="sub">Operação, observabilidade e entrega contínua.</p>
+      <div class="grid">
+        <div class="card tool">
+          <div class="top"><span class="ti">📊</span><h3>DevOps Console</h3></div>
+          <p class="muted">Pods, deployments, rotas, logs e publicações em tempo real.</p>
+          <a class="btn" href="/devops">Abrir Console</a>
+        </div>
+        <div class="card tool">
+          <div class="top"><span class="ti">📈</span><h3>Grafana</h3></div>
+          <p class="muted">Métricas do cluster (CPU/memória, pods, deployments).</p>
+          <a class="btn" href="/grafana">Abrir Grafana</a>
+        </div>
+        <div class="card tool">
+          <div class="top"><span class="ti">🔁</span><h3>Argo CD</h3></div>
+          <p class="muted">GitOps — sincronização e histórico de implantações.</p>
+          <a class="btn" href="/argocd">Abrir Argo CD</a>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      © <span id="yr"></span> NovaIT — Tecnologia &amp; Desenvolvimento ·
+      Plataforma DevOps local <span id="meta"></span>
+    </footer>
+  </div>
+
+  <script>
+    document.getElementById('yr').textContent = new Date().getFullYear();
+    const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+
+    async function loadApps(){
+      const grid = document.getElementById('apps');
+      const status = document.getElementById('status');
+      try{
+        // Lê o cluster pela API somente-leitura do DevOps Console.
+        const res = await fetch('/devops/api/ingressroutes', {cache:'no-store'});
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        const list = await res.json();
+        // Apps de negócio ficam no namespace "apps".
+        const apps = list.filter(x => x.namespace === 'apps');
+        if(!apps.length){
+          status.textContent = 'Nenhuma aplicação publicada ainda.';
+          grid.innerHTML=''; return;
+        }
+        apps.sort((a,b)=> a.name.localeCompare(b.name));
+        status.textContent = apps.length + ' aplicação(ões) publicada(s) · atualizado ' + new Date().toLocaleTimeString('pt-BR');
+        grid.innerHTML = apps.map(a => {
+          const paths = [...new Set(a.paths||[])].sort((x,y)=> x.length - y.length);
+          const main = paths[0] || '/';
+          const extras = paths.slice(1);
+          const hosts = (a.hosts||[]).join(' · ');
+          return `<div class="card">
+            <div class="top"><span class="dot"></span><h3>${cap(a.name)}</h3></div>
+            <p class="muted">${hosts}</p>
+            <a class="btn" href="${main}" target="_blank" rel="noopener">Acessar</a>
+            <div class="links">${extras.map(p=>`<a href="${p}" target="_blank" rel="noopener">${p}</a>`).join('')}</div>
+          </div>`;
+        }).join('');
+      }catch(e){
+        status.textContent = 'Não foi possível carregar a lista agora (Console indisponível).';
+        grid.innerHTML = '';
+      }
+    }
+    loadApps();
+    setInterval(loadApps, 30000); // dinâmico: re-checa a cada 30s
+  </script>
+</body>
+</html>
