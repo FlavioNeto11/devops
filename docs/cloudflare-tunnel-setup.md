@@ -32,6 +32,35 @@ com **HTTPS automatico**.
 
 ---
 
+## ⭐ Caminho A (recomendado, SEM cartao) — tunnel pela CLI
+
+O painel **Zero Trust** exige cartao mesmo no Free (e as vezes da erro no pagamento). O
+tunnel **CLI-managed** **nao** usa o Zero Trust e **nao pede cartao**. Pre-requisito: o
+dominio ja **Active** na Cloudflare (Passo 1 abaixo — voce ja fez).
+
+```powershell
+# 1) Autenticar (abre o navegador; escolha o dominio nvit.io; SEM cartao)
+cloudflared tunnel login
+
+# 2) Criar tunnel + config + rota DNS + servico (faz tudo)
+cd C:\devops
+.\scripts\install-cloudflare-tunnel.ps1 -Cli -TunnelDomain nvit.io
+
+# 3) Validar (apos o DNS propagar)
+#    https://nvit.io/devops    https://nvit.io/aplicacao1
+```
+
+O script cria o tunnel `nvit-local`, grava `C:\cloudflared\config.yml`
+(ingress `nvit.io -> http://localhost:80`), cria o CNAME `nvit.io -> <id>.cfargotunnel.com`
+e instala o servico Windows. Se o servico nao subir, rode em 1o plano para testar:
+`cloudflared --config C:\cloudflared\config.yml tunnel run nvit-local`.
+
+> HTTPS continua automatico (Universal SSL). Redirect `nvit.com.br -> nvit.io`: ver Passo 5.
+> Os Passos 2–4 abaixo sao o **Caminho B (painel/Zero Trust)** — so use se preferir o token
+> (exige cartao).
+
+---
+
 ## Passo 1 — Adicionar os dominios na Cloudflare (e trocar os nameservers na Hostinger)
 
 1. Crie uma conta **gratis** em <https://dash.cloudflare.com> (se ainda nao tiver).
