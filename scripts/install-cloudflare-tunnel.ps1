@@ -83,15 +83,22 @@ ingress:
   Write-Host "-> cloudflared tunnel route dns $TunnelName $TunnelDomain"
   cloudflared tunnel route dns $TunnelName $TunnelDomain 2>&1 | Out-Host
 
-  # Instalar como servico Windows usando o config de sistema
-  Write-Host "-> instalando servico (config de sistema)..."
+  # Instalar como servico Windows. IMPORTANTE: o 'cloudflared service install' NAO
+  # persiste o --config (o servico fica rodando 'cloudflared.exe' sem args e o tunnel
+  # nao sobe). Por isso corrigimos o ImagePath do servico para o comando completo.
+  Write-Host "-> instalando servico..."
   & cloudflared --config $cfgPath service install 2>&1 | Out-Host
-  Start-Sleep -Seconds 4
-  $svc = Get-Service cloudflared -ErrorAction SilentlyContinue
-  if ($svc) {
-    if ($svc.Status -ne 'Running') { try { Start-Service cloudflared } catch {} }
-    Write-Host ("[OK] Servico cloudflared: {0}" -f (Get-Service cloudflared).Status)
-  }
+  Start-Sleep -Seconds 2
+  $exe = (Get-Command cloudflared).Source
+  $img = '"' + $exe + '" --config "' + $cfgPath + '" tunnel run ' + $TunnelName
+  Set-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Services\Cloudflared' -Name ImagePath -Value $img -ErrorAction SilentlyContinue
+  Write-Host "-> comando do servico: $img"
+  Get-Process cloudflared -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+  Start-Sleep -Seconds 3
+  try { Start-Service Cloudflared } catch {}
+  Start-Sleep -Seconds 8
+  $svc = Get-Service Cloudflared -ErrorAction SilentlyContinue
+  if ($svc) { Write-Host ("[OK] Servico cloudflared: {0}" -f $svc.Status) }
   else { Write-Host "[AVISO] servico nao encontrado; teste em 1o plano (abaixo)." }
   Write-Host "`n[OK] Tunnel CLI-managed configurado (sem Zero Trust/cartao)."
   Write-Host "Se o servico nao subir, teste em primeiro plano:"
