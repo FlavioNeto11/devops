@@ -1,0 +1,11 @@
+# Kustomization do SICAT para o Argo CD (GitOps). Lista APENAS os manifests reais.
+# secret.example.yaml e DELIBERADAMENTE excluido (sao placeholders): os secrets reais
+# (sicat-config, sicat-db) e o ConfigMap sicat-certs sao criados no cluster fora do
+# git (a partir do .env) e NAO sao gerenciados/pruned pelo Argo.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - postgres.yaml
+  - backend.yaml
+  - frontend.yaml
+  - ingressroute.yaml

@@ -1,0 +1,29 @@
+# =============================================================================
+# Argo CD Application: sicat (api + worker + frontend + postgres) sob /sicat.
+# Descoberta pelo app-of-apps "devops-platform". Usa kustomize (kustomization.yaml
+# em apps/sicat/k8s) para NAO aplicar o secret.example.yaml: os Secrets reais
+# (sicat-config, sicat-db) e o ConfigMap sicat-certs sao criados no cluster fora do
+# git e NAO sao gerenciados pelo Argo (portanto nunca sao pruned).
+# =============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sicat
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/FlavioNeto11/devops
+    path: apps/sicat/k8s
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: apps
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
