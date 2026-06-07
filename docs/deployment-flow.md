@@ -69,6 +69,19 @@ contexto `docker-desktop`) — veja [`README.md`](../README.md).
 
 ### 2.1 Sequencia
 
+**Recomendado — UM comando (idempotente), em PowerShell 7 como Administrador:**
+
+```powershell
+pwsh -File C:/devops/scripts/up.ps1
+```
+
+O `up.ps1` faz a esteira inteira: pre-requisitos → ferramentas (winget) → `hosts` →
+**habilita o Kubernetes** (via [`enable-kubernetes.ps1`](../scripts/enable-kubernetes.ps1),
+que chama [`recover-docker.ps1`](../scripts/recover-docker.ps1) se o Docker travar no boot)
+→ instala a plataforma → builda os samples → publica a `aplicacao1` → valida.
+
+**Ou por partes:**
+
 ```powershell
 # 0) Conferir pre-requisitos (idempotente)
 pwsh -File C:/devops/scripts/check-prereqs.ps1
@@ -681,9 +694,9 @@ kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath='{.data.pas
 - [`project-onboarding-checklist.md`](./project-onboarding-checklist.md) — adicionar nova app.
 - [`SECURITY.md`](../SECURITY.md) — segredos, PAT, RBAC, HTTPS.
 
-> Nota: alguns scripts citados (`bootstrap.ps1`, `validate-platform.ps1`,
-> `reset-platform.ps1`, `diagnose.ps1`) sao orquestradores referenciados pelo
-> [`README.md`](../README.md). Os instaladores individuais ja existem em
-> [`scripts/`](../scripts) (`install-traefik.ps1`, `install-argocd.ps1`,
-> `install-observability.ps1`, `install-github-runner.ps1`, `publish-sample-app.ps1`,
-> `check-prereqs.ps1`). Caminhos e namespaces seguem o contrato compartilhado.
+> Nota: todos os scripts existem em [`scripts/`](../scripts). Subida do zero:
+> **`up.ps1`** (UM comando — faz tudo). Orquestradores/auxiliares: `bootstrap.ps1`,
+> `enable-kubernetes.ps1`, `recover-docker.ps1`, `install-platform.ps1` + `install-*.ps1`,
+> `build-samples.ps1`, `publish-sample-app.ps1`, `new-app.ps1` (gera app novo + Application
+> do Argo), `validate-platform.ps1`, `reset-platform.ps1`, `diagnose.ps1`,
+> `check-prereqs.ps1`, `install-tools.ps1`. Caminhos e namespaces seguem o contrato compartilhado.

@@ -91,23 +91,42 @@ aplica o `StripPrefix` de `/aplicacao1/api` e encaminha `/health` ao `aplicacao1
 
 ---
 
-## Quick Start
+## Quick Start — subir TUDO com um comando
 
-Pre-requisitos atendidos (ver secao abaixo), abra um **PowerShell 7** e execute:
+Abra um **PowerShell 7 como Administrador** e rode:
 
 ```powershell
 cd C:/devops
-.\scripts\bootstrap.ps1          # cria namespaces, instala Traefik/Argo/observabilidade
-.\scripts\validate-platform.ps1  # valida que tudo subiu e esta Ready
-.\scripts\publish-sample-app.ps1 # builda imagens :local e aplica a aplicacao1 + console
+.\scripts\up.ps1
 ```
 
-Os scripts sao **idempotentes**: e seguro re-executa-los. Em caso de problema, rode o
-diagnostico:
+O `up.ps1` e **idempotente** e faz a esteira inteira de ponta a ponta:
+pre-requisitos → ferramentas (winget) → arquivo `hosts` → **habilita o Kubernetes** do
+Docker Desktop → instala a plataforma (Traefik, Argo CD, Observabilidade, Console) →
+builda as imagens `:local` dos samples → publica a `aplicacao1` → valida. Pode re-rodar
+quando quiser.
+
+Prefere por partes? Os scripts tambem rodam isolados (todos idempotentes):
 
 ```powershell
-.\scripts\diagnose.ps1
+.\scripts\enable-kubernetes.ps1   # garante o k8s do Docker Desktop Ready
+.\scripts\install-platform.ps1    # Traefik, Argo CD, observabilidade, Console
+.\scripts\build-samples.ps1       # builda imagens :local de samples/*
+.\scripts\publish-sample-app.ps1  # aplica a aplicacao1
+.\scripts\validate-platform.ps1   # relatorio de saude (17 checks)
+.\scripts\diagnose.ps1            # coleta diagnostico se algo falhar
+.\scripts\recover-docker.ps1      # recupera o Docker Desktop travado no boot
 ```
+
+### Criar um app novo na esteira (1 comando)
+
+```powershell
+.\scripts\new-app.ps1 -Name minhaapp -Services frontend,api,api2,worker
+```
+
+Gera `devops.yaml` + Dockerfiles + `k8s/` + workflow + **Application do Argo (GitOps)** no
+padrao da plataforma, e imprime os comandos de `docker build` / `kubectl apply`. Resultado:
+`http://xpto.localhost/minhaapp` (e `/minhaapp/api`, `/minhaapp/api2`...).
 
 ---
 
@@ -140,9 +159,15 @@ C:/devops
 ├── TROUBLESHOOTING.md            # Problemas comuns e comandos de correcao
 ├── .gitignore                    # Ignora segredos, artefatos e a pasta do runner
 ├── scripts/                      # Scripts PowerShell 7 idempotentes
-│   ├── bootstrap.ps1             # Cria namespaces e instala a plataforma
+│   ├── up.ps1                    # UM comando: sobe TODA a plataforma do zero
+│   ├── enable-kubernetes.ps1     # Habilita/garante o k8s do Docker Desktop
+│   ├── recover-docker.ps1        # Recupera o Docker Desktop travado no boot
+│   ├── install-platform.ps1      # Traefik, Argo CD, observabilidade, Console
+│   ├── build-samples.ps1         # Builda imagens :local de samples/*
+│   ├── publish-sample-app.ps1    # Aplica a aplicacao1
+│   ├── new-app.ps1               # Gera um app novo no padrao (incl. Application do Argo)
 │   ├── validate-platform.ps1     # Valida saude da plataforma
-│   ├── publish-sample-app.ps1    # Builda imagens :local e aplica a aplicacao1/console
+│   ├── bootstrap.ps1             # (legado) prereqs + install-platform + validate
 │   └── diagnose.ps1              # Coleta diagnostico do ambiente
 ├── platform/                     # Manifests/Helm values da plataforma
 │   ├── traefik/                  # Values do Helm e CRDs base do Traefik
@@ -152,7 +177,7 @@ C:/devops
 │   ├── backend/                  # Node.js (Express + @kubernetes/client-node), SSE
 │   └── frontend/                 # React + Vite (base /devops/)
 ├── templates/                    # Templates de manifests parametrizados por devops.yaml
-├── samples/                      # Aplicacao de exemplo (aplicacao1) com devops.yaml
+├── samples/                      # Apps de exemplo: aplicacao1, aplicacao2 (api2), aplicacao3 (gerada)
 └── docs/                         # Documentacao complementar
 ```
 

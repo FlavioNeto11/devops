@@ -8,6 +8,12 @@ e a convencao de roteamento em [`path-routing-pattern.md`](./path-routing-patter
 > Exemplo de referencia ao longo do checklist: uma app `aplicacao2` (frontend + api +
 > api2), servida em `/aplicacao2` no host `xpto.localhost`.
 
+> **Atalho (gera tudo no padrao):** `C:\devops\scripts\new-app.ps1 -Name <app> -Services frontend,api,api2,worker`
+> cria `devops.yaml` + Dockerfiles + `k8s/` + workflow + **Application do Argo (GitOps)** e
+> imprime os comandos de `docker build`/`kubectl apply`. Os passos abaixo explicam o que ele
+> gera (e como fazer manualmente, se preferir). Exemplos reais no repo: `samples/aplicacao1`,
+> `samples/aplicacao2` (multi-API) e `samples/aplicacao3` (gerada pelo `new-app.ps1`).
+
 ---
 
 ## 0. Antes de comecar (pre-requisitos)

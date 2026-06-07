@@ -282,8 +282,9 @@ Armadilhas reais encontradas ao subir a plataforma neste host (Windows Server + 
 
 ### 13.1 Habilitar o Kubernetes sem a GUI
 
-O CLI `docker desktop` (v0.2.x) **nao** tem toggle de Kubernetes. Habilite via arquivo de
-settings e reinicie:
+**Atalho:** `C:\devops\scripts\enable-kubernetes.ps1` automatiza isto (idempotente; chama
+`recover-docker.ps1` se o engine travar). Manualmente: o CLI `docker desktop` (v0.2.x)
+**nao** tem toggle de Kubernetes — habilite via arquivo de settings e reinicie:
 
 ```powershell
 $f = "$env:APPDATA\Docker\settings-store.json"
@@ -305,7 +306,9 @@ Sintoma: ao iniciar, aparece *"Docker Desktop encountered an unexpected error"* 
 (*"The file cannot be accessed by the system"*). Causa: um encerramento forcado deixou
 sockets AF_UNIX orfaos que o Docker nao consegue remover no boot.
 
-**Nao** clique em *"Reset to factory defaults"* (apaga imagens/containers/config). Recuperacao:
+**Nao** clique em *"Reset to factory defaults"* (apaga imagens/containers/config).
+
+**Atalho:** `C:\devops\scripts\recover-docker.ps1` automatiza toda a recuperacao abaixo. Manualmente:
 
 ```powershell
 # 1) Parar tudo
