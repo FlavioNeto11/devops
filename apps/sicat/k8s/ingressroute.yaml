@@ -1,0 +1,52 @@
+# =============================================================================
+# Roteamento Traefik do SICAT (REGRA DE OURO da plataforma):
+#  - /sicat/api -> sicat-api  : stripPrefix /sicat/api (app ve /v1/*, /health), priority MAIOR
+#  - /sicat     -> sicat-frontend : SEM strip (base /sicat/), priority MENOR
+# Hosts: dev.nvit.com.br (publico) + xpto.localhost (dev local).
+# =============================================================================
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: sicat-api-strip
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: sicat
+spec:
+  stripPrefix:
+    prefixes:
+      - /sicat/api
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: sicat
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: sicat
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/sicat/api`)
+      kind: Rule
+      priority: 30
+      services:
+        - name: sicat-api
+          port: 8080
+      middlewares:
+        - name: sicat-api-strip
+        - name: compress
+          namespace: traefik
+        - name: secure-headers
+          namespace: traefik
+    - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/sicat`)
+      kind: Rule
+      priority: 10
+      services:
+        - name: sicat-frontend
+          port: 80
+      middlewares:
+        - name: compress
+          namespace: traefik
+        - name: secure-headers
+          namespace: traefik

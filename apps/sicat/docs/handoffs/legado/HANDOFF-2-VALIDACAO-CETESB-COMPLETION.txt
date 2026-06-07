@@ -1,0 +1,96 @@
+╔════════════════════════════════════════════════════════════════════════╗
+║  ✅ HANDOFF 2 CONCLUÍDO: VALIDAÇÃO CETESB - COERÊNCIA COM SOURCE-OF-TRUTH
+║  Feature: Observabilidade DL-022 (Health Endpoints)                    ║
+║  Data: 2026-03-09                                                      ║
+║  Validador: validador-cetesb-mtr                                       ║
+╚════════════════════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 TAREFAS EXECUTADAS:
+
+✅ 1. Confirmar Health Endpoints são INTERNOS
+   - Verificação: 7 endpoints não fazem chamadas externas à CETESB
+   - Dados vêm de banco de dados local (worker_health, jobs, performance_snapshots)
+   - Nenhuma dependência de HARs CETESB
+
+✅ 2. Validar Documentação em OpenAPI
+   - Tag "Health" declarado corretamente
+   - 7 endpoints descritos em /paths (ping, health/*, maintenance/cleanup)
+   - Modelos de dados coincidem com estrutura do banco de dados
+
+✅ 3. Executar Validação CETESB
+   - Comando: npm run validate:cetesb-source
+   - Resultado: [ok] Política de fonte da verdade CETESB validada com sucesso.
+   - Status: SEM WARNINGS sobre HARs faltando para health endpoints
+
+✅ 4. Documentação de Fonte de Verdade
+   - Atualizado comentário em x-cetesb-source-of-truth (OpenAPI)
+   - Adicionado x-internal-observability (novo metadado)
+   - Explicação clara: "Fonte de verdade: Banco de dados local"
+
+✅ 5. Criar Nota Técnica (para decision-log)
+   - Arquivo: docs/handoffs/DL-026-HEALTH-ENDPOINTS-TECHNICAL-NOTE.md
+   - Contém: Resumo, tabela de endpoints, resiliência, validação executada
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 RESULTADOS DE VALIDAÇÃO:
+
+1. npm run validate:openapi
+   ✅ [ok] OpenAPI validado com sucesso
+   ✅ 25 operações (18 existentes + 7 health)
+   ✅ Nenhuma divergência
+
+2. npm run validate:cetesb-source
+   ✅ [ok] Política de fonte da verdade CETESB validada com sucesso
+   ✅ Nenhum warning sobre HARs faltando
+
+3. Health Endpoints Status
+   ✅ /ping - Public, sem auth
+   ✅ /health/system - Public, sem auth
+   ✅ /health/workers - Public, sem auth
+   ✅ /health/jobs/active - Public, sem auth
+   ✅ /health/jobs/dlq - Public, sem auth
+   ✅ /health/metrics/performance - Public, sem auth
+   ✅ /maintenance/cleanup - Public, sem auth
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔍 CONFIRMAÇÕES FINAIS:
+
+✅ Health endpoints são 100% INTERNOS (sem CETESB)
+✅ Documentação OpenAPI atualizada com metadados de fonte de verdade
+✅ Nenhum warning ou erro na validação
+✅ Metadados x-internal-observability adicionado
+✅ Nota técnica DL-026 criada
+✅ Zero breaking changes
+✅ Pronto para HANDOFF 3 (Gateway)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 PRÓXIMAS ETAPAS (NÃO FAZER):
+
+HANDOFF 3: Integração com Gateway
+  - Roteamento dos 7 health endpoints
+  - src/routes/health-routes.js
+  - Integração com src/gateways/
+
+HANDOFF 4: Health Repository
+  - Queries do banco de dados
+  - src/repositories/health-repo.js
+  - Conexão com migration 004 (tabelas)
+
+HANDOFF 5: Testes
+  - Smoke tests: npm run smoke:health
+  - Integration tests: tests/integration/health-endpoints.test.js
+  - Coverage > 95%
+
+HANDOFF 6: Documentação Final
+  - EXECUTION-GUIDE.md atualizado
+  - Examples JSON regenerados
+  - Decision log finalizado
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ STATUS: HANDOFF 2 PRONTO PARA ENTREGA

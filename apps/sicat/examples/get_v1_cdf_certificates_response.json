@@ -1,0 +1,34 @@
+{
+  "source": "cetesb",
+  "integrationAccountId": "iac_01JQW5M0D2G3CTQYV4N9AB8F1R",
+  "sessionContextId": "scx_01JQW5M0D2G3CTQYV4N9AB8F1R",
+  "dateFrom": "2026-04-01",
+  "dateTo": "2026-04-18",
+  "message": "Consulta realizada com sucesso",
+  "totalItems": 1,
+  "items": [
+    {
+      "id": "cer_hash_code_exemplo",
+      "certificateCode": 123456,
+      "documentId": "cer_hash_code_exemplo",
+      "issuedAt": "2026-04-18T10:00:00.000Z",
+      "dateFrom": "2026-04-01",
+      "dateTo": "2026-04-18",
+      "notes": "Certificado de destinação final",
+      "receiver": {
+        "partnerCode": 40110,
+        "description": "Destinador Exemplo"
+      },
+      "type": {
+        "code": 9,
+        "description": "Certificado de destinação"
+      },
+      "responsibleName": "Responsável Exemplo",
+      "downloadUrl": "/v1/cdf/documents/cer_hash_code_exemplo?integrationAccountId=iac_01JQW5M0D2G3CTQYV4N9AB8F1R&sessionContextId=scx_01JQW5M0D2G3CTQYV4N9AB8F1R",
+      "externalSnapshot": {
+        "cerCodigo": 123456,
+        "cerHashCode": "cer_hash_code_exemplo"
+      }
+    }
+  ]
+}

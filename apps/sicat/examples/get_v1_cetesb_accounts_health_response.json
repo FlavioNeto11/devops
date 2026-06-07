@@ -1,0 +1,37 @@
+{
+  "generatedAt": "2026-04-16T13:00:00Z",
+  "totals": {
+    "total": 6,
+    "active": 4,
+    "healthy": 3,
+    "degraded": 1,
+    "pending": 1,
+    "idle": 1,
+    "inactive": 2
+  },
+  "accounts": [
+    {
+      "accountId": "01HJX2Z9KP",
+      "integrationAccountId": "acc_01HJX2Z9KP",
+      "userId": "usr_01abc",
+      "partnerCode": "176163",
+      "partnerDocument": "31913781000139",
+      "partnerName": "Nova IT",
+      "accountType": "generator",
+      "isActive": true,
+      "status": "healthy",
+      "lastConnectionAt": "2026-04-16T12:00:00Z",
+      "lastUsageAt": "2026-04-16T12:55:00Z",
+      "sessions": {
+        "active": 1,
+        "pending": 0,
+        "expired": 0,
+        "invalid": 0
+      },
+      "jobs": {
+        "failed24h": 0,
+        "dlqTotal": 0
+      }
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "contentType": "application/x-ndjson",
+  "lines": [
+    {
+      "type": "job.snapshot",
+      "job": {
+        "jobId": "job_01JQW5PAGY61R9Z6T2ZFMK1TJ3",
+        "status": "running"
+      }
+    },
+    {
+      "type": "job.updated",
+      "event": {
+        "eventType": "job.updated",
+        "jobId": "job_01JQW5PAGY61R9Z6T2ZFMK1TJ3",
+        "status": "succeeded"
+      },
+      "job": {
+        "jobId": "job_01JQW5PAGY61R9Z6T2ZFMK1TJ3",
+        "status": "succeeded",
+        "result": {
+          "outcome": "manifest_submitted"
+        }
+      }
+    }
+  ]
+}

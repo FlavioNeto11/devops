@@ -1,0 +1,28 @@
+# Contexto da imagem do BACKEND (api/worker). Exclui o que nao deve ir pra imagem:
+# - node_modules (binarios do host quebram no alpine) / .git (pesado)
+# - frontend (tem imagem propria) / docs / tests / artefatos / mockups
+# - .env e dados sensiveis (secrets via k8s Secret, nunca na imagem)
+node_modules
+**/node_modules
+.git
+.github
+.husky
+.vscode
+.playwright-mcp
+frontend
+dist
+tests
+test-results
+artifacts
+docs
+stitch
+examples
+memories
+walkthrough-shots
+storage/temp
+storage/documents
+certs
+*.png
+*.log
+.env
+.env.*

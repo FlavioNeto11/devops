@@ -1,0 +1,16 @@
+{
+  "accountId": "acc_01JQWACCOUNT0003",
+  "partnerCode": 778899,
+  "partnerDocument": "45.123.456/0001-90",
+  "partnerName": "Destino Ambiental Ltda",
+  "accountType": "receiver",
+  "lastConnectionAt": "2026-03-13T15:10:00Z",
+  "lastUsageAt": null,
+  "usageSummary": {
+    "manifestsCreated": 0,
+    "manifestsSubmitted": 0,
+    "manifestsPrinted": 0,
+    "manifestsCancelled": 0
+  },
+  "isActive": false
+}

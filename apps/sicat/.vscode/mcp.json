@@ -1,0 +1,27 @@
+{
+  "servers": {
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest"
+      ]
+    },
+    "stitch": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "${workspaceFolder}/scripts/run-stitch-mcp.js"
+      ]
+    },
+    "mempalace": {
+      "type": "stdio",
+      "command": "python",
+      "args": [
+        "-m",
+        "mempalace.mcp_server"
+      ]
+    }
+  }
+}

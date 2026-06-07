@@ -1,0 +1,11 @@
+{
+  "pathParams": {
+    "roleId": "role_support_operacional"
+  },
+  "body": {
+    "description": "Perfil para suporte operacional de primeiro nível",
+    "permissionIds": [
+      "perm_access_users_read"
+    ]
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "commandId": "cmd_01JRXQ7Z6F6Y9N2P3Q4R5S6T9",
+  "jobId": "job_01JRXQ7Z6F6Y9N2P3Q4R5S6T9",
+  "correlationId": "corr_705cf722153240f8a98d63de84bdbb47",
+  "entityType": "cdf",
+  "entityId": "cdf_01JRXQ7Z6F6Y9N2P3Q4R5S6T9",
+  "operation": "cdf.download",
+  "status": "queued",
+  "submittedAt": "2026-04-18T15:44:10Z",
+  "links": {
+    "job": "/v1/jobs/job_01JRXQ7Z6F6Y9N2P3Q4R5S6T9",
+    "entity": "/v1/jobs/job_01JRXQ7Z6F6Y9N2P3Q4R5S6T9",
+    "audit": "/v1/audit/corr_705cf722153240f8a98d63de84bdbb47"
+  }
+}

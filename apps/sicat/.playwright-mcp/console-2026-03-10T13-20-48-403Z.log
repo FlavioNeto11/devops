@@ -1,0 +1,10 @@
+[   25780ms] [ERROR] Failed to load resource: the server responded with a status of 400 (Bad Request) @ http://127.0.0.1:8080/v1/auth/login:0
+[   54912ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:8080/v1/catalogs/units?page=1&pageSize=200:0
+[   54912ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:8080/v1/catalogs/residueClasses?page=1&pageSize=200:0
+[   54914ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:8080/v1/catalogs/packagingGroups?page=1&pageSize=200:0
+[   54919ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:8080/v1/catalogs/classes?page=1&pageSize=200:0
+[   54930ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:8080/v1/catalogs/residueTreatments?page=1&pageSize=200:0
+[   54930ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:8080/v1/catalogs/residueStates?page=1&pageSize=200:0
+[  804726ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:8080/v1/catalogs/residueClasses?page=1&pageSize=200:0
+[  806133ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:8080/v1/catalogs/residueClasses?page=1&pageSize=200:0
+[  816785ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:8080/v1/catalogs/residueClasses?page=1&pageSize=200:0

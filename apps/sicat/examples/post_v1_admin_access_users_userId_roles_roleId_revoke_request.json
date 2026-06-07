@@ -1,0 +1,9 @@
+{
+  "pathParams": {
+    "userId": "usr_01JQWABCDEF1234567890",
+    "roleId": "role_admin_global"
+  },
+  "body": {
+    "reason": "Remoção de privilégio temporário"
+  }
+}

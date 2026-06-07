@@ -1,0 +1,11 @@
+{
+  "pathParams": {
+    "catalogName": "units"
+  },
+  "query": {
+    "search": "ton",
+    "page": 1,
+    "pageSize": 50,
+    "version": "current"
+  }
+}

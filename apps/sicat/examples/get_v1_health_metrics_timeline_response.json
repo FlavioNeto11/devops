@@ -1,0 +1,27 @@
+{
+  "bucket": "hour",
+  "hours_back": 24,
+  "points": [
+    {
+      "bucket_start": "2026-03-14T18:00:00Z",
+      "total_jobs": 8,
+      "succeeded_jobs": 7,
+      "failed_jobs": 1,
+      "dlq_jobs": 0,
+      "avg_duration_ms": 392,
+      "p95_duration_ms": 871,
+      "success_rate": 0.875
+    },
+    {
+      "bucket_start": "2026-03-14T19:00:00Z",
+      "total_jobs": 3,
+      "succeeded_jobs": 3,
+      "failed_jobs": 0,
+      "dlq_jobs": 0,
+      "avg_duration_ms": 145,
+      "p95_duration_ms": 211,
+      "success_rate": 1
+    }
+  ],
+  "timestamp": "2026-03-14T21:00:00Z"
+}

@@ -1,0 +1,37 @@
+[
+  {
+    "Name": "node.exe",
+    "ProcessId": 11200,
+    "CommandLine": "\"C:\\Program Files\\nodejs\\node.exe\" --require C:\\GIT\\PADILHA\\sicat\\node_modules\\tsx\\dist\\preflight.cjs --import file:///C:/GIT/PADILHA/sicat/node_modules/tsx/dist/loader.mjs src/worker.ts"
+  },
+  {
+    "Name": "node.exe",
+    "ProcessId": 25116,
+    "CommandLine": "\"node\"   \"C:\\GIT\\PADILHA\\sicat\\node_modules\\.bin\\\\..\\tsx\\dist\\cli.mjs\" watch src/server.ts"
+  },
+  {
+    "Name": "node.exe",
+    "ProcessId": 26464,
+    "CommandLine": "\"C:\\Program Files\\nodejs\\node.exe\" --require C:\\GIT\\PADILHA\\sicat\\node_modules\\tsx\\dist\\preflight.cjs --import file:///C:/GIT/PADILHA/sicat/node_modules/tsx/dist/loader.mjs src/server.ts"
+  },
+  {
+    "Name": "node.exe",
+    "ProcessId": 34196,
+    "CommandLine": "\"node\"   \"C:\\GIT\\PADILHA\\sicat\\frontend\\node_modules\\.bin\\\\..\\vite\\bin\\vite.js\" --host 127.0.0.1 --port 5174"
+  },
+  {
+    "Name": "node.exe",
+    "ProcessId": 38256,
+    "CommandLine": "\"node\"   \"C:\\GIT\\PADILHA\\sicat\\node_modules\\.bin\\\\..\\tsx\\dist\\cli.mjs\" src/worker.ts"
+  },
+  {
+    "Name": "node.exe",
+    "ProcessId": 39908,
+    "CommandLine": "\"node\"   \"C:\\GIT\\PADILHA\\sicat\\node_modules\\.bin\\\\..\\tsx\\dist\\cli.mjs\" watch src/server.ts --host 127.0.0.1 --port 5174"
+  },
+  {
+    "Name": "node.exe",
+    "ProcessId": 40320,
+    "CommandLine": "\"node\"   \"C:\\GIT\\PADILHA\\sicat\\node_modules\\.bin\\\\..\\tsx\\dist\\cli.mjs\" watch src/server.ts"
+  }
+]

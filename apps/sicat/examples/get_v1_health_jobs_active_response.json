@@ -1,0 +1,9 @@
+{
+  "active_jobs": 5,
+  "queued": 2,
+  "running": 2,
+  "retry_wait": 1,
+  "oldest_job_id": "job_01JQW5M0D2G3CTQYV4N9AB8F1R",
+  "oldest_age_minutes": 45,
+  "timestamp": "2026-03-09T21:00:00Z"
+}

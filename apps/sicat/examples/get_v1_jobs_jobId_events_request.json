@@ -1,0 +1,7 @@
+{
+  "method": "GET",
+  "path": "/v1/jobs/job_01JQW5PAGY61R9Z6T2ZFMK1TJ3/events",
+  "headers": {
+    "X-Correlation-Id": "frontend-stream_123e4567-e89b-12d3-a456-426614174000"
+  }
+}

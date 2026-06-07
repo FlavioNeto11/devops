@@ -1,0 +1,22 @@
+{
+  "hours_back": 24,
+  "endpoints": [
+    {
+      "endpoint": "GET /api/mtr/pesquisaManifesto/{filtros}",
+      "total_calls": 220,
+      "avg_latency_ms": 184,
+      "p95_latency_ms": 532,
+      "error_calls": 3,
+      "error_rate": 0.0136
+    },
+    {
+      "endpoint": "PUT /api/mtr/manifesto",
+      "total_calls": 26,
+      "avg_latency_ms": 808,
+      "p95_latency_ms": 1290,
+      "error_calls": 2,
+      "error_rate": 0.0769
+    }
+  ],
+  "timestamp": "2026-03-14T21:00:00Z"
+}

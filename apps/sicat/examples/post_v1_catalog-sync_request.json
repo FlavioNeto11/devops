@@ -1,0 +1,18 @@
+{
+  "integrationAccountId": "acc_nova_it_prod",
+  "catalogs": [
+    "states",
+    "cities",
+    "classes",
+    "units",
+    "issuingAuthorities",
+    "residueTreatments",
+    "residueStates",
+    "packagingGroups",
+    "residueClasses",
+    "abnt",
+    "generatorAbnt"
+  ],
+  "forceRefresh": true,
+  "requestedBy": "flavio.padilha"
+}

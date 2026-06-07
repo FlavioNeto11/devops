@@ -1,0 +1,61 @@
+
+> mtr-node-backend-postgres-queue@2.0.0 smoke:health
+> node scripts/smoke-health.js
+
+≡ƒÜÇ Iniciando smoke tests de health endpoints...
+
+Base URL: http://localhost:8080
+
+Γ£à GET /v1/ping ΓåÆ 200
+Γ£à GET /v1/health/system ΓåÆ 200
+Γ£à GET /v1/health/workers ΓåÆ 200
+Γ£à GET /v1/health/jobs/active ΓåÆ 200
+Γ£à GET /v1/health/jobs/dlq ΓåÆ 200
+Γ£à GET /v1/health/metrics/performance ΓåÆ 200
+Γ£à POST /v1/maintenance/cleanup ΓåÆ 202
+
+============================================================
+Resultado: 7/7 testes passaram
+============================================================
+
+Γ£à Todos os health endpoints operacionais
+{
+  "ok": true,
+  "results": [
+    {
+      "endpoint": "GET /v1/ping",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "endpoint": "GET /v1/health/system",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "endpoint": "GET /v1/health/workers",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "endpoint": "GET /v1/health/jobs/active",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "endpoint": "GET /v1/health/jobs/dlq",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "endpoint": "GET /v1/health/metrics/performance",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "endpoint": "POST /v1/maintenance/cleanup",
+      "status": 202,
+      "ok": true
+    }
+  ]
+}

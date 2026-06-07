@@ -1,0 +1,8 @@
+{
+  "query": {
+    "document": "31913781000139"
+  },
+  "headers": {
+    "X-Correlation-Id": "corr_partner_lookup_001"
+  }
+}

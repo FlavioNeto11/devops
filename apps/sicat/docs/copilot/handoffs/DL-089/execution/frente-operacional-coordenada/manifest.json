@@ -1,0 +1,116 @@
+{
+  "kind": "copilot-operational-front/v1",
+  "dlId": "DL-089",
+  "slug": "frente-operacional-coordenada",
+  "title": "Execução demonstrativa do preset coordenado",
+  "request": "Validar bootstrap observável, board por lanes e fechamento serial sem demanda funcional concreta",
+  "executionDir": "C:\\GIT\\PADILHA\\sicat\\docs\\copilot\\handoffs\\DL-089\\execution\\frente-operacional-coordenada",
+  "createdAt": "2026-03-16T15:03:10.528Z",
+  "updatedAt": "2026-03-16T15:03:15.197Z",
+  "phases": [
+    "front",
+    "qa",
+    "docs"
+  ],
+  "lanes": [
+    {
+      "id": "1-integrador-cetesb-mtr",
+      "agent": "integrador-cetesb-mtr",
+      "phase": "front",
+      "summary": "Integração CETESB, sessão, token e payloads",
+      "status": "skipped",
+      "note": "Execução demonstrativa sem escopo funcional concreto",
+      "dependsOn": null,
+      "updatedAt": "2026-03-16T15:03:11.077Z",
+      "completedAt": null
+    },
+    {
+      "id": "2-postgres-queue-mtr",
+      "agent": "postgres-queue-mtr",
+      "phase": "front",
+      "summary": "Banco, fila, locking e consistência operacional",
+      "status": "skipped",
+      "note": "Execução demonstrativa sem escopo funcional concreto",
+      "dependsOn": null,
+      "updatedAt": "2026-03-16T15:03:11.568Z",
+      "completedAt": null
+    },
+    {
+      "id": "3-dashboard-observability-mtr",
+      "agent": "dashboard-observability-mtr",
+      "phase": "front",
+      "summary": "Dashboard, métricas e observabilidade operacional",
+      "status": "skipped",
+      "note": "Execução demonstrativa sem escopo funcional concreto",
+      "dependsOn": null,
+      "updatedAt": "2026-03-16T15:03:12.081Z",
+      "completedAt": null
+    },
+    {
+      "id": "4-jobs-monitoramento-logs-mtr",
+      "agent": "jobs-monitoramento-logs-mtr",
+      "phase": "front",
+      "summary": "Operação admin global, jobs e logs",
+      "status": "skipped",
+      "note": "Execução demonstrativa sem escopo funcional concreto",
+      "dependsOn": null,
+      "updatedAt": "2026-03-16T15:03:12.584Z",
+      "completedAt": null
+    },
+    {
+      "id": "5-sessao-conta-mtr",
+      "agent": "sessao-conta-mtr",
+      "phase": "front",
+      "summary": "Sessão e conta CETESB do usuário atual",
+      "status": "skipped",
+      "note": "Execução demonstrativa sem escopo funcional concreto",
+      "dependsOn": null,
+      "updatedAt": "2026-03-16T15:03:13.077Z",
+      "completedAt": null
+    },
+    {
+      "id": "6-manifestos-operacional-mtr",
+      "agent": "manifestos-operacional-mtr",
+      "phase": "front",
+      "summary": "Fluxos de manifestos e ações operacionais",
+      "status": "skipped",
+      "note": "Execução demonstrativa sem escopo funcional concreto",
+      "dependsOn": null,
+      "updatedAt": "2026-03-16T15:03:13.612Z",
+      "completedAt": null
+    },
+    {
+      "id": "7-perfis-acessos-admin-mtr",
+      "agent": "perfis-acessos-admin-mtr",
+      "phase": "front",
+      "summary": "Perfis, acessos e governança administrativa",
+      "status": "skipped",
+      "note": "Execução demonstrativa sem escopo funcional concreto",
+      "dependsOn": null,
+      "updatedAt": "2026-03-16T15:03:14.142Z",
+      "completedAt": null
+    },
+    {
+      "id": "8-tester-qa-mtr",
+      "agent": "tester-qa-mtr",
+      "phase": "qa",
+      "summary": "Validação final e regressão",
+      "status": "skipped",
+      "note": "Sem mudanças funcionais para validar",
+      "dependsOn": "front-complete",
+      "updatedAt": "2026-03-16T15:03:14.681Z",
+      "completedAt": null
+    },
+    {
+      "id": "9-documentador-mtr",
+      "agent": "documentador-mtr",
+      "phase": "docs",
+      "summary": "Decision-log, estrutura e docs finais",
+      "status": "completed",
+      "note": "DL-089 consolidado com artefatos finais",
+      "dependsOn": "tester-qa-mtr",
+      "updatedAt": "2026-03-16T15:03:15.197Z",
+      "completedAt": "2026-03-16T15:03:15.197Z"
+    }
+  ]
+}

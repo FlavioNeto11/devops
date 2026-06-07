@@ -1,0 +1,10 @@
+{
+  "action": "grant",
+  "status": "applied",
+  "userId": "usr_01JQWABCDEF1234567890",
+  "roleId": "role_admin_global",
+  "assignedAt": "2026-03-15T14:10:00Z",
+  "expiresAt": null,
+  "correlationId": "corr_admin_access_grant_001",
+  "performedAt": "2026-03-15T14:10:00Z"
+}

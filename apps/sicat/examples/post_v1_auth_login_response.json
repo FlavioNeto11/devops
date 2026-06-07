@@ -1,0 +1,22 @@
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzMzM5NDgiLCJuYW1lIjoiRmxhdmlvIFBhZGlsaGEgTmV0byIsInBhcnRuZXJDb2RlIjoxNzYxNjMsImlhdCI6MTcwOTg1NjAwMCwiZXhwIjoxNzA5OTQyNDAwfQ.dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
+  "expiresAt": "2026-03-08T23:59:59Z",
+  "user": {
+    "accessCode": 333948,
+    "name": "Flavio Padilha Neto",
+    "email": "flavio_padilha_neto@msn.com",
+    "cpf": "37088641828",
+    "document": "31913781000139",
+    "documentType": "J"
+  },
+  "partner": {
+    "code": 176163,
+    "description": "Nova IT",
+    "tradeName": "Nova IT",
+    "document": "31913781000139",
+    "state": {
+      "code": 26,
+      "abbreviation": "SP"
+    }
+  }
+}

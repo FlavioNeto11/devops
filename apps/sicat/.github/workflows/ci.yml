@@ -1,0 +1,67 @@
+name: CI Quality Gate
+
+"on":
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate agents
+        run: npm run validate:agents
+
+      - name: Validate CETESB source
+        run: npm run validate:cetesb-source
+
+      - name: Validate HAR gateway
+        run: npm run validate:har-gateway
+
+      - name: Validate markdown links
+        run: npm run validate:md-links
+
+      - name: Validate OpenAPI
+        run: npm run validate:openapi
+
+      - name: Check secrets
+        run: npm run check:secrets
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Contract test
+        run: npm run test:contract
+
+      - name: Build TypeScript
+        run: npm run build:ts
+
+      - name: Sonar scan
+        if: ${{ env.SONAR_TOKEN != '' }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: npm run sonar

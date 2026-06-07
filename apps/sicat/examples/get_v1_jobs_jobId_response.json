@@ -1,0 +1,25 @@
+{
+  "jobId": "job_01JQW5PAGY61R9Z6T2ZFMK1TJ3",
+  "entityType": "manifest",
+  "entityId": "man_01JQW5M6YY9M7K7B5N63GQ6E9S",
+  "operation": "manifest.print",
+  "status": "succeeded",
+  "attempts": 1,
+  "maxAttempts": 5,
+  "queuedAt": "2026-03-07T20:19:30Z",
+  "startedAt": "2026-03-07T20:19:31Z",
+  "finishedAt": "2026-03-07T20:19:39Z",
+  "nextRetryAt": null,
+  "correlationId": "corr_6b7999cf8c7b4ea4b4c85a3a1f8d7f44",
+  "idempotencyKey": "0f70f030-4438-4e21-84dd-c32aab5f5e43",
+  "lastErrorCode": null,
+  "lastErrorMessage": null,
+  "payload": {
+    "outcome": "manifest_printed",
+    "printUrl": "/v1/manifestos/man_01JQW5M6YY9M7K7B5N63GQ6E9S/documents/doc_01JQW5PZ0J2MY0S3QJ8V9PH9PN"
+  },
+  "links": {
+    "entity": "/v1/manifestos/man_01JQW5M6YY9M7K7B5N63GQ6E9S",
+    "audit": "/v1/audit/corr_6b7999cf8c7b4ea4b4c85a3a1f8d7f44"
+  }
+}

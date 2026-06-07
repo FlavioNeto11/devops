@@ -1,0 +1,516 @@
+# Catálogo de intenções do Chat SICAT
+Total de cenários: **466**.
+
+## ajuda_navegacao
+- `SICAT-CHAT-0001-ajuda-navegacao-o-que-eu-consigo-fazer-no-sicat` — O que eu consigo fazer no SICAT?
+- `SICAT-CHAT-0002-ajuda-navegacao-me-explique-a-diferenca-entre-mtr-cdf-e-` — Me explique a diferença entre MTR, CDF e DMR.
+- `SICAT-CHAT-0003-ajuda-navegacao-onde-eu-gero-um-novo-manifesto` — Onde eu gero um novo manifesto?
+- `SICAT-CHAT-0004-ajuda-navegacao-onde-eu-vejo-os-cdfs-emitidos` — Onde eu vejo os CDFs emitidos?
+- `SICAT-CHAT-0005-ajuda-navegacao-onde-consulto-os-jobs-com-erro` — Onde consulto os jobs com erro?
+- `SICAT-CHAT-0006-ajuda-navegacao-como-faco-para-trocar-a-conta-cetesb-ati` — Como faço para trocar a conta CETESB ativa?
+- `SICAT-CHAT-0007-ajuda-navegacao-qual-conta-cetesb-esta-ativa-agora` — Qual conta CETESB está ativa agora?
+- `SICAT-CHAT-0008-ajuda-navegacao-me-mostre-um-resumo-da-operacao-de-hoje` — Me mostre um resumo da operação de hoje.
+- `SICAT-CHAT-0009-ajuda-navegacao-quais-modulos-estao-disponiveis-para-mim` — Quais módulos estão disponíveis para mim?
+- `SICAT-CHAT-0010-ajuda-navegacao-eu-tenho-permissao-para-acessar-a-area-a` — Eu tenho permissão para acessar a área administrativa?
+- `SICAT-CHAT-0011-ajuda-navegacao-explique-o-que-e-um-mtr-provisorio` — Explique o que é um MTR provisório.
+- `SICAT-CHAT-0012-ajuda-navegacao-explique-quando-devo-usar-dmr` — Explique quando devo usar DMR.
+- `SICAT-CHAT-0013-ajuda-navegacao-explique-quando-devo-gerar-cdf` — Explique quando devo gerar CDF.
+- `SICAT-CHAT-0014-ajuda-navegacao-qual-e-o-fluxo-correto-desde-a-criacao-d` — Qual é o fluxo correto desde a criação do MTR até o CDF?
+- `SICAT-CHAT-0015-ajuda-navegacao-o-que-significa-manifesto-recebido` — O que significa manifesto recebido?
+- `SICAT-CHAT-0016-ajuda-navegacao-o-que-significa-job-em-dlq` — O que significa job em DLQ?
+- `SICAT-CHAT-0017-ajuda-navegacao-o-que-significa-erro-de-autenticacao-rem` — O que significa erro de autenticação remota?
+- `SICAT-CHAT-0018-ajuda-navegacao-o-que-significa-pendente-de-har` — O que significa pendente de HAR?
+- `SICAT-CHAT-0019-ajuda-navegacao-o-que-significa-cdf-ja-emitido` — O que significa CDF já emitido?
+
+## manifestos_consulta
+- `SICAT-CHAT-0020-manifestos-consulta-liste-os-manifestos-criados-hoje` — Liste os manifestos criados hoje.
+- `SICAT-CHAT-0021-manifestos-consulta-liste-os-manifestos-dos-ultimos-7-dias` — Liste os manifestos dos últimos 7 dias.
+- `SICAT-CHAT-0022-manifestos-consulta-liste-os-manifestos-pendentes-de-envio` — Liste os manifestos pendentes de envio.
+- `SICAT-CHAT-0023-manifestos-consulta-liste-os-manifestos-recebidos-e-ainda-se` — Liste os manifestos recebidos e ainda sem CDF.
+- `SICAT-CHAT-0024-manifestos-consulta-liste-os-manifestos-com-erro` — Liste os manifestos com erro.
+- `SICAT-CHAT-0025-manifestos-consulta-liste-os-manifestos-cancelados-neste-mes` — Liste os manifestos cancelados neste mês.
+- `SICAT-CHAT-0026-manifestos-consulta-busque-o-manifesto-pelo-numero-123456` — Busque o manifesto pelo número 123456.
+- `SICAT-CHAT-0027-manifestos-consulta-busque-o-manifesto-pelo-id-interno` — Busque o manifesto pelo ID interno.
+- `SICAT-CHAT-0028-manifestos-consulta-quais-manifestos-foram-enviados-para-a-c` — Quais manifestos foram enviados para a CETESB hoje?
+- `SICAT-CHAT-0029-manifestos-consulta-quais-manifestos-ainda-nao-foram-impress` — Quais manifestos ainda não foram impressos?
+- `SICAT-CHAT-0030-manifestos-consulta-quais-manifestos-estao-aguardando-recebi` — Quais manifestos estão aguardando recebimento?
+- `SICAT-CHAT-0031-manifestos-consulta-quais-manifestos-estao-prontos-para-gera` — Quais manifestos estão prontos para gerar CDF?
+- `SICAT-CHAT-0032-manifestos-consulta-quais-manifestos-tem-documento-pdf-dispo` — Quais manifestos têm documento PDF disponível?
+- `SICAT-CHAT-0033-manifestos-consulta-mostre-os-manifestos-do-gerador-com-cnpj` — Mostre os manifestos do gerador com CNPJ 00.000.000/0001-00.
+- `SICAT-CHAT-0034-manifestos-consulta-mostre-os-manifestos-do-destinador-x` — Mostre os manifestos do destinador X.
+- `SICAT-CHAT-0035-manifestos-consulta-filtre-manifestos-por-periodo-de-emissao` — Filtre manifestos por período de emissão.
+- `SICAT-CHAT-0036-manifestos-consulta-filtre-manifestos-por-status-operacional` — Filtre manifestos por status operacional.
+- `SICAT-CHAT-0037-manifestos-consulta-filtre-manifestos-por-tipo-de-residuo` — Filtre manifestos por tipo de resíduo.
+- `SICAT-CHAT-0038-manifestos-consulta-filtre-manifestos-por-transportador` — Filtre manifestos por transportador.
+- `SICAT-CHAT-0039-manifestos-consulta-me-traga-os-ultimos-20-manifestos-criado` — Me traga os últimos 20 manifestos criados.
+- `SICAT-CHAT-0040-manifestos-consulta-me-traga-os-manifestos-com-falha-de-envi` — Me traga os manifestos com falha de envio remoto.
+- `SICAT-CHAT-0041-manifestos-consulta-me-traga-manifestos-que-foram-enviados-m` — Me traga manifestos que foram enviados mas não têm confirmação.
+- `SICAT-CHAT-0042-manifestos-consulta-me-traga-manifestos-com-divergencia-entr` — Me traga manifestos com divergência entre status local e status CETESB.
+- `SICAT-CHAT-0043-manifestos-consulta-quais-manifestos-estao-parados-ha-mais-d` — Quais manifestos estão parados há mais de 24 horas?
+- `SICAT-CHAT-0044-manifestos-consulta-quais-manifestos-precisam-de-acao-manual` — Quais manifestos precisam de ação manual?
+- `SICAT-CHAT-0045-manifestos-consulta-quais-manifestos-tem-maior-risco-operaci` — Quais manifestos têm maior risco operacional hoje?
+
+## manifestos_acao
+- `SICAT-CHAT-0046-manifestos-acao-crie-um-novo-manifesto-com-estes-dados` — Crie um novo manifesto com estes dados.
+- `SICAT-CHAT-0047-manifestos-acao-crie-um-manifesto-copiando-os-dados-do-m` — Crie um manifesto copiando os dados do manifesto 123456.
+- `SICAT-CHAT-0048-manifestos-acao-crie-um-manifesto-para-o-gerador-x-trans` — Crie um manifesto para o gerador X, transportador Y e destinador Z.
+- `SICAT-CHAT-0049-manifestos-acao-salve-este-manifesto-como-rascunho` — Salve este manifesto como rascunho.
+- `SICAT-CHAT-0050-manifestos-acao-envie-este-manifesto-para-a-cetesb` — Envie este manifesto para a CETESB.
+- `SICAT-CHAT-0051-manifestos-acao-imprima-o-manifesto-123456` — Imprima o manifesto 123456.
+- `SICAT-CHAT-0052-manifestos-acao-baixe-o-pdf-do-manifesto-123456` — Baixe o PDF do manifesto 123456.
+- `SICAT-CHAT-0053-manifestos-acao-cancele-o-manifesto-123456` — Cancele o manifesto 123456.
+- `SICAT-CHAT-0054-manifestos-acao-receba-o-manifesto-123456` — Receba o manifesto 123456.
+- `SICAT-CHAT-0055-manifestos-acao-reenvie-o-manifesto-que-falhou` — Reenvie o manifesto que falhou.
+- `SICAT-CHAT-0056-manifestos-acao-tente-novamente-todos-os-manifestos-com-` — Tente novamente todos os manifestos com erro de autenticação.
+- `SICAT-CHAT-0057-manifestos-acao-submeta-em-lote-todos-os-manifestos-pend` — Submeta em lote todos os manifestos pendentes de hoje.
+- `SICAT-CHAT-0058-manifestos-acao-cancele-em-lote-os-manifestos-selecionad` — Cancele em lote os manifestos selecionados.
+- `SICAT-CHAT-0059-manifestos-acao-atualize-o-status-deste-manifesto-consul` — Atualize o status deste manifesto consultando a CETESB.
+- `SICAT-CHAT-0060-manifestos-acao-replicar-este-manifesto-para-tres-viagen` — Replicar este manifesto para três viagens.
+- `SICAT-CHAT-0061-manifestos-acao-divida-este-volume-em-tres-manifestos-ig` — Divida este volume em três manifestos iguais.
+- `SICAT-CHAT-0062-manifestos-acao-gere-tres-manifestos-a-partir-desses-dad` — Gere três manifestos a partir desses dados, dividindo a quantidade total.
+- `SICAT-CHAT-0063-manifestos-acao-valide-se-este-manifesto-esta-pronto-par` — Valide se este manifesto está pronto para envio.
+- `SICAT-CHAT-0064-manifestos-acao-valide-se-este-manifesto-pode-ser-cancel` — Valide se este manifesto pode ser cancelado.
+- `SICAT-CHAT-0065-manifestos-acao-valide-se-este-manifesto-pode-ser-recebi` — Valide se este manifesto pode ser recebido.
+- `SICAT-CHAT-0066-manifestos-acao-valide-se-este-manifesto-pode-gerar-cdf` — Valide se este manifesto pode gerar CDF.
+- `SICAT-CHAT-0067-manifestos-acao-antes-de-enviar-me-mostre-os-campos-obri` — Antes de enviar, me mostre os campos obrigatórios faltando.
+- `SICAT-CHAT-0068-manifestos-acao-corrija-os-campos-invalidos-deste-manife` — Corrija os campos inválidos deste manifesto com base nos dados disponíveis.
+- `SICAT-CHAT-0069-manifestos-acao-monte-o-payload-correto-para-criar-esse-` — Monte o payload correto para criar esse manifesto.
+
+## manifestos_composto
+- `SICAT-CHAT-0070-manifestos-composto-liste-os-manifestos-recebidos-nos-ultimo` — Liste os manifestos recebidos nos últimos 30 dias que ainda não têm CDF e separe por gerador.
+- `SICAT-CHAT-0071-manifestos-composto-me-mostre-todos-os-manifestos-com-erro-a` — Me mostre todos os manifestos com erro, agrupados por tipo de erro e indicando a ação recomendada.
+- `SICAT-CHAT-0072-manifestos-composto-quais-manifestos-foram-criados-hoje-envi` — Quais manifestos foram criados hoje, enviados com sucesso, mas ainda não foram impressos?
+- `SICAT-CHAT-0073-manifestos-composto-compare-os-manifestos-enviados-ontem-com` — Compare os manifestos enviados ontem com os recebidos hoje e mostre o que ainda está pendente.
+- `SICAT-CHAT-0074-manifestos-composto-me-mostre-os-manifestos-do-gerador-x-que` — Me mostre os manifestos do gerador X que estão elegíveis para CDF, excluindo os cancelados e os que já têm certificado.
+- `SICAT-CHAT-0075-manifestos-composto-liste-os-manifestos-com-falha-operaciona` — Liste os manifestos com falha operacional e diga quais podem ser reenviados automaticamente.
+- `SICAT-CHAT-0076-manifestos-composto-encontre-manifestos-duplicados-por-gerad` — Encontre manifestos duplicados por gerador, resíduo, data e volume.
+- `SICAT-CHAT-0077-manifestos-composto-identifique-manifestos-com-volume-fora-d` — Identifique manifestos com volume fora do padrão para esse gerador.
+- `SICAT-CHAT-0078-manifestos-composto-me-mostre-todos-os-mtrs-do-mes-que-nao-c` — Me mostre todos os MTRs do mês que não chegaram ao status final esperado.
+- `SICAT-CHAT-0079-manifestos-composto-faca-uma-analise-dos-gargalos-da-operaca` — Faça uma análise dos gargalos da operação de MTR nesta semana.
+- `SICAT-CHAT-0080-manifestos-composto-quais-manifestos-estao-travando-o-fecham` — Quais manifestos estão travando o fechamento operacional do dia?
+- `SICAT-CHAT-0081-manifestos-composto-me-mostre-um-resumo-executivo-dos-manife` — Me mostre um resumo executivo dos manifestos de hoje: criados, enviados, recebidos, cancelados, com erro e pendentes.
+- `SICAT-CHAT-0082-manifestos-composto-me-diga-quais-manifestos-eu-preciso-reso` — Me diga quais manifestos eu preciso resolver primeiro, priorizando risco e tempo parado.
+- `SICAT-CHAT-0083-manifestos-composto-verifique-se-ha-manifestos-recebidos-sem` — Verifique se há manifestos recebidos sem CDF e já com prazo crítico.
+- `SICAT-CHAT-0084-manifestos-composto-liste-os-manifestos-que-deveriam-ter-sid` — Liste os manifestos que deveriam ter sido recebidos mas ainda estão pendentes.
+- `SICAT-CHAT-0085-manifestos-composto-busque-manifestos-que-tiveram-job-criado` — Busque manifestos que tiveram job criado mas não tiveram atualização de status.
+
+## cdf_consulta
+- `SICAT-CHAT-0086-cdf-consulta-liste-os-cdfs-emitidos-hoje` — Liste os CDFs emitidos hoje.
+- `SICAT-CHAT-0087-cdf-consulta-liste-os-cdfs-emitidos-este-mes` — Liste os CDFs emitidos este mês.
+- `SICAT-CHAT-0088-cdf-consulta-busque-o-cdf-pelo-codigo` — Busque o CDF pelo código.
+- `SICAT-CHAT-0089-cdf-consulta-busque-cdfs-por-periodo` — Busque CDFs por período.
+- `SICAT-CHAT-0090-cdf-consulta-busque-cdfs-do-gerador-x` — Busque CDFs do gerador X.
+- `SICAT-CHAT-0091-cdf-consulta-busque-cdfs-do-destinador-ativo` — Busque CDFs do destinador ativo.
+- `SICAT-CHAT-0092-cdf-consulta-quais-cdfs-foram-emitidos-nos-ultimos-7-` — Quais CDFs foram emitidos nos últimos 7 dias?
+- `SICAT-CHAT-0093-cdf-consulta-quais-cdfs-ainda-nao-foram-baixados` — Quais CDFs ainda não foram baixados?
+- `SICAT-CHAT-0094-cdf-consulta-quais-cdfs-tem-pdf-disponivel` — Quais CDFs têm PDF disponível?
+- `SICAT-CHAT-0095-cdf-consulta-baixe-o-pdf-do-cdf-123456` — Baixe o PDF do CDF 123456.
+- `SICAT-CHAT-0096-cdf-consulta-me-envie-o-link-de-download-do-cdf-12345` — Me envie o link de download do CDF 123456.
+- `SICAT-CHAT-0097-cdf-consulta-mostre-os-detalhes-do-cdf-123456` — Mostre os detalhes do CDF 123456.
+- `SICAT-CHAT-0098-cdf-consulta-quais-manifestos-estao-vinculados-ao-cdf` — Quais manifestos estão vinculados ao CDF 123456?
+- `SICAT-CHAT-0099-cdf-consulta-qual-responsavel-assinou-este-cdf` — Qual responsável assinou este CDF?
+- `SICAT-CHAT-0100-cdf-consulta-quais-cdfs-foram-emitidos-para-o-cnpj-x` — Quais CDFs foram emitidos para o CNPJ X?
+- `SICAT-CHAT-0101-cdf-consulta-quais-cdfs-cobrem-o-periodo-de-janeiro` — Quais CDFs cobrem o período de janeiro?
+- `SICAT-CHAT-0102-cdf-consulta-quais-cdfs-estao-faltando-para-os-manife` — Quais CDFs estão faltando para os manifestos recebidos?
+- `SICAT-CHAT-0103-cdf-consulta-existe-algum-manifesto-recebido-sem-cdf` — Existe algum manifesto recebido sem CDF?
+- `SICAT-CHAT-0104-cdf-consulta-existe-cdf-duplicado-para-algum-manifest` — Existe CDF duplicado para algum manifesto?
+- `SICAT-CHAT-0105-cdf-consulta-quais-cdfs-foram-gerados-por-job-automat` — Quais CDFs foram gerados por job automático?
+
+## cdf_geracao
+- `SICAT-CHAT-0106-cdf-geracao-gere-cdf-para-o-manifesto-123456` — Gere CDF para o manifesto 123456.
+- `SICAT-CHAT-0107-cdf-geracao-gere-cdf-para-todos-os-manifestos-recebi` — Gere CDF para todos os manifestos recebidos e elegíveis de hoje.
+- `SICAT-CHAT-0108-cdf-geracao-gere-cdf-para-todos-os-manifestos-recebi` — Gere CDF para todos os manifestos recebidos do gerador X.
+- `SICAT-CHAT-0109-cdf-geracao-gere-cdf-para-os-manifestos-selecionados` — Gere CDF para os manifestos selecionados.
+- `SICAT-CHAT-0110-cdf-geracao-gere-cdf-considerando-o-periodo-de-01-04` — Gere CDF considerando o período de 01/04 a 30/04.
+- `SICAT-CHAT-0111-cdf-geracao-antes-de-gerar-o-cdf-valide-quais-manife` — Antes de gerar o CDF, valide quais manifestos estão elegíveis.
+- `SICAT-CHAT-0112-cdf-geracao-monte-uma-previa-do-cdf-antes-de-enviar` — Monte uma prévia do CDF antes de enviar.
+- `SICAT-CHAT-0113-cdf-geracao-informe-quais-manifestos-foram-bloqueado` — Informe quais manifestos foram bloqueados e por qual motivo.
+- `SICAT-CHAT-0114-cdf-geracao-gere-cdf-somente-para-manifestos-recebid` — Gere CDF somente para manifestos recebidos e sem certificado anterior.
+- `SICAT-CHAT-0115-cdf-geracao-use-o-responsavel-codigo-123-para-gerar-` — Use o responsável código 123 para gerar o CDF.
+- `SICAT-CHAT-0116-cdf-geracao-gere-o-cdf-com-observacao-cdf-gerado-via` — Gere o CDF com observação "CDF gerado via SICAT".
+- `SICAT-CHAT-0117-cdf-geracao-gere-cdf-por-gerador-separando-um-certif` — Gere CDF por gerador, separando um certificado para cada CNPJ.
+- `SICAT-CHAT-0118-cdf-geracao-gere-cdf-consolidado-para-todos-os-manif` — Gere CDF consolidado para todos os manifestos elegíveis do período.
+- `SICAT-CHAT-0119-cdf-geracao-tente-gerar-novamente-o-cdf-que-falhou` — Tente gerar novamente o CDF que falhou.
+- `SICAT-CHAT-0120-cdf-geracao-verifique-o-status-do-job-de-geracao-de-` — Verifique o status do job de geração de CDF.
+- `SICAT-CHAT-0121-cdf-geracao-depois-de-gerar-o-cdf-baixe-o-pdf-automa` — Depois de gerar o CDF, baixe o PDF automaticamente.
+- `SICAT-CHAT-0122-cdf-geracao-gere-cdf-e-depois-me-mostre-o-job-criado` — Gere CDF e depois me mostre o job criado.
+- `SICAT-CHAT-0123-cdf-geracao-gere-cdf-e-me-avise-se-algum-manifesto-n` — Gere CDF e me avise se algum manifesto não puder entrar.
+- `SICAT-CHAT-0124-cdf-geracao-simule-a-geracao-do-cdf-sem-enviar-para-` — Simule a geração do CDF sem enviar para a CETESB.
+
+## dmr
+- `SICAT-CHAT-0125-dmr-o-que-e-dmr` — O que é DMR?
+- `SICAT-CHAT-0126-dmr-liste-as-dmrs-existentes` — Liste as DMRs existentes.
+- `SICAT-CHAT-0127-dmr-liste-as-dmrs-pendentes` — Liste as DMRs pendentes.
+- `SICAT-CHAT-0128-dmr-crie-uma-nova-dmr` — Crie uma nova DMR.
+- `SICAT-CHAT-0129-dmr-abra-a-dmr-123` — Abra a DMR 123.
+- `SICAT-CHAT-0130-dmr-mostre-os-itens-da-dmr-123` — Mostre os itens da DMR 123.
+- `SICAT-CHAT-0131-dmr-adicione-este-item-na-dmr` — Adicione este item na DMR.
+- `SICAT-CHAT-0132-dmr-remova-este-item-da-dmr` — Remova este item da DMR.
+- `SICAT-CHAT-0133-dmr-consolide-a-dmr-123` — Consolide a DMR 123.
+- `SICAT-CHAT-0134-dmr-envie-a-dmr-123` — Envie a DMR 123.
+- `SICAT-CHAT-0135-dmr-verifique-o-status-da-dmr-123` — Verifique o status da DMR 123.
+- `SICAT-CHAT-0136-dmr-quais-dmrs-estao-pendentes-de-consolidac` — Quais DMRs estão pendentes de consolidação?
+- `SICAT-CHAT-0137-dmr-quais-dmrs-estao-pendentes-de-envio` — Quais DMRs estão pendentes de envio?
+- `SICAT-CHAT-0138-dmr-quais-dmrs-deram-erro` — Quais DMRs deram erro?
+- `SICAT-CHAT-0139-dmr-por-que-a-dmr-123-nao-pode-ser-enviada` — Por que a DMR 123 não pode ser enviada?
+- `SICAT-CHAT-0140-dmr-valide-a-dmr-antes-de-enviar` — Valide a DMR antes de enviar.
+- `SICAT-CHAT-0141-dmr-liste-os-erros-de-validacao-da-dmr` — Liste os erros de validação da DMR.
+- `SICAT-CHAT-0142-dmr-mostre-as-dmrs-por-periodo` — Mostre as DMRs por período.
+- `SICAT-CHAT-0143-dmr-mostre-as-dmrs-por-empreendimento` — Mostre as DMRs por empreendimento.
+- `SICAT-CHAT-0144-dmr-compare-os-dados-da-dmr-com-os-manifesto` — Compare os dados da DMR com os manifestos do período.
+- `SICAT-CHAT-0145-dmr-monte-uma-dmr-com-base-nos-manifestos-de` — Monte uma DMR com base nos manifestos de março.
+- `SICAT-CHAT-0146-dmr-verifique-se-a-dmr-do-mes-esta-completa` — Verifique se a DMR do mês está completa.
+- `SICAT-CHAT-0147-dmr-me-diga-quais-residuos-faltam-na-dmr` — Me diga quais resíduos faltam na DMR.
+- `SICAT-CHAT-0148-dmr-explique-por-que-o-envio-remoto-da-dmr-e` — Explique por que o envio remoto da DMR está indisponível.
+- `SICAT-CHAT-0149-dmr-quando-a-dmr-estiver-pronta-para-envio-r` — Quando a DMR estiver pronta para envio real, quais dados serão necessários?
+
+## mtr_provisorio
+- `SICAT-CHAT-0150-mtr-provisorio-o-que-e-mtr-provisorio` — O que é MTR provisório?
+- `SICAT-CHAT-0151-mtr-provisorio-quando-devo-criar-um-mtr-provisorio` — Quando devo criar um MTR provisório?
+- `SICAT-CHAT-0152-mtr-provisorio-liste-os-mtrs-provisorios` — Liste os MTRs provisórios.
+- `SICAT-CHAT-0153-mtr-provisorio-crie-um-novo-mtr-provisorio` — Crie um novo MTR provisório.
+- `SICAT-CHAT-0154-mtr-provisorio-abra-o-mtr-provisorio-123` — Abra o MTR provisório 123.
+- `SICAT-CHAT-0155-mtr-provisorio-cancele-o-mtr-provisorio-123` — Cancele o MTR provisório 123.
+- `SICAT-CHAT-0156-mtr-provisorio-imprima-o-mtr-provisorio-123` — Imprima o MTR provisório 123.
+- `SICAT-CHAT-0157-mtr-provisorio-quais-mtrs-provisorios-ainda-nao-viraram` — Quais MTRs provisórios ainda não viraram definitivos?
+- `SICAT-CHAT-0158-mtr-provisorio-quais-mtrs-provisorios-estao-com-documen` — Quais MTRs provisórios estão com documento disponível?
+- `SICAT-CHAT-0159-mtr-provisorio-quais-mtrs-provisorios-falharam-no-envio` — Quais MTRs provisórios falharam no envio?
+- `SICAT-CHAT-0160-mtr-provisorio-quais-mtrs-provisorios-podem-ser-cancela` — Quais MTRs provisórios podem ser cancelados?
+- `SICAT-CHAT-0161-mtr-provisorio-quais-mtrs-provisorios-podem-ser-impress` — Quais MTRs provisórios podem ser impressos?
+- `SICAT-CHAT-0162-mtr-provisorio-crie-um-mtr-provisorio-usando-os-mesmos-` — Crie um MTR provisório usando os mesmos dados deste manifesto.
+- `SICAT-CHAT-0163-mtr-provisorio-transforme-este-provisorio-em-definitivo` — Transforme este provisório em definitivo, se permitido.
+- `SICAT-CHAT-0164-mtr-provisorio-liste-provisorios-criados-no-periodo-eme` — Liste provisórios criados no período emergencial.
+- `SICAT-CHAT-0165-mtr-provisorio-me-mostre-os-provisorios-aguardando-regu` — Me mostre os provisórios aguardando regularização.
+- `SICAT-CHAT-0166-mtr-provisorio-verifique-se-este-provisorio-ja-possui-m` — Verifique se este provisório já possui manifesto definitivo vinculado.
+- `SICAT-CHAT-0167-mtr-provisorio-explique-o-status-atual-deste-mtr-provis` — Explique o status atual deste MTR provisório.
+- `SICAT-CHAT-0168-mtr-provisorio-resolva-os-erros-de-validacao-deste-mtr-` — Resolva os erros de validação deste MTR provisório.
+
+## parceiros
+- `SICAT-CHAT-0169-parceiros-busque-o-parceiro-pelo-cnpj` — Busque o parceiro pelo CNPJ.
+- `SICAT-CHAT-0170-parceiros-busque-o-gerador-pelo-nome` — Busque o gerador pelo nome.
+- `SICAT-CHAT-0171-parceiros-busque-o-transportador-x` — Busque o transportador X.
+- `SICAT-CHAT-0172-parceiros-busque-o-destinador-y` — Busque o destinador Y.
+- `SICAT-CHAT-0173-parceiros-esse-cnpj-esta-cadastrado-na-cetesb` — Esse CNPJ está cadastrado na CETESB?
+- `SICAT-CHAT-0174-parceiros-mostre-os-dados-do-parceiro-123` — Mostre os dados do parceiro 123.
+- `SICAT-CHAT-0175-parceiros-qual-e-o-codigo-cetesb-deste-parceiro` — Qual é o código CETESB deste parceiro?
+- `SICAT-CHAT-0176-parceiros-este-gerador-pode-emitir-manifesto` — Este gerador pode emitir manifesto?
+- `SICAT-CHAT-0177-parceiros-este-transportador-esta-apto` — Este transportador está apto?
+- `SICAT-CHAT-0178-parceiros-este-destinador-esta-disponivel` — Este destinador está disponível?
+- `SICAT-CHAT-0179-parceiros-liste-parceiros-usados-nos-manifestos-de` — Liste parceiros usados nos manifestos deste mês.
+- `SICAT-CHAT-0180-parceiros-liste-geradores-com-maior-volume-no-peri` — Liste geradores com maior volume no período.
+- `SICAT-CHAT-0181-parceiros-liste-transportadores-mais-usados` — Liste transportadores mais usados.
+- `SICAT-CHAT-0182-parceiros-liste-destinadores-com-mais-recebimentos` — Liste destinadores com mais recebimentos pendentes.
+- `SICAT-CHAT-0183-parceiros-valide-se-gerador-transportador-e-destin` — Valide se gerador, transportador e destinador estão completos para criar um MTR.
+- `SICAT-CHAT-0184-parceiros-atualize-os-dados-locais-do-parceiro-con` — Atualize os dados locais do parceiro consultando a CETESB.
+- `SICAT-CHAT-0185-parceiros-sincronize-os-catalogos-da-cetesb` — Sincronize os catálogos da CETESB.
+- `SICAT-CHAT-0186-parceiros-quais-parceiros-estao-com-dados-incomple` — Quais parceiros estão com dados incompletos?
+- `SICAT-CHAT-0187-parceiros-quais-cnpjs-aparecem-em-manifestos-mas-n` — Quais CNPJs aparecem em manifestos mas não têm cadastro local completo?
+
+## catalogos
+- `SICAT-CHAT-0188-catalogos-liste-os-tipos-de-residuos-disponiveis` — Liste os tipos de resíduos disponíveis.
+- `SICAT-CHAT-0189-catalogos-busque-residuo-por-codigo` — Busque resíduo por código.
+- `SICAT-CHAT-0190-catalogos-busque-unidade-de-medida` — Busque unidade de medida.
+- `SICAT-CHAT-0191-catalogos-liste-tecnologias-de-destinacao` — Liste tecnologias de destinação.
+- `SICAT-CHAT-0192-catalogos-liste-acondicionamentos-disponiveis` — Liste acondicionamentos disponíveis.
+- `SICAT-CHAT-0193-catalogos-liste-classes-de-residuos` — Liste classes de resíduos.
+- `SICAT-CHAT-0194-catalogos-qual-codigo-devo-usar-para-asfalto` — Qual código devo usar para asfalto?
+- `SICAT-CHAT-0195-catalogos-qual-codigo-devo-usar-para-residuos-de-o` — Qual código devo usar para resíduos de obra?
+- `SICAT-CHAT-0196-catalogos-qual-unidade-devo-usar-para-metros-cubic` — Qual unidade devo usar para metros cúbicos?
+- `SICAT-CHAT-0197-catalogos-qual-tecnologia-de-destinacao-correspond` — Qual tecnologia de destinação corresponde a reciclagem?
+- `SICAT-CHAT-0198-catalogos-sincronize-os-catalogos-cetesb` — Sincronize os catálogos CETESB.
+- `SICAT-CHAT-0199-catalogos-quando-foi-a-ultima-sincronizacao-dos-ca` — Quando foi a última sincronização dos catálogos?
+- `SICAT-CHAT-0200-catalogos-existe-algum-catalogo-desatualizado` — Existe algum catálogo desatualizado?
+- `SICAT-CHAT-0201-catalogos-compare-os-catalogos-locais-com-os-da-ce` — Compare os catálogos locais com os da CETESB.
+- `SICAT-CHAT-0202-catalogos-me-diga-quais-campos-do-manifesto-depend` — Me diga quais campos do manifesto dependem de catálogo.
+
+## jobs_fila
+- `SICAT-CHAT-0203-jobs-fila-liste-os-jobs-ativos` — Liste os jobs ativos.
+- `SICAT-CHAT-0204-jobs-fila-liste-os-jobs-em-erro` — Liste os jobs em erro.
+- `SICAT-CHAT-0205-jobs-fila-liste-os-jobs-em-dlq` — Liste os jobs em DLQ.
+- `SICAT-CHAT-0206-jobs-fila-abra-o-job-123` — Abra o job 123.
+- `SICAT-CHAT-0207-jobs-fila-mostre-os-eventos-do-job-123` — Mostre os eventos do job 123.
+- `SICAT-CHAT-0208-jobs-fila-qual-e-o-status-do-job-123` — Qual é o status do job 123?
+- `SICAT-CHAT-0209-jobs-fila-por-que-o-job-123-falhou` — Por que o job 123 falhou?
+- `SICAT-CHAT-0210-jobs-fila-reexecute-o-job-123` — Reexecute o job 123.
+- `SICAT-CHAT-0211-jobs-fila-cancele-o-job-123` — Cancele o job 123.
+- `SICAT-CHAT-0212-jobs-fila-remova-o-job-123-da-fila-ativa` — Remova o job 123 da fila ativa.
+- `SICAT-CHAT-0213-jobs-fila-reenvie-todos-os-jobs-em-dlq-que-forem-s` — Reenvie todos os jobs em DLQ que forem seguros.
+- `SICAT-CHAT-0214-jobs-fila-quais-jobs-estao-parados-ha-mais-de-30-m` — Quais jobs estão parados há mais de 30 minutos?
+- `SICAT-CHAT-0215-jobs-fila-quais-jobs-falharam-por-autenticacao` — Quais jobs falharam por autenticação?
+- `SICAT-CHAT-0216-jobs-fila-quais-jobs-falharam-por-timeout` — Quais jobs falharam por timeout?
+- `SICAT-CHAT-0217-jobs-fila-quais-jobs-falharam-por-erro-da-cetesb` — Quais jobs falharam por erro da CETESB?
+- `SICAT-CHAT-0218-jobs-fila-quais-jobs-podem-ser-reprocessados-autom` — Quais jobs podem ser reprocessados automaticamente?
+- `SICAT-CHAT-0219-jobs-fila-quais-jobs-precisam-de-intervencao-manua` — Quais jobs precisam de intervenção manual?
+- `SICAT-CHAT-0220-jobs-fila-agrupe-os-jobs-com-erro-por-tipo-de-falh` — Agrupe os jobs com erro por tipo de falha.
+- `SICAT-CHAT-0221-jobs-fila-mostre-a-linha-do-tempo-do-job-123` — Mostre a linha do tempo do job 123.
+- `SICAT-CHAT-0222-jobs-fila-me-diga-qual-foi-o-ultimo-evento-antes-d` — Me diga qual foi o último evento antes da falha.
+- `SICAT-CHAT-0223-jobs-fila-esse-job-gerou-manifesto-cdf-ou-dmr` — Esse job gerou manifesto, CDF ou DMR?
+- `SICAT-CHAT-0224-jobs-fila-qual-usuario-disparou-esse-job` — Qual usuário disparou esse job?
+- `SICAT-CHAT-0225-jobs-fila-qual-correlationid-desse-job` — Qual correlationId desse job?
+- `SICAT-CHAT-0226-jobs-fila-mostre-todos-os-jobs-relacionados-ao-man` — Mostre todos os jobs relacionados ao manifesto 123456.
+- `SICAT-CHAT-0227-jobs-fila-reprocesse-apenas-jobs-que-nao-causem-du` — Reprocesse apenas jobs que não causem duplicidade.
+- `SICAT-CHAT-0228-jobs-fila-faca-uma-limpeza-de-jobs-antigos-finaliz` — Faça uma limpeza de jobs antigos finalizados.
+- `SICAT-CHAT-0229-jobs-fila-mostre-a-saude-dos-workers` — Mostre a saúde dos workers.
+- `SICAT-CHAT-0230-jobs-fila-existe-worker-parado` — Existe worker parado?
+- `SICAT-CHAT-0231-jobs-fila-qual-worker-esta-processando-mais-jobs` — Qual worker está processando mais jobs?
+- `SICAT-CHAT-0232-jobs-fila-a-fila-esta-congestionada` — A fila está congestionada?
+- `SICAT-CHAT-0233-jobs-fila-quantos-jobs-foram-processados-hoje` — Quantos jobs foram processados hoje?
+
+## auditoria
+- `SICAT-CHAT-0234-auditoria-busque-pela-correlationid-x` — Busque pela correlationId X.
+- `SICAT-CHAT-0235-auditoria-mostre-a-auditoria-do-manifesto-123456` — Mostre a auditoria do manifesto 123456.
+- `SICAT-CHAT-0236-auditoria-mostre-a-auditoria-do-cdf-123456` — Mostre a auditoria do CDF 123456.
+- `SICAT-CHAT-0237-auditoria-mostre-a-auditoria-do-job-123` — Mostre a auditoria do job 123.
+- `SICAT-CHAT-0238-auditoria-mostre-todos-os-eventos-relacionados-a-e` — Mostre todos os eventos relacionados a este erro.
+- `SICAT-CHAT-0239-auditoria-quem-criou-este-manifesto` — Quem criou este manifesto?
+- `SICAT-CHAT-0240-auditoria-quem-cancelou-este-manifesto` — Quem cancelou este manifesto?
+- `SICAT-CHAT-0241-auditoria-quem-gerou-este-cdf` — Quem gerou este CDF?
+- `SICAT-CHAT-0242-auditoria-quem-reenviou-este-job` — Quem reenviou este job?
+- `SICAT-CHAT-0243-auditoria-quando-este-manifesto-mudou-de-status` — Quando este manifesto mudou de status?
+- `SICAT-CHAT-0244-auditoria-qual-foi-a-sequencia-completa-desde-a-cr` — Qual foi a sequência completa desde a criação até o envio?
+- `SICAT-CHAT-0245-auditoria-me-mostre-a-trilha-completa-da-operacao` — Me mostre a trilha completa da operação.
+- `SICAT-CHAT-0246-auditoria-esse-erro-aconteceu-no-frontend-backend-` — Esse erro aconteceu no frontend, backend, worker ou CETESB?
+- `SICAT-CHAT-0247-auditoria-me-diga-o-payload-enviado-para-a-cetesb` — Me diga o payload enviado para a CETESB.
+- `SICAT-CHAT-0248-auditoria-me-diga-a-resposta-recebida-da-cetesb` — Me diga a resposta recebida da CETESB.
+- `SICAT-CHAT-0249-auditoria-o-que-mudou-entre-a-primeira-tentativa-e` — O que mudou entre a primeira tentativa e a segunda tentativa?
+- `SICAT-CHAT-0250-auditoria-existe-algum-evento-sem-correlacao` — Existe algum evento sem correlação?
+- `SICAT-CHAT-0251-auditoria-mostre-operacoes-feitas-pelo-usuario-x` — Mostre operações feitas pelo usuário X.
+- `SICAT-CHAT-0252-auditoria-mostre-acoes-administrativas-dos-ultimos` — Mostre ações administrativas dos últimos 7 dias.
+- `SICAT-CHAT-0253-auditoria-liste-eventos-criticos-da-operacao-hoje` — Liste eventos críticos da operação hoje.
+- `SICAT-CHAT-0254-auditoria-gere-um-resumo-tecnico-para-suporte-com-` — Gere um resumo técnico para suporte com base nessa correlationId.
+- `SICAT-CHAT-0255-auditoria-gere-um-resumo-simples-para-o-usuario-fi` — Gere um resumo simples para o usuário final explicando o erro.
+
+## saude_cetesb
+- `SICAT-CHAT-0256-saude-cetesb-qual-conta-cetesb-esta-ativa` — Qual conta CETESB está ativa?
+- `SICAT-CHAT-0257-saude-cetesb-troque-para-a-conta-cetesb-x` — Troque para a conta CETESB X.
+- `SICAT-CHAT-0258-saude-cetesb-liste-minhas-contas-cetesb` — Liste minhas contas CETESB.
+- `SICAT-CHAT-0259-saude-cetesb-a-conta-cetesb-atual-esta-saudavel` — A conta CETESB atual está saudável?
+- `SICAT-CHAT-0260-saude-cetesb-a-sessao-cetesb-esta-expirada` — A sessão CETESB está expirada?
+- `SICAT-CHAT-0261-saude-cetesb-renove-a-sessao-cetesb` — Renove a sessão CETESB.
+- `SICAT-CHAT-0262-saude-cetesb-teste-o-login-da-conta-cetesb-atual` — Teste o login da conta CETESB atual.
+- `SICAT-CHAT-0263-saude-cetesb-verifique-se-a-cetesb-esta-respondendo` — Verifique se a CETESB está respondendo.
+- `SICAT-CHAT-0264-saude-cetesb-existe-instabilidade-na-cetesb-agora` — Existe instabilidade na CETESB agora?
+- `SICAT-CHAT-0265-saude-cetesb-qual-foi-o-ultimo-erro-remoto-da-cetesb` — Qual foi o último erro remoto da CETESB?
+- `SICAT-CHAT-0266-saude-cetesb-quais-contas-cetesb-estao-com-falha` — Quais contas CETESB estão com falha?
+- `SICAT-CHAT-0267-saude-cetesb-quais-sessoes-estao-vencidas` — Quais sessões estão vencidas?
+- `SICAT-CHAT-0268-saude-cetesb-quais-sessoes-foram-renovadas-hoje` — Quais sessões foram renovadas hoje?
+- `SICAT-CHAT-0269-saude-cetesb-a-operacao-falhou-por-sessao-expirada` — A operação falhou por sessão expirada?
+- `SICAT-CHAT-0270-saude-cetesb-reautentique-antes-de-reenviar-os-jobs` — Reautentique antes de reenviar os jobs.
+- `SICAT-CHAT-0271-saude-cetesb-mostre-o-historico-de-saude-das-contas-c` — Mostre o histórico de saúde das contas CETESB.
+- `SICAT-CHAT-0272-saude-cetesb-quais-operacoes-estao-bloqueadas-por-pro` — Quais operações estão bloqueadas por problema de autenticação?
+- `SICAT-CHAT-0273-saude-cetesb-me-avise-quais-contas-precisam-de-interv` — Me avise quais contas precisam de intervenção.
+
+## dashboard_relatorios
+- `SICAT-CHAT-0274-dashboard-relatorios-me-mostre-o-resumo-do-dia` — Me mostre o resumo do dia.
+- `SICAT-CHAT-0275-dashboard-relatorios-me-mostre-o-resumo-da-semana` — Me mostre o resumo da semana.
+- `SICAT-CHAT-0276-dashboard-relatorios-quantos-manifestos-foram-criados-hoje` — Quantos manifestos foram criados hoje?
+- `SICAT-CHAT-0277-dashboard-relatorios-quantos-manifestos-foram-enviados-hoje` — Quantos manifestos foram enviados hoje?
+- `SICAT-CHAT-0278-dashboard-relatorios-quantos-manifestos-foram-recebidos-hoje` — Quantos manifestos foram recebidos hoje?
+- `SICAT-CHAT-0279-dashboard-relatorios-quantos-cdfs-foram-emitidos-hoje` — Quantos CDFs foram emitidos hoje?
+- `SICAT-CHAT-0280-dashboard-relatorios-quantos-jobs-falharam-hoje` — Quantos jobs falharam hoje?
+- `SICAT-CHAT-0281-dashboard-relatorios-qual-e-a-taxa-de-sucesso-dos-jobs` — Qual é a taxa de sucesso dos jobs?
+- `SICAT-CHAT-0282-dashboard-relatorios-qual-e-o-tempo-medio-de-processamento` — Qual é o tempo médio de processamento?
+- `SICAT-CHAT-0283-dashboard-relatorios-qual-e-o-principal-gargalo-da-operacao` — Qual é o principal gargalo da operação?
+- `SICAT-CHAT-0284-dashboard-relatorios-qual-gerador-teve-mais-manifestos-no-mes` — Qual gerador teve mais manifestos no mês?
+- `SICAT-CHAT-0285-dashboard-relatorios-qual-transportador-teve-mais-viagens` — Qual transportador teve mais viagens?
+- `SICAT-CHAT-0286-dashboard-relatorios-qual-destinador-recebeu-mais-volume` — Qual destinador recebeu mais volume?
+- `SICAT-CHAT-0287-dashboard-relatorios-qual-residuo-teve-maior-volume` — Qual resíduo teve maior volume?
+- `SICAT-CHAT-0288-dashboard-relatorios-qual-operacao-teve-mais-erro` — Qual operação teve mais erro?
+- `SICAT-CHAT-0289-dashboard-relatorios-compare-esta-semana-com-a-semana-passada` — Compare esta semana com a semana passada.
+- `SICAT-CHAT-0290-dashboard-relatorios-compare-este-mes-com-o-mes-anterior` — Compare este mês com o mês anterior.
+- `SICAT-CHAT-0291-dashboard-relatorios-exporte-relatorio-de-mtrs-em-csv` — Exporte relatório de MTRs em CSV.
+- `SICAT-CHAT-0292-dashboard-relatorios-exporte-relatorio-de-cdfs` — Exporte relatório de CDFs.
+- `SICAT-CHAT-0293-dashboard-relatorios-gere-relatorio-mensal-por-gerador` — Gere relatório mensal por gerador.
+- `SICAT-CHAT-0294-dashboard-relatorios-gere-relatorio-mensal-por-residuo` — Gere relatório mensal por resíduo.
+- `SICAT-CHAT-0295-dashboard-relatorios-gere-relatorio-para-auditoria-ambiental` — Gere relatório para auditoria ambiental.
+- `SICAT-CHAT-0296-dashboard-relatorios-gere-relatorio-de-pendencias` — Gere relatório de pendências.
+- `SICAT-CHAT-0297-dashboard-relatorios-gere-relatorio-de-jobs-com-erro` — Gere relatório de jobs com erro.
+- `SICAT-CHAT-0298-dashboard-relatorios-gere-relatorio-de-manifestos-sem-cdf` — Gere relatório de manifestos sem CDF.
+- `SICAT-CHAT-0299-dashboard-relatorios-gere-relatorio-de-dmr-pendente` — Gere relatório de DMR pendente.
+- `SICAT-CHAT-0300-dashboard-relatorios-me-de-uma-visao-executiva-da-operacao-pa` — Me dê uma visão executiva da operação para enviar por e-mail.
+- `SICAT-CHAT-0301-dashboard-relatorios-crie-um-resumo-para-diretoria-com-riscos` — Crie um resumo para diretoria com riscos e pendências.
+- `SICAT-CHAT-0302-dashboard-relatorios-monte-um-relatorio-com-foco-em-produtivi` — Monte um relatório com foco em produtividade operacional.
+- `SICAT-CHAT-0303-dashboard-relatorios-monte-um-relatorio-com-foco-em-conformid` — Monte um relatório com foco em conformidade ambiental.
+- `SICAT-CHAT-0304-dashboard-relatorios-monte-um-relatorio-com-foco-em-erros-tec` — Monte um relatório com foco em erros técnicos.
+
+## admin_permissoes
+- `SICAT-CHAT-0305-admin-permissoes-liste-os-usuarios-do-sicat` — Liste os usuários do SICAT.
+- `SICAT-CHAT-0306-admin-permissoes-crie-um-usuario-novo` — Crie um usuário novo.
+- `SICAT-CHAT-0307-admin-permissoes-desative-o-usuario-x` — Desative o usuário X.
+- `SICAT-CHAT-0308-admin-permissoes-redefina-a-senha-do-usuario-x` — Redefina a senha do usuário X.
+- `SICAT-CHAT-0309-admin-permissoes-liste-os-perfis-disponiveis` — Liste os perfis disponíveis.
+- `SICAT-CHAT-0310-admin-permissoes-quais-permissoes-eu-tenho` — Quais permissões eu tenho?
+- `SICAT-CHAT-0311-admin-permissoes-quais-usuarios-tem-acesso-administrativo` — Quais usuários têm acesso administrativo?
+- `SICAT-CHAT-0312-admin-permissoes-conceda-permissao-x-ao-usuario-y` — Conceda permissão X ao usuário Y.
+- `SICAT-CHAT-0313-admin-permissoes-revogue-permissao-x-do-usuario-y` — Revogue permissão X do usuário Y.
+- `SICAT-CHAT-0314-admin-permissoes-mostre-sessoes-ativas` — Mostre sessões ativas.
+- `SICAT-CHAT-0315-admin-permissoes-encerre-a-sessao-do-usuario-x` — Encerre a sessão do usuário X.
+- `SICAT-CHAT-0316-admin-permissoes-quem-acessou-o-sistema-hoje` — Quem acessou o sistema hoje?
+- `SICAT-CHAT-0317-admin-permissoes-quem-gerou-cdf-nesta-semana` — Quem gerou CDF nesta semana?
+- `SICAT-CHAT-0318-admin-permissoes-quem-cancelou-manifestos-neste-mes` — Quem cancelou manifestos neste mês?
+- `SICAT-CHAT-0319-admin-permissoes-quais-usuarios-estao-inativos` — Quais usuários estão inativos?
+- `SICAT-CHAT-0320-admin-permissoes-mostre-alteracoes-administrativas-recent` — Mostre alterações administrativas recentes.
+- `SICAT-CHAT-0321-admin-permissoes-crie-um-perfil-somente-leitura` — Crie um perfil somente leitura.
+- `SICAT-CHAT-0322-admin-permissoes-crie-um-perfil-operacional-para-emissao-` — Crie um perfil operacional para emissão de MTR.
+- `SICAT-CHAT-0323-admin-permissoes-crie-um-perfil-financeiro-apenas-para-re` — Crie um perfil financeiro apenas para relatórios.
+- `SICAT-CHAT-0324-admin-permissoes-verifique-se-o-usuario-x-pode-cancelar-m` — Verifique se o usuário X pode cancelar manifesto.
+- `SICAT-CHAT-0325-admin-permissoes-verifique-se-o-usuario-x-pode-acessar-cd` — Verifique se o usuário X pode acessar CDF.
+- `SICAT-CHAT-0326-admin-permissoes-bloqueie-acoes-criticas-para-usuarios-se` — Bloqueie ações críticas para usuários sem aprovação.
+
+## atuacao_real
+- `SICAT-CHAT-0327-atuacao-real-resolva-os-erros-operacionais-de-hoje-co` — Resolva os erros operacionais de hoje, começando pelos que podem ser reprocessados com segurança.
+- `SICAT-CHAT-0328-atuacao-real-verifique-tudo-que-esta-pendente-para-fe` — Verifique tudo que está pendente para fechar o dia e me diga o que falta.
+- `SICAT-CHAT-0329-atuacao-real-encontre-manifestos-recebidos-sem-cdf-e-` — Encontre manifestos recebidos sem CDF e gere os certificados que estiverem elegíveis.
+- `SICAT-CHAT-0330-atuacao-real-reprocesse-todos-os-jobs-em-dlq-que-nao-` — Reprocesse todos os jobs em DLQ que não tenham risco de duplicidade.
+- `SICAT-CHAT-0331-atuacao-real-atualize-os-status-dos-manifestos-penden` — Atualize os status dos manifestos pendentes consultando a CETESB.
+- `SICAT-CHAT-0332-atuacao-real-baixe-todos-os-pdfs-dos-cdfs-emitidos-ho` — Baixe todos os PDFs dos CDFs emitidos hoje.
+- `SICAT-CHAT-0333-atuacao-real-exporte-um-relatorio-com-todos-os-manife` — Exporte um relatório com todos os manifestos do mês.
+- `SICAT-CHAT-0334-atuacao-real-crie-um-pacote-com-pdfs-de-manifestos-e-` — Crie um pacote com PDFs de manifestos e CDFs do gerador X.
+- `SICAT-CHAT-0335-atuacao-real-monte-a-dmr-do-mes-com-base-nos-manifest` — Monte a DMR do mês com base nos manifestos disponíveis.
+- `SICAT-CHAT-0336-atuacao-real-faca-uma-varredura-de-inconsistencias-no` — Faça uma varredura de inconsistências nos manifestos do período.
+- `SICAT-CHAT-0337-atuacao-real-corrija-cadastros-incompletos-usando-dad` — Corrija cadastros incompletos usando dados da CETESB.
+- `SICAT-CHAT-0338-atuacao-real-sincronize-catalogos-antes-de-criar-novo` — Sincronize catálogos antes de criar novos manifestos.
+- `SICAT-CHAT-0339-atuacao-real-troque-para-a-conta-cetesb-correta-e-dep` — Troque para a conta CETESB correta e depois envie os manifestos pendentes.
+- `SICAT-CHAT-0340-atuacao-real-antes-de-gerar-cdf-valide-todos-os-manif` — Antes de gerar CDF, valide todos os manifestos e me peça confirmação.
+- `SICAT-CHAT-0341-atuacao-real-cancele-somente-os-manifestos-que-ainda-` — Cancele somente os manifestos que ainda não foram recebidos.
+- `SICAT-CHAT-0342-atuacao-real-reenvie-os-manifestos-que-falharam-por-t` — Reenvie os manifestos que falharam por timeout, mas não os que falharam por validação.
+- `SICAT-CHAT-0343-atuacao-real-faca-um-diagnostico-completo-da-fila-e-s` — Faça um diagnóstico completo da fila e sugira ações.
+- `SICAT-CHAT-0344-atuacao-real-execute-as-acoes-seguras-automaticamente` — Execute as ações seguras automaticamente e me liste as que precisam de aprovação.
+- `SICAT-CHAT-0345-atuacao-real-prepare-o-fechamento-operacional-do-dia` — Prepare o fechamento operacional do dia.
+- `SICAT-CHAT-0346-atuacao-real-prepare-o-fechamento-mensal-ambiental` — Prepare o fechamento mensal ambiental.
+
+## confirmacao_obrigatoria
+- `SICAT-CHAT-0347-confirmacao-obrigatoria-cancele-todos-os-manifestos-pendentes-de` — Cancele todos os manifestos pendentes de hoje.
+- `SICAT-CHAT-0348-confirmacao-obrigatoria-reenvie-todos-os-jobs-com-erro` — Reenvie todos os jobs com erro.
+- `SICAT-CHAT-0349-confirmacao-obrigatoria-gere-cdf-para-todos-os-manifestos-elegiv` — Gere CDF para todos os manifestos elegíveis do mês.
+- `SICAT-CHAT-0350-confirmacao-obrigatoria-exclua-este-rascunho-de-manifesto` — Exclua este rascunho de manifesto.
+- `SICAT-CHAT-0351-confirmacao-obrigatoria-remova-este-job-da-dlq` — Remova este job da DLQ.
+- `SICAT-CHAT-0352-confirmacao-obrigatoria-encerre-todas-as-sessoes-cetesb-expirada` — Encerre todas as sessões CETESB expiradas.
+- `SICAT-CHAT-0353-confirmacao-obrigatoria-troque-a-conta-cetesb-ativa` — Troque a conta CETESB ativa.
+- `SICAT-CHAT-0354-confirmacao-obrigatoria-revogue-o-acesso-administrativo-do-usuar` — Revogue o acesso administrativo do usuário X.
+- `SICAT-CHAT-0355-confirmacao-obrigatoria-faca-limpeza-dos-registros-antigos` — Faça limpeza dos registros antigos.
+- `SICAT-CHAT-0356-confirmacao-obrigatoria-reprocesse-operacoes-que-podem-chamar-a-` — Reprocesse operações que podem chamar a CETESB.
+- `SICAT-CHAT-0357-confirmacao-obrigatoria-envie-a-dmr-para-a-cetesb` — Envie a DMR para a CETESB.
+- `SICAT-CHAT-0358-confirmacao-obrigatoria-cancele-o-mtr-provisorio-123` — Cancele o MTR provisório 123.
+- `SICAT-CHAT-0359-confirmacao-obrigatoria-receba-em-lote-os-manifestos-selecionado` — Receba em lote os manifestos selecionados.
+- `SICAT-CHAT-0360-confirmacao-obrigatoria-faca-batch-cancel-de-manifestos-com-stat` — Faça batch cancel de manifestos com status X.
+- `SICAT-CHAT-0361-confirmacao-obrigatoria-altere-permissoes-de-usuarios-em-lote` — Altere permissões de usuários em lote.
+
+## diagnostico_complexo
+- `SICAT-CHAT-0362-diagnostico-complexo-o-manifesto-123456-nao-gerou-cdf-descubr` — O manifesto 123456 não gerou CDF. Descubra o motivo analisando status, jobs, auditoria, resposta da CETESB e elegibilidade.
+- `SICAT-CHAT-0363-diagnostico-complexo-o-job-123-falhou-verifique-se-foi-proble` — O job 123 falhou. Verifique se foi problema de payload, sessão, CETESB, timeout, autenticação ou regra de negócio.
+- `SICAT-CHAT-0364-diagnostico-complexo-a-operacao-de-hoje-esta-atrasada-compare` — A operação de hoje está atrasada? Compare volume esperado, jobs ativos, erros, manifestos pendentes e CDFs faltantes.
+- `SICAT-CHAT-0365-diagnostico-complexo-existe-risco-de-fechamento-incompleto-do` — Existe risco de fechamento incompleto do mês? Analise MTRs, CDFs, DMRs e pendências por gerador.
+- `SICAT-CHAT-0366-diagnostico-complexo-por-que-existem-manifestos-recebidos-sem` — Por que existem manifestos recebidos sem certificado? Agrupe por causa provável.
+- `SICAT-CHAT-0367-diagnostico-complexo-por-que-ha-muitos-jobs-em-dlq-hoje-faca-` — Por que há muitos jobs em DLQ hoje? Faça análise por endpoint, conta CETESB, tipo de operação e horário.
+- `SICAT-CHAT-0368-diagnostico-complexo-a-conta-cetesb-atual-esta-causando-falha` — A conta CETESB atual está causando falhas? Compare taxa de erro entre contas.
+- `SICAT-CHAT-0369-diagnostico-complexo-o-erro-esta-no-sicat-ou-na-cetesb-analis` — O erro está no SICAT ou na CETESB? Analise logs, auditoria, status HTTP, payload e resposta remota.
+- `SICAT-CHAT-0370-diagnostico-complexo-existe-inconsistencia-entre-o-status-loc` — Existe inconsistência entre o status local e o status remoto? Liste casos e recomende correção.
+- `SICAT-CHAT-0371-diagnostico-complexo-quais-operacoes-podem-ser-reprocessadas-` — Quais operações podem ser reprocessadas sem risco de duplicidade?
+- `SICAT-CHAT-0372-diagnostico-complexo-quais-operacoes-exigem-intervencao-human` — Quais operações exigem intervenção humana antes de reprocessar?
+- `SICAT-CHAT-0373-diagnostico-complexo-quais-manifestos-parecem-duplicados-ou-i` — Quais manifestos parecem duplicados ou inconsistentes?
+- `SICAT-CHAT-0374-diagnostico-complexo-quais-cdfs-deveriam-existir-mas-nao-apar` — Quais CDFs deveriam existir mas não aparecem na consulta?
+- `SICAT-CHAT-0375-diagnostico-complexo-quais-dmrs-nao-batem-com-os-manifestos-d` — Quais DMRs não batem com os manifestos do período?
+- `SICAT-CHAT-0376-diagnostico-complexo-qual-e-o-caminho-mais-seguro-para-regula` — Qual é o caminho mais seguro para regularizar todas as pendências do dia?
+
+## explicacao_simples
+- `SICAT-CHAT-0377-explicacao-simples-explique-esse-erro-para-alguem-que-nao-e` — Explique esse erro para alguém que não é técnico.
+- `SICAT-CHAT-0378-explicacao-simples-explique-esse-erro-para-o-time-operacion` — Explique esse erro para o time operacional.
+- `SICAT-CHAT-0379-explicacao-simples-explique-esse-erro-para-o-suporte-tecnic` — Explique esse erro para o suporte técnico.
+- `SICAT-CHAT-0380-explicacao-simples-explique-esse-erro-para-o-cliente` — Explique esse erro para o cliente.
+- `SICAT-CHAT-0381-explicacao-simples-explique-por-que-esse-manifesto-nao-pode` — Explique por que esse manifesto não pode gerar CDF.
+- `SICAT-CHAT-0382-explicacao-simples-explique-por-que-esse-job-foi-para-dlq` — Explique por que esse job foi para DLQ.
+- `SICAT-CHAT-0383-explicacao-simples-explique-por-que-preciso-renovar-a-sessa` — Explique por que preciso renovar a sessão CETESB.
+- `SICAT-CHAT-0384-explicacao-simples-explique-a-diferenca-entre-erro-de-valid` — Explique a diferença entre erro de validação e erro remoto.
+- `SICAT-CHAT-0385-explicacao-simples-explique-o-que-aconteceu-nessa-operacao-` — Explique o que aconteceu nessa operação em ordem cronológica.
+- `SICAT-CHAT-0386-explicacao-simples-explique-o-que-preciso-fazer-agora-para-` — Explique o que preciso fazer agora para resolver.
+- `SICAT-CHAT-0387-explicacao-simples-gere-uma-mensagem-de-whatsapp-explicando` — Gere uma mensagem de WhatsApp explicando a pendência.
+- `SICAT-CHAT-0388-explicacao-simples-gere-uma-resposta-formal-para-o-cliente-` — Gere uma resposta formal para o cliente sobre o atraso.
+- `SICAT-CHAT-0389-explicacao-simples-gere-um-resumo-tecnico-para-abrir-chamad` — Gere um resumo técnico para abrir chamado.
+- `SICAT-CHAT-0390-explicacao-simples-gere-uma-descricao-para-issue-no-github` — Gere uma descrição para issue no GitHub.
+- `SICAT-CHAT-0391-explicacao-simples-gere-um-checklist-para-o-operador-resolv` — Gere um checklist para o operador resolver esse caso.
+
+## automacao_assistida
+- `SICAT-CHAT-0392-automacao-assistida-todo-dia-as-18h-gere-um-resumo-das-pende` — Todo dia às 18h, gere um resumo das pendências operacionais.
+- `SICAT-CHAT-0393-automacao-assistida-antes-do-fechamento-mensal-liste-mtrs-se` — Antes do fechamento mensal, liste MTRs sem CDF.
+- `SICAT-CHAT-0394-automacao-assistida-avise-quando-um-job-ficar-mais-de-30-min` — Avise quando um job ficar mais de 30 minutos parado.
+- `SICAT-CHAT-0395-automacao-assistida-avise-quando-uma-conta-cetesb-perder-aut` — Avise quando uma conta CETESB perder autenticação.
+- `SICAT-CHAT-0396-automacao-assistida-avise-quando-houver-mais-de-10-jobs-em-d` — Avise quando houver mais de 10 jobs em DLQ.
+- `SICAT-CHAT-0397-automacao-assistida-avise-quando-manifestos-recebidos-ficare` — Avise quando manifestos recebidos ficarem sem CDF por mais de 24 horas.
+- `SICAT-CHAT-0398-automacao-assistida-monitore-erros-de-autenticacao-remota` — Monitore erros de autenticação remota.
+- `SICAT-CHAT-0399-automacao-assistida-monitore-falhas-de-geracao-de-cdf` — Monitore falhas de geração de CDF.
+- `SICAT-CHAT-0400-automacao-assistida-monitore-falhas-de-envio-de-dmr` — Monitore falhas de envio de DMR.
+- `SICAT-CHAT-0401-automacao-assistida-monitore-a-fila-de-jobs-criticos` — Monitore a fila de jobs críticos.
+- `SICAT-CHAT-0402-automacao-assistida-me-alerte-quando-a-taxa-de-erro-passar-d` — Me alerte quando a taxa de erro passar de 5%.
+- `SICAT-CHAT-0403-automacao-assistida-me-alerte-quando-um-manifesto-importante` — Me alerte quando um manifesto importante mudar de status.
+- `SICAT-CHAT-0404-automacao-assistida-me-alerte-quando-o-pdf-de-um-cdf-estiver` — Me alerte quando o PDF de um CDF estiver disponível.
+- `SICAT-CHAT-0405-automacao-assistida-faca-uma-rotina-diaria-de-validacao-de-m` — Faça uma rotina diária de validação de manifestos pendentes.
+- `SICAT-CHAT-0406-automacao-assistida-faca-uma-rotina-semanal-de-auditoria-de-` — Faça uma rotina semanal de auditoria de inconsistências.
+- `SICAT-CHAT-0407-automacao-assistida-faca-uma-rotina-mensal-de-fechamento-amb` — Faça uma rotina mensal de fechamento ambiental.
+
+## estrategia_gerencial
+- `SICAT-CHAT-0408-estrategia-gerencial-qual-e-o-maior-problema-operacional-do-s` — Qual é o maior problema operacional do SICAT hoje?
+- `SICAT-CHAT-0409-estrategia-gerencial-onde-estamos-perdendo-mais-tempo` — Onde estamos perdendo mais tempo?
+- `SICAT-CHAT-0410-estrategia-gerencial-qual-modulo-tem-mais-falhas` — Qual módulo tem mais falhas?
+- `SICAT-CHAT-0411-estrategia-gerencial-qual-conta-cetesb-tem-pior-desempenho` — Qual conta CETESB tem pior desempenho?
+- `SICAT-CHAT-0412-estrategia-gerencial-qual-cliente-gera-mais-retrabalho` — Qual cliente gera mais retrabalho?
+- `SICAT-CHAT-0413-estrategia-gerencial-qual-tipo-de-residuo-gera-mais-erro` — Qual tipo de resíduo gera mais erro?
+- `SICAT-CHAT-0414-estrategia-gerencial-qual-transportador-tem-mais-pendencias` — Qual transportador tem mais pendências?
+- `SICAT-CHAT-0415-estrategia-gerencial-qual-gerador-tem-mais-manifestos-sem-cdf` — Qual gerador tem mais manifestos sem CDF?
+- `SICAT-CHAT-0416-estrategia-gerencial-quais-erros-deveriam-virar-automacao` — Quais erros deveriam virar automação?
+- `SICAT-CHAT-0417-estrategia-gerencial-quais-acoes-manuais-mais-se-repetem` — Quais ações manuais mais se repetem?
+- `SICAT-CHAT-0418-estrategia-gerencial-quais-telas-deveriam-ser-melhoradas-prim` — Quais telas deveriam ser melhoradas primeiro?
+- `SICAT-CHAT-0419-estrategia-gerencial-quais-integracoes-estao-mais-frageis` — Quais integrações estão mais frágeis?
+- `SICAT-CHAT-0420-estrategia-gerencial-qual-processo-tem-maior-risco-de-complia` — Qual processo tem maior risco de compliance?
+- `SICAT-CHAT-0421-estrategia-gerencial-o-que-preciso-priorizar-para-reduzir-pen` — O que preciso priorizar para reduzir pendências?
+- `SICAT-CHAT-0422-estrategia-gerencial-quais-indicadores-devo-acompanhar-diaria` — Quais indicadores devo acompanhar diariamente?
+- `SICAT-CHAT-0423-estrategia-gerencial-quais-indicadores-devo-acompanhar-mensal` — Quais indicadores devo acompanhar mensalmente?
+- `SICAT-CHAT-0424-estrategia-gerencial-quais-alertas-deveriam-existir-no-comman` — Quais alertas deveriam existir no Command Center?
+- `SICAT-CHAT-0425-estrategia-gerencial-quais-automacoes-trariam-mais-ganho-oper` — Quais automações trariam mais ganho operacional?
+- `SICAT-CHAT-0426-estrategia-gerencial-faca-uma-analise-de-maturidade-da-operac` — Faça uma análise de maturidade da operação SICAT.
+- `SICAT-CHAT-0427-estrategia-gerencial-me-de-recomendacoes-para-transformar-o-s` — Me dê recomendações para transformar o SICAT em centro operacional completo.
+
+## simulacao_planejamento
+- `SICAT-CHAT-0428-simulacao-planejamento-se-eu-reenviar-esses-jobs-qual-o-risco` — Se eu reenviar esses jobs, qual o risco?
+- `SICAT-CHAT-0429-simulacao-planejamento-se-eu-gerar-cdf-agora-quais-manifestos-e` — Se eu gerar CDF agora, quais manifestos entram e quais ficam de fora?
+- `SICAT-CHAT-0430-simulacao-planejamento-se-eu-cancelar-este-manifesto-qual-impac` — Se eu cancelar este manifesto, qual impacto?
+- `SICAT-CHAT-0431-simulacao-planejamento-se-eu-trocar-a-conta-cetesb-quais-operac` — Se eu trocar a conta CETESB, quais operações serão afetadas?
+- `SICAT-CHAT-0432-simulacao-planejamento-se-a-cetesb-estiver-instavel-o-que-fica-` — Se a CETESB estiver instável, o que fica parado?
+- `SICAT-CHAT-0433-simulacao-planejamento-se-o-worker-parar-quais-operacoes-ficam-` — Se o worker parar, quais operações ficam em risco?
+- `SICAT-CHAT-0434-simulacao-planejamento-se-eu-fechar-o-mes-agora-quais-pendencia` — Se eu fechar o mês agora, quais pendências ficam abertas?
+- `SICAT-CHAT-0435-simulacao-planejamento-simule-o-fechamento-do-dia` — Simule o fechamento do dia.
+- `SICAT-CHAT-0436-simulacao-planejamento-simule-o-fechamento-mensal` — Simule o fechamento mensal.
+- `SICAT-CHAT-0437-simulacao-planejamento-simule-a-geracao-de-cdf-para-este-period` — Simule a geração de CDF para este período.
+- `SICAT-CHAT-0438-simulacao-planejamento-simule-o-envio-da-dmr-sem-chamar-a-cetes` — Simule o envio da DMR sem chamar a CETESB.
+- `SICAT-CHAT-0439-simulacao-planejamento-simule-o-reprocessamento-dos-jobs-em-dlq` — Simule o reprocessamento dos jobs em DLQ.
+- `SICAT-CHAT-0440-simulacao-planejamento-monte-um-plano-de-acao-para-resolver-as-` — Monte um plano de ação para resolver as pendências em ordem segura.
+- `SICAT-CHAT-0441-simulacao-planejamento-monte-um-plano-para-limpar-a-dlq-sem-cau` — Monte um plano para limpar a DLQ sem causar duplicidade.
+- `SICAT-CHAT-0442-simulacao-planejamento-monte-um-plano-para-regularizar-todos-os` — Monte um plano para regularizar todos os manifestos sem CDF.
+
+## dados_mais_acao
+- `SICAT-CHAT-0443-dados-mais-acao-liste-os-manifestos-recebidos-sem-cdf-e-` — Liste os manifestos recebidos sem CDF e gere certificado para os que forem elegíveis.
+- `SICAT-CHAT-0444-dados-mais-acao-busque-os-jobs-em-dlq-separe-os-seguros-` — Busque os jobs em DLQ, separe os seguros e reexecute somente os seguros.
+- `SICAT-CHAT-0445-dados-mais-acao-encontre-manifestos-com-erro-de-sessao-e` — Encontre manifestos com erro de sessão expirada, renove a sessão e reenvie.
+- `SICAT-CHAT-0446-dados-mais-acao-consulte-cdfs-emitidos-hoje-e-baixe-todo` — Consulte CDFs emitidos hoje e baixe todos os PDFs disponíveis.
+- `SICAT-CHAT-0447-dados-mais-acao-liste-as-dmrs-pendentes-valide-cada-uma-` — Liste as DMRs pendentes, valide cada uma e envie apenas as completas.
+- `SICAT-CHAT-0448-dados-mais-acao-busque-manifestos-do-gerador-x-filtre-os` — Busque manifestos do gerador X, filtre os recebidos e gere CDF por período.
+- `SICAT-CHAT-0449-dados-mais-acao-analise-os-erros-do-dia-e-abra-uma-lista` — Analise os erros do dia e abra uma lista de ações recomendadas.
+- `SICAT-CHAT-0450-dados-mais-acao-consulte-a-saude-cetesb-e-pause-acoes-re` — Consulte a saúde CETESB e pause ações remotas se houver instabilidade.
+- `SICAT-CHAT-0451-dados-mais-acao-verifique-os-manifestos-pendentes-e-crie` — Verifique os manifestos pendentes e crie jobs de reenvio para os elegíveis.
+- `SICAT-CHAT-0452-dados-mais-acao-gere-relatorio-de-pendencias-e-depois-pr` — Gere relatório de pendências e depois prepare mensagem para o time operacional.
+- `SICAT-CHAT-0453-dados-mais-acao-atualize-os-status-remotos-e-depois-gere` — Atualize os status remotos e depois gere o resumo executivo.
+- `SICAT-CHAT-0454-dados-mais-acao-compare-os-dados-locais-com-a-cetesb-e-c` — Compare os dados locais com a CETESB e corrija divergências seguras.
+- `SICAT-CHAT-0455-dados-mais-acao-identifique-cdfs-faltantes-gere-os-possi` — Identifique CDFs faltantes, gere os possíveis e liste os bloqueados.
+- `SICAT-CHAT-0456-dados-mais-acao-faca-fechamento-do-dia-validar-pendencia` — Faça fechamento do dia: validar pendências, jobs, manifestos, CDFs e DMRs.
+
+## orquestrador_futuro
+- `SICAT-CHAT-0457-orquestrador-futuro-faca-um-diagnostico-completo-da-operacao` — Faça um diagnóstico completo da operação de hoje, identifique riscos, execute correções seguras e me peça confirmação apenas para ações irreversíveis.
+- `SICAT-CHAT-0458-orquestrador-futuro-regularize-todos-os-manifestos-do-period` — Regularize todos os manifestos do período: atualize status, reenvie falhas seguras, gere CDFs elegíveis e monte relatório final.
+- `SICAT-CHAT-0459-orquestrador-futuro-prepare-o-fechamento-mensal-ambiental-co` — Prepare o fechamento mensal ambiental com MTRs, CDFs e DMRs, apontando divergências e ações pendentes por responsável.
+- `SICAT-CHAT-0460-orquestrador-futuro-investigue-por-que-o-gerador-x-esta-com-` — Investigue por que o gerador X está com tantos manifestos sem CDF, analisando status, jobs, auditoria, erros CETESB e histórico.
+- `SICAT-CHAT-0461-orquestrador-futuro-faca-uma-analise-de-causa-raiz-dos-erros` — Faça uma análise de causa raiz dos erros de CDF desta semana e proponha correções técnicas e operacionais.
+- `SICAT-CHAT-0462-orquestrador-futuro-monte-um-painel-narrativo-da-operacao-o-` — Monte um painel narrativo da operação: o que entrou, o que saiu, o que falhou, o que foi resolvido e o que precisa de decisão.
+- `SICAT-CHAT-0463-orquestrador-futuro-avalie-a-saude-geral-do-sicat-agora-cons` — Avalie a saúde geral do SICAT agora, considerando backend, workers, filas, contas CETESB, jobs, auditoria e integrações externas.
+- `SICAT-CHAT-0464-orquestrador-futuro-faca-um-plano-automatico-de-recuperacao-` — Faça um plano automático de recuperação da DLQ, separando ações sem risco, ações com confirmação e ações bloqueadas.
+- `SICAT-CHAT-0465-orquestrador-futuro-verifique-se-estamos-em-conformidade-par` — Verifique se estamos em conformidade para o fechamento do mês e diga exatamente o que impede o fechamento.
+- `SICAT-CHAT-0466-orquestrador-futuro-atue-como-operador-senior-priorize-pende` — Atue como operador sênior: priorize pendências, resolva o que for seguro, gere evidências e deixe um relatório auditável.

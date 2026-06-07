@@ -1,0 +1,7 @@
+{
+  "body": {
+    "resource": "access.roles",
+    "action": "write",
+    "description": "Gerenciar perfis de acesso"
+  }
+}

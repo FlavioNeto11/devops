@@ -1,0 +1,115 @@
+{
+  "id": "man_01JQW5M6YY9M7K7B5N63GQ6E9S",
+  "integrationAccountId": "acc_nova_it_prod",
+  "status": "draft",
+  "externalStatus": "pending_submission",
+  "externalReference": null,
+  "externalHashCode": null,
+  "manifestType": 1,
+  "requestedBy": "flavio.padilha",
+  "state": {
+    "code": 26,
+    "abbreviation": "SP"
+  },
+  "responsibleName": "Flavio Padilha Neto",
+  "expeditionDate": "2026-03-07",
+  "driverName": "Osvaldo",
+  "vehiclePlate": "ETA26D1",
+  "notes": "",
+  "hasTemporaryStorage": false,
+  "hasCadriInResidueList": false,
+  "generator": {
+    "partnerCode": 176163,
+    "description": "Nova IT",
+    "tradeName": "Nova IT",
+    "document": "31913781000139",
+    "registration": "null-null",
+    "address": {
+      "street": "DIDIMO VIEIRA DA SILVA",
+      "number": "507",
+      "complement": "apt 306",
+      "district": "VILA FERROVIARIA",
+      "postalCode": "14802370",
+      "city": "ARARAQUARA",
+      "state": "SP"
+    }
+  },
+  "carrier": {
+    "partnerCode": 160627,
+    "description": "CASAMAX COMERCIAL LTDA.",
+    "document": "08183516000120",
+    "address": {
+      "street": "AVENIDA MANOEL CASANOVA",
+      "number": "1435",
+      "complement": "bloco c",
+      "district": "MEU CANTINHO",
+      "postalCode": "08664645",
+      "city": "SUZANO",
+      "state": "SP"
+    }
+  },
+  "receiver": {
+    "partnerCode": 40110,
+    "description": "MARDAN FIRE ENGENHARIA, CONSTRUÇÃO E EXTINTORES LTDA.",
+    "document": "13539643000150",
+    "registration": "239-542012",
+    "licenseIssuer": "Estadual",
+    "licenseNumber": "29008724",
+    "address": {
+      "street": "RUA JOAQUIM JOSE FIORAVANTE",
+      "number": "11",
+      "district": "VILA ROSINA",
+      "postalCode": "07749105",
+      "city": "CAIEIRAS",
+      "state": "SP"
+    }
+  },
+  "temporaryStorage": null,
+  "temporaryStorageCarrier": null,
+  "residues": [
+    {
+      "lineNumber": 1,
+      "quantity": 18,
+      "receivedQuantity": null,
+      "weightTon": 18,
+      "unit": {
+        "code": 3,
+        "description": "Tonelada",
+        "symbol": "TON"
+      },
+      "residue": {
+        "code": 731,
+        "ibamaCode": "Classe A",
+        "description": "Resíduos reutilizáveis ou recicláveis como agregados",
+        "groupDescription": "Resíduos de Construção Civil",
+        "groupRepresentation": "1710"
+      },
+      "treatment": {
+        "code": 51,
+        "description": "Aterro de Reservação - RCC"
+      },
+      "class": {
+        "code": 11,
+        "description": "CLASSE A (RCC)"
+      },
+      "abnt": null,
+      "cadriItem": null,
+      "stateType": {
+        "code": 4,
+        "description": "SOLIDO"
+      },
+      "packagingType": {
+        "code": 4,
+        "description": "CAÇAMBA ABERTA"
+      },
+      "packagingGroup": null,
+      "internalCode": null,
+      "onuCode": null,
+      "riskClass": null,
+      "shipmentName": null,
+      "notes": null
+    }
+  ],
+  "createdAt": "2026-03-07T20:18:44Z",
+  "updatedAt": "2026-03-07T20:18:44Z"
+}

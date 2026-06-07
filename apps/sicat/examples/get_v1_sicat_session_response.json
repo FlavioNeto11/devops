@@ -1,0 +1,31 @@
+{
+  "user": {
+    "userId": "usr_01JQWABCDEF1234567890",
+    "name": "Flavio Padilha Neto",
+    "email": "flavio_padilha_neto@msn.com",
+    "roles": [
+      "operator"
+    ]
+  },
+  "activeAccount": {
+    "accountId": "acc_01JQWACCOUNT0001",
+    "partnerCode": 176163,
+    "partnerDocument": "31.913.781/0001-39",
+    "partnerName": "Nova IT",
+    "accountType": "generator",
+    "lastConnectionAt": "2026-03-13T15:20:00Z",
+    "lastUsageAt": "2026-03-13T15:20:00Z",
+    "usageSummary": {
+      "manifestsCreated": 25,
+      "manifestsSubmitted": 22,
+      "manifestsPrinted": 18,
+      "manifestsCancelled": 1
+    },
+    "isActive": true
+  },
+  "sessionContext": {
+    "sessionContextId": "scx_01JQW5M0D2G3CTQYV4N9AB8F1R",
+    "integrationAccountId": "acc_nova_it_prod",
+    "status": "active"
+  }
+}

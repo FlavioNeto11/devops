@@ -1,0 +1,17 @@
+{
+  "id": "dmi_01JR1V11ABMK0G3X7PZQT4D8E5",
+  "declarationId": "dmr_01JR1V0ZX5MK0G3X7PZQT4D8E2",
+  "manifestId": null,
+  "mtrNumber": "MTR-2026-000999",
+  "cdfNumber": null,
+  "residueClass": "IIA",
+  "residueCode": "190805",
+  "quantityValue": 25.0,
+  "quantityUnit": "kg",
+  "partnerRole": "destinador",
+  "partnerCnpj": "55667788000122",
+  "metadata": {
+    "origem": "manual"
+  },
+  "createdAt": "2026-04-25T11:00:00Z"
+}

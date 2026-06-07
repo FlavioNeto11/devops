@@ -1,0 +1,4 @@
+{
+  "retention_days": 30,
+  "batch_size": 100
+}

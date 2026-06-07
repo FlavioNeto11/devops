@@ -1,0 +1,19 @@
+{
+  "partnerCode": 176163,
+  "description": "Nova IT",
+  "tradeName": "Nova IT",
+  "document": "31913781000139",
+  "documentType": "J",
+  "state": {
+    "code": 26,
+    "abbreviation": "SP"
+  },
+  "registeredUsers": [
+    {
+      "accessCode": 333948,
+      "name": "Flavio Padilha Neto",
+      "email": "flavio_padilha_neto@msn.com",
+      "cpf": "37088641828"
+    }
+  ]
+}

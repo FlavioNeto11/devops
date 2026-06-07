@@ -1,0 +1,15 @@
+{
+  "commandId": "cmd_01JRXQ7Z6F6Y9N2P3Q4R5S6T7",
+  "jobId": "job_01JRXQ7Z6F6Y9N2P3Q4R5S6T7",
+  "correlationId": "corr_2ecf2c3a16e24af9959725851f4ebbc4",
+  "entityType": "manifestReceipt",
+  "entityId": "mrc_01JRXQ7Z6F6Y9N2P3Q4R5S6T7",
+  "operation": "manifest.receive",
+  "status": "queued",
+  "submittedAt": "2026-04-18T15:42:10Z",
+  "links": {
+    "job": "/v1/jobs/job_01JRXQ7Z6F6Y9N2P3Q4R5S6T7",
+    "entity": "/v1/jobs/job_01JRXQ7Z6F6Y9N2P3Q4R5S6T7",
+    "audit": "/v1/audit/corr_2ecf2c3a16e24af9959725851f4ebbc4"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "workers": [],
+  "total": 35,
+  "healthy": 19,
+  "degraded": 0,
+  "unhealthy": 0,
+  "stopped": 16,
+  "active_last_5m": 1,
+  "statistics": {
+    "total_jobs_claimed": 10,
+    "total_jobs_succeeded": 1,
+    "total_jobs_failed": 1,
+    "total_jobs_dlq": 3,
+    "avg_job_duration_ms": 120
+  },
+  "timestamp": "2026-04-22T11:24:57.979Z"
+}

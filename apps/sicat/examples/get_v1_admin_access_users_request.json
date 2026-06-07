@@ -1,0 +1,9 @@
+{
+  "query": {
+    "search": "flavio",
+    "roleId": "role_admin_global",
+    "status": "active",
+    "page": 1,
+    "pageSize": 20
+  }
+}

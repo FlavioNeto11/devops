@@ -1,0 +1,15 @@
+{
+  "commandId": "cmd_01JR2MV0PROV6QY9N2P3Q4R5S6",
+  "jobId": "job_01JR2MV0PROV6QY9N2P3Q4R5S6",
+  "correlationId": "corr_mtr_provisorio_create_2026_04_25",
+  "entityType": "mtr_provisorio",
+  "entityId": "man_01JR2MV0PROVB7BKEAZ8H0Q1RX",
+  "operation": "manifest.submit",
+  "status": "queued",
+  "submittedAt": "2026-04-25T10:00:00Z",
+  "links": {
+    "job": "/v1/jobs/job_01JR2MV0PROV6QY9N2P3Q4R5S6",
+    "entity": "/v1/mtr-provisorio/man_01JR2MV0PROVB7BKEAZ8H0Q1RX",
+    "audit": "/v1/audit/corr_mtr_provisorio_create_2026_04_25"
+  }
+}

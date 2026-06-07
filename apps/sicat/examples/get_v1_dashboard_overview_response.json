@@ -1,0 +1,90 @@
+{
+  "window": {
+    "hours_back": 24,
+    "bucket": "hour"
+  },
+  "health": {
+    "system": {
+      "status": "healthy",
+      "version": "2.0.0",
+      "uptime_ms": 5400000,
+      "timestamp": "2026-03-14T21:00:00Z",
+      "environment": "development",
+      "statistics": {
+        "jobs_queued": 0,
+        "jobs_running": 0,
+        "jobs_retry_wait": 0,
+        "jobs_succeeded_1h": 8,
+        "jobs_failed_1h": 0,
+        "jobs_dlq_total": 0,
+        "workers_healthy": 3,
+        "workers_degraded": 0,
+        "workers_active_5m": 3,
+        "avg_job_duration_ms_1h": 147
+      }
+    },
+    "workers": {
+      "total": 3,
+      "healthy": 3,
+      "degraded": 0,
+      "unhealthy": 0,
+      "stopped": 0,
+      "active_last_5m": 3,
+      "statistics": {
+        "total_jobs_claimed": 30,
+        "total_jobs_succeeded": 28,
+        "total_jobs_failed": 2,
+        "total_jobs_dlq": 0,
+        "avg_job_duration_ms": 221
+      }
+    },
+    "dlq": {
+      "dlq_jobs": 0,
+      "retention_days": 30,
+      "jobs": []
+    }
+  },
+  "performance": {
+    "job_execution_ms": {
+      "p50": 484,
+      "p95": 527,
+      "p99": 532
+    },
+    "job_success_rate": 0.8,
+    "worker_utilization": 0,
+    "top_operations": [
+      {
+        "operation": "manifest.cancel",
+        "total_jobs": 7,
+        "succeeded_jobs": 7,
+        "failed_jobs": 0,
+        "dlq_jobs": 0,
+        "avg_duration_ms": 132,
+        "p95_duration_ms": 170,
+        "success_rate": 1,
+        "traffic_share": 0.7
+      }
+    ]
+  },
+  "timeline": {
+    "bucket": "hour",
+    "hours_back": 24,
+    "points": []
+  },
+  "integration_latency": {
+    "hours_back": 24,
+    "endpoints": []
+  },
+  "manifests": {
+    "items": [],
+    "page": 1,
+    "pageSize": 10,
+    "totalItems": 0,
+    "totalPages": 0
+  },
+  "snapshot": {
+    "snapshot_at": "2026-03-14T21:00:00Z",
+    "persisted_count": 16
+  },
+  "timestamp": "2026-03-14T21:00:00Z"
+}

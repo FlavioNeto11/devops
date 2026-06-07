@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+
+<html lang="pt-br"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Listagem de Manifestos - Manifestos</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#137fec",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                    },
+                    fontFamily: {
+                        "display": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen">
+<div class="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden">
+<div class="layout-container flex h-full grow flex-col">
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-10 py-3">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-4 text-primary">
+<div class="size-8 flex items-center justify-center bg-primary/10 rounded-lg">
+<span class="material-symbols-outlined">description</span>
+</div>
+<h2 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight tracking-[-0.015em]">Manifestos</h2>
+</div>
+<nav class="flex items-center gap-9">
+<a class="text-slate-600 dark:text-slate-400 hover:text-primary dark:hover:text-primary text-sm font-medium leading-normal transition-colors" href="#">Dashboard</a>
+<a class="text-primary text-sm font-bold leading-normal border-b-2 border-primary" href="#">Manifestos</a>
+<a class="text-slate-600 dark:text-slate-400 hover:text-primary dark:hover:text-primary text-sm font-medium leading-normal transition-colors" href="#">Parceiros</a>
+<a class="text-slate-600 dark:text-slate-400 hover:text-primary dark:hover:text-primary text-sm font-medium leading-normal transition-colors" href="#">Relatórios</a>
+</nav>
+</div>
+<div class="flex flex-1 justify-end gap-4">
+<label class="flex flex-col min-w-40 !h-10 max-w-64">
+<div class="flex w-full flex-1 items-stretch rounded-lg h-full">
+<div class="text-slate-400 flex border-none bg-slate-100 dark:bg-slate-800 items-center justify-center pl-4 rounded-l-lg border-r-0">
+<span class="material-symbols-outlined text-[20px]">search</span>
+</div>
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-slate-900 dark:text-slate-100 focus:outline-0 focus:ring-0 border-none bg-slate-100 dark:bg-slate-800 focus:border-none h-full placeholder:text-slate-400 px-4 rounded-l-none border-l-0 pl-2 text-sm font-normal leading-normal" placeholder="Buscar no sistema..." value=""/>
+</div>
+</label>
+<div class="flex gap-2">
+<button class="flex items-center justify-center rounded-lg size-10 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+</button>
+<button class="flex items-center justify-center rounded-lg size-10 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="material-symbols-outlined text-[20px]">account_circle</span>
+</button>
+</div>
+</div>
+</header>
+<main class="flex flex-col px-4 md:px-10 lg:px-40 py-8 gap-6 max-w-[1440px] mx-auto w-full">
+<div class="flex flex-wrap items-center justify-between gap-4">
+<div class="flex flex-col gap-1">
+<h1 class="text-slate-900 dark:text-slate-100 text-3xl font-black leading-tight tracking-[-0.033em]">Listagem de Manifestos</h1>
+<p class="text-slate-500 dark:text-slate-400 text-sm">Gerencie e acompanhe todos os manifestos emitidos.</p>
+</div>
+<button class="flex min-w-[140px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-12 px-5 bg-primary text-white text-sm font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined">add</span>
+<span class="truncate">Novo Manifesto</span>
+</button>
+</div>
+<div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm flex flex-col gap-6">
+<div class="flex flex-wrap gap-4 items-end">
+<div class="flex flex-col gap-2 flex-1 min-w-[240px]">
+<span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Período</span>
+<div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-2 border border-slate-200 dark:border-slate-700">
+<span class="material-symbols-outlined text-slate-400 text-[18px]">calendar_today</span>
+<input class="bg-transparent border-none p-0 text-sm w-full focus:ring-0 text-slate-700 dark:text-slate-200" placeholder="01/01/2024 - 31/01/2024" type="text"/>
+<span class="material-symbols-outlined text-slate-400 text-[18px]">expand_more</span>
+</div>
+</div>
+<div class="flex flex-col gap-2 flex-1 min-w-[240px]">
+<span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Parceiro (Autocomplete)</span>
+<div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-2 border border-slate-200 dark:border-slate-700">
+<span class="material-symbols-outlined text-slate-400 text-[18px]">store</span>
+<input class="bg-transparent border-none p-0 text-sm w-full focus:ring-0 text-slate-700 dark:text-slate-200" placeholder="Digite o nome do parceiro..." type="text"/>
+</div>
+</div>
+<div class="flex flex-col gap-2 min-w-[180px]">
+<span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Status</span>
+<div class="flex gap-2">
+<button class="flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-slate-100 dark:bg-slate-800 px-4 border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700">
+                                    Todos
+                                    <span class="material-symbols-outlined text-[18px]">expand_more</span>
+</button>
+</div>
+</div>
+<button class="flex items-center justify-center rounded-lg h-10 px-4 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-bold text-sm hover:bg-slate-200 dark:hover:bg-slate-700">
+                            Limpar Filtros
+                        </button>
+</div>
+<div class="flex gap-2 flex-wrap">
+<span class="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 border border-yellow-200 dark:border-yellow-900/50">
+                            Pendente <span class="material-symbols-outlined text-[14px] cursor-pointer">close</span>
+</span>
+<span class="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 border border-green-200 dark:border-green-900/50">
+                            Emitido <span class="material-symbols-outlined text-[14px] cursor-pointer">close</span>
+</span>
+<span class="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 border border-red-200 dark:border-red-900/50">
+                            Cancelado <span class="material-symbols-outlined text-[14px] cursor-pointer">close</span>
+</span>
+</div>
+</div>
+<div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+<th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Número MTR</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Data Emissão</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Transportador</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Destinador</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Integração</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Ações</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+<tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+<td class="px-6 py-4 text-sm font-semibold text-primary">MTR-2024-00124</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">12/01/2024 14:30</td>
+<td class="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">Logística Brasil S.A.</td>
+<td class="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">ReciclaMais LTDA</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1 text-xs font-bold text-green-600 dark:text-green-400">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+                                            Sucesso
+                                        </span>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 text-slate-400 hover:text-primary transition-colors" title="Visualizar"><span class="material-symbols-outlined text-[20px]">visibility</span></button>
+<button class="p-2 text-slate-400 hover:text-primary transition-colors" title="Imprimir"><span class="material-symbols-outlined text-[20px]">print</span></button>
+<button class="p-2 text-slate-400 hover:text-red-500 transition-colors" title="Cancelar"><span class="material-symbols-outlined text-[20px]">cancel</span></button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+<td class="px-6 py-4 text-sm font-semibold text-primary">MTR-2024-00125</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">12/01/2024 15:15</td>
+<td class="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">TransQuimica Express</td>
+<td class="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">Aterro Central Municipal</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1 text-xs font-bold text-yellow-600 dark:text-yellow-500">
+<span class="material-symbols-outlined text-[16px]">sync</span>
+                                            Pendente
+                                        </span>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 text-slate-400 hover:text-primary transition-colors" title="Visualizar"><span class="material-symbols-outlined text-[20px]">visibility</span></button>
+<button class="p-2 text-slate-400 hover:text-primary transition-colors" title="Imprimir"><span class="material-symbols-outlined text-[20px]">print</span></button>
+<button class="p-2 text-slate-400 hover:text-red-500 transition-colors" title="Cancelar"><span class="material-symbols-outlined text-[20px]">cancel</span></button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors bg-red-50/10 dark:bg-red-900/5">
+<td class="px-6 py-4 text-sm font-semibold text-slate-400 line-through">MTR-2024-00126</td>
+<td class="px-6 py-4 text-sm text-slate-500">11/01/2024 09:10</td>
+<td class="px-6 py-4 text-sm text-slate-500">Rapidão Entulho</td>
+<td class="px-6 py-4 text-sm text-slate-500">Ecoponto Sul</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1 text-xs font-bold text-red-600 dark:text-red-500">
+<span class="material-symbols-outlined text-[16px]">error</span>
+                                            Falha
+                                        </span>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 text-slate-400 hover:text-primary transition-colors" title="Visualizar"><span class="material-symbols-outlined text-[20px]">visibility</span></button>
+<button class="p-2 text-slate-200 dark:text-slate-700 cursor-not-allowed" disabled=""><span class="material-symbols-outlined text-[20px]">print</span></button>
+<button class="p-2 text-slate-200 dark:text-slate-700 cursor-not-allowed" disabled=""><span class="material-symbols-outlined text-[20px]">cancel</span></button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+<td class="px-6 py-4 text-sm font-semibold text-primary">MTR-2024-00127</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">10/01/2024 16:45</td>
+<td class="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">Transportes Águia</td>
+<td class="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">IncineraTech</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1 text-xs font-bold text-green-600 dark:text-green-400">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+                                            Sucesso
+                                        </span>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 text-slate-400 hover:text-primary transition-colors" title="Visualizar"><span class="material-symbols-outlined text-[20px]">visibility</span></button>
+<button class="p-2 text-slate-400 hover:text-primary transition-colors" title="Imprimir"><span class="material-symbols-outlined text-[20px]">print</span></button>
+<button class="p-2 text-slate-400 hover:text-red-500 transition-colors" title="Cancelar"><span class="material-symbols-outlined text-[20px]">cancel</span></button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="flex items-center justify-between px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-800">
+<p class="text-sm text-slate-500 dark:text-slate-400">Mostrando <span class="font-bold text-slate-700 dark:text-slate-200">1</span> até <span class="font-bold text-slate-700 dark:text-slate-200">4</span> de <span class="font-bold text-slate-700 dark:text-slate-200">248</span> manifestos</p>
+<div class="flex items-center gap-2">
+<button class="flex items-center justify-center size-9 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined text-[20px]">chevron_left</span>
+</button>
+<button class="flex items-center justify-center size-9 rounded-lg bg-primary text-white font-bold text-sm">1</button>
+<button class="flex items-center justify-center size-9 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium text-sm">2</button>
+<button class="flex items-center justify-center size-9 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium text-sm">3</button>
+<span class="text-slate-400 px-1">...</span>
+<button class="flex items-center justify-center size-9 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium text-sm">62</button>
+<button class="flex items-center justify-center size-9 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">
+<span class="material-symbols-outlined text-[20px]">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<footer class="mt-auto px-10 py-6 border-t border-slate-200 dark:border-slate-800 text-center">
+<p class="text-xs text-slate-500 dark:text-slate-500 uppercase tracking-widest font-bold">
+                    Sistema de Gestão de Resíduos © 2024 - Manifestos Online
+                </p>
+</footer>
+</div>
+</div>
+</body></html>

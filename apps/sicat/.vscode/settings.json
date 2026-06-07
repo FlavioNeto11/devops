@@ -1,0 +1,210 @@
+{
+  "editor.formatOnSave": true,
+  "editor.rulers": [
+    120
+  ],
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.bracketPairColorization.enabled": true,
+  "editor.guides.bracketPairs": "active",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit",
+    "source.organizeImports": "never"
+  },
+  "editor.quickSuggestions": {
+    "strings": "on"
+  },
+  "editor.stickyScroll.enabled": true,
+  "js/ts.tsdk.path": "node_modules/typescript/lib",
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true,
+  "js/ts.tsserver.maxTsServerMemory": 8192,
+  "js/ts.tsserver.experimental.enableProjectDiagnostics": false,
+  "js/ts.preferences.importModuleSpecifier": "relative",
+  "js/ts.preferences.quoteStyle": "single",
+  "js/ts.updateImportsOnFileMove.enabled": "always",
+  "js/ts.suggest.autoImports": true,
+  "js/ts.inlayHints.parameterNames.enabled": "literals",
+  "js/ts.inlayHints.variableTypes.enabled": false,
+  "js/ts.inlayHints.returnTypes.enabled": true,
+  "eslint.validate": [
+    "typescript"
+  ],
+  "eslint.useFlatConfig": true,
+  "[typescript]": {
+    "editor.defaultFormatter": "vscode.typescript-language-features"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  },
+  "[markdown]": {
+    "editor.defaultFormatter": "vscode.markdown-language-features",
+    "editor.wordWrap": "on"
+  },
+  "files.exclude": {
+    "node_modules": true,
+    "dist": true,
+    "build": true,
+    ".next": true,
+    ".turbo": true,
+    ".cache": true,
+    "out": true,
+    "**/.DS_Store": true,
+    "**/storage/**": false
+  },
+  "search.exclude": {
+    "node_modules": true,
+    "dist": true,
+    "build": true,
+    ".next": true,
+    ".turbo": true,
+    ".cache": true,
+    "out": true,
+    "pnpm-lock.yaml": true,
+    "*.js.map": true,
+    ".pnpm-store": true,
+    "coverage": true,
+    "**/storage/**": true,
+    "**/.angular/**": true,
+    "**/.nx/**": true,
+    "**/.venv/**": true,
+    "**/venv/**": true,
+    "**/__pycache__/**": true
+  },
+  "files.watcherExclude": {
+    "**/.git/**": true,
+    "**/node_modules/**": true,
+    "**/dist/**": true,
+    "**/build/**": true,
+    "**/.next/**": true,
+    "**/.turbo/**": true,
+    "**/.cache/**": true,
+    "**/out/**": true,
+    "**/.pnpm-store/**": true,
+    "**/coverage/**": true,
+    "**/storage/**": true,
+    "**/.angular/**": true,
+    "**/.nx/**": true,
+    "**/.venv/**": true,
+    "**/venv/**": true,
+    "**/__pycache__/**": true
+  },
+  "vitest.enable": true,
+  "vitest.workspaceConfig": "vitest.config.ts",
+  "testing.automaticallyOpenPeekView": "failureInVisibleDocument",
+  "terminal.integrated.cwd": "${workspaceFolder}",
+  "terminal.integrated.defaultProfile.windows": "PowerShell",
+  "terminal.integrated.env.windows": {
+    "NODE_ENV": "development"
+  },
+  "terminal.integrated.tabs.enabled": true,
+  "git.enableSmartCommit": true,
+  "git.confirmSync": false,
+  "git.autofetch": false,
+  "git.branchProtection": [
+    "v1-main"
+  ],
+  "task.allowAutomaticTasks": "on",
+  "task.quickOpen.history": 30,
+  "task.saveBeforeRun": "always",
+  "debug.onTaskErrors": "showErrors",
+  "debug.openDebug": "openOnSessionStart",
+  "debug.internalConsoleOptions": "neverOpen",
+  "debug.javascript.autoAttachFilter": "disabled",
+  "npm.packageManager": "npm",
+  "files.associations": {
+    "*.agent.md": "markdown",
+    "*.prompt.md": "markdown",
+    "*.instructions.md": "markdown",
+    ".env*": "dotenv",
+    "docs/cetesb/*.har": "json"
+  },
+  "markdownlint.config": {
+    "MD013": false,
+    "MD033": false,
+    "MD041": false
+  },
+  "github.copilot.chat.codeGeneration.useInstructionFiles": true,
+  "github.copilot.chat.agent.thinkingTool": true,
+  "github.copilot.chat.reviewSelection.enabled": true,
+  "github.copilot.chat.generateTests.codeLens": true,
+  "github.copilot.chat.editor.temporalContext.enabled": true,
+  "github.copilot.chat.scopeSelection": true,
+  "github.copilot.chat.terminalChatLocation": "chatView",
+  "chat.agent.enabled": true,
+  "chat.agent.maxRequests": 300,
+  "errorLens.enabledDiagnosticLevels": [
+    "error",
+    "warning"
+  ],
+  "errorLens.gutterIconsEnabled": true,
+  "errorLens.statusBarColorsEnabled": true,
+  "prettier.singleQuote": true,
+  "prettier.printWidth": 120,
+  "prettier.trailingComma": "all",
+  "gitlens.codeLens.enabled": true,
+  "gitlens.currentLine.enabled": true,
+  "gitlens.hovers.currentLine.over": "line",
+  "sonarlint.rules": {
+    "typescript:S1481": {
+      "level": "on"
+    },
+    "typescript:S4325": {
+      "level": "on"
+    }
+  },
+  "yaml.schemas": {
+    "./openapi/mtr_automacao_openapi_interna.yaml": "openapi/**/*.yaml"
+  },
+  "chat.mcp.serverSampling": {
+    "sicat/.vscode/mcp.json: stitch": {
+      "allowedModels": [
+        "copilotcli/claude-opus-4.7",
+        "claude-code/claude-opus-4.7",
+        "copilot/claude-opus-4.7",
+        "copilot/auto",
+        "copilotcli/claude-haiku-4.5",
+        "claude-code/claude-haiku-4.5",
+        "copilot/claude-haiku-4.5",
+        "copilotcli/claude-opus-4.5",
+        "claude-code/claude-opus-4.5",
+        "copilot/claude-opus-4.5",
+        "copilotcli/claude-opus-4.6",
+        "claude-code/claude-opus-4.6",
+        "copilot/claude-opus-4.6",
+        "copilotcli/claude-sonnet-4",
+        "claude-code/claude-sonnet-4",
+        "copilot/claude-sonnet-4",
+        "copilotcli/claude-sonnet-4.5",
+        "claude-code/claude-sonnet-4.5",
+        "copilot/claude-sonnet-4.5",
+        "copilotcli/claude-sonnet-4.6",
+        "claude-code/claude-sonnet-4.6",
+        "copilot/claude-sonnet-4.6",
+        "copilot/gemini-2.5-pro",
+        "copilot/gemini-3-flash-preview",
+        "copilot/gemini-3.1-pro-preview",
+        "copilotcli/gpt-4.1",
+        "copilot/gpt-4.1",
+        "copilot/gpt-4o",
+        "copilotcli/gpt-5-mini",
+        "copilot/gpt-5-mini",
+        "copilotcli/gpt-5.1",
+        "copilot/gpt-5.1",
+        "copilotcli/gpt-5.2",
+        "copilot/gpt-5.2",
+        "copilotcli/gpt-5.2-codex",
+        "copilot/gpt-5.2-codex",
+        "copilotcli/gpt-5.3-codex",
+        "copilot/gpt-5.3-codex",
+        "copilotcli/gpt-5.4",
+        "copilot/gpt-5.4",
+        "copilot/gpt-5.4-mini",
+        "copilot/grok-code-fast-1",
+        "copilot/oswe-vscode-prime"
+      ]
+    }
+  }
+}

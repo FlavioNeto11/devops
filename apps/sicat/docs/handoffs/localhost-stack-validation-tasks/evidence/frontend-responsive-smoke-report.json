@@ -1,0 +1,704 @@
+{
+  "config": {
+    "configFile": "C:\\GIT\\PADILHA\\sicat\\frontend\\playwright.config.js",
+    "rootDir": "C:/GIT/PADILHA/sicat/frontend/tests/ui",
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 6
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "C:/GIT/PADILHA/sicat/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "id": "",
+        "name": "",
+        "testDir": "C:/GIT/PADILHA/sicat/frontend/tests/ui",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "runAgents": "none",
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.58.2",
+    "workers": 6,
+    "webServer": {
+      "command": "npm run dev -- --host 127.0.0.1 --port 5174",
+      "url": "http://127.0.0.1:5174/login",
+      "reuseExistingServer": true,
+      "timeout": 120000
+    }
+  },
+  "suites": [
+    {
+      "title": "responsive-smoke.spec.js",
+      "file": "responsive-smoke.spec.js",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "UX responsiva",
+          "file": "responsive-smoke.spec.js",
+          "line": 160,
+          "column": 6,
+          "specs": [
+            {
+              "title": "login em 2 etapas renderiza bem em mobile",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 7507,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: /Entrar no SICAT/i })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: /Entrar no SICAT/i })\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: /Entrar no SICAT/i })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: /Entrar no SICAT/i })\u001b[22m\n\n    at C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js:167:77",
+                        "location": {
+                          "file": "C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js",
+                          "column": 77,
+                          "line": 167
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 165 |\u001b[39m       \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m'/login'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 166 |\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 167 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByRole(\u001b[32m'heading'\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[35m/Entrar no SICAT/i\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                                             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 168 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByText(\u001b[35m/Use seu e-mail e senha para continuar o fluxo operacional\\./i\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m 169 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByLabel(\u001b[32m'E-mail'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m 170 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByRole(\u001b[32m'textbox'\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m'Senha'\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js",
+                            "column": 77,
+                            "line": 167
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: /Entrar no SICAT/i })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: /Entrar no SICAT/i })\u001b[22m\n\n\n  165 |       await page.goto('/login');\n  166 |\n> 167 |       await expect(page.getByRole('heading', { name: /Entrar no SICAT/i })).toBeVisible();\n      |                                                                             ^\n  168 |       await expect(page.getByText(/Use seu e-mail e senha para continuar o fluxo operacional\\./i)).toBeVisible();\n  169 |       await expect(page.getByLabel('E-mail')).toBeVisible();\n  170 |       await expect(page.getByRole('textbox', { name: 'Senha' })).toBeVisible();\n    at C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js:167:77"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-22T11:26:37.740Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-67c71-pas-renderiza-bem-em-mobile\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-67c71-pas-renderiza-bem-em-mobile\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-67c71-pas-renderiza-bem-em-mobile\\error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-67c71-pas-renderiza-bem-em-mobile\\trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js",
+                        "column": 77,
+                        "line": 167
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "ef51112815a5cecab9f9-93be8e1493a7d4903d35",
+              "file": "responsive-smoke.spec.js",
+              "line": 162,
+              "column": 5
+            },
+            {
+              "title": "dashboard renderiza bem em mobile",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 7437,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: /Vis├úo Geral/i })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: /Vis├úo Geral/i })\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: /Vis├úo Geral/i })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: /Vis├úo Geral/i })\u001b[22m\n\n    at C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js:223:73",
+                        "location": {
+                          "file": "C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js",
+                          "column": 73,
+                          "line": 223
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 221 |\u001b[39m       \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m'/dashboard'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 222 |\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 223 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByRole(\u001b[32m'heading'\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[35m/Vis├úo Geral/i\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                                         \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 224 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByText(\u001b[32m'├Ültimos manifestos carregados'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m 225 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByText(\u001b[32m'MTR-TESTE-001'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m 226 |\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js",
+                            "column": 73,
+                            "line": 223
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: /Vis├úo Geral/i })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: /Vis├úo Geral/i })\u001b[22m\n\n\n  221 |       await page.goto('/dashboard');\n  222 |\n> 223 |       await expect(page.getByRole('heading', { name: /Vis├úo Geral/i })).toBeVisible();\n      |                                                                         ^\n  224 |       await expect(page.getByText('├Ültimos manifestos carregados')).toBeVisible();\n  225 |       await expect(page.getByText('MTR-TESTE-001')).toBeVisible();\n  226 |\n    at C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js:223:73"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-22T11:26:37.872Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-a6fec-ard-renderiza-bem-em-mobile\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-a6fec-ard-renderiza-bem-em-mobile\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-a6fec-ard-renderiza-bem-em-mobile\\error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-a6fec-ard-renderiza-bem-em-mobile\\trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js",
+                        "column": 73,
+                        "line": 223
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "ef51112815a5cecab9f9-c0d72ec9213c42e7b7f2",
+              "file": "responsive-smoke.spec.js",
+              "line": 188,
+              "column": 5
+            },
+            {
+              "title": "login em 2 etapas renderiza bem em tablet",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "failed",
+                      "duration": 7325,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: /Entrar no SICAT/i })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: /Entrar no SICAT/i })\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: /Entrar no SICAT/i })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: /Entrar no SICAT/i })\u001b[22m\n\n    at C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js:167:77",
+                        "location": {
+                          "file": "C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js",
+                          "column": 77,
+                          "line": 167
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 165 |\u001b[39m       \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m'/login'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 166 |\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 167 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByRole(\u001b[32m'heading'\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[35m/Entrar no SICAT/i\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                                             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 168 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByText(\u001b[35m/Use seu e-mail e senha para continuar o fluxo operacional\\./i\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m 169 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByLabel(\u001b[32m'E-mail'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m 170 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByRole(\u001b[32m'textbox'\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m'Senha'\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js",
+                            "column": 77,
+                            "line": 167
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: /Entrar no SICAT/i })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: /Entrar no SICAT/i })\u001b[22m\n\n\n  165 |       await page.goto('/login');\n  166 |\n> 167 |       await expect(page.getByRole('heading', { name: /Entrar no SICAT/i })).toBeVisible();\n      |                                                                             ^\n  168 |       await expect(page.getByText(/Use seu e-mail e senha para continuar o fluxo operacional\\./i)).toBeVisible();\n  169 |       await expect(page.getByLabel('E-mail')).toBeVisible();\n  170 |       await expect(page.getByRole('textbox', { name: 'Senha' })).toBeVisible();\n    at C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js:167:77"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-22T11:26:37.842Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-ecf4c-pas-renderiza-bem-em-tablet\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-ecf4c-pas-renderiza-bem-em-tablet\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-ecf4c-pas-renderiza-bem-em-tablet\\error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-ecf4c-pas-renderiza-bem-em-tablet\\trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js",
+                        "column": 77,
+                        "line": 167
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "ef51112815a5cecab9f9-a10c5d7d7ff7a607e7bd",
+              "file": "responsive-smoke.spec.js",
+              "line": 162,
+              "column": 5
+            },
+            {
+              "title": "dashboard renderiza bem em tablet",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "failed",
+                      "duration": 7591,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: /Vis├úo Geral/i })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: /Vis├úo Geral/i })\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: /Vis├úo Geral/i })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: /Vis├úo Geral/i })\u001b[22m\n\n    at C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js:223:73",
+                        "location": {
+                          "file": "C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js",
+                          "column": 73,
+                          "line": 223
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 221 |\u001b[39m       \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m'/dashboard'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 222 |\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 223 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByRole(\u001b[32m'heading'\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[35m/Vis├úo Geral/i\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                                         \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 224 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByText(\u001b[32m'├Ültimos manifestos carregados'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m 225 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByText(\u001b[32m'MTR-TESTE-001'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m 226 |\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js",
+                            "column": 73,
+                            "line": 223
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: /Vis├úo Geral/i })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: /Vis├úo Geral/i })\u001b[22m\n\n\n  221 |       await page.goto('/dashboard');\n  222 |\n> 223 |       await expect(page.getByRole('heading', { name: /Vis├úo Geral/i })).toBeVisible();\n      |                                                                         ^\n  224 |       await expect(page.getByText('├Ültimos manifestos carregados')).toBeVisible();\n  225 |       await expect(page.getByText('MTR-TESTE-001')).toBeVisible();\n  226 |\n    at C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js:223:73"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-22T11:26:37.881Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-0c34c-ard-renderiza-bem-em-tablet\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-0c34c-ard-renderiza-bem-em-tablet\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-0c34c-ard-renderiza-bem-em-tablet\\error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-0c34c-ard-renderiza-bem-em-tablet\\trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js",
+                        "column": 73,
+                        "line": 223
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "ef51112815a5cecab9f9-3fe8ec94741dc3953888",
+              "file": "responsive-smoke.spec.js",
+              "line": 188,
+              "column": 5
+            },
+            {
+              "title": "login em 2 etapas renderiza bem em desktop",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 4,
+                      "status": "failed",
+                      "duration": 7395,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: /Entrar no SICAT/i })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: /Entrar no SICAT/i })\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: /Entrar no SICAT/i })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: /Entrar no SICAT/i })\u001b[22m\n\n    at C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js:167:77",
+                        "location": {
+                          "file": "C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js",
+                          "column": 77,
+                          "line": 167
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 165 |\u001b[39m       \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m'/login'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 166 |\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 167 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByRole(\u001b[32m'heading'\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[35m/Entrar no SICAT/i\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                                             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 168 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByText(\u001b[35m/Use seu e-mail e senha para continuar o fluxo operacional\\./i\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m 169 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByLabel(\u001b[32m'E-mail'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m 170 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByRole(\u001b[32m'textbox'\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m'Senha'\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js",
+                            "column": 77,
+                            "line": 167
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: /Entrar no SICAT/i })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: /Entrar no SICAT/i })\u001b[22m\n\n\n  165 |       await page.goto('/login');\n  166 |\n> 167 |       await expect(page.getByRole('heading', { name: /Entrar no SICAT/i })).toBeVisible();\n      |                                                                             ^\n  168 |       await expect(page.getByText(/Use seu e-mail e senha para continuar o fluxo operacional\\./i)).toBeVisible();\n  169 |       await expect(page.getByLabel('E-mail')).toBeVisible();\n  170 |       await expect(page.getByRole('textbox', { name: 'Senha' })).toBeVisible();\n    at C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js:167:77"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-22T11:26:37.923Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-dc26e-as-renderiza-bem-em-desktop\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-dc26e-as-renderiza-bem-em-desktop\\video.webm"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-dc26e-as-renderiza-bem-em-desktop\\trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js",
+                        "column": 77,
+                        "line": 167
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "ef51112815a5cecab9f9-8949c8a44e571e3237f6",
+              "file": "responsive-smoke.spec.js",
+              "line": 162,
+              "column": 5
+            },
+            {
+              "title": "dashboard renderiza bem em desktop",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 5,
+                      "status": "failed",
+                      "duration": 7440,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: /Vis├úo Geral/i })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: /Vis├úo Geral/i })\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: /Vis├úo Geral/i })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: /Vis├úo Geral/i })\u001b[22m\n\n    at C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js:223:73",
+                        "location": {
+                          "file": "C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js",
+                          "column": 73,
+                          "line": 223
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 221 |\u001b[39m       \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m'/dashboard'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 222 |\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 223 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByRole(\u001b[32m'heading'\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[35m/Vis├úo Geral/i\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                                         \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 224 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByText(\u001b[32m'├Ültimos manifestos carregados'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m 225 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByText(\u001b[32m'MTR-TESTE-001'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m 226 |\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js",
+                            "column": 73,
+                            "line": 223
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: /Vis├úo Geral/i })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: /Vis├úo Geral/i })\u001b[22m\n\n\n  221 |       await page.goto('/dashboard');\n  222 |\n> 223 |       await expect(page.getByRole('heading', { name: /Vis├úo Geral/i })).toBeVisible();\n      |                                                                         ^\n  224 |       await expect(page.getByText('├Ültimos manifestos carregados')).toBeVisible();\n  225 |       await expect(page.getByText('MTR-TESTE-001')).toBeVisible();\n  226 |\n    at C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js:223:73"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-22T11:26:37.944Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-b99e2-rd-renderiza-bem-em-desktop\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-b99e2-rd-renderiza-bem-em-desktop\\video.webm"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-b99e2-rd-renderiza-bem-em-desktop\\trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js",
+                        "column": 73,
+                        "line": 223
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "ef51112815a5cecab9f9-2e6662cf67fd483ff938",
+              "file": "responsive-smoke.spec.js",
+              "line": 188,
+              "column": 5
+            },
+            {
+              "title": "login em 2 etapas renderiza bem em wide",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 6472,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: /Entrar no SICAT/i })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: /Entrar no SICAT/i })\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: /Entrar no SICAT/i })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: /Entrar no SICAT/i })\u001b[22m\n\n    at C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js:167:77",
+                        "location": {
+                          "file": "C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js",
+                          "column": 77,
+                          "line": 167
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 165 |\u001b[39m       \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m'/login'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 166 |\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 167 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByRole(\u001b[32m'heading'\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[35m/Entrar no SICAT/i\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                                             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 168 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByText(\u001b[35m/Use seu e-mail e senha para continuar o fluxo operacional\\./i\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m 169 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByLabel(\u001b[32m'E-mail'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m 170 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByRole(\u001b[32m'textbox'\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m'Senha'\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js",
+                            "column": 77,
+                            "line": 167
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: /Entrar no SICAT/i })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: /Entrar no SICAT/i })\u001b[22m\n\n\n  165 |       await page.goto('/login');\n  166 |\n> 167 |       await expect(page.getByRole('heading', { name: /Entrar no SICAT/i })).toBeVisible();\n      |                                                                             ^\n  168 |       await expect(page.getByText(/Use seu e-mail e senha para continuar o fluxo operacional\\./i)).toBeVisible();\n  169 |       await expect(page.getByLabel('E-mail')).toBeVisible();\n  170 |       await expect(page.getByRole('textbox', { name: 'Senha' })).toBeVisible();\n    at C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js:167:77"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-22T11:26:48.087Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-19a11-tapas-renderiza-bem-em-wide\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-19a11-tapas-renderiza-bem-em-wide\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-19a11-tapas-renderiza-bem-em-wide\\error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-19a11-tapas-renderiza-bem-em-wide\\trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js",
+                        "column": 77,
+                        "line": 167
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "ef51112815a5cecab9f9-3cae07b83cb476aeb9bf",
+              "file": "responsive-smoke.spec.js",
+              "line": 162,
+              "column": 5
+            },
+            {
+              "title": "dashboard renderiza bem em wide",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 2,
+                      "status": "failed",
+                      "duration": 6406,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: /Vis├úo Geral/i })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: /Vis├úo Geral/i })\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: /Vis├úo Geral/i })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: /Vis├úo Geral/i })\u001b[22m\n\n    at C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js:223:73",
+                        "location": {
+                          "file": "C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js",
+                          "column": 73,
+                          "line": 223
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 221 |\u001b[39m       \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m'/dashboard'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 222 |\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 223 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByRole(\u001b[32m'heading'\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[35m/Vis├úo Geral/i\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                                         \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 224 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByText(\u001b[32m'├Ültimos manifestos carregados'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m 225 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByText(\u001b[32m'MTR-TESTE-001'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m 226 |\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js",
+                            "column": 73,
+                            "line": 223
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('heading', { name: /Vis├úo Geral/i })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('heading', { name: /Vis├úo Geral/i })\u001b[22m\n\n\n  221 |       await page.goto('/dashboard');\n  222 |\n> 223 |       await expect(page.getByRole('heading', { name: /Vis├úo Geral/i })).toBeVisible();\n      |                                                                         ^\n  224 |       await expect(page.getByText('├Ültimos manifestos carregados')).toBeVisible();\n  225 |       await expect(page.getByText('MTR-TESTE-001')).toBeVisible();\n  226 |\n    at C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js:223:73"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-22T11:26:48.135Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-acad4-board-renderiza-bem-em-wide\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-acad4-board-renderiza-bem-em-wide\\video.webm"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "C:\\GIT\\PADILHA\\sicat\\frontend\\test-results\\responsive-smoke-UX-respon-acad4-board-renderiza-bem-em-wide\\trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\GIT\\PADILHA\\sicat\\frontend\\tests\\ui\\responsive-smoke.spec.js",
+                        "column": 73,
+                        "line": 223
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "ef51112815a5cecab9f9-d5db5ad9940c64d99677",
+              "file": "responsive-smoke.spec.js",
+              "line": 188,
+              "column": 5
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-04-22T11:26:34.606Z",
+    "duration": 20306.841,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 8,
+    "flaky": 0
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "type": "https://api.exemplo.local/problems/external-integration-failed",
+  "title": "Falha na integração externa",
+  "status": 502,
+  "code": "EXTERNAL_INTEGRATION_FAILED",
+  "detail": "A CETESB respondeu com erro de negócio ao processar a operação solicitada.",
+  "correlationId": "corr_6b7999cf8c7b4ea4b4c85a3a1f8d7f44",
+  "errors": [
+    {
+      "field": "manifest.residues[0].quantity",
+      "message": "Valor incompatível com a unidade informada."
+    }
+  ]
+}

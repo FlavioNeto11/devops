@@ -1,0 +1,23 @@
+{
+  "dlq_jobs": 3,
+  "retention_days": 30,
+  "jobs": [
+    {
+      "job_id": "job_01JQW5M0D2G3CTQYV4N8ZZ8F0Q",
+      "operation": "manifest.submit",
+      "entity_type": "manifest",
+      "entity_id": "man_01JQW5M6YY9M7K7B5N63GQ6E9S",
+      "dlq_reason": "max_attempts_exceeded",
+      "moved_at": "2026-03-08T15:30:00Z"
+    },
+    {
+      "job_id": "job_01JQW5M0D2G3CTQYV4N9AB8F0R",
+      "operation": "manifest.cancel",
+      "entity_type": "manifest",
+      "entity_id": "man_01JQW5M6YY9M7K7B5N63GQ6E9T",
+      "dlq_reason": "integration_error",
+      "moved_at": "2026-03-07T10:15:00Z"
+    }
+  ],
+  "timestamp": "2026-03-09T21:00:00Z"
+}

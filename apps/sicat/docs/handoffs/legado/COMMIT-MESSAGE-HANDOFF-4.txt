@@ -1,0 +1,93 @@
+feat(manifest): implementar fluxo completo de impressão MTR (DL-023)
+
+HANDOFF 4: Worker/Persistência - Correção do fluxo 'imprimir MTR'
+
+## O Que Foi Feito
+
+### 1. Worker: Status 'printed' após persistência
+- ✅ Atualizar manifesto para `status: printed` após PDF persistido
+- ✅ Incluir `printUrl` no payload do job finalizado
+- ✅ Garantir auditoria completa das operações
+
+### 2. Service: Retorno de documento completo
+- ✅ `storeManifestPdf()` retorna documento com `downloadUrl`
+- ✅ PDF persistido em `storage/documents/{manifestId}/mtr-{numero}.pdf`
+- ✅ Upsert garante idempotência na regeneração
+
+### 3. OpenAPI: Novos status de manifesto
+- ✅ Adicionados status transitórios: `submitting`, `printing`, `cancelling`
+- ✅ Adicionado status final: `printed`
+- ✅ Validação e regeneração de operations concluídas
+
+### 4. Examples: Payloads atualizados
+- ✅ Job print agora retorna `printUrl` no payload
+- ✅ GET manifest mostra status `printed` e lista documentos
+
+## Fluxo End-to-End
+
+```
+POST /manifestos/{id}/print
+  ↓
+Job criado (queued_print)
+  ↓
+Worker: status → printing
+  ↓
+Gateway: printManifest() → pdfBuffer
+  ↓
+Service: storeManifestPdf() → persistência
+  ↓
+Worker: status → printed
+  ↓
+Job finalizado com printUrl
+  ↓
+GET /manifestos/{id} → status: printed, documents: [...]
+  ↓
+GET /manifestos/{id}/documents/{docId} → PDF binário
+```
+
+## Arquivos Modificados
+
+- src/workers/operation-handlers.js (status printed + printUrl)
+- src/services/manifest-service.js (retorno de documento)
+- openapi/mtr_automacao_openapi_interna.yaml (novos status)
+- examples/get_v1_jobs_jobId_response.json (payload printUrl)
+- examples/get_v1_manifestos_id_response.json (status printed)
+- src/generated/operations.js (regenerado)
+
+## Arquivos Criados
+
+- docs/DL-023-CORRECAO-FLUXO-IMPRIMIR-MTR.md (documentação completa)
+- docs/handoffs/HANDOFF-4-WORKER-PERSISTENCIA-PRINT.md (sumário)
+- tests/manual/test-print-flow.ps1 (teste automatizado)
+
+## Validações
+
+✅ npm run validate:openapi → Sucesso
+✅ npm run gen:operations → 18 operações regeneradas
+✅ Código livre de erros de lint/tipo
+
+## Teste Manual
+
+```powershell
+.\tests\manual\test-print-flow.ps1
+```
+
+Validações automáticas:
+- ✓ Status atualizado para 'printed'
+- ✓ printUrl presente no job
+- ✓ Documentos retornados na API
+- ✓ PDF baixado com sucesso
+- ✓ PDF persistido no storage local
+
+## Breaking Changes
+
+NENHUM - apenas adição de novos status válidos
+
+## Notas de Implementação
+
+- Storage local usado para MVP (considerar S3/Azure Blob para produção)
+- Idempotência garantida via `upsertManifestDocument`
+- TTL de documentos não implementado (limpeza manual necessária)
+
+HANDOFF ANTERIOR: DL-022 (Evolução Persistência/Fila)
+PRÓXIMO HANDOFF: N/A (correção concluída)

@@ -1,0 +1,8 @@
+{
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/pdf",
+    "Content-Disposition": "inline; filename=\"cdf_cer_hash_code_exemplo.pdf\""
+  },
+  "body": "<binary pdf stream>"
+}

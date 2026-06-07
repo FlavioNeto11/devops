@@ -1,0 +1,28 @@
+{
+  "generatedAt": "2026-04-16T13:00:00Z",
+  "totals": {
+    "total": 4,
+    "active": 3,
+    "pending_auth": 1,
+    "expired": 0,
+    "invalid": 0,
+    "revoked": 0
+  },
+  "sessions": [
+    {
+      "sessionContextId": "sess_01JQW5N3QH9T",
+      "integrationAccountId": "acc_01HJX2Z9KP",
+      "status": "active",
+      "isExpired": false,
+      "partnerDocument": "31913781000139",
+      "partnerCode": "176163",
+      "userName": "Flavio Padilha Neto",
+      "email": "flavio_padilha_neto@msn.com",
+      "authMode": "real",
+      "expiresAt": "2026-04-16T15:00:00Z",
+      "lastValidatedAt": "2026-04-16T12:50:00Z",
+      "createdAt": "2026-04-16T11:00:00Z",
+      "updatedAt": "2026-04-16T12:50:00Z"
+    }
+  ]
+}

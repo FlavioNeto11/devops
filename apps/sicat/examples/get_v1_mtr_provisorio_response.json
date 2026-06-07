@@ -1,0 +1,39 @@
+{
+  "items": [
+    {
+      "id": "man_01JR2MV0PROVB7BKEAZ8H0Q1RX",
+      "kind": "provisorio",
+      "status": "queued_submit",
+      "externalStatus": "pending_submission",
+      "manifestNumber": null,
+      "provisionalNumber": null,
+      "externalCode": null,
+      "externalHashCode": null,
+      "expeditionDate": "2026-04-25",
+      "generator": {
+        "partnerCode": 176163,
+        "description": "Nova IT"
+      },
+      "carrier": {
+        "partnerCode": 160627,
+        "description": "CASAMAX COMERCIAL LTDA."
+      },
+      "receiver": {
+        "partnerCode": 40110,
+        "description": "MARDAN FIRE ENGENHARIA, CONSTRUÇÃO E EXTINTORES LTDA."
+      },
+      "driverName": "Osvaldo",
+      "vehiclePlate": "ETA26D1",
+      "groupId": null,
+      "sourceManifestId": null,
+      "batchIndex": null,
+      "batchSize": null,
+      "batchKind": null,
+      "lastSyncAt": null
+    }
+  ],
+  "page": 1,
+  "pageSize": 50,
+  "totalItems": 1,
+  "totalPages": 1
+}

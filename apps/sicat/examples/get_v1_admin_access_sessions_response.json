@@ -1,0 +1,15 @@
+{
+  "items": [
+    {
+      "sessionContextId": "scx_01JQW5M0D2G3CTQYV4N9AB8F1R",
+      "userId": "usr_01JQWABCDEF1234567890",
+      "integrationAccountId": "acc_nova_it_prod",
+      "status": "active",
+      "lastValidatedAt": "2026-03-13T15:20:00Z",
+      "expiresAt": "2026-03-13T23:59:59Z"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "pageSize": 20
+}

@@ -1,0 +1,21 @@
+{
+  "recommendations": [
+    "GitHub.copilot-chat",
+    "Vue.volar",
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "vitest.explorer",
+    "DavidAnson.vscode-markdownlint",
+    "usernamehw.errorlens",
+    "eamodio.gitlens",
+    "SonarSource.sonarlint-vscode",
+    "ms-playwright.playwright",
+    "ms-vscode.powershell",
+    "ms-azuretools.vscode-docker",
+    "redhat.vscode-yaml",
+    "cweijan.vscode-postgresql-client2"
+  ],
+  "unwantedRecommendations": [
+    "msjsdiag.debugger-for-chrome"
+  ]
+}

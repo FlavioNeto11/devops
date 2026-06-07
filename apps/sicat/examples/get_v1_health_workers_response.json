@@ -1,0 +1,21 @@
+{
+  "workers": [
+    {
+      "worker_id": "worker_01JQW5M0D2G3CTQYV4N9AB8F1R",
+      "status": "healthy",
+      "last_heartbeat": "2026-03-09T21:00:30Z",
+      "jobs_processed": 150,
+      "jobs_failed": 2,
+      "last_error": null
+    },
+    {
+      "worker_id": "worker_01JQW5M0D2G3CTQYV4N9AB8F2S",
+      "status": "healthy",
+      "last_heartbeat": "2026-03-09T21:00:29Z",
+      "jobs_processed": 148,
+      "jobs_failed": 1,
+      "last_error": null
+    }
+  ],
+  "timestamp": "2026-03-09T21:00:00Z"
+}

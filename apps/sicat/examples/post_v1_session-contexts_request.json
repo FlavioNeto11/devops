@@ -1,0 +1,22 @@
+{
+  "integrationAccountId": "acc_nova_it_prod",
+  "partnerDocument": "31913781000139",
+  "partnerType": "J",
+  "partnerCode": 176163,
+  "userAccessCode": 333948,
+  "userName": "Flavio Padilha Neto",
+  "email": "flavio_padilha_neto@msn.com",
+  "authMode": "bootstrap",
+  "metadata": {
+    "stateCode": 26,
+    "stateAbbreviation": "SP",
+    "partnerDescription": "Nova IT",
+    "autenticacaoNova": true,
+    "recaptchaToken": "",
+    "credentials": {
+      "login": "31913781000139",
+      "email": "flavio_padilha_neto@msn.com",
+      "password": "senha_redacted"
+    }
+  }
+}

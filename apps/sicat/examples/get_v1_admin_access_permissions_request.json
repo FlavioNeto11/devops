@@ -1,0 +1,6 @@
+{
+  "query": {
+    "resource": "access.users",
+    "action": "read"
+  }
+}

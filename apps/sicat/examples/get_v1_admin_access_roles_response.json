@@ -1,0 +1,13 @@
+{
+  "items": [
+    {
+      "roleId": "role_admin_global",
+      "name": "admin.global",
+      "description": "Administrador global",
+      "isSystem": true,
+      "usersCount": 2,
+      "permissionsCount": 15
+    }
+  ],
+  "total": 1
+}

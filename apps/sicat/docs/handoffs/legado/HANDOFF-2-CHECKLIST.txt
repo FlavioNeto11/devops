@@ -1,0 +1,157 @@
+═══════════════════════════════════════════════════════════════════════════════
+  HANDOFF 2 - CHECKLIST DE CONCLUSÃO
+  Validação CETESB - Coerência com Source-of-Truth
+═══════════════════════════════════════════════════════════════════════════════
+
+📋 TAREFAS SOLICITADAS (5/5 COMPLETAS)
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ✅ TAREFA 1: Confirmar Health Endpoints são INTERNOS                        │
+│   Status: CONCLUÍDO                                                         │
+│                                                                             │
+│   ✅ Health endpoints NÃO fazem chamadas externas à CETESB                 │
+│   ✅ Dados vêm de banco de dados local (4 tabelas)                        │
+│   ✅ Nenhum mapeamento com HARs necessário                                 │
+│   ✅ Validado em npm run validate:cetesb-source                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ✅ TAREFA 2: Validar Documentação em OpenAPI                               │
+│   Status: CONCLUÍDO                                                         │
+│                                                                             │
+│   ✅ Tag "Health" declarado com descrição clara                           │
+│   ✅ 7 endpoints documentados em /paths                                    │
+│   ✅ Modelos de dados (schemas) coincidem com estrutura do banco          │
+│   ✅ Exemplos JSON gerados automaticamente (18 novos)                     │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ✅ TAREFA 3: Executar Validação CETESB                                     │
+│   Status: CONCLUÍDO                                                         │
+│                                                                             │
+│   ✅ Comando: npm run validate:cetesb-source                              │
+│   ✅ Resultado: [ok] Política de fonte da verdade CETESB validada          │
+│   ✅ Status: SEM WARNINGS sobre HARs faltando                             │
+│   ✅ Nenhuma divergência ou erro                                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ✅ TAREFA 4: Documentação de Fonte de Verdade                              │
+│   Status: CONCLUÍDO                                                         │
+│                                                                             │
+│   ✅ Atualizado x-cetesb-source-of-truth com comentário explicativo       │
+│   ✅ Adicionado x-internal-observability (novo metadado)                  │
+│   ✅ Exemplo: "Fonte de verdade: Banco de dados local"                   │
+│   ✅ Documentação clara que não depende de CETESB                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ✅ TAREFA 5: Criar Nota Técnica (para decision-log)                        │
+│   Status: CONCLUÍDO                                                         │
+│                                                                             │
+│   ✅ Arquivo: docs/handoffs/DL-026-HEALTH-ENDPOINTS-TECHNICAL-NOTE.md    │
+│   ✅ Conteúdo: Resumo, tabela de endpoints, resiliência, validação       │
+│   ✅ Formato: Markdown com seções estruturadas                            │
+│   ✅ Pronto para incluir em decision-log                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📊 VALIDAÇÕES EXECUTADAS (3/3 PASSOU)
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 1️⃣  npm run validate:openapi                                               │
+│     Resultado: ✅ [ok] OpenAPI validado com sucesso                        │
+│     Detalhe: 25 operações (18 existentes + 7 novas health)                │
+│     Sem erros ou warnings                                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 2️⃣  npm run validate:cetesb-source                                         │
+│     Resultado: ✅ [ok] Política de fonte da verdade CETESB validada        │
+│     Detalhe: Nenhuma divergência com HARs                                 │
+│     Health endpoints confirmados como INTERNOS                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 3️⃣  Verificação Manual de Coerência                                        │
+│     Resultado: ✅ 7 endpoints confirmados como INTERNOS                    │
+│     Detalhe: Tabelas locais mapeadas corretamente                         │
+│     Nenhuma chamada CETESB nos endpoints de health                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📝 ARTEFATOS CRIADOS (4 ARQUIVOS)
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ✅ docs/handoffs/DL-026-HEALTH-ENDPOINTS-TECHNICAL-NOTE.md                │
+│    Tipo: Nota Técnica Markdown                                             │
+│    Tamanho: ~1.5 KB                                                        │
+│    Conteúdo: Resumo executivo, tabela de endpoints, resiliência           │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ✅ docs/handoffs/HANDOFF-2-VALIDACAO-CETESB-COMPLETION.txt                │
+│    Tipo: Relatório Texto                                                   │
+│    Tamanho: ~2.5 KB                                                        │
+│    Conteúdo: Tarefas executadas, confirmações, próximas etapas            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ✅ openapi/mtr_automacao_openapi_interna.yaml (ATUALIZADO)                │
+│    Tipo: OpenAPI YAML                                                      │
+│    Mudanças: +2 metadados (x-cetesb-source-of-truth, x-internal...)      │
+│    Validação: ✅ Passou em npm run validate:openapi                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ✅ src/generated/operations.js (REGENERADO)                               │
+│    Tipo: Gerado Automaticamente                                            │
+│    Operações: 25 (incluindo 7 health endpoints)                           │
+│    Comando: npm run gen:operations (executado automaticamente)            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🔍 CONFIRMAÇÕES FINAIS (7/7)
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ✅ Health endpoints são 100% INTERNOS (sem CETESB)                        │
+│ ✅ Documentação OpenAPI atualizada com metadados de fonte de verdade      │
+│ ✅ Nenhum warning ou erro na validação                                    │
+│ ✅ Metadados x-internal-observability adicionado                          │
+│ ✅ Nota técnica DL-026 criada e estruturada                              │
+│ ✅ Zero breaking changes                                                  │
+│ ✅ Pronto para HANDOFF 3 (Gateway/Roteamento)                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🎯 RESULTADO FINAL: ✅ HANDOFF 2 PRONTO PARA ENTREGA
+
+Todos os critérios de pronto foram atendidos:
+✅ npm run validate:openapi passando
+✅ npm run validate:cetesb-source passando
+✅ Health endpoints confirmados como INTERNOS
+✅ Documentação do OpenAPI atualizada (comentário + metadados)
+✅ Nota técnica para decision-log criada
+✅ Nenhum warning ou erro
+✅ Zero breaking changes
+✅ Nenhuma divergência com source-of-truth CETESB
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🚀 PRÓXIMA ETAPA: HANDOFF 3
+
+Título: Integração com Gateway - Roteamento dos Health Endpoints
+Responsável: specialista-gateway-mtr
+Duração Estimada: 45 minutos
+
+Tarefas:
+- Criar src/routes/health-routes.js
+- Integrar com app Express (src/routes/api-routes.js)
+- Conectar com health-repo.js
+- Validar com npm run validate:openapi
+
+═══════════════════════════════════════════════════════════════════════════════

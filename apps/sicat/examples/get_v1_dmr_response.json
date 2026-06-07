@@ -1,0 +1,40 @@
+{
+  "items": [
+    {
+      "id": "dmr_01JR1V0ZX5MK0G3X7PZQT4D8E2",
+      "integrationAccountId": "iac_01JQW4P3T0MR1Z6F8B9C0D1E2F",
+      "cnpj": "12345678000199",
+      "unitCode": "U-001",
+      "role": "gerador",
+      "periodStart": "2026-04-01",
+      "periodEnd": "2026-04-30",
+      "periodLabel": "2026-04",
+      "status": "draft",
+      "correlationId": "corr_dmr_create_2026_04",
+      "commandId": null,
+      "sessionContextId": null,
+      "submittedAt": null,
+      "protocolNumber": null,
+      "remoteReference": null,
+      "summaryTotals": {
+        "totalManifestos": 0,
+        "manifestosPorStatus": {},
+        "totalMassaPorClasse": {},
+        "totalMassaPorResiduo": [],
+        "parceirosDistintos": {
+          "transportadores": 0,
+          "destinadores": 0
+        }
+      },
+      "lastErrorCode": null,
+      "lastErrorDetail": null,
+      "attempts": 0,
+      "version": 1,
+      "createdAt": "2026-04-25T10:00:00Z",
+      "updatedAt": "2026-04-25T10:00:00Z"
+    }
+  ],
+  "total": 1,
+  "limit": 50,
+  "offset": 0
+}

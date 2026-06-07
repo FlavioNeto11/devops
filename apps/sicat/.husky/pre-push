@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+
+npm run validate:agents
+npm run validate:cetesb-source
+npm run validate:har-gateway
+npm run validate:md-links
+npm run validate:openapi
+npm run test:contract
+npm run build:ts
+
+if [ -n "$SONAR_TOKEN" ]; then
+  npm run sonar
+else
+  echo "SONAR_TOKEN not set; skipping sonar in pre-push."
+fi

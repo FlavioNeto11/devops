@@ -1,0 +1,10 @@
+{
+  "query": {
+    "integrationAccountId": "acc_nova_it_prod",
+    "role": "transportador",
+    "search": "CASAMAX",
+    "code": null,
+    "page": 1,
+    "pageSize": 20
+  }
+}

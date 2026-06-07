@@ -1,0 +1,33 @@
+{
+  "items": [
+    {
+      "partnerCode": 160627,
+      "role": "transportador",
+      "description": "CASAMAX COMERCIAL LTDA.",
+      "tradeName": "",
+      "document": "08183516000120",
+      "registration": "null-null",
+      "address": {
+        "street": "AVENIDA MANOEL CASANOVA",
+        "number": "1435",
+        "complement": "bloco c",
+        "district": "MEU CANTINHO",
+        "postalCode": "08664645",
+        "city": "SUZANO",
+        "state": "SP"
+      },
+      "licenseIssuer": null,
+      "licenseNumber": null,
+      "statusCode": 1,
+      "hasProfile": null,
+      "raw": {
+        "parCodigo": 160627,
+        "parDescricao": "CASAMAX COMERCIAL LTDA."
+      }
+    }
+  ],
+  "page": 1,
+  "pageSize": 20,
+  "totalItems": 1,
+  "totalPages": 1
+}

@@ -1,0 +1,32 @@
+{
+  "items": [
+    {
+      "id": "man_01JQW5M6YY9M7K7B5N63GQ6E9S",
+      "status": "submitted",
+      "externalStatus": "salvo",
+      "manifestNumber": "260010679516",
+      "externalCode": 22169012,
+      "externalHashCode": "0Ydw6T0Mu8eQWMfqXmMzUaaj8XiPJh",
+      "expeditionDate": "2026-03-07",
+      "generator": {
+        "partnerCode": 176163,
+        "description": "Nova IT"
+      },
+      "carrier": {
+        "partnerCode": 160627,
+        "description": "CASAMAX COMERCIAL LTDA."
+      },
+      "receiver": {
+        "partnerCode": 40110,
+        "description": "MARDAN FIRE ENGENHARIA, CONSTRUÇÃO E EXTINTORES LTDA."
+      },
+      "driverName": "Osvaldo",
+      "vehiclePlate": "ETA26D1",
+      "lastSyncAt": "2026-03-07T20:19:15Z"
+    }
+  ],
+  "page": 1,
+  "pageSize": 20,
+  "totalItems": 1,
+  "totalPages": 1
+}

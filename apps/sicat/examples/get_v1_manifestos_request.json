@@ -1,0 +1,15 @@
+{
+  "query": {
+    "integrationAccountId": "acc_nova_it_prod",
+    "status": "submitted",
+    "manifestNumber": "260010679516",
+    "carrierQuery": "CASAMAX",
+    "receiverQuery": "MARDAN",
+    "externalStatus": "salvo",
+    "dateFrom": "2026-02-20",
+    "dateTo": "2026-03-07",
+    "generatorCode": 176163,
+    "page": 1,
+    "pageSize": 20
+  }
+}

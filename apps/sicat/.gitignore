@@ -1,0 +1,59 @@
+node_modules
+.env
+dist
+coverage
+.DS_Store
+
+# Temporary files and test data
+storage/temp/**/*
+storage/documents/**/*
+tests/manual/*.json
+tests/manual/*.txt
+tests/manual/test-output.txt
+temp-test-output.txt
+temp-har-analysis.json
+
+# Credentials and sensitive data
+*CREDENTIALS*.json
+*credentials*.json
+*.jwt
+current-jwt.txt
+
+# Documentation artifacts
+docs/handoffs/*.txt
+
+# IDE and debugging
+.vscode/launch.json
+debug-token.js
+test-login.json
+test-token-direct.js
+
+# Playwright and browser automation artifacts
+.playwright-mcp/
+frontend/test-results/
+frontend/playwright-report/
+frontend/.playwright/
+test-results/
+artifacts/
+
+# Playwright/QA screenshots gerados em raiz por engano
+/qa-*.png
+
+# Accidental nested workspace copies
+frontend/frontend/
+
+# Local runtime logs
+startup.log
+
+# Quality gate baseline ignores
+.env.*
+!.env.example
+*.log
+*.har
+*.zip
+*.tmp
+scripts/ai-smoke/.env
+artifacts/ai-smoke/
+
+# Mapa de substituição p/ git filter-repo (contém segredos reais — NUNCA versionar)
+scripts/security/.secrets-replacements.txt

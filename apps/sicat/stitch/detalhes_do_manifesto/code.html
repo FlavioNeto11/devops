@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+
+<html lang="pt-br"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#137fec",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                    },
+                    fontFamily: {
+                        "display": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<title>Detalhe do Manifesto - MTR</title>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100">
+<div class="relative flex min-h-screen w-full flex-col overflow-x-hidden">
+<div class="layout-container flex h-full grow flex-col">
+<!-- Top Navigation Bar -->
+<header class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-4 lg:px-20">
+<div class="flex items-center gap-4">
+<button class="flex items-center justify-center rounded-full p-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined text-slate-600 dark:text-slate-400">arrow_back</span>
+</button>
+<div>
+<h1 class="text-xl font-bold leading-tight tracking-tight">Detalhe do Manifesto</h1>
+<p class="text-sm text-slate-500 dark:text-slate-400">ID: 98234-2023</p>
+</div>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center justify-center rounded-lg h-10 px-4 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 gap-2 text-sm font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="material-symbols-outlined text-[20px]">share</span>
+                        Compartilhar
+                    </button>
+<button class="flex items-center justify-center rounded-lg h-10 px-4 bg-primary text-white gap-2 text-sm font-semibold hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20">
+<span class="material-symbols-outlined text-[20px]">download</span>
+                        Baixar PDF
+                    </button>
+</div>
+</header>
+<main class="flex-1 px-6 py-8 lg:px-40 max-w-[1200px] mx-auto w-full">
+<!-- Status Header Card -->
+<div class="bg-white dark:bg-slate-900 rounded-xl p-6 mb-6 shadow-sm border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-6">
+<div class="flex flex-col gap-1">
+<span class="text-xs font-bold uppercase tracking-wider text-slate-400">Número do MTR</span>
+<h2 class="text-3xl font-bold text-slate-900 dark:text-white">MTR: 123456-78</h2>
+<div class="flex items-center gap-2 mt-1">
+<span class="flex h-2.5 w-2.5 rounded-full bg-red-500"></span>
+<span class="text-sm font-medium text-red-600 dark:text-red-400">Processado com Erro de Integração (CETESB)</span>
+</div>
+</div>
+<div class="flex gap-4">
+<div class="text-right">
+<p class="text-xs text-slate-400 font-medium">Data de Emissão</p>
+<p class="text-sm font-semibold">24/05/2023 14:30</p>
+</div>
+</div>
+</div>
+<!-- Integration Error Card (Conditional - Visible on Failure) -->
+<div class="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-xl p-6 mb-6">
+<div class="flex items-start gap-4">
+<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400">
+<span class="material-symbols-outlined">report</span>
+</div>
+<div class="flex flex-col gap-2">
+<h3 class="text-base font-bold text-red-800 dark:text-red-300">Erro de Integração SIGOR/CETESB</h3>
+<p class="text-sm text-red-700 dark:text-red-400/80 leading-relaxed">
+<strong>Código 403:</strong> Falha na validação do CNPJ do Transportador. O sistema da CETESB retornou que o transportador "TransLog Express Ltda" não possui licença ativa para a classe de resíduo selecionada (Resíduos Perigosos - Classe I). Verifique o cadastro no SIGOR.
+                            </p>
+<button class="mt-2 text-sm font-bold text-red-600 dark:text-red-400 flex items-center gap-1 hover:underline">
+<span class="material-symbols-outlined text-[18px]">sync</span>
+                                Tentar reprocessar agora
+                            </button>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Left Column: Data Summary & Timeline -->
+<div class="lg:col-span-2 space-y-6">
+<!-- Timeline Section -->
+<section class="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
+<h3 class="text-lg font-bold mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">route</span>
+                                Linha do Tempo do Status
+                            </h3>
+<div class="relative flex justify-between items-start w-full">
+<!-- Horizontal Line Background -->
+<div class="absolute top-5 left-0 w-full h-0.5 bg-slate-100 dark:bg-slate-800 -z-0"></div>
+<!-- Step 1 -->
+<div class="relative z-10 flex flex-col items-center text-center w-1/4">
+<div class="h-10 w-10 rounded-full bg-primary text-white flex items-center justify-center mb-3 ring-4 ring-white dark:ring-slate-900">
+<span class="material-symbols-outlined text-[20px]">check</span>
+</div>
+<p class="text-xs font-bold text-slate-900 dark:text-white">Criado</p>
+<p class="text-[10px] text-slate-400">24/05/2023</p>
+</div>
+<!-- Step 2 -->
+<div class="relative z-10 flex flex-col items-center text-center w-1/4">
+<div class="h-10 w-10 rounded-full bg-primary text-white flex items-center justify-center mb-3 ring-4 ring-white dark:ring-slate-900">
+<span class="material-symbols-outlined text-[20px]">check</span>
+</div>
+<p class="text-xs font-bold text-slate-900 dark:text-white">Submetido</p>
+<p class="text-[10px] text-slate-400">24/05/2023</p>
+</div>
+<!-- Step 3 (Failure Point) -->
+<div class="relative z-10 flex flex-col items-center text-center w-1/4">
+<div class="h-10 w-10 rounded-full bg-red-500 text-white flex items-center justify-center mb-3 ring-4 ring-white dark:ring-slate-900">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</div>
+<p class="text-xs font-bold text-red-600 dark:text-red-400">Erro CETESB</p>
+<p class="text-[10px] text-slate-400">25/05/2023</p>
+</div>
+<!-- Step 4 (Pending) -->
+<div class="relative z-10 flex flex-col items-center text-center w-1/4 opacity-40">
+<div class="h-10 w-10 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 flex items-center justify-center mb-3 ring-4 ring-white dark:ring-slate-900">
+<span class="material-symbols-outlined text-[20px]">radio_button_unchecked</span>
+</div>
+<p class="text-xs font-bold text-slate-500">Recebido</p>
+<p class="text-[10px] text-slate-400">Pendente</p>
+</div>
+</div>
+</section>
+<!-- Data Summary Section -->
+<section class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+<div class="p-6 border-b border-slate-100 dark:border-slate-800">
+<h3 class="text-lg font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">list_alt</span>
+                                    Resumo dos Dados
+                                </h3>
+</div>
+<div class="p-6 space-y-6">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Gerador -->
+<div class="flex flex-col gap-2 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+<span class="text-[10px] font-bold uppercase text-primary tracking-widest">Gerador</span>
+<p class="text-sm font-bold">Indústria Metalúrgica ABC</p>
+<p class="text-xs text-slate-500">CNPJ: 12.345.678/0001-90</p>
+<p class="text-xs text-slate-500">São Paulo - SP</p>
+</div>
+<!-- Transportador -->
+<div class="flex flex-col gap-2 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+<span class="text-[10px] font-bold uppercase text-primary tracking-widest">Transportador</span>
+<p class="text-sm font-bold">TransLog Express Ltda</p>
+<p class="text-xs text-slate-500">CNPJ: 98.765.432/0001-11</p>
+<p class="text-xs text-slate-500">Guarulhos - SP</p>
+</div>
+<!-- Destinador -->
+<div class="flex flex-col gap-2 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+<span class="text-[10px] font-bold uppercase text-primary tracking-widest">Destinador</span>
+<p class="text-sm font-bold">Aterro Sanitário Central</p>
+<p class="text-xs text-slate-500">CNPJ: 45.678.123/0001-00</p>
+<p class="text-xs text-slate-500">Caieiras - SP</p>
+</div>
+</div>
+<div class="pt-4 space-y-3">
+<h4 class="text-sm font-bold text-slate-700 dark:text-slate-300">Resíduos Listados</h4>
+<div class="w-full overflow-x-auto">
+<table class="w-full text-left text-sm border-collapse">
+<thead>
+<tr class="text-slate-400 text-xs font-medium uppercase border-b border-slate-100 dark:border-slate-800">
+<th class="py-3 px-2">Código IBAMA</th>
+<th class="py-3 px-2">Descrição</th>
+<th class="py-3 px-2">Classe</th>
+<th class="py-3 px-2 text-right">Qtd (kg)</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-50 dark:divide-slate-800">
+<tr>
+<td class="py-4 px-2 font-medium">20 01 21</td>
+<td class="py-4 px-2 text-slate-600 dark:text-slate-400">Lâmpadas Fluorescentes</td>
+<td class="py-4 px-2"><span class="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 px-2 py-0.5 rounded text-[10px] font-bold">CLASSE I</span></td>
+<td class="py-4 px-2 text-right font-semibold">150.00</td>
+</tr>
+<tr>
+<td class="py-4 px-2 font-medium">15 01 02</td>
+<td class="py-4 px-2 text-slate-600 dark:text-slate-400">Embalagens Plásticas</td>
+<td class="py-4 px-2"><span class="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 rounded text-[10px] font-bold">CLASSE IIA</span></td>
+<td class="py-4 px-2 text-right font-semibold">450.00</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Right Column: Map & Support -->
+<div class="space-y-6">
+<!-- Location/Map Card -->
+<div class="bg-white dark:bg-slate-900 rounded-xl overflow-hidden shadow-sm border border-slate-200 dark:border-slate-800">
+<div class="h-40 bg-slate-200 dark:bg-slate-800 relative">
+<div class="absolute inset-0 bg-slate-300 dark:bg-slate-700 flex items-center justify-center" data-alt="Mapa simplificado mostrando a rota entre gerador e transportador" data-location="Sao Paulo, Brazil" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBDo0LYm6G7RvA2LOTaXZGYis6r6H1Dk0c86GT95BsTB30_wsY1GQkCwBfMiTwX6ZIahuBNmiLle9U9o-OtrKLO2keaMsRXMDWoYPt6ioVkhdapA3Q9l1wzIj2wF3ri2XU98-_rqmqrtCvA5hNKggK68JXo2eQhiCS6PIOt2lBYKPT4u39UFmZJYuBSTkPF_isG2PjfCm0D0qAoYlkErumdZKtrfLYczJ3BGzyLB9vSrzDh_bxSgrdk2brYC7ju3zeNcqLPBvkIvi0'); background-size: cover; background-position: center;">
+<span class="material-symbols-outlined text-4xl text-slate-400">map</span>
+</div>
+<div class="absolute bottom-4 left-4 flex gap-2">
+<span class="bg-white/90 dark:bg-slate-900/90 backdrop-blur px-3 py-1 rounded text-xs font-bold shadow-sm">Ver rota completa</span>
+</div>
+</div>
+<div class="p-6">
+<h4 class="text-sm font-bold mb-4">Informações da Carga</h4>
+<ul class="space-y-3">
+<li class="flex items-center justify-between text-xs">
+<span class="text-slate-500">Peso Total:</span>
+<span class="font-semibold text-slate-900 dark:text-white">600.00 kg</span>
+</li>
+<li class="flex items-center justify-between text-xs">
+<span class="text-slate-500">Estado Físico:</span>
+<span class="font-semibold text-slate-900 dark:text-white">Sólido</span>
+</li>
+<li class="flex items-center justify-between text-xs">
+<span class="text-slate-500">Acondicionamento:</span>
+<span class="font-semibold text-slate-900 dark:text-white">Big-bag / Tambores</span>
+</li>
+</ul>
+</div>
+</div>
+<!-- Help Card -->
+<div class="bg-primary/10 dark:bg-primary/5 rounded-xl p-6 border border-primary/20">
+<div class="flex items-center gap-3 mb-4">
+<span class="material-symbols-outlined text-primary">help_center</span>
+<h4 class="text-sm font-bold text-primary">Precisa de ajuda?</h4>
+</div>
+<p class="text-xs text-slate-600 dark:text-slate-400 mb-4 leading-relaxed">
+                                Se o erro de integração persistir após as correções no SIGOR, entre em contato com nosso suporte técnico.
+                            </p>
+<button class="w-full bg-primary text-white py-2.5 rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors">
+                                Abrir Chamado
+                            </button>
+</div>
+</div>
+</div>
+</main>
+</div>
+</div>
+</body></html>

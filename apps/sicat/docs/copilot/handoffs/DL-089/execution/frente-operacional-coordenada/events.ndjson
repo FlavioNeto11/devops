@@ -1,0 +1,10 @@
+{"at":"2026-03-16T15:03:10.528Z","actor":"prepare-script","action":"created","dlId":"DL-089","title":"Execução demonstrativa do preset coordenado"}
+{"at":"2026-03-16T15:03:11.077Z","actor":"manual-update","action":"status-update","agent":"integrador-cetesb-mtr","status":"skipped","note":"Execução demonstrativa sem escopo funcional concreto"}
+{"at":"2026-03-16T15:03:11.568Z","actor":"manual-update","action":"status-update","agent":"postgres-queue-mtr","status":"skipped","note":"Execução demonstrativa sem escopo funcional concreto"}
+{"at":"2026-03-16T15:03:12.081Z","actor":"manual-update","action":"status-update","agent":"dashboard-observability-mtr","status":"skipped","note":"Execução demonstrativa sem escopo funcional concreto"}
+{"at":"2026-03-16T15:03:12.584Z","actor":"manual-update","action":"status-update","agent":"jobs-monitoramento-logs-mtr","status":"skipped","note":"Execução demonstrativa sem escopo funcional concreto"}
+{"at":"2026-03-16T15:03:13.077Z","actor":"manual-update","action":"status-update","agent":"sessao-conta-mtr","status":"skipped","note":"Execução demonstrativa sem escopo funcional concreto"}
+{"at":"2026-03-16T15:03:13.612Z","actor":"manual-update","action":"status-update","agent":"manifestos-operacional-mtr","status":"skipped","note":"Execução demonstrativa sem escopo funcional concreto"}
+{"at":"2026-03-16T15:03:14.142Z","actor":"manual-update","action":"status-update","agent":"perfis-acessos-admin-mtr","status":"skipped","note":"Execução demonstrativa sem escopo funcional concreto"}
+{"at":"2026-03-16T15:03:14.681Z","actor":"manual-update","action":"status-update","agent":"tester-qa-mtr","status":"skipped","note":"Sem mudanças funcionais para validar"}
+{"at":"2026-03-16T15:03:15.197Z","actor":"manual-update","action":"status-update","agent":"documentador-mtr","status":"completed","note":"DL-089 consolidado com artefatos finais"}

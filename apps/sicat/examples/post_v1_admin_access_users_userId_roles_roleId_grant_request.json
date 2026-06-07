@@ -1,0 +1,10 @@
+{
+  "pathParams": {
+    "userId": "usr_01JQWABCDEF1234567890",
+    "roleId": "role_admin_global"
+  },
+  "body": {
+    "reason": "Necessário para operação de contingência",
+    "expiresAt": "2026-12-31T23:59:59Z"
+  }
+}

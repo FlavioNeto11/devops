@@ -1,0 +1,22 @@
+{
+  "roleId": "role_support_operacional",
+  "name": "support.operacional",
+  "description": "Perfil de suporte operacional",
+  "isSystem": false,
+  "usersCount": 0,
+  "permissionsCount": 2,
+  "permissions": [
+    {
+      "permissionId": "perm_access_users_read",
+      "resource": "access.users",
+      "action": "read",
+      "description": "Visualizar usuários de acesso"
+    },
+    {
+      "permissionId": "perm_access_sessions_read",
+      "resource": "access.sessions",
+      "action": "read",
+      "description": "Visualizar sessões administrativas"
+    }
+  ]
+}

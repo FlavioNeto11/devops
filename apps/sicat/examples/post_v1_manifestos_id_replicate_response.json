@@ -1,0 +1,41 @@
+{
+  "groupId": "grp_01JQW5M7Z6F6Y9N2P3Q4R5S6T7",
+  "sourceManifestId": "man_01JQW5M6YY9M7K7B5N63GQ6E9S",
+  "operation": "manifest.replicate",
+  "total": 2,
+  "items": [
+    {
+      "id": "man_01JQW5M6YY9M7K7B5N63GQ6EA0",
+      "integrationAccountId": "acc_nova_it_prod",
+      "status": "draft",
+      "externalStatus": "pending_submission",
+      "groupId": "grp_01JQW5M7Z6F6Y9N2P3Q4R5S6T7",
+      "sourceManifestId": "man_01JQW5M6YY9M7K7B5N63GQ6E9S",
+      "batchIndex": 1,
+      "batchSize": 2,
+      "batchKind": "replication",
+      "manifestType": 1,
+      "state": { "code": 26, "abbreviation": "SP" },
+      "responsibleName": "Flavio Padilha Neto",
+      "expeditionDate": "2026-03-08",
+      "generator": { "partnerCode": 176163, "description": "Nova IT" },
+      "carrier": { "partnerCode": 160627, "description": "CASAMAX COMERCIAL LTDA." },
+      "receiver": { "partnerCode": 40110, "description": "MARDAN FIRE ENGENHARIA, CONSTRUÇÃO E EXTINTORES LTDA." },
+      "residues": [
+        {
+          "lineNumber": 1,
+          "quantity": 18,
+          "weightTon": 18,
+          "unit": { "code": 3, "description": "Tonelada" },
+          "residue": { "code": 731, "description": "Resíduos reutilizáveis ou recicláveis como agregados" },
+          "treatment": { "code": 51, "description": "Aterro de Reservação - RCC" },
+          "class": { "code": 11, "description": "CLASSE A (RCC)" },
+          "stateType": { "code": 4, "description": "SOLIDO" },
+          "packagingType": { "code": 4, "description": "CAÇAMBA ABERTA" }
+        }
+      ],
+      "createdAt": "2026-03-07T20:18:44Z",
+      "updatedAt": "2026-03-07T20:18:44Z"
+    }
+  ]
+}

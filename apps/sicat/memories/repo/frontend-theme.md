@@ -1,0 +1,3 @@
+- Tema global no frontend deve usar fonte unica (Vuetify + localStorage + documentElement.dataset.theme) para evitar divergencia entre login/home.
+- Em HomeLandingView, override dark com CSS scoped via seletor global pode falhar; preferir classe reativa ligada a useTheme().
+- Inicializar tema no bootstrap (main.js) e defaultTheme do Vuetify a partir de localStorage evita reset visual para light na primeira navegacao.

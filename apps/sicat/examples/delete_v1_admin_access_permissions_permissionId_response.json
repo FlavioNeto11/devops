@@ -1,0 +1,8 @@
+{
+  "action": "delete",
+  "status": "applied",
+  "entityType": "permission",
+  "entityId": "perm_access_roles_write",
+  "correlationId": "corr_admin_access_permission_delete_001",
+  "performedAt": "2026-03-15T15:25:00Z"
+}

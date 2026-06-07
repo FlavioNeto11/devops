@@ -1,0 +1,15 @@
+{
+  "commandId": "cmd_01JQW5M7Z6F6Y9N2P3Q4R5S6T7",
+  "jobId": "job_01JQW5M7Z6F6Y9N2P3Q4R5S6T7",
+  "correlationId": "corr_6b7999cf8c7b4ea4b4c85a3a1f8d7f44",
+  "entityType": "cadastro",
+  "entityId": "cad_01JQW5Q6SZ8NN3RQ8B4RFYWKDE",
+  "operation": "cadastro.submit",
+  "status": "queued",
+  "submittedAt": "2026-03-07T20:18:44Z",
+  "links": {
+    "job": "/v1/jobs/job_01JQW5M7Z6F6Y9N2P3Q4R5S6T7",
+    "entity": "/v1/manifestos/man_01JQW5M6YY9M7K7B5N63GQ6E9S",
+    "audit": "/v1/audit/corr_6b7999cf8c7b4ea4b4c85a3a1f8d7f44"
+  }
+}

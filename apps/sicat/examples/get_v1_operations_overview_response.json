@@ -1,0 +1,130 @@
+{
+  "generatedAt": "2026-04-25T13:00:00Z",
+  "jobs": {
+    "queued": 4,
+    "running": 1,
+    "retry_wait": 0,
+    "succeeded_24h": 128,
+    "failed_24h": 3,
+    "dlq_total": 1
+  },
+  "manifests": {
+    "total": 240,
+    "submitted": 180,
+    "printed": 50,
+    "cancelled": 5,
+    "draft_or_failed": 5
+  },
+  "accounts": {
+    "total": 6,
+    "active": 4
+  },
+  "sessions": {
+    "active": 3,
+    "pending_auth": 1,
+    "expired": 0,
+    "invalid": 0,
+    "revoked": 0
+  },
+  "recentDlq": [
+    {
+      "jobId": "job_01JQW5M7Z6F6Y9N2P3Q4R5S6T7",
+      "operation": "manifest.submit",
+      "entityType": "manifest",
+      "entityId": "man_01JQW5M6YY9M7K7B5N63GQ6E9S",
+      "dlqReason": "max_attempts_exceeded",
+      "movedAt": "2026-04-25T12:55:00Z",
+      "operationalStatus": "dlq",
+      "label": "Em fila morta (DLQ)",
+      "severity": "danger",
+      "recommendedAction": "Inspecionar a causa, corrigir dados/contexto e reenfileirar via /v1/jobs/{id}/retry.",
+      "retryable": "true",
+      "bucket": "blocked"
+    }
+  ],
+  "recentJobs": [
+    {
+      "jobId": "job_01JQW5N8AAQ2YA3WJ8B1F0CN3K",
+      "operation": "manifest.print",
+      "entityType": "manifest",
+      "entityId": "man_01JQW5N7M8R5XYZ123ABCDE456",
+      "status": "succeeded",
+      "attempts": 1,
+      "lastErrorCode": null,
+      "lastErrorMessage": null,
+      "dlqReason": null,
+      "queuedAt": "2026-04-25T12:58:00Z",
+      "startedAt": "2026-04-25T12:58:05Z",
+      "finishedAt": "2026-04-25T12:58:42Z",
+      "correlationId": "corr_01JQW5N8AAQ2YA3WJ8B1F0CN99",
+      "operationalStatus": "completed_with_document",
+      "label": "Concluído com documento",
+      "severity": "success",
+      "recommendedAction": "Disponibilizar o documento (MTR/CDF) para o operador; registrar ciência.",
+      "retryable": "false",
+      "bucket": "terminal_success",
+      "links": {
+        "self": "/v1/jobs/job_01JQW5N8AAQ2YA3WJ8B1F0CN3K",
+        "events": "/v1/jobs/job_01JQW5N8AAQ2YA3WJ8B1F0CN3K/events",
+        "retry": "/v1/jobs/job_01JQW5N8AAQ2YA3WJ8B1F0CN3K/retry",
+        "audit": "/v1/audit/corr_01JQW5N8AAQ2YA3WJ8B1F0CN99"
+      }
+    },
+    {
+      "jobId": "job_01JQW5P9BBR3ZB4XK9C2G1DN4L",
+      "operation": "manifest.submit",
+      "entityType": "manifest",
+      "entityId": "man_01JQW5P8N9S6YZ234BCDFGH567",
+      "status": "running",
+      "attempts": 1,
+      "lastErrorCode": null,
+      "lastErrorMessage": null,
+      "dlqReason": null,
+      "queuedAt": "2026-04-25T12:59:00Z",
+      "startedAt": "2026-04-25T12:59:10Z",
+      "finishedAt": null,
+      "correlationId": "corr_01JQW5P9BBR3ZB4XK9C2G1DN77",
+      "operationalStatus": "running",
+      "label": "Em execução",
+      "severity": "info",
+      "recommendedAction": "Acompanhar até a conclusão; verificar lease se exceder o SLA.",
+      "retryable": "false",
+      "bucket": "in_flight",
+      "links": {
+        "self": "/v1/jobs/job_01JQW5P9BBR3ZB4XK9C2G1DN4L",
+        "events": "/v1/jobs/job_01JQW5P9BBR3ZB4XK9C2G1DN4L/events",
+        "retry": "/v1/jobs/job_01JQW5P9BBR3ZB4XK9C2G1DN4L/retry",
+        "audit": "/v1/audit/corr_01JQW5P9BBR3ZB4XK9C2G1DN77"
+      }
+    }
+  ],
+  "recentErrors": [
+    {
+      "jobId": "job_01JQW5M7Z6F6Y9N2P3Q4R5S6T7",
+      "operation": "manifest.submit",
+      "entityType": "manifest",
+      "entityId": "man_01JQW5M6YY9M7K7B5N63GQ6E9S",
+      "status": "dlq",
+      "attempts": 5,
+      "lastErrorCode": "REMOTE_TIMEOUT",
+      "lastErrorMessage": "CETESB upstream timed out after 60s",
+      "dlqReason": "max_attempts_exceeded",
+      "queuedAt": "2026-04-25T11:30:00Z",
+      "startedAt": "2026-04-25T12:50:00Z",
+      "finishedAt": "2026-04-25T12:55:00Z",
+      "correlationId": "corr_01JQW5M7Z6F6Y9N2P3Q4R5S6V8",
+      "operationalStatus": "dlq",
+      "label": "Em fila morta (DLQ)",
+      "severity": "danger",
+      "recommendedAction": "Inspecionar a causa, corrigir dados/contexto e reenfileirar via /v1/jobs/{id}/retry.",
+      "retryable": "true",
+      "bucket": "blocked",
+      "links": {
+        "self": "/v1/jobs/job_01JQW5M7Z6F6Y9N2P3Q4R5S6T7",
+        "events": "/v1/jobs/job_01JQW5M7Z6F6Y9N2P3Q4R5S6T7/events",
+        "retry": "/v1/jobs/job_01JQW5M7Z6F6Y9N2P3Q4R5S6T7/retry",
+        "audit": "/v1/audit/corr_01JQW5M7Z6F6Y9N2P3Q4R5S6V8"
+      }
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "query": {
+    "userId": "usr_01JQWABCDEF1234567890",
+    "status": "active",
+    "page": 1,
+    "pageSize": 20
+  }
+}

@@ -1,0 +1,232 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug API (real)",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "tsx"
+      ],
+      "program": "${workspaceFolder}/src/server.ts",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "CETESB_GATEWAY_MODE": "real"
+      },
+      "skipFiles": [
+        "<node_internals>/**"
+      ]
+    },
+    {
+      "name": "Debug Worker (real)",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "tsx"
+      ],
+      "program": "${workspaceFolder}/src/worker.ts",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "CETESB_GATEWAY_MODE": "real"
+      },
+      "skipFiles": [
+        "<node_internals>/**"
+      ]
+    },
+    {
+      "name": "Debug API (real, no-watch)",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "tsx"
+      ],
+      "program": "${workspaceFolder}/src/server.ts",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "CETESB_GATEWAY_MODE": "real"
+      },
+      "skipFiles": [
+        "<node_internals>/**"
+      ]
+    },
+    {
+      "name": "Debug Worker (real, no-watch)",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "tsx"
+      ],
+      "program": "${workspaceFolder}/src/worker.ts",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "CETESB_GATEWAY_MODE": "real"
+      },
+      "skipFiles": [
+        "<node_internals>/**"
+      ]
+    },
+    {
+      "name": "Open Frontend (5174)",
+      "type": "pwa-chrome",
+      "request": "launch",
+      "url": "http://127.0.0.1:5174",
+      "webRoot": "${workspaceFolder}/frontend",
+      "preLaunchTask": "frontend: dev (5174)"
+    },
+    {
+      "name": "Run Stack (localhost)",
+      "type": "pwa-chrome",
+      "request": "launch",
+      "url": "http://127.0.0.1:5174",
+      "webRoot": "${workspaceFolder}/frontend",
+      "preLaunchTask": "localhost: up"
+    },
+    {
+      "name": "Run Stack (real + frontend)",
+      "type": "pwa-chrome",
+      "request": "launch",
+      "url": "http://127.0.0.1:5174",
+      "webRoot": "${workspaceFolder}/frontend",
+      "preLaunchTask": "localhost: up"
+    },
+    {
+      "name": "Open API Docs (8080)",
+      "type": "pwa-chrome",
+      "request": "launch",
+      "url": "http://127.0.0.1:8080/docs",
+      "webRoot": "${workspaceFolder}",
+      "preLaunchTask": "stack: run (real-dev)"
+    },
+    {
+      "name": "Run Pre-commit Workflow",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "validate:openapi"
+      ],
+      "console": "integratedTerminal",
+      "preLaunchTask": "workflow: pre-commit",
+      "skipFiles": [
+        "<node_internals>/**"
+      ]
+    },
+    {
+      "name": "Monitor Handoff Front",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "handoff:front:show",
+        "--",
+        "--dl",
+        "${input:launchHandoffFrontDlId}",
+        "--watch",
+        "--interval",
+        "${input:launchHandoffFrontIntervalMs}"
+      ],
+      "console": "integratedTerminal",
+      "skipFiles": [
+        "<node_internals>/**"
+      ]
+    },
+    {
+      "name": "Prepare + Monitor Handoff Front",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "handoff:front:show",
+        "--",
+        "--dl",
+        "${input:launchHandoffFrontDlId}",
+        "--watch",
+        "--interval",
+        "${input:launchHandoffFrontIntervalMs}"
+      ],
+      "console": "integratedTerminal",
+      "preLaunchTask": "handoff front: prepare",
+      "skipFiles": [
+        "<node_internals>/**"
+      ]
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Debug API + Worker (real)",
+      "configurations": [
+        "Debug API (real)",
+        "Debug Worker (real)"
+      ],
+      "preLaunchTask": "stack: prepare quick"
+    },
+    {
+      "name": "Debug API + Worker (real, no-watch)",
+      "configurations": [
+        "Debug API (real, no-watch)",
+        "Debug Worker (real, no-watch)"
+      ],
+      "preLaunchTask": "stack: prepare quick"
+    },
+    {
+      "name": "Debug API + Worker + Frontend (real)",
+      "configurations": [
+        "Debug API (real)",
+        "Debug Worker (real)",
+        "Open Frontend (5174)"
+      ],
+      "preLaunchTask": "localhost: up",
+      "stopAll": true
+    },
+    {
+      "name": "Debug API + Worker + Frontend (real, no-watch)",
+      "configurations": [
+        "Debug API (real, no-watch)",
+        "Debug Worker (real, no-watch)",
+        "Open Frontend (5174)"
+      ],
+      "preLaunchTask": "localhost: up",
+      "stopAll": true
+    },
+    {
+      "name": "Workspace + Handoff Front Monitor",
+      "configurations": [
+        "Prepare + Monitor Handoff Front",
+        "Open Frontend (5174)"
+      ],
+      "stopAll": true
+    }
+  ],
+  "inputs": [
+    {
+      "id": "launchHandoffFrontDlId",
+      "type": "promptString",
+      "description": "DL da frente operacional coordenada para monitorar",
+      "default": "DL-087"
+    },
+    {
+      "id": "launchHandoffFrontIntervalMs",
+      "type": "promptString",
+      "description": "Intervalo do monitor em milissegundos",
+      "default": "3000"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "query": {
+    "status": "draft",
+    "role": "gerador",
+    "periodStart": "2026-04-01",
+    "periodEnd": "2026-04-30",
+    "limit": 50,
+    "offset": 0
+  },
+  "headers": {
+    "X-Correlation-Id": "corr_dmr_list_2026_04"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "items": [
+    {
+      "id": "man_01JQW5M6YY9M7K7B5N63GQ6E9S",
+      "integrationAccountId": "acc_01HJX2Z9KP",
+      "status": "submitted",
+      "externalStatus": "transit",
+      "manifestType": 1,
+      "expeditionDate": "2026-04-15",
+      "manifestNumber": "20260000123456",
+      "externalCode": 987654,
+      "externalHashCode": "ab12cd34",
+      "generator": {
+        "partnerCode": "176163",
+        "description": "Nova IT"
+      },
+      "carrier": {
+        "partnerCode": "654321",
+        "description": "Transportadora ACME"
+      },
+      "receiver": {
+        "partnerCode": "789012",
+        "description": "Receptor XYZ"
+      },
+      "createdAt": "2026-04-15T10:00:00Z",
+      "lastSyncAt": "2026-04-16T12:00:00Z"
+    }
+  ],
+  "page": 1,
+  "pageSize": 20,
+  "totalItems": 1,
+  "totalPages": 1
+}

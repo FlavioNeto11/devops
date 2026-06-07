@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+
+<html lang="pt-br"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sessão e Conta - Gestão de Resíduos</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#137fec",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                    },
+                    fontFamily: {
+                        "display": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen">
+<div class="relative flex min-h-screen w-full flex-col overflow-x-hidden">
+<div class="layout-container flex h-full grow flex-col">
+<!-- Top Navigation Bar -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-slate-200 dark:border-slate-800 px-6 py-3 bg-white dark:bg-background-dark sticky top-0 z-10">
+<div class="flex items-center gap-4">
+<div class="size-8 text-primary">
+<span class="material-symbols-outlined text-4xl">recycling</span>
+</div>
+<h2 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight tracking-[-0.015em]">Sessão e Conta</h2>
+</div>
+<div class="flex gap-2">
+<button class="flex size-10 cursor-pointer items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="flex size-10 cursor-pointer items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+</header>
+<main class="flex-1 flex flex-col md:flex-row max-w-[1200px] mx-auto w-full p-4 md:p-8 gap-8">
+<!-- Left Sidebar: Menu & User Profile -->
+<aside class="w-full md:w-80 flex flex-col gap-6">
+<!-- User Card -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+<div class="flex flex-col items-center text-center gap-4">
+<div class="bg-primary/10 border-4 border-primary/20 aspect-square bg-cover rounded-full size-24 flex items-center justify-center" data-alt="Professional profile photo of a male administrator" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDevC_-3Mme8CmelyXrKptB6WHOge2QRI8qImRpLtNpDrZilOVliJ1I40QWPVqbr3imyWvlBM30sX3p2WRjXTQy25v7oIb0UwFLtWLp5sZKyvqHlVxWqzybzjoCSzJ8FPpVAloTc0OnXwekCT2Jczocv6rlLAs78SDbQEUOPzb_NumopfPVllew7D79rUnM5C5gnJaDdICF0PhP7S67k94-6IIFZv-THlkcTr8OTvUDTpKVMcwGTI54-MCcJ-SkVMn14gMBPdcB2zQ")'>
+</div>
+<div class="flex flex-col">
+<h1 class="text-slate-900 dark:text-slate-100 text-xl font-bold">João Silva</h1>
+<span class="bg-primary/10 text-primary text-xs font-bold px-2 py-1 rounded mt-1">ADMINISTRADOR</span>
+</div>
+</div>
+<div class="mt-8 flex flex-col gap-2">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">home</span>
+<p class="text-sm font-medium">Dashboard</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">description</span>
+<p class="text-sm font-medium">Relatórios</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">apartment</span>
+<p class="text-sm font-medium">Unidades</p>
+</a>
+<div class="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary text-white">
+<span class="material-symbols-outlined">person</span>
+<p class="text-sm font-medium">Conta e Sessão</p>
+</div>
+</div>
+<div class="mt-8 pt-6 border-t border-slate-200 dark:border-slate-800">
+<button class="flex w-full items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 font-bold transition-colors">
+<span class="material-symbols-outlined">logout</span>
+<span>Sair do Sistema</span>
+</button>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<div class="flex-1 flex flex-col gap-6">
+<!-- Context & Token Section -->
+<div class="grid grid-cols-1 @[800px]:grid-cols-2 gap-6">
+<!-- Active Context Card -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+<div>
+<h3 class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-4">Contexto Ativo</h3>
+<div class="flex items-start gap-4">
+<div class="p-3 bg-primary/10 rounded-lg text-primary">
+<span class="material-symbols-outlined text-3xl">location_on</span>
+</div>
+<div>
+<p class="text-slate-900 dark:text-slate-100 text-lg font-bold">Matriz São Paulo</p>
+<p class="text-slate-500 dark:text-slate-400 text-sm">ID: SP-00124 • Gerador Principal</p>
+</div>
+</div>
+</div>
+<button class="mt-6 flex items-center justify-center gap-2 w-full px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-primary/10 hover:text-primary rounded-lg text-sm font-bold text-slate-700 dark:text-slate-300 transition-all">
+<span class="material-symbols-outlined text-lg">swap_horiz</span>
+                                Trocar Contexto
+                            </button>
+</div>
+<!-- Token Timer Card -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+<h3 class="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-4 text-center">Sessão Ativa - Expira em</h3>
+<div class="flex gap-4 justify-center">
+<div class="flex flex-col items-center gap-2">
+<div class="flex h-14 w-14 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+<p class="text-primary text-xl font-bold">00</p>
+</div>
+<p class="text-slate-500 text-[10px] uppercase font-bold">Horas</p>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="flex h-14 w-14 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+<p class="text-primary text-xl font-bold">29</p>
+</div>
+<p class="text-slate-500 text-[10px] uppercase font-bold">Minutos</p>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="flex h-14 w-14 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+<p class="text-primary text-xl font-bold">45</p>
+</div>
+<p class="text-slate-500 text-[10px] uppercase font-bold">Segundos</p>
+</div>
+</div>
+<p class="mt-4 text-center text-xs text-slate-400">Para sua segurança, sessões inativas são encerradas automaticamente.</p>
+</div>
+</div>
+<!-- Recent Access Logs -->
+<div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+<div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
+<h3 class="text-slate-900 dark:text-slate-100 font-bold">Logs de Acessos Recentes</h3>
+<span class="text-xs text-primary font-medium cursor-pointer hover:underline">Ver Histórico Completo</span>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead class="bg-slate-50 dark:bg-slate-800/50">
+<tr>
+<th class="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Data/Hora</th>
+<th class="px-6 py-3 text-xs font-bold text-slate-500 uppercase">IP de Origem</th>
+<th class="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Dispositivo</th>
+<th class="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+<tr>
+<td class="px-6 py-4">
+<p class="text-sm text-slate-900 dark:text-slate-100 font-medium">15/10/2023 14:32</p>
+<p class="text-xs text-slate-500">Sessão Atual</p>
+</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400 font-mono">191.185.22.41</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">Chrome / Windows 11</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded-full">
+<span class="size-1.5 rounded-full bg-green-500"></span> Sucesso
+                                            </span>
+</td>
+</tr>
+<tr>
+<td class="px-6 py-4 text-sm text-slate-900 dark:text-slate-100 font-medium">15/10/2023 08:15</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400 font-mono">191.185.22.41</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">Chrome / Windows 11</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded-full">
+<span class="size-1.5 rounded-full bg-green-500"></span> Sucesso
+                                            </span>
+</td>
+</tr>
+<tr>
+<td class="px-6 py-4 text-sm text-slate-900 dark:text-slate-100 font-medium">14/10/2023 19:40</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400 font-mono">177.34.112.90</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">Safari / iPhone iOS 17</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded-full">
+<span class="size-1.5 rounded-full bg-green-500"></span> Sucesso
+                                            </span>
+</td>
+</tr>
+<tr>
+<td class="px-6 py-4 text-sm text-slate-900 dark:text-slate-100 font-medium">14/10/2023 19:38</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400 font-mono">177.34.112.90</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">Safari / iPhone iOS 17</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1 text-xs font-bold text-red-600 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full">
+<span class="size-1.5 rounded-full bg-red-500"></span> Falha: Senha Incorreta
+                                            </span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer Meta -->
+<footer class="mt-auto p-6 text-center text-slate-400 dark:text-slate-600 text-xs">
+<p>Gestão Resíduos v3.2.1 • © 2024 WasteManagement Solutions</p>
+<p class="mt-1">Servidor: AWS-SA-EAST-1 (São Paulo)</p>
+</footer>
+</div>
+</div>
+</body></html>

@@ -1,0 +1,30 @@
+
+> mtr-node-backend-postgres-queue@2.0.0 smoke:openapi
+> node scripts/smoke-openapi.js
+
+{
+  "ok": true,
+  "results": [
+    {
+      "path": "/openapi.yaml",
+      "status": 200,
+      "bytes": 215384
+    },
+    {
+      "path": "/openapi.json",
+      "status": 200,
+      "checks": {
+        "jobStatusEnum": [
+          "queued",
+          "running",
+          "retry_wait",
+          "succeeded",
+          "failed",
+          "dlq",
+          "cancelled"
+        ],
+        "commandEndpointsChecked": 5
+      }
+    }
+  ]
+}

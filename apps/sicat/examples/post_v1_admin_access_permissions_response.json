@@ -1,0 +1,6 @@
+{
+  "permissionId": "perm_access_roles_write",
+  "resource": "access.roles",
+  "action": "write",
+  "description": "Gerenciar perfis de acesso"
+}

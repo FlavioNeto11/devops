@@ -1,0 +1,18 @@
+{
+  "title": "SICAT MTR - Frontend",
+  "url": "http://127.0.0.1:5174/login",
+  "messages": [
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connecting..."
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected."
+    }
+  ]
+}

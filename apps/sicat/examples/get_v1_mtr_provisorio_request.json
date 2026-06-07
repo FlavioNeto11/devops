@@ -1,0 +1,8 @@
+{
+  "query": {
+    "integrationAccountId": "acc_nova_it_prod",
+    "status": "draft",
+    "page": 1,
+    "pageSize": 50
+  }
+}

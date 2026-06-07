@@ -1,0 +1,103 @@
+═══════════════════════════════════════════════════════════════════════════════
+  ✅ HANDOFF 2 CONCLUÍDO - VALIDAÇÃO CETESB PARA HEALTH ENDPOINTS
+═══════════════════════════════════════════════════════════════════════════════
+
+REGISTRO AUTOMÁTICO (conforme solicitado)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1️⃣  RESULTADO DE `npm run validate:cetesb-source`:
+
+    ✅ [ok] Política de fonte da verdade CETESB validada com sucesso.
+    
+    Status: SEM ERROS, SEM WARNINGS
+    Health endpoints confirmados como INTERNOS (ignorados da validação CETESB)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2️⃣  DOCUMENTAÇÃO ADICIONADA AO OPENAPI:
+
+    Arquivo: openapi/mtr_automacao_openapi_interna.yaml
+    
+    Mudanças:
+    ✅ Adicionado comentário em x-cetesb-source-of-truth:
+       "Nota: Health endpoints (/ping, /health/*, /maintenance/cleanup) 
+        são INTERNOS e têm fonte de verdade em banco de dados local 
+        (worker_health, jobs, performance_snapshots), não em HARs CETESB."
+    
+    ✅ Adicionado novo metadado x-internal-observability:
+       - description: 'Health endpoints são observabilidade interna do sistema.'
+       - dataSource: 'Banco de dados local (tabelas: worker_health, jobs, ...)'
+       - hasDependency: 'Nenhuma - resilientes mesmo quando CETESB indisponível'
+    
+    Validação: ✅ npm run validate:openapi passou (25 operações)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+3️⃣  NOTA TÉCNICA PARA DECISION-LOG:
+
+    Arquivo: docs/handoffs/DL-026-HEALTH-ENDPOINTS-TECHNICAL-NOTE.md
+    
+    Conteúdo:
+    - Health endpoints são observabilidade INTERNA (7 operações)
+    - Fonte de verdade: Banco de dados local (4 tabelas)
+    - Resiliência: Funcionam mesmo quando CETESB está indisponível
+    - Segurança: Não incluem dados sensíveis de parceiros
+    - Validação: Passou em npm run validate:cetesb-source e validate:openapi
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+4️⃣  DIVERGÊNCIAS E QUESTÕES:
+
+    ❌ NENHUMA DIVERGÊNCIA IDENTIFICADA
+    ✅ Health endpoints em OpenAPI são coerentes com banco de dados
+    ✅ Metadados de fonte de verdade estão corretos
+    ✅ Nenhuma chamada externa à CETESB nos 7 endpoints
+    ✅ Estrutura de dados (schemas) coincide com migração 004
+    ✅ Nenhuma questão em aberto
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 RESUMO TÉCNICO
+
+Health Endpoints: 7 operações
+├── /ping (GET) - Health check simples
+├── /health/system (GET) - Status geral
+├── /health/workers (GET) - Heartbeat de workers
+├── /health/jobs/active (GET) - Jobs em execução
+├── /health/jobs/dlq (GET) - Jobs em dead letter queue
+├── /health/metrics/performance (GET) - Percentis de latência
+└── /maintenance/cleanup (POST) - Limpeza de jobs antigos
+
+Fonte de Verdade: Banco de Dados Local
+├── worker_health (migration 004)
+├── jobs (migration 002)
+├── performance_snapshots (migration 004)
+└── system_events (migration 004)
+
+Dependência Externa: NENHUMA
+Autenticação: Sem requisito (security: [])
+Resiliência: 100% quando CETESB indisponível
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ STATUS FINAL: HANDOFF 2 PRONTO PARA ENTREGA
+
+Critério de Pronto:
+✅ npm run validate:openapi passando
+✅ npm run validate:cetesb-source passando
+✅ Health endpoints confirmados como INTERNOS
+✅ Documentação do OpenAPI atualizada
+✅ Nota técnica criada (DL-026)
+✅ Nenhum warning ou erro
+✅ Zero breaking changes
+
+Artefatos Criados:
+✅ docs/handoffs/DL-026-HEALTH-ENDPOINTS-TECHNICAL-NOTE.md
+✅ docs/handoffs/HANDOFF-2-VALIDACAO-CETESB-COMPLETION.txt
+✅ openapi/mtr_automacao_openapi_interna.yaml (ATUALIZADO)
+✅ src/generated/operations.js (regenerado automaticamente)
+
+Próxima Etapa: HANDOFF 3 (Integração com Gateway)
+
+═══════════════════════════════════════════════════════════════════════════════

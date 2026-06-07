@@ -1,0 +1,32 @@
+{
+  "name": "sicat-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test:ui": "playwright test",
+    "test:ui:headed": "playwright test --headed"
+  },
+  "dependencies": {
+    "@fontsource/manrope": "^5.2.8",
+    "@fontsource/material-symbols-outlined": "^5.2.42",
+    "@fontsource/public-sans": "^5.2.7",
+    "@mdi/font": "^7.4.47",
+    "apexcharts": "^3.49.0",
+    "jszip": "^3.10.1",
+    "pinia": "^2.3.1",
+    "vue": "^3.5.13",
+    "vue-router": "^4.6.4",
+    "vue3-apexcharts": "1.4.4",
+    "vuetify": "^3.7.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.54.2",
+    "@vitejs/plugin-vue": "^5.2.3",
+    "vite": "^6.2.0",
+    "vite-plugin-vuetify": "^2.0.4"
+  }
+}

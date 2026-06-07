@@ -1,0 +1,37 @@
+{
+  "activeAccountId": "acc_01JQWACCOUNT0001",
+  "accounts": [
+    {
+      "accountId": "acc_01JQWACCOUNT0001",
+      "partnerCode": 176163,
+      "partnerDocument": "31.913.781/0001-39",
+      "partnerName": "Nova IT",
+      "accountType": "generator",
+      "lastConnectionAt": "2026-03-13T14:10:00Z",
+      "lastUsageAt": "2026-03-13T14:52:11Z",
+      "usageSummary": {
+        "manifestsCreated": 25,
+        "manifestsSubmitted": 22,
+        "manifestsPrinted": 18,
+        "manifestsCancelled": 1
+      },
+      "isActive": true
+    },
+    {
+      "accountId": "acc_01JQWACCOUNT0002",
+      "partnerCode": 221010,
+      "partnerDocument": "12.***.***/0001-**",
+      "partnerName": "Transportes XPTO",
+      "accountType": "carrier",
+      "lastConnectionAt": "2026-03-10T09:20:00Z",
+      "lastUsageAt": "2026-03-11T08:15:00Z",
+      "usageSummary": {
+        "manifestsCreated": 4,
+        "manifestsSubmitted": 4,
+        "manifestsPrinted": 2,
+        "manifestsCancelled": 0
+      },
+      "isActive": false
+    }
+  ]
+}

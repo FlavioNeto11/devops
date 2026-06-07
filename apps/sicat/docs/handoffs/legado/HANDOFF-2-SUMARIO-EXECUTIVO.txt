@@ -1,0 +1,190 @@
+═══════════════════════════════════════════════════════════════════════════════
+HANDOFF 2 - SUMÁRIO EXECUTIVO
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ STATUS: CONCLUÍDO E PRONTO PARA ENTREGA
+
+Especialista: validador-cetesb-mtr
+Data: 2026-03-09
+Feature: Health Endpoints (Observabilidade DL-022)
+Etapa: HANDOFF 2 - Validação CETESB - Coerência com Source-of-Truth
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📋 O QUE FOI ENTREGUE
+
+1. VALIDAÇÃO CETESB EXECUTADA
+   ✅ npm run validate:cetesb-source: [ok] PASSOU
+   ✅ npm run validate:openapi: [ok] PASSOU (25 operações)
+   ✅ Nenhum warning ou divergência identificada
+
+2. DOCUMENTAÇÃO OPENAPI ATUALIZADA
+   ✅ Metadado x-cetesb-source-of-truth: Comentário adicionado
+   ✅ Novo metadado x-internal-observability: Criado
+   ✅ 7 endpoints com schemas e exemplos JSON
+
+3. NOTA TÉCNICA CRIADA
+   ✅ docs/handoffs/DL-026-HEALTH-ENDPOINTS-TECHNICAL-NOTE.md
+   ✅ Pronto para decision-log e documentação final
+
+4. CONFIRMAÇÕES TÉCNICAS
+   ✅ Health endpoints são 100% INTERNOS
+   ✅ Nenhuma chamada externa à CETESB
+   ✅ Dados do banco de dados local (4 tabelas)
+   ✅ Resilientes mesmo quando CETESB indisponível
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📊 RESULTADO DAS VALIDAÇÕES
+
+┌─ npm run validate:cetesb-source ──────────────────────────────────┐
+│ [ok] Política de fonte da verdade CETESB validada com sucesso.   │
+│ → Health endpoints ignorados (confirmado como INTERNOS)           │
+│ → Nenhuma divergência com HARs CETESB                             │
+└──────────────────────────────────────────────────────────────────┘
+
+┌─ npm run validate:openapi ────────────────────────────────────────┐
+│ [ok] OpenAPI validado com sucesso                                │
+│ → 25 operações (18 existentes + 7 health)                        │
+│ → Nenhum erro ou warning                                         │
+└──────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🔗 ARTEFATOS CRIADOS (4 DOCUMENTOS)
+
+1. docs/handoffs/DL-026-HEALTH-ENDPOINTS-TECHNICAL-NOTE.md
+   └─ Nota técnica completa para decision-log
+   └─ Tabela de 7 endpoints
+   └─ Explicação de fonte de verdade
+   └─ Status de resiliência
+
+2. docs/handoffs/HANDOFF-2-VALIDACAO-CETESB-COMPLETION.txt
+   └─ Registro de tarefas executadas
+   └─ Confirmações finais
+   └─ Próximas etapas
+
+3. docs/handoffs/HANDOFF-2-FINAL-REPORT.txt
+   └─ Relatório completo de conclusão
+   └─ Detalhes de cada validação
+   └─ Status final
+
+4. docs/handoffs/HANDOFF-2-CHECKLIST.txt
+   └─ Checklist detalhado
+   └─ 5/5 tarefas marcadas como concluídas
+   └─ 7/7 confirmações finais
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📈 DETALHES DOS 7 HEALTH ENDPOINTS
+
+1. /ping (GET)
+   └─ Health check simples para load balancers
+   └─ Sem autenticação (security: [])
+   └─ Retorna: { status: "ok", timestamp }
+
+2. /health/system (GET)
+   └─ Status geral da API
+   └─ Sem autenticação
+   └─ Retorna: { status, version, uptime_ms, environment }
+
+3. /health/workers (GET)
+   └─ Heartbeat e estatísticas dos workers
+   └─ Sem autenticação
+   └─ Retorna: Lista de workers com status e métricas
+
+4. /health/jobs/active (GET)
+   └─ Jobs em execução (queued, running, retry_wait)
+   └─ Sem autenticação
+   └─ Retorna: Contagem por status + job mais antigo
+
+5. /health/jobs/dlq (GET)
+   └─ Jobs em dead letter queue
+   └─ Sem autenticação
+   └─ Retorna: Lista de jobs movidos para DLQ + motivo
+
+6. /health/metrics/performance (GET)
+   └─ Percentis de latência (p50, p95, p99)
+   └─ Sem autenticação
+   └─ Retorna: Métricas de execução e utilização
+
+7. /maintenance/cleanup (POST)
+   └─ Disparar limpeza de jobs antigos
+   └─ Sem autenticação
+   └─ Retorna: Status + contagem de registros deletados
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🗄️ FONTE DE VERDADE: BANCO DE DADOS LOCAL
+
+Nenhum endpoint de health acessa CETESB. Dados vêm de:
+
+1. worker_health (migration 004)
+   └─ Heartbeat de workers registrados
+   └─ Status (healthy, stale, offline)
+   └─ Estatísticas de processamento
+
+2. jobs (migration 002)
+   └─ Status de jobs (queued, running, retry_wait, dlq, ...)
+   └─ Attempts e próximo retry
+   └─ Timestamps de início/fim
+
+3. performance_snapshots (migration 004)
+   └─ Métricas agregadas de latência
+   └─ Percentis e taxa de sucesso
+   └─ Utilização de workers
+
+4. system_events (migration 004)
+   └─ Eventos internos do sistema
+   └─ Para auditoria e monitoramento
+
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ CONFIRMAÇÕES FINAIS (7/7)
+
+✅ Health endpoints são 100% INTERNOS (sem CETESB)
+✅ Documentação OpenAPI atualizada com metadados de source-of-truth
+✅ Nenhum warning ou erro na validação
+✅ Metadados x-internal-observability adicionado
+✅ Nota técnica DL-026 criada
+✅ Zero breaking changes
+✅ Pronto para HANDOFF 3 (Gateway/Roteamento)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🚀 PRÓXIMAS ETAPAS (NÃO FAZER AGORA)
+
+HANDOFF 3: Integração com Gateway (Roteamento) - 45 min
+└─ Criar src/routes/health-routes.js
+└─ Integrar com app Express
+└─ Conectar com health-repo.js
+
+HANDOFF 4: Health Repository (Queries) - 60 min
+└─ Criar src/repositories/health-repo.js
+└─ Queries para worker_health, jobs, performance_snapshots
+└─ Cálculo de percentis e métricas
+
+HANDOFF 5: Testes (Smoke + Integration) - 45 min
+└─ Smoke tests: npm run smoke:health
+└─ Integration tests
+└─ Coverage > 95%
+
+HANDOFF 6: Documentação Final - 30 min
+└─ EXECUTION-GUIDE.md atualizado
+└─ Examples JSON regenerados
+└─ Decision log finalizado
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📌 REFERÊNCIAS
+
+- Feature: DL-022 (Observabilidade - Evolução de Persistência e Fila)
+- Organizador: DL-021 (Reorganização de Estrutura)
+- Decision Log: docs/DL-022-EVOLUCAO-PERSISTENCIA-FILA.md
+- Copilot Instructions: .github/copilot-instructions.md
+
+═══════════════════════════════════════════════════════════════════════════════
+
+Validador: validador-cetesb-mtr
+Data: 2026-03-09
+Status: ✅ PRONTO PARA ENTREGA

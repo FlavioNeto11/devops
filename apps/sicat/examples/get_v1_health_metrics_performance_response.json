@@ -1,0 +1,23 @@
+{
+  "job_execution_ms": {
+    "p50": 250,
+    "p95": 1200,
+    "p99": 2500
+  },
+  "job_success_rate": 0.98,
+  "worker_utilization": 0.65,
+  "top_operations": [
+    {
+      "operation": "manifest.submit",
+      "total_jobs": 120,
+      "succeeded_jobs": 112,
+      "failed_jobs": 6,
+      "dlq_jobs": 2,
+      "avg_duration_ms": 1145,
+      "p95_duration_ms": 2870,
+      "success_rate": 0.93,
+      "traffic_share": 0.52
+    }
+  ],
+  "timestamp": "2026-03-09T21:00:00Z"
+}

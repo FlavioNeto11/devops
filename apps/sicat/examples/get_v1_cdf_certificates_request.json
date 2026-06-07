@@ -1,0 +1,11 @@
+{
+  "query": {
+    "integrationAccountId": "iac_01JQW5M0D2G3CTQYV4N9AB8F1R",
+    "sessionContextId": "scx_01JQW5M0D2G3CTQYV4N9AB8F1R",
+    "dateFrom": "2026-04-01",
+    "dateTo": "2026-04-18"
+  },
+  "headers": {
+    "X-Correlation-Id": "corr_cdf_list_001"
+  }
+}

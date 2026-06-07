@@ -1,0 +1,15 @@
+{
+  "commandId": "cmd_01JR1V20DMRSUBMITX7PZQT4D8E",
+  "jobId": "job_01JR1V20DMRSUBMITX7PZQT4D8E",
+  "correlationId": "corr_dmr_submit_2026_04",
+  "entityType": "dmr",
+  "entityId": "dmr_01JR1V0ZX5MK0G3X7PZQT4D8E2",
+  "operation": "dmr.submit",
+  "status": "queued",
+  "submittedAt": "2026-04-25T11:30:00Z",
+  "links": {
+    "job": "/v1/jobs/job_01JR1V20DMRSUBMITX7PZQT4D8E",
+    "entity": "/v1/dmr/dmr_01JR1V0ZX5MK0G3X7PZQT4D8E2",
+    "audit": "/v1/audit/corr_dmr_submit_2026_04"
+  }
+}

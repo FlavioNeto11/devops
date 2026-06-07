@@ -1,0 +1,39 @@
+{
+  "items": [
+    {
+      "jobId": "job_01JQW5M7Z6F6Y9N2P3Q4R5S6T7",
+      "commandId": "cmd_01JQW5M7Z6F6Y9N2P3Q4R5S6T7",
+      "entityType": "manifest",
+      "entityId": "man_01JQW5M6YY9M7K7B5N63GQ6E9S",
+      "operation": "manifest.submit",
+      "status": "failed",
+      "operationalStatus": "failed_remote_contract",
+      "attempts": 5,
+      "maxAttempts": 5,
+      "queuedAt": "2026-04-16T12:30:00Z",
+      "startedAt": "2026-04-16T12:30:01Z",
+      "finishedAt": "2026-04-16T12:32:11Z",
+      "nextRetryAt": null,
+      "correlationId": "corr_6b7999cf8c7b4ea4b4c85a3a1f8d7f44",
+      "idempotencyKey": "0f70f030-4438-4e21-84dd-c32aab5f5e43",
+      "lastErrorCode": "REMOTE_TIMEOUT",
+      "lastErrorMessage": "Upstream CETESB timed out after 30000ms",
+      "dlqReason": null,
+      "dlqMovedAt": null,
+      "executionTimeMs": 130000,
+      "integrationAccountId": "acc_usr_01abc",
+      "sessionContextId": "sess_01JQW5N3QH9T",
+      "version": 6,
+      "links": {
+        "self": "/v1/jobs/job_01JQW5M7Z6F6Y9N2P3Q4R5S6T7",
+        "events": "/v1/jobs/job_01JQW5M7Z6F6Y9N2P3Q4R5S6T7/events",
+        "audit": "/v1/audit/corr_6b7999cf8c7b4ea4b4c85a3a1f8d7f44",
+        "retry": "/v1/jobs/job_01JQW5M7Z6F6Y9N2P3Q4R5S6T7/retry"
+      }
+    }
+  ],
+  "page": 1,
+  "pageSize": 20,
+  "totalItems": 1,
+  "totalPages": 1
+}

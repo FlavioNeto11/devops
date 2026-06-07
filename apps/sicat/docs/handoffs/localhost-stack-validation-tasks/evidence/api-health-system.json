@@ -1,0 +1,19 @@
+{
+  "status": "healthy",
+  "version": "2.0.0",
+  "uptime_ms": 414803695,
+  "timestamp": "2026-04-22T11:24:57.919Z",
+  "environment": "development",
+  "statistics": {
+    "jobs_queued": 0,
+    "jobs_running": 0,
+    "jobs_retry_wait": 0,
+    "jobs_succeeded_1h": 0,
+    "jobs_failed_1h": 0,
+    "jobs_dlq_total": 1,
+    "workers_healthy": 19,
+    "workers_degraded": 0,
+    "workers_active_5m": 1,
+    "avg_job_duration_ms_1h": 0
+  }
+}

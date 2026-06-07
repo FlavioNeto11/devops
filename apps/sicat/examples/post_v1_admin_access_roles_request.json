@@ -1,0 +1,11 @@
+{
+  "body": {
+    "name": "support.operacional",
+    "description": "Perfil de suporte operacional",
+    "isSystem": false,
+    "permissionIds": [
+      "perm_access_users_read",
+      "perm_access_sessions_read"
+    ]
+  }
+}

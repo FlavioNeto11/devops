@@ -1,0 +1,26 @@
+{
+  "userId": "usr_01JQWABCDEF1234567890",
+  "name": "Flavio Padilha Neto",
+  "email": "flavio_padilha_neto@msn.com",
+  "status": "active",
+  "roles": [
+    {
+      "roleId": "role_admin_global",
+      "name": "admin.global",
+      "description": "Administrador global",
+      "isSystem": true,
+      "usersCount": 2,
+      "permissionsCount": 15
+    }
+  ],
+  "permissions": [
+    {
+      "permissionId": "perm_access_users_read",
+      "resource": "access.users",
+      "action": "read",
+      "description": "Visualizar usuários de acesso"
+    }
+  ],
+  "createdAt": "2026-03-10T10:00:00Z",
+  "updatedAt": "2026-03-13T15:20:00Z"
+}

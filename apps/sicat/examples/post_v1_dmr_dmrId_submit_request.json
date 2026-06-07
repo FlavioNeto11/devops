@@ -1,0 +1,14 @@
+{
+  "params": {
+    "dmrId": "dmr_01JR1V0ZX5MK0G3X7PZQT4D8E2"
+  },
+  "body": {
+    "sessionContextId": "scx_01JQW5M0D2G3CTQYV4N9AB8F1R",
+    "requestedBy": "flavio.padilha",
+    "validateOnly": false
+  },
+  "headers": {
+    "X-Correlation-Id": "corr_dmr_submit_2026_04",
+    "Idempotency-Key": "dmr-submit-2026-04-001"
+  }
+}

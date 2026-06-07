@@ -1,0 +1,11 @@
+{
+  "id": "dmr_01JR1V0ZX5MK0G3X7PZQT4D8E2",
+  "status": "awaiting_remote",
+  "operationalStatus": "awaiting_remote_confirmation",
+  "protocolNumber": null,
+  "submittedAt": "2026-04-25T11:30:05Z",
+  "lastErrorCode": null,
+  "lastErrorDetail": null,
+  "attempts": 1,
+  "updatedAt": "2026-04-25T11:30:10Z"
+}

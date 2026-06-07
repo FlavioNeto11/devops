@@ -1,0 +1,59 @@
+# Contrato da esteira DevOps para o SICAT (ver C:\devops\docs\new-project-contract.md).
+# basePath /sicat ; frontend sem strip (base /sicat/) ; api com strip (/sicat/api -> /v1,/health).
+app:
+  name: sicat
+  namespace: apps
+  host: dev.nvit.com.br        # + xpto.localhost no dev local
+  basePath: /sicat
+services:
+  frontend:
+    type: frontend
+    path: /
+    image: ghcr.io/flavioneto11/sicat/frontend
+    port: 80
+    expose: true
+    stripPrefix: false
+    priority: 10
+    build:
+      context: frontend
+      args:
+        VITE_API_BASE_URL: /sicat/api
+    health:
+      path: /healthz
+  api:
+    type: api
+    path: /api
+    image: ghcr.io/flavioneto11/sicat/api
+    port: 8080
+    expose: true
+    stripPrefix: true
+    priority: 30
+    health:
+      path: /health
+    env:
+      PORT: "8080"
+      DATABASE_SSL: "false"
+      STORAGE_DIR: /data/storage
+      NODE_EXTRA_CA_CERTS: /opt/certs/cetesb-chain.pem
+      AUTO_MIGRATE: "true"
+      AUTO_SEED: "true"
+  worker:
+    type: worker
+    image: ghcr.io/flavioneto11/sicat/api   # MESMA imagem do backend
+    command: ["npm", "run", "worker"]
+    expose: false
+    env:
+      STORAGE_DIR: /data/storage
+      NODE_EXTRA_CA_CERTS: /opt/certs/cetesb-chain.pem
+dependencies:
+  postgres:
+    image: postgres:16
+    db: mtr_automation
+    service: sicat-postgres
+    port: 5432
+secrets:
+  # Criados no cluster a partir do .env (nao versionados). Ver k8s/secret.example.yaml.
+  - sicat-config   # envFrom (.env: OPENAI_*, CETESB_*, LANGFUSE_*, ...)
+  - sicat-db       # POSTGRES_* + DATABASE_URL
+configmaps:
+  - sicat-certs    # cetesb-chain.pem -> /opt/certs

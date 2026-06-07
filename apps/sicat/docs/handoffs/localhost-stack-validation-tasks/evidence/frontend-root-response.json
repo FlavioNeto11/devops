@@ -1,0 +1,30 @@
+{
+  "StatusCode": 200,
+  "Headers": {
+    "Vary": [
+      "Origin"
+    ],
+    "Cache-Control": [
+      "no-cache"
+    ],
+    "ETag": [
+      "W/\"2f8-2MBAe7g1hQF8JusJNDgZvWoJGYc\""
+    ],
+    "Date": [
+      "Wed, 22 Apr 2026 11:24:58 GMT"
+    ],
+    "Connection": [
+      "keep-alive"
+    ],
+    "Keep-Alive": [
+      "timeout=5"
+    ],
+    "Content-Type": [
+      "text/html"
+    ],
+    "Content-Length": [
+      "760"
+    ]
+  },
+  "Content": "<!doctype html>\r\n<html lang=\"pt-BR\">\r\n  <head>\n    <script type=\"module\" src=\"/@vite/client\"></script>\n\r\n    <meta charset=\"UTF-8\" />\r\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\r\n    <link rel=\"icon\" type=\"image/svg+xml\" href=\"/favicon.svg\" />\r\n    <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\" />\r\n    <link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin />\r\n    <link href=\"https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap\" rel=\"stylesheet\" />\r\n    <title>SICAT MTR - Frontend</title>\r\n  </head>\r\n  <body>\r\n    <div id=\"app\"></div>\r\n    <script type=\"module\" src=\"/src/main.js\"></script>\r\n  </body>\r\n</html>\r\n"
+}

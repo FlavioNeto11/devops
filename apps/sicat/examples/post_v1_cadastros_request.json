@@ -1,0 +1,51 @@
+{
+  "integrationAccountId": "acc_nova_it_prod",
+  "requestedBy": "flavio.padilha",
+  "enterprise": {
+    "legalName": "Nova IT",
+    "tradeName": "Nova IT",
+    "personType": "J",
+    "document": "31913781000139",
+    "partnerTypes": [
+      {
+        "code": 8,
+        "description": "Gerador"
+      }
+    ]
+  },
+  "primaryContact": {
+    "email": "flavio_padilha_neto@msn.com",
+    "phone": "16981110147"
+  },
+  "address": {
+    "postalCode": "14802370",
+    "street": "DIDIMO VIEIRA DA SILVA",
+    "number": "507",
+    "district": "VILA FERROVIARIA",
+    "complement": "apt 306",
+    "cityCode": 9194,
+    "cityName": "ARARAQUARA",
+    "stateCode": 26,
+    "stateAbbreviation": "SP",
+    "latitude": -21.776223236537398,
+    "longitude": -48.17416663848557
+  },
+  "responsibles": [
+    {
+      "cpf": "37088641828",
+      "name": "Flavio Padilha Neto",
+      "email": "flavio_padilha_neto@msn.com",
+      "role": "Proprietário"
+    },
+    {
+      "cpf": "41037425855",
+      "name": "Ana Paula Rabottini Padilha",
+      "email": "flavio.padilha.neto@gmail.com",
+      "role": "Proprietária"
+    }
+  ],
+  "classes": [],
+  "licenses": [],
+  "hasTemporaryStorage": false,
+  "acceptTermsOfUse": true
+}

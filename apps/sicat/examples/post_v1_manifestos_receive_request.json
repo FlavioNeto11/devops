@@ -1,0 +1,18 @@
+{
+  "integrationAccountId": "iac_01JQW5M0D2G3CTQYV4N9AB8F1R",
+  "sessionContextId": "scx_01JQW5M0D2G3CTQYV4N9AB8F1R",
+  "requestedBy": "flavio.padilha",
+  "printReceiptAfterReceive": true,
+  "receiptPayload": {
+    "remCodigo": null,
+    "remDataRecebimento": "2026-04-18T13:00:00.000Z",
+    "remObservacao": "recebimento realizado via integração interna",
+    "paaCodigo": 40110,
+    "rrmCodigo": 12345,
+    "manifesto": {
+      "manCodigo": 987654,
+      "manNumero": "260010679516",
+      "manHashCode": "hash_manifesto_recebido"
+    }
+  }
+}

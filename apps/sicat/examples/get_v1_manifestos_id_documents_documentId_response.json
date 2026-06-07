@@ -1,0 +1,8 @@
+{
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/pdf",
+    "Content-Disposition": "inline; filename=\"mtr-12345.pdf\""
+  },
+  "body": "<binary pdf stream>"
+}

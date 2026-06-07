@@ -1,0 +1,24 @@
+{
+  "integrationAccountId": "iac_01JQW5M0D2G3CTQYV4N9AB8F1R",
+  "sessionContextId": "scx_01JQW5M0D2G3CTQYV4N9AB8F1R",
+  "requestedBy": "flavio.padilha",
+  "cdfPayload": {
+    "cerData": "2026-04-18T14:00:00.000Z",
+    "cerDataInicial": "2026-04-01T00:00:00.000Z",
+    "cerDataFinal": "2026-04-18T23:59:59.999Z",
+    "cerObservacao": "CDF gerado via integração interna",
+    "parceiroDestinador": {
+      "parCodigo": 40110
+    },
+    "parceiroAcesso": {
+      "paaCodigo": 40110,
+      "paaNome": "Destinador Exemplo"
+    },
+    "tipoCertificadoDestinacao": 9,
+    "listaManifesto": [],
+    "listaParceiroGerador": [],
+    "responsavel": {
+      "cdrCodigo": 445566
+    }
+  }
+}

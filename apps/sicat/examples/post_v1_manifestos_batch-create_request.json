@@ -1,0 +1,36 @@
+{
+  "integrationAccountId": "acc_nova_it_prod",
+  "sessionContextId": "scx_01JQW5M0D2G3CTQYV4N9AB8F1R",
+  "requestedBy": "flavio.padilha",
+  "count": 3,
+  "template": {
+    "integrationAccountId": "acc_nova_it_prod",
+    "sessionContextId": "scx_01JQW5M0D2G3CTQYV4N9AB8F1R",
+    "requestedBy": "flavio.padilha",
+    "manifestType": 1,
+    "state": { "code": 26, "abbreviation": "SP" },
+    "responsibleName": "Flavio Padilha Neto",
+    "expeditionDate": "2026-03-07",
+    "driverName": "Osvaldo",
+    "vehiclePlate": "ETA26D1",
+    "notes": "Lote homogêneo",
+    "hasTemporaryStorage": false,
+    "hasCadriInResidueList": false,
+    "generator": { "partnerCode": 176163, "description": "Nova IT" },
+    "carrier": { "partnerCode": 160627, "description": "CASAMAX COMERCIAL LTDA." },
+    "receiver": { "partnerCode": 40110, "description": "MARDAN FIRE ENGENHARIA, CONSTRUÇÃO E EXTINTORES LTDA." },
+    "residues": [
+      {
+        "lineNumber": 1,
+        "quantity": 18,
+        "weightTon": 18,
+        "unit": { "code": 3, "description": "Tonelada" },
+        "residue": { "code": 731, "description": "Resíduos reutilizáveis ou recicláveis como agregados" },
+        "treatment": { "code": 51, "description": "Aterro de Reservação - RCC" },
+        "class": { "code": 11, "description": "CLASSE A (RCC)" },
+        "stateType": { "code": 4, "description": "SOLIDO" },
+        "packagingType": { "code": 4, "description": "CAÇAMBA ABERTA" }
+      }
+    ]
+  }
+}

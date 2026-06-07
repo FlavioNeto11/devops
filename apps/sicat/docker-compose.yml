@@ -1,0 +1,152 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: mtr_postgres
+    environment:
+      POSTGRES_DB: mtr_automation
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - mtr_pgdata:/var/lib/postgresql/data
+
+  api:
+    build: .
+    container_name: mtr_api
+    depends_on:
+      - postgres
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    environment:
+      PORT: 8080
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/mtr_automation
+      AUTO_MIGRATE: "true"
+      AUTO_SEED: "true"
+      CETESB_GATEWAY_MODE: ${CETESB_GATEWAY_MODE:-real}
+      CETESB_BASE_URL: ${CETESB_BASE_URL:-https://mtrr.cetesb.sp.gov.br}
+      CETESB_PORTAL_ORIGIN: ${CETESB_PORTAL_ORIGIN:-https://mtr.cetesb.sp.gov.br}
+      CETESB_PORTAL_REFERER: ${CETESB_PORTAL_REFERER:-https://mtr.cetesb.sp.gov.br/}
+      CETESB_TOKEN_HEADER_MODE: ${CETESB_TOKEN_HEADER_MODE:-both}
+      NODE_OPTIONS: ${NODE_OPTIONS:---use-openssl-ca}
+      NODE_EXTRA_CA_CERTS: ${NODE_EXTRA_CA_CERTS:-/opt/certs/cetesb-chain.pem}
+      # ── IA: OPENAI_* e secrets SICAT continuam vindo do .env do host (carregado via dotenv) ──
+      # ── Langfuse (observabilidade externa OPCIONAL; chaves só no backend, nunca no frontend) ──
+      LANGFUSE_ENABLED: "${LANGFUSE_ENABLED:-false}"
+      LANGFUSE_BASE_URL: "http://langfuse:3000"
+      LANGFUSE_PUBLIC_BASE_URL: "${LANGFUSE_PUBLIC_BASE_URL:-http://localhost:3000}"
+      LANGFUSE_PUBLIC_KEY: "${LANGFUSE_PUBLIC_KEY:-}"
+      LANGFUSE_SECRET_KEY: "${LANGFUSE_SECRET_KEY:-}"
+      LANGFUSE_PROJECT_ID: "${LANGFUSE_PROJECT_ID:-}"
+      LANGFUSE_FLUSH_INTERVAL_MS: "${LANGFUSE_FLUSH_INTERVAL_MS:-5000}"
+      LANGFUSE_SYNC_TIMEOUT_MS: "${LANGFUSE_SYNC_TIMEOUT_MS:-8000}"
+      # ── AI Control Center ──
+      AI_CONTROL_ENABLED: "${AI_CONTROL_ENABLED:-true}"
+      AI_CONTROL_READONLY: "${AI_CONTROL_READONLY:-false}"
+      AI_CONTROL_ALLOW_FULL_SMOKE: "${AI_CONTROL_ALLOW_FULL_SMOKE:-false}"
+      AI_CONTROL_TRACE_RETENTION_DAYS: "${AI_CONTROL_TRACE_RETENTION_DAYS:-30}"
+      AI_CONTROL_ENABLE_SSE: "${AI_CONTROL_ENABLE_SSE:-true}"
+      AI_CONTROL_DEBUG: "${AI_CONTROL_DEBUG:-false}"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./:/app
+      - /app/node_modules
+      - ./certs:/opt/certs:ro
+    command: ["npm", "start"]
+
+  worker:
+    build: .
+    container_name: mtr_worker
+    depends_on:
+      - postgres
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/mtr_automation
+      AUTO_MIGRATE: "true"
+      AUTO_SEED: "true"
+      CETESB_GATEWAY_MODE: ${CETESB_GATEWAY_MODE:-real}
+      CETESB_BASE_URL: ${CETESB_BASE_URL:-https://mtrr.cetesb.sp.gov.br}
+      CETESB_PORTAL_ORIGIN: ${CETESB_PORTAL_ORIGIN:-https://mtr.cetesb.sp.gov.br}
+      CETESB_PORTAL_REFERER: ${CETESB_PORTAL_REFERER:-https://mtr.cetesb.sp.gov.br/}
+      CETESB_TOKEN_HEADER_MODE: ${CETESB_TOKEN_HEADER_MODE:-both}
+      NODE_OPTIONS: ${NODE_OPTIONS:---use-openssl-ca}
+      NODE_EXTRA_CA_CERTS: ${NODE_EXTRA_CA_CERTS:-/opt/certs/cetesb-chain.pem}
+      # ── AI Control Center / Langfuse (paridade com a api; OPENAI_*/SICAT via .env do host) ──
+      LANGFUSE_ENABLED: "${LANGFUSE_ENABLED:-false}"
+      LANGFUSE_BASE_URL: "http://langfuse:3000"
+      LANGFUSE_PUBLIC_BASE_URL: "${LANGFUSE_PUBLIC_BASE_URL:-http://localhost:3000}"
+      LANGFUSE_PUBLIC_KEY: "${LANGFUSE_PUBLIC_KEY:-}"
+      LANGFUSE_SECRET_KEY: "${LANGFUSE_SECRET_KEY:-}"
+      LANGFUSE_PROJECT_ID: "${LANGFUSE_PROJECT_ID:-}"
+      LANGFUSE_FLUSH_INTERVAL_MS: "${LANGFUSE_FLUSH_INTERVAL_MS:-5000}"
+      LANGFUSE_SYNC_TIMEOUT_MS: "${LANGFUSE_SYNC_TIMEOUT_MS:-8000}"
+      AI_CONTROL_ENABLED: "${AI_CONTROL_ENABLED:-true}"
+      AI_CONTROL_READONLY: "${AI_CONTROL_READONLY:-false}"
+      AI_CONTROL_ALLOW_FULL_SMOKE: "${AI_CONTROL_ALLOW_FULL_SMOKE:-false}"
+      AI_CONTROL_TRACE_RETENTION_DAYS: "${AI_CONTROL_TRACE_RETENTION_DAYS:-30}"
+      AI_CONTROL_ENABLE_SSE: "${AI_CONTROL_ENABLE_SSE:-true}"
+      AI_CONTROL_DEBUG: "${AI_CONTROL_DEBUG:-false}"
+    volumes:
+      - ./:/app
+      - /app/node_modules
+      - ./certs:/opt/certs:ro
+    command: ["npm", "run", "worker"]
+
+  frontend:
+    build: ./frontend
+    container_name: mtr_frontend
+    depends_on:
+      - api
+    environment:
+      # Consumida pelo navegador do host → aponta para a porta publicada da api.
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
+      VITE_REQUIRE_REAL_AUTH: "true"
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+  # ── Observabilidade externa: Langfuse self-hosted (v2) + seu Postgres ──
+  # Init headless: cria org/projeto/usuário e as chaves (que o SICAT reusa via .env),
+  # então a integração funciona sem passos manuais. Chaves só no backend.
+  langfuse-db:
+    image: postgres:16
+    container_name: mtr_langfuse_db
+    environment:
+      POSTGRES_DB: langfuse
+      POSTGRES_USER: langfuse
+      POSTGRES_PASSWORD: langfuse
+    volumes:
+      - mtr_langfuse_pgdata:/var/lib/postgresql/data
+
+  langfuse:
+    image: langfuse/langfuse:2
+    container_name: mtr_langfuse
+    depends_on:
+      - langfuse-db
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://langfuse:langfuse@langfuse-db:5432/langfuse
+      NEXTAUTH_URL: ${LANGFUSE_PUBLIC_BASE_URL:-http://localhost:3000}
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:-sicat-langfuse-nextauth-secret-change-me}
+      SALT: ${LANGFUSE_SALT:-sicat-langfuse-salt-change-me}
+      TELEMETRY_ENABLED: "false"
+      LANGFUSE_INIT_ORG_ID: sicat-org
+      LANGFUSE_INIT_ORG_NAME: SICAT
+      LANGFUSE_INIT_PROJECT_ID: ${LANGFUSE_PROJECT_ID:-sicat-mtr}
+      LANGFUSE_INIT_PROJECT_NAME: "SICAT MTR"
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-pk-lf-sicat-local-public-key}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-sk-lf-sicat-local-secret-key}
+      LANGFUSE_INIT_USER_EMAIL: ${SICAT_BOOTSTRAP_EMAIL:-admin@sicat.local}
+      LANGFUSE_INIT_USER_NAME: "SICAT Admin"
+      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD:-Admin@Sicat2026}
+
+volumes:
+  mtr_pgdata:
+  mtr_langfuse_pgdata:

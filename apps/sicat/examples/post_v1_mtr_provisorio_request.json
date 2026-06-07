@@ -1,0 +1,88 @@
+{
+  "integrationAccountId": "acc_nova_it_prod",
+  "sessionContextId": "scx_01JQW5M0D2G3CTQYV4N9AB8F1R",
+  "requestedBy": "flavio.padilha",
+  "manifestType": 1,
+  "state": {
+    "code": 26,
+    "abbreviation": "SP"
+  },
+  "responsibleName": "Flavio Padilha Neto",
+  "expeditionDate": "2026-04-25",
+  "driverName": "Osvaldo",
+  "vehiclePlate": "ETA26D1",
+  "notes": "MTR provisório — cadastro local, submissão assíncrona.",
+  "hasTemporaryStorage": false,
+  "hasCadriInResidueList": false,
+  "generator": {
+    "partnerCode": 176163,
+    "description": "Nova IT",
+    "document": "31913781000139",
+    "address": {
+      "street": "DIDIMO VIEIRA DA SILVA",
+      "number": "507",
+      "district": "VILA FERROVIARIA",
+      "postalCode": "14802370",
+      "city": "ARARAQUARA",
+      "state": "SP"
+    }
+  },
+  "carrier": {
+    "partnerCode": 160627,
+    "description": "CASAMAX COMERCIAL LTDA.",
+    "document": "08183516000120",
+    "address": {
+      "street": "AVENIDA MANOEL CASANOVA",
+      "number": "1435",
+      "district": "MEU CANTINHO",
+      "postalCode": "08664645",
+      "city": "SUZANO",
+      "state": "SP"
+    }
+  },
+  "receiver": {
+    "partnerCode": 40110,
+    "description": "MARDAN FIRE ENGENHARIA, CONSTRUÇÃO E EXTINTORES LTDA.",
+    "document": "13539643000150",
+    "address": {
+      "street": "RUA JOAQUIM JOSE FIORAVANTE",
+      "number": "11",
+      "district": "VILA ROSINA",
+      "postalCode": "07749105",
+      "city": "CAIEIRAS",
+      "state": "SP"
+    }
+  },
+  "residues": [
+    {
+      "lineNumber": 1,
+      "quantity": 18,
+      "unit": {
+        "code": 3,
+        "description": "Tonelada",
+        "symbol": "TON"
+      },
+      "residue": {
+        "code": 731,
+        "ibamaCode": "Classe A",
+        "description": "Resíduos reutilizáveis ou recicláveis como agregados"
+      },
+      "treatment": {
+        "code": 51,
+        "description": "Aterro de Reservação - RCC"
+      },
+      "class": {
+        "code": 11,
+        "description": "CLASSE A (RCC)"
+      },
+      "stateType": {
+        "code": 4,
+        "description": "SOLIDO"
+      },
+      "packagingType": {
+        "code": 4,
+        "description": "CAÇAMBA ABERTA"
+      }
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "items": [
+    {
+      "id": "dmi_01JR1V11ABMK0G3X7PZQT4D8E3",
+      "declarationId": "dmr_01JR1V0ZX5MK0G3X7PZQT4D8E2",
+      "manifestId": "man_01JQW5M6YY9M7K7B5N63GQ6E9S",
+      "mtrNumber": "MTR-2026-000123",
+      "cdfNumber": null,
+      "residueClass": "IIA",
+      "residueCode": "190805",
+      "quantityValue": 75.0,
+      "quantityUnit": "kg",
+      "partnerRole": "transportador",
+      "partnerCnpj": "98765432000110",
+      "metadata": null,
+      "createdAt": "2026-04-25T10:30:00Z"
+    }
+  ]
+}

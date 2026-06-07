@@ -1,0 +1,50 @@
+name: Copilot Structure Validation
+
+"on":
+  pull_request:
+    paths:
+      - '.github/**'
+      - 'docs/copilot/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/validate-agent-architecture.js'
+      - 'tests/unit/agent-architecture-validation.test.js'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/**'
+      - 'docs/copilot/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/validate-agent-architecture.js'
+      - 'tests/unit/agent-architecture-validation.test.js'
+  workflow_dispatch:
+
+jobs:
+  copilot-structure:
+    name: Validate Copilot Structure
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate agent architecture
+        run: npm run validate:agents
+
+      - name: Validate markdown links
+        run: npm run validate:md-links
+
+      - name: Run source-of-truth unit checks
+        run: npm run test:source-of-truth

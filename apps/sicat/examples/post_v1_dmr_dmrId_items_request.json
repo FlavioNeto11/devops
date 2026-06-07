@@ -1,0 +1,23 @@
+{
+  "params": {
+    "dmrId": "dmr_01JR1V0ZX5MK0G3X7PZQT4D8E2"
+  },
+  "body": {
+    "manifestId": null,
+    "mtrNumber": "MTR-2026-000999",
+    "cdfNumber": null,
+    "residueClass": "IIA",
+    "residueCode": "190805",
+    "quantityValue": 25.0,
+    "quantityUnit": "kg",
+    "partnerRole": "destinador",
+    "partnerCnpj": "55667788000122",
+    "metadata": {
+      "origem": "manual"
+    }
+  },
+  "headers": {
+    "X-Correlation-Id": "corr_dmr_items_add_2026_04",
+    "Idempotency-Key": "dmr-item-add-2026-04-001"
+  }
+}

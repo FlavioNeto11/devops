@@ -1,0 +1,1 @@
+- `shell: stack: stop processes` limpa o listener de `:8080`, mas pode deixar processos `tsx watch src/server.ts` ou `tsx src/worker.ts` vivos se nao estiverem presos a `:8080`/`:5174`; sempre confirmar o listener real com `Get-NetTCPConnection` apos o stop.

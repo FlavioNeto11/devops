@@ -1,0 +1,13 @@
+{
+  "path": {
+    "documentId": "cer_hash_code_exemplo"
+  },
+  "query": {
+    "integrationAccountId": "iac_01JQW5M0D2G3CTQYV4N9AB8F1R",
+    "sessionContextId": "scx_01JQW5M0D2G3CTQYV4N9AB8F1R"
+  },
+  "headers": {
+    "Accept": "application/pdf",
+    "X-Correlation-Id": "corr_cdf_document_001"
+  }
+}

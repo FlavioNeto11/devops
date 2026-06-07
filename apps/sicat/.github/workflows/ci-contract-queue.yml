@@ -1,0 +1,97 @@
+name: CI Contract + Queue Retry/DLQ
+
+"on":
+  pull_request:
+    paths:
+      - '.github/workflows/ci-contract-queue.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'openapi/**'
+      - 'docs/cetesb/**'
+      - 'examples/**'
+      - 'docs/copilot/**'
+      - 'scripts/smoke-job-retry-dlq.js'
+      - 'scripts/validate-agent-architecture.js'
+      - 'scripts/validate-markdown-links.js'
+      - 'scripts/validate-cetesb-source-of-truth.js'
+      - 'tests/unit/agent-architecture-validation.test.js'
+      - 'tests/integration/openapi-queue-contract.test.js'
+      - 'tests/unit/cetesb-source-of-truth.test.js'
+      - 'src/**'
+      - 'src/sql/**'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/ci-contract-queue.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'openapi/**'
+      - 'docs/cetesb/**'
+      - 'examples/**'
+      - 'docs/copilot/**'
+      - 'scripts/smoke-job-retry-dlq.js'
+      - 'scripts/validate-agent-architecture.js'
+      - 'scripts/validate-markdown-links.js'
+      - 'scripts/validate-cetesb-source-of-truth.js'
+      - 'tests/unit/agent-architecture-validation.test.js'
+      - 'tests/integration/openapi-queue-contract.test.js'
+      - 'tests/unit/cetesb-source-of-truth.test.js'
+      - 'src/**'
+      - 'src/sql/**'
+  workflow_dispatch:
+
+jobs:
+  contract-and-queue-checks:
+    name: Contract + Queue Retry/DLQ
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: mtr_automation
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d mtr_automation"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      NODE_OPTIONS: ''
+      CETESB_GATEWAY_MODE: mock
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/mtr_automation
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run database migrations
+        run: npm run migrate
+
+      - name: Contract checks
+        run: npm run test:contract
+
+      - name: CETESB source-of-truth checks
+        run: npm run validate:cetesb-source && npm run test:source-of-truth
+
+      - name: Markdown links checks
+        run: npm run validate:md-links
+
+      - name: Smoke queue retry/DLQ
+        run: npm run smoke:job:retry-dlq

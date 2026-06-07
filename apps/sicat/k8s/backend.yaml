@@ -1,0 +1,186 @@
+# =============================================================================
+# Backend SICAT: api (HTTP 8080) + worker (fila) - MESMA imagem sicat-api:local,
+# comandos diferentes. envFrom sicat-config (.env -> Secret). DATABASE_URL vem do
+# Secret sicat-db (aponta para sicat-postgres). PVC de storage compartilhado
+# (documentos gerados). CA da CETESB via ConfigMap sicat-certs.
+# =============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sicat-storage
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: sicat
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sicat-api
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: sicat-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: sicat
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sicat-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sicat-api
+        app.kubernetes.io/part-of: sicat
+    spec:
+      containers:
+        - name: api
+          image: sicat-api:local
+          imagePullPolicy: IfNotPresent
+          command: ["npm", "start"]
+          envFrom:
+            - secretRef:
+                name: sicat-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: sicat-db
+                  key: DATABASE_URL
+            - name: DATABASE_SSL
+              value: "false"
+            - name: PORT
+              value: "8080"
+            - name: STORAGE_DIR
+              value: "/data/storage"
+            - name: NODE_EXTRA_CA_CERTS
+              value: "/opt/certs/cetesb-chain.pem"
+            - name: AUTO_MIGRATE
+              value: "true"
+            - name: AUTO_SEED
+              value: "true"
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 18
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            failureThreshold: 6
+          volumeMounts:
+            - name: storage
+              mountPath: /data/storage
+            - name: certs
+              mountPath: /opt/certs
+              readOnly: true
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "256Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: sicat-storage
+        - name: certs
+          configMap:
+            name: sicat-certs
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sicat-worker
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: sicat-worker
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/part-of: sicat
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sicat-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sicat-worker
+        app.kubernetes.io/part-of: sicat
+    spec:
+      containers:
+        - name: worker
+          image: sicat-api:local
+          imagePullPolicy: IfNotPresent
+          command: ["npm", "run", "worker"]
+          envFrom:
+            - secretRef:
+                name: sicat-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: sicat-db
+                  key: DATABASE_URL
+            - name: DATABASE_SSL
+              value: "false"
+            - name: STORAGE_DIR
+              value: "/data/storage"
+            - name: NODE_EXTRA_CA_CERTS
+              value: "/opt/certs/cetesb-chain.pem"
+            - name: AUTO_MIGRATE
+              value: "true"
+            - name: AUTO_SEED
+              value: "true"
+          volumeMounts:
+            - name: storage
+              mountPath: /data/storage
+            - name: certs
+              mountPath: /opt/certs
+              readOnly: true
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "256Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: sicat-storage
+        - name: certs
+          configMap:
+            name: sicat-certs
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sicat-api
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: sicat
+spec:
+  selector:
+    app.kubernetes.io/name: sicat-api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

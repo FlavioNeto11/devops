@@ -1,0 +1,88 @@
+# =============================================================================
+# Postgres do SICAT (db mtr_automation). Secret sicat-db (POSTGRES_USER/PASSWORD/DB)
+# e criado no cluster (nao versionado). PVC para persistir os dados.
+# =============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sicat-pgdata
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: sicat
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sicat-postgres
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: sicat-postgres
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: sicat
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sicat-postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sicat-postgres
+        app.kubernetes.io/part-of: sicat
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
+          envFrom:
+            - secretRef:
+                name: sicat-db
+          ports:
+            - name: postgres
+              containerPort: 5432
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+              subPath: pgdata
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "1"
+              memory: "512Mi"
+      volumes:
+        - name: pgdata
+          persistentVolumeClaim:
+            claimName: sicat-pgdata
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sicat-postgres
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: sicat
+spec:
+  selector:
+    app.kubernetes.io/name: sicat-postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres

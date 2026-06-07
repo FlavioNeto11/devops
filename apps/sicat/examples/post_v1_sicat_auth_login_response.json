@@ -1,0 +1,13 @@
+{
+  "accessToken": "sicat_access_eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+  "refreshToken": "sicat_refresh_eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+  "expiresAt": "2026-03-13T18:00:00Z",
+  "user": {
+    "userId": "usr_01JQWABCDEF1234567890",
+    "name": "Flavio Padilha Neto",
+    "email": "flavio_padilha_neto@msn.com",
+    "roles": [
+      "operator"
+    ]
+  }
+}

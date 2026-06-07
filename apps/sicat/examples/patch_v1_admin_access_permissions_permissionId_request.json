@@ -1,0 +1,8 @@
+{
+  "pathParams": {
+    "permissionId": "perm_access_roles_write"
+  },
+  "body": {
+    "description": "Gerenciar perfis de acesso (escrita)"
+  }
+}
