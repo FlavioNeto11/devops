@@ -192,10 +192,17 @@ code {
 /* ---------------------------------------------------------------- Content */
 .content {
   flex: 1;
-  padding: 20px;
-  max-width: 1280px;
+  /* Largura total: sem cap de max-width (que gerava "barras fantasma" laterais
+     e forcava scroll). Apenas gutters laterais; alinhado com header/tabs/footer. */
   width: 100%;
-  margin: 0 auto;
+  padding: 20px 24px;
+}
+
+/* Nenhum scroll horizontal de pagina: rolagens ficam contidas nos componentes
+   que precisam (ex.: .board, .table-wrap, .tabs). */
+html,
+body {
+  overflow-x: hidden;
 }
 
 .section-title {

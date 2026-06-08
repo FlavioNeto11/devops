@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  pmProjects, pmCreateProject,
+  pmProjects, pmCreateProject, pmDeleteProject,
   pmItems, pmCreateItem, pmPatchItem, pmDeleteItem,
   pmTasks, pmCreateTask, pmPatchTask, pmDeleteTask,
   fetchApps,
@@ -392,6 +392,16 @@ export default function MetaProjects() {
     await loadProjects(true);
   });
 
+  const deleteProject = (p) => run(async () => {
+    // eslint-disable-next-line no-alert
+    if (!confirm(`Excluir o projeto "${p.name}" e TODOS os seus itens e tasks?\nEsta ação não pode ser desfeita.`)) return;
+    await pmDeleteProject(p.id);
+    setDrawer(null);
+    const fresh = (await pmProjects()) || [];
+    setProjects(fresh);
+    setSelId(fresh.length ? fresh[0].id : null);
+  });
+
   if (loading) return <p className="state state--loading">Carregando projetos…</p>;
 
   return (
@@ -441,6 +451,9 @@ export default function MetaProjects() {
                     Abrir {sel.route} ↗
                   </a>
                 )}
+                <button className="btn btn--danger" style={{ fontSize: '.8rem', padding: '4px 10px' }} onClick={() => deleteProject(sel)}>
+                  Excluir projeto
+                </button>
               </div>
             </div>
             <div className="app-stats">

@@ -1,5 +1,8 @@
 import { query } from '../src/db/pool.js';
 
+// Base do repositorio para montar git_url/pr_url reais (resolvem no GitHub).
+const REPO = 'https://github.com/FlavioNeto11/devops';
+
 // Projetos atuais da plataforma. Fonte: docs/standards/fr/<app>.md (estado pronto/falta).
 const PROJECTS = [
   { key: 'sicat', name: 'SICAT', stack: 'Vue 3 / Node+Express / PostgreSQL', repo_url: 'apps/sicat', route: '/sicat', k8s_label_selector: 'sicat', status: 'active', description: 'Gestao ambiental e conformidade (CETESB/MTR/DMR) com IA conversacional.' },
@@ -7,39 +10,222 @@ const PROJECTS = [
   { key: 'rmambiental', name: 'RM Ambiental', stack: 'React + Vite (estatico)', repo_url: 'apps/rmambiental', route: '/rmambiental', k8s_label_selector: 'rmambiental', status: 'active', description: 'Portal institucional premium.' },
 ];
 
-// [type, title, status, priority]
+// Itens por projeto, ja "nos conformes": descricao + git (caminho no repo) + tasks
+// (comeco->meio->fim). git_url/pr_url sao derivados de `git`+status no loop.
+// tasks[].status: 'todo' | 'in_progress' | 'done'.
 const ITEMS = {
   sicat: [
-    ['feature', 'Autenticacao propria + OIDC Keycloak', 'done', 'P1'],
-    ['feature', 'MTR provisorio (criar/listar/cancelar/imprimir)', 'done', 'P1'],
-    ['feature', 'DMR declaratorio (CRUD + consolidar + submeter)', 'done', 'P1'],
-    ['feature', 'IA conversacional (gpt-5-nano) + RAG', 'done', 'P2'],
-    ['evolution', 'Centro Operacional SICAT (observabilidade/diagnostico)', 'todo', 'P1'],
-    ['feature', 'Gateway HAR real da CETESB para DMR (hoje stub 503)', 'todo', 'P1'],
-    ['feature', 'Chat orquestrador (Command Center)', 'backlog', 'P2'],
+    {
+      type: 'feature', title: 'Autenticacao propria + OIDC Keycloak', status: 'done', priority: 'P1',
+      git: 'apps/sicat/backend/src/lib/sicat-security.ts',
+      description: 'Login proprio do SICAT + SSO ADITIVO via Keycloak (realm nvit): o backend valida o token no /userinfo e emite a sessao do app; o frontend tem botao PKCE. Nao toca nas integracoes SIGOR/CETESB.',
+      tasks: [
+        { title: 'Cripto de sessao (HMAC-SHA256 + scrypt + AES-256-GCM)', status: 'done' },
+        { title: 'Validar token Keycloak no /userinfo', status: 'done' },
+        { title: 'Botao de login PKCE no frontend', status: 'done' },
+      ],
+    },
+    {
+      type: 'feature', title: 'MTR provisorio (criar/listar/cancelar/imprimir)', status: 'done', priority: 'P1',
+      git: 'apps/sicat/backend/src',
+      description: 'Manifesto de Transporte de Residuos provisorio: CRUD completo, cancelamento e impressao/visualizacao.',
+      tasks: [
+        { title: 'Modelagem + migracao do MTR', status: 'done' },
+        { title: 'Endpoints CRUD + cancelar', status: 'done' },
+        { title: 'Impressao / visualizacao', status: 'done' },
+      ],
+    },
+    {
+      type: 'feature', title: 'DMR declaratorio (CRUD + consolidar + submeter)', status: 'done', priority: 'P1',
+      git: 'apps/sicat/backend/src',
+      description: 'Declaracao de Movimentacao de Residuos: CRUD, consolidacao por periodo e submissao declaratoria.',
+      tasks: [
+        { title: 'CRUD da DMR', status: 'done' },
+        { title: 'Consolidar periodo', status: 'done' },
+        { title: 'Submeter declaratorio', status: 'done' },
+      ],
+    },
+    {
+      type: 'feature', title: 'IA conversacional (gpt-5-nano) + RAG', status: 'done', priority: 'P2',
+      git: 'apps/sicat/backend/src/services/conversation',
+      description: 'Assistente conversacional com LangChain + RAG (indice baked via BuildKit secret). Usa o contrato gpt-5 (temperature omitida, reasoning_effort) via @flavioneto11/ai-kit.',
+      tasks: [
+        { title: 'Adapter ChatOpenAI no contrato gpt-5', status: 'done' },
+        { title: 'Indice RAG + retrieval', status: 'done' },
+        { title: 'Endpoint de chat', status: 'done' },
+      ],
+    },
+    {
+      type: 'evolution', title: 'Centro Operacional SICAT (observabilidade/diagnostico)', status: 'todo', priority: 'P1',
+      git: 'apps/sicat',
+      description: 'Painel interno de observabilidade/diagnostico do SICAT: saude das integracoes, filas e jobs, com sinais acionaveis.',
+      tasks: [
+        { title: 'Levantar metricas/sinais relevantes', status: 'todo' },
+        { title: 'Tela de diagnostico', status: 'todo' },
+        { title: 'Alertas basicos', status: 'todo' },
+      ],
+    },
+    {
+      type: 'feature', title: 'Gateway HAR real da CETESB para DMR (hoje stub 503)', status: 'todo', priority: 'P1',
+      git: 'apps/sicat/backend/src',
+      description: 'Substituir o stub que responde 503 por um gateway HAR real da CETESB para submissao da DMR.',
+      tasks: [
+        { title: 'Mapear fluxo HAR/CETESB', status: 'in_progress' },
+        { title: 'Implementar gateway', status: 'todo' },
+        { title: 'Testes de submissao ponta a ponta', status: 'todo' },
+      ],
+    },
+    {
+      type: 'feature', title: 'Chat orquestrador (Command Center)', status: 'backlog', priority: 'P2',
+      git: 'apps/sicat',
+      description: 'Command Center: chat orquestrador que aciona acoes do SICAT (MTR/DMR/relatorios) por linguagem natural, com guardrails.',
+      tasks: [
+        { title: 'Desenhar intents/acoes', status: 'todo' },
+        { title: 'Orquestracao + guardrails', status: 'todo' },
+        { title: 'UI do Command Center', status: 'todo' },
+      ],
+    },
   ],
   gymops: [
-    ['feature', 'IA assistiva (criar atividade/checklist + chat)', 'done', 'P1'],
-    ['bug', 'Checklist sugerido pela IA nao vinculava a atividade', 'done', 'P1'],
-    ['feature', 'Import Trello (dedupe) + WhatsApp', 'done', 'P2'],
-    ['feature', 'Consome @flavioneto11/ai-kit (contrato gpt-5 compartilhado)', 'done', 'P2'],
-    ['bug', 'CORS com localhost hardcoded como fallback (BUG-010)', 'todo', 'P1'],
-    ['evolution', 'Arquivo .env.docker.public.example separado (OPS-005)', 'todo', 'P1'],
-    ['evolution', 'Integrar Sentry (OPS-006)', 'backlog', 'P2'],
-    ['evolution', 'Indices Postgres de performance (OPS-007)', 'backlog', 'P2'],
-    ['feature', 'Endpoint /admin/queues/stats (OPS-008)', 'backlog', 'P2'],
-    ['evolution', 'Documentacao OpenAPI (OPS-009)', 'backlog', 'P2'],
+    {
+      type: 'feature', title: 'IA assistiva (criar atividade/checklist + chat)', status: 'done', priority: 'P1',
+      git: 'apps/gymops/apps/api/src/ai',
+      description: 'IA assistiva: sugere atividade/checklist e oferece chat. A IA nunca salva direto — sempre retorna rascunho confirmavel; respostas em JSON Schema validado.',
+      tasks: [
+        { title: 'Servico de IA (chatJSON/chatText + callAI)', status: 'done' },
+        { title: 'Sugerir atividade/checklist', status: 'done' },
+        { title: 'Chat assistivo', status: 'done' },
+      ],
+    },
+    {
+      type: 'bug', title: 'Checklist sugerido pela IA nao vinculava a atividade', status: 'done', priority: 'P1',
+      git: 'apps/gymops/apps/api/src',
+      description: 'Ao criar tarefa com IA, o checklist sugerido era gerado mas nao era vinculado a atividade criada. Corrigido (commit c841200).',
+      tasks: [
+        { title: 'Reproduzir o bug', status: 'done' },
+        { title: 'Vincular checklist a atividade criada', status: 'done' },
+        { title: 'Teste de regressao', status: 'done' },
+      ],
+    },
+    {
+      type: 'feature', title: 'Import Trello (dedupe) + WhatsApp', status: 'done', priority: 'P2',
+      git: 'apps/gymops/apps/api/src',
+      description: 'Pipeline de importacao do Trello (fetch -> dry-run -> commit atomico) com dedupe de cards, e notificacoes via WhatsApp.',
+      tasks: [
+        { title: 'Pipeline fetch -> dry-run -> commit', status: 'done' },
+        { title: 'Dedupe de cards', status: 'done' },
+        { title: 'Notificacao WhatsApp', status: 'done' },
+      ],
+    },
+    {
+      type: 'feature', title: 'Consome @flavioneto11/ai-kit (contrato gpt-5 compartilhado)', status: 'done', priority: 'P2',
+      git: 'packages/ai-kit',
+      description: 'ai.service.ts re-exporta do @flavioneto11/ai-kit (assinaturas identicas); o legado fica atras da flag AI_KIT=off por um ciclo.',
+      tasks: [
+        { title: 'Criar ai-kit + testes (node --test)', status: 'done' },
+        { title: 'Re-export drop-in no GymOps', status: 'done' },
+        { title: 'Smoke /gymops/api', status: 'done' },
+      ],
+    },
+    {
+      type: 'bug', title: 'CORS com localhost hardcoded como fallback (BUG-010)', status: 'todo', priority: 'P1',
+      git: 'apps/gymops/apps/api/src',
+      description: 'BUG-010: o fallback de CORS usa localhost hardcoded. Mover as origens permitidas para variavel de ambiente (CORS_ORIGINS).',
+      tasks: [
+        { title: 'Localizar o fallback hardcoded', status: 'done' },
+        { title: 'Origens permitidas via env (CORS_ORIGINS)', status: 'todo' },
+        { title: 'Validar preflight em /gymops/api', status: 'todo' },
+      ],
+    },
+    {
+      type: 'evolution', title: 'Arquivo .env.docker.public.example separado (OPS-005)', status: 'todo', priority: 'P1',
+      git: 'apps/gymops',
+      description: 'OPS-005: separar um .env.docker.public.example (placeholders) dedicado ao deploy publico, sem segredos no git.',
+      tasks: [
+        { title: 'Levantar variaveis publicas', status: 'todo' },
+        { title: 'Criar .env.docker.public.example', status: 'todo' },
+        { title: 'Documentar no README', status: 'todo' },
+      ],
+    },
+    {
+      type: 'evolution', title: 'Integrar Sentry (OPS-006)', status: 'backlog', priority: 'P2',
+      git: 'apps/gymops',
+      description: 'OPS-006: integrar Sentry para captura de erros em api e web (DSN via env).',
+      tasks: [
+        { title: 'Escolher SDK + DSN via env', status: 'todo' },
+        { title: 'Instrumentar api e web', status: 'todo' },
+        { title: 'Validar captura de erro', status: 'todo' },
+      ],
+    },
+    {
+      type: 'evolution', title: 'Indices Postgres de performance (OPS-007)', status: 'backlog', priority: 'P2',
+      git: 'apps/gymops/packages/db',
+      description: 'OPS-007: criar indices no Postgres para as queries quentes (listas grandes, paginacao por cursor).',
+      tasks: [
+        { title: 'Identificar queries lentas', status: 'todo' },
+        { title: 'Criar indices', status: 'todo' },
+        { title: 'Medir ganho', status: 'todo' },
+      ],
+    },
+    {
+      type: 'feature', title: 'Endpoint /admin/queues/stats (OPS-008)', status: 'backlog', priority: 'P2',
+      git: 'apps/gymops/apps/api/src',
+      description: 'OPS-008: expor /admin/queues/stats com metricas das filas BullMQ (recurrence/import/notification/ai-summary/delay-scan).',
+      tasks: [
+        { title: 'Coletar metricas das filas BullMQ', status: 'todo' },
+        { title: 'Endpoint /admin/queues/stats', status: 'todo' },
+        { title: 'Proteger por RBAC', status: 'todo' },
+      ],
+    },
+    {
+      type: 'evolution', title: 'Documentacao OpenAPI (OPS-009)', status: 'backlog', priority: 'P2',
+      git: 'apps/gymops/apps/api/src',
+      description: 'OPS-009: gerar e publicar a documentacao OpenAPI das rotas Fastify.',
+      tasks: [
+        { title: 'Anotar rotas Fastify', status: 'todo' },
+        { title: 'Gerar OpenAPI', status: 'todo' },
+        { title: 'Publicar /docs', status: 'todo' },
+      ],
+    },
   ],
   rmambiental: [
-    ['feature', 'Portal institucional completo (hero/servicos/galeria/contato)', 'done', 'P2'],
-    ['feature', 'Tema claro/escuro (claro por padrao)', 'done', 'P3'],
+    {
+      type: 'feature', title: 'Portal institucional completo (hero/servicos/galeria/contato)', status: 'done', priority: 'P2',
+      git: 'apps/rmambiental',
+      description: 'SPA institucional premium (Vite/React): hero, servicos, galeria e contato, servida sob /rmambiental.',
+      tasks: [
+        { title: 'Secoes hero/servicos', status: 'done' },
+        { title: 'Galeria + contato', status: 'done' },
+        { title: 'Build com base /rmambiental', status: 'done' },
+      ],
+    },
+    {
+      type: 'feature', title: 'Tema claro/escuro (claro por padrao)', status: 'done', priority: 'P3',
+      git: 'apps/rmambiental',
+      description: 'Alternancia de tema claro/escuro, com o tema claro como padrao.',
+      tasks: [
+        { title: 'Tokens de tema', status: 'done' },
+        { title: 'Toggle claro/escuro', status: 'done' },
+        { title: 'Claro por padrao', status: 'done' },
+      ],
+    },
   ],
 };
 
-/** Idempotente: upsert de projetos por `key`; itens inseridos por (project, title) se ausentes. */
+/**
+ * Idempotente:
+ *  - projetos: upsert por `key`.
+ *  - itens: upsert por (project, title) — INSERE se ausente, ATUALIZA o conteudo
+ *    (type/priority/description/git_url/pr_url) se ja existir. NAO mexe no `status`
+ *    para preservar movimentacoes manuais no board.
+ *  - tasks: insere a checklist do item apenas se ele ainda nao tiver nenhuma task.
+ */
 export async function seed() {
   let projects = 0;
   let itemsInserted = 0;
+  let itemsUpdated = 0;
+  let tasksInserted = 0;
+
   for (const p of PROJECTS) {
     const { rows } = await query(
       `INSERT INTO projects (key,name,stack,repo_url,route,k8s_label_selector,status,description)
@@ -53,18 +239,51 @@ export async function seed() {
     );
     const projectId = rows[0].id;
     projects += 1;
-    for (const [type, title, status, priority] of ITEMS[p.key] || []) {
-      const ins = await query(
-        `INSERT INTO items (project_id,type,title,status,priority)
-         SELECT $1,$2,$3,$4,$5
-         WHERE NOT EXISTS (SELECT 1 FROM items WHERE project_id=$1 AND title=$3)
-         RETURNING id`,
-        [projectId, type, title, status, priority],
-      );
-      if (ins.rowCount) itemsInserted += 1;
+
+    for (const it of ITEMS[p.key] || []) {
+      const gitUrl = it.git ? `${REPO}/tree/main/${it.git}` : null;
+      const prUrl = it.status === 'done' && it.git ? `${REPO}/commits/main/${it.git}` : null;
+
+      const found = await query('SELECT id FROM items WHERE project_id=$1 AND title=$2', [projectId, it.title]);
+      let itemId;
+      if (found.rowCount) {
+        itemId = found.rows[0].id;
+        await query(
+          `UPDATE items SET type=$2::item_type, priority=$3::item_priority,
+                  description=$4, git_url=$5, pr_url=$6, updated_at=now()
+             WHERE id=$1`,
+          [itemId, it.type, it.priority, it.description, gitUrl, prUrl],
+        );
+        itemsUpdated += 1;
+      } else {
+        const ins = await query(
+          `INSERT INTO items (project_id,type,title,status,priority,description,git_url,pr_url)
+           VALUES ($1,$2,$3,$4::item_status,$5::item_priority,$6,$7,$8) RETURNING id`,
+          [projectId, it.type, it.title, it.status, it.priority, it.description, gitUrl, prUrl],
+        );
+        itemId = ins.rows[0].id;
+        itemsInserted += 1;
+      }
+
+      // Tasks: so semeia se o item ainda nao tiver nenhuma (preserva edicoes manuais).
+      const has = await query('SELECT 1 FROM tasks WHERE item_id=$1 LIMIT 1', [itemId]);
+      if (!has.rowCount && Array.isArray(it.tasks)) {
+        let pos = 0;
+        for (const t of it.tasks) {
+          await query(
+            `INSERT INTO tasks (item_id,title,status,position,started_at,completed_at)
+             VALUES ($1,$2,$3::task_status,$4,
+               CASE WHEN $3 IN ('in_progress','done') THEN now() END,
+               CASE WHEN $3 = 'done' THEN now() END)`,
+            [itemId, t.title, t.status, pos++],
+          );
+          tasksInserted += 1;
+        }
+      }
     }
   }
-  const out = { projects, itemsInserted };
+
+  const out = { projects, itemsInserted, itemsUpdated, tasksInserted };
   console.info('[seed]', JSON.stringify(out));
   return out;
 }
