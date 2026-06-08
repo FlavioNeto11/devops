@@ -22,7 +22,7 @@ const loginSchema = z.object({
 type LoginForm = z.infer<typeof loginSchema>;
 
 function resolveRedirect(role: UserRole, primaryUnitId: string | null, isPlatformAdmin: boolean): string {
-  if (isPlatformAdmin) return '/admin';
+  if (isPlatformAdmin) return '/admin/organizations';
   if (role === 'owner' || role === 'org_manager') return '/dashboard';
   if (role === 'unit_manager' || role === 'area_leader') {
     return primaryUnitId ? `/units/${primaryUnitId}` : '/dashboard';
