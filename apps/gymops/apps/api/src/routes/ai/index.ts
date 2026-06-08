@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { db } from '../../lib/prisma.js';
 import { hasOrgRole, resolveActivityPermission } from '../../lib/rbac.js';
-import { callAI, chatJSON } from '../../ai/ai.service.js';
+import { callAI, chatJSON, chatText } from '../../ai/ai.service.js';
 import { ActivityDraftSchema } from '../../ai/schemas/activity-draft.schema.js';
 import { ChecklistSuggestionSchema } from '../../ai/schemas/checklist.schema.js';
 import { DelayAnalysisSchema } from '../../ai/schemas/delay-analysis.schema.js';
@@ -225,5 +225,79 @@ export const aiRoutes: FastifyPluginAsync = async (app) => {
     } catch {
       return reply.send({ data: null });
     }
+  });
+
+  // ── POST /ai/chat — assistente conversacional do operador ─────────────────────
+  app.post('/chat', {
+    preHandler: [app.authenticate],
+    config: { rateLimit: AI_RATE_LIMIT },
+  }, async (request, reply) => {
+    const userId = request.user.sub;
+    const body = z.object({
+      message: z.string().min(1).max(2000),
+      organizationId: z.string().uuid(),
+      history: z
+        .array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().max(4000) }))
+        .max(12)
+        .optional(),
+    }).safeParse(request.body);
+    if (!body.success) return reply.status(422).send({ error: { code: 'VALIDATION_ERROR', message: 'Invalid input' } });
+
+    const isMember = await db.membership.findFirst({
+      where: { userId, organizationId: body.data.organizationId, deletedAt: null },
+    });
+    if (!isMember) return reply.status(403).send({ error: { code: 'FORBIDDEN', message: 'Not a member' } });
+
+    // Contexto REAL da organização (visão consolidada; o usuário é membro).
+    const now = new Date();
+    const [org, units, areaCount, statusGroups, overdueCount, recent] = await Promise.all([
+      db.organization.findUnique({ where: { id: body.data.organizationId }, select: { name: true } }),
+      db.unit.findMany({ where: { organizationId: body.data.organizationId }, select: { name: true }, take: 30 }),
+      db.area.count({ where: { organizationId: body.data.organizationId } }),
+      db.activity.groupBy({ by: ['status'], where: { organizationId: body.data.organizationId }, _count: { _all: true } }),
+      db.activity.count({ where: { organizationId: body.data.organizationId, dueAt: { lt: now } } }),
+      db.activity.findMany({
+        where: { organizationId: body.data.organizationId },
+        orderBy: { createdAt: 'desc' },
+        take: 8,
+        select: { title: true, status: true, priority: true, dueAt: true },
+      }),
+    ]);
+
+    const statusLine = statusGroups.map((g) => `${g.status}: ${g._count._all}`).join(', ') || 'sem atividades';
+    const recentLine = recent
+      .map((a) => `- "${a.title}" [${a.status}, ${a.priority}${a.dueAt ? `, prazo ${a.dueAt.toISOString().slice(0, 10)}` : ''}]`)
+      .join('\n') || '(nenhuma)';
+    const context = `ORGANIZAÇÃO: ${org?.name ?? 'GymOps'}
+UNIDADES (${units.length}): ${units.map((u) => u.name).join(', ') || '—'}
+ÁREAS: ${areaCount}
+ATIVIDADES POR STATUS: ${statusLine}
+ATIVIDADES COM PRAZO VENCIDO: ${overdueCount}
+ATIVIDADES RECENTES:
+${recentLine}`;
+
+    const system = `Você é o Assistente Operacional do GymOps — um copiloto que ajuda o operador a entender o que está acontecendo e a operar o sistema (modelo Organização → Unidade → Área → Atividade) com clareza e sem erros.
+
+Regras:
+- Responda SEMPRE em português, de forma clara, objetiva e generativa (linguagem natural).
+- Use o CONTEXTO abaixo (dados REAIS da organização) para responder sobre o estado atual. Não invente números além do contexto.
+- Quando o operador pedir para fazer algo no sistema, EXPLIQUE o passo a passo no GymOps e, se faltar informação, FAÇA PERGUNTAS objetivas antes de assumir.
+- Seja proativo: aponte riscos (atrasos, prioridades críticas) e próximos passos recomendados.
+- Você é consultivo: não executa ações; orienta o operador a executá-las.
+
+CONTEXTO ATUAL:
+${context}`;
+
+    const messages = [
+      { role: 'system' as const, content: system },
+      ...(body.data.history ?? []).map((h) => ({ role: h.role, content: h.content })),
+      { role: 'user' as const, content: body.data.message },
+    ];
+
+    const fallback =
+      'No momento não consegui falar com a IA. Tente novamente em instantes — enquanto isso, você pode usar o painel para ver atividades, unidades e prazos.';
+    const replyText = await callAI((client) => chatText(client, messages), fallback);
+
+    return reply.send({ data: { reply: replyText } });
   });
 };

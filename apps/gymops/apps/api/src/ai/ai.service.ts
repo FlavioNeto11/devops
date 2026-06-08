@@ -10,8 +10,17 @@ export function getOpenAI(): OpenAI | null {
   return _client;
 }
 
-const SYNC_TIMEOUT_MS = 10_000;
+const SYNC_TIMEOUT_MS = 20_000;
 const ASYNC_TIMEOUT_MS = 60_000;
+// Esforço de reasoning p/ modelos gpt-5*/o* (low = rápido e bom o bastante; tunável via env).
+const REASONING_EFFORT = (process.env.OPENAI_REASONING_EFFORT?.trim() || 'low') as
+  | 'minimal'
+  | 'low'
+  | 'medium'
+  | 'high';
+function isReasoningModel(model: string): boolean {
+  return /^(gpt-5|o\d)/i.test(model);
+}
 
 export async function callAI<T>(
   fn: (client: OpenAI) => Promise<T>,
@@ -50,14 +59,32 @@ export async function chatJSON<T>(
   // Modelo configuravel via OPENAI_MODEL (default gpt-5-nano — liberado nesta conta).
   model: string = process.env.OPENAI_MODEL?.trim() || 'gpt-5-nano',
 ): Promise<unknown> {
-  // Modelos de reasoning (gpt-5*, o*) rejeitam temperature != 1 -> omitimos.
-  const isReasoning = /^(gpt-5|o\d)/i.test(model);
+  // Modelos de reasoning (gpt-5*, o*) rejeitam temperature != 1 -> omitimos e usamos reasoning_effort.
+  const reasoning = isReasoningModel(model);
   const completion = await client.chat.completions.create({
     model,
     response_format: { type: 'json_object' },
     messages: [{ role: 'user', content: prompt }],
-    ...(isReasoning ? {} : { temperature: 0.3 }),
+    ...(reasoning ? { reasoning_effort: REASONING_EFFORT } : { temperature: 0.3 }),
   });
   const content = completion.choices[0]?.message?.content ?? '{}';
   return JSON.parse(content) as unknown;
+}
+
+/**
+ * Chat de texto livre (conversacional) — resposta generativa em linguagem natural.
+ * Usado pelo assistente do operador (POST /ai/chat).
+ */
+export async function chatText(
+  client: OpenAI,
+  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
+  model: string = process.env.OPENAI_MODEL?.trim() || 'gpt-5-nano',
+): Promise<string> {
+  const reasoning = isReasoningModel(model);
+  const completion = await client.chat.completions.create({
+    model,
+    messages,
+    ...(reasoning ? { reasoning_effort: REASONING_EFFORT } : { temperature: 0.4 }),
+  });
+  return completion.choices[0]?.message?.content ?? '';
 }

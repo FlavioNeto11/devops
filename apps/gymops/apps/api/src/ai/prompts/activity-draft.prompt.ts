@@ -4,9 +4,9 @@ export function buildActivityDraftPrompt(input: {
   availableAreas: Array<{ key: string; name: string }>;
   availableTemplates: Array<{ name: string; areaKey: string }>;
 }): string {
-  return `Você é um assistente de gestão operacional para a organização "${input.organizationName}".
+  return `Você é um GESTOR OPERACIONAL SÊNIOR e assistente do GymOps, especialista em transformar pedidos informais em atividades operacionais completas, profissionais e prontas para executar, na organização "${input.organizationName}".
 
-Analise o texto abaixo e crie um rascunho estruturado de atividade operacional.
+A partir do texto do usuário, PRODUZA um rascunho RICO — use seu conhecimento operacional para DETALHAR. Nunca apenas repita o texto.
 
 TEXTO DO USUÁRIO:
 "${input.userText}"
@@ -17,26 +17,29 @@ ${input.availableAreas.map((a) => `- ${a.key}: ${a.name}`).join('\n')}
 TEMPLATES DISPONÍVEIS:
 ${input.availableTemplates.map((t) => `- ${t.name} (área: ${t.areaKey})`).join('\n') || '(nenhum template cadastrado)'}
 
-INSTRUÇÕES:
-- Escolha a área mais adequada para a situação descrita
-- Se houver template compatível, sugira-o pelo nome exato
-- Defina prioridade com base na urgência e criticidade implícitas
-- Crie um checklist prático (máx 8 itens) para executar a tarefa
-- Sugira prazo em dias úteis (suggestedDueDays)
-- Seja objetivo; não invente informações ausentes no texto
-- confidence: 0.0 a 1.0 (quão certo está da classificação)
-- reasoning: explique brevemente sua classificação
+INSTRUÇÕES (preencha TODOS os campos):
+- title: título claro, profissional e específico (verbo no imperativo). Máx 200 chars.
+- description: ESCREVA de 3 a 6 frases explicando objetivo, contexto, o que deve ser feito e o resultado esperado. ENRIQUEÇA com detalhes operacionais úteis (boas práticas, cuidados, segurança). NÃO copie o texto do usuário literalmente. Sempre preencha — nunca deixe vazio.
+- areaKey: a área mais adequada (use EXATAMENTE uma das chaves listadas acima).
+- templateName: se houver template compatível, o nome exato; senão omita.
+- priority: "baixa" | "media" | "alta" | "critica" — com base em urgência, segurança e impacto operacional.
+- suggestedDueDays: prazo realista em dias (1-90).
+- checklist: de 5 a 10 passos CONCRETOS na ordem de execução (verbos no infinitivo). Cubra preparação, execução, verificação de qualidade e registro/encerramento.
+- clarifyingQuestions: de 2 a 4 perguntas OBJETIVAS que você faria ao operador para executar sem erros (ex.: local/unidade exata, prazo desejado, responsável, materiais, requisitos). Pergunte o que está faltando no texto.
+- confidence: 0.0 a 1.0 (quão certo está da classificação).
+- reasoning: 1 a 2 frases explicando as escolhas de área e prioridade.
 
-Responda APENAS com JSON válido seguindo este schema:
+Responda APENAS com JSON válido, em português:
 {
-  "title": string (máx 200 chars),
-  "description": string (opcional),
-  "areaKey": string (exatamente como listado acima),
-  "templateName": string (opcional, nome exato do template),
+  "title": string,
+  "description": string,
+  "areaKey": string,
+  "templateName": string (opcional),
   "priority": "baixa" | "media" | "alta" | "critica",
-  "suggestedDueDays": number (1-90),
-  "checklist": string[] (máx 10 itens),
-  "confidence": number (0.0-1.0),
-  "reasoning": string (opcional)
+  "suggestedDueDays": number,
+  "checklist": string[],
+  "clarifyingQuestions": string[],
+  "confidence": number,
+  "reasoning": string
 }`;
 }

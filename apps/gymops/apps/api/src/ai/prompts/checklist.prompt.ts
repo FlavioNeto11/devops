@@ -5,25 +5,24 @@ export function buildChecklistPrompt(input: {
   templateChecklist?: string[];
 }): string {
   const existing = input.templateChecklist?.length
-    ? `\nCHECKLIST DO TEMPLATE (já garantido):\n${input.templateChecklist.map((i) => `- ${i}`).join('\n')}`
+    ? `\nCHECKLIST DO TEMPLATE (já garantido — NÃO repita estes):\n${input.templateChecklist.map((i) => `- ${i}`).join('\n')}`
     : '';
 
-  return `Você é um assistente de gestão operacional.
-
-Sugira itens de checklist para a seguinte atividade:
+  return `Você é um GESTOR OPERACIONAL SÊNIOR do GymOps. Gere um checklist DETALHADO e acionável para executar a atividade abaixo, com passos concretos na ordem de execução.
 
 TÍTULO: "${input.activityTitle}"
 ${input.activityDescription ? `DESCRIÇÃO: "${input.activityDescription}"` : ''}
 ÁREA: ${input.areaName}${existing}
 
 INSTRUÇÕES:
-- Sugira itens práticos e acionáveis para executar essa atividade
-- Máximo 12 itens
-- Se já há checklist de template, sugira apenas itens COMPLEMENTARES
-- Marque itens opcionais com optional: true
-- rationale: breve explicação de por que o item é importante (opcional)
+- Gere de 6 a 12 itens PRÁTICOS e específicos para esta atividade e área (verbos no infinitivo).
+- Estruture cobrindo: preparação/materiais, execução, verificação de qualidade/segurança e registro/encerramento.
+- Se já existe checklist de template, gere APENAS itens COMPLEMENTARES (não repita os do template).
+- optional: true para itens não obrigatórios; false para essenciais.
+- rationale: explicação curta de por que o item importa (opcional).
+- Não invente requisitos que contrariem a descrição.
 
-Responda APENAS com JSON válido:
+Responda APENAS com JSON válido, em português:
 {
   "items": [
     { "text": string, "rationale": string (opcional), "optional": boolean }
