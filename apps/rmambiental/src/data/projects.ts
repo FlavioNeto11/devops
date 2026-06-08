@@ -45,4 +45,6 @@ export const galleryPhotos: GalleryPhoto[] = [
   { file: 'gallery/g04.jpg', category: 'Monitoramento', alt: 'Instalação de equipamento técnico em campo' },
   { file: 'gallery/g07.jpg', category: 'Serviços técnicos', alt: 'Serviço técnico especializado em campo' },
   { file: 'gallery/g08.jpg', category: 'Serviços técnicos', alt: 'Serviço técnico em via pública' },
+  { file: 'gallery/g24.jpg', category: 'Obras & Terraplanagem', alt: 'Escavadeira e caçamba na movimentação de material em área rural' },
+  { file: 'gallery/g25.jpg', category: 'Obras & Terraplanagem', alt: 'Terraplanagem e limpeza de lote urbano' },
 ];

@@ -14,7 +14,7 @@ export default function Hero() {
   return (
     <section id="inicio" className="relative overflow-hidden pt-[72px]">
       <div className="absolute inset-0" aria-hidden>
-        <img src={asset('images/hero.jpg')} alt="" className="h-full w-full object-cover" />
+        <img src={asset('images/gallery/g01.jpg')} alt="" className="h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-b from-brand-bg/90 via-brand-bg/82 to-brand-bg" />
         <div className="absolute inset-0 bg-gradient-to-r from-brand-bg via-brand-bg/55 to-transparent" />
       </div>
