@@ -7,7 +7,7 @@ import { asset } from '../lib/utils';
 const floating = [
   { icon: MapPin, label: 'Atuação nacional', top: '8%', left: '-4%' },
   { icon: Users, label: 'Equipe multidisciplinar', top: '40%', right: '-6%' },
-  { icon: ShieldCheck, label: 'Licenciamento e regularização', bottom: '6%', left: '6%' },
+  { icon: ShieldCheck, label: 'Licenciamento e regularização', bottom: '26%', left: '-4%' },
 ];
 
 export default function Hero() {
