@@ -1,39 +1,62 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, X, ArrowRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { projects, projectCategories, type Project } from '../data/projects';
-import { Reveal, SectionHeading } from './ui';
+import { X, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react';
+import { galleryPhotos, galleryCategories } from '../data/projects';
+import { SectionHeading } from './ui';
 import { cn, asset } from '../lib/utils';
 
 export default function ProjectsGallery() {
-  const [filter, setFilter] = useState<(typeof projectCategories)[number]>('Todos');
-  const [active, setActive] = useState<Project | null>(null);
+  const [filter, setFilter] = useState<(typeof galleryCategories)[number]>('Todos');
+  const [index, setIndex] = useState<number | null>(null);
 
-  const filtered = useMemo(
-    () => (filter === 'Todos' ? projects : projects.filter((p) => p.category === filter)),
+  const list = useMemo(
+    () => (filter === 'Todos' ? galleryPhotos : galleryPhotos.filter((p) => p.category === filter)),
     [filter],
   );
+
+  const close = useCallback(() => setIndex(null), []);
+  const prev = useCallback(() => setIndex((i) => (i === null ? i : (i - 1 + list.length) % list.length)), [list.length]);
+  const next = useCallback(() => setIndex((i) => (i === null ? i : (i + 1) % list.length)), [list.length]);
+
+  useEffect(() => {
+    if (index === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+      else if (e.key === 'ArrowLeft') prev();
+      else if (e.key === 'ArrowRight') next();
+    };
+    window.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [index, close, prev, next]);
+
+  const active = index === null ? null : list[index];
 
   return (
     <section id="projetos" className="relative py-24">
       <div className="container-wide">
         <SectionHeading
-          eyebrow="Projetos & Galeria"
+          eyebrow="Galeria de trabalhos"
           title={
             <>
               Fotos que fazem parte da <span className="text-gradient">história da empresa</span>
             </>
           }
-          subtitle="Frentes reais de atuação em campo, obras e estudos ambientais. Clique para ver os detalhes."
+          subtitle="Registros reais de obras e terraplanagem, supressão vegetal, britagem, mineração e monitoramento ambiental. Clique para ampliar."
         />
 
         {/* filtros */}
         <div className="mt-10 flex flex-wrap gap-2">
-          {projectCategories.map((c) => (
+          {galleryCategories.map((c) => (
             <button
               key={c}
-              onClick={() => setFilter(c)}
+              onClick={() => {
+                setFilter(c);
+                setIndex(null);
+              }}
               className={cn(
                 'rounded-full border px-4 py-2 text-sm font-medium transition-all',
                 filter === c
@@ -47,86 +70,98 @@ export default function ProjectsGallery() {
         </div>
 
         {/* grid */}
-        <motion.div layout className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <motion.div layout className="mt-8 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
           <AnimatePresence mode="popLayout">
-            {filtered.map((p) => (
+            {list.map((p, i) => (
               <motion.button
-                key={p.id}
+                key={p.file}
                 layout
                 initial={{ opacity: 0, scale: 0.96 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.96 }}
                 transition={{ duration: 0.3 }}
-                onClick={() => setActive(p)}
-                className="group overflow-hidden rounded-2xl border border-white/10 bg-brand-surface/60 text-left transition-colors hover:border-brand-neon/30"
+                onClick={() => setIndex(i)}
+                className="group relative aspect-[4/3] overflow-hidden rounded-2xl border border-white/10 bg-brand-surface"
               >
-                <div className="relative h-44 overflow-hidden">
-                  <img
-                    src={asset('images/' + p.image)}
-                    alt={p.title}
-                    loading="lazy"
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
-                  <span className="absolute left-3 top-3 rounded-full bg-black/50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white backdrop-blur">
-                    {p.category}
-                  </span>
-                  <h3 className="absolute inset-x-3 bottom-3 font-display text-base font-bold leading-snug text-white drop-shadow">
-                    {p.title}
-                  </h3>
-                </div>
-                <div className="p-5">
-                  <p className="flex items-center gap-1.5 text-xs text-brand-muted">
-                    <MapPin className="h-3.5 w-3.5" /> {p.location}
-                  </p>
-                  <p className="mt-1 text-xs font-medium text-brand-neon/90">{p.service}</p>
-                </div>
+                <img
+                  src={asset('images/' + p.file)}
+                  alt={p.alt}
+                  loading="lazy"
+                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/5 to-transparent opacity-80 transition-opacity group-hover:opacity-100" />
+                <span className="absolute left-2.5 top-2.5 rounded-full bg-black/45 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white backdrop-blur">
+                  {p.category}
+                </span>
+                <span className="absolute right-2.5 top-2.5 grid h-7 w-7 place-items-center rounded-lg bg-black/45 text-white opacity-0 backdrop-blur transition-opacity group-hover:opacity-100">
+                  <ZoomIn className="h-4 w-4" />
+                </span>
+                <p className="absolute inset-x-3 bottom-2.5 text-xs font-medium text-white/95 drop-shadow line-clamp-2">
+                  {p.alt}
+                </p>
               </motion.button>
             ))}
           </AnimatePresence>
         </motion.div>
+
+        <p className="mt-6 text-center text-xs text-brand-muted/70">
+          {list.length} {list.length === 1 ? 'foto' : 'fotos'} · acervo real de obras e serviços da RM Ambiental
+        </p>
       </div>
 
-      {/* modal */}
+      {/* lightbox */}
       <AnimatePresence>
-        {active && (
+        {active && index !== null && (
           <motion.div
-            className="fixed inset-0 z-[60] grid place-items-center p-4"
+            className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-8"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setActive(null)} />
-            <motion.div
-              initial={{ opacity: 0, y: 24, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 24, scale: 0.97 }}
-              className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-white/10 bg-brand-surface shadow-glass"
+            <div className="absolute inset-0 bg-black/85 backdrop-blur-sm" onClick={close} />
+
+            <button
+              onClick={close}
+              className="absolute right-4 top-4 z-10 grid h-11 w-11 place-items-center rounded-xl bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20"
+              aria-label="Fechar"
             >
-              <div className="relative h-52 overflow-hidden">
-                <img src={asset('images/' + active.image)} alt={active.title} className="h-full w-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-brand-surface via-transparent to-transparent" />
-                <button
-                  onClick={() => setActive(null)}
-                  className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-lg bg-black/50 text-white backdrop-blur transition-colors hover:bg-black/70"
-                  aria-label="Fechar"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <div className="p-7">
+              <X className="h-5 w-5" />
+            </button>
+            <button
+              onClick={prev}
+              className="absolute left-3 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-xl bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20 sm:left-6"
+              aria-label="Anterior"
+            >
+              <ChevronLeft className="h-6 w-6" />
+            </button>
+            <button
+              onClick={next}
+              className="absolute right-3 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-xl bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20 sm:right-6"
+              aria-label="Próxima"
+            >
+              <ChevronRight className="h-6 w-6" />
+            </button>
+
+            <motion.figure
+              key={active.file}
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.25 }}
+              className="relative z-[1] flex max-h-full max-w-4xl flex-col items-center"
+            >
+              <img
+                src={asset('images/' + active.file)}
+                alt={active.alt}
+                className="max-h-[78vh] w-auto rounded-xl object-contain shadow-glass"
+              />
+              <figcaption className="mt-4 text-center">
                 <span className="eyebrow">{active.category}</span>
-                <h3 className="mt-4 font-display text-xl font-bold text-white">{active.title}</h3>
-                <p className="mt-1 flex items-center gap-1.5 text-sm text-brand-muted">
-                  <MapPin className="h-4 w-4" /> {active.location}
+                <p className="mt-2 text-sm text-white/90">{active.alt}</p>
+                <p className="mt-1 text-xs text-white/50">
+                  {index + 1} / {list.length}
                 </p>
-                <p className="mt-4 text-sm leading-relaxed text-brand-muted">{active.summary}</p>
-                <p className="mt-4 text-sm font-semibold text-brand-neon">{active.service}</p>
-                <Link to="/contato" className="btn-primary mt-6 w-full">
-                  Falar sobre um projeto assim <ArrowRight className="h-4 w-4" />
-                </Link>
-              </div>
-            </motion.div>
+              </figcaption>
+            </motion.figure>
           </motion.div>
         )}
       </AnimatePresence>
