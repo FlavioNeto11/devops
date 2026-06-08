@@ -7,10 +7,16 @@ import {
   timingSafeEqual,
   createHash
 } from 'node:crypto';
+import * as oidcKit from '@flavioneto11/oidc-kit';
 
 const ACCESS_TOKEN_PREFIX = 'sicat_access';
 const REFRESH_TOKEN_PREFIX = 'sicat_refresh';
 const PASSWORD_HASH_PREFIX = 'scrypt_v1';
+
+// Cripto centralizada em @flavioneto11/oidc-kit (PORT BYTE-A-BYTE: mesmos algoritmos e, com os
+// prefixos sicat_access/sicat_refresh, mesmos tokens -> sessoes vivas seguem validas).
+// OIDC_KIT=off volta ao caminho inline legado (rollback de 1 ciclo; ver deprecation-policy).
+const OIDC_KIT = (process.env.OIDC_KIT ?? 'on').trim().toLowerCase() !== 'off';
 
 type TokenPayload = {
   iat?: number;
@@ -54,10 +60,12 @@ function deriveKeyFromSecret(secret: string): Buffer {
 }
 
 export function hashTokenSha256(token: string): string {
+  if (OIDC_KIT) return oidcKit.hashTokenSha256(token);
   return createHash('sha256').update(String(token || '')).digest('hex');
 }
 
 export function hashPassword(password: string): string {
+  if (OIDC_KIT) return oidcKit.hashPassword(password);
   const normalizedPassword = String(password || '');
   const salt = randomBytes(16);
   const hash = scryptSync(normalizedPassword, salt, 64);
@@ -65,6 +73,7 @@ export function hashPassword(password: string): string {
 }
 
 export function verifyPassword(password: string, passwordHash: string): boolean {
+  if (OIDC_KIT) return oidcKit.verifyPassword(password, passwordHash);
   const raw = String(passwordHash || '');
   const parts = raw.split('$');
   const scheme = parts[0];
@@ -79,6 +88,7 @@ export function verifyPassword(password: string, passwordHash: string): boolean 
 }
 
 export function createAccessToken(payload: TokenPayload, { secret, ttlSeconds = 3600 }: TokenOptions): string {
+  if (OIDC_KIT) return oidcKit.createAccessToken(payload, { secret, ttlSeconds, prefix: ACCESS_TOKEN_PREFIX });
   const nowSeconds = Math.floor(Date.now() / 1000);
   const tokenPayload = {
     ...payload,
@@ -98,6 +108,7 @@ export function createAccessToken(payload: TokenPayload, { secret, ttlSeconds = 
 export function verifyAccessToken(token: string, { secret }: Pick<TokenOptions, 'secret'>):
   | { valid: false; reason: string }
   | { valid: true; payload: TokenPayload } {
+  if (OIDC_KIT) return oidcKit.verifyAccessToken(token, { secret, prefix: ACCESS_TOKEN_PREFIX });
   const rawToken = String(token || '');
   const parts = rawToken.split('.');
   if (parts.length !== 3 || parts[0] !== ACCESS_TOKEN_PREFIX) {
@@ -133,10 +144,12 @@ export function verifyAccessToken(token: string, { secret }: Pick<TokenOptions, 
 }
 
 export function createRefreshToken() {
+  if (OIDC_KIT) return oidcKit.createRefreshToken({ prefix: REFRESH_TOKEN_PREFIX });
   return `${REFRESH_TOKEN_PREFIX}.${randomBytes(40).toString('base64url')}`;
 }
 
 export function encryptSecret(plainText: string, { secret }: Pick<TokenOptions, 'secret'>): EncryptedPayload {
+  if (OIDC_KIT) return oidcKit.encryptSecret(plainText, { secret });
   const iv = randomBytes(12);
   const key = deriveKeyFromSecret(secret);
   const cipher = createCipheriv('aes-256-gcm', key, iv);
@@ -151,6 +164,7 @@ export function encryptSecret(plainText: string, { secret }: Pick<TokenOptions, 
 }
 
 export function decryptSecret(cipherPayload: Partial<EncryptedPayload>, { secret }: Pick<TokenOptions, 'secret'>): string {
+  if (OIDC_KIT) return oidcKit.decryptSecret(cipherPayload, { secret });
   const key = deriveKeyFromSecret(secret);
   const iv = fromBase64Url(cipherPayload?.iv || '');
   const encrypted = fromBase64Url(cipherPayload?.ciphertext || '');

@@ -1,0 +1,16 @@
+{
+  "name": "@flavioneto11/oidc-kit",
+  "version": "0.1.0",
+  "description": "Kit OIDC/Keycloak + sessao da plataforma: validacao /userinfo, cripto de sessao (HMAC/scrypt/AES-256-GCM) e PKCE de frontend. Zero deps de runtime.",
+  "type": "module",
+  "main": "src/index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": { "types": "./index.d.ts", "import": "./src/index.js" },
+    "./pkce": { "import": "./src/pkce.js" },
+    "./express": { "import": "./src/express.js" }
+  },
+  "files": ["src", "index.d.ts", "README.md"],
+  "scripts": { "test": "node --test" },
+  "license": "UNLICENSED"
+}

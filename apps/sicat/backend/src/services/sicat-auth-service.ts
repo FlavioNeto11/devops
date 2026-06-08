@@ -15,6 +15,10 @@ import {
   verifyPassword
 } from '../lib/sicat-security.js';
 import { resolveAdminAccessSummary } from './access-admin-service.js';
+import { validateKeycloakToken } from '@flavioneto11/oidc-kit';
+
+// Validacao /userinfo via @flavioneto11/oidc-kit. OIDC_KIT=off volta ao fetch inline (rollback).
+const OIDC_KIT = (process.env.OIDC_KIT ?? 'on').trim().toLowerCase() !== 'off';
 
 type LooseRecord = Record<string, unknown>;
 type SicatUserLike = {
@@ -287,21 +291,32 @@ export async function loginSicatViaKeycloak(payload: LooseRecord, context: AuthC
   }
 
   let claims: LooseRecord;
-  try {
-    const resp = await fetch(config.keycloakUserinfoUrl, {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
-    if (!resp.ok) {
-      throw new AppError(401, 'Unauthorized', 'Token do Keycloak inválido ou expirado.', {
-        code: 'INVALID_KEYCLOAK_TOKEN'
+  if (OIDC_KIT) {
+    const result = await validateKeycloakToken(accessToken, { userinfoUrl: config.keycloakUserinfoUrl });
+    if (!result.ok) {
+      if (result.code === 'KEYCLOAK_UNAVAILABLE') {
+        throw new AppError(502, 'Bad Gateway', 'Falha ao validar o token no Keycloak.', { code: 'KEYCLOAK_UNAVAILABLE' });
+      }
+      throw new AppError(401, 'Unauthorized', 'Token do Keycloak inválido ou expirado.', { code: 'INVALID_KEYCLOAK_TOKEN' });
+    }
+    claims = result.claims as LooseRecord;
+  } else {
+    try {
+      const resp = await fetch(config.keycloakUserinfoUrl, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      if (!resp.ok) {
+        throw new AppError(401, 'Unauthorized', 'Token do Keycloak inválido ou expirado.', {
+          code: 'INVALID_KEYCLOAK_TOKEN'
+        });
+      }
+      claims = (await resp.json()) as LooseRecord;
+    } catch (error: unknown) {
+      if (error instanceof AppError) throw error;
+      throw new AppError(502, 'Bad Gateway', 'Falha ao validar o token no Keycloak.', {
+        code: 'KEYCLOAK_UNAVAILABLE'
       });
     }
-    claims = (await resp.json()) as LooseRecord;
-  } catch (error: unknown) {
-    if (error instanceof AppError) throw error;
-    throw new AppError(502, 'Bad Gateway', 'Falha ao validar o token no Keycloak.', {
-      code: 'KEYCLOAK_UNAVAILABLE'
-    });
   }
 
   const email = normalizeEmail(claims?.email);

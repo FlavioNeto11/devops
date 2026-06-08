@@ -64,6 +64,7 @@
   },
   "dependencies": {
     "@flavioneto11/ai-kit": "file:vendor/flavioneto11-ai-kit-0.1.0.tgz",
+    "@flavioneto11/oidc-kit": "file:vendor/flavioneto11-oidc-kit-0.1.0.tgz",
     "@langchain/core": "^1.1.41",
     "@langchain/langgraph": "^1.2.9",
     "@langchain/openai": "^1.4.4",
