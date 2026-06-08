@@ -54,8 +54,8 @@
     .brand-name{font-weight:800;font-size:1.3rem}
     .brand-name b{color:var(--accent)}
     .nav-links{display:flex;align-items:center;gap:28px}
-    .nav-links a{color:var(--muted);font-size:.92rem;font-weight:500;transition:color .2s}
-    .nav-links a:hover{color:var(--ink)}
+    .nav-links a:not(.btn){color:var(--muted);font-size:.92rem;font-weight:500;transition:color .2s}
+    .nav-links a:not(.btn):hover{color:var(--ink)}
 
     .btn{display:inline-flex;align-items:center;gap:8px;padding:11px 19px;border-radius:11px;font-weight:600;font-size:.9rem;
       color:#fff;background:var(--accent);border:1px solid var(--accent);cursor:pointer;transition:.18s;white-space:nowrap}
