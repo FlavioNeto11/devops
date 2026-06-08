@@ -1,0 +1,53 @@
+# =============================================================================
+# Publica os pacotes compartilhados @flavioneto11/* no GitHub Packages (npm).
+# Dispare por TAG (ai-kit-v0.1.1 / oidc-kit-v0.1.1) ou manualmente (workflow_dispatch).
+#
+# No laboratorio OFFLINE o consumo e via tarball vendorizado (scripts/vendor-packages.ps1
+# -> apps/*/vendor/*.tgz). Este workflow e o caminho de CI/producao (registry).
+# Ver docs/standards/shared-libraries-and-versioning.md.
+# =============================================================================
+name: publish-packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: "Pacote a publicar"
+        required: true
+        type: choice
+        options: [ai-kit, oidc-kit]
+  push:
+    tags: ["ai-kit-v*", "oidc-kit-v*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@flavioneto11"
+      - name: Resolver pacote alvo
+        id: pkg
+        run: |
+          set -euo pipefail
+          if [ -n "${{ github.event.inputs.package }}" ]; then
+            echo "dir=packages/${{ github.event.inputs.package }}" >> "$GITHUB_OUTPUT"
+          elif printf '%s' "${{ github.ref_name }}" | grep -q '^ai-kit'; then
+            echo "dir=packages/ai-kit" >> "$GITHUB_OUTPUT"
+          else
+            echo "dir=packages/oidc-kit" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Testar (node --test)
+        working-directory: ${{ steps.pkg.outputs.dir }}
+        run: npm test --if-present
+      - name: Publicar
+        working-directory: ${{ steps.pkg.outputs.dir }}
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
