@@ -1,3 +1,4 @@
+import { ChatOpenAI } from '@langchain/openai';
 import { AppError } from '../../lib/problem.js';
 
 const DEFAULT_OPENAI_AGENT_MODEL = 'gpt-5-mini';
@@ -83,4 +84,19 @@ export function getAiConfig(): AiConfig {
     openAiJudgeModel,
     langSmithEnabled
   };
+}
+
+// Modelos de reasoning (gpt-5*, o1/o3...) só aceitam `temperature` default (1) e usam
+// `max_completion_tokens`. Enviar `temperature: 0` resulta em 400 da OpenAI e derruba a
+// conversa em PROVIDER_UNAVAILABLE. Por isso, para esses modelos, NÃO enviamos temperature.
+export function isReasoningModel(model: string): boolean {
+  return /^(gpt-5|o\d)/i.test(String(model || '').trim());
+}
+
+// Fábrica única de ChatOpenAI compatível com reasoning models: omite `temperature`
+// quando o modelo é de reasoning; mantém `temperature: 0` (determinístico) para os demais.
+export function createChatModel(model: string, apiKey: string): ChatOpenAI {
+  return new ChatOpenAI(
+    isReasoningModel(model) ? { apiKey, model } : { apiKey, model, temperature: 0 }
+  );
 }

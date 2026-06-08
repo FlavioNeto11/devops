@@ -2,7 +2,7 @@ import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/
 import { END, MemorySaver, MessagesAnnotation, START, StateGraph } from '@langchain/langgraph';
 import { ChatOpenAI } from '@langchain/openai';
 import { AppError } from '../../lib/problem.js';
-import { getAiConfig } from './ai-config.js';
+import { createChatModel, getAiConfig } from './ai-config.js';
 import { retrieveKnowledge, buildKnowledgeContextBlock } from './knowledge/conversation-knowledge-service.js';
 import { updateAndPersistWorkingMemory } from './memory/conversation-working-memory-service.js';
 import { resolveSpecialistForIntent, specialistToolNames, type ConversationSpecialist } from './agents/conversation-specialists.js';
@@ -1886,11 +1886,7 @@ export async function synthesizeNaturalResponse(input: {
 }): Promise<string | null> {
   try {
     const config = getAiConfig();
-    const llm = new ChatOpenAI({
-      apiKey: config.openAiApiKey,
-      model: config.openAiSynthesisModel,
-      temperature: 0
-    });
+    const llm = createChatModel(config.openAiSynthesisModel, config.openAiApiKey);
 
     const knowledgeHits = await retrieveKnowledge(input.userMessage, { k: 5 });
     const knowledgeBlock = buildKnowledgeContextBlock(knowledgeHits);
@@ -1951,11 +1947,7 @@ export function createLlmProvider(): LlmProvider {
       return cached;
     }
 
-    const llm = new ChatOpenAI({
-      apiKey: config.openAiApiKey,
-      model: config.openAiAgentModel,
-      temperature: 0
-    });
+    const llm = createChatModel(config.openAiAgentModel, config.openAiApiKey);
 
     const modelWithTools = llm.bindTools(conversationToolsForSpecialist(specialist));
 
@@ -1986,11 +1978,7 @@ export function createLlmProvider(): LlmProvider {
         };
       }
 
-      const llm = new ChatOpenAI({
-        apiKey: config.openAiApiKey,
-        model: config.openAiAgentModel,
-        temperature: 0
-      });
+      const llm = createChatModel(config.openAiAgentModel, config.openAiApiKey);
 
       let classification = await classifyIntent({
         llm,
@@ -2137,11 +2125,7 @@ export function createLlmProvider(): LlmProvider {
 
       // Se qualquer trigger for true, reclassificar com modelo de escalation
       if (escalationTriggers.shouldEscalate) {
-        const llm2 = new ChatOpenAI({
-          apiKey: config.openAiApiKey,
-          model: config.openAiEscalationModel,
-          temperature: 0
-        });
+        const llm2 = createChatModel(config.openAiEscalationModel, config.openAiApiKey);
 
         const escalatedResult = await performEscalation({
           config,

@@ -1,6 +1,6 @@
 import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
 import { ChatOpenAI } from '@langchain/openai';
-import { getAiConfig } from './ai-config.js';
+import { createChatModel, getAiConfig } from './ai-config.js';
 import { retrieveKnowledge, buildKnowledgeContextBlock } from './knowledge/conversation-knowledge-service.js';
 
 /**
@@ -109,11 +109,7 @@ export async function runOperationalDiagnosis(input: {
   maxSteps?: number;
 }): Promise<OperationalDiagnosisResult> {
   const config = getAiConfig();
-  const llm = new ChatOpenAI({
-    apiKey: config.openAiApiKey,
-    model: config.openAiAgentModel,
-    temperature: 0
-  }).bindTools(DIAGNOSTIC_TOOLS as unknown as LooseRecord[]);
+  const llm = createChatModel(config.openAiAgentModel, config.openAiApiKey).bindTools(DIAGNOSTIC_TOOLS as unknown as LooseRecord[]);
 
   const knowledgeBlock = buildKnowledgeContextBlock(await retrieveKnowledge(input.question, { k: 5 }));
   const maxSteps = Math.max(2, Math.min(input.maxSteps ?? 5, 7));

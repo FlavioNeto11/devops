@@ -5,7 +5,7 @@ import {
   findConversationMemory,
   upsertConversationMemory
 } from '../../../repositories/conversation-memory-repo.js';
-import { getAiConfig, hasOpenAiApiKey } from '../ai-config.js';
+import { createChatModel, getAiConfig, hasOpenAiApiKey } from '../ai-config.js';
 import {
   WORKING_MEMORY_KIND,
   WORKING_MEMORY_VERSION,
@@ -69,7 +69,7 @@ function getMemoryLlm(): ChatOpenAI | null {
   }
   try {
     const config = getAiConfig();
-    cachedLlm = new ChatOpenAI({ apiKey: config.openAiApiKey, model: resolveMemoryModel(), temperature: 0 });
+    cachedLlm = createChatModel(resolveMemoryModel(), config.openAiApiKey);
   } catch {
     cachedLlm = null;
   }
