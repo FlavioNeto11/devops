@@ -8,7 +8,8 @@ Identidade/SSO e gestão de segredos da plataforma NovaIT.
 - **Console admin**: `https://dev.nvit.com.br/auth/admin/` (realm **master**, usuário `admin`). Senha no Secret `keycloak-secrets` (selado): `kubectl -n identity get secret keycloak-secrets -o jsonpath="{.data.KC_BOOTSTRAP_ADMIN_PASSWORD}" | base64 -d`.
 - **Realm de aplicações**: **`nvit`**. Issuer OIDC: **`https://dev.nvit.com.br/auth/realms/nvit`**.
 - **Discovery**: `https://dev.nvit.com.br/auth/realms/nvit/.well-known/openid-configuration`.
-- **Grupo**: `platform-admins` (mapeado para admin no Grafana e no Argo CD).
+- **Grupo**: `platform-admins` (mapeado para admin no Grafana, Argo CD **e DevOps Console**).
+- **Usuário admin da plataforma**: **`admin@nvit.com.br`** (realm `nvit`, no grupo `platform-admins`) — a MESMA credencial entra no **Grafana**, **Argo CD** e **DevOps Console**. A senha do admin do realm **master** (usuário `admin`, Console admin do Keycloak) foi alinhada à mesma senha para unificar o acesso. Senhas reais nunca ficam no git (definidas via `kcadm`/SealedSecret).
 - **Config-chave** (subpath atrás do Traefik/Cloudflare): `KC_HOSTNAME=https://dev.nvit.com.br/auth`, `KC_HTTP_RELATIVE_PATH=/auth`, `KC_PROXY_HEADERS=xforwarded`, `KC_HTTP_ENABLED=true`. Probes em `:9000/auth/health/{ready,live}`.
 
 > Keycloak é **identidade**, não cofre de segredos. API keys (OpenAI, etc.) vão no **Sealed Secrets** (seção 3).
@@ -31,6 +32,7 @@ Identidade/SSO e gestão de segredos da plataforma NovaIT.
 | **Grafana** (`/grafana`) | `grafana.ini` → `auth.generic_oauth` (realm nvit); `role_attribute_path` mapeia `platform-admins`→Admin; client secret via `envFromSecret: grafana-oidc` | `admin` / `admin` |
 | **Argo CD** (`/argocd`) | `argocd-cm.oidc.config` (sem dex); `clientSecret: $argocd-oidc:client_secret`; `argocd-rbac-cm`: `g, platform-admins, role:admin` | usuário `admin` |
 | **SICAT** (`/sicat`, login próprio) | OIDC no app (PKCE): backend valida o token no `/userinfo` e emite a sessão SICAT; frontend tem botão "Entrar com Keycloak" | login local + **auth SIGOR/CETESB intacta** |
+| **DevOps Console** (`/devops`, SEM login próprio) | Gate no **EDGE**: `oauth2-proxy` (ns `devops-system`) + Traefik **ForwardAuth** protege TODO o `/devops` (SPA, API, pm-api). Client `devops-console` (confidential); restrito a `platform-admins`. Manifests: `console/k8s/auth/` | — (é só Keycloak; sem login local) |
 
 ### Padrão para apps com LOGIN PRÓPRIO (referência: SICAT)
 Apps que já têm login próprio integram o Keycloak de forma **ADITIVA**, sem quebrar o
@@ -41,9 +43,22 @@ login local nem outras autenticações do app (ex.: SIGOR/CETESB). Use o SICAT c
 - **Frontend** (`apps/sicat/frontend/src/services/keycloak.js` = fluxo Authorization Code + PKCE; `views/LoginKeycloakCallbackView.vue` = callback; botão na `LoginView.vue`; action `loginWithKeycloakToken` no store; `api.keycloakLogin`).
 - **Regra de ouro**: o login local **continua como fallback** e nenhuma outra auth do app é tocada.
 
-### Apps SEM login próprio
-Mais simples: gatear no edge (futuro: **oauth2-proxy / Traefik ForwardAuth**) — opt-in por
-Middleware na IngressRoute, sem mexer no código do app (assim novas apps não quebram).
+### Apps SEM login próprio — gate no EDGE (referência: DevOps Console)
+Apps/painéis sem login próprio são protegidos por um **oauth2-proxy** + Traefik **ForwardAuth**,
+sem tocar no código do app. Implementação de referência em `console/k8s/auth/`:
+
+- **oauth2-proxy** (`oauth2-proxy.yaml`, ns `devops-system`): `provider=oidc`, issuer `…/auth/realms/nvit`.
+  *Split-horizon*: **login/redirect** usam as URLs públicas (`https://dev.nvit.com.br`, via Cloudflare/Traefik);
+  as chamadas **server-to-server** (redeem/jwks/userinfo) vão direto ao Service interno do Keycloak
+  (`keycloak.identity.svc:8080/auth/...`). Restringe por `OAUTH2_PROXY_ALLOWED_GROUPS=platform-admins`
+  (claim `groups`). Modo ForwardAuth: `--upstreams=static://202` + `--reverse-proxy`.
+- **Middlewares** (`auth-routes.yaml`): `console-auth-redirect` (navegação → **302** p/ login do Keycloak)
+  e `console-auth-401` (API/XHR → **401**). A rota `/oauth2` (callback/start/auth) aponta para o oauth2-proxy.
+- **Segredos** (`sealed-devops-console-oauth.yaml`): `client-secret` + `cookie-secret` (32 bytes) como
+  **SealedSecret**. O client `devops-console` (confidential, redirect `…/oauth2/callback`) e o usuário
+  `admin@nvit.com.br` (grupo `platform-admins`) são criados via `kcadm` (fora do git).
+- **Onboardar outro painel**: criar client confidential no realm → selar os secrets → subir um oauth2-proxy
+  análogo → anexar os Middlewares ForwardAuth à IngressRoute do app.
 
 ## 3. Sealed Secrets — Cofre de segredos (GitOps)
 
