@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useTheme } from 'vuetify';
 import { useAuthStore } from '../stores/auth.js';
+import { startKeycloakLogin } from '../services/keycloak.js';
 import { toggleAppTheme } from '../composables/useAppTheme.js';
 
 const router = useRouter();
@@ -62,6 +63,11 @@ async function handleLogin() {
   if (success) {
     router.push(authStore.canAccessAdmin.value ? '/operacao/dashboard' : '/login/cetesb');
   }
+}
+
+async function loginWithKeycloak() {
+  formError.value = '';
+  await startKeycloakLogin();
 }
 
 function handleForgotPassword() {
@@ -248,6 +254,20 @@ async function handleRegister() {
             <v-btn block color="primary" type="submit" size="large" :loading="isLoading">Sign in</v-btn>
           </div>
         </v-form>
+
+        <div class="auth-actions mb-3">
+          <v-btn
+            block
+            variant="outlined"
+            color="primary"
+            size="large"
+            prepend-icon="mdi-shield-key-outline"
+            :loading="isLoading"
+            @click="loginWithKeycloak"
+          >
+            Entrar com Keycloak (SSO)
+          </v-btn>
+        </div>
 
         <div class="auth-divider">
           <span>Primeiro acesso</span>

@@ -31,7 +31,7 @@ import {
 import { cancelJobFromActiveQueue, getJob, removeJobFromActiveQueue } from '../services/job-service.js';
 import { getAuditTrail } from '../services/audit-service.js';
 import { login, getPartnerInfo } from '../services/auth-service.js';
-import { loginSicat, registerSicat, refreshSicatSession, getSicatUserById } from '../services/sicat-auth-service.js';
+import { loginSicat, registerSicat, refreshSicatSession, getSicatUserById, loginSicatViaKeycloak } from '../services/sicat-auth-service.js';
 import {
   listSicatCetesbAccounts,
   addSicatCetesbAccount,
@@ -578,6 +578,16 @@ export function createApiRouter() {
 
   router.post('/v1/sicat/auth/refresh', asyncHandler(async (req, res) => {
     const response = await refreshSicatSession(req.body || {}, {
+      correlationId: getCorrelationId(req),
+      userAgent: req.header('User-Agent') || null
+    });
+    res.json(response);
+  }));
+
+  // SSO via Keycloak (login PROPRIO do SICAT). Aditivo: o login local continua
+  // como fallback; a auth SIGOR/CETESB nao e afetada.
+  router.post('/v1/sicat/auth/keycloak', asyncHandler(async (req, res) => {
+    const response = await loginSicatViaKeycloak(req.body || {}, {
       correlationId: getCorrelationId(req),
       userAgent: req.header('User-Agent') || null
     });

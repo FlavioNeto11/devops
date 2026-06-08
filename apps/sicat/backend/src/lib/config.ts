@@ -116,5 +116,9 @@ export const config = {
   get sicatCetesbPasswordSecret() { return getConfigValue('sicatCetesbPasswordSecret', process.env.SICAT_CETESB_PASSWORD_SECRET || 'dev-only-cetesb-password-secret-change-me-2026'); },
   get sicatBootstrapEmail() { return getConfigValue('sicatBootstrapEmail', process.env.SICAT_BOOTSTRAP_EMAIL || ''); },
   get sicatBootstrapPassword() { return getConfigValue('sicatBootstrapPassword', process.env.SICAT_BOOTSTRAP_PASSWORD || ''); },
-  get sicatBootstrapName() { return getConfigValue('sicatBootstrapName', process.env.SICAT_BOOTSTRAP_NAME || ''); }
+  get sicatBootstrapName() { return getConfigValue('sicatBootstrapName', process.env.SICAT_BOOTSTRAP_NAME || ''); },
+  // Keycloak SSO (login PROPRIO do SICAT via OIDC). NAO afeta a auth SIGOR/CETESB.
+  get keycloakRealmUrl() { return getConfigValue('keycloakRealmUrl', process.env.KEYCLOAK_REALM_URL || 'https://dev.nvit.com.br/auth/realms/nvit'); },
+  get keycloakUserinfoUrl() { return getConfigValue('keycloakUserinfoUrl', process.env.KEYCLOAK_USERINFO_URL || `${process.env.KEYCLOAK_REALM_URL || 'https://dev.nvit.com.br/auth/realms/nvit'}/protocol/openid-connect/userinfo`); },
+  get keycloakClientId() { return getConfigValue('keycloakClientId', process.env.KEYCLOAK_CLIENT_ID || 'sicat'); }
 };

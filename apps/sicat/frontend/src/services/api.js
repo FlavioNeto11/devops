@@ -1030,6 +1030,17 @@ export function sicatLogin(payload) {
   });
 }
 
+export function keycloakLogin(accessToken) {
+  return request('/v1/sicat/auth/keycloak', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ accessToken }),
+    skipAuth: true
+  });
+}
+
 export function sicatRegister(payload) {
   return request('/v1/sicat/auth/register', {
     method: 'POST',

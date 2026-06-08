@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from './stores/auth.js';
 import HomeLandingView from './views/HomeLandingView.vue';
 import LoginView from './views/LoginView.vue';
+import LoginKeycloakCallbackView from './views/LoginKeycloakCallbackView.vue';
 import CetesbAccountSelectionView from './views/CetesbAccountSelectionView.vue';
 import DashboardView from './features/dashboard/DashboardView.vue';
 import ManifestsView from './views/ManifestsView.vue';
@@ -41,6 +42,12 @@ const routes = [
     path: '/login',
     name: 'Login',
     component: LoginView,
+    meta: { requiresSicatAuth: false, hideShell: true }
+  },
+  {
+    path: '/login/keycloak/callback',
+    name: 'LoginKeycloakCallback',
+    component: LoginKeycloakCallbackView,
     meta: { requiresSicatAuth: false, hideShell: true }
   },
   {

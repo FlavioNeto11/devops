@@ -269,3 +269,77 @@ export async function getSicatUserById(userId: string) {
 export async function toSicatUserResponse(user: SicatUserLike) {
   return buildUserView(user);
 }
+
+// ---------------------------------------------------------------------------
+// SSO via Keycloak (login PROPRIO do SICAT). ADITIVO: o login local continua
+// funcionando como fallback, e a auth SIGOR/CETESB nao e tocada.
+// Fluxo: o frontend faz OIDC (Authorization Code + PKCE) com o Keycloak e
+// envia o access_token; aqui validamos chamando o /userinfo do realm `nvit`
+// (so aceita tokens deste IdP), provisionamos/achamos o sicat_user por e-mail e
+// emitimos a MESMA sessao SICAT (mesmo formato de loginSicat).
+// ---------------------------------------------------------------------------
+export async function loginSicatViaKeycloak(payload: LooseRecord, context: AuthContext = {}) {
+  const accessToken = String((payload as { accessToken?: unknown })?.accessToken || '').trim();
+  if (!accessToken) {
+    throw new AppError(400, 'Bad Request', 'Campo obrigatório ausente: accessToken.', {
+      code: 'MISSING_KEYCLOAK_TOKEN'
+    });
+  }
+
+  let claims: LooseRecord;
+  try {
+    const resp = await fetch(config.keycloakUserinfoUrl, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (!resp.ok) {
+      throw new AppError(401, 'Unauthorized', 'Token do Keycloak inválido ou expirado.', {
+        code: 'INVALID_KEYCLOAK_TOKEN'
+      });
+    }
+    claims = (await resp.json()) as LooseRecord;
+  } catch (error: unknown) {
+    if (error instanceof AppError) throw error;
+    throw new AppError(502, 'Bad Gateway', 'Falha ao validar o token no Keycloak.', {
+      code: 'KEYCLOAK_UNAVAILABLE'
+    });
+  }
+
+  const email = normalizeEmail(claims?.email);
+  if (!email) {
+    throw new AppError(401, 'Unauthorized', 'Token do Keycloak sem e-mail.', { code: 'KEYCLOAK_NO_EMAIL' });
+  }
+  const name = String(claims?.name || claims?.preferred_username || email);
+
+  // Upsert por e-mail: provisiona o usuario SICAT no primeiro login via SSO.
+  let user = await findByEmail(email);
+  if (!user) {
+    try {
+      user = await insertSicatUser({
+        id: createPrefixedId('usr'),
+        email,
+        passwordHash: hashPassword(createRefreshToken()), // senha aleatoria; SSO nao a usa
+        name,
+        isActive: true
+      });
+    } catch (error: unknown) {
+      if (getErrorCode(error) === '23505') {
+        user = await findByEmail(email);
+      } else {
+        throw error;
+      }
+    }
+  }
+  if (!user?.isActive) {
+    throw new AppError(401, 'Unauthorized', 'Usuário SICAT inativo.', { code: 'INVALID_SICAT_USER' });
+  }
+
+  const tokens = await issueTokenPair(user as SicatUserLike, {
+    flow: 'keycloak',
+    correlationId: context.correlationId || null,
+    userAgent: context.userAgent || null
+  });
+  return {
+    ...tokens,
+    user: await buildUserView(user as SicatUserLike)
+  };
+}

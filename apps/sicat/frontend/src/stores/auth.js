@@ -1,6 +1,7 @@
 import { reactive, computed } from 'vue';
 import {
   sicatLogin,
+  keycloakLogin,
   sicatRegister,
   refreshSicatAuthSession,
   listSicatCetesbAccounts,
@@ -242,6 +243,35 @@ async function login(email, password) {
     return true;
   } catch (err) {
     state.error = err?.message || 'Falha ao autenticar no SICAT.';
+    return false;
+  } finally {
+    state.loading = false;
+  }
+}
+
+async function loginWithKeycloakToken(accessToken) {
+  state.loading = true;
+  state.error = null;
+
+  try {
+    const payload = await keycloakLogin(String(accessToken || ''));
+    const { accessToken: token, refreshToken, expiresAt, user } = payload;
+
+    state.token = token;
+    state.refreshToken = refreshToken;
+    state.expiresAt = expiresAt;
+    applySicatUser(user);
+    state.activeAccount = null;
+    state.partner = null;
+    state.integrationAccountId = '';
+    state.sessionContext = null;
+
+    persistSicatSession({ accessToken: token, refreshToken, expiresAt, user });
+    persistActiveCetesbContext(null, null);
+
+    return true;
+  } catch (err) {
+    state.error = err?.message || 'Falha ao autenticar via Keycloak.';
     return false;
   } finally {
     state.loading = false;
@@ -555,6 +585,7 @@ export function useAuthStore() {
     
     // Actions
     login,
+    loginWithKeycloakToken,
     register,
     loadCetesbAccounts,
     addCetesbAccount,
