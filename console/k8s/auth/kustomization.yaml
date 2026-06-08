@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Gate OIDC do DevOps Console: oauth2-proxy (Keycloak realm nvit) + ForwardAuth.
+# O SealedSecret e versionado (encriptado); o Secret real e materializado pelo
+# controller de Sealed Secrets no cluster. Sem transformacoes (namespace 1:1).
+resources:
+  - sealed-devops-console-oauth.yaml
+  - oauth2-proxy.yaml
+  - auth-routes.yaml

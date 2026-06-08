@@ -25,6 +25,7 @@ spec:
         - name: pm-api
           port: 3002
       middlewares:
+        - { name: console-auth-401, namespace: devops-system }
         - { name: pm-api-strip, namespace: devops-system }
         - { name: compress, namespace: traefik }
         - { name: secure-headers, namespace: traefik }

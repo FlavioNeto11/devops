@@ -1,0 +1,131 @@
+# =============================================================================
+# oauth2-proxy — portao OIDC (Keycloak realm nvit) na frente do DevOps Console.
+# -----------------------------------------------------------------------------
+# Usado como Traefik ForwardAuth (ver auth-middleware.yaml). Em modo reverse-proxy
+# com upstream estatico 202: a rota / responde 302 (login) p/ nao-autenticado e
+# 202 p/ autenticado — exatamente o que o ForwardAuth do Traefik espera.
+#
+# Split-horizon: o navegador usa as URLs PUBLICAS (login/redirect em
+# https://dev.nvit.com.br); as chamadas server-to-server (redeem/jwks/userinfo)
+# vao direto ao Service interno do Keycloak (sem passar pelo Traefik/Cloudflare).
+#
+# Segredos (client-secret + cookie-secret) vem do SealedSecret devops-console-oauth.
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oauth2-proxy
+  namespace: devops-system
+  labels:
+    app.kubernetes.io/name: oauth2-proxy
+    app.kubernetes.io/component: auth
+    app.kubernetes.io/part-of: devops-console
+    app.kubernetes.io/managed-by: devops-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: oauth2-proxy
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: oauth2-proxy
+        app.kubernetes.io/component: auth
+        app.kubernetes.io/part-of: devops-console
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 2000
+      containers:
+        - name: oauth2-proxy
+          image: quay.io/oauth2-proxy/oauth2-proxy:v7.7.1
+          imagePullPolicy: IfNotPresent
+          args: ["--config=/dev/null"]
+          env:
+            - name: OAUTH2_PROXY_PROVIDER
+              value: "oidc"
+            - name: OAUTH2_PROXY_OIDC_ISSUER_URL
+              value: "https://dev.nvit.com.br/auth/realms/nvit"
+            - name: OAUTH2_PROXY_SKIP_OIDC_DISCOVERY
+              value: "true"
+            # Browser-facing (publico) — pelo Cloudflare/Traefik:
+            - name: OAUTH2_PROXY_LOGIN_URL
+              value: "https://dev.nvit.com.br/auth/realms/nvit/protocol/openid-connect/auth"
+            # Server-to-server (interno) — direto no Service do Keycloak:
+            - name: OAUTH2_PROXY_REDEEM_URL
+              value: "http://keycloak.identity.svc.cluster.local:8080/auth/realms/nvit/protocol/openid-connect/token"
+            - name: OAUTH2_PROXY_OIDC_JWKS_URL
+              value: "http://keycloak.identity.svc.cluster.local:8080/auth/realms/nvit/protocol/openid-connect/certs"
+            - name: OAUTH2_PROXY_PROFILE_URL
+              value: "http://keycloak.identity.svc.cluster.local:8080/auth/realms/nvit/protocol/openid-connect/userinfo"
+            - name: OAUTH2_PROXY_REDIRECT_URL
+              value: "https://dev.nvit.com.br/oauth2/callback"
+            - name: OAUTH2_PROXY_CLIENT_ID
+              value: "devops-console"
+            - name: OAUTH2_PROXY_SCOPE
+              value: "openid email profile groups"
+            - name: OAUTH2_PROXY_EMAIL_DOMAINS
+              value: "*"
+            - name: OAUTH2_PROXY_INSECURE_OIDC_ALLOW_UNVERIFIED_EMAIL
+              value: "true"
+            # So membros do grupo platform-admins entram (mesma regra do Grafana/Argo).
+            - name: OAUTH2_PROXY_ALLOWED_GROUPS
+              value: "platform-admins"
+            - name: OAUTH2_PROXY_OIDC_GROUPS_CLAIM
+              value: "groups"
+            # Modo ForwardAuth: upstream estatico 202 -> /  responde 202 (auth) ou 302 (login).
+            - name: OAUTH2_PROXY_UPSTREAMS
+              value: "static://202"
+            - name: OAUTH2_PROXY_REVERSE_PROXY
+              value: "true"
+            - name: OAUTH2_PROXY_SET_XAUTHREQUEST
+              value: "true"
+            - name: OAUTH2_PROXY_PASS_ACCESS_TOKEN
+              value: "true"
+            - name: OAUTH2_PROXY_SKIP_PROVIDER_BUTTON
+              value: "true"
+            - name: OAUTH2_PROXY_HTTP_ADDRESS
+              value: "0.0.0.0:4180"
+            - name: OAUTH2_PROXY_PROXY_PREFIX
+              value: "/oauth2"
+            - name: OAUTH2_PROXY_COOKIE_SECURE
+              value: "true"
+            - name: OAUTH2_PROXY_COOKIE_DOMAINS
+              value: "dev.nvit.com.br"
+            - name: OAUTH2_PROXY_WHITELIST_DOMAINS
+              value: "dev.nvit.com.br"
+            - name: OAUTH2_PROXY_COOKIE_SAMESITE
+              value: "lax"
+          envFrom:
+            - secretRef:
+                name: devops-console-oauth   # OAUTH2_PROXY_CLIENT_SECRET + OAUTH2_PROXY_COOKIE_SECRET
+          ports:
+            - name: http
+              containerPort: 4180
+          readinessProbe:
+            httpGet: { path: /ping, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /ping, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            requests: { cpu: "10m", memory: "32Mi" }
+            limits: { cpu: "150m", memory: "128Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth2-proxy
+  namespace: devops-system
+  labels:
+    app.kubernetes.io/name: oauth2-proxy
+    app.kubernetes.io/part-of: devops-console
+spec:
+  selector:
+    app.kubernetes.io/name: oauth2-proxy
+  ports:
+    - name: http
+      port: 4180
+      targetPort: http

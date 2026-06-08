@@ -41,6 +41,9 @@ spec:
         - name: console-backend
           port: 3001
       middlewares:
+        # Gate OIDC (Keycloak via oauth2-proxy): 401 p/ XHR sem sessao. PRIMEIRO.
+        - name: console-auth-401
+          namespace: devops-system
         # StripPrefix da API (namespace devops-system; mesmo da rota).
         - name: console-api-strip
           namespace: devops-system
@@ -59,6 +62,9 @@ spec:
         - name: console-frontend
           port: 80
       middlewares:
+        # Gate OIDC (Keycloak via oauth2-proxy): 302 p/ login na navegacao. PRIMEIRO.
+        - name: console-auth-redirect
+          namespace: devops-system
         - name: compress
           namespace: traefik
         - name: secure-headers
