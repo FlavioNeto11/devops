@@ -1,0 +1,55 @@
+# Postgres dedicado do meta-projeto (isolado dos DBs das apps). PVC RWO.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pm-postgres
+  namespace: devops-system
+  labels: { app.kubernetes.io/name: pm-postgres, app.kubernetes.io/part-of: devops-console, app.kubernetes.io/component: meta-project-db }
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: { requests: { storage: 1Gi } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pm-postgres
+  namespace: devops-system
+  labels: { app.kubernetes.io/name: pm-postgres, app.kubernetes.io/part-of: devops-console, app.kubernetes.io/component: meta-project-db, app.kubernetes.io/managed-by: devops-platform }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app.kubernetes.io/name: pm-postgres } }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: pm-postgres, app.kubernetes.io/part-of: devops-console, app.kubernetes.io/component: meta-project-db }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - { name: POSTGRES_DB, value: pm }
+            - { name: POSTGRES_USER, value: pm }
+            - { name: POSTGRES_PASSWORD, valueFrom: { secretKeyRef: { name: pm-db, key: POSTGRES_PASSWORD } } }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+          ports: [{ containerPort: 5432, name: postgres }]
+          readinessProbe:
+            exec: { command: ["sh", "-c", "pg_isready -U pm -d pm"] }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 25m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+          volumeMounts: [{ name: data, mountPath: /var/lib/postgresql/data }]
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: pm-postgres }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pm-postgres
+  namespace: devops-system
+  labels: { app.kubernetes.io/part-of: devops-console }
+spec:
+  selector: { app.kubernetes.io/name: pm-postgres }
+  ports: [{ port: 5432, targetPort: postgres }]

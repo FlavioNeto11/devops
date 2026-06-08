@@ -1,0 +1,30 @@
+# Rota do pm-api: /devops/api/pm com StripPrefix (backend ve "/") e priority 30 —
+# MAIOR que /devops/api (console-backend=20) e /devops (frontend=10), pois e mais especifica.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: pm-api-strip
+  namespace: devops-system
+spec:
+  stripPrefix:
+    prefixes: ["/devops/api/pm"]
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: pm-api
+  namespace: devops-system
+  labels: { app.kubernetes.io/name: pm-api, app.kubernetes.io/part-of: devops-console }
+spec:
+  entryPoints: [web]
+  routes:
+    - match: (Host(`xpto.localhost`) || Host(`dev.nvit.com.br`)) && PathPrefix(`/devops/api/pm`)
+      kind: Rule
+      priority: 30
+      services:
+        - name: pm-api
+          port: 3002
+      middlewares:
+        - { name: pm-api-strip, namespace: devops-system }
+        - { name: compress, namespace: traefik }
+        - { name: secure-headers, namespace: traefik }

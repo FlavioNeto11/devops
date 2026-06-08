@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: devops-system
+# Secret real "pm-db" criado fora do git (ver pm-db.example.yaml) -> NAO entra aqui,
+# para o Argo prune nunca apaga-lo.
+resources:
+  - pm-serviceaccount.yaml
+  - pm-postgres.yaml
+  - pm-api.yaml
+  - pm-ingressroute.yaml

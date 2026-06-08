@@ -39,6 +39,12 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      // Mais especifico primeiro: pm-api (escrita) em :3002.
+      '/devops/api/pm': {
+        target: 'http://localhost:3002',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/devops\/api\/pm/, ''),
+      },
       '/devops/api': {
         target: 'http://localhost:3001',
         changeOrigin: true,

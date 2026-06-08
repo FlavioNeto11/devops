@@ -1,0 +1,21 @@
+{
+  "name": "devops-pm-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Projetos & Tarefas (meta-projeto) — API de ESCRITA do DevOps Console, isolada do backend read-only de cluster.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "migrate": "node src/db/migrate.js",
+    "seed": "node scripts/seed.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "pg": "^8.13.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

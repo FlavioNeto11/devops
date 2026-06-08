@@ -5,6 +5,7 @@ import Apps from './components/Apps.jsx';
 import Publications from './components/Publications.jsx';
 import Health from './components/Health.jsx';
 import Logs from './components/Logs.jsx';
+import MetaProjects from './components/MetaProjects.jsx';
 
 /**
  * Abas disponiveis na navegacao principal.
@@ -16,6 +17,7 @@ const TABS = [
   { key: 'publications', label: 'Publicacoes' },
   { key: 'health', label: 'Health' },
   { key: 'logs', label: 'Logs' },
+  { key: 'projects', label: 'Projetos & Tarefas' },
 ];
 
 /**
@@ -183,12 +185,13 @@ export default function App() {
           <Health streamData={streamData} streamStatus={streamStatus} />
         )}
         {activeTab === 'logs' && <Logs />}
+        {activeTab === 'projects' && <MetaProjects />}
       </main>
 
       <footer className="app-footer">
         <span>
-          Visao somente leitura do cluster <code>docker-desktop</code>. Nenhuma
-          operacao de escrita e realizada por este console.
+          Observacao do cluster <code>docker-desktop</code> em somente leitura. A gestao de
+          projetos (Projetos &amp; Tarefas) usa um modulo dedicado (pm-api) com seu proprio banco.
         </span>
       </footer>
     </div>

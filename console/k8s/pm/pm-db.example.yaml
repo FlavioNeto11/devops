@@ -1,0 +1,19 @@
+# EXEMPLO (placeholders). O Secret REAL e criado fora do git (kubectl) e NUNCA commitado.
+# Em produçao/GitOps, sele com kubeseal (SealedSecret) — ver SECURITY.md / infra-standards.md.
+#
+# Criar o real (lab):
+#   $pw = -join ((48..57)+(97..122) | Get-Random -Count 24 | % {[char]$_})
+#   kubectl -n devops-system create secret generic pm-db `
+#     --from-literal=POSTGRES_PASSWORD=$pw `
+#     --from-literal=DATABASE_URL="postgresql://pm:$pw@pm-postgres:5432/pm"
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pm-db
+  namespace: devops-system
+  labels:
+    app.kubernetes.io/part-of: devops-console
+type: Opaque
+stringData:
+  POSTGRES_PASSWORD: "CHANGE_ME"
+  DATABASE_URL: "postgresql://pm:CHANGE_ME@pm-postgres:5432/pm"

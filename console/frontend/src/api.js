@@ -124,3 +124,46 @@ export function fetchLogs(ns, name, tailLines = 200, options) {
 export function openStream() {
   return new EventSource(`${API_BASE}/stream`);
 }
+
+// ---------------------------------------------------------------------------
+// Modulo Projetos & Tarefas (meta-projeto) — API SEPARADA (pm-api), COM ESCRITA.
+// Base /devops/api/pm (Traefik StripPrefix -> pm-api ve "/"). Totalmente isolada
+// do backend read-only de cluster acima (que NUNCA escreve).
+// ---------------------------------------------------------------------------
+export const PM_BASE = `${import.meta.env.BASE_URL}api/pm`;
+
+async function pmFetch(path, { method = 'GET', body } = {}) {
+  const url = `${PM_BASE}${path}`;
+  let res;
+  try {
+    res = await fetch(url, {
+      method,
+      headers: body
+        ? { 'Content-Type': 'application/json', Accept: 'application/json' }
+        : { Accept: 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (networkErr) {
+    throw new Error(`Falha de rede ao acessar ${url}: ${networkErr && networkErr.message ? networkErr.message : networkErr}`);
+  }
+  if (res.status === 204) return null;
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((json && json.error && json.error.message) || `Erro ${res.status} em ${path}`);
+  return json.data;
+}
+
+// Projetos
+export const pmProjects = () => pmFetch('/projects');
+export const pmCreateProject = (p) => pmFetch('/projects', { method: 'POST', body: p });
+export const pmPatchProject = (id, p) => pmFetch(`/projects/${id}`, { method: 'PATCH', body: p });
+export const pmDeleteProject = (id) => pmFetch(`/projects/${id}`, { method: 'DELETE' });
+// Itens (bug/feature/evolution)
+export const pmItems = (projectId) => pmFetch(`/projects/${projectId}/items`);
+export const pmCreateItem = (projectId, item) => pmFetch(`/projects/${projectId}/items`, { method: 'POST', body: item });
+export const pmPatchItem = (id, patch) => pmFetch(`/items/${id}`, { method: 'PATCH', body: patch });
+export const pmDeleteItem = (id) => pmFetch(`/items/${id}`, { method: 'DELETE' });
+// Tasks (ciclo begin->in_progress->done)
+export const pmTasks = (itemId) => pmFetch(`/items/${itemId}/tasks`);
+export const pmCreateTask = (itemId, task) => pmFetch(`/items/${itemId}/tasks`, { method: 'POST', body: task });
+export const pmPatchTask = (id, patch) => pmFetch(`/tasks/${id}`, { method: 'PATCH', body: patch });
+export const pmDeleteTask = (id) => pmFetch(`/tasks/${id}`, { method: 'DELETE' });
