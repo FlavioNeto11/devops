@@ -1,0 +1,28 @@
+FROM node:20-bookworm-slim
+
+WORKDIR /app
+
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+
+COPY . .
+
+RUN pnpm install --frozen-lockfile
+
+ARG NEXT_PUBLIC_API_URL=http://localhost:3001
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_APP_BASE_PATH=/gymops
+ENV NEXT_PUBLIC_APP_BASE_PATH=$NEXT_PUBLIC_APP_BASE_PATH
+ARG NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN=true
+ENV NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN=$NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN
+ARG INTERNAL_API_URL=http://localhost:3001
+ENV INTERNAL_API_URL=$INTERNAL_API_URL
+
+RUN pnpm --filter @gymops/web build
+
+EXPOSE 3000
+
+CMD ["pnpm", "--filter", "@gymops/web", "exec", "next", "start", "-p", "3000", "-H", "0.0.0.0"]

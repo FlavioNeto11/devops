@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" role="img" aria-labelledby="title desc">
+  <title>GymOps Badge</title>
+  <desc>Badge do GymOps</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1d4ed8"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+  <rect width="72" height="72" rx="18" fill="url(#bg)"/>
+  <path d="M22 20h8l6 10 6-10h8v32h-8V37l-6 11-6-11v15h-8z" fill="#fff"/>
+</svg>

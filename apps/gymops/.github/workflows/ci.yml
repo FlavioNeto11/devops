@@ -1,0 +1,126 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    name: Lint / Typecheck / Test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: gymops_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/gymops_test
+      REDIS_URL: ''
+      JWT_SECRET: test-secret-key-minimum-32-characters!!
+      JWT_REFRESH_SECRET: test-refresh-secret-minimum-32chars!!
+      FRONTEND_URL: http://localhost:3000
+      ENCRYPTION_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
+      OPENAI_API_KEY: ''
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @gymops/db generate
+
+      - name: Run migrations
+        run: pnpm --filter @gymops/db migrate:deploy
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test (API)
+        run: pnpm --filter @gymops/api test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @gymops/db generate
+
+      - name: Build all packages
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3001
+        run: pnpm build
+
+  build-gymops:
+    name: Build /gymops base path
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @gymops/db generate
+
+      - name: Build web with /gymops base path
+        env:
+          NEXT_PUBLIC_API_URL: /gymops/api
+          NEXT_PUBLIC_APP_BASE_PATH: /gymops
+        run: pnpm --filter @gymops/web build
+
+      - name: Build API
+        run: pnpm --filter @gymops/api build

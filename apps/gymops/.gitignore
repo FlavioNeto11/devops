@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build artifacts
+dist/
+build/
+.next/
+out/
+coverage/
+.turbo/
+.cache/
+
+# TypeScript
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.*
+.env.local
+.env.*.local
+.env.docker
+!.env.example
+!.env.*.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Test outputs
+playwright-report/
+test-results/
+.playwright-mcp/
+
+# Generated files
+generated/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json

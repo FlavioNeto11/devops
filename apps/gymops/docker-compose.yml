@@ -1,0 +1,107 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: gymops_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: gymops
+      POSTGRES_PASSWORD: gymops_dev
+      POSTGRES_DB: gymops
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U gymops']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gymops
+
+  redis:
+    image: redis:7-alpine
+    container_name: gymops_redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - gymops
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: gymops_api
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    env_file: .env.docker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - gymops
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://localhost:3001/health').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: gymops_worker
+    restart: unless-stopped
+    command: ["node", "apps/api/dist/worker-process.js"]
+    env_file: .env.docker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - gymops
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+        NEXT_PUBLIC_APP_BASE_PATH: ${NEXT_PUBLIC_APP_BASE_PATH:-/gymops}
+        NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN: ${NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN:-true}
+        INTERNAL_API_URL: ${INTERNAL_API_URL:-http://api:3001}
+    container_name: gymops_web
+    restart: unless-stopped
+    environment:
+      INTERNAL_API_URL: ${INTERNAL_API_URL:-http://api:3001}
+    ports:
+      - '7480:3000'
+    depends_on:
+      - api
+    networks:
+      - gymops
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://localhost:3000/gymops/login').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  gymops:
+    driver: bridge

@@ -1,0 +1,327 @@
+# =============================================================================
+# GymOps — plataforma de gestão operacional multiunidade (Next.js + Fastify).
+# Roteamento (host dev.nvit.com.br / xpto.localhost):
+#   /gymops        -> web    (Next.js SSR, SEM strip, basePath /gymops, priority 10)
+#   /gymops/api    -> api    (Fastify, StripPrefix /gymops/api, priority 30)
+# Serviços de apoio no cluster: gymops-postgres (pgvector) + gymops-redis.
+# Imagens locais: gymops-web:local / gymops-api:local (worker reusa a imagem da api).
+# Secret gymops-config (envFrom) criado a partir do .env.docker (NAO versionado).
+# =============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gymops-postgres-data
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: gymops
+spec:
+  accessModes: ['ReadWriteOnce']
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gymops-postgres
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: gymops
+    app.kubernetes.io/component: postgres
+    app.kubernetes.io/part-of: gymops
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gymops
+      app.kubernetes.io/component: postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: gymops
+        app.kubernetes.io/component: postgres
+        app.kubernetes.io/part-of: gymops
+    spec:
+      containers:
+        - name: postgres
+          image: pgvector/pgvector:pg16
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: POSTGRES_USER
+              value: gymops
+            - name: POSTGRES_PASSWORD
+              value: gymops_dev
+            - name: POSTGRES_DB
+              value: gymops
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - { name: pg, containerPort: 5432 }
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec: { command: ['sh', '-c', 'pg_isready -U gymops -d gymops'] }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: { cpu: '25m', memory: '128Mi' }
+            limits: { cpu: '500m', memory: '512Mi' }
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: gymops-postgres-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gymops-postgres
+  namespace: apps
+  labels: { app.kubernetes.io/part-of: gymops }
+spec:
+  selector:
+    app.kubernetes.io/name: gymops
+    app.kubernetes.io/component: postgres
+  ports:
+    - { name: pg, port: 5432, targetPort: pg }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gymops-redis
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: gymops
+    app.kubernetes.io/component: redis
+    app.kubernetes.io/part-of: gymops
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gymops
+      app.kubernetes.io/component: redis
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: gymops
+        app.kubernetes.io/component: redis
+        app.kubernetes.io/part-of: gymops
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - { name: redis, containerPort: 6379 }
+          readinessProbe:
+            exec: { command: ['redis-cli', 'ping'] }
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            requests: { cpu: '10m', memory: '32Mi' }
+            limits: { cpu: '200m', memory: '128Mi' }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gymops-redis
+  namespace: apps
+  labels: { app.kubernetes.io/part-of: gymops }
+spec:
+  selector:
+    app.kubernetes.io/name: gymops
+    app.kubernetes.io/component: redis
+  ports:
+    - { name: redis, port: 6379, targetPort: redis }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gymops-api
+  namespace: apps
+  annotations:
+    devops.flavioneto/imageTag: "local"
+    devops.flavioneto/image: "gymops-api:local"
+    devops.flavioneto/branch: "main"
+  labels:
+    app.kubernetes.io/name: gymops
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: gymops
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gymops
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: gymops
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: gymops
+    spec:
+      containers:
+        - name: api
+          image: gymops-api:local
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef: { name: gymops-config }
+          ports:
+            - { name: http, containerPort: 3001 }
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 8
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests: { cpu: '25m', memory: '160Mi' }
+            limits: { cpu: '700m', memory: '512Mi' }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gymops-api
+  namespace: apps
+  labels: { app.kubernetes.io/part-of: gymops }
+spec:
+  selector:
+    app.kubernetes.io/name: gymops
+    app.kubernetes.io/component: api
+  ports:
+    - { name: http, port: 3001, targetPort: http }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gymops-worker
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: gymops
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/part-of: gymops
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gymops
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: gymops
+        app.kubernetes.io/component: worker
+        app.kubernetes.io/part-of: gymops
+    spec:
+      containers:
+        - name: worker
+          image: gymops-api:local
+          imagePullPolicy: IfNotPresent
+          command: ['node', 'apps/api/dist/worker-process.js']
+          envFrom:
+            - secretRef: { name: gymops-config }
+          resources:
+            requests: { cpu: '10m', memory: '128Mi' }
+            limits: { cpu: '400m', memory: '384Mi' }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gymops-web
+  namespace: apps
+  annotations:
+    devops.flavioneto/imageTag: "local"
+    devops.flavioneto/image: "gymops-web:local"
+    devops.flavioneto/branch: "main"
+  labels:
+    app.kubernetes.io/name: gymops
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: gymops
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gymops
+      app.kubernetes.io/component: web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: gymops
+        app.kubernetes.io/component: web
+        app.kubernetes.io/part-of: gymops
+    spec:
+      containers:
+        - name: web
+          image: gymops-web:local
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: INTERNAL_API_URL
+              value: http://gymops-api:3001
+            - name: NODE_ENV
+              value: production
+          ports:
+            - { name: http, containerPort: 3000 }
+          readinessProbe:
+            httpGet: { path: /gymops/login, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests: { cpu: '25m', memory: '192Mi' }
+            limits: { cpu: '700m', memory: '768Mi' }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gymops-web
+  namespace: apps
+  labels: { app.kubernetes.io/part-of: gymops }
+spec:
+  selector:
+    app.kubernetes.io/name: gymops
+    app.kubernetes.io/component: web
+  ports:
+    - { name: http, port: 3000, targetPort: http }
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: gymops-api-strip
+  namespace: apps
+  labels: { app.kubernetes.io/part-of: gymops }
+spec:
+  stripPrefix:
+    prefixes:
+      - /gymops/api
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: gymops
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: gymops
+    app.kubernetes.io/part-of: gymops
+spec:
+  entryPoints:
+    - web
+  routes:
+    # API (mais especifica) -> strip /gymops/api, priority MAIOR
+    - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/gymops/api`)
+      kind: Rule
+      priority: 30
+      services:
+        - name: gymops-api
+          port: 3001
+      middlewares:
+        - name: gymops-api-strip
+    # Web (Next.js, basePath /gymops) -> sem strip, priority menor
+    - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/gymops`)
+      kind: Rule
+      priority: 10
+      services:
+        - name: gymops-web
+          port: 3000

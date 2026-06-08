@@ -1,0 +1,60 @@
+# Contrato da esteira DevOps para o GymOps (ver C:\devops\docs\new-project-contract.md).
+# Monorepo pnpm (Next.js web + Fastify api + worker BullMQ). basePath /gymops (nativo do app).
+#   web: sem strip (Next basePath /gymops) ; api: strip /gymops/api ; worker: sem rota.
+app:
+  name: gymops
+  namespace: apps
+  host: dev.nvit.com.br        # + xpto.localhost no dev local
+  basePath: /gymops
+services:
+  web:
+    type: frontend
+    path: /
+    image: ghcr.io/flavioneto11/gymops/web   # CI/GHCR; local usa gymops-web:local
+    port: 3000
+    expose: true
+    stripPrefix: false
+    priority: 10
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_APP_BASE_PATH: /gymops
+        NEXT_PUBLIC_API_URL: https://dev.nvit.com.br/gymops/api
+        NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN: "false"
+        INTERNAL_API_URL: http://gymops-api:3001
+    health:
+      path: /gymops/login
+  api:
+    type: api
+    path: /api
+    image: ghcr.io/flavioneto11/gymops/api   # CI/GHCR; local usa gymops-api:local
+    port: 3001
+    expose: true
+    stripPrefix: true
+    priority: 30
+    health:
+      path: /health
+  worker:
+    type: worker
+    image: ghcr.io/flavioneto11/gymops/api   # MESMA imagem da api
+    command: ["node", "apps/api/dist/worker-process.js"]
+    expose: false
+dependencies:
+  postgres:
+    image: pgvector/pgvector:pg16   # precisa da extensao pgvector
+    db: gymops
+    service: gymops-postgres
+    port: 5432
+  redis:
+    image: redis:7-alpine           # BullMQ + cache
+    service: gymops-redis
+    port: 6379
+secrets:
+  # Criado no cluster a partir do .env.docker (NAO versionado). Ver k8s/secret.example.yaml.
+  - gymops-config
+migrations:
+  # Prisma — rodar apos o Postgres subir, antes/depois do deploy da api:
+  #   kubectl -n apps exec deploy/gymops-api -- pnpm --filter @gymops/db migrate:deploy
+  #   kubectl -n apps exec deploy/gymops-api -- pnpm --filter @gymops/db seed
+  tool: prisma

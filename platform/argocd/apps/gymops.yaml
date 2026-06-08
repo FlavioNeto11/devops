@@ -1,0 +1,29 @@
+# =============================================================================
+# Argo CD Application: gymops (web + api + worker + postgres + redis) sob /gymops.
+# Descoberta pelo app-of-apps "devops-platform". Aplica apps/gymops/k8s via kustomize
+# (que NAO inclui secret.example.yaml). O Secret gymops-config e criado no cluster fora
+# do git (a partir do .env.docker) e nao e gerenciado/prunado pelo Argo. Imagens
+# gymops-web:local / gymops-api:local sao construidas no no (docker build) ou via CI/GHCR.
+# =============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gymops
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/FlavioNeto11/devops
+    path: apps/gymops/k8s
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: apps
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

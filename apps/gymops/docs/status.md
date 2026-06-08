@@ -1,0 +1,122 @@
+# GymOps — Status Real do Projeto
+
+**Última atualização**: 2026-05-19 (validação Docker local + navegação funcional)
+**Documento de verdade única**: este arquivo + [`docs/backlog.md`](backlog.md) + [`docs/implementation-plan.md`](implementation-plan.md).
+**Não declarar produto 100% até** cumprir o [`docs/qa-release-checklist.md`](qa-release-checklist.md).
+
+> ⚠️ **Nota sobre validação**: Em 2026-05-19 o stack Docker local foi validado com `docker-compose.yml`: API saudável em `http://localhost:3001/health`, web saudável em `http://localhost:7480/gymops/login`, login demo funcional (`admin@skyfit.com / gymops123`), dashboard, unidade, central de atividades, perfil, ajuda, integrações, importação, unidades e equipe navegados com sucesso. O acesso público em `http://38.211.146.161:7480/gymops/login` segue dependente de firewall/NAT/rede. A suíte `pnpm --filter @gymops/api test` agora foi validada com PostgreSQL local; depois dela é necessário reaplicar o seed demo antes da validação manual do browser.
+
+**Ambiente local**: API `http://localhost:3001` | Web `http://localhost:7480/gymops/login`
+**Ambiente público (alvo)**: frontend `http://<HOST>:7480/gymops/login` | API `http://<HOST>:3001/health`
+**Seed (dev)**: admin@skyfit.com / gymops123 — org SkyFit com 3 unidades, 6 áreas, 24 templates
+
+---
+
+## Readiness por bloco (estado após S18–S21)
+
+| Bloco | Estado | Observação |
+|---|---|---|
+| **Auth (email/senha + refresh + Google OAuth)** | ✅ | Refresh token agora armazenado como SHA-256 hash. Login resolve contexto via `resolveUserContext` (cobre org/unit/área). |
+| **RBAC backend** | ✅ | `hasUnitRole()` cobre memberships de área via `unit_areas`. `canCreate()` inclui executor. |
+| **Organização (CRUD + wizard + branding)** | ✅ | Logo URL + delivery log com filtros na UI. `/setup` com 4 passos, 6 áreas, 24 templates via `bootstrapOrganization()`. |
+| **Unidades** | ✅ | `unit_areas` gerenciável via UI (botão Layers → UnitAreasDialog). |
+| **Áreas** | ✅ | `visibilityDefault` editável na UI (select inherited/shared/restricted). |
+| **Templates** | ✅ | CRUD completo + starter pack canônico de 24 templates no `bootstrapOrganization()`. |
+| **Equipe / Memberships** | ✅ | Lista consolidada org+unit+área. Convite com escopo org/unit/área. Edição de papel inline. Histórico de convites com filtro de status. |
+| **Atividades (CRUD + checklist + comments + anexos + history)** | ✅ | Base estável. |
+| **Central de Atividades global** | ✅ | Paginação cursor (infinite scroll), saved views, filtros PT, bulk update com organizationId, export CSV com todos os filtros incluindo prioridade. |
+| **Integrações (Trello + WhatsApp)** | ✅ | UI mostra health Trello (saudável/degradado), reconnect, status WhatsApp, últimos erros, botões de teste de canal. |
+| **Importação Trello** | ✅ | Wizard carrega áreas/unidades reais da API. Deduplicação cross-job via `import_sources`. |
+| **Recorrências** | ✅ | CRUD + pause/resume + workers. |
+| **Notificações (e-mail + push VAPID + WhatsApp)** | ✅ | Delivery log com filtros canal/status/paginação. |
+| **Auditoria** | ✅ | Log paginado com filtros. |
+| **Modo Tutorial Guiado** | ✅ | 15 tutoriais, overlay, onboarding, Central de Ajuda. |
+| **Profile / Avatar (R2 presign)** | ✅ | Funcional. |
+| **Onboarding /setup** | ✅ | 4 passos. Senha mínima 8 chars alinhada com API. 6 áreas + 24 templates criados automaticamente. |
+| **Workers** | ✅ | Processo separado, degradação graciosa sem Redis. |
+| **Storage R2** | ✅ | Presign + upload + delete. |
+| **CI** | ✅ | lint + typecheck + test + build em push/PR. Job adicional `build-gymops` com `NEXT_PUBLIC_APP_BASE_PATH=/gymops`. |
+| **E2E (Playwright)** | ✅ | Roda em push main + pull_request → main. Artifact sempre upload (`if: always()`). 6 smoke specs por perfil. |
+| **Docker (local + alvo público)** | ✅ | `docker-compose.yml` validado com web em `7480:3000`, api em `3001:3001`, healthchecks de API/web OK e worker estável. |
+| **Segurança** | ✅ | Refresh token como SHA-256 hash. CORS via `ALLOWED_ORIGINS` env. localhost ainda allowlisted por conveniência (aceitável). |
+| **Documentação** | ✅ | Reconciliada nesta auditoria. |
+
+---
+
+## Bugs P0/P1 — status pós-auditoria de 2026-05-18
+
+| ID | Sev | Status | Evidência |
+|---|---|---|---|
+| **BUG-001** | P0 | ✅ | `PRIORITY_OPTIONS` usa PT. Labels e filtros alinhados. |
+| **BUG-002** | P0 | ✅ | `bulkUpdateMutation` inclui `organizationId`. |
+| **BUG-003** | P0 | ✅ | Endpoint `/activities/export` aceita `priority` (corrigido em auditoria). |
+| **BUG-004** | P0 | ✅ | `setup/page.tsx` valida `ownerPassword.length < 8`. |
+| **BUG-005** | P0 | ✅ | `auth-context.ts` cobre org/unit/área. Teste `auth.login-by-area.test.ts`. |
+| **BUG-006** | P0 | ✅ | `canCreate()` inclui executor. |
+| **BUG-007** | P1 | ✅ | `hasUnitRole()` via `unit_areas`. Teste `rbac.has-unit-role.test.ts`. |
+| **BUG-008** | P1 | ✅ | `refreshTokenHash` no schema. Migration aplicada. Lookup e revogação por hash. |
+| **BUG-009** | P1 | ✅ | `docker-compose.public.yml` com healthchecks e `condition: service_healthy`. |
+| **BUG-010** | P1 | ⚠️ Parcial | `ALLOWED_ORIGINS` via env funciona. `localhost:3000`/`7480` ainda hardcoded (aceitável para dev). |
+| **BUG-011 (OPS-001)** | P1 | ✅ | E2E em PR (`pull_request: branches: [main]`). Artifact `if: always()`. |
+| **BUG-012 (OPS-002)** | P1 | ✅ | `build-gymops` job no CI. |
+
+---
+
+## Features entregues em S19–S21
+
+| ID | Status | Evidência |
+|---|---|---|
+| **FEAT-001** | ✅ | `team/page.tsx`: invite escopado org/unit/área, edit role inline, histórico convites. |
+| **FEAT-002** | ✅ | `units/page.tsx`: `UnitAreasDialog` — vincular/desvincular/reordenar áreas por unidade. |
+| **FEAT-003** | ✅ | `activities/page.tsx`: infinite scroll cursor, saved views, filtros PT, bulk status/priority. |
+| **FEAT-004** | ✅ | `/setup` 4 passos + `bootstrapOrganization()` em `apps/api/src/lib/bootstrap-organization.ts`. |
+| **FEAT-005** | ✅ | `integrations/page.tsx`: health Trello, reconnect, WhatsApp status/erros, teste canais. |
+| **FEAT-006** | ✅ | `import/page.tsx` usa áreas/unidades reais. `import_sources` dedup cross-job. |
+| **FEAT-007** | ✅ | `organization/page.tsx`: logo URL + delivery log com filtros. |
+| **FEAT-008** | ✅ | `areas/page.tsx`: select `visibilityDefault` no dialog de edição. |
+| **FEAT-009** | ✅ | Delivery log com filtros canal/status incluído em `organization/page.tsx`. |
+| **OPS-004** | ✅ | 6 smoke specs: owner, org-manager, unit-manager, area-leader, executor, viewer. |
+
+---
+
+## Itens ainda pendentes (P1/P2)
+
+| ID | Prioridade | Descrição |
+|---|---|---|
+| **BUG-010** | P1 | localhost:3000/7480 ainda hardcoded no CORS (não é bloqueador). |
+| **OPS-005** | P1 | `.env.docker.public.example` separado do local (documentar ports e variáveis). |
+| **FEAT-010** | P2 | Profile: timezone, prefs por evento, teste WhatsApp contextual. |
+| **FEAT-011** | P2 | Saved views compartilhadas por org. |
+| **FEAT-012** | P2 | Audit log: filtro por usuário/resource. |
+| **OPS-006** | P2 | Sentry (frontend + backend). |
+| **OPS-007** | P2 | Postgres performance indexes. |
+| **OPS-008** | P2 | Queue stats endpoint `/admin/queues/stats`. |
+| **OPS-009** | P2 | Documentação OpenAPI gerada. |
+| **FEAT-013** | P2 | Rate limits granulares por endpoint. |
+
+---
+
+## Limitações de validação desta auditoria
+
+| Item | Limitação | Impacto |
+|---|---|---|
+| Acesso público `/gymops` | O IP `38.211.146.161` não foi alcançavel a partir deste ambiente. | Confirmar externamente apos liberar firewall/NAT nas portas 7480 e 3001. |
+| Testes da API + seed demo | A suíte `pnpm --filter @gymops/api test` limpa o banco compartilhado em `localhost:5432`. | Reaplicar `docker compose run --rm api pnpm --filter @gymops/db seed` antes do login manual. |
+
+---
+
+## Linha do tempo das sprints
+
+| Sprint | Conteúdo | Estado |
+|---|---|---|
+| 1–8 | Motor transacional (auth, org, unit, area, activities, recorrência, notificações, IA, Trello, hardening) | ✅ Concluída |
+| 9–16 | Camada administrativa de frontend | ✅ Concluída |
+| 17 | Modo Tutorial Guiado | ✅ Concluída |
+| **18** | Estabilização crítica (BUG-001..008, BUG-009, BUG-010) | ✅ Concluída |
+| **19** | Profundidade administrativa (FEAT-001..004) | ✅ Concluída |
+| **20** | Operação e integrações (FEAT-005..009) | ✅ Concluída |
+| **21** | QA e readiness (OPS-001..004, CI, Docker, smoke) | ✅ Concluída — **pendentes P2 e validação runtime** |
+
+**Readiness**: código validado (lint ✅, typecheck ✅, build ✅). Testes de integração aguardam ambiente com PostgreSQL. Sem blockers P0 conhecidos.
+
+Detalhes em [`docs/product-roadmap.md`](product-roadmap.md) e [`docs/sprints.md`](sprints.md).

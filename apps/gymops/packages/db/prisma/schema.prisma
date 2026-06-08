@@ -1,0 +1,662 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS ────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  owner
+  org_manager
+  unit_manager
+  area_leader
+  executor
+  viewer
+}
+
+enum ScopeType {
+  organization
+  unit
+  area
+}
+
+enum ActivityStatus {
+  novo
+  em_andamento
+  aguardando_terceiro
+  aguardando_aprovacao
+  concluido
+  cancelado
+}
+
+enum ActivityPriority {
+  baixa
+  media
+  alta
+  critica
+}
+
+enum VisibilityMode {
+  inherited
+  restricted
+  shared
+}
+
+enum AssigneeKind {
+  responsible
+  participant
+  watcher
+}
+
+enum AccessLevel {
+  view
+  edit
+}
+
+enum RecurrenceFrequency {
+  diaria
+  semanal
+  mensal
+  intervalo_customizado
+}
+
+enum RecurrenceGenerationMode {
+  on_complete
+  pre_generate
+}
+
+enum NotificationChannel {
+  email
+  push
+  whatsapp
+}
+
+enum IntegrationProvider {
+  trello
+  google_drive
+  onedrive
+  whatsapp
+}
+
+enum ImportStatus {
+  pending
+  processing
+  awaiting_review
+  committed
+  failed
+}
+
+enum ImportItemStatus {
+  pending
+  mapped
+  skipped
+  failed
+}
+
+enum TutorialStatus {
+  not_started
+  in_progress
+  completed
+  skipped
+  deferred
+}
+
+// ─── CORE ENTITIES ────────────────────────────────────────────────────────────
+
+model Organization {
+  id        String    @id @default(uuid())
+  name      String
+  slug      String    @unique
+  logoUrl   String?   @map("logo_url")
+  settings  Json      @default("{}") @map("settings_jsonb")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  units               Unit[]
+  areas               Area[]
+  memberships         Membership[]
+  activityTemplates   ActivityTemplate[]
+  activities          Activity[]
+  integrationAccounts IntegrationAccount[]
+  importJobs          ImportJob[]
+  importSources       ImportSource[]
+  invitations         Invitation[]
+  savedViews          SavedView[]
+  notificationDeliveries NotificationDelivery[]
+  auditLogs           AuditLog[]
+  plan                OrganizationPlan?
+
+  @@map("organizations")
+}
+
+model Unit {
+  id             String    @id @default(uuid())
+  organizationId String    @map("organization_id")
+  name           String
+  code           String?
+  address        String?
+  status         String    @default("active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  unitAreas    UnitArea[]
+  activities   Activity[]
+
+  @@index([organizationId])
+  @@map("units")
+}
+
+model Area {
+  id                String         @id @default(uuid())
+  organizationId    String         @map("organization_id")
+  name              String
+  key               String
+  color             String?
+  visibilityDefault VisibilityMode @default(inherited) @map("visibility_default")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+  deletedAt         DateTime?      @map("deleted_at")
+
+  organization      Organization       @relation(fields: [organizationId], references: [id])
+  unitAreas         UnitArea[]
+  activityTemplates ActivityTemplate[]
+  activities        Activity[]
+
+  @@unique([organizationId, key])
+  @@map("areas")
+}
+
+model UnitArea {
+  id        String   @id @default(uuid())
+  unitId    String   @map("unit_id")
+  areaId    String   @map("area_id")
+  enabled   Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  unit Unit @relation(fields: [unitId], references: [id])
+  area Area @relation(fields: [areaId], references: [id])
+
+  @@unique([unitId, areaId])
+  @@map("unit_areas")
+}
+
+// ─── USERS & AUTH ─────────────────────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(uuid())
+  name         String
+  email        String    @unique
+  phone        String?
+  avatarUrl    String?   @map("avatar_url")
+  passwordHash String?   @map("password_hash")
+  googleId     String?   @unique @map("google_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  memberships             Membership[]
+  activityAssignees       ActivityAssignee[]
+  activityPermissions     ActivityPermission[]
+  activityComments        ActivityComment[]
+  activityEvents          ActivityEvent[]
+  notificationPreferences NotificationPreference[]
+  notificationDeliveries  NotificationDelivery[]
+  savedViews              SavedView[]
+  auditLogs               AuditLog[]
+  sessions                Session[]
+  tutorialProgress        TutorialProgress[]
+
+  @@map("users")
+}
+
+model Session {
+  id               String    @id @default(uuid())
+  userId           String    @map("user_id")
+  refreshTokenHash String    @unique @map("refresh_token_hash")
+  expiresAt        DateTime  @map("expires_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  revokedAt        DateTime? @map("revoked_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+// ─── RBAC ─────────────────────────────────────────────────────────────────────
+
+model Membership {
+  id             String    @id @default(uuid())
+  userId         String    @map("user_id")
+  organizationId String    @map("organization_id")
+  scopeType      ScopeType @map("scope_type")
+  scopeId        String    @map("scope_id")
+  role           UserRole
+  grantedBy      String?   @map("granted_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  user         User         @relation(fields: [userId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  // Note: scopeId is polymorphic (org/unit/area id) — no direct Prisma FK
+  @@index([userId, organizationId, scopeType, scopeId])
+  @@index([organizationId, scopeType, scopeId])
+  @@map("memberships")
+}
+
+// ─── TEMPLATES ────────────────────────────────────────────────────────────────
+
+model ActivityTemplate {
+  id             String    @id @default(uuid())
+  organizationId String    @map("organization_id")
+  areaId         String?   @map("area_id")
+  name           String
+  description    String?
+  config         Json      @default("{}") @map("config_jsonb")
+  isSystem       Boolean   @default(false) @map("is_system")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  area         Area?        @relation(fields: [areaId], references: [id])
+  activities   Activity[]
+
+  @@map("activity_templates")
+}
+
+// ─── ACTIVITIES ───────────────────────────────────────────────────────────────
+
+model Activity {
+  id             String           @id @default(uuid())
+  organizationId String           @map("organization_id")
+  unitId         String           @map("unit_id")
+  areaId         String           @map("area_id")
+  templateId     String?          @map("template_id")
+  title          String
+  description    String?
+  status         ActivityStatus   @default(novo)
+  priority       ActivityPriority @default(media)
+  dueAt          DateTime?        @map("due_at")
+  visibilityMode VisibilityMode   @default(inherited) @map("visibility_mode")
+  metadata       Json             @default("{}") @map("metadata_jsonb")
+  createdBy      String           @map("created_by")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  deletedAt      DateTime?        @map("deleted_at")
+
+  organization   Organization         @relation(fields: [organizationId], references: [id])
+  unit           Unit                 @relation(fields: [unitId], references: [id])
+  area           Area                 @relation(fields: [areaId], references: [id])
+  template       ActivityTemplate?    @relation(fields: [templateId], references: [id])
+  assignees      ActivityAssignee[]
+  permissions    ActivityPermission[]
+  checklists     ActivityChecklist[]
+  comments       ActivityComment[]
+  attachments    ActivityAttachment[]
+  events         ActivityEvent[]
+  recurrenceRule RecurrenceRule?
+
+  @@index([organizationId, unitId, status, dueAt])
+  @@index([organizationId, areaId, status])
+  @@index([createdBy])
+  @@map("activities")
+}
+
+model ActivityAssignee {
+  id         String       @id @default(uuid())
+  activityId String       @map("activity_id")
+  userId     String       @map("user_id")
+  kind       AssigneeKind @default(responsible)
+  createdAt  DateTime     @default(now()) @map("created_at")
+
+  activity Activity @relation(fields: [activityId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@unique([activityId, userId, kind])
+  @@index([userId])
+  @@map("activity_assignees")
+}
+
+model ActivityPermission {
+  id          String      @id @default(uuid())
+  activityId  String      @map("activity_id")
+  userId      String      @map("user_id")
+  accessLevel AccessLevel @default(view) @map("access_level")
+  grantedBy   String      @map("granted_by")
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  activity Activity @relation(fields: [activityId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@unique([activityId, userId])
+  @@map("activity_permissions")
+}
+
+model ActivityChecklist {
+  id         String   @id @default(uuid())
+  activityId String   @map("activity_id")
+  title      String
+  order      Int      @default(0)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  activity Activity                @relation(fields: [activityId], references: [id])
+  items    ActivityChecklistItem[]
+
+  @@index([activityId])
+  @@map("activity_checklists")
+}
+
+model ActivityChecklistItem {
+  id          String    @id @default(uuid())
+  checklistId String    @map("checklist_id")
+  text        String
+  done        Boolean   @default(false)
+  doneBy      String?   @map("done_by")
+  doneAt      DateTime? @map("done_at")
+  order       Int       @default(0)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  checklist ActivityChecklist @relation(fields: [checklistId], references: [id])
+
+  @@index([checklistId])
+  @@map("activity_checklist_items")
+}
+
+model ActivityComment {
+  id         String    @id @default(uuid())
+  activityId String    @map("activity_id")
+  userId     String    @map("user_id")
+  body       String
+  editedAt   DateTime? @map("edited_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  deletedAt  DateTime? @map("deleted_at")
+
+  activity Activity @relation(fields: [activityId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@index([activityId, createdAt])
+  @@map("activity_comments")
+}
+
+model ActivityAttachment {
+  id              String    @id @default(uuid())
+  activityId      String    @map("activity_id")
+  storageProvider String    @default("r2") @map("storage_provider")
+  objectKey       String?   @map("object_key")
+  externalUrl     String?   @map("external_url")
+  filename        String
+  mimeType        String    @map("mime_type")
+  sizeBytes       Int?      @map("size_bytes")
+  uploadedBy      String    @map("uploaded_by")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  activity Activity @relation(fields: [activityId], references: [id])
+
+  @@index([activityId])
+  @@map("activity_attachments")
+}
+
+model ActivityEvent {
+  id         String   @id @default(uuid())
+  activityId String   @map("activity_id")
+  actorId    String?  @map("actor_id")
+  eventType  String   @map("event_type")
+  payload    Json     @default("{}") @map("payload_jsonb")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  activity Activity @relation(fields: [activityId], references: [id])
+  actor    User?    @relation(fields: [actorId], references: [id])
+
+  @@index([activityId, createdAt])
+  @@map("activity_events")
+}
+
+model RecurrenceRule {
+  id             String                   @id @default(uuid())
+  activityId     String                   @unique @map("activity_id")
+  frequency      RecurrenceFrequency
+  interval       Int                      @default(1)
+  weekdays       Json?                    @map("weekdays_jsonb")
+  generationMode RecurrenceGenerationMode @default(on_complete) @map("generation_mode")
+  preGenerateN   Int?                     @map("pre_generate_n")
+  nextRunAt      DateTime?                @map("next_run_at")
+  lastRunAt      DateTime?                @map("last_run_at")
+  status         String                   @default("active")
+  createdAt      DateTime                 @default(now()) @map("created_at")
+  updatedAt      DateTime                 @updatedAt @map("updated_at")
+
+  activity Activity @relation(fields: [activityId], references: [id])
+
+  @@index([nextRunAt])
+  @@index([status])
+  @@map("recurrence_rules")
+}
+
+model NotificationPreference {
+  id        String              @id @default(uuid())
+  userId    String              @map("user_id")
+  channel   NotificationChannel
+  enabled   Boolean             @default(true)
+  config    Json                @default("{}") @map("config_jsonb")
+  createdAt DateTime            @default(now()) @map("created_at")
+  updatedAt DateTime            @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, channel])
+  @@map("notification_preferences")
+}
+
+model TutorialProgress {
+  id             String         @id @default(uuid())
+  userId         String         @map("user_id")
+  tutorialId     String         @map("tutorial_id")
+  status         TutorialStatus @default(not_started)
+  currentStepId  String?        @map("current_step_id")
+  completedSteps Json           @default("[]") @map("completed_steps_json")
+  startedAt      DateTime?      @map("started_at")
+  completedAt    DateTime?      @map("completed_at")
+  skippedAt      DateTime?      @map("skipped_at")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, tutorialId])
+  @@index([userId, updatedAt])
+  @@map("tutorial_progress")
+}
+
+// ─── INVITATIONS ──────────────────────────────────────────────────────────────
+
+enum InvitationStatus {
+  pending
+  accepted
+  cancelled
+  expired
+}
+
+model Invitation {
+  id             String           @id @default(uuid())
+  organizationId String           @map("organization_id")
+  email          String
+  role           UserRole
+  scopeType      ScopeType        @map("scope_type")
+  scopeId        String           @map("scope_id")
+  tokenHash      String           @unique @map("token_hash")
+  status         InvitationStatus @default(pending)
+  invitedBy      String           @map("invited_by")
+  expiresAt      DateTime         @map("expires_at")
+  acceptedAt     DateTime?        @map("accepted_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, status])
+  @@index([email, status])
+  @@map("invitations")
+}
+
+// ─── SAVED VIEWS ──────────────────────────────────────────────────────────────
+
+model SavedView {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  userId         String   @map("user_id")
+  name           String
+  filtersJson    Json     @map("filters_jsonb")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@index([organizationId, userId])
+  @@map("saved_views")
+}
+
+// ─── NOTIFICATION DELIVERIES ──────────────────────────────────────────────────
+
+model NotificationDelivery {
+  id                String              @id @default(uuid())
+  userId            String              @map("user_id")
+  organizationId    String              @map("organization_id")
+  channel           NotificationChannel
+  type              String
+  status            String
+  providerMessageId String?             @map("provider_message_id")
+  errorMessage      String?             @map("error_message")
+  requestPayloadJson Json?              @map("request_payload_jsonb")
+  createdAt         DateTime            @default(now()) @map("created_at")
+
+  user         User         @relation(fields: [userId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, channel, status, createdAt])
+  @@index([userId, createdAt])
+  @@map("notification_deliveries")
+}
+
+// ─── AUDIT LOG ────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  userId         String   @map("user_id")
+  action         String
+  resourceType   String   @map("resource_type")
+  resourceId     String   @map("resource_id")
+  metadata       Json?    @map("metadata_jsonb")
+  ipAddress      String?  @map("ip_address")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, action])
+  @@map("audit_logs")
+}
+
+// ─── ORGANIZATION PLAN ────────────────────────────────────────────────────────
+
+model OrganizationPlan {
+  id             String    @id @default(uuid())
+  organizationId String    @unique @map("organization_id")
+  plan           String    @default("starter")
+  maxUnits       Int       @default(3) @map("max_units")
+  trialEndsAt    DateTime? @map("trial_ends_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("organization_plans")
+}
+
+model IntegrationAccount {
+  id             String              @id @default(uuid())
+  organizationId String              @map("organization_id")
+  provider       IntegrationProvider
+  auth           Json                @map("auth_jsonb")
+  metadata       Json                @default("{}") @map("metadata_jsonb")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+  revokedAt      DateTime?           @map("revoked_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  importJobs   ImportJob[]
+
+  @@unique([organizationId, provider])
+  @@map("integration_accounts")
+}
+
+model ImportJob {
+  id                   String       @id @default(uuid())
+  organizationId       String       @map("organization_id")
+  integrationAccountId String?      @map("integration_account_id")
+  provider             String
+  status               ImportStatus @default(pending)
+  source               Json         @default("{}") @map("source_jsonb")
+  mapping              Json         @default("{}") @map("mapping_jsonb")
+  summary              Json?        @map("summary_jsonb")
+  createdBy            String       @map("created_by")
+  createdAt            DateTime     @default(now()) @map("created_at")
+  updatedAt            DateTime     @updatedAt @map("updated_at")
+
+  organization       Organization        @relation(fields: [organizationId], references: [id])
+  integrationAccount IntegrationAccount? @relation(fields: [integrationAccountId], references: [id])
+  items              ImportItem[]
+
+  @@index([organizationId, status])
+  @@map("import_jobs")
+}
+
+model ImportItem {
+  id           String           @id @default(uuid())
+  importJobId  String           @map("import_job_id")
+  sourceType   String           @map("source_type")
+  sourceId     String           @map("source_id")
+  targetType   String?          @map("target_type")
+  targetId     String?          @map("target_id")
+  status       ImportItemStatus @default(pending)
+  errorMessage String?          @map("error_message")
+  createdAt    DateTime         @default(now()) @map("created_at")
+
+  importJob ImportJob @relation(fields: [importJobId], references: [id])
+
+  @@index([importJobId, status])
+  @@map("import_items")
+}
+
+model ImportSource {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  sourceType     String   @map("source_type")
+  sourceId       String   @map("source_id")
+  targetType     String   @map("target_type")
+  targetId       String   @map("target_id")
+  importJobId    String   @map("import_job_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, sourceType, sourceId])
+  @@index([organizationId])
+  @@map("import_sources")
+}

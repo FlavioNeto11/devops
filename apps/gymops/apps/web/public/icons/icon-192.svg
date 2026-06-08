@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-labelledby="title desc">
+  <title>GymOps</title>
+  <desc>Logo GymOps</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1d4ed8"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+  <rect width="192" height="192" rx="44" fill="url(#bg)"/>
+  <circle cx="96" cy="96" r="58" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="8"/>
+  <path d="M58 64h20l18 30 18-30h20v64H118V98l-22 36-22-36v30H58z" fill="#fff"/>
+</svg>
