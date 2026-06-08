@@ -23,18 +23,40 @@ grafana:
   # COMENTARIO: trocar em producao (de preferencia via Secret/admin.existingSecret).
   adminPassword: "admin"
 
+  # Injeta o client secret do OIDC (Keycloak) como env (GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET).
+  # O Secret grafana-oidc e selado (SealedSecret) e versionado com seguranca.
+  envFromSecret: grafana-oidc
+
   # ---------------------------------------------------------------------------
   # Configuracao do grafana.ini
   # ---------------------------------------------------------------------------
   grafana.ini:
     server:
-      # URL publica completa, ja incluindo o subpath /grafana.
-      root_url: "http://xpto.localhost/grafana"
+      # URL publica completa, ja incluindo o subpath /grafana (necessaria p/ o
+      # redirect do OIDC). Trocada para o dominio publico por causa do SSO.
+      root_url: "https://dev.nvit.com.br/grafana"
       # Faz o Grafana servir os assets a partir do subpath (atras do Traefik).
       serve_from_sub_path: true
-    # Login anonimo desabilitado (padrao). Em laboratorio voce loga com admin/admin.
+    # Login anonimo desabilitado. O login local admin/admin CONTINUA disponivel
+    # como fallback (nao desabilitamos o login form).
     auth.anonymous:
       enabled: false
+    # ---- SSO via Keycloak (realm nvit) ----
+    # O client_secret vem do Secret grafana-oidc (envFromSecret -> GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET).
+    auth.generic_oauth:
+      enabled: true
+      name: Keycloak
+      client_id: grafana
+      scopes: "openid email profile groups"
+      auth_url: "https://dev.nvit.com.br/auth/realms/nvit/protocol/openid-connect/auth"
+      token_url: "https://dev.nvit.com.br/auth/realms/nvit/protocol/openid-connect/token"
+      api_url: "https://dev.nvit.com.br/auth/realms/nvit/protocol/openid-connect/userinfo"
+      login_attribute_path: preferred_username
+      email_attribute_path: email
+      # Membros do grupo platform-admins viram Admin; demais, Viewer.
+      role_attribute_path: "contains(groups[*], 'platform-admins') && 'Admin' || 'Viewer'"
+      allow_assign_grafana_admin: true
+      use_pkce: true
 
   # ---------------------------------------------------------------------------
   # Persistencia

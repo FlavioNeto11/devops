@@ -1,0 +1,16 @@
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: grafana-oidc
+  namespace: observability
+spec:
+  encryptedData:
+    GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: AgCbRieQttMTx0hSZw6KBVVVb3Owac32ItuvEh/Dz+Gy9TCNjA+Bscoqi3zMPJv4FcxwM1xs8bcJgOczNyBhxzZThY+VdxddFg28H+sNMnG2s/CGXnw99AkkCX9bl7p5c5xfZ3yNVMIDC76Ard99JGfblCe1uQ3s5tb8MZogUuY95/kbWcnlwe7Sa5HYS8udDDRxJDAh7isj699Xj/t/DXLCrRXyCGi4x/VB/berQ7roIYneSuQRaOHNpiciZUuNQjX2tZEVgGzehRKhU2DG3C1tLfnhtYhIbvZFy5Uo5YXfpLug+tJPUCQmLy5JKmQKixfcn6kqvUSJvUucRGvFSZlbv18OGQUwW6q+b+zKa5ohcolc0My6PjVLBFZqbczb1cI3OLoov9VvHMRDIf1nHtmkG+sHj9MMBH74z+A5hCa15PLsj+K4N20+RJe2/SLFTSvAaZkB3+TQSNoCovz678nRmX778Cy3Rn6g6d8g/pR8uE6A6+bGgm/zdC4sk5SlJQlImYhH3DOqcCxe6AucqK3VSxtT1+FftCPVmjJdRefZNvo+vdbUfXA5rt2nSSemCq4p1gIqdGfbrDozxjHkkeRaC/MdmSOfHosYunnfL+XTvxCzoVE6g6TllGNdQihwQmdyUHprFkQieyYlyllaHwPoHOPmhh4M50z7IpUb/utWJJgjnUjanpEDlWEUgvhPRTa9elFXaXXgKulavco2vVFxJHjQnbrydfFfpJO/i7xyAw==
+  template:
+    metadata:
+      annotations:
+        sealedsecrets.bitnami.com/managed: "true"
+      name: grafana-oidc
+      namespace: observability
+    type: Opaque
