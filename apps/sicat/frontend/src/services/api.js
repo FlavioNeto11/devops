@@ -753,8 +753,11 @@ export function getJobById(jobId) {
 }
 
 export function sendConversationTurn(payload) {
+  // O turno conversacional pode acionar o agente de diagnóstico (loop multi-step com o LLM),
+  // levando bem mais que os 20s padrão. Damos folga generosa para não abortar respostas válidas.
   return request('/v1/conversations/turns', {
     method: 'POST',
+    timeoutMs: 90000,
     headers: {
       'Content-Type': 'application/json'
     },

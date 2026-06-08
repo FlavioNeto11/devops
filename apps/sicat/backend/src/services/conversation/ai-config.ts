@@ -93,10 +93,17 @@ export function isReasoningModel(model: string): boolean {
   return /^(gpt-5|o\d)/i.test(String(model || '').trim());
 }
 
-// Fábrica única de ChatOpenAI compatível com reasoning models: omite `temperature`
-// quando o modelo é de reasoning; mantém `temperature: 0` (determinístico) para os demais.
+// Fábrica única de ChatOpenAI compatível com reasoning models.
+// - Modelos comuns: temperature: 0 (determinístico).
+// - Modelos de reasoning (gpt-5*, o*): SEM temperature (só aceitam o default 1) e com
+//   `reasoning_effort` configurável. O esforço padrão deixa CADA chamada lenta (~10s) e o
+//   agente conversacional encadeia várias chamadas (loop ReAct), estourando o timeout. Por
+//   isso o default aqui é 'minimal' (~2-3s/chamada). Ajustável via OPENAI_REASONING_EFFORT
+//   (minimal|low|medium|high) sem rebuild de código.
 export function createChatModel(model: string, apiKey: string): ChatOpenAI {
-  return new ChatOpenAI(
-    isReasoningModel(model) ? { apiKey, model } : { apiKey, model, temperature: 0 }
-  );
+  if (!isReasoningModel(model)) {
+    return new ChatOpenAI({ apiKey, model, temperature: 0 });
+  }
+  const reasoningEffort = (process.env.OPENAI_REASONING_EFFORT || 'minimal').trim();
+  return new ChatOpenAI({ apiKey, model, modelKwargs: { reasoning_effort: reasoningEffort } });
 }
