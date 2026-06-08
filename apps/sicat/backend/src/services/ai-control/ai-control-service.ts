@@ -8,7 +8,7 @@ import {
   getConversationTelemetrySnapshot,
   getConversationOperationalReadiness
 } from '../conversation/conversation-observability.js';
-import { isKnowledgeIndexAvailable, KNOWLEDGE_EMBEDDING_MODEL } from '../conversation/knowledge/conversation-knowledge-service.js';
+import { getKnowledgeChunkCount, isKnowledgeIndexAvailable, KNOWLEDGE_EMBEDDING_MODEL } from '../conversation/knowledge/conversation-knowledge-service.js';
 import { getAiControlConfig, getLangfuseConfig } from './ai-control-config.js';
 import { getLangfuseStatus, getObservabilityProvider } from './ai-control-observability-service.js';
 import { listRuntimeTools } from './ai-tool-admin-service.js';
@@ -160,7 +160,7 @@ export async function getHealth(): Promise<AiControlHealth> {
       status: readiness.provider.status === 'degraded' ? 'degraded' : 'ready'
     },
     langfuse,
-    knowledge: { available: isKnowledgeIndexAvailable(), totalChunks: 0 },
+    knowledge: { available: isKnowledgeIndexAvailable(), totalChunks: getKnowledgeChunkCount() },
     database: { ok: dbOk, error: dbError }
   };
 }

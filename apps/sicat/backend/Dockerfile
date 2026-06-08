@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # =============================================================================
 # SICAT backend (Node 20 + TypeScript/ESM via tsx) - imagem UNICA usada por:
 #   - api    -> CMD npm start          (tsx src/server.ts, porta 8080)
@@ -16,6 +17,13 @@ COPY package*.json ./
 # tsx/typescript sao devDependencies mas necessarias em runtime -> inclui dev.
 RUN if [ -f package-lock.json ]; then npm ci --include=dev; else npm install; fi
 COPY . .
+# RAG: gera o indice de conhecimento (artifacts/conversation-knowledge-index.json) em BUILD-TIME.
+# As fontes (docs/copilot + docs/ai-chat) vem via COPY (des-ignoradas no .dockerignore).
+# A chave OpenAI vem via secret do BuildKit (NUNCA embarcada na imagem; o mount e efemero).
+# Sem o secret, a imagem builda sem indice (RAG degrada p/ vazio; reindex posterior popula).
+#   docker build --secret id=openai_key,src=<arquivo-com-a-chave> ...
+RUN --mount=type=secret,id=openai_key \
+    sh -c 'if [ -s /run/secrets/openai_key ]; then OPENAI_API_KEY="$(cat /run/secrets/openai_key)" npm run build:rag; else echo "[build:rag] sem secret openai_key -> indice nao gerado nesta build"; fi'
 ENV NODE_ENV=production \
     PORT=8080
 EXPOSE 8080

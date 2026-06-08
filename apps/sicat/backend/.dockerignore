@@ -14,7 +14,9 @@ dist
 tests
 test-results
 artifacts
-docs
+docs/*
+!docs/copilot
+!docs/ai-chat
 stitch
 examples
 memories

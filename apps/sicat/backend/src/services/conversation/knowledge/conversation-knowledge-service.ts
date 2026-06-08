@@ -106,6 +106,11 @@ export function isKnowledgeIndexAvailable(): boolean {
   return loadIndex() != null;
 }
 
+/** Quantidade de chunks no índice carregado (0 se ausente). Para health/observabilidade. */
+export function getKnowledgeChunkCount(): number {
+  return loadIndex()?.chunks.length ?? 0;
+}
+
 /**
  * Recupera os trechos de conhecimento mais relevantes para a consulta.
  * Retorna [] (sem erro) quando o índice ou a chave não estão disponíveis.
