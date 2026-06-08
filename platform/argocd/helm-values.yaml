@@ -123,14 +123,28 @@ configs:
   # Para o ambiente real futuro, troque para https://dev.nvit.com.br/argocd.
   # ---------------------------------------------------------------------------
   cm:
-    url: http://xpto.localhost/argocd
+    url: https://dev.nvit.com.br/argocd
+    # SSO via Keycloak (realm nvit). O clientSecret vem do Secret argocd-oidc
+    # (selado) referenciado por $<secret>:<key> (o secret leva label part-of: argocd).
+    oidc.config: |
+      name: Keycloak
+      issuer: https://dev.nvit.com.br/auth/realms/nvit
+      clientID: argocd
+      clientSecret: $argocd-oidc:client_secret
+      requestedScopes: ["openid", "profile", "email", "groups"]
+      requestedIDTokenClaims: {"groups": {"essential": true}}
 
   # ---------------------------------------------------------------------------
   # Politicas de RBAC (argocd-rbac-cm).
   # Em laboratorio mantemos a politica padrao (admin local). Defina aqui
   # 'policy.csv' e 'policy.default' quando integrar SSO/grupos.
   # ---------------------------------------------------------------------------
-  rbac: {}
+  rbac:
+    # Membros do grupo Keycloak 'platform-admins' viram admin no Argo CD.
+    # O usuario admin local continua existindo como fallback.
+    policy.csv: |
+      g, platform-admins, role:admin
+    scopes: "[groups]"
 
 # =============================================================================
 # COMO HABILITAR AUTO-SYNC (GitOps automatico) DEPOIS:
