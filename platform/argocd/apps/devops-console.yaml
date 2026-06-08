@@ -1,0 +1,34 @@
+# =============================================================================
+# Argo CD Application: devops-console — traz o Console (observacao read-only) + o
+# modulo Projetos & Tarefas (pm) para o GitOps.
+# -----------------------------------------------------------------------------
+# Fonte: console/k8s (kustomize; o subdir pm/ tem sua propria kustomization).
+# Os Secrets REAIS (pm-db) sao criados FORA do git (kubectl) e NAO entram no source
+# -> o Argo nunca os rastreia/pruna. Ver console/k8s/pm/pm-db.example.yaml.
+#
+# prune: FALSE de proposito — adocao de um deploy VIVO sem risco de delecao
+# (conservador; pode ser ligado depois que estabilizar). selfHeal mantem o vivo == git.
+# =============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: devops-console
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/FlavioNeto11/devops
+    path: console/k8s
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: devops-system
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

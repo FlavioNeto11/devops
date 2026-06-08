@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# DevOps Console (observacao read-only do cluster) + modulo Projetos & Tarefas (pm).
+# Os Secrets REAIS (pm-db) sao criados fora do git e NAO entram aqui — assim o Argo
+# (prune) nunca os toca. Ver console/k8s/pm/pm-db.example.yaml.
+#
+# Sem transformacoes (namespace/labels) no topo, para o render bater 1:1 com o que ja
+# foi aplicado via kubectl (gate de diff). O subdir pm/ traz sua propria kustomization.
+resources:
+  - serviceaccount.yaml
+  - rbac.yaml
+  - configmap.yaml
+  - backend-deployment.yaml
+  - backend-service.yaml
+  - frontend-deployment.yaml
+  - frontend-service.yaml
+  - middleware.yaml
+  - ingressroute.yaml
+  - pm
