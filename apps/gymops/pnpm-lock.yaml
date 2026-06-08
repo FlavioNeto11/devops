@@ -47,6 +47,9 @@ importers:
       '@fastify/rate-limit':
         specifier: ^9.1.0
         version: 9.1.0
+      '@flavioneto11/ai-kit':
+        specifier: file:../../vendor/flavioneto11-ai-kit-0.1.0.tgz
+        version: file:vendor/flavioneto11-ai-kit-0.1.0.tgz(openai@6.37.0(zod@3.25.76))
       '@gymops/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -764,6 +767,18 @@ packages:
 
   '@fastify/rate-limit@9.1.0':
     resolution: {integrity: sha512-h5dZWCkuZXN0PxwqaFQLxeln8/LNwQwH9popywmDCFdKfgpi4b/HoMH1lluy6P+30CG9yzzpSpwTCIPNB9T1JA==}
+
+  '@flavioneto11/ai-kit@file:vendor/flavioneto11-ai-kit-0.1.0.tgz':
+    resolution: {integrity: sha512-dDiff7Fhj/d15WWC3BeevbeIGUgX0D069Xc8uZEYETHWPRkAUVHcgVKuT+LbVNQVmUxfhxvYh4hi6LB0sYuBeg==, tarball: file:vendor/flavioneto11-ai-kit-0.1.0.tgz}
+    version: 0.1.0
+    peerDependencies:
+      '@langchain/openai': '>=0.3'
+      openai: '>=4'
+    peerDependenciesMeta:
+      '@langchain/openai':
+        optional: true
+      openai:
+        optional: true
 
   '@floating-ui/core@1.7.5':
     resolution: {integrity: sha512-1Ih4WTWyw0+lKyFMcBHGbb5U5FtuHJuujoyyr5zTaWS5EYMeT6Jb2AuDeftsCsEuchO+mM2ij5+q9crhydzLhQ==}
@@ -3963,6 +3978,10 @@ snapshots:
       '@lukeed/ms': 2.0.2
       fastify-plugin: 4.5.1
       toad-cache: 3.7.0
+
+  '@flavioneto11/ai-kit@file:vendor/flavioneto11-ai-kit-0.1.0.tgz(openai@6.37.0(zod@3.25.76))':
+    optionalDependencies:
+      openai: 6.37.0(zod@3.25.76)
 
   '@floating-ui/core@1.7.5':
     dependencies:

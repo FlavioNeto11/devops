@@ -1,5 +1,11 @@
 import OpenAI from 'openai';
 import { env } from '../env.js';
+import { callWithFallback, chatJSON as kitChatJSON, chatText as kitChatText } from '@flavioneto11/ai-kit';
+
+// Contrato gpt-5 centralizado em @flavioneto11/ai-kit (compartilhado com o SICAT).
+// Flag de rollback (ver docs/standards/deprecation-policy.md): AI_KIT=off volta ao
+// caminho inline legado por 1 ciclo, caso algo regrida.
+const AI_KIT_ENABLED = (process.env.AI_KIT ?? 'on').trim().toLowerCase() !== 'off';
 
 let _client: OpenAI | null = null;
 
@@ -18,6 +24,9 @@ const REASONING_EFFORT = (process.env.OPENAI_REASONING_EFFORT?.trim() || 'low') 
   | 'low'
   | 'medium'
   | 'high';
+// Modelo configurável via OPENAI_MODEL (default gpt-5-nano — liberado nesta conta).
+const defaultModel = (): string => process.env.OPENAI_MODEL?.trim() || 'gpt-5-nano';
+
 function isReasoningModel(model: string): boolean {
   return /^(gpt-5|o\d)/i.test(model);
 }
@@ -28,8 +37,11 @@ export async function callAI<T>(
   timeoutMs = SYNC_TIMEOUT_MS,
 ): Promise<T> {
   const client = getOpenAI();
+  if (AI_KIT_ENABLED) {
+    return callWithFallback(fn, fallback, timeoutMs, client);
+  }
+  // --- legado (AI_KIT=off) ---
   if (!client) return fallback;
-
   const start = Date.now();
   try {
     const result = await Promise.race([
@@ -56,10 +68,12 @@ export async function callAIAsync<T>(
 export async function chatJSON<T>(
   client: OpenAI,
   prompt: string,
-  // Modelo configuravel via OPENAI_MODEL (default gpt-5-nano — liberado nesta conta).
-  model: string = process.env.OPENAI_MODEL?.trim() || 'gpt-5-nano',
+  model: string = defaultModel(),
 ): Promise<unknown> {
-  // Modelos de reasoning (gpt-5*, o*) rejeitam temperature != 1 -> omitimos e usamos reasoning_effort.
+  if (AI_KIT_ENABLED) {
+    return kitChatJSON(client, prompt, { model, reasoningEffort: REASONING_EFFORT });
+  }
+  // --- legado (AI_KIT=off): modelos de reasoning rejeitam temperature -> omitimos ---
   const reasoning = isReasoningModel(model);
   const completion = await client.chat.completions.create({
     model,
@@ -78,8 +92,12 @@ export async function chatJSON<T>(
 export async function chatText(
   client: OpenAI,
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
-  model: string = process.env.OPENAI_MODEL?.trim() || 'gpt-5-nano',
+  model: string = defaultModel(),
 ): Promise<string> {
+  if (AI_KIT_ENABLED) {
+    return kitChatText(client, messages, { model, reasoningEffort: REASONING_EFFORT });
+  }
+  // --- legado (AI_KIT=off) ---
   const reasoning = isReasoningModel(model);
   const completion = await client.chat.completions.create({
     model,
