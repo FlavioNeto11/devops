@@ -47,13 +47,16 @@ export async function callAIAsync<T>(
 export async function chatJSON<T>(
   client: OpenAI,
   prompt: string,
-  model: 'gpt-4o-mini' | 'gpt-4o' = 'gpt-4o-mini',
+  // Modelo configuravel via OPENAI_MODEL (default gpt-5-nano — liberado nesta conta).
+  model: string = process.env.OPENAI_MODEL?.trim() || 'gpt-5-nano',
 ): Promise<unknown> {
+  // Modelos de reasoning (gpt-5*, o*) rejeitam temperature != 1 -> omitimos.
+  const isReasoning = /^(gpt-5|o\d)/i.test(model);
   const completion = await client.chat.completions.create({
     model,
     response_format: { type: 'json_object' },
     messages: [{ role: 'user', content: prompt }],
-    temperature: 0.3,
+    ...(isReasoning ? {} : { temperature: 0.3 }),
   });
   const content = completion.choices[0]?.message?.content ?? '{}';
   return JSON.parse(content) as unknown;

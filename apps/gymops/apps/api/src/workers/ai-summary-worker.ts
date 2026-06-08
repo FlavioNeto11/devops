@@ -83,7 +83,7 @@ export async function generateAndStoreDailySummary(unitId: string): Promise<Stor
   };
 
   const raw = await callAIAsync(
-    (client) => chatJSON(client, prompt, 'gpt-4o'),
+    (client) => chatJSON(client, prompt),
     fallback,
   );
 
