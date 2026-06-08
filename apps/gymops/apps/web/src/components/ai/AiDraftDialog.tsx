@@ -50,12 +50,12 @@ export function AiDraftDialog({ unitId, areas, onClose, onCreated }: Props) {
   });
 
   const createMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       if (!draft) throw new Error('No draft');
       const area = areas.find((a) => a.key === draft.areaKey) ?? areas[0];
       const dueAt = new Date();
       dueAt.setDate(dueAt.getDate() + editedDueDays);
-      return activitiesApi.create({
+      const res = await activitiesApi.create({
         organizationId: organizationId!,
         unitId,
         areaId: area?.id,
@@ -64,6 +64,15 @@ export function AiDraftDialog({ unitId, areas, onClose, onCreated }: Props) {
         priority: draft.priority,
         dueAt: dueAt.toISOString(),
       });
+      // Vincula o checklist sugerido pela IA à atividade recém-criada.
+      if (draft.checklist.length > 0 && res.data?.id) {
+        try {
+          await activitiesApi.createChecklist(res.data.id, 'Checklist sugerido pela IA', draft.checklist);
+        } catch {
+          /* não bloqueia a criação da atividade se o checklist falhar */
+        }
+      }
+      return res;
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['activities'] });

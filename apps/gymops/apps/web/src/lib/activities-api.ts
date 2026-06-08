@@ -129,8 +129,11 @@ export const activitiesApi = {
   addChecklistItem: (checklistId: string, text: string) =>
     api.post(`/checklists/${checklistId}/items`, { text }),
 
-  createChecklist: (activityId: string, title: string) =>
-    api.post<ApiResponse<{ id: string; title: string; order: number }>>(`/activities/${activityId}/checklists`, { title, items: [] }),
+  createChecklist: (activityId: string, title: string, items: string[] = []) =>
+    api.post<ApiResponse<{ id: string; title: string; order: number }>>(`/activities/${activityId}/checklists`, {
+      title,
+      items: items.map((text, order) => ({ text, order })),
+    }),
 
   getAttachments: (id: string) => api.get<ApiResponse<ActivityDetail['attachments']>>(`/activities/${id}/attachments`),
 
