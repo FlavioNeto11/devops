@@ -1,0 +1,55 @@
+# =============================================================================
+# Exemplo das keys OPCIONAIS (aditivas) do app-template para apps "SICAT-like".
+# Todas sao opcionais: apps que NAO as declaram nao sao afetados (render igual).
+#   helm template ./ -f values.advanced-example.yaml
+#
+# Cobre o que faltava para representar apps complexos no chart:
+#   - envFrom        : variaveis em massa de um Secret (ex.: <app>-config)
+#   - extraEnv       : env de um 2o Secret via valueFrom (ex.: DATABASE_URL)
+#   - volumes/Mounts : PVC (storage) e ConfigMap (certs)
+#   - strategy       : Recreate (em vez de RollingUpdate)
+#   - command        : override do entrypoint (ex.: worker reusando a imagem da api)
+# Ver docs/standards/sicat-helm-migration.md (gap analysis + procedimento seguro).
+# =============================================================================
+app: { name: meuapp, namespace: apps, host: xpto.localhost, basePath: /meuapp }
+registry: ''
+defaults:
+  imagePullPolicy: IfNotPresent
+  resources:
+    requests: { cpu: 25m, memory: 128Mi }
+    limits: { cpu: 1, memory: 1Gi }
+publish: { commitSha: local, branch: local, imageTag: local }
+
+services:
+  api:
+    type: api
+    path: /api
+    image: meuapp-api
+    tag: local
+    port: 8080
+    expose: true
+    stripPrefix: true
+    strategy: { type: Recreate }
+    envFrom:
+      - secretRef: { name: meuapp-config }
+    extraEnv:
+      - name: DATABASE_URL
+        valueFrom: { secretKeyRef: { name: meuapp-db, key: DATABASE_URL } }
+    volumeMounts:
+      - { name: storage, mountPath: /app/storage }
+      - { name: certs, mountPath: /app/certs, readOnly: true }
+    volumes:
+      - { name: storage, persistentVolumeClaim: { claimName: meuapp-storage } }
+      - { name: certs, configMap: { name: meuapp-certs } }
+    health: { path: /health }
+
+  worker:
+    type: worker
+    image: meuapp-api            # reusa a imagem da api
+    tag: local
+    port: 8081
+    expose: false
+    command: ["npm", "run", "worker"]
+    envFrom:
+      - secretRef: { name: meuapp-config }
+    health: { path: /health }

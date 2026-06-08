@@ -18,6 +18,10 @@ metadata:
     {{- include "app-template.publishAnnotations" $ | nindent 4 }}
 spec:
   replicas: {{ default 1 $svc.replicas }}
+  {{- with $svc.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "app-template.selectorLabels" (dict "root" $ "name" $name) | nindent 6 }}
@@ -32,16 +36,31 @@ spec:
         - name: {{ $name }}
           image: {{ include "app-template.image" (dict "root" $ "name" $name "svc" $svc) }}
           imagePullPolicy: {{ $.Values.defaults.imagePullPolicy }}
+          {{- with $svc.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $svc.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           ports:
             - name: http
               containerPort: {{ $svc.port }}
               protocol: TCP
-          {{- with $svc.env }}
+          {{- if or $svc.env $svc.extraEnv }}
           env:
-            {{- range $k, $v := . }}
+            {{- range $k, $v := $svc.env }}
             - name: {{ $k }}
               value: {{ $v | quote }}
             {{- end }}
+            {{- with $svc.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+          {{- with $svc.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- with $svc.health }}
           {{- if .path }}
@@ -65,5 +84,13 @@ spec:
           {{- end }}
           resources:
             {{- include "app-template.resources" (dict "root" $ "svc" $svc) | nindent 12 }}
+          {{- with $svc.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with $svc.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
 {{- end }}
 {{- end }}
