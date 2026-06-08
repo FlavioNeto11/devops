@@ -51,7 +51,12 @@ grafana:
       auth_url: "https://dev.nvit.com.br/auth/realms/nvit/protocol/openid-connect/auth"
       token_url: "https://dev.nvit.com.br/auth/realms/nvit/protocol/openid-connect/token"
       api_url: "https://dev.nvit.com.br/auth/realms/nvit/protocol/openid-connect/userinfo"
-      login_attribute_path: preferred_username
+      # Usar o EMAIL como login. O preferred_username deste realm vale "admin",
+      # que COLIDE com o usuario interno admin do Grafana e quebra o user.sync
+      # ("unable to create user: user not found"). Com email, o login vira
+      # admin@nvit.com.br (sem colisao). Aplicado ao vivo via env
+      # GF_AUTH_GENERIC_OAUTH_LOGIN_ATTRIBUTE_PATH=email ate o proximo helm upgrade.
+      login_attribute_path: email
       email_attribute_path: email
       # Membros do grupo platform-admins viram Admin; demais, Viewer.
       role_attribute_path: "contains(groups[*], 'platform-admins') && 'Admin' || 'Viewer'"
