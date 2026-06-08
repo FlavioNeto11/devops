@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Sparkles, X, Send, Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
 import { aiApi } from '@/lib/ai-api';
+import { useTutorialStore } from '@/features/tutorial/tutorial-store';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 
@@ -15,6 +16,10 @@ const SUGGESTIONS = ['Resumo de hoje', 'O que está atrasado?', 'Como crio uma a
  */
 export function AiChatWidget() {
   const organizationId = useAuthStore((s) => s.organizationId);
+  // Quando o convite de tour (OnboardingPrompt, canto inferior direito) está visível,
+  // ele ficaria por cima do botão da IA. Subimos o botão para não ser encoberto;
+  // sem nada atrapalhando, ele volta à posição padrão.
+  const onboardingVisible = useTutorialStore((s) => s.onboardingPromptVisible);
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
@@ -53,13 +58,15 @@ export function AiChatWidget() {
         onClick={() => setOpen((o) => !o)}
         aria-label="Assistente IA"
         data-tutorial="ai-assistant-button"
-        className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition hover:scale-105"
+        className={`fixed right-5 z-[60] flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-all duration-300 hover:scale-105 ${
+          onboardingVisible && !open ? 'bottom-48' : 'bottom-5'
+        }`}
       >
         {open ? <X className="h-6 w-6" /> : <Sparkles className="h-6 w-6" />}
       </button>
 
       {open && (
-        <div className="fixed bottom-24 right-5 z-50 flex h-[min(72vh,560px)] w-[min(92vw,400px)] flex-col overflow-hidden rounded-2xl border bg-background shadow-2xl">
+        <div className="fixed bottom-24 right-5 z-[60] flex h-[min(72vh,560px)] w-[min(92vw,400px)] flex-col overflow-hidden rounded-2xl border bg-background shadow-2xl">
           <div className="flex items-center gap-2 border-b bg-muted/40 px-4 py-3">
             <Sparkles className="h-5 w-5 text-primary" />
             <div className="flex-1">
