@@ -14,6 +14,8 @@ ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
     npm_config_fund=false
 RUN apk add --no-cache ca-certificates && update-ca-certificates
 COPY package*.json ./
+# Pacotes @flavioneto11/* vendorizados (dep file: no package.json) precisam existir ANTES do npm ci.
+COPY vendor ./vendor
 # tsx/typescript sao devDependencies mas necessarias em runtime -> inclui dev.
 RUN if [ -f package-lock.json ]; then npm ci --include=dev; else npm install; fi
 COPY . .

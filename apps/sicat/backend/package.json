@@ -63,6 +63,7 @@
     "smoke:ai-chat:dry-run": "node scripts/ai-smoke/run-sicat-ai-smoke.mjs --catalog docs/ai-chat/intents/sicat-chat-intent-catalog.sample.jsonl --dry-run"
   },
   "dependencies": {
+    "@flavioneto11/ai-kit": "file:vendor/flavioneto11-ai-kit-0.1.0.tgz",
     "@langchain/core": "^1.1.41",
     "@langchain/langgraph": "^1.2.9",
     "@langchain/openai": "^1.4.4",

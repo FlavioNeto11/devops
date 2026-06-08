@@ -1,5 +1,10 @@
 import { ChatOpenAI } from '@langchain/openai';
+import { buildChatOpenAIArgs, isReasoningModel as kitIsReasoningModel } from '@flavioneto11/ai-kit';
 import { AppError } from '../../lib/problem.js';
+
+// Contrato gpt-5 centralizado em @flavioneto11/ai-kit (compartilhado com o GymOps).
+// AI_KIT=off volta ao caminho inline legado (rollback de 1 ciclo; ver deprecation-policy).
+const AI_KIT_ENABLED = (process.env.AI_KIT ?? 'on').trim().toLowerCase() !== 'off';
 
 // Defaults alinhados aos ÚNICOS modelos liberados nesta conta (gpt-5, gpt-5-nano,
 // text-embedding-3-*). Assim, mesmo que uma env OPENAI_*_MODEL falte (nova app, deploy
@@ -93,6 +98,7 @@ export function getAiConfig(): AiConfig {
 // `max_completion_tokens`. Enviar `temperature: 0` resulta em 400 da OpenAI e derruba a
 // conversa em PROVIDER_UNAVAILABLE. Por isso, para esses modelos, NÃO enviamos temperature.
 export function isReasoningModel(model: string): boolean {
+  if (AI_KIT_ENABLED) return kitIsReasoningModel(model);
   return /^(gpt-5|o\d)/i.test(String(model || '').trim());
 }
 
@@ -104,6 +110,11 @@ export function isReasoningModel(model: string): boolean {
 //   isso o default aqui é 'minimal' (~2-3s/chamada). Ajustável via OPENAI_REASONING_EFFORT
 //   (minimal|low|medium|high) sem rebuild de código.
 export function createChatModel(model: string, apiKey: string): ChatOpenAI {
+  if (AI_KIT_ENABLED) {
+    const reasoningEffort = (process.env.OPENAI_REASONING_EFFORT || 'minimal').trim();
+    return new ChatOpenAI(buildChatOpenAIArgs(model, apiKey, { reasoningEffort }));
+  }
+  // --- legado (AI_KIT=off) ---
   if (!isReasoningModel(model)) {
     return new ChatOpenAI({ apiKey, model, temperature: 0 });
   }
