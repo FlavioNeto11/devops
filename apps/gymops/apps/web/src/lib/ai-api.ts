@@ -9,6 +9,7 @@ export interface ActivityDraft {
   priority: 'baixa' | 'media' | 'alta' | 'critica';
   suggestedDueDays: number;
   checklist: string[];
+  clarifyingQuestions?: string[];
   confidence: number;
   reasoning?: string;
 }
@@ -54,4 +55,10 @@ export const aiApi = {
 
   generateDailySummary: (unitId: string, organizationId: string) =>
     api.post<ApiResponse<DailySummary>>('/ai/summaries/daily', { unitId, organizationId }),
+
+  chat: (
+    message: string,
+    organizationId: string,
+    history?: Array<{ role: 'user' | 'assistant'; content: string }>,
+  ) => api.post<ApiResponse<{ reply: string }>>('/ai/chat', { message, organizationId, history }),
 };
