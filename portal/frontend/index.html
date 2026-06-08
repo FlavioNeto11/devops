@@ -3,150 +3,402 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NovaIT — Portal de Tecnologia</title>
-  <meta name="description" content="Portal de tecnologia da NovaIT — aplicações e ferramentas publicadas." />
+  <title>NovaIT — Engenharia de Software & Plataforma de Tecnologia</title>
+  <meta name="description" content="NovaIT — empresa de tecnologia e desenvolvimento de software. Engenharia cloud-native, automação, DevOps e inteligência aplicada. Conheça nossas plataformas e produtos." />
+  <meta name="theme-color" content="#070b18" />
+  <meta property="og:title" content="NovaIT — Tecnologia & Desenvolvimento" />
+  <meta property="og:description" content="Construímos software que opera o mundo real: plataformas cloud-native, DevOps e IA aplicada." />
+  <meta property="og:type" content="website" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
   <style>
     :root{
-      --bg:#0b1020; --bg2:#0f152b; --card:#151c34; --card2:#1b2542;
-      --txt:#e7ecf6; --muted:#93a0bd; --line:#26314f;
-      --accent:#5b8cff; --accent2:#8b5cf6; --ok:#34d399;
+      --bg:#070b18; --bg2:#0a1124; --bg3:#0d1530;
+      --surface:rgba(255,255,255,.035); --surface2:rgba(255,255,255,.06);
+      --line:rgba(255,255,255,.09); --line2:rgba(255,255,255,.14);
+      --txt:#eef2fb; --muted:#9aa9cb; --muted2:#7184a8;
+      --brand:#4f8cff; --brand2:#7c5cff; --accent:#22d3ee; --ok:#34d399;
+      --grad:linear-gradient(135deg,var(--brand),var(--brand2));
+      --grad-soft:linear-gradient(135deg,rgba(79,140,255,.16),rgba(124,92,255,.16));
+      --r:18px; --maxw:1180px;
     }
-    *{box-sizing:border-box} html,body{margin:0}
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    html,body{margin:0}
     body{
-      font-family:system-ui,Segoe UI,Roboto,sans-serif; color:var(--txt);
-      background:
-        radial-gradient(1100px 500px at 80% -10%, rgba(91,140,255,.18), transparent 60%),
-        radial-gradient(900px 500px at -10% 10%, rgba(139,92,246,.16), transparent 55%),
-        var(--bg);
-      min-height:100vh;
+      font-family:'Inter',system-ui,Segoe UI,Roboto,sans-serif;
+      color:var(--txt); background:var(--bg); line-height:1.6;
+      -webkit-font-smoothing:antialiased; overflow-x:hidden;
     }
-    .wrap{max-width:1100px;margin:0 auto;padding:0 24px}
-    header{display:flex;align-items:center;justify-content:space-between;padding:22px 0}
-    .brand{display:flex;align-items:center;gap:12px;font-weight:800;font-size:1.45rem;letter-spacing:.3px}
-    .brand .logo{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;
-      background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-weight:900}
-    .brand b{color:var(--accent)}
-    nav a{color:var(--muted);text-decoration:none;margin-left:18px;font-size:.95rem}
-    nav a:hover{color:var(--txt)}
-    .hero{padding:42px 0 18px}
-    .hero h1{font-size:2.3rem;margin:.2rem 0;line-height:1.15}
-    .hero h1 span{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
-    .hero p{color:var(--muted);font-size:1.08rem;max-width:680px}
-    .section{margin:30px 0}
-    .section h2{font-size:1.15rem;margin:0 0 4px;display:flex;align-items:center;gap:10px}
-    .section .sub{color:var(--muted);font-size:.9rem;margin:0 0 16px}
-    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
-    .card{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--line);
-      border-radius:16px;padding:18px;transition:transform .12s ease,border-color .12s ease}
-    .card:hover{transform:translateY(-3px);border-color:var(--accent)}
-    .card .top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-    .card h3{margin:0;font-size:1.1rem;text-transform:capitalize}
-    .dot{width:9px;height:9px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 4px rgba(52,211,153,.16)}
-    .muted{color:var(--muted);font-size:.85rem;margin:.1rem 0 .8rem;word-break:break-all}
-    .btn{display:inline-block;margin-top:6px;padding:9px 14px;border-radius:10px;font-weight:600;font-size:.9rem;
-      text-decoration:none;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2))}
-    .btn:hover{filter:brightness(1.08)}
-    .links{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px}
-    .links a{font-size:.8rem;color:var(--accent);text-decoration:none;border:1px solid var(--line);
-      padding:4px 9px;border-radius:8px}
-    .links a:hover{border-color:var(--accent)}
-    .tool .ti{font-size:1.5rem}
-    footer{color:var(--muted);font-size:.85rem;text-align:center;padding:34px 0;border-top:1px solid var(--line);margin-top:30px}
-    .pill{font-size:.72rem;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 9px}
-    #status{font-size:.8rem;color:var(--muted)}
+    h1,h2,h3,.brand-name{font-family:'Sora','Inter',sans-serif;letter-spacing:-.02em;line-height:1.1}
+    a{color:inherit}
+    .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+    .grad-txt{background:linear-gradient(100deg,var(--brand),var(--accent) 60%,var(--brand2));-webkit-background-clip:text;background-clip:text;color:transparent}
+
+    /* ── animated background ─────────────────────────────────── */
+    .bg-fx{position:fixed;inset:0;z-index:-2;overflow:hidden;background:
+      radial-gradient(1200px 700px at 78% -8%, rgba(79,140,255,.20), transparent 60%),
+      radial-gradient(1000px 600px at -6% 8%, rgba(124,92,255,.18), transparent 55%),
+      radial-gradient(900px 700px at 50% 120%, rgba(34,211,238,.10), transparent 60%),
+      var(--bg);}
+    .orb{position:absolute;border-radius:50%;filter:blur(70px);opacity:.5;animation:float 18s ease-in-out infinite}
+    .orb.a{width:480px;height:480px;background:radial-gradient(circle,#4f8cff,transparent 70%);top:-120px;right:-80px}
+    .orb.b{width:420px;height:420px;background:radial-gradient(circle,#7c5cff,transparent 70%);top:40%;left:-140px;animation-delay:-6s}
+    .orb.c{width:360px;height:360px;background:radial-gradient(circle,#22d3ee,transparent 70%);bottom:-120px;right:20%;animation-delay:-11s}
+    @keyframes float{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(30px,-40px) scale(1.08)}66%{transform:translate(-25px,25px) scale(.95)}}
+    .grid-fx{position:fixed;inset:0;z-index:-1;pointer-events:none;
+      background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
+      background-size:54px 54px;mask-image:radial-gradient(circle at 50% 30%,#000 0%,transparent 75%);-webkit-mask-image:radial-gradient(circle at 50% 30%,#000 0%,transparent 75%)}
+
+    /* ── header ──────────────────────────────────────────────── */
+    header{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);background:rgba(7,11,24,.55);border-bottom:1px solid transparent;transition:border-color .3s,background .3s}
+    header.scrolled{border-color:var(--line);background:rgba(7,11,24,.82)}
+    .nav{display:flex;align-items:center;justify-content:space-between;padding:15px 0}
+    .brand{display:flex;align-items:center;gap:12px;text-decoration:none}
+    .logo{width:40px;height:40px;flex:0 0 auto}
+    .brand-name{font-weight:800;font-size:1.4rem}
+    .brand-name b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .nav-links{display:flex;align-items:center;gap:26px}
+    .nav-links a{color:var(--muted);text-decoration:none;font-size:.93rem;font-weight:500;transition:color .2s}
+    .nav-links a:hover{color:var(--txt)}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:11px 20px;border-radius:12px;font-weight:600;font-size:.92rem;
+      text-decoration:none;color:#fff;background:var(--grad);border:none;cursor:pointer;transition:transform .15s,box-shadow .15s;
+      box-shadow:0 8px 24px -8px rgba(79,140,255,.6)}
+    .btn:hover{transform:translateY(-2px);box-shadow:0 14px 32px -8px rgba(79,140,255,.7)}
+    .btn.ghost{background:var(--surface2);box-shadow:none;border:1px solid var(--line2);color:var(--txt)}
+    .btn.ghost:hover{border-color:var(--brand);box-shadow:0 8px 24px -10px rgba(79,140,255,.5)}
+    .btn.sm{padding:9px 15px;font-size:.85rem}
+    @media(max-width:820px){.nav-links a:not(.btn){display:none}}
+
+    /* ── hero ────────────────────────────────────────────────── */
+    .hero{padding:78px 0 56px;position:relative}
+    .pill{display:inline-flex;align-items:center;gap:9px;font-size:.8rem;font-weight:500;color:var(--muted);
+      border:1px solid var(--line2);background:var(--surface);border-radius:999px;padding:7px 15px;margin-bottom:26px}
+    .pill .live{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 rgba(52,211,153,.6);animation:pulse 2s infinite}
+    @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(52,211,153,.55)}70%{box-shadow:0 0 0 9px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
+    .hero h1{font-size:clamp(2.5rem,6vw,4.3rem);font-weight:800;margin:0 0 20px;max-width:14ch}
+    .hero .lead{font-size:clamp(1.05rem,2vw,1.32rem);color:var(--muted);max-width:62ch;margin:0 0 34px}
+    .hero-cta{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:54px}
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:22px;max-width:760px;padding-top:30px;border-top:1px solid var(--line)}
+    .stat .n{font-family:'Sora',sans-serif;font-size:clamp(1.7rem,3.4vw,2.4rem);font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .stat .l{font-size:.85rem;color:var(--muted2);margin-top:2px}
+    @media(max-width:680px){.stats{grid-template-columns:repeat(2,1fr);gap:18px}}
+
+    /* ── sections ────────────────────────────────────────────── */
+    section.block{padding:64px 0;position:relative}
+    .eyebrow{font-size:.82rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--brand);margin:0 0 12px}
+    .block h2{font-size:clamp(1.8rem,3.6vw,2.7rem);font-weight:800;margin:0 0 14px;max-width:18ch}
+    .block .intro{color:var(--muted);font-size:1.08rem;max-width:60ch;margin:0 0 40px}
+    .sec-head{margin-bottom:8px}
+
+    .grid{display:grid;gap:20px}
+    .g3{grid-template-columns:repeat(3,1fr)}
+    .g2{grid-template-columns:repeat(2,1fr)}
+    @media(max-width:900px){.g3{grid-template-columns:1fr 1fr}}
+    @media(max-width:620px){.g3,.g2{grid-template-columns:1fr}}
+
+    .card{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:26px;
+      transition:transform .25s cubic-bezier(.2,.7,.2,1),border-color .25s,background .25s;overflow:hidden}
+    .card::before{content:"";position:absolute;inset:0;border-radius:var(--r);padding:1px;background:var(--grad);
+      -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;
+      opacity:0;transition:opacity .25s}
+    .card:hover{transform:translateY(-6px);background:var(--surface2)}
+    .card:hover::before{opacity:.9}
+
+    /* product cards */
+    .prod .ic{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;margin-bottom:18px;background:var(--grad-soft);border:1px solid var(--line2)}
+    .prod .ic svg{width:26px;height:26px;stroke:#cfe0ff}
+    .prod .role{font-size:.74rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin:0 0 6px}
+    .prod h3{font-size:1.35rem;font-weight:700;margin:0 0 10px}
+    .prod p{color:var(--muted);font-size:.96rem;margin:0 0 18px;min-height:66px}
+    .tags{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:20px}
+    .tag{font-size:.74rem;color:var(--muted);border:1px solid var(--line);border-radius:7px;padding:4px 10px;background:rgba(255,255,255,.02)}
+    .prod .actions{display:flex;align-items:center;gap:14px}
+    .prod .actions a.more{font-size:.83rem;color:var(--muted);text-decoration:none;border-bottom:1px dashed var(--line2);padding-bottom:1px}
+    .prod .actions a.more:hover{color:var(--accent);border-color:var(--accent)}
+
+    /* capability cards */
+    .cap{padding:24px}
+    .cap .ic{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;margin-bottom:16px;background:var(--surface2);border:1px solid var(--line)}
+    .cap .ic svg{width:23px;height:23px;stroke:var(--brand)}
+    .cap h3{font-size:1.08rem;font-weight:700;margin:0 0 7px}
+    .cap p{color:var(--muted);font-size:.9rem;margin:0}
+
+    /* tool cards */
+    .tools{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+    @media(max-width:900px){.tools{grid-template-columns:1fr 1fr}}
+    @media(max-width:560px){.tools{grid-template-columns:1fr}}
+    .tool{display:flex;flex-direction:column;gap:6px;padding:22px}
+    .tool .th{display:flex;align-items:center;gap:11px;margin-bottom:4px}
+    .tool .th svg{width:22px;height:22px;stroke:#cfe0ff;flex:0 0 auto}
+    .tool h3{font-size:1.05rem;font-weight:700;margin:0}
+    .tool p{color:var(--muted);font-size:.86rem;margin:0 0 14px;flex:1}
+    .tool a.open{font-size:.85rem;font-weight:600;color:var(--brand);text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+    .tool a.open:hover{color:var(--accent)}
+    .tool a.open svg{width:15px;height:15px;stroke:currentColor;transition:transform .2s}
+    .tool a.open:hover svg{transform:translateX(3px)}
+
+    /* CTA band */
+    .cta{position:relative;border:1px solid var(--line2);border-radius:26px;padding:54px;text-align:center;overflow:hidden;
+      background:linear-gradient(135deg,rgba(79,140,255,.14),rgba(124,92,255,.12)),var(--bg2)}
+    .cta h2{font-size:clamp(1.7rem,3.4vw,2.4rem);margin:0 0 14px}
+    .cta p{color:var(--muted);max-width:54ch;margin:0 auto 28px;font-size:1.05rem}
+    .cta .hero-cta{justify-content:center;margin-bottom:0}
+
+    /* footer */
+    footer{border-top:1px solid var(--line);margin-top:30px;padding:48px 0 36px}
+    .foot{display:flex;justify-content:space-between;gap:30px;flex-wrap:wrap}
+    .foot .col{max-width:320px}
+    .foot .brand{margin-bottom:14px}
+    .foot p{color:var(--muted2);font-size:.9rem;margin:0}
+    .foot h4{font-size:.78rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 0 12px}
+    .foot a{display:block;color:var(--muted);text-decoration:none;font-size:.92rem;margin-bottom:9px;transition:color .2s}
+    .foot a:hover{color:var(--txt)}
+    .foot-bottom{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;border-top:1px solid var(--line);margin-top:38px;padding-top:24px;color:var(--muted2);font-size:.85rem}
+
+    /* reveal */
+    .reveal{opacity:0;transform:translateY(26px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1)}
+    .reveal.in{opacity:1;transform:none}
+    @media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none}.orb{animation:none}}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <div class="brand"><span class="logo">N</span> nova<b>IT</b></div>
-      <nav>
-        <a href="/devops">Console</a>
-        <a href="/grafana">Grafana</a>
-        <a href="/argocd">Argo CD</a>
+  <div class="bg-fx"><span class="orb a"></span><span class="orb b"></span><span class="orb c"></span></div>
+  <div class="grid-fx"></div>
+
+  <header id="hdr">
+    <div class="wrap nav">
+      <a class="brand" href="/">
+        <svg class="logo" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs><linearGradient id="lg" x1="0" y1="0" x2="48" y2="48"><stop stop-color="#4f8cff"/><stop offset="1" stop-color="#7c5cff"/></linearGradient></defs>
+          <rect x="2" y="2" width="44" height="44" rx="13" fill="url(#lg)"/>
+          <path d="M14 34V14l20 20V14" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="brand-name">nova<b>IT</b></span>
+      </a>
+      <nav class="nav-links">
+        <a href="#produtos">Produtos</a>
+        <a href="#capacidades">Capacidades</a>
+        <a href="#plataforma">Plataforma</a>
+        <a class="btn sm" href="#produtos">Acessar sistemas</a>
       </nav>
-    </header>
+    </div>
+  </header>
 
+  <main>
+    <!-- ── HERO ─────────────────────────────────────────────── -->
     <section class="hero">
-      <span class="pill">Plataforma DevOps · NovaIT</span>
-      <h1>Portal de <span>Tecnologia</span></h1>
-      <p>Aplicações e serviços publicados pela esteira de desenvolvimento da NovaIT.
-         A lista abaixo é <b>dinâmica</b> — novos sistemas aparecem automaticamente assim que são publicados.</p>
-    </section>
-
-    <section class="section">
-      <h2>🚀 Aplicações publicadas</h2>
-      <p class="sub" id="status">Carregando aplicações…</p>
-      <div class="grid" id="apps"></div>
-    </section>
-
-    <section class="section">
-      <h2>🛠️ Plataforma &amp; Ferramentas</h2>
-      <p class="sub">Operação, observabilidade e entrega contínua.</p>
-      <div class="grid">
-        <div class="card tool">
-          <div class="top"><span class="ti">📊</span><h3>DevOps Console</h3></div>
-          <p class="muted">Pods, deployments, rotas, logs e publicações em tempo real.</p>
-          <a class="btn" href="/devops">Abrir Console</a>
+      <div class="wrap">
+        <span class="pill reveal"><span class="live"></span> Plataforma cloud-native em produção</span>
+        <h1 class="reveal">Tecnologia que <span class="grad-txt">opera o mundo real</span></h1>
+        <p class="lead reveal">A NovaIT projeta, constrói e opera software de missão crítica — plataformas
+          cloud-native, automação e inteligência aplicada que transformam operações complexas em sistemas simples de usar.</p>
+        <div class="hero-cta reveal">
+          <a class="btn" href="#produtos">Conhecer nossos produtos
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </a>
+          <a class="btn ghost" href="#capacidades">O que fazemos</a>
         </div>
-        <div class="card tool">
-          <div class="top"><span class="ti">📈</span><h3>Grafana</h3></div>
-          <p class="muted">Métricas do cluster (CPU/memória, pods, deployments).</p>
-          <a class="btn" href="/grafana">Abrir Grafana</a>
-        </div>
-        <div class="card tool">
-          <div class="top"><span class="ti">🔁</span><h3>Argo CD</h3></div>
-          <p class="muted">GitOps — sincronização e histórico de implantações.</p>
-          <a class="btn" href="/argocd">Abrir Argo CD</a>
+        <div class="stats reveal">
+          <div class="stat"><div class="n">3</div><div class="l">plataformas em produção</div></div>
+          <div class="stat"><div class="n">100%</div><div class="l">GitOps &amp; automação</div></div>
+          <div class="stat"><div class="n">K8s</div><div class="l">arquitetura cloud-native</div></div>
+          <div class="stat"><div class="n">SSO</div><div class="l">identidade unificada</div></div>
         </div>
       </div>
     </section>
 
-    <footer>
-      © <span id="yr"></span> NovaIT — Tecnologia &amp; Desenvolvimento ·
-      Plataforma DevOps local <span id="meta"></span>
-    </footer>
-  </div>
+    <!-- ── PRODUTOS ─────────────────────────────────────────── -->
+    <section class="block" id="produtos">
+      <div class="wrap">
+        <div class="sec-head reveal">
+          <p class="eyebrow">Produtos &amp; Plataformas</p>
+          <h2>Sistemas que entregamos e operamos</h2>
+          <p class="intro">Cada solução roda na nossa plataforma de engenharia: entrega contínua, observabilidade
+            e segurança de ponta a ponta. Clique para acessar.</p>
+        </div>
+        <div class="grid g3">
+
+          <article class="card prod reveal">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 6v6c0 5 3.4 7.7 8 10 4.6-2.3 8-5 8-10V6l-8-4Z"/><path d="m9 12 2 2 4-4"/></svg></div>
+            <p class="role">Gestão Ambiental &amp; Conformidade</p>
+            <h3>SICAT</h3>
+            <p>Plataforma de gestão de licenciamento ambiental, MTR e conformidade regulatória (CETESB),
+              com assistente conversacional de IA que orienta o operador em cada etapa.</p>
+            <div class="tags"><span class="tag">Ambiental</span><span class="tag">IA conversacional</span><span class="tag">CETESB · MTR</span></div>
+            <div class="actions">
+              <a class="btn sm" href="/sicat" target="_blank" rel="noopener">Acessar SICAT</a>
+              <a class="more" href="/sicat/conversacional/chat" target="_blank" rel="noopener">Assistente IA</a>
+            </div>
+          </article>
+
+          <article class="card prod reveal">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6"/></svg></div>
+            <p class="role">Portal Institucional</p>
+            <h3>RM Ambiental</h3>
+            <p>Portal institucional premium da RM Ambiental Brasil — soluções ambientais, georreferenciamento,
+              galeria de projetos e canais de contato, com identidade visual rica e tema claro/escuro.</p>
+            <div class="tags"><span class="tag">Institucional</span><span class="tag">Web premium</span><span class="tag">SPA React</span></div>
+            <div class="actions">
+              <a class="btn sm" href="/rmambiental" target="_blank" rel="noopener">Acessar portal</a>
+            </div>
+          </article>
+
+          <article class="card prod reveal">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5 17.5 17.5M3 12l1.5-1.5M19.5 13.5 21 12M7.5 3 9 4.5M15 19.5 16.5 21M4.5 9.5l5 5M14.5 9.5l-5 5"/></svg></div>
+            <p class="role">Gestão Operacional</p>
+            <h3>GymOps</h3>
+            <p>Gestão operacional multiunidade para academias e redes: atividades, checklists inteligentes,
+              recorrências e uma IA assistiva que cria, sugere e acompanha tudo em linguagem natural.</p>
+            <div class="tags"><span class="tag">Multiunidade</span><span class="tag">IA assistiva</span><span class="tag">PWA · Next.js</span></div>
+            <div class="actions">
+              <a class="btn sm" href="/gymops" target="_blank" rel="noopener">Acessar GymOps</a>
+            </div>
+          </article>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ── CAPACIDADES ──────────────────────────────────────── -->
+    <section class="block" id="capacidades">
+      <div class="wrap">
+        <div class="sec-head reveal">
+          <p class="eyebrow">O que fazemos</p>
+          <h2>Engenharia de ponta a ponta</h2>
+          <p class="intro">Da arquitetura ao deploy, da segurança à inteligência — um time full-stack
+            que domina toda a cadeia de entrega de software.</p>
+        </div>
+        <div class="grid g3">
+          <article class="card cap reveal">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 6-6 6 6 6M16 6l6 6-6 6"/></svg></div>
+            <h3>Engenharia de Software</h3>
+            <p>Aplicações web, APIs e produtos sob medida com TypeScript, React, Next.js e Node — código limpo, testado e escalável.</p>
+          </article>
+          <article class="card cap reveal">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 .5-9 6 6 0 0 0-11.6-1.5A4 4 0 0 0 6 19h11.5Z"/></svg></div>
+            <h3>Cloud-Native &amp; Kubernetes</h3>
+            <p>Arquiteturas containerizadas, orquestração com Kubernetes e malha de roteamento moderna, prontas para escalar.</p>
+          </article>
+          <article class="card cap reveal">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M6 9v6M21 6a9 9 0 0 1-9 9"/></svg></div>
+            <h3>DevOps &amp; GitOps</h3>
+            <p>Entrega contínua automatizada, infraestrutura como código e implantações versionadas, rastreáveis e reversíveis.</p>
+          </article>
+          <article class="card cap reveal">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v2M12 19v2M5 12H3M21 12h-2M6 6l1.5 1.5M16.5 16.5 18 18M18 6l-1.5 1.5M7.5 16.5 6 18"/><circle cx="12" cy="12" r="3.5"/></svg></div>
+            <h3>Inteligência Artificial</h3>
+            <p>Copilotos e assistentes generativos integrados ao negócio — RAG, automações e fluxos conversacionais que reduzem erros.</p>
+          </article>
+          <article class="card cap reveal">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
+            <h3>Segurança &amp; Identidade</h3>
+            <p>SSO/OIDC unificado, gestão de segredos criptografados e boas práticas de segurança aplicadas por padrão.</p>
+          </article>
+          <article class="card cap reveal">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 3-4 3 3 5-7"/></svg></div>
+            <h3>Observabilidade</h3>
+            <p>Métricas, logs e dashboards em tempo real para operar com previsibilidade e responder a incidentes em minutos.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── PLATAFORMA / FERRAMENTAS ─────────────────────────── -->
+    <section class="block" id="plataforma">
+      <div class="wrap">
+        <div class="sec-head reveal">
+          <p class="eyebrow">Plataforma &amp; Operação</p>
+          <h2>A infraestrutura por trás de tudo</h2>
+          <p class="intro">Toda solução da NovaIT roda sobre a mesma plataforma operacional — observada,
+            versionada e segura. Painéis de operação:</p>
+        </div>
+        <div class="tools">
+          <article class="card tool reveal">
+            <div class="th"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg><h3>DevOps Console</h3></div>
+            <p>Pods, deployments, rotas, logs e publicações do cluster em tempo real.</p>
+            <a class="open" href="/devops" target="_blank" rel="noopener">Abrir <svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          </article>
+          <article class="card tool reveal">
+            <div class="th"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 13 3-3 3 2 5-6"/></svg><h3>Grafana</h3></div>
+            <p>Métricas e observabilidade do cluster: CPU, memória, pods e serviços.</p>
+            <a class="open" href="/grafana" target="_blank" rel="noopener">Abrir <svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          </article>
+          <article class="card tool reveal">
+            <div class="th"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M6 9v6M21 6a9 9 0 0 1-9 9"/></svg><h3>Argo CD</h3></div>
+            <p>Entrega contínua GitOps: sincronização e histórico de implantações.</p>
+            <a class="open" href="/argocd" target="_blank" rel="noopener">Abrir <svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          </article>
+          <article class="card tool reveal">
+            <div class="th"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><h3>Keycloak</h3></div>
+            <p>Identidade e Single Sign-On (OIDC) unificado para toda a plataforma.</p>
+            <a class="open" href="/auth" target="_blank" rel="noopener">Abrir <svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── CTA ──────────────────────────────────────────────── -->
+    <section class="block">
+      <div class="wrap">
+        <div class="cta reveal">
+          <h2>Vamos construir o próximo sistema?</h2>
+          <p>Da ideia ao deploy: a NovaIT desenha, desenvolve e opera a tecnologia que o seu negócio precisa.</p>
+          <div class="hero-cta">
+            <a class="btn" href="mailto:contato@nvit.com.br">Falar com a NovaIT
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </a>
+            <a class="btn ghost" href="#produtos">Ver produtos</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ── FOOTER ───────────────────────────────────────────── -->
+  <footer>
+    <div class="wrap">
+      <div class="foot">
+        <div class="col">
+          <a class="brand" href="/">
+            <svg class="logo" viewBox="0 0 48 48" fill="none" aria-hidden="true"><rect x="2" y="2" width="44" height="44" rx="13" fill="url(#lg)"/><path d="M14 34V14l20 20V14" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="brand-name">nova<b>IT</b></span>
+          </a>
+          <p>Tecnologia &amp; desenvolvimento de software. Construímos plataformas cloud-native, automação e inteligência aplicada.</p>
+        </div>
+        <div class="col">
+          <h4>Produtos</h4>
+          <a href="/sicat" target="_blank" rel="noopener">SICAT — Gestão Ambiental</a>
+          <a href="/rmambiental" target="_blank" rel="noopener">RM Ambiental — Portal</a>
+          <a href="/gymops" target="_blank" rel="noopener">GymOps — Gestão Operacional</a>
+        </div>
+        <div class="col">
+          <h4>Plataforma</h4>
+          <a href="/devops" target="_blank" rel="noopener">DevOps Console</a>
+          <a href="/grafana" target="_blank" rel="noopener">Grafana</a>
+          <a href="/argocd" target="_blank" rel="noopener">Argo CD</a>
+          <a href="/auth" target="_blank" rel="noopener">Keycloak (SSO)</a>
+        </div>
+      </div>
+      <div class="foot-bottom">
+        <span>© <span id="yr"></span> NovaIT — Tecnologia &amp; Desenvolvimento</span>
+        <span>dev.nvit.com.br · Plataforma cloud-native · Kubernetes &amp; GitOps</span>
+      </div>
+    </div>
+  </footer>
 
   <script>
     document.getElementById('yr').textContent = new Date().getFullYear();
-    const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
-
-    async function loadApps(){
-      const grid = document.getElementById('apps');
-      const status = document.getElementById('status');
-      try{
-        // Lê o cluster pela API somente-leitura do DevOps Console.
-        const res = await fetch('/devops/api/ingressroutes', {cache:'no-store'});
-        if(!res.ok) throw new Error('HTTP '+res.status);
-        const list = await res.json();
-        // Apps de negócio ficam no namespace "apps".
-        const apps = list.filter(x => x.namespace === 'apps');
-        if(!apps.length){
-          status.textContent = 'Nenhuma aplicação publicada ainda.';
-          grid.innerHTML=''; return;
-        }
-        apps.sort((a,b)=> a.name.localeCompare(b.name));
-        status.textContent = apps.length + ' aplicação(ões) publicada(s) · atualizado ' + new Date().toLocaleTimeString('pt-BR');
-        grid.innerHTML = apps.map(a => {
-          const paths = [...new Set(a.paths||[])].sort((x,y)=> x.length - y.length);
-          const main = paths[0] || '/';
-          const extras = paths.slice(1);
-          const hosts = (a.hosts||[]).join(' · ');
-          return `<div class="card">
-            <div class="top"><span class="dot"></span><h3>${cap(a.name)}</h3></div>
-            <p class="muted">${hosts}</p>
-            <a class="btn" href="${main}" target="_blank" rel="noopener">Acessar</a>
-            <div class="links">${extras.map(p=>`<a href="${p}" target="_blank" rel="noopener">${p}</a>`).join('')}</div>
-          </div>`;
-        }).join('');
-      }catch(e){
-        status.textContent = 'Não foi possível carregar a lista agora (Console indisponível).';
-        grid.innerHTML = '';
-      }
-    }
-    loadApps();
-    setInterval(loadApps, 30000); // dinâmico: re-checa a cada 30s
+    // header elevation on scroll
+    const hdr = document.getElementById('hdr');
+    const onScroll = () => hdr.classList.toggle('scrolled', window.scrollY > 12);
+    onScroll(); window.addEventListener('scroll', onScroll, {passive:true});
+    // reveal on scroll
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => { if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, {threshold:.12, rootMargin:'0px 0px -8% 0px'});
+    document.querySelectorAll('.reveal').forEach((el, i) => { el.style.transitionDelay = (Math.min(i,6)*55) + 'ms'; io.observe(el); });
   </script>
 </body>
 </html>

@@ -1,9 +1,0 @@
-{
-  "name": "aplicacao1-worker",
-  "version": "1.0.0",
-  "description": "Worker de background de exemplo da aplicacao1 (sem dependencias externas)",
-  "main": "worker.js",
-  "scripts": {
-    "start": "node worker.js"
-  }
-}
