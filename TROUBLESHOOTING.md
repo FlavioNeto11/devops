@@ -446,6 +446,45 @@ Solucoes (qualquer uma):
 
 ---
 
+## 15. Keycloak (SSO) e cofre de segredos (Sealed Secrets)
+
+Detalhes completos em `docs/sso-keycloak.md`. Gotchas mais comuns:
+
+### 15.1 Keycloak sob subpath `/auth`: issuer/probes errados
+
+- **Probes 404 em `:9000/health/ready`**: com `KC_HTTP_RELATIVE_PATH=/auth`, o health da
+  interface de management TAMBEM vai para `/auth` → use **`/auth/health/ready`** e
+  **`/auth/health/live`** (porta `management` 9000), nao `/health/...`.
+- **Issuer sem `/auth`** (`.../realms/x` em vez de `.../auth/realms/x`): defina
+  **`KC_HOSTNAME=https://dev.nvit.com.br/auth`** (com o path), junto de
+  `KC_HTTP_RELATIVE_PATH=/auth`. Confira em
+  `.../auth/realms/<realm>/.well-known/openid-configuration` (`issuer`).
+- **URLs http atras do proxy**: `KC_PROXY_HEADERS=xforwarded` + `KC_HTTP_ENABLED=true`
+  + `KC_HOSTNAME` com `https://` no inicio.
+
+### 15.2 `helm upgrade` falha: conflito de field-manager em Secret (SSA)
+
+Sintoma: `UPGRADE FAILED: conflict ... Kind=Secret ... conflict with "kubectl-patch" using v1: .data.admin-password`.
+Causa: o Secret teve um campo alterado por `kubectl patch`/`apply` e o Server-Side Apply
+do Helm se recusa a sobrescrever um campo de outro field-manager. Resetar os
+`managedFields` nem sempre resolve. **Solucao que funciona**: deletar o Secret e re-rodar
+o upgrade (o chart o recria, agora dono dele):
+
+```powershell
+kubectl -n <ns> delete secret <nome-do-secret>
+helm upgrade --install <release> <chart> -n <ns> --version <v> -f <values>   # recria limpo
+```
+(Pods em execucao nao sao afetados pela delecao; o upgrade recria o Secret e faz o rollout.)
+
+### 15.3 Sealed Secrets nao "adota" um Secret existente
+
+O controller nao sobrescreve um Secret criado a mao (protecao). Anote-o com
+`sealedsecrets.bitnami.com/managed=true` e reinicie o controller
+(`kubectl -n kube-system rollout restart deploy/sealed-secrets-controller`) → ele assume
+a posse (ownerReference → SealedSecret).
+
+---
+
 ## Ainda com problemas?
 
 Colete um diagnostico completo e revise os logs indicados:

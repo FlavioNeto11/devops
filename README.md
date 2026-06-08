@@ -48,6 +48,8 @@ ao registry. O fluxo via GHCR fica disponivel para quando voce quiser publicar d
 | Metricas                | Prometheus + Grafana (namespace `observability`) | Cluster                       | Coleta de metricas e dashboards (`/grafana`).                          |
 | Logs                    | Loki + Promtail (namespace `observability`) | Cluster                            | Agregacao e consulta de logs dos pods.                                  |
 | DevOps Console          | Backend Node.js (Express + `@kubernetes/client-node`) + frontend React/Vite | Cluster (`devops-system`) | Visao somente leitura do cluster em tempo real (SSE).      |
+| Identidade / SSO        | Keycloak (namespace `identity`)             | Cluster                            | IdP OIDC em `/auth` (realm `nvit`); SSO de Grafana e Argo CD. Ver `docs/sso-keycloak.md`. |
+| Cofre de segredos       | Sealed Secrets (controller `kube-system`)   | Cluster                            | Secrets criptografados e versionados no git (`kubeseal`).               |
 
 ---
 
@@ -142,6 +144,7 @@ Apos o Quick Start (e com `xpto.localhost` apontando para `127.0.0.1` no arquivo
 | Aplicacao 1 (API health)| <http://xpto.localhost/aplicacao1/api/health>    |
 | Argo CD                 | <http://xpto.localhost/argocd>                    |
 | Grafana                 | <http://xpto.localhost/grafana>                   |
+| Keycloak (SSO)          | <http://xpto.localhost/auth> (realm `nvit`)       |
 
 > `xpto.localhost` resolve para `127.0.0.1` na maioria dos sistemas; se nao resolver,
 > adicione a entrada no arquivo `hosts` conforme o [`TROUBLESHOOTING.md`](./TROUBLESHOOTING.md).
