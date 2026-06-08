@@ -12,9 +12,9 @@ export const site = {
 
   // === Contato — AJUSTAR com os dados reais ===
   contact: {
-    email: 'contato@rmambientalbrasil.com.br', // AJUSTAR
-    whatsapp: '5511000000000', //  AJUSTAR: DDI+DDD+numero (somente dígitos)
-    whatsappLabel: '(11) 0000-0000', // AJUSTAR
+    email: 'contatormambiental@gmail.com',
+    whatsapp: '5511975954015', // (11) 97595-4015
+    whatsappLabel: '(11) 97595-4015',
     city: 'São Paulo',
     state: 'SP',
     country: 'Brasil',

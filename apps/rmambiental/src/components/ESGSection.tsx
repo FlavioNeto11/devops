@@ -1,5 +1,6 @@
 import { Leaf, Recycle, ShieldAlert, ScrollText, Sprout, Scale } from 'lucide-react';
 import { Reveal, SectionHeading } from './ui';
+import { asset } from '../lib/utils';
 
 const pillars = [
   { icon: Leaf, title: 'Responsabilidade ambiental', desc: 'Compromisso com a preservação em cada decisão de projeto.' },
@@ -13,6 +14,10 @@ const pillars = [
 export default function ESGSection() {
   return (
     <section id="esg" className="relative overflow-hidden py-24">
+      <div className="absolute inset-0" aria-hidden>
+        <img src={asset('images/floresta.jpg')} alt="" className="h-full w-full object-cover opacity-20" />
+        <div className="absolute inset-0 bg-gradient-to-r from-brand-bg via-brand-bg/92 to-brand-bg/75" />
+      </div>
       <div className="absolute -left-32 top-1/2 h-[420px] w-[420px] -translate-y-1/2 rounded-full bg-brand-greenMid/10 blur-[130px]" aria-hidden />
       <div className="container-wide relative grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
         <SectionHeading

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Leaf, ArrowRight } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { Menu, X, ArrowRight } from 'lucide-react';
+import { asset, cn } from '../lib/utils';
 
 const NAV = [
   { label: 'Início', to: '/' },
@@ -41,13 +41,9 @@ export default function Header() {
       )}
     >
       <div className="container-wide flex h-[72px] items-center justify-between gap-4">
-        <Link to="/" className="flex items-center gap-2.5" onClick={() => setOpen(false)}>
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-neon/15 ring-1 ring-brand-neon/30">
-            <Leaf className="h-5 w-5 text-brand-neon" />
-          </span>
-          <span className="leading-tight">
-            <span className="block font-display text-sm font-bold tracking-tight text-white">RM Ambiental</span>
-            <span className="block text-[10px] font-medium uppercase tracking-[0.24em] text-brand-muted">Brasil</span>
+        <Link to="/" className="flex items-center" onClick={() => setOpen(false)}>
+          <span className="flex items-center rounded-xl bg-white px-2.5 py-1.5 shadow-sm ring-1 ring-black/5">
+            <img src={asset('images/logo.png')} alt="RM Ambiental Brasil" className="h-7 w-auto" />
           </span>
         </Link>
 

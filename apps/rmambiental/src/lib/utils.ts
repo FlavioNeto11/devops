@@ -8,3 +8,8 @@ export function scrollToId(id: string): void {
   const el = document.getElementById(id);
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
+
+/** Resolve um caminho de asset estático (public/) respeitando o base path /rmambiental/. */
+export function asset(path: string): string {
+  return import.meta.env.BASE_URL + path.replace(/^\//, '');
+}

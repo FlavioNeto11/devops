@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Compass, ShieldCheck, Users, MapPin } from 'lucide-react';
 import { GridGlow, CoverageMap } from './backgrounds';
+import { asset } from '../lib/utils';
 
 const floating = [
   { icon: MapPin, label: 'Atuação nacional', top: '8%', left: '-4%' },
@@ -12,8 +13,12 @@ const floating = [
 export default function Hero() {
   return (
     <section id="inicio" className="relative overflow-hidden pt-[72px]">
+      <div className="absolute inset-0" aria-hidden>
+        <img src={asset('images/hero.jpg')} alt="" className="h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-b from-brand-bg/90 via-brand-bg/82 to-brand-bg" />
+        <div className="absolute inset-0 bg-gradient-to-r from-brand-bg via-brand-bg/55 to-transparent" />
+      </div>
       <GridGlow />
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-brand-bg" aria-hidden />
 
       <div className="container-wide relative grid items-center gap-14 py-20 lg:grid-cols-[1.05fr_0.95fr] lg:py-28">
         {/* Texto */}

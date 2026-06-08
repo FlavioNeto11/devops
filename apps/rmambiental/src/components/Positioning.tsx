@@ -37,7 +37,7 @@ export default function Positioning() {
               Soluções ambientais com visão <span className="text-gradient">técnica, jurídica e estratégica</span>
             </>
           }
-          subtitle="Atuamos em projetos que exigem responsabilidade, análise multidisciplinar e relacionamento próximo com os órgãos reguladores — unindo precisão de engenharia, segurança jurídica e gestão de ponta a ponta."
+          subtitle="Somos um grupo multidisciplinar de especialistas focado em soluções eficazes para problemas complexos. Atuamos em todo o território nacional, com responsabilidade e seriedade — unindo precisão de engenharia, segurança jurídica e gestão ambiental de ponta a ponta."
         />
 
         <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">

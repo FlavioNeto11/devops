@@ -83,6 +83,7 @@ export const serviceGroups: ServiceGroup[] = [
       'Engenharia de Minas',
       'Arquitetura',
       'Agrimensura e topografia',
+      'IGC — cartografia e georreferenciamento',
       'Terraplanagem',
       'Execução e gerenciamento de obras',
     ],

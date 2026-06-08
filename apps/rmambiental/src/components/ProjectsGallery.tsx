@@ -1,17 +1,10 @@
 import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, Layers, X, ArrowRight } from 'lucide-react';
+import { MapPin, X, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { projects, projectCategories, type Project } from '../data/projects';
 import { Reveal, SectionHeading } from './ui';
-import { cn } from '../lib/utils';
-
-const gradientFor: Record<Project['category'], string> = {
-  Licenciamento: 'from-brand-petrol to-brand-petrolLight',
-  Engenharia: 'from-brand-green to-brand-greenMid',
-  Estudos: 'from-[#13414c] to-[#1b7a57]',
-  Gestão: 'from-[#0f3d2e] to-[#15616f]',
-};
+import { cn, asset } from '../lib/utils';
 
 export default function ProjectsGallery() {
   const [filter, setFilter] = useState<(typeof projectCategories)[number]>('Todos');
@@ -26,13 +19,13 @@ export default function ProjectsGallery() {
     <section id="projetos" className="relative py-24">
       <div className="container-wide">
         <SectionHeading
-          eyebrow="Projetos & Cases"
+          eyebrow="Projetos & Galeria"
           title={
             <>
-              Resultados que combinam <span className="text-gradient">técnica e estratégia</span>
+              Fotos que fazem parte da <span className="text-gradient">história da empresa</span>
             </>
           }
-          subtitle="Uma seleção de frentes de trabalho. Estrutura pronta para receber os cases reais da empresa."
+          subtitle="Frentes reais de atuação em campo, obras e estudos ambientais. Clique para ver os detalhes."
         />
 
         {/* filtros */}
@@ -67,18 +60,23 @@ export default function ProjectsGallery() {
                 onClick={() => setActive(p)}
                 className="group overflow-hidden rounded-2xl border border-white/10 bg-brand-surface/60 text-left transition-colors hover:border-brand-neon/30"
               >
-                {/* "imagem" placeholder por gradiente — TROCAR por foto real */}
-                <div className={cn('relative h-40 bg-gradient-to-br', gradientFor[p.category])}>
-                  <div className="absolute inset-0 bg-tech-grid opacity-30" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                  <span className="absolute left-3 top-3 rounded-full bg-black/40 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white backdrop-blur">
+                <div className="relative h-44 overflow-hidden">
+                  <img
+                    src={asset('images/' + p.image)}
+                    alt={p.title}
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
+                  <span className="absolute left-3 top-3 rounded-full bg-black/50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white backdrop-blur">
                     {p.category}
                   </span>
-                  <Layers className="absolute bottom-3 right-3 h-7 w-7 text-white/40" />
+                  <h3 className="absolute inset-x-3 bottom-3 font-display text-base font-bold leading-snug text-white drop-shadow">
+                    {p.title}
+                  </h3>
                 </div>
                 <div className="p-5">
-                  <h3 className="font-display text-base font-bold leading-snug text-white">{p.title}</h3>
-                  <p className="mt-2 flex items-center gap-1.5 text-xs text-brand-muted">
+                  <p className="flex items-center gap-1.5 text-xs text-brand-muted">
                     <MapPin className="h-3.5 w-3.5" /> {p.location}
                   </p>
                   <p className="mt-1 text-xs font-medium text-brand-neon/90">{p.service}</p>
@@ -98,18 +96,19 @@ export default function ProjectsGallery() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setActive(null)} />
+            <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setActive(null)} />
             <motion.div
               initial={{ opacity: 0, y: 24, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 24, scale: 0.97 }}
               className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-white/10 bg-brand-surface shadow-glass"
             >
-              <div className={cn('relative h-44 bg-gradient-to-br', gradientFor[active.category])}>
-                <div className="absolute inset-0 bg-tech-grid opacity-30" />
+              <div className="relative h-52 overflow-hidden">
+                <img src={asset('images/' + active.image)} alt={active.title} className="h-full w-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-brand-surface via-transparent to-transparent" />
                 <button
                   onClick={() => setActive(null)}
-                  className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-lg bg-black/40 text-white backdrop-blur transition-colors hover:bg-black/60"
+                  className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-lg bg-black/50 text-white backdrop-blur transition-colors hover:bg-black/70"
                   aria-label="Fechar"
                 >
                   <X className="h-5 w-5" />

@@ -1,8 +1,8 @@
 /**
- * PROJETOS / CASES — PLACEHOLDERS PROFISSIONAIS.
- * ⚠️ Conteúdo fictício de estrutura. Substitua por cases REAIS (não inventar clientes,
- * números ou resultados). As "imagens" são geradas por gradiente/SVG no componente —
- * troque por fotos reais (com direitos) quando disponíveis.
+ * GALERIA / PROJETOS — fotos REAIS da RM Ambiental Brasil (importadas do site atual,
+ * seção "fotos que fazem parte da história da empresa"). Os títulos descrevem a frente
+ * de atuação mostrada na foto; ajuste para nomes de cases específicos quando quiser.
+ * Imagens em public/images (servidas em /rmambiental/images/...).
  */
 export type Project = {
   id: string;
@@ -10,6 +10,7 @@ export type Project = {
   category: 'Licenciamento' | 'Engenharia' | 'Estudos' | 'Gestão';
   location: string;
   service: string;
+  image: string; // arquivo em public/images
   summary: string;
 };
 
@@ -18,74 +19,74 @@ export const projectCategories = ['Todos', 'Licenciamento', 'Engenharia', 'Estud
 export const projects: Project[] = [
   {
     id: 'p1',
-    title: 'Licenciamento de complexo industrial',
-    category: 'Licenciamento',
-    location: 'Interior de São Paulo · SP',
-    service: 'CETESB — LP, LI e LO',
-    summary:
-      'Condução completa do licenciamento de unidade industrial, do enquadramento à licença de operação. [PLACEHOLDER]',
+    title: 'Movimentação e transporte em área rural',
+    category: 'Gestão',
+    location: 'Interior · SP',
+    service: 'Gerenciamento de resíduos · Transporte',
+    image: 'obra-rural.jpg',
+    summary: 'Frente de campo com movimentação de materiais e logística em área rural, com controle operacional e ambiental.',
   },
   {
     id: 'p2',
-    title: 'Estudo de impacto para loteamento',
-    category: 'Estudos',
-    location: 'Região Metropolitana · SP',
-    service: 'EIA / RIMA · GRAPROHAB',
-    summary:
-      'Estudos ambientais e de viabilidade para aprovação de empreendimento urbano. [PLACEHOLDER]',
+    title: 'Terraplanagem e preparação de lote urbano',
+    category: 'Engenharia',
+    location: 'São Paulo · SP',
+    service: 'Terraplanagem · Execução de obras',
+    image: 'obra-urbana.jpg',
+    summary: 'Limpeza, terraplanagem e preparação de terreno em ambiente urbano, integrando engenharia e licenciamento.',
   },
   {
     id: 'p3',
-    title: 'Projeto e execução de terraplanagem',
+    title: 'Operação em mineração a céu aberto',
     category: 'Engenharia',
-    location: 'Campinas · SP',
-    service: 'Topografia · Terraplanagem',
-    summary:
-      'Levantamento topográfico, projeto de movimentação de terra e acompanhamento de obra. [PLACEHOLDER]',
+    location: 'Brasil',
+    service: 'Engenharia de Minas · Licenciamento',
+    image: 'mineracao.jpg',
+    summary: 'Suporte técnico e regulatório integrado à atividade minerária, da viabilidade à operação.',
   },
   {
     id: 'p4',
-    title: 'Gerenciamento de área contaminada',
-    category: 'Estudos',
-    location: 'Grande São Paulo · SP',
-    service: 'Investigação e remediação',
-    summary:
-      'Investigação detalhada e plano de intervenção em passivo ambiental industrial. [PLACEHOLDER]',
+    title: 'Implantação de energia solar',
+    category: 'Gestão',
+    location: 'Brasil',
+    service: 'Projetos · Sustentabilidade',
+    image: 'energia.jpg',
+    summary: 'Soluções de energia limpa integradas à gestão ambiental e à eficiência operacional.',
   },
   {
     id: 'p5',
-    title: 'Outorga de uso de recursos hídricos',
-    category: 'Gestão',
-    location: 'Vale do Paraíba · SP',
-    service: 'Água — projetos e outorgas',
-    summary:
-      'Regularização de captação e lançamento com projeto hidráulico e outorga. [PLACEHOLDER]',
+    title: 'Diagnóstico ambiental em área natural',
+    category: 'Estudos',
+    location: 'Brasil',
+    service: 'Estudos de impacto · ADA',
+    image: 'hero.jpg',
+    summary: 'Levantamentos e estudos em áreas de relevância ambiental para fundamentar decisões e aprovações.',
   },
   {
     id: 'p6',
-    title: 'Regularização fundiária urbana (REURB)',
-    category: 'Licenciamento',
-    location: 'Litoral · SP',
-    service: 'REURB · Habite-se',
-    summary:
-      'Regularização de núcleo urbano com integração entre engenharia e meio ambiente. [PLACEHOLDER]',
+    title: 'Estudos em área de mata',
+    category: 'Estudos',
+    location: 'Brasil',
+    service: 'Biologia · Geologia',
+    image: 'floresta.jpg',
+    summary: 'Caracterização de fauna, flora e meio físico para subsidiar o licenciamento e a tomada de decisão.',
   },
   {
     id: 'p7',
-    title: 'Gestão de resíduos para operação industrial',
-    category: 'Gestão',
-    location: 'Sorocaba · SP',
-    service: 'PGRS · SIGOR / MTR',
-    summary:
-      'Plano de gerenciamento de resíduos e rastreabilidade no SIGOR. [PLACEHOLDER]',
+    title: 'Avaliação ambiental em área costeira',
+    category: 'Estudos',
+    location: 'Litoral',
+    service: 'Estudos de impacto · EVA',
+    image: 'costa.jpg',
+    summary: 'Avaliação de viabilidade e impacto em ambiente costeiro sensível, com rigor técnico e científico.',
   },
   {
     id: 'p8',
-    title: 'Licenciamento de empreendimento minerário',
-    category: 'Engenharia',
-    location: 'Minas Gerais · MG',
-    service: 'Engenharia de Minas · Licenciamento',
-    summary:
-      'Suporte técnico e regulatório integrado para atividade minerária. [PLACEHOLDER]',
+    title: 'Consultoria técnica e documental',
+    category: 'Licenciamento',
+    location: 'São Paulo · SP',
+    service: 'Licenciamento · Consultoria',
+    image: 'consultoria.jpg',
+    summary: 'Instrução técnica e documental de processos de licenciamento e regularização junto aos órgãos.',
   },
 ];

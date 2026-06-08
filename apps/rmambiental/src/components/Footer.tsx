@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
-import { Leaf, Mail, MessageCircle, MapPin, Linkedin, Instagram } from 'lucide-react';
+import { Mail, MessageCircle, MapPin, Linkedin, Instagram } from 'lucide-react';
 import { site, whatsappUrl, mailtoUrl } from '../lib/site';
+import { asset } from '../lib/utils';
 import { serviceGroups } from '../data/services';
 
 const quick = [
@@ -21,14 +22,8 @@ export default function Footer() {
       <div className="container-wide grid gap-10 py-14 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1.1fr]">
         {/* Marca */}
         <div>
-          <Link to="/" className="flex items-center gap-2.5">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-neon/15 ring-1 ring-brand-neon/30">
-              <Leaf className="h-5 w-5 text-brand-neon" />
-            </span>
-            <span className="leading-tight">
-              <span className="block font-display text-sm font-bold text-white">RM Ambiental</span>
-              <span className="block text-[10px] uppercase tracking-[0.24em] text-brand-muted">Brasil</span>
-            </span>
+          <Link to="/" className="inline-flex items-center rounded-xl bg-white px-3 py-2 shadow-sm">
+            <img src={asset('images/logo.png')} alt="RM Ambiental Brasil" className="h-8 w-auto" />
           </Link>
           <p className="mt-4 max-w-xs text-sm leading-relaxed text-brand-muted">
             Engenharia, licenciamento e soluções ambientais para projetos complexos em todo o Brasil — com segurança
