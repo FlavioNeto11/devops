@@ -1,10 +1,13 @@
 import { ChatOpenAI } from '@langchain/openai';
 import { AppError } from '../../lib/problem.js';
 
-const DEFAULT_OPENAI_AGENT_MODEL = 'gpt-5-mini';
-const DEFAULT_OPENAI_SYNTHESIS_MODEL = 'gpt-4.1-mini';
-const DEFAULT_OPENAI_ESCALATION_MODEL = 'gpt-5.1';
-const DEFAULT_OPENAI_JUDGE_MODEL = 'gpt-4.1-mini';
+// Defaults alinhados aos ÚNICOS modelos liberados nesta conta (gpt-5, gpt-5-nano,
+// text-embedding-3-*). Assim, mesmo que uma env OPENAI_*_MODEL falte (nova app, deploy
+// incompleto), nenhum fluxo cai em modelo inexistente. Ajuste fino via env no ambiente.
+const DEFAULT_OPENAI_AGENT_MODEL = 'gpt-5';
+const DEFAULT_OPENAI_SYNTHESIS_MODEL = 'gpt-5';
+const DEFAULT_OPENAI_ESCALATION_MODEL = 'gpt-5';
+const DEFAULT_OPENAI_JUDGE_MODEL = 'gpt-5-nano';
 
 export type AiConfig = {
   openAiApiKey: string;
@@ -41,8 +44,8 @@ export function hasOpenAiApiKey(): boolean {
 /**
  * Lê e valida as variáveis de ambiente necessárias para a integração com OpenAI e LangSmith.
  * OPENAI_API_KEY é obrigatória.
- * OPENAI_AGENT_MODEL (default: gpt-5-mini), OPENAI_SYNTHESIS_MODEL (default: gpt-4.1-mini),
- * OPENAI_ESCALATION_MODEL (default: gpt-5.1) e OPENAI_JUDGE_MODEL (default: gpt-4.1-mini)
+ * OPENAI_AGENT_MODEL (default: gpt-5), OPENAI_SYNTHESIS_MODEL (default: gpt-5),
+ * OPENAI_ESCALATION_MODEL (default: gpt-5) e OPENAI_JUDGE_MODEL (default: gpt-5-nano)
  * usam OPENAI_MODEL apenas como fallback de compatibilidade (somente para agent/synthesis).
  * LangSmith é habilitado via LANGSMITH_TRACING=true + LANGSMITH_API_KEY.
  * Mapeia LANGSMITH_* → LANGCHAIN_* se as variáveis LANGCHAIN_* não estiverem definidas.

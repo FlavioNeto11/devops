@@ -56,7 +56,7 @@ function resolveMemoryModel(): string {
   if (explicit) return explicit;
   const compat = process.env.OPENAI_MODEL?.trim();
   if (compat) return compat;
-  return 'gpt-4o-mini';
+  return 'gpt-5-nano';
 }
 
 function getMemoryLlm(): ChatOpenAI | null {
