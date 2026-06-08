@@ -7,6 +7,7 @@ import { db } from '../../lib/prisma.js';
 import { env } from '../../env.js';
 import { createSigner } from './tokens.js';
 import { resolveUserContext, resolveUserOrganization } from '../../lib/auth-context.js';
+import { validateKeycloakToken } from '@flavioneto11/oidc-kit';
 
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -247,6 +248,71 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     } catch (err) {
       app.log.error(err);
       return reply.redirect(`${env.FRONTEND_URL}/login?error=oauth_failed`);
+    }
+  });
+
+  // ── GET /auth/keycloak/start ─────────────────────────────────────────────────
+  // SSO ADITIVO (Keycloak/OIDC realm nvit). Google e login proprio seguem intactos.
+  // "Dark" ate KEYCLOAK_* estarem configurados (responde 503).
+  app.get('/keycloak/start', async (_request, reply) => {
+    if (!env.KEYCLOAK_AUTH_URL || !env.KEYCLOAK_CLIENT_ID || !env.KEYCLOAK_REDIRECT_URI) {
+      return reply.status(503).send({ error: { code: 'SSO_NOT_CONFIGURED', message: 'Keycloak SSO not configured' } });
+    }
+    const url = new URL(env.KEYCLOAK_AUTH_URL);
+    url.searchParams.set('client_id', env.KEYCLOAK_CLIENT_ID);
+    url.searchParams.set('redirect_uri', env.KEYCLOAK_REDIRECT_URI);
+    url.searchParams.set('response_type', 'code');
+    url.searchParams.set('scope', 'openid email profile');
+    return reply.redirect(url.toString());
+  });
+
+  // ── GET /auth/keycloak/callback ──────────────────────────────────────────────
+  app.get('/keycloak/callback', async (request, reply) => {
+    if (!env.KEYCLOAK_TOKEN_URL || !env.KEYCLOAK_USERINFO_URL || !env.KEYCLOAK_CLIENT_ID
+      || !env.KEYCLOAK_CLIENT_SECRET || !env.KEYCLOAK_REDIRECT_URI) {
+      return reply.redirect(`${env.FRONTEND_URL}/login?error=sso_not_configured`);
+    }
+    const { code } = request.query as { code?: string };
+    if (!code) return reply.redirect(`${env.FRONTEND_URL}/login?error=no_code`);
+    try {
+      const tokenRes = await fetch(env.KEYCLOAK_TOKEN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          code,
+          client_id: env.KEYCLOAK_CLIENT_ID,
+          client_secret: env.KEYCLOAK_CLIENT_SECRET,
+          redirect_uri: env.KEYCLOAK_REDIRECT_URI,
+        }),
+      });
+      const tokens = await tokenRes.json() as { access_token?: string };
+      if (!tokens.access_token) return reply.redirect(`${env.FRONTEND_URL}/login?error=token_exchange_failed`);
+
+      // Valida no /userinfo via @flavioneto11/oidc-kit (padrao da plataforma).
+      const result = await validateKeycloakToken(tokens.access_token, { userinfoUrl: env.KEYCLOAK_USERINFO_URL });
+      if (!result.ok) return reply.redirect(`${env.FRONTEND_URL}/login?error=sso_failed`);
+      const claims = result.claims as { email?: string; name?: string; preferred_username?: string };
+      const email = String(claims.email || '').trim().toLowerCase();
+      if (!email) return reply.redirect(`${env.FRONTEND_URL}/login?error=sso_no_email`);
+      const name = String(claims.name || claims.preferred_username || email);
+
+      // Upsert por e-mail (sem tocar googleId/senha): provisiona no 1o login SSO.
+      const user = await db.user.upsert({ where: { email }, update: { name }, create: { email, name } });
+
+      const payload = { sub: user.id, email: user.email, name: user.name };
+      const accessToken = signAccess(payload);
+      const refreshToken = await createSessionWithRetry(user.id, payload);
+      void reply.setCookie('refresh_token', refreshToken, {
+        httpOnly: true, secure: secureCookies, sameSite: 'lax', path: '/', maxAge: 7 * 24 * 60 * 60,
+      });
+      void reply.setCookie('auth_token', accessToken, {
+        httpOnly: true, secure: secureCookies, sameSite: 'lax', path: '/', maxAge: 60,
+      });
+      return reply.redirect(`${env.FRONTEND_URL}/auth/callback`);
+    } catch (err) {
+      app.log.error(err);
+      return reply.redirect(`${env.FRONTEND_URL}/login?error=sso_failed`);
     }
   });
 

@@ -19,6 +19,12 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_REDIRECT_URI: optionalUrl,
+  KEYCLOAK_CLIENT_ID: z.string().optional(),
+  KEYCLOAK_CLIENT_SECRET: z.string().optional(),
+  KEYCLOAK_AUTH_URL: optionalUrl,
+  KEYCLOAK_TOKEN_URL: optionalUrl,
+  KEYCLOAK_USERINFO_URL: optionalUrl,
+  KEYCLOAK_REDIRECT_URI: optionalUrl,
   FRONTEND_URL: z.string().url().default('http://localhost:3000'),
   ALLOWED_ORIGINS: z.string().optional(),
   ENCRYPTION_KEY: z.string().regex(/^[0-9a-fA-F]{64}$/).optional().refine(

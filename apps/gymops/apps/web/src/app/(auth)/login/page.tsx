@@ -40,6 +40,7 @@ export default function LoginPage() {
   const userRole = useAuthStore((s) => s.userRole);
   const primaryUnitId = useAuthStore((s) => s.primaryUnitId);
   const enableGoogleLogin = process.env.NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN !== 'false';
+  const enableSso = process.env.NEXT_PUBLIC_ENABLE_SSO === 'true';
 
   useEffect(() => {
     if (!hasHydrated || !sessionReady) return;
@@ -149,6 +150,15 @@ export default function LoginPage() {
                 </Button>
               </a>
             </>
+          ) : null}
+
+          {enableSso ? (
+            <a href={`${apiUrl}/auth/keycloak/start`}>
+              <Button variant="outline" className="mt-3 w-full gap-2">
+                <Building2 className="h-4 w-4" />
+                Entrar com SSO (Keycloak)
+              </Button>
+            </a>
           ) : null}
         </div>
 

@@ -50,6 +50,9 @@ importers:
       '@flavioneto11/ai-kit':
         specifier: file:../../vendor/flavioneto11-ai-kit-0.1.0.tgz
         version: file:vendor/flavioneto11-ai-kit-0.1.0.tgz(openai@6.37.0(zod@3.25.76))
+      '@flavioneto11/oidc-kit':
+        specifier: file:../../vendor/flavioneto11-oidc-kit-0.1.0.tgz
+        version: file:vendor/flavioneto11-oidc-kit-0.1.0.tgz
       '@gymops/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -779,6 +782,10 @@ packages:
         optional: true
       openai:
         optional: true
+
+  '@flavioneto11/oidc-kit@file:vendor/flavioneto11-oidc-kit-0.1.0.tgz':
+    resolution: {integrity: sha512-j3ri1rvomU2McJvNGZU1Db3SZzZgrGP3+lxw0dUhOch1vCJ8+MVaakJbqRJFiwsigO/yVKQ0HdbxE4nmqQIWlA==, tarball: file:vendor/flavioneto11-oidc-kit-0.1.0.tgz}
+    version: 0.1.0
 
   '@floating-ui/core@1.7.5':
     resolution: {integrity: sha512-1Ih4WTWyw0+lKyFMcBHGbb5U5FtuHJuujoyyr5zTaWS5EYMeT6Jb2AuDeftsCsEuchO+mM2ij5+q9crhydzLhQ==}
@@ -3982,6 +3989,8 @@ snapshots:
   '@flavioneto11/ai-kit@file:vendor/flavioneto11-ai-kit-0.1.0.tgz(openai@6.37.0(zod@3.25.76))':
     optionalDependencies:
       openai: 6.37.0(zod@3.25.76)
+
+  '@flavioneto11/oidc-kit@file:vendor/flavioneto11-oidc-kit-0.1.0.tgz': {}
 
   '@floating-ui/core@1.7.5':
     dependencies:
