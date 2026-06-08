@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, ArrowRight } from 'lucide-react';
 import { asset, cn } from '../lib/utils';
+import ThemeToggle from './ThemeToggle';
 
 const NAV = [
   { label: 'Início', to: '/' },
@@ -37,7 +38,7 @@ export default function Header() {
     <header
       className={cn(
         'fixed inset-x-0 top-0 z-50 transition-all duration-300',
-        scrolled || open ? 'border-b border-white/10 bg-brand-bg/85 backdrop-blur-xl' : 'border-b border-transparent bg-transparent',
+        scrolled || open ? 'border-b border-brand-text/10 bg-brand-bg/85 backdrop-blur-xl' : 'border-b border-transparent bg-transparent',
       )}
     >
       <div className="container-wide flex h-[72px] items-center justify-between gap-4">
@@ -52,7 +53,7 @@ export default function Header() {
             <Link
               key={n.label}
               to={n.to}
-              className="rounded-lg px-3 py-2 text-sm font-medium text-brand-muted transition-colors hover:text-white"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-brand-muted transition-colors hover:text-brand-text"
             >
               {n.label}
             </Link>
@@ -60,18 +61,22 @@ export default function Header() {
         </nav>
 
         <div className="hidden items-center gap-3 xl:flex">
+          <ThemeToggle />
           <Link to="/contato" className="btn-primary">
             Fale com um especialista <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
 
-        <button
-          className="grid h-10 w-10 place-items-center rounded-lg border border-white/10 text-white xl:hidden"
-          onClick={() => setOpen((v) => !v)}
-          aria-label="Abrir menu"
-        >
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+        <div className="flex items-center gap-2 xl:hidden">
+          <ThemeToggle />
+          <button
+            className="grid h-10 w-10 place-items-center rounded-lg border border-brand-text/10 text-brand-text"
+            onClick={() => setOpen((v) => !v)}
+            aria-label="Abrir menu"
+          >
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </div>
 
       <AnimatePresence>
@@ -81,7 +86,7 @@ export default function Header() {
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.25 }}
-            className="overflow-hidden border-t border-white/10 bg-brand-bg/95 backdrop-blur-xl xl:hidden"
+            className="overflow-hidden border-t border-brand-text/10 bg-brand-bg/95 backdrop-blur-xl xl:hidden"
           >
             <nav className="container-wide flex flex-col gap-1 py-5">
               {NAV.map((n) => (
@@ -89,7 +94,7 @@ export default function Header() {
                   key={n.label}
                   to={n.to}
                   onClick={() => setOpen(false)}
-                  className="rounded-lg px-3 py-3 text-base font-medium text-brand-muted transition-colors hover:bg-white/5 hover:text-white"
+                  className="rounded-lg px-3 py-3 text-base font-medium text-brand-muted transition-colors hover:bg-brand-text/5 hover:text-brand-text"
                 >
                   {n.label}
                 </Link>

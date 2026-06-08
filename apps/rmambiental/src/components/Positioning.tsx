@@ -1,6 +1,7 @@
 import { ShieldCheck, BadgeCheck, Gauge, Workflow } from 'lucide-react';
 import { Reveal, SectionHeading } from './ui';
 import { TopoLines } from './backgrounds';
+import { asset } from '../lib/utils';
 
 const pillars = [
   {
@@ -40,14 +41,22 @@ export default function Positioning() {
           subtitle="Somos um grupo multidisciplinar de especialistas focado em soluções eficazes para problemas complexos. Atuamos em todo o território nacional, com responsabilidade e seriedade — unindo precisão de engenharia, segurança jurídica e gestão ambiental de ponta a ponta."
         />
 
-        <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-12 overflow-hidden rounded-3xl border border-brand-text/10 shadow-card">
+          <img
+            src={asset('images/decor/consultoria.jpg')}
+            alt="Consultoria técnica e documental"
+            className="h-56 w-full object-cover sm:h-80"
+          />
+        </div>
+
+        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {pillars.map((p, i) => (
             <Reveal key={p.title} delay={i * 0.08}>
-              <div className="group h-full rounded-2xl border border-white/10 bg-brand-surface/60 p-6 transition-all duration-300 hover:-translate-y-1 hover:border-brand-neon/30 hover:bg-brand-surface">
+              <div className="group h-full rounded-2xl border border-brand-text/10 bg-brand-surface/60 p-6 transition-all duration-300 hover:-translate-y-1 hover:border-brand-neon/30 hover:bg-brand-surface">
                 <span className="grid h-12 w-12 place-items-center rounded-xl bg-brand-neon/12 ring-1 ring-brand-neon/20 transition-colors group-hover:bg-brand-neon/20">
                   <p.icon className="h-6 w-6 text-brand-neon" />
                 </span>
-                <h3 className="mt-5 font-display text-lg font-bold text-white">{p.title}</h3>
+                <h3 className="mt-5 font-display text-lg font-bold text-brand-text">{p.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-brand-muted">{p.desc}</p>
               </div>
             </Reveal>

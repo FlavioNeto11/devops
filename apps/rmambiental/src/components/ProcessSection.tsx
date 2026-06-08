@@ -26,7 +26,7 @@ export default function ProcessSection() {
         />
 
         <div className="relative mx-auto mt-16 max-w-3xl">
-          <div className="absolute bottom-0 left-[27px] top-2 w-px bg-gradient-to-b from-brand-neon/50 via-white/10 to-transparent md:left-1/2" aria-hidden />
+          <div className="absolute bottom-0 left-[27px] top-2 w-px bg-gradient-to-b from-brand-neon/50 via-brand-text/10 to-transparent md:left-1/2" aria-hidden />
           <div className="space-y-8">
             {steps.map((s, i) => (
               <motion.div
@@ -39,12 +39,12 @@ export default function ProcessSection() {
               >
                 <span className="relative z-10 grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-brand-neon/30 bg-brand-bg text-brand-neon shadow-glow">
                   <s.icon className="h-6 w-6" />
-                  <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-brand-neon text-[11px] font-bold text-brand-ink">
+                  <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-brand-neon text-[11px] font-bold text-brand-onNeon">
                     {i + 1}
                   </span>
                 </span>
                 <div className="flex-1 rounded-2xl border border-white/10 bg-brand-surface/70 p-5 md:max-w-[44%]">
-                  <h3 className="font-display text-base font-bold text-white">{s.title}</h3>
+                  <h3 className="font-display text-base font-bold text-brand-text">{s.title}</h3>
                   <p className="mt-1.5 text-sm leading-relaxed text-brand-muted">{s.desc}</p>
                 </div>
                 <div className="hidden flex-1 md:block" aria-hidden />

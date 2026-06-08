@@ -3,7 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0A0F0D" />
+    <meta name="theme-color" content="#F7F9F8" />
+    <script>
+      // Tema CLARO por padrão; respeita a escolha salva. Aplica antes do render (sem flash).
+      (function () {
+        try {
+          if (localStorage.getItem('rmamb-theme') === 'dark') document.documentElement.classList.add('dark');
+        } catch (e) {}
+      })();
+    </script>
     <title>RM Ambiental Brasil — Engenharia, Licenciamento e Soluções Ambientais</title>
     <meta
       name="description"

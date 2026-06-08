@@ -61,7 +61,7 @@ export default function ProjectsGallery() {
                 'rounded-full border px-4 py-2 text-sm font-medium transition-all',
                 filter === c
                   ? 'border-brand-neon/40 bg-brand-neon/15 text-brand-neon'
-                  : 'border-white/10 text-brand-muted hover:border-white/25 hover:text-white',
+                  : 'border-brand-text/10 text-brand-muted hover:border-brand-text/25 hover:text-white',
               )}
             >
               {c}
@@ -81,7 +81,7 @@ export default function ProjectsGallery() {
                 exit={{ opacity: 0, scale: 0.96 }}
                 transition={{ duration: 0.3 }}
                 onClick={() => setIndex(i)}
-                className="group relative aspect-[4/3] overflow-hidden rounded-2xl border border-white/10 bg-brand-surface"
+                className="group relative aspect-[4/3] overflow-hidden rounded-2xl border border-brand-text/10 bg-brand-surface"
               >
                 <img
                   src={asset('images/' + p.file)}

@@ -18,7 +18,7 @@ export default function Footer() {
   const hasSocial = site.social.linkedin || site.social.instagram;
 
   return (
-    <footer className="relative border-t border-white/10 bg-brand-ink">
+    <footer className="relative border-t border-brand-text/10 bg-brand-surface2">
       <div className="container-wide grid gap-10 py-14 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1.1fr]">
         {/* Marca */}
         <div>
@@ -32,12 +32,12 @@ export default function Footer() {
           {hasSocial && (
             <div className="mt-5 flex gap-3">
               {site.social.linkedin && (
-                <a href={site.social.linkedin} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className="grid h-9 w-9 place-items-center rounded-lg border border-white/10 text-brand-muted transition-colors hover:border-brand-neon/40 hover:text-brand-neon">
+                <a href={site.social.linkedin} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className="grid h-9 w-9 place-items-center rounded-lg border border-brand-text/10 text-brand-muted transition-colors hover:border-brand-neon/40 hover:text-brand-neon">
                   <Linkedin className="h-4 w-4" />
                 </a>
               )}
               {site.social.instagram && (
-                <a href={site.social.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="grid h-9 w-9 place-items-center rounded-lg border border-white/10 text-brand-muted transition-colors hover:border-brand-neon/40 hover:text-brand-neon">
+                <a href={site.social.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="grid h-9 w-9 place-items-center rounded-lg border border-brand-text/10 text-brand-muted transition-colors hover:border-brand-neon/40 hover:text-brand-neon">
                   <Instagram className="h-4 w-4" />
                 </a>
               )}
@@ -47,7 +47,7 @@ export default function Footer() {
 
         {/* Navegação */}
         <div>
-          <h4 className="font-display text-sm font-bold text-white">Navegação</h4>
+          <h4 className="font-display text-sm font-bold text-brand-text">Navegação</h4>
           <ul className="mt-4 space-y-2.5">
             {quick.map((q) => (
               <li key={q.label}>
@@ -61,7 +61,7 @@ export default function Footer() {
 
         {/* Soluções */}
         <div>
-          <h4 className="font-display text-sm font-bold text-white">Soluções</h4>
+          <h4 className="font-display text-sm font-bold text-brand-text">Soluções</h4>
           <ul className="mt-4 space-y-2.5">
             {serviceGroups.map((g) => (
               <li key={g.id}>
@@ -75,7 +75,7 @@ export default function Footer() {
 
         {/* Contato */}
         <div>
-          <h4 className="font-display text-sm font-bold text-white">Contato</h4>
+          <h4 className="font-display text-sm font-bold text-brand-text">Contato</h4>
           <ul className="mt-4 space-y-3 text-sm">
             <li>
               <a href={mailtoUrl()} className="flex items-center gap-2.5 text-brand-muted transition-colors hover:text-brand-neon">
@@ -94,7 +94,7 @@ export default function Footer() {
         </div>
       </div>
 
-      <div className="border-t border-white/10">
+      <div className="border-t border-brand-text/10">
         <div className="container-wide flex flex-col items-center justify-between gap-3 py-6 text-xs text-brand-muted sm:flex-row">
           <p>© {year} {site.name}. Todos os direitos reservados.</p>
           {/* AJUSTAR: apontar para a página real de Política de Privacidade */}

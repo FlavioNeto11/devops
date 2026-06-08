@@ -1,5 +1,6 @@
 import { Check } from 'lucide-react';
 import { Counter, Reveal, SectionHeading } from './ui';
+import { asset } from '../lib/utils';
 
 // ⚠️ PLACEHOLDERS — substituir pelos números OFICIAIS da empresa (ver nota ilustrativa abaixo).
 const stats = [
@@ -20,6 +21,10 @@ const differentials = [
 export default function AuthoritySection() {
   return (
     <section className="relative overflow-hidden py-24">
+      <div className="absolute inset-0" aria-hidden>
+        <img src={asset('images/decor/mineracao.jpg')} alt="" className="h-full w-full object-cover opacity-[0.12]" />
+        <div className="absolute inset-0 bg-gradient-to-r from-brand-bg via-brand-bg/88 to-brand-bg/70" />
+      </div>
       <div className="absolute inset-0 bg-tech-grid opacity-30 [mask-image:radial-gradient(ellipse_at_center,black,transparent_80%)]" aria-hidden />
       <div className="container-wide relative grid gap-14 lg:grid-cols-2 lg:items-center">
         <div>
@@ -49,8 +54,8 @@ export default function AuthoritySection() {
         <div className="grid grid-cols-2 gap-5">
           {stats.map((s, i) => (
             <Reveal key={s.label} delay={i * 0.08}>
-              <div className="rounded-2xl border border-white/10 bg-brand-surface/60 p-7 text-center">
-                <div className="font-display text-4xl font-extrabold text-white sm:text-5xl">
+              <div className="rounded-2xl border border-brand-text/10 bg-brand-surface/60 p-7 text-center">
+                <div className="font-display text-4xl font-extrabold text-brand-text sm:text-5xl">
                   <Counter to={s.to} prefix={s.prefix} />
                 </div>
                 <div className="mt-2 text-sm leading-snug text-brand-muted">{s.label}</div>

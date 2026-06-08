@@ -12,7 +12,7 @@ export default function Contato() {
             <span className="eyebrow">Fale com um especialista</span>
           </Reveal>
           <Reveal delay={0.05}>
-            <h1 className="mx-auto mt-5 max-w-3xl font-display text-4xl font-extrabold leading-tight tracking-tight text-white sm:text-5xl">
+            <h1 className="mx-auto mt-5 max-w-3xl font-display text-4xl font-extrabold leading-tight tracking-tight text-brand-text sm:text-5xl">
               Solicite um <span className="text-gradient">diagnóstico</span> ou uma proposta
             </h1>
           </Reveal>

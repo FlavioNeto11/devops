@@ -15,7 +15,7 @@ export default function ESGSection() {
   return (
     <section id="esg" className="relative overflow-hidden py-24">
       <div className="absolute inset-0" aria-hidden>
-        <img src={asset('images/gallery/g13.jpg')} alt="" className="h-full w-full object-cover opacity-20" />
+        <img src={asset('images/decor/floresta.jpg')} alt="" className="h-full w-full object-cover opacity-25" />
         <div className="absolute inset-0 bg-gradient-to-r from-brand-bg via-brand-bg/92 to-brand-bg/75" />
       </div>
       <div className="absolute -left-32 top-1/2 h-[420px] w-[420px] -translate-y-1/2 rounded-full bg-brand-greenMid/10 blur-[130px]" aria-hidden />
@@ -33,12 +33,12 @@ export default function ESGSection() {
         <div className="grid gap-4 sm:grid-cols-2">
           {pillars.map((p, i) => (
             <Reveal key={p.title} delay={i * 0.06}>
-              <div className="flex h-full items-start gap-4 rounded-2xl border border-white/10 bg-brand-surface/60 p-5">
+              <div className="flex h-full items-start gap-4 rounded-2xl border border-brand-text/10 bg-brand-surface/60 p-5">
                 <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-neon/12 ring-1 ring-brand-neon/20">
                   <p.icon className="h-5 w-5 text-brand-neon" />
                 </span>
                 <div>
-                  <h3 className="font-display text-sm font-bold text-white">{p.title}</h3>
+                  <h3 className="font-display text-sm font-bold text-brand-text">{p.title}</h3>
                   <p className="mt-1 text-xs leading-relaxed text-brand-muted">{p.desc}</p>
                 </div>
               </div>

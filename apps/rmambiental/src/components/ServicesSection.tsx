@@ -31,16 +31,16 @@ export default function ServicesSection() {
               <motion.div
                 whileHover={{ y: -6 }}
                 transition={{ type: 'spring', stiffness: 260, damping: 22 }}
-                className="group relative h-full overflow-hidden rounded-3xl border border-white/10 bg-brand-surface/60 p-7 shadow-card sm:p-8"
+                className="group relative h-full overflow-hidden rounded-3xl border border-brand-text/10 bg-brand-surface/60 p-7 shadow-card sm:p-8"
               >
                 <div className="absolute right-0 top-0 h-40 w-40 translate-x-12 -translate-y-12 rounded-full bg-brand-petrolLight/10 blur-3xl transition-opacity duration-300 group-hover:opacity-100" />
                 <div className="relative">
                   <div className="flex items-center gap-4">
-                    <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-brand-neon/20 to-brand-petrol/30 ring-1 ring-white/10">
+                    <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-brand-neon/20 to-brand-petrol/30 ring-1 ring-brand-text/10">
                       <g.icon className="h-7 w-7 text-brand-neon" />
                     </span>
                     <div>
-                      <h3 className="font-display text-xl font-bold leading-tight text-white">{g.title}</h3>
+                      <h3 className="font-display text-xl font-bold leading-tight text-brand-text">{g.title}</h3>
                       <p className="mt-1 text-sm text-brand-muted">{g.tagline}</p>
                     </div>
                   </div>

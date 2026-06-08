@@ -14,9 +14,9 @@ export default function Hero() {
   return (
     <section id="inicio" className="relative overflow-hidden pt-[72px]">
       <div className="absolute inset-0" aria-hidden>
-        <img src={asset('images/gallery/g01.jpg')} alt="" className="h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-b from-brand-bg/90 via-brand-bg/82 to-brand-bg" />
-        <div className="absolute inset-0 bg-gradient-to-r from-brand-bg via-brand-bg/55 to-transparent" />
+        <img src={asset('images/decor/canyon.jpg')} alt="" className="h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-b from-brand-bg/70 via-brand-bg/30 to-brand-bg" />
+        <div className="absolute inset-0 bg-gradient-to-r from-brand-bg via-brand-bg/60 to-transparent" />
       </div>
       <GridGlow />
 
@@ -36,7 +36,7 @@ export default function Hero() {
             initial={{ opacity: 0, y: 22 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.06 }}
-            className="mt-6 font-display text-4xl font-extrabold leading-[1.05] tracking-tight text-white sm:text-5xl lg:text-[3.4rem]"
+            className="mt-6 font-display text-4xl font-extrabold leading-[1.05] tracking-tight text-brand-text sm:text-5xl lg:text-[3.4rem]"
           >
             Engenharia, licenciamento e soluções ambientais para{' '}
             <span className="text-gradient">projetos complexos</span> em todo o Brasil.
@@ -71,7 +71,7 @@ export default function Hero() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.34 }}
-            className="mt-12 grid max-w-lg grid-cols-3 gap-6 border-t border-white/10 pt-7"
+            className="mt-12 grid max-w-lg grid-cols-3 gap-6 border-t border-brand-text/10 pt-7"
           >
             {[
               ['Nacional', 'Atuação em todo o Brasil'],
@@ -98,7 +98,7 @@ export default function Hero() {
             <div className="relative aspect-[420/480] w-full">
               <CoverageMap className="h-full w-full" />
             </div>
-            <div className="relative mt-2 flex items-center justify-between rounded-xl border border-white/10 bg-black/20 px-4 py-3">
+            <div className="relative mt-2 flex items-center justify-between rounded-xl border border-brand-text/10 bg-black/20 px-4 py-3">
               <span className="text-xs uppercase tracking-widest text-brand-muted">Pontos de atuação</span>
               <span className="font-display text-sm font-bold text-brand-neon">Brasil · multirregião</span>
             </div>
@@ -107,7 +107,7 @@ export default function Hero() {
           {floating.map((f, i) => (
             <motion.div
               key={f.label}
-              className="absolute z-10 hidden items-center gap-2 rounded-xl border border-white/10 bg-brand-surface/90 px-3.5 py-2.5 shadow-glass backdrop-blur-md sm:flex"
+              className="absolute z-10 hidden items-center gap-2 rounded-xl border border-brand-text/10 bg-brand-surface/90 px-3.5 py-2.5 shadow-glass backdrop-blur-md sm:flex"
               style={{ top: f.top, left: f.left, right: f.right, bottom: f.bottom } as React.CSSProperties}
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
@@ -116,7 +116,7 @@ export default function Hero() {
               <span className="grid h-7 w-7 place-items-center rounded-lg bg-brand-neon/15">
                 <f.icon className="h-3.5 w-3.5 text-brand-neon" />
               </span>
-              <span className="text-xs font-semibold text-white">{f.label}</span>
+              <span className="text-xs font-semibold text-brand-text">{f.label}</span>
             </motion.div>
           ))}
         </motion.div>

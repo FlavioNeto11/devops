@@ -2,8 +2,42 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================================
+   Sistema de tema (claro por padrão; .dark no <html> ativa o escuro).
+   Cores como triplas RGB para casar com rgb(var(--x) / <alpha>) no Tailwind.
+   ============================================================================ */
 :root {
+  color-scheme: light;
+  --bg: 247 249 248;
+  --surface: 255 255 255;
+  --surface2: 237 243 240;
+  --fg: 15 27 22;
+  --muted: 86 105 96;
+  --neon: 13 148 92; /* emerald profundo — boa leitura sobre branco */
+  --on-neon: 255 255 255; /* texto sobre o verde (claro: branco) */
+  --petrol: 16 110 124;
+  --petrolLight: 21 130 145;
+  --green: 22 122 90;
+  --greenMid: 27 138 102;
+  --gold: 176 138 43;
+  --ink: 6 16 12;
+}
+
+.dark {
   color-scheme: dark;
+  --bg: 10 15 13;
+  --surface: 16 24 21;
+  --surface2: 21 33 29;
+  --fg: 232 239 235;
+  --muted: 157 179 170;
+  --neon: 52 227 155; /* neon vivo no escuro */
+  --on-neon: 6 16 12; /* texto escuro sobre o neon */
+  --petrol: 13 59 67;
+  --petrolLight: 21 96 110;
+  --green: 15 61 46;
+  --greenMid: 27 122 87;
+  --gold: 201 162 75;
+  --ink: 6 16 12;
 }
 
 html {
@@ -15,14 +49,12 @@ body {
   overflow-x: hidden;
 }
 
-/* Compensa o header fixo ao navegar por âncoras */
 section[id] {
   scroll-margin-top: 92px;
 }
 
 ::selection {
-  background: rgba(52, 227, 155, 0.28);
-  color: #fff;
+  background: rgb(var(--neon) / 0.25);
 }
 
 ::-webkit-scrollbar {
@@ -30,14 +62,14 @@ section[id] {
   height: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: #0a0f0d;
+  background: rgb(var(--bg));
 }
 ::-webkit-scrollbar-thumb {
-  background: #1e2c27;
+  background: rgb(var(--fg) / 0.2);
   border-radius: 8px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #2a3d36;
+  background: rgb(var(--fg) / 0.35);
 }
 
 @layer components {
@@ -46,38 +78,56 @@ section[id] {
   }
 
   .glass {
-    @apply border border-white/10 bg-white/[0.035] backdrop-blur-md;
+    background: rgb(var(--surface) / 0.6);
+    border: 1px solid rgb(var(--fg) / 0.08);
+    backdrop-filter: blur(12px);
   }
 
   .hairline {
-    @apply border-t border-white/[0.07];
+    border-top: 1px solid rgb(var(--fg) / 0.08);
   }
 
   .text-gradient {
-    @apply bg-gradient-to-r from-brand-neon via-emerald-300 to-brand-petrolLight bg-clip-text text-transparent;
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(90deg, rgb(var(--neon)), rgb(var(--greenMid)), rgb(var(--petrolLight)));
   }
 
   .eyebrow {
-    @apply inline-flex items-center gap-2 rounded-full border border-brand-neon/25 bg-brand-neon/10
-      px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-brand-neon;
+    @apply inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.18em];
+    color: rgb(var(--neon));
+    background: rgb(var(--neon) / 0.1);
+    border: 1px solid rgb(var(--neon) / 0.28);
   }
 
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold
-      transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-neon/60;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-300 focus:outline-none focus-visible:ring-2;
   }
   .btn-primary {
-    @apply btn bg-brand-neon text-brand-ink shadow-glow hover:brightness-110 hover:-translate-y-0.5;
+    @apply btn;
+    background: rgb(var(--neon));
+    color: rgb(var(--on-neon));
+    box-shadow: 0 0 0 1px rgb(var(--neon) / 0.22), 0 16px 40px -18px rgb(var(--neon) / 0.45);
+  }
+  .btn-primary:hover {
+    filter: brightness(1.07);
+    transform: translateY(-2px);
   }
   .btn-ghost {
-    @apply btn border border-white/15 bg-white/[0.03] text-brand-text hover:border-brand-neon/40 hover:bg-white/[0.06];
+    @apply btn;
+    color: rgb(var(--fg));
+    border: 1px solid rgb(var(--fg) / 0.16);
+    background: rgb(var(--fg) / 0.03);
+  }
+  .btn-ghost:hover {
+    border-color: rgb(var(--neon) / 0.45);
+    background: rgb(var(--fg) / 0.06);
   }
 }
 
-/* Grid técnico sutil reutilizável como background utilitário */
+/* Grid técnico sutil — linhas baseadas no fg (adaptam ao tema). */
 .bg-tech-grid {
   background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+    linear-gradient(to right, rgb(var(--fg) / 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(var(--fg) / 0.05) 1px, transparent 1px);
   background-size: 56px 56px;
 }

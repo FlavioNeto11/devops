@@ -1,23 +1,26 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
+  darkMode: 'class',
   theme: {
     extend: {
+      // brand.* mapeados a CSS variables (trocam claro/escuro — ver index.css).
+      // Mantém todas as classes brand-* existentes, agora adaptáveis ao tema.
       colors: {
         brand: {
-          bg: '#0A0F0D',
-          surface: '#0F1614',
-          surface2: '#15211D',
-          petrol: '#0D3B43',
-          petrolLight: '#15616F',
-          green: '#0F3D2E',
-          greenMid: '#1B7A57',
-          neon: '#34E39B',
-          gold: '#C9A24B',
-          ink: '#060D0A',
-          text: '#E8EFEB',
-          muted: '#9DB3AA',
-          line: 'rgba(255,255,255,0.09)',
+          bg: 'rgb(var(--bg) / <alpha-value>)',
+          surface: 'rgb(var(--surface) / <alpha-value>)',
+          surface2: 'rgb(var(--surface2) / <alpha-value>)',
+          text: 'rgb(var(--fg) / <alpha-value>)',
+          muted: 'rgb(var(--muted) / <alpha-value>)',
+          neon: 'rgb(var(--neon) / <alpha-value>)',
+          onNeon: 'rgb(var(--on-neon) / <alpha-value>)',
+          petrol: 'rgb(var(--petrol) / <alpha-value>)',
+          petrolLight: 'rgb(var(--petrolLight) / <alpha-value>)',
+          green: 'rgb(var(--green) / <alpha-value>)',
+          greenMid: 'rgb(var(--greenMid) / <alpha-value>)',
+          gold: 'rgb(var(--gold) / <alpha-value>)',
+          ink: 'rgb(var(--ink) / <alpha-value>)',
         },
       },
       fontFamily: {
@@ -25,13 +28,13 @@ export default {
         sans: ['Inter', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
-        glass: '0 10px 44px -14px rgba(0,0,0,0.6)',
-        glow: '0 0 0 1px rgba(52,227,155,0.18), 0 22px 60px -22px rgba(52,227,155,0.28)',
-        card: '0 1px 0 0 rgba(255,255,255,0.04) inset, 0 18px 50px -24px rgba(0,0,0,0.8)',
+        glass: '0 10px 40px -16px rgb(0 0 0 / 0.22)',
+        card: '0 1px 0 0 rgb(255 255 255 / 0.04) inset, 0 16px 44px -26px rgb(0 0 0 / 0.30)',
+        glow: '0 0 0 1px rgb(var(--neon) / 0.20), 0 18px 50px -22px rgb(var(--neon) / 0.32)',
+        soft: '0 12px 34px -18px rgb(0 0 0 / 0.20)',
       },
       keyframes: {
         floaty: { '0%,100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-10px)' } },
-        shimmer: { '0%': { backgroundPosition: '-200% 0' }, '100%': { backgroundPosition: '200% 0' } },
       },
       animation: {
         floaty: 'floaty 7s ease-in-out infinite',

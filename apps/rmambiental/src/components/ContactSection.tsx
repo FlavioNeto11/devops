@@ -5,7 +5,7 @@ import { site, whatsappUrl, mailtoUrl } from '../lib/site';
 import { SectionHeading } from './ui';
 
 const field =
-  'w-full rounded-xl border border-white/10 bg-brand-bg/60 px-4 py-3 text-sm text-white placeholder:text-brand-muted/60 outline-none transition-colors focus:border-brand-neon/50';
+  'w-full rounded-xl border border-brand-text/10 bg-brand-bg/60 px-4 py-3 text-sm text-brand-text placeholder:text-brand-muted/60 outline-none transition-colors focus:border-brand-neon/50';
 
 export default function ContactSection() {
   const [form, setForm] = useState({
@@ -51,7 +51,7 @@ export default function ContactSection() {
 
         <div className="mt-14 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           {/* Formulário */}
-          <form onSubmit={onWhatsApp} className="rounded-3xl border border-white/10 bg-brand-surface/60 p-6 sm:p-8">
+          <form onSubmit={onWhatsApp} className="rounded-3xl border border-brand-text/10 bg-brand-surface/60 p-6 sm:p-8">
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="mb-1.5 block text-xs font-semibold text-brand-muted">Nome *</label>
@@ -116,13 +116,13 @@ export default function ContactSection() {
 
           {/* Info + mapa estilizado */}
           <div className="flex flex-col gap-5">
-            <div className="rounded-3xl border border-white/10 bg-brand-surface/60 p-6">
+            <div className="rounded-3xl border border-brand-text/10 bg-brand-surface/60 p-6">
               <ul className="space-y-4 text-sm">
                 <li className="flex items-center gap-3">
                   <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-neon/12 ring-1 ring-brand-neon/20">
                     <Mail className="h-5 w-5 text-brand-neon" />
                   </span>
-                  <a href={mailtoUrl()} className="text-white transition-colors hover:text-brand-neon">
+                  <a href={mailtoUrl()} className="text-brand-text transition-colors hover:text-brand-neon">
                     {site.contact.email}
                   </a>
                 </li>
@@ -130,7 +130,7 @@ export default function ContactSection() {
                   <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-neon/12 ring-1 ring-brand-neon/20">
                     <MessageCircle className="h-5 w-5 text-brand-neon" />
                   </span>
-                  <a href={whatsappUrl()} target="_blank" rel="noopener noreferrer" className="text-white transition-colors hover:text-brand-neon">
+                  <a href={whatsappUrl()} target="_blank" rel="noopener noreferrer" className="text-brand-text transition-colors hover:text-brand-neon">
                     WhatsApp · {site.contact.whatsappLabel}
                   </a>
                 </li>
@@ -138,7 +138,7 @@ export default function ContactSection() {
                   <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-neon/12 ring-1 ring-brand-neon/20">
                     <MapPin className="h-5 w-5 text-brand-neon" />
                   </span>
-                  <span className="text-white">
+                  <span className="text-brand-text">
                     {site.contact.city} · {site.contact.state}, {site.contact.country}
                   </span>
                 </li>
@@ -146,19 +146,19 @@ export default function ContactSection() {
                   <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-neon/12 ring-1 ring-brand-neon/20">
                     <Globe2 className="h-5 w-5 text-brand-neon" />
                   </span>
-                  <span className="text-white">{site.contact.coverage}</span>
+                  <span className="text-brand-text">{site.contact.coverage}</span>
                 </li>
               </ul>
             </div>
 
             {/* "mapa" elegante sem dependência do Google Maps */}
-            <div className="relative flex-1 overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-brand-petrol/30 to-brand-green/30 p-6">
+            <div className="relative flex-1 overflow-hidden rounded-3xl border border-brand-text/10 bg-gradient-to-br from-brand-petrol/30 to-brand-green/30 p-6">
               <div className="absolute inset-0 bg-tech-grid opacity-30" aria-hidden />
               <div className="relative flex h-full min-h-[160px] flex-col justify-between">
                 <span className="eyebrow w-fit">Onde atuamos</span>
                 <div className="flex items-end justify-between">
                   <div>
-                    <div className="font-display text-2xl font-bold text-white">São Paulo · Brasil</div>
+                    <div className="font-display text-2xl font-bold text-brand-text">São Paulo · Brasil</div>
                     <div className="mt-1 text-sm text-brand-muted">Sede operacional · atuação nacional</div>
                   </div>
                   <MapPin className="h-10 w-10 text-brand-neon" />
