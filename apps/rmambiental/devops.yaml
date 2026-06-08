@@ -1,0 +1,23 @@
+# Contrato da esteira DevOps para o portal RM Ambiental Brasil.
+# (ver C:\devops\docs\new-project-contract.md). App SOMENTE-FRONTEND (site institucional).
+# basePath /rmambiental ; frontend sem strip (base /rmambiental/) ; priority 10 (acima do portal `/`).
+app:
+  name: rmambiental
+  namespace: apps
+  host: dev.nvit.com.br        # + xpto.localhost no dev local
+  basePath: /rmambiental
+services:
+  frontend:
+    type: frontend
+    path: /
+    image: ghcr.io/flavioneto11/rmambiental/frontend   # CI/GHCR; local usa rmambiental-frontend:local
+    port: 80
+    expose: true
+    stripPrefix: false
+    priority: 10
+    build:
+      context: .
+      args:
+        VITE_BASE_PATH: /rmambiental/
+    health:
+      path: /healthz

@@ -1,0 +1,28 @@
+# =============================================================================
+# Argo CD Application: rmambiental (portal institucional, frontend) sob /rmambiental.
+# Descoberta pelo app-of-apps "devops-platform". Aplica apps/rmambiental/k8s via kustomize.
+# Imagem rmambiental-frontend:local é construída no nó (IfNotPresent) — o Argo só aplica
+# os manifests; o build da imagem é feito por docker build (lab) ou CI/GHCR.
+# =============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: rmambiental
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/FlavioNeto11/devops
+    path: apps/rmambiental/k8s
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: apps
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
