@@ -30,6 +30,20 @@ Identidade/SSO e gestão de segredos da plataforma NovaIT.
 |---|---|---|
 | **Grafana** (`/grafana`) | `grafana.ini` → `auth.generic_oauth` (realm nvit); `role_attribute_path` mapeia `platform-admins`→Admin; client secret via `envFromSecret: grafana-oidc` | `admin` / `admin` |
 | **Argo CD** (`/argocd`) | `argocd-cm.oidc.config` (sem dex); `clientSecret: $argocd-oidc:client_secret`; `argocd-rbac-cm`: `g, platform-admins, role:admin` | usuário `admin` |
+| **SICAT** (`/sicat`, login próprio) | OIDC no app (PKCE): backend valida o token no `/userinfo` e emite a sessão SICAT; frontend tem botão "Entrar com Keycloak" | login local + **auth SIGOR/CETESB intacta** |
+
+### Padrão para apps com LOGIN PRÓPRIO (referência: SICAT)
+Apps que já têm login próprio integram o Keycloak de forma **ADITIVA**, sem quebrar o
+login local nem outras autenticações do app (ex.: SIGOR/CETESB). Use o SICAT como template:
+
+- **Client Keycloak**: `publicClient: true` + PKCE `S256`, redirect `https://dev.nvit.com.br/<app>/login/keycloak/callback` (+ `http://localhost:5173/...` p/ dev).
+- **Backend** (`apps/sicat/backend/src/services/sicat-auth-service.ts` → `loginSicatViaKeycloak`; rota `POST /v1/sicat/auth/keycloak` em `api-routes.ts`; `config.ts` → `keycloak*`): recebe o `access_token` do frontend, **valida no `/userinfo`** do realm `nvit`, faz **upsert do usuário por e-mail** e emite a MESMA sessão do app (zero mudança no resto).
+- **Frontend** (`apps/sicat/frontend/src/services/keycloak.js` = fluxo Authorization Code + PKCE; `views/LoginKeycloakCallbackView.vue` = callback; botão na `LoginView.vue`; action `loginWithKeycloakToken` no store; `api.keycloakLogin`).
+- **Regra de ouro**: o login local **continua como fallback** e nenhuma outra auth do app é tocada.
+
+### Apps SEM login próprio
+Mais simples: gatear no edge (futuro: **oauth2-proxy / Traefik ForwardAuth**) — opt-in por
+Middleware na IngressRoute, sem mexer no código do app (assim novas apps não quebram).
 
 ## 3. Sealed Secrets — Cofre de segredos (GitOps)
 
