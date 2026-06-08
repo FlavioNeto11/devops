@@ -19,6 +19,7 @@ import {
   type LlmToolCall
 } from './llm-provider.js';
 import { dispatchConversationTool } from './conversation-tool-dispatcher.js';
+import { verifyEvidenceAndPlanReroute } from './conversation-evidence-verifier.js';
 import {
   loadPersistedConversationOperationalState,
   persistConversationOperationalState,
@@ -760,6 +761,117 @@ function buildConversationTracePayload(input: {
   };
 }
 
+// --- S-D: verificação pós-ferramenta (grounding) + reroute consultivo único ---
+// Liga/desliga por env sem rebuild. Off → comportamento anterior (sem verificação).
+const POSTTOOL_VERIFY_ENABLED = (process.env.CONVERSATION_POSTTOOL_VERIFY ?? 'on').trim().toLowerCase() !== 'off';
+
+// Ferramentas de CONSULTA (read-only) cujo resultado vale verificar quanto a grounding.
+const VERIFIABLE_CONSULTATIVE_TOOLS = new Set([
+  'orchestrate_manifest_operation',
+  'list_manifests',
+  'get_manifest_details',
+  'diagnose_operation',
+  'get_dashboard_overview',
+  'get_operations_overview'
+]);
+
+// Ferramentas de SAÚDE/visão geral: quando usadas para uma pergunta de dados (manifesto/CDF)
+// são o sintoma clássico do erro de roteamento — disparam a verificação por precaução.
+const HEALTH_OVERVIEW_TOOLS = new Set(['get_dashboard_overview', 'get_operations_overview']);
+
+function evidenceLooksEmpty(toolResult: unknown): boolean {
+  const payload = toRecord(toolResult);
+  const data = toRecord(payload.data);
+  const affected = Array.isArray(data.affectedItems) ? data.affectedItems.length : 0;
+  const items = Array.isArray(data.items) ? data.items.length : 0;
+  if (affected > 0 || items > 0) return false;
+  const total = Number(data.totalItems ?? data.total ?? toRecord(data.criteria).totalInRange);
+  if (Number.isFinite(total) && total > 0) return false;
+  const summary = normalizeForGuardrailCheck(toNullableString(payload.assistantSummary) || '');
+  return summary.includes('ausencia de dados')
+    || summary.includes('nenhum')
+    || summary.includes('total encontrado=0')
+    || (affected === 0 && items === 0);
+}
+
+function buildEvidenceSummaryForVerifier(toolName: string, toolResult: unknown): string {
+  const payload = toRecord(toolResult);
+  const data = toRecord(payload.data);
+  return JSON.stringify({
+    ferramenta: toolName,
+    tipo: toNullableString(payload.type),
+    kind: toNullableString(payload.kind),
+    intent: toNullableString(data.intent),
+    totalItems: data.totalItems ?? data.total ?? toRecord(data.criteria).totalInRange ?? null,
+    qtdAffectedItems: Array.isArray(data.affectedItems) ? data.affectedItems.length : 0,
+    qtdItems: Array.isArray(data.items) ? data.items.length : 0,
+    resumo: (toNullableString(payload.assistantSummary) || '').slice(0, 600)
+  });
+}
+
+/**
+ * Verifica o grounding da evidência e, se não responder à intenção, re-despacha 1× a ferramenta
+ * de CONSULTA correta (decisão do modelo aterrada na KB; o verificador garante read-only).
+ * Gate de latência: só roda quando há sintoma de mismatch (ferramenta de saúde OU evidência vazia).
+ */
+async function maybePostToolReroute(input: {
+  toolCall: LlmToolCall;
+  toolResult: unknown;
+  messageText: string;
+  context: ReturnType<typeof buildConversationContext>;
+  headers: Record<string, string | undefined>;
+  lastManifestSelectionIds: string[];
+}): Promise<{ toolCall: LlmToolCall; rawResult: unknown; reason: string | null } | null> {
+  const { toolCall, toolResult, context } = input;
+  if (!POSTTOOL_VERIFY_ENABLED) return null;
+  if (toolCall.confirmed) return null; // nunca rerotar após algo confirmado
+  if (!VERIFIABLE_CONSULTATIVE_TOOLS.has(toolCall.name)) return null;
+  if (!HEALTH_OVERVIEW_TOOLS.has(toolCall.name) && !evidenceLooksEmpty(toolResult)) return null;
+
+  let activeWindowBlock: string | null = null;
+  try {
+    const wm = await loadWorkingMemory({
+      conversationSessionId: context.conversationSessionId,
+      integrationAccountId: context.integrationAccountId
+    });
+    activeWindowBlock = buildWorkingMemoryContextBlock(wm);
+  } catch {
+    activeWindowBlock = null;
+  }
+
+  const verdict = await verifyEvidenceAndPlanReroute({
+    userMessage: input.messageText,
+    toolName: toolCall.name,
+    evidenceSummary: buildEvidenceSummaryForVerifier(toolCall.name, toolResult),
+    activeWindowBlock
+  });
+  if (verdict.answersIntent || !verdict.reroute) return null;
+
+  try {
+    const rawResult = await dispatchConversationTool({
+      toolName: verdict.reroute.name,
+      toolArgs: verdict.reroute.arguments || {},
+      context: {
+        correlationId: context.correlationId,
+        integrationAccountId: context.integrationAccountId,
+        sessionContextId: context.sessionContextId,
+        requestedBy: context.requestedBy,
+        manifestId: context.manifestId,
+        idempotencyKey: context.idempotencyKey,
+        lastManifestSelectionIds: input.lastManifestSelectionIds
+      },
+      headers: input.headers
+    });
+    return {
+      toolCall: { name: verdict.reroute.name, arguments: verdict.reroute.arguments || {}, confirmed: false },
+      rawResult,
+      reason: verdict.reason
+    };
+  } catch {
+    return null; // falha no reroute → mantém o resultado original (degrada, não quebra)
+  }
+}
+
 async function executeToolWithFallback(input: {
   toolCall: LlmToolCall;
   llmPlan: LlmPlan;
@@ -772,7 +884,11 @@ async function executeToolWithFallback(input: {
   synthesizer: ConversationSynthesizer;
   llmProvider: LlmProvider;
 }) {
-  const { toolCall, llmPlan, baseResponse, context } = input;
+  const { llmPlan, baseResponse, context } = input;
+  // toolCall é MUTÁVEL: a verificação pós-ferramenta (S-D) pode rerotar para a ferramenta correta,
+  // e todo o resto do fluxo (persistência/trilhas/síntese) deve refletir a ferramenta efetivamente usada.
+  let toolCall: LlmToolCall = input.toolCall;
+  let postToolRerouteInfo: { from: string; to: string; reason: string | null } | null = null;
   const operationPlan = buildConversationOperationPlan({
     llmPlan,
     context: {
@@ -798,7 +914,24 @@ async function executeToolWithFallback(input: {
       headers: input.headers
     });
 
-    const toolResult = ensureNormalizedConversationResult(rawToolResult);
+    let toolResult = ensureNormalizedConversationResult(rawToolResult);
+
+    // S-D: verificação pós-ferramenta (grounding). Se a evidência não responde à intenção,
+    // rerota 1× para a ferramenta de CONSULTA correta (decisão do modelo aterrada na KB).
+    const reroute = await maybePostToolReroute({
+      toolCall,
+      toolResult,
+      messageText: input.messageText,
+      context,
+      headers: input.headers,
+      lastManifestSelectionIds: input.lastManifestSelectionIds
+    });
+    if (reroute) {
+      postToolRerouteInfo = { from: toolCall.name, to: reroute.toolCall.name, reason: reroute.reason };
+      toolCall = reroute.toolCall;
+      toolResult = ensureNormalizedConversationResult(reroute.rawResult);
+    }
+
     const persistedArtifacts = await registerConversationArtifactsForToolResult({
       context: {
         conversationSessionId: context.conversationSessionId,
@@ -890,9 +1023,15 @@ async function executeToolWithFallback(input: {
       persistedArtifacts
     });
 
+    // Após eventual reroute (S-D), o patch de memória deve refletir a ferramenta EFETIVA
+    // (período/status/agrupamento realmente consultados) — não a ferramenta original.
+    const effectiveLlmPlan = postToolRerouteInfo
+      ? { ...llmPlan, toolCall: { name: toolCall.name, arguments: toolCall.arguments, confirmed: toolCall.confirmed } }
+      : llmPlan;
+
     await persistMemoryPatchSafely({
       context,
-      llmPlan,
+      llmPlan: effectiveLlmPlan,
       askedManifestIds: input.askedManifestIds,
       toolResult: enrichedToolResult,
       llmProvider: input.llmProvider,
@@ -912,7 +1051,8 @@ async function executeToolWithFallback(input: {
           resultSummary: extractToolResultSummary(enrichedToolResult),
           conversationMemory,
           orchestration: input.llmPlan.orchestration || null,
-          operationPlan
+          operationPlan,
+          postToolReroute: postToolRerouteInfo
         }),
         toolCalls: sanitizeToolCalls([{
           name: toolCall.name,
@@ -1468,6 +1608,11 @@ function normalizeForGuardrailCheck(value: string): string {
     .toLowerCase();
 }
 
+// Nota (S-D): a compatibilidade ENTRE TIPO DE EVIDÊNCIA E INTENÇÃO (ex.: pediram manifestos/CDF
+// mas veio painel de saúde/jobs) é garantida ANTES da síntese pela verificação pós-ferramenta
+// (maybePostToolReroute → verifyEvidenceAndPlanReroute), que rerota para a ferramenta correta.
+// Quando a síntese roda, a evidência já é do tipo certo; por isso este guardrail valida apenas o
+// FORMATO/aterramento da redação por intent (sem re-mapear tipo aqui), preservando os intents estáveis.
 function validateIntentResponseGuardrails(input: {
   candidateText: string;
   toolResult: unknown;

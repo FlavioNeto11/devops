@@ -32,11 +32,12 @@ const MEMORY_SYSTEM_PROMPT =
   'retorna a memoria ATUALIZADA. Objetivo: capturar o que importa para os PROXIMOS turnos raciocinarem com continuidade. ' +
   'Chaves do JSON de saida: goal (SEMPRE infira o objetivo operacional atual do usuario a partir do pedido + historico — ex.: "consultar/listar manifestos de <periodo>", "emitir CDF dos manifestos selecionados", "diagnosticar a operacao", "receber MTR"; so use null se nao houver objetivo operacional, como em uma saudacao), ' +
   'operationalFocus { partnerRole (gerador/transportador/destinador, se houver), ' +
-  'activeDateWindow {dateFrom, dateTo, label} (a JANELA DE DATAS em que o usuario esta trabalhando, formato YYYY-MM-DD), ' +
+  'activeDateWindow {dateFrom, dateTo, label, status, groupBy} (a JANELA/RECORTE em que o usuario esta trabalhando: ' +
+  'datas no formato YYYY-MM-DD; status = filtro de status ativo se houver (ex.: "cancelado"); groupBy = agrupamento ativo se houver (ex.: "status")), ' +
   'activeManifestIds[], activeJobIds[], activeCdfIds[] }, establishedFacts[] (fatos confirmados nesta conversa), ' +
   'openThreads[] (pendencias/proximos passos ainda nao resolvidos), narrative (resumo curto, no maximo 3 frases). ' +
   'Regras: (1) CARREGUE o estado anterior — so mude um campo quando o turno realmente mudar; ' +
-  '(2) a janela de datas e uma ANCORA: atualize-a quando o usuario citar/alterar o periodo, e mantenha-a para resolver pedidos relativos ("e os de ontem", "amplia uma semana"); ' +
+  '(2) a janela/recorte e uma ANCORA: atualize datas/status/groupBy quando o usuario citar/alterar periodo, filtro ou agrupamento, e mantenha-os para resolver pedidos relativos ("e os de ontem", "amplia uma semana", "e os cancelados"); ' +
   '(3) remova de openThreads o que foi resolvido; (4) nao invente IDs nem datas — use as entidades observadas e o que o usuario disse; ' +
   '(5) seja conciso. Responda SOMENTE o objeto JSON, sem texto fora dele.';
 
@@ -112,8 +113,10 @@ function normalizeWindow(window: unknown): WorkingMemoryDateWindow | null {
   const dateFrom = toNullableString(record.dateFrom);
   const dateTo = toNullableString(record.dateTo);
   const label = toNullableString(record.label);
-  if (!dateFrom && !dateTo && !label) return null;
-  return { dateFrom, dateTo, label };
+  const status = toNullableString(record.status);
+  const groupBy = toNullableString(record.groupBy);
+  if (!dateFrom && !dateTo && !label && !status && !groupBy) return null;
+  return { dateFrom, dateTo, label, status, groupBy };
 }
 
 /** Projeta uma WorkingMemory completa na forma "draft" (sem version/updatedAt) para alimentar o LLM. */
@@ -201,7 +204,7 @@ type TurnContext = {
   observedManifestIds: string[];
   observedJobIds: string[];
   observedCdfIds: string[];
-  dateRange: { dateFrom: string | null; dateTo: string | null } | null;
+  dateRange: { dateFrom: string | null; dateTo: string | null; status?: string | null; groupBy?: string | null } | null;
   toolResultSummary: string | null;
 };
 
@@ -213,7 +216,13 @@ function deterministicDraft(previous: WorkingMemory, turn: TurnContext): Working
     operationalFocus: {
       partnerRole: previous.operationalFocus.partnerRole,
       activeDateWindow: hasRange
-        ? { dateFrom: turn.dateRange?.dateFrom ?? null, dateTo: turn.dateRange?.dateTo ?? null, label: null }
+        ? {
+          dateFrom: turn.dateRange?.dateFrom ?? null,
+          dateTo: turn.dateRange?.dateTo ?? null,
+          label: null,
+          status: turn.dateRange?.status ?? previous.operationalFocus.activeDateWindow?.status ?? null,
+          groupBy: turn.dateRange?.groupBy ?? previous.operationalFocus.activeDateWindow?.groupBy ?? null
+        }
         : previous.operationalFocus.activeDateWindow,
       activeManifestIds: turn.observedManifestIds.length ? turn.observedManifestIds : previous.operationalFocus.activeManifestIds,
       activeJobIds: turn.observedJobIds.length ? turn.observedJobIds : previous.operationalFocus.activeJobIds,
@@ -274,7 +283,7 @@ export async function updateAndPersistWorkingMemory(input: {
   activeManifestIds?: string[];
   activeJobIds?: string[];
   activeCdfIds?: string[];
-  dateRange?: { dateFrom: string | null; dateTo: string | null } | null;
+  dateRange?: { dateFrom: string | null; dateTo: string | null; status?: string | null; groupBy?: string | null } | null;
   toolResultSummary?: string | null;
   today: string;
 }): Promise<WorkingMemory | null> {
@@ -338,11 +347,16 @@ export function buildWorkingMemoryContextBlock(wm: WorkingMemory | null, today: 
   if (wm.goal) lines.push(`- Objetivo atual do usuario: ${wm.goal}`);
   const focus = wm.operationalFocus;
   if (focus.partnerRole) lines.push(`- Papel/conta em foco: ${focus.partnerRole}`);
-  if (focus.activeDateWindow && (focus.activeDateWindow.dateFrom || focus.activeDateWindow.dateTo)) {
+  if (focus.activeDateWindow && (focus.activeDateWindow.dateFrom || focus.activeDateWindow.dateTo || focus.activeDateWindow.status || focus.activeDateWindow.groupBy)) {
     const w = focus.activeDateWindow;
+    const filters = [
+      w.status ? `status: ${w.status}` : null,
+      w.groupBy ? `agrupado por: ${w.groupBy}` : null
+    ].filter(Boolean).join(', ');
     lines.push(
-      `- Janela de datas ativa: ${w.dateFrom || '...'} a ${w.dateTo || '...'}${w.label ? ` (${w.label})` : ''} ` +
-      '— ancore pedidos relativos a esta janela.'
+      `- Janela/recorte ativo: ${w.dateFrom || '...'} a ${w.dateTo || '...'}${w.label ? ` (${w.label})` : ''}` +
+      `${filters ? ` [${filters}]` : ''} ` +
+      '— ancore pedidos relativos a este recorte (reuse periodo, status e agrupamento; nao recalcule para hoje).'
     );
   }
   if (focus.activeManifestIds.length) lines.push(`- Manifestos em foco: ${focus.activeManifestIds.slice(0, 12).join(', ')}`);

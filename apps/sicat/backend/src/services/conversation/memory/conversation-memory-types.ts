@@ -9,6 +9,8 @@ export type ConversationMemoryPatch = {
   dateRange: {
     dateFrom: string | null;
     dateTo: string | null;
+    status?: string | null;
+    groupBy?: string | null;
   } | null;
   updatedAt: string;
 };

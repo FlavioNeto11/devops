@@ -15,6 +15,10 @@ export type WorkingMemoryDateWindow = {
   dateFrom: string | null;
   dateTo: string | null;
   label: string | null;
+  // Filtro/agrupamento ativos junto da janela (ex.: status "cancelado", groupBy "status").
+  // Persistidos para follow-ups REUSAREM o recorte confirmado, não só o período.
+  status: string | null;
+  groupBy: string | null;
 };
 
 export type WorkingMemoryFocus = {
@@ -41,7 +45,9 @@ const dateWindowSchema = z
   .object({
     dateFrom: trimmedDate.nullable().optional(),
     dateTo: trimmedDate.nullable().optional(),
-    label: z.string().trim().max(120).nullable().optional()
+    label: z.string().trim().max(120).nullable().optional(),
+    status: z.string().trim().max(80).nullable().optional(),
+    groupBy: z.string().trim().max(40).nullable().optional()
   })
   .nullable();
 

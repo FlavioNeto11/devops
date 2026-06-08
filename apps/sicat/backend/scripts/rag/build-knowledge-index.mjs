@@ -23,7 +23,8 @@ const DOMAIN_DOCS = [
   'docs/copilot/05-modelo-de-dados.md',
   'docs/copilot/07-integracao-cetesb.md',
   'docs/copilot/08-riscos-e-lacunas.md',
-  'docs/copilot/16-camada-conversacional.md'
+  'docs/copilot/16-camada-conversacional.md',
+  'docs/copilot/17-ferramentas-e-roteamento.md'
 ];
 const INTENT_CATALOG = 'docs/ai-chat/intents/sicat-chat-intent-catalog.jsonl';
 
@@ -72,12 +73,39 @@ function chunkIntentCatalog() {
   return chunks;
 }
 
+// Divide um texto longo em pedacos COM SOBREPOSICAO, preferindo quebras naturais
+// (paragrafo > sentenca > espaco). Substitui o antigo text.slice(0,1800), que TRUNCAVA
+// e perdia o conteudo de secoes longas (prejudicando o recall do RAG).
+function splitWithOverlap(text, maxChars = 1100, overlap = 140) {
+  const clean = text.trim();
+  if (clean.length <= maxChars) return [clean];
+  const pieces = [];
+  let start = 0;
+  while (start < clean.length) {
+    let end = Math.min(start + maxChars, clean.length);
+    if (end < clean.length) {
+      const window = clean.slice(start, end);
+      const para = window.lastIndexOf('\n\n');
+      const sent = Math.max(window.lastIndexOf('. '), window.lastIndexOf('.\n'), window.lastIndexOf('? '), window.lastIndexOf('! '));
+      const sp = window.lastIndexOf(' ');
+      const half = maxChars * 0.5;
+      const cut = para > half ? para + 2 : sent > half ? sent + 1 : sp > half ? sp + 1 : window.length;
+      end = start + cut;
+    }
+    const piece = clean.slice(start, end).trim();
+    if (piece.length >= 40) pieces.push(piece);
+    if (end >= clean.length) break;
+    start = Math.max(end - overlap, start + 1);
+  }
+  return pieces;
+}
+
 function chunkDomainDoc(relPath) {
   const path = resolve(ROOT, relPath);
   if (!existsSync(path)) return [];
   const raw = readFileSync(path, 'utf8');
   const name = basename(relPath);
-  // Quebra por secoes de nivel 2 (## ...); cada secao vira um chunk.
+  // Quebra por secoes de nivel 2 (## ...); secoes longas sao SUBDIVIDIDAS com overlap.
   const sections = raw.split(/\n(?=##\s)/);
   const chunks = [];
   sections.forEach((section, index) => {
@@ -85,11 +113,14 @@ function chunkDomainDoc(relPath) {
     if (text.length < 40) return; // ignora fragmentos triviais
     const titleMatch = /^#{1,3}\s+(.+)$/m.exec(text);
     const title = (titleMatch ? titleMatch[1] : name).trim().slice(0, 120);
-    chunks.push({
-      id: `${name}#${index}`,
-      source: relPath,
-      title,
-      text: text.slice(0, 1800) // limita o tamanho do chunk
+    const parts = splitWithOverlap(text, 1100, 140);
+    parts.forEach((part, k) => {
+      chunks.push({
+        id: parts.length > 1 ? `${name}#${index}-${k}` : `${name}#${index}`,
+        source: relPath,
+        title,
+        text: part
+      });
     });
   });
   return chunks;

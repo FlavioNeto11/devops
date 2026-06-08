@@ -2,7 +2,7 @@ import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/
 import { END, MemorySaver, MessagesAnnotation, START, StateGraph } from '@langchain/langgraph';
 import { ChatOpenAI } from '@langchain/openai';
 import { AppError } from '../../lib/problem.js';
-import { createChatModel, getAiConfig } from './ai-config.js';
+import { createChatModel, getAiConfig, getReasoningEffortFor } from './ai-config.js';
 import { retrieveKnowledge, buildKnowledgeContextBlock } from './knowledge/conversation-knowledge-service.js';
 import { updateAndPersistWorkingMemory } from './memory/conversation-working-memory-service.js';
 import { resolveSpecialistForIntent, specialistToolNames, type ConversationSpecialist } from './agents/conversation-specialists.js';
@@ -208,7 +208,10 @@ export const CONVERSATION_TOOLS: FunctionTool[] = [
     function: {
       name: 'get_dashboard_overview',
       description:
-        'Retorna o resumo operacional do dashboard: jobs ativos, pendentes, DLQ, estatísticas gerais.',
+        'Indicadores de SAÚDE da plataforma (workers, filas/jobs, DLQ, taxa de sucesso 24h). ' +
+        'NÃO use para consultar lista, total, resumo ou contagem de MANIFESTOS/CDFs — para isso use ' +
+        'orchestrate_manifest_operation (ou list_manifests). Use APENAS quando a pergunta for sobre o ' +
+        'estado do sistema/processamento (jobs/workers), não sobre dados operacionais de manifestos.',
       parameters: { type: 'object', properties: {}, required: [] }
     }
   },
@@ -265,7 +268,9 @@ export const CONVERSATION_TOOLS: FunctionTool[] = [
     type: 'function',
     function: {
       name: 'list_manifests',
-      description: 'Lista os manifestos MTR disponíveis.',
+      description:
+        'Lista SIMPLES (sem filtros/agrupamento) dos manifestos MTR mais recentes. Para total, ' +
+        'resumo por período/status, agrupamento ou contagem, use orchestrate_manifest_operation.',
       parameters: { type: 'object', properties: {}, required: [] }
     }
   },
@@ -274,7 +279,12 @@ export const CONVERSATION_TOOLS: FunctionTool[] = [
     function: {
       name: 'orchestrate_manifest_operation',
       description:
-        'Executa pedidos compostos envolvendo seleção por recência (top N, ignorar primeiro), cancelamento em lote lógico e replicação com patch de motorista/placa.',
+        'Orquestrador de MANIFESTOS/CDF. CONSULTA (sem confirmação): listar, CONTAR/TOTALIZAR, ' +
+        'AGRUPAR por status/gerador/destinador/período, resumir o ano, detalhar um conjunto. ' +
+        'AÇÕES (só com confirmação explícita): cancelar, replicar, criar, submeter, imprimir em lote. ' +
+        'Use para QUALQUER pergunta sobre manifestos ou CDFs — inclusive "resumo/total de manifestos do ' +
+        'ano", "quantos manifestos no período" e "quantos cancelados no mês X" — escolhendo o intent ' +
+        'adequado (ex.: manifest.list_recent_top para listar; manifest.group_recent_top para totais/quebra por status).',
       parameters: {
         type: 'object',
         properties: {
@@ -1493,6 +1503,7 @@ async function classifyIntent(input: {
   messageText: string;
   context: ConversationContextLike;
   history?: Array<{ role: string; text: string }>;
+  knowledgeBlock?: string | null;
 }): Promise<IntentClassification> {
   const history = sanitizeHistory(input.history).slice(-12);
 
@@ -1515,7 +1526,8 @@ async function classifyIntent(input: {
       'Diagnostico/triagem de erros, jobs, sessao/conta ou auditoria: escolha get_operations_overview, list_jobs ou get_audit_trail conforme o foco, preservando identificadores citados (entities.manifestNumber, entities.correlationId, entities.status). ' +
       'Acoes sensiveis (cancelar, submeter, imprimir, receber, gerar ou baixar CDF) exigem confirmacao explicita posterior: classifique a intencao mas NUNCA assuma confirmacao nem execute. ' +
       'COMPROVANTE/2a via/PDF/extrato/impressao DO MANIFESTO (MTR) — gerar, imprimir, baixar ou "disponibilizar para download" o documento do(s) manifesto(s), inclusive em lote ("os 20", "esses", "dos ultimos N dias") — e manifest.batch_print_selected (gera o PDF e monta um ZIP para download); NUNCA confunda com CDF. Reserve os intents cdf.* (gerar/baixar CDF/CDR) EXCLUSIVAMENTE para o CERTIFICADO de destinacao final, quando o usuario citar explicitamente CDF/CDR/certificado de destinacao. ' +
-      'Intents permitidos: manifest.list_recent_top, manifest.group_recent_top, manifest.detail_selected_set, manifest.lookup_generator_by_number, memory.list_asked_manifests, manifest.preview_cancel_recent_excluding_first, manifest.cancel_recent_excluding_first, manifest.replicate_with_patch, manifest.replicate_segmented, manifest.create_draft, manifest.preview_create_from_payload, manifest.create_from_payload, manifest.receive_with_receipt, manifest.preview_batch_submit_selected, manifest.batch_submit_selected, manifest.preview_batch_print_selected, manifest.batch_print_selected, manifest.preview_batch_cancel_selected, manifest.batch_cancel_selected, cdf.resolve_by_manifest_reference, cdf.list_by_manifest_selection, cdf.generate_from_manifest_selection, cdf.preview_download_batch_selected, cdf.download_batch_selected, list_manifest_documents, list_cdf_certificates, enqueue_cdf_download, list_jobs, query_catalog, search_partners, get_operations_overview, list_dmr, list_mtr_provisorio, get_manifest_details, list_manifests, get_dashboard_overview, diagnose_operation, get_job_status, get_audit_trail, conversation, greeting, unclear.'
+      'Intents permitidos: manifest.list_recent_top, manifest.group_recent_top, manifest.detail_selected_set, manifest.lookup_generator_by_number, memory.list_asked_manifests, manifest.preview_cancel_recent_excluding_first, manifest.cancel_recent_excluding_first, manifest.replicate_with_patch, manifest.replicate_segmented, manifest.create_draft, manifest.preview_create_from_payload, manifest.create_from_payload, manifest.receive_with_receipt, manifest.preview_batch_submit_selected, manifest.batch_submit_selected, manifest.preview_batch_print_selected, manifest.batch_print_selected, manifest.preview_batch_cancel_selected, manifest.batch_cancel_selected, cdf.resolve_by_manifest_reference, cdf.list_by_manifest_selection, cdf.generate_from_manifest_selection, cdf.preview_download_batch_selected, cdf.download_batch_selected, list_manifest_documents, list_cdf_certificates, enqueue_cdf_download, list_jobs, query_catalog, search_partners, get_operations_overview, list_dmr, list_mtr_provisorio, get_manifest_details, list_manifests, get_dashboard_overview, diagnose_operation, get_job_status, get_audit_trail, conversation, greeting, unclear. ' +
+      'Considere tambem o bloco "routingKnowledge" (conhecimento de dominio + exemplos de consultas semelhantes mapeadas a intent/ferramenta correta): use-o como REFERENCIA SEMANTICA para decidir o intent certo — nao e regra fixa nem texto de resposta.'
     ),
     new HumanMessage(
       JSON.stringify({
@@ -1528,6 +1540,7 @@ async function classifyIntent(input: {
           lastManifestSelectionIds: input.context.lastManifestSelectionIds || [],
           askedManifestIds: input.context.askedManifestIds || []
         },
+        routingKnowledge: input.knowledgeBlock || null,
         history
       })
     )
@@ -1630,11 +1643,13 @@ function buildPlannerInstruction(input: {
   context: ConversationContextLike;
   classification: IntentClassification;
   history?: Array<{ role: string; text: string }>;
+  knowledgeBlock?: string | null;
 }) {
   return JSON.stringify({
     task: 'Agent Planner',
     messageText: input.messageText,
     classification: input.classification,
+    routingKnowledge: input.knowledgeBlock || null,
     context: {
       currentDate: operationalTodayIso(),
       workingMemory: input.context.workingMemoryBlock || null,
@@ -1886,7 +1901,8 @@ export async function synthesizeNaturalResponse(input: {
 }): Promise<string | null> {
   try {
     const config = getAiConfig();
-    const llm = createChatModel(config.openAiSynthesisModel, config.openAiApiKey);
+    // Síntese (gerar texto a partir de evidência já obtida) pode seguir rápida.
+    const llm = createChatModel(config.openAiSynthesisModel, config.openAiApiKey, getReasoningEffortFor('synthesis'));
 
     const knowledgeHits = await retrieveKnowledge(input.userMessage, { k: 5 });
     const knowledgeBlock = buildKnowledgeContextBlock(knowledgeHits);
@@ -1947,7 +1963,8 @@ export function createLlmProvider(): LlmProvider {
       return cached;
     }
 
-    const llm = createChatModel(config.openAiAgentModel, config.openAiApiKey);
+    // Planejamento/roteamento de ferramenta: passo onde a IA "se perdia" com effort mínimo.
+    const llm = createChatModel(config.openAiAgentModel, config.openAiApiKey, getReasoningEffortFor('routing'));
 
     const modelWithTools = llm.bindTools(conversationToolsForSpecialist(specialist));
 
@@ -1978,13 +1995,23 @@ export function createLlmProvider(): LlmProvider {
         };
       }
 
-      const llm = createChatModel(config.openAiAgentModel, config.openAiApiKey);
+      // Classificação de intenção (decisão de ferramenta): usa effort de roteamento.
+      const llm = createChatModel(config.openAiAgentModel, config.openAiApiKey, getReasoningEffortFor('routing'));
+
+      // RAG no PONTO DE DECISÃO: conhecimento de domínio + exemplos de roteamento
+      // (consultas semelhantes → intent/ferramenta) para fundamentar a escolha de ferramenta.
+      // Auxiliar: falha de RAG não bloqueia o planejamento.
+      let routingKnowledge: string | null = null;
+      try {
+        routingKnowledge = buildKnowledgeContextBlock(await retrieveKnowledge(text, { k: 6 })) || null;
+      } catch { /* RAG indisponível: segue sem grounding extra */ }
 
       let classification = await classifyIntent({
         llm,
         messageText: text,
         context: input.context,
-        history: input.history
+        history: input.history,
+        knowledgeBlock: routingKnowledge
       });
 
       if (classification.intent === 'unclear') {
@@ -2048,7 +2075,8 @@ export function createLlmProvider(): LlmProvider {
         messageText: text,
         context: input.context,
         classification,
-        history: input.history
+        history: input.history,
+        knowledgeBlock: routingKnowledge
       });
 
       let graphResult: typeof MessagesAnnotation.State;
@@ -2125,7 +2153,8 @@ export function createLlmProvider(): LlmProvider {
 
       // Se qualquer trigger for true, reclassificar com modelo de escalation
       if (escalationTriggers.shouldEscalate) {
-        const llm2 = createChatModel(config.openAiEscalationModel, config.openAiApiKey);
+        // Escalation = retry de baixa confiança: reasoning alto (1 retry mais "pensado").
+        const llm2 = createChatModel(config.openAiEscalationModel, config.openAiApiKey, (process.env.OPENAI_REASONING_EFFORT_ESCALATION || 'high').trim());
 
         const escalatedResult = await performEscalation({
           config,

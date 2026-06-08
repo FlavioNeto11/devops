@@ -102,22 +102,34 @@ export function isReasoningModel(model: string): boolean {
   return /^(gpt-5|o\d)/i.test(String(model || '').trim());
 }
 
+// Reasoning effort POR FASE (não global). O roteamento (classificação/planejamento de
+// ferramenta) é onde a IA "se perdia" com effort mínimo; lá usamos um esforço maior. A
+// síntese (gerar texto a partir de evidência já obtida) pode seguir rápida. Tudo ajustável
+// por env sem rebuild. Base ('minimal') mantém o comportamento legado para chamadas que não
+// declaram fase.
+export type ReasoningPhase = 'routing' | 'synthesis' | 'base';
+
+export function getReasoningEffortFor(phase: ReasoningPhase = 'base'): string {
+  const base = (process.env.OPENAI_REASONING_EFFORT || 'minimal').trim();
+  if (phase === 'routing') return (process.env.OPENAI_REASONING_EFFORT_ROUTING || 'medium').trim();
+  if (phase === 'synthesis') return (process.env.OPENAI_REASONING_EFFORT_SYNTHESIS || 'low').trim();
+  return base;
+}
+
 // Fábrica única de ChatOpenAI compatível com reasoning models.
 // - Modelos comuns: temperature: 0 (determinístico).
 // - Modelos de reasoning (gpt-5*, o*): SEM temperature (só aceitam o default 1) e com
-//   `reasoning_effort` configurável. O esforço padrão deixa CADA chamada lenta (~10s) e o
-//   agente conversacional encadeia várias chamadas (loop ReAct), estourando o timeout. Por
-//   isso o default aqui é 'minimal' (~2-3s/chamada). Ajustável via OPENAI_REASONING_EFFORT
-//   (minimal|low|medium|high) sem rebuild de código.
-export function createChatModel(model: string, apiKey: string): ChatOpenAI {
+//   `reasoning_effort` configurável. `reasoningEffort` pode ser passado pelo chamador
+//   (ex.: getReasoningEffortFor('routing')); na ausência, cai no OPENAI_REASONING_EFFORT
+//   (default 'minimal'). Encadeamentos ReAct devem manter o roteamento focado e a síntese leve.
+export function createChatModel(model: string, apiKey: string, reasoningEffort?: string): ChatOpenAI {
+  const effort = (reasoningEffort || process.env.OPENAI_REASONING_EFFORT || 'minimal').trim();
   if (AI_KIT_ENABLED) {
-    const reasoningEffort = (process.env.OPENAI_REASONING_EFFORT || 'minimal').trim();
-    return new ChatOpenAI(buildChatOpenAIArgs(model, apiKey, { reasoningEffort }));
+    return new ChatOpenAI(buildChatOpenAIArgs(model, apiKey, { reasoningEffort: effort }));
   }
   // --- legado (AI_KIT=off) ---
   if (!isReasoningModel(model)) {
     return new ChatOpenAI({ apiKey, model, temperature: 0 });
   }
-  const reasoningEffort = (process.env.OPENAI_REASONING_EFFORT || 'minimal').trim();
-  return new ChatOpenAI({ apiKey, model, modelKwargs: { reasoning_effort: reasoningEffort } });
+  return new ChatOpenAI({ apiKey, model, modelKwargs: { reasoning_effort: effort } });
 }

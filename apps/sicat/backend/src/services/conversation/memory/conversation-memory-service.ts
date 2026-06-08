@@ -99,6 +99,13 @@ export function buildConversationMemoryPatch(input: {
     toolArgs: toolCallArgs,
     entities: classifierEntities
   });
+  // Filtro/agrupamento do recorte ativo (orchestrate_manifest_operation.selection) — persistidos
+  // junto da janela para follow-ups reusarem o recorte (não só o período). status pode vir array.
+  const selection = toRecord(toolCallArgs.selection);
+  const selectionStatus = Array.isArray(selection.status)
+    ? (selection.status.map((s) => toNullableString(s)).filter(Boolean).join(', ') || null)
+    : toNullableString(selection.status);
+  const selectionGroupBy = toNullableString(selection.groupBy) || toNullableString((selection as Record<string, unknown>).group_by);
 
   return {
     patchVersion: 'conversation-memory.v1',
@@ -111,7 +118,9 @@ export function buildConversationMemoryPatch(input: {
     dateRange: dateRange.dateFrom || dateRange.dateTo
       ? {
         dateFrom: dateRange.dateFrom,
-        dateTo: dateRange.dateTo
+        dateTo: dateRange.dateTo,
+        status: selectionStatus,
+        groupBy: selectionGroupBy
       }
       : null,
     updatedAt: new Date().toISOString()

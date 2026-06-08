@@ -31,7 +31,7 @@ $docsSrc = Join-Path $sicat 'docs'
 
 # 1. Sincroniza as fontes do RAG para o contexto do build (mantém em dia com os docs canônicos).
 $docs = '01-visao-geral', '02-arquitetura', '04-fluxos-operacionais', '05-modelo-de-dados',
-'07-integracao-cetesb', '08-riscos-e-lacunas', '16-camada-conversacional'
+'07-integracao-cetesb', '08-riscos-e-lacunas', '16-camada-conversacional', '17-ferramentas-e-roteamento'
 New-Item -ItemType Directory -Force (Join-Path $backend 'docs\copilot') | Out-Null
 New-Item -ItemType Directory -Force (Join-Path $backend 'docs\ai-chat\intents') | Out-Null
 foreach ($d in $docs) { Copy-Item (Join-Path $docsSrc "copilot\$d.md") (Join-Path $backend 'docs\copilot') -Force }
