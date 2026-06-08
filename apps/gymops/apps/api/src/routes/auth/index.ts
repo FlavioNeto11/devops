@@ -85,6 +85,17 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
 
       const orgId = await resolveUserOrganization(user.id);
 
+      // Bloqueia login se a academia (organização) do usuário estiver INATIVA (deletedAt).
+      // Master da plataforma (isPlatformAdmin) nunca é bloqueado e normalmente não tem org.
+      if (!user.isPlatformAdmin && orgId) {
+        const org = await db.organization.findUnique({ where: { id: orgId }, select: { deletedAt: true } });
+        if (org?.deletedAt) {
+          return reply.status(403).send({
+            error: { code: 'ORG_INACTIVE', message: 'Academia inativada. Contate o administrador da plataforma.' },
+          });
+        }
+      }
+
       // Determine role and primary unit via canonical helper (covers org, unit, and area memberships)
       const context = orgId
         ? await resolveUserContext(user.id, orgId)
@@ -109,6 +120,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
           organizationId: context.organizationId,
           role: context.userRole,
           primaryUnitId: context.primaryUnitId,
+          isPlatformAdmin: user.isPlatformAdmin,
           user: {
             id: user.id,
             name: user.name,

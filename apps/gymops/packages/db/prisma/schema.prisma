@@ -198,6 +198,8 @@ model User {
   avatarUrl    String?   @map("avatar_url")
   passwordHash String?   @map("password_hash")
   googleId     String?   @unique @map("google_id")
+  // Super-admin da PLATAFORMA (acima dos owners de academia). Cross-org; gerencia academias e outros masters.
+  isPlatformAdmin Boolean @default(false) @map("is_platform_admin")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")

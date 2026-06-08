@@ -372,6 +372,14 @@ async function main() {
     create: { name: 'Admin SkyFit', email: 'admin@skyfit.com', passwordHash },
   });
 
+  // Master da PLATAFORMA (super-admin, acima das academias). Sem membership de org.
+  // Identidade de exemplo: admin@gymops.com. Senha-seed só para DEV — trocar em runtime.
+  await prisma.user.upsert({
+    where: { email: 'admin@gymops.com' },
+    update: { name: 'Platform Master', isPlatformAdmin: true },
+    create: { name: 'Platform Master', email: 'admin@gymops.com', passwordHash, isPlatformAdmin: true },
+  });
+
   const existingAdminMembership = await prisma.membership.findFirst({
     where: { userId: admin.id, organizationId: org.id, scopeType: ScopeType.organization },
   });

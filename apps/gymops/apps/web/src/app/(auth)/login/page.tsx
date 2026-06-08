@@ -21,7 +21,8 @@ const loginSchema = z.object({
 
 type LoginForm = z.infer<typeof loginSchema>;
 
-function resolveRedirect(role: UserRole, primaryUnitId: string | null): string {
+function resolveRedirect(role: UserRole, primaryUnitId: string | null, isPlatformAdmin: boolean): string {
+  if (isPlatformAdmin) return '/admin';
   if (role === 'owner' || role === 'org_manager') return '/dashboard';
   if (role === 'unit_manager' || role === 'area_leader') {
     return primaryUnitId ? `/units/${primaryUnitId}` : '/dashboard';
@@ -39,14 +40,16 @@ export default function LoginPage() {
   const sessionReady = useAuthStore((s) => s.sessionReady);
   const userRole = useAuthStore((s) => s.userRole);
   const primaryUnitId = useAuthStore((s) => s.primaryUnitId);
+  const isPlatformAdmin = useAuthStore((s) => s.isPlatformAdmin);
+  const setPlatformAdmin = useAuthStore((s) => s.setPlatformAdmin);
   const enableGoogleLogin = process.env.NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN !== 'false';
   const enableSso = process.env.NEXT_PUBLIC_ENABLE_SSO === 'true';
 
   useEffect(() => {
     if (!hasHydrated || !sessionReady) return;
     if (!isAuthenticated) return;
-    router.replace(resolveRedirect(userRole, primaryUnitId));
-  }, [hasHydrated, isAuthenticated, primaryUnitId, router, sessionReady, userRole]);
+    router.replace(resolveRedirect(userRole, primaryUnitId, isPlatformAdmin));
+  }, [hasHydrated, isAuthenticated, isPlatformAdmin, primaryUnitId, router, sessionReady, userRole]);
 
   const {
     register,
@@ -61,8 +64,10 @@ export default function LoginPage() {
       if (res.data.organizationId) setOrganizationId(res.data.organizationId);
       const role = (res.data.role as UserRole) ?? null;
       setUserContext(role, res.data.primaryUnitId ?? null);
+      const platformAdmin = res.data.isPlatformAdmin ?? false;
+      setPlatformAdmin(platformAdmin);
       toast.success(`Bem-vindo, ${res.data.user.name}!`);
-      router.push(resolveRedirect(role, res.data.primaryUnitId ?? null));
+      router.push(resolveRedirect(role, res.data.primaryUnitId ?? null, platformAdmin));
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         toast.error('Email ou senha inválidos');
@@ -160,6 +165,11 @@ export default function LoginPage() {
               </Button>
             </a>
           ) : null}
+
+          <p className="mt-6 border-t pt-4 text-center text-sm text-muted-foreground">
+            Não tem conta?{' '}
+            <a href="/setup" className="font-medium text-primary hover:underline">Cadastre sua academia</a>
+          </p>
         </div>
 
         <p className="text-center text-xs text-muted-foreground">

@@ -26,6 +26,7 @@ interface AuthState {
   organizationId: string | null;
   userRole: UserRole;
   primaryUnitId: string | null;
+  isPlatformAdmin: boolean;
   isAuthenticated: boolean;
   hasHydrated: boolean;
   sessionReady: boolean;
@@ -34,6 +35,7 @@ interface AuthState {
   setAuth: (user: AuthUser, token: string) => void;
   setOrganizationId: (id: string) => void;
   setUserContext: (role: UserRole, primaryUnitId: string | null) => void;
+  setPlatformAdmin: (value: boolean) => void;
   updateUser: (patch: Partial<AuthUser>) => void;
   logout: () => void;
   canCreate: () => boolean;
@@ -49,6 +51,7 @@ export const useAuthStore = create<AuthState>()(
       organizationId: null,
       userRole: null,
       primaryUnitId: null,
+      isPlatformAdmin: false,
       isAuthenticated: false,
       hasHydrated: false,
       sessionReady: false,
@@ -65,11 +68,13 @@ export const useAuthStore = create<AuthState>()(
 
       setUserContext: (role, primaryUnitId) => set({ userRole: role, primaryUnitId }),
 
+      setPlatformAdmin: (value) => set({ isPlatformAdmin: value }),
+
       updateUser: (patch) => set((s) => ({ user: s.user ? { ...s.user, ...patch } : null })),
 
       logout: () => {
         api.setToken(null);
-        set({ user: null, token: null, organizationId: null, userRole: null, primaryUnitId: null, isAuthenticated: false, sessionReady: true });
+        set({ user: null, token: null, organizationId: null, userRole: null, primaryUnitId: null, isPlatformAdmin: false, isAuthenticated: false, sessionReady: true });
       },
 
       // Helper: can this user create activities?
@@ -99,6 +104,7 @@ export const useAuthStore = create<AuthState>()(
         organizationId: state.organizationId,
         userRole: state.userRole,
         primaryUnitId: state.primaryUnitId,
+        isPlatformAdmin: state.isPlatformAdmin,
         isAuthenticated: state.isAuthenticated,
       }),
       onRehydrateStorage: () => (state) => {

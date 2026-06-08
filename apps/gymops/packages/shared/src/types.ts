@@ -31,6 +31,7 @@ export interface LoginResponse {
   organizationId: string | null;
   role: string | null;
   primaryUnitId: string | null;
+  isPlatformAdmin: boolean;
   user: {
     id: string;
     name: string;

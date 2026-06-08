@@ -26,6 +26,7 @@ import { invitationRoutes } from './routes/invitations/index.js';
 import { recurrenceRoutes } from './routes/recurrences/index.js';
 import { savedViewRoutes } from './routes/saved-views/index.js';
 import { auditLogRoutes } from './routes/audit-logs/index.js';
+import { adminRoutes } from './routes/admin/index.js';
 
 export async function buildApp() {
   const app = Fastify({
@@ -120,6 +121,7 @@ export async function buildApp() {
   await app.register(recurrenceRoutes, { prefix: '/recurrences' });
   await app.register(savedViewRoutes, { prefix: '/saved-views' });
   await app.register(auditLogRoutes, { prefix: '/audit-logs' });
+  await app.register(adminRoutes, { prefix: '/admin' });
 
   // Shortcut: /auth/me — return current user info
   app.get('/auth/me', { preHandler: [app.authenticate] }, async (request, reply) => {
