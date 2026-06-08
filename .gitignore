@@ -13,6 +13,7 @@ bin/
 obj/
 coverage/
 *.tgz
+.vendor/
 
 # --- Logs ---
 *.log
@@ -44,3 +45,7 @@ diagnostics/
 
 # --- Garantir que TODOS os arquivos de exemplo fiquem rastreados ---
 !*.example
+
+# --- Tarballs de pacotes @flavioneto11/* vendorizados por app (consumo :local offline) ---
+# Rastreados para builds self-contained; .vendor/ (transiente, na raiz) continua ignorado.
+!apps/**/vendor/*.tgz

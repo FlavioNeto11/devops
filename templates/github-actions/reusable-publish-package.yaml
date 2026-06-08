@@ -1,0 +1,52 @@
+# =============================================================================
+# Reusable workflow: publica um pacote @flavioneto11/* no GitHub Packages (npm).
+# -----------------------------------------------------------------------------
+# Caminho de CI/producao para reuso entre projetos. No laboratorio offline use
+# scripts/vendor-packages.ps1 (tarball file:). Ver
+# docs/standards/shared-libraries-and-versioning.md.
+#
+# Uso (no workflow chamador):
+#   jobs:
+#     publish-ai-kit:
+#       uses: ./.github/workflows/reusable-publish-package.yaml
+#       with: { package_dir: packages/ai-kit }
+#       permissions: { contents: read, packages: write }
+# =============================================================================
+name: reusable-publish-package
+
+on:
+  workflow_call:
+    inputs:
+      package_dir:
+        description: "Pasta do pacote (ex.: packages/ai-kit)"
+        required: true
+        type: string
+      node_version:
+        required: false
+        type: string
+        default: "22"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@flavioneto11"
+      - name: Build (se houver script)
+        working-directory: ${{ inputs.package_dir }}
+        run: |
+          npm ci || npm install || true
+          npm run build --if-present
+          npm test --if-present
+      - name: Publish
+        working-directory: ${{ inputs.package_dir }}
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
