@@ -1,0 +1,28 @@
+# =============================================================================
+# Argo CD Application: Keycloak (IdP/SSO) + Postgres, sob GitOps.
+# Descoberta pelo app-of-apps "devops-platform". Usa kustomize (platform/keycloak),
+# que inclui o SealedSecret (criptografado). O Secret real e recriado pelo controller
+# sealed-secrets (kube-system), nao pelo Argo.
+# =============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: keycloak
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/FlavioNeto11/devops
+    path: platform/keycloak
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: identity
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,8 @@
+# Kustomization do Keycloak para o Argo CD (GitOps).
+# O SealedSecret keycloak-secrets e criptografado (seguro versionar); o controller
+# sealed-secrets recria o Secret real. A Namespace 'identity' esta no keycloak.yaml.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - keycloak.yaml
+  - sealed-keycloak-secrets.yaml
