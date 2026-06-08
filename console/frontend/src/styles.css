@@ -597,3 +597,522 @@ code {
     padding: 14px;
   }
 }
+
+/* =========================================================================
+   Projetos & Tarefas — board estilo Trello (dev) + drawer de detalhe.
+   Tudo reusa os tokens do :root; sem cores soltas.
+   ========================================================================= */
+
+/* Realce "accent" (tipo "evolução" e prioridade P2). */
+.badge-accent {
+  background: rgba(76, 141, 255, 0.15);
+  color: var(--accent);
+}
+
+/* Inputs de texto e textarea no mesmo idioma visual do .select. */
+.input,
+.textarea {
+  appearance: none;
+  width: 100%;
+  background: var(--bg-elev-2);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  font: inherit;
+}
+.textarea {
+  min-height: 76px;
+  resize: vertical;
+  line-height: 1.5;
+}
+.input:focus,
+.textarea:focus,
+.select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Campo que cresce dentro de uma .toolbar (ex.: busca). */
+.field--grow {
+  flex: 1;
+  min-width: 160px;
+}
+
+/* ----------------------------------------------------------- Project pills */
+.meta__pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.pill {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-elev);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.pill:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.pill--active {
+  color: var(--text);
+  border-color: var(--accent);
+  background: rgba(76, 141, 255, 0.1);
+}
+.pill__count {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 7px;
+  color: var(--text-muted);
+}
+
+/* -------------------------------------------------------------- Kanban board */
+.board {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  align-items: flex-start;
+}
+.board__col {
+  flex: 0 0 268px;
+  width: 268px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.board__col--over {
+  border-color: var(--accent);
+  background: var(--bg-elev-2);
+}
+.board__col-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: 2px 2px 6px;
+  border-bottom: 1px solid var(--border);
+}
+.board__col-count {
+  font-variant-numeric: tabular-nums;
+  background: var(--bg-elev-2);
+  border-radius: 999px;
+  padding: 0 7px;
+  color: var(--text-dim);
+}
+.board__col-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  min-height: 44px;
+  max-height: calc(100vh - 360px);
+}
+.board__empty {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-align: center;
+  padding: 12px 4px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+}
+
+/* ----------------------------------------------------------- Kanban card */
+.kcard {
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: grab;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.kcard:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow);
+}
+.kcard:active {
+  cursor: grabbing;
+}
+.kcard--dragging {
+  opacity: 0.5;
+  border-color: var(--accent);
+}
+.kcard__tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.kcard__title {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text);
+}
+.kcard__foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.kcard__links {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+.kcard__links a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.kcard__links a:hover {
+  color: var(--accent);
+}
+
+/* ------------------------------------------------------------- Progress */
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.progress__track {
+  flex: 1;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.progress__bar {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.2s;
+}
+.progress__bar--done {
+  background: var(--ok);
+}
+.progress__label {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------- Drawer */
+.drawer__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 40;
+  display: flex;
+  justify-content: flex-end;
+}
+.drawer {
+  width: min(460px, 100%);
+  height: 100%;
+  background: var(--bg-elev);
+  border-left: 1px solid var(--border);
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  animation: drawer-in 0.15s ease-out;
+}
+@keyframes drawer-in {
+  from { transform: translateX(24px); opacity: 0.6; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+.drawer__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.drawer__close {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+.drawer__close:hover {
+  color: var(--text);
+  background: var(--bg-elev-2);
+}
+.drawer__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.drawer__row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.drawer__row .field {
+  flex: 1;
+  min-width: 110px;
+}
+.drawer__foot {
+  border-top: 1px solid var(--border);
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.btn--danger {
+  border-color: var(--err);
+  color: var(--err);
+}
+.btn--danger:hover:not(:disabled) {
+  background: var(--err-bg);
+  border-color: var(--err);
+}
+
+/* ----------------------------------------------------------- Checklist */
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.checklist__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 7px 9px;
+}
+.checklist__status {
+  appearance: none;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elev);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+}
+.checklist__status--done {
+  background: var(--ok-bg);
+  border-color: var(--ok);
+  color: var(--ok);
+}
+.checklist__status--in_progress {
+  background: var(--warn-bg);
+  border-color: var(--warn);
+  color: var(--warn);
+}
+.checklist__title {
+  flex: 1;
+  font-size: 13px;
+}
+.checklist__title--done {
+  text-decoration: line-through;
+  color: var(--text-dim);
+}
+.icon-btn {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+.icon-btn:hover {
+  color: var(--err);
+  background: var(--err-bg);
+}
+
+/* ======================================================================
+   Logs — visualizador rico (2 paineis + realce de nivel/busca).
+   ====================================================================== */
+.logs2 {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 12px;
+  align-items: start;
+  margin-top: 12px;
+}
+.logs2__list {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+  max-height: 72vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.logs2__group-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: 4px 4px 0;
+}
+.logs2__pod {
+  appearance: none;
+  text-align: left;
+  width: 100%;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: inherit;
+  font: inherit;
+  transition: border-color 0.15s;
+  margin-bottom: 6px;
+}
+.logs2__pod:hover {
+  border-color: var(--border-strong);
+}
+.logs2__pod--active {
+  border-color: var(--accent);
+  background: rgba(76, 141, 255, 0.1);
+}
+.logs2__pod-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-family: var(--mono);
+  word-break: break-all;
+}
+.logs2__pod-meta {
+  font-size: 11px;
+  color: var(--text-dim);
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.logs2__viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.logs2__viewer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.logs2__opts {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.logs2__opts .field {
+  min-width: 0;
+}
+.logs2__opts .select {
+  min-width: 120px;
+}
+.logs2__count {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.check-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  padding-bottom: 7px;
+}
+
+.logbox--lines {
+  padding: 10px 0;
+  white-space: normal;
+}
+.logline {
+  display: block;
+  padding: 0 16px;
+  white-space: pre;
+}
+.logbox--wrap .logline {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.logline:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+.logline--err {
+  color: #ff8d85;
+  background: rgba(248, 81, 73, 0.08);
+}
+.logline--warn {
+  color: #e3c069;
+}
+.logline__ts {
+  color: var(--text-dim);
+}
+.logline mark {
+  background: var(--warn);
+  color: #1a1205;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+@media (max-width: 880px) {
+  .logs2 {
+    grid-template-columns: 1fr;
+  }
+  .logs2__list {
+    max-height: 240px;
+  }
+}

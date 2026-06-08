@@ -6,8 +6,22 @@ const r = Router();
 const FIELDS = ['type', 'title', 'description', 'status', 'priority', 'external_ref', 'git_url', 'pr_url'];
 
 r.get('/projects/:projectId/items', asyncH(async (req, res) => {
+  // Enriquece cada item com a contagem de tasks (total e concluidas) via LEFT JOIN
+  // agregado — assim o board mostra "X/Y tasks" por card sem um N+1 de /tasks.
   const { rows } = await query(
-    'SELECT * FROM items WHERE project_id = $1 ORDER BY priority, created_at DESC',
+    `SELECT i.*,
+            COALESCE(t.task_total, 0)::int AS task_total,
+            COALESCE(t.task_done, 0)::int  AS task_done
+       FROM items i
+       LEFT JOIN (
+         SELECT item_id,
+                COUNT(*)                                  AS task_total,
+                COUNT(*) FILTER (WHERE status = 'done')   AS task_done
+           FROM tasks
+          GROUP BY item_id
+       ) t ON t.item_id = i.id
+      WHERE i.project_id = $1
+      ORDER BY i.priority, i.created_at DESC`,
     [req.params.projectId],
   );
   res.json({ data: rows });
