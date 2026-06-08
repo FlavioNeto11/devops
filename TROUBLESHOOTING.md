@@ -374,6 +374,23 @@ if ((Get-Content $h -Raw) -notmatch "`n$") { Add-Content $h "" }
 Add-Content $h "127.0.0.1`txpto.localhost"
 ```
 
+### 13.6 `docker desktop restart` trava em "stopping" (e o flag AutoStart)
+
+Nesta máquina o `docker desktop restart` (CLI) pode falhar ao parar o Docker
+(`context deadline exceeded`, processos seguem rodando) e deixá-lo preso em **"stopping"**
+→ engine `500`, k8s com `TLS handshake timeout`, apps fora. **Recuperação**:
+
+```powershell
+.\scripts\recover-docker.ps1   # mata processos, wsl --shutdown, renomeia sockets orfaos, relanca
+# aguarde o engine + k8s; os pods (Deployments) se recriam sozinhos em ~1-2 min
+kubectl get pods -A
+```
+
+Editar `settings-store.json` (ex.: ligar `"AutoStart": true`) com o Docker **rodando** não
+adianta — o Docker reescreve o arquivo e reverte. Para ligar o autostart, use o **toggle da
+GUI** ("Start Docker Desktop when you log in") ou edite com o Docker **parado**. O
+start-on-login básico já vem da chave Run do Windows (`HKCU\...\Run\Docker Desktop`).
+
 ---
 
 ## 14. SPA (Vite/React) em branco sob subpath: MIME dos assets + cache Cloudflare
