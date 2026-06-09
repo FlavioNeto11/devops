@@ -167,3 +167,18 @@ export const pmTasks = (itemId) => pmFetch(`/items/${itemId}/tasks`);
 export const pmCreateTask = (itemId, task) => pmFetch(`/items/${itemId}/tasks`, { method: 'POST', body: task });
 export const pmPatchTask = (id, patch) => pmFetch(`/tasks/${id}`, { method: 'PATCH', body: patch });
 export const pmDeleteTask = (id) => pmFetch(`/tasks/${id}`, { method: 'DELETE' });
+
+// ---------------------------------------------------------------------------
+// Identidade + gestão de acesso (usuários restritos).
+// /me decide o gating do frontend (admin vê tudo; member só Projetos & Tarefas).
+// As rotas /admin/* são protegidas no pm-api (platform-admins).
+// ---------------------------------------------------------------------------
+export const pmMe = () => pmFetch('/me');
+export const pmListMembers = () => pmFetch('/admin/members');
+export const pmCreateMember = (body) => pmFetch('/admin/members', { method: 'POST', body });
+export const pmSetMemberProjects = (email, projectIds) =>
+  pmFetch(`/admin/members/${encodeURIComponent(email)}/projects`, { method: 'PUT', body: { projectIds } });
+export const pmUpdateMember = (email, patch) =>
+  pmFetch(`/admin/members/${encodeURIComponent(email)}`, { method: 'PATCH', body: patch });
+export const pmDeleteMember = (email) =>
+  pmFetch(`/admin/members/${encodeURIComponent(email)}`, { method: 'DELETE' });

@@ -5,5 +5,6 @@ kind: Kustomization
 # controller de Sealed Secrets no cluster. Sem transformacoes (namespace 1:1).
 resources:
   - sealed-devops-console-oauth.yaml
+  - sealed-devops-console-kc-svc.yaml   # client de servico p/ o pm-api gerir usuarios restritos
   - oauth2-proxy.yaml
   - auth-routes.yaml

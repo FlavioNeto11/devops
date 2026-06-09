@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import { query } from '../db/pool.js';
 import { asyncH, buildPatch, notFound, invalid } from './_util.js';
+import { assertProjectAccess, resolveProjectIdForItem, resolveProjectIdForTask } from '../auth.js';
 
 const r = Router();
 
 r.get('/items/:itemId/tasks', asyncH(async (req, res) => {
+  if (!(await assertProjectAccess(req, res, await resolveProjectIdForItem(req.params.itemId)))) return;
   const { rows } = await query(
     'SELECT * FROM tasks WHERE item_id = $1 ORDER BY status, position, created_at',
     [req.params.itemId],
@@ -13,6 +15,7 @@ r.get('/items/:itemId/tasks', asyncH(async (req, res) => {
 }));
 
 r.post('/items/:itemId/tasks', asyncH(async (req, res) => {
+  if (!(await assertProjectAccess(req, res, await resolveProjectIdForItem(req.params.itemId)))) return;
   const b = req.body || {};
   if (!b.title) return invalid(res, 'title e obrigatorio');
   const { rows: maxRows } = await query(
@@ -29,6 +32,7 @@ r.post('/items/:itemId/tasks', asyncH(async (req, res) => {
 
 // PATCH cobre tambem mover/reordenar no kanban (status + position) e o ciclo begin->end.
 r.patch('/tasks/:id', asyncH(async (req, res) => {
+  if (!(await assertProjectAccess(req, res, await resolveProjectIdForTask(req.params.id)))) return;
   const b = req.body || {};
   const { sets, values } = buildPatch(b, ['title', 'status', 'position', 'assignee', 'estimate']);
   // Ciclo de vida: marca started_at no 1o in_progress; completed_at ao concluir; limpa se reabrir.
@@ -46,6 +50,7 @@ r.patch('/tasks/:id', asyncH(async (req, res) => {
 }));
 
 r.delete('/tasks/:id', asyncH(async (req, res) => {
+  if (!(await assertProjectAccess(req, res, await resolveProjectIdForTask(req.params.id)))) return;
   const { rowCount } = await query('DELETE FROM tasks WHERE id = $1', [req.params.id]);
   if (!rowCount) return notFound(res, 'task');
   res.status(204).end();

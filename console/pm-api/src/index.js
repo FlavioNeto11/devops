@@ -5,6 +5,9 @@ import { migrate } from './db/migrate.js';
 import projects from './routes/projects.js';
 import items from './routes/items.js';
 import tasks from './routes/tasks.js';
+import me from './routes/me.js';
+import admin from './routes/admin.js';
+import { authContext, requireAdmin } from './auth.js';
 import { seed } from '../scripts/seed.js';
 
 const app = express();
@@ -13,6 +16,7 @@ app.use(cors());
 
 const api = express.Router();
 
+// /health e publico (probe do k8s) e nao depende de auth.
 api.get('/health', async (_req, res) => {
   try {
     await pool.query('SELECT 1');
@@ -22,8 +26,11 @@ api.get('/health', async (_req, res) => {
   }
 });
 
-// Re-seed idempotente sob demanda (ex.: apos editar os FR stubs).
-api.post('/admin/seed', async (_req, res, next) => {
+// Contexto de identidade (papel/grupos via headers da borda) para TODAS as rotas abaixo.
+api.use(authContext);
+
+// Re-seed idempotente sob demanda (admin apenas).
+api.post('/admin/seed', requireAdmin, async (_req, res, next) => {
   try {
     res.json({ data: await seed() });
   } catch (e) {
@@ -31,6 +38,8 @@ api.post('/admin/seed', async (_req, res, next) => {
   }
 });
 
+api.use(me);
+api.use(admin);
 api.use(projects);
 api.use(items);
 api.use(tasks);

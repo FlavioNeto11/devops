@@ -22,6 +22,12 @@ spec:
             - { name: AUTO_MIGRATE, value: "true" }
             - { name: AUTO_SEED, value: "true" }
             - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: pm-db, key: DATABASE_URL } } }
+            # Identidade/escopo: papel vem dos headers da borda; gestão de usuários restritos via Keycloak.
+            - { name: PM_MEMBER_GROUP, value: "project-members" }
+            - { name: KEYCLOAK_BASE, value: "http://keycloak.identity.svc.cluster.local:8080/auth" }
+            - { name: KC_REALM, value: "nvit" }
+            - { name: KC_SVC_CLIENT_ID, value: "devops-console-svc" }
+            - { name: KC_SVC_CLIENT_SECRET, valueFrom: { secretKeyRef: { name: devops-console-kc-svc, key: KC_SVC_CLIENT_SECRET } } }
           ports: [{ containerPort: 3002, name: http }]
           readinessProbe:
             httpGet: { path: /health, port: http }

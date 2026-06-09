@@ -68,9 +68,11 @@ spec:
               value: "*"
             - name: OAUTH2_PROXY_INSECURE_OIDC_ALLOW_UNVERIFIED_EMAIL
               value: "true"
-            # So membros do grupo platform-admins entram (mesma regra do Grafana/Argo).
+            # platform-admins (acesso total) e project-members (acesso restrito a
+            # Projetos & Tarefas, escopado por projeto pelo pm-api) entram pela borda.
+            # A distincao de papel/escopo e feita nos backends via X-Auth-Request-Groups.
             - name: OAUTH2_PROXY_ALLOWED_GROUPS
-              value: "platform-admins"
+              value: "platform-admins,project-members"
             - name: OAUTH2_PROXY_OIDC_GROUPS_CLAIM
               value: "groups"
             # Modo ForwardAuth: upstream estatico 202 -> /  responde 202 (auth) ou 302 (login).

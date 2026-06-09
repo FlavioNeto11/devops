@@ -1,0 +1,14 @@
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: devops-console-kc-svc
+  namespace: devops-system
+spec:
+  encryptedData:
+    KC_SVC_CLIENT_SECRET: AgBNPZbRWji4UGDiJETF65FU7lZAb2Seri8rK0rUYuhel3bMMmQWr8FBeUkmtJ7h06Gt31nhbNEfaVspFMyOn4urwoJNLBeuNTIuiLIxZLQl4zq38Ljh0zj7/2/7i1PeXubwjmZa6GlsC8rxuubiMKV+QdXi9xlRlAQF5rR4S5ISBIyAvXrtDZ9ZX8bRxpjAZO3m/3l6IYoCifV7EWyLhhvpRmqkZqkJcyVlXnRypEbWgy+U7yMNVETIIfFP3qZeJDGVw/f3aZeSsPr9CnGT5FjBRxc13pmdGlOcOn7wZVu8p/5rbDYY+7CYXdNamsZ5b22qD3bBdgTbfm8BqFqyPRkQo35aagVbqw3f0J41zc5PwfO5PxiW9ioQzUYX76VE3FFa9YXcEEL5DE3Xn8nq1w+ifHFsO1muD1d8GbY4fjqxGAkf4pmsKaE6mwLE21kjSiFn1d3a15QWbbaEVgnvbBB9Iy6RhBDayiucHYi6yMfQlF4U43rYWkmwdJdN4BxG9Bjj/EFPKpLw+tyAvcnSa7eQdxaUKbG+1LUT09y/1hDd1pTfVj2iTDd2c3gfdDrkZTvx6hlP4FWmRSU5EKOPqNLwavaDXf2p2QdTrhdzYx/EdAlKnWXnmRMslj1TELsqCNWykxGYEL6GgBDCKfbVZ8NidwGEY0IWC9gGonIYhIjShrcXiVc3sNfuI1s08/yrictbnETz8whuphz98F38t0AWYArkd4mr883ylrM51yK+PA==
+  template:
+    metadata:
+      name: devops-console-kc-svc
+      namespace: devops-system
+    type: Opaque

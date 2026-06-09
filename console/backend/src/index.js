@@ -872,6 +872,42 @@ app.use((req, _res, next) => {
   next();
 });
 
+// ---------------------------------------------------------------------------
+// Gate por grupo: o console read-only (dados do cluster) e EXCLUSIVO de
+// platform-admins. Usuarios restritos (grupo project-members) so usam Projetos &
+// Tarefas (pm-api) e NAO devem ver o cluster — nem por XHR direto. Defense-in-depth
+// alem do gating do frontend. /health fica publico (probe do k8s). Confia nos
+// headers da borda (oauth2-proxy/ForwardAuth, que define/sobrescreve X-Auth-Request-*);
+// em DEV (sem headers) libera para nao travar o desenvolvimento local.
+// ---------------------------------------------------------------------------
+const CONSOLE_ADMIN_GROUP = process.env.CONSOLE_ADMIN_GROUP || 'platform-admins';
+// Fallback "sem identidade" = permitir (default true): evita trancar o admin caso o forward
+// dos headers falhe. SEGURO contra members — a borda sempre injeta X-Auth-Request-Groups e o
+// Traefik sobrescreve forjas, entao um member sempre chega COM o grupo (e e barrado abaixo).
+// Endurecivel com CONSOLE_DEV_TRUST_ADMIN=false apos confirmar o forward dos headers.
+const CONSOLE_DEV_TRUST_ADMIN = (process.env.CONSOLE_DEV_TRUST_ADMIN ?? 'true') === 'true';
+
+function requesterGroups(req) {
+  const raw = req.headers['x-auth-request-groups'] || req.headers['x-forwarded-groups'] || '';
+  return String(raw)
+    .split(/[\s,]+/)
+    .map((g) => g.trim())
+    .filter(Boolean);
+}
+
+app.use((req, res, next) => {
+  // /health (montado em '/' e '/api') sempre liberado para o probe do k8s.
+  if (req.path === '/health' || req.path === '/api/health') return next();
+  const groups = requesterGroups(req);
+  const hasIdentity =
+    groups.length > 0 || req.headers['x-auth-request-email'] || req.headers['x-forwarded-email'];
+  if (!hasIdentity && CONSOLE_DEV_TRUST_ADMIN) return next();
+  if (groups.includes(CONSOLE_ADMIN_GROUP)) return next();
+  return res
+    .status(403)
+    .json({ error: 'Acesso ao painel do cluster e restrito a administradores da plataforma.', status: 403 });
+});
+
 // Monta o MESMO router em '/' (atras do StripPrefix /devops/api) e em '/api'
 // (acesso direto em desenvolvimento).
 app.use('/', router);

@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import { query } from '../db/pool.js';
 import { asyncH, buildPatch, notFound, invalid } from './_util.js';
+import { assertProjectAccess, resolveProjectIdForItem } from '../auth.js';
 
 const r = Router();
 const FIELDS = ['type', 'title', 'description', 'status', 'priority', 'external_ref', 'git_url', 'pr_url'];
 
 r.get('/projects/:projectId/items', asyncH(async (req, res) => {
+  if (!(await assertProjectAccess(req, res, req.params.projectId))) return;
   // Enriquece cada item com a contagem de tasks (total e concluidas) via LEFT JOIN
   // agregado — assim o board mostra "X/Y tasks" por card sem um N+1 de /tasks.
   const { rows } = await query(
@@ -28,12 +30,14 @@ r.get('/projects/:projectId/items', asyncH(async (req, res) => {
 }));
 
 r.get('/items/:id', asyncH(async (req, res) => {
+  if (!(await assertProjectAccess(req, res, await resolveProjectIdForItem(req.params.id)))) return;
   const { rows } = await query('SELECT * FROM items WHERE id = $1', [req.params.id]);
   if (!rows.length) return notFound(res, 'item');
   res.json({ data: rows[0] });
 }));
 
 r.post('/projects/:projectId/items', asyncH(async (req, res) => {
+  if (!(await assertProjectAccess(req, res, req.params.projectId))) return;
   const b = req.body || {};
   if (!b.type || !b.title) return invalid(res, 'type e title sao obrigatorios');
   const { rows } = await query(
@@ -45,6 +49,7 @@ r.post('/projects/:projectId/items', asyncH(async (req, res) => {
 }));
 
 r.patch('/items/:id', asyncH(async (req, res) => {
+  if (!(await assertProjectAccess(req, res, await resolveProjectIdForItem(req.params.id)))) return;
   const { sets, values } = buildPatch(req.body || {}, FIELDS);
   if (!sets.length) return invalid(res, 'nada a atualizar');
   values.push(req.params.id);
@@ -57,6 +62,7 @@ r.patch('/items/:id', asyncH(async (req, res) => {
 }));
 
 r.delete('/items/:id', asyncH(async (req, res) => {
+  if (!(await assertProjectAccess(req, res, await resolveProjectIdForItem(req.params.id)))) return;
   const { rowCount } = await query('DELETE FROM items WHERE id = $1', [req.params.id]);
   if (!rowCount) return notFound(res, 'item');
   res.status(204).end();

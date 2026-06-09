@@ -321,7 +321,7 @@ function ItemDrawer({ mode, item, projectId, onClose, onSaved }) {
 // ===========================================================================
 // Componente principal
 // ===========================================================================
-export default function MetaProjects() {
+export default function MetaProjects({ canManageProjects = true }) {
   const [projects, setProjects] = useState([]);
   const [apps, setApps] = useState([]);
   const [selId, setSelId] = useState(null);
@@ -426,9 +426,9 @@ export default function MetaProjects() {
               </button>
             );
           })}
-          {!projects.length && <span className="muted">Nenhum projeto. Rode o seed do pm-api ou crie um.</span>}
+          {!projects.length && <span className="muted">{canManageProjects ? 'Nenhum projeto. Rode o seed do pm-api ou crie um.' : 'Nenhum projeto atribuído a você. Fale com um administrador.'}</span>}
         </div>
-        <button className="btn" onClick={createProject}>+ projeto</button>
+        {canManageProjects && <button className="btn" onClick={createProject}>+ projeto</button>}
       </div>
 
       {!sel && <p className="state state--empty">Selecione um projeto acima.</p>}
@@ -451,9 +451,11 @@ export default function MetaProjects() {
                     Abrir {sel.route} ↗
                   </a>
                 )}
-                <button className="btn btn--danger" style={{ fontSize: '.8rem', padding: '4px 10px' }} onClick={() => deleteProject(sel)}>
-                  Excluir projeto
-                </button>
+                {canManageProjects && (
+                  <button className="btn btn--danger" style={{ fontSize: '.8rem', padding: '4px 10px' }} onClick={() => deleteProject(sel)}>
+                    Excluir projeto
+                  </button>
+                )}
               </div>
             </div>
             <div className="app-stats">
