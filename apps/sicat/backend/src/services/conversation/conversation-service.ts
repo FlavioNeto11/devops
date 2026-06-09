@@ -1568,36 +1568,34 @@ function shouldBypassNaturalSynthesis(toolResult: unknown): boolean {
 
   const payload = toolResult as LooseRecord;
   const data = toRecord(payload.data);
-  const intent = toNullableString(data.intent);
+  const intent = toNullableString(data.intent) || '';
   const type = toNullableString(payload.type);
-  const hasCatalogShape = Boolean(
-    toNullableString(data.catalogName)
-    && Array.isArray(data.items)
-    && (data.totalItems !== undefined || data.total !== undefined)
-  );
 
-  // Recência (ex.: "qual o mais recente") NUNCA usa bypass: a decisão final é do
-  // LLM raciocinando sobre a evidência estruturada (inclui empate de datas), não
-  // de um template. Precede as regras por tipo (que também marcam manifest_list).
-  if (intent === 'manifest.list_recent_top') return false;
-
-  if (intent === 'manifest.detail_selected_set') return true;
-  // operation.diagnose já é o resultado de um loop agêntico multi-step (raciocínio + RAG):
-  // retorna direto, sem re-sintetizar (evita perder o raciocínio multi-etapa).
+  // PRINCÍPIO: toda CONSULTA (listar, contar, agrupar, detalhar, catálogo, CDF/jobs, timeline)
+  // passa pela SÍNTESE NATURAL — o LLM redige a resposta aterrado na evidência estruturada. O
+  // resumo determinístico do dispatcher NÃO vai mais cru para o usuário: vira apenas EVIDÊNCIA
+  // p/ o LLM e FALLBACK (LLM indisponível). Isso elimina respostas-template como
+  // "Agrupei N por status. Ranking: ...".
+  //
+  // Bypass (resposta determinística/estruturada direta) APENAS quando re-sintetizar perderia
+  // garantia ou raciocínio:
+  // (a) operation.diagnose — saída de um loop agêntico multi-step (re-sintetizar perderia o raciocínio);
+  // (b) formulários/rascunhos de criação (campos faltantes / draft estruturado);
+  // (c) ações sensíveis e suas prévias — o contrato de confirmação é estruturado e validado pelos
+  //     guardrails (prévia/pré-requisitos/impacto/itens afetados/confirmação explícita).
   if (intent === 'operation.diagnose') return true;
-  if (intent === 'manifest.group_recent_top' || intent === 'cdf.list_by_manifest_selection') return true;
-  if (intent === 'manifest.cancel_recent_excluding_first') return true;
-  if (intent === 'manifest.preview_cancel_recent_excluding_first') return true;
-  if (intent === 'manifest.create_missing_fields') return true;
-  if (intent === 'manifest.preview_create_from_payload') return true;
-  if (type === 'cdf_list' || type === 'manifest_list') return true;
-  if (type === 'job_list') return true;
   if (type === 'manifest_missing_fields' || type === 'manifest_creation_draft') return true;
-  if (type === 'audit_timeline') return true;
-  // operation_progress (dashboard/operations/visao conceitual) NÃO usa bypass: passa pela
-  // síntese aterrada por RAG para uma resposta raciocinada. Ações sensíveis continuam
-  // protegidas pelo validateIntentResponseGuardrails (fallback ao resumo determinístico).
-  if (hasCatalogShape) return true;
+  if (
+    intent.includes('cancel')
+    || intent.includes('create_from_payload')
+    || intent.includes('create_missing_fields')
+    || intent.includes('submit')
+    || intent.includes('print')
+    || intent.includes('cdf.generate')
+    || intent.includes('cdf.download')
+  ) {
+    return true;
+  }
   return false;
 }
 
@@ -1606,6 +1604,37 @@ function normalizeForGuardrailCheck(value: string): string {
     .normalize('NFD')
     .replaceAll(/[\u0300-\u036f]/g, '')
     .toLowerCase();
+}
+
+// N\u00fameros presentes na EVID\u00caNCIA (total no per\u00edodo, contagens por grupo, totais de cat\u00e1logo, n\u00ba de
+// itens). Servem ao guardrail de grounding leve das consultas: a resposta natural deve citar algum
+// deles (ancoragem factual) \u2014 sem exigir um template literal.
+function collectEvidenceNumbers(data: LooseRecord): string[] {
+  const out = new Set<string>();
+  const add = (value: unknown) => {
+    const n = Number(value);
+    if (Number.isFinite(n)) out.add(String(Math.trunc(n)));
+  };
+  const criteria = toRecord(data.criteria);
+  add(criteria.totalInRange);
+  add(data.totalItems);
+  add(data.total);
+  if (Array.isArray(data.affectedItems)) add(data.affectedItems.length);
+  if (Array.isArray(data.items)) add(data.items.length);
+  if (Array.isArray(data.grouped)) {
+    for (const group of data.grouped) add(toRecord(group).total);
+  }
+  return [...out];
+}
+
+// Cita um n\u00famero da evid\u00eancia como TOKEN (evita "2" casar dentro de "24").
+function responseCitesEvidenceNumber(normalized: string, data: LooseRecord): boolean {
+  return collectEvidenceNumbers(data).some((n) => new RegExp(`(^|[^0-9])${n}([^0-9]|$)`).test(normalized));
+}
+
+function responseDeclaresAbsence(normalized: string): boolean {
+  return ['nenhum', 'nao ha', 'sem manifesto', 'sem registro', 'ausencia', 'nao encontrei', 'nao foi possivel']
+    .some((needle) => normalized.includes(normalizeForGuardrailCheck(needle)));
 }
 
 // Nota (S-D): a compatibilidade ENTRE TIPO DE EVIDÊNCIA E INTENÇÃO (ex.: pediram manifestos/CDF
@@ -1649,23 +1678,16 @@ function validateIntentResponseGuardrails(input: {
 
   const isStructuredQueryIntent = intent === 'manifest.group_recent_top'
     || intent === 'cdf.list_by_manifest_selection'
-    || type === 'cdf_list';
+    || type === 'cdf_list'
+    || type === 'manifest_list'
+    || type === 'job_list';
 
   if (isStructuredQueryIntent) {
-    const hasMandatoryFields = normalized.includes('periodo')
-      && normalized.includes('total')
-      && normalized.includes('status relevantes');
-
-    if (!hasMandatoryFields) {
-      return false;
-    }
-
-    const hasAbsenceAndJustification = normalized.includes('ausencia de dados')
-      && normalized.includes('justificativa');
-
-    if (normalized.includes('total encontrado=0') && !hasAbsenceAndJustification) {
-      return false;
-    }
+    // Anti-alucinação LEVE (grounding), sem template rígido: a resposta GENERATIVA deve estar
+    // ancorada na evidência — citar algum número dela (total no período / contagem de um grupo /
+    // nº de itens) OU declarar ausência de dados. Antes exigia "periodo"+"total"+"status relevantes"
+    // literais, o que forçava o resumo-template e bloqueava a redação natural.
+    return responseCitesEvidenceNumber(normalized, data) || responseDeclaresAbsence(normalized);
   }
 
   const isSensitiveActionIntent = intent.includes('create_from_payload')
@@ -1786,6 +1808,42 @@ function buildManifestRecencyEvidence(toolResult: unknown): string | null {
   });
 }
 
+// Evidência estruturada para AGRUPAMENTO de manifestos (group_recent_top): período, total no
+// período e a contagem por grupo (ex.: por status). O LLM redige um RESUMO NATURAL a partir disto,
+// no lugar do resumo determinístico ("Agrupei N por status. Ranking: ..."). Sem isto, a evidência
+// cairia no assistantSummary (o próprio template), empobrecendo a redação.
+function buildManifestGroupEvidence(toolResult: unknown): string | null {
+  const payload = toRecord(toolResult);
+  const data = toRecord(payload.data);
+  const intent = toNullableString(data.intent);
+  if (intent !== 'manifest.group_recent_top') {
+    return null;
+  }
+
+  const criteria = toRecord(data.criteria);
+  const grouped = Array.isArray(data.grouped) ? data.grouped : [];
+  const groupBy = toNullableString(criteria.groupBy) || 'status';
+  const grupos = grouped.map((item) => {
+    const record = toRecord(item);
+    return {
+      posicao: Number(record.rank) || undefined,
+      grupo: toNullableString(record.group),
+      total: Number(record.total) || 0
+    };
+  });
+  const itensConsiderados = Array.isArray(data.affectedItems) ? data.affectedItems.length : 0;
+
+  return JSON.stringify({
+    consulta: `manifestos agrupados por ${groupBy}`,
+    fonte: toNullableString(criteria.source) || 'local_mirror',
+    consultadoEm: toNullableString(criteria.consultedAt),
+    periodo: { de: criteria.dateFrom ?? null, ate: criteria.dateTo ?? null },
+    totalNoPeriodo: criteria.totalInRange ?? itensConsiderados,
+    agrupamentoPor: groupBy,
+    grupos
+  });
+}
+
 function resolveResponseInputs(toolResult: unknown): {
   assistantSummary: string | null;
   evidence: string | null;
@@ -1795,10 +1853,12 @@ function resolveResponseInputs(toolResult: unknown): {
   }
 
   const assistantSummary = toNullableString((toolResult as LooseRecord).assistantSummary);
-  // Para recência, o LLM recebe EVIDÊNCIA estruturada (candidatos), não o veredito.
-  // Para os demais intents, preserva-se o comportamento atual.
+  // O LLM recebe EVIDÊNCIA estruturada (não o veredito/template): recência → candidatos;
+  // agrupamento → período/total/contagem por grupo. Demais intents caem no assistantSummary
+  // (evidência) e, por fim, num resumo determinístico do payload.
   const evidence =
     buildManifestRecencyEvidence(toolResult)
+    || buildManifestGroupEvidence(toolResult)
     || assistantSummary
     || buildFallbackToolSummary(toolResult);
   return { assistantSummary, evidence };

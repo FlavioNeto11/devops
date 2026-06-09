@@ -107,15 +107,17 @@ export function isReasoningModel(model: string): boolean {
 // roteamento + KB de capacidade + descrições claras das tools) é quem carrega a correção,
 // não o esforço alto. Medição (gpt-5): 'medium' custava 44–75s/turno (estourava o timeout do
 // front); 'low' roteia igualmente certo (mesmas tools, confiança 0.85–0.91) em ~13–20s. Por
-// isso o default de routing é 'low' (não 'medium'). A síntese segue leve ('low', e muitas
-// consultas nem chamam síntese — bypass determinístico). Tudo ajustável por env sem rebuild;
-// base ('minimal') mantém o comportamento legado para chamadas que não declaram fase.
+// isso o default de routing é 'low' (não 'medium'). A SÍNTESE (redigir a resposta a partir da
+// evidência já obtida — toda CONSULTA agora sintetiza, sem template determinístico) é tarefa
+// mecânica com prompt forte: medição mostrou 'minimal' ~6s vs 'low' ~15s com qualidade equivalente
+// e bem aterrada → default de síntese é 'minimal'. Tudo ajustável por env sem rebuild; base
+// ('minimal') mantém o comportamento legado para chamadas que não declaram fase.
 export type ReasoningPhase = 'routing' | 'synthesis' | 'base';
 
 export function getReasoningEffortFor(phase: ReasoningPhase = 'base'): string {
   const base = (process.env.OPENAI_REASONING_EFFORT || 'minimal').trim();
   if (phase === 'routing') return (process.env.OPENAI_REASONING_EFFORT_ROUTING || 'low').trim();
-  if (phase === 'synthesis') return (process.env.OPENAI_REASONING_EFFORT_SYNTHESIS || 'low').trim();
+  if (phase === 'synthesis') return (process.env.OPENAI_REASONING_EFFORT_SYNTHESIS || 'minimal').trim();
   return base;
 }
 
