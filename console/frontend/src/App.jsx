@@ -7,6 +7,7 @@ import Health from './components/Health.jsx';
 import Logs from './components/Logs.jsx';
 import MetaProjects from './components/MetaProjects.jsx';
 import AccessAdmin from './components/AccessAdmin.jsx';
+import SharedResources from './components/SharedResources.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import TopBar from './components/TopBar.jsx';
 import { ToastProvider } from './components/ToastProvider.jsx';
@@ -23,8 +24,9 @@ const SECTIONS = {
   publications: { label: 'Publicações', icon: 'rocket', group: 'Cluster', description: 'Histórico de deploys da esteira.' },
   projects: { label: 'Projetos & Tarefas', icon: 'kanban', group: 'Gestão', description: 'Board de projetos, itens e tarefas.' },
   access: { label: 'Usuários', icon: 'users', group: 'Gestão', description: 'Usuários restritos e acesso por projeto.' },
+  shared: { label: 'Compartilhados', icon: 'package', group: 'Gestão', description: 'Recursos compartilhados entre projetos e suas versões (drift).' },
 };
-const SECTION_ORDER = ['overview', 'apps', 'health', 'logs', 'publications', 'projects', 'access'];
+const SECTION_ORDER = ['overview', 'apps', 'health', 'logs', 'publications', 'projects', 'access', 'shared'];
 
 const QUICK_LINKS = [
   { href: '/argocd', label: 'Argo CD' },
@@ -181,6 +183,7 @@ export default function App() {
             {!isMember && activeTab === 'logs' && <Logs />}
             {activeTab === 'projects' && <MetaProjects canManageProjects={canManageProjects} />}
             {activeTab === 'access' && isAdmin && <AccessAdmin />}
+            {activeTab === 'shared' && isAdmin && <SharedResources />}
           </main>
 
           <footer className="app-footer">

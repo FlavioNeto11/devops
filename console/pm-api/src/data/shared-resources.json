@@ -1,0 +1,132 @@
+{
+  "generatedAt": "2026-06-09T18:56:17.737Z",
+  "resources": [
+    {
+      "name": "@flavioneto11/ai-kit",
+      "kind": "npm",
+      "canonicalVersion": "0.1.0",
+      "repoPath": "packages/ai-kit",
+      "repoUrl": "https://github.com/FlavioNeto11/devops/tree/main/packages/ai-kit",
+      "description": "Contrato compartilhado de IA (gpt-5/reasoning) da plataforma: SDK nativo + LangChain. Zero dependencias de runtime.",
+      "consumers": [
+        {
+          "project": "gymops",
+          "version": "0.1.0",
+          "status": "ok",
+          "path": "apps/gymops/apps/api/package.json"
+        },
+        {
+          "project": "sicat",
+          "version": "0.1.0",
+          "status": "ok",
+          "path": "apps/sicat/backend/package.json"
+        }
+      ],
+      "driftCount": 0
+    },
+    {
+      "name": "@flavioneto11/oidc-kit",
+      "kind": "npm",
+      "canonicalVersion": "0.1.0",
+      "repoPath": "packages/oidc-kit",
+      "repoUrl": "https://github.com/FlavioNeto11/devops/tree/main/packages/oidc-kit",
+      "description": "Kit OIDC/Keycloak + sessao da plataforma: validacao /userinfo, cripto de sessao (HMAC/scrypt/AES-256-GCM) e PKCE de frontend. Zero deps de runtime.",
+      "consumers": [
+        {
+          "project": "gymops",
+          "version": "0.1.0",
+          "status": "ok",
+          "path": "apps/gymops/apps/api/package.json"
+        },
+        {
+          "project": "sicat",
+          "version": "0.1.0",
+          "status": "ok",
+          "path": "apps/sicat/backend/package.json"
+        }
+      ],
+      "driftCount": 0
+    },
+    {
+      "name": "templates/app-template (Helm)",
+      "kind": "infra",
+      "canonicalVersion": "0.1.0",
+      "repoPath": "templates/app-template",
+      "repoUrl": "https://github.com/FlavioNeto11/devops/tree/main/templates/app-template",
+      "description": "Chart Helm que transforma o devops.yaml de cada app em Deployments/Services/IngressRoutes.",
+      "consumers": [
+        {
+          "project": "gymops",
+          "version": "—",
+          "status": "shared",
+          "path": ""
+        },
+        {
+          "project": "rmambiental",
+          "version": "—",
+          "status": "shared",
+          "path": ""
+        },
+        {
+          "project": "sicat",
+          "version": "—",
+          "status": "shared",
+          "path": ""
+        }
+      ],
+      "driftCount": 0
+    },
+    {
+      "name": "Keycloak — realm nvit (SSO/OIDC)",
+      "kind": "infra",
+      "canonicalVersion": "nvit",
+      "repoPath": "platform/keycloak",
+      "repoUrl": "https://github.com/FlavioNeto11/devops/tree/main/platform/keycloak",
+      "description": "Realm OIDC compartilhado para login SSO; cada app tem seu client no mesmo realm.",
+      "consumers": [
+        {
+          "project": "sicat",
+          "version": "—",
+          "status": "shared",
+          "path": ""
+        },
+        {
+          "project": "gymops",
+          "version": "—",
+          "status": "shared",
+          "path": ""
+        }
+      ],
+      "driftCount": 0
+    },
+    {
+      "name": "Contrato devops.yaml",
+      "kind": "contract",
+      "canonicalVersion": "—",
+      "repoPath": "docs/new-project-contract.md",
+      "repoUrl": "https://github.com/FlavioNeto11/devops/blob/main/docs/new-project-contract.md",
+      "description": "Schema declarativo (roteamento/serviços) de cada app, consumido pela esteira de deploy.",
+      "consumers": [
+        {
+          "project": "gymops",
+          "version": "—",
+          "status": "shared",
+          "path": ""
+        },
+        {
+          "project": "rmambiental",
+          "version": "—",
+          "status": "shared",
+          "path": ""
+        },
+        {
+          "project": "sicat",
+          "version": "—",
+          "status": "shared",
+          "path": ""
+        }
+      ],
+      "driftCount": 0
+    }
+  ]
+}

@@ -184,3 +184,6 @@ export const pmDeleteMember = (email) =>
   pmFetch(`/admin/members/${encodeURIComponent(email)}`, { method: 'DELETE' });
 export const pmResetMemberPassword = (email) =>
   pmFetch(`/admin/members/${encodeURIComponent(email)}/reset-password`, { method: 'POST' });
+
+// Inventário de recursos compartilhados entre projetos (libs @flavioneto11/* + infra) com versões/drift.
+export const pmSharedResources = () => pmFetch('/shared-resources');

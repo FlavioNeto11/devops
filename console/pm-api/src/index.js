@@ -7,6 +7,7 @@ import items from './routes/items.js';
 import tasks from './routes/tasks.js';
 import me from './routes/me.js';
 import admin from './routes/admin.js';
+import shared from './routes/shared.js';
 import { authContext, requireAdmin } from './auth.js';
 import { seed } from '../scripts/seed.js';
 
@@ -40,6 +41,7 @@ api.post('/admin/seed', requireAdmin, async (_req, res, next) => {
 
 api.use(me);
 api.use(admin);
+api.use(shared);
 api.use(projects);
 api.use(items);
 api.use(tasks);
