@@ -1,30 +1,34 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  pmListMembers,
-  pmCreateMember,
-  pmSetMemberProjects,
-  pmUpdateMember,
-  pmDeleteMember,
-  pmResetMemberPassword,
-  pmProjects,
+  pmListMembers, pmCreateMember, pmSetMemberProjects,
+  pmUpdateMember, pmDeleteMember, pmResetMemberPassword, pmProjects,
 } from '../api.js';
+import Icon from './Icon.jsx';
+import Modal from './Modal.jsx';
+import ConfirmDialog from './ConfirmDialog.jsx';
+import EmptyState from './EmptyState.jsx';
+import PageHeader from './PageHeader.jsx';
+import { ListSkeleton } from './Skeleton.jsx';
+import { useToast } from './ToastProvider.jsx';
 
 /**
- * AccessAdmin — "Usuários" (somente para platform-admins).
- * Cadastra usuários restritos (acessam só "Projetos & Tarefas") e define a quais
- * projetos cada um tem acesso. Identidade no Keycloak (grupo project-members);
- * o mapa usuário->projeto vive no pm-api. Reusa o design system do Console.
+ * AccessAdmin — "Usuários" (platform-admins). Cadastra usuários restritos e define a quais
+ * projetos cada um tem acesso. Senha temporária exibida em modal com "copiar" (e pode ser
+ * redefinida a qualquer momento). Feedback por toast; remoção confirmada por diálogo.
  */
 export default function AccessAdmin() {
+  const toast = useToast();
   const [members, setMembers] = useState([]);
   const [projects, setProjects] = useState([]);
   const [kcConfigured, setKcConfigured] = useState(true);
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState(null);
   const [busy, setBusy] = useState(false);
+
+  const [createOpen, setCreateOpen] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
-  const [created, setCreated] = useState(null); // { email, tempPassword }
+  const [pwInfo, setPwInfo] = useState(null);     // { email, tempPassword } -> modal
+  const [confirmRemove, setConfirmRemove] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -32,41 +36,27 @@ export default function AccessAdmin() {
       setMembers(m?.members || []);
       setKcConfigured(m?.keycloakConfigured !== false);
       setProjects(p || []);
-    } catch (e) {
-      setErr(e.message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    } catch (e) { toast.err(e.message); } finally { setLoading(false); }
+  }, [toast]);
   useEffect(() => { load(); }, [load]);
 
-  const run = async (fn) => {
-    setBusy(true);
-    try { await fn(); setErr(null); } catch (e) { setErr(e.message); } finally { setBusy(false); }
-  };
-
-  // Mostra a senha no topo e rola até lá (para não passar batido).
-  const showPassword = (email, tempPassword) => {
-    setCreated(tempPassword ? { email, tempPassword } : null);
-    if (tempPassword && typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  const run = async (fn) => { setBusy(true); try { await fn(); } catch (e) { toast.err(e.message); } finally { setBusy(false); } };
 
   const createMember = () => run(async () => {
     const email = newEmail.trim().toLowerCase();
-    if (!email) { setErr('Informe o e-mail.'); return; }
+    if (!email) { toast.err('Informe o e-mail.'); return; }
     const res = await pmCreateMember({ email, name: newName.trim() || undefined });
-    showPassword(res?.email || email, res?.tempPassword);
-    if (!res?.tempPassword && res?.keycloakConfigured === false) {
-      setErr('Usuário registrado, mas a criação no Keycloak não está configurada — crie-o no Keycloak (grupo project-members).');
-    }
-    setNewEmail('');
-    setNewName('');
+    setCreateOpen(false);
+    setNewEmail(''); setNewName('');
     await load();
+    if (res?.tempPassword) { setPwInfo({ email: res.email, tempPassword: res.tempPassword }); toast.ok('Usuário criado.'); }
+    else if (res?.keycloakConfigured === false) toast.info('Usuário registrado. Crie-o no Keycloak (grupo project-members) para o login.');
+    else toast.ok('Usuário registrado.');
   });
 
   const resetPassword = (member) => run(async () => {
     const res = await pmResetMemberPassword(member.email);
-    showPassword(member.email, res?.tempPassword);
+    if (res?.tempPassword) { setPwInfo({ email: member.email, tempPassword: res.tempPassword }); toast.ok('Senha redefinida.'); }
   });
 
   const toggleProject = (member, projectId) => run(async () => {
@@ -79,72 +69,31 @@ export default function AccessAdmin() {
   const toggleDisabled = (member) => run(async () => {
     await pmUpdateMember(member.email, { disabled: !member.disabled });
     await load();
+    toast.ok(member.disabled ? 'Usuário reativado.' : 'Usuário desabilitado.');
   });
 
-  const removeMember = (member) => run(async () => {
-    // eslint-disable-next-line no-alert
-    if (!confirm(`Remover o acesso de ${member.email}? Ele perde os projetos e é desabilitado.`)) return;
-    await pmDeleteMember(member.email);
-    await load();
-  });
-
-  if (loading) return <p className="state state--loading">Carregando usuários…</p>;
+  if (loading) return <ListSkeleton rows={3} />;
 
   return (
     <div className="meta">
-      {err && <div className="state state--error" role="alert">⚠ {err}</div>}
+      <PageHeader
+        actions={<button className="btn btn--primary" onClick={() => setCreateOpen(true)}><Icon name="plus" size={16} /> Novo usuário</button>}
+      />
 
       {!kcConfigured && (
         <div className="app-card">
           <p className="app-card__meta" style={{ margin: 0 }}>
-            ⚠ A criação de usuários no Keycloak não está configurada neste ambiente. Crie o usuário no
-            Keycloak (grupo <code>project-members</code>) e depois vincule os projetos aqui pelo e-mail.
+            <Icon name="alert" size={14} /> A criação no Keycloak não está configurada aqui. Crie o usuário no
+            Keycloak (grupo <code>project-members</code>) e depois vincule os projetos por e-mail.
           </p>
         </div>
       )}
 
-      {created && (
-        <div className="app-card">
-          <h3 className="app-card__title">Usuário criado · {created.email}</h3>
-          <p className="app-card__meta" style={{ margin: '4px 0' }}>
-            Senha temporária (exibida só agora): <code>{created.tempPassword}</code>
-            <button
-              className="btn"
-              style={{ marginLeft: 8, fontSize: '.78rem', padding: '2px 8px' }}
-              onClick={() => navigator.clipboard?.writeText(created.tempPassword)}
-            >
-              copiar
-            </button>
-          </p>
-          <p className="muted" style={{ margin: 0, fontSize: '.82rem' }}>O usuário troca a senha no primeiro login.</p>
-        </div>
+      {!members.length && (
+        <EmptyState icon="users" title="Nenhum usuário restrito ainda"
+          hint="Crie um usuário para dar acesso somente à tela de Projetos & Tarefas, restrito aos projetos que você marcar."
+          action={<button className="btn btn--primary" onClick={() => setCreateOpen(true)}><Icon name="plus" size={16} /> Novo usuário</button>} />
       )}
-
-      {/* Criar usuário */}
-      <div className="app-card">
-        <h3 className="app-card__title">Novo usuário restrito</h3>
-        <p className="app-card__meta">Acessa apenas "Projetos &amp; Tarefas", restrito aos projetos marcados.</p>
-        <div className="toolbar" style={{ marginTop: 10, gap: 8 }}>
-          <input
-            className="input"
-            style={{ minWidth: 220 }}
-            placeholder="e-mail do usuário"
-            value={newEmail}
-            onChange={(e) => setNewEmail(e.target.value)}
-          />
-          <input
-            className="input"
-            style={{ minWidth: 180 }}
-            placeholder="nome (opcional)"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-          />
-          <button className="btn btn--primary" disabled={busy || !newEmail.trim()} onClick={createMember}>+ usuário</button>
-        </div>
-      </div>
-
-      <div className="section-title" style={{ margin: '16px 0 8px' }}>Usuários restritos ({members.length})</div>
-      {!members.length && <p className="muted">Nenhum usuário restrito ainda. Crie um acima.</p>}
 
       {members.map((m) => (
         <div key={m.email} className="app-card" style={{ marginBottom: 10 }}>
@@ -157,11 +106,11 @@ export default function AccessAdmin() {
               <p className="app-card__meta">{m.email}</p>
             </div>
             <div className="app-card__urls">
-              <button className="btn" disabled={busy} onClick={() => resetPassword(m)} title="Gera e mostra uma nova senha temporária">redefinir senha</button>
-              <button className="btn" disabled={busy} onClick={() => toggleDisabled(m)}>
-                {m.disabled ? 'reativar' : 'desabilitar'}
+              <button className="btn" disabled={busy} onClick={() => resetPassword(m)} title="Gera e mostra uma nova senha temporária">
+                <Icon name="key" size={15} /> redefinir senha
               </button>
-              <button className="btn btn--danger" disabled={busy} onClick={() => removeMember(m)}>remover</button>
+              <button className="btn" disabled={busy} onClick={() => toggleDisabled(m)}>{m.disabled ? 'reativar' : 'desabilitar'}</button>
+              <button className="btn btn--danger" disabled={busy} onClick={() => setConfirmRemove(m)}><Icon name="trash2" size={15} /> remover</button>
             </div>
           </div>
           <div className="app-section">
@@ -180,6 +129,47 @@ export default function AccessAdmin() {
           </div>
         </div>
       ))}
+
+      {createOpen && (
+        <Modal title="Novo usuário restrito" size="sm" onClose={() => setCreateOpen(false)}
+          footer={<>
+            <button className="btn" onClick={() => setCreateOpen(false)}>Cancelar</button>
+            <button className="btn btn--primary" disabled={busy || !newEmail.trim()} onClick={createMember}>Criar</button>
+          </>}>
+          <p className="app-card__meta" style={{ marginTop: 0 }}>Acessa apenas Projetos &amp; Tarefas, restrito aos projetos que você marcar depois.</p>
+          <label className="field" style={{ marginBottom: 10 }}>
+            <span className="field__label">E-mail</span>
+            <input className="input" placeholder="usuario@empresa.com" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
+          </label>
+          <label className="field">
+            <span className="field__label">Nome (opcional)</span>
+            <input className="input" placeholder="Nome do usuário" value={newName} onChange={(e) => setNewName(e.target.value)} />
+          </label>
+        </Modal>
+      )}
+
+      {pwInfo && (
+        <Modal title="Senha temporária" size="sm" onClose={() => setPwInfo(null)}
+          footer={<button className="btn btn--primary" onClick={() => setPwInfo(null)}>Entendi</button>}>
+          <p className="app-card__meta" style={{ marginTop: 0 }}>Usuário <strong>{pwInfo.email}</strong> — exibida só agora; ele troca no primeiro login.</p>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <code style={{ fontSize: '1rem', padding: '6px 10px', flex: 1 }}>{pwInfo.tempPassword}</code>
+            <button className="btn" onClick={() => { navigator.clipboard?.writeText(pwInfo.tempPassword); toast.ok('Senha copiada.'); }}>
+              <Icon name="check" size={15} /> copiar
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {confirmRemove && (
+        <ConfirmDialog
+          title="Remover acesso"
+          message={`Remover o acesso de ${confirmRemove.email}? Ele perde os projetos e é desabilitado no login.`}
+          confirmLabel="Remover" danger
+          onClose={() => setConfirmRemove(null)}
+          onConfirm={async () => { await pmDeleteMember(confirmRemove.email); await load(); toast.ok('Acesso removido.'); }}
+        />
+      )}
     </div>
   );
 }

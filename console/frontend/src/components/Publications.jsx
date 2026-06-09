@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { fetchPublications } from '../api.js';
+import Icon from './Icon.jsx';
+import PageHeader from './PageHeader.jsx';
+import EmptyState from './EmptyState.jsx';
+import { TableSkeleton } from './Skeleton.jsx';
 
 /**
  * Publications
@@ -43,16 +47,15 @@ export default function Publications() {
 
   return (
     <section className="publications" aria-label="Publicacoes">
-      <div className="toolbar">
-        <h2 className="section-title">Publicacoes</h2>
-        <button type="button" className="btn" onClick={() => load()}>
-          Atualizar
-        </button>
-      </div>
+      <PageHeader
+        actions={(
+          <button type="button" className="btn" onClick={() => load()} disabled={loading}>
+            <Icon name="refresh" size={15} /> Atualizar
+          </button>
+        )}
+      />
 
-      {loading && rows.length === 0 && (
-        <p className="state state--loading">Carregando publicacoes…</p>
-      )}
+      {loading && rows.length === 0 && <TableSkeleton rows={6} cols={6} />}
 
       {error && (
         <div className="state state--error" role="alert">
@@ -61,7 +64,7 @@ export default function Publications() {
       )}
 
       {!loading && !error && rows.length === 0 && (
-        <p className="state state--empty">Nenhuma publicacao registrada.</p>
+        <EmptyState icon="rocket" title="Nenhuma publicação registrada" hint="Deploys da esteira aparecem aqui com commit, branch, tag e data." />
       )}
 
       {rows.length > 0 && (

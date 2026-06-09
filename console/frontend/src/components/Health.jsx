@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { fetchPods, fetchDeployments } from '../api.js';
 import { phaseBadgeClass, asCount } from '../format.js';
+import { TableSkeleton } from './Skeleton.jsx';
 
 /**
  * Health
@@ -66,7 +67,14 @@ export default function Health({ streamData, streamStatus }) {
   }, [evaluated]);
 
   if (loading && pods.length === 0 && deployments.length === 0) {
-    return <p className="state state--loading">Carregando saude…</p>;
+    return (
+      <section className="health" aria-label="Saude do cluster">
+        <h2 className="section-title">Pods</h2>
+        <TableSkeleton rows={6} cols={6} />
+        <h2 className="section-title">Deployments</h2>
+        <TableSkeleton rows={3} cols={4} />
+      </section>
+    );
   }
 
   return (

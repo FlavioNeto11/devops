@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { fetchOverview, fetchPods } from '../api.js';
 import { ageFrom, phaseBadgeClass, shortImage, asCount } from '../format.js';
+import { CardSkeleton, TableSkeleton } from './Skeleton.jsx';
 
 /**
  * Overview
@@ -58,7 +59,13 @@ export default function Overview({ streamData, streamStatus }) {
   const byPhase = counts?.podsByPhase || {};
 
   if (loading && !counts) {
-    return <p className="state state--loading">Carregando overview…</p>;
+    return (
+      <section className="overview" aria-label="Visao geral do cluster">
+        <CardSkeleton count={8} />
+        <h2 className="section-title">Pods</h2>
+        <TableSkeleton rows={6} cols={7} />
+      </section>
+    );
   }
 
   return (

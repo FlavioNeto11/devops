@@ -6,27 +6,24 @@ import {
   fetchApps,
 } from '../api.js';
 import { ageFrom } from '../format.js';
+import Icon from './Icon.jsx';
+import Modal from './Modal.jsx';
+import ConfirmDialog from './ConfirmDialog.jsx';
+import EmptyState from './EmptyState.jsx';
+import PageHeader from './PageHeader.jsx';
+import { ListSkeleton } from './Skeleton.jsx';
+import { useToast } from './ToastProvider.jsx';
 
 /**
- * MetaProjects — "Projetos & Tarefas"
- * -----------------------------------
- * Board estilo Trello focado em desenvolvimento:
- *  - Pills de projeto (com badge de app vivo cruzado com /apps do backend read-only).
- *  - Colunas por STATUS; cada CARD e um item (bug/feature/evolucao), arrastavel
- *    entre colunas (HTML5 DnD -> PATCH /items/:id { status }).
- *  - Cada card mostra progresso de tasks (task_done/task_total — vem do pm-api).
- *  - Clicar num card abre o DRAWER de detalhe: editar campos + checklist de tasks
- *    (ciclo todo -> in_progress -> done).
- *
- * Usa exclusivamente o design system do Console (styles.css) — sem tokens soltos.
+ * MetaProjects — "Projetos & Tarefas": board estilo Trello (pills de projeto, colunas por
+ * status, cards arrastáveis, drawer de detalhe com checklist de tasks). Criação/exclusão via
+ * modal/confirm; feedback por toast. Admin gerencia projetos; member só edita os atribuídos.
  */
-
 const ITEM_TYPES = ['bug', 'feature', 'evolution'];
 const ITEM_STATUSES = ['backlog', 'todo', 'in_progress', 'in_review', 'done', 'wontfix'];
 const PRIORITIES = ['P0', 'P1', 'P2', 'P3'];
 const DONE = new Set(['done', 'wontfix']);
 
-// Colunas do board (wontfix fica fora por padrao; um toggle o adiciona).
 const STATUS_COLS = [
   { key: 'backlog', label: 'Backlog' },
   { key: 'todo', label: 'A fazer' },
@@ -49,17 +46,11 @@ const PRIO_META = { P0: 'badge-err', P1: 'badge-warn', P2: 'badge-accent', P3: '
 const TASK_NEXT = { todo: 'in_progress', in_progress: 'done', done: 'todo' };
 const TASK_LABEL = { todo: 'a fazer', in_progress: 'em andamento', done: 'concluído' };
 
-// Acha o app vivo (do /apps) correspondente ao projeto. BUGFIX: o backend agrupa
-// por `app` (label app.kubernetes.io/part-of), nao por `name`.
 function liveAppFor(apps, proj) {
   if (!proj) return null;
-  return (apps || []).find(
-    (a) => a && (a.app === proj.k8s_label_selector || a.app === proj.key),
-  ) || null;
+  return (apps || []).find((a) => a && (a.app === proj.k8s_label_selector || a.app === proj.key)) || null;
 }
 
-// ===========================================================================
-// Card do board
 // ===========================================================================
 function Card({ it, onOpen, dragging, setDragging }) {
   const tt = it.task_total || 0;
@@ -73,7 +64,7 @@ function Card({ it, onOpen, dragging, setDragging }) {
       onDragStart={(e) => {
         setDragging(it.id);
         e.dataTransfer.effectAllowed = 'move';
-        try { e.dataTransfer.setData('text/plain', it.id); } catch { /* alguns browsers exigem; ignoramos falha */ }
+        try { e.dataTransfer.setData('text/plain', it.id); } catch { /* alguns browsers exigem */ }
       }}
       onDragEnd={() => setDragging(null)}
       onClick={onOpen}
@@ -106,10 +97,9 @@ function Card({ it, onOpen, dragging, setDragging }) {
 }
 
 // ===========================================================================
-// Drawer de detalhe / criacao de item
-// ===========================================================================
 function ItemDrawer({ mode, item, projectId, onClose, onSaved }) {
   const isCreate = mode === 'create';
+  const toast = useToast();
   const [form, setForm] = useState(() => ({
     type: item?.type || 'feature',
     title: item?.title || '',
@@ -121,22 +111,28 @@ function ItemDrawer({ mode, item, projectId, onClose, onSaved }) {
   }));
   const [tasks, setTasks] = useState([]);
   const [taskTitle, setTaskTitle] = useState('');
-  const [err, setErr] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
 
   const reloadTasks = useCallback(async () => {
     if (isCreate || !item) return;
-    try { setTasks((await pmTasks(item.id)) || []); } catch (e) { setErr(e.message); }
-  }, [isCreate, item]);
+    try { setTasks((await pmTasks(item.id)) || []); } catch (e) { toast.err(e.message); }
+  }, [isCreate, item, toast]);
 
   useEffect(() => { reloadTasks(); }, [reloadTasks]);
 
+  // Esc fecha o drawer.
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   const guard = async (fn) => {
     setBusy(true);
-    try { await fn(); setErr(null); } catch (e) { setErr(e.message); } finally { setBusy(false); }
+    try { await fn(); } catch (e) { toast.err(e.message); } finally { setBusy(false); }
   };
 
-  // Auto-save de UM campo (no-op se inalterado). Em modo create so atualiza o buffer.
   const saveField = (key, value) => {
     setForm((f) => ({ ...f, [key]: value }));
     if (isCreate || !item || item[key] === value) return;
@@ -144,9 +140,10 @@ function ItemDrawer({ mode, item, projectId, onClose, onSaved }) {
   };
 
   const createItem = () => guard(async () => {
-    if (!form.title.trim()) { setErr('Título é obrigatório.'); return; }
+    if (!form.title.trim()) { toast.err('Título é obrigatório.'); return; }
     await pmCreateItem(projectId, { ...form, title: form.title.trim() });
     await onSaved?.();
+    toast.ok('Item criado.');
     onClose();
   });
 
@@ -170,22 +167,11 @@ function ItemDrawer({ mode, item, projectId, onClose, onSaved }) {
     await onSaved?.();
   });
 
-  const delItem = () => guard(async () => {
-    // eslint-disable-next-line no-alert
-    if (!confirm('Excluir este item e todas as suas tasks?')) return;
-    await pmDeleteItem(item.id);
-    await onSaved?.();
-    onClose();
-  });
-
   const doneCount = tasks.filter((t) => t.status === 'done').length;
   const type = TYPE_META[form.type] || TYPE_META.feature;
 
   return (
-    <div
-      className="drawer__overlay"
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
+    <div className="drawer__overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <aside className="drawer" role="dialog" aria-modal="true" aria-label="Detalhe do item">
         <div className="drawer__head">
           <div className="kcard__tags">
@@ -193,12 +179,10 @@ function ItemDrawer({ mode, item, projectId, onClose, onSaved }) {
             <span className={'badge ' + (PRIO_META[form.priority] || 'badge-muted')}>{form.priority}</span>
             {!isCreate && <span className="badge badge-muted">{STATUS_LABEL[form.status]}</span>}
           </div>
-          <button className="drawer__close" onClick={onClose} aria-label="Fechar">×</button>
+          <button className="drawer__close" onClick={onClose} aria-label="Fechar"><Icon name="x" size={18} /></button>
         </div>
 
         <div className="drawer__body">
-          {err && <div className="state state--error" role="alert">⚠ {err}</div>}
-
           <label className="field">
             <span className="field__label">Título</span>
             <input
@@ -247,21 +231,15 @@ function ItemDrawer({ mode, item, projectId, onClose, onSaved }) {
           <div className="drawer__row">
             <label className="field">
               <span className="field__label">Git URL</span>
-              <input
-                className="input" placeholder="https://github.com/…"
-                value={form.git_url || ''}
+              <input className="input" placeholder="https://github.com/…" value={form.git_url || ''}
                 onChange={(e) => setForm((f) => ({ ...f, git_url: e.target.value }))}
-                onBlur={(e) => saveField('git_url', e.target.value.trim())}
-              />
+                onBlur={(e) => saveField('git_url', e.target.value.trim())} />
             </label>
             <label className="field">
               <span className="field__label">PR URL</span>
-              <input
-                className="input" placeholder="https://github.com/…/pull/1"
-                value={form.pr_url || ''}
+              <input className="input" placeholder="https://github.com/…/pull/1" value={form.pr_url || ''}
                 onChange={(e) => setForm((f) => ({ ...f, pr_url: e.target.value }))}
-                onBlur={(e) => saveField('pr_url', e.target.value.trim())}
-              />
+                onBlur={(e) => saveField('pr_url', e.target.value.trim())} />
             </label>
           </div>
 
@@ -271,13 +249,9 @@ function ItemDrawer({ mode, item, projectId, onClose, onSaved }) {
                 Tasks <span className="muted">({doneCount}/{tasks.length})</span>
               </div>
               <div className="drawer__row" style={{ marginBottom: 10 }}>
-                <input
-                  className="input" style={{ flex: 1 }}
-                  placeholder="Nova task (começo → meio → fim)…"
-                  value={taskTitle}
-                  onChange={(e) => setTaskTitle(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') addTask(); }}
-                />
+                <input className="input" style={{ flex: 1 }} placeholder="Nova task (começo → meio → fim)…"
+                  value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') addTask(); }} />
                 <button className="btn btn--primary" disabled={busy || !taskTitle.trim()} onClick={addTask}>+ task</button>
               </div>
               <div className="checklist">
@@ -291,7 +265,7 @@ function ItemDrawer({ mode, item, projectId, onClose, onSaved }) {
                       {t.status === 'done' ? '✓' : t.status === 'in_progress' ? '◑' : ''}
                     </button>
                     <span className={'checklist__title' + (t.status === 'done' ? ' checklist__title--done' : '')}>{t.title}</span>
-                    <button className="icon-btn" title="excluir task" onClick={() => delTask(t)}>✕</button>
+                    <button className="icon-btn" title="excluir task" onClick={() => delTask(t)}><Icon name="x" size={14} /></button>
                   </div>
                 ))}
                 {!tasks.length && <p className="muted" style={{ fontSize: '.82rem', margin: 0 }}>Sem tasks. Quebre o item em passos.</p>}
@@ -308,35 +282,52 @@ function ItemDrawer({ mode, item, projectId, onClose, onSaved }) {
             </>
           ) : (
             <>
-              <button className="btn btn--danger" disabled={busy} onClick={delItem}>Excluir item</button>
+              <button className="btn btn--danger" disabled={busy} onClick={() => setConfirmDel(true)}>Excluir item</button>
               <button className="btn" onClick={onClose}>Fechar</button>
             </>
           )}
         </div>
       </aside>
+
+      {confirmDel && (
+        <ConfirmDialog
+          title="Excluir item"
+          message="Excluir este item e todas as suas tasks? Esta ação não pode ser desfeita."
+          confirmLabel="Excluir" danger
+          onClose={() => setConfirmDel(false)}
+          onConfirm={async () => {
+            await pmDeleteItem(item.id);
+            await onSaved?.();
+            toast.ok('Item excluído.');
+            onClose();
+          }}
+        />
+      )}
     </div>
   );
 }
 
 // ===========================================================================
-// Componente principal
-// ===========================================================================
 export default function MetaProjects({ canManageProjects = true }) {
+  const toast = useToast();
   const [projects, setProjects] = useState([]);
   const [apps, setApps] = useState([]);
   const [selId, setSelId] = useState(null);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState(null);
 
   const [fType, setFType] = useState('');
   const [fPrio, setFPrio] = useState('');
   const [q, setQ] = useState('');
   const [showWontfix, setShowWontfix] = useState(false);
 
-  const [drawer, setDrawer] = useState(null); // { mode:'edit'|'create', item }
+  const [drawer, setDrawer] = useState(null);
   const [draggingId, setDraggingId] = useState(null);
   const [overCol, setOverCol] = useState(null);
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newProj, setNewProj] = useState({ key: '', name: '' });
+  const [confirmDelProject, setConfirmDelProject] = useState(null);
 
   const loadProjects = useCallback(async (keepSel) => {
     try {
@@ -344,33 +335,28 @@ export default function MetaProjects({ canManageProjects = true }) {
       setProjects(p || []);
       setApps(Array.isArray(a) ? a : a?.data || []);
       setSelId((cur) => (keepSel && cur) || cur || (p && p[0] && p[0].id) || null);
-    } catch (e) { setErr(e.message); } finally { setLoading(false); }
-  }, []);
+    } catch (e) { toast.err(e.message); } finally { setLoading(false); }
+  }, [toast]);
   useEffect(() => { loadProjects(); }, [loadProjects]);
 
   const loadItems = useCallback(async (pid) => {
     if (!pid) { setItems([]); return; }
-    try { setItems((await pmItems(pid)) || []); } catch (e) { setErr(e.message); }
-  }, []);
+    try { setItems((await pmItems(pid)) || []); } catch (e) { toast.err(e.message); }
+  }, [toast]);
   useEffect(() => { if (selId) loadItems(selId); else setItems([]); }, [selId, loadItems]);
-
-  const run = async (fn) => { try { await fn(); setErr(null); } catch (e) { setErr(e.message); } };
 
   const sel = projects.find((p) => p.id === selId) || null;
   const liveApp = liveAppFor(apps, sel);
 
   const filtered = items.filter((it) =>
-    (!fType || it.type === fType)
-    && (!fPrio || it.priority === fPrio)
+    (!fType || it.type === fType) && (!fPrio || it.priority === fPrio)
     && (!q || (it.title || '').toLowerCase().includes(q.toLowerCase())));
 
   const cols = showWontfix ? [...STATUS_COLS, { key: 'wontfix', label: 'Descartado' }] : STATUS_COLS;
   const byStatus = (s) => filtered.filter((it) => it.status === s);
-
   const total = items.length;
   const doneCount = items.filter((i) => DONE.has(i.status)).length;
 
-  // Drop de um card numa coluna -> muda o status (otimista + persiste).
   const onDropTo = (status) => {
     setOverCol(null);
     const id = draggingId;
@@ -379,63 +365,63 @@ export default function MetaProjects({ canManageProjects = true }) {
     const it = items.find((x) => x.id === id);
     if (!it || it.status === status) return;
     setItems((cur) => cur.map((x) => (x.id === id ? { ...x, status } : x)));
-    pmPatchItem(id, { status }).catch((e) => { setErr(e.message); loadItems(selId); });
+    pmPatchItem(id, { status }).catch((e) => { toast.err(e.message); loadItems(selId); });
   };
 
-  const createProject = () => run(async () => {
-    // eslint-disable-next-line no-alert
-    const key = prompt('Chave do projeto (kebab-case):');
-    if (!key) return;
-    // eslint-disable-next-line no-alert
-    const name = prompt('Nome do projeto:') || key;
-    await pmCreateProject({ key: key.trim(), name: name.trim() });
-    await loadProjects(true);
-  });
+  const submitCreateProject = async () => {
+    const key = newProj.key.trim();
+    const name = newProj.name.trim() || key;
+    if (!key) { toast.err('Informe a chave do projeto.'); return; }
+    try {
+      await pmCreateProject({ key, name });
+      setCreateOpen(false);
+      setNewProj({ key: '', name: '' });
+      toast.ok('Projeto criado.');
+      await loadProjects(true);
+    } catch (e) { toast.err(e.message); }
+  };
 
-  const deleteProject = (p) => run(async () => {
-    // eslint-disable-next-line no-alert
-    if (!confirm(`Excluir o projeto "${p.name}" e TODOS os seus itens e tasks?\nEsta ação não pode ser desfeita.`)) return;
-    await pmDeleteProject(p.id);
-    setDrawer(null);
-    const fresh = (await pmProjects()) || [];
-    setProjects(fresh);
-    setSelId(fresh.length ? fresh[0].id : null);
-  });
-
-  if (loading) return <p className="state state--loading">Carregando projetos…</p>;
+  if (loading) return <ListSkeleton rows={3} />;
 
   return (
     <div className="meta">
-      {err && <div className="state state--error" role="alert">⚠ {err}</div>}
+      {canManageProjects && (
+        <PageHeader
+          actions={<button className="btn btn--primary" onClick={() => setCreateOpen(true)}><Icon name="plus" size={16} /> Novo projeto</button>}
+        />
+      )}
 
-      {/* Pills de projeto + criar */}
+      {/* Pills de projeto */}
       <div className="toolbar" style={{ marginBottom: 14 }}>
         <div className="meta__pills">
           {projects.map((p) => {
             const live = liveAppFor(apps, p);
             return (
-              <button
-                key={p.id}
-                className={'pill' + (p.id === selId ? ' pill--active' : '')}
+              <button key={p.id} className={'pill' + (p.id === selId ? ' pill--active' : '')}
                 onClick={() => setSelId(p.id)}
-                title={live ? `app no ar · ${live.pods} pod(s)` : 'sem app vivo no cluster'}
-              >
+                title={live ? `app no ar · ${live.pods} pod(s)` : 'sem app vivo no cluster'}>
                 <span className={'dot ' + (live ? 'dot--ok' : 'dot--warn')} />
                 {p.name}
                 {p.id === selId && <span className="pill__count">{items.length}</span>}
               </button>
             );
           })}
-          {!projects.length && <span className="muted">{canManageProjects ? 'Nenhum projeto. Rode o seed do pm-api ou crie um.' : 'Nenhum projeto atribuído a você. Fale com um administrador.'}</span>}
         </div>
-        {canManageProjects && <button className="btn" onClick={createProject}>+ projeto</button>}
       </div>
 
-      {!sel && <p className="state state--empty">Selecione um projeto acima.</p>}
+      {!projects.length && (
+        <EmptyState
+          icon="kanban"
+          title={canManageProjects ? 'Nenhum projeto ainda' : 'Nenhum projeto atribuído a você'}
+          hint={canManageProjects ? 'Crie o primeiro projeto para começar a organizar itens e tarefas.' : 'Fale com um administrador para receber acesso a um projeto.'}
+          action={canManageProjects ? <button className="btn btn--primary" onClick={() => setCreateOpen(true)}><Icon name="plus" size={16} /> Novo projeto</button> : null}
+        />
+      )}
+
+      {projects.length > 0 && !sel && <EmptyState icon="kanban" title="Selecione um projeto acima." />}
 
       {sel && (
         <>
-          {/* Cabeçalho: cross-link ao vivo */}
           <div className="app-card">
             <div className="app-card__head">
               <div>
@@ -443,16 +429,10 @@ export default function MetaProjects({ canManageProjects = true }) {
                 <p className="app-card__meta">{[sel.stack, sel.description].filter(Boolean).join(' · ') || '—'}</p>
               </div>
               <div className="app-card__urls">
-                <span className={'badge ' + (liveApp ? 'badge-ok' : 'badge-muted')}>
-                  {liveApp ? '● no ar' : '○ sem app vivo'}
-                </span>
-                {sel.route && (
-                  <a className="quick-link" href={sel.route} target="_blank" rel="noopener noreferrer">
-                    Abrir {sel.route} ↗
-                  </a>
-                )}
+                <span className={'badge ' + (liveApp ? 'badge-ok' : 'badge-muted')}>{liveApp ? '● no ar' : '○ sem app vivo'}</span>
+                {sel.route && <a className="quick-link" href={sel.route} target="_blank" rel="noopener noreferrer">Abrir {sel.route} ↗</a>}
                 {canManageProjects && (
-                  <button className="btn btn--danger" style={{ fontSize: '.8rem', padding: '4px 10px' }} onClick={() => deleteProject(sel)}>
+                  <button className="btn btn--danger" style={{ fontSize: '.8rem', padding: '4px 10px' }} onClick={() => setConfirmDelProject(sel)}>
                     Excluir projeto
                   </button>
                 )}
@@ -472,15 +452,12 @@ export default function MetaProjects({ canManageProjects = true }) {
               <div className="app-section">
                 <span className="app-section__label">🔗 rotas ao vivo</span>
                 <div className="chips">
-                  {liveApp.urls.map((u) => (
-                    <a key={u} className="chip" href={u} target="_blank" rel="noopener noreferrer">{u}</a>
-                  ))}
+                  {liveApp.urls.map((u) => <a key={u} className="chip" href={u} target="_blank" rel="noopener noreferrer">{u}</a>)}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Filtros + novo item */}
           <div className="toolbar" style={{ marginBottom: 12 }}>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', flex: 1 }}>
               <select className="select" style={{ minWidth: 120 }} value={fType} onChange={(e) => setFType(e.target.value)}>
@@ -496,34 +473,26 @@ export default function MetaProjects({ canManageProjects = true }) {
                 <input type="checkbox" checked={showWontfix} onChange={(e) => setShowWontfix(e.target.checked)} /> descartados
               </label>
             </div>
-            <button className="btn btn--primary" onClick={() => setDrawer({ mode: 'create', item: null })}>+ item</button>
+            <button className="btn btn--primary" onClick={() => setDrawer({ mode: 'create', item: null })}><Icon name="plus" size={16} /> item</button>
           </div>
 
-          {/* Board */}
           <div className="board">
             {cols.map((col) => {
               const colItems = byStatus(col.key);
               return (
-                <div
-                  key={col.key}
+                <div key={col.key}
                   className={'board__col' + (overCol === col.key ? ' board__col--over' : '')}
                   onDragOver={(e) => { e.preventDefault(); if (overCol !== col.key) setOverCol(col.key); }}
                   onDragLeave={(e) => { if (e.currentTarget === e.target) setOverCol((c) => (c === col.key ? null : c)); }}
-                  onDrop={() => onDropTo(col.key)}
-                >
+                  onDrop={() => onDropTo(col.key)}>
                   <div className="board__col-head">
                     <span>{col.label}</span>
                     <span className="board__col-count">{colItems.length}</span>
                   </div>
                   <div className="board__col-body">
                     {colItems.map((it) => (
-                      <Card
-                        key={it.id}
-                        it={it}
-                        dragging={draggingId === it.id}
-                        setDragging={setDraggingId}
-                        onOpen={() => setDrawer({ mode: 'edit', item: it })}
-                      />
+                      <Card key={it.id} it={it} dragging={draggingId === it.id} setDragging={setDraggingId}
+                        onOpen={() => setDrawer({ mode: 'edit', item: it })} />
                     ))}
                     {!colItems.length && <div className="board__empty">vazio</div>}
                   </div>
@@ -536,12 +505,45 @@ export default function MetaProjects({ canManageProjects = true }) {
       )}
 
       {drawer && (
-        <ItemDrawer
-          mode={drawer.mode}
-          item={drawer.item}
-          projectId={selId}
-          onClose={() => setDrawer(null)}
-          onSaved={() => loadItems(selId)}
+        <ItemDrawer mode={drawer.mode} item={drawer.item} projectId={selId}
+          onClose={() => setDrawer(null)} onSaved={() => loadItems(selId)} />
+      )}
+
+      {createOpen && (
+        <Modal title="Novo projeto" size="sm" onClose={() => setCreateOpen(false)}
+          footer={<>
+            <button className="btn" onClick={() => setCreateOpen(false)}>Cancelar</button>
+            <button className="btn btn--primary" onClick={submitCreateProject} disabled={!newProj.key.trim()}>Criar</button>
+          </>}>
+          <label className="field" style={{ marginBottom: 10 }}>
+            <span className="field__label">Chave (kebab-case)</span>
+            <input className="input" placeholder="ex.: meu-app" value={newProj.key}
+              onChange={(e) => setNewProj((p) => ({ ...p, key: e.target.value }))}
+              onKeyDown={(e) => { if (e.key === 'Enter') submitCreateProject(); }} />
+          </label>
+          <label className="field">
+            <span className="field__label">Nome</span>
+            <input className="input" placeholder="ex.: Meu App" value={newProj.name}
+              onChange={(e) => setNewProj((p) => ({ ...p, name: e.target.value }))}
+              onKeyDown={(e) => { if (e.key === 'Enter') submitCreateProject(); }} />
+          </label>
+        </Modal>
+      )}
+
+      {confirmDelProject && (
+        <ConfirmDialog
+          title="Excluir projeto"
+          message={`Excluir o projeto "${confirmDelProject.name}" e TODOS os seus itens e tasks? Esta ação não pode ser desfeita.`}
+          confirmLabel="Excluir" danger
+          onClose={() => setConfirmDelProject(null)}
+          onConfirm={async () => {
+            await pmDeleteProject(confirmDelProject.id);
+            setDrawer(null);
+            const fresh = (await pmProjects()) || [];
+            setProjects(fresh);
+            setSelId(fresh.length ? fresh[0].id : null);
+            toast.ok('Projeto excluído.');
+          }}
         />
       )}
     </div>

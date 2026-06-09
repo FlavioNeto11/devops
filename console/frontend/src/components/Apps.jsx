@@ -1,6 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { fetchApps } from '../api.js';
 import { shortImage, asCount } from '../format.js';
+import Icon from './Icon.jsx';
+import PageHeader from './PageHeader.jsx';
+import EmptyState from './EmptyState.jsx';
+import { ListSkeleton } from './Skeleton.jsx';
 
 /**
  * Apps
@@ -48,16 +52,15 @@ export default function Apps() {
 
   return (
     <section className="apps" aria-label="Aplicacoes">
-      <div className="toolbar">
-        <h2 className="section-title">Aplicacoes</h2>
-        <button type="button" className="btn" onClick={() => load()}>
-          Atualizar
-        </button>
-      </div>
+      <PageHeader
+        actions={(
+          <button type="button" className="btn" onClick={() => load()} disabled={loading}>
+            <Icon name="refresh" size={15} /> Atualizar
+          </button>
+        )}
+      />
 
-      {loading && apps.length === 0 && (
-        <p className="state state--loading">Carregando aplicacoes…</p>
-      )}
+      {loading && apps.length === 0 && <ListSkeleton rows={3} />}
 
       {error && (
         <div className="state state--error" role="alert">
@@ -66,10 +69,11 @@ export default function Apps() {
       )}
 
       {!loading && !error && apps.length === 0 && (
-        <p className="state state--empty">
-          Nenhuma aplicacao encontrada (recursos rotulados com{' '}
-          <code>app.kubernetes.io/part-of</code>).
-        </p>
+        <EmptyState
+          icon="layers"
+          title="Nenhuma aplicação encontrada"
+          hint="Apps aparecem aqui quando seus recursos têm o label app.kubernetes.io/part-of."
+        />
       )}
 
       {apps.map((app) => {

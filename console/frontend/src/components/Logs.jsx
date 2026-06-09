@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchNamespaces, fetchPods, fetchLogs } from '../api.js';
 import { ageFrom, phaseBadgeClass } from '../format.js';
+import Icon from './Icon.jsx';
+import EmptyState from './EmptyState.jsx';
+import { Skeleton } from './Skeleton.jsx';
 
 /**
  * Logs — visualizador rico
@@ -185,7 +188,11 @@ export default function Logs() {
       <div className="logs2">
         {/* Painel esquerdo: pods por app */}
         <div className="logs2__list" aria-label="Pods agrupados por aplicação">
-          {loadingMeta && <p className="muted" style={{ margin: 4 }}>Carregando pods…</p>}
+          {loadingMeta && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 4 }}>
+              {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} h={34} r={7} />)}
+            </div>
+          )}
           {!loadingMeta && !groups.length && <p className="muted" style={{ margin: 4 }}>Nenhum pod encontrado.</p>}
           {groups.map(([app, items]) => (
             <div key={app}>
@@ -219,7 +226,7 @@ export default function Logs() {
         {/* Painel direito: visualizador */}
         <div className="logs2__viewer">
           {!selected ? (
-            <p className="state state--empty">Selecione um pod à esquerda para ver os logs (últimas {tail} linhas).</p>
+            <EmptyState icon="terminal" title="Selecione um pod" hint={`Escolha um pod à esquerda para ver as últimas ${tail} linhas de log.`} />
           ) : (
             <>
               <div className="logs2__viewer-head">

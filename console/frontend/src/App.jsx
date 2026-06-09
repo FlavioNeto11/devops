@@ -7,22 +7,24 @@ import Health from './components/Health.jsx';
 import Logs from './components/Logs.jsx';
 import MetaProjects from './components/MetaProjects.jsx';
 import AccessAdmin from './components/AccessAdmin.jsx';
+import Sidebar from './components/Sidebar.jsx';
+import TopBar from './components/TopBar.jsx';
+import { ToastProvider } from './components/ToastProvider.jsx';
 
 /**
- * Abas do console. Admin (platform-admins) vê todas + "Usuários". Usuário restrito
- * (project-members) vê SOMENTE "Projetos & Tarefas". O papel vem de /me (pm-api),
- * que lê os grupos repassados pela borda (oauth2-proxy/Keycloak).
+ * Metadados de cada seção: rótulo (pt-BR), ícone, descrição (subtítulo na TopBar) e grupo
+ * de navegação. A ordem aqui define a ordem na sidebar.
  */
-const ADMIN_TABS = [
-  { key: 'overview', label: 'Overview' },
-  { key: 'apps', label: 'Apps' },
-  { key: 'publications', label: 'Publicacoes' },
-  { key: 'health', label: 'Health' },
-  { key: 'logs', label: 'Logs' },
-  { key: 'projects', label: 'Projetos & Tarefas' },
-  { key: 'access', label: 'Usuários' },
-];
-const MEMBER_TABS = [{ key: 'projects', label: 'Projetos & Tarefas' }];
+const SECTIONS = {
+  overview: { label: 'Overview', icon: 'grid', group: 'Cluster', description: 'Panorama do cluster em tempo real.' },
+  apps: { label: 'Apps', icon: 'layers', group: 'Cluster', description: 'Aplicações agrupadas por label, com URLs e saúde.' },
+  health: { label: 'Health', icon: 'activity', group: 'Cluster', description: 'Saúde de pods e deployments.' },
+  logs: { label: 'Logs', icon: 'terminal', group: 'Cluster', description: 'Logs dos pods, em tempo quase real.' },
+  publications: { label: 'Publicações', icon: 'rocket', group: 'Cluster', description: 'Histórico de deploys da esteira.' },
+  projects: { label: 'Projetos & Tarefas', icon: 'kanban', group: 'Gestão', description: 'Board de projetos, itens e tarefas.' },
+  access: { label: 'Usuários', icon: 'users', group: 'Gestão', description: 'Usuários restritos e acesso por projeto.' },
+};
+const SECTION_ORDER = ['overview', 'apps', 'health', 'logs', 'publications', 'projects', 'access'];
 
 const QUICK_LINKS = [
   { href: '/argocd', label: 'Argo CD' },
@@ -41,25 +43,35 @@ export default function App() {
   const [me, setMe] = useState(null);
   const [meLoaded, setMeLoaded] = useState(false);
 
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => { try { return localStorage.getItem('console-sidebar') === 'collapsed'; } catch { return false; } },
+  );
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
   const [streamStatus, setStreamStatus] = useState('connecting');
   const [streamData, setStreamData] = useState(null);
-  const [lastUpdate, setLastUpdate] = useState(null);
   const esRef = useRef(null);
 
-  // Tema (light/dark). O valor inicial e' definido no index.html (anti-flash); aqui apenas
-  // espelhamos e alternamos, persistindo em localStorage.
+  // Tema (valor inicial vem do index.html, anti-flash).
   const [theme, setTheme] = useState(
     () => (typeof document !== 'undefined' && document.documentElement.dataset.theme) || 'light',
   );
   const toggleTheme = () => {
     const next = theme === 'dark' ? 'light' : 'dark';
     if (typeof document !== 'undefined') document.documentElement.dataset.theme = next;
-    try { localStorage.setItem('console-theme', next); } catch { /* ignora storage indisponivel */ }
+    try { localStorage.setItem('console-theme', next); } catch { /* ignore */ }
     setTheme(next);
   };
 
-  // Identidade + papel. Em caso de falha (ex.: pm-api fora), degrada para "sem me"
-  // (comportamento atual de admin, já que a borda só deixa admin entrar por padrão).
+  const toggleCollapse = () => {
+    setSidebarCollapsed((c) => {
+      const next = !c;
+      try { localStorage.setItem('console-sidebar', next ? 'collapsed' : 'expanded'); } catch { /* ignore */ }
+      return next;
+    });
+  };
+
+  // Identidade + papel. Falha → "sem me" (degrada para admin, já que a borda só deixa admin por padrão).
   useEffect(() => {
     let alive = true;
     pmMe()
@@ -71,10 +83,9 @@ export default function App() {
 
   const isAdmin = !!me?.isAdmin;
   const isMember = !!me?.isMember && !isAdmin;
-  const canManageProjects = !isMember; // admin e dev/desconhecido gerenciam; member não
-  const tabs = useMemo(() => (isMember ? MEMBER_TABS : ADMIN_TABS), [isMember]);
+  const canManageProjects = !isMember;
 
-  // Mantém a aba ativa válida para o papel (member → sempre "projects").
+  // Mantém a aba ativa válida para o papel.
   useEffect(() => {
     if (!meLoaded) return;
     if (isMember) setActiveTab('projects');
@@ -82,7 +93,7 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meLoaded, isMember, isAdmin]);
 
-  // SSE (dados do cluster) só para admin — o member não vê Overview/Health.
+  // SSE (dados do cluster) só para admin.
   useEffect(() => {
     if (!meLoaded || isMember) return undefined;
     let closed = false;
@@ -100,21 +111,10 @@ export default function App() {
     es.onerror = () => { if (!closed) setStreamStatus('error'); };
     const onSnapshot = (evt) => {
       if (closed) return;
-      try {
-        setStreamData(JSON.parse(evt.data));
-        setLastUpdate(new Date());
-        setStreamStatus('open');
-      } catch (parseErr) {
-        // eslint-disable-next-line no-console
-        console.warn('Frame SSE "snapshot" ignorado (nao-JSON):', parseErr);
-      }
+      try { setStreamData(JSON.parse(evt.data)); setStreamStatus('open'); }
+      catch (e) { /* frame não-JSON ignorado */ }
     };
-    const onAppError = (evt) => {
-      if (closed) return;
-      // eslint-disable-next-line no-console
-      console.warn('Evento SSE de erro do backend:', evt && evt.data);
-      setStreamStatus('error');
-    };
+    const onAppError = () => { if (!closed) setStreamStatus('error'); };
     es.addEventListener('snapshot', onSnapshot);
     es.addEventListener('error', onAppError);
     return () => {
@@ -126,92 +126,72 @@ export default function App() {
     };
   }, [meLoaded, isMember]);
 
-  const streamBadge = STREAM_LABEL[streamStatus] || STREAM_LABEL.connecting;
+  // Grupos da sidebar (filtrados por papel, na ordem de SECTION_ORDER).
+  const sidebarGroups = useMemo(() => {
+    const visible = isMember ? ['projects'] : SECTION_ORDER;
+    const byGroup = new Map();
+    for (const key of SECTION_ORDER) {
+      if (!visible.includes(key)) continue;
+      const s = SECTIONS[key];
+      if (!byGroup.has(s.group)) byGroup.set(s.group, []);
+      byGroup.get(s.group).push({ key, label: s.label, icon: s.icon });
+    }
+    return [...byGroup.entries()].map(([label, items]) => ({ label, items }));
+  }, [isMember]);
 
   if (!meLoaded) {
     return (
-      <div className="app">
-        <p className="state state--loading" style={{ margin: 24 }}>Carregando…</p>
+      <div className="shell-loading">
+        <span className="skel" style={{ width: 180, height: 16, borderRadius: 6 }} />
       </div>
     );
   }
 
+  const streamBadge = STREAM_LABEL[streamStatus] || STREAM_LABEL.connecting;
+  const selectSection = (key) => { setActiveTab(key); setMobileNavOpen(false); };
+
   return (
-    <div className="app">
-      <header className="app-header">
-        <div className="app-header__brand">
-          <span className="app-header__logo" aria-hidden="true">◆</span>
-          <h1 className="app-header__title">DevOps Console</h1>
-          {!isMember && (
-            <span className={streamBadge.cls} title="Estado da conexao em tempo real (SSE)">
-              {streamBadge.text}
+    <ToastProvider>
+      <div className={'shell' + (sidebarCollapsed ? ' shell--collapsed' : '') + (mobileNavOpen ? ' shell--navopen' : '')}>
+        <Sidebar
+          groups={sidebarGroups}
+          links={isMember ? [] : QUICK_LINKS}
+          activeKey={activeTab}
+          onSelect={selectSection}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={toggleCollapse}
+        />
+        <div className="sidebar__backdrop" onClick={() => setMobileNavOpen(false)} aria-hidden="true" />
+
+        <div className="shell__main">
+          <TopBar
+            section={SECTIONS[activeTab]}
+            onMenu={() => setMobileNavOpen((o) => !o)}
+            theme={theme}
+            onToggleTheme={toggleTheme}
+            me={me}
+            live={!isMember ? streamBadge : null}
+          />
+
+          <main className="content" role="main">
+            {!isMember && activeTab === 'overview' && <Overview streamData={streamData} streamStatus={streamStatus} />}
+            {!isMember && activeTab === 'apps' && <Apps />}
+            {!isMember && activeTab === 'publications' && <Publications />}
+            {!isMember && activeTab === 'health' && <Health streamData={streamData} streamStatus={streamStatus} />}
+            {!isMember && activeTab === 'logs' && <Logs />}
+            {activeTab === 'projects' && <MetaProjects canManageProjects={canManageProjects} />}
+            {activeTab === 'access' && isAdmin && <AccessAdmin />}
+          </main>
+
+          <footer className="app-footer">
+            <span>
+              {isMember
+                ? 'Você tem acesso aos projetos atribuídos. Fale com um administrador para mais acessos.'
+                : 'Observação do cluster docker-desktop em somente leitura. Projetos & Tarefas usa um módulo dedicado (pm-api) com banco próprio.'}
             </span>
-          )}
-          {!isMember && lastUpdate && (
-            <span className="app-header__updated">atualizado {lastUpdate.toLocaleTimeString('pt-BR')}</span>
-          )}
-          {isMember && <span className="badge badge-accent">Projetos &amp; Tarefas</span>}
+          </footer>
         </div>
-
-        <nav className="app-header__links" aria-label="Atalhos">
-          <button
-            type="button"
-            className="quick-link"
-            onClick={toggleTheme}
-            style={{ font: 'inherit', cursor: 'pointer' }}
-            title="Alternar tema claro/escuro"
-            aria-label="Alternar tema claro/escuro"
-          >
-            {theme === 'dark' ? '☀ claro' : '🌙 escuro'}
-          </button>
-          {!isMember && QUICK_LINKS.map((link) => (
-            <a key={link.href} href={link.href} className="quick-link" target="_blank" rel="noopener noreferrer">
-              {link.label} ↗
-            </a>
-          ))}
-          {me?.email && <span className="app-header__updated" title="usuário autenticado">{me.email}</span>}
-          <a href="/oauth2/sign_out" className="quick-link" title="Encerrar sessão">sair ↗</a>
-        </nav>
-      </header>
-
-      {tabs.length > 1 && (
-        <nav className="tabs" role="tablist" aria-label="Secoes do console">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === tab.key}
-              className={`tab ${activeTab === tab.key ? 'tab--active' : ''}`}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-      )}
-
-      <main className="content" role="tabpanel">
-        {!isMember && activeTab === 'overview' && (
-          <Overview streamData={streamData} streamStatus={streamStatus} />
-        )}
-        {!isMember && activeTab === 'apps' && <Apps />}
-        {!isMember && activeTab === 'publications' && <Publications />}
-        {!isMember && activeTab === 'health' && (
-          <Health streamData={streamData} streamStatus={streamStatus} />
-        )}
-        {!isMember && activeTab === 'logs' && <Logs />}
-        {activeTab === 'projects' && <MetaProjects canManageProjects={canManageProjects} />}
-        {activeTab === 'access' && isAdmin && <AccessAdmin />}
-      </main>
-
-      <footer className="app-footer">
-        <span>
-          {isMember
-            ? 'Você tem acesso aos projetos atribuídos. Fale com um administrador para mais acessos.'
-            : 'Observacao do cluster docker-desktop em somente leitura. Projetos & Tarefas usa um modulo dedicado (pm-api) com seu proprio banco.'}
-        </span>
-      </footer>
-    </div>
+      </div>
+    </ToastProvider>
   );
 }
