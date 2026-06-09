@@ -1904,9 +1904,9 @@ function isToolCall(value: LlmToolCall | null): value is LlmToolCall {
   return Boolean(value && typeof value.name === 'string' && value.name.trim());
 }
 
-async function persistSafely(action: string, operation: () => Promise<unknown>) {
+async function persistSafely<T>(action: string, operation: () => Promise<T>): Promise<T | undefined> {
   try {
-    await operation();
+    return await operation();
   } catch (error: unknown) {
     let detail = 'unknown persistence error';
     if (error instanceof Error) {
@@ -1917,6 +1917,7 @@ async function persistSafely(action: string, operation: () => Promise<unknown>) 
       detail = JSON.stringify(error);
     }
     console.warn(`[conversation:persistence] ${action} skipped: ${detail}`);
+    return undefined;
   }
 }
 
@@ -2372,8 +2373,8 @@ export function createConversationService(dependencies?: {
       const sanitizedRawContextMetadata = sanitizeStructuredPayload(rawContext.metadata);
       const sanitizedRequestMetadata = sanitizeStructuredPayload(context.metadata);
 
-      await persistSafely('upsert conversation_session', async () => {
-        await upsertConversationSession({
+      const upsertedSession = await persistSafely('upsert conversation_session', async () =>
+        upsertConversationSession({
           id: context.conversationSessionId,
           channelType: context.channel,
           channelSessionKey: rawContext.channelSessionKey,
@@ -2392,8 +2393,16 @@ export function createConversationService(dependencies?: {
           },
           lastCorrelationId: context.correlationId,
           lastTurnAt: new Date().toISOString()
-        });
-      });
+        })
+      );
+      // Adota o id CANÔNICO da sessão: quando já existe uma para este (channel_type, channel_session_key),
+      // o upsert reutiliza a linha existente e devolve o id original. Sem isto, um conversationSessionId
+      // novo a cada turno (front não reenvia um estável) faria as escritas filhas (mensagens, working-memory,
+      // trilhas, action logs) referenciarem uma sessão inexistente e cairem por FK. Propaga p/ todo o turno
+      // e p/ a resposta (assim o front passa a reenviar o id canônico).
+      if (upsertedSession?.id && upsertedSession.id !== context.conversationSessionId) {
+        context.conversationSessionId = upsertedSession.id;
+      }
 
       await persistSafely('insert conversation_messages(user)', async () => {
         await insertConversationMessage({

@@ -63,6 +63,18 @@ export async function upsertConversationSession(input: {
   lastCorrelationId?: string | null;
   lastTurnAt?: string | null;
 }) {
+  // O índice único é PARCIAL: ux_conversation_sessions_channel_key (channel_type, channel_session_key)
+  // WHERE channel_session_key IS NOT NULL. Quando HÁ channelSessionKey, a IDENTIDADE da sessão é
+  // (channel_type, channel_session_key) — um id novo a cada turno colidiria nesse índice, e um
+  // ON CONFLICT (id) NÃO trataria esse conflito: a query lançaria, a sessão não seria criada e
+  // TODAS as escritas filhas cairiam por FK. Por isso, com chave, conflitamos no índice de canal e
+  // REUTILIZAMOS a linha existente (id canônico preservado e devolvido em RETURNING). Sem chave,
+  // o índice parcial não se aplica → conflito por id (comportamento legado).
+  const hasChannelKey = typeof input.channelSessionKey === 'string' && input.channelSessionKey.trim().length > 0;
+  const conflictClause = hasChannelKey
+    ? 'on conflict (channel_type, channel_session_key) where channel_session_key is not null'
+    : 'on conflict (id)';
+
   const result = await query<ConversationSessionRow>(
     `insert into conversation_sessions(
       id,
@@ -79,7 +91,7 @@ export async function upsertConversationSession(input: {
       last_correlation_id,
       last_turn_at
     ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13)
-    on conflict (id) do update set
+    ${conflictClause} do update set
       channel_type = excluded.channel_type,
       channel_session_key = coalesce(excluded.channel_session_key, conversation_sessions.channel_session_key),
       user_id = coalesce(excluded.user_id, conversation_sessions.user_id),
