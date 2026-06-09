@@ -182,3 +182,5 @@ export const pmUpdateMember = (email, patch) =>
   pmFetch(`/admin/members/${encodeURIComponent(email)}`, { method: 'PATCH', body: patch });
 export const pmDeleteMember = (email) =>
   pmFetch(`/admin/members/${encodeURIComponent(email)}`, { method: 'DELETE' });
+export const pmResetMemberPassword = (email) =>
+  pmFetch(`/admin/members/${encodeURIComponent(email)}/reset-password`, { method: 'POST' });

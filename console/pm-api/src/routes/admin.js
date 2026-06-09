@@ -91,6 +91,17 @@ r.post('/admin/members', asyncH(async (req, res) => {
   });
 }));
 
+// Redefine (regenera) a senha temporária do usuário — para quando a senha do cadastro
+// não foi anotada. Devolve a nova senha 1× (o usuário troca no próximo login).
+r.post('/admin/members/:email/reset-password', asyncH(async (req, res) => {
+  const email = String(req.params.email || '').trim().toLowerCase();
+  if (!kc.isConfigured()) {
+    return res.status(503).json({ error: { code: 'KC_UNAVAILABLE', message: 'Keycloak não configurado para redefinir senha.' } });
+  }
+  const result = await kc.resetMemberPassword(email);
+  res.json({ data: { email, tempPassword: result.tempPassword } });
+}));
+
 // Substitui os projetos concedidos ao usuário.
 r.put('/admin/members/:email/projects', asyncH(async (req, res) => {
   const email = String(req.params.email || '').trim().toLowerCase();

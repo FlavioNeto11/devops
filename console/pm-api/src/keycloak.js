@@ -102,6 +102,21 @@ export async function ensureMemberUser({ email, name }) {
   return { userId, tempPassword };
 }
 
+/** Redefine a senha temporária de um usuário existente (por e-mail). Retorna a nova senha. */
+export async function resetMemberPassword(email) {
+  const token = await adminToken();
+  const user = await findUserByEmail(token, email);
+  if (!user?.id) throw new Error('Keycloak: usuário não encontrado para redefinir senha');
+  const tempPassword = genTempPassword();
+  const res = await kcFetch(`/users/${user.id}/reset-password`, {
+    method: 'PUT',
+    token,
+    body: { type: 'password', value: tempPassword, temporary: true },
+  });
+  if (!res.ok) throw new Error(`Keycloak: redefinir senha falhou (${res.status})`);
+  return { userId: user.id, tempPassword };
+}
+
 export async function setEnabled(userId, enabled) {
   const token = await adminToken();
   await kcFetch(`/users/${userId}`, { method: 'PUT', token, body: { enabled: !!enabled } });

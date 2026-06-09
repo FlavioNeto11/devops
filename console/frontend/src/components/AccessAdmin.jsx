@@ -5,6 +5,7 @@ import {
   pmSetMemberProjects,
   pmUpdateMember,
   pmDeleteMember,
+  pmResetMemberPassword,
   pmProjects,
 } from '../api.js';
 
@@ -44,14 +45,28 @@ export default function AccessAdmin() {
     try { await fn(); setErr(null); } catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
 
+  // Mostra a senha no topo e rola até lá (para não passar batido).
+  const showPassword = (email, tempPassword) => {
+    setCreated(tempPassword ? { email, tempPassword } : null);
+    if (tempPassword && typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const createMember = () => run(async () => {
     const email = newEmail.trim().toLowerCase();
     if (!email) { setErr('Informe o e-mail.'); return; }
     const res = await pmCreateMember({ email, name: newName.trim() || undefined });
-    setCreated(res?.tempPassword ? { email: res.email, tempPassword: res.tempPassword } : null);
+    showPassword(res?.email || email, res?.tempPassword);
+    if (!res?.tempPassword && res?.keycloakConfigured === false) {
+      setErr('Usuário registrado, mas a criação no Keycloak não está configurada — crie-o no Keycloak (grupo project-members).');
+    }
     setNewEmail('');
     setNewName('');
     await load();
+  });
+
+  const resetPassword = (member) => run(async () => {
+    const res = await pmResetMemberPassword(member.email);
+    showPassword(member.email, res?.tempPassword);
   });
 
   const toggleProject = (member, projectId) => run(async () => {
@@ -142,6 +157,7 @@ export default function AccessAdmin() {
               <p className="app-card__meta">{m.email}</p>
             </div>
             <div className="app-card__urls">
+              <button className="btn" disabled={busy} onClick={() => resetPassword(m)} title="Gera e mostra uma nova senha temporária">redefinir senha</button>
               <button className="btn" disabled={busy} onClick={() => toggleDisabled(m)}>
                 {m.disabled ? 'reativar' : 'desabilitar'}
               </button>
