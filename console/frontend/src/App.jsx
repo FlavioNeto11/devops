@@ -46,6 +46,18 @@ export default function App() {
   const [lastUpdate, setLastUpdate] = useState(null);
   const esRef = useRef(null);
 
+  // Tema (light/dark). O valor inicial e' definido no index.html (anti-flash); aqui apenas
+  // espelhamos e alternamos, persistindo em localStorage.
+  const [theme, setTheme] = useState(
+    () => (typeof document !== 'undefined' && document.documentElement.dataset.theme) || 'light',
+  );
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    if (typeof document !== 'undefined') document.documentElement.dataset.theme = next;
+    try { localStorage.setItem('console-theme', next); } catch { /* ignora storage indisponivel */ }
+    setTheme(next);
+  };
+
   // Identidade + papel. Em caso de falha (ex.: pm-api fora), degrada para "sem me"
   // (comportamento atual de admin, já que a borda só deixa admin entrar por padrão).
   useEffect(() => {
@@ -142,6 +154,16 @@ export default function App() {
         </div>
 
         <nav className="app-header__links" aria-label="Atalhos">
+          <button
+            type="button"
+            className="quick-link"
+            onClick={toggleTheme}
+            style={{ font: 'inherit', cursor: 'pointer' }}
+            title="Alternar tema claro/escuro"
+            aria-label="Alternar tema claro/escuro"
+          >
+            {theme === 'dark' ? '☀ claro' : '🌙 escuro'}
+          </button>
           {!isMember && QUICK_LINKS.map((link) => (
             <a key={link.href} href={link.href} className="quick-link" target="_blank" rel="noopener noreferrer">
               {link.label} ↗

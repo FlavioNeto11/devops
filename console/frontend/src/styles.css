@@ -1,9 +1,52 @@
 /* =========================================================================
-   DevOps Console — tema escuro, limpo e responsivo.
+   DevOps Console — design system tokenizado, com tema LIGHT (default) e DARK.
+   Tema controlado por [data-theme] no <html> (toggle no header + init no index.html).
    Identificadores/classes em ingles; textos da UI ficam no JSX (pt-BR).
    ========================================================================= */
 
+/* LIGHT (corporativo) = default. Mesmos nomes de token usados por todos os componentes. */
 :root {
+  --bg: #eef1f6;
+  --bg-elev: #ffffff;
+  --bg-elev-2: #f3f6fb;
+  --border: #e3e8f0;
+  --border-strong: #cfd7e3;
+  --text: #1b2531;
+  --text-muted: #586675;
+  --text-dim: #8794a4;
+  --accent: #2f6fed;
+  --accent-hover: #1f5fe0;
+  --accent-contrast: #ffffff;        /* texto sobre o accent (botao primary) */
+  --accent-soft: rgba(47, 111, 237, 0.10);
+
+  --ok: #1a7f37;
+  --ok-bg: rgba(26, 127, 55, 0.12);
+  --warn: #9a6700;
+  --warn-bg: rgba(154, 103, 0, 0.13);
+  --err: #cf222e;
+  --err-bg: rgba(207, 34, 46, 0.10);
+  --muted-bg: rgba(88, 102, 117, 0.12);
+
+  /* O visualizador de logs e' um "terminal": fica escuro nos dois temas (legibilidade). */
+  --terminal-bg: #0f1722;
+  --terminal-text: #cdd9e5;
+  --track-bg: rgba(27, 37, 49, 0.10);    /* trilho da barra de progresso */
+  --overlay: rgba(20, 28, 40, 0.45);     /* fundo do drawer */
+
+  --radius: 12px;
+  --radius-sm: 7px;
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.10);
+  --shadow-md: 0 2px 4px rgba(16, 24, 40, 0.05), 0 8px 20px rgba(16, 24, 40, 0.08);
+  --shadow: var(--shadow-sm); /* compat: regras antigas que usavam --shadow */
+
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+}
+
+/* DARK (slate refinado) — override apenas das cores; estrutura/raio/fontes vem do :root. */
+:root[data-theme="dark"] {
   --bg: #0d1117;
   --bg-elev: #161b22;
   --bg-elev-2: #1c2230;
@@ -14,6 +57,8 @@
   --text-dim: #6b7687;
   --accent: #4c8dff;
   --accent-hover: #6aa0ff;
+  --accent-contrast: #06122b;
+  --accent-soft: rgba(76, 141, 255, 0.12);
 
   --ok: #3fb950;
   --ok-bg: rgba(63, 185, 80, 0.15);
@@ -23,14 +68,14 @@
   --err-bg: rgba(248, 81, 73, 0.15);
   --muted-bg: rgba(139, 148, 158, 0.15);
 
-  --radius: 10px;
-  --radius-sm: 6px;
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --terminal-bg: #0a0e14;
+  --terminal-text: #c9d4e0;
+  --track-bg: rgba(255, 255, 255, 0.10);
+  --overlay: rgba(0, 0, 0, 0.6);
 
-  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
-    "Liberation Mono", monospace;
-  --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
-    sans-serif;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow: var(--shadow-sm);
 }
 
 * {
@@ -103,9 +148,13 @@ code {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
-  padding: 14px 20px;
+  padding: 14px 24px;
   background: var(--bg-elev);
   border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  box-shadow: var(--shadow-sm);
 }
 
 .app-header__brand {
@@ -171,22 +220,25 @@ code {
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   color: var(--text-muted);
   font: inherit;
   font-weight: 500;
-  padding: 12px 14px;
+  padding: 12px 16px;
   cursor: pointer;
   white-space: nowrap;
-  transition: color 0.15s, border-color 0.15s;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 
 .tab:hover {
   color: var(--text);
+  background: var(--accent-soft);
 }
 
 .tab--active {
-  color: var(--text);
-  border-bottom-color: var(--accent);
+  color: var(--accent);
+  border-bottom: 3px solid var(--accent);
+  font-weight: 600;
 }
 
 /* ---------------------------------------------------------------- Content */
@@ -195,7 +247,7 @@ code {
   /* Largura total: sem cap de max-width (que gerava "barras fantasma" laterais
      e forcava scroll). Apenas gutters laterais; alinhado com header/tabs/footer. */
   width: 100%;
-  padding: 20px 24px;
+  padding: 26px 28px;
 }
 
 /* Nenhum scroll horizontal de pagina: rolagens ficam contidas nos componentes
@@ -239,11 +291,11 @@ body {
   background: var(--bg-elev);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px;
+  padding: 18px;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-md);
 }
 
 .card__value {
@@ -372,9 +424,9 @@ body {
   background: var(--bg-elev);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px;
+  padding: 18px;
   margin-bottom: 16px;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-md);
 }
 
 .app-card__head {
@@ -500,7 +552,7 @@ body {
 .btn--primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #06122b;
+  color: var(--accent-contrast);
   font-weight: 600;
 }
 
@@ -545,14 +597,14 @@ body {
 /* --------------------------------------------------------------- Log box */
 .logbox {
   margin-top: 14px;
-  background: #0a0e14;
+  background: var(--terminal-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 14px 16px;
   font-family: var(--mono);
   font-size: 12.5px;
   line-height: 1.55;
-  color: #c9d4e0;
+  color: var(--terminal-text);
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 60vh;
@@ -612,7 +664,7 @@ body {
 
 /* Realce "accent" (tipo "evolução" e prioridade P2). */
 .badge-accent {
-  background: rgba(76, 141, 255, 0.15);
+  background: var(--accent-soft);
   color: var(--accent);
 }
 
@@ -638,6 +690,17 @@ body {
 .select:focus {
   outline: none;
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* Anel de foco corporativo (acessibilidade) para controles clicaveis. */
+.btn:focus-visible,
+.pill:focus-visible,
+.quick-link:focus-visible,
+.tab:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 /* Campo que cresce dentro de uma .toolbar (ex.: busca). */
@@ -674,7 +737,7 @@ body {
 .pill--active {
   color: var(--text);
   border-color: var(--accent);
-  background: rgba(76, 141, 255, 0.1);
+  background: var(--accent-soft);
 }
 .pill__count {
   font-size: 11px;
@@ -811,7 +874,7 @@ body {
   flex: 1;
   height: 5px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--track-bg);
   overflow: hidden;
 }
 .progress__bar {
@@ -834,7 +897,7 @@ body {
 .drawer__overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: var(--overlay);
   z-index: 40;
   display: flex;
   justify-content: flex-end;
@@ -1024,7 +1087,7 @@ body {
 }
 .logs2__pod--active {
   border-color: var(--accent);
-  background: rgba(76, 141, 255, 0.1);
+  background: var(--accent-soft);
 }
 .logs2__pod-name {
   display: flex;
