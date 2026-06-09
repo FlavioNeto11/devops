@@ -54,7 +54,10 @@ type ConfigKey =
   | 'sicatCetesbPasswordSecret'
   | 'sicatBootstrapEmail'
   | 'sicatBootstrapPassword'
-  | 'sicatBootstrapName';
+  | 'sicatBootstrapName'
+  | 'keycloakRealmUrl'
+  | 'keycloakUserinfoUrl'
+  | 'keycloakClientId';
 
 const configOverrides: Partial<Record<ConfigKey, unknown>> = {};
 
