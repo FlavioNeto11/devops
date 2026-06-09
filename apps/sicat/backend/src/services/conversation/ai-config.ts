@@ -103,15 +103,18 @@ export function isReasoningModel(model: string): boolean {
 }
 
 // Reasoning effort POR FASE (não global). O roteamento (classificação/planejamento de
-// ferramenta) é onde a IA "se perdia" com effort mínimo; lá usamos um esforço maior. A
-// síntese (gerar texto a partir de evidência já obtida) pode seguir rápida. Tudo ajustável
-// por env sem rebuild. Base ('minimal') mantém o comportamento legado para chamadas que não
-// declaram fase.
+// ferramenta) precisa de ALGUM reasoning para acertar a tool — mas o GROUNDING (RAG no
+// roteamento + KB de capacidade + descrições claras das tools) é quem carrega a correção,
+// não o esforço alto. Medição (gpt-5): 'medium' custava 44–75s/turno (estourava o timeout do
+// front); 'low' roteia igualmente certo (mesmas tools, confiança 0.85–0.91) em ~13–20s. Por
+// isso o default de routing é 'low' (não 'medium'). A síntese segue leve ('low', e muitas
+// consultas nem chamam síntese — bypass determinístico). Tudo ajustável por env sem rebuild;
+// base ('minimal') mantém o comportamento legado para chamadas que não declaram fase.
 export type ReasoningPhase = 'routing' | 'synthesis' | 'base';
 
 export function getReasoningEffortFor(phase: ReasoningPhase = 'base'): string {
   const base = (process.env.OPENAI_REASONING_EFFORT || 'minimal').trim();
-  if (phase === 'routing') return (process.env.OPENAI_REASONING_EFFORT_ROUTING || 'medium').trim();
+  if (phase === 'routing') return (process.env.OPENAI_REASONING_EFFORT_ROUTING || 'low').trim();
   if (phase === 'synthesis') return (process.env.OPENAI_REASONING_EFFORT_SYNTHESIS || 'low').trim();
   return base;
 }
