@@ -33,6 +33,9 @@ secret.yaml
 *.secret.yaml
 secrets/
 
+# --- Capturas de sessao (HAR): contem tokens/cookies/PII reais. NUNCA versionar. ---
+*.har
+
 # --- Kubeconfig (credenciais de acesso ao cluster) ---
 kubeconfig
 
