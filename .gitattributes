@@ -1,0 +1,39 @@
+# ==========================================================================
+# .gitattributes — normalizacao de fim de linha (EOL) e binarios
+# Plataforma Windows (PowerShell) que builda em Docker/Linux: padronizar EOL
+# evita diffs fantasma e quebras de scripts entre clones.
+# Regra: armazenar SEMPRE como LF no repo; scripts nativos do Windows em CRLF.
+# (Forward-looking: aplica-se a arquivos novos/alterados; nao renormaliza o
+#  historico — evite `git add --renormalize .` sem necessidade.)
+# ==========================================================================
+
+# Default: deteccao automatica de texto, LF no repo e no working tree.
+* text=auto eol=lf
+
+# Scripts nativos do Windows — CRLF.
+*.ps1  text eol=crlf
+*.psm1 text eol=crlf
+*.psd1 text eol=crlf
+*.cmd  text eol=crlf
+*.bat  text eol=crlf
+
+# Shell — sempre LF.
+*.sh text eol=lf
+
+# Binarios — NUNCA normalizar (evita corromper e diffs gigantes).
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.webp binary
+*.svg  text
+*.pdf  binary
+*.zip  binary
+*.tgz  binary
+*.gz   binary
+*.har  binary
+*.woff  binary
+*.woff2 binary
+*.ttf  binary
+*.eot  binary
