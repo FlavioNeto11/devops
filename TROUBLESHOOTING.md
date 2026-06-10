@@ -154,7 +154,7 @@ Lembre da convencao (ver [`ARCHITECTURE.md`](./ARCHITECTURE.md)):
 Reaplicar a aplicacao apos ajustes:
 
 ```powershell
-.\scripts\publish-sample-app.ps1
+.\scripts\publish-app.ps1
 ```
 
 ---
@@ -273,7 +273,7 @@ no daemon Docker local.
 docker images | Select-String "aplicacao1|console"
 
 # (Re)buildar e reaplicar a aplicacao de exemplo (idempotente)
-.\scripts\publish-sample-app.ps1
+.\scripts\publish-app.ps1
 
 # Inspecionar o motivo do erro no pod
 kubectl describe pod -n apps -l app=aplicacao1

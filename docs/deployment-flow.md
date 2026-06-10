@@ -35,7 +35,7 @@ frontend/API/worker** (local e via Actions/GHCR), **reverter publicacao**, **ver
                 │ (fluxo via Actions/GHCR)                        │ (fluxo LOCAL :local)
                 ▼                                                 ▼
 ┌──────────────────────────────┐                  ┌──────────────────────────────┐
-│ GitHub Actions (app-pipeline)│                  │ scripts/publish-sample-app.ps1│
+│ GitHub Actions (app-pipeline)│                  │ scripts/publish-app.ps1│
 │  discover -> build -> deploy │                  │  docker build -t <img>:local  │
 └───────────────┬──────────────┘                  │  kubectl apply (IfNotPresent) │
                 │ build/push (ubuntu)              └───────────────┬──────────────┘
@@ -55,7 +55,7 @@ frontend/API/worker** (local e via Actions/GHCR), **reverter publicacao**, **ver
                 ▼                                                   ▼
 ┌──────────────────────────────┐                    ┌──────────────────────────────┐
 │ Traefik (web:80) publica rotas│                    │ DevOps Console (SSE -> React) │
-│  /aplicacao1, /aplicacao1/api │                    │  estado EM TEMPO REAL         │
+│  /<app>, /<app>/api │                    │  estado EM TEMPO REAL         │
 └──────────────────────────────┘                    │  http://xpto.localhost/devops │
                                                      └──────────────────────────────┘
 
@@ -86,7 +86,7 @@ pwsh -File C:/devops/scripts/up.ps1
 O `up.ps1` faz a esteira inteira: pre-requisitos → ferramentas (winget) → `hosts` →
 **habilita o Kubernetes** (via [`enable-kubernetes.ps1`](../scripts/enable-kubernetes.ps1),
 que chama [`recover-docker.ps1`](../scripts/recover-docker.ps1) se o Docker travar no boot)
-→ instala a plataforma → builda os samples → publica a `aplicacao1` → valida.
+→ instala a plataforma → builda os samples → publica a `<app>` → valida.
 
 **Ou por partes:**
 
@@ -101,7 +101,7 @@ pwsh -File C:/devops/scripts/bootstrap.ps1
 pwsh -File C:/devops/scripts/validate-platform.ps1
 
 # 3) Publicar a app de exemplo (imagens :local) + DevOps Console
-pwsh -File C:/devops/scripts/publish-sample-app.ps1
+pwsh -File C:/devops/scripts/publish-app.ps1 -App <app>
 ```
 
 > O `bootstrap.ps1` orquestra os instaladores individuais
@@ -133,7 +133,7 @@ kubectl get pods -A
 ```
 
 Esperado: pods de `traefik`, `argocd`, `observability` (Prometheus/Grafana/Loki/Promtail),
-`devops-system` (console) e `apps` (aplicacao1) em `Running`/`Ready`.
+`devops-system` (console) e `apps` (<app>) em `Running`/`Ready`.
 
 Acessos (com `xpto.localhost` resolvendo para `127.0.0.1` — veja
 [`local-domain-setup.md`](./local-domain-setup.md)):
@@ -141,7 +141,7 @@ Acessos (com `xpto.localhost` resolvendo para `127.0.0.1` — veja
 | Recurso        | URL                                |
 |----------------|------------------------------------|
 | Console        | <http://xpto.localhost/devops>     |
-| Aplicacao 1    | <http://xpto.localhost/aplicacao1> |
+| Aplicacao 1    | <http://xpto.localhost/<app>> |
 | Argo CD        | <http://xpto.localhost/argocd>     |
 | Grafana        | <http://xpto.localhost/grafana>    |
 
@@ -194,9 +194,9 @@ Resultado esperado: os namespaces da plataforma desaparecem; sobram apenas os do
 ### 3.3 Limpar imagens locais (opcional)
 
 ```powershell
-docker image rm aplicacao1-frontend:local aplicacao1-api:local aplicacao1-worker:local 2>$null
+docker image rm <app>-frontend:local <app>-api:local <app>-worker:local 2>$null
 docker image rm console-backend:local console-frontend:local 2>$null
-docker image ls | Select-String 'aplicacao1|console'
+docker image ls | Select-String '<app>|console'
 ```
 
 ### 3.4 Reinstalar apos o reset
@@ -204,7 +204,7 @@ docker image ls | Select-String 'aplicacao1|console'
 ```powershell
 pwsh -File C:/devops/scripts/bootstrap.ps1
 pwsh -File C:/devops/scripts/validate-platform.ps1
-pwsh -File C:/devops/scripts/publish-sample-app.ps1
+pwsh -File C:/devops/scripts/publish-app.ps1 -App <app>
 ```
 
 ---
@@ -232,31 +232,31 @@ ingress) — veja [`path-routing-pattern.md`](./path-routing-pattern.md).
 # 1) Build da imagem do frontend (com o base path correto no build do Vite).
 #    O Dockerfile do frontend deve receber VITE_BASE_PATH como ARG e usa-lo no 'vite build'.
 docker build `
-  --build-arg VITE_BASE_PATH=/aplicacao1/ `
-  -t aplicacao1-frontend:local `
-  -f C:/devops/samples/aplicacao1/frontend/Dockerfile `
-  C:/devops/samples/aplicacao1/frontend
+  --build-arg VITE_BASE_PATH=/<app>/ `
+  -t <app>-frontend:local `
+  -f C:/devops/apps/<app>/frontend/Dockerfile `
+  C:/devops/apps/<app>/frontend
 
 # 2) Aplicar/atualizar no cluster.
 #    a) Se ja existe o Deployment, force recarregar a imagem :local com restart:
-kubectl rollout restart deployment/aplicacao1-frontend -n apps
+kubectl rollout restart deployment/<app>-frontend -n apps
 #    b) Ou aplique os manifests (idempotente):
-kubectl apply -n apps -f C:/devops/samples/aplicacao1/k8s --recursive
+kubectl apply -n apps -f C:/devops/apps/<app>/k8s --recursive
 
 # 3) Acompanhar o rollout
-kubectl rollout status deployment/aplicacao1-frontend -n apps --timeout=180s
+kubectl rollout status deployment/<app>-frontend -n apps --timeout=180s
 ```
 
 Resultado esperado:
 
 ```
-deployment "aplicacao1-frontend" successfully rolled out
+deployment "<app>-frontend" successfully rolled out
 ```
 
-Validar a rota (sem strip, servido sob `/aplicacao1/`):
+Validar a rota (sem strip, servido sob `/<app>/`):
 
 ```powershell
-curl.exe -I http://xpto.localhost/aplicacao1
+curl.exe -I http://xpto.localhost/<app>
 ```
 
 ```
@@ -264,8 +264,8 @@ HTTP/1.1 200 OK
 content-type: text/html
 ```
 
-> Atalho: o [`publish-sample-app.ps1`](../scripts/publish-sample-app.ps1) builda e aplica os
-> tres servicos da `aplicacao1` de uma vez. Use `-Rebuild` para forcar build sem cache e
+> Atalho: o [`publish-app.ps1`](../scripts/publish-app.ps1) builda e aplica os
+> tres servicos da `<app>` de uma vez. Use `-Rebuild` para forcar build sem cache e
 > reiniciar os Deployments.
 
 ### 5.2 Via Actions/GHCR
@@ -273,7 +273,7 @@ content-type: text/html
 1. Garanta o `devops.yaml` na raiz do repo e os Dockerfiles por servico (veja
    [`project-onboarding-checklist.md`](./project-onboarding-checklist.md)).
 2. `git push` na `main` (ou **Run workflow** manual). O pipeline `discover -> build ->
-   deploy` builda `ghcr.io/flavioneto11/aplicacao1/frontend:<sha>` e o runner faz o deploy.
+   deploy` builda `ghcr.io/flavioneto11/<app>/frontend:<sha>` e o runner faz o deploy.
 
 ```powershell
 git add . ; git commit -m "feat: atualiza frontend" ; git push
@@ -284,7 +284,7 @@ Resultado esperado: build publica a imagem por SHA; o job de deploy anota o Depl
 conclui o rollout. Veja os metadados:
 
 ```powershell
-kubectl get deployment aplicacao1-frontend -n apps -o jsonpath='{.metadata.annotations}'
+kubectl get deployment <app>-frontend -n apps -o jsonpath='{.metadata.annotations}'
 ```
 
 ```
@@ -300,19 +300,19 @@ kubectl get deployment aplicacao1-frontend -n apps -o jsonpath='{.metadata.annot
 ```powershell
 # 1) Build da imagem da API.
 docker build `
-  -t aplicacao1-api:local `
-  -f C:/devops/samples/aplicacao1/api/Dockerfile `
-  C:/devops/samples/aplicacao1/api
+  -t <app>-api:local `
+  -f C:/devops/apps/<app>/api/Dockerfile `
+  C:/devops/apps/<app>/api
 
 # 2) Recarregar no cluster
-kubectl rollout restart deployment/aplicacao1-api -n apps
-kubectl rollout status  deployment/aplicacao1-api -n apps --timeout=180s
+kubectl rollout restart deployment/<app>-api -n apps
+kubectl rollout status  deployment/<app>-api -n apps --timeout=180s
 ```
 
-Validar a rota (com StripPrefix: `/aplicacao1/api/health` -> backend ve `/health`):
+Validar a rota (com StripPrefix: `/<app>/api/health` -> backend ve `/health`):
 
 ```powershell
-curl.exe http://xpto.localhost/aplicacao1/api/health
+curl.exe http://xpto.localhost/<app>/api/health
 ```
 
 ```
@@ -320,17 +320,17 @@ curl.exe http://xpto.localhost/aplicacao1/api/health
 ```
 
 > Se a chamada retornar **HTML** em vez de JSON, a prioridade da rota esta invertida (o
-> frontend capturou `/aplicacao1/api`). Garanta `priority` ALTA para `/aplicacao1/api` e
+> frontend capturou `/<app>/api`). Garanta `priority` ALTA para `/<app>/api` e
 > `stripPrefix: true` — veja [`path-routing-pattern.md`](./path-routing-pattern.md) (sec.5).
 
 ### 6.2 Via Actions/GHCR
 
-Mesmo fluxo do frontend: `git push` -> build `ghcr.io/flavioneto11/aplicacao1/api:<sha>` ->
+Mesmo fluxo do frontend: `git push` -> build `ghcr.io/flavioneto11/<app>/api:<sha>` ->
 deploy pelo runner. Confirme o health apos o rollout:
 
 ```powershell
 gh run watch
-curl.exe http://xpto.localhost/aplicacao1/api/health   # {"status":"ok"}
+curl.exe http://xpto.localhost/<app>/api/health   # {"status":"ok"}
 ```
 
 ---
@@ -344,27 +344,27 @@ O worker e um processo de background **sem ingress** (`expose: false`); valida-s
 
 ```powershell
 docker build `
-  -t aplicacao1-worker:local `
-  -f C:/devops/samples/aplicacao1/worker/Dockerfile `
-  C:/devops/samples/aplicacao1/worker
+  -t <app>-worker:local `
+  -f C:/devops/apps/<app>/worker/Dockerfile `
+  C:/devops/apps/<app>/worker
 
-kubectl rollout restart deployment/aplicacao1-worker -n apps
-kubectl rollout status  deployment/aplicacao1-worker -n apps --timeout=180s
+kubectl rollout restart deployment/<app>-worker -n apps
+kubectl rollout status  deployment/<app>-worker -n apps --timeout=180s
 ```
 
 ### 7.2 Validar o worker (sem rota externa)
 
 ```powershell
 # Pods do worker
-kubectl get pods -n apps -l app.kubernetes.io/name=aplicacao1-worker
+kubectl get pods -n apps -l app.kubernetes.io/name=<app>-worker
 
 # Health interno via port-forward (8081 = porta do health do worker)
-kubectl port-forward -n apps deployment/aplicacao1-worker 8081:8081
+kubectl port-forward -n apps deployment/<app>-worker 8081:8081
 # Em outro terminal:
 curl.exe http://localhost:8081/health      # {"status":"ok"}
 
 # Logs do worker
-kubectl logs -n apps -l app.kubernetes.io/name=aplicacao1-worker --tail=50 -f
+kubectl logs -n apps -l app.kubernetes.io/name=<app>-worker --tail=50 -f
 ```
 
 Resultado esperado: pod `Running`/`Ready`; health responde 200; logs mostram o
@@ -372,7 +372,7 @@ processamento de background.
 
 ### 7.3 Via Actions/GHCR
 
-`git push` -> build `ghcr.io/flavioneto11/aplicacao1/worker:<sha>` -> deploy pelo runner.
+`git push` -> build `ghcr.io/flavioneto11/<app>/worker:<sha>` -> deploy pelo runner.
 Validacao pelos logs/probes (sem rota), como na secao 7.2.
 
 ---
@@ -385,11 +385,11 @@ Ha tres formas, conforme a app foi publicada. Todas mantem o app no ar durante a
 
 ```powershell
 # Ver o historico de revisoes do Deployment
-kubectl rollout history deployment/aplicacao1-api -n apps
+kubectl rollout history deployment/<app>-api -n apps
 ```
 
 ```
-deployment.apps/aplicacao1-api
+deployment.apps/<app>-api
 REVISION  CHANGE-CAUSE
 1         <none>
 2         <none>
@@ -398,19 +398,19 @@ REVISION  CHANGE-CAUSE
 
 ```powershell
 # Voltar para a revisao IMEDIATAMENTE anterior
-kubectl rollout undo deployment/aplicacao1-api -n apps
+kubectl rollout undo deployment/<app>-api -n apps
 
 # Ou voltar para uma revisao especifica
-kubectl rollout undo deployment/aplicacao1-api -n apps --to-revision=1
+kubectl rollout undo deployment/<app>-api -n apps --to-revision=1
 
 # Acompanhar
-kubectl rollout status deployment/aplicacao1-api -n apps --timeout=180s
+kubectl rollout status deployment/<app>-api -n apps --timeout=180s
 ```
 
 Resultado esperado:
 
 ```
-deployment "aplicacao1-api" successfully rolled out
+deployment "<app>-api" successfully rolled out
 ```
 
 > Dica: para um historico legivel, registre o `CHANGE-CAUSE` ao aplicar
@@ -420,7 +420,7 @@ deployment "aplicacao1-api" successfully rolled out
 
 ```powershell
 # Historico de releases
-helm history aplicacao1 -n apps
+helm history <app> -n apps
 ```
 
 ```
@@ -431,8 +431,8 @@ REVISION  STATUS      CHART            DESCRIPTION
 
 ```powershell
 # Reverter para a revisao anterior (ou informe o numero desejado)
-helm rollback aplicacao1 1 -n apps
-helm status aplicacao1 -n apps        # esperado: STATUS: deployed
+helm rollback <app> 1 -n apps
+helm status <app> -n apps        # esperado: STATUS: deployed
 ```
 
 ### 8.3 Argo CD (rollback/history) — apps gerenciadas por GitOps
@@ -441,8 +441,8 @@ helm status aplicacao1 -n apps        # esperado: STATUS: deployed
   revisao (sync anterior) -> **Rollback**.
 - **Pela CLI**:
   ```powershell
-  argocd app history aplicacao1
-  argocd app rollback aplicacao1 <ID_DA_REVISAO>
+  argocd app history <app>
+  argocd app rollback <app> <ID_DA_REVISAO>
   ```
 
 > Atencao com **auto-sync**: se a Application estiver com `syncPolicy.automated`, o Argo CD
@@ -458,13 +458,13 @@ helm status aplicacao1 -n apps        # esperado: STATUS: deployed
 
 ```powershell
 # Logs de um Deployment (todos os pods do label), seguindo (-f) as ultimas 100 linhas
-kubectl logs -n apps deployment/aplicacao1-api --tail=100 -f
+kubectl logs -n apps deployment/<app>-api --tail=100 -f
 
 # Por label (util quando ha varias replicas)
-kubectl logs -n apps -l app.kubernetes.io/name=aplicacao1-api --tail=100 -f
+kubectl logs -n apps -l app.kubernetes.io/name=<app>-api --tail=100 -f
 
 # Logs do container ANTERIOR (apos um crash/restart)
-kubectl logs -n apps deployment/aplicacao1-api --previous
+kubectl logs -n apps deployment/<app>-api --previous
 
 # Eventos do namespace (pulls de imagem, agendamento, OOM, etc.)
 kubectl get events -n apps --sort-by=.lastTimestamp
@@ -485,7 +485,7 @@ Resultado esperado: linhas de log da aplicacao (ex.: `listening on :8080`,
   (<http://xpto.localhost/grafana>), use **Explore** com o datasource **Loki** e uma query
   LogQL, por exemplo:
   ```logql
-  {namespace="apps", app="aplicacao1-api"}
+  {namespace="apps", app="<app>-api"}
   ```
   ```logql
   {namespace="apps"} |= "error"
@@ -601,8 +601,8 @@ datasource **Loki** em **Explore**.
 - **Manual** (recomendado para comecar): na UI, abra a Application -> **Sync** -> **Synchronize**.
   Pela CLI:
   ```powershell
-  argocd app sync aplicacao1
-  argocd app get  aplicacao1     # mostra Health e Sync status
+  argocd app sync <app>
+  argocd app get  <app>     # mostra Health e Sync status
   ```
   Resultado esperado: `Sync Status: Synced` e `Health Status: Healthy`.
 - **Automatico** (auto-sync): definido **por Application** em `spec.syncPolicy.automated`
@@ -666,23 +666,23 @@ em tempo real na aba **Deployments/Pods**.
 # Instalar / validar / publicar
 pwsh -File C:/devops/scripts/bootstrap.ps1
 pwsh -File C:/devops/scripts/validate-platform.ps1
-pwsh -File C:/devops/scripts/publish-sample-app.ps1
+pwsh -File C:/devops/scripts/publish-app.ps1 -App <app>
 
 # Resetar
 pwsh -File C:/devops/scripts/reset-platform.ps1
 
 # Publicar local (exemplo API)
-docker build -t aplicacao1-api:local -f C:/devops/samples/aplicacao1/api/Dockerfile C:/devops/samples/aplicacao1/api
-kubectl rollout restart deployment/aplicacao1-api -n apps
-kubectl rollout status  deployment/aplicacao1-api -n apps --timeout=180s
+docker build -t <app>-api:local -f C:/devops/apps/<app>/api/Dockerfile C:/devops/apps/<app>/api
+kubectl rollout restart deployment/<app>-api -n apps
+kubectl rollout status  deployment/<app>-api -n apps --timeout=180s
 
 # Reverter
-kubectl rollout undo deployment/aplicacao1-api -n apps
-helm rollback aplicacao1 <rev> -n apps
-argocd app rollback aplicacao1 <id>
+kubectl rollout undo deployment/<app>-api -n apps
+helm rollback <app> <rev> -n apps
+argocd app rollback <app> <id>
 
 # Logs / diagnostico
-kubectl logs -n apps deployment/aplicacao1-api --tail=100 -f
+kubectl logs -n apps deployment/<app>-api --tail=100 -f
 pwsh -File C:/devops/scripts/diagnose.ps1
 
 # Senhas
@@ -705,6 +705,6 @@ kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath='{.data.pas
 > Nota: todos os scripts existem em [`scripts/`](../scripts). Subida do zero:
 > **`up.ps1`** (UM comando — faz tudo). Orquestradores/auxiliares: `bootstrap.ps1`,
 > `enable-kubernetes.ps1`, `recover-docker.ps1`, `install-platform.ps1` + `install-*.ps1`,
-> `build-samples.ps1`, `publish-sample-app.ps1`, `new-app.ps1` (gera app novo + Application
+> `publish-app.ps1`, `new-app.ps1` (gera app novo + Application
 > do Argo), `validate-platform.ps1`, `reset-platform.ps1`, `diagnose.ps1`,
 > `check-prereqs.ps1`, `install-tools.ps1`. Caminhos e namespaces seguem o contrato compartilhado.

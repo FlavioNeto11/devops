@@ -24,7 +24,6 @@ language: pt-BR
 | `schema/` | `devops-schema.json` — JSON Schema canônico do `devops.yaml` (validação/CI) | CI, agentes |
 | `scripts/` | Automação PowerShell 7 (bootstrap, build, deploy, diagnose) | operadores |
 | `docs/` | Documentação (guias + `standards/` + `runbooks/` + `contributing/`) | humanos |
-| `samples/` | Vazio (exemplos foram para `apps/`; modelo em `templates/app-template`) | — |
 | `runner/` | GitHub Actions self-hosted runner (ignorado pelo git) | CI |
 | raiz `*.md` | `README`, `ARCHITECTURE`, `SECURITY`, `TROUBLESHOOTING`, `ROADMAP`, `CONTRIBUTING` + **`CLAUDE.md`/`AGENTS.md`** (camada de agentes) | humanos + agentes |
 

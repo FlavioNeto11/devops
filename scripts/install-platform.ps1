@@ -185,5 +185,5 @@ Write-Host '    Grafana : kubectl -n observability get secret kube-prometheus-st
 Write-Host '    (decodifique com: [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($valor)) )' -ForegroundColor Yellow
 Write-Host ''
 Write-Host '  Proximo passo sugerido: publicar a app de exemplo com' -ForegroundColor White
-Write-Host '    ./publish-sample-app.ps1' -ForegroundColor Yellow
+Write-Host '    ./publish-app.ps1' -ForegroundColor Yellow
 Write-Host ''

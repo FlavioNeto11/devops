@@ -5,8 +5,8 @@
 .DESCRIPTION
   Orquestra: pre-requisitos -> ferramentas (winget) -> hosts -> habilitar
   Kubernetes (Docker Desktop) -> instalar plataforma (Traefik, Argo CD,
-  Observabilidade, Console) -> buildar imagens dos samples -> publicar
-  aplicacao1 -> validar. Tudo idempotente; pode rodar mais de uma vez.
+  Observabilidade, Console) -> validar. Tudo idempotente; pode rodar mais de
+  uma vez. Apps de negocio sao adicionados a parte (scripts\new-app.ps1).
 
   RODE EM PowerShell 7 COMO ADMINISTRADOR (necessario para editar o hosts e
   controlar servicos do Docker).
@@ -15,10 +15,10 @@
 .EXAMPLE
   .\scripts\up.ps1 -SkipTools       # nao tenta instalar ferramentas via winget
 .EXAMPLE
-  .\scripts\up.ps1 -SkipPlatform -SkipSamples   # so valida (sem reinstalar)
+  .\scripts\up.ps1 -SkipPlatform    # so valida (sem reinstalar a plataforma)
 #>
 [CmdletBinding()]
-param([switch]$SkipTools, [switch]$SkipHosts, [switch]$SkipPlatform, [switch]$SkipSamples)
+param([switch]$SkipTools, [switch]$SkipHosts, [switch]$SkipPlatform)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $here = $PSScriptRoot
@@ -33,14 +33,14 @@ Update-ProcessPath
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) { Write-Host "AVISO: nao esta como Administrador - hosts/servicos podem falhar. Recomendado: abrir PowerShell 7 como Admin." -ForegroundColor Yellow }
 
-Banner "0/7 Pre-requisitos (informativo)"
+Banner "0/5 Pre-requisitos (informativo)"
 & "$here\check-prereqs.ps1"   # k8s ainda pode estar desabilitado aqui; sera habilitado no passo 3
 
-if (-not $SkipTools) { Banner "1/7 Ferramentas (winget, idempotente)"; & "$here\install-tools.ps1"; Update-ProcessPath }
-else { Banner "1/7 Ferramentas (pulado)" }
+if (-not $SkipTools) { Banner "1/5 Ferramentas (winget, idempotente)"; & "$here\install-tools.ps1"; Update-ProcessPath }
+else { Banner "1/5 Ferramentas (pulado)" }
 
 if (-not $SkipHosts) {
-  Banner "2/7 Arquivo hosts (xpto.localhost / dev.nvit.com.br / traefik.localhost)"
+  Banner "2/5 Arquivo hosts (xpto.localhost / dev.nvit.com.br / traefik.localhost)"
   $hf = "$env:WINDIR\System32\drivers\etc\hosts"
   $c = Get-Content $hf -Raw -ErrorAction SilentlyContinue
   if ($c -and ($c -notmatch "`n$")) { Add-Content -Path $hf -Value "" }   # garante newline antes do append
@@ -49,28 +49,19 @@ if (-not $SkipHosts) {
     else { Write-Host "  = $h (ja existe)" }
   }
 }
-else { Banner "2/7 Hosts (pulado)" }
+else { Banner "2/5 Hosts (pulado)" }
 
-Banner "3/7 Kubernetes (Docker Desktop)"
+Banner "3/5 Kubernetes (Docker Desktop)"
 & "$here\enable-kubernetes.ps1"
 
-if (-not $SkipPlatform) { Banner "4/7 Plataforma (Traefik, Argo CD, Observabilidade, Console)"; & "$here\install-platform.ps1" }
-else { Banner "4/7 Plataforma (pulado)" }
+if (-not $SkipPlatform) { Banner "4/5 Plataforma (Traefik, Argo CD, Observabilidade, Console)"; & "$here\install-platform.ps1" }
+else { Banner "4/5 Plataforma (pulado)" }
 
-if (-not $SkipSamples) {
-  Banner "5/7 Imagens dos samples (:local)"
-  & "$here\build-samples.ps1"
-  Banner "6/7 Publicar aplicacao1 (canonica)"
-  & "$here\publish-sample-app.ps1"
-}
-else { Banner "5-6/7 Samples (pulado)" }
-
-Banner "7/7 Validacao"
+Banner "5/5 Validacao"
 & "$here\validate-platform.ps1"
 
 Banner "PRONTO - plataforma DevOps local no ar"
 Write-Host "  Console : http://xpto.localhost/devops"
-Write-Host "  Sample  : http://xpto.localhost/aplicacao1   (API: /aplicacao1/api/health)"
 Write-Host "  Grafana : http://xpto.localhost/grafana"
 Write-Host "  Argo CD : kubectl port-forward svc/argocd-server -n argocd 8080:80  ->  http://localhost:8080"
 Write-Host "  Traefik : http://traefik.localhost/dashboard/"

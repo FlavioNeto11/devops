@@ -121,7 +121,7 @@ roteamento/strip-prefix, as portas e como as imagens fluem (local `:local` vs GH
 ```
 
 No laboratorio (imagens `:local`), as etapas de **push GHCR** sao puladas: o
-`publish-sample-app.ps1` builda localmente e o deploy usa `imagePullPolicy: IfNotPresent`.
+`publish-app.ps1` builda localmente e o deploy usa `imagePullPolicy: IfNotPresent`.
 
 ---
 
@@ -196,7 +196,7 @@ Host local: `xpto.localhost` | Host real futuro: `dev.nvit.com.br`.
 ## 6. Como as imagens fluem (local `:local` vs GHCR)
 
 ### 6.1 Imagens LOCAIS do laboratorio (NAO enviadas ao registry)
-Buildadas localmente pelo `publish-sample-app.ps1`, com `imagePullPolicy: IfNotPresent`:
+Buildadas localmente pelo `publish-app.ps1`, com `imagePullPolicy: IfNotPresent`:
 
 | Aplicacao    | Imagens locais                                                        |
 |--------------|----------------------------------------------------------------------|

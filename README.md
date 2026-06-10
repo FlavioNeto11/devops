@@ -121,8 +121,7 @@ Prefere por partes? Os scripts tambem rodam isolados (todos idempotentes):
 ```powershell
 .\scripts\enable-kubernetes.ps1   # garante o k8s do Docker Desktop Ready
 .\scripts\install-platform.ps1    # Traefik, Argo CD, observabilidade, Console
-.\scripts\build-samples.ps1       # builda imagens :local de samples/*
-.\scripts\publish-sample-app.ps1  # aplica a aplicacao1
+.\scripts\new-app.ps1 -Name <app> -Services frontend,api  # cria um app novo em apps/ (no padrao)
 .\scripts\validate-platform.ps1   # relatorio de saude (17 checks)
 .\scripts\diagnose.ps1            # coleta diagnostico se algo falhar
 .\scripts\recover-docker.ps1      # recupera o Docker Desktop travado no boot
@@ -174,8 +173,6 @@ C:/devops
 │   ├── enable-kubernetes.ps1     # Habilita/garante o k8s do Docker Desktop
 │   ├── recover-docker.ps1        # Recupera o Docker Desktop travado no boot
 │   ├── install-platform.ps1      # Traefik, Argo CD, observabilidade, Console
-│   ├── build-samples.ps1         # Builda imagens :local de samples/*
-│   ├── publish-sample-app.ps1    # Aplica a aplicacao1
 │   ├── new-app.ps1               # Gera um app novo no padrao (incl. Application do Argo)
 │   ├── validate-platform.ps1     # Valida saude da plataforma
 │   ├── bootstrap.ps1             # (legado) prereqs + install-platform + validate
@@ -188,7 +185,6 @@ C:/devops
 │   ├── backend/                  # Node.js (Express + @kubernetes/client-node), SSE
 │   └── frontend/                 # React + Vite (base /devops/)
 ├── templates/                    # Templates de manifests parametrizados por devops.yaml
-├── samples/                      # Apps de exemplo: aplicacao1, aplicacao2 (api2), aplicacao3 (gerada)
 └── docs/                         # Documentacao complementar
 ```
 

@@ -98,8 +98,8 @@ $image   = "ghcr.io/flavioneto11/$app/$service"
 
 # Build (contexto e Dockerfile do servico)
 docker build -t "${image}:$sha" -t "${image}:latest" `
-  -f C:/devops/samples/$app/$service/Dockerfile `
-  C:/devops/samples/$app/$service
+  -f C:/devops/apps/$app/$service/Dockerfile `
+  C:/devops/apps/$app/$service
 
 # Push das duas tags
 docker push "${image}:$sha"

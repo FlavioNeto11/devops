@@ -73,7 +73,7 @@ Legenda: `[ ]` pendente · `[x]` concluido.
 
 ## Fase 6 — Validacao final
 
-- [ ] Rodar o Quick Start completo (`bootstrap` → `validate-platform` → `publish-sample-app`).
+- [ ] Rodar o Quick Start completo (`bootstrap` → `validate-platform` → `publish-app`).
 - [ ] Acessar todas as URLs: `/devops`, `/aplicacao1`, `/aplicacao1/api/health`,
       `/argocd`, `/grafana`.
 - [ ] Conferir o roteamento/strip-prefix de cada rota (prioridade correta).

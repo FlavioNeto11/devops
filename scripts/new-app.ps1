@@ -27,7 +27,7 @@ param(
   [string[]]$Services = @('frontend', 'api', 'worker'),
   [string]$Namespace = 'apps',
   [string]$AppHost = 'xpto.localhost',
-  [string]$OutDir = 'C:\devops\samples',
+  [string]$OutDir = 'C:\devops\apps',
   [string]$ArgoAppsDir = 'C:\devops\platform\argocd\apps',
   [switch]$NoArgo,
   [switch]$Force
@@ -370,7 +370,7 @@ if (-not $NoArgo) {
     $relK8s = (($root.Substring($repoRoot.Length).TrimStart('\') -replace '\\', '/')) + '/k8s'
   }
   else {
-    $relK8s = "samples/$Name/k8s"
+    $relK8s = "apps/$Name/k8s"
     Write-Host "  -> AVISO: app fora de C:\devops; ajuste source.path da Application do Argo manualmente."
   }
   New-Item -ItemType Directory -Force -Path $ArgoAppsDir | Out-Null
