@@ -25,20 +25,27 @@ SemVer real e reúso da auth GHCR que a plataforma já tem.
 
 ### Publicar
 - Cada `packages/<pkg>` tem `package.json` com `name: @flavioneto11/<pkg>` e
-  `publishConfig.registry: https://npm.pkg.github.com`, build para `dist/`, **SemVer**.
-- Workflow `templates/github-actions/reusable-publish-package.yaml` publica em tag/path-filter.
+  `publishConfig.registry: https://npm.pkg.github.com`.
+- **Estado atual: pacotes _source-direct_** (`main: src/index.js`, **sem** passo de build; tipos
+  mantidos à mão em `index.d.ts`) e em **`0.x` (pré-1.0)** — a API ainda pode mudar entre minors.
+  Quando estabilizar: adotar build para `dist/` + `tsc --declaration` e subir para `1.0.0`.
+- Workflow `templates/github-actions/reusable-publish-package.yaml` publica em tag/path-filter
+  (**ainda não exercitado em produção** — validar o fluxo tag → publish → consumo via registry).
 - `openai` e `@langchain/openai` são **peerDependencies** (cada app mantém sua versão).
 
 ### Consumir
 - `.npmrc` por app: `@flavioneto11:registry=https://npm.pkg.github.com` +
   `//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}`.
 - CI usa `NODE_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}` (escopo `read:packages`).
-- App depende de `@flavioneto11/<pkg>: ^1.x` como dep normal.
+- App depende de `@flavioneto11/<pkg>: ^0.x` (pré-1.0; subir para `^1.x` quando a API estabilizar).
 
 ### Builds `:local` / offline
 1. **Online**: o `docker build` recebe o token por build-arg para `npm ci`/`pnpm install` alcançar o GHCR npm.
 2. **Offline (fallback)**: `scripts/vendor-packages.ps1` roda `npm pack` de cada `@flavioneto11/*`
-   para `C:\devops\.vendor\` e um `.npmrc` override instala do tarball local.
+   para `C:\devops\.vendor\` (transiente, ignorado) e copia os `.tgz` para `apps/<app>/vendor/`
+   (estes **são versionados** — exceção no `.gitignore` — para `docker build` self-contained sem rede).
+   ⚠️ Ao subir a versão de um pacote, rode `vendor-packages.ps1` novamente e **commite os `.tgz`
+   atualizados em cada app consumidor** (a réplica é manual — fonte de drift se esquecida).
 > GitOps não é afetado: o Argo implanta **imagens**; pacotes resolvem só em build-time.
 
 ## SemVer (política)

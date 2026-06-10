@@ -44,6 +44,13 @@ Boas praticas:
 - Nunca cole tokens/senhas em comandos que vao para o historico ou em logs.
 - Prefira `Secret` do Kubernetes a variaveis em texto plano em `ConfigMap`.
 - Se um segredo vazar, **revogue-o imediatamente** e gere um novo.
+- **Dumps de sessao (HAR, `.http`, cURL com headers): NUNCA versionar** — contem
+  `Authorization`/`Cookie` e PII (CPF/CNPJ). Sao ignorados (`*.har`). Evidencia CETESB fica
+  **local** (ver [`apps/sicat/docs/cetesb/README.md`](apps/sicat/docs/cetesb/README.md)).
+
+> **Histórico (2026-06):** HARs da CETESB com JWT + CPF/CNPJ foram removidos do repositorio e
+> **purgados do historico** (`git filter-repo`) + force-push na `main`. Forks/clones e SHAs em cache
+> do GitHub podem reter copias por ate ~90 dias (GC); **rotacione** qualquer credencial exposta.
 
 ---
 
@@ -125,7 +132,7 @@ O [`.gitignore`](./.gitignore) impede o commit de artefatos e, principalmente, d
 segredos:
 
 - **Segredos:** `.env`, `*.env` (exceto `*.env.example`), `secret.yaml`, `*.secret.yaml`,
-  `secrets/`, `kubeconfig`.
+  `secrets/`, `kubeconfig`, `*.har` (dumps de sessao).
 - **Runner e diagnosticos:** `runner/` (pasta do self-hosted runner, com credenciais) e
   `diagnostics/`.
 - **Artefatos de build:** `node_modules/`, `dist/`, `build/`, `bin/`, `obj/`, `*.log`,
