@@ -1,3 +1,5 @@
+import { aiMetrics } from '../../lib/ai-metrics.js';
+
 export type ConversationTurnOutcome = 'responded' | 'blocked' | 'executed' | 'failed';
 
 type TurnCounters = Record<ConversationTurnOutcome, number>;
@@ -126,6 +128,7 @@ export function registerConversationTurnOutcome(outcome: ConversationTurnOutcome
 export function registerConversationPolicyBlocked(reasonCode: string | null | undefined) {
   state.policyBlockedTotal += 1;
   incrementDictionaryCounter(state.blockedByReason, reasonCode);
+  aiMetrics.countError('policy', reasonCode || 'blocked');
   touchEvent();
 }
 
@@ -133,12 +136,14 @@ export function registerConversationProviderFailure(correlationId: string) {
   state.providerFailuresTotal += 1;
   state.lastProviderFailureAt = new Date().toISOString();
   state.lastProviderFailureCorrelationId = correlationId;
+  aiMetrics.countError('provider', 'failure');
   touchEvent();
 }
 
 export function registerConversationFallback(reasonCode: string | null | undefined) {
   state.fallbackTriggeredTotal += 1;
   incrementDictionaryCounter(state.fallbackByReason, reasonCode);
+  aiMetrics.countError('fallback', reasonCode || 'unknown');
   touchEvent();
 }
 
@@ -150,6 +155,7 @@ export function registerConversationOperationalEvent(event: ConversationOperatio
     const toolCounters = getToolCounters(event.toolName);
     toolCounters.total += 1;
     toolCounters[event.status] += 1;
+    aiMetrics.countToolCall(event.toolName, event.status);
   }
 
   if (event.requiresConfirmation) {

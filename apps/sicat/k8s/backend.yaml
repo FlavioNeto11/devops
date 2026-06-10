@@ -65,9 +65,28 @@ spec:
               value: "true"
             - name: AUTO_SEED
               value: "true"
+            # ── Observabilidade de IA (F0): Langfuse da plataforma, default ON ──
+            # Chaves vêm do Secret sicat-langfuse (criado fora do git; optional:
+            # sem ele o provider degrada para desligado, sem quebrar o pod).
+            - name: LANGFUSE_ENABLED
+              value: "true"
+            - name: LANGFUSE_BASE_URL
+              value: "http://langfuse.observability.svc.cluster.local:3000"
+            - name: LANGFUSE_PUBLIC_BASE_URL
+              value: "http://langfuse.localhost"
+            - name: LANGFUSE_PROJECT_ID
+              value: "nvit-ai"
+            - name: LANGFUSE_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef: { name: sicat-langfuse, key: PROJECT_PUBLIC_KEY, optional: true }
+            - name: LANGFUSE_SECRET_KEY
+              valueFrom:
+                secretKeyRef: { name: sicat-langfuse, key: PROJECT_SECRET_KEY, optional: true }
           ports:
             - name: http
               containerPort: 8080
+            - name: metrics
+              containerPort: 9464   # Prometheus ai_* (fora do Traefik)
           readinessProbe:
             httpGet:
               path: /health
@@ -149,6 +168,24 @@ spec:
               value: "true"
             - name: AUTO_SEED
               value: "true"
+            # ── Observabilidade de IA (paridade com a api) ──
+            - name: LANGFUSE_ENABLED
+              value: "true"
+            - name: LANGFUSE_BASE_URL
+              value: "http://langfuse.observability.svc.cluster.local:3000"
+            - name: LANGFUSE_PUBLIC_BASE_URL
+              value: "http://langfuse.localhost"
+            - name: LANGFUSE_PROJECT_ID
+              value: "nvit-ai"
+            - name: LANGFUSE_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef: { name: sicat-langfuse, key: PROJECT_PUBLIC_KEY, optional: true }
+            - name: LANGFUSE_SECRET_KEY
+              valueFrom:
+                secretKeyRef: { name: sicat-langfuse, key: PROJECT_SECRET_KEY, optional: true }
+          ports:
+            - name: metrics
+              containerPort: 9464   # Prometheus ai_* do worker
           volumeMounts:
             - name: storage
               mountPath: /data/storage
@@ -184,3 +221,6 @@ spec:
     - name: http
       port: 8080
       targetPort: http
+    - name: metrics
+      port: 9464
+      targetPort: metrics

@@ -86,6 +86,7 @@ contribuição em [`CONTRIBUTING.md`](../CONTRIBUTING.md). Estilo de escrita em
 | 16 | Grafana | [`deployment-flow.md`](./deployment-flow.md) (sec.11). |
 | 17 | DevOps Console | [`deployment-flow.md`](./deployment-flow.md) (sec.13); módulo Projetos & Tarefas (Fase 3) em [`fr/devops-console.md`](./standards/fr/devops-console.md). |
 | 18 | CMS dos portais (conteúdo gerenciável) | [`cms.md`](./cms.md) — editor no `/devops`, leitura pública, portais dinâmicos. |
+| 19 | Plataforma de IA (estrutura única) | [`ai-platform.md`](./ai-platform.md) — ai-core, métricas `ai_*`, Langfuse, KPIs, golden sets. |
 
 ---
 

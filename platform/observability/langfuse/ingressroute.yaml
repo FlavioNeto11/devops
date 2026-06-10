@@ -1,0 +1,16 @@
+# Langfuse atrás do Traefik por HOST dedicado (langfuse.localhost), não por subpath:
+# o Langfuse v2 (Next.js) não suporta base path — mesmo padrão do traefik.localhost.
+# hosts: adicionar `127.0.0.1 langfuse.localhost` (ver platform/observability/langfuse/README.md).
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: langfuse
+  namespace: observability
+  labels: { app.kubernetes.io/name: langfuse }
+spec:
+  entryPoints: [web]
+  routes:
+    - match: Host(`langfuse.localhost`)
+      kind: Rule
+      services:
+        - { name: langfuse, port: 3000 }

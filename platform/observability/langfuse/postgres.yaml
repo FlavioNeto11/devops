@@ -1,0 +1,57 @@
+# Postgres dedicado do Langfuse (separado dos bancos de app — dado de telemetria).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: langfuse-db
+  namespace: observability
+  labels: { app.kubernetes.io/name: langfuse-db }
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: { requests: { storage: 2Gi } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: langfuse-db
+  namespace: observability
+  labels: { app.kubernetes.io/name: langfuse-db, app.kubernetes.io/component: database }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }   # PVC RWO — nunca dois postgres no mesmo volume
+  selector: { matchLabels: { app.kubernetes.io/name: langfuse-db } }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: langfuse-db, app.kubernetes.io/component: database }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - { name: POSTGRES_DB, value: langfuse }
+            - { name: POSTGRES_USER, value: langfuse }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: langfuse-secrets, key: POSTGRES_PASSWORD } }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+          ports: [{ containerPort: 5432, name: pg }]
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+          readinessProbe:
+            exec: { command: [pg_isready, -U, langfuse, -d, langfuse] }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 25m, memory: 96Mi }
+            limits: { cpu: 500m, memory: 256Mi }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: langfuse-db }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: langfuse-db
+  namespace: observability
+  labels: { app.kubernetes.io/name: langfuse-db }
+spec:
+  selector: { app.kubernetes.io/name: langfuse-db }
+  ports: [{ name: pg, port: 5432, targetPort: pg }]

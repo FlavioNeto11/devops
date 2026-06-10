@@ -3,6 +3,7 @@ import http from 'node:http';
 import { ensureStartup } from './bootstrap/startup.js';
 import { createApp } from './app.js';
 import { config } from './lib/config.js';
+import { startAiMetricsServer } from './lib/ai-metrics.js';
 
 export function createServer() {
   return http.createServer(createApp());
@@ -10,6 +11,7 @@ export function createServer() {
 
 export async function startServer(port = config.port) {
   await ensureStartup();
+  startAiMetricsServer(); // Prometheus /metrics em porta dedicada (fora do Traefik)
   const server = createServer();
 
   return new Promise((resolve) => {

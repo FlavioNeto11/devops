@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { env } from '../env.js';
 import { callWithFallback, chatJSON as kitChatJSON, chatText as kitChatText } from '@flavioneto11/ai-kit';
+import { aiMetrics } from './ai-metrics.js';
 
 // Contrato gpt-5 centralizado em @flavioneto11/ai-kit (compartilhado com o SICAT).
 // Flag de rollback (ver docs/standards/deprecation-policy.md): AI_KIT=off volta ao
@@ -31,38 +32,55 @@ function isReasoningModel(model: string): boolean {
   return /^(gpt-5|o\d)/i.test(model);
 }
 
+/** Opções do callAI: número = timeoutMs (compat); objeto permite rotular o stage nas métricas. */
+type CallAiOpts = number | { timeoutMs?: number; stage?: string };
+
 export async function callAI<T>(
   fn: (client: OpenAI) => Promise<T>,
   fallback: T,
-  timeoutMs = SYNC_TIMEOUT_MS,
+  opts: CallAiOpts = SYNC_TIMEOUT_MS,
 ): Promise<T> {
+  const timeoutMs = typeof opts === 'number' ? opts : (opts.timeoutMs ?? SYNC_TIMEOUT_MS);
+  const stage = typeof opts === 'number' ? 'call' : (opts.stage ?? 'call');
   const client = getOpenAI();
-  if (AI_KIT_ENABLED) {
-    return callWithFallback(fn, fallback, timeoutMs, client);
-  }
-  // --- legado (AI_KIT=off) ---
-  if (!client) return fallback;
   const start = Date.now();
-  try {
-    const result = await Promise.race([
-      fn(client),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('AI_TIMEOUT')), timeoutMs),
-      ),
-    ]);
-    console.info(`[ai] call completed in ${Date.now() - start}ms`);
-    return result;
-  } catch (err) {
-    console.warn(`[ai] call failed after ${Date.now() - start}ms:`, (err as Error).message);
-    return fallback;
+
+  let result: T;
+  if (AI_KIT_ENABLED) {
+    result = await callWithFallback(fn, fallback, timeoutMs, client);
+  } else if (!client) {
+    result = fallback;
+  } else {
+    // --- legado (AI_KIT=off) ---
+    try {
+      result = await Promise.race([
+        fn(client),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('AI_TIMEOUT')), timeoutMs),
+        ),
+      ]);
+      console.info(`[ai] call completed in ${Date.now() - start}ms`);
+    } catch (err) {
+      console.warn(`[ai] call failed after ${Date.now() - start}ms:`, (err as Error).message);
+      result = fallback;
+    }
   }
+
+  // Instrumentação F0 (só telemetria — comportamento intacto). Fallback é
+  // detectado por identidade de referência (o mesmo objeto passado entra na resposta).
+  const seconds = (Date.now() - start) / 1000;
+  const usedFallback = Object.is(result, fallback);
+  aiMetrics.observeTurn(stage, usedFallback ? 'error' : 'ok', seconds);
+  if (usedFallback) aiMetrics.countError(stage, client ? 'fallback' : 'no_api_key');
+  return result;
 }
 
 export async function callAIAsync<T>(
   fn: (client: OpenAI) => Promise<T>,
   fallback: T,
+  stage = 'async',
 ): Promise<T> {
-  return callAI(fn, fallback, ASYNC_TIMEOUT_MS);
+  return callAI(fn, fallback, { timeoutMs: ASYNC_TIMEOUT_MS, stage });
 }
 
 export async function chatJSON<T>(

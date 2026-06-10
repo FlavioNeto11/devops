@@ -1,0 +1,64 @@
+# Langfuse v2 (self-hosted) — tracing/custos/datasets de IA dos apps (SICAT, GymOps...).
+# Init headless (LANGFUSE_INIT_*): cria org/projeto/usuário e as CHAVES do projeto na
+# primeira subida — os apps usam as mesmas chaves (do secret) sem passo manual.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: langfuse
+  namespace: observability
+  labels: { app.kubernetes.io/name: langfuse, app.kubernetes.io/component: ai-observability }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: langfuse } }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: langfuse, app.kubernetes.io/component: ai-observability }
+    spec:
+      containers:
+        - name: langfuse
+          image: langfuse/langfuse:2
+          ports: [{ containerPort: 3000, name: http }]
+          env:
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: langfuse-secrets, key: DATABASE_URL } }
+            - { name: NEXTAUTH_URL, value: "http://langfuse.localhost" }
+            - name: NEXTAUTH_SECRET
+              valueFrom: { secretKeyRef: { name: langfuse-secrets, key: NEXTAUTH_SECRET } }
+            - name: SALT
+              valueFrom: { secretKeyRef: { name: langfuse-secrets, key: SALT } }
+            - { name: TELEMETRY_ENABLED, value: "false" }
+            - { name: LANGFUSE_INIT_ORG_ID, value: nvit }
+            - { name: LANGFUSE_INIT_ORG_NAME, value: "NVIT" }
+            - { name: LANGFUSE_INIT_PROJECT_ID, value: nvit-ai }
+            - { name: LANGFUSE_INIT_PROJECT_NAME, value: "NVIT AI Platform" }
+            - name: LANGFUSE_INIT_PROJECT_PUBLIC_KEY
+              valueFrom: { secretKeyRef: { name: langfuse-secrets, key: PROJECT_PUBLIC_KEY } }
+            - name: LANGFUSE_INIT_PROJECT_SECRET_KEY
+              valueFrom: { secretKeyRef: { name: langfuse-secrets, key: PROJECT_SECRET_KEY } }
+            - name: LANGFUSE_INIT_USER_EMAIL
+              valueFrom: { secretKeyRef: { name: langfuse-secrets, key: INIT_USER_EMAIL } }
+            - { name: LANGFUSE_INIT_USER_NAME, value: "Platform Admin" }
+            - name: LANGFUSE_INIT_USER_PASSWORD
+              valueFrom: { secretKeyRef: { name: langfuse-secrets, key: INIT_USER_PASSWORD } }
+          readinessProbe:
+            httpGet: { path: /api/public/health, port: http }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 12
+          livenessProbe:
+            httpGet: { path: /api/public/health, port: http }
+            initialDelaySeconds: 60
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 50m, memory: 256Mi }
+            limits: { cpu: "1", memory: 768Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: langfuse
+  namespace: observability
+  labels: { app.kubernetes.io/name: langfuse }
+spec:
+  selector: { app.kubernetes.io/name: langfuse }
+  ports: [{ name: http, port: 3000, targetPort: http }]

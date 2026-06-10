@@ -1,0 +1,46 @@
+{
+  "name": "@flavioneto11/ai-core",
+  "version": "0.1.0",
+  "description": "Nucleo compartilhado da plataforma de IA: contrato de tools (authz/dry-run/confirmacao), observabilidade (metricas Prometheus + tracing Langfuse/LangSmith plugavel), custo por token, KPIs canonicos e harness de avaliacao (golden sets + LLM-as-judge). Zero dependencias de runtime.",
+  "type": "module",
+  "main": "src/index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./src/index.js"
+    }
+  },
+  "files": [
+    "src",
+    "index.d.ts",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "peerDependencies": {
+    "@flavioneto11/ai-kit": ">=0.1",
+    "langfuse": ">=3",
+    "openai": ">=4",
+    "prom-client": ">=15"
+  },
+  "peerDependenciesMeta": {
+    "prom-client": {
+      "optional": true
+    },
+    "langfuse": {
+      "optional": true
+    },
+    "openai": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@flavioneto11/ai-kit": "file:../ai-kit"
+  }
+}

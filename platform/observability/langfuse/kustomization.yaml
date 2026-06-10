@@ -1,0 +1,18 @@
+# Langfuse self-hosted (observabilidade de IA da plataforma — traces/custos/evals).
+# Promovido do docker-compose do SICAT a serviço da plataforma (plano de
+# re-engenharia da camada de IA, F0). Aplicado pelo Argo CD (Application "langfuse").
+#
+# Segredo `langfuse-secrets` NÃO vive em git: crie a partir de secret.example.yaml
+# (kubectl apply de uma cópia preenchida, ou Sealed Secrets). Sem ele os pods não sobem.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: observability
+resources:
+  - postgres.yaml
+  - langfuse.yaml
+  - ingressroute.yaml
+labels:
+  - includeSelectors: false
+    pairs:
+      app.kubernetes.io/part-of: ai-platform
+      app.kubernetes.io/managed-by: devops-platform

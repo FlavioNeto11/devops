@@ -47,6 +47,9 @@ importers:
       '@fastify/rate-limit':
         specifier: ^9.1.0
         version: 9.1.0
+      '@flavioneto11/ai-core':
+        specifier: file:../../vendor/flavioneto11-ai-core-0.1.0.tgz
+        version: file:vendor/flavioneto11-ai-core-0.1.0.tgz(@flavioneto11/ai-kit@file:vendor/flavioneto11-ai-kit-0.1.0.tgz(openai@6.37.0(zod@3.25.76)))(openai@6.37.0(zod@3.25.76))(prom-client@15.1.3)
       '@flavioneto11/ai-kit':
         specifier: file:../../vendor/flavioneto11-ai-kit-0.1.0.tgz
         version: file:vendor/flavioneto11-ai-kit-0.1.0.tgz(openai@6.37.0(zod@3.25.76))
@@ -83,6 +86,9 @@ importers:
       openai:
         specifier: ^6.37.0
         version: 6.37.0(zod@3.25.76)
+      prom-client:
+        specifier: ^15.1.3
+        version: 15.1.3
       web-push:
         specifier: ^3.6.7
         version: 3.6.7
@@ -173,7 +179,7 @@ importers:
         version: 0.395.0(react@18.3.1)
       next:
         specifier: 14.2.4
-        version: 14.2.4(@playwright/test@1.60.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 14.2.4(@opentelemetry/api@1.9.1)(@playwright/test@1.60.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -771,8 +777,24 @@ packages:
   '@fastify/rate-limit@9.1.0':
     resolution: {integrity: sha512-h5dZWCkuZXN0PxwqaFQLxeln8/LNwQwH9popywmDCFdKfgpi4b/HoMH1lluy6P+30CG9yzzpSpwTCIPNB9T1JA==}
 
+  '@flavioneto11/ai-core@file:vendor/flavioneto11-ai-core-0.1.0.tgz':
+    resolution: {integrity: sha512-UxcRsSLrMLiMihF1rVtzlFSNwTqBtJfImCIcnkFcZ10lCz0JG6h4zwOqXCQDobCsMqYaXOpTCMyv8R6yXhralg==, tarball: file:vendor/flavioneto11-ai-core-0.1.0.tgz}
+    version: 0.1.0
+    peerDependencies:
+      '@flavioneto11/ai-kit': '>=0.1'
+      langfuse: '>=3'
+      openai: '>=4'
+      prom-client: '>=15'
+    peerDependenciesMeta:
+      langfuse:
+        optional: true
+      openai:
+        optional: true
+      prom-client:
+        optional: true
+
   '@flavioneto11/ai-kit@file:vendor/flavioneto11-ai-kit-0.1.0.tgz':
-    resolution: {integrity: sha512-dDiff7Fhj/d15WWC3BeevbeIGUgX0D069Xc8uZEYETHWPRkAUVHcgVKuT+LbVNQVmUxfhxvYh4hi6LB0sYuBeg==, tarball: file:vendor/flavioneto11-ai-kit-0.1.0.tgz}
+    resolution: {integrity: sha512-GeWSeqceyW2cvJe6U+1eFRyOT/GJWd30toTmrtggp/GbzSVPOKaMZA6G2IqQ1Yt1TyUAH2cV0bUfJQ9uALdluA==, tarball: file:vendor/flavioneto11-ai-kit-0.1.0.tgz}
     version: 0.1.0
     peerDependencies:
       '@langchain/openai': '>=0.3'
@@ -784,7 +806,7 @@ packages:
         optional: true
 
   '@flavioneto11/oidc-kit@file:vendor/flavioneto11-oidc-kit-0.1.0.tgz':
-    resolution: {integrity: sha512-j3ri1rvomU2McJvNGZU1Db3SZzZgrGP3+lxw0dUhOch1vCJ8+MVaakJbqRJFiwsigO/yVKQ0HdbxE4nmqQIWlA==, tarball: file:vendor/flavioneto11-oidc-kit-0.1.0.tgz}
+    resolution: {integrity: sha512-+yCNXHwkTVfH53BNZTvLBjQGxzo9uDPjWTA0VQ5DUsl86GQt4S6Nrjkz2AadhcqbdS2IxpbrFLLbFpjQpNq/qw==, tarball: file:vendor/flavioneto11-oidc-kit-0.1.0.tgz}
     version: 0.1.0
 
   '@floating-ui/core@1.7.5':
@@ -945,6 +967,10 @@ packages:
   '@nodelib/fs.walk@1.2.8':
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
+
+  '@opentelemetry/api@1.9.1':
+    resolution: {integrity: sha512-gLyJlPHPZYdAk1JENA9LeHejZe1Ti77/pTeFm/nMXmQH/HFZlcS/O2XJB+L8fkbrNSqhdtlvjBVjxwUYanNH5Q==}
+    engines: {node: '>=8.0.0'}
 
   '@pinojs/redact@0.4.0':
     resolution: {integrity: sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg==}
@@ -1851,6 +1877,9 @@ packages:
   binary-extensions@2.3.0:
     resolution: {integrity: sha512-Ceh+7ox5qe7LJuLHoY0feh3pHuUDHAcRUeyL2VYghZwfpkNIy/+8Ocg0a3UuSoYzavmylwuLWQOf3hl0jjMMIw==}
     engines: {node: '>=8'}
+
+  bintrees@1.0.2:
+    resolution: {integrity: sha512-VOMgTMwjAaUG580SXn3LacVgjurrbMme7ZZNYGSSV7mmtY6QQRh0Eg3pwIcntQ77DErK1L0NxkbetjcoXzVwKw==}
 
   bn.js@4.12.3:
     resolution: {integrity: sha512-fGTi3gxV/23FTYdAoUtLYp6qySe2KE3teyZitipKNRuVYcBkoP/bB3guXN/XVKUe9mxCHXnc9C4ocyz8OmgN0g==}
@@ -2869,6 +2898,10 @@ packages:
   process-warning@5.0.0:
     resolution: {integrity: sha512-a39t9ApHNx2L4+HBnQKqxxHNs1r7KF+Intd8Q/g1bUh6q0WIp9voPXJ/x0j+ZL45KF1pJd9+q2jLIRMfvEshkA==}
 
+  prom-client@15.1.3:
+    resolution: {integrity: sha512-6ZiOBfCywsD4k1BN9IX0uZhF+tJkV8q8llP64G5Hajs4JOeVLPCwpPVcpXy3BwYiUGgyJzsJJQeOIv7+hDSq8g==}
+    engines: {node: ^16 || ^18 || >=20}
+
   proxy-addr@2.0.7:
     resolution: {integrity: sha512-llQsMLSUDUPT44jdrU/O37qlnifitDP+ZwrmmZcoSKyLKvtZxpyV0n2/bD/N4tBAAZ/gJEdZU7KMraoK1+XYAg==}
     engines: {node: '>= 0.10'}
@@ -3146,6 +3179,9 @@ packages:
     resolution: {integrity: sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ==}
     engines: {node: '>=14.0.0'}
     hasBin: true
+
+  tdigest@0.1.2:
+    resolution: {integrity: sha512-+G0LLgjjo9BZX2MfdvPfH+MKLCrxlXSYec5DaPYP1fe6Iyhf0/fSmJ0bFiZ1F8BT6cGXl2LpltQptzjXKWEkKA==}
 
   text-table@0.2.0:
     resolution: {integrity: sha512-N+8UisAXDGk8PFXP4HAzVR9nbfmVJ3zYLAWiTIoqC5v5isinhr+r5uaO8+7r3BMfuNIufIsA7RdpVgacC2cSpw==}
@@ -3986,6 +4022,13 @@ snapshots:
       fastify-plugin: 4.5.1
       toad-cache: 3.7.0
 
+  '@flavioneto11/ai-core@file:vendor/flavioneto11-ai-core-0.1.0.tgz(@flavioneto11/ai-kit@file:vendor/flavioneto11-ai-kit-0.1.0.tgz(openai@6.37.0(zod@3.25.76)))(openai@6.37.0(zod@3.25.76))(prom-client@15.1.3)':
+    dependencies:
+      '@flavioneto11/ai-kit': file:vendor/flavioneto11-ai-kit-0.1.0.tgz(openai@6.37.0(zod@3.25.76))
+    optionalDependencies:
+      openai: 6.37.0(zod@3.25.76)
+      prom-client: 15.1.3
+
   '@flavioneto11/ai-kit@file:vendor/flavioneto11-ai-kit-0.1.0.tgz(openai@6.37.0(zod@3.25.76))':
     optionalDependencies:
       openai: 6.37.0(zod@3.25.76)
@@ -4107,6 +4150,8 @@ snapshots:
     dependencies:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.1
+
+  '@opentelemetry/api@1.9.1': {}
 
   '@pinojs/redact@0.4.0': {}
 
@@ -4984,6 +5029,8 @@ snapshots:
 
   binary-extensions@2.3.0: {}
 
+  bintrees@1.0.2: {}
+
   bn.js@4.12.3: {}
 
   bowser@2.14.1: {}
@@ -5810,7 +5857,7 @@ snapshots:
 
   natural-compare@1.4.0: {}
 
-  next@14.2.4(@playwright/test@1.60.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  next@14.2.4(@opentelemetry/api@1.9.1)(@playwright/test@1.60.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
       '@next/env': 14.2.4
       '@swc/helpers': 0.5.5
@@ -5831,6 +5878,7 @@ snapshots:
       '@next/swc-win32-arm64-msvc': 14.2.4
       '@next/swc-win32-ia32-msvc': 14.2.4
       '@next/swc-win32-x64-msvc': 14.2.4
+      '@opentelemetry/api': 1.9.1
       '@playwright/test': 1.60.0
     transitivePeerDependencies:
       - '@babel/core'
@@ -6035,6 +6083,11 @@ snapshots:
   process-warning@3.0.0: {}
 
   process-warning@5.0.0: {}
+
+  prom-client@15.1.3:
+    dependencies:
+      '@opentelemetry/api': 1.9.1
+      tdigest: 0.1.2
 
   proxy-addr@2.0.7:
     dependencies:
@@ -6325,6 +6378,10 @@ snapshots:
     transitivePeerDependencies:
       - tsx
       - yaml
+
+  tdigest@0.1.2:
+    dependencies:
+      bintrees: 1.0.2
 
   text-table@0.2.0: {}
 

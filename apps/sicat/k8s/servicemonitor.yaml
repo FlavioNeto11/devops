@@ -1,0 +1,17 @@
+# ServiceMonitor: o kube-prometheus-stack (selectors nulos = raspa todos) coleta
+# as métricas ai_* da camada de IA do SICAT (porta dedicada `metrics`, fora do Traefik).
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: sicat-api-ai
+  namespace: apps
+  labels: { app.kubernetes.io/part-of: sicat }
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: sicat
+  namespaceSelector: { matchNames: [apps] }
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s

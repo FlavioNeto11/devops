@@ -4,3 +4,4 @@ kind: Kustomization
 # e criado no cluster fora do git (a partir do .env.docker) e nao e gerenciado/prunado pelo Argo.
 resources:
   - gymops.yaml
+  - servicemonitor.yaml

@@ -71,6 +71,7 @@ export const aiRoutes: FastifyPluginAsync = async (app) => {
     const raw = await callAI(
       (client) => chatJSON(client, prompt),
       fallback,
+      { stage: 'draft' },
     );
 
     const parsed = ActivityDraftSchema.safeParse(raw);
@@ -111,6 +112,7 @@ export const aiRoutes: FastifyPluginAsync = async (app) => {
     const raw = await callAI(
       (client) => chatJSON(client, prompt),
       fallback,
+      { stage: 'checklist' },
     );
 
     const parsed = ChecklistSuggestionSchema.safeParse(raw);
@@ -184,6 +186,7 @@ export const aiRoutes: FastifyPluginAsync = async (app) => {
     const raw = await callAI(
       (client) => chatJSON(client, prompt),
       fallback,
+      { stage: 'delay-analysis' },
     );
 
     const parsed = DelayAnalysisSchema.safeParse(raw);
@@ -296,7 +299,7 @@ ${context}`;
 
     const fallback =
       'No momento não consegui falar com a IA. Tente novamente em instantes — enquanto isso, você pode usar o painel para ver atividades, unidades e prazos.';
-    const replyText = await callAI((client) => chatText(client, messages), fallback);
+    const replyText = await callAI((client) => chatText(client, messages), fallback, { stage: 'chat' });
 
     return reply.send({ data: { reply: replyText } });
   });

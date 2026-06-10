@@ -1,0 +1,28 @@
+# =============================================================================
+# Argo CD Application: langfuse (observabilidade de IA — traces/custos/datasets).
+# Descoberta pelo app-of-apps "devops-platform". Aplica platform/observability/langfuse
+# via kustomize no namespace observability. Requer o Secret `langfuse-secrets`
+# criado fora do git (ver platform/observability/langfuse/README.md).
+# =============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: langfuse
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/FlavioNeto11/devops
+    path: platform/observability/langfuse
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

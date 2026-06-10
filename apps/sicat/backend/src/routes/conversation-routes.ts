@@ -7,6 +7,7 @@ import {
   getConversationArtifactStatus
 } from '../services/conversation/conversation-persistence-service.js';
 import { createConversationService, listConversationTools } from '../services/conversation/conversation-service.js';
+import { aiMetrics } from '../lib/ai-metrics.js';
 
 type RequestWithContext = express.Request & {
   correlationId?: string | null;
@@ -80,14 +81,22 @@ export function createConversationRouter() {
   }));
 
   router.post('/v1/conversations/turns', asyncHandler(async (req, res) => {
-    const response = await conversationService.processTurn({
-      body: req.body || {},
-      correlationId: getCorrelationId(req),
-      headers: toHeaderMap(req.headers || {}),
-      idempotencyKey: toSingleString(req.headers['idempotency-key'])
-    });
+    // Instrumentação F0 (latência/outcome do turno) — só telemetria.
+    const startedAt = Date.now();
+    try {
+      const response = await conversationService.processTurn({
+        body: req.body || {},
+        correlationId: getCorrelationId(req),
+        headers: toHeaderMap(req.headers || {}),
+        idempotencyKey: toSingleString(req.headers['idempotency-key'])
+      });
 
-    res.json(response);
+      aiMetrics.observeTurn('turn', response?.status === 'failed' ? 'error' : 'ok', (Date.now() - startedAt) / 1000);
+      res.json(response);
+    } catch (error) {
+      aiMetrics.observeTurn('turn', 'error', (Date.now() - startedAt) / 1000);
+      throw error;
+    }
   }));
 
   return router;

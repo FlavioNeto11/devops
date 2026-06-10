@@ -170,6 +170,7 @@ spec:
             - secretRef: { name: gymops-config }
           ports:
             - { name: http, containerPort: 3001 }
+            - { name: metrics, containerPort: 9464 }   # Prometheus ai_* (fora do Traefik)
           readinessProbe:
             httpGet: { path: /health, port: http }
             initialDelaySeconds: 8
@@ -194,6 +195,7 @@ spec:
     app.kubernetes.io/component: api
   ports:
     - { name: http, port: 3001, targetPort: http }
+    - { name: metrics, port: 9464, targetPort: metrics }
 ---
 apiVersion: apps/v1
 kind: Deployment

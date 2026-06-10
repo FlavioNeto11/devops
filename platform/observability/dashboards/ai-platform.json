@@ -1,0 +1,118 @@
+{
+  "uid": "ai-platform",
+  "title": "AI Platform",
+  "tags": ["ai", "platform"],
+  "schemaVersion": 39,
+  "editable": true,
+  "time": { "from": "now-6h", "to": "now" },
+  "refresh": "1m",
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "label": "Datasource"
+      },
+      {
+        "name": "app",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "query": "label_values(ai_turn_latency_seconds_count, app)",
+        "includeAll": true,
+        "multi": true,
+        "label": "App"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Latência p95 por estágio (s)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, app, stage) (rate(ai_turn_latency_seconds_bucket{app=~\"$app\"}[5m])))",
+          "legendFormat": "{{app}} · {{stage}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Chamadas de IA por outcome (req/min)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "expr": "sum by (app, outcome) (rate(ai_turn_latency_seconds_count{app=~\"$app\"}[5m])) * 60",
+          "legendFormat": "{{app}} · {{outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Tokens/min por modelo",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "expr": "sum by (app, model, direction) (rate(ai_tokens_total{app=~\"$app\"}[5m])) * 60",
+          "legendFormat": "{{app}} · {{model}} · {{direction}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Custo estimado (24h, USD)",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 4 }, "overrides": [] },
+      "targets": [
+        { "expr": "sum(increase(ai_cost_usd_total{app=~\"$app\"}[24h]))", "legendFormat": "custo 24h" }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Erros de IA (1h) por estágio",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        { "expr": "sum by (stage) (increase(ai_errors_total{app=~\"$app\"}[1h]))", "legendFormat": "{{stage}}" }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Tool calls por outcome (req/min)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "expr": "sum by (app, tool, outcome) (rate(ai_tool_calls_total{app=~\"$app\"}[5m])) * 60",
+          "legendFormat": "{{app}} · {{tool}} · {{outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Judge score médio (groundedness etc.)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "min": 0, "max": 1 }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "sum by (app, dimension) (rate(ai_judge_score_sum{app=~\"$app\"}[15m])) / sum by (app, dimension) (rate(ai_judge_score_count{app=~\"$app\"}[15m]))",
+          "legendFormat": "{{app}} · {{dimension}}"
+        }
+      ]
+    }
+  ]
+}

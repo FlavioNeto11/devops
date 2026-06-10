@@ -12,3 +12,4 @@ resources:
   - backend.yaml
   - frontend.yaml
   - ingressroute.yaml
+  - servicemonitor.yaml

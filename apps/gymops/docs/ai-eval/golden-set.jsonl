@@ -1,0 +1,17 @@
+# Golden set do GymOps (F0 da re-engenharia de IA) — casos canônicos por recurso.
+# Formato: ver packages/ai-core (parseGoldenSetJsonl/runEval). `expected.toolName`
+# antecipa F1 (tools no chat): null = nenhuma tool esperada; nomes entram quando
+# as tools read-only existirem (query_overdue, get_daily_stats, list_activities).
+# Runner: apps/api/scripts/ai-eval.mjs (mock por padrão; --real usa a API local).
+{"id":"gym-draft-001","tags":["draft"],"input":{"feature":"draft","text":"esteira 4 quebrada na unidade Vila Xavier, barulho forte no motor"},"expected":{"contains":["esteira"],"notContains":["lorem"]},"judge":["answer_relevance"]}
+{"id":"gym-draft-002","tags":["draft"],"input":{"feature":"draft","text":"organizar planilha de pagamentos de fornecedores do mês"},"expected":{"contains":["pagamento"]},"judge":["answer_relevance"]}
+{"id":"gym-draft-003","tags":["draft"],"input":{"feature":"draft","text":"trocar lâmpada queimada do vestiário masculino"},"expected":{"contains":["lâmpada"]}}
+{"id":"gym-checklist-001","tags":["checklist"],"input":{"feature":"checklist","activityTitle":"Manutenção preventiva das esteiras","areaName":"Estrutura/Manutenção"},"expected":{"contains":["verificar"]},"judge":["answer_relevance"]}
+{"id":"gym-checklist-002","tags":["checklist"],"input":{"feature":"checklist","activityTitle":"Campanha de matrículas de janeiro","areaName":"Marketing"},"expected":{"notContains":["esteira"]}}
+{"id":"gym-delay-001","tags":["delay"],"input":{"feature":"delay","activityTitle":"Conserto do ar-condicionado","daysOverdue":9},"expected":{"contains":["atras"]},"judge":["groundedness"]}
+{"id":"gym-delay-002","tags":["delay"],"input":{"feature":"delay","activityTitle":"Atualizar mural de avisos","daysOverdue":2},"expected":{"notContains":["critic"]}}
+{"id":"gym-chat-001","tags":["chat"],"input":{"feature":"chat","q":"o que está atrasado hoje?"},"expected":{"toolName":null,"contains":["atrasad"]},"judge":["groundedness","answer_relevance"]}
+{"id":"gym-chat-002","tags":["chat"],"input":{"feature":"chat","q":"como crio uma atividade recorrente?"},"expected":{"toolName":null,"contains":["recorr"]},"judge":["answer_relevance"]}
+{"id":"gym-chat-003","tags":["chat"],"input":{"feature":"chat","q":"quantas unidades temos cadastradas?"},"expected":{"toolName":null},"judge":["groundedness"]}
+{"id":"gym-chat-004","tags":["chat"],"input":{"feature":"chat","q":"me dá um resumo de hoje"},"expected":{"toolName":null,"contains":["resumo"]},"judge":["answer_relevance"]}
+{"id":"gym-summary-001","tags":["summary"],"input":{"feature":"summary","unitName":"Vila Xavier","stats":{"totalOpen":12,"overdue":3,"critical":1}},"expected":{"contains":["Vila Xavier"]},"judge":["groundedness"]}
