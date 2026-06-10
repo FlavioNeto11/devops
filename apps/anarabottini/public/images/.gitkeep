@@ -1,0 +1,2 @@
+# Fotos reais (com direitos de uso) de Ana Rabottini entram aqui — ex.: ana-hero.jpg, ana-about.jpg.
+# Servidas por nginx em /anarabottini/images/. Referencie via src/lib/site.ts > photos.*.
