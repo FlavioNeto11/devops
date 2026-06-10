@@ -1419,6 +1419,7 @@ body {
 .mp-libitem__pick { display: flex; flex-direction: column; width: 100%; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elev-2); overflow: hidden; cursor: pointer; padding: 0; }
 .mp-libitem__pick:hover { border-color: var(--accent); }
 .mp-libitem__pick img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; background: var(--bg); }
+.mp-libitem__video { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; background: #000; pointer-events: none; }
 .mp-libitem__doc { display: grid; place-items: center; width: 100%; aspect-ratio: 4 / 3; color: var(--text-dim); background: var(--bg); }
 .mp-libitem__name { padding: 6px 8px; font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mp-libitem__del { position: absolute; top: 5px; right: 5px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: 6px; }

@@ -248,10 +248,11 @@ export function AddButton({ sectionId, path, label }: { sectionId?: string; path
  *  `empty` deixa o overlay persistente (placeholder "descobrível") e o clique
  *  em qualquer ponto abre o file dialog. `compact` usa botões só-ícone. */
 export function MediaSlot({
-  sectionId, path, site = false, accept = 'image/*', empty = false, compact = false, className, children,
+  sectionId, path, site = false, accept = 'image/*', empty = false, compact = false,
+  maxSize = 8 * 1024 * 1024, className, children,
 }: {
   sectionId?: string; path: string; site?: boolean; accept?: string; empty?: boolean; compact?: boolean;
-  className?: string; children: ReactNode;
+  maxSize?: number; className?: string; children: ReactNode;
 }) {
   const active = useEditMode();
   const emit = useEmit();
@@ -267,7 +268,11 @@ export function MediaSlot({
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
-    if (!file || file.size > 8 * 1024 * 1024) return; // espelha o limite do pm-api
+    if (!file) return;
+    if (file.size > maxSize) { // espelha o limite do pm-api (8 MB; vídeo 50 MB)
+      window.alert(`Arquivo excede o limite de ${Math.round(maxSize / 1024 / 1024)} MB.`);
+      return;
+    }
     setBusy(true);
     emit('cms:upload', { ...target, file, name: file.name, mime: file.type, size: file.size });
   };

@@ -51,11 +51,22 @@ const ALLOWED_MIME = new Set([
   'text/csv',
   'text/plain',
   'application/zip',
+  // vídeo (limite próprio de 50 MB — ver VIDEO_MAX/DEFAULT_MAX abaixo)
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
 ]);
+
+// Limites por tipo: vídeo até 50 MB; demais (imagem/doc) até 8 MB. O multer
+// corta no teto global (50 MB, memoryStorage); o cap por mime roda no handler.
+// Atenção: 50 MB em memória + cópia no driver pg cabe no limit de 256Mi do pod
+// para uso single-user; uploads de vídeo simultâneos podem estourar (lab).
+const VIDEO_MAX = 50 * 1024 * 1024;
+const DEFAULT_MAX = 8 * 1024 * 1024;
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 8 * 1024 * 1024 }, // 8 MB
+  limits: { fileSize: VIDEO_MAX },
 });
 
 // ---------------------------------------------------------------- site config
@@ -208,6 +219,8 @@ r.post('/projects/:projectId/cms/files', upload.single('file'), asyncH(async (re
   const f = req.file;
   if (!f) return invalid(res, 'arquivo (campo "file") e obrigatorio');
   if (!ALLOWED_MIME.has(f.mimetype)) return invalid(res, `tipo nao permitido: ${f.mimetype}`);
+  const max = f.mimetype.startsWith('video/') ? VIDEO_MAX : DEFAULT_MAX;
+  if (f.size > max) return invalid(res, `arquivo excede o limite de ${Math.round(max / 1024 / 1024)} MB para ${f.mimetype}`);
   const { rows } = await query(
     `INSERT INTO cms_files (project_id, filename, mime, size, bytes, created_by)
      VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, filename, mime, size, created_at`,

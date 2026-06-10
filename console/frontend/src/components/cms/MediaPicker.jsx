@@ -63,7 +63,9 @@ export default function MediaPicker({ projectId, value, onChange }) {
   );
 }
 
-function MediaLibrary({ projectId, onClose, onPick }) {
+/** Biblioteca de mídia do projeto (modal com grid). `filter` = prefixo de mime
+ *  (ex.: 'video/') para restringir a listagem — reusada pelo VideoPicker. */
+export function MediaLibrary({ projectId, onClose, onPick, filter }) {
   const toast = useToast();
   const [files, setFiles] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
@@ -74,20 +76,24 @@ function MediaLibrary({ projectId, onClose, onPick }) {
   }, [projectId, toast]);
   useEffect(() => { load(); }, [load]);
 
+  const shown = files === null ? null : (filter ? files.filter((f) => (f.mime || '').startsWith(filter)) : files);
+
   return (
     <Modal title="Biblioteca de mídia" size="lg" onClose={onClose}>
-      {files === null ? (
+      {shown === null ? (
         <p className="muted">Carregando…</p>
-      ) : !files.length ? (
-        <p className="muted">Nenhum arquivo enviado neste portal ainda. Use “Upload” no campo para enviar o primeiro.</p>
+      ) : !shown.length ? (
+        <p className="muted">{filter ? 'Nenhum arquivo desse tipo enviado neste portal ainda. Use “Upload” no campo para enviar o primeiro.' : 'Nenhum arquivo enviado neste portal ainda. Use “Upload” no campo para enviar o primeiro.'}</p>
       ) : (
         <div className="cards mp-lib">
-          {files.map((f) => (
+          {shown.map((f) => (
             <div key={f.id} className="mp-libitem">
               <button type="button" className="mp-libitem__pick" title={f.filename} onClick={() => onPick(f.url)}>
                 {isImage(f.mime)
                   ? <img src={f.url} alt="" loading="lazy" />
-                  : <span className="mp-libitem__doc"><Icon name="file-text" size={26} /></span>}
+                  : (f.mime || '').startsWith('video/')
+                    ? <video src={f.url} preload="metadata" muted className="mp-libitem__video" />
+                    : <span className="mp-libitem__doc"><Icon name="file-text" size={26} /></span>}
                 <span className="mp-libitem__name">{f.filename}</span>
               </button>
               <button type="button" className="icon-btn mp-libitem__del" title="Excluir arquivo" onClick={() => setConfirmDel(f)}>

@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { Play, Clapperboard } from 'lucide-react';
 import { youtubeEmbed, youtubePoster } from '../lib/site';
+import { resolveVideo } from '../lib/video';
+import { mediaUrl } from '../lib/content';
 import { cn } from '../lib/utils';
 
 /**
- * Player de YouTube com carregamento preguiçoso: mostra um poster com botão de
- * play e só insere o <iframe> após o clique (performance). Se `id` estiver vazio,
- * exibe um estado "vídeo em breve" — sem player quebrado.
+ * Player de vídeo do CMS: o `id` aceita ID/URL do YouTube OU URL de arquivo
+ * enviado (ver lib/video.ts). YouTube: poster + iframe preguiçoso (insere o
+ * <iframe> só após o clique). Arquivo: <video controls> nativo. Vazio: estado
+ * "vídeo em breve" — sem player quebrado.
  */
 export default function VideoEmbed({
   id,
@@ -18,10 +21,25 @@ export default function VideoEmbed({
   className?: string;
 }) {
   const [playing, setPlaying] = useState(false);
-  const embed = youtubeEmbed(id, { autoplay: true });
-  const poster = youtubePoster(id);
+  const resolved = resolveVideo(id);
+  const embed = resolved?.kind === 'youtube' ? youtubeEmbed(resolved.id, { autoplay: true }) : null;
+  const poster = resolved?.kind === 'youtube' ? youtubePoster(resolved.id) : null;
 
   const frame = cn('relative aspect-video w-full overflow-hidden rounded-2xl', className);
+
+  if (resolved?.kind === 'file') {
+    return (
+      <div className={cn(frame, 'bg-brand-ink')}>
+        <video
+          controls
+          preload="metadata"
+          src={mediaUrl(resolved.url)}
+          title={title}
+          className="absolute inset-0 h-full w-full object-contain"
+        />
+      </div>
+    );
+  }
 
   if (!embed) {
     return (

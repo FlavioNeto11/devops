@@ -55,14 +55,37 @@ r.get('/public/:projectKey', async (req, res, next) => {
   }
 });
 
-// Serve um arquivo (imagem/PDF) por id, com o content-type correto.
+// Serve um arquivo (imagem/PDF/vídeo) por id, com o content-type correto.
+// Suporta HTTP Range simples (single range) — necessário para <video> fazer
+// seek e para o Safari reproduzir vídeo (ele exige 206).
 r.get('/public/files/:id', async (req, res, next) => {
   try {
     const { rows } = await query('SELECT mime, bytes FROM cms_files WHERE id = $1', [req.params.id]);
     if (!rows.length) return notFound(res, 'arquivo');
+    const buf = rows[0].bytes;
     res.set('Content-Type', rows[0].mime);
     res.set('Cache-Control', 'public, max-age=86400');
-    res.send(rows[0].bytes);
+    res.set('Accept-Ranges', 'bytes');
+
+    const range = req.headers.range;
+    const m = range && /^bytes=(\d*)-(\d*)$/.exec(range);
+    if (m && (m[1] || m[2])) {
+      const size = buf.length;
+      let start = m[1] ? parseInt(m[1], 10) : size - parseInt(m[2], 10); // bytes=a-b | bytes=-suffix
+      let end = m[1] && m[2] ? parseInt(m[2], 10) : size - 1;
+      if (Number.isNaN(start) || start < 0) start = 0;
+      if (Number.isNaN(end) || end >= size) end = size - 1;
+      if (start > end || start >= size) {
+        res.status(416).set('Content-Range', `bytes */${size}`).end();
+        return;
+      }
+      res.status(206);
+      res.set('Content-Range', `bytes ${start}-${end}/${size}`);
+      res.set('Content-Length', String(end - start + 1));
+      res.end(buf.subarray(start, end + 1));
+      return;
+    }
+    res.send(buf);
   } catch (e) {
     next(e);
   }

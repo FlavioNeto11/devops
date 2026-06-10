@@ -9,6 +9,7 @@ import VideoLightbox from './VideoLightbox';
 import PalestraModal from './PalestraModal';
 import LeadForm from './LeadForm';
 import { resolveIcon } from '../lib/icons';
+import { resolveVideo } from '../lib/video';
 import { useSite } from '../lib/SiteContext';
 import { mediaUrl, type Section } from '../lib/content';
 import { videoTipoLabel } from '../data/videos';
@@ -52,6 +53,22 @@ const wrap = (anchor: string | null | undefined, surface: boolean, extra = '') =
 
 // tipos aceitos no upload de materiais (espelha o allowlist do pm-api)
 const DOC_ACCEPT = 'application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.csv,.txt';
+// vídeo: mimes + limite próprios (espelha o pm-api: vídeo até 50 MB)
+const VIDEO_ACCEPT = 'video/mp4,video/webm,video/quicktime';
+const VIDEO_MAX = 50 * 1024 * 1024;
+
+/** Chip de status + slot de upload/biblioteca para o campo de vídeo de um item. */
+function VideoChip({ path, value }: { path: string; value?: string }) {
+  const v = resolveVideo(value);
+  return (
+    <MediaSlot compact path={path} accept={VIDEO_ACCEPT} maxSize={VIDEO_MAX} className="inline-flex w-fit rounded-full">
+      <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold',
+        v ? 'border-brand-neon/40 bg-brand-neon/12 text-brand-neon' : 'border-dashed border-brand-text/25 text-brand-muted')}>
+        <Play className="h-3 w-3" /> {v ? (v.kind === 'youtube' ? 'Vídeo · YouTube' : 'Vídeo · arquivo') : 'Sem vídeo'}
+      </span>
+    </MediaSlot>
+  );
+}
 
 // --------------------------------------------------------------------------- Hero
 function HeroBlock({ d }: { d: D }) {
@@ -235,11 +252,51 @@ function AccordionBlock({ d, anchor, surface }: { d: D; anchor?: string | null; 
 }
 
 // --------------------------------------------------------------------------- Video gallery
+/** Miniatura de um vídeo: YouTube usa a thumb remota; arquivo/vazio, tile escuro. */
+function VideoThumb({ value }: { value?: string }) {
+  const v = resolveVideo(value);
+  if (v?.kind === 'youtube') {
+    return <img src={`https://img.youtube.com/vi/${v.id}/hqdefault.jpg`} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />;
+  }
+  return <span className="absolute inset-0 bg-gradient-to-br from-brand-ink via-brand-ink/90 to-brand-neon/20" aria-hidden />;
+}
+
 function VideoGalleryBlock({ d, anchor, surface }: { d: D; anchor?: string | null; surface: boolean }) {
   const { site, hasYoutube, hasInstagram } = useSite();
-  const all: D[] = (d.items || []).map((v: D, i: number) => ({ id: v.id || `v${i}`, youtubeId: v.youtubeId || '', title: v.title, tipo: v.tipo || 'palestra' }));
+  const edit = useEditMode();
+  const raw: D[] = d.items || [];
+  const all: D[] = raw.map((v: D, i: number) => ({ id: v.id || `v${i}`, youtubeId: v.youtubeId ?? v.videoId ?? '', title: v.title, tipo: v.tipo || 'palestra' }));
   const disponiveis = all.filter((v) => (v.youtubeId || '').trim().length > 0);
   const [index, setIndex] = useState<number | null>(null);
+  const vk = (j: number) => ('videoId' in (raw[j] || {}) ? 'videoId' : 'youtubeId');
+
+  if (edit) {
+    return (
+      <section id={anchor || undefined} className={wrap(anchor, surface)}>
+        <div className="container-wide">
+          <Heading h={d.heading} />
+          <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {all.map((v, i) => (
+              <div key={v.id + i} className="cms-item group relative aspect-video w-full overflow-hidden rounded-2xl border border-brand-text/10 bg-brand-surface text-left shadow-card">
+                <ItemControls path="items" index={i} count={all.length} />
+                <MediaSlot path={`items.${i}.${vk(i)}`} accept={VIDEO_ACCEPT} maxSize={VIDEO_MAX} className="block h-full w-full">
+                  <VideoThumb value={v.youtubeId} />
+                  <span className="absolute inset-0 bg-gradient-to-t from-brand-ink/65 via-transparent to-transparent" aria-hidden />
+                  <span className="absolute left-3 top-3 rounded-full bg-brand-surface/85 px-2.5 py-0.5 text-[11px] font-semibold text-brand-neon">{videoTipoLabel[v.tipo as keyof typeof videoTipoLabel] || v.tipo}</span>
+                  <span className="absolute inset-0 grid place-items-center"><span className="grid h-14 w-14 place-items-center rounded-full bg-brand-neon/95 text-brand-onNeon shadow-glow"><Play className="h-6 w-6 translate-x-0.5" fill="currentColor" /></span></span>
+                </MediaSlot>
+                <span className="absolute inset-x-3 bottom-3 line-clamp-2 text-sm font-semibold text-white">
+                  <EditableText as="span" path={`items.${i}.title`} value={v.title || ''} placeholder="título do vídeo" />
+                </span>
+              </div>
+            ))}
+          </div>
+          <AddButton path="items" label="Adicionar vídeo" />
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section id={anchor || undefined} className={wrap(anchor, surface)}>
       <div className="container-wide">
@@ -249,7 +306,7 @@ function VideoGalleryBlock({ d, anchor, surface }: { d: D; anchor?: string | nul
             {disponiveis.map((v, i) => (
               <Reveal key={v.id} delay={(i % 3) * 0.07}>
                 <button type="button" onClick={() => setIndex(i)} className="group relative block aspect-video w-full overflow-hidden rounded-2xl border border-brand-text/10 bg-brand-surface text-left shadow-card">
-                  <img src={`https://img.youtube.com/vi/${v.youtubeId}/hqdefault.jpg`} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                  <VideoThumb value={v.youtubeId} />
                   <span className="absolute inset-0 bg-gradient-to-t from-brand-ink/65 via-transparent to-transparent" aria-hidden />
                   <span className="absolute left-3 top-3 rounded-full bg-brand-surface/85 px-2.5 py-0.5 text-[11px] font-semibold text-brand-neon">{videoTipoLabel[v.tipo as keyof typeof videoTipoLabel] || v.tipo}</span>
                   <span className="absolute inset-0 grid place-items-center"><span className="grid h-14 w-14 place-items-center rounded-full bg-brand-neon/95 text-brand-onNeon shadow-glow transition-transform duration-200 group-hover:scale-110"><Play className="h-6 w-6 translate-x-0.5" fill="currentColor" /></span></span>
@@ -324,11 +381,15 @@ function MaterialsBlock({ d, anchor, surface }: { d: D; anchor?: string | null; 
 
 // --------------------------------------------------------------------------- Palestras
 function PalestrasBlock({ d, anchor, surface }: { d: D; anchor?: string | null; surface: boolean }) {
+  const edit = useEditMode();
   const cats: D[] = d.categorias || [{ id: 'todas', label: 'Todas' }];
-  const items: D[] = (d.items || []).map((p: D) => ({ ...p, videoId: p.videoId ?? p.youtubeId ?? '' }));
+  const raw: D[] = d.items || [];
+  const items: D[] = raw.map((p: D) => ({ ...p, videoId: p.videoId ?? p.youtubeId ?? '' }));
   const [filtro, setFiltro] = useState('todas');
   const [selected, setSelected] = useState<D | null>(null);
-  const lista = useMemo(() => (filtro === 'todas' ? items : items.filter((p) => p.categoria === filtro)), [filtro, items]);
+  // em edição mostra TODOS (índices casam com items.<i> do CMS); público filtra por categoria
+  const lista = useMemo(() => (edit || filtro === 'todas' ? items : items.filter((p) => p.categoria === filtro)), [edit, filtro, items]);
+  const vk = (j: number) => ('videoId' in (raw[j] || {}) ? 'videoId' : 'youtubeId');
   return (
     <section id={anchor || undefined} className={wrap(anchor, surface)}>
       <div className="container-wide">
@@ -341,35 +402,74 @@ function PalestrasBlock({ d, anchor, surface }: { d: D; anchor?: string | null; 
             ))}
           </div>
         </Reveal>
-        <motion.div layout className="mt-10 grid gap-6 lg:grid-cols-2">
-          <AnimatePresence mode="popLayout">
+        {edit ? (
+          /* versão de edição: sem animações de layout; cards com controles, textos
+             inline e chip de vídeo (upload/biblioteca). "Ver detalhes" pré-visualiza o modal. */
+          <div className="mt-10 grid gap-6 lg:grid-cols-2">
             {lista.map((p, i) => {
               const Ico = resolveIcon(p.icon);
               return (
-                <motion.button key={p.id} type="button" layout onClick={() => setSelected(p)} initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97 }} transition={{ duration: 0.35, delay: (i % 2) * 0.05 }} whileHover={{ y: -6 }}
-                  className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-brand-text/10 bg-brand-surface/70 p-7 text-left shadow-card sm:p-8">
+                <div key={(p.id || '') + i} className="cms-item group relative flex h-full flex-col overflow-hidden rounded-3xl border border-brand-text/10 bg-brand-surface/70 p-7 text-left shadow-card sm:p-8">
+                  <ItemControls path="items" index={i} count={lista.length} />
                   <div className="absolute right-0 top-0 h-40 w-40 translate-x-12 -translate-y-12 rounded-full bg-brand-terra/10 blur-3xl" />
                   <div className="relative">
                     <div className="flex items-start gap-4">
                       <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-brand-neon/20 to-brand-terra/20 ring-1 ring-brand-text/10"><Ico className="h-7 w-7 text-brand-neon" /></span>
                       <div>
                         {p.tag && <span className="mb-1.5 inline-block rounded-full bg-brand-neon/12 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-brand-neon">{p.tag}</span>}
-                        <h3 className="font-display text-xl font-bold leading-tight text-brand-text">{p.title}</h3>
+                        <h3 className="font-display text-xl font-bold leading-tight text-brand-text"><EditableText as="span" path={`items.${i}.title`} value={p.title || ''} placeholder="título" /></h3>
                         {p.subtitle && <p className="mt-1 text-sm italic text-brand-muted">{p.subtitle}</p>}
                       </div>
                     </div>
-                    <p className="mt-5 text-sm leading-relaxed text-brand-muted">{p.objetivo}</p>
+                    <p className="mt-5 text-sm leading-relaxed text-brand-muted"><EditableText as="span" path={`items.${i}.objetivo`} value={p.objetivo || ''} placeholder="objetivo" multiline /></p>
                     <div className="mt-5 flex flex-wrap gap-2">
                       {(p.temas || []).slice(0, 4).map((t: string) => <span key={t} className="rounded-full border border-brand-text/10 bg-brand-surface2/70 px-3 py-1 text-xs text-brand-text">{t}</span>)}
                       {(p.temas || []).length > 4 && <span className="rounded-full px-2 py-1 text-xs text-brand-muted">+{p.temas.length - 4}</span>}
                     </div>
-                    <span className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-neon transition-all group-hover:gap-2.5">Ver detalhes <ArrowRight className="h-4 w-4" /></span>
+                    <div className="mt-5 flex flex-wrap items-center gap-3">
+                      <VideoChip path={`items.${i}.${vk(i)}`} value={p.videoId} />
+                      <button type="button" className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-neon"
+                        onClick={(e) => { e.stopPropagation(); setSelected(p); }}>
+                        Ver detalhes <ArrowRight className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
-                </motion.button>
+                </div>
               );
             })}
-          </AnimatePresence>
-        </motion.div>
+          </div>
+        ) : (
+          <motion.div layout className="mt-10 grid gap-6 lg:grid-cols-2">
+            <AnimatePresence mode="popLayout">
+              {lista.map((p, i) => {
+                const Ico = resolveIcon(p.icon);
+                return (
+                  <motion.button key={p.id} type="button" layout onClick={() => setSelected(p)} initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97 }} transition={{ duration: 0.35, delay: (i % 2) * 0.05 }} whileHover={{ y: -6 }}
+                    className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-brand-text/10 bg-brand-surface/70 p-7 text-left shadow-card sm:p-8">
+                    <div className="absolute right-0 top-0 h-40 w-40 translate-x-12 -translate-y-12 rounded-full bg-brand-terra/10 blur-3xl" />
+                    <div className="relative">
+                      <div className="flex items-start gap-4">
+                        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-brand-neon/20 to-brand-terra/20 ring-1 ring-brand-text/10"><Ico className="h-7 w-7 text-brand-neon" /></span>
+                        <div>
+                          {p.tag && <span className="mb-1.5 inline-block rounded-full bg-brand-neon/12 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-brand-neon">{p.tag}</span>}
+                          <h3 className="font-display text-xl font-bold leading-tight text-brand-text">{p.title}</h3>
+                          {p.subtitle && <p className="mt-1 text-sm italic text-brand-muted">{p.subtitle}</p>}
+                        </div>
+                      </div>
+                      <p className="mt-5 text-sm leading-relaxed text-brand-muted">{p.objetivo}</p>
+                      <div className="mt-5 flex flex-wrap gap-2">
+                        {(p.temas || []).slice(0, 4).map((t: string) => <span key={t} className="rounded-full border border-brand-text/10 bg-brand-surface2/70 px-3 py-1 text-xs text-brand-text">{t}</span>)}
+                        {(p.temas || []).length > 4 && <span className="rounded-full px-2 py-1 text-xs text-brand-muted">+{p.temas.length - 4}</span>}
+                      </div>
+                      <span className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-neon transition-all group-hover:gap-2.5">Ver detalhes <ArrowRight className="h-4 w-4" /></span>
+                    </div>
+                  </motion.button>
+                );
+              })}
+            </AnimatePresence>
+          </motion.div>
+        )}
+        <AddButton path="items" label="Adicionar palestra" />
       </div>
       <PalestraModal palestra={selected as any} onClose={() => setSelected(null)} />
     </section>

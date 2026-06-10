@@ -5,7 +5,7 @@ import {
   pmCmsCreateSection, pmCmsPatchSection, pmCmsDeleteSection, pmCmsReorderSections,
   pmCmsUpload,
 } from '../api.js';
-import { KIND_TEMPLATES, KIND_LABEL } from './cms/kinds.js';
+import { KIND_TEMPLATES, KIND_LABEL, ITEM_TEMPLATES } from './cms/kinds.js';
 import { getAt, setAt } from '../lib/jsonPath.js';
 import Icon from './Icon.jsx';
 import Modal from './Modal.jsx';
@@ -16,6 +16,7 @@ import AutoForm from './cms/AutoForm.jsx';
 import RichTextField from './cms/RichTextField.jsx';
 import MediaPicker from './cms/MediaPicker.jsx';
 import IconPicker from './cms/IconPicker.jsx';
+import VideoPicker from './cms/VideoPicker.jsx';
 
 // Protocolo postMessage com o portal embarcado no iframe (mesma origem).
 const SOURCE = 'cms-visual-editor';
@@ -202,9 +203,16 @@ export default function VisualEditor({ project }) {
   const onItemIntent = useCallback((action, sectionId, path, index) => {
     const sec = findSection(treeRef.current, sectionId); if (!sec) return;
     const arr = Array.isArray(getAt(sec.data, path)) ? getAt(sec.data, path) : [];
-    const next = action === 'add-item'
-      ? [...arr, arr[0] ? clone(arr[0]) : { title: 'Novo item' }]
-      : arr.filter((_, i) => i !== index); // delete-item
+    let next;
+    if (action === 'add-item') {
+      // clona o 1º item (ou usa o template do kind se a lista está vazia)
+      const item = arr[0] ? clone(arr[0]) : clone(ITEM_TEMPLATES[`${sec.kind}:${path}`] || { title: 'Novo item' });
+      // ids são keys/filtros nos portais — todo item novo ganha id único
+      if (item && typeof item === 'object' && 'id' in item) item.id = `item-${crypto.randomUUID().slice(0, 8)}`;
+      next = [...arr, item];
+    } else {
+      next = arr.filter((_, i) => i !== index); // delete-item
+    }
     setSectionData(sectionId, setAt(sec.data, path, next));
   }, [setSectionData]);
 
@@ -397,9 +405,11 @@ export default function VisualEditor({ project }) {
 }
 
 // ---- roteamento de campo-folha (compartilhado: painel de seção e de site) --
+const VIDEO_KEY = /^(youtubeid|videoid|video)$/i;
 function LeafField({ keyName, value, onChange, projectId }) {
   if (keyName === 'html') return <RichTextField value={value || ''} onChange={onChange} />;
   if (keyName === 'icon') return <IconPicker value={value || ''} onChange={onChange} />;
+  if (VIDEO_KEY.test(keyName)) return <VideoPicker projectId={projectId} value={value || ''} onChange={onChange} />;
   if (FILE_KEY.test(keyName)) return <MediaPicker projectId={projectId} value={value || ''} onChange={onChange} />;
   return <textarea className="textarea" autoFocus value={value || ''} onChange={(e) => onChange(e.target.value)} />;
 }

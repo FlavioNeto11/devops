@@ -25,6 +25,19 @@ export const KIND_TEMPLATES = {
   'cta': { label: 'Chamada (CTA)', data: { title: 'Vamos conversar', titleAccent: '', titleTail: '?', text: '', buttons: [{ label: 'Solicitar proposta', kind: 'proposal', href: '' }] } },
 };
 
+/**
+ * Templates de ITEM por `kind:path` — usados quando "+ adicionar item" roda numa
+ * lista VAZIA (sem 1º item para clonar). Shape mínimo viável por bloco.
+ */
+export const ITEM_TEMPLATES = {
+  'palestras:items': {
+    id: '', icon: 'Mic', categoria: '', tag: '', title: 'Nova palestra', subtitle: '',
+    objetivo: '', descricao: '', temasLabel: 'Temas abordados', temas: [], beneficios: [],
+    modalidades: ['Palestra'], duracao: '', youtubeId: '', materiais: [],
+  },
+  'video-gallery:items': { id: '', youtubeId: '', title: 'Novo vídeo', tipo: 'palestra' },
+};
+
 /** Rótulo curto por kind (inclui os específicos de portal para exibição). */
 export const KIND_LABEL = {
   hero: 'Hero', 'section-heading': 'Título', 'rich-text': 'Texto', 'card-grid': 'Cards',

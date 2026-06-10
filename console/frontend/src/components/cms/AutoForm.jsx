@@ -2,6 +2,7 @@ import React from 'react';
 import RichTextField from './RichTextField.jsx';
 import MediaPicker from './MediaPicker.jsx';
 import IconPicker from './IconPicker.jsx';
+import VideoPicker from './VideoPicker.jsx';
 
 // Editor de conteudo GENERICO: percorre o objeto `data` (jsonb) e renderiza o
 // editor adequado por tipo/chave. Cobre qualquer `kind` sem formulario dedicado.
@@ -16,6 +17,7 @@ import IconPicker from './IconPicker.jsx';
 const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
 const TEXTAREA_KEYS = new Set(['intro', 'desc', 'description', 'summary', 'text', 'subtitle', 'a', 'objetivo', 'tagline', 'positioning', 'quote', 'titleTail']);
 const FILE_KEY = /(fileid|photo|logo|image|url|hero|about)$/i;
+const VIDEO_KEY = /^(youtubeid|videoid|video)$/i;
 const LONG = 70;
 
 function labelize(k) {
@@ -33,6 +35,7 @@ function emptyLike(v) {
 function StringField({ k, value, onChange, projectId }) {
   if (k === 'html') return <RichTextField value={value} onChange={onChange} />;
   if (k === 'icon') return <IconPicker value={value} onChange={onChange} />;
+  if (VIDEO_KEY.test(k)) return <VideoPicker projectId={projectId} value={value} onChange={onChange} />;
   if (FILE_KEY.test(k)) return <MediaPicker projectId={projectId} value={value} onChange={onChange} />;
   const multi = TEXTAREA_KEYS.has(k) || (typeof value === 'string' && value.length > LONG);
   return multi
