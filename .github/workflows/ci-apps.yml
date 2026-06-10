@@ -1,0 +1,86 @@
+# =============================================================================
+# ci-apps — gate estatico por app (lint / typecheck / build)
+# -----------------------------------------------------------------------------
+# Roda em PR e push para main quando muda apps/**. Matrix por app, com o
+# gerenciador de pacote correto (sicat=npm workspaces, gymops=pnpm, rmambiental=npm).
+#
+# Escopo: verificacoes ESTATICAS (lint, typecheck, build) que NAO precisam de
+# infra. Testes de integracao (gymops/sicat) exigem Postgres/Redis e rodam no
+# pipeline proprio de cada app / localmente — por isso 'test' fica fora deste
+# gate (evita vermelho por falta de servico, nao por bug). Cada passo so roda se
+# o script existir no package.json (guard via node) — tolerante a apps sem lint.
+#
+# Runner: ubuntu-latest (igual aos demais workflows de build/lint do repo).
+# =============================================================================
+name: ci-apps
+
+on:
+  pull_request:
+    paths:
+      - "apps/**"
+  push:
+    branches: [main]
+    paths:
+      - "apps/**"
+
+permissions:
+  contents: read
+
+jobs:
+  apps:
+    name: ${{ matrix.app }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: sicat
+            pm: npm
+          - app: gymops
+            pm: pnpm
+          - app: rmambiental
+            pm: npm
+    defaults:
+      run:
+        working-directory: apps/${{ matrix.app }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        if: matrix.pm == 'pnpm'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Instalar dependencias
+        run: |
+          set -e
+          if [ "${{ matrix.pm }}" = "pnpm" ]; then
+            pnpm install --frozen-lockfile || pnpm install
+          else
+            npm ci || npm install
+          fi
+
+      - name: Verificacoes estaticas (so se o script existir)
+        run: |
+          PM="${{ matrix.pm }}"
+          run_if () {
+            if node -e "const s=require('./package.json').scripts||{};process.exit(s['$1']?0:1)"; then
+              echo "::group::$PM run $1"
+              $PM run "$1"
+              echo "::endgroup::"
+            else
+              echo "skip: sem script '$1'"
+            fi
+          }
+          run_if lint
+          run_if typecheck
+          run_if build
+          run_if build:frontend
