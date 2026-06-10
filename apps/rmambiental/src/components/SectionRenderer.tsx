@@ -256,7 +256,7 @@ function GalleryBlock({ d, anchor, surface }: { d: D; anchor?: string | null; su
             ? photos.map((p, i) => (
               <div key={p.file || i} className="cms-item relative aspect-[4/3] overflow-hidden rounded-xl border border-brand-text/10">
                 <ItemControls path="photos" index={i} count={photos.length} />
-                <MediaSlot path={`photos.${i}`} className="block h-full w-full">
+                <MediaSlot path={`photos.${i}.url`} accept="image/*" className="block h-full w-full">
                   <img src={src(p)} alt={p.alt || ''} loading="lazy" className="h-full w-full object-cover" />
                 </MediaSlot>
               </div>

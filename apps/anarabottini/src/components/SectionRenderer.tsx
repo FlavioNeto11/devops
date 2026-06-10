@@ -50,6 +50,9 @@ function Heading({ h, base = 'heading' }: { h?: D; base?: string }) {
 const wrap = (anchor: string | null | undefined, surface: boolean, extra = '') =>
   cn('relative py-24', surface && 'bg-brand-surface2/50', extra);
 
+// tipos aceitos no upload de materiais (espelha o allowlist do pm-api)
+const DOC_ACCEPT = 'application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.csv,.txt';
+
 // --------------------------------------------------------------------------- Hero
 function HeroBlock({ d }: { d: D }) {
   const { site } = useSite();
@@ -89,7 +92,9 @@ function HeroBlock({ d }: { d: D }) {
         <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, delay: 0.2 }} className="relative mx-auto w-full max-w-sm">
           <div className="glass relative rounded-[2rem] p-4 shadow-glass">
             <div className="absolute -inset-px rounded-[2rem] bg-gradient-to-br from-brand-neon/12 to-transparent" aria-hidden />
-            <PortraitCard photo={mediaUrl(site.photos?.hero)} className="relative" />
+            <MediaSlot site path="photos.hero" empty={!site.photos?.hero} accept="image/*" className="relative block rounded-3xl">
+              <PortraitCard photo={mediaUrl(site.photos?.hero)} className="relative" />
+            </MediaSlot>
             <div className="relative mt-3 flex items-center justify-between rounded-xl border border-brand-text/10 bg-brand-surface2/70 px-4 py-3">
               <span className="text-xs uppercase tracking-widest text-brand-muted">Palestrante corporativa</span>
               <span className="font-display text-sm font-bold text-brand-neon">{site.shortName}</span>
@@ -291,7 +296,9 @@ function MaterialsBlock({ d, anchor, surface }: { d: D; anchor?: string | null; 
               <Reveal key={(m.title || '') + i} delay={(i % 4) * 0.06} className={cn(edit && 'cms-item')}>
                 <div className="flex h-full flex-col rounded-3xl border border-brand-text/10 bg-brand-surface/70 p-6 shadow-card">
                   <ItemControls path="items" index={i} count={items.length} />
-                  <span className="grid h-12 w-12 place-items-center rounded-2xl bg-brand-neon/12 ring-1 ring-brand-text/10"><Ico className="h-6 w-6 text-brand-neon" /></span>
+                  <MediaSlot compact path={`items.${i}.url`} accept={DOC_ACCEPT} className="inline-grid w-fit rounded-2xl">
+                    <span className="grid h-12 w-12 place-items-center rounded-2xl bg-brand-neon/12 ring-1 ring-brand-text/10"><Ico className="h-6 w-6 text-brand-neon" /></span>
+                  </MediaSlot>
                   <span className="mt-4 inline-flex w-fit rounded-full bg-brand-surface2/80 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-brand-muted">{KIND_LABEL[m.kind] || m.kind}</span>
                   <h3 className="mt-3 font-display text-base font-bold leading-snug text-brand-text">{edit ? <EditableText as="span" path={`items.${i}.title`} value={m.title || ''} placeholder="título" /> : m.title}</h3>
                   <p className="mt-2 flex-1 text-sm leading-relaxed text-brand-muted">{edit ? <EditableText as="span" path={`items.${i}.desc`} value={m.desc || ''} placeholder="descrição" multiline /> : m.desc}</p>

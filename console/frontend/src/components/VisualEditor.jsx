@@ -3,6 +3,7 @@ import {
   pmCmsSite, pmCmsSaveSite,
   pmCmsPages, pmCmsSections,
   pmCmsCreateSection, pmCmsPatchSection, pmCmsDeleteSection, pmCmsReorderSections,
+  pmCmsUpload,
 } from '../api.js';
 import { KIND_TEMPLATES, KIND_LABEL } from './cms/kinds.js';
 import { getAt, setAt } from '../lib/jsonPath.js';
@@ -130,6 +131,39 @@ export default function VisualEditor({ project }) {
     }
   }, [commitTree, schedulePatch, toast, buildTree]);
 
+  // ---- persistência site-level (foto do hero etc., editada no lugar) -------
+  const scheduleSiteSave = useCallback(() => {
+    clearTimeout(timersRef.current.__site);
+    timersRef.current.__site = setTimeout(async () => {
+      try { await pmCmsSaveSite(project.id, treeRef.current?.site || {}); }
+      catch (e) { toast.err(e.message); buildTree().catch(() => {}); }
+    }, PATCH_DEBOUNCE);
+  }, [project.id, toast, buildTree]);
+
+  const setSiteData = useCallback((site) => {
+    commitTree({ ...treeRef.current, site });
+    scheduleSiteSave();
+  }, [commitTree, scheduleSiteSave]);
+
+  // upload vindo do portal (File via structured clone) — quem grava é o console.
+  const onUpload = useCallback(async (m) => {
+    try {
+      if (!(m.file instanceof File)) throw new Error('Arquivo inválido.');
+      const r = await pmCmsUpload(project.id, m.file);
+      if (m.site) {
+        setSiteData(setAt(treeRef.current?.site || {}, m.path, r.url));
+      } else {
+        const sec = findSection(treeRef.current, m.sectionId);
+        if (!sec) throw new Error('Seção não encontrada.');
+        setSectionData(m.sectionId, setAt(sec.data, m.path, r.url));
+      }
+      toast.ok('Arquivo enviado.');
+    } catch (e) {
+      toast.err(e.message);
+      post('cms:tree', { tree: treeRef.current }); // nack: reseta o "enviando…" do slot
+    }
+  }, [project.id, setSiteData, setSectionData, toast, post]);
+
   // ---- intents estruturais -------------------------------------------------
   const currentPage = useCallback(() => (treeRef.current?.pages || []).find((p) => p.slug === pageSlug) || null, [pageSlug]);
 
@@ -210,19 +244,30 @@ export default function VisualEditor({ project }) {
           if (m.slug) setPageSlug((cur) => cur || m.slug);
           break;
         case 'cms:nav-changed': if (m.slug) setPageSlug(m.slug); break;
-        case 'cms:select': setSelected({ sectionId: m.sectionId, path: m.path, kind: m.kind }); setPanelOpen(true); break;
+        case 'cms:select':
+          setSelected(m.site ? { site: true, path: m.path } : { sectionId: m.sectionId, path: m.path, kind: m.kind });
+          setPanelOpen(true);
+          break;
         case 'cms:setField': {
           const sec = findSection(treeRef.current, m.sectionId);
           if (sec) setSectionData(m.sectionId, setAt(sec.data, m.path, m.value));
           break;
         }
         case 'cms:intent': handleIntent(m); break;
+        case 'cms:upload': onUpload(m); break;
         default: break;
       }
     };
     window.addEventListener('message', onMsg);
     return () => window.removeEventListener('message', onMsg);
-  }, [post, setSectionData, handleIntent]);
+  }, [post, setSectionData, handleIntent, onUpload]);
+
+  // eco da seleção ao iframe — destaca a moldura (.cms-frame--sel) e mantém a
+  // barra de ações visível mesmo sem hover; {} limpa.
+  useEffect(() => {
+    if (!ready) return;
+    post('cms:select', selected ? { sectionId: selected.sectionId, path: selected.path, site: selected.site } : {});
+  }, [selected, ready, post]);
 
   // ---- site (contato/redes/fotos) -----------------------------------------
   const openSite = async () => { try { setSiteDraft((await pmCmsSite(project.id)) || {}); } catch (e) { toast.err(e.message); } };
@@ -232,7 +277,8 @@ export default function VisualEditor({ project }) {
     catch (e) { toast.err(e.message); } finally { setSiteBusy(false); }
   };
 
-  const selSection = selected ? findSection(tree, selected.sectionId) : null;
+  const selSection = selected && !selected.site ? findSection(tree, selected.sectionId) : null;
+  const selSite = !!selected?.site;
 
   if (loadErr) return <EmptyState icon="alert" title="Falha ao carregar o conteúdo" hint={loadErr} />;
   if (!project.route) return <EmptyState icon="info" title="Portal sem rota pública" hint="Defina a rota do projeto para usar o editor visual." />;
@@ -261,7 +307,7 @@ export default function VisualEditor({ project }) {
       </p>
 
       {/* split: prévia (iframe) + painel contextual */}
-      <div className={'ve__split' + (panelOpen && selSection ? ' ve__split--panel' : '')}>
+      <div className={'ve__split' + (panelOpen && (selSection || selSite) ? ' ve__split--panel' : '')}>
         <div className="ve__frame">
           {!ready && <div className="ve__loading"><span className="skel" style={{ width: 160, height: 14, borderRadius: 6 }} /></div>}
           <iframe ref={iframeRef} src={iframeSrc} title="Prévia do portal" className="ve__iframe" />
@@ -292,6 +338,21 @@ export default function VisualEditor({ project }) {
               <button className="btn" style={{ marginTop: 12, color: 'var(--danger, #dc2626)' }} onClick={() => setConfirmDel({ id: selSection.id })}>
                 <Icon name="trash2" size={15} /> Excluir seção
               </button>
+            </div>
+          </aside>
+        )}
+
+        {/* painel para campos do SITE (ex.: foto do hero) — sem chrome de seção */}
+        {panelOpen && selSite && (
+          <aside className="ve__panel">
+            <div className="ve__panel-head">
+              <span className="badge badge-accent">Site</span>
+              {selected.path && <span className="muted" style={{ fontSize: '.78rem' }}>{selected.path}</span>}
+              <span style={{ flex: 1 }} />
+              <button className="drawer__close" onClick={() => setSelected(null)} aria-label="Fechar"><Icon name="x" size={18} /></button>
+            </div>
+            <div className="ve__panel-body">
+              <SitePanelEditor site={tree?.site || {}} path={selected.path} projectId={project.id} setSiteData={setSiteData} />
             </div>
           </aside>
         )}
@@ -335,6 +396,14 @@ export default function VisualEditor({ project }) {
   );
 }
 
+// ---- roteamento de campo-folha (compartilhado: painel de seção e de site) --
+function LeafField({ keyName, value, onChange, projectId }) {
+  if (keyName === 'html') return <RichTextField value={value || ''} onChange={onChange} />;
+  if (keyName === 'icon') return <IconPicker value={value || ''} onChange={onChange} />;
+  if (FILE_KEY.test(keyName)) return <MediaPicker projectId={projectId} value={value || ''} onChange={onChange} />;
+  return <textarea className="textarea" autoFocus value={value || ''} onChange={(e) => onChange(e.target.value)} />;
+}
+
 // ---- editor do painel (seção inteira ou sub-caminho focado) ---------------
 function PanelEditor({ section, path, projectId, setSectionData }) {
   const data = section.data || {};
@@ -342,13 +411,20 @@ function PanelEditor({ section, path, projectId, setSectionData }) {
     return <AutoForm value={data} onChange={(n) => setSectionData(section.id, n)} projectId={projectId} />;
   }
   const sub = getAt(data, path);
-  if (sub && typeof sub === 'object') {
-    return <AutoForm value={sub} onChange={(n) => setSectionData(section.id, setAt(data, path, n))} projectId={projectId} />;
-  }
-  const key = String(path).split('.').pop();
   const onChange = (v) => setSectionData(section.id, setAt(data, path, v));
-  if (key === 'html') return <RichTextField value={sub || ''} onChange={onChange} />;
-  if (key === 'icon') return <IconPicker value={sub || ''} onChange={onChange} />;
-  if (FILE_KEY.test(key)) return <MediaPicker projectId={projectId} value={sub || ''} onChange={onChange} />;
-  return <textarea className="textarea" autoFocus value={sub || ''} onChange={(e) => onChange(e.target.value)} />;
+  if (sub && typeof sub === 'object') {
+    return <AutoForm value={sub} onChange={onChange} projectId={projectId} />;
+  }
+  return <LeafField keyName={String(path).split('.').pop()} value={sub} onChange={onChange} projectId={projectId} />;
+}
+
+// ---- editor do painel para campos do SITE (cms_site.data) ------------------
+function SitePanelEditor({ site, path, projectId, setSiteData }) {
+  if (!path) return <AutoForm value={site} onChange={setSiteData} projectId={projectId} />;
+  const sub = getAt(site, path);
+  const onChange = (v) => setSiteData(setAt(site, path, v));
+  if (sub && typeof sub === 'object') {
+    return <AutoForm value={sub} onChange={onChange} projectId={projectId} />;
+  }
+  return <LeafField keyName={String(path).split('.').pop()} value={sub} onChange={onChange} projectId={projectId} />;
 }
