@@ -11,7 +11,8 @@ const NAV = [
   { label: 'NR-1', to: '/#nr1' },
   { label: 'Sobre', to: '/#sobre' },
   { label: 'Palestras', to: '/#palestras' },
-  { label: 'Consultoria', to: '/#consultoria' },
+  { label: 'Mídia', to: '/#midia' },
+  { label: 'Materiais', to: '/#materiais' },
   { label: 'Contato', to: '/contato' },
 ];
 
@@ -87,7 +88,9 @@ export default function Header() {
         <button
           className="grid h-10 w-10 place-items-center rounded-lg border border-brand-text/10 text-brand-text lg:hidden"
           onClick={() => setOpen((v) => !v)}
-          aria-label="Abrir menu"
+          aria-label={open ? 'Fechar menu' : 'Abrir menu'}
+          aria-expanded={open}
+          aria-controls="mobile-nav"
         >
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
@@ -96,6 +99,7 @@ export default function Header() {
       <AnimatePresence>
         {open && (
           <motion.div
+            id="mobile-nav"
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}

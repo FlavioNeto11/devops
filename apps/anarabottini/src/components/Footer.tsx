@@ -1,13 +1,12 @@
 import { Link } from 'react-router-dom';
-import { Mail, MessageCircle, MapPin, Linkedin, Instagram } from 'lucide-react';
+import { Mail, MessageCircle, MapPin, Linkedin, Instagram, Youtube } from 'lucide-react';
 import {
   site,
   whatsappUrl,
   mailtoUrl,
-  hasWhatsApp,
-  hasEmail,
   hasInstagram,
   hasLinkedin,
+  hasYoutube,
 } from '../lib/site';
 
 const quick = [
@@ -15,13 +14,16 @@ const quick = [
   { label: 'NR-1', to: '/#nr1' },
   { label: 'Sobre', to: '/#sobre' },
   { label: 'Palestras', to: '/#palestras' },
+  { label: 'Mídia', to: '/#midia' },
+  { label: 'Materiais', to: '/#materiais' },
   { label: 'Consultoria', to: '/#consultoria' },
+  { label: 'FAQ', to: '/#faq' },
   { label: 'Contato', to: '/contato' },
 ];
 
 export default function Footer() {
   const year = new Date().getFullYear();
-  const hasSocial = hasInstagram || hasLinkedin;
+  const hasSocial = hasInstagram || hasLinkedin || hasYoutube;
   const hasLocation = !!(site.contact.city || site.contact.state);
   const wa = whatsappUrl();
   const mail = mailtoUrl();
@@ -56,6 +58,17 @@ export default function Footer() {
                   className="grid h-9 w-9 place-items-center rounded-lg border border-brand-text/10 text-brand-muted transition-colors hover:border-brand-neon/40 hover:text-brand-neon"
                 >
                   <Instagram className="h-4 w-4" />
+                </a>
+              )}
+              {hasYoutube && (
+                <a
+                  href={site.media.youtube}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="YouTube"
+                  className="grid h-9 w-9 place-items-center rounded-lg border border-brand-text/10 text-brand-muted transition-colors hover:border-brand-neon/40 hover:text-brand-neon"
+                >
+                  <Youtube className="h-4 w-4" />
                 </a>
               )}
             </div>

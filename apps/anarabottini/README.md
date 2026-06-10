@@ -20,14 +20,19 @@ npm run preview   # http://localhost:4173/anarabottini/
 
 Tudo o que é específico de Ana vive em poucos lugares:
 
-- **`src/lib/site.ts`** — identidade + **contato/redes/fotos** (hoje em *placeholder*).
-  > ⚠️ **Preencher antes de divulgar**: `contact.email`, `contact.whatsapp` (+ `whatsappLabel`),
-  > `contact.city`/`state`, `social.instagram`, `social.linkedin`, e `photos.hero`/`photos.about`.
-  > Enquanto vazios: os CTAs levam à página `/contato`, o FAB de WhatsApp não aparece e os canais
-  > exibem "a definir" — sem links quebrados.
-- **`src/data/palestras.ts`** — as 6 palestras do portfólio.
+- **`src/lib/site.ts`** — identidade + **contato/redes/fotos/mídia/formulário** (hoje em *placeholder*).
+  > ⚠️ **Preencher antes de divulgar**: `contact.*` (email, whatsapp + `whatsappLabel`, city/state),
+  > `social.instagram`/`linkedin`, `media.youtube`/`spotify`, `forms.embedUrl` (opcional —
+  > Google Forms/Typeform), e `photos.hero`/`photos.about`.
+  > Enquanto vazios: os CTAs levam à `/contato`, o FAB de WhatsApp não aparece, a Mídia mostra
+  > "vídeos em breve" e os canais exibem "a definir" — sem links quebrados.
+- **`src/data/palestras.ts`** — as 6 palestras (categoria, descrição, formatos, `videoId`, `materiais`).
+- **`src/data/videos.ts`** — galeria de vídeos (preencher `youtubeId`).
+- **`src/data/materiais.ts`** — e-books/guias/checklists (`url` + `available:true`; PDFs em `public/materiais/`).
+- **`src/data/faq.ts`** — perguntas frequentes (conteúdo educativo).
+- **`src/data/depoimentos.ts`** — depoimentos/marcas reais (opt-in; seção some quando vazia).
 - **`src/data/trilhas.ts`** — Diagnóstico Educativo + Trilhas de Desenvolvimento.
-- **`public/images/`** — fotos reais (com direito de uso); referenciadas por `site.photos.*`.
+- **`public/images/`** e **`public/materiais/`** — mídia real (com direito de uso).
 
 ## Build da imagem (lab) e publicação
 

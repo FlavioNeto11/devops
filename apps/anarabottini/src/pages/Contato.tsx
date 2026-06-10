@@ -8,6 +8,7 @@ import {
 } from '../lib/site';
 import { Reveal, SectionHeading } from '../components/ui';
 import { InfinityMotif } from '../components/backgrounds';
+import LeadForm from '../components/LeadForm';
 
 export default function Contato() {
   const wa = whatsappUrl();
@@ -28,7 +29,16 @@ export default function Contato() {
           subtitle="Palestra, campanha temática (Setembro Amarelo, Dia da Mulher), treinamento de lideranças ou um programa contínuo — me conte o contexto e eu retorno com uma proposta."
         />
 
-        <div className="mt-12 grid max-w-3xl gap-4">
+        <div className="mt-12 max-w-3xl">
+          <Reveal>
+            <LeadForm variant="page" />
+          </Reveal>
+        </div>
+
+        <p className="mt-12 max-w-3xl text-xs font-bold uppercase tracking-[0.18em] text-brand-muted">
+          Outros canais
+        </p>
+        <div className="mt-4 grid max-w-3xl gap-4">
           {/* WhatsApp */}
           <Reveal>
             {wa ? (

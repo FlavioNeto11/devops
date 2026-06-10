@@ -3,6 +3,7 @@ import { Routes, Route, useLocation } from 'react-router-dom';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import WhatsAppFab from './components/WhatsAppFab';
+import BackToTop from './components/BackToTop';
 import Home from './pages/Home';
 import Contato from './pages/Contato';
 
@@ -36,6 +37,7 @@ export default function App() {
       </main>
       <Footer />
       <WhatsAppFab />
+      <BackToTop />
     </div>
   );
 }

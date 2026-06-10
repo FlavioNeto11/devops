@@ -1,0 +1,2 @@
+# PDFs/e-books reais entram aqui — ex.: ebook-nr1.pdf, guia-riscos-psicossociais.pdf.
+# Servidos por nginx em /anarabottini/materiais/. Referencie via src/data/materiais.ts (url + available:true).
