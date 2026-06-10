@@ -1,6 +1,19 @@
+---
+title: "Documentação SICAT — Índice"
+status: reference
+applies_to: [sicat]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # Documentacao
 
 Este diretorio concentra a documentacao versionada do projeto.
+
+## Índices de navegação
+
+- [copilot/decisions-INDEX.md](copilot/decisions-INDEX.md) — índice navegável das decisões arquiteturais (DL-###) do `13-decision-log.md` (303 KB).
+- [handoffs/INDEX.md](handoffs/INDEX.md) — índice dos checkpoints/handoffs por work_id e por DL.
 
 ## Leitura recomendada
 
