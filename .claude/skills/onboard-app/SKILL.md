@@ -38,7 +38,15 @@ Fronteiras de operação: `AGENTS.md` §5 (gerar scaffold é seguro; aplicar no 
    `devops-platform` sincronizar. Commit/push só quando o operador pedir.
 6. **Validar**: `http://xpto.localhost/<app>` e `http://xpto.localhost/<app>/api/health`; conferir
    no Console `/devops` (abas Apps / Publicações / Health / Logs).
-7. **Atualizar docs** (AGENTS.md §7): `apps/README.md` + meta-doc do app.
+7. **Registrar na plataforma — OBRIGATÓRIO** (ver `docs/standards/golden-path.md` §9). Criar/importar
+   um app **não termina** no build — só a aba **Apps** é automática (label `part-of`). As demais são
+   curadas:
+   - **Projetos & Tarefas**: adicionar projeto + itens em `console/pm-api/scripts/seed.js`.
+   - **Compartilhados**: adicionar o app como consumer em `console/pm-api/src/data/shared-resources.json`.
+   - **Domínio raiz** `dev.nvit.com.br/`: card em `portal/frontend/index.html` (lista curada) + stat + rodapé.
+   - **Argo**: a Application `platform/argocd/apps/<app>.yaml` precisa estar na **`main`**.
+   - Aplicar (com aprovação): rebuild `console-pm:local` e `portal-frontend:local` + `kubectl rollout restart`.
+8. **Atualizar docs** (AGENTS.md §7): `apps/README.md` + meta-doc do app.
 
 ## Atalhos
 

@@ -8,6 +8,7 @@ const PROJECTS = [
   { key: 'sicat', name: 'SICAT', stack: 'Vue 3 / Node+Express / PostgreSQL', repo_url: 'apps/sicat', route: '/sicat', k8s_label_selector: 'sicat', status: 'active', description: 'Gestao ambiental e conformidade (CETESB/MTR/DMR) com IA conversacional.' },
   { key: 'gymops', name: 'GymOps', stack: 'Next.js 14 / Fastify / Postgres+pgvector / Redis', repo_url: 'apps/gymops', route: '/gymops', k8s_label_selector: 'gymops', status: 'active', description: 'Gestao operacional multiunidade com IA assistiva.' },
   { key: 'rmambiental', name: 'RM Ambiental', stack: 'React + Vite (estatico)', repo_url: 'apps/rmambiental', route: '/rmambiental', k8s_label_selector: 'rmambiental', status: 'active', description: 'Portal institucional premium.' },
+  { key: 'anarabottini', name: 'Ana Rabottini', stack: 'React + Vite (estatico)', repo_url: 'apps/anarabottini', route: '/anarabottini', k8s_label_selector: 'anarabottini', status: 'active', description: 'Portal de palestrante corporativa — saude mental, neurodiversidade e adequacao a NR-1.' },
 ];
 
 // Itens por projeto, ja "nos conformes": descricao + git (caminho no repo) + tasks
@@ -207,6 +208,37 @@ const ITEMS = {
         { title: 'Tokens de tema', status: 'done' },
         { title: 'Toggle claro/escuro', status: 'done' },
         { title: 'Claro por padrao', status: 'done' },
+      ],
+    },
+  ],
+  anarabottini: [
+    {
+      type: 'feature', title: 'Portal institucional (hero/NR-1/sobre/palestras/contato)', status: 'done', priority: 'P2',
+      git: 'apps/anarabottini',
+      description: 'SPA institucional (Vite/React/Tailwind) com paleta quente, posicionamento NR-1 e portfolio de 6 palestras, servida sob /anarabottini.',
+      tasks: [
+        { title: 'Hero + secao NR-1 (gancho 2026)', status: 'done' },
+        { title: '6 palestras + consultoria', status: 'done' },
+        { title: 'Build com base /anarabottini', status: 'done' },
+      ],
+    },
+    {
+      type: 'feature', title: 'Upgrade interativo (videos, materiais, modais, FAQ, formulario)', status: 'done', priority: 'P2',
+      git: 'apps/anarabottini/src/components',
+      description: 'Palestras com filtro + modal de detalhe; secao de Midia (lightbox YouTube), Materiais, FAQ (acordeao) e formulario de proposta (WhatsApp/e-mail). Frontend-only e acessivel (WCAG AA).',
+      tasks: [
+        { title: 'Modal/VideoEmbed/Accordion reutilizaveis', status: 'done' },
+        { title: 'Filtro de palestras + PalestraModal', status: 'done' },
+        { title: 'Correcoes de a11y/contraste (revisao adversarial)', status: 'done' },
+      ],
+    },
+    {
+      type: 'evolution', title: 'Preencher midia e contato reais (placeholders)', status: 'todo', priority: 'P1',
+      git: 'apps/anarabottini/src/lib/site.ts',
+      description: 'Substituir placeholders por dados reais: WhatsApp/e-mail/redes, fotos, ids de YouTube e materiais (PDFs). Tudo centralizado em site.ts + data/*.ts.',
+      tasks: [
+        { title: 'Contato / redes / fotos', status: 'todo' },
+        { title: 'Videos (youtubeId) + materiais (PDFs)', status: 'todo' },
       ],
     },
   ],

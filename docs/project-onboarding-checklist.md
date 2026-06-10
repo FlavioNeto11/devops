@@ -274,13 +274,26 @@ Duas opcoes (escolha uma):
 
 ---
 
+## 10.5 Registrar na plataforma — OBRIGATORIO (Console + Portal + Argo)
+
+> Criar **ou importar** um app **nao termina** no build. Apenas a aba **Apps** do Console e automatica
+> (agrupa pelo label `app.kubernetes.io/part-of`); as demais superficies sao **curadas** e exigem
+> edicao. Passo a passo canonico: [`standards/golden-path.md`](./standards/golden-path.md) secao 9.
+
+- [ ] **Projetos & Tarefas** (`/devops`): cadastrar projeto + itens em `console/pm-api/scripts/seed.js`.
+- [ ] **Compartilhados** (`/devops`): adicionar o app como consumer em `console/pm-api/src/data/shared-resources.json`.
+- [ ] **Dominio raiz** `dev.nvit.com.br/`: adicionar o card em `portal/frontend/index.html` (lista curada) + stat + link no rodape.
+- [ ] **Argo CD**: Application em `platform/argocd/apps/<app>.yaml` commitada na **`main`** (o app-of-apps so ve a `main`).
+- [ ] Aplicar (lab): rebuild `console-pm:local` + `portal-frontend:local` e `kubectl rollout restart` (ns `devops-system`).
+
+---
+
 ## 11. Pos-onboarding (boas praticas)
 
 - [ ] **Segredos**: nada de segredo no `devops.yaml`/`ConfigMap`. Use
       `secret.example.yaml` -> `secret.yaml` (ignorado) — veja [`SECURITY.md`](../SECURITY.md).
-- [ ] **GitOps (opcional)**: criar uma Application no Argo CD apontando para o repo/manifests
-      e, quando confiar, ligar `syncPolicy.automated` — veja
-      [`deployment-flow.md`](./deployment-flow.md), secao 12.
+- [ ] **GitOps (obrigatorio — ver §10.5)**: a Application no Argo CD precisa estar na `main`; quando
+      confiar, ligar `syncPolicy.automated` — veja [`deployment-flow.md`](./deployment-flow.md), secao 12.
 - [ ] **Observabilidade**: confirmar logs no Grafana/Loki
       (`{namespace="apps", app="aplicacao2-api"}`) e, se quiser, publicar um dashboard via
       ConfigMap com label `grafana_dashboard`.

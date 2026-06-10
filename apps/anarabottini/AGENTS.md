@@ -38,9 +38,13 @@ Servido por nginx sob `/anarabottini/` (Traefik **sem strip**, `priority 10`).
 
 ## 4. Checklist de validação
 
-- [ ] `npm run build` sem erros (TypeScript estrito).
+- [ ] `npm run build` e `npm run typecheck` sem erros (TypeScript estrito).
 - [ ] `npm run preview` carrega em `/anarabottini/` (assets OK, sem 404/octet-stream).
 - [ ] `docker build -t anarabottini-frontend:local apps/anarabottini` ok.
 - [ ] `/anarabottini/healthz` → `ok`; `/anarabottini` (sem barra) → 301.
 - [ ] Console `/devops`: app agrupado por `part-of: anarabottini` (Apps/Publicações/Health).
+- [ ] **Registrado na plataforma** (golden-path §9): Projetos & Tarefas
+      (`console/pm-api/scripts/seed.js`), Compartilhados
+      (`console/pm-api/src/data/shared-resources.json`), card no portal raiz
+      (`portal/frontend/index.html`) e Application do Argo na `main`.
 - [ ] `src/lib/site.ts` revisado (placeholders preenchidos antes de divulgar o link).
