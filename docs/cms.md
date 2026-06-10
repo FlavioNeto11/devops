@@ -49,10 +49,21 @@ Genéricos (criáveis pelo editor sem código): `section-heading`, `rich-text`, 
 
 ## Como editar (operador)
 
-`https://dev.nvit.com.br/devops/` → **Conteúdo** → escolha o portal → página → seções:
-arraste para **reordenar**, alterne **publicar/ocultar**, **Nova seção** (escolha o tipo), **Editar**
-(formulário por tipo, com **WYSIWYG** para textos e **upload** de imagens/PDF), **Editar site**
-(contato/redes/fotos). Recarregue o portal para ver (cache público ~30s).
+`https://dev.nvit.com.br/devops/` → **Conteúdo** → escolha o portal. Há dois modos (alternados no topo):
+
+- **Visual (padrão)** — uma **prévia ao vivo** do portal num iframe (`<rota>/?cmsEdit=1`). Passe o mouse
+  sobre uma seção para ver a barra de ações (**mover ↑/↓**, **publicar/rascunho**, **ocultar/mostrar**,
+  **excluir**, **+ seção abaixo**); **clique** numa seção para abrir o **painel contextual** (formulário
+  daquela seção). Textos em destaque (títulos, subtítulos, cards) são **editáveis direto na prévia**
+  (clique e digite). Listas têm **+ adicionar** e controles por item; mídia abre o campo de **upload**
+  no painel. Tudo **auto-salva** (otimista, com debounce). Trocar de página pelas abas; **Editar site**
+  (contato/redes/fotos) e **+ Seção** ficam no topo.
+- **Avançado** — a lista de seções com drawer/formulário e reordenação por arraste (modo clássico).
+
+> Arquitetura do modo visual: o portal embarcado **nunca grava** — só emite `postMessage` (mesma origem);
+> a árvore EDITÁVEL (inclui rascunho/oculto) é montada e injetada pelo console **autenticado**, que
+> persiste via `pm-api`. O gate de edição exige iframe + `?cmsEdit=1` + handshake same-origin — visitante
+> normal nunca vê o chrome de edição. Recarregue o portal público para ver (cache ~30s).
 
 > Membros (`project-members`) só veem/editam os portais a que têm acesso — mesmo escopo do P&T.
 
@@ -87,8 +98,11 @@ Cada portal tem:
 - Backend: `console/pm-api/src/sql/003_cms.sql`, `src/routes/{cms,cms-public}.js`, `src/auth.js`,
   `scripts/cms-seed-{anarabottini,rmambiental}.js`.
 - Rota pública: `console/k8s/pm/pm-public-ingressroute.yaml`.
-- Editor: `console/frontend/src/components/ContentEditor.jsx` + `components/cms/*` + `api.js` (`pmCms*`).
-- Portais: `apps/<app>/src/{lib/content.ts,lib/SiteContext.tsx,components/SectionRenderer.tsx,data/content.default.ts}`.
+- Editor: `console/frontend/src/components/ContentEditor.jsx` (toggle visual/lista) + `VisualEditor.jsx`
+  (prévia ao vivo + bridge postMessage) + `components/cms/*` (`kinds.js`, `AutoForm`, `FileField`,
+  `RichTextField`) + `lib/jsonPath.js` + `api.js` (`pmCms*`).
+- Portais: `apps/<app>/src/{lib/content.ts,lib/SiteContext.tsx,lib/cmsEdit.tsx,components/SectionRenderer.tsx,data/content.default.ts}`
+  (`cmsEdit.tsx` = gate + primitivos EditableText/SectionFrame/ItemControls/AddButton/MediaSlot).
 
 ## Notas / armadilhas
 

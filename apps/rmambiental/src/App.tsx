@@ -7,6 +7,7 @@ import Home from './pages/Home';
 import Solucoes from './pages/Solucoes';
 import Contato from './pages/Contato';
 import { ContentProvider } from './lib/SiteContext';
+import { CmsEditProvider } from './lib/cmsEdit';
 
 /** Sobe ao topo a cada navegação; rola até a âncora quando há hash (#secao). */
 function ScrollManager() {
@@ -26,21 +27,23 @@ function ScrollManager() {
 
 export default function App() {
   return (
-    <ContentProvider>
-      <div className="relative min-h-screen bg-brand-bg">
-        <ScrollManager />
-        <Header />
-        <main>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/solucoes" element={<Solucoes />} />
-            <Route path="/contato" element={<Contato />} />
-            <Route path="*" element={<Home />} />
-          </Routes>
-        </main>
-        <Footer />
-        <WhatsAppFab />
-      </div>
-    </ContentProvider>
+    <CmsEditProvider>
+      <ContentProvider>
+        <div className="relative min-h-screen bg-brand-bg">
+          <ScrollManager />
+          <Header />
+          <main>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/solucoes" element={<Solucoes />} />
+              <Route path="/contato" element={<Contato />} />
+              <Route path="*" element={<Home />} />
+            </Routes>
+          </main>
+          <Footer />
+          <WhatsAppFab />
+        </div>
+      </ContentProvider>
+    </CmsEditProvider>
   );
 }

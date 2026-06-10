@@ -13,31 +13,8 @@ import PageHeader from './PageHeader.jsx';
 import { ListSkeleton } from './Skeleton.jsx';
 import { useToast } from './ToastProvider.jsx';
 import AutoForm from './cms/AutoForm.jsx';
-
-/** Templates de "Nova secao" — dados iniciais por kind (genericos editaveis). */
-const KIND_TEMPLATES = {
-  'section-heading': { label: 'Título de seção', data: { eyebrow: '', title: 'Novo título', titleAccent: '', subtitle: '', center: false } },
-  'rich-text': { label: 'Texto rico', data: { eyebrow: '', heading: '', html: '<p>Novo texto…</p>' } },
-  'card-grid': { label: 'Grade de cards', data: { heading: { eyebrow: '', title: 'Título', titleAccent: '', subtitle: '', center: false }, layout: 'grid', columns: 3, cards: [{ icon: 'Sparkles', title: 'Card', desc: '' }] } },
-  'timeline': { label: 'Linha do tempo', data: { heading: { eyebrow: '', title: 'Como funciona', titleAccent: '' }, steps: [{ icon: 'Search', title: 'Etapa', desc: '' }] } },
-  'accordion': { label: 'FAQ / Acordeão', data: { heading: { eyebrow: '', title: 'Perguntas frequentes', titleAccent: '', center: true }, items: [{ q: 'Pergunta?', a: 'Resposta.' }] } },
-  'video-gallery': { label: 'Galeria de vídeos', data: { heading: { eyebrow: 'Mídia', title: 'Vídeos', titleAccent: '' }, items: [{ youtubeId: '', title: 'Vídeo', tipo: 'palestra' }] } },
-  'materials': { label: 'Materiais', data: { heading: { eyebrow: 'Materiais', title: 'Recursos', titleAccent: '' }, items: [{ icon: 'FileText', title: 'Material', desc: '', kind: 'pdf', url: '', available: false }] } },
-  'testimonials': { label: 'Depoimentos', data: { heading: { eyebrow: '', title: 'Depoimentos', titleAccent: '', center: true }, items: [{ quote: '', author: '', role: '' }] } },
-  'logos': { label: 'Logos / marcas', data: { heading: { eyebrow: '', title: 'Quem confia', titleAccent: '' }, items: [{ name: '', logoUrl: '' }] } },
-  'cta': { label: 'Chamada (CTA)', data: { title: 'Vamos conversar', titleAccent: '', titleTail: '?', text: '', buttons: [{ label: 'Solicitar proposta', kind: 'proposal', href: '' }] } },
-};
-
-const KIND_LABEL = {
-  hero: 'Hero', 'section-heading': 'Título', 'rich-text': 'Texto', 'card-grid': 'Cards',
-  timeline: 'Timeline', accordion: 'FAQ', 'video-gallery': 'Vídeos', materials: 'Materiais',
-  palestras: 'Palestras', testimonials: 'Depoimentos', logos: 'Logos', cta: 'CTA', 'lead-form': 'Formulário',
-};
-
-function liveAppFor(apps, proj) {
-  if (!proj) return null;
-  return (apps || []).find((a) => a && (a.app === proj.k8s_label_selector || a.app === proj.key)) || null;
-}
+import VisualEditor from './VisualEditor.jsx';
+import { KIND_TEMPLATES, KIND_LABEL, liveAppFor } from './cms/kinds.js';
 
 // ===========================================================================
 function SectionDrawer({ section, onClose, onSaved }) {
@@ -97,6 +74,7 @@ export default function ContentEditor() {
   const [selPageId, setSelPageId] = useState(null);
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [mode, setMode] = useState('visual'); // 'visual' (prévia ao vivo) | 'lista' (avançado)
 
   const [drawer, setDrawer] = useState(null);
   const [siteDraft, setSiteDraft] = useState(null);
@@ -123,13 +101,13 @@ export default function ContentEditor() {
       setSelPageId((cur) => (pg.find((x) => x.id === cur) ? cur : pg[0]?.id || null));
     } catch (e) { toast.err(e.message); }
   }, [toast]);
-  useEffect(() => { loadPages(selId); }, [selId, loadPages]);
+  useEffect(() => { if (mode === 'lista') loadPages(selId); }, [selId, loadPages, mode]);
 
   const loadSections = useCallback(async (pageId) => {
     if (!pageId) { setSections([]); return; }
     try { setSections((await pmCmsSections(pageId)) || []); } catch (e) { toast.err(e.message); }
   }, [toast]);
-  useEffect(() => { loadSections(selPageId); }, [selPageId, loadSections]);
+  useEffect(() => { if (mode === 'lista') loadSections(selPageId); }, [selPageId, loadSections, mode]);
 
   const sel = projects.find((p) => p.id === selId) || null;
   const liveApp = liveAppFor(apps, sel);
@@ -178,8 +156,12 @@ export default function ContentEditor() {
     <div className="meta">
       <PageHeader actions={sel && (
         <>
-          <button className="btn" onClick={openSite}><Icon name="file-text" size={16} /> Editar site</button>
-          {sel.route && <a className="btn" href={sel.route} target="_blank" rel="noopener noreferrer">Pré-visualizar ↗</a>}
+          <div className="meta__pills" role="tablist" aria-label="Modo de edição">
+            <button className={'pill' + (mode === 'visual' ? ' pill--active' : '')} onClick={() => setMode('visual')} role="tab" aria-selected={mode === 'visual'}>Visual</button>
+            <button className={'pill' + (mode === 'lista' ? ' pill--active' : '')} onClick={() => setMode('lista')} role="tab" aria-selected={mode === 'lista'}>Avançado</button>
+          </div>
+          {mode === 'lista' && <button className="btn" onClick={openSite}><Icon name="file-text" size={16} /> Editar site</button>}
+          {mode === 'lista' && sel.route && <a className="btn" href={sel.route} target="_blank" rel="noopener noreferrer">Pré-visualizar ↗</a>}
         </>
       )} />
 
@@ -200,7 +182,9 @@ export default function ContentEditor() {
 
       {!projects.length && <EmptyState icon="file-text" title="Nenhum portal atribuído" hint="Fale com um administrador para receber acesso a um portal." />}
 
-      {sel && (
+      {sel && mode === 'visual' && <VisualEditor key={sel.id} project={sel} />}
+
+      {sel && mode === 'lista' && (
         <>
           {/* Abas de página */}
           <div className="toolbar" style={{ marginBottom: 12, gap: 8 }}>

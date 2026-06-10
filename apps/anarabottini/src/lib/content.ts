@@ -1,8 +1,10 @@
 import type { SiteData } from './site';
 
 // Tipos da árvore de conteúdo (espelham o que /devops/api/cms/public/<key> retorna).
-export type Section = { id?: string; kind: string; anchor?: string | null; data: Record<string, unknown> };
-export type Page = { slug: string; title: string; sections: Section[] };
+// status/visible só existem na árvore EDITÁVEL injetada em modo de edição (o
+// endpoint público os remove); são opcionais e ignorados no render normal.
+export type Section = { id?: string; kind: string; anchor?: string | null; data: Record<string, unknown>; status?: string; visible?: boolean };
+export type Page = { slug: string; title: string; sections: Section[]; status?: string };
 export type ContentTree = { project?: { key: string; name?: string }; site: Partial<SiteData>; pages: Page[] };
 
 // Endpoint público do CMS — mesma origem (dev.nvit.com.br). NÃO usar BASE_URL (=/anarabottini/).

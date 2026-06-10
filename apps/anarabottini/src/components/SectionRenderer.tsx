@@ -13,6 +13,7 @@ import { useSite } from '../lib/SiteContext';
 import { mediaUrl, type Section } from '../lib/content';
 import { videoTipoLabel } from '../data/videos';
 import { cn } from '../lib/utils';
+import { SectionFrame, EditableText, ItemControls, AddButton, MediaSlot, useEditMode } from '../lib/cmsEdit';
 
 type D = Record<string, any>;
 
@@ -26,9 +27,24 @@ function titleNode(h: D) {
     </>
   );
 }
-function Heading({ h }: { h?: D }) {
-  if (!h || (!h.title && !h.eyebrow && !h.subtitle)) return null;
-  return <SectionHeading eyebrow={h.eyebrow} center={h.center} title={titleNode(h)} subtitle={h.subtitle} />;
+// Cabeçalho de seção; em modo edição os textos viram editáveis in-place. `base`
+// é o prefixo do caminho no `data` ('heading' quando h===d.heading; '' quando h===d).
+function Heading({ h, base = 'heading' }: { h?: D; base?: string }) {
+  const edit = useEditMode();
+  if (!edit && (!h || (!h.title && !h.eyebrow && !h.subtitle))) return null;
+  const hd: D = h || {};
+  const p = (k: string) => (base ? `${base}.${k}` : k);
+  if (edit) {
+    return (
+      <SectionHeading
+        center={hd.center}
+        eyebrow={<EditableText as="span" path={p('eyebrow')} value={hd.eyebrow || ''} placeholder="eyebrow" />}
+        title={<><EditableText as="span" path={p('title')} value={hd.title || ''} placeholder="título" />{hd.titleAccent && <span className="text-gradient">{hd.titleAccent}</span>}{hd.titleTail || ''}</>}
+        subtitle={<EditableText as="span" path={p('subtitle')} value={hd.subtitle || ''} placeholder="subtítulo" multiline />}
+      />
+    );
+  }
+  return <SectionHeading eyebrow={hd.eyebrow} center={hd.center} title={titleNode(hd)} subtitle={hd.subtitle} />;
 }
 
 const wrap = (anchor: string | null | undefined, surface: boolean, extra = '') =>
@@ -37,29 +53,34 @@ const wrap = (anchor: string | null | undefined, surface: boolean, extra = '') =
 // --------------------------------------------------------------------------- Hero
 function HeroBlock({ d }: { d: D }) {
   const { site } = useSite();
+  const edit = useEditMode();
   const floating: D[] = d.floating || [];
   return (
     <section id="inicio" className="relative overflow-hidden pt-[72px]">
       <GridGlow />
       <div className="container-wide relative grid items-center gap-14 py-20 lg:grid-cols-[1.05fr_0.95fr] lg:py-28">
         <div>
-          {d.eyebrow && <span className="eyebrow">{d.eyebrow}</span>}
+          {edit
+            ? <EditableText as="span" className="eyebrow" path="eyebrow" value={d.eyebrow || ''} placeholder="eyebrow" />
+            : d.eyebrow && <span className="eyebrow">{d.eyebrow}</span>}
           <p className="mt-6 font-display text-sm font-bold uppercase tracking-[0.3em] text-brand-neon">{d.name || site.name}</p>
           <p className="mt-1 text-sm font-medium text-brand-muted">{d.role || site.role}</p>
           <h1 className="mt-5 font-display text-4xl font-extrabold leading-[1.06] tracking-tight text-brand-text sm:text-5xl lg:text-[3.2rem]">
-            {d.title}<span className="text-gradient">{d.titleAccent}</span>{d.titleTail}
+            {edit ? <EditableText as="span" path="title" value={d.title || ''} placeholder="título" /> : d.title}<span className="text-gradient">{d.titleAccent}</span>{d.titleTail}
           </h1>
-          <p className="mt-6 max-w-xl text-base leading-relaxed text-brand-muted sm:text-lg">{d.intro || site.intro}</p>
+          <p className="mt-6 max-w-xl text-base leading-relaxed text-brand-muted sm:text-lg">
+            {edit ? <EditableText as="span" path="intro" value={d.intro || ''} placeholder="introdução" multiline /> : (d.intro || site.intro)}
+          </p>
           <div className="mt-9 flex flex-wrap items-center gap-3">
             <ProposalButton label={d.primaryCta?.label || 'Solicitar proposta'} />
             {d.secondaryCta?.label && <a href={d.secondaryCta.href || '#palestras'} className="btn-ghost">{d.secondaryCta.label}</a>}
           </div>
           {Array.isArray(d.axes) && d.axes.length > 0 && (
             <div className="mt-12 grid max-w-lg grid-cols-3 gap-6 border-t border-brand-text/10 pt-7">
-              {d.axes.map((a: D) => (
-                <div key={a.title}>
-                  <div className="font-display text-sm font-bold text-brand-neon">{a.title}</div>
-                  <div className="mt-1 text-xs leading-snug text-brand-muted">{a.desc}</div>
+              {d.axes.map((a: D, i: number) => (
+                <div key={a.title + i}>
+                  <div className="font-display text-sm font-bold text-brand-neon">{edit ? <EditableText as="span" path={`axes.${i}.title`} value={a.title || ''} placeholder="título" /> : a.title}</div>
+                  <div className="mt-1 text-xs leading-snug text-brand-muted">{edit ? <EditableText as="span" path={`axes.${i}.desc`} value={a.desc || ''} placeholder="descrição" multiline /> : a.desc}</div>
                 </div>
               ))}
             </div>
@@ -93,13 +114,16 @@ function HeroBlock({ d }: { d: D }) {
 
 // --------------------------------------------------------------------------- Rich text
 function RichTextBlock({ d, anchor, surface }: { d: D; anchor?: string | null; surface: boolean }) {
+  const edit = useEditMode();
   return (
     <section id={anchor || undefined} className={wrap(anchor, surface)}>
       <div className="container-wide">
         <Reveal>
           <div className="mx-auto max-w-3xl">
-            {d.eyebrow && <span className="eyebrow">{d.eyebrow}</span>}
-            {d.heading && <h2 className="mt-5 font-display text-3xl font-bold leading-[1.12] tracking-tight text-brand-text sm:text-4xl">{d.heading}</h2>}
+            {edit
+              ? <EditableText as="span" className="eyebrow" path="eyebrow" value={d.eyebrow || ''} placeholder="eyebrow" />
+              : d.eyebrow && <span className="eyebrow">{d.eyebrow}</span>}
+            {(edit || d.heading) && <h2 className="mt-5 font-display text-3xl font-bold leading-[1.12] tracking-tight text-brand-text sm:text-4xl">{edit ? <EditableText as="span" path="heading" value={d.heading || ''} placeholder="título" /> : d.heading}</h2>}
             <div className="prose-cms mt-5 space-y-4 text-base leading-relaxed text-brand-muted [&_strong]:text-brand-text [&_a]:text-brand-neon [&_ul]:list-disc [&_ul]:pl-5 [&_h2]:font-display [&_h2]:text-brand-text [&_h3]:font-display [&_h3]:text-brand-text"
               dangerouslySetInnerHTML={{ __html: d.html || '' }} />
           </div>
@@ -113,13 +137,14 @@ function RichTextBlock({ d, anchor, surface }: { d: D; anchor?: string | null; s
 function HeadingBlock({ d, anchor, surface }: { d: D; anchor?: string | null; surface: boolean }) {
   return (
     <section id={anchor || undefined} className={wrap(anchor, surface, 'py-20')}>
-      <div className="container-wide"><Heading h={d} /></div>
+      <div className="container-wide"><Heading h={d} base="" /></div>
     </section>
   );
 }
 
 // --------------------------------------------------------------------------- Card grid
 function CardGridBlock({ d, anchor, surface }: { d: D; anchor?: string | null; surface: boolean }) {
+  const edit = useEditMode();
   const cards: D[] = d.cards || [];
   const cols = d.columns === 4 ? 'lg:grid-cols-4' : d.columns === 2 ? 'lg:grid-cols-2' : 'lg:grid-cols-3';
   const list = d.layout === 'list';
@@ -132,11 +157,12 @@ function CardGridBlock({ d, anchor, surface }: { d: D; anchor?: string | null; s
             const Ico = resolveIcon(c.icon);
             const inner = (
               <div className={cn('group h-full rounded-3xl border border-brand-text/10 bg-brand-surface/70 p-6 shadow-card transition-all duration-300 hover:-translate-y-1 hover:border-brand-neon/30', d.heading?.center && 'text-center')}>
+                <ItemControls path="cards" index={i} count={cards.length} />
                 <span className={cn('grid h-12 w-12 place-items-center rounded-2xl bg-brand-neon/12 ring-1 ring-brand-text/10', d.heading?.center && 'mx-auto')}><Ico className="h-6 w-6 text-brand-neon" /></span>
-                {c.tag && <span className="mt-3 inline-block rounded-full bg-brand-neon/12 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-brand-neon">{c.tag}</span>}
-                <h3 className="mt-4 font-display text-base font-bold text-brand-text">{c.title}</h3>
+                {(edit || c.tag) && <span className="mt-3 inline-block rounded-full bg-brand-neon/12 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-brand-neon">{edit ? <EditableText as="span" path={`cards.${i}.tag`} value={c.tag || ''} placeholder="tag" /> : c.tag}</span>}
+                <h3 className="mt-4 font-display text-base font-bold text-brand-text">{edit ? <EditableText as="span" path={`cards.${i}.title`} value={c.title || ''} placeholder="título" /> : c.title}</h3>
                 {c.subtitle && <p className="mt-0.5 text-sm italic text-brand-muted">{c.subtitle}</p>}
-                {c.desc && <p className="mt-2 text-sm leading-relaxed text-brand-muted">{c.desc}</p>}
+                {(edit || c.desc) && <p className="mt-2 text-sm leading-relaxed text-brand-muted">{edit ? <EditableText as="span" path={`cards.${i}.desc`} value={c.desc || ''} placeholder="descrição" multiline /> : c.desc}</p>}
                 {Array.isArray(c.bullets) && c.bullets.length > 0 && (
                   <ul className="mt-3 grid gap-1.5 text-left">
                     {c.bullets.map((b: string) => <li key={b} className="flex items-start gap-2 text-sm text-brand-muted"><Check className="mt-0.5 h-4 w-4 shrink-0 text-brand-neon/80" />{b}</li>)}
@@ -145,9 +171,10 @@ function CardGridBlock({ d, anchor, surface }: { d: D; anchor?: string | null; s
                 {c.href && <a href={c.href} className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-neon">Ver mais <ArrowRight className="h-4 w-4" /></a>}
               </div>
             );
-            return <Reveal key={c.title + i} delay={(i % 4) * 0.06} className={list ? 'sm:col-span-2 lg:col-span-3' : ''}>{inner}</Reveal>;
+            return <Reveal key={c.title + i} delay={(i % 4) * 0.06} className={cn(list ? 'sm:col-span-2 lg:col-span-3' : '', edit && 'cms-item')}>{inner}</Reveal>;
           })}
         </div>
+        <AddButton path="cards" label="Adicionar card" />
       </div>
     </section>
   );
@@ -155,6 +182,7 @@ function CardGridBlock({ d, anchor, surface }: { d: D; anchor?: string | null; s
 
 // --------------------------------------------------------------------------- Timeline
 function TimelineBlock({ d, anchor, surface }: { d: D; anchor?: string | null; surface: boolean }) {
+  const edit = useEditMode();
   const steps: D[] = d.steps || [];
   return (
     <section id={anchor || undefined} className={wrap(anchor, surface)}>
@@ -167,20 +195,22 @@ function TimelineBlock({ d, anchor, surface }: { d: D; anchor?: string | null; s
               const Ico = resolveIcon(s.icon);
               return (
                 <motion.div key={s.title + i} initial={{ opacity: 0, x: -16 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true, margin: '-60px' }} transition={{ duration: 0.5, delay: i * 0.06 }}
-                  className="relative flex items-start gap-5 md:odd:flex-row-reverse md:odd:text-right">
+                  className={cn('relative flex items-start gap-5 md:odd:flex-row-reverse md:odd:text-right', edit && 'cms-item')}>
+                  <ItemControls path="steps" index={i} count={steps.length} />
                   <span className="relative z-10 grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-brand-neon/30 bg-brand-bg text-brand-neon shadow-glow">
                     <Ico className="h-6 w-6" />
                     <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-brand-neon text-[11px] font-bold text-brand-onNeon">{i + 1}</span>
                   </span>
                   <div className="flex-1 rounded-2xl border border-brand-text/10 bg-brand-surface/70 p-5 shadow-soft md:max-w-[44%]">
-                    <h3 className="font-display text-base font-bold text-brand-text">{s.title}</h3>
-                    <p className="mt-1.5 text-sm leading-relaxed text-brand-muted">{s.desc}</p>
+                    <h3 className="font-display text-base font-bold text-brand-text">{edit ? <EditableText as="span" path={`steps.${i}.title`} value={s.title || ''} placeholder="título" /> : s.title}</h3>
+                    <p className="mt-1.5 text-sm leading-relaxed text-brand-muted">{edit ? <EditableText as="span" path={`steps.${i}.desc`} value={s.desc || ''} placeholder="descrição" multiline /> : s.desc}</p>
                   </div>
                 </motion.div>
               );
             })}
           </div>
         </div>
+        <AddButton path="steps" label="Adicionar etapa" />
       </div>
     </section>
   );
@@ -245,6 +275,7 @@ function VideoGalleryBlock({ d, anchor, surface }: { d: D; anchor?: string | nul
 
 // --------------------------------------------------------------------------- Materials
 function MaterialsBlock({ d, anchor, surface }: { d: D; anchor?: string | null; surface: boolean }) {
+  const edit = useEditMode();
   const items: D[] = d.items || [];
   const KIND_LABEL: Record<string, string> = { pdf: 'PDF', link: 'Link', form: 'Formulário' };
   return (
@@ -257,12 +288,13 @@ function MaterialsBlock({ d, anchor, surface }: { d: D; anchor?: string | null; 
             const ready = m.available && (m.url || '').trim().length > 0;
             const href = mediaUrl(m.url);
             return (
-              <Reveal key={(m.title || '') + i} delay={(i % 4) * 0.06}>
+              <Reveal key={(m.title || '') + i} delay={(i % 4) * 0.06} className={cn(edit && 'cms-item')}>
                 <div className="flex h-full flex-col rounded-3xl border border-brand-text/10 bg-brand-surface/70 p-6 shadow-card">
+                  <ItemControls path="items" index={i} count={items.length} />
                   <span className="grid h-12 w-12 place-items-center rounded-2xl bg-brand-neon/12 ring-1 ring-brand-text/10"><Ico className="h-6 w-6 text-brand-neon" /></span>
                   <span className="mt-4 inline-flex w-fit rounded-full bg-brand-surface2/80 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-brand-muted">{KIND_LABEL[m.kind] || m.kind}</span>
-                  <h3 className="mt-3 font-display text-base font-bold leading-snug text-brand-text">{m.title}</h3>
-                  <p className="mt-2 flex-1 text-sm leading-relaxed text-brand-muted">{m.desc}</p>
+                  <h3 className="mt-3 font-display text-base font-bold leading-snug text-brand-text">{edit ? <EditableText as="span" path={`items.${i}.title`} value={m.title || ''} placeholder="título" /> : m.title}</h3>
+                  <p className="mt-2 flex-1 text-sm leading-relaxed text-brand-muted">{edit ? <EditableText as="span" path={`items.${i}.desc`} value={m.desc || ''} placeholder="descrição" multiline /> : m.desc}</p>
                   <div className="mt-5">
                     {ready ? (
                       <a href={href} target={m.kind === 'pdf' ? undefined : '_blank'} rel="noopener noreferrer" {...(m.kind === 'pdf' ? { download: '' } : {})} className="inline-flex items-center gap-2 text-sm font-semibold text-brand-neon transition-all hover:gap-2.5">
@@ -277,6 +309,7 @@ function MaterialsBlock({ d, anchor, surface }: { d: D; anchor?: string | null; 
             );
           })}
         </div>
+        <AddButton path="items" label="Adicionar material" />
       </div>
     </section>
   );
@@ -338,22 +371,26 @@ function PalestrasBlock({ d, anchor, surface }: { d: D; anchor?: string | null; 
 
 // --------------------------------------------------------------------------- Testimonials
 function TestimonialsBlock({ d, anchor, surface }: { d: D; anchor?: string | null; surface: boolean }) {
-  const items: D[] = (d.items || []).filter((t: D) => (t.quote || '').trim());
-  if (!items.length) return null;
+  const edit = useEditMode();
+  const all: D[] = d.items || [];
+  const items: D[] = edit ? all : all.filter((t: D) => (t.quote || '').trim());
+  if (!edit && !items.length) return null;
   return (
     <section id={anchor || undefined} className={wrap(anchor, surface)}>
       <div className="container-wide">
         <Heading h={d.heading} />
         <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {items.map((t, i) => (
-            <Reveal key={i} delay={(i % 3) * 0.07}>
+            <Reveal key={i} delay={(i % 3) * 0.07} className={cn(edit && 'cms-item')}>
               <figure className="h-full rounded-3xl border border-brand-text/10 bg-brand-surface/70 p-7 shadow-card">
-                <blockquote className="text-sm leading-relaxed text-brand-text">“{t.quote}”</blockquote>
-                <figcaption className="mt-5 text-sm"><span className="font-display font-bold text-brand-text">{t.author}</span>{t.role && <span className="block text-brand-muted">{t.role}</span>}</figcaption>
+                <ItemControls path="items" index={i} count={items.length} />
+                <blockquote className="text-sm leading-relaxed text-brand-text">“{edit ? <EditableText as="span" path={`items.${i}.quote`} value={t.quote || ''} placeholder="depoimento" multiline /> : t.quote}”</blockquote>
+                <figcaption className="mt-5 text-sm"><span className="font-display font-bold text-brand-text">{edit ? <EditableText as="span" path={`items.${i}.author`} value={t.author || ''} placeholder="autor" /> : t.author}</span>{(edit || t.role) && <span className="block text-brand-muted">{edit ? <EditableText as="span" path={`items.${i}.role`} value={t.role || ''} placeholder="cargo" /> : t.role}</span>}</figcaption>
               </figure>
             </Reveal>
           ))}
         </div>
+        <AddButton path="items" label="Adicionar depoimento" />
       </div>
     </section>
   );
@@ -361,6 +398,7 @@ function TestimonialsBlock({ d, anchor, surface }: { d: D; anchor?: string | nul
 
 // --------------------------------------------------------------------------- CTA
 function CtaBlock({ d }: { d: D }) {
+  const edit = useEditMode();
   const buttons: D[] = d.buttons || [];
   return (
     <section id="cta" className="relative py-24">
@@ -370,8 +408,8 @@ function CtaBlock({ d }: { d: D }) {
             <InfinityMotif className="pointer-events-none absolute -left-8 -top-6 h-32 w-64 opacity-25" />
             <InfinityMotif className="pointer-events-none absolute -bottom-8 -right-6 h-32 w-64 rotate-180 opacity-20" />
             <div className="relative mx-auto max-w-2xl">
-              <h2 className="font-display text-3xl font-bold leading-[1.12] tracking-tight text-brand-text sm:text-4xl">{d.title}<span className="text-gradient">{d.titleAccent}</span>{d.titleTail}</h2>
-              {d.text && <p className="mt-5 text-base leading-relaxed text-brand-muted sm:text-lg">{d.text}</p>}
+              <h2 className="font-display text-3xl font-bold leading-[1.12] tracking-tight text-brand-text sm:text-4xl">{edit ? <EditableText as="span" path="title" value={d.title || ''} placeholder="título" /> : d.title}<span className="text-gradient">{d.titleAccent}</span>{d.titleTail}</h2>
+              {(edit || d.text) && <p className="mt-5 text-base leading-relaxed text-brand-muted sm:text-lg">{edit ? <EditableText as="span" path="text" value={d.text || ''} placeholder="texto" multiline /> : d.text}</p>}
               <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
                 {buttons.map((b, i) => b.kind === 'proposal'
                   ? <ProposalButton key={i} label={b.label} />
@@ -385,30 +423,38 @@ function CtaBlock({ d }: { d: D }) {
   );
 }
 
+// --------------------------------------------------------------------------- bloco por kind
+function renderBlock(s: Section, i: number) {
+  const d = (s.data || {}) as D;
+  const surface = i % 2 === 1; // ritmo visual
+  const a = s.anchor;
+  switch (s.kind) {
+    case 'hero': return <HeroBlock d={d} />;
+    case 'rich-text': return <RichTextBlock d={d} anchor={a} surface={surface} />;
+    case 'section-heading': return <HeadingBlock d={d} anchor={a} surface={surface} />;
+    case 'card-grid':
+    case 'feature-grid': return <CardGridBlock d={d} anchor={a} surface={surface} />;
+    case 'timeline': return <TimelineBlock d={d} anchor={a} surface={surface} />;
+    case 'accordion': return <AccordionBlock d={d} anchor={a} surface={surface} />;
+    case 'video-gallery': return <VideoGalleryBlock d={d} anchor={a} surface={surface} />;
+    case 'materials': return <MaterialsBlock d={d} anchor={a} surface={surface} />;
+    case 'palestras': return <PalestrasBlock d={d} anchor={a} surface={surface} />;
+    case 'testimonials': return <TestimonialsBlock d={d} anchor={a} surface={surface} />;
+    case 'cta': return <CtaBlock d={d} />;
+    case 'lead-form': return <section id={a || 'contato'} className={wrap(a, surface)}><div className="container-wide"><Heading h={d.heading} /><div className="mx-auto mt-8 max-w-3xl"><LeadForm variant="page" /></div></div></section>;
+    default: return null;
+  }
+}
+
 // --------------------------------------------------------------------------- dispatcher
 export default function SectionRenderer({ sections }: { sections: Section[] }) {
+  const count = sections.length;
   return (
     <>
       {sections.map((s, i) => {
-        const d = (s.data || {}) as D;
-        const surface = i % 2 === 1; // ritmo visual
-        const a = s.anchor;
-        switch (s.kind) {
-          case 'hero': return <HeroBlock key={s.id || i} d={d} />;
-          case 'rich-text': return <RichTextBlock key={s.id || i} d={d} anchor={a} surface={surface} />;
-          case 'section-heading': return <HeadingBlock key={s.id || i} d={d} anchor={a} surface={surface} />;
-          case 'card-grid':
-          case 'feature-grid': return <CardGridBlock key={s.id || i} d={d} anchor={a} surface={surface} />;
-          case 'timeline': return <TimelineBlock key={s.id || i} d={d} anchor={a} surface={surface} />;
-          case 'accordion': return <AccordionBlock key={s.id || i} d={d} anchor={a} surface={surface} />;
-          case 'video-gallery': return <VideoGalleryBlock key={s.id || i} d={d} anchor={a} surface={surface} />;
-          case 'materials': return <MaterialsBlock key={s.id || i} d={d} anchor={a} surface={surface} />;
-          case 'palestras': return <PalestrasBlock key={s.id || i} d={d} anchor={a} surface={surface} />;
-          case 'testimonials': return <TestimonialsBlock key={s.id || i} d={d} anchor={a} surface={surface} />;
-          case 'cta': return <CtaBlock key={s.id || i} d={d} />;
-          case 'lead-form': return <section key={s.id || i} id={a || 'contato'} className={wrap(a, surface)}><div className="container-wide"><Heading h={d.heading} /><div className="mx-auto mt-8 max-w-3xl"><LeadForm variant="page" /></div></div></section>;
-          default: return null;
-        }
+        const block = renderBlock(s, i);
+        if (!block) return null;
+        return <SectionFrame key={s.id || i} section={s} index={i} count={count}>{block}</SectionFrame>;
       })}
     </>
   );

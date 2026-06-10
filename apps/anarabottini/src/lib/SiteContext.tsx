@@ -2,18 +2,24 @@ import React, { createContext, useContext, useEffect, useMemo, useState, type Re
 import { fetchContent, type ContentTree } from './content';
 import { contentDefault } from '../data/content.default';
 import { makeSiteApi, mergeSite, type SiteApi } from './site';
+import { useEditMode, useEditTree, wantsEdit } from './cmsEdit';
 
 type LoadState = 'loading' | 'live' | 'fallback';
 type Ctx = { tree: ContentTree; state: LoadState; siteApi: SiteApi };
 
 const ContentCtx = createContext<Ctx | null>(null);
 
-/** Default-first: renderiza o conteúdo embutido na hora e troca para o do CMS quando carrega. */
+/** Default-first: renderiza o conteúdo embutido na hora e troca para o do CMS quando carrega.
+ *  Em modo de edição (iframe do console), usa a árvore EDITÁVEL injetada via postMessage
+ *  em vez do endpoint público (que só traz publicado/visível). */
 export function ContentProvider({ children }: { children: ReactNode }) {
+  const editMode = useEditMode();
+  const editTree = useEditTree();
   const [tree, setTree] = useState<ContentTree>(contentDefault);
   const [state, setState] = useState<LoadState>('loading');
 
   useEffect(() => {
+    if (wantsEdit()) { setState('live'); return undefined; } // edição: a árvore vem do console
     let alive = true;
     fetchContent()
       .then((t) => { if (alive) { setTree(t); setState('live'); } })
@@ -21,8 +27,9 @@ export function ContentProvider({ children }: { children: ReactNode }) {
     return () => { alive = false; };
   }, []);
 
-  const siteApi = useMemo(() => makeSiteApi(mergeSite(tree.site)), [tree]);
-  const value = useMemo(() => ({ tree, state, siteApi }), [tree, state, siteApi]);
+  const effective = (editMode && editTree) ? editTree : tree;
+  const siteApi = useMemo(() => makeSiteApi(mergeSite(effective.site)), [effective]);
+  const value = useMemo(() => ({ tree: effective, state, siteApi }), [effective, state, siteApi]);
   return <ContentCtx.Provider value={value}>{children}</ContentCtx.Provider>;
 }
 

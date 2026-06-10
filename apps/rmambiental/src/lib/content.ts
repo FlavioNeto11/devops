@@ -1,7 +1,8 @@
 import type { SiteData } from './site';
 
-export type Section = { id?: string; kind: string; anchor?: string | null; data: Record<string, unknown> };
-export type Page = { slug: string; title: string; sections: Section[] };
+// status/visible só existem na árvore EDITÁVEL injetada em modo de edição.
+export type Section = { id?: string; kind: string; anchor?: string | null; data: Record<string, unknown>; status?: string; visible?: boolean };
+export type Page = { slug: string; title: string; sections: Section[]; status?: string };
 export type ContentTree = { project?: { key: string; name?: string }; site: Partial<SiteData>; pages: Page[] };
 
 const CMS_BASE = `${typeof location !== 'undefined' ? location.origin : ''}/devops/api/cms/public`;
