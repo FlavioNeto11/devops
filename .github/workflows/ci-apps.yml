@@ -4,24 +4,27 @@
 # Roda em PR e push para main quando muda apps/**. Matrix por app, com o
 # gerenciador de pacote correto (sicat=npm workspaces, gymops=pnpm, rmambiental=npm).
 #
-# Escopo: verificacoes ESTATICAS (lint, typecheck, build) que NAO precisam de
-# infra. Testes de integracao (gymops/sicat) exigem Postgres/Redis e rodam no
-# pipeline proprio de cada app / localmente — por isso 'test' fica fora deste
-# gate (evita vermelho por falta de servico, nao por bug). Cada passo so roda se
-# o script existir no package.json (guard via node) — tolerante a apps sem lint.
+# Escopo: verificacoes ESTATICAS que NAO precisam de infra. Testes de integracao
+# (gymops/sicat) exigem Postgres/Redis e rodam no pipeline proprio de cada app /
+# localmente — ficam fora deste gate. Cada app declara seus 'checks' explicitos
+# (e um 'prep' opcional de codegen, ex.: prisma generate). run_if pula um check
+# se o script nao existir no package.json.
 #
 # Runner: ubuntu-latest (igual aos demais workflows de build/lint do repo).
 # =============================================================================
 name: ci-apps
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - "apps/**"
+      - ".github/workflows/ci-apps.yml"
   push:
     branches: [main]
     paths:
       - "apps/**"
+      - ".github/workflows/ci-apps.yml"
 
 permissions:
   contents: read
@@ -36,10 +39,16 @@ jobs:
         include:
           - app: sicat
             pm: npm
+            prep: ""
+            checks: "lint build:frontend"
           - app: gymops
             pm: pnpm
+            prep: "pnpm --filter @gymops/db run generate"
+            checks: "lint typecheck"
           - app: rmambiental
             pm: npm
+            prep: ""
+            checks: "build"
     defaults:
       run:
         working-directory: apps/${{ matrix.app }}
@@ -68,7 +77,11 @@ jobs:
             npm ci || npm install
           fi
 
-      - name: Verificacoes estaticas (so se o script existir)
+      - name: Preparar (codegen, se houver)
+        if: matrix.prep != ''
+        run: ${{ matrix.prep }}
+
+      - name: Verificacoes estaticas
         run: |
           PM="${{ matrix.pm }}"
           run_if () {
@@ -80,7 +93,4 @@ jobs:
               echo "skip: sem script '$1'"
             fi
           }
-          run_if lint
-          run_if typecheck
-          run_if build
-          run_if build:frontend
+          for c in ${{ matrix.checks }}; do run_if "$c"; done
