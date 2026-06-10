@@ -56,6 +56,19 @@ Adoção é **incremental e reversível** (caminho antigo atrás de flag por 1 c
 - Build de imagem (lab): `docker build -t <app>-<svc>:local ...` → `kubectl apply` / `scripts/publish-app.ps1`.
 - Validar: `http://xpto.localhost/<app>` + `/<app>/api/health`; conferir no Console `/devops`.
 
+## Lint, Format & Test (piso compartilhado)
+Piso mínimo na raiz, **herança > duplicação**; cada app pode sobrescrever:
+- **`.editorconfig`** (raiz) — indentação/EOL/charset, lido por todos os editores. Universal.
+- **`.gitattributes`** (raiz) — normaliza EOL no git (LF; `.ps1`/`.cmd` em CRLF; binários marcados).
+- **`.prettierrc`** (raiz) — baseline de formatação (single quote, trailing comma, width 100, LF).
+- **`tsconfig.base.json`** (raiz) — baseline TS para **apps novas** estenderem
+  (`extends: ../../tsconfig.base.json`). SPAs (Vite) ajustam `module`/`lib`.
+- **ESLint/testes são por app** (sicat e gymops já têm). Piso esperado: TS `strict`, Prettier,
+  e ao menos `build`/`typecheck`. Apps menores (rmambiental, console) devem evoluir para ter lint.
+- **CI**: [`.github/workflows/ci-apps.yml`](.github/workflows/ci-apps.yml) roda
+  `lint`/`typecheck`/`test`/`build` **`--if-present`** por app em PR; docs/contratos em
+  [`validate-docs.yml`](.github/workflows/validate-docs.yml).
+
 ## Gestão do desenvolvimento
 Bugs/features/evoluções e tasks (começo-meio-fim) por projeto ficam no módulo **Projetos & Tarefas**
 do Console (`/devops`) — a partir da Fase 3. A fonte do estado de cada app é
