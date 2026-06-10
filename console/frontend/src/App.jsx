@@ -6,6 +6,7 @@ import Publications from './components/Publications.jsx';
 import Health from './components/Health.jsx';
 import Logs from './components/Logs.jsx';
 import MetaProjects from './components/MetaProjects.jsx';
+import ContentEditor from './components/ContentEditor.jsx';
 import AccessAdmin from './components/AccessAdmin.jsx';
 import SharedResources from './components/SharedResources.jsx';
 import Sidebar from './components/Sidebar.jsx';
@@ -23,10 +24,11 @@ const SECTIONS = {
   logs: { label: 'Logs', icon: 'terminal', group: 'Cluster', description: 'Logs dos pods, em tempo quase real.' },
   publications: { label: 'Publicações', icon: 'rocket', group: 'Cluster', description: 'Histórico de deploys da esteira.' },
   projects: { label: 'Projetos & Tarefas', icon: 'kanban', group: 'Gestão', description: 'Board de projetos, itens e tarefas.' },
+  conteudo: { label: 'Conteúdo', icon: 'file-text', group: 'Gestão', description: 'Editor de conteúdo dos portais (CMS).' },
   access: { label: 'Usuários', icon: 'users', group: 'Gestão', description: 'Usuários restritos e acesso por projeto.' },
   shared: { label: 'Compartilhados', icon: 'package', group: 'Gestão', description: 'Recursos compartilhados entre projetos e suas versões (drift).' },
 };
-const SECTION_ORDER = ['overview', 'apps', 'health', 'logs', 'publications', 'projects', 'access', 'shared'];
+const SECTION_ORDER = ['overview', 'apps', 'health', 'logs', 'publications', 'projects', 'conteudo', 'access', 'shared'];
 
 const QUICK_LINKS = [
   { href: '/argocd', label: 'Argo CD' },
@@ -130,7 +132,7 @@ export default function App() {
 
   // Grupos da sidebar (filtrados por papel, na ordem de SECTION_ORDER).
   const sidebarGroups = useMemo(() => {
-    const visible = isMember ? ['projects'] : SECTION_ORDER;
+    const visible = isMember ? ['projects', 'conteudo'] : SECTION_ORDER;
     const byGroup = new Map();
     for (const key of SECTION_ORDER) {
       if (!visible.includes(key)) continue;
@@ -182,6 +184,7 @@ export default function App() {
             {!isMember && activeTab === 'health' && <Health streamData={streamData} streamStatus={streamStatus} />}
             {!isMember && activeTab === 'logs' && <Logs />}
             {activeTab === 'projects' && <MetaProjects canManageProjects={canManageProjects} />}
+            {activeTab === 'conteudo' && <ContentEditor />}
             {activeTab === 'access' && isAdmin && <AccessAdmin />}
             {activeTab === 'shared' && isAdmin && <SharedResources />}
           </main>

@@ -39,6 +39,12 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      // CMS leitura publica (mesmo pm-api): /devops/api/cms -> pm-api ve /public/...
+      '/devops/api/cms': {
+        target: 'http://localhost:3002',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/devops\/api\/cms/, ''),
+      },
       // Mais especifico primeiro: pm-api (escrita) em :3002.
       '/devops/api/pm': {
         target: 'http://localhost:3002',
