@@ -1,0 +1,40 @@
+# =============================================================================
+# gitleaks — config da plataforma (estende as regras padrao do gitleaks)
+# Objetivo: pegar segredos REAIS novos, sem ruido de falsos positivos conhecidos.
+# Triagem 2026-06 (92 commits): 54 matches = SealedSecrets (cifrados, OK no git),
+# JDBC URLs sem senha, e JWTs expirados / tokens fake em testes/examples/openapi/
+# docs legado (squash-import). Nenhum segredo vivo no tree atual. Allowlist abaixo.
+# =============================================================================
+title = "devops platform gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Falsos positivos: cifrados por design, URLs sem senha, e fixtures/exemplos/docs legado"
+paths = [
+  # SealedSecrets: o conteudo e CIPHERTEXT (so o controller decifra) — versionar e o objetivo.
+  '''.*sealed-.*\.ya?ml$''',
+  # Modelos/exemplos sempre rastreados (placeholders).
+  '''.*\.example$''',
+  '''.*\.example\.ya?ml$''',
+  '''.*secret\.example\.ya?ml$''',
+  # Fixtures e payloads de teste/exemplo (tokens fake ou JWT expirados).
+  '''apps/sicat/tests/.*''',
+  '''apps/sicat/examples/.*''',
+  '''apps/sicat/openapi/.*''',
+  '''apps/sicat/scripts/check-jwt\.js$''',
+  # Docs historicos (legado/handoffs): JWT expirados preservados por rastreabilidade.
+  '''.*/legado/.*''',
+  '''apps/sicat/docs/copilot/handoffs/.*''',
+  '''apps/sicat/docs/handoffs/.*''',
+  # Keycloak: so contem KC_DB_URL (jdbc host:porta/db, sem senha); segredos via SealedSecret/envFrom.
+  '''platform/keycloak/keycloak\.yaml$''',
+  '''platform/keycloak/README\.md$''',
+]
+regexes = [
+  # Connection strings SEM senha (ex.: KC_DB_URL=jdbc:postgresql://host:5432/db).
+  '''jdbc:postgresql://[^@"'\s]+''',
+  # Referencia de servico Postgres interno host:porta/db (sem credencial), ex.: keycloak-postgres:5432/keycloak.
+  '''[a-z0-9-]+-postgres:\d{2,5}/[a-z0-9_]+''',
+]

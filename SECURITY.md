@@ -52,6 +52,17 @@ Boas praticas:
 > **purgados do historico** (`git filter-repo`) + force-push na `main`. Forks/clones e SHAs em cache
 > do GitHub podem reter copias por ate ~90 dias (GC); **rotacione** qualquer credencial exposta.
 
+### Varredura de segredos (gitleaks)
+
+- O workflow [`secret-scan`](.github/workflows/secret-scan.yml) roda **gitleaks** sobre o historico
+  completo em PR/push, bloqueando segredos REAIS novos. Config: [`.gitleaks.toml`](.gitleaks.toml).
+- **Triagem 2026-06:** 54 matches brutos → **0 reais**. Eram: SealedSecrets (ciphertext, OK no git),
+  `KC_DB_URL` (jdbc sem senha) e **JWTs expirados / tokens fake** em testes/exemplos/openapi/docs
+  legado (vindos do squash-import do sicat). Esses caminhos estao no allowlist do `.gitleaks.toml`.
+- Os JWTs legado estao **expirados**; ainda assim, na duvida sobre qualquer token historico,
+  **rotacione**. Rodar localmente: `docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest
+  detect --source=/repo --config=/repo/.gitleaks.toml --redact`.
+
 ---
 
 ## 2. Escopos do PAT do GHCR
