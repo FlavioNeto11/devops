@@ -13,7 +13,8 @@ import EmptyState from './EmptyState.jsx';
 import { useToast } from './ToastProvider.jsx';
 import AutoForm from './cms/AutoForm.jsx';
 import RichTextField from './cms/RichTextField.jsx';
-import FileField from './cms/FileField.jsx';
+import MediaPicker from './cms/MediaPicker.jsx';
+import IconPicker from './cms/IconPicker.jsx';
 
 // Protocolo postMessage com o portal embarcado no iframe (mesma origem).
 const SOURCE = 'cms-visual-editor';
@@ -347,6 +348,7 @@ function PanelEditor({ section, path, projectId, setSectionData }) {
   const key = String(path).split('.').pop();
   const onChange = (v) => setSectionData(section.id, setAt(data, path, v));
   if (key === 'html') return <RichTextField value={sub || ''} onChange={onChange} />;
-  if (FILE_KEY.test(key)) return <FileField projectId={projectId} value={sub || ''} onChange={onChange} />;
+  if (key === 'icon') return <IconPicker value={sub || ''} onChange={onChange} />;
+  if (FILE_KEY.test(key)) return <MediaPicker projectId={projectId} value={sub || ''} onChange={onChange} />;
   return <textarea className="textarea" autoFocus value={sub || ''} onChange={(e) => onChange(e.target.value)} />;
 }

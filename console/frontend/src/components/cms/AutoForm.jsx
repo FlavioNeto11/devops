@@ -1,11 +1,13 @@
 import React from 'react';
 import RichTextField from './RichTextField.jsx';
-import FileField from './FileField.jsx';
+import MediaPicker from './MediaPicker.jsx';
+import IconPicker from './IconPicker.jsx';
 
 // Editor de conteudo GENERICO: percorre o objeto `data` (jsonb) e renderiza o
 // editor adequado por tipo/chave. Cobre qualquer `kind` sem formulario dedicado.
 //   - chave 'html'         -> RichTextField (WYSIWYG)
-//   - chave *url|*photo... -> FileField (upload)
+//   - chave 'icon'         -> IconPicker (grid visual buscável)
+//   - chave *url|*photo... -> MediaPicker (preview + upload + biblioteca)
 //   - array de objetos     -> lista com add/remover/reordenar (AutoForm aninhado)
 //   - array de strings     -> textarea (um por linha)
 //   - objeto               -> sub-formulario
@@ -30,7 +32,8 @@ function emptyLike(v) {
 
 function StringField({ k, value, onChange, projectId }) {
   if (k === 'html') return <RichTextField value={value} onChange={onChange} />;
-  if (FILE_KEY.test(k)) return <FileField projectId={projectId} value={value} onChange={onChange} />;
+  if (k === 'icon') return <IconPicker value={value} onChange={onChange} />;
+  if (FILE_KEY.test(k)) return <MediaPicker projectId={projectId} value={value} onChange={onChange} />;
   const multi = TEXTAREA_KEYS.has(k) || (typeof value === 'string' && value.length > LONG);
   return multi
     ? <textarea className="textarea" value={value || ''} onChange={(e) => onChange(e.target.value)} />

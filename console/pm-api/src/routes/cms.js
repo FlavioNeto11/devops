@@ -34,12 +34,23 @@ const SECTION_KINDS = new Set([
 ]);
 
 const ALLOWED_MIME = new Set([
+  // imagens
   'image/png',
   'image/jpeg',
   'image/webp',
   'image/gif',
   'image/svg+xml',
+  // documentos
   'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'text/csv',
+  'text/plain',
+  'application/zip',
 ]);
 
 const upload = multer({

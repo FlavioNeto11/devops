@@ -12,6 +12,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "apps/rmambiental", "--", "--port", "5174", "--strictPort"],
       "port": 5174
+    },
+    {
+      "name": "console",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "console/frontend", "--", "--port", "5180", "--strictPort"],
+      "port": 5180
     }
   ]
 }
