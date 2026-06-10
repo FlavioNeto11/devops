@@ -8,6 +8,8 @@ import tasks from './routes/tasks.js';
 import me from './routes/me.js';
 import admin from './routes/admin.js';
 import shared from './routes/shared.js';
+import cms from './routes/cms.js';
+import cmsPublic from './routes/cms-public.js';
 import { authContext, requireAdmin } from './auth.js';
 import { seed } from '../scripts/seed.js';
 
@@ -27,6 +29,9 @@ api.get('/health', async (_req, res) => {
   }
 });
 
+// CMS leitura PUBLICA (portais): ANTES do authContext — sem gate, so publicado.
+api.use(cmsPublic);
+
 // Contexto de identidade (papel/grupos via headers da borda) para TODAS as rotas abaixo.
 api.use(authContext);
 
@@ -45,6 +50,7 @@ api.use(shared);
 api.use(projects);
 api.use(items);
 api.use(tasks);
+api.use(cms);
 
 // Traefik faz StripPrefix de /devops/api/pm -> o backend ve "/". Tambem montamos em
 // /api/pm para chamadas diretas em dev (vite proxy).

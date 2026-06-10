@@ -208,3 +208,32 @@ export const pmResetMemberPassword = (email) =>
 
 // Inventário de recursos compartilhados entre projetos (libs @flavioneto11/* + infra) com versões/drift.
 export const pmSharedResources = () => pmFetch('/shared-resources');
+
+// ---------------------------------------------------------------------------
+// CMS (gerenciamento de conteúdo dos portais) — escrita autenticada via pm-api.
+// Escopado por projeto (igual a Projetos & Tarefas): admin vê todos; member, os atribuídos.
+// ---------------------------------------------------------------------------
+export const pmCmsSite = (projectId) => pmFetch(`/projects/${projectId}/cms/site`);
+export const pmCmsSaveSite = (projectId, data) => pmFetch(`/projects/${projectId}/cms/site`, { method: 'PUT', body: { data } });
+export const pmCmsPages = (projectId) => pmFetch(`/projects/${projectId}/cms/pages`);
+export const pmCmsCreatePage = (projectId, body) => pmFetch(`/projects/${projectId}/cms/pages`, { method: 'POST', body });
+export const pmCmsPatchPage = (pageId, patch) => pmFetch(`/cms/pages/${pageId}`, { method: 'PATCH', body: patch });
+export const pmCmsDeletePage = (pageId) => pmFetch(`/cms/pages/${pageId}`, { method: 'DELETE' });
+export const pmCmsSections = (pageId) => pmFetch(`/cms/pages/${pageId}/sections`);
+export const pmCmsCreateSection = (pageId, body) => pmFetch(`/cms/pages/${pageId}/sections`, { method: 'POST', body });
+export const pmCmsPatchSection = (sectionId, patch) => pmFetch(`/cms/sections/${sectionId}`, { method: 'PATCH', body: patch });
+export const pmCmsDeleteSection = (sectionId) => pmFetch(`/cms/sections/${sectionId}`, { method: 'DELETE' });
+export const pmCmsReorderSections = (pageId, order) => pmFetch(`/cms/pages/${pageId}/sections/reorder`, { method: 'PUT', body: { order } });
+export const pmCmsFiles = (projectId) => pmFetch(`/projects/${projectId}/cms/files`);
+export const pmCmsDeleteFile = (fileId) => pmFetch(`/cms/files/${fileId}`, { method: 'DELETE' });
+
+/** Upload de arquivo (multipart) — bypassa o pmFetch JSON. Retorna { id, url, filename, mime, size }. */
+export async function pmCmsUpload(projectId, file) {
+  const fd = new FormData();
+  fd.append('file', file);
+  const res = await fetch(`${PM_BASE}/projects/${projectId}/cms/files`, { method: 'POST', body: fd });
+  if (res.status === 401) { handleAuthExpired(); throw new Error('Sessão expirada — redirecionando para o login…'); }
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((json && json.error && json.error.message) || `Erro ${res.status} no upload`);
+  return json.data;
+}

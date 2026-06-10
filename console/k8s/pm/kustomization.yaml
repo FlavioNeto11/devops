@@ -8,3 +8,4 @@ resources:
   - pm-postgres.yaml
   - pm-api.yaml
   - pm-ingressroute.yaml
+  - pm-public-ingressroute.yaml

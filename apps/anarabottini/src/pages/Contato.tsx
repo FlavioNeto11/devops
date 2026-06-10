@@ -1,16 +1,11 @@
 import { Mail, MessageCircle, MapPin, Linkedin, Instagram } from 'lucide-react';
-import {
-  site,
-  whatsappUrl,
-  mailtoUrl,
-  hasInstagram,
-  hasLinkedin,
-} from '../lib/site';
+import { useSite } from '../lib/SiteContext';
 import { Reveal, SectionHeading } from '../components/ui';
 import { InfinityMotif } from '../components/backgrounds';
 import LeadForm from '../components/LeadForm';
 
 export default function Contato() {
+  const { site, whatsappUrl, mailtoUrl, hasInstagram, hasLinkedin } = useSite();
   const wa = whatsappUrl();
   const mail = mailtoUrl();
   const hasLocation = !!(site.contact.city || site.contact.state);

@@ -1,13 +1,14 @@
 import { useState, type FormEvent } from 'react';
 import { MessageCircle, Mail, MapPin, Globe2, Send } from 'lucide-react';
 import { serviceGroups } from '../data/services';
-import { site, whatsappUrl, mailtoUrl } from '../lib/site';
+import { useSite } from '../lib/SiteContext';
 import { SectionHeading } from './ui';
 
 const field =
   'w-full rounded-xl border border-brand-text/10 bg-brand-bg/60 px-4 py-3 text-sm text-brand-text placeholder:text-brand-muted/60 outline-none transition-colors focus:border-brand-neon/50';
 
 export default function ContactSection() {
+  const { site, whatsappUrl, mailtoUrl } = useSite();
   const [form, setForm] = useState({
     nome: '',
     empresa: '',

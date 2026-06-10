@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { site } from '../lib/site';
+import { useSite } from '../lib/SiteContext';
 import ProposalButton from './ProposalButton';
 
 const NAV = [
@@ -18,6 +18,7 @@ const NAV = [
 
 /** Marca textual (wordmark) com motivo ∞ — Ana não possui logotipo de imagem. */
 function Wordmark() {
+  const { site } = useSite();
   return (
     <span className="flex items-center gap-2.5">
       <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-brand-neon/20 to-brand-terra/20 ring-1 ring-brand-text/10">

@@ -1,13 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Mail, MessageCircle, MapPin, Linkedin, Instagram, Youtube } from 'lucide-react';
-import {
-  site,
-  whatsappUrl,
-  mailtoUrl,
-  hasInstagram,
-  hasLinkedin,
-  hasYoutube,
-} from '../lib/site';
+import { useSite } from '../lib/SiteContext';
 
 const quick = [
   { label: 'Início', to: '/' },
@@ -22,6 +15,7 @@ const quick = [
 ];
 
 export default function Footer() {
+  const { site, whatsappUrl, mailtoUrl, hasInstagram, hasLinkedin, hasYoutube } = useSite();
   const year = new Date().getFullYear();
   const hasSocial = hasInstagram || hasLinkedin || hasYoutube;
   const hasLocation = !!(site.contact.city || site.contact.state);

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Mail, MessageCircle, MapPin, Linkedin, Instagram } from 'lucide-react';
-import { site, whatsappUrl, mailtoUrl } from '../lib/site';
+import { useSite } from '../lib/SiteContext';
 import { asset } from '../lib/utils';
 import { serviceGroups } from '../data/services';
 
@@ -14,6 +14,7 @@ const quick = [
 ];
 
 export default function Footer() {
+  const { site, whatsappUrl, mailtoUrl } = useSite();
   const year = new Date().getFullYear();
   const hasSocial = site.social.linkedin || site.social.instagram;
 

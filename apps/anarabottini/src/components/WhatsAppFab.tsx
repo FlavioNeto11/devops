@@ -1,10 +1,11 @@
-import { whatsappUrl } from '../lib/site';
+import { useSite } from '../lib/SiteContext';
 
 /**
  * Botão flutuante do WhatsApp (FAB). Só é renderizado quando o número está
- * configurado em site.ts — evita um botão verde que não abre o WhatsApp.
+ * configurado (CMS/site) — evita um botão verde que não abre o WhatsApp.
  */
 export default function WhatsAppFab() {
+  const { whatsappUrl } = useSite();
   const href = whatsappUrl();
   if (!href) return null;
 
