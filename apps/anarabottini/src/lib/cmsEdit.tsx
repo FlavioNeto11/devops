@@ -307,7 +307,7 @@ const CMS_EDIT_CSS = `
 .cms-frame:hover { outline: 2px dashed rgba(56,189,248,.65); outline-offset: -2px; }
 .cms-frame--sel { outline: 2px solid #38bdf8 !important; outline-offset: -2px; }
 .cms-frame--dim > *:not(.cms-frame__bar) { opacity: .42; }
-.cms-frame__bar { position: sticky; top: 80px; height: 0; overflow: visible; z-index: 60; display: flex; justify-content: flex-end; visibility: hidden; opacity: 0; transition: opacity .15s ease .35s, visibility 0s linear .5s; }
+.cms-frame__bar { position: sticky; top: 80px; height: 0; overflow: visible; z-index: 60; display: flex; align-items: flex-start; justify-content: flex-end; visibility: hidden; opacity: 0; transition: opacity .15s ease .35s, visibility 0s linear .5s; }
 .cms-frame:hover > .cms-frame__bar, .cms-frame--sel > .cms-frame__bar, .cms-frame__bar:hover { visibility: visible; opacity: 1; transition-delay: 0s, 0s; }
 .cms-frame__bar-pill { display: flex; gap: 2px; align-items: center; margin: 8px 12px 0 0; padding: 4px; border-radius: 9px; background: rgba(15,23,42,.94); box-shadow: 0 6px 18px rgba(0,0,0,.35); }
 .cms-frame__bar button { display: grid; place-items: center; width: 27px; height: 27px; border: 0; border-radius: 6px; background: transparent; color: #e2e8f0; cursor: pointer; }
