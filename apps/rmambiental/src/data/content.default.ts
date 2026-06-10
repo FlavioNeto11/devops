@@ -121,6 +121,19 @@ export const contentDefault: ContentTree = {
   site: DEFAULT_SITE,
   pages: [
     { slug: 'home', title: 'Home', sections: homeSections },
-    { slug: 'contato', title: 'Contato', sections: [{ kind: 'section-heading', data: { eyebrow: 'Contato', title: 'Vamos conversar sobre o seu ', titleAccent: 'projeto', subtitle: 'Conte o contexto, o setor e o objetivo — nossa equipe retorna com os próximos passos.' } }] },
+    {
+      slug: 'solucoes', title: 'Soluções',
+      sections: [{
+        kind: 'services-detail',
+        data: {
+          heading: { eyebrow: 'Soluções', title: 'Engenharia, licenciamento e gestão ambiental ', titleAccent: 'de ponta a ponta', subtitle: 'Quatro frentes integradas, conduzidas por uma equipe multidisciplinar — da viabilidade à operação.' },
+          groups: serviceGroups,
+        },
+      }],
+    },
+    {
+      slug: 'contato', title: 'Contato',
+      sections: [{ kind: 'contact-form', data: { heading: { eyebrow: 'Fale com um especialista', title: 'Solicite um ', titleAccent: 'diagnóstico', titleTail: ' ou uma proposta', subtitle: 'Conte sobre o seu projeto. Nossa equipe multidisciplinar retorna com a melhor estratégia técnica e regulatória.' } } }],
+    },
   ],
 };

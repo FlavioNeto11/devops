@@ -121,6 +121,7 @@ Releia só o que o escopo da tarefa afeta.
 | Schema do `devops.yaml` | `schema/devops-schema.json` + `docs/new-project-contract.md` |
 | Regra de infra | `docs/standards/{infra-standards,hard-constraints}.md` |
 | Componente de infra novo/alterado | `platform/<x>/README.md` + `platform/README.md` |
+| **Conteúdo de portal (CMS)** | edite no `/devops` → **Conteúdo** (gera dados no `pm-api`, não em git). Padrão técnico (schema/rotas/portal dinâmico): [`docs/cms.md`](./docs/cms.md) |
 
 ## 8. Princípios não-negociáveis
 

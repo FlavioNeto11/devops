@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, Mail, ArrowRight, Check, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MessageCircle, ArrowRight, Check, X, ChevronLeft, ChevronRight, Package, Landmark, Sparkles, HelpCircle } from 'lucide-react';
 import { Reveal, SectionHeading, Counter } from './ui';
-import { GridGlow, CoverageMap, TopoLines } from './backgrounds';
+import { GridGlow, CoverageMap } from './backgrounds';
+import ContactSection from './ContactSection';
 import { resolveIcon } from '../lib/icons';
 import { useSite } from '../lib/SiteContext';
 import { mediaUrl, type Section } from '../lib/content';
@@ -269,6 +270,106 @@ function CtaBlock({ d }: { d: D }) {
   );
 }
 
+// --------------------------------------------------------------------------- Services detail (/solucoes)
+function DetailList({ title, icon: Ico, items }: { title: string; icon: any; items: string[] }) {
+  return (
+    <div>
+      <h4 className="flex items-center gap-2 font-display text-sm font-bold text-brand-text"><Ico className="h-4 w-4 text-brand-neon" /> {title}</h4>
+      <ul className="mt-3 space-y-2">
+        {(items || []).map((it) => <li key={it} className="flex items-start gap-2 text-sm text-brand-muted"><Check className="mt-0.5 h-4 w-4 shrink-0 text-brand-neon/70" /><span>{it}</span></li>)}
+      </ul>
+    </div>
+  );
+}
+function ServicesDetailBlock({ d }: { d: D }) {
+  const groups: D[] = d.groups || [];
+  const h: D = d.heading || {};
+  return (
+    <>
+      <section className="relative overflow-hidden pt-[72px]">
+        <GridGlow />
+        <div className="container-wide relative py-16 lg:py-20">
+          {h.eyebrow && <Reveal><span className="eyebrow">{h.eyebrow}</span></Reveal>}
+          <Reveal delay={0.05}><h1 className="mt-5 max-w-3xl font-display text-4xl font-extrabold leading-[1.08] tracking-tight text-brand-text sm:text-5xl">{h.title}<span className="text-gradient">{h.titleAccent}</span>{h.titleTail}</h1></Reveal>
+          {h.subtitle && <Reveal delay={0.1}><p className="mt-4 max-w-2xl text-base text-brand-muted sm:text-lg">{h.subtitle}</p></Reveal>}
+          <div className="mt-8 flex flex-wrap gap-2">
+            {groups.map((g) => { const Ico = resolveIcon(g.icon); return (
+              <a key={g.id} href={`#${g.id}`} className="inline-flex items-center gap-2 rounded-full border border-brand-text/10 px-4 py-2 text-sm font-medium text-brand-muted transition-colors hover:border-brand-neon/40 hover:text-brand-text"><Ico className="h-4 w-4 text-brand-neon" />{g.title}</a>
+            ); })}
+          </div>
+        </div>
+      </section>
+      {groups.map((g, idx) => { const Ico = resolveIcon(g.icon); return (
+        <section key={g.id || idx} id={g.id} className={cn('relative py-20', idx % 2 === 1 && 'bg-brand-surface/30')}>
+          <div className="container-wide">
+            <Reveal>
+              <div className="flex items-start gap-4">
+                <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-brand-neon/20 to-brand-petrol/30 ring-1 ring-brand-text/10"><Ico className="h-7 w-7 text-brand-neon" /></span>
+                <div><h2 className="font-display text-2xl font-bold leading-tight text-brand-text sm:text-3xl">{g.title}</h2><p className="mt-1 text-sm text-brand-neon/90">{g.tagline}</p></div>
+              </div>
+            </Reveal>
+            {g.summary && <Reveal delay={0.05}><p className="mt-6 max-w-3xl text-base leading-relaxed text-brand-muted">{g.summary}</p></Reveal>}
+            <div className="mt-9 grid gap-6 lg:grid-cols-2">
+              <Reveal delay={0.08}>
+                <div className="h-full rounded-2xl border border-brand-text/10 bg-brand-surface/50 p-6">
+                  <DetailList title="Escopo de atuação" icon={Check} items={g.items} />
+                  {g.whenToHire && (
+                    <div className="mt-6 rounded-xl border border-brand-neon/15 bg-brand-neon/[0.06] p-4">
+                      <h4 className="flex items-center gap-2 font-display text-sm font-bold text-brand-text"><HelpCircle className="h-4 w-4 text-brand-neon" /> Quando contratar</h4>
+                      <p className="mt-2 text-sm leading-relaxed text-brand-muted">{g.whenToHire}</p>
+                    </div>
+                  )}
+                </div>
+              </Reveal>
+              <Reveal delay={0.12}>
+                <div className="grid h-full content-start gap-6 rounded-2xl border border-brand-text/10 bg-brand-surface/50 p-6">
+                  <DetailList title="Principais entregáveis" icon={Package} items={g.deliverables} />
+                  <div className="grid gap-6 sm:grid-cols-2">
+                    <DetailList title="Órgãos envolvidos" icon={Landmark} items={g.orgaos} />
+                    <DetailList title="Benefícios" icon={Sparkles} items={g.benefits} />
+                  </div>
+                </div>
+              </Reveal>
+            </div>
+            {Array.isArray(g.steps) && g.steps.length > 0 && (
+              <Reveal delay={0.1}>
+                <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {g.steps.map((s: D, i: number) => (
+                    <div key={s.title || i} className="relative rounded-2xl border border-brand-text/10 bg-brand-bg/40 p-5">
+                      <span className="font-display text-sm font-bold text-brand-neon">0{i + 1}</span>
+                      <h4 className="mt-2 font-display text-sm font-bold text-brand-text">{s.title}</h4>
+                      <p className="mt-1 text-xs leading-relaxed text-brand-muted">{s.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </Reveal>
+            )}
+            <Reveal delay={0.1}><Link to="/contato" className="btn-primary mt-9">Falar com um especialista <ArrowRight className="h-4 w-4" /></Link></Reveal>
+          </div>
+        </section>
+      ); })}
+    </>
+  );
+}
+
+// --------------------------------------------------------------------------- Contact form (/contato)
+function ContactFormBlock({ d }: { d: D }) {
+  const h: D = d.heading || {};
+  return (
+    <>
+      <section className="relative overflow-hidden pt-[72px]">
+        <GridGlow />
+        <div className="container-wide relative py-16 text-center lg:py-20">
+          {h.eyebrow && <Reveal><span className="eyebrow">{h.eyebrow}</span></Reveal>}
+          <Reveal delay={0.05}><h1 className="mx-auto mt-5 max-w-3xl font-display text-4xl font-extrabold leading-tight tracking-tight text-brand-text sm:text-5xl">{h.title}<span className="text-gradient">{h.titleAccent}</span>{h.titleTail}</h1></Reveal>
+          {h.subtitle && <Reveal delay={0.1}><p className="mx-auto mt-4 max-w-2xl text-base text-brand-muted sm:text-lg">{h.subtitle}</p></Reveal>}
+        </div>
+      </section>
+      <ContactSection />
+    </>
+  );
+}
+
 // --------------------------------------------------------------------------- dispatcher
 export default function SectionRenderer({ sections }: { sections: Section[] }) {
   return (
@@ -287,6 +388,8 @@ export default function SectionRenderer({ sections }: { sections: Section[] }) {
           case 'stats': return <StatsBlock key={s.id || i} d={d} anchor={a} surface={surface} />;
           case 'gallery': return <GalleryBlock key={s.id || i} d={d} anchor={a} surface={surface} />;
           case 'cta': return <CtaBlock key={s.id || i} d={d} />;
+          case 'services-detail': return <ServicesDetailBlock key={s.id || i} d={d} />;
+          case 'contact-form': return <ContactFormBlock key={s.id || i} d={d} />;
           default: return null;
         }
       })}

@@ -85,6 +85,7 @@ contribuição em [`CONTRIBUTING.md`](../CONTRIBUTING.md). Estilo de escrita em
 | 15 | Argo CD | [`deployment-flow.md`](./deployment-flow.md) (sec.12). |
 | 16 | Grafana | [`deployment-flow.md`](./deployment-flow.md) (sec.11). |
 | 17 | DevOps Console | [`deployment-flow.md`](./deployment-flow.md) (sec.13); módulo Projetos & Tarefas (Fase 3) em [`fr/devops-console.md`](./standards/fr/devops-console.md). |
+| 18 | CMS dos portais (conteúdo gerenciável) | [`cms.md`](./cms.md) — editor no `/devops`, leitura pública, portais dinâmicos. |
 
 ---
 
