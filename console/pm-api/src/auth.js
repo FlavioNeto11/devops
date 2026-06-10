@@ -98,3 +98,27 @@ export async function resolveProjectIdForTask(taskId) {
   );
   return rows[0]?.project_id || null;
 }
+
+// --- CMS resolvers (mesmo padrao dos acima) --------------------------------
+export async function resolveProjectIdByKey(key) {
+  const { rows } = await query('SELECT id FROM projects WHERE key = $1', [key]);
+  return rows[0]?.id || null;
+}
+
+export async function resolveProjectIdForPage(pageId) {
+  const { rows } = await query('SELECT project_id FROM cms_pages WHERE id = $1', [pageId]);
+  return rows[0]?.project_id || null;
+}
+
+export async function resolveProjectIdForSection(sectionId) {
+  const { rows } = await query(
+    'SELECT p.project_id FROM cms_sections s JOIN cms_pages p ON p.id = s.page_id WHERE s.id = $1',
+    [sectionId],
+  );
+  return rows[0]?.project_id || null;
+}
+
+export async function resolveProjectIdForFile(fileId) {
+  const { rows } = await query('SELECT project_id FROM cms_files WHERE id = $1', [fileId]);
+  return rows[0]?.project_id || null;
+}

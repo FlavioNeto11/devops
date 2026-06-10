@@ -1,0 +1,31 @@
+# Rota PUBLICA do CMS: /devops/api/cms -> pm-api, SEM gate de auth (console-auth-401).
+# Serve apenas leitura publicada (cms-public.js) e arquivos. StripPrefix /devops/api/cms
+# -> pm-api ve /public/...  priority 35 > pm-api(30) > console-backend(20) > frontend(10).
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: cms-public-strip
+  namespace: devops-system
+spec:
+  stripPrefix:
+    prefixes: ["/devops/api/cms"]
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: pm-cms-public
+  namespace: devops-system
+  labels: { app.kubernetes.io/name: pm-api, app.kubernetes.io/part-of: devops-console }
+spec:
+  entryPoints: [web]
+  routes:
+    - match: (Host(`xpto.localhost`) || Host(`dev.nvit.com.br`)) && PathPrefix(`/devops/api/cms`)
+      kind: Rule
+      priority: 35
+      services:
+        - name: pm-api
+          port: 3002
+      middlewares:
+        - { name: cms-public-strip, namespace: devops-system }
+        - { name: compress, namespace: traefik }
+        - { name: secure-headers, namespace: traefik }
