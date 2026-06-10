@@ -44,5 +44,11 @@ Migrar **apenas** quando houver ganho concreto (ex.: padronizar vários apps no 
 Para um único app já estável, o custo/risco não compensa. **GymOps** (manifests também manuais)
 segue a mesma orientação.
 
+> **Greenfield já usa o chart.** Apps **novos** entram pelo `app-template` desde o
+> [golden-path](./golden-path.md) (`scripts/new-app.ps1`) — então o "enabler" da padronização Helm
+> **já existe** para o caminho novo. Esta migração trata só do **retrofit** de `sicat`/`gymops`, que
+> permanece **opt-in** e fora de execução automática (mexer em recurso vivo sob Argo é operação com
+> aprovação — ver [`hard-constraints.md` §4](./hard-constraints.md)).
+
 ---
 _Referências: [`golden-path.md`](./golden-path.md) · [`infra-standards.md`](./infra-standards.md) · [`runbooks/rollback.md`](../runbooks/rollback.md)._
