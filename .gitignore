@@ -18,6 +18,9 @@ coverage/
 # --- Logs ---
 *.log
 
+# --- Cache de ferramentas (Playwright MCP etc.) ---
+.playwright-mcp/
+
 # --- Segredos: variaveis de ambiente ---
 # Ignora .env e qualquer *.env, MAS mantem os exemplos *.env.example
 .env
