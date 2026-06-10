@@ -1,0 +1,90 @@
+# =============================================================================
+# test-services — testes de INTEGRACAO com Postgres/Redis (gymops, sicat)
+# -----------------------------------------------------------------------------
+# ⚠️ WIP / best-effort, **workflow_dispatch apenas** (NAO bloqueia PR/main ate
+# estar maduro). Complementa o ci-apps (estatico) rodando os testes que precisam
+# de banco/cache. As env vars/migrations abaixo sao um ponto de partida razoavel
+# e DEVEM ser ajustadas por app (shakeout): nomes de banco, URLs, seeds, e o modo
+# do gateway CETESB do sicat (precisa de um modo mock/offline para nao chamar a
+# CETESB real). Quando verde e estavel, promover para pull_request/push.
+# Runner: ubuntu-latest.
+# =============================================================================
+name: test-services
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # GymOps — Postgres (pgvector) + Redis (BullMQ).
+  # ---------------------------------------------------------------------------
+  gymops:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: gymops
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/gymops
+      REDIS_URL: redis://localhost:6379
+    defaults:
+      run:
+        working-directory: apps/gymops
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: pnpm install --frozen-lockfile || pnpm install
+      - run: pnpm --filter @gymops/db run generate
+      - run: pnpm --filter "./packages/*" run build
+      - run: pnpm --filter @gymops/db run migrate:deploy
+      - run: pnpm -r test
+
+  # ---------------------------------------------------------------------------
+  # SICAT — Postgres. CETESB em modo mock/offline (ajustar conforme o backend).
+  # ---------------------------------------------------------------------------
+  sicat:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: mtr_automation
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/mtr_automation
+      DATABASE_SSL: "false"
+      AUTO_MIGRATE: "true"
+      CETESB_GATEWAY_MODE: mock # ajustar: o backend precisa suportar um modo sem rede
+    defaults:
+      run:
+        working-directory: apps/sicat
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: npm ci || npm install
+      - run: npm test

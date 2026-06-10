@@ -1,0 +1,51 @@
+# =============================================================================
+# manifest-lint — valida o SCHEMA dos manifests Kubernetes dos apps (kubeconform)
+# -----------------------------------------------------------------------------
+# Escopo: apps/*/k8s/*.yaml (Deployments/Services/etc.). CRDs (IngressRoute,
+# Middleware, SealedSecret, Kustomization) sao IGNORADOS via -ignore-missing-schemas
+# (kubeconform nao tem schema deles). Nao valida platform/ (mistura helm-values
+# com manifests) nem os sealed-*.yaml. Runner: ubuntu-latest.
+# =============================================================================
+name: manifest-lint
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "apps/**/k8s/**"
+      - ".github/workflows/manifest-lint.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/**/k8s/**"
+      - ".github/workflows/manifest-lint.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  kubeconform:
+    name: kubeconform (apps/*/k8s)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar kubeconform
+        run: |
+          set -euo pipefail
+          VER=v0.6.7
+          curl -sSL "https://github.com/yannh/kubeconform/releases/download/${VER}/kubeconform-linux-amd64.tar.gz" | tar -xz kubeconform
+          sudo mv kubeconform /usr/local/bin/
+          kubeconform -v
+
+      - name: Validar manifests
+        run: |
+          set -euo pipefail
+          mapfile -t FILES < <(find apps -path '*/k8s/*.yaml' ! -name 'sealed-*.yaml')
+          if [ "${#FILES[@]}" -eq 0 ]; then
+            echo "Nenhum manifest encontrado."; exit 0
+          fi
+          echo "Validando ${#FILES[@]} arquivo(s):"
+          printf '  %s\n' "${FILES[@]}"
+          kubeconform -ignore-missing-schemas -summary "${FILES[@]}"

@@ -1,0 +1,37 @@
+# =============================================================================
+# Dependabot — atualizacoes de dependencias (offline-safe: versoes pinadas).
+# Agrupado para reduzir ruido de PR. Semanal. Operador unico: limites baixos.
+# =============================================================================
+version: 2
+updates:
+  # --- GitHub Actions (workflows em .github/workflows) ---
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  # --- npm/pnpm dos apps e libs (lockfiles versionados) ---
+  - package-ecosystem: npm
+    directories:
+      - "/apps/sicat"
+      - "/apps/gymops"
+      - "/apps/rmambiental"
+      - "/packages/ai-kit"
+      - "/packages/oidc-kit"
+      - "/console/backend"
+      - "/console/frontend"
+      - "/console/pm-api"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
