@@ -16,6 +16,18 @@
 // BASE_URL sempre termina com '/', portanto BASE_URL + 'api' => '/devops/api'.
 export const API_BASE = `${import.meta.env.BASE_URL}api`;
 
+// Sessao expirada/ausente: a borda responde 401 nas rotas de API (XHR), por design
+// (middleware console-auth-401). A rota de NAVEGACAO /devops passa pelo middleware
+// console-auth-redirect (302 -> Keycloak). Entao, ao receber 401, recarregamos a
+// navegacao: o documento e redirecionado ao login e volta para a pagina atual — em vez
+// de travar mostrando "Erro 401 — Unauthorized". Guard evita loop com chamadas paralelas.
+let _redirectingToLogin = false;
+export function handleAuthExpired() {
+  if (_redirectingToLogin) return;
+  _redirectingToLogin = true;
+  window.location.reload();
+}
+
 /**
  * Wrapper de fetch com JSON, timeout opcional e erros legiveis em pt-BR.
  * @param {string} path Caminho relativo a API_BASE (deve comecar com '/').
@@ -35,6 +47,11 @@ async function getJSON(path, options = {}) {
     throw new Error(
       `Falha de rede ao acessar ${url}: ${networkErr && networkErr.message ? networkErr.message : networkErr}`
     );
+  }
+
+  if (res.status === 401) {
+    handleAuthExpired();
+    throw new Error('Sessão expirada — redirecionando para o login…');
   }
 
   if (!res.ok) {
@@ -145,6 +162,10 @@ async function pmFetch(path, { method = 'GET', body } = {}) {
     });
   } catch (networkErr) {
     throw new Error(`Falha de rede ao acessar ${url}: ${networkErr && networkErr.message ? networkErr.message : networkErr}`);
+  }
+  if (res.status === 401) {
+    handleAuthExpired();
+    throw new Error('Sessão expirada — redirecionando para o login…');
   }
   if (res.status === 204) return null;
   const json = await res.json().catch(() => ({}));
