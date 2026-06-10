@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "anarabottini",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "apps/anarabottini", "--", "--port", "5173", "--strictPort"],
+      "port": 5173
+    }
+  ]
+}

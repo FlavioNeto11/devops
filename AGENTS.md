@@ -117,6 +117,7 @@ Releia só o que o escopo da tarefa afeta.
 | Mudança | Atualizar |
 |---|---|
 | Novo app/serviço | `platform/argocd/apps/<app>.yaml` + `apps/README.md` + meta-doc do app |
+| **Onboarding completo de app** (criar/importar) | **Obrigatório além do scaffold/portal** — cadastrar em **Projetos & Tarefas** (`console/pm-api/scripts/seed.js`), Application do Argo **na `main`**, card no **portal raiz** (`portal/frontend/index.html`), **Compartilhados** (`console/pm-api/src/data/shared-resources.json`). Passo a passo: [`docs/standards/golden-path.md`](./docs/standards/golden-path.md) §9 |
 | Schema do `devops.yaml` | `schema/devops-schema.json` + `docs/new-project-contract.md` |
 | Regra de infra | `docs/standards/{infra-standards,hard-constraints}.md` |
 | Componente de infra novo/alterado | `platform/<x>/README.md` + `platform/README.md` |

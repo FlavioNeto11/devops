@@ -1,0 +1,98 @@
+# =============================================================================
+# Ana Rabottini — portal institucional (somente frontend) sob /anarabottini.
+# Roteamento (host dev.nvit.com.br / xpto.localhost):
+#   /anarabottini  -> frontend (nginx + SPA Vite, SEM strip, priority 10)
+# Imagem local: anarabottini-frontend:local (docker build -t anarabottini-frontend:local apps/anarabottini).
+# As annotations devops.flavioneto/* alimentam a aba "Publicacoes" do DevOps Console.
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: anarabottini-frontend
+  namespace: apps
+  annotations:
+    devops.flavioneto/commitSha: "local"
+    devops.flavioneto/branch: "main"
+    devops.flavioneto/imageTag: "local"
+    devops.flavioneto/deployedAt: "2026-06-10T00:00:00Z"
+    devops.flavioneto/runId: "manual-publish-anarabottini"
+    devops.flavioneto/image: "anarabottini-frontend:local"
+  labels:
+    app.kubernetes.io/name: anarabottini
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: anarabottini
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: anarabottini
+      app.kubernetes.io/component: frontend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: anarabottini
+        app.kubernetes.io/component: frontend
+        app.kubernetes.io/part-of: anarabottini
+    spec:
+      containers:
+        - name: frontend
+          image: anarabottini-frontend:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 8
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "24Mi"
+            limits:
+              cpu: "150m"
+              memory: "96Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: anarabottini-frontend
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: anarabottini
+spec:
+  selector:
+    app.kubernetes.io/name: anarabottini
+    app.kubernetes.io/component: frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: anarabottini
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: anarabottini
+    app.kubernetes.io/part-of: anarabottini
+spec:
+  entryPoints:
+    - web
+  routes:
+    # frontend institucional (priority 10 vence o portal `/` priority 1)
+    - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/anarabottini`)
+      kind: Rule
+      priority: 10
+      services:
+        - name: anarabottini-frontend
+          port: 80

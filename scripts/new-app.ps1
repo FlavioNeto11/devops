@@ -413,3 +413,9 @@ Write-Host "`nRotas que serao publicadas:"
 foreach ($r in ($routes | Sort-Object -Property Prio -Descending)) { Write-Host ("  http://{0}{1}   (priority {2} -> {3}:{4})" -f $AppHost, $r.Prefix, $r.Prio, $r.Svc, $r.Port) }
 Write-Host "`nContrato: $(Join-Path $root 'devops.yaml')  |  Console: http://$AppHost/devops"
 if ($argoMsg) { Write-Host "GitOps:   $argoMsg" }
+Write-Host "`nRegistro na plataforma (OBRIGATORIO - ver docs/standards/golden-path.md secao 9):"
+Write-Host "  - Projetos & Tarefas: console/pm-api/scripts/seed.js  (PROJECTS + ITEMS)"
+Write-Host "  - Compartilhados:     console/pm-api/src/data/shared-resources.json  (consumer)"
+Write-Host "  - Dominio raiz /:     portal/frontend/index.html  (card + stat + rodape)"
+Write-Host "  - Argo:               commit/merge da Application na branch 'main'"
+Write-Host "  Aplicar: rebuild console-pm:local e portal-frontend:local + kubectl rollout restart (ns devops-system)."

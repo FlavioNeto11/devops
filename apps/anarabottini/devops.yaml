@@ -1,0 +1,23 @@
+# Contrato da esteira DevOps para o portal de Ana Rabottini (palestrante corporativa).
+# (ver C:\devops\docs\new-project-contract.md). App SOMENTE-FRONTEND (site institucional/portfólio).
+# basePath /anarabottini ; frontend sem strip (base /anarabottini/) ; priority 10 (acima do portal `/`).
+app:
+  name: anarabottini
+  namespace: apps
+  host: dev.nvit.com.br        # + xpto.localhost no dev local
+  basePath: /anarabottini
+services:
+  frontend:
+    type: frontend
+    path: /
+    image: ghcr.io/flavioneto11/anarabottini/frontend   # CI/GHCR; local usa anarabottini-frontend:local
+    port: 80
+    expose: true
+    stripPrefix: false
+    priority: 10
+    build:
+      context: .
+      args:
+        VITE_BASE_PATH: /anarabottini/
+    health:
+      path: /healthz
