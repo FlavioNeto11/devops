@@ -1,3 +1,11 @@
+---
+title: "Requisitos Funcionais (FR) — GymOps"
+status: canonical
+applies_to: [gymops]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # FR — GymOps
 
 - **Rota**: `/gymops` · **Repo**: `apps/gymops` · **Stack**: Next.js 14 / Fastify + TS / Prisma + Postgres+pgvector / Redis+BullMQ · **Estado**: ~95%

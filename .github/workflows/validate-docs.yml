@@ -1,0 +1,218 @@
+# =============================================================================
+# Validacao de documentacao e contratos (CI)
+# -----------------------------------------------------------------------------
+# Gate de qualidade que roda em PR e em push para main quando muda:
+#   - schema do contrato (schema/**)
+#   - qualquer devops.yaml de app (apps/**/devops.yaml)
+#   - documentacao (docs/**) e meta-docs (**/*.md, **/CLAUDE.md, **/AGENTS.md)
+#
+# O que valida:
+#   1) Todo apps/*/devops.yaml e o exemplo templates/app-template/app.yaml
+#      contra schema/devops-schema.json (draft-07) via ajv-cli.
+#   2) Front-matter obrigatorio (title/status/applies_to/updated/language) nos
+#      docs canonicos, via script Node inline (sem depender do PowerShell no CI).
+#
+# Runner: ubuntu-latest (GitHub-hosted), igual aos demais workflows de
+# build/publish do repo (reusable-build-push.yaml, publish-packages.yaml). O
+# self-hosted Windows e reservado ao DEPLOY no cluster local; validacao de
+# texto/contrato nao precisa do cluster e roda mais rapido no hosted.
+#
+# Tolerante a offline: as ferramentas (ajv-cli, ajv-formats, js-yaml) sao
+# instaladas no proprio job; se a instalacao via npm falhar (sem rede), o passo
+# de schema e marcado como SKIP (warning) em vez de quebrar todo o gate — o
+# check de front-matter (sem dependencias) continua valendo.
+# =============================================================================
+name: validate-docs
+
+on:
+  pull_request:
+    paths:
+      - "docs/**"
+      - "schema/**"
+      - "apps/**/devops.yaml"
+      - "templates/app-template/app.yaml"
+      - "**/*.md"
+      - "**/CLAUDE.md"
+      - "**/AGENTS.md"
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "schema/**"
+      - "apps/**/devops.yaml"
+      - "templates/app-template/app.yaml"
+      - "**/*.md"
+      - "**/CLAUDE.md"
+      - "**/AGENTS.md"
+
+# Permissoes minimas: so leitura do conteudo.
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validar contratos e docs
+    runs-on: ubuntu-latest
+
+    steps:
+      # -----------------------------------------------------------------------
+      # 1) Checkout do codigo.
+      # -----------------------------------------------------------------------
+      - name: Checkout do codigo
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      # 2) Node (para ajv-cli e os scripts inline de validacao).
+      # -----------------------------------------------------------------------
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # -----------------------------------------------------------------------
+      # 3) Instala as ferramentas de validacao em escopo LOCAL do job
+      #    (sem alterar o repo). Em ambiente offline, marca SKIP e segue.
+      # -----------------------------------------------------------------------
+      - name: Instalar ferramentas de validacao (ajv-cli, ajv-formats, js-yaml)
+        id: tools
+        run: |
+          set -uo pipefail
+          mkdir -p "$RUNNER_TEMP/validator"
+          cd "$RUNNER_TEMP/validator"
+          npm init -y >/dev/null 2>&1 || true
+          if npm install --no-audit --no-fund ajv-cli@5 ajv-formats@3 js-yaml@4 >install.log 2>&1; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "Ferramentas instaladas em $RUNNER_TEMP/validator"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Falha ao instalar ferramentas de validacao (provavel offline). O passo de schema sera pulado."
+            tail -n 20 install.log || true
+          fi
+
+      # -----------------------------------------------------------------------
+      # 4) Valida todo devops.yaml + o exemplo do template contra o schema.
+      #    ajv-cli nao le YAML nativamente, entao convertemos YAML->JSON com
+      #    js-yaml antes de validar.
+      # -----------------------------------------------------------------------
+      - name: Validar devops.yaml contra o schema
+        if: steps.tools.outputs.available == 'true'
+        run: |
+          set -euo pipefail
+          TOOLS="$RUNNER_TEMP/validator"
+          SCHEMA="schema/devops-schema.json"
+
+          # Coleta alvos: apps/*/devops.yaml + templates/app-template/app.yaml.
+          mapfile -t TARGETS < <(ls apps/*/devops.yaml 2>/dev/null || true)
+          if [ -f templates/app-template/app.yaml ]; then
+            TARGETS+=("templates/app-template/app.yaml")
+          fi
+
+          if [ "${#TARGETS[@]}" -eq 0 ]; then
+            echo "Nenhum devops.yaml/app.yaml encontrado."
+            exit 0
+          fi
+
+          fail=0
+          for f in "${TARGETS[@]}"; do
+            json="$RUNNER_TEMP/$(echo "$f" | tr '/' '_').json"
+            # YAML -> JSON usando js-yaml local.
+            node -e "const y=require('$TOOLS/node_modules/js-yaml');const fs=require('fs');fs.writeFileSync(process.argv[2],JSON.stringify(y.load(fs.readFileSync(process.argv[1],'utf8')),null,2));" "$f" "$json"
+            echo "::group::Validando $f"
+            if node "$TOOLS/node_modules/.bin/ajv" validate --spec=draft7 -c "$TOOLS/node_modules/ajv-formats" -s "$SCHEMA" -d "$json"; then
+              echo "[PASS] $f"
+            else
+              echo "[FAIL] $f"
+              fail=1
+            fi
+            echo "::endgroup::"
+          done
+
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::Ha devops.yaml invalido(s) contra o schema."
+            exit 1
+          fi
+          echo "Todos os contratos sao validos."
+
+      # -----------------------------------------------------------------------
+      # 5) Front-matter obrigatorio nos docs canonicos. Script Node inline,
+      #    sem dependencias externas (roda mesmo se o passo 3 deu SKIP).
+      #    Espelha o contrato de scripts/validate-meta-docs.ps1.
+      # -----------------------------------------------------------------------
+      - name: Verificar front-matter dos docs canonicos
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+
+          const REQUIRED = ['title', 'status', 'applies_to', 'updated', 'language'];
+          const VALID_STATUS = ['canonical', 'guide', 'reference', 'draft', 'deprecated', 'archived'];
+          const EXCLUDE_ROOT = [/^plan/i, /^temp/i, /^TODO/i, /^NOTES/i, /^SCRATCH/i];
+
+          function walk(dir, acc) {
+            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+              const p = path.join(dir, entry.name);
+              if (entry.isDirectory()) walk(p, acc);
+              else if (entry.name.toLowerCase().endsWith('.md')) acc.push(p);
+            }
+          }
+
+          // Conjunto canonico: *.md da raiz (exceto planos/temp), docs/**,
+          // apps/*/CLAUDE.md e apps/*/AGENTS.md.
+          const docs = new Set();
+          for (const f of fs.readdirSync('.', { withFileTypes: true })) {
+            if (f.isFile() && f.name.toLowerCase().endsWith('.md')) {
+              if (!EXCLUDE_ROOT.some(rx => rx.test(f.name))) docs.add(f.name);
+            }
+          }
+          if (fs.existsSync('docs')) { const a = []; walk('docs', a); a.forEach(d => docs.add(d)); }
+          if (fs.existsSync('apps')) {
+            for (const app of fs.readdirSync('apps', { withFileTypes: true })) {
+              if (!app.isDirectory()) continue;
+              for (const meta of ['CLAUDE.md', 'AGENTS.md']) {
+                const p = path.join('apps', app.name, meta);
+                if (fs.existsSync(p)) docs.add(p);
+              }
+            }
+          }
+
+          function frontMatter(text) {
+            const lines = text.split(/\r?\n/);
+            let i = 0;
+            while (i < lines.length && lines[i].trim() === '') i++;
+            if (i >= lines.length || lines[i].trim() !== '---') return null;
+            const start = i + 1;
+            let end = -1;
+            for (let j = start; j < lines.length; j++) {
+              if (lines[j].trim() === '---') { end = j; break; }
+            }
+            if (end < 0) return null;
+            const map = {};
+            for (let j = start; j < end; j++) {
+              const m = lines[j].match(/^\s*([A-Za-z0-9_]+)\s*:\s*(.*)$/);
+              if (m) map[m[1]] = m[2].trim();
+            }
+            return map;
+          }
+
+          const failures = [];
+          for (const doc of [...docs].sort()) {
+            const fm = frontMatter(fs.readFileSync(doc, 'utf8'));
+            if (!fm) { failures.push(`${doc} :: front-matter ausente`); continue; }
+            const missing = REQUIRED.filter(k => !fm[k] || fm[k].trim() === '');
+            if (missing.length) { failures.push(`${doc} :: faltam chaves: ${missing.join(', ')}`); continue; }
+            const status = fm.status.replace(/^["']|["']$/g, '');
+            if (!VALID_STATUS.includes(status)) { failures.push(`${doc} :: status invalido '${status}'`); continue; }
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(fm.updated.replace(/^["']|["']$/g, ''))) {
+              failures.push(`${doc} :: updated invalido '${fm.updated}'`); continue;
+            }
+            console.log(`[PASS] ${doc}`);
+          }
+
+          if (failures.length) {
+            console.error('\nFront-matter invalido:');
+            for (const f of failures) console.error('  - ' + f);
+            console.error(`::error::${failures.length} doc(s) com front-matter invalido.`);
+            process.exit(1);
+          }
+          console.log(`\nFront-matter OK em ${docs.size} doc(s) canonico(s).`);
+          NODE

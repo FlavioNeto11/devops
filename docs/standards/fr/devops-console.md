@@ -1,3 +1,11 @@
+---
+title: "Requisitos Funcionais (FR) — DevOps Console"
+status: canonical
+applies_to: [console]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # FR — DevOps Console (+ módulo Projetos & Tarefas)
 
 - **Rota**: `/devops` · **Repo**: `console/` · **Stack**: Node 20 + Express (read-only k8s) / React 18 + Vite · **Estado**: observação pronta; módulo PM em construção (Fase 3)

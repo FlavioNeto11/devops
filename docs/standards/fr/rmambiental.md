@@ -1,3 +1,11 @@
+---
+title: "Requisitos Funcionais (FR) — RM Ambiental"
+status: canonical
+applies_to: [rmambiental]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # FR — RM Ambiental
 
 - **Rota**: `/rmambiental` · **Repo**: `apps/rmambiental` · **Stack**: React 18 + Vite + Tailwind (estático) · **Estado**: 100%

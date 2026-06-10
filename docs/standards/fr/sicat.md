@@ -1,3 +1,11 @@
+---
+title: "Requisitos Funcionais (FR) — SICAT"
+status: canonical
+applies_to: [sicat]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # FR — SICAT
 
 - **Rota**: `/sicat` · **Repo**: `apps/sicat` · **Stack**: Vue 3 + Vite / Node 20 + Express + TS / PostgreSQL / worker · **Estado**: ~75%
