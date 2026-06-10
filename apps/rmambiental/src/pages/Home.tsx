@@ -1,25 +1,10 @@
-import Hero from '../components/Hero';
-import Positioning from '../components/Positioning';
-import ServicesSection from '../components/ServicesSection';
-import ProcessSection from '../components/ProcessSection';
-import AuthoritySection from '../components/AuthoritySection';
-import SectorsSection from '../components/SectorsSection';
-import ProjectsGallery from '../components/ProjectsGallery';
-import ESGSection from '../components/ESGSection';
-import CTASection from '../components/CTASection';
+import SectionRenderer from '../components/SectionRenderer';
+import { useContentTree } from '../lib/SiteContext';
+import { findPage } from '../lib/content';
 
+/** Home renderizada a partir do conteúdo do CMS (com fallback embutido via ContentProvider). */
 export default function Home() {
-  return (
-    <>
-      <Hero />
-      <Positioning />
-      <ServicesSection />
-      <ProcessSection />
-      <AuthoritySection />
-      <SectorsSection />
-      <ProjectsGallery />
-      <ESGSection />
-      <CTASection />
-    </>
-  );
+  const tree = useContentTree();
+  const home = findPage(tree, 'home');
+  return <SectionRenderer sections={home?.sections || []} />;
 }

@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "apps/anarabottini", "--", "--port", "5173", "--strictPort"],
       "port": 5173
+    },
+    {
+      "name": "rmambiental",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "apps/rmambiental", "--", "--port", "5174", "--strictPort"],
+      "port": 5174
     }
   ]
 }

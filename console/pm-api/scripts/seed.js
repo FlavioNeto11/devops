@@ -1,5 +1,6 @@
 import { query } from '../src/db/pool.js';
 import { seedCmsAnarabottini } from './cms-seed-anarabottini.js';
+import { seedCmsRmambiental } from './cms-seed-rmambiental.js';
 
 // Base do repositorio para montar git_url/pr_url reais (resolvem no GitHub).
 const REPO = 'https://github.com/FlavioNeto11/devops';
@@ -316,12 +317,9 @@ export async function seed() {
     }
   }
 
-  let cms = null;
-  try {
-    cms = await seedCmsAnarabottini();
-  } catch (e) {
-    console.warn('[seed] cms anarabottini ignorado:', e.message);
-  }
+  const cms = [];
+  try { cms.push(await seedCmsAnarabottini()); } catch (e) { console.warn('[seed] cms anarabottini ignorado:', e.message); }
+  try { cms.push(await seedCmsRmambiental()); } catch (e) { console.warn('[seed] cms rmambiental ignorado:', e.message); }
 
   const out = { projects, itemsInserted, itemsUpdated, tasksInserted, cms };
   console.info('[seed]', JSON.stringify(out));

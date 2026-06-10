@@ -1,4 +1,4 @@
-import { whatsappUrl } from '../lib/site';
+import { useSite } from '../lib/SiteContext';
 
 /**
  * Botão flutuante do WhatsApp (FAB). Fixo no canto inferior direito em todas as
@@ -6,6 +6,7 @@ import { whatsappUrl } from '../lib/site';
  * Verde oficial do WhatsApp + logo; acessível (aria-label) e responsivo.
  */
 export default function WhatsAppFab() {
+  const { whatsappUrl } = useSite();
   return (
     <a
       href={whatsappUrl()}
