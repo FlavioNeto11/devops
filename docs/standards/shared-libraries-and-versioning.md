@@ -1,3 +1,11 @@
+---
+title: "Bibliotecas compartilhadas & versionamento"
+status: canonical
+applies_to: [platform]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # Bibliotecas compartilhadas & versionamento
 
 > Como projetos **reúsam código** entre si sem copiar-colar. Os apps são monorepos **separados**

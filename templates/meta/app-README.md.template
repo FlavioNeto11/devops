@@ -1,0 +1,31 @@
+# <APP>
+
+> <Uma linha: o que o app faz e onde aparece (`<host>/<basePath>`).>
+
+## Stack
+
+<frontend · backend · banco · auth · IA, em uma ou duas linhas.>
+
+## Rodar localmente
+
+```bash
+# <comandos de dev local (docker compose / npm run dev / etc.)>
+```
+
+## Esteira DevOps
+
+Este app entra na esteira padrão da plataforma. Contrato em [`devops.yaml`](./devops.yaml)
+(schema: [`../../schema/devops-schema.json`](../../schema/devops-schema.json)).
+
+- **URLs:** `http://xpto.localhost/<basePath>` · `.../<basePath>/api/health`
+- **Publicar:** `scripts/publish-app.ps1 -App <app>` (ver [`../../docs/deployment-flow.md`](../../docs/deployment-flow.md))
+- **Onboarding:** [`../../docs/standards/golden-path.md`](../../docs/standards/golden-path.md)
+
+## Para agentes de IA
+
+- [`AGENTS.md`](./AGENTS.md) — contrato (fronteiras, matriz de decisão).
+- [`CLAUDE.md`](./CLAUDE.md) — contexto específico do Claude (armadilhas, env vars).
+
+## Documentação
+
+<links para `docs/` do app, se houver.>

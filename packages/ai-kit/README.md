@@ -1,5 +1,7 @@
 # @flavioneto11/ai-kit
 
+> **Para agentes:** leia [`AGENTS.md`](./AGENTS.md) (escopo, exports, versionamento, fronteiras).
+
 Contrato compartilhado de IA (gpt-5/reasoning) da plataforma. **Zero dependências de runtime**:
 o cliente OpenAI é injetado por quem chama; para LangChain devolvemos os _args_ do construtor.
 

@@ -1,3 +1,11 @@
+---
+title: "Checklist de Onboarding de uma Nova Aplicacao"
+status: guide
+applies_to: [platform]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # Checklist de Onboarding de uma Nova Aplicacao
 
 Checklist objetivo e acionavel para adicionar uma nova aplicacao a Plataforma DevOps Local
@@ -11,8 +19,8 @@ e a convencao de roteamento em [`path-routing-pattern.md`](./path-routing-patter
 > **Atalho (gera tudo no padrao):** `C:\devops\scripts\new-app.ps1 -Name <app> -Services frontend,api,api2,worker`
 > cria `devops.yaml` + Dockerfiles + `k8s/` + workflow + **Application do Argo (GitOps)** e
 > imprime os comandos de `docker build`/`kubectl apply`. Os passos abaixo explicam o que ele
-> gera (e como fazer manualmente, se preferir). Exemplos reais no repo: `samples/aplicacao1`,
-> `samples/aplicacao2` (multi-API) e `samples/aplicacao3` (gerada pelo `new-app.ps1`).
+> gera (e como fazer manualmente, se preferir). Exemplos reais no repo: `apps/sicat` (full-stack),
+> `apps/gymops` (monorepo) e `templates/app-template/app.yaml` (exemplo canonico do contrato).
 
 ---
 
@@ -309,4 +317,4 @@ Duas opcoes (escolha uma):
 - [`github-runner-setup.md`](./github-runner-setup.md) — runner para o deploy via Actions.
 - [`local-domain-setup.md`](./local-domain-setup.md) — dominio local/real e HTTPS.
 - [`templates/`](../templates) — chart e workflows reutilizaveis;
-  [`samples/aplicacao1`](../samples/aplicacao1) — exemplo pronto.
+  [`apps/sicat/devops.yaml`](../apps/sicat/devops.yaml) — contrato de um app real.

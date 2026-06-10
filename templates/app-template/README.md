@@ -9,6 +9,13 @@ O chart segue a **convencao de roteamento por subpath** da plataforma: o mesmo
 host (`xpto.localhost` no local, `dev.nvit.com.br` no real) serve varias apps,
 cada uma sob um `basePath` (ex.: `/aplicacao1`).
 
+> **Schema canonico do `devops.yaml`:** [`../../schema/devops-schema.json`](../../schema/devops-schema.json)
+> (maquina-legivel; referencia humana em [`../../docs/new-project-contract.md`](../../docs/new-project-contract.md)).
+>
+> **Meta-docs de um app novo:** parta dos templates em
+> [`../meta/`](../meta/) — `AGENTS.md.template`, `CLAUDE.md.template`, `app-README.md.template`
+> (padrao: [`../../docs/standards/meta-doc-standard.md`](../../docs/standards/meta-doc-standard.md)).
+
 ---
 
 ## Pre-requisitos

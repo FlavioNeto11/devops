@@ -1,3 +1,11 @@
+---
+title: "Migração do SICAT para o `app-template` (Helm) — caminho documentado"
+status: guide
+applies_to: [platform]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # Migração do SICAT para o `app-template` (Helm) — caminho documentado
 
 > **Status: opcional / não executada.** Decisão de engenharia: o SICAT roda hoje com manifests

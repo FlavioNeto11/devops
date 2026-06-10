@@ -1,3 +1,11 @@
+---
+title: "Padrões de Infraestrutura — Plataforma DevOps Local"
+status: canonical
+applies_to: [platform]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # Padrões de Infraestrutura — Plataforma DevOps Local
 
 > Regras **operacionais** derivadas dos [NFR](./non-functional-requirements.md). O que é HARD

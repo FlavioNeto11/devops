@@ -1,0 +1,164 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/FlavioNeto11/devops/schema/devops-schema.json",
+  "title": "devops.yaml — contrato canônico de aplicação da Plataforma DevOps Local",
+  "description": "Schema do descritor declarativo que toda app coloca na raiz do repositório. A plataforma (CI + Helm/kubectl) traduz este contrato em Deployment, Service, IngressRoute e Middleware. Referência humana: docs/new-project-contract.md. Regra de ouro de roteamento: docs/standards/hard-constraints.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["app", "services"],
+  "properties": {
+    "app": {
+      "type": "object",
+      "description": "Identidade e endereçamento da aplicação no host único.",
+      "additionalProperties": false,
+      "required": ["name", "namespace", "host", "basePath"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Nome lógico (kebab-case). Prefixo dos recursos: <name>-<service>.",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "namespace": {
+          "type": "string",
+          "description": "Namespace Kubernetes de destino. Apps de negócio: apps | apps-dev | apps-prod-local.",
+          "default": "apps"
+        },
+        "host": {
+          "type": "string",
+          "description": "Host de entrada no Traefik. Local: xpto.localhost. Real: dev.nvit.com.br."
+        },
+        "basePath": {
+          "type": "string",
+          "description": "Subpath base sob o qual a app inteira é servida. Convenção: /<name>.",
+          "pattern": "^/[a-z0-9-/]*$"
+        }
+      }
+    },
+    "services": {
+      "type": "object",
+      "description": "Mapa serviceName -> definição do serviço. A chave vira sufixo do recurso (<app.name>-<serviceName>) e a entrada da matriz de build do CI (um build por serviço).",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/definitions/service" }
+    },
+    "dependencies": {
+      "type": "object",
+      "description": "Dependências de infraestrutura por nome (ex.: postgres, redis). Provisionadas separadamente do build da app.",
+      "additionalProperties": { "$ref": "#/definitions/dependency" }
+    },
+    "secrets": {
+      "type": "array",
+      "description": "Nomes de Secrets Kubernetes consumidos pela app. Criados fora do git (a partir do .env) ou via Sealed Secrets; NUNCA versionados em plaintext. Ver docs/standards/hard-constraints.md.",
+      "items": { "type": "string" }
+    },
+    "configmaps": {
+      "type": "array",
+      "description": "Nomes de ConfigMaps consumidos pela app (ex.: certificados, arquivos de configuração não-secretos).",
+      "items": { "type": "string" }
+    },
+    "migrations": {
+      "type": "object",
+      "description": "Estratégia de migrations de banco, rodadas fora do build da imagem (ex.: Prisma após o Postgres subir).",
+      "additionalProperties": true,
+      "properties": {
+        "tool": { "type": "string", "description": "Ferramenta de migration (ex.: prisma)." }
+      }
+    }
+  },
+  "definitions": {
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "image"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "frontend (SPA, sem strip) | api (backend principal, com strip) | api2 (backend secundário, com strip) | worker (background, sem ingress).",
+          "enum": ["frontend", "api", "api2", "worker"]
+        },
+        "path": {
+          "type": "string",
+          "description": "Subpath relativo ao basePath onde o serviço responde. Obrigatório para api/api2 (ex.: /api, /api2). Frontend usa / (raiz do basePath).",
+          "pattern": "^/[a-z0-9-/]*$"
+        },
+        "image": {
+          "type": "string",
+          "description": "Nome da imagem. Lab: <name>-<service> (resolve para :local). CI: ghcr.io/flavioneto11/<app>/<service>."
+        },
+        "port": {
+          "type": "integer",
+          "description": "Porta interna do processo/container; também a porta do Service.",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "expose": {
+          "type": "boolean",
+          "description": "true => o serviço ganha IngressRoute no Traefik. false => sem rota (ex.: worker)."
+        },
+        "stripPrefix": {
+          "type": "boolean",
+          "description": "true => Middleware StripPrefix remove o prefixo COMPLETO (basePath+path). HARD: frontend=false; api/api2/worker-health=true."
+        },
+        "priority": {
+          "type": "integer",
+          "description": "Prioridade da IngressRoute. HARD: api2 > api > frontend (ex.: 40 > 30 > 10) porque prefixos mais específicos devem vencer."
+        },
+        "command": {
+          "type": "array",
+          "description": "Override do entrypoint do container (ex.: [\"npm\", \"run\", \"worker\"]).",
+          "items": { "type": "string" }
+        },
+        "build": {
+          "type": "object",
+          "description": "Parâmetros de build da imagem (quando o CI/local builda a partir do código).",
+          "additionalProperties": false,
+          "properties": {
+            "context": {
+              "type": "string",
+              "description": "Diretório de contexto do build (ex.: frontend, backend, . para monorepo)."
+            },
+            "dockerfile": {
+              "type": "string",
+              "description": "Caminho do Dockerfile relativo ao contexto (ex.: apps/web/Dockerfile)."
+            },
+            "target": {
+              "type": "string",
+              "description": "Stage alvo do build multi-stage (opcional)."
+            },
+            "args": {
+              "type": "object",
+              "description": "Build args passados ao Dockerfile (ex.: VITE_API_BASE_URL).",
+              "additionalProperties": { "type": ["string", "number", "boolean"] }
+            }
+          }
+        },
+        "env": {
+          "type": "object",
+          "description": "Variáveis de ambiente do container (chave -> valor). NUNCA segredos aqui. Frontend: VITE_BASE_PATH=/<basePath>/ (com barra final).",
+          "additionalProperties": { "type": ["string", "number", "boolean"] }
+        },
+        "health": {
+          "type": "object",
+          "description": "Health check usado pelos probes e pela aba Health do Console.",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Caminho como o processo o vê (após o strip), ex.: /health. Frontend: normalmente /."
+            }
+          }
+        }
+      }
+    },
+    "dependency": {
+      "type": "object",
+      "description": "Dependência de infraestrutura (ex.: banco, cache).",
+      "additionalProperties": true,
+      "properties": {
+        "image": { "type": "string", "description": "Imagem da dependência (ex.: postgres:16)." },
+        "db": { "type": "string", "description": "Nome do banco a criar (para bancos)." },
+        "service": { "type": "string", "description": "Nome do Service Kubernetes da dependência." },
+        "port": { "type": "integer", "description": "Porta da dependência.", "minimum": 1, "maximum": 65535 }
+      }
+    }
+  }
+}

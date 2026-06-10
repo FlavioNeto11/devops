@@ -1,3 +1,11 @@
+---
+title: "Documentação da Plataforma DevOps Local"
+status: reference
+applies_to: [platform]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # Documentação da Plataforma DevOps Local (`docs/`)
 
 Hub da documentação (pt-BR) da Plataforma DevOps Local (Kubernetes do Docker Desktop em Windows).
@@ -5,6 +13,10 @@ Hub da documentação (pt-BR) da Plataforma DevOps Local (Kubernetes do Docker D
 > Visão geral e Quick Start no [`README.md`](../README.md) da raiz. Arquitetura em
 > [`ARCHITECTURE.md`](../ARCHITECTURE.md). Segurança em [`SECURITY.md`](../SECURITY.md).
 > Como contribuir em [`CONTRIBUTING.md`](../CONTRIBUTING.md). Fases em [`ROADMAP.md`](../ROADMAP.md).
+>
+> **Para agentes de IA (Claude/Copilot):** comece por [`../CLAUDE.md`](../CLAUDE.md) (mapa do
+> monorepo) e [`../AGENTS.md`](../AGENTS.md) (fronteiras de operação). Como a meta-documentação é
+> escrita: [`standards/meta-doc-standard.md`](./standards/meta-doc-standard.md).
 
 ---
 
@@ -14,17 +26,20 @@ Comece aqui ao desenhar/avaliar um app.
 | Doc | Para que serve |
 |---|---|
 | [`golden-path.md`](./standards/golden-path.md) | A estrada pavimentada do zero ao app no ar. |
+| [`hard-constraints.md`](./standards/hard-constraints.md) | **Regras inegociáveis** (labels, roteamento, segredos, GitOps, imagens) num só lugar. |
 | [`functional-requirements.md`](./standards/functional-requirements.md) | Template de FR + índice; estado (pronto/falta) por app em [`fr/`](./standards/fr/). |
 | [`non-functional-requirements.md`](./standards/non-functional-requirements.md) | Recursos, probes, SLO, observabilidade, segurança, backup. |
 | [`infra-standards.md`](./standards/infra-standards.md) | Regras de infra: labels (HARD), roteamento, quotas, segredos, GitOps. |
 | [`shared-libraries-and-versioning.md`](./standards/shared-libraries-and-versioning.md) | Reúso entre projetos: pacotes `@flavioneto11/*`, SemVer, offline. |
 | [`deprecation-policy.md`](./standards/deprecation-policy.md) | Como trocar/remover sem quebrar (flag por 1 ciclo). |
+| [`documentation-style.md`](./standards/documentation-style.md) | Como **escrever docs**: naming, front-matter, idioma, ToC, cross-link, ciclo de vida. |
+| [`meta-doc-standard.md`](./standards/meta-doc-standard.md) | Como autorar **meta-docs** (CLAUDE.md/AGENTS.md/skills): fonte única, precedência, seções. |
 
 ## 📘 Guias operacionais (nesta pasta)
 
 | Guia | Para que serve |
 |---|---|
-| [`new-project-contract.md`](./new-project-contract.md) | Referência completa do `devops.yaml`. |
+| [`new-project-contract.md`](./new-project-contract.md) | Referência completa do `devops.yaml` (schema máquina-legível: [`../schema/devops-schema.json`](../schema/devops-schema.json)). |
 | [`path-routing-pattern.md`](./path-routing-pattern.md) | Roteamento: strip vs base path, prioridade, exemplos. |
 | [`deployment-flow.md`](./deployment-flow.md) | Fluxo fim-a-fim: instalar, publicar, reverter, logs, Argo/Grafana/Console. |
 | [`project-onboarding-checklist.md`](./project-onboarding-checklist.md) | Checklist de uma nova app. |
@@ -42,7 +57,12 @@ Comece aqui ao desenhar/avaliar um app.
 
 ## 🤝 Contribuir (`contributing/`)
 [`repo-structure.md`](./contributing/repo-structure.md) — mapa autoritativo do repo. Visão de
-contribuição em [`CONTRIBUTING.md`](../CONTRIBUTING.md).
+contribuição em [`CONTRIBUTING.md`](../CONTRIBUTING.md). Estilo de escrita em
+[`standards/documentation-style.md`](./standards/documentation-style.md).
+
+> **Índices por escopo:** [`../apps/README.md`](../apps/README.md) (apps) ·
+> [`../platform/README.md`](../platform/README.md) (infra). Meta-docs por app/componente: `CLAUDE.md`
+> + `AGENTS.md` em cada escopo (padrão em [`standards/meta-doc-standard.md`](./standards/meta-doc-standard.md)).
 
 ---
 

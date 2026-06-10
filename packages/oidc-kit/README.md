@@ -1,5 +1,7 @@
 # @flavioneto11/oidc-kit
 
+> **Para agentes:** leia [`AGENTS.md`](./AGENTS.md) (escopo, exports, versionamento, fronteiras).
+
 Kit OIDC/Keycloak + sessão da plataforma. **Zero dependências de runtime** (node:crypto + fetch global).
 Generaliza o padrão SICAT (validação aditiva no `/userinfo` + sessão própria do app).
 

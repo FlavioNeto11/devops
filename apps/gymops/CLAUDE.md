@@ -1,6 +1,16 @@
+---
+title: "GymOps — Manual para Claude Code"
+status: canonical
+applies_to: [gymops]
+updated: 2026-05-17
+language: pt-BR
+---
+
 # GymOps — Plataforma de Gestão Operacional Multiunidade
 
 > **⚡ Para começar:** leia primeiro [`AGENTS.md`](AGENTS.md) — contrato interoperável entre todos os agentes (Claude Code, Copilot Chat, etc). Este arquivo (`CLAUDE.md`) traz as regras detalhadas do projeto e armadilhas conhecidas.
+>
+> **Contexto da plataforma:** [`../../CLAUDE.md`](../../CLAUDE.md) (monorepo) e [`../../AGENTS.md`](../../AGENTS.md) (fronteiras); máquina: [`~/.claude/CLAUDE.md`](C:\Users\Administrator\.claude\CLAUDE.md). Padrão desta camada: [`../../docs/standards/meta-doc-standard.md`](../../docs/standards/meta-doc-standard.md).
 
 ## O que é este projeto
 

@@ -1,3 +1,11 @@
+---
+title: "Arquitetura da Plataforma DevOps Local"
+status: canonical
+applies_to: [platform]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # Arquitetura da Plataforma DevOps Local
 
 Este documento descreve em detalhe os componentes da plataforma, o fluxo completo da

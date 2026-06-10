@@ -1,3 +1,11 @@
+---
+title: "SSO (Keycloak) + Cofre de Segredos (Sealed Secrets)"
+status: guide
+applies_to: [platform]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # SSO (Keycloak) + Cofre de Segredos (Sealed Secrets)
 
 Identidade/SSO e gestão de segredos da plataforma NovaIT.

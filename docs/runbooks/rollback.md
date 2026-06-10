@@ -1,3 +1,11 @@
+---
+title: "Runbook — reverter uma publicação"
+status: guide
+applies_to: [platform]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # Runbook — reverter uma publicação
 
 > Como voltar atrás com segurança. Ver também [`deployment-flow.md`](../deployment-flow.md) (sec.8).

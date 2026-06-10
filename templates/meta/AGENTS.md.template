@@ -1,0 +1,72 @@
+---
+title: "<APP> — Contrato de Agentes"
+status: canonical
+applies_to: [<app>]
+updated: AAAA-MM-DD
+language: pt-BR
+---
+
+# <APP> — Contrato de Agentes
+
+> **Fonte única, tool-agnóstica.** Qualquer agente (Claude Code, Copilot, futuros) lê este arquivo
+> primeiro ao trabalhar em `<app>`. O [`CLAUDE.md`](./CLAUDE.md) é a camada específica do Claude e
+> aponta para cá. Padrão: [`../../docs/standards/meta-doc-standard.md`](../../docs/standards/meta-doc-standard.md).
+>
+> Contrato da plataforma: [`../../AGENTS.md`](../../AGENTS.md). Em conflito, regra do escopo mais
+> específico prevalece se marcada.
+
+## 1. Visão geral
+
+<1 parágrafo: o que o app faz, stack em uma linha, estado atual, idioma de produto.>
+
+## 2. Como começar uma tarefa (sempre)
+
+1. Ler este `AGENTS.md` e o [`CLAUDE.md`](./CLAUDE.md).
+2. Ler o estado atual (`docs/status.md` se existir).
+3. Consultar a matriz de decisão (§4) e as regras HARD da plataforma
+   ([`../../docs/standards/hard-constraints.md`](../../docs/standards/hard-constraints.md)).
+4. Planejar → executar → validar (§6) → atualizar docs → relatório final.
+
+## 3. Ordem oficial de leitura
+
+| # | Doc | Para quê |
+|---|---|---|
+| 1 | [`AGENTS.md`](./AGENTS.md) | Este arquivo |
+| 2 | [`CLAUDE.md`](./CLAUDE.md) | Armadilhas, env vars, dev/debug |
+| 3 | [`README.md`](./README.md) | Setup técnico |
+| 4 | <docs canônicos do app> | <para quê> |
+
+## 4. Matriz de decisão
+
+| Tipo de tarefa | Comece por | Fronteira |
+|---|---|---|
+| <tarefa> | <doc/skill/especialista> | segura / com aprovação / proibida |
+
+## 5. Fronteiras de operação
+
+### ✅ Seguras (autônomas)
+- <comandos read-only / idempotentes>
+
+### ⚠️ Com aprovação do operador
+- <comandos com efeito colateral / produção>
+
+### ⛔ Proibidas
+- `git push --force`; editar segredos; <outras do app>.
+
+## 6. Validação obrigatória
+
+```bash
+# <lint / typecheck / testes / build do app>
+```
+
+## 7. Política de atualização de docs
+
+| Mudança | Atualizar |
+|---|---|
+| <ex.: endpoint> | <ex.: docs/api-spec.md + docs/status.md> |
+
+## 8. Princípios não-negociáveis
+
+1. AGENTS.md é a fonte das fronteiras; não duplicar em CLAUDE.md nem `.github/`.
+2. <princípios do app>.
+3. Documentar é parte da entrega; estado real, sem promessas.

@@ -1,3 +1,11 @@
+---
+title: "Configuracao do GitHub Actions Self-Hosted Runner"
+status: guide
+applies_to: [platform]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # Configuracao do GitHub Actions Self-Hosted Runner
 
 Este guia mostra, passo-a-passo, como instalar e registrar o **runner self-hosted** do

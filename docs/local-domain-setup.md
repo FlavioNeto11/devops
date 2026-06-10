@@ -1,3 +1,11 @@
+---
+title: "Configuracao de Dominio (Local e Real)"
+status: guide
+applies_to: [platform]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # Configuracao de Dominio (Local e Real)
 
 Este guia cobre como apontar os hosts da plataforma no **arquivo `hosts` do Windows** para

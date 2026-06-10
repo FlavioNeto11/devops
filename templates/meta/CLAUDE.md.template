@@ -1,0 +1,62 @@
+---
+title: "<APP> — Manual para Claude Code"
+status: canonical
+applies_to: [<app>]
+updated: AAAA-MM-DD
+language: pt-BR
+---
+
+# <APP> — Manual para Claude Code
+
+> **Comece por aqui.** As fronteiras de operação e a matriz de decisão vivem no
+> [`AGENTS.md`](./AGENTS.md) — leia antes de agir. Este arquivo traz o contexto específico do Claude.
+>
+> Contexto da plataforma: [`../../CLAUDE.md`](../../CLAUDE.md). Máquina:
+> [`~/.claude/CLAUDE.md`](C:\Users\Administrator\.claude\CLAUDE.md). **Não repita** esses conteúdos —
+> aponte.
+
+## O que é <APP>
+
+<1–2 parágrafos: o que faz, onde encaixa na plataforma, basePath/host.>
+
+## Ordem de leitura
+
+1. Este arquivo.
+2. [`AGENTS.md`](./AGENTS.md) — fronteiras + matriz de decisão (obrigatório antes de agir).
+3. [`README.md`](./README.md) — setup técnico.
+4. <docs canônicos do app>.
+
+## Stack & decisões de arquitetura
+
+| Aspecto | Decisão | Por quê |
+|---|---|---|
+| Frontend | <framework> | <motivo> |
+| Backend | <lang/framework> | <motivo> |
+| Banco | <db> | <motivo> |
+| Auth | <Keycloak OIDC / própria> | <motivo> |
+| Deploy | Kubernetes (esteira da plataforma) | padrão |
+
+## Armadilhas conhecidas
+
+1. **<sintoma>** → <correção>.
+2. **<sintoma>** → <correção>.
+
+## Variáveis de ambiente chave
+
+```bash
+# Frontend
+VITE_BASE_PATH=/<app>/        # subpath; casar com basePath do devops.yaml
+# Backend
+<VAR>=<default>               # <quando/por quê>
+```
+
+## Como trabalhar aqui
+
+- **Adicionar feature:** ler `AGENTS.md` → seguir [`../../docs/standards/golden-path.md`](../../docs/standards/golden-path.md) → PR com testes.
+- **Debugar:** `../../TROUBLESHOOTING.md` → logs (`kubectl logs -n <ns> deploy/<svc>`).
+- **Publicar/reverter:** `scripts/publish-app.ps1 -App <app>` (com aprovação) / [`../../docs/runbooks/rollback.md`](../../docs/runbooks/rollback.md).
+
+## Regras inegociáveis
+
+Ver [`../../docs/standards/hard-constraints.md`](../../docs/standards/hard-constraints.md) (labels,
+roteamento, segredos, GitOps, imagens) + as específicas de `<app>` listadas no `AGENTS.md`.

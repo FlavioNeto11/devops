@@ -1,8 +1,18 @@
+---
+title: "GymOps — Contrato Interoperável de Agentes"
+status: canonical
+applies_to: [gymops]
+updated: 2026-05-17
+language: pt-BR
+---
+
 # AGENTS.md — Contrato Interoperável de Agentes para GymOps
 
 > **Propósito**: Este arquivo é o **contrato compartilhado** entre todos os agentes de IA que trabalham neste repositório — GitHub Copilot Chat (VS Code Insiders), Claude Code, agentes locais, agentes cloud e qualquer ferramenta futura que leia instruções versionadas em Markdown.
 >
 > Qualquer agente que abrir este projeto deve **ler este arquivo primeiro**, antes de qualquer outro.
+>
+> **Contrato da plataforma:** [`../../AGENTS.md`](../../AGENTS.md) (fronteiras globais). Em conflito, este arquivo do escopo `gymops` prevalece. Padrão: [`../../docs/standards/meta-doc-standard.md`](../../docs/standards/meta-doc-standard.md).
 
 ---
 

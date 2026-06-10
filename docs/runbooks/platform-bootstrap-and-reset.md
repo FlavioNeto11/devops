@@ -1,3 +1,11 @@
+---
+title: "Runbook — subir, validar e resetar a plataforma"
+status: guide
+applies_to: [platform]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # Runbook — subir, validar e resetar a plataforma
 
 > Fluxo de bootstrap completo em [`deployment-flow.md`](../deployment-flow.md). Este runbook é o

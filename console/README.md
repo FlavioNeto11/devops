@@ -1,5 +1,7 @@
 # DevOps Console
 
+> **Para agentes:** leia [`AGENTS.md`](./AGENTS.md) primeiro (escopo, fronteiras seguras/aprovação/proibidas, princípios).
+
 Painel web **somente leitura** que mostra, em tempo real, o estado do cluster
 Kubernetes local (contexto `docker-desktop`) da Plataforma DevOps. Ele reune em
 um unico lugar a visao de cargas de trabalho, eventos, logs e roteamento

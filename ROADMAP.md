@@ -1,3 +1,11 @@
+---
+title: "Roadmap da Plataforma DevOps Local"
+status: reference
+applies_to: [platform]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # Roadmap da Plataforma DevOps Local
 
 Plano de execucao em **6 fases**, cada uma como um checklist. Marque as caixinhas

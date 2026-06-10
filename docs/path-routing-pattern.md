@@ -1,3 +1,11 @@
+---
+title: "Padrao de Roteamento por Path (StripPrefix vs Base Path)"
+status: guide
+applies_to: [platform]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # Padrao de Roteamento por Path (StripPrefix vs Base Path)
 
 Este documento descreve a **convencao de roteamento** da Plataforma DevOps Local sob um

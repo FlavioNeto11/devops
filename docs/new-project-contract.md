@@ -1,4 +1,16 @@
+---
+title: "Contrato da Nova Aplicacao — Referencia completa do devops.yaml"
+status: canonical
+applies_to: [platform]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # Contrato da Nova Aplicacao — Referencia completa do `devops.yaml`
+
+> **Schema maquina-legivel (fonte para validacao/CI):**
+> [`../schema/devops-schema.json`](../schema/devops-schema.json). Este documento e a referencia
+> **humana** do mesmo contrato; em divergencia, o JSON Schema e a fonte da verdade do formato.
 
 Este documento e a referencia **canonica e completa** do `devops.yaml`, o descritor que
 toda aplicacao precisa para entrar na esteira da Plataforma DevOps Local. Aqui voce
@@ -441,5 +453,6 @@ services:
 - [`deployment-flow.md`](./deployment-flow.md) — publicar (local e via Actions/GHCR),
   reverter, logs, diagnostico.
 - [`ARCHITECTURE.md`](../ARCHITECTURE.md) — schema na secao 7 e fluxo da esteira.
-- Exemplos no repo: [`samples/aplicacao1/devops.yaml`](../samples/aplicacao1/devops.yaml) e
-  [`templates/app-template/app.yaml`](../templates/app-template/app.yaml).
+- Exemplos no repo: [`templates/app-template/app.yaml`](../templates/app-template/app.yaml)
+  (exemplo canonico) e [`apps/sicat/devops.yaml`](../apps/sicat/devops.yaml) (app real, com
+  `priority`, `build`, `command`, `dependencies`, `secrets`, `configmaps`).

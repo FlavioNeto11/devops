@@ -1,5 +1,7 @@
 # Portal NovaIT (landing na raiz `/`)
 
+> **Para agentes:** leia [`AGENTS.md`](./AGENTS.md) primeiro (escopo, fronteiras seguras/aprovação/proibidas, princípios).
+
 Página inicial pública da plataforma, servida na **raiz** de `https://dev.nvit.com.br`
 (e `http://xpto.localhost/` no dev local). Lista **dinamicamente** as aplicações
 publicadas e dá atalhos para as ferramentas.

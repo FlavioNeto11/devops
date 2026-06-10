@@ -1,5 +1,7 @@
 # =============================================================================
 # devops.yaml — EXEMPLO CANONICO do descritor de aplicacao da plataforma.
+# Schema maquina-legivel: ../../schema/devops-schema.json (referencia humana:
+# ../../docs/new-project-contract.md).
 # -----------------------------------------------------------------------------
 # Este arquivo demonstra o schema do contrato compartilhado. Ele descreve a
 # aplicacao de forma declarativa; a plataforma (CI + Helm) traduz este

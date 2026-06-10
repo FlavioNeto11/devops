@@ -1,3 +1,11 @@
+---
+title: "Requisitos Não-Funcionais (NFR) — Plataforma DevOps Local"
+status: canonical
+applies_to: [platform]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # Requisitos Não-Funcionais (NFR) — Plataforma DevOps Local
 
 > Padrões transversais de **qualidade** que toda app da plataforma deve respeitar.

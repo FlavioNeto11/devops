@@ -1,3 +1,11 @@
+---
+title: "Golden Path — a \"estrada pavimentada\" para um app novo"
+status: canonical
+applies_to: [platform]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # Golden Path — a "estrada pavimentada" para um app novo
 
 > O caminho **padrão e mais curto** do zero ao app rodando na plataforma. Seguir o golden path

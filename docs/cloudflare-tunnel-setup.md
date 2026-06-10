@@ -1,3 +1,11 @@
+---
+title: "Expor a plataforma na internet com Cloudflare Tunnel (dev.nvit.com.br / nvit.com.br)"
+status: guide
+applies_to: [platform]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # Expor a plataforma na internet com Cloudflare Tunnel (dev.nvit.com.br / nvit.com.br)
 
 Guia para publicar a plataforma DevOps local (cluster do Docker Desktop) nos dominios

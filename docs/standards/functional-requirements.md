@@ -1,3 +1,11 @@
+---
+title: "Requisitos Funcionais (FR) — índice e template"
+status: canonical
+applies_to: [platform]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # Requisitos Funcionais (FR) — índice e template
 
 > O **o quê** de cada app (não o como). Cada app tem um arquivo em [`fr/`](./fr/) com escopo,

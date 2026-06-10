@@ -1,3 +1,11 @@
+---
+title: "Estrutura do repositório"
+status: reference
+applies_to: [platform]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # Estrutura do repositório (`C:\devops`)
 
 > Mapa autoritativo. Marca o que é **consumido por automação** (Argo/CI/Console — mexer com
@@ -12,12 +20,13 @@
 | `portal/` | Landing pública na raiz `/` (estático nginx) | Argo/k8s |
 | `platform/` | Infra GitOps: `argocd/apps/` (app-of-apps), `traefik/`, `observability/`, `namespaces/`, `registry/` | **Argo (HARD)** |
 | `packages/` | Libs compartilhadas `@flavioneto11/*`: `ai-kit`, `oidc-kit` (Fase 2) | apps (build), CI publish |
-| `templates/` | `app-template` (Helm) + `github-actions/` (workflows reutilizáveis) | scaffolding, CI |
+| `templates/` | `app-template` (Helm) + `github-actions/` (workflows) + `meta/` (templates de `CLAUDE.md`/`AGENTS.md`/README de app) | scaffolding, CI |
+| `schema/` | `devops-schema.json` — JSON Schema canônico do `devops.yaml` (validação/CI) | CI, agentes |
 | `scripts/` | Automação PowerShell 7 (bootstrap, build, deploy, diagnose) | operadores |
 | `docs/` | Documentação (guias + `standards/` + `runbooks/` + `contributing/`) | humanos |
 | `samples/` | Vazio (exemplos foram para `apps/`; modelo em `templates/app-template`) | — |
 | `runner/` | GitHub Actions self-hosted runner (ignorado pelo git) | CI |
-| raiz `*.md` | `README`, `ARCHITECTURE`, `SECURITY`, `TROUBLESHOOTING`, `ROADMAP`, `CONTRIBUTING` | humanos |
+| raiz `*.md` | `README`, `ARCHITECTURE`, `SECURITY`, `TROUBLESHOOTING`, `ROADMAP`, `CONTRIBUTING` + **`CLAUDE.md`/`AGENTS.md`** (camada de agentes) | humanos + agentes |
 
 ## `docs/` (taxonomia)
 

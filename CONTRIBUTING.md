@@ -1,19 +1,35 @@
+---
+title: "Contribuindo com a Plataforma DevOps"
+status: canonical
+applies_to: [platform]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # Contribuindo com a Plataforma DevOps (`C:\devops`)
 
 > Monorepo da plataforma DevOps local (Windows Server + Kubernetes do Docker Desktop). Idioma:
 > texto em **pt-BR**; código/identificadores/YAML em **inglês**.
+>
+> **Agentes de IA (Claude/Copilot):** comecem por [`CLAUDE.md`](CLAUDE.md) + [`AGENTS.md`](AGENTS.md).
 
 ## Mapa rápido
 - **Estrutura do repo**: [`docs/contributing/repo-structure.md`](docs/contributing/repo-structure.md).
 - **Índice da documentação**: [`docs/README.md`](docs/README.md).
 - **Padrões** (FR/NFR/infra/golden-path/libs): [`docs/standards/`](docs/standards/).
 - **Runbooks**: [`docs/runbooks/`](docs/runbooks/).
+- **Camada de agentes/meta-docs**: [`CLAUDE.md`](CLAUDE.md) + [`AGENTS.md`](AGENTS.md) (raiz) e por
+  escopo; como escrevê-los em [`docs/standards/meta-doc-standard.md`](docs/standards/meta-doc-standard.md).
+- **Estilo de docs**: [`docs/standards/documentation-style.md`](docs/standards/documentation-style.md).
+- **Contrato `devops.yaml`**: [`docs/new-project-contract.md`](docs/new-project-contract.md) + schema
+  [`schema/devops-schema.json`](schema/devops-schema.json).
 
 ## Adicionar um app novo
 Siga o **golden path**: [`docs/standards/golden-path.md`](docs/standards/golden-path.md). Em uma linha:
 `devops.yaml → new-app.ps1 → app-template/k8s → build :local/CI → Argo Application`.
 
 ## Regras inegociáveis
+> Lista consolidada e autoritativa em [`docs/standards/hard-constraints.md`](docs/standards/hard-constraints.md).
 - **Nenhum segredo no git.** `*.example` com placeholders + **Sealed Secrets** (cifrado) versionado;
   segredo real fora do git e excluído do `kustomization.yaml`. Ver [`SECURITY.md`](SECURITY.md).
 - **Windows/PowerShell 7**, caminhos `C:\...`, scripts **idempotentes**. Nunca assuma Linux.

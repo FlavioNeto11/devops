@@ -1,3 +1,11 @@
+---
+title: "Plataforma DevOps Local (Kubernetes em Windows)"
+status: canonical
+applies_to: [platform]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # Plataforma DevOps Local (Kubernetes em Windows)
 
 Plataforma DevOps completa, auto-hospedada, rodando em um cluster Kubernetes local

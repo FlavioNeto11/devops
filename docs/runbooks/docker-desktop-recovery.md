@@ -1,3 +1,11 @@
+---
+title: "Runbook — recuperar o Docker Desktop / Kubernetes"
+status: guide
+applies_to: [platform]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # Runbook — recuperar o Docker Desktop / Kubernetes
 
 > Quando o Docker Desktop trava (boot/reboot) ou o k8s some. Detalhes e causas em

@@ -1,3 +1,11 @@
+---
+title: "Fluxo de Deploy Fim-a-Fim (instalar, publicar, reverter, operar)"
+status: guide
+applies_to: [platform]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # Fluxo de Deploy Fim-a-Fim (instalar, publicar, reverter, operar)
 
 Este e o guia operacional completo da Plataforma DevOps Local. Ele cobre o **fluxo

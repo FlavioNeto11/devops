@@ -1,3 +1,11 @@
+---
+title: "Política de depreciação"
+status: canonical
+applies_to: [platform]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # Política de depreciação
 
 > Como remover/trocar algo (campo do `devops.yaml`, rota, comportamento de lib) **sem quebrar**

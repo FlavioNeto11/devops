@@ -1,3 +1,11 @@
+---
+title: "Seguranca"
+status: canonical
+applies_to: [platform]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # Seguranca
 
 Este documento descreve como a plataforma trata segredos, os escopos do PAT do GHCR, a

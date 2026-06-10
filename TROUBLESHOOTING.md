@@ -1,3 +1,11 @@
+---
+title: "Troubleshooting (Resolucao de Problemas)"
+status: reference
+applies_to: [platform]
+updated: 2026-06-09
+language: pt-BR
+---
+
 # Troubleshooting (Resolucao de Problemas)
 
 Problemas comuns da plataforma com os **comandos exatos** de correcao. Execute em
