@@ -43,7 +43,7 @@ jobs:
             checks: "lint build:frontend"
           - app: gymops
             pm: pnpm
-            prep: "pnpm --filter @gymops/db run generate"
+            prep: 'pnpm --filter @gymops/db run generate && pnpm --filter "./packages/*" run build'
             checks: "lint typecheck"
           - app: rmambiental
             pm: npm
