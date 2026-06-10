@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, MessageCircle } from 'lucide-react';
-import { whatsappUrl } from '../lib/site';
+import { useSite } from '../lib/SiteContext';
 import { cn } from '../lib/utils';
 
 /**
@@ -18,6 +18,7 @@ export default function ProposalButton({
   variant?: 'primary' | 'ghost';
   className?: string;
 }) {
+  const { whatsappUrl } = useSite();
   const cls = cn(variant === 'primary' ? 'btn-primary' : 'btn-ghost', className);
   const wa = whatsappUrl(message);
 

@@ -1,0 +1,415 @@
+import { useMemo, useState, type CSSProperties } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowRight, Check, Clock, Download, ExternalLink, Lock, Play, Clapperboard, Youtube, Instagram } from 'lucide-react';
+import { Reveal, SectionHeading } from './ui';
+import { GridGlow, PortraitCard, InfinityMotif } from './backgrounds';
+import ProposalButton from './ProposalButton';
+import Accordion from './Accordion';
+import VideoLightbox from './VideoLightbox';
+import PalestraModal from './PalestraModal';
+import LeadForm from './LeadForm';
+import { resolveIcon } from '../lib/icons';
+import { useSite } from '../lib/SiteContext';
+import { mediaUrl, type Section } from '../lib/content';
+import { videoTipoLabel } from '../data/videos';
+import { cn } from '../lib/utils';
+
+type D = Record<string, any>;
+
+// Título com acento em gradiente + cauda.
+function titleNode(h: D) {
+  return (
+    <>
+      {h.title}
+      {h.titleAccent && <span className="text-gradient">{h.titleAccent}</span>}
+      {h.titleTail || ''}
+    </>
+  );
+}
+function Heading({ h }: { h?: D }) {
+  if (!h || (!h.title && !h.eyebrow && !h.subtitle)) return null;
+  return <SectionHeading eyebrow={h.eyebrow} center={h.center} title={titleNode(h)} subtitle={h.subtitle} />;
+}
+
+const wrap = (anchor: string | null | undefined, surface: boolean, extra = '') =>
+  cn('relative py-24', surface && 'bg-brand-surface2/50', extra);
+
+// --------------------------------------------------------------------------- Hero
+function HeroBlock({ d }: { d: D }) {
+  const { site } = useSite();
+  const floating: D[] = d.floating || [];
+  return (
+    <section id="inicio" className="relative overflow-hidden pt-[72px]">
+      <GridGlow />
+      <div className="container-wide relative grid items-center gap-14 py-20 lg:grid-cols-[1.05fr_0.95fr] lg:py-28">
+        <div>
+          {d.eyebrow && <span className="eyebrow">{d.eyebrow}</span>}
+          <p className="mt-6 font-display text-sm font-bold uppercase tracking-[0.3em] text-brand-neon">{d.name || site.name}</p>
+          <p className="mt-1 text-sm font-medium text-brand-muted">{d.role || site.role}</p>
+          <h1 className="mt-5 font-display text-4xl font-extrabold leading-[1.06] tracking-tight text-brand-text sm:text-5xl lg:text-[3.2rem]">
+            {d.title}<span className="text-gradient">{d.titleAccent}</span>{d.titleTail}
+          </h1>
+          <p className="mt-6 max-w-xl text-base leading-relaxed text-brand-muted sm:text-lg">{d.intro || site.intro}</p>
+          <div className="mt-9 flex flex-wrap items-center gap-3">
+            <ProposalButton label={d.primaryCta?.label || 'Solicitar proposta'} />
+            {d.secondaryCta?.label && <a href={d.secondaryCta.href || '#palestras'} className="btn-ghost">{d.secondaryCta.label}</a>}
+          </div>
+          {Array.isArray(d.axes) && d.axes.length > 0 && (
+            <div className="mt-12 grid max-w-lg grid-cols-3 gap-6 border-t border-brand-text/10 pt-7">
+              {d.axes.map((a: D) => (
+                <div key={a.title}>
+                  <div className="font-display text-sm font-bold text-brand-neon">{a.title}</div>
+                  <div className="mt-1 text-xs leading-snug text-brand-muted">{a.desc}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, delay: 0.2 }} className="relative mx-auto w-full max-w-sm">
+          <div className="glass relative rounded-[2rem] p-4 shadow-glass">
+            <div className="absolute -inset-px rounded-[2rem] bg-gradient-to-br from-brand-neon/12 to-transparent" aria-hidden />
+            <PortraitCard photo={mediaUrl(site.photos?.hero)} className="relative" />
+            <div className="relative mt-3 flex items-center justify-between rounded-xl border border-brand-text/10 bg-brand-surface2/70 px-4 py-3">
+              <span className="text-xs uppercase tracking-widest text-brand-muted">Palestrante corporativa</span>
+              <span className="font-display text-sm font-bold text-brand-neon">{site.shortName}</span>
+            </div>
+          </div>
+          {floating.map((f, i) => {
+            const Ico = resolveIcon(f.icon);
+            return (
+              <motion.div key={f.label} className="absolute z-10 hidden items-center gap-2 rounded-xl border border-brand-text/10 bg-brand-surface/90 px-3.5 py-2.5 shadow-soft backdrop-blur-md sm:flex"
+                style={{ top: ['6%', '44%', undefined][i], left: [`-5%`, undefined, '-4%'][i], right: [undefined, '-6%', undefined][i], bottom: [undefined, undefined, '8%'][i] } as CSSProperties}
+                initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.55 + i * 0.18 }}>
+                <span className="grid h-7 w-7 place-items-center rounded-lg bg-brand-neon/15"><Ico className="h-3.5 w-3.5 text-brand-neon" /></span>
+                <span className="text-xs font-semibold text-brand-text">{f.label}</span>
+              </motion.div>
+            );
+          })}
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+// --------------------------------------------------------------------------- Rich text
+function RichTextBlock({ d, anchor, surface }: { d: D; anchor?: string | null; surface: boolean }) {
+  return (
+    <section id={anchor || undefined} className={wrap(anchor, surface)}>
+      <div className="container-wide">
+        <Reveal>
+          <div className="mx-auto max-w-3xl">
+            {d.eyebrow && <span className="eyebrow">{d.eyebrow}</span>}
+            {d.heading && <h2 className="mt-5 font-display text-3xl font-bold leading-[1.12] tracking-tight text-brand-text sm:text-4xl">{d.heading}</h2>}
+            <div className="prose-cms mt-5 space-y-4 text-base leading-relaxed text-brand-muted [&_strong]:text-brand-text [&_a]:text-brand-neon [&_ul]:list-disc [&_ul]:pl-5 [&_h2]:font-display [&_h2]:text-brand-text [&_h3]:font-display [&_h3]:text-brand-text"
+              dangerouslySetInnerHTML={{ __html: d.html || '' }} />
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+// --------------------------------------------------------------------------- Section heading
+function HeadingBlock({ d, anchor, surface }: { d: D; anchor?: string | null; surface: boolean }) {
+  return (
+    <section id={anchor || undefined} className={wrap(anchor, surface, 'py-20')}>
+      <div className="container-wide"><Heading h={d} /></div>
+    </section>
+  );
+}
+
+// --------------------------------------------------------------------------- Card grid
+function CardGridBlock({ d, anchor, surface }: { d: D; anchor?: string | null; surface: boolean }) {
+  const cards: D[] = d.cards || [];
+  const cols = d.columns === 4 ? 'lg:grid-cols-4' : d.columns === 2 ? 'lg:grid-cols-2' : 'lg:grid-cols-3';
+  const list = d.layout === 'list';
+  return (
+    <section id={anchor || undefined} className={wrap(anchor, surface)}>
+      <div className="container-wide">
+        <Heading h={d.heading} />
+        <div className={cn('mt-12 grid gap-5 sm:grid-cols-2', cols)}>
+          {cards.map((c, i) => {
+            const Ico = resolveIcon(c.icon);
+            const inner = (
+              <div className={cn('group h-full rounded-3xl border border-brand-text/10 bg-brand-surface/70 p-6 shadow-card transition-all duration-300 hover:-translate-y-1 hover:border-brand-neon/30', d.heading?.center && 'text-center')}>
+                <span className={cn('grid h-12 w-12 place-items-center rounded-2xl bg-brand-neon/12 ring-1 ring-brand-text/10', d.heading?.center && 'mx-auto')}><Ico className="h-6 w-6 text-brand-neon" /></span>
+                {c.tag && <span className="mt-3 inline-block rounded-full bg-brand-neon/12 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-brand-neon">{c.tag}</span>}
+                <h3 className="mt-4 font-display text-base font-bold text-brand-text">{c.title}</h3>
+                {c.subtitle && <p className="mt-0.5 text-sm italic text-brand-muted">{c.subtitle}</p>}
+                {c.desc && <p className="mt-2 text-sm leading-relaxed text-brand-muted">{c.desc}</p>}
+                {Array.isArray(c.bullets) && c.bullets.length > 0 && (
+                  <ul className="mt-3 grid gap-1.5 text-left">
+                    {c.bullets.map((b: string) => <li key={b} className="flex items-start gap-2 text-sm text-brand-muted"><Check className="mt-0.5 h-4 w-4 shrink-0 text-brand-neon/80" />{b}</li>)}
+                  </ul>
+                )}
+                {c.href && <a href={c.href} className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-neon">Ver mais <ArrowRight className="h-4 w-4" /></a>}
+              </div>
+            );
+            return <Reveal key={c.title + i} delay={(i % 4) * 0.06} className={list ? 'sm:col-span-2 lg:col-span-3' : ''}>{inner}</Reveal>;
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// --------------------------------------------------------------------------- Timeline
+function TimelineBlock({ d, anchor, surface }: { d: D; anchor?: string | null; surface: boolean }) {
+  const steps: D[] = d.steps || [];
+  return (
+    <section id={anchor || undefined} className={wrap(anchor, surface)}>
+      <div className="container-wide">
+        <Heading h={d.heading} />
+        <div className="relative mt-14">
+          <div className="absolute bottom-2 left-[27px] top-2 w-px bg-gradient-to-b from-brand-neon/50 via-brand-text/10 to-transparent md:left-1/2" aria-hidden />
+          <div className="space-y-8">
+            {steps.map((s, i) => {
+              const Ico = resolveIcon(s.icon);
+              return (
+                <motion.div key={s.title + i} initial={{ opacity: 0, x: -16 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true, margin: '-60px' }} transition={{ duration: 0.5, delay: i * 0.06 }}
+                  className="relative flex items-start gap-5 md:odd:flex-row-reverse md:odd:text-right">
+                  <span className="relative z-10 grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-brand-neon/30 bg-brand-bg text-brand-neon shadow-glow">
+                    <Ico className="h-6 w-6" />
+                    <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-brand-neon text-[11px] font-bold text-brand-onNeon">{i + 1}</span>
+                  </span>
+                  <div className="flex-1 rounded-2xl border border-brand-text/10 bg-brand-surface/70 p-5 shadow-soft md:max-w-[44%]">
+                    <h3 className="font-display text-base font-bold text-brand-text">{s.title}</h3>
+                    <p className="mt-1.5 text-sm leading-relaxed text-brand-muted">{s.desc}</p>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// --------------------------------------------------------------------------- Accordion (FAQ)
+function AccordionBlock({ d, anchor, surface }: { d: D; anchor?: string | null; surface: boolean }) {
+  const items = (d.items || []).map((it: D) => ({ q: it.q, a: it.a }));
+  return (
+    <section id={anchor || undefined} className={wrap(anchor, surface)}>
+      <div className="container-wide">
+        <Heading h={d.heading} />
+        <div className="mx-auto mt-12 max-w-3xl"><Reveal><Accordion items={items} /></Reveal></div>
+      </div>
+    </section>
+  );
+}
+
+// --------------------------------------------------------------------------- Video gallery
+function VideoGalleryBlock({ d, anchor, surface }: { d: D; anchor?: string | null; surface: boolean }) {
+  const { site, hasYoutube, hasInstagram } = useSite();
+  const all: D[] = (d.items || []).map((v: D, i: number) => ({ id: v.id || `v${i}`, youtubeId: v.youtubeId || '', title: v.title, tipo: v.tipo || 'palestra' }));
+  const disponiveis = all.filter((v) => (v.youtubeId || '').trim().length > 0);
+  const [index, setIndex] = useState<number | null>(null);
+  return (
+    <section id={anchor || undefined} className={wrap(anchor, surface)}>
+      <div className="container-wide">
+        <Heading h={d.heading} />
+        {disponiveis.length > 0 ? (
+          <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {disponiveis.map((v, i) => (
+              <Reveal key={v.id} delay={(i % 3) * 0.07}>
+                <button type="button" onClick={() => setIndex(i)} className="group relative block aspect-video w-full overflow-hidden rounded-2xl border border-brand-text/10 bg-brand-surface text-left shadow-card">
+                  <img src={`https://img.youtube.com/vi/${v.youtubeId}/hqdefault.jpg`} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                  <span className="absolute inset-0 bg-gradient-to-t from-brand-ink/65 via-transparent to-transparent" aria-hidden />
+                  <span className="absolute left-3 top-3 rounded-full bg-brand-surface/85 px-2.5 py-0.5 text-[11px] font-semibold text-brand-neon">{videoTipoLabel[v.tipo as keyof typeof videoTipoLabel] || v.tipo}</span>
+                  <span className="absolute inset-0 grid place-items-center"><span className="grid h-14 w-14 place-items-center rounded-full bg-brand-neon/95 text-brand-onNeon shadow-glow transition-transform duration-200 group-hover:scale-110"><Play className="h-6 w-6 translate-x-0.5" fill="currentColor" /></span></span>
+                  <span className="absolute inset-x-3 bottom-3 line-clamp-2 text-sm font-semibold text-white">{v.title}</span>
+                </button>
+              </Reveal>
+            ))}
+          </div>
+        ) : (
+          <Reveal>
+            <div className="mt-12 overflow-hidden rounded-3xl border border-brand-text/10 bg-brand-surface/70 p-8 text-center shadow-card sm:p-12">
+              <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-brand-neon/12 text-brand-neon"><Clapperboard className="h-7 w-7" /></span>
+              <h3 className="mt-5 font-display text-xl font-bold text-brand-text">Vídeos em breve</h3>
+              <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-brand-muted">Em breve, trechos de palestras, entrevistas e depoimentos estarão disponíveis aqui. Enquanto isso, fale comigo{hasYoutube || hasInstagram ? ' ou acompanhe os conteúdos nas redes' : ''}.</p>
+              <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+                <ProposalButton label="Solicitar proposta" />
+                {hasYoutube && <a href={site.media.youtube} target="_blank" rel="noopener noreferrer" className="btn-ghost"><Youtube className="h-4 w-4" /> YouTube</a>}
+                {hasInstagram && <a href={site.social.instagram} target="_blank" rel="noopener noreferrer" className="btn-ghost"><Instagram className="h-4 w-4" /> Instagram</a>}
+              </div>
+            </div>
+          </Reveal>
+        )}
+      </div>
+      <VideoLightbox videos={disponiveis as any} index={index} onClose={() => setIndex(null)} onIndex={setIndex} />
+    </section>
+  );
+}
+
+// --------------------------------------------------------------------------- Materials
+function MaterialsBlock({ d, anchor, surface }: { d: D; anchor?: string | null; surface: boolean }) {
+  const items: D[] = d.items || [];
+  const KIND_LABEL: Record<string, string> = { pdf: 'PDF', link: 'Link', form: 'Formulário' };
+  return (
+    <section id={anchor || undefined} className={wrap(anchor, surface)}>
+      <div className="container-wide">
+        <Heading h={d.heading} />
+        <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {items.map((m, i) => {
+            const Ico = resolveIcon(m.icon);
+            const ready = m.available && (m.url || '').trim().length > 0;
+            const href = mediaUrl(m.url);
+            return (
+              <Reveal key={(m.title || '') + i} delay={(i % 4) * 0.06}>
+                <div className="flex h-full flex-col rounded-3xl border border-brand-text/10 bg-brand-surface/70 p-6 shadow-card">
+                  <span className="grid h-12 w-12 place-items-center rounded-2xl bg-brand-neon/12 ring-1 ring-brand-text/10"><Ico className="h-6 w-6 text-brand-neon" /></span>
+                  <span className="mt-4 inline-flex w-fit rounded-full bg-brand-surface2/80 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-brand-muted">{KIND_LABEL[m.kind] || m.kind}</span>
+                  <h3 className="mt-3 font-display text-base font-bold leading-snug text-brand-text">{m.title}</h3>
+                  <p className="mt-2 flex-1 text-sm leading-relaxed text-brand-muted">{m.desc}</p>
+                  <div className="mt-5">
+                    {ready ? (
+                      <a href={href} target={m.kind === 'pdf' ? undefined : '_blank'} rel="noopener noreferrer" {...(m.kind === 'pdf' ? { download: '' } : {})} className="inline-flex items-center gap-2 text-sm font-semibold text-brand-neon transition-all hover:gap-2.5">
+                        {m.kind === 'pdf' ? <Download className="h-4 w-4" /> : <ExternalLink className="h-4 w-4" />}{m.kind === 'pdf' ? 'Baixar' : 'Acessar'}
+                      </a>
+                    ) : (
+                      <span className="inline-flex items-center gap-2 text-sm font-medium text-brand-muted/70"><Lock className="h-4 w-4" /> Em breve</span>
+                    )}
+                  </div>
+                </div>
+              </Reveal>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// --------------------------------------------------------------------------- Palestras
+function PalestrasBlock({ d, anchor, surface }: { d: D; anchor?: string | null; surface: boolean }) {
+  const cats: D[] = d.categorias || [{ id: 'todas', label: 'Todas' }];
+  const items: D[] = (d.items || []).map((p: D) => ({ ...p, videoId: p.videoId ?? p.youtubeId ?? '' }));
+  const [filtro, setFiltro] = useState('todas');
+  const [selected, setSelected] = useState<D | null>(null);
+  const lista = useMemo(() => (filtro === 'todas' ? items : items.filter((p) => p.categoria === filtro)), [filtro, items]);
+  return (
+    <section id={anchor || undefined} className={wrap(anchor, surface)}>
+      <div className="container-wide">
+        <Heading h={d.heading} />
+        <Reveal>
+          <div className="mt-10 flex flex-wrap gap-2.5">
+            {cats.map((c) => (
+              <button key={c.id} type="button" onClick={() => setFiltro(c.id)} aria-pressed={filtro === c.id}
+                className={cn('rounded-full border px-4 py-2 text-sm font-medium transition-all', filtro === c.id ? 'border-brand-neon/40 bg-brand-neon/15 text-brand-neon' : 'border-brand-text/12 text-brand-muted hover:border-brand-text/25 hover:text-brand-text')}>{c.label}</button>
+            ))}
+          </div>
+        </Reveal>
+        <motion.div layout className="mt-10 grid gap-6 lg:grid-cols-2">
+          <AnimatePresence mode="popLayout">
+            {lista.map((p, i) => {
+              const Ico = resolveIcon(p.icon);
+              return (
+                <motion.button key={p.id} type="button" layout onClick={() => setSelected(p)} initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97 }} transition={{ duration: 0.35, delay: (i % 2) * 0.05 }} whileHover={{ y: -6 }}
+                  className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-brand-text/10 bg-brand-surface/70 p-7 text-left shadow-card sm:p-8">
+                  <div className="absolute right-0 top-0 h-40 w-40 translate-x-12 -translate-y-12 rounded-full bg-brand-terra/10 blur-3xl" />
+                  <div className="relative">
+                    <div className="flex items-start gap-4">
+                      <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-brand-neon/20 to-brand-terra/20 ring-1 ring-brand-text/10"><Ico className="h-7 w-7 text-brand-neon" /></span>
+                      <div>
+                        {p.tag && <span className="mb-1.5 inline-block rounded-full bg-brand-neon/12 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-brand-neon">{p.tag}</span>}
+                        <h3 className="font-display text-xl font-bold leading-tight text-brand-text">{p.title}</h3>
+                        {p.subtitle && <p className="mt-1 text-sm italic text-brand-muted">{p.subtitle}</p>}
+                      </div>
+                    </div>
+                    <p className="mt-5 text-sm leading-relaxed text-brand-muted">{p.objetivo}</p>
+                    <div className="mt-5 flex flex-wrap gap-2">
+                      {(p.temas || []).slice(0, 4).map((t: string) => <span key={t} className="rounded-full border border-brand-text/10 bg-brand-surface2/70 px-3 py-1 text-xs text-brand-text">{t}</span>)}
+                      {(p.temas || []).length > 4 && <span className="rounded-full px-2 py-1 text-xs text-brand-muted">+{p.temas.length - 4}</span>}
+                    </div>
+                    <span className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-neon transition-all group-hover:gap-2.5">Ver detalhes <ArrowRight className="h-4 w-4" /></span>
+                  </div>
+                </motion.button>
+              );
+            })}
+          </AnimatePresence>
+        </motion.div>
+      </div>
+      <PalestraModal palestra={selected as any} onClose={() => setSelected(null)} />
+    </section>
+  );
+}
+
+// --------------------------------------------------------------------------- Testimonials
+function TestimonialsBlock({ d, anchor, surface }: { d: D; anchor?: string | null; surface: boolean }) {
+  const items: D[] = (d.items || []).filter((t: D) => (t.quote || '').trim());
+  if (!items.length) return null;
+  return (
+    <section id={anchor || undefined} className={wrap(anchor, surface)}>
+      <div className="container-wide">
+        <Heading h={d.heading} />
+        <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {items.map((t, i) => (
+            <Reveal key={i} delay={(i % 3) * 0.07}>
+              <figure className="h-full rounded-3xl border border-brand-text/10 bg-brand-surface/70 p-7 shadow-card">
+                <blockquote className="text-sm leading-relaxed text-brand-text">“{t.quote}”</blockquote>
+                <figcaption className="mt-5 text-sm"><span className="font-display font-bold text-brand-text">{t.author}</span>{t.role && <span className="block text-brand-muted">{t.role}</span>}</figcaption>
+              </figure>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// --------------------------------------------------------------------------- CTA
+function CtaBlock({ d }: { d: D }) {
+  const buttons: D[] = d.buttons || [];
+  return (
+    <section id="cta" className="relative py-24">
+      <div className="container-wide">
+        <Reveal>
+          <div className="relative overflow-hidden rounded-[2.5rem] border border-brand-text/10 bg-gradient-to-br from-brand-surface to-brand-surface2 px-7 py-14 text-center shadow-card sm:px-12 sm:py-16">
+            <InfinityMotif className="pointer-events-none absolute -left-8 -top-6 h-32 w-64 opacity-25" />
+            <InfinityMotif className="pointer-events-none absolute -bottom-8 -right-6 h-32 w-64 rotate-180 opacity-20" />
+            <div className="relative mx-auto max-w-2xl">
+              <h2 className="font-display text-3xl font-bold leading-[1.12] tracking-tight text-brand-text sm:text-4xl">{d.title}<span className="text-gradient">{d.titleAccent}</span>{d.titleTail}</h2>
+              {d.text && <p className="mt-5 text-base leading-relaxed text-brand-muted sm:text-lg">{d.text}</p>}
+              <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
+                {buttons.map((b, i) => b.kind === 'proposal'
+                  ? <ProposalButton key={i} label={b.label} />
+                  : <a key={i} href={b.href || '#'} className="btn-ghost">{b.label}</a>)}
+              </div>
+            </div>
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+// --------------------------------------------------------------------------- dispatcher
+export default function SectionRenderer({ sections }: { sections: Section[] }) {
+  return (
+    <>
+      {sections.map((s, i) => {
+        const d = (s.data || {}) as D;
+        const surface = i % 2 === 1; // ritmo visual
+        const a = s.anchor;
+        switch (s.kind) {
+          case 'hero': return <HeroBlock key={s.id || i} d={d} />;
+          case 'rich-text': return <RichTextBlock key={s.id || i} d={d} anchor={a} surface={surface} />;
+          case 'section-heading': return <HeadingBlock key={s.id || i} d={d} anchor={a} surface={surface} />;
+          case 'card-grid':
+          case 'feature-grid': return <CardGridBlock key={s.id || i} d={d} anchor={a} surface={surface} />;
+          case 'timeline': return <TimelineBlock key={s.id || i} d={d} anchor={a} surface={surface} />;
+          case 'accordion': return <AccordionBlock key={s.id || i} d={d} anchor={a} surface={surface} />;
+          case 'video-gallery': return <VideoGalleryBlock key={s.id || i} d={d} anchor={a} surface={surface} />;
+          case 'materials': return <MaterialsBlock key={s.id || i} d={d} anchor={a} surface={surface} />;
+          case 'palestras': return <PalestrasBlock key={s.id || i} d={d} anchor={a} surface={surface} />;
+          case 'testimonials': return <TestimonialsBlock key={s.id || i} d={d} anchor={a} surface={surface} />;
+          case 'cta': return <CtaBlock key={s.id || i} d={d} />;
+          case 'lead-form': return <section key={s.id || i} id={a || 'contato'} className={wrap(a, surface)}><div className="container-wide"><Heading h={d.heading} /><div className="mx-auto mt-8 max-w-3xl"><LeadForm variant="page" /></div></div></section>;
+          default: return null;
+        }
+      })}
+    </>
+  );
+}

@@ -1,14 +1,7 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { MessageCircle, Mail, Info } from 'lucide-react';
 import { Reveal, SectionHeading } from './ui';
-import {
-  site,
-  whatsappUrl,
-  mailtoUrl,
-  hasWhatsApp,
-  hasEmail,
-  hasFormEmbed,
-} from '../lib/site';
+import { useSite } from '../lib/SiteContext';
 
 const DEMANDAS = ['Palestra', 'Campanha (Setembro Amarelo / Dia da Mulher)', 'Treinamento de lideranças', 'Consultoria educativa', 'Outro'];
 
@@ -29,6 +22,7 @@ export default function LeadForm({
   variant?: 'page' | 'section';
   defaultDemanda?: string;
 }) {
+  const { site, whatsappUrl, mailtoUrl, hasWhatsApp, hasEmail, hasFormEmbed } = useSite();
   const [form, setForm] = useState({
     nome: '',
     empresa: '',
