@@ -1,0 +1,30 @@
+# =============================================================================
+# Argo CD Application: portal-recorder (captura de portais externos via browser
+# remoto + contrato normalizado) sob /portal-rec. Descoberta pelo app-of-apps
+# "devops-platform". Usa kustomize (apps/portal-recorder/k8s) para NÃO aplicar
+# o secret.example.yaml: os Secrets reais (portal-recorder-db, portal-recorder-
+# config) são criados no cluster IMPERATIVAMENTE (kubectl, fora do git).
+# prune: false (Argo nunca remove o que não conhece); selfHeal: true.
+# =============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: portal-recorder
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/FlavioNeto11/devops
+    path: apps/portal-recorder/k8s
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: apps
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

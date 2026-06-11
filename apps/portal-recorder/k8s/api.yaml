@@ -1,0 +1,118 @@
+# =============================================================================
+# API do portal-recorder (portais, sessões, anotações, contratos).
+# Imagem local portal-recorder-api:local (IfNotPresent). DATABASE_URL vem do
+# secret portal-recorder-db; PORTAL_REC_TOKEN (writes) e RECORDER_INTERNAL_TOKEN
+# vêm do secret portal-recorder-config. O boot tolera banco fora (migrate com
+# retry em background; /health responde db:false). Monta o PVC de storage em
+# modo leitura (a api serve screenshots/HAR que o recorder grava).
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portal-recorder-api
+  namespace: apps
+  annotations:
+    devops.flavioneto/imageTag: "local"
+    devops.flavioneto/image: "portal-recorder-api:local"
+    devops.flavioneto/branch: "main"
+  labels:
+    app.kubernetes.io/name: portal-recorder-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: portal-recorder
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: portal-recorder-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: portal-recorder-api
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: portal-recorder
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+        - name: api
+          image: portal-recorder-api:local
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PORT
+              value: "8080"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: portal-recorder-db
+                  key: DATABASE_URL
+            - name: PORTAL_REC_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: portal-recorder-config
+                  key: token
+                  optional: false   # sem o secret o pod NÃO sobe (fail-closed)
+            - name: RECORDER_INTERNAL_URL
+              value: "http://portal-recorder-recorder.apps.svc.cluster.local:8090"
+            - name: RECORDER_INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: portal-recorder-config
+                  key: internal_token
+                  optional: true
+            - name: STORAGE_DIR
+              value: "/data/storage"
+          ports:
+            - name: http
+              containerPort: 8080
+          volumeMounts:
+            - name: storage
+              mountPath: /data/storage
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: "15m"
+              memory: "64Mi"
+            limits:
+              cpu: "300m"
+              memory: "192Mi"
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: portal-recorder-storage
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: portal-recorder-api
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: portal-recorder-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: portal-recorder
+spec:
+  selector:
+    app.kubernetes.io/name: portal-recorder-api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

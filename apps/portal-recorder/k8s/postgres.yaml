@@ -1,0 +1,95 @@
+# =============================================================================
+# Postgres do portal-recorder (db portal_recorder).
+# Secret portal-recorder-db (POSTGRES_USER/PASSWORD/DB + DATABASE_URL) é
+# criado no cluster FORA do git (ver secret.example.yaml). PVC para persistir.
+# =============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: portal-recorder-pgdata
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: portal-recorder-postgres
+    app.kubernetes.io/component: db
+    app.kubernetes.io/part-of: portal-recorder
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portal-recorder-postgres
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: portal-recorder-postgres
+    app.kubernetes.io/component: db
+    app.kubernetes.io/part-of: portal-recorder
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate          # volume RWO: nunca dois postgres no mesmo PVC
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: portal-recorder-postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: portal-recorder-postgres
+        app.kubernetes.io/component: db
+        app.kubernetes.io/part-of: portal-recorder
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: portal-recorder-db
+          ports:
+            - name: postgres
+              containerPort: 5432
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+              subPath: pgdata
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "25m"
+              memory: "96Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+      volumes:
+        - name: pgdata
+          persistentVolumeClaim:
+            claimName: portal-recorder-pgdata
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: portal-recorder-postgres
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: portal-recorder-postgres
+    app.kubernetes.io/component: db
+    app.kubernetes.io/part-of: portal-recorder
+spec:
+  selector:
+    app.kubernetes.io/name: portal-recorder-postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres

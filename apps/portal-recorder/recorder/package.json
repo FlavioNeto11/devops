@@ -1,0 +1,21 @@
+{
+  "name": "portal-recorder-recorder",
+  "version": "0.1.0",
+  "description": "Drives a remote Chromium (Playwright/CDP) per capture session: streams the screen over WebSocket and captures redacted network/cookies/screenshots into Postgres.",
+  "type": "module",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "pg": "^8.16.3",
+    "playwright": "1.54.2",
+    "ws": "^8.18.0"
+  }
+}
