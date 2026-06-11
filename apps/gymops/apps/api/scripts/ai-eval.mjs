@@ -9,6 +9,7 @@
 //   node scripts/ai-eval.mjs --real          → chama o LLM de verdade (OPENAI_API_KEY) com
 //                                              os prompts reais por feature; judge gpt-5-nano
 //   flags: --sample N (subset p/ PR) · --json out.json (relatório)
+//          --enforce-kpis (exit != 0 se algum KPI ficar abaixo da meta — gate de CI)
 //
 // O runner NÃO sobe a API: reproduz a montagem de prompt das features com contexto
 // sintético — avalia o COMPORTAMENTO DO MODELO/prompt, não o HTTP. (F1 pluga o grafo.)
@@ -27,6 +28,7 @@ const sampleIdx = args.indexOf('--sample');
 const sample = sampleIdx >= 0 ? Number(args[sampleIdx + 1]) : undefined;
 const jsonIdx = args.indexOf('--json');
 const jsonOut = jsonIdx >= 0 ? args[jsonIdx + 1] : null;
+const enforceKpis = args.includes('--enforce-kpis');
 
 const allCases = parseGoldenSetJsonl(readFileSync(goldenPath, 'utf8'));
 // casos tag "graph" rodam SÓ no modo --graph; os demais modos os excluem.
@@ -173,4 +175,8 @@ for (const [dim, avg] of Object.entries(results.judgeAverages)) console.log(`jud
 for (const [id, k] of Object.entries(kpis)) console.log(`KPI ${id}: ${k.value.toFixed(2)} (meta ${k.target}) ${k.ok ? '✓' : '✗'}`);
 
 if (jsonOut) { writeFileSync(jsonOut, JSON.stringify({ results, kpis }, null, 2)); console.log(`relatorio: ${jsonOut}`); }
-process.exit(results.failed > 0 ? 1 : 0);
+
+// Gate de regressão (CI): casos reprovados OU KPI abaixo da meta bloqueiam.
+const kpiFailures = enforceKpis ? Object.entries(kpis).filter(([, k]) => !k.ok) : [];
+if (kpiFailures.length) console.error(`KPIs abaixo da meta: ${kpiFailures.map(([id]) => id).join(', ')}`);
+process.exit(results.failed > 0 || kpiFailures.length > 0 ? 1 : 0);

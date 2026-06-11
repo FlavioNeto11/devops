@@ -2,7 +2,7 @@
 title: "Plataforma de IA — estrutura única (F0+)"
 status: canonical
 applies_to: [platform, sicat, gymops]
-updated: 2026-06-10
+updated: 2026-06-11
 language: pt-BR
 ---
 
@@ -67,9 +67,26 @@ O índice em arquivo foi aposentado (nem chegava à imagem — RAG estava morto 
   (`@langchain/langgraph-checkpoint-postgres`): estado do planning sobrevive a restart e é
   compartilhado api↔worker; init no boot; rollback via `CONVERSATION_CHECKPOINTER=memory`.
 
+## Entregue na F5-parcial (gate de evals na esteira)
+Workflow [`ai-evals.yml`](../.github/workflows/ai-evals.yml): PR/push que toca superfície de IA
+(ai-core/ai-kit, grafo+golden set do GymOps, conversação+catálogo do SICAT, vendor) roda em
+`ubuntu-latest`:
+- **ai-core** — `npm test` (28 testes: tools/graph/rag/memory/eval);
+- **gymops** — `node scripts/ai-eval.mjs --enforce-kpis` (mock) e `--graph --enforce-kpis`
+  (grafo real + LLM simulado) — `--enforce-kpis` falha o processo se qualquer KPI ficar
+  abaixo da meta (gate de regressão; sabotagem verificada: caso quebrado → exit 1);
+- **sicat** — `node scripts/ai-smoke/validate-sicat-chat-catalog.mjs` (catálogo full + sample,
+  estrutura/cobertura/anti-heurística; dependency-free);
+- **nightly** (cron 03:00 / dispatch) — eval com LLM real (`--real --sample 8 --enforce-kpis`)
+  só quando o secret `OPENAI_API_KEY` existir no repo; sem chave, pula com aviso (os jobs
+  determinísticos seguem bloqueantes).
+
+Falta da F5 completa: serviço `ai-control-plane` (prompts versionados/golden sets/replay),
+thumbs 👍/👎 nos 2 frontends e o ciclo promote/rollback.
+
 ## Próximas fases (resumo)
-F4 migração do grafo do SICAT para o ai-core (gate: 466 cenários) · F5 evals na esteira
-(gate de regressão) + `ai-control-plane` + mutações com dry-run/confirmação no GymOps.
+F4 migração do grafo do SICAT para o ai-core (gate: 466 cenários) · F5 restante
+(`ai-control-plane` + thumbs + promote/rollback) + mutações com dry-run/confirmação no GymOps.
 
 ## Armadilhas
 - A porta 9464 não passa pelo Traefik de propósito — não criar IngressRoute para ela.
@@ -77,3 +94,6 @@ F4 migração do grafo do SICAT para o ai-core (gate: 466 cenários) · F5 evals
 - Ao subir versão do `ai-core`: `scripts/vendor-packages.ps1` + commitar os `.tgz` nos apps
   (o tgz do sicat vive em `apps/sicat/backend/vendor/` — o script copia para `apps/sicat/vendor/`,
   mova para `backend/vendor/`).
+- O validador do catálogo do SICAT roda de `apps/sicat/backend/` e exige full **e** sample em
+  `backend/docs/ai-chat/intents/` (ao atualizar o catálogo em `apps/sicat/docs/`, sincronize as
+  cópias do backend — full é também a fonte da ingestão RAG).

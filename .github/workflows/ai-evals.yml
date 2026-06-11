@@ -1,0 +1,131 @@
+# =============================================================================
+# ai-evals — gate de regressão da PLATAFORMA DE IA (F5 da re-engenharia)
+# -----------------------------------------------------------------------------
+# Protege o que as fases F0-F3 entregaram: PR que regride os evals de IA é
+# BLOQUEADO. Roda em PR/push quando muda superfície de IA, e à noite (full).
+#
+# Jobs determinísticos (SEM rede/LLM — sempre bloqueantes):
+#   - ai-core: 28 testes do @flavioneto11/ai-core (tools/graph/rag/memory/eval).
+#   - gymops-evals: golden set em modo mock (harness/assertions) e --graph
+#     (grafo REAL + LLM simulado: roteamento fast/deep, escolha de tool,
+#     ancoragem), ambos com --enforce-kpis (tool_call_accuracy >= meta).
+#   - sicat-catalog: valida os 466 cenários do catálogo de intents (estrutura/
+#     categorias/dedupe) — script dependency-free.
+#
+# Job noturno (LLM real, gpt-5-nano + amostra): roda só no schedule/dispatch e
+# quando OPENAI_API_KEY estiver configurada como secret do repo.
+# =============================================================================
+name: ai-evals
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "packages/ai-core/**"
+      - "packages/ai-kit/**"
+      - "apps/gymops/apps/api/src/ai/**"
+      - "apps/gymops/apps/api/scripts/ai-eval.mjs"
+      - "apps/gymops/docs/ai-eval/**"
+      - "apps/gymops/vendor/**"
+      - "apps/sicat/backend/src/services/conversation/**"
+      - "apps/sicat/backend/src/services/ai-control/**"
+      - "apps/sicat/backend/docs/ai-chat/**"
+      - "apps/sicat/backend/vendor/**"
+      - ".github/workflows/ai-evals.yml"
+  push:
+    branches: [main]
+    paths:
+      - "packages/ai-core/**"
+      - "packages/ai-kit/**"
+      - "apps/gymops/apps/api/src/ai/**"
+      - "apps/gymops/docs/ai-eval/**"
+      - "apps/sicat/backend/docs/ai-chat/**"
+      - ".github/workflows/ai-evals.yml"
+  schedule:
+    - cron: "0 3 * * *"   # nightly: full set + amostra com LLM real (se houver chave)
+
+permissions:
+  contents: read
+
+jobs:
+  ai-core:
+    name: ai-core (testes)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/ai-core
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Instalar (ai-kit local via file:)
+        run: npm install
+      - name: Testes (tools/graph/rag/memory/eval)
+        run: npm test
+
+  gymops-evals:
+    name: gymops (golden set mock + graph)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/gymops
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile || pnpm install
+      - name: Eval mock (harness + assertions)
+        working-directory: apps/gymops/apps/api
+        run: node scripts/ai-eval.mjs --enforce-kpis
+      - name: Eval do grafo (roteamento + tools + ancoragem)
+        working-directory: apps/gymops/apps/api
+        run: node scripts/ai-eval.mjs --graph --enforce-kpis
+
+  sicat-catalog:
+    name: sicat (catalogo de intents)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/sicat/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      # script dependency-free (node:fs/path) — sem npm ci
+      - name: Validar catalogo (466 cenarios)
+        run: node scripts/ai-smoke/validate-sicat-chat-catalog.mjs
+
+  nightly-real:
+    name: nightly (LLM real, amostra)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/gymops
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile || pnpm install
+      - name: Eval com LLM real (gpt-5-nano, judge + amostra)
+        working-directory: apps/gymops/apps/api
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "OPENAI_API_KEY nao configurada como secret — pulando eval real (jobs deterministicos seguem bloqueantes)."
+            exit 0
+          fi
+          node scripts/ai-eval.mjs --real --sample 8 --enforce-kpis
