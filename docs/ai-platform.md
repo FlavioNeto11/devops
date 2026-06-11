@@ -158,8 +158,12 @@ Workflow [`ai-evals.yml`](../.github/workflows/ai-evals.yml): PR/push que toca s
 - **Gate**: job `portal-contracts` no [`ai-evals.yml`](../.github/workflows/ai-evals.yml).
 - **A Claude consome** o `drift-report.md` da versão `LATEST` como lista de tarefas de alinhamento.
   A verdade da API **real** da CETESB vive aí — não no OpenAPI interno do SICAT.
-- **App de captura** `portal-recorder` (browser remoto CDP/Playwright, app na esteira) alimenta o
-  contrato com amostras reais — ver o próprio app quando entregue.
+- **App de captura** [`portal-recorder`](../apps/portal-recorder/CLAUDE.md) (no ar em `/portal-rec`):
+  abre o portal num **browser remoto** (Chromium/Playwright/CDP), o usuário opera, e captura rede com
+  corpo + cookies + screenshots + anotações — **redigindo segredos na origem** (token/cookie/senha →
+  `***`+`sha256`) — e normaliza num contrato (`POST /v1/sessions/:id/normalize`). E2E provado contra a
+  CETESB real (capturou a API interna com `requires_captcha=false`). A captura autenticada substitui o
+  seed e faz o `drift-report.md` mostrar os drifts reais vs o gateway.
 
 ## Evoluções futuras (pós F0–F5)
 Migração do deep-path COMPLETO do SICAT para o grafo (hoje: fast-path + propose
