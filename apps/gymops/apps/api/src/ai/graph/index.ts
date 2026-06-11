@@ -1,10 +1,16 @@
-// Grafo de raciocínio do GymOps (F1) — router fast/deep → especialista `ops`
-// com tools read-only → VERIFY (judge). Atrás da flag AI_GRAPH (default off):
-// off = caminho legado (callAI/chatText) intacto; on = /ai/chat roteia por aqui.
-import { createAiGraph, createOpenAiLlm, createAiTracer, type GraphTurn, type GraphResult } from '@flavioneto11/ai-core';
+// Grafo de raciocínio do GymOps (F1+F3) — router fast/deep → especialista `ops`
+// com tools read-only → VERIFY (judge), com MEMÓRIA em 3 horizontes (F3):
+// thread server-side em Postgres (sobrevive a reload/restart), rolling summary
+// e memória longa por usuário em pgvector. Atrás da flag AI_GRAPH (default off).
+import {
+  createAiGraph, createOpenAiLlm, createAiTracer,
+  createThreadStore, createRollingSummarizer, createUserMemory, createEmbedder, extractMemoryFacts,
+  type GraphTurn, type GraphResult, type LlmAdapter,
+} from '@flavioneto11/ai-core';
 import { getOpenAI } from '../ai.service.js';
 import { aiMetrics } from '../ai-metrics.js';
 import { gymopsToolRegistry } from './tools.js';
+import { db } from '../../lib/prisma.js';
 
 export const AI_GRAPH_ENABLED = (): boolean =>
   (process.env.AI_GRAPH ?? 'off').trim().toLowerCase() === 'on';
@@ -22,15 +28,42 @@ Ajuda o operador a entender o estado real da operação e a agir com clareza.
   },
 ];
 
+// Adapter SQL cru sobre o Prisma para os stores do ai-core (rows/rowCount).
+const rawQuery = async (sql: string, params: readonly unknown[] = []) => {
+  if (/^\s*select/i.test(sql)) {
+    const rows = await db.$queryRawUnsafe<Record<string, unknown>[]>(sql, ...(params as unknown[]));
+    return { rows, rowCount: rows.length };
+  }
+  const count = await db.$executeRawUnsafe(sql, ...(params as unknown[]));
+  return { rows: [] as Record<string, unknown>[], rowCount: count };
+};
+
 let graph: ReturnType<typeof createAiGraph> | null = null;
+let userMemory: ReturnType<typeof createUserMemory> | null = null;
+let memoryLlm: LlmAdapter | null = null;
 
 function getGraph() {
   if (graph) return graph;
   const client = getOpenAI();
   if (!client) return null; // sem OPENAI_API_KEY → caller usa o caminho legado/fallback
   const model = process.env.OPENAI_MODEL?.trim() || 'gpt-5-nano';
+  const llm = createOpenAiLlm(client, { defaultModel: model });
+  memoryLlm = llm;
+
+  // F3: memória — thread store (Postgres), rolling summary e memória longa (pgvector).
+  const embedder = createEmbedder({
+    embedFn: async (texts: string[]) => {
+      const res = await client.embeddings.create({ model: 'text-embedding-3-small', input: texts });
+      return res.data.map((d) => d.embedding);
+    },
+    dimensions: 1536,
+  });
+  const threadStore = createThreadStore({ query: rawQuery });
+  const summarizer = createRollingSummarizer({ llm, keepRecent: 8, triggerAt: 16 });
+  userMemory = createUserMemory({ query: rawQuery, embedder, ttlDays: 180 });
+
   graph = createAiGraph({
-    llm: createOpenAiLlm(client, { defaultModel: model }),
+    llm,
     registry: gymopsToolRegistry,
     specialists: SPECIALISTS,
     models: {
@@ -41,18 +74,31 @@ function getGraph() {
     },
     metrics: aiMetrics,
     tracer: createAiTracer({ metrics: aiMetrics, app: 'gymops' }),
+    memory: { threadStore, summarizer, userMemory },
     verify: (process.env.AI_GRAPH_VERIFY ?? 'on').trim().toLowerCase() !== 'off',
   });
   return graph;
 }
 
-/** Executa um turno do chat pelo grafo. Lança se o grafo não estiver disponível. */
+/** Executa um turno do chat pelo grafo (thread por usuário+org). */
 export async function runGraphChatTurn(turn: GraphTurn & { organizationId: string }): Promise<GraphResult> {
   const g = getGraph();
   if (!g) throw new Error('AI graph indisponivel (sem OPENAI_API_KEY)');
-  return g.runTurn({
+  const userId = String(turn.identity?.sub || 'anon');
+  const result = await g.runTurn({
     ...turn,
+    threadId: `chat:${turn.organizationId}:${userId}`,
     channel: 'inapp',
     toolContext: { organizationId: turn.organizationId },
   });
+
+  // Memória LONGA: extração de fatos ASSÍNCRONA (a cada 3 turnos; nunca no caminho da resposta).
+  const turnCount = result.memory?.turnCount ?? 0;
+  if (userMemory && memoryLlm && turn.identity?.sub && turnCount > 0 && turnCount % 3 === 0) {
+    const convo = `user: ${turn.message}\nassistant: ${result.text}`;
+    void extractMemoryFacts({ llm: memoryLlm, conversationText: convo })
+      .then((facts) => (facts.length ? userMemory!.store(String(turn.identity!.sub), facts) : 0))
+      .catch(() => aiMetrics.countError('memory', 'extract'));
+  }
+  return result;
 }

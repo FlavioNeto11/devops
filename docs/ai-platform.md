@@ -45,9 +45,30 @@ csat · cost_per_conversation · latency_p95 · escalation_rate — definições
 | **Flag `AI_GRAPH`** | `apps/api/src/ai/graph/index.ts` + rota `/ai/chat` | default **off** (caminho legado byte-idêntico); `on` → turno roteia pelo grafo; erro no grafo → fallback gracioso ao legado. Modelos por env (`OPENAI_ROUTER_MODEL`, `OPENAI_DEEP_MODEL`, ...); `AI_GRAPH_VERIFY=off` desliga o judge. |
 | **Eval do grafo** | `pnpm ai:eval --graph` | grafo REAL + LLM simulado + tools mock — valida roteamento fast/deep, escolha de tool e ancoragem (casos tag `graph` no golden set). |
 
+## Entregue na F2 (RAG pgvector no SICAT)
+`ai-core` 0.3.0 módulo `rag` (chunking heading-aware, embedder estrutural, store pgvector
+incremental por hash, re-ranker LLM). SICAT: migration `018` (extensão vector +
+`knowledge_sources`/`knowledge_chunks` vector(1536) + HNSW), postgres → `pgvector/pgvector:pg16`,
+ingestão incremental no boot do worker (`npm run rag:ingest` manual; base ~545 chunks),
+retrieval = embed → HNSW top-K → híbrido lexical → re-rank (`KNOWLEDGE_RERANK=off` desliga).
+O índice em arquivo foi aposentado (nem chegava à imagem — RAG estava morto em produção).
+
+## Entregue na F3 (memória em 3 horizontes)
+- `ai-core` 0.4.0 módulo `memory`: `createThreadStore` (threads em Postgres),
+  `createRollingSummarizer` (sumarização progressiva), `createUserMemory` (memória longa por
+  usuário em pgvector, TTL, recall **escopado por user_id**), `extractMemoryFacts` (extração
+  assíncrona). O grafo aceita `memory:{...}`: thread do servidor prevalece sobre o history do
+  front, resumo+memórias entram no contexto, turno persiste (compactação em background).
+- **GymOps**: migration Prisma `ai_memory` (`ai_chat_threads` + `ai_user_memory` vector+HNSW);
+  `/ai/chat` com `threadId = chat:{org}:{user}` — a conversa **sobrevive a reload e a restart do
+  pod**; extração de fatos a cada 3 turnos (verificado E2E: "Nome: Carla" extraído e recall sem
+  vazamento cross-user).
+- **SICAT**: `MemorySaver` (volátil, por-processo) → **`PostgresSaver`**
+  (`@langchain/langgraph-checkpoint-postgres`): estado do planning sobrevive a restart e é
+  compartilhado api↔worker; init no boot; rollback via `CONVERSATION_CHECKPOINTER=memory`.
+
 ## Próximas fases (resumo)
-F2 RAG pgvector+HNSW no SICAT · F3 memória (checkpointer Postgres + rolling summary + memória
-longa por usuário) · F4 migração do grafo do SICAT (gate: 466 cenários) · F5 evals na esteira
+F4 migração do grafo do SICAT para o ai-core (gate: 466 cenários) · F5 evals na esteira
 (gate de regressão) + `ai-control-plane` + mutações com dry-run/confirmação no GymOps.
 
 ## Armadilhas

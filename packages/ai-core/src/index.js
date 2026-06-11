@@ -25,5 +25,8 @@ export {
   hashContent, splitWithOverlap, chunkMarkdownSections,
   createEmbedder, createPgVectorStore, createReranker,
 } from './rag.js';
+export {
+  createThreadStore, createRollingSummarizer, createUserMemory, extractMemoryFacts,
+} from './memory.js';
 export { AI_KPIS, listKpis, summarizeEvalKpis } from './kpi.js';
 export { parseGoldenSetJsonl, runEval } from './eval.js';

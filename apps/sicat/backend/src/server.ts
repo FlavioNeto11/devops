@@ -4,6 +4,7 @@ import { ensureStartup } from './bootstrap/startup.js';
 import { createApp } from './app.js';
 import { config } from './lib/config.js';
 import { startAiMetricsServer } from './lib/ai-metrics.js';
+import { initPlanningCheckpointer } from './services/conversation/llm-provider.js';
 
 export function createServer() {
   return http.createServer(createApp());
@@ -12,6 +13,7 @@ export function createServer() {
 export async function startServer(port = config.port) {
   await ensureStartup();
   startAiMetricsServer(); // Prometheus /metrics em porta dedicada (fora do Traefik)
+  initPlanningCheckpointer(); // F3: threads do planning em Postgres (api↔worker)
   const server = createServer();
 
   return new Promise((resolve) => {

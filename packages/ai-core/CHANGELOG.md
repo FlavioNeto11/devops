@@ -1,5 +1,14 @@
 # Changelog — @flavioneto11/ai-core
 
+## 0.4.0 (2026-06-11)
+- F3: módulo `memory` — `createThreadStore` (estado de conversa em Postgres),
+  `createRollingSummarizer` (sumarização progressiva via LLM, defensiva),
+  `createUserMemory` (memória longa por usuário em pgvector com TTL, recall escopado por user_id)
+  e `extractMemoryFacts` (extração assíncrona de fatos para o worker).
+- `createAiGraph` aceita `memory: { threadStore, summarizer, userMemory }`: thread do servidor
+  prevalece sobre o history do caller, resumo+memórias entram no contexto, turno é persistido
+  (append aguardado; compactação em background) e o resultado expõe `memory` meta.
+
 ## 0.3.0 (2026-06-11)
 - F2: módulo `rag` — `hashContent`/`splitWithOverlap`/`chunkMarkdownSections` (chunking
   heading-aware com overlap), `createEmbedder` (estrutural por `embedFn`, batching, validação de

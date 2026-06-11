@@ -110,6 +110,7 @@ export interface GraphTurn {
   message: string;
   history?: Array<{ role: string; content: string }>;
   systemContext?: string;
+  threadId?: string;
   identity?: OidcIdentityLike;
   channel?: string;
   correlationId?: string;
@@ -126,6 +127,7 @@ export interface GraphResult {
   evidence: Array<{ tool: string; output: unknown }>;
   judge: { score: number; reason: string } | null;
   escalated: boolean;
+  memory: { threadId: string | null; hadThread: boolean; recalled: number; turnCount: number | null };
   usage: { inputTokens: number; outputTokens: number; costUsd: number };
 }
 export function createAiGraph(opts: {
@@ -135,6 +137,11 @@ export function createAiGraph(opts: {
   models?: { router?: string; deep?: string; synth?: string; judge?: string };
   metrics?: AiMetrics;
   tracer?: ReturnType<typeof createAiTracer>;
+  memory?: {
+    threadStore?: ReturnType<typeof createThreadStore>;
+    summarizer?: ReturnType<typeof createRollingSummarizer>;
+    userMemory?: ReturnType<typeof createUserMemory>;
+  };
   maxToolRounds?: number;
   verify?: boolean;
   judgeThreshold?: number;
@@ -160,6 +167,25 @@ export function createPgVectorStore(opts: { query(sql: string, params?: readonly
 export function createReranker(opts: { llm: LlmAdapter; model?: string }): {
   rerank(queryText: string, hits: RagHit[], opts?: { topN?: number }): Promise<RagHit[]>;
 };
+
+// ---------------------------------------------------------------- memory
+export interface ThreadState { id: string; messages: Array<{ role: string; content: string }>; rollingSummary: string | null; turnCount: number }
+export function createThreadStore(opts: { query(sql: string, params?: readonly unknown[]): Promise<{ rows?: any[]; rowCount?: number | null }>; table?: string }): {
+  get(threadId: string): Promise<ThreadState | null>;
+  put(threadId: string, state: { messages?: ThreadState['messages']; rollingSummary?: string | null; turnCount?: number }): Promise<void>;
+  appendTurn(threadId: string, userMessage: string, assistantMessage: string, opts?: { maxMessages?: number }): Promise<ThreadState>;
+};
+export function createRollingSummarizer(opts: { llm: LlmAdapter; model?: string; keepRecent?: number; triggerAt?: number }): {
+  needsCompaction(thread: ThreadState): boolean;
+  compact(thread: ThreadState): Promise<ThreadState>;
+};
+export interface UserMemoryFact { kind: string; content: string; score?: number }
+export function createUserMemory(opts: { query(sql: string, params?: readonly unknown[]): Promise<{ rows?: any[]; rowCount?: number | null }>; embedder: { embedQuery(text: string): Promise<number[]> }; table?: string; ttlDays?: number }): {
+  recall(userId: string, queryText: string, opts?: { k?: number; minScore?: number }): Promise<UserMemoryFact[]>;
+  store(userId: string, facts: Array<{ kind?: string; content: string }>): Promise<number>;
+  pruneExpired(): Promise<number>;
+};
+export function extractMemoryFacts(opts: { llm: LlmAdapter; model?: string; conversationText: string; maxFacts?: number }): Promise<Array<{ kind: string; content: string }>>;
 
 // ---------------------------------------------------------------- kpi
 export interface AiKpiDef {

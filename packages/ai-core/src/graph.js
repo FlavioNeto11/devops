@@ -61,6 +61,7 @@ Responda APENAS JSON: {"score": <0..1>, "reason": "<1 frase>"}`;
  *   specialists   [{ id, description, systemPrompt }]
  *   models        { router, deep, synth, judge } (default gpt-5-nano)
  *   metrics/tracer  de createAiMetrics/createAiTracer (opcionais)
+ *   memory        { threadStore?, summarizer?, userMemory? } (F3 — opcionais)
  *   maxToolRounds   limite do loop ReAct (default 4)
  *   verify          liga o judge em runtime (default true)
  *   judgeThreshold  score mínimo antes de escalar (default 0.6)
@@ -72,6 +73,7 @@ export function createAiGraph({
   models = {},
   metrics = noopMetrics,
   tracer = noopTracer,
+  memory = {},
   maxToolRounds = 4,
   verify = true,
   judgeThreshold = 0.6,
@@ -91,10 +93,59 @@ export function createAiGraph({
     }
   }
 
+  // ── MEMÓRIA (F3): thread server-side + resumo corrente + recall por usuário ──
+  // Falha de memória NUNCA derruba o turno (carrega/grava em best-effort).
+  async function resolveMemory(turn) {
+    const out = { history: turn.history || [], systemContext: turn.systemContext || '', recalled: 0, hadThread: false };
+    const { threadStore, userMemory } = memory;
+    if (threadStore && turn.threadId) {
+      try {
+        const stored = await threadStore.get(turn.threadId);
+        if (stored) {
+          out.hadThread = true;
+          // memória do servidor prevalece (sobrevive a reload do front e restart do pod)
+          if (stored.messages?.length) out.history = stored.messages;
+          if (stored.rollingSummary) {
+            out.systemContext += `\n\nRESUMO DA CONVERSA ATÉ AQUI (turnos antigos já compactados):\n${stored.rollingSummary}`;
+          }
+        }
+      } catch { /* segue sem thread */ }
+    }
+    if (userMemory && turn.identity?.sub) {
+      try {
+        const recalled = await userMemory.recall(turn.identity.sub, turn.message, { k: 4 });
+        if (recalled.length) {
+          out.recalled = recalled.length;
+          out.systemContext += `\n\nO QUE VOCÊ JÁ SABE SOBRE ESTE USUÁRIO (memória de longo prazo; use quando relevante):\n${recalled.map((m) => `- [${m.kind}] ${m.content}`).join('\n')}`;
+        }
+      } catch { /* segue sem memórias */ }
+    }
+    return out;
+  }
+
+  async function persistTurnMemory(turn, resultText) {
+    const { threadStore, summarizer } = memory;
+    if (!threadStore || !turn.threadId) return null;
+    try {
+      const thread = await threadStore.appendTurn(turn.threadId, turn.message, resultText);
+      if (summarizer && summarizer.needsCompaction(thread)) {
+        // compactação envolve LLM — roda em BACKGROUND, nunca atrasa a resposta
+        summarizer
+          .compact(thread)
+          .then((c) => (c !== thread ? threadStore.put(turn.threadId, c) : undefined))
+          .catch(() => {});
+      }
+      return thread;
+    } catch (err) {
+      metrics.countError('memory', err?.code || err?.name || 'persist');
+      return null;
+    }
+  }
+
   /**
    * Executa um turno.
    * turn = { message, history?: [{role,content}], systemContext?: string,
-   *          identity?, channel?, correlationId?, sessionId? }
+   *          threadId?, identity?, channel?, correlationId?, sessionId? }
    */
   async function runTurn(turn) {
     const trace = tracer.traceFor({ name: 'ai-graph-turn', sessionId: turn.sessionId, userId: turn.identity?.sub });
@@ -102,6 +153,8 @@ export function createAiGraph({
     const startedAt = Date.now();
 
     try {
+      const mem = await resolveMemory(turn);
+      turn = { ...turn, history: mem.history, systemContext: mem.systemContext };
       // ── ROUTER ───────────────────────────────────────────────────────────
       const route = await trace.span('router', { input: turn.message }, async () => {
         const r = await llm.complete({
@@ -150,6 +203,9 @@ export function createAiGraph({
         }
       }
 
+      // memória: grava o turno (aguarda — 1 SQL) e compacta em background.
+      const thread = await persistTurnMemory(turn, result.text);
+
       trace.end({ output: result.text });
       metrics.observeTurn('turn', 'ok', (Date.now() - startedAt) / 1000);
       return {
@@ -161,6 +217,7 @@ export function createAiGraph({
         evidence: result.evidence || [],
         judge,
         escalated: Boolean(result.escalated),
+        memory: { threadId: turn.threadId || null, hadThread: mem.hadThread, recalled: mem.recalled, turnCount: thread?.turnCount ?? null },
         usage,
       };
     } catch (error) {

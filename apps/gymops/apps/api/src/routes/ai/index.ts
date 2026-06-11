@@ -318,7 +318,10 @@ ${context}`;
         return reply.send({
           data: {
             reply: r.text,
-            meta: { route: r.route, specialist: r.specialist, tools: r.toolCalls.map((t) => t.name), judge: r.judge?.score ?? null },
+            meta: {
+              route: r.route, specialist: r.specialist, tools: r.toolCalls.map((t) => t.name), judge: r.judge?.score ?? null,
+              memory: r.memory ? { thread: r.memory.hadThread, recalled: r.memory.recalled, turns: r.memory.turnCount } : null,
+            },
           },
         });
       } catch (err) {

@@ -1,6 +1,8 @@
 import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
 import { END, MemorySaver, MessagesAnnotation, START, StateGraph } from '@langchain/langgraph';
+import { PostgresSaver } from '@langchain/langgraph-checkpoint-postgres';
 import { ChatOpenAI } from '@langchain/openai';
+import { pool } from '../../db/pool.js';
 import { AppError } from '../../lib/problem.js';
 import { createChatModel, getAiConfig, getReasoningEffortFor } from './ai-config.js';
 import { retrieveKnowledge, buildKnowledgeContextBlock } from './knowledge/conversation-knowledge-service.js';
@@ -745,12 +747,44 @@ export function buildConversationThreadId(context: ConversationContextLike): str
   return `conv:${accountToken}:${sessionToken}`;
 }
 
+// ── Checkpointer do grafo de planning (F3) ─────────────────────────────────
+// PostgresSaver: o estado de thread SOBREVIVE a restart e é COMPARTILHADO entre
+// api e worker (o MemorySaver antigo era por-processo e volátil). Fallback
+// gracioso para MemorySaver em erro; CONVERSATION_CHECKPOINTER=memory força o
+// comportamento antigo (flag de rollback — deprecation policy, 1 ciclo).
+let planningCheckpointerPromise: Promise<MemorySaver | PostgresSaver> | null = null;
+
+function getPlanningCheckpointer(): Promise<MemorySaver | PostgresSaver> {
+  if (planningCheckpointerPromise) return planningCheckpointerPromise;
+  planningCheckpointerPromise = (async () => {
+    const forced = (process.env.CONVERSATION_CHECKPOINTER || '').trim().toLowerCase();
+    if (forced === 'memory') {
+      console.log('[conversation] checkpointer: MemorySaver (forçado por env)');
+      return new MemorySaver();
+    }
+    try {
+      const saver = new PostgresSaver(pool);
+      await saver.setup(); // idempotente: cria as tabelas de checkpoint se faltarem
+      console.log('[conversation] checkpointer: PostgresSaver (threads persistem entre restarts/processos)');
+      return saver;
+    } catch (error) {
+      console.warn('[conversation] PostgresSaver indisponível, caindo para MemorySaver:', (error as Error).message);
+      return new MemorySaver();
+    }
+  })();
+  return planningCheckpointerPromise;
+}
+
+/** Inicializa o checkpointer no BOOT (api e worker), depois do ensureStartup —
+ *  garante o setup das tabelas com o banco pronto e loga qual saver está ativo. */
+export function initPlanningCheckpointer(): void {
+  void getPlanningCheckpointer();
+}
+
 export function createMemoryBackedPlanningGraph(input: {
   invokeModel: (messages: PlanningMessage[]) => Promise<AIMessage>;
 }): PlanningGraph {
-  const checkpointer = new MemorySaver();
-
-  const graph = new StateGraph(MessagesAnnotation)
+  const definition = new StateGraph(MessagesAnnotation)
     .addNode('agent', async (state: typeof MessagesAnnotation.State) => {
       const sanitizedMessages = sanitizeMessagesForModel(state.messages as PlanningMessage[]);
       const response = await input.invokeModel(sanitizedMessages);
@@ -759,11 +793,20 @@ export function createMemoryBackedPlanningGraph(input: {
       return { messages: [response, ...protocolToolMessages] };
     })
     .addEdge(START, 'agent')
-    .addEdge('agent', END)
-    .compile({ checkpointer });
+    .addEdge('agent', END);
+
+  // compilação preguiçosa: espera o checkpointer (setup assíncrono) UMA vez.
+  let compiledPromise: Promise<ReturnType<typeof definition.compile>> | null = null;
+  const getCompiled = () => {
+    if (!compiledPromise) {
+      compiledPromise = getPlanningCheckpointer().then((checkpointer) => definition.compile({ checkpointer }));
+    }
+    return compiledPromise;
+  };
 
   return {
     async invoke(runtimeInput: { threadId: string; messages: PlanningMessage[] }) {
+      const graph = await getCompiled();
       return graph.invoke(
         { messages: runtimeInput.messages },
         { configurable: { thread_id: runtimeInput.threadId } }
