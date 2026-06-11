@@ -22,6 +22,10 @@ import { navigate } from '../router.js';
  * (POST annotations com start_offset_ms = agora - sessionStartMs) + "Print" (POST
  * screenshots). Lista os passos ja marcados nesta sessao.
  */
+// Viewport fixo do browser remoto (casar com o newContext do recorder).
+const VIEWPORT_W = 1280;
+const VIEWPORT_H = 800;
+
 export default function CaptureView({ sessionId }) {
   const canvasRef = useRef(null);
   // Dimensoes do ultimo frame recebido (coords do viewport remoto).
@@ -139,29 +143,42 @@ export default function CaptureView({ sessionId }) {
     }
   }, []);
 
-  // Converte coords de um evento do canvas para coords do viewport remoto.
-  // Escala = width_frame / width_canvas_rendered (idem altura).
+  // Converte coords de um evento do canvas para coords do VIEWPORT REMOTO.
+  // O viewport do browser remoto é fixo (1280x800, ver o recorder), então mapeamos
+  // para essas dimensões — mais robusto que o metadata do screencast (que pode vir
+  // com pageScaleFactor) e garante que o clique cai onde o cursor local aponta.
   const toViewport = useCallback((evt) => {
     const canvas = canvasRef.current;
-    const { width: fw, height: fh } = frameSizeRef.current;
-    if (!canvas || !fw || !fh) return { x: 0, y: 0 };
+    if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return { x: 0, y: 0 };
     const cx = evt.clientX - rect.left;
     const cy = evt.clientY - rect.top;
-    const x = Math.round((cx / rect.width) * fw);
-    const y = Math.round((cy / rect.height) * fh);
+    const x = Math.round((cx / rect.width) * VIEWPORT_W);
+    const y = Math.round((cy / rect.height) * VIEWPORT_H);
     return {
-      x: Math.max(0, Math.min(fw, x)),
-      y: Math.max(0, Math.min(fh, y)),
+      x: Math.max(0, Math.min(VIEWPORT_W, x)),
+      y: Math.max(0, Math.min(VIEWPORT_H, y)),
     };
   }, []);
 
   // Handlers de mouse/teclado sobre o canvas.
+  // Throttle do mousemove via requestAnimationFrame: sem isso o WS é inundado e
+  // o cursor remoto fica "pulando"/atrasado.
+  const moveRaf = useRef(0);
+  const pendingMove = useRef(null);
   const onMouseMove = (e) => {
-    const { x, y } = toViewport(e);
-    send({ type: 'mouse', action: 'move', x, y });
+    pendingMove.current = toViewport(e);
+    if (moveRaf.current) return;
+    moveRaf.current = requestAnimationFrame(() => {
+      moveRaf.current = 0;
+      const p = pendingMove.current;
+      if (p) send({ type: 'mouse', action: 'move', x: p.x, y: p.y });
+    });
   };
+  const focusCanvas = () => { try { canvasRef.current && canvasRef.current.focus(); } catch { /* noop */ } };
   const onMouseDown = (e) => {
+    focusCanvas();
     const { x, y } = toViewport(e);
     send({ type: 'mouse', action: 'down', x, y, button: mouseButton(e.button) });
   };
@@ -174,17 +191,18 @@ export default function CaptureView({ sessionId }) {
     const { x, y } = toViewport(e);
     send({ type: 'mouse', action: 'wheel', x, y, deltaY: e.deltaY });
   };
+  // Caractere imprimível (1 char, sem Ctrl/Alt/Meta) → SÓ 'char' (insertText) —
+  // evita o keyDown+char duplicado que digitava torto. Teclas de controle
+  // (Backspace/Enter/Tab/setas…) vão por 'down'/'up' com key+code.
+  const isPrintable = (e) => e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey;
   const onKeyDown = (e) => {
     e.preventDefault();
-    send({ type: 'key', action: 'down', key: e.key });
-    // char: caracteres imprimiveis (texto) viram um evento 'char' adicional.
-    if (e.key && e.key.length === 1) {
-      send({ type: 'key', action: 'char', text: e.key });
-    }
+    if (isPrintable(e)) send({ type: 'key', action: 'char', text: e.key });
+    else send({ type: 'key', action: 'down', key: e.key, code: e.code });
   };
   const onKeyUp = (e) => {
     e.preventDefault();
-    send({ type: 'key', action: 'up', key: e.key });
+    if (!isPrintable(e)) send({ type: 'key', action: 'up', key: e.key, code: e.code });
   };
 
   // ── Acoes do painel direito ───────────────────────────────────────────────
@@ -277,8 +295,8 @@ export default function CaptureView({ sessionId }) {
             </div>
           )}
           <div className="screencast__hint muted small">
-            Clique no quadro para focar e capturar teclado. As coords sao mapeadas para o
-            viewport remoto.
+            Clique no quadro para focar (borda azul = teclado ativo). O cursor local serve
+            de guia; digitação, Enter, Backspace e setas funcionam direto.
           </div>
         </div>
 

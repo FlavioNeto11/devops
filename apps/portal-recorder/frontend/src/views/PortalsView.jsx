@@ -4,6 +4,8 @@ import {
   createPortal,
   listSessions,
   createSession,
+  deletePortal,
+  deleteSession,
 } from '../api.js';
 import { navigate } from '../router.js';
 
@@ -180,6 +182,8 @@ function NewPortalForm({ onCreated }) {
 function PortalCard({ portal, sessions, onChanged }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
+  const [removing, setRemoving] = useState(false);
+  const [removingSession, setRemovingSession] = useState(null);
 
   const startCapture = async () => {
     setBusy(true);
@@ -194,6 +198,37 @@ function PortalCard({ portal, sessions, onChanged }) {
     }
   };
 
+  const removePortal = async () => {
+    const n = sessions.length;
+    const msg = n
+      ? `Excluir o portal "${portal.name}" e TODAS as ${n} sessão(ões) de captura dele? Isso não pode ser desfeito.`
+      : `Excluir o portal "${portal.name}"?`;
+    if (!window.confirm(msg)) return;
+    setRemoving(true);
+    setErr(null);
+    try {
+      await deletePortal(portal.id);
+      onChanged();
+    } catch (e) {
+      setErr(e.message || String(e));
+      setRemoving(false);
+    }
+  };
+
+  const removeSession = async (s) => {
+    if (!window.confirm(`Excluir a captura "${s.title || s.id}" e seus eventos?`)) return;
+    setRemovingSession(s.id);
+    setErr(null);
+    try {
+      await deleteSession(s.id);
+      onChanged();
+    } catch (e) {
+      setErr(e.message || String(e));
+    } finally {
+      setRemovingSession(null);
+    }
+  };
+
   return (
     <div className="card portal-card">
       <div className="portal-card__head">
@@ -202,9 +237,19 @@ function PortalCard({ portal, sessions, onChanged }) {
           <div className="portal-card__origin mono">{portal.base_origin || portal.entry_url}</div>
           {portal.slug && <span className="chip">{portal.slug}</span>}
         </div>
-        <button className="btn btn-primary" onClick={startCapture} disabled={busy}>
-          {busy ? 'Abrindo…' : 'Nova captura'}
-        </button>
+        <div className="portal-card__head-actions">
+          <button className="btn btn-primary" onClick={startCapture} disabled={busy || removing}>
+            {busy ? 'Abrindo…' : 'Nova captura'}
+          </button>
+          <button
+            className="btn btn-ghost btn-sm btn-danger-ghost"
+            onClick={removePortal}
+            disabled={removing}
+            title="Excluir o portal e todas as suas capturas"
+          >
+            {removing ? 'Excluindo…' : 'Excluir'}
+          </button>
+        </div>
       </div>
 
       {err && <div className="alert alert-err">{err}</div>}
@@ -226,6 +271,14 @@ function PortalCard({ portal, sessions, onChanged }) {
                   </button>
                   <button className="btn btn-ghost btn-sm" onClick={() => navigate(`#/review/${s.id}`)}>
                     Revisao
+                  </button>
+                  <button
+                    className="btn btn-ghost btn-sm btn-danger-ghost"
+                    onClick={() => removeSession(s)}
+                    disabled={removingSession === s.id}
+                    title="Excluir esta captura"
+                  >
+                    {removingSession === s.id ? '…' : 'Excluir'}
                   </button>
                 </span>
               </li>

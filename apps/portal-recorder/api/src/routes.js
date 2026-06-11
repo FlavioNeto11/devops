@@ -10,6 +10,7 @@ import {
   createSession, listSessions, getSession, setSessionStatus,
   validateCreateAnnotation, createAnnotation, listAnnotations, getTimeline, getScreenshot,
   loadResponseEventsForNormalize, saveContract, getContract,
+  deleteSession, deletePortal, listActiveSessionIds,
 } from './store.js';
 import { normalizeEvents } from './normalize.js';
 
@@ -70,6 +71,18 @@ export function buildRouter() {
     } catch (e) { next(e); }
   });
 
+  // Excluir portal + tudo dele (para os browsers ativos antes de apagar).
+  router.delete('/v1/portals/:id', requireWriteAuth, async (req, res, next) => {
+    try {
+      const portal = await getPortal(getPool(), req.params.id);
+      if (!portal) return res.status(404).json({ error: { code: 'PORTAL_NOT_FOUND', message: 'portal not found' } });
+      const active = await listActiveSessionIds(getPool(), portal.id);
+      for (const sid of active) await callRecorder(`/internal/sessions/${sid}/stop`, sid);
+      await deletePortal(getPool(), portal.id);
+      res.json({ data: { deleted: true, id: portal.id, stopped_sessions: active.length } });
+    } catch (e) { next(e); }
+  });
+
   // ── Sessões ─────────────────────────────────────────────────────────────--
   router.post('/v1/portals/:id/sessions', requireWriteAuth, async (req, res, next) => {
     try {
@@ -96,6 +109,19 @@ export function buildRouter() {
       const session = await getSession(getPool(), req.params.id);
       if (!session) return res.status(404).json({ error: { code: 'SESSION_NOT_FOUND', message: 'session not found' } });
       res.json({ data: session });
+    } catch (e) { next(e); }
+  });
+
+  // Excluir uma sessão (para o browser remoto se ainda ativo).
+  router.delete('/v1/sessions/:id', requireWriteAuth, async (req, res, next) => {
+    try {
+      const session = await getSession(getPool(), req.params.id);
+      if (!session) return res.status(404).json({ error: { code: 'SESSION_NOT_FOUND', message: 'session not found' } });
+      if (session.status === 'created' || session.status === 'running') {
+        await callRecorder(`/internal/sessions/${session.id}/stop`, session.id);
+      }
+      await deleteSession(getPool(), session.id);
+      res.json({ data: { deleted: true, id: session.id } });
     } catch (e) { next(e); }
   });
 

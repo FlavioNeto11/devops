@@ -118,6 +118,9 @@ export const listPortals = () => apiFetch('/v1/portals');
 export const createPortal = (portal) =>
   apiFetch('/v1/portals', { method: 'POST', body: portal, auth: true });
 
+export const deletePortal = (id) =>
+  apiFetch(`/v1/portals/${encodeURIComponent(id)}`, { method: 'DELETE', auth: true });
+
 // ---------------------------------------------------------------------------
 // Sessoes.
 // ---------------------------------------------------------------------------
@@ -140,6 +143,9 @@ export const createSession = (portalId, body = {}) =>
 
 export const stopSession = (id) =>
   apiFetch(`/v1/sessions/${encodeURIComponent(id)}/stop`, { method: 'POST', auth: true });
+
+export const deleteSession = (id) =>
+  apiFetch(`/v1/sessions/${encodeURIComponent(id)}`, { method: 'DELETE', auth: true });
 
 // ---------------------------------------------------------------------------
 // Timeline / anotacoes / screenshots / normalizacao / contrato.

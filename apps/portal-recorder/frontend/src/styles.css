@@ -435,6 +435,21 @@ code {
   justify-content: space-between;
   gap: 12px;
 }
+.portal-card__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+/* Botão "Excluir" discreto: fica vermelho só no hover, para não competir com a ação primária. */
+.btn-danger-ghost {
+  color: var(--text-muted);
+}
+.btn-danger-ghost:hover {
+  color: #fff;
+  background: var(--danger, #d64545);
+  border-color: var(--danger, #d64545);
+}
 .portal-card__name {
   font-weight: 700;
   font-size: 1rem;
@@ -517,7 +532,7 @@ code {
   background: var(--screen-bg);
   border-radius: var(--radius-sm);
   display: block;
-  cursor: crosshair;
+  cursor: default;
   outline: none;
 }
 .screencast:focus {

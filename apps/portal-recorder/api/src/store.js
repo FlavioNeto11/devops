@@ -119,6 +119,27 @@ export async function getSession(pool, id) {
   return rows[0] || null;
 }
 
+// Deleta uma sessão (cascata: eventos/anotações/screenshots/estado via FK).
+export async function deleteSession(pool, id) {
+  const { rowCount } = await pool.query('DELETE FROM capture_sessions WHERE id = $1', [id]);
+  return rowCount > 0;
+}
+
+// Deleta um portal e TUDO dele (sessões/eventos/contratos via FK ON DELETE CASCADE).
+export async function deletePortal(pool, id) {
+  const { rowCount } = await pool.query('DELETE FROM portals WHERE id = $1 OR slug = $1', [id]);
+  return rowCount > 0;
+}
+
+// Sessões ativas de um portal (para parar o browser remoto antes de apagar).
+export async function listActiveSessionIds(pool, portalId) {
+  const { rows } = await pool.query(
+    `SELECT id FROM capture_sessions WHERE portal_id = $1 AND status IN ('created','running')`,
+    [portalId]
+  );
+  return rows.map((r) => r.id);
+}
+
 export async function setSessionStatus(pool, id, status, extra = {}) {
   const sets = ['status = $2', 'updated_at = NOW()'];
   const params = [id, status];
