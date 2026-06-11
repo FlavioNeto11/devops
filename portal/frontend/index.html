@@ -124,7 +124,7 @@
     .cap p{color:var(--muted);font-size:.9rem;margin:0}
 
     /* tools */
-    .tools{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+    .tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(196px,1fr));gap:16px}
     @media(max-width:880px){.tools{grid-template-columns:1fr 1fr}}
     @media(max-width:560px){.tools{grid-template-columns:1fr}}
     .tool{display:flex;flex-direction:column;padding:22px}
@@ -333,6 +333,11 @@
             <p>Identidade e Single Sign-On (OIDC) unificado.</p>
             <a class="lnk" href="/auth">Abrir <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
           </article>
+          <article class="card tool reveal">
+            <div class="th"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="14" rx="2"/><path d="M2.5 8h19M7 21h10"/><circle cx="12" cy="13" r="2.4"/></svg><h3>Portal Recorder</h3></div>
+            <p>Captura portais externos num browser remoto e gera contratos de API para automação.</p>
+            <a class="lnk" href="/portal-rec">Abrir <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          </article>
         </div>
       </div>
     </section>
@@ -377,6 +382,7 @@
           <a href="/grafana">Grafana</a>
           <a href="/argocd">Argo CD</a>
           <a href="/auth">Keycloak (SSO)</a>
+          <a href="/portal-rec">Portal Recorder</a>
         </div>
       </div>
       <div class="foot-bottom">

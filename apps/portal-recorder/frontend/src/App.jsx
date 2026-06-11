@@ -36,9 +36,9 @@ export default function App() {
         <div className="topbar__brand">
           <button className="brand-btn" onClick={() => navigate('#/')} title="Portais & Sessoes">
             <span className="brand-dot" aria-hidden="true" />
-            <strong>portal-recorder</strong>
+            <strong>portal<b>recorder</b></strong>
           </button>
-          <span className="topbar__sub">
+          <span className="topbar__sub" aria-current="page">
             {route.name === 'capture' && 'Captura'}
             {route.name === 'review' && 'Revisao'}
             {route.name === 'portals' && 'Portais & Sessoes'}
@@ -129,7 +129,8 @@ function TokenBar() {
       ) : (
         <>
           <span className="tokenbar__status">
-            {hasToken ? 'configurado ✓' : 'ausente — escritas vao falhar'}
+            <span className="tokenbar__dot" aria-hidden="true" />
+            {hasToken ? 'configurado' : 'ausente — escritas vao falhar'}
           </span>
           <button className="btn btn-ghost" onClick={() => setEditing(true)}>
             Editar

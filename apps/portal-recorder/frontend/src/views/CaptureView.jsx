@@ -262,7 +262,10 @@ export default function CaptureView({ sessionId }) {
     <div className="capture">
       <div className="capture__bar card">
         <div className="capture__status">
-          <span className={'status status--' + wsKind(wsStatus)}>{wsLabel(wsStatus)}</span>
+          <span className={'status status--dot status--' + wsKind(wsStatus)}>
+            <span className="status__pulse" aria-hidden="true" />
+            {wsLabel(wsStatus)}
+          </span>
           {remoteStatus.status && <span className="chip">{remoteStatus.status}</span>}
           <span className="capture__url mono" title={remoteStatus.url}>
             {remoteStatus.url || (session && session.title) || sessionId}

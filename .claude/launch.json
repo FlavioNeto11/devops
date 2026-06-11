@@ -18,6 +18,18 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "console/frontend", "--", "--port", "5180", "--strictPort"],
       "port": 5180
+    },
+    {
+      "name": "home-preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "serve", "-l", "5055", "portal/frontend"],
+      "port": 5055
+    },
+    {
+      "name": "portal-rec-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "apps/portal-recorder/frontend", "--", "--port", "5056", "--strictPort"],
+      "port": 5056
     }
   ]
 }
