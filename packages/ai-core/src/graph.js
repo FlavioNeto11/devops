@@ -69,6 +69,11 @@ Responda APENAS JSON: {"score": <0..1>, "reason": "<1 frase>"}`;
  *                   recebe `proposedToolCalls` e despacha pelo próprio pipeline
  *                   (policy/dispatch/síntese). É o modo de paridade do SICAT.
  *   routerContext   string extra anexada ao prompt do ROUTER (intents, dicas).
+ *   deepFilter      (specialistId) => boolean — quando o ROUTER decide deep mas
+ *                   o filtro nega, o turno volta IMEDIATAMENTE com
+ *                   `delegated: true` (sem gastar a rodada do especialista nem
+ *                   o judge): o app resolve pelo pipeline próprio (rollout
+ *                   specialist-a-specialist do SICAT).
  */
 export function createAiGraph({
   llm,
@@ -83,6 +88,7 @@ export function createAiGraph({
   judgeThreshold = 0.6,
   proposeTools = false,
   routerContext = '',
+  deepFilter = null,
 } = {}) {
   if (!llm || typeof llm.complete !== 'function') throw new Error('createAiGraph: llm.complete obrigatorio');
   const M = { ...DEFAULT_MODELS, ...models };
@@ -182,6 +188,28 @@ export function createAiGraph({
       });
 
       const deep = route.complexity === 'complex' && route.specialist && registry;
+
+      // deep negado pelo filtro do app: devolve a decisão de roteamento SEM
+      // gastar a rodada do especialista — o app delega ao pipeline próprio.
+      if (deep && typeof deepFilter === 'function' && !deepFilter(route.specialist.id)) {
+        trace.end({ metadata: { delegated: true, specialist: route.specialist.id } });
+        metrics.observeTurn('turn', 'ok', (Date.now() - startedAt) / 1000);
+        return {
+          text: '',
+          route: 'deep',
+          complexity: route.complexity,
+          specialist: route.specialist.id,
+          toolCalls: [],
+          evidence: [],
+          judge: null,
+          escalated: false,
+          proposed: false,
+          delegated: true,
+          memory: { threadId: turn.threadId || null, hadThread: mem.hadThread, recalled: mem.recalled, turnCount: null },
+          usage,
+        };
+      }
+
       let result;
       if (deep) {
         result = await runDeep(turn, route.specialist, trace, usage);

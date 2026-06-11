@@ -48,8 +48,8 @@ importers:
         specifier: ^9.1.0
         version: 9.1.0
       '@flavioneto11/ai-core':
-        specifier: file:../../vendor/flavioneto11-ai-core-0.5.0.tgz
-        version: file:vendor/flavioneto11-ai-core-0.5.0.tgz(@flavioneto11/ai-kit@file:vendor/flavioneto11-ai-kit-0.1.0.tgz(openai@6.37.0(zod@3.25.76)))(openai@6.37.0(zod@3.25.76))(prom-client@15.1.3)
+        specifier: file:../../vendor/flavioneto11-ai-core-0.5.1.tgz
+        version: file:vendor/flavioneto11-ai-core-0.5.1.tgz(@flavioneto11/ai-kit@file:vendor/flavioneto11-ai-kit-0.1.0.tgz(openai@6.37.0(zod@3.25.76)))(openai@6.37.0(zod@3.25.76))(prom-client@15.1.3)
       '@flavioneto11/ai-kit':
         specifier: file:../../vendor/flavioneto11-ai-kit-0.1.0.tgz
         version: file:vendor/flavioneto11-ai-kit-0.1.0.tgz(openai@6.37.0(zod@3.25.76))
@@ -777,9 +777,9 @@ packages:
   '@fastify/rate-limit@9.1.0':
     resolution: {integrity: sha512-h5dZWCkuZXN0PxwqaFQLxeln8/LNwQwH9popywmDCFdKfgpi4b/HoMH1lluy6P+30CG9yzzpSpwTCIPNB9T1JA==}
 
-  '@flavioneto11/ai-core@file:vendor/flavioneto11-ai-core-0.5.0.tgz':
-    resolution: {integrity: sha512-8b0RlKMa4j4NVkTsJ+YXwGO3ypYwflhAn2CoJ/Y82uaNjXvjjqO2RvMb6+nL6AuiUvqp30p4z6Ie4YQyO+cDng==, tarball: file:vendor/flavioneto11-ai-core-0.5.0.tgz}
-    version: 0.5.0
+  '@flavioneto11/ai-core@file:vendor/flavioneto11-ai-core-0.5.1.tgz':
+    resolution: {integrity: sha512-+ese+cERCrzHSTnNaEBVq/E8/dnVDA2MRZX2m76GuTxf/FV5k2HDvhZMKNG1uPSK5DcHXAUlbYXQ8Hjyp7YWBQ==, tarball: file:vendor/flavioneto11-ai-core-0.5.1.tgz}
+    version: 0.5.1
     peerDependencies:
       '@flavioneto11/ai-kit': '>=0.1'
       langfuse: '>=3'
@@ -4022,7 +4022,7 @@ snapshots:
       fastify-plugin: 4.5.1
       toad-cache: 3.7.0
 
-  '@flavioneto11/ai-core@file:vendor/flavioneto11-ai-core-0.5.0.tgz(@flavioneto11/ai-kit@file:vendor/flavioneto11-ai-kit-0.1.0.tgz(openai@6.37.0(zod@3.25.76)))(openai@6.37.0(zod@3.25.76))(prom-client@15.1.3)':
+  '@flavioneto11/ai-core@file:vendor/flavioneto11-ai-core-0.5.1.tgz(@flavioneto11/ai-kit@file:vendor/flavioneto11-ai-kit-0.1.0.tgz(openai@6.37.0(zod@3.25.76)))(openai@6.37.0(zod@3.25.76))(prom-client@15.1.3)':
     dependencies:
       '@flavioneto11/ai-kit': file:vendor/flavioneto11-ai-kit-0.1.0.tgz(openai@6.37.0(zod@3.25.76))
     optionalDependencies:

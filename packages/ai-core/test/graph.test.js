@@ -177,3 +177,36 @@ test('routerContext entra no system do ROUTER', async () => {
   await graph.runTurn({ message: 'oi' });
   assert.ok(String(llm.calls[0].messages[0].content).includes('INTENTS CONHECIDAS: manifest.list'));
 });
+
+test('deepFilter nega especialista: delegated=true sem rodada deep nem judge', async () => {
+  const executed = [];
+  const llm = scriptedLlm([
+    { text: '{"complexity":"complex","specialist":"ops","reason":"precisa dados"}' },
+    // NADA depois: nem deep, nem fast, nem judge
+  ]);
+  const graph = createAiGraph({
+    llm, registry: opsRegistry(executed), specialists: SPECIALISTS,
+    proposeTools: true, deepFilter: (id) => id !== 'ops',
+  });
+  const r = await graph.runTurn({ message: 'liste os atrasados', identity: { sub: 'u1' } });
+  assert.equal(r.delegated, true);
+  assert.equal(r.specialist, 'ops');
+  assert.equal(r.route, 'deep');
+  assert.equal(executed.length, 0);
+  assert.equal(llm.calls.length, 1, 'apenas o router roda');
+});
+
+test('deepFilter aprovando segue para a proposta normalmente', async () => {
+  const llm = scriptedLlm([
+    { text: '{"complexity":"complex","specialist":"ops","reason":"precisa dados"}' },
+    { toolCalls: [{ id: 'tc1', name: 'query_overdue', arguments: {} }] },
+  ]);
+  const graph = createAiGraph({
+    llm, registry: opsRegistry(), specialists: SPECIALISTS,
+    proposeTools: true, deepFilter: () => true,
+  });
+  const r = await graph.runTurn({ message: 'liste os atrasados', identity: { sub: 'u1' } });
+  assert.ok(!r.delegated, 'caminho aprovado nao delega');
+  assert.equal(r.proposed, true);
+  assert.equal(r.toolCalls[0].name, 'query_overdue');
+});

@@ -1,5 +1,11 @@
 # Changelog — @flavioneto11/ai-core
 
+## 0.5.1 (2026-06-11)
+- `createAiGraph({ deepFilter })` — nega o deep por especialista: o turno volta
+  IMEDIATAMENTE com `delegated: true` após o ROUTER (sem gastar a rodada do
+  especialista nem o judge). Achado do gate F4 do SICAT: delegar ao planner
+  legado depois de rodar o deep desperdiçava 10-20s por turno complexo.
+
 ## 0.5.0 (2026-06-11)
 - F4: `createAiGraph({ proposeTools: true })` — modo de paridade do SICAT: o deep-path
   PROPÕE a tool (`toolCalls[].status='proposed'`, `result.proposed=true`) em vez de

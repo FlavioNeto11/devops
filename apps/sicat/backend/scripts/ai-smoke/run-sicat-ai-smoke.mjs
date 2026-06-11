@@ -370,7 +370,11 @@ Reprove automaticamente se a resposta inventar dados, ignorar o dominio SICAT, e
     },
     body: JSON.stringify({
       model,
-      temperature: 0,
+      // Contrato gpt-5 (ai-kit): modelos de reasoning (gpt-5*, o*) REJEITAM
+      // temperature != 1 — usam reasoning_effort; modelos comuns mantêm 0.
+      ...(/^(gpt-5|o\d)/i.test(model)
+        ? { reasoning_effort: 'minimal' }
+        : { temperature: 0 }),
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: system },

@@ -63,7 +63,7 @@
     "rag:ingest": "tsx scripts/rag/ingest-knowledge.ts"
   },
   "dependencies": {
-    "@flavioneto11/ai-core": "file:vendor/flavioneto11-ai-core-0.5.0.tgz",
+    "@flavioneto11/ai-core": "file:vendor/flavioneto11-ai-core-0.5.1.tgz",
     "@flavioneto11/ai-kit": "file:vendor/flavioneto11-ai-kit-0.1.0.tgz",
     "@flavioneto11/oidc-kit": "file:vendor/flavioneto11-oidc-kit-0.1.0.tgz",
     "@langchain/core": "^1.1.41",

@@ -130,6 +130,8 @@ export interface GraphResult {
   escalated: boolean;
   /** F4: true quando o deep-path PROPÔS tool(s) sem executar (proposeTools). */
   proposed: boolean;
+  /** F4: true quando o deepFilter negou o especialista — o app delega ao pipeline próprio. */
+  delegated?: boolean;
   memory: { threadId: string | null; hadThread: boolean; recalled: number; turnCount: number | null };
   usage: { inputTokens: number; outputTokens: number; costUsd: number };
 }
@@ -152,6 +154,8 @@ export function createAiGraph(opts: {
   proposeTools?: boolean;
   /** Texto extra anexado ao system do ROUTER (intents conhecidas, dicas do app). */
   routerContext?: string;
+  /** Nega o deep por especialista: retorna `delegated:true` sem gastar a rodada. */
+  deepFilter?: (specialistId: string) => boolean;
 }): { runTurn(turn: GraphTurn): Promise<GraphResult> };
 
 // ---------------------------------------------------------------- rag

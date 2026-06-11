@@ -204,12 +204,16 @@ function buildRouterContext(specialists: ConversationSpecialist[]): string {
     .map((s) => `- ${s.id}: ${[...s.intentPrefixes, ...s.intents].slice(0, 12).join(', ')}`)
     .join('\n');
   return (
-    'CONTEXTO SICAT (MTR/CETESB): qualquer pedido que envolva DADOS ou AÇÕES operacionais — ' +
-    'manifestos (listar/contar/detalhar/cancelar/submeter/imprimir/replicar), CDF/CDR, DMR, MTR provisório, ' +
-    'catálogos, parceiros, jobs/fila, auditoria, dashboard/relatórios, diagnóstico da operação — é "complex" ' +
-    '(precisa consultar o sistema ou agir). Use "trivial" para saudação/agradecimento/social e "simple" APENAS ' +
-    'para perguntas sobre a PRÓPRIA conversa (o que pedi antes, resuma o que conversamos) ou datas relativas. ' +
-    'Perguntas conceituais sobre o domínio (o que é CDF, fluxo do MTR) são "simple" SOMENTE se nenhum dado da conta for necessário.\n' +
+    'CONTEXTO SICAT (MTR/CETESB): qualquer pedido cuja resposta ideal dependa de NÚMEROS/ESTADO ATUAIS ' +
+    'do sistema é "complex" — incluindo análise, estratégia, simulação, risco e diagnóstico. Exemplos que ' +
+    'SÃO complex: "resumo do dia", "qual o maior problema operacional", "se eu reenviar esses jobs qual o risco", ' +
+    '"faça um diagnóstico da operação", "resolva os erros de hoje", listar/contar/detalhar manifestos, CDF/CDR, ' +
+    'DMR, MTR provisório, catálogos, parceiros, jobs/fila, auditoria, dashboard/relatórios, e QUALQUER ação ' +
+    '(cancelar/submeter/imprimir/gerar/baixar). ' +
+    'Use "trivial" para saudação/agradecimento/social. Use "simple" APENAS para: perguntas sobre a PRÓPRIA ' +
+    'conversa (o que pedi antes, resuma o que conversamos), datas relativas, e perguntas PURAMENTE conceituais ' +
+    'do domínio (o que é CDF, o que é DMR, fluxo do MTR) que nenhum dado da conta responderia melhor. ' +
+    'Na dúvida entre simple e complex, escolha complex.\n' +
     `Intents conhecidas por especialista:\n${intentHints}`
   );
 }
@@ -290,6 +294,10 @@ export function createAiCoreLlmProvider(legacy: LlmProvider): LlmProvider {
       specialists: buildGraphSpecialists(context, specialists),
       proposeTools: true,
       routerContext: buildRouterContext(specialists),
+      // especialista FORA do rollout do deep: volta delegated logo após o
+      // router (sem gastar a rodada do especialista) → planner legado.
+      deepFilter: (specialistId: string) =>
+        engineDeepMode() === 'propose' && engineDeepSpecialists().has(specialistId.toLowerCase()),
       maxToolRounds: 1,
       verify: engineVerifyEnabled(),
       judgeThreshold: JUDGE_THRESHOLD,
@@ -313,6 +321,11 @@ export function createAiCoreLlmProvider(legacy: LlmProvider): LlmProvider {
       correlationId: context.auditCorrelationId || undefined,
       toolContext: { integrationAccountId: context.integrationAccountId || null }
     });
+
+    // ── Especialista fora do rollout (deepFilter) → planner legado ────────
+    if (result.delegated) {
+      return legacy.plan(input);
+    }
 
     // ── Proposta de tool (deep) ────────────────────────────────────────────
     if (result.proposed && result.toolCalls.length > 0) {
