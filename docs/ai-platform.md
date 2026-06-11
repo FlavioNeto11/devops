@@ -82,6 +82,17 @@ O índice em arquivo foi aposentado (nem chegava à imagem — RAG estava morto 
   QUALQUER falha do engine cai no provider legado — o turno nunca quebra.
 - Rollout/rollback sem deploy durante o gate: ConfigMap imperativo `sicat-engine-flags`
   (hook `envFrom optional` no Deployment); estado final das flags fica no manifesto.
+- **Gate de paridade (2026-06-11, judge `gpt-5-nano`)**: sample 23 cenários — legado
+  **10/24** vs engine **10/24** (paridade exata); nas superfícies do engine, **+2 líquido**
+  ("o que é DMR"/"o que é MTR provisório" saíram de 0 → PASS 0.82 via fast-path com RAG) e
+  todas as perdas foram variância do caminho legado (`provider=layered-llm` idêntico nos
+  dois lados). Full 471 interrompido aos **165 cenários por custo** (decisão do operador):
+  nenhum modo de falha específico do engine encontrado; categorias fracas (ex.
+  `cdf_consulta` 10%) são fracas no PLANNER LEGADO sob o judge novo — o catálogo foi
+  calibrado para `gpt-4o-mini` (`minimum_score 0.78`), inexistente neste projeto OpenAI.
+  Log parcial: `apps/sicat/backend/artifacts/ai-smoke/full-gate-partial-2026-06-11.log`
+  (local). **Veredito: `CONVERSATION_ENGINE=ai-core` é o DEFAULT no manifesto**; rollback =
+  `legacy` (1 env). Recalibrar o catálogo para o judge gpt-5-nano ficou como evolução.
 
 ## Entregue na F5 (governança completa)
 - **`ai-control-plane`** (app novo na esteira, `/ai-control`, ns `apps`, Postgres próprio,
