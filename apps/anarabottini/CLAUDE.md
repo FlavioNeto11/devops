@@ -1,3 +1,11 @@
+---
+title: "Ana Rabottini - Manual para Claude Code"
+status: canonical
+applies_to: [anarabottini]
+updated: 2026-06-11
+language: pt-BR
+---
+
 # Ana Rabottini — Manual para Claude Code
 
 > **Comece por aqui.** As fronteiras de operação e a matriz de decisão vivem no

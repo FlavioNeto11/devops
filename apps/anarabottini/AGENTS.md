@@ -1,3 +1,11 @@
+---
+title: "Ana Rabottini - Contrato de Agentes"
+status: canonical
+applies_to: [anarabottini]
+updated: 2026-06-11
+language: pt-BR
+---
+
 # Ana Rabottini — Contrato de Operação (Agentes)
 
 > Fronteiras de operação e matriz de decisão para qualquer agente que atue neste app.

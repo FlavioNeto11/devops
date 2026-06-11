@@ -67,6 +67,47 @@ O índice em arquivo foi aposentado (nem chegava à imagem — RAG estava morto 
   (`@langchain/langgraph-checkpoint-postgres`): estado do planning sobrevive a restart e é
   compartilhado api↔worker; init no boot; rollback via `CONVERSATION_CHECKPOINTER=memory`.
 
+## Entregue na F4 (engine ai-core no SICAT, atrás de flag)
+- `ai-core` 0.5.0: `createAiGraph({ proposeTools })` — o deep-path **propõe** a tool
+  (`status='proposed'`) em vez de despachá-la; o app executa pelo pipeline próprio
+  (policy → dispatch → síntese → guardrails). `routerContext` injeta dicas de roteamento
+  do app no ROUTER. É o modo de paridade do SICAT.
+- SICAT `conversation-engine-ai-core.ts`: `CONVERSATION_ENGINE=ai-core` faz o `plan()` do
+  turno rodar no grafo da plataforma — ROUTER (gpt-5-nano + intents do SICAT) → fast-path
+  conversacional/conceitual (working memory + RAG) **verificado pelo judge** (reprovou →
+  planner legado) → complex vai ao planner legado, OU (rollout incremental) ao deep
+  propose por especialista (`CONVERSATION_ENGINE_DEEP=propose` +
+  `CONVERSATION_ENGINE_SPECIALISTS=catalog,operations`). Adapter AiTool das 20 tools com
+  **authz por identidade** na proposta (sem identidade/conta CETESB → não propõe ação).
+  QUALQUER falha do engine cai no provider legado — o turno nunca quebra.
+- Rollout/rollback sem deploy durante o gate: ConfigMap imperativo `sicat-engine-flags`
+  (hook `envFrom optional` no Deployment); estado final das flags fica no manifesto.
+
+## Entregue na F5 (governança completa)
+- **`ai-control-plane`** (app novo na esteira, `/ai-control`, ns `apps`, Postgres próprio,
+  Argo `prune:false`): prompts versionados (`POST versions`, `POST activate` com
+  `confirmed:true` e `previous` para rollback), rollup cross-app de feedback, registro de
+  eval runs, overview. Writes com bearer token (fail-closed: sem env → 503); reads abertos.
+  FORA do caminho crítico: apps consomem com timeout 2s + cache + fallback inline.
+- **Thumbs 👍/👎** por resposta da IA nos DOIS frontends: SICAT (chat `/conversacional/chat`
+  + copiloto in-app; `POST /v1/conversations/feedback` → `conversation_feedback` migration
+  019) e GymOps (widget; `POST /ai/feedback` → `ai_feedback` Prisma). Métrica
+  `ai_feedback_total{app,surface,kind}` + encaminhamento best-effort ao control-plane
+  (rollup verificado com os 2 apps).
+- **Promote/rollback DEMONSTRADO** (GymOps `gymops.chat.system`): v1 baseline → v2 com
+  regra observável promovida → pod aplicou em ≤60s **sem deploy** (refresh 60s por
+  referência no specialist) → turno real respondeu com o prefixo da v2 → rollback à v1 →
+  turno real limpo. Fallback inline garante operação com o control-plane fora do ar.
+- **GymOps age com confirmação**: tool `create_activity` (R3, `mutates`,
+  `supportsDryRun`) — RBAC real (`hasUnitRole`), resolve unidade/área por NOME, dry-run
+  vira **prévia assinada** (HMAC `JWT_SECRET`, exp 10min) no `meta.pendingAction`; o
+  clique do usuário chama `POST /ai/confirm` que re-despacha determinístico
+  (`confirmedToolCallId`) **sem segunda viagem ao LLM**. "IA nunca salva direto"
+  preservado: a confirmação É o salvar do usuário. E2E em cluster: prévia → confirmação →
+  atividade no banco.
+- Runners de eval (sicat smoke + gymops ai-eval) registram o run no control-plane quando
+  `AI_CONTROL_PLANE_URL` estiver setada (best-effort).
+
 ## Entregue na F5-parcial (gate de evals na esteira)
 Workflow [`ai-evals.yml`](../.github/workflows/ai-evals.yml): PR/push que toca superfície de IA
 (ai-core/ai-kit, grafo+golden set do GymOps, conversação+catálogo do SICAT, vendor) roda em
@@ -81,12 +122,11 @@ Workflow [`ai-evals.yml`](../.github/workflows/ai-evals.yml): PR/push que toca s
   só quando o secret `OPENAI_API_KEY` existir no repo; sem chave, pula com aviso (os jobs
   determinísticos seguem bloqueantes).
 
-Falta da F5 completa: serviço `ai-control-plane` (prompts versionados/golden sets/replay),
-thumbs 👍/👎 nos 2 frontends e o ciclo promote/rollback.
-
-## Próximas fases (resumo)
-F4 migração do grafo do SICAT para o ai-core (gate: 466 cenários) · F5 restante
-(`ai-control-plane` + thumbs + promote/rollback) + mutações com dry-run/confirmação no GymOps.
+## Evoluções futuras (pós F0–F5)
+Migração do deep-path COMPLETO do SICAT para o grafo (hoje: fast-path + propose
+incremental por especialista; planner de ações legado continua para manifest/cdf até o
+gate aprovar) · golden sets/replay no control-plane · mais tools mutantes no GymOps
+(update/cancel) sob o mesmo contrato de confirmação.
 
 ## Armadilhas
 - A porta 9464 não passa pelo Traefik de propósito — não criar IngressRoute para ela.
