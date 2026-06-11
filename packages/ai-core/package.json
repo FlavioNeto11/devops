@@ -1,6 +1,6 @@
 {
   "name": "@flavioneto11/ai-core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Nucleo compartilhado da plataforma de IA: contrato de tools (authz/dry-run/confirmacao), observabilidade (metricas Prometheus + tracing Langfuse/LangSmith plugavel), custo por token, KPIs canonicos e harness de avaliacao (golden sets + LLM-as-judge). Zero dependencias de runtime.",
   "type": "module",
   "main": "src/index.js",

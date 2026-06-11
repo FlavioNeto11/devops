@@ -36,10 +36,19 @@ groundedness · answer_relevance · tool_call_accuracy · task_completion_rate �
 csat · cost_per_conversation · latency_p95 · escalation_rate — definições e metas em
 `packages/ai-core/src/kpi.js` (`AI_KPIS`).
 
+## Entregue na F1 (grafo piloto no GymOps)
+
+| Peça | Onde | O quê |
+|---|---|---|
+| **Grafo de raciocínio** | `packages/ai-core` 0.2.0 (`createAiGraph` + `createOpenAiLlm`) | ROUTER (nano classifica complexidade/especialista) → fast-path (resposta direta) ou deep-path (especialista em **loop ReAct com tools** via `dispatchTool`: authz por identidade, dry-run, confirmação) → **VERIFY** (judge de groundedness em runtime; score baixo → 1 retry deep = escalation). Métricas/custo por nó; motor explícito sobre adapter estrutural (F3 pluga checkpointer Postgres; F4 roda os nós no LangGraph do SICAT). |
+| **Tools read-only do GymOps** | `apps/api/src/ai/graph/tools.ts` | `query_overdue`, `get_daily_stats`, `list_units` — Prisma + **authz por membership real** (a IA nunca vê além do usuário); `organizationId` vem do contexto validado na rota, nunca do LLM. |
+| **Flag `AI_GRAPH`** | `apps/api/src/ai/graph/index.ts` + rota `/ai/chat` | default **off** (caminho legado byte-idêntico); `on` → turno roteia pelo grafo; erro no grafo → fallback gracioso ao legado. Modelos por env (`OPENAI_ROUTER_MODEL`, `OPENAI_DEEP_MODEL`, ...); `AI_GRAPH_VERIFY=off` desliga o judge. |
+| **Eval do grafo** | `pnpm ai:eval --graph` | grafo REAL + LLM simulado + tools mock — valida roteamento fast/deep, escolha de tool e ancoragem (casos tag `graph` no golden set). |
+
 ## Próximas fases (resumo)
-F1 grafo+tools no GymOps (flag `AI_GRAPH`) · F2 RAG pgvector+HNSW no SICAT · F3 memória
-(checkpointer Postgres + rolling summary + memória longa por usuário) · F4 migração do grafo do
-SICAT (gate: 466 cenários) · F5 evals na esteira (gate de regressão) + `ai-control-plane`.
+F2 RAG pgvector+HNSW no SICAT · F3 memória (checkpointer Postgres + rolling summary + memória
+longa por usuário) · F4 migração do grafo do SICAT (gate: 466 cenários) · F5 evals na esteira
+(gate de regressão) + `ai-control-plane` + mutações com dry-run/confirmação no GymOps.
 
 ## Armadilhas
 - A porta 9464 não passa pelo Traefik de propósito — não criar IngressRoute para ela.

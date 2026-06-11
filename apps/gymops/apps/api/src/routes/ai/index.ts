@@ -13,6 +13,8 @@ import { buildDelayAnalysisPrompt } from '../../ai/prompts/delay-analysis.prompt
 import { buildDailySummaryPrompt } from '../../ai/prompts/daily-summary.prompt.js';
 import { cacheGet, cacheSet } from '../../lib/redis.js';
 import { generateAndStoreDailySummary } from '../../workers/ai-summary-worker.js';
+import { AI_GRAPH_ENABLED, runGraphChatTurn } from '../../ai/graph/index.js';
+import { aiMetrics } from '../../ai/ai-metrics.js';
 
 export const aiRoutes: FastifyPluginAsync = async (app) => {
   const AI_RATE_LIMIT = { max: 10, timeWindow: '1 minute' };
@@ -299,6 +301,32 @@ ${context}`;
 
     const fallback =
       'No momento não consegui falar com a IA. Tente novamente em instantes — enquanto isso, você pode usar o painel para ver atividades, unidades e prazos.';
+
+    // ── F1: grafo de raciocínio (router fast/deep + tools read-only + judge) ──
+    // Atrás da flag AI_GRAPH (default off). Erro no grafo → cai no caminho
+    // legado abaixo (graceful, mesmo contrato de resposta).
+    if (AI_GRAPH_ENABLED()) {
+      try {
+        const r = await runGraphChatTurn({
+          message: body.data.message,
+          history: body.data.history ?? [],
+          systemContext: system,
+          identity: { sub: userId },
+          correlationId: request.id,
+          organizationId: body.data.organizationId,
+        });
+        return reply.send({
+          data: {
+            reply: r.text,
+            meta: { route: r.route, specialist: r.specialist, tools: r.toolCalls.map((t) => t.name), judge: r.judge?.score ?? null },
+          },
+        });
+      } catch (err) {
+        request.log.warn({ err }, '[ai-graph] falhou; usando caminho legado');
+        aiMetrics.countError('graph', 'fallback_legacy');
+      }
+    }
+
     const replyText = await callAI((client) => chatText(client, messages), fallback, { stage: 'chat' });
 
     return reply.send({ data: { reply: replyText } });

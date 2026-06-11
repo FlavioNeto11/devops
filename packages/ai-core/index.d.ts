@@ -39,6 +39,8 @@ export interface AiTool<I = unknown, O = unknown> {
   supportsDryRun?: boolean;
   inputSchema?: ParseSchema<I>;
   outputSchema?: ParseSchema<O>;
+  /** JSON Schema dos argumentos (exposto ao function-calling do LLM). */
+  parameters?: Record<string, unknown>;
   authorize(ctx: AiToolContext): Promise<{ allowed: boolean; reason?: string }>;
   execute(input: I, ctx: AiToolContext): Promise<O>;
 }
@@ -81,6 +83,62 @@ export function createAiTracer(opts?: { langfuse?: unknown; metrics?: AiMetrics;
   traceFor(meta?: { name?: string; userId?: string; sessionId?: string; metadata?: unknown }): AiTraceHandle;
 };
 export const AI_METRIC_NAMES: Readonly<Record<string, string>>;
+
+// ---------------------------------------------------------------- llm + graph
+export interface LlmCompletion {
+  text: string;
+  toolCalls: Array<{ id?: string; name: string; arguments: Record<string, unknown> }>;
+  usage: unknown;
+  raw?: unknown;
+}
+export interface LlmAdapter {
+  complete(req: {
+    model?: string;
+    messages: Array<Record<string, unknown>>;
+    tools?: AiTool[];
+    toolChoice?: string;
+    jsonMode?: boolean;
+    reasoningEffort?: string;
+    maxTokens?: number;
+  }): Promise<LlmCompletion>;
+}
+export function createOpenAiLlm(client: unknown, opts?: { defaultModel?: string }): LlmAdapter;
+export function toOpenAiToolDef(tool: AiTool): Record<string, unknown>;
+
+export interface AiSpecialist { id: string; description: string; systemPrompt: string }
+export interface GraphTurn {
+  message: string;
+  history?: Array<{ role: string; content: string }>;
+  systemContext?: string;
+  identity?: OidcIdentityLike;
+  channel?: string;
+  correlationId?: string;
+  sessionId?: string;
+  confirmedToolCallId?: string;
+  toolContext?: Record<string, unknown>;
+}
+export interface GraphResult {
+  text: string;
+  route: 'fast' | 'deep';
+  complexity: 'trivial' | 'simple' | 'complex';
+  specialist: string | null;
+  toolCalls: Array<{ name: string; status: string; arguments: unknown }>;
+  evidence: Array<{ tool: string; output: unknown }>;
+  judge: { score: number; reason: string } | null;
+  escalated: boolean;
+  usage: { inputTokens: number; outputTokens: number; costUsd: number };
+}
+export function createAiGraph(opts: {
+  llm: LlmAdapter;
+  registry?: AiToolRegistry;
+  specialists?: AiSpecialist[];
+  models?: { router?: string; deep?: string; synth?: string; judge?: string };
+  metrics?: AiMetrics;
+  tracer?: ReturnType<typeof createAiTracer>;
+  maxToolRounds?: number;
+  verify?: boolean;
+  judgeThreshold?: number;
+}): { runTurn(turn: GraphTurn): Promise<GraphResult> };
 
 // ---------------------------------------------------------------- kpi
 export interface AiKpiDef {

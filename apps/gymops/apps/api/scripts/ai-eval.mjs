@@ -3,6 +3,9 @@
 //
 // Modos:
 //   node scripts/ai-eval.mjs                 → MOCK (valida harness/assertions, sem rede)
+//   node scripts/ai-eval.mjs --graph         → GRAFO real do ai-core + LLM simulado + tools mock
+//                                              (valida roteamento fast/deep, escolha de tool e
+//                                              ancoragem na evidência — casos tag "graph")
 //   node scripts/ai-eval.mjs --real          → chama o LLM de verdade (OPENAI_API_KEY) com
 //                                              os prompts reais por feature; judge gpt-5-nano
 //   flags: --sample N (subset p/ PR) · --json out.json (relatório)
@@ -12,19 +15,22 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { parseGoldenSetJsonl, runEval, summarizeEvalKpis } from '@flavioneto11/ai-core';
+import { parseGoldenSetJsonl, runEval, summarizeEvalKpis, createAiGraph, createToolRegistry } from '@flavioneto11/ai-core';
 import { chatJSON, chatText } from '@flavioneto11/ai-kit';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const goldenPath = path.resolve(here, '../../../docs/ai-eval/golden-set.jsonl');
 const args = process.argv.slice(2);
 const real = args.includes('--real');
+const graphMode = args.includes('--graph');
 const sampleIdx = args.indexOf('--sample');
 const sample = sampleIdx >= 0 ? Number(args[sampleIdx + 1]) : undefined;
 const jsonIdx = args.indexOf('--json');
 const jsonOut = jsonIdx >= 0 ? args[jsonIdx + 1] : null;
 
-const cases = parseGoldenSetJsonl(readFileSync(goldenPath, 'utf8'));
+const allCases = parseGoldenSetJsonl(readFileSync(goldenPath, 'utf8'));
+// casos tag "graph" rodam SÓ no modo --graph; os demais modos os excluem.
+const cases = allCases.filter((c) => (c.tags || []).includes('graph') === graphMode);
 
 // ---- runners ---------------------------------------------------------------
 // MOCK: respostas plausíveis determinísticas — valida o harness/assertions.
@@ -77,8 +83,77 @@ function makeRealRunner() {
   });
 }
 
+// GRAFO: grafo REAL do ai-core com LLM simulado (roteia por palavra-chave) e
+// tools mock com os MESMOS nomes/contratos das tools reais do GymOps — valida
+// router→especialista→dispatch→synth→verify de ponta a ponta, determinístico.
+function makeGraphRunner() {
+  const registry = createToolRegistry([
+    {
+      name: 'query_overdue', description: 'Lista atividades atrasadas', specialist: 'ops',
+      risk: 'R1', mutates: false, parameters: { type: 'object', properties: {} },
+      authorize: async ({ identity }) => ({ allowed: Boolean(identity?.sub) }),
+      execute: async () => ({ total: 3, items: [{ title: 'Ar-condicionado', daysOverdue: 9, unit: 'Vila Xavier' }] }),
+    },
+    {
+      name: 'get_daily_stats', description: 'Estatísticas do dia', specialist: 'ops',
+      risk: 'R1', mutates: false, parameters: { type: 'object', properties: {} },
+      authorize: async ({ identity }) => ({ allowed: Boolean(identity?.sub) }),
+      execute: async () => ({ byStatus: { novo: 8, em_andamento: 4 }, overdue: 3, critical: 1, dueToday: 2 }),
+    },
+    {
+      name: 'list_units', description: 'Lista unidades', specialist: 'ops',
+      risk: 'R1', mutates: false, parameters: { type: 'object', properties: {} },
+      authorize: async ({ identity }) => ({ allowed: Boolean(identity?.sub) }),
+      execute: async () => ({ total: 2, units: [{ name: 'Vila Xavier', openActivities: 7 }, { name: 'Centro', openActivities: 5 }] }),
+    },
+  ]);
+
+  const pickTool = (q) => {
+    if (/atrasad/i.test(q)) return 'query_overdue';
+    if (/estat|resumo|quant/i.test(q) && /unidade/i.test(q) === false) return 'get_daily_stats';
+    if (/unidade/i.test(q)) return 'list_units';
+    return 'get_daily_stats';
+  };
+
+  const simLlm = {
+    complete: async ({ messages, tools, jsonMode }) => {
+      const sys = String(messages[0]?.content || '');
+      const user = String(messages.findLast?.((m) => m.role === 'user')?.content || messages[messages.length - 1]?.content || '');
+      const usage = { prompt_tokens: 20, completion_tokens: 10 };
+      if (jsonMode && sys.includes('ROTEADOR')) {
+        const trivial = /^(oi|ola|olá|bom dia|boa tarde|obrigad)/i.test(user.trim());
+        return { text: JSON.stringify(trivial ? { complexity: 'trivial', specialist: null } : { complexity: 'complex', specialist: 'ops' }), toolCalls: [], usage };
+      }
+      if (jsonMode && user.includes('JUIZ')) return { text: '{"score":0.9,"reason":"ancorado"}', toolCalls: [], usage };
+      if (tools?.length) {
+        const hasToolResult = messages.some((m) => m.role === 'tool');
+        if (!hasToolResult) {
+          return { text: '', toolCalls: [{ id: 'tc1', name: pickTool(user), arguments: {} }], usage };
+        }
+        const evidence = messages.filter((m) => m.role === 'tool').map((m) => m.content).join(' ');
+        const data = JSON.parse(messages.findLast((m) => m.role === 'tool').content);
+        if (data.items) return { text: `Há ${data.total} atividades atrasadas; a mais antiga é "${data.items[0].title}" (${data.items[0].daysOverdue} dias, ${data.items[0].unit}).`, toolCalls: [], usage };
+        if (data.units) return { text: `Temos ${data.total} unidades: ${data.units.map((u) => `${u.name} (${u.openActivities} abertas)`).join(', ')}.`, toolCalls: [], usage };
+        return { text: `Hoje: ${data.overdue} atrasadas, ${data.critical} crítica(s), ${data.dueToday} vencendo hoje.`, toolCalls: [], usage };
+      }
+      return { text: 'Olá! Como posso ajudar na operação hoje?', toolCalls: [], usage };
+    },
+  };
+
+  const graph = createAiGraph({
+    llm: simLlm,
+    registry,
+    specialists: [{ id: 'ops', description: 'operação: atividades, atrasos, estatísticas, unidades', systemPrompt: 'Especialista operacional.' }],
+  });
+
+  return async (c) => {
+    const r = await graph.runTurn({ message: c.input.q, identity: { sub: 'eval-user' }, toolContext: { organizationId: 'org-eval' } });
+    return { text: r.text, toolCalls: r.toolCalls.map((t) => ({ name: t.name })), evidence: r.evidence };
+  };
+}
+
 // ---- run -------------------------------------------------------------------
-const runner = real ? await makeRealRunner() : mockRunner;
+const runner = graphMode ? makeGraphRunner() : real ? await makeRealRunner() : mockRunner;
 const judgeClient = real
   ? new (await import('openai')).default({ apiKey: process.env.OPENAI_API_KEY })
   : null;

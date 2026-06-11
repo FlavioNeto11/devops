@@ -19,5 +19,7 @@ export {
   assertValidTool, createToolRegistry, dispatchTool,
 } from './tools.js';
 export { createAiMetrics, createAiTracer, AI_METRIC_NAMES } from './observability.js';
+export { createOpenAiLlm, toOpenAiToolDef } from './llm.js';
+export { createAiGraph } from './graph.js';
 export { AI_KPIS, listKpis, summarizeEvalKpis } from './kpi.js';
 export { parseGoldenSetJsonl, runEval } from './eval.js';
