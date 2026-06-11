@@ -1,0 +1,14 @@
+{
+  "portal": "cetesb",
+  "base_url": "https://mtrr.cetesb.sp.gov.br",
+  "version": "2026-06-11",
+  "label": "seed inicial a partir do cetesb-gateway.js (sem captura real ainda)",
+  "endpoint_count": 16,
+  "capture_window": {
+    "from": "2026-06-11",
+    "to": "2026-06-11"
+  },
+  "content_hash": "sha256:7149f8f1f67a6ca26edcd5bfec5af7ca2820ed35823c8802028761b25410712b",
+  "generated_by": "seed-from-gateway",
+  "redaction_policy": "business-sensitive-v1"
+}

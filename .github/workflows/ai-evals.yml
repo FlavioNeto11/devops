@@ -31,6 +31,9 @@ on:
       - "apps/sicat/backend/src/services/ai-control/**"
       - "apps/sicat/backend/docs/ai-chat/**"
       - "apps/sicat/backend/vendor/**"
+      - "docs/portal-contracts/**"
+      - "apps/sicat/backend/docs/portal-contracts/**"
+      - "scripts/portal-contracts/**"
       - ".github/workflows/ai-evals.yml"
   push:
     branches: [main]
@@ -40,6 +43,9 @@ on:
       - "apps/gymops/apps/api/src/ai/**"
       - "apps/gymops/docs/ai-eval/**"
       - "apps/sicat/backend/docs/ai-chat/**"
+      - "docs/portal-contracts/**"
+      - "apps/sicat/backend/docs/portal-contracts/**"
+      - "scripts/portal-contracts/**"
       - ".github/workflows/ai-evals.yml"
   schedule:
     - cron: "0 3 * * *"   # nightly: full set + amostra com LLM real (se houver chave)
@@ -101,6 +107,27 @@ jobs:
       # script dependency-free (node:fs/path) — sem npm ci
       - name: Validar catalogo (466 cenarios)
         run: node scripts/ai-smoke/validate-sicat-chat-catalog.mjs
+
+  portal-contracts:
+    name: portal-contracts (validador + comparador)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      # scripts dependency-free (node:fs/path/crypto) — sem npm ci
+      - name: Testes puros do diff
+        run: node --test scripts/portal-contracts/lib/contract-diff.test.mjs
+      - name: Validar contratos de portal (sempre bloqueia)
+        run: node scripts/portal-contracts/validate-portal-contract.mjs
+      - name: Comparar SICAT x contrato CETESB (bloqueia so em critical)
+        run: node scripts/portal-contracts/compare-sicat-cetesb.mjs --no-write --fail-on critical
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: portal-drift-report
+          path: artifacts/portal-contracts/
 
   nightly-real:
     name: nightly (LLM real, amostra)

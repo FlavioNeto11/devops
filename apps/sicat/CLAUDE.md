@@ -54,7 +54,13 @@ Na plataforma: `basePath: /sicat`, namespace `apps`, hosts `dev.nvit.com.br` (p�
 ## Armadilhas conhecidas
 
 1. **CETESB direto fora do gateway** → quebra a fronteira de camadas. Toda HTTP CETESB passa por
-   `src/gateways/cetesb-gateway.js`; nunca chamar de `routes/`/`services/`/`workers/`.
+   `src/gateways/cetesb-gateway.js`; nunca chamar de `routes/`/`services/`/`workers/`. A **verdade da
+   API real da CETESB** (endpoints/payloads/auth capturados) vive em
+   [`../../docs/portal-contracts/cetesb/`](../../docs/portal-contracts/cetesb/) (não no OpenAPI
+   **interno** do SICAT). Para alinhar o gateway aos padrões da CETESB, leia o `drift-report.md` da
+   versão `LATEST`; ao mudar endpoints do gateway, atualize o mapa
+   `backend/docs/portal-contracts/sicat-cetesb-endpoint-map.jsonl` (o gate `portal-contracts` valida
+   os `anchors` contra o gateway).
 2. **Converter o gateway para `.ts`** → proibido (DL-093). Ele fica em JS intencionalmente.
 3. **Modo `real` é o padrão** (`CETESB_GATEWAY_MODE=real`). Qualquer teste/smoke `*-real-*` ou
    `catalog-sync` atinge a CETESB de verdade e exige credenciais + `NODE_EXTRA_CA_CERTS` apontando

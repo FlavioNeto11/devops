@@ -133,6 +133,34 @@ Workflow [`ai-evals.yml`](../.github/workflows/ai-evals.yml): PR/push que toca s
   só quando o secret `OPENAI_API_KEY` existir no repo; sem chave, pula com aviso (os jobs
   determinísticos seguem bloqueantes).
 
+## Contratos canônicos de portal (captura real × acesso do SICAT)
+
+> Feature de plataforma (genérica, multi-portal): capturar a estrutura **real** de um portal
+> externo (ex.: a API da CETESB) e compará-la com como um app a acessa hoje, gerando um relatório
+> que a Claude lê para alinhar o app aos padrões do portal. Doc raiz:
+> [`docs/portal-contracts/README.md`](portal-contracts/README.md).
+
+- **Contrato canônico** versionado no repo: `docs/portal-contracts/<portal>/<versão>/endpoints.jsonl`
+  (1 linha/endpoint: método, path_template, auth/token_header_mode, request/response schema inferido,
+  `requires_captcha`, exemplos **redigidos**) + `manifest.json` com `content_hash` (detector de drift
+  temporal do próprio portal via `git diff` entre versões datadas). O `cetesb/2026-06-11` nasceu como
+  **seed** escrito a partir do `cetesb-gateway.js` (16 endpoints); capturas reais virão do
+  `portal-recorder` e substituem o seed.
+- **Validador** [`scripts/portal-contracts/validate-portal-contract.mjs`](../scripts/portal-contracts/validate-portal-contract.mjs)
+  (dependency-free): shape, dedup (id + método+path), `content_hash`, baixa-confiança. `--write-hash`
+  carimba o manifest. **Sempre bloqueia** no CI.
+- **Comparador** [`compare-sicat-cetesb.mjs`](../scripts/portal-contracts/compare-sicat-cetesb.mjs)
+  (+ `lib/contract-diff.mjs` puro, 11 testes): casa o contrato com o **mapa declarativo** do
+  consumidor (`apps/sicat/backend/docs/portal-contracts/sicat-cetesb-endpoint-map.jsonl`, com
+  `anchors` validados contra o gateway) e emite **`drift-report.md`** versionado por severidade
+  (método/path = `critical`; token_header_mode/campo required = `high`; etc.). **Bloqueia só em
+  `critical`** (`--fail-on critical`) — drifts menores guiam a refatoração sem travar o trunk.
+- **Gate**: job `portal-contracts` no [`ai-evals.yml`](../.github/workflows/ai-evals.yml).
+- **A Claude consome** o `drift-report.md` da versão `LATEST` como lista de tarefas de alinhamento.
+  A verdade da API **real** da CETESB vive aí — não no OpenAPI interno do SICAT.
+- **App de captura** `portal-recorder` (browser remoto CDP/Playwright, app na esteira) alimenta o
+  contrato com amostras reais — ver o próprio app quando entregue.
+
 ## Evoluções futuras (pós F0–F5)
 Migração do deep-path COMPLETO do SICAT para o grafo (hoje: fast-path + propose
 incremental por especialista; planner de ações legado continua para manifest/cdf até o
