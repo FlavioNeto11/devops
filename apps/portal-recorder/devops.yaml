@@ -1,0 +1,55 @@
+# =============================================================================
+# devops.yaml — contrato da esteira para o portal-recorder.
+# (ver C:\devops\docs\new-project-contract.md)
+#
+# Plataforma que abre um PORTAL EXTERNO (ex.: MTR/CETESB) dentro da plataforma
+# num BROWSER REMOTO, captura tudo (rede com corpo, cookies, payloads, DOM,
+# screenshots) + anotações do usuário, e normaliza num contrato de portal.
+# Genérico para N portais. Segredos REDIGIDOS por padrão; sessão de browser
+# efêmera/isolada; captura crua só no Postgres do app (nunca no git).
+# =============================================================================
+app:
+  name: portal-recorder
+  namespace: apps
+  host: xpto.localhost          # + dev.nvit.com.br nas rotas do IngressRoute
+  basePath: /portal-rec
+
+services:
+  frontend:
+    type: frontend
+    path: /                     # servido em /portal-rec (sem strip, base /portal-rec/)
+    image: portal-recorder-frontend
+    port: 80
+    expose: true
+    stripPrefix: false
+    priority: 10
+  api:
+    type: api
+    path: /api                  # /portal-rec/api (strip → processo vê /health, /v1/*)
+    image: portal-recorder-api
+    port: 8080
+    expose: true
+    stripPrefix: true
+    priority: 30
+    health:
+      path: /health
+  recorder:
+    type: worker                # dirige o Chromium (Playwright/CDP); WS de streaming
+    image: portal-recorder-recorder
+    port: 8090                  # HTTP interno (ClusterIP); 8091 = WS do stream
+    expose: false               # rota WS declarada à mão no IngressRoute (priority 40)
+    stripPrefix: false
+
+dependencies:
+  postgres:
+    image: postgres:16-alpine
+    db: portal_recorder
+    service: portal-recorder-postgres
+    port: 5432
+  storage:
+    pvc: portal-recorder-storage   # blobs PNG/HAR, compartilhado api↔recorder
+
+secrets:
+  # Criados no cluster FORA do git (ver k8s/secret.example.yaml):
+  - portal-recorder-db          # POSTGRES_* + DATABASE_URL
+  - portal-recorder-config      # token (writes) + internal_token (api↔recorder)

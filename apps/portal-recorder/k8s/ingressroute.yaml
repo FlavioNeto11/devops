@@ -1,0 +1,43 @@
+# =============================================================================
+# Roteamento Traefik do portal-recorder (basePath /portal-rec).
+# Regra de ouro: API com stripPrefix + priority MAIOR; frontend sem strip +
+# priority MENOR. A rota do WebSocket de streaming (/portal-rec/stream) é
+# declarada à mão com priority ainda maior (mais específica) — entra na A2
+# junto do serviço recorder. Por ora só a API.
+# =============================================================================
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: portal-rec-api-strip
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: portal-recorder
+spec:
+  stripPrefix:
+    prefixes:
+      - /portal-rec/api
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: portal-recorder
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: portal-recorder
+spec:
+  entryPoints:
+    - web
+  routes:
+    # API (mais específica) → strip /portal-rec/api, priority MAIOR.
+    - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/portal-rec/api`)
+      kind: Rule
+      priority: 30
+      services:
+        - name: portal-recorder-api
+          port: 8080
+      middlewares:
+        - name: portal-rec-api-strip
+        - name: compress
+          namespace: traefik
+        - name: secure-headers
+          namespace: traefik

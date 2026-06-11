@@ -1,0 +1,11 @@
+# Kustomization do portal-recorder (entrada do Argo). NÃO inclui secret.example.yaml
+# (Secrets reais são imperativos, fora do git). O recorder e o frontend entram na
+# fase A2 (browser remoto + streaming).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: apps
+resources:
+  - storage.yaml
+  - postgres.yaml
+  - api.yaml
+  - ingressroute.yaml

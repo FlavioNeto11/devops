@@ -1,0 +1,20 @@
+# =============================================================================
+# PVC de blobs do portal-recorder (screenshots PNG, HAR, corpos grandes).
+# Compartilhado api↔recorder (padrão STORAGE_DIR do SICAT): o recorder ESCREVE,
+# a api LÊ (read-only). RWO + nó único do docker-desktop = ambos montam ok.
+# Nunca guarda segredo cru: os blobs são artefatos já redigidos / binários.
+# =============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: portal-recorder-storage
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: portal-recorder-storage
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/part-of: portal-recorder
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 5Gi
