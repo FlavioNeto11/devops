@@ -108,9 +108,20 @@ function makeGraphRunner() {
       authorize: async ({ identity }) => ({ allowed: Boolean(identity?.sub) }),
       execute: async () => ({ total: 2, units: [{ name: 'Vila Xavier', openActivities: 7 }, { name: 'Centro', openActivities: 5 }] }),
     },
+    {
+      // MUTANTE (F5): mesmo contrato da real — R3 + dry-run; dispatchTool devolve
+      // status 'preview' sem confirmedToolCallId (a IA nunca salva direto).
+      name: 'create_activity', description: 'Cria atividade operacional (dry-run + confirmação)', specialist: 'ops',
+      risk: 'R3', mutates: true, supportsDryRun: true,
+      parameters: { type: 'object', properties: { title: { type: 'string' } }, required: ['title'] },
+      authorize: async ({ identity }) => ({ allowed: Boolean(identity?.sub) }),
+      execute: async (input) => ({ preview: true, title: input?.title || 'Nova atividade', unit: 'Vila Xavier', area: 'Estrutura' }),
+    },
   ]);
 
   const pickTool = (q) => {
+    // criação primeiro: "crie uma atividade na unidade X" também contém "unidade"
+    if (/cri(a|e|ar)\b|nova atividade|nova tarefa/i.test(q)) return 'create_activity';
     if (/atrasad/i.test(q)) return 'query_overdue';
     if (/estat|resumo|quant/i.test(q) && /unidade/i.test(q) === false) return 'get_daily_stats';
     if (/unidade/i.test(q)) return 'list_units';
@@ -130,10 +141,15 @@ function makeGraphRunner() {
       if (tools?.length) {
         const hasToolResult = messages.some((m) => m.role === 'tool');
         if (!hasToolResult) {
-          return { text: '', toolCalls: [{ id: 'tc1', name: pickTool(user), arguments: {} }], usage };
+          const toolName = pickTool(user);
+          const args = toolName === 'create_activity'
+            ? { title: user.match(/'([^']+)'/)?.[1] || 'Nova atividade' }
+            : {};
+          return { text: '', toolCalls: [{ id: 'tc1', name: toolName, arguments: args }], usage };
         }
         const evidence = messages.filter((m) => m.role === 'tool').map((m) => m.content).join(' ');
         const data = JSON.parse(messages.findLast((m) => m.role === 'tool').content);
+        if (data.preview) return { text: `Prévia da atividade "${data.title}" na unidade ${data.unit} (área ${data.area}). Nada foi salvo ainda — confirme para eu criar.`, toolCalls: [], usage };
         if (data.items) return { text: `Há ${data.total} atividades atrasadas; a mais antiga é "${data.items[0].title}" (${data.items[0].daysOverdue} dias, ${data.items[0].unit}).`, toolCalls: [], usage };
         if (data.units) return { text: `Temos ${data.total} unidades: ${data.units.map((u) => `${u.name} (${u.openActivities} abertas)`).join(', ')}.`, toolCalls: [], usage };
         return { text: `Hoje: ${data.overdue} atrasadas, ${data.critical} crítica(s), ${data.dueToday} vencendo hoje.`, toolCalls: [], usage };
@@ -175,6 +191,33 @@ for (const [dim, avg] of Object.entries(results.judgeAverages)) console.log(`jud
 for (const [id, k] of Object.entries(kpis)) console.log(`KPI ${id}: ${k.value.toFixed(2)} (meta ${k.target}) ${k.ok ? '✓' : '✗'}`);
 
 if (jsonOut) { writeFileSync(jsonOut, JSON.stringify({ results, kpis }, null, 2)); console.log(`relatorio: ${jsonOut}`); }
+
+// F5: registra o run no ai-control-plane (governança cross-app) — best-effort,
+// só quando AI_CONTROL_PLANE_URL estiver setada (ex.: rodadas locais do operador).
+if (process.env.AI_CONTROL_PLANE_URL) {
+  const base = process.env.AI_CONTROL_PLANE_URL.trim().replace(/\/+$/, '');
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3000);
+    await fetch(`${base}/v1/eval-runs`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${(process.env.AI_CONTROL_PLANE_TOKEN || '').trim()}`,
+      },
+      body: JSON.stringify({
+        app: 'gymops',
+        mode: graphMode ? 'graph' : real ? 'real' : 'mock',
+        total: results.total,
+        passed: results.passed,
+        failed: results.failed,
+        kpis,
+      }),
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timer));
+    console.log('eval run registrado no ai-control-plane');
+  } catch { /* rollup é best-effort */ }
+}
 
 // Gate de regressão (CI): casos reprovados OU KPI abaixo da meta bloqueiam.
 const kpiFailures = enforceKpis ? Object.entries(kpis).filter(([, k]) => !k.ok) : [];

@@ -979,6 +979,9 @@ export async function run() {
   const report = buildReport({ startedAt, catalogPath, results, options, earlyStopState, escalationMetrics });
   const { jsonPath, mdPath } = writeReport(outDir, report);
 
+  // F5: registra o run no ai-control-plane (governança cross-app) — best-effort.
+  await registerEvalRunInControlPlane(report, catalogPath).catch(() => {});
+
   console.log('');
   console.log(`Relatorio JSON: ${jsonPath}`);
   console.log(`Relatorio MD: ${mdPath}`);
@@ -1003,6 +1006,42 @@ export async function run() {
 
   if (report.failed > 0) {
     process.exitCode = 1;
+  }
+}
+
+// F5: publica o resultado agregado no ai-control-plane quando AI_CONTROL_PLANE_URL
+// estiver setada (token em AI_CONTROL_PLANE_TOKEN). Timeout curto; falha só loga.
+async function registerEvalRunInControlPlane(report, catalogPath) {
+  const base = String(process.env.AI_CONTROL_PLANE_URL || '').trim().replace(/\/+$/, '');
+  if (!base) return;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3000);
+  try {
+    const response = await fetch(`${base}/v1/eval-runs`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${String(process.env.AI_CONTROL_PLANE_TOKEN || '').trim()}`
+      },
+      body: JSON.stringify({
+        app: 'sicat',
+        mode: catalogPath.includes('.sample.') ? 'sample' : 'full',
+        total: report.total,
+        passed: report.passed,
+        failed: report.failed,
+        kpis: {
+          passRate: report.passRate,
+          escalationRate: report.escalationMetrics?.escalationRate ?? null
+        },
+        metadata: { catalogPath, earlyStopped: Boolean(report.earlyStopped) }
+      }),
+      signal: controller.signal
+    });
+    if (response.ok) console.log('Eval run registrado no ai-control-plane.');
+  } catch (error) {
+    console.warn(`(aviso) ai-control-plane indisponivel para registrar o run: ${error?.message || error}`);
+  } finally {
+    clearTimeout(timer);
   }
 }
 

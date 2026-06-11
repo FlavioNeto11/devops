@@ -107,8 +107,10 @@ test('createAiMetrics: no-op sem promClient; com fake registra', () => {
   m.addCost('gpt-5', 0.01);
   m.countToolCall('list_items', 'executed');
   m.observeJudgeScore('groundedness', 0.9);
-  assert.equal(calls.length, 6); // turn + 2 tokens + cost + tool + judge
+  m.countFeedback('chat', 'thumbs_up');
+  assert.equal(calls.length, 7); // turn + 2 tokens + cost + tool + judge + feedback
   assert.ok(calls.every(([, name]) => name.startsWith('ai_')));
+  assert.ok(calls.some(([, name]) => name === 'ai_feedback_total'));
 });
 
 test('createAiTracer: spans cronometram e falha de telemetria nao propaga', async () => {

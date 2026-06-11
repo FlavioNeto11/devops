@@ -1,0 +1,31 @@
+# =============================================================================
+# Argo CD Application: ai-control-plane (governança de IA — prompts versionados,
+# feedback rollup, eval runs) sob /ai-control/api. Descoberta pelo app-of-apps
+# "devops-platform". Usa kustomize (kustomization.yaml em
+# apps/ai-control-plane/k8s) para NÃO aplicar o secret.example.yaml: os Secrets
+# reais (ai-control-plane-db, ai-control-plane-config) são criados no cluster
+# IMPERATIVAMENTE (kubectl, fora do git). prune: false para o Argo nunca
+# remover recursos que não conhece; selfHeal: true mantém o que ele gerencia.
+# =============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ai-control-plane
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/FlavioNeto11/devops
+    path: apps/ai-control-plane/k8s
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: apps
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -14,7 +14,33 @@ import { buildDailySummaryPrompt } from '../../ai/prompts/daily-summary.prompt.j
 import { cacheGet, cacheSet } from '../../lib/redis.js';
 import { generateAndStoreDailySummary } from '../../workers/ai-summary-worker.js';
 import { AI_GRAPH_ENABLED, runGraphChatTurn } from '../../ai/graph/index.js';
+import { gymopsToolRegistry } from '../../ai/graph/tools.js';
+import { signPendingAction, verifyPendingAction } from '../../ai/graph/pending-actions.js';
+import { dispatchTool, type GraphResult } from '@flavioneto11/ai-core';
 import { aiMetrics } from '../../ai/ai-metrics.js';
+
+/**
+ * F5: extrai a PRIMEIRA prévia válida de tool mutante do turno (dry-run ok).
+ * evidence é 1:1 (mesma ordem) com as toolCalls bem-sucedidas (preview|executed)
+ * — entradas com erro/denied não geram evidence. Prévias "falhas" (a tool
+ * devolveu { error } para o LLM corrigir) são ignoradas.
+ */
+function findPendingPreview(r: GraphResult): { toolName: string; arguments: Record<string, unknown>; preview: Record<string, unknown> } | null {
+  const okCalls = r.toolCalls.filter((t) => t.status === 'preview' || t.status === 'executed');
+  for (let i = 0; i < okCalls.length; i++) {
+    const call = okCalls[i];
+    if (!call || call.status !== 'preview') continue;
+    const output = r.evidence[i]?.output as Record<string, unknown> | undefined;
+    if (output && typeof output === 'object' && output.preview === true && !output.error) {
+      return {
+        toolName: call.name,
+        arguments: (call.arguments ?? {}) as Record<string, unknown>,
+        preview: output,
+      };
+    }
+  }
+  return null;
+}
 
 export const aiRoutes: FastifyPluginAsync = async (app) => {
   const AI_RATE_LIMIT = { max: 10, timeWindow: '1 minute' };
@@ -315,12 +341,28 @@ ${context}`;
           correlationId: request.id,
           organizationId: body.data.organizationId,
         });
+        // F5: tool mutante rodou em dry-run → devolve a prévia + token assinado
+        // para o usuário CONFIRMAR (POST /ai/confirm). Apenas a primeira prévia.
+        const pending = findPendingPreview(r);
+        const pendingAction = pending
+          ? {
+              toolName: pending.toolName,
+              preview: pending.preview,
+              token: signPendingAction({
+                toolName: pending.toolName,
+                arguments: pending.arguments,
+                userId,
+                organizationId: body.data.organizationId,
+              }),
+            }
+          : undefined;
         return reply.send({
           data: {
             reply: r.text,
             meta: {
               route: r.route, specialist: r.specialist, tools: r.toolCalls.map((t) => t.name), judge: r.judge?.score ?? null,
               memory: r.memory ? { thread: r.memory.hadThread, recalled: r.memory.recalled, turns: r.memory.turnCount } : null,
+              ...(pendingAction ? { pendingAction } : {}),
             },
           },
         });
@@ -333,5 +375,110 @@ ${context}`;
     const replyText = await callAI((client) => chatText(client, messages), fallback, { stage: 'chat' });
 
     return reply.send({ data: { reply: replyText } });
+  });
+
+  // ── POST /ai/feedback — 👍/👎 por mensagem do chat (F5) ──────────────────────
+  app.post('/feedback', {
+    preHandler: [app.authenticate],
+    config: { rateLimit: { max: 60, timeWindow: '1 minute' } },
+  }, async (request, reply) => {
+    const userId = request.user.sub;
+    const body = z.object({
+      messageId: z.string().min(1).max(64),
+      kind: z.enum(['thumbs_up', 'thumbs_down']),
+      organizationId: z.string().uuid(),
+      reason: z.string().max(500).optional(),
+    }).safeParse(request.body);
+    if (!body.success) return reply.status(422).send({ error: { code: 'VALIDATION_ERROR', message: 'Invalid input' } });
+
+    const isMember = await db.membership.findFirst({
+      where: { userId, organizationId: body.data.organizationId, deletedAt: null },
+    });
+    if (!isMember) return reply.status(403).send({ error: { code: 'FORBIDDEN', message: 'Not a member' } });
+
+    // mesma convenção de thread do grafo (chat:<org>:<user>)
+    const threadId = `chat:${body.data.organizationId}:${userId}`;
+    const saved = await db.aiFeedback.upsert({
+      where: { threadId_messageId_userId: { threadId, messageId: body.data.messageId, userId } },
+      create: { threadId, messageId: body.data.messageId, userId, kind: body.data.kind, reason: body.data.reason },
+      update: { kind: body.data.kind, reason: body.data.reason ?? null },
+    });
+    aiMetrics.countFeedback('chat', body.data.kind);
+
+    // Fire-and-forget para o control-plane (telemetria/CSAT) — NUNCA afeta a resposta.
+    const cpUrl = process.env.AI_CONTROL_PLANE_URL?.trim();
+    if (cpUrl) {
+      void fetch(`${cpUrl.replace(/\/+$/, '')}/v1/feedback`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${process.env.AI_CONTROL_PLANE_TOKEN || ''}`,
+        },
+        body: JSON.stringify({
+          app: 'gymops',
+          surface: 'chat',
+          kind: body.data.kind,
+          refId: body.data.messageId,
+          comment: body.data.reason,
+        }),
+        signal: AbortSignal.timeout(2000),
+      }).catch((err) => request.log.warn({ err }, '[ai] feedback → control-plane falhou'));
+    }
+
+    return reply.send({ data: { id: saved.id, kind: saved.kind } });
+  });
+
+  // ── POST /ai/confirm — executa ação pendente confirmada pelo usuário (F5) ────
+  // O clique do usuário É o salvar: o token HMAC prova que a prévia veio de um
+  // turno deste usuário/org e não foi adulterada; dispatchTool roda a execução
+  // real (confirmedToolCallId) com authorize + RBAC de novo.
+  app.post('/confirm', {
+    preHandler: [app.authenticate],
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+  }, async (request, reply) => {
+    const userId = request.user.sub;
+    const body = z.object({
+      token: z.string().min(1),
+      organizationId: z.string().uuid(),
+    }).safeParse(request.body);
+    if (!body.success) return reply.status(422).send({ error: { code: 'VALIDATION_ERROR', message: 'Invalid input' } });
+
+    const isMember = await db.membership.findFirst({
+      where: { userId, organizationId: body.data.organizationId, deletedAt: null },
+    });
+    if (!isMember) return reply.status(403).send({ error: { code: 'FORBIDDEN', message: 'Not a member' } });
+
+    const payload = verifyPendingAction(body.data.token, { userId, organizationId: body.data.organizationId });
+    if (!payload) {
+      return reply.status(400).send({ error: { code: 'INVALID_OR_EXPIRED', message: 'Confirmação inválida ou expirada. Peça a ação novamente no chat.' } });
+    }
+
+    const tool = gymopsToolRegistry.get(payload.toolName);
+    if (!tool) {
+      return reply.status(400).send({ error: { code: 'INVALID_OR_EXPIRED', message: 'Ação desconhecida.' } });
+    }
+
+    try {
+      const out = await dispatchTool(tool, payload.arguments, {
+        identity: { sub: userId },
+        channel: 'inapp',
+        organizationId: body.data.organizationId,
+        confirmedToolCallId: 'user-confirmed',
+      });
+      // a tool devolve { error } estruturado quando algo mudou entre a prévia e
+      // a confirmação (ex.: unidade removida) — não tratar como sucesso.
+      const output = out.output as Record<string, unknown> | null;
+      if (output && typeof output === 'object' && typeof output.error === 'string') {
+        aiMetrics.countToolCall(payload.toolName, 'confirmed_error');
+        return reply.status(400).send({ error: { code: 'ACTION_FAILED', message: `Não foi possível executar (${output.error}). Peça a ação novamente no chat.` } });
+      }
+      aiMetrics.countToolCall(payload.toolName, 'confirmed_executed');
+      return reply.send({ data: { result: out.output, message: 'Ação executada.' } });
+    } catch (err) {
+      request.log.warn({ err, tool: payload.toolName }, '[ai] confirmação de ação falhou');
+      aiMetrics.countToolCall(payload.toolName, 'confirmed_error');
+      const message = err instanceof Error ? err.message : 'Falha ao executar a ação.';
+      return reply.status(400).send({ error: { code: 'ACTION_FAILED', message } });
+    }
   });
 };

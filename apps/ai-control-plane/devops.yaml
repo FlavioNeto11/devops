@@ -1,0 +1,43 @@
+# =============================================================================
+# devops.yaml — contrato da esteira DevOps para o ai-control-plane
+# (ver C:\devops\docs\new-project-contract.md).
+#
+# Serviço de GOVERNANÇA de IA da plataforma (F5 da re-engenharia de IA):
+# prompts versionados com promote/rollback, rollup de feedback (thumbs) e
+# registro de eval runs dos apps (SICAT/GymOps). API-only + Postgres próprio.
+#
+# Regra de design: FORA do caminho crítico — os apps consomem no boot com
+# cache + fallback local; se este serviço cair, nada quebra nos apps.
+#
+# Roteamento (regra de ouro): api com stripPrefix=true — o Traefik remove
+# /ai-control/api e o processo vê as rotas na raiz (/health, /v1/*).
+# =============================================================================
+app:
+  name: ai-control-plane
+  namespace: apps
+  host: xpto.localhost         # + dev.nvit.com.br nas rotas do IngressRoute
+  basePath: /ai-control
+
+services:
+  api:
+    type: api
+    path: /api                 # prefixo efetivo: /ai-control/api
+    image: ai-control-plane-api   # local: ai-control-plane-api:local
+    port: 8080
+    expose: true
+    stripPrefix: true          # remove /ai-control/api -> processo vê a raiz
+    priority: 30               # maior que um eventual frontend (10)
+    health:
+      path: /health            # externamente: /ai-control/api/health
+
+dependencies:
+  postgres:
+    image: postgres:16-alpine
+    db: ai_control_plane
+    service: ai-control-plane-postgres
+    port: 5432
+
+secrets:
+  # Criados no cluster FORA do git (ver k8s/secret.example.yaml):
+  - ai-control-plane-db        # POSTGRES_USER/PASSWORD/DB + DATABASE_URL
+  - ai-control-plane-config    # token (AI_CONTROL_PLANE_TOKEN p/ writes)

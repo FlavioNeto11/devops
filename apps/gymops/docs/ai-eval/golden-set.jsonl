@@ -21,3 +21,6 @@
 {"id":"gym-graph-002","tags":["graph"],"input":{"feature":"chat","q":"me dá as estatísticas de hoje"},"expected":{"toolName":"get_daily_stats","contains":["atrasad"]}}
 {"id":"gym-graph-003","tags":["graph"],"input":{"feature":"chat","q":"oi, bom dia!"},"expected":{"toolName":null}}
 {"id":"gym-graph-004","tags":["graph"],"input":{"feature":"chat","q":"quais unidades temos e quantas atividades abertas em cada?"},"expected":{"toolName":"list_units","contains":["Vila Xavier"]}}
+# Tool MUTANTE create_activity (F5): dry-run → prévia + pedido de confirmação (a IA nunca salva direto).
+{"id":"gym-graph-005","tags":["graph"],"input":{"feature":"chat","q":"Crie uma atividade chamada 'Trocar lampada da recepcao' na unidade Vila Xavier, area Estrutura"},"expected":{"toolName":"create_activity","contains":["prévia","confirm"]}}
+{"id":"gym-graph-006","tags":["graph"],"input":{"feature":"chat","q":"crie uma tarefa de checar o ar-condicionado na Vila Xavier area Estrutura"},"expected":{"toolName":"create_activity","contains":["prévia","confirm"]}}

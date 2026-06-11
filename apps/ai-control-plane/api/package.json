@@ -1,0 +1,19 @@
+{
+  "name": "ai-control-plane-api",
+  "version": "0.1.0",
+  "description": "AI governance control plane: versioned prompts (promote/rollback), feedback rollup and eval-run registry. Out of the critical path by design.",
+  "type": "module",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "pg": "^8.16.3"
+  }
+}

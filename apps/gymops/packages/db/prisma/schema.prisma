@@ -692,3 +692,22 @@ model AiUserMemory {
   @@index([userId])
   @@map("ai_user_memory")
 }
+
+// Feedback explícito do usuário (👍/👎) por mensagem do chat da IA (F5 —
+// alimenta o KPI CSAT e o ai-control-plane). Upsert pela unique: o usuário
+// pode mudar de ideia (up → down) sem duplicar linha.
+model AiFeedback {
+  id        String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  threadId  String   @map("thread_id")
+  messageId String   @map("message_id")
+  userId    String   @map("user_id")
+  kind      String // 'thumbs_up' | 'thumbs_down'
+  toolName  String?  @map("tool_name")
+  reason    String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([threadId, messageId, userId])
+  @@index([userId, createdAt])
+  @@map("ai_feedback")
+}

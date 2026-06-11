@@ -40,6 +40,22 @@ export interface DailySummary {
   generatedAt: string;
 }
 
+/** Ação mutante proposta pela IA (dry-run) aguardando confirmação do usuário. */
+export interface AiPendingAction {
+  toolName: string;
+  preview: Record<string, unknown> | null;
+  token: string;
+}
+
+export interface AiChatMeta {
+  route?: string;
+  specialist?: string | null;
+  tools?: string[];
+  judge?: number | null;
+  memory?: { thread: boolean; recalled: number; turns: number | null } | null;
+  pendingAction?: AiPendingAction;
+}
+
 export const aiApi = {
   draft: (text: string, organizationId: string) =>
     api.post<ApiResponse<ActivityDraft>>('/ai/activities/draft', { text, organizationId }),
@@ -60,5 +76,15 @@ export const aiApi = {
     message: string,
     organizationId: string,
     history?: Array<{ role: 'user' | 'assistant'; content: string }>,
-  ) => api.post<ApiResponse<{ reply: string }>>('/ai/chat', { message, organizationId, history }),
+  ) => api.post<ApiResponse<{ reply: string; meta?: AiChatMeta }>>('/ai/chat', { message, organizationId, history }),
+
+  feedback: (input: {
+    messageId: string;
+    kind: 'thumbs_up' | 'thumbs_down';
+    organizationId: string;
+    reason?: string;
+  }) => api.post<ApiResponse<{ id: string; kind: string }>>('/ai/feedback', input),
+
+  confirm: (input: { token: string; organizationId: string }) =>
+    api.post<ApiResponse<{ result: Record<string, unknown>; message: string }>>('/ai/confirm', input),
 };

@@ -1,0 +1,95 @@
+# =============================================================================
+# Postgres do ai-control-plane (db ai_control_plane).
+# Secret ai-control-plane-db (POSTGRES_USER/PASSWORD/DB + DATABASE_URL) é
+# criado no cluster FORA do git (ver secret.example.yaml). PVC para persistir.
+# =============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ai-control-plane-pgdata
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: ai-control-plane-postgres
+    app.kubernetes.io/component: db
+    app.kubernetes.io/part-of: ai-control-plane
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-control-plane-postgres
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: ai-control-plane-postgres
+    app.kubernetes.io/component: db
+    app.kubernetes.io/part-of: ai-control-plane
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate          # volume RWO: nunca dois postgres no mesmo PVC
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ai-control-plane-postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ai-control-plane-postgres
+        app.kubernetes.io/component: db
+        app.kubernetes.io/part-of: ai-control-plane
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: ai-control-plane-db
+          ports:
+            - name: postgres
+              containerPort: 5432
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+              subPath: pgdata
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "25m"
+              memory: "96Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+      volumes:
+        - name: pgdata
+          persistentVolumeClaim:
+            claimName: ai-control-plane-pgdata
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-control-plane-postgres
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: ai-control-plane-postgres
+    app.kubernetes.io/component: db
+    app.kubernetes.io/part-of: ai-control-plane
+spec:
+  selector:
+    app.kubernetes.io/name: ai-control-plane-postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres

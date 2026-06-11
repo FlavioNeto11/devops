@@ -15,18 +15,61 @@ import { db } from '../../lib/prisma.js';
 export const AI_GRAPH_ENABLED = (): boolean =>
   (process.env.AI_GRAPH ?? 'off').trim().toLowerCase() === 'on';
 
+// systemPrompt inline = FALLBACK (F5): quando AI_CONTROL_PLANE_URL está setada,
+// refreshSpecialistPrompt() substitui o texto pelo prompt ATIVO servido pelo
+// control-plane (promote/rollback sem deploy). O grafo lê por referência a
+// cada turno, então a troca vale no turno seguinte.
+const FALLBACK_OPS_PROMPT = `Você é o Especialista Operacional do GymOps (modelo Organização → Unidade → Área → Atividade).
+Ajuda o operador a entender o estado real da operação e a agir com clareza.
+- Consulte as tools para QUALQUER número, lista ou status — nunca estime.
+- Aponte riscos (atrasos longos, prioridade crítica) e o próximo passo recomendado.
+- Você PODE propor a criação de atividades operacionais com a tool create_activity (informe unidade/área por NOME); toda criação gera uma PRÉVIA e só é salva após confirmação explícita do usuário.
+- Outras ações de escrita você ainda não executa: oriente o operador (passo a passo no GymOps) quando ele pedir mudanças.`;
+
 const SPECIALISTS = [
   {
     id: 'ops',
     description:
-      'operação da academia: atividades, atrasos, prioridades, estatísticas do dia, unidades e áreas — qualquer pergunta que precise de NÚMEROS/LISTAS reais do sistema',
-    systemPrompt: `Você é o Especialista Operacional do GymOps (modelo Organização → Unidade → Área → Atividade).
-Ajuda o operador a entender o estado real da operação e a agir com clareza.
-- Consulte as tools para QUALQUER número, lista ou status — nunca estime.
-- Aponte riscos (atrasos longos, prioridade crítica) e o próximo passo recomendado.
-- Você ainda não executa ações de escrita: oriente o operador (passo a passo no GymOps) quando ele pedir mudanças.`,
+      'operação da academia: atividades, atrasos, prioridades, estatísticas do dia, unidades e áreas — qualquer pergunta que precise de NÚMEROS/LISTAS reais do sistema, ou pedido de criação de atividade',
+    systemPrompt: FALLBACK_OPS_PROMPT,
   },
 ];
+
+// ── F5: prompt do especialista servido pelo ai-control-plane ────────────────
+// GET /v1/prompts/gymops.chat.system/active (timeout 2s). 200 → aplica por
+// referência em SPECIALISTS[0]; 404/erro → mantém o atual (fallback inline).
+/** Versão ativa aplicada via control-plane (null = fallback inline). */
+export let specialistPromptVersion: number | null = null;
+
+export async function refreshSpecialistPrompt(): Promise<void> {
+  const base = process.env.AI_CONTROL_PLANE_URL?.trim();
+  if (!base) return;
+  try {
+    const token = process.env.AI_CONTROL_PLANE_TOKEN || '';
+    const res = await fetch(`${base.replace(/\/+$/, '')}/v1/prompts/gymops.chat.system/active`, {
+      signal: AbortSignal.timeout(2000),
+      headers: token ? { authorization: `Bearer ${token}` } : undefined,
+    });
+    if (!res.ok) return; // 404 (sem prompt ativo) ou erro → mantém o atual
+    const json = (await res.json()) as
+      | { data?: { promptText?: string; version?: number }; promptText?: string; version?: number }
+      | null;
+    const data = json && typeof json === 'object' && 'data' in json && json.data ? json.data : json;
+    const text = typeof data?.promptText === 'string' ? data.promptText.trim() : '';
+    if (!text || text === SPECIALISTS[0]!.systemPrompt) return;
+    SPECIALISTS[0]!.systemPrompt = text; // o grafo lê por referência a cada turno
+    specialistPromptVersion = typeof data?.version === 'number' ? data.version : null;
+    console.info(`[ai] prompt gymops.chat.system v${specialistPromptVersion ?? '?'} aplicado (control-plane)`);
+  } catch {
+    // timeout/rede → mantém o prompt atual (fallback gracioso)
+  }
+}
+
+// Boot: aplica fire-and-forget e re-checa a cada 60s (unref → não segura o processo).
+if (process.env.AI_CONTROL_PLANE_URL?.trim()) {
+  void refreshSpecialistPrompt();
+  setInterval(() => { void refreshSpecialistPrompt(); }, 60_000).unref();
+}
 
 // Adapter SQL cru sobre o Prisma para os stores do ai-core (rows/rowCount).
 const rawQuery = async (sql: string, params: readonly unknown[] = []) => {

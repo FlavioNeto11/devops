@@ -3,6 +3,7 @@ import { useRouter } from 'vue-router';
 import {
   downloadConversationArtifactContent,
   getConversationArtifactStatus,
+  sendConversationFeedback,
   sendConversationTurn
 } from '../services/api.js';
 import { useAuthStore } from '../stores/auth.js';
@@ -614,6 +615,26 @@ export function useConversationalChatApp() {
     }
   }
 
+  // F5: feedback explícito 👍/👎 por resposta da IA (otimista; falha só loga).
+  async function sendFeedback(message, feedbackType) {
+    if (!message || message.role !== 'assistant' || !message.correlationId) return;
+    const previous = message.feedback || null;
+    message.feedback = feedbackType;
+    try {
+      await sendConversationFeedback({
+        correlationId: message.correlationId,
+        conversationSessionId: conversationSessionId.value || null,
+        channel: 'native_chat',
+        feedbackType,
+        userId: authenticatedUserId.value || null,
+        toolName: message.toolName || null
+      });
+    } catch (feedbackError) {
+      message.feedback = previous;
+      console.warn('[chat] falha ao registrar feedback:', feedbackError);
+    }
+  }
+
   return {
     draft,
     error,
@@ -628,6 +649,7 @@ export function useConversationalChatApp() {
     ensureInitialAssistantMessage,
     clearConversation,
     sendMessage,
+    sendFeedback,
     runQuickAction,
     handleAction,
     downloadArtifact

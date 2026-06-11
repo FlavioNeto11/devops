@@ -18,6 +18,7 @@ const {
   ensureInitialAssistantMessage,
   clearConversation,
   sendMessage,
+  sendFeedback,
   runQuickAction,
   handleAction,
   downloadArtifact
@@ -235,6 +236,31 @@ onMounted(async () => {
         <ul v-if="message.facts && message.facts.length" class="chat-message-facts">
           <li v-for="fact in message.facts" :key="fact">{{ fact }}</li>
         </ul>
+
+        <!-- F5: feedback explícito por resposta da IA -->
+        <div
+          v-if="message.role === 'assistant' && message.correlationId && message.status !== 'loading'"
+          class="chat-message-feedback"
+        >
+          <v-btn
+            :icon="message.feedback === 'positive' ? 'mdi-thumb-up' : 'mdi-thumb-up-outline'"
+            :color="message.feedback === 'positive' ? 'success' : undefined"
+            variant="text"
+            size="x-small"
+            density="compact"
+            aria-label="Resposta útil"
+            @click="sendFeedback(message, 'positive')"
+          />
+          <v-btn
+            :icon="message.feedback === 'negative' ? 'mdi-thumb-down' : 'mdi-thumb-down-outline'"
+            :color="message.feedback === 'negative' ? 'error' : undefined"
+            variant="text"
+            size="x-small"
+            density="compact"
+            aria-label="Resposta não útil"
+            @click="sendFeedback(message, 'negative')"
+          />
+        </div>
       </article>
 
       <div v-if="isSubmitting" class="chat-message chat-message--assistant chat-message--loading">
@@ -423,6 +449,19 @@ onMounted(async () => {
   color: rgba(var(--v-theme-on-surface), 0.9);
   white-space: pre-wrap;
   margin: 0;
+}
+
+.chat-message-feedback {
+  display: flex;
+  gap: 2px;
+  margin-top: 2px;
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
+}
+
+.chat-message:hover .chat-message-feedback,
+.chat-message-feedback:focus-within {
+  opacity: 1;
 }
 
 .chat-message-facts {

@@ -65,6 +65,10 @@ Responda APENAS JSON: {"score": <0..1>, "reason": "<1 frase>"}`;
  *   maxToolRounds   limite do loop ReAct (default 4)
  *   verify          liga o judge em runtime (default true)
  *   judgeThreshold  score mínimo antes de escalar (default 0.6)
+ *   proposeTools    F4: o deep-path PROPÕE a tool em vez de executá-la — o app
+ *                   recebe `proposedToolCalls` e despacha pelo próprio pipeline
+ *                   (policy/dispatch/síntese). É o modo de paridade do SICAT.
+ *   routerContext   string extra anexada ao prompt do ROUTER (intents, dicas).
  */
 export function createAiGraph({
   llm,
@@ -77,6 +81,8 @@ export function createAiGraph({
   maxToolRounds = 4,
   verify = true,
   judgeThreshold = 0.6,
+  proposeTools = false,
+  routerContext = '',
 } = {}) {
   if (!llm || typeof llm.complete !== 'function') throw new Error('createAiGraph: llm.complete obrigatorio');
   const M = { ...DEFAULT_MODELS, ...models };
@@ -157,12 +163,13 @@ export function createAiGraph({
       turn = { ...turn, history: mem.history, systemContext: mem.systemContext };
       // ── ROUTER ───────────────────────────────────────────────────────────
       const route = await trace.span('router', { input: turn.message }, async () => {
+        const routerSystem = [routerPrompt(specialists), routerContext].filter(Boolean).join('\n\n');
         const r = await llm.complete({
           model: M.router,
           jsonMode: true,
           reasoningEffort: 'minimal',
           messages: [
-            { role: 'system', content: routerPrompt(specialists) },
+            { role: 'system', content: routerSystem },
             { role: 'user', content: turn.message },
           ],
         });
@@ -183,8 +190,10 @@ export function createAiGraph({
       }
 
       // ── VERIFY (judge em runtime) ────────────────────────────────────────
+      // Proposta de tool não tem resposta final para julgar — o app sintetiza
+      // e valida (guardrails próprios) depois do dispatch.
       let judge = null;
-      if (verify) {
+      if (verify && !result.proposed) {
         judge = await runVerify(turn, result, trace, usage);
         if (judge && judge.score < judgeThreshold && !result.escalated) {
           // 1 retry no deep-path (escalation) — nunca entregar resposta frouxa calada.
@@ -197,8 +206,13 @@ export function createAiGraph({
               'A resposta anterior foi reprovada por falta de ancoragem. CONSULTE as tools antes de responder e cite apenas dados retornados por elas.'
             );
             retry.escalated = true;
-            const judge2 = await runVerify(turn, retry, trace, usage);
-            if (!judge2 || judge2.score >= judge.score) { result = retry; judge = judge2 || judge; }
+            if (retry.proposed) {
+              // escalou para uma proposta de tool: o pipeline do app assume daqui.
+              result = retry; judge = null;
+            } else {
+              const judge2 = await runVerify(turn, retry, trace, usage);
+              if (!judge2 || judge2.score >= judge.score) { result = retry; judge = judge2 || judge; }
+            }
           }
         }
       }
@@ -217,6 +231,7 @@ export function createAiGraph({
         evidence: result.evidence || [],
         judge,
         escalated: Boolean(result.escalated),
+        proposed: Boolean(result.proposed),
         memory: { threadId: turn.threadId || null, hadThread: mem.hadThread, recalled: mem.recalled, turnCount: thread?.turnCount ?? null },
         usage,
       };
@@ -278,6 +293,14 @@ export function createAiGraph({
 
         if (!r.toolCalls?.length) {
           return { text: r.text, toolCalls: executed, evidence };
+        }
+
+        if (proposeTools) {
+          // F4: NÃO despacha — devolve a(s) proposta(s) para o pipeline do app
+          // (policy por risco, dry-run, confirmação, síntese própria).
+          const proposals = r.toolCalls.map((tc) => ({ id: tc.id, name: tc.name, status: 'proposed', arguments: tc.arguments || {} }));
+          for (const p of proposals) metrics.countToolCall(p.name, 'proposed');
+          return { text: r.text || '', toolCalls: proposals, evidence, proposed: true };
         }
 
         // registra a vez do assistente com as tool_calls (formato OpenAI)

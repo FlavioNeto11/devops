@@ -7,6 +7,7 @@ import {
   getConversationArtifactStatus
 } from '../services/conversation/conversation-persistence-service.js';
 import { createConversationService, listConversationTools } from '../services/conversation/conversation-service.js';
+import { recordConversationFeedback } from '../services/conversation/conversation-feedback-service.js';
 import { aiMetrics } from '../lib/ai-metrics.js';
 
 type RequestWithContext = express.Request & {
@@ -78,6 +79,27 @@ export function createConversationRouter() {
     res.setHeader('Content-Type', artifact.mimeType);
     res.setHeader('Content-Disposition', `attachment; filename="${artifact.fileName}"`);
     fs.createReadStream(artifact.storagePath).pipe(res);
+  }));
+
+  // F5: feedback explícito 👍/👎 por resposta da IA (alimenta csat + loop contínuo).
+  router.post('/v1/conversations/feedback', asyncHandler(async (req, res) => {
+    const body = (req.body || {}) as Record<string, unknown>;
+    const feedbackType = body.feedbackType === 'negative' ? 'negative' : body.feedbackType === 'positive' ? 'positive' : null;
+    const correlationId = typeof body.correlationId === 'string' ? body.correlationId.trim() : '';
+    if (!feedbackType || !correlationId) {
+      res.status(400).json({ error: { code: 'FEEDBACK_INVALID', message: 'feedbackType (positive|negative) e correlationId sao obrigatorios' } });
+      return;
+    }
+    const record = await recordConversationFeedback({
+      conversationSessionId: typeof body.conversationSessionId === 'string' ? body.conversationSessionId : null,
+      correlationId,
+      channel: typeof body.channel === 'string' ? body.channel : 'native_chat',
+      feedbackType,
+      userId: typeof body.userId === 'string' ? body.userId : null,
+      toolName: typeof body.toolName === 'string' ? body.toolName : null,
+      userComment: typeof body.userComment === 'string' ? body.userComment.slice(0, 500) : null
+    });
+    res.status(201).json({ data: record });
   }));
 
   router.post('/v1/conversations/turns', asyncHandler(async (req, res) => {

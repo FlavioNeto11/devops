@@ -15,6 +15,7 @@ const NAMES = Object.freeze({
   errors: 'ai_errors_total',
   judge: 'ai_judge_score',
   escalations: 'ai_escalation_total',
+  feedback: 'ai_feedback_total',
 });
 
 const noop = () => {};
@@ -27,6 +28,7 @@ const NOOP_METRICS = Object.freeze({
   countError: noop,
   observeJudgeScore: noop,
   countEscalation: noop,
+  countFeedback: noop,
 });
 
 /**
@@ -81,6 +83,12 @@ export function createAiMetrics({ promClient, app, registers } = {}) {
     labelNames: ['app', 'reason'],
     ...opts,
   });
+  const feedback = new promClient.Counter({
+    name: NAMES.feedback,
+    help: 'Feedback explicito do usuario (thumbs) por superficie e tipo.',
+    labelNames: ['app', 'surface', 'kind'],
+    ...opts,
+  });
 
   return {
     enabled: true,
@@ -94,6 +102,7 @@ export function createAiMetrics({ promClient, app, registers } = {}) {
     countError: (stage, code) => errors.labels(app, stage, String(code || 'unknown')).inc(),
     observeJudgeScore: (dimension, score) => judge.labels(app, dimension).observe(score),
     countEscalation: (reason) => escalations.labels(app, reason).inc(),
+    countFeedback: (surface, kind) => feedback.labels(app, surface, String(kind || 'unknown')).inc(),
   };
 }
 

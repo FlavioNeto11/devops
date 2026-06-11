@@ -1,21 +1,66 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Sparkles, X, Send, Loader2 } from 'lucide-react';
+import { Sparkles, X, Send, Loader2, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { useAuthStore } from '@/store/auth';
-import { aiApi } from '@/lib/ai-api';
+import { aiApi, type AiPendingAction } from '@/lib/ai-api';
 import { useTutorialStore } from '@/features/tutorial/tutorial-store';
 
-type Msg = { role: 'user' | 'assistant'; content: string };
+type PendingState = 'idle' | 'confirming' | 'done' | 'error';
+
+type Msg = {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  feedback?: 'up' | 'down' | null;
+  pendingAction?: AiPendingAction | null;
+  pendingState?: PendingState;
+  pendingError?: string | null;
+};
 
 const SUGGESTIONS = ['Resumo de hoje', 'O que está atrasado?', 'Como crio uma atividade?'];
 
+const TOOL_LABELS: Record<string, string> = {
+  create_activity: 'Criar atividade',
+};
+
+const PREVIEW_LABELS: Record<string, string> = {
+  title: 'Título',
+  unit: 'Unidade',
+  area: 'Área',
+  priority: 'Prioridade',
+  dueAt: 'Prazo',
+  description: 'Descrição',
+  willNotify: 'Notificações',
+};
+
+function humanizeToolName(toolName: string): string {
+  return TOOL_LABELS[toolName] ?? toolName.replace(/_/g, ' ');
+}
+
+/** Linhas legíveis da prévia (ignora a flag preview e valores vazios/objetos). */
+function previewEntries(preview: Record<string, unknown> | null): Array<[string, string]> {
+  if (!preview) return [];
+  return Object.entries(preview)
+    .filter(([k, v]) => k !== 'preview' && v !== null && v !== undefined && typeof v !== 'object')
+    .map(([k, v]) => {
+      const label = PREVIEW_LABELS[k] ?? k;
+      const value = k === 'dueAt' && typeof v === 'string' ? new Date(v).toLocaleString('pt-BR') : String(v);
+      return [label, value] as [string, string];
+    });
+}
+
 /**
  * Assistente IA conversacional (flutuante). Disponível em todas as telas autenticadas.
- * Conversa em linguagem natural sobre o estado real da organização (via POST /ai/chat).
+ * Conversa em linguagem natural sobre o estado real da organização (via POST /ai/chat),
+ * coleta feedback 👍/👎 por resposta e renderiza o card de confirmação quando a IA
+ * propõe uma ação mutante (dry-run) — o clique do usuário é o que salva.
  */
 export function AiChatWidget() {
   const organizationId = useAuthStore((s) => s.organizationId);
+  const queryClient = useQueryClient();
   // Quando o convite de tour (OnboardingPrompt, canto inferior direito) está visível,
   // ele ficaria por cima do botão da IA. Subimos o botão para não ser encoberto;
   // sem nada atrapalhando, ele volta à posição padrão.
@@ -36,19 +81,70 @@ export function AiChatWidget() {
     const msg = text.trim();
     if (!msg || loading) return;
     const history = messages.slice(-10).map((m) => ({ role: m.role, content: m.content }));
-    setMessages((prev) => [...prev, { role: 'user', content: msg }]);
+    setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: 'user', content: msg }]);
     setInput('');
     setLoading(true);
     try {
       const res = await aiApi.chat(msg, organizationId as string, history);
-      setMessages((prev) => [...prev, { role: 'assistant', content: res.data?.reply ?? '…' }]);
+      const pendingAction = res.data?.meta?.pendingAction ?? null;
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: res.data?.reply ?? '…',
+          feedback: null,
+          pendingAction,
+          pendingState: pendingAction ? 'idle' : undefined,
+        },
+      ]);
     } catch {
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: 'Não consegui responder agora. Tente novamente em instantes.' },
+        { id: crypto.randomUUID(), role: 'assistant', content: 'Não consegui responder agora. Tente novamente em instantes.' },
       ]);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function sendFeedback(msg: Msg, kind: 'up' | 'down') {
+    if (!organizationId || msg.feedback === kind) return;
+    const previous = msg.feedback ?? null;
+    // otimista: marca já; erro → desfaz
+    setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, feedback: kind } : m)));
+    try {
+      await aiApi.feedback({
+        messageId: msg.id,
+        kind: kind === 'up' ? 'thumbs_up' : 'thumbs_down',
+        organizationId: organizationId as string,
+      });
+    } catch (err) {
+      console.error('[ai] feedback falhou', err);
+      toast.error('Não foi possível registrar o feedback');
+      setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, feedback: previous } : m)));
+    }
+  }
+
+  function cancelPending(msg: Msg) {
+    setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, pendingAction: null, pendingState: undefined, pendingError: null } : m)));
+  }
+
+  async function confirmPending(msg: Msg) {
+    if (!organizationId || !msg.pendingAction || msg.pendingState === 'confirming') return;
+    const token = msg.pendingAction.token;
+    setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, pendingState: 'confirming', pendingError: null } : m)));
+    try {
+      const res = await aiApi.confirm({ token, organizationId: organizationId as string });
+      setMessages((prev) => [
+        ...prev.map((m) => (m.id === msg.id ? { ...m, pendingState: 'done' as const } : m)),
+        { id: crypto.randomUUID(), role: 'assistant' as const, content: res.data?.message ?? 'Ação executada.', feedback: null },
+      ]);
+      toast.success('Ação executada com sucesso!');
+      void queryClient.invalidateQueries({ queryKey: ['activities'] });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Falha ao executar a ação.';
+      setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, pendingState: 'error' as const, pendingError: message } : m)));
     }
   }
 
@@ -95,14 +191,75 @@ export function AiChatWidget() {
                 </div>
               </div>
             )}
-            {messages.map((m, i) => (
-              <div key={i} className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
-                <div
-                  className={`max-w-[88%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm ${
-                    m.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
-                  }`}
-                >
-                  {m.content}
+            {messages.map((m) => (
+              <div key={m.id} className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
+                <div className="max-w-[88%]">
+                  <div
+                    className={`whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm ${
+                      m.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
+                    }`}
+                  >
+                    {m.content}
+                  </div>
+
+                  {m.role === 'assistant' && m.pendingAction && m.pendingState !== 'done' && (
+                    <div className="mt-2 rounded-xl border border-amber-400/70 bg-amber-50 p-3 text-xs dark:border-amber-500/50 dark:bg-amber-950/30">
+                      <p className="font-semibold text-amber-700 dark:text-amber-400">
+                        A IA quer executar: {humanizeToolName(m.pendingAction.toolName)}
+                      </p>
+                      <ul className="mt-1.5 space-y-0.5 text-foreground">
+                        {previewEntries(m.pendingAction.preview).map(([label, value]) => (
+                          <li key={label}>
+                            <span className="text-muted-foreground">{label}:</span> {value}
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="mt-1.5 text-muted-foreground">Nada foi salvo ainda — confirme para executar.</p>
+                      {m.pendingState === 'error' && (
+                        <p className="mt-1.5 text-red-600">{m.pendingError ?? 'Falha ao executar a ação.'}</p>
+                      )}
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          onClick={() => cancelPending(m)}
+                          disabled={m.pendingState === 'confirming'}
+                          className="rounded-lg border px-3 py-1 text-xs transition hover:bg-muted disabled:opacity-50"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          onClick={() => confirmPending(m)}
+                          disabled={m.pendingState === 'confirming'}
+                          className="flex items-center gap-1 rounded-lg bg-amber-600 px-3 py-1 text-xs font-medium text-white transition hover:bg-amber-700 disabled:opacity-50"
+                        >
+                          {m.pendingState === 'confirming' && <Loader2 className="h-3 w-3 animate-spin" />}
+                          Confirmar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {m.role === 'assistant' && (
+                    <div className="mt-1 flex items-center gap-1">
+                      <button
+                        onClick={() => sendFeedback(m, 'up')}
+                        aria-label="Resposta útil"
+                        className={`rounded p-1 text-xs transition hover:text-foreground ${
+                          m.feedback === 'up' ? 'text-emerald-600' : 'text-muted-foreground'
+                        }`}
+                      >
+                        <ThumbsUp className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => sendFeedback(m, 'down')}
+                        aria-label="Resposta ruim"
+                        className={`rounded p-1 text-xs transition hover:text-foreground ${
+                          m.feedback === 'down' ? 'text-red-600' : 'text-muted-foreground'
+                        }`}
+                      >
+                        <ThumbsDown className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

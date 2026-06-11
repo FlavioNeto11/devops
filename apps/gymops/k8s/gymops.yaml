@@ -168,6 +168,18 @@ spec:
           imagePullPolicy: IfNotPresent
           envFrom:
             - secretRef: { name: gymops-config }
+          env:
+            # F1/F4: turno de chat roteia pelo grafo ai-core (router fast/deep +
+            # tools com authz + VERIFY); erro no grafo → fallback gracioso ao legado.
+            - name: AI_GRAPH
+              value: "on"
+            # F5: governança (prompt do especialista + rollup de feedback) no
+            # ai-control-plane — best-effort com fallback inline (timeout 2s).
+            - name: AI_CONTROL_PLANE_URL
+              value: "http://ai-control-plane-api.apps.svc.cluster.local:8080"
+            - name: AI_CONTROL_PLANE_TOKEN
+              valueFrom:
+                secretKeyRef: { name: ai-control-plane-config, key: token, optional: true }
           ports:
             - { name: http, containerPort: 3001 }
             - { name: metrics, containerPort: 9464 }   # Prometheus ai_* (fora do Traefik)

@@ -19,6 +19,7 @@ const {
   togglePanel,
   resetConversation,
   sendMessage,
+  sendFeedback,
   handleAction,
   downloadArtifact
 } = useInAppCopilot();
@@ -340,7 +341,30 @@ onUnmounted(() => {
               </v-btn>
             </div>
 
-
+            <!-- F5: feedback explícito por resposta do copiloto -->
+            <div
+              v-if="message.role === 'assistant' && message.correlationId && message.status !== 'loading'"
+              class="copilot-message-feedback"
+            >
+              <v-btn
+                :icon="message.feedback === 'positive' ? 'mdi-thumb-up' : 'mdi-thumb-up-outline'"
+                :color="message.feedback === 'positive' ? 'success' : undefined"
+                variant="text"
+                size="x-small"
+                density="compact"
+                aria-label="Resposta útil"
+                @click="sendFeedback(message, 'positive')"
+              />
+              <v-btn
+                :icon="message.feedback === 'negative' ? 'mdi-thumb-down' : 'mdi-thumb-down-outline'"
+                :color="message.feedback === 'negative' ? 'error' : undefined"
+                variant="text"
+                size="x-small"
+                density="compact"
+                aria-label="Resposta não útil"
+                @click="sendFeedback(message, 'negative')"
+              />
+            </div>
           </article>
         </section>
 
@@ -549,6 +573,19 @@ onUnmounted(() => {
   font-size: 0.95rem;
   line-height: 1.55;
   white-space: pre-wrap;
+}
+
+.copilot-message-feedback {
+  display: flex;
+  gap: 2px;
+  margin-top: 2px;
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
+}
+
+.copilot-message:hover .copilot-message-feedback,
+.copilot-message-feedback:focus-within {
+  opacity: 1;
 }
 
 .copilot-message-facts {

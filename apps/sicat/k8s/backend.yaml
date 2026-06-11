@@ -47,6 +47,12 @@ spec:
           envFrom:
             - secretRef:
                 name: sicat-config
+            # Flags do motor conversacional (F4) ajustáveis SEM commit durante o
+            # gate de paridade (ConfigMap imperativo, fora do git; Argo ignora).
+            # Estado final das flags entra neste manifesto após o gate.
+            - configMapRef:
+                name: sicat-engine-flags
+                optional: true
           env:
             - name: DATABASE_URL
               valueFrom:
@@ -82,6 +88,13 @@ spec:
             - name: LANGFUSE_SECRET_KEY
               valueFrom:
                 secretKeyRef: { name: sicat-langfuse, key: PROJECT_SECRET_KEY, optional: true }
+            # ── Governança de IA (F5): rollup de feedback no ai-control-plane ──
+            # Best-effort: sem o serviço/token nada quebra (timeout 2s, só loga).
+            - name: AI_CONTROL_PLANE_URL
+              value: "http://ai-control-plane-api.apps.svc.cluster.local:8080"
+            - name: AI_CONTROL_PLANE_TOKEN
+              valueFrom:
+                secretKeyRef: { name: ai-control-plane-config, key: token, optional: true }
           ports:
             - name: http
               containerPort: 8080

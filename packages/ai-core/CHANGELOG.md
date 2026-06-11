@@ -1,5 +1,16 @@
 # Changelog — @flavioneto11/ai-core
 
+## 0.5.0 (2026-06-11)
+- F4: `createAiGraph({ proposeTools: true })` — modo de paridade do SICAT: o deep-path
+  PROPÕE a tool (`toolCalls[].status='proposed'`, `result.proposed=true`) em vez de
+  despachá-la; VERIFY é pulado para propostas (o app sintetiza/valida após o dispatch
+  pelo pipeline próprio: policy, dry-run, confirmação, guardrails). Escalation do
+  fast-path que vira proposta é aceita direto.
+- `createAiGraph({ routerContext })` — texto extra do app anexado ao system do ROUTER
+  (intents conhecidas, dicas de roteamento).
+- F5: métrica `ai_feedback_total{app,surface,kind}` + `metrics.countFeedback(surface, kind)`
+  para os thumbs 👍/👎 dos frontends.
+
 ## 0.4.0 (2026-06-11)
 - F3: módulo `memory` — `createThreadStore` (estado de conversa em Postgres),
   `createRollingSummarizer` (sumarização progressiva via LLM, defensiva),

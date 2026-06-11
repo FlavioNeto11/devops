@@ -120,3 +120,12 @@
 **Readiness**: código validado (lint ✅, typecheck ✅, build ✅). Testes de integração aguardam ambiente com PostgreSQL. Sem blockers P0 conhecidos.
 
 Detalhes em [`docs/product-roadmap.md`](product-roadmap.md) e [`docs/sprints.md`](sprints.md).
+
+---
+
+## Plataforma de IA — F5 (2026-06-11)
+
+- **Feedback 👍/👎 no chat**: modelo `AiFeedback` (`ai_feedback`, migration `20260611200000_ai_feedback` — **pendente de aplicar no cluster**), rota `POST /ai/feedback` (upsert por thread+mensagem+usuário, métrica `countFeedback`, fire-and-forget para o control-plane) e botões no `AiChatWidget`.
+- **Primeira tool MUTANTE** `create_activity` (R3, dry-run + confirmação): a IA resolve unidade/área por NOME, aplica o MESMO RBAC do `POST /activities` (`hasUnitRole`), devolve PRÉVIA assinada (HMAC, `ai/graph/pending-actions.ts`, exp 10min) e só executa via `POST /ai/confirm` após clique do usuário — "IA nunca salva direto" preservado (o clique É o salvar).
+- **Prompt do especialista `ops` via control-plane**: `refreshSpecialistPrompt()` busca `GET /v1/prompts/gymops.chat.system/active` a cada 60s (timeout 2s; fallback inline). Envs opcionais: `AI_CONTROL_PLANE_URL` / `AI_CONTROL_PLANE_TOKEN`.
+- **Eval**: golden set ganhou `gym-graph-005/006` (criação → prévia+confirmação); `ai-eval.mjs --graph` cobre a tool mutante (dispatch real em dry-run). Gates `--enforce-kpis` verdes (12/12 mock, 6/6 graph).

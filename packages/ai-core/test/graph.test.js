@@ -117,3 +117,63 @@ test('limite de rounds: loop ReAct força resposta final sem tools', async () =>
   assert.equal(r.toolCalls.length, 2);
   assert.match(r.text, /Resumo final/);
 });
+
+// ── F4: proposeTools (modo de paridade do SICAT) ────────────────────────────
+
+test('proposeTools: deep-path PROPÕE a tool sem executar; verify pulado', async () => {
+  const executed = [];
+  const llm = scriptedLlm([
+    { text: '{"complexity":"complex","specialist":"ops","reason":"precisa dados"}' },
+    { toolCalls: [{ id: 'tc9', name: 'query_overdue', arguments: { limit: 5 } }] },
+    // NADA depois: nem síntese nem judge devem rodar
+  ]);
+  const graph = createAiGraph({ llm, registry: opsRegistry(executed), specialists: SPECIALISTS, proposeTools: true });
+  const r = await graph.runTurn({ message: 'liste os atrasados', identity: { sub: 'u1' } });
+  assert.equal(r.proposed, true);
+  assert.equal(r.route, 'deep');
+  assert.equal(executed.length, 0, 'tool NAO pode ser executada em proposeTools');
+  assert.equal(r.toolCalls.length, 1);
+  assert.deepEqual(r.toolCalls[0], { id: 'tc9', name: 'query_overdue', status: 'proposed', arguments: { limit: 5 } });
+  assert.equal(r.judge, null, 'judge nao roda sobre proposta');
+  assert.equal(llm.calls.length, 2, 'router + 1 rodada do especialista, nada mais');
+});
+
+test('proposeTools: resposta sem tool_call segue o fluxo normal (texto + verify)', async () => {
+  const llm = scriptedLlm([
+    { text: '{"complexity":"complex","specialist":"ops","reason":"explicacao"}' },
+    { text: 'O fluxo de cancelamento exige confirmação explícita.' },
+    { text: '{"score":0.9,"reason":"ok"}' },
+  ]);
+  const graph = createAiGraph({ llm, registry: opsRegistry(), specialists: SPECIALISTS, proposeTools: true });
+  const r = await graph.runTurn({ message: 'como funciona o cancelamento?', identity: { sub: 'u1' } });
+  assert.equal(r.proposed, false);
+  assert.equal(r.text, 'O fluxo de cancelamento exige confirmação explícita.');
+  assert.ok(r.judge && r.judge.score >= 0.9);
+});
+
+test('proposeTools: escalation do fast-path aceita a proposta do deep direto', async () => {
+  const executed = [];
+  const llm = scriptedLlm([
+    { text: '{"complexity":"simple","specialist":null,"reason":"parece simples"}' },
+    { text: 'Acho que há 3 atrasadas.' },                 // fast (sem evidência)
+    { text: '{"score":0.2,"reason":"sem ancoragem"}' },   // judge reprova
+    { toolCalls: [{ id: 'tc1', name: 'query_overdue', arguments: {} }] }, // deep retry → proposta
+  ]);
+  const graph = createAiGraph({ llm, registry: opsRegistry(executed), specialists: SPECIALISTS, proposeTools: true });
+  const r = await graph.runTurn({ message: 'quantas atividades atrasadas?', identity: { sub: 'u1' } });
+  assert.equal(r.proposed, true);
+  assert.equal(r.escalated, true);
+  assert.equal(executed.length, 0);
+  assert.equal(r.toolCalls[0].name, 'query_overdue');
+});
+
+test('routerContext entra no system do ROUTER', async () => {
+  const llm = scriptedLlm([
+    { text: '{"complexity":"trivial","specialist":null}' },
+    { text: 'Olá!' },
+    { text: '{"score":1,"reason":"ok"}' },
+  ]);
+  const graph = createAiGraph({ llm, registry: opsRegistry(), specialists: SPECIALISTS, routerContext: 'INTENTS CONHECIDAS: manifest.list' });
+  await graph.runTurn({ message: 'oi' });
+  assert.ok(String(llm.calls[0].messages[0].content).includes('INTENTS CONHECIDAS: manifest.list'));
+});

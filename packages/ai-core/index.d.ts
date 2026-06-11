@@ -71,6 +71,7 @@ export interface AiMetrics {
   countError(stage: string, code?: string): void;
   observeJudgeScore(dimension: string, score: number): void;
   countEscalation(reason: string): void;
+  countFeedback(surface: string, kind: string): void;
 }
 export function createAiMetrics(opts?: { promClient?: unknown; app?: string; registers?: unknown[] }): AiMetrics;
 
@@ -127,6 +128,8 @@ export interface GraphResult {
   evidence: Array<{ tool: string; output: unknown }>;
   judge: { score: number; reason: string } | null;
   escalated: boolean;
+  /** F4: true quando o deep-path PROPÔS tool(s) sem executar (proposeTools). */
+  proposed: boolean;
   memory: { threadId: string | null; hadThread: boolean; recalled: number; turnCount: number | null };
   usage: { inputTokens: number; outputTokens: number; costUsd: number };
 }
@@ -145,6 +148,10 @@ export function createAiGraph(opts: {
   maxToolRounds?: number;
   verify?: boolean;
   judgeThreshold?: number;
+  /** F4: deep-path propõe a tool (status 'proposed') em vez de despachar. */
+  proposeTools?: boolean;
+  /** Texto extra anexado ao system do ROUTER (intents conhecidas, dicas do app). */
+  routerContext?: string;
 }): { runTurn(turn: GraphTurn): Promise<GraphResult> };
 
 // ---------------------------------------------------------------- rag

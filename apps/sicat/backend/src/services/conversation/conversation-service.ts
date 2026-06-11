@@ -12,12 +12,12 @@ import {
   isConversationToolSupported
 } from './conversation-policy-service.js';
 import {
-  createLlmProvider,
   synthesizeNaturalResponse,
   type LlmPlan,
   type LlmProvider,
   type LlmToolCall
 } from './llm-provider.js';
+import { resolveLlmProvider } from './conversation-engine-ai-core.js';
 import { dispatchConversationTool } from './conversation-tool-dispatcher.js';
 import { verifyEvidenceAndPlanReroute } from './conversation-evidence-verifier.js';
 import {
@@ -2411,7 +2411,9 @@ export function createConversationService(dependencies?: {
   llmProvider?: LlmProvider;
   synthesizer?: ConversationSynthesizer;
 }) {
-  const llmProvider = dependencies?.llmProvider || createLlmProvider();
+  // F4: CONVERSATION_ENGINE=ai-core roteia o planejamento pelo grafo da plataforma
+  // (fallback gracioso ao planner legado); default permanece o provider legado.
+  const llmProvider = dependencies?.llmProvider || resolveLlmProvider();
   const synthesizer = dependencies?.synthesizer || defaultConversationSynthesizer;
 
   return {

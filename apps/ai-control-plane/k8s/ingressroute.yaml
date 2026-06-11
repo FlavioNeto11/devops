@@ -1,0 +1,47 @@
+# =============================================================================
+# Roteamento Traefik do ai-control-plane (regra de ouro: API SEMPRE com strip).
+#   /ai-control/api -> ai-control-plane-api:8080 (StripPrefix /ai-control/api,
+#   priority 30) — o processo vê /health e /v1/* na raiz.
+# Middlewares compartilhados compress/secure-headers vivem no ns traefik
+# (allowCrossNamespace: true — ver platform/traefik/middlewares.yaml).
+# =============================================================================
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: ai-control-api-strip
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: ai-control-plane-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: ai-control-plane
+spec:
+  stripPrefix:
+    prefixes:
+      - /ai-control/api
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: ai-control-plane
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: ai-control-plane
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: ai-control-plane
+spec:
+  entryPoints:
+    - web
+  routes:
+    # API (única rota exposta do app) -> strip /ai-control/api, priority 30.
+    - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/ai-control/api`)
+      kind: Rule
+      priority: 30
+      services:
+        - name: ai-control-plane-api
+          port: 8080
+      middlewares:
+        - name: ai-control-api-strip
+        - name: compress
+          namespace: traefik
+        - name: secure-headers
+          namespace: traefik

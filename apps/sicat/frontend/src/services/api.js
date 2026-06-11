@@ -765,6 +765,17 @@ export function sendConversationTurn(payload) {
   });
 }
 
+// F5: feedback explícito 👍/👎 por resposta da IA.
+export function sendConversationFeedback(payload) {
+  return request('/v1/conversations/feedback', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload || {})
+  });
+}
+
 export function getConversationArtifactStatus({ artifactId, integrationAccountId, sessionContextId } = {}) {
   const id = String(artifactId || '').trim();
   if (!id) {

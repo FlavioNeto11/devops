@@ -1,0 +1,10 @@
+# Kustomization do ai-control-plane para o Argo CD (GitOps).
+# secret.example.yaml fica EXCLUÍDO de propósito: os Secrets reais
+# (ai-control-plane-db, ai-control-plane-config) são criados no cluster fora
+# do git (ver secret.example.yaml) e NÃO são gerenciados pelo Argo.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - postgres.yaml
+  - api.yaml
+  - ingressroute.yaml

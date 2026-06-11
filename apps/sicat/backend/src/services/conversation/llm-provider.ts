@@ -673,7 +673,7 @@ export function getRuntimeConversationToolSchemas(): FunctionTool[] {
 
 // ─── System prompt ────────────────────────────────────────────────────────────
 
-function buildSystemPrompt(context: ConversationContextLike): string {
+export function buildSystemPrompt(context: ConversationContextLike): string {
   const lastSelection = Array.isArray(context.lastManifestSelectionIds)
     ? context.lastManifestSelectionIds.slice(0, 10)
     : [];

@@ -786,6 +786,26 @@ export function useInAppCopilot() {
     }
   );
 
+  // F5: feedback explícito 👍/👎 por resposta do copiloto (otimista; falha só loga).
+  async function sendFeedback(message, feedbackType) {
+    if (!message || message.role !== 'assistant' || !message.correlationId) return;
+    const previous = message.feedback || null;
+    message.feedback = feedbackType;
+    try {
+      await sendConversationFeedback({
+        correlationId: message.correlationId,
+        conversationSessionId: conversationSessionId.value || null,
+        channel: 'inapp',
+        feedbackType,
+        userId: buildUserId(authStore.user.value) || null,
+        toolName: message.toolName || null
+      });
+    } catch (feedbackError) {
+      message.feedback = previous;
+      console.warn('[copilot] falha ao registrar feedback:', feedbackError);
+    }
+  }
+
   return {
     isOpen,
     draft,
@@ -801,6 +821,7 @@ export function useInAppCopilot() {
     togglePanel,
     resetConversation,
     sendMessage,
+    sendFeedback,
     handleAction,
     downloadArtifact
   };
