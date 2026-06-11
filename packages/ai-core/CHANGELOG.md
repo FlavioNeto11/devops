@@ -1,5 +1,11 @@
 # Changelog — @flavioneto11/ai-core
 
+## 0.3.0 (2026-06-11)
+- F2: módulo `rag` — `hashContent`/`splitWithOverlap`/`chunkMarkdownSections` (chunking
+  heading-aware com overlap), `createEmbedder` (estrutural por `embedFn`, batching, validação de
+  dims), `createPgVectorStore` (upsert incremental por hash de fonte, prune, busca cosine no HNSW,
+  stats) e `createReranker` (re-rank por LLM, defensivo).
+
 ## 0.2.0 (2026-06-11)
 - F1: `createAiGraph` — grafo padrão de raciocínio (router fast/deep por complexidade →
   especialista em loop ReAct com `dispatchTool` → VERIFY judge em runtime com escalation/retry),

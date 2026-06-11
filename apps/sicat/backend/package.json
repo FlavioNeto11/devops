@@ -46,7 +46,6 @@
     "quality:gate": "node scripts/quality-gate.js",
     "sonar": "sonar-scanner",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build:rag": "node scripts/rag/build-knowledge-index.mjs",
     "chat:eval:gen": "node scripts/chat-eval/battery.mjs",
     "chat:eval": "node scripts/chat-eval/run.mjs",
     "typecheck:backend": "tsc -p tsconfig.json --noEmit",
@@ -60,10 +59,11 @@
     "smoke:ai-chat:sample:full": "node scripts/ai-smoke/run-sicat-ai-smoke.mjs --catalog docs/ai-chat/intents/sicat-chat-intent-catalog.sample.jsonl --no-fail-fast",
     "smoke:ai-chat:category": "node scripts/ai-smoke/run-sicat-ai-smoke.mjs --catalog docs/ai-chat/intents/sicat-chat-intent-catalog.jsonl --category",
     "smoke:ai-chat:category:full": "node scripts/ai-smoke/run-sicat-ai-smoke.mjs --catalog docs/ai-chat/intents/sicat-chat-intent-catalog.jsonl --category --no-fail-fast",
-    "smoke:ai-chat:dry-run": "node scripts/ai-smoke/run-sicat-ai-smoke.mjs --catalog docs/ai-chat/intents/sicat-chat-intent-catalog.sample.jsonl --dry-run"
+    "smoke:ai-chat:dry-run": "node scripts/ai-smoke/run-sicat-ai-smoke.mjs --catalog docs/ai-chat/intents/sicat-chat-intent-catalog.sample.jsonl --dry-run",
+    "rag:ingest": "tsx scripts/rag/ingest-knowledge.ts"
   },
   "dependencies": {
-    "@flavioneto11/ai-core": "file:vendor/flavioneto11-ai-core-0.1.0.tgz",
+    "@flavioneto11/ai-core": "file:vendor/flavioneto11-ai-core-0.3.0.tgz",
     "@flavioneto11/ai-kit": "file:vendor/flavioneto11-ai-kit-0.1.0.tgz",
     "@flavioneto11/oidc-kit": "file:vendor/flavioneto11-oidc-kit-0.1.0.tgz",
     "@langchain/core": "^1.1.41",

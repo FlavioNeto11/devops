@@ -21,5 +21,9 @@ export {
 export { createAiMetrics, createAiTracer, AI_METRIC_NAMES } from './observability.js';
 export { createOpenAiLlm, toOpenAiToolDef } from './llm.js';
 export { createAiGraph } from './graph.js';
+export {
+  hashContent, splitWithOverlap, chunkMarkdownSections,
+  createEmbedder, createPgVectorStore, createReranker,
+} from './rag.js';
 export { AI_KPIS, listKpis, summarizeEvalKpis } from './kpi.js';
 export { parseGoldenSetJsonl, runEval } from './eval.js';

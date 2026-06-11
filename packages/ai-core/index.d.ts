@@ -140,6 +140,27 @@ export function createAiGraph(opts: {
   judgeThreshold?: number;
 }): { runTurn(turn: GraphTurn): Promise<GraphResult> };
 
+// ---------------------------------------------------------------- rag
+export function hashContent(text: string): string;
+export function splitWithOverlap(text: string, opts?: { maxChars?: number; overlap?: number; minChars?: number }): string[];
+export function chunkMarkdownSections(markdown: string, opts?: { maxChars?: number; overlap?: number; minChars?: number; fallbackTitle?: string }):
+  Array<{ index: number; title: string; content: string }>;
+export function createEmbedder(opts: { embedFn(texts: string[]): Promise<number[][]>; batchSize?: number; dimensions?: number }): {
+  embedBatch(texts: string[]): Promise<number[][]>;
+  embedQuery(text: string): Promise<number[]>;
+};
+export interface RagHit { id: string; source: string; title?: string; text: string; score: number; rerankScore?: number }
+export function createPgVectorStore(opts: { query(sql: string, params?: readonly unknown[]): Promise<{ rows?: any[]; rowCount?: number | null }>; chunksTable?: string; sourcesTable?: string }): {
+  getSourceHash(sourceId: string): Promise<string | null>;
+  upsertSource(src: { sourceId: string; contentHash: string; embeddingModel?: string; chunks: Array<{ id: string; index: number; title?: string | null; content: string; embedding: number[] }> }): Promise<{ sourceId: string; chunkCount: number }>;
+  pruneSources(activeSourceIds: string[]): Promise<number>;
+  search(embedding: number[], opts?: { k?: number }): Promise<RagHit[]>;
+  stats(): Promise<{ chunks: number; sources: number }>;
+};
+export function createReranker(opts: { llm: LlmAdapter; model?: string }): {
+  rerank(queryText: string, hits: RagHit[], opts?: { topN?: number }): Promise<RagHit[]>;
+};
+
 // ---------------------------------------------------------------- kpi
 export interface AiKpiDef {
   id: string; label: string; description: string; unit: string; target: number;

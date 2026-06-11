@@ -39,7 +39,9 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:16
+          # pgvector/pgvector:pg16 = postgres:16 + extensão vector (drop-in sobre o
+          # mesmo PVC) — exigida pela base de conhecimento do RAG (migration 018).
+          image: pgvector/pgvector:pg16
           envFrom:
             - secretRef:
                 name: sicat-db
