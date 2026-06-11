@@ -1,0 +1,31 @@
+{
+  "name": "portal-recorder-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Frontend do portal-recorder (React + Vite) servido sob o subpath /portal-rec/. Lista portais/sessoes, dirige a captura (canvas via WebSocket de screencast) e revisa a timeline normalizada num contrato de portal.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "portal-recorder",
+    "capture",
+    "react",
+    "vite"
+  ],
+  "author": "FlavioNeto11",
+  "license": "MIT",
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.2"
+  }
+}

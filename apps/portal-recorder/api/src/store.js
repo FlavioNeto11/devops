@@ -130,3 +130,122 @@ export async function setSessionStatus(pool, id, status, extra = {}) {
   );
   return rows[0] || null;
 }
+
+// ── anotações (A4) ──────────────────────────────────────────────────────────
+export function validateCreateAnnotation(body) {
+  if (!body || typeof body !== 'object') return err(400, 'VALIDATION_ERROR', 'body must be an object');
+  const label = typeof body.label === 'string' ? body.label.trim() : '';
+  if (!label) return err(400, 'VALIDATION_ERROR', 'label is required');
+  const start = Number(body.start_offset_ms);
+  if (!Number.isFinite(start) || start < 0) return err(400, 'VALIDATION_ERROR', 'start_offset_ms must be a non-negative number');
+  return {
+    ok: true,
+    value: {
+      label,
+      description: typeof body.description === 'string' ? body.description : null,
+      start_offset_ms: Math.round(start),
+      end_offset_ms: Number.isFinite(Number(body.end_offset_ms)) ? Math.round(Number(body.end_offset_ms)) : null,
+      step_index: Number.isInteger(body.step_index) ? body.step_index : null,
+      expected_endpoint: typeof body.expected_endpoint === 'string' ? body.expected_endpoint : null,
+    },
+  };
+}
+
+export async function createAnnotation(pool, sessionId, value) {
+  const id = genId('ann');
+  // fecha a janela da anotação anterior aberta (end = start desta) — passos sequenciais
+  await pool.query(
+    `UPDATE capture_annotations SET end_offset_ms = $2
+       WHERE session_id = $1 AND end_offset_ms IS NULL AND start_offset_ms < $2`,
+    [sessionId, value.start_offset_ms]
+  );
+  const stepIndex = value.step_index ?? (await pool.query('SELECT COUNT(*)::int AS n FROM capture_annotations WHERE session_id = $1', [sessionId])).rows[0].n;
+  const { rows } = await pool.query(
+    `INSERT INTO capture_annotations (id, session_id, step_index, label, description, start_offset_ms, end_offset_ms, expected_endpoint)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+    [id, sessionId, stepIndex, value.label, value.description, value.start_offset_ms, value.end_offset_ms, value.expected_endpoint]
+  );
+  return rows[0];
+}
+
+export async function listAnnotations(pool, sessionId) {
+  const { rows } = await pool.query('SELECT * FROM capture_annotations WHERE session_id = $1 ORDER BY start_offset_ms', [sessionId]);
+  return rows;
+}
+
+// ── timeline (A4 revisão): eventos + anotações + screenshots ────────────────
+export async function getTimeline(pool, sessionId) {
+  const [events, annotations, screenshots] = await Promise.all([
+    pool.query(
+      `SELECT id, seq, t_offset_ms, phase, method, host, path, status_code, resource_type,
+              req_body, resp_body, body_truncated, redacted_keys
+         FROM capture_events WHERE session_id = $1 ORDER BY seq LIMIT 2000`, [sessionId]),
+    pool.query('SELECT * FROM capture_annotations WHERE session_id = $1 ORDER BY start_offset_ms', [sessionId]),
+    pool.query('SELECT id, t_offset_ms, blob_ref, caption, annotation_id FROM capture_screenshots WHERE session_id = $1 ORDER BY t_offset_ms', [sessionId]),
+  ]);
+  return { events: events.rows, annotations: annotations.rows, screenshots: screenshots.rows };
+}
+
+export async function getScreenshot(pool, sessionId, shotId) {
+  const { rows } = await pool.query('SELECT * FROM capture_screenshots WHERE id = $1 AND session_id = $2', [shotId, sessionId]);
+  return rows[0] || null;
+}
+
+// ── normalização (A5): eventos → contrato ───────────────────────────────────
+export async function loadResponseEventsForNormalize(pool, sessionId, apiOrigins = []) {
+  // só respostas; filtra por host das api_origins (se houver) e descarta assets
+  const { rows } = await pool.query(
+    `SELECT e.id, e.method, e.host, e.path, e.status_code, e.resp_body,
+            r.req_body
+       FROM capture_events e
+       LEFT JOIN LATERAL (
+         SELECT req_body FROM capture_events r
+          WHERE r.session_id = e.session_id AND r.phase='request' AND r.url = e.url
+          ORDER BY r.seq DESC LIMIT 1
+       ) r ON TRUE
+      WHERE e.session_id = $1 AND e.phase='response'
+      ORDER BY e.seq`,
+    [sessionId]
+  );
+  const hosts = new Set(apiOrigins.map((o) => { try { return new URL(o).host; } catch { return o; } }));
+  return rows
+    .filter((r) => hosts.size === 0 || hosts.has(r.host))
+    .map((r) => ({
+      id: r.id, method: r.method, host: r.host, path: r.path,
+      status_code: r.status_code, resp_body: r.resp_body, req_body: r.req_body,
+      requires_auth_hint: r.status_code === 401 || r.status_code === 403 ? false : undefined,
+      captcha_hint: false,
+    }));
+}
+
+export async function saveContract(pool, portalId, sessionId, endpoints) {
+  const contractId = genId('ctr');
+  const next = await pool.query('SELECT COALESCE(MAX(version),0)+1 AS v FROM portal_contracts WHERE portal_id = $1', [portalId]);
+  const version = next.rows[0].v;
+  await pool.query(
+    `INSERT INTO portal_contracts (id, portal_id, session_id, version, summary)
+     VALUES ($1,$2,$3,$4,$5::jsonb)`,
+    [contractId, portalId, sessionId, version, JSON.stringify({ endpoint_count: endpoints.length, generated_at: new Date().toISOString() })]
+  );
+  for (const ep of endpoints) {
+    await pool.query(
+      `INSERT INTO portal_endpoints
+         (id, contract_id, method, host, path_template, requires_auth, requires_captcha,
+          sample_request, sample_response, request_schema, response_schema, occurrence_count, source_event_ids)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10::jsonb,$11::jsonb,$12,$13::jsonb)
+       ON CONFLICT (contract_id, method, host, path_template) DO NOTHING`,
+      [genId('end'), contractId, ep.method, ep.host, ep.path_template, ep.requires_auth, ep.requires_captcha,
+       JSON.stringify(ep.sample_request || {}), JSON.stringify(ep.sample_response || {}),
+       JSON.stringify(ep.request_schema || {}), JSON.stringify(ep.response_schema || {}),
+       ep.occurrence_count || 1, JSON.stringify(ep.source_event_ids || [])]
+    );
+  }
+  return { contractId, version };
+}
+
+export async function getContract(pool, contractId) {
+  const c = await pool.query('SELECT * FROM portal_contracts WHERE id = $1', [contractId]);
+  if (!c.rows[0]) return null;
+  const eps = await pool.query('SELECT * FROM portal_endpoints WHERE contract_id = $1 ORDER BY host, path_template', [contractId]);
+  return { ...c.rows[0], endpoints: eps.rows };
+}

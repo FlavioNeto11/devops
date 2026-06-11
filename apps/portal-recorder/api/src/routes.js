@@ -4,10 +4,14 @@
 import express from 'express';
 import { requireWriteAuth } from './auth.js';
 import { getPool, pingDbQuick } from './db.js';
+import fs from 'node:fs';
 import {
   validateCreatePortal, validateCreateSession, createPortal, listPortals, getPortal,
   createSession, listSessions, getSession, setSessionStatus,
+  validateCreateAnnotation, createAnnotation, listAnnotations, getTimeline, getScreenshot,
+  loadResponseEventsForNormalize, saveContract, getContract,
 } from './store.js';
+import { normalizeEvents } from './normalize.js';
 
 function sendValidation(res, result) {
   return res.status(result.status).json({ error: { code: result.code, message: result.message } });
@@ -102,6 +106,82 @@ export function buildRouter() {
       await callRecorder(`/internal/sessions/${session.id}/stop`, session.id);
       const updated = await setSessionStatus(getPool(), session.id, 'finalizing', { ended_at: true });
       res.json({ data: updated });
+    } catch (e) { next(e); }
+  });
+
+  // ── Anotações + timeline + screenshots (A4) ───────────────────────────────
+  router.post('/v1/sessions/:id/annotations', requireWriteAuth, async (req, res, next) => {
+    try {
+      const session = await getSession(getPool(), req.params.id);
+      if (!session) return res.status(404).json({ error: { code: 'SESSION_NOT_FOUND', message: 'session not found' } });
+      const v = validateCreateAnnotation(req.body);
+      if (!v.ok) return sendValidation(res, v);
+      res.status(201).json({ data: await createAnnotation(getPool(), session.id, v.value) });
+    } catch (e) { next(e); }
+  });
+
+  router.get('/v1/sessions/:id/annotations', async (req, res, next) => {
+    try { res.json({ data: await listAnnotations(getPool(), req.params.id) }); } catch (e) { next(e); }
+  });
+
+  router.get('/v1/sessions/:id/timeline', async (req, res, next) => {
+    try {
+      const session = await getSession(getPool(), req.params.id);
+      if (!session) return res.status(404).json({ error: { code: 'SESSION_NOT_FOUND', message: 'session not found' } });
+      res.json({ data: await getTimeline(getPool(), session.id) });
+    } catch (e) { next(e); }
+  });
+
+  // Print: a api pede ao recorder tirar o screenshot da sessão ativa.
+  router.post('/v1/sessions/:id/screenshots', requireWriteAuth, async (req, res, next) => {
+    try {
+      const session = await getSession(getPool(), req.params.id);
+      if (!session) return res.status(404).json({ error: { code: 'SESSION_NOT_FOUND', message: 'session not found' } });
+      const base = (process.env.RECORDER_INTERNAL_URL || '').replace(/\/+$/, '');
+      if (!base) return res.status(503).json({ error: { code: 'RECORDER_UNAVAILABLE', message: 'recorder not configured' } });
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10_000);
+      try {
+        const resp = await fetch(`${base}/internal/sessions/${session.id}/screenshot`, {
+          method: 'POST', signal: controller.signal,
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${process.env.RECORDER_INTERNAL_TOKEN || ''}` },
+          body: JSON.stringify({ caption: req.body?.caption, annotationId: req.body?.annotationId }),
+        });
+        const body = await resp.json().catch(() => ({}));
+        res.status(resp.status).json(body);
+      } finally { clearTimeout(timer); }
+    } catch (e) { next(e); }
+  });
+
+  router.get('/v1/sessions/:id/screenshots/:shotId/blob', async (req, res, next) => {
+    try {
+      const shot = await getScreenshot(getPool(), req.params.id, req.params.shotId);
+      if (!shot || !fs.existsSync(shot.blob_ref)) return res.status(404).json({ error: { code: 'SCREENSHOT_NOT_FOUND', message: 'not found' } });
+      res.setHeader('Content-Type', 'image/png');
+      fs.createReadStream(shot.blob_ref).pipe(res);
+    } catch (e) { next(e); }
+  });
+
+  // ── Normalização → contrato + leitura (A5) ────────────────────────────────
+  router.post('/v1/sessions/:id/normalize', requireWriteAuth, async (req, res, next) => {
+    try {
+      const session = await getSession(getPool(), req.params.id);
+      if (!session) return res.status(404).json({ error: { code: 'SESSION_NOT_FOUND', message: 'session not found' } });
+      const portal = await getPortal(getPool(), session.portal_id);
+      const apiOrigins = portal?.api_origins || [];
+      const events = await loadResponseEventsForNormalize(getPool(), session.id, apiOrigins);
+      const endpoints = normalizeEvents(events);
+      const { contractId, version } = await saveContract(getPool(), session.portal_id, session.id, endpoints);
+      await setSessionStatus(getPool(), session.id, 'normalized');
+      res.status(201).json({ data: { contract_id: contractId, version, endpoint_count: endpoints.length } });
+    } catch (e) { next(e); }
+  });
+
+  router.get('/v1/contracts/:id', async (req, res, next) => {
+    try {
+      const contract = await getContract(getPool(), req.params.id);
+      if (!contract) return res.status(404).json({ error: { code: 'CONTRACT_NOT_FOUND', message: 'not found' } });
+      res.json({ data: contract });
     } catch (e) { next(e); }
   });
 

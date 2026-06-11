@@ -1,0 +1,10 @@
+# Dependencias e artefatos de build do frontend (gerados; nao versionar).
+node_modules/
+dist/
+.vite/
+
+# Logs e arquivos locais de ambiente.
+*.log
+.env
+.env.local
+.env.*.local

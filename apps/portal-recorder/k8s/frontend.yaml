@@ -1,0 +1,66 @@
+# =============================================================================
+# Frontend do portal-recorder (SPA React + Vite → nginx, base /portal-rec/).
+# Servido sem stripPrefix (priority menor que api/stream no IngressRoute).
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portal-recorder-frontend
+  namespace: apps
+  annotations:
+    devops.flavioneto/imageTag: "local"
+    devops.flavioneto/image: "portal-recorder-frontend:local"
+    devops.flavioneto/branch: "main"
+  labels:
+    app.kubernetes.io/name: portal-recorder-frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: portal-recorder
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: portal-recorder-frontend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: portal-recorder-frontend
+        app.kubernetes.io/component: frontend
+        app.kubernetes.io/part-of: portal-recorder
+    spec:
+      containers:
+        - name: frontend
+          image: portal-recorder-frontend:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /portal-rec/
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "32Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: portal-recorder-frontend
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: portal-recorder-frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: portal-recorder
+spec:
+  selector:
+    app.kubernetes.io/name: portal-recorder-frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

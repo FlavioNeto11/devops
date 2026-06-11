@@ -1,0 +1,111 @@
+# =============================================================================
+# Recorder do portal-recorder: dirige o Chromium (Playwright/CDP) por sessão.
+# 8090 = HTTP interno (api↔recorder, ClusterIP); 8091 = WS de streaming (roteado
+# pelo Traefik em /portal-rec/stream). replicas:1 + Recreate: estado de sessão e
+# WS vivem em memória (afinidade). Chromium em container exige --no-sandbox e
+# --disable-dev-shm-usage (no código) + /dev/shm como emptyDir Memory.
+# ESCREVE no PVC de storage (screenshots/HAR/corpos grandes).
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portal-recorder-recorder
+  namespace: apps
+  annotations:
+    devops.flavioneto/imageTag: "local"
+    devops.flavioneto/image: "portal-recorder-recorder:local"
+    devops.flavioneto/branch: "main"
+  labels:
+    app.kubernetes.io/name: portal-recorder-recorder
+    app.kubernetes.io/component: recorder
+    app.kubernetes.io/part-of: portal-recorder
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate          # estado/WS em memória: nunca dois recorders ao mesmo tempo
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: portal-recorder-recorder
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: portal-recorder-recorder
+        app.kubernetes.io/component: recorder
+        app.kubernetes.io/part-of: portal-recorder
+    spec:
+      containers:
+        - name: recorder
+          image: portal-recorder-recorder:local
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PORT
+              value: "8090"
+            - name: WS_PORT
+              value: "8091"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: portal-recorder-db
+                  key: DATABASE_URL
+            - name: RECORDER_INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: portal-recorder-config
+                  key: internal_token
+                  optional: true
+            - name: STORAGE_DIR
+              value: "/data/storage"
+            - name: MAX_CONCURRENT_SESSIONS
+              value: "2"
+          ports:
+            - name: internal
+              containerPort: 8090
+            - name: stream
+              containerPort: 8091
+          volumeMounts:
+            - name: storage
+              mountPath: /data/storage
+            - name: dshm
+              mountPath: /dev/shm
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: internal
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "384Mi"
+            limits:
+              cpu: "1"
+              memory: "1536Mi"
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: portal-recorder-storage
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: portal-recorder-recorder
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: portal-recorder-recorder
+    app.kubernetes.io/component: recorder
+    app.kubernetes.io/part-of: portal-recorder
+spec:
+  selector:
+    app.kubernetes.io/name: portal-recorder-recorder
+  ports:
+    - name: internal
+      port: 8090
+      targetPort: internal
+    - name: stream
+      port: 8091
+      targetPort: stream

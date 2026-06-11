@@ -18,6 +18,18 @@ spec:
       - /portal-rec/api
 ---
 apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: portal-rec-stream-strip
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: portal-recorder
+spec:
+  stripPrefix:
+    prefixes:
+      - /portal-rec/stream
+---
+apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
   name: portal-recorder
@@ -28,7 +40,17 @@ spec:
   entryPoints:
     - web
   routes:
-    # API (mais específica) → strip /portal-rec/api, priority MAIOR.
+    # WebSocket de streaming (mais específico ainda) → recorder:8091, priority MAIOR.
+    # Traefik faz o upgrade WS nativamente; sem compress/secure-headers no WS.
+    - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/portal-rec/stream`)
+      kind: Rule
+      priority: 40
+      services:
+        - name: portal-recorder-recorder
+          port: 8091
+      middlewares:
+        - name: portal-rec-stream-strip
+    # API → strip /portal-rec/api, priority MAIOR que o frontend.
     - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/portal-rec/api`)
       kind: Rule
       priority: 30
@@ -37,6 +59,18 @@ spec:
           port: 8080
       middlewares:
         - name: portal-rec-api-strip
+        - name: compress
+          namespace: traefik
+        - name: secure-headers
+          namespace: traefik
+    # Frontend (SPA, base /portal-rec/) → sem strip, priority MENOR.
+    - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/portal-rec`)
+      kind: Rule
+      priority: 10
+      services:
+        - name: portal-recorder-frontend
+          port: 80
+      middlewares:
         - name: compress
           namespace: traefik
         - name: secure-headers
