@@ -67,13 +67,22 @@ r.get('/public/:projectKey', async (req, res, next) => {
 // Serve um arquivo (imagem/PDF/vídeo) por id, com o content-type correto.
 // Suporta HTTP Range simples (single range) — necessário para <video> fazer
 // seek e para o Safari reproduzir vídeo (ele exige 206).
+// O conteúdo de um id é IMUTÁVEL (re-upload gera id novo), então o próprio id
+// serve de ETag: If-None-Match responde 304 ANTES de buscar o bytea no banco —
+// zero I/O de Postgres e zero buffer em memória para revalidações.
 r.get('/public/files/:id', async (req, res, next) => {
   try {
+    const etag = `"${req.params.id}"`;
+    if (req.headers['if-none-match'] === etag) {
+      res.status(304).set('ETag', etag).set('Cache-Control', 'public, max-age=86400, immutable').end();
+      return;
+    }
     const { rows } = await query('SELECT mime, bytes FROM cms_files WHERE id = $1', [req.params.id]);
     if (!rows.length) return notFound(res, 'arquivo');
     const buf = rows[0].bytes;
     res.set('Content-Type', rows[0].mime);
-    res.set('Cache-Control', 'public, max-age=86400');
+    res.set('Cache-Control', 'public, max-age=86400, immutable');
+    res.set('ETag', etag);
     res.set('Accept-Ranges', 'bytes');
 
     const range = req.headers.range;

@@ -15,6 +15,7 @@ import { authContext, requireAdmin } from './auth.js';
 import { seed } from '../scripts/seed.js';
 
 const app = express();
+app.disable('x-powered-by');
 app.use(express.json({ limit: '1mb' }));
 app.use(cors());
 
@@ -76,7 +77,20 @@ async function start() {
       console.warn('[seed] ignorado:', e.message);
     }
   }
-  app.listen(PORT, () => console.info(`[pm-api] listening on ${PORT}`));
+  const server = app.listen(PORT, () => console.info(`[pm-api] listening on ${PORT}`));
+
+  // Graceful shutdown: no rollout o kubelet manda SIGTERM; fechamos o listener
+  // (para de aceitar conexoes novas), esperamos as requests em voo terminarem e
+  // so entao encerramos o pool. Forca a saida apos 10s para nao prender o pod.
+  const shutdown = (signal) => {
+    console.info(`[pm-api] ${signal} recebido, encerrando...`);
+    server.close(() => {
+      pool.end().finally(() => process.exit(0));
+    });
+    setTimeout(() => process.exit(1), 10_000).unref();
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
 start().catch((e) => {

@@ -16,6 +16,21 @@ async function start() {
     await db.$disconnect();
     process.exit(1);
   }
+
+  // Graceful shutdown: no rollout o kubelet manda SIGTERM. app.close() para de
+  // aceitar conexões novas e espera as requests em voo (hooks onClose dos
+  // plugins rodam); depois desconecta o Prisma. Força a saída em 10s para não
+  // prender o pod num shutdown pendurado.
+  const shutdown = (signal: string) => {
+    app.log.info(`${signal} recebido, encerrando...`);
+    void app
+      .close()
+      .then(() => db.$disconnect())
+      .finally(() => process.exit(0));
+    setTimeout(() => process.exit(1), 10_000).unref();
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
 void start();

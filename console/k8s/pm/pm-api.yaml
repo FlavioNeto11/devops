@@ -33,18 +33,28 @@ spec:
             # normalmente e a rota /cms/generate degrada com 503 gracioso.
             - { name: OPENAI_API_KEY, valueFrom: { secretKeyRef: { name: pm-ai, key: OPENAI_API_KEY, optional: true } } }
           ports: [{ containerPort: 3002, name: http }]
+          # startupProbe cobre o boot (AUTO_MIGRATE roda antes do listen): ate 120s.
+          # Com ela, a readiness pode ser justa (3 falhas = 30s) em vez do antigo
+          # failureThreshold 12. timeoutSeconds 3 evita flapping sob CPU disputada.
+          startupProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 24
           readinessProbe:
             httpGet: { path: /health, port: http }
-            initialDelaySeconds: 5
             periodSeconds: 10
-            failureThreshold: 12
+            timeoutSeconds: 3
+            failureThreshold: 3
           livenessProbe:
             httpGet: { path: /health, port: http }
-            initialDelaySeconds: 25
             periodSeconds: 20
+            timeoutSeconds: 3
           resources:
             requests: { cpu: 25m, memory: 96Mi }
-            limits: { cpu: 500m, memory: 256Mi }
+            # 384Mi: uploads do CMS (multer memoryStorage, ate 50MB/video) somados
+            # ao driver pg podem passar de 256Mi com 2 uploads concorrentes (OOM).
+            limits: { cpu: 500m, memory: 384Mi }
           securityContext:
             runAsNonRoot: true
             runAsUser: 1000

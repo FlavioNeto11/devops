@@ -55,3 +55,6 @@ diagnostics/
 # --- Tarballs de pacotes @flavioneto11/* vendorizados por app (consumo :local offline) ---
 # Rastreados para builds self-contained; .vendor/ (transiente, na raiz) continua ignorado.
 !apps/**/vendor/*.tgz
+
+# Relatórios gerados pelos gates (validador/comparador de contratos, smoke de IA)
+/artifacts/

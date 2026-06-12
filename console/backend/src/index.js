@@ -801,16 +801,23 @@ router.get('/stream', (req, res) => {
   }
 
   let closed = false;
+  let inFlight = false;
 
   // Funcao que coleta e envia um snapshot. Erros sao enviados como evento
   // 'error' (sem encerrar o stream) para o cliente reagir.
+  // Protecoes de resiliencia: (1) inFlight evita snapshots SOBREPOSTOS quando a
+  // API do k8s fica lenta (cada tick do setInterval dispararia outra coleta e
+  // elas se acumulariam); (2) timeout de 10s — coleta pendurada vira evento
+  // 'error' em vez de prender o stream indefinidamente.
   const sendSnapshot = async () => {
-    if (closed) return;
+    if (closed || inFlight) return;
+    inFlight = true;
     try {
-      const [overview, pods, events] = await Promise.all([
-        buildOverview(),
-        listPods(),
-        listEvents(undefined, 20),
+      const [overview, pods, events] = await Promise.race([
+        Promise.all([buildOverview(), listPods(), listEvents(undefined, 20)]),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('snapshot timeout (10s) na API do Kubernetes')), 10_000).unref(),
+        ),
       ]);
 
       const snapshot = {
@@ -838,6 +845,8 @@ router.get('/stream', (req, res) => {
       console.error('[stream] Erro ao montar snapshot:', message);
       res.write(`event: error\n`);
       res.write(`data: ${JSON.stringify({ error: message })}\n\n`);
+    } finally {
+      inFlight = false;
     }
   };
 

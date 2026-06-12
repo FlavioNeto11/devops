@@ -109,19 +109,30 @@ spec:
               containerPort: 8080
             - name: metrics
               containerPort: 9464   # Prometheus ai_* (fora do Traefik)
+          # startupProbe cobre o boot lento (AUTO_MIGRATE + seed): ate 180s.
+          # Readiness/liveness so comecam DEPOIS do startup OK — por isso a
+          # readiness pode ser justa (3 falhas = 30s) em vez do antigo
+          # failureThreshold 18, que deixava o pod 3min recebendo trafego ruim.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 36
           readinessProbe:
             httpGet:
               path: /health
               port: http
-            initialDelaySeconds: 10
             periodSeconds: 10
-            failureThreshold: 18
+            timeoutSeconds: 3
+            failureThreshold: 3
           livenessProbe:
             httpGet:
               path: /health
               port: http
-            initialDelaySeconds: 60
             periodSeconds: 20
+            timeoutSeconds: 3
             failureThreshold: 6
           volumeMounts:
             - name: storage
@@ -208,6 +219,18 @@ spec:
           ports:
             - name: metrics
               containerPort: 9464   # Prometheus ai_* do worker
+          # O worker nao expoe HTTP de negocio, mas o servidor de metricas (9464)
+          # responde enquanto o processo esta vivo — serve de liveness: worker
+          # travado/morto e recriado pelo kubelet em vez de ficar zumbi com jobs
+          # presos em 'running' ate o stale-timeout da fila.
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 4
           volumeMounts:
             - name: storage
               mountPath: /data/storage

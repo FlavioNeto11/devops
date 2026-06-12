@@ -84,3 +84,8 @@ spec:
       services:
         - name: site-renderer
           port: 80
+      # So compress (SEM secure-headers): o frameDeny quebraria o editor visual
+      # do Console, que exibe os portais /sites dentro de um iframe (?cmsEdit=1).
+      middlewares:
+        - name: compress
+          namespace: traefik

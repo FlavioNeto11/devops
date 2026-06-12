@@ -21,7 +21,8 @@
 # ----------------------------------------------------------------------------
 ---
 # compress: habilita compressao (gzip/br) das respostas. Reduz o tamanho do
-# trafego de frontends (SPA) e APIs. Sem parametros = comportamento padrao.
+# trafego de frontends (SPA) e APIs. minResponseBodyBytes evita o overhead de
+# comprimir respostas minusculas (header + CPU custam mais do que economizam).
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
@@ -31,7 +32,8 @@ metadata:
     app.kubernetes.io/managed-by: devops-platform
     app.kubernetes.io/part-of: devops-platform
 spec:
-  compress: {}
+  compress:
+    minResponseBodyBytes: 1024
 ---
 # secure-headers: cabecalhos de seguranca basicos aplicaveis a todas as rotas.
 #   - frameDeny: define X-Frame-Options: DENY (anti clickjacking).

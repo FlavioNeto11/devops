@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { openStream, pmMe } from './api.js';
 import Overview from './components/Overview.jsx';
 import Apps from './components/Apps.jsx';
@@ -6,8 +6,12 @@ import Publications from './components/Publications.jsx';
 import Health from './components/Health.jsx';
 import Logs from './components/Logs.jsx';
 import MetaProjects from './components/MetaProjects.jsx';
-import ContentEditor from './components/ContentEditor.jsx';
 import UserHome from './components/UserHome.jsx';
+
+// Code-split: o editor de conteudo carrega Tiptap + editor visual + AutoForm —
+// o pedaco mais pesado do bundle. Lazy tira tudo isso do chunk principal; quem
+// nunca abre a aba Conteudo nao baixa nada disso.
+const ContentEditor = lazy(() => import('./components/ContentEditor.jsx'));
 import { isPortal } from './lib/appTypes.js';
 import AccessAdmin from './components/AccessAdmin.jsx';
 import SharedResources from './components/SharedResources.jsx';
@@ -218,7 +222,11 @@ export default function App() {
             {!isMember && activeTab === 'health' && <Health streamData={streamData} streamStatus={streamStatus} />}
             {!isMember && activeTab === 'logs' && <Logs />}
             {activeTab === 'projects' && <MetaProjects canManageProjects={canManageProjects} initialId={focusProject} />}
-            {activeTab === 'conteudo' && <ContentEditor initialId={focusProject} me={me} />}
+            {activeTab === 'conteudo' && (
+              <Suspense fallback={<div className="muted" style={{ padding: 24 }}>Carregando editor…</div>}>
+                <ContentEditor initialId={focusProject} me={me} />
+              </Suspense>
+            )}
             {activeTab === 'access' && isAdmin && <AccessAdmin />}
             {activeTab === 'shared' && isAdmin && <SharedResources />}
           </main>

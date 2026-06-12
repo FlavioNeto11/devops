@@ -73,7 +73,12 @@ function Shell({ siteKey, slug, nav }) {
     if (wantsEdit()) { setState('ok'); return undefined; }
     let alive = true;
     setState('loading');
-    fetch(API(siteKey))
+    // Timeout de 12s: se o pm-api pendurar, o visitante vê a tela de erro (com
+    // ação de recarregar) em vez de um carregando eterno. O abort também roda
+    // no unmount, cancelando o request órfão.
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 12_000);
+    fetch(API(siteKey), { signal: ctrl.signal })
       .then(async (r) => {
         if (!alive) return;
         if (r.status === 404) { setState('notfound'); return; }
@@ -82,8 +87,9 @@ function Shell({ siteKey, slug, nav }) {
         setPublicTree(json.data);
         setState('ok');
       })
-      .catch(() => { if (alive) setState('error'); });
-    return () => { alive = false; };
+      .catch(() => { if (alive) setState('error'); })
+      .finally(() => clearTimeout(timer));
+    return () => { alive = false; ctrl.abort(); };
   }, [siteKey]);
 
   const tree = (edit && editTree) || publicTree;

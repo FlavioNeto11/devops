@@ -153,9 +153,14 @@ export function generatePreview(boards: TrelloBoard[]): ImportPreview {
 
 // ── Trello API fetcher ────────────────────────────────────────────────────────
 
+// Timeout explícito nas chamadas à API do Trello: sem ele, uma resposta que
+// nunca chega prende o worker de import indefinidamente (fetch não tem timeout
+// por padrão). Falha rápida → job marca erro e o usuário pode tentar de novo.
+const TRELLO_FETCH_TIMEOUT_MS = 15_000;
+
 export async function fetchTrelloBoards(apiKey: string, token: string): Promise<Array<{ id: string; name: string }>> {
   const url = `https://api.trello.com/1/members/me/boards?key=${apiKey}&token=${token}&fields=id,name&filter=open`;
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(TRELLO_FETCH_TIMEOUT_MS) });
   if (!res.ok) throw new Error(`Trello API error: ${res.status}`);
   return res.json() as Promise<Array<{ id: string; name: string }>>;
 }
@@ -171,7 +176,9 @@ export async function fetchTrelloBoard(boardId: string, apiKey: string, token: s
     'actions=commentCard',
     'fields=id,name,desc',
   ].join('&');
-  const res = await fetch(`https://api.trello.com/1/boards/${boardId}?${params}`);
+  const res = await fetch(`https://api.trello.com/1/boards/${boardId}?${params}`, {
+    signal: AbortSignal.timeout(TRELLO_FETCH_TIMEOUT_MS),
+  });
   if (!res.ok) throw new Error(`Trello API error fetching board ${boardId}: ${res.status}`);
   const board = await res.json() as TrelloBoard;
   // Trello includes checklists at board level but cards reference them by id

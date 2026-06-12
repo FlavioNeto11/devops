@@ -96,3 +96,8 @@ spec:
       services:
         - name: rmambiental-frontend
           port: 80
+      # So compress (SEM secure-headers): o frameDeny quebraria o editor visual
+      # do Console, que exibe este portal dentro de um iframe (?cmsEdit=1).
+      middlewares:
+        - name: compress
+          namespace: traefik

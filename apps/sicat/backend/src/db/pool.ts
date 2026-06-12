@@ -4,9 +4,16 @@ import type { PoolClient, QueryResult, QueryResultRow } from 'pg';
 
 const { Pool } = pg;
 
+// max 10 cobre api + worker (cada processo tem o proprio pool) sem esgotar o
+// Postgres single-node; connectionTimeoutMillis falha rapido quando o banco
+// esta fora (probe/health acusam em segundos em vez de requests pendurados).
+// Sem statement_timeout global: migrations e jobs longos sao legitimos aqui.
 export const pool = new Pool({
   connectionString: config.databaseUrl,
-  ssl: config.databaseSsl ? { rejectUnauthorized: false } : false
+  ssl: config.databaseSsl ? { rejectUnauthorized: false } : false,
+  max: 10,
+  idleTimeoutMillis: 30_000,
+  connectionTimeoutMillis: 5_000
 });
 
 /**
