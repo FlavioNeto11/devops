@@ -82,6 +82,17 @@ chrome. No console, o modo Visual habilita para qualquer portal com `route` come
 (badge “portal dinâmico”). Um portal pode ser "promovido" depois a app dedicado (golden path)
 trocando o `route`; o conteúdo no pm-api é o mesmo.
 
+### Formulários em linguagem de usuário (fieldKit)
+
+Os formulários do CMS (`AutoForm` + `console/frontend/src/lib/fieldKit.js`) falam a língua do
+usuário, sem jargão: campo de **cor** vira seletor visual nativo (+hex sincronizado e amostra);
+rótulos pt-BR amigáveis ("Cor principal", "Frase de posicionamento", "Chapéu"…); selects para
+campos de escolha (posição das labels flutuantes, layout grade/lista, tipo de botão "Abrir contato"
+vs "Usar link", colunas 1–4); **link do YouTube colado vira ID sozinho**; dicas sob os campos
+(WhatsApp com DDI, `#âncora`…); campos internos ocultos (`aiPalette`, `_*`); e o painel/modal do
+**site sempre mostra o esqueleto padrão** (nome, tagline, descrição, paleta, contato) mesmo em
+portal recém-criado — nada abre em branco.
+
 ### ✨ Comando de IA em qualquer região
 
 Toda região editável tem um comando de IA (`AiAssist`): no painel de **seção** do modo visual (o
