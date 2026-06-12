@@ -59,18 +59,25 @@ publicação próprios) + vínculo **opcional** `projects.related_project_id` co
   404, conteúdo **preservado**); `'active'` volta. **Excluir (admin)** remove o projeto e TODO o
   conteúdo em cascata (páginas, seções, arquivos do portal, gerações) — o editor confirma e sugere
   "Desativar" quando a intenção é só sair do ar. A rota pública exige `approved` **e** `active`.
-- **Portal sem frontend dedicado**: é servido pelo **site-renderer** (abaixo) — o modo Visual do
-  editor continua reservado a portais com app dedicado (rmambiental/anarabottini); os demais
-  editam-se no modo Avançado.
+- **Portal sem frontend dedicado**: é servido pelo **site-renderer** (abaixo), com o **modo Visual
+  completo** (o renderer fala o protocolo cmsEdit) — mesmo nível de edição dos portais dedicados.
 
-## site-renderer — qualquer portal no ar sem deploy
+## site-renderer — qualquer portal no ar sem deploy (e com editor visual)
 
 `console/site-renderer` é um frontend **genérico** (deploy único, GitOps via `console/k8s/site-renderer.yaml`)
 que serve **qualquer** portal publicado em **`/sites/<chave>`** (IngressRoute `PathPrefix(/sites)`,
 priority 12, sem strip): ele busca a árvore na rota pública do pm-api em runtime e renderiza os kinds
-**genéricos** + `hero`, com tema neutro colorido pela paleta do site (`cms_site.data.palette`),
-navegação automática pelas páginas e rodapé de contato. **Portal novo criado no Console nasce
-visível na hora** — sem build, sem manifest, sem rollout. Um portal pode ser "promovido" depois a
+**genéricos** + `hero` + `image`, com tema neutro colorido pela paleta do site
+(`cms_site.data.palette`), navegação automática pelas páginas, meta description e rodapé de contato.
+**Portal novo criado no Console nasce visível na hora** — sem build, sem manifest, sem rollout.
+
+O renderer implementa o **protocolo cmsEdit completo** (`src/cmsEdit.jsx`, port do padrão dos
+portais dedicados): embarcado no console (`/sites/<chave>/?cmsEdit=1` + handshake same-origin),
+oferece clique-para-editar em todos os textos, mover/publicar/ocultar/excluir/“+ seção abaixo” por
+moldura, controles por item + “+ adicionar” em toda lista, upload de mídia no lugar e navegação
+sincronizada (páginas rascunho marcadas). O gate é o mesmo dos portais: iframe + query + handshake —
+visitante público **nunca** vê o chrome. No console, o modo Visual habilita para qualquer portal com
+`route` começando em `/sites/` (badge “portal dinâmico”). Um portal pode ser "promovido" depois a
 app dedicado (golden path) trocando o `route`; o conteúdo no pm-api é o mesmo.
 - A publicação **de infraestrutura** (deploy de um frontend dedicado, Argo Application etc.) continua
   pelo golden path normal, com aprovação do operador — o CMS governa o **conteúdo**; o GitOps governa
