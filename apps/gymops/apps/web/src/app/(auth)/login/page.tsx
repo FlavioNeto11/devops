@@ -174,7 +174,7 @@ export default function LoginPage() {
 
           <p className="mt-6 border-t pt-4 text-center text-sm text-muted-foreground">
             Não tem conta?{' '}
-            <a href="/setup" className="font-medium text-primary hover:underline">Cadastre sua academia</a>
+            <a href="/setup" className="font-medium text-primary hover:underline">Cadastre sua empresa</a>
           </p>
         </div>
 

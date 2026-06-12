@@ -30,6 +30,10 @@ import { adminRoutes } from './routes/admin/index.js';
 
 export async function buildApp() {
   const app = Fastify({
+    // Atrás do Traefik, request.ip sem trustProxy é o IP do ingress — o que
+    // tornaria os rate limits "por IP" efetivamente globais. Com trustProxy,
+    // o Fastify usa X-Forwarded-For (Traefik popula).
+    trustProxy: true,
     logger: {
       level: env.NODE_ENV === 'test' ? 'silent' : 'info',
     },

@@ -1,6 +1,7 @@
 import type { PrismaClient, Prisma, VisibilityMode } from '@gymops/db';
 import { db } from './prisma.js';
 import { logAudit } from './audit.js';
+import type { OrgBlueprint } from './org-blueprint.schema.js';
 
 // ── Canonical area catalogue ──────────────────────────────────────────────────
 
@@ -335,6 +336,13 @@ export interface BootstrapInput {
     code?: string;
     address?: string;
   };
+  /**
+   * Estrutura customizada do onboarding (qualquer segmento de empresa) —
+   * já validada pelo OrgBlueprintSchema na rota. Sem blueprint, mantém o
+   * catálogo canônico (6 áreas + 24 templates) — caminho do seed/admin.
+   * blueprint.units (N) tem precedência sobre initialUnit (1).
+   */
+  blueprint?: OrgBlueprint;
   settings?: Record<string, unknown>;
 }
 
@@ -344,6 +352,7 @@ export interface BootstrapResult {
   areaIds: string[];
   templateIds: string[];
   initialUnitId: string | null;
+  unitIds: string[];
 }
 
 // ── Main function ─────────────────────────────────────────────────────────────
@@ -352,7 +361,7 @@ type TransactionClient = Parameters<Parameters<PrismaClient['$transaction']>[0]>
 
 export async function bootstrapOrganization(input: BootstrapInput): Promise<BootstrapResult> {
   const result = await db.$transaction(async (tx: TransactionClient) => {
-    const { name, slug, owner, initialUnit, settings } = input;
+    const { name, slug, owner, initialUnit, blueprint, settings } = input;
 
     // 1. Create organization + plan
     const org = await tx.organization.create({
@@ -385,28 +394,68 @@ export async function bootstrapOrganization(input: BootstrapInput): Promise<Boot
       },
     });
 
-    // 3. Create 6 canonical areas
+    // 3. Create areas (blueprint do onboarding OU catálogo canônico)
+    const areaDefs = blueprint?.areas ?? CANONICAL_AREAS;
     const areaIds: string[] = [];
     const areaIdByKey: Record<string, string> = {};
 
-    for (const areaDef of CANONICAL_AREAS) {
+    for (const areaDef of areaDefs) {
       const area = await tx.area.create({
         data: {
           organizationId: org.id,
           key: areaDef.key,
           name: areaDef.name,
           color: areaDef.color,
-          visibilityDefault: areaDef.visibilityDefault,
+          visibilityDefault: areaDef.visibilityDefault as VisibilityMode,
         },
       });
       areaIds.push(area.id);
       areaIdByKey[areaDef.key] = area.id;
     }
 
-    // 4. Create 24 canonical templates
+    // 4. Create templates por área: do blueprint quando definidos; key canônica
+    //    sem `templates` herda os canônicos da key (fluxo manual que mantém as
+    //    áreas padrão); `[]` explícito ou key custom sem templates → nenhum.
     const templateIds: string[] = [];
 
-    for (const tmpl of CANONICAL_TEMPLATES) {
+    type ResolvedTemplate = {
+      areaKey: string;
+      name: string;
+      description: string;
+      config: Record<string, unknown>;
+    };
+
+    const resolvedTemplates: ResolvedTemplate[] = [];
+    if (blueprint) {
+      for (const areaDef of blueprint.areas) {
+        if (areaDef.templates !== undefined) {
+          for (const tmpl of areaDef.templates) {
+            resolvedTemplates.push({
+              areaKey: areaDef.key,
+              name: tmpl.name,
+              description: tmpl.description ?? '',
+              config: {
+                defaultChecklist: tmpl.defaultChecklist,
+                defaultPriority: tmpl.defaultPriority,
+                defaultVisibility: tmpl.defaultVisibility,
+                ...(tmpl.suggestedSlaDays !== undefined ? { suggestedSlaDays: tmpl.suggestedSlaDays } : {}),
+                ...(tmpl.specificFields?.length ? { specificFields: tmpl.specificFields } : {}),
+              },
+            });
+          }
+        } else {
+          for (const tmpl of CANONICAL_TEMPLATES.filter((t) => t.areaKey === areaDef.key)) {
+            resolvedTemplates.push({ areaKey: tmpl.areaKey, name: tmpl.name, description: tmpl.description, config: tmpl.config });
+          }
+        }
+      }
+    } else {
+      for (const tmpl of CANONICAL_TEMPLATES) {
+        resolvedTemplates.push({ areaKey: tmpl.areaKey, name: tmpl.name, description: tmpl.description, config: tmpl.config });
+      }
+    }
+
+    for (const tmpl of resolvedTemplates) {
       const areaId = areaIdByKey[tmpl.areaKey];
       if (!areaId) continue;
       const template = await tx.activityTemplate.create({
@@ -422,19 +471,23 @@ export async function bootstrapOrganization(input: BootstrapInput): Promise<Boot
       templateIds.push(template.id);
     }
 
-    // 5. Optionally create an initial unit and link all 6 areas
-    let initialUnitId: string | null = null;
+    // 5. Units: blueprint.units (N) tem precedência sobre initialUnit (1).
+    //    Cada unidade vincula TODAS as áreas criadas (unitAreas ordenadas).
+    const unitDefs = blueprint?.units?.length
+      ? blueprint.units
+      : (initialUnit ? [initialUnit] : []);
 
-    if (initialUnit) {
+    const unitIds: string[] = [];
+    for (const unitDef of unitDefs) {
       const unit = await tx.unit.create({
         data: {
           organizationId: org.id,
-          name: initialUnit.name,
-          code: initialUnit.code,
-          address: initialUnit.address,
+          name: unitDef.name,
+          code: unitDef.code,
+          address: unitDef.address,
         },
       });
-      initialUnitId = unit.id;
+      unitIds.push(unit.id);
 
       for (let i = 0; i < areaIds.length; i++) {
         await tx.unitArea.create({
@@ -443,8 +496,15 @@ export async function bootstrapOrganization(input: BootstrapInput): Promise<Boot
       }
     }
 
-    return { organizationId: org.id, ownerUserId: userId, areaIds, templateIds, initialUnitId };
-  });
+    return {
+      organizationId: org.id,
+      ownerUserId: userId,
+      areaIds,
+      templateIds,
+      initialUnitId: unitIds[0] ?? null,
+      unitIds,
+    };
+  }, { timeout: 15_000 });
 
   // 6. Audit log (outside transaction so it doesn't block on failure)
   void logAudit({
@@ -453,7 +513,13 @@ export async function bootstrapOrganization(input: BootstrapInput): Promise<Boot
     action: 'org.bootstrapped',
     resourceType: 'organization',
     resourceId: result.organizationId,
-    metadata: { areaCount: result.areaIds.length, templateCount: result.templateIds.length, hasInitialUnit: !!result.initialUnitId },
+    metadata: {
+      areaCount: result.areaIds.length,
+      templateCount: result.templateIds.length,
+      hasInitialUnit: !!result.initialUnitId,
+      unitCount: result.unitIds.length,
+      mode: input.blueprint ? 'blueprint' : 'canonical',
+    },
   });
 
   return result;

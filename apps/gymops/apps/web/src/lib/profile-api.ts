@@ -23,6 +23,49 @@ export const profileApi = {
     api.post<ApiResponse<UserProfile>>('/me/avatar', { objectKey }),
 };
 
+// ── Blueprint do onboarding (espelha o zod do backend) ────────────────────────
+
+export interface BlueprintTemplate {
+  name: string;
+  description?: string;
+  defaultChecklist: string[];
+  defaultPriority: 'baixa' | 'media' | 'alta' | 'critica';
+  defaultVisibility: 'inherited' | 'restricted';
+  suggestedSlaDays?: number;
+  specificFields?: string[];
+}
+
+export interface BlueprintArea {
+  key: string;
+  name: string;
+  color: string;
+  visibilityDefault: 'inherited' | 'restricted';
+  /** Omitido + key canônica = templates canônicos; [] = nenhum. */
+  templates?: BlueprintTemplate[];
+}
+
+export interface BlueprintUnit {
+  name: string;
+  code?: string;
+  address?: string;
+}
+
+export interface OrgBlueprint {
+  areas: BlueprintArea[];
+  units: BlueprintUnit[];
+}
+
+/** Rascunho da IA (POST /organizations/setup-draft) — proposta editável. */
+export interface OrgSetupDraft {
+  organizationName?: string;
+  suggestedSlug?: string;
+  segmentLabel?: string;
+  areas: Array<BlueprintArea & { templates: BlueprintTemplate[] }>;
+  unitsSuggested?: BlueprintUnit[];
+  confidence: number;
+  reasoning?: string;
+}
+
 export const organizationApi = {
   get: (id: string) =>
     api.get<ApiResponse<{ id: string; name: string; slug: string; logoUrl: string | null; settings: Record<string, unknown> }>>(`/organizations/${id}`),
@@ -33,8 +76,23 @@ export const organizationApi = {
   checkSlug: (slug: string) =>
     api.get<ApiResponse<{ available: boolean }>>(`/organizations/slug-available?slug=${encodeURIComponent(slug)}`),
 
-  create: (data: { name: string; slug: string; ownerEmail: string; ownerName: string; ownerPassword: string; initialUnit?: { name: string; code?: string; address?: string } }) =>
+  create: (data: {
+    name: string;
+    slug: string;
+    ownerEmail: string;
+    ownerName: string;
+    ownerPassword: string;
+    initialUnit?: { name: string; code?: string; address?: string };
+    blueprint?: OrgBlueprint;
+    setupMeta?: { mode: 'ai' | 'manual'; segmentLabel?: string };
+  }) =>
     api.post<ApiResponse<{ organizationId: string; organizationSlug: string; userId: string }>>('/organizations', data),
+
+  setupDraft: (businessDescription: string, organizationName?: string) =>
+    api.post<ApiResponse<OrgSetupDraft>>('/organizations/setup-draft', {
+      businessDescription,
+      ...(organizationName ? { organizationName } : {}),
+    }),
 };
 
 export const auditLogsApi = {

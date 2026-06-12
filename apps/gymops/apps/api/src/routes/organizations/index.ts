@@ -6,6 +6,10 @@ import { db } from '../../lib/prisma.js';
 import { hasOrgRole } from '../../lib/rbac.js';
 import { logAudit } from '../../lib/audit.js';
 import { bootstrapOrganization } from '../../lib/bootstrap-organization.js';
+import { OrgBlueprintSchema } from '../../lib/org-blueprint.schema.js';
+import { callAI, chatJSON } from '../../ai/ai.service.js';
+import { OrgSetupDraftSchema } from '../../ai/schemas/org-setup-draft.schema.js';
+import { buildOrgSetupPrompt } from '../../ai/prompts/org-setup.prompt.js';
 
 export const organizationRoutes: FastifyPluginAsync = async (app) => {
   // ── GET /organizations/slug-available ────────────────────────────────────────
@@ -27,6 +31,14 @@ export const organizationRoutes: FastifyPluginAsync = async (app) => {
       code: z.string().max(20).optional(),
       address: z.string().max(255).optional(),
     }).optional(),
+    // Estrutura customizada do onboarding (qualquer segmento) — montada pelo
+    // usuário (manual) ou pela IA APÓS revisão humana. Sem blueprint, o
+    // bootstrap usa o catálogo canônico (comportamento atual).
+    blueprint: OrgBlueprintSchema.optional(),
+    setupMeta: z.object({
+      mode: z.enum(['ai', 'manual']),
+      segmentLabel: z.string().max(60).optional(),
+    }).optional(),
   });
 
   app.post(
@@ -37,7 +49,11 @@ export const organizationRoutes: FastifyPluginAsync = async (app) => {
       if (!body.success)
         return reply.status(422).send({ error: { code: 'VALIDATION_ERROR', message: 'Invalid input', details: body.error.flatten() } });
 
-      const { name, slug, ownerEmail, ownerName, ownerPassword, initialUnit } = body.data;
+      const { name, slug, ownerEmail, ownerName, ownerPassword, initialUnit, blueprint, setupMeta } = body.data;
+
+      if (blueprint?.units?.length && initialUnit) {
+        return reply.status(422).send({ error: { code: 'CONFLICTING_UNITS', message: 'Use blueprint.units OR initialUnit, not both' } });
+      }
 
       const existingSlug = await db.organization.findUnique({ where: { slug } });
       if (existingSlug)
@@ -54,6 +70,8 @@ export const organizationRoutes: FastifyPluginAsync = async (app) => {
         slug,
         owner: { name: ownerName, email: ownerEmail, passwordHash },
         initialUnit,
+        blueprint,
+        ...(setupMeta ? { settings: { onboarding: setupMeta } } : {}),
       });
 
       return reply.status(201).send({
@@ -63,6 +81,56 @@ export const organizationRoutes: FastifyPluginAsync = async (app) => {
           userId: result.ownerUserId,
         },
       });
+    },
+  );
+
+  // ── POST /organizations/setup-draft — rascunho de configuração por IA ───────
+  // PÚBLICO (o cadastro acontece antes de existir conta) e por isso com rate
+  // limit apertado + entrada limitada. A IA NUNCA cria nada: devolve uma
+  // proposta (áreas/templates/unidades adequadas ao negócio DESCRITO) que o
+  // usuário revisa/edita no wizard e só então confirma via POST /organizations
+  // com blueprint. Conhecimento setorial vive no prompt — nenhum mapa
+  // segmento→estrutura no código.
+  app.post(
+    '/setup-draft',
+    { config: { rateLimit: { max: 3, timeWindow: '15 minutes' } } },
+    async (request, reply) => {
+      const body = z.object({
+        businessDescription: z.string().min(10).max(1500),
+        organizationName: z.string().min(2).max(100).optional(),
+      }).safeParse(request.body);
+      if (!body.success)
+        return reply.status(422).send({ error: { code: 'VALIDATION_ERROR', message: 'Invalid input', details: body.error.flatten() } });
+
+      const prompt = buildOrgSetupPrompt({
+        businessDescription: body.data.businessDescription,
+        organizationName: body.data.organizationName,
+      });
+
+      const attempt = () => callAI(
+        (client) => chatJSON(client, prompt),
+        null,
+        { stage: 'org-setup', timeoutMs: 30_000 },
+      );
+
+      let raw = await attempt();
+      if (raw === null) {
+        return reply.status(503).send({ error: { code: 'AI_UNAVAILABLE', message: 'AI assistant is unavailable right now' } });
+      }
+
+      let parsed = OrgSetupDraftSchema.safeParse(raw);
+      if (!parsed.success) {
+        // 1 retry — saída fora do contrato não é consertada no código.
+        raw = await attempt();
+        parsed = raw === null
+          ? parsed
+          : OrgSetupDraftSchema.safeParse(raw);
+        if (!parsed.success) {
+          return reply.status(502).send({ error: { code: 'AI_INVALID_OUTPUT', message: 'AI returned an invalid structure, try again' } });
+        }
+      }
+
+      return reply.send({ data: parsed.data });
     },
   );
   // ── GET /organizations/:id ───────────────────────────────────────────────────
