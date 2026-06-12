@@ -187,7 +187,7 @@ function onEditFields() {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, rgba(var(--v-theme-primary), 0.8), rgba(var(--v-theme-primary), 1));
+  background: rgb(var(--v-theme-primary));
   transition: width 200ms ease-out;
 }
 

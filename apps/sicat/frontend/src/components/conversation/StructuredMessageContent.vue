@@ -439,14 +439,13 @@ const parsed = computed(() => parseStructuredContent(props.text));
 }
 
 .manifest-card {
-  border: 1px solid rgba(var(--v-theme-primary), 0.2);
-  border-radius: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   padding: 10px 12px;
   display: grid;
   gap: 10px;
-  background:
-    linear-gradient(180deg, rgba(var(--v-theme-primary), 0.07), rgba(var(--v-theme-primary), 0.03)),
-    rgba(var(--v-theme-surface), 0.9);
+  /* Superfície sólida elevada — sem o gradiente verde atrás do texto. */
+  background: var(--color-surface-raised);
 }
 
 .manifest-card-section {

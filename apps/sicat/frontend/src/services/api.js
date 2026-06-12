@@ -752,12 +752,15 @@ export function getJobById(jobId) {
   return request(`/v1/jobs/${encodeURIComponent(jobId)}`);
 }
 
-export function sendConversationTurn(payload) {
+export function sendConversationTurn(payload, { signal } = {}) {
   // O turno conversacional pode acionar o agente de diagnóstico (loop multi-step com o LLM),
   // levando bem mais que os 20s padrão. Damos folga generosa para não abortar respostas válidas.
+  // `signal` permite ao chat cancelar a ESPERA do cliente (botão Parar) — o backend
+  // conclui o turno normalmente, mas a UI é liberada na hora.
   return request('/v1/conversations/turns', {
     method: 'POST',
     timeoutMs: 90000,
+    ...(signal ? { signal } : {}),
     headers: {
       'Content-Type': 'application/json'
     },

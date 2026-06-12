@@ -196,7 +196,7 @@ function onDismiss() {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, rgba(var(--v-theme-success), 0.8), rgba(var(--v-theme-success), 1));
+  background: rgb(var(--v-theme-success));
   transition: width 300ms ease-out;
 }
 

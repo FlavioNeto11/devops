@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
   downloadConversationArtifactContent,
@@ -288,7 +288,11 @@ export function useConversationalChatApp() {
   const conversationSessionId = ref('');
   const focusedManifestId = ref('');
   const focusedJobId = ref('');
-  
+  // Último prompt enviado pelo usuário — alimenta o "Regenerar resposta".
+  const lastUserPrompt = ref('');
+  // AbortController do turno em andamento (botão Parar). Não-reativo de propósito.
+  let activeAbortController = null;
+
   // NOVO: Phase 06 - Snapshot preservation for preview+confirm workflow
   const lastSnapshot = ref(null);
 
@@ -332,11 +336,58 @@ export function useConversationalChatApp() {
     messages.value = messages.value.concat(message);
   }
 
+  // ── Persistência local da conversa ─────────────────────────────────────────
+  // sessionStorage (escopo: aba) com chave por conta CETESB: a conversa
+  // sobrevive a refresh/navegação sem vazar entre contas nem entre sessões do
+  // navegador. O backend já persiste a thread (conversationSessionId) — aqui
+  // guardamos só a projeção de UI (últimas 60 mensagens).
+  const storageKey = computed(() => `sicat-chat:${accountId.value || 'default'}`);
+
+  function restoreConversation() {
+    try {
+      const raw = globalThis.sessionStorage?.getItem(storageKey.value);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (Array.isArray(saved.messages) && saved.messages.length) {
+        messages.value = saved.messages;
+      }
+      conversationSessionId.value = toTrimmedString(saved.conversationSessionId);
+      focusedManifestId.value = toTrimmedString(saved.focusedManifestId);
+      focusedJobId.value = toTrimmedString(saved.focusedJobId);
+      lastUserPrompt.value = toTrimmedString(saved.lastUserPrompt);
+    } catch {
+      /* storage indisponível ou corrompido: começa conversa nova */
+    }
+  }
+
+  function persistConversation() {
+    try {
+      globalThis.sessionStorage?.setItem(storageKey.value, JSON.stringify({
+        messages: messages.value.slice(-60),
+        conversationSessionId: conversationSessionId.value,
+        focusedManifestId: focusedManifestId.value,
+        focusedJobId: focusedJobId.value,
+        lastUserPrompt: lastUserPrompt.value
+      }));
+    } catch {
+      /* quota/indisponível: a conversa segue só em memória */
+    }
+  }
+
+  restoreConversation();
+  watch([messages, conversationSessionId, focusedManifestId, focusedJobId], persistConversation);
+
   function clearConversation() {
     draft.value = '';
     error.value = '';
     conversationSessionId.value = '';
     messages.value = [];
+    lastUserPrompt.value = '';
+    try {
+      globalThis.sessionStorage?.removeItem(storageKey.value);
+    } catch {
+      /* sem storage, nada a remover */
+    }
   }
 
   function ensureInitialAssistantMessage() {
@@ -366,6 +417,46 @@ export function useConversationalChatApp() {
     }
 
     return '';
+  }
+
+  // Executa um turno guardado: trava o composer, dá um AbortController ao
+  // request (botão Parar) e diferencia cancelamento de falha real.
+  async function runGuardedTurn(thunk) {
+    if (isSubmitting.value) return;
+    error.value = '';
+    isSubmitting.value = true;
+    const controller = new AbortController();
+    activeAbortController = controller;
+    try {
+      await thunk(controller.signal);
+    } catch (requestError) {
+      if (controller.signal.aborted) {
+        appendMessage(createMessage({
+          role: 'assistant',
+          text: 'Consulta interrompida. Se a operação já tinha começado, o backend a conclui em segundo plano.',
+          status: 'blocked'
+        }));
+      } else {
+        const message = toTrimmedString(requestError?.message) || 'Falha ao consultar o backend conversacional.';
+        error.value = message;
+        appendMessage(createMessage({
+          role: 'assistant',
+          text: 'Nao consegui falar com o backend conversacional agora.',
+          status: 'failed',
+          facts: [message]
+        }));
+      }
+    } finally {
+      if (activeAbortController === controller) {
+        activeAbortController = null;
+      }
+      isSubmitting.value = false;
+    }
+  }
+
+  // Botão Parar: cancela a ESPERA do cliente (o turno no backend não é morto).
+  function cancelCurrent() {
+    activeAbortController?.abort();
   }
 
   async function sendToBackend(userInput, options = {}) {
@@ -403,7 +494,7 @@ export function useConversationalChatApp() {
       options: {
         allowActions: true
       }
-    });
+    }, { signal: options.signal });
 
     conversationSessionId.value = toTrimmedString(response?.conversationSessionId);
 
@@ -447,7 +538,9 @@ export function useConversationalChatApp() {
       confirmedArguments.snapshotSessionContextId = lastSnapshot.value.sessionContextId;
     }
 
-    await sendToBackend('Confirmar execucao da acao sensivel.', {
+    // Guardado: confirma com a UI travada (loading) e cancelável pelo Parar.
+    await runGuardedTurn((signal) => sendToBackend('Confirmar execucao da acao sensivel.', {
+      signal,
       toolRequest: {
         name: toolName,
         arguments: confirmedArguments
@@ -456,7 +549,7 @@ export function useConversationalChatApp() {
         confirmation: true,
         snapshotUsed: Boolean(lastSnapshot.value?.token)
       }
-    });
+    }));
   }
 
   // NOVO: Phase 06 - Extract and preserve snapshot from response
@@ -537,6 +630,7 @@ export function useConversationalChatApp() {
     error.value = '';
     appendMessage(createMessage({ role: 'user', text: userInput }));
     draft.value = '';
+    lastUserPrompt.value = userInput;
 
     if (!operationalScopeReady.value) {
       appendMessage(createMessage({
@@ -548,22 +642,23 @@ export function useConversationalChatApp() {
       return;
     }
 
-    isSubmitting.value = true;
+    await runGuardedTurn((signal) => sendToBackend(userInput, { signal }));
+  }
 
-    try {
-      await sendToBackend(userInput);
-    } catch (requestError) {
-      const message = toTrimmedString(requestError?.message) || 'Falha ao consultar o backend conversacional.';
-      error.value = message;
-      appendMessage(createMessage({
-        role: 'assistant',
-        text: 'Nao consegui falar com o backend conversacional agora.',
-        status: 'failed',
-        facts: [message]
-      }));
-    } finally {
-      isSubmitting.value = false;
+  // Regenerar: reenvia o último prompt do usuário SEM duplicar o balão dele —
+  // a nova resposta chega como mais um turno da mesma thread.
+  const canRegenerate = computed(() => Boolean(lastUserPrompt.value) && !isSubmitting.value);
+
+  async function regenerateLast() {
+    const prompt = toTrimmedString(lastUserPrompt.value);
+    if (!prompt || isSubmitting.value || !operationalScopeReady.value) {
+      return;
     }
+
+    await runGuardedTurn((signal) => sendToBackend(prompt, {
+      signal,
+      metadata: { regenerated: true }
+    }));
   }
 
   async function runQuickAction(action) {
@@ -646,10 +741,13 @@ export function useConversationalChatApp() {
     focusedJobId,
     accountLabel,
     operationalScopeReady,
+    canRegenerate,
     ensureInitialAssistantMessage,
     clearConversation,
     sendMessage,
     sendFeedback,
+    regenerateLast,
+    cancelCurrent,
     runQuickAction,
     handleAction,
     downloadArtifact

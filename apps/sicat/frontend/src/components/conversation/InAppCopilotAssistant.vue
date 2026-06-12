@@ -413,10 +413,10 @@ onUnmounted(() => {
   bottom: clamp(18px, 2.8vw, 30px);
   min-height: 54px;
   padding-inline: 18px;
-  border-radius: 18px;
-  background: linear-gradient(135deg, rgba(var(--v-theme-primary), 0.96) 0%, rgba(var(--v-theme-info), 0.86) 100%);
+  border-radius: var(--radius-md);
+  background: rgb(var(--v-theme-primary));
   color: rgb(var(--v-theme-on-primary));
-  box-shadow: 0 20px 48px rgba(6, 50, 41, 0.28);
+  box-shadow: var(--shadow-md);
   cursor: grab;
   user-select: none;
   touch-action: none;
@@ -425,7 +425,7 @@ onUnmounted(() => {
 .copilot-launcher--dragging {
   cursor: grabbing;
   opacity: 0.92;
-  box-shadow: 0 26px 60px rgba(6, 50, 41, 0.36);
+  box-shadow: var(--shadow-lg);
 }
 
 .copilot-backdrop {
@@ -447,14 +447,10 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 14px;
   padding: 18px;
-  border: 1px solid rgba(var(--v-border-color), 0.18);
-  border-radius: 28px;
-  background:
-    radial-gradient(circle at top right, rgba(var(--v-theme-primary), 0.12), transparent 34%),
-    radial-gradient(circle at top left, rgba(var(--v-theme-info), 0.08), transparent 28%),
-    rgba(var(--v-theme-surface), 0.96);
-  box-shadow: 0 28px 80px rgba(8, 24, 19, 0.28);
-  backdrop-filter: blur(22px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: rgb(var(--v-theme-surface));
+  box-shadow: var(--shadow-lg);
   overflow: hidden;
 }
 
@@ -550,7 +546,8 @@ onUnmounted(() => {
 
 .copilot-message-user {
   justify-self: end;
-  background: linear-gradient(135deg, rgba(var(--v-theme-primary), 0.14) 0%, rgba(var(--v-theme-info), 0.1) 100%);
+  background: rgba(var(--v-theme-primary), 0.08);
+  border-color: rgba(var(--v-theme-primary), 0.18);
 }
 
 .copilot-message-assistant {
