@@ -19,6 +19,13 @@ const homeSections = [
         { title: 'Multidisciplinar', desc: 'Engenharia + meio ambiente' },
         { title: 'Regulatório', desc: 'Relacionamento com órgãos' },
       ],
+      floating: [
+        { icon: 'MapPin', label: 'Atuação nacional', position: 'top-left' },
+        { icon: 'Users', label: 'Equipe multidisciplinar', position: 'right' },
+        { icon: 'ShieldCheck', label: 'Licenciamento e regularização', position: 'bottom-left' },
+      ],
+      mapLabel: 'Pontos de atuação',
+      mapSublabel: 'Brasil · multirregião',
     },
   },
   {

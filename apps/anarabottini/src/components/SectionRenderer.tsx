@@ -71,10 +71,25 @@ function VideoChip({ path, value }: { path: string; value?: string }) {
 }
 
 // --------------------------------------------------------------------------- Hero
+// Posições pré-definidas das labels flutuantes (floating[].position no CMS);
+// sem position, mantém a ordem histórica por índice. Espelha o portal gêmeo
+// (apps/rmambiental/src/components/SectionRenderer.tsx).
+const FLOAT_POS: Record<string, CSSProperties> = {
+  'top-left': { top: '6%', left: '-5%' },
+  'top-right': { top: '8%', right: '-6%' },
+  right: { top: '44%', right: '-6%' },
+  left: { top: '44%', left: '-5%' },
+  'bottom-left': { bottom: '8%', left: '-4%' },
+  'bottom-right': { bottom: '10%', right: '-5%' },
+};
+const FLOAT_ORDER = ['top-left', 'right', 'bottom-left', 'top-right', 'bottom-right', 'left'];
+const floatStyle = (f: D, i: number): CSSProperties => FLOAT_POS[f.position as string] || FLOAT_POS[FLOAT_ORDER[i % FLOAT_ORDER.length]];
+
 function HeroBlock({ d }: { d: D }) {
   const { site } = useSite();
   const edit = useEditMode();
-  const floating: D[] = d.floating || [];
+  const floating: D[] = (d.floating || []).filter((f: D) => f && f.visible !== false);
+  const allFloating: D[] = d.floating || [];
   return (
     <section id="inicio" className="relative overflow-hidden pt-[72px]">
       <GridGlow />
@@ -113,21 +128,32 @@ function HeroBlock({ d }: { d: D }) {
               <PortraitCard photo={mediaUrl(site.photos?.hero)} className="relative" />
             </MediaSlot>
             <div className="relative mt-3 flex items-center justify-between rounded-xl border border-brand-text/10 bg-brand-surface2/70 px-4 py-3">
-              <span className="text-xs uppercase tracking-widest text-brand-muted">Palestrante corporativa</span>
+              <span className="text-xs uppercase tracking-widest text-brand-muted">
+                {edit ? <EditableText as="span" path="photoCaption" value={d.photoCaption || 'Palestrante corporativa'} placeholder="legenda" /> : (d.photoCaption || 'Palestrante corporativa')}
+              </span>
               <span className="font-display text-sm font-bold text-brand-neon">{site.shortName}</span>
             </div>
           </div>
           {floating.map((f, i) => {
             const Ico = resolveIcon(f.icon);
+            const idx = allFloating.indexOf(f);
             return (
-              <motion.div key={f.label} className="absolute z-10 hidden items-center gap-2 rounded-xl border border-brand-text/10 bg-brand-surface/90 px-3.5 py-2.5 shadow-soft backdrop-blur-md sm:flex"
-                style={{ top: ['6%', '44%', undefined][i], left: [`-5%`, undefined, '-4%'][i], right: [undefined, '-6%', undefined][i], bottom: [undefined, undefined, '8%'][i] } as CSSProperties}
+              <motion.div key={(f.label || '') + i} className="absolute z-10 hidden items-center gap-2 rounded-xl border border-brand-text/10 bg-brand-surface/90 px-3.5 py-2.5 shadow-soft backdrop-blur-md sm:flex"
+                style={floatStyle(f, i)}
                 initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.55 + i * 0.18 }}>
                 <span className="grid h-7 w-7 place-items-center rounded-lg bg-brand-neon/15"><Ico className="h-3.5 w-3.5 text-brand-neon" /></span>
-                <span className="text-xs font-semibold text-brand-text">{f.label}</span>
+                <span className="text-xs font-semibold text-brand-text">
+                  {edit ? <EditableText as="span" path={`floating.${idx}.label`} value={f.label || ''} placeholder="label" /> : f.label}
+                </span>
+                {edit && <ItemControls path="floating" index={idx} count={allFloating.length} />}
               </motion.div>
             );
           })}
+          {edit && (
+            <div className="absolute -bottom-12 left-0">
+              <AddButton path="floating" label="label flutuante" />
+            </div>
+          )}
         </motion.div>
       </div>
     </section>

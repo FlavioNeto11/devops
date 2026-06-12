@@ -36,6 +36,11 @@ export const ITEM_TEMPLATES = {
     modalidades: ['Palestra'], duracao: '', youtubeId: '', materiais: [],
   },
   'video-gallery:items': { id: '', youtubeId: '', title: 'Novo vídeo', tipo: 'palestra' },
+  // Labels flutuantes do hero (anarabottini/rmambiental): icon = nome do catálogo;
+  // position = top-left | top-right | right | left | bottom-left | bottom-right.
+  'hero:floating': { icon: 'Sparkles', label: 'Nova label', position: 'top-left', visible: true },
+  'hero:indicators': { title: 'Indicador', desc: '' },
+  'hero:axes': { title: 'Eixo', desc: '' },
 };
 
 /** Rótulo curto por kind (inclui os específicos de portal para exibição). */
