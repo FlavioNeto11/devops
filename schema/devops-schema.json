@@ -31,6 +31,12 @@
           "type": "string",
           "description": "Subpath base sob o qual a app inteira é servida. Convenção: /<name>.",
           "pattern": "^/[a-z0-9-/]*$"
+        },
+        "appType": {
+          "type": "string",
+          "description": "Taxonomia da aplicação (opcional; default product_software). cms_portal = portal/site com conteúdo gerenciado pelo CMS do Console; product_software = produto/sistema completo (ex.: sicat, gymops); platform_tool = ferramenta interna da plataforma (ex.: portal-recorder, ai-control-plane). Vira o label devops.flavioneto/app-type nos recursos e classifica o projeto no Console.",
+          "enum": ["product_software", "cms_portal", "platform_tool"],
+          "default": "product_software"
         }
       }
     },

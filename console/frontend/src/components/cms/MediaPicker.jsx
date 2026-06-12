@@ -3,7 +3,7 @@ import Modal from '../Modal.jsx';
 import ConfirmDialog from '../ConfirmDialog.jsx';
 import Icon from '../Icon.jsx';
 import { useToast } from '../ToastProvider.jsx';
-import { pmCmsFiles, pmCmsUpload, pmCmsDeleteFile } from '../../api.js';
+import { pmCmsFiles, pmCmsUpload, pmCmsDeleteFile, pmMe } from '../../api.js';
 
 /**
  * MediaPicker — seleção VISUAL de mídia (substitui colar URL/caminho).
@@ -63,27 +63,71 @@ export default function MediaPicker({ projectId, value, onChange }) {
   );
 }
 
-/** Biblioteca de mídia do projeto (modal com grid). `filter` = prefixo de mime
- *  (ex.: 'video/') para restringir a listagem — reusada pelo VideoPicker. */
+/** Biblioteca de mídia em DOIS níveis (modal com grid): arquivos DESTE portal +
+ *  biblioteca PÚBLICA da plataforma (reutilizável por qualquer portal; gerida por
+ *  admin). `filter` = prefixo de mime (ex.: 'video/') — reusada pelo VideoPicker. */
+const SCOPE_TABS = [
+  { key: 'all', label: 'Todos disponíveis' },
+  { key: 'project', label: 'Este portal' },
+  { key: 'global', label: 'Biblioteca pública' },
+];
+
 export function MediaLibrary({ projectId, onClose, onPick, filter }) {
   const toast = useToast();
+  const inp = useRef(null);
   const [files, setFiles] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
+  const [scope, setScope] = useState('all');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => { pmMe().then((m) => setIsAdmin(!!m?.isAdmin)).catch(() => {}); }, []);
 
   const load = useCallback(async () => {
-    try { setFiles((await pmCmsFiles(projectId)) || []); }
+    try { setFiles((await pmCmsFiles(projectId, scope)) || []); }
     catch (e) { toast.err(e.message); setFiles([]); }
-  }, [projectId, toast]);
+  }, [projectId, scope, toast]);
   useEffect(() => { load(); }, [load]);
+
+  // Upload direto para a biblioteca pública (admin): qualquer portal poderá usar.
+  const onGlobalFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    try { await pmCmsUpload(projectId, file, 'global'); toast.ok('Arquivo publicado na biblioteca pública.'); await load(); }
+    catch (err) { toast.err(err.message); }
+    finally { setBusy(false); if (inp.current) inp.current.value = ''; }
+  };
 
   const shown = files === null ? null : (filter ? files.filter((f) => (f.mime || '').startsWith(filter)) : files);
 
   return (
     <Modal title="Biblioteca de mídia" size="lg" onClose={onClose}>
+      <div className="toolbar" style={{ marginBottom: 12, gap: 8, display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="meta__pills" role="tablist" aria-label="Escopo da biblioteca">
+          {SCOPE_TABS.map((t) => (
+            <button key={t.key} className={'pill' + (scope === t.key ? ' pill--active' : '')} role="tab"
+              aria-selected={scope === t.key} onClick={() => setScope(t.key)}>{t.label}</button>
+          ))}
+        </div>
+        {isAdmin && (
+          <span style={{ marginLeft: 'auto' }}>
+            <input ref={inp} type="file" hidden accept={ACCEPT} onChange={onGlobalFile} />
+            <button type="button" className="btn" disabled={busy} title="Disponível para todos os portais"
+              onClick={() => inp.current?.click()}>
+              <Icon name="plus" size={15} /> {busy ? 'Enviando…' : 'Enviar à biblioteca pública'}
+            </button>
+          </span>
+        )}
+      </div>
       {shown === null ? (
         <p className="muted">Carregando…</p>
       ) : !shown.length ? (
-        <p className="muted">{filter ? 'Nenhum arquivo desse tipo enviado neste portal ainda. Use “Upload” no campo para enviar o primeiro.' : 'Nenhum arquivo enviado neste portal ainda. Use “Upload” no campo para enviar o primeiro.'}</p>
+        <p className="muted">
+          {scope === 'global'
+            ? 'A biblioteca pública ainda não tem arquivos deste tipo. Administradores podem publicar materiais reutilizáveis (logos, fundos, ícones).'
+            : (filter ? 'Nenhum arquivo desse tipo enviado neste portal ainda. Use “Upload” no campo para enviar o primeiro.' : 'Nenhum arquivo enviado neste portal ainda. Use “Upload” no campo para enviar o primeiro.')}
+        </p>
       ) : (
         <div className="cards mp-lib">
           {shown.map((f) => (
@@ -94,11 +138,16 @@ export function MediaLibrary({ projectId, onClose, onPick, filter }) {
                   : (f.mime || '').startsWith('video/')
                     ? <video src={f.url} preload="metadata" muted className="mp-libitem__video" />
                     : <span className="mp-libitem__doc"><Icon name="file-text" size={26} /></span>}
-                <span className="mp-libitem__name">{f.filename}</span>
+                <span className="mp-libitem__name">
+                  {f.scope === 'global' && <span className="badge badge-accent" style={{ marginRight: 4 }}>pública</span>}
+                  {f.filename}
+                </span>
               </button>
-              <button type="button" className="icon-btn mp-libitem__del" title="Excluir arquivo" onClick={() => setConfirmDel(f)}>
-                <Icon name="trash2" size={15} />
-              </button>
+              {(f.scope !== 'global' || isAdmin) && (
+                <button type="button" className="icon-btn mp-libitem__del" title={f.scope === 'global' ? 'Excluir da biblioteca pública (afeta todos os portais)' : 'Excluir arquivo'} onClick={() => setConfirmDel(f)}>
+                  <Icon name="trash2" size={15} />
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -106,7 +155,9 @@ export function MediaLibrary({ projectId, onClose, onPick, filter }) {
       {confirmDel && (
         <ConfirmDialog
           title="Excluir arquivo"
-          message={`Excluir "${confirmDel.filename}"? Seções que usam este arquivo ficarão sem a mídia.`}
+          message={confirmDel.scope === 'global'
+            ? `Excluir "${confirmDel.filename}" da biblioteca PÚBLICA? Qualquer portal que use este arquivo ficará sem a mídia.`
+            : `Excluir "${confirmDel.filename}"? Seções que usam este arquivo ficarão sem a mídia.`}
           confirmLabel="Excluir" danger
           onClose={() => setConfirmDel(null)}
           onConfirm={async () => { await pmCmsDeleteFile(confirmDel.id); toast.ok('Arquivo excluído.'); setConfirmDel(null); await load(); }}

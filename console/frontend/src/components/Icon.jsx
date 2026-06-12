@@ -145,6 +145,12 @@ const ICONS = {
     </>
   ),
   diamond: <path d="M12 2 22 12 12 22 2 12Z" />,
+  home: (
+    <>
+      <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <path d="M9 22V12h6v10" />
+    </>
+  ),
   'file-text': (
     <>
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />

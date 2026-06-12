@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { fetchPods, fetchDeployments } from '../api.js';
+import { fetchPods, fetchDeployments, pmProjects } from '../api.js';
 import { phaseBadgeClass, asCount } from '../format.js';
 import { TableSkeleton } from './Skeleton.jsx';
+import { appTypeLookup, typeMeta } from '../lib/appTypes.js';
 
 /**
  * Health
@@ -22,6 +23,19 @@ export default function Health({ streamData, streamStatus }) {
   const [deployments, setDeployments] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Tipo da app (cadastro do pm-api): rotula deployments como Portal CMS/Produto/Interno.
+  const [types, setTypes] = useState({});
+  useEffect(() => {
+    pmProjects().then((p) => setTypes(appTypeLookup(p))).catch(() => {});
+  }, []);
+  // Resolve o tipo pelo label part-of (quando o backend envia) ou por prefixo do nome.
+  const typeOfDeployment = useCallback((d) => {
+    const byLabel = d.labels && (d.labels['devops.flavioneto/app-type']
+      || types[d.labels['app.kubernetes.io/part-of']]);
+    if (byLabel) return byLabel;
+    const key = Object.keys(types).find((k) => d.name === k || d.name.startsWith(`${k}-`));
+    return key ? types[key] : null;
+  }, [types]);
 
   const load = useCallback(async (signal) => {
     setError(null);
@@ -146,6 +160,7 @@ export default function Health({ streamData, streamStatus }) {
             <tr>
               <th>Saude</th>
               <th>Nome</th>
+              <th>Tipo</th>
               <th>Namespace</th>
               <th className="num">Ready / Desejado</th>
             </tr>
@@ -153,7 +168,7 @@ export default function Health({ streamData, streamStatus }) {
           <tbody>
             {deployments.length === 0 && (
               <tr>
-                <td colSpan={4} className="table__empty">
+                <td colSpan={5} className="table__empty">
                   Nenhum deployment encontrado.
                 </td>
               </tr>
@@ -170,6 +185,7 @@ export default function Health({ streamData, streamStatus }) {
                     : ready > 0
                       ? 'warn'
                       : 'err';
+              const t = typeOfDeployment(d);
               return (
                 <tr key={`${d.namespace}/${d.name}`}>
                   <td>
@@ -177,6 +193,7 @@ export default function Health({ streamData, streamStatus }) {
                     <span className="sr-only">{healthLabel(health)}</span>
                   </td>
                   <td className="mono">{d.name}</td>
+                  <td>{t ? <span className={'badge ' + typeMeta(t).badge}>{typeMeta(t).short}</span> : <span className="muted">—</span>}</td>
                   <td>{d.namespace}</td>
                   <td className="num mono">
                     {ready} / {desired}

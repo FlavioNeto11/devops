@@ -13,6 +13,7 @@ import EmptyState from './EmptyState.jsx';
 import PageHeader from './PageHeader.jsx';
 import { ListSkeleton } from './Skeleton.jsx';
 import { useToast } from './ToastProvider.jsx';
+import { appTypeOf, isPortal, typeMeta } from '../lib/appTypes.js';
 
 /**
  * MetaProjects — "Projetos & Tarefas": board estilo Trello (pills de projeto, colunas por
@@ -308,7 +309,7 @@ function ItemDrawer({ mode, item, projectId, onClose, onSaved }) {
 }
 
 // ===========================================================================
-export default function MetaProjects({ canManageProjects = true }) {
+export default function MetaProjects({ canManageProjects = true, initialId = null }) {
   const toast = useToast();
   const [projects, setProjects] = useState([]);
   const [apps, setApps] = useState([]);
@@ -326,18 +327,27 @@ export default function MetaProjects({ canManageProjects = true }) {
   const [overCol, setOverCol] = useState(null);
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [newProj, setNewProj] = useState({ key: '', name: '' });
+  const [newProj, setNewProj] = useState({ key: '', name: '', appType: 'product_software' });
   const [confirmDelProject, setConfirmDelProject] = useState(null);
 
   const loadProjects = useCallback(async (keepSel) => {
     try {
       const [p, a] = await Promise.all([pmProjects(), fetchApps().catch(() => [])]);
-      setProjects(p || []);
+      // Produtos/sistemas primeiro; portais CMS por último (mundos separados na UI).
+      const ordered = [...(p || [])].sort((x, y) => Number(isPortal(x)) - Number(isPortal(y)));
+      setProjects(ordered);
       setApps(Array.isArray(a) ? a : a?.data || []);
-      setSelId((cur) => (keepSel && cur) || cur || (p && p[0] && p[0].id) || null);
+      setSelId((cur) => (keepSel && cur) || cur
+        || (initialId && ordered.some((x) => x.id === initialId) ? initialId : null)
+        || (ordered[0] && ordered[0].id) || null);
     } catch (e) { toast.err(e.message); } finally { setLoading(false); }
-  }, [toast]);
+  }, [toast, initialId]);
   useEffect(() => { loadProjects(); }, [loadProjects]);
+
+  // Navegação vinda do painel ("Abrir board" num projeto específico).
+  useEffect(() => {
+    if (initialId) setSelId((cur) => (cur === initialId ? cur : initialId));
+  }, [initialId]);
 
   const loadItems = useCallback(async (pid) => {
     if (!pid) { setItems([]); return; }
@@ -373,9 +383,9 @@ export default function MetaProjects({ canManageProjects = true }) {
     const name = newProj.name.trim() || key;
     if (!key) { toast.err('Informe a chave do projeto.'); return; }
     try {
-      await pmCreateProject({ key, name });
+      await pmCreateProject({ key, name, app_type: newProj.appType });
       setCreateOpen(false);
-      setNewProj({ key: '', name: '' });
+      setNewProj({ key: '', name: '', appType: 'product_software' });
       toast.ok('Projeto criado.');
       await loadProjects(true);
     } catch (e) { toast.err(e.message); }
@@ -394,16 +404,22 @@ export default function MetaProjects({ canManageProjects = true }) {
       {/* Pills de projeto */}
       <div className="toolbar" style={{ marginBottom: 14 }}>
         <div className="meta__pills">
-          {projects.map((p) => {
+          {projects.map((p, i) => {
             const live = liveAppFor(apps, p);
+            const meta = typeMeta(appTypeOf(p));
+            const firstPortal = isPortal(p) && (i === 0 || !isPortal(projects[i - 1]));
             return (
-              <button key={p.id} className={'pill' + (p.id === selId ? ' pill--active' : '')}
-                onClick={() => setSelId(p.id)}
-                title={live ? `app no ar · ${live.pods} pod(s)` : 'sem app vivo no cluster'}>
-                <span className={'dot ' + (live ? 'dot--ok' : 'dot--warn')} />
-                {p.name}
-                {p.id === selId && <span className="pill__count">{items.length}</span>}
-              </button>
+              <React.Fragment key={p.id}>
+                {firstPortal && <span className="muted" style={{ alignSelf: 'center', padding: '0 6px', fontSize: '.78rem' }}>| portais</span>}
+                <button className={'pill' + (p.id === selId ? ' pill--active' : '')}
+                  onClick={() => setSelId(p.id)}
+                  title={`${meta.label}${live ? ` · app no ar · ${live.pods} pod(s)` : ' · sem app vivo no cluster'}`}>
+                  <span className={'dot ' + (live ? 'dot--ok' : 'dot--warn')} />
+                  {p.name}
+                  {isPortal(p) && <span className="pill__count">CMS</span>}
+                  {p.id === selId && <span className="pill__count">{items.length}</span>}
+                </button>
+              </React.Fragment>
             );
           })}
         </div>
@@ -429,6 +445,7 @@ export default function MetaProjects({ canManageProjects = true }) {
                 <p className="app-card__meta">{[sel.stack, sel.description].filter(Boolean).join(' · ') || '—'}</p>
               </div>
               <div className="app-card__urls">
+                <span className={'badge ' + typeMeta(appTypeOf(sel)).badge}>{typeMeta(appTypeOf(sel)).label}</span>
                 <span className={'badge ' + (liveApp ? 'badge-ok' : 'badge-muted')}>{liveApp ? '● no ar' : '○ sem app vivo'}</span>
                 {sel.route && <a className="quick-link" href={sel.route} target="_blank" rel="noopener noreferrer">Abrir {sel.route} ↗</a>}
                 {canManageProjects && (
@@ -521,12 +538,25 @@ export default function MetaProjects({ canManageProjects = true }) {
               onChange={(e) => setNewProj((p) => ({ ...p, key: e.target.value }))}
               onKeyDown={(e) => { if (e.key === 'Enter') submitCreateProject(); }} />
           </label>
-          <label className="field">
+          <label className="field" style={{ marginBottom: 10 }}>
             <span className="field__label">Nome</span>
             <input className="input" placeholder="ex.: Meu App" value={newProj.name}
               onChange={(e) => setNewProj((p) => ({ ...p, name: e.target.value }))}
               onKeyDown={(e) => { if (e.key === 'Enter') submitCreateProject(); }} />
           </label>
+          <label className="field">
+            <span className="field__label">Tipo</span>
+            <select className="select" value={newProj.appType}
+              onChange={(e) => setNewProj((p) => ({ ...p, appType: e.target.value }))}>
+              <option value="product_software">Produto / sistema (board de projetos & tarefas)</option>
+              <option value="cms_portal">Portal CMS (conteúdo gerenciado pelo editor)</option>
+              <option value="platform_tool">Ferramenta interna da plataforma</option>
+            </select>
+          </label>
+          <p className="muted" style={{ marginTop: 8, fontSize: '.8rem' }}>
+            Portais CMS aparecem na aba <strong>Conteúdo</strong> e no painel do usuário em “Meus Portais”;
+            produtos aparecem aqui e em “Meus Sistemas”.
+          </p>
         </Modal>
       )}
 

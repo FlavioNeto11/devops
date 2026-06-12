@@ -23,10 +23,11 @@ const homeSections = [
         { title: 'Liderança', desc: 'Gestão mais humana e consciente' },
       ],
       floating: [
-        { icon: 'ShieldCheck', label: 'Adequação à NR-1' },
-        { icon: 'Brain', label: 'Neurodiversidade' },
-        { icon: 'HeartPulse', label: 'Saúde emocional' },
+        { icon: 'ShieldCheck', label: 'Adequação à NR-1', position: 'top-left' },
+        { icon: 'Brain', label: 'Neurodiversidade', position: 'right' },
+        { icon: 'HeartPulse', label: 'Saúde emocional', position: 'bottom-left' },
       ],
+      photoCaption: 'Palestrante corporativa',
     },
   },
   {

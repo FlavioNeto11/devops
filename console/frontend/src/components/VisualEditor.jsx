@@ -209,6 +209,9 @@ export default function VisualEditor({ project }) {
       const item = arr[0] ? clone(arr[0]) : clone(ITEM_TEMPLATES[`${sec.kind}:${path}`] || { title: 'Novo item' });
       // ids são keys/filtros nos portais — todo item novo ganha id único
       if (item && typeof item === 'object' && 'id' in item) item.id = `item-${crypto.randomUUID().slice(0, 8)}`;
+      // labels flutuantes: clonar a position do 1º item empilharia os badges no
+      // mesmo lugar — sem position, o portal posiciona pelo índice (slot livre).
+      if (path === 'floating' && item && typeof item === 'object') delete item.position;
       next = [...arr, item];
     } else {
       next = arr.filter((_, i) => i !== index); // delete-item

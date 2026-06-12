@@ -25,6 +25,11 @@ param(
   [Parameter(Mandatory = $true)][string]$Name,
   [string]$BasePath,
   [string[]]$Services = @('frontend', 'api', 'worker'),
+  # Taxonomia da app (docs/new-project-contract.md): cms_portal = portal/site
+  # gerenciado pelo CMS do Console; product_software = produto/sistema completo;
+  # platform_tool = ferramenta interna da plataforma.
+  [ValidateSet('product_software', 'cms_portal', 'platform_tool')]
+  [string]$Type = 'product_software',
   [string]$Namespace = 'apps',
   [string]$AppHost = 'xpto.localhost',
   [string]$OutDir = 'C:\devops\apps',
@@ -199,6 +204,7 @@ $d = [System.Text.StringBuilder]::new()
 [void]$d.AppendLine("  namespace: $Namespace")
 [void]$d.AppendLine("  host: $AppHost")
 [void]$d.AppendLine("  basePath: $BasePath")
+[void]$d.AppendLine("  appType: $Type")
 [void]$d.AppendLine("services:")
 foreach ($svc in $Services) {
   $t = Get-Type $svc
@@ -230,6 +236,7 @@ metadata:
     app.kubernetes.io/name: $Name
     app.kubernetes.io/component: $svc
     app.kubernetes.io/part-of: $Name
+    devops.flavioneto/app-type: $Type
 spec:
   replicas: 1
   selector:
@@ -242,6 +249,7 @@ spec:
         app.kubernetes.io/name: $Name
         app.kubernetes.io/component: $svc
         app.kubernetes.io/part-of: $Name
+        devops.flavioneto/app-type: $Type
     spec:
       containers:
         - name: $svc
@@ -380,6 +388,8 @@ kind: Application
 metadata:
   name: $Name
   namespace: argocd
+  labels:
+    devops.flavioneto/app-type: $Type
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:

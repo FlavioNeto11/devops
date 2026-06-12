@@ -80,6 +80,7 @@ services:                   # mapa serviceName -> definicao
 | `namespace` | string | **Sim**     | Namespace Kubernetes onde a app e implantada. Deve ser um dos namespaces da plataforma.            | `apps`             |
 | `host`      | string | **Sim**     | Host de entrada no Traefik. Local: `xpto.localhost`. Real futuro: `dev.nvit.com.br`.                  | `xpto.localhost`   |
 | `basePath`  | string | **Sim**     | Subpath base sob o qual a app inteira e servida no host unico. Convencao: `/<name>`.               | `/aplicacao1`      |
+| `appType`   | enum   | Nao         | Taxonomia da app: `product_software` (default — produto/sistema completo, ex.: sicat/gymops), `cms_portal` (portal/site com conteudo gerenciado pelo CMS do Console, ex.: rmambiental/anarabottini) ou `platform_tool` (ferramenta interna da plataforma, ex.: portal-recorder). | `cms_portal` |
 
 ### Observacoes sobre `app`
 
@@ -96,6 +97,12 @@ services:                   # mapa serviceName -> definicao
   como forma canonica. Internamente a plataforma normaliza barras; mantenha **consistencia**
   com o `VITE_BASE_PATH` do frontend (que **sempre** termina com `/`, ex.:
   `/aplicacao1/`).
+- **`appType`** (opcional; default `product_software`): classifica a app na taxonomia da
+  plataforma. Efeitos: vira o label `devops.flavioneto/app-type` nos recursos (via
+  `templates/app-template` ou `scripts/new-app.ps1 -Type <tipo>`), o DevOps Console agrupa e
+  exibe por tipo (portais CMS separados de produtos), e o projeto correspondente no modulo
+  Projetos & Tarefas/CMS usa o mesmo valor (`projects.app_type` no pm-api). **Nao** muda
+  roteamento, build nem deploy — e puramente classificatorio/governanca.
 
 ---
 

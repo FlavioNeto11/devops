@@ -11,11 +11,18 @@ import { notFound } from './_util.js';
 
 const r = Router();
 
-// Arvore de conteudo publicada de um portal.
+// Arvore de conteudo publicada de um portal. Alem de published/visible, o
+// PROJETO precisa estar aprovado (portal criado por member fica pending ate o
+// dono/admin aprovar — rascunho nunca vaza para o publico).
 r.get('/public/:projectKey', async (req, res, next) => {
   try {
     const projectId = await resolveProjectIdByKey(req.params.projectKey);
     if (!projectId) return notFound(res, 'portal');
+
+    const approved = await query(
+      "SELECT 1 FROM projects WHERE id = $1 AND approval_status = 'approved'", [projectId],
+    );
+    if (!approved.rowCount) return notFound(res, 'portal');
 
     const [{ rows: projRows }, { rows: siteRows }, { rows: pages }] = await Promise.all([
       query('SELECT key, name FROM projects WHERE id = $1', [projectId]),

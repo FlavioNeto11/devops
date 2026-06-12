@@ -7,10 +7,13 @@ import Health from './components/Health.jsx';
 import Logs from './components/Logs.jsx';
 import MetaProjects from './components/MetaProjects.jsx';
 import ContentEditor from './components/ContentEditor.jsx';
+import UserHome from './components/UserHome.jsx';
+import { isPortal } from './lib/appTypes.js';
 import AccessAdmin from './components/AccessAdmin.jsx';
 import SharedResources from './components/SharedResources.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import TopBar from './components/TopBar.jsx';
+import Modal from './components/Modal.jsx';
 import { ToastProvider } from './components/ToastProvider.jsx';
 
 /**
@@ -18,6 +21,7 @@ import { ToastProvider } from './components/ToastProvider.jsx';
  * de navegação. A ordem aqui define a ordem na sidebar.
  */
 const SECTIONS = {
+  painel: { label: 'Meu painel', icon: 'home', group: 'Gestão', description: 'Seus portais e sistemas, separados por tipo de acesso.' },
   overview: { label: 'Overview', icon: 'grid', group: 'Cluster', description: 'Panorama do cluster em tempo real.' },
   apps: { label: 'Apps', icon: 'layers', group: 'Cluster', description: 'Aplicações agrupadas por label, com URLs e saúde.' },
   health: { label: 'Health', icon: 'activity', group: 'Cluster', description: 'Saúde de pods e deployments.' },
@@ -28,12 +32,14 @@ const SECTIONS = {
   access: { label: 'Usuários', icon: 'users', group: 'Gestão', description: 'Usuários restritos e acesso por projeto.' },
   shared: { label: 'Compartilhados', icon: 'package', group: 'Gestão', description: 'Recursos compartilhados entre projetos e suas versões (drift).' },
 };
-const SECTION_ORDER = ['overview', 'apps', 'health', 'logs', 'publications', 'projects', 'conteudo', 'access', 'shared'];
+const SECTION_ORDER = ['painel', 'overview', 'apps', 'health', 'logs', 'publications', 'projects', 'conteudo', 'access', 'shared'];
 
+// Traefik fica de fora: o dashboard NÃO tem rota neste host (só existe em
+// http://traefik.localhost/dashboard/, interno) — a entrada vira um modal
+// informativo em vez de um link quebrado que caía na homepage.
 const QUICK_LINKS = [
   { href: '/argocd', label: 'Argo CD' },
   { href: '/grafana', label: 'Grafana' },
-  { href: '/dashboard/', label: 'Traefik' },
 ];
 
 const STREAM_LABEL = {
@@ -89,10 +95,27 @@ export default function App() {
   const isMember = !!me?.isMember && !isAdmin;
   const canManageProjects = !isMember;
 
+  // Acessos do member por TIPO de projeto: quem só gerencia portal não vê o board
+  // de Projetos & Tarefas; quem só tem produto não vê o CMS; com ambos, vê os dois.
+  const memberHasPortal = isMember && (me?.projects || []).some((p) => isPortal(p));
+  const memberHasProduct = isMember && (me?.projects || []).some((p) => !isPortal(p));
+  const memberSections = useMemo(() => {
+    const s = ['painel'];
+    if (memberHasProduct) s.push('projects');
+    if (memberHasPortal) s.push('conteudo');
+    return s;
+  }, [memberHasPortal, memberHasProduct]);
+
+  // Projeto em foco (navegação a partir do painel: "Editar conteúdo"/"Abrir board").
+  const [focusProject, setFocusProject] = useState(null);
+  // Modal informativo do Traefik (dashboard interno, sem rota pública).
+  const [traefikInfo, setTraefikInfo] = useState(false);
+  const goTo = (tab, projectId = null) => { setFocusProject(projectId); setActiveTab(tab); setMobileNavOpen(false); };
+
   // Mantém a aba ativa válida para o papel.
   useEffect(() => {
     if (!meLoaded) return;
-    if (isMember) setActiveTab('projects');
+    if (isMember) setActiveTab((cur) => (memberSections.includes(cur) ? cur : 'painel'));
     else if (activeTab === 'access' && !isAdmin) setActiveTab('overview');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meLoaded, isMember, isAdmin]);
@@ -131,8 +154,9 @@ export default function App() {
   }, [meLoaded, isMember]);
 
   // Grupos da sidebar (filtrados por papel, na ordem de SECTION_ORDER).
+  // Member vê o painel + apenas as áreas do(s) tipo(s) de acesso que possui.
   const sidebarGroups = useMemo(() => {
-    const visible = isMember ? ['projects', 'conteudo'] : SECTION_ORDER;
+    const visible = isMember ? memberSections : SECTION_ORDER.filter((k) => k !== 'painel');
     const byGroup = new Map();
     for (const key of SECTION_ORDER) {
       if (!visible.includes(key)) continue;
@@ -141,7 +165,7 @@ export default function App() {
       byGroup.get(s.group).push({ key, label: s.label, icon: s.icon });
     }
     return [...byGroup.entries()].map(([label, items]) => ({ label, items }));
-  }, [isMember]);
+  }, [isMember, memberSections]);
 
   if (!meLoaded) {
     return (
@@ -153,13 +177,17 @@ export default function App() {
 
   const streamBadge = STREAM_LABEL[streamStatus] || STREAM_LABEL.connecting;
   const selectSection = (key) => { setActiveTab(key); setMobileNavOpen(false); };
+  const platformLinks = isMember ? [] : [
+    ...QUICK_LINKS,
+    { label: 'Traefik', icon: 'info', title: 'Dashboard interno — como acessar', onClick: () => setTraefikInfo(true) },
+  ];
 
   return (
     <ToastProvider>
       <div className={'shell' + (sidebarCollapsed ? ' shell--collapsed' : '') + (mobileNavOpen ? ' shell--navopen' : '')}>
         <Sidebar
           groups={sidebarGroups}
-          links={isMember ? [] : QUICK_LINKS}
+          links={platformLinks}
           activeKey={activeTab}
           onSelect={selectSection}
           collapsed={sidebarCollapsed}
@@ -178,16 +206,40 @@ export default function App() {
           />
 
           <main className="content" role="main">
+            {isMember && activeTab === 'painel' && <UserHome me={me} onGo={goTo} />}
             {!isMember && activeTab === 'overview' && <Overview streamData={streamData} streamStatus={streamStatus} />}
             {!isMember && activeTab === 'apps' && <Apps />}
             {!isMember && activeTab === 'publications' && <Publications />}
             {!isMember && activeTab === 'health' && <Health streamData={streamData} streamStatus={streamStatus} />}
             {!isMember && activeTab === 'logs' && <Logs />}
-            {activeTab === 'projects' && <MetaProjects canManageProjects={canManageProjects} />}
-            {activeTab === 'conteudo' && <ContentEditor />}
+            {activeTab === 'projects' && <MetaProjects canManageProjects={canManageProjects} initialId={focusProject} />}
+            {activeTab === 'conteudo' && <ContentEditor initialId={focusProject} me={me} />}
             {activeTab === 'access' && isAdmin && <AccessAdmin />}
             {activeTab === 'shared' && isAdmin && <SharedResources />}
           </main>
+
+          {traefikInfo && (
+            <Modal title="Dashboard do Traefik (interno)" size="sm" onClose={() => setTraefikInfo(false)}
+              footer={<button className="btn" onClick={() => setTraefikInfo(false)}>Fechar</button>}>
+              <p style={{ marginTop: 0 }}>
+                O dashboard do Traefik é <strong>interno</strong> e não tem rota pública neste domínio
+                (expor o painel do ingress na internet seria inseguro).
+              </p>
+              <p>
+                <strong>No host da plataforma</strong> (entrada <code>traefik.localhost</code> já configurada no hosts):
+              </p>
+              <p>
+                <a className="quick-link" href="http://traefik.localhost/dashboard/" target="_blank" rel="noopener noreferrer">
+                  http://traefik.localhost/dashboard/ ↗
+                </a>
+              </p>
+              <p className="muted" style={{ fontSize: '.85rem' }}>
+                De outra máquina: acesse via o host da plataforma (o dashboard só casa o Host
+                <code> traefik.localhost</code> — ver <code>platform/traefik/dashboard-ingressroute.yaml</code> e
+                <code> docs/local-domain-setup.md</code>).
+              </p>
+            </Modal>
+          )}
 
           <footer className="app-footer">
             <span>

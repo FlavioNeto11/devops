@@ -43,9 +43,33 @@ function CtaButton({ b }: { b: D }) {
 const wrap = (anchor: string | null | undefined, surface: boolean) => cn('relative overflow-hidden py-24', surface && 'bg-brand-surface/30');
 
 // --------------------------------------------------------------------------- Hero
+// Posições pré-definidas das labels flutuantes (escolhíveis pelo CMS em
+// floating[].position); sem position, cai na ordem padrão por índice.
+const FLOAT_POS: Record<string, CSSProperties> = {
+  'top-left': { top: '6%', left: '-5%' },
+  'top-right': { top: '8%', right: '-6%' },
+  right: { top: '44%', right: '-6%' },
+  left: { top: '44%', left: '-5%' },
+  'bottom-left': { bottom: '8%', left: '-4%' },
+  'bottom-right': { bottom: '10%', right: '-5%' },
+};
+const FLOAT_ORDER = ['top-left', 'right', 'bottom-left', 'top-right', 'bottom-right', 'left'];
+const floatStyle = (f: D, i: number): CSSProperties => FLOAT_POS[f.position as string] || FLOAT_POS[FLOAT_ORDER[i % FLOAT_ORDER.length]];
+// Fallback histórico: aparece enquanto o conteúdo do CMS não define floating
+// (portais já publicados antes deste campo existir). Editar pelo CMS substitui.
+const DEFAULT_FLOATING: D[] = [
+  { icon: 'MapPin', label: 'Atuação nacional' },
+  { icon: 'Users', label: 'Equipe multidisciplinar' },
+  { icon: 'ShieldCheck', label: 'Licenciamento e regularização' },
+];
+
 function HeroBlock({ d }: { d: D }) {
   const edit = useEditMode();
   const ind: D[] = d.indicators || [];
+  // No modo edição mostramos exatamente o que está no dado (lista vazia ganha o
+  // botão "+ label flutuante"); no público, sem dado, vale o fallback histórico.
+  const floating: D[] = Array.isArray(d.floating) ? d.floating : (edit ? [] : DEFAULT_FLOATING);
+  const shown = floating.filter((f) => f && f.visible !== false);
   return (
     <section id="inicio" className="relative overflow-hidden pt-[72px]">
       <div className="absolute inset-0" aria-hidden>
@@ -80,12 +104,44 @@ function HeroBlock({ d }: { d: D }) {
         <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, delay: 0.2 }} className="relative mx-auto w-full max-w-md">
           <div className="glass relative rounded-3xl p-5 shadow-glass">
             <div className="absolute -inset-px rounded-3xl bg-gradient-to-br from-brand-neon/10 to-transparent" aria-hidden />
-            <div className="relative aspect-[420/480] w-full"><CoverageMap className="h-full w-full" /></div>
+            <MediaSlot path="visualImage" empty={!d.visualImage} accept="image/*" className="relative block">
+              <div className="relative aspect-[420/480] w-full">
+                {d.visualImage
+                  ? <img src={mediaUrl(d.visualImage)} alt="" className="h-full w-full rounded-2xl object-cover" />
+                  : <CoverageMap className="h-full w-full" />}
+              </div>
+            </MediaSlot>
             <div className="relative mt-2 flex items-center justify-between rounded-xl border border-brand-text/10 bg-black/20 px-4 py-3">
-              <span className="text-xs uppercase tracking-widest text-brand-muted">Pontos de atuação</span>
-              <span className="font-display text-sm font-bold text-brand-neon">Brasil · multirregião</span>
+              <span className="text-xs uppercase tracking-widest text-brand-muted">
+                {edit ? <EditableText as="span" path="mapLabel" value={d.mapLabel || 'Pontos de atuação'} placeholder="label" /> : (d.mapLabel || 'Pontos de atuação')}
+              </span>
+              <span className="font-display text-sm font-bold text-brand-neon">
+                {edit ? <EditableText as="span" path="mapSublabel" value={d.mapSublabel || 'Brasil · multirregião'} placeholder="destaque" /> : (d.mapSublabel || 'Brasil · multirregião')}
+              </span>
             </div>
           </div>
+          {shown.map((f, i) => {
+            const Ico = resolveIcon(f.icon);
+            // idx = posição no array ORIGINAL: mantém o slot estável mesmo com
+            // itens ocultos no meio (senão os demais "pulam" de posição).
+            const idx = floating.indexOf(f);
+            return (
+              <motion.div key={(f.label || '') + i} className="absolute z-10 hidden items-center gap-2 rounded-xl border border-brand-text/10 bg-brand-surface/90 px-3.5 py-2.5 shadow-soft backdrop-blur-md sm:flex"
+                style={floatStyle(f, idx)}
+                initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.55 + i * 0.18 }}>
+                <span className="grid h-7 w-7 place-items-center rounded-lg bg-brand-neon/15"><Ico className="h-3.5 w-3.5 text-brand-neon" /></span>
+                <span className="text-xs font-semibold text-brand-text">
+                  {edit ? <EditableText as="span" path={`floating.${idx}.label`} value={f.label || ''} placeholder="label" /> : f.label}
+                </span>
+                {edit && <ItemControls path="floating" index={idx} count={floating.length} />}
+              </motion.div>
+            );
+          })}
+          {edit && (
+            <div className="absolute -bottom-12 left-0">
+              <AddButton path="floating" label="label flutuante" />
+            </div>
+          )}
         </motion.div>
       </div>
     </section>

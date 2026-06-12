@@ -7,10 +7,10 @@ const REPO = 'https://github.com/FlavioNeto11/devops';
 
 // Projetos atuais da plataforma. Fonte: docs/standards/fr/<app>.md (estado pronto/falta).
 const PROJECTS = [
-  { key: 'sicat', name: 'SICAT', stack: 'Vue 3 / Node+Express / PostgreSQL', repo_url: 'apps/sicat', route: '/sicat', k8s_label_selector: 'sicat', status: 'active', description: 'Gestao ambiental e conformidade (CETESB/MTR/DMR) com IA conversacional.' },
-  { key: 'gymops', name: 'GymOps', stack: 'Next.js 14 / Fastify / Postgres+pgvector / Redis', repo_url: 'apps/gymops', route: '/gymops', k8s_label_selector: 'gymops', status: 'active', description: 'Gestao operacional multiunidade com IA assistiva.' },
-  { key: 'rmambiental', name: 'RM Ambiental', stack: 'React + Vite (estatico)', repo_url: 'apps/rmambiental', route: '/rmambiental', k8s_label_selector: 'rmambiental', status: 'active', description: 'Portal institucional premium.' },
-  { key: 'anarabottini', name: 'Ana Rabottini', stack: 'React + Vite (estatico)', repo_url: 'apps/anarabottini', route: '/anarabottini', k8s_label_selector: 'anarabottini', status: 'active', description: 'Portal de palestrante corporativa — saude mental, neurodiversidade e adequacao a NR-1.' },
+  { key: 'sicat', name: 'SICAT', app_type: 'product_software', stack: 'Vue 3 / Node+Express / PostgreSQL', repo_url: 'apps/sicat', route: '/sicat', k8s_label_selector: 'sicat', status: 'active', description: 'Gestao ambiental e conformidade (CETESB/MTR/DMR) com IA conversacional.' },
+  { key: 'gymops', name: 'GymOps', app_type: 'product_software', stack: 'Next.js 14 / Fastify / Postgres+pgvector / Redis', repo_url: 'apps/gymops', route: '/gymops', k8s_label_selector: 'gymops', status: 'active', description: 'Gestao operacional multiunidade com IA assistiva.' },
+  { key: 'rmambiental', name: 'RM Ambiental', app_type: 'cms_portal', stack: 'React + Vite (estatico)', repo_url: 'apps/rmambiental', route: '/rmambiental', k8s_label_selector: 'rmambiental', status: 'active', description: 'Portal institucional premium.' },
+  { key: 'anarabottini', name: 'Ana Rabottini', app_type: 'cms_portal', stack: 'React + Vite (estatico)', repo_url: 'apps/anarabottini', route: '/anarabottini', k8s_label_selector: 'anarabottini', status: 'active', description: 'Portal de palestrante corporativa — saude mental, neurodiversidade e adequacao a NR-1.' },
 ];
 
 // Itens por projeto, ja "nos conformes": descricao + git (caminho no repo) + tasks
@@ -262,14 +262,14 @@ export async function seed() {
 
   for (const p of PROJECTS) {
     const { rows } = await query(
-      `INSERT INTO projects (key,name,stack,repo_url,route,k8s_label_selector,status,description)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      `INSERT INTO projects (key,name,stack,repo_url,route,k8s_label_selector,status,description,app_type)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,COALESCE($9,'product_software')::app_type)
        ON CONFLICT (key) DO UPDATE SET
          name=EXCLUDED.name, stack=EXCLUDED.stack, repo_url=EXCLUDED.repo_url, route=EXCLUDED.route,
          k8s_label_selector=EXCLUDED.k8s_label_selector, status=EXCLUDED.status,
-         description=EXCLUDED.description, updated_at=now()
+         description=EXCLUDED.description, app_type=EXCLUDED.app_type, updated_at=now()
        RETURNING id`,
-      [p.key, p.name, p.stack, p.repo_url, p.route, p.k8s_label_selector, p.status, p.description],
+      [p.key, p.name, p.stack, p.repo_url, p.route, p.k8s_label_selector, p.status, p.description, p.app_type],
     );
     const projectId = rows[0].id;
     projects += 1;

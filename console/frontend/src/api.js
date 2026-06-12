@@ -178,6 +178,8 @@ export const pmProjects = () => pmFetch('/projects');
 export const pmCreateProject = (p) => pmFetch('/projects', { method: 'POST', body: p });
 export const pmPatchProject = (id, p) => pmFetch(`/projects/${id}`, { method: 'PATCH', body: p });
 export const pmDeleteProject = (id) => pmFetch(`/projects/${id}`, { method: 'DELETE' });
+export const pmApproveProject = (id) => pmFetch(`/projects/${id}/approve`, { method: 'POST' });
+export const pmRejectProject = (id) => pmFetch(`/projects/${id}/reject`, { method: 'POST' });
 // Itens (bug/feature/evolution)
 export const pmItems = (projectId) => pmFetch(`/projects/${projectId}/items`);
 export const pmCreateItem = (projectId, item) => pmFetch(`/projects/${projectId}/items`, { method: 'POST', body: item });
@@ -224,12 +226,19 @@ export const pmCmsCreateSection = (pageId, body) => pmFetch(`/cms/pages/${pageId
 export const pmCmsPatchSection = (sectionId, patch) => pmFetch(`/cms/sections/${sectionId}`, { method: 'PATCH', body: patch });
 export const pmCmsDeleteSection = (sectionId) => pmFetch(`/cms/sections/${sectionId}`, { method: 'DELETE' });
 export const pmCmsReorderSections = (pageId, order) => pmFetch(`/cms/pages/${pageId}/sections/reorder`, { method: 'PUT', body: { order } });
-export const pmCmsFiles = (projectId) => pmFetch(`/projects/${projectId}/cms/files`);
+// Geração assistida por IA (degrada graciosamente sem OPENAI_API_KEY no pm-api).
+export const pmCmsGenerate = (projectId, body) => pmFetch(`/projects/${projectId}/cms/generate`, { method: 'POST', body });
+export const pmCmsGenerations = (projectId) => pmFetch(`/projects/${projectId}/cms/generations`);
+
+// scope: 'project' (só deste portal) | 'global' (biblioteca pública) | 'all' (default)
+export const pmCmsFiles = (projectId, scope = 'all') => pmFetch(`/projects/${projectId}/cms/files?scope=${scope}`);
 export const pmCmsDeleteFile = (fileId) => pmFetch(`/cms/files/${fileId}`, { method: 'DELETE' });
 
-/** Upload de arquivo (multipart) — bypassa o pmFetch JSON. Retorna { id, url, filename, mime, size }. */
-export async function pmCmsUpload(projectId, file) {
+/** Upload de arquivo (multipart) — bypassa o pmFetch JSON. Retorna { id, url, filename, mime, size }.
+ *  scope 'global' publica na biblioteca pública da plataforma (somente admin). */
+export async function pmCmsUpload(projectId, file, scope = 'project') {
   const fd = new FormData();
+  if (scope === 'global') fd.append('scope', 'global'); // antes do file: multer lê os fields na ordem
   fd.append('file', file);
   const res = await fetch(`${PM_BASE}/projects/${projectId}/cms/files`, { method: 'POST', body: fd });
   if (res.status === 401) { handleAuthExpired(); throw new Error('Sessão expirada — redirecionando para o login…'); }

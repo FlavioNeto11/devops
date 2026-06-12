@@ -11,7 +11,6 @@ import {
   assertProjectAccess,
   resolveProjectIdForPage,
   resolveProjectIdForSection,
-  resolveProjectIdForFile,
 } from '../auth.js';
 
 const r = Router();
@@ -22,6 +21,7 @@ const SECTION_KINDS = new Set([
   'rich-text',
   'section-heading',
   'card-grid',
+  'feature-grid',
   'timeline',
   'accordion',
   'video-gallery',
@@ -31,6 +31,11 @@ const SECTION_KINDS = new Set([
   'logos',
   'cta',
   'lead-form',
+  // específicos do rmambiental (semeados; precisam ser PATCHaveis sem "kind invalido")
+  'stats',
+  'gallery',
+  'services-detail',
+  'contact-form',
 ]);
 
 const ALLOWED_MIME = new Set([
@@ -205,13 +210,32 @@ r.put('/cms/pages/:pageId/sections/reorder', asyncH(async (req, res) => {
 }));
 
 // ---------------------------------------------------------------- files
+// Biblioteca em DOIS niveis: arquivos do PORTAL (scope=project) + biblioteca
+// PUBLICA da plataforma (scope=global, project_id NULL, gerida por admin).
+// ?scope=project | global | all (default all: o picker mostra tudo que o portal pode usar).
+const fileUrl = (f) => ({ ...f, url: `/devops/api/cms/public/files/${f.id}` });
+
 r.get('/projects/:projectId/cms/files', asyncH(async (req, res) => {
   if (!(await assertProjectAccess(req, res, req.params.projectId))) return;
+  const scope = ['project', 'global', 'all'].includes(req.query.scope) ? req.query.scope : 'all';
+  let sql;
+  let params;
+  if (scope === 'project') {
+    sql = 'project_id = $1';
+    params = [req.params.projectId];
+  } else if (scope === 'global') {
+    sql = `scope = 'global'`;
+    params = [];
+  } else {
+    sql = `(project_id = $1 OR scope = 'global')`;
+    params = [req.params.projectId];
+  }
   const { rows } = await query(
-    'SELECT id, filename, mime, size, created_by, created_at FROM cms_files WHERE project_id = $1 ORDER BY created_at DESC',
-    [req.params.projectId],
+    `SELECT id, filename, mime, size, scope, project_id, created_by, created_at
+       FROM cms_files WHERE ${sql} ORDER BY created_at DESC`,
+    params,
   );
-  res.json({ data: rows.map((f) => ({ ...f, url: `/devops/api/cms/public/files/${f.id}` })) });
+  res.json({ data: rows.map(fileUrl) });
 }));
 
 r.post('/projects/:projectId/cms/files', upload.single('file'), asyncH(async (req, res) => {
@@ -221,17 +245,29 @@ r.post('/projects/:projectId/cms/files', upload.single('file'), asyncH(async (re
   if (!ALLOWED_MIME.has(f.mimetype)) return invalid(res, `tipo nao permitido: ${f.mimetype}`);
   const max = f.mimetype.startsWith('video/') ? VIDEO_MAX : DEFAULT_MAX;
   if (f.size > max) return invalid(res, `arquivo excede o limite de ${Math.round(max / 1024 / 1024)} MB para ${f.mimetype}`);
+  // Upload na biblioteca publica e exclusivo de admin (afeta todos os portais).
+  const wantGlobal = (req.body?.scope || 'project') === 'global';
+  if (wantGlobal && !req.auth?.isAdmin) {
+    return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'apenas administradores publicam na biblioteca publica' } });
+  }
   const { rows } = await query(
-    `INSERT INTO cms_files (project_id, filename, mime, size, bytes, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, filename, mime, size, created_at`,
-    [req.params.projectId, f.originalname, f.mimetype, f.size, f.buffer, req.auth?.email || null],
+    `INSERT INTO cms_files (project_id, scope, filename, mime, size, bytes, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, filename, mime, size, scope, project_id, created_at`,
+    [wantGlobal ? null : req.params.projectId, wantGlobal ? 'global' : 'project',
+      f.originalname, f.mimetype, f.size, f.buffer, req.auth?.email || null],
   );
-  const row = rows[0];
-  res.status(201).json({ data: { ...row, url: `/devops/api/cms/public/files/${row.id}` } });
+  res.status(201).json({ data: fileUrl(rows[0]) });
 }));
 
 r.delete('/cms/files/:fileId', asyncH(async (req, res) => {
-  if (!(await assertProjectAccess(req, res, await resolveProjectIdForFile(req.params.fileId)))) return;
+  const { rows } = await query('SELECT scope, project_id FROM cms_files WHERE id = $1', [req.params.fileId]);
+  if (!rows.length) return notFound(res, 'arquivo');
+  if (rows[0].scope === 'global') {
+    // arquivo da biblioteca publica: so admin exclui (pode estar em uso por N portais)
+    if (!req.auth?.isAdmin) {
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'apenas administradores excluem arquivos da biblioteca publica' } });
+    }
+  } else if (!(await assertProjectAccess(req, res, rows[0].project_id))) return;
   const { rowCount } = await query('DELETE FROM cms_files WHERE id = $1', [req.params.fileId]);
   if (!rowCount) return notFound(res, 'arquivo');
   res.status(204).end();

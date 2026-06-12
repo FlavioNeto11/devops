@@ -62,10 +62,15 @@ CREATE TABLE IF NOT EXISTS portals (
   api_origins JSONB NOT NULL DEFAULT '[]'::jsonb,
   spa_kind    TEXT,
   notes       TEXT,
+  -- vínculo OPCIONAL e puramente declarativo com um produto da plataforma
+  -- (ex.: 'sicat' — este portal externo alimenta/contextualiza aquele produto).
+  -- Não altera captura/normalização; serve a contexto, IA e governança.
+  related_project_key TEXT,
   metadata    JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE portals ADD COLUMN IF NOT EXISTS related_project_key TEXT;
 
 CREATE TABLE IF NOT EXISTS capture_sessions (
   id             TEXT PRIMARY KEY,

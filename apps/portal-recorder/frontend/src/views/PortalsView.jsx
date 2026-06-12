@@ -84,6 +84,7 @@ function NewPortalForm({ onCreated }) {
   const [name, setName] = useState('');
   const [entryUrl, setEntryUrl] = useState('');
   const [spaKind, setSpaKind] = useState('');
+  const [relatedKey, setRelatedKey] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
 
@@ -94,11 +95,13 @@ function NewPortalForm({ onCreated }) {
     try {
       const body = { slug: slug.trim(), name: name.trim(), entry_url: entryUrl.trim() };
       if (spaKind.trim()) body.spa_kind = spaKind.trim();
+      if (relatedKey.trim()) body.related_project_key = relatedKey.trim();
       await createPortal(body);
       setSlug('');
       setName('');
       setEntryUrl('');
       setSpaKind('');
+      setRelatedKey('');
       setOpen(false);
       onCreated();
     } catch (e2) {
@@ -111,9 +114,9 @@ function NewPortalForm({ onCreated }) {
   if (!open) {
     return (
       <div className="view__head">
-        <h2 className="view__title">Portais</h2>
+        <h2 className="view__title">Portais externos (captura)</h2>
         <button className="btn btn-primary" onClick={() => setOpen(true)}>
-          + Novo portal
+          + Novo portal externo
         </button>
       </div>
     );
@@ -122,11 +125,16 @@ function NewPortalForm({ onCreated }) {
   return (
     <form className="card form-card" onSubmit={submit}>
       <div className="view__head">
-        <h2 className="view__title">Novo portal</h2>
+        <h2 className="view__title">Novo portal externo</h2>
         <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>
           Cancelar
         </button>
       </div>
+      <p className="muted" style={{ marginTop: 0 }}>
+        Cadastre aqui um portal <strong>de terceiros</strong> (ex.: CETESB/MTR) para capturar num
+        browser remoto e normalizar o contrato. Portais/sites próprios (CMS) são criados no
+        DevOps Console, em <em>Conteúdo → Novo portal</em>.
+      </p>
       <div className="form-grid">
         <label className="field">
           <span>slug</span>
@@ -168,11 +176,25 @@ function NewPortalForm({ onCreated }) {
             placeholder="angular | react | mpa…"
           />
         </label>
+        <label className="field" title="Vínculo apenas relacional: marca que este portal externo alimenta/contextualiza um produto da plataforma (serve a IA, governança e relatórios). Não muda a captura.">
+          <span>produto relacionado (opcional)</span>
+          <input
+            className="input"
+            list="related-project-keys"
+            value={relatedKey}
+            onChange={(e) => setRelatedKey(e.target.value)}
+            placeholder="ex.: sicat"
+          />
+          <datalist id="related-project-keys">
+            <option value="sicat" />
+            <option value="gymops" />
+          </datalist>
+        </label>
       </div>
       {err && <div className="alert alert-err">{err}</div>}
       <div className="form-actions">
         <button className="btn btn-primary" type="submit" disabled={busy}>
-          {busy ? 'Criando…' : 'Criar portal'}
+          {busy ? 'Criando…' : 'Criar portal externo'}
         </button>
       </div>
     </form>
@@ -236,6 +258,11 @@ function PortalCard({ portal, sessions, onChanged }) {
           <div className="portal-card__name">{portal.name}</div>
           <div className="portal-card__origin mono">{portal.base_origin || portal.entry_url}</div>
           {portal.slug && <span className="chip">{portal.slug}</span>}
+          {portal.related_project_key && (
+            <span className="chip" title="Produto da plataforma relacionado a este portal externo (vínculo declarativo)">
+              ↳ {portal.related_project_key}
+            </span>
+          )}
         </div>
         <div className="portal-card__head-actions">
           <button className="btn btn-primary" onClick={startCapture} disabled={busy || removing}>
