@@ -35,8 +35,56 @@ const manifestActionSchema = z.object({
 
 const rawPassThrough = z.object({}).passthrough();
 
+// ── Dimensões de agrupamento de manifestos (capability declarada) ────────────
+// FONTE ÚNICA da verdade para o agrupamento local (manifest.group_recent_top):
+// o schema de function-calling (llm-provider) declara estes mesmos valores ao
+// LLM, a validação abaixo rejeita o que estiver fora (erro estruturado que o
+// planner lê e corrige) e o dispatcher só computa valores canônicos. Nada de
+// sinônimos/heurística aqui — a normalização semântica é responsabilidade do
+// LLM guiado pelo enum.
+export const MANIFEST_GROUP_DIMENSIONS = [
+  'status',
+  'externalStatus',
+  'generator',
+  'carrier',
+  'receiver',
+  'driverName',
+  'vehiclePlate',
+  'date',
+  'month',
+  'year'
+] as const;
+
+export const MANIFEST_GROUP_ORDERS = ['count_desc', 'key_asc'] as const;
+
+export type ManifestGroupDimension = (typeof MANIFEST_GROUP_DIMENSIONS)[number];
+export type ManifestGroupOrder = (typeof MANIFEST_GROUP_ORDERS)[number];
+
+// Case-folding é normalização SINTÁTICA (como trim) — não interpreta sentido:
+// "Month"/"month" viram o canônico; "mes" continua inválido e volta como erro
+// com a lista de dimensões para o LLM re-planejar.
+function caseInsensitiveEnum<T extends readonly [string, ...string[]]>(values: T) {
+  return z.preprocess((value) => {
+    if (typeof value !== 'string') return value;
+    const canonical = values.find((item) => item.toLowerCase() === value.trim().toLowerCase());
+    return canonical ?? value;
+  }, z.enum(values));
+}
+
+const orchestrateSelectionSchema = z.object({
+  groupBy: caseInsensitiveEnum(MANIFEST_GROUP_DIMENSIONS).optional(),
+  groupOrder: caseInsensitiveEnum(MANIFEST_GROUP_ORDERS).optional()
+}).passthrough();
+
+// Valida SOMENTE o que está declarado (groupBy/groupOrder); o resto dos
+// argumentos do orquestrador continua passthrough (intents diversos).
+const orchestrateManifestOperationSchema = z.object({
+  selection: orchestrateSelectionSchema.optional(),
+  groupBy: caseInsensitiveEnum(MANIFEST_GROUP_DIMENSIONS).optional()
+}).passthrough();
+
 const toolSchemas: Record<ConversationToolName, z.ZodTypeAny> = {
-  orchestrate_manifest_operation: rawPassThrough,
+  orchestrate_manifest_operation: orchestrateManifestOperationSchema,
   list_manifests: listManifestsSchema,
   get_manifest_details: manifestActionSchema,
   list_manifest_documents: z.object({

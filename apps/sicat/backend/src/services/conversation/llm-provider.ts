@@ -282,11 +282,13 @@ export const CONVERSATION_TOOLS: FunctionTool[] = [
       name: 'orchestrate_manifest_operation',
       description:
         'Orquestrador de MANIFESTOS/CDF. CONSULTA (sem confirmação): listar, CONTAR/TOTALIZAR, ' +
-        'AGRUPAR por status/gerador/destinador/período, resumir o ano, detalhar um conjunto. ' +
+        'AGRUPAR por dimensão (selection.groupBy: status, gerador, destinador, mês, ano, data...), ' +
+        'resumir o ano, detalhar um conjunto. ' +
         'AÇÕES (só com confirmação explícita): cancelar, replicar, criar, submeter, imprimir em lote. ' +
         'Use para QUALQUER pergunta sobre manifestos ou CDFs — inclusive "resumo/total de manifestos do ' +
-        'ano", "quantos manifestos no período" e "quantos cancelados no mês X" — escolhendo o intent ' +
-        'adequado (ex.: manifest.list_recent_top para listar; manifest.group_recent_top para totais/quebra por status).',
+        'ano", "quantos manifestos no período", "quantos cancelados no mês X" e "em que mês/ano..." — ' +
+        'escolhendo o intent adequado (ex.: manifest.list_recent_top para listar; ' +
+        'manifest.group_recent_top com selection.groupBy/groupOrder para totais e quebras por dimensão).',
       parameters: {
         type: 'object',
         properties: {
@@ -294,6 +296,7 @@ export const CONVERSATION_TOOLS: FunctionTool[] = [
             type: 'string',
             enum: [
               'manifest.list_recent_top',
+              'manifest.group_recent_top',
               'manifest.detail_selected_set',
               'manifest.lookup_generator_by_number',
               'memory.list_asked_manifests',
@@ -329,7 +332,34 @@ export const CONVERSATION_TOOLS: FunctionTool[] = [
               from: { type: 'string', description: 'Alias de dateFrom.' },
               to: { type: 'string', description: 'Alias de dateTo.' },
               startDate: { type: 'string', description: 'Alias de dateFrom.' },
-              endDate: { type: 'string', description: 'Alias de dateTo.' }
+              endDate: { type: 'string', description: 'Alias de dateTo.' },
+              groupBy: {
+                type: 'string',
+                enum: [
+                  'status',
+                  'externalStatus',
+                  'generator',
+                  'carrier',
+                  'receiver',
+                  'driverName',
+                  'vehiclePlate',
+                  'date',
+                  'month',
+                  'year'
+                ],
+                description:
+                  'Dimensão de agrupamento para manifest.group_recent_top. month/year derivam da data de ' +
+                  'expedição do manifesto (chaves YYYY-MM / YYYY). Use o valor CANÔNICO do enum (ex.: pergunta ' +
+                  '"em que mês" → month). Se omitido: status.'
+              },
+              groupOrder: {
+                type: 'string',
+                enum: ['count_desc', 'key_asc'],
+                description:
+                  'Ordenação dos grupos: count_desc = ranking por volume (ex.: "qual gerador tem mais"); ' +
+                  'key_asc = ordem natural da chave (ex.: cronológica para month/date/year, como em "em que ' +
+                  'mês..."). Escolha conforme a pergunta. Se omitido: count_desc.'
+              }
             },
             required: []
           },
@@ -1017,6 +1047,7 @@ function buildSelectionFromEntities(entities: LooseRecord): LooseRecord {
   const dateFrom = toIsoDateOrNull(entities.dateFrom);
   const dateTo = toIsoDateOrNull(entities.dateTo);
   const groupBy = toStringOrNull(entities.groupBy);
+  const groupOrder = toStringOrNull(entities.groupOrder);
   const status = toStringOrNull(entities.status);
 
   if (top !== null && top > 0) selection.top = top;
@@ -1025,6 +1056,7 @@ function buildSelectionFromEntities(entities: LooseRecord): LooseRecord {
   if (dateFrom) selection.dateFrom = dateFrom;
   if (dateTo) selection.dateTo = dateTo;
   if (groupBy) selection.groupBy = groupBy;
+  if (groupOrder) selection.groupOrder = groupOrder;
   if (status) selection.status = status;
 
   if (toBoolean(entities.withoutCdf, false)) {
@@ -1416,6 +1448,7 @@ export function normalizePlannerToolCallForRecency(input: {
   const entities = toRecord(input.classifier.entities);
   const temporalPair = resolveTemporalPair({ selection, entities });
   const groupBy = toStringOrNull(selection.groupBy) || toStringOrNull(entities.groupBy);
+  const groupOrder = toStringOrNull(selection.groupOrder) || toStringOrNull(entities.groupOrder);
   const withoutCdf = toBoolean(selection.withoutCdf, toBoolean(entities.withoutCdf, false));
 
   const selectionOrderBy = resolveRecencyOrderBy(selection.orderBy);
@@ -1460,6 +1493,10 @@ export function normalizePlannerToolCallForRecency(input: {
 
   if (groupBy) {
     normalizedSelection.groupBy = groupBy;
+  }
+
+  if (groupOrder) {
+    normalizedSelection.groupOrder = groupOrder;
   }
 
   if (withoutCdf) {
@@ -1558,7 +1595,9 @@ async function classifyIntent(input: {
       '{"intent":string,"confidence":number,"entities":object,"needsClarification":boolean,"clarifyingQuestion":string|null}. ' +
       'Quando houver pedido por recencia de manifestos, inclua entities.recencyDirection com valor oldest ou recent. ' +
       'DATAS: preencha entities.dateFrom/entities.dateTo (YYYY-MM-DD) APENAS quando o usuario citar um periodo explicito (entre X e Y, do dia X ao Y, ultimos N dias, hoje, ontem). NUNCA invente nem assuma datas; sem periodo explicito na frase, deixe dateFrom/dateTo ausentes. Para COMPARAR dias/periodos (ex.: "ontem com hoje", "esta semana vs a passada"), defina dateFrom/dateTo cobrindo TODOS os dias mencionados (de ontem ate hoje) para que ambos os lados venham nos dados. ' +
-      'Quando houver agrupamento, inclua entities.groupBy (ex.: generator, status, receiver). ' +
+      'AGRUPAMENTO: quando houver, inclua entities.groupBy com um valor CANONICO do contrato da tool: status, externalStatus, generator, carrier, receiver, driverName, vehiclePlate, date, month, year. ' +
+      'Perguntas de periodo ("em que mes...", "qual mes...", "por mes") => groupBy=month; ("em que ano...") => groupBy=year. ' +
+      'Inclua tambem entities.groupOrder: key_asc quando a pergunta pede linha do tempo (month/date/year) ou count_desc quando pede ranking por volume. ' +
       'Quando houver filtro de manifestos sem CDF/CDR, inclua entities.withoutCdf=true. ' +
       'Tambem extraia entities.top, entities.skipMostRecent e entities.orderBy quando a frase indicar ranking/ordenacao temporal. ' +
       'Para pedidos de manifest.list_recent_top, quando recencyDirection=oldest, use entities.orderBy=recency_asc e skipMostRecent=0 por padrao, exceto se o usuario pedir explicitamente para pular. ' +

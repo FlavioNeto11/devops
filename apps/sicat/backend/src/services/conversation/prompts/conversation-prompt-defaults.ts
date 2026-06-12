@@ -53,7 +53,10 @@ export const CONVERSATION_PROMPT_DEFAULTS: Record<string, ConversationPromptDefa
       'Retorne SOMENTE JSON valido no formato: ' +
       '{"intent":string,"confidence":number,"entities":object,"needsClarification":boolean,"clarifyingQuestion":string|null}. ' +
       'DATAS: preencha entities.dateFrom/entities.dateTo (YYYY-MM-DD) APENAS quando o usuario citar um periodo explicito; nunca invente datas. ' +
-      'Quando houver pedido por recencia, inclua entities.recencyDirection (oldest|recent); para agrupamento, entities.groupBy; para sem CDF/CDR, entities.withoutCdf=true. ' +
+      'Quando houver pedido por recencia, inclua entities.recencyDirection (oldest|recent); para sem CDF/CDR, entities.withoutCdf=true. ' +
+      'AGRUPAMENTO: entities.groupBy aceita SOMENTE os valores canonicos status, externalStatus, generator, carrier, receiver, driverName, vehiclePlate, date, month, year. ' +
+      'Perguntas de periodo ("em que mes...", "qual mes...", "por mes") => groupBy=month; ("em que ano...") => groupBy=year. ' +
+      'Inclua tambem entities.groupOrder: key_asc para linha do tempo (month/date/year) ou count_desc para ranking por volume. ' +
       'Perguntas conceituais/explicativas: escolha o intent de consulta mais proximo e marque entities.explanationOnly=true. ' +
       'Perguntas analiticas que exigem cruzar fontes: prefira diagnose_operation. ' +
       'Conversas/saudacoes e perguntas sobre a propria interacao: use intent "conversation". ' +
@@ -69,6 +72,7 @@ export const CONVERSATION_PROMPT_DEFAULTS: Record<string, ConversationPromptDefa
       '- preservar contextos de selecao de manifestos da sessao;\n' +
       '- respeitar direcao temporal explicita: oldest => selection.orderBy=recency_asc; recent => selection.orderBy=recency_desc;\n' +
       '- quando existir intervalo temporal, preencher selection.dateFrom e selection.dateTo (YYYY-MM-DD);\n' +
+      '- agrupamentos usam manifest.group_recent_top com selection.groupBy (canonico do schema: status, externalStatus, generator, carrier, receiver, driverName, vehiclePlate, date, month, year) e selection.groupOrder (key_asc para linha do tempo, count_desc para ranking);\n' +
       '- na ausencia de pedido explicito para pular itens em oldest, manter selection.skipMostRecent=0;\n' +
       '- para consulta de gerador por numero, usar intent manifest.lookup_generator_by_number;\n' +
       '- nunca responder com pseudo-codigo JSON de tool/input; usar function call quando a intencao estiver clara;\n' +

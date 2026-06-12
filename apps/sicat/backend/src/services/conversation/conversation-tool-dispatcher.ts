@@ -29,7 +29,11 @@ import {
   listActiveJobs,
   calculateJobPerformanceMetrics
 } from '../../repositories/health-repo.js';
-import { validateConversationToolInput } from './tools/tool-schemas.js';
+import {
+  MANIFEST_GROUP_DIMENSIONS,
+  validateConversationToolInput,
+  type ManifestGroupOrder
+} from './tools/tool-schemas.js';
 import { resolveManifestReference } from './tools/tool-entity-resolver.js';
 import {
   normalizeManifestActionResult,
@@ -1172,6 +1176,11 @@ function applyManifestSelectionExclusions(input: {
   });
 }
 
+// Computa o valor do bucket para uma DIMENSÃO CANÔNICA (contrato declarado ao
+// LLM no schema da tool + validação Zod em tools/tool-schemas.ts). month/year
+// derivam da data de expedição (chaves YYYY-MM / YYYY). Dimensão fora do
+// contrato NÃO cai em fallback: vira erro estruturado que o planner lê e
+// re-planeja — decisão é do LLM, o código só executa o que foi declarado.
 function resolveGroupValue(item: ManifestListItem, groupBy: string): string {
   const key = groupBy.toLowerCase();
   if (key === 'status') return item.status || item.externalStatus || 'sem_status';
@@ -1182,10 +1191,24 @@ function resolveGroupValue(item: ManifestListItem, groupBy: string): string {
   if (key === 'drivername') return item.driverName || 'motorista_nao_informado';
   if (key === 'vehicleplate') return item.vehiclePlate || 'placa_nao_informada';
   if (key === 'date') return toManifestDateKey(item) || 'data_nao_informada';
-  return item.status || item.externalStatus || 'sem_grupo';
+  if (key === 'month') return toManifestDateKey(item)?.slice(0, 7) || 'data_nao_informada';
+  if (key === 'year') return toManifestDateKey(item)?.slice(0, 4) || 'data_nao_informada';
+  throw new AppError(
+    400,
+    'Bad Request',
+    `Dimensao de agrupamento nao suportada: "${groupBy}". Dimensoes validas: ${MANIFEST_GROUP_DIMENSIONS.join(', ')}.`,
+    { code: 'CONVERSATION_INVALID_GROUP_DIMENSION' }
+  );
 }
 
-function buildGroupedManifestStats(items: ManifestListItem[], groupBy: string) {
+// A ORDENAÇÃO dos grupos é decisão do planner LLM (selection.groupOrder no
+// schema da tool): count_desc = ranking por volume; key_asc = ordem natural da
+// chave (cronológica para month/date/year). Nenhuma inferência interna.
+export function buildGroupedManifestStats(
+  items: ManifestListItem[],
+  groupBy: string,
+  groupOrder: ManifestGroupOrder = 'count_desc'
+) {
   const grouped = new Map<string, { key: string; count: number; manifests: ManifestListItem[] }>();
 
   for (const item of items) {
@@ -1196,14 +1219,17 @@ function buildGroupedManifestStats(items: ManifestListItem[], groupBy: string) {
     grouped.set(key, current);
   }
 
-  return Array.from(grouped.values())
-    .sort((a, b) => b.count - a.count)
-    .map((entry, index) => ({
-      rank: index + 1,
-      group: entry.key,
-      total: entry.count,
-      manifestIds: entry.manifests.map((item) => item.id)
-    }));
+  const entries = Array.from(grouped.values());
+  const sorted = groupOrder === 'key_asc'
+    ? entries.sort((a, b) => a.key.localeCompare(b.key))
+    : entries.sort((a, b) => b.count - a.count);
+
+  return sorted.map((entry, index) => ({
+    rank: index + 1,
+    group: entry.key,
+    total: entry.count,
+    manifestIds: entry.manifests.map((item) => item.id)
+  }));
 }
 
 function summarizeConsolidatedManifestDetails(items: ManifestConsolidatedDetail[]): string {
@@ -2169,6 +2195,10 @@ async function handleManifestListRecentTop(input: ConversationDispatchInput, arg
   const skipMostRecent = clampNonNegativeInt(selection.skipMostRecent, 0);
   const orderBy = resolveManifestRecencyOrder(selection.orderBy);
   const groupBy = toNullableString(selection.groupBy || args.groupBy);
+  // Ordenação dos grupos decidida pelo planner (validada no Zod da tool);
+  // default declarado no schema: count_desc.
+  const groupOrder: ManifestGroupOrder =
+    toNullableString(selection.groupOrder || args.groupOrder) === 'key_asc' ? 'key_asc' : 'count_desc';
   const withoutCdf = toBoolean(selection.withoutCdf ?? args.withoutCdf, false);
   const excludedManifestIds = toStringArray(selection.excludeManifestIds || args.excludeManifestIds);
   const excludedIndexes = toIntArray(selection.excludeIndexes || args.excludeIndexes);
@@ -2215,7 +2245,7 @@ async function handleManifestListRecentTop(input: ConversationDispatchInput, arg
     excludedManifestIds,
     excludedIndexes
   }).slice(0, top);
-  const grouped = groupBy ? buildGroupedManifestStats(selected, groupBy) : [];
+  const grouped = groupBy ? buildGroupedManifestStats(selected, groupBy, groupOrder) : [];
   const groupedRankingSummary = grouped.length > 0
     ? grouped
       .map((item) => `${item.rank}o ${item.group} (${item.total})`)
@@ -2246,6 +2276,7 @@ async function handleManifestListRecentTop(input: ConversationDispatchInput, arg
         totalInRange: operationallyFiltered.length,
         withoutCdf,
         groupBy,
+        groupOrder: groupBy ? groupOrder : null,
         // Rastreabilidade/evidência: de onde veio, quando, e por qual campo a recência foi medida.
         source: 'local_mirror',
         consultedAt,
@@ -2279,7 +2310,7 @@ async function handleManifestListRecentTop(input: ConversationDispatchInput, arg
       }
 
       if (groupBy) {
-        return `Agrupei ${selected.length} manifesto(s) por ${groupBy}. Ranking: ${groupedRankingSummary}.`;
+        return `Agrupei ${selected.length} manifesto(s) por ${groupBy} (ordenacao ${groupOrder}). Grupos: ${groupedRankingSummary}.`;
       }
 
       return buildSelectionSummary({

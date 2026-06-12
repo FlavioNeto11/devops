@@ -1840,6 +1840,7 @@ function buildManifestGroupEvidence(toolResult: unknown): string | null {
     periodo: { de: criteria.dateFrom ?? null, ate: criteria.dateTo ?? null },
     totalNoPeriodo: criteria.totalInRange ?? itensConsiderados,
     agrupamentoPor: groupBy,
+    ordenacaoGrupos: toNullableString(criteria.groupOrder),
     grupos
   });
 }
