@@ -16,6 +16,7 @@ import AutoForm from './cms/AutoForm.jsx';
 import RichTextField from './cms/RichTextField.jsx';
 import AiAssist from './cms/AiAssist.jsx';
 import { pmCmsAiSection, pmCmsAiSite } from '../api.js';
+import { withSiteSkeleton } from '../lib/fieldKit.js';
 import MediaPicker from './cms/MediaPicker.jsx';
 import IconPicker from './cms/IconPicker.jsx';
 import VideoPicker from './cms/VideoPicker.jsx';
@@ -288,7 +289,7 @@ export default function VisualEditor({ project }) {
   }, [selected, ready, post]);
 
   // ---- site (contato/redes/fotos) -----------------------------------------
-  const openSite = async () => { try { setSiteDraft((await pmCmsSite(project.id)) || {}); } catch (e) { toast.err(e.message); } };
+  const openSite = async () => { try { setSiteDraft(withSiteSkeleton(await pmCmsSite(project.id))); } catch (e) { toast.err(e.message); } };
   const saveSite = async () => {
     setSiteBusy(true);
     try { await pmCmsSaveSite(project.id, siteDraft); toast.ok('Configuração salva.'); setSiteDraft(null); post('cms:tree', { tree: { ...treeRef.current, site: siteDraft } }); commitTree({ ...treeRef.current, site: siteDraft }); }
@@ -376,7 +377,7 @@ export default function VisualEditor({ project }) {
               <AiAssist autoFocus={!!selected.ai}
                 placeholder="ex.: mude o nome para SkyFit Pro · paleta em tons de verde · tagline mais curta"
                 onRun={async (instruction) => { await pmCmsAiSite(project.id, instruction); await buildTree(); }} />
-              <SitePanelEditor site={tree?.site || {}} path={selected.path} projectId={project.id} setSiteData={setSiteData} />
+              <SitePanelEditor site={withSiteSkeleton(tree?.site)} path={selected.path} projectId={project.id} setSiteData={setSiteData} />
             </div>
           </aside>
         )}

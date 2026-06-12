@@ -19,6 +19,7 @@ import { isPortal } from '../lib/appTypes.js';
 import NewPortalWizard from './cms/NewPortalWizard.jsx';
 import AiAssist from './cms/AiAssist.jsx';
 import { pmApproveProject, pmRejectProject, pmPatchProject, pmDeleteProject, pmCmsAiSection, pmCmsAiSite } from '../api.js';
+import { withSiteSkeleton } from '../lib/fieldKit.js';
 
 // ===========================================================================
 function SectionDrawer({ section, onClose, onSaved }) {
@@ -180,7 +181,7 @@ export default function ContentEditor({ initialId = null, me = null }) {
   };
 
   const openSite = async () => {
-    try { setSiteDraft((await pmCmsSite(selId)) || {}); } catch (e) { toast.err(e.message); }
+    try { setSiteDraft(withSiteSkeleton(await pmCmsSite(selId))); } catch (e) { toast.err(e.message); }
   };
   const saveSite = async () => {
     setSiteBusy(true);

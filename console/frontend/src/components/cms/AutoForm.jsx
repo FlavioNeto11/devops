@@ -3,26 +3,30 @@ import RichTextField from './RichTextField.jsx';
 import MediaPicker from './MediaPicker.jsx';
 import IconPicker from './IconPicker.jsx';
 import VideoPicker from './VideoPicker.jsx';
+import {
+  labelFor, hintFor, isHiddenKey, isColorField, toInputHex, enumOptionsFor,
+  isColumnsField, extractYouTubeId,
+} from '../../lib/fieldKit.js';
 
 // Editor de conteudo GENERICO: percorre o objeto `data` (jsonb) e renderiza o
-// editor adequado por tipo/chave. Cobre qualquer `kind` sem formulario dedicado.
-//   - chave 'html'         -> RichTextField (WYSIWYG)
-//   - chave 'icon'         -> IconPicker (grid visual buscável)
-//   - chave *url|*photo... -> MediaPicker (preview + upload + biblioteca)
-//   - array de objetos     -> lista com add/remover/reordenar (AutoForm aninhado)
-//   - array de strings     -> textarea (um por linha)
-//   - objeto               -> sub-formulario
-//   - boolean/number/string-> input apropriado
+// editor adequado por tipo/chave — em linguagem de USUARIO (sem jargao):
+//   - chave 'html'           -> RichTextField (WYSIWYG)
+//   - chave 'icon'           -> IconPicker (grid visual buscavel)
+//   - cor (hex/paleta)       -> seletor de cor nativo + campo texto sincronizado
+//   - campos de escolha      -> select amigavel (posicao, layout, tipo de botao, colunas)
+//   - youtubeId              -> aceita o LINK colado e extrai o ID sozinho
+//   - chave *url|*photo...   -> MediaPicker (preview + upload + biblioteca)
+//   - array de objetos       -> lista com add/remover/reordenar (AutoForm aninhado)
+//   - array de strings       -> textarea (um por linha)
+//   - objeto                 -> sub-formulario
+//   - boolean/number/string  -> input apropriado
+// Campos internos (aiPalette, _*) ficam ocultos.
 
 const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
 const TEXTAREA_KEYS = new Set(['intro', 'desc', 'description', 'summary', 'text', 'subtitle', 'a', 'objetivo', 'tagline', 'positioning', 'quote', 'titleTail']);
 const FILE_KEY = /(fileid|photo|logo|image|url|hero|about)$/i;
 const VIDEO_KEY = /^(youtubeid|videoid|video)$/i;
 const LONG = 70;
-
-function labelize(k) {
-  return k.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').replace(/^./, (c) => c.toUpperCase());
-}
 
 function emptyLike(v) {
   if (Array.isArray(v)) return [];
@@ -32,10 +36,37 @@ function emptyLike(v) {
   return '';
 }
 
-function StringField({ k, value, onChange, projectId }) {
+/** Seletor visual de cor + hex sincronizado (o usuário não precisa saber o que é hex). */
+function ColorField({ value, onChange }) {
+  return (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+      <input
+        type="color"
+        value={toInputHex(value)}
+        onChange={(e) => onChange(e.target.value)}
+        style={{ width: 44, height: 34, padding: 2, border: '1px solid var(--line, #ddd)', borderRadius: 8, background: 'transparent', cursor: 'pointer' }}
+        title="Clique para escolher a cor"
+      />
+      <input className="input" style={{ flex: 1 }} value={value || ''} placeholder="#22C55E"
+        onChange={(e) => onChange(e.target.value)} />
+      {value && <span style={{ width: 20, height: 20, borderRadius: 6, background: toInputHex(value), border: '1px solid var(--line, #ddd)' }} aria-hidden />}
+    </div>
+  );
+}
+
+function StringField({ k, value, onChange, projectId, siblings }) {
   if (k === 'html') return <RichTextField value={value} onChange={onChange} />;
   if (k === 'icon') return <IconPicker value={value} onChange={onChange} />;
-  if (VIDEO_KEY.test(k)) return <VideoPicker projectId={projectId} value={value} onChange={onChange} />;
+  if (isColorField(k, value)) return <ColorField value={value} onChange={onChange} />;
+  const options = enumOptionsFor(k, value, siblings);
+  if (options) {
+    return (
+      <select className="select" value={value || ''} onChange={(e) => onChange(e.target.value)}>
+        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    );
+  }
+  if (VIDEO_KEY.test(k)) return <VideoPicker projectId={projectId} value={value} onChange={(n) => onChange(extractYouTubeId(n))} />;
   if (FILE_KEY.test(k)) return <MediaPicker projectId={projectId} value={value} onChange={onChange} />;
   const multi = TEXTAREA_KEYS.has(k) || (typeof value === 'string' && value.length > LONG);
   return multi
@@ -90,14 +121,16 @@ function ArrayOfObjects({ value, onChange, projectId }) {
 export default function AutoForm({ value, onChange, projectId }) {
   if (!isObj(value)) return null;
   const set = (k, v) => onChange({ ...value, [k]: v });
+  const keys = Object.keys(value).filter((k) => !isHiddenKey(k));
   return (
     <div style={{ display: 'grid', gap: 12 }}>
-      {Object.keys(value).map((k) => {
+      {keys.map((k) => {
         const v = value[k];
         const isScalar = !Array.isArray(v) && !isObj(v);
+        const hint = hintFor(k);
         return (
           <div key={k} className="field">
-            <span className="field__label">{labelize(k)}</span>
+            <span className="field__label">{labelFor(k)}</span>
             {Array.isArray(v) ? (
               v.length && isObj(v[0])
                 ? <ArrayOfObjects value={v} onChange={(n) => set(k, n)} projectId={projectId} />
@@ -111,10 +144,17 @@ export default function AutoForm({ value, onChange, projectId }) {
                 <input type="checkbox" checked={v} onChange={(e) => set(k, e.target.checked)} /> {v ? 'sim' : 'não'}
               </label>
             ) : typeof v === 'number' ? (
-              <input className="input" type="number" value={v} onChange={(e) => set(k, Number(e.target.value))} />
+              isColumnsField(k) ? (
+                <select className="select" value={v} onChange={(e) => set(k, Number(e.target.value))}>
+                  {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n} coluna{n > 1 ? 's' : ''}</option>)}
+                </select>
+              ) : (
+                <input className="input" type="number" value={v} onChange={(e) => set(k, Number(e.target.value))} />
+              )
             ) : (
-              isScalar && <StringField k={k} value={v} onChange={(n) => set(k, n)} projectId={projectId} />
+              isScalar && <StringField k={k} value={v} onChange={(n) => set(k, n)} projectId={projectId} siblings={keys} />
             )}
+            {hint && <span className="muted" style={{ fontSize: '.75rem', marginTop: 4 }}>{hint}</span>}
           </div>
         );
       })}
