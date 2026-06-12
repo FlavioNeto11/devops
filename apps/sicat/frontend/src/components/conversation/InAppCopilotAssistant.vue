@@ -374,6 +374,8 @@ onUnmounted(() => {
         </div>
 
         <form class="copilot-composer" @submit.prevent="submitComposer">
+          <!-- variant="plain": sem o overlay do solo-filled (efeito de degradê).
+               O cartão .copilot-composer é o "campo" visual, com anel de foco. -->
           <v-textarea
             ref="composerRef"
             v-model="draft"
@@ -383,8 +385,7 @@ onUnmounted(() => {
             max-rows="5"
             auto-grow
             hide-details
-            variant="solo-filled"
-            flat
+            variant="plain"
             :disabled="isSubmitting"
             @keydown="onComposerKeydown"
           />
@@ -614,15 +615,40 @@ onUnmounted(() => {
 .copilot-composer {
   display: grid;
   gap: 10px;
-  padding: 14px;
-  border: 1px solid rgba(var(--v-border-color), 0.16);
-  border-radius: 22px;
-  background: rgba(var(--v-theme-surface), 0.9);
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: rgb(var(--v-theme-surface));
+  transition: border-color 0.14s ease, box-shadow 0.14s ease;
 }
 
-.copilot-composer-input :deep(textarea) {
+.copilot-composer:focus-within {
+  border-color: rgba(var(--v-theme-primary), 0.5);
+  box-shadow: 0 0 0 3px rgba(var(--v-theme-primary), 0.08);
+}
+
+/* Textarea nu dentro do cartão: sem fundo, sem underline, padding enxuto. */
+.copilot-composer-input :deep(.v-field__input) {
+  padding: 4px 0 2px;
   font-size: 0.94rem;
   line-height: 1.5;
+  background: transparent;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.copilot-composer-input :deep(.v-field__overlay),
+.copilot-composer-input :deep(.v-field__outline) {
+  display: none;
+}
+
+.copilot-composer-input :deep(.v-field) {
+  --v-field-padding-start: 0;
+  --v-field-padding-end: 0;
+  --v-field-padding-top: 0;
+  --v-field-padding-bottom: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .copilot-composer-footer {
