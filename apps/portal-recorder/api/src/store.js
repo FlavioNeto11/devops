@@ -27,6 +27,10 @@ export function validateCreatePortal(body) {
   try { parsed = new URL(entryUrl); } catch { return err(400, 'VALIDATION_ERROR', 'entry_url must be an absolute URL'); }
   if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return err(400, 'VALIDATION_ERROR', 'entry_url must be http(s)');
   const apiOrigins = Array.isArray(body.api_origins) ? body.api_origins.filter((o) => typeof o === 'string') : [];
+  // Vínculo opcional com um produto da plataforma (declarativo; mesma gramática
+  // de key dos projetos). Vazio/ausente = portal externo independente.
+  const related = typeof body.related_project_key === 'string' ? body.related_project_key.trim() : '';
+  if (related && !SLUG_RE.test(related)) return err(400, 'VALIDATION_ERROR', 'related_project_key must match ^[a-z0-9]+(-[a-z0-9]+)*$');
   return {
     ok: true,
     value: {
@@ -37,6 +41,7 @@ export function validateCreatePortal(body) {
       api_origins: apiOrigins.length ? apiOrigins : [parsed.origin],
       spa_kind: typeof body.spa_kind === 'string' ? body.spa_kind : null,
       notes: typeof body.notes === 'string' ? body.notes : null,
+      related_project_key: related || null,
     },
   };
 }
@@ -66,14 +71,15 @@ export function splitUrl(rawUrl) {
 export async function createPortal(pool, value) {
   const id = genId('por');
   const { rows } = await pool.query(
-    `INSERT INTO portals (id, slug, name, entry_url, base_origin, api_origins, spa_kind, notes)
-     VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8)
+    `INSERT INTO portals (id, slug, name, entry_url, base_origin, api_origins, spa_kind, notes, related_project_key)
+     VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9)
      ON CONFLICT (slug) DO UPDATE SET
        name = EXCLUDED.name, entry_url = EXCLUDED.entry_url, base_origin = EXCLUDED.base_origin,
        api_origins = EXCLUDED.api_origins, spa_kind = EXCLUDED.spa_kind, notes = EXCLUDED.notes,
+       related_project_key = EXCLUDED.related_project_key,
        updated_at = NOW()
      RETURNING *`,
-    [id, value.slug, value.name, value.entry_url, value.base_origin, JSON.stringify(value.api_origins), value.spa_kind, value.notes]
+    [id, value.slug, value.name, value.entry_url, value.base_origin, JSON.stringify(value.api_origins), value.spa_kind, value.notes, value.related_project_key]
   );
   return rows[0];
 }
