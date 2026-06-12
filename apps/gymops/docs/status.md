@@ -1,6 +1,16 @@
 # GymOps — Status Real do Projeto
 
-**Última atualização**: 2026-06-12 (passe de resiliência/desempenho — sem mudança de lógica/API)
+**Última atualização**: 2026-06-12 (re-design monocromático "graphite" — sem mudança de lógica/API)
+
+> **2026-06-12 — Re-design visual (tema graphite):** paleta monocromática em
+> escala zinc — primário quase-preto no light / branco no dark (globals.css +
+> tokens `--sidebar-*` novos no tailwind.config); sidebar GRAFITE nos dois
+> modos (ativo `bg-white/10`, hover `sidebar-accent`); badges de status e
+> prioridade no padrão **dot** (pílula neutra + ponto colorido — funciona em
+> light e dark; antes `*-100/*-700` quebravam no dark); KPIs do dashboard com
+> chip de ícone neutro e criticidade no número; paddings unificados
+> `p-3 md:p-6` (11 páginas usavam `p-4 md:p-8`). Nenhuma rota, contrato ou
+> permissão alterada. Validado logado (admin demo) em dashboard e central.
 
 > **2026-06-12 — Passe de resiliência (plataforma):** API com graceful shutdown
 > (SIGTERM → `app.close()` + `prisma.$disconnect()`, força saída em 10s);

@@ -30,6 +30,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "apps/portal-recorder/frontend", "--", "--port", "5056", "--strictPort"],
       "port": 5056
+    },
+    {
+      "name": "gymops-web-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "apps/gymops", "--filter", "@gymops/web", "dev"],
+      "port": 3000
     }
   ]
 }
