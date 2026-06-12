@@ -133,19 +133,18 @@ const emit = defineEmits([
   position: sticky;
   top: 0;
   z-index: 110;
-  border-bottom: 1px solid rgba(var(--v-border-color), 0.16);
-  background: rgba(var(--v-theme-surface), 0.84);
-  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(var(--v-theme-surface), 0.96);
+  backdrop-filter: blur(8px);
 }
 
 .sicat-topbar__inner {
   display: flex;
-  min-height: 78px;
+  min-height: 64px;
   align-items: center;
   gap: 18px;
   margin: 0 auto;
-  padding: 16px 28px;
-  border-radius: 0 0 24px 24px;
+  padding: 10px var(--space-6);
   width: 100%;
 }
 
@@ -165,12 +164,12 @@ const emit = defineEmits([
 
 .app-brand__logo {
   display: inline-flex;
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   align-items: center;
   justify-content: center;
-  border-radius: 16px;
-  background: rgba(var(--v-theme-primary), 0.12);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--v-theme-primary), 0.1);
 }
 
 .app-brand__copy {
@@ -182,8 +181,8 @@ const emit = defineEmits([
 .app-brand__copy strong {
   color: rgba(var(--v-theme-on-surface), 0.95);
   font-size: 1rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .app-brand__copy small {
@@ -202,10 +201,10 @@ const emit = defineEmits([
 }
 
 .sicat-topbar__kicker {
-  color: rgba(var(--v-theme-primary), 0.9);
+  color: rgba(var(--v-theme-on-surface), 0.55);
   font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.09em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -233,8 +232,8 @@ const emit = defineEmits([
 
 .sicat-topbar__theme-toggle,
 .sicat-topbar__mobile-trigger {
-  border: 1px solid rgba(var(--v-border-color), 0.18);
-  background: rgba(var(--v-theme-surface), 0.78);
+  border: 1px solid var(--color-border);
+  background: rgb(var(--v-theme-surface));
 }
 
 .sicat-topbar__mobile-trigger,
@@ -257,22 +256,22 @@ const emit = defineEmits([
 
 @media (max-width: 1179px) {
   .sicat-topbar__inner {
-    min-height: 74px;
+    min-height: 62px;
   }
 }
 
 @media (max-width: 959px) {
   .sicat-topbar__inner {
-    padding: 14px 18px;
+    padding: 10px 18px;
   }
 }
 
 @media (max-width: 599px) {
   .sicat-topbar__inner {
     gap: 12px;
-    min-height: 70px;
-    padding-top: 12px;
-    padding-bottom: 12px;
+    min-height: 58px;
+    padding-top: 8px;
+    padding-bottom: 8px;
   }
 
   .app-brand__copy small {

@@ -3,6 +3,11 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 import type { ActivityStatus, ActivityPriority } from '@gymops/shared';
 
+// Visual monocromático: badges de status/prioridade usam o padrão "dot" — a
+// pílula é NEUTRA (borda + fundo do tema, funciona em light e dark) e a
+// semântica fica no ponto colorido renderizado por StatusBadge/PriorityBadge.
+const NEUTRAL_DOT_BADGE = 'gap-1.5 border-border bg-card text-foreground font-medium';
+
 const badgeVariants = cva(
   'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors',
   {
@@ -13,17 +18,17 @@ const badgeVariants = cva(
         destructive: 'border-transparent bg-destructive text-destructive-foreground',
         outline: 'text-foreground',
         // Status
-        novo: 'border-transparent bg-gray-100 text-gray-700',
-        em_andamento: 'border-transparent bg-blue-100 text-blue-700',
-        aguardando_terceiro: 'border-transparent bg-amber-100 text-amber-700',
-        aguardando_aprovacao: 'border-transparent bg-purple-100 text-purple-700',
-        concluido: 'border-transparent bg-emerald-100 text-emerald-700',
-        cancelado: 'border-transparent bg-gray-100 text-gray-400',
+        novo: NEUTRAL_DOT_BADGE,
+        em_andamento: NEUTRAL_DOT_BADGE,
+        aguardando_terceiro: NEUTRAL_DOT_BADGE,
+        aguardando_aprovacao: NEUTRAL_DOT_BADGE,
+        concluido: NEUTRAL_DOT_BADGE,
+        cancelado: `${NEUTRAL_DOT_BADGE} text-muted-foreground`,
         // Priority
-        baixa: 'border-transparent bg-gray-100 text-gray-600',
-        media: 'border-transparent bg-blue-100 text-blue-700',
-        alta: 'border-transparent bg-amber-100 text-amber-700',
-        critica: 'border-transparent bg-red-100 text-red-700',
+        baixa: NEUTRAL_DOT_BADGE,
+        media: NEUTRAL_DOT_BADGE,
+        alta: NEUTRAL_DOT_BADGE,
+        critica: NEUTRAL_DOT_BADGE,
       },
     },
     defaultVariants: { variant: 'default' },
@@ -54,12 +59,43 @@ const PRIORITY_LABELS: Record<ActivityPriority, string> = {
   critica: 'Crítica',
 };
 
+// Cores dos dots (única cor visível no badge — semântica preservada no mono).
+const STATUS_DOT: Record<ActivityStatus, string> = {
+  novo: 'bg-zinc-400',
+  em_andamento: 'bg-blue-500',
+  aguardando_terceiro: 'bg-amber-500',
+  aguardando_aprovacao: 'bg-violet-500',
+  concluido: 'bg-emerald-500',
+  cancelado: 'bg-zinc-300',
+};
+
+const PRIORITY_DOT: Record<ActivityPriority, string> = {
+  baixa: 'bg-zinc-400',
+  media: 'bg-blue-500',
+  alta: 'bg-amber-500',
+  critica: 'bg-red-500',
+};
+
+function Dot({ className }: { className: string }) {
+  return <span aria-hidden="true" className={cn('h-1.5 w-1.5 shrink-0 rounded-full', className)} />;
+}
+
 export function StatusBadge({ status }: { status: ActivityStatus }) {
-  return <Badge variant={status as never}>{STATUS_LABELS[status]}</Badge>;
+  return (
+    <Badge variant={status as never}>
+      <Dot className={STATUS_DOT[status]} />
+      {STATUS_LABELS[status]}
+    </Badge>
+  );
 }
 
 export function PriorityBadge({ priority }: { priority: ActivityPriority }) {
-  return <Badge variant={priority as never}>{PRIORITY_LABELS[priority]}</Badge>;
+  return (
+    <Badge variant={priority as never}>
+      <Dot className={PRIORITY_DOT[priority]} />
+      {PRIORITY_LABELS[priority]}
+    </Badge>
+  );
 }
 
 export { Badge, badgeVariants };

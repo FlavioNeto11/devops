@@ -54,15 +54,16 @@ export function Sidebar({ units, organizationName, mobileOpen, onMobileClose }: 
       <aside
         data-tutorial="app-sidebar"
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex h-screen flex-col border-r bg-card transition-transform duration-200',
+          // Grafite nos dois modos (tokens sidebar-*): identidade visual do produto.
+          'fixed inset-y-0 left-0 z-50 flex h-screen flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-transform duration-200',
           'md:relative md:inset-y-auto md:left-auto md:z-auto md:translate-x-0',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
           collapsed ? 'w-60 md:w-14' : 'w-60',
         )}
       >
       {/* Header */}
-      <div className={cn('flex items-center gap-2 border-b p-4', collapsed && 'justify-center p-3')}>
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
+      <div className={cn('flex items-center gap-2 border-b border-sidebar-border p-4', collapsed && 'justify-center p-3')}>
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/10 text-sidebar-foreground">
           <Building2 className="h-4 w-4" />
         </div>
         {!collapsed && (
@@ -79,10 +80,10 @@ export function Sidebar({ units, organizationName, mobileOpen, onMobileClose }: 
             onClick={onMobileClose}
             className={cn(
               'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-foreground/40',
               pathname === item.href
-                ? 'bg-primary/10 text-primary font-medium'
-                : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                ? 'bg-white/10 font-medium text-sidebar-foreground'
+                : 'text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground',
               collapsed && 'justify-center px-2',
             )}
             title={collapsed ? item.label : undefined}
@@ -97,12 +98,12 @@ export function Sidebar({ units, organizationName, mobileOpen, onMobileClose }: 
         {/* Units */}
         {!collapsed && (
           <div className="mt-4">
-            <p className="mb-1 px-3 text-xs font-medium uppercase text-muted-foreground tracking-wider">
+            <p className="mb-1 px-3 text-xs font-medium uppercase text-sidebar-muted tracking-wider">
               Unidades
             </p>
           </div>
         )}
-        {collapsed && <div className="my-2 border-t" />}
+        {collapsed && <div className="my-2 border-t border-sidebar-border" />}
 
         {units.map((unit) => (
           <Link
@@ -111,10 +112,10 @@ export function Sidebar({ units, organizationName, mobileOpen, onMobileClose }: 
             onClick={onMobileClose}
             className={cn(
               'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-foreground/40',
               pathname === `/units/${unit.id}`
-                ? 'bg-primary/10 text-primary font-medium'
-                : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                ? 'bg-white/10 font-medium text-sidebar-foreground'
+                : 'text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground',
               collapsed && 'justify-center px-2',
             )}
             title={collapsed ? unit.name : undefined}
@@ -122,7 +123,7 @@ export function Sidebar({ units, organizationName, mobileOpen, onMobileClose }: 
             aria-current={pathname === `/units/${unit.id}` ? 'page' : undefined}
           >
             <div
-              className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[10px] font-bold bg-muted"
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[10px] font-bold bg-white/10"
             >
               {(unit.code ?? unit.name)[0]}
             </div>
@@ -132,19 +133,19 @@ export function Sidebar({ units, organizationName, mobileOpen, onMobileClose }: 
       </nav>
 
       {/* Footer */}
-      <div className={cn('border-t p-2', collapsed && 'flex flex-col items-center gap-1')}>
+      <div className={cn('border-t border-sidebar-border p-2', collapsed && 'flex flex-col items-center gap-1')}>
         {!collapsed && user && (
           <div className="flex items-center gap-2 rounded-md px-3 py-2">
             <UserAvatar name={user.name} avatarUrl={user.avatarUrl} className="h-7 w-7" />
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-medium">{user.name}</p>
-              <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+              <p className="truncate text-xs text-sidebar-muted">{user.email}</p>
             </div>
           </div>
         )}
 
         <Link href="/profile" onClick={onMobileClose} title={collapsed ? 'Perfil' : undefined}>
-          <Button variant="ghost" size={collapsed ? 'icon' : 'sm'} aria-label="Meu perfil" className={cn('w-full', !collapsed && 'justify-start gap-2 text-muted-foreground')}>
+          <Button variant="ghost" size={collapsed ? 'icon' : 'sm'} aria-label="Meu perfil" className={cn('w-full text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground', !collapsed && 'justify-start gap-2')}>
             <User className="h-4 w-4" aria-hidden="true" />
             {!collapsed && 'Meu Perfil'}
           </Button>
@@ -155,14 +156,14 @@ export function Sidebar({ units, organizationName, mobileOpen, onMobileClose }: 
             variant="ghost"
             size={collapsed ? 'icon' : 'sm'}
             aria-label="Central de ajuda"
-            className={cn('w-full', !collapsed && 'justify-start gap-2 text-muted-foreground')}
+            className={cn('w-full text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground', !collapsed && 'justify-start gap-2')}
           >
             <HelpCircle className="h-4 w-4" aria-hidden="true" />
             {!collapsed && 'Ajuda'}
           </Button>
         </Link>
         <Link href="/settings" onClick={onMobileClose} title={collapsed ? 'Configurações' : undefined}>
-          <Button variant="ghost" size={collapsed ? 'icon' : 'sm'} aria-label="Configurações" className={cn('w-full', !collapsed && 'justify-start gap-2 text-muted-foreground')}>
+          <Button variant="ghost" size={collapsed ? 'icon' : 'sm'} aria-label="Configurações" className={cn('w-full text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground', !collapsed && 'justify-start gap-2')}>
             <Settings className="h-4 w-4" aria-hidden="true" />
             {!collapsed && 'Configurações'}
           </Button>
@@ -171,7 +172,7 @@ export function Sidebar({ units, organizationName, mobileOpen, onMobileClose }: 
         <Button
           variant="ghost"
           size={collapsed ? 'icon' : 'sm'}
-          className={cn('w-full text-muted-foreground', !collapsed && 'justify-start gap-2')}
+          className={cn('w-full text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground', !collapsed && 'justify-start gap-2')}
           onClick={logout}
           title={collapsed ? 'Sair' : undefined}
           aria-label="Sair da conta"

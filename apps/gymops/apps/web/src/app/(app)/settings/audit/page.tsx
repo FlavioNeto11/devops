@@ -89,7 +89,7 @@ function AuditContent({ organizationId, page, setPage, filterAction, setFilterAc
   const meta = (data as { meta?: { total: number; pages: number } })?.meta;
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto">
+    <div className="p-3 md:p-6 max-w-4xl mx-auto">
       <div className="flex items-start justify-between gap-3 mb-6 flex-wrap">
         <div className="flex items-center gap-3">
           <Shield className="h-6 w-6 text-muted-foreground" />

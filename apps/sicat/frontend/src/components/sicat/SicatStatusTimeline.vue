@@ -100,25 +100,25 @@ function markerTone(step) {
 .sicat-status-timeline__step[data-tone='success'] .sicat-status-timeline__marker {
   background: rgb(var(--v-theme-success));
   border-color: rgb(var(--v-theme-success));
-  color: #fff;
+  color: var(--color-primary-contrast);
 }
 
 .sicat-status-timeline__step[data-tone='running'] .sicat-status-timeline__marker {
   background: rgb(var(--v-theme-info));
   border-color: rgb(var(--v-theme-info));
-  color: #fff;
+  color: var(--color-primary-contrast);
 }
 
 .sicat-status-timeline__step[data-tone='error'] .sicat-status-timeline__marker {
   background: rgb(var(--v-theme-error));
   border-color: rgb(var(--v-theme-error));
-  color: #fff;
+  color: var(--color-primary-contrast);
 }
 
 .sicat-status-timeline__step[data-tone='warning'] .sicat-status-timeline__marker {
   background: rgb(var(--v-theme-warning));
   border-color: rgb(var(--v-theme-warning));
-  color: #fff;
+  color: var(--color-primary-contrast);
 }
 
 .sicat-status-timeline__connector {

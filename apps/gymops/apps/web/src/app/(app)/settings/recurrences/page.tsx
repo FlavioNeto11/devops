@@ -65,7 +65,7 @@ export default function RecurrencesPage() {
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-3xl mx-auto">
+    <div className="p-3 md:p-6 max-w-3xl mx-auto">
       <div className="flex items-start justify-between mb-6 gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold">Recorrências</h1>

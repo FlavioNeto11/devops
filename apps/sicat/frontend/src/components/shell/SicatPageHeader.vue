@@ -109,32 +109,21 @@ const resolvedKicker = computed(() => {
   align-items: stretch;
   justify-content: space-between;
   gap: 18px;
-  margin-bottom: 22px;
-  padding: 22px 24px;
-  border: 1px solid rgba(var(--v-border-color), 0.14);
-  border-radius: 28px;
-  background: linear-gradient(
-    135deg,
-    rgba(var(--v-theme-surface), 0.94) 0%,
-    rgba(var(--v-theme-surface), 0.8) 58%,
-    rgba(var(--v-theme-primary), 0.08) 100%
-  );
-  box-shadow: 0 18px 44px rgba(75, 70, 92, 0.1);
+  margin-bottom: 20px;
+  padding: 18px 20px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: rgb(var(--v-theme-surface));
+  box-shadow: var(--shadow-sm);
 }
 
 .sicat-page-header--compact {
-  padding: 16px 20px;
-  border-radius: 22px;
+  padding: 14px 16px;
 }
 
+/* Tom "system": mesma superfície neutra, sinalizada só pela borda/kicker. */
 .sicat-page-header[data-tone='system'] {
-  background: linear-gradient(
-    135deg,
-    rgba(var(--v-theme-surface), 0.96) 0%,
-    rgba(var(--v-theme-surface), 0.82) 58%,
-    rgba(var(--v-theme-warning), 0.1) 100%
-  );
-  border-color: rgba(var(--v-theme-warning), 0.32);
+  border-color: rgba(var(--v-theme-warning), 0.4);
 }
 
 .sicat-page-header__kicker {
@@ -142,13 +131,13 @@ const resolvedKicker = computed(() => {
   align-items: center;
   gap: 6px;
   margin-bottom: 8px;
-  padding: 4px 10px;
+  padding: 3px 9px;
   border-radius: 999px;
-  background: rgba(var(--v-theme-primary), 0.1);
-  color: rgba(var(--v-theme-primary), 0.96);
+  background: rgba(var(--v-theme-primary), 0.09);
+  color: rgb(var(--v-theme-primary));
   font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  font-weight: 700;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
 }
 
@@ -188,8 +177,9 @@ const resolvedKicker = computed(() => {
 
 .sicat-page-header__title {
   margin: 0;
-  font-size: clamp(1.5rem, 2vw, 2rem);
-  line-height: 1.08;
+  font-size: clamp(1.3rem, 1.7vw, 1.6rem);
+  line-height: 1.15;
+  letter-spacing: -0.015em;
   color: rgba(var(--v-theme-on-surface), 0.92);
 }
 
@@ -216,10 +206,10 @@ const resolvedKicker = computed(() => {
   display: grid;
   gap: 4px;
   align-content: start;
-  padding: 14px 16px;
-  border-radius: 20px;
-  border: 1px solid rgba(var(--v-border-color), 0.12);
-  background: rgba(var(--v-theme-surface), 0.78);
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-subtle);
 }
 
 .sicat-page-header__meta-card span {
@@ -253,12 +243,11 @@ const resolvedKicker = computed(() => {
 
 @media (max-width: 959px) {
   .sicat-page-header {
-    padding: 18px;
-    border-radius: 24px;
+    padding: 16px;
   }
 
   .sicat-page-header__title {
-    font-size: 1.45rem;
+    font-size: 1.3rem;
   }
 }
 

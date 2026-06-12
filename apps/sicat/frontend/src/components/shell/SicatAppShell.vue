@@ -125,11 +125,8 @@ function handleNavigate(path) {
   display: flex;
   min-height: 100vh;
   flex-direction: column;
-  background:
-    radial-gradient(circle at top left, rgba(var(--v-theme-primary), 0.12), transparent 34%),
-    radial-gradient(circle at top right, rgba(var(--v-theme-info), 0.08), transparent 26%),
-    radial-gradient(circle at bottom left, rgba(var(--v-theme-success), 0.06), transparent 22%),
-    rgb(var(--v-theme-background));
+  /* Fundo liso: o visual monocromático não usa os radial-gradients antigos. */
+  background: rgb(var(--v-theme-background));
 }
 
 .sicat-shell__page {
@@ -169,9 +166,8 @@ function handleNavigate(path) {
 
 .sicat-shell__footer {
   margin-top: auto;
-  border-top: 1px solid rgba(var(--v-border-color), 0.12);
-  background: rgba(var(--v-theme-surface), 0.74);
-  backdrop-filter: blur(18px);
+  border-top: 1px solid var(--color-border);
+  background: rgb(var(--v-theme-surface));
 }
 
 .sicat-shell__footer-inner {

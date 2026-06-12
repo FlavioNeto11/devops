@@ -100,32 +100,33 @@ function isGroupActive(group) {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 40px;
-  padding: 0 14px;
+  min-height: 38px;
+  padding: 0 12px;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: rgba(var(--v-theme-on-surface), 0.74);
-  font-size: 0.9rem;
+  color: rgba(var(--v-theme-on-surface), 0.66);
+  font-size: 0.88rem;
   font-weight: 600;
   letter-spacing: 0.01em;
   white-space: nowrap;
   cursor: pointer;
-  transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+  transition: background-color 0.14s ease, color 0.14s ease;
 }
 
 .sicat-nav__link:hover,
 .sicat-nav__link:focus-visible {
-  background: rgba(var(--v-theme-primary), 0.08);
-  color: rgba(var(--v-theme-primary), 1);
+  background: rgba(var(--v-theme-on-surface), 0.05);
+  color: rgba(var(--v-theme-on-surface), 0.92);
   outline: none;
 }
 
+/* Ativo monocromático: texto + fundo discreto na cor do acento, sem gradiente
+   nem sombra — leitura imediata de "onde estou" sem gritar. */
 .sicat-nav__link.is-active {
-  border-color: rgba(var(--v-theme-primary), 0.22);
-  background: linear-gradient(135deg, rgba(var(--v-theme-primary), 0.16) 0%, rgba(var(--v-theme-info), 0.10) 100%);
-  color: rgba(var(--v-theme-primary), 1);
-  box-shadow: 0 6px 16px rgba(var(--v-theme-primary), 0.12);
+  background: rgba(var(--v-theme-primary), 0.1);
+  color: rgb(var(--v-theme-primary));
+  font-weight: 700;
 }
 
 .sicat-nav__chevron {
@@ -134,9 +135,8 @@ function isGroupActive(group) {
 }
 
 .sicat-nav__menu {
-  border: 1px solid rgba(var(--v-border-color), 0.16);
-  border-radius: 18px;
-  background: rgba(var(--v-theme-surface), 0.98);
-  backdrop-filter: blur(18px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: rgb(var(--v-theme-surface));
 }
 </style>

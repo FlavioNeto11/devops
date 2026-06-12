@@ -46,19 +46,22 @@ function KpiCard({
   return (
     <Card>
       <CardContent className="flex items-center gap-4 p-4">
-        <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
-            variant === 'danger'
-              ? 'bg-red-100 text-red-600'
-              : variant === 'warning'
-                ? 'bg-amber-100 text-amber-600'
-                : 'bg-blue-100 text-blue-600'
-          }`}
-        >
+        {/* Mono: ícone em chip neutro; a criticidade aparece no NÚMERO, não no chip. */}
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
           <Icon className="h-5 w-5" />
         </div>
         <div>
-          <p className="text-2xl font-bold">{value}</p>
+          <p
+            className={`text-2xl font-semibold tracking-tight ${
+              variant === 'danger' && value > 0
+                ? 'text-red-600 dark:text-red-400'
+                : variant === 'warning' && value > 0
+                  ? 'text-amber-600 dark:text-amber-400'
+                  : ''
+            }`}
+          >
+            {value}
+          </p>
           <p className="text-xs text-muted-foreground">{label}</p>
         </div>
       </CardContent>

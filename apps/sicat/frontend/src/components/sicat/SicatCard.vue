@@ -106,13 +106,8 @@ function handleKeydown(event) {
 }
 
 .sicat-card[data-variant='glass'] {
-  background: linear-gradient(
-    135deg,
-    rgba(var(--v-theme-surface), 0.94) 0%,
-    rgba(var(--v-theme-surface), 0.8) 58%,
-    rgba(var(--v-theme-primary), 0.06) 100%
-  );
-  backdrop-filter: blur(14px);
+  /* Monocromático: "glass" virou superfície elevada sólida (sem gradiente/blur). */
+  background: var(--color-surface-raised);
 }
 
 .sicat-card[data-variant='metric'] {
@@ -120,12 +115,8 @@ function handleKeydown(event) {
 }
 
 .sicat-card[data-variant='system'] {
-  border-color: rgba(var(--v-theme-warning), 0.32);
-  background: linear-gradient(
-    135deg,
-    rgb(var(--v-theme-surface)) 0%,
-    rgba(var(--v-theme-warning), 0.04) 100%
-  );
+  border-color: rgba(var(--v-theme-warning), 0.4);
+  background: rgb(var(--v-theme-surface));
 }
 
 .sicat-card__header {

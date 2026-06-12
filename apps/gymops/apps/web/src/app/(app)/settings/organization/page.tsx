@@ -90,7 +90,7 @@ function OrganizationContent({ organizationId, queryClient, toast, setToast, aud
   const auditMeta = (auditData as { meta?: { total: number; pages: number } })?.meta;
 
   return (
-    <div className="p-4 md:p-8 max-w-3xl mx-auto space-y-8">
+    <div className="p-3 md:p-6 max-w-3xl mx-auto space-y-8">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold">Configurações da Organização</h1>

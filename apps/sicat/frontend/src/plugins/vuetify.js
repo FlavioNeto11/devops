@@ -5,19 +5,22 @@ import * as components from 'vuetify/components';
 import * as directives from 'vuetify/directives';
 import { getStoredThemeMode, toVuetifyThemeName } from '../composables/useAppTheme.js';
 
+// Paleta monocromática institucional (ver styles/tokens.css): chrome em escala
+// neutra de cinza-frio; UM acento verde-petróleo escuro. Manter em sincronia
+// com os tokens CSS — o Vuetify alimenta componentes, os tokens o shell.
 const vuexyTheme = {
   dark: false,
   colors: {
-    primary: '#0F9D72',
-    secondary: '#2D7A66',
-    success: '#1E9E57',
-    warning: '#D7831A',
-    error: '#D64D4D',
-    info: '#199FA4',
-    background: '#F2F8F4',
+    primary: '#0E6E5C',
+    secondary: '#45565E',
+    success: '#1F7E58',
+    warning: '#B06A14',
+    error: '#C24444',
+    info: '#1F758A',
+    background: '#F5F7F8',
     surface: '#FFFFFF',
     'surface-bright': '#FFFFFF',
-    'surface-light': '#EDF7F0'
+    'surface-light': '#F0F3F4'
   }
 };
 
@@ -34,16 +37,16 @@ export default createVuetify({
       vuexyDark: {
         dark: true,
         colors: {
-          primary: '#34C993',
-          secondary: '#54A78A',
-          success: '#4BD98A',
-          warning: '#F4B650',
-          error: '#F07F7F',
-          info: '#4CC9CC',
-          background: '#03131A',
-          surface: '#08222B',
-          'surface-bright': '#0E2C36',
-          'surface-light': '#103642'
+          primary: '#35B493',
+          secondary: '#97A8B0',
+          success: '#4CC28E',
+          warning: '#DCA557',
+          error: '#E07B7B',
+          info: '#56B8C4',
+          background: '#0C1114',
+          surface: '#131A1E',
+          'surface-bright': '#192328',
+          'surface-light': '#1E2A30'
         }
       }
     }
@@ -53,11 +56,11 @@ export default createVuetify({
       style: '--v-font-family: var(--font-family-base); font-family: var(--font-family-base);'
     },
     VBtn: {
-      style: 'text-transform: capitalize;',
+      style: 'text-transform: none; letter-spacing: 0.01em;',
       rounded: 'lg'
     },
     VCard: {
-      rounded: 'xl',
+      rounded: 'lg',
       elevation: 0
     },
     VTextField: {
@@ -76,7 +79,7 @@ export default createVuetify({
       hideDetails: 'auto'
     },
     VSheet: {
-      rounded: 'xl'
+      rounded: 'lg'
     },
     VTable: {
       hover: true

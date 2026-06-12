@@ -82,7 +82,7 @@ export default function ProfilePage() {
   const displayEmail = profile?.email ?? user?.email ?? '';
 
   return (
-    <div className="p-4 md:p-8 max-w-2xl mx-auto" data-tutorial="settings-profile">
+    <div className="p-3 md:p-6 max-w-2xl mx-auto" data-tutorial="settings-profile">
       <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
         <h1 className="text-2xl font-bold">Meu Perfil</h1>
         <TutorialTrigger tutorialId="profile-whatsapp" />
