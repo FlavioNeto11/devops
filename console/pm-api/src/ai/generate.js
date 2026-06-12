@@ -126,7 +126,7 @@ export function sanitizeDraft(draft) {
     if (!slug) continue;
     const sections = (Array.isArray(p.sections) ? p.sections : [])
       .filter((s) => s && AI_KINDS.has(s.kind) && s.data && typeof s.data === 'object' && !Array.isArray(s.data))
-      .map((s) => ({ kind: s.kind, data: cleanData(s.data) }))
+      .map((s) => ({ kind: s.kind, data: fixTitleSpacing(cleanData(s.data)) }))
       .filter((s) => sectionShapeOk(s))
       .slice(0, 8);
     out.pages.push({ slug, title: typeof p.title === 'string' && p.title ? p.title : slug, sections });
@@ -152,6 +152,24 @@ function cleanData(value, depth = 0) {
     return out;
   }
   return undefined;
+}
+
+// A IA às vezes emite title/titleAccent sem o espaço de junção ("SkyFitA academia…").
+// Os renderers concatenam cru (o espaço pertence ao conteúdo) — normalizamos aqui,
+// recursivamente (headings aninhados em card-grid/timeline/etc. também).
+function fixTitleSpacing(value) {
+  if (Array.isArray(value)) { value.forEach(fixTitleSpacing); return value; }
+  if (!value || typeof value !== 'object') return value;
+  if (typeof value.title === 'string' && typeof value.titleAccent === 'string'
+    && value.title && value.titleAccent && !/[\s(\["'—–:-]$/.test(value.title) && !/^[\s,.;:!?)]/.test(value.titleAccent)) {
+    value.title += ' ';
+  }
+  if (typeof value.titleAccent === 'string' && typeof value.titleTail === 'string'
+    && value.titleAccent && value.titleTail && !/[\s]$/.test(value.titleAccent) && !/^[\s,.;:!?)—–-]/.test(value.titleTail)) {
+    value.titleTail = ` ${value.titleTail}`;
+  }
+  Object.values(value).forEach(fixTitleSpacing);
+  return value;
 }
 
 // Checagem mínima de shape por kind: o campo central precisa ter o tipo certo,
