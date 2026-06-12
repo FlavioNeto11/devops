@@ -52,6 +52,9 @@ img { max-width: 100%; }
 .sr-nav__link:hover { color: var(--c-text); }
 .sr-nav__link.is-active { background: color-mix(in srgb, var(--c-primary) 12%, transparent); color: var(--c-primary); font-weight: 600; }
 .sr-nav__draft { margin-left: 5px; color: #b45309; font-weight: 700; }
+/* modo edição: header/rodapé são zonas clicáveis que abrem o painel do site */
+.sr-edit-zone { cursor: pointer; }
+.sr-edit-zone:hover { outline: 2px dashed rgba(56, 189, 248, 0.65); outline-offset: -2px; }
 
 /* hero */
 .sr-hero { padding: 76px 0 56px; background: linear-gradient(160deg, color-mix(in srgb, var(--c-primary) 10%, var(--c-bg)), var(--c-bg) 55%); }

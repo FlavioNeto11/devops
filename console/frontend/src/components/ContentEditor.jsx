@@ -17,7 +17,8 @@ import VisualEditor from './VisualEditor.jsx';
 import { KIND_TEMPLATES, KIND_LABEL, liveAppFor } from './cms/kinds.js';
 import { isPortal } from '../lib/appTypes.js';
 import NewPortalWizard from './cms/NewPortalWizard.jsx';
-import { pmApproveProject, pmRejectProject, pmPatchProject, pmDeleteProject } from '../api.js';
+import AiAssist from './cms/AiAssist.jsx';
+import { pmApproveProject, pmRejectProject, pmPatchProject, pmDeleteProject, pmCmsAiSection, pmCmsAiSite } from '../api.js';
 
 // ===========================================================================
 function SectionDrawer({ section, onClose, onSaved }) {
@@ -52,6 +53,11 @@ function SectionDrawer({ section, onClose, onSaved }) {
           <button className="drawer__close" onClick={onClose} aria-label="Fechar"><Icon name="x" size={18} /></button>
         </div>
         <div className="drawer__body">
+          <AiAssist onRun={async (instruction) => {
+            const next = await pmCmsAiSection(section.id, instruction);
+            setData(JSON.parse(JSON.stringify(next || {})));
+            await onSaved?.();
+          }} />
           <label className="field">
             <span className="field__label">Âncora (link #)</span>
             <input className="input" value={anchor} placeholder="ex.: palestras" onChange={(e) => setAnchor(e.target.value)} />
@@ -341,6 +347,8 @@ export default function ContentEditor({ initialId = null, me = null }) {
             <button className="btn" onClick={() => setSiteDraft(null)}>Cancelar</button>
             <button className="btn btn--primary" disabled={siteBusy} onClick={saveSite}>Salvar</button>
           </>}>
+          <AiAssist placeholder="ex.: mude o nome para SkyFit Pro · paleta em tons de verde · tagline mais curta"
+            onRun={async (instruction) => { setSiteDraft(await pmCmsAiSite(selId, instruction)); }} />
           <AutoForm value={siteDraft} onChange={setSiteDraft} projectId={selId} />
         </Modal>
       )}

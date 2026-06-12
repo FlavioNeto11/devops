@@ -151,6 +151,13 @@ const ICONS = {
       <path d="M9 22V12h6v10" />
     </>
   ),
+  sparkles: (
+    <>
+      <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3Z" />
+      <path d="M19 17v4" />
+      <path d="M17 19h4" />
+    </>
+  ),
   'file-text': (
     <>
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />

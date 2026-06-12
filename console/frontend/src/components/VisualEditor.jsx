@@ -14,6 +14,8 @@ import EmptyState from './EmptyState.jsx';
 import { useToast } from './ToastProvider.jsx';
 import AutoForm from './cms/AutoForm.jsx';
 import RichTextField from './cms/RichTextField.jsx';
+import AiAssist from './cms/AiAssist.jsx';
+import { pmCmsAiSection, pmCmsAiSite } from '../api.js';
 import MediaPicker from './cms/MediaPicker.jsx';
 import IconPicker from './cms/IconPicker.jsx';
 import VideoPicker from './cms/VideoPicker.jsx';
@@ -256,10 +258,15 @@ export default function VisualEditor({ project }) {
           break;
         case 'cms:nav-changed': if (m.slug) setPageSlug(m.slug); break;
         case 'cms:select':
-          setSelected(m.site ? { site: true, path: m.path } : { sectionId: m.sectionId, path: m.path, kind: m.kind });
+          setSelected(m.site ? { site: true, path: m.path, ai: !!m.ai } : { sectionId: m.sectionId, path: m.path, kind: m.kind, ai: !!m.ai });
           setPanelOpen(true);
           break;
         case 'cms:setField': {
+          if (m.site) {
+            // campos do SITE editados in-place no portal (header/rodapé/identidade)
+            setSiteData(setAt(treeRef.current?.site || {}, m.path, m.value));
+            break;
+          }
           const sec = findSection(treeRef.current, m.sectionId);
           if (sec) setSectionData(m.sectionId, setAt(sec.data, m.path, m.value));
           break;
@@ -271,7 +278,7 @@ export default function VisualEditor({ project }) {
     };
     window.addEventListener('message', onMsg);
     return () => window.removeEventListener('message', onMsg);
-  }, [post, setSectionData, handleIntent, onUpload]);
+  }, [post, setSectionData, setSiteData, handleIntent, onUpload]);
 
   // eco da seleção ao iframe — destaca a moldura (.cms-frame--sel) e mantém a
   // barra de ações visível mesmo sem hover; {} limpa.
@@ -340,6 +347,9 @@ export default function VisualEditor({ project }) {
               <button className="drawer__close" onClick={() => setSelected(null)} aria-label="Fechar"><Icon name="x" size={18} /></button>
             </div>
             <div className="ve__panel-body">
+              <AiAssist autoFocus={!!selected.ai}
+                placeholder="ex.: reescreva com tom mais energético · adicione um card sobre nutrição · resuma os textos"
+                onRun={async (instruction) => { await pmCmsAiSection(selSection.id, instruction); await buildTree(); }} />
               <PanelEditor section={selSection} path={selected.path} projectId={project.id} setSectionData={setSectionData} />
               <label className="field" style={{ marginTop: 14 }}>
                 <span className="field__label">Âncora (link #)</span>
@@ -363,6 +373,9 @@ export default function VisualEditor({ project }) {
               <button className="drawer__close" onClick={() => setSelected(null)} aria-label="Fechar"><Icon name="x" size={18} /></button>
             </div>
             <div className="ve__panel-body">
+              <AiAssist autoFocus={!!selected.ai}
+                placeholder="ex.: mude o nome para SkyFit Pro · paleta em tons de verde · tagline mais curta"
+                onRun={async (instruction) => { await pmCmsAiSite(project.id, instruction); await buildTree(); }} />
               <SitePanelEditor site={tree?.site || {}} path={selected.path} projectId={project.id} setSiteData={setSiteData} />
             </div>
           </aside>

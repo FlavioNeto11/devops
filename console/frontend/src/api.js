@@ -229,6 +229,9 @@ export const pmCmsReorderSections = (pageId, order) => pmFetch(`/cms/pages/${pag
 // Geração assistida por IA (degrada graciosamente sem OPENAI_API_KEY no pm-api).
 export const pmCmsGenerate = (projectId, body) => pmFetch(`/projects/${projectId}/cms/generate`, { method: 'POST', body });
 export const pmCmsGenerations = (projectId) => pmFetch(`/projects/${projectId}/cms/generations`);
+// ✨ edição assistida: reescreve UMA seção / o site conforme a instrução (contexto = site inteiro + briefing original)
+export const pmCmsAiSection = (sectionId, instruction) => pmFetch(`/cms/sections/${sectionId}/ai`, { method: 'POST', body: { instruction } });
+export const pmCmsAiSite = (projectId, instruction) => pmFetch(`/projects/${projectId}/cms/site/ai`, { method: 'POST', body: { instruction } });
 
 // scope: 'project' (só deste portal) | 'global' (biblioteca pública) | 'all' (default)
 export const pmCmsFiles = (projectId, scope = 'all') => pmFetch(`/projects/${projectId}/cms/files?scope=${scope}`);

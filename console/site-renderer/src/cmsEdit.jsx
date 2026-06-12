@@ -2,7 +2,7 @@ import React, {
   createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState,
 } from 'react';
 import {
-  ArrowUp, ArrowDown, Check, Circle, Eye, EyeOff, FolderOpen, ImagePlus, Pencil, Plus, Trash2,
+  ArrowUp, ArrowDown, Check, Circle, Eye, EyeOff, FolderOpen, ImagePlus, Pencil, Plus, Sparkles, Trash2,
 } from 'lucide-react';
 
 /**
@@ -101,8 +101,9 @@ export function CmsEditProvider({ currentSlug, onNavigate, children }) {
 
 // ===========================================================================
 /** Texto editável in-place (contentEditable). Caret-safe: só sincroniza o DOM
- *  quando o valor muda por fora E o campo não está em foco. */
-export function EditableText({ sectionId, path, value = '', as = 'span', className, multiline = false, placeholder = '' }) {
+ *  quando o valor muda por fora E o campo não está em foco.
+ *  `site` aponta para cms_site.data (header/rodapé/identidade) em vez de section.data. */
+export function EditableText({ sectionId, path, site = false, value = '', as = 'span', className, multiline = false, placeholder = '' }) {
   const active = useEditMode();
   const emit = useEmit();
   const ctxId = useSectionId();
@@ -119,7 +120,9 @@ export function EditableText({ sectionId, path, value = '', as = 'span', classNa
 
   if (!active) return React.createElement(as, { className }, value);
 
-  const flush = (text) => emit('cms:setField', { sectionId: sid, path, value: text });
+  const flush = (text) => emit('cms:setField', site
+    ? { site: true, path, value: text }
+    : { sectionId: sid, path, value: text });
   return React.createElement(as, {
     ref,
     className: cn(className, 'cms-editable'),
@@ -168,6 +171,7 @@ export function SectionFrame({ section, index, count, children }) {
             <span className="cms-frame__tag">{section.kind}</span>
             {draft && <span className="cms-frame__badge">rascunho</span>}
             {hidden && <span className="cms-frame__badge">oculto</span>}
+            <button title="Pedir à IA (reescreve esta seção)" onClick={() => emit('cms:select', { sectionId: id, kind: section.kind, ai: true })}><Sparkles size={14} /></button>
             <button title="Editar no painel" onClick={sel}><Pencil size={14} /></button>
             <button title="Mover para cima" disabled={index === 0} onClick={() => emit('cms:intent', { action: 'move-section', sectionId: id, dir: -1 })}><ArrowUp size={14} /></button>
             <button title="Mover para baixo" disabled={index === count - 1} onClick={() => emit('cms:intent', { action: 'move-section', sectionId: id, dir: 1 })}><ArrowDown size={14} /></button>

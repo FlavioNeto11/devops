@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Blocks from './Blocks.jsx';
-import { CmsEditProvider, useEditMode, useEditTree, wantsEdit } from './cmsEdit.jsx';
+import { CmsEditProvider, EditableText, useEditMode, useEditTree, useEmit, wantsEdit } from './cmsEdit.jsx';
 
 /**
  * App — renderer genérico de portais CMS.
@@ -58,6 +58,10 @@ export default function App() {
 function Shell({ siteKey, slug, nav }) {
   const edit = useEditMode();
   const editTree = useEditTree();
+  const emit = useEmit();
+  // clique no header/rodapé (fora dos textos editáveis) abre o painel do SITE
+  // no console — identidade, paleta, contato e o comando de IA do site.
+  const selectSite = edit ? (e) => { e.stopPropagation(); emit('cms:select', { site: true }); } : undefined;
   const [publicTree, setPublicTree] = useState(null);
   const [state, setState] = useState('loading'); // loading | ok | notfound | error
 
@@ -118,13 +122,16 @@ function Shell({ siteKey, slug, nav }) {
 
   return (
     <div className="sr">
-      <header className="sr-header">
+      <header className={'sr-header' + (edit ? ' sr-edit-zone' : '')} onClick={selectSite}
+        title={edit ? 'Clique para editar o site (identidade, paleta, contato)' : undefined}>
         <div className="sr-container sr-header__in">
-          <button className="sr-brand" onClick={() => nav('home')}>{name}</button>
+          {edit
+            ? <span className="sr-brand"><EditableText as="span" site path="name" value={site.name || ''} placeholder="nome do site" /></span>
+            : <button className="sr-brand" onClick={() => nav('home')}>{name}</button>}
           {pages.length > 1 && (
             <nav className="sr-nav">
               {pages.map((p) => (
-                <button key={p.slug} className={'sr-nav__link' + (page?.slug === p.slug ? ' is-active' : '')} onClick={() => nav(p.slug)}>
+                <button key={p.slug} className={'sr-nav__link' + (page?.slug === p.slug ? ' is-active' : '')} onClick={(e) => { e.stopPropagation(); nav(p.slug); }}>
                   {p.title}
                   {edit && p.status && p.status !== 'published' && <span className="sr-nav__draft" title="página em rascunho">○</span>}
                 </button>
@@ -140,15 +147,31 @@ function Shell({ siteKey, slug, nav }) {
           : <div className="sr-status"><p>Este portal ainda não tem páginas publicadas.</p></div>}
       </main>
 
-      <footer className="sr-footer" id="contato">
+      <footer className={'sr-footer' + (edit ? ' sr-edit-zone' : '')} id="contato" onClick={selectSite}
+        title={edit ? 'Clique para editar o site (identidade, paleta, contato)' : undefined}>
         <div className="sr-container">
-          <strong>{name}</strong>
-          {site.tagline && <p className="sr-footer__tag">{site.tagline}</p>}
+          <strong>{edit ? <EditableText as="span" site path="name" value={site.name || ''} placeholder="nome do site" /> : name}</strong>
+          {(edit || site.tagline) && (
+            <p className="sr-footer__tag">
+              {edit ? <EditableText as="span" site path="tagline" value={site.tagline || ''} placeholder="tagline / frase de posicionamento" /> : site.tagline}
+            </p>
+          )}
           <div className="sr-footer__contact">
-            {contact.email && <a href={`mailto:${contact.email}`}>{contact.email}</a>}
-            {contact.whatsapp && <a href={`https://wa.me/${String(contact.whatsapp).replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer">WhatsApp</a>}
-            {contact.phone && <span>{contact.phone}</span>}
-            {(contact.city || contact.state) && <span>{[contact.city, contact.state].filter(Boolean).join(' · ')}</span>}
+            {edit ? (
+              <>
+                <span>✉ <EditableText as="span" site path="contact.email" value={contact.email || ''} placeholder="e-mail" /></span>
+                <span>WhatsApp: <EditableText as="span" site path="contact.whatsapp" value={contact.whatsapp || ''} placeholder="55 11 9…" /></span>
+                <span>☎ <EditableText as="span" site path="contact.phone" value={contact.phone || ''} placeholder="telefone" /></span>
+                <span>📍 <EditableText as="span" site path="contact.city" value={contact.city || ''} placeholder="cidade" /> · <EditableText as="span" site path="contact.state" value={contact.state || ''} placeholder="UF" /></span>
+              </>
+            ) : (
+              <>
+                {contact.email && <a href={`mailto:${contact.email}`}>{contact.email}</a>}
+                {contact.whatsapp && <a href={`https://wa.me/${String(contact.whatsapp).replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer">WhatsApp</a>}
+                {contact.phone && <span>{contact.phone}</span>}
+                {(contact.city || contact.state) && <span>{[contact.city, contact.state].filter(Boolean).join(' · ')}</span>}
+              </>
+            )}
           </div>
           <p className="sr-footer__plat">Portal publicado pela plataforma NVIT.</p>
         </div>

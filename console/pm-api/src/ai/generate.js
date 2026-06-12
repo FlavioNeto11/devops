@@ -54,12 +54,8 @@ Regras de composição:
 Gere conteúdo honesto e genérico (sem inventar números, clientes ou certificações).
 Máximo de 3 páginas e 8 seções por página.`;
 
-/**
- * Gera o rascunho de um portal a partir de um prompt do usuário.
- * Lança erro em qualquer falha (timeout/HTTP/JSON inválido) — quem chama marca
- * a request como failed e segue sem IA.
- */
-export async function generatePortalDraft({ prompt, siteName, template, context }) {
+/** Chamada JSON única ao modelo (timeout curto; lança em qualquer falha). */
+async function callJSON(messages) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
@@ -74,18 +70,7 @@ export async function generatePortalDraft({ prompt, siteName, template, context 
         model: MODEL,
         reasoning_effort: process.env.OPENAI_REASONING_EFFORT || 'low',
         response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          {
-            role: 'user',
-            content: [
-              `Nome do portal: ${siteName || '(sem nome)'}`,
-              template ? `Template base escolhido: ${template}` : null,
-              context && Object.keys(context).length ? `Contexto adicional: ${JSON.stringify(context)}` : null,
-              `Descrição do dono do portal: ${prompt}`,
-            ].filter(Boolean).join('\n'),
-          },
-        ],
+        messages,
       }),
     });
     if (!res.ok) {
@@ -97,11 +82,109 @@ export async function generatePortalDraft({ prompt, siteName, template, context 
     if (!content || typeof content !== 'string') {
       throw new Error('resposta da OpenAI sem message.content (estrutura inesperada)');
     }
-    const parsed = JSON.parse(content);
-    return sanitizeDraft(parsed);
+    return JSON.parse(content);
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Gera o rascunho de um portal a partir de um prompt do usuário.
+ * Lança erro em qualquer falha (timeout/HTTP/JSON inválido) — quem chama marca
+ * a request como failed e segue sem IA.
+ */
+export async function generatePortalDraft({ prompt, siteName, template, context }) {
+  const parsed = await callJSON([
+    { role: 'system', content: SYSTEM_PROMPT },
+    {
+      role: 'user',
+      content: [
+        `Nome do portal: ${siteName || '(sem nome)'}`,
+        template ? `Template base escolhido: ${template}` : null,
+        context && Object.keys(context).length ? `Contexto adicional: ${JSON.stringify(context)}` : null,
+        `Descrição do dono do portal: ${prompt}`,
+      ].filter(Boolean).join('\n'),
+    },
+  ]);
+  return sanitizeDraft(parsed);
+}
+
+// ---------------------------------------------------------------------------
+// Edição assistida de UMA seção / do SITE — usada pelo botão ✨ do editor.
+// O contexto sempre inclui o site inteiro (resumo) + os prompts ORIGINAIS de
+// criação do portal, para a IA manter tom/segmento coerentes.
+// ---------------------------------------------------------------------------
+const SECTION_EDIT_PROMPT = `Você edita UMA seção de um site institucional em pt-BR num CMS de seções.
+Receberá: o kind da seção, o data ATUAL (JSON), o contexto do site (identidade, resumo das páginas e
+os pedidos originais do dono) e uma INSTRUÇÃO.
+Responda APENAS um JSON válido no formato { "data": { ... } } com o data COMPLETO atualizado:
+- mantenha o MESMO kind e o MESMO shape de campos do data atual (não invente campos novos);
+- altere SOMENTE o que a instrução pede; preserve o restante exatamente como está;
+- conteúdo honesto: não invente números, clientes, certificações nem dados de contato;
+- ícones continuam sendo nomes do lucide-react.`;
+
+export async function aiEditSection({ instruction, kind, data, context }) {
+  const parsed = await callJSON([
+    { role: 'system', content: SECTION_EDIT_PROMPT },
+    {
+      role: 'user',
+      content: [
+        `CONTEXTO DO SITE:\n${context}`,
+        `KIND DA SEÇÃO: ${kind}`,
+        `DATA ATUAL DA SEÇÃO:\n${JSON.stringify(data)}`,
+        `INSTRUÇÃO DO USUÁRIO: ${instruction}`,
+      ].join('\n\n'),
+    },
+  ]);
+  const next = parsed && typeof parsed.data === 'object' && parsed.data && !Array.isArray(parsed.data)
+    ? fixTitleSpacing(cleanData(parsed.data))
+    : null;
+  if (!next || !Object.keys(next).length) throw new Error('IA não retornou um data válido para a seção');
+  // kinds genéricos passam pela checagem de shape; específicos de portal só pelo cleanData
+  if (AI_KINDS.has(kind) && !sectionShapeOk({ kind, data: next })) {
+    throw new Error('IA retornou um shape inválido para o kind da seção');
+  }
+  return next;
+}
+
+const SITE_EDIT_PROMPT = `Você edita a CONFIGURAÇÃO de um site institucional em pt-BR (header/rodapé/identidade).
+Campos editáveis: name, tagline, description, palette { primary, accent, background } (hex; background claro)
+e contact { email, whatsapp, phone, city, state }.
+Responda APENAS um JSON válido { "site": { ... } } contendo SOMENTE os campos que a instrução pede para
+alterar (não repita os demais). NUNCA invente dados de contato — só inclua contact se a instrução os fornecer.`;
+
+export async function aiEditSite({ instruction, site, context }) {
+  const parsed = await callJSON([
+    { role: 'system', content: SITE_EDIT_PROMPT },
+    {
+      role: 'user',
+      content: [
+        `CONTEXTO DO SITE:\n${context}`,
+        `CONFIGURAÇÃO ATUAL:\n${JSON.stringify(site || {})}`,
+        `INSTRUÇÃO DO USUÁRIO: ${instruction}`,
+      ].join('\n\n'),
+    },
+  ]);
+  const raw = parsed && typeof parsed.site === 'object' && parsed.site && !Array.isArray(parsed.site) ? parsed.site : null;
+  if (!raw) throw new Error('IA não retornou campos de site válidos');
+  const s = (v, max = 300) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : undefined);
+  const hex = (v) => (typeof v === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(v) ? v : undefined);
+  const out = { name: s(raw.name), tagline: s(raw.tagline), description: s(raw.description) };
+  if (raw.palette && typeof raw.palette === 'object') {
+    const p = { primary: hex(raw.palette.primary), accent: hex(raw.palette.accent), background: hex(raw.palette.background) };
+    if (p.primary || p.accent || p.background) out.palette = p;
+  }
+  if (raw.contact && typeof raw.contact === 'object') {
+    const c = {
+      email: s(raw.contact.email, 120), whatsapp: s(raw.contact.whatsapp, 30), phone: s(raw.contact.phone, 30),
+      city: s(raw.contact.city, 80), state: s(raw.contact.state, 40),
+    };
+    Object.keys(c).forEach((k) => c[k] === undefined && delete c[k]);
+    if (Object.keys(c).length) out.contact = c;
+  }
+  Object.keys(out).forEach((k) => out[k] === undefined && delete out[k]);
+  if (!Object.keys(out).length) throw new Error('IA não retornou nenhuma alteração aplicável');
+  return out;
 }
 
 /** Valida/filtra a saída da IA: só kinds permitidos, shapes plausíveis, limites. */

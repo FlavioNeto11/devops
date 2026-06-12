@@ -9,11 +9,59 @@
 // =============================================================================
 import { Router } from 'express';
 import { query, withTx } from '../db/pool.js';
-import { asyncH, invalid } from './_util.js';
-import { assertProjectAccess } from '../auth.js';
-import { aiEnabled, generatePortalDraft } from '../ai/generate.js';
+import { asyncH, invalid, notFound } from './_util.js';
+import { assertProjectAccess, resolveProjectIdForSection } from '../auth.js';
+import { aiEnabled, generatePortalDraft, aiEditSection, aiEditSite } from '../ai/generate.js';
 
 const r = Router();
+
+const aiUnavailable = (res) => res.status(503).json({
+  error: { code: 'AI_UNAVAILABLE', message: 'IA nao configurada (defina OPENAI_API_KEY no Secret do pm-api).' },
+});
+
+/**
+ * Contexto que acompanha TODA edição por IA: identidade do site, resumo das
+ * páginas/seções (kinds + amostra do conteúdo) e os pedidos ORIGINAIS do dono
+ * (prompts de geração) — a IA mantém tom/segmento coerentes com o site inteiro.
+ */
+async function buildSiteContext(projectId) {
+  const [proj, site, pages, gens] = await Promise.all([
+    query('SELECT key, name, description FROM projects WHERE id = $1', [projectId]),
+    query('SELECT data FROM cms_site WHERE project_id = $1', [projectId]),
+    query(
+      `SELECT p.slug, p.title, s.kind, s.data
+         FROM cms_pages p LEFT JOIN cms_sections s ON s.page_id = p.id
+        WHERE p.project_id = $1 ORDER BY p.position, s.position`,
+      [projectId],
+    ),
+    query(
+      `SELECT prompt FROM cms_generation_requests
+        WHERE project_id = $1 AND kind = 'portal' ORDER BY created_at ASC LIMIT 3`,
+      [projectId],
+    ),
+  ]);
+  const byPage = new Map();
+  for (const row of pages.rows) {
+    if (!byPage.has(row.slug)) byPage.set(row.slug, { title: row.title, kinds: [] });
+    if (row.kind) byPage.get(row.slug).kinds.push(`${row.kind}: ${JSON.stringify(row.data).slice(0, 160)}`);
+  }
+  const p = proj.rows[0] || {};
+  return [
+    `Portal: ${p.name} (${p.key})${p.description ? ` — ${p.description}` : ''}`,
+    `Identidade do site: ${JSON.stringify(site.rows[0]?.data || {}).slice(0, 1200)}`,
+    gens.rows.length ? `Pedidos originais do dono (criação do site):\n${gens.rows.map((g) => `- ${g.prompt.slice(0, 400)}`).join('\n')}` : null,
+    'Páginas e seções:',
+    ...[...byPage.entries()].map(([slug, pg]) => `# ${slug} (${pg.title})\n${pg.kinds.map((k) => `  - ${k}`).join('\n')}`),
+  ].filter(Boolean).join('\n').slice(0, 9000);
+}
+
+async function logGeneration(projectId, kind, prompt, context, status, result, error, email) {
+  await query(
+    `INSERT INTO cms_generation_requests (project_id, kind, prompt, context, status, result, error, created_by)
+     VALUES ($1, $2, $3, $4, $5::cms_generation_status, $6, $7, $8)`,
+    [projectId, kind, prompt, context || {}, status, result ? JSON.stringify(result) : null, error || null, email || null],
+  );
+}
 
 // Lista pedidos de geração do projeto (auditoria/rastreabilidade).
 r.get('/projects/:projectId/cms/generations', asyncH(async (req, res) => {
@@ -137,6 +185,61 @@ r.post('/projects/:projectId/cms/generate', asyncH(async (req, res) => {
   });
 
   res.status(201).json({ data: { generationId: genId, status: 'done', published: publish === 'published', created } });
+}));
+
+// ---------------------------------------------------------------------------
+// ✨ Edição assistida de UMA seção: reescreve o data conforme a instrução,
+// preservando kind/shape. O contexto leva o site INTEIRO + prompts originais.
+r.post('/cms/sections/:sectionId/ai', asyncH(async (req, res) => {
+  const projectId = await resolveProjectIdForSection(req.params.sectionId);
+  if (!(await assertProjectAccess(req, res, projectId))) return;
+  const instruction = typeof req.body?.instruction === 'string' ? req.body.instruction.trim() : '';
+  if (!instruction) return invalid(res, 'instruction e obrigatoria');
+  if (!aiEnabled()) return aiUnavailable(res);
+
+  const { rows } = await query('SELECT id, kind, data FROM cms_sections WHERE id = $1', [req.params.sectionId]);
+  if (!rows.length) return notFound(res, 'secao');
+  const sec = rows[0];
+
+  let next;
+  try {
+    next = await aiEditSection({ instruction, kind: sec.kind, data: sec.data, context: await buildSiteContext(projectId) });
+  } catch (e) {
+    await logGeneration(projectId, 'section', instruction, { sectionId: sec.id, kind: sec.kind }, 'failed', null, String(e.message).slice(0, 500), req.auth?.email);
+    return res.status(502).json({ error: { code: 'AI_FAILED', message: `edicao falhou: ${e.message}` } });
+  }
+  await query(
+    `UPDATE cms_sections SET data = $2, generated_by = 'ai', updated_at = now() WHERE id = $1`,
+    [sec.id, next],
+  );
+  await logGeneration(projectId, 'section', instruction, { sectionId: sec.id, kind: sec.kind }, 'done', { data: next }, null, req.auth?.email);
+  res.json({ data: next });
+}));
+
+// ✨ Edição assistida do SITE (header/rodapé/identidade/paleta/contato):
+// a instrução é intenção explícita do usuário → os campos retornados SOBRESCREVEM.
+r.post('/projects/:projectId/cms/site/ai', asyncH(async (req, res) => {
+  if (!(await assertProjectAccess(req, res, req.params.projectId))) return;
+  const instruction = typeof req.body?.instruction === 'string' ? req.body.instruction.trim() : '';
+  if (!instruction) return invalid(res, 'instruction e obrigatoria');
+  if (!aiEnabled()) return aiUnavailable(res);
+
+  const cur = await query('SELECT data FROM cms_site WHERE project_id = $1', [req.params.projectId]);
+  let fields;
+  try {
+    fields = await aiEditSite({ instruction, site: cur.rows[0]?.data || {}, context: await buildSiteContext(req.params.projectId) });
+  } catch (e) {
+    await logGeneration(req.params.projectId, 'site', instruction, {}, 'failed', null, String(e.message).slice(0, 500), req.auth?.email);
+    return res.status(502).json({ error: { code: 'AI_FAILED', message: `edicao falhou: ${e.message}` } });
+  }
+  const { rows } = await query(
+    `INSERT INTO cms_site (project_id, data) VALUES ($1, $2::jsonb)
+     ON CONFLICT (project_id) DO UPDATE SET data = (cms_site.data || $2::jsonb), updated_at = now()
+     RETURNING data`,
+    [req.params.projectId, JSON.stringify(fields)],
+  );
+  await logGeneration(req.params.projectId, 'site', instruction, {}, 'done', { site: fields }, null, req.auth?.email);
+  res.json({ data: rows[0].data });
 }));
 
 export default r;
