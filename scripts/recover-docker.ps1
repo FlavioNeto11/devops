@@ -40,14 +40,21 @@ if (Test-Path $run) {
 }
 
 # Desativa o Docker AI (Inference manager e a causa comum do crash no boot).
+# INCIDENTE 2026-06-12: no Docker Desktop 4.54, EnableDockerAI=false NAO desliga
+# o Inference manager — ele segue criando o socket Docker\run\dockerInference e
+# crashando por socket orfao; quem desliga de verdade e EnableInference=false.
+# Cada crash deixa orfao o socket do servico que JA tinha subido (efeito domino:
+# dockerInference -> docker-secrets-engine\engine.sock). Se o boot falhar apos
+# este script, RE-RODE-O: ele isola as pastas de novo a cada execucao.
 $f = Join-Path $env:APPDATA 'Docker\settings-store.json'
 if (Test-Path $f) {
   try {
     $j = Get-Content $f -Raw | ConvertFrom-Json
     $j | Add-Member -NotePropertyName EnableDockerAI -NotePropertyValue $false -Force
+    $j | Add-Member -NotePropertyName EnableInference -NotePropertyValue $false -Force
     $j | Add-Member -NotePropertyName InferenceCanUseGPUVariant -NotePropertyValue $false -Force
     $j | ConvertTo-Json -Depth 10 | Set-Content $f -Encoding utf8
-    Write-Host "[$(Now)] Docker AI desativado em settings-store.json."
+    Write-Host "[$(Now)] Docker AI/Inference desativados em settings-store.json."
   } catch { Write-Host "[$(Now)] aviso settings-store.json: $($_.Exception.Message)" }
 }
 
