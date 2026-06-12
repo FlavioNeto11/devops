@@ -59,9 +59,19 @@ publicação próprios) + vínculo **opcional** `projects.related_project_id` co
   404, conteúdo **preservado**); `'active'` volta. **Excluir (admin)** remove o projeto e TODO o
   conteúdo em cascata (páginas, seções, arquivos do portal, gerações) — o editor confirma e sugere
   "Desativar" quando a intenção é só sair do ar. A rota pública exige `approved` **e** `active`.
-- **Portal sem frontend publicado** (recém-criado pelo wizard): edita-se no modo **Avançado** — a
-  prévia visual exige um frontend no ar (sem ele, a rota `/<key>` cairia na landing raiz, que recusa
-  iframe via `X-Frame-Options`); o editor desabilita o modo Visual e explica no banner.
+- **Portal sem frontend dedicado**: é servido pelo **site-renderer** (abaixo) — o modo Visual do
+  editor continua reservado a portais com app dedicado (rmambiental/anarabottini); os demais
+  editam-se no modo Avançado.
+
+## site-renderer — qualquer portal no ar sem deploy
+
+`console/site-renderer` é um frontend **genérico** (deploy único, GitOps via `console/k8s/site-renderer.yaml`)
+que serve **qualquer** portal publicado em **`/sites/<chave>`** (IngressRoute `PathPrefix(/sites)`,
+priority 12, sem strip): ele busca a árvore na rota pública do pm-api em runtime e renderiza os kinds
+**genéricos** + `hero`, com tema neutro colorido pela paleta do site (`cms_site.data.palette`),
+navegação automática pelas páginas e rodapé de contato. **Portal novo criado no Console nasce
+visível na hora** — sem build, sem manifest, sem rollout. Um portal pode ser "promovido" depois a
+app dedicado (golden path) trocando o `route`; o conteúdo no pm-api é o mesmo.
 - A publicação **de infraestrutura** (deploy de um frontend dedicado, Argo Application etc.) continua
   pelo golden path normal, com aprovação do operador — o CMS governa o **conteúdo**; o GitOps governa
   o **deploy**. Um portal só de conteúdo (servido por um frontend genérico futuro) não precisa de deploy.
@@ -110,9 +120,12 @@ dado vivo, o renderer usa fallback com os textos históricos (nada some em porta
 `POST /projects/:id/cms/generate` (`console/pm-api/src/routes/cms-ai.js`) registra uma
 `cms_generation_request` (prompt/template/contexto salvos p/ rastreabilidade), chama o provider
 (`src/ai/generate.js` — contrato gpt-5: sem temperature, `reasoning_effort` low, timeout curto,
-saída restrita aos kinds **genéricos**) e materializa o resultado como **rascunho** (`status=draft`,
-`generated_by='ai'`, `generation_id`): regenerar **adiciona** novos rascunhos — nunca sobrescreve
-seção/ajuste manual. Paleta sugerida vai para `cms_site.data.aiPalette` (aplicar é decisão humana).
+saída restrita aos kinds genéricos + `hero`) e materializa o **portal completo**: identidade do
+site (nome/tagline/descrição) e **paleta** em `cms_site.data` (o gerado preenche lacunas, nunca
+sobrescreve o que o usuário configurou), hero como primeira seção e páginas/seções. Criador
+**admin** → tudo nasce `published` (portal pronto e visível em `/sites/<chave>`); **member** →
+rascunho até a aprovação. Tudo com `generated_by='ai'` + `generation_id`; regenerar **adiciona** —
+nunca sobrescreve seção/ajuste manual.
 Sem `OPENAI_API_KEY` no Secret do pm-api (ou com `AI_ENABLED=false`) a rota responde 503 e o CMS segue
 funcionando sem IA. O wizard "Novo portal" tem o campo opcional "Descreva o portal…" que usa essa rota.
 Fase 2 (planejada): trocar o provider por `@flavioneto11/ai-kit` + prompts versionados no

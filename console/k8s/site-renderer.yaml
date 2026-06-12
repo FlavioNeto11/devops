@@ -1,0 +1,86 @@
+# =============================================================================
+# site-renderer — frontend GENERICO dos portais CMS: serve QUALQUER portal
+# publicado em /sites/<chave>, lendo a rota publica do pm-api em runtime.
+# Portal novo criado no Console nasce visivel AQUI sem build/deploy proprio.
+# Roteamento: PathPrefix /sites (SEM strip; base /sites/ embutida no build),
+# priority 12 — vence o catch-all da landing raiz e perde para apps dedicados.
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: site-renderer
+  namespace: devops-system
+  labels:
+    app.kubernetes.io/name: site-renderer
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: site-renderer
+    app.kubernetes.io/managed-by: devops-platform
+    devops.flavioneto/app-type: platform_tool
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: site-renderer
+      app.kubernetes.io/component: frontend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: site-renderer
+        app.kubernetes.io/component: frontend
+        app.kubernetes.io/part-of: site-renderer
+        devops.flavioneto/app-type: platform_tool
+    spec:
+      containers:
+        - name: frontend
+          image: site-renderer:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 8
+            periodSeconds: 15
+          resources:
+            requests: { cpu: 10m, memory: 24Mi }
+            limits: { cpu: 150m, memory: 96Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: site-renderer
+  namespace: devops-system
+  labels:
+    app.kubernetes.io/part-of: site-renderer
+spec:
+  selector:
+    app.kubernetes.io/name: site-renderer
+    app.kubernetes.io/component: frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: site-renderer
+  namespace: devops-system
+  labels:
+    app.kubernetes.io/name: site-renderer
+    app.kubernetes.io/part-of: site-renderer
+spec:
+  entryPoints:
+    - web
+  routes:
+    # portais CMS dinamicos (priority 12: > landing raiz, < apps dedicados/api)
+    - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/sites`)
+      kind: Rule
+      priority: 12
+      services:
+        - name: site-renderer
+          port: 80

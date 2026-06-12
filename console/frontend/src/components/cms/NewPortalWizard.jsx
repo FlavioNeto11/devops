@@ -61,12 +61,13 @@ export default function NewPortalWizard({ isAdmin, onClose, onCreated }) {
         key: k,
         name: name.trim(),
         app_type: 'cms_portal',
-        route: `/${k}`,
+        // servido pelo site-renderer genérico: portal nasce VISÍVEL sem deploy
+        route: `/sites/${k}`,
         stack: 'Portal CMS',
         related_project_id: linkMode === 'linked' && relatedId ? relatedId : null,
       });
-      // Página inicial (rascunho): o conteúdo existe antes da publicação.
-      const page = await pmCmsCreatePage(project.id, { slug: 'home', title: 'Home', status: 'draft' });
+      // Página inicial: admin nasce publicada (portal pronto); member, rascunho.
+      const page = await pmCmsCreatePage(project.id, { slug: 'home', title: 'Home', status: isAdmin ? 'published' : 'draft' });
       for (const s of TEMPLATES[template]?.sections || []) {
         // eslint-disable-next-line no-await-in-loop
         await pmCmsCreateSection(page.id, { kind: s.kind, data: s.data, status: 'published', visible: true });
@@ -81,14 +82,16 @@ export default function NewPortalWizard({ isAdmin, onClose, onCreated }) {
             template,
             context: linkMode === 'linked' && relatedId ? { relatedProjectId: relatedId } : {},
           });
-          toast.ok(`IA gerou ${g?.created?.sections ?? 0} seção(ões) em rascunho — revise no editor.`);
+          toast.ok(g?.published
+            ? `IA montou o portal (${g?.created?.sections ?? 0} seções) — já visível em /sites/${k}.`
+            : `IA gerou ${g?.created?.sections ?? 0} seção(ões) em rascunho — revise no editor.`);
         } catch (e) {
           toast.err(`Portal criado, mas a geração por IA não rodou: ${e.message}`);
         }
       }
       toast.ok(project.approval_status === 'pending_approval'
         ? 'Portal criado como rascunho — aguardando aprovação do administrador para ir ao ar.'
-        : 'Portal criado.');
+        : `Portal criado — acesse em /sites/${k}.`);
       onCreated?.(project);
       onClose();
     } catch (e) { toast.err(e.message); } finally { setBusy(false); }
@@ -151,8 +154,9 @@ export default function NewPortalWizard({ isAdmin, onClose, onCreated }) {
         <textarea className="input" rows={3} value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)}
           placeholder="ex.: site institucional de uma clínica de fisioterapia em Campinas, tom acolhedor, seções de serviços, equipe e contato" />
         <span className="muted" style={{ fontSize: '.78rem' }}>
-          As seções geradas entram como <strong>rascunho</strong> marcadas como “geradas por IA” — nada vai ao ar sem revisão.
-          Requer IA configurada no servidor; sem ela, o portal é criado normalmente sem o rascunho.
+          A IA monta o site completo (identidade, paleta, hero e seções) a partir da descrição.
+          Criado por <strong>administrador</strong>, o portal já nasce <strong>publicado e visível</strong> em /sites/&lt;chave&gt;;
+          criado por membro, entra como rascunho até a aprovação. Tudo fica marcado como “gerado por IA” e é editável.
         </span>
       </label>
 

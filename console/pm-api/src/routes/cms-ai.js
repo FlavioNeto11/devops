@@ -67,8 +67,11 @@ r.post('/projects/:projectId/cms/generate', asyncH(async (req, res) => {
     return res.status(502).json({ error: { code: 'AI_FAILED', message: `geracao falhou: ${e.message}` }, data: { generationId: genId, status: 'failed' } });
   }
 
-  // Materializa como RASCUNHO: páginas novas são criadas; páginas existentes
-  // (mesmo slug) recebem as seções geradas APPENDADAS como draft.
+  // Materializa o portal completo. Criador ADMIN → conteúdo nasce PUBLICADO
+  // (portal pronto e visível em /sites/<chave>); member → rascunho (revisão +
+  // aprovação do dono). Páginas existentes (mesmo slug) recebem as seções
+  // geradas no fim; o hero gerado entra como PRIMEIRA seção da página.
+  const publish = req.auth?.isAdmin ? 'published' : 'draft';
   const created = { pages: 0, sections: 0 };
   await withTx(async (client) => {
     for (const page of draft.pages) {
@@ -82,31 +85,49 @@ r.post('/projects/:projectId/cms/generate', asyncH(async (req, res) => {
         );
         const ins = await client.query(
           `INSERT INTO cms_pages (project_id, slug, title, position, status)
-           VALUES ($1, $2, $3, $4, 'draft') RETURNING id`,
-          [req.params.projectId, page.slug, page.title, pos.rows[0].pos],
+           VALUES ($1, $2, $3, $4, $5::cms_status) RETURNING id`,
+          [req.params.projectId, page.slug, page.title, pos.rows[0].pos, publish],
         );
         pageId = ins.rows[0].id;
         created.pages += 1;
+      } else if (publish === 'published') {
+        await client.query(
+          `UPDATE cms_pages SET status = 'published', updated_at = now() WHERE id = $1`, [pageId],
+        );
       }
       for (const s of page.sections) {
-        const pos = await client.query(
-          'SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM cms_sections WHERE page_id = $1', [pageId],
-        );
+        // hero abre a página (position -1 reordena via posição mínima atual)
+        let position;
+        if (s.kind === 'hero') {
+          const min = await client.query('SELECT COALESCE(MIN(position), 1) - 1 AS pos FROM cms_sections WHERE page_id = $1', [pageId]);
+          position = min.rows[0].pos;
+        } else {
+          const max = await client.query('SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM cms_sections WHERE page_id = $1', [pageId]);
+          position = max.rows[0].pos;
+        }
         await client.query(
           `INSERT INTO cms_sections (page_id, kind, position, data, status, visible, generated_by, generation_id)
-           VALUES ($1, $2, $3, $4, 'draft', true, 'ai', $5)`,
-          [pageId, s.kind, pos.rows[0].pos, s.data, genId],
+           VALUES ($1, $2, $3, $4, $5::cms_status, true, 'ai', $6)`,
+          [pageId, s.kind, position, s.data, publish, genId],
         );
         created.sections += 1;
       }
     }
-    // Paleta sugerida vai para o cms_site.data.aiPalette (aplicar é decisão humana).
+    // Identidade do site (nome/tagline/descrição) + paleta: o GERADO preenche
+    // lacunas, mas NUNCA sobrescreve o que o usuário já configurou (existente
+    // vence no merge jsonb: generated || data).
+    const siteFields = { ...(draft.site || {}) };
     if (draft.palette && (draft.palette.primary || draft.palette.accent)) {
+      siteFields.palette = draft.palette;
+      siteFields.aiPalette = draft.palette; // rastreio do que veio da IA
+    }
+    Object.keys(siteFields).forEach((k) => siteFields[k] === undefined && delete siteFields[k]);
+    if (Object.keys(siteFields).length) {
       await client.query(
-        `INSERT INTO cms_site (project_id, data) VALUES ($1, jsonb_build_object('aiPalette', $2::jsonb))
+        `INSERT INTO cms_site (project_id, data) VALUES ($1, $2::jsonb)
          ON CONFLICT (project_id) DO UPDATE
-           SET data = cms_site.data || jsonb_build_object('aiPalette', $2::jsonb), updated_at = now()`,
-        [req.params.projectId, JSON.stringify(draft.palette)],
+           SET data = ($2::jsonb || cms_site.data), updated_at = now()`,
+        [req.params.projectId, JSON.stringify(siteFields)],
       );
     }
     await client.query(
@@ -115,7 +136,7 @@ r.post('/projects/:projectId/cms/generate', asyncH(async (req, res) => {
     );
   });
 
-  res.status(201).json({ data: { generationId: genId, status: 'done', created } });
+  res.status(201).json({ data: { generationId: genId, status: 'done', published: publish === 'published', created } });
 }));
 
 export default r;

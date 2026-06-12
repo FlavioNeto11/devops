@@ -15,10 +15,10 @@ const OPENAI_URL = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1/cha
 const MODEL = process.env.CMS_AI_MODEL || 'gpt-5-nano';
 const TIMEOUT_MS = Number(process.env.CMS_AI_TIMEOUT_MS || 30_000);
 
-// Kinds que a IA pode emitir: SOMENTE os genéricos (renderizáveis por qualquer
-// portal e criáveis pelo editor). Nada de kinds específicos de um portal.
+// Kinds que a IA pode emitir: os genéricos + hero (todos renderizáveis pelo
+// site-renderer em /sites/<chave>). Nada de kinds específicos de um portal.
 const AI_KINDS = new Set([
-  'section-heading', 'rich-text', 'card-grid', 'timeline', 'accordion',
+  'hero', 'section-heading', 'rich-text', 'card-grid', 'timeline', 'accordion',
   'testimonials', 'logos', 'cta',
 ]);
 
@@ -27,15 +27,17 @@ export function aiEnabled() {
   return Boolean(process.env.OPENAI_API_KEY);
 }
 
-const SYSTEM_PROMPT = `Você gera conteúdo inicial de um site institucional (portal) em pt-BR para um CMS de seções.
+const SYSTEM_PROMPT = `Você gera o conteúdo COMPLETO de um site institucional (portal) em pt-BR para um CMS de seções.
 Responda APENAS um JSON válido com o formato:
 {
-  "palette": { "primary": "#hex", "accent": "#hex", "background": "#hex" },
+  "site": { "name": "nome do site", "tagline": "frase curta de posicionamento", "description": "1-2 frases sobre o site" },
+  "palette": { "primary": "#hex", "accent": "#hex", "background": "#hex claro" },
   "pages": [
     { "slug": "home", "title": "Home", "sections": [ { "kind": "<kind>", "data": { ... } } ] }
   ]
 }
 Kinds permitidos e o shape do data de cada um:
+- "hero": { "eyebrow", "title", "titleAccent", "titleTail", "intro", "primaryCta": {"label","kind":"proposal"}, "secondaryCta": {"label","href":"#ancora"}, "indicators": [{"title","desc"}] (3 itens) }
 - "section-heading": { "eyebrow", "title", "titleAccent", "subtitle", "center": bool }
 - "rich-text": { "eyebrow", "heading", "html" }  (html simples: <p>, <ul>, <li>, <strong>)
 - "card-grid": { "heading": {"eyebrow","title","titleAccent","subtitle"}, "layout": "grid", "columns": 2-4, "cards": [{"icon","title","desc"}] }
@@ -43,7 +45,12 @@ Kinds permitidos e o shape do data de cada um:
 - "accordion": { "heading": {...}, "items": [{"q","a"}] }
 - "testimonials": { "heading": {...}, "items": [{"quote","author","role"}] }
 - "cta": { "title", "titleAccent", "titleTail", "text", "buttons": [{"label","kind":"proposal"}] }
-Ícones: nomes do lucide-react (ex.: Sparkles, ShieldCheck, Users, Leaf, Target).
+Regras de composição:
+- A PRIMEIRA seção da home é SEMPRE um "hero" forte e específico do negócio descrito.
+- Monte um site completo e coerente: home rica (hero + 4-7 seções variadas terminando em cta) e
+  1-2 páginas internas quando fizer sentido (ex.: serviços/programas, sobre).
+- Use a paleta combinando com o segmento (background SEMPRE claro).
+Ícones: nomes do lucide-react (ex.: Sparkles, ShieldCheck, Users, Leaf, Target, Dumbbell, Heart).
 Gere conteúdo honesto e genérico (sem inventar números, clientes ou certificações).
 Máximo de 3 páginas e 8 seções por página.`;
 
@@ -99,7 +106,12 @@ export async function generatePortalDraft({ prompt, siteName, template, context 
 
 /** Valida/filtra a saída da IA: só kinds permitidos, shapes plausíveis, limites. */
 export function sanitizeDraft(draft) {
-  const out = { palette: null, pages: [] };
+  const out = { site: null, palette: null, pages: [] };
+  if (draft && typeof draft.site === 'object' && draft.site && !Array.isArray(draft.site)) {
+    const s = (v) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 300) : undefined);
+    out.site = { name: s(draft.site.name), tagline: s(draft.site.tagline), description: s(draft.site.description) };
+    if (!out.site.name && !out.site.tagline && !out.site.description) out.site = null;
+  }
   if (draft && typeof draft.palette === 'object' && draft.palette) {
     const hex = (v) => (typeof v === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(v) ? v : undefined);
     out.palette = {
@@ -148,6 +160,7 @@ function sectionShapeOk({ kind, data }) {
   const str = (v) => typeof v === 'string';
   const arr = (v) => Array.isArray(v);
   switch (kind) {
+    case 'hero': return str(data.title);
     case 'rich-text': return str(data.html);
     case 'section-heading': return str(data.title);
     case 'card-grid': return arr(data.cards) && data.cards.every((c) => c && str(c.title));

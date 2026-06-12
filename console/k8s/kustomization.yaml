@@ -16,5 +16,6 @@ resources:
   - frontend-service.yaml
   - middleware.yaml
   - ingressroute.yaml
+  - site-renderer.yaml
   - pm
   - auth
