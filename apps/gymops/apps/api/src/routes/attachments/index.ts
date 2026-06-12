@@ -96,12 +96,25 @@ export const attachmentRoutes: FastifyPluginAsync = async (app) => {
       filename: z.string().min(1).max(255),
       mimeType: z.string(),
       sizeBytes: z.number().int().positive().optional(),
+      // Vínculo opcional com um item do checklist (evidência do check).
+      checklistItemId: z.string().uuid().optional(),
     }).safeParse(request.body);
     if (!body.success) return reply.status(422).send({ error: { code: 'VALIDATION_ERROR', message: 'Invalid input' } });
+
+    if (body.data.checklistItemId) {
+      const item = await db.activityChecklistItem.findUnique({
+        where: { id: body.data.checklistItemId },
+        include: { checklist: { select: { activityId: true } } },
+      });
+      if (!item || item.checklist.activityId !== activityId) {
+        return reply.status(422).send({ error: { code: 'VALIDATION_ERROR', message: 'Checklist item does not belong to this activity' } });
+      }
+    }
 
     const attachment = await db.activityAttachment.create({
       data: {
         activityId,
+        checklistItemId: body.data.checklistItemId,
         objectKey: body.data.objectKey,
         filename: body.data.filename,
         mimeType: body.data.mimeType,
@@ -111,7 +124,15 @@ export const attachmentRoutes: FastifyPluginAsync = async (app) => {
     });
 
     await db.activityEvent.create({
-      data: { activityId, actorId: userId, eventType: 'attached', payload: { filename: body.data.filename } },
+      data: {
+        activityId,
+        actorId: userId,
+        eventType: 'attached',
+        payload: {
+          filename: body.data.filename,
+          ...(body.data.checklistItemId ? { checklistItemId: body.data.checklistItemId } : {}),
+        },
+      },
     });
 
     return reply.status(201).send({ data: attachment });

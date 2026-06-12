@@ -56,12 +56,28 @@ export interface AiChatMeta {
   pendingAction?: AiPendingAction;
 }
 
+/** Rascunho de revisão de checklist existente (IA propõe; usuário confirma). */
+export interface ChecklistRevisionResult {
+  revision: { items: Array<{ id: string | null; text: string }>; summary: string | null } | null;
+  diff?: {
+    added: number;
+    updated: number;
+    removed: number;
+    removedItems: Array<{ id: string; text: string; done: boolean }>;
+    updatedItems: Array<{ id: string; before: string; after: string }>;
+  };
+  aiUnavailable: boolean;
+}
+
 export const aiApi = {
   draft: (text: string, organizationId: string) =>
     api.post<ApiResponse<ActivityDraft>>('/ai/activities/draft', { text, organizationId }),
 
   suggestChecklist: (activityId: string) =>
     api.post<ApiResponse<ChecklistSuggestion>>('/ai/activities/checklist', { activityId }),
+
+  reviseChecklist: (checklistId: string, instruction: string) =>
+    api.post<ApiResponse<ChecklistRevisionResult>>(`/ai/checklists/${checklistId}/revise`, { instruction }),
 
   analyzeDelay: (activityId: string) =>
     api.post<ApiResponse<DelayAnalysis>>('/ai/activities/delay-analysis', { activityId }),

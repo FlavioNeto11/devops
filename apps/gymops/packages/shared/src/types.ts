@@ -140,6 +140,8 @@ export interface ChecklistItemDTO {
   done: boolean;
   doneBy: string | null;
   doneAt: string | null;
+  /** Comentário curto e único do item (minimalista — não é thread). */
+  comment: string | null;
   order: number;
 }
 
@@ -147,6 +149,8 @@ export interface ChecklistDTO {
   id: string;
   title: string;
   order: number;
+  /** Checklist desativado: fora do progresso, somente leitura na UI. */
+  disabledAt: string | null;
   items: ChecklistItemDTO[];
 }
 

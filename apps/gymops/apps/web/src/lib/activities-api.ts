@@ -55,9 +55,10 @@ export interface ActivityDetail {
     id: string;
     title: string;
     order: number;
-    items: Array<{ id: string; text: string; done: boolean; doneBy: string | null; doneAt: string | null; order: number }>;
+    disabledAt: string | null;
+    items: Array<{ id: string; text: string; done: boolean; doneBy: string | null; doneAt: string | null; comment: string | null; order: number }>;
   }>;
-  attachments: Array<{ id: string; filename: string; mimeType: string; sizeBytes: number | null; createdAt: string; downloadUrl?: string | null }>;
+  attachments: Array<{ id: string; filename: string; mimeType: string; sizeBytes: number | null; createdAt: string; checklistItemId?: string | null; downloadUrl?: string | null }>;
   commentCount: number;
   checklistProgress: { done: number; total: number };
 }
@@ -126,8 +127,21 @@ export const activitiesApi = {
   toggleChecklistItem: (itemId: string, done: boolean) =>
     api.patch(`/checklist-items/${itemId}`, { done }),
 
+  updateChecklistItem: (itemId: string, data: { text?: string; comment?: string | null }) =>
+    api.patch(`/checklist-items/${itemId}`, data),
+
   addChecklistItem: (checklistId: string, text: string) =>
     api.post(`/checklists/${checklistId}/items`, { text }),
+
+  patchChecklist: (checklistId: string, data: { title?: string; disabled?: boolean }) =>
+    api.patch(`/checklists/${checklistId}`, data),
+
+  deleteChecklist: (checklistId: string) => api.delete<void>(`/checklists/${checklistId}`),
+
+  applyChecklistRevision: (
+    checklistId: string,
+    data: { items: Array<{ id?: string | null; text: string }>; removeIds: string[] },
+  ) => api.post(`/checklists/${checklistId}/apply-revision`, data),
 
   createChecklist: (activityId: string, title: string, items: string[] = []) =>
     api.post<ApiResponse<{ id: string; title: string; order: number }>>(`/activities/${activityId}/checklists`, {
@@ -140,8 +154,10 @@ export const activitiesApi = {
   presignAttachment: (id: string, data: { filename: string; mimeType: string; sizeBytes: number }) =>
     api.post<ApiResponse<{ uploadUrl: string | null; objectKey: string; expiresIn: number }>>(`/activities/${id}/attachments/presign`, data),
 
-  registerAttachment: (id: string, data: { objectKey: string; filename: string; mimeType: string; sizeBytes?: number }) =>
-    api.post(`/activities/${id}/attachments`, data),
+  registerAttachment: (
+    id: string,
+    data: { objectKey: string; filename: string; mimeType: string; sizeBytes?: number; checklistItemId?: string },
+  ) => api.post(`/activities/${id}/attachments`, data),
 
   deleteAttachment: (attachmentId: string) => api.delete<void>(`/attachments/${attachmentId}`),
 

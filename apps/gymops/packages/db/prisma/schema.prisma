@@ -346,12 +346,13 @@ model ActivityPermission {
 }
 
 model ActivityChecklist {
-  id         String   @id @default(uuid())
-  activityId String   @map("activity_id")
+  id         String    @id @default(uuid())
+  activityId String    @map("activity_id")
   title      String
-  order      Int      @default(0)
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  order      Int       @default(0)
+  disabledAt DateTime? @map("disabled_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
 
   activity Activity                @relation(fields: [activityId], references: [id])
   items    ActivityChecklistItem[]
@@ -367,11 +368,13 @@ model ActivityChecklistItem {
   done        Boolean   @default(false)
   doneBy      String?   @map("done_by")
   doneAt      DateTime? @map("done_at")
+  comment     String?
   order       Int       @default(0)
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  checklist ActivityChecklist @relation(fields: [checklistId], references: [id])
+  checklist   ActivityChecklist    @relation(fields: [checklistId], references: [id])
+  attachments ActivityAttachment[]
 
   @@index([checklistId])
   @@map("activity_checklist_items")
@@ -396,6 +399,9 @@ model ActivityComment {
 model ActivityAttachment {
   id              String    @id @default(uuid())
   activityId      String    @map("activity_id")
+  // Anexo opcionalmente vinculado a um ITEM do checklist (evidência do check).
+  // SetNull: remover o item preserva o anexo no nível da atividade.
+  checklistItemId String?   @map("checklist_item_id")
   storageProvider String    @default("r2") @map("storage_provider")
   objectKey       String?   @map("object_key")
   externalUrl     String?   @map("external_url")
@@ -406,9 +412,11 @@ model ActivityAttachment {
   createdAt       DateTime  @default(now()) @map("created_at")
   deletedAt       DateTime? @map("deleted_at")
 
-  activity Activity @relation(fields: [activityId], references: [id])
+  activity      Activity               @relation(fields: [activityId], references: [id])
+  checklistItem ActivityChecklistItem? @relation(fields: [checklistItemId], references: [id], onDelete: SetNull)
 
   @@index([activityId])
+  @@index([checklistItemId])
   @@map("activity_attachments")
 }
 

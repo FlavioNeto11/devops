@@ -5,10 +5,12 @@ import { hasOrgRole, resolveActivityPermission } from '../../lib/rbac.js';
 import { callAI, chatJSON, chatText } from '../../ai/ai.service.js';
 import { ActivityDraftSchema } from '../../ai/schemas/activity-draft.schema.js';
 import { ChecklistSuggestionSchema } from '../../ai/schemas/checklist.schema.js';
+import { ChecklistRevisionSchema } from '../../ai/schemas/checklist-revision.schema.js';
 import { DelayAnalysisSchema } from '../../ai/schemas/delay-analysis.schema.js';
 import { DailySummarySchema } from '../../ai/schemas/daily-summary.schema.js';
 import { buildActivityDraftPrompt } from '../../ai/prompts/activity-draft.prompt.js';
 import { buildChecklistPrompt } from '../../ai/prompts/checklist.prompt.js';
+import { buildChecklistRevisionPrompt } from '../../ai/prompts/checklist-revision.prompt.js';
 import { buildDelayAnalysisPrompt } from '../../ai/prompts/delay-analysis.prompt.js';
 import { buildDailySummaryPrompt } from '../../ai/prompts/daily-summary.prompt.js';
 import { cacheGet, cacheSet } from '../../lib/redis.js';
@@ -147,6 +149,83 @@ export const aiRoutes: FastifyPluginAsync = async (app) => {
     const suggestion = parsed.success ? parsed.data : fallback;
 
     return reply.send({ data: suggestion });
+  });
+
+  // ── POST /ai/checklists/:id/revise ───────────────────────────────────────────
+  // RASCUNHO de revisão de um checklist EXISTENTE a partir de uma instrução
+  // livre ("adicione passo X", "remova o item 3", "detalhe a verificação...").
+  // A IA NUNCA salva: o usuário revisa o diff na UI e confirma via
+  // POST /checklists/:id/apply-revision.
+  app.post('/checklists/:id/revise', {
+    preHandler: [app.authenticate],
+    config: { rateLimit: AI_RATE_LIMIT },
+  }, async (request, reply) => {
+    const { id: checklistId } = request.params as { id: string };
+
+    const body = z.object({ instruction: z.string().min(3).max(1000) }).safeParse(request.body);
+    if (!body.success) return reply.status(422).send({ error: { code: 'VALIDATION_ERROR', message: 'Invalid input' } });
+
+    const checklist = await db.activityChecklist.findUnique({
+      where: { id: checklistId },
+      include: {
+        items: { orderBy: { order: 'asc' }, select: { id: true, text: true, done: true } },
+        activity: { select: { id: true, title: true, description: true, visibilityMode: true, area: { select: { name: true } } } },
+      },
+    });
+    if (!checklist) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Checklist not found' } });
+
+    const canEdit = await resolveActivityPermission({ userId: request.user.sub, activityId: checklist.activity.id, action: 'edit' });
+    if (!canEdit) return reply.status(403).send({ error: { code: 'FORBIDDEN', message: 'Insufficient permissions' } });
+
+    // Regra do produto: conteúdo de atividades restricted NUNCA vai ao LLM.
+    if (checklist.activity.visibilityMode === 'restricted') {
+      return reply.status(403).send({ error: { code: 'AI_RESTRICTED', message: 'AI is not available for restricted activities' } });
+    }
+
+    const prompt = buildChecklistRevisionPrompt({
+      activityTitle: checklist.activity.title,
+      activityDescription: checklist.activity.description ?? undefined,
+      areaName: checklist.activity.area?.name ?? 'Geral',
+      checklistTitle: checklist.title,
+      currentItems: checklist.items,
+      instruction: body.data.instruction,
+    });
+
+    const raw = await callAI(
+      (client) => chatJSON(client, prompt),
+      null,
+      { stage: 'checklist_revision' },
+    );
+
+    const parsed = raw === null ? null : ChecklistRevisionSchema.safeParse(raw);
+    if (!parsed || !parsed.success) {
+      // IA indisponível/sem rascunho válido: fluxo manual segue sem erro.
+      return reply.send({ data: { revision: null, aiUnavailable: true } });
+    }
+
+    // Diff DETERMINÍSTICO (código só compara; a proposta é da IA, a decisão é
+    // do usuário): ids citados precisam existir; existentes fora da lista
+    // viram propostas de remoção.
+    const knownById = new Map(checklist.items.map((item) => [item.id, item]));
+    const revisedItems = parsed.data.items
+      .map((item) => ({ id: item.id || null, text: item.text.trim() }))
+      .filter((item) => item.text.length > 0 && (!item.id || knownById.has(item.id)));
+    const keptIds = new Set(revisedItems.flatMap((item) => (item.id ? [item.id] : [])));
+    const removed = checklist.items
+      .filter((item) => !keptIds.has(item.id))
+      .map((item) => ({ id: item.id, text: item.text, done: item.done }));
+    const updated = revisedItems
+      .filter((item) => item.id && knownById.get(item.id)?.text !== item.text)
+      .map((item) => ({ id: item.id as string, before: knownById.get(item.id as string)?.text ?? '', after: item.text }));
+    const addedCount = revisedItems.filter((item) => !item.id).length;
+
+    return reply.send({
+      data: {
+        revision: { items: revisedItems, summary: parsed.data.summary ?? null },
+        diff: { added: addedCount, updated: updated.length, removed: removed.length, removedItems: removed, updatedItems: updated },
+        aiUnavailable: false,
+      },
+    });
   });
 
   // ── POST /ai/activities/delay-analysis ───────────────────────────────────────

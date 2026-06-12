@@ -1,6 +1,27 @@
 # GymOps — Status Real do Projeto
 
-**Última atualização**: 2026-06-12 (re-design monocromático "graphite" — sem mudança de lógica/API)
+**Última atualização**: 2026-06-12 (checklist rico: anexo/comentário por item, desativar/remover bloco, revisão por IA)
+
+> **2026-06-12 — Checklist rico (full-stack):** migration
+> `20260612160000_checklist_item_extras` (`activity_checklists.disabled_at`,
+> `activity_checklist_items.comment`, `activity_attachments.checklist_item_id`
+> com FK ON DELETE SET NULL). Ao MARCAR um item, painel inline expande para
+> comentário (campo único, `PATCH /checklist-items/:id { comment }`) e anexo
+> vinculado ao item (`registerAttachment` aceita `checklistItemId`; valida
+> pertencimento à atividade). Checklist pode ser DESATIVADO (soft —
+> `PATCH /checklists/:id { disabled }`, sai do `checklistProgress`, badge +
+> somente leitura) ou REMOVIDO (delete já existia; agora exposto na UI com
+> confirmação + evento `checklist_removed`). IA para revisar checklist
+> EXISTENTE: `POST /ai/checklists/:id/revise` (instrução livre → rascunho com
+> diff determinístico; **nunca salva** — usuário confirma via
+> `POST /checklists/:id/apply-revision`, transação atômica; bloqueado para
+> atividades `restricted`; rate limit 10/min; fallback gracioso
+> `aiUnavailable`). Eventos novos: `checklist_item_commented`,
+> `checklist_disabled/enabled/removed`, `checklist_revised`. Validado E2E
+> logado (admin demo): check→painel→comentário, anexo por item (API+UI),
+> desativar/reativar, remover, revisão IA real (OpenAI) com diff aplicado.
+> Nota lab: R2 não configurado → anexos registram metadados sem storage
+> (degradação preexistente, igual aos anexos da atividade).
 
 > **2026-06-12 — Re-design visual (tema graphite):** paleta monocromática em
 > escala zinc — primário quase-preto no light / branco no dark (globals.css +

@@ -43,8 +43,9 @@ const patchActivitySchema = z.object({
   metadata: z.record(z.unknown()).optional(),
 });
 
-function buildChecklistProgress(checklists: Array<{ items: Array<{ done: boolean }> }>) {
-  const allItems = checklists.flatMap((c) => c.items);
+function buildChecklistProgress(checklists: Array<{ disabledAt?: Date | null; items: Array<{ done: boolean }> }>) {
+  // Checklists DESATIVADOS ficam fora do progresso (consistente com a UI).
+  const allItems = checklists.filter((c) => !c.disabledAt).flatMap((c) => c.items);
   return { total: allItems.length, done: allItems.filter((i) => i.done).length };
 }
 

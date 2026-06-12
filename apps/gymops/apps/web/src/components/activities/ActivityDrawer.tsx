@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   X, Clock, AlertTriangle, CheckSquare, MessageSquare, Paperclip,
   History, Plus, Trash2, Upload, Download, Lock, Share2, Users, RefreshCw,
+  Sparkles, Eye, EyeOff, ChevronUp, ChevronDown, Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { activitiesApi, type ActivityDetail, type Comment, type RecurrenceRule } from '@/lib/activities-api';
 import { ChecklistSuggestPanel } from '@/components/ai/ChecklistSuggestPanel';
+import { aiApi, type ChecklistRevisionResult } from '@/lib/ai-api';
 import { TutorialTrigger } from '@/features/tutorial';
 import { api } from '@/lib/api';
 import { formatRelative } from '@/lib/utils';
@@ -46,6 +48,11 @@ const EVENT_LABELS: Record<string, string> = {
   title_changed: 'alterou o título',
   commented: 'comentou',
   checklist_checked: 'marcou item do checklist',
+  checklist_item_commented: 'comentou em item do checklist',
+  checklist_disabled: 'desativou um checklist',
+  checklist_enabled: 'reativou um checklist',
+  checklist_removed: 'removeu um checklist',
+  checklist_revised: 'revisou o checklist com IA',
   assignees_changed: 'alterou responsáveis',
   attached: 'adicionou anexo',
   deleted: 'excluiu a atividade',
@@ -380,6 +387,7 @@ export function ActivityDrawer({ activityId, onClose }: ActivityDrawerProps) {
                     activity={activity}
                     onToggle={(itemId, done) => checklistMutation.mutate({ itemId, done })}
                     activityId={activityId!}
+                    attachments={attachments}
                   />
                 </TabsContent>
 
@@ -889,18 +897,41 @@ function ChecklistSection({
   activity,
   onToggle,
   activityId,
+  attachments,
 }: {
   activity: ActivityDetail;
   onToggle: (itemId: string, done: boolean) => void;
   activityId: string;
+  attachments: ActivityDetail['attachments'];
 }) {
   const qc = useQueryClient();
   const [newItemText, setNewItemText] = useState<Record<string, string>>({});
   const [newChecklistTitle, setNewChecklistTitle] = useState('');
   const [addingChecklist, setAddingChecklist] = useState(false);
+  // Item com o painel inline (comentário + anexos) aberto.
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  // Checklist com o painel de revisão por IA aberto.
+  const [aiChecklistId, setAiChecklistId] = useState<string | null>(null);
 
-  const { done, total } = activity.checklistProgress;
+  const invalidate = () => {
+    void qc.invalidateQueries({ queryKey: ['activity', activityId] });
+    void qc.invalidateQueries({ queryKey: ['activity-events', activityId] });
+  };
+
+  // Progresso considera apenas checklists ATIVOS (desativado sai da conta).
+  const activeChecklists = activity.checklists.filter((c) => !c.disabledAt);
+  const allActiveItems = activeChecklists.flatMap((c) => c.items);
+  const total = allActiveItems.length;
+  const done = allActiveItems.filter((i) => i.done).length;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+  const attachmentsByItem = new Map<string, ActivityDetail['attachments']>();
+  for (const att of attachments) {
+    if (!att.checklistItemId) continue;
+    const list = attachmentsByItem.get(att.checklistItemId) ?? [];
+    list.push(att);
+    attachmentsByItem.set(att.checklistItemId, list);
+  }
 
   const addItemMutation = useMutation({
     mutationFn: ({ checklistId, text }: { checklistId: string; text: string }) =>
@@ -910,6 +941,25 @@ function ChecklistSection({
       setNewItemText((prev) => ({ ...prev, [vars.checklistId]: '' }));
     },
     onError: () => toast.error('Erro ao adicionar item'),
+  });
+
+  const patchChecklistMutation = useMutation({
+    mutationFn: ({ checklistId, disabled }: { checklistId: string; disabled: boolean }) =>
+      activitiesApi.patchChecklist(checklistId, { disabled }),
+    onSuccess: (_, vars) => {
+      invalidate();
+      toast.success(vars.disabled ? 'Checklist desativado' : 'Checklist reativado');
+    },
+    onError: () => toast.error('Erro ao atualizar checklist'),
+  });
+
+  const deleteChecklistMutation = useMutation({
+    mutationFn: (checklistId: string) => activitiesApi.deleteChecklist(checklistId),
+    onSuccess: () => {
+      invalidate();
+      toast.success('Checklist removido');
+    },
+    onError: () => toast.error('Erro ao remover checklist'),
   });
 
   const handleAiItems = async (items: string[]) => {
@@ -940,23 +990,121 @@ function ChecklistSection({
         </div>
       )}
 
-      {activity.checklists.map((checklist) => (
-        <div key={checklist.id} className="space-y-2">
-          <h4 className="font-medium text-sm">{checklist.title}</h4>
-          {checklist.items.map((item) => (
-            <div key={item.id} className="flex items-center gap-2 rounded px-1 py-0.5 hover:bg-muted/30">
-              <Checkbox
-                checked={item.done}
-                onCheckedChange={(checked) => onToggle(item.id, Boolean(checked))}
-              />
-              <span className={`flex-1 text-sm ${item.done ? 'line-through text-muted-foreground' : ''}`}>
-                {item.text}
+      {activity.checklists.map((checklist) => {
+        const isDisabled = Boolean(checklist.disabledAt);
+        return (
+        <div key={checklist.id} className={`space-y-2 ${isDisabled ? 'opacity-60' : ''}`}>
+          <div className="group flex items-center gap-2">
+            <h4 className="min-w-0 flex-1 truncate font-medium text-sm">{checklist.title}</h4>
+            {isDisabled && (
+              <span className="shrink-0 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                Desativado
               </span>
-              {item.done && item.doneAt && (
-                <span className="shrink-0 text-xs text-muted-foreground">{formatRelative(item.doneAt)}</span>
+            )}
+            <div className="flex shrink-0 items-center gap-0.5 opacity-100 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:focus-within:opacity-100">
+              {!isDisabled && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-violet-600 hover:text-violet-700"
+                  aria-label="Revisar checklist com IA"
+                  onClick={() => setAiChecklistId(aiChecklistId === checklist.id ? null : checklist.id)}
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-muted-foreground"
+                aria-label={isDisabled ? 'Reativar checklist' : 'Desativar checklist'}
+                onClick={() => patchChecklistMutation.mutate({ checklistId: checklist.id, disabled: !isDisabled })}
+              >
+                {isDisabled ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-muted-foreground hover:text-red-600"
+                aria-label="Remover checklist"
+                onClick={() => {
+                  if (window.confirm(`Remover o checklist "${checklist.title}" e todos os seus itens?`)) {
+                    deleteChecklistMutation.mutate(checklist.id);
+                  }
+                }}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+
+          {aiChecklistId === checklist.id && !isDisabled && (
+            <ChecklistRevisePanel
+              checklist={checklist}
+              onApplied={() => {
+                setAiChecklistId(null);
+                invalidate();
+              }}
+              onClose={() => setAiChecklistId(null)}
+            />
+          )}
+
+          {checklist.items.map((item) => {
+            const itemAttachments = attachmentsByItem.get(item.id) ?? [];
+            const isExpanded = expandedItemId === item.id;
+            return (
+            <div key={item.id}>
+              <div className="group/item flex items-center gap-2 rounded px-1 py-0.5 hover:bg-muted/30">
+                <Checkbox
+                  checked={item.done}
+                  disabled={isDisabled}
+                  onCheckedChange={(checked) => {
+                    onToggle(item.id, Boolean(checked));
+                    // Ao CONCLUIR, abre o painel para comentar/anexar na hora.
+                    if (checked) setExpandedItemId(item.id);
+                  }}
+                />
+                <span className={`flex-1 text-sm ${item.done ? 'line-through text-muted-foreground' : ''}`}>
+                  {item.text}
+                </span>
+                {(item.comment || itemAttachments.length > 0) && (
+                  <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground">
+                    {item.comment && <MessageSquare className="h-3 w-3" aria-label="Item com comentário" />}
+                    {itemAttachments.length > 0 && (
+                      <span className="flex items-center gap-0.5 text-[10px]">
+                        <Paperclip className="h-3 w-3" aria-label="Item com anexos" />
+                        {itemAttachments.length}
+                      </span>
+                    )}
+                  </span>
+                )}
+                {item.done && item.doneAt && (
+                  <span className="shrink-0 text-xs text-muted-foreground">{formatRelative(item.doneAt)}</span>
+                )}
+                {!isDisabled && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 shrink-0 text-muted-foreground opacity-100 md:opacity-0 md:transition-opacity md:group-hover/item:opacity-100"
+                    aria-label={isExpanded ? 'Fechar detalhes do item' : 'Comentar ou anexar arquivo'}
+                    onClick={() => setExpandedItemId(isExpanded ? null : item.id)}
+                  >
+                    {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                  </Button>
+                )}
+              </div>
+              {isExpanded && !isDisabled && (
+                <ChecklistItemPanel
+                  activityId={activityId}
+                  item={item}
+                  itemAttachments={itemAttachments}
+                  onSaved={invalidate}
+                />
               )}
             </div>
-          ))}
+            );
+          })}
+          {!isDisabled && (
           <div className="flex gap-2 pl-6">
             <Input
               value={newItemText[checklist.id] ?? ''}
@@ -982,10 +1130,12 @@ function ChecklistSection({
               <Plus className="h-3.5 w-3.5" />
             </Button>
           </div>
+          )}
         </div>
-      ))}
+        );
+      })}
 
-      {total === 0 && (
+      {total === 0 && activity.checklists.length === 0 && (
         <ChecklistSuggestPanel activityId={activityId} onAddItems={(items) => { void handleAiItems(items); }} />
       )}
 
@@ -1019,6 +1169,245 @@ function ChecklistSection({
           <Plus className="h-3.5 w-3.5" />
           Novo bloco
         </Button>
+      )}
+    </div>
+  );
+}
+
+// ── Checklist item panel (comentário + anexos do item, minimal) ───────────────
+
+function ChecklistItemPanel({
+  activityId,
+  item,
+  itemAttachments,
+  onSaved,
+}: {
+  activityId: string;
+  item: ActivityDetail['checklists'][number]['items'][number];
+  itemAttachments: ActivityDetail['attachments'];
+  onSaved: () => void;
+}) {
+  const qc = useQueryClient();
+  const [commentDraft, setCommentDraft] = useState(item.comment ?? '');
+  const itemFileRef = useRef<HTMLInputElement>(null);
+
+  const commentMutation = useMutation({
+    mutationFn: (comment: string | null) => activitiesApi.updateChecklistItem(item.id, { comment }),
+    onSuccess: () => {
+      onSaved();
+      toast.success('Comentário salvo');
+    },
+    onError: () => toast.error('Erro ao salvar comentário'),
+  });
+
+  const itemUploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const presign = await activitiesApi.presignAttachment(activityId, {
+        filename: file.name,
+        mimeType: file.type,
+        sizeBytes: file.size,
+      });
+      if (presign.data.uploadUrl) {
+        await fetch(presign.data.uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
+      }
+      await activitiesApi.registerAttachment(activityId, {
+        objectKey: presign.data.objectKey,
+        filename: file.name,
+        mimeType: file.type,
+        sizeBytes: file.size,
+        checklistItemId: item.id,
+      });
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['activity-attachments', activityId] });
+      void qc.invalidateQueries({ queryKey: ['activity-events', activityId] });
+      toast.success('Anexo adicionado ao item');
+    },
+    onError: () => toast.error('Erro ao enviar anexo'),
+  });
+
+  const canSave = commentDraft.trim() !== (item.comment ?? '');
+
+  return (
+    <div className="ml-6 mt-1 space-y-2 rounded-md border bg-muted/20 p-2">
+      <div className="flex items-start gap-2">
+        <Textarea
+          value={commentDraft}
+          onChange={(e) => setCommentDraft(e.target.value)}
+          placeholder="Comentário do item (opcional)..."
+          className="min-h-[40px] flex-1 resize-none text-xs"
+          rows={2}
+        />
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 shrink-0 text-xs"
+          disabled={!canSave || commentMutation.isPending}
+          onClick={() => commentMutation.mutate(commentDraft.trim() || null)}
+        >
+          {commentMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Salvar'}
+        </Button>
+      </div>
+
+      <div className="space-y-1">
+        {itemAttachments.map((att) => (
+          <div key={att.id} className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Paperclip className="h-3 w-3 shrink-0" />
+            {att.downloadUrl ? (
+              <a href={att.downloadUrl} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate hover:underline">
+                {att.filename}
+              </a>
+            ) : (
+              <span className="min-w-0 flex-1 truncate">{att.filename}</span>
+            )}
+          </div>
+        ))}
+        <input
+          ref={itemFileRef}
+          type="file"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) itemUploadMutation.mutate(file);
+            e.target.value = '';
+          }}
+        />
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 gap-1.5 px-1.5 text-xs text-muted-foreground"
+          disabled={itemUploadMutation.isPending}
+          onClick={() => itemFileRef.current?.click()}
+        >
+          {itemUploadMutation.isPending
+            ? <Loader2 className="h-3 w-3 animate-spin" />
+            : <Paperclip className="h-3 w-3" />}
+          Anexar arquivo
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ── Checklist AI revise panel (rascunho da IA → diff → usuário confirma) ──────
+
+function ChecklistRevisePanel({
+  checklist,
+  onApplied,
+  onClose,
+}: {
+  checklist: ActivityDetail['checklists'][number];
+  onApplied: () => void;
+  onClose: () => void;
+}) {
+  const [instruction, setInstruction] = useState('');
+  const [result, setResult] = useState<ChecklistRevisionResult | null>(null);
+
+  const reviseMutation = useMutation({
+    mutationFn: () => aiApi.reviseChecklist(checklist.id, instruction.trim()),
+    onSuccess: (res) => {
+      if (res.data.aiUnavailable || !res.data.revision) {
+        toast.error('IA indisponível agora — tente novamente em instantes');
+        return;
+      }
+      setResult(res.data);
+    },
+    onError: () => toast.error('Erro ao consultar a IA'),
+  });
+
+  const applyMutation = useMutation({
+    mutationFn: () => {
+      const revision = result!.revision!;
+      const removeIds = (result!.diff?.removedItems ?? []).map((r) => r.id);
+      return activitiesApi.applyChecklistRevision(checklist.id, { items: revision.items, removeIds });
+    },
+    onSuccess: () => {
+      toast.success('Revisão aplicada');
+      onApplied();
+    },
+    onError: () => toast.error('Erro ao aplicar revisão'),
+  });
+
+  const currentTextById = new Map(checklist.items.map((i) => [i.id, i.text]));
+  const diff = result?.diff;
+
+  return (
+    <div className="space-y-2 rounded-md border border-violet-200 bg-violet-50 p-2 dark:border-violet-900 dark:bg-violet-950/30">
+      {!result ? (
+        <>
+          <Textarea
+            autoFocus
+            value={instruction}
+            onChange={(e) => setInstruction(e.target.value)}
+            placeholder='Ex.: "adicione um passo de teste elétrico", "remova o item de orçamento", "detalhe a verificação final"...'
+            className="min-h-[48px] resize-none bg-background text-xs"
+            rows={2}
+          />
+          <div className="flex items-center justify-end gap-2">
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              className="h-7 gap-1.5 text-xs"
+              disabled={instruction.trim().length < 3 || reviseMutation.isPending}
+              onClick={() => reviseMutation.mutate()}
+            >
+              {reviseMutation.isPending
+                ? <Loader2 className="h-3 w-3 animate-spin" />
+                : <Sparkles className="h-3 w-3" />}
+              {reviseMutation.isPending ? 'Analisando...' : 'Sugerir revisão'}
+            </Button>
+          </div>
+        </>
+      ) : (
+        <>
+          {result.revision?.summary && (
+            <p className="text-xs text-violet-700 dark:text-violet-300">{result.revision.summary}</p>
+          )}
+          <ul className="space-y-1">
+            {result.revision?.items.map((proposed, idx) => {
+              const isNew = !proposed.id;
+              const before = proposed.id ? currentTextById.get(proposed.id) : undefined;
+              const isChanged = Boolean(before && before !== proposed.text);
+              return (
+                <li key={proposed.id ?? `new-${idx}`} className="flex items-start gap-1.5 text-xs">
+                  <span className={`mt-0.5 shrink-0 font-mono ${isNew ? 'text-emerald-600' : isChanged ? 'text-amber-600' : 'text-muted-foreground/50'}`}>
+                    {isNew ? '+' : isChanged ? '~' : '·'}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    {isChanged && <span className="mr-1 text-muted-foreground line-through">{before}</span>}
+                    <span className={isNew ? 'text-emerald-700 dark:text-emerald-400' : ''}>{proposed.text}</span>
+                  </span>
+                </li>
+              );
+            })}
+            {(diff?.removedItems ?? []).map((removedItem) => (
+              <li key={removedItem.id} className="flex items-start gap-1.5 text-xs">
+                <span className="mt-0.5 shrink-0 font-mono text-red-600">−</span>
+                <span className="min-w-0 flex-1 text-muted-foreground line-through">{removedItem.text}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] text-muted-foreground">
+              +{diff?.added ?? 0} · ~{diff?.updated ?? 0} · −{diff?.removed ?? 0}
+            </span>
+            <div className="flex gap-2">
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setResult(null)}>
+                Refazer
+              </Button>
+              <Button
+                size="sm"
+                className="h-7 text-xs"
+                disabled={applyMutation.isPending}
+                onClick={() => applyMutation.mutate()}
+              >
+                {applyMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Aplicar revisão'}
+              </Button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
