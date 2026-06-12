@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Loader2, Building2 } from 'lucide-react';
@@ -174,7 +175,9 @@ export default function LoginPage() {
 
           <p className="mt-6 border-t pt-4 text-center text-sm text-muted-foreground">
             Não tem conta?{' '}
-            <a href="/setup" className="font-medium text-primary hover:underline">Cadastre sua empresa</a>
+            {/* Link do Next (não <a> puro): aplica o basePath /gymops — âncora
+                HTML levaria à raiz do domínio (dev.nvit.com.br/setup). */}
+            <Link href="/setup" className="font-medium text-primary hover:underline">Cadastre sua empresa</Link>
           </p>
         </div>
 
