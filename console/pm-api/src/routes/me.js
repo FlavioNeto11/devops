@@ -11,12 +11,12 @@ r.get('/me', asyncH(async (req, res) => {
   let projects = [];
   if (isAdmin) {
     const { rows } = await query(
-      'SELECT id, key, name, app_type AS "appType", route, approval_status AS "approvalStatus" FROM projects ORDER BY name',
+      'SELECT id, key, name, app_type AS "appType", route, status, approval_status AS "approvalStatus" FROM projects ORDER BY name',
     );
     projects = rows.map((p) => ({ ...p, canEdit: true }));
   } else if (email) {
     const { rows } = await query(
-      `SELECT p.id, p.key, p.name, p.app_type AS "appType", p.route, p.approval_status AS "approvalStatus", a.can_edit AS "canEdit"
+      `SELECT p.id, p.key, p.name, p.app_type AS "appType", p.route, p.status, p.approval_status AS "approvalStatus", a.can_edit AS "canEdit"
          FROM pm_user_access a
          JOIN projects p ON p.id = a.project_id
         WHERE a.user_email = $1

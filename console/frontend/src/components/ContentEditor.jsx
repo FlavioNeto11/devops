@@ -17,7 +17,7 @@ import VisualEditor from './VisualEditor.jsx';
 import { KIND_TEMPLATES, KIND_LABEL, liveAppFor } from './cms/kinds.js';
 import { isPortal } from '../lib/appTypes.js';
 import NewPortalWizard from './cms/NewPortalWizard.jsx';
-import { pmApproveProject, pmRejectProject } from '../api.js';
+import { pmApproveProject, pmRejectProject, pmPatchProject, pmDeleteProject } from '../api.js';
 
 // ===========================================================================
 function SectionDrawer({ section, onClose, onSaved }) {
@@ -86,6 +86,7 @@ export default function ContentEditor({ initialId = null, me = null }) {
   const [siteBusy, setSiteBusy] = useState(false);
   const [newSec, setNewSec] = useState('');
   const [confirmDel, setConfirmDel] = useState(null);
+  const [confirmDelPortal, setConfirmDelPortal] = useState(null);
   const [dragId, setDragId] = useState(null);
 
   const loadProjects = useCallback(async () => {
@@ -126,6 +127,20 @@ export default function ContentEditor({ initialId = null, me = null }) {
 
   const sel = projects.find((p) => p.id === selId) || null;
   const liveApp = liveAppFor(apps, sel);
+
+  // Prévia visual só faz sentido quando o portal TEM frontend publicado no
+  // cluster: sem app vivo, a rota /<key> cai na landing raiz (que recusa iframe
+  // via X-Frame-Options) — portal recém-criado edita-se no modo avançado.
+  const canVisual = !!liveApp;
+  useEffect(() => {
+    if (sel && !canVisual) setMode('lista');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selId, canVisual]);
+
+  const setPortalStatus = async (status, okMsg) => {
+    try { await pmPatchProject(sel.id, { status }); toast.ok(okMsg); await loadProjects(); }
+    catch (e) { toast.err(e.message); }
+  };
 
   const toggle = (s, field) => {
     const next = field === 'status' ? (s.status === 'published' ? 'draft' : 'published') : !s.visible;
@@ -173,7 +188,9 @@ export default function ContentEditor({ initialId = null, me = null }) {
         <>
           {sel && (
             <div className="meta__pills" role="tablist" aria-label="Modo de edição">
-              <button className={'pill' + (mode === 'visual' ? ' pill--active' : '')} onClick={() => setMode('visual')} role="tab" aria-selected={mode === 'visual'}>Visual</button>
+              <button className={'pill' + (mode === 'visual' ? ' pill--active' : '')} onClick={() => setMode('visual')}
+                role="tab" aria-selected={mode === 'visual'} disabled={!canVisual}
+                title={canVisual ? undefined : 'Prévia visual disponível quando o portal tiver frontend publicado'}>Visual</button>
               <button className={'pill' + (mode === 'lista' ? ' pill--active' : '')} onClick={() => setMode('lista')} role="tab" aria-selected={mode === 'lista'}>Avançado</button>
             </div>
           )}
@@ -190,37 +207,63 @@ export default function ContentEditor({ initialId = null, me = null }) {
             const live = liveAppFor(apps, p);
             const pending = p.approval_status === 'pending_approval';
             const rejected = p.approval_status === 'rejected';
+            const off = p.status !== 'active';
             return (
               <button key={p.id} className={'pill' + (p.id === selId ? ' pill--active' : '')} onClick={() => setSelId(p.id)}
-                title={pending ? 'Pendente de aprovação — fora do ar' : rejected ? 'Rejeitado — fora do ar' : undefined}>
-                <span className={'dot ' + (pending || rejected ? 'dot--warn' : live ? 'dot--ok' : 'dot--warn')} />
+                title={pending ? 'Pendente de aprovação — fora do ar' : rejected ? 'Rejeitado — fora do ar' : off ? 'Desativado — fora do ar' : undefined}>
+                <span className={'dot ' + (pending || rejected || off ? 'dot--warn' : live ? 'dot--ok' : 'dot--warn')} />
                 {p.name}
                 {pending && <span className="pill__count">pendente</span>}
                 {rejected && <span className="pill__count">rejeitado</span>}
+                {!pending && !rejected && off && <span className="pill__count">desativado</span>}
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Governança: portal pendente só vai ao ar após aprovação do dono/admin. */}
-      {sel && sel.approval_status === 'pending_approval' && (
+      {/* Governança e ciclo de vida do portal: aprovação, desativar/reativar e excluir. */}
+      {sel && (
         <div className="app-card" style={{ marginBottom: 14, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span className="badge badge-warn">pendente de aprovação</span>
+          {sel.approval_status === 'pending_approval' && <span className="badge badge-warn">pendente de aprovação</span>}
+          {sel.approval_status === 'rejected' && <span className="badge badge-err">rejeitado</span>}
+          {sel.approval_status === 'approved' && sel.status !== 'active' && <span className="badge badge-warn">desativado (fora do ar)</span>}
+          {sel.approval_status === 'approved' && sel.status === 'active' && <span className="badge badge-ok">conteúdo no ar</span>}
+          {!canVisual && <span className="badge badge-muted">sem frontend publicado</span>}
           <span className="muted" style={{ flex: 1, fontSize: '.85rem' }}>
-            {sel.created_by ? `Criado por ${sel.created_by}. ` : ''}O conteúdo pode ser montado normalmente,
-            mas a rota pública do portal fica indisponível até a aprovação.
+            {sel.approval_status === 'pending_approval'
+              ? `${sel.created_by ? `Criado por ${sel.created_by}. ` : ''}O conteúdo pode ser montado normalmente, mas a rota pública fica indisponível até a aprovação.`
+              : sel.status !== 'active'
+                ? 'O conteúdo está preservado, mas a rota pública responde 404 enquanto o portal estiver desativado.'
+                : !canVisual
+                  ? 'Monte o conteúdo no modo avançado; a prévia visual fica disponível quando o portal tiver um frontend publicado na esteira.'
+                  : 'A rota pública serve o conteúdo publicado deste portal.'}
           </span>
           {isAdmin && (
-            <span style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn--primary" onClick={async () => {
-                try { await pmApproveProject(sel.id); toast.ok('Portal aprovado — conteúdo publicado vai ao ar.'); await loadProjects(); }
-                catch (e) { toast.err(e.message); }
-              }}>Aprovar portal</button>
-              <button className="btn btn--danger" onClick={async () => {
-                try { await pmRejectProject(sel.id); toast.ok('Portal rejeitado.'); await loadProjects(); }
-                catch (e) { toast.err(e.message); }
-              }}>Rejeitar</button>
+            <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {sel.approval_status === 'pending_approval' && (
+                <>
+                  <button className="btn btn--primary" onClick={async () => {
+                    try { await pmApproveProject(sel.id); toast.ok('Portal aprovado — conteúdo publicado vai ao ar.'); await loadProjects(); }
+                    catch (e) { toast.err(e.message); }
+                  }}>Aprovar portal</button>
+                  <button className="btn btn--danger" onClick={async () => {
+                    try { await pmRejectProject(sel.id); toast.ok('Portal rejeitado.'); await loadProjects(); }
+                    catch (e) { toast.err(e.message); }
+                  }}>Rejeitar</button>
+                </>
+              )}
+              {sel.approval_status === 'approved' && sel.status === 'active' && (
+                <button className="btn" onClick={() => setPortalStatus('paused', 'Portal desativado — fora do ar (conteúdo preservado).')}>
+                  Desativar (tirar do ar)
+                </button>
+              )}
+              {sel.approval_status === 'approved' && sel.status !== 'active' && (
+                <button className="btn btn--primary" onClick={() => setPortalStatus('active', 'Portal reativado — conteúdo publicado de volta ao ar.')}>
+                  Reativar
+                </button>
+              )}
+              <button className="btn btn--danger" onClick={() => setConfirmDelPortal(sel)}>Excluir portal…</button>
             </span>
           )}
         </div>
@@ -306,6 +349,22 @@ export default function ContentEditor({ initialId = null, me = null }) {
       {wizard && (
         <NewPortalWizard isAdmin={isAdmin} onClose={() => setWizard(false)}
           onCreated={async (p) => { await loadProjects(); setSelId(p.id); }} />
+      )}
+
+      {confirmDelPortal && (
+        <ConfirmDialog
+          title="Excluir portal"
+          message={`Excluir o portal "${confirmDelPortal.name}" e TODO o seu conteúdo (páginas, seções, arquivos do portal e histórico de geração)? Esta ação não pode ser desfeita. Se a intenção é só tirar do ar, use "Desativar".`}
+          confirmLabel="Excluir definitivamente" danger
+          onClose={() => setConfirmDelPortal(null)}
+          onConfirm={async () => {
+            await pmDeleteProject(confirmDelPortal.id);
+            setConfirmDelPortal(null);
+            setSelId(null);
+            await loadProjects();
+            toast.ok('Portal excluído.');
+          }}
+        />
       )}
     </div>
   );

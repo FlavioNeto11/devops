@@ -35,6 +35,7 @@ export default function UserHome({ me, onGo }) {
           <h3 className="app-card__title" style={{ margin: 0, flex: 1 }}>{p.name}</h3>
           {p.approvalStatus === 'pending_approval' && <span className="badge badge-warn">pendente</span>}
           {p.approvalStatus === 'rejected' && <span className="badge badge-err">rejeitado</span>}
+          {p.approvalStatus === 'approved' && p.status && p.status !== 'active' && <span className="badge badge-warn">desativado</span>}
           <span className={'badge ' + meta.badge}>{meta.short}</span>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
