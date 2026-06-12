@@ -110,11 +110,19 @@ function Test-CommandExists {
 function Invoke-PlatformHttp {
     param(
         [Parameter(Mandatory)][string]$Path,
-        [int]$TimeoutSec = 10
+        [int]$TimeoutSec = 10,
+        # NoRedirect: devolve a PRIMEIRA resposta sem seguir 3xx. Necessario para
+        # rotas atras do SSO (oauth2-proxy responde 302 para o login em HTTPS;
+        # seguir o redirect quebraria por TLS/host fora do escopo deste check).
+        [switch]$NoRedirect
     )
     $url = "http://127.0.0.1$Path"
+    $extra = @{}
+    # MaximumRedirection 0 devolve a resposta 3xx mas emite um erro NAO-terminante
+    # ("maximum redirection count exceeded") — silenciamos para nao sujar o relatorio.
+    if ($NoRedirect) { $extra.MaximumRedirection = 0; $extra.ErrorAction = 'SilentlyContinue' }
     $resp = Invoke-WebRequest -Uri $url -UseBasicParsing -Headers @{ Host = $TestHost } `
-        -TimeoutSec $TimeoutSec -SkipHttpErrorCheck
+        -TimeoutSec $TimeoutSec -SkipHttpErrorCheck @extra
     return $resp
 }
 
@@ -222,10 +230,12 @@ Invoke-Check -Name 'Console: deployments em devops-system' -Test {
     Write-Output ($LASTEXITCODE -eq 0 -and $deps)
 } -AllowSkip
 
-Invoke-Check -Name 'Console: HTTP /devops responde 200' -Test {
-    $resp = Invoke-PlatformHttp -Path '/devops'
+Invoke-Check -Name 'Console: HTTP /devops responde (200 ou 302 do SSO)' -Test {
+    # O console fica atras do oauth2-proxy: sem sessao, a resposta correta e um
+    # 302 para o login (Keycloak). 200 = servido direto; ambos = console vivo.
+    $resp = Invoke-PlatformHttp -Path '/devops' -NoRedirect
     Write-Output ("HTTP {0}" -f $resp.StatusCode)
-    Write-Output ($resp.StatusCode -eq 200)
+    Write-Output ($resp.StatusCode -eq 200 -or $resp.StatusCode -eq 302)
 }
 
 # 9) Sample app aplicacao1 (deploy + HTTP /aplicacao1 e /aplicacao1/api/health)

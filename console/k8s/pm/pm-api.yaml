@@ -28,6 +28,10 @@ spec:
             - { name: KC_REALM, value: "nvit" }
             - { name: KC_SVC_CLIENT_ID, value: "devops-console-svc" }
             - { name: KC_SVC_CLIENT_SECRET, valueFrom: { secretKeyRef: { name: devops-console-kc-svc, key: KC_SVC_CLIENT_SECRET } } }
+            # IA do CMS (geração de portal): secret "pm-ai" criado fora do git
+            # (ver pm-ai.example.yaml). optional=true -> sem a chave o pm-api sobe
+            # normalmente e a rota /cms/generate degrada com 503 gracioso.
+            - { name: OPENAI_API_KEY, valueFrom: { secretKeyRef: { name: pm-ai, key: OPENAI_API_KEY, optional: true } } }
           ports: [{ containerPort: 3002, name: http }]
           readinessProbe:
             httpGet: { path: /health, port: http }

@@ -1,0 +1,20 @@
+# EXEMPLO do Secret "pm-ai" — IA de geração de portal do CMS (pm-api).
+# O Secret REAL é criado fora do git (NUNCA commitar valores) e fica de fora do
+# kustomization.yaml para o Argo (prune) nunca apagá-lo. Ex.:
+#
+#   kubectl create secret generic pm-ai -n devops-system \
+#     --from-literal=OPENAI_API_KEY=sk-...
+#
+# Sem este Secret o pm-api sobe normalmente (env é optional) e a rota
+# POST /projects/:id/cms/generate responde 503 (IA não configurada).
+# Vars opcionais relacionadas (env do Deployment, não deste Secret):
+#   CMS_AI_MODEL (default gpt-5-nano) · CMS_AI_TIMEOUT_MS (default 30000)
+#   OPENAI_REASONING_EFFORT (default low) · AI_ENABLED=false desliga sem remover a chave.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pm-ai
+  namespace: devops-system
+type: Opaque
+stringData:
+  OPENAI_API_KEY: "sk-COLOQUE-A-CHAVE-AQUI"
