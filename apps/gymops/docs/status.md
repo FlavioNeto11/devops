@@ -1,6 +1,34 @@
 # GymOps — Status Real do Projeto
 
-**Última atualização**: 2026-06-12 (checklist rico: anexo/comentário por item, desativar/remover bloco, revisão por IA)
+**Última atualização**: 2026-06-12 (onboarding novo: wizard split-screen com configuração inicial por IA para qualquer segmento)
+
+> **2026-06-12 — Onboarding novo (full-stack, sem migration):** `/setup`
+> redesenhado como wizard split-screen (painel grafite com trilha de passos;
+> mobile com stepper compacto). Passo 0 "Como começar": **Configurar com IA**
+> (recomendado) ou manualmente. Fluxo IA: descrição livre do negócio →
+> `POST /organizations/setup-draft` (PÚBLICO, rate limit 3/15min; conhecimento
+> setorial 100% no prompt `org-setup.prompt.ts`; zod valida SHAPE; retry com
+> **self-correction** — os erros de validação voltam ao modelo; sem chave →
+> 503 `AI_UNAVAILABLE` com saída p/ fluxo manual) → proposta **editável**
+> (confiança, segmento, slug com checagem, áreas com cor/cadeado restricted,
+> rotinas em accordions, unidades) → admin → confirmar. A IA NUNCA cria nada;
+> o commit é `POST /organizations` com `blueprint` (áreas+templates aninhados+
+> N unidades — validado por `org-blueprint.schema.ts`; key canônica sem
+> `templates` herda as rotinas do sistema; `blueprint.units`+`initialUnit`
+> juntos = 422 `CONFLICTING_UNITS`; `setupMeta` → `settings.onboarding`).
+> Fluxo manual: org → áreas (6 canônicas pré-marcadas; renomear/cor/restringir
+> preserva rotinas — key é o contrato; sem edição e ≤1 unidade = caminho
+> canônico puro SEM blueprint) → admin → unidades (0–5) → confirmar.
+> `bootstrapOrganization` aceita `blueprint?` (transação timeout 15s; audit
+> `mode: blueprint|canonical`); **`trustProxy: true`** no Fastify (antes os
+> rate limits "por IP" eram globais atrás do Traefik). Login: "Cadastre sua
+> empresa". Testes `org-bootstrap.test.ts` 5/5 (postgres efêmero pgvector);
+> colisão prom-client entre ARQUIVOS de teste no mesmo fork é pré-existente.
+> Validado E2E com IA REAL: org "odonto-demo-e2e" criada pelo wizard (5 áreas
+> do segmento odontológico, 12 rotinas, 3 unidades, settings.onboarding
+> mode=ai; área renomeada na revisão persistiu; owner novo loga como owner com
+> org/unit resolvidos); regressão manual "demo-manual-e2e" = 6/24/1 canônico;
+> mobile 375px sem overflow. Orgs `*-demo-e2e` ficaram no banco como exemplo.
 
 > **2026-06-12 — Checklist rico (full-stack):** migration
 > `20260612160000_checklist_item_extras` (`activity_checklists.disabled_at`,

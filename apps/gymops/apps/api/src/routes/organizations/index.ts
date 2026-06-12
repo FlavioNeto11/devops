@@ -102,30 +102,35 @@ export const organizationRoutes: FastifyPluginAsync = async (app) => {
       if (!body.success)
         return reply.status(422).send({ error: { code: 'VALIDATION_ERROR', message: 'Invalid input', details: body.error.flatten() } });
 
-      const prompt = buildOrgSetupPrompt({
-        businessDescription: body.data.businessDescription,
-        organizationName: body.data.organizationName,
-      });
-
-      const attempt = () => callAI(
-        (client) => chatJSON(client, prompt),
+      const attempt = (correctionFeedback?: string) => callAI(
+        (client) => chatJSON(client, buildOrgSetupPrompt({
+          businessDescription: body.data.businessDescription,
+          organizationName: body.data.organizationName,
+          correctionFeedback,
+        })),
         null,
         { stage: 'org-setup', timeoutMs: 30_000 },
       );
 
-      let raw = await attempt();
+      const raw = await attempt();
       if (raw === null) {
         return reply.status(503).send({ error: { code: 'AI_UNAVAILABLE', message: 'AI assistant is unavailable right now' } });
       }
 
       let parsed = OrgSetupDraftSchema.safeParse(raw);
       if (!parsed.success) {
-        // 1 retry — saída fora do contrato não é consertada no código.
-        raw = await attempt();
-        parsed = raw === null
-          ? parsed
-          : OrgSetupDraftSchema.safeParse(raw);
+        // Self-correction: o retry leva os ERROS de validação para o modelo
+        // corrigir — o código nunca conserta a saída por conta própria.
+        const issues = parsed.error.issues
+          .slice(0, 12)
+          .map((issue) => `- ${issue.path.join('.') || '(raiz)'}: ${issue.message}`)
+          .join('\n');
+        request.log.warn({ stage: 'org-setup', issuePaths: parsed.error.issues.slice(0, 12).map((i) => i.path.join('.')) }, 'org setup draft failed validation, retrying with feedback');
+
+        const retried = await attempt(issues);
+        parsed = retried === null ? parsed : OrgSetupDraftSchema.safeParse(retried);
         if (!parsed.success) {
+          request.log.warn({ stage: 'org-setup', issuePaths: parsed.error.issues.slice(0, 12).map((i) => i.path.join('.')) }, 'org setup draft failed validation after retry');
           return reply.status(502).send({ error: { code: 'AI_INVALID_OUTPUT', message: 'AI returned an invalid structure, try again' } });
         }
       }
