@@ -59,9 +59,14 @@ function Heading({ h, base = 'heading' }) {
 function ctaHref(b, site) {
   if (b?.href) return b.href;
   const c = site?.contact || {};
-  if (c.whatsapp) return `https://wa.me/${String(c.whatsapp).replace(/\D/g, '')}`;
+  const wa = String(c.whatsapp || '').replace(/\D/g, '');
+  if (wa.length >= 10) return `https://wa.me/${wa}`;
   if (c.email) return `mailto:${c.email}`;
   return '#contato';
+}
+// links externos (WhatsApp/e-mail/https) abrem em nova aba — visitante não perde o site
+function ctaTargetProps(href) {
+  return /^(https?:|mailto:)/.test(href || '') ? { target: '_blank', rel: 'noopener noreferrer' } : {};
 }
 
 function Hero({ d, site }) {
@@ -83,12 +88,14 @@ function Hero({ d, site }) {
         )}
         <div className="sr-hero__ctas">
           {(edit || d.primaryCta?.label) && (
-            <a className="sr-btn sr-btn--primary" href={edit ? undefined : ctaHref(d.primaryCta, site)} onClick={edit ? (e) => e.preventDefault() : undefined}>
+            <a className="sr-btn sr-btn--primary" href={edit ? undefined : ctaHref(d.primaryCta, site)}
+              {...(edit ? {} : ctaTargetProps(ctaHref(d.primaryCta, site)))} onClick={edit ? (e) => e.preventDefault() : undefined}>
               {edit ? <EditableText as="span" path="primaryCta.label" value={d.primaryCta?.label || ''} placeholder="botão principal" /> : d.primaryCta.label}
             </a>
           )}
           {(edit || d.secondaryCta?.label) && (
-            <a className="sr-btn" href={edit ? undefined : ctaHref(d.secondaryCta, site)} onClick={edit ? (e) => e.preventDefault() : undefined}>
+            <a className="sr-btn" href={edit ? undefined : ctaHref(d.secondaryCta, site)}
+              {...(edit ? {} : ctaTargetProps(ctaHref(d.secondaryCta, site)))} onClick={edit ? (e) => e.preventDefault() : undefined}>
               {edit ? <EditableText as="span" path="secondaryCta.label" value={d.secondaryCta?.label || ''} placeholder="botão secundário" /> : d.secondaryCta.label}
             </a>
           )}
@@ -222,7 +229,7 @@ function Logos({ d }) {
             <span key={i} className="cms-item">
               <MediaSlot path={`items.${i}.logoUrl`} empty={!l.logoUrl} compact className="sr-logos__slot">
                 {l.logoUrl
-                  ? <img src={l.logoUrl} alt={l.name || ''} loading="lazy" />
+                  ? <img src={l.logoUrl} alt={l.name || 'Logo de parceiro'} loading="lazy" />
                   : <span className="sr-logos__name">{edit ? <EditableText as="span" path={`items.${i}.name`} value={l.name || ''} placeholder="marca" /> : l.name}</span>}
               </MediaSlot>
               <ItemControls path="items" index={i} count={items.length} />
@@ -345,7 +352,8 @@ function Cta({ d, site }) {
           <div className="sr-hero__ctas" style={{ justifyContent: 'center' }}>
             {buttons.map((b, i) => (
               <span key={i} className="cms-item">
-                <a className={cx('sr-btn', i === 0 && 'sr-btn--invert')} href={edit ? undefined : ctaHref(b, site)} onClick={edit ? (e) => e.preventDefault() : undefined}>
+                <a className={cx('sr-btn', i === 0 && 'sr-btn--invert')} href={edit ? undefined : ctaHref(b, site)}
+                  {...(edit ? {} : ctaTargetProps(ctaHref(b, site)))} onClick={edit ? (e) => e.preventDefault() : undefined}>
                   {edit ? <EditableText as="span" path={`buttons.${i}.label`} value={b.label || ''} placeholder="botão" /> : b.label}
                 </a>
                 <ItemControls path="buttons" index={i} count={buttons.length} />

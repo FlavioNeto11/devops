@@ -511,7 +511,7 @@ export default function MetaProjects({ canManageProjects = true, initialId = nul
                       <Card key={it.id} it={it} dragging={draggingId === it.id} setDragging={setDraggingId}
                         onOpen={() => setDrawer({ mode: 'edit', item: it })} />
                     ))}
-                    {!colItems.length && <div className="board__empty">vazio</div>}
+                    {!colItems.length && <div className="board__empty">sem itens — arraste para cá ou use “+ item”</div>}
                   </div>
                 </div>
               );

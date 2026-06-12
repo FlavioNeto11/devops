@@ -44,10 +44,11 @@ export default function MediaPicker({ projectId, value, onChange }) {
           ? (isImage(value)
             ? <img src={value} alt="" className="mp-preview__img" />
             : <span className="mp-preview__doc"><Icon name="file-text" size={18} /> {baseName(value)}</span>)
-          : <span className="mp-preview__none">Nenhum arquivo</span>}
+          : <span className="mp-preview__none">Nada selecionado — faça upload ou escolha da biblioteca</span>}
       </div>
-      <input className="input" value={value || ''} placeholder="URL, ou faça upload / escolha da biblioteca…"
-        onChange={(e) => onChange(e.target.value)} />
+      <input className="input" value={value || ''} placeholder="Cole uma URL, faça upload ou escolha da biblioteca…"
+        onChange={(e) => onChange(e.target.value)} aria-label="URL do arquivo" />
+      <span className="muted" style={{ fontSize: '.72rem' }}>imagens/documentos até 8 MB · vídeos até 50 MB</span>
       <div className="mp-actions">
         <input ref={inp} type="file" hidden accept={ACCEPT} onChange={onFile} />
         <button type="button" className="btn" disabled={busy || !projectId} onClick={() => inp.current?.click()}>

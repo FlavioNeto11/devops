@@ -83,7 +83,7 @@ async function apiFetch(path, { method = 'GET', body, auth = false } = {}) {
     });
   } catch (networkErr) {
     throw new Error(
-      `Falha de rede ao acessar ${url}: ${networkErr && networkErr.message ? networkErr.message : networkErr}`
+      `Sem conexão com o servidor — verifique sua rede e tente novamente. (${networkErr && networkErr.message ? networkErr.message : networkErr})`
     );
   }
 
@@ -97,10 +97,19 @@ async function apiFetch(path, { method = 'GET', body, auth = false } = {}) {
   }
 
   if (!res.ok) {
+    // Mensagens acionáveis por status (o detalhe técnico fica no final).
+    const friendly = res.status === 503
+      ? 'Serviço indisponível no momento — tente novamente em instantes.'
+      : res.status === 401 || res.status === 403
+        ? 'Sem permissão — confira o token PORTAL_REC_TOKEN no topo da tela.'
+        : res.status === 404
+          ? 'Registro não encontrado — pode ter sido excluído.'
+          : null;
     const msg =
       (json && json.error && json.error.message) ||
+      friendly ||
       `Erro ${res.status} (${res.statusText}) em ${path}`;
-    const err = new Error(msg);
+    const err = new Error(friendly && json?.error?.message ? `${friendly} (${json.error.message})` : msg);
     err.code = json && json.error && json.error.code;
     err.status = res.status;
     throw err;

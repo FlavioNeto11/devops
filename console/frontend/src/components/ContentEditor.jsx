@@ -204,7 +204,11 @@ export default function ContentEditor({ initialId = null, me = null }) {
             </div>
           )}
           {sel && mode === 'lista' && <button className="btn" onClick={openSite}><Icon name="file-text" size={16} /> Editar site</button>}
-          {sel && mode === 'lista' && sel.route && <a className="btn" href={sel.route} target="_blank" rel="noopener noreferrer">Pré-visualizar ↗</a>}
+          {sel && mode === 'lista' && sel.route && (
+            <a className="btn" href={sel.route} target="_blank" rel="noopener noreferrer" title="Abrir o site publicado em nova aba">
+              <Icon name="external" size={15} /> Ver site
+            </a>
+          )}
           <button className="btn btn--primary" onClick={() => setWizard(true)}><Icon name="plus" size={16} /> Novo portal</button>
         </>
       )} />
@@ -298,8 +302,9 @@ export default function ContentEditor({ initialId = null, me = null }) {
               ))}
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <select className="select" value={newSec} onChange={(e) => setNewSec(e.target.value)}>
-                <option value="">+ nova seção…</option>
+              <Icon name="plus" size={16} />
+              <select className="select" value={newSec} onChange={(e) => setNewSec(e.target.value)} aria-label="Escolher o tipo da nova seção">
+                <option value="">nova seção…</option>
                 {Object.entries(KIND_TEMPLATES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
               <button className="btn btn--primary" disabled={!newSec || !selPageId} onClick={createSection}>Adicionar</button>

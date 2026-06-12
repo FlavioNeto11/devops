@@ -167,8 +167,8 @@ export default function Logs() {
         <label className="check-inline">
           <input type="checkbox" checked={filterOnly} onChange={(e) => setFilterOnly(e.target.checked)} /> só correspondências
         </label>
-        <label className="check-inline">
-          <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} /> auto-refresh
+        <label className="check-inline" title="Recarrega os logs automaticamente no intervalo escolhido">
+          <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} /> auto-refresh{autoRefresh ? ' ↻' : ''}
         </label>
         {autoRefresh && (
           <label className="field">
@@ -183,7 +183,7 @@ export default function Logs() {
         </label>
       </div>
 
-      {error && <div className="state state--error" role="alert">Erro: {error}</div>}
+      {error && <div className="state state--error" role="alert">Erro ao carregar os logs (tente outro pod ou namespace): {error}</div>}
 
       <div className="logs2">
         {/* Painel esquerdo: pods por app */}

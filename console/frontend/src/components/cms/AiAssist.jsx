@@ -33,7 +33,7 @@ export default function AiAssist({ onRun, autoFocus = false, placeholder }) {
   };
 
   return (
-    <div className="ai-assist" style={{ marginTop: 14, padding: 12, border: '1px dashed var(--accent, #6366f1)', borderRadius: 10 }}>
+    <div className="ai-assist" style={{ marginTop: 14, padding: 12, border: '1px dashed var(--accent)', borderRadius: 10, background: 'var(--accent-soft)' }}>
       <span className="field__label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <Icon name="sparkles" size={14} /> Pedir à IA
       </span>
@@ -43,15 +43,19 @@ export default function AiAssist({ onRun, autoFocus = false, placeholder }) {
         rows={2}
         style={{ marginTop: 6, resize: 'vertical' }}
         value={text}
-        placeholder={placeholder || 'ex.: deixe o tom mais formal · troque os cards para focar em resultados · resuma o texto pela metade'}
+        disabled={busy}
+        placeholder={placeholder || 'Descreva a mudança em português, como pediria a uma pessoa'}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); run(); } }}
       />
+      <span className="muted" style={{ display: 'block', fontSize: '.73rem', marginTop: 4 }}>
+        Exemplos: “tom mais acolhedor” · “adicione um card sobre nutrição” · “resuma pela metade” · “troque para 2 colunas”
+      </span>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
-        <button className="btn btn--primary" disabled={busy || !text.trim()} onClick={run}>
-          {busy ? 'Aplicando…' : 'Aplicar com IA'}
+        <button className="btn btn--primary" disabled={busy || !text.trim()} onClick={run} aria-busy={busy}>
+          {busy ? '⏳ Aplicando — pode levar ~20s…' : 'Aplicar com IA'}
         </button>
-        <span className="muted" style={{ fontSize: '.75rem' }}>usa o site inteiro e o briefing original como contexto</span>
+        {!busy && <span className="muted" style={{ fontSize: '.75rem' }}>usa o site inteiro e o briefing original como contexto · Ctrl+Enter aplica</span>}
       </div>
     </div>
   );

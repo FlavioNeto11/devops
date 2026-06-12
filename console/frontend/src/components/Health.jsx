@@ -23,6 +23,13 @@ export default function Health({ streamData, streamStatus }) {
   const [deployments, setDeployments] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Filtro rápido das duas tabelas (nome/namespace) — listas longas ficam escaneáveis.
+  const [filter, setFilter] = useState('');
+  const match = useCallback((name, ns) => {
+    if (!filter) return true;
+    const f = filter.toLowerCase();
+    return (name || '').toLowerCase().includes(f) || (ns || '').toLowerCase().includes(f);
+  }, [filter]);
   // Tipo da app (cadastro do pm-api): rotula deployments como Portal CMS/Produto/Interno.
   const [types, setTypes] = useState({});
   useEffect(() => {
@@ -100,10 +107,16 @@ export default function Health({ streamData, streamStatus }) {
         </div>
       )}
 
-      <div className="health-summary">
+      <div className="health-summary" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <span className="badge badge-ok">{summary.ok} saudaveis</span>
         <span className="badge badge-warn">{summary.warn} atencao</span>
         <span className="badge badge-err">{summary.err} criticos</span>
+        {streamStatus && streamStatus !== 'open' && (
+          <span className="muted" style={{ fontSize: '.8rem' }}>tempo real indisponível — dados podem estar defasados</span>
+        )}
+        <span style={{ flex: 1 }} />
+        <input className="input" style={{ width: 220 }} placeholder="Filtrar por nome ou namespace…"
+          value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filtrar pods e deployments" />
       </div>
 
       <h2 className="section-title">Pods</h2>
@@ -127,7 +140,7 @@ export default function Health({ streamData, streamStatus }) {
                 </td>
               </tr>
             )}
-            {evaluated.map((p) => {
+            {evaluated.filter((p) => match(p.name, p.namespace)).map((p) => {
               const restarts = asCount(p.restartCount);
               return (
                 <tr key={`${p.namespace}/${p.name}`}>
@@ -173,7 +186,7 @@ export default function Health({ streamData, streamStatus }) {
                 </td>
               </tr>
             )}
-            {deployments.map((d) => {
+            {deployments.filter((d) => match(d.name, d.namespace)).map((d) => {
               const r = d.replicas || {};
               const ready = asCount(r.ready);
               const desired = asCount(r.desired);

@@ -153,9 +153,15 @@ export default function AccessAdmin() {
           footer={<button className="btn btn--primary" onClick={() => setPwInfo(null)}>Entendi</button>}>
           <p className="app-card__meta" style={{ marginTop: 0 }}>Usuário <strong>{pwInfo.email}</strong> — exibida só agora; ele troca no primeiro login.</p>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <code style={{ fontSize: '1rem', padding: '6px 10px', flex: 1 }}>{pwInfo.tempPassword}</code>
-            <button className="btn" onClick={() => { navigator.clipboard?.writeText(pwInfo.tempPassword); toast.ok('Senha copiada.'); }}>
-              <Icon name="check" size={15} /> copiar
+            <code style={{ fontSize: '1rem', padding: '6px 10px', flex: 1 }} aria-label="Senha temporária (somente leitura)">{pwInfo.tempPassword}</code>
+            <button className="btn" onClick={(e) => {
+              navigator.clipboard?.writeText(pwInfo.tempPassword);
+              toast.ok('Senha copiada para a área de transferência.');
+              const b = e.currentTarget; const old = b.innerHTML;
+              b.textContent = '✓ Copiado!';
+              setTimeout(() => { b.innerHTML = old; }, 2000);
+            }}>
+              <Icon name="copy" size={15} /> copiar
             </button>
           </div>
         </Modal>

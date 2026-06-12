@@ -45,7 +45,7 @@ export default function App() {
     const url = toSlug && toSlug !== 'home' ? `${base}/${toSlug}` : base;
     window.history.pushState(null, '', url + window.location.search);
     setRoute(parsePath());
-    window.scrollTo({ top: 0 });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
   return (
@@ -59,6 +59,7 @@ function Shell({ siteKey, slug, nav }) {
   const edit = useEditMode();
   const editTree = useEditTree();
   const emit = useEmit();
+  const [menuOpen, setMenuOpen] = useState(false);
   // clique no header/rodapé (fora dos textos editáveis) abre o painel do SITE
   // no console — identidade, paleta, contato e o comando de IA do site.
   const selectSite = edit ? (e) => { e.stopPropagation(); emit('cms:select', { site: true }); } : undefined;
@@ -105,7 +106,22 @@ function Shell({ siteKey, slug, nav }) {
   );
 
   if (wantsEdit() && !tree) return <div className="sr-status">Conectando ao editor…</div>;
-  if (state === 'loading') return <div className="sr-status">Carregando…</div>;
+  if (state === 'loading') {
+    // skeleton com a estrutura do site (hero + cards) — feedback imediato
+    return (
+      <div className="sr-skel" aria-busy="true" aria-label="Carregando o portal">
+        <div className="sr-container">
+          <span className="sr-skel__bar" style={{ width: 140, height: 18, marginTop: 26 }} />
+          <span className="sr-skel__bar" style={{ width: '55%', height: 40, marginTop: 60 }} />
+          <span className="sr-skel__bar" style={{ width: '70%', height: 16 }} />
+          <span className="sr-skel__bar" style={{ width: '40%', height: 16 }} />
+          <div style={{ display: 'flex', gap: 14, marginTop: 40 }}>
+            {[0, 1, 2].map((i) => <span key={i} className="sr-skel__bar" style={{ flex: 1, height: 120 }} />)}
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (state === 'notfound') {
     return (
       <div className="sr-status">
@@ -129,14 +145,21 @@ function Shell({ siteKey, slug, nav }) {
             ? <span className="sr-brand"><EditableText as="span" site path="name" value={site.name || ''} placeholder="nome do site" /></span>
             : <button className="sr-brand" onClick={() => nav('home')}>{name}</button>}
           {pages.length > 1 && (
-            <nav className="sr-nav">
-              {pages.map((p) => (
-                <button key={p.slug} className={'sr-nav__link' + (page?.slug === p.slug ? ' is-active' : '')} onClick={(e) => { e.stopPropagation(); nav(p.slug); }}>
-                  {p.title}
-                  {edit && p.status && p.status !== 'published' && <span className="sr-nav__draft" title="página em rascunho">○</span>}
-                </button>
-              ))}
-            </nav>
+            <>
+              <button className="sr-burger" aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'} aria-expanded={menuOpen}
+                onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}>
+                {menuOpen ? '✕' : '☰'}
+              </button>
+              <nav className={'sr-nav' + (menuOpen ? ' is-open' : '')}>
+                {pages.map((p) => (
+                  <button key={p.slug} className={'sr-nav__link' + (page?.slug === p.slug ? ' is-active' : '')}
+                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); nav(p.slug); }}>
+                    {p.title}
+                    {edit && p.status && p.status !== 'published' && <span className="sr-nav__draft" title="página em rascunho">○</span>}
+                  </button>
+                ))}
+              </nav>
+            </>
           )}
         </div>
       </header>
@@ -167,15 +190,31 @@ function Shell({ siteKey, slug, nav }) {
             ) : (
               <>
                 {contact.email && <a href={`mailto:${contact.email}`}>{contact.email}</a>}
-                {contact.whatsapp && <a href={`https://wa.me/${String(contact.whatsapp).replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer">WhatsApp</a>}
+                {waDigits(contact.whatsapp) && <a href={`https://wa.me/${waDigits(contact.whatsapp)}`} target="_blank" rel="noopener noreferrer">WhatsApp</a>}
                 {contact.phone && <span>{contact.phone}</span>}
                 {(contact.city || contact.state) && <span>{[contact.city, contact.state].filter(Boolean).join(' · ')}</span>}
               </>
             )}
           </div>
-          <p className="sr-footer__plat">Portal publicado pela plataforma NVIT.</p>
+          <p className="sr-footer__plat">© {new Date().getFullYear()} {name}. Todos os direitos reservados · Portal publicado pela plataforma NVIT.</p>
         </div>
       </footer>
+
+      {/* botão flutuante de WhatsApp (conversão) — só no público e com número válido */}
+      {!edit && waDigits(contact.whatsapp) && (
+        <a className="sr-wa" href={`https://wa.me/${waDigits(contact.whatsapp)}`} target="_blank" rel="noopener noreferrer"
+          aria-label="Conversar no WhatsApp">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden>
+            <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.6-6.1c-.3-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1-.2.3-.7.8-.8 1-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4 0-.5.1-.7l.4-.5c.1-.2.1-.3 0-.5l-.8-1.9c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.2.3-.9.9-.9 2.2s.9 2.5 1.1 2.7c.1.2 1.8 2.8 4.4 3.9 1.6.7 2.2.7 3 .6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2 0-.1-.2-.2-.4-.3Z" />
+          </svg>
+        </a>
+      )}
     </div>
   );
+}
+
+// dígitos do WhatsApp validados (mínimo DDI+DDD+número); inválido → some o link
+function waDigits(v) {
+  const d = String(v || '').replace(/\D/g, '');
+  return d.length >= 10 ? d : null;
 }

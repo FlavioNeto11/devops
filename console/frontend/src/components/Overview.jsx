@@ -25,6 +25,7 @@ export default function Overview({ streamData, streamStatus }) {
   const [pods, setPods] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [podFilter, setPodFilter] = useState('');
 
   // Fetch inicial: overview (contagens) + pods (tabela), em paralelo.
   const load = useCallback(async (signal) => {
@@ -92,7 +93,11 @@ export default function Overview({ streamData, streamStatus }) {
         <Card label="IngressRoutes" value={asCount(counts?.ingressroutes)} />
       </div>
 
-      <h2 className="section-title">Pods</h2>
+      <h2 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        Pods
+        <input className="input" style={{ width: 220, fontWeight: 400 }} placeholder="Filtrar por nome ou namespace…"
+          value={podFilter} onChange={(e) => setPodFilter(e.target.value)} aria-label="Filtrar pods" />
+      </h2>
       <div className="table-wrap">
         <table className="table">
           <thead>
@@ -114,7 +119,7 @@ export default function Overview({ streamData, streamStatus }) {
                 </td>
               </tr>
             )}
-            {pods.map((p) => {
+            {pods.filter((p) => !podFilter || `${p.name} ${p.namespace}`.toLowerCase().includes(podFilter.toLowerCase())).map((p) => {
               const ready = readyText(p);
               const restarts = asCount(p.restartCount);
               return (

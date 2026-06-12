@@ -38,8 +38,9 @@ export default function ConfirmDialog({
             className={`btn ${danger ? 'btn--danger' : 'btn--primary'}`}
             onClick={confirm}
             disabled={busy}
+            aria-busy={busy}
           >
-            {busy ? '…' : confirmLabel}
+            {busy ? 'Processando…' : confirmLabel}
           </button>
         </>
       )}

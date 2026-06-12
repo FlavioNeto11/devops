@@ -56,6 +56,29 @@ img { max-width: 100%; }
 .sr-edit-zone { cursor: pointer; }
 .sr-edit-zone:hover { outline: 2px dashed rgba(56, 189, 248, 0.65); outline-offset: -2px; }
 
+/* menu mobile (hambúrguer) */
+.sr-burger { display: none; margin-left: auto; background: none; border: 1px solid var(--c-line); border-radius: 9px; width: 40px; height: 36px; font-size: 1rem; cursor: pointer; color: var(--c-text); }
+@media (max-width: 640px) {
+  .sr-burger { display: inline-grid; place-items: center; }
+  .sr-nav { display: none; width: 100%; flex-direction: column; align-items: stretch; padding: 8px 0 12px; }
+  .sr-nav.is-open { display: flex; }
+  .sr-nav__link { text-align: left; padding: 10px 12px; }
+}
+
+/* foco visível para navegação por teclado (a11y) */
+.sr-nav__link:focus-visible, .sr-btn:focus-visible, .sr-brand:focus-visible, .sr-burger:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+}
+
+/* skeleton de carregamento (shimmer) */
+.sr-skel__bar { display: block; border-radius: 10px; background: linear-gradient(90deg, rgba(0,0,0,0.06) 25%, rgba(0,0,0,0.11) 50%, rgba(0,0,0,0.06) 75%); background-size: 600px 100%; animation: sr-shimmer 1.3s infinite linear; margin-bottom: 14px; }
+@keyframes sr-shimmer { 0% { background-position: -600px 0; } 100% { background-position: 600px 0; } }
+
+/* botão flutuante de WhatsApp */
+.sr-wa { position: fixed; right: 18px; bottom: 18px; z-index: 30; display: grid; place-items: center; width: 54px; height: 54px; border-radius: 50%; background: #25d366; color: #fff; box-shadow: 0 8px 22px rgba(0,0,0,0.25); transition: transform .15s ease; }
+.sr-wa:hover { transform: scale(1.06); }
+
 /* hero */
 .sr-hero { padding: 76px 0 56px; background: linear-gradient(160deg, color-mix(in srgb, var(--c-primary) 10%, var(--c-bg)), var(--c-bg) 55%); }
 .sr-hero h1 { font-size: clamp(1.9rem, 5vw, 3rem); max-width: 760px; }
@@ -78,8 +101,11 @@ img { max-width: 100%; }
 /* blocos */
 .sr-block { padding: 44px 0; }
 .sr-grid { display: grid; gap: 16px; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); }
-@media (max-width: 860px) { .sr-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .sr-grid { grid-template-columns: 1fr; } }
+@media (max-width: 860px) { .sr-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+@media (max-width: 560px) { .sr-grid { grid-template-columns: 1fr !important; } }
+
+/* âncoras (#secao / #contato) não ficam escondidas atrás do header sticky */
+.sr-footer, main [id] { scroll-margin-top: 76px; }
 
 .sr-card { background: var(--c-card); border: 1px solid var(--c-line); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
 .sr-card h3 { font-size: 1.02rem; margin-top: 0.6rem; }

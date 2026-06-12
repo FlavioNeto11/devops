@@ -31,6 +31,29 @@ export function ageFrom(ts) {
 }
 
 /**
+ * Tempo RELATIVO legivel em pt-BR ("ha 5 min", "ha 2 h", "ha 3 d") para tabelas
+ * escaneaveis (o ISO completo vai no title). Datas futuras/invalidas viram '—'.
+ * @param {string|number|Date|null} ts
+ * @returns {string}
+ */
+export function timeAgo(ts) {
+  if (!ts) return '—';
+  const start = ts instanceof Date ? ts.getTime() : new Date(ts).getTime();
+  if (Number.isNaN(start)) return '—';
+  const secs = Math.floor((Date.now() - start) / 1000);
+  if (secs < 0) return '—';
+  if (secs < 60) return 'agora há pouco';
+  const m = Math.floor(secs / 60);
+  if (m < 60) return `há ${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `há ${h} h`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `há ${d} d`;
+  const mo = Math.floor(d / 30);
+  return mo < 12 ? `há ${mo} mês${mo > 1 ? 'es' : ''}` : `há ${Math.floor(mo / 12)} ano(s)`;
+}
+
+/**
  * Mapeia a fase de um pod (ou estado de saude) para uma classe de badge.
  * @param {string} phase Ex.: 'Running', 'Pending', 'Failed', 'Succeeded'.
  * @returns {string} Classe CSS de badge.

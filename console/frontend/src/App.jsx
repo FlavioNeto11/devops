@@ -120,6 +120,11 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meLoaded, isMember, isAdmin]);
 
+  // Título da aba do navegador acompanha a seção (várias abas abertas ficam distinguíveis).
+  useEffect(() => {
+    document.title = `${SECTIONS[activeTab]?.label || 'DevOps Console'} · DevOps Console`;
+  }, [activeTab]);
+
   // SSE (dados do cluster) só para admin.
   useEffect(() => {
     if (!meLoaded || isMember) return undefined;

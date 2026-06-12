@@ -318,11 +318,15 @@ export default function VisualEditor({ project }) {
         <button className="btn" onClick={() => setPendingAdd({ afterSectionId: null })}><Icon name="plus" size={16} /> Seção</button>
         <button className="btn" onClick={openSite}><Icon name="file-text" size={16} /> Editar site</button>
         <button className="btn" onClick={() => setPanelOpen((o) => !o)} title="Painel"><Icon name={panelOpen ? 'chevronRight' : 'chevronLeft'} size={16} /></button>
-        <a className="btn" href={iframeSrc.replace('?cmsEdit=1', '')} target="_blank" rel="noopener noreferrer">Abrir ↗</a>
+        <a className="btn" href={iframeSrc.replace('?cmsEdit=1', '')} target="_blank" rel="noopener noreferrer" title="Abrir o site publicado em nova aba">
+          <Icon name="external" size={15} /> Ver site
+        </a>
       </div>
 
       <p className="muted ve__hint">
-        Passe o mouse sobre uma seção para mover/ocultar/excluir; clique para editar no painel. Textos em destaque são editáveis direto na prévia.
+        Passe o mouse sobre uma seção para mover/ocultar/excluir; clique para abrir o painel.
+        {' '}<strong style={{ color: 'var(--accent)' }}>Textos são editáveis direto na prévia</strong> — e o botão
+        {' '}<Icon name="sparkles" size={12} /> de cada seção pede mudanças à IA.
       </p>
 
       {/* split: prévia (iframe) + painel contextual */}
@@ -357,7 +361,7 @@ export default function VisualEditor({ project }) {
                 <input className="input" value={selSection.anchor || ''} placeholder="ex.: palestras"
                   onChange={(e) => setSectionField(selSection.id, 'anchor', e.target.value || null)} />
               </label>
-              <button className="btn" style={{ marginTop: 12, color: 'var(--danger, #dc2626)' }} onClick={() => setConfirmDel({ id: selSection.id })}>
+              <button className="btn btn--danger" style={{ marginTop: 12 }} onClick={() => setConfirmDel({ id: selSection.id })}>
                 <Icon name="trash2" size={15} /> Excluir seção
               </button>
             </div>

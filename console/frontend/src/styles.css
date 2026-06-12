@@ -43,6 +43,12 @@
     "Liberation Mono", monospace;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
     sans-serif;
+
+  /* Tokens usados pelos formulários do CMS (AutoForm/AiAssist) — dark-aware. */
+  --line: #e3e8f0;
+  --line2: #d4dbe6;
+  --bg-soft: #f3f6fb;
+  --danger: var(--err);
 }
 
 /* DARK (slate refinado) — override apenas das cores; estrutura/raio/fontes vem do :root. */
@@ -66,6 +72,10 @@
   --warn-bg: rgba(210, 153, 34, 0.15);
   --err: #f85149;
   --err-bg: rgba(248, 81, 73, 0.15);
+
+  --line: #2b3343;
+  --line2: #3b4456;
+  --bg-soft: #1c2230;
   --muted-bg: rgba(139, 148, 158, 0.15);
 
   --terminal-bg: #0a0e14;
@@ -700,6 +710,9 @@ body {
 .btn:focus-visible,
 .pill:focus-visible,
 .quick-link:focus-visible,
+.icon-btn:focus-visible,
+.sidebar__item:focus-visible,
+.usermenu__btn:focus-visible,
 .tab:focus-visible {
   outline: none;
   border-color: var(--accent);
@@ -1401,6 +1414,7 @@ body {
 .ic-trigger__label { flex: 1; font-size: 13px; }
 .ic-trigger__hint { font-size: 11px; color: var(--text-dim); }
 .ic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; max-height: 52vh; overflow-y: auto; }
+@media (max-width: 480px) { .ic-grid { grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); } }
 .ic-cell { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 6px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elev-2); color: var(--text); cursor: pointer; }
 .ic-cell:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 .ic-cell--active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }

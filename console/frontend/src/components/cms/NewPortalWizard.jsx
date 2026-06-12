@@ -113,10 +113,13 @@ export default function NewPortalWizard({ isAdmin, onClose, onCreated }) {
           onChange={(e) => setName(e.target.value)} />
       </label>
       <label className="field" style={{ marginBottom: 10 }}>
-        <span className="field__label">Chave (identidade própria — vira a rota /chave)</span>
+        <span className="field__label">Endereço do site (gerado a partir do nome)</span>
         <input className="input" placeholder="ex.: clinica-horizonte" value={effectiveKey}
           onChange={(e) => { setKeyTouched(true); setKey(slugify(e.target.value)); }} />
-        {keyClash && <span className="muted" style={{ color: 'var(--err, #c00)', fontSize: '.8rem' }}>Esta chave já pertence a um produto existente — escolha outra.</span>}
+        {effectiveKey && !keyClash && (
+          <span className="muted" style={{ fontSize: '.78rem' }}>O site ficará em <strong>/sites/{effectiveKey}</strong> — no ar assim que for criado{!isAdmin ? ' e aprovado' : ''}.</span>
+        )}
+        {keyClash && <span style={{ color: 'var(--err)', fontSize: '.8rem' }}>Este endereço já pertence a um produto existente — escolha outro.</span>}
       </label>
       <label className="field" style={{ marginBottom: 10 }}>
         <span className="field__label">Conteúdo inicial</span>

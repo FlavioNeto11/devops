@@ -33,11 +33,16 @@ export default function UserHome({ me, onGo }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
           <Icon name={meta.icon} size={18} />
           <h3 className="app-card__title" style={{ margin: 0, flex: 1 }}>{p.name}</h3>
-          {p.approvalStatus === 'pending_approval' && <span className="badge badge-warn">pendente</span>}
-          {p.approvalStatus === 'rejected' && <span className="badge badge-err">rejeitado</span>}
-          {p.approvalStatus === 'approved' && p.status && p.status !== 'active' && <span className="badge badge-warn">desativado</span>}
+          {p.approvalStatus === 'pending_approval' && <span className="badge badge-warn" title="Aguardando aprovação do administrador — você já pode montar o conteúdo">pendente</span>}
+          {p.approvalStatus === 'rejected' && <span className="badge badge-err" title="Rejeitado pelo administrador — fale com ele para entender o motivo">rejeitado</span>}
+          {p.approvalStatus === 'approved' && p.status && p.status !== 'active' && <span className="badge badge-warn" title="Fora do ar — o conteúdo está preservado">desativado</span>}
           <span className={'badge ' + meta.badge}>{meta.short}</span>
         </div>
+        {p.approvalStatus === 'pending_approval' && (
+          <p className="muted" style={{ fontSize: '.78rem', margin: '0 0 8px' }}>
+            Aguardando aprovação — monte o conteúdo normalmente; ele vai ao ar quando o administrador aprovar.
+          </p>
+        )}
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           {action}
           {p.route && (

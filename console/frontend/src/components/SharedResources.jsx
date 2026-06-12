@@ -23,6 +23,7 @@ export default function SharedResources() {
   const toast = useToast();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [libFilter, setLibFilter] = useState('');
   // Tipo de cada projeto consumidor (Portal CMS / Produto / Interno).
   const [types, setTypes] = useState({});
 
@@ -61,8 +62,12 @@ export default function SharedResources() {
         <span className="muted" style={{ marginLeft: 'auto', fontSize: '.82rem' }}>inventário gerado em {genAt}</span>
       </div>
 
-      <div className="section-title">Bibliotecas compartilhadas</div>
-      {npm.map((r) => (
+      <div className="section-title" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        Bibliotecas compartilhadas
+        <input className="input" style={{ width: 200, fontWeight: 400 }} placeholder="Filtrar libs…"
+          value={libFilter} onChange={(e) => setLibFilter(e.target.value)} aria-label="Filtrar bibliotecas" />
+      </div>
+      {npm.filter((r) => !libFilter || `${r.name} ${r.description || ''}`.toLowerCase().includes(libFilter.toLowerCase())).map((r) => (
         <div key={r.name} className="app-card">
           <div className="app-card__head">
             <div>

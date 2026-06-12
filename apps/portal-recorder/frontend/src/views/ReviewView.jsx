@@ -138,7 +138,10 @@ export default function ReviewView({ sessionId }) {
       {loading ? (
         <div className="empty">Carregando timeline…</div>
       ) : visible.length === 0 ? (
-        <div className="empty">Nenhum evento/anotacao/screenshot para esta sessao.</div>
+        <div className="empty">
+          <p style={{ margin: 0 }}>Nenhuma atividade capturada nesta sessão.</p>
+          <p className="muted small" style={{ marginTop: 6 }}>Volte para a tela de captura e interaja com o portal — cada chamada, anotação e screenshot aparece aqui.</p>
+        </div>
       ) : (
         <ol className="timeline">
           {visible.map((it, i) => (

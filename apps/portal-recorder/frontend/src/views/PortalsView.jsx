@@ -168,13 +168,14 @@ function NewPortalForm({ onCreated }) {
           />
         </label>
         <label className="field">
-          <span>spa_kind (opcional)</span>
+          <span>Tipo de aplicação (opcional)</span>
           <input
             className="input"
             value={spaKind}
             onChange={(e) => setSpaKind(e.target.value)}
-            placeholder="angular | react | mpa…"
+            placeholder="ex.: React, Angular, site tradicional…"
           />
+          <span className="muted small">deixe vazio se não souber — não afeta a captura</span>
         </label>
         <label className="field" title="Vínculo apenas relacional: marca que este portal externo alimenta/contextualiza um produto da plataforma (serve a IA, governança e relatórios). Não muda a captura.">
           <span>produto relacionado (opcional)</span>
@@ -283,7 +284,7 @@ function PortalCard({ portal, sessions, onChanged }) {
 
       <div className="portal-card__sessions">
         {sessions.length === 0 ? (
-          <div className="muted small">Sem sessoes ainda.</div>
+          <div className="muted small">Nenhuma captura ainda — clique em <strong>Nova captura</strong> para abrir o portal no browser remoto.</div>
         ) : (
           <ul className="session-list">
             {sessions.map((s) => (

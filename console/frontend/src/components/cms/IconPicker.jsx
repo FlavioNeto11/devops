@@ -27,7 +27,7 @@ export default function IconPicker({ value, onChange }) {
           <input
             className="input"
             autoFocus
-            placeholder="Buscar — ex.: escudo, folha, reciclar, search…"
+            placeholder="Busque em português (escudo, folha…) ou inglês (shield, leaf…)"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             style={{ marginBottom: 12 }}

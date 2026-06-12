@@ -46,7 +46,8 @@ export default function Sidebar({ groups, links = [], activeKey, onSelect, colla
                 <span className="sidebar__item-label">{l.label}</span>
               </button>
             ) : (
-              <a key={l.href} className="sidebar__item sidebar__item--link" href={l.href} target="_blank" rel="noopener noreferrer" title={l.label}>
+              <a key={l.href} className="sidebar__item sidebar__item--link" href={l.href} target="_blank" rel="noopener noreferrer"
+                title={`${l.label} — abre em nova aba`} aria-label={`${l.label} (abre em nova aba)`}>
                 <Icon name="external" size={18} />
                 <span className="sidebar__item-label">{l.label}</span>
               </a>

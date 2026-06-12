@@ -23,13 +23,15 @@ export default function RichTextField({ value, onChange }) {
 
   if (!editor) return null;
 
-  const Btn = ({ active, on, children }) => (
+  const Btn = ({ active, on, title, children }) => (
     <button
       type="button"
+      title={title}
+      aria-label={title}
       onMouseDown={(e) => { e.preventDefault(); on(); }}
       style={{
-        border: '1px solid var(--line2, #ccc)', background: active ? 'var(--accent-soft, #eef3ff)' : 'transparent',
-        color: active ? 'var(--accent, #2563eb)' : 'inherit', borderRadius: 6, padding: '3px 8px',
+        border: '1px solid var(--line2)', background: active ? 'var(--accent-soft)' : 'transparent',
+        color: active ? 'var(--accent)' : 'var(--text)', borderRadius: 6, padding: '3px 8px',
         fontSize: '.8rem', cursor: 'pointer', fontWeight: 600,
       }}
     >
@@ -39,16 +41,16 @@ export default function RichTextField({ value, onChange }) {
 
   const c = () => editor.chain().focus();
   return (
-    <div style={{ border: '1px solid var(--line2, #ccc)', borderRadius: 8, overflow: 'hidden' }}>
-      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', padding: 6, borderBottom: '1px solid var(--line, #eee)' }}>
-        <Btn active={editor.isActive('bold')} on={() => c().toggleBold().run()}><b>B</b></Btn>
-        <Btn active={editor.isActive('italic')} on={() => c().toggleItalic().run()}><i>I</i></Btn>
-        <Btn active={editor.isActive('heading', { level: 2 })} on={() => c().toggleHeading({ level: 2 }).run()}>H2</Btn>
-        <Btn active={editor.isActive('heading', { level: 3 })} on={() => c().toggleHeading({ level: 3 }).run()}>H3</Btn>
-        <Btn active={editor.isActive('bulletList')} on={() => c().toggleBulletList().run()}>• Lista</Btn>
-        <Btn active={editor.isActive('orderedList')} on={() => c().toggleOrderedList().run()}>1. Lista</Btn>
-        <Btn active={false} on={() => c().undo().run()}>↶</Btn>
-        <Btn active={false} on={() => c().redo().run()}>↷</Btn>
+    <div style={{ border: '1px solid var(--line2)', borderRadius: 8, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', padding: 6, borderBottom: '1px solid var(--line)' }}>
+        <Btn title="Negrito" active={editor.isActive('bold')} on={() => c().toggleBold().run()}><b>B</b></Btn>
+        <Btn title="Itálico" active={editor.isActive('italic')} on={() => c().toggleItalic().run()}><i>I</i></Btn>
+        <Btn title="Título grande" active={editor.isActive('heading', { level: 2 })} on={() => c().toggleHeading({ level: 2 }).run()}>H2</Btn>
+        <Btn title="Título médio" active={editor.isActive('heading', { level: 3 })} on={() => c().toggleHeading({ level: 3 }).run()}>H3</Btn>
+        <Btn title="Lista com marcadores" active={editor.isActive('bulletList')} on={() => c().toggleBulletList().run()}>• Marcadores</Btn>
+        <Btn title="Lista numerada" active={editor.isActive('orderedList')} on={() => c().toggleOrderedList().run()}>1. Numerada</Btn>
+        <Btn title="Desfazer" active={false} on={() => c().undo().run()}>↶</Btn>
+        <Btn title="Refazer" active={false} on={() => c().redo().run()}>↷</Btn>
       </div>
       <div style={{ padding: '8px 10px' }}>
         <EditorContent editor={editor} />

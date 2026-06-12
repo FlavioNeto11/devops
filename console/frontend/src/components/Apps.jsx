@@ -33,6 +33,7 @@ export default function Apps() {
   // Tipo da app: label do cluster (devops.flavioneto/app-type) com fallback no
   // cadastro do pm-api (projects.app_type) enquanto os Deployments não têm o label.
   const [types, setTypes] = useState({});
+  const [filter, setFilter] = useState('');
   useEffect(() => {
     pmProjects().then((p) => setTypes(appTypeLookup(p))).catch(() => {});
   }, []);
@@ -61,9 +62,13 @@ export default function Apps() {
     <section className="apps" aria-label="Aplicacoes">
       <PageHeader
         actions={(
-          <button type="button" className="btn" onClick={() => load()} disabled={loading}>
-            <Icon name="refresh" size={15} /> Atualizar
-          </button>
+          <>
+            <input className="input" style={{ width: 200 }} placeholder="Filtrar apps…"
+              value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filtrar aplicações" />
+            <button type="button" className="btn" onClick={() => load()} disabled={loading}>
+              <Icon name="refresh" size={15} /> Atualizar
+            </button>
+          </>
         )}
       />
 
@@ -83,7 +88,7 @@ export default function Apps() {
         />
       )}
 
-      {apps.map((app) => {
+      {apps.filter((a) => !filter || a.app.toLowerCase().includes(filter.toLowerCase())).map((app) => {
         const restarts = asCount(app.restarts);
         const t = app.appType || types[app.app] || null;
         return (

@@ -75,7 +75,7 @@
     .hero h1{font-size:clamp(2.6rem,6vw,4.4rem);font-weight:800;margin:0 0 22px;max-width:15ch}
     .hero .lead{font-size:clamp(1.06rem,1.9vw,1.28rem);color:var(--muted);max-width:60ch;margin:0 0 36px}
     .hero-cta{display:flex;gap:13px;flex-wrap:wrap;margin-bottom:64px}
-    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:30px;max-width:720px}
+    .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:30px;max-width:860px}
     .stat .n{font-family:'Sora',sans-serif;font-size:clamp(1.7rem,3.2vw,2.3rem);font-weight:800;color:var(--ink)}
     .stat .n b{color:var(--accent);font-weight:800}
     .stat .l{font-family:var(--mono);font-size:.76rem;color:var(--muted2);margin-top:3px;text-transform:uppercase;letter-spacing:.05em}
@@ -97,6 +97,8 @@
     .card{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:28px;
       box-shadow:0 1px 2px rgba(16,24,40,.03);transition:transform .22s cubic-bezier(.2,.7,.2,1),border-color .22s,box-shadow .22s}
     .card:hover{transform:translateY(-4px);border-color:var(--line2);box-shadow:0 18px 38px -20px rgba(20,32,64,.28)}
+    .card:focus-within{outline:2px solid var(--accent);outline-offset:3px}
+    .nav-links a.is-here{color:var(--ink);font-weight:700}
 
     /* product cards */
     .prod{display:flex;flex-direction:column}
@@ -172,6 +174,7 @@
       </a>
       <nav class="nav-links">
         <a href="#produtos">Produtos</a>
+        <a href="#portais">Portais</a>
         <a href="#capacidades">Capacidades</a>
         <a href="#plataforma">Plataforma</a>
         <a class="btn sm" href="#produtos">Acessar sistemas</a>
@@ -194,7 +197,8 @@
           <a class="btn ghost" href="#capacidades">O que fazemos</a>
         </div>
         <div class="stats reveal">
-          <div class="stat"><div class="n">4</div><div class="l">plataformas</div></div>
+          <div class="stat"><div class="n">2</div><div class="l">produtos</div></div>
+          <div class="stat"><div class="n">3<b>+</b></div><div class="l">portais</div></div>
           <div class="stat"><div class="n">100<b>%</b></div><div class="l">GitOps</div></div>
           <div class="stat"><div class="n">K8s</div><div class="l">cloud-native</div></div>
           <div class="stat"><div class="n">SSO</div><div class="l">identidade única</div></div>
@@ -410,6 +414,17 @@
       entries.forEach((e) => { if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
     }, {threshold:.12, rootMargin:'0px 0px -6% 0px'});
     document.querySelectorAll('.reveal').forEach((el, i) => { el.style.transitionDelay = (Math.min(i,5)*50) + 'ms'; io.observe(el); });
+
+    // marca na navegação a seção visível (orientação de onde o leitor está)
+    const navLinks = [...document.querySelectorAll('.nav-links a[href^="#"]')];
+    const sections = navLinks.map((a) => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+    const ioNav = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (!e.isIntersecting) return;
+        navLinks.forEach((a) => a.classList.toggle('is-here', a.getAttribute('href') === '#' + e.target.id));
+      });
+    }, { rootMargin: '-30% 0px -55% 0px' });
+    sections.forEach((s) => ioNav.observe(s));
   </script>
 </body>
 </html>

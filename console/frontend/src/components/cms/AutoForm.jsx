@@ -44,12 +44,13 @@ function ColorField({ value, onChange }) {
         type="color"
         value={toInputHex(value)}
         onChange={(e) => onChange(e.target.value)}
-        style={{ width: 44, height: 34, padding: 2, border: '1px solid var(--line, #ddd)', borderRadius: 8, background: 'transparent', cursor: 'pointer' }}
+        style={{ width: 44, height: 34, padding: 2, border: '1px solid var(--line)', borderRadius: 8, background: 'var(--bg-elev-2)', cursor: 'pointer' }}
         title="Clique para escolher a cor"
+        aria-label="Escolher cor"
       />
       <input className="input" style={{ flex: 1 }} value={value || ''} placeholder="#22C55E"
-        onChange={(e) => onChange(e.target.value)} />
-      {value && <span style={{ width: 20, height: 20, borderRadius: 6, background: toInputHex(value), border: '1px solid var(--line, #ddd)' }} aria-hidden />}
+        onChange={(e) => onChange(e.target.value)} aria-label="Código da cor" />
+      {value && <span style={{ width: 20, height: 20, borderRadius: 6, background: toInputHex(value), border: '1px solid var(--line)' }} title={`Amostra: ${value}`} aria-hidden />}
     </div>
   );
 }
@@ -98,8 +99,11 @@ function ArrayOfObjects({ value, onChange, projectId }) {
   };
   return (
     <div style={{ display: 'grid', gap: 10 }}>
+      {!items.length && (
+        <p className="muted" style={{ fontSize: '.78rem', margin: 0 }}>Nenhum item ainda — clique abaixo para adicionar o primeiro.</p>
+      )}
       {items.map((it, i) => (
-        <div key={i} style={{ border: '1px solid var(--line, #eee)', borderRadius: 10, padding: 10, background: 'var(--bg-soft, #fafbfd)' }}>
+        <div key={i} style={{ border: '1px solid var(--line)', borderRadius: 10, padding: 10, background: 'var(--bg-soft)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
             <strong style={{ fontSize: '.78rem', opacity: 0.7 }}>#{i + 1}</strong>
             <span style={{ display: 'flex', gap: 4 }}>
@@ -136,7 +140,7 @@ export default function AutoForm({ value, onChange, projectId }) {
                 ? <ArrayOfObjects value={v} onChange={(n) => set(k, n)} projectId={projectId} />
                 : <ArrayOfStrings value={v} onChange={(n) => set(k, n)} />
             ) : isObj(v) ? (
-              <div style={{ borderLeft: '2px solid var(--line2, #ddd)', paddingLeft: 12 }}>
+              <div style={{ borderLeft: '2px solid var(--line2)', paddingLeft: 12 }}>
                 <AutoForm value={v} onChange={(n) => set(k, n)} projectId={projectId} />
               </div>
             ) : typeof v === 'boolean' ? (

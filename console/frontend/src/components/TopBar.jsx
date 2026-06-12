@@ -12,7 +12,13 @@ export default function TopBar({ section, onMenu, theme, onToggleTheme, me, live
   useEffect(() => {
     if (!open) return undefined;
     const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        setOpen(false);
+        // devolve o foco ao botão do menu (navegação por teclado não se perde)
+        ref.current?.querySelector('.usermenu__btn')?.focus();
+      }
+    };
     document.addEventListener('mousedown', onDoc);
     document.addEventListener('keydown', onKey);
     return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey); };
@@ -58,7 +64,7 @@ export default function TopBar({ section, onMenu, theme, onToggleTheme, me, live
                   <span className="badge badge-accent">{role}</span>
                 </div>
               </div>
-              <a href="/oauth2/sign_out" className="usermenu__item" role="menuitem">
+              <a href="/oauth2/sign_out" className="usermenu__item" role="menuitem" aria-label="Sair — você será desconectado">
                 <Icon name="logout" size={16} /> Sair
               </a>
             </div>

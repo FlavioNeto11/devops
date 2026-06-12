@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { fetchPublications, pmProjects } from '../api.js';
+import { timeAgo } from '../format.js';
 import Icon from './Icon.jsx';
 import PageHeader from './PageHeader.jsx';
 import EmptyState from './EmptyState.jsx';
 import { TableSkeleton } from './Skeleton.jsx';
 import { appTypeLookup, typeMeta } from '../lib/appTypes.js';
+import { useToast } from './ToastProvider.jsx';
 
 /**
  * Publications
@@ -22,9 +24,11 @@ import { appTypeLookup, typeMeta } from '../lib/appTypes.js';
  *  ]
  */
 export default function Publications() {
+  const toast = useToast();
   const [rows, setRows] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('');
   // Tipo da app (cadastro do pm-api) para diferenciar portal CMS de produto na tabela.
   const [types, setTypes] = useState({});
   useEffect(() => {
@@ -55,9 +59,13 @@ export default function Publications() {
     <section className="publications" aria-label="Publicacoes">
       <PageHeader
         actions={(
-          <button type="button" className="btn" onClick={() => load()} disabled={loading}>
-            <Icon name="refresh" size={15} /> Atualizar
-          </button>
+          <>
+            <input className="input" style={{ width: 220 }} placeholder="Filtrar por app, branch, tag…"
+              value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filtrar publicações" />
+            <button type="button" className="btn" onClick={() => load()} disabled={loading}>
+              <Icon name="refresh" size={15} /> Atualizar
+            </button>
+          </>
         )}
       />
 
@@ -82,35 +90,44 @@ export default function Publications() {
                 <th>Tag / Imagem</th>
                 <th>Commit</th>
                 <th>Branch</th>
-                <th>Publicado em</th>
+                <th>Publicado</th>
                 <th>Run</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, idx) => {
-                const tag = r.imageTag || '—';
-                const sha = (r.commitSha || '').slice(0, 7) || '—';
-                const when = formatDate(r.deployedAt);
-                const t = r.app ? types[r.app] : null;
-                return (
-                  <tr key={`${r.namespace || ''}/${r.deployment || ''}/${idx}`}>
-                    <td className="mono">
-                      <strong>{r.app || '—'}</strong>
-                      {r.deployment ? ` / ${r.deployment}` : ''}
-                      {t && <> {' '}<span className={'badge ' + typeMeta(t).badge}>{typeMeta(t).short}</span></>}
-                    </td>
-                    <td className="mono" title={r.image || ''}>
-                      {tag}
-                    </td>
-                    <td className="mono" title={r.commitSha || ''}>
-                      {sha}
-                    </td>
-                    <td className="mono">{r.branch || '—'}</td>
-                    <td title={r.deployedAt || ''}>{when}</td>
-                    <td className="mono">{r.runId || '—'}</td>
-                  </tr>
-                );
-              })}
+              {rows
+                .filter((r) => !filter || [r.app, r.deployment, r.branch, r.imageTag, r.commitSha]
+                  .some((v) => (v || '').toLowerCase().includes(filter.toLowerCase())))
+                .map((r, idx) => {
+                  const tag = r.imageTag || '—';
+                  const sha = (r.commitSha || '').slice(0, 7) || '—';
+                  const t = r.app ? types[r.app] : null;
+                  return (
+                    <tr key={`${r.namespace || ''}/${r.deployment || ''}/${idx}`}>
+                      <td className="mono">
+                        <strong>{r.app || '—'}</strong>
+                        {r.deployment ? ` / ${r.deployment}` : ''}
+                        {t && <> {' '}<span className={'badge ' + typeMeta(t).badge}>{typeMeta(t).short}</span></>}
+                      </td>
+                      <td className="mono" title={r.image || ''}>
+                        {tag}
+                      </td>
+                      <td className="mono" title={r.commitSha || ''}>
+                        {sha}
+                        {r.commitSha && (
+                          <button type="button" className="icon-btn" style={{ marginLeft: 4, verticalAlign: 'middle' }}
+                            aria-label="Copiar SHA completo do commit" title="Copiar SHA completo"
+                            onClick={() => { navigator.clipboard?.writeText(r.commitSha); toast.ok('SHA copiado.'); }}>
+                            <Icon name="copy" size={13} />
+                          </button>
+                        )}
+                      </td>
+                      <td className="mono">{r.branch || '—'}</td>
+                      <td title={r.deployedAt ? formatDate(r.deployedAt) : ''}>{timeAgo(r.deployedAt)}</td>
+                      <td className="mono">{r.runId || '—'}</td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
         </div>
