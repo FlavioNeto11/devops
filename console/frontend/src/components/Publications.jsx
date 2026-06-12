@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { fetchPublications } from '../api.js';
+import { fetchPublications, pmProjects } from '../api.js';
 import Icon from './Icon.jsx';
 import PageHeader from './PageHeader.jsx';
 import EmptyState from './EmptyState.jsx';
 import { TableSkeleton } from './Skeleton.jsx';
+import { appTypeLookup, typeMeta } from '../lib/appTypes.js';
 
 /**
  * Publications
@@ -24,6 +25,11 @@ export default function Publications() {
   const [rows, setRows] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Tipo da app (cadastro do pm-api) para diferenciar portal CMS de produto na tabela.
+  const [types, setTypes] = useState({});
+  useEffect(() => {
+    pmProjects().then((p) => setTypes(appTypeLookup(p))).catch(() => {});
+  }, []);
 
   const load = useCallback(async (signal) => {
     setLoading(true);
@@ -85,11 +91,13 @@ export default function Publications() {
                 const tag = r.imageTag || '—';
                 const sha = (r.commitSha || '').slice(0, 7) || '—';
                 const when = formatDate(r.deployedAt);
+                const t = r.app ? types[r.app] : null;
                 return (
                   <tr key={`${r.namespace || ''}/${r.deployment || ''}/${idx}`}>
                     <td className="mono">
                       <strong>{r.app || '—'}</strong>
                       {r.deployment ? ` / ${r.deployment}` : ''}
+                      {t && <> {' '}<span className={'badge ' + typeMeta(t).badge}>{typeMeta(t).short}</span></>}
                     </td>
                     <td className="mono" title={r.image || ''}>
                       {tag}

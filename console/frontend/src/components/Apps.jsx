@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { fetchApps } from '../api.js';
+import { fetchApps, pmProjects } from '../api.js';
 import { shortImage, asCount } from '../format.js';
 import Icon from './Icon.jsx';
 import PageHeader from './PageHeader.jsx';
 import EmptyState from './EmptyState.jsx';
 import { ListSkeleton } from './Skeleton.jsx';
+import { appTypeLookup, typeMeta } from '../lib/appTypes.js';
 
 /**
  * Apps
@@ -29,6 +30,12 @@ export default function Apps() {
   const [apps, setApps] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Tipo da app: label do cluster (devops.flavioneto/app-type) com fallback no
+  // cadastro do pm-api (projects.app_type) enquanto os Deployments não têm o label.
+  const [types, setTypes] = useState({});
+  useEffect(() => {
+    pmProjects().then((p) => setTypes(appTypeLookup(p))).catch(() => {});
+  }, []);
 
   const load = useCallback(async (signal) => {
     setLoading(true);
@@ -78,11 +85,15 @@ export default function Apps() {
 
       {apps.map((app) => {
         const restarts = asCount(app.restarts);
+        const t = app.appType || types[app.app] || null;
         return (
           <article key={app.app} className="app-card">
             <header className="app-card__head">
               <div>
-                <h3 className="app-card__title">{app.app}</h3>
+                <h3 className="app-card__title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {app.app}
+                  {t && <span className={'badge ' + typeMeta(t).badge}>{typeMeta(t).label}</span>}
+                </h3>
                 <p className="app-card__meta">
                   {(app.namespaces || []).length > 0 && (
                     <>

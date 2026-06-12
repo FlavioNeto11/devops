@@ -15,6 +15,7 @@ import { useToast } from './ToastProvider.jsx';
 import AutoForm from './cms/AutoForm.jsx';
 import VisualEditor from './VisualEditor.jsx';
 import { KIND_TEMPLATES, KIND_LABEL, liveAppFor } from './cms/kinds.js';
+import { isPortal } from '../lib/appTypes.js';
 
 // ===========================================================================
 function SectionDrawer({ section, onClose, onSaved }) {
@@ -65,7 +66,7 @@ function SectionDrawer({ section, onClose, onSaved }) {
 }
 
 // ===========================================================================
-export default function ContentEditor() {
+export default function ContentEditor({ initialId = null }) {
   const toast = useToast();
   const [projects, setProjects] = useState([]);
   const [apps, setApps] = useState([]);
@@ -86,12 +87,22 @@ export default function ContentEditor() {
   const loadProjects = useCallback(async () => {
     try {
       const [p, a] = await Promise.all([pmProjects(), fetchApps().catch(() => [])]);
-      setProjects(p || []);
+      // O editor de Conteúdo é exclusivo dos portais CMS — produtos (sicat/gymops)
+      // não aparecem aqui (evita criar páginas CMS órfãs num software).
+      const portals = (p || []).filter(isPortal);
+      setProjects(portals);
       setApps(Array.isArray(a) ? a : a?.data || []);
-      setSelId((cur) => cur || (p && p[0] && p[0].id) || null);
+      setSelId((cur) => cur
+        || (initialId && portals.some((x) => x.id === initialId) ? initialId : null)
+        || (portals[0] && portals[0].id) || null);
     } catch (e) { toast.err(e.message); } finally { setLoading(false); }
-  }, [toast]);
+  }, [toast, initialId]);
   useEffect(() => { loadProjects(); }, [loadProjects]);
+
+  // Navegação vinda do painel ("Editar conteúdo" num portal específico).
+  useEffect(() => {
+    if (initialId) setSelId((cur) => (cur === initialId ? cur : initialId));
+  }, [initialId]);
 
   const loadPages = useCallback(async (pid) => {
     if (!pid) { setPages([]); setSelPageId(null); return; }
@@ -180,7 +191,7 @@ export default function ContentEditor() {
         </div>
       </div>
 
-      {!projects.length && <EmptyState icon="file-text" title="Nenhum portal atribuído" hint="Fale com um administrador para receber acesso a um portal." />}
+      {!projects.length && <EmptyState icon="file-text" title="Nenhum portal CMS" hint="Portais (appType cms_portal) aparecem aqui. Fale com um administrador para receber acesso, ou crie um portal novo." />}
 
       {sel && mode === 'visual' && <VisualEditor key={sel.id} project={sel} />}
 

@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { pmSharedResources } from '../api.js';
+import { pmSharedResources, pmProjects } from '../api.js';
 import Icon from './Icon.jsx';
 import EmptyState from './EmptyState.jsx';
 import { ListSkeleton } from './Skeleton.jsx';
 import { useToast } from './ToastProvider.jsx';
+import { appTypeLookup, typeMeta } from '../lib/appTypes.js';
 
 /**
  * SharedResources — "Compartilhados" (admin). Mostra os recursos compartilhados entre os projetos
@@ -22,11 +23,16 @@ export default function SharedResources() {
   const toast = useToast();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Tipo de cada projeto consumidor (Portal CMS / Produto / Interno).
+  const [types, setTypes] = useState({});
 
   const load = useCallback(async () => {
     try { setData(await pmSharedResources()); } catch (e) { toast.err(e.message); } finally { setLoading(false); }
   }, [toast]);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    pmProjects().then((p) => setTypes(appTypeLookup(p))).catch(() => {});
+  }, []);
 
   if (loading) return <ListSkeleton rows={3} />;
 
@@ -83,7 +89,10 @@ export default function SharedResources() {
                   const b = STATUS_BADGE[c.status] || STATUS_BADGE.unknown;
                   return (
                     <tr key={c.project}>
-                      <td className="mono">{c.project}</td>
+                      <td className="mono">
+                        {c.project}
+                        {types[c.project] && <> {' '}<span className={'badge ' + typeMeta(types[c.project]).badge}>{typeMeta(types[c.project]).short}</span></>}
+                      </td>
                       <td className="mono">{c.version}</td>
                       <td>
                         <span className={'badge ' + b.cls}>{b.label}</span>
