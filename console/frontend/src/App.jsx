@@ -204,7 +204,7 @@ export default function App() {
             {!isMember && activeTab === 'health' && <Health streamData={streamData} streamStatus={streamStatus} />}
             {!isMember && activeTab === 'logs' && <Logs />}
             {activeTab === 'projects' && <MetaProjects canManageProjects={canManageProjects} initialId={focusProject} />}
-            {activeTab === 'conteudo' && <ContentEditor initialId={focusProject} />}
+            {activeTab === 'conteudo' && <ContentEditor initialId={focusProject} me={me} />}
             {activeTab === 'access' && isAdmin && <AccessAdmin />}
             {activeTab === 'shared' && isAdmin && <SharedResources />}
           </main>

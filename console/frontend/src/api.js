@@ -178,6 +178,8 @@ export const pmProjects = () => pmFetch('/projects');
 export const pmCreateProject = (p) => pmFetch('/projects', { method: 'POST', body: p });
 export const pmPatchProject = (id, p) => pmFetch(`/projects/${id}`, { method: 'PATCH', body: p });
 export const pmDeleteProject = (id) => pmFetch(`/projects/${id}`, { method: 'DELETE' });
+export const pmApproveProject = (id) => pmFetch(`/projects/${id}/approve`, { method: 'POST' });
+export const pmRejectProject = (id) => pmFetch(`/projects/${id}/reject`, { method: 'POST' });
 // Itens (bug/feature/evolution)
 export const pmItems = (projectId) => pmFetch(`/projects/${projectId}/items`);
 export const pmCreateItem = (projectId, item) => pmFetch(`/projects/${projectId}/items`, { method: 'POST', body: item });

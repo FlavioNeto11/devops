@@ -16,6 +16,8 @@ import AutoForm from './cms/AutoForm.jsx';
 import VisualEditor from './VisualEditor.jsx';
 import { KIND_TEMPLATES, KIND_LABEL, liveAppFor } from './cms/kinds.js';
 import { isPortal } from '../lib/appTypes.js';
+import NewPortalWizard from './cms/NewPortalWizard.jsx';
+import { pmApproveProject, pmRejectProject } from '../api.js';
 
 // ===========================================================================
 function SectionDrawer({ section, onClose, onSaved }) {
@@ -66,8 +68,10 @@ function SectionDrawer({ section, onClose, onSaved }) {
 }
 
 // ===========================================================================
-export default function ContentEditor({ initialId = null }) {
+export default function ContentEditor({ initialId = null, me = null }) {
   const toast = useToast();
+  const isAdmin = !!me?.isAdmin;
+  const [wizard, setWizard] = useState(false);
   const [projects, setProjects] = useState([]);
   const [apps, setApps] = useState([]);
   const [selId, setSelId] = useState(null);
@@ -165,14 +169,17 @@ export default function ContentEditor({ initialId = null }) {
 
   return (
     <div className="meta">
-      <PageHeader actions={sel && (
+      <PageHeader actions={(
         <>
-          <div className="meta__pills" role="tablist" aria-label="Modo de edição">
-            <button className={'pill' + (mode === 'visual' ? ' pill--active' : '')} onClick={() => setMode('visual')} role="tab" aria-selected={mode === 'visual'}>Visual</button>
-            <button className={'pill' + (mode === 'lista' ? ' pill--active' : '')} onClick={() => setMode('lista')} role="tab" aria-selected={mode === 'lista'}>Avançado</button>
-          </div>
-          {mode === 'lista' && <button className="btn" onClick={openSite}><Icon name="file-text" size={16} /> Editar site</button>}
-          {mode === 'lista' && sel.route && <a className="btn" href={sel.route} target="_blank" rel="noopener noreferrer">Pré-visualizar ↗</a>}
+          {sel && (
+            <div className="meta__pills" role="tablist" aria-label="Modo de edição">
+              <button className={'pill' + (mode === 'visual' ? ' pill--active' : '')} onClick={() => setMode('visual')} role="tab" aria-selected={mode === 'visual'}>Visual</button>
+              <button className={'pill' + (mode === 'lista' ? ' pill--active' : '')} onClick={() => setMode('lista')} role="tab" aria-selected={mode === 'lista'}>Avançado</button>
+            </div>
+          )}
+          {sel && mode === 'lista' && <button className="btn" onClick={openSite}><Icon name="file-text" size={16} /> Editar site</button>}
+          {sel && mode === 'lista' && sel.route && <a className="btn" href={sel.route} target="_blank" rel="noopener noreferrer">Pré-visualizar ↗</a>}
+          <button className="btn btn--primary" onClick={() => setWizard(true)}><Icon name="plus" size={16} /> Novo portal</button>
         </>
       )} />
 
@@ -181,15 +188,43 @@ export default function ContentEditor({ initialId = null }) {
         <div className="meta__pills">
           {projects.map((p) => {
             const live = liveAppFor(apps, p);
+            const pending = p.approval_status === 'pending_approval';
+            const rejected = p.approval_status === 'rejected';
             return (
-              <button key={p.id} className={'pill' + (p.id === selId ? ' pill--active' : '')} onClick={() => setSelId(p.id)}>
-                <span className={'dot ' + (live ? 'dot--ok' : 'dot--warn')} />
+              <button key={p.id} className={'pill' + (p.id === selId ? ' pill--active' : '')} onClick={() => setSelId(p.id)}
+                title={pending ? 'Pendente de aprovação — fora do ar' : rejected ? 'Rejeitado — fora do ar' : undefined}>
+                <span className={'dot ' + (pending || rejected ? 'dot--warn' : live ? 'dot--ok' : 'dot--warn')} />
                 {p.name}
+                {pending && <span className="pill__count">pendente</span>}
+                {rejected && <span className="pill__count">rejeitado</span>}
               </button>
             );
           })}
         </div>
       </div>
+
+      {/* Governança: portal pendente só vai ao ar após aprovação do dono/admin. */}
+      {sel && sel.approval_status === 'pending_approval' && (
+        <div className="app-card" style={{ marginBottom: 14, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span className="badge badge-warn">pendente de aprovação</span>
+          <span className="muted" style={{ flex: 1, fontSize: '.85rem' }}>
+            {sel.created_by ? `Criado por ${sel.created_by}. ` : ''}O conteúdo pode ser montado normalmente,
+            mas a rota pública do portal fica indisponível até a aprovação.
+          </span>
+          {isAdmin && (
+            <span style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn--primary" onClick={async () => {
+                try { await pmApproveProject(sel.id); toast.ok('Portal aprovado — conteúdo publicado vai ao ar.'); await loadProjects(); }
+                catch (e) { toast.err(e.message); }
+              }}>Aprovar portal</button>
+              <button className="btn btn--danger" onClick={async () => {
+                try { await pmRejectProject(sel.id); toast.ok('Portal rejeitado.'); await loadProjects(); }
+                catch (e) { toast.err(e.message); }
+              }}>Rejeitar</button>
+            </span>
+          )}
+        </div>
+      )}
 
       {!projects.length && <EmptyState icon="file-text" title="Nenhum portal CMS" hint="Portais (appType cms_portal) aparecem aqui. Fale com um administrador para receber acesso, ou crie um portal novo." />}
 
@@ -266,6 +301,11 @@ export default function ContentEditor({ initialId = null }) {
         <ConfirmDialog title="Excluir seção" message="Excluir esta seção do portal? Esta ação não pode ser desfeita."
           confirmLabel="Excluir" danger onClose={() => setConfirmDel(null)}
           onConfirm={async () => { await pmCmsDeleteSection(confirmDel.id); await loadSections(selPageId); toast.ok('Seção excluída.'); }} />
+      )}
+
+      {wizard && (
+        <NewPortalWizard isAdmin={isAdmin} onClose={() => setWizard(false)}
+          onCreated={async (p) => { await loadProjects(); setSelId(p.id); }} />
       )}
     </div>
   );
