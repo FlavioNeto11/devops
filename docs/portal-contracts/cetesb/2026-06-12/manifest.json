@@ -1,0 +1,14 @@
+{
+  "portal": "cetesb",
+  "base_url": "https://mtrr.cetesb.sp.gov.br",
+  "version": "2026-06-12",
+  "label": "seed + primeira captura real (cap_3012dde41ef83433f6): fluxo de baixa/recebimento autenticado por destinador final",
+  "endpoint_count": 17,
+  "capture_window": {
+    "from": "2026-06-11",
+    "to": "2026-06-12"
+  },
+  "content_hash": "sha256:7149f8f1f67a6ca26edcd5bfec5af7ca2820ed35823c8802028761b25410712b",
+  "generated_by": "seed-from-gateway + portal-recorder",
+  "redaction_policy": "business-sensitive-v1"
+}

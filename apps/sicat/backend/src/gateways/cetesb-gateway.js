@@ -2707,11 +2707,19 @@ class RealCetesbGateway {
     const now = new Date();
     const dateFrom = normalizeDateForCetesb(options.dateFrom, addDays(now, -Math.abs(Number(config.cetesbManifestSearchDaysBack || 30))));
     const dateTo = normalizeDateForCetesb(options.dateTo, now);
+    // Variante observada na captura real do portal (cap_3012dde41ef83433f6):
+    // com o número do manifesto APENSO ao path a CETESB filtra server-side —
+    // .../0/all/{manNumero}. Sem número, busca o período inteiro (comportamento
+    // anterior, preservado).
+    const manifestNumber = options.manifestNumber == null ? '' : String(options.manifestNumber).trim();
+    const numberSegment = manifestNumber ? `/${encodeURIComponent(manifestNumber)}` : '';
     const result = await this.executeAuthenticatedJsonOperation({
       options,
       method: 'GET',
-      path: `/api/mtr/pesquisaManifesto/${context.partnerCode}/${context.stateCode}/${RECEIPT_MANIFEST_SEARCH_SEGMENTS.tipoManifesto}/${dateFrom}/${dateTo}/${RECEIPT_MANIFEST_SEARCH_SEGMENTS.statusFilter}/${RECEIPT_MANIFEST_SEARCH_SEGMENTS.kind}`,
-      auditPath: '/api/mtr/pesquisaManifesto/{partnerCode}/{stateCode}/9/{dataInicial_dd-MM-yyyy}/{dataFinal_dd-MM-yyyy}/0/all',
+      path: `/api/mtr/pesquisaManifesto/${context.partnerCode}/${context.stateCode}/${RECEIPT_MANIFEST_SEARCH_SEGMENTS.tipoManifesto}/${dateFrom}/${dateTo}/${RECEIPT_MANIFEST_SEARCH_SEGMENTS.statusFilter}/${RECEIPT_MANIFEST_SEARCH_SEGMENTS.kind}${numberSegment}`,
+      auditPath: manifestNumber
+        ? '/api/mtr/pesquisaManifesto/{partnerCode}/{stateCode}/9/{dataInicial_dd-MM-yyyy}/{dataFinal_dd-MM-yyyy}/0/all/{manNumero}'
+        : '/api/mtr/pesquisaManifesto/{partnerCode}/{stateCode}/9/{dataInicial_dd-MM-yyyy}/{dataFinal_dd-MM-yyyy}/0/all',
       dataBuilder: (envelope) => ({
         message: envelope?.mensagem || null,
         items: extractApiItems(envelope),
@@ -2722,7 +2730,8 @@ class RealCetesbGateway {
           dateFrom,
           dateTo,
           statusFilter: RECEIPT_MANIFEST_SEARCH_SEGMENTS.statusFilter,
-          kind: RECEIPT_MANIFEST_SEARCH_SEGMENTS.kind
+          kind: RECEIPT_MANIFEST_SEARCH_SEGMENTS.kind,
+          ...(manifestNumber ? { manifestNumber } : {})
         }
       })
     });

@@ -1471,6 +1471,51 @@ function buildReceiptManifestPayload(
   };
 }
 
+/**
+ * Timestamp do recebimento no formato observado na captura real do portal
+ * (cap_3012dde41ef83433f6): "MM/DD/YYYY HH:mm:ss", hora de São Paulo.
+ */
+export function formatCetesbReceiptTimestamp(date: Date): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
+  return `${get('month')}/${get('day')}/${get('year')} ${get('hour')}:${get('minute')}:${get('second')}`;
+}
+
+/**
+ * Raiz do POST /api/mtr/manifesto/recebimento/ EXATAMENTE como o portal real
+ * envia (captura cap_3012dde41ef83433f6): {manifesto, paaCodigo, remCodigo,
+ * rrmCodigo, remObservacao, remDataRecebimento}. Antes o SICAT espalhava o
+ * receiptPayload inteiro na raiz (vazando dateFrom/dateTo/manifesto-request) e
+ * não enviava remCodigo/remDataRecebimento.
+ */
+export function buildReceiveRequestBody(input: {
+  mergedManifestPayload: LooseRecord;
+  effectivePartnerCode: number;
+  resolvedResponsibleCode: unknown;
+  receiptPayload: LooseRecord;
+  now?: Date;
+}) {
+  const { mergedManifestPayload, effectivePartnerCode, resolvedResponsibleCode, receiptPayload } = input;
+  return {
+    manifesto: mergedManifestPayload,
+    paaCodigo: effectivePartnerCode,
+    remCodigo: toNonEmptyString(receiptPayload.remCodigo) ?? '',
+    rrmCodigo: resolvedResponsibleCode ?? receiptPayload.rrmCodigo ?? null,
+    remObservacao: toNonEmptyString(receiptPayload.remObservacao) ?? '',
+    remDataRecebimento: toNonEmptyString(receiptPayload.remDataRecebimento)
+      ?? formatCetesbReceiptTimestamp(input.now ?? new Date())
+  };
+}
+
 function describeManifestSelection(identifiers: { code?: unknown; number?: unknown; hash?: unknown }) {
   return toNonEmptyString(identifiers.code)
     || toNonEmptyString(identifiers.number)
@@ -1617,7 +1662,10 @@ async function handleManifestReceive(job: JobEntity, gateway: {
     correlationId: job.correlationId,
     includeAudit: true,
     dateFrom: toNonEmptyString(receiptPayload.dateFrom),
-    dateTo: toNonEmptyString(receiptPayload.dateTo)
+    dateTo: toNonEmptyString(receiptPayload.dateTo),
+    // Fidelidade ao portal real (captura cap_3012dde41ef83433f6): com o número
+    // conhecido, a CETESB filtra server-side (.../0/all/{manNumero}).
+    manifestNumber: toNonEmptyString(receiptIdentifiers.number)
   }));
   await logExchange(job, receivableExchange);
 
@@ -1649,12 +1697,12 @@ async function handleManifestReceive(job: JobEntity, gateway: {
     sessionContextId: sessionContext.id,
     correlationId: job.correlationId,
     includeAudit: true,
-    payload: {
-      ...receiptPayload,
-      paaCodigo: effectivePartnerCode,
-      rrmCodigo: resolvedResponsible?.rrmCodigo ?? receiptPayload.rrmCodigo ?? null,
-      manifesto: mergedManifestPayload
-    }
+    payload: buildReceiveRequestBody({
+      mergedManifestPayload,
+      effectivePartnerCode,
+      resolvedResponsibleCode: resolvedResponsible?.rrmCodigo ?? null,
+      receiptPayload
+    })
   }));
   await logExchange(job, receiveExchange);
 
