@@ -479,16 +479,19 @@ onMounted(async () => {
 
     <!-- Composer -->
     <form class="chat-composer" @submit.prevent="onSubmitComposer">
+      <!-- variant="plain": o textarea fica transparente e SEM o overlay do
+           solo-filled (que rendia o efeito de degradê). Quem faz o papel de
+           "campo" é o cartão .chat-composer, com anel de foco no acento. -->
       <v-textarea
         ref="composerRef"
         v-model="draft"
+        class="chat-composer-input"
         :placeholder="composerPlaceholder"
         rows="1"
         max-rows="6"
         auto-grow
         hide-details
-        variant="solo-filled"
-        flat
+        variant="plain"
         :disabled="isSubmitting"
         @keydown="onComposerKeydown"
       />
@@ -930,16 +933,47 @@ onMounted(async () => {
   min-width: 0;
 }
 
-/* Composer — always at bottom */
+/* Composer — always at bottom. O cartão É o campo: fundo sólido, borda token
+   e anel de foco no acento enquanto se digita (sem overlay/gradiente). */
 .chat-composer {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 10px 14px;
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   background: rgb(var(--v-theme-surface));
   flex-shrink: 0;
+  transition: border-color 0.14s ease, box-shadow 0.14s ease;
+}
+
+.chat-composer:focus-within {
+  border-color: rgba(var(--v-theme-primary), 0.5);
+  box-shadow: 0 0 0 3px rgba(var(--v-theme-primary), 0.08);
+}
+
+/* Textarea nu dentro do cartão: sem fundo, sem underline, padding enxuto. */
+.chat-composer-input :deep(.v-field__input) {
+  padding: 4px 0 2px;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  background: transparent;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.chat-composer-input :deep(.v-field__overlay),
+.chat-composer-input :deep(.v-field__outline) {
+  display: none;
+}
+
+.chat-composer-input :deep(.v-field) {
+  --v-field-padding-start: 0;
+  --v-field-padding-end: 0;
+  --v-field-padding-top: 0;
+  --v-field-padding-bottom: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .chat-composer-foot {
