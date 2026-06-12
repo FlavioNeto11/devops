@@ -87,6 +87,9 @@ export async function generatePortalDraft({ prompt, siteName, template, context 
     }
     const json = await res.json();
     const content = json?.choices?.[0]?.message?.content;
+    if (!content || typeof content !== 'string') {
+      throw new Error('resposta da OpenAI sem message.content (estrutura inesperada)');
+    }
     const parsed = JSON.parse(content);
     return sanitizeDraft(parsed);
   } finally {
@@ -110,10 +113,49 @@ export function sanitizeDraft(draft) {
     const slug = typeof p?.slug === 'string' ? p.slug.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '') : '';
     if (!slug) continue;
     const sections = (Array.isArray(p.sections) ? p.sections : [])
-      .filter((s) => s && AI_KINDS.has(s.kind) && s.data && typeof s.data === 'object')
-      .slice(0, 8)
-      .map((s) => ({ kind: s.kind, data: s.data }));
+      .filter((s) => s && AI_KINDS.has(s.kind) && s.data && typeof s.data === 'object' && !Array.isArray(s.data))
+      .map((s) => ({ kind: s.kind, data: cleanData(s.data) }))
+      .filter((s) => sectionShapeOk(s))
+      .slice(0, 8);
     out.pages.push({ slug, title: typeof p.title === 'string' && p.title ? p.title : slug, sections });
   }
   return out;
+}
+
+// Mantém só tipos JSON simples (string/número/booleano/objeto/array) e poda
+// profundidade/da tamanho — a IA não injeta funções, mas pode errar tipos.
+function cleanData(value, depth = 0) {
+  if (depth > 6) return undefined;
+  if (typeof value === 'string') return value.slice(0, 8000);
+  if (typeof value === 'number' || typeof value === 'boolean') return value;
+  if (Array.isArray(value)) {
+    return value.slice(0, 24).map((v) => cleanData(v, depth + 1)).filter((v) => v !== undefined);
+  }
+  if (value && typeof value === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(value).slice(0, 32)) {
+      const c = cleanData(v, depth + 1);
+      if (c !== undefined) out[k] = c;
+    }
+    return out;
+  }
+  return undefined;
+}
+
+// Checagem mínima de shape por kind: o campo central precisa ter o tipo certo,
+// senão a seção é descartada (melhor faltar seção do que renderizar lixo).
+function sectionShapeOk({ kind, data }) {
+  const str = (v) => typeof v === 'string';
+  const arr = (v) => Array.isArray(v);
+  switch (kind) {
+    case 'rich-text': return str(data.html);
+    case 'section-heading': return str(data.title);
+    case 'card-grid': return arr(data.cards) && data.cards.every((c) => c && str(c.title));
+    case 'timeline': return arr(data.steps) && data.steps.every((s) => s && str(s.title));
+    case 'accordion': return arr(data.items) && data.items.every((i) => i && str(i.q) && str(i.a));
+    case 'testimonials': return arr(data.items) && data.items.every((i) => i && str(i.quote));
+    case 'logos': return arr(data.items);
+    case 'cta': return str(data.title);
+    default: return false;
+  }
 }

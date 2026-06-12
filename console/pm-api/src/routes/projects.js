@@ -5,6 +5,18 @@ import { requireAdmin, allowedProjectIds, assertProjectAccess } from '../auth.js
 
 const r = Router();
 const FIELDS = ['name', 'stack', 'repo_url', 'route', 'k8s_namespace', 'k8s_label_selector', 'status', 'description', 'app_type', 'related_project_id'];
+const APP_TYPES = new Set(['product_software', 'cms_portal', 'platform_tool']);
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Vínculo portal→produto: precisa ser UUID de um projeto existente que NÃO seja
+// outro portal. Devolve { ok } ou { ok:false, message } para o handler responder 422.
+async function checkRelatedProject(relatedId) {
+  if (!UUID_RE.test(String(relatedId))) return { ok: false, message: 'related_project_id deve ser um UUID valido' };
+  const rel = await query('SELECT id, app_type FROM projects WHERE id = $1', [relatedId]);
+  if (!rel.rowCount) return { ok: false, message: 'related_project_id nao existe' };
+  if (rel.rows[0].app_type === 'cms_portal') return { ok: false, message: 'o vinculo deve apontar para um produto/sistema, nao para outro portal' };
+  return { ok: true };
+}
 
 // Lista escopada: admin vê todos; member vê só os projetos atribuídos a ele.
 r.get('/projects', asyncH(async (req, res) => {
@@ -42,13 +54,14 @@ r.post('/projects', asyncH(async (req, res) => {
   const dup = await query('SELECT 1 FROM projects WHERE key = $1', [b.key]);
   if (dup.rowCount) return res.status(409).json({ error: { code: 'CONFLICT', message: `ja existe um projeto com a chave "${b.key}" — escolha outra` } });
 
+  if (!APP_TYPES.has(appType)) return invalid(res, 'app_type invalido (cms_portal | product_software | platform_tool)');
+
   // Vínculo opcional com produto/sistema: relacional (contexto/IA/governança),
   // não muda a identidade do portal. Só aponta para produto/ferramenta existente.
-  let relatedId = b.related_project_id || null;
+  const relatedId = b.related_project_id || null;
   if (relatedId) {
-    const rel = await query('SELECT id, app_type FROM projects WHERE id = $1', [relatedId]);
-    if (!rel.rowCount) return invalid(res, 'related_project_id nao existe');
-    if (rel.rows[0].app_type === 'cms_portal') return invalid(res, 'o vinculo deve apontar para um produto/sistema, nao para outro portal');
+    const check = await checkRelatedProject(relatedId);
+    if (!check.ok) return invalid(res, check.message);
   }
 
   const approval = isAdmin ? 'approved' : 'pending_approval';
@@ -96,7 +109,18 @@ r.post('/projects/:id/reject', requireAdmin, asyncH(async (req, res) => {
 }));
 
 r.patch('/projects/:id', requireAdmin, asyncH(async (req, res) => {
-  const { sets, values } = buildPatch(req.body || {}, FIELDS);
+  const b = req.body || {};
+  // Mesmas regras de negócio do POST: enum de tipo e vínculo só para produto.
+  if (b.app_type !== undefined && !APP_TYPES.has(b.app_type)) {
+    return invalid(res, 'app_type invalido (cms_portal | product_software | platform_tool)');
+  }
+  if (b.related_project_id === '') b.related_project_id = null; // '' viraria erro de uuid
+  if (b.related_project_id !== undefined && b.related_project_id !== null) {
+    const check = await checkRelatedProject(b.related_project_id);
+    if (!check.ok) return invalid(res, check.message);
+    if (b.related_project_id === req.params.id) return invalid(res, 'um projeto nao pode se vincular a si mesmo');
+  }
+  const { sets, values } = buildPatch(b, FIELDS);
   if (!sets.length) return invalid(res, 'nada a atualizar');
   values.push(req.params.id);
   const { rows } = await query(

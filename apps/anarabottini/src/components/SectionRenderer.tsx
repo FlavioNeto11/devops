@@ -84,12 +84,19 @@ const FLOAT_POS: Record<string, CSSProperties> = {
 };
 const FLOAT_ORDER = ['top-left', 'right', 'bottom-left', 'top-right', 'bottom-right', 'left'];
 const floatStyle = (f: D, i: number): CSSProperties => FLOAT_POS[f.position as string] || FLOAT_POS[FLOAT_ORDER[i % FLOAT_ORDER.length]];
+// Fallback histórico: aparece no público enquanto o conteúdo do CMS não define
+// floating (paridade com o portal gêmeo rmambiental).
+const DEFAULT_FLOATING: D[] = [
+  { icon: 'ShieldCheck', label: 'Adequação à NR-1', position: 'top-left' },
+  { icon: 'Brain', label: 'Neurodiversidade', position: 'right' },
+  { icon: 'HeartPulse', label: 'Saúde emocional', position: 'bottom-left' },
+];
 
 function HeroBlock({ d }: { d: D }) {
   const { site } = useSite();
   const edit = useEditMode();
-  const floating: D[] = (d.floating || []).filter((f: D) => f && f.visible !== false);
-  const allFloating: D[] = d.floating || [];
+  const allFloating: D[] = Array.isArray(d.floating) ? d.floating : (edit ? [] : DEFAULT_FLOATING);
+  const floating: D[] = allFloating.filter((f: D) => f && f.visible !== false);
   return (
     <section id="inicio" className="relative overflow-hidden pt-[72px]">
       <GridGlow />
@@ -136,10 +143,12 @@ function HeroBlock({ d }: { d: D }) {
           </div>
           {floating.map((f, i) => {
             const Ico = resolveIcon(f.icon);
+            // idx = posição no array ORIGINAL: mantém o slot estável mesmo com
+            // itens ocultos no meio (senão os demais "pulam" de posição).
             const idx = allFloating.indexOf(f);
             return (
               <motion.div key={(f.label || '') + i} className="absolute z-10 hidden items-center gap-2 rounded-xl border border-brand-text/10 bg-brand-surface/90 px-3.5 py-2.5 shadow-soft backdrop-blur-md sm:flex"
-                style={floatStyle(f, i)}
+                style={floatStyle(f, idx)}
                 initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.55 + i * 0.18 }}>
                 <span className="grid h-7 w-7 place-items-center rounded-lg bg-brand-neon/15"><Ico className="h-3.5 w-3.5 text-brand-neon" /></span>
                 <span className="text-xs font-semibold text-brand-text">

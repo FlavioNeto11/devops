@@ -122,10 +122,12 @@ function HeroBlock({ d }: { d: D }) {
           </div>
           {shown.map((f, i) => {
             const Ico = resolveIcon(f.icon);
+            // idx = posição no array ORIGINAL: mantém o slot estável mesmo com
+            // itens ocultos no meio (senão os demais "pulam" de posição).
             const idx = floating.indexOf(f);
             return (
               <motion.div key={(f.label || '') + i} className="absolute z-10 hidden items-center gap-2 rounded-xl border border-brand-text/10 bg-brand-surface/90 px-3.5 py-2.5 shadow-soft backdrop-blur-md sm:flex"
-                style={floatStyle(f, i)}
+                style={floatStyle(f, idx)}
                 initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.55 + i * 0.18 }}>
                 <span className="grid h-7 w-7 place-items-center rounded-lg bg-brand-neon/15"><Ico className="h-3.5 w-3.5 text-brand-neon" /></span>
                 <span className="text-xs font-semibold text-brand-text">
