@@ -8,15 +8,28 @@ import Icon from './Icon.jsx';
 export default function Modal({ title, onClose, children, footer, size = 'md' }) {
   const ref = useRef(null);
 
+  // onClose costuma ser uma arrow INLINE (identidade nova a cada render do pai);
+  // guardamos a versão atual num ref para o efeito de montagem não re-executar
+  // a cada re-render (ex.: snapshots SSE) — era isso que ROUBAVA o foco do
+  // usuário no meio da digitação, pulando para o primeiro botão (o X).
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; });
+
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
+    const onKey = (e) => { if (e.key === 'Escape') onCloseRef.current?.(); };
     document.addEventListener('keydown', onKey);
     const t = setTimeout(() => {
-      const el = ref.current?.querySelector('input, select, textarea, button');
+      const root = ref.current;
+      if (!root) return;
+      // se algo dentro do modal já tem foco (ex.: input com autoFocus), respeita
+      if (root.contains(document.activeElement)) return;
+      // foca o primeiro controle do CORPO (nunca o X do cabeçalho)
+      const el = root.querySelector('.modal__body input, .modal__body select, .modal__body textarea, .modal__body button')
+        || root.querySelector('.modal__foot button');
       if (el) el.focus();
     }, 30);
     return () => { document.removeEventListener('keydown', onKey); clearTimeout(t); };
-  }, [onClose]);
+  }, []); // monta UMA vez — sem re-foco em re-render
 
   return (
     <div
