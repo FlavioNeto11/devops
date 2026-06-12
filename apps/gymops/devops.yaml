@@ -23,6 +23,11 @@ services:
         NEXT_PUBLIC_APP_BASE_PATH: /gymops
         NEXT_PUBLIC_API_URL: https://dev.nvit.com.br/gymops/api
         NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN: "false"
+        # SSO Keycloak (realm nvit) LIGADO: sem este arg o botao "Entrar com SSO"
+        # some do login e contas provisionadas via Keycloak (ex.: admin@nvit.com.br)
+        # ficam sem porta de entrada. O backend (KEYCLOAK_* no secret gymops-config)
+        # ja esta configurado; manter true em TODO build do web.
+        NEXT_PUBLIC_ENABLE_SSO: "true"
         INTERNAL_API_URL: http://gymops-api:3001
     health:
       path: /gymops/login
