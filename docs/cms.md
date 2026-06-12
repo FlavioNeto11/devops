@@ -75,10 +75,23 @@ O renderer implementa o **protocolo cmsEdit completo** (`src/cmsEdit.jsx`, port 
 portais dedicados): embarcado no console (`/sites/<chave>/?cmsEdit=1` + handshake same-origin),
 oferece clique-para-editar em todos os textos, mover/publicar/ocultar/excluir/“+ seção abaixo” por
 moldura, controles por item + “+ adicionar” em toda lista, upload de mídia no lugar e navegação
-sincronizada (páginas rascunho marcadas). O gate é o mesmo dos portais: iframe + query + handshake —
-visitante público **nunca** vê o chrome. No console, o modo Visual habilita para qualquer portal com
-`route` começando em `/sites/` (badge “portal dinâmico”). Um portal pode ser "promovido" depois a
-app dedicado (golden path) trocando o `route`; o conteúdo no pm-api é o mesmo.
+sincronizada (páginas rascunho marcadas). **Header e rodapé também são editáveis**: nome do site,
+tagline e contatos in-place (`cms:setField {site:true}`), e clicar no header/rodapé abre o painel do
+SITE. O gate é o mesmo dos portais: iframe + query + handshake — visitante público **nunca** vê o
+chrome. No console, o modo Visual habilita para qualquer portal com `route` começando em `/sites/`
+(badge “portal dinâmico”). Um portal pode ser "promovido" depois a app dedicado (golden path)
+trocando o `route`; o conteúdo no pm-api é o mesmo.
+
+### ✨ Comando de IA em qualquer região
+
+Toda região editável tem um comando de IA (`AiAssist`): no painel de **seção** do modo visual (o
+botão ✨ na moldura abre já focado), no drawer do modo avançado e no painel/modal do **site**.
+Endpoints: `POST /cms/sections/:id/ai` (reescreve o `data` da seção preservando kind/shape — só muda
+o que a instrução pede) e `POST /projects/:id/cms/site/ai` (identidade/paleta/contato; os campos
+retornados sobrescrevem, por intenção explícita). O **contexto** de toda edição leva o site INTEIRO
+(identidade + resumo de todas as páginas/seções) **e os prompts originais de criação** do portal
+(`cms_generation_requests`), para manter tom e segmento; a IA não inventa fatos nem contatos, e cada
+execução fica logada (kind `section`/`site`) para rastreabilidade. Sem `OPENAI_API_KEY`: 503 gracioso.
 - A publicação **de infraestrutura** (deploy de um frontend dedicado, Argo Application etc.) continua
   pelo golden path normal, com aprovação do operador — o CMS governa o **conteúdo**; o GitOps governa
   o **deploy**. Um portal só de conteúdo (servido por um frontend genérico futuro) não precisa de deploy.
