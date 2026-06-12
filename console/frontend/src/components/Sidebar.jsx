@@ -38,12 +38,19 @@ export default function Sidebar({ groups, links = [], activeKey, onSelect, colla
         {links.length > 0 && (
           <div className="sidebar__group sidebar__group--links">
             <div className="sidebar__group-label">Plataforma</div>
-            {links.map((l) => (
+            {links.map((l) => (l.onClick ? (
+              // Entrada informativa (ex.: Traefik — dashboard interno, sem rota pública):
+              // abre um modal em vez de navegar para uma URL que não existe neste host.
+              <button key={l.label} type="button" className="sidebar__item sidebar__item--link" onClick={l.onClick} title={l.title || l.label}>
+                <Icon name={l.icon || 'info'} size={18} />
+                <span className="sidebar__item-label">{l.label}</span>
+              </button>
+            ) : (
               <a key={l.href} className="sidebar__item sidebar__item--link" href={l.href} target="_blank" rel="noopener noreferrer" title={l.label}>
                 <Icon name="external" size={18} />
                 <span className="sidebar__item-label">{l.label}</span>
               </a>
-            ))}
+            )))}
           </div>
         )}
       </nav>

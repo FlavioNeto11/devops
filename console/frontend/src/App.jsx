@@ -13,6 +13,7 @@ import AccessAdmin from './components/AccessAdmin.jsx';
 import SharedResources from './components/SharedResources.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import TopBar from './components/TopBar.jsx';
+import Modal from './components/Modal.jsx';
 import { ToastProvider } from './components/ToastProvider.jsx';
 
 /**
@@ -33,10 +34,12 @@ const SECTIONS = {
 };
 const SECTION_ORDER = ['painel', 'overview', 'apps', 'health', 'logs', 'publications', 'projects', 'conteudo', 'access', 'shared'];
 
+// Traefik fica de fora: o dashboard NÃO tem rota neste host (só existe em
+// http://traefik.localhost/dashboard/, interno) — a entrada vira um modal
+// informativo em vez de um link quebrado que caía na homepage.
 const QUICK_LINKS = [
   { href: '/argocd', label: 'Argo CD' },
   { href: '/grafana', label: 'Grafana' },
-  { href: '/dashboard/', label: 'Traefik' },
 ];
 
 const STREAM_LABEL = {
@@ -105,6 +108,8 @@ export default function App() {
 
   // Projeto em foco (navegação a partir do painel: "Editar conteúdo"/"Abrir board").
   const [focusProject, setFocusProject] = useState(null);
+  // Modal informativo do Traefik (dashboard interno, sem rota pública).
+  const [traefikInfo, setTraefikInfo] = useState(false);
   const goTo = (tab, projectId = null) => { setFocusProject(projectId); setActiveTab(tab); setMobileNavOpen(false); };
 
   // Mantém a aba ativa válida para o papel.
@@ -172,13 +177,17 @@ export default function App() {
 
   const streamBadge = STREAM_LABEL[streamStatus] || STREAM_LABEL.connecting;
   const selectSection = (key) => { setActiveTab(key); setMobileNavOpen(false); };
+  const platformLinks = isMember ? [] : [
+    ...QUICK_LINKS,
+    { label: 'Traefik', icon: 'info', title: 'Dashboard interno — como acessar', onClick: () => setTraefikInfo(true) },
+  ];
 
   return (
     <ToastProvider>
       <div className={'shell' + (sidebarCollapsed ? ' shell--collapsed' : '') + (mobileNavOpen ? ' shell--navopen' : '')}>
         <Sidebar
           groups={sidebarGroups}
-          links={isMember ? [] : QUICK_LINKS}
+          links={platformLinks}
           activeKey={activeTab}
           onSelect={selectSection}
           collapsed={sidebarCollapsed}
@@ -208,6 +217,29 @@ export default function App() {
             {activeTab === 'access' && isAdmin && <AccessAdmin />}
             {activeTab === 'shared' && isAdmin && <SharedResources />}
           </main>
+
+          {traefikInfo && (
+            <Modal title="Dashboard do Traefik (interno)" size="sm" onClose={() => setTraefikInfo(false)}
+              footer={<button className="btn" onClick={() => setTraefikInfo(false)}>Fechar</button>}>
+              <p style={{ marginTop: 0 }}>
+                O dashboard do Traefik é <strong>interno</strong> e não tem rota pública neste domínio
+                (expor o painel do ingress na internet seria inseguro).
+              </p>
+              <p>
+                <strong>No host da plataforma</strong> (entrada <code>traefik.localhost</code> já configurada no hosts):
+              </p>
+              <p>
+                <a className="quick-link" href="http://traefik.localhost/dashboard/" target="_blank" rel="noopener noreferrer">
+                  http://traefik.localhost/dashboard/ ↗
+                </a>
+              </p>
+              <p className="muted" style={{ fontSize: '.85rem' }}>
+                De outra máquina: acesse via o host da plataforma (o dashboard só casa o Host
+                <code> traefik.localhost</code> — ver <code>platform/traefik/dashboard-ingressroute.yaml</code> e
+                <code> docs/local-domain-setup.md</code>).
+              </p>
+            </Modal>
+          )}
 
           <footer className="app-footer">
             <span>
