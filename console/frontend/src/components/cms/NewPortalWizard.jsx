@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Modal from '../Modal.jsx';
 import Icon from '../Icon.jsx';
 import { useToast } from '../ToastProvider.jsx';
-import { pmProjects, pmCreateProject, pmCmsCreatePage, pmCmsCreateSection } from '../../api.js';
+import { pmProjects, pmCreateProject, pmCmsCreatePage, pmCmsCreateSection, pmCmsGenerate } from '../../api.js';
 import { isPortal } from '../../lib/appTypes.js';
 
 /**
@@ -40,6 +40,7 @@ export default function NewPortalWizard({ isAdmin, onClose, onCreated }) {
   const [linkMode, setLinkMode] = useState('independent'); // independent | linked
   const [relatedId, setRelatedId] = useState('');
   const [products, setProducts] = useState([]);
+  const [aiPrompt, setAiPrompt] = useState('');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -69,6 +70,21 @@ export default function NewPortalWizard({ isAdmin, onClose, onCreated }) {
       for (const s of TEMPLATES[template]?.sections || []) {
         // eslint-disable-next-line no-await-in-loop
         await pmCmsCreateSection(page.id, { kind: s.kind, data: s.data, status: 'published', visible: true });
+      }
+      // Geração assistida (opcional): adiciona seções de RASCUNHO marcadas como
+      // geradas por IA. Falha da IA não bloqueia a criação do portal.
+      if (aiPrompt.trim()) {
+        try {
+          const g = await pmCmsGenerate(project.id, {
+            prompt: aiPrompt.trim(),
+            kind: 'portal',
+            template,
+            context: linkMode === 'linked' && relatedId ? { relatedProjectId: relatedId } : {},
+          });
+          toast.ok(`IA gerou ${g?.created?.sections ?? 0} seção(ões) em rascunho — revise no editor.`);
+        } catch (e) {
+          toast.err(`Portal criado, mas a geração por IA não rodou: ${e.message}`);
+        }
       }
       toast.ok(project.approval_status === 'pending_approval'
         ? 'Portal criado como rascunho — aguardando aprovação do administrador para ir ao ar.'
@@ -129,6 +145,16 @@ export default function NewPortalWizard({ isAdmin, onClose, onCreated }) {
           </select>
         )}
       </div>
+
+      <label className="field" style={{ marginBottom: 10 }}>
+        <span className="field__label">Descreva o portal para a IA gerar um rascunho (opcional)</span>
+        <textarea className="input" rows={3} value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)}
+          placeholder="ex.: site institucional de uma clínica de fisioterapia em Campinas, tom acolhedor, seções de serviços, equipe e contato" />
+        <span className="muted" style={{ fontSize: '.78rem' }}>
+          As seções geradas entram como <strong>rascunho</strong> marcadas como “geradas por IA” — nada vai ao ar sem revisão.
+          Requer IA configurada no servidor; sem ela, o portal é criado normalmente sem o rascunho.
+        </span>
+      </label>
 
       {!isAdmin && (
         <p className="muted" style={{ fontSize: '.82rem', display: 'flex', gap: 6, alignItems: 'center' }}>

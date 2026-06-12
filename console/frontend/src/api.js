@@ -226,6 +226,10 @@ export const pmCmsCreateSection = (pageId, body) => pmFetch(`/cms/pages/${pageId
 export const pmCmsPatchSection = (sectionId, patch) => pmFetch(`/cms/sections/${sectionId}`, { method: 'PATCH', body: patch });
 export const pmCmsDeleteSection = (sectionId) => pmFetch(`/cms/sections/${sectionId}`, { method: 'DELETE' });
 export const pmCmsReorderSections = (pageId, order) => pmFetch(`/cms/pages/${pageId}/sections/reorder`, { method: 'PUT', body: { order } });
+// Geração assistida por IA (degrada graciosamente sem OPENAI_API_KEY no pm-api).
+export const pmCmsGenerate = (projectId, body) => pmFetch(`/projects/${projectId}/cms/generate`, { method: 'POST', body });
+export const pmCmsGenerations = (projectId) => pmFetch(`/projects/${projectId}/cms/generations`);
+
 // scope: 'project' (só deste portal) | 'global' (biblioteca pública) | 'all' (default)
 export const pmCmsFiles = (projectId, scope = 'all') => pmFetch(`/projects/${projectId}/cms/files?scope=${scope}`);
 export const pmCmsDeleteFile = (fileId) => pmFetch(`/cms/files/${fileId}`, { method: 'DELETE' });

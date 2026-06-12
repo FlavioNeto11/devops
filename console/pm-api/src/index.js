@@ -9,6 +9,7 @@ import me from './routes/me.js';
 import admin from './routes/admin.js';
 import shared from './routes/shared.js';
 import cms from './routes/cms.js';
+import cmsAi from './routes/cms-ai.js';
 import cmsPublic from './routes/cms-public.js';
 import { authContext, requireAdmin } from './auth.js';
 import { seed } from '../scripts/seed.js';
@@ -51,6 +52,7 @@ api.use(projects);
 api.use(items);
 api.use(tasks);
 api.use(cms);
+api.use(cmsAi);
 
 // Traefik faz StripPrefix de /devops/api/pm -> o backend ve "/". Tambem montamos em
 // /api/pm para chamadas diretas em dev (vite proxy).
