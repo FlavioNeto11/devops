@@ -128,10 +128,12 @@ export default function ContentEditor({ initialId = null, me = null }) {
   const sel = projects.find((p) => p.id === selId) || null;
   const liveApp = liveAppFor(apps, sel);
 
-  // Prévia visual só faz sentido quando o portal TEM frontend publicado no
-  // cluster: sem app vivo, a rota /<key> cai na landing raiz (que recusa iframe
-  // via X-Frame-Options) — portal recém-criado edita-se no modo avançado.
-  const canVisual = !!liveApp;
+  // Prévia/edição visual funciona quando há um frontend que fala o protocolo
+  // cmsEdit: app dedicado VIVO no cluster (rmambiental/anarabottini) OU o
+  // site-renderer genérico (todo portal com route /sites/<chave> — deploy único
+  // da plataforma, sempre no ar).
+  const isRendered = !!sel && (sel.route || '').startsWith('/sites/');
+  const canVisual = !!liveApp || isRendered;
   useEffect(() => {
     if (sel && !canVisual) setMode('lista');
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -229,15 +231,18 @@ export default function ContentEditor({ initialId = null, me = null }) {
           {sel.approval_status === 'rejected' && <span className="badge badge-err">rejeitado</span>}
           {sel.approval_status === 'approved' && sel.status !== 'active' && <span className="badge badge-warn">desativado (fora do ar)</span>}
           {sel.approval_status === 'approved' && sel.status === 'active' && <span className="badge badge-ok">conteúdo no ar</span>}
+          {isRendered && <span className="badge badge-accent">portal dinâmico</span>}
           {!canVisual && <span className="badge badge-muted">sem frontend publicado</span>}
           <span className="muted" style={{ flex: 1, fontSize: '.85rem' }}>
             {sel.approval_status === 'pending_approval'
               ? `${sel.created_by ? `Criado por ${sel.created_by}. ` : ''}O conteúdo pode ser montado normalmente, mas a rota pública fica indisponível até a aprovação.`
               : sel.status !== 'active'
                 ? 'O conteúdo está preservado, mas a rota pública responde 404 enquanto o portal estiver desativado.'
-                : !canVisual
-                  ? 'Monte o conteúdo no modo avançado; a prévia visual fica disponível quando o portal tiver um frontend publicado na esteira.'
-                  : 'A rota pública serve o conteúdo publicado deste portal.'}
+                : isRendered
+                  ? `Servido pelo site-renderer em ${sel.route} — edite ao vivo no modo Visual.`
+                  : !canVisual
+                    ? 'Monte o conteúdo no modo avançado; a prévia visual fica disponível quando o portal tiver um frontend publicado na esteira.'
+                    : 'A rota pública serve o conteúdo publicado deste portal.'}
           </span>
           {isAdmin && (
             <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

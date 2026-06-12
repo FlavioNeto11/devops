@@ -30,6 +30,7 @@ const SECTION_KINDS = new Set([
   'testimonials',
   'logos',
   'cta',
+  'image',
   'lead-form',
   // específicos do rmambiental (semeados; precisam ser PATCHaveis sem "kind invalido")
   'stats',

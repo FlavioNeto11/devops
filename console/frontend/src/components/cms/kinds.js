@@ -22,6 +22,7 @@ export const KIND_TEMPLATES = {
   'materials': { label: 'Materiais', data: { heading: { eyebrow: 'Materiais', title: 'Recursos', titleAccent: '' }, items: [{ icon: 'FileText', title: 'Material', desc: '', kind: 'pdf', url: '', available: false }] } },
   'testimonials': { label: 'Depoimentos', data: { heading: { eyebrow: '', title: 'Depoimentos', titleAccent: '', center: true }, items: [{ quote: '', author: '', role: '' }] } },
   'logos': { label: 'Logos / marcas', data: { heading: { eyebrow: '', title: 'Quem confia', titleAccent: '' }, items: [{ name: '', logoUrl: '' }] } },
+  'image': { label: 'Imagem', data: { url: '', alt: '', caption: '', full: false } },
   'cta': { label: 'Chamada (CTA)', data: { title: 'Vamos conversar', titleAccent: '', titleTail: '?', text: '', buttons: [{ label: 'Solicitar proposta', kind: 'proposal', href: '' }] } },
 };
 
@@ -41,6 +42,16 @@ export const ITEM_TEMPLATES = {
   'hero:floating': { icon: 'Sparkles', label: 'Nova label', position: 'top-left', visible: true },
   'hero:indicators': { title: 'Indicador', desc: '' },
   'hero:axes': { title: 'Eixo', desc: '' },
+  // Listas dos kinds genéricos (site-renderer): "+ adicionar" em lista vazia.
+  'card-grid:cards': { icon: 'Sparkles', title: 'Novo card', desc: '' },
+  'feature-grid:cards': { icon: 'Sparkles', title: 'Novo card', desc: '' },
+  'timeline:steps': { icon: 'Search', title: 'Nova etapa', desc: '' },
+  'accordion:items': { q: 'Pergunta?', a: 'Resposta.' },
+  'testimonials:items': { quote: '', author: '', role: '' },
+  'logos:items': { name: '', logoUrl: '' },
+  'stats:stats': { value: '0', label: '' },
+  'materials:items': { icon: 'FileText', title: 'Novo material', desc: '', kind: 'pdf', url: '', available: false },
+  'cta:buttons': { label: 'Botão', kind: 'proposal', href: '' },
 };
 
 /** Rótulo curto por kind (inclui os específicos de portal para exibição). */
@@ -49,6 +60,7 @@ export const KIND_LABEL = {
   timeline: 'Timeline', accordion: 'FAQ', 'video-gallery': 'Vídeos', materials: 'Materiais',
   palestras: 'Palestras', testimonials: 'Depoimentos', logos: 'Logos', cta: 'CTA', 'lead-form': 'Formulário',
   stats: 'Números', gallery: 'Galeria', 'services-detail': 'Soluções', 'contact-form': 'Contato',
+  image: 'Imagem', 'feature-grid': 'Cards',
 };
 
 /** Casa um projeto/portal com a app viva do cluster (para o ponto verde/amarelo). */
