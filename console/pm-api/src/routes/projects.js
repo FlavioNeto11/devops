@@ -4,7 +4,7 @@ import { asyncH, buildPatch, notFound, invalid } from './_util.js';
 import { requireAdmin, allowedProjectIds, assertProjectAccess } from '../auth.js';
 
 const r = Router();
-const FIELDS = ['name', 'stack', 'repo_url', 'route', 'k8s_namespace', 'k8s_label_selector', 'status', 'description'];
+const FIELDS = ['name', 'stack', 'repo_url', 'route', 'k8s_namespace', 'k8s_label_selector', 'status', 'description', 'app_type'];
 
 // Lista escopada: admin vê todos; member vê só os projetos atribuídos a ele.
 r.get('/projects', asyncH(async (req, res) => {
@@ -30,9 +30,9 @@ r.post('/projects', requireAdmin, asyncH(async (req, res) => {
   const b = req.body || {};
   if (!b.key || !b.name) return invalid(res, 'key e name sao obrigatorios');
   const { rows } = await query(
-    `INSERT INTO projects (key, name, stack, repo_url, route, k8s_namespace, k8s_label_selector, status, description)
-     VALUES ($1,$2,$3,$4,$5,COALESCE($6,'apps'),$7,COALESCE($8,'active')::project_status,$9) RETURNING *`,
-    [b.key, b.name, b.stack, b.repo_url, b.route, b.k8s_namespace, b.k8s_label_selector, b.status, b.description],
+    `INSERT INTO projects (key, name, stack, repo_url, route, k8s_namespace, k8s_label_selector, status, description, app_type)
+     VALUES ($1,$2,$3,$4,$5,COALESCE($6,'apps'),$7,COALESCE($8,'active')::project_status,$9,COALESCE($10,'product_software')::app_type) RETURNING *`,
+    [b.key, b.name, b.stack, b.repo_url, b.route, b.k8s_namespace, b.k8s_label_selector, b.status, b.description, b.app_type],
   );
   res.status(201).json({ data: rows[0] });
 }));

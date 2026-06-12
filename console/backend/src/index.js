@@ -60,6 +60,8 @@ const PUBLICATION_ANNOTATION_PREFIX = 'devops.flavioneto/';
 // Labels usadas para agrupar recursos por aplicacao na rota /apps.
 const LABEL_PART_OF = 'app.kubernetes.io/part-of';
 const LABEL_DEVOPS_APP = 'devops.flavioneto/app';
+// Taxonomia da app (cms_portal | product_software | platform_tool) — opcional.
+const LABEL_APP_TYPE = 'devops.flavioneto/app-type';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -495,6 +497,7 @@ async function buildApps() {
     if (!apps[key]) {
       apps[key] = {
         app: key,
+        appType: null,
         namespaces: new Set(),
         services: new Set(),
         images: new Set(),
@@ -525,6 +528,9 @@ async function buildApps() {
     const entry = ensureApp(key);
     entry.namespaces.add(dep.namespace);
     entry.deployments.push(dep.name);
+    if (!entry.appType && dep.labels && dep.labels[LABEL_APP_TYPE]) {
+      entry.appType = dep.labels[LABEL_APP_TYPE];
+    }
     if (dep.image) {
       dep.image.split(',').map((s) => s.trim()).forEach((img) => entry.images.add(img));
     }
@@ -582,6 +588,7 @@ async function buildApps() {
   return Object.values(apps)
     .map((entry) => ({
       app: entry.app,
+      appType: entry.appType,
       namespaces: [...entry.namespaces],
       services: [...entry.services].sort(),
       deployments: entry.deployments.sort(),

@@ -69,6 +69,9 @@ app.kubernetes.io/component: {{ . | quote }}
 app.kubernetes.io/managed-by: devops-platform
 helm.sh/chart: {{ printf "%s-%s" .root.Chart.Name .root.Chart.Version | replace "+" "_" | quote }}
 devops.flavioneto/app: {{ .root.Values.app.name | quote }}
+{{- with .root.Values.app.appType }}
+devops.flavioneto/app-type: {{ . | quote }}
+{{- end }}
 {{- end -}}
 
 {{/*
