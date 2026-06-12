@@ -55,6 +55,13 @@ publicação próprios) + vínculo **opcional** `projects.related_project_id` co
   conteúdo pode ser montado como rascunho, mas a **rota pública responde 404** até o admin aprovar
   (botões Aprovar/Rejeitar no editor). Rastreio: `created_by`, `approved_by`, `approved_at`
   (migration `006_portal_governance.sql`).
+- **Desativar/Reativar (admin)**: `projects.status = 'paused'` tira o portal do ar (rota pública
+  404, conteúdo **preservado**); `'active'` volta. **Excluir (admin)** remove o projeto e TODO o
+  conteúdo em cascata (páginas, seções, arquivos do portal, gerações) — o editor confirma e sugere
+  "Desativar" quando a intenção é só sair do ar. A rota pública exige `approved` **e** `active`.
+- **Portal sem frontend publicado** (recém-criado pelo wizard): edita-se no modo **Avançado** — a
+  prévia visual exige um frontend no ar (sem ele, a rota `/<key>` cairia na landing raiz, que recusa
+  iframe via `X-Frame-Options`); o editor desabilita o modo Visual e explica no banner.
 - A publicação **de infraestrutura** (deploy de um frontend dedicado, Argo Application etc.) continua
   pelo golden path normal, com aprovação do operador — o CMS governa o **conteúdo**; o GitOps governa
   o **deploy**. Um portal só de conteúdo (servido por um frontend genérico futuro) não precisa de deploy.
