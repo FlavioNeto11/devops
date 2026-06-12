@@ -68,14 +68,15 @@ const resolvedKicker = computed(() => {
     :data-tone="resolvedTone"
   >
     <div class="sicat-page-header__copy">
-      <div class="sicat-page-header__breadcrumbs">
+      <div class="sicat-page-header__breadcrumbs" role="navigation" aria-label="Trilha de navegação">
         <span
           v-for="(crumb, index) in resolvedBreadcrumbs"
           :key="`${crumb}-${index}`"
           class="sicat-page-header__crumb"
+          :aria-current="index === resolvedBreadcrumbs.length - 1 ? 'page' : undefined"
         >
           <span>{{ crumb }}</span>
-          <v-icon v-if="index < resolvedBreadcrumbs.length - 1" size="14">mdi-chevron-right</v-icon>
+          <v-icon v-if="index < resolvedBreadcrumbs.length - 1" size="14" aria-hidden="true">mdi-chevron-right</v-icon>
         </span>
       </div>
       <div>

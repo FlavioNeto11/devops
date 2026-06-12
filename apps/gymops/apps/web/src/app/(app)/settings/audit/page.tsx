@@ -31,6 +31,20 @@ const ACTION_LABELS: Record<string, string> = {
   'activity.deleted': 'Atividade excluída',
 };
 
+// Tempo relativo pt-BR ("há 2 h") — o instante exato vai no title da célula.
+function relativeTime(iso: string): string {
+  const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (Number.isNaN(secs) || secs < 0) return '—';
+  if (secs < 60) return 'agora há pouco';
+  const m = Math.floor(secs / 60);
+  if (m < 60) return `há ${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `há ${h} h`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `há ${d} d`;
+  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }).format(new Date(iso));
+}
+
 export default function AuditPage() {
   const { organizationId, userRole } = useAuthStore();
   const [page, setPage] = useState(1);
@@ -137,8 +151,11 @@ function AuditContent({ organizationId, page, setPage, filterAction, setFilterAc
             <tbody>
               {logs.map((log) => (
                 <tr key={log.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                  <td className="py-2 px-4 whitespace-nowrap text-muted-foreground text-xs">
-                    {new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(log.createdAt))}
+                  <td
+                    className="py-2 px-4 whitespace-nowrap text-muted-foreground text-xs"
+                    title={new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(log.createdAt))}
+                  >
+                    {relativeTime(log.createdAt)}
                   </td>
                   <td className="py-2 px-4">
                     <div className="flex items-center gap-2">

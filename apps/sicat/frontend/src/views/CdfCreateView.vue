@@ -622,7 +622,7 @@ onMounted(() => {
             <v-select :id="id" v-model="cdfForm.responsibleCode" :items="cdfResponsibleOptions" item-title="title" item-value="value" :loading="cdfResponsiblesLoading" :disabled="cdfLoading || cdfResponsiblesLoading" placeholder="Selecione o responsável" density="comfortable" variant="outlined" hide-details="auto" no-data-text="Nenhum responsável disponível" />
           </template>
         </SicatFormField>
-        <SicatFormField label="Data inicial">
+        <SicatFormField label="Data inicial" hint="Início do período dos manifestos cobertos pelo certificado.">
           <template #default="{ id }">
             <v-text-field :id="id" v-model="cdfForm.dateFrom" type="date" density="comfortable" variant="outlined" hide-details="auto" :disabled="cdfLoading" />
           </template>

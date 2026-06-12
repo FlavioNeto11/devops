@@ -1,6 +1,16 @@
 # GymOps — Status Real do Projeto
 
-**Última atualização**: 2026-05-19 (validação Docker local + navegação funcional)
+**Última atualização**: 2026-06-12 (passe de UX no frontend — sem mudança de lógica/API)
+
+> **2026-06-12 — Passe de UX (frontend web apenas):** títulos de aba por rota
+> (`(app)/layout.tsx`); sidebar com foco visível, `aria-label`/`aria-current` e
+> labels nos botões só-ícone; login com erros acionáveis por status (401/429/5xx/
+> rede); estado vazio da Central com botão "Limpar filtros" e orientação; bulk
+> update confirma acima de 5 itens; mensagens vazias do `/me` sem emoji e
+> contextuais; switch de notificações com `aria-label`; dashboard com
+> `scope/aria-sort` nos cabeçalhos ordenáveis; auditoria com tempo relativo
+> pt-BR (absoluto no hover); manifest PWA com nome completo/categorias/lang.
+> Nenhuma rota, contrato ou permissão alterada.
 **Documento de verdade única**: este arquivo + [`docs/backlog.md`](backlog.md) + [`docs/implementation-plan.md`](implementation-plan.md).
 **Não declarar produto 100% até** cumprir o [`docs/qa-release-checklist.md`](qa-release-checklist.md).
 

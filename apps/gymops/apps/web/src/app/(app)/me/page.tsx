@@ -24,10 +24,10 @@ const TABS: Array<{ id: ViewTab; label: string; countKey: keyof TabCounts }> = [
 ];
 
 const EMPTY_MESSAGES: Record<ViewTab, string> = {
-  today: 'Nenhuma atividade para hoje',
-  overdue: 'Nenhuma atividade atrasada 🎉',
-  this_week: 'Nenhuma atividade esta semana',
-  awaiting_my_return: 'Nenhuma atividade aguardando seu retorno',
+  today: 'Nenhuma atividade para hoje — bom trabalho! Confira "Esta semana" para se antecipar.',
+  overdue: 'Tudo em dia: nenhuma atividade atrasada.',
+  this_week: 'Nenhuma atividade agendada para esta semana.',
+  awaiting_my_return: 'Nenhuma atividade aguardando o seu retorno no momento.',
 };
 
 /** Atividades demonstrativas exibidas durante o tutorial quando a lista real está vazia. */

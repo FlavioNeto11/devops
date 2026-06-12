@@ -474,4 +474,12 @@ router.beforeEach(async (to, from, next) => {
   next();
 });
 
+// Título da aba do navegador acompanha a rota (derivado do breadcrumb/nome) —
+// várias abas do SICAT abertas ficam distinguíveis sem mudar nenhuma rota.
+router.afterEach((to) => {
+  const crumbs = Array.isArray(to.meta?.breadcrumb) ? to.meta.breadcrumb : null;
+  const page = crumbs?.length ? crumbs[crumbs.length - 1] : (typeof to.name === 'string' ? to.name : '');
+  document.title = page && page !== 'Início' ? `${page} · SICAT` : 'SICAT — Transporte de Resíduos CETESB-SP';
+});
+
 export default router;

@@ -215,6 +215,10 @@ export default function ActivitiesPage() {
   const handleBulkApply = useCallback(() => {
     if (!organizationId) return;
     const ids = Array.from(selected);
+    // ação em massa é difícil de desfazer — acima de 5 itens, confirma antes
+    if (ids.length > 5 && !window.confirm(`Aplicar a alteração em ${ids.length} atividades de uma vez?`)) {
+      return;
+    }
     if (bulkAction === 'status' && bulkStatus) {
       bulkUpdateMutation.mutate({ ids, status: bulkStatus, organizationId });
     } else if (bulkAction === 'priority' && bulkPriority) {
@@ -262,9 +266,18 @@ export default function ActivitiesPage() {
     if (activities.length === 0) {
       return (
         <div className="text-center py-16 border rounded-lg">
-          <CheckCircle2 className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-50" />
+          <CheckCircle2 className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-50" aria-hidden="true" />
           <p className="font-medium">Nenhuma atividade encontrada</p>
-          {hasFilters && <p className="text-sm text-muted-foreground mt-1">Tente remover os filtros.</p>}
+          {hasFilters ? (
+            <>
+              <p className="text-sm text-muted-foreground mt-1">Os filtros ativos podem estar escondendo resultados.</p>
+              <Button variant="outline" size="sm" className="mt-3" onClick={() => setFilters(EMPTY_FILTERS)}>
+                Limpar filtros
+              </Button>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground mt-1">Crie uma atividade numa unidade ou importe um board do Trello em Configurações → Importações.</p>
+          )}
         </div>
       );
     }

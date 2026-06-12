@@ -51,10 +51,11 @@ function isGroupActive(group) {
             class="sicat-nav__link sicat-nav__link--group"
             :class="{ 'is-active': isGroupActive(group) }"
             :aria-label="`Abrir grupo ${group.label}`"
+            aria-haspopup="menu"
           >
-            <v-icon size="18">{{ group.icon }}</v-icon>
+            <v-icon size="18" aria-hidden="true">{{ group.icon }}</v-icon>
             <span>{{ group.label }}</span>
-            <v-icon size="16" class="sicat-nav__chevron">mdi-chevron-down</v-icon>
+            <v-icon size="16" class="sicat-nav__chevron" aria-hidden="true">mdi-chevron-down</v-icon>
           </button>
         </template>
 

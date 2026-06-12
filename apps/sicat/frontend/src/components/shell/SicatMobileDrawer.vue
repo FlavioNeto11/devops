@@ -33,6 +33,7 @@ function handleNavigate(path) {
     temporary
     location="left"
     width="320"
+    aria-label="Menu de navegação"
     @update:model-value="(value) => emit('update:modelValue', value)"
   >
     <div class="drawer-head">

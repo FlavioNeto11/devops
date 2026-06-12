@@ -191,6 +191,7 @@ export default function SettingsPage() {
                   ].join(' ')}
                   role="switch"
                   aria-checked={enabled}
+                  aria-label={`Notificações por ${label}: ${enabled ? 'ativadas' : 'desativadas'}`}
                 >
                   <span
                     className={[

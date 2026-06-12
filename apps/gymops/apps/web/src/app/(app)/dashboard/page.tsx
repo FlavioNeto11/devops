@@ -182,19 +182,19 @@ export default function DashboardPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
-                  <th className={thCls('name')} onClick={() => handleSort('name')}>
+                  <th scope="col" aria-sort={sortCol === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined} className={thCls('name')} onClick={() => handleSort('name')}>
                     Unidade <SortIcon active={sortCol === 'name'} dir={sortDir} />
                   </th>
-                  <th className={`${thCls('open')} text-center`} onClick={() => handleSort('open')}>
+                  <th scope="col" aria-sort={sortCol === 'open' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined} className={`${thCls('open')} text-center`} onClick={() => handleSort('open')}>
                     Abertas <SortIcon active={sortCol === 'open'} dir={sortDir} />
                   </th>
-                  <th className={`${thCls('overdue')} text-center`} onClick={() => handleSort('overdue')}>
+                  <th scope="col" aria-sort={sortCol === 'overdue' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined} className={`${thCls('overdue')} text-center`} onClick={() => handleSort('overdue')}>
                     Atrasadas <SortIcon active={sortCol === 'overdue'} dir={sortDir} />
                   </th>
-                  <th className={`${thCls('critical')} text-center`} onClick={() => handleSort('critical')}>
+                  <th scope="col" aria-sort={sortCol === 'critical' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined} className={`${thCls('critical')} text-center`} onClick={() => handleSort('critical')}>
                     Críticas <SortIcon active={sortCol === 'critical'} dir={sortDir} />
                   </th>
-                  <th className={`${thCls('unassigned')} text-center`} onClick={() => handleSort('unassigned')}>
+                  <th scope="col" aria-sort={sortCol === 'unassigned' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined} className={`${thCls('unassigned')} text-center`} onClick={() => handleSort('unassigned')}>
                     Sem resp. <SortIcon active={sortCol === 'unassigned'} dir={sortDir} />
                   </th>
                 </tr>

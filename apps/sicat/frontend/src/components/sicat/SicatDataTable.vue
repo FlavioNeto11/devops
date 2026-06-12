@@ -167,6 +167,21 @@ function onSelectionUpdate(value) {
   background: rgba(var(--v-theme-primary), 0.06) !important;
 }
 
+/* Mobile: tabela rola na horizontal (em vez de cortar células) e headers ganham
+   respiro — operação em campo acontece muito pelo celular. */
+@media (max-width: 959px) {
+  .sicat-data-table__table {
+    overflow-x: auto;
+  }
+  .sicat-data-table__table :deep(thead th) {
+    font-size: 0.66rem !important;
+    padding: 8px 6px !important;
+  }
+  .sicat-data-table__table :deep(tbody td) {
+    font-size: 0.85rem;
+  }
+}
+
 .sicat-data-table__table :deep(tbody td) {
   font-size: 0.85rem;
 }

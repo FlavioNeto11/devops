@@ -409,7 +409,7 @@ function updateDateFilterFeedback(options = {}) {
   dateFilterError.value = '';
 
   if (showWideWindowInfo && Number.isFinite(Number(validation.spanDays)) && Number(validation.spanDays) > DATE_WINDOW_NOTICE_DAYS) {
-    dateFilterInfo.value = 'Janela ampla detectada. Se o retorno vier vazio, tente recortes menores para evitar limites operacionais da integracao CETESB.';
+    dateFilterInfo.value = 'O período escolhido é longo e a CETESB pode limitar a resposta. Se a busca voltar vazia ou incompleta, divida em recortes de até 2 semanas (ex.: 01/01–14/01 e depois 15/01–31/01).';
     return true;
   }
 

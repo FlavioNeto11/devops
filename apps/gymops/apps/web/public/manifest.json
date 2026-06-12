@@ -1,7 +1,9 @@
 {
-  "name": "GymOps",
+  "name": "GymOps — Gestão Operacional Multiunidade",
   "short_name": "GymOps",
-  "description": "Gestão operacional multiunidade",
+  "description": "Gestão operacional de redes multiunidade: atividades, checklists, equipe e IA assistiva.",
+  "categories": ["productivity", "business"],
+  "lang": "pt-BR",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

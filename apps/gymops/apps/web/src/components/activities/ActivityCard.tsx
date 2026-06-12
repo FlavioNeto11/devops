@@ -80,8 +80,8 @@ export function ActivityCard({ activity, onClick }: ActivityCardProps) {
         {responsible ? (
           <UserAvatar name={responsible.name} avatarUrl={responsible.avatarUrl} className="h-6 w-6 text-[10px]" />
         ) : (
-          <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-dashed border-muted-foreground/30">
-            <Users className="h-3 w-3 text-muted-foreground/40" />
+          <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-dashed border-muted-foreground/30" title="Sem responsável designado">
+            <Users className="h-3 w-3 text-muted-foreground/40" aria-label="Atividade sem responsável designado" />
           </div>
         )}
       </div>

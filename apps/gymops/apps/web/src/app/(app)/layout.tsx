@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { Sidebar } from '@/components/layout/sidebar';
 import { useQuery } from '@tanstack/react-query';
@@ -12,10 +12,33 @@ import { Button } from '@/components/ui/button';
 import { TutorialProvider } from '@/features/tutorial';
 import type { ApiResponse, UnitDTO } from '@gymops/shared';
 
+// Título da aba do navegador por rota — várias abas do GymOps ficam distinguíveis.
+const PAGE_TITLES: ReadonlyArray<readonly [RegExp, string]> = [
+  [/^\/dashboard/, 'Painel Geral'],
+  [/^\/me/, 'Minhas Atividades'],
+  [/^\/activities/, 'Central de Atividades'],
+  [/^\/profile/, 'Meu Perfil'],
+  [/^\/settings\/team/, 'Equipe'],
+  [/^\/settings\/templates/, 'Templates'],
+  [/^\/settings\/imports/, 'Importações'],
+  [/^\/settings\/audit/, 'Auditoria'],
+  [/^\/settings\/areas/, 'Áreas'],
+  [/^\/settings\/organization/, 'Organização'],
+  [/^\/settings/, 'Configurações'],
+  [/^\/units\//, 'Unidade'],
+  [/^\/help/, 'Central de Ajuda'],
+];
+
 export default function AppLayout({ children }: { readonly children: React.ReactNode }) {
   const { isAuthenticated, organizationId, hasHydrated, sessionReady } = useAuthStore();
   const router = useRouter();
+  const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    const match = PAGE_TITLES.find(([re]) => re.test(pathname ?? ''));
+    document.title = match ? `${match[1]} · GymOps` : 'GymOps';
+  }, [pathname]);
 
   useEffect(() => {
     if (!hasHydrated || !sessionReady) return;
@@ -46,8 +69,8 @@ export default function AppLayout({ children }: { readonly children: React.React
       <div className="flex h-screen flex-col overflow-hidden">
         {/* Mobile top bar */}
         <div className="flex h-14 shrink-0 items-center border-b bg-background px-4 md:hidden">
-          <Button variant="ghost" size="icon" onClick={() => setMobileNavOpen(true)} aria-label="Abrir menu">
-            <Menu className="h-5 w-5" />
+          <Button variant="ghost" size="icon" onClick={() => setMobileNavOpen(true)} aria-label="Abrir menu de navegação" title="Menu de navegação">
+            <Menu className="h-5 w-5" aria-hidden="true" />
           </Button>
           <span className="ml-2 truncate text-sm font-semibold flex-1">
             {orgData?.data?.name ?? 'GymOps'}

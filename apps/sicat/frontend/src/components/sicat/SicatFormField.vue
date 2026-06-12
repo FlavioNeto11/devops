@@ -14,6 +14,10 @@ const props = defineProps({
 const fieldId = useId();
 const errorText = computed(() => (typeof props.error === 'string' ? props.error : ''));
 const hasError = computed(() => Boolean(props.error));
+// liga input ↔ erro/dica para leitores de tela (aria-describedby via slot prop)
+const errorId = computed(() => (hasError.value && errorText.value ? `${fieldId}-error` : ''));
+const hintId = computed(() => (props.hint ? `${fieldId}-hint` : ''));
+const describedBy = computed(() => [errorId.value, hintId.value].filter(Boolean).join(' ') || undefined);
 </script>
 
 <template>
@@ -24,11 +28,11 @@ const hasError = computed(() => Boolean(props.error));
     </label>
 
     <div class="sicat-form-field__control">
-      <slot :id="fieldId" :has-error="hasError" />
+      <slot :id="fieldId" :has-error="hasError" :described-by="describedBy" />
     </div>
 
-    <p v-if="hasError && errorText" class="sicat-form-field__error" role="alert">{{ errorText }}</p>
-    <p v-else-if="hint" class="sicat-form-field__hint">{{ hint }}</p>
+    <p v-if="hasError && errorText" :id="errorId" class="sicat-form-field__error" role="alert">{{ errorText }}</p>
+    <p v-else-if="hint" :id="hintId" class="sicat-form-field__hint">{{ hint }}</p>
   </div>
 </template>
 
@@ -57,13 +61,13 @@ const hasError = computed(() => Boolean(props.error));
 
 .sicat-form-field__error {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.84rem;
   color: rgb(var(--v-theme-error));
 }
 
 .sicat-form-field__hint {
   margin: 0;
-  font-size: 0.78rem;
-  color: rgba(var(--v-theme-on-surface), 0.55);
+  font-size: 0.82rem;
+  color: rgba(var(--v-theme-on-surface), 0.62);
 }
 </style>

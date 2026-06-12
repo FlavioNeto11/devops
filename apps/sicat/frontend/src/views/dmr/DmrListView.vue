@@ -200,7 +200,7 @@ onMounted(async () => {
             Anterior
           </v-btn>
           <span class="text-caption text-medium-emphasis">
-            offset {{ filters.offset || 0 }} · limit {{ filters.limit || 50 }}
+            Exibindo {{ Math.min(Number(filters.offset || 0) + 1, Number(total || 0)) }}–{{ Math.min(Number(filters.offset || 0) + Number(filters.limit || 50), Number(total || 0)) }} de {{ Number(total || 0) }} declarações
           </span>
           <v-btn variant="text" :disabled="!canNext" append-icon="mdi-chevron-right" @click="changeOffset(Number(filters.limit || 50))">
             Próxima

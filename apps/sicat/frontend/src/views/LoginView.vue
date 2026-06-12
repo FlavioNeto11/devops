@@ -30,7 +30,7 @@ const isDarkTheme = computed(() => Boolean(theme.global.current.value.dark));
 
 const sessionExpiredMessage = computed(() => {
   return route.query.reason === 'expired'
-    ? 'Sua sessao expirou. Faca login novamente para continuar.'
+    ? 'Sua sessão expirou. Faça login novamente para continuar.'
     : '';
 });
 
@@ -54,7 +54,7 @@ async function handleLogin() {
   formError.value = '';
 
   if (!isValidEmail(email.value)) {
-    formError.value = 'Informe um e-mail valido.';
+    formError.value = 'Informe um e-mail válido.';
     return;
   }
 
@@ -71,7 +71,7 @@ async function loginWithKeycloak() {
 }
 
 function handleForgotPassword() {
-  formError.value = 'Solicite a redefinicao de senha com o administrador SICAT.';
+  formError.value = 'Solicite a redefinição de senha com o administrador do SICAT.';
 }
 
 function toggleRegisterMode() {
@@ -83,22 +83,22 @@ async function handleRegister() {
   registerError.value = '';
 
   if (!String(registerName.value || '').trim()) {
-    registerError.value = 'Informe o nome do usuario.';
+    registerError.value = 'Informe o nome do usuário.';
     return;
   }
 
   if (!isValidEmail(registerEmail.value)) {
-    registerError.value = 'Informe um e-mail valido para cadastro.';
+    registerError.value = 'Informe um e-mail válido para o cadastro.';
     return;
   }
 
   if (String(registerPassword.value || '').length < 8) {
-    registerError.value = 'A senha deve ter no minimo 8 caracteres.';
+    registerError.value = 'A senha deve ter no mínimo 8 caracteres.';
     return;
   }
 
   if (registerPassword.value !== registerConfirmPassword.value) {
-    registerError.value = 'As senhas nao conferem.';
+    registerError.value = 'As senhas não conferem.';
     return;
   }
 
@@ -129,7 +129,7 @@ async function handleRegister() {
 
           <div class="auth-stage-floating auth-stage-floating-top">
             <v-icon size="16">mdi-shield-check-outline</v-icon>
-            <span>Secure Access</span>
+            <span>Acesso seguro</span>
           </div>
 
           <div class="auth-stage-illustration">
@@ -160,9 +160,9 @@ async function handleRegister() {
 
       <v-sheet class="auth-panel">
         <div class="auth-panel-toolbar">
-          <div class="text-caption text-medium-emphasis">SICAT Internal</div>
+          <div class="text-caption text-medium-emphasis">SICAT Interno</div>
           <div class="auth-panel-toolbar-actions">
-            <v-tooltip location="bottom" text="Ir para a home publica">
+            <v-tooltip location="bottom" text="Ir para a página pública">
               <template #activator="{ props: tooltipProps }">
                 <v-btn
                   v-bind="tooltipProps"
@@ -171,7 +171,7 @@ async function handleRegister() {
                   variant="tonal"
                   color="primary"
                   size="small"
-                  aria-label="Voltar para a home publica"
+                  aria-label="Voltar para a página pública"
                   @click="goToPublicHome"
                 >
                   <v-icon size="18">mdi-home-import-outline</v-icon>
@@ -191,8 +191,8 @@ async function handleRegister() {
 
         <div class="auth-panel-head">
           <div>
-            <h1 class="auth-panel-title">Welcome to SICAT</h1>
-            <p class="auth-panel-subtitle">Please sign in to continue</p>
+            <h1 class="auth-panel-title">Bem-vindo ao SICAT</h1>
+            <p class="auth-panel-subtitle">Faça login para continuar</p>
           </div>
         </div>
 
@@ -209,7 +209,7 @@ async function handleRegister() {
         <v-form @submit.prevent="handleLogin">
           <v-text-field
             v-model="email"
-            label="Email"
+            label="E-mail"
             type="email"
             placeholder="voce@empresa.com"
             :error-messages="formError && !email ? [formError] : []"
@@ -219,7 +219,7 @@ async function handleRegister() {
 
           <v-text-field
             v-model="password"
-            label="Password"
+            label="Senha"
             :type="showPassword ? 'text' : 'password'"
             placeholder="Digite sua senha"
             :append-inner-icon="showPassword ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
@@ -230,13 +230,13 @@ async function handleRegister() {
           <div class="auth-form-options mb-4">
             <v-checkbox
               v-model="rememberMe"
-              label="Remember me"
+              label="Lembrar de mim"
               density="compact"
               hide-details
               color="primary"
             />
             <v-btn variant="text" size="small" type="button" @click="handleForgotPassword">
-              Forgot password?
+              Esqueceu a senha?
             </v-btn>
           </div>
 
@@ -251,7 +251,7 @@ async function handleRegister() {
           </v-alert>
 
           <div class="auth-actions mb-4">
-            <v-btn block color="primary" type="submit" size="large" :loading="isLoading">Sign in</v-btn>
+            <v-btn block color="primary" type="submit" size="large" :loading="isLoading">Entrar</v-btn>
           </div>
         </v-form>
 
@@ -274,9 +274,9 @@ async function handleRegister() {
         </div>
 
         <div class="auth-register-toggle">
-          <p class="text-body-2 text-medium-emphasis mb-3">Still do not have a SICAT account?</p>
+          <p class="text-body-2 text-medium-emphasis mb-3">Ainda não tem uma conta SICAT?</p>
           <v-btn block variant="outlined" @click="toggleRegisterMode">
-            {{ registerMode ? 'Cancel sign up' : 'Create SICAT account' }}
+            {{ registerMode ? 'Cancelar cadastro' : 'Criar conta SICAT' }}
           </v-btn>
         </div>
 
@@ -289,30 +289,30 @@ async function handleRegister() {
             <v-form @submit.prevent="handleRegister">
               <v-text-field
                 v-model="registerName"
-                label="Full name"
+                label="Nome completo"
                 class="mb-3"
               />
               <v-text-field
                 v-model="registerEmail"
-                label="Email"
+                label="E-mail"
                 type="email"
                 class="mb-3"
               />
               <v-text-field
                 v-model="registerPassword"
-                label="Password"
+                label="Senha"
                 type="password"
                 class="mb-3"
               />
               <v-text-field
                 v-model="registerConfirmPassword"
-                label="Confirm password"
+                label="Confirmar senha"
                 type="password"
                 class="mb-4"
               />
 
               <v-btn block color="primary" type="submit" :loading="isLoading">
-                Create account and continue
+                Criar conta e continuar
               </v-btn>
             </v-form>
           </div>

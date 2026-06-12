@@ -70,7 +70,13 @@ export default function LoginPage() {
       router.push(resolveRedirect(role, res.data.primaryUnitId ?? null, platformAdmin));
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        toast.error('Email ou senha inválidos');
+        toast.error('E-mail ou senha inválidos. Confira os dados e tente de novo.');
+      } else if (err instanceof ApiError && err.status === 429) {
+        toast.error('Muitas tentativas seguidas. Aguarde um minuto e tente novamente.');
+      } else if (err instanceof ApiError && err.status >= 500) {
+        toast.error('Servidor indisponível no momento. Tente novamente em instantes.');
+      } else if (err instanceof TypeError) {
+        toast.error('Sem conexão com o servidor. Verifique sua internet.');
       } else {
         toast.error('Erro ao fazer login. Tente novamente.');
       }
