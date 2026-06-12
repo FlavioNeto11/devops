@@ -1,6 +1,14 @@
 # GymOps — Status Real do Projeto
 
-**Última atualização**: 2026-06-12 (passe de UX no frontend — sem mudança de lógica/API)
+**Última atualização**: 2026-06-12 (passe de resiliência/desempenho — sem mudança de lógica/API)
+
+> **2026-06-12 — Passe de resiliência (plataforma):** API com graceful shutdown
+> (SIGTERM → `app.close()` + `prisma.$disconnect()`, força saída em 10s);
+> `fetchTrelloBoards`/`fetchTrelloBoard` com timeout de 15s (`AbortSignal.timeout`
+> — import não pendura mais o worker se a API do Trello não responder); no k8s,
+> rotas web e api ganharam compressão gzip/br na borda (Traefik `compress`) e as
+> probes ganharam `timeoutSeconds: 3` (default de 1s flapeava em single-node).
+> Nenhuma rota, contrato ou permissão alterada.
 
 > **2026-06-12 — Passe de UX (frontend web apenas):** títulos de aba por rota
 > (`(app)/layout.tsx`); sidebar com foco visível, `aria-label`/`aria-current` e
