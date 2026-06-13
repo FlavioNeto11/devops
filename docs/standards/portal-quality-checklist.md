@@ -27,8 +27,10 @@ language: pt-BR
 - [x] gzip habilitado (nginx) + `Vary: Accept-Encoding`
 - [x] Sem dependências de runtime (zero JS de terceiros na página)
 - [x] `preconnect` apenas para as fontes usadas
-- [ ] Lighthouse local ≥ 90 em Performance/SEO/Best-Practices/Accessibility
-      (`npx --yes lighthouse http://localhost:5055 --view` — requer Chrome)
+- [x] **Lighthouse medido** (2026-06-13, `http://xpto.localhost/`, headless): **Performance 92 ·
+      Accessibility 100 · Best Practices 96 · SEO 100** (todos ≥ 90). Best Practices em 96 por **1**
+      erro de console esperado: o probe de descoberta (`/devops/api/ingressroutes`) responde **401**
+      para anônimo (recurso de operador) — o navegador loga o 401; trade-off intencional.
 
 ## Segurança
 - [x] CSP (`script-src 'self'`, sem inline), Referrer-Policy, Permissions-Policy (nginx)

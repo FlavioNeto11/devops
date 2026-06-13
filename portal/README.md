@@ -81,13 +81,20 @@ npx --yes serve -l 5055 C:\devops\portal\frontend
 > `ci-portal` roda `format:check` + `lint` + `test` + _smoke_ `docker build` +
 > `kubeconform` (ver [`.github/workflows/ci-portal.yml`](../.github/workflows/ci-portal.yml)).
 
-## Deploy (lab local)
+## Deploy
+
+**Recomendado** — imagem IMUTÁVEL por commit (rollback confiável):
 
 ```powershell
-docker build -t portal-frontend:local C:\devops\portal\frontend
-kubectl apply -f C:\devops\portal\k8s\portal.yaml
-kubectl -n devops-system rollout status deploy/portal
+C:\devops\scripts\publish-portal.ps1
+# builda portal-frontend:<sha> (+ :local), aplica, set image, rollout, smoke.
 ```
+
+O portal está sob **GitOps (Argo CD)**: [`platform/argocd/apps/portal.yaml`](../platform/argocd/apps/portal.yaml)
+sincroniza `portal/k8s` (com `ignoreDifferences` no `image`, para não brigar com a tag publicada). O
+**CI** ([`ci-portal.yml`](../.github/workflows/ci-portal.yml)) publica a mesma versão no GHCR
+(`ghcr.io/flavioneto11/portal/frontend:<sha>`) em push para `main`. O portal também entra no
+**"sobe tudo"** (`scripts/up.ps1` → `install-platform.ps1` etapa 6/6).
 
 Validar no ar:
 
@@ -95,6 +102,8 @@ Validar no ar:
 curl.exe -I http://xpto.localhost/                 # 200 + headers de segurança
 curl.exe -s -o NUL -w "%{http_code}" http://xpto.localhost/healthz   # 200
 ```
+
+Rollback e diagnóstico: [`../docs/runbooks/portal-operations.md`](../docs/runbooks/portal-operations.md).
 
 ## Adicionar um app/card ao portal
 

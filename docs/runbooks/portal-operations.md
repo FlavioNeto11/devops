@@ -11,24 +11,27 @@ language: pt-BR
 > Componente: [`portal/`](../../portal/) (namespace `devops-system`). Detalhe técnico no
 > [`portal/README.md`](../../portal/README.md); fronteiras em [`portal/AGENTS.md`](../../portal/AGENTS.md).
 
-## 1. Publicar uma alteração
+## 1. Publicar uma alteração (recomendado: tag imutável)
 
 ```powershell
 # 1) Validar antes de buildar (gate local)
-cd C:\devops\portal\frontend
-npm run validate                 # Prettier + ESLint + node:test
+cd C:\devops\portal\frontend; npm run validate    # Prettier + ESLint + node:test
 
-# 2) Build da imagem local do lab
-docker build -t portal-frontend:local C:\devops\portal\frontend
-
-# 3) Aplicar manifest (idempotente) e reiniciar o rollout
-kubectl apply -f C:\devops\portal\k8s\portal.yaml
-kubectl -n devops-system rollout restart deploy/portal
-kubectl -n devops-system rollout status deploy/portal --timeout=90s
+# 2) Publicar com imagem IMUTÁVEL por commit (build :<sha> + :local, set image, rollout, smoke)
+C:\devops\scripts\publish-portal.ps1
 ```
 
-> ⚠️ Como a imagem é `:local` com `imagePullPolicy: IfNotPresent`, **rebuild + rollout restart**
-> é o que efetiva a nova versão (não há `:tag` nova para o k8s detectar).
+`publish-portal.ps1` builda `portal-frontend:<gitsha>` (imutável) + alias `:local`, aplica
+`portal/k8s/portal.yaml`, faz `kubectl set image` para o `<sha>` e aguarda o rollout. Como **cada
+publicação é uma imagem distinta**, o `rollout undo` passa a restaurar a versão anterior de verdade
+(ver §3). O CI publica a mesma versão no GHCR (`ghcr.io/flavioneto11/portal/frontend:<sha>`).
+
+> ⚠️ Evite **rebuildar sempre a tag `:local`** sem o `<sha>`: como `:local` é mutável e
+> `imagePullPolicy: IfNotPresent`, o `rollout undo` voltaria para a MESMA imagem `:local` (já a
+> mais nova) — rollback não confiável. Por isso publicamos com tag por commit.
+>
+> O portal está sob Argo (`platform/argocd/apps/portal.yaml`) com `ignoreDifferences` no campo
+> `image` — o `set image` acima **não** é revertido pelo selfHeal.
 
 ## 2. Validar no ar (smoke)
 
@@ -50,19 +53,26 @@ Checklist visual: ver [`portal-ux-accessibility-checklist.md`](../standards/port
 
 ## 3. Rollback
 
-```powershell
-# Reverter para a revisão anterior do Deployment
-kubectl -n devops-system rollout undo deploy/portal
-kubectl -n devops-system rollout status deploy/portal
+O rollback é confiável **porque cada publicação usa uma imagem imutável distinta**
+(`portal-frontend:<sha>`). Três caminhos, do mais rápido ao mais GitOps:
 
-# (Opcional) reverter o arquivo no git e reaplicar
-git checkout HEAD~1 -- portal/
-docker build -t portal-frontend:local C:\devops\portal\frontend
-kubectl -n devops-system rollout restart deploy/portal
+```powershell
+# A) Revisão anterior do Deployment (volta à imagem :<sha> anterior — confiável)
+kubectl -n devops-system rollout undo deployment/portal
+kubectl -n devops-system rollout status deployment/portal
+
+# B) Pinar um sha conhecido (as anotações devops.flavioneto/* mostram qual estava no ar)
+kubectl -n devops-system set image deployment/portal portal=portal-frontend:<sha-bom>
+
+# C) GitOps (se a mudança veio de um commit): reverter o commit; o Argo re-sincroniza
+git revert <sha-ruim> ; git push       # Argo aplica o manifest anterior
 ```
 
-> O portal é **stateless** (sem banco/volume) — o rollback é seguro e instantâneo. Não há dados a
-> restaurar. Para apps com estado (ex.: SICAT/GymOps), ver [`rollback.md`](./rollback.md).
+> O portal é **stateless** (sem banco/volume): não há dados a restaurar — o rollback é só de imagem.
+> Para apps com estado (SICAT/GymOps), ver [`rollback.md`](./rollback.md).
+>
+> ⚠️ O `rollout undo` só é confiável quando se publica por tag imutável (via `publish-portal.ps1`).
+> Se a publicação anterior reusou a tag `:local` mutável, o `undo` pode voltar à mesma imagem.
 
 ## 4. Diagnóstico
 

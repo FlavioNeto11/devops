@@ -236,8 +236,44 @@ same-origin autoriza o fetch → 200). Verificado no portal implantado (`xpto.lo
 console**. Travado por testes (`isAuthError`, seção inicia oculta).
 
 ## 16. Próximos passos recomendados
-1. Rodar Lighthouse/axe e registrar as notas nos checklists (fechar os itens `[ ]`).
-2. Gerar `og-cover.png` para máxima compatibilidade social.
-3. Habilitar TLS/HSTS na borda (Cloudflare/Traefik) e o middleware `redirect-https`.
-4. (Opcional) `assets/config.js` de deploy para ligar analytics/Sentry via env (sem chave no git).
+1. Gerar `og-cover.png` para máxima compatibilidade social (scrapers que não leem SVG).
+2. Habilitar TLS/HSTS na borda (Cloudflare/Traefik) e o middleware `redirect-https`.
+3. Substituir os placeholders do showcase por **screenshots reais** dos produtos (`assets/shots/<app>.png`).
+4. (Opcional) endpoint público read-only no Console p/ a descoberta não logar 401 no anônimo.
 5. (Opcional) endurecer a imagem para rodar nginx como não-root.
+
+---
+
+# Rodada 2 — Resposta à revisão externa (2026-06-13)
+
+Uma revisão externa apontou bugs reais e lacunas de prontidão. Tratados (plano aprovado em
+`~/.claude/plans/...melhorias...md`):
+
+### Bugs do portal corrigidos
+| # | Achado da revisão | Correção |
+|---|---|---|
+| A1 | **Sem-JS quebra a página** (`.reveal{opacity:0}` órfão) | Gate `.js .reveal`: conteúdo **visível por padrão**; um `<script>` no `<head>` adiciona `js` antes do paint (liberado por **hash sha256** no CSP — sem `unsafe-inline`). Cobre JS desabilitado/bloqueado/com erro. Verificado: `.reveal` opacity=1 sem a classe `js`. |
+| A2 | **Loading nunca exibido** | `loadClusterApps()` mostra `stateMarkup('loading')` (skeleton) na carga inicial/retry. |
+| A3 | **`devops` requiresLogin=false** (mas é OIDC) | `catalog.js` → `true`; selo "login" no card do Console (confirmado `console-auth-401/redirect` no IngressRoute; `portal-rec` segue `false`). |
+| — | **Home pública expõe tools de operador** | Seção Plataforma + link da nav + coluna do rodapé **gated**: ocultas para anônimo (401), reveladas só para operador logado (mesmo sinal da descoberta). Busca respeita o gate. |
+| — | **Hook de analytics sem arquivo** | `assets/config.js` (no-op carregado antes de `portal.js`) + `config.example.js`. |
+| — | **Cards "contam mas não mostram"** | Seção `#showcase` com slots de imagem por produto (placeholders `assets/shots/placeholder.svg` + TODO p/ screenshots reais). |
+
+### Deploy imutável + GitOps + CI (decisão do usuário: "Completo GHCR/CI")
+- **CI** (`ci-portal.yml`, job `build-push`): publica `ghcr.io/flavioneto11/portal/frontend:<sha>` em push p/ main (após quality+docker). Node 20→**22**.
+- **Argo** (`platform/argocd/apps/portal.yaml`): portal sob GitOps; `ignoreDifferences` + `RespectIgnoreDifferences=true` no `image` (não briga com a tag publicada).
+- **Rollback confiável** (`scripts/publish-portal.ps1`): build de tag **imutável** `portal-frontend:<sha>` + `set image` + `rollout restart` → cada deploy é imagem distinta ⇒ `rollout undo` volta a versão anterior **de verdade**. Runbook corrigido (sem "rollback instantâneo" enganoso).
+- **"Sobe tudo"**: `install-platform.ps1` ganhou a etapa **6/6 Portal** (via `publish-portal.ps1`).
+
+### CI/Dependabot
+- `ci-apps` agora cobre **anarabottini** (`typecheck build`). Dependabot ampliado: `apps/anarabottini`, `console/site-renderer`, `portal/frontend`.
+
+### Medição (Chrome local)
+- **Lighthouse** (`http://xpto.localhost/`): **Performance 92 · Accessibility 100 · Best Practices 96 · SEO 100**. **axe-core/cli: 0 violações**.
+- Corrigidos no processo: contraste de botão no escuro (token `--btn-bg` fixo `#2563eb` = 5.8:1), `--muted2` escuro (#828fa9 AA), ordem de headings (rodapé `h4`→`h3`). Best Practices 96 = **1** erro de console esperado (401 do probe de operador) — trade-off intencional.
+
+### Riscos de host documentados (sem migrar)
+- Novo [`docs/runbooks/host-risks-and-readiness.md`](./runbooks/host-risks-and-readiness.md): **disco D: ~98%**, Docker Desktop não suportado em Win Server, SPOF do notebook, backup/UPS/uptime, TLS/HSTS.
+
+### Fora de escopo (registrado)
+- Migrar de Windows Server + Docker Desktop (lab documentado); merge dos PRs major do Dependabot; testes de integração WIP (gymops/sicat); screenshots reais (placeholders entregues); endpoint público no Console p/ zerar o 401.

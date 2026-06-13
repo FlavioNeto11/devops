@@ -57,6 +57,7 @@ Comece aqui ao desenhar/avaliar um app.
 | [`platform-bootstrap-and-reset.md`](./runbooks/platform-bootstrap-and-reset.md) | Subir, validar, resetar. |
 | [`rollback.md`](./runbooks/rollback.md) | Reverter uma publicação (rollout/Argo/flag). |
 | [`portal-operations.md`](./runbooks/portal-operations.md) | Operar o Portal NovaIT (`/`): publicar, validar, rollback, diagnóstico. |
+| [`host-risks-and-readiness.md`](./runbooks/host-risks-and-readiness.md) | Riscos do host (disco, Docker Desktop em Win Server, SPOF, backup, TLS) e prontidão p/ produção. |
 
 ## 🧭 Decisões de arquitetura (`decisions/`)
 ADRs leves (contexto → decisão → consequências). Índice em [`decisions/README.md`](./decisions/README.md).
