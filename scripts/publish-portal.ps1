@@ -43,9 +43,10 @@ $ctx      = 'portal/frontend'
 $ns       = 'devops-system'
 $buildDir = Join-Path $repoRoot $ctx
 
-# SHA curto do commit atual (tag imutável). Marca '-dirty' se houver mudanças não commitadas.
+# SHA curto do commit atual (tag imutável). Marca '-dirty' só se houver mudanças
+# RASTREADAS não commitadas (ignora untracked, ex.: artefatos de outros processos).
 $sha = (git -C $repoRoot rev-parse --short HEAD).Trim()
-$dirty = (git -C $repoRoot status --porcelain) ? '-dirty' : ''
+$dirty = (git -C $repoRoot status --porcelain --untracked-files=no) ? '-dirty' : ''
 $tag = "$sha$dirty"
 $image = "portal-frontend:$tag"
 
