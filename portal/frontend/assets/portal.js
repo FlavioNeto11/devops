@@ -275,20 +275,25 @@ async function loadClusterApps({ silent = false } = {}) {
   if (clusterLoading) return; // evita refreshes concorrentes
   clusterLoading = true;
 
-  // Loading visível na carga inicial/retry: revela a seção e mostra o skeleton
-  // enquanto consulta. No refresh silencioso (60s) não toca a UI.
+  // Skeleton ADIADO (350ms): se a resposta chega antes — caso típico do 401
+  // rápido do anônimo — o skeleton nunca aparece (sem flicker). Só surge quando a
+  // consulta demora (operador logado com cluster lento). No refresh silencioso, nada.
+  let loadingTimer = 0;
   if (!silent) {
-    if (section) {
-      section.hidden = false;
-      markRevealed('#cluster-section');
-    }
-    stateBox.hidden = false;
-    stateBox.setAttribute('aria-busy', 'true');
-    stateBox.innerHTML = stateMarkup('loading');
+    loadingTimer = setTimeout(() => {
+      if (section) {
+        section.hidden = false;
+        markRevealed('#cluster-section');
+      }
+      stateBox.hidden = false;
+      stateBox.setAttribute('aria-busy', 'true');
+      stateBox.innerHTML = stateMarkup('loading');
+    }, 350);
   }
 
   try {
     const data = await fetchWithTimeout(API_URL);
+    clearTimeout(loadingTimer);
     const apps = appsInNamespace(parseIngressRoutes(data), 'apps');
     enrichCuratedCards(livePathSet(apps));
 
@@ -311,6 +316,7 @@ async function loadClusterApps({ silent = false } = {}) {
     applySearch();
     track('cluster_apps_loaded', { extras: extras.length, live: apps.length });
   } catch (err) {
+    clearTimeout(loadingTimer);
     track('cluster_apps_error', { message: String((err && err.message) || err) });
     // Recurso de operador: API restrita (401/403) ⇒ visitante anônimo ⇒ esconde a
     // descoberta E as ferramentas de operador (site público mostra só o curado).
@@ -460,6 +466,9 @@ function setupNavSpy() {
 }
 
 export function init() {
+  // Módulo vivo: cancela o failsafe de reveal do <head> (senão, após 2,5s, ele
+  // forçaria `.no-anim` revelando tudo de uma vez). Ver index.html <head>.
+  if (typeof window !== 'undefined' && window.__pf) clearTimeout(window.__pf);
   const yr = document.getElementById('yr');
   if (yr) yr.textContent = String(new Date().getFullYear());
   setupHeaderShadow();

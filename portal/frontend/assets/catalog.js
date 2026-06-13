@@ -120,7 +120,7 @@ export const TOOLS = [
     path: '/portal-rec',
     desc: 'Captura portais externos num browser remoto e gera contratos de API para automação.',
     cta: 'Abrir Portal Recorder',
-    requiresLogin: false,
+    requiresLogin: true,
     scope: 'internal',
   },
 ];

@@ -16,11 +16,10 @@ test('produtos que exigem login estão marcados', () => {
 });
 
 test('DevOps Console (gated por OIDC) tem requiresLogin true', () => {
-  const devops = TOOLS.find((t) => t.key === 'devops');
-  assert.equal(devops.requiresLogin, true);
-  // portal-recorder não tem gate OIDC → false (confirmado no IngressRoute)
-  const rec = TOOLS.find((t) => t.key === 'portal-rec');
-  assert.equal(rec.requiresLogin, false);
+  // Todas as ferramentas de operador exigem login (OIDC/SSO ou auth do app).
+  for (const k of ['devops', 'grafana', 'argocd', 'keycloak', 'portal-rec']) {
+    assert.equal(TOOLS.find((t) => t.key === k).requiresLogin, true, `${k} deve exigir login`);
+  }
 });
 
 test('ferramentas cobrem as rotas da plataforma', () => {

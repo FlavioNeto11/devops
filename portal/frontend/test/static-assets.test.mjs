@@ -59,7 +59,8 @@ test('HTML não tem estilos inline (mantém a CSP de style-src endurecida)', () 
   }
 });
 
-const JS_GATE = "document.documentElement.classList.add('js')";
+const JS_GATE =
+  "document.documentElement.classList.add('js');window.__pf=setTimeout(function(){document.documentElement.classList.add('no-anim')},2500)";
 
 test('HTML só tem scripts permitidos (externo, JSON-LD ou o js-gate hash-liberado)', () => {
   const html = readFrontend('index.html');
@@ -102,4 +103,6 @@ test('CSS tem tokens e modo escuro', () => {
   // Progressive enhancement: o esconder do reveal é gated por .js (não global)
   assert.match(css, /\.js \.reveal\s*\{/);
   assert.ok(!/^\.reveal\s*\{[^}]*opacity:\s*0/m.test(css), '.reveal não deve esconder sem .js');
+  // Failsafe: .no-anim revela tudo se o módulo morrer
+  assert.match(css, /\.no-anim \.reveal\s*\{/);
 });

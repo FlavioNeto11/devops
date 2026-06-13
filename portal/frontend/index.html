@@ -3,10 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- Progressive enhancement: marca <html> com `js` ANTES do paint, para que a
-         animação de reveal só esconda conteúdo quando o JS está ativo. Sem JS, o
-         conteúdo fica visível. Liberado por hash sha256 no CSP (nginx.conf). -->
-    <script>document.documentElement.classList.add('js')</script>
+    <!-- Progressive enhancement + FAILSAFE. Marca <html> com `js` antes do paint
+         (reveal só esconde com JS). Um timer de 2,5s adiciona `no-anim` (revela
+         tudo) caso o módulo externo NÃO inicialize (falha/bloqueio/erro) — o
+         portal.js cancela esse timer em init(). Sem JS algum, nada disto roda e o
+         conteúdo já é visível. Liberado por hash sha256 no CSP (nginx.conf). -->
+    <script>document.documentElement.classList.add('js');window.__pf=setTimeout(function(){document.documentElement.classList.add('no-anim')},2500)</script>
 
     <title>NovaIT — Engenharia de Software & Plataforma de Tecnologia</title>
     <meta
@@ -64,7 +66,7 @@
       rel="stylesheet"
     />
 
-    <link rel="stylesheet" href="/assets/styles.css?v=8" />
+    <link rel="stylesheet" href="/assets/styles.css?v=9" />
 
     <!-- Dados estruturados (SEO) -->
     <script type="application/ld+json">
@@ -535,11 +537,11 @@
               <p>Identidade e Single Sign-On (OIDC) unificado.</p>
               <a class="lnk" href="/auth">Abrir Keycloak <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></a>
             </article>
-            <article class="card tool reveal" data-search="portal recorder captura browser remoto contratos api automação interno">
+            <article class="card tool reveal" data-search="portal recorder captura browser remoto contratos api automação interno login">
               <div class="th">
                 <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="4" width="19" height="14" rx="2" /><path d="M2.5 8h19M7 21h10" /><circle cx="12" cy="13" r="2.4" /></svg>
                 <h3>Portal Recorder</h3>
-                <span class="badge is-internal" title="Ferramenta interna da plataforma">interno</span>
+                <span class="badge is-login" title="Requer autenticação (OIDC)">login</span>
               </div>
               <p>Captura portais externos num browser remoto e gera contratos de API para automação.</p>
               <a class="lnk" href="/portal-rec">Abrir Portal Recorder <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></a>
@@ -615,7 +617,7 @@
     </button>
 
     <!-- Config de runtime opcional (no-op por padrão); habilita analytics por deploy. -->
-    <script src="/assets/config.js?v=8"></script>
-    <script type="module" src="/assets/portal.js?v=8"></script>
+    <script src="/assets/config.js?v=9"></script>
+    <script type="module" src="/assets/portal.js?v=9"></script>
   </body>
 </html>

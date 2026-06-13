@@ -50,9 +50,10 @@ test('indica apps que exigem login', () => {
   assert.match(html, /data-path="\/sicat"[\s\S]*?exige login/);
 });
 
-test('marca ferramentas internas com badge', () => {
-  assert.ok(html.includes('badge is-internal'));
-  assert.ok(html.includes('>interno<'));
+test('ferramentas de operador marcadas como login (todas exigem auth)', () => {
+  // Após proteger o Portal Recorder com OIDC, todas as tools exigem login.
+  assert.match(html, /<h3>Portal Recorder<\/h3>\s*<span class="badge is-login"/);
+  assert.ok(!html.includes('badge is-internal'), 'nenhuma tool fica só "interno"');
 });
 
 test('busca, seção dinâmica e região de estado presentes', () => {
@@ -77,8 +78,8 @@ test('DevOps Console marcado como exige login (gated por OIDC)', () => {
   assert.match(html, /<h3>DevOps Console<\/h3>\s*<span class="badge is-login"/);
 });
 
-test('progressive enhancement: js-gate no <head> e seção showcase presente', () => {
-  assert.ok(html.includes("<script>document.documentElement.classList.add('js')</script>"));
+test('progressive enhancement: js-gate + failsafe no <head> e showcase presente', () => {
+  assert.match(html, /classList\.add\('js'\);window\.__pf=setTimeout/);
   assert.match(html, /id="showcase"/);
   assert.match(html, /class="shot reveal"/);
 });

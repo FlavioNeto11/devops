@@ -1016,6 +1016,14 @@ footer {
   opacity: 1;
   transform: none;
 }
+/* Failsafe: se o módulo portal.js não inicializar (falha/bloqueio/erro), o
+   <script> do <head> adiciona `no-anim` após 2,5s e tudo fica visível — o
+   conteúdo nunca fica preso em opacity:0. */
+.no-anim .reveal {
+  opacity: 1 !important;
+  transform: none !important;
+  transition: none !important;
+}
 
 /* ---- Página 404 --------------------------------------------------------- */
 .error-page {
