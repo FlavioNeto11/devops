@@ -197,6 +197,114 @@ describe('Detached async operations worker', () => {
     assert.strictEqual(mirroredManifestRes.rows[0].status, 'submitted');
   });
 
+  it('retry de manifest.receive com POST já confirmado NÃO re-envia o recebimento à CETESB', async () => {
+    // Cenário real: 1ª tentativa POSTou a baixa, falhou ao baixar o comprovante
+    // (retryable) e o job foi re-agendado. A entity guarda receiveConfirmation.
+    await query(
+      `INSERT INTO async_operation_entities(
+        entity_type, entity_id, operation, integration_account_id, session_context_id,
+        status, payload, result, requested_by, correlation_id, last_sync_at
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,$10,now())`,
+      [
+        'manifestReceipt',
+        `${receivePrefix}002`,
+        'manifest.receive',
+        `${accountPrefix}001`,
+        `${sessionPrefix}001`,
+        'running',
+        JSON.stringify({
+          integrationAccountId: `${accountPrefix}001`,
+          sessionContextId: `${sessionPrefix}001`,
+          receiptPayload: {
+            rrmCodigo: 456,
+            manifesto: { manCodigo: 22169013, manNumero: '260010679517', manHashCode: 'receive-hash-002' }
+          },
+          printReceiptAfterReceive: true,
+          receiveConfirmation: {
+            confirmedAt: '2026-06-12T20:00:00.000Z',
+            manCodigo: 22169013,
+            manNumero: '260010679517',
+            message: 'Recebimento confirmado'
+          },
+          requestedBy: 'test.user'
+        }),
+        JSON.stringify(null),
+        'test.user',
+        'corr_async_wrk_receive_002'
+      ]
+    );
+
+    await query(
+      `INSERT INTO jobs(
+        job_id, command_id, entity_type, entity_id, operation, payload,
+        status, max_attempts, attempts, correlation_id, idempotency_key,
+        started_at, claimed_at, claim_heartbeat_at, claimed_by
+      ) VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,now(),now(),now(),$12)`,
+      [
+        'job_async_wrk_receive_002',
+        'cmd_async_wrk_receive_002',
+        'manifestReceipt',
+        `${receivePrefix}002`,
+        'manifest.receive',
+        JSON.stringify({
+          integrationAccountId: `${accountPrefix}001`,
+          sessionContextId: `${sessionPrefix}001`,
+          receiptPayload: {
+            rrmCodigo: 456,
+            manifesto: { manCodigo: 22169013, manNumero: '260010679517', manHashCode: 'receive-hash-002' }
+          }
+        }),
+        'running',
+        3,
+        2,
+        'corr_async_wrk_receive_002',
+        'idem_async_wrk_receive_002',
+        'worker-test'
+      ]
+    );
+
+    const job = await findJobById('job_async_wrk_receive_002');
+    let receivePostCalls = 0;
+    const gateway = {
+      submitManifest: async () => null,
+      printManifest: async () => null,
+      cancelManifest: async () => null,
+      submitCadastro: async () => null,
+      listReceiptResponsibles: async () => buildGatewayExchange({ endpoint: '/receipt/responsibles', data: { items: [{ rrmCodigo: 456, rrmNome: 'Responsavel Teste' }] } }),
+      searchReceivableManifests: async () => buildGatewayExchange({ endpoint: '/receipt/search', data: { items: [{ manCodigo: 22169013, manNumero: '260010679517', manHashCode: 'receive-hash-002' }] } }),
+      getRemoteManifest: async () => buildGatewayExchange({ endpoint: '/manifest/get', data: { item: { manCodigo: 22169013, manNumero: '260010679517', manHashCode: 'receive-hash-002', parceiroAcesso: { paaCodigo: validSessionContext.partnerCode }, listaManifestoResiduo: [{ marCodigo: 'MAR002', marNumeroLinha: '1', marQuantidade: 25.2, marQuantidadeRecebida: null, residuo: { resCodigoIbama: 'IB002' } }] } } }),
+      receiveManifest: async () => {
+        receivePostCalls += 1;
+        return buildGatewayExchange({ endpoint: '/manifest/receive', data: { message: 'Recebimento duplicado!' } });
+      },
+      printManifestReceipt: async () => buildGatewayExchange({ endpoint: '/manifest/receipt/print', data: { pdfBuffer: Buffer.from('%PDF-receipt%') } }),
+      listCdfResponsibles: async () => null,
+      searchCdfGeneratorPartner: async () => null,
+      searchReceivedManifestsForCdf: async () => null,
+      generateCdf: async () => null,
+      searchCdfCertificates: async () => null,
+      printCdfCertificate: async () => null
+    };
+
+    await processJob(job, gateway);
+
+    assert.strictEqual(receivePostCalls, 0, 'retry não pode re-POSTar a baixa já confirmada');
+
+    const updatedJob = await findJobById('job_async_wrk_receive_002');
+    assert.strictEqual(updatedJob.status, 'succeeded');
+
+    const entity = await findAsyncOperationEntity('manifestReceipt', `${receivePrefix}002`);
+    assert.strictEqual(entity.status, 'succeeded');
+    // A mensagem vem da confirmação original, não de um novo POST.
+    assert.strictEqual(entity.result.jobResults['manifest.receive'].message, 'Recebimento confirmado');
+
+    const documentRes = await query(
+      'SELECT * FROM async_operation_documents WHERE owner_entity_type = $1 AND owner_entity_id = $2',
+      ['manifestReceipt', `${receivePrefix}002`]
+    );
+    assert.strictEqual(documentRes.rows.length, 1, 'o comprovante é baixado no retry');
+  });
+
   it('processes cdf.generate and persists generated PDF metadata', async () => {
     await query(
       `INSERT INTO async_operation_entities(

@@ -379,7 +379,17 @@ export const CONVERSATION_TOOLS: FunctionTool[] = [
           },
           receiptPayload: {
             type: 'object',
-            description: 'Dados de recebimento para manifest.receive.'
+            description: 'Dados de recebimento para manifest.receive.',
+            properties: {
+              remDataRecebimento: {
+                type: 'string',
+                description: 'Data/hora do recebimento SEMPRE em ISO-8601 (ex.: 2026-06-12T14:30:00-03:00 ou 2026-06-12). NUNCA use DD/MM/YYYY: o formato com barras é ambíguo e será interpretado como MM/DD pela CETESB.'
+              },
+              remObservacao: {
+                type: 'string',
+                description: 'Observação livre do recebimento (opcional).'
+              }
+            }
           },
           overrides: {
             type: 'object',

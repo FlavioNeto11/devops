@@ -96,9 +96,12 @@ export function normalizeDocument(value) {
 export function resolveManifestIdentifiers(manifest) {
   const externalReference = manifest?.externalReference || manifest?.externalSnapshot || {};
   const externalSnapshot = manifest?.externalSnapshot || {};
+  // As linhas da LISTAGEM (mapManifestListItem) vêm achatadas (manifestNumber/
+  // externalCode) — sem o fallback, a baixa em lote perdia manNumero/manCodigo
+  // e a busca CETESB por número (server-side) nunca era usada.
   return {
-    manCodigo: externalReference?.manCodigo ?? externalSnapshot?.manCodigo ?? null,
-    manNumero: externalReference?.manNumero ?? externalSnapshot?.manNumero ?? null,
+    manCodigo: externalReference?.manCodigo ?? externalSnapshot?.manCodigo ?? manifest?.externalCode ?? null,
+    manNumero: externalReference?.manNumero ?? externalSnapshot?.manNumero ?? manifest?.manifestNumber ?? null,
     manHashCode: manifest?.externalHashCode || externalSnapshot?.manHashCode || null
   };
 }

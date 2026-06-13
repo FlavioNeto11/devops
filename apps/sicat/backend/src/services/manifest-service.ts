@@ -2262,7 +2262,8 @@ export async function enqueueManifestReceive(
     requestedBy: toNullableString(body?.requestedBy),
     payload: {
       receiptPayload,
-      printReceiptAfterReceive: Boolean(body?.printReceiptAfterReceive)
+      // Ausência do flag = imprimir (comportamento histórico); só false explícito pula o PDF.
+      printReceiptAfterReceive: body?.printReceiptAfterReceive == null ? true : Boolean(body.printReceiptAfterReceive)
     },
     headers,
     correlationId,

@@ -1444,14 +1444,37 @@ function mergeReceiptManifestResidues(remoteManifest: LooseRecord, requestedMani
   });
 }
 
-function buildReceiptManifestPayload(
+// Merge raso de objetos aninhados do manifesto (parceiros): o request só
+// sobrescreve os CAMPOS que enviar, nunca o objeto completo do GET remoto.
+function mergeOptionalRecord(remote: unknown, requested: unknown): LooseRecord | null {
+  const remoteRecord = toRecord(remote);
+  const requestedRecord = toRecord(requested);
+  if (Object.keys(remoteRecord).length === 0 && Object.keys(requestedRecord).length === 0) {
+    return null;
+  }
+  return { ...remoteRecord, ...requestedRecord };
+}
+
+export function buildReceiptManifestPayload(
   remoteManifest: LooseRecord,
   receiptPayload: LooseRecord,
   matchedManifest: LooseRecord | null,
   effectivePartnerCode: number
 ) {
   const requestedManifest = toRecord(receiptPayload.manifesto);
-  const mergedResidues = mergeReceiptManifestResidues(remoteManifest, requestedManifest);
+  const mergedGerador = mergeOptionalRecord(remoteManifest.parceiroGerador, requestedManifest.parceiroGerador);
+  const mergedTransportador = mergeOptionalRecord(remoteManifest.parceiroTransportador, requestedManifest.parceiroTransportador);
+  const mergedDestinador = mergeOptionalRecord(remoteManifest.parceiroDestinador, requestedManifest.parceiroDestinador);
+  const mergedArmazenador = mergeOptionalRecord(remoteManifest.parceiroArmazenadorTemporario, requestedManifest.parceiroArmazenadorTemporario);
+  // O portal real SEMPRE envia marQuantidadeRecebida em cada linha (pré-preenchida
+  // com a quantidade declarada; o GET remoto vem com null antes da baixa —
+  // captura cap_3012dde41ef83433f6). Sem isso a baixa em lote repassaria null.
+  const mergedResidues = mergeReceiptManifestResidues(remoteManifest, requestedManifest)
+    .map((line) => (
+      line.marQuantidadeRecebida == null
+        ? { ...line, marQuantidadeRecebida: line.marQuantidade ?? null }
+        : line
+    ));
 
   return {
     ...remoteManifest,
@@ -1467,6 +1490,10 @@ function buildReceiptManifestPayload(
         || toNonEmptyString(toRecord(remoteManifest.parceiroAcesso).paaNome)
         || null
     },
+    ...(mergedGerador ? { parceiroGerador: mergedGerador } : {}),
+    ...(mergedTransportador ? { parceiroTransportador: mergedTransportador } : {}),
+    ...(mergedDestinador ? { parceiroDestinador: mergedDestinador } : {}),
+    ...(mergedArmazenador ? { parceiroArmazenadorTemporario: mergedArmazenador } : {}),
     listaManifestoResiduo: mergedResidues
   };
 }
@@ -1490,6 +1517,56 @@ export function formatCetesbReceiptTimestamp(date: Date): string {
   return `${get('month')}/${get('day')}/${get('year')} ${get('hour')}:${get('minute')}:${get('second')}`;
 }
 
+const CETESB_RECEIPT_TIMESTAMP_PATTERN = /^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}:\d{2}:\d{2})$/;
+// São Paulo não tem horário de verão desde 2019 — offset fixo.
+const SAO_PAULO_UTC_OFFSET = '-03:00';
+
+/**
+ * O frontend e o chat enviam remDataRecebimento em ISO-8601; a CETESB espera
+ * "MM/DD/YYYY HH:mm:ss" (formato observado na captura). Todas as conversões são
+ * independentes do TZ do processo (o container roda em UTC; dev em São Paulo):
+ * data/hora SEM offset é interpretada como hora de São Paulo, data sem hora
+ * vira meio-dia de São Paulo (parse UTC recuaria um dia), epoch numérico é
+ * convertido, e "DD/MM/YYYY hh:mm:ss" inequívoco (dia > 12) é reordenado para
+ * MM/DD. Valor não parseável é repassado como veio (a CETESB devolve o erro
+ * estruturado); ambiguidade MM/DD×DD/MM com ambos ≤ 12 não é adivinhada.
+ */
+export function normalizeCetesbReceiptTimestamp(value: unknown, now: Date): string {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return formatCetesbReceiptTimestamp(new Date(value));
+  }
+  const raw = toNonEmptyString(value);
+  if (!raw) {
+    return formatCetesbReceiptTimestamp(now);
+  }
+  const portalMatch = raw.match(CETESB_RECEIPT_TIMESTAMP_PATTERN);
+  if (portalMatch) {
+    const [, first, second, year, time] = portalMatch;
+    if (Number(first) > 12 && Number(second) <= 12) {
+      return `${second}/${first}/${year} ${time}`;
+    }
+    return raw;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return formatCetesbReceiptTimestamp(new Date(`${raw}T12:00:00${SAO_PAULO_UTC_OFFSET}`));
+  }
+  const slashDateMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (slashDateMatch) {
+    let [, month, day] = slashDateMatch;
+    const year = slashDateMatch[3];
+    if (Number(month) > 12 && Number(day) <= 12) {
+      [month, day] = [day, month];
+    }
+    return formatCetesbReceiptTimestamp(new Date(`${year}-${month}-${day}T12:00:00${SAO_PAULO_UTC_OFFSET}`));
+  }
+  const noOffsetMatch = raw.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)$/);
+  if (noOffsetMatch) {
+    return formatCetesbReceiptTimestamp(new Date(`${noOffsetMatch[1]}T${noOffsetMatch[2]}${SAO_PAULO_UTC_OFFSET}`));
+  }
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? raw : formatCetesbReceiptTimestamp(parsed);
+}
+
 /**
  * Raiz do POST /api/mtr/manifesto/recebimento/ EXATAMENTE como o portal real
  * envia (captura cap_3012dde41ef83433f6): {manifesto, paaCodigo, remCodigo,
@@ -1511,8 +1588,7 @@ export function buildReceiveRequestBody(input: {
     remCodigo: toNonEmptyString(receiptPayload.remCodigo) ?? '',
     rrmCodigo: resolvedResponsibleCode ?? receiptPayload.rrmCodigo ?? null,
     remObservacao: toNonEmptyString(receiptPayload.remObservacao) ?? '',
-    remDataRecebimento: toNonEmptyString(receiptPayload.remDataRecebimento)
-      ?? formatCetesbReceiptTimestamp(input.now ?? new Date())
+    remDataRecebimento: normalizeCetesbReceiptTimestamp(receiptPayload.remDataRecebimento, input.now ?? new Date())
   };
 }
 
@@ -1692,52 +1768,93 @@ async function handleManifestReceive(job: JobEntity, gateway: {
   const remoteManifest = toRecord(remoteManifestExchange.response.data?.item);
   const mergedManifestPayload = buildReceiptManifestPayload(remoteManifest, receiptPayload, matchedManifest, effectivePartnerCode);
 
-  const receiveExchange = toGatewayExchange(await gateway.receiveManifest({
-    integrationAccountId,
-    sessionContextId: sessionContext.id,
-    correlationId: job.correlationId,
-    includeAudit: true,
-    payload: buildReceiveRequestBody({
-      mergedManifestPayload,
-      effectivePartnerCode,
-      resolvedResponsibleCode: resolvedResponsible?.rrmCodigo ?? null,
-      receiptPayload
-    })
-  }));
-  await logExchange(job, receiveExchange);
+  // Idempotência do POST: um retry deste job (ex.: falha ao baixar o comprovante)
+  // NÃO pode re-enviar o recebimento — a CETESB já registrou a baixa na primeira
+  // tentativa. O sucesso do POST fica persistido na entity ANTES de qualquer
+  // passo que possa falhar e re-agendar o job.
+  const priorReceiveConfirmation = toRecord(entity.payload.receiveConfirmation);
+  let receiveMessage: unknown = priorReceiveConfirmation.message ?? null;
+
+  if (!toNonEmptyString(priorReceiveConfirmation.confirmedAt)) {
+    const receiveExchange = toGatewayExchange(await gateway.receiveManifest({
+      integrationAccountId,
+      sessionContextId: sessionContext.id,
+      correlationId: job.correlationId,
+      includeAudit: true,
+      payload: buildReceiveRequestBody({
+        mergedManifestPayload,
+        effectivePartnerCode,
+        resolvedResponsibleCode: resolvedResponsible?.rrmCodigo ?? null,
+        receiptPayload
+      })
+    }));
+    await logExchange(job, receiveExchange);
+    receiveMessage = receiveExchange.response.data?.message ?? null;
+
+    await updateAsyncEntity(job, {
+      status: 'running',
+      sessionContextId: sessionContext.id,
+      payload: {
+        ...entity.payload,
+        integrationAccountId,
+        sessionContextId: sessionContext.id,
+        receiptPayload: {
+          ...receiptPayload,
+          paaCodigo: effectivePartnerCode
+        },
+        receiveConfirmation: {
+          confirmedAt: nowIso(),
+          manCodigo: mergedManifestPayload.manCodigo ?? null,
+          manNumero: mergedManifestPayload.manNumero ?? null,
+          message: receiveMessage
+        }
+      },
+      result: entity.result,
+      lastSyncAt: nowIso()
+    });
+  }
 
   const manifestHashCode = toNonEmptyString(mergedManifestPayload.manHashCode)
     || toNonEmptyString(matchedManifest?.manHashCode);
-  if (!manifestHashCode) {
-    throw buildRetryableError('Manifesto recebido sem hash CETESB para baixar comprovante.', 'TEMPORARILY_UNAVAILABLE');
-  }
 
-  const receiptPdfExchange = toGatewayExchange(await gateway.printManifestReceipt(manifestHashCode, {
-    integrationAccountId,
-    sessionContextId: sessionContext.id,
-    correlationId: job.correlationId,
-    includeAudit: true
-  }));
-  await logExchange(job, receiptPdfExchange);
+  // O checkbox "imprimir comprovante" agora é honrado (antes era flag morta:
+  // o handler imprimia sempre). Ausência do flag mantém o comportamento de
+  // imprimir; só `false` explícito pula o PDF.
+  const shouldPrintReceipt = (entity.payload.printReceiptAfterReceive ?? job.payload?.printReceiptAfterReceive) !== false;
+  let receiptDocument: { id: string; fileName: string | null; storagePath: string | null } | null = null;
 
-  const receiptPdfRaw = receiptPdfExchange.response.data?.pdfBuffer;
-  if (!receiptPdfRaw) {
-    throw buildRetryableError('Comprovante de recebimento não retornou PDF.', 'TEMPORARILY_UNAVAILABLE');
-  }
-
-  const receiptDocument = requireStoredAsyncDocument(await storeAsyncOperationPdf({
-    entityType: job.entityType,
-    entityId: job.entityId,
-    documentType: 'manifest_receipt_pdf',
-    fileName: buildAsyncDocumentFileName('manifest_receipt', mergedManifestPayload.manNumero || mergedManifestPayload.manCodigo || job.entityId),
-    pdfBuffer: Buffer.isBuffer(receiptPdfRaw) ? receiptPdfRaw : Buffer.from(receiptPdfRaw),
-    hash: manifestHashCode,
-    metadata: {
-      manCodigo: mergedManifestPayload.manCodigo ?? null,
-      manNumero: mergedManifestPayload.manNumero ?? null,
-      documentKind: 'manifest_receipt'
+  if (shouldPrintReceipt) {
+    if (!manifestHashCode) {
+      throw buildRetryableError('Manifesto recebido sem hash CETESB para baixar comprovante.', 'TEMPORARILY_UNAVAILABLE');
     }
-  }), 'Comprovante de recebimento não pôde ser persistido.');
+
+    const receiptPdfExchange = toGatewayExchange(await gateway.printManifestReceipt(manifestHashCode, {
+      integrationAccountId,
+      sessionContextId: sessionContext.id,
+      correlationId: job.correlationId,
+      includeAudit: true
+    }));
+    await logExchange(job, receiptPdfExchange);
+
+    const receiptPdfRaw = receiptPdfExchange.response.data?.pdfBuffer;
+    if (!receiptPdfRaw) {
+      throw buildRetryableError('Comprovante de recebimento não retornou PDF.', 'TEMPORARILY_UNAVAILABLE');
+    }
+
+    receiptDocument = requireStoredAsyncDocument(await storeAsyncOperationPdf({
+      entityType: job.entityType,
+      entityId: job.entityId,
+      documentType: 'manifest_receipt_pdf',
+      fileName: buildAsyncDocumentFileName('manifest_receipt', mergedManifestPayload.manNumero || mergedManifestPayload.manCodigo || job.entityId),
+      pdfBuffer: Buffer.isBuffer(receiptPdfRaw) ? receiptPdfRaw : Buffer.from(receiptPdfRaw),
+      hash: manifestHashCode,
+      metadata: {
+        manCodigo: mergedManifestPayload.manCodigo ?? null,
+        manNumero: mergedManifestPayload.manNumero ?? null,
+        documentKind: 'manifest_receipt'
+      }
+    }), 'Comprovante de recebimento não pôde ser persistido.');
+  }
 
   const mirroredManifest = await upsertManifestFromExternalSearch({
     id: createPrefixedId('man'),
@@ -1749,7 +1866,7 @@ async function handleManifestReceive(job: JobEntity, gateway: {
       manCodigo: toStringOrNumberOrNull(mergedManifestPayload.manCodigo),
       manNumero: toStringOrNumberOrNull(mergedManifestPayload.manNumero)
     },
-    externalHashCode: manifestHashCode,
+    externalHashCode: manifestHashCode || null,
     payload: {
       externalSnapshot: mergedManifestPayload,
       receiptPayload
@@ -1764,12 +1881,12 @@ async function handleManifestReceive(job: JobEntity, gateway: {
     outcome: 'manifest_received',
     manCodigo: mergedManifestPayload.manCodigo ?? null,
     manNumero: mergedManifestPayload.manNumero ?? null,
-    manHashCode: manifestHashCode,
-    message: receiveExchange.response.data?.message ?? null,
+    manHashCode: manifestHashCode || null,
+    message: receiveMessage ?? null,
     manifestId: mirroredManifest?.id || null,
-    documentId: receiptDocument.id,
-    fileName: receiptDocument.fileName,
-    storagePath: receiptDocument.storagePath,
+    documentId: receiptDocument?.id ?? null,
+    fileName: receiptDocument?.fileName ?? null,
+    storagePath: receiptDocument?.storagePath ?? null,
     responsibleCode: resolvedResponsible?.rrmCodigo ?? receiptPayload.rrmCodigo ?? null
   };
 
@@ -1783,8 +1900,8 @@ async function handleManifestReceive(job: JobEntity, gateway: {
 
   await finishJob(job, {
     outcome: 'manifest_received',
-    documentId: receiptDocument.id,
-    fileName: receiptDocument.fileName
+    documentId: receiptDocument?.id ?? null,
+    fileName: receiptDocument?.fileName ?? null
   });
 }
 

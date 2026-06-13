@@ -1646,7 +1646,8 @@ async function handleManifestReceiveWithReceipt(input: ConversationDispatchInput
       integrationAccountId: scope.integrationAccountId,
       sessionContextId: scope.sessionContextId,
       requestedBy: toNullableString(args.requestedBy) || input.context.requestedBy,
-      printReceiptAfterReceive: Boolean(args.printReceiptAfterReceive),
+      // undefined preserva o default do service (imprimir); só false explícito do LLM pula o PDF.
+      printReceiptAfterReceive: args.printReceiptAfterReceive == null ? undefined : Boolean(args.printReceiptAfterReceive),
       receiptPayload
     },
     {
