@@ -12,6 +12,7 @@
       3. install-argocd.ps1         (GitOps / Argo CD).
       4. install-observability.ps1  (Prometheus + Grafana + Loki + Promtail).
       5. install-dashboard.ps1      (DevOps Console, somente leitura).
+      6. publish-portal.ps1         (Portal NovaIT, landing na raiz "/").
 
     Ao final, imprime um resumo com as URLs de acesso.
 
@@ -116,7 +117,7 @@ Write-Step "Contexto kube confirmado: $currentContext"
 # -----------------------------------------------------------------------------
 # 1) Namespaces da plataforma.
 # -----------------------------------------------------------------------------
-Write-Section 'Plataforma DevOps :: 1/5 Namespaces'
+Write-Section 'Plataforma DevOps :: 1/6 Namespaces'
 $namespacesFile = Join-Path $PSScriptRoot '../platform/namespaces/namespaces.yaml'
 if (-not (Test-Path -LiteralPath $namespacesFile)) {
     throw "Arquivo de namespaces nao encontrado: $namespacesFile"
@@ -126,7 +127,7 @@ Invoke-External -FilePath 'kubectl' -Arguments @('apply', '-f', $namespacesFile)
 # -----------------------------------------------------------------------------
 # 2) Traefik (Ingress Controller) e espera ficar Ready.
 # -----------------------------------------------------------------------------
-Write-Section 'Plataforma DevOps :: 2/5 Traefik (Ingress)'
+Write-Section 'Plataforma DevOps :: 2/6 Traefik (Ingress)'
 Invoke-SubScript -Name 'install-traefik.ps1'
 
 Write-Step 'Aguardando o Traefik ficar Ready (condition=Available)...'
@@ -139,13 +140,13 @@ Write-Step 'Traefik esta Ready.'
 # -----------------------------------------------------------------------------
 # 3) Argo CD (GitOps).
 # -----------------------------------------------------------------------------
-Write-Section 'Plataforma DevOps :: 3/5 Argo CD (GitOps)'
+Write-Section 'Plataforma DevOps :: 3/6 Argo CD (GitOps)'
 Invoke-SubScript -Name 'install-argocd.ps1'
 
 # -----------------------------------------------------------------------------
 # 4) Observabilidade (opcional via -SkipObservability).
 # -----------------------------------------------------------------------------
-Write-Section 'Plataforma DevOps :: 4/5 Observabilidade'
+Write-Section 'Plataforma DevOps :: 4/6 Observabilidade'
 if ($SkipObservability) {
     Write-Step 'Parametro -SkipObservability presente; pulando Prometheus/Grafana/Loki/Promtail.'
 } else {
@@ -155,10 +156,18 @@ if ($SkipObservability) {
 # -----------------------------------------------------------------------------
 # 5) DevOps Console (dashboard somente leitura).
 # -----------------------------------------------------------------------------
-Write-Section 'Plataforma DevOps :: 5/5 DevOps Console'
+Write-Section 'Plataforma DevOps :: 5/6 DevOps Console'
 $dashboardArgs = @{}
 if ($WithK8sDashboard) { $dashboardArgs['WithK8sDashboard'] = $true }
 Invoke-SubScript -Name 'install-dashboard.ps1' -ScriptArgs $dashboardArgs
+
+# -----------------------------------------------------------------------------
+# 6) Portal NovaIT (landing publica na raiz "/", namespace devops-system).
+#    publish-portal.ps1 builda a imagem (tag imutavel :<sha> + alias :local),
+#    aplica portal/k8s/portal.yaml e faz rollout/smoke. Idempotente.
+# -----------------------------------------------------------------------------
+Write-Section 'Plataforma DevOps :: 6/6 Portal NovaIT'
+Invoke-SubScript -Name 'publish-portal.ps1'
 
 # -----------------------------------------------------------------------------
 # Resumo final com URLs.

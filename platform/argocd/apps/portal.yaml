@@ -1,0 +1,48 @@
+# =============================================================================
+# Argo CD Application: portal (landing pública na raiz `/`, namespace
+# devops-system). Descoberta pelo app-of-apps "devops-platform". Coloca o portal
+# sob GitOps: mudanças em portal/k8s (Deployment/Service/IngressRoute) sincronizam
+# sozinhas; o estado vivo aparece na UI do Argo CD junto dos demais componentes.
+#
+# A TAG da imagem é gerenciada FORA do git no laboratório (publish-portal.ps1 faz
+# `kubectl set image` com `portal-frontend:<sha>` imutável; o CI publica
+# `ghcr.io/flavioneto11/portal/frontend:<sha>`). Por isso `ignoreDifferences`
+# ignora o campo image do Deployment — assim o selfHeal NÃO reverte a imagem
+# implantada, mas mantém o restante do manifest consistente. Em produção, troque
+# para pinar o `image:` no manifest e versionar (rollback = git revert).
+# =============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: portal
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/FlavioNeto11/devops
+    path: portal/k8s
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: devops-system
+  syncPolicy:
+    automated:
+      prune: false # IngressRoute do portal usa priority 1; nunca prune automático
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # Faz o SYNC (não só o diff) respeitar ignoreDifferences — assim o auto-sync
+      # NÃO reescreve o campo image com o :local do manifest, preservando o :<sha>
+      # publicado pelo publish-portal.ps1 / CI.
+      - RespectIgnoreDifferences=true
+  # A tag da imagem é gerenciada imperativamente no lab (publish-portal.ps1) e
+  # pelo CI (GHCR); Argo ignora o campo image para não reverter o deploy.
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      name: portal
+      namespace: devops-system
+      jsonPointers:
+        - /spec/template/spec/containers/0/image

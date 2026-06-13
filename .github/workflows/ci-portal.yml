@@ -1,10 +1,13 @@
 # =============================================================================
 # ci-portal — gate de qualidade do Portal NovaIT (portal/frontend)
 # -----------------------------------------------------------------------------
-# Roda em PR e push para main quando muda portal/**. Três jobs:
+# Roda em PR e push para main quando muda portal/**. Jobs:
 #   - quality: prettier --check, eslint, testes (node:test, zero infra).
 #   - docker:  smoke build da imagem (valida Dockerfile + presença dos assets).
 #   - manifests: kubeconform nos manifests k8s do portal (CRDs ignorados).
+#   - build-push: SÓ em push p/ main e após quality+docker — publica a imagem
+#     imutável no GHCR (ghcr.io/flavioneto11/portal/frontend:<sha>) via workflow
+#     reutilizável. Dá artefato imutável por commit (histórico + rollback).
 # Falhas reais quebram o pipeline. Runner: ubuntu-latest (igual aos demais).
 # =============================================================================
 name: ci-portal
@@ -38,7 +41,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
           cache-dependency-path: portal/frontend/package-lock.json
 
@@ -82,3 +85,18 @@ jobs:
         run: |
           set -euo pipefail
           kubeconform -ignore-missing-schemas -summary portal/k8s/portal.yaml
+
+  # Publica a imagem imutável no GHCR só quando o gate passa em push para main.
+  build-push:
+    name: build & push GHCR (sha imutável)
+    needs: [quality, docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/reusable-build-push.yaml
+    with:
+      app: portal
+      service: frontend
+      context: portal/frontend
+      dockerfile: portal/frontend/Dockerfile

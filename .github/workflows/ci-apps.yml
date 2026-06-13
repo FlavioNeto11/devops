@@ -49,6 +49,10 @@ jobs:
             pm: npm
             prep: ""
             checks: "build"
+          - app: anarabottini
+            pm: npm
+            prep: ""
+            checks: "typecheck build"
     defaults:
       run:
         working-directory: apps/${{ matrix.app }}

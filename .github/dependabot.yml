@@ -22,11 +22,14 @@ updates:
       - "/apps/sicat"
       - "/apps/gymops"
       - "/apps/rmambiental"
+      - "/apps/anarabottini"
       - "/packages/ai-kit"
       - "/packages/oidc-kit"
       - "/console/backend"
       - "/console/frontend"
       - "/console/pm-api"
+      - "/console/site-renderer"
+      - "/portal/frontend"
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
