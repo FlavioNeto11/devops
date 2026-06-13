@@ -2,13 +2,13 @@
 title: "Drift report — sicat × cetesb (2026-06-12)"
 status: reference
 applies_to: [sicat]
-updated: 2026-06-12
+updated: 2026-06-13
 language: pt-BR
 ---
 
 # Drift report — sicat × cetesb (contrato 2026-06-12)
 
-> Gerado em 2026-06-12T23:00:34.190Z. Comparador read-only: o contrato é a verdade do portal real;
+> Gerado em 2026-06-13T00:42:56.963Z. Comparador read-only: o contrato é a verdade do portal real;
 > o mapa declarativo (`apps/sicat/backend/docs/portal-contracts/sicat-cetesb-endpoint-map.jsonl`) descreve como o sicat acessa cada endpoint hoje.
 > Os `anchors` do mapa são validados contra `apps/sicat/backend/src/gateways/cetesb-gateway.js`.
 

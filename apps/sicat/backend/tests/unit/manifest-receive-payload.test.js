@@ -3,28 +3,13 @@ import assert from 'node:assert/strict';
 import {
   buildReceiptManifestPayload,
   buildReceiveRequestBody,
-  formatCetesbReceiptTimestamp,
   normalizeCetesbReceiptTimestamp
 } from '../../src/workers/operation-handlers.js';
 
-// Raiz do POST /api/mtr/manifesto/recebimento/ fiel à captura real do portal
-// (cap_3012dde41ef83433f6): {manifesto, paaCodigo, remCodigo, rrmCodigo,
-// remObservacao, remDataRecebimento} — sem vazar campos internos do
-// receiptPayload (dateFrom/dateTo/manifesto-request) na raiz.
-
-describe('formatCetesbReceiptTimestamp', () => {
-  it('formata MM/DD/YYYY HH:mm:ss na hora de São Paulo', () => {
-    // 2026-06-12T22:37:57Z = 19:37:57 em São Paulo (UTC-3)
-    const formatted = formatCetesbReceiptTimestamp(new Date('2026-06-12T22:37:57Z'));
-    assert.equal(formatted, '06/12/2026 19:37:57');
-  });
-
-  it('zero-padding e ciclo 24h (meia-noite vira 00, não 24)', () => {
-    // 03:05:09Z = 00:05:09 em São Paulo
-    const formatted = formatCetesbReceiptTimestamp(new Date('2026-01-02T03:05:09Z'));
-    assert.equal(formatted, '01/02/2026 00:05:09');
-  });
-});
+// Verdade do fio = captura real do portal (cap_3012dde41ef83433f6):
+// raiz {manifesto, paaCodigo: <access code da sessão>, remCodigo: null,
+// rrmCodigo, remObservacao: "", remDataRecebimento: ISO-8601}; manifesto é uma
+// PROJEÇÃO de 25 campos (não o GET inteiro) com parceiros de 9 campos.
 
 describe('buildReceiveRequestBody', () => {
   const mergedManifestPayload = { manCodigo: 23788683, manNumero: '260012302059', listaManifestoResiduo: [] };
@@ -32,10 +17,10 @@ describe('buildReceiveRequestBody', () => {
   it('monta a raiz EXATAMENTE como o portal real (sem vazar receiptPayload)', () => {
     const body = buildReceiveRequestBody({
       mergedManifestPayload,
-      effectivePartnerCode: 57380,
+      accessPartnerCode: 57380,
       resolvedResponsibleCode: 3960,
       receiptPayload: { dateFrom: '28-05-2026', dateTo: '12-06-2026', manifesto: { manNumero: '260012302059' } },
-      now: new Date('2026-06-12T22:37:57Z')
+      now: new Date('2026-06-12T22:37:57.168Z')
     });
 
     assert.deepEqual(Object.keys(body).sort(), [
@@ -43,137 +28,156 @@ describe('buildReceiveRequestBody', () => {
     ]);
     assert.equal(body.paaCodigo, 57380);
     assert.equal(body.rrmCodigo, 3960);
-    assert.equal(body.remCodigo, '');
+    assert.equal(body.remCodigo, null);
     assert.equal(body.remObservacao, '');
-    assert.equal(body.remDataRecebimento, '06/12/2026 19:37:57');
+    assert.equal(body.remDataRecebimento, '2026-06-12T22:37:57.168Z');
     assert.equal(body.manifesto, mergedManifestPayload);
-    // Campos internos NÃO vazam para a raiz.
     assert.equal('dateFrom' in body, false);
     assert.equal('manCodigo' in body, false);
   });
 
-  it('respeita remObservacao/remDataRecebimento/rrmCodigo vindos do receiptPayload', () => {
+  it('preserva remDataRecebimento ISO do frontend e respeita overrides', () => {
     const body = buildReceiveRequestBody({
       mergedManifestPayload,
-      effectivePartnerCode: 57380,
+      accessPartnerCode: 57380,
       resolvedResponsibleCode: null,
       receiptPayload: {
         rrmCodigo: 4001,
         remObservacao: 'Recebido com divergência de 0,2t',
-        remDataRecebimento: '06/10/2026 08:00:00'
+        remDataRecebimento: '2026-06-12T15:00:00.000Z'
       }
     });
 
     assert.equal(body.rrmCodigo, 4001);
     assert.equal(body.remObservacao, 'Recebido com divergência de 0,2t');
-    assert.equal(body.remDataRecebimento, '06/10/2026 08:00:00');
-  });
-
-  it('converte remDataRecebimento ISO (frontend) para o formato do portal', () => {
-    // O ManifestsView envia toISOString() de meio-dia local — nunca o formato CETESB.
-    const body = buildReceiveRequestBody({
-      mergedManifestPayload,
-      effectivePartnerCode: 57380,
-      resolvedResponsibleCode: 3960,
-      receiptPayload: { remDataRecebimento: '2026-06-12T15:00:00.000Z' }
-    });
-
-    assert.equal(body.remDataRecebimento, '06/12/2026 12:00:00');
+    assert.equal(body.remDataRecebimento, '2026-06-12T15:00:00.000Z');
   });
 });
 
-describe('normalizeCetesbReceiptTimestamp', () => {
-  const now = new Date('2026-06-12T22:37:57Z');
+describe('normalizeCetesbReceiptTimestamp (saída SEMPRE ISO-8601, como no fio real)', () => {
+  const now = new Date('2026-06-12T22:37:57.168Z');
 
-  it('ISO vira MM/DD/YYYY HH:mm:ss em São Paulo', () => {
-    assert.equal(normalizeCetesbReceiptTimestamp('2026-06-12T15:00:00.000Z', now), '06/12/2026 12:00:00');
+  it('ISO válido passa intocado; vazio vira o instante atual', () => {
+    assert.equal(normalizeCetesbReceiptTimestamp('2026-06-12T15:00:00.000Z', now), '2026-06-12T15:00:00.000Z');
+    assert.equal(normalizeCetesbReceiptTimestamp('', now), '2026-06-12T22:37:57.168Z');
+    assert.equal(normalizeCetesbReceiptTimestamp(null, now), '2026-06-12T22:37:57.168Z');
   });
 
-  it('formato do portal passa intocado (sem reinterpretação de fuso)', () => {
-    assert.equal(normalizeCetesbReceiptTimestamp('06/12/2026 22:37:57', now), '06/12/2026 22:37:57');
+  it('data sem hora vira meio-dia de São Paulo (não recua um dia; TZ-independente)', () => {
+    assert.equal(normalizeCetesbReceiptTimestamp('2026-06-10', now), '2026-06-10T15:00:00.000Z');
+    assert.equal(normalizeCetesbReceiptTimestamp('06/12/2026', now), '2026-06-12T15:00:00.000Z');
   });
 
-  it('data sem hora vira meio-dia de São Paulo (não recua um dia pelo parse UTC)', () => {
-    assert.equal(normalizeCetesbReceiptTimestamp('2026-06-10', now), '06/10/2026 12:00:00');
-    assert.equal(normalizeCetesbReceiptTimestamp('06/12/2026', now), '06/12/2026 12:00:00');
+  it('ISO sem offset é hora de São Paulo — independente do TZ do processo', () => {
+    assert.equal(normalizeCetesbReceiptTimestamp('2026-06-12T15:00:00', now), '2026-06-12T18:00:00.000Z');
+    assert.equal(normalizeCetesbReceiptTimestamp('2026-06-12 15:00', now), '2026-06-12T18:00:00.000Z');
   });
 
-  it('ISO sem offset é hora de São Paulo — independente do TZ do processo (container=UTC, dev=SP)', () => {
-    assert.equal(normalizeCetesbReceiptTimestamp('2026-06-12T15:00:00', now), '06/12/2026 15:00:00');
-    assert.equal(normalizeCetesbReceiptTimestamp('2026-06-12 15:00', now), '06/12/2026 15:00:00');
+  it('epoch numérico é convertido; MM/DD com hora é hora de SP; DD/MM inequívoco reordenado', () => {
+    assert.equal(normalizeCetesbReceiptTimestamp(now.getTime(), now), '2026-06-12T22:37:57.168Z');
+    assert.equal(normalizeCetesbReceiptTimestamp('06/12/2026 14:30:00', now), '2026-06-12T17:30:00.000Z');
+    assert.equal(normalizeCetesbReceiptTimestamp('31/12/2026 23:59:59', now), '2027-01-01T02:59:59.000Z');
+    assert.equal(normalizeCetesbReceiptTimestamp('25/06/2026', now), '2026-06-25T15:00:00.000Z');
   });
 
-  it('epoch numérico (chat/LLM) é convertido em vez de virar string de dígitos', () => {
-    const epoch = new Date('2026-06-12T22:37:57Z').getTime();
-    assert.equal(normalizeCetesbReceiptTimestamp(epoch, now), '06/12/2026 19:37:57');
-  });
-
-  it('DD/MM inequívoco (dia > 12) é reordenado; ambíguo passa intocado', () => {
-    assert.equal(normalizeCetesbReceiptTimestamp('31/12/2026 23:59:59', now), '12/31/2026 23:59:59');
-    assert.equal(normalizeCetesbReceiptTimestamp('25/06/2026', now), '06/25/2026 12:00:00');
-    // 12/06 pode ser 6-de-dezembro ou 12-de-junho: não adivinhamos.
-    assert.equal(normalizeCetesbReceiptTimestamp('12/06/2026 14:30:00', now), '12/06/2026 14:30:00');
-  });
-
-  it('vazio gera timestamp de agora; não parseável é repassado como veio', () => {
-    assert.equal(normalizeCetesbReceiptTimestamp('', now), '06/12/2026 19:37:57');
-    assert.equal(normalizeCetesbReceiptTimestamp(null, now), '06/12/2026 19:37:57');
+  it('não parseável é repassado como veio (erro estruturado vem da CETESB)', () => {
     assert.equal(normalizeCetesbReceiptTimestamp('data-invalida', now), 'data-invalida');
   });
 });
 
-describe('buildReceiptManifestPayload — quantidade recebida', () => {
+describe('buildReceiptManifestPayload — projeção fiel à captura', () => {
+  // GET remoto com campos EXTRAS que o portal NÃO envia no POST (manData,
+  // recaptcha, paisExportacao...) e parceiro com 17 campos.
   const remoteManifest = {
-    manCodigo: 23788683,
-    manNumero: '260012302059',
-    parceiroAcesso: { paaCodigo: 99, paaNome: 'DESTINO FINAL LTDA' },
+    manData: 1781281635253,
+    recaptcha: null,
+    seuCodigo: null,
+    paisExportacao: { paiCodigo: null, paiDescricao: null },
+    estado: { estCodigo: 26, estAbreviacao: 'SP' },
+    manCodigo: 23788534,
+    manNumero: '260012301910',
+    manHashCode: 'SxClZSrnBr3Up053QsfBRu9FamP2oo',
+    manObservacao: 'fresa de asfalto',
+    tipoManifesto: 1,
+    manResponsavel: 'Djalma Ricardo Nunes',
+    parceiroAcesso: { paaNome: 'Djalma Ricardo Nunes', paaCodigo: 357684 },
+    manPlacaVeiculo: 'BXH2E22',
+    parceiroGerador: {
+      parUf: null, parCep: '00000-000', parCnpj: '00.000.000/0001-00', parBairro: 'Centro',
+      parCidade: 'São Paulo', parCodigo: 184068, spaCodigo: 1, parLicenca: null,
+      parEndereco: 'Rua X', parDescricao: 'GERADORA LTDA', possuiPerfil: null,
+      parComplemento: 'Sala 1', parNomeFantasia: 'GER', parOrgaoEmissor: null,
+      parCadastroCetesb: null, parNumeroEndereco: '100'
+    },
+    manDataExpedicao: 1781233200000,
+    manNomeMotorista: 'Motorista',
+    situacaoManifesto: { simOrdem: 1, simCodigo: 1, simDescricao: 'salvo' },
+    parceiroDestinador: { parCodigo: 40110, parDescricao: 'MARDAN', parCnpj: null, parUf: null, parCidade: null, parLicenca: null, parEndereco: null, parOrgaoEmissor: null, parNumeroEndereco: null, parCep: '11111' },
+    parceiroTransportador: { parCodigo: 182790, parDescricao: 'EYESERVICES', parBairro: 'B' },
+    parceiroArmazenadorTemporario: { parCodigo: null, parDescricao: null },
+    parceiroTransportadorArmazenadorTemporario: { parCodigo: null },
+    possuiArmazenamentoTemporario: null,
+    manJustificativaCancelamento: null,
     listaManifestoResiduo: [
-      { marNumeroLinha: 1, marQuantidade: 25.2, marQuantidadeRecebida: null, residuo: { resCodigo: 10 } }
+      { marNumeroLinha: 1, marQuantidade: 25.2, marQuantidadeRecebida: null, residuo: { resCodigo: 731 }, marJustificativa: null }
     ]
   };
 
-  it('lote (sem resíduos no request): preenche recebida = declarada, como o portal', () => {
-    // Na captura real o GET vem com marQuantidadeRecebida null e o portal POSTa 25.2.
-    const payload = buildReceiptManifestPayload(remoteManifest, { manifesto: { manNumero: '260012302059' } }, null, 57380);
+  it('remove campos fora da projeção e enxuga parceiros para 9 campos', () => {
+    const payload = buildReceiptManifestPayload(remoteManifest, { manifesto: { manNumero: '260012301910' } }, null, 40110);
 
-    assert.equal(payload.listaManifestoResiduo.length, 1);
+    // Campos extras do GET NÃO vão no POST (causavam 400 Tomcat/Jackson).
+    assert.equal('manData' in payload, false);
+    assert.equal('recaptcha' in payload, false);
+    assert.equal('paisExportacao' in payload, false);
+    assert.equal('seuCodigo' in payload, false);
+    // 25 campos exatos da captura.
+    assert.equal(Object.keys(payload).length, 25);
+    // Parceiros: somente os 9 campos do shape do portal.
+    assert.deepEqual(Object.keys(payload.parceiroGerador).sort(), [
+      'parCidade', 'parCnpj', 'parCodigo', 'parDescricao', 'parEndereco',
+      'parLicenca', 'parNumeroEndereco', 'parOrgaoEmissor', 'parUf'
+    ]);
+    assert.equal(payload.parceiroGerador.parCodigo, 184068);
+    assert.equal('parCep' in payload.parceiroGerador, false);
+    assert.equal('spaCodigo' in payload.parceiroGerador, false);
+    // parceiroAcesso do GET fica INTOCADO (não é o destinador logado).
+    assert.deepEqual(payload.parceiroAcesso, { paaNome: 'Djalma Ricardo Nunes', paaCodigo: 357684 });
+    // Defaults de string vazia que o portal adiciona.
+    assert.equal(payload.manObservacaoArmazenadorTemporario, '');
+    assert.equal(payload.anJustificativaCancelamentoComplementar, '');
+    // Quantidade recebida preenchida = declarada (lote).
     assert.equal(payload.listaManifestoResiduo[0].marQuantidadeRecebida, 25.2);
-    assert.equal(payload.parceiroAcesso.paaCodigo, 57380);
+    assert.equal(payload.situacaoManifesto.simDescricao, 'salvo');
   });
 
-  it('parceiroGerador parcial do request não clobberiza o objeto completo do GET', () => {
-    const remoteWithGenerator = {
-      ...remoteManifest,
-      parceiroGerador: { parCodigo: 11111, parDescricao: 'GERADORA LTDA', parCnpj: '00.000.000/0001-00' }
-    };
-    const payload = buildReceiptManifestPayload(
-      remoteWithGenerator,
-      { manifesto: { parceiroGerador: { parCnpj: '00.000.000/0001-00' } } },
-      null,
-      57380
-    );
-
-    assert.equal(payload.parceiroGerador.parCodigo, 11111);
-    assert.equal(payload.parceiroGerador.parDescricao, 'GERADORA LTDA');
-    assert.equal(payload.parceiroGerador.parCnpj, '00.000.000/0001-00');
-    // Sem parceiro em nenhum dos lados, a chave não é inventada.
-    assert.equal('parceiroTransportador' in payload, false);
-  });
-
-  it('single (override por linha): mantém a quantidade informada, inclusive 0', () => {
+  it('override por linha mantém a quantidade informada, inclusive 0', () => {
     const payload = buildReceiptManifestPayload(
       remoteManifest,
       {
         manifesto: {
           listaManifestoResiduo: [
-            { marNumeroLinha: 1, residuo: { resCodigo: 10 }, marQuantidadeRecebida: 0 }
+            { marNumeroLinha: 1, residuo: { resCodigo: 731 }, marQuantidadeRecebida: 0 }
           ]
         }
       },
       null,
-      57380
+      40110
     );
 
     assert.equal(payload.listaManifestoResiduo[0].marQuantidadeRecebida, 0);
+  });
+
+  it('parceiro parcial do request não clobberiza o objeto do GET (merge por campo)', () => {
+    const payload = buildReceiptManifestPayload(
+      remoteManifest,
+      { manifesto: { parceiroGerador: { parCnpj: '11.111.111/0001-11' } } },
+      null,
+      40110
+    );
+
+    assert.equal(payload.parceiroGerador.parCnpj, '11.111.111/0001-11');
+    assert.equal(payload.parceiroGerador.parCodigo, 184068);
+    assert.equal(payload.parceiroGerador.parDescricao, 'GERADORA LTDA');
   });
 });

@@ -111,6 +111,7 @@ type SessionContextLike = {
   integrationAccountId: string;
   status: string;
   partnerCode: string | null;
+  userAccessCode?: string | null;
 };
 
 type TerminalFailure = {
@@ -1455,20 +1456,55 @@ function mergeOptionalRecord(remote: unknown, requested: unknown): LooseRecord |
   return { ...remoteRecord, ...requestedRecord };
 }
 
+// PROJEÇÃO do manifesto no POST de recebimento — shape EXATO observado na
+// captura real (cap_3012dde41ef83433f6). O portal NÃO devolve o GET inteiro:
+// remove ~25 campos (manData, recaptcha, paises*, mae*/mai*, etc.) e enxuga os
+// parceiros para 9 campos. Enviar campos extras derruba o binding da CETESB
+// (Jackson) com 400 Bad Request em HTML de Tomcat — visto em produção.
+const RECEIPT_MANIFEST_FIELDS = [
+  'estado', 'manCodigo', 'manNumero', 'manHashCode', 'manObservacao', 'tipoManifesto',
+  'manResponsavel', 'parceiroAcesso', 'manPlacaVeiculo', 'parceiroGerador', 'manDataExpedicao',
+  'manNomeMotorista', 'situacaoManifesto', 'parceiroDestinador', 'listaManifestoResiduo',
+  'parceiroTransportador', 'manJustificativaCancelamento', 'parceiroArmazenadorTemporario',
+  'possuiArmazenamentoTemporario', 'manObservacaoArmazenadorTemporario',
+  'manPlacaVeiculoArmazenamentoTemporario', 'anJustificativaCancelamentoComplementar',
+  'manNomeMotoristaArmazenamentoTemporario', 'manDataRecebimentoArmazenamentoTemporario',
+  'parceiroTransportadorArmazenadorTemporario'
+] as const;
+// Campos que o portal envia como string vazia mesmo quando ausentes no GET.
+const RECEIPT_MANIFEST_EMPTY_STRING_DEFAULTS = new Set([
+  'manObservacaoArmazenadorTemporario',
+  'anJustificativaCancelamentoComplementar'
+]);
+const RECEIPT_PARTNER_FIELDS = [
+  'parUf', 'parCnpj', 'parCidade', 'parCodigo', 'parLicenca',
+  'parEndereco', 'parDescricao', 'parOrgaoEmissor', 'parNumeroEndereco'
+] as const;
+const RECEIPT_PARTNER_OBJECT_KEYS = [
+  'parceiroGerador', 'parceiroTransportador', 'parceiroDestinador',
+  'parceiroArmazenadorTemporario', 'parceiroTransportadorArmazenadorTemporario'
+] as const;
+
+function pickRecordFields(source: LooseRecord, fields: readonly string[]): LooseRecord {
+  const picked: LooseRecord = {};
+  for (const field of fields) {
+    picked[field] = source[field] ?? null;
+  }
+  return picked;
+}
+
 export function buildReceiptManifestPayload(
   remoteManifest: LooseRecord,
   receiptPayload: LooseRecord,
   matchedManifest: LooseRecord | null,
   effectivePartnerCode: number
 ) {
+  void effectivePartnerCode;
   const requestedManifest = toRecord(receiptPayload.manifesto);
-  const mergedGerador = mergeOptionalRecord(remoteManifest.parceiroGerador, requestedManifest.parceiroGerador);
-  const mergedTransportador = mergeOptionalRecord(remoteManifest.parceiroTransportador, requestedManifest.parceiroTransportador);
-  const mergedDestinador = mergeOptionalRecord(remoteManifest.parceiroDestinador, requestedManifest.parceiroDestinador);
-  const mergedArmazenador = mergeOptionalRecord(remoteManifest.parceiroArmazenadorTemporario, requestedManifest.parceiroArmazenadorTemporario);
   // O portal real SEMPRE envia marQuantidadeRecebida em cada linha (pré-preenchida
   // com a quantidade declarada; o GET remoto vem com null antes da baixa —
   // captura cap_3012dde41ef83433f6). Sem isso a baixa em lote repassaria null.
+  // As demais chaves das linhas (e seus sub-objetos) vão idênticas ao GET.
   const mergedResidues = mergeReceiptManifestResidues(remoteManifest, requestedManifest)
     .map((line) => (
       line.marQuantidadeRecebida == null
@@ -1476,116 +1512,110 @@ export function buildReceiptManifestPayload(
         : line
     ));
 
-  return {
+  const merged: LooseRecord = {
     ...remoteManifest,
     ...requestedManifest,
     manCodigo: remoteManifest.manCodigo ?? requestedManifest.manCodigo ?? matchedManifest?.manCodigo ?? null,
     manNumero: remoteManifest.manNumero ?? requestedManifest.manNumero ?? matchedManifest?.manNumero ?? null,
     manHashCode: remoteManifest.manHashCode ?? requestedManifest.manHashCode ?? matchedManifest?.manHashCode ?? null,
-    parceiroAcesso: {
-      ...toRecord(remoteManifest.parceiroAcesso),
-      ...toRecord(requestedManifest.parceiroAcesso),
-      paaCodigo: effectivePartnerCode,
-      paaNome: toNonEmptyString(toRecord(requestedManifest.parceiroAcesso).paaNome)
-        || toNonEmptyString(toRecord(remoteManifest.parceiroAcesso).paaNome)
-        || null
-    },
-    ...(mergedGerador ? { parceiroGerador: mergedGerador } : {}),
-    ...(mergedTransportador ? { parceiroTransportador: mergedTransportador } : {}),
-    ...(mergedDestinador ? { parceiroDestinador: mergedDestinador } : {}),
-    ...(mergedArmazenador ? { parceiroArmazenadorTemporario: mergedArmazenador } : {}),
+    // A captura prova que o portal mantém o parceiroAcesso do GET intocado
+    // (é o código de acesso de quem CRIOU o MTR, não do destinador logado).
+    parceiroAcesso: mergeOptionalRecord(remoteManifest.parceiroAcesso, requestedManifest.parceiroAcesso),
+    parceiroGerador: mergeOptionalRecord(remoteManifest.parceiroGerador, requestedManifest.parceiroGerador),
+    parceiroTransportador: mergeOptionalRecord(remoteManifest.parceiroTransportador, requestedManifest.parceiroTransportador),
+    parceiroDestinador: mergeOptionalRecord(remoteManifest.parceiroDestinador, requestedManifest.parceiroDestinador),
+    parceiroArmazenadorTemporario: mergeOptionalRecord(remoteManifest.parceiroArmazenadorTemporario, requestedManifest.parceiroArmazenadorTemporario),
+    parceiroTransportadorArmazenadorTemporario: mergeOptionalRecord(
+      remoteManifest.parceiroTransportadorArmazenadorTemporario,
+      requestedManifest.parceiroTransportadorArmazenadorTemporario
+    ),
     listaManifestoResiduo: mergedResidues
   };
+
+  const projected: LooseRecord = {};
+  for (const field of RECEIPT_MANIFEST_FIELDS) {
+    const value = merged[field];
+    if (value === undefined || value === null) {
+      projected[field] = RECEIPT_MANIFEST_EMPTY_STRING_DEFAULTS.has(field) && value === undefined ? '' : value ?? null;
+    } else {
+      projected[field] = value;
+    }
+  }
+  for (const partnerKey of RECEIPT_PARTNER_OBJECT_KEYS) {
+    const partner = projected[partnerKey];
+    if (partner && typeof partner === 'object' && !Array.isArray(partner)) {
+      projected[partnerKey] = pickRecordFields(partner as LooseRecord, RECEIPT_PARTNER_FIELDS);
+    }
+  }
+  return projected;
 }
 
-/**
- * Timestamp do recebimento no formato observado na captura real do portal
- * (cap_3012dde41ef83433f6): "MM/DD/YYYY HH:mm:ss", hora de São Paulo.
- */
-export function formatCetesbReceiptTimestamp(date: Date): string {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Sao_Paulo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hourCycle: 'h23'
-  }).formatToParts(date);
-  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
-  return `${get('month')}/${get('day')}/${get('year')} ${get('hour')}:${get('minute')}:${get('second')}`;
-}
-
-const CETESB_RECEIPT_TIMESTAMP_PATTERN = /^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}:\d{2}:\d{2})$/;
 // São Paulo não tem horário de verão desde 2019 — offset fixo.
 const SAO_PAULO_UTC_OFFSET = '-03:00';
+const PORTAL_SLASH_TIMESTAMP_PATTERN = /^(\d{2})\/(\d{2})\/(\d{4})(?: (\d{2}:\d{2}:\d{2}))?$/;
 
 /**
- * O frontend e o chat enviam remDataRecebimento em ISO-8601; a CETESB espera
- * "MM/DD/YYYY HH:mm:ss" (formato observado na captura). Todas as conversões são
- * independentes do TZ do processo (o container roda em UTC; dev em São Paulo):
- * data/hora SEM offset é interpretada como hora de São Paulo, data sem hora
- * vira meio-dia de São Paulo (parse UTC recuaria um dia), epoch numérico é
- * convertido, e "DD/MM/YYYY hh:mm:ss" inequívoco (dia > 12) é reordenado para
- * MM/DD. Valor não parseável é repassado como veio (a CETESB devolve o erro
- * estruturado); ambiguidade MM/DD×DD/MM com ambos ≤ 12 não é adivinhada.
+ * remDataRecebimento no fio é ISO-8601 UTC (date.toISOString() do Angular do
+ * portal — captura cap_3012dde41ef83433f6: "2026-06-12T22:37:57.168Z").
+ * ATENÇÃO: NÃO é "MM/DD/YYYY HH:mm:ss" — essa leitura anterior era artefato do
+ * ConvertFrom-Json do PowerShell exibindo DateTime localizado; enviar nesse
+ * formato derruba o binding da CETESB com 400. Conversões independentes do TZ
+ * do processo: data/hora SEM offset é hora de São Paulo; data sem hora vira
+ * meio-dia de São Paulo (parse UTC recuaria um dia); epoch numérico é
+ * convertido; "DD/MM/YYYY" inequívoco (dia > 12) é reordenado; ambíguo com
+ * ambos ≤ 12 é tratado como MM/DD (formato do portal). Valor não parseável é
+ * repassado como veio (a CETESB devolve o erro estruturado).
  */
 export function normalizeCetesbReceiptTimestamp(value: unknown, now: Date): string {
   if (typeof value === 'number' && Number.isFinite(value)) {
-    return formatCetesbReceiptTimestamp(new Date(value));
+    return new Date(value).toISOString();
   }
   const raw = toNonEmptyString(value);
   if (!raw) {
-    return formatCetesbReceiptTimestamp(now);
-  }
-  const portalMatch = raw.match(CETESB_RECEIPT_TIMESTAMP_PATTERN);
-  if (portalMatch) {
-    const [, first, second, year, time] = portalMatch;
-    if (Number(first) > 12 && Number(second) <= 12) {
-      return `${second}/${first}/${year} ${time}`;
-    }
-    return raw;
+    return now.toISOString();
   }
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-    return formatCetesbReceiptTimestamp(new Date(`${raw}T12:00:00${SAO_PAULO_UTC_OFFSET}`));
+    return new Date(`${raw}T12:00:00${SAO_PAULO_UTC_OFFSET}`).toISOString();
   }
-  const slashDateMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (slashDateMatch) {
-    let [, month, day] = slashDateMatch;
-    const year = slashDateMatch[3];
+  const slashMatch = raw.match(PORTAL_SLASH_TIMESTAMP_PATTERN);
+  if (slashMatch) {
+    let [, month, day] = slashMatch;
+    const year = slashMatch[3];
+    const time = slashMatch[4] || '12:00:00';
     if (Number(month) > 12 && Number(day) <= 12) {
       [month, day] = [day, month];
     }
-    return formatCetesbReceiptTimestamp(new Date(`${year}-${month}-${day}T12:00:00${SAO_PAULO_UTC_OFFSET}`));
+    const candidate = new Date(`${year}-${month}-${day}T${time}${SAO_PAULO_UTC_OFFSET}`);
+    return Number.isNaN(candidate.getTime()) ? raw : candidate.toISOString();
   }
   const noOffsetMatch = raw.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)$/);
   if (noOffsetMatch) {
-    return formatCetesbReceiptTimestamp(new Date(`${noOffsetMatch[1]}T${noOffsetMatch[2]}${SAO_PAULO_UTC_OFFSET}`));
+    return new Date(`${noOffsetMatch[1]}T${noOffsetMatch[2]}${SAO_PAULO_UTC_OFFSET}`).toISOString();
   }
   const parsed = new Date(raw);
-  return Number.isNaN(parsed.getTime()) ? raw : formatCetesbReceiptTimestamp(parsed);
+  return Number.isNaN(parsed.getTime()) ? raw : parsed.toISOString();
 }
 
 /**
  * Raiz do POST /api/mtr/manifesto/recebimento/ EXATAMENTE como o portal real
  * envia (captura cap_3012dde41ef83433f6): {manifesto, paaCodigo, remCodigo,
- * rrmCodigo, remObservacao, remDataRecebimento}. Antes o SICAT espalhava o
- * receiptPayload inteiro na raiz (vazando dateFrom/dateTo/manifesto-request) e
- * não enviava remCodigo/remDataRecebimento.
+ * rrmCodigo, remObservacao, remDataRecebimento}. paaCodigo é o código de
+ * ACESSO da sessão logada (session.userAccessCode — 57380 na captura), NÃO o
+ * parCodigo do destinador (40110, usado só nos paths dos GETs); remCodigo é
+ * null; remDataRecebimento é ISO-8601.
  */
 export function buildReceiveRequestBody(input: {
   mergedManifestPayload: LooseRecord;
-  effectivePartnerCode: number;
+  accessPartnerCode: number;
   resolvedResponsibleCode: unknown;
   receiptPayload: LooseRecord;
   now?: Date;
 }) {
-  const { mergedManifestPayload, effectivePartnerCode, resolvedResponsibleCode, receiptPayload } = input;
+  const { mergedManifestPayload, accessPartnerCode, resolvedResponsibleCode, receiptPayload } = input;
   return {
     manifesto: mergedManifestPayload,
-    paaCodigo: effectivePartnerCode,
-    remCodigo: toNonEmptyString(receiptPayload.remCodigo) ?? '',
+    paaCodigo: accessPartnerCode,
+    remCodigo: toNonEmptyString(receiptPayload.remCodigo) ?? null,
     rrmCodigo: resolvedResponsibleCode ?? receiptPayload.rrmCodigo ?? null,
     remObservacao: toNonEmptyString(receiptPayload.remObservacao) ?? '',
     remDataRecebimento: normalizeCetesbReceiptTimestamp(receiptPayload.remDataRecebimento, input.now ?? new Date())
@@ -1776,6 +1806,9 @@ async function handleManifestReceive(job: JobEntity, gateway: {
   let receiveMessage: unknown = priorReceiveConfirmation.message ?? null;
 
   if (!toNonEmptyString(priorReceiveConfirmation.confirmedAt)) {
+    // paaCodigo da raiz = código de ACESSO da sessão (captura: 57380), com
+    // fallback no parCodigo só se a sessão não tiver o access code.
+    const accessPartnerCode = toNumberOrNull(sessionContext.userAccessCode) || effectivePartnerCode;
     const receiveExchange = toGatewayExchange(await gateway.receiveManifest({
       integrationAccountId,
       sessionContextId: sessionContext.id,
@@ -1783,7 +1816,7 @@ async function handleManifestReceive(job: JobEntity, gateway: {
       includeAudit: true,
       payload: buildReceiveRequestBody({
         mergedManifestPayload,
-        effectivePartnerCode,
+        accessPartnerCode,
         resolvedResponsibleCode: resolvedResponsible?.rrmCodigo ?? null,
         receiptPayload
       })
