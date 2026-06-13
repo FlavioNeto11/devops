@@ -120,7 +120,7 @@ sem dependência de infra pesada — adequado ao notebook/lab). Principais eixos
   - **manifests**: `kubeconform` em `portal/k8s/portal.yaml`.
 - Falhas reais quebram o pipeline; cache de npm via `actions/setup-node`.
 
-## 10. Testes criados (46, `node:test`, zero dependência de runtime)
+## 10. Testes criados (48, `node:test`, zero dependência de runtime)
 - `seo.test.mjs` — lang/charset/viewport, título/descrição, **um h1**, canonical/robots/keywords,
   OG/Twitter, favicon/manifest/theme-color, CSS/JS externos, JSON-LD parseável, sem `${` vazado.
 - `markup.test.mjs` — semântica + skip link, **CTAs** principais, **rotas** preservadas, badges
@@ -134,7 +134,7 @@ sem dependência de infra pesada — adequado ao notebook/lab). Principais eixos
 
 | Comando | Resultado |
 |---|---|
-| `node --test` (portal/frontend) | ✅ **46 pass / 0 fail** |
+| `node --test` (portal/frontend) | ✅ **48 pass / 0 fail** |
 | `npm install` | ✅ 88 pacotes (devDeps de qualidade) |
 | `npm run format:check` → `npm run format` | ✅ 2 arquivos ajustados pelo Prettier |
 | `npm run lint` | ✅ 0 erros (removido `const` não usado) |
@@ -218,6 +218,13 @@ Publicado em produção (commit `ba10c9c` + ajuste de descoberta) e **no ar em
 - `docker build :local` → `kubectl apply` (livenessProbe efetivado) → `rollout restart` ✅
 - Smoke público: `GET /` → **200** servindo a nova versão (assets `?v=5`, CSP endurecida);
   `/healthz` 200; `/assets/*` 200 (`text/css`/`application/javascript`); 404 amigável.
+
+**Ajuste pós-deploy (operador via card):** a descoberta gerava um card "Ai Control" → `/ai-control`
+(404), porque `ai-control-plane` é **só-de-API** (`PathPrefix /ai-control/api`, sem frontend na
+raiz). **Correção:** `discoverExtras` só cria card para apps **navegáveis** (com rota servindo a
+raiz `/<app>`); serviços só-de-API/control-plane/worker são ignorados. Verificado **com os dados
+reais do cluster** (6 IngressRoutes de `apps`): `/ai-control` excluído, demais apps navegáveis já
+curadas → nenhum card extra espúrio. Travado por testes (app só-de-API ⇒ 0 cards).
 
 **Ajuste descoberto no deploy real:** `/devops/api/ingressroutes` retorna **401** para visitante
 anônimo (a API do Console é autenticada) — tanto no público quanto no local. Sem tratamento, todo

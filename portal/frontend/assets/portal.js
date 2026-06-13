@@ -96,8 +96,12 @@ export function appRoot(basePath) {
 
 /**
  * Apps descobertas que NÃO estão no catálogo curado, agrupadas pela RAIZ da app
- * (assim a rota de API `/sicat/api` não vira um card separado da `/sicat`, e um
- * app novo com frontend+api gera UM card só). Exclui as raízes já curadas.
+ * (a rota de API `/sicat/api` não vira card separado da `/sicat`; frontend+api = 1 card).
+ *
+ * Só entram apps **navegáveis**: que têm uma rota servindo a própria RAIZ `/<app>`
+ * (frontend, stripPrefix=false). Serviços só-de-API / control-plane / worker (ex.:
+ * `ai-control-plane` com apenas `/ai-control/api`) NÃO têm página na raiz — linkar
+ * para `/<app>` daria 404 — então são ignorados. Exclui também as raízes curadas.
  */
 export function discoverExtras(apps, curated = curatedPaths()) {
   const known = new Set(curated.map(appRoot));
@@ -105,12 +109,21 @@ export function discoverExtras(apps, curated = curatedPaths()) {
   for (const a of apps || []) {
     const root = appRoot(a.basePath);
     if (!root || known.has(root)) continue;
-    const entry = byRoot.get(root) || { root, name: null, requiresLogin: false };
-    if (a.basePath === root) entry.name = prettifyName(a.name); // rota raiz define o nome
+    const entry = byRoot.get(root) || {
+      root,
+      name: null,
+      hasFrontend: false,
+      requiresLogin: false,
+    };
+    if (a.basePath === root) {
+      entry.hasFrontend = true; // existe rota servindo a raiz = página navegável
+      entry.name = prettifyName(a.name);
+    }
     entry.requiresLogin = entry.requiresLogin || a.requiresLogin;
     byRoot.set(root, entry);
   }
   return [...byRoot.values()]
+    .filter((e) => e.hasFrontend) // descarta só-de-API / control-plane / worker
     .map((e) => ({
       name: e.name || prettifyName(e.root.slice(1)),
       basePath: e.root,

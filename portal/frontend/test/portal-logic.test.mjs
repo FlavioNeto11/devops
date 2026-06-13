@@ -79,6 +79,26 @@ test('discoverExtras deduplica contra o catálogo curado', () => {
   assert.equal(extras[0].name, 'Novo App');
 });
 
+test('app só-de-API / control-plane (sem frontend na raiz) NÃO vira card', () => {
+  // ai-control-plane real: só PathPrefix(/ai-control/api) -> linkar /ai-control daria 404
+  const data = [
+    { name: 'ai-control-plane', namespace: 'apps', paths: ['/ai-control/api'], routes: [] },
+  ];
+  const apps = appsInNamespace(parseIngressRoutes(data));
+  assert.equal(discoverExtras(apps, []).length, 0);
+});
+
+test('app navegável (frontend na raiz + api) vira UM card', () => {
+  const data = [
+    { name: 'foo', namespace: 'apps', paths: ['/foo'], routes: [] },
+    { name: 'foo-api', namespace: 'apps', paths: ['/foo/api'], routes: [] },
+  ];
+  const apps = appsInNamespace(parseIngressRoutes(data));
+  const extras = discoverExtras(apps, []);
+  assert.equal(extras.length, 1);
+  assert.equal(extras[0].basePath, '/foo');
+});
+
 test('app curada com trailing slash não vira card extra duplicado', () => {
   const data = [
     { name: 'sicat', namespace: 'apps', paths: ['/sicat/'], routes: [] },

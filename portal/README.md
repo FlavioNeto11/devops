@@ -18,7 +18,9 @@ JS apenas **enriquece** a página (_progressive enhancement_):
 - **Descoberta dinâmica** ([`frontend/assets/portal.js`](./frontend/assets/portal.js)):
   busca `/devops/api/ingressroutes` (API read-only do DevOps Console), filtra o namespace
   `apps`, marca os cards curados como **"no ar"** e renderiza um card extra (agrupado pela
-  raiz da app) por aplicação publicada fora do catálogo. Atualiza a cada **60s**.
+  raiz da app) por aplicação **navegável** (com frontend na raiz `/<app>`) fora do catálogo.
+  Serviços **só-de-API / control-plane / worker** (ex.: `ai-control-plane`, só `/ai-control/api`)
+  são ignorados — linkar para a raiz daria 404. Atualiza a cada **60s**.
   > ⚠️ **Recurso de operador.** A API do Console **exige autenticação**. Por isso a seção
   > "Aplicações publicadas" começa **oculta** e só aparece para **operadores logados**
   > (a sessão same-origin autoriza o fetch). Visitante anônimo recebe **401** → a seção
