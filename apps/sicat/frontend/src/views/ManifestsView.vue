@@ -8,7 +8,7 @@ import SicatPageLayout from '../components/sicat/SicatPageLayout.vue';
 import SicatPageHeader from '../components/shell/SicatPageHeader.vue';
 import SicatStatusBadge from '../components/sicat/SicatStatusBadge.vue';
 import { useConfirmDialog } from '../composables/useConfirmDialog.js';
-import { batchCancelManifests, batchSubmitManifests, cancelManifest, downloadManifestDocument, enqueueManifestReceive, getCatalog, getJobById, getManifestById, getReceiptResponsibles, printManifest, removeManifest, replicateManifest, submitManifest, syncManifests } from '../services/api.js';
+import { batchCancelManifests, batchSubmitManifests, cancelManifest, downloadManifestDocument, enqueueManifestReceive, getCatalog, getJobById, getManifestById, getReceiptResponsibles, printManifest, removeManifest, replicateManifest, searchPartners, submitManifest, syncManifests } from '../services/api.js';
 import { useAuthStore } from '../stores/auth.js';
 import { useManifestsStore } from '../stores/manifests.js';
 import { brDateToIsoDate, getTodayBr, isoDateToBrDate, normalizeBrDateInput } from '../utils/date-format.js';
@@ -832,6 +832,71 @@ function applyDatePreset(days) {
   applyFilters();
 }
 
+// Sugestões de parceiros nos filtros (combobox = texto livre + sugestões da
+// API /v1/partners/search, local-first com fallback CETESB). O usuário não
+// precisa lembrar nome/código de cabeça; um typo deixa de virar lista vazia.
+const carrierSuggestions = ref([]);
+const carrierSuggestionsLoading = ref(false);
+const receiverSuggestions = ref([]);
+const receiverSuggestionsLoading = ref(false);
+const partnerSuggestionTimers = { carrier: 0, receiver: 0 };
+
+function buildPartnerSuggestionItems(items) {
+  const seen = new Set();
+  const options = [];
+  for (const item of Array.isArray(items) ? items : []) {
+    const description = String(item?.description || '').trim();
+    if (!description || seen.has(description.toLowerCase())) {
+      continue;
+    }
+    seen.add(description.toLowerCase());
+    const documentLabel = String(item?.document || '').trim();
+    options.push({
+      title: documentLabel ? `${description} · ${documentLabel}` : description,
+      value: description
+    });
+  }
+  return options;
+}
+
+async function fetchPartnerSuggestions(role, term) {
+  const targetRef = role === 'carrier' ? carrierSuggestions : receiverSuggestions;
+  const loadingRef = role === 'carrier' ? carrierSuggestionsLoading : receiverSuggestionsLoading;
+  const integrationAccountId = String(authStore.integrationAccountId.value || '').trim();
+  if (!integrationAccountId) {
+    targetRef.value = [];
+    return;
+  }
+  loadingRef.value = true;
+  try {
+    const sessionContextId = String(authStore.sessionContext.value?.id || authStore.sessionContext.value?.sessionContextId || '').trim();
+    const response = await searchPartners({
+      integrationAccountId,
+      sessionContextId: sessionContextId || undefined,
+      role,
+      q: String(term || '').trim() || undefined,
+      pageSize: 20
+    });
+    targetRef.value = buildPartnerSuggestionItems(response?.items);
+  } catch {
+    // Sugestão é opcional: falha não pode travar o filtro (texto livre segue valendo).
+    targetRef.value = [];
+  } finally {
+    loadingRef.value = false;
+  }
+}
+
+function schedulePartnerSuggestions(role, term) {
+  const normalized = String(term || '').trim();
+  clearTimeout(partnerSuggestionTimers[role]);
+  if (normalized.length === 1) {
+    return;
+  }
+  partnerSuggestionTimers[role] = setTimeout(() => {
+    fetchPartnerSuggestions(role, normalized);
+  }, 300);
+}
+
 function closeReceiveModal(options = {}) {
   if (receiveModalLoading.value && !options.force) {
     return;
@@ -1612,10 +1677,38 @@ onUnmounted(() => {
                   <v-text-field v-model="filters.groupId" label="Grupo" placeholder="Ex.: grp_..." clearable />
                 </v-col>
                 <v-col cols="12" sm="6" md="3">
-                  <v-text-field v-model="filters.carrierQuery" label="Transportador" placeholder="Nome ou código" clearable />
+                  <v-combobox
+                    v-model="filters.carrierQuery"
+                    :items="carrierSuggestions"
+                    item-title="title"
+                    item-value="value"
+                    :return-object="false"
+                    label="Transportador"
+                    placeholder="Digite para ver sugestões"
+                    clearable
+                    :loading="carrierSuggestionsLoading"
+                    no-data-text="Digite ao menos 2 letras para sugerir"
+                    @focus="schedulePartnerSuggestions('carrier', filters.carrierQuery)"
+                    @update:search="schedulePartnerSuggestions('carrier', $event)"
+                  />
                 </v-col>
-                <v-col cols="12" sm="6" md="3">
-                  <v-text-field v-model="filters.receiverQuery" label="Destinador" placeholder="Nome ou código" clearable />
+                <!-- No modo destinador a lista já é da própria empresa: o filtro
+                     de Destinador seria sempre ela mesma — escondido. -->
+                <v-col v-if="!isReceiverOperationalMode" cols="12" sm="6" md="3">
+                  <v-combobox
+                    v-model="filters.receiverQuery"
+                    :items="receiverSuggestions"
+                    item-title="title"
+                    item-value="value"
+                    :return-object="false"
+                    label="Destinador"
+                    placeholder="Digite para ver sugestões"
+                    clearable
+                    :loading="receiverSuggestionsLoading"
+                    no-data-text="Digite ao menos 2 letras para sugerir"
+                    @focus="schedulePartnerSuggestions('receiver', filters.receiverQuery)"
+                    @update:search="schedulePartnerSuggestions('receiver', $event)"
+                  />
                 </v-col>
                 <v-col cols="12" sm="6" md="4">
                   <SicatDateInput
@@ -1653,16 +1746,6 @@ onUnmounted(() => {
                     @range-hover="handleDateRangeHover"
                     @date-picked="handleDatePicked('dateTo', $event)"
                     @commit="onDateFieldCommit('dateTo', $event)"
-                  />
-                </v-col>
-                <v-col cols="12" sm="6" md="3">
-                  <v-select
-                    v-model.number="filters.pageSize"
-                    label="Itens por página"
-                    :items="[{title:'10',value:10},{title:'20',value:20},{title:'50',value:50}]"
-                    item-title="title"
-                    item-value="value"
-                    @update:model-value="applyFilters"
                   />
                 </v-col>
               </v-row>
@@ -1716,7 +1799,7 @@ onUnmounted(() => {
                 <div class="text-h6 font-weight-semibold">Resultados</div>
                 <div class="text-caption text-medium-emphasis">Mostrando {{ pageDescription.start }} até {{ pageDescription.end }} de {{ totalItems }} manifestos</div>
               </v-col>
-              <v-col cols="auto">
+              <v-col cols="auto" class="d-flex align-center ga-2">
                 <v-btn
                   v-if="syncWarning"
                   variant="tonal"
@@ -1727,6 +1810,16 @@ onUnmounted(() => {
                 >
                   Dados em cache
                 </v-btn>
+                <v-select
+                  v-model.number="filters.pageSize"
+                  :items="[10, 20, 50]"
+                  label="Por página"
+                  density="compact"
+                  variant="outlined"
+                  hide-details
+                  style="width: 110px"
+                  @update:model-value="applyFilters"
+                />
               </v-col>
             </v-row>
           </v-card-text>
@@ -1741,7 +1834,7 @@ onUnmounted(() => {
                 <th scope="col">Transportador</th>
                 <th scope="col">Destinador</th>
                 <th scope="col">Situação CETESB</th>
-                <th scope="col">Ações</th>
+                <th scope="col" class="text-right">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -1794,30 +1887,29 @@ onUnmounted(() => {
                   />
                 </td>
                 <td class="manifest-actions-cell">
-                  <!-- Ação primária da persona inline: 1 clique em vez de 2 no dropdown -->
-                  <v-btn
-                    v-if="isReceiverOperationalMode && canReceiveOperationalManifest(manifest)"
-                    color="primary"
-                    variant="flat"
-                    size="small"
-                    class="mr-2"
-                    prepend-icon="mdi-inbox-arrow-down"
-                    :disabled="receiveModalLoading"
-                    @click="openReceiveModal(manifest)"
-                  >Receber</v-btn>
-                  <v-btn
-                    v-else-if="!isReceiverOperationalMode && canSubmitManifest(manifest)"
-                    color="primary"
-                    variant="flat"
-                    size="small"
-                    class="mr-2"
-                    prepend-icon="mdi-send"
-                    :loading="submitLoadingManifestId === resolveManifestIdentifier(manifest)"
-                    @click="requestSubmitManifest(manifest)"
-                  >Submeter</v-btn>
-                  <v-menu location="bottom end">
+                  <!-- Ação primária inline + kebab: sempre numa linha só, alinhados à direita -->
+                  <div class="manifest-actions">
+                    <v-btn
+                      v-if="isReceiverOperationalMode && canReceiveOperationalManifest(manifest)"
+                      color="primary"
+                      variant="flat"
+                      size="small"
+                      prepend-icon="mdi-inbox-arrow-down"
+                      :disabled="receiveModalLoading"
+                      @click="openReceiveModal(manifest)"
+                    >Receber</v-btn>
+                    <v-btn
+                      v-else-if="!isReceiverOperationalMode && canSubmitManifest(manifest)"
+                      color="primary"
+                      variant="flat"
+                      size="small"
+                      prepend-icon="mdi-send"
+                      :loading="submitLoadingManifestId === resolveManifestIdentifier(manifest)"
+                      @click="requestSubmitManifest(manifest)"
+                    >Submeter</v-btn>
+                    <v-menu location="bottom end">
                     <template #activator="{ props: menuProps }">
-                      <v-btn v-bind="menuProps" variant="tonal" size="small" append-icon="mdi-chevron-down" aria-label="Ações do manifesto">Ações</v-btn>
+                      <v-btn v-bind="menuProps" variant="tonal" size="small" icon="mdi-dots-vertical" density="comfortable" aria-label="Mais ações do manifesto" />
                     </template>
                     <v-list density="compact" min-width="260">
                       <v-list-item
@@ -1890,7 +1982,8 @@ onUnmounted(() => {
                         @click="openCancelModal(manifest)"
                       />
                     </v-list>
-                  </v-menu>
+                    </v-menu>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -2307,10 +2400,22 @@ onUnmounted(() => {
   vertical-align: bottom;
 }
 
+/* Coluna de ações: largura mínima, conteúdo numa linha só, alinhado à direita
+   e centralizado verticalmente — sem botões "tortos" empilhando. */
 .manifest-actions-cell {
-  text-align: left;
-  vertical-align: top;
-  padding: 8px !important;
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+  vertical-align: middle;
+  padding: 8px 12px !important;
+}
+
+.manifest-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: nowrap;
 }
 
 .sicat-feedback-card.error {
