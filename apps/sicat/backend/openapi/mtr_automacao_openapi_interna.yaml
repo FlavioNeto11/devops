@@ -2292,6 +2292,9 @@ paths:
       - name: externalStatus
         in: query
         required: false
+        description: >-
+          Filtra pela situação CETESB por substring case-insensitive (ILIKE).
+          Ex.: 'salvo' casa 'salvo'; 'receb' casa 'Recebido'.
         schema:
           type: string
       - name: dateFrom

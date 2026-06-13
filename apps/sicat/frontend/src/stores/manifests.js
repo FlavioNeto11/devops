@@ -42,6 +42,7 @@ function persistManifestFilters(filters) {
   const payload = {
     integrationAccountId: String(filters.integrationAccountId || '').trim(),
     status: String(filters.status || '').trim(),
+    externalStatus: String(filters.externalStatus || '').trim(),
     groupId: String(filters.groupId || '').trim(),
     manifestNumber: String(filters.manifestNumber || '').trim(),
     carrierQuery: String(filters.carrierQuery || '').trim(),
@@ -114,6 +115,7 @@ export function useManifestsStore() {
   const filters = reactive({
     integrationAccountId: resolveInitialIntegrationAccountId(authStore, persistedFilters),
     status: String(persistedFilters?.status || '').trim(),
+    externalStatus: String(persistedFilters?.externalStatus || '').trim(),
     groupId: String(persistedFilters?.groupId || '').trim(),
     manifestNumber: String(persistedFilters?.manifestNumber || '').trim(),
     carrierQuery: String(persistedFilters?.carrierQuery || '').trim(),
@@ -186,6 +188,7 @@ export function useManifestsStore() {
       integrationAccountId: operationalContext.integrationAccountId,
       sessionContextId: operationalContext.sessionContextId || undefined,
       status: String(filters.status || '').trim() || undefined,
+      externalStatus: String(filters.externalStatus || '').trim() || undefined,
       groupId: String(filters.groupId || '').trim() || undefined,
       manifestNumber,
       carrierQuery: String(filters.carrierQuery || '').trim() || undefined,

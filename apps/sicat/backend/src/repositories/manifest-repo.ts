@@ -287,8 +287,11 @@ export async function listManifests(filters: {
     where.push(`status = $${values.length}`);
   }
   if (filters.externalStatus) {
-    values.push(filters.externalStatus);
-    where.push(`external_status = $${values.length}`);
+    // Substring case-insensitive (como manifestNumber/carrierQuery): as
+    // situações CETESB chegam com capitalização livre ('salvo', 'Recebido') e
+    // os chips da UI filtram por fragmento ('receb' casa 'Recebido').
+    values.push(`%${String(filters.externalStatus).trim()}%`);
+    where.push(`coalesce(external_status, '') ilike $${values.length}`);
   }
   if (filters.dateFrom) {
     values.push(filters.dateFrom);

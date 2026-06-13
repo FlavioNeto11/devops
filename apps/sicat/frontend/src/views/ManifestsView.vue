@@ -8,7 +8,7 @@ import SicatPageLayout from '../components/sicat/SicatPageLayout.vue';
 import SicatPageHeader from '../components/shell/SicatPageHeader.vue';
 import SicatStatusBadge from '../components/sicat/SicatStatusBadge.vue';
 import { useConfirmDialog } from '../composables/useConfirmDialog.js';
-import { batchCancelManifests, batchSubmitManifests, cancelManifest, downloadManifestDocument, enqueueManifestReceive, getCatalog, getJobById, getManifestById, getReceiptResponsibles, printManifest, removeManifest, replicateManifest, searchPartners, submitManifest, syncManifests } from '../services/api.js';
+import { batchCancelManifests, batchSubmitManifests, cancelManifest, downloadManifestDocument, enqueueManifestReceive, getCatalog, getJobById, getManifestById, getReceiptResponsibles, listManifests as listManifestsApi, printManifest, removeManifest, replicateManifest, searchPartners, submitManifest, syncManifests } from '../services/api.js';
 import { useAuthStore } from '../stores/auth.js';
 import { useManifestsStore } from '../stores/manifests.js';
 import { brDateToIsoDate, getTodayBr, isoDateToBrDate, normalizeBrDateInput } from '../utils/date-format.js';
@@ -299,8 +299,8 @@ const activeDatePresetDays = computed(() => {
 // mistério do "cadê meus manifestos?" causado por filtros persistidos).
 const activeFiltersSummary = computed(() => {
   const parts = [];
-  if (filters.status) {
-    parts.push(`status "${filters.status}"`);
+  if (situationFilterLabel.value) {
+    parts.push(`situação "${situationFilterLabel.value}"`);
   }
   if (String(filters.manifestNumber || '').trim()) {
     parts.push(`número "${filters.manifestNumber}"`);
@@ -593,6 +593,7 @@ async function applyFilters(event) {
 async function clearFilters() {
   const today = getTodayBr();
   filters.status = '';
+  filters.externalStatus = '';
   filters.groupId = '';
   filters.manifestNumber = '';
   filters.carrierQuery = '';
@@ -831,6 +832,110 @@ function applyDatePreset(days) {
   filters.dateFrom = isoDateToBrDate(from.toISOString().slice(0, 10)) || getTodayBr();
   applyFilters();
 }
+
+// Situação como chips por persona (substitui a combo de status interno): o
+// destinador raciocina por situação CETESB (Aguardando baixa/Recebidos), o
+// gerador pelo pipeline (Rascunhos/Enviados). Cada chip mapeia para
+// {status interno, externalStatus ILIKE} e aplica ao clicar.
+const situationChipOptions = computed(() => (isReceiverOperationalMode.value
+  ? [
+    { key: 'all', label: 'Todos', status: '', externalStatus: '' },
+    { key: 'awaiting', label: 'Aguardando baixa', status: '', externalStatus: 'salvo' },
+    { key: 'received', label: 'Recebidos', status: '', externalStatus: 'receb' },
+    { key: 'cancelled', label: 'Cancelados', status: '', externalStatus: 'cancel' },
+    { key: 'failed', label: 'Falhas', status: 'failed', externalStatus: '' }
+  ]
+  : [
+    { key: 'all', label: 'Todos', status: '', externalStatus: '' },
+    { key: 'draft', label: 'Rascunhos', status: 'draft', externalStatus: '' },
+    { key: 'submitted', label: 'Enviados', status: 'submitted', externalStatus: '' },
+    { key: 'cancelled', label: 'Cancelados', status: 'cancelled', externalStatus: '' },
+    { key: 'failed', label: 'Falhas', status: 'failed', externalStatus: '' }
+  ]));
+
+const activeSituationKey = computed(() => {
+  const currentStatus = String(filters.status || '').trim();
+  const currentExternal = String(filters.externalStatus || '').trim();
+  const match = situationChipOptions.value.find((option) => option.status === currentStatus && option.externalStatus === currentExternal);
+  return match ? match.key : null;
+});
+
+function applySituationChip(option) {
+  filters.status = option.status;
+  filters.externalStatus = option.externalStatus;
+  applyFilters();
+}
+
+const situationFilterLabel = computed(() => {
+  const match = situationChipOptions.value.find((option) => option.key === activeSituationKey.value);
+  if (match && match.key !== 'all') {
+    return match.label;
+  }
+  const raw = [String(filters.status || '').trim(), String(filters.externalStatus || '').trim()].filter(Boolean).join(' / ');
+  return raw || '';
+});
+
+// Sugestões de Número MTR conforme digita: busca instantânea no espelho local
+// (localOnly=true — não toca a CETESB), a partir de 3 dígitos.
+const manifestNumberSuggestions = ref([]);
+const manifestNumberSuggestionsLoading = ref(false);
+let manifestNumberSuggestionTimer = 0;
+
+async function fetchManifestNumberSuggestions(term) {
+  const normalized = String(term || '').trim();
+  if (normalized.length < 3) {
+    manifestNumberSuggestions.value = [];
+    return;
+  }
+  const integrationAccountId = String(authStore.integrationAccountId.value || '').trim();
+  if (!integrationAccountId) {
+    return;
+  }
+  manifestNumberSuggestionsLoading.value = true;
+  try {
+    const sessionContextId = String(authStore.sessionContext.value?.id || authStore.sessionContext.value?.sessionContextId || '').trim();
+    const response = await listManifestsApi({
+      integrationAccountId,
+      sessionContextId: sessionContextId || undefined,
+      manifestNumber: normalized,
+      localOnly: true,
+      pageSize: 8
+    });
+    const numbers = new Set();
+    for (const item of Array.isArray(response?.items) ? response.items : []) {
+      const number = String(item?.manifestNumber || '').trim();
+      if (number) {
+        numbers.add(number);
+      }
+    }
+    manifestNumberSuggestions.value = [...numbers];
+  } catch {
+    manifestNumberSuggestions.value = [];
+  } finally {
+    manifestNumberSuggestionsLoading.value = false;
+  }
+}
+
+function scheduleManifestNumberSuggestions(term) {
+  clearTimeout(manifestNumberSuggestionTimer);
+  manifestNumberSuggestionTimer = setTimeout(() => {
+    fetchManifestNumberSuggestions(term);
+  }, 300);
+}
+
+// Lote: o "Grupo" era um ID opaco grp_... que ninguém sabia o que era. Vira
+// combobox com os lotes presentes na listagem atual, rotulados.
+const groupSuggestions = computed(() => {
+  const seen = new Map();
+  for (const manifest of items.value) {
+    const groupId = String(manifest?.groupId || '').trim();
+    if (!groupId || seen.has(groupId)) {
+      continue;
+    }
+    seen.set(groupId, { title: `${formatManifestBatchLabel(manifest)} · ${groupId}`, value: groupId });
+  }
+  return [...seen.values()];
+});
 
 // Sugestões de parceiros nos filtros (combobox = texto livre + sugestões da
 // API /v1/partners/search, local-first com fallback CETESB). O usuário não
@@ -1652,29 +1757,51 @@ onUnmounted(() => {
             <div class="text-overline text-medium-emphasis mb-1">Busca operacional</div>
             <div class="text-h6 font-weight-semibold mb-3">Filtros</div>
             <v-form @submit.prevent="applyFilters">
+              <!-- Situação: chips por persona em vez de combo de status interno.
+                   Aplicam ao clicar — zero digitação, zero decisão técnica. -->
+              <div class="d-flex align-center flex-wrap ga-2 mb-4">
+                <span class="text-caption text-medium-emphasis mr-1">Situação:</span>
+                <v-chip
+                  v-for="option in situationChipOptions"
+                  :key="option.key"
+                  size="small"
+                  :variant="activeSituationKey === option.key ? 'flat' : 'tonal'"
+                  :color="activeSituationKey === option.key ? 'primary' : undefined"
+                  @click="applySituationChip(option)"
+                >
+                  {{ option.label }}
+                </v-chip>
+              </div>
               <v-row dense>
                 <v-col cols="12" sm="6" md="3">
-                  <v-select
-                    v-model="filters.status"
-                    label="Status"
-                    :items="[{title:'Todos',value:''},{title:'Rascunho',value:'draft'},{title:'Pendente',value:'queued_submit'},{title:'Enviando',value:'submitting'},{title:'Executando',value:'processing'},{title:'Sucesso',value:'submitted'},{title:'Cancelado',value:'cancelled'},{title:'Falha',value:'failed'}]"
-                    item-title="title"
-                    item-value="value"
-                    clearable
-                  />
-                </v-col>
-                <v-col cols="12" sm="6" md="3">
-                  <v-text-field
+                  <v-combobox
                     v-model="filters.manifestNumber"
+                    :items="manifestNumberSuggestions"
+                    :return-object="false"
                     label="Número MTR"
-                    placeholder="Ex.: 260010679516"
+                    placeholder="Digite 3+ dígitos para sugerir"
                     clearable
+                    :loading="manifestNumberSuggestionsLoading"
+                    no-data-text="Digite ao menos 3 dígitos"
                     :hint="String(filters.manifestNumber || '').trim() ? 'A busca por número ignora o período.' : undefined"
                     :persistent-hint="Boolean(String(filters.manifestNumber || '').trim())"
+                    @update:search="scheduleManifestNumberSuggestions($event)"
                   />
                 </v-col>
                 <v-col cols="12" sm="6" md="3">
-                  <v-text-field v-model="filters.groupId" label="Grupo" placeholder="Ex.: grp_..." clearable />
+                  <v-combobox
+                    v-model="filters.groupId"
+                    :items="groupSuggestions"
+                    item-title="title"
+                    item-value="value"
+                    :return-object="false"
+                    label="Lote"
+                    placeholder="Lotes da listagem atual"
+                    clearable
+                    no-data-text="Nenhum lote na listagem atual"
+                    hint="Grupo criado na replicação/criação em lote"
+                    persistent-hint
+                  />
                 </v-col>
                 <v-col cols="12" sm="6" md="3">
                   <v-combobox
@@ -1710,7 +1837,7 @@ onUnmounted(() => {
                     @update:search="schedulePartnerSuggestions('receiver', $event)"
                   />
                 </v-col>
-                <v-col cols="12" sm="6" md="4">
+                <v-col cols="12" sm="6" md="3">
                   <SicatDateInput
                     ref="dateFromFieldRef"
                     id="dateFrom"
@@ -1729,7 +1856,7 @@ onUnmounted(() => {
                     @commit="onDateFieldCommit('dateFrom', $event)"
                   />
                 </v-col>
-                <v-col cols="12" sm="6" md="4">
+                <v-col cols="12" sm="6" md="3">
                   <SicatDateInput
                     ref="dateToFieldRef"
                     id="dateTo"
@@ -1748,15 +1875,16 @@ onUnmounted(() => {
                     @commit="onDateFieldCommit('dateTo', $event)"
                   />
                 </v-col>
+                <v-col cols="12" md="6" class="d-flex align-center flex-wrap ga-2">
+                  <span class="text-caption text-medium-emphasis">Período rápido:</span>
+                  <v-chip size="small" :variant="activeDatePresetDays === 1 ? 'flat' : 'tonal'" :color="activeDatePresetDays === 1 ? 'primary' : undefined" @click="applyDatePreset(1)">Hoje</v-chip>
+                  <v-chip size="small" :variant="activeDatePresetDays === 7 ? 'flat' : 'tonal'" :color="activeDatePresetDays === 7 ? 'primary' : undefined" @click="applyDatePreset(7)">7 dias</v-chip>
+                  <v-chip size="small" :variant="activeDatePresetDays === 30 ? 'flat' : 'tonal'" :color="activeDatePresetDays === 30 ? 'primary' : undefined" @click="applyDatePreset(30)">30 dias</v-chip>
+                </v-col>
               </v-row>
               <div class="d-flex align-center flex-wrap ga-2 mt-2">
                 <v-btn color="primary" type="submit" :loading="loadingList">Aplicar Filtros</v-btn>
                 <v-btn variant="outlined" type="button" @click="clearFilters">Limpar Filtros</v-btn>
-                <v-divider vertical class="mx-1 d-none d-sm-block" />
-                <span class="text-caption text-medium-emphasis">Período rápido:</span>
-                <v-chip size="small" :variant="activeDatePresetDays === 1 ? 'flat' : 'tonal'" :color="activeDatePresetDays === 1 ? 'primary' : undefined" @click="applyDatePreset(1)">Hoje</v-chip>
-                <v-chip size="small" :variant="activeDatePresetDays === 7 ? 'flat' : 'tonal'" :color="activeDatePresetDays === 7 ? 'primary' : undefined" @click="applyDatePreset(7)">7 dias</v-chip>
-                <v-chip size="small" :variant="activeDatePresetDays === 30 ? 'flat' : 'tonal'" :color="activeDatePresetDays === 30 ? 'primary' : undefined" @click="applyDatePreset(30)">30 dias</v-chip>
               </div>
             </v-form>
           </v-card-text>
