@@ -78,7 +78,8 @@ Sintomas comuns:
 |---|---|---|
 | Portal 404 na raiz | IngressRoute do portal ausente/priority errada | `kubectl apply -f portal/k8s/portal.yaml`; confirme `priority: 1` |
 | Paths de apps caindo no portal | priority do portal elevada acima de 1 | **nunca** elevar; reverter para `priority: 1` |
-| Seção "Aplicações publicadas" em erro | API `/devops/api/ingressroutes` fora | normal degradar; verifique o `console-backend` (não é falha do portal) |
+| Seção "Aplicações publicadas" **não aparece** | API do Console exige login; visitante anônimo recebe 401 | **comportamento esperado** — é recurso de operador; logue no Console para vê-la |
+| Seção "Aplicações publicadas" em **erro transitório** | timeout/5xx do `console-backend` | degrada com retry; verifique o `console-backend` (não é falha do portal) |
 | CSS/JS antigos após deploy | cache do browser | os assets são versionados via `?v=`; bump em `index.html`/`404.html` ao mudar `assets/` |
 | Pod reiniciando | liveness falhando | `kubectl logs`/`describe`; cheque `/healthz` |
 

@@ -13,6 +13,7 @@ import {
   searchText,
   extraCardHTML,
   stateMarkup,
+  isAuthError,
 } from '../assets/portal.js';
 
 test('escapeHtml neutraliza caracteres perigosos', () => {
@@ -107,6 +108,13 @@ test('extraCardHTML: card seguro com nome, path, status e CTA', () => {
   const evil = extraCardHTML({ name: '<x>', basePath: '/x', requiresLogin: false });
   assert.ok(!evil.includes('<x>'));
   assert.ok(evil.includes('&lt;x&gt;'));
+});
+
+test('isAuthError reconhece 401/403 (recurso de operador, esconde a seção)', () => {
+  assert.equal(isAuthError(401), true);
+  assert.equal(isAuthError(403), true);
+  assert.equal(isAuthError(500), false);
+  assert.equal(isAuthError(undefined), false);
 });
 
 test('stateMarkup cobre loading, empty e error', () => {

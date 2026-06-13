@@ -62,6 +62,11 @@ test('busca, seção dinâmica e região de estado presentes', () => {
   assert.match(html, /id="cluster-state"[^>]*aria-live="polite"/);
 });
 
+test('seção de descoberta começa oculta (recurso de operador, API autenticada)', () => {
+  // só aparece quando a API do Console responde (operador logado); anônimo não vê
+  assert.match(html, /id="cluster-section"[^>]*\shidden/);
+});
+
 test('menu mobile e botão voltar-ao-topo acessíveis', () => {
   assert.match(html, /id="nav-toggle"[\s\S]*?aria-expanded="false"/);
   assert.match(html, /aria-controls="nav-links"/);

@@ -56,5 +56,12 @@ testável sem browser; fácil de operar/reverter (stateless); um app novo aparec
 por testes que verificam consistência de CTAs/rotas); auditorias visuais (Lighthouse/axe) exigem
 Chrome e ficam como passo manual documentado, fora do gate automatizado.
 
+**Descoberta é recurso de operador.** A API `/devops/api/ingressroutes` do Console **exige
+autenticação** (401 para anônimo). Logo a seção "Aplicações publicadas" começa **oculta** e só
+aparece para operadores logados (cookie de sessão same-origin autoriza o fetch); o visitante
+público vê apenas os cards curados — que já cobrem todas as apps reais. O portal trata 401/403
+escondendo a seção (sem caixa de erro) e mantém retry só para erros transitórios. Expor um endpoint
+público read-only no Console seria uma alternativa futura (fora do escopo do portal).
+
 **Regras herdadas:** IngressRoute do portal permanece em `devops-system` com `priority: 1`
 (ver [`portal/AGENTS.md`](../../portal/AGENTS.md)); imagem `:local`/`IfNotPresent`.

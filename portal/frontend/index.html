@@ -60,7 +60,7 @@
       rel="stylesheet"
     />
 
-    <link rel="stylesheet" href="/assets/styles.css?v=4" />
+    <link rel="stylesheet" href="/assets/styles.css?v=5" />
 
     <!-- Dados estruturados (SEO) -->
     <script type="application/ld+json">
@@ -364,18 +364,23 @@
             </article>
           </div>
 
-          <!-- Descoberta dinâmica de apps no cluster (progressive enhancement) -->
-          <div class="sec-head reveal spaced" id="cluster">
-            <p class="eyebrow">// no cluster</p>
-            <h2>Aplicações publicadas na plataforma</h2>
-            <p class="intro">
-              Lista ao vivo das aplicações roteadas pelo Traefik (lida da API somente-leitura do
-              DevOps Console). Apps novas aparecem aqui sozinhas ao ganharem uma rota — sem editar
-              esta página.
-            </p>
+          <!-- Descoberta dinâmica de apps no cluster (progressive enhancement).
+               Recurso de OPERADOR: a API do Console exige autenticação. Começa
+               oculta e só aparece quando há resposta válida (operador logado);
+               para visitante anônimo (401/403) permanece oculta. -->
+          <div id="cluster-section" hidden>
+            <div class="sec-head reveal spaced" id="cluster">
+              <p class="eyebrow">// no cluster</p>
+              <h2>Aplicações publicadas na plataforma</h2>
+              <p class="intro">
+                Lista ao vivo das aplicações roteadas pelo Traefik (lida da API somente-leitura do
+                DevOps Console, para operadores autenticados). Apps novas aparecem aqui sozinhas ao
+                ganharem uma rota — sem editar esta página.
+              </p>
+            </div>
+            <div class="grid g3" id="cluster-apps"></div>
+            <div id="cluster-state" class="reveal" aria-live="polite" hidden></div>
           </div>
-          <div class="grid g3" id="cluster-apps"></div>
-          <div id="cluster-state" class="reveal" aria-live="polite" hidden></div>
         </div>
       </section>
 
@@ -564,6 +569,6 @@
       </svg>
     </button>
 
-    <script type="module" src="/assets/portal.js?v=4"></script>
+    <script type="module" src="/assets/portal.js?v=5"></script>
   </body>
 </html>

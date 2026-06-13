@@ -16,13 +16,16 @@ JS apenas **enriquece** a página (_progressive enhancement_):
   ferramentas da plataforma e rodapé. Os metadados dos cards vivem em
   [`frontend/assets/catalog.js`](./frontend/assets/catalog.js) e o HTML os espelha.
 - **Descoberta dinâmica** ([`frontend/assets/portal.js`](./frontend/assets/portal.js)):
-  busca `/devops/api/ingressroutes` (API somente-leitura do DevOps Console), filtra o
-  namespace `apps`, marca os cards curados como **"no ar"** e renderiza um card extra
-  por aplicação publicada que ainda não esteja no catálogo. Atualiza a cada **60s** de
-  forma discreta.
-- **Estados tratados**: _loading_ (skeleton), _vazio_ (nenhuma app extra) e _erro_
-  (timeout/API indisponível, com botão **Tentar novamente**). Se a API falhar, os cards
-  curados continuam acessíveis — a página nunca quebra.
+  busca `/devops/api/ingressroutes` (API read-only do DevOps Console), filtra o namespace
+  `apps`, marca os cards curados como **"no ar"** e renderiza um card extra (agrupado pela
+  raiz da app) por aplicação publicada fora do catálogo. Atualiza a cada **60s**.
+  > ⚠️ **Recurso de operador.** A API do Console **exige autenticação**. Por isso a seção
+  > "Aplicações publicadas" começa **oculta** e só aparece para **operadores logados**
+  > (a sessão same-origin autoriza o fetch). Visitante anônimo recebe **401** → a seção
+  > permanece oculta (o site público mostra só os cards curados, que já cobrem todas as apps).
+- **Estados tratados**: _vazio_ (nenhuma app extra) e _erro transitório_ (timeout/5xx, com
+  botão **Tentar novamente**, só na carga inicial). 401/403 ⇒ seção oculta. Se a API falhar,
+  os cards curados continuam acessíveis — a página nunca quebra.
 - **UX**: busca/filtro client-side, menu mobile (hamburger), botão "voltar ao topo",
   _reveal on scroll_, destaque da seção ativa na navegação, modo escuro automático
   (`prefers-color-scheme`), `prefers-reduced-motion`.

@@ -120,7 +120,7 @@ sem dependência de infra pesada — adequado ao notebook/lab). Principais eixos
   - **manifests**: `kubeconform` em `portal/k8s/portal.yaml`.
 - Falhas reais quebram o pipeline; cache de npm via `actions/setup-node`.
 
-## 10. Testes criados (44, `node:test`, zero dependência de runtime)
+## 10. Testes criados (46, `node:test`, zero dependência de runtime)
 - `seo.test.mjs` — lang/charset/viewport, título/descrição, **um h1**, canonical/robots/keywords,
   OG/Twitter, favicon/manifest/theme-color, CSS/JS externos, JSON-LD parseável, sem `${` vazado.
 - `markup.test.mjs` — semântica + skip link, **CTAs** principais, **rotas** preservadas, badges
@@ -134,7 +134,7 @@ sem dependência de infra pesada — adequado ao notebook/lab). Principais eixos
 
 | Comando | Resultado |
 |---|---|
-| `node --test` (portal/frontend) | ✅ **44 pass / 0 fail** |
+| `node --test` (portal/frontend) | ✅ **46 pass / 0 fail** |
 | `npm install` | ✅ 88 pacotes (devDeps de qualidade) |
 | `npm run format:check` → `npm run format` | ✅ 2 arquivos ajustados pelo Prettier |
 | `npm run lint` | ✅ 0 erros (removido `const` não usado) |
@@ -209,6 +209,24 @@ kubectl -n devops-system rollout undo deploy/portal
 kubectl -n devops-system rollout status deploy/portal
 ```
 Stateless ⇒ sem dados a restaurar. Runbook: [`runbooks/portal-operations.md`](./runbooks/portal-operations.md).
+
+## 15.1. Publicação no domínio e ajuste pós-deploy
+
+Publicado em produção (commit `ba10c9c` + ajuste de descoberta) e **no ar em
+`https://dev.nvit.com.br/`** (e `http://xpto.localhost/`):
+
+- `docker build :local` → `kubectl apply` (livenessProbe efetivado) → `rollout restart` ✅
+- Smoke público: `GET /` → **200** servindo a nova versão (assets `?v=5`, CSP endurecida);
+  `/healthz` 200; `/assets/*` 200 (`text/css`/`application/javascript`); 404 amigável.
+
+**Ajuste descoberto no deploy real:** `/devops/api/ingressroutes` retorna **401** para visitante
+anônimo (a API do Console é autenticada) — tanto no público quanto no local. Sem tratamento, todo
+visitante veria a caixa de erro da descoberta dinâmica. **Correção:** a seção "Aplicações
+publicadas" virou **recurso de operador** — começa oculta (`#cluster-section hidden`) e o
+`portal.js` a esconde em 401/403 (`isAuthError`); só aparece para operador logado (sessão
+same-origin autoriza o fetch → 200). Verificado no portal implantado (`xpto.localhost`):
+`cluster-section.hidden = true`, **sem caixa de erro**, 4 cards curados visíveis, **zero erros no
+console**. Travado por testes (`isAuthError`, seção inicia oculta).
 
 ## 16. Próximos passos recomendados
 1. Rodar Lighthouse/axe e registrar as notas nos checklists (fechar os itens `[ ]`).

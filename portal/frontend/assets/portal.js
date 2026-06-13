@@ -192,13 +192,22 @@ const API_URL = '/devops/api/ingressroutes';
 const REFRESH_MS = 60000;
 const TIMEOUT_MS = 8000;
 
-/** fetch JSON com timeout (AbortController). */
+/** A descoberta é recurso de operador — 401/403 = visitante anônimo (esconder a seção). */
+export function isAuthError(status) {
+  return status === 401 || status === 403;
+}
+
+/** fetch JSON com timeout (AbortController). Anexa o status HTTP ao erro. */
 async function fetchWithTimeout(url, ms = TIMEOUT_MS) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), ms);
   try {
     const res = await fetch(url, { signal: ctrl.signal, headers: { Accept: 'application/json' } });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const err = new Error(`HTTP ${res.status}`);
+      err.status = res.status;
+      throw err;
+    }
     return await res.json();
   } finally {
     clearTimeout(t);
@@ -230,17 +239,12 @@ function enrichCuratedCards(live) {
 }
 
 async function loadClusterApps({ silent = false } = {}) {
+  const section = document.getElementById('cluster-section');
   const grid = document.getElementById('cluster-apps');
   const stateBox = document.getElementById('cluster-state');
   if (!grid || !stateBox) return;
   if (clusterLoading) return; // evita refreshes concorrentes
   clusterLoading = true;
-
-  if (!silent) {
-    stateBox.hidden = false;
-    stateBox.setAttribute('aria-busy', 'true');
-    stateBox.innerHTML = stateMarkup('loading');
-  }
 
   try {
     const data = await fetchWithTimeout(API_URL);
@@ -249,6 +253,7 @@ async function loadClusterApps({ silent = false } = {}) {
 
     const extras = discoverExtras(apps);
     grid.innerHTML = extras.map(extraCardHTML).join('');
+    if (section) section.hidden = false; // revela só com resposta válida (operador logado)
     stateBox.removeAttribute('aria-busy');
 
     if (extras.length === 0) {
@@ -261,14 +266,21 @@ async function loadClusterApps({ silent = false } = {}) {
     applySearch();
     track('cluster_apps_loaded', { extras: extras.length, live: apps.length });
   } catch (err) {
-    const message =
-      err && err.name === 'AbortError'
-        ? 'o cluster demorou a responder (timeout).'
-        : 'a API do Console não respondeu.';
     track('cluster_apps_error', { message: String((err && err.message) || err) });
-    // Refresh discreto não estraga a UI boa anterior — só mostra erro na carga
-    // inicial ou no retry explícito. Os cards curados continuam acessíveis.
+    // Recurso de operador: API restrita (401/403) ⇒ visitante anônimo ⇒ esconde a
+    // seção inteira (o site público mostra só os cards curados).
+    if (isAuthError(err && err.status)) {
+      if (section) section.hidden = true;
+      return;
+    }
+    // Erro transitório (rede/timeout/5xx): mostra erro + retry só na carga inicial,
+    // não no refresh silencioso (que não pode estragar uma UI boa anterior).
     if (!silent) {
+      const message =
+        err && err.name === 'AbortError'
+          ? 'o cluster demorou a responder (timeout).'
+          : 'a API do Console não respondeu.';
+      if (section) section.hidden = false;
       stateBox.hidden = false;
       stateBox.removeAttribute('aria-busy');
       stateBox.innerHTML = stateMarkup('error', { message });
