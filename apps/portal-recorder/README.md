@@ -21,6 +21,11 @@ POST   /v1/sessions/:id/stop     [w]   → finaliza (recorder stop)
 ```
 `[w]` = write: exige `Authorization: Bearer ${PORTAL_REC_TOKEN}` (fail-closed: sem token → 503).
 
+> **Acesso operador-only (OIDC).** Todas as rotas externas (`/portal-rec`, `/portal-rec/api`,
+> `/portal-rec/stream`) exigem login via Keycloak — middlewares `console-auth-redirect` (302 na
+> navegação) e `console-auth-401` (401 em XHR/WS), reusados do Console (`k8s/ingressroute.yaml`).
+> Anônimo não acessa nem leitura. O token Bearer acima é defesa em profundidade nas escritas.
+
 ## Build / deploy local
 
 ```powershell

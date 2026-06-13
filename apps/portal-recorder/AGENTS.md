@@ -14,7 +14,10 @@ language: pt-BR
 ## Seguras (autônomas)
 
 - Ler código/manifests; `node --test` na `api/` e no `recorder/`; build local das imagens.
-- GETs na API (reads abertos): portais, sessões, eventos redigidos, contratos.
+- GETs na API (leitura): portais, sessões, eventos redigidos, contratos. **Exigem login** — todas
+  as rotas (`/portal-rec`, `/api`, `/stream`) têm **OIDC operador-only** no IngressRoute (oauth2-proxy
+  do Console, cross-namespace; anônimo → 302/401). Esconder o link no portal NovaIT é só UX; a
+  proteção REAL é o middleware de auth da rota. Token Bearer segue nas escritas (defesa em profundidade).
 
 ## Com aprovação
 

@@ -67,7 +67,7 @@ jobs:
       # 1) Checkout do codigo do repositorio chamador.
       # -----------------------------------------------------------------------
       - name: Checkout do codigo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # -----------------------------------------------------------------------
       # 2) Calcula o SHA curto do commit (usado como output e tag principal).
@@ -107,7 +107,7 @@ jobs:
         with:
           images: ghcr.io/flavioneto11/${{ inputs.app }}/${{ inputs.service }}
           tags: |
-            type=sha,format=short
+            type=sha,prefix=,format=short
             type=ref,event=branch
             type=ref,event=tag
             type=raw,value=latest,enable={{is_default_branch}}

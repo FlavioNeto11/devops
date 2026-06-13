@@ -59,13 +59,13 @@ jobs:
       # 1) Checkout do codigo.
       # -----------------------------------------------------------------------
       - name: Checkout do codigo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # -----------------------------------------------------------------------
       # 2) Node (para ajv-cli e os scripts inline de validacao).
       # -----------------------------------------------------------------------
       - name: Configurar Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "22"
 

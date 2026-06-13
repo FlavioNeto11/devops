@@ -4,12 +4,10 @@
 # sob GitOps: mudanças em portal/k8s (Deployment/Service/IngressRoute) sincronizam
 # sozinhas; o estado vivo aparece na UI do Argo CD junto dos demais componentes.
 #
-# A TAG da imagem é gerenciada FORA do git no laboratório (publish-portal.ps1 faz
-# `kubectl set image` com `portal-frontend:<sha>` imutável; o CI publica
-# `ghcr.io/flavioneto11/portal/frontend:<sha>`). Por isso `ignoreDifferences`
-# ignora o campo image do Deployment — assim o selfHeal NÃO reverte a imagem
-# implantada, mas mantém o restante do manifest consistente. Em produção, troque
-# para pinar o `image:` no manifest e versionar (rollback = git revert).
+# GitOps REAL: a tag da imagem vive no manifest (`portal/k8s/portal.yaml`) e o Argo
+# reconcilia tudo — inclusive o `image`. Sem `kubectl set image`, sem
+# `ignoreDifferences`. Release = `publish-portal.ps1` builda `portal-frontend:<sha>`,
+# troca o `image:` no manifest e commita; o Argo aplica. Rollback = `git revert`.
 # =============================================================================
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -33,16 +31,3 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-      # Faz o SYNC (não só o diff) respeitar ignoreDifferences — assim o auto-sync
-      # NÃO reescreve o campo image com o :local do manifest, preservando o :<sha>
-      # publicado pelo publish-portal.ps1 / CI.
-      - RespectIgnoreDifferences=true
-  # A tag da imagem é gerenciada imperativamente no lab (publish-portal.ps1) e
-  # pelo CI (GHCR); Argo ignora o campo image para não reverter o deploy.
-  ignoreDifferences:
-    - group: apps
-      kind: Deployment
-      name: portal
-      namespace: devops-system
-      jsonPointers:
-        - /spec/template/spec/containers/0/image

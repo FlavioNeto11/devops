@@ -36,30 +36,51 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # `path` = subpasta de apps/ onde está o package.json (default = app). Apps
+        # multi-serviço (portal-recorder, ai-control-plane) têm o pkg em api/frontend.
         include:
           - app: sicat
+            path: sicat
             pm: npm
             prep: ""
             checks: "lint build:frontend"
           - app: gymops
+            path: gymops
             pm: pnpm
             prep: 'pnpm --filter @gymops/db run generate && pnpm --filter "./packages/*" run build'
             checks: "lint typecheck"
           - app: rmambiental
+            path: rmambiental
             pm: npm
             prep: ""
             checks: "build"
           - app: anarabottini
+            path: anarabottini
             pm: npm
             prep: ""
             checks: "typecheck build"
+          - app: portal-recorder-api
+            path: portal-recorder/api
+            pm: npm
+            prep: ""
+            checks: "test"
+          - app: portal-recorder-frontend
+            path: portal-recorder/frontend
+            pm: npm
+            prep: ""
+            checks: "build"
+          - app: ai-control-plane-api
+            path: ai-control-plane/api
+            pm: npm
+            prep: ""
+            checks: "test"
     defaults:
       run:
-        working-directory: apps/${{ matrix.app }}
+        working-directory: apps/${{ matrix.path }}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup pnpm
         if: matrix.pm == 'pnpm'
@@ -68,7 +89,7 @@ jobs:
           version: 9
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "20"
 

@@ -51,7 +51,7 @@ jobs:
 
     steps:
       - name: Checkout do codigo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # Instala o yq (mikefarah) — binario Go, NAO o yq baseado em Python.
       - name: Instalar yq (mikefarah)

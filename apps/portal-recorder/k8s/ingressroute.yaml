@@ -3,7 +3,16 @@
 # Regra de ouro: API com stripPrefix + priority MAIOR; frontend sem strip +
 # priority MENOR. A rota do WebSocket de streaming (/portal-rec/stream) é
 # declarada à mão com priority ainda maior (mais específica) — entra na A2
-# junto do serviço recorder. Por ora só a API.
+# junto do serviço recorder.
+#
+# SEGURANÇA (OIDC operador-only): TODAS as rotas exigem login via Keycloak,
+# reusando o oauth2-proxy do Console (Middlewares em devops-system; Traefik com
+# allowCrossNamespace). Esconder o link no portal é só UX — a proteção REAL é
+# aqui: anônimo recebe 302 (frontend) / 401 (api+stream). O token Bearer
+# (PORTAL_REC_TOKEN) continua nas ESCRITAS, em defesa em profundidade.
+#   - console-auth-redirect: navegação (frontend) → 302 p/ login.
+#   - console-auth-401: XHR/WS (api/stream) → 401 sem sessão.
+# Auth é SEMPRE o primeiro middleware da rota.
 # =============================================================================
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
@@ -49,6 +58,8 @@ spec:
         - name: portal-recorder-recorder
           port: 8091
       middlewares:
+        - name: console-auth-401
+          namespace: devops-system
         - name: portal-rec-stream-strip
     # API → strip /portal-rec/api, priority MAIOR que o frontend.
     - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/portal-rec/api`)
@@ -58,6 +69,8 @@ spec:
         - name: portal-recorder-api
           port: 8080
       middlewares:
+        - name: console-auth-401
+          namespace: devops-system
         - name: portal-rec-api-strip
         - name: compress
           namespace: traefik
@@ -71,6 +84,8 @@ spec:
         - name: portal-recorder-frontend
           port: 80
       middlewares:
+        - name: console-auth-redirect
+          namespace: devops-system
         - name: compress
           namespace: traefik
         - name: secure-headers

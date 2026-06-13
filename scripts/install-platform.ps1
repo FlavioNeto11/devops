@@ -163,11 +163,21 @@ Invoke-SubScript -Name 'install-dashboard.ps1' -ScriptArgs $dashboardArgs
 
 # -----------------------------------------------------------------------------
 # 6) Portal NovaIT (landing publica na raiz "/", namespace devops-system).
-#    publish-portal.ps1 builda a imagem (tag imutavel :<sha> + alias :local),
-#    aplica portal/k8s/portal.yaml e faz rollout/smoke. Idempotente.
+#    GitOps: a TAG da imagem vem do manifest (fonte da verdade). No bootstrap
+#    buildamos essa tag a partir do codigo atual (Docker Desktop compartilha o
+#    daemon; IfNotPresent) e aplicamos; o Argo passa a reconciliar. Releases
+#    depois sao via scripts/publish-portal.ps1 (bump do manifest + git).
 # -----------------------------------------------------------------------------
 Write-Section 'Plataforma DevOps :: 6/6 Portal NovaIT'
-Invoke-SubScript -Name 'publish-portal.ps1'
+$portalManifest = Join-Path $PSScriptRoot '../portal/k8s/portal.yaml'
+$portalDir = Join-Path $PSScriptRoot '../portal/frontend'
+$portalMatch = [regex]::Match((Get-Content $portalManifest -Raw), 'image:\s*portal-frontend:(\S+)')
+if (-not $portalMatch.Success) { throw "Nao achei 'image: portal-frontend:<tag>' em $portalManifest" }
+$portalTag = $portalMatch.Groups[1].Value
+Write-Step "Buildando portal-frontend:$portalTag (do codigo atual) + alias :local"
+Invoke-External -FilePath 'docker' -Arguments @('build', '-t', "portal-frontend:$portalTag", '-t', 'portal-frontend:local', $portalDir)
+Invoke-External -FilePath 'kubectl' -Arguments @('apply', '-f', $portalManifest)
+Invoke-External -FilePath 'kubectl' -Arguments @('-n', 'devops-system', 'rollout', 'status', 'deployment/portal', '--timeout=120s')
 
 # -----------------------------------------------------------------------------
 # Resumo final com URLs.

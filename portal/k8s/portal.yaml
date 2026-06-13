@@ -9,7 +9,15 @@
 # so a raiz "/" cai no portal. Fica no namespace devops-system (componente da
 # plataforma), por isso NAO aparece na propria lista (que filtra o namespace apps).
 #
-# Imagem local: portal-frontend:local (build em portal/frontend; IfNotPresent).
+# GitOps (Argo): a TAG da imagem vive AQUI, no git, e é a fonte da verdade — o
+# Argo (platform/argocd/apps/portal.yaml) reconcilia este manifest; não há
+# `kubectl set image` nem `ignoreDifferences`. Releases: `scripts/publish-portal.ps1`
+# builda `portal-frontend:<sha>` (imutável), troca o `image:` abaixo, commita e
+# o Argo aplica. Rollback = `git revert` do commit do bump. A imagem é LOCAL do
+# Docker Desktop (o kubelet compartilha o daemon; `IfNotPresent`, sem registry);
+# o CI publica o mesmo artefato em ghcr.io/flavioneto11/portal/frontend:<sha>
+# (portabilidade). Para usar GHCR-pull: tornar o pacote público e trocar o `image:`
+# para o caminho do GHCR (1 linha).
 # =============================================================================
 apiVersion: apps/v1
 kind: Deployment
