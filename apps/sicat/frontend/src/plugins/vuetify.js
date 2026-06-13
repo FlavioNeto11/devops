@@ -73,6 +73,16 @@ export default createVuetify({
       density: 'comfortable',
       hideDetails: 'auto'
     },
+    VCombobox: {
+      variant: 'outlined',
+      density: 'comfortable',
+      hideDetails: 'auto'
+    },
+    VAutocomplete: {
+      variant: 'outlined',
+      density: 'comfortable',
+      hideDetails: 'auto'
+    },
     VTextarea: {
       variant: 'outlined',
       density: 'comfortable',

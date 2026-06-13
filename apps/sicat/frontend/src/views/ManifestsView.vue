@@ -1773,7 +1773,9 @@ onUnmounted(() => {
                 </v-chip>
               </div>
               <v-row dense>
-                <v-col cols="12" sm="6" md="3">
+                <!-- No modo destinador (sem o campo Destinador) os 3 campos
+                     fecham a linha em md4; no gerador, 4 campos em md3. -->
+                <v-col cols="12" sm="6" :md="isReceiverOperationalMode ? 4 : 3">
                   <v-combobox
                     v-model="filters.manifestNumber"
                     :items="manifestNumberSuggestions"
@@ -1783,12 +1785,10 @@ onUnmounted(() => {
                     clearable
                     :loading="manifestNumberSuggestionsLoading"
                     no-data-text="Digite ao menos 3 dígitos"
-                    :hint="String(filters.manifestNumber || '').trim() ? 'A busca por número ignora o período.' : undefined"
-                    :persistent-hint="Boolean(String(filters.manifestNumber || '').trim())"
                     @update:search="scheduleManifestNumberSuggestions($event)"
                   />
                 </v-col>
-                <v-col cols="12" sm="6" md="3">
+                <v-col cols="12" sm="6" :md="isReceiverOperationalMode ? 4 : 3">
                   <v-combobox
                     v-model="filters.groupId"
                     :items="groupSuggestions"
@@ -1796,14 +1796,12 @@ onUnmounted(() => {
                     item-value="value"
                     :return-object="false"
                     label="Lote"
-                    placeholder="Lotes da listagem atual"
+                    placeholder="Grupo de replicação/criação em lote"
                     clearable
                     no-data-text="Nenhum lote na listagem atual"
-                    hint="Grupo criado na replicação/criação em lote"
-                    persistent-hint
                   />
                 </v-col>
-                <v-col cols="12" sm="6" md="3">
+                <v-col cols="12" sm="6" :md="isReceiverOperationalMode ? 4 : 3">
                   <v-combobox
                     v-model="filters.carrierQuery"
                     :items="carrierSuggestions"
@@ -1882,6 +1880,9 @@ onUnmounted(() => {
                   <v-chip size="small" :variant="activeDatePresetDays === 30 ? 'flat' : 'tonal'" :color="activeDatePresetDays === 30 ? 'primary' : undefined" @click="applyDatePreset(30)">30 dias</v-chip>
                 </v-col>
               </v-row>
+              <div v-if="String(filters.manifestNumber || '').trim()" class="text-caption text-medium-emphasis mt-1">
+                Busca por número de MTR ignora o período selecionado.
+              </div>
               <div class="d-flex align-center flex-wrap ga-2 mt-2">
                 <v-btn color="primary" type="submit" :loading="loadingList">Aplicar Filtros</v-btn>
                 <v-btn variant="outlined" type="button" @click="clearFilters">Limpar Filtros</v-btn>
