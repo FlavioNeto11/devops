@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFrontend, count } from './helpers.mjs';
 
 test('404.html: noindex, código 404 e link de volta', () => {
@@ -58,17 +59,38 @@ test('HTML não tem estilos inline (mantém a CSP de style-src endurecida)', () 
   }
 });
 
-test('HTML não tem scripts/handlers inline (mantém script-src self)', () => {
+const JS_GATE = "document.documentElement.classList.add('js')";
+
+test('HTML só tem scripts permitidos (externo, JSON-LD ou o js-gate hash-liberado)', () => {
   const html = readFrontend('index.html');
-  // <script> só pode ser o módulo externo ou JSON-LD (data block)
-  const scripts = [...html.matchAll(/<script([^>]*)>/g)].map((m) => m[1]);
-  for (const attrs of scripts) {
-    assert.ok(
-      /type="application\/ld\+json"/.test(attrs) || /src=/.test(attrs),
-      `<script${attrs}> inline não permitido`,
-    );
+  const scripts = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)];
+  for (const [, attrs, body] of scripts) {
+    const ok =
+      /type="application\/ld\+json"/.test(attrs) || /\ssrc=/.test(attrs) || body.trim() === JS_GATE;
+    assert.ok(ok, `<script${attrs}> inline não permitido`);
   }
   assert.ok(!/\son\w+=/.test(html), 'sem handlers inline (onclick=...)');
+});
+
+test('o js-gate inline tem o hash sha256 correspondente liberado no CSP', () => {
+  const html = readFrontend('index.html');
+  assert.ok(html.includes(`<script>${JS_GATE}</script>`), 'js-gate presente no <head>');
+  const hash = createHash('sha256').update(JS_GATE, 'utf8').digest('base64');
+  const nginx = readFrontend('nginx.conf');
+  assert.ok(nginx.includes(`'sha256-${hash}'`), `CSP deve liberar 'sha256-${hash}'`);
+  // e nada de 'unsafe-inline' (continua endurecida)
+  const csp = (nginx.match(/Content-Security-Policy "([^"]*)"/) || [])[1] || '';
+  assert.ok(!/unsafe-inline/.test(csp));
+});
+
+test('config.js (no-op default) existe e é carregado antes do portal.js', () => {
+  assert.match(readFrontend('assets/config.js'), /window\.PORTAL_CONFIG/);
+  assert.ok(readFrontend('assets/shots/placeholder.svg').includes('<svg'));
+  const html = readFrontend('index.html');
+  assert.ok(
+    html.indexOf('/assets/config.js') < html.indexOf('/assets/portal.js'),
+    'config.js deve vir antes de portal.js',
+  );
 });
 
 test('CSS tem tokens e modo escuro', () => {
@@ -77,4 +99,7 @@ test('CSS tem tokens e modo escuro', () => {
   assert.match(css, /prefers-color-scheme: dark/);
   assert.match(css, /prefers-reduced-motion: reduce/);
   assert.match(css, /\.skip-link/);
+  // Progressive enhancement: o esconder do reveal é gated por .js (não global)
+  assert.match(css, /\.js \.reveal\s*\{/);
+  assert.ok(!/^\.reveal\s*\{[^}]*opacity:\s*0/m.test(css), '.reveal não deve esconder sem .js');
 });

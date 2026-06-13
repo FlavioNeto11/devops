@@ -37,6 +37,11 @@
   --accent-soft: #eef3ff;
   --accent-border: #dde7ff;
   --accent2: #7c6cff;
+  /* Fundo dos botões (texto branco). Fixo nos dois temas: branco sobre #2563eb
+     = 5.8:1 (AA). NÃO herda o --accent claro do dark (que é p/ TEXTO sobre fundo
+     escuro e reprovaria em botão com texto branco). */
+  --btn-bg: #2563eb;
+  --btn-bg-ink: #1e4ed8;
 
   /* estados semânticos */
   --ok: #16a34a;
@@ -71,7 +76,7 @@
     --ink: #f1f5f9;
     --body: #cbd5e1;
     --muted: #9aa6bd;
-    --muted2: #76829b;
+    --muted2: #828fa9;
 
     --line: #1e293b;
     --line2: #2c3a52;
@@ -326,15 +331,15 @@ header.scrolled {
   font-weight: 600;
   font-size: 0.9rem;
   color: #fff;
-  background: var(--accent);
-  border: 1px solid var(--accent);
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-bg);
   cursor: pointer;
   transition: 0.18s;
   white-space: nowrap;
 }
 .btn:hover {
-  background: var(--accent-ink);
-  border-color: var(--accent-ink);
+  background: var(--btn-bg-ink);
+  border-color: var(--btn-bg-ink);
   transform: translateY(-1px);
   box-shadow: var(--shadow-btn);
 }
@@ -834,6 +839,47 @@ section.block {
   }
 }
 
+/* ---- Showcase (figuras de produto) -------------------------------------- */
+.shot {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  transition:
+    transform 0.22s cubic-bezier(0.2, 0.7, 0.2, 1),
+    border-color 0.22s,
+    box-shadow 0.22s;
+}
+.shot:hover {
+  transform: translateY(-4px);
+  border-color: var(--line2);
+  box-shadow: var(--shadow-hover);
+}
+.shot a {
+  display: block;
+}
+.shot a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.shot img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  background: var(--bg-soft);
+}
+.shot figcaption {
+  padding: 14px 18px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.shot figcaption strong {
+  color: var(--ink);
+}
+
 /* ---- Seção CTA ---------------------------------------------------------- */
 .cta {
   border: 1px solid var(--line2);
@@ -881,9 +927,10 @@ footer {
   font-size: 0.9rem;
   margin: 0;
 }
-.foot h4 {
+.foot h3 {
   font-family: var(--mono);
   font-size: 0.74rem;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted2);
@@ -923,7 +970,7 @@ footer {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: var(--accent);
+  background: var(--btn-bg);
   color: #fff;
   border: none;
   cursor: pointer;
@@ -943,7 +990,7 @@ footer {
   transform: translateY(0);
 }
 .to-top:hover {
-  background: var(--accent-ink);
+  background: var(--btn-bg-ink);
 }
 .to-top svg {
   width: 20px;
@@ -951,14 +998,21 @@ footer {
 }
 
 /* ---- Reveal on scroll --------------------------------------------------- */
+/* Progressive enhancement REAL: o conteúdo é visível por padrão. A animação de
+   reveal (esconder + revelar no scroll) só vale quando o JS está ativo, via a
+   classe `js` que o <script> síncrono do <head> adiciona em <html> antes do
+   paint. Se o JS estiver desabilitado, bloqueado ou falhar, a classe `js` nunca
+   é adicionada e todo o conteúdo permanece visível (sem opacity:0 órfão). */
 .reveal {
-  opacity: 0;
-  transform: translateY(20px);
   transition:
     opacity 0.6s cubic-bezier(0.2, 0.7, 0.2, 1),
     transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
-.reveal.in {
+.js .reveal {
+  opacity: 0;
+  transform: translateY(20px);
+}
+.js .reveal.in {
   opacity: 1;
   transform: none;
 }
@@ -1077,9 +1131,9 @@ footer {
   * {
     scroll-behavior: auto !important;
   }
-  .reveal {
-    opacity: 1;
-    transform: none;
+  .js .reveal {
+    opacity: 1 !important;
+    transform: none !important;
     transition: none;
   }
   .pill .live {

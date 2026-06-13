@@ -80,7 +80,7 @@ export const TOOLS = [
     path: '/devops',
     desc: 'Pods, deployments, rotas e logs do cluster em tempo real.',
     cta: 'Abrir DevOps Console',
-    requiresLogin: false,
+    requiresLogin: true,
     scope: 'internal',
   },
   {

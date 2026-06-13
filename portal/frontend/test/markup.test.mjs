@@ -67,6 +67,22 @@ test('seção de descoberta começa oculta (recurso de operador, API autenticada
   assert.match(html, /id="cluster-section"[^>]*\shidden/);
 });
 
+test('ferramentas de operador (Plataforma) começam ocultas para anônimo', () => {
+  assert.match(html, /id="plataforma"[^>]*\shidden/, 'seção Plataforma inicia hidden');
+  assert.match(html, /id="nav-plataforma"[^>]*\shidden/, 'link da nav inicia hidden');
+  assert.match(html, /id="foot-plataforma"[^>]*\shidden/, 'coluna do rodapé inicia hidden');
+});
+
+test('DevOps Console marcado como exige login (gated por OIDC)', () => {
+  assert.match(html, /<h3>DevOps Console<\/h3>\s*<span class="badge is-login"/);
+});
+
+test('progressive enhancement: js-gate no <head> e seção showcase presente', () => {
+  assert.ok(html.includes("<script>document.documentElement.classList.add('js')</script>"));
+  assert.match(html, /id="showcase"/);
+  assert.match(html, /class="shot reveal"/);
+});
+
 test('menu mobile e botão voltar-ao-topo acessíveis', () => {
   assert.match(html, /id="nav-toggle"[\s\S]*?aria-expanded="false"/);
   assert.match(html, /aria-controls="nav-links"/);

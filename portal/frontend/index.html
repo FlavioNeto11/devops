@@ -3,6 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Progressive enhancement: marca <html> com `js` ANTES do paint, para que a
+         animação de reveal só esconda conteúdo quando o JS está ativo. Sem JS, o
+         conteúdo fica visível. Liberado por hash sha256 no CSP (nginx.conf). -->
+    <script>document.documentElement.classList.add('js')</script>
 
     <title>NovaIT — Engenharia de Software & Plataforma de Tecnologia</title>
     <meta
@@ -60,7 +64,7 @@
       rel="stylesheet"
     />
 
-    <link rel="stylesheet" href="/assets/styles.css?v=6" />
+    <link rel="stylesheet" href="/assets/styles.css?v=8" />
 
     <!-- Dados estruturados (SEO) -->
     <script type="application/ld+json">
@@ -162,7 +166,8 @@
           <a href="#produtos">Produtos</a>
           <a href="#portais">Portais</a>
           <a href="#capacidades">Capacidades</a>
-          <a href="#plataforma">Plataforma</a>
+          <!-- Operador: revelado pelo JS só quando a API do Console autoriza (sessão). -->
+          <a id="nav-plataforma" href="#plataforma" hidden>Plataforma</a>
           <a class="btn sm" href="#produtos">Acessar sistemas</a>
         </nav>
       </div>
@@ -442,8 +447,48 @@
         </div>
       </section>
 
-      <!-- PLATAFORMA -->
-      <section class="block" id="plataforma" aria-labelledby="plataforma-title">
+      <!-- SHOWCASE / RESULTADOS — imagens ILUSTRATIVAS (placeholders).
+           TODO: substituir cada src por uma captura real em assets/shots/<app>.png
+           (~1600x1000, otimizada). Ver docs/IMPLEMENTACAO_MELHORIAS_PORTAL.md. -->
+      <section class="block" id="showcase" aria-labelledby="showcase-title">
+        <div class="wrap">
+          <div class="sec-head reveal">
+            <p class="eyebrow">// em produção</p>
+            <h2 id="showcase-title">Sistemas reais, operando hoje</h2>
+            <p class="intro">
+              Telas dos produtos que entregamos e mantemos no ar.
+              <em>(Imagens ilustrativas — capturas reais em breve.)</em>
+            </p>
+          </div>
+          <div class="grid g3 showcase">
+            <figure class="shot reveal">
+              <a href="/sicat" aria-label="Acessar SICAT">
+                <img src="/assets/shots/placeholder.svg" alt="Prévia da interface do SICAT — licenciamento ambiental e MTR" width="1600" height="1000" loading="lazy" decoding="async" />
+              </a>
+              <figcaption><strong>SICAT</strong> — Licenciamento ambiental e MTR (CETESB) com IA.</figcaption>
+            </figure>
+            <figure class="shot reveal">
+              <a href="/gymops" aria-label="Acessar GymOps">
+                <img src="/assets/shots/placeholder.svg" alt="Prévia da interface do GymOps — gestão operacional multiunidade" width="1600" height="1000" loading="lazy" decoding="async" />
+              </a>
+              <figcaption><strong>GymOps</strong> — Gestão operacional multiunidade com IA assistiva.</figcaption>
+            </figure>
+            <figure class="shot reveal">
+              <a href="/rmambiental" aria-label="Acessar portal RM Ambiental">
+                <img src="/assets/shots/placeholder.svg" alt="Prévia do portal institucional RM Ambiental" width="1600" height="1000" loading="lazy" decoding="async" />
+              </a>
+              <figcaption><strong>RM Ambiental</strong> — Portal institucional premium (CMS).</figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <!-- PLATAFORMA (ferramentas de operador) — RECURSO DE OPERADOR.
+           Inicia oculta; o portal.js a revela só quando a descoberta (API do
+           Console, autenticada) responde 200. Visitante anônimo (401/403) não vê
+           os atalhos internos (Grafana/Argo/Keycloak/Console) — o site público
+           fica corporativo, mostrando produtos/portais. -->
+      <section class="block" id="plataforma" aria-labelledby="plataforma-title" hidden>
         <div class="wrap">
           <div class="sec-head reveal">
             <p class="eyebrow">// plataforma</p>
@@ -454,11 +499,11 @@
             </p>
           </div>
           <div class="tools">
-            <article class="card tool reveal" data-search="devops console pods deployments rotas logs cluster kubernetes interno">
+            <article class="card tool reveal" data-search="devops console pods deployments rotas logs cluster kubernetes interno login">
               <div class="th">
                 <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M9 21V9" /></svg>
                 <h3>DevOps Console</h3>
-                <span class="badge is-internal" title="Ferramenta interna da plataforma">interno</span>
+                <span class="badge is-login" title="Requer autenticação">login</span>
               </div>
               <p>Pods, deployments, rotas e logs do cluster em tempo real.</p>
               <a class="lnk" href="/devops">Abrir DevOps Console <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></a>
@@ -541,14 +586,14 @@
             </p>
           </div>
           <nav class="col" aria-label="Produtos">
-            <h4>Produtos</h4>
+            <h3>Produtos</h3>
             <a href="/sicat">SICAT — Gestão Ambiental</a>
             <a href="/rmambiental">RM Ambiental — Portal</a>
             <a href="/gymops">GymOps — Gestão Operacional</a>
             <a href="/anarabottini">Ana Rabottini — Saúde Mental</a>
           </nav>
-          <nav class="col" aria-label="Plataforma">
-            <h4>Plataforma</h4>
+          <nav class="col" id="foot-plataforma" aria-label="Plataforma" hidden>
+            <h3>Plataforma</h3>
             <a href="/devops">DevOps Console</a>
             <a href="/grafana">Grafana</a>
             <a href="/argocd">Argo CD</a>
@@ -569,6 +614,8 @@
       </svg>
     </button>
 
-    <script type="module" src="/assets/portal.js?v=6"></script>
+    <!-- Config de runtime opcional (no-op por padrão); habilita analytics por deploy. -->
+    <script src="/assets/config.js?v=8"></script>
+    <script type="module" src="/assets/portal.js?v=8"></script>
   </body>
 </html>

@@ -15,6 +15,14 @@ test('produtos que exigem login estão marcados', () => {
   assert.equal(sicat.requiresLogin, true);
 });
 
+test('DevOps Console (gated por OIDC) tem requiresLogin true', () => {
+  const devops = TOOLS.find((t) => t.key === 'devops');
+  assert.equal(devops.requiresLogin, true);
+  // portal-recorder não tem gate OIDC → false (confirmado no IngressRoute)
+  const rec = TOOLS.find((t) => t.key === 'portal-rec');
+  assert.equal(rec.requiresLogin, false);
+});
+
 test('ferramentas cobrem as rotas da plataforma', () => {
   const paths = TOOLS.map((t) => t.path);
   for (const p of ['/devops', '/grafana', '/argocd', '/auth', '/portal-rec']) {

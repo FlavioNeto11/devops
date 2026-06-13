@@ -251,6 +251,22 @@ function enrichCuratedCards(live) {
   });
 }
 
+/** Força visibilidade dos `.reveal` dentro de `root` (seção revelada sob demanda,
+ *  sem depender do IntersectionObserver re-disparar após sair do display:none). */
+function markRevealed(root) {
+  document.querySelectorAll(`${root} .reveal`).forEach((el) => el.classList.add('in'));
+}
+
+/** Mostra/esconde a UI de OPERADOR (seção Plataforma + link da nav + coluna do
+ *  rodapé). Revelada só quando a API do Console autoriza (operador logado). */
+function setOperatorUI(visible) {
+  for (const id of ['plataforma', 'nav-plataforma', 'foot-plataforma']) {
+    const el = document.getElementById(id);
+    if (el) el.hidden = !visible;
+  }
+  if (visible) markRevealed('#plataforma');
+}
+
 async function loadClusterApps({ silent = false } = {}) {
   const section = document.getElementById('cluster-section');
   const grid = document.getElementById('cluster-apps');
@@ -259,6 +275,18 @@ async function loadClusterApps({ silent = false } = {}) {
   if (clusterLoading) return; // evita refreshes concorrentes
   clusterLoading = true;
 
+  // Loading visível na carga inicial/retry: revela a seção e mostra o skeleton
+  // enquanto consulta. No refresh silencioso (60s) não toca a UI.
+  if (!silent) {
+    if (section) {
+      section.hidden = false;
+      markRevealed('#cluster-section');
+    }
+    stateBox.hidden = false;
+    stateBox.setAttribute('aria-busy', 'true');
+    stateBox.innerHTML = stateMarkup('loading');
+  }
+
   try {
     const data = await fetchWithTimeout(API_URL);
     const apps = appsInNamespace(parseIngressRoutes(data), 'apps');
@@ -266,7 +294,11 @@ async function loadClusterApps({ silent = false } = {}) {
 
     const extras = discoverExtras(apps);
     grid.innerHTML = extras.map(extraCardHTML).join('');
-    if (section) section.hidden = false; // revela só com resposta válida (operador logado)
+    if (section) {
+      section.hidden = false;
+      markRevealed('#cluster-section');
+    }
+    setOperatorUI(true); // operador autenticado: revela as ferramentas de operação
     stateBox.removeAttribute('aria-busy');
 
     if (extras.length === 0) {
@@ -281,9 +313,11 @@ async function loadClusterApps({ silent = false } = {}) {
   } catch (err) {
     track('cluster_apps_error', { message: String((err && err.message) || err) });
     // Recurso de operador: API restrita (401/403) ⇒ visitante anônimo ⇒ esconde a
-    // seção inteira (o site público mostra só os cards curados).
+    // descoberta E as ferramentas de operador (site público mostra só o curado).
     if (isAuthError(err && err.status)) {
       if (section) section.hidden = true;
+      setOperatorUI(false);
+      applySearch(); // recalcula a contagem sem tools/cluster
       return;
     }
     // Erro transitório (rede/timeout/5xx): mostra erro + retry só na carga inicial,
@@ -313,7 +347,15 @@ function applySearch() {
   const q = input.value;
   const cards = document.querySelectorAll('[data-search]');
   let visible = 0;
+  let available = 0;
   cards.forEach((card) => {
+    // Cards dentro de seção de operador oculta (anônimo) ficam fora da busca.
+    const gated = card.closest('#plataforma, #cluster-section');
+    if (gated && gated.hidden) {
+      card.hidden = true;
+      return;
+    }
+    available += 1;
     const hit = matchesQuery(card.getAttribute('data-search'), q);
     card.hidden = !hit;
     if (hit) visible += 1;
@@ -321,7 +363,7 @@ function applySearch() {
   if (counter) {
     counter.textContent = q.trim()
       ? `${visible} resultado${visible === 1 ? '' : 's'}`
-      : `${cards.length} aplicações`;
+      : `${available} aplicações`;
   }
 }
 
