@@ -416,6 +416,37 @@ export function describeReceiveManifestRestriction(manifest) {
   return 'Manifesto indisponivel para recebimento.';
 }
 
+export function describeCancelManifestRestriction(manifest) {
+  if (isCancelledStatus(manifest)) {
+    return 'Manifesto ja cancelado.';
+  }
+  if (!String(manifest?.externalHashCode || '').trim()) {
+    return 'Sem hash CETESB — manifesto ainda nao registrado no SIGOR.';
+  }
+  const status = normalizedStatusValue(manifest);
+  if (status.includes('queue') || status.includes('process')) {
+    return 'Aguarde o processamento terminar.';
+  }
+  if (status.includes('draft')) {
+    return 'Rascunho local — nao ha o que cancelar na CETESB.';
+  }
+  return 'Manifesto indisponivel para cancelamento.';
+}
+
+export function describePrintManifestRestriction(manifest) {
+  if (!String(manifest?.externalHashCode || '').trim()) {
+    return 'Sem hash CETESB — imprima apos o envio ao SIGOR.';
+  }
+  const status = normalizedStatusValue(manifest);
+  if (status.includes('queue') || status.includes('process')) {
+    return 'Aguarde o processamento terminar.';
+  }
+  if (status.includes('draft')) {
+    return 'Rascunho local — envie a CETESB antes de imprimir.';
+  }
+  return 'Manifesto indisponivel para impressao.';
+}
+
 export function formatDate(value) {
   return formatDateBr(value);
 }

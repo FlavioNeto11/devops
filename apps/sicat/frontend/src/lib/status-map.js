@@ -63,6 +63,20 @@ const MANIFEST_STATUS_TONES = Object.freeze({
   error: 'error'
 });
 
+// Situações CETESB chegam em pt-BR livre ('Salvo', 'Recebido', 'Armazenado'...)
+// e não casam com as chaves exatas acima — sem este fallback por substring,
+// tudo vira cinza neutro e o operador perde a leitura de relance do que é
+// acionável (Salvo = aguardando baixa; Recebido = pronto para CDF).
+function resolveManifestToneBySubstring(key) {
+  if (!key) return null;
+  if (key.includes('receb')) return 'success';
+  if (key.includes('salvo')) return 'running';
+  if (key.includes('armazenado')) return 'warning';
+  if (key.includes('cancel')) return 'neutral';
+  if (key.includes('falha') || key.includes('erro') || key.includes('fail') || key.includes('error')) return 'error';
+  return null;
+}
+
 const MANIFEST_STATUS_LABELS = Object.freeze({
   draft: 'Rascunho',
   rascunho: 'Rascunho',
@@ -214,13 +228,19 @@ export function resolveJobStatusTone(status) {
 }
 
 export function resolveManifestStatusTone(status) {
-  return MANIFEST_STATUS_TONES[normalizeKey(status)] || 'neutral';
+  const key = normalizeKey(status);
+  return MANIFEST_STATUS_TONES[key] || resolveManifestToneBySubstring(key) || 'neutral';
 }
 
 export function resolveStatusTone(domain, status) {
   const map = DOMAIN_TONES[domain];
   if (!map) return 'neutral';
-  return map[normalizeKey(status)] || 'neutral';
+  const key = normalizeKey(status);
+  if (map[key]) return map[key];
+  if (domain === 'manifest') {
+    return resolveManifestToneBySubstring(key) || 'neutral';
+  }
+  return 'neutral';
 }
 
 export function resolveStatusLabel(domain, status, { fallback = null } = {}) {

@@ -176,16 +176,22 @@ export function useManifestsStore() {
     filters.dateFrom = normalizedDateFrom;
     filters.dateTo = normalizedDateTo;
 
+    const manifestNumber = String(filters.manifestNumber || '').trim() || undefined;
+    // Busca por número ignora o período: a API não exige datas e o backend
+    // AND-a número com a janela — com o default "hoje", um MTR de semana
+    // passada voltaria vazio sem explicação.
+    const skipDateWindow = Boolean(manifestNumber);
+
     return {
       integrationAccountId: operationalContext.integrationAccountId,
       sessionContextId: operationalContext.sessionContextId || undefined,
       status: String(filters.status || '').trim() || undefined,
       groupId: String(filters.groupId || '').trim() || undefined,
-      manifestNumber: String(filters.manifestNumber || '').trim() || undefined,
+      manifestNumber,
       carrierQuery: String(filters.carrierQuery || '').trim() || undefined,
       receiverQuery: String(filters.receiverQuery || '').trim() || undefined,
-      dateFrom: toApiDate(normalizedDateFrom) || undefined,
-      dateTo: toApiDate(normalizedDateTo) || undefined,
+      dateFrom: skipDateWindow ? undefined : (toApiDate(normalizedDateFrom) || undefined),
+      dateTo: skipDateWindow ? undefined : (toApiDate(normalizedDateTo) || undefined),
       page: filters.page,
       pageSize: filters.pageSize
     };

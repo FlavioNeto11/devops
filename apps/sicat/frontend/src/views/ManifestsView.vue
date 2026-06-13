@@ -24,7 +24,9 @@ import {
   canReplicateManifest,
   canSubmitManifest,
   canUseManifestForCdf,
+  describeCancelManifestRestriction,
   describeCdfManifestRestriction,
+  describePrintManifestRestriction,
   describeReceiveManifestRestriction,
   formatDate,
   formatDateTime,
@@ -175,16 +177,18 @@ const receiveForm = reactive({
   printReceiptAfterReceive: true
 });
 
-// Responsável pelo recebimento (selecionado a partir da lista do SIGOR, com nome+cargo).
+// Responsável pelo recebimento (select inline alimentado pela lista do SIGOR;
+// auto-seleciona quando há um único e lembra o último usado por conta).
 const selectedResponsible = ref(null);
-const responsibleModalVisible = ref(false);
 const responsiblesList = ref([]);
 const responsiblesLoading = ref(false);
 const responsiblesError = ref('');
+const LAST_RESPONSIBLE_STORAGE_KEY = 'sicat_last_receive_responsible';
 // Resíduos editáveis do recebimento (Recebida/Tratamento/Justificativa por linha).
 const receiveResidues = ref([]);
 const receiveResiduesLoading = ref(false);
 const treatmentOptions = ref([]);
+const treatmentLoadError = ref('');
 
 const cacheWarningDetails = computed(() => {
   const meta = syncWarningMeta.value || null;
@@ -235,6 +239,88 @@ const receiveEligibleManifests = computed(() => receiveModalManifests.value.filt
 const receiveBlockedManifestEntries = computed(() => receiveModalManifests.value
   .filter((manifest) => !canReceiveOperationalManifest(manifest))
   .map((manifest) => ({ manifest, reason: describeReceiveManifestRestriction(manifest) })));
+
+// Justificativa é obrigatória quando a quantidade recebida diverge da declarada
+// (o portal CETESB exige; sem isso o erro só estouraria depois, no job).
+function residueQuantityDiverges(residue) {
+  const received = toReceivedNumber(residue?.receivedQuantity);
+  const declared = toReceivedNumber(residue?.quantity);
+  if (received == null || declared == null) {
+    return false;
+  }
+  return Math.abs(received - declared) > 1e-9;
+}
+const residuesMissingJustification = computed(() => (receiveModalMode.value === 'single'
+  ? receiveResidues.value.filter((residue) => residueQuantityDiverges(residue) && !String(residue.justification || '').trim())
+  : []));
+
+// Dica do que falta para liberar o botão Receber (em vez de botão mudo desabilitado).
+const receiveSubmitHint = computed(() => {
+  if (!receiveEligibleManifests.value.length) {
+    return 'Nenhum manifesto elegível para recebimento.';
+  }
+  if (!selectedResponsible.value) {
+    return 'Selecione o responsável pelo recebimento.';
+  }
+  if (residuesMissingJustification.value.length) {
+    return 'Informe a justificativa nas linhas com quantidade divergente.';
+  }
+  return '';
+});
+
+const responsibleSelectItems = computed(() => responsiblesList.value.map((item) => ({
+  value: item.rrmCodigo,
+  title: [item.name || '-', item.cargo].filter(Boolean).join(' — ')
+})));
+const selectedResponsibleCode = computed({
+  get: () => selectedResponsible.value?.rrmCodigo ?? null,
+  set: (code) => {
+    const match = responsiblesList.value.find((item) => String(item.rrmCodigo) === String(code)) || null;
+    selectedResponsible.value = match;
+    if (match) {
+      rememberLastResponsible(match.rrmCodigo);
+    }
+  }
+});
+
+// Presets de período: um clique em vez de digitar duas datas.
+const activeDatePresetDays = computed(() => {
+  const fromIso = brDateToIsoDate(filters.dateFrom);
+  const toIso = brDateToIsoDate(filters.dateTo);
+  const todayIso = new Date().toISOString().slice(0, 10);
+  if (!fromIso || !toIso || toIso !== todayIso) {
+    return null;
+  }
+  const span = Math.round((new Date(`${toIso}T12:00:00`) - new Date(`${fromIso}T12:00:00`)) / 86400000) + 1;
+  return [1, 7, 30].includes(span) ? span : null;
+});
+
+// Resumo legível dos filtros ativos (usado no empty state para tirar o
+// mistério do "cadê meus manifestos?" causado por filtros persistidos).
+const activeFiltersSummary = computed(() => {
+  const parts = [];
+  if (filters.status) {
+    parts.push(`status "${filters.status}"`);
+  }
+  if (String(filters.manifestNumber || '').trim()) {
+    parts.push(`número "${filters.manifestNumber}"`);
+  }
+  if (String(filters.groupId || '').trim()) {
+    parts.push(`grupo "${filters.groupId}"`);
+  }
+  if (String(filters.carrierQuery || '').trim()) {
+    parts.push(`transportador "${filters.carrierQuery}"`);
+  }
+  if (String(filters.receiverQuery || '').trim()) {
+    parts.push(`destinador "${filters.receiverQuery}"`);
+  }
+  if (String(filters.manifestNumber || '').trim()) {
+    parts.push('período ignorado na busca por número');
+  } else if (filters.dateFrom || filters.dateTo) {
+    parts.push(`período ${filters.dateFrom || '…'} a ${filters.dateTo || '…'}`);
+  }
+  return parts.length ? `Filtros ativos: ${parts.join(' · ')}.` : '';
+});
 
 watch(items, (nextItems) => {
   const validIds = new Set((Array.isArray(nextItems) ? nextItems : [])
@@ -474,8 +560,18 @@ function handleGlobalKeydown(event) {
     return;
   }
 
+  if (batchCancelModalVisible.value) {
+    closeBatchCancelModal();
+    return;
+  }
+
   if (receiveModalVisible.value) {
     closeReceiveModal();
+    return;
+  }
+
+  if (replicateModalVisible.value) {
+    closeReplicateModal();
     return;
   }
 
@@ -610,6 +706,7 @@ async function loadTreatmentOptions() {
   if (treatmentOptions.value.length) {
     return;
   }
+  treatmentLoadError.value = '';
   try {
     const response = await getCatalog('residueTreatments', { pageSize: 500 });
     const items = Array.isArray(response?.items) ? response.items : [];
@@ -622,6 +719,7 @@ async function loadTreatmentOptions() {
       .filter(Boolean);
   } catch {
     treatmentOptions.value = [];
+    treatmentLoadError.value = 'Catálogo de tratamentos indisponível — o tratamento original de cada linha será mantido.';
   }
 }
 
@@ -654,10 +752,46 @@ async function loadReceiveResidues(manifest) {
   }
 }
 
-async function openResponsibleModal() {
-  responsibleModalVisible.value = true;
+function lastResponsibleStorageKey() {
+  return `${LAST_RESPONSIBLE_STORAGE_KEY}:${String(authStore.integrationAccountId.value || '').trim()}`;
+}
+
+function rememberLastResponsible(code) {
+  try {
+    localStorage.setItem(lastResponsibleStorageKey(), String(code));
+  } catch {
+    // storage indisponível não pode quebrar o fluxo de baixa
+  }
+}
+
+function recallLastResponsible() {
+  try {
+    return localStorage.getItem(lastResponsibleStorageKey()) || '';
+  } catch {
+    return '';
+  }
+}
+
+// Auto-seleção: lista com 1 item seleciona direto; senão tenta o último usado.
+function applyPreferredResponsible() {
+  if (selectedResponsible.value || !responsiblesList.value.length) {
+    return;
+  }
+  if (responsiblesList.value.length === 1) {
+    selectedResponsible.value = responsiblesList.value[0];
+    return;
+  }
+  const last = recallLastResponsible();
+  const match = last ? responsiblesList.value.find((item) => String(item.rrmCodigo) === last) : null;
+  if (match) {
+    selectedResponsible.value = match;
+  }
+}
+
+async function ensureResponsiblesLoaded() {
   responsiblesError.value = '';
-  if (responsiblesList.value.length) {
+  if (responsiblesList.value.length || responsiblesLoading.value) {
+    applyPreferredResponsible();
     return;
   }
   responsiblesLoading.value = true;
@@ -666,17 +800,13 @@ async function openResponsibleModal() {
     const sessionContextId = String(authStore.sessionContext.value?.id || authStore.sessionContext.value?.sessionContextId || '').trim();
     const response = await getReceiptResponsibles({ integrationAccountId, sessionContextId });
     responsiblesList.value = Array.isArray(response?.items) ? response.items : [];
+    applyPreferredResponsible();
   } catch (error) {
     responsiblesError.value = error?.message || 'Falha ao carregar responsáveis pelo recebimento.';
     responsiblesList.value = [];
   } finally {
     responsiblesLoading.value = false;
   }
-}
-
-function selectResponsible(item) {
-  selectedResponsible.value = item || null;
-  responsibleModalVisible.value = false;
 }
 
 function openReceiveModal(manifest = null) {
@@ -687,9 +817,19 @@ function openReceiveModal(manifest = null) {
   resetReceiveForm();
   clearOperationalFeedback();
   loadTreatmentOptions();
+  ensureResponsiblesLoaded();
   if (manifest) {
     loadReceiveResidues(manifest);
   }
+}
+
+function applyDatePreset(days) {
+  const today = new Date();
+  const from = new Date(today);
+  from.setDate(today.getDate() - (Number(days) - 1));
+  filters.dateTo = getTodayBr();
+  filters.dateFrom = isoDateToBrDate(from.toISOString().slice(0, 10)) || getTodayBr();
+  applyFilters();
 }
 
 function closeReceiveModal(options = {}) {
@@ -822,6 +962,14 @@ async function submitReceiveRequests() {
   try {
     if (!receiveEligibleManifests.value.length) {
       throw new Error('Nenhum manifesto elegivel foi selecionado para recebimento.');
+    }
+
+    if (residuesMissingJustification.value.length) {
+      throw new Error('Informe a justificativa nas linhas em que a quantidade recebida diverge da declarada.');
+    }
+
+    if (selectedResponsible.value?.rrmCodigo != null) {
+      rememberLastResponsible(selectedResponsible.value.rrmCodigo);
     }
 
     const context = await resolveReceiveOperationalContext();
@@ -1090,6 +1238,17 @@ async function requestSubmitManifest(manifest) {
     return;
   }
 
+  // Envio tem efeito real na CETESB — confirmação leve (Remover, que é local, já tinha).
+  const displayId = manifest?.manifestNumber || manifestId;
+  const confirmed = await confirm({
+    title: 'Enviar manifesto à CETESB',
+    message: `Enviar o manifesto ${displayId} à CETESB agora?`,
+    confirmLabel: 'Enviar'
+  });
+  if (!confirmed) {
+    return;
+  }
+
   submitLoadingManifestId.value = manifestId;
   cancelFeedback.value = '';
   cancelFeedbackError.value = '';
@@ -1104,7 +1263,8 @@ async function requestSubmitManifest(manifest) {
     });
 
     cancelFeedback.value = `Envio enfileirado para ${manifest.manifestNumber || manifestId}. Job: ${response.jobId}.`;
-    clearManifestSelection();
+    // Remove só o manifesto enviado da seleção — não pune o lote inteiro.
+    selectedManifestIds.value = selectedManifestIds.value.filter((id) => id !== manifestId);
     await search();
   } catch (err) {
     cancelFeedbackError.value = err.message || 'Falha ao enfileirar envio do manifesto.';
@@ -1121,6 +1281,21 @@ async function requestBatchSubmitManifests() {
   const sessionContextId = String(authStore.sessionContext.value?.id || authStore.sessionContext.value?.sessionContextId || '').trim();
   if (!sessionContextId) {
     cancelFeedbackError.value = 'Sessão CETESB indisponível para envio em lote. Faça login novamente.';
+    return;
+  }
+
+  // Torna explícito o que antes era mágica invisível: contagem real de
+  // elegíveis e o reuso do grupo do filtro como grupo do lote.
+  const submittableCount = selectedSubmittableManifestIds.value.length;
+  const ignoredCount = selectedManifestCount.value - submittableCount;
+  const groupNote = String(filters.groupId || '').trim() ? ` Serão etiquetados no grupo ${filters.groupId}.` : '';
+  const ignoredNote = ignoredCount > 0 ? ` ${ignoredCount} selecionado(s) não elegíveis serão ignorados.` : '';
+  const confirmed = await confirm({
+    title: 'Enviar manifestos à CETESB',
+    message: `Enviar ${submittableCount} manifesto(s) à CETESB agora?${groupNote}${ignoredNote}`,
+    confirmLabel: 'Enviar em lote'
+  });
+  if (!confirmed) {
     return;
   }
 
@@ -1424,7 +1599,14 @@ onUnmounted(() => {
                   />
                 </v-col>
                 <v-col cols="12" sm="6" md="3">
-                  <v-text-field v-model="filters.manifestNumber" label="Número MTR" placeholder="Ex.: 260010679516" clearable />
+                  <v-text-field
+                    v-model="filters.manifestNumber"
+                    label="Número MTR"
+                    placeholder="Ex.: 260010679516"
+                    clearable
+                    :hint="String(filters.manifestNumber || '').trim() ? 'A busca por número ignora o período.' : undefined"
+                    :persistent-hint="Boolean(String(filters.manifestNumber || '').trim())"
+                  />
                 </v-col>
                 <v-col cols="12" sm="6" md="3">
                   <v-text-field v-model="filters.groupId" label="Grupo" placeholder="Ex.: grp_..." clearable />
@@ -1480,12 +1662,18 @@ onUnmounted(() => {
                     :items="[{title:'10',value:10},{title:'20',value:20},{title:'50',value:50}]"
                     item-title="title"
                     item-value="value"
+                    @update:model-value="applyFilters"
                   />
                 </v-col>
               </v-row>
-              <div class="d-flex ga-2 mt-2">
+              <div class="d-flex align-center flex-wrap ga-2 mt-2">
                 <v-btn color="primary" type="submit" :loading="loadingList">Aplicar Filtros</v-btn>
                 <v-btn variant="outlined" type="button" @click="clearFilters">Limpar Filtros</v-btn>
+                <v-divider vertical class="mx-1 d-none d-sm-block" />
+                <span class="text-caption text-medium-emphasis">Período rápido:</span>
+                <v-chip size="small" :variant="activeDatePresetDays === 1 ? 'flat' : 'tonal'" :color="activeDatePresetDays === 1 ? 'primary' : undefined" @click="applyDatePreset(1)">Hoje</v-chip>
+                <v-chip size="small" :variant="activeDatePresetDays === 7 ? 'flat' : 'tonal'" :color="activeDatePresetDays === 7 ? 'primary' : undefined" @click="applyDatePreset(7)">7 dias</v-chip>
+                <v-chip size="small" :variant="activeDatePresetDays === 30 ? 'flat' : 'tonal'" :color="activeDatePresetDays === 30 ? 'primary' : undefined" @click="applyDatePreset(30)">30 dias</v-chip>
               </div>
             </v-form>
           </v-card-text>
@@ -1501,19 +1689,20 @@ onUnmounted(() => {
         <v-alert v-if="cancelFeedback" type="success" variant="tonal" class="mb-3" density="compact" aria-live="polite">{{ cancelFeedback }}</v-alert>
         <v-alert v-if="operationalFeedback" type="success" variant="tonal" class="mb-3" density="compact" aria-live="polite">{{ operationalFeedback }}</v-alert>
         <v-alert v-if="operationalFeedbackError" type="error" variant="tonal" class="mb-3" density="compact" aria-live="polite">{{ operationalFeedbackError }}</v-alert>
-        <!-- Toolbar de lote -->
-        <v-card v-if="selectedManifestCount" class="mb-4" color="primary" variant="tonal">
+        <!-- Toolbar de lote (sticky: não some ao rolar a lista; contagens por ação
+             evitam a surpresa de "selecionei 10, agiu em 6") -->
+        <v-card v-if="selectedManifestCount" class="mb-4 manifests-batch-bar" color="primary" variant="tonal">
           <v-card-text>
             <v-row align="center">
               <v-col>
-                <strong>{{ selectedManifestCount }}</strong> manifesto(s) selecionado(s) para ação em lote.
+                <strong>{{ selectedManifestCount }}</strong> manifesto(s) selecionado(s) — cada botão mostra quantos são elegíveis.
               </v-col>
               <v-col cols="auto" class="d-flex flex-wrap ga-2">
-                <v-btn v-if="isReceiverOperationalMode && selectedReceivableManifests.length" color="primary" size="small" :loading="receiveModalLoading" @click="openReceiveModal()">Receber selecionados</v-btn>
-                <v-btn v-if="isReceiverOperationalMode && selectedCdfCandidateManifests.length" variant="outlined" size="small" prepend-icon="mdi-file-certificate" @click="goToCdfFlowFromSelection">Gerar CDF dos selecionados</v-btn>
-                <v-btn v-if="selectedPrintableManifests.length" variant="outlined" size="small" :loading="batchPrintLoading" @click="requestBatchPrintManifests">Imprimir selecionados</v-btn>
-                <v-btn v-if="!isReceiverOperationalMode && selectedSubmittableManifestIds.length" variant="outlined" size="small" :loading="batchSubmitLoading" @click="requestBatchSubmitManifests">Submeter selecionados</v-btn>
-                <v-btn v-if="selectedCancelableManifestIds.length" color="error" size="small" @click="openBatchCancelModal">Cancelar selecionados</v-btn>
+                <v-btn v-if="isReceiverOperationalMode && selectedReceivableManifests.length" color="primary" size="small" :loading="receiveModalLoading" @click="openReceiveModal()">Receber ({{ selectedReceivableManifests.length }})</v-btn>
+                <v-btn v-if="isReceiverOperationalMode && selectedCdfCandidateManifests.length" variant="outlined" size="small" prepend-icon="mdi-file-certificate" @click="goToCdfFlowFromSelection">Gerar CDF ({{ selectedCdfCandidateManifests.length }})</v-btn>
+                <v-btn v-if="selectedPrintableManifests.length" variant="outlined" size="small" :loading="batchPrintLoading" @click="requestBatchPrintManifests">Imprimir ({{ selectedPrintableManifests.length }})</v-btn>
+                <v-btn v-if="!isReceiverOperationalMode && selectedSubmittableManifestIds.length" variant="outlined" size="small" :loading="batchSubmitLoading" @click="requestBatchSubmitManifests">Submeter ({{ selectedSubmittableManifestIds.length }})</v-btn>
+                <v-btn v-if="selectedCancelableManifestIds.length" color="error" size="small" @click="openBatchCancelModal">Cancelar ({{ selectedCancelableManifestIds.length }})</v-btn>
                 <v-btn variant="text" size="small" @click="clearManifestSelection">Limpar seleção</v-btn>
               </v-col>
             </v-row>
@@ -1560,7 +1749,14 @@ onUnmounted(() => {
                 <td colspan="7" class="text-center text-medium-emphasis pa-4">Carregando manifestos...</td>
               </tr>
               <tr v-if="!items.length && !loadingList">
-                <td colspan="7" class="text-center text-medium-emphasis pa-4">Nenhum manifesto encontrado.</td>
+                <td colspan="7" class="text-center pa-6">
+                  <div class="text-body-2 text-medium-emphasis mb-1">Nenhum manifesto encontrado.</div>
+                  <div v-if="activeFiltersSummary" class="text-caption text-medium-emphasis mb-3">{{ activeFiltersSummary }}</div>
+                  <div class="d-flex justify-center flex-wrap ga-2">
+                    <v-btn size="small" variant="outlined" @click="applyDatePreset(30)">Buscar últimos 30 dias</v-btn>
+                    <v-btn size="small" variant="text" @click="clearFilters">Limpar filtros</v-btn>
+                  </div>
+                </td>
               </tr>
               <tr v-for="manifest in items" :key="resolveManifestIdentifier(manifest)">
                 <td>
@@ -1572,9 +1768,16 @@ onUnmounted(() => {
                   />
                 </td>
                 <td>
-                  <div class="font-weight-medium" :title="manifest.manifestNumber || resolveManifestIdentifier(manifest) || '-'">
+                  <a
+                    class="manifest-number-link font-weight-medium"
+                    role="button"
+                    tabindex="0"
+                    :title="`Abrir manifesto ${manifest.manifestNumber || resolveManifestIdentifier(manifest) || ''}`"
+                    @click="openManifestFromRow(manifest)"
+                    @keydown.enter.prevent="openManifestFromRow(manifest)"
+                  >
                     {{ manifest.manifestNumber || resolveManifestIdentifier(manifest) || '-' }}
-                  </div>
+                  </a>
                   <v-chip v-if="manifest.groupId" size="x-small" variant="tonal" color="secondary" :title="formatManifestBatchLabel(manifest)">
                     {{ formatManifestBatchLabel(manifest) }}
                   </v-chip>
@@ -1591,11 +1794,32 @@ onUnmounted(() => {
                   />
                 </td>
                 <td class="manifest-actions-cell">
+                  <!-- Ação primária da persona inline: 1 clique em vez de 2 no dropdown -->
+                  <v-btn
+                    v-if="isReceiverOperationalMode && canReceiveOperationalManifest(manifest)"
+                    color="primary"
+                    variant="flat"
+                    size="small"
+                    class="mr-2"
+                    prepend-icon="mdi-inbox-arrow-down"
+                    :disabled="receiveModalLoading"
+                    @click="openReceiveModal(manifest)"
+                  >Receber</v-btn>
+                  <v-btn
+                    v-else-if="!isReceiverOperationalMode && canSubmitManifest(manifest)"
+                    color="primary"
+                    variant="flat"
+                    size="small"
+                    class="mr-2"
+                    prepend-icon="mdi-send"
+                    :loading="submitLoadingManifestId === resolveManifestIdentifier(manifest)"
+                    @click="requestSubmitManifest(manifest)"
+                  >Submeter</v-btn>
                   <v-menu location="bottom end">
                     <template #activator="{ props: menuProps }">
                       <v-btn v-bind="menuProps" variant="tonal" size="small" append-icon="mdi-chevron-down" aria-label="Ações do manifesto">Ações</v-btn>
                     </template>
-                    <v-list density="compact" min-width="210">
+                    <v-list density="compact" min-width="260">
                       <v-list-item
                         :disabled="!resolveManifestIdentifier(manifest)"
                         prepend-icon="mdi-eye-outline"
@@ -1603,16 +1827,19 @@ onUnmounted(() => {
                         @click="openManifestFromRow(manifest)"
                       />
                       <v-list-item
-                        v-if="isReceiverOperationalMode && canReceiveOperationalManifest(manifest)"
-                        :disabled="receiveModalLoading"
+                        v-if="isReceiverOperationalMode"
+                        :disabled="receiveModalLoading || !canReceiveOperationalManifest(manifest)"
                         prepend-icon="mdi-inbox-arrow-down"
                         title="Receber MTR"
+                        :subtitle="!canReceiveOperationalManifest(manifest) ? describeReceiveManifestRestriction(manifest) : undefined"
                         @click="openReceiveModal(manifest)"
                       />
                       <v-list-item
-                        v-if="isReceiverOperationalMode && canUseManifestForCdf(manifest)"
+                        v-if="isReceiverOperationalMode"
+                        :disabled="!canUseManifestForCdf(manifest)"
                         prepend-icon="mdi-file-certificate"
                         title="Gerar CDF"
+                        :subtitle="!canUseManifestForCdf(manifest) ? describeCdfManifestRestriction(manifest) : undefined"
                         @click="goToCdfFlowForManifest(manifest)"
                       />
                       <v-list-item
@@ -1634,6 +1861,7 @@ onUnmounted(() => {
                         :disabled="!canPrintManifest(manifest) || printLoadingManifestId === resolveManifestIdentifier(manifest)"
                         prepend-icon="mdi-printer"
                         :title="printLoadingManifestId === resolveManifestIdentifier(manifest) ? 'Imprimindo…' : 'Imprimir'"
+                        :subtitle="!canPrintManifest(manifest) ? describePrintManifestRestriction(manifest) : undefined"
                         @click="requestPrintManifest(manifest)"
                       />
                       <v-list-item
@@ -1658,6 +1886,7 @@ onUnmounted(() => {
                         prepend-icon="mdi-cancel"
                         class="text-error"
                         :title="isCancelledStatus(manifest) ? 'Cancelado' : 'Cancelar'"
+                        :subtitle="!canCancelManifest(manifest) && !isCancelledStatus(manifest) ? describeCancelManifestRestriction(manifest) : undefined"
                         @click="openCancelModal(manifest)"
                       />
                     </v-list>
@@ -1703,14 +1932,17 @@ onUnmounted(() => {
               <v-btn icon="mdi-close" variant="text" :disabled="batchCancelLoading" @click="closeBatchCancelModal" />
             </v-card-title>
             <v-card-text>
-              <p class="text-body-2 mb-3">Manifestos selecionados: <strong>{{ selectedManifestCount }}</strong></p>
+              <p class="text-body-2 mb-1">Serão cancelados: <strong>{{ selectedCancelableManifestIds.length }}</strong> manifesto(s)</p>
+              <p v-if="selectedManifestCount > selectedCancelableManifestIds.length" class="text-caption text-medium-emphasis mb-3">
+                {{ selectedManifestCount - selectedCancelableManifestIds.length }} dos {{ selectedManifestCount }} selecionados não são canceláveis e serão ignorados.
+              </p>
               <v-textarea v-model="batchCancelReason" label="Motivo do cancelamento *" rows="4" maxlength="500" placeholder="Ex.: erro no cadastro" :disabled="batchCancelLoading" counter />
               <v-alert v-if="cancelFeedbackError" type="error" variant="tonal" density="compact" class="mt-2">{{ cancelFeedbackError }}</v-alert>
             </v-card-text>
             <v-card-actions>
               <v-spacer />
               <v-btn variant="text" :disabled="batchCancelLoading" @click="closeBatchCancelModal">Voltar</v-btn>
-              <v-btn color="error" :loading="batchCancelLoading" @click="confirmBatchCancelManifest">Confirmar cancelamento em lote</v-btn>
+              <v-btn color="error" :loading="batchCancelLoading" @click="confirmBatchCancelManifest">Cancelar {{ selectedCancelableManifestIds.length }} manifesto(s)</v-btn>
             </v-card-actions>
           </v-card>
         </v-dialog>
@@ -1734,19 +1966,35 @@ onUnmounted(() => {
                 <v-text-field v-model="receiveForm.receivedAt" label="Data de Recebimento *" type="date" density="compact" hide-details variant="outlined" :disabled="receiveModalLoading" style="max-width:220px" />
               </div>
 
-              <!-- Responsável pelo Recebimento -->
+              <!-- Responsável pelo Recebimento: select inline (sem sub-modal);
+                   auto-seleciona quando há um único e lembra o último usado. -->
               <div class="mt-4">
                 <div class="text-subtitle-2 mb-1">Responsável pelo Recebimento</div>
-                <div class="d-flex align-center flex-wrap" style="gap:12px">
-                  <v-btn color="primary" variant="flat" size="small" :disabled="receiveModalLoading" @click="openResponsibleModal">Selecionar Responsável</v-btn>
-                  <span v-if="selectedResponsible" class="text-body-2"><strong>Responsável:</strong> {{ selectedResponsible.name || '-' }} &nbsp; <strong>Cargo:</strong> {{ selectedResponsible.cargo || '-' }}</span>
-                  <span v-else class="text-caption text-medium-emphasis">Nenhum responsável selecionado.</span>
+                <v-select
+                  v-model="selectedResponsibleCode"
+                  :items="responsibleSelectItems"
+                  item-title="title"
+                  item-value="value"
+                  label="Responsável *"
+                  density="compact"
+                  variant="outlined"
+                  hide-details
+                  style="max-width:420px"
+                  :loading="responsiblesLoading"
+                  :disabled="receiveModalLoading || responsiblesLoading"
+                  :placeholder="responsiblesLoading ? 'Carregando responsáveis…' : 'Selecione o responsável'"
+                  no-data-text="Nenhum responsável cadastrado para esta conta."
+                />
+                <div v-if="responsiblesError" class="text-caption text-error mt-1 d-flex align-center" style="gap:8px">
+                  {{ responsiblesError }}
+                  <v-btn size="x-small" variant="text" @click="ensureResponsiblesLoaded">Tentar novamente</v-btn>
                 </div>
               </div>
 
               <!-- Lista de Resíduos (modo single) -->
               <div v-if="receiveModalMode === 'single'" class="mt-4">
                 <div class="text-subtitle-2 mb-1">Resíduos</div>
+                <div v-if="treatmentLoadError" class="text-caption text-medium-emphasis mb-1">{{ treatmentLoadError }}</div>
                 <v-progress-linear v-if="receiveResiduesLoading" indeterminate class="mb-2" />
                 <v-table v-else density="compact" class="border rounded">
                   <thead>
@@ -1765,7 +2013,17 @@ onUnmounted(() => {
                       </td>
                       <td class="text-right">{{ residue.quantity ?? '-' }}</td>
                       <td><v-text-field v-model="residue.receivedQuantity" type="number" min="0" step="0.0001" density="compact" hide-details variant="outlined" :disabled="receiveModalLoading" /></td>
-                      <td><v-text-field v-model="residue.justification" density="compact" hide-details variant="outlined" placeholder="Se divergir" :disabled="receiveModalLoading" /></td>
+                      <td>
+                        <v-text-field
+                          v-model="residue.justification"
+                          density="compact"
+                          hide-details
+                          variant="outlined"
+                          :placeholder="residueQuantityDiverges(residue) ? 'Obrigatória (quantidade divergente)' : 'Se divergir'"
+                          :error="residueQuantityDiverges(residue) && !String(residue.justification || '').trim()"
+                          :disabled="receiveModalLoading"
+                        />
+                      </td>
                     </tr>
                     <tr v-if="!receiveResidues.length">
                       <td colspan="6" class="text-center text-medium-emphasis py-3">Nenhum resíduo carregado para este manifesto.</td>
@@ -1776,48 +2034,27 @@ onUnmounted(() => {
 
               <v-textarea v-model="receiveForm.observation" label="Observação" rows="2" maxlength="500" :disabled="receiveModalLoading" class="mt-4" hide-details variant="outlined" />
               <v-checkbox v-model="receiveForm.printReceiptAfterReceive" label="Baixar e persistir comprovante PDF após o recebimento" :disabled="receiveModalLoading" density="compact" hide-details class="mt-2" />
+              <!-- Bloqueados com a RAZÃO antes do envio (não depois, truncado) -->
               <v-alert v-if="receiveBlockedManifestEntries.length" type="info" variant="tonal" density="compact" class="mt-2">
-                {{ receiveBlockedManifestEntries.length }} manifesto(s) serão ignorados por não estarem elegíveis.
+                <div class="font-weight-medium mb-1">{{ receiveBlockedManifestEntries.length }} manifesto(s) serão ignorados:</div>
+                <ul class="manifests-blocked-list">
+                  <li v-for="entry in receiveBlockedManifestEntries" :key="resolveManifestIdentifier(entry.manifest)">
+                    {{ formatManifestLabel(entry.manifest) }} — {{ entry.reason }}
+                  </li>
+                </ul>
               </v-alert>
             </v-card-text>
             <v-card-actions>
+              <span v-if="receiveSubmitHint" class="text-caption text-medium-emphasis ml-3">{{ receiveSubmitHint }}</span>
               <v-spacer />
               <v-btn variant="text" :disabled="receiveModalLoading" @click="closeReceiveModal">Cancelar</v-btn>
-              <v-btn color="primary" :loading="receiveModalLoading" :disabled="!receiveEligibleManifests.length || !selectedResponsible" @click="submitReceiveRequests">Receber</v-btn>
+              <v-btn color="primary" :loading="receiveModalLoading" :disabled="Boolean(receiveSubmitHint)" @click="submitReceiveRequests">
+                Receber{{ receiveModalMode === 'batch' ? ` (${receiveEligibleManifests.length})` : '' }}
+              </v-btn>
             </v-card-actions>
           </v-card>
         </v-dialog>
 
-        <!-- Sub-dialog: Selecionar Responsável pelo Recebimento (lista do SIGOR) -->
-        <v-dialog v-model="responsibleModalVisible" max-width="640" scrollable>
-          <v-card>
-            <v-card-title class="d-flex align-center justify-space-between">
-              <span>Responsável Recebimento MTR</span>
-              <v-btn icon="mdi-close" variant="text" @click="responsibleModalVisible = false" />
-            </v-card-title>
-            <v-card-text>
-              <v-progress-linear v-if="responsiblesLoading" indeterminate class="mb-2" />
-              <v-alert v-if="responsiblesError" type="error" variant="tonal" density="compact" class="mb-2">{{ responsiblesError }}</v-alert>
-              <v-table v-if="!responsiblesLoading" density="compact" class="border rounded">
-                <thead><tr><th>Responsável</th><th>Cargo</th><th style="width:120px">Ações</th></tr></thead>
-                <tbody>
-                  <tr v-for="resp in responsiblesList" :key="resp.rrmCodigo">
-                    <td>{{ resp.name || '-' }}</td>
-                    <td>{{ resp.cargo || '-' }}</td>
-                    <td><v-btn size="small" color="primary" variant="text" @click="selectResponsible(resp)">Selecionar</v-btn></td>
-                  </tr>
-                  <tr v-if="!responsiblesList.length">
-                    <td colspan="3" class="text-center text-medium-emphasis py-3">Nenhum responsável cadastrado para esta conta.</td>
-                  </tr>
-                </tbody>
-              </v-table>
-            </v-card-text>
-            <v-card-actions>
-              <v-spacer />
-              <v-btn variant="text" @click="responsibleModalVisible = false">Fechar</v-btn>
-            </v-card-actions>
-          </v-card>
-        </v-dialog>
         <!-- Dialog: Replicar manifesto -->
         <v-dialog v-model="replicateModalVisible" max-width="440" persistent>
           <v-card>
@@ -1872,6 +2109,33 @@ onUnmounted(() => {
   </SicatPageLayout>
 </template>
 <style scoped>
+/* Barra de lote sticky: continua visível enquanto o operador rola a lista. */
+.manifests-batch-bar {
+  position: sticky;
+  top: 12px;
+  z-index: 3;
+}
+
+.manifest-number-link {
+  cursor: pointer;
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dotted rgba(var(--v-theme-on-surface), 0.35);
+}
+
+.manifest-number-link:hover,
+.manifest-number-link:focus-visible {
+  color: rgb(var(--v-theme-primary));
+  border-bottom-color: rgb(var(--v-theme-primary));
+}
+
+.manifests-blocked-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 2px;
+}
+
 .manifests-receive-summary {
   display: grid;
   gap: 8px;
