@@ -34,6 +34,8 @@ Comece aqui ao desenhar/avaliar um app.
 | [`deprecation-policy.md`](./standards/deprecation-policy.md) | Como trocar/remover sem quebrar (flag por 1 ciclo). |
 | [`documentation-style.md`](./standards/documentation-style.md) | Como **escrever docs**: naming, front-matter, idioma, ToC, cross-link, ciclo de vida. |
 | [`meta-doc-standard.md`](./standards/meta-doc-standard.md) | Como autorar **meta-docs** (CLAUDE.md/AGENTS.md/skills): fonte única, precedência, seções. |
+| [`portal-quality-checklist.md`](./standards/portal-quality-checklist.md) | Checklist de qualidade do Portal (SEO/perf/segurança/observabilidade/testes). |
+| [`portal-ux-accessibility-checklist.md`](./standards/portal-ux-accessibility-checklist.md) | Checklist de UX & acessibilidade do Portal (WCAG AA, responsividade, estados). |
 
 ## 📘 Guias operacionais (nesta pasta)
 
@@ -54,6 +56,11 @@ Comece aqui ao desenhar/avaliar um app.
 | [`docker-desktop-recovery.md`](./runbooks/docker-desktop-recovery.md) | Docker/k8s travado no boot. |
 | [`platform-bootstrap-and-reset.md`](./runbooks/platform-bootstrap-and-reset.md) | Subir, validar, resetar. |
 | [`rollback.md`](./runbooks/rollback.md) | Reverter uma publicação (rollout/Argo/flag). |
+| [`portal-operations.md`](./runbooks/portal-operations.md) | Operar o Portal NovaIT (`/`): publicar, validar, rollback, diagnóstico. |
+
+## 🧭 Decisões de arquitetura (`decisions/`)
+ADRs leves (contexto → decisão → consequências). Índice em [`decisions/README.md`](./decisions/README.md).
+Ex.: [`0001`](./decisions/0001-portal-progressive-enhancement.md) — Portal estático com progressive enhancement.
 
 ## 🤝 Contribuir (`contributing/`)
 [`repo-structure.md`](./contributing/repo-structure.md) — mapa autoritativo do repo. Visão de

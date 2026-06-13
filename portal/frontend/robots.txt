@@ -1,0 +1,12 @@
+# NovaIT — portal público (dev.nvit.com.br)
+# As aplicações em subpaths (/sicat, /gymops, ...) têm suas próprias regras.
+User-agent: *
+Allow: /$
+Allow: /assets/
+Disallow: /devops
+Disallow: /argocd
+Disallow: /grafana
+Disallow: /auth
+Disallow: /portal-rec
+
+Sitemap: https://dev.nvit.com.br/sitemap.xml

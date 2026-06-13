@@ -1,0 +1,119 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  escapeHtml,
+  prettifyName,
+  basePathOf,
+  inferRequiresLogin,
+  parseIngressRoutes,
+  appsInNamespace,
+  livePathSet,
+  discoverExtras,
+  matchesQuery,
+  searchText,
+  extraCardHTML,
+  stateMarkup,
+} from '../assets/portal.js';
+
+test('escapeHtml neutraliza caracteres perigosos', () => {
+  assert.equal(escapeHtml('<img src=x onerror="y">'), '&lt;img src=x onerror=&quot;y&quot;&gt;');
+  assert.equal(escapeHtml(null), '');
+});
+
+test('prettifyName humaniza nomes de recursos k8s', () => {
+  assert.equal(prettifyName('portal-recorder'), 'Portal Recorder');
+  assert.equal(prettifyName('my_cool_app'), 'My Cool App');
+});
+
+test('basePathOf escolhe o menor path não-raiz e normaliza trailing slash', () => {
+  assert.equal(basePathOf(['/sicat/api', '/sicat']), '/sicat');
+  assert.equal(basePathOf(['/sicat/']), '/sicat'); // trailing slash normalizado
+  assert.equal(basePathOf(['/']), null);
+  assert.equal(basePathOf([]), null);
+});
+
+test('inferRequiresLogin detecta middlewares de auth', () => {
+  assert.equal(inferRequiresLogin(['sicat-oidc', 'compress']), true);
+  assert.equal(inferRequiresLogin(['forward-auth']), true);
+  assert.equal(inferRequiresLogin(['strip-prefix', 'compress']), false);
+});
+
+test('parseIngressRoutes normaliza e descarta rotas sem base path', () => {
+  const data = [
+    {
+      name: 'sicat',
+      namespace: 'apps',
+      paths: ['/sicat', '/sicat/api'],
+      hosts: ['dev.nvit.com.br'],
+      routes: [{ middlewares: ['sicat-oidc'] }],
+    },
+    { name: 'portal', namespace: 'devops-system', paths: ['/'], routes: [] },
+  ];
+  const parsed = parseIngressRoutes(data);
+  assert.equal(parsed.length, 1);
+  assert.deepEqual(
+    { name: parsed[0].name, basePath: parsed[0].basePath, requiresLogin: parsed[0].requiresLogin },
+    { name: 'sicat', basePath: '/sicat', requiresLogin: true },
+  );
+});
+
+test('appsInNamespace e livePathSet', () => {
+  const apps = [
+    { name: 'a', namespace: 'apps', basePath: '/a' },
+    { name: 'b', namespace: 'other', basePath: '/b' },
+  ];
+  assert.equal(appsInNamespace(apps).length, 1);
+  assert.ok(livePathSet(apps).has('/a'));
+});
+
+test('discoverExtras deduplica contra o catálogo curado', () => {
+  const apps = [
+    { name: 'sicat', namespace: 'apps', basePath: '/sicat', requiresLogin: true },
+    { name: 'novo-app', namespace: 'apps', basePath: '/novo', requiresLogin: false },
+    { name: 'novo-app', namespace: 'apps', basePath: '/novo', requiresLogin: false },
+  ];
+  const extras = discoverExtras(apps, ['/sicat']);
+  assert.equal(extras.length, 1);
+  assert.equal(extras[0].basePath, '/novo');
+  assert.equal(extras[0].name, 'Novo App');
+});
+
+test('app curada com trailing slash não vira card extra duplicado', () => {
+  const data = [
+    { name: 'sicat', namespace: 'apps', paths: ['/sicat/'], routes: [] },
+    { name: 'sicat-api', namespace: 'apps', paths: ['/sicat/api'], routes: [] },
+  ];
+  const apps = appsInNamespace(parseIngressRoutes(data));
+  const extras = discoverExtras(apps, ['/sicat']);
+  assert.equal(extras.length, 0); // /sicat/ normaliza para /sicat (curado) → sem duplicata
+});
+
+test('matchesQuery: termo vazio casa tudo; tokens exigem todos', () => {
+  const hay = searchText(['SICAT', 'gestão ambiental', 'cetesb']);
+  assert.equal(matchesQuery(hay, ''), true);
+  assert.equal(matchesQuery(hay, 'cetesb'), true);
+  assert.equal(matchesQuery(hay, 'sicat ambiental'), true);
+  assert.equal(matchesQuery(hay, 'gymops'), false);
+});
+
+test('extraCardHTML: card seguro com nome, path, status e CTA', () => {
+  const html = extraCardHTML({ name: 'Novo App', basePath: '/novo', requiresLogin: true });
+  assert.match(html, /<article class="card prod"/);
+  assert.match(html, /Acessar Novo App/);
+  assert.match(html, /href="\/novo"/);
+  assert.match(html, /badge is-online/);
+  assert.match(html, /exige login/);
+  // injeção é escapada
+  const evil = extraCardHTML({ name: '<x>', basePath: '/x', requiresLogin: false });
+  assert.ok(!evil.includes('<x>'));
+  assert.ok(evil.includes('&lt;x&gt;'));
+});
+
+test('stateMarkup cobre loading, empty e error', () => {
+  assert.match(stateMarkup('loading'), /skeleton/);
+  assert.match(stateMarkup('empty'), /Nenhuma aplicação extra/);
+  const err = stateMarkup('error', { message: 'timeout x' });
+  assert.match(err, /role="alert"/);
+  assert.match(err, /data-retry/);
+  assert.match(err, /timeout x/);
+});

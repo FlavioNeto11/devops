@@ -1,0 +1,19 @@
+{
+  "name": "NovaIT — Plataforma de Tecnologia",
+  "short_name": "NovaIT",
+  "description": "Engenharia cloud-native, DevOps e IA aplicada da NovaIT (NVIT).",
+  "lang": "pt-BR",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    }
+  ]
+}

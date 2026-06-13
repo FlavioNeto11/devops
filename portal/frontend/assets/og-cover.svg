@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="NovaIT — Plataforma de tecnologia cloud-native">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0b1220" />
+      <stop offset="1" stop-color="#131d36" />
+    </linearGradient>
+    <linearGradient id="mark" x1="80" y1="190" x2="200" y2="310" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2563eb" />
+      <stop offset="1" stop-color="#7c6cff" />
+    </linearGradient>
+    <linearGradient id="accent" x1="80" y1="0" x2="1100" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5b8bff" />
+      <stop offset="1" stop-color="#9a8cff" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)" />
+  <g fill="#5b8bff" opacity="0.06">
+    <circle cx="1050" cy="120" r="260" />
+  </g>
+  <!-- logo mark -->
+  <rect x="80" y="190" width="120" height="120" rx="30" fill="url(#mark)" />
+  <path d="M114 282V218l52 64v-64" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
+  <text x="232" y="290" font-family="'Sora','Segoe UI',sans-serif" font-size="92" font-weight="800" fill="#f1f5f9">
+    nova<tspan fill="#5b8bff">IT</tspan>
+  </text>
+  <text x="84" y="410" font-family="'Sora','Segoe UI',sans-serif" font-size="56" font-weight="800" fill="#f1f5f9">
+    Tecnologia que opera o mundo real
+  </text>
+  <text x="84" y="476" font-family="'Inter','Segoe UI',sans-serif" font-size="30" fill="#9aa6bd">
+    Plataformas cloud-native · DevOps &amp; GitOps · IA aplicada
+  </text>
+  <rect x="84" y="520" width="1032" height="3" fill="url(#accent)" opacity="0.5" />
+  <text x="84" y="566" font-family="'JetBrains Mono','Consolas',monospace" font-size="24" fill="#76829b">
+    dev.nvit.com.br · kubernetes · gitops · sso
+  </text>
+</svg>

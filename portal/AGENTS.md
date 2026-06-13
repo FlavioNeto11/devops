@@ -20,9 +20,13 @@ language: pt-BR
 
 **Portal NovaIT** é a landing page pública servida na **raiz** `/` (host `xpto.localhost` local /
 `dev.nvit.com.br` futuro), no namespace `devops-system`. É um **frontend estático** (nginx,
-`frontend/index.html` + `nginx.conf`, **sem build Node/SPA framework**) com a marca NovaIT; o JS da
-página consome a API somente-leitura do DevOps Console (`/devops/api/ingressroutes`), filtra o
-namespace `apps` e renderiza um card por aplicação publicada (atualiza a cada 30s).
+`frontend/index.html` + `nginx.conf` + `assets/` — **sem build de bundle/SPA framework**) com a
+marca NovaIT. O HTML é completo e útil **sem JS**; o JS (`assets/portal.js`) apenas **enriquece**
+(_progressive enhancement_): consome a API somente-leitura do DevOps Console
+(`/devops/api/ingressroutes`), filtra o namespace `apps`, marca os cards curados como "no ar" e
+renderiza cards extras das apps descobertas — com estados de _loading/vazio/erro_ tratados
+(atualiza a cada 60s). Há **tooling de qualidade** em `frontend/package.json` (Prettier, ESLint,
+testes `node:test`) que **não entra na imagem** (`.dockerignore`).
 
 Roteamento: `IngressRoute` em `devops-system` com `PathPrefix("/")` e **`priority: 1`** (a menor) —
 qualquer path específico (`/devops`, `/grafana`, `/argocd`, `/<app>`...) vence; só a raiz cai no
@@ -49,7 +53,9 @@ uso. Idioma de UI/prosa: pt-BR.
 | Operação | Comando |
 |---|---|
 | Buildar a imagem local | `docker build -t portal-frontend:local C:\devops\portal\frontend` |
-| Editar a página (marca, cores, textos) | editar `frontend/index.html` |
+| Editar a página (marca, cores, textos, cards) | editar `frontend/index.html`, `frontend/assets/*` |
+| Rodar o gate de qualidade | `cd frontend; npm run validate` (Prettier + ESLint + `node:test`) |
+| Pré-visualizar no navegador | `npx --yes serve -l 5055 frontend` |
 | Render do manifest (sem aplicar) | `kubectl apply -f portal/k8s/portal.yaml --dry-run=server` |
 | Inspecionar o que está no ar | `kubectl -n devops-system get/describe/logs deploy/portal` |
 
@@ -73,7 +79,7 @@ uso. Idioma de UI/prosa: pt-BR.
 ## 4. Princípios não-negociáveis
 
 1. **AGENTS.md é a fonte das fronteiras**; o detalhe técnico vive no [`README.md`](./README.md) — não duplicar.
-2. **Estático e público:** só nginx + `index.html`; sem backend próprio, sem segredo, sem acesso a dados sensíveis.
+2. **Estático e público:** nginx + `index.html` + `assets/` (CSS/JS); sem backend próprio, sem segredo, sem acesso a dados sensíveis. O `package.json`/`test/` são só de qualidade e não vão para a imagem.
 3. **`priority: 1` é intencional** — a raiz só pega o que nenhum path específico atende; nunca elevar.
 4. **Lista dinâmica via API read-only do Console** — o portal não mantém estado; um app novo aparece sozinho ao ganhar uma `IngressRoute` no namespace `apps`.
 5. **Imagem `:local` + `IfNotPresent`** no lab; sem push para registry.
