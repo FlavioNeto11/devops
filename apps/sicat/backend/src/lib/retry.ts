@@ -142,6 +142,31 @@ function classifyRetryabilityFromStatus(status: number | null): boolean | null {
   return null;
 }
 
+// 4xx definitivo da CETESB. Os AppError do gateway chegam com status=502 (o
+// wrapper "gateway error") e o código HTTP REAL em remoteStatus — sem este
+// desvio, a classificação por status enxerga "5xx" e re-tenta erros
+// definitivos (incidente 2026-06-13: 400 de binding re-tentado 5x até a DLQ).
+// 401/403 viram CETESB_AUTH_FAILED no gateway (com refresh de sessão) e não
+// passam por aqui; 408/429/timeout/5xx seguem retryable pelas regras gerais.
+const DEFINITIVE_CETESB_REMOTE_STATUSES = new Set([400, 403, 404, 409, 422]);
+
+function classifyCetesbGatewayError(error: unknown): boolean | null {
+  const code = extractErrorCode(error);
+  if (code === 'CETESB_REMOTE_ERROR') {
+    // Erro de negócio definitivo da CETESB (payload.erro=true): novas
+    // tentativas não mudam a condição — também era mascarado pelo 502.
+    return false;
+  }
+  if (code !== 'CETESB_HTTP_ERROR') {
+    return null;
+  }
+  const remoteStatus = Number(asErrorLike(error).remoteStatus);
+  if (!Number.isFinite(remoteStatus)) {
+    return null;
+  }
+  return DEFINITIVE_CETESB_REMOTE_STATUSES.has(remoteStatus) ? false : null;
+}
+
 function classifyRetryabilityFromCode(code: string, status: number | null): boolean | null {
   if (!code) {
     return null;
@@ -177,6 +202,13 @@ function classifyRetryabilityFromCode(code: string, status: number | null): bool
  */
 export function isRetryableJobError(error: unknown): boolean {
   if (!error) return false;
+
+  // Erros do gateway CETESB primeiro: o que define a retryability é o erro
+  // REMOTO, não o status 502 do wrapper.
+  const gatewayClassification = classifyCetesbGatewayError(error);
+  if (gatewayClassification != null) {
+    return gatewayClassification;
+  }
 
   const status = extractErrorStatus(error);
   const retryabilityFromStatus = classifyRetryabilityFromStatus(status);

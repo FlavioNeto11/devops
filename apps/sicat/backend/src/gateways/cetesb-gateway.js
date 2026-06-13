@@ -745,13 +745,27 @@ function validateHttpsStatus({ statusCode, method, path, attempt, maxAttempts, r
     return;
   }
 
-  throw new AppError(502, 'CETESB Gateway Error', `A CETESB retornou ${statusCode} para ${method} ${path}.`, {
+  const remoteDetail = buildRemoteFailureDetail(responseType, responseData, responseSnippet);
+  throw new AppError(502, 'CETESB Gateway Error', `A CETESB retornou ${statusCode} para ${method} ${path}.${remoteDetail ? ` Resposta: ${remoteDetail}` : ''}`, {
     code: 'CETESB_HTTP_ERROR',
     remoteStatus: statusCode,
     attempt,
     maxAttempts,
     remoteBody: buildRemoteBodySnapshot(responseType, responseData, responseHeaders, responseSnippet)
   });
+}
+
+// Detalhe curto e legível da resposta remota para compor a mensagem de erro
+// (vai para lastErrorMessage/DLQ): JSON usa `mensagem` da CETESB; HTML (ex.:
+// página de erro do Tomcat) é despido de tags e truncado.
+function buildRemoteFailureDetail(responseType, responseData, responseSnippet) {
+  if (responseType === 'json' && responseData && typeof responseData.mensagem === 'string' && responseData.mensagem.trim()) {
+    return responseData.mensagem.trim().slice(0, 220);
+  }
+  const snippet = typeof responseSnippet === 'string'
+    ? responseSnippet.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+    : '';
+  return snippet ? snippet.slice(0, 220) : '';
 }
 
 function buildGatewayExchange({ url, method, attempt, maxAttempts, requestHeaders, body, statusCode, responseHeaders, responseData, responseType, latencyMs }) {

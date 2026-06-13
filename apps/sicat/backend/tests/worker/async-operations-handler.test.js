@@ -2,6 +2,8 @@ import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert';
 import { query, pool } from '../../src/db/pool.js';
 import { processJob } from '../../src/workers/operation-handlers.js';
+import { resolveFailureTransition } from '../../src/workers/job-runner.js';
+import { isRetryableJobError } from '../../src/lib/retry.js';
 import { findJobById } from '../../src/repositories/job-repo.js';
 import { findAsyncOperationEntity } from '../../src/repositories/async-operation-repo.js';
 import { validSessionContext } from '../fixtures/session-contexts.js';
@@ -303,6 +305,114 @@ describe('Detached async operations worker', () => {
       ['manifestReceipt', `${receivePrefix}002`]
     );
     assert.strictEqual(documentRes.rows.length, 1, 'o comprovante é baixado no retry');
+  });
+
+  it('400 definitivo da CETESB no manifest.receive falha na 1ª tentativa, sem retry', async () => {
+    await query(
+      `INSERT INTO async_operation_entities(
+        entity_type, entity_id, operation, integration_account_id, session_context_id,
+        status, payload, result, requested_by, correlation_id, last_sync_at
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,$10,now())`,
+      [
+        'manifestReceipt',
+        `${receivePrefix}003`,
+        'manifest.receive',
+        `${accountPrefix}001`,
+        `${sessionPrefix}001`,
+        'queued',
+        JSON.stringify({
+          integrationAccountId: `${accountPrefix}001`,
+          sessionContextId: `${sessionPrefix}001`,
+          receiptPayload: {
+            rrmCodigo: 456,
+            manifesto: { manCodigo: 22169014, manNumero: '260010679518', manHashCode: 'receive-hash-003' }
+          },
+          printReceiptAfterReceive: true,
+          requestedBy: 'test.user'
+        }),
+        JSON.stringify(null),
+        'test.user',
+        'corr_async_wrk_receive_003'
+      ]
+    );
+
+    await query(
+      `INSERT INTO jobs(
+        job_id, command_id, entity_type, entity_id, operation, payload,
+        status, max_attempts, attempts, correlation_id, idempotency_key,
+        started_at, claimed_at, claim_heartbeat_at, claimed_by
+      ) VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,now(),now(),now(),$12)`,
+      [
+        'job_async_wrk_receive_003',
+        'cmd_async_wrk_receive_003',
+        'manifestReceipt',
+        `${receivePrefix}003`,
+        'manifest.receive',
+        JSON.stringify({
+          integrationAccountId: `${accountPrefix}001`,
+          sessionContextId: `${sessionPrefix}001`,
+          receiptPayload: {
+            rrmCodigo: 456,
+            manifesto: { manCodigo: 22169014, manNumero: '260010679518', manHashCode: 'receive-hash-003' }
+          }
+        }),
+        'running',
+        5,
+        1,
+        'corr_async_wrk_receive_003',
+        'idem_async_wrk_receive_003',
+        'worker-test'
+      ]
+    );
+
+    const job = await findJobById('job_async_wrk_receive_003');
+    let receivePostCalls = 0;
+    // Mesma forma do AppError real do gateway: wrapper 502 + remoteStatus 400
+    // + mensagem já enriquecida com a resposta remota (Tomcat sem tags HTML).
+    const cetesb400 = Object.assign(
+      new Error('A CETESB retornou 400 para POST /api/mtr/manifesto/recebimento/. Resposta: HTTP Status 400 – Bad Request'),
+      { status: 502, statusCode: 502, code: 'CETESB_HTTP_ERROR', remoteStatus: 400 }
+    );
+    const gateway = {
+      submitManifest: async () => null,
+      printManifest: async () => null,
+      cancelManifest: async () => null,
+      submitCadastro: async () => null,
+      listReceiptResponsibles: async () => buildGatewayExchange({ endpoint: '/receipt/responsibles', data: { items: [{ rrmCodigo: 456, rrmNome: 'Responsavel Teste' }] } }),
+      searchReceivableManifests: async () => buildGatewayExchange({ endpoint: '/receipt/search', data: { items: [{ manCodigo: 22169014, manNumero: '260010679518', manHashCode: 'receive-hash-003' }] } }),
+      getRemoteManifest: async () => buildGatewayExchange({ endpoint: '/manifest/get', data: { item: { manCodigo: 22169014, manNumero: '260010679518', manHashCode: 'receive-hash-003', parceiroAcesso: { paaCodigo: validSessionContext.partnerCode }, listaManifestoResiduo: [] } } }),
+      receiveManifest: async () => {
+        receivePostCalls += 1;
+        throw cetesb400;
+      },
+      printManifestReceipt: async () => buildGatewayExchange({ endpoint: '/manifest/receipt/print', data: { pdfBuffer: Buffer.from('%PDF-receipt%') } }),
+      listCdfResponsibles: async () => null,
+      searchCdfGeneratorPartner: async () => null,
+      searchReceivedManifestsForCdf: async () => null,
+      generateCdf: async () => null,
+      searchCdfCertificates: async () => null,
+      printCdfCertificate: async () => null
+    };
+
+    let thrown = null;
+    try {
+      await processJob(job, gateway);
+    } catch (error) {
+      thrown = error;
+    }
+
+    assert.ok(thrown, 'processJob deve propagar o erro do gateway');
+    assert.strictEqual(receivePostCalls, 1, 'um único POST — sem retry interno do handler');
+
+    // Classificação central: 400 remoto é definitivo apesar do wrapper 502.
+    assert.strictEqual(isRetryableJobError(thrown), false);
+
+    // Transição do runner: falha DEFINITIVA na 1ª tentativa (não retry_wait, não DLQ por exaustão).
+    const transition = resolveFailureTransition(job, thrown, 10);
+    assert.strictEqual(transition.action, 'failed');
+    assert.strictEqual(transition.patch.status, 'failed');
+    assert.strictEqual(transition.patch.lastErrorCode, 'CETESB_HTTP_ERROR');
+    assert.match(transition.patch.lastErrorMessage, /Resposta: HTTP Status 400/);
   });
 
   it('processes cdf.generate and persists generated PDF metadata', async () => {
