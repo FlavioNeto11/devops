@@ -77,12 +77,18 @@ Write-Host "== portal :: aguardando rollout ==" -ForegroundColor Cyan
 kubectl -n $ns rollout status deployment/portal "--timeout=${TimeoutSeconds}s" | Out-Host
 
 Write-Host "== portal :: smoke test ==" -ForegroundColor Cyan
-Start-Sleep -Seconds 2  # deixa o Traefik propagar o novo endpoint (evita 502 transitório)
 foreach ($path in @('/', '/healthz')) {
-  try {
-    $r = Invoke-WebRequest -Headers @{ Host = 'xpto.localhost' } -Uri "http://127.0.0.1$path" -TimeoutSec 10 -SkipHttpErrorCheck
-    Write-Host ("  {0} -> HTTP {1}" -f $path, [int]$r.StatusCode) -ForegroundColor Magenta
-  } catch { Write-Host "  $path -> (ainda subindo: $($_.Exception.Message))" -ForegroundColor DarkYellow }
+  $code = 0
+  for ($i = 1; $i -le 6; $i++) {
+    try {
+      $r = Invoke-WebRequest -Headers @{ Host = 'xpto.localhost' } -Uri "http://127.0.0.1$path" -TimeoutSec 8 -SkipHttpErrorCheck
+      $code = [int]$r.StatusCode
+      if ($code -ge 200 -and $code -lt 400) { break }
+    } catch { $code = 0 }
+    Start-Sleep -Seconds 2 # Traefik ainda propagando o endpoint do pod novo
+  }
+  $ok = ($code -ge 200 -and $code -lt 400)
+  Write-Host ("  {0} -> HTTP {1}" -f $path, $code) -ForegroundColor ($ok ? 'Magenta' : 'DarkYellow')
 }
 
 Write-Host "[OK] portal publicado como $image." -ForegroundColor Green
