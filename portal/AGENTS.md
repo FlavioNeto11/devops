@@ -63,10 +63,9 @@ uso. Idioma de UI/prosa: pt-BR.
 
 | Operação | Comando | Por quê |
 |---|---|---|
-| **Publicar (recomendado)** | `scripts\publish-portal.ps1` | build da imagem imutável `:<sha>` + apply + set image + rollout + smoke (rollback confiável) |
-| Aplicar o manifest | `kubectl apply -f portal/k8s/portal.yaml` | cria/atualiza o Deployment/IngressRoute em `devops-system` |
-| Reiniciar rollout (após rebuild) | `kubectl -n devops-system rollout restart deploy/portal` | reinicia carga viva |
-| (GitOps) commitar `platform/argocd/apps/portal.yaml` | via PR | o Argo passa a sincronizar `portal/k8s` (image gerenciado fora do git via `ignoreDifferences`) |
+| **Publicar (recomendado)** | `scripts\publish-portal.ps1` | GitOps: build `:<sha>` + **bump do `image:` no manifest** + commit + apply + rollout + smoke (**throw** em falha) |
+| Aplicar o manifest | `kubectl apply -f portal/k8s/portal.yaml` | aplica o declarativo (mesma fonte que o Argo reconcilia) |
+| Rollback | `git revert <commit do bump>` | o Argo (ou `kubectl apply`) volta o `<sha>` anterior |
 
 ### ⛔ Proibidas
 

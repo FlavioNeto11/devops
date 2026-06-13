@@ -277,3 +277,28 @@ Uma revisão externa apontou bugs reais e lacunas de prontidão. Tratados (plano
 
 ### Fora de escopo (registrado)
 - Migrar de Windows Server + Docker Desktop (lab documentado); merge dos PRs major do Dependabot; testes de integração WIP (gymops/sicat); screenshots reais (placeholders entregues); endpoint público no Console p/ zerar o 401.
+
+---
+
+# Rodada 3 — Resposta à 2ª revisão externa (2026-06-13)
+
+A 2ª revisão aprovou com ressalvas críticas. Tratadas (decisões do usuário entre parênteses):
+
+| # | Achado | Correção |
+|---|---|---|
+| 1 | **publish-portal reportava falso sucesso** | Reescrito: checa `$LASTEXITCODE` de tudo e o **smoke dá throw** se rollout/`/`/`/healthz` falharem (não há mais `[OK]` cego). `-SkipBuild` (quebrado) removido. |
+| 2 | **"100% GitOps" era híbrido** (kubectl set image + ignoreDifferences) (GitOps real) | **GitOps real**: a tag da imagem vive em `portal/k8s/portal.yaml` (git), `publish-portal.ps1` faz o **bump + commit**, o Argo reconcilia. Removidos `kubectl set image`, `ignoreDifferences` e `RespectIgnoreDifferences`. Rollback = `git revert`. O stat "100% GitOps" passa a ser honesto. |
+| 3 | **Tags GHCR `sha-<sha>` vs docs `<sha>`** | `reusable-build-push.yaml` (+ template) → `type=sha,prefix=,format=short` (alinha a `<sha>`). CI = artefato; CD = commit do bump → Argo. |
+| 4 | **Avisos Node 20** (actions) (bump todos) | `actions/checkout@v4`→`@v5` e `setup-node@v4`→`@v5` em **todos** os workflows + templates (Node 24). |
+| 5 | **Portal Recorder aberto na internet** (proteger) | **OIDC operador-only** no `apps/portal-recorder/k8s/ingressroute.yaml`: `console-auth-redirect` (frontend, 302) e `console-auth-401` (api+stream, 401), cross-namespace. AGENTS/README do app atualizados; card vira "login". |
+| 6 | **No-JS quebrava se o módulo falhasse** | Failsafe: o `<script>` do `<head>` arma um timer de 2,5s que adiciona `.no-anim` (revela tudo) se `portal.js` não inicializar; init() cancela o timer. CSP re-hashada; verificado no navegador. |
+| 7 | **Flicker do skeleton p/ anônimo** | Skeleton **adiado 350ms** (cancelado ao resolver): 401 rápido ⇒ nunca aparece; só surge em consulta lenta de operador. |
+| 8 | **CI não cobria portal-recorder/ai-control-plane** (incluir) | `ci-apps` virou **ciente de subpasta** (`path`): cobre `portal-recorder/api` (test), `portal-recorder/frontend` (build), `ai-control-plane/api` (test). |
+| — | **Framing "gate = segurança"** | Docs corrigidas: esconder na home é **UX**, não segurança; a proteção de rota é por app (Portal Recorder agora via OIDC). |
+
+**Nota sobre GHCR-pull:** o usuário pediu o cluster puxando do GHCR, mas o token `gh` desta máquina
+**não tem escopo `write:packages`** para tornar o pacote público (403), e GHCR privado exigiria pull
+secret. Entregamos **GitOps real com tag LOCAL imutável** (Docker Desktop compartilha o daemon — mesmas
+propriedades GitOps: tag no git, Argo reconcilia, rollback por `git revert`), **totalmente implantável e
+verificável**. Trocar para GHCR-pull é 1 passo: tornar o pacote público (`gh auth refresh -s
+write:packages` + visibility) e apontar o `image:` do manifest ao GHCR.

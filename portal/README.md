@@ -22,9 +22,14 @@ JS apenas **enriquece** a página (_progressive enhancement_):
   Serviços **só-de-API / control-plane / worker** (ex.: `ai-control-plane`, só `/ai-control/api`)
   são ignorados — linkar para a raiz daria 404. Atualiza a cada **60s**.
   > ⚠️ **Recurso de operador.** A API do Console **exige autenticação**. Por isso a seção
-  > "Aplicações publicadas" começa **oculta** e só aparece para **operadores logados**
-  > (a sessão same-origin autoriza o fetch). Visitante anônimo recebe **401** → a seção
-  > permanece oculta (o site público mostra só os cards curados, que já cobrem todas as apps).
+  > "Aplicações publicadas" (e os atalhos de operação: Grafana/Argo/Keycloak/Console/Recorder)
+  > começam **ocultos** e só aparecem para **operadores logados** (a sessão same-origin autoriza
+  > o fetch). Anônimo recebe **401** → ficam ocultos.
+  >
+  > 🔒 **Esconder na home é UX, NÃO segurança.** O portal é público e não impõe auth a outras rotas.
+  > A proteção REAL de cada app é o **middleware OIDC no IngressRoute do próprio app** (o Console e
+  > o **Portal Recorder** usam `console-auth-*`/oauth2-proxy). Não conte com o gate da home para
+  > proteger nada.
 - **Estados tratados**: _vazio_ (nenhuma app extra) e _erro transitório_ (timeout/5xx, com
   botão **Tentar novamente**, só na carga inicial). 401/403 ⇒ seção oculta. Se a API falhar,
   os cards curados continuam acessíveis — a página nunca quebra.
