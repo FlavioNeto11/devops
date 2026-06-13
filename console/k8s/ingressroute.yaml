@@ -48,6 +48,10 @@ spec:
         - name: console-api-strip
           namespace: devops-system
         # Compressao e headers de seguranca transversais (namespace traefik).
+        # NOTA SSE: esta rota serve tambem os streams /stream e .../logs/stream
+        # (text/event-stream). O middleware compress do Traefik v3 EXCLUI
+        # text/event-stream da compressao por padrao (desde v2.6) — nao bufferiza
+        # nem comprime os streams; o keep-alive de 15s do backend atravessa.
         - name: compress
           namespace: traefik
         - name: secure-headers

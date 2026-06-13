@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { fetchNamespaces, fetchPods, fetchLogs } from '../api.js';
+import { fetchNamespaces, fetchPods, fetchLogs, openLogStream } from '../api.js';
 import { ageFrom, phaseBadgeClass } from '../format.js';
 import Icon from './Icon.jsx';
 import EmptyState from './EmptyState.jsx';
@@ -35,8 +35,10 @@ export default function Logs() {
   const [tail, setTail] = useState(200);
   const [search, setSearch] = useState('');
   const [filterOnly, setFilterOnly] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(false);
-  const [intervalSec, setIntervalSec] = useState(5);
+  // "Seguir" (follow): stream contínuo de log via SSE, no lugar do antigo
+  // polling. Empurra cada linha conforme sai do kubelet (latência sub-segundo).
+  const [follow, setFollow] = useState(false);
+  const [streaming, setStreaming] = useState(false);
   const [wrap, setWrap] = useState(true);
 
   const [logText, setLogText] = useState('');
@@ -47,6 +49,10 @@ export default function Logs() {
   const [nowTick, setNowTick] = useState(() => Date.now());
 
   const boxRef = useRef(null);
+  // Buffer de linhas recebidas pelo stream entre flushes (coalescing de render
+  // no CLIENTE — não toca o servidor; o backend faz push, isto só agrupa updates).
+  const followBufRef = useRef([]);
+  const MAX_LINES = 5000; // buffer circular: descarta as mais antigas
 
   // ---- Metadados (namespaces + pods) ----
   const loadMeta = useCallback(async (silent) => {
@@ -81,15 +87,59 @@ export default function Logs() {
     }
   }, [selected, tail]);
 
-  // Recarrega ao trocar de pod ou tail.
-  useEffect(() => { if (selected) loadLogs(false); else setLogText(''); }, [selected, tail, loadLogs]);
-
-  // Auto-refresh (polling) — logs + metadados de forma silenciosa.
+  // Carga inicial (foto) ao trocar de pod/tail — só quando NÃO está seguindo
+  // (no modo follow o próprio stream traz a foto inicial + as linhas novas).
   useEffect(() => {
-    if (!autoRefresh || !selected) return undefined;
-    const id = setInterval(() => { loadLogs(true); loadMeta(true); }, Math.max(2, intervalSec) * 1000);
-    return () => clearInterval(id);
-  }, [autoRefresh, selected, intervalSec, loadLogs, loadMeta]);
+    if (!selected) { setLogText(''); return; }
+    if (!follow) loadLogs(false);
+  }, [selected, tail, follow, loadLogs]);
+
+  // Modo SEGUIR: abre o stream SSE de log do pod. Cada linha entra num buffer e
+  // um flush de 250ms agrupa os updates de tela (coalescing de render — não é
+  // polling de servidor). Buffer circular de MAX_LINES evita estouro de memória.
+  useEffect(() => {
+    if (!follow || !selected) { setStreaming(false); return undefined; }
+    setLogText('');
+    followBufRef.current = [];
+    setError(null);
+    setStreaming(true);
+    let alive = true;
+    let es;
+    try {
+      es = openLogStream(selected.ns, selected.name, { tailLines: tail });
+    } catch (err) {
+      setError(err.message || String(err));
+      setStreaming(false);
+      return undefined;
+    }
+    const flush = () => {
+      if (!alive || followBufRef.current.length === 0) return;
+      const incoming = followBufRef.current;
+      followBufRef.current = [];
+      setLogText((prev) => {
+        const lines = (prev ? prev.split('\n') : []).concat(incoming);
+        const trimmed = lines.length > MAX_LINES ? lines.slice(lines.length - MAX_LINES) : lines;
+        return trimmed.join('\n');
+      });
+      setLastUpdated(Date.now());
+      setNowTick(Date.now());
+    };
+    const flushId = setInterval(flush, 250);
+    es.addEventListener('line', (evt) => {
+      try { followBufRef.current.push(JSON.parse(evt.data)); } catch { /* frame inválido */ }
+    });
+    es.addEventListener('log-error', (evt) => {
+      try { setError(JSON.parse(evt.data).error || 'Erro no stream de log.'); }
+      catch { setError('Erro no stream de log.'); }
+    });
+    // EventSource reconecta sozinho em queda (ex.: restart do pod).
+    return () => {
+      alive = false;
+      clearInterval(flushId);
+      try { es.close(); } catch { /* noop */ }
+      setStreaming(false);
+    };
+  }, [follow, selected, tail]);
 
   // Ticker de 1s para o "atualizado há Xs".
   useEffect(() => {
@@ -167,17 +217,9 @@ export default function Logs() {
         <label className="check-inline">
           <input type="checkbox" checked={filterOnly} onChange={(e) => setFilterOnly(e.target.checked)} /> só correspondências
         </label>
-        <label className="check-inline" title="Recarrega os logs automaticamente no intervalo escolhido">
-          <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} /> auto-refresh{autoRefresh ? ' ↻' : ''}
+        <label className="check-inline" title="Segue o log em tempo real (stream) — empurra cada linha conforme sai, sem recarregar">
+          <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} /> seguir{streaming ? ' ● ao vivo' : ''}
         </label>
-        {autoRefresh && (
-          <label className="field">
-            <span className="field__label">Intervalo</span>
-            <select className="select" value={intervalSec} onChange={(e) => setIntervalSec(Number(e.target.value))}>
-              {[3, 5, 10, 30].map((s) => <option key={s} value={s}>{s}s</option>)}
-            </select>
-          </label>
-        )}
         <label className="check-inline">
           <input type="checkbox" checked={wrap} onChange={(e) => setWrap(e.target.checked)} /> quebrar linha
         </label>
@@ -238,8 +280,10 @@ export default function Logs() {
                   <span className="logs2__count">
                     {filterOnly && search ? `${visibleLines.length} de ${allLines.length} linhas` : `${allLines.length} linhas`}
                   </span>
-                  {secondsAgo != null && <span className="logs2__count">atualizado há {secondsAgo}s</span>}
-                  <button className="btn" onClick={() => loadLogs(false)} disabled={loadingLogs}>
+                  {streaming
+                    ? <span className="logs2__count">● ao vivo</span>
+                    : (secondsAgo != null && <span className="logs2__count">atualizado há {secondsAgo}s</span>)}
+                  <button className="btn" onClick={() => loadLogs(false)} disabled={loadingLogs || follow} title={follow ? 'Seguindo em tempo real' : 'Recarregar'}>
                     {loadingLogs ? 'Carregando…' : '↻ Atualizar'}
                   </button>
                   <button className="btn" onClick={download} disabled={!logText} title="baixar como .log">Baixar</button>

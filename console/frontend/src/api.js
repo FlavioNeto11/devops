@@ -142,6 +142,22 @@ export function openStream() {
   return new EventSource(`${API_BASE}/stream`);
 }
 
+/**
+ * Abre um EventSource de LOG SEGUIDO (follow) de um pod/container. O backend
+ * empurra a foto inicial (ultimas `tailLines`) e DEPOIS cada linha nova conforme
+ * o kubelet a emite — eventos nomeados `line` (data = string da linha) e
+ * `log-error`. Substitui o re-fetch periodico. Chamar .close() ao trocar de pod.
+ * @returns {EventSource}
+ */
+export function openLogStream(ns, name, { container, tailLines = 200 } = {}) {
+  const enc = (v) => encodeURIComponent(v);
+  const params = new URLSearchParams();
+  if (container) params.set('container', container);
+  if (tailLines) params.set('tailLines', String(tailLines));
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  return new EventSource(`${API_BASE}/pods/${enc(ns)}/${enc(name)}/logs/stream${qs}`);
+}
+
 // ---------------------------------------------------------------------------
 // Modulo Projetos & Tarefas (meta-projeto) — API SEPARADA (pm-api), COM ESCRITA.
 // Base /devops/api/pm (Traefik StripPrefix -> pm-api ve "/"). Totalmente isolada

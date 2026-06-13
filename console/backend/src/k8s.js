@@ -69,6 +69,8 @@ module.exports = {
   coreV1Api,
   appsV1Api,
   customObjectsApi,
+  // Classe Log do client-node (usada pelo endpoint de log seguido/follow).
+  Log: k8s.Log,
   TRAEFIK_GROUP,
   TRAEFIK_VERSION,
   TRAEFIK_INGRESSROUTE_PLURAL,

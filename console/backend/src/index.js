@@ -25,13 +25,16 @@ const express = require('express');
 const cors = require('cors');
 
 const {
+  kc,
   coreV1Api,
   appsV1Api,
   customObjectsApi,
+  Log,
   TRAEFIK_GROUP,
   TRAEFIK_VERSION,
   TRAEFIK_INGRESSROUTE_PLURAL,
 } = require('./k8s');
+const { createWatchHub } = require('./watch-hub');
 
 // ---------------------------------------------------------------------------
 // Constantes de configuracao
@@ -39,9 +42,6 @@ const {
 
 // Porta padrao do backend (alinhada ao Dockerfile e ao Service ClusterIP).
 const PORT = process.env.PORT || 3001;
-
-// Intervalo (ms) entre snapshots enviados pelo stream SSE.
-const STREAM_INTERVAL_MS = 4000;
 
 // Numero padrao de eventos retornados nas rotas que limitam por quantidade.
 const DEFAULT_EVENTS_LIMIT = 50;
@@ -384,48 +384,51 @@ async function listIngressRoutes() {
  * Lista eventos (todos os namespaces ou apenas `ns`), ordenados do mais
  * recente para o mais antigo, limitados aos ultimos `limit`.
  */
+/** Converte um Event cru no resumo da UI. Puro: reusado pela REST e pelo hub. */
+function summarizeEvent(e) {
+  // O timestamp util pode estar em lastTimestamp, eventTime ou no metadata.
+  const ts =
+    e.lastTimestamp ||
+    e.eventTime ||
+    (e.metadata && e.metadata.creationTimestamp) ||
+    e.firstTimestamp ||
+    null;
+  return {
+    namespace: e.metadata && e.metadata.namespace,
+    name: e.metadata && e.metadata.name,
+    type: e.type || null, // Normal | Warning
+    reason: e.reason || null,
+    message: e.message || null,
+    count: e.count || 1,
+    involvedObject: e.involvedObject
+      ? {
+          kind: e.involvedObject.kind,
+          name: e.involvedObject.name,
+          namespace: e.involvedObject.namespace,
+        }
+      : null,
+    timestamp: ts,
+    age: ageFrom(ts),
+  };
+}
+
+/** Ordena eventos (mais recente primeiro) e corta nos `limit` primeiros. */
+function sortAndSliceEvents(events, limit) {
+  const sorted = [...events].sort((a, b) => {
+    const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+    const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+    return tb - ta;
+  });
+  const n = Number.isFinite(limit) && limit > 0 ? limit : DEFAULT_EVENTS_LIMIT;
+  return sorted.slice(0, n);
+}
+
 async function listEvents(ns, limit) {
   const res = ns
     ? await coreV1Api.listNamespacedEvent(ns)
     : await coreV1Api.listEventForAllNamespaces();
   const body = unwrap(res);
-
-  const events = (body.items || []).map((e) => {
-    // O timestamp util pode estar em lastTimestamp, eventTime ou no metadata.
-    const ts =
-      e.lastTimestamp ||
-      e.eventTime ||
-      (e.metadata && e.metadata.creationTimestamp) ||
-      e.firstTimestamp ||
-      null;
-    return {
-      namespace: e.metadata && e.metadata.namespace,
-      name: e.metadata && e.metadata.name,
-      type: e.type || null, // Normal | Warning
-      reason: e.reason || null,
-      message: e.message || null,
-      count: e.count || 1,
-      involvedObject: e.involvedObject
-        ? {
-            kind: e.involvedObject.kind,
-            name: e.involvedObject.name,
-            namespace: e.involvedObject.namespace,
-          }
-        : null,
-      timestamp: ts,
-      age: ageFrom(ts),
-    };
-  });
-
-  // Ordena por tempo decrescente (mais recente primeiro).
-  events.sort((a, b) => {
-    const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-    const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
-    return tb - ta;
-  });
-
-  const n = Number.isFinite(limit) && limit > 0 ? limit : DEFAULT_EVENTS_LIMIT;
-  return events.slice(0, n);
+  return sortAndSliceEvents((body.items || []).map(summarizeEvent), limit);
 }
 
 /**
@@ -783,90 +786,181 @@ router.get(
   }),
 );
 
-// -------------------------------- SSE -------------------------------------
-// Stream em tempo real: a cada STREAM_INTERVAL_MS envia um snapshot com
-// overview + resumo de pods + ultimos eventos. Limpa o intervalo no close.
-router.get('/stream', (req, res) => {
-  // Cabecalhos obrigatorios para Server-Sent Events.
+// ----------------------- Tempo real (orientado a eventos) ------------------
+// Cabecalhos padrao de Server-Sent Events + flush imediato.
+function setSseHeaders(res) {
   res.set({
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache, no-transform',
     Connection: 'keep-alive',
-    // Desabilita buffering em proxies (ex.: nginx) para entrega imediata.
+    // nginx respeita; o Traefik usa rota dedicada SEM o middleware compress
+    // (compress bufferizaria/comprimiria o stream e quebraria o tempo-real).
     'X-Accel-Buffering': 'no',
   });
-  // Garante o envio imediato dos cabecalhos.
-  if (typeof res.flushHeaders === 'function') {
-    res.flushHeaders();
+  if (typeof res.flushHeaders === 'function') res.flushHeaders();
+}
+
+// Mantem a conexao SSE viva atraves de proxies que encerram conexoes ociosas.
+function startSseKeepAlive(res) {
+  const id = setInterval(() => {
+    try { res.write(`: keep-alive ${Date.now()}\n\n`); } catch { /* fechado */ }
+  }, 15000);
+  id.unref && id.unref();
+  return id;
+}
+
+// Monta o snapshot do cluster a partir dos caches CRUS dos informers. Reusa os
+// MESMOS summarizers da REST (sem heurística duplicada) e inclui DEPLOYMENTS —
+// que antes congelavam no Health apos o fetch inicial. Sem timestamp no
+// payload: assim dois recomputes com projecao identica geram o MESMO JSON e o
+// hub suprime o frame (zero trafego quando nada muda de fato).
+function buildClusterSnapshot(caches) {
+  const pods = (caches.pods || []).map(summarizePod);
+  const deployments = (caches.deployments || []).map(summarizeDeployment);
+  const services = (caches.services || []);
+  const namespaces = (caches.namespaces || []);
+  const ingressroutes = (caches.ingressroutes || []);
+  const events = sortAndSliceEvents((caches.events || []).map(summarizeEvent), 20);
+
+  const podsByPhase = {};
+  for (const p of pods) {
+    const phase = p.phase || 'Unknown';
+    podsByPhase[phase] = (podsByPhase[phase] || 0) + 1;
   }
 
-  let closed = false;
-  let inFlight = false;
-
-  // Funcao que coleta e envia um snapshot. Erros sao enviados como evento
-  // 'error' (sem encerrar o stream) para o cliente reagir.
-  // Protecoes de resiliencia: (1) inFlight evita snapshots SOBREPOSTOS quando a
-  // API do k8s fica lenta (cada tick do setInterval dispararia outra coleta e
-  // elas se acumulariam); (2) timeout de 10s — coleta pendurada vira evento
-  // 'error' em vez de prender o stream indefinidamente.
-  const sendSnapshot = async () => {
-    if (closed || inFlight) return;
-    inFlight = true;
-    try {
-      const [overview, pods, events] = await Promise.race([
-        Promise.all([buildOverview(), listPods(), listEvents(undefined, 20)]),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('snapshot timeout (10s) na API do Kubernetes')), 10_000).unref(),
-        ),
-      ]);
-
-      const snapshot = {
-        generatedAt: new Date().toISOString(),
-        overview,
-        // Lista RESUMIDA de pods (campos essenciais para a UI em tempo real).
-        pods: pods.map((p) => ({
-          name: p.name,
-          namespace: p.namespace,
-          phase: p.phase,
-          ready: p.readiness.text,
-          restartCount: p.restartCount,
-          node: p.node,
-          age: p.age,
-        })),
-        events,
-      };
-
-      if (closed) return;
-      res.write(`event: snapshot\n`);
-      res.write(`data: ${JSON.stringify(snapshot)}\n\n`);
-    } catch (err) {
-      if (closed) return;
-      const message = describeK8sError(err);
-      console.error('[stream] Erro ao montar snapshot:', message);
-      res.write(`event: error\n`);
-      res.write(`data: ${JSON.stringify({ error: message })}\n\n`);
-    } finally {
-      inFlight = false;
-    }
+  return {
+    overview: {
+      counts: {
+        namespaces: namespaces.length,
+        pods: pods.length,
+        podsByPhase,
+        deployments: deployments.length,
+        services: services.length,
+        ingressroutes: ingressroutes.length,
+      },
+    },
+    // Pods resumidos (campos da UI em tempo real). labels permitem que a tela
+    // Logs agrupe a coluna de pods pelo mesmo fluxo no futuro.
+    pods: pods.map((p) => ({
+      name: p.name,
+      namespace: p.namespace,
+      phase: p.phase,
+      ready: p.readiness.text,
+      restartCount: p.restartCount,
+      node: p.node,
+      age: p.age,
+      labels: p.labels,
+    })),
+    deployments,
+    events,
   };
+}
 
-  // Envia um primeiro snapshot imediatamente e depois periodicamente.
-  sendSnapshot();
-  const interval = setInterval(sendSnapshot, STREAM_INTERVAL_MS);
+// Hub de watches (singleton do processo). Informers pequenos e limitados pelo
+// tamanho do cluster; Events tem maior cardinalidade mas so expomos os 20 mais
+// recentes no snapshot (limite de memoria do pod ajustado para 384Mi).
+const clusterWatchHub = createWatchHub({
+  kc,
+  buildSnapshot: buildClusterSnapshot,
+  log: (m) => console.log(m),
+  resources: [
+    { key: 'namespaces', path: '/api/v1/namespaces', listFn: () => coreV1Api.listNamespace() },
+    { key: 'pods', path: '/api/v1/pods', listFn: () => coreV1Api.listPodForAllNamespaces() },
+    { key: 'services', path: '/api/v1/services', listFn: () => coreV1Api.listServiceForAllNamespaces() },
+    { key: 'deployments', path: '/apis/apps/v1/deployments', listFn: () => appsV1Api.listDeploymentForAllNamespaces() },
+    { key: 'events', path: '/api/v1/events', listFn: () => coreV1Api.listEventForAllNamespaces() },
+    // CRD do Traefik: opcional — se nao instalado, o hub segue sem ele.
+    {
+      key: 'ingressroutes',
+      path: `/apis/${TRAEFIK_GROUP}/${TRAEFIK_VERSION}/${TRAEFIK_INGRESSROUTE_PLURAL}`,
+      listFn: () => customObjectsApi.listClusterCustomObject(TRAEFIK_GROUP, TRAEFIK_VERSION, TRAEFIK_INGRESSROUTE_PLURAL),
+      optional: true,
+    },
+  ],
+});
 
-  // Comentario-keepalive periodico para manter a conexao viva atraves de
-  // proxies que encerram conexoes ociosas.
-  const keepAlive = setInterval(() => {
-    if (closed) return;
-    res.write(`: keep-alive ${Date.now()}\n\n`);
-  }, 15000);
-
-  // Limpa os intervalos quando a conexao e encerrada pelo cliente.
+// Stream do cluster: o hub empurra um snapshot no first paint e DEPOIS apenas
+// quando o estado muda (informer push), nunca em intervalo fixo.
+router.get('/stream', (req, res) => {
+  setSseHeaders(res);
+  const keepAlive = startSseKeepAlive(res);
+  const removeClient = clusterWatchHub.addClient(req, res);
   const cleanup = () => {
-    if (closed) return;
-    closed = true;
-    clearInterval(interval);
     clearInterval(keepAlive);
+    removeClient();
+  };
+  req.on('close', cleanup);
+  req.on('aborted', cleanup);
+  res.on('error', cleanup);
+});
+
+// Stream de LOG seguido (follow) de um pod/container: empurra cada linha
+// conforme o kubelet a emite — substitui o re-fetch periodico do cliente.
+// Read-only (logs ja sao lidos pelo endpoint one-shot acima).
+router.get('/pods/:ns/:name/logs/stream', (req, res) => {
+  const { ns, name } = req.params;
+  const container = req.query.container ? String(req.query.container) : undefined;
+  const tailLines = req.query.tailLines
+    ? parseInt(String(req.query.tailLines), 10)
+    : DEFAULT_LOG_TAIL_LINES;
+
+  setSseHeaders(res);
+  const keepAlive = startSseKeepAlive(res);
+
+  const { PassThrough } = require('stream');
+  const logClient = new Log(kc);
+  const passthrough = new PassThrough();
+  let buffer = '';
+  let aborted = false;
+  let logReq = null;
+
+  // Quebra o stream em linhas e empurra cada uma como evento 'line'. Segura a
+  // ultima linha parcial no buffer ate chegar o \n.
+  passthrough.on('data', (chunk) => {
+    if (aborted) return;
+    buffer += chunk.toString('utf8');
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    for (const line of lines) {
+      try {
+        res.write('event: line\n');
+        res.write(`data: ${JSON.stringify(line)}\n\n`);
+      } catch { /* cliente fechou */ }
+    }
+  });
+  passthrough.on('error', (err) => {
+    if (aborted) return;
+    try {
+      res.write('event: log-error\n');
+      res.write(`data: ${JSON.stringify({ error: describeK8sError(err) })}\n\n`);
+    } catch { /* noop */ }
+  });
+
+  logClient
+    .log(ns, name, container, passthrough, {
+      follow: true,
+      tailLines: Number.isFinite(tailLines) && tailLines > 0 ? tailLines : DEFAULT_LOG_TAIL_LINES,
+      timestamps: true,
+    })
+    .then((request) => {
+      logReq = request;
+      if (aborted && logReq) {
+        try { logReq.abort(); } catch { /* noop */ }
+      }
+    })
+    .catch((err) => {
+      try {
+        res.write('event: log-error\n');
+        res.write(`data: ${JSON.stringify({ error: describeK8sError(err) })}\n\n`);
+      } catch { /* noop */ }
+    });
+
+  const cleanup = () => {
+    if (aborted) return;
+    aborted = true;
+    clearInterval(keepAlive);
+    try { if (logReq) logReq.abort(); } catch { /* noop */ }
+    try { passthrough.destroy(); } catch { /* noop */ }
   };
   req.on('close', cleanup);
   req.on('aborted', cleanup);
@@ -947,11 +1041,15 @@ app.use((err, _req, res, _next) => {
 const server = app.listen(PORT, () => {
   console.log(`[console-backend] Backend somente leitura escutando na porta ${PORT}.`);
   console.log('[console-backend] Rotas montadas em "/" e "/api".');
+  // Liga os informers do cluster (tempo real orientado a eventos).
+  clusterWatchHub.start();
+  console.log('[console-backend] watch-hub iniciado (stream orientado a eventos).');
 });
 
 // Encerramento limpo em sinais do orquestrador (graceful shutdown).
 const shutdown = (signal) => {
   console.log(`[console-backend] Recebido ${signal}, encerrando...`);
+  try { clusterWatchHub.stop(); } catch { /* noop */ }
   server.close(() => {
     console.log('[console-backend] Servidor encerrado.');
     process.exit(0);

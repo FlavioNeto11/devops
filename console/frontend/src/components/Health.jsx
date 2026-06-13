@@ -68,11 +68,17 @@ export default function Health({ streamData, streamStatus }) {
     return () => ctrl.abort();
   }, [load]);
 
-  // Atualizacao em tempo real dos pods via snapshot SSE (deployments seguem do fetch).
+  // Atualizacao em tempo real via snapshot do watch-hub: pods E deployments.
+  // Antes os deployments congelavam apos o fetch inicial (ready/desired nao
+  // acompanhavam rollout/scale) — agora seguem o mesmo fluxo de eventos.
   useEffect(() => {
-    if (streamData && Array.isArray(streamData.pods)) {
+    if (!streamData) return;
+    if (Array.isArray(streamData.pods)) {
       setPods(streamData.pods);
       setLoading(false);
+    }
+    if (Array.isArray(streamData.deployments)) {
+      setDeployments(streamData.deployments);
     }
   }, [streamData]);
 

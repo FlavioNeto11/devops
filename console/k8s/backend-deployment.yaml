@@ -86,14 +86,18 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 15
             timeoutSeconds: 3
-          # Recursos pequenos: e um backend leve de leitura.
+          # Recursos pequenos: e um backend leve de leitura. O watch-hub mantem
+          # informers (pods/deployments/services/namespaces/events/ingressroutes)
+          # em memoria; o cache de Events tem maior cardinalidade sob rollout, por
+          # isso 384Mi de teto (margem confortavel). replicas:1 e premissa do hub
+          # (cache local ao processo) — ver src/watch-hub.js.
           resources:
             requests:
               cpu: "10m"
-              memory: "64Mi"
+              memory: "96Mi"
             limits:
-              cpu: "250m"
-              memory: "256Mi"
+              cpu: "300m"
+              memory: "384Mi"
           # Hardening basico do container (somente leitura no nivel de processo).
           securityContext:
             runAsNonRoot: true
