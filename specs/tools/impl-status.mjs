@@ -20,12 +20,23 @@ const SPECS_DIR = path.resolve(__dirname, '..');
 const BASELINE = path.join(SPECS_DIR, 'baseline', 'current-baseline.json');
 const OUT = path.join(SPECS_DIR, 'baseline', 'implementation-status.json');
 const CHECK = process.argv.includes('--check');
+// --set <REQ-ID> key=value ...  -> mescla campos no item (usado pela esteira p/
+// marcar status=pr_open/merged/deployed + pr/branch/commit/run_id/deployment).
+const SET = process.argv.includes('--set');
+let setReq = null;
+const setOverrides = {};
+if (SET) {
+  const a = process.argv.slice(process.argv.indexOf('--set') + 1).filter((x) => !x.startsWith('--'));
+  setReq = a[0];
+  for (const kv of a.slice(1)) { const i = kv.indexOf('='); if (i > 0) setOverrides[kv.slice(0, i)] = kv.slice(i + 1); }
+}
 
 const STATUSES = ['not_started', 'in_progress', 'pr_open', 'merged', 'deployed', 'done', 'blocked'];
 const KEEP = ['status', 'req_revision', 'pr', 'branch', 'commit', 'run_id', 'deployment', 'deployed_at', 'notes'];
 
 const baseline = JSON.parse(fs.readFileSync(BASELINE, 'utf8'));
 const prior = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT, 'utf8')).items ?? {} : {};
+if (SET && setReq) prior[setReq] = { ...(prior[setReq] || {}), ...setOverrides };
 
 const items = {};
 for (const r of [...baseline.requirements].sort((a, b) => a.id.localeCompare(b.id))) {
