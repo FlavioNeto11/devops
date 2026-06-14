@@ -132,12 +132,18 @@ function validate(items) {
     for (const t of [...(a.adr_refs ?? []), ...(a.service_refs ?? []), ...(a.infra_refs ?? []), ...(a.slo_refs ?? []), ...(a.architecture_refs ?? [])]) checkExternal(file, t);
   }
 
-  // ENFORCE DE ORIGEM: source.source_paths deve apontar p/ caminhos REAIS (relativos à
-  // raiz do repo) que EXISTEM. Fecha a pergunta "sem fabricar" — um requisito não pode
-  // declarar uma origem inexistente. (Sem source_paths não falha; existindo, valida.)
+  // ENFORCE DE ORIGEM (blindado contra regressão): TODO requisito deve declarar
+  // source.source_paths com >=1 caminho REAL (relativo à raiz do repo) que EXISTE.
+  // Sem origem -> FALHA (um requisito não entra sem dizer de onde veio). Caminho
+  // ausente/absoluto/.. ou inexistente -> FALHA (origem fabricada).
   const REPO_ROOT = path.resolve(SPECS_DIR, '..');
   for (const { file, doc } of items) {
-    for (const sp of doc?.source?.source_paths ?? []) {
+    const sps = doc?.source?.source_paths;
+    if (!Array.isArray(sps) || sps.length === 0) {
+      ok = false; fail(`requisito SEM origem em ${file}: declare source.source_paths (>=1 caminho real). Sem origem, sem requisito.`);
+      continue;
+    }
+    for (const sp of sps) {
       if (typeof sp !== 'string' || !sp.trim() || /^([a-zA-Z]:[\\/]|[\\/]|\.\.)/.test(sp)) {
         ok = false; fail(`source_path inválido em ${file}: '${sp}' (use caminho relativo à raiz do repo)`); continue;
       }

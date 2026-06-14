@@ -38,7 +38,8 @@ if (-not (Get-Command kubectl -ErrorAction SilentlyContinue)) { throw 'kubectl a
 if ([string]::IsNullOrWhiteSpace($OpenAiKey) -or $OpenAiKey -eq 'CHANGE_ME') { throw 'Informe sua OPENAI_API_KEY real em -OpenAiKey.' }
 
 if ([string]::IsNullOrWhiteSpace($Token)) {
-  $Token = -join ((48..57) + (97..122) | Get-Random -Count 40 | ForEach-Object { [char]$_ })
+  $pool = [char[]]((48..57) + (97..122))   # 0-9a-z
+  $Token = -join (1..40 | ForEach-Object { $pool | Get-Random })
   Write-Host "[reqhub] REQHUB_API_TOKEN gerado (guarde p/ colar no painel de IA do Editor):" -ForegroundColor Cyan
   Write-Host "         $Token" -ForegroundColor Yellow
 }

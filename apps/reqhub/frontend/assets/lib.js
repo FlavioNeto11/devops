@@ -182,6 +182,7 @@ export function validateDraft(d) {
   if (!d.title || d.title.length < 3) errs.push('título obrigatório (>= 3 chars)');
   if (!d.statement || d.statement.length < 10) errs.push('enunciado obrigatório (>= 10 chars)');
   if (!d.scope || !d.scope.product_scope) errs.push('escopo.product_scope obrigatório');
+  if (!(d.source && Array.isArray(d.source.source_paths) && d.source.source_paths.length)) errs.push('origem obrigatória: informe ao menos um caminho-fonte (source.source_paths)');
   if (!['functional', 'non-functional', 'business-rule', 'constraint'].includes(d.type)) errs.push('tipo inválido');
   if (d.type === 'non-functional' && !(d.quality_scenarios && d.quality_scenarios.length)) errs.push('NFR exige ao menos um quality_scenario');
   return errs;

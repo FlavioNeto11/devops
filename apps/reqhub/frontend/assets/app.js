@@ -1,6 +1,6 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft } from './lib.js?v=5';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft } from './lib.js?v=8';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -470,6 +470,7 @@ function renderEditor() {
   add('ASR', 'asr', select(['false', 'true'], String(!!ed?.architectural_significance)));
   add('Título', 'title', inp(ed?.title));
   add('Enunciado', 'statement', area(ed?.statement, 4));
+  add('Caminhos-fonte / origem (1/linha, OBRIGATÓRIO)', 'source_paths', area((ed?.source?.source_paths || []).join('\n'), 2));
   add('Critérios de aceite (1/linha)', 'acceptance', area((ed?.acceptance_criteria || []).join('\n'), 3));
   add('Métodos de verificação (vírgula)', 'methods', inp((ed?.verification_method || []).join(', ')));
   const qs = ed?.quality_scenarios?.[0] || {};
@@ -490,12 +491,14 @@ function renderEditor() {
   function collectDraft() {
     const lines = (f.acceptance.value || '').split('\n').map((x) => x.trim()).filter(Boolean);
     const methods = (f.methods.value || '').split(',').map((x) => x.trim()).filter(Boolean);
+    const srcPaths = (f.source_paths.value || '').split('\n').map((x) => x.trim()).filter(Boolean);
     const d = {
       id: f.id.value.trim(), slug: f.id.value.trim().toLowerCase(), title: f.title.value.trim(),
       type: f.type.value, status: f.status.value, owner: f.owner.value.trim() || undefined,
       scope: { applies_to: f.applies_to.value, product_scope: (f.product.value || '').trim() },
       statement: f.statement.value.trim(), priority: f.priority.value, criticality: f.criticality.value,
       architectural_significance: f.asr.value === 'true',
+      source: srcPaths.length ? { source_paths: srcPaths } : undefined,
       acceptance_criteria: lines.length ? lines : undefined,
       verification_method: methods.length ? methods : undefined,
       version: { baseline_version: f.bver.value.trim() || '1.0.0', item_revision: Number(f.irev.value) || 1, semantic_change: f.sem.value, change_reason: f.reason.value.trim() || undefined },

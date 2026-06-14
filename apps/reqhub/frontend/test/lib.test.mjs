@@ -110,7 +110,8 @@ test('toYaml: array de objetos (quality_scenarios)', () => {
 });
 
 test('validateDraft pega erros', () => {
-  assert.deepEqual(validateDraft({ id: 'REQ-X-0001', title: 'abc', statement: 'enunciado valido aqui', type: 'functional', scope: { product_scope: 'x' } }), []);
+  assert.deepEqual(validateDraft({ id: 'REQ-X-0001', title: 'abc', statement: 'enunciado valido aqui', type: 'functional', scope: { product_scope: 'x' }, source: { source_paths: ['apps/x'] } }), []);
+  assert.ok(validateDraft({ id: 'REQ-X-0001', title: 'abc', statement: 'enunciado valido aqui', type: 'functional', scope: { product_scope: 'x' } }).some((e) => /origem/.test(e)));
   const errs = validateDraft({ id: 'bad', title: '', statement: '', type: 'functional', scope: {} });
   assert.ok(errs.length >= 3);
   assert.ok(validateDraft({ id: 'REQ-X-0001', title: 'abc', statement: 'enunciado valido', type: 'non-functional', scope: { product_scope: 'x' } }).some((e) => /quality_scenario/.test(e)));
