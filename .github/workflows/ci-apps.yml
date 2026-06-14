@@ -79,6 +79,11 @@ jobs:
             pm: npm
             prep: ""
             checks: "test"
+          - app: reqhub-api
+            path: reqhub/api
+            pm: npm
+            prep: ""
+            checks: "test"
     defaults:
       run:
         working-directory: apps/${{ matrix.path }}

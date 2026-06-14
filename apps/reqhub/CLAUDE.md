@@ -27,6 +27,13 @@ requisito × evidência/alocação) e **Fila de reprocessamento**. Servido sob `
 > (`specs/requirements/**`, via skills `/sync-spec` `/impact-review` e PRs). O Reqhub **não escreve** —
 > visualiza e analisa. Editar requisito = editar o YAML + regenerar a baseline (não pela UI, por ora).
 
+> **IA de autoria (opcional, `apps/reqhub/api`).** Backend **R1** (Express + `@flavioneto11/ai-core`,
+> gpt-5) sob `/reqs/api` (strip, priority 30) que **gera/analisa** rascunhos no Editor: `draft`
+> (esboço→campos), `analyze` (lacunas) e `suggest-links` (classifica o tipo de link sobre candidatos dos
+> embeddings locais). **Não escreve no git** — "salvar" continua sendo abrir o PR. **Fail-closed**: sem
+> `OPENAI_API_KEY`/token (Secret `reqhub-api-config`, ver `k8s/secret.example.yaml`) responde 503 e o
+> workbench segue read-only; o painel no Editor degrada com mensagem clara se a IA estiver fora.
+
 ## Stack & decisões
 
 | Aspecto | Decisão | Por quê |

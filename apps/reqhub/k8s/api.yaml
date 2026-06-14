@@ -1,0 +1,153 @@
+# =============================================================================
+# reqhub-api — IA de AUTORIA do Reqhub (R1, sem escrita no git) sob /reqs/api.
+# Roteamento (regra de ouro: API SEMPRE com strip; api > frontend em priority):
+#   /reqs/api -> reqhub-api:8080 (StripPrefix /reqs/api, priority 30) — o processo
+#   ve /health e /v1/* na raiz. O frontend /reqs (priority 10) continua intacto.
+# IMAGEM: lab usa reqhub-api:local + IfNotPresent (docker build apps/reqhub/api);
+#   CI publica ghcr.io/flavioneto11/reqhub/api:<sha>.
+# SECRET reqhub-api-config (OPENAI_API_KEY + token) e OPCIONAL: sem ele o pod SOBE
+#   e as rotas de IA respondem 503 (fail-closed) — a IA so enriquece o Editor.
+#   Secret real fora do git (kubeseal/SealedSecret) — ver k8s/secret.example.yaml.
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reqhub-api
+  namespace: apps
+  annotations:
+    devops.flavioneto/commitSha: "local"
+    devops.flavioneto/branch: "main"
+    devops.flavioneto/imageTag: "local"
+    devops.flavioneto/deployedAt: "2026-06-14T00:00:00Z"
+    devops.flavioneto/runId: "manual-publish-reqhub-api"
+    devops.flavioneto/image: "reqhub-api:local"
+  labels:
+    app.kubernetes.io/name: reqhub-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: reqhub
+    app.kubernetes.io/managed-by: devops-platform
+    devops.flavioneto/app-type: platform_tool
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: reqhub-api
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: reqhub-api
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: reqhub
+        devops.flavioneto/app-type: platform_tool
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+        - name: api
+          image: reqhub-api:local
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PORT
+              value: "8080"
+            - name: REQHUB_AI_MODEL
+              value: "gpt-5"
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: reqhub-api-config
+                  key: OPENAI_API_KEY
+                  optional: true   # ausente -> rotas de IA = 503 (fail-closed); pod sobe
+            - name: REQHUB_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: reqhub-api-config
+                  key: token
+                  optional: true   # ausente -> autoria = 503 (fail-closed)
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: "15m"
+              memory: "48Mi"
+            limits:
+              cpu: "300m"
+              memory: "192Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reqhub-api
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: reqhub-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: reqhub
+spec:
+  selector:
+    app.kubernetes.io/name: reqhub-api
+    app.kubernetes.io/component: api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: reqhub-api-strip
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: reqhub-api
+    app.kubernetes.io/part-of: reqhub
+spec:
+  stripPrefix:
+    prefixes:
+      - /reqs/api
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: reqhub-api
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: reqhub-api
+    app.kubernetes.io/part-of: reqhub
+spec:
+  entryPoints:
+    - web
+  routes:
+    # API -> strip /reqs/api, priority 30 (vence o frontend /reqs priority 10).
+    - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/reqs/api`)
+      kind: Rule
+      priority: 30
+      services:
+        - name: reqhub-api
+          port: 8080
+      middlewares:
+        - name: reqhub-api-strip
+        - name: compress
+          namespace: traefik
+        - name: secure-headers
+          namespace: traefik

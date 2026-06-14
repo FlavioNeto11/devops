@@ -28,6 +28,32 @@ function svg(tag, attrs = {}) {
 }
 const byId = (id) => DATA.baseline.requirements.find((r) => r.id === id);
 function badge(text, cls) { return h('span', { class: 'b ' + (cls || ''), text }); }
+
+/* ---------- cliente da IA de autoria (reqhub-api, mesmo origin /reqs/api) ----------
+   Opcional e fail-closed: sem servidor/sem key/sem token, a UI degrada com mensagem
+   clara. O token do operador fica no localStorage (ferramenta de operador). A UI
+   NUNCA escreve no git — a IA so preenche/analisa; "salvar" continua sendo abrir o PR. */
+const AI = {
+  BASE: '/reqs/api',
+  tokenKey: 'reqhub_ai_token',
+  getToken() { try { return localStorage.getItem(this.tokenKey) || ''; } catch { return ''; } },
+  setToken(t) { try { localStorage.setItem(this.tokenKey, t); } catch { /* ignore */ } },
+  async health() {
+    const r = await fetch(this.BASE + '/health');
+    const data = await r.json().catch(() => ({}));
+    return { ok: r.ok, status: r.status, data };
+  },
+  async post(path, body) {
+    const tok = this.getToken();
+    const r = await fetch(this.BASE + path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(tok ? { Authorization: 'Bearer ' + tok } : {}) },
+      body: JSON.stringify(body || {}),
+    });
+    const data = await r.json().catch(() => ({}));
+    return { ok: r.ok, status: r.status, data };
+  },
+};
 function prioCls(p) { return p === 'critical' ? 'b-crit' : p === 'high' ? 'b-high' : p === 'low' ? 'b-low' : 'b-med'; }
 function bandCls(b) { return b === 'high' ? 'b-high' : b === 'medium' ? 'b-med' : 'b-low'; }
 function setStatus(msg, err) { const s = document.getElementById('status'); s.textContent = msg || ''; s.hidden = !msg; s.className = 'status' + (err ? ' error' : ''); }
@@ -431,12 +457,13 @@ function renderEditor() {
   add('semantic_change', 'sem', select(['none', 'patch', 'minor', 'major'], ed ? 'minor' : 'none'));
   add('change_reason', 'reason', inp(ed ? '' : 'novo requisito'));
   body.append(form);
+  body.append(aiPanel());
 
   const out = h('div');
   body.append(h('div', { class: 'ws-actions' }, h('button', { class: 'btn', type: 'button', onclick: gen, text: 'Gerar YAML' })), out);
 
-  function gen() {
-    out.replaceChildren();
+  // Coleta o rascunho a partir do formulario (reusado por Gerar YAML e pela IA de analise).
+  function collectDraft() {
     const lines = (f.acceptance.value || '').split('\n').map((x) => x.trim()).filter(Boolean);
     const methods = (f.methods.value || '').split(',').map((x) => x.trim()).filter(Boolean);
     const d = {
@@ -453,6 +480,30 @@ function renderEditor() {
       const q = { source: f.qs_source.value, stimulus: f.qs_stimulus.value, environment: f.qs_environment.value, artifact: f.qs_artifact.value, response: f.qs_response.value, response_measure: f.qs_measure.value };
       if (Object.values(q).some(Boolean)) d.quality_scenarios = [q];
     }
+    return d;
+  }
+
+  // Aplica um rascunho gerado pela IA aos campos do formulario (mapeando o vocabulario).
+  function applyDraftToForm(draft) {
+    const d = draft || {};
+    const setVal = (el, v) => { if (el && v != null && v !== '') el.value = String(v); };
+    const setSel = (el, v) => { if (!el || v == null) return; const ok = Array.from(el.options).some((o) => o.value === v); if (ok) el.value = v; };
+    setVal(f.title, d.title);
+    setVal(f.statement, d.statement);
+    const typeMap = { functional: 'functional', non_functional: 'non-functional', 'non-functional': 'non-functional', constraint: 'constraint', interface: 'functional' };
+    setSel(f.type, typeMap[d.type] || 'functional');
+    setSel(f.priority, d.priority);
+    setSel(f.criticality, d.criticality);
+    if (typeof d.architectural_significance === 'boolean') setSel(f.asr, String(d.architectural_significance));
+    if (Array.isArray(d.acceptance_criteria)) f.acceptance.value = d.acceptance_criteria.join('\n');
+    if (Array.isArray(d.verification_method)) f.methods.value = d.verification_method.join(', ');
+    const q = (Array.isArray(d.quality_scenarios) && d.quality_scenarios[0]) || null;
+    if (q) { setVal(f.qs_stimulus, q.stimulus); setVal(f.qs_response, q.response); setVal(f.qs_measure, q.measure || q.response_measure); }
+  }
+
+  function gen() {
+    out.replaceChildren();
+    const d = collectDraft();
     const errs = validateDraft(d);
     if (errs.length) { const ul = h('ul', { class: 'errlist' }); errs.forEach((e) => ul.append(h('li', { text: e }))); out.append(h('div', { class: 'card' }, h('h3', { text: 'Corrija antes de gerar' }), ul)); return; }
     const yaml = toYaml(d) + '\n';
@@ -466,6 +517,81 @@ function renderEditor() {
         h('button', { class: 'btn', type: 'button', onclick: () => { if (navigator.clipboard) navigator.clipboard.writeText(yaml); }, text: 'Copiar YAML' }),
         h('a', { class: 'btn', href: ed ? editUrl : newUrl, target: '_blank', rel: 'noopener' }, ed ? 'Abrir no GitHub (editar → PR)' : 'Abrir no GitHub (novo → PR)')),
       h('p', { class: 'muted', text: 'O PR passa pelo gate specs-governance (schema/drift/versão). A baseline é regenerada por /sync-spec após o merge.' })));
+  }
+
+  // Painel da IA de autoria (opcional). Chama o reqhub-api (/reqs/api) e degrada
+  // com mensagem clara se a IA estiver indisponivel/desabilitada/sem token.
+  function aiPanel() {
+    const wrap = h('details', { class: 'card ai-panel' });
+    wrap.append(h('summary', { text: '✨ Assistente de IA (autoria) — opcional' }));
+    const status = h('p', { class: 'muted', text: 'Verificando IA…' });
+    const tok = h('input', { type: 'password', value: AI.getToken(), placeholder: 'Bearer token (operador)' });
+    const tokRow = h('div', { class: 'ws-actions' },
+      h('span', { class: 'fld-l', text: 'Token' }), tok,
+      h('button', { class: 'btn-link', type: 'button', text: 'Salvar', onclick: () => { AI.setToken(tok.value.trim()); status.textContent = 'Token salvo (localStorage deste navegador).'; } }));
+    const sketch = h('textarea', { rows: '3', placeholder: 'Descreva o requisito em linguagem natural (esboço)…' });
+    const aiOut = h('div');
+    wrap.append(status, tokRow,
+      h('label', { class: 'fld' }, h('span', { class: 'fld-l', text: 'Esboço' }), sketch),
+      h('div', { class: 'ws-actions' },
+        h('button', { class: 'btn', type: 'button', text: 'Rascunhar com IA', onclick: doDraft }),
+        h('button', { class: 'btn', type: 'button', text: 'Analisar lacunas', onclick: doAnalyze }),
+        h('button', { class: 'btn', type: 'button', text: 'Sugerir links', onclick: doLinks })),
+      aiOut);
+
+    AI.health().then((r) => {
+      if (!r.ok) { status.textContent = 'reqhub-api indisponível — a IA é opcional (o workbench segue read-only).'; return; }
+      status.textContent = r.data && r.data.ai ? 'IA habilitada (gpt-5). Cole seu token de operador para usar.' : 'IA desabilitada no servidor (configure o Secret reqhub-api-config).';
+    }).catch(() => { status.textContent = 'reqhub-api indisponível — a IA é opcional.'; });
+
+    function showErr(r) {
+      const code = r.data && r.data.error ? r.data.error.code : 'HTTP ' + r.status;
+      const msg = r.data && r.data.error ? r.data.error.message : '';
+      aiOut.replaceChildren(h('div', { class: 'card' }, h('h3', { text: 'IA: ' + code }), h('p', { class: 'muted', text: msg })));
+    }
+    async function guard(fn) {
+      aiOut.replaceChildren(h('p', { class: 'muted', text: 'Consultando a IA…' }));
+      try { await fn(); } catch (e) { aiOut.replaceChildren(h('p', { class: 'empty', text: 'Erro de rede ao chamar a IA: ' + (e && e.message ? e.message : e) })); }
+    }
+    function doDraft() {
+      guard(async () => {
+        const r = await AI.post('/v1/authoring/draft', { sketch: (sketch.value || '').trim(), scope: (f.product.value || '').trim() });
+        if (!r.ok) return showErr(r);
+        applyDraftToForm(r.data.draft || {});
+        const warns = (r.data.draft && r.data.draft.warnings) || [];
+        aiOut.replaceChildren(h('div', { class: 'card' },
+          h('h3', { text: 'Rascunho aplicado (' + (r.data.prompt_version || '') + ')' }),
+          h('p', { class: 'muted', text: warns.length ? 'Avisos: ' + warns.join('; ') : 'Campos preenchidos — revise e clique em Gerar YAML.' })));
+      });
+    }
+    function doAnalyze() {
+      guard(async () => {
+        const r = await AI.post('/v1/authoring/analyze', { requirement: collectDraft() });
+        if (!r.ok) return showErr(r);
+        const card = h('div', { class: 'card' }, h('h3', { text: 'Lacunas — prontidão ' + (r.data.score != null ? r.data.score : '?') }));
+        const gaps = r.data.gaps || [];
+        if (!gaps.length) card.append(h('p', { class: 'empty', text: 'Sem lacunas apontadas.' }));
+        else { const ul = h('ul', { class: 'errlist' }); gaps.forEach((g) => ul.append(h('li', {}, badge(g.severity || 'info', g.severity === 'blocker' ? 'b-crit' : ''), ' ' + ((g.field ? g.field + ': ' : '') + (g.message || ''))))); card.append(ul); }
+        aiOut.replaceChildren(card);
+      });
+    }
+    function doLinks() {
+      guard(async () => {
+        if (!(DATA.embeddings && DATA.embeddings.vectors && state.editId)) {
+          aiOut.replaceChildren(h('p', { class: 'muted', text: 'Sugerir links: disponível ao EDITAR um requisito existente (os candidatos vêm dos embeddings locais).' }));
+          return;
+        }
+        const cands = topSimilar(DATA.embeddings.vectors, state.editId, 6).map((s) => ({ id: s.id, title: (byId(s.id) || {}).title || '', score: Number(s.score.toFixed(3)) }));
+        const r = await AI.post('/v1/authoring/suggest-links', { requirement: collectDraft(), candidates: cands });
+        if (!r.ok) return showErr(r);
+        const sg = r.data.suggestions || [];
+        const card = h('div', { class: 'card' }, h('h3', { text: 'Links sugeridos (proposed) — ' + (r.data.prompt_version || '') }));
+        if (!sg.length) card.append(h('p', { class: 'empty', text: 'Nenhum link relevante entre os candidatos.' }));
+        else { const ul = h('ul', { class: 'linklist' }); sg.forEach((s) => ul.append(h('li', {}, badge(s.type, 'b'), ' ', h('button', { class: 'btn-link', type: 'button', onclick: () => openReq(s.target), text: s.target }), ' ', h('span', { class: 'muted', text: '(' + (s.confidence != null ? s.confidence : '?') + ') ' + (s.note || '') })))); card.append(ul); }
+        aiOut.replaceChildren(card);
+      });
+    }
+    return wrap;
   }
 }
 

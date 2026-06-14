@@ -28,3 +28,20 @@ services:
       dockerfile: apps/reqhub/Dockerfile
     health:
       path: /healthz
+  api:
+    type: api
+    path: /api                    # exposto em /reqs/api ; IA de AUTORIA (R1, sem escrita no git)
+    image: ghcr.io/flavioneto11/reqhub/api        # CI/GHCR; local usa reqhub-api:local
+    port: 8080
+    expose: true
+    stripPrefix: true             # Middleware reqhub-api-strip remove /reqs/api -> app ve /health,/v1/*
+    priority: 30                  # api > frontend (10): /reqs/api e prefixado por /reqs
+    build:
+      context: apps/reqhub/api    # a API NAO precisa de specs/baseline (contexto = a propria pasta)
+      dockerfile: apps/reqhub/api/Dockerfile
+    env:
+      REQHUB_AI_MODEL: gpt-5
+    # OPENAI_API_KEY + token (REQHUB_API_TOKEN) via Sealed Secret reqhub-api-config
+    # (k8s/secret.example.yaml). Ausentes -> rotas de IA respondem 503 (fail-closed).
+    health:
+      path: /health

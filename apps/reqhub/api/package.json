@@ -1,0 +1,21 @@
+{
+  "name": "reqhub-api",
+  "version": "0.1.0",
+  "description": "IA de AUTORIA do Reqhub (R1, sem escrita no git): rascunho de requisito, analise de lacunas e classificacao de links tipados. Espelha o padrao ai-control-plane (Express ESM) e usa @flavioneto11/ai-core (contrato AiTool + gpt-5). Fail-closed sem OPENAI_API_KEY/token.",
+  "type": "module",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@flavioneto11/ai-core": "file:vendor/flavioneto11-ai-core-0.5.1.tgz",
+    "@flavioneto11/ai-kit": "file:vendor/flavioneto11-ai-kit-0.1.0.tgz",
+    "express": "^4.21.2",
+    "openai": "^4.77.0"
+  }
+}
