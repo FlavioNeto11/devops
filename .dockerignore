@@ -1,0 +1,21 @@
+# .dockerignore da RAIZ do repo — só tem efeito em builds cujo CONTEXTO é a raiz.
+# Hoje, apenas o reqhub builda com contexto = raiz (precisa de specs/baseline/ +
+# apps/reqhub/frontend/). Os demais apps buildam com contexto = pasta do app, então
+# este arquivo não os afeta. Objetivo: não enviar o repo inteiro (node_modules/.git/…)
+# ao daemon — o Dockerfile do reqhub só COPIA apps/reqhub/frontend/ e specs/baseline/.
+.git
+.github
+**/node_modules
+**/dist
+**/build
+**/coverage
+**/.vendor
+.vendor
+*.log
+**/*.har
+**/*.tgz
+runner/
+diagnostics/
+storage/
+artifacts/
+**/.DS_Store

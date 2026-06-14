@@ -1,0 +1,30 @@
+# Contrato da esteira DevOps para o Reqhub (Requirements Hub) — o WORKBENCH da base
+# de requisitos (specs/). App SOMENTE-FRONTEND estatico (nginx) que LE a baseline
+# gerada (specs/baseline/*.json, assada na imagem) e renderiza as 6 telas: Explorador,
+# Workspace do requisito, Versoes & mudancas, Mapa de impacto, Cobertura e Fila de
+# reprocessamento. Fonte da verdade e autoria continuam no git (specs/) — aqui e
+# visualizacao/analise read-only. Ver docs/decisions/0002-requirements-as-source-of-truth.md.
+#
+# basePath /reqs ; frontend sem strip (HTML com <base href="/reqs/">) ; priority 10.
+# Build com CONTEXTO = raiz do repo (precisa de specs/baseline/ + apps/reqhub/frontend/),
+# Dockerfile em apps/reqhub/Dockerfile. Imagem rebuilda quando specs/baseline muda.
+app:
+  name: reqhub
+  namespace: apps
+  host: dev.nvit.com.br        # + xpto.localhost no dev local
+  basePath: /reqs
+  appType: platform_tool          # taxonomia: cms_portal | product_software | platform_tool
+services:
+  frontend:
+    type: frontend
+    path: /
+    image: ghcr.io/flavioneto11/reqhub/frontend   # CI/GHCR; local usa reqhub-frontend:local
+    port: 80
+    expose: true
+    stripPrefix: false
+    priority: 10
+    build:
+      context: .                  # RAIZ do repo (acessa specs/baseline/ + apps/reqhub/frontend/)
+      dockerfile: apps/reqhub/Dockerfile
+    health:
+      path: /healthz

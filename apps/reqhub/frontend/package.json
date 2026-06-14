@@ -1,0 +1,11 @@
+{
+  "name": "reqhub-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Workbench estático da base de requisitos (le specs/baseline). Funcoes puras testadas com node:test (zero dependencia).",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": { "node": ">=20" }
+}

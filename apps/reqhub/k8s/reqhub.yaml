@@ -1,0 +1,107 @@
+# =============================================================================
+# Reqhub — workbench da base de requisitos (somente frontend) sob /reqs.
+# Roteamento (host dev.nvit.com.br / xpto.localhost):
+#   /reqs -> frontend (nginx estático, SEM strip, priority 10)
+# Imagem local: reqhub-frontend:local
+#   docker build -t reqhub-frontend:local -f apps/reqhub/Dockerfile .   (contexto = RAIZ do repo)
+# As annotations devops.flavioneto/* alimentam a aba "Publicacoes" do DevOps Console.
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reqhub-frontend
+  namespace: apps
+  annotations:
+    devops.flavioneto/commitSha: "local"
+    devops.flavioneto/branch: "main"
+    devops.flavioneto/imageTag: "local"
+    devops.flavioneto/deployedAt: "2026-06-14T00:00:00Z"
+    devops.flavioneto/runId: "manual-publish-reqhub"
+    devops.flavioneto/image: "reqhub-frontend:local"
+  labels:
+    app.kubernetes.io/name: reqhub
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: reqhub
+    app.kubernetes.io/managed-by: devops-platform
+    devops.flavioneto/app-type: platform_tool
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: reqhub
+      app.kubernetes.io/component: frontend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: reqhub
+        app.kubernetes.io/component: frontend
+        app.kubernetes.io/part-of: reqhub
+        devops.flavioneto/app-type: platform_tool
+    spec:
+      containers:
+        - name: frontend
+          image: reqhub-frontend:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 8
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "20Mi"
+            limits:
+              cpu: "100m"
+              memory: "64Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reqhub-frontend
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: reqhub
+spec:
+  selector:
+    app.kubernetes.io/name: reqhub
+    app.kubernetes.io/component: frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: reqhub
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: reqhub
+    app.kubernetes.io/part-of: reqhub
+spec:
+  entryPoints:
+    - web
+  routes:
+    # frontend (priority 10 vence o portal `/` priority 1)
+    - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/reqs`)
+      kind: Rule
+      priority: 10
+      services:
+        - name: reqhub-frontend
+          port: 80
+      middlewares:
+        - name: compress
+          namespace: traefik
+        - name: secure-headers
+          namespace: traefik

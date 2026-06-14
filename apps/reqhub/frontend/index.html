@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pt-BR" class="no-js">
+  <head>
+    <meta charset="utf-8" />
+    <base href="/reqs/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Reqhub — base de requisitos (fonte da verdade)</title>
+    <meta name="description" content="Workbench da base de requisitos versionada da plataforma: explora, analisa impacto e cobertura, e prioriza o reprocessamento — lendo a baseline gerada de specs/." />
+    <link rel="icon" href="assets/favicon.svg" />
+    <link rel="stylesheet" href="assets/styles.css?v=1" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Pular para o conteúdo</a>
+
+    <header class="topbar" role="banner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">◆</span>
+        <div>
+          <strong>Reqhub</strong>
+          <span class="brand-sub">base de requisitos · fonte da verdade</span>
+        </div>
+      </div>
+      <div class="topbar-tools">
+        <label class="search" for="q">
+          <span class="visually-hidden">Buscar requisitos</span>
+          <input id="q" type="search" placeholder="Buscar por id, título, enunciado…" autocomplete="off" />
+        </label>
+        <button id="theme" class="icon-btn" type="button" aria-label="Alternar tema claro/escuro" title="Tema">◐</button>
+      </div>
+    </header>
+
+    <nav class="tabs" role="tablist" aria-label="Telas do workbench">
+      <button class="tab" role="tab" id="tab-explorer" aria-controls="view-explorer" aria-selected="true" data-view="explorer">Explorador</button>
+      <button class="tab" role="tab" id="tab-workspace" aria-controls="view-workspace" aria-selected="false" data-view="workspace" tabindex="-1">Workspace</button>
+      <button class="tab" role="tab" id="tab-versions" aria-controls="view-versions" aria-selected="false" data-view="versions" tabindex="-1">Versões &amp; mudanças</button>
+      <button class="tab" role="tab" id="tab-impact" aria-controls="view-impact" aria-selected="false" data-view="impact" tabindex="-1">Mapa de impacto</button>
+      <button class="tab" role="tab" id="tab-coverage" aria-controls="view-coverage" aria-selected="false" data-view="coverage" tabindex="-1">Cobertura</button>
+      <button class="tab" role="tab" id="tab-reprocess" aria-controls="view-reprocess" aria-selected="false" data-view="reprocess" tabindex="-1">Fila de reprocessamento</button>
+    </nav>
+
+    <main id="main" tabindex="-1">
+      <p id="status" class="status" role="status" aria-live="polite">Carregando a baseline…</p>
+
+      <section id="view-explorer" class="view" role="tabpanel" aria-labelledby="tab-explorer">
+        <div class="toolbar" id="explorer-filters"></div>
+        <div id="explorer-grid" class="grid-wrap"></div>
+      </section>
+
+      <section id="view-workspace" class="view" role="tabpanel" aria-labelledby="tab-workspace" hidden>
+        <div id="workspace-body" class="workspace"></div>
+      </section>
+
+      <section id="view-versions" class="view" role="tabpanel" aria-labelledby="tab-versions" hidden>
+        <div id="versions-body"></div>
+      </section>
+
+      <section id="view-impact" class="view" role="tabpanel" aria-labelledby="tab-impact" hidden>
+        <div class="toolbar" id="impact-filters"></div>
+        <div id="impact-canvas" class="impact-canvas"></div>
+      </section>
+
+      <section id="view-coverage" class="view" role="tabpanel" aria-labelledby="tab-coverage" hidden>
+        <div id="coverage-body"></div>
+      </section>
+
+      <section id="view-reprocess" class="view" role="tabpanel" aria-labelledby="tab-reprocess" hidden>
+        <div id="reprocess-body"></div>
+      </section>
+    </main>
+
+    <footer class="foot" role="contentinfo">
+      <span id="foot-meta">Reqhub</span>
+      <span class="foot-links">
+        fonte da verdade: <code>specs/requirements/**</code> · baseline gerada · edição via git/PR
+      </span>
+    </footer>
+
+    <script type="module" src="assets/app.js?v=1"></script>
+  </body>
+</html>

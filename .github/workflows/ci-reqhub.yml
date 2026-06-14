@@ -1,0 +1,85 @@
+# =============================================================================
+# ci-reqhub — gate de qualidade do Reqhub (workbench da base de requisitos).
+# -----------------------------------------------------------------------------
+# Roda em PR e push p/ main quando muda apps/reqhub/** OU specs/baseline/** (a
+# imagem assa a baseline, entao rebuilda quando ela muda). Jobs:
+#   - quality:   testes node:test (funcoes puras, zero dependencia).
+#   - docker:    smoke build (CONTEXTO = raiz do repo; valida Dockerfile + assets + baseline).
+#   - manifests: kubeconform nos manifests k8s.
+#   - build-push: so em push p/ main e apos quality+docker — publica no GHCR
+#     (ghcr.io/flavioneto11/reqhub/frontend:<sha>) via workflow reutilizavel,
+#     com contexto = raiz e dockerfile apps/reqhub/Dockerfile.
+# Runner: ubuntu-latest.
+# =============================================================================
+name: ci-reqhub
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "apps/reqhub/**"
+      - "specs/baseline/**"
+      - ".github/workflows/ci-reqhub.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/reqhub/**"
+      - "specs/baseline/**"
+      - ".github/workflows/ci-reqhub.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: test (node:test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/reqhub/frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Testes (funcoes puras)
+        run: node --test
+
+  docker:
+    name: docker build (smoke, contexto = raiz)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build da imagem do reqhub
+        run: docker build -t reqhub-frontend:ci -f apps/reqhub/Dockerfile .
+
+  manifests:
+    name: kubeconform (apps/reqhub/k8s)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Instalar kubeconform
+        run: |
+          set -euo pipefail
+          VER=v0.6.7
+          curl -sSL "https://github.com/yannh/kubeconform/releases/download/${VER}/kubeconform-linux-amd64.tar.gz" | tar -xz kubeconform
+          sudo mv kubeconform /usr/local/bin/
+      - name: Validar manifests do reqhub
+        run: kubeconform -ignore-missing-schemas -summary apps/reqhub/k8s/reqhub.yaml
+
+  build-push:
+    name: build & push GHCR
+    needs: [quality, docker, manifests]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/reusable-build-push.yaml
+    with:
+      app: reqhub
+      service: frontend
+      context: .
+      dockerfile: apps/reqhub/Dockerfile

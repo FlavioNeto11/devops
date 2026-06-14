@@ -1,0 +1,28 @@
+# =============================================================================
+# Argo CD Application: reqhub (workbench da base de requisitos, frontend) sob /reqs.
+# Descoberta pelo app-of-apps "devops-platform". Aplica apps/reqhub/k8s via kustomize.
+# Imagem reqhub-frontend:local é construída no nó (IfNotPresent) — o Argo só aplica os
+# manifests; o build da imagem é docker build (lab, contexto = raiz) ou CI/GHCR.
+# =============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: reqhub
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/FlavioNeto11/devops
+    path: apps/reqhub/k8s
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: apps
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
