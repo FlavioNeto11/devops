@@ -2,8 +2,13 @@
 # Reqhub — workbench da base de requisitos (somente frontend) sob /reqs.
 # Roteamento (host dev.nvit.com.br / xpto.localhost):
 #   /reqs -> frontend (nginx estático, SEM strip, priority 10)
-# Imagem local: reqhub-frontend:local
-#   docker build -t reqhub-frontend:local -f apps/reqhub/Dockerfile .   (contexto = RAIZ do repo)
+# ESTRATEGIA DE IMAGEM (igual ao padrao da plataforma — ver portal):
+#   - LAB (aqui): reqhub-frontend:local + IfNotPresent. O kubelet do Docker Desktop
+#     compartilha o daemon, entao a imagem buildada local serve sem registry.
+#     docker build -t reqhub-frontend:local -f apps/reqhub/Dockerfile .   (contexto = RAIZ)
+#   - PROD/portabilidade: o ci-reqhub PUBLICA ghcr.io/flavioneto11/reqhub/frontend:<sha>
+#     a cada push (e quando specs/baseline muda). Para GHCR-pull, tornar o pacote publico
+#     e trocar o `image:` abaixo para o caminho do GHCR (1 linha) — exatamente como o portal.
 # As annotations devops.flavioneto/* alimentam a aba "Publicacoes" do DevOps Console.
 # =============================================================================
 apiVersion: apps/v1

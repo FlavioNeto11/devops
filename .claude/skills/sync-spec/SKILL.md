@@ -27,9 +27,9 @@ artefatos — nunca editada à mão. Detalhes: `specs/README.md` e `specs/CLAUDE
 2. **Editar/criar requisitos** em `specs/requirements/<produto>/REQ-*.yaml` conforme o schema.
    Ao mudar conteúdo, **incremente `version.item_revision`** e classifique `version.semantic_change`
    (+ `change_reason`); mudança incompatível (major) sobe a baseline (`baseline_version`).
-3. **Regenerar a baseline**:
+3. **Regenerar a baseline** (e o `history.json` do diff):
    ```powershell
-   C:\devops\scripts\specs-baseline-check.ps1 -Fix    # = npm run build em specs/tools
+   C:\devops\scripts\specs-baseline-check.ps1 -Fix    # build-baseline.mjs + emit-history.mjs
    ```
 4. **Conferir o drift** (o que o CI vai checar): `scripts/specs-baseline-check.ps1` (sem flag) — deve
    sair OK. Em mudança **major** ou em requisito **ASR**, rode também a skill **impact-review**.

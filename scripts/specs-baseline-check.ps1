@@ -40,7 +40,9 @@ try {
   if ($Fix) {
     Write-Host "[specs] regenerando baseline..." -ForegroundColor Cyan
     node build-baseline.mjs
-    Write-Host "[specs] baseline regenerada. Revise specs/baseline/ e commite junto com os requisitos." -ForegroundColor Green
+    Write-Host "[specs] atualizando history.json (diff vs baseline anterior)..." -ForegroundColor Cyan
+    node emit-history.mjs
+    Write-Host "[specs] baseline + history regenerados. Revise specs/baseline/ e commite junto com os requisitos." -ForegroundColor Green
   } else {
     node build-baseline.mjs --check
     if ($LASTEXITCODE -ne 0) {

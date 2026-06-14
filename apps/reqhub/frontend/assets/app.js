@@ -163,7 +163,43 @@ function linkList(edges, dir) {
 function renderVersions() {
   const body = document.getElementById('versions-body');
   body.replaceChildren();
-  body.append(h('p', { class: 'muted', text: 'Estado de versão de cada requisito (ledger). O diff completo entre baselines é gerado pelo CI (specs-diff) e pela skill /baseline-diff sobre o histórico do git.' }));
+
+  // Diff REAL da baseline (vs. versão anterior no git), quando disponível.
+  const hist = DATA.history;
+  if (hist && hist.has_previous && (hist.counts.added + hist.counts.changed + hist.counts.removed) > 0) {
+    const card = h('div', { class: 'card' },
+      h('h3', { text: 'Diff de baseline' }),
+      h('p', { class: 'muted', text: `${hist.from.commit} → ${hist.to.commit} · +${hist.counts.added} adicionado(s) · ~${hist.counts.changed} alterado(s) · −${hist.counts.removed} removido(s)` }));
+    const mkSec = (titulo, arr, kind) => {
+      if (!arr.length) return;
+      card.append(h('h4', { text: titulo }));
+      const wrap = h('div', { class: 'grid-wrap' });
+      const t = h('table');
+      const headCells = kind === 'changed'
+        ? ['ID', 'Produto', 'Mudança', 'Campos', 'ΔImpacto']
+        : ['ID', 'Produto', 'Tipo', 'Título'];
+      t.append(h('thead', {}, h('tr', {}, ...headCells.map((c) => h('th', { text: c })))));
+      const tb = h('tbody');
+      for (const it of arr) {
+        const r = kind === 'changed'
+          ? h('tr', { tabindex: '0', role: 'button', onclick: () => openReq(it.id), onkeydown: (ev) => { if (ev.key === 'Enter') openReq(it.id); } },
+              h('td', {}, h('span', { class: 'rid', text: it.id })), h('td', { text: it.product }),
+              h('td', {}, badge(it.semantic_change || 'none', it.semantic_change === 'major' ? 'b-crit' : 'b-med')),
+              h('td', { text: (it.fields || []).join(', ') || '—' }),
+              h('td', { text: it.impact_delta ? (it.impact_delta > 0 ? '+' : '') + it.impact_delta : '0' }))
+          : h('tr', { tabindex: '0', role: 'button', onclick: () => openReq(it.id), onkeydown: (ev) => { if (ev.key === 'Enter') openReq(it.id); } },
+              h('td', {}, h('span', { class: 'rid', text: it.id })), h('td', { text: it.product }), h('td', { text: it.type }), h('td', { text: it.title }));
+        tb.append(r);
+      }
+      t.append(tb); wrap.append(t); card.append(wrap);
+    };
+    mkSec('Alterados', hist.changed, 'changed');
+    mkSec('Adicionados', hist.added, 'added');
+    mkSec('Removidos', hist.removed, 'removed');
+    body.append(card);
+  }
+
+  body.append(h('p', { class: 'muted', text: 'Ledger: estado de versão de cada requisito. O diff acima compara a baseline atual com a anterior (git). O diff por PR também é publicado pelo CI (specs-diff / skill /baseline-diff).' }));
   const reqs = filterReqs(DATA.baseline.requirements, { q: state.q }).slice().sort((a, b) => a.id.localeCompare(b.id));
   const wrap = h('div', { class: 'grid-wrap' });
   const t = h('table');
@@ -318,6 +354,8 @@ async function init() {
       fetch('data/retrieval-manifest.json').then((r) => r.json()),
     ]);
     DATA.baseline = b; DATA.impact = im; DATA.retrieval = rt;
+    // diff real da baseline (vs versão anterior no git) — opcional; tolera ausência.
+    DATA.history = await fetch('data/history.json').then((r) => (r.ok ? r.json() : null)).catch(() => null);
   } catch (err) {
     setStatus('Falha ao carregar a baseline: ' + err.message, true);
     return;

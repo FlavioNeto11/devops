@@ -1,0 +1,41 @@
+# =============================================================================
+# reqhub-gate — check OBRIGATÓRIO e SEMPRE executado do Reqhub.
+# -----------------------------------------------------------------------------
+# Diferente do ci-reqhub (path-filtered, faz o build/push pesado), este gate roda
+# em TODO push/PR (sem path-filter) e executa só checagens rápidas: testes das
+# funções puras + kubeconform dos manifests. Como sempre executa, pode ser exigido
+# na branch protection sem o problema de PR preso em "pending" do path-filter.
+# =============================================================================
+name: reqhub-gate
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: Reqhub gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Testes (funções puras do reqhub)
+        working-directory: apps/reqhub/frontend
+        run: node --test
+      - name: Instalar kubeconform
+        run: |
+          set -euo pipefail
+          VER=v0.6.7
+          curl -sSL "https://github.com/yannh/kubeconform/releases/download/${VER}/kubeconform-linux-amd64.tar.gz" | tar -xz kubeconform
+          sudo mv kubeconform /usr/local/bin/
+      - name: Validar manifests do reqhub
+        run: kubeconform -ignore-missing-schemas -summary apps/reqhub/k8s/reqhub.yaml
