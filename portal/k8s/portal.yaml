@@ -12,12 +12,15 @@
 # GitOps (Argo): a TAG da imagem vive AQUI, no git, e é a fonte da verdade — o
 # Argo (platform/argocd/apps/portal.yaml) reconcilia este manifest; não há
 # `kubectl set image` nem `ignoreDifferences`. Releases: `scripts/publish-portal.ps1`
-# builda `portal-frontend:<sha>` (imutável), troca o `image:` abaixo, commita e
-# o Argo aplica. Rollback = `git revert` do commit do bump. A imagem é LOCAL do
-# Docker Desktop (o kubelet compartilha o daemon; `IfNotPresent`, sem registry);
-# o CI publica o mesmo artefato em ghcr.io/flavioneto11/portal/frontend:<sha>
-# (portabilidade). Para usar GHCR-pull: tornar o pacote público e trocar o `image:`
-# para o caminho do GHCR (1 linha).
+# builda a imagem (tree-sha imutável), troca o `image:` abaixo, commita e o Argo
+# aplica. Rollback = `git revert` do commit do bump.
+#
+# Imagem: GHCR-pull ATIVO — `ghcr.io/flavioneto11/portal/frontend:<tree-sha>`,
+# pacote PÚBLICO (sem imagePullSecret). O CI (ci-portal) publica esse exato
+# artefato a cada push em portal/**; a tag é o tree-sha de `portal/frontend`,
+# então o que o manifest pina == o que o CI publicou (bit-a-bit). No Docker
+# Desktop o kubelet compartilha o daemon: `IfNotPresent` reusa a imagem local
+# quando o publish-portal a buildou; em cluster real, puxa do GHCR (público).
 # =============================================================================
 apiVersion: apps/v1
 kind: Deployment
@@ -43,7 +46,7 @@ spec:
     spec:
       containers:
         - name: portal
-          image: portal-frontend:73bd9188e2be
+          image: ghcr.io/flavioneto11/portal/frontend:73bd9188e2be
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

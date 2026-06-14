@@ -14,7 +14,7 @@
   exatamente a que o CI publica — pré-requisito para ativar GHCR-pull sem desalinhamento.
 
   Fluxo (exige árvore RASTREADA limpa — o bump precisa ser o único commit):
-    1. Build `portal-frontend:<treesha>` (+ alias `:local`).
+    1. Build `ghcr.io/flavioneto11/portal/frontend:<treesha>` (+ alias `:local`).
     2. Bump do `image:` no manifest + `git commit` LOCAL (ainda NÃO pushado).
     3. VALIDATE-THEN-PUSH: `kubectl apply` + rollout + smoke + `git push` — TUDO dentro de um try.
        Em QUALQUER falha (apply/rollout/smoke/PUSH): AUTO-ROLLBACK (descarta o commit do bump e
@@ -66,10 +66,10 @@ if ($ctxDirty) {
 # TAG = hash do CONTEÚDO de portal/frontend (igual aqui e no CI). Muda só quando o
 # conteúdo muda; commits que só tocam portal/k8s (o bump) NÃO mudam a tag.
 $tag = (git -C $repoRoot rev-parse 'HEAD:portal/frontend').Trim().Substring(0, 12)
-$image = "portal-frontend:$tag"
+$image = "ghcr.io/flavioneto11/portal/frontend:$tag"
 
 # Já publicado este conteúdo? Então não há release novo (idempotente).
-$current = ([regex]::Match((Get-Content $manifest -Raw), 'image:\s*portal-frontend:(\S+)')).Groups[1].Value
+$current = ([regex]::Match((Get-Content $manifest -Raw), 'image:\s*ghcr\.io/flavioneto11/portal/frontend:(\S+)')).Groups[1].Value
 if ($current -eq $tag) {
   Write-Host "[OK] portal já está no conteúdo $tag (manifest inalterado) — nada a publicar." -ForegroundColor Green
   Write-Host "Para recriar o pod sem mudar conteúdo: kubectl -n $ns rollout restart deployment/portal" -ForegroundColor Gray
@@ -95,8 +95,8 @@ try {
 
 Write-Host "== portal :: bump do image no manifest -> $image ==" -ForegroundColor Cyan
 $mraw = Get-Content $manifest -Raw
-$bumped = [regex]::Replace($mraw, 'image:\s*portal-frontend:\S+', "image: $image")
-if ($bumped -eq $mraw) { throw "Não encontrei 'image: portal-frontend:<tag>' em $manifest para bumpar." }
+$bumped = [regex]::Replace($mraw, 'image:\s*ghcr\.io/flavioneto11/portal/frontend:\S+', "image: $image")
+if ($bumped -eq $mraw) { throw "Não encontrei 'image: ghcr.io/flavioneto11/portal/frontend:<tag>' em $manifest para bumpar." }
 Set-Content -Path $manifest -Value $bumped -NoNewline
 
 Write-Host "== portal :: commit local do bump (sem push ainda) ==" -ForegroundColor Cyan
