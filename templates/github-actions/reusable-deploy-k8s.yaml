@@ -137,13 +137,13 @@ jobs:
 
           Write-Host "==> Anotando deployment '$app' no namespace '$ns'"
           kubectl annotate deployment $app -n $ns --overwrite `
-            "devops.flavioneto/commit-sha=${{ github.sha }}" `
+            "devops.flavioneto/commitSha=${{ github.sha }}" `
             "devops.flavioneto/branch=${{ github.ref_name }}" `
-            "devops.flavioneto/image-tag=$tag" `
-            "devops.flavioneto/deployed-at=$deployedAt" `
-            "devops.flavioneto/run-id=${{ github.run_id }}"
+            "devops.flavioneto/imageTag=$tag" `
+            "devops.flavioneto/deployedAt=$deployedAt" `
+            "devops.flavioneto/runId=${{ github.run_id }}"
           if ($LASTEXITCODE -ne 0) { throw "Falha ao anotar o deployment '$app'." }
-          Write-Host "    OK: anotacoes aplicadas (deployed-at=$deployedAt)." -ForegroundColor Green
+          Write-Host "    OK: anotacoes aplicadas (deployedAt=$deployedAt)." -ForegroundColor Green
 
       # -----------------------------------------------------------------------
       # 6) Aguardar a conclusao do rollout do Deployment.
