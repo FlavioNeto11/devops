@@ -42,18 +42,19 @@ fonte da verdade: [`specs/CLAUDE.md`](../../specs/CLAUDE.md).
    `acceptance_criteria`; para NFR, atender o `quality_scenario` (resposta + medida). Reusar utilitários
    existentes; seguir o estilo do app. Não introduzir dependências sem necessidade.
 5. **Validar localmente** o que o app oferecer (lint/test/build do app afetado) antes de commitar.
-6. **Branch + commit + status (sem push/PR)**:
+6. **Branch + commit (só código; sem push/PR/status)**:
    ```pwsh
    git checkout -b req/<REQ-ID>/r<revision>
    git add <arquivos dentro de allowed_paths>
    git commit -m "feat(<scope>): implementa <REQ-ID> — <título>"   # corpo com Closes-Req: <REQ-ID>
-   node specs/tools/impl-status.mjs --set <REQ-ID> status=pr_open branch=<branch> commit=<sha> run_id=<id>  # status=blocked se restricted
-   git add specs/baseline/implementation-status.json; git commit -m "chore(specs): status <REQ-ID>"
-   # NÃO dar git push nem gh pr create — a esteira valida (guard-worktree) e abre o PR.
+   # NÃO dar git push nem gh pr create; NÃO editar implementation-status — a esteira faz tudo isso.
    ```
+   Para escopo **restrito**: não commitar código; deixar só uma nota no commit/branch e parar (a esteira
+   abre PR-rascunho). Validar o app com test/build (`npm test`, `npm run build` etc.) antes de commitar.
 7. **Encerrar**: deixar o branch local pronto. A esteira roda `node specs/tools/guard-worktree.mjs
-   --work-order work-order.json --changed-file <diff>` e, se aprovado, faz push + `gh pr create` (trailer
-   `Closes-Req` + labels `requirement,claude-generated`; `--draft` se restrito). Não fazer merge nem deploy.
+   --work-order work-order.json --changed-file <diff>` e, **se aprovado**, atualiza `implementation-status`
+   (status `pr_open`), faz push + `gh pr create` (trailer `Closes-Req` + labels `requirement,claude-generated`;
+   `--draft` se restrito) — **só esse passo da esteira tem credencial git**. Não fazer merge nem deploy.
 
 ## Idempotência
 
