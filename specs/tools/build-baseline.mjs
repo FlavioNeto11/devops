@@ -23,6 +23,7 @@ import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
+import { validateSourcePath } from './source-paths.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SPECS_DIR = path.resolve(__dirname, '..');
@@ -132,10 +133,10 @@ function validate(items) {
     for (const t of [...(a.adr_refs ?? []), ...(a.service_refs ?? []), ...(a.infra_refs ?? []), ...(a.slo_refs ?? []), ...(a.architecture_refs ?? [])]) checkExternal(file, t);
   }
 
-  // ENFORCE DE ORIGEM (blindado contra regressão): TODO requisito deve declarar
-  // source.source_paths com >=1 caminho REAL (relativo à raiz do repo) que EXISTE.
-  // Sem origem -> FALHA (um requisito não entra sem dizer de onde veio). Caminho
-  // ausente/absoluto/.. ou inexistente -> FALHA (origem fabricada).
+  // ENFORCE DE ORIGEM (blindado): TODO requisito declara source.source_paths com >=1
+  // caminho REAL, relativo à raiz do repo, SEM `..`/absoluto e cujo destino real
+  // (resolvendo symlinks) fique DENTRO do repo e EXISTA. Validação pura/testável em
+  // source-paths.mjs (fecha traversal no meio do path e fuga por symlink).
   const REPO_ROOT = path.resolve(SPECS_DIR, '..');
   for (const { file, doc } of items) {
     const sps = doc?.source?.source_paths;
@@ -144,12 +145,8 @@ function validate(items) {
       continue;
     }
     for (const sp of sps) {
-      if (typeof sp !== 'string' || !sp.trim() || /^([a-zA-Z]:[\\/]|[\\/]|\.\.)/.test(sp)) {
-        ok = false; fail(`source_path inválido em ${file}: '${sp}' (use caminho relativo à raiz do repo)`); continue;
-      }
-      if (!fs.existsSync(path.join(REPO_ROOT, sp))) {
-        ok = false; fail(`source_path inexistente em ${file}: '${sp}' (origem fabricada? o caminho não existe no repo)`);
-      }
+      const v = validateSourcePath(sp, REPO_ROOT);
+      if (!v.ok) { ok = false; fail(`source_path inválido em ${file}: '${sp}' — ${v.reason}`); }
     }
   }
   return ok;

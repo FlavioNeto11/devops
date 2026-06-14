@@ -77,7 +77,8 @@ jobs:
           # Idempotencia: so REQs com status not_started (ignora in_progress/pr_open/merged/deployed/done).
           KEEP=""
           for id in $CANDS; do
-            st=$(node -e "try{const s=require('./specs/baseline/implementation-status.json');process.stdout.write((s.items[process.argv[1]]||{}).status||'absent')}catch(e){process.stdout.write('absent')}" "$id")
+            # le o status do arquivo COMMITADO na main via fs+JSON.parse (sem require/cache; trusted)
+            st=$(node -e "const fs=require('fs');try{const s=JSON.parse(fs.readFileSync('./specs/baseline/implementation-status.json','utf8'));process.stdout.write(((s.items||{})[process.argv[1]]||{}).status||'absent')}catch(e){process.stdout.write('absent')}" "$id")
             if [ "$st" = "not_started" ] || [ "$st" = "absent" ]; then KEEP="$KEEP $id"; fi
           done
           KEEP=$(echo "$KEEP" | xargs || true)
@@ -163,6 +164,11 @@ jobs:
             if ($LASTEXITCODE -ne 0) { Write-Host "::warning::$id : branch $branch nao criado — pulando."; git checkout main 2>$null; continue }
 
             # ===== BARREIRA TECNICA: diff do branch vs allowed_paths/denylist =====
+            # REGENERA a ordem de trabalho a partir das fontes CANONICAS (baseline) ANTES do
+            # guard — se a Claude tiver adulterado work-order.json (p/ expandir o proprio
+            # allowed_paths), a versao canonica sobrescreve. A baseline que make-work-order le
+            # nao esta em allowed_paths (o guard pegaria), entao e confiavel.
+            node specs/tools/make-work-order.mjs $id --out work-order.json
             git diff --name-only "main...$branch" | Set-Content -Encoding utf8 changed.txt
             node specs/tools/guard-worktree.mjs --work-order work-order.json --changed-file changed.txt
             if ($LASTEXITCODE -ne 0) {
@@ -193,7 +199,15 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           foreach ($a in $approved) {
+            # valida o branch name (defesa contra approved.json adulterado) antes de qualquer uso
+            if ($a.branch -notmatch '^req/[A-Z0-9-]+/r[0-9]+$' -or $a.id -notmatch '^REQ-[A-Z0-9-]+$') {
+              Write-Host "::warning::branch/id invalido em approved.json ('$($a.branch)'/'$($a.id)') — pulando."; continue
+            }
             git checkout $a.branch 2>$null
+            # RESET do implementation-status p/ a versao de main ANTES do --set: descarta
+            # qualquer adulteracao que a Claude possa ter feito no arquivo (status de OUTROS
+            # requisitos); so a esteira escreve o pr_open do requisito corrente, via impl-status.
+            git checkout main -- specs/baseline/implementation-status.json 2>$null
             node specs/tools/impl-status.mjs --set $a.id status=pr_open branch=$a.branch run_id=$env:RUN_ID | Out-Null
             git add specs/baseline/implementation-status.json
             git commit -m "chore(specs): status $($a.id) pr_open" 2>$null
