@@ -1,0 +1,135 @@
+# =============================================================================
+# req-implement — esteira "requisito -> Claude -> PR".
+# -----------------------------------------------------------------------------
+# Quando um requisito e criado/alterado em specs/requirements/** (push na main) ou
+# por disparo manual (workflow_dispatch req_id), ACIONA a Claude (conta Claude Max do
+# operador, headless NESTA maquina via runner self-hosted) para IMPLEMENTAR o codigo
+# e abrir um PR rastreavel. NUNCA mexe na main nem no cluster — so abre PR (o merge e
+# gate externo: branch protection + validacao no ChatGPT -> label gpt-approved ->
+# auto-merge-validated.yml). Ver .claude/skills/implement-req e docs/decisions/0002.
+#
+# 2 jobs desacoplados: `plan` (ubuntu, barato/deterministico: detecta REQs + gera a
+# ordem de trabalho) e `implement` (self-hosted: roda `claude -p`). O token Claude Max
+# (CLAUDE_CODE_OAUTH_TOKEN) vive SO no ambiente do runner (fora do GitHub cloud) — ver
+# o plano/Inc.4. Se ausente, o job pula com aviso (nao falha).
+# =============================================================================
+name: req-implement
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+on:
+  workflow_dispatch:
+    inputs:
+      req_id:
+        description: "REQ-ID a implementar (ex.: REQ-SICAT-0002). Vazio = nada."
+        type: string
+        required: true
+  push:
+    branches: [main]
+    paths:
+      - "specs/requirements/**"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  plan:
+    name: Planejar (detectar REQs + ordem de trabalho)
+    runs-on: ubuntu-latest
+    outputs:
+      reqs: ${{ steps.detect.outputs.reqs }}
+      has_work: ${{ steps.detect.outputs.has_work }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Instalar deps de specs/tools
+        working-directory: specs/tools
+        run: npm ci --no-audit --no-fund
+      - name: Validar baseline (drift)
+        working-directory: specs/tools
+        run: node build-baseline.mjs --check && node impl-status.mjs --check
+
+      - name: Detectar REQs e gerar ordem de trabalho
+        id: detect
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            CANDS="${{ github.event.inputs.req_id }}"
+          else
+            BEFORE="${{ github.event.before }}"
+            if ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then BEFORE=$(git rev-parse HEAD~1 || echo ""); fi
+            CANDS=$(git diff --name-only "$BEFORE" "${{ github.sha }}" -- 'specs/requirements/**/*.yaml' 2>/dev/null \
+              | sed -n 's#.*/\(REQ-[A-Z0-9-]*\)\.yaml#\1#p' | sort -u | tr '\n' ' ')
+          fi
+          echo "candidatos: $CANDS"
+          # Idempotencia: so REQs com status not_started (ignora in_progress/pr_open/merged/deployed/done).
+          KEEP=""
+          for id in $CANDS; do
+            st=$(node -e "try{const s=require('./specs/baseline/implementation-status.json');process.stdout.write((s.items[process.argv[1]]||{}).status||'absent')}catch(e){process.stdout.write('absent')}" "$id")
+            if [ "$st" = "not_started" ] || [ "$st" = "absent" ]; then KEEP="$KEEP $id"; fi
+          done
+          KEEP=$(echo "$KEEP" | xargs || true)
+          if [ -z "$KEEP" ]; then
+            echo "has_work=false" >> "$GITHUB_OUTPUT"; echo "reqs=" >> "$GITHUB_OUTPUT"
+            echo "Nada a implementar (sem REQ novo/not_started)."; exit 0
+          fi
+          echo "a implementar: $KEEP"
+          node specs/tools/make-work-order.mjs $KEEP --out work-order.json
+          echo "has_work=true" >> "$GITHUB_OUTPUT"
+          echo "reqs=$KEEP" >> "$GITHUB_OUTPUT"
+      - name: Upload work-order
+        if: steps.detect.outputs.has_work == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: work-order
+          path: work-order.json
+
+  implement:
+    name: Implementar (Claude headless, self-hosted)
+    needs: plan
+    if: needs.plan.outputs.has_work == 'true'
+    runs-on: [self-hosted, windows, docker-desktop, local-k8s, flavio-devops]
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: work-order
+      - name: Acionar Claude por requisito
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REQS: ${{ needs.plan.outputs.reqs }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          if (-not $env:CLAUDE_CODE_OAUTH_TOKEN) {
+            Write-Host "::warning::CLAUDE_CODE_OAUTH_TOKEN ausente no runner — esteira nao acionada. Configure com 'claude setup-token' (ver plano Inc.4)."
+            exit 0
+          }
+          if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
+            Write-Host "::warning::CLI 'claude' nao encontrada no runner — pulando."
+            exit 0
+          }
+          foreach ($id in ($env:REQS -split '\s+' | Where-Object { $_ })) {
+            Write-Host "==> Implementando $id"
+            node specs/tools/make-work-order.mjs $id --out work-order.json
+            $wo = Get-Content work-order.json -Raw
+            # Headless: a skill implement-req trabalha em branch, abre PR e atualiza o status.
+            # Guardrails: branch-only (nunca main), allowed_paths por escopo, PR review externo.
+            claude -p "/implement-req $id (run_id=$env:RUN_ID). Ordem de trabalho em work-order.json." `
+              --append-system-prompt $wo `
+              --permission-mode acceptEdits `
+              --dangerously-skip-permissions `
+              --output-format json
+            if ($LASTEXITCODE -ne 0) { Write-Host "::warning::Claude retornou exit $LASTEXITCODE para $id (segue p/ o proximo)." }
+          }
