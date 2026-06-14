@@ -1,10 +1,11 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery } from './lib.js';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft } from './lib.js?v=4';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
-const state = { view: 'explorer', filters: {}, q: '', selectedId: null, impactFilter: { type: '', product: '', focus: false } };
-const DATA = { baseline: null, impact: null, retrieval: null };
+const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
+const state = { view: 'explorer', filters: {}, q: '', selectedId: null, impactFilter: { type: '', product: '', focus: false }, editId: null };
+const DATA = { baseline: null, impact: null, retrieval: null, history: null, registry: null, embeddings: null };
 
 /* ---------- DOM helpers (seguros) ---------- */
 function h(tag, attrs = {}, ...kids) {
@@ -81,7 +82,9 @@ function buildExplorerFilters() {
   );
   const asr = h('select', { 'aria-label': 'ASR', onchange: (e) => { state.filters.asr = e.target.value; renderExplorer(); } },
     h('option', { value: '', text: 'ASR (todos)' }), h('option', { value: 'yes', text: 'Só ASR' }), h('option', { value: 'no', text: 'Não-ASR' }));
-  wrap.append(h('label', {}, 'ASR', asr), h('span', { class: 'count', id: 'explorer-count' }));
+  wrap.append(h('label', {}, 'ASR', asr),
+    h('button', { class: 'btn', type: 'button', onclick: () => openEditor(null), text: '+ Novo requisito' }),
+    h('span', { class: 'count', id: 'explorer-count' }));
 }
 
 /* ---------- Workspace ---------- */
@@ -103,6 +106,7 @@ function renderWorkspace() {
       dt('Enunciado'), dd(r.statement),
     ));
   main.append(head);
+  main.append(h('div', { class: 'ws-actions' }, h('button', { class: 'btn', type: 'button', onclick: () => openEditor(r.id), text: '✎ Editar (propor via PR)' })));
 
   if ((r.acceptance_criteria || []).length || (r.verification_method || []).length) {
     const v = h('div', { class: 'card' }, h('h3', { text: 'Verificação' }));
@@ -141,6 +145,33 @@ function renderWorkspace() {
       dt('motivo'), dd(r.version.change_reason || '—'),
       dt('arquivo'), dd(h('code', { text: r.file }))));
   side.append(ver);
+
+  // Alocação (arquitetura/infra DERIVADAS dos requisitos)
+  const al = r.allocation || {};
+  const allocRows = [['Serviços', al.service_refs], ['Infra', al.infra_refs], ['SLOs', al.slo_refs], ['ADRs', al.adr_refs], ['Arquitetura', al.architecture_refs]].filter(([, v]) => (v || []).length);
+  const alloc = h('div', { class: 'card' }, h('h3', { text: 'Alocação (arquitetura/infra derivadas)' }));
+  if (!allocRows.length) alloc.append(h('p', { class: 'empty', text: 'Sem alocação registrada — lacuna (autore via edição).' }));
+  else for (const [label, vals] of allocRows) alloc.append(h('p', {}, h('strong', { text: label + ': ' }), ...vals.flatMap((v, i) => [i ? ', ' : '', h('code', { text: v })])));
+  side.append(alloc);
+
+  // Requisitos similares (semântica via embeddings locais)
+  if (DATA.embeddings && DATA.embeddings.vectors) {
+    const sims = topSimilar(DATA.embeddings.vectors, r.id, 5);
+    const sc = h('div', { class: 'card' }, h('h3', { text: 'Requisitos similares (semântica)' }));
+    if (!sims.length) sc.append(h('p', { class: 'empty', text: '—' }));
+    else {
+      const ul = h('ul', { class: 'linklist' });
+      for (const s of sims) {
+        const sr = byId(s.id);
+        ul.append(h('li', {}, h('span', { class: 'lt', text: s.score.toFixed(2) }), ' ',
+          h('button', { class: 'btn-link', onclick: () => openReq(s.id), text: s.id }),
+          s.score >= 0.8 ? h('span', {}, ' ', badge('possível duplicata', 'b-crit')) : '',
+          sr ? h('span', { class: 'muted', text: ' · ' + sr.title.slice(0, 38) }) : ''));
+      }
+      sc.append(ul);
+    }
+    side.append(sc);
+  }
 
   body.append(main, side);
 }
@@ -300,8 +331,87 @@ function renderReprocess() {
   t.append(tb); wrap.append(t); body.append(wrap);
 }
 
+/* ---------- Editor (autoria assistida → PR no GitHub; a UI NÃO escreve no git) ---------- */
+function openEditor(id) { state.editId = id || null; switchView('editor'); }
+function renderEditor() {
+  const body = document.getElementById('editor-body');
+  body.replaceChildren();
+  const ed = state.editId ? byId(state.editId) : null;
+  body.append(h('div', { class: 'ws-actions' },
+    h('strong', { text: ed ? `Editar ${ed.id}` : 'Novo requisito' }),
+    ed ? h('button', { class: 'btn-link', type: 'button', onclick: () => { state.editId = null; renderEditor(); }, text: '+ novo (limpar)' }) : ''));
+  body.append(h('p', { class: 'muted', text: 'Preencha, gere o YAML e proponha via PR no GitHub. A UI NÃO escreve no git — o commit é seu (autenticação do GitHub). Depois do merge, rode /sync-spec p/ regenerar a baseline.' }));
+
+  const products = uniqueValues(DATA.baseline.requirements, (r) => r.scope && r.scope.product_scope);
+  const f = {};
+  const form = h('div', { class: 'form' });
+  const add = (label, key, el) => { form.append(h('label', { class: 'fld' }, h('span', { class: 'fld-l', text: label }), el)); f[key] = el; };
+  const inp = (v) => h('input', { type: 'text', value: v ?? '' });
+  const area = (v, rows) => h('textarea', { rows: String(rows || 3) }, v ?? '');
+  const select = (opts, v) => { const s = h('select'); for (const o of opts) { const op = h('option', { value: o, text: o }); if (o === v) op.selected = true; s.append(op); } return s; };
+
+  add('id', 'id', inp(ed?.id));
+  add('Produto (product_scope)', 'product', inp(ed?.scope?.product_scope));
+  add('applies_to', 'applies_to', select(['product', 'shared-module', 'capability', 'portal-template', 'portal-instance', 'platform'], ed?.scope?.applies_to || 'product'));
+  add('Tipo', 'type', select(['functional', 'non-functional', 'business-rule', 'constraint'], ed?.type || 'functional'));
+  add('Status', 'status', select(['draft', 'proposed', 'approved', 'deprecated', 'retired'], ed?.status || 'proposed'));
+  add('Owner', 'owner', inp(ed?.owner || 'plataforma-digital'));
+  add('Prioridade', 'priority', select(['low', 'medium', 'high', 'critical'], ed?.priority || 'medium'));
+  add('Criticidade', 'criticality', select(['low', 'medium', 'high', 'critical'], ed?.criticality || ed?.priority || 'medium'));
+  add('ASR', 'asr', select(['false', 'true'], String(!!ed?.architectural_significance)));
+  add('Título', 'title', inp(ed?.title));
+  add('Enunciado', 'statement', area(ed?.statement, 4));
+  add('Critérios de aceite (1/linha)', 'acceptance', area((ed?.acceptance_criteria || []).join('\n'), 3));
+  add('Métodos de verificação (vírgula)', 'methods', inp((ed?.verification_method || []).join(', ')));
+  const qs = ed?.quality_scenarios?.[0] || {};
+  for (const [k, lbl] of [['qs_source', 'NFR source'], ['qs_stimulus', 'NFR stimulus'], ['qs_environment', 'NFR environment'], ['qs_artifact', 'NFR artifact'], ['qs_response', 'NFR response'], ['qs_measure', 'NFR response_measure']]) {
+    add(lbl, k, inp(qs[k.replace('qs_', '').replace('measure', 'response_measure')]));
+  }
+  add('baseline_version', 'bver', inp(ed?.version?.baseline_version || '1.0.0'));
+  add('item_revision', 'irev', inp(String(ed ? (ed.version?.item_revision || 1) + 1 : 1)));
+  add('semantic_change', 'sem', select(['none', 'patch', 'minor', 'major'], ed ? 'minor' : 'none'));
+  add('change_reason', 'reason', inp(ed ? '' : 'novo requisito'));
+  body.append(form);
+
+  const out = h('div');
+  body.append(h('div', { class: 'ws-actions' }, h('button', { class: 'btn', type: 'button', onclick: gen, text: 'Gerar YAML' })), out);
+
+  function gen() {
+    out.replaceChildren();
+    const lines = (f.acceptance.value || '').split('\n').map((x) => x.trim()).filter(Boolean);
+    const methods = (f.methods.value || '').split(',').map((x) => x.trim()).filter(Boolean);
+    const d = {
+      id: f.id.value.trim(), slug: f.id.value.trim().toLowerCase(), title: f.title.value.trim(),
+      type: f.type.value, status: f.status.value, owner: f.owner.value.trim() || undefined,
+      scope: { applies_to: f.applies_to.value, product_scope: (f.product.value || '').trim() },
+      statement: f.statement.value.trim(), priority: f.priority.value, criticality: f.criticality.value,
+      architectural_significance: f.asr.value === 'true',
+      acceptance_criteria: lines.length ? lines : undefined,
+      verification_method: methods.length ? methods : undefined,
+      version: { baseline_version: f.bver.value.trim() || '1.0.0', item_revision: Number(f.irev.value) || 1, semantic_change: f.sem.value, change_reason: f.reason.value.trim() || undefined },
+    };
+    if (d.type === 'non-functional') {
+      const q = { source: f.qs_source.value, stimulus: f.qs_stimulus.value, environment: f.qs_environment.value, artifact: f.qs_artifact.value, response: f.qs_response.value, response_measure: f.qs_measure.value };
+      if (Object.values(q).some(Boolean)) d.quality_scenarios = [q];
+    }
+    const errs = validateDraft(d);
+    if (errs.length) { const ul = h('ul', { class: 'errlist' }); errs.forEach((e) => ul.append(h('li', { text: e }))); out.append(h('div', { class: 'card' }, h('h3', { text: 'Corrija antes de gerar' }), ul)); return; }
+    const yaml = toYaml(d) + '\n';
+    const filePath = `specs/requirements/${d.scope.product_scope}/${d.id}.yaml`;
+    const newUrl = `https://github.com/${REPO}/new/main?filename=${encodeURIComponent(filePath)}&value=${encodeURIComponent(yaml)}`;
+    const editUrl = `https://github.com/${REPO}/edit/main/${filePath}`;
+    out.append(h('div', { class: 'card' },
+      h('h3', { text: filePath }),
+      h('pre', { class: 'yaml' }, yaml),
+      h('div', { class: 'ws-actions' },
+        h('button', { class: 'btn', type: 'button', onclick: () => { if (navigator.clipboard) navigator.clipboard.writeText(yaml); }, text: 'Copiar YAML' }),
+        h('a', { class: 'btn', href: ed ? editUrl : newUrl, target: '_blank', rel: 'noopener' }, ed ? 'Abrir no GitHub (editar → PR)' : 'Abrir no GitHub (novo → PR)')),
+      h('p', { class: 'muted', text: 'O PR passa pelo gate specs-governance (schema/drift/versão). A baseline é regenerada por /sync-spec após o merge.' })));
+  }
+}
+
 /* ---------- navegação / abas ---------- */
-const RENDER = { explorer: renderExplorer, workspace: renderWorkspace, versions: renderVersions, impact: renderImpact, coverage: renderCoverage, reprocess: renderReprocess };
+const RENDER = { explorer: renderExplorer, workspace: renderWorkspace, versions: renderVersions, impact: renderImpact, coverage: renderCoverage, reprocess: renderReprocess, editor: renderEditor };
 function switchView(view) {
   state.view = view;
   for (const tab of document.querySelectorAll('.tab')) {
@@ -354,8 +464,9 @@ async function init() {
       fetch('data/retrieval-manifest.json').then((r) => r.json()),
     ]);
     DATA.baseline = b; DATA.impact = im; DATA.retrieval = rt;
-    // diff real da baseline (vs versão anterior no git) — opcional; tolera ausência.
-    DATA.history = await fetch('data/history.json').then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    // opcionais (toleram ausência): diff de baseline, registry de artefatos, embeddings.
+    const opt = (u) => fetch(u).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    [DATA.history, DATA.registry, DATA.embeddings] = await Promise.all([opt('data/history.json'), opt('data/registry.json'), opt('data/embeddings.json')]);
   } catch (err) {
     setStatus('Falha ao carregar a baseline: ' + err.message, true);
     return;

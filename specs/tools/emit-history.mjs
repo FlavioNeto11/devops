@@ -20,7 +20,7 @@ const REPO = path.resolve(SPECS_DIR, '..');
 const REL = 'specs/baseline/current-baseline.json';
 const OUT = path.join(SPECS_DIR, 'baseline', 'history.json');
 
-const FIELDS = ['statement', 'status', 'priority', 'criticality', 'architectural_significance', 'acceptance_criteria', 'verification_method', 'quality_scenarios', 'links', 'scope'];
+const FIELDS = ['statement', 'status', 'priority', 'criticality', 'architectural_significance', 'acceptance_criteria', 'verification_method', 'evidence_links', 'quality_scenarios', 'links', 'suggested_links', 'allocation', 'scope'];
 
 function git(args) {
   try { return execSync(`git ${args}`, { cwd: REPO, encoding: 'utf8' }).trim(); } catch { return ''; }
@@ -32,9 +32,13 @@ function readJson(str) { try { return JSON.parse(str); } catch { return null; } 
 
 const current = readJson(fs.readFileSync(path.join(SPECS_DIR, 'baseline', 'current-baseline.json'), 'utf8'));
 
-// commits que tocaram o arquivo (mais recente primeiro). [0] = atual; [1] = anterior.
-const commits = git(`log -n 5 --format=%H -- ${REL}`).split('\n').filter(Boolean);
-const prevRef = commits[1] || '';
+// commits que tocaram o arquivo (mais recente primeiro). A "versão anterior" é o
+// último COMMIT cujo conteúdo difere do working tree: se há mudança pendente (ainda
+// não commitada), prev = commits[0]; se a árvore está limpa, prev = commits[1].
+const commits = git(`log -n 8 --format=%H -- ${REL}`).split('\n').filter(Boolean);
+const head0 = commits[0] ? readJson(git(`show ${commits[0]}:${REL}`)) : null;
+const pending = head0 && head0.baseline_hash !== current.baseline_hash;
+const prevRef = (pending ? commits[0] : commits[1]) || '';
 let prev = null;
 if (prevRef) prev = readJson(git(`show ${prevRef}:${REL}`));
 
@@ -61,7 +65,7 @@ const history = {
   metamodel_version: current.metamodel_version ?? null,
   has_previous: !!prev,
   from: prev ? { commit: prevRef.slice(0, 12), baseline_hash: prev.baseline_hash } : null,
-  to: { commit: (commits[0] || 'working-tree').slice(0, 12), baseline_hash: current.baseline_hash },
+  to: { commit: pending ? 'working-tree' : (commits[0] || '').slice(0, 12), baseline_hash: current.baseline_hash },
   counts: { added: added.length, removed: removed.length, changed: changed.length },
   added: added.sort((a, b) => a.id.localeCompare(b.id)),
   removed: removed.sort((a, b) => a.id.localeCompare(b.id)),

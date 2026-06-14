@@ -24,6 +24,8 @@ const input = JSON.parse(fs.readFileSync(path.join(__dirname, 'seed-input.json')
 // direto nos YAMLs / pela UI (não re-rode o seed sobre conteúdo autorado).
 const linksPath = path.join(__dirname, 'seed-links.json');
 const seedLinks = fs.existsSync(linksPath) ? JSON.parse(fs.readFileSync(linksPath, 'utf8')) : {};
+const allocPath = path.join(__dirname, 'seed-allocations.json');
+const seedAllocations = fs.existsSync(allocPath) ? JSON.parse(fs.readFileSync(allocPath, 'utf8')) : {};
 
 // produto extraído -> product_scope + diretório
 const PRODUCTS = {
@@ -82,6 +84,7 @@ for (const [key, meta] of Object.entries(PRODUCTS)) {
       architectural_significance: asr.has(fr.proposed_id),
       links: seedLinks[fr.proposed_id],
       version: { baseline_version: '1.0.0', item_revision: 1, semantic_change: 'none', change_reason: 'baseline inicial (bootstrap)' },
+      allocation: seedAllocations[fr.proposed_id],
     });
     fs.writeFileSync(path.join(outDir, `${fr.proposed_id}.yaml`), toYaml(doc, { lineWidth: 0 }));
     count++;
@@ -105,6 +108,7 @@ for (const [key, meta] of Object.entries(PRODUCTS)) {
       quality_scenarios: [qs],
       links: seedLinks[nfr.proposed_id],
       version: { baseline_version: '1.0.0', item_revision: 1, semantic_change: 'none', change_reason: 'baseline inicial (bootstrap)' },
+      allocation: seedAllocations[nfr.proposed_id],
     });
     fs.writeFileSync(path.join(outDir, `${nfr.proposed_id}.yaml`), toYaml(doc, { lineWidth: 0 }));
     count++;

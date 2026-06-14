@@ -122,3 +122,67 @@ export function graphLayout(nodes, edges, filterId = null) {
 export function bandRank(band) {
   return band === 'high' ? 3 : band === 'medium' ? 2 : 1;
 }
+
+/* ---------- similaridade semântica (embeddings locais) ---------- */
+export function cosineSim(a, b) {
+  if (!a || !b || a.length !== b.length) return 0;
+  let s = 0;
+  for (let i = 0; i < a.length; i++) s += a[i] * b[i];
+  return s; // vetores já normalizados => produto interno = cosseno
+}
+// top-N requisitos mais similares a `id` (exclui o próprio), por cosseno.
+export function topSimilar(vectors, id, n = 5) {
+  const base = vectors?.[id];
+  if (!base) return [];
+  return Object.keys(vectors)
+    .filter((k) => k !== id)
+    .map((k) => ({ id: k, score: Math.round(cosineSim(base, vectors[k]) * 1000) / 1000 }))
+    .sort((x, y) => y.score - x.score)
+    .slice(0, n);
+}
+
+/* ---------- emissor YAML mínimo (edição assistida) ---------- */
+export function scalarYaml(v) {
+  if (v === null || v === undefined) return 'null';
+  if (typeof v === 'boolean' || typeof v === 'number') return String(v);
+  const s = String(v);
+  if (s === '' || /^[\s>|@`%#&*!?{}\[\],'"-]/.test(s) || /[:#]\s|\s$|[\n\t]|: /.test(s) || /^(true|false|null|~)$/i.test(s) || /^[\d.]+$/.test(s)) {
+    return JSON.stringify(s); // flow scalar com aspas (YAML aceita JSON string)
+  }
+  return s;
+}
+function renderKV(prefix, k, v, indent) {
+  if (v !== null && typeof v === 'object') {
+    if (Array.isArray(v) && v.length === 0) return `${prefix}${k}: []`;
+    if (!Array.isArray(v) && Object.keys(v).length === 0) return `${prefix}${k}: {}`;
+    return `${prefix}${k}:\n${toYaml(v, indent + 1)}`;
+  }
+  return `${prefix}${k}: ${scalarYaml(v)}`;
+}
+export function toYaml(value, indent = 0) {
+  const pad = '  '.repeat(indent);
+  if (value === null || typeof value !== 'object') return scalarYaml(value);
+  if (Array.isArray(value)) {
+    if (value.length === 0) return '[]';
+    return value.map((item) => {
+      if (item !== null && typeof item === 'object' && !Array.isArray(item)) {
+        const entries = Object.entries(item).filter(([, v]) => v !== undefined);
+        return entries.map(([k, v], i) => renderKV(i === 0 ? `${pad}- ` : `${pad}  `, k, v, indent + 1)).join('\n');
+      }
+      return `${pad}- ${scalarYaml(item)}`;
+    }).join('\n');
+  }
+  return Object.entries(value).filter(([, v]) => v !== undefined).map(([k, v]) => renderKV(pad, k, v, indent)).join('\n');
+}
+
+/* ---------- validação básica do rascunho de requisito ---------- */
+export function validateDraft(d) {
+  const errs = [];
+  if (!/^REQ-[A-Z0-9]+-(NFR-)?[0-9]{3,4}$/.test(d.id || '')) errs.push('id deve casar REQ-<PRODUTO>-NNNN (ou REQ-<PRODUTO>-NFR-NNN)');
+  if (!d.title || d.title.length < 3) errs.push('título obrigatório (>= 3 chars)');
+  if (!d.statement || d.statement.length < 10) errs.push('enunciado obrigatório (>= 10 chars)');
+  if (!d.scope || !d.scope.product_scope) errs.push('escopo.product_scope obrigatório');
+  if (!['functional', 'non-functional', 'business-rule', 'constraint'].includes(d.type)) errs.push('tipo inválido');
+  if (d.type === 'non-functional' && !(d.quality_scenarios && d.quality_scenarios.length)) errs.push('NFR exige ao menos um quality_scenario');
+  return errs;
+}

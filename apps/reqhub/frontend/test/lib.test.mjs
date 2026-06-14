@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { norm, matchesQuery, filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, bandRank } from '../assets/lib.js';
+import { norm, matchesQuery, filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, bandRank, cosineSim, topSimilar, toYaml, scalarYaml, validateDraft } from '../assets/lib.js';
 
 const reqs = [
   { id: 'REQ-SICAT-0002', title: 'Submissão MTR', statement: 'O sistema deve submeter', type: 'functional', status: 'approved', priority: 'critical', architectural_significance: true, impact_band: 'high', impact_score: 80, scope: { product_scope: 'sicat', applies_to: 'product' }, acceptance_criteria: ['x'], verification_method: ['test-integration'], version: { item_revision: 1 }, allocation: { adr_refs: ['ADR-0002'] } },
@@ -76,4 +76,42 @@ test('graphLayout posiciona em colunas e recorta vizinhança', () => {
 test('bandRank ordena impacto', () => {
   assert.ok(bandRank('high') > bandRank('medium'));
   assert.ok(bandRank('medium') > bandRank('low'));
+});
+
+test('cosineSim de vetores normalizados', () => {
+  assert.equal(cosineSim([1, 0], [1, 0]), 1);
+  assert.equal(cosineSim([1, 0], [0, 1]), 0);
+  assert.equal(cosineSim(null, [1]), 0);
+});
+
+test('topSimilar ordena por cosseno e exclui o próprio', () => {
+  const vectors = { A: [1, 0], B: [0.9, 0.1], C: [0, 1] };
+  const top = topSimilar(vectors, 'A', 2);
+  assert.equal(top.length, 2);
+  assert.equal(top[0].id, 'B');
+  assert.ok(top[0].score > top[1].score);
+  assert.equal(topSimilar(vectors, 'INEXISTENTE').length, 0);
+});
+
+test('toYaml: escalares, objetos, arrays e quoting', () => {
+  assert.equal(scalarYaml('approved'), 'approved');
+  assert.equal(scalarYaml('REQ-X-0001'), 'REQ-X-0001');
+  assert.equal(scalarYaml('tem: dois pontos'), '"tem: dois pontos"');
+  assert.equal(scalarYaml(true), 'true');
+  const y = toYaml({ id: 'REQ-X-0001', scope: { product_scope: 'x', applies_to: 'product' }, acceptance_criteria: ['um', 'dois'] });
+  assert.match(y, /id: REQ-X-0001/);
+  assert.match(y, /scope:\n {2}product_scope: x\n {2}applies_to: product/);
+  assert.match(y, /acceptance_criteria:\n {2}- um\n {2}- dois/);
+});
+
+test('toYaml: array de objetos (quality_scenarios)', () => {
+  const y = toYaml({ quality_scenarios: [{ source: 's', stimulus: 'x: y' }] });
+  assert.match(y, /quality_scenarios:\n {2}- source: s\n {4}stimulus: "x: y"/);
+});
+
+test('validateDraft pega erros', () => {
+  assert.deepEqual(validateDraft({ id: 'REQ-X-0001', title: 'abc', statement: 'enunciado valido aqui', type: 'functional', scope: { product_scope: 'x' } }), []);
+  const errs = validateDraft({ id: 'bad', title: '', statement: '', type: 'functional', scope: {} });
+  assert.ok(errs.length >= 3);
+  assert.ok(validateDraft({ id: 'REQ-X-0001', title: 'abc', statement: 'enunciado valido', type: 'non-functional', scope: { product_scope: 'x' } }).some((e) => /quality_scenario/.test(e)));
 });

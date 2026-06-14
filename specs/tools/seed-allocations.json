@@ -1,0 +1,27 @@
+{
+  "_comment": "Alocacao REAL (requisito -> artefato externo do registry) de alta confianca, derivada dos produtos. Alimenta a matriz de cobertura e o grafo. So referencia ids existentes em specs/registry/artifacts.yaml.",
+
+  "REQ-SICAT-0001": { "service_refs": ["svc-sicat-api"], "infra_refs": ["infra-keycloak"] },
+  "REQ-SICAT-0002": { "service_refs": ["svc-sicat-api", "svc-sicat-worker"], "infra_refs": ["infra-postgres"] },
+  "REQ-SICAT-0003": { "service_refs": ["svc-sicat-api", "svc-sicat-worker"] },
+  "REQ-SICAT-0011": { "service_refs": ["svc-sicat-worker"], "infra_refs": ["infra-postgres"] },
+  "REQ-SICAT-0012": { "service_refs": ["svc-sicat-worker"], "infra_refs": ["infra-postgres"], "slo_refs": ["slo-worker-throughput"] },
+  "REQ-SICAT-0013": { "service_refs": ["svc-sicat-api"], "infra_refs": ["infra-observability"], "slo_refs": ["slo-availability-99"] },
+  "REQ-SICAT-NFR-0001": { "service_refs": ["svc-sicat-worker"], "slo_refs": ["slo-retry-success"] },
+  "REQ-SICAT-NFR-0004": { "service_refs": ["svc-sicat-api"], "slo_refs": ["slo-latency-p95"] },
+  "REQ-SICAT-NFR-0008": { "service_refs": ["svc-sicat-worker"], "slo_refs": ["slo-worker-throughput"] },
+
+  "REQ-GYMOPS-0001": { "service_refs": ["svc-gymops-api"], "infra_refs": ["infra-keycloak"] },
+  "REQ-GYMOPS-0003": { "service_refs": ["svc-gymops-api"] },
+  "REQ-GYMOPS-0004": { "service_refs": ["svc-gymops-api"], "infra_refs": ["infra-postgres"] },
+  "REQ-GYMOPS-0007": { "service_refs": ["svc-gymops-api"], "infra_refs": ["infra-redis"] },
+  "REQ-GYMOPS-0008": { "service_refs": ["svc-gymops-web", "svc-gymops-api"] },
+  "REQ-GYMOPS-NFR-001": { "service_refs": ["svc-gymops-api"], "infra_refs": ["infra-postgres"], "slo_refs": ["slo-latency-p95"] },
+
+  "REQ-CMS-0001": { "service_refs": ["svc-pm-api"], "infra_refs": ["infra-postgres"] },
+  "REQ-CMS-0002": { "service_refs": ["svc-console-frontend", "svc-pm-api"] },
+  "REQ-CMS-0005": { "service_refs": ["svc-pm-api"], "slo_refs": ["slo-availability-99"] },
+  "REQ-CMS-0006": { "service_refs": ["svc-pm-api"], "infra_refs": ["infra-postgres"] },
+  "REQ-CMS-0010": { "service_refs": ["svc-site-renderer", "svc-pm-api"], "infra_refs": ["infra-traefik"] },
+  "REQ-CMS-NFR-001": { "service_refs": ["svc-pm-api"], "slo_refs": ["slo-latency-p95"] }
+}

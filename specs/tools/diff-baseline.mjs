@@ -103,7 +103,7 @@ console.log(L.join('\n'));
 // (item_revision aumentado + semantic_change != none + change_reason preenchido.)
 // É o gatilho que força "questão de versão" a cada alteração de requisito.
 if (ENFORCE) {
-  const SEMANTIC = ['statement', 'acceptance_criteria', 'quality_scenarios', 'links', 'scope', 'status', 'priority', 'criticality', 'architectural_significance'];
+  const SEMANTIC = ['statement', 'acceptance_criteria', 'quality_scenarios', 'links', 'allocation', 'scope', 'status', 'priority', 'criticality', 'architectural_significance'];
   const violations = [];
   for (const c of changed) {
     const semChanged = SEMANTIC.some((f) => JSON.stringify(c.b[f] ?? null) !== JSON.stringify(c.h[f] ?? null));

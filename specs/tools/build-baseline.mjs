@@ -33,6 +33,16 @@ const OUT_DIR = path.join(SPECS_DIR, 'baseline');
 const CHECK = process.argv.includes('--check');
 const METAMODEL_VERSION = '1.0.0'; // versão do metamodelo (schema + shape da baseline) consumido pelo workbench/Claude
 
+// Registry de artefatos externos (svc/infra/slo/test) — vocabulário controlado.
+function loadRegistry() {
+  const p = path.join(SPECS_DIR, 'registry', 'artifacts.yaml');
+  if (!fs.existsSync(p)) return {};
+  try { return parseYaml(fs.readFileSync(p, 'utf8')) ?? {}; } catch { return {}; }
+}
+function registryIds(reg) {
+  return new Set([...(reg.services ?? []), ...(reg.infra ?? []), ...(reg.slos ?? []), ...(reg.tests ?? [])].map((x) => x.id));
+}
+
 function fail(msg) {
   console.error(`\x1b[31m[specs] ${msg}\x1b[0m`);
   process.exitCode = 1;
@@ -102,21 +112,24 @@ function validate(items) {
     }
   }
 
-  // Artefatos externos validáveis hoje: ADR-NNNN deve existir em docs/decisions/NNNN-*.md.
-  // (svc-/infra-/slo-/test- ainda não têm registry — validação por catálogo é trabalho da Fase 2.)
+  // Artefatos externos: ADR-NNNN existe em docs/decisions/NNNN-*.md; svc-/infra-/slo-/test-
+  // existem no registry (specs/registry/artifacts.yaml). Prefixo desconhecido => aviso (não falha).
   const decisionsDir = path.resolve(SPECS_DIR, '..', 'docs', 'decisions');
   const adrNums = fs.existsSync(decisionsDir)
     ? new Set(fs.readdirSync(decisionsDir).map((f) => (f.match(/^(\d+)-/) || [])[1]).filter(Boolean).map(Number))
     : new Set();
+  const regIds = registryIds(loadRegistry());
+  const checkExternal = (file, t) => {
+    if (!t || /^REQ-/.test(t)) return;
+    const adr = /^ADR-(\d+)/.exec(t);
+    if (adr) { if (!adrNums.has(Number(adr[1]))) { ok = false; fail(`ADR inexistente em ${file}: '${t}' (não há docs/decisions/${adr[1]}-*.md)`); } return; }
+    if (/^(svc|infra|slo|test)-/.test(t)) { if (!regIds.has(t)) { ok = false; fail(`artefato fora do registry em ${file}: '${t}' (declare em specs/registry/artifacts.yaml)`); } return; }
+    console.error(`\x1b[33m[specs] aviso: alvo externo com prefixo desconhecido em ${file}: '${t}'\x1b[0m`);
+  };
   for (const { file, doc } of items) {
-    const refs = [...(doc?.links ?? []).map((l) => l.target), ...((doc?.allocation?.adr_refs) ?? [])];
-    for (const t of refs) {
-      const m = /^ADR-(\d+)/.exec(t || '');
-      if (m && !adrNums.has(Number(m[1]))) {
-        ok = false;
-        fail(`ADR inexistente referenciada em ${file}: '${t}' (não há docs/decisions/${m[1]}-*.md)`);
-      }
-    }
+    for (const l of doc?.links ?? []) checkExternal(file, l.target);
+    const a = doc?.allocation ?? {};
+    for (const t of [...(a.adr_refs ?? []), ...(a.service_refs ?? []), ...(a.infra_refs ?? []), ...(a.slo_refs ?? []), ...(a.architecture_refs ?? [])]) checkExternal(file, t);
   }
   return ok;
 }
@@ -157,6 +170,7 @@ function stable(obj) {
 }
 
 function build(items) {
+  const registry = loadRegistry();
   const reqs = items
     .map(({ file, doc }) => ({ ...doc, _file: file, impact_score: impactScore(doc), impact_band: band(impactScore(doc)) }))
     .sort((a, b) => String(a.id).localeCompare(String(b.id)));
@@ -212,6 +226,15 @@ function build(items) {
       }
       edges.push({ from: r.id, to: t, type: link.type, proposed: true });
     }
+    // arestas de ALOCAÇÃO (requisito -> artefato externo): alimentam a cobertura e o grafo.
+    const al = r.allocation || {};
+    for (const field of ['adr_refs', 'service_refs', 'infra_refs', 'slo_refs', 'architecture_refs']) {
+      for (const t of al[field] || []) {
+        const kind = /^ADR-/.test(t) ? 'adr' : /^svc-/.test(t) ? 'service' : /^infra-/.test(t) ? 'infra' : /^slo-/.test(t) ? 'slo' : 'artifact';
+        addNode(t, kind);
+        edges.push({ from: r.id, to: t, type: 'allocates_to', allocation: true });
+      }
+    }
   }
   const impactMap = {
     metamodel_version: METAMODEL_VERSION,
@@ -260,6 +283,7 @@ function build(items) {
     'current-baseline.json': stable(currentBaseline),
     'impact-map.json': stable(impactMap),
     'retrieval-manifest.json': stable(retrieval),
+    'registry.json': stable({ metamodel_version: METAMODEL_VERSION, ...registry }),
   };
 }
 

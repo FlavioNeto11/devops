@@ -29,3 +29,10 @@ version:
   item_revision: 1
   semantic_change: none
   change_reason: baseline inicial (bootstrap)
+allocation:
+  service_refs:
+    - svc-gymops-api
+  infra_refs:
+    - infra-postgres
+  slo_refs:
+    - slo-latency-p95

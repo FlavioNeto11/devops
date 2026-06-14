@@ -22,3 +22,7 @@ version:
   item_revision: 1
   semantic_change: none
   change_reason: baseline inicial (bootstrap)
+allocation:
+  service_refs:
+    - svc-console-frontend
+    - svc-pm-api

@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.0.0",
-  "baseline_hash": "9785f7cbe8e7c17b9efbdc60d665b3bd261fb3d9a4780b0daa65bf2464a8bedc",
+  "baseline_hash": "c3dc1e9d2beed697ed072c23a73b19c339ad5cb08b320235abc21d7dbb797b4c",
   "schema": "specs/schema/requirement.schema.json",
   "counts": {
     "total": 69,
@@ -43,6 +43,14 @@
         "semantic_change": "none",
         "change_reason": "baseline inicial (bootstrap)"
       },
+      "allocation": {
+        "service_refs": [
+          "svc-pm-api"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
       "impact_score": 45,
       "impact_band": "medium",
       "file": "requirements/cms/REQ-CMS-0001.yaml"
@@ -77,6 +85,12 @@
         "item_revision": 1,
         "semantic_change": "none",
         "change_reason": "baseline inicial (bootstrap)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-console-frontend",
+          "svc-pm-api"
+        ]
       },
       "impact_score": 65,
       "impact_band": "medium",
@@ -175,6 +189,14 @@
         "semantic_change": "none",
         "change_reason": "baseline inicial (bootstrap)"
       },
+      "allocation": {
+        "service_refs": [
+          "svc-pm-api"
+        ],
+        "slo_refs": [
+          "slo-availability-99"
+        ]
+      },
       "impact_score": 65,
       "impact_band": "medium",
       "file": "requirements/cms/REQ-CMS-0005.yaml"
@@ -209,6 +231,14 @@
         "item_revision": 1,
         "semantic_change": "none",
         "change_reason": "baseline inicial (bootstrap)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-pm-api"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
       },
       "impact_score": 38,
       "impact_band": "low",
@@ -347,6 +377,15 @@
         "item_revision": 1,
         "semantic_change": "none",
         "change_reason": "baseline inicial (bootstrap)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-site-renderer",
+          "svc-pm-api"
+        ],
+        "infra_refs": [
+          "infra-traefik"
+        ]
       },
       "impact_score": 65,
       "impact_band": "medium",
@@ -565,6 +604,14 @@
         "item_revision": 1,
         "semantic_change": "none",
         "change_reason": "baseline inicial (bootstrap)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-pm-api"
+        ],
+        "slo_refs": [
+          "slo-latency-p95"
+        ]
       },
       "impact_score": 58,
       "impact_band": "medium",
@@ -859,6 +906,14 @@
         "semantic_change": "none",
         "change_reason": "baseline inicial (bootstrap)"
       },
+      "allocation": {
+        "service_refs": [
+          "svc-gymops-api"
+        ],
+        "infra_refs": [
+          "infra-keycloak"
+        ]
+      },
       "impact_score": 45,
       "impact_band": "medium",
       "file": "requirements/gymops/REQ-GYMOPS-0001.yaml"
@@ -927,6 +982,11 @@
         "semantic_change": "none",
         "change_reason": "baseline inicial (bootstrap)"
       },
+      "allocation": {
+        "service_refs": [
+          "svc-gymops-api"
+        ]
+      },
       "impact_score": 65,
       "impact_band": "medium",
       "file": "requirements/gymops/REQ-GYMOPS-0003.yaml"
@@ -965,6 +1025,14 @@
         "item_revision": 1,
         "semantic_change": "none",
         "change_reason": "baseline inicial (bootstrap)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-gymops-api"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
       },
       "impact_score": 45,
       "impact_band": "medium",
@@ -1071,6 +1139,14 @@
         "semantic_change": "none",
         "change_reason": "baseline inicial (bootstrap)"
       },
+      "allocation": {
+        "service_refs": [
+          "svc-gymops-api"
+        ],
+        "infra_refs": [
+          "infra-redis"
+        ]
+      },
       "impact_score": 38,
       "impact_band": "low",
       "file": "requirements/gymops/REQ-GYMOPS-0007.yaml"
@@ -1109,6 +1185,12 @@
         "item_revision": 1,
         "semantic_change": "none",
         "change_reason": "baseline inicial (bootstrap)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-gymops-web",
+          "svc-gymops-api"
+        ]
       },
       "impact_score": 38,
       "impact_band": "low",
@@ -1385,6 +1467,17 @@
         "item_revision": 1,
         "semantic_change": "none",
         "change_reason": "baseline inicial (bootstrap)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-gymops-api"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ],
+        "slo_refs": [
+          "slo-latency-p95"
+        ]
       },
       "impact_score": 38,
       "impact_band": "low",
@@ -1716,6 +1809,14 @@
         "semantic_change": "none",
         "change_reason": "baseline inicial (bootstrap)"
       },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-api"
+        ],
+        "infra_refs": [
+          "infra-keycloak"
+        ]
+      },
       "impact_score": 65,
       "impact_band": "medium",
       "file": "requirements/sicat/REQ-SICAT-0001.yaml"
@@ -1759,6 +1860,15 @@
         "semantic_change": "none",
         "change_reason": "baseline inicial (bootstrap)"
       },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-api",
+          "svc-sicat-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
       "impact_score": 65,
       "impact_band": "medium",
       "file": "requirements/sicat/REQ-SICAT-0002.yaml"
@@ -1797,6 +1907,12 @@
         "item_revision": 1,
         "semantic_change": "none",
         "change_reason": "baseline inicial (bootstrap)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-api",
+          "svc-sicat-worker"
+        ]
       },
       "impact_score": 45,
       "impact_band": "medium",
@@ -2080,6 +2196,14 @@
         "semantic_change": "none",
         "change_reason": "baseline inicial (bootstrap)"
       },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
       "impact_score": 85,
       "impact_band": "high",
       "file": "requirements/sicat/REQ-SICAT-0011.yaml"
@@ -2108,6 +2232,17 @@
         "item_revision": 1,
         "semantic_change": "none",
         "change_reason": "baseline inicial (bootstrap)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ],
+        "slo_refs": [
+          "slo-worker-throughput"
+        ]
       },
       "impact_score": 85,
       "impact_band": "high",
@@ -2147,6 +2282,17 @@
         "item_revision": 1,
         "semantic_change": "none",
         "change_reason": "baseline inicial (bootstrap)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-api"
+        ],
+        "infra_refs": [
+          "infra-observability"
+        ],
+        "slo_refs": [
+          "slo-availability-99"
+        ]
       },
       "impact_score": 85,
       "impact_band": "high",
@@ -2292,6 +2438,14 @@
         "semantic_change": "none",
         "change_reason": "baseline inicial (bootstrap)"
       },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-worker"
+        ],
+        "slo_refs": [
+          "slo-retry-success"
+        ]
+      },
       "impact_score": 38,
       "impact_band": "low",
       "file": "requirements/sicat/REQ-SICAT-NFR-0001.yaml"
@@ -2436,6 +2590,14 @@
         "item_revision": 1,
         "semantic_change": "none",
         "change_reason": "baseline inicial (bootstrap)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-api"
+        ],
+        "slo_refs": [
+          "slo-latency-p95"
+        ]
       },
       "impact_score": 38,
       "impact_band": "low",
@@ -2616,6 +2778,14 @@
         "item_revision": 1,
         "semantic_change": "none",
         "change_reason": "baseline inicial (bootstrap)"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-sicat-worker"
+        ],
+        "slo_refs": [
+          "slo-worker-throughput"
+        ]
       },
       "impact_score": 38,
       "impact_band": "low",

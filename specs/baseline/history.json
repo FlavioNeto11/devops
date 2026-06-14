@@ -2,21 +2,34 @@
   "metamodel_version": "1.0.0",
   "has_previous": true,
   "from": {
-    "commit": "4ab10911f5f0",
-    "baseline_hash": "96e91b9e52883c1cd0a2a5ca91ba5115f85564025f22ed355c655fdba933d06c"
-  },
-  "to": {
     "commit": "8fc5216824ed",
     "baseline_hash": "9785f7cbe8e7c17b9efbdc60d665b3bd261fb3d9a4780b0daa65bf2464a8bedc"
+  },
+  "to": {
+    "commit": "working-tree",
+    "baseline_hash": "c3dc1e9d2beed697ed072c23a73b19c339ad5cb08b320235abc21d7dbb797b4c"
   },
   "counts": {
     "added": 0,
     "removed": 0,
-    "changed": 47
+    "changed": 21
   },
   "added": [],
   "removed": [],
   "changed": [
+    {
+      "id": "REQ-CMS-0001",
+      "title": "Create new portal from wizard with optional initial content generation",
+      "product": "cms",
+      "type": "functional",
+      "impact_band": "medium",
+      "semantic_change": "none",
+      "change_reason": "baseline inicial (bootstrap)",
+      "fields": [
+        "allocation"
+      ],
+      "impact_delta": 0
+    },
     {
       "id": "REQ-CMS-0002",
       "title": "Visual editor with live preview and click-to-edit interface",
@@ -26,7 +39,7 @@
       "semantic_change": "none",
       "change_reason": "baseline inicial (bootstrap)",
       "fields": [
-        "links"
+        "allocation"
       ],
       "impact_delta": 0
     },
@@ -39,7 +52,7 @@
       "semantic_change": "none",
       "change_reason": "baseline inicial (bootstrap)",
       "fields": [
-        "links"
+        "allocation"
       ],
       "impact_delta": 0
     },
@@ -52,33 +65,7 @@
       "semantic_change": "none",
       "change_reason": "baseline inicial (bootstrap)",
       "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-CMS-0008",
-      "title": "Portal deactivation and deletion with content preservation",
-      "product": "cms",
-      "type": "functional",
-      "impact_band": "low",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-CMS-0009",
-      "title": "AI-assisted content generation for full portal and section editing",
-      "product": "cms",
-      "type": "functional",
-      "impact_band": "low",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
+        "allocation"
       ],
       "impact_delta": 0
     },
@@ -91,59 +78,7 @@
       "semantic_change": "none",
       "change_reason": "baseline inicial (bootstrap)",
       "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-CMS-0011",
-      "title": "Embedded visual editor in Console for site-renderer portals",
-      "product": "cms",
-      "type": "functional",
-      "impact_band": "low",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-CMS-0013",
-      "title": "AI assistant button in every editable region",
-      "product": "cms",
-      "type": "functional",
-      "impact_band": "low",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-CMS-0014",
-      "title": "Portal content preview and fallback for app-specific portals",
-      "product": "cms",
-      "type": "functional",
-      "impact_band": "low",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-CMS-0015",
-      "title": "Advanced mode with list view and drag-drop section reordering",
-      "product": "cms",
-      "type": "functional",
-      "impact_band": "low",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
+        "allocation"
       ],
       "impact_delta": 0
     },
@@ -156,72 +91,20 @@
       "semantic_change": "none",
       "change_reason": "baseline inicial (bootstrap)",
       "fields": [
-        "links"
+        "allocation"
       ],
       "impact_delta": 0
     },
     {
-      "id": "REQ-CMS-NFR-002",
-      "title": "Editor auto-save with debounce and optimistic UI updates",
-      "product": "cms",
-      "type": "non-functional",
+      "id": "REQ-GYMOPS-0001",
+      "title": "Autenticação multicanal (email/senha + refresh token + OAuth Google)",
+      "product": "gymops",
+      "type": "functional",
       "impact_band": "medium",
       "semantic_change": "none",
       "change_reason": "baseline inicial (bootstrap)",
       "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-CMS-NFR-003",
-      "title": "AI generation with short timeout and graceful degradation",
-      "product": "cms",
-      "type": "non-functional",
-      "impact_band": "low",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-CMS-NFR-004",
-      "title": "Media file handling with MIME allowlist and per-type size limits",
-      "product": "cms",
-      "type": "non-functional",
-      "impact_band": "low",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-CMS-NFR-006",
-      "title": "Concurrent user access with isolation by project scope",
-      "product": "cms",
-      "type": "non-functional",
-      "impact_band": "low",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-CMS-NFR-007",
-      "title": "AI generation requests logged for auditability and context continuity",
-      "product": "cms",
-      "type": "non-functional",
-      "impact_band": "low",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
+        "allocation"
       ],
       "impact_delta": 0
     },
@@ -234,7 +117,7 @@
       "semantic_change": "none",
       "change_reason": "baseline inicial (bootstrap)",
       "fields": [
-        "links"
+        "allocation"
       ],
       "impact_delta": 0
     },
@@ -247,33 +130,7 @@
       "semantic_change": "none",
       "change_reason": "baseline inicial (bootstrap)",
       "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-GYMOPS-0005",
-      "title": "Checklists ricos (itens, comentários, anexos por item, desativação)",
-      "product": "gymops",
-      "type": "functional",
-      "impact_band": "medium",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-GYMOPS-0006",
-      "title": "Comentários, anexos e histórico de eventos em atividades",
-      "product": "gymops",
-      "type": "functional",
-      "impact_band": "medium",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
+        "allocation"
       ],
       "impact_delta": 0
     },
@@ -286,7 +143,7 @@
       "semantic_change": "none",
       "change_reason": "baseline inicial (bootstrap)",
       "fields": [
-        "links"
+        "allocation"
       ],
       "impact_delta": 0
     },
@@ -299,59 +156,7 @@
       "semantic_change": "none",
       "change_reason": "baseline inicial (bootstrap)",
       "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-GYMOPS-0009",
-      "title": "Wizard de onboarding com 4 passos e bootstrap canônico",
-      "product": "gymops",
-      "type": "functional",
-      "impact_band": "low",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-GYMOPS-0011",
-      "title": "Notificações omnichannel (e-mail SMTP, web-push VAPID, WhatsApp Twilio)",
-      "product": "gymops",
-      "type": "functional",
-      "impact_band": "low",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-GYMOPS-0012",
-      "title": "Importação atômica de Trello (dry-run → preview → commit)",
-      "product": "gymops",
-      "type": "functional",
-      "impact_band": "low",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-GYMOPS-0013",
-      "title": "IA estruturada como copiloto (4 recursos: draft, checklist, resumo, análise atraso)",
-      "product": "gymops",
-      "type": "functional",
-      "impact_band": "low",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
+        "allocation"
       ],
       "impact_delta": 0
     },
@@ -364,59 +169,20 @@
       "semantic_change": "none",
       "change_reason": "baseline inicial (bootstrap)",
       "fields": [
-        "links"
+        "allocation"
       ],
       "impact_delta": 0
     },
     {
-      "id": "REQ-GYMOPS-NFR-002",
-      "title": "Segurança: RBAC sempre no backend, sem exposição de IDs sequenciais",
-      "product": "gymops",
-      "type": "non-functional",
+      "id": "REQ-SICAT-0001",
+      "title": "Autenticação dupla (SICAT + CETESB)",
+      "product": "sicat",
+      "type": "functional",
       "impact_band": "medium",
       "semantic_change": "none",
       "change_reason": "baseline inicial (bootstrap)",
       "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-GYMOPS-NFR-003",
-      "title": "Confiabilidade de recorrências (jobs nunca perdidos, degradação graciosa sem Redis)",
-      "product": "gymops",
-      "type": "non-functional",
-      "impact_band": "low",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-GYMOPS-NFR-004",
-      "title": "Disponibilidade de IA com fallback gracioso (nunca 500 por falha OpenAI)",
-      "product": "gymops",
-      "type": "non-functional",
-      "impact_band": "low",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-GYMOPS-NFR-005",
-      "title": "Integridade de importação Trello (commit atômico, nenhuma perda de dados)",
-      "product": "gymops",
-      "type": "non-functional",
-      "impact_band": "medium",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
+        "allocation"
       ],
       "impact_delta": 0
     },
@@ -429,7 +195,7 @@
       "semantic_change": "none",
       "change_reason": "baseline inicial (bootstrap)",
       "fields": [
-        "links"
+        "allocation"
       ],
       "impact_delta": 0
     },
@@ -442,72 +208,33 @@
       "semantic_change": "none",
       "change_reason": "baseline inicial (bootstrap)",
       "fields": [
-        "links"
+        "allocation"
       ],
       "impact_delta": 0
     },
     {
-      "id": "REQ-SICAT-0004",
-      "title": "Cancelamento assíncrono de manifestos",
+      "id": "REQ-SICAT-0011",
+      "title": "Fila transacional com retry e DLQ",
       "product": "sicat",
       "type": "functional",
-      "impact_band": "low",
+      "impact_band": "high",
       "semantic_change": "none",
       "change_reason": "baseline inicial (bootstrap)",
       "fields": [
-        "links"
+        "allocation"
       ],
       "impact_delta": 0
     },
     {
-      "id": "REQ-SICAT-0005",
-      "title": "Recebimento de manifestos declaratório",
+      "id": "REQ-SICAT-0012",
+      "title": "Worker dedicado para operações assíncronas",
       "product": "sicat",
       "type": "functional",
-      "impact_band": "low",
+      "impact_band": "high",
       "semantic_change": "none",
       "change_reason": "baseline inicial (bootstrap)",
       "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-SICAT-0007",
-      "title": "Geração e download de CDF (Certificado de Destinação Final)",
-      "product": "sicat",
-      "type": "functional",
-      "impact_band": "low",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-SICAT-0009",
-      "title": "Declaração de Movimentação de Resíduos (DMR)",
-      "product": "sicat",
-      "type": "functional",
-      "impact_band": "low",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-SICAT-0010",
-      "title": "Manifesto Provisório com override de tipo",
-      "product": "sicat",
-      "type": "functional",
-      "impact_band": "low",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
+        "allocation"
       ],
       "impact_delta": 0
     },
@@ -520,20 +247,7 @@
       "semantic_change": "none",
       "change_reason": "baseline inicial (bootstrap)",
       "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-SICAT-0014",
-      "title": "Auditoria técnica correlacionada",
-      "product": "sicat",
-      "type": "functional",
-      "impact_band": "medium",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
+        "allocation"
       ],
       "impact_delta": 0
     },
@@ -546,72 +260,20 @@
       "semantic_change": "none",
       "change_reason": "baseline inicial (bootstrap)",
       "fields": [
-        "links"
+        "allocation"
       ],
       "impact_delta": 0
     },
     {
-      "id": "REQ-SICAT-NFR-0002",
-      "title": "Integração segura com gateway CETESB isolado",
-      "product": "sicat",
-      "type": "non-functional",
-      "impact_band": "medium",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-SICAT-NFR-0003",
-      "title": "Persistência transacional com locking otimista",
-      "product": "sicat",
-      "type": "non-functional",
-      "impact_band": "medium",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-SICAT-NFR-0005",
-      "title": "Rastreabilidade fim-a-fim com correlationId",
+      "id": "REQ-SICAT-NFR-0004",
+      "title": "Observabilidade de performance e status operacional",
       "product": "sicat",
       "type": "non-functional",
       "impact_band": "low",
       "semantic_change": "none",
       "change_reason": "baseline inicial (bootstrap)",
       "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-SICAT-NFR-0006",
-      "title": "Idempotência de comandos assíncronos",
-      "product": "sicat",
-      "type": "non-functional",
-      "impact_band": "low",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
-      ],
-      "impact_delta": 0
-    },
-    {
-      "id": "REQ-SICAT-NFR-0007",
-      "title": "Disponibilidade do sistema mesmo com CETESB indisponível",
-      "product": "sicat",
-      "type": "non-functional",
-      "impact_band": "low",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "links"
+        "allocation"
       ],
       "impact_delta": 0
     },
@@ -624,7 +286,7 @@
       "semantic_change": "none",
       "change_reason": "baseline inicial (bootstrap)",
       "fields": [
-        "links"
+        "allocation"
       ],
       "impact_delta": 0
     }

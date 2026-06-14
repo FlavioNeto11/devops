@@ -1,7 +1,27 @@
 {
   "metamodel_version": "1.0.0",
-  "baseline_hash": "9785f7cbe8e7c17b9efbdc60d665b3bd261fb3d9a4780b0daa65bf2464a8bedc",
+  "baseline_hash": "c3dc1e9d2beed697ed072c23a73b19c339ad5cb08b320235abc21d7dbb797b4c",
   "nodes": [
+    {
+      "id": "infra-keycloak",
+      "kind": "infra"
+    },
+    {
+      "id": "infra-observability",
+      "kind": "infra"
+    },
+    {
+      "id": "infra-postgres",
+      "kind": "infra"
+    },
+    {
+      "id": "infra-redis",
+      "kind": "infra"
+    },
+    {
+      "id": "infra-traefik",
+      "kind": "infra"
+    },
     {
       "id": "REQ-CMS-0001",
       "kind": "requirement",
@@ -691,13 +711,81 @@
       "asr": false,
       "impact_score": 38,
       "impact_band": "low"
+    },
+    {
+      "id": "slo-availability-99",
+      "kind": "slo"
+    },
+    {
+      "id": "slo-latency-p95",
+      "kind": "slo"
+    },
+    {
+      "id": "slo-retry-success",
+      "kind": "slo"
+    },
+    {
+      "id": "slo-worker-throughput",
+      "kind": "slo"
+    },
+    {
+      "id": "svc-console-frontend",
+      "kind": "service"
+    },
+    {
+      "id": "svc-gymops-api",
+      "kind": "service"
+    },
+    {
+      "id": "svc-gymops-web",
+      "kind": "service"
+    },
+    {
+      "id": "svc-pm-api",
+      "kind": "service"
+    },
+    {
+      "id": "svc-sicat-api",
+      "kind": "service"
+    },
+    {
+      "id": "svc-sicat-worker",
+      "kind": "service"
+    },
+    {
+      "id": "svc-site-renderer",
+      "kind": "service"
     }
   ],
   "edges": [
     {
+      "from": "REQ-CMS-0001",
+      "to": "infra-postgres",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-CMS-0001",
+      "to": "svc-pm-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
       "from": "REQ-CMS-0002",
       "to": "REQ-CMS-0003",
       "type": "depends_on"
+    },
+    {
+      "from": "REQ-CMS-0002",
+      "to": "svc-console-frontend",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-CMS-0002",
+      "to": "svc-pm-api",
+      "type": "allocates_to",
+      "allocation": true
     },
     {
       "from": "REQ-CMS-0005",
@@ -710,9 +798,33 @@
       "type": "depends_on"
     },
     {
+      "from": "REQ-CMS-0005",
+      "to": "slo-availability-99",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-CMS-0005",
+      "to": "svc-pm-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-CMS-0006",
+      "to": "infra-postgres",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
       "from": "REQ-CMS-0006",
       "to": "REQ-CMS-0002",
       "type": "relates_to"
+    },
+    {
+      "from": "REQ-CMS-0006",
+      "to": "svc-pm-api",
+      "type": "allocates_to",
+      "allocation": true
     },
     {
       "from": "REQ-CMS-0008",
@@ -726,6 +838,12 @@
     },
     {
       "from": "REQ-CMS-0010",
+      "to": "infra-traefik",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-CMS-0010",
       "to": "REQ-CMS-0003",
       "type": "depends_on"
     },
@@ -733,6 +851,18 @@
       "from": "REQ-CMS-0010",
       "to": "REQ-CMS-0005",
       "type": "depends_on"
+    },
+    {
+      "from": "REQ-CMS-0010",
+      "to": "svc-pm-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-CMS-0010",
+      "to": "svc-site-renderer",
+      "type": "allocates_to",
+      "allocation": true
     },
     {
       "from": "REQ-CMS-0011",
@@ -765,6 +895,18 @@
       "type": "constrains"
     },
     {
+      "from": "REQ-CMS-NFR-001",
+      "to": "slo-latency-p95",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-CMS-NFR-001",
+      "to": "svc-pm-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
       "from": "REQ-CMS-NFR-002",
       "to": "REQ-CMS-0002",
       "type": "constrains"
@@ -790,6 +932,18 @@
       "type": "constrains"
     },
     {
+      "from": "REQ-GYMOPS-0001",
+      "to": "infra-keycloak",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-GYMOPS-0001",
+      "to": "svc-gymops-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
       "from": "REQ-GYMOPS-0003",
       "to": "REQ-GYMOPS-0001",
       "type": "depends_on"
@@ -800,6 +954,18 @@
       "type": "depends_on"
     },
     {
+      "from": "REQ-GYMOPS-0003",
+      "to": "svc-gymops-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-GYMOPS-0004",
+      "to": "infra-postgres",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
       "from": "REQ-GYMOPS-0004",
       "to": "REQ-GYMOPS-0002",
       "type": "depends_on"
@@ -808,6 +974,12 @@
       "from": "REQ-GYMOPS-0004",
       "to": "REQ-GYMOPS-0003",
       "type": "depends_on"
+    },
+    {
+      "from": "REQ-GYMOPS-0004",
+      "to": "svc-gymops-api",
+      "type": "allocates_to",
+      "allocation": true
     },
     {
       "from": "REQ-GYMOPS-0005",
@@ -821,8 +993,20 @@
     },
     {
       "from": "REQ-GYMOPS-0007",
+      "to": "infra-redis",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-GYMOPS-0007",
       "to": "REQ-GYMOPS-0004",
       "type": "depends_on"
+    },
+    {
+      "from": "REQ-GYMOPS-0007",
+      "to": "svc-gymops-api",
+      "type": "allocates_to",
+      "allocation": true
     },
     {
       "from": "REQ-GYMOPS-0008",
@@ -833,6 +1017,18 @@
       "from": "REQ-GYMOPS-0008",
       "to": "REQ-GYMOPS-0004",
       "type": "depends_on"
+    },
+    {
+      "from": "REQ-GYMOPS-0008",
+      "to": "svc-gymops-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-GYMOPS-0008",
+      "to": "svc-gymops-web",
+      "type": "allocates_to",
+      "allocation": true
     },
     {
       "from": "REQ-GYMOPS-0009",
@@ -861,8 +1057,26 @@
     },
     {
       "from": "REQ-GYMOPS-NFR-001",
+      "to": "infra-postgres",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-GYMOPS-NFR-001",
       "to": "REQ-GYMOPS-0008",
       "type": "constrains"
+    },
+    {
+      "from": "REQ-GYMOPS-NFR-001",
+      "to": "slo-latency-p95",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-GYMOPS-NFR-001",
+      "to": "svc-gymops-api",
+      "type": "allocates_to",
+      "allocation": true
     },
     {
       "from": "REQ-GYMOPS-NFR-002",
@@ -890,6 +1104,24 @@
       "type": "constrains"
     },
     {
+      "from": "REQ-SICAT-0001",
+      "to": "infra-keycloak",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-0001",
+      "to": "svc-sicat-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-0002",
+      "to": "infra-postgres",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
       "from": "REQ-SICAT-0002",
       "to": "REQ-SICAT-0001",
       "type": "depends_on"
@@ -905,6 +1137,18 @@
       "type": "depends_on"
     },
     {
+      "from": "REQ-SICAT-0002",
+      "to": "svc-sicat-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-0002",
+      "to": "svc-sicat-worker",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
       "from": "REQ-SICAT-0003",
       "to": "REQ-SICAT-0002",
       "type": "depends_on"
@@ -913,6 +1157,18 @@
       "from": "REQ-SICAT-0003",
       "to": "REQ-SICAT-0012",
       "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0003",
+      "to": "svc-sicat-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-0003",
+      "to": "svc-sicat-worker",
+      "type": "allocates_to",
+      "allocation": true
     },
     {
       "from": "REQ-SICAT-0004",
@@ -965,6 +1221,42 @@
       "type": "refines"
     },
     {
+      "from": "REQ-SICAT-0011",
+      "to": "infra-postgres",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-0011",
+      "to": "svc-sicat-worker",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-0012",
+      "to": "infra-postgres",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-0012",
+      "to": "slo-worker-throughput",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-0012",
+      "to": "svc-sicat-worker",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-0013",
+      "to": "infra-observability",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
       "from": "REQ-SICAT-0013",
       "to": "REQ-SICAT-0011",
       "type": "depends_on"
@@ -973,6 +1265,18 @@
       "from": "REQ-SICAT-0013",
       "to": "REQ-SICAT-0012",
       "type": "relates_to"
+    },
+    {
+      "from": "REQ-SICAT-0013",
+      "to": "slo-availability-99",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-0013",
+      "to": "svc-sicat-api",
+      "type": "allocates_to",
+      "allocation": true
     },
     {
       "from": "REQ-SICAT-0014",
@@ -988,6 +1292,18 @@
       "from": "REQ-SICAT-NFR-0001",
       "to": "REQ-SICAT-0012",
       "type": "constrains"
+    },
+    {
+      "from": "REQ-SICAT-NFR-0001",
+      "to": "slo-retry-success",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-NFR-0001",
+      "to": "svc-sicat-worker",
+      "type": "allocates_to",
+      "allocation": true
     },
     {
       "from": "REQ-SICAT-NFR-0002",
@@ -1020,6 +1336,18 @@
       "type": "constrains"
     },
     {
+      "from": "REQ-SICAT-NFR-0004",
+      "to": "slo-latency-p95",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-NFR-0004",
+      "to": "svc-sicat-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
       "from": "REQ-SICAT-NFR-0005",
       "to": "REQ-SICAT-0014",
       "type": "verifies"
@@ -1038,6 +1366,18 @@
       "from": "REQ-SICAT-NFR-0008",
       "to": "REQ-SICAT-0012",
       "type": "constrains"
+    },
+    {
+      "from": "REQ-SICAT-NFR-0008",
+      "to": "slo-worker-throughput",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-NFR-0008",
+      "to": "svc-sicat-worker",
+      "type": "allocates_to",
+      "allocation": true
     }
   ]
 }

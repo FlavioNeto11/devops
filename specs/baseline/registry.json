@@ -1,0 +1,125 @@
+{
+  "metamodel_version": "1.0.0",
+  "services": [
+    {
+      "id": "svc-sicat-api",
+      "name": "SICAT API (Node/Express)",
+      "product": "sicat"
+    },
+    {
+      "id": "svc-sicat-worker",
+      "name": "SICAT worker (fila transacional)",
+      "product": "sicat"
+    },
+    {
+      "id": "svc-sicat-frontend",
+      "name": "SICAT frontend (Vue)",
+      "product": "sicat"
+    },
+    {
+      "id": "svc-gymops-api",
+      "name": "GymOps API (Fastify)",
+      "product": "gymops"
+    },
+    {
+      "id": "svc-gymops-web",
+      "name": "GymOps web (Next.js)",
+      "product": "gymops"
+    },
+    {
+      "id": "svc-pm-api",
+      "name": "DevOps Console pm-api (read-only k8s + CMS)",
+      "product": "cms"
+    },
+    {
+      "id": "svc-site-renderer",
+      "name": "Site-renderer (serve /sites/<key>)",
+      "product": "cms"
+    },
+    {
+      "id": "svc-console-frontend",
+      "name": "DevOps Console frontend",
+      "product": "cms"
+    },
+    {
+      "id": "svc-portal",
+      "name": "Portal NovaIT (landing /)",
+      "product": "cms"
+    },
+    {
+      "id": "svc-reqhub",
+      "name": "Reqhub (workbench de requisitos)",
+      "product": "platform"
+    }
+  ],
+  "infra": [
+    {
+      "id": "infra-postgres",
+      "name": "PostgreSQL (apps)",
+      "kind": "database"
+    },
+    {
+      "id": "infra-redis",
+      "name": "Redis/Upstash (filas/cache)",
+      "kind": "cache"
+    },
+    {
+      "id": "infra-pgvector",
+      "name": "pgvector (embeddings/IA)",
+      "kind": "database"
+    },
+    {
+      "id": "infra-traefik",
+      "name": "Traefik (ingress)",
+      "kind": "ingress"
+    },
+    {
+      "id": "infra-argocd",
+      "name": "Argo CD (GitOps)",
+      "kind": "gitops"
+    },
+    {
+      "id": "infra-keycloak",
+      "name": "Keycloak (SSO/OIDC realm nvit)",
+      "kind": "identity"
+    },
+    {
+      "id": "infra-observability",
+      "name": "kube-prometheus-stack + Loki",
+      "kind": "observability"
+    },
+    {
+      "id": "infra-sealed-secrets",
+      "name": "Sealed Secrets (cofre)",
+      "kind": "secrets"
+    },
+    {
+      "id": "infra-ghcr",
+      "name": "GHCR (registry de imagens)",
+      "kind": "registry"
+    }
+  ],
+  "slos": [
+    {
+      "id": "slo-availability-99",
+      "name": "Disponibilidade >= 99% (health)",
+      "target": "uptime >= 99%"
+    },
+    {
+      "id": "slo-latency-p95",
+      "name": "Latência P95 <= 2s (APIs/listagens)",
+      "target": "p95 <= 2s"
+    },
+    {
+      "id": "slo-worker-throughput",
+      "name": "Throughput do worker >= 10 jobs/s",
+      "target": ">= 10 jobs/s por worker"
+    },
+    {
+      "id": "slo-retry-success",
+      "name": "Sucesso em retry de transiente >= 80%",
+      "target": ">= 80%"
+    }
+  ],
+  "tests": []
+}
