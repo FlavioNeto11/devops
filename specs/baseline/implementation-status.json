@@ -4,7 +4,8 @@
   "counts": {
     "total": 371,
     "by_status": {
-      "not_started": 371
+      "not_started": 370,
+      "pr_open": 1
     }
   },
   "items": {
@@ -1113,8 +1114,10 @@
       "req_revision": 1
     },
     "REQ-REQHUB-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "branch": "@{id=REQ-REQHUB-0002; branch=req/REQ-REQHUB-0002/r1; restricted=false; title=feat(reqhub): implementa REQ-REQHUB-0002 — Workspace do requisito com contexto bidireciona}.branch",
+      "run_id": "27513551314"
     },
     "REQ-REQHUB-0003": {
       "status": "not_started",
