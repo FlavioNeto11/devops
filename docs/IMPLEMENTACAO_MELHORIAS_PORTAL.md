@@ -308,7 +308,12 @@ write:packages` + visibility) e apontar o `image:` do manifest ao GHCR.
 1. **Release atômico (validate-then-push):** `publish-portal.ps1` reordenado — commita o bump **localmente**,
    aplica + rollout + smoke e **só dá `git push` se tudo passar**. Em qualquer falha, **AUTO-ROLLBACK**:
    descarta o commit do bump (não pushado) e reaplica o manifest anterior (volta git local **e** cluster).
-   A `main` nunca recebe um release quebrado; o Argo nunca reconcilia um manifest ruim.
+   A `main` nunca recebe um release quebrado; o Argo nunca reconcilia um manifest ruim. Verificado live
+   (rollback restaurou git+cluster com **zero downtime** — o pod antigo seguiu servindo 200).
+   - **Corrida com o Argo corrigida:** com `selfHeal: true`, o Argo (desired em cache até re-ler o git)
+     revertia o `kubectl apply` de validação para o sha anterior. Mudado para **`selfHeal: false`** (mantém
+     auto-sync quando o GIT muda; o publish dá um `refresh=hard` no Argo logo após o push). Sem isso, o
+     deploy "passava" e depois flapava para o sha antigo.
 2. **Avisos Node 20:** `checkout`/`setup-node` já em `@v5`; para as JS actions restantes (docker/*,
    `pnpm/action-setup`) adicionado `env: FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true` em todos os workflows +
    templates — força Node 24 e zera os avisos antes da troca forçada.

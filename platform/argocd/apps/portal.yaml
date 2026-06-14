@@ -28,6 +28,13 @@ spec:
   syncPolicy:
     automated:
       prune: false # IngressRoute do portal usa priority 1; nunca prune automático
-      selfHeal: true
+      # selfHeal DESLIGADO de propósito: o release (publish-portal.ps1) faz um
+      # `kubectl apply` do manifest committado para VALIDAR antes do push. Com
+      # selfHeal ligado, o Argo (cujo desired fica em cache até re-ler o git)
+      # reverteria esse apply para o sha anterior — uma corrida. Sem selfHeal, o
+      # Argo continua fazendo AUTO-SYNC quando o GIT muda (o publish dá um refresh
+      # logo após o push), mas não briga com o apply de validação. GitOps mantido:
+      # git é a fonte da verdade; o Argo aplica cada commit novo.
+      selfHeal: false
     syncOptions:
       - CreateNamespace=true

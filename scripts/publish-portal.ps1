@@ -109,6 +109,10 @@ try {
 if (-not $NoPush) {
   Write-Host "== portal :: deploy saudável -> git push ==" -ForegroundColor Cyan
   Invoke-Checked "git push" { git -C $repoRoot push origin HEAD | Out-Host }
+  # Faz o Argo re-ler o git AGORA (sem esperar o poll ~3min) e reconciliar o novo
+  # commit — assim o desired do Argo bate com o que acabamos de aplicar (durável).
+  Write-Host "== portal :: refresh do Argo (alinha o desired ao novo commit) ==" -ForegroundColor Cyan
+  kubectl -n argocd annotate application portal argocd.argoproj.io/refresh=hard --overwrite 2>$null | Out-Host
 }
 
 Write-Host "[OK] portal $sha publicado e saudável." -ForegroundColor Green
