@@ -42,11 +42,18 @@ try {
     node build-baseline.mjs
     Write-Host "[specs] atualizando history.json (diff vs baseline anterior)..." -ForegroundColor Cyan
     node emit-history.mjs
-    Write-Host "[specs] baseline + history regenerados. Revise specs/baseline/ e commite junto com os requisitos." -ForegroundColor Green
+    Write-Host "[specs] reconciliando implementation-status.json..." -ForegroundColor Cyan
+    node impl-status.mjs
+    Write-Host "[specs] baseline + history + status regenerados. Revise specs/baseline/ e commite junto com os requisitos." -ForegroundColor Green
   } else {
     node build-baseline.mjs --check
     if ($LASTEXITCODE -ne 0) {
       Write-Host "[specs] baseline desatualizada ou inválida. Rode: scripts/specs-baseline-check.ps1 -Fix" -ForegroundColor Red
+      exit 1
+    }
+    node impl-status.mjs --check
+    if ($LASTEXITCODE -ne 0) {
+      Write-Host "[specs] implementation-status desatualizado. Rode: scripts/specs-baseline-check.ps1 -Fix" -ForegroundColor Red
       exit 1
     }
   }

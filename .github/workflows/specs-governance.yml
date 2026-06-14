@@ -48,6 +48,10 @@ jobs:
         working-directory: specs/tools
         run: node build-baseline.mjs --check
 
+      - name: Validar status de implementacao (drift)
+        working-directory: specs/tools
+        run: node impl-status.mjs --check
+
       # Em PR: enforce do versionamento semantico (gate unico, sempre executado).
       # Se um requisito mudou em campo semantico sem versionar (item_revision++ ,
       # semantic_change!=none, change_reason), FALHA. Em push (main) nao se aplica.

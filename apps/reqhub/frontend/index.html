@@ -9,7 +9,7 @@
     <title>Reqhub — base de requisitos (fonte da verdade)</title>
     <meta name="description" content="Workbench da base de requisitos versionada da plataforma: explora, analisa impacto e cobertura, e prioriza o reprocessamento — lendo a baseline gerada de specs/." />
     <link rel="icon" href="assets/favicon.svg" />
-    <link rel="stylesheet" href="assets/styles.css?v=4" />
+    <link rel="stylesheet" href="assets/styles.css?v=5" />
   </head>
   <body>
     <a class="skip" href="#main">Pular para o conteúdo</a>
@@ -38,6 +38,7 @@
       <button class="tab" role="tab" id="tab-impact" aria-controls="view-impact" aria-selected="false" data-view="impact" tabindex="-1">Mapa de impacto</button>
       <button class="tab" role="tab" id="tab-coverage" aria-controls="view-coverage" aria-selected="false" data-view="coverage" tabindex="-1">Cobertura</button>
       <button class="tab" role="tab" id="tab-reprocess" aria-controls="view-reprocess" aria-selected="false" data-view="reprocess" tabindex="-1">Fila de reprocessamento</button>
+      <button class="tab" role="tab" id="tab-dev" aria-controls="view-dev" aria-selected="false" data-view="dev" tabindex="-1">Desenvolvimento</button>
       <button class="tab" role="tab" id="tab-editor" aria-controls="view-editor" aria-selected="false" data-view="editor" tabindex="-1">Editor</button>
     </nav>
 
@@ -70,6 +71,11 @@
         <div id="reprocess-body"></div>
       </section>
 
+      <section id="view-dev" class="view" role="tabpanel" aria-labelledby="tab-dev" hidden>
+        <div class="toolbar" id="dev-filters"></div>
+        <div id="dev-body"></div>
+      </section>
+
       <section id="view-editor" class="view" role="tabpanel" aria-labelledby="tab-editor" hidden>
         <div id="editor-body" class="editor"></div>
       </section>
@@ -82,6 +88,6 @@
       </span>
     </footer>
 
-    <script type="module" src="assets/app.js?v=4"></script>
+    <script type="module" src="assets/app.js?v=5"></script>
   </body>
 </html>

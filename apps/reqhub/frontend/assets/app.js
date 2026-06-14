@@ -1,11 +1,11 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft } from './lib.js?v=4';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft } from './lib.js?v=5';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
-const state = { view: 'explorer', filters: {}, q: '', selectedId: null, impactFilter: { type: '', product: '', focus: false }, editId: null };
-const DATA = { baseline: null, impact: null, retrieval: null, history: null, registry: null, embeddings: null };
+const state = { view: 'explorer', filters: {}, q: '', selectedId: null, impactFilter: { type: '', product: '', focus: false }, editId: null, devFilter: { status: '', product: '' } };
+const DATA = { baseline: null, impact: null, retrieval: null, history: null, registry: null, embeddings: null, implStatus: null };
 
 /* ---------- DOM helpers (seguros) ---------- */
 function h(tag, attrs = {}, ...kids) {
@@ -145,6 +145,19 @@ function renderWorkspace() {
       dt('motivo'), dd(r.version.change_reason || '—'),
       dt('arquivo'), dd(h('code', { text: r.file }))));
   side.append(ver);
+
+  // Desenvolvimento (status REQ → PR → deploy)
+  const dv = DATA.implStatus && DATA.implStatus.items && DATA.implStatus.items[r.id];
+  if (dv) {
+    const dev = h('div', { class: 'card' }, h('h3', { text: 'Desenvolvimento' }),
+      h('div', { class: 'kv' },
+        dt('status'), dd(badge(dv.status, devStatusCls(dv.status))),
+        ...(dv.pr ? [dt('PR'), dd(h('a', { class: 'btn-link', href: dv.pr, target: '_blank', rel: 'noopener', text: dv.pr }))] : []),
+        ...(dv.commit ? [dt('commit'), dd(h('code', { text: dv.commit }))] : []),
+        ...(dv.deployment ? [dt('deployment'), dd(dv.deployment)] : []),
+        ...(dv.deployed_at ? [dt('deployed'), dd(dv.deployed_at)] : [])));
+    side.append(dev);
+  }
 
   // Alocação (arquitetura/infra DERIVADAS dos requisitos)
   const al = r.allocation || {};
@@ -331,6 +344,52 @@ function renderReprocess() {
   t.append(tb); wrap.append(t); body.append(wrap);
 }
 
+/* ---------- Desenvolvimento (status REQ → PR → deploy) ---------- */
+function devStatusCls(s) {
+  return s === 'done' || s === 'deployed' ? 'b-ok' : s === 'blocked' ? 'b-crit' : s === 'not_started' ? 'b-low' : 'b-high';
+}
+function renderDev() {
+  const wrap = document.getElementById('dev-filters');
+  wrap.replaceChildren();
+  const body = document.getElementById('dev-body');
+  body.replaceChildren();
+  const st = DATA.implStatus;
+  if (!st || !st.items) { body.append(h('p', { class: 'empty', text: 'Sem dados de desenvolvimento (implementation-status.json ausente).' })); return; }
+  const statuses = [...new Set(Object.values(st.items).map((x) => x.status))].sort();
+  const products = uniqueValues(DATA.baseline.requirements, (r) => r.scope && r.scope.product_scope);
+  const mk = (key, label, vals) => {
+    const sel = h('select', { 'aria-label': label, onchange: (e) => { state.devFilter[key] = e.target.value; renderDev(); } }, h('option', { value: '', text: label }));
+    for (const v of vals) { const o = h('option', { value: v, text: v }); if (v === state.devFilter[key]) o.selected = true; sel.append(o); }
+    return h('label', {}, label, sel);
+  };
+  wrap.append(mk('status', 'Status', statuses), mk('product', 'Produto', products), h('span', { class: 'count', id: 'dev-count' }));
+  const counts = (st.counts && st.counts.by_status) || {};
+  body.append(h('p', { class: 'muted' }, 'Estado do desenvolvimento por requisito (REQ → PR → deploy), atualizado pela esteira. ',
+    ...Object.keys(counts).sort().flatMap((s) => [badge(`${s}: ${counts[s]}`, devStatusCls(s)), ' '])));
+  const ids = Object.keys(st.items).filter((id) => {
+    const it = st.items[id]; const r = byId(id);
+    if (state.devFilter.status && it.status !== state.devFilter.status) return false;
+    if (state.devFilter.product && (!r || (r.scope && r.scope.product_scope) !== state.devFilter.product)) return false;
+    return true;
+  }).sort();
+  document.getElementById('dev-count').textContent = `${ids.length} de ${Object.keys(st.items).length}`;
+  const t = h('table');
+  t.append(h('thead', {}, h('tr', {}, h('th', { text: 'ID' }), h('th', { text: 'Produto' }), h('th', { text: 'Título' }), h('th', { text: 'Status' }), h('th', { text: 'PR' }), h('th', { text: 'Deploy' }))));
+  const tb = h('tbody');
+  for (const id of ids) {
+    const it = st.items[id]; const r = byId(id);
+    tb.append(h('tr', { tabindex: '0', role: 'button', onclick: () => openReq(id), onkeydown: (ev) => { if (ev.key === 'Enter') openReq(id); } },
+      h('td', {}, h('span', { class: 'rid', text: id })),
+      h('td', { text: r ? r.scope.product_scope : '—' }),
+      h('td', { text: r ? r.title : '' }),
+      h('td', {}, badge(it.status, devStatusCls(it.status))),
+      h('td', {}, it.pr ? h('a', { class: 'btn-link', href: it.pr, target: '_blank', rel: 'noopener', text: 'PR' }) : h('span', { class: 'empty', text: '—' })),
+      h('td', { text: it.deployed_at ? it.deployed_at.slice(0, 10) : it.deployment || '—' })));
+  }
+  const gw = h('div', { class: 'grid-wrap' });
+  t.append(tb); gw.append(t); body.append(gw);
+}
+
 /* ---------- Editor (autoria assistida → PR no GitHub; a UI NÃO escreve no git) ---------- */
 function openEditor(id) { state.editId = id || null; switchView('editor'); }
 function renderEditor() {
@@ -411,7 +470,7 @@ function renderEditor() {
 }
 
 /* ---------- navegação / abas ---------- */
-const RENDER = { explorer: renderExplorer, workspace: renderWorkspace, versions: renderVersions, impact: renderImpact, coverage: renderCoverage, reprocess: renderReprocess, editor: renderEditor };
+const RENDER = { explorer: renderExplorer, workspace: renderWorkspace, versions: renderVersions, impact: renderImpact, coverage: renderCoverage, reprocess: renderReprocess, dev: renderDev, editor: renderEditor };
 function switchView(view) {
   state.view = view;
   for (const tab of document.querySelectorAll('.tab')) {
@@ -466,7 +525,7 @@ async function init() {
     DATA.baseline = b; DATA.impact = im; DATA.retrieval = rt;
     // opcionais (toleram ausência): diff de baseline, registry de artefatos, embeddings.
     const opt = (u) => fetch(u).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-    [DATA.history, DATA.registry, DATA.embeddings] = await Promise.all([opt('data/history.json'), opt('data/registry.json'), opt('data/embeddings.json')]);
+    [DATA.history, DATA.registry, DATA.embeddings, DATA.implStatus] = await Promise.all([opt('data/history.json'), opt('data/registry.json'), opt('data/embeddings.json'), opt('data/implementation-status.json')]);
   } catch (err) {
     setStatus('Falha ao carregar a baseline: ' + err.message, true);
     return;
