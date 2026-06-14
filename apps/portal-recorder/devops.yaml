@@ -11,7 +11,7 @@
 app:
   name: portal-recorder
   namespace: apps
-  host: xpto.localhost          # + dev.nvit.com.br nas rotas do IngressRoute
+  host: nvit.localhost          # + dev.nvit.com.br nas rotas do IngressRoute
   basePath: /portal-rec
   appType: platform_tool             # taxonomia: cms_portal | product_software | platform_tool
 

@@ -1,6 +1,6 @@
 # =============================================================================
 # Reqhub — workbench da base de requisitos (somente frontend) sob /reqs.
-# Roteamento (host dev.nvit.com.br / xpto.localhost):
+# Roteamento (host dev.nvit.com.br / nvit.localhost):
 #   /reqs -> frontend (nginx estático, SEM strip, priority 10)
 # ESTRATEGIA DE IMAGEM (igual ao padrao da plataforma — ver portal):
 #   - LAB (aqui): reqhub-frontend:local + IfNotPresent. O kubelet do Docker Desktop
@@ -99,7 +99,7 @@ spec:
     - web
   routes:
     # frontend (priority 10 vence o portal `/` priority 1)
-    - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/reqs`)
+    - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/reqs`)
       kind: Rule
       priority: 10
       services:

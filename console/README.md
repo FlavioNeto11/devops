@@ -40,7 +40,7 @@ host unico sob o subpath `/devops`:
 ```
                          Traefik (entryPoint web :80)
                                      |
-   Host(xpto.localhost) && PathPrefix(/devops/api)   -> priority 20
+   Host(nvit.localhost) && PathPrefix(/devops/api)   -> priority 20
         |  Middleware StripPrefix console-api-strip (remove /devops/api)
         v
    console-backend (ClusterIP :3001)  --(get/list/watch)-->  API do Kubernetes
@@ -82,7 +82,7 @@ host unico sob o subpath `/devops`:
 
 ### Roteamento (Traefik) e convencao de prefixos
 
-Duas rotas no mesmo host, atendendo `xpto.localhost` (local) e `dev.nvit.com.br`
+Duas rotas no mesmo host, atendendo `nvit.localhost` (local) e `dev.nvit.com.br`
 (real futuro), no entryPoint `web` (HTTP/80):
 
 | Rota          | PathPrefix    | priority | Servico            | StripPrefix              |
@@ -167,9 +167,9 @@ C:/devops/scripts/install-dashboard.ps1
 O script verifica o estado antes de agir (seguro re-rodar): garante o namespace,
 aplica os manifests de `k8s/` e aguarda os Deployments ficarem prontos.
 
-Apos o deploy, acesse: **http://xpto.localhost/devops/**
+Apos o deploy, acesse: **http://nvit.localhost/devops/**
 
-> Para `xpto.localhost` resolver, garanta a entrada `127.0.0.1 xpto.localhost`
+> Para `nvit.localhost` resolver, garanta a entrada `127.0.0.1 nvit.localhost`
 > em `C:\Windows\System32\drivers\etc\hosts` (requer privilegios de
 > Administrador).
 
@@ -250,7 +250,7 @@ npm run dev
   use `Secret` a partir de `secret.example.yaml` (templates da plataforma), com
   valores placeholder documentados.
 - **Exposicao**: no laboratorio local o Console e servido por **HTTP**
-  (`http://xpto.localhost/devops/`). HTTPS (`websecure`) esta pendente
+  (`http://nvit.localhost/devops/`). HTTPS (`websecure`) esta pendente
   (self-signed). Nao exponha o Console publicamente sem TLS e sem uma camada de
   autenticacao na frente.
 - **Hardening do container**: o Pod do backend roda com `runAsNonRoot`,

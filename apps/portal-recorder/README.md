@@ -33,7 +33,7 @@ cd apps/portal-recorder/api ; npm install ; node --test
 docker build -t portal-recorder-api:local apps/portal-recorder/api
 # criar os Secrets (ver k8s/secret.example.yaml) — portal-recorder-db, portal-recorder-config
 kubectl apply -k apps/portal-recorder/k8s            # ou aguardar o Argo
-curl http://xpto.localhost/portal-rec/api/health     # → { "status": "ok", "db": true }
+curl http://nvit.localhost/portal-rec/api/health     # → { "status": "ok", "db": true }
 ```
 
 ## Fasamento

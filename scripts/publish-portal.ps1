@@ -131,7 +131,7 @@ try {
     $code = 0
     for ($i = 1; $i -le 6; $i++) {
       try {
-        $r = Invoke-WebRequest -Headers @{ Host = 'xpto.localhost' } -Uri "http://127.0.0.1$path" -TimeoutSec 8 -SkipHttpErrorCheck
+        $r = Invoke-WebRequest -Headers @{ Host = 'nvit.localhost' } -Uri "http://127.0.0.1$path" -TimeoutSec 8 -SkipHttpErrorCheck
         $code = [int]$r.StatusCode
         if ($code -ge 200 -and $code -lt 400) { break }
       } catch { $code = 0 }

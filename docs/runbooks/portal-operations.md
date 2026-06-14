@@ -39,16 +39,16 @@ local (Docker Desktop compartilha o daemon, `IfNotPresent`); o CI publica a **ME
 
 ```powershell
 # Status + headers de segurança (espere CSP, Referrer-Policy, Permissions-Policy, nosniff)
-curl.exe -I http://xpto.localhost/
+curl.exe -I http://nvit.localhost/
 
 # Health (deve responder 200 "ok")
-curl.exe -s -o NUL -w "%{http_code}`n" http://xpto.localhost/healthz
+curl.exe -s -o NUL -w "%{http_code}`n" http://nvit.localhost/healthz
 
 # Compressão (deve aparecer Content-Encoding: gzip)
-curl.exe -s -D - -o NUL -H "Accept-Encoding: gzip" http://xpto.localhost/ | Select-String "Content-Encoding"
+curl.exe -s -D - -o NUL -H "Accept-Encoding: gzip" http://nvit.localhost/ | Select-String "Content-Encoding"
 
 # 404 amigável (deve servir /404.html com status 404)
-curl.exe -s -o NUL -w "%{http_code}`n" http://xpto.localhost/rota-inexistente
+curl.exe -s -o NUL -w "%{http_code}`n" http://nvit.localhost/rota-inexistente
 ```
 
 Checklist visual: ver [`portal-ux-accessibility-checklist.md`](../standards/portal-ux-accessibility-checklist.md).

@@ -40,11 +40,11 @@ if (-not $SkipTools) { Banner "1/5 Ferramentas (winget, idempotente)"; & "$here\
 else { Banner "1/5 Ferramentas (pulado)" }
 
 if (-not $SkipHosts) {
-  Banner "2/5 Arquivo hosts (xpto.localhost / dev.nvit.com.br / traefik.localhost)"
+  Banner "2/5 Arquivo hosts (nvit.localhost / dev.nvit.com.br / traefik.localhost)"
   $hf = "$env:WINDIR\System32\drivers\etc\hosts"
   $c = Get-Content $hf -Raw -ErrorAction SilentlyContinue
   if ($c -and ($c -notmatch "`n$")) { Add-Content -Path $hf -Value "" }   # garante newline antes do append
-  foreach ($h in 'xpto.localhost', 'dev.nvit.com.br', 'traefik.localhost') {
+  foreach ($h in 'nvit.localhost', 'dev.nvit.com.br', 'traefik.localhost') {
     if (-not $c -or ($c -notmatch ('\b' + [regex]::Escape($h) + '\b'))) { Add-Content -Path $hf -Value "127.0.0.1`t$h"; Write-Host "  + $h" }
     else { Write-Host "  = $h (ja existe)" }
   }
@@ -61,8 +61,8 @@ Banner "5/5 Validacao"
 & "$here\validate-platform.ps1"
 
 Banner "PRONTO - plataforma DevOps local no ar"
-Write-Host "  Console : http://xpto.localhost/devops"
-Write-Host "  Grafana : http://xpto.localhost/grafana"
+Write-Host "  Console : http://nvit.localhost/devops"
+Write-Host "  Grafana : http://nvit.localhost/grafana"
 Write-Host "  Argo CD : kubectl port-forward svc/argocd-server -n argocd 8080:80  ->  http://localhost:8080"
 Write-Host "  Traefik : http://traefik.localhost/dashboard/"
 Write-Host ""

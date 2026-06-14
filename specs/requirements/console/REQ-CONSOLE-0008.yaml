@@ -7,7 +7,7 @@ owner: plataforma-digital
 scope:
   product_scope: console
   applies_to: product
-statement: "O backend lista IngressRoutes do Traefik via GET /ingressroutes (CRD traefik.io/v1alpha1). Para cada rota extrai: hosts (via regex Host(...)), paths (Path/PathPrefix), services, middlewares e priority. Frontend exibe roteamento e como cada app esta exposta no host unico (xpto.localhost ou dev.nvit.com.br futuro)."
+statement: "O backend lista IngressRoutes do Traefik via GET /ingressroutes (CRD traefik.io/v1alpha1). Para cada rota extrai: hosts (via regex Host(...)), paths (Path/PathPrefix), services, middlewares e priority. Frontend exibe roteamento e como cada app esta exposta no host unico (nvit.localhost ou dev.nvit.com.br futuro)."
 source:
   stakeholder: console
   origin: codebase console + mapeamento multi-agente 2026-06-14

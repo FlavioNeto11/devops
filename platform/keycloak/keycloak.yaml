@@ -190,7 +190,7 @@ spec:
     - web
   routes:
     # /auth -> Keycloak (SEM strip; o KC ja serve sob /auth via KC_HTTP_RELATIVE_PATH).
-    - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/auth`)
+    - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/auth`)
       kind: Rule
       priority: 20
       services:

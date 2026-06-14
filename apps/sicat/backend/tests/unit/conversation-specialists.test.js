@@ -34,7 +34,7 @@ test('conversa/saudação/unclear vão para o especialista conversacional (sem t
 test('intent desconhecido/vazio cai no fallback (manifest)', () => {
   assert.equal(resolveSpecialistForIntent('').id, 'manifest');
   assert.equal(resolveSpecialistForIntent(null).id, 'manifest');
-  assert.equal(resolveSpecialistForIntent('xpto.qualquer').id, 'manifest');
+  assert.equal(resolveSpecialistForIntent('desconhecido.qualquer').id, 'manifest');
 });
 
 test('toda tool mapeada num especialista é uma tool registrada de verdade', () => {

@@ -3,7 +3,7 @@
 > **Para agentes:** leia [`AGENTS.md`](./AGENTS.md) primeiro (escopo, fronteiras seguras/aprovação/proibidas, princípios).
 
 Página inicial pública da plataforma, servida na **raiz** de `https://dev.nvit.com.br`
-(e `http://xpto.localhost/` no dev local). Apresenta os produtos, portais e
+(e `http://nvit.localhost/` no dev local). Apresenta os produtos, portais e
 ferramentas da NovaIT e **descobre dinamicamente** as aplicações publicadas no
 cluster — tudo isso a partir de um frontend **estático** (nginx).
 
@@ -104,8 +104,8 @@ sincroniza `portal/k8s` (com `ignoreDifferences` no `image`, para não brigar co
 Validar no ar:
 
 ```powershell
-curl.exe -I http://xpto.localhost/                 # 200 + headers de segurança
-curl.exe -s -o NUL -w "%{http_code}" http://xpto.localhost/healthz   # 200
+curl.exe -I http://nvit.localhost/                 # 200 + headers de segurança
+curl.exe -s -o NUL -w "%{http_code}" http://nvit.localhost/healthz   # 200
 ```
 
 Rollback e diagnóstico: [`../docs/runbooks/portal-operations.md`](../docs/runbooks/portal-operations.md).
@@ -135,6 +135,6 @@ Veja o runbook completo: [`../docs/runbooks/portal-operations.md`](../docs/runbo
 - Headers de segurança: o **Traefik** aplica `secure-headers` na borda; o nginx adiciona
   em **defesa em profundidade** os que faltam (CSP, Referrer-Policy, Permissions-Policy).
 - Acessível em `https://dev.nvit.com.br/` (público via Cloudflare Tunnel) e
-  `http://xpto.localhost/` (dev local).
+  `http://nvit.localhost/` (dev local).
 - Checklists: [qualidade](../docs/standards/portal-quality-checklist.md) ·
   [UX & acessibilidade](../docs/standards/portal-ux-accessibility-checklist.md).

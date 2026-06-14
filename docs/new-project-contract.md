@@ -78,7 +78,7 @@ services:                   # mapa serviceName -> definicao
 |-------------|--------|-------------|----------------------------------------------------------------------------------------------------|--------------------|
 | `name`      | string | **Sim**     | Nome logico da aplicacao. Usado em labels, nos nomes dos recursos (`<name>-<service>`) e nas rotas. Use minusculas e hifens. | `aplicacao1`       |
 | `namespace` | string | **Sim**     | Namespace Kubernetes onde a app e implantada. Deve ser um dos namespaces da plataforma.            | `apps`             |
-| `host`      | string | **Sim**     | Host de entrada no Traefik. Local: `xpto.localhost`. Real futuro: `dev.nvit.com.br`.                  | `xpto.localhost`   |
+| `host`      | string | **Sim**     | Host de entrada no Traefik. Local: `nvit.localhost`. Real futuro: `dev.nvit.com.br`.                  | `nvit.localhost`   |
 | `basePath`  | string | **Sim**     | Subpath base sob o qual a app inteira e servida no host unico. Convencao: `/<name>`.               | `/aplicacao1`      |
 | `appType`   | enum   | Nao         | Taxonomia da app: `product_software` (default — produto/sistema completo, ex.: sicat/gymops), `cms_portal` (portal/site com conteudo gerenciado pelo CMS do Console, ex.: rmambiental/anarabottini) ou `platform_tool` (ferramenta interna da plataforma, ex.: portal-recorder). | `cms_portal` |
 
@@ -90,7 +90,7 @@ services:                   # mapa serviceName -> definicao
 - **`namespace`**: namespaces validos criados pela plataforma — `apps` (default das apps),
   `apps-dev` (desenvolvimento), `apps-prod-local` ("producao" local). Os demais
   (`devops-system`, `traefik`, `argocd`, `observability`) sao **reservados** a plataforma.
-- **`host`**: no laboratorio sempre `xpto.localhost`. O mesmo layout de paths vale para o
+- **`host`**: no laboratorio sempre `nvit.localhost`. O mesmo layout de paths vale para o
   dominio real `dev.nvit.com.br` — basta trocar o `host`. Veja
   [`local-domain-setup.md`](./local-domain-setup.md).
 - **`basePath`**: define onde a app aparece no host unico. Aceita-se `/<name>` (com barra)
@@ -209,8 +209,8 @@ frontend:
     path: /
 ```
 
-> Rota gerada: `Host(xpto.localhost) && PathPrefix(/aplicacao1)` -> `aplicacao1-frontend:80`,
-> **sem** middleware de strip. O navegador acessa `http://xpto.localhost/aplicacao1`.
+> Rota gerada: `Host(nvit.localhost) && PathPrefix(/aplicacao1)` -> `aplicacao1-frontend:80`,
+> **sem** middleware de strip. O navegador acessa `http://nvit.localhost/aplicacao1`.
 
 ### 5.2 `api` (backend principal, com strip)
 
@@ -228,9 +228,9 @@ api:
     path: /health               # externamente: /aplicacao1/api/health
 ```
 
-> Rota gerada: `Host(xpto.localhost) && PathPrefix(/aplicacao1/api)` (priority ALTA) ->
+> Rota gerada: `Host(nvit.localhost) && PathPrefix(/aplicacao1/api)` (priority ALTA) ->
 > `aplicacao1-api:8080`, **com** `Middleware` StripPrefix de `/aplicacao1/api`. O backend
-> recebe `/health` para uma chamada a `http://xpto.localhost/aplicacao1/api/health`.
+> recebe `/health` para uma chamada a `http://nvit.localhost/aplicacao1/api/health`.
 
 ### 5.3 `api2` (backend secundario, com strip)
 
@@ -293,7 +293,7 @@ Vale tanto para um **desenvolvedor** quanto para o **Claude** gerando o arquivo.
 1. **Defina o bloco `app`.**
    - `name`: kebab-case, curto (ex.: `aplicacao2`).
    - `namespace`: `apps` (default) — ou `apps-dev`/`apps-prod-local`.
-   - `host`: `xpto.localhost` (local).
+   - `host`: `nvit.localhost` (local).
    - `basePath`: `/<name>` (ex.: `/aplicacao2`).
 
 2. **Liste os servicos** em `services` (a chave e o `serviceName`).
@@ -350,14 +350,14 @@ Cenario: uma segunda aplicacao com um **frontend** (SPA), uma **API publica** (`
 #   - api (publica):  /aplicacao2/api  COM StripPrefix -> backend ve a raiz.
 #   - api2 (admin):   /aplicacao2/api2 COM StripPrefix -> backend ve a raiz.
 #
-# Host local: xpto.localhost  | Host real futuro: dev.nvit.com.br
+# Host local: nvit.localhost  | Host real futuro: dev.nvit.com.br
 # Convencao: frontend NUNCA faz strip; APIs SEMPRE fazem strip; /api e /api2
 # tem priority MAIOR que /aplicacao2 (prefixos mais especificos vencem).
 # =============================================================================
 app:
   name: aplicacao2
   namespace: apps
-  host: xpto.localhost
+  host: nvit.localhost
   basePath: /aplicacao2
 
 services:
@@ -429,9 +429,9 @@ services:
 
 | Recurso                    | URL                                              |
 |----------------------------|--------------------------------------------------|
-| Frontend                   | <http://xpto.localhost/aplicacao2>               |
-| API (health)               | <http://xpto.localhost/aplicacao2/api/health>    |
-| API2 (health)              | <http://xpto.localhost/aplicacao2/api2/health>   |
+| Frontend                   | <http://nvit.localhost/aplicacao2>               |
+| API (health)               | <http://nvit.localhost/aplicacao2/api/health>    |
+| API2 (health)              | <http://nvit.localhost/aplicacao2/api2/health>   |
 
 > No dominio real, troque `app.host` para `dev.nvit.com.br` (mesmos paths): as URLs viram
 > `https://dev.nvit.com.br/aplicacao2`, `.../aplicacao2/api/health`, etc.

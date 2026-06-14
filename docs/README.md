@@ -100,7 +100,7 @@ contribuição em [`CONTRIBUTING.md`](../CONTRIBUTING.md). Estilo de escrita em
 
 ## Contrato compartilhado (lembrete rápido)
 
-- **Host local**: `xpto.localhost` | **Host real**: `dev.nvit.com.br` (mesmo layout de paths).
+- **Host local**: `nvit.localhost` | **Host real**: `dev.nvit.com.br` (mesmo layout de paths).
 - **Contexto Kubernetes**: `docker-desktop`. **Raiz do repo**: `C:/devops`.
 - **Namespaces**: `devops-system`, `traefik`, `argocd`, `observability`, `identity`, `apps`,
   `apps-dev`, `apps-prod-local`.

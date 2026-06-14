@@ -60,5 +60,5 @@ if ($Seal) {
   kubectl rollout restart deployment/reqhub-api -n $Namespace
   kubectl rollout status deployment/reqhub-api -n $Namespace --timeout=60s
   Write-Host "[reqhub] Secret aplicado e reqhub-api reiniciado. Verifique:" -ForegroundColor Green
-  Write-Host "         (curl http://xpto.localhost/reqs/api/health  -> ai:true)" -ForegroundColor Green
+  Write-Host "         (curl http://nvit.localhost/reqs/api/health  -> ai:true)" -ForegroundColor Green
 }

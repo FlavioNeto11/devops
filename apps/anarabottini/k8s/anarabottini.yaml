@@ -1,6 +1,6 @@
 # =============================================================================
 # Ana Rabottini — portal institucional (somente frontend) sob /anarabottini.
-# Roteamento (host dev.nvit.com.br / xpto.localhost):
+# Roteamento (host dev.nvit.com.br / nvit.localhost):
 #   /anarabottini  -> frontend (nginx + SPA Vite, SEM strip, priority 10)
 # Imagem local: anarabottini-frontend:local (docker build -t anarabottini-frontend:local apps/anarabottini).
 # As annotations devops.flavioneto/* alimentam a aba "Publicacoes" do DevOps Console.
@@ -90,7 +90,7 @@ spec:
     - web
   routes:
     # frontend institucional (priority 10 vence o portal `/` priority 1)
-    - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/anarabottini`)
+    - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/anarabottini`)
       kind: Rule
       priority: 10
       services:

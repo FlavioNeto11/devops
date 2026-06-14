@@ -4,7 +4,7 @@
 app:
   name: anarabottini
   namespace: apps
-  host: dev.nvit.com.br        # + xpto.localhost no dev local
+  host: dev.nvit.com.br        # + nvit.localhost no dev local
   basePath: /anarabottini
   appType: cms_portal             # taxonomia: cms_portal | product_software | platform_tool
 services:

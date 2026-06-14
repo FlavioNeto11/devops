@@ -119,18 +119,18 @@ Invoke-Step -ScriptName 'validate-platform.ps1' -Title 'Validacao da plataforma'
 # ---------------------------------------------------------------------------
 Write-Section 'Bootstrap concluido com sucesso'
 
-Write-Host 'A plataforma esta no ar. URLs de acesso (host local: xpto.localhost):' -ForegroundColor Green
+Write-Host 'A plataforma esta no ar. URLs de acesso (host local: nvit.localhost):' -ForegroundColor Green
 Write-Host ''
-Write-Host '  Console DevOps : http://xpto.localhost/devops' -ForegroundColor Cyan
-Write-Host '  Console API    : http://xpto.localhost/devops/api' -ForegroundColor Cyan
-Write-Host '  Argo CD        : http://xpto.localhost/argocd' -ForegroundColor Cyan
-Write-Host '  Grafana        : http://xpto.localhost/grafana' -ForegroundColor Cyan
-Write-Host '  App exemplo    : http://xpto.localhost/aplicacao1' -ForegroundColor Cyan
-Write-Host '  App exemplo API: http://xpto.localhost/aplicacao1/api/health' -ForegroundColor Cyan
+Write-Host '  Console DevOps : http://nvit.localhost/devops' -ForegroundColor Cyan
+Write-Host '  Console API    : http://nvit.localhost/devops/api' -ForegroundColor Cyan
+Write-Host '  Argo CD        : http://nvit.localhost/argocd' -ForegroundColor Cyan
+Write-Host '  Grafana        : http://nvit.localhost/grafana' -ForegroundColor Cyan
+Write-Host '  App exemplo    : http://nvit.localhost/aplicacao1' -ForegroundColor Cyan
+Write-Host '  App exemplo API: http://nvit.localhost/aplicacao1/api/health' -ForegroundColor Cyan
 Write-Host ''
-Write-Host 'Observacao: se "xpto.localhost" nao resolver, use o header Host apontando' -ForegroundColor Gray
+Write-Host 'Observacao: se "nvit.localhost" nao resolver, use o header Host apontando' -ForegroundColor Gray
 Write-Host 'para 127.0.0.1, por exemplo:' -ForegroundColor Gray
-Write-Host '  Invoke-WebRequest -UseBasicParsing -Headers @{ Host = "xpto.localhost" } http://127.0.0.1/devops' -ForegroundColor Gray
+Write-Host '  Invoke-WebRequest -UseBasicParsing -Headers @{ Host = "nvit.localhost" } http://127.0.0.1/devops' -ForegroundColor Gray
 Write-Host ''
 Write-Host 'HTTPS (websecure) ainda esta PENDENTE (certificado self-signed) - documentado no repo.' -ForegroundColor Yellow
 Write-Host ''

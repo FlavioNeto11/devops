@@ -33,7 +33,7 @@ spec:
     - web
   routes:
     # API (única rota exposta do app) -> strip /ai-control/api, priority 30.
-    - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/ai-control/api`)
+    - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/ai-control/api`)
       kind: Rule
       priority: 30
       services:

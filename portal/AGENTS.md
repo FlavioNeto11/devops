@@ -18,7 +18,7 @@ language: pt-BR
 
 ## 1. Visão geral
 
-**Portal NovaIT** é a landing page pública servida na **raiz** `/` (host `xpto.localhost` local /
+**Portal NovaIT** é a landing page pública servida na **raiz** `/` (host `nvit.localhost` local /
 `dev.nvit.com.br` futuro), no namespace `devops-system`. É um **frontend estático** (nginx,
 `frontend/index.html` + `nginx.conf` + `assets/` — **sem build de bundle/SPA framework**) com a
 marca NovaIT. O HTML é completo e útil **sem JS**; o JS (`assets/portal.js`) apenas **enriquece**

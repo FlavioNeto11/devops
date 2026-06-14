@@ -33,7 +33,7 @@ opcional via Langfuse. Idioma de produto: pt-BR. Estado real: ver
 [`docs/10-estado-atual/estado-atual.md`](./docs/10-estado-atual/estado-atual.md).
 
 Encaixe na plataforma: `basePath: /sicat`, namespace `apps`, hosts `dev.nvit.com.br` (público via
-Cloudflare Tunnel) e `xpto.localhost` (dev local). Contrato da esteira em
+Cloudflare Tunnel) e `nvit.localhost` (dev local). Contrato da esteira em
 [`devops.yaml`](./devops.yaml).
 
 ## 2. Como começar uma tarefa (sempre)

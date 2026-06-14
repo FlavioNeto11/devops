@@ -31,7 +31,7 @@ param(
   [ValidateSet('product_software', 'cms_portal', 'platform_tool')]
   [string]$Type = 'product_software',
   [string]$Namespace = 'apps',
-  [string]$AppHost = 'xpto.localhost',
+  [string]$AppHost = 'nvit.localhost',
   [string]$OutDir = 'C:\devops\apps',
   [string]$ArgoAppsDir = 'C:\devops\platform\argocd\apps',
   [switch]$NoArgo,

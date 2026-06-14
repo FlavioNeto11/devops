@@ -64,7 +64,7 @@ spec:
 # redirect-https: redireciona HTTP -> HTTPS.
 # ATENCAO: DESABILITADO por padrao no laboratorio local. Em ambiente local
 # sem certificado valido, este redirect quebraria o acesso por HTTP
-# (http://xpto.localhost). Por isso o recurso esta COMENTADO.
+# (http://nvit.localhost). Por isso o recurso esta COMENTADO.
 #
 # Como habilitar no futuro (apos configurar TLS/self-signed - ver values.yaml):
 #   1) Descomente o bloco abaixo e aplique este arquivo.

@@ -24,7 +24,7 @@ devops.yaml  →  new-app.ps1  →  app-template (Helm) / k8s  →  build :local
 Fonte da verdade do app. Schema completo em [`new-project-contract.md`](../new-project-contract.md). Mínimo:
 
 ```yaml
-app: { name: meuapp, namespace: apps, host: xpto.localhost, basePath: /meuapp }
+app: { name: meuapp, namespace: apps, host: nvit.localhost, basePath: /meuapp }
 services:
   frontend: { type: frontend, path: /,     port: 80,   expose: true, stripPrefix: false, priority: 10 }
   api:      { type: api,      path: /api,   port: 8080, expose: true, stripPrefix: true,  priority: 30, health: { path: /health } }
@@ -60,7 +60,7 @@ Crie `platform/argocd/apps/meuapp.yaml` (Application apontando para os manifests
 O app-of-apps `devops-platform` descobre e sincroniza (`prune`+`selfHeal`).
 
 ### 8. Validar
-- `http://xpto.localhost/meuapp` e `http://xpto.localhost/meuapp/api/health`.
+- `http://nvit.localhost/meuapp` e `http://nvit.localhost/meuapp/api/health`.
 - Console `/devops`: abas **Apps / Publicações / Health / Logs** (a aba **Apps** lê o cluster ao vivo
   pelo label `app.kubernetes.io/part-of` — o app aparece sozinho quando os pods sobem).
 

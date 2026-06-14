@@ -41,23 +41,23 @@ Escritas (`POST`) exigem `Authorization: Bearer ${AI_CONTROL_PLANE_TOKEN}`.
 | GET | `/v1/eval-runs?app=&limit=20` | — | lista desc por `created_at` |
 | GET | `/v1/overview` | — | `{ prompts, promptVersions, feedback7d: {up,down}, lastEvalRuns[..5] }` |
 
-Externamente as rotas ficam sob o prefixo: `http://xpto.localhost/ai-control/api/...`
+Externamente as rotas ficam sob o prefixo: `http://nvit.localhost/ai-control/api/...`
 (também em `https://dev.nvit.com.br/ai-control/api/...`).
 
 ### Exemplos
 
 ```powershell
 # leitura (sem auth)
-curl http://xpto.localhost/ai-control/api/health
-curl http://xpto.localhost/ai-control/api/v1/prompts/gymops.chat.system/active
+curl http://nvit.localhost/ai-control/api/health
+curl http://nvit.localhost/ai-control/api/v1/prompts/gymops.chat.system/active
 
 # escrita (Bearer token do secret ai-control-plane-config)
-curl -X POST http://xpto.localhost/ai-control/api/v1/prompts/gymops.chat.system/versions `
+curl -X POST http://nvit.localhost/ai-control/api/v1/prompts/gymops.chat.system/versions `
   -H "Authorization: Bearer $token" -H "Content-Type: application/json" `
   -d '{ "promptText": "You are the GymOps assistant...", "label": "v2", "activate": true }'
 
 # promote/rollback (confirmação explícita obrigatória)
-curl -X POST http://xpto.localhost/ai-control/api/v1/prompts/gymops.chat.system/activate `
+curl -X POST http://nvit.localhost/ai-control/api/v1/prompts/gymops.chat.system/activate `
   -H "Authorization: Bearer $token" -H "Content-Type: application/json" `
   -d '{ "versionId": "pv_abc123", "confirmed": true }'
 ```
@@ -97,7 +97,7 @@ kubectl -n apps create secret generic ai-control-plane-config `
 kubectl apply -k apps/ai-control-plane/k8s
 
 # 4) validar
-curl http://xpto.localhost/ai-control/api/health
+curl http://nvit.localhost/ai-control/api/health
 ```
 
 GitOps: [`platform/argocd/apps/ai-control-plane.yaml`](../../platform/argocd/apps/ai-control-plane.yaml)

@@ -44,5 +44,5 @@ cd apps/ai-control-plane/api
 npm install ; node --test            # 30 testes puros (sem banco)
 docker build -t ai-control-plane-api:local .
 kubectl apply -k ..\k8s              # ou aguarde o Argo (Application ai-control-plane)
-curl http://xpto.localhost/ai-control/api/health
+curl http://nvit.localhost/ai-control/api/health
 ```

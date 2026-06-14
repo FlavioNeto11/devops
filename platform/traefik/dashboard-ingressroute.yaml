@@ -14,9 +14,9 @@
 #       127.0.0.1 traefik.localhost
 #   (Editar o arquivo hosts exige privilegios de Administrador.)
 #
-# ALTERNATIVA — expor no host principal (xpto.localhost) sob um path:
+# ALTERNATIVA — expor no host principal (nvit.localhost) sob um path:
 #   Se preferir nao mexer no hosts/usar outro host, troque o match para algo
-#   como:  Host(`xpto.localhost`) && PathPrefix(`/traefik`)
+#   como:  Host(`nvit.localhost`) && PathPrefix(`/traefik`)
 #   e adicione um Middleware StripPrefix removendo /traefik antes de chegar ao
 #   api@internal (o dashboard espera servir a partir da raiz). Exemplo de
 #   middleware StripPrefix esta comentado ao final deste arquivo.
@@ -63,7 +63,7 @@ spec:
   # tls: {}
 ---
 # ----------------------------------------------------------------------------
-# ALTERNATIVA (comentada): expor o dashboard em xpto.localhost/traefik
+# ALTERNATIVA (comentada): expor o dashboard em nvit.localhost/traefik
 # ----------------------------------------------------------------------------
 # Caso opte por usar o host principal com path /traefik, o dashboard precisa
 # que o prefixo seja removido (StripPrefix), pois ele espera servir a partir
@@ -94,7 +94,7 @@ spec:
 #   entryPoints:
 #     - web
 #   routes:
-#     - match: Host(`xpto.localhost`) && PathPrefix(`/traefik`)
+#     - match: Host(`nvit.localhost`) && PathPrefix(`/traefik`)
 #       kind: Rule
 #       priority: 1000
 #       services:

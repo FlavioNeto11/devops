@@ -21,7 +21,7 @@ architectural_significance: true
 quality_scenarios:
   - source: Visitante público acessando portal publicado
     stimulus: GET /devops/api/cms/public/<key> ou GET /devops/api/cms/public/files/<id>
-    environment: Rede local (xpto.localhost) ou produção (dev.nvit.com.br)
+    environment: Rede local (nvit.localhost) ou produção (dev.nvit.com.br)
     artifact: PM-API (rota pública)
     response: "Resposta com Cache-Control: public, max-age=30 (conteúdo) ou max-age=86400, immutable (arquivos); ETag para validação 304"
     response_measure: Assets imutáveis (id = hash) servem 304 sem I/O Postgres em revalidações; conteúdo atualiza em ≤30s (visível ao recarregar portal)

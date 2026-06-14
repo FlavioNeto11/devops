@@ -22,7 +22,7 @@ Palestrante Corporativa. Posiciona-a como especialista em **saúde mental corpor
 e desenvolvimento humano para adequação à NR-1** (riscos psicossociais no GRO, vigência 2026). Público:
 RH, SESMT, gestores e departamentos de pessoas. **Somente-frontend** (SPA Vite/React estática): sem
 backend, banco, auth ou segredo. Servido por nginx sob `/anarabottini/`, host `dev.nvit.com.br`
-(e `xpto.localhost` no dev). Encaixa na esteira como app `frontend` puro (`expose: true`,
+(e `nvit.localhost` no dev). Encaixa na esteira como app `frontend` puro (`expose: true`,
 `stripPrefix: false`, `priority: 10`).
 
 ## Ordem de leitura

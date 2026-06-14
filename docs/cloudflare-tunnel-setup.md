@@ -14,7 +14,7 @@ reais **`dev.nvit.com.br`** (principal) e **`nvit.com.br`** (redireciona para o 
 com **HTTPS automatico**.
 
 > Pre-requisito ja feito: as IngressRoutes do Traefik aceitam o host `dev.nvit.com.br`
-> (via [`set-domain.ps1`](../scripts/set-domain.ps1)). O `xpto.localhost` continua valendo
+> (via [`set-domain.ps1`](../scripts/set-domain.ps1)). O `nvit.localhost` continua valendo
 > para dev local.
 
 ---
@@ -187,4 +187,4 @@ E ajuste os Public Hostnames do tunnel (Passo 3) para o novo dominio.
   confira no Console: <https://dev.nvit.com.br/devops>.
 - **Tunnel "Down" no painel**: reinstale o conector: `.\scripts\install-cloudflare-tunnel.ps1 -Uninstall` e depois com o token de novo.
 - **Reverter**: `.\scripts\install-cloudflare-tunnel.ps1 -Uninstall` remove o servico; o
-  acesso local por `xpto.localhost` continua funcionando.
+  acesso local por `nvit.localhost` continua funcionando.

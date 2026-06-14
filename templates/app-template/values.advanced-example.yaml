@@ -11,7 +11,7 @@
 #   - command        : override do entrypoint (ex.: worker reusando a imagem da api)
 # Ver docs/standards/sicat-helm-migration.md (gap analysis + procedimento seguro).
 # =============================================================================
-app: { name: meuapp, namespace: apps, host: xpto.localhost, basePath: /meuapp }
+app: { name: meuapp, namespace: apps, host: nvit.localhost, basePath: /meuapp }
 registry: ''
 defaults:
   imagePullPolicy: IfNotPresent

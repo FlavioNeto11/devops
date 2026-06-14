@@ -37,5 +37,5 @@ Redeploy do serviço. Depois investigue a lib sem pressa. Ver [`deprecation-poli
 
 ## Confirmar
 ```powershell
-curl.exe -s -o NUL -w "%{http_code}" http://xpto.localhost/<app>/api/health   # 200
+curl.exe -s -o NUL -w "%{http_code}" http://nvit.localhost/<app>/api/health   # 200
 ```

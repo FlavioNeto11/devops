@@ -19,7 +19,7 @@ language: pt-BR
 
 Portal institucional premium (site corporativo) da **RM Ambiental Brasil** — reinterpretação moderna do
 site atual, **não** uma cópia. **Somente-frontend** (SPA Vite/React estática): sem backend, banco, auth
-ou segredo. Servido por nginx sob o subpath `/rmambiental/`, host `dev.nvit.com.br` (e `xpto.localhost`
+ou segredo. Servido por nginx sob o subpath `/rmambiental/`, host `dev.nvit.com.br` (e `nvit.localhost`
 no dev local), basePath `/rmambiental`. Encaixa na esteira como um app `frontend` puro
 (`expose: true`, `stripPrefix: false`, `priority: 10`).
 

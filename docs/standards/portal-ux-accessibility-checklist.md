@@ -43,7 +43,7 @@ language: pt-BR
 - [x] `prefers-reduced-motion` respeitado (sem animações)
 - [x] Contraste AA (texto/elementos) nos temas claro e escuro
 - [x] **Auditoria registrada (2026-06-13)**: Lighthouse Accessibility **100** e **axe-core/cli: 0
-      violações** em `http://xpto.localhost/`. Corrigidos no processo: contraste de botões no modo
+      violações** em `http://nvit.localhost/`. Corrigidos no processo: contraste de botões no modo
       escuro (token `--btn-bg` fixo `#2563eb`, branco = 5.8:1), `--muted2` escuro (#828fa9, AA) e
       ordem de headings (rodapé `h4`→`h3`).
 

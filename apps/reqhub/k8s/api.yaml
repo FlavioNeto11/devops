@@ -143,7 +143,7 @@ spec:
     - web
   routes:
     # API -> strip /reqs/api, priority 30 (vence o frontend /reqs priority 10).
-    - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/reqs/api`)
+    - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/reqs/api`)
       kind: Rule
       priority: 30
       services:

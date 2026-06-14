@@ -18,7 +18,7 @@ language: pt-BR
 
 ## 1. Visão geral
 
-**DevOps Console** é o painel da plataforma servido sob o subpath `/devops` (host `xpto.localhost`
+**DevOps Console** é o painel da plataforma servido sob o subpath `/devops` (host `nvit.localhost`
 local / `dev.nvit.com.br` futuro), no namespace `devops-system`. Reúne três serviços:
 
 - **`console-backend`** — API REST + SSE **somente leitura** do cluster (Node 20, Express,

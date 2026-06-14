@@ -265,7 +265,7 @@ function summarizeService(svc) {
  * hosts, paths e services referenciados, alem das rotas brutas.
  *
  * As regras (match) do Traefik usam expressoes como:
- *   Host(`xpto.localhost`) && PathPrefix(`/devops/api`)
+ *   Host(`nvit.localhost`) && PathPrefix(`/devops/api`)
  * Aqui aplicamos regex simples para extrair Host(...) e PathPrefix(...).
  */
 function summarizeIngressRoute(item) {

@@ -14,7 +14,7 @@ com a referencia completa do contrato em [`new-project-contract.md`](./new-proje
 e a convencao de roteamento em [`path-routing-pattern.md`](./path-routing-pattern.md).
 
 > Exemplo de referencia ao longo do checklist: uma app `aplicacao2` (frontend + api +
-> api2), servida em `/aplicacao2` no host `xpto.localhost`.
+> api2), servida em `/aplicacao2` no host `nvit.localhost`.
 
 > **Atalho (gera tudo no padrao):** `C:\devops\scripts\new-app.ps1 -Name <app> -Services frontend,api,api2,worker`
 > cria `devops.yaml` + Dockerfiles + `k8s/` + workflow + **Application do Argo (GitOps)** e
@@ -60,7 +60,7 @@ e a convencao de roteamento em [`path-routing-pattern.md`](./path-routing-patter
 > Referencia campo-a-campo: [`new-project-contract.md`](./new-project-contract.md).
 
 - [ ] Bloco `app`: `name` (kebab-case), `namespace` (`apps` por padrao), `host`
-      (`xpto.localhost`), `basePath` (`/aplicacao2`).
+      (`nvit.localhost`), `basePath` (`/aplicacao2`).
 - [ ] Um item em `services` por servico, com `type` correto
       (`frontend`/`api`/`api2`/`worker`).
 - [ ] **Frontend**: `expose: true`, `stripPrefix: false`, `env.VITE_BASE_PATH=/aplicacao2/`
@@ -78,7 +78,7 @@ Exemplo minimo (veja o completo em
 app:
   name: aplicacao2
   namespace: apps
-  host: xpto.localhost
+  host: nvit.localhost
   basePath: /aplicacao2
 services:
   frontend:
@@ -241,15 +241,15 @@ Duas opcoes (escolha uma):
 
 - [ ] Frontend (sem strip):
       ```powershell
-      curl.exe -I http://xpto.localhost/aplicacao2          # HTTP/1.1 200 OK (text/html)
+      curl.exe -I http://nvit.localhost/aplicacao2          # HTTP/1.1 200 OK (text/html)
       ```
 - [ ] API (com strip: `/aplicacao2/api/health` -> backend ve `/health`):
       ```powershell
-      curl.exe http://xpto.localhost/aplicacao2/api/health  # {"status":"ok"}
+      curl.exe http://nvit.localhost/aplicacao2/api/health  # {"status":"ok"}
       ```
 - [ ] API2 (com strip):
       ```powershell
-      curl.exe http://xpto.localhost/aplicacao2/api2/health # {"status":"ok"}
+      curl.exe http://nvit.localhost/aplicacao2/api2/health # {"status":"ok"}
       ```
 - [ ] Confirmar prioridade: a chamada de API retorna **JSON** (e nao o HTML do frontend).
 - [ ] Conferir IngressRoutes/Middlewares criados:
@@ -261,7 +261,7 @@ Duas opcoes (escolha uma):
 
 ## 10. Conferir no DevOps Console
 
-- [ ] Abrir <http://xpto.localhost/devops> e localizar `aplicacao2` nas abas
+- [ ] Abrir <http://nvit.localhost/devops> e localizar `aplicacao2` nas abas
       **Deployments**/**Pods** (estado em tempo real).
 - [ ] Verificar **Health** (resultado do `health.path`) e a aba de **Rotas/Ingress**
       (frontend sem strip; api/api2 com strip).

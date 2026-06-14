@@ -53,7 +53,7 @@ foreach ($n in ($names | Where-Object { $_ -and $_.Trim() })) {
 Write-Host "== $App :: smoke test ==" -ForegroundColor Cyan
 foreach ($path in @("/$App", "/$App/api/health")) {
   try {
-    $r = Invoke-WebRequest -Headers @{ Host = 'xpto.localhost' } -Uri "http://127.0.0.1$path" -TimeoutSec 10 -SkipHttpErrorCheck
+    $r = Invoke-WebRequest -Headers @{ Host = 'nvit.localhost' } -Uri "http://127.0.0.1$path" -TimeoutSec 10 -SkipHttpErrorCheck
     Write-Host ("  {0} -> HTTP {1}" -f $path, [int]$r.StatusCode) -ForegroundColor Magenta
   } catch { Write-Host "  $path -> (ainda subindo: $($_.Exception.Message))" -ForegroundColor DarkYellow }
 }

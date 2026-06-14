@@ -63,7 +63,7 @@ ao registry. O fluxo via GHCR fica disponivel para quando voce quiser publicar d
 
 ## Roteamento por path (host unico)
 
-Host local: `xpto.localhost` | Host real futuro: `dev.nvit.com.br` (mesmo layout de paths).
+Host local: `nvit.localhost` | Host real futuro: `dev.nvit.com.br` (mesmo layout de paths).
 
 Todas as rotas locais usam o entrypoint `web` (HTTP/porta 80). O `websecure`
 (HTTPS/porta 443) fica documentado como **pendente** (certificado self-signed) — ver
@@ -135,25 +135,25 @@ Prefere por partes? Os scripts tambem rodam isolados (todos idempotentes):
 
 Gera `devops.yaml` + Dockerfiles + `k8s/` + workflow + **Application do Argo (GitOps)** no
 padrao da plataforma, e imprime os comandos de `docker build` / `kubectl apply`. Resultado:
-`http://xpto.localhost/minhaapp` (e `/minhaapp/api`, `/minhaapp/api2`...).
+`http://nvit.localhost/minhaapp` (e `/minhaapp/api`, `/minhaapp/api2`...).
 
 ---
 
 ## URLs de acesso
 
-Apos o Quick Start (e com `xpto.localhost` apontando para `127.0.0.1` no arquivo
+Apos o Quick Start (e com `nvit.localhost` apontando para `127.0.0.1` no arquivo
 `hosts` — ver [`TROUBLESHOOTING.md`](./TROUBLESHOOTING.md)):
 
 | Recurso                 | URL                                              |
 |-------------------------|--------------------------------------------------|
-| DevOps Console          | <http://xpto.localhost/devops>                   |
-| Aplicacao 1 (frontend)  | <http://xpto.localhost/aplicacao1>               |
-| Aplicacao 1 (API health)| <http://xpto.localhost/aplicacao1/api/health>    |
-| Argo CD                 | <http://xpto.localhost/argocd>                    |
-| Grafana                 | <http://xpto.localhost/grafana>                   |
-| Keycloak (SSO)          | <http://xpto.localhost/auth> (realm `nvit`)       |
+| DevOps Console          | <http://nvit.localhost/devops>                   |
+| Aplicacao 1 (frontend)  | <http://nvit.localhost/aplicacao1>               |
+| Aplicacao 1 (API health)| <http://nvit.localhost/aplicacao1/api/health>    |
+| Argo CD                 | <http://nvit.localhost/argocd>                    |
+| Grafana                 | <http://nvit.localhost/grafana>                   |
+| Keycloak (SSO)          | <http://nvit.localhost/auth> (realm `nvit`)       |
 
-> `xpto.localhost` resolve para `127.0.0.1` na maioria dos sistemas; se nao resolver,
+> `nvit.localhost` resolve para `127.0.0.1` na maioria dos sistemas; se nao resolver,
 > adicione a entrada no arquivo `hosts` conforme o [`TROUBLESHOOTING.md`](./TROUBLESHOOTING.md).
 
 ---

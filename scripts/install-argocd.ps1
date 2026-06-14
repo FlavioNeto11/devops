@@ -121,7 +121,7 @@ Invoke-External -FilePath 'kubectl' -Arguments @(
 # -----------------------------------------------------------------------------
 # IngressRoute para /argocd (here-string canalizada para kubectl apply -f -).
 # SEM StripPrefix: o argocd-server usa rootpath /argocd (ver helm-values.yaml).
-# entryPoints [web]; Hosts xpto.localhost e dev.nvit.com.br.
+# entryPoints [web]; Hosts nvit.localhost e dev.nvit.com.br.
 # kubectl apply e idempotente.
 # -----------------------------------------------------------------------------
 Write-Section 'Argo CD :: IngressRoute (/argocd)'
@@ -139,7 +139,7 @@ spec:
     - web
   routes:
     - kind: Rule
-      match: (Host(`xpto.localhost`) || Host(`dev.nvit.com.br`)) && PathPrefix(`/argocd`)
+      match: (Host(`nvit.localhost`) || Host(`dev.nvit.com.br`)) && PathPrefix(`/argocd`)
       priority: 10
       services:
         - name: argocd-server
@@ -172,7 +172,7 @@ if (Test-Path -LiteralPath $appsDir) {
 # Instrucoes de acesso (senha inicial e fallback por port-forward).
 # -----------------------------------------------------------------------------
 Write-Section 'Argo CD :: Acesso'
-Write-Host '  URL (via Traefik): http://xpto.localhost/argocd' -ForegroundColor Green
+Write-Host '  URL (via Traefik): http://nvit.localhost/argocd' -ForegroundColor Green
 Write-Host ''
 Write-Host '  Usuario inicial: admin' -ForegroundColor White
 Write-Host '  Para obter a senha inicial do admin, rode:' -ForegroundColor White

@@ -4,7 +4,7 @@
 app:
   name: gymops
   namespace: apps
-  host: dev.nvit.com.br        # + xpto.localhost no dev local
+  host: dev.nvit.com.br        # + nvit.localhost no dev local
   basePath: /gymops
   appType: product_software             # taxonomia: cms_portal | product_software | platform_tool
 services:

@@ -171,5 +171,5 @@ Invoke-External -FilePath 'kubectl' -Arguments @('get', 'pods', '-n', 'devops-sy
 
 Write-Host ''
 Write-Host '  [OK] DevOps Console instalado/atualizado com sucesso.' -ForegroundColor Green
-Write-Host '       URL: http://xpto.localhost/devops' -ForegroundColor Green
+Write-Host '       URL: http://nvit.localhost/devops' -ForegroundColor Green
 Write-Host '       (O console e somente leitura: RBAC get/list/watch.)' -ForegroundColor Green

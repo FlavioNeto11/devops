@@ -15,7 +15,7 @@
 app:
   name: ai-control-plane
   namespace: apps
-  host: xpto.localhost         # + dev.nvit.com.br nas rotas do IngressRoute
+  host: nvit.localhost         # + dev.nvit.com.br nas rotas do IngressRoute
   basePath: /ai-control
   appType: platform_tool             # taxonomia: cms_portal | product_software | platform_tool
 

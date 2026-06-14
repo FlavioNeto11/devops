@@ -42,7 +42,7 @@ docker build -t reqhub-frontend:local -f apps/reqhub/Dockerfile .
 
 # Deploy local (com aprovação)
 kubectl apply -f apps/reqhub/k8s/
-# Validar: http://xpto.localhost/reqs  e  /reqs/data/current-baseline.json
+# Validar: http://nvit.localhost/reqs  e  /reqs/data/current-baseline.json
 ```
 
 GitOps: `platform/argocd/apps/reqhub.yaml` (auto-sync). CI: `.github/workflows/ci-reqhub.yml`

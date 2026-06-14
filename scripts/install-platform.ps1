@@ -186,17 +186,17 @@ Write-Section 'Plataforma DevOps :: Resumo'
 Write-Host ''
 Write-Host '  Plataforma instalada/atualizada com sucesso!' -ForegroundColor Green
 Write-Host ''
-Write-Host '  Acesse os servicos (host local xpto.localhost via Traefik na porta 80):' -ForegroundColor White
+Write-Host '  Acesse os servicos (host local nvit.localhost via Traefik na porta 80):' -ForegroundColor White
 Write-Host ''
-Write-Host '    DevOps Console : http://xpto.localhost/devops' -ForegroundColor Cyan
-Write-Host '    Argo CD        : http://xpto.localhost/argocd' -ForegroundColor Cyan
+Write-Host '    DevOps Console : http://nvit.localhost/devops' -ForegroundColor Cyan
+Write-Host '    Argo CD        : http://nvit.localhost/argocd' -ForegroundColor Cyan
 if (-not $SkipObservability) {
-    Write-Host '    Grafana        : http://xpto.localhost/grafana' -ForegroundColor Cyan
+    Write-Host '    Grafana        : http://nvit.localhost/grafana' -ForegroundColor Cyan
 }
 Write-Host ''
-Write-Host '  Dica: para resolver xpto.localhost, confirme que o cabecalho Host chega' -ForegroundColor White
+Write-Host '  Dica: para resolver nvit.localhost, confirme que o cabecalho Host chega' -ForegroundColor White
 Write-Host '        ao Traefik. Em geral *.localhost ja resolve para 127.0.0.1; caso' -ForegroundColor White
-Write-Host '        contrario, adicione "127.0.0.1 xpto.localhost" ao arquivo hosts.' -ForegroundColor White
+Write-Host '        contrario, adicione "127.0.0.1 nvit.localhost" ao arquivo hosts.' -ForegroundColor White
 Write-Host ''
 Write-Host '  Senhas iniciais:' -ForegroundColor White
 Write-Host '    Argo CD : kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}"' -ForegroundColor Yellow

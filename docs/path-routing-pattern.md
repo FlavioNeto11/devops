@@ -185,7 +185,7 @@ spec:
   entryPoints:
     - web                                   # HTTP/porta 80 (websecure pendente)
   routes:
-    - match: Host(`xpto.localhost`) && PathPrefix(`/aplicacao1`)
+    - match: Host(`nvit.localhost`) && PathPrefix(`/aplicacao1`)
       kind: Rule
       priority: 10                          # BAIXA: perde para /aplicacao1/api
       services:
@@ -230,7 +230,7 @@ spec:
   entryPoints:
     - web
   routes:
-    - match: Host(`xpto.localhost`) && PathPrefix(`/aplicacao1/api`)
+    - match: Host(`nvit.localhost`) && PathPrefix(`/aplicacao1/api`)
       kind: Rule
       priority: 100                         # ALTA: vence /aplicacao1 (frontend)
       services:
@@ -267,7 +267,7 @@ spec:
   entryPoints:
     - web
   routes:
-    - match: Host(`xpto.localhost`) && PathPrefix(`/aplicacao1/worker`)
+    - match: Host(`nvit.localhost`) && PathPrefix(`/aplicacao1/worker`)
       kind: Rule
       priority: 90
       services:
@@ -286,7 +286,7 @@ spec:
 
 ## 7. Tabela das rotas do dominio (host unico)
 
-Host local: **`xpto.localhost`** | Host real futuro: **`dev.nvit.com.br`** (mesmo layout).
+Host local: **`nvit.localhost`** | Host real futuro: **`dev.nvit.com.br`** (mesmo layout).
 Todas as rotas locais usam o entrypoint **`web` (HTTP/80)**; **`websecure` (HTTPS/443)**
 fica **pendente** (self-signed) — veja [`SECURITY.md`](../SECURITY.md) e
 [`local-domain-setup.md`](./local-domain-setup.md).
@@ -309,7 +309,7 @@ Argo CD e Grafana sao casos especiais: **eles proprios** sabem servir sob um sub
 - **Argo CD**: `server --insecure` + `server.rootpath: /argocd` + `server.basehref:
   /argocd/`. A UI e a API ja respondem sob `/argocd`. Veja
   [`platform/argocd/helm-values.yaml`](../platform/argocd/helm-values.yaml).
-- **Grafana**: `serve_from_sub_path: true` + `root_url: http://xpto.localhost/grafana`. O
+- **Grafana**: `serve_from_sub_path: true` + `root_url: http://nvit.localhost/grafana`. O
   Grafana serve os assets sob `/grafana`. Veja
   [`platform/observability/grafana-values.yaml`](../platform/observability/grafana-values.yaml).
 

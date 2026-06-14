@@ -40,6 +40,6 @@ Tudo concentrado em **`src/lib/site.ts`** + **`src/data/*.ts`** (placeholders de
 ## Próximos passos
 
 1. Validar local: `npm install && npm run build && npm run preview`.
-2. Build da imagem + apply local; smoke em `http://xpto.localhost/anarabottini/`.
+2. Build da imagem + apply local; smoke em `http://nvit.localhost/anarabottini/`.
 3. Commit + push → Argo sincroniza → `https://dev.nvit.com.br/anarabottini/`.
 4. (Opcional) Workflow de CI/GHCR copiado do template para build/push automatizado.

@@ -1,6 +1,6 @@
 # =============================================================================
 # GymOps — plataforma de gestão operacional multiunidade (Next.js + Fastify).
-# Roteamento (host dev.nvit.com.br / xpto.localhost):
+# Roteamento (host dev.nvit.com.br / nvit.localhost):
 #   /gymops        -> web    (Next.js SSR, SEM strip, basePath /gymops, priority 10)
 #   /gymops/api    -> api    (Fastify, StripPrefix /gymops/api, priority 30)
 # Serviços de apoio no cluster: gymops-postgres (pgvector) + gymops-redis.
@@ -329,7 +329,7 @@ spec:
     - web
   routes:
     # API (mais especifica) -> strip /gymops/api, priority MAIOR
-    - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/gymops/api`)
+    - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/gymops/api`)
       kind: Rule
       priority: 30
       services:
@@ -343,7 +343,7 @@ spec:
         - name: secure-headers
           namespace: traefik
     # Web (Next.js, basePath /gymops) -> sem strip, priority menor
-    - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/gymops`)
+    - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/gymops`)
       kind: Rule
       priority: 10
       services:

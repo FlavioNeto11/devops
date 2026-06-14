@@ -2,7 +2,7 @@
 # Roteamento Traefik do SICAT (REGRA DE OURO da plataforma):
 #  - /sicat/api -> sicat-api  : stripPrefix /sicat/api (app ve /v1/*, /health), priority MAIOR
 #  - /sicat     -> sicat-frontend : SEM strip (base /sicat/), priority MENOR
-# Hosts: dev.nvit.com.br (publico) + xpto.localhost (dev local).
+# Hosts: dev.nvit.com.br (publico) + nvit.localhost (dev local).
 # =============================================================================
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
@@ -27,7 +27,7 @@ spec:
   entryPoints:
     - web
   routes:
-    - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/sicat/api`)
+    - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/sicat/api`)
       kind: Rule
       priority: 30
       services:
@@ -39,7 +39,7 @@ spec:
           namespace: traefik
         - name: secure-headers
           namespace: traefik
-    - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/sicat`)
+    - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/sicat`)
       kind: Rule
       priority: 10
       services:

@@ -12,7 +12,7 @@
 #
 # Roteamento: o Grafana e servido em subpath /grafana atraves do Traefik
 # (IngressRoute na plataforma). Por isso usamos serve_from_sub_path=true e
-# root_url apontando para http://xpto.localhost/grafana.
+# root_url apontando para http://nvit.localhost/grafana.
 # =============================================================================
 
 grafana:

@@ -26,7 +26,7 @@ Legenda: `[ ]` pendente · `[x]` concluido.
 - [ ] Garantir o contexto kube `docker-desktop` ativo: `kubectl config use-context docker-desktop`.
 - [ ] Instalar **kubectl**, **Helm 3** e **PowerShell 7** e valida-los no `PATH`.
 - [ ] Confirmar que as portas **80** e **443** estao livres no host.
-- [ ] Definir `xpto.localhost` resolvendo para `127.0.0.1` (verificar/ajustar `hosts`).
+- [ ] Definir `nvit.localhost` resolvendo para `127.0.0.1` (verificar/ajustar `hosts`).
 - [ ] Rodar `.\scripts\diagnose.ps1` e revisar a saida inicial.
 - [ ] Clonar o repositorio em `C:/devops` e revisar o `devops.yaml` de exemplo.
 

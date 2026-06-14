@@ -97,9 +97,9 @@ Causa comum: portas 80/443 em uso (ver item 11) ou CRDs ausentes.
 
 ---
 
-## 5. `xpto.localhost` nao resolve / arquivo hosts
+## 5. `nvit.localhost` nao resolve / arquivo hosts
 
-Sintoma: o navegador nao abre `http://xpto.localhost/...`.
+Sintoma: o navegador nao abre `http://nvit.localhost/...`.
 
 Na maioria dos sistemas, `*.localhost` resolve para `127.0.0.1` automaticamente. Se nao
 resolver, adicione ao arquivo `hosts` (execute o PowerShell **como Administrador**):
@@ -108,22 +108,22 @@ resolver, adicione ao arquivo `hosts` (execute o PowerShell **como Administrador
 # Caminho do arquivo hosts no Windows
 $hosts = "$env:SystemRoot\System32\drivers\etc\hosts"
 
-# Ver entradas existentes para xpto
-Select-String -Path $hosts -Pattern "xpto.localhost"
+# Ver entradas existentes para nvit
+Select-String -Path $hosts -Pattern "nvit.localhost"
 
 # Adicionar a entrada (apenas se ainda nao existir)
-if (-not (Select-String -Path $hosts -Pattern "xpto.localhost" -Quiet)) {
-    Add-Content -Path $hosts -Value "127.0.0.1`txpto.localhost"
+if (-not (Select-String -Path $hosts -Pattern "nvit.localhost" -Quiet)) {
+    Add-Content -Path $hosts -Value "127.0.0.1`tnvit.localhost"
 }
 
 # Validar resolucao
-Resolve-DnsName xpto.localhost
+Resolve-DnsName nvit.localhost
 ```
 
 Depois, teste no navegador ou via `curl`:
 
 ```powershell
-curl.exe -v http://xpto.localhost/devops
+curl.exe -v http://nvit.localhost/devops
 ```
 
 ---
@@ -208,7 +208,7 @@ $enc = kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.d
 [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($enc))
 ```
 
-Acesse <http://xpto.localhost/argocd> com `admin` e a senha exibida. Troque a senha apos
+Acesse <http://nvit.localhost/argocd> com `admin` e a senha exibida. Troque a senha apos
 o primeiro login.
 
 ---
@@ -231,7 +231,7 @@ kubectl describe pod -n observability -l app.kubernetes.io/name=grafana
 
 Esperado (equivalente):
 ```
-GF_SERVER_ROOT_URL=http://xpto.localhost/grafana
+GF_SERVER_ROOT_URL=http://nvit.localhost/grafana
 GF_SERVER_SERVE_FROM_SUB_PATH=true
 ```
 
@@ -379,7 +379,7 @@ ultima linha existente (corrompe ambas). Garanta o newline antes:
 ```powershell
 $h = "$env:SystemRoot\System32\drivers\etc\hosts"
 if ((Get-Content $h -Raw) -notmatch "`n$") { Add-Content $h "" }
-Add-Content $h "127.0.0.1`txpto.localhost"
+Add-Content $h "127.0.0.1`tnvit.localhost"
 ```
 
 ### 13.6 `docker desktop restart` trava em "stopping" (e o flag AutoStart)

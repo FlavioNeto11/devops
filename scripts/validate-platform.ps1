@@ -10,14 +10,14 @@
     houver qualquer FAIL.
 
     Para os checks HTTP usamos:
-        Invoke-WebRequest -UseBasicParsing -Headers @{ Host = 'xpto.localhost' } http://127.0.0.1/<path>
+        Invoke-WebRequest -UseBasicParsing -Headers @{ Host = 'nvit.localhost' } http://127.0.0.1/<path>
     Assim o roteamento por Host do Traefik funciona mesmo sem entrada no arquivo
     hosts do Windows.
 
 .NOTES
     Contrato compartilhado:
       - Contexto kube: docker-desktop
-      - Host de teste: xpto.localhost
+      - Host de teste: nvit.localhost
       - Namespaces: devops-system, traefik, argocd, observability, apps, apps-dev, apps-prod-local
       - Repo git: https://github.com/FlavioNeto11/devops
 #>
@@ -31,7 +31,7 @@ $ErrorActionPreference = 'Continue'
 # Constantes (contrato compartilhado)
 # ---------------------------------------------------------------------------
 $ExpectedContext = 'docker-desktop'
-$TestHost        = 'xpto.localhost'
+$TestHost        = 'nvit.localhost'
 $RepoExpected    = 'https://github.com/FlavioNeto11/devops'
 $RepoSlug        = 'FlavioNeto11/devops'
 $RepoPath        = 'C:/devops'

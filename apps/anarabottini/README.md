@@ -5,7 +5,7 @@ Institucional · Palestrante Corporativa. Posicionamento: **saúde mental corpor
 neurodiversidade e desenvolvimento humano para adequação à NR-1**.
 
 App **somente-frontend** (SPA Vite + React + TS + Tailwind), servido por nginx sob o subpath
-`/anarabottini/` na esteira DevOps local. Host `dev.nvit.com.br` (e `xpto.localhost` no dev).
+`/anarabottini/` na esteira DevOps local. Host `dev.nvit.com.br` (e `nvit.localhost` no dev).
 
 ## Rodar local
 
@@ -43,7 +43,7 @@ kubectl apply -f apps/anarabottini/k8s/anarabottini.yaml
 ```
 
 GitOps: a `Application` do Argo em `platform/argocd/apps/anarabottini.yaml` sincroniza
-`apps/anarabottini/k8s` automaticamente. Validar em `http://xpto.localhost/anarabottini/`.
+`apps/anarabottini/k8s` automaticamente. Validar em `http://nvit.localhost/anarabottini/`.
 
 ## Stack
 

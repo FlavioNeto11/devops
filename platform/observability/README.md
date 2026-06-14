@@ -77,7 +77,7 @@ kubectl -n observability get secret kube-prometheus-stack-grafana -o jsonpath="{
 # Estado da stack
 kubectl get pods,svc -n observability
 
-# Acesso: http://xpto.localhost/grafana  (login local admin/admin ou "Sign in with Keycloak")
+# Acesso: http://nvit.localhost/grafana  (login local admin/admin ou "Sign in with Keycloak")
 ```
 
 > Reaplicar values (`helm upgrade`) em recurso vivo é operação **com aprovação** — ver

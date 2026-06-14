@@ -22,7 +22,7 @@ Fronteiras de operação: `AGENTS.md` §5 (gerar scaffold é seguro; aplicar no 
 ## Passos
 
 1. **Confirmar o contrato** com o operador: nome do app, `basePath` (default `/<app>`), namespace
-   (default `apps`), host (`xpto.localhost`) e a lista de serviços.
+   (default `apps`), host (`nvit.localhost`) e a lista de serviços.
 2. **Gerar o scaffold** (operação segura — não toca no cluster). Sugira ao operador rodar:
    ```powershell
    C:\devops\scripts\new-app.ps1 -Name <app> -Services frontend,api,api2,worker
@@ -36,7 +36,7 @@ Fronteiras de operação: `AGENTS.md` §5 (gerar scaffold é seguro; aplicar no 
    ou `scripts/publish-app.ps1 -App <app>`. NÃO execute sem confirmação.
 5. **GitOps** — comitar `platform/argocd/apps/<app>.yaml` (e os manifests) para o app-of-apps
    `devops-platform` sincronizar. Commit/push só quando o operador pedir.
-6. **Validar**: `http://xpto.localhost/<app>` e `http://xpto.localhost/<app>/api/health`; conferir
+6. **Validar**: `http://nvit.localhost/<app>` e `http://nvit.localhost/<app>/api/health`; conferir
    no Console `/devops` (abas Apps / Publicações / Health / Logs).
 7. **Registrar na plataforma — OBRIGATÓRIO** (ver `docs/standards/golden-path.md` §9). Criar/importar
    um app **não termina** no build — só a aba **Apps** é automática (label `part-of`). As demais são

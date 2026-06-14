@@ -102,7 +102,7 @@ spec:
     - web
   routes:
     # PathPrefix("/") com priority 1 (a MENOR): so a raiz cai aqui; os demais paths vencem.
-    - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/`)
+    - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/`)
       kind: Rule
       priority: 1
       services:

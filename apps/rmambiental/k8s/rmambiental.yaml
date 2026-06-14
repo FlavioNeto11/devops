@@ -1,6 +1,6 @@
 # =============================================================================
 # RM Ambiental Brasil — portal institucional (somente frontend) sob /rmambiental.
-# Roteamento (host dev.nvit.com.br / xpto.localhost):
+# Roteamento (host dev.nvit.com.br / nvit.localhost):
 #   /rmambiental  -> frontend (nginx + SPA Vite, SEM strip, priority 10)
 # Imagem local: rmambiental-frontend:local (build: docker build -t rmambiental-frontend:local apps/rmambiental).
 # As annotations devops.flavioneto/* alimentam a aba "Publicacoes" do DevOps Console.
@@ -90,7 +90,7 @@ spec:
     - web
   routes:
     # frontend institucional (priority 10 vence o portal `/` priority 1)
-    - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/rmambiental`)
+    - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/rmambiental`)
       kind: Rule
       priority: 10
       services:

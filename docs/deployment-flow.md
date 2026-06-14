@@ -56,7 +56,7 @@ frontend/API/worker** (local e via Actions/GHCR), **reverter publicacao**, **ver
 ┌──────────────────────────────┐                    ┌──────────────────────────────┐
 │ Traefik (web:80) publica rotas│                    │ DevOps Console (SSE -> React) │
 │  /<app>, /<app>/api │                    │  estado EM TEMPO REAL         │
-└──────────────────────────────┘                    │  http://xpto.localhost/devops │
+└──────────────────────────────┘                    │  http://nvit.localhost/devops │
                                                      └──────────────────────────────┘
 
          Observabilidade: Prometheus (metricas) + Grafana (/grafana) + Loki/Promtail (logs)
@@ -135,15 +135,15 @@ kubectl get pods -A
 Esperado: pods de `traefik`, `argocd`, `observability` (Prometheus/Grafana/Loki/Promtail),
 `devops-system` (console) e `apps` (<app>) em `Running`/`Ready`.
 
-Acessos (com `xpto.localhost` resolvendo para `127.0.0.1` — veja
+Acessos (com `nvit.localhost` resolvendo para `127.0.0.1` — veja
 [`local-domain-setup.md`](./local-domain-setup.md)):
 
 | Recurso        | URL                                |
 |----------------|------------------------------------|
-| Console        | <http://xpto.localhost/devops>     |
-| Aplicacao 1    | <http://xpto.localhost/<app>> |
-| Argo CD        | <http://xpto.localhost/argocd>     |
-| Grafana        | <http://xpto.localhost/grafana>    |
+| Console        | <http://nvit.localhost/devops>     |
+| Aplicacao 1    | <http://nvit.localhost/<app>> |
+| Argo CD        | <http://nvit.localhost/argocd>     |
+| Grafana        | <http://nvit.localhost/grafana>    |
 
 > **Idempotencia**: re-rodar `bootstrap.ps1` e seguro — Helm faz `upgrade --install` e os
 > `kubectl apply` convergem ao estado desejado, sem duplicar recursos.
@@ -256,7 +256,7 @@ deployment "<app>-frontend" successfully rolled out
 Validar a rota (sem strip, servido sob `/<app>/`):
 
 ```powershell
-curl.exe -I http://xpto.localhost/<app>
+curl.exe -I http://nvit.localhost/<app>
 ```
 
 ```
@@ -312,7 +312,7 @@ kubectl rollout status  deployment/<app>-api -n apps --timeout=180s
 Validar a rota (com StripPrefix: `/<app>/api/health` -> backend ve `/health`):
 
 ```powershell
-curl.exe http://xpto.localhost/<app>/api/health
+curl.exe http://nvit.localhost/<app>/api/health
 ```
 
 ```
@@ -330,7 +330,7 @@ deploy pelo runner. Confirme o health apos o rollout:
 
 ```powershell
 gh run watch
-curl.exe http://xpto.localhost/<app>/api/health   # {"status":"ok"}
+curl.exe http://nvit.localhost/<app>/api/health   # {"status":"ok"}
 ```
 
 ---
@@ -475,14 +475,14 @@ Resultado esperado: linhas de log da aplicacao (ex.: `listening on :8080`,
 
 ### 9.2 No DevOps Console
 
-- Acesse <http://xpto.localhost/devops>, aba **Logs** (ou a aba do recurso) e selecione o
+- Acesse <http://nvit.localhost/devops>, aba **Logs** (ou a aba do recurso) e selecione o
   Pod/Deployment. O Console transmite logs em **tempo real via SSE** (somente leitura — o
   RBAC permite `pods/log`). Veja a secao 12.
 
 ### 9.3 No Grafana/Loki
 
 - O **Promtail** coleta os logs dos pods; o **Loki** armazena e consulta. No Grafana
-  (<http://xpto.localhost/grafana>), use **Explore** com o datasource **Loki** e uma query
+  (<http://nvit.localhost/grafana>), use **Explore** com o datasource **Loki** e uma query
   LogQL, por exemplo:
   ```logql
   {namespace="apps", app="<app>-api"}
@@ -545,7 +545,7 @@ kubectl get events -n apps --sort-by=.lastTimestamp | Select-String -Pattern 'Pu
 
 ## 11. Usar o Grafana
 
-- **Acesso**: <http://xpto.localhost/grafana> (servido em subpath via
+- **Acesso**: <http://nvit.localhost/grafana> (servido em subpath via
   `serve_from_sub_path=true` + `root_url=.../grafana` — veja
   [`platform/observability/grafana-values.yaml`](../platform/observability/grafana-values.yaml)).
 - **Login (laboratorio)**: usuario `admin`, senha `admin` (`grafana.adminPassword: admin`).
@@ -579,7 +579,7 @@ datasource **Loki** em **Explore**.
 
 ## 12. Usar o Argo CD
 
-- **Acesso**: <http://xpto.localhost/argocd> (`argocd server --insecure`, `rootpath
+- **Acesso**: <http://nvit.localhost/argocd> (`argocd server --insecure`, `rootpath
   /argocd`, `basehref /argocd/` — veja
   [`platform/argocd/helm-values.yaml`](../platform/argocd/helm-values.yaml)).
 - **Login**:
@@ -592,7 +592,7 @@ datasource **Loki** em **Explore**.
     Saida esperada: a senha inicial (string aleatoria). Troque-a apos o primeiro login.
 - **Login via CLI** (opcional):
   ```powershell
-  argocd login xpto.localhost --grpc-web --insecure --username admin --password <SENHA>
+  argocd login nvit.localhost --grpc-web --insecure --username admin --password <SENHA>
   ```
   > `--grpc-web` e util porque o Argo CD esta atras do Traefik em subpath/HTTP.
 
@@ -625,7 +625,7 @@ rollback`. Em auto-sync, prefira **reverter no Git**.
 
 ## 13. Usar o DevOps Console
 
-- **Acesso**: <http://xpto.localhost/devops> (frontend React, base `/devops/`; backend em
+- **Acesso**: <http://nvit.localhost/devops> (frontend React, base `/devops/`; backend em
   `/devops/api` com StripPrefix).
 - **O que e**: painel **somente leitura** do cluster, com atualizacao em **tempo real via
   SSE**. Backend Node.js (Express + `@kubernetes/client-node`) no namespace `devops-system`,
@@ -649,9 +649,9 @@ Validacao rapida:
 
 ```powershell
 kubectl get pods -n devops-system
-curl.exe -I http://xpto.localhost/devops
+curl.exe -I http://nvit.localhost/devops
 # Healthcheck da API do Console (StripPrefix /devops/api -> backend ve /health)
-curl.exe http://xpto.localhost/devops/api/health
+curl.exe http://nvit.localhost/devops/api/health
 ```
 
 Esperado: pods do console `Running`; `/devops` retorna 200; `/devops/api/health` retorna um

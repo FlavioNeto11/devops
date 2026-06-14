@@ -25,7 +25,7 @@ Plataforma operacional de automação **MTR/CDF/DMR da CETESB-SP**. Monorepo `np
 (LangChain/LangGraph/OpenAI, AI Control Center) e observabilidade opcional via Langfuse.
 
 Na plataforma: `basePath: /sicat`, namespace `apps`, hosts `dev.nvit.com.br` (público) e
-`xpto.localhost` (dev). Frontend em `/sicat` (sem strip, base `/sicat/`); API em `/sicat/api`
+`nvit.localhost` (dev). Frontend em `/sicat` (sem strip, base `/sicat/`); API em `/sicat/api`
 (strip — o processo vê `/health`, `/v1/*` na raiz). Contrato: [`devops.yaml`](./devops.yaml).
 
 ## Ordem de leitura

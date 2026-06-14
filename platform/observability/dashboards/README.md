@@ -59,7 +59,7 @@ pelo sidecar (por padrao, listada na UI em **Dashboards**).
 
 Caso prefira importar pela interface (sem ConfigMap):
 
-1. Acesse o Grafana em `http://xpto.localhost/grafana` e faca login
+1. Acesse o Grafana em `http://nvit.localhost/grafana` e faca login
    (usuario `admin`, senha `admin` no laboratorio).
 2. Menu lateral: **Dashboards** -> **New** -> **Import**.
 3. Cole o conteudo de `cluster-overview.json` no campo *Import via dashboard
@@ -70,7 +70,7 @@ Caso prefira importar pela interface (sem ConfigMap):
 Para abrir um dashboard ja existente diretamente pelo UID, use a URL:
 
 ```
-http://xpto.localhost/grafana/d/cluster-overview
+http://nvit.localhost/grafana/d/cluster-overview
 ```
 
 > Em producao (`https://dev.nvit.com.br/grafana`), o mesmo caminho de UID se aplica,

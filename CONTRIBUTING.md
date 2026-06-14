@@ -54,7 +54,7 @@ Adoção é **incremental e reversível** (caminho antigo atrás de flag por 1 c
 ## Testes & build (por app)
 - SICAT (npm): `cd apps/sicat && npm test`. GymOps (pnpm): `cd apps/gymops && pnpm -r test`.
 - Build de imagem (lab): `docker build -t <app>-<svc>:local ...` → `kubectl apply` / `scripts/publish-app.ps1`.
-- Validar: `http://xpto.localhost/<app>` + `/<app>/api/health`; conferir no Console `/devops`.
+- Validar: `http://nvit.localhost/<app>` + `/<app>/api/health`; conferir no Console `/devops`.
 
 ## Lint, Format & Test (piso compartilhado)
 Piso mínimo na raiz, **herança > duplicação**; cada app pode sobrescrever:

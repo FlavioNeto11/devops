@@ -559,7 +559,7 @@
         "quality_scenario": {
           "source": "Visitante público acessando portal publicado",
           "stimulus": "GET /devops/api/cms/public/<key> ou GET /devops/api/cms/public/files/<id>",
-          "environment": "Rede local (xpto.localhost) ou produção (dev.nvit.com.br)",
+          "environment": "Rede local (nvit.localhost) ou produção (dev.nvit.com.br)",
           "artifact": "PM-API (rota pública)",
           "response": "Resposta com Cache-Control: public, max-age=30 (conteúdo) ou max-age=86400, immutable (arquivos); ETag para validação 304",
           "response_measure": "Assets imutáveis (id = hash) servem 304 sem I/O Postgres em revalidações; conteúdo atualiza em ≤30s (visível ao recarregar portal)"
@@ -1652,7 +1652,7 @@
       {
         "proposed_id": "REQ-CONSOLE-0008",
         "title": "Display Traefik IngressRoutes with hosts and paths",
-        "statement": "O backend lista IngressRoutes do Traefik via GET /ingressroutes (CRD traefik.io/v1alpha1). Para cada rota extrai: hosts (via regex Host(...)), paths (Path/PathPrefix), services, middlewares e priority. Frontend exibe roteamento e como cada app esta exposta no host unico (xpto.localhost ou dev.nvit.com.br futuro).",
+        "statement": "O backend lista IngressRoutes do Traefik via GET /ingressroutes (CRD traefik.io/v1alpha1). Para cada rota extrai: hosts (via regex Host(...)), paths (Path/PathPrefix), services, middlewares e priority. Frontend exibe roteamento e como cada app esta exposta no host unico (nvit.localhost ou dev.nvit.com.br futuro).",
         "scope": "product",
         "priority": "high"
       },

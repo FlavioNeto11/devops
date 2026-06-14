@@ -50,7 +50,7 @@ Namespace `apps`. Labels `app.kubernetes.io/part-of: sicat` (Console agrupa na a
 - `/sicat/api` → **api**, **strip `/sicat/api`** (Middleware `sicat-api-strip`), **priority 30**.
   O app vê as rotas na raiz: `/health`, `/health/system`, `/v1/*` (auth, manifestos, jobs,
   ai-control, conversations, cetesb...). O frontend chama `/sicat/api/v1/...`.
-- Hosts: `dev.nvit.com.br` (público via Cloudflare Tunnel) e `xpto.localhost` (dev local).
+- Hosts: `dev.nvit.com.br` (público via Cloudflare Tunnel) e `nvit.localhost` (dev local).
 
 ## 4. Dependências, secrets e config
 

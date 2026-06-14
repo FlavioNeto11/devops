@@ -14,7 +14,7 @@
 #   - Cluster local: Docker Desktop (contexto kube: docker-desktop).
 #   - service.type LoadBalancer: o Docker Desktop mapeia o LoadBalancer para
 #     localhost, entao web (80) e websecure (443) ficam acessiveis em
-#     http://xpto.localhost e (futuramente) https://xpto.localhost.
+#     http://nvit.localhost e (futuramente) https://nvit.localhost.
 # ----------------------------------------------------------------------------
 
 # Apenas 1 replica no laboratorio local (suficiente para Docker Desktop).
@@ -174,7 +174,7 @@ livenessProbe:
 # ----------------------------------------------------------------------------
 # 1) Gerar um certificado self-signed (ou usar mkcert) para *.localhost e
 #    criar um Secret TLS no namespace 'traefik', por exemplo:
-#       kubectl -n traefik create secret tls xpto-localhost-tls \
+#       kubectl -n traefik create secret tls nvit-localhost-tls \
 #         --cert=tls.crt --key=tls.key
 # 2) Configurar um TLSStore default apontando para esse Secret OU referenciar
 #    o Secret nas IngressRoutes (entryPoints [websecure], tls: {}).

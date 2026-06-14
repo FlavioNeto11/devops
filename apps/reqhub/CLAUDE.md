@@ -61,7 +61,7 @@ requisito × evidência/alocação) e **Fila de reprocessamento**. Servido sob `
 - **Testes:** `cd apps/reqhub/frontend && node --test`.
 - **Build/deploy (lab):** `docker build -t reqhub-frontend:local -f apps/reqhub/Dockerfile .` +
   `kubectl apply -f apps/reqhub/k8s/`. GitOps: Application em `platform/argocd/apps/reqhub.yaml`.
-- **Validar:** `http://xpto.localhost/reqs` e `/reqs/data/current-baseline.json`.
+- **Validar:** `http://nvit.localhost/reqs` e `/reqs/data/current-baseline.json`.
 
 ## Regras inegociáveis
 

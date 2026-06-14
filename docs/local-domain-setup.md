@@ -9,7 +9,7 @@ language: pt-BR
 # Configuracao de Dominio (Local e Real)
 
 Este guia cobre como apontar os hosts da plataforma no **arquivo `hosts` do Windows** para
-o ambiente **local** (`xpto.localhost`, `dev.nvit.com.br`, `traefik.localhost`) e como
+o ambiente **local** (`nvit.localhost`, `dev.nvit.com.br`, `traefik.localhost`) e como
 preparar o **dominio real futuro** (`dev.nvit.com.br`): DNS (A/CNAME), firewall e port-forward
 no roteador, alem das alternativas **Cloudflare Tunnel** e **ngrok**, e notas de **HTTPS**
 (cert-manager/Let's Encrypt ou self-signed).
@@ -23,13 +23,13 @@ no roteador, alem das alternativas **Cloudflare Tunnel** e **ngrok**, e notas de
 
 - O **Traefik** (namespace `traefik`) publica as portas **80** (`web`) e **443**
   (`websecure`) no host. No laboratorio usamos **HTTP/80**.
-- O navegador precisa **resolver o host** (`xpto.localhost`, `dev.nvit.com.br`) para
+- O navegador precisa **resolver o host** (`nvit.localhost`, `dev.nvit.com.br`) para
   `127.0.0.1` (loopback), de modo que a requisicao chegue ao Traefik local.
 - O Traefik usa o cabecalho **Host** + o **path** para rotear (veja a tabela de rotas em
   [`path-routing-pattern.md`](./path-routing-pattern.md)).
 
 ```
-Navegador  --(resolve xpto.localhost -> 127.0.0.1)-->  Traefik (web:80)  -->  Service no cluster
+Navegador  --(resolve nvit.localhost -> 127.0.0.1)-->  Traefik (web:80)  -->  Service no cluster
 ```
 
 ---
@@ -38,14 +38,14 @@ Navegador  --(resolve xpto.localhost -> 127.0.0.1)-->  Traefik (web:80)  -->  Se
 
 Por convencao (RFC 6761), nomes terminados em **`.localhost`** costumam resolver para
 **`127.0.0.1`** automaticamente, sem editar o arquivo `hosts`. Ou seja,
-**`xpto.localhost`** e **`traefik.localhost`** muitas vezes ja funcionam "de fabrica".
+**`nvit.localhost`** e **`traefik.localhost`** muitas vezes ja funcionam "de fabrica".
 
 Verifique:
 
 ```powershell
-Resolve-DnsName xpto.localhost
+Resolve-DnsName nvit.localhost
 # ou
-ping xpto.localhost
+ping nvit.localhost
 ```
 
 Saida esperada (se ja resolve):
@@ -53,7 +53,7 @@ Saida esperada (se ja resolve):
 ```
 Name              Type   TTL   Section    IPAddress
 ----              ----   ---   -------    ---------
-xpto.localhost    A      ...   Answer     127.0.0.1
+nvit.localhost    A      ...   Answer     127.0.0.1
 ```
 
 > Em **alguns** ambientes Windows Server o resolvedor **nao** atende `.localhost`
@@ -71,12 +71,12 @@ Administrador**.
 ### 3.1 Entradas necessarias
 
 ```
-127.0.0.1 xpto.localhost
+127.0.0.1 nvit.localhost
 127.0.0.1 dev.nvit.com.br
 127.0.0.1 traefik.localhost
 ```
 
-- `xpto.localhost` — host unico da plataforma (Console, Argo CD, Grafana, apps).
+- `nvit.localhost` — host unico da plataforma (Console, Argo CD, Grafana, apps).
 - `dev.nvit.com.br` — testar **localmente** o layout do dominio real (resolve para o loopback
   enquanto nao houver DNS publico).
 - `traefik.localhost` — dashboard do Traefik (veja
@@ -100,7 +100,7 @@ como Administrador**:
 $ErrorActionPreference = 'Stop'
 $hostsPath = "$env:WINDIR\System32\drivers\etc\hosts"
 $entries = @(
-    '127.0.0.1 xpto.localhost',
+    '127.0.0.1 nvit.localhost',
     '127.0.0.1 dev.nvit.com.br',
     '127.0.0.1 traefik.localhost'
 )
@@ -125,9 +125,9 @@ foreach ($e in $entries) {
 
 ```powershell
 Resolve-DnsName dev.nvit.com.br
-ping xpto.localhost
+ping nvit.localhost
 # Teste HTTP de uma rota (apos a plataforma estar no ar):
-curl.exe -I http://xpto.localhost/devops
+curl.exe -I http://nvit.localhost/devops
 ```
 
 Saida esperada do `curl.exe -I` (cabecalhos; pode haver redirecionamento para `/devops/`):
@@ -145,11 +145,11 @@ HTTP/1.1 200 OK
 
 | Recurso                  | URL                                              |
 |--------------------------|--------------------------------------------------|
-| DevOps Console           | <http://xpto.localhost/devops>                   |
-| Aplicacao 1 (frontend)   | <http://xpto.localhost/aplicacao1>               |
-| Aplicacao 1 (API health) | <http://xpto.localhost/aplicacao1/api/health>    |
-| Argo CD                  | <http://xpto.localhost/argocd>                    |
-| Grafana                  | <http://xpto.localhost/grafana>                   |
+| DevOps Console           | <http://nvit.localhost/devops>                   |
+| Aplicacao 1 (frontend)   | <http://nvit.localhost/aplicacao1>               |
+| Aplicacao 1 (API health) | <http://nvit.localhost/aplicacao1/api/health>    |
+| Argo CD                  | <http://nvit.localhost/argocd>                    |
+| Grafana                  | <http://nvit.localhost/grafana>                   |
 | Dashboard do Traefik     | <http://traefik.localhost/dashboard/>            |
 
 ---
@@ -168,12 +168,12 @@ maquina. Ha duas abordagens:
 
 ### 5.1 (A) DNS — registros A/CNAME
 
-No painel do seu provedor de DNS (registrador do dominio `xpto.com`):
+No painel do seu provedor de DNS (registrador do dominio `nvit.com.br`):
 
 | Tipo  | Nome (host)    | Valor                              | Quando usar                                           |
 |-------|----------------|------------------------------------|-------------------------------------------------------|
 | `A`   | `www`          | `<IP_PUBLICO_DA_SUA_CONEXAO>`      | Exposicao direta (IP fixo). Aponta `dev.nvit.com.br` -> IP. |
-| `A`   | `@` (apex)     | `<IP_PUBLICO_DA_SUA_CONEXAO>`      | Se quiser `xpto.com` (sem www) tambem.                |
+| `A`   | `@` (apex)     | `<IP_PUBLICO_DA_SUA_CONEXAO>`      | Se quiser `nvit.com.br` (sem www) tambem.                |
 | `CNAME` | `www`        | `<host-do-tunel>` (ex.: Cloudflare/ngrok) | Quando usar tunel que fornece um hostname.       |
 
 - **IP dinamico?** Use um servico de **DDNS** (Dynamic DNS) para manter o registro `A`
@@ -217,7 +217,7 @@ No painel do seu roteador (NAT/Port Forwarding), encaminhe:
 
 O **Cloudflare Tunnel** (via `cloudflared`) cria um tunel de **saida** da sua maquina ate a
 Cloudflare; ela publica `dev.nvit.com.br` com **TLS gerenciado**, **sem** abrir portas no
-roteador. Pre-requisito: o dominio `xpto.com` precisa estar usando os **nameservers da
+roteador. Pre-requisito: o dominio `nvit.com.br` precisa estar usando os **nameservers da
 Cloudflare** (dominio adicionado a sua conta Cloudflare).
 
 ### 6.1 Instalar o `cloudflared` (Windows)
@@ -236,14 +236,14 @@ cloudflared --version
 cloudflared tunnel login
 
 # 2) Criar um tunel nomeado (gera um arquivo de credenciais .json e um Tunnel ID)
-cloudflared tunnel create xpto-local
+cloudflared tunnel create nvit-local
 ```
 
 Saida esperada (exemplo):
 
 ```
 Tunnel credentials written to C:\Users\<voce>\.cloudflared\<TUNNEL_ID>.json
-Created tunnel xpto-local with id <TUNNEL_ID>
+Created tunnel nvit-local with id <TUNNEL_ID>
 ```
 
 ### 6.3 Mapear o hostname para o Traefik local (porta 80)
@@ -262,7 +262,7 @@ ingress:
   - hostname: dev.nvit.com.br
     service: http://localhost:80
   # (Opcional) outro hostname/host:
-  # - hostname: xpto.com
+  # - hostname: nvit.com.br
   #   service: http://localhost:80
   # Regra catch-all obrigatoria no final:
   - service: http_status:404
@@ -277,14 +277,14 @@ ingress:
 
 ```powershell
 # Cria/atualiza o CNAME dev.nvit.com.br -> <TUNNEL_ID>.cfargotunnel.com na Cloudflare
-cloudflared tunnel route dns xpto-local dev.nvit.com.br
+cloudflared tunnel route dns nvit-local dev.nvit.com.br
 ```
 
 ### 6.5 Rodar o tunel (teste e como servico)
 
 ```powershell
 # Teste em primeiro plano (Ctrl+C para parar)
-cloudflared tunnel run xpto-local
+cloudflared tunnel run nvit-local
 
 # Instalar como SERVICO do Windows (inicia com a maquina, usa o config.yml)
 cloudflared service install
@@ -385,7 +385,7 @@ apenas em laboratorio. Por isso, no lab, mantemos **HTTP** por padrao.
 | Sintoma                                                  | Causa provavel                                        | Correcao                                                                 |
 |---------------------------------------------------------|-------------------------------------------------------|--------------------------------------------------------------------------|
 | `dev.nvit.com.br` nao abre localmente.                     | Sem entrada no `hosts` apontando p/ `127.0.0.1`.      | Adicione `127.0.0.1 dev.nvit.com.br` (secao 3) e `ipconfig /flushdns`.      |
-| `xpto.localhost` nao resolve.                           | Resolvedor nao atende `.localhost` neste host.        | Adicione `127.0.0.1 xpto.localhost` no `hosts`.                          |
+| `nvit.localhost` nao resolve.                           | Resolvedor nao atende `.localhost` neste host.        | Adicione `127.0.0.1 nvit.localhost` no `hosts`.                          |
 | Pagina abre mas vem 404 do Traefik.                     | `Host` nao casa nenhuma `IngressRoute`.               | Confirme o `host` no `devops.yaml`/IngressRoutes (local vs `dev.nvit.com.br`). |
 | HTTPS com aviso de certificado.                         | Certificado self-signed.                              | Use Cloudflare Tunnel ou Let's Encrypt (secao 8).                        |
 | Tunel Cloudflare nao publica.                           | Servico `cloudflared` parado / `config.yml` errado.   | `Get-Service cloudflared`; valide `config.yml` e o `Tunnel ID`.         |

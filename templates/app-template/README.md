@@ -6,7 +6,7 @@ Deployments, Services ClusterIP, ConfigMaps, exemplo de Secret e rotas de
 Ingress do **Traefik** (`IngressRoute` + `Middleware` de `StripPrefix`).
 
 O chart segue a **convencao de roteamento por subpath** da plataforma: o mesmo
-host (`xpto.localhost` no local, `dev.nvit.com.br` no real) serve varias apps,
+host (`nvit.localhost` no local, `dev.nvit.com.br` no real) serve varias apps,
 cada uma sob um `basePath` (ex.: `/aplicacao1`).
 
 > **Schema canonico do `devops.yaml`:** [`../../schema/devops-schema.json`](../../schema/devops-schema.json)
@@ -112,8 +112,8 @@ removesse o prefixo, o nginx procuraria os arquivos na raiz e quebraria os
 links dos assets. Por isso:
 
 ```
-Requisicao: GET https://xpto.localhost/aplicacao1/  (ou /aplicacao1/qualquer-rota)
-   -> match Host(`xpto.localhost`) && PathPrefix(`/aplicacao1`)  (priority 10)
+Requisicao: GET https://nvit.localhost/aplicacao1/  (ou /aplicacao1/qualquer-rota)
+   -> match Host(`nvit.localhost`) && PathPrefix(`/aplicacao1`)  (priority 10)
    -> SEM middleware
    -> nginx recebe /aplicacao1/... e serve a SPA corretamente
 ```
@@ -124,8 +124,8 @@ A API e escrita com rotas a partir da raiz (`/health`, `/users`, ...). O
 Traefik remove o **prefixo completo** (`basePath` + `path`) antes de encaminhar:
 
 ```
-Requisicao: GET https://xpto.localhost/aplicacao1/api/health
-   -> match Host(`xpto.localhost`) && PathPrefix(`/aplicacao1/api`)  (priority 100)
+Requisicao: GET https://nvit.localhost/aplicacao1/api/health
+   -> match Host(`nvit.localhost`) && PathPrefix(`/aplicacao1/api`)  (priority 100)
    -> Middleware StripPrefix prefixes: [/aplicacao1/api]
    -> backend recebe /health
 ```

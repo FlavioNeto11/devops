@@ -2,19 +2,46 @@
   "metamodel_version": "1.0.0",
   "has_previous": true,
   "from": {
-    "commit": "18d9a352b14e",
-    "baseline_hash": "4cd62994135653205fa4f332faf85625099dc8989d7a29d5f9ef4d384f82cce0"
+    "commit": "69000f1b8f32",
+    "baseline_hash": "a4d21139291ac6d58344cb5db4ba3334c48d75ec8f961e5d8f8ac78f86bee8a2"
   },
   "to": {
     "commit": "working-tree",
-    "baseline_hash": "a4d21139291ac6d58344cb5db4ba3334c48d75ec8f961e5d8f8ac78f86bee8a2"
+    "baseline_hash": "c4db9dfa05884a19047d77b87f3069e68f96b815c2c49a58bcbe7d64952756d0"
   },
   "counts": {
     "added": 0,
     "removed": 0,
-    "changed": 0
+    "changed": 2
   },
   "added": [],
   "removed": [],
-  "changed": []
+  "changed": [
+    {
+      "id": "REQ-CMS-NFR-001",
+      "title": "Public content served with optimized cache headers and immutable assets",
+      "product": "cms",
+      "type": "non-functional",
+      "impact_band": "medium",
+      "semantic_change": "none",
+      "change_reason": "baseline inicial (bootstrap)",
+      "fields": [
+        "quality_scenarios"
+      ],
+      "impact_delta": 0
+    },
+    {
+      "id": "REQ-CONSOLE-0008",
+      "title": "Display Traefik IngressRoutes with hosts and paths",
+      "product": "console",
+      "type": "functional",
+      "impact_band": "low",
+      "semantic_change": "none",
+      "change_reason": "baseline inicial (bootstrap)",
+      "fields": [
+        "statement"
+      ],
+      "impact_delta": 0
+    }
+  ]
 }

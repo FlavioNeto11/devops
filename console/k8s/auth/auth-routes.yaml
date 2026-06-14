@@ -19,7 +19,7 @@ metadata:
 spec:
   entryPoints: [web]
   routes:
-    - match: (Host(`xpto.localhost`) || Host(`dev.nvit.com.br`)) && PathPrefix(`/oauth2`)
+    - match: (Host(`nvit.localhost`) || Host(`dev.nvit.com.br`)) && PathPrefix(`/oauth2`)
       kind: Rule
       priority: 50
       services:

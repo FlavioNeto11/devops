@@ -18,7 +18,7 @@ language: pt-BR
 ## 1. Visão geral
 
 **RM Ambiental Brasil** é o **portal institucional** (site corporativo somente-frontend) da empresa,
-servido na esteira DevOps local sob `https://dev.nvit.com.br/rmambiental` (e `xpto.localhost` no dev).
+servido na esteira DevOps local sob `https://dev.nvit.com.br/rmambiental` (e `nvit.localhost` no dev).
 Stack em uma linha: **Vite + React 18 + TypeScript + Tailwind + Framer Motion**, build estático
 empacotado em **nginx** sob o subpath `/rmambiental/`. **Sem backend, sem banco, sem auth.** Idioma de
 produto: pt-BR. Estado: deployado no lab (`:local`) — ver [`docs/status.md`](./docs/status.md).
@@ -81,8 +81,8 @@ produto: pt-BR. Estado: deployado no lab (`:local`) — ver [`docs/status.md`](.
 npm run build        # tsc/vite — falha o build se TS ou import quebrar
 npm run preview      # smoke local: http://localhost:5173/rmambiental/
 # após publicar no cluster:
-# curl http://xpto.localhost/rmambiental/healthz   -> ok
-# curl http://xpto.localhost/rmambiental/          -> index.html (SPA)
+# curl http://nvit.localhost/rmambiental/healthz   -> ok
+# curl http://nvit.localhost/rmambiental/          -> index.html (SPA)
 ```
 
 > Não há lint/typecheck dedicados nem testes neste app (apenas `dev`/`build`/`preview` no

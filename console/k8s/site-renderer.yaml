@@ -78,7 +78,7 @@ spec:
     - web
   routes:
     # portais CMS dinamicos (priority 12: > landing raiz, < apps dedicados/api)
-    - match: (Host(`dev.nvit.com.br`) || Host(`xpto.localhost`)) && PathPrefix(`/sites`)
+    - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/sites`)
       kind: Rule
       priority: 12
       services:

@@ -213,7 +213,7 @@ Stateless ⇒ sem dados a restaurar. Runbook: [`runbooks/portal-operations.md`](
 ## 15.1. Publicação no domínio e ajuste pós-deploy
 
 Publicado em produção (commit `ba10c9c` + ajuste de descoberta) e **no ar em
-`https://dev.nvit.com.br/`** (e `http://xpto.localhost/`):
+`https://dev.nvit.com.br/`** (e `http://nvit.localhost/`):
 
 - `docker build :local` → `kubectl apply` (livenessProbe efetivado) → `rollout restart` ✅
 - Smoke público: `GET /` → **200** servindo a nova versão (assets `?v=5`, CSP endurecida);
@@ -231,7 +231,7 @@ anônimo (a API do Console é autenticada) — tanto no público quanto no local
 visitante veria a caixa de erro da descoberta dinâmica. **Correção:** a seção "Aplicações
 publicadas" virou **recurso de operador** — começa oculta (`#cluster-section hidden`) e o
 `portal.js` a esconde em 401/403 (`isAuthError`); só aparece para operador logado (sessão
-same-origin autoriza o fetch → 200). Verificado no portal implantado (`xpto.localhost`):
+same-origin autoriza o fetch → 200). Verificado no portal implantado (`nvit.localhost`):
 `cluster-section.hidden = true`, **sem caixa de erro**, 4 cards curados visíveis, **zero erros no
 console**. Travado por testes (`isAuthError`, seção inicia oculta).
 
@@ -269,7 +269,7 @@ Uma revisão externa apontou bugs reais e lacunas de prontidão. Tratados (plano
 - `ci-apps` agora cobre **anarabottini** (`typecheck build`). Dependabot ampliado: `apps/anarabottini`, `console/site-renderer`, `portal/frontend`.
 
 ### Medição (Chrome local)
-- **Lighthouse** (`http://xpto.localhost/`): **Performance 92 · Accessibility 100 · Best Practices 96 · SEO 100**. **axe-core/cli: 0 violações**.
+- **Lighthouse** (`http://nvit.localhost/`): **Performance 92 · Accessibility 100 · Best Practices 96 · SEO 100**. **axe-core/cli: 0 violações**.
 - Corrigidos no processo: contraste de botão no escuro (token `--btn-bg` fixo `#2563eb` = 5.8:1), `--muted2` escuro (#828fa9 AA), ordem de headings (rodapé `h4`→`h3`). Best Practices 96 = **1** erro de console esperado (401 do probe de operador) — trade-off intencional.
 
 ### Riscos de host documentados (sem migrar)

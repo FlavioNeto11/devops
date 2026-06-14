@@ -6,7 +6,7 @@
   Substitui o host antigo pelo novo host primario em TODOS os fontes do repo
   (*.yaml, *.yml, *.ps1, *.md): rotas do Traefik (Host(`...`)), values do Helm,
   rotas inline dos instaladores, gerador new-app.ps1 e docs. O host local
-  (xpto.localhost) e PRESERVADO para desenvolvimento.
+  (nvit.localhost) e PRESERVADO para desenvolvimento.
 
   Por padrao apenas EDITA os fontes (commit voce mesmo). Com -Apply, tambem
   reaplica as IngressRoutes que NAO sao gerenciadas pelo Argo (console, argocd,
@@ -20,8 +20,8 @@
 [CmdletBinding()]
 param(
   [Parameter(Mandatory = $true)][string]$PrimaryHost,   # ex.: nvit.io
-  [string]$OldHost = 'www.xpto.com',                    # host a ser substituido
-  [string]$LocalHost = 'xpto.localhost',                # host local preservado
+  [string]$OldHost = 'www.nvit.com.br',                    # host a ser substituido
+  [string]$LocalHost = 'nvit.localhost',                # host local preservado
   [switch]$Apply,                                       # tambem reaplica rotas nao-Argo
   [switch]$ApplyOnly                                    # nao edita; so reaplica
 )

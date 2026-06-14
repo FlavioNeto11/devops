@@ -12,7 +12,7 @@
 app:
   name: aplicacao1
   namespace: apps
-  host: xpto.localhost
+  host: nvit.localhost
   basePath: /aplicacao1
 
 # Registry vazio = imagens locais do laboratorio (nao enviadas ao GHCR).

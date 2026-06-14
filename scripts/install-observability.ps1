@@ -134,7 +134,7 @@ Invoke-External -FilePath 'helm' -Arguments $promtailArgs
 # -----------------------------------------------------------------------------
 # IngressRoute para /grafana (here-string canalizada para kubectl apply -f -).
 # SEM StripPrefix: o Grafana usa serve_from_sub_path (ver grafana-values.yaml).
-# entryPoints [web]; Hosts xpto.localhost e dev.nvit.com.br.
+# entryPoints [web]; Hosts nvit.localhost e dev.nvit.com.br.
 # -----------------------------------------------------------------------------
 Write-Section 'Observabilidade :: IngressRoute (/grafana)'
 $grafanaRoute = @'
@@ -151,7 +151,7 @@ spec:
     - web
   routes:
     - kind: Rule
-      match: (Host(`xpto.localhost`) || Host(`dev.nvit.com.br`)) && PathPrefix(`/grafana`)
+      match: (Host(`nvit.localhost`) || Host(`dev.nvit.com.br`)) && PathPrefix(`/grafana`)
       priority: 10
       services:
         - name: kube-prometheus-stack-grafana
@@ -174,7 +174,7 @@ Invoke-External -FilePath 'kubectl' -Arguments @('get', 'pods', '-n', 'observabi
 # Instrucoes de acesso (senha do Grafana).
 # -----------------------------------------------------------------------------
 Write-Section 'Observabilidade :: Acesso ao Grafana'
-Write-Host '  URL (via Traefik): http://xpto.localhost/grafana' -ForegroundColor Green
+Write-Host '  URL (via Traefik): http://nvit.localhost/grafana' -ForegroundColor Green
 Write-Host ''
 Write-Host '  Usuario: admin' -ForegroundColor White
 Write-Host '  Para obter a senha do admin do Grafana, rode:' -ForegroundColor White

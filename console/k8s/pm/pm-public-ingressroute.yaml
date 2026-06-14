@@ -19,7 +19,7 @@ metadata:
 spec:
   entryPoints: [web]
   routes:
-    - match: (Host(`xpto.localhost`) || Host(`dev.nvit.com.br`)) && PathPrefix(`/devops/api/cms`)
+    - match: (Host(`nvit.localhost`) || Host(`dev.nvit.com.br`)) && PathPrefix(`/devops/api/cms`)
       kind: Rule
       priority: 35
       services:
