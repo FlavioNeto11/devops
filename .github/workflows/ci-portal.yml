@@ -91,10 +91,25 @@ jobs:
           set -euo pipefail
           kubeconform -ignore-missing-schemas -summary portal/k8s/portal.yaml
 
-  # Publica a imagem imutável no GHCR só quando o gate passa em push para main.
+  # Tree-sha do CONTEÚDO de portal/frontend — a MESMA tag que o publish-portal.ps1
+  # fixa no manifest. Determinístico: igual aqui e no release local. Assim o GHCR
+  # publica exatamente a imagem que o manifest pina (pré-requisito do GHCR-pull).
+  treesha:
+    name: tree-sha do conteúdo (portal/frontend)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.t.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: t
+        run: echo "tag=$(git rev-parse HEAD:portal/frontend | cut -c1-12)" >> "$GITHUB_OUTPUT"
+
+  # Publica a imagem no GHCR só quando o gate passa em push para main. A tag
+  # principal é o tree-sha (alinhada ao manifest); o sha do commit fica como extra.
   build-push:
-    name: build & push GHCR (sha imutável)
-    needs: [quality, docker]
+    name: build & push GHCR (tree-sha do conteúdo)
+    needs: [quality, docker, treesha]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: read
@@ -105,3 +120,4 @@ jobs:
       service: frontend
       context: portal/frontend
       dockerfile: portal/frontend/Dockerfile
+      tag: ${{ needs.treesha.outputs.tag }}

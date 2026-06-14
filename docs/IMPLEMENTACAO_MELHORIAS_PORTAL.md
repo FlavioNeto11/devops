@@ -321,3 +321,21 @@ write:packages` + visibility) e apontar o `image:` do manifest ao GHCR.
    **válido para o lab**, mas **não reprodutível só pelo git** enquanto a imagem viver apenas no daemon
    local (um cluster novo não rebuilda do git). Reprodutibilidade plena exige **GHCR-pull ativo** (pacote
    público) — pré-requisito antes de classificar como pronto para migração de host.
+
+### Addendum 2 — 4ª revisão (aceite ~9/10)
+
+1. **Tag GHCR alinhada ao manifest (pré-requisito real do GHCR-pull):** antes a tag era o **sha do commit**,
+   mas o manifest pina uma imagem buildada ANTES do commit do bump → a tag que o CI publicava (sha do bump)
+   nunca batia com a do manifest. Agora a tag é o **tree-sha do conteúdo de `portal/frontend`**
+   (`git rev-parse HEAD:portal/frontend` 12c) — **determinístico e idêntico** no `publish-portal.ps1` e no
+   CI (job `treesha` → input `tag` no `reusable-build-push`). O GHCR passa a publicar **exatamente** a tag
+   que o manifest pina; ativar GHCR-pull deixa de exigir ajuste de pipeline (só pacote público + trocar o
+   `image:` para o caminho GHCR).
+2. **Rollback cobre TODAS as falhas:** o `git push` passou para **dentro do try** (falha no push também
+   dispara o auto-rollback — a `main` nunca fica adiantada nem atrás de um deploy ruim). Cada passo do
+   `Invoke-AutoRollback` (reset, apply, rollout) é **checado**, e o script avisa alto se o rollback **não**
+   completou (sem "revertido" falso). O `refresh=hard` do Argo é checado (aviso, não-fatal).
+3. **Aviso Node 20 (esclarecimento):** com `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` o **runtime** já roda
+   em Node 24; a *annotation* remanescente ("...being forced to run on Node.js 24") é **informativa** e só
+   some quando os mantenedores das actions (docker/*, pnpm) lançarem majors nativas em Node 24 — fora do
+   nosso controle (upstream). Risco de execução: mitigado.

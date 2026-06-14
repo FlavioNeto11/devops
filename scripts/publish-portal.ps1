@@ -1,27 +1,29 @@
 #requires -Version 7.0
 <#
 .SYNOPSIS
-  Release GitOps do Portal NovaIT: builda imagem imutável, fixa a tag NO MANIFEST (git),
-  commita e aplica. Rollback = `git revert`. Falha alto (sem falso sucesso).
+  Release GitOps do Portal NovaIT: builda a imagem, FIXA a tag no manifest (git), valida contra
+  o cluster e só então publica. Tag = conteúdo (tree-sha de portal/frontend) ⇒ alinha com o CI.
 
 .DESCRIPTION
-  GitOps REAL: a tag da imagem é a fonte da verdade em `portal/k8s/portal.yaml`; o Argo CD
-  (platform/argocd/apps/portal.yaml) reconcilia esse manifest. Este script NÃO usa
-  `kubectl set image` nem `ignoreDifferences`. Passos (idempotente, mas exige árvore RASTREADA
-  limpa — o bump do manifest precisa ser o único commit):
-    1. Build `portal-frontend:<gitsha>` (imutável) + alias `:local`.
-    2. Troca o `image:` em `portal/k8s/portal.yaml` para o `<gitsha>` e faz `git commit` LOCAL.
-    3. `kubectl apply` + aguarda rollout + smoke — **VALIDATE-THEN-PUSH**: só dá `git push`
-       (publica na main p/ o Argo) DEPOIS que o deploy prova saúde.
-    4. Em QUALQUER falha (rollout/`/`/`/healthz`): **AUTO-ROLLBACK** — descarta o commit do bump
-       (não pushado) e reaplica o manifest anterior (volta git local + cluster) e dá throw. A main
-       nunca recebe um release quebrado.
-  Cada release é uma imagem distinta ⇒ `git revert` do bump volta a versão anterior de verdade.
-  A imagem é LOCAL (Docker Desktop compartilha o daemon; `IfNotPresent`, sem registry). O CI publica
-  o mesmo artefato em GHCR (`ghcr.io/flavioneto11/portal/frontend:<sha>`) para portabilidade.
+  GitOps REAL: a tag da imagem é a fonte da verdade em `portal/k8s/portal.yaml`; o Argo CD reconcilia
+  esse manifest (sem `kubectl set image` nem `ignoreDifferences`).
+
+  TAG = `git rev-parse HEAD:portal/frontend` (12c) — o hash do CONTEÚDO de portal/frontend (assets,
+  Dockerfile, nginx.conf). É determinístico: a MESMA tag sai aqui e no CI (que computa o mesmo tree-sha
+  e publica `ghcr.io/flavioneto11/portal/frontend:<treesha>`). Assim a imagem que o manifest pina é
+  exatamente a que o CI publica — pré-requisito para ativar GHCR-pull sem desalinhamento.
+
+  Fluxo (exige árvore RASTREADA limpa — o bump precisa ser o único commit):
+    1. Build `portal-frontend:<treesha>` (+ alias `:local`).
+    2. Bump do `image:` no manifest + `git commit` LOCAL (ainda NÃO pushado).
+    3. VALIDATE-THEN-PUSH: `kubectl apply` + rollout + smoke + `git push` — TUDO dentro de um try.
+       Em QUALQUER falha (apply/rollout/smoke/PUSH): AUTO-ROLLBACK (descarta o commit do bump e
+       reaplica o manifest anterior; cada passo do rollback é checado e avisa se não completou).
+    4. Refresh do Argo (best-effort, com aviso se falhar) para alinhar o desired na hora.
+  Rollback de um release já publicado: `git revert <commit do bump>` (o Argo reconcilia).
 
 .PARAMETER NoPush
-  Commita o bump localmente mas não dá `git push` (o Argo só verá após push/refresh).
+  Não dá `git push` (deploy local de validação; o Argo só verá após push/refresh).
 
 .EXAMPLE
   .\scripts\publish-portal.ps1
@@ -50,37 +52,53 @@ $buildDir = Join-Path $repoRoot 'portal/frontend'
 
 # Exige árvore RASTREADA limpa (o único commit deve ser o bump do manifest).
 if (git -C $repoRoot status --porcelain --untracked-files=no) {
-  throw "Há mudanças rastreadas não commitadas. Commite/descarte antes do release (o bump do manifest precisa ser isolado)."
+  throw "Há mudanças rastreadas não commitadas. Commite/descarte antes do release (o bump precisa ser isolado)."
 }
-$sha = (git -C $repoRoot rev-parse --short HEAD).Trim()
-$image = "portal-frontend:$sha"
+
+# TAG = hash do CONTEÚDO de portal/frontend (igual aqui e no CI). Muda só quando o
+# conteúdo muda; commits que só tocam portal/k8s (o bump) NÃO mudam a tag.
+$tag = (git -C $repoRoot rev-parse 'HEAD:portal/frontend').Trim().Substring(0, 12)
+$image = "portal-frontend:$tag"
+
+# Já publicado este conteúdo? Então não há release novo (idempotente).
+$current = ([regex]::Match((Get-Content $manifest -Raw), 'image:\s*portal-frontend:(\S+)')).Groups[1].Value
+if ($current -eq $tag) {
+  Write-Host "[OK] portal já está no conteúdo $tag (manifest inalterado) — nada a publicar." -ForegroundColor Green
+  Write-Host "Para recriar o pod sem mudar conteúdo: kubectl -n $ns rollout restart deployment/portal" -ForegroundColor Gray
+  return
+}
 
 Write-Host "== portal :: docker build $image (+ :local) ==" -ForegroundColor Cyan
 Invoke-Checked "docker build" { docker build -t $image -t 'portal-frontend:local' $buildDir | Out-Host }
 
 Write-Host "== portal :: bump do image no manifest -> $image ==" -ForegroundColor Cyan
-$content = Get-Content $manifest -Raw
-$bumped = [regex]::Replace($content, 'image:\s*portal-frontend:\S+', "image: $image")
-if ($bumped -eq $content) { throw "Não encontrei 'image: portal-frontend:<tag>' em $manifest para bumpar." }
+$mraw = Get-Content $manifest -Raw
+$bumped = [regex]::Replace($mraw, 'image:\s*portal-frontend:\S+', "image: $image")
+if ($bumped -eq $mraw) { throw "Não encontrei 'image: portal-frontend:<tag>' em $manifest para bumpar." }
 Set-Content -Path $manifest -Value $bumped -NoNewline
 
-# Commit LOCAL do bump (ainda NÃO pushado): só vai para o origin/main depois que o
-# deploy provar saúde (validate-then-push) — assim nada quebrado chega à main.
 Write-Host "== portal :: commit local do bump (sem push ainda) ==" -ForegroundColor Cyan
 Invoke-Checked "git add" { git -C $repoRoot add portal/k8s/portal.yaml }
-Invoke-Checked "git commit" { git -C $repoRoot commit -m "chore(portal): deploy $sha" -m "Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>" | Out-Host }
+Invoke-Checked "git commit" { git -C $repoRoot commit -m "chore(portal): deploy $tag" -m "Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>" | Out-Host }
 
-# Aplica + valida CONTRA O CLUSTER antes de publicar. Em qualquer falha, faz
 # AUTO-ROLLBACK: descarta o commit do bump (não pushado) e reaplica o manifest
-# anterior (volta o cluster ao último estado bom). A main nunca recebe um release
-# quebrado, e o Argo não reconcilia um manifest ruim.
+# anterior. Cada passo é checado; avisa alto se o rollback NÃO completou.
 function Invoke-AutoRollback { param([string]$Reason)
   Write-Host "== portal :: AUTO-ROLLBACK ($Reason) ==" -ForegroundColor Red
-  git -C $repoRoot reset --hard HEAD~1 | Out-Host           # remove o commit do bump
-  kubectl apply -f $manifest | Out-Host                      # reaplica o manifest anterior
-  kubectl -n $ns rollout status deployment/portal "--timeout=${TimeoutSeconds}s" 2>&1 | Out-Host
+  $ok = $true
+  git -C $repoRoot reset --hard HEAD~1 | Out-Host
+  if ($LASTEXITCODE -ne 0) { $ok = $false; Write-Host "  [ERRO] git reset --hard HEAD~1 falhou" -ForegroundColor Red }
+  kubectl apply -f $manifest | Out-Host
+  if ($LASTEXITCODE -ne 0) { $ok = $false; Write-Host "  [ERRO] kubectl apply (rollback) falhou" -ForegroundColor Red }
+  kubectl -n $ns rollout status deployment/portal "--timeout=${TimeoutSeconds}s" | Out-Host
+  if ($LASTEXITCODE -ne 0) { $ok = $false; Write-Host "  [ERRO] rollout status (rollback) falhou" -ForegroundColor Red }
+  if (-not $ok) { Write-Host "  [ATENCAO] ROLLBACK INCOMPLETO — verifique git (git log/status) e o cluster MANUALMENTE." -ForegroundColor Red }
+  return $ok
 }
 
+# VALIDATE-THEN-PUSH: tudo (inclusive o push) dentro do try. Falha em QUALQUER passo
+# (apply/rollout/smoke/push) dispara o auto-rollback — a main nunca fica adiantada
+# de um deploy ruim nem atrás de um bom (push é o último passo validado).
 try {
   Write-Host "== portal :: kubectl apply (declarativo) + rollout ==" -ForegroundColor Cyan
   Invoke-Checked "kubectl apply" { kubectl apply -f $manifest | Out-Host }
@@ -100,20 +118,23 @@ try {
     Write-Host ("  {0} -> HTTP {1}" -f $path, $code) -ForegroundColor (($code -ge 200 -and $code -lt 400) ? 'Magenta' : 'Red')
     if ($code -lt 200 -or $code -ge 400) { throw "Smoke FALHOU em '$path' (HTTP $code)." }
   }
+
+  if (-not $NoPush) {
+    Write-Host "== portal :: deploy saudável -> git push ==" -ForegroundColor Cyan
+    Invoke-Checked "git push" { git -C $repoRoot push origin HEAD | Out-Host }
+  }
 } catch {
-  Invoke-AutoRollback -Reason $_.Exception.Message
-  throw "Release FALHOU e foi revertido (git local + cluster voltados ao estado anterior): $($_.Exception.Message)"
+  $rolledBack = Invoke-AutoRollback -Reason $_.Exception.Message
+  $tail = if ($rolledBack) { 'git local + cluster voltados ao estado anterior' } else { 'ATENCAO: o rollback pode NAO ter completado — verifique manualmente' }
+  throw "Release FALHOU ($tail): $($_.Exception.Message)"
 }
 
-# Tudo verde: AGORA publica na main (o Argo passa a reconciliar o $sha).
+# Só chega aqui com tudo verde E pushado. Refresh do Argo (best-effort, com aviso).
 if (-not $NoPush) {
-  Write-Host "== portal :: deploy saudável -> git push ==" -ForegroundColor Cyan
-  Invoke-Checked "git push" { git -C $repoRoot push origin HEAD | Out-Host }
-  # Faz o Argo re-ler o git AGORA (sem esperar o poll ~3min) e reconciliar o novo
-  # commit — assim o desired do Argo bate com o que acabamos de aplicar (durável).
   Write-Host "== portal :: refresh do Argo (alinha o desired ao novo commit) ==" -ForegroundColor Cyan
   kubectl -n argocd annotate application portal argocd.argoproj.io/refresh=hard --overwrite 2>$null | Out-Host
+  if ($LASTEXITCODE -ne 0) { Write-Host "[AVISO] refresh do Argo falhou (nao-fatal; o auto-sync alinha no proximo poll)." -ForegroundColor Yellow }
 }
 
-Write-Host "[OK] portal $sha publicado e saudável." -ForegroundColor Green
-Write-Host "Rollback (GitOps): git revert <commit do bump> ; o Argo (ou kubectl apply) volta o sha anterior." -ForegroundColor Gray
+Write-Host "[OK] portal $tag publicado e saudável." -ForegroundColor Green
+Write-Host "Rollback: git revert <commit do bump> (o Argo reconcilia o conteúdo anterior)." -ForegroundColor Gray

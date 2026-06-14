@@ -47,6 +47,11 @@ on:
         type: string
         required: false
         default: "Dockerfile"
+      tag:
+        description: "Tag adicional explicita (ex.: tree-sha do conteudo, p/ alinhar com o manifest). Vazio = so as tags padrao."
+        type: string
+        required: false
+        default: ""
     outputs:
       image-tag:
         description: "SHA curto do commit usado como tag principal da imagem."
@@ -112,6 +117,7 @@ jobs:
           images: ghcr.io/flavioneto11/${{ inputs.app }}/${{ inputs.service }}
           tags: |
             type=sha,prefix=,format=short
+            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
             type=ref,event=branch
             type=ref,event=tag
             type=raw,value=latest,enable={{is_default_branch}}

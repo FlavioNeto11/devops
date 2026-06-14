@@ -22,16 +22,18 @@ git add portal/ ; git commit -m "feat(portal): ..."
 C:\devops\scripts\publish-portal.ps1
 ```
 
-`publish-portal.ps1` é **GitOps real**: builda `portal-frontend:<gitsha>` (imutável), **troca o
-`image:` em `portal/k8s/portal.yaml`** (fonte da verdade), commita+push, aplica o manifest declarativo
-e aguarda o rollout. **Falha alto** (throw) se rollout/`/`/`/healthz` não passarem — sem falso `[OK]`.
-O Argo (`platform/argocd/apps/portal.yaml`) reconcilia esse mesmo manifest; **não há `kubectl set
-image` nem `ignoreDifferences`**. A imagem é local (Docker Desktop compartilha o daemon, `IfNotPresent`);
-o CI publica o mesmo artefato em `ghcr.io/flavioneto11/portal/frontend:<sha>` (portabilidade).
+`publish-portal.ps1` é **GitOps real**: builda `portal-frontend:<treesha>` (tag = hash do conteúdo de
+`portal/frontend`), **troca o `image:` em `portal/k8s/portal.yaml`** (fonte da verdade), commita+valida
+contra o cluster e **só dá `git push` se o deploy passar** (validate-then-push); em qualquer falha
+(apply/rollout/smoke/push) faz **auto-rollback** (git+cluster). O Argo (`selfHeal: false`, auto-sync por
+git change) reconcilia esse manifest; **não há `kubectl set image` nem `ignoreDifferences`**. A imagem é
+local (Docker Desktop compartilha o daemon, `IfNotPresent`); o CI publica a **MESMA tag** (tree-sha) em
+`ghcr.io/flavioneto11/portal/frontend:<treesha>` — sem desalinhamento.
 
 > Para usar **GHCR-pull** (cluster puxando do registry): torne o pacote público
-> (`gh auth refresh -s write:packages` + visibility public, ou pela UI) e troque o `image:` do
-> manifest para o caminho GHCR. Enquanto privado, o lab usa a imagem local.
+> (`gh auth refresh -s write:packages` + visibility, ou pela UI) e troque o `image:` do manifest de
+> `portal-frontend:<treesha>` para `ghcr.io/flavioneto11/portal/frontend:<treesha>` (a **mesma** tag — o
+> CI já a publicou). Enquanto privado, o lab usa a imagem local.
 
 ## 2. Validar no ar (smoke)
 
