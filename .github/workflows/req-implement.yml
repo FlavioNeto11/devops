@@ -141,10 +141,18 @@ jobs:
             # settings.json: segredos/force-push) e as DEMAIS ferramentas ficam restritas ao
             # allowlist. A skill SO commita no branch — NAO faz push nem PR: a esteira valida
             # com o guard-worktree (barreira tecnica) e SO entao abre o PR.
+            # allowlist FECHADO: subcomandos git de leitura/branch/commit (SEM `git push`
+            # nem `git:*` amplo), e node/npm/pnpm p/ rodar scripts/testes do app. Os
+            # escape-hatches (git push, gh pr *, node -e/--eval, npx, npm|pnpm exec, pnpm dlx)
+            # estao no DENY do .claude/settings.json (deny vence allow) — a Claude NAO consegue
+            # empurrar pro remoto nem abrir PR por dentro: so a esteira faz, apos o guard.
             claude -p "/implement-req $id (run_id=$env:RUN_ID). Trabalhe SO no branch $branch; NAO faca git push nem gh pr create — a esteira valida e abre o PR." `
               --append-system-prompt $wo `
               --permission-mode acceptEdits `
-              --allowedTools "Edit" "Write" "Read" "Grep" "Glob" "Bash(git:*)" "Bash(node:*)" "Bash(npm:*)" "Bash(pnpm:*)" `
+              --allowedTools "Edit" "Write" "Read" "Grep" "Glob" `
+                "Bash(git status:*)" "Bash(git diff:*)" "Bash(git log:*)" "Bash(git show:*)" `
+                "Bash(git branch:*)" "Bash(git checkout:*)" "Bash(git switch:*)" "Bash(git add:*)" "Bash(git commit:*)" "Bash(git rev-parse:*)" `
+                "Bash(node:*)" "Bash(npm:*)" "Bash(pnpm:*)" `
               --output-format json
             if ($LASTEXITCODE -ne 0) { Write-Host "::warning::Claude retornou exit $LASTEXITCODE para $id." }
 
