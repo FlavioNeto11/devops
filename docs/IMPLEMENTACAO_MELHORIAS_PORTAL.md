@@ -302,3 +302,17 @@ secret. Entregamos **GitOps real com tag LOCAL imutável** (Docker Desktop compa
 propriedades GitOps: tag no git, Argo reconcilia, rollback por `git revert`), **totalmente implantável e
 verificável**. Trocar para GHCR-pull é 1 passo: tornar o pacote público (`gh auth refresh -s
 write:packages` + visibility) e apontar o `image:` do manifest ao GHCR.
+
+### Addendum — 3ª revisão (aceite técnico ~8,8/10)
+
+1. **Release atômico (validate-then-push):** `publish-portal.ps1` reordenado — commita o bump **localmente**,
+   aplica + rollout + smoke e **só dá `git push` se tudo passar**. Em qualquer falha, **AUTO-ROLLBACK**:
+   descarta o commit do bump (não pushado) e reaplica o manifest anterior (volta git local **e** cluster).
+   A `main` nunca recebe um release quebrado; o Argo nunca reconcilia um manifest ruim.
+2. **Avisos Node 20:** `checkout`/`setup-node` já em `@v5`; para as JS actions restantes (docker/*,
+   `pnpm/action-setup`) adicionado `env: FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true` em todos os workflows +
+   templates — força Node 24 e zera os avisos antes da troca forçada.
+3. **Honestidade do stat:** a home não diz mais "100% GitOps" (passou a **"Argo · GitOps · CD"**). É GitOps
+   **válido para o lab**, mas **não reprodutível só pelo git** enquanto a imagem viver apenas no daemon
+   local (um cluster novo não rebuilda do git). Reprodutibilidade plena exige **GHCR-pull ativo** (pacote
+   público) — pré-requisito antes de classificar como pronto para migração de host.

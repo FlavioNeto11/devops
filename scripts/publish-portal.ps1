@@ -10,9 +10,12 @@
   `kubectl set image` nem `ignoreDifferences`. Passos (idempotente, mas exige árvore RASTREADA
   limpa — o bump do manifest precisa ser o único commit):
     1. Build `portal-frontend:<gitsha>` (imutável) + alias `:local`.
-    2. Troca o `image:` em `portal/k8s/portal.yaml` para o `<gitsha>`.
-    3. `git commit` + `git push` do bump (o Argo aplica; aqui também `kubectl apply` p/ feedback).
-    4. Aguarda rollout e faz smoke — **THROW** se rollout/`/`/`/healthz` falharem.
+    2. Troca o `image:` em `portal/k8s/portal.yaml` para o `<gitsha>` e faz `git commit` LOCAL.
+    3. `kubectl apply` + aguarda rollout + smoke — **VALIDATE-THEN-PUSH**: só dá `git push`
+       (publica na main p/ o Argo) DEPOIS que o deploy prova saúde.
+    4. Em QUALQUER falha (rollout/`/`/`/healthz`): **AUTO-ROLLBACK** — descarta o commit do bump
+       (não pushado) e reaplica o manifest anterior (volta git local + cluster) e dá throw. A main
+       nunca recebe um release quebrado.
   Cada release é uma imagem distinta ⇒ `git revert` do bump volta a versão anterior de verdade.
   A imagem é LOCAL (Docker Desktop compartilha o daemon; `IfNotPresent`, sem registry). O CI publica
   o mesmo artefato em GHCR (`ghcr.io/flavioneto11/portal/frontend:<sha>`) para portabilidade.
@@ -61,29 +64,51 @@ $bumped = [regex]::Replace($content, 'image:\s*portal-frontend:\S+', "image: $im
 if ($bumped -eq $content) { throw "Não encontrei 'image: portal-frontend:<tag>' em $manifest para bumpar." }
 Set-Content -Path $manifest -Value $bumped -NoNewline
 
-Write-Host "== portal :: commit + push do bump ==" -ForegroundColor Cyan
+# Commit LOCAL do bump (ainda NÃO pushado): só vai para o origin/main depois que o
+# deploy provar saúde (validate-then-push) — assim nada quebrado chega à main.
+Write-Host "== portal :: commit local do bump (sem push ainda) ==" -ForegroundColor Cyan
 Invoke-Checked "git add" { git -C $repoRoot add portal/k8s/portal.yaml }
 Invoke-Checked "git commit" { git -C $repoRoot commit -m "chore(portal): deploy $sha" -m "Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>" | Out-Host }
-if (-not $NoPush) { Invoke-Checked "git push" { git -C $repoRoot push origin HEAD | Out-Host } }
 
-# Aplica o manifest declarativo (mesma fonte que o Argo reconcilia) p/ feedback imediato.
-Write-Host "== portal :: kubectl apply (declarativo) + rollout ==" -ForegroundColor Cyan
-Invoke-Checked "kubectl apply" { kubectl apply -f $manifest | Out-Host }
-Invoke-Checked "rollout status" { kubectl -n $ns rollout status deployment/portal "--timeout=${TimeoutSeconds}s" | Out-Host }
+# Aplica + valida CONTRA O CLUSTER antes de publicar. Em qualquer falha, faz
+# AUTO-ROLLBACK: descarta o commit do bump (não pushado) e reaplica o manifest
+# anterior (volta o cluster ao último estado bom). A main nunca recebe um release
+# quebrado, e o Argo não reconcilia um manifest ruim.
+function Invoke-AutoRollback { param([string]$Reason)
+  Write-Host "== portal :: AUTO-ROLLBACK ($Reason) ==" -ForegroundColor Red
+  git -C $repoRoot reset --hard HEAD~1 | Out-Host           # remove o commit do bump
+  kubectl apply -f $manifest | Out-Host                      # reaplica o manifest anterior
+  kubectl -n $ns rollout status deployment/portal "--timeout=${TimeoutSeconds}s" 2>&1 | Out-Host
+}
 
-Write-Host "== portal :: smoke test ==" -ForegroundColor Cyan
-foreach ($path in @('/', '/healthz')) {
-  $code = 0
-  for ($i = 1; $i -le 6; $i++) {
-    try {
-      $r = Invoke-WebRequest -Headers @{ Host = 'xpto.localhost' } -Uri "http://127.0.0.1$path" -TimeoutSec 8 -SkipHttpErrorCheck
-      $code = [int]$r.StatusCode
-      if ($code -ge 200 -and $code -lt 400) { break }
-    } catch { $code = 0 }
-    Start-Sleep -Seconds 2 # Traefik ainda propagando o endpoint do pod novo
+try {
+  Write-Host "== portal :: kubectl apply (declarativo) + rollout ==" -ForegroundColor Cyan
+  Invoke-Checked "kubectl apply" { kubectl apply -f $manifest | Out-Host }
+  Invoke-Checked "rollout status" { kubectl -n $ns rollout status deployment/portal "--timeout=${TimeoutSeconds}s" | Out-Host }
+
+  Write-Host "== portal :: smoke test ==" -ForegroundColor Cyan
+  foreach ($path in @('/', '/healthz')) {
+    $code = 0
+    for ($i = 1; $i -le 6; $i++) {
+      try {
+        $r = Invoke-WebRequest -Headers @{ Host = 'xpto.localhost' } -Uri "http://127.0.0.1$path" -TimeoutSec 8 -SkipHttpErrorCheck
+        $code = [int]$r.StatusCode
+        if ($code -ge 200 -and $code -lt 400) { break }
+      } catch { $code = 0 }
+      Start-Sleep -Seconds 2 # Traefik ainda propagando o endpoint do pod novo
+    }
+    Write-Host ("  {0} -> HTTP {1}" -f $path, $code) -ForegroundColor (($code -ge 200 -and $code -lt 400) ? 'Magenta' : 'Red')
+    if ($code -lt 200 -or $code -ge 400) { throw "Smoke FALHOU em '$path' (HTTP $code)." }
   }
-  Write-Host ("  {0} -> HTTP {1}" -f $path, $code) -ForegroundColor (($code -ge 200 -and $code -lt 400) ? 'Magenta' : 'Red')
-  if ($code -lt 200 -or $code -ge 400) { throw "Smoke FALHOU em '$path' (HTTP $code) — release NÃO está saudável." }
+} catch {
+  Invoke-AutoRollback -Reason $_.Exception.Message
+  throw "Release FALHOU e foi revertido (git local + cluster voltados ao estado anterior): $($_.Exception.Message)"
+}
+
+# Tudo verde: AGORA publica na main (o Argo passa a reconciliar o $sha).
+if (-not $NoPush) {
+  Write-Host "== portal :: deploy saudável -> git push ==" -ForegroundColor Cyan
+  Invoke-Checked "git push" { git -C $repoRoot push origin HEAD | Out-Host }
 }
 
 Write-Host "[OK] portal $sha publicado e saudável." -ForegroundColor Green

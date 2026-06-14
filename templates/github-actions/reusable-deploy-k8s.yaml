@@ -22,6 +22,11 @@
 # =============================================================================
 name: reusable-deploy-k8s
 
+# Forca as JS actions (docker/*, pnpm/*, etc.) a rodarem em Node 24, eliminando
+# os avisos de deprecacao do Node 20 antes da troca forcada (~jun/2026).
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   workflow_call:
     inputs:
