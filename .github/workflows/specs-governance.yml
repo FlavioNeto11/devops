@@ -30,8 +30,10 @@ jobs:
     name: Validar requisitos e baseline
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout do codigo
+      - name: Checkout do codigo (historico completo p/ enforce em PR)
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Configurar Node
         uses: actions/setup-node@v5
@@ -45,6 +47,16 @@ jobs:
       - name: Validar schema + integridade + drift da baseline
         working-directory: specs/tools
         run: node build-baseline.mjs --check
+
+      # Em PR: enforce do versionamento semantico (gate unico, sempre executado).
+      # Se um requisito mudou em campo semantico sem versionar (item_revision++ ,
+      # semantic_change!=none, change_reason), FALHA. Em push (main) nao se aplica.
+      - name: Enforce versionamento semantico (PR)
+        if: github.event_name == 'pull_request'
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          git show "$BASE:specs/baseline/current-baseline.json" > "$RUNNER_TEMP/base-baseline.json" 2>/dev/null || echo "" > "$RUNNER_TEMP/base-baseline.json"
+          node specs/tools/diff-baseline.mjs --enforce "$RUNNER_TEMP/base-baseline.json" specs/baseline/current-baseline.json
 
       - name: Resumo
         if: always()
