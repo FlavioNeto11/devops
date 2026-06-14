@@ -54,10 +54,14 @@ spec:
               value: "8080"
             - name: REQHUB_AI_MODEL
               value: "gpt-5"
+            # OPENAI_API_KEY: REUSA a chave que ja existe na plataforma (secret sicat-config,
+            # ns apps) por REFERENCIA — o valor nunca e copiado, o k8s resolve no runtime.
+            # Para desacoplar, crie um secret dedicado com scripts/setup-reqhub-secret.ps1 e
+            # troque o `name` abaixo para reqhub-api-config.
             - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: reqhub-api-config
+                  name: sicat-config
                   key: OPENAI_API_KEY
                   optional: true   # ausente -> rotas de IA = 503 (fail-closed); pod sobe
             - name: REQHUB_API_TOKEN
