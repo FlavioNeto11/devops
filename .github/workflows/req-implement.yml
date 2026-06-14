@@ -208,6 +208,10 @@ jobs:
           gh auth setup-git    # configura o helper de credencial do git p/ usar GH_TOKEN (so deste passo)
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          # garante que os labels da esteira existem (gh pr create ABORTA se um label falta).
+          gh label create requirement      --color 0e8a16 --description "Requisito (esteira)" 2>$null
+          gh label create claude-generated --color 1d76db --description "Gerado pela Claude (esteira)" 2>$null
+          gh label create gpt-approved     --color 5319e7 --description "Validado no ChatGPT (auto-merge)" 2>$null
           foreach ($a in $approved) {
             # valida o branch name (defesa contra approved.json adulterado) antes de qualquer uso
             if ($a.branch -notmatch '^req/[A-Z0-9-]+/r[0-9]+$' -or $a.id -notmatch '^REQ-[A-Z0-9-]+$') {
