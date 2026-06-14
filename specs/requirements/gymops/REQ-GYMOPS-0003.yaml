@@ -1,0 +1,21 @@
+id: REQ-GYMOPS-0003
+slug: req-gymops-0003
+title: RBAC granular por escopo (6 papéis em 3 escopos)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: gymops
+  applies_to: product
+statement: "O sistema deve implementar papéis owner, org_manager, unit_manager, area_leader, executor, viewer aplicáveis aos escopos organização, unidade, área, com permissões hierárquicas validadas no backend via resolveUserContext() e helpers hasOrgRole()/hasUnitRole(). Precedência: owner > org_manager > unit_manager > area_leader > executor > viewer."
+source:
+  stakeholder: gymops
+  origin: codebase apps/gymops + research-2026-06
+priority: critical
+criticality: critical
+architectural_significance: true
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

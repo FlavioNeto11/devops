@@ -1,0 +1,21 @@
+id: REQ-GYMOPS-0009
+slug: req-gymops-0009
+title: Wizard de onboarding com 4 passos e bootstrap canônico
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: gymops
+  applies_to: product
+statement: "O sistema deve guiar novo owner por wizard: (1) dados organização (nome, slug unico, email owner, senha ≥8 chars, nome owner); (2) escolher modelo (IA sugerido ou 6 áreas canônicas manualmente); (3) unidade inicial (opcional); (4) confirmação. POST /organizations deve aceitar blueprint opcional com áreas/templates/unidades aninhadas e chamar bootstrapOrganization(). Seed deve usar mesma estrutura canônica de 6 áreas + 24 templates."
+source:
+  stakeholder: gymops
+  origin: codebase apps/gymops + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

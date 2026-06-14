@@ -1,0 +1,21 @@
+id: REQ-CMS-0010
+slug: req-cms-0010
+title: Site-renderer generic frontend serving all portals at /sites/<key>
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: cms
+  applies_to: product
+statement: O sistema deve fornecer um frontend genérico (site-renderer) que serve QUALQUER portal publicado em /sites/<chave> (IngressRoute PathPrefix, priority 12, sem strip). Renderer busca a árvore em runtime via API pública, renderiza kinds genéricos (hero, rich-text, card-grid, etc) + tema colorido pela paleta (cms_site.data.palette). Portal novo criado no Console nasce visível imediatamente sem build/deploy.
+source:
+  stakeholder: cms
+  origin: codebase portal/CMS + research-2026-06
+priority: critical
+criticality: critical
+architectural_significance: true
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

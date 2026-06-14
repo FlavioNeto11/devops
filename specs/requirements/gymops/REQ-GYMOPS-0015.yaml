@@ -1,0 +1,21 @@
+id: REQ-GYMOPS-0015
+slug: req-gymops-0015
+title: PWA instalável com service worker e push notifications
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: gymops
+  applies_to: product
+statement: O sistema deve ser uma PWA funcional com manifest.json (nome completo, categorias, lang), service worker (push + notification click), instalação na tela inicial, e funcionamento offline para operação de rotina.
+source:
+  stakeholder: gymops
+  origin: codebase apps/gymops + research-2026-06
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

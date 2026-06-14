@@ -1,0 +1,650 @@
+{
+  "sicat": {
+    "product": "SICAT",
+    "one_line": "Plataforma operacional de automação MTR/CDF/DMR da CETESB-SP com backend Node.js + Postgres + fila transacional, frontend Vue 3, gateway CETESB real-mode e camada de IA via LangChain/OpenAI.",
+    "stack": "Node.js 20 + Express + TypeScript (tsx) + Postgres 16 + Vue 3 + Vuetify | LangChain/LangGraph/OpenAI (IA) | Langfuse (observabilidade IA) | Kubernetes + Argo CD",
+    "functional_requirements": [
+      {
+        "proposed_id": "REQ-SICAT-0001",
+        "title": "Autenticação dupla (SICAT + CETESB)",
+        "statement": "O sistema deve permitir login inicial no SICAT (email + senha) e subsequente vinculação/seleção de múltiplas contas CETESB com persistência de sessão e renovação de token JWT CETESB.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-SICAT-0002",
+        "title": "Criação e submissão assíncrona de manifestos MTR",
+        "statement": "O sistema deve permitir criar, validar, enfileirar e processar assincramente a submissão de manifestos MTR para a CETESB, retornando 202 + jobId com rastreamento via correlationId.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-SICAT-0003",
+        "title": "Impressão e download de documentos MTR",
+        "statement": "O sistema deve permitir gerar, armazenar e disponibilizar para download os PDFs de manifestos (MTR) e certificados (CDF) após submissão bem-sucedida à CETESB.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-SICAT-0004",
+        "title": "Cancelamento assíncrono de manifestos",
+        "statement": "O sistema deve permitir cancelar manifestos MTR já submetidos à CETESB via operação assíncrona, com validação de estados e persistência de comandos.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-SICAT-0005",
+        "title": "Recebimento de manifestos declaratório",
+        "statement": "O sistema deve permitir registrar manifesto recebido (MTR com responsável de recebimento, dados de entrega e conformidade) de forma assíncrona com persistência em banco de dados local.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-SICAT-0006",
+        "title": "Sincronização de catálogos CETESB",
+        "statement": "O sistema deve sincronizar e manter atualizado no Postgres local os catálogos da CETESB (estados, cidades, classes, unidades, tratamentos, abnt) com suporte a refresh forçado.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-SICAT-0007",
+        "title": "Geração e download de CDF (Certificado de Destinação Final)",
+        "statement": "O sistema deve permitir gerar, armazenar e disponibilizar para download certificados de destinação final (CDF) para manifestos recebidos, integrando com a CETESB.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-SICAT-0008",
+        "title": "Pesquisa e resolução de parceiros (empresa/transportista/destinatário)",
+        "statement": "O sistema deve permitir buscar parceiros por termo/documento/código no cache local ou via gateway CETESB, retornando dados normalizados (código, razão social, estado).",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-SICAT-0009",
+        "title": "Declaração de Movimentação de Resíduos (DMR)",
+        "statement": "O sistema deve permitir criar, consolidar, submeter e cancelar declarações de movimentação (DMR) com persistência em tabela dedicada, validação de sequência e suporte a itens declaratórios.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-SICAT-0010",
+        "title": "Manifesto Provisório com override de tipo",
+        "statement": "O sistema deve permitir criar, listar, cancelar e imprimir manifestos provisórios (kind=provisorio) com override de tipoManifesto via configuração e discriminação de status de ciclo de vida.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-SICAT-0011",
+        "title": "Fila transacional com retry e DLQ",
+        "statement": "O sistema deve persistir jobs em Postgres com locking otimista (version), estratégia de retry exponencial, identificação de Dead Letter Queue (DLQ) e reenfileiramento manual.",
+        "scope": "shared-module",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-SICAT-0012",
+        "title": "Worker dedicado para operações assíncronas",
+        "statement": "O sistema deve executar worker que consome jobs da fila, processa operações (manifest.submit, manifest.print, manifest.cancel, manifest.receive, cdf.*, catalog.sync, cadastro.submit), persiste resultados e atualiza status.",
+        "scope": "shared-module",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-SICAT-0013",
+        "title": "Observabilidade operacional (dashboard e health)",
+        "statement": "O sistema deve expor endpoints de saúde (/v1/health/*), métricas de performance (jobs por status, latência CETESB), dashboard operacional (/v1/operations/overview) e pesquisa de jobs com status operacional enriquecido.",
+        "scope": "shared-module",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-SICAT-0014",
+        "title": "Auditoria técnica correlacionada",
+        "statement": "O sistema deve registrar trilha de auditoria com correlationId para cada operação, incluindo entrada/saída de dados, status de transição e erros, permitindo pesquisa sanitizada por correlação.",
+        "scope": "shared-module",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-SICAT-0015",
+        "title": "Conversações com IA e artefatos",
+        "statement": "O sistema deve permitir iniciar conversas de chat com IA (via LangChain/OpenAI), gerar artefatos (documentos, bundles), persistir em storage e fornecer endpoints de status e download de conteúdo.",
+        "scope": "capability:ai-conversations",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-SICAT-0016",
+        "title": "AI Control Center (admin de ferramentas, agentes, prompts, conhecimento)",
+        "statement": "O sistema deve permitir visualizar, configurar e versionar ferramentas de IA, agentes, prompts e índices de conhecimento (pgvector), com suporte a sincronização com Langfuse e avaliações.",
+        "scope": "capability:ai-control",
+        "priority": "medium"
+      }
+    ],
+    "non_functional_requirements": [
+      {
+        "proposed_id": "REQ-SICAT-NFR-0001",
+        "title": "Resiliência em operações de fila com retry automático",
+        "quality_scenario": {
+          "source": "Worker processando job de submissão de manifesto",
+          "stimulus": "Chamada à API CETESB falha com erro transiente (timeout, 429, ECONNRESET)",
+          "environment": "Produção com CETESB real; 5 tentativas máximas configuráveis",
+          "artifact": "Job persistido em Postgres com status 'retry_wait' e backoff exponencial",
+          "response": "Worker aguarda intervalo calculado (base 1s, máx 30s) e reprocessa automaticamente; após max_attempts, job vai para DLQ",
+          "response_measure": "Taxa de sucesso em retry >= 80% para falhas transientes; tempo até DLQ <= 5 min com max_attempts=5"
+        }
+      },
+      {
+        "proposed_id": "REQ-SICAT-NFR-0002",
+        "title": "Integração segura com gateway CETESB isolado",
+        "quality_scenario": {
+          "source": "Service camada tentando submeter manifesto",
+          "stimulus": "Operação de submit/print/cancel/receive é enfileirada",
+          "environment": "Backend isolado em Kubernetes com SA RBAC; mode=real obrigatório; NODE_EXTRA_CA_CERTS apontando para cetesb-chain.pem",
+          "artifact": "Única chamada HTTP à CETESB passa por src/gateways/cetesb-gateway.js; nenhuma rota/service fala com CETESB diretamente",
+          "response": "Gateway valida JWT, prepara headers (Authorization + x-access-token), trata erros como application/problem+json com código CETESB mapeado",
+          "response_measure": "Zero violações de fronteira de camadas; 100% de calls CETESB passam pelo gateway; SSL/TLS com CA validado"
+        }
+      },
+      {
+        "proposed_id": "REQ-SICAT-NFR-0003",
+        "title": "Persistência transacional com locking otimista",
+        "quality_scenario": {
+          "source": "Operação concorrente tentando atualizar manifesto",
+          "stimulus": "Dois workers ou requests tentam atualizar status do mesmo manifesto simultaneamente",
+          "environment": "Postgres 16 com advisory locks em migration; coluna version em manifests, jobs, session_contexts",
+          "artifact": "Update falha com constraint violation se version não corresponder; client lê versão atual e reapresenta com versão correta",
+          "response": "Transação é rollback; client recebe 409 Conflict ou retry automático via idempotência; garantia de ACID sem deadlock",
+          "response_measure": "Zero deadlocks observados em 24h de operação; conflitos de versão resolvidos em < 100ms; migration idempotente com advisory lock"
+        }
+      },
+      {
+        "proposed_id": "REQ-SICAT-NFR-0004",
+        "title": "Observabilidade de performance e status operacional",
+        "quality_scenario": {
+          "source": "Operador consultando dashboard operacional",
+          "stimulus": "Requisição GET /v1/operations/overview com filtro de período (24h, 7d)",
+          "environment": "Postgres com índices em jobs(status, finished_at), performance_snapshots; frontend renderizando Sicat* components",
+          "artifact": "Resposta contém agregações (jobs por status, taxa erro CETESB, DLQ ativa, workers saudáveis, MTRs emitidos) com latência < 2s",
+          "response": "Dashboard renderiza cards operacionais com status severidade (info/success/warning/danger), ações recomendadas e métricas de timeline",
+          "response_measure": "Latência P95 <= 2s; acurácia de contagens >= 99%; índices cumprem SLA de cobertura para 7d de dados"
+        }
+      },
+      {
+        "proposed_id": "REQ-SICAT-NFR-0005",
+        "title": "Rastreabilidade fim-a-fim com correlationId",
+        "quality_scenario": {
+          "source": "Operador investigando falha de manifesto",
+          "stimulus": "Operador fornece correlationId observado no erro ou job",
+          "environment": "Auditoria sanitizada em tabela audit_logs; serviço de busca /v1/audit/search com paginação",
+          "artifact": "Trilha com todas as transições de status, chamadas CETESB (requisição/resposta), erros e timestamps; sem dados sensíveis",
+          "response": "Endpoint retorna array de eventos correlacionados; UI renderiza timeline com badges de status e detalhes de erro",
+          "response_measure": "100% de operações geram correlationId único; query audit <= 500ms; completude da trilha verificável por teste de auditoria"
+        }
+      },
+      {
+        "proposed_id": "REQ-SICAT-NFR-0006",
+        "title": "Idempotência de comandos assíncronos",
+        "quality_scenario": {
+          "source": "Cliente enviando POST /v1/manifestos/:id/submit duas vezes",
+          "stimulus": "Cliente envia requisições idênticas com header Idempotency-Key",
+          "environment": "Serviço verifica chave em tabela idempotency_keys; job enfileirado uma única vez",
+          "artifact": "Segunda requisição retorna 202 com jobId anterior; job é processado uma única vez",
+          "response": "Operação é tratada como deduplicação; cliente recebe resposta consistente sem efeitos colaterais duplicados",
+          "response_measure": "Taxa de sucesso de deduplicação = 100%; sem job duplicado no banco; teste de contrato valida operação"
+        }
+      },
+      {
+        "proposed_id": "REQ-SICAT-NFR-0007",
+        "title": "Disponibilidade do sistema mesmo com CETESB indisponível",
+        "quality_scenario": {
+          "source": "CETESB API offline (DNS falha, timeout)",
+          "stimulus": "Worker tenta processar job que depende de chamada CETESB",
+          "environment": "Health endpoints (/v1/health/*, /v1/ping) consultam Postgres local, não CETESB; worker heartbeat persiste em worker_health",
+          "artifact": "Health retorna status verde com jobs em retry_wait; operador vê jobs em DLQ após max_attempts; sistema continua aceitando novos comandos",
+          "response": "Dashboard mostra warning de contas/sessões expiradas; UI aconselha reautenticação; novos jobs são enfileirados normalmente",
+          "response_measure": "Uptime de health >= 99.5% mesmo com CETESB offline; jobs em retry aguardam <= 5min; nenhuma requisição ao CETESB duramente acoplada"
+        }
+      },
+      {
+        "proposed_id": "REQ-SICAT-NFR-0008",
+        "title": "Escalabilidade do worker e processamento de batch",
+        "quality_scenario": {
+          "source": "Sistema em pico de submissão de manifestos",
+          "stimulus": "Fila contém 100+ jobs aguardando processamento",
+          "environment": "Worker com polling interval 2s, batch size 10 (configurável); múltiplos workers em Kubernetes",
+          "artifact": "Cada ciclo de worker processa até 10 jobs com FOR UPDATE SKIP LOCKED; heartbeat registra lease por 15s",
+          "response": "Jobs são distribuídos entre workers sem lock contention; novo worker pode ser escalado horizontalmente; performance mantém < 100ms por job de overhead",
+          "response_measure": "Throughput >= 10 jobs/s por worker; utilização de CPU worker <= 70%; zero deadlocks com multiplos workers"
+        }
+      }
+    ],
+    "architecturally_significant": [
+      "REQ-SICAT-0001",
+      "REQ-SICAT-0002",
+      "REQ-SICAT-0011",
+      "REQ-SICAT-0012",
+      "REQ-SICAT-0013",
+      "REQ-SICAT-NFR-0002",
+      "REQ-SICAT-NFR-0003"
+    ]
+  },
+  "gymops": {
+    "product": "GymOps",
+    "one_line": "Plataforma web/PWA de gestão operacional multiunidade que substitui Trello com modelo hierárquico Organização→Unidade→Área→Atividade, RBAC granular, IA estruturada e notificações omnichannel.",
+    "stack": "Node.js 20 + Next.js 14 App Router (React 18) + Fastify 4 + Prisma ORM + PostgreSQL 16 (pgvector) + Redis/BullMQ + Cloudflare R2 + OpenAI API + web-push VAPID + Twilio WhatsApp + Nodemailer SMTP",
+    "functional_requirements": [
+      {
+        "proposed_id": "REQ-GYMOPS-0001",
+        "title": "Autenticação multicanal (email/senha + refresh token + OAuth Google)",
+        "statement": "O sistema deve permitir autenticação via email+senha com hash bcryptjs, refresh token armazenado como SHA-256 hash, e OAuth 2.0 Google com fluxo authorization code. Tokens JWT com exp 15min (access) e 7d (refresh, cookie httpOnly).",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-GYMOPS-0002",
+        "title": "Modelo hierárquico de escopo (Organização → Unidade → Área → Atividade)",
+        "statement": "O sistema deve implementar estrutura de domínio com Organização (locatário SaaS), Unidade (local físico), Área (função padrão: administrativo, marketing, coordenação, estrutura/manutenção, liderança, financeiro), Atividade (item executável). Área e Unit vinculados via tabela UnitArea.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-GYMOPS-0003",
+        "title": "RBAC granular por escopo (6 papéis em 3 escopos)",
+        "statement": "O sistema deve implementar papéis owner, org_manager, unit_manager, area_leader, executor, viewer aplicáveis aos escopos organização, unidade, área, com permissões hierárquicas validadas no backend via resolveUserContext() e helpers hasOrgRole()/hasUnitRole(). Precedência: owner > org_manager > unit_manager > area_leader > executor > viewer.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-GYMOPS-0004",
+        "title": "CRUD de Atividades com status, prioridade, visibilidade, atribuições e histórico",
+        "statement": "O sistema deve permitir criar, ler, atualizar e deletar atividades com status (novo, em_andamento, aguardando_terceiro, aguardando_aprovacao, concluido, cancelado), prioridade (baixa, media, alta, critica), visibilidade (inherited, restricted, shared), múltiplos assignees (responsible, participant, watcher), e gerar eventos imutáveis de auditoria em activity_events.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-GYMOPS-0005",
+        "title": "Checklists ricos (itens, comentários, anexos por item, desativação)",
+        "statement": "O sistema deve permitir criar checklists por atividade com múltiplos itens, comentário único por item, anexo associado a item (FK a activity_attachments.checklist_item_id), soft-delete (disabled_at), e exclusão. UI deve mostrar progresso de checklist (total/concluído). Atividades restritas não podem ter checklists enviados ao LLM.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-GYMOPS-0006",
+        "title": "Comentários, anexos e histórico de eventos em atividades",
+        "statement": "O sistema deve permitir comentários em texto rico em atividades, uploads de anexos via presigned R2 URL (máx 10MB), e manter registro imutável de eventos (created_at, user_id, type, payload) em activity_events para auditoria.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-GYMOPS-0007",
+        "title": "Recorrência de atividades com 4 frequências e 2 modos de geração",
+        "statement": "O sistema deve permitir criar regras de recorrência (diaria, semanal, mensal, intervalo_customizado) com 2 modos: on_complete (gerar próxima ao concluir) ou pre_generate (pré-gerar N ocorrências). Jobs BullMQ (recurrence-jobs) devem executar cronogramação determinística.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-GYMOPS-0008",
+        "title": "Visões operacionais (pessoal /me, por unidade, painel geral, central global)",
+        "statement": "O sistema deve exibir: (1) visão pessoal /me com atividades hoje/atrasadas/semana/aguardando resposta filtradas por assignee; (2) visão por unidade com cards por área; (3) painel geral com KPIs e agregações por unidade; (4) central global com paginação cursor, saved views, filtros PT (status/prioridade/responsável/área/unidade), bulk update, export CSV.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-GYMOPS-0009",
+        "title": "Wizard de onboarding com 4 passos e bootstrap canônico",
+        "statement": "O sistema deve guiar novo owner por wizard: (1) dados organização (nome, slug unico, email owner, senha ≥8 chars, nome owner); (2) escolher modelo (IA sugerido ou 6 áreas canônicas manualmente); (3) unidade inicial (opcional); (4) confirmação. POST /organizations deve aceitar blueprint opcional com áreas/templates/unidades aninhadas e chamar bootstrapOrganization(). Seed deve usar mesma estrutura canônica de 6 áreas + 24 templates.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-GYMOPS-0010",
+        "title": "Telas administrativas (org, unidades, áreas, equipe, templates, integrações, auditoria)",
+        "statement": "O sistema deve expor telas em /settings para: (1) perfil (avatar R2, nome, telefone, timezone); (2) organização (logo URL, delivery log); (3) unidades (CRUD, vincular áreas via UnitAreasDialog, reordenar); (4) áreas (CRUD, editável visibilityDefault); (5) equipe (invite escopado org/unit/area, edit role inline, histórico convites); (6) templates (CRUD com preview); (7) recorrências (CRUD, pause/resume); (8) integrações (health/status Trello, reconnect, WhatsApp); (9) import (Trello JSON + OAuth); (10) auditoria (log paginado).",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-GYMOPS-0011",
+        "title": "Notificações omnichannel (e-mail SMTP, web-push VAPID, WhatsApp Twilio)",
+        "statement": "O sistema deve enviar notificações por 3 canais: (1) SMTP via Nodemailer (activity_assigned, due_reminder, overdue, daily_summary, import_complete); (2) web-push via VAPID (browser + PWA); (3) WhatsApp Twilio (usuarios.phone E.164 + opt-in). Preferences por usuário em notification_preferences. Delivery log com filtros canal/status/paginação.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-GYMOPS-0012",
+        "title": "Importação atômica de Trello (dry-run → preview → commit)",
+        "statement": "O sistema deve permitir importação de Trello em 2 modos: (1) upload JSON exportado; (2) OAuth implícito (Trello API). Fluxo: fetch → dry-run (preview mapeamento) → revisão usuario → commit atômico (transação 15s timeout). Deduplicação cross-job via import_sources. Relatório final de itens importados.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-GYMOPS-0013",
+        "title": "IA estruturada como copiloto (4 recursos: draft, checklist, resumo, análise atraso)",
+        "statement": "O sistema deve oferecer 4 endpoints IA com structured outputs OpenAI: (1) POST /ai/activities/draft (texto livre → rascunho não persistente); (2) POST /ai/activities/checklist (sugerir itens); (3) POST /ai/checklists/:id/revise (revisar checklist existente); (4) POST /ai/summaries/daily (agregação SQL → resumo gestor). Timeouts 10s sync/60s async. Rate limit 10 req/min por userId. IA nunca acessa atividades restricted.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-GYMOPS-0014",
+        "title": "Responsividade obrigatória (mobile ≤375px + desktop ≥1280px)",
+        "statement": "O sistema deve funcionar em desktop e mobile. Regras: mobile-first base, desktop com md: overrides. Sidebar: fixed overlay mobile (z-50, -translate-x-full), md:relative desktop. Padding p-3 md:p-6. Tabelas overflow-x-auto. Modais max-h-[90vh]. Nenhum w-[valor fixo] sem prefixo md:.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-GYMOPS-0015",
+        "title": "PWA instalável com service worker e push notifications",
+        "statement": "O sistema deve ser uma PWA funcional com manifest.json (nome completo, categorias, lang), service worker (push + notification click), instalação na tela inicial, e funcionamento offline para operação de rotina.",
+        "scope": "product",
+        "priority": "medium"
+      }
+    ],
+    "non_functional_requirements": [
+      {
+        "proposed_id": "REQ-GYMOPS-NFR-001",
+        "title": "Performance de listagem de atividades (Central Global com 1000+ itens)",
+        "quality_scenario": {
+          "source": "Gestor de rede consultando central de atividades",
+          "stimulus": "Carrega listagem com 1000+ atividades filtradas por prioridade/status/unidade/área em paginação cursor",
+          "environment": "Produção em Vercel/Neon/Upstash com PostgreSQL 16 + índices compostos (activities.organization_id, unit_id, status, due_at)",
+          "artifact": "Página /activities",
+          "response": "Resposta <1.5s (P50), <3s (P95). Índices ativados. Cursor pagination com limit=50.",
+          "response_measure": "Tempo de resposta HTTP incluindo query + serialização"
+        }
+      },
+      {
+        "proposed_id": "REQ-GYMOPS-NFR-002",
+        "title": "Segurança: RBAC sempre no backend, sem exposição de IDs sequenciais",
+        "quality_scenario": {
+          "source": "Agente malicioso tentando escalação de privilégio via curl",
+          "stimulus": "Solicita PATCH /activities/:id com dados de atividade de outro usuário ou organização",
+          "environment": "Qualquer rede; qualquer token válido de usuário sem acesso",
+          "artifact": "Backend Fastify com resolveActivityPermission() obrigatório + UUIDs v4 em todas as tabelas",
+          "response": "Retorna 404 (sobre 403 para evitar enumeração) se permissão negada. Nunca expõe IDs sequenciais. Validação Zod em entrada.",
+          "response_measure": "Status HTTP correto + auditoria log do acesso denegado"
+        }
+      },
+      {
+        "proposed_id": "REQ-GYMOPS-NFR-003",
+        "title": "Confiabilidade de recorrências (jobs nunca perdidos, degradação graciosa sem Redis)",
+        "quality_scenario": {
+          "source": "Job de recorrência diária para 100 organizações",
+          "stimulus": "Servidor worker reinicia durante execução de BullMQ jobs. Redis pode estar ausente (dev local).",
+          "environment": "Produção com Redis Upstash ou dev local sem Redis",
+          "artifact": "BullMQ workers + fallback setImmediate quando REDIS_URL ausente",
+          "response": "Jobs não são perdidos. Se Redis presente, fila persiste. Se ausente, fallback executa com degradação (sem persistência). Próxima recorrência gerada mesmo em falha.",
+          "response_measure": "Todas as atividades recorrentes têm próxima ocorrência gerada em <24h"
+        }
+      },
+      {
+        "proposed_id": "REQ-GYMOPS-NFR-004",
+        "title": "Disponibilidade de IA com fallback gracioso (nunca 500 por falha OpenAI)",
+        "quality_scenario": {
+          "source": "Usuário clica 'Sugerir checklist' enquanto OpenAI API está offline",
+          "stimulus": "POST /ai/activities/checklist com OpenAI timeout ou 5xx",
+          "environment": "Qualquer chamada síncrona (<10s) ou assíncrona em worker (<60s)",
+          "artifact": "callAI(fn, fallback, timeoutMs) em todos os endpoints /ai/*. Rate limit 10/min por userId.",
+          "response": "Retorna fallback (valores default sensatos) sem erro 500. Usuário vê sugestão degradada mas continua operando.",
+          "response_measure": "Status 200 com confidence: 0 ou lista vazia (nunca 5xx)"
+        }
+      },
+      {
+        "proposed_id": "REQ-GYMOPS-NFR-005",
+        "title": "Integridade de importação Trello (commit atômico, nenhuma perda de dados)",
+        "quality_scenario": {
+          "source": "Admin importa 300 boards Trello (10.000+ atividades) via JSON",
+          "stimulus": "Carrega JSON → dry-run (preview) → usuário revisa → confirma commit",
+          "environment": "Transação PostgreSQL com timeout 15s. Deduplicação via import_sources.",
+          "artifact": "POST /imports/{jobId}/commit com BEGIN/COMMIT + rollback se erro",
+          "response": "Todas as atividades, comentários, checklists, attachments criados ou erro atomicamente revertido. Nenhuma atividade parcial. Relatório final com contadores.",
+          "response_measure": "Transação completa <15s ou explícito 408 timeout. 0 corrupção de dados."
+        }
+      },
+      {
+        "proposed_id": "REQ-GYMOPS-NFR-006",
+        "title": "Responsividade em viewport 375px (mobile) sem overflow ou layout quebrado",
+        "quality_scenario": {
+          "source": "Executor usando GymOps em iPhone SE (375px) durante expediente",
+          "stimulus": "Navega entre /me, /activities, drawer de atividade, modal de novo checklist em telas mobile",
+          "environment": "Safari/Chrome iOS com viewport 375×812px",
+          "artifact": "CSS Tailwind com breakpoint md: (768px), sidebar fixed overlay, padding p-3 md:p-6, tabelas overflow-x-auto",
+          "response": "Todas as páginas renderizam sem overflow horizontal. Sidebar slide-in/out. Botões 44px min (acessibilidade touch). Texto legível.",
+          "response_measure": "Validação visual em 375px sem scroll horizontal + Lighthouse mobile >85"
+        }
+      },
+      {
+        "proposed_id": "REQ-GYMOPS-NFR-007",
+        "title": "Conformidade linguística (100% português brasileiro na UI)",
+        "quality_scenario": {
+          "source": "Usuário final navegando a plataforma",
+          "stimulus": "Qualquer rota, qualquer componente, qualquer mensagem ao usuário",
+          "environment": "Qualquer browser, qualquer viewport",
+          "artifact": "Strings i18n apenas pt-BR. Nenhum hardcode em inglês na UI.",
+          "response": "Toda comunicação ao usuário em português correto. Labels, placeholders, mensagens de erro, tooltips.",
+          "response_measure": "Grep não encontra strings em inglês na UI (exceto URLs/tech jargon inevitável)"
+        }
+      },
+      {
+        "proposed_id": "REQ-GYMOPS-NFR-008",
+        "title": "Compatibilidade de navegadores (Chrome, Firefox, Safari, Edge últimas 2 versões)",
+        "quality_scenario": {
+          "source": "Usuários final em diferentes browsers",
+          "stimulus": "Acesso a qualquer rota da app",
+          "environment": "Chrome 125+, Firefox 123+, Safari 17+, Edge 125+ em Windows/macOS/iOS/Android",
+          "artifact": "Next.js 14 + React 18 + Tailwind CSS. Service Worker / Web Push API suportadas.",
+          "response": "Funcionalidade core (login, atividades, checklists) sem degradação. PWA instala em suporte. Notificações web-push funcionam.",
+          "response_measure": "E2E smoke tests passando em Matrix de browsers (local via Playwright ou CI)"
+        }
+      }
+    ],
+    "architecturally_significant": [
+      "REQ-GYMOPS-0002",
+      "REQ-GYMOPS-0003",
+      "REQ-GYMOPS-NFR-002",
+      "REQ-GYMOPS-NFR-005"
+    ]
+  },
+  "portalCms": {
+    "product": "CMS / Portal Builder System",
+    "one_line": "Decoupled content management system for creating and editing websites through visual editor, with AI-assisted content generation, media management, and governance workflows.",
+    "stack": "Node.js (Express) backend (pm-api), PostgreSQL database, React frontend (Console + site-renderer), Kubernetes (Docker Desktop), Traefik ingress, OpenAI API (optional), pm-api is somente-leitura pattern with SSE.",
+    "functional_requirements": [
+      {
+        "proposed_id": "REQ-CMS-0001",
+        "title": "Create new portal from wizard with optional initial content generation",
+        "statement": "O sistema deve permitir criar um novo portal através de um formulário de criação (NewPortalWizard) que aceita: nome, chave única do portal, descrição e prompt opcional para geração de conteúdo inicial. O portal nasce com status 'draft' se criado por member, ou 'published' se criado por admin.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-CMS-0002",
+        "title": "Visual editor with live preview and click-to-edit interface",
+        "statement": "O sistema deve fornecer um editor visual (VisualEditor) que renderiza o portal em um iframe com ?cmsEdit=1, permitindo: clique para editar texto destacado, mover/ocultar/excluir/reordenar seções por arrastar, controles por item (adicionar/remover), upload de mídia no lugar, e alternância entre páginas. Alterações devem auto-salvar com debounce.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-CMS-0003",
+        "title": "Section-based content model with configurable block types",
+        "statement": "O conteúdo deve ser organizado como: Projeto → Páginas (com slug único) → Seções ordenadas. Cada seção tem: kind (tipo de bloco validado), position, data jsonb (heterogênea), status (draft|published), visible (booleano). Kinds genéricos (hero, rich-text, section-heading, card-grid, timeline, accordion, video-gallery, materials, testimonials, logos, cta, image) são criatáveis pelo editor; kinds específicos de portal (palestras, lead-form, stats, gallery, services-detail, contact-form) são semeados.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-CMS-0004",
+        "title": "Taxonomy-aware project filtering for portal CMS vs product software",
+        "statement": "O sistema deve classificar projetos por app_type (cms_portal | product_software | platform_tool). O editor de conteúdo deve listar apenas cms_portal; o painel do usuário deve separar 'Meus Portais' (CMS) de 'Meus Sistemas & Produtos' (P&T). A classificação deve ser refletida em badges na UI.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-CMS-0005",
+        "title": "Public content API with project approval and status gating",
+        "statement": "O sistema deve expor /devops/api/cms/public/<projectKey> apenas para portais com approval_status='approved' E status='active'. A resposta deve incluir: project.key/name, site.data (paleta/identidade), pages (slug, title) e sections (id, kind, anchor, data) APENAS com status='published' E visible=true. Tempo de cache: max-age=30.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-CMS-0006",
+        "title": "Media library with project and global scopes",
+        "statement": "O sistema deve gerenciar arquivos em dois escopos: 'project' (padrão, exclusivo do portal) e 'global' (biblioteca pública da plataforma, admin-only). MediaPicker deve exibir abas 'Todos disponíveis / Este portal / Biblioteca pública'. Upload/exclusão de global é restrito a admin (403 para member). Mimes permitidos: imagens (png, jpeg, webp, gif, svg), documentos (pdf, docx, xlsx, pptx, csv, txt, zip), vídeo (mp4, webm, quicktime).",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-CMS-0007",
+        "title": "Portal approval workflow with admin/member governance",
+        "statement": "O sistema deve suportar dois fluxos de criação: admin cria → nasce 'approved' imediatamente; member cria → nasce 'pending_approval'. Portal pendente não aparece na rota pública (404) mas pode ser editado como rascunho. Admin pode Aprovar/Rejeitar (botões no editor). Rastreio: created_by, approved_by, approved_at.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-CMS-0008",
+        "title": "Portal deactivation and deletion with content preservation",
+        "statement": "O sistema deve suportar: Desativar (status='paused') → portal tira-se do ar (404 público), conteúdo preservado, pode reativar; Excluir (status='archived' ou DELETE em cascata) → remove projeto e TODO conteúdo (páginas, seções, arquivos, gerações). Editor deve sugerir 'Desativar' quando a intenção é só sair do ar.",
+        "scope": "product",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-CMS-0009",
+        "title": "AI-assisted content generation for full portal and section editing",
+        "statement": "O sistema deve oferecer dois endpoints de IA: POST /projects/:id/cms/generate (gera portal completo: site + páginas + seções a partir de prompt) e POST /cms/sections/:id/ai (reescreve data preservando kind e shape). Contexto sempre inclui: site inteiro (identidade + resumo de páginas), prompts originais de criação. Geração logged com cms_generation_requests (rastreabilidade). Sem OPENAI_API_KEY: degrada graciosamente (503).",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-CMS-0010",
+        "title": "Site-renderer generic frontend serving all portals at /sites/<key>",
+        "statement": "O sistema deve fornecer um frontend genérico (site-renderer) que serve QUALQUER portal publicado em /sites/<chave> (IngressRoute PathPrefix, priority 12, sem strip). Renderer busca a árvore em runtime via API pública, renderiza kinds genéricos (hero, rich-text, card-grid, etc) + tema colorido pela paleta (cms_site.data.palette). Portal novo criado no Console nasce visível imediatamente sem build/deploy.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-CMS-0011",
+        "title": "Embedded visual editor in Console for site-renderer portals",
+        "statement": "O sistema deve implementar protocolo cmsEdit completo no site-renderer: /sites/<chave>/?cmsEdit=1 com handshake same-origin entre iframe e Console. Oferece clique-para-editar, mover/publicar/ocultar/excluir/adicionar seção por moldura, controles por item, upload de mídia no lugar. Header/rodapé também editáveis (nome site, tagline, contatos) abrindo painel do SITE. Visitante público NUNCA vê o chrome.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-CMS-0012",
+        "title": "User-friendly field kit for CMS forms without technical jargon",
+        "statement": "O sistema deve fornecer formulários CMS (AutoForm) com campos amigáveis: seletor visual de cor (com hex sincronizado), rótulos pt-BR ('Cor principal', 'Frase de posicionamento', 'Chapéu'), selects para campos de escolha (posição flutuante, layout, tipo botão), URL YouTube → ID automático, dicas sob campos (WhatsApp com DDI, #âncora), campos internos ocultos (_*). Painel/modal do site sempre exibe esqueleto padrão mesmo em portal recém-criado.",
+        "scope": "product",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-CMS-0013",
+        "title": "AI assistant button in every editable region",
+        "statement": "O sistema deve oferecer botão ✨ (AiAssist) em toda região editável: painel de seção (modo visual), drawer (modo avançado) e painel/modal do site. Clique abre prompt focado para instrução de IA. Endpoints: POST /cms/sections/:id/ai (reescreve data), POST /projects/:id/cms/site/ai (identidade/paleta/contato). Cada execução logada (kind section/site) para rastreabilidade.",
+        "scope": "product",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-CMS-0014",
+        "title": "Portal content preview and fallback for app-specific portals",
+        "statement": "O sistema deve permitir que apps (anarabottini, rmambiental) consumam conteúdo do CMS via: src/lib/content.ts (tipos + fetchContent() → /devops/api/cms/public/<key>), ContentProvider (default-first: renderiza embutido na hora, troca para CMS quando carrega), SectionRenderer (renderer por kind) com fallback em src/data/content.default.ts. Mesmo renderizador para site-renderer e apps dedicadas.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-CMS-0015",
+        "title": "Advanced mode with list view and drag-drop section reordering",
+        "statement": "O sistema deve ofertar modo 'Avançado' (alternado no topo do editor) com lista de seções em drawer/formulário clássico e reordenação por arraste. Contraste com modo Visual (prévia ao vivo) para usuários que preferem interação estruturada.",
+        "scope": "product",
+        "priority": "medium"
+      }
+    ],
+    "non_functional_requirements": [
+      {
+        "proposed_id": "REQ-CMS-NFR-001",
+        "title": "Public content served with optimized cache headers and immutable assets",
+        "quality_scenario": {
+          "source": "Visitante público acessando portal publicado",
+          "stimulus": "GET /devops/api/cms/public/<key> ou GET /devops/api/cms/public/files/<id>",
+          "environment": "Rede local (xpto.localhost) ou produção (dev.nvit.com.br)",
+          "artifact": "PM-API (rota pública)",
+          "response": "Resposta com Cache-Control: public, max-age=30 (conteúdo) ou max-age=86400, immutable (arquivos); ETag para validação 304",
+          "response_measure": "Assets imutáveis (id = hash) servem 304 sem I/O Postgres em revalidações; conteúdo atualiza em ≤30s (visível ao recarregar portal)"
+        }
+      },
+      {
+        "proposed_id": "REQ-CMS-NFR-002",
+        "title": "Editor auto-save with debounce and optimistic UI updates",
+        "quality_scenario": {
+          "source": "Usuário editando portal no modo Visual",
+          "stimulus": "Usuário digita em campo EditableText ou muda valor no painel de seção (múltiplas edições rápidas)",
+          "environment": "Console autenticado; iframe same-origin com ?cmsEdit=1",
+          "artifact": "VisualEditor + ContentEditor + pm-api PATCH",
+          "response": "Alterações acumuladas em debounce (~300ms), enviadas em PATCH single; UI reflete mudança imediatamente (otimista); em caso de erro backend, reverte e notifica",
+          "response_measure": "Até 10 edições rápidas geram 1-2 requests ao backend (não 10); latência percebida ≤1s (debounce + rede); reverte em erro sem perder dados"
+        }
+      },
+      {
+        "proposed_id": "REQ-CMS-NFR-003",
+        "title": "AI generation with short timeout and graceful degradation",
+        "quality_scenario": {
+          "source": "Usuário clicando botão ✨ para gerar/reescrever conteúdo",
+          "stimulus": "POST /projects/:id/cms/generate ou POST /cms/sections/:id/ai com instrução",
+          "environment": "Console autenticado; OPENAI_API_KEY configurada ou não",
+          "artifact": "pm-api (ai/generate.js, timeout 30s)",
+          "response": "Com chave: geração síncrona, resultado em <30s, logged em cms_generation_requests; sem chave: 503 gracioso ('IA não configurada'), CMS segue 100% funcional, editor continua operável",
+          "response_measure": "Timeout total ≤30s (abort automático); sucesso em <10s típico (modelo rápido); sem chave → 503 + mensagem clara, não quebra UX"
+        }
+      },
+      {
+        "proposed_id": "REQ-CMS-NFR-004",
+        "title": "Media file handling with MIME allowlist and per-type size limits",
+        "quality_scenario": {
+          "source": "Usuário fazendo upload de arquivo (imagem/video/documento) no MediaPicker",
+          "stimulus": "POST /projects/:projectId/cms/files/upload (multipart) com arquivo >8MB (doc) ou >50MB (vídeo)",
+          "environment": "Console autenticado; pod pm-api com limite 256Mi memória",
+          "artifact": "multer + cms.js handler",
+          "response": "Arquivo validado: mime em allowlist, tamanho ≤tipo-específico (8MB padrão, 50MB vídeo). Rejeitado se exceder: 400 'arquivo muito grande' com tipo/limite. Aceito: armazenado como bytea em PostgreSQL, retorna id + URL pública",
+          "response_measure": "Arquivo válido: upload <5s (memória suficiente para single-user); rejeição imediata (<100ms); pod não OOM em uploads sequenciais (lab)"
+        }
+      },
+      {
+        "proposed_id": "REQ-CMS-NFR-005",
+        "title": "Seeded portal content remains stable across re-runs",
+        "quality_scenario": {
+          "source": "Operador rodando seed.js durante lab setup (scripts/cms-seed-*.js)",
+          "stimulus": "npm run seed (ou `node scripts/seed.js` + `restart pm-api`)",
+          "environment": "Lab local com pm-api + banco Postgres vazio ou com dados prévios",
+          "artifact": "cms-seed-anarabottini.js e cms-seed-rmambiental.js (idempotentes)",
+          "response": "Primeira run: cria cms_site + páginas + seções. Segunda run (portal já tem seções): pula, não sobrescreve edições. Desenvolvedor pode limpar cms_pages do projeto + restart pm-api para re-semear",
+          "response_measure": "Seed idempotente: segunda run é NOP; edições manuais persistem; limpar + restart restaura conteúdo original sem dados órfãos"
+        }
+      },
+      {
+        "proposed_id": "REQ-CMS-NFR-006",
+        "title": "Concurrent user access with isolation by project scope",
+        "quality_scenario": {
+          "source": "Dois membros editando portais diferentes em paralelo (project-members com acesso escopado)",
+          "stimulus": "User A PATCH /cms/sections/<id-A> + User B PATCH /cms/sections/<id-B> simultaneamente",
+          "environment": "Console com authContext; assertProjectAccess valida acesso por project_id",
+          "artifact": "pm-api auth.js (assertProjectAccess) + PATCH endpoints",
+          "response": "Cada request validado contra project_id do recurso; A só edita seções de seu projeto, B do seu. Sem conflito: ambos succedem independentemente. Se A tenta acessar projeto de B: 403 Forbidden",
+          "response_measure": "Acesso negado em <50ms (SQL check); operações paralelas não contaminam dados cruzados; admin (isAdmin=true) acessa todos os projetos"
+        }
+      },
+      {
+        "proposed_id": "REQ-CMS-NFR-007",
+        "title": "AI generation requests logged for auditability and context continuity",
+        "quality_scenario": {
+          "source": "Operador regenerando portal com instrução diferente (phase 2: múltiplas gerações)",
+          "stimulus": "POST /projects/:id/cms/generate (primeira geração), depois POST novamente com novo prompt",
+          "environment": "Console autenticado; OPENAI_API_KEY configurada",
+          "artifact": "cms_generation_requests table + aiEditSection/aiEditSite com buildSiteContext",
+          "response": "Cada request cria linha em cms_generation_requests (id, kind, prompt, context, status, result, error, created_by, created_at). Próxima geração lê prompts anteriores (LIMIT 3) para manter tom/segmento. Sem regenerar: segunda geração ADICIONA seções rascunho, não sobrescreve manual edits",
+          "response_measure": "Auditoria completa: quem gerou, quando, com qual prompt, resultado; contexto de IA inclui prompts históricos (rastreabilidade); regenerar não perde ajustes"
+        }
+      }
+    ],
+    "architecturally_significant": [
+      "REQ-CMS-0005",
+      "REQ-CMS-0010",
+      "REQ-CMS-NFR-001",
+      "REQ-CMS-0002",
+      "REQ-CMS-0003",
+      "REQ-CMS-NFR-002"
+    ]
+  }
+}

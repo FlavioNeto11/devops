@@ -1,0 +1,28 @@
+id: REQ-CMS-NFR-003
+slug: req-cms-nfr-003
+title: AI generation with short timeout and graceful degradation
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: cms
+statement: "O sistema deve atender ao atributo de qualidade \"AI generation with short timeout and graceful degradation\": Com chave: geração síncrona, resultado em <30s, logged em cms_generation_requests; sem chave: 503 gracioso ('IA não configurada'), CMS segue 100% funcional, editor continua operável"
+source:
+  stakeholder: cms
+  origin: codebase portal/CMS + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Usuário clicando botão ✨ para gerar/reescrever conteúdo
+    stimulus: POST /projects/:id/cms/generate ou POST /cms/sections/:id/ai com instrução
+    environment: Console autenticado; OPENAI_API_KEY configurada ou não
+    artifact: pm-api (ai/generate.js, timeout 30s)
+    response: "Com chave: geração síncrona, resultado em <30s, logged em cms_generation_requests; sem chave: 503 gracioso ('IA não configurada'), CMS segue 100% funcional, editor continua operável"
+    response_measure: Timeout total ≤30s (abort automático); sucesso em <10s típico (modelo rápido); sem chave → 503 + mensagem clara, não quebra UX
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

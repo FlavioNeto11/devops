@@ -1,0 +1,21 @@
+id: REQ-SICAT-0008
+slug: req-sicat-0008
+title: Pesquisa e resolução de parceiros (empresa/transportista/destinatário)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: sicat
+  applies_to: product
+statement: O sistema deve permitir buscar parceiros por termo/documento/código no cache local ou via gateway CETESB, retornando dados normalizados (código, razão social, estado).
+source:
+  stakeholder: sicat
+  origin: codebase apps/sicat + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

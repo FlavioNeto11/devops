@@ -1,0 +1,28 @@
+id: REQ-CMS-NFR-006
+slug: req-cms-nfr-006
+title: Concurrent user access with isolation by project scope
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: cms
+statement: 'O sistema deve atender ao atributo de qualidade "Concurrent user access with isolation by project scope": Cada request validado contra project_id do recurso; A só edita seções de seu projeto, B do seu. Sem conflito: ambos succedem independentemente. Se A tenta acessar projeto de B: 403 Forbidden'
+source:
+  stakeholder: cms
+  origin: codebase portal/CMS + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Dois membros editando portais diferentes em paralelo (project-members com acesso escopado)
+    stimulus: User A PATCH /cms/sections/<id-A> + User B PATCH /cms/sections/<id-B> simultaneamente
+    environment: Console com authContext; assertProjectAccess valida acesso por project_id
+    artifact: pm-api auth.js (assertProjectAccess) + PATCH endpoints
+    response: "Cada request validado contra project_id do recurso; A só edita seções de seu projeto, B do seu. Sem conflito: ambos succedem independentemente. Se A tenta acessar projeto de B: 403 Forbidden"
+    response_measure: Acesso negado em <50ms (SQL check); operações paralelas não contaminam dados cruzados; admin (isAdmin=true) acessa todos os projetos
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

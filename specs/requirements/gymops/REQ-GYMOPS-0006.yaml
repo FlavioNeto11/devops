@@ -1,0 +1,21 @@
+id: REQ-GYMOPS-0006
+slug: req-gymops-0006
+title: Comentários, anexos e histórico de eventos em atividades
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: gymops
+  applies_to: product
+statement: O sistema deve permitir comentários em texto rico em atividades, uploads de anexos via presigned R2 URL (máx 10MB), e manter registro imutável de eventos (created_at, user_id, type, payload) em activity_events para auditoria.
+source:
+  stakeholder: gymops
+  origin: codebase apps/gymops + research-2026-06
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

@@ -1,0 +1,22 @@
+id: REQ-SICAT-0016
+slug: req-sicat-0016
+title: AI Control Center (admin de ferramentas, agentes, prompts, conhecimento)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: sicat
+  applies_to: capability
+  capability: ai-control
+statement: O sistema deve permitir visualizar, configurar e versionar ferramentas de IA, agentes, prompts e índices de conhecimento (pgvector), com suporte a sincronização com Langfuse e avaliações.
+source:
+  stakeholder: sicat
+  origin: codebase apps/sicat + research-2026-06
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

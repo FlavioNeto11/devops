@@ -1,0 +1,28 @@
+id: REQ-CMS-NFR-002
+slug: req-cms-nfr-002
+title: Editor auto-save with debounce and optimistic UI updates
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: cms
+statement: 'O sistema deve atender ao atributo de qualidade "Editor auto-save with debounce and optimistic UI updates": Alterações acumuladas em debounce (~300ms), enviadas em PATCH single; UI reflete mudança imediatamente (otimista); em caso de erro backend, reverte e notifica'
+source:
+  stakeholder: cms
+  origin: codebase portal/CMS + research-2026-06
+priority: high
+criticality: high
+architectural_significance: true
+quality_scenarios:
+  - source: Usuário editando portal no modo Visual
+    stimulus: Usuário digita em campo EditableText ou muda valor no painel de seção (múltiplas edições rápidas)
+    environment: Console autenticado; iframe same-origin com ?cmsEdit=1
+    artifact: VisualEditor + ContentEditor + pm-api PATCH
+    response: Alterações acumuladas em debounce (~300ms), enviadas em PATCH single; UI reflete mudança imediatamente (otimista); em caso de erro backend, reverte e notifica
+    response_measure: Até 10 edições rápidas geram 1-2 requests ao backend (não 10); latência percebida ≤1s (debounce + rede); reverte em erro sem perder dados
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

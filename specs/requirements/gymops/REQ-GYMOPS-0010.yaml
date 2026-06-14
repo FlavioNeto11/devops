@@ -1,0 +1,21 @@
+id: REQ-GYMOPS-0010
+slug: req-gymops-0010
+title: Telas administrativas (org, unidades, áreas, equipe, templates, integrações, auditoria)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: gymops
+  applies_to: product
+statement: "O sistema deve expor telas em /settings para: (1) perfil (avatar R2, nome, telefone, timezone); (2) organização (logo URL, delivery log); (3) unidades (CRUD, vincular áreas via UnitAreasDialog, reordenar); (4) áreas (CRUD, editável visibilityDefault); (5) equipe (invite escopado org/unit/area, edit role inline, histórico convites); (6) templates (CRUD com preview); (7) recorrências (CRUD, pause/resume); (8) integrações (health/status Trello, reconnect, WhatsApp); (9) import (Trello JSON + OAuth); (10) auditoria (log paginado)."
+source:
+  stakeholder: gymops
+  origin: codebase apps/gymops + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

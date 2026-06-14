@@ -1,0 +1,28 @@
+id: REQ-CMS-NFR-001
+slug: req-cms-nfr-001
+title: Public content served with optimized cache headers and immutable assets
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: cms
+statement: 'O sistema deve atender ao atributo de qualidade "Public content served with optimized cache headers and immutable assets": Resposta com Cache-Control: public, max-age=30 (conteúdo) ou max-age=86400, immutable (arquivos); ETag para validação 304'
+source:
+  stakeholder: cms
+  origin: codebase portal/CMS + research-2026-06
+priority: high
+criticality: high
+architectural_significance: true
+quality_scenarios:
+  - source: Visitante público acessando portal publicado
+    stimulus: GET /devops/api/cms/public/<key> ou GET /devops/api/cms/public/files/<id>
+    environment: Rede local (xpto.localhost) ou produção (dev.nvit.com.br)
+    artifact: PM-API (rota pública)
+    response: "Resposta com Cache-Control: public, max-age=30 (conteúdo) ou max-age=86400, immutable (arquivos); ETag para validação 304"
+    response_measure: Assets imutáveis (id = hash) servem 304 sem I/O Postgres em revalidações; conteúdo atualiza em ≤30s (visível ao recarregar portal)
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

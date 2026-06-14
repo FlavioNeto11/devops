@@ -1,0 +1,21 @@
+id: REQ-GYMOPS-0014
+slug: req-gymops-0014
+title: Responsividade obrigatória (mobile ≤375px + desktop ≥1280px)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: gymops
+  applies_to: product
+statement: "O sistema deve funcionar em desktop e mobile. Regras: mobile-first base, desktop com md: overrides. Sidebar: fixed overlay mobile (z-50, -translate-x-full), md:relative desktop. Padding p-3 md:p-6. Tabelas overflow-x-auto. Modais max-h-[90vh]. Nenhum w-[valor fixo] sem prefixo md:."
+source:
+  stakeholder: gymops
+  origin: codebase apps/gymops + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

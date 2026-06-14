@@ -1,0 +1,21 @@
+id: REQ-GYMOPS-0012
+slug: req-gymops-0012
+title: Importação atômica de Trello (dry-run → preview → commit)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: gymops
+  applies_to: product
+statement: "O sistema deve permitir importação de Trello em 2 modos: (1) upload JSON exportado; (2) OAuth implícito (Trello API). Fluxo: fetch → dry-run (preview mapeamento) → revisão usuario → commit atômico (transação 15s timeout). Deduplicação cross-job via import_sources. Relatório final de itens importados."
+source:
+  stakeholder: gymops
+  origin: codebase apps/gymops + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

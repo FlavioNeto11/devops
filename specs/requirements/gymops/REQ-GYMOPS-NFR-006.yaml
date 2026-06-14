@@ -1,0 +1,28 @@
+id: REQ-GYMOPS-NFR-006
+slug: req-gymops-nfr-006
+title: Responsividade em viewport 375px (mobile) sem overflow ou layout quebrado
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: gymops
+statement: 'O sistema deve atender ao atributo de qualidade "Responsividade em viewport 375px (mobile) sem overflow ou layout quebrado": Todas as páginas renderizam sem overflow horizontal. Sidebar slide-in/out. Botões 44px min (acessibilidade touch). Texto legível.'
+source:
+  stakeholder: gymops
+  origin: codebase apps/gymops + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Executor usando GymOps em iPhone SE (375px) durante expediente
+    stimulus: Navega entre /me, /activities, drawer de atividade, modal de novo checklist em telas mobile
+    environment: Safari/Chrome iOS com viewport 375×812px
+    artifact: "CSS Tailwind com breakpoint md: (768px), sidebar fixed overlay, padding p-3 md:p-6, tabelas overflow-x-auto"
+    response: Todas as páginas renderizam sem overflow horizontal. Sidebar slide-in/out. Botões 44px min (acessibilidade touch). Texto legível.
+    response_measure: Validação visual em 375px sem scroll horizontal + Lighthouse mobile >85
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

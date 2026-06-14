@@ -1,0 +1,21 @@
+id: REQ-SICAT-0011
+slug: req-sicat-0011
+title: Fila transacional com retry e DLQ
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: sicat
+  applies_to: shared-module
+statement: O sistema deve persistir jobs em Postgres com locking otimista (version), estratégia de retry exponencial, identificação de Dead Letter Queue (DLQ) e reenfileiramento manual.
+source:
+  stakeholder: sicat
+  origin: codebase apps/sicat + research-2026-06
+priority: critical
+criticality: critical
+architectural_significance: true
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

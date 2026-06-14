@@ -1,0 +1,28 @@
+id: REQ-SICAT-NFR-0001
+slug: req-sicat-nfr-0001
+title: Resiliência em operações de fila com retry automático
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+statement: 'O sistema deve atender ao atributo de qualidade "Resiliência em operações de fila com retry automático": Worker aguarda intervalo calculado (base 1s, máx 30s) e reprocessa automaticamente; após max_attempts, job vai para DLQ'
+source:
+  stakeholder: sicat
+  origin: codebase apps/sicat + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Worker processando job de submissão de manifesto
+    stimulus: Chamada à API CETESB falha com erro transiente (timeout, 429, ECONNRESET)
+    environment: Produção com CETESB real; 5 tentativas máximas configuráveis
+    artifact: Job persistido em Postgres com status 'retry_wait' e backoff exponencial
+    response: Worker aguarda intervalo calculado (base 1s, máx 30s) e reprocessa automaticamente; após max_attempts, job vai para DLQ
+    response_measure: Taxa de sucesso em retry >= 80% para falhas transientes; tempo até DLQ <= 5 min com max_attempts=5
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

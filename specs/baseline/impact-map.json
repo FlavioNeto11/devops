@@ -1,0 +1,696 @@
+{
+  "baseline_hash": "96e91b9e52883c1cd0a2a5ca91ba5115f85564025f22ed355c655fdba933d06c",
+  "nodes": [
+    {
+      "id": "REQ-CMS-0001",
+      "kind": "requirement",
+      "title": "Create new portal from wizard with optional initial content generation",
+      "type": "functional",
+      "product": "cms",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CMS-0002",
+      "kind": "requirement",
+      "title": "Visual editor with live preview and click-to-edit interface",
+      "type": "functional",
+      "product": "cms",
+      "asr": true,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CMS-0003",
+      "kind": "requirement",
+      "title": "Section-based content model with configurable block types",
+      "type": "functional",
+      "product": "cms",
+      "asr": true,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CMS-0004",
+      "kind": "requirement",
+      "title": "Taxonomy-aware project filtering for portal CMS vs product software",
+      "type": "functional",
+      "product": "cms",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CMS-0005",
+      "kind": "requirement",
+      "title": "Public content API with project approval and status gating",
+      "type": "functional",
+      "product": "cms",
+      "asr": true,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CMS-0006",
+      "kind": "requirement",
+      "title": "Media library with project and global scopes",
+      "type": "functional",
+      "product": "cms",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CMS-0007",
+      "kind": "requirement",
+      "title": "Portal approval workflow with admin/member governance",
+      "type": "functional",
+      "product": "cms",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CMS-0008",
+      "kind": "requirement",
+      "title": "Portal deactivation and deletion with content preservation",
+      "type": "functional",
+      "product": "cms",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CMS-0009",
+      "kind": "requirement",
+      "title": "AI-assisted content generation for full portal and section editing",
+      "type": "functional",
+      "product": "cms",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CMS-0010",
+      "kind": "requirement",
+      "title": "Site-renderer generic frontend serving all portals at /sites/<key>",
+      "type": "functional",
+      "product": "cms",
+      "asr": true,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CMS-0011",
+      "kind": "requirement",
+      "title": "Embedded visual editor in Console for site-renderer portals",
+      "type": "functional",
+      "product": "cms",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CMS-0012",
+      "kind": "requirement",
+      "title": "User-friendly field kit for CMS forms without technical jargon",
+      "type": "functional",
+      "product": "cms",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CMS-0013",
+      "kind": "requirement",
+      "title": "AI assistant button in every editable region",
+      "type": "functional",
+      "product": "cms",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CMS-0014",
+      "kind": "requirement",
+      "title": "Portal content preview and fallback for app-specific portals",
+      "type": "functional",
+      "product": "cms",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CMS-0015",
+      "kind": "requirement",
+      "title": "Advanced mode with list view and drag-drop section reordering",
+      "type": "functional",
+      "product": "cms",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CMS-NFR-001",
+      "kind": "requirement",
+      "title": "Public content served with optimized cache headers and immutable assets",
+      "type": "non-functional",
+      "product": "cms",
+      "asr": true,
+      "impact_score": 58,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CMS-NFR-002",
+      "kind": "requirement",
+      "title": "Editor auto-save with debounce and optimistic UI updates",
+      "type": "non-functional",
+      "product": "cms",
+      "asr": true,
+      "impact_score": 58,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CMS-NFR-003",
+      "kind": "requirement",
+      "title": "AI generation with short timeout and graceful degradation",
+      "type": "non-functional",
+      "product": "cms",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CMS-NFR-004",
+      "kind": "requirement",
+      "title": "Media file handling with MIME allowlist and per-type size limits",
+      "type": "non-functional",
+      "product": "cms",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CMS-NFR-005",
+      "kind": "requirement",
+      "title": "Seeded portal content remains stable across re-runs",
+      "type": "non-functional",
+      "product": "cms",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CMS-NFR-006",
+      "kind": "requirement",
+      "title": "Concurrent user access with isolation by project scope",
+      "type": "non-functional",
+      "product": "cms",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CMS-NFR-007",
+      "kind": "requirement",
+      "title": "AI generation requests logged for auditability and context continuity",
+      "type": "non-functional",
+      "product": "cms",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-GYMOPS-0001",
+      "kind": "requirement",
+      "title": "Autenticação multicanal (email/senha + refresh token + OAuth Google)",
+      "type": "functional",
+      "product": "gymops",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-GYMOPS-0002",
+      "kind": "requirement",
+      "title": "Modelo hierárquico de escopo (Organização → Unidade → Área → Atividade)",
+      "type": "functional",
+      "product": "gymops",
+      "asr": true,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-GYMOPS-0003",
+      "kind": "requirement",
+      "title": "RBAC granular por escopo (6 papéis em 3 escopos)",
+      "type": "functional",
+      "product": "gymops",
+      "asr": true,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-GYMOPS-0004",
+      "kind": "requirement",
+      "title": "CRUD de Atividades com status, prioridade, visibilidade, atribuições e histórico",
+      "type": "functional",
+      "product": "gymops",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-GYMOPS-0005",
+      "kind": "requirement",
+      "title": "Checklists ricos (itens, comentários, anexos por item, desativação)",
+      "type": "functional",
+      "product": "gymops",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-GYMOPS-0006",
+      "kind": "requirement",
+      "title": "Comentários, anexos e histórico de eventos em atividades",
+      "type": "functional",
+      "product": "gymops",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-GYMOPS-0007",
+      "kind": "requirement",
+      "title": "Recorrência de atividades com 4 frequências e 2 modos de geração",
+      "type": "functional",
+      "product": "gymops",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-GYMOPS-0008",
+      "kind": "requirement",
+      "title": "Visões operacionais (pessoal /me, por unidade, painel geral, central global)",
+      "type": "functional",
+      "product": "gymops",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-GYMOPS-0009",
+      "kind": "requirement",
+      "title": "Wizard de onboarding com 4 passos e bootstrap canônico",
+      "type": "functional",
+      "product": "gymops",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-GYMOPS-0010",
+      "kind": "requirement",
+      "title": "Telas administrativas (org, unidades, áreas, equipe, templates, integrações, auditoria)",
+      "type": "functional",
+      "product": "gymops",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-GYMOPS-0011",
+      "kind": "requirement",
+      "title": "Notificações omnichannel (e-mail SMTP, web-push VAPID, WhatsApp Twilio)",
+      "type": "functional",
+      "product": "gymops",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-GYMOPS-0012",
+      "kind": "requirement",
+      "title": "Importação atômica de Trello (dry-run → preview → commit)",
+      "type": "functional",
+      "product": "gymops",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-GYMOPS-0013",
+      "kind": "requirement",
+      "title": "IA estruturada como copiloto (4 recursos: draft, checklist, resumo, análise atraso)",
+      "type": "functional",
+      "product": "gymops",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-GYMOPS-0014",
+      "kind": "requirement",
+      "title": "Responsividade obrigatória (mobile ≤375px + desktop ≥1280px)",
+      "type": "functional",
+      "product": "gymops",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-GYMOPS-0015",
+      "kind": "requirement",
+      "title": "PWA instalável com service worker e push notifications",
+      "type": "functional",
+      "product": "gymops",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-GYMOPS-NFR-001",
+      "kind": "requirement",
+      "title": "Performance de listagem de atividades (Central Global com 1000+ itens)",
+      "type": "non-functional",
+      "product": "gymops",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-GYMOPS-NFR-002",
+      "kind": "requirement",
+      "title": "Segurança: RBAC sempre no backend, sem exposição de IDs sequenciais",
+      "type": "non-functional",
+      "product": "gymops",
+      "asr": true,
+      "impact_score": 58,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-GYMOPS-NFR-003",
+      "kind": "requirement",
+      "title": "Confiabilidade de recorrências (jobs nunca perdidos, degradação graciosa sem Redis)",
+      "type": "non-functional",
+      "product": "gymops",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-GYMOPS-NFR-004",
+      "kind": "requirement",
+      "title": "Disponibilidade de IA com fallback gracioso (nunca 500 por falha OpenAI)",
+      "type": "non-functional",
+      "product": "gymops",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-GYMOPS-NFR-005",
+      "kind": "requirement",
+      "title": "Integridade de importação Trello (commit atômico, nenhuma perda de dados)",
+      "type": "non-functional",
+      "product": "gymops",
+      "asr": true,
+      "impact_score": 58,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-GYMOPS-NFR-006",
+      "kind": "requirement",
+      "title": "Responsividade em viewport 375px (mobile) sem overflow ou layout quebrado",
+      "type": "non-functional",
+      "product": "gymops",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-GYMOPS-NFR-007",
+      "kind": "requirement",
+      "title": "Conformidade linguística (100% português brasileiro na UI)",
+      "type": "non-functional",
+      "product": "gymops",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-GYMOPS-NFR-008",
+      "kind": "requirement",
+      "title": "Compatibilidade de navegadores (Chrome, Firefox, Safari, Edge últimas 2 versões)",
+      "type": "non-functional",
+      "product": "gymops",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SICAT-0001",
+      "kind": "requirement",
+      "title": "Autenticação dupla (SICAT + CETESB)",
+      "type": "functional",
+      "product": "sicat",
+      "asr": true,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SICAT-0002",
+      "kind": "requirement",
+      "title": "Criação e submissão assíncrona de manifestos MTR",
+      "type": "functional",
+      "product": "sicat",
+      "asr": true,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SICAT-0003",
+      "kind": "requirement",
+      "title": "Impressão e download de documentos MTR",
+      "type": "functional",
+      "product": "sicat",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SICAT-0004",
+      "kind": "requirement",
+      "title": "Cancelamento assíncrono de manifestos",
+      "type": "functional",
+      "product": "sicat",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SICAT-0005",
+      "kind": "requirement",
+      "title": "Recebimento de manifestos declaratório",
+      "type": "functional",
+      "product": "sicat",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SICAT-0006",
+      "kind": "requirement",
+      "title": "Sincronização de catálogos CETESB",
+      "type": "functional",
+      "product": "sicat",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SICAT-0007",
+      "kind": "requirement",
+      "title": "Geração e download de CDF (Certificado de Destinação Final)",
+      "type": "functional",
+      "product": "sicat",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SICAT-0008",
+      "kind": "requirement",
+      "title": "Pesquisa e resolução de parceiros (empresa/transportista/destinatário)",
+      "type": "functional",
+      "product": "sicat",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SICAT-0009",
+      "kind": "requirement",
+      "title": "Declaração de Movimentação de Resíduos (DMR)",
+      "type": "functional",
+      "product": "sicat",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SICAT-0010",
+      "kind": "requirement",
+      "title": "Manifesto Provisório com override de tipo",
+      "type": "functional",
+      "product": "sicat",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SICAT-0011",
+      "kind": "requirement",
+      "title": "Fila transacional com retry e DLQ",
+      "type": "functional",
+      "product": "sicat",
+      "asr": true,
+      "impact_score": 85,
+      "impact_band": "high"
+    },
+    {
+      "id": "REQ-SICAT-0012",
+      "kind": "requirement",
+      "title": "Worker dedicado para operações assíncronas",
+      "type": "functional",
+      "product": "sicat",
+      "asr": true,
+      "impact_score": 85,
+      "impact_band": "high"
+    },
+    {
+      "id": "REQ-SICAT-0013",
+      "kind": "requirement",
+      "title": "Observabilidade operacional (dashboard e health)",
+      "type": "functional",
+      "product": "sicat",
+      "asr": true,
+      "impact_score": 85,
+      "impact_band": "high"
+    },
+    {
+      "id": "REQ-SICAT-0014",
+      "kind": "requirement",
+      "title": "Auditoria técnica correlacionada",
+      "type": "functional",
+      "product": "sicat",
+      "asr": false,
+      "impact_score": 58,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SICAT-0015",
+      "kind": "requirement",
+      "title": "Conversações com IA e artefatos",
+      "type": "functional",
+      "product": "sicat",
+      "asr": false,
+      "impact_score": 40,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SICAT-0016",
+      "kind": "requirement",
+      "title": "AI Control Center (admin de ferramentas, agentes, prompts, conhecimento)",
+      "type": "functional",
+      "product": "sicat",
+      "asr": false,
+      "impact_score": 40,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SICAT-NFR-0001",
+      "kind": "requirement",
+      "title": "Resiliência em operações de fila com retry automático",
+      "type": "non-functional",
+      "product": "sicat",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SICAT-NFR-0002",
+      "kind": "requirement",
+      "title": "Integração segura com gateway CETESB isolado",
+      "type": "non-functional",
+      "product": "sicat",
+      "asr": true,
+      "impact_score": 58,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SICAT-NFR-0003",
+      "kind": "requirement",
+      "title": "Persistência transacional com locking otimista",
+      "type": "non-functional",
+      "product": "sicat",
+      "asr": true,
+      "impact_score": 58,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SICAT-NFR-0004",
+      "kind": "requirement",
+      "title": "Observabilidade de performance e status operacional",
+      "type": "non-functional",
+      "product": "sicat",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SICAT-NFR-0005",
+      "kind": "requirement",
+      "title": "Rastreabilidade fim-a-fim com correlationId",
+      "type": "non-functional",
+      "product": "sicat",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SICAT-NFR-0006",
+      "kind": "requirement",
+      "title": "Idempotência de comandos assíncronos",
+      "type": "non-functional",
+      "product": "sicat",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SICAT-NFR-0007",
+      "kind": "requirement",
+      "title": "Disponibilidade do sistema mesmo com CETESB indisponível",
+      "type": "non-functional",
+      "product": "sicat",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SICAT-NFR-0008",
+      "kind": "requirement",
+      "title": "Escalabilidade do worker e processamento de batch",
+      "type": "non-functional",
+      "product": "sicat",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    }
+  ],
+  "edges": []
+}

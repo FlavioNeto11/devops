@@ -1,0 +1,21 @@
+id: REQ-CMS-0004
+slug: req-cms-0004
+title: Taxonomy-aware project filtering for portal CMS vs product software
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: cms
+  applies_to: product
+statement: O sistema deve classificar projetos por app_type (cms_portal | product_software | platform_tool). O editor de conteúdo deve listar apenas cms_portal; o painel do usuário deve separar 'Meus Portais' (CMS) de 'Meus Sistemas & Produtos' (P&T). A classificação deve ser refletida em badges na UI.
+source:
+  stakeholder: cms
+  origin: codebase portal/CMS + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

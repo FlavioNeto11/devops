@@ -1,0 +1,21 @@
+id: REQ-CMS-0003
+slug: req-cms-0003
+title: Section-based content model with configurable block types
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: cms
+  applies_to: product
+statement: "O conteúdo deve ser organizado como: Projeto → Páginas (com slug único) → Seções ordenadas. Cada seção tem: kind (tipo de bloco validado), position, data jsonb (heterogênea), status (draft|published), visible (booleano). Kinds genéricos (hero, rich-text, section-heading, card-grid, timeline, accordion, video-gallery, materials, testimonials, logos, cta, image) são criatáveis pelo editor; kinds específicos de portal (palestras, lead-form, stats, gallery, services-detail, contact-form) são semeados."
+source:
+  stakeholder: cms
+  origin: codebase portal/CMS + research-2026-06
+priority: critical
+criticality: critical
+architectural_significance: true
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

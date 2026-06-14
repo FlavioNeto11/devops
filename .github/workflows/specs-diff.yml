@@ -1,0 +1,45 @@
+# =============================================================================
+# specs-diff — relatório de impacto da base de requisitos no PR
+# -----------------------------------------------------------------------------
+# Em PRs que tocam specs/, compara a baseline COMMITADA na base do PR vs. a do HEAD
+# e publica no Job Summary o change-report: requisitos adicionados/alterados/removidos,
+# classificação patch/minor/major e destaque para mudanças major/ASR (que pedem
+# /impact-review). Usa a baseline commitada (o gate specs-governance garante que ela
+# está em dia), então não precisa reconstruir nem instalar deps pesadas.
+# =============================================================================
+name: specs-diff
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+on:
+  pull_request:
+    paths:
+      - "specs/**"
+
+permissions:
+  contents: read
+
+jobs:
+  diff:
+    name: Relatório de impacto
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do codigo (historico completo)
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Extrair baseline da base do PR
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          git show "$BASE:specs/baseline/current-baseline.json" > "$RUNNER_TEMP/base-baseline.json" 2>/dev/null || echo "" > "$RUNNER_TEMP/base-baseline.json"
+
+      - name: Gerar change-report (base vs HEAD)
+        run: |
+          node specs/tools/diff-baseline.mjs "$RUNNER_TEMP/base-baseline.json" specs/baseline/current-baseline.json >> "$GITHUB_STEP_SUMMARY"

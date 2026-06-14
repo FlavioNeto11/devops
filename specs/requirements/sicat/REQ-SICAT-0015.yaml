@@ -1,0 +1,22 @@
+id: REQ-SICAT-0015
+slug: req-sicat-0015
+title: Conversações com IA e artefatos
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: sicat
+  applies_to: capability
+  capability: ai-conversations
+statement: O sistema deve permitir iniciar conversas de chat com IA (via LangChain/OpenAI), gerar artefatos (documentos, bundles), persistir em storage e fornecer endpoints de status e download de conteúdo.
+source:
+  stakeholder: sicat
+  origin: codebase apps/sicat + research-2026-06
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

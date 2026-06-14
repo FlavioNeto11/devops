@@ -1,0 +1,28 @@
+id: REQ-GYMOPS-NFR-008
+slug: req-gymops-nfr-008
+title: Compatibilidade de navegadores (Chrome, Firefox, Safari, Edge últimas 2 versões)
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: gymops
+statement: 'O sistema deve atender ao atributo de qualidade "Compatibilidade de navegadores (Chrome, Firefox, Safari, Edge últimas 2 versões)": Funcionalidade core (login, atividades, checklists) sem degradação. PWA instala em suporte. Notificações web-push funcionam.'
+source:
+  stakeholder: gymops
+  origin: codebase apps/gymops + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Usuários final em diferentes browsers
+    stimulus: Acesso a qualquer rota da app
+    environment: Chrome 125+, Firefox 123+, Safari 17+, Edge 125+ em Windows/macOS/iOS/Android
+    artifact: Next.js 14 + React 18 + Tailwind CSS. Service Worker / Web Push API suportadas.
+    response: Funcionalidade core (login, atividades, checklists) sem degradação. PWA instala em suporte. Notificações web-push funcionam.
+    response_measure: E2E smoke tests passando em Matrix de browsers (local via Playwright ou CI)
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

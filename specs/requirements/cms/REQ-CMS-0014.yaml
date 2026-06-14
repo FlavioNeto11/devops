@@ -1,0 +1,21 @@
+id: REQ-CMS-0014
+slug: req-cms-0014
+title: Portal content preview and fallback for app-specific portals
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: cms
+  applies_to: product
+statement: "O sistema deve permitir que apps (anarabottini, rmambiental) consumam conteúdo do CMS via: src/lib/content.ts (tipos + fetchContent() → /devops/api/cms/public/<key>), ContentProvider (default-first: renderiza embutido na hora, troca para CMS quando carrega), SectionRenderer (renderer por kind) com fallback em src/data/content.default.ts. Mesmo renderizador para site-renderer e apps dedicadas."
+source:
+  stakeholder: cms
+  origin: codebase portal/CMS + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

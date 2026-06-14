@@ -1,0 +1,21 @@
+id: REQ-CMS-0008
+slug: req-cms-0008
+title: Portal deactivation and deletion with content preservation
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: cms
+  applies_to: product
+statement: "O sistema deve suportar: Desativar (status='paused') → portal tira-se do ar (404 público), conteúdo preservado, pode reativar; Excluir (status='archived' ou DELETE em cascata) → remove projeto e TODO conteúdo (páginas, seções, arquivos, gerações). Editor deve sugerir 'Desativar' quando a intenção é só sair do ar."
+source:
+  stakeholder: cms
+  origin: codebase portal/CMS + research-2026-06
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

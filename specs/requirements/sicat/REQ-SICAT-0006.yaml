@@ -1,0 +1,21 @@
+id: REQ-SICAT-0006
+slug: req-sicat-0006
+title: Sincronização de catálogos CETESB
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: sicat
+  applies_to: product
+statement: O sistema deve sincronizar e manter atualizado no Postgres local os catálogos da CETESB (estados, cidades, classes, unidades, tratamentos, abnt) com suporte a refresh forçado.
+source:
+  stakeholder: sicat
+  origin: codebase apps/sicat + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

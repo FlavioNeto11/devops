@@ -1,0 +1,21 @@
+id: REQ-CMS-0012
+slug: req-cms-0012
+title: User-friendly field kit for CMS forms without technical jargon
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: cms
+  applies_to: product
+statement: "O sistema deve fornecer formulários CMS (AutoForm) com campos amigáveis: seletor visual de cor (com hex sincronizado), rótulos pt-BR ('Cor principal', 'Frase de posicionamento', 'Chapéu'), selects para campos de escolha (posição flutuante, layout, tipo botão), URL YouTube → ID automático, dicas sob campos (WhatsApp com DDI, #âncora), campos internos ocultos (_*). Painel/modal do site sempre exibe esqueleto padrão mesmo em portal recém-criado."
+source:
+  stakeholder: cms
+  origin: codebase portal/CMS + research-2026-06
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

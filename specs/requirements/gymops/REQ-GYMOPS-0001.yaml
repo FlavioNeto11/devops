@@ -1,0 +1,21 @@
+id: REQ-GYMOPS-0001
+slug: req-gymops-0001
+title: Autenticação multicanal (email/senha + refresh token + OAuth Google)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: gymops
+  applies_to: product
+statement: O sistema deve permitir autenticação via email+senha com hash bcryptjs, refresh token armazenado como SHA-256 hash, e OAuth 2.0 Google com fluxo authorization code. Tokens JWT com exp 15min (access) e 7d (refresh, cookie httpOnly).
+source:
+  stakeholder: gymops
+  origin: codebase apps/gymops + research-2026-06
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

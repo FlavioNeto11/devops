@@ -1,0 +1,28 @@
+id: REQ-SICAT-NFR-0004
+slug: req-sicat-nfr-0004
+title: Observabilidade de performance e status operacional
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+statement: 'O sistema deve atender ao atributo de qualidade "Observabilidade de performance e status operacional": Dashboard renderiza cards operacionais com status severidade (info/success/warning/danger), ações recomendadas e métricas de timeline'
+source:
+  stakeholder: sicat
+  origin: codebase apps/sicat + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Operador consultando dashboard operacional
+    stimulus: Requisição GET /v1/operations/overview com filtro de período (24h, 7d)
+    environment: Postgres com índices em jobs(status, finished_at), performance_snapshots; frontend renderizando Sicat* components
+    artifact: Resposta contém agregações (jobs por status, taxa erro CETESB, DLQ ativa, workers saudáveis, MTRs emitidos) com latência < 2s
+    response: Dashboard renderiza cards operacionais com status severidade (info/success/warning/danger), ações recomendadas e métricas de timeline
+    response_measure: Latência P95 <= 2s; acurácia de contagens >= 99%; índices cumprem SLA de cobertura para 7d de dados
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

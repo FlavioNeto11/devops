@@ -1,0 +1,21 @@
+id: REQ-GYMOPS-0008
+slug: req-gymops-0008
+title: Visões operacionais (pessoal /me, por unidade, painel geral, central global)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: gymops
+  applies_to: product
+statement: "O sistema deve exibir: (1) visão pessoal /me com atividades hoje/atrasadas/semana/aguardando resposta filtradas por assignee; (2) visão por unidade com cards por área; (3) painel geral com KPIs e agregações por unidade; (4) central global com paginação cursor, saved views, filtros PT (status/prioridade/responsável/área/unidade), bulk update, export CSV."
+source:
+  stakeholder: gymops
+  origin: codebase apps/gymops + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

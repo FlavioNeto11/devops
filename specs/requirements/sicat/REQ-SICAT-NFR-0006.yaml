@@ -1,0 +1,28 @@
+id: REQ-SICAT-NFR-0006
+slug: req-sicat-nfr-0006
+title: Idempotência de comandos assíncronos
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+statement: 'O sistema deve atender ao atributo de qualidade "Idempotência de comandos assíncronos": Operação é tratada como deduplicação; cliente recebe resposta consistente sem efeitos colaterais duplicados'
+source:
+  stakeholder: sicat
+  origin: codebase apps/sicat + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Cliente enviando POST /v1/manifestos/:id/submit duas vezes
+    stimulus: Cliente envia requisições idênticas com header Idempotency-Key
+    environment: Serviço verifica chave em tabela idempotency_keys; job enfileirado uma única vez
+    artifact: Segunda requisição retorna 202 com jobId anterior; job é processado uma única vez
+    response: Operação é tratada como deduplicação; cliente recebe resposta consistente sem efeitos colaterais duplicados
+    response_measure: Taxa de sucesso de deduplicação = 100%; sem job duplicado no banco; teste de contrato valida operação
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

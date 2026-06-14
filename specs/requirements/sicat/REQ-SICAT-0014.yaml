@@ -1,0 +1,21 @@
+id: REQ-SICAT-0014
+slug: req-sicat-0014
+title: Auditoria técnica correlacionada
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: sicat
+  applies_to: shared-module
+statement: O sistema deve registrar trilha de auditoria com correlationId para cada operação, incluindo entrada/saída de dados, status de transição e erros, permitindo pesquisa sanitizada por correlação.
+source:
+  stakeholder: sicat
+  origin: codebase apps/sicat + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

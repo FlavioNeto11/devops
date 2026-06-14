@@ -1,0 +1,61 @@
+# =============================================================================
+# specs-governance — gate da base de requisitos (fonte da verdade)
+# -----------------------------------------------------------------------------
+# Valida specs/requirements/** contra o schema + integridade (ids únicos, links sem
+# alvo pendente) e checa DRIFT: a baseline commitada (specs/baseline/*.json) precisa
+# estar em dia com os artefatos. Se um requisito mudou mas a baseline não foi
+# regenerada, o gate FALHA — esse é o gatilho que força o reprocessamento.
+#
+# SEMPRE executado (sem path filter): a doc do GitHub alerta que path filtering em
+# workflow obrigatório deixa PRs presos em "pending" quando o workflow é pulado.
+# Então rodamos sempre e detectamos internamente se houve mudança relevante.
+#
+# Runner: ubuntu-latest (validação não precisa do cluster), igual a validate-docs.
+# =============================================================================
+name: specs-governance
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  governance:
+    name: Validar requisitos e baseline
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do codigo
+        uses: actions/checkout@v5
+
+      - name: Configurar Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Instalar deps de specs/tools
+        working-directory: specs/tools
+        run: npm ci --no-audit --no-fund
+
+      - name: Validar schema + integridade + drift da baseline
+        working-directory: specs/tools
+        run: node build-baseline.mjs --check
+
+      - name: Resumo
+        if: always()
+        working-directory: specs/tools
+        run: |
+          {
+            echo "### Base de requisitos"
+            echo ""
+            if [ -f ../baseline/current-baseline.json ]; then
+              node -e "const b=require('../baseline/current-baseline.json');console.log('- **Total:** '+b.counts.total);console.log('- **Por produto:** '+JSON.stringify(b.counts.by_product));console.log('- **Por tipo:** '+JSON.stringify(b.counts.by_type));console.log('- **Fila de reprocessamento:** '+(b.reprocess_queue?b.reprocess_queue.length:0)+' item(ns)');console.log('- **baseline_hash:** \`'+b.baseline_hash.slice(0,16)+'…\`')"
+            else
+              echo "- (baseline ausente)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

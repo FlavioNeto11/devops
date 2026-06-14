@@ -1,0 +1,28 @@
+id: REQ-GYMOPS-NFR-003
+slug: req-gymops-nfr-003
+title: Confiabilidade de recorrências (jobs nunca perdidos, degradação graciosa sem Redis)
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: gymops
+statement: 'O sistema deve atender ao atributo de qualidade "Confiabilidade de recorrências (jobs nunca perdidos, degradação graciosa sem Redis)": Jobs não são perdidos. Se Redis presente, fila persiste. Se ausente, fallback executa com degradação (sem persistência). Próxima recorrência gerada mesmo em falha.'
+source:
+  stakeholder: gymops
+  origin: codebase apps/gymops + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Job de recorrência diária para 100 organizações
+    stimulus: Servidor worker reinicia durante execução de BullMQ jobs. Redis pode estar ausente (dev local).
+    environment: Produção com Redis Upstash ou dev local sem Redis
+    artifact: BullMQ workers + fallback setImmediate quando REDIS_URL ausente
+    response: Jobs não são perdidos. Se Redis presente, fila persiste. Se ausente, fallback executa com degradação (sem persistência). Próxima recorrência gerada mesmo em falha.
+    response_measure: Todas as atividades recorrentes têm próxima ocorrência gerada em <24h
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

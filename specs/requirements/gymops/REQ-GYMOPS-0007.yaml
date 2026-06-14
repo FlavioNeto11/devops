@@ -1,0 +1,21 @@
+id: REQ-GYMOPS-0007
+slug: req-gymops-0007
+title: Recorrência de atividades com 4 frequências e 2 modos de geração
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: gymops
+  applies_to: product
+statement: "O sistema deve permitir criar regras de recorrência (diaria, semanal, mensal, intervalo_customizado) com 2 modos: on_complete (gerar próxima ao concluir) ou pre_generate (pré-gerar N ocorrências). Jobs BullMQ (recurrence-jobs) devem executar cronogramação determinística."
+source:
+  stakeholder: gymops
+  origin: codebase apps/gymops + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

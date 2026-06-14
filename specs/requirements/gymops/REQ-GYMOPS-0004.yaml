@@ -1,0 +1,21 @@
+id: REQ-GYMOPS-0004
+slug: req-gymops-0004
+title: CRUD de Atividades com status, prioridade, visibilidade, atribuições e histórico
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: gymops
+  applies_to: product
+statement: O sistema deve permitir criar, ler, atualizar e deletar atividades com status (novo, em_andamento, aguardando_terceiro, aguardando_aprovacao, concluido, cancelado), prioridade (baixa, media, alta, critica), visibilidade (inherited, restricted, shared), múltiplos assignees (responsible, participant, watcher), e gerar eventos imutáveis de auditoria em activity_events.
+source:
+  stakeholder: gymops
+  origin: codebase apps/gymops + research-2026-06
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

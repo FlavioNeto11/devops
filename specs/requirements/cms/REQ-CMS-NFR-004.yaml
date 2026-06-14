@@ -1,0 +1,28 @@
+id: REQ-CMS-NFR-004
+slug: req-cms-nfr-004
+title: Media file handling with MIME allowlist and per-type size limits
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: cms
+statement: "O sistema deve atender ao atributo de qualidade \"Media file handling with MIME allowlist and per-type size limits\": Arquivo validado: mime em allowlist, tamanho ≤tipo-específico (8MB padrão, 50MB vídeo). Rejeitado se exceder: 400 'arquivo muito grande' com tipo/limite. Aceito: armazenado como bytea em PostgreSQL, retorna id + URL pública"
+source:
+  stakeholder: cms
+  origin: codebase portal/CMS + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Usuário fazendo upload de arquivo (imagem/video/documento) no MediaPicker
+    stimulus: POST /projects/:projectId/cms/files/upload (multipart) com arquivo >8MB (doc) ou >50MB (vídeo)
+    environment: Console autenticado; pod pm-api com limite 256Mi memória
+    artifact: multer + cms.js handler
+    response: "Arquivo validado: mime em allowlist, tamanho ≤tipo-específico (8MB padrão, 50MB vídeo). Rejeitado se exceder: 400 'arquivo muito grande' com tipo/limite. Aceito: armazenado como bytea em PostgreSQL, retorna id + URL pública"
+    response_measure: "Arquivo válido: upload <5s (memória suficiente para single-user); rejeição imediata (<100ms); pod não OOM em uploads sequenciais (lab)"
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

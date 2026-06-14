@@ -1,0 +1,28 @@
+id: REQ-CMS-NFR-005
+slug: req-cms-nfr-005
+title: Seeded portal content remains stable across re-runs
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: cms
+statement: 'O sistema deve atender ao atributo de qualidade "Seeded portal content remains stable across re-runs": Primeira run: cria cms_site + páginas + seções. Segunda run (portal já tem seções): pula, não sobrescreve edições. Desenvolvedor pode limpar cms_pages do projeto + restart pm-api para re-semear'
+source:
+  stakeholder: cms
+  origin: codebase portal/CMS + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Operador rodando seed.js durante lab setup (scripts/cms-seed-*.js)
+    stimulus: npm run seed (ou `node scripts/seed.js` + `restart pm-api`)
+    environment: Lab local com pm-api + banco Postgres vazio ou com dados prévios
+    artifact: cms-seed-anarabottini.js e cms-seed-rmambiental.js (idempotentes)
+    response: "Primeira run: cria cms_site + páginas + seções. Segunda run (portal já tem seções): pula, não sobrescreve edições. Desenvolvedor pode limpar cms_pages do projeto + restart pm-api para re-semear"
+    response_measure: "Seed idempotente: segunda run é NOP; edições manuais persistem; limpar + restart restaura conteúdo original sem dados órfãos"
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

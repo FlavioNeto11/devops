@@ -1,0 +1,17 @@
+# =============================================================================
+# CODEOWNERS — revisão obrigatória por caminho.
+# Escopo intencionalmente restrito à base de requisitos (fonte da verdade): mudar
+# um requisito, o schema do artefato ou o gate de governança exige revisão do dono
+# da plataforma. Demais caminhos seguem o fluxo normal (sem owner obrigatório).
+# Doc: docs/decisions/0002-requirements-as-source-of-truth.md
+# =============================================================================
+
+# Base de requisitos e baseline gerada
+/specs/                                   @FlavioNeto11
+
+# Contrato do artefato — mudança aqui afeta TODOS os requisitos
+/specs/schema/                            @FlavioNeto11
+
+# Gate de governança da base de requisitos
+/.github/workflows/specs-governance.yml   @FlavioNeto11
+/.github/workflows/specs-diff.yml         @FlavioNeto11

@@ -1,0 +1,28 @@
+id: REQ-SICAT-NFR-0007
+slug: req-sicat-nfr-0007
+title: Disponibilidade do sistema mesmo com CETESB indisponível
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+statement: 'O sistema deve atender ao atributo de qualidade "Disponibilidade do sistema mesmo com CETESB indisponível": Dashboard mostra warning de contas/sessões expiradas; UI aconselha reautenticação; novos jobs são enfileirados normalmente'
+source:
+  stakeholder: sicat
+  origin: codebase apps/sicat + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: CETESB API offline (DNS falha, timeout)
+    stimulus: Worker tenta processar job que depende de chamada CETESB
+    environment: Health endpoints (/v1/health/*, /v1/ping) consultam Postgres local, não CETESB; worker heartbeat persiste em worker_health
+    artifact: Health retorna status verde com jobs em retry_wait; operador vê jobs em DLQ após max_attempts; sistema continua aceitando novos comandos
+    response: Dashboard mostra warning de contas/sessões expiradas; UI aconselha reautenticação; novos jobs são enfileirados normalmente
+    response_measure: Uptime de health >= 99.5% mesmo com CETESB offline; jobs em retry aguardam <= 5min; nenhuma requisição ao CETESB duramente acoplada
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

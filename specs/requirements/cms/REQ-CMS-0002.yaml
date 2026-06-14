@@ -1,0 +1,21 @@
+id: REQ-CMS-0002
+slug: req-cms-0002
+title: Visual editor with live preview and click-to-edit interface
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: cms
+  applies_to: product
+statement: "O sistema deve fornecer um editor visual (VisualEditor) que renderiza o portal em um iframe com ?cmsEdit=1, permitindo: clique para editar texto destacado, mover/ocultar/excluir/reordenar seções por arrastar, controles por item (adicionar/remover), upload de mídia no lugar, e alternância entre páginas. Alterações devem auto-salvar com debounce."
+source:
+  stakeholder: cms
+  origin: codebase portal/CMS + research-2026-06
+priority: critical
+criticality: critical
+architectural_significance: true
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

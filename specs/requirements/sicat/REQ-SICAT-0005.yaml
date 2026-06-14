@@ -1,0 +1,21 @@
+id: REQ-SICAT-0005
+slug: req-sicat-0005
+title: Recebimento de manifestos declaratório
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: sicat
+  applies_to: product
+statement: O sistema deve permitir registrar manifesto recebido (MTR com responsável de recebimento, dados de entrega e conformidade) de forma assíncrona com persistência em banco de dados local.
+source:
+  stakeholder: sicat
+  origin: codebase apps/sicat + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

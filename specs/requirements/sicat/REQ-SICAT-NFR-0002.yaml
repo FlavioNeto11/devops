@@ -1,0 +1,28 @@
+id: REQ-SICAT-NFR-0002
+slug: req-sicat-nfr-0002
+title: Integração segura com gateway CETESB isolado
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+statement: 'O sistema deve atender ao atributo de qualidade "Integração segura com gateway CETESB isolado": Gateway valida JWT, prepara headers (Authorization + x-access-token), trata erros como application/problem+json com código CETESB mapeado'
+source:
+  stakeholder: sicat
+  origin: codebase apps/sicat + research-2026-06
+priority: high
+criticality: high
+architectural_significance: true
+quality_scenarios:
+  - source: Service camada tentando submeter manifesto
+    stimulus: Operação de submit/print/cancel/receive é enfileirada
+    environment: Backend isolado em Kubernetes com SA RBAC; mode=real obrigatório; NODE_EXTRA_CA_CERTS apontando para cetesb-chain.pem
+    artifact: Única chamada HTTP à CETESB passa por src/gateways/cetesb-gateway.js; nenhuma rota/service fala com CETESB diretamente
+    response: Gateway valida JWT, prepara headers (Authorization + x-access-token), trata erros como application/problem+json com código CETESB mapeado
+    response_measure: Zero violações de fronteira de camadas; 100% de calls CETESB passam pelo gateway; SSL/TLS com CA validado
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

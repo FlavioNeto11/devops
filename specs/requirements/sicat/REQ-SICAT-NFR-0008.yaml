@@ -1,0 +1,28 @@
+id: REQ-SICAT-NFR-0008
+slug: req-sicat-nfr-0008
+title: Escalabilidade do worker e processamento de batch
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: sicat
+statement: 'O sistema deve atender ao atributo de qualidade "Escalabilidade do worker e processamento de batch": Jobs são distribuídos entre workers sem lock contention; novo worker pode ser escalado horizontalmente; performance mantém < 100ms por job de overhead'
+source:
+  stakeholder: sicat
+  origin: codebase apps/sicat + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Sistema em pico de submissão de manifestos
+    stimulus: Fila contém 100+ jobs aguardando processamento
+    environment: Worker com polling interval 2s, batch size 10 (configurável); múltiplos workers em Kubernetes
+    artifact: Cada ciclo de worker processa até 10 jobs com FOR UPDATE SKIP LOCKED; heartbeat registra lease por 15s
+    response: Jobs são distribuídos entre workers sem lock contention; novo worker pode ser escalado horizontalmente; performance mantém < 100ms por job de overhead
+    response_measure: Throughput >= 10 jobs/s por worker; utilização de CPU worker <= 70%; zero deadlocks com multiplos workers
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

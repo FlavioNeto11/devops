@@ -1,0 +1,21 @@
+id: REQ-CMS-0001
+slug: req-cms-0001
+title: Create new portal from wizard with optional initial content generation
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: cms
+  applies_to: product
+statement: "O sistema deve permitir criar um novo portal através de um formulário de criação (NewPortalWizard) que aceita: nome, chave única do portal, descrição e prompt opcional para geração de conteúdo inicial. O portal nasce com status 'draft' se criado por member, ou 'published' se criado por admin."
+source:
+  stakeholder: cms
+  origin: codebase portal/CMS + research-2026-06
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

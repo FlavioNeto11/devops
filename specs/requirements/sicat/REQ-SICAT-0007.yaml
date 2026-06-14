@@ -1,0 +1,21 @@
+id: REQ-SICAT-0007
+slug: req-sicat-0007
+title: Geração e download de CDF (Certificado de Destinação Final)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: sicat
+  applies_to: product
+statement: O sistema deve permitir gerar, armazenar e disponibilizar para download certificados de destinação final (CDF) para manifestos recebidos, integrando com a CETESB.
+source:
+  stakeholder: sicat
+  origin: codebase apps/sicat + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

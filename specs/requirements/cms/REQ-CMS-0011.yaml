@@ -1,0 +1,21 @@
+id: REQ-CMS-0011
+slug: req-cms-0011
+title: Embedded visual editor in Console for site-renderer portals
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: cms
+  applies_to: product
+statement: "O sistema deve implementar protocolo cmsEdit completo no site-renderer: /sites/<chave>/?cmsEdit=1 com handshake same-origin entre iframe e Console. Oferece clique-para-editar, mover/publicar/ocultar/excluir/adicionar seção por moldura, controles por item, upload de mídia no lugar. Header/rodapé também editáveis (nome site, tagline, contatos) abrindo painel do SITE. Visitante público NUNCA vê o chrome."
+source:
+  stakeholder: cms
+  origin: codebase portal/CMS + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

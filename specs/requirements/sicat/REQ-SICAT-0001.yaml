@@ -1,0 +1,21 @@
+id: REQ-SICAT-0001
+slug: req-sicat-0001
+title: Autenticação dupla (SICAT + CETESB)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: sicat
+  applies_to: product
+statement: O sistema deve permitir login inicial no SICAT (email + senha) e subsequente vinculação/seleção de múltiplas contas CETESB com persistência de sessão e renovação de token JWT CETESB.
+source:
+  stakeholder: sicat
+  origin: codebase apps/sicat + research-2026-06
+priority: critical
+criticality: critical
+architectural_significance: true
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

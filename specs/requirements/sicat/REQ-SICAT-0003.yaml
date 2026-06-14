@@ -1,0 +1,21 @@
+id: REQ-SICAT-0003
+slug: req-sicat-0003
+title: Impressão e download de documentos MTR
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: sicat
+  applies_to: product
+statement: O sistema deve permitir gerar, armazenar e disponibilizar para download os PDFs de manifestos (MTR) e certificados (CDF) após submissão bem-sucedida à CETESB.
+source:
+  stakeholder: sicat
+  origin: codebase apps/sicat + research-2026-06
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

@@ -1,0 +1,28 @@
+id: REQ-GYMOPS-NFR-007
+slug: req-gymops-nfr-007
+title: Conformidade linguística (100% português brasileiro na UI)
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: gymops
+statement: 'O sistema deve atender ao atributo de qualidade "Conformidade linguística (100% português brasileiro na UI)": Toda comunicação ao usuário em português correto. Labels, placeholders, mensagens de erro, tooltips.'
+source:
+  stakeholder: gymops
+  origin: codebase apps/gymops + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Usuário final navegando a plataforma
+    stimulus: Qualquer rota, qualquer componente, qualquer mensagem ao usuário
+    environment: Qualquer browser, qualquer viewport
+    artifact: Strings i18n apenas pt-BR. Nenhum hardcode em inglês na UI.
+    response: Toda comunicação ao usuário em português correto. Labels, placeholders, mensagens de erro, tooltips.
+    response_measure: Grep não encontra strings em inglês na UI (exceto URLs/tech jargon inevitável)
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

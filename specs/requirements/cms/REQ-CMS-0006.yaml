@@ -1,0 +1,21 @@
+id: REQ-CMS-0006
+slug: req-cms-0006
+title: Media library with project and global scopes
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: cms
+  applies_to: product
+statement: "O sistema deve gerenciar arquivos em dois escopos: 'project' (padrão, exclusivo do portal) e 'global' (biblioteca pública da plataforma, admin-only). MediaPicker deve exibir abas 'Todos disponíveis / Este portal / Biblioteca pública'. Upload/exclusão de global é restrito a admin (403 para member). Mimes permitidos: imagens (png, jpeg, webp, gif, svg), documentos (pdf, docx, xlsx, pptx, csv, txt, zip), vídeo (mp4, webm, quicktime)."
+source:
+  stakeholder: cms
+  origin: codebase portal/CMS + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

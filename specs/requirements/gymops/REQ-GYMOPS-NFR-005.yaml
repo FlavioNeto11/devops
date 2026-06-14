@@ -1,0 +1,28 @@
+id: REQ-GYMOPS-NFR-005
+slug: req-gymops-nfr-005
+title: Integridade de importação Trello (commit atômico, nenhuma perda de dados)
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: gymops
+statement: 'O sistema deve atender ao atributo de qualidade "Integridade de importação Trello (commit atômico, nenhuma perda de dados)": Todas as atividades, comentários, checklists, attachments criados ou erro atomicamente revertido. Nenhuma atividade parcial. Relatório final com contadores.'
+source:
+  stakeholder: gymops
+  origin: codebase apps/gymops + research-2026-06
+priority: high
+criticality: high
+architectural_significance: true
+quality_scenarios:
+  - source: Admin importa 300 boards Trello (10.000+ atividades) via JSON
+    stimulus: Carrega JSON → dry-run (preview) → usuário revisa → confirma commit
+    environment: Transação PostgreSQL com timeout 15s. Deduplicação via import_sources.
+    artifact: POST /imports/{jobId}/commit com BEGIN/COMMIT + rollback se erro
+    response: Todas as atividades, comentários, checklists, attachments criados ou erro atomicamente revertido. Nenhuma atividade parcial. Relatório final com contadores.
+    response_measure: Transação completa <15s ou explícito 408 timeout. 0 corrupção de dados.
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

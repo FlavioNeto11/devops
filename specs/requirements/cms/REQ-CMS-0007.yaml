@@ -1,0 +1,21 @@
+id: REQ-CMS-0007
+slug: req-cms-0007
+title: Portal approval workflow with admin/member governance
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: cms
+  applies_to: product
+statement: "O sistema deve suportar dois fluxos de criação: admin cria → nasce 'approved' imediatamente; member cria → nasce 'pending_approval'. Portal pendente não aparece na rota pública (404) mas pode ser editado como rascunho. Admin pode Aprovar/Rejeitar (botões no editor). Rastreio: created_by, approved_by, approved_at."
+source:
+  stakeholder: cms
+  origin: codebase portal/CMS + research-2026-06
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

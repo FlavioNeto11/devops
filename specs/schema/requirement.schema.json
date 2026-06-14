@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nvit.com.br/devops/specs/requirement.schema.json",
+  "title": "Requisito / artefato de negócio (fonte da verdade)",
+  "description": "Artefato canônico de requisito funcional, não-funcional, regra de negócio ou restrição. Versionado no git; consumido por humanos (workbench) e pelo Claude (via baseline gerada). Espelha a estrutura recomendada na pesquisa: identidade, escopo+herança, conteúdo, verificação, NFR como quality-attribute-scenario (SEI), rastreabilidade tipada, versionamento semântico e alocação (arquitetura/infra derivadas dos requisitos).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "title", "type", "status", "statement", "scope", "priority", "version"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^REQ-[A-Z0-9]+-(NFR-)?[0-9]{3,4}$",
+      "description": "Identificador estável. Ex.: REQ-SICAT-0002, REQ-GYMOPS-NFR-001."
+    },
+    "slug": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "title": { "type": "string", "minLength": 3 },
+    "type": {
+      "enum": ["functional", "non-functional", "business-rule", "constraint"],
+      "description": "functional = o que o sistema faz; non-functional = atributo de qualidade (exige quality_scenarios); business-rule/constraint = regra/limite."
+    },
+    "status": { "enum": ["draft", "proposed", "approved", "deprecated", "retired"] },
+    "owner": { "type": "string" },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["product_scope"],
+      "description": "Escopo EXPLÍCITO — evita duplicação entre produtos e habilita herança (novos portais nascem herdando requisitos aprovados de escopo compartilhado).",
+      "properties": {
+        "applies_to": { "enum": ["product", "shared-module", "portal-template", "portal-instance", "capability", "platform"] },
+        "product_scope": {
+          "type": "string",
+          "description": "Produto/componente dono. Ex.: sicat, gymops, cms, portal, platform."
+        },
+        "portal_scope": { "type": ["string", "null"] },
+        "domain": { "type": ["string", "null"] },
+        "capability": { "type": ["string", "null"] }
+      }
+    },
+    "statement": { "type": "string", "minLength": 10, "description": "Enunciado verificável. Funcional: 'O sistema deve...'." },
+    "business_rationale": { "type": "string" },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "stakeholder": { "type": "string" }, "origin": { "type": "string" } }
+    },
+    "priority": { "enum": ["low", "medium", "high", "critical"] },
+    "criticality": { "enum": ["low", "medium", "high", "critical"] },
+    "architectural_significance": { "type": "boolean", "description": "true = ASR (Architecturally Significant Requirement): dirige decisão de arquitetura/infra." },
+    "risk_tags": { "type": "array", "items": { "type": "string" } },
+    "acceptance_criteria": { "type": "array", "items": { "type": "string" }, "description": "Critérios objetivos que levam o requisito até teste e operação." },
+    "verification_method": {
+      "type": "array",
+      "items": { "enum": ["test-unit", "test-integration", "test-e2e", "architecture-review", "deployment-policy-check", "manual-review", "monitoring", "demo"] }
+    },
+    "evidence_links": { "type": "array", "items": { "type": "string" }, "description": "Provas de verificação (caminhos de teste, dashboards, runs de CI)." },
+    "quality_scenarios": {
+      "type": "array",
+      "description": "Cenário de atributo de qualidade (SEI) — torna o NFR mensurável. Obrigatório para type=non-functional.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source", "stimulus", "environment", "artifact", "response", "response_measure"],
+        "properties": {
+          "source": { "type": "string" },
+          "stimulus": { "type": "string" },
+          "environment": { "type": "string" },
+          "artifact": { "type": "string" },
+          "response": { "type": "string" },
+          "response_measure": { "type": "string" }
+        }
+      }
+    },
+    "links": {
+      "type": "array",
+      "description": "Rastreabilidade tipada (ponta a ponta) — base do mapa de impacto e da análise de cobertura.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "target"],
+        "properties": {
+          "type": { "enum": ["constrains", "allocates_to", "verifies", "depends_on", "derives_from", "refines", "conflicts_with", "relates_to"] },
+          "target": { "type": "string", "description": "id de outro requisito (REQ-...) ou de um artefato (ADR-..., svc-..., infra-..., test-..., slo-...)." },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "version": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseline_version", "item_revision"],
+      "description": "Versionamento semântico do requisito — torna a mudança governável. semantic_change distingue compatível (minor) de incompatível (major) e meramente editorial (patch).",
+      "properties": {
+        "baseline_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "item_revision": { "type": "integer", "minimum": 1 },
+        "semantic_change": { "enum": ["none", "patch", "minor", "major"] },
+        "change_reason": { "type": "string" }
+      }
+    },
+    "allocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Faz arquitetura e infra responderem aos requisitos (artefatos derivados, não paralelos).",
+      "properties": {
+        "architecture_refs": { "type": "array", "items": { "type": "string" } },
+        "infra_refs": { "type": "array", "items": { "type": "string" } },
+        "adr_refs": { "type": "array", "items": { "type": "string" } },
+        "service_refs": { "type": "array", "items": { "type": "string" } },
+        "slo_refs": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "non-functional" } }, "required": ["type"] },
+      "then": { "required": ["quality_scenarios"] }
+    }
+  ]
+}

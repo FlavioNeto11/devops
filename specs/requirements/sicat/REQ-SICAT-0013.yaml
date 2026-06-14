@@ -1,0 +1,21 @@
+id: REQ-SICAT-0013
+slug: req-sicat-0013
+title: Observabilidade operacional (dashboard e health)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: sicat
+  applies_to: shared-module
+statement: O sistema deve expor endpoints de saúde (/v1/health/*), métricas de performance (jobs por status, latência CETESB), dashboard operacional (/v1/operations/overview) e pesquisa de jobs com status operacional enriquecido.
+source:
+  stakeholder: sicat
+  origin: codebase apps/sicat + research-2026-06
+priority: critical
+criticality: critical
+architectural_significance: true
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

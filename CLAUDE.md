@@ -51,6 +51,7 @@ Loki (observabilidade) · Sealed Secrets · DevOps Console (`/devops`).
 | **templates** | `templates/` | `app-template/README.md` | Helm chart + workflows + `meta/` (templates de meta-doc) |
 | **scripts** | `scripts/` | (header de cada `.ps1`) | automação PowerShell 7 |
 | **docs** | `docs/` | `docs/README.md` | documentação humana (guias + standards + runbooks) |
+| **specs** | `specs/` | `specs/README.md` + `specs/CLAUDE.md` | **base de requisitos (fonte da verdade)** — artefatos versionados + baseline gerada consumida pelo Claude; skills `/sync-spec`, `/impact-review`, `/baseline-diff` |
 
 ## Como o Claude deve operar aqui
 

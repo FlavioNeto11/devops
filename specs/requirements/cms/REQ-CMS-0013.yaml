@@ -1,0 +1,21 @@
+id: REQ-CMS-0013
+slug: req-cms-0013
+title: AI assistant button in every editable region
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: cms
+  applies_to: product
+statement: "O sistema deve oferecer botão ✨ (AiAssist) em toda região editável: painel de seção (modo visual), drawer (modo avançado) e painel/modal do site. Clique abre prompt focado para instrução de IA. Endpoints: POST /cms/sections/:id/ai (reescreve data), POST /projects/:id/cms/site/ai (identidade/paleta/contato). Cada execução logada (kind section/site) para rastreabilidade."
+source:
+  stakeholder: cms
+  origin: codebase portal/CMS + research-2026-06
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)
