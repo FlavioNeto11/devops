@@ -134,12 +134,21 @@ function renderWorkspace() {
   main.append(head);
   main.append(h('div', { class: 'ws-actions' }, h('button', { class: 'btn', type: 'button', onclick: () => openEditor(r.id), text: '✎ Editar (propor via PR)' })));
 
-  if ((r.acceptance_criteria || []).length || (r.verification_method || []).length) {
-    const v = h('div', { class: 'card' }, h('h3', { text: 'Verificação' }));
-    if ((r.acceptance_criteria || []).length) { v.append(h('strong', { text: 'Critérios de aceite' })); const ul = h('ul'); r.acceptance_criteria.forEach((c) => ul.append(h('li', { text: c }))); v.append(ul); }
-    if ((r.verification_method || []).length) v.append(h('p', {}, h('strong', { text: 'Métodos: ' }), r.verification_method.join(', ')));
-    main.append(v);
+  const v = h('div', { class: 'card' }, h('h3', { text: 'Verificação' }));
+  if ((r.acceptance_criteria || []).length) {
+    v.append(h('strong', { text: 'Critérios de aceite' }));
+    const ul = h('ul');
+    r.acceptance_criteria.forEach((c) => ul.append(h('li', { text: c })));
+    v.append(ul);
+  } else {
+    v.append(h('p', { class: 'empty', text: '— sem critérios de aceite definidos' }));
   }
+  if ((r.verification_method || []).length) {
+    v.append(h('p', {}, h('strong', { text: 'Métodos: ' }), r.verification_method.join(', ')));
+  } else {
+    v.append(h('p', { class: 'empty', text: '— sem método de verificação definido' }));
+  }
+  main.append(v);
   if ((r.quality_scenarios || []).length) {
     const q = h('div', { class: 'card' }, h('h3', { text: 'Cenários de qualidade (NFR)' }));
     for (const s of r.quality_scenarios) {
@@ -194,9 +203,9 @@ function renderWorkspace() {
   side.append(alloc);
 
   // Requisitos similares (semântica via embeddings locais)
+  const sc = h('div', { class: 'card' }, h('h3', { text: 'Requisitos similares (semântica)' }));
   if (DATA.embeddings && DATA.embeddings.vectors) {
     const sims = topSimilar(DATA.embeddings.vectors, r.id, 5);
-    const sc = h('div', { class: 'card' }, h('h3', { text: 'Requisitos similares (semântica)' }));
     if (!sims.length) sc.append(h('p', { class: 'empty', text: '—' }));
     else {
       const ul = h('ul', { class: 'linklist' });
@@ -209,8 +218,10 @@ function renderWorkspace() {
       }
       sc.append(ul);
     }
-    side.append(sc);
+  } else {
+    sc.append(h('p', { class: 'empty', text: 'Embeddings não disponíveis — gere com /sync-spec.' }));
   }
+  side.append(sc);
 
   body.append(main, side);
 }

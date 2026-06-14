@@ -116,3 +116,29 @@ test('validateDraft pega erros', () => {
   assert.ok(errs.length >= 3);
   assert.ok(validateDraft({ id: 'REQ-X-0001', title: 'abc', statement: 'enunciado valido', type: 'non-functional', scope: { product_scope: 'x' } }).some((e) => /quality_scenario/.test(e)));
 });
+
+// REQ-REQHUB-0002: workspace exibe verificação/similares mesmo sem dados
+test('coverageRow req sem acceptance_criteria e sem verification_method', () => {
+  const reqSemVerif = { id: 'REQ-X-0099', allocation: {}, acceptance_criteria: [], verification_method: [] };
+  const row = coverageRow(reqSemVerif);
+  assert.equal(row.acceptance, false);
+  assert.equal(row.method, false);
+});
+
+test('neighborhood bidirecional (outgoing e incoming)', () => {
+  const edgesBi = [
+    { from: 'REQ-A', to: 'REQ-B', type: 'depends_on' },
+    { from: 'REQ-C', to: 'REQ-A', type: 'constrains' },
+  ];
+  const nb = neighborhood(edgesBi, 'REQ-A');
+  assert.equal(nb.outgoing.length, 1);
+  assert.equal(nb.incoming.length, 1);
+  assert.equal(nb.outgoing[0].to, 'REQ-B');
+  assert.equal(nb.incoming[0].from, 'REQ-C');
+});
+
+test('topSimilar retorna vazio quando vectors nulo ou id inexistente', () => {
+  assert.deepEqual(topSimilar(null, 'REQ-A'), []);
+  assert.deepEqual(topSimilar({}, 'REQ-A'), []);
+  assert.deepEqual(topSimilar({ 'REQ-B': [1, 0] }, 'REQ-A'), []);
+});
