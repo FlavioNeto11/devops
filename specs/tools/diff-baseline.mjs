@@ -39,7 +39,7 @@ for (const [id, r] of head) {
 for (const [id, r] of base) {
   if (!head.has(id)) removed.push(r);
 }
-const FIELDS = ['statement', 'status', 'priority', 'criticality', 'architectural_significance', 'acceptance_criteria', 'verification_method', 'quality_scenarios', 'links', 'scope'];
+const FIELDS = ['statement', 'status', 'priority', 'criticality', 'architectural_significance', 'acceptance_criteria', 'verification_method', 'evidence_links', 'quality_scenarios', 'links', 'suggested_links', 'allocation', 'scope'];
 for (const [id, h] of head) {
   const b = base.get(id);
   if (!b) continue;
