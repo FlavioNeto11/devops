@@ -21,6 +21,9 @@ quality_scenarios:
     artifact: PM-API (rota pública)
     response: "Resposta com Cache-Control: public, max-age=30 (conteúdo) ou max-age=86400, immutable (arquivos); ETag para validação 304"
     response_measure: Assets imutáveis (id = hash) servem 304 sem I/O Postgres em revalidações; conteúdo atualiza em ≤30s (visível ao recarregar portal)
+links:
+  - type: constrains
+    target: REQ-CMS-0005
 version:
   baseline_version: 1.0.0
   item_revision: 1

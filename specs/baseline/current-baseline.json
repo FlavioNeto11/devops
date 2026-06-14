@@ -1,5 +1,6 @@
 {
-  "baseline_hash": "96e91b9e52883c1cd0a2a5ca91ba5115f85564025f22ed355c655fdba933d06c",
+  "metamodel_version": "1.0.0",
+  "baseline_hash": "9785f7cbe8e7c17b9efbdc60d665b3bd261fb3d9a4780b0daa65bf2464a8bedc",
   "schema": "specs/schema/requirement.schema.json",
   "counts": {
     "total": 69,
@@ -65,6 +66,12 @@
       "priority": "critical",
       "criticality": "critical",
       "architectural_significance": true,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-CMS-0003"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -152,6 +159,16 @@
       "priority": "critical",
       "criticality": "critical",
       "architectural_significance": true,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-CMS-0003"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-CMS-0007"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -181,6 +198,12 @@
       "priority": "high",
       "criticality": "high",
       "architectural_significance": false,
+      "links": [
+        {
+          "type": "relates_to",
+          "target": "REQ-CMS-0002"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -239,6 +262,12 @@
       "priority": "medium",
       "criticality": "medium",
       "architectural_significance": false,
+      "links": [
+        {
+          "type": "relates_to",
+          "target": "REQ-CMS-0005"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -268,6 +297,12 @@
       "priority": "high",
       "criticality": "high",
       "architectural_significance": false,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-CMS-0003"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -297,6 +332,16 @@
       "priority": "critical",
       "criticality": "critical",
       "architectural_significance": true,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-CMS-0005"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-CMS-0003"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -326,6 +371,16 @@
       "priority": "high",
       "criticality": "high",
       "architectural_significance": false,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-CMS-0002"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-CMS-0010"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -384,6 +439,12 @@
       "priority": "medium",
       "criticality": "medium",
       "architectural_significance": false,
+      "links": [
+        {
+          "type": "relates_to",
+          "target": "REQ-CMS-0009"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -413,6 +474,12 @@
       "priority": "high",
       "criticality": "high",
       "architectural_significance": false,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-CMS-0005"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -442,6 +509,12 @@
       "priority": "medium",
       "criticality": "medium",
       "architectural_significance": false,
+      "links": [
+        {
+          "type": "relates_to",
+          "target": "REQ-CMS-0002"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -479,6 +552,12 @@
           "artifact": "PM-API (rota pública)",
           "response": "Resposta com Cache-Control: public, max-age=30 (conteúdo) ou max-age=86400, immutable (arquivos); ETag para validação 304",
           "response_measure": "Assets imutáveis (id = hash) servem 304 sem I/O Postgres em revalidações; conteúdo atualiza em ≤30s (visível ao recarregar portal)"
+        }
+      ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-CMS-0005"
         }
       ],
       "version": {
@@ -520,6 +599,12 @@
           "response_measure": "Até 10 edições rápidas geram 1-2 requests ao backend (não 10); latência percebida ≤1s (debounce + rede); reverte em erro sem perder dados"
         }
       ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-CMS-0002"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -559,6 +644,12 @@
           "response_measure": "Timeout total ≤30s (abort automático); sucesso em <10s típico (modelo rápido); sem chave → 503 + mensagem clara, não quebra UX"
         }
       ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-CMS-0009"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -596,6 +687,12 @@
           "artifact": "multer + cms.js handler",
           "response": "Arquivo validado: mime em allowlist, tamanho ≤tipo-específico (8MB padrão, 50MB vídeo). Rejeitado se exceder: 400 'arquivo muito grande' com tipo/limite. Aceito: armazenado como bytea em PostgreSQL, retorna id + URL pública",
           "response_measure": "Arquivo válido: upload <5s (memória suficiente para single-user); rejeição imediata (<100ms); pod não OOM em uploads sequenciais (lab)"
+        }
+      ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-CMS-0006"
         }
       ],
       "version": {
@@ -676,6 +773,12 @@
           "response_measure": "Acesso negado em <50ms (SQL check); operações paralelas não contaminam dados cruzados; admin (isAdmin=true) acessa todos os projetos"
         }
       ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-CMS-0005"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -713,6 +816,12 @@
           "artifact": "cms_generation_requests table + aiEditSection/aiEditSite com buildSiteContext",
           "response": "Cada request cria linha em cms_generation_requests (id, kind, prompt, context, status, result, error, created_by, created_at). Próxima geração lê prompts anteriores (LIMIT 3) para manter tom/segmento. Sem regenerar: segunda geração ADICIONA seções rascunho, não sobrescreve manual edits",
           "response_measure": "Auditoria completa: quem gerou, quando, com qual prompt, resultado; contexto de IA inclui prompts históricos (rastreabilidade); regenerar não perde ajustes"
+        }
+      ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-CMS-0009"
         }
       ],
       "version": {
@@ -802,6 +911,16 @@
       "priority": "critical",
       "criticality": "critical",
       "architectural_significance": true,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-GYMOPS-0001"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-GYMOPS-0002"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -831,6 +950,16 @@
       "priority": "critical",
       "criticality": "critical",
       "architectural_significance": false,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-GYMOPS-0002"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-GYMOPS-0003"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -860,6 +989,12 @@
       "priority": "critical",
       "criticality": "critical",
       "architectural_significance": false,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-GYMOPS-0004"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -889,6 +1024,12 @@
       "priority": "critical",
       "criticality": "critical",
       "architectural_significance": false,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-GYMOPS-0004"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -918,6 +1059,12 @@
       "priority": "high",
       "criticality": "high",
       "architectural_significance": false,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-GYMOPS-0004"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -947,6 +1094,16 @@
       "priority": "high",
       "criticality": "high",
       "architectural_significance": false,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-GYMOPS-0004"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-GYMOPS-0003"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -976,6 +1133,12 @@
       "priority": "high",
       "criticality": "high",
       "architectural_significance": false,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-GYMOPS-0002"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -1034,6 +1197,12 @@
       "priority": "high",
       "criticality": "high",
       "architectural_significance": false,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-GYMOPS-0004"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -1063,6 +1232,12 @@
       "priority": "high",
       "criticality": "high",
       "architectural_significance": false,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-GYMOPS-0004"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -1092,6 +1267,16 @@
       "priority": "high",
       "criticality": "high",
       "architectural_significance": false,
+      "links": [
+        {
+          "type": "relates_to",
+          "target": "REQ-GYMOPS-0004"
+        },
+        {
+          "type": "relates_to",
+          "target": "REQ-GYMOPS-0005"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -1189,6 +1374,12 @@
           "response_measure": "Tempo de resposta HTTP incluindo query + serialização"
         }
       ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-GYMOPS-0008"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -1226,6 +1417,16 @@
           "artifact": "Backend Fastify com resolveActivityPermission() obrigatório + UUIDs v4 em todas as tabelas",
           "response": "Retorna 404 (sobre 403 para evitar enumeração) se permissão negada. Nunca expõe IDs sequenciais. Validação Zod em entrada.",
           "response_measure": "Status HTTP correto + auditoria log do acesso denegado"
+        }
+      ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-GYMOPS-0003"
+        },
+        {
+          "type": "constrains",
+          "target": "REQ-GYMOPS-0004"
         }
       ],
       "version": {
@@ -1267,6 +1468,12 @@
           "response_measure": "Todas as atividades recorrentes têm próxima ocorrência gerada em <24h"
         }
       ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-GYMOPS-0007"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -1306,6 +1513,12 @@
           "response_measure": "Status 200 com confidence: 0 ou lista vazia (nunca 5xx)"
         }
       ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-GYMOPS-0013"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -1343,6 +1556,12 @@
           "artifact": "POST /imports/{jobId}/commit com BEGIN/COMMIT + rollback se erro",
           "response": "Todas as atividades, comentários, checklists, attachments criados ou erro atomicamente revertido. Nenhuma atividade parcial. Relatório final com contadores.",
           "response_measure": "Transação completa <15s ou explícito 408 timeout. 0 corrupção de dados."
+        }
+      ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-GYMOPS-0012"
         }
       ],
       "version": {
@@ -1520,6 +1739,20 @@
       "priority": "critical",
       "criticality": "critical",
       "architectural_significance": true,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0001"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0011"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0012"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -1549,6 +1782,16 @@
       "priority": "critical",
       "criticality": "critical",
       "architectural_significance": false,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0002"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0012"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -1578,6 +1821,20 @@
       "priority": "high",
       "criticality": "high",
       "architectural_significance": false,
+      "links": [
+        {
+          "type": "relates_to",
+          "target": "REQ-SICAT-0002"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0011"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0012"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -1607,6 +1864,16 @@
       "priority": "high",
       "criticality": "high",
       "architectural_significance": false,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0011"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0012"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -1665,6 +1932,16 @@
       "priority": "high",
       "criticality": "high",
       "architectural_significance": false,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0005"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0012"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -1723,6 +2000,16 @@
       "priority": "high",
       "criticality": "high",
       "architectural_significance": false,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0011"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0012"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -1752,6 +2039,12 @@
       "priority": "high",
       "criticality": "high",
       "architectural_significance": false,
+      "links": [
+        {
+          "type": "refines",
+          "target": "REQ-SICAT-0002"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -1839,6 +2132,16 @@
       "priority": "critical",
       "criticality": "critical",
       "architectural_significance": true,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-SICAT-0011"
+        },
+        {
+          "type": "relates_to",
+          "target": "REQ-SICAT-0012"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -1868,6 +2171,12 @@
       "priority": "high",
       "criticality": "high",
       "architectural_significance": false,
+      "links": [
+        {
+          "type": "relates_to",
+          "target": "REQ-SICAT-0011"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -1967,6 +2276,16 @@
           "response_measure": "Taxa de sucesso em retry >= 80% para falhas transientes; tempo até DLQ <= 5 min com max_attempts=5"
         }
       ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-SICAT-0011"
+        },
+        {
+          "type": "constrains",
+          "target": "REQ-SICAT-0012"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -2006,6 +2325,28 @@
           "response_measure": "Zero violações de fronteira de camadas; 100% de calls CETESB passam pelo gateway; SSL/TLS com CA validado"
         }
       ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-SICAT-0002"
+        },
+        {
+          "type": "constrains",
+          "target": "REQ-SICAT-0003"
+        },
+        {
+          "type": "constrains",
+          "target": "REQ-SICAT-0004"
+        },
+        {
+          "type": "constrains",
+          "target": "REQ-SICAT-0005"
+        },
+        {
+          "type": "constrains",
+          "target": "REQ-SICAT-0007"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -2043,6 +2384,12 @@
           "artifact": "Update falha com constraint violation se version não corresponder; client lê versão atual e reapresenta com versão correta",
           "response": "Transação é rollback; client recebe 409 Conflict ou retry automático via idempotência; garantia de ACID sem deadlock",
           "response_measure": "Zero deadlocks observados em 24h de operação; conflitos de versão resolvidos em < 100ms; migration idempotente com advisory lock"
+        }
+      ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-SICAT-0011"
         }
       ],
       "version": {
@@ -2123,6 +2470,12 @@
           "response_measure": "100% de operações geram correlationId único; query audit <= 500ms; completude da trilha verificável por teste de auditoria"
         }
       ],
+      "links": [
+        {
+          "type": "verifies",
+          "target": "REQ-SICAT-0014"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -2160,6 +2513,12 @@
           "artifact": "Segunda requisição retorna 202 com jobId anterior; job é processado uma única vez",
           "response": "Operação é tratada como deduplicação; cliente recebe resposta consistente sem efeitos colaterais duplicados",
           "response_measure": "Taxa de sucesso de deduplicação = 100%; sem job duplicado no banco; teste de contrato valida operação"
+        }
+      ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-SICAT-0002"
         }
       ],
       "version": {
@@ -2201,6 +2560,12 @@
           "response_measure": "Uptime de health >= 99.5% mesmo com CETESB offline; jobs em retry aguardam <= 5min; nenhuma requisição ao CETESB duramente acoplada"
         }
       ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-SICAT-0013"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -2240,6 +2605,12 @@
           "response_measure": "Throughput >= 10 jobs/s por worker; utilização de CPU worker <= 70%; zero deadlocks com multiplos workers"
         }
       ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-SICAT-0012"
+        }
+      ],
       "version": {
         "baseline_version": "1.0.0",
         "item_revision": 1,
@@ -2257,483 +2628,624 @@
       "title": "Fila transacional com retry e DLQ",
       "product": "sicat",
       "impact_score": 85,
-      "reason": "alto impacto"
+      "reasons": [
+        "alto impacto",
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-SICAT-0012",
       "title": "Worker dedicado para operações assíncronas",
       "product": "sicat",
       "impact_score": 85,
-      "reason": "alto impacto"
+      "reasons": [
+        "alto impacto",
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-SICAT-0013",
       "title": "Observabilidade operacional (dashboard e health)",
       "product": "sicat",
       "impact_score": 85,
-      "reason": "alto impacto"
+      "reasons": [
+        "alto impacto",
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-CMS-0002",
       "title": "Visual editor with live preview and click-to-edit interface",
       "product": "cms",
       "impact_score": 65,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-CMS-0003",
       "title": "Section-based content model with configurable block types",
       "product": "cms",
       "impact_score": 65,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-CMS-0005",
       "title": "Public content API with project approval and status gating",
       "product": "cms",
       "impact_score": 65,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-CMS-0010",
       "title": "Site-renderer generic frontend serving all portals at /sites/<key>",
       "product": "cms",
       "impact_score": 65,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-GYMOPS-0002",
       "title": "Modelo hierárquico de escopo (Organização → Unidade → Área → Atividade)",
       "product": "gymops",
       "impact_score": 65,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-GYMOPS-0003",
       "title": "RBAC granular por escopo (6 papéis em 3 escopos)",
       "product": "gymops",
       "impact_score": 65,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-SICAT-0001",
       "title": "Autenticação dupla (SICAT + CETESB)",
       "product": "sicat",
       "impact_score": 65,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-SICAT-0002",
       "title": "Criação e submissão assíncrona de manifestos MTR",
       "product": "sicat",
       "impact_score": 65,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-CMS-NFR-001",
       "title": "Public content served with optimized cache headers and immutable assets",
       "product": "cms",
       "impact_score": 58,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-CMS-NFR-002",
       "title": "Editor auto-save with debounce and optimistic UI updates",
       "product": "cms",
       "impact_score": 58,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-GYMOPS-NFR-002",
       "title": "Segurança: RBAC sempre no backend, sem exposição de IDs sequenciais",
       "product": "gymops",
       "impact_score": 58,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-GYMOPS-NFR-005",
       "title": "Integridade de importação Trello (commit atômico, nenhuma perda de dados)",
       "product": "gymops",
       "impact_score": 58,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-SICAT-0014",
       "title": "Auditoria técnica correlacionada",
       "product": "sicat",
       "impact_score": 58,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-SICAT-NFR-0002",
       "title": "Integração segura com gateway CETESB isolado",
       "product": "sicat",
       "impact_score": 58,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-SICAT-NFR-0003",
       "title": "Persistência transacional com locking otimista",
       "product": "sicat",
       "impact_score": 58,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-CMS-0001",
       "title": "Create new portal from wizard with optional initial content generation",
       "product": "cms",
       "impact_score": 45,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-GYMOPS-0001",
       "title": "Autenticação multicanal (email/senha + refresh token + OAuth Google)",
       "product": "gymops",
       "impact_score": 45,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-GYMOPS-0004",
       "title": "CRUD de Atividades com status, prioridade, visibilidade, atribuições e histórico",
       "product": "gymops",
       "impact_score": 45,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-GYMOPS-0005",
       "title": "Checklists ricos (itens, comentários, anexos por item, desativação)",
       "product": "gymops",
       "impact_score": 45,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-GYMOPS-0006",
       "title": "Comentários, anexos e histórico de eventos em atividades",
       "product": "gymops",
       "impact_score": 45,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-SICAT-0003",
       "title": "Impressão e download de documentos MTR",
       "product": "sicat",
       "impact_score": 45,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-SICAT-0015",
       "title": "Conversações com IA e artefatos",
       "product": "sicat",
       "impact_score": 40,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-SICAT-0016",
       "title": "AI Control Center (admin de ferramentas, agentes, prompts, conhecimento)",
       "product": "sicat",
       "impact_score": 40,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-CMS-0004",
       "title": "Taxonomy-aware project filtering for portal CMS vs product software",
       "product": "cms",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-CMS-0006",
       "title": "Media library with project and global scopes",
       "product": "cms",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-CMS-0007",
       "title": "Portal approval workflow with admin/member governance",
       "product": "cms",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-CMS-0009",
       "title": "AI-assisted content generation for full portal and section editing",
       "product": "cms",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-CMS-0011",
       "title": "Embedded visual editor in Console for site-renderer portals",
       "product": "cms",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-CMS-0014",
       "title": "Portal content preview and fallback for app-specific portals",
       "product": "cms",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-CMS-NFR-003",
       "title": "AI generation with short timeout and graceful degradation",
       "product": "cms",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-CMS-NFR-004",
       "title": "Media file handling with MIME allowlist and per-type size limits",
       "product": "cms",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-CMS-NFR-005",
       "title": "Seeded portal content remains stable across re-runs",
       "product": "cms",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-CMS-NFR-006",
       "title": "Concurrent user access with isolation by project scope",
       "product": "cms",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-CMS-NFR-007",
       "title": "AI generation requests logged for auditability and context continuity",
       "product": "cms",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-GYMOPS-0007",
       "title": "Recorrência de atividades com 4 frequências e 2 modos de geração",
       "product": "gymops",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-GYMOPS-0008",
       "title": "Visões operacionais (pessoal /me, por unidade, painel geral, central global)",
       "product": "gymops",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-GYMOPS-0009",
       "title": "Wizard de onboarding com 4 passos e bootstrap canônico",
       "product": "gymops",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-GYMOPS-0010",
       "title": "Telas administrativas (org, unidades, áreas, equipe, templates, integrações, auditoria)",
       "product": "gymops",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-GYMOPS-0011",
       "title": "Notificações omnichannel (e-mail SMTP, web-push VAPID, WhatsApp Twilio)",
       "product": "gymops",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-GYMOPS-0012",
       "title": "Importação atômica de Trello (dry-run → preview → commit)",
       "product": "gymops",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-GYMOPS-0013",
       "title": "IA estruturada como copiloto (4 recursos: draft, checklist, resumo, análise atraso)",
       "product": "gymops",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-GYMOPS-0014",
       "title": "Responsividade obrigatória (mobile ≤375px + desktop ≥1280px)",
       "product": "gymops",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-GYMOPS-NFR-001",
       "title": "Performance de listagem de atividades (Central Global com 1000+ itens)",
       "product": "gymops",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-GYMOPS-NFR-003",
       "title": "Confiabilidade de recorrências (jobs nunca perdidos, degradação graciosa sem Redis)",
       "product": "gymops",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-GYMOPS-NFR-004",
       "title": "Disponibilidade de IA com fallback gracioso (nunca 500 por falha OpenAI)",
       "product": "gymops",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-GYMOPS-NFR-006",
       "title": "Responsividade em viewport 375px (mobile) sem overflow ou layout quebrado",
       "product": "gymops",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-GYMOPS-NFR-007",
       "title": "Conformidade linguística (100% português brasileiro na UI)",
       "product": "gymops",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-GYMOPS-NFR-008",
       "title": "Compatibilidade de navegadores (Chrome, Firefox, Safari, Edge últimas 2 versões)",
       "product": "gymops",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-SICAT-0004",
       "title": "Cancelamento assíncrono de manifestos",
       "product": "sicat",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-SICAT-0005",
       "title": "Recebimento de manifestos declaratório",
       "product": "sicat",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-SICAT-0006",
       "title": "Sincronização de catálogos CETESB",
       "product": "sicat",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-SICAT-0007",
       "title": "Geração e download de CDF (Certificado de Destinação Final)",
       "product": "sicat",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-SICAT-0008",
       "title": "Pesquisa e resolução de parceiros (empresa/transportista/destinatário)",
       "product": "sicat",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-SICAT-0009",
       "title": "Declaração de Movimentação de Resíduos (DMR)",
       "product": "sicat",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-SICAT-0010",
       "title": "Manifesto Provisório com override de tipo",
       "product": "sicat",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-SICAT-NFR-0001",
       "title": "Resiliência em operações de fila com retry automático",
       "product": "sicat",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-SICAT-NFR-0004",
       "title": "Observabilidade de performance e status operacional",
       "product": "sicat",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-SICAT-NFR-0005",
       "title": "Rastreabilidade fim-a-fim com correlationId",
       "product": "sicat",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-SICAT-NFR-0006",
       "title": "Idempotência de comandos assíncronos",
       "product": "sicat",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-SICAT-NFR-0007",
       "title": "Disponibilidade do sistema mesmo com CETESB indisponível",
       "product": "sicat",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-SICAT-NFR-0008",
       "title": "Escalabilidade do worker e processamento de batch",
       "product": "sicat",
       "impact_score": 38,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-CMS-0008",
       "title": "Portal deactivation and deletion with content preservation",
       "product": "cms",
       "impact_score": 30,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-CMS-0012",
       "title": "User-friendly field kit for CMS forms without technical jargon",
       "product": "cms",
       "impact_score": 30,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-CMS-0013",
       "title": "AI assistant button in every editable region",
       "product": "cms",
       "impact_score": 30,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-CMS-0015",
       "title": "Advanced mode with list view and drag-drop section reordering",
       "product": "cms",
       "impact_score": 30,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     },
     {
       "id": "REQ-GYMOPS-0015",
       "title": "PWA instalável com service worker e push notifications",
       "product": "gymops",
       "impact_score": 30,
-      "reason": "lacuna de verificação"
+      "reasons": [
+        "sem método de verificação"
+      ]
     }
   ]
 }

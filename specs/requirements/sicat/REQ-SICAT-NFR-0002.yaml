@@ -21,6 +21,17 @@ quality_scenarios:
     artifact: Única chamada HTTP à CETESB passa por src/gateways/cetesb-gateway.js; nenhuma rota/service fala com CETESB diretamente
     response: Gateway valida JWT, prepara headers (Authorization + x-access-token), trata erros como application/problem+json com código CETESB mapeado
     response_measure: Zero violações de fronteira de camadas; 100% de calls CETESB passam pelo gateway; SSL/TLS com CA validado
+links:
+  - type: constrains
+    target: REQ-SICAT-0002
+  - type: constrains
+    target: REQ-SICAT-0003
+  - type: constrains
+    target: REQ-SICAT-0004
+  - type: constrains
+    target: REQ-SICAT-0005
+  - type: constrains
+    target: REQ-SICAT-0007
 version:
   baseline_version: 1.0.0
   item_revision: 1

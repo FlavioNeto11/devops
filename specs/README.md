@@ -62,6 +62,10 @@ mudança), **`/baseline-diff`** (diff/classificação entre versões). Regra de 
 ## Bootstrap
 
 A base inicial foi semeada de requisitos **reais** extraídos de SICAT, GymOps e do CMS/portal-builder
-(`tools/seed-input.json` → `tools/seed.mjs`). Rastreabilidade (`links`) e evidências de verificação
-são **autoradas na iteração/UI** — não foram fabricadas no bootstrap; por isso vários itens aparecem,
-de propósito, na `reprocess_queue` por **lacuna de verificação**.
+(`tools/seed-input.json` → `tools/seed.mjs`). A **rastreabilidade inicial** (`links` REQ→REQ de alta
+confiança) é curada em `tools/seed-links.json` (alimenta o mapa de impacto). Já as **evidências de
+verificação** (`evidence_links`) e os links para **artefatos externos** (ADR/serviço/infra/SLO/teste)
+são **autorados na iteração/UI** — não foram fabricados no bootstrap; por isso vários itens aparecem,
+de propósito, na `reprocess_queue` (motivos em `reasons`: alto impacto · sem método · sem evidência ·
+mudança major). Sugestões automáticas de link entram em `suggested_links` (marcadas `proposed`, sem
+contaminar o `links` canônico). **Não re-rode o `seed` sobre conteúdo já autorado** (é bootstrap).

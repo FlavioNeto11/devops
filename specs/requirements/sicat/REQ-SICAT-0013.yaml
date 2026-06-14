@@ -14,6 +14,11 @@ source:
 priority: critical
 criticality: critical
 architectural_significance: true
+links:
+  - type: depends_on
+    target: REQ-SICAT-0011
+  - type: relates_to
+    target: REQ-SICAT-0012
 version:
   baseline_version: 1.0.0
   item_revision: 1

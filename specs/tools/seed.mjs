@@ -19,6 +19,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SPECS_DIR = path.resolve(__dirname, '..');
 const REQ_DIR = path.join(SPECS_DIR, 'requirements');
 const input = JSON.parse(fs.readFileSync(path.join(__dirname, 'seed-input.json'), 'utf8'));
+// Links curados (rastreabilidade REAL, alta confiança, REQ->REQ) — versionados aqui
+// para o bootstrap ser reproduzível. Após o bootstrap, novos links são autorados
+// direto nos YAMLs / pela UI (não re-rode o seed sobre conteúdo autorado).
+const linksPath = path.join(__dirname, 'seed-links.json');
+const seedLinks = fs.existsSync(linksPath) ? JSON.parse(fs.readFileSync(linksPath, 'utf8')) : {};
 
 // produto extraído -> product_scope + diretório
 const PRODUCTS = {
@@ -41,10 +46,10 @@ function mapScope(scopeStr, product) {
 // ordena chaves p/ saída YAML estável e legível
 function orderedDoc(d) {
   const order = [
-    'id', 'slug', 'title', 'type', 'status', 'owner', 'scope', 'statement',
+    'id', 'slug', 'schema_version', 'title', 'type', 'status', 'owner', 'scope', 'statement',
     'business_rationale', 'source', 'priority', 'criticality',
     'architectural_significance', 'risk_tags', 'acceptance_criteria',
-    'verification_method', 'evidence_links', 'quality_scenarios', 'links',
+    'verification_method', 'evidence_links', 'quality_scenarios', 'links', 'suggested_links',
     'version', 'allocation',
   ];
   const out = {};
@@ -75,6 +80,7 @@ for (const [key, meta] of Object.entries(PRODUCTS)) {
       priority: fr.priority ?? 'medium',
       criticality: fr.priority ?? 'medium',
       architectural_significance: asr.has(fr.proposed_id),
+      links: seedLinks[fr.proposed_id],
       version: { baseline_version: '1.0.0', item_revision: 1, semantic_change: 'none', change_reason: 'baseline inicial (bootstrap)' },
     });
     fs.writeFileSync(path.join(outDir, `${fr.proposed_id}.yaml`), toYaml(doc, { lineWidth: 0 }));
@@ -97,6 +103,7 @@ for (const [key, meta] of Object.entries(PRODUCTS)) {
       criticality: 'high',
       architectural_significance: asr.has(nfr.proposed_id),
       quality_scenarios: [qs],
+      links: seedLinks[nfr.proposed_id],
       version: { baseline_version: '1.0.0', item_revision: 1, semantic_change: 'none', change_reason: 'baseline inicial (bootstrap)' },
     });
     fs.writeFileSync(path.join(outDir, `${nfr.proposed_id}.yaml`), toYaml(doc, { lineWidth: 0 }));

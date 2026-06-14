@@ -21,6 +21,9 @@ quality_scenarios:
     artifact: POST /imports/{jobId}/commit com BEGIN/COMMIT + rollback se erro
     response: Todas as atividades, comentários, checklists, attachments criados ou erro atomicamente revertido. Nenhuma atividade parcial. Relatório final com contadores.
     response_measure: Transação completa <15s ou explícito 408 timeout. 0 corrupção de dados.
+links:
+  - type: constrains
+    target: REQ-GYMOPS-0012
 version:
   baseline_version: 1.0.0
   item_revision: 1

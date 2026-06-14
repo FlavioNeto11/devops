@@ -21,6 +21,9 @@ quality_scenarios:
     artifact: Cada ciclo de worker processa até 10 jobs com FOR UPDATE SKIP LOCKED; heartbeat registra lease por 15s
     response: Jobs são distribuídos entre workers sem lock contention; novo worker pode ser escalado horizontalmente; performance mantém < 100ms por job de overhead
     response_measure: Throughput >= 10 jobs/s por worker; utilização de CPU worker <= 70%; zero deadlocks com multiplos workers
+links:
+  - type: constrains
+    target: REQ-SICAT-0012
 version:
   baseline_version: 1.0.0
   item_revision: 1

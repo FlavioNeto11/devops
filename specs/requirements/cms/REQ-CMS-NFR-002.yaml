@@ -21,6 +21,9 @@ quality_scenarios:
     artifact: VisualEditor + ContentEditor + pm-api PATCH
     response: Alterações acumuladas em debounce (~300ms), enviadas em PATCH single; UI reflete mudança imediatamente (otimista); em caso de erro backend, reverte e notifica
     response_measure: Até 10 edições rápidas geram 1-2 requests ao backend (não 10); latência percebida ≤1s (debounce + rede); reverte em erro sem perder dados
+links:
+  - type: constrains
+    target: REQ-CMS-0002
 version:
   baseline_version: 1.0.0
   item_revision: 1

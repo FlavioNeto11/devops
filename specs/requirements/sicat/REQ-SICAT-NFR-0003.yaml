@@ -21,6 +21,9 @@ quality_scenarios:
     artifact: Update falha com constraint violation se version não corresponder; client lê versão atual e reapresenta com versão correta
     response: Transação é rollback; client recebe 409 Conflict ou retry automático via idempotência; garantia de ACID sem deadlock
     response_measure: Zero deadlocks observados em 24h de operação; conflitos de versão resolvidos em < 100ms; migration idempotente com advisory lock
+links:
+  - type: constrains
+    target: REQ-SICAT-0011
 version:
   baseline_version: 1.0.0
   item_revision: 1

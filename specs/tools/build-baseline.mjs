@@ -31,6 +31,7 @@ const SCHEMA_PATH = path.join(SPECS_DIR, 'schema', 'requirement.schema.json');
 const OUT_DIR = path.join(SPECS_DIR, 'baseline');
 
 const CHECK = process.argv.includes('--check');
+const METAMODEL_VERSION = '1.0.0'; // versão do metamodelo (schema + shape da baseline) consumido pelo workbench/Claude
 
 function fail(msg) {
   console.error(`\x1b[31m[specs] ${msg}\x1b[0m`);
@@ -100,6 +101,23 @@ function validate(items) {
       }
     }
   }
+
+  // Artefatos externos validáveis hoje: ADR-NNNN deve existir em docs/decisions/NNNN-*.md.
+  // (svc-/infra-/slo-/test- ainda não têm registry — validação por catálogo é trabalho da Fase 2.)
+  const decisionsDir = path.resolve(SPECS_DIR, '..', 'docs', 'decisions');
+  const adrNums = fs.existsSync(decisionsDir)
+    ? new Set(fs.readdirSync(decisionsDir).map((f) => (f.match(/^(\d+)-/) || [])[1]).filter(Boolean).map(Number))
+    : new Set();
+  for (const { file, doc } of items) {
+    const refs = [...(doc?.links ?? []).map((l) => l.target), ...((doc?.allocation?.adr_refs) ?? [])];
+    for (const t of refs) {
+      const m = /^ADR-(\d+)/.exec(t || '');
+      if (m && !adrNums.has(Number(m[1]))) {
+        ok = false;
+        fail(`ADR inexistente referenciada em ${file}: '${t}' (não há docs/decisions/${m[1]}-*.md)`);
+      }
+    }
+  }
   return ok;
 }
 
@@ -159,7 +177,7 @@ function build(items) {
     requirements: reqs.map(({ _file, ...r }) => ({ ...r, file: _file })),
   };
   const baselineHash = crypto.createHash('sha256').update(stable(baselineCore.requirements)).digest('hex');
-  const currentBaseline = { baseline_hash: baselineHash, ...baselineCore };
+  const currentBaseline = { metamodel_version: METAMODEL_VERSION, baseline_hash: baselineHash, ...baselineCore };
 
   // impact-map.json (grafo)
   const nodes = new Map();
@@ -184,8 +202,19 @@ function build(items) {
       }
       edges.push({ from: r.id, to: t, type: link.type });
     }
+    // arestas PROPOSTAS (suggested_links): não são verdade canônica; entram marcadas
+    // como proposed para a UI/Claude sugerirem sem contaminar o grafo aprovado.
+    for (const link of r.suggested_links ?? []) {
+      const t = link.target;
+      if (!/^REQ-/.test(t)) {
+        const kind = /^ADR-/.test(t) ? 'adr' : /^svc-/.test(t) ? 'service' : /^infra-/.test(t) ? 'infra' : /^test-/.test(t) ? 'test' : /^slo-/.test(t) ? 'slo' : 'artifact';
+        addNode(t, kind);
+      }
+      edges.push({ from: r.id, to: t, type: link.type, proposed: true });
+    }
   }
   const impactMap = {
+    metamodel_version: METAMODEL_VERSION,
     baseline_hash: baselineHash,
     nodes: [...nodes.values()].sort((a, b) => a.id.localeCompare(b.id)),
     edges: edges.sort((a, b) => (a.from + a.to + a.type).localeCompare(b.from + b.to + b.type)),
@@ -193,6 +222,7 @@ function build(items) {
 
   // retrieval-manifest.json (índice p/ o Claude)
   const retrieval = {
+    metamodel_version: METAMODEL_VERSION,
     baseline_hash: baselineHash,
     items: reqs.map((r) => ({
       id: r.id,
@@ -203,14 +233,26 @@ function build(items) {
       capability: r.scope?.capability ?? null,
       asr: !!r.architectural_significance,
       impact_band: r.impact_band,
-      file: r.file,
+      file: r._file,
     })),
   };
 
-  // fila de reprocessamento (o que exige atenção do Claude): impacto alto OU sem verificação
+  // fila de reprocessamento (o que exige atenção do Claude): impacto alto, lacuna de
+  // verificação (sem método OU sem evidência) ou mudança incompatível (major).
   const reprocessQueue = reqs
-    .filter((r) => r.impact_band === 'high' || !(r.verification_method ?? []).length)
-    .map((r) => ({ id: r.id, title: r.title, product: r.scope?.product_scope, impact_score: r.impact_score, reason: r.impact_band === 'high' ? 'alto impacto' : 'lacuna de verificação' }))
+    .map((r) => {
+      const missingMethod = !(r.verification_method ?? []).length;
+      const missingEvidence = !(r.evidence_links ?? []).length;
+      const isMajor = r.version?.semantic_change === 'major';
+      const reasons = [];
+      if (r.impact_band === 'high') reasons.push('alto impacto');
+      if (missingMethod) reasons.push('sem método de verificação');
+      else if (missingEvidence) reasons.push('sem evidência de verificação');
+      if (isMajor) reasons.push('mudança major (incompatível)');
+      return { r, reasons };
+    })
+    .filter((x) => x.reasons.length)
+    .map(({ r, reasons }) => ({ id: r.id, title: r.title, product: r.scope?.product_scope, impact_score: r.impact_score, reasons }))
     .sort((a, b) => b.impact_score - a.impact_score);
   currentBaseline.reprocess_queue = reprocessQueue;
 

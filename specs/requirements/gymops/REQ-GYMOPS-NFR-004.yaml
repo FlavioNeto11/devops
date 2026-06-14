@@ -21,6 +21,9 @@ quality_scenarios:
     artifact: callAI(fn, fallback, timeoutMs) em todos os endpoints /ai/*. Rate limit 10/min por userId.
     response: Retorna fallback (valores default sensatos) sem erro 500. Usuário vê sugestão degradada mas continua operando.
     response_measure: "Status 200 com confidence: 0 ou lista vazia (nunca 5xx)"
+links:
+  - type: constrains
+    target: REQ-GYMOPS-0013
 version:
   baseline_version: 1.0.0
   item_revision: 1

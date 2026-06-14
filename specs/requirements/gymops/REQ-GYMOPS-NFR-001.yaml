@@ -21,6 +21,9 @@ quality_scenarios:
     artifact: Página /activities
     response: Resposta <1.5s (P50), <3s (P95). Índices ativados. Cursor pagination com limit=50.
     response_measure: Tempo de resposta HTTP incluindo query + serialização
+links:
+  - type: constrains
+    target: REQ-GYMOPS-0008
 version:
   baseline_version: 1.0.0
   item_revision: 1

@@ -21,6 +21,9 @@ quality_scenarios:
     artifact: multer + cms.js handler
     response: "Arquivo validado: mime em allowlist, tamanho ≤tipo-específico (8MB padrão, 50MB vídeo). Rejeitado se exceder: 400 'arquivo muito grande' com tipo/limite. Aceito: armazenado como bytea em PostgreSQL, retorna id + URL pública"
     response_measure: "Arquivo válido: upload <5s (memória suficiente para single-user); rejeição imediata (<100ms); pod não OOM em uploads sequenciais (lab)"
+links:
+  - type: constrains
+    target: REQ-CMS-0006
 version:
   baseline_version: 1.0.0
   item_revision: 1

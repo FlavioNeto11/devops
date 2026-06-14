@@ -21,6 +21,9 @@ quality_scenarios:
     artifact: Segunda requisição retorna 202 com jobId anterior; job é processado uma única vez
     response: Operação é tratada como deduplicação; cliente recebe resposta consistente sem efeitos colaterais duplicados
     response_measure: Taxa de sucesso de deduplicação = 100%; sem job duplicado no banco; teste de contrato valida operação
+links:
+  - type: constrains
+    target: REQ-SICAT-0002
 version:
   baseline_version: 1.0.0
   item_revision: 1

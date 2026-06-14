@@ -21,6 +21,9 @@ quality_scenarios:
     artifact: pm-api (ai/generate.js, timeout 30s)
     response: "Com chave: geração síncrona, resultado em <30s, logged em cms_generation_requests; sem chave: 503 gracioso ('IA não configurada'), CMS segue 100% funcional, editor continua operável"
     response_measure: Timeout total ≤30s (abort automático); sucesso em <10s típico (modelo rápido); sem chave → 503 + mensagem clara, não quebra UX
+links:
+  - type: constrains
+    target: REQ-CMS-0009
 version:
   baseline_version: 1.0.0
   item_revision: 1

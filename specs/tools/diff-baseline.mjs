@@ -22,7 +22,10 @@ function load(p) {
   }
 }
 
-const [, , basePath, headPath] = process.argv;
+const flags = process.argv.slice(2).filter((a) => a.startsWith('--'));
+const positionals = process.argv.slice(2).filter((a) => !a.startsWith('--'));
+const [basePath, headPath] = positionals;
+const ENFORCE = flags.includes('--enforce'); // falha (exit 1) se mudança semântica sem versionar
 const base = load(basePath);
 const head = load(headPath);
 
@@ -95,3 +98,28 @@ if (removed.length) {
 }
 
 console.log(L.join('\n'));
+
+// --enforce: toda mudança de campo SEMÂNTICO exige versionamento explícito.
+// (item_revision aumentado + semantic_change != none + change_reason preenchido.)
+// É o gatilho que força "questão de versão" a cada alteração de requisito.
+if (ENFORCE) {
+  const SEMANTIC = ['statement', 'acceptance_criteria', 'quality_scenarios', 'links', 'scope', 'status', 'priority', 'criticality', 'architectural_significance'];
+  const violations = [];
+  for (const c of changed) {
+    const semChanged = SEMANTIC.some((f) => JSON.stringify(c.b[f] ?? null) !== JSON.stringify(c.h[f] ?? null));
+    if (!semChanged) continue;
+    const bRev = c.b.version?.item_revision ?? 0;
+    const hRev = c.h.version?.item_revision ?? 0;
+    const sc = c.h.version?.semantic_change ?? 'none';
+    const reason = (c.h.version?.change_reason ?? '').trim();
+    if (hRev <= bRev) violations.push(`${c.h.id}: campo semântico mudou mas version.item_revision não aumentou (${bRev} -> ${hRev}).`);
+    if (sc === 'none') violations.push(`${c.h.id}: version.semantic_change deve ser patch/minor/major (está 'none').`);
+    if (!reason) violations.push(`${c.h.id}: version.change_reason está vazio.`);
+  }
+  if (violations.length) {
+    console.error('\n[enforce] Versionamento semântico obrigatório — violações:');
+    for (const v of violations) console.error('  - ' + v);
+    console.error('::error::Mudou requisito sem versionar. Incremente item_revision, classifique semantic_change e preencha change_reason.');
+    process.exit(1);
+  }
+}

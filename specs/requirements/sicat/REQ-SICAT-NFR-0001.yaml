@@ -21,6 +21,11 @@ quality_scenarios:
     artifact: Job persistido em Postgres com status 'retry_wait' e backoff exponencial
     response: Worker aguarda intervalo calculado (base 1s, máx 30s) e reprocessa automaticamente; após max_attempts, job vai para DLQ
     response_measure: Taxa de sucesso em retry >= 80% para falhas transientes; tempo até DLQ <= 5 min com max_attempts=5
+links:
+  - type: constrains
+    target: REQ-SICAT-0011
+  - type: constrains
+    target: REQ-SICAT-0012
 version:
   baseline_version: 1.0.0
   item_revision: 1

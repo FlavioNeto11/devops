@@ -21,6 +21,9 @@ quality_scenarios:
     artifact: BullMQ workers + fallback setImmediate quando REDIS_URL ausente
     response: Jobs não são perdidos. Se Redis presente, fila persiste. Se ausente, fallback executa com degradação (sem persistência). Próxima recorrência gerada mesmo em falha.
     response_measure: Todas as atividades recorrentes têm próxima ocorrência gerada em <24h
+links:
+  - type: constrains
+    target: REQ-GYMOPS-0007
 version:
   baseline_version: 1.0.0
   item_revision: 1

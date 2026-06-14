@@ -21,6 +21,9 @@ quality_scenarios:
     artifact: cms_generation_requests table + aiEditSection/aiEditSite com buildSiteContext
     response: "Cada request cria linha em cms_generation_requests (id, kind, prompt, context, status, result, error, created_by, created_at). Próxima geração lê prompts anteriores (LIMIT 3) para manter tom/segmento. Sem regenerar: segunda geração ADICIONA seções rascunho, não sobrescreve manual edits"
     response_measure: "Auditoria completa: quem gerou, quando, com qual prompt, resultado; contexto de IA inclui prompts históricos (rastreabilidade); regenerar não perde ajustes"
+links:
+  - type: constrains
+    target: REQ-CMS-0009
 version:
   baseline_version: 1.0.0
   item_revision: 1

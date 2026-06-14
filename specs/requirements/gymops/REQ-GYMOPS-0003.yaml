@@ -14,6 +14,11 @@ source:
 priority: critical
 criticality: critical
 architectural_significance: true
+links:
+  - type: depends_on
+    target: REQ-GYMOPS-0001
+  - type: depends_on
+    target: REQ-GYMOPS-0002
 version:
   baseline_version: 1.0.0
   item_revision: 1

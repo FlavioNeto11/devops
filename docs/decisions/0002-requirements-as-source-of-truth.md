@@ -65,9 +65,17 @@ infra passam a responder aos requisitos. Base inicial semeada de requisitos **re
 
 **Negativas / trade-offs:** `specs/baseline/*.json` é gerado **e** commitado → exige regenerar +
 commitar junto (mitigado pelo drift-check do CI e pela skill `/sync-spec`); `specs/tools` traz uma dep
-(`ajv`/`yaml`) e `npm ci` no CI; rastreabilidade (`links`) e evidências de verificação foram deixadas
-para autoria na iteração/UI (por isso vários itens nascem na `reprocess_queue` por lacuna de
-verificação — é honesto, não dívida oculta).
+(`ajv`/`yaml`) e `npm ci` no CI; a rastreabilidade inicial é **REQ→REQ** (curada em
+`tools/seed-links.json`) — evidências de verificação e links a **artefatos externos** (ADR/serviço/
+infra/SLO/teste) ficam para a iteração/UI (por isso vários itens nascem na `reprocess_queue` — é
+honesto, não dívida oculta). Validação de artefatos externos hoje cobre **ADR** (por path em
+`docs/decisions/`); um **registry** de serviço/infra/SLO/teste é trabalho da Fase 2.
+
+**Governança de versão:** o gate `specs-diff` roda `diff-baseline.mjs --enforce` no PR — se um requisito
+muda em campo semântico (statement, scope, links, quality_scenarios, status, prioridade, ASR…) sem
+**versionar** (`item_revision` incrementado + `semantic_change` ≠ `none` + `change_reason`), o PR
+**falha**. Esse é o mecanismo que torna toda alteração uma "questão de versão". O metamodelo é
+versionado (`metamodel_version` na baseline; `schema_version` opcional no artefato).
 
 **Próxima fase:** **workbench** (app no _golden path_) com as 6 telas (Explorador, Workspace, Diff,
 Mapa de impacto, Cobertura arquitetural, Fila de reprocessamento), busca estruturada + semântica e

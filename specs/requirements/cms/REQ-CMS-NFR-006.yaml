@@ -21,6 +21,9 @@ quality_scenarios:
     artifact: pm-api auth.js (assertProjectAccess) + PATCH endpoints
     response: "Cada request validado contra project_id do recurso; A só edita seções de seu projeto, B do seu. Sem conflito: ambos succedem independentemente. Se A tenta acessar projeto de B: 403 Forbidden"
     response_measure: Acesso negado em <50ms (SQL check); operações paralelas não contaminam dados cruzados; admin (isAdmin=true) acessa todos os projetos
+links:
+  - type: constrains
+    target: REQ-CMS-0005
 version:
   baseline_version: 1.0.0
   item_revision: 1

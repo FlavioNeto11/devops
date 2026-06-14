@@ -21,6 +21,9 @@ quality_scenarios:
     artifact: Health retorna status verde com jobs em retry_wait; operador vê jobs em DLQ após max_attempts; sistema continua aceitando novos comandos
     response: Dashboard mostra warning de contas/sessões expiradas; UI aconselha reautenticação; novos jobs são enfileirados normalmente
     response_measure: Uptime de health >= 99.5% mesmo com CETESB offline; jobs em retry aguardam <= 5min; nenhuma requisição ao CETESB duramente acoplada
+links:
+  - type: constrains
+    target: REQ-SICAT-0013
 version:
   baseline_version: 1.0.0
   item_revision: 1

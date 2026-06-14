@@ -1,5 +1,6 @@
 {
-  "baseline_hash": "96e91b9e52883c1cd0a2a5ca91ba5115f85564025f22ed355c655fdba933d06c",
+  "metamodel_version": "1.0.0",
+  "baseline_hash": "9785f7cbe8e7c17b9efbdc60d665b3bd261fb3d9a4780b0daa65bf2464a8bedc",
   "nodes": [
     {
       "id": "REQ-CMS-0001",
@@ -692,5 +693,351 @@
       "impact_band": "low"
     }
   ],
-  "edges": []
+  "edges": [
+    {
+      "from": "REQ-CMS-0002",
+      "to": "REQ-CMS-0003",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-CMS-0005",
+      "to": "REQ-CMS-0003",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-CMS-0005",
+      "to": "REQ-CMS-0007",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-CMS-0006",
+      "to": "REQ-CMS-0002",
+      "type": "relates_to"
+    },
+    {
+      "from": "REQ-CMS-0008",
+      "to": "REQ-CMS-0005",
+      "type": "relates_to"
+    },
+    {
+      "from": "REQ-CMS-0009",
+      "to": "REQ-CMS-0003",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-CMS-0010",
+      "to": "REQ-CMS-0003",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-CMS-0010",
+      "to": "REQ-CMS-0005",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-CMS-0011",
+      "to": "REQ-CMS-0002",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-CMS-0011",
+      "to": "REQ-CMS-0010",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-CMS-0013",
+      "to": "REQ-CMS-0009",
+      "type": "relates_to"
+    },
+    {
+      "from": "REQ-CMS-0014",
+      "to": "REQ-CMS-0005",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-CMS-0015",
+      "to": "REQ-CMS-0002",
+      "type": "relates_to"
+    },
+    {
+      "from": "REQ-CMS-NFR-001",
+      "to": "REQ-CMS-0005",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-CMS-NFR-002",
+      "to": "REQ-CMS-0002",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-CMS-NFR-003",
+      "to": "REQ-CMS-0009",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-CMS-NFR-004",
+      "to": "REQ-CMS-0006",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-CMS-NFR-006",
+      "to": "REQ-CMS-0005",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-CMS-NFR-007",
+      "to": "REQ-CMS-0009",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-GYMOPS-0003",
+      "to": "REQ-GYMOPS-0001",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-GYMOPS-0003",
+      "to": "REQ-GYMOPS-0002",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-GYMOPS-0004",
+      "to": "REQ-GYMOPS-0002",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-GYMOPS-0004",
+      "to": "REQ-GYMOPS-0003",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-GYMOPS-0005",
+      "to": "REQ-GYMOPS-0004",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-GYMOPS-0006",
+      "to": "REQ-GYMOPS-0004",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-GYMOPS-0007",
+      "to": "REQ-GYMOPS-0004",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-GYMOPS-0008",
+      "to": "REQ-GYMOPS-0003",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-GYMOPS-0008",
+      "to": "REQ-GYMOPS-0004",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-GYMOPS-0009",
+      "to": "REQ-GYMOPS-0002",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-GYMOPS-0011",
+      "to": "REQ-GYMOPS-0004",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-GYMOPS-0012",
+      "to": "REQ-GYMOPS-0004",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-GYMOPS-0013",
+      "to": "REQ-GYMOPS-0004",
+      "type": "relates_to"
+    },
+    {
+      "from": "REQ-GYMOPS-0013",
+      "to": "REQ-GYMOPS-0005",
+      "type": "relates_to"
+    },
+    {
+      "from": "REQ-GYMOPS-NFR-001",
+      "to": "REQ-GYMOPS-0008",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-GYMOPS-NFR-002",
+      "to": "REQ-GYMOPS-0003",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-GYMOPS-NFR-002",
+      "to": "REQ-GYMOPS-0004",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-GYMOPS-NFR-003",
+      "to": "REQ-GYMOPS-0007",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-GYMOPS-NFR-004",
+      "to": "REQ-GYMOPS-0013",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-GYMOPS-NFR-005",
+      "to": "REQ-GYMOPS-0012",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-SICAT-0002",
+      "to": "REQ-SICAT-0001",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0002",
+      "to": "REQ-SICAT-0011",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0002",
+      "to": "REQ-SICAT-0012",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0003",
+      "to": "REQ-SICAT-0002",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0003",
+      "to": "REQ-SICAT-0012",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0004",
+      "to": "REQ-SICAT-0002",
+      "type": "relates_to"
+    },
+    {
+      "from": "REQ-SICAT-0004",
+      "to": "REQ-SICAT-0011",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0004",
+      "to": "REQ-SICAT-0012",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0005",
+      "to": "REQ-SICAT-0011",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0005",
+      "to": "REQ-SICAT-0012",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0007",
+      "to": "REQ-SICAT-0005",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0007",
+      "to": "REQ-SICAT-0012",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0009",
+      "to": "REQ-SICAT-0011",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0009",
+      "to": "REQ-SICAT-0012",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0010",
+      "to": "REQ-SICAT-0002",
+      "type": "refines"
+    },
+    {
+      "from": "REQ-SICAT-0013",
+      "to": "REQ-SICAT-0011",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0013",
+      "to": "REQ-SICAT-0012",
+      "type": "relates_to"
+    },
+    {
+      "from": "REQ-SICAT-0014",
+      "to": "REQ-SICAT-0011",
+      "type": "relates_to"
+    },
+    {
+      "from": "REQ-SICAT-NFR-0001",
+      "to": "REQ-SICAT-0011",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-SICAT-NFR-0001",
+      "to": "REQ-SICAT-0012",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-SICAT-NFR-0002",
+      "to": "REQ-SICAT-0002",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-SICAT-NFR-0002",
+      "to": "REQ-SICAT-0003",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-SICAT-NFR-0002",
+      "to": "REQ-SICAT-0004",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-SICAT-NFR-0002",
+      "to": "REQ-SICAT-0005",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-SICAT-NFR-0002",
+      "to": "REQ-SICAT-0007",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-SICAT-NFR-0003",
+      "to": "REQ-SICAT-0011",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-SICAT-NFR-0005",
+      "to": "REQ-SICAT-0014",
+      "type": "verifies"
+    },
+    {
+      "from": "REQ-SICAT-NFR-0006",
+      "to": "REQ-SICAT-0002",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-SICAT-NFR-0007",
+      "to": "REQ-SICAT-0013",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-SICAT-NFR-0008",
+      "to": "REQ-SICAT-0012",
+      "type": "constrains"
+    }
+  ]
 }

@@ -21,6 +21,11 @@ quality_scenarios:
     artifact: Backend Fastify com resolveActivityPermission() obrigatório + UUIDs v4 em todas as tabelas
     response: Retorna 404 (sobre 403 para evitar enumeração) se permissão negada. Nunca expõe IDs sequenciais. Validação Zod em entrada.
     response_measure: Status HTTP correto + auditoria log do acesso denegado
+links:
+  - type: constrains
+    target: REQ-GYMOPS-0003
+  - type: constrains
+    target: REQ-GYMOPS-0004
 version:
   baseline_version: 1.0.0
   item_revision: 1

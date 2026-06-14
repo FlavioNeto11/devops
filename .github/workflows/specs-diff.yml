@@ -40,6 +40,9 @@ jobs:
           BASE="${{ github.event.pull_request.base.sha }}"
           git show "$BASE:specs/baseline/current-baseline.json" > "$RUNNER_TEMP/base-baseline.json" 2>/dev/null || echo "" > "$RUNNER_TEMP/base-baseline.json"
 
-      - name: Gerar change-report (base vs HEAD)
+      - name: Gerar change-report + enforce versionamento (base vs HEAD)
         run: |
-          node specs/tools/diff-baseline.mjs "$RUNNER_TEMP/base-baseline.json" specs/baseline/current-baseline.json >> "$GITHUB_STEP_SUMMARY"
+          # --enforce: FALHA o PR se um requisito mudou em campo semântico sem versionar
+          # (item_revision++ , semantic_change != none, change_reason preenchido). O relatório
+          # vai pro Job Summary mesmo quando falha (stdout é escrito antes do exit).
+          node specs/tools/diff-baseline.mjs --enforce "$RUNNER_TEMP/base-baseline.json" specs/baseline/current-baseline.json >> "$GITHUB_STEP_SUMMARY"

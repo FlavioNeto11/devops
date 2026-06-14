@@ -1,5 +1,6 @@
 {
-  "baseline_hash": "96e91b9e52883c1cd0a2a5ca91ba5115f85564025f22ed355c655fdba933d06c",
+  "metamodel_version": "1.0.0",
+  "baseline_hash": "9785f7cbe8e7c17b9efbdc60d665b3bd261fb3d9a4780b0daa65bf2464a8bedc",
   "items": [
     {
       "id": "REQ-CMS-0001",
@@ -9,7 +10,8 @@
       "product": "cms",
       "capability": null,
       "asr": false,
-      "impact_band": "medium"
+      "impact_band": "medium",
+      "file": "requirements/cms/REQ-CMS-0001.yaml"
     },
     {
       "id": "REQ-CMS-0002",
@@ -19,7 +21,8 @@
       "product": "cms",
       "capability": null,
       "asr": true,
-      "impact_band": "medium"
+      "impact_band": "medium",
+      "file": "requirements/cms/REQ-CMS-0002.yaml"
     },
     {
       "id": "REQ-CMS-0003",
@@ -29,7 +32,8 @@
       "product": "cms",
       "capability": null,
       "asr": true,
-      "impact_band": "medium"
+      "impact_band": "medium",
+      "file": "requirements/cms/REQ-CMS-0003.yaml"
     },
     {
       "id": "REQ-CMS-0004",
@@ -39,7 +43,8 @@
       "product": "cms",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/cms/REQ-CMS-0004.yaml"
     },
     {
       "id": "REQ-CMS-0005",
@@ -49,7 +54,8 @@
       "product": "cms",
       "capability": null,
       "asr": true,
-      "impact_band": "medium"
+      "impact_band": "medium",
+      "file": "requirements/cms/REQ-CMS-0005.yaml"
     },
     {
       "id": "REQ-CMS-0006",
@@ -59,7 +65,8 @@
       "product": "cms",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/cms/REQ-CMS-0006.yaml"
     },
     {
       "id": "REQ-CMS-0007",
@@ -69,7 +76,8 @@
       "product": "cms",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/cms/REQ-CMS-0007.yaml"
     },
     {
       "id": "REQ-CMS-0008",
@@ -79,7 +87,8 @@
       "product": "cms",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/cms/REQ-CMS-0008.yaml"
     },
     {
       "id": "REQ-CMS-0009",
@@ -89,7 +98,8 @@
       "product": "cms",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/cms/REQ-CMS-0009.yaml"
     },
     {
       "id": "REQ-CMS-0010",
@@ -99,7 +109,8 @@
       "product": "cms",
       "capability": null,
       "asr": true,
-      "impact_band": "medium"
+      "impact_band": "medium",
+      "file": "requirements/cms/REQ-CMS-0010.yaml"
     },
     {
       "id": "REQ-CMS-0011",
@@ -109,7 +120,8 @@
       "product": "cms",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/cms/REQ-CMS-0011.yaml"
     },
     {
       "id": "REQ-CMS-0012",
@@ -119,7 +131,8 @@
       "product": "cms",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/cms/REQ-CMS-0012.yaml"
     },
     {
       "id": "REQ-CMS-0013",
@@ -129,7 +142,8 @@
       "product": "cms",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/cms/REQ-CMS-0013.yaml"
     },
     {
       "id": "REQ-CMS-0014",
@@ -139,7 +153,8 @@
       "product": "cms",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/cms/REQ-CMS-0014.yaml"
     },
     {
       "id": "REQ-CMS-0015",
@@ -149,7 +164,8 @@
       "product": "cms",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/cms/REQ-CMS-0015.yaml"
     },
     {
       "id": "REQ-CMS-NFR-001",
@@ -159,7 +175,8 @@
       "product": "cms",
       "capability": null,
       "asr": true,
-      "impact_band": "medium"
+      "impact_band": "medium",
+      "file": "requirements/cms/REQ-CMS-NFR-001.yaml"
     },
     {
       "id": "REQ-CMS-NFR-002",
@@ -169,7 +186,8 @@
       "product": "cms",
       "capability": null,
       "asr": true,
-      "impact_band": "medium"
+      "impact_band": "medium",
+      "file": "requirements/cms/REQ-CMS-NFR-002.yaml"
     },
     {
       "id": "REQ-CMS-NFR-003",
@@ -179,7 +197,8 @@
       "product": "cms",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/cms/REQ-CMS-NFR-003.yaml"
     },
     {
       "id": "REQ-CMS-NFR-004",
@@ -189,7 +208,8 @@
       "product": "cms",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/cms/REQ-CMS-NFR-004.yaml"
     },
     {
       "id": "REQ-CMS-NFR-005",
@@ -199,7 +219,8 @@
       "product": "cms",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/cms/REQ-CMS-NFR-005.yaml"
     },
     {
       "id": "REQ-CMS-NFR-006",
@@ -209,7 +230,8 @@
       "product": "cms",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/cms/REQ-CMS-NFR-006.yaml"
     },
     {
       "id": "REQ-CMS-NFR-007",
@@ -219,7 +241,8 @@
       "product": "cms",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/cms/REQ-CMS-NFR-007.yaml"
     },
     {
       "id": "REQ-GYMOPS-0001",
@@ -229,7 +252,8 @@
       "product": "gymops",
       "capability": null,
       "asr": false,
-      "impact_band": "medium"
+      "impact_band": "medium",
+      "file": "requirements/gymops/REQ-GYMOPS-0001.yaml"
     },
     {
       "id": "REQ-GYMOPS-0002",
@@ -239,7 +263,8 @@
       "product": "gymops",
       "capability": null,
       "asr": true,
-      "impact_band": "medium"
+      "impact_band": "medium",
+      "file": "requirements/gymops/REQ-GYMOPS-0002.yaml"
     },
     {
       "id": "REQ-GYMOPS-0003",
@@ -249,7 +274,8 @@
       "product": "gymops",
       "capability": null,
       "asr": true,
-      "impact_band": "medium"
+      "impact_band": "medium",
+      "file": "requirements/gymops/REQ-GYMOPS-0003.yaml"
     },
     {
       "id": "REQ-GYMOPS-0004",
@@ -259,7 +285,8 @@
       "product": "gymops",
       "capability": null,
       "asr": false,
-      "impact_band": "medium"
+      "impact_band": "medium",
+      "file": "requirements/gymops/REQ-GYMOPS-0004.yaml"
     },
     {
       "id": "REQ-GYMOPS-0005",
@@ -269,7 +296,8 @@
       "product": "gymops",
       "capability": null,
       "asr": false,
-      "impact_band": "medium"
+      "impact_band": "medium",
+      "file": "requirements/gymops/REQ-GYMOPS-0005.yaml"
     },
     {
       "id": "REQ-GYMOPS-0006",
@@ -279,7 +307,8 @@
       "product": "gymops",
       "capability": null,
       "asr": false,
-      "impact_band": "medium"
+      "impact_band": "medium",
+      "file": "requirements/gymops/REQ-GYMOPS-0006.yaml"
     },
     {
       "id": "REQ-GYMOPS-0007",
@@ -289,7 +318,8 @@
       "product": "gymops",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/gymops/REQ-GYMOPS-0007.yaml"
     },
     {
       "id": "REQ-GYMOPS-0008",
@@ -299,7 +329,8 @@
       "product": "gymops",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/gymops/REQ-GYMOPS-0008.yaml"
     },
     {
       "id": "REQ-GYMOPS-0009",
@@ -309,7 +340,8 @@
       "product": "gymops",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/gymops/REQ-GYMOPS-0009.yaml"
     },
     {
       "id": "REQ-GYMOPS-0010",
@@ -319,7 +351,8 @@
       "product": "gymops",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/gymops/REQ-GYMOPS-0010.yaml"
     },
     {
       "id": "REQ-GYMOPS-0011",
@@ -329,7 +362,8 @@
       "product": "gymops",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/gymops/REQ-GYMOPS-0011.yaml"
     },
     {
       "id": "REQ-GYMOPS-0012",
@@ -339,7 +373,8 @@
       "product": "gymops",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/gymops/REQ-GYMOPS-0012.yaml"
     },
     {
       "id": "REQ-GYMOPS-0013",
@@ -349,7 +384,8 @@
       "product": "gymops",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/gymops/REQ-GYMOPS-0013.yaml"
     },
     {
       "id": "REQ-GYMOPS-0014",
@@ -359,7 +395,8 @@
       "product": "gymops",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/gymops/REQ-GYMOPS-0014.yaml"
     },
     {
       "id": "REQ-GYMOPS-0015",
@@ -369,7 +406,8 @@
       "product": "gymops",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/gymops/REQ-GYMOPS-0015.yaml"
     },
     {
       "id": "REQ-GYMOPS-NFR-001",
@@ -379,7 +417,8 @@
       "product": "gymops",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/gymops/REQ-GYMOPS-NFR-001.yaml"
     },
     {
       "id": "REQ-GYMOPS-NFR-002",
@@ -389,7 +428,8 @@
       "product": "gymops",
       "capability": null,
       "asr": true,
-      "impact_band": "medium"
+      "impact_band": "medium",
+      "file": "requirements/gymops/REQ-GYMOPS-NFR-002.yaml"
     },
     {
       "id": "REQ-GYMOPS-NFR-003",
@@ -399,7 +439,8 @@
       "product": "gymops",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/gymops/REQ-GYMOPS-NFR-003.yaml"
     },
     {
       "id": "REQ-GYMOPS-NFR-004",
@@ -409,7 +450,8 @@
       "product": "gymops",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/gymops/REQ-GYMOPS-NFR-004.yaml"
     },
     {
       "id": "REQ-GYMOPS-NFR-005",
@@ -419,7 +461,8 @@
       "product": "gymops",
       "capability": null,
       "asr": true,
-      "impact_band": "medium"
+      "impact_band": "medium",
+      "file": "requirements/gymops/REQ-GYMOPS-NFR-005.yaml"
     },
     {
       "id": "REQ-GYMOPS-NFR-006",
@@ -429,7 +472,8 @@
       "product": "gymops",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/gymops/REQ-GYMOPS-NFR-006.yaml"
     },
     {
       "id": "REQ-GYMOPS-NFR-007",
@@ -439,7 +483,8 @@
       "product": "gymops",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/gymops/REQ-GYMOPS-NFR-007.yaml"
     },
     {
       "id": "REQ-GYMOPS-NFR-008",
@@ -449,7 +494,8 @@
       "product": "gymops",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/gymops/REQ-GYMOPS-NFR-008.yaml"
     },
     {
       "id": "REQ-SICAT-0001",
@@ -459,7 +505,8 @@
       "product": "sicat",
       "capability": null,
       "asr": true,
-      "impact_band": "medium"
+      "impact_band": "medium",
+      "file": "requirements/sicat/REQ-SICAT-0001.yaml"
     },
     {
       "id": "REQ-SICAT-0002",
@@ -469,7 +516,8 @@
       "product": "sicat",
       "capability": null,
       "asr": true,
-      "impact_band": "medium"
+      "impact_band": "medium",
+      "file": "requirements/sicat/REQ-SICAT-0002.yaml"
     },
     {
       "id": "REQ-SICAT-0003",
@@ -479,7 +527,8 @@
       "product": "sicat",
       "capability": null,
       "asr": false,
-      "impact_band": "medium"
+      "impact_band": "medium",
+      "file": "requirements/sicat/REQ-SICAT-0003.yaml"
     },
     {
       "id": "REQ-SICAT-0004",
@@ -489,7 +538,8 @@
       "product": "sicat",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-0004.yaml"
     },
     {
       "id": "REQ-SICAT-0005",
@@ -499,7 +549,8 @@
       "product": "sicat",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-0005.yaml"
     },
     {
       "id": "REQ-SICAT-0006",
@@ -509,7 +560,8 @@
       "product": "sicat",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-0006.yaml"
     },
     {
       "id": "REQ-SICAT-0007",
@@ -519,7 +571,8 @@
       "product": "sicat",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-0007.yaml"
     },
     {
       "id": "REQ-SICAT-0008",
@@ -529,7 +582,8 @@
       "product": "sicat",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-0008.yaml"
     },
     {
       "id": "REQ-SICAT-0009",
@@ -539,7 +593,8 @@
       "product": "sicat",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-0009.yaml"
     },
     {
       "id": "REQ-SICAT-0010",
@@ -549,7 +604,8 @@
       "product": "sicat",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-0010.yaml"
     },
     {
       "id": "REQ-SICAT-0011",
@@ -559,7 +615,8 @@
       "product": "sicat",
       "capability": null,
       "asr": true,
-      "impact_band": "high"
+      "impact_band": "high",
+      "file": "requirements/sicat/REQ-SICAT-0011.yaml"
     },
     {
       "id": "REQ-SICAT-0012",
@@ -569,7 +626,8 @@
       "product": "sicat",
       "capability": null,
       "asr": true,
-      "impact_band": "high"
+      "impact_band": "high",
+      "file": "requirements/sicat/REQ-SICAT-0012.yaml"
     },
     {
       "id": "REQ-SICAT-0013",
@@ -579,7 +637,8 @@
       "product": "sicat",
       "capability": null,
       "asr": true,
-      "impact_band": "high"
+      "impact_band": "high",
+      "file": "requirements/sicat/REQ-SICAT-0013.yaml"
     },
     {
       "id": "REQ-SICAT-0014",
@@ -589,7 +648,8 @@
       "product": "sicat",
       "capability": null,
       "asr": false,
-      "impact_band": "medium"
+      "impact_band": "medium",
+      "file": "requirements/sicat/REQ-SICAT-0014.yaml"
     },
     {
       "id": "REQ-SICAT-0015",
@@ -599,7 +659,8 @@
       "product": "sicat",
       "capability": "ai-conversations",
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-0015.yaml"
     },
     {
       "id": "REQ-SICAT-0016",
@@ -609,7 +670,8 @@
       "product": "sicat",
       "capability": "ai-control",
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-0016.yaml"
     },
     {
       "id": "REQ-SICAT-NFR-0001",
@@ -619,7 +681,8 @@
       "product": "sicat",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-NFR-0001.yaml"
     },
     {
       "id": "REQ-SICAT-NFR-0002",
@@ -629,7 +692,8 @@
       "product": "sicat",
       "capability": null,
       "asr": true,
-      "impact_band": "medium"
+      "impact_band": "medium",
+      "file": "requirements/sicat/REQ-SICAT-NFR-0002.yaml"
     },
     {
       "id": "REQ-SICAT-NFR-0003",
@@ -639,7 +703,8 @@
       "product": "sicat",
       "capability": null,
       "asr": true,
-      "impact_band": "medium"
+      "impact_band": "medium",
+      "file": "requirements/sicat/REQ-SICAT-NFR-0003.yaml"
     },
     {
       "id": "REQ-SICAT-NFR-0004",
@@ -649,7 +714,8 @@
       "product": "sicat",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-NFR-0004.yaml"
     },
     {
       "id": "REQ-SICAT-NFR-0005",
@@ -659,7 +725,8 @@
       "product": "sicat",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-NFR-0005.yaml"
     },
     {
       "id": "REQ-SICAT-NFR-0006",
@@ -669,7 +736,8 @@
       "product": "sicat",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-NFR-0006.yaml"
     },
     {
       "id": "REQ-SICAT-NFR-0007",
@@ -679,7 +747,8 @@
       "product": "sicat",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-NFR-0007.yaml"
     },
     {
       "id": "REQ-SICAT-NFR-0008",
@@ -689,7 +758,8 @@
       "product": "sicat",
       "capability": null,
       "asr": false,
-      "impact_band": "low"
+      "impact_band": "low",
+      "file": "requirements/sicat/REQ-SICAT-NFR-0008.yaml"
     }
   ]
 }

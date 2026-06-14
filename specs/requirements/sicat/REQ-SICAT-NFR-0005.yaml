@@ -21,6 +21,9 @@ quality_scenarios:
     artifact: Trilha com todas as transições de status, chamadas CETESB (requisição/resposta), erros e timestamps; sem dados sensíveis
     response: Endpoint retorna array de eventos correlacionados; UI renderiza timeline com badges de status e detalhes de erro
     response_measure: 100% de operações geram correlationId único; query audit <= 500ms; completude da trilha verificável por teste de auditoria
+links:
+  - type: verifies
+    target: REQ-SICAT-0014
 version:
   baseline_version: 1.0.0
   item_revision: 1
