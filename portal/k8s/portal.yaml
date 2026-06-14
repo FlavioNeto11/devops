@@ -43,7 +43,7 @@ spec:
     spec:
       containers:
         - name: portal
-          image: portal-frontend:bcef94e72f9f
+          image: portal-frontend:73bd9188e2be
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
