@@ -11,6 +11,8 @@ statement: 'O sistema deve atender ao atributo de qualidade "Isolamento de conte
 source:
   stakeholder: oidc
   origin: codebase oidc + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - packages/oidc-kit
 priority: high
 criticality: high
 architectural_significance: false

@@ -11,6 +11,8 @@ statement: O sistema deve sincronizar e manter atualizado no Postgres local os c
 source:
   stakeholder: sicat
   origin: codebase apps/sicat + research-2026-06
+  source_paths:
+    - apps/sicat
 priority: high
 criticality: high
 architectural_significance: false

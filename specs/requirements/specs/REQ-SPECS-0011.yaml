@@ -11,6 +11,8 @@ statement: "O baseline pode incluir suggested_links (ex.: sugeridas pelo Claude/
 source:
   stakeholder: specs
   origin: codebase specs + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - specs
 priority: low
 criticality: low
 architectural_significance: false

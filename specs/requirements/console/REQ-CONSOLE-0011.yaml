@@ -11,6 +11,8 @@ statement: "O backend le annotations (devops.flavioneto/*) de deployments nos na
 source:
   stakeholder: console
   origin: codebase console + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - console
 priority: medium
 criticality: medium
 architectural_significance: false

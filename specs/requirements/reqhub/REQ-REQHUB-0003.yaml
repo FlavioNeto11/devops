@@ -11,6 +11,8 @@ statement: O sistema deve exibir um ledger versionado de cada requisito (baselin
 source:
   stakeholder: reqhub
   origin: codebase reqhub + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - apps/reqhub
 priority: high
 criticality: high
 architectural_significance: false

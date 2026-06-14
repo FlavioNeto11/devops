@@ -12,6 +12,8 @@ statement: O sistema deve permitir visualizar, configurar e versionar ferramenta
 source:
   stakeholder: sicat
   origin: codebase apps/sicat + research-2026-06
+  source_paths:
+    - apps/sicat
 priority: medium
 criticality: medium
 architectural_significance: false

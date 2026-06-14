@@ -11,6 +11,8 @@ statement: Plataforma roda em Windows Server Datacenter x64, Docker Desktop, clu
 source:
   stakeholder: platform
   origin: codebase platform + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - platform
 priority: high
 criticality: high
 architectural_significance: false

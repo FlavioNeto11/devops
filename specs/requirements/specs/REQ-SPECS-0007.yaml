@@ -11,6 +11,8 @@ statement: O sistema deve manter specs/registry/artifacts.yaml com catálogo de 
 source:
   stakeholder: specs
   origin: codebase specs + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - specs
 priority: medium
 criticality: medium
 architectural_significance: false

@@ -11,6 +11,8 @@ statement: "O sistema deve permitir criar regras de recorrência (diaria, semana
 source:
   stakeholder: gymops
   origin: codebase apps/gymops + research-2026-06
+  source_paths:
+    - apps/gymops
 priority: high
 criticality: high
 architectural_significance: false

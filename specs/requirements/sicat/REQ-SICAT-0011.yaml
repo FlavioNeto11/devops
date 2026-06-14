@@ -11,6 +11,8 @@ statement: O sistema deve persistir jobs em Postgres com locking otimista (versi
 source:
   stakeholder: sicat
   origin: codebase apps/sicat + research-2026-06
+  source_paths:
+    - apps/sicat
 priority: critical
 criticality: critical
 architectural_significance: true

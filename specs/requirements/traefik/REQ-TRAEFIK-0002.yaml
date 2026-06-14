@@ -11,6 +11,8 @@ statement: Configurar entrypoints `web` (porta 8000→80) e `websecure` (porta 8
 source:
   stakeholder: traefik
   origin: codebase traefik + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - platform/traefik
 priority: critical
 criticality: critical
 architectural_significance: false

@@ -12,6 +12,9 @@ statement: "API (Express) deve permitir registrar novos portais com: slug (únic
 source:
   stakeholder: portal-contracts
   origin: codebase portal-contracts + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - apps/portal-recorder
+    - docs/portal-contracts
 priority: critical
 criticality: critical
 architectural_significance: false

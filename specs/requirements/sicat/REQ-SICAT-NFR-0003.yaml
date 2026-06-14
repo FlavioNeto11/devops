@@ -11,6 +11,8 @@ statement: 'O sistema deve atender ao atributo de qualidade "Persistência trans
 source:
   stakeholder: sicat
   origin: codebase apps/sicat + research-2026-06
+  source_paths:
+    - apps/sicat
 priority: high
 criticality: high
 architectural_significance: true

@@ -11,6 +11,8 @@ statement: A aplicação deve exibir timeline do método de trabalho de Ana e se
 source:
   stakeholder: anarabottini
   origin: codebase anarabottini + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - apps/anarabottini
 priority: medium
 criticality: medium
 architectural_significance: false

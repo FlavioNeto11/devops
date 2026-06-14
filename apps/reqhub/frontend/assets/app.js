@@ -5,7 +5,7 @@ import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, u
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
 const state = { view: 'explorer', filters: {}, q: '', selectedId: null, impactFilter: { type: '', product: '', focus: false }, editId: null, devFilter: { status: '', product: '' } };
-const DATA = { baseline: null, impact: null, retrieval: null, history: null, registry: null, embeddings: null, implStatus: null };
+const DATA = { baseline: null, impact: null, retrieval: null, history: null, registry: null, embeddings: null, implStatus: null, coverage: null };
 
 /* ---------- DOM helpers (seguros) ---------- */
 function h(tag, attrs = {}, ...kids) {
@@ -333,6 +333,30 @@ function renderCoverage() {
   const body = document.getElementById('coverage-body');
   body.replaceChildren();
   body.append(h('p', { class: 'muted', text: 'Matriz requisito × evidência/alocação. Verde = preenchido; vermelho = lacuna. Links a artefatos externos (ADR/serviço/infra/SLO) e evidências são autorados na iteração (Fase 2+).' }));
+
+  // Resumo "da cobertura" (coverage-report.json): % por dimensão no total + lacunas por escopo.
+  const cov = DATA.coverage;
+  if (cov && cov.totals) {
+    const dimLbl = { source_paths: 'Origem', links: 'Links', allocation: 'Alocação', evidence: 'Evidência', verification_method: 'Método' };
+    const card = h('div', { class: 'card' }, h('h3', { text: `Cobertura da base — ${cov.totals.total} requisitos · ${cov.totals.scopes} escopos` }));
+    const chips = h('div', { class: 'ws-actions' });
+    for (const d of cov.dimensions) {
+      const pct = cov.totals.coverage_pct[d];
+      chips.append(badge(`${dimLbl[d] || d}: ${pct}%`, pct >= 70 ? 'b-ok' : pct >= 30 ? '' : 'b-crit'));
+    }
+    card.append(chips);
+    // escopos mais "rasos" por origem/links/alocação (lacunas reais a preencher)
+    const scopes = Object.entries(cov.by_scope).sort((a, b) => (b[1].without_links + b[1].without_allocation) - (a[1].without_links + a[1].without_allocation)).slice(0, 6);
+    const tbl = h('table', { class: 'matrix' });
+    tbl.append(h('thead', {}, h('tr', {}, h('th', { text: 'Escopo' }), h('th', { text: 'Total' }), ...cov.dimensions.map((d) => h('th', { text: dimLbl[d] || d })))));
+    const tb = h('tbody');
+    for (const [scope, c] of scopes) {
+      tb.append(h('tr', {}, h('td', { text: scope }), h('td', { text: String(c.total) }),
+        ...cov.dimensions.map((d) => { const w = c[`without_${d}`]; return h('td', { class: w === 0 ? 'hit' : 'miss', text: w === 0 ? '✓' : `−${w}` }); })));
+    }
+    tbl.append(tb); card.append(h('p', { class: 'muted', text: 'Escopos com mais lacunas (sem link/alocação). −N = N requisitos sem aquela dimensão.' }), tbl);
+    body.append(card);
+  }
   const cols = [['acceptance', 'Aceite'], ['method', 'Método'], ['evidence', 'Evidência'], ['adr', 'ADR'], ['service', 'Serviço'], ['infra', 'Infra'], ['slo', 'SLO']];
   const reqs = filterReqs(DATA.baseline.requirements, { ...state.filters, q: state.q }).slice().sort((a, b) => coverageScore(a) - coverageScore(b));
   const wrap = h('div', { class: 'grid-wrap' });
@@ -651,7 +675,7 @@ async function init() {
     DATA.baseline = b; DATA.impact = im; DATA.retrieval = rt;
     // opcionais (toleram ausência): diff de baseline, registry de artefatos, embeddings.
     const opt = (u) => fetch(u).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-    [DATA.history, DATA.registry, DATA.embeddings, DATA.implStatus] = await Promise.all([opt('data/history.json'), opt('data/registry.json'), opt('data/embeddings.json'), opt('data/implementation-status.json')]);
+    [DATA.history, DATA.registry, DATA.embeddings, DATA.implStatus, DATA.coverage] = await Promise.all([opt('data/history.json'), opt('data/registry.json'), opt('data/embeddings.json'), opt('data/implementation-status.json'), opt('data/coverage-report.json')]);
   } catch (err) {
     setStatus('Falha ao carregar a baseline: ' + err.message, true);
     return;

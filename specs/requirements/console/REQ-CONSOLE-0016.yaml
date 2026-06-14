@@ -11,6 +11,8 @@ statement: "Frontend ContentEditor carrega portal selecionado, exibe paginas (ho
 source:
   stakeholder: console
   origin: codebase console + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - console
 priority: high
 criticality: high
 architectural_significance: false

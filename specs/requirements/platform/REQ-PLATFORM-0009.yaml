@@ -11,6 +11,8 @@ statement: "Documentar em `docs/standards/infra-standards.md` padrões operacion
 source:
   stakeholder: platform
   origin: codebase platform + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - platform
 priority: high
 criticality: high
 architectural_significance: false

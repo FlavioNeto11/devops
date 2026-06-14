@@ -131,6 +131,21 @@ function validate(items) {
     const a = doc?.allocation ?? {};
     for (const t of [...(a.adr_refs ?? []), ...(a.service_refs ?? []), ...(a.infra_refs ?? []), ...(a.slo_refs ?? []), ...(a.architecture_refs ?? [])]) checkExternal(file, t);
   }
+
+  // ENFORCE DE ORIGEM: source.source_paths deve apontar p/ caminhos REAIS (relativos à
+  // raiz do repo) que EXISTEM. Fecha a pergunta "sem fabricar" — um requisito não pode
+  // declarar uma origem inexistente. (Sem source_paths não falha; existindo, valida.)
+  const REPO_ROOT = path.resolve(SPECS_DIR, '..');
+  for (const { file, doc } of items) {
+    for (const sp of doc?.source?.source_paths ?? []) {
+      if (typeof sp !== 'string' || !sp.trim() || /^([a-zA-Z]:[\\/]|[\\/]|\.\.)/.test(sp)) {
+        ok = false; fail(`source_path inválido em ${file}: '${sp}' (use caminho relativo à raiz do repo)`); continue;
+      }
+      if (!fs.existsSync(path.join(REPO_ROOT, sp))) {
+        ok = false; fail(`source_path inexistente em ${file}: '${sp}' (origem fabricada? o caminho não existe no repo)`);
+      }
+    }
+  }
   return ok;
 }
 

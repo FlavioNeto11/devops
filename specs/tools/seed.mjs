@@ -42,6 +42,23 @@ function resolveMeta(key, entry) {
   return PRODUCTS[key] || null;
 }
 
+// source_paths REAIS por escopo (relativos à raiz do repo). O build-baseline VALIDA
+// que cada um existe — enforce de origem (sem fabricação). Multi-path onde o escopo
+// abrange mais de um diretório. Se um escopo não estiver aqui, o seed cai p/ a `dir`.
+const SOURCE_PATHS = {
+  sicat: ['apps/sicat'], gymops: ['apps/gymops'], rmambiental: ['apps/rmambiental'],
+  anarabottini: ['apps/anarabottini'], 'portal-recorder': ['apps/portal-recorder'],
+  reqhub: ['apps/reqhub'], portal: ['portal'], console: ['console'],
+  cms: ['console/pm-api', 'console/site-renderer', 'console/frontend'],
+  ai: ['packages/ai-core', 'packages/ai-kit', 'apps/ai-control-plane'],
+  oidc: ['packages/oidc-kit'], specs: ['specs'],
+  keycloak: ['platform/keycloak'], traefik: ['platform/traefik'], argocd: ['platform/argocd'],
+  observability: ['platform/observability'], platform: ['platform'],
+  cicd: ['.github/workflows', 'templates/github-actions'],
+  'portal-contracts': ['apps/portal-recorder', 'docs/portal-contracts'],
+};
+const sourcePathsFor = (meta) => SOURCE_PATHS[meta.scope] || [`${meta.dir.includes('/') ? meta.dir : `apps/${meta.dir}`}`];
+
 function mapScope(scopeStr, product) {
   const out = { product_scope: product };
   if (!scopeStr || scopeStr === 'product') out.applies_to = 'product';
@@ -88,7 +105,7 @@ for (const [key, entry] of Object.entries(input)) {
       owner: meta.owner,
       scope: mapScope(fr.scope, meta.scope),
       statement: fr.statement,
-      source: { stakeholder: meta.scope, origin: meta.origin },
+      source: { stakeholder: meta.scope, origin: meta.origin, source_paths: sourcePathsFor(meta) },
       priority: fr.priority ?? 'medium',
       criticality: fr.priority ?? 'medium',
       architectural_significance: asr.has(fr.proposed_id),
@@ -111,7 +128,7 @@ for (const [key, entry] of Object.entries(input)) {
       owner: meta.owner,
       scope: { applies_to: 'product', product_scope: meta.scope },
       statement: `O sistema deve atender ao atributo de qualidade "${nfr.title}": ${qs.response}`,
-      source: { stakeholder: meta.scope, origin: meta.origin },
+      source: { stakeholder: meta.scope, origin: meta.origin, source_paths: sourcePathsFor(meta) },
       priority: 'high',
       criticality: 'high',
       architectural_significance: asr.has(nfr.proposed_id),

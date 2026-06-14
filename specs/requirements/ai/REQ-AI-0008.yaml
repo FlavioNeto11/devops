@@ -11,6 +11,10 @@ statement: chunkMarkdownSections (##-based), splitWithOverlap com quebras natura
 source:
   stakeholder: ai
   origin: codebase ai + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - packages/ai-core
+    - packages/ai-kit
+    - apps/ai-control-plane
 priority: high
 criticality: high
 architectural_significance: false

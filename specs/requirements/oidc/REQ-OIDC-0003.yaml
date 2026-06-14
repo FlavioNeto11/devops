@@ -11,6 +11,8 @@ statement: "createAccessToken(payload, {secret, ttlSeconds, prefix}) deve gerar 
 source:
   stakeholder: oidc
   origin: codebase oidc + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - packages/oidc-kit
 priority: critical
 criticality: critical
 architectural_significance: false

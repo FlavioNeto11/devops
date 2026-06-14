@@ -52,7 +52,11 @@ jobs:
         working-directory: specs/tools
         run: node impl-status.mjs --check
 
-      - name: Testes do tooling deterministico (work-order + guard de blast-radius)
+      - name: Validar relatorio de cobertura (drift)
+        working-directory: specs/tools
+        run: node coverage-report.mjs --check
+
+      - name: Testes do tooling deterministico (work-order + guard + coverage)
         working-directory: specs/tools
         run: node --test
 

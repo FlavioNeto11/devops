@@ -11,6 +11,8 @@ statement: Usar node-exporter (CPU, memória, disco, rede do host) e kube-state-
 source:
   stakeholder: observability
   origin: codebase observability + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - platform/observability
 priority: critical
 criticality: critical
 architectural_significance: false

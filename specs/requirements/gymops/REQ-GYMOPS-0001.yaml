@@ -11,6 +11,8 @@ statement: O sistema deve permitir autenticação via email+senha com hash bcryp
 source:
   stakeholder: gymops
   origin: codebase apps/gymops + research-2026-06
+  source_paths:
+    - apps/gymops
 priority: critical
 criticality: critical
 architectural_significance: false

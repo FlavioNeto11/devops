@@ -11,6 +11,8 @@ statement: O backend expoe um endpoint SSE (GET /stream) que mantem uma conexao 
 source:
   stakeholder: console
   origin: codebase console + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - console
 priority: critical
 criticality: critical
 architectural_significance: false

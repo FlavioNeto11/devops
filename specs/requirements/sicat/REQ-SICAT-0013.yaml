@@ -11,6 +11,8 @@ statement: O sistema deve expor endpoints de saúde (/v1/health/*), métricas de
 source:
   stakeholder: sicat
   origin: codebase apps/sicat + research-2026-06
+  source_paths:
+    - apps/sicat
 priority: critical
 criticality: critical
 architectural_significance: true

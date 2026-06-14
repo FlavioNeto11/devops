@@ -11,6 +11,10 @@ statement: 'O sistema deve atender ao atributo de qualidade "Public content serv
 source:
   stakeholder: cms
   origin: codebase portal/CMS + research-2026-06
+  source_paths:
+    - console/pm-api
+    - console/site-renderer
+    - console/frontend
 priority: high
 criticality: high
 architectural_significance: true

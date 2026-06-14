@@ -11,6 +11,8 @@ statement: "O sistema deve permitir importação de Trello em 2 modos: (1) uploa
 source:
   stakeholder: gymops
   origin: codebase apps/gymops + research-2026-06
+  source_paths:
+    - apps/gymops
 priority: high
 criticality: high
 architectural_significance: false

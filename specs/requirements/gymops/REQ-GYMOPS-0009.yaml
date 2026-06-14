@@ -11,6 +11,8 @@ statement: "O sistema deve guiar novo owner por wizard: (1) dados organização 
 source:
   stakeholder: gymops
   origin: codebase apps/gymops + research-2026-06
+  source_paths:
+    - apps/gymops
 priority: high
 criticality: high
 architectural_significance: false

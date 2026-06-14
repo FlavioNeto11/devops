@@ -11,6 +11,8 @@ statement: "Criar 7 namespaces declarados em `platform/namespaces/namespaces.yam
 source:
   stakeholder: platform
   origin: codebase platform + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - platform
 priority: critical
 criticality: critical
 architectural_significance: false

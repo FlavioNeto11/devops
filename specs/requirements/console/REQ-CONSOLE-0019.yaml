@@ -11,6 +11,8 @@ statement: POST /cms/sites/:id/ai/section e /cms/sites/:id/ai/site recebem instr
 source:
   stakeholder: console
   origin: codebase console + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - console
 priority: medium
 criticality: medium
 architectural_significance: false

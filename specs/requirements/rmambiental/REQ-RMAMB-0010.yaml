@@ -11,6 +11,8 @@ statement: A aplicação deve renderizar footer com logo, links de navegação (
 source:
   stakeholder: rmambiental
   origin: codebase rmambiental + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - apps/rmambiental
 priority: medium
 criticality: medium
 architectural_significance: false

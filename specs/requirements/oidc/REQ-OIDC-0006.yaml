@@ -11,6 +11,8 @@ statement: hashPassword(password) deve usar scrypt com salt 16 bytes, formato 's
 source:
   stakeholder: oidc
   origin: codebase oidc + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - packages/oidc-kit
 priority: high
 criticality: high
 architectural_significance: false

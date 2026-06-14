@@ -12,6 +12,9 @@ statement: "Todas as rotas externas (/portal-rec, /portal-rec/api, /portal-rec/s
 source:
   stakeholder: portal-contracts
   origin: codebase portal-contracts + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - apps/portal-recorder
+    - docs/portal-contracts
 priority: critical
 criticality: critical
 architectural_significance: false

@@ -11,6 +11,10 @@ statement: "O sistema deve oferecer dois endpoints de IA: POST /projects/:id/cms
 source:
   stakeholder: cms
   origin: codebase portal/CMS + research-2026-06
+  source_paths:
+    - console/pm-api
+    - console/site-renderer
+    - console/frontend
 priority: high
 criticality: high
 architectural_significance: false

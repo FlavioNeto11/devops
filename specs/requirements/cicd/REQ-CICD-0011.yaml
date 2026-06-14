@@ -11,6 +11,9 @@ statement: Deploy job deve aguardar rollout com --timeout=180s; se exceder, falh
 source:
   stakeholder: cicd
   origin: codebase cicd + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - .github/workflows
+    - templates/github-actions
 priority: high
 criticality: high
 architectural_significance: false

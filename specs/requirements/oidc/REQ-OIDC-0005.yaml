@@ -11,6 +11,8 @@ statement: hashTokenSha256(token) deve retornar hash hexadecimal SHA256; createR
 source:
   stakeholder: oidc
   origin: codebase oidc + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - packages/oidc-kit
 priority: high
 criticality: high
 architectural_significance: false

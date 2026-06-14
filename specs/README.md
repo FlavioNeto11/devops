@@ -22,7 +22,11 @@ o contrário. Os artefatos aqui são consumidos por **humanos** (workbench, fase
 | `baseline/current-baseline.json` | **Gerado.** Todos os requisitos + métricas + `impact_score` + `reprocess_queue`. |
 | `baseline/impact-map.json` | **Gerado.** Grafo de rastreabilidade (nós: requisitos+artefatos; arestas: links tipados). |
 | `baseline/retrieval-manifest.json` | **Gerado.** Índice `id → arquivo` para recuperação do Claude. |
-| `tools/` | Gerador (`build-baseline.mjs`), seeder de bootstrap (`seed.mjs`) e deps. |
+| `baseline/coverage-report.json` | **Gerado.** Métrica "da cobertura": por escopo e total, requisitos SEM link/alocação/origem/evidência/método. |
+| `tools/` | Gerador (`build-baseline.mjs`), `coverage-report.mjs`, seeder (`seed.mjs`), `impl-status`/`make-work-order`/`guard-worktree` e deps. |
+
+> **Enforce de origem (sem fabricação):** cada requisito declara `source.source_paths` (caminhos REAIS,
+> relativos à raiz do repo) e o `build-baseline` **falha** se algum não existir. Fecha a pergunta "sem fabricar".
 
 > `baseline/*.json` é **gerado E commitado**, e precisa estar **em dia** com `requirements/**` — o CI
 > `specs-governance` falha em drift. Nunca edite a baseline à mão.

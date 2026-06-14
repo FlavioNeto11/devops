@@ -11,6 +11,8 @@ statement: "Instalar Loki no modo single-binary com `deploymentMode: SingleBinar
 source:
   stakeholder: observability
   origin: codebase observability + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - platform/observability
 priority: critical
 criticality: critical
 architectural_significance: false

@@ -11,6 +11,8 @@ statement: "O documento specs/CLAUDE.md deve definir regras de consumo: (1) cons
 source:
   stakeholder: specs
   origin: codebase specs + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - specs
 priority: critical
 criticality: critical
 architectural_significance: false

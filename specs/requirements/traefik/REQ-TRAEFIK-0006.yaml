@@ -11,6 +11,8 @@ statement: Implementar Middleware `compress` no namespace `traefik`, compartilha
 source:
   stakeholder: traefik
   origin: codebase traefik + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - platform/traefik
 priority: high
 criticality: high
 architectural_significance: false

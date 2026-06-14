@@ -11,6 +11,8 @@ statement: "Padrão: `ghcr.io/flavioneto11/<app>/<service>:<tag>`; tags: SHA (ca
 source:
   stakeholder: platform
   origin: codebase platform + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - platform
 priority: critical
 criticality: critical
 architectural_significance: false

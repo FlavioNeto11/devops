@@ -11,6 +11,8 @@ statement: A página deve manter o link de navegação (header/mobile) alinhado 
 source:
   stakeholder: portal
   origin: codebase portal + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - portal
 priority: medium
 criticality: medium
 architectural_significance: false

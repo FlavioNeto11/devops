@@ -11,6 +11,8 @@ statement: Usar sidecar do Grafana (label `grafana_dashboard`) para carregar das
 source:
   stakeholder: observability
   origin: codebase observability + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - platform/observability
 priority: high
 criticality: high
 architectural_significance: false

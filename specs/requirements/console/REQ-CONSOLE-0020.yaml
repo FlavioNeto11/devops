@@ -11,6 +11,8 @@ statement: Frontend FileField / MediaPicker permitem upload de imagens/videos pa
 source:
   stakeholder: console
   origin: codebase console + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - console
 priority: medium
 criticality: medium
 architectural_significance: false

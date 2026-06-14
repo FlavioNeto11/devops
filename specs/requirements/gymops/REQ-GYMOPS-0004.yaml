@@ -11,6 +11,8 @@ statement: O sistema deve permitir criar, ler, atualizar e deletar atividades co
 source:
   stakeholder: gymops
   origin: codebase apps/gymops + research-2026-06
+  source_paths:
+    - apps/gymops
 priority: critical
 criticality: critical
 architectural_significance: false

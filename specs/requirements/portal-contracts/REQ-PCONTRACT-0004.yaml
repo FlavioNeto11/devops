@@ -12,6 +12,9 @@ statement: "Recorder deve expor WebSocket em /portal-rec/stream (prioridade 40 n
 source:
   stakeholder: portal-contracts
   origin: codebase portal-contracts + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - apps/portal-recorder
+    - docs/portal-contracts
 priority: high
 criticality: high
 architectural_significance: false

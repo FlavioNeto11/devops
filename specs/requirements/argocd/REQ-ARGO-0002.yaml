@@ -11,6 +11,8 @@ statement: Configurar Application raiz com `syncPolicy.automated.prune=true` e `
 source:
   stakeholder: argocd
   origin: codebase argocd + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - platform/argocd
 priority: critical
 criticality: critical
 architectural_significance: false

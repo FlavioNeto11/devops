@@ -11,6 +11,8 @@ statement: "O workflow specs-diff.yml deve executar em PRs que toquem specs/, co
 source:
   stakeholder: specs
   origin: codebase specs + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - specs
 priority: high
 criticality: high
 architectural_significance: false

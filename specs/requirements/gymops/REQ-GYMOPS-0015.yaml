@@ -11,6 +11,8 @@ statement: O sistema deve ser uma PWA funcional com manifest.json (nome completo
 source:
   stakeholder: gymops
   origin: codebase apps/gymops + research-2026-06
+  source_paths:
+    - apps/gymops
 priority: medium
 criticality: medium
 architectural_significance: false

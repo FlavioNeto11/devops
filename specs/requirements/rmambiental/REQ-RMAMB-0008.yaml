@@ -11,6 +11,8 @@ statement: A aplicação deve estar disponível em subpath `/rmambiental` com ba
 source:
   stakeholder: rmambiental
   origin: codebase rmambiental + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - apps/rmambiental
 priority: critical
 criticality: critical
 architectural_significance: false

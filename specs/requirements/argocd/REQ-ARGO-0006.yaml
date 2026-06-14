@@ -11,6 +11,8 @@ statement: Configurar RBAC em `configs.rbac` com policy `g, platform-admins, rol
 source:
   stakeholder: argocd
   origin: codebase argocd + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - platform/argocd
 priority: high
 criticality: high
 architectural_significance: false

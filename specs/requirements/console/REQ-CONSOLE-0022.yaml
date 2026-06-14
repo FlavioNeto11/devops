@@ -11,6 +11,8 @@ statement: "POST/PATCH /pm_user_access (admin). Define quem pode editar/ver qual
 source:
   stakeholder: console
   origin: codebase console + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - console
 priority: high
 criticality: high
 architectural_significance: false

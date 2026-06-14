@@ -11,6 +11,8 @@ statement: "Configurar `server.root_url: https://dev.nvit.com.br/grafana` e `ser
 source:
   stakeholder: observability
   origin: codebase observability + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - platform/observability
 priority: high
 criticality: high
 architectural_significance: false

@@ -11,6 +11,8 @@ statement: 'O sistema deve atender ao atributo de qualidade "Performance de base
 source:
   stakeholder: specs
   origin: codebase specs + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - specs
 priority: high
 criticality: high
 architectural_significance: false

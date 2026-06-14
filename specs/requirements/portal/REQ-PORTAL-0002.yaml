@@ -11,6 +11,8 @@ statement: A página deve exibir seção 'Ferramentas da Plataforma' (DevOps Con
 source:
   stakeholder: portal
   origin: codebase portal + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - portal
 priority: high
 criticality: high
 architectural_significance: false

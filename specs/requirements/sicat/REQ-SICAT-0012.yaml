@@ -11,6 +11,8 @@ statement: O sistema deve executar worker que consome jobs da fila, processa ope
 source:
   stakeholder: sicat
   origin: codebase apps/sicat + research-2026-06
+  source_paths:
+    - apps/sicat
 priority: critical
 criticality: critical
 architectural_significance: true

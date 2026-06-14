@@ -11,6 +11,8 @@ statement: Recorder must enable CDP Page.startScreencast (JPEG, quality 55, ever
 source:
   stakeholder: portal-recorder
   origin: codebase portal-recorder + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - apps/portal-recorder
 priority: high
 criticality: high
 architectural_significance: false

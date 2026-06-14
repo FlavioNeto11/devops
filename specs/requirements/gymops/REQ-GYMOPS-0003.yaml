@@ -11,6 +11,8 @@ statement: "O sistema deve implementar papéis owner, org_manager, unit_manager,
 source:
   stakeholder: gymops
   origin: codebase apps/gymops + research-2026-06
+  source_paths:
+    - apps/gymops
 priority: critical
 criticality: critical
 architectural_significance: true

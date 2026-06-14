@@ -11,6 +11,8 @@ statement: GET /cms/sites/:id (editable tree + metadata). POST /cms/sites/:id/pa
 source:
   stakeholder: console
   origin: codebase console + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - console
 priority: high
 criticality: high
 architectural_significance: false

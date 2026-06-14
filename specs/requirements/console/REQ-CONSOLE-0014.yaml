@@ -11,6 +11,8 @@ statement: "GET/POST/PATCH/DELETE /projects (pm-api). Projetos podem ser app_typ
 source:
   stakeholder: console
   origin: codebase console + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - console
 priority: high
 criticality: high
 architectural_significance: false

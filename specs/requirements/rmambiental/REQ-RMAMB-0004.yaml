@@ -11,6 +11,8 @@ statement: A aplicação deve exibir galeria de casos reais (substituir placehol
 source:
   stakeholder: rmambiental
   origin: codebase rmambiental + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - apps/rmambiental
 priority: high
 criticality: high
 architectural_significance: false

@@ -11,6 +11,10 @@ statement: "Resposta final passa por judge (gpt-5-nano: groundedness 0-1). Score
 source:
   stakeholder: ai
   origin: codebase ai + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - packages/ai-core
+    - packages/ai-kit
+    - apps/ai-control-plane
 priority: high
 criticality: high
 architectural_significance: false

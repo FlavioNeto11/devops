@@ -11,6 +11,8 @@ statement: "validateKeycloakToken(accessToken, {userinfoUrl}) deve chamar o endp
 source:
   stakeholder: oidc
   origin: codebase oidc + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - packages/oidc-kit
 priority: critical
 criticality: critical
 architectural_significance: false

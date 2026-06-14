@@ -44,7 +44,9 @@ try {
     node emit-history.mjs
     Write-Host "[specs] reconciliando implementation-status.json..." -ForegroundColor Cyan
     node impl-status.mjs
-    Write-Host "[specs] baseline + history + status regenerados. Revise specs/baseline/ e commite junto com os requisitos." -ForegroundColor Green
+    Write-Host "[specs] gerando coverage-report.json..." -ForegroundColor Cyan
+    node coverage-report.mjs
+    Write-Host "[specs] baseline + history + status + coverage regenerados. Revise specs/baseline/ e commite junto com os requisitos." -ForegroundColor Green
   } else {
     node build-baseline.mjs --check
     if ($LASTEXITCODE -ne 0) {
@@ -54,6 +56,11 @@ try {
     node impl-status.mjs --check
     if ($LASTEXITCODE -ne 0) {
       Write-Host "[specs] implementation-status desatualizado. Rode: scripts/specs-baseline-check.ps1 -Fix" -ForegroundColor Red
+      exit 1
+    }
+    node coverage-report.mjs --check
+    if ($LASTEXITCODE -ne 0) {
+      Write-Host "[specs] coverage-report desatualizado. Rode: scripts/specs-baseline-check.ps1 -Fix" -ForegroundColor Red
       exit 1
     }
   }

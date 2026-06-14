@@ -11,6 +11,8 @@ statement: A aplicação deve renderizar FAB WhatsApp (condicionado ao número p
 source:
   stakeholder: anarabottini
   origin: codebase anarabottini + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - apps/anarabottini
 priority: medium
 criticality: medium
 architectural_significance: false

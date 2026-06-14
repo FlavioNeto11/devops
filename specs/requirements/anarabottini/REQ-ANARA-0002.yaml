@@ -11,6 +11,8 @@ statement: A aplicação deve renderizar seção Palestras com 6 palestras (NR-1
 source:
   stakeholder: anarabottini
   origin: codebase anarabottini + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - apps/anarabottini
 priority: critical
 criticality: critical
 architectural_significance: false

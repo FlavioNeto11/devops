@@ -11,6 +11,8 @@ statement: O backend expoe GET /events (query opcional ?ns= e ?limit=50) que ret
 source:
   stakeholder: console
   origin: codebase console + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - console
 priority: high
 criticality: high
 architectural_significance: false

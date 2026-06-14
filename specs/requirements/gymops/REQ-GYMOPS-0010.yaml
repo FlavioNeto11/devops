@@ -11,6 +11,8 @@ statement: "O sistema deve expor telas em /settings para: (1) perfil (avatar R2,
 source:
   stakeholder: gymops
   origin: codebase apps/gymops + research-2026-06
+  source_paths:
+    - apps/gymops
 priority: high
 criticality: high
 architectural_significance: false

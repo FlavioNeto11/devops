@@ -11,6 +11,8 @@ statement: A página deve exibir botão flutuante 'Voltar ao topo' (id='to-top',
 source:
   stakeholder: portal
   origin: codebase portal + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - portal
 priority: medium
 criticality: medium
 architectural_significance: false

@@ -11,6 +11,8 @@ statement: Apps com autenticação própria (SICAT) devem poder integrar-se adit
 source:
   stakeholder: keycloak
   origin: codebase keycloak + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - platform/keycloak
 priority: high
 criticality: high
 architectural_significance: false

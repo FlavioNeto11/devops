@@ -11,6 +11,8 @@ statement: "Documentação e automação devem permitir onboardar novo app/ferra
 source:
   stakeholder: keycloak
   origin: codebase keycloak + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - platform/keycloak
 priority: high
 criticality: high
 architectural_significance: false

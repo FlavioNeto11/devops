@@ -11,6 +11,8 @@ statement: A aplicação deve exibir seção Mídia com galeria de vídeos do Yo
 source:
   stakeholder: anarabottini
   origin: codebase anarabottini + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - apps/anarabottini
 priority: high
 criticality: high
 architectural_significance: false

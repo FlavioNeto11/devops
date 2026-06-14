@@ -11,6 +11,8 @@ statement: Incluir finalizer `resources-finalizer.argocd.argoproj.io` na Applica
 source:
   stakeholder: argocd
   origin: codebase argocd + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - platform/argocd
 priority: high
 criticality: high
 architectural_significance: false

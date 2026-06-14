@@ -11,6 +11,8 @@ statement: Habilitar `metrics.prometheus.enabled=true` com `addEntryPointsLabels
 source:
   stakeholder: traefik
   origin: codebase traefik + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - platform/traefik
 priority: high
 criticality: high
 architectural_significance: false

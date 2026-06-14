@@ -11,6 +11,8 @@ statement: O backend implementa middleware que verifica header X-Auth-Request-Gr
 source:
   stakeholder: console
   origin: codebase console + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - console
 priority: critical
 criticality: critical
 architectural_significance: false

@@ -11,6 +11,8 @@ statement: A página deve exibir footer com copyright (ano dinâmico via JS), li
 source:
   stakeholder: portal
   origin: codebase portal + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - portal
 priority: medium
 criticality: medium
 architectural_significance: false

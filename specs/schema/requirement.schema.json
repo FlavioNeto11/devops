@@ -42,7 +42,15 @@
     "source": {
       "type": "object",
       "additionalProperties": false,
-      "properties": { "stakeholder": { "type": "string" }, "origin": { "type": "string" } }
+      "properties": {
+        "stakeholder": { "type": "string" },
+        "origin": { "type": "string" },
+        "source_paths": {
+          "type": "array",
+          "description": "Caminhos REAIS (relativos à raiz do repo) de onde o requisito foi derivado. O build valida que existem (enforce de origem — sem fabricação).",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
     },
     "priority": { "enum": ["low", "medium", "high", "critical"] },
     "criticality": { "enum": ["low", "medium", "high", "critical"] },

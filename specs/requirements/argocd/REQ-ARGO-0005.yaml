@@ -11,6 +11,8 @@ statement: Integrar OIDC na configuração `configs.cm.oidc.config` apontando pa
 source:
   stakeholder: argocd
   origin: codebase argocd + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - platform/argocd
 priority: high
 criticality: high
 architectural_significance: false

@@ -11,6 +11,8 @@ statement: Habilitar provider `kubernetesCRD` com `allowCrossNamespace=true` par
 source:
   stakeholder: traefik
   origin: codebase traefik + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - platform/traefik
 priority: critical
 criticality: critical
 architectural_significance: false

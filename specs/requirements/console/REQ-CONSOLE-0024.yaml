@@ -11,6 +11,8 @@ statement: "Frontend SharedResources renderiza recursos compartilhados entre pro
 source:
   stakeholder: console
   origin: codebase console + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - console
 priority: low
 criticality: low
 architectural_significance: false

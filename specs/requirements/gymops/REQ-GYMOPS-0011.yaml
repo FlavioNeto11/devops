@@ -11,6 +11,8 @@ statement: "O sistema deve enviar notificações por 3 canais: (1) SMTP via Node
 source:
   stakeholder: gymops
   origin: codebase apps/gymops + research-2026-06
+  source_paths:
+    - apps/gymops
 priority: high
 criticality: high
 architectural_significance: false

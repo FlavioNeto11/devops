@@ -11,6 +11,8 @@ statement: A página deve exibir 'Tentar novamente' quando /devops/api/ingressro
 source:
   stakeholder: portal
   origin: codebase portal + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - portal
 priority: high
 criticality: high
 architectural_significance: false

@@ -11,6 +11,10 @@ statement: O sistema deve fornecer um frontend genérico (site-renderer) que ser
 source:
   stakeholder: cms
   origin: codebase portal/CMS + research-2026-06
+  source_paths:
+    - console/pm-api
+    - console/site-renderer
+    - console/frontend
 priority: critical
 criticality: critical
 architectural_significance: true

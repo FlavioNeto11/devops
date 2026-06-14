@@ -11,6 +11,8 @@ statement: O sistema deve exibir uma grade de requisitos filtráveis por produto
 source:
   stakeholder: reqhub
   origin: codebase reqhub + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - apps/reqhub
 priority: critical
 criticality: critical
 architectural_significance: false

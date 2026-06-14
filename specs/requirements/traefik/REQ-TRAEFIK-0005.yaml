@@ -12,6 +12,8 @@ statement: Usar Middleware `stripPrefix` (específico de cada app) para remover 
 source:
   stakeholder: traefik
   origin: codebase traefik + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - platform/traefik
 priority: critical
 criticality: critical
 architectural_significance: false

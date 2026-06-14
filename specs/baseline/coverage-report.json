@@ -1,0 +1,314 @@
+{
+  "metamodel_version": "1.0.0",
+  "baseline_hash": "a4d21139291ac6d58344cb5db4ba3334c48d75ec8f961e5d8f8ac78f86bee8a2",
+  "dimensions": [
+    "links",
+    "allocation",
+    "source_paths",
+    "evidence",
+    "verification_method"
+  ],
+  "totals": {
+    "total": 371,
+    "without_links": 313,
+    "without_allocation": 344,
+    "without_source_paths": 0,
+    "without_evidence": 371,
+    "without_verification_method": 371,
+    "scopes": 19,
+    "coverage_pct": {
+      "links": 15.6,
+      "allocation": 7.3,
+      "source_paths": 100,
+      "evidence": 0,
+      "verification_method": 0
+    }
+  },
+  "by_scope": {
+    "ai": {
+      "total": 18,
+      "without_links": 17,
+      "without_allocation": 17,
+      "without_source_paths": 0,
+      "without_evidence": 18,
+      "without_verification_method": 18,
+      "coverage_pct": {
+        "links": 5.6,
+        "allocation": 5.6,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 0
+      }
+    },
+    "anarabottini": {
+      "total": 19,
+      "without_links": 19,
+      "without_allocation": 19,
+      "without_source_paths": 0,
+      "without_evidence": 19,
+      "without_verification_method": 19,
+      "coverage_pct": {
+        "links": 0,
+        "allocation": 0,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 0
+      }
+    },
+    "argocd": {
+      "total": 15,
+      "without_links": 15,
+      "without_allocation": 14,
+      "without_source_paths": 0,
+      "without_evidence": 15,
+      "without_verification_method": 15,
+      "coverage_pct": {
+        "links": 0,
+        "allocation": 6.7,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 0
+      }
+    },
+    "cicd": {
+      "total": 17,
+      "without_links": 16,
+      "without_allocation": 17,
+      "without_source_paths": 0,
+      "without_evidence": 17,
+      "without_verification_method": 17,
+      "coverage_pct": {
+        "links": 5.9,
+        "allocation": 0,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 0
+      }
+    },
+    "cms": {
+      "total": 22,
+      "without_links": 6,
+      "without_allocation": 16,
+      "without_source_paths": 0,
+      "without_evidence": 22,
+      "without_verification_method": 22,
+      "coverage_pct": {
+        "links": 72.7,
+        "allocation": 27.3,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 0
+      }
+    },
+    "console": {
+      "total": 35,
+      "without_links": 35,
+      "without_allocation": 35,
+      "without_source_paths": 0,
+      "without_evidence": 35,
+      "without_verification_method": 35,
+      "coverage_pct": {
+        "links": 0,
+        "allocation": 0,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 0
+      }
+    },
+    "gymops": {
+      "total": 23,
+      "without_links": 7,
+      "without_allocation": 17,
+      "without_source_paths": 0,
+      "without_evidence": 23,
+      "without_verification_method": 23,
+      "coverage_pct": {
+        "links": 69.6,
+        "allocation": 26.1,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 0
+      }
+    },
+    "keycloak": {
+      "total": 18,
+      "without_links": 18,
+      "without_allocation": 17,
+      "without_source_paths": 0,
+      "without_evidence": 18,
+      "without_verification_method": 18,
+      "coverage_pct": {
+        "links": 0,
+        "allocation": 5.6,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 0
+      }
+    },
+    "observability": {
+      "total": 17,
+      "without_links": 16,
+      "without_allocation": 16,
+      "without_source_paths": 0,
+      "without_evidence": 17,
+      "without_verification_method": 17,
+      "coverage_pct": {
+        "links": 5.9,
+        "allocation": 5.9,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 0
+      }
+    },
+    "oidc": {
+      "total": 18,
+      "without_links": 18,
+      "without_allocation": 18,
+      "without_source_paths": 0,
+      "without_evidence": 18,
+      "without_verification_method": 18,
+      "coverage_pct": {
+        "links": 0,
+        "allocation": 0,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 0
+      }
+    },
+    "platform": {
+      "total": 16,
+      "without_links": 16,
+      "without_allocation": 16,
+      "without_source_paths": 0,
+      "without_evidence": 16,
+      "without_verification_method": 16,
+      "coverage_pct": {
+        "links": 0,
+        "allocation": 0,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 0
+      }
+    },
+    "portal": {
+      "total": 21,
+      "without_links": 21,
+      "without_allocation": 21,
+      "without_source_paths": 0,
+      "without_evidence": 21,
+      "without_verification_method": 21,
+      "coverage_pct": {
+        "links": 0,
+        "allocation": 0,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 0
+      }
+    },
+    "portal-contracts": {
+      "total": 17,
+      "without_links": 17,
+      "without_allocation": 17,
+      "without_source_paths": 0,
+      "without_evidence": 17,
+      "without_verification_method": 17,
+      "coverage_pct": {
+        "links": 0,
+        "allocation": 0,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 0
+      }
+    },
+    "portal-recorder": {
+      "total": 19,
+      "without_links": 19,
+      "without_allocation": 19,
+      "without_source_paths": 0,
+      "without_evidence": 19,
+      "without_verification_method": 19,
+      "coverage_pct": {
+        "links": 0,
+        "allocation": 0,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 0
+      }
+    },
+    "reqhub": {
+      "total": 20,
+      "without_links": 19,
+      "without_allocation": 19,
+      "without_source_paths": 0,
+      "without_evidence": 20,
+      "without_verification_method": 20,
+      "coverage_pct": {
+        "links": 5,
+        "allocation": 5,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 0
+      }
+    },
+    "rmambiental": {
+      "total": 18,
+      "without_links": 17,
+      "without_allocation": 18,
+      "without_source_paths": 0,
+      "without_evidence": 18,
+      "without_verification_method": 18,
+      "coverage_pct": {
+        "links": 5.6,
+        "allocation": 0,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 0
+      }
+    },
+    "sicat": {
+      "total": 24,
+      "without_links": 4,
+      "without_allocation": 15,
+      "without_source_paths": 0,
+      "without_evidence": 24,
+      "without_verification_method": 24,
+      "coverage_pct": {
+        "links": 83.3,
+        "allocation": 37.5,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 0
+      }
+    },
+    "specs": {
+      "total": 18,
+      "without_links": 17,
+      "without_allocation": 18,
+      "without_source_paths": 0,
+      "without_evidence": 18,
+      "without_verification_method": 18,
+      "coverage_pct": {
+        "links": 5.6,
+        "allocation": 0,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 0
+      }
+    },
+    "traefik": {
+      "total": 16,
+      "without_links": 16,
+      "without_allocation": 15,
+      "without_source_paths": 0,
+      "without_evidence": 16,
+      "without_verification_method": 16,
+      "coverage_pct": {
+        "links": 0,
+        "allocation": 6.3,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 0
+      }
+    }
+  }
+}

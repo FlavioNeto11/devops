@@ -11,6 +11,8 @@ statement: Usar repositório público `https://github.com/FlavioNeto11/devops` s
 source:
   stakeholder: argocd
   origin: codebase argocd + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - platform/argocd
 priority: medium
 criticality: medium
 architectural_significance: false

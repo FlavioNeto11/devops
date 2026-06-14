@@ -12,6 +12,9 @@ statement: "GET /health deve retornar { status: 'ok', db: boolean } dentro de 2s
 source:
   stakeholder: portal-contracts
   origin: codebase portal-contracts + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - apps/portal-recorder
+    - docs/portal-contracts
 priority: medium
 criticality: medium
 architectural_significance: false

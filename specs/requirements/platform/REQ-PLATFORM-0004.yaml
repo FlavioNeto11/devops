@@ -11,6 +11,8 @@ statement: "Não versionar Secret real em git; apenas SealedSecret (cifrado). Se
 source:
   stakeholder: platform
   origin: codebase platform + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - platform
 priority: critical
 criticality: critical
 architectural_significance: false

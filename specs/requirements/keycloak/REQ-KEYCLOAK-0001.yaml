@@ -11,6 +11,8 @@ statement: Keycloak deve servir um realm 'nvit' com issuer OIDC em https://dev.n
 source:
   stakeholder: keycloak
   origin: codebase keycloak + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - platform/keycloak
 priority: critical
 criticality: critical
 architectural_significance: false

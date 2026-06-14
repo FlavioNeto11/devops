@@ -12,6 +12,9 @@ statement: Recorder escreve HAR.gz, screenshots PNG, DOM dumps em /data/blobs co
 source:
   stakeholder: portal-contracts
   origin: codebase portal-contracts + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - apps/portal-recorder
+    - docs/portal-contracts
 priority: medium
 criticality: medium
 architectural_significance: false

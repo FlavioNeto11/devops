@@ -11,6 +11,8 @@ statement: O workflow specs-governance.yml deve executar sempre (sem path filter
 source:
   stakeholder: specs
   origin: codebase specs + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - specs
 priority: critical
 criticality: critical
 architectural_significance: false

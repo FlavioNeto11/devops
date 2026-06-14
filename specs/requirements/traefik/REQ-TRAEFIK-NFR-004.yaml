@@ -11,6 +11,8 @@ statement: 'O sistema deve atender ao atributo de qualidade "Segurança de heade
 source:
   stakeholder: traefik
   origin: codebase traefik + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - platform/traefik
 priority: high
 criticality: high
 architectural_significance: false

@@ -11,6 +11,8 @@ statement: Expor dashboard Traefik em host dedicado `traefik.localhost/dashboard
 source:
   stakeholder: traefik
   origin: codebase traefik + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - platform/traefik
 priority: medium
 criticality: medium
 architectural_significance: false

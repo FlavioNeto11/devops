@@ -12,6 +12,9 @@ statement: API deve conectar Postgres 16-alpine via pg/pg-pool; connection strin
 source:
   stakeholder: portal-contracts
   origin: codebase portal-contracts + mapeamento multi-agente 2026-06-14
+  source_paths:
+    - apps/portal-recorder
+    - docs/portal-contracts
 priority: high
 criticality: high
 architectural_significance: false
