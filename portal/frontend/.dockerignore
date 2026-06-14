@@ -1,3 +1,7 @@
+# Fora da imagem: tooling de qualidade (não servido) e cruft comum do working tree.
+# O release (scripts/publish-portal.ps1) builda a partir de `git archive` (só conteúdo
+# versionado), então cruft já NÃO entra; este .dockerignore é defesa para builds
+# diretos `docker build portal/frontend` (ci-portal smoke, install-platform).
 node_modules
 test
 package.json
@@ -5,3 +9,16 @@ package-lock.json
 eslint.config.js
 *.md
 .dockerignore
+
+# Cruft / artefatos que nunca devem entrar na imagem
+*.log
+.env
+*.env
+.env.*
+dist
+build
+coverage
+.cache
+.DS_Store
+Thumbs.db
+*.tmp

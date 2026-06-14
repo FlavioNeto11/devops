@@ -43,25 +43,24 @@ function Invoke-Checked { param([string]$What, [scriptblock]$Block)
   & $Block
   if ($LASTEXITCODE -ne 0) { throw "Falhou (exit $LASTEXITCODE): $What" }
 }
-Assert-Command kubectl; Assert-Command git; Assert-Command docker
+Assert-Command kubectl; Assert-Command git; Assert-Command docker; Assert-Command tar
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $ns = 'devops-system'
 $manifest = Join-Path $repoRoot 'portal/k8s/portal.yaml'
-$buildDir = Join-Path $repoRoot 'portal/frontend'
 
 # Exige árvore RASTREADA limpa (o único commit deve ser o bump do manifest).
 if (git -C $repoRoot status --porcelain --untracked-files=no) {
   throw "Há mudanças rastreadas não commitadas. Commite/descarte antes do release (o bump precisa ser isolado)."
 }
 
-# Exige o BUILD CONTEXT (portal/frontend) IDÊNTICO ao git: nenhum arquivo
-# modificado OU NÃO RASTREADO lá. Senão o `docker build` incorporaria conteúdo
-# fora do tree-sha → a imagem LOCAL divergiria da imagem do CI (mesma tag, conteúdo
-# diferente). `git status -- portal/frontend` inclui untracked não-gitignorados.
+# Exige portal/frontend SEM mudanças não commitadas/untracked: como o build sai do
+# `git archive HEAD` (abaixo), uma mudança local NÃO entraria na imagem — o operador
+# precisa commitar primeiro para o deploy refletir sua intenção. (Arquivos ignorados
+# pelo .gitignore — node_modules, *.log — já não entram, pois não estão em HEAD.)
 $ctxDirty = git -C $repoRoot status --porcelain -- portal/frontend
 if ($ctxDirty) {
-  throw "portal/frontend tem conteúdo fora do git (rastreado ou untracked):`n$ctxDirty`nO build divergiria do tree-sha/CI. Commite ou limpe antes do release."
+  throw "portal/frontend tem mudanças não commitadas (não entrariam no build de HEAD):`n$ctxDirty`nCommite antes do release."
 }
 
 # TAG = hash do CONTEÚDO de portal/frontend (igual aqui e no CI). Muda só quando o
@@ -77,8 +76,22 @@ if ($current -eq $tag) {
   return
 }
 
-Write-Host "== portal :: docker build $image (+ :local) ==" -ForegroundColor Cyan
-Invoke-Checked "docker build" { docker build -t $image -t 'portal-frontend:local' $buildDir | Out-Host }
+# Build a partir de `git archive HEAD:portal/frontend` (SÓ o conteúdo versionado que
+# o tree-sha representa). Garante bit-a-bit igual ao CI: nenhum arquivo do working
+# tree (untracked OU ignorado pelo .gitignore, ex.: node_modules, *.log) entra na
+# imagem. (PowerShell corromperia um pipe binário, então passa por arquivo/temp dir.)
+Write-Host "== portal :: build de git archive HEAD:portal/frontend -> $image ==" -ForegroundColor Cyan
+$ctxDir = Join-Path ([System.IO.Path]::GetTempPath()) "portal-ctx-$tag"
+$ctxTar = "$ctxDir.tar"
+Remove-Item $ctxDir, $ctxTar -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force -Path $ctxDir | Out-Null
+try {
+  Invoke-Checked "git archive" { git -C $repoRoot archive --format=tar -o $ctxTar 'HEAD:portal/frontend' }
+  Invoke-Checked "tar extract" { tar -x -f $ctxTar -C $ctxDir }
+  Invoke-Checked "docker build" { docker build -t $image -t 'portal-frontend:local' $ctxDir | Out-Host }
+} finally {
+  Remove-Item $ctxDir, $ctxTar -Recurse -Force -ErrorAction SilentlyContinue
+}
 
 Write-Host "== portal :: bump do image no manifest -> $image ==" -ForegroundColor Cyan
 $mraw = Get-Content $manifest -Raw
