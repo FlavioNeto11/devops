@@ -8,6 +8,12 @@
 # gate externo: branch protection + validacao no ChatGPT -> label gpt-approved ->
 # auto-merge-validated.yml). Ver .claude/skills/implement-req e docs/decisions/0002.
 #
+# SEGURANCA (hardening pos-validacao): a Claude roda SEM --dangerously-skip-permissions
+# (--permission-mode acceptEdits + --allowedTools restrito) e SO commita no branch; a
+# esteira valida o diff com specs/tools/guard-worktree.mjs (barreira TECNICA de
+# blast-radius: allowed_paths/denylist) ANTES de push/PR. Reprovou -> status=blocked,
+# sem PR. Assim o blast-radius nao depende so do prompt da skill.
+#
 # 2 jobs desacoplados: `plan` (ubuntu, barato/deterministico: detecta REQs + gera a
 # ordem de trabalho) e `implement` (self-hosted: roda `claude -p`). O token Claude Max
 # (CLAUDE_CODE_OAUTH_TOKEN) vive SO no ambiente do runner (fora do GitHub cloud) — ver
@@ -105,7 +111,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: work-order
-      - name: Acionar Claude por requisito
+      - name: Acionar Claude + guard de blast-radius + abrir PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REQS: ${{ needs.plan.outputs.reqs }}
@@ -123,13 +129,46 @@ jobs:
           foreach ($id in ($env:REQS -split '\s+' | Where-Object { $_ })) {
             Write-Host "==> Implementando $id"
             node specs/tools/make-work-order.mjs $id --out work-order.json
-            $wo = Get-Content work-order.json -Raw
-            # Headless: a skill implement-req trabalha em branch, abre PR e atualiza o status.
-            # Guardrails: branch-only (nunca main), allowed_paths por escopo, PR review externo.
-            claude -p "/implement-req $id (run_id=$env:RUN_ID). Ordem de trabalho em work-order.json." `
+            $wo         = Get-Content work-order.json -Raw
+            $branch     = node -e "process.stdout.write(require('./work-order.json').orders[0].pr_template.head)"
+            $restricted = node -e "process.stdout.write(String(require('./work-order.json').orders[0].restricted))"
+            $title      = node -e "process.stdout.write(require('./work-order.json').orders[0].pr_template.title)"
+
+            # main limpa antes de acionar (idempotente; a Claude cria o branch).
+            git checkout main 2>$null; git reset --hard 2>$null
+
+            # SEM --dangerously-skip-permissions: edits sao auto-aceitos (exceto o deny do
+            # settings.json: segredos/force-push) e as DEMAIS ferramentas ficam restritas ao
+            # allowlist. A skill SO commita no branch — NAO faz push nem PR: a esteira valida
+            # com o guard-worktree (barreira tecnica) e SO entao abre o PR.
+            claude -p "/implement-req $id (run_id=$env:RUN_ID). Trabalhe SO no branch $branch; NAO faca git push nem gh pr create — a esteira valida e abre o PR." `
               --append-system-prompt $wo `
               --permission-mode acceptEdits `
-              --dangerously-skip-permissions `
+              --allowedTools "Edit" "Write" "Read" "Grep" "Glob" "Bash(git:*)" "Bash(node:*)" "Bash(npm:*)" "Bash(pnpm:*)" `
               --output-format json
-            if ($LASTEXITCODE -ne 0) { Write-Host "::warning::Claude retornou exit $LASTEXITCODE para $id (segue p/ o proximo)." }
+            if ($LASTEXITCODE -ne 0) { Write-Host "::warning::Claude retornou exit $LASTEXITCODE para $id." }
+
+            # O branch precisa existir com commits (senao a Claude nao produziu nada util).
+            git rev-parse --verify "$branch" 2>$null | Out-Null
+            if ($LASTEXITCODE -ne 0) { Write-Host "::warning::$id : branch $branch nao criado — pulando."; git checkout main 2>$null; continue }
+
+            # ===== BARREIRA TECNICA (nao regra de prompt): diff do branch vs allowed_paths/denylist =====
+            git diff --name-only "main...$branch" | Set-Content -Encoding utf8 changed.txt
+            node specs/tools/guard-worktree.mjs --work-order work-order.json --changed-file changed.txt
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "::error::$id : guard-worktree REPROVOU (fora do blast-radius) — PR NAO sera aberto."
+              node specs/tools/impl-status.mjs --set $id status=blocked notes="guard-worktree: arquivo fora de allowed_paths/denylist" | Out-Null
+              git checkout main 2>$null
+              continue
+            }
+
+            # ===== aprovado -> push + PR (rascunho se escopo restrito de infra/CICD) =====
+            git push -u origin "$branch" --force-with-lease
+            $draftArgs = @(); if ($restricted -eq 'True') { $draftArgs += '--draft' }
+            gh pr create --base main --head "$branch" --title "$title" `
+              --label requirement --label claude-generated @draftArgs `
+              --body "Closes-Req: $id`n`nGerado pela esteira (run_id=$env:RUN_ID). Merge somente apos validacao no ChatGPT (label gpt-approved) + CI verde. Escopo restrito -> revisao humana."
+            $prUrl = (gh pr view "$branch" --json url --jq .url)
+            node specs/tools/impl-status.mjs --set $id status=pr_open pr=$prUrl branch=$branch run_id=$env:RUN_ID | Out-Null
+            git checkout main 2>$null
           }

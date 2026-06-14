@@ -52,6 +52,10 @@ jobs:
         working-directory: specs/tools
         run: node impl-status.mjs --check
 
+      - name: Testes do tooling deterministico (work-order + guard de blast-radius)
+        working-directory: specs/tools
+        run: node --test
+
       # Em PR: enforce do versionamento semantico (gate unico, sempre executado).
       # Se um requisito mudou em campo semantico sem versionar (item_revision++ ,
       # semantic_change!=none, change_reason), FALHA. Em push (main) nao se aplica.

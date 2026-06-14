@@ -6,6 +6,10 @@
 #       via browser: posta-se o PR/diff no GPT -> aprovacao -> `gh pr edit --add-label
 #       gpt-approved`. O ChatGPT com conector NAO tem API p/ o CI chamar, por isso a
 #       validacao e por LABEL, fiel ao loop que usamos); E
+#   (1b) ANTI-SPOOFING: quem APLICOU o label e um aprovador confiavel (default: dono do
+#       repo; ampliavel via var TRUSTED_APPROVERS) — label nao e aprovacao criptografica; E
+#   (1c) GUARD de merge: o diff do PR passa no guard-worktree (allowed_paths/denylist) —
+#       barreira tecnica que vale ate para PR feito a mao com os labels certos; E
 #   (2) todos os checks obrigatorios estao verdes e o PR e mergeable e nao-rascunho.
 # Apos o merge, o Argo (auto-sync) / pipeline do app deploya; o reconciliador marca
 # o requisito como `merged` em implementation-status.json (best-effort).
@@ -34,16 +38,29 @@ jobs:
     if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
       - name: Mesclar PRs validados
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
+          # Aprovadores confiaveis do label gpt-approved (default: dono do repo). Pode
+          # ser ampliado via variavel de repo TRUSTED_APPROVERS (logins separados por espaco).
+          TRUSTED_APPROVERS: ${{ vars.TRUSTED_APPROVERS }}
+          OWNER: ${{ github.repository_owner }}
         run: |
           set -euo pipefail
+          trusted="${TRUSTED_APPROVERS:-$OWNER}"
+          echo "Aprovadores confiaveis: $trusted"
           # PRs abertos com AMBOS os labels.
           nums=$(gh pr list --repo "$REPO" --state open --label gpt-approved --label claude-generated --json number --jq '.[].number')
           for n in $nums; do
-            info=$(gh pr view "$n" --repo "$REPO" --json mergeable,isDraft,statusCheckRollup)
+            info=$(gh pr view "$n" --repo "$REPO" --json mergeable,isDraft,statusCheckRollup,headRefName,body)
             draft=$(echo "$info" | jq -r '.isDraft')
             mergeable=$(echo "$info" | jq -r '.mergeable')
             failed=$(echo "$info" | jq -r '[.statusCheckRollup[]? | ((.conclusion // .state) // "") | select(. == "FAILURE" or . == "ERROR" or . == "CANCELLED" or . == "TIMED_OUT")] | length')
@@ -52,7 +69,33 @@ jobs:
             if [ "$failed" != "0" ]; then echo "PR #$n: $failed check(s) falho(s) — skip"; continue; fi
             if [ "$pending" != "0" ]; then echo "PR #$n: $pending check(s) pendente(s) — aguarda proximo evento"; continue; fi
             if [ "$mergeable" != "MERGEABLE" ]; then echo "PR #$n: mergeable=$mergeable — skip"; continue; fi
-            echo "PR #$n: validado (gpt-approved + CI verde) — MERGE"
+
+            # (1) ANTI-SPOOFING: quem aplicou o label gpt-approved precisa ser confiavel.
+            approver=$(gh api "repos/$REPO/issues/$n/events" --paginate \
+              --jq '[.[] | select(.event=="labeled" and .label.name=="gpt-approved")] | last | (.actor.login // "")')
+            case " $trusted " in
+              *" $approver "*) echo "PR #$n: gpt-approved por '$approver' (confiavel)";;
+              *) echo "PR #$n: gpt-approved aplicado por '$approver' (NAO confiavel) — skip"; continue;;
+            esac
+
+            # (2) GUARD do diff do PR vs allowed_paths/denylist (barreira de merge, defesa
+            # em profundidade — vale ate para PR feito a mao com os labels certos).
+            reqid=$(echo "$info" | jq -r '.body' | sed -n 's/.*Closes-Req:[[:space:]]*\(REQ-[A-Z0-9-]*\).*/\1/p' | head -1)
+            if [ -z "$reqid" ]; then
+              reqid=$(echo "$info" | jq -r '.headRefName' | sed -n 's#req/\(REQ-[A-Z0-9-]*\)/.*#\1#p' | head -1)
+            fi
+            if [ -z "$reqid" ]; then echo "PR #$n: sem REQ-ID (Closes-Req/branch) — skip"; continue; fi
+            if ! node specs/tools/make-work-order.mjs "$reqid" --out wo.json >/dev/null 2>&1; then
+              echo "PR #$n: REQ $reqid sem ordem de trabalho (ausente na baseline?) — skip"; continue
+            fi
+            gh pr view "$n" --repo "$REPO" --json files --jq '.files[].path' > changed.txt
+            if ! node specs/tools/guard-worktree.mjs --work-order wo.json --changed-file changed.txt; then
+              echo "PR #$n: guard-worktree REPROVOU o diff (fora do blast-radius) — skip"
+              gh pr comment "$n" --repo "$REPO" --body "⛔ Auto-merge bloqueado: \`guard-worktree\` detectou arquivo fora de \`allowed_paths\`/denylist para $reqid. Revise manualmente." || true
+              continue
+            fi
+
+            echo "PR #$n: validado (gpt-approved confiavel + CI verde + guard OK) — MERGE"
             gh pr merge "$n" --repo "$REPO" --squash --delete-branch
           done
 
