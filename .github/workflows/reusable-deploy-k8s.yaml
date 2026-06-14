@@ -67,7 +67,7 @@ jobs:
       # 1) Checkout do codigo (necessario para acessar os manifests do repo).
       # -----------------------------------------------------------------------
       - name: Checkout do codigo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       # -----------------------------------------------------------------------
       # 2) Validar contexto do kubectl.

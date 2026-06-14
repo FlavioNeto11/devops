@@ -41,8 +41,8 @@ jobs:
       run:
         working-directory: apps/reqhub/frontend
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: "22"
       - name: Testes (funcoes puras)
@@ -52,7 +52,7 @@ jobs:
     name: docker build (smoke, contexto = raiz)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Build da imagem do reqhub
         run: docker build -t reqhub-frontend:ci -f apps/reqhub/Dockerfile .
 
@@ -60,7 +60,7 @@ jobs:
     name: kubeconform (apps/reqhub/k8s)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Instalar kubeconform
         run: |
           set -euo pipefail
