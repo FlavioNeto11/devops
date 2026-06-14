@@ -14,20 +14,20 @@ fonte da verdade: [`specs/CLAUDE.md`](../../specs/CLAUDE.md).
 
 ## Regras inegociáveis (guardrails)
 
-- **Nunca commitar na `main`.** Sempre trabalhar na branch `req/<REQ-ID>/r<revision>` e abrir PR.
+- **APENAS edite arquivos — NÃO use git.** A esteira (`req-implement.yml`) faz TODO o git: cria a branch
+  `req/<REQ-ID>/r<revision>`, captura suas edições, valida com o `guard-worktree`, commita e abre o PR.
+  Você só edita arquivos (e roda test/build); não há git no seu allowlist. (Em uso manual, deixe as
+  edições no working tree e rode o guard + abra o PR você mesmo.)
 - **Blast-radius pelo escopo**: só editar dentro de `allowed_paths` da ordem de trabalho (o produto do
-  requisito + testes). **Proibido** tocar `platform/**`, `.github/workflows/**`, `*.secret.*`, `.env*`
-  e os `specs/requirements/**` (a Claude implementa CÓDIGO, não reescreve o próprio requisito).
+  requisito + testes). **Proibido** tocar `platform/**`, `.github/workflows/**`, `*.secret.*`, `.env*`,
+  `.claude/**`, `specs/**` (você implementa CÓDIGO, não reescreve o próprio requisito nem a baseline).
+  O `guard-worktree` reprova (sem PR) qualquer arquivo fora de `allowed_paths`/denylist.
 - **Escopo RESTRITO** (`restricted: true` — infra/CI/CD: keycloak/traefik/argocd/observability/platform/cicd):
-  **não** implementar headless. Commitar **apenas** a atualização de `implementation-status.json` (status
-  `blocked` + `notes` descrevendo a mudança proposta) — nada de código. A esteira abre **PR-rascunho** p/
-  revisão humana. (O `guard-worktree` reprova qualquer outro arquivo num escopo restrito.)
-- **Não mexer em segredos** (herda `.claude/settings.json`: deny `*.secret.yaml`, `.env`, force-push).
-- **Não dar `git push` nem `gh pr create`.** A skill **commita só no branch local**; quem abre o PR é a
-  esteira (`req-implement.yml`) **após** o `guard-worktree.mjs` validar o blast-radius (barreira técnica,
-  não regra de prompt). Em uso manual, rode o guard você mesmo antes de abrir o PR.
+  **não** implementar headless — não edite nada de código (o guard reprova tudo fora de allowed_paths, que é
+  vazio). A esteira abre **PR-rascunho** p/ revisão humana.
+- **Não mexer em segredos** (herda `.claude/settings.json`: deny `*.secret.yaml`, `.env`).
 - O **merge é gate externo** (branch protection + validação no ChatGPT → label `gpt-approved`, aplicado
-  só por aprovador confiável). Nem a skill nem a esteira mesclam sem isso.
+  só por aprovador confiável). Nem você nem a esteira mesclam sem isso.
 
 ## Fluxo
 
@@ -36,22 +36,13 @@ fonte da verdade: [`specs/CLAUDE.md`](../../specs/CLAUDE.md).
    (vizinhança + allocation), `allowed_paths`, `restricted`, `pr_template`.
 2. **Consultar a baseline** antes de agir (skill `/sync-spec`): `specs/baseline/current-baseline.json`
    e, para mudança de alto impacto/ASR, `/impact-review` (o conjunto afetado em `impact-map.json`).
-3. **Se `restricted`** → não implementar código; ir ao passo 6 commitando só o status `blocked` (a esteira
-   abre PR-rascunho para revisão humana).
+3. **Se `restricted`** → não editar nada (a esteira abre PR-rascunho para revisão humana). Encerrar.
 4. **Implementar** dentro de `allowed_paths`: escrever/ajustar código + testes que satisfaçam os
    `acceptance_criteria`; para NFR, atender o `quality_scenario` (resposta + medida). Reusar utilitários
    existentes; seguir o estilo do app. Não introduzir dependências sem necessidade.
-5. **Validar localmente** o que o app oferecer (lint/test/build do app afetado) antes de commitar.
-6. **Branch + commit (só código; sem push/PR/status)**:
-   ```pwsh
-   git checkout -b req/<REQ-ID>/r<revision>
-   git add <arquivos dentro de allowed_paths>
-   git commit -m "feat(<scope>): implementa <REQ-ID> — <título>"   # corpo com Closes-Req: <REQ-ID>
-   # NÃO dar git push nem gh pr create; NÃO editar implementation-status — a esteira faz tudo isso.
-   ```
-   Para escopo **restrito**: não commitar código; deixar só uma nota no commit/branch e parar (a esteira
-   abre PR-rascunho). Validar o app com test/build (`npm test`, `npm run build` etc.) antes de commitar.
-7. **Encerrar**: deixar o branch local pronto. A esteira roda `node specs/tools/guard-worktree.mjs
+5. **Validar localmente** o que o app oferecer (`npm test`, `npm run build`, `node --test` etc.).
+6. **Encerrar deixando as edições no working tree — SEM git.** A esteira captura (`git add -A`), valida com
+   `node specs/tools/guard-worktree.mjs
    --work-order work-order.json --changed-file <diff>` e, **se aprovado**, atualiza `implementation-status`
    (status `pr_open`), faz push + `gh pr create` (trailer `Closes-Req` + labels `requirement,claude-generated`;
    `--draft` se restrito) — **só esse passo da esteira tem credencial git**. Não fazer merge nem deploy.

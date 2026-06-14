@@ -137,51 +137,57 @@ jobs:
             Write-Host "::warning::CLI 'claude' nao encontrada no runner — pulando."
             exit 0
           }
+          # A ESTEIRA faz TODO o git (a Claude so edita): identidade p/ commit + ignore LOCAL
+          # dos artefatos efemeros (p/ `git add -A` nao stage-a-los nem o guard ve-los).
+          git config user.name "github-actions[bot]" 2>$null
+          git config user.email "github-actions[bot]@users.noreply.github.com" 2>$null
+          Set-Content -Encoding ascii .git/info/exclude "work-order.json`nchanged.txt`napproved.json"
           $approved = @()
           foreach ($id in ($env:REQS -split '\s+' | Where-Object { $_ })) {
             Write-Host "==> Implementando $id"
+            git checkout main 2>$null; git reset --hard 2>$null
             node specs/tools/make-work-order.mjs $id --out work-order.json
             $wo         = Get-Content work-order.json -Raw
             $branch     = node -e "process.stdout.write(require('./work-order.json').orders[0].pr_template.head)"
             $restricted = node -e "process.stdout.write(String(require('./work-order.json').orders[0].restricted))"
             $title      = node -e "process.stdout.write(require('./work-order.json').orders[0].pr_template.title)"
 
-            git checkout main 2>$null; git reset --hard 2>$null
-
-            # allowlist FECHADO: subcomandos git de leitura/branch/commit (SEM `git push`/`git:*`),
-            # e SO test/build/install (sem `node:*`/`npm:*`/`pnpm:*` amplos -> nada de `node arquivo.js`).
-            # A skill SO commita codigo no branch (NAO toca impl-status nem push/PR). Combinado com a
-            # AUSENCIA de GH_TOKEN/credencial, a Claude nao consegue empurrar pro remoto de jeito nenhum.
-            claude -p "/implement-req $id (run_id=$env:RUN_ID). Trabalhe SO no branch $branch; NAO faca git push, gh pr create nem atualize implementation-status — a esteira valida (guard) e publica." `
+            # A Claude APENAS edita arquivos + roda test/build — NENHUM git no allowlist (e sem
+            # GH_TOKEN/credencial). A esteira cria branch, commita, valida com o guard e abre o PR.
+            # Assim a Claude nao toca o repo git nem o remoto: blast-radius so pelos arquivos
+            # editados, que o guard valida vs allowed_paths/denylist.
+            claude -p "/implement-req $id (run_id=$env:RUN_ID). APENAS edite arquivos no escopo do requisito e rode testes; NAO use git — a esteira cria o branch, commita, valida (guard) e abre o PR." `
               --append-system-prompt $wo `
               --permission-mode acceptEdits `
               --allowedTools "Edit" "Write" "Read" "Grep" "Glob" `
-                "Bash(git status:*)" "Bash(git diff:*)" "Bash(git log:*)" "Bash(git show:*)" `
-                "Bash(git branch:*)" "Bash(git checkout:*)" "Bash(git switch:*)" "Bash(git add:*)" "Bash(git commit:*)" "Bash(git rev-parse:*)" `
                 "Bash(npm ci:*)" "Bash(npm install:*)" "Bash(npm test:*)" "Bash(npm run lint:*)" "Bash(npm run test:*)" "Bash(npm run build:*)" "Bash(npm run typecheck:*)" `
                 "Bash(pnpm install:*)" "Bash(pnpm test:*)" "Bash(pnpm run lint:*)" "Bash(pnpm run test:*)" "Bash(pnpm run build:*)" "Bash(pnpm run typecheck:*)" `
                 "Bash(node --test:*)" `
               --output-format json
             if ($LASTEXITCODE -ne 0) { Write-Host "::warning::Claude retornou exit $LASTEXITCODE para $id." }
 
-            git rev-parse --verify "$branch" 2>$null | Out-Null
-            if ($LASTEXITCODE -ne 0) { Write-Host "::warning::$id : branch $branch nao criado — pulando."; git checkout main 2>$null; continue }
+            # captura as mudancas do working tree (a Claude editou sobre a main)
+            git add -A 2>$null
+            $changed = @(git diff --cached --name-only)
+            if (-not $changed -or $changed.Count -eq 0) {
+              Write-Host "::warning::$id : a Claude nao produziu mudancas — pulando."
+              git reset --hard 2>$null; continue
+            }
+            $changed | Set-Content -Encoding utf8 changed.txt
 
-            # ===== BARREIRA TECNICA: diff do branch vs allowed_paths/denylist =====
-            # REGENERA a ordem de trabalho a partir das fontes CANONICAS (baseline) ANTES do
-            # guard — se a Claude tiver adulterado work-order.json (p/ expandir o proprio
-            # allowed_paths), a versao canonica sobrescreve. A baseline que make-work-order le
-            # nao esta em allowed_paths (o guard pegaria), entao e confiavel.
+            # REGENERA a ordem canonica (baseline) ANTES do guard (anti-adulteracao do work-order)
             node specs/tools/make-work-order.mjs $id --out work-order.json
-            git diff --name-only "main...$branch" | Set-Content -Encoding utf8 changed.txt
+            # ===== BARREIRA TECNICA: arquivos alterados vs allowed_paths/denylist =====
             node specs/tools/guard-worktree.mjs --work-order work-order.json --changed-file changed.txt
             if ($LASTEXITCODE -ne 0) {
               Write-Host "::error::$id : guard-worktree REPROVOU (fora do blast-radius) — PR NAO sera aberto."
-              git checkout main 2>$null
-              continue
+              git reset --hard 2>$null; continue
             }
+            # aprovado -> a esteira cria o branch e commita (mudancas ja estao staged)
+            git checkout -B "$branch" 2>$null
+            git commit -m "feat: implementa $id" 2>$null | Out-Null
             $approved += [pscustomobject]@{ id = $id; branch = $branch; restricted = $restricted; title = $title }
-            git checkout main 2>$null
+            git checkout main 2>$null; git reset --hard 2>$null
           }
           $approved | ConvertTo-Json -Depth 4 -AsArray | Set-Content -Encoding utf8 approved.json
           Write-Host "Aprovados pelo guard: $($approved.Count)"
