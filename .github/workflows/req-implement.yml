@@ -125,6 +125,10 @@ jobs:
           RUN_ID: ${{ github.run_id }}
         run: |
           $ErrorActionPreference = "Stop"
+          # CLAUDE_BIN_DIR (opcional, no .env do runner): diretorio do CLI 'claude' acessivel
+          # a conta do runner. Necessario quando o runner roda como NETWORK SERVICE e o CLI
+          # esta no npm global de outro usuario (fora do PATH/ACL do runner). Ver runbook.
+          if ($env:CLAUDE_BIN_DIR -and (Test-Path $env:CLAUDE_BIN_DIR)) { $env:PATH = "$env:CLAUDE_BIN_DIR;$env:PATH" }
           if (-not $env:CLAUDE_CODE_OAUTH_TOKEN) {
             Write-Host "::warning::CLAUDE_CODE_OAUTH_TOKEN ausente no runner — esteira nao acionada. Configure com 'claude setup-token' (ver plano Inc.4)."
             exit 0
