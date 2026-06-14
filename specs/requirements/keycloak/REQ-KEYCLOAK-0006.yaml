@@ -1,0 +1,21 @@
+id: REQ-KEYCLOAK-0006
+slug: req-keycloak-0006
+title: Persistência Postgres dedicada
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: keycloak
+  applies_to: product
+statement: Keycloak deve usar Postgres 16 (Deployment keycloak-postgres em namespace identity) com PVC 1Gi, configuração via KC_DB_URL e credenciais no Secret keycloak-secrets (Sealed Secret).
+source:
+  stakeholder: keycloak
+  origin: codebase keycloak + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

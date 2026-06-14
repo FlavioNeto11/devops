@@ -1,0 +1,28 @@
+id: REQ-PORTAL-NFR-006
+slug: req-portal-nfr-006
+title: "Segurança: CSP strict, headers de defesa, sem inline script (exceto hash)"
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: portal
+statement: "O sistema deve atender ao atributo de qualidade \"Segurança: CSP strict, headers de defesa, sem inline script (exceto hash)\": CSP Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-...' (para inline gate script); nenhum eval/innerHTML; X-Content-Type-Options nosniff; X-Frame-Options DENY"
+source:
+  stakeholder: portal
+  origin: codebase portal + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Auditor de segurança ou tentativa de XSS na página
+    stimulus: Auditor escaneia headers; atacante tenta injetar JS na query string ou DOM
+    environment: curl, scanner (OWASP ZAP), navegador with devtools
+    artifact: nginx.conf com Content-Security-Policy strict; Traefik secure-headers
+    response: "CSP Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-...' (para inline gate script); nenhum eval/innerHTML; X-Content-Type-Options nosniff; X-Frame-Options DENY"
+    response_measure: "CSP audit 100; nenhuma violação CSP em console; headers: Traefik + nginx presentes"
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

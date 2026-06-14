@@ -1,0 +1,21 @@
+id: REQ-PORTAL-0004
+slug: req-portal-0004
+title: Marcar cards curados como 'no ar' quando descobertos no cluster
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: portal
+  applies_to: product
+statement: A página deve cruzar live paths do cluster com catálogo curado, marcando cada card com status 'no ar' quando IngressRoute existe, ou remover badge se app está offline.
+source:
+  stakeholder: portal
+  origin: codebase portal + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

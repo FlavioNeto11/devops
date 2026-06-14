@@ -1,0 +1,21 @@
+id: REQ-OIDC-0010
+slug: req-oidc-0010
+title: Exchange de authorization code por token no callback
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: oidc
+  applies_to: shared-module
+statement: exchangeKeycloakCode({tokenUrl, clientId, redirectUri, code, state}) deve validar state, recuperar verifier do sessionStorage, fazer POST ao /token com code_verifier, retornar {access_token, ...}; limpar sessionStorage após exchange.
+source:
+  stakeholder: oidc
+  origin: codebase oidc + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

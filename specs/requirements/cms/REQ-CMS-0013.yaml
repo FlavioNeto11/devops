@@ -17,6 +17,8 @@ architectural_significance: false
 links:
   - type: relates_to
     target: REQ-CMS-0009
+  - type: depends_on
+    target: REQ-AI-0001
 version:
   baseline_version: 1.0.0
   item_revision: 1

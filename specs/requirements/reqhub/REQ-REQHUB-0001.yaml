@@ -1,0 +1,27 @@
+id: REQ-REQHUB-0001
+slug: req-reqhub-0001
+title: Explorador com filtros e busca full-text
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: reqhub
+  applies_to: product
+statement: O sistema deve exibir uma grade de requisitos filtráveis por produto, tipo, status, prioridade, impacto (impact_band) e ASR (sim/não), com busca full-text em ID, título, enunciado e risk_tags normalizados (case-insensitive, sem acentos). Exibir contagem total e filtrada.
+source:
+  stakeholder: reqhub
+  origin: codebase reqhub + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+links:
+  - type: depends_on
+    target: REQ-SPECS-0002
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)
+allocation:
+  service_refs:
+    - svc-reqhub

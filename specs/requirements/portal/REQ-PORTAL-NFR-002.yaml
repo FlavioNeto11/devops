@@ -1,0 +1,28 @@
+id: REQ-PORTAL-NFR-002
+slug: req-portal-nfr-002
+title: "Acessibilidade WCAG 2.1 AA: navegação teclado, contrast, aria-*"
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: portal
+statement: 'O sistema deve atender ao atributo de qualidade "Acessibilidade WCAG 2.1 AA: navegação teclado, contrast, aria-*": Todos os CTAs/botões navegáveis e ativáveis via teclado; skip-link até #main; labels explícitos; link e botão distintos; contraste ≥4.5:1 (text) / 3:1 (large); focus ring visível'
+source:
+  stakeholder: portal
+  origin: codebase portal + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Operador com deficiência motora usando apenas teclado, ou visual com screen reader
+    stimulus: Operador usa Tab/Enter para navegar; tech.assistiva anuncia CTAs/seções
+    environment: NVDA/JAWS em Windows; navegador desktop
+    artifact: HTML semântico + ARIA roles/labels + skip-link + focus styles
+    response: "Todos os CTAs/botões navegáveis e ativáveis via teclado; skip-link até #main; labels explícitos; link e botão distintos; contraste ≥4.5:1 (text) / 3:1 (large); focus ring visível"
+    response_measure: axe-core 100; Lighthouse accessibility ≥95; NVDA/JAWS nav fluida; focus ring ≥2px
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

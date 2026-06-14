@@ -1,0 +1,21 @@
+id: REQ-AI-0003
+slug: req-ai-0003
+title: Grafo de raciocínio com Router e especialistas
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: ai
+  applies_to: product
+statement: "Turno inicia em ROUTER (nano: classifica complexidade/especialista). Trivial/simple → FAST path (síntese com contexto). Complex → DEEP path (especialista + loop ReAct com tools + dispatchTool com authz). Todos os nós produzem métrica de latência."
+source:
+  stakeholder: ai
+  origin: codebase ai + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

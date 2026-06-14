@@ -1,0 +1,28 @@
+id: REQ-KEYCLOAK-NFR-004
+slug: req-keycloak-nfr-004
+title: Conformidade de probes de saúde
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: keycloak
+statement: 'O sistema deve atender ao atributo de qualidade "Conformidade de probes de saúde": readiness responde 200 OK após 20s; liveness responde 200 OK após 90s; falhas consecutivas (> failureThreshold) causam restart'
+source:
+  stakeholder: keycloak
+  origin: codebase keycloak + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Orquestrador Kubernetes
+    stimulus: Verificação periódica de readiness e liveness do pod keycloak
+    environment: Pod Deployment keycloak em execução
+    artifact: "readinessProbe (initialDelaySeconds: 20) + livenessProbe (initialDelaySeconds: 90) apontando para :9000/auth/health/{ready,live}"
+    response: readiness responde 200 OK após 20s; liveness responde 200 OK após 90s; falhas consecutivas (> failureThreshold) causam restart
+    response_measure: Pod nunca recebe tráfego antes de estar pronto; pod é reiniciado se health falha > 30 (readiness) ou > 6 (liveness)
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

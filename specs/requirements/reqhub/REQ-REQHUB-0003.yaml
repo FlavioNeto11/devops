@@ -1,0 +1,21 @@
+id: REQ-REQHUB-0003
+slug: req-reqhub-0003
+title: Versões & mudanças com diff de baseline
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: reqhub
+  applies_to: product
+statement: O sistema deve exibir um ledger versionado de cada requisito (baseline_version, item_revision, semantic_change, change_reason) e um diff real da baseline contra a versão anterior (git history), mostrando requisitos adicionados, alterados (com campos e Δimpacto) e removidos.
+source:
+  stakeholder: reqhub
+  origin: codebase reqhub + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

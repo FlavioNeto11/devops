@@ -1,0 +1,28 @@
+id: REQ-CICD-NFR-003
+slug: req-cicd-nfr-003
+title: Detecção de erro em CI com retry strategy
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: cicd
+statement: "O sistema deve atender ao atributo de qualidade \"Detecção de erro em CI com retry strategy\": Job retenta até 3x com backoff; se persistir, falha clara com 'transient' vs 'fatal' (schema error, missing Dockerfile)"
+source:
+  stakeholder: cicd
+  origin: codebase cicd + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Build job falha por falha transiente (network timeout, rate limit)
+    stimulus: Workflow roda; docker pull intermitentemente falha
+    environment: GitHub Actions com retry automático em http transient; GHCR up/down
+    artifact: Build job
+    response: Job retenta até 3x com backoff; se persistir, falha clara com 'transient' vs 'fatal' (schema error, missing Dockerfile)
+    response_measure: Taxa de sucesso em retry >= 95% para falhas transientes; tempo total <= 5min (includes retries); fatal errors fail fast
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

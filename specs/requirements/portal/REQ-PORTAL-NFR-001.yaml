@@ -1,0 +1,28 @@
+id: REQ-PORTAL-NFR-001
+slug: req-portal-nfr-001
+title: "SEO completo: sem JS, sem JS quebrado, conteúdo sempre acessível"
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: portal
+statement: 'O sistema deve atender ao atributo de qualidade "SEO completo: sem JS, sem JS quebrado, conteúdo sempre acessível": Página renderiza e é navegável 100% sem JS; discovery dinâmica é enhancement opcional; metadados presentes (title, description, og:*, keywords); JSON-LD parseável'
+source:
+  stakeholder: portal
+  origin: codebase portal + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Mecanismo de busca (GoogleBot), usuário sem JavaScript ou JS bloqueado, usuário low-bandwidth
+    stimulus: GoogleBot indexa /; usuário visita com JS desabilitado ou script falha; usuário com conexão lenta/instável
+    environment: Navegador headless, no-JS, low-bandwidth; arquivo index.html puro
+    artifact: HTML semântico (header/nav/main/footer) + catálogo estático inline + dados estruturados (JSON-LD)
+    response: Página renderiza e é navegável 100% sem JS; discovery dinâmica é enhancement opcional; metadados presentes (title, description, og:*, keywords); JSON-LD parseável
+    response_measure: Lighthouse SEO ≥95; conteúdo visível sem JS; Google Search Console indexação ok; JSON-LD válido (schema.org)
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

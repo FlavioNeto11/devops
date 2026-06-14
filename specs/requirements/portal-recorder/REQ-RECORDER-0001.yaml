@@ -1,0 +1,21 @@
+id: REQ-RECORDER-0001
+slug: req-recorder-0001
+title: Portal CRUD operations with slug uniqueness
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: portal-recorder
+  applies_to: product
+statement: API must support create, read, list, and delete operations for portals. Portal slug must be unique, lowercase alphanumeric with hyphens. Entry URL must be valid HTTP(S). API origins optional, defaulting to entry URL origin. Supports optional related_project_key for platform integration.
+source:
+  stakeholder: portal-recorder
+  origin: codebase portal-recorder + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

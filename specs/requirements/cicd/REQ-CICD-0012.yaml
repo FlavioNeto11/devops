@@ -1,0 +1,21 @@
+id: REQ-CICD-0012
+slug: req-cicd-0012
+title: Job Summary com resumo legível (build + deploy status)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: cicd
+  applies_to: product
+statement: "Cada job (build, deploy) deve publicar no GITHUB_STEP_SUMMARY: app/service, tags publicadas, deploy status, anotações aplicadas, links para logs/Argo; summary aparecem no PR e run view."
+source:
+  stakeholder: cicd
+  origin: codebase cicd + mapeamento multi-agente 2026-06-14
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

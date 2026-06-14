@@ -1,0 +1,28 @@
+id: REQ-OIDC-NFR-006
+slug: req-oidc-nfr-006
+title: Versionamento SemVer com mudanças de cripto como BREAKING
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: oidc
+statement: 'O sistema deve atender ao atributo de qualidade "Versionamento SemVer com mudanças de cripto como BREAKING": Qualquer mudança em cripto é tratada como MAJOR; changelog documenta impacto; janela de depreciação de 1 ciclo'
+source:
+  stakeholder: oidc
+  origin: codebase oidc + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Mantenedor do kit
+    stimulus: Mudança no formato/algoritmo de tokens OIDC
+    environment: GitHub Packages registry; CHANGELOG.md
+    artifact: package.json version, CHANGELOG.md, AGENTS.md §2 (versionamento)
+    response: Qualquer mudança em cripto é tratada como MAJOR; changelog documenta impacto; janela de depreciação de 1 ciclo
+    response_measure: Bump MAJOR; anúncio em CHANGELOG com 'BREAKING'; apps fixam range conscientemente
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

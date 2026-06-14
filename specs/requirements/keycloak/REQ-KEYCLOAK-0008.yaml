@@ -1,0 +1,21 @@
+id: REQ-KEYCLOAK-0008
+slug: req-keycloak-0008
+title: Subpath /auth com proxy headers e health checks
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: keycloak
+  applies_to: product
+statement: Keycloak deve rodar com KC_HTTP_RELATIVE_PATH=/auth, KC_PROXY_HEADERS=xforwarded, KC_HTTP_ENABLED=true, KC_HOSTNAME_STRICT=false atrás do Traefik; health checks em :9000/auth/health/{ready,live}.
+source:
+  stakeholder: keycloak
+  origin: codebase keycloak + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

@@ -1,0 +1,21 @@
+id: REQ-CONSOLE-0003
+slug: req-console-0003
+title: Stream cluster state changes via Server-Sent Events
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: console
+  applies_to: product
+statement: O backend expoe um endpoint SSE (GET /stream) que mantem uma conexao HTTP aberta e empurra snapshots do cluster (namespaces, pods, deployments, services, ingressroutes, eventos) sempre que o estado muda, detectado via informers/watches da API do Kubernetes. O frontend abre EventSource automaticamente para admin; members NAO recebem dados do cluster (apenas dados de seus projetos/tarefas).
+source:
+  stakeholder: console
+  origin: codebase console + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

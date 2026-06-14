@@ -1,0 +1,21 @@
+id: REQ-CICD-0008
+slug: req-cicd-0008
+title: Proteção de branch (branch protection rules)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: cicd
+  applies_to: product
+statement: "Branch main deve exigir: (1) code review approval (≥1), (2) workflows obrigatórios passando (specs-governance, build, deploy), (3) dismissal de stale reviews em push, (4) sem force-push/delete, (5) CODEOWNERS para specs/ exigindo revisão do dono."
+source:
+  stakeholder: cicd
+  origin: codebase cicd + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

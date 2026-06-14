@@ -1,0 +1,21 @@
+id: REQ-PLATFORM-0011
+slug: req-platform-0011
+title: Non-functional requirements (NFR) definidos
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: platform
+  applies_to: product
+statement: Documento `docs/standards/non-functional-requirements.md` define tabela de recursos (requests/limits), SLOs, observabilidade, segurança e performance esperados da plataforma e das apps.
+source:
+  stakeholder: platform
+  origin: codebase platform + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

@@ -1,0 +1,28 @@
+id: REQ-ANARA-NFR-006
+slug: req-anara-nfr-006
+title: Conteúdo degrada gracefully quando placeholders vazios
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: anarabottini
+statement: "O sistema deve atender ao atributo de qualidade \"Conteúdo degrada gracefully quando placeholders vazios\": Seção Mídia mostra 'vídeos em breve'; Materiais mostra 'materiais em breve'; FAB WhatsApp oculto; depoimentos seção desaparece; nenhum link quebrado"
+source:
+  stakeholder: anarabottini
+  origin: codebase anarabottini + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Portal durante fase de preenchimento de dados (antes de divulgar)
+    stimulus: YouTube/Spotify/formulário/depoimentos não preenchidos em site.ts ou data/*.ts
+    environment: Navegador qualquer; estado vazio
+    artifact: Componentes condicionais (conteúdo || fallback)
+    response: Seção Mídia mostra 'vídeos em breve'; Materiais mostra 'materiais em breve'; FAB WhatsApp oculto; depoimentos seção desaparece; nenhum link quebrado
+    response_measure: Nenhum 404; nenhuma seção vazia renderiza; UX clara ('em breve' vs ausência de CTA quebrado)
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

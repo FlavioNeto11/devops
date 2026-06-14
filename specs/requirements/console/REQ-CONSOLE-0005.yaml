@@ -1,0 +1,21 @@
+id: REQ-CONSOLE-0005
+slug: req-console-0005
+title: Stream pod logs in real-time (follow mode)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: console
+  applies_to: product
+statement: "O backend expoe GET /pods/:ns/:name/logs/stream como SSE que segue logs do kubelet em tempo real (follow=true). Parametros query: ?tailLines=200 (default), ?container=<name> (default=primeiro). O frontend renderiza stream de linhas com timestamp, permitindo diagnostico rapido sem re-fetch periodico."
+source:
+  stakeholder: console
+  origin: codebase console + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

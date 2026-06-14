@@ -1,0 +1,21 @@
+id: REQ-KEYCLOAK-0005
+slug: req-keycloak-0005
+title: Client público com PKCE para apps com login próprio
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: keycloak
+  applies_to: product
+statement: "Realm nvit deve permitir clients públicos (publicClient: true) com PKCE S256 para apps como SICAT, redirect URI customizável (produção e dev), sem exigência de client secret."
+source:
+  stakeholder: keycloak
+  origin: codebase keycloak + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

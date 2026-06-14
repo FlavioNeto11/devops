@@ -1,0 +1,28 @@
+id: REQ-CONSOLE-NFR-003
+slug: req-console-nfr-003
+title: Responsive and accessible UI (mobile-first)
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: console
+statement: 'O sistema deve atender ao atributo de qualidade "Responsive and accessible UI (mobile-first)": UI reorganizes without horizontal scroll; buttons (min 44px tap target); theme toggle persists in localStorage'
+source:
+  stakeholder: console
+  origin: codebase console + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: end user on mobile device (iPad, iPhone, Android)
+    stimulus: user navigates sidebar, opens logs, toggles theme in viewport < 600px wide
+    environment: mobile browser (Safari, Chrome), slow 3G network
+    artifact: frontend CSS media queries, collapsible sidebar, touch-friendly buttons
+    response: UI reorganizes without horizontal scroll; buttons (min 44px tap target); theme toggle persists in localStorage
+    response_measure: WCAG 2.1 AA compliance; Lighthouse accessibility > 90; first contentful paint < 2s on 3G
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

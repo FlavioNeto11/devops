@@ -21,6 +21,8 @@ links:
     target: REQ-SICAT-0011
   - type: depends_on
     target: REQ-SICAT-0012
+  - type: depends_on
+    target: REQ-PCONTRACT-0006
 version:
   baseline_version: 1.0.0
   item_revision: 1

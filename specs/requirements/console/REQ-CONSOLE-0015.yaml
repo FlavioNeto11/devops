@@ -1,0 +1,21 @@
+id: REQ-CONSOLE-0015
+slug: req-console-0015
+title: Approve or reject pending portal creation
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: console
+  applies_to: product
+statement: POST /projects/:id/approve e POST /projects/:id/reject (admin apenas). Atualizam approval_status e rastreiam quem/quando aprovou. Portal em approved passa a estar visivel na rota publica de CMS. Rejeicao deixa o portal invisivel.
+source:
+  stakeholder: console
+  origin: codebase console + mapeamento multi-agente 2026-06-14
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

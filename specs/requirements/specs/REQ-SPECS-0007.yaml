@@ -1,0 +1,21 @@
+id: REQ-SPECS-0007
+slug: req-specs-0007
+title: Registry de artefatos externos (vocabulário controlado)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: specs
+  applies_to: product
+statement: O sistema deve manter specs/registry/artifacts.yaml com catálogo de artefatos derivados (services, infra, slos, tests) que podem ser referenciados em allocation.* dos requisitos; build-baseline.mjs valida links para artefatos contra este registry.
+source:
+  stakeholder: specs
+  origin: codebase specs + mapeamento multi-agente 2026-06-14
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

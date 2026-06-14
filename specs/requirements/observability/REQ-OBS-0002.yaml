@@ -1,0 +1,21 @@
+id: REQ-OBS-0002
+slug: req-obs-0002
+title: Coleta de métricas do cluster e host
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: observability
+  applies_to: product
+statement: Usar node-exporter (CPU, memória, disco, rede do host) e kube-state-metrics (estado de pods/deployments/services) com seletores `serviceMonitorSelectorNilUsesHelmValues=false` para raspar todos os ServiceMonitor do cluster.
+source:
+  stakeholder: observability
+  origin: codebase observability + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

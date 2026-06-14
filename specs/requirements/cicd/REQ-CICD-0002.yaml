@@ -1,0 +1,21 @@
+id: REQ-CICD-0002
+slug: req-cicd-0002
+title: Build e push de imagens Docker para GHCR (reusable-build-push.yaml)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: cicd
+  applies_to: product
+statement: Workflow reutilizável deve buildar uma imagem Docker para um service específico com contexto customizável, fazer login no GHCR via token GitHub automático, gerar tags (SHA curto, branch, 'latest' em default), fazer push com cache (GitHub Actions gha), e expor image-tag como output para downstream.
+source:
+  stakeholder: cicd
+  origin: codebase cicd + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

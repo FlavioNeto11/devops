@@ -1,0 +1,21 @@
+id: REQ-SPECS-0011
+slug: req-specs-0011
+title: Sugestões de link propostas (suggested_links)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: specs
+  applies_to: product
+statement: "O baseline pode incluir suggested_links (ex.: sugeridas pelo Claude/UI) com status (proposed/accepted/rejected) e confidence (0-1); não contaminam links canônico até promoção, formando arestas 'proposed' no mapa de impacto."
+source:
+  stakeholder: specs
+  origin: codebase specs + mapeamento multi-agente 2026-06-14
+priority: low
+criticality: low
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

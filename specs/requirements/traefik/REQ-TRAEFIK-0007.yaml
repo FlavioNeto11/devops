@@ -1,0 +1,21 @@
+id: REQ-TRAEFIK-0007
+slug: req-traefik-0007
+title: Middleware secure-headers (X-Frame-Options, HSTS, etc)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: traefik
+  applies_to: product
+statement: Implementar Middleware `secure-headers` com frameDeny=true, contentTypeNosniff=true, browserXssFilter=true, stsSeconds=31536000 para aplicar a todas as rotas.
+source:
+  stakeholder: traefik
+  origin: codebase traefik + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

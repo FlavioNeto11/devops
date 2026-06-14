@@ -1,0 +1,28 @@
+id: REQ-PCONTRACT-NFR-002
+slug: req-pcontract-nfr-002
+title: Sanitização de secrets antes de escrita (zero credencial em DB)
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: portal-contracts
+statement: 'O sistema deve atender ao atributo de qualidade "Sanitização de secrets antes de escrita (zero credencial em DB)": DB contém: Authorization: Bearer ***, Cookie: session=*** + sha256(real_value); credencial crua só em Chromium efêmero; após close(), zero rastreio'
+source:
+  stakeholder: portal-contracts
+  origin: codebase portal-contracts + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Operador capturando login em portal CETESB (usuário/senha reais)
+    stimulus: "Requisição POST com Authorization: Bearer <token> e Cookie: session=<real_value>"
+    environment: Recorder intercepta Network.* events; redactObject/sanitizeHeaders aplicados
+    artifact: Captura redigida em Postgres; HAR.gz
+    response: "DB contém: Authorization: Bearer ***, Cookie: session=*** + sha256(real_value); credencial crua só em Chromium efêmero; após close(), zero rastreio"
+    response_measure: Gitleaks/grep não encontra credencial em Postgres dump; sha256 permite correlação sem exposição; audit log registra redação
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

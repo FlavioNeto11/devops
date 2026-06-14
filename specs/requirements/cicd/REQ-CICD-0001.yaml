@@ -1,0 +1,21 @@
+id: REQ-CICD-0001
+slug: req-cicd-0001
+title: Pipeline de descoberta de apps (discover phase)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: cicd
+  applies_to: product
+statement: O workflow deve descobrir automaticamente todas as aplicações no repositório lendo devops.yaml de cada app (apps/*/devops.yaml), extraindo metadados (name, services[], dependencies[], secrets[]) e passando para a matriz de build.
+source:
+  stakeholder: cicd
+  origin: codebase cicd + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

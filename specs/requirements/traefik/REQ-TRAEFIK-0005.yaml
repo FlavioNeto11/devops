@@ -1,0 +1,22 @@
+id: REQ-TRAEFIK-0005
+slug: req-traefik-0005
+title: Middleware StripPrefix para APIs
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: traefik
+  applies_to: capability
+  capability: path-routing
+statement: Usar Middleware `stripPrefix` (específico de cada app) para remover `<basePath>+<path>` completo de rotas API/api2, permitindo que processo veja rotas na raiz.
+source:
+  stakeholder: traefik
+  origin: codebase traefik + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

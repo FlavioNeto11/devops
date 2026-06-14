@@ -1,0 +1,28 @@
+id: REQ-OBS-NFR-001
+slug: req-obs-nfr-001
+title: Coleta de métricas com baixa latência
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: observability
+statement: 'O sistema deve atender ao atributo de qualidade "Coleta de métricas com baixa latência": Métricas coletadas com sucesso em <10s por target; série TSDB atualizada'
+source:
+  stakeholder: observability
+  origin: codebase observability + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Prometheus scraper
+    stimulus: Fazer scrape de métricas de todos os targets (Traefik, node-exporter, kube-state-metrics, app endpoints)
+    environment: Docker Desktop, Prometheus com 2d retention, todos os targets saudáveis
+    artifact: Prometheus com interval scrape padrão (~15s), ServiceMonitors provisionados
+    response: Métricas coletadas com sucesso em <10s por target; série TSDB atualizada
+    response_measure: up metric = 1 para 100% dos targets monitorados; latência p99 < 5s
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

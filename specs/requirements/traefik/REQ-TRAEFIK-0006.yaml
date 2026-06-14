@@ -1,0 +1,21 @@
+id: REQ-TRAEFIK-0006
+slug: req-traefik-0006
+title: Middleware compress (gzip/brotli)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: traefik
+  applies_to: product
+statement: Implementar Middleware `compress` no namespace `traefik`, compartilhado entre rotas, com `minResponseBodyBytes=1024` para comprimir respostas >1KB.
+source:
+  stakeholder: traefik
+  origin: codebase traefik + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

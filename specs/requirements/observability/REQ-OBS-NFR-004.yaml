@@ -1,0 +1,28 @@
+id: REQ-OBS-NFR-004
+slug: req-obs-nfr-004
+title: Segurança de acesso via OIDC
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: observability
+statement: 'O sistema deve atender ao atributo de qualidade "Segurança de acesso via OIDC": Autenticação bem-sucedida em <5s; membro `platform-admins` recebe Admin, demais recebem Viewer'
+source:
+  stakeholder: observability
+  origin: codebase observability + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Usuário do realm Keycloak nvit
+    stimulus: Fazer login no Grafana via OAuth 2.0 com Keycloak
+    environment: Grafana com OIDC config, SealedSecret `grafana-oidc`, Keycloak saudável
+    artifact: Grafana auth.generic_oauth.enabled=true com endpoints Keycloak
+    response: Autenticação bem-sucedida em <5s; membro `platform-admins` recebe Admin, demais recebem Viewer
+    response_measure: 100% taxa de autenticação bem-sucedida; RBAC aplicado em <1s
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

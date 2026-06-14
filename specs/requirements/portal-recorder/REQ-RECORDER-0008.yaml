@@ -1,0 +1,21 @@
+id: REQ-RECORDER-0008
+slug: req-recorder-0008
+title: Screenshot capture from active session
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: portal-recorder
+  applies_to: product
+statement: API must provide endpoint for taking screenshots of currently active session browser, storing as PNG to PVC with blob_ref in database. Screenshot may be associated with optional caption and annotation. Frontend must retrieve screenshots via direct blob URL without auth cookie exposure.
+source:
+  stakeholder: portal-recorder
+  origin: codebase portal-recorder + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

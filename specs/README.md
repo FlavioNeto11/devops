@@ -61,8 +61,12 @@ mudança), **`/baseline-diff`** (diff/classificação entre versões). Regra de 
 
 ## Bootstrap
 
-A base inicial foi semeada de requisitos **reais** extraídos de SICAT, GymOps e do CMS/portal-builder
-(`tools/seed-input.json` → `tools/seed.mjs`). A **rastreabilidade inicial** (`links` REQ→REQ de alta
+A base cobre **toda a plataforma** — 19 escopos: produtos (sicat, gymops, cms, rmambiental, anarabottini,
+portal, portal-recorder, reqhub), componentes (console, argocd, traefik, keycloak, observability, platform)
+e transversais (ai, oidc, specs, cicd, portal-contracts). Requisitos **reais** extraídos do código/docs por
+mapeamento multi-agente (`tools/seed-input.json` → `tools/seed.mjs`; `seed.mjs` é genérico — entradas
+auto-descritivas). Links cross-área (apps→OIDC/Keycloak/Traefik/AI/observability/portal-contracts;
+reqhub→specs) em `tools/seed-links.json` conectam o mapa de impacto. A **rastreabilidade inicial** (`links` REQ→REQ de alta
 confiança) é curada em `tools/seed-links.json` (alimenta o mapa de impacto). Já as **evidências de
 verificação** (`evidence_links`) e os links para **artefatos externos** (ADR/serviço/infra/SLO/teste)
 são **autorados na iteração/UI** — não foram fabricados no bootstrap; por isso vários itens aparecem,

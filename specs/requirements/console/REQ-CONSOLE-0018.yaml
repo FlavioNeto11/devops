@@ -1,0 +1,21 @@
+id: REQ-CONSOLE-0018
+slug: req-console-0018
+title: Site-renderer serves published portals
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: console
+  applies_to: product
+statement: Site-renderer (React SPA servida em /sites/<key>) busca rota publica GET /cms/public/<key> (sem auth, so approved sites). Renderiza arvore de paginas/secoes via componentes Blocks (kind-based). Em modo edicao (?cmsEdit=1), a arvore editavel chega por postMessage e sobreescreve a publica, habilitando editor visual embarcado no console.
+source:
+  stakeholder: console
+  origin: codebase console + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

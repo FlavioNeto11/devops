@@ -1,0 +1,21 @@
+id: REQ-CONSOLE-0023
+slug: req-console-0023
+title: Database migrations and seeding
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: console
+  applies_to: product
+statement: pm-api auto-executa migrations ao startup (AUTO_MIGRATE=true default). scripts/seed.js popula dados iniciais. Rota POST /admin/seed permite re-seed idempotente sob demanda (admin). Migration tracking no banco via schema_migrations.
+source:
+  stakeholder: console
+  origin: codebase console + mapeamento multi-agente 2026-06-14
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

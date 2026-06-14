@@ -1,0 +1,21 @@
+id: REQ-AI-0011
+slug: req-ai-0011
+title: Feedback rollup (thumbs) cross-app
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: ai
+  applies_to: product
+statement: POST /v1/feedback (SICAT + GymOps enviando; app, kind:thumbs_up|thumbs_down, surface, refId, toolName, comment, metadata). GET /v1/feedback/summary (agregação por app/kind/dias). Métrica ai_feedback_total{app,surface,kind}.
+source:
+  stakeholder: ai
+  origin: codebase ai + mapeamento multi-agente 2026-06-14
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

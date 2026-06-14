@@ -1,0 +1,21 @@
+id: REQ-CONSOLE-0026
+slug: req-console-0026
+title: Health check endpoints for kubernetes probes
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: console
+  applies_to: product
+statement: "GET /health (backend) retorna {status: ok, service: console-backend, time}. GET /health (pm-api) checa conexao com banco. GET /healthz (frontend nginx) probe basico. Usados por readiness/liveness probes do Kubernetes."
+source:
+  stakeholder: console
+  origin: codebase console + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

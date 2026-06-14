@@ -1,0 +1,28 @@
+id: REQ-KEYCLOAK-NFR-003
+slug: req-keycloak-nfr-003
+title: Recuperabilidade de chave do SealedSecret
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: keycloak
+statement: 'O sistema deve atender ao atributo de qualidade "Recuperabilidade de chave do SealedSecret": Chave de decriptação do controller está feita backup seguro fora do Git; procedimento documentado em sso-keycloak.md §3'
+source:
+  stakeholder: keycloak
+  origin: codebase keycloak + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Operações de disaster recovery
+    stimulus: Necessidade de restaurar o cluster ou recuperar secrets cifrados
+    environment: Backup externo seguro (fora do Git)
+    artifact: sealed-secrets-key-backup.yaml (kubectl -n kube-system get secret -l sealedsecrets.bitnami.com/sealed-secrets-key)
+    response: Chave de decriptação do controller está feita backup seguro fora do Git; procedimento documentado em sso-keycloak.md §3
+    response_measure: Backup validado; documentação clara de restauração
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

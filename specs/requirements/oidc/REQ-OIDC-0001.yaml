@@ -1,0 +1,21 @@
+id: REQ-OIDC-0001
+slug: req-oidc-0001
+title: Validação de token via /userinfo
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: oidc
+  applies_to: shared-module
+statement: "validateKeycloakToken(accessToken, {userinfoUrl}) deve chamar o endpoint /userinfo do Keycloak, validar o Bearer token e retornar {ok, claims} ou {ok: false, code}; códigos: MISSING_TOKEN, NO_USERINFO_URL, KEYCLOAK_UNAVAILABLE, INVALID_TOKEN."
+source:
+  stakeholder: oidc
+  origin: codebase oidc + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

@@ -1,0 +1,28 @@
+id: REQ-PLATFORM-NFR-004
+slug: req-platform-nfr-004
+title: Governança declarativa via GitOps
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: platform
+statement: 'O sistema deve atender ao atributo de qualidade "Governança declarativa via GitOps": Argo aplica mudança em <3min; cluster em estado desejado (Git é fonte da verdade)'
+source:
+  stakeholder: platform
+  origin: codebase platform + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: DevOps operator
+    stimulus: Aplicar mudança de namespace ou label via Git e deixar Argo reconciliar
+    environment: Argo CD com app-of-apps em auto-sync (prune=true, selfHeal=true)
+    artifact: Manifest alterado em `platform/`, Argo Application descobrindo mudança
+    response: Argo aplica mudança em <3min; cluster em estado desejado (Git é fonte da verdade)
+    response_measure: 100% de sincronização bem-sucedida; drift = 0
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

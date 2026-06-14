@@ -1,0 +1,21 @@
+id: REQ-SPECS-0008
+slug: req-specs-0008
+title: Ponte para consumo do Claude (specs/CLAUDE.md + skills)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: specs
+  applies_to: product
+statement: "O documento specs/CLAUDE.md deve definir regras de consumo: (1) consulte baseline antes de decidir implementação, (2) ao alterar/criar requisito, trate como questão de versão (item_revision/semantic_change/change_reason) e regenere baseline via /sync-spec, (3) em mudança major/ASR rode /impact-review, (4) nunca edite baseline à mão, (5) arquitetura/infra são derivadas dos requisitos. Skills: /sync-spec (sincronizar/regen + drift-check), /impact-review (análise de impacto), /baseline-diff (diff/classificação)."
+source:
+  stakeholder: specs
+  origin: codebase specs + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

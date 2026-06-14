@@ -1,0 +1,21 @@
+id: REQ-SPECS-0004
+slug: req-specs-0004
+title: Mapa de impacto (rastreabilidade tipada e grafos)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: specs
+  applies_to: product
+statement: "O sistema deve gerar specs/baseline/impact-map.json contendo grafo de rastreabilidade com nós (requisitos + artefatos: ADR/service/infra/slo/test) e arestas tipadas (depends_on, constrains, allocates_to, verifies, derives_from, refines, conflicts_with, relates_to), marcando proposed vs canonical, para análise de impacto em mudança major/ASR e cobertura arquitetural."
+source:
+  stakeholder: specs
+  origin: codebase specs + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

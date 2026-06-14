@@ -1,0 +1,21 @@
+id: REQ-REQHUB-0012
+slug: req-reqhub-0012
+title: Leitura de baseline gerada (JSON) sem backend
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: reqhub
+  applies_to: product
+statement: O sistema deve carregar baseline gerada (specs/baseline/current-baseline.json), mapa de impacto, manifesto de recuperação e dados opcionais (history, registry, embeddings) via fetch ao init, sem dependência de backend (nginx estático).
+source:
+  stakeholder: reqhub
+  origin: codebase reqhub + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

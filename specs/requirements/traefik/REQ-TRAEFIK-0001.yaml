@@ -1,0 +1,24 @@
+id: REQ-TRAEFIK-0001
+slug: req-traefik-0001
+title: Ingress controller via Helm (chart traefik/traefik)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: traefik
+  applies_to: product
+statement: Instalar Traefik no namespace `traefik` via Helm chart `traefik/traefik` com deployment.replicas=1 para laboratório; service.type=LoadBalancer para expor portas 80 e 443 no host.
+source:
+  stakeholder: traefik
+  origin: codebase traefik + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)
+allocation:
+  infra_refs:
+    - infra-traefik

@@ -1,0 +1,28 @@
+id: REQ-RECORDER-NFR-005
+slug: req-recorder-nfr-005
+title: Request/response body truncation and overflow handling
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: portal-recorder
+statement: 'O sistema deve atender ao atributo de qualidade "Request/response body truncation and overflow handling": Bodies stored to PVC; database tracks body_blob_ref + body_truncated flag; inline JSONB for <64KB'
+source:
+  stakeholder: portal-recorder
+  origin: codebase portal-recorder + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Portal returning large response bodies
+    stimulus: Capturing response >64KB or streaming content
+    environment: Real-world portal with large payloads
+    artifact: Network event capture in Recorder
+    response: Bodies stored to PVC; database tracks body_blob_ref + body_truncated flag; inline JSONB for <64KB
+    response_measure: No OOM errors; truncation flag set accurately; blobs persistent across container restart
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

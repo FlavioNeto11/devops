@@ -1,0 +1,28 @@
+id: REQ-REQHUB-NFR-004
+slug: req-reqhub-nfr-004
+title: "Performance: carregamento da baseline < 2s, renderização < 1s"
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: reqhub
+statement: 'O sistema deve atender ao atributo de qualidade "Performance: carregamento da baseline < 2s, renderização < 1s": Baseline carregada; tela interativa'
+source:
+  stakeholder: reqhub
+  origin: codebase reqhub + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: UX/operação
+    stimulus: Acesso a /reqs/ em navegador moderno; baseline com 69 requisitos
+    environment: Conexão 4G; cache nginx (1h assets, 30s data/)
+    artifact: Página renderizada com explorador visível
+    response: Baseline carregada; tela interativa
+    response_measure: FCP < 1s; TTI < 2s; Lighthouse performance score >= 90
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

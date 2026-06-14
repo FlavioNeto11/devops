@@ -1,0 +1,28 @@
+id: REQ-PCONTRACT-NFR-003
+slug: req-pcontract-nfr-003
+title: Latência de streaming screencast < 500ms
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: portal-contracts
+statement: 'O sistema deve atender ao atributo de qualidade "Latência de streaming screencast < 500ms": Frame renderizado no frontend < 500ms de latência ponta-a-ponta (click → screen update visível)'
+source:
+  stakeholder: portal-contracts
+  origin: codebase portal-contracts + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Operador navegando portal ao vivo
+    stimulus: Clica em botão → frontend envia Input.dispatch → recorder processa → Page.startScreencast gera frame JPEG → WebSocket envia ao frontend
+    environment: Localhost (docker-desktop) + Container recorder; Network latency <= 10ms
+    artifact: WebSocket com frame stream
+    response: Frame renderizado no frontend < 500ms de latência ponta-a-ponta (click → screen update visível)
+    response_measure: Measurement via browser DevTools; P99 latency <= 500ms; frame rate >= 2fps (1 frame a cada 500ms)
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

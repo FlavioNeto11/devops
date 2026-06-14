@@ -1,0 +1,21 @@
+id: REQ-AI-0001
+slug: req-ai-0001
+title: Contrato AiTool com authz por identidade
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: ai
+  applies_to: product
+statement: Toda ferramenta de IA expõe inputSchema, authorize(ctx), risk (R1/R3/R4), mutates flag e execute(). A authz nunca é por canal — sempre recebe identidade (OIDC/sessão do app) e decide por escopo (membership real via BD).
+source:
+  stakeholder: ai
+  origin: codebase ai + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

@@ -1,0 +1,28 @@
+id: REQ-KEYCLOAK-NFR-005
+slug: req-keycloak-nfr-005
+title: Escalonabilidade de sessões OIDC
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: keycloak
+statement: 'O sistema deve atender ao atributo de qualidade "Escalonabilidade de sessões OIDC": Token endpoint /token responde em <= 500ms p99 sob carga; sessions são persistidas no Postgres sem deadlock'
+source:
+  stakeholder: keycloak
+  origin: codebase keycloak + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Múltiplas aplicações (Grafana, Argo CD, DevOps Console, SICAT) autenticando-se simultaneamente
+    stimulus: Picos de login OIDC durante início de jornada de trabalho
+    environment: Cluster Kubernetes; Postgres 16 com fila transacional
+    artifact: Deployment keycloak (1 replicate atual) + Service keycloak + Postgres backing
+    response: Token endpoint /token responde em <= 500ms p99 sob carga; sessions são persistidas no Postgres sem deadlock
+    response_measure: Latência P99 <= 500ms; database cpu <= 80% sob carga normal
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

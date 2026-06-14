@@ -1,0 +1,28 @@
+id: REQ-OIDC-NFR-002
+slug: req-oidc-nfr-002
+title: Compatibilidade de sessão SICAT preservada
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: oidc
+statement: 'O sistema deve atender ao atributo de qualidade "Compatibilidade de sessão SICAT preservada": Tokens são byte-idênticos; sessões vivas permanecem autenticadas; zero logout forçado'
+source:
+  stakeholder: oidc
+  origin: codebase oidc + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Migração de app para usar @flavioneto11/oidc-kit
+    stimulus: App SICAT adota oidc-kit com prefix 'sicat_access'; sessões vivas antes da adoção devem continuar válidas
+    environment: SICAT backend com sessions ativas em BD
+    artifact: Tokens gerados por sicat-security.ts vs. oidc-kit com prefix 'sicat_access'
+    response: Tokens são byte-idênticos; sessões vivas permanecem autenticadas; zero logout forçado
+    response_measure: Teste de compatibilidade com token byte-a-byte; CHANGELOG documenta mudança como non-breaking
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

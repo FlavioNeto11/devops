@@ -1,0 +1,21 @@
+id: REQ-CONSOLE-0021
+slug: req-console-0021
+title: Projects & Tasks board (kanban) with items and tasks
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: console
+  applies_to: product
+statement: Frontend MetaProjects renderiza kanban com colunas por status. POST/PATCH/DELETE /items e /tasks (pm-api). Item = unidade maior (feature, epic); Task = unidade menor dentro de item. Admin cria projetos product_software/platform_tool. Member (com acesso) cria tasks em seus projetos.
+source:
+  stakeholder: console
+  origin: codebase console + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

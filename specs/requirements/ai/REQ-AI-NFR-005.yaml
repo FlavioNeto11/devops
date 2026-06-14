@@ -1,0 +1,28 @@
+id: REQ-AI-NFR-005
+slug: req-ai-nfr-005
+title: Idempotência de confirmação (confirmedToolCallId)
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: ai
+statement: 'O sistema deve atender ao atributo de qualidade "Idempotência de confirmação (confirmedToolCallId)": ambas as requisições executam o mesmo create_activity uma única vez; segunda confirma o mesmo resultado'
+source:
+  stakeholder: ai
+  origin: codebase ai + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: "usuário confirma ação R3/R4 (ex.: criar atividade)"
+    stimulus: request POST /ai/confirm {confirmedToolCallId} chega 2x (retry de rede)
+    environment: GymOps produção
+    artifact: dispatchTool com confirmedToolCallId, rota /ai/confirm
+    response: ambas as requisições executam o mesmo create_activity uma única vez; segunda confirma o mesmo resultado
+    response_measure: atividade criada uma única vez; ambas respostas idênticas; sem duplicate entries no BD
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

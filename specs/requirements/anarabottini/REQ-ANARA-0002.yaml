@@ -1,0 +1,21 @@
+id: REQ-ANARA-0002
+slug: req-anara-0002
+title: Exibir catálogo de 6 palestras com filtro por categoria
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: anarabottini
+  applies_to: product
+statement: A aplicação deve renderizar seção Palestras com 6 palestras (NR-1, Bem-estar, Neurodiversidade, Liderança, Campanhas, Custom) em cards filtrável por categoria, modal de detalhe com descrição/formatos/duração/temas/benefícios e CTA 'Solicitar esta palestra'.
+source:
+  stakeholder: anarabottini
+  origin: codebase anarabottini + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

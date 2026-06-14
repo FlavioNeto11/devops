@@ -1,0 +1,21 @@
+id: REQ-RECORDER-0003
+slug: req-recorder-0003
+title: Remote browser via Playwright/CDP per session
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: portal-recorder
+  applies_to: product
+statement: Recorder must launch one ephemeral Chromium context per session using Playwright, with sandboxing disabled and shared memory disabled for container deployments. Browser must navigate to portal entry_url with 60s timeout. Context must be isolated and destroyed on session stop.
+source:
+  stakeholder: portal-recorder
+  origin: codebase portal-recorder + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

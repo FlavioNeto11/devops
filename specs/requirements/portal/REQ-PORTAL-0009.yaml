@@ -1,0 +1,21 @@
+id: REQ-PORTAL-0009
+slug: req-portal-0009
+title: Implementar reveal on scroll com progressive enhancement
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: portal
+  applies_to: product
+statement: A página deve animar cards ao entrarem no viewport (slide/fade) sem bloquear o conteúdo; JS é optional — conteúdo sempre visível sem JS (progressive enhancement com js/no-anim classes).
+source:
+  stakeholder: portal
+  origin: codebase portal + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

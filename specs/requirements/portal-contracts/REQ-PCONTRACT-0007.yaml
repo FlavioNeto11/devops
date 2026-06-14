@@ -1,0 +1,22 @@
+id: REQ-PCONTRACT-0007
+slug: req-pcontract-0007
+title: Gerenciamento de sessão com isolamento e TTL
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: portal-contracts
+  applies_to: capability
+  capability: portal-recorder
+statement: API deve criar newContext() por sessão (isolado, cache/cookies separado), limpar com context.close() ao parar (POST /v1/sessions/:id/stop); configurar MAX_CONCURRENT_SESSIONS para evitar OOM (300-800MB/context); idle timeout (30min) para liberar Chromium órfão; replicação=1 + IfNotPresent.
+source:
+  stakeholder: portal-contracts
+  origin: codebase portal-contracts + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

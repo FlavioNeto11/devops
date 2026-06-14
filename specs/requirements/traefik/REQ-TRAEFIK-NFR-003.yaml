@@ -1,0 +1,28 @@
+id: REQ-TRAEFIK-NFR-003
+slug: req-traefik-nfr-003
+title: Compressão de respostas
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: traefik
+statement: 'O sistema deve atender ao atributo de qualidade "Compressão de respostas": Resposta retorna com Content-Encoding: gzip; tamanho reduzido para ~30% do original'
+source:
+  stakeholder: traefik
+  origin: codebase traefik + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: "Cliente HTTP com Accept-Encoding: gzip"
+    stimulus: Requisição GET para SPA (index.html >50KB) ou JSON API com payload >1KB
+    environment: Traefik com middleware compress habilitado, minResponseBodyBytes=1024
+    artifact: Middleware compress aplicado à rota
+    response: "Resposta retorna com Content-Encoding: gzip; tamanho reduzido para ~30% do original"
+    response_measure: Taxa de compressão >=70% para conteúdo text/html e application/json
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

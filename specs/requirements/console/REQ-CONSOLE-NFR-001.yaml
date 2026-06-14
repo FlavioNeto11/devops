@@ -1,0 +1,28 @@
+id: REQ-CONSOLE-NFR-001
+slug: req-console-nfr-001
+title: Real-time cluster state updates via SSE
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: console
+statement: 'O sistema deve atender ao atributo de qualidade "Real-time cluster state updates via SSE": snapshot published within 1 second; frontend updates UI without page reload'
+source:
+  stakeholder: console
+  origin: codebase console + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: admin user observing cluster
+    stimulus: Pod enters Running state or deployment scales to new replica count
+    environment: production cluster with active watch hub
+    artifact: console-backend SSE stream and frontend EventSource
+    response: snapshot published within 1 second; frontend updates UI without page reload
+    response_measure: latency < 1s from cluster event to visual update; no data loss or duplicate frames
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

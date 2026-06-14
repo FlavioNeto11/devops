@@ -1,0 +1,21 @@
+id: REQ-OIDC-0002
+slug: req-oidc-0002
+title: Extração de perfil a partir de claims OIDC
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: oidc
+  applies_to: shared-module
+statement: claimsToProfile(claims) deve extrair email (lowercased) e name (fallback a preferred_username ou email) dos claims retornados pelo /userinfo.
+source:
+  stakeholder: oidc
+  origin: codebase oidc + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

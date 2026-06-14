@@ -1,0 +1,22 @@
+id: REQ-PCONTRACT-0009
+slug: req-pcontract-0009
+title: Health check que nunca falha por DB
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: portal-contracts
+  applies_to: capability
+  capability: portal-recorder
+statement: "GET /health deve retornar { status: 'ok', db: boolean } dentro de 2s; se Postgres indisponível, status='ok' + db=false (fail-open para probe do Kubernetes); API aguarda DB em startup (wait-for-db script no entrypoint)."
+source:
+  stakeholder: portal-contracts
+  origin: codebase portal-contracts + mapeamento multi-agente 2026-06-14
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

@@ -1,0 +1,28 @@
+id: REQ-CICD-NFR-002
+slug: req-cicd-nfr-002
+title: Idempotência de deploy e rollout
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: cicd
+statement: 'O sistema deve atender ao atributo de qualidade "Idempotência de deploy e rollout": Primeira execução: deploy criado/atualizado, rollout aguardado; segunda: kubectl apply e annotate são no-ops (nada muda), pods não são recriados'
+source:
+  stakeholder: cicd
+  origin: codebase cicd + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Operador ou rerun de job (re-executa deploy-k8s job com mesma imagem)
+    stimulus: Deploy roda 2x em sequência com mesma imagem/manifests
+    environment: Kubernetes docker-desktop; kubectl apply idempotente; annotations --overwrite
+    artifact: Deployment e pods
+    response: "Primeira execução: deploy criado/atualizado, rollout aguardado; segunda: kubectl apply e annotate são no-ops (nada muda), pods não são recriados"
+    response_measure: Rerun de job não causa disruption (zero pod restart); replica count mantido; logs mostram 'deployment already satisfied' ou similar
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

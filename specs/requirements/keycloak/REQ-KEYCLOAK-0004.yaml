@@ -1,0 +1,21 @@
+id: REQ-KEYCLOAK-0004
+slug: req-keycloak-0004
+title: Clients OIDC confidenciais (Grafana, Argo CD, DevOps Console)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: keycloak
+  applies_to: product
+statement: Realm nvit deve possuir clientes confidenciais (Standard Flow) para Grafana, Argo CD e DevOps Console com redirect URIs específicas e group membership mappers; cada client secret armazenado como Sealed Secret.
+source:
+  stakeholder: keycloak
+  origin: codebase keycloak + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

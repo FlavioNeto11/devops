@@ -19,6 +19,8 @@ links:
     target: REQ-SICAT-0011
   - type: relates_to
     target: REQ-SICAT-0012
+  - type: depends_on
+    target: REQ-OBS-0001
 version:
   baseline_version: 1.0.0
   item_revision: 1

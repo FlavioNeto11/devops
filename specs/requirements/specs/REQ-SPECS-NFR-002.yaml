@@ -1,0 +1,28 @@
+id: REQ-SPECS-NFR-002
+slug: req-specs-nfr-002
+title: Validação de schema com erro descritivo
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: specs
+statement: 'O sistema deve atender ao atributo de qualidade "Validação de schema com erro descritivo": Falha com mensagem que identifica: arquivo, caminho JSON (instancePath), erro específico (type mismatch, enum violation, etc.)'
+source:
+  stakeholder: specs
+  origin: codebase specs + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: "Desenvolvedor editando requisito YAML com campo inválido (ex.: priority=invalid)"
+    stimulus: Executar build-baseline.mjs ou specs-governance CI
+    environment: Ajv 2020-12 validando contra requirement.schema.json
+    artifact: Processo de validação
+    response: "Falha com mensagem que identifica: arquivo, caminho JSON (instancePath), erro específico (type mismatch, enum violation, etc.)"
+    response_measure: Tempo de feedback < 5s; mensagem tem file:path:error em formato fixo para parsing
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

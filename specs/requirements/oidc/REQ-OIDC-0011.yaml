@@ -1,0 +1,21 @@
+id: REQ-OIDC-0011
+slug: req-oidc-0011
+title: Middleware Express para autenticação de sessão
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: oidc
+  applies_to: shared-module
+statement: "requireSession({secret, prefix}) deve retornar middleware que extrai token do header Authorization: Bearer, valida via verifyAccessToken, popula req.session com payload ou responde 401 {error: {code, message}}."
+source:
+  stakeholder: oidc
+  origin: codebase oidc + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

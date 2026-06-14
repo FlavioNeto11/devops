@@ -1,0 +1,28 @@
+id: REQ-PCONTRACT-NFR-005
+slug: req-pcontract-nfr-005
+title: "Segurança: fail-closed para writes sem token Bearer"
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: portal-contracts
+statement: "O sistema deve atender ao atributo de qualidade \"Segurança: fail-closed para writes sem token Bearer\": HTTP 503 (Service Unavailable) + { error: { code: 'auth_required', message: '...' } } em < 100ms; request não processado"
+source:
+  stakeholder: portal-contracts
+  origin: codebase portal-contracts + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Request POST /v1/portals sem Authorization header
+    stimulus: POST /v1/portals { slug, name, ... }
+    environment: Middleware Bearer check em todas as rotas [w]
+    artifact: Write endpoint
+    response: "HTTP 503 (Service Unavailable) + { error: { code: 'auth_required', message: '...' } } em < 100ms; request não processado"
+    response_measure: Nenhuma write execute sem Bearer válido; 503 vs 401 sinaliza 'fail-closed' vs 'forbidden'; teste de fuzzing prova inviolabilidade
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

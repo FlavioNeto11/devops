@@ -1,0 +1,28 @@
+id: REQ-CICD-NFR-001
+slug: req-cicd-nfr-001
+title: Performance de build/push (cache e camadas)
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: cicd
+statement: 'O sistema deve atender ao atributo de qualidade "Performance de build/push (cache e camadas)": Frontend (cache hit) completa em <30s; api (rebuild) em <2min (maven cache + docker layer cache); worker (cache hit) em <30s'
+source:
+  stakeholder: cicd
+  origin: codebase cicd + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Desenvolvedor fazendo push para branch feature com mudança em app/sicat/api
+    stimulus: Workflow dispara matriz build-push para frontend (sem mudança) + api (com mudança) + worker (sem mudança)
+    environment: GitHub Actions ubuntu-latest; Docker Buildx com cache gha; GHCR registry
+    artifact: Build matrix jobs paralelos
+    response: Frontend (cache hit) completa em <30s; api (rebuild) em <2min (maven cache + docker layer cache); worker (cache hit) em <30s
+    response_measure: Tempo total build+push <= 3min; hit rate > 80% em camadas inalteradas; GHCR tags aparecem em < 1min
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

@@ -1,0 +1,28 @@
+id: REQ-PLATFORM-NFR-002
+slug: req-platform-nfr-002
+title: Conformidade de labels no cluster
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: platform
+statement: 'O sistema deve atender ao atributo de qualidade "Conformidade de labels no cluster": Console agrupa recurso corretamente na aba **Apps**; nenhuma recurso orfão'
+source:
+  stakeholder: platform
+  origin: codebase platform + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: DevOps operator
+    stimulus: Criar novo Deployment/Service em namespace `apps` com labels canonicamente corretos
+    environment: Cluster rodando, Console Backend consultando recursos
+    artifact: "Recurso com labels `app.kubernetes.io/part-of: <app>` e demais labels canônicos"
+    response: Console agrupa recurso corretamente na aba **Apps**; nenhuma recurso orfão
+    response_measure: 100% dos recursos com labels canônicos; 0 erros de agrupamento no Console
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

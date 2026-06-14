@@ -1,0 +1,21 @@
+id: REQ-REQHUB-0009
+slug: req-reqhub-0009
+title: Abas navegáveis de 7 telas principais
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: reqhub
+  applies_to: product
+statement: O sistema deve organizar as telas (Explorador, Workspace, Versões, Mapa de impacto, Cobertura, Fila de reprocessamento, Editor) em abas acessíveis por teclado (ArrowLeft/Right) e mouse, com indicador visual de seleção.
+source:
+  stakeholder: reqhub
+  origin: codebase reqhub + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

@@ -1,0 +1,21 @@
+id: REQ-PLATFORM-0009
+slug: req-platform-0009
+title: Padrões de infraestrutura (infra-standards.md)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: platform
+  applies_to: product
+statement: "Documentar em `docs/standards/infra-standards.md` padrões operacionais: namespaces, labels, roteamento (regra de ouro api2>api>frontend), recursos (requests+limits HARD), secrets (SealedSecret), GitOps (Argo prune+selfHeal)."
+source:
+  stakeholder: platform
+  origin: codebase platform + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

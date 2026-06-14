@@ -1,0 +1,21 @@
+id: REQ-ARGO-0004
+slug: req-argo-0004
+title: Server Argo em subpath /argocd sem TLS próprio
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: argocd
+  applies_to: product
+statement: Configurar Argo CD server com `--insecure`, `--rootpath /argocd` e `basehref /argocd/` para rodar atrás do Traefik em HTTP; TLS terminado na borda.
+source:
+  stakeholder: argocd
+  origin: codebase argocd + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

@@ -1,0 +1,21 @@
+id: REQ-ARGO-0005
+slug: req-argo-0005
+title: SSO via OIDC (Keycloak realm nvit)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: argocd
+  applies_to: product
+statement: Integrar OIDC na configuração `configs.cm.oidc.config` apontando para issuer `https://dev.nvit.com.br/auth/realms/nvit`, clientID `argocd`; cliente secret vem do SealedSecret `argocd-oidc`.
+source:
+  stakeholder: argocd
+  origin: codebase argocd + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

@@ -1,0 +1,21 @@
+id: REQ-SPECS-0001
+slug: req-specs-0001
+title: Artefato canônico de requisito versionado (YAML schema)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: specs
+  applies_to: product
+statement: O sistema deve permitir definir e versionare requisitos em YAML conforme specs/schema/requirement.schema.json, com identidade (id/slug/title/type), escopo explícito (product_scope/applies_to), conteúdo (statement/business_rationale), prioridade/criticidade, architectural_significance (ASR), acceptance_criteria, verification_method, evidence_links, quality_scenarios para NFR, rastreabilidade tipada (links), versionamento semântico (item_revision/semantic_change/change_reason) e alocação derivada (architecture_refs/infra_refs/adr_refs/service_refs/slo_refs).
+source:
+  stakeholder: specs
+  origin: codebase specs + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

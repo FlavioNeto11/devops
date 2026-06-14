@@ -1,0 +1,22 @@
+id: REQ-PCONTRACT-0002
+slug: req-pcontract-0002
+title: Sessão de captura com gravação interativa (Playwright CDP)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: portal-contracts
+  applies_to: capability
+  capability: portal-recorder
+statement: API deve criar sessão de captura (POST /v1/portals/:id/sessions) que dispara browser remoto (Chromium via Playwright) com newContext() isolado; suportar title opcional, retorna session id; operador interage com portal no browser; recorder captura tudo via Chrome DevTools Protocol (rede, DOM, screenshots, eventos).
+source:
+  stakeholder: portal-contracts
+  origin: codebase portal-contracts + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

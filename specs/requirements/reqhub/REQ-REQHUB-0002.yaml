@@ -1,0 +1,21 @@
+id: REQ-REQHUB-0002
+slug: req-reqhub-0002
+title: Workspace do requisito com contexto bidirecional
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: reqhub
+  applies_to: product
+statement: "O sistema deve exibir um requisito selecionado com: identidade (ID/título/tipo/status/escopo/prioridade/ASR), enunciado, critérios de aceite, métodos de verificação, cenários de qualidade (NFR), impacto (score/band/vizinhança outgoing/incoming), versão (baseline/revision/mudança semântica/motivo), alocação (serviço/infra/ADR/SLO/arquitetura) e requisitos similares por semântica."
+source:
+  stakeholder: reqhub
+  origin: codebase reqhub + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

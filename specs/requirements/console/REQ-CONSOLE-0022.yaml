@@ -1,0 +1,21 @@
+id: REQ-CONSOLE-0022
+slug: req-console-0022
+title: User access control per project
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: console
+  applies_to: product
+statement: "POST/PATCH /pm_user_access (admin). Define quem pode editar/ver qual projeto (can_edit boolean). GET /me retorna identidade do usuario: email, isAdmin, isMember, projects (list of assigned). Frontend usa isso para renderizar sidebar (member ve so painel+seus projetos/portal; admin ve cluster+tools)."
+source:
+  stakeholder: console
+  origin: codebase console + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

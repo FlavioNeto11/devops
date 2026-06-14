@@ -1,0 +1,21 @@
+id: REQ-CONSOLE-0014
+slug: req-console-0014
+title: Manage projects with type classification
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: console
+  applies_to: product
+statement: "GET/POST/PATCH/DELETE /projects (pm-api). Projetos podem ser app_type: cms_portal, product_software ou platform_tool. Admin cria qualquer tipo (nasce approved). Member so pode criar portal CMS (nasce pending_approval). PATCH (admin) permite editar campo, inclusive related_project_id (vinculo portal->produto para contexto IA). Usuarios veem lista escopada por acesso."
+source:
+  stakeholder: console
+  origin: codebase console + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

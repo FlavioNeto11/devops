@@ -1,0 +1,24 @@
+id: REQ-CICD-0003
+slug: req-cicd-0003
+title: Deploy no cluster Kubernetes local (reusable-deploy-k8s.yaml)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: cicd
+  applies_to: product
+statement: "Workflow reutilizável deve rodar em self-hosted runner Windows (labels: self-hosted, windows, docker-desktop, local-k8s, flavio-devops), validar contexto kubectl (docker-desktop), garantir namespace, aplicar manifests via kubectl apply -f recursivo, anotar Deployment com metadados de rastreabilidade (commit SHA, branch, image tag, deployed-at, run-id) com --overwrite, aguardar rollout com timeout."
+source:
+  stakeholder: cicd
+  origin: codebase cicd + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+links:
+  - type: relates_to
+    target: REQ-ARGO-0001
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

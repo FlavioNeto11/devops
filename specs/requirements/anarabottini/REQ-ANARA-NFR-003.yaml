@@ -1,0 +1,28 @@
+id: REQ-ANARA-NFR-003
+slug: req-anara-nfr-003
+title: "Performance: FCP <2.5s, LCP <4.0s em mobile 4G"
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: anarabottini
+statement: 'O sistema deve atender ao atributo de qualidade "Performance: FCP <2.5s, LCP <4.0s em mobile 4G": Hero carrega em <2.5s; main content visível <4.0s; vídeos YouTube lazy-load; PDFs link apenas (sem preload)'
+source:
+  stakeholder: anarabottini
+  origin: codebase anarabottini + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Usuário mobile (RH em viagem/evento) com 4G/3G acessando no horário de pico
+    stimulus: Usuário clica link para conhecer palestrante ou baixar material
+    environment: Slow 4G, cold cache, latência 50ms
+    artifact: Vite build otimizado + nginx gzip + lazy loading
+    response: Hero carrega em <2.5s; main content visível <4.0s; vídeos YouTube lazy-load; PDFs link apenas (sem preload)
+    response_measure: Lighthouse Performance ≥85 mobile; FCP <2.5s; LCP <4.0s; CLS <0.1
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

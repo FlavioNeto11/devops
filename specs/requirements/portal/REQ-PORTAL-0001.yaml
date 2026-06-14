@@ -1,0 +1,21 @@
+id: REQ-PORTAL-0001
+slug: req-portal-0001
+title: Exibir catálogo curado de produtos em cards estáticos
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: portal
+  applies_to: product
+statement: A página deve renderizar catálogo declarativo (SICAT, GymOps, RM Ambiental, Ana Rabottini) em cards HTML estáticos com título, descrição, tags, role (Gestão Ambiental/Operacional/Portal), CTA e badge de status ('no ar'/'exige login').
+source:
+  stakeholder: portal
+  origin: codebase portal + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

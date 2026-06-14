@@ -1,0 +1,21 @@
+id: REQ-REQHUB-0007
+slug: req-reqhub-0007
+title: Editor assistido com geração de YAML e abertura em PR
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: reqhub
+  applies_to: product
+statement: O sistema deve permitir criar/editar requisito via formulário, gerar YAML validado, copiar para clipboard e abrir uma janela de PR no GitHub (new/edit) sem escrever no git (autenticação do usuário). Após merge, regenerar baseline via /sync-spec.
+source:
+  stakeholder: reqhub
+  origin: codebase reqhub + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

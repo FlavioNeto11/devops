@@ -1,0 +1,21 @@
+id: REQ-SPECS-0009
+slug: req-specs-0009
+title: Baseline inicial semeada de requisitos reais (bootstrap)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: specs
+  applies_to: product
+statement: O sistema deve iniciar com baseline contendo requisitos reais extraídos de SICAT (24 FR + 8 NFR), GymOps (15 FR + 8 NFR), CMS (15 FR + 7 NFR) = 69 requisitos aprovados; rastreabilidade inicial (links REQ→REQ) curada em specs/tools/seed-links.json; evidências de verificação (evidence_links) e alocação a artefatos externos (architecture/infra/adr/service/slo/test refs) deixadas para iteração/UI, com itens marcados na reprocess_queue.
+source:
+  stakeholder: specs
+  origin: codebase specs + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

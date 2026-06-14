@@ -14,6 +14,11 @@ source:
 priority: critical
 criticality: critical
 architectural_significance: false
+links:
+  - type: depends_on
+    target: REQ-OIDC-0001
+  - type: depends_on
+    target: REQ-KEYCLOAK-0005
 version:
   baseline_version: 1.0.0
   item_revision: 1

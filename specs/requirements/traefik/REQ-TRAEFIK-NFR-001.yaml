@@ -1,0 +1,28 @@
+id: REQ-TRAEFIK-NFR-001
+slug: req-traefik-nfr-001
+title: Latência de roteamento
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: traefik
+statement: 'O sistema deve atender ao atributo de qualidade "Latência de roteamento": Requisição roteada em <50ms; resposta recebida com headers de segurança aplicados'
+source:
+  stakeholder: traefik
+  origin: codebase traefik + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Cliente HTTP (navegador ou CLI)
+    stimulus: Fazer requisição GET para rota `/aplicacao1/` (frontend) ou `/aplicacao1/api/v1/health` (API)
+    environment: Docker Desktop, Traefik com 1 réplica, cluster sem sobrecarga
+    artifact: IngressRoute com match correto, middlewares (compress, secure-headers) e serviço backend
+    response: Requisição roteada em <50ms; resposta recebida com headers de segurança aplicados
+    response_measure: p50 latência <30ms, p99 <100ms; 0% timeouts
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

@@ -1,0 +1,28 @@
+id: REQ-SPECS-NFR-003
+slug: req-specs-nfr-003
+title: Rastreabilidade transitiva com ciclicidade detectável
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: specs
+statement: 'O sistema deve atender ao atributo de qualidade "Rastreabilidade transitiva com ciclicidade detectável": Enumerar requisitos afetados transitivamente; detectar ciclos (A→B→C→A) com aviso; marcar arestas proposed vs canonical'
+source:
+  stakeholder: specs
+  origin: codebase specs + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Claude/UI analisando impacto de mudança de requisito A
+    stimulus: Seguir grafo (depends_on, constrains, derives_from...) até folhas (até N=5 hops)
+    environment: Impact-map.json com 69 requisitos, ~150 arestas canonical + proposed
+    artifact: Grafo de rastreabilidade
+    response: Enumerar requisitos afetados transitivamente; detectar ciclos (A→B→C→A) com aviso; marcar arestas proposed vs canonical
+    response_measure: Nenhuma busca infinita (timeout); ciclos detectados em < 1s; arestas marcadas conforme link.status
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

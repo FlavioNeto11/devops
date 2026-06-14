@@ -1,0 +1,21 @@
+id: REQ-OBS-0005
+slug: req-obs-0005
+title: Grafana em subpath /grafana
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: observability
+  applies_to: product
+statement: "Configurar `server.root_url: https://dev.nvit.com.br/grafana` e `serve_from_sub_path: true` para servir Grafana atrás do Traefik em path `/grafana` com assets resolvidos corretamente."
+source:
+  stakeholder: observability
+  origin: codebase observability + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

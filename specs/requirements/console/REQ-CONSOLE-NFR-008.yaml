@@ -1,0 +1,28 @@
+id: REQ-CONSOLE-NFR-008
+slug: req-console-nfr-008
+title: Read-only filesystem and non-root container security
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: console
+statement: 'O sistema deve atender ao atributo de qualidade "Read-only filesystem and non-root container security": pod runs without attempting filesystem writes (logs via stdout) or privilege escalation'
+source:
+  stakeholder: console
+  origin: codebase console + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: kubernetes pod security policy / admission controller
+    stimulus: pod starts with readOnlyRootFilesystem=true, runAsNonRoot=true, drop=[ALL]
+    environment: devops-system namespace, both backend and pm-api pods
+    artifact: backend-deployment.yaml and pm-api.yaml securityContext config
+    response: pod runs without attempting filesystem writes (logs via stdout) or privilege escalation
+    response_measure: pod status Ready; zero errors in logs about filesystem write; audit shows no capability requests
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

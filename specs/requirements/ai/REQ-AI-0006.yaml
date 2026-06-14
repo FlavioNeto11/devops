@@ -1,0 +1,21 @@
+id: REQ-AI-0006
+slug: req-ai-0006
+title: KPIs canônicos com metas
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: ai
+  applies_to: product
+statement: "9 KPIs: groundedness (0.8), answer_relevance (0.85), tool_call_accuracy (0.9), task_completion_rate (0.75), deflection_rate (0.7), csat (0.8), cost_per_conversation (0.1 USD), latency_p95 (15s), escalation_rate (0.15). Metas ajustáveis por app no control-plane. Eval harness compara contra metas."
+source:
+  stakeholder: ai
+  origin: codebase ai + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

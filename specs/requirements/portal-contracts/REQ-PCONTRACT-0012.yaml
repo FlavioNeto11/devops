@@ -1,0 +1,22 @@
+id: REQ-PCONTRACT-0012
+slug: req-pcontract-0012
+title: Integração com Postgres via pool conexões
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: portal-contracts
+  applies_to: capability
+  capability: portal-recorder
+statement: API deve conectar Postgres 16-alpine via pg/pg-pool; connection string via Secret POSTGRES_*; database=portal_recorder; migration/seed on startup; pool size = 10; retry on startup com backoff.
+source:
+  stakeholder: portal-contracts
+  origin: codebase portal-contracts + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

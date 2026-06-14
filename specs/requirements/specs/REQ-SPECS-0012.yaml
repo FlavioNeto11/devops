@@ -1,0 +1,21 @@
+id: REQ-SPECS-0012
+slug: req-specs-0012
+title: Índice de recuperação para Claude (retrieval-manifest.json)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: specs
+  applies_to: product
+statement: O baseline deve incluir specs/baseline/retrieval-manifest.json mapeando id→arquivo para que o Claude recupere rapidamente artefatos de requisito; usado por skill /baseline-diff e consumo em conversas.
+source:
+  stakeholder: specs
+  origin: codebase specs + mapeamento multi-agente 2026-06-14
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

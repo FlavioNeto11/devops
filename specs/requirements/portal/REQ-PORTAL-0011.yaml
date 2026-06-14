@@ -1,0 +1,21 @@
+id: REQ-PORTAL-0011
+slug: req-portal-0011
+title: Dark mode automático baseado em prefers-color-scheme
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: portal
+  applies_to: product
+statement: "A página deve oferecer tema claro (default) e escuro automático via CSS media query (prefers-color-scheme: dark), com tokens CSS unificados (--bg, --accent, --body, etc.)."
+source:
+  stakeholder: portal
+  origin: codebase portal + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

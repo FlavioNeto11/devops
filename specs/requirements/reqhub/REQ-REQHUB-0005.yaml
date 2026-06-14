@@ -1,0 +1,21 @@
+id: REQ-REQHUB-0005
+slug: req-reqhub-0005
+title: Cobertura (matriz requisito × evidência/alocação)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: reqhub
+  applies_to: product
+statement: O sistema deve exibir uma matriz de cobertura requisitos × dimensões (aceite/método/evidência/ADR/serviço/infra/SLO), marcando verde (✓) quando preenchido e vermelho (—) para lacunas. Calcular score de cobertura por requisito (% dimensões preenchidas).
+source:
+  stakeholder: reqhub
+  origin: codebase reqhub + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

@@ -1,0 +1,28 @@
+id: REQ-PORTAL-NFR-003
+slug: req-portal-nfr-003
+title: "Performance: FCP <1.5s, LCP <2.5s; zero CLS em main content"
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: portal
+statement: 'O sistema deve atender ao atributo de qualidade "Performance: FCP <1.5s, LCP <2.5s; zero CLS em main content": HTML inicia pintura <1.5s; hero + catálogo visível <2.5s; cards não movem durante load (CLS ~0 antes do JS)'
+source:
+  stakeholder: portal
+  origin: codebase portal + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Usuário em navegador desktop/mobile com 4G/LTE em horário normal
+    stimulus: Usuário digita URL ou clica bookmarks; primeira visita (cold cache)
+    environment: 4G (10 Mbps), latência 40ms; navegador moderno; CPU moderna
+    artifact: HTML + CSS versionado (styles.css?v=10) + JS módulo async; nginx gzip; sem imagens pesadas (só SVG)
+    response: HTML inicia pintura <1.5s; hero + catálogo visível <2.5s; cards não movem durante load (CLS ~0 antes do JS)
+    response_measure: Lighthouse Performance ≥90; FCP <1.5s; LCP <2.5s; CLS <0.05 durante page load
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

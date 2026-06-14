@@ -1,0 +1,21 @@
+id: REQ-KEYCLOAK-0007
+slug: req-keycloak-0007
+title: Bootstrapping de credenciais de admin
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: keycloak
+  applies_to: product
+statement: Bootstrap do admin (realm master) deve ser via variáveis KC_BOOTSTRAP_ADMIN_USERNAME/PASSWORD no Secret keycloak-secrets, nunca em plaintext no manifesto.
+source:
+  stakeholder: keycloak
+  origin: codebase keycloak + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

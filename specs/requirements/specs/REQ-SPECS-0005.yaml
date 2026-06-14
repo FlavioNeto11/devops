@@ -1,0 +1,24 @@
+id: REQ-SPECS-0005
+slug: req-specs-0005
+title: Governança de versionamento semântico (CI gate specs-governance)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: specs
+  applies_to: product
+statement: O workflow specs-governance.yml deve executar sempre (sem path filter) e validar schema + integridade + drift (baseline commitada == baseline regenerada); no PR, o job enforce-versioning deve falha se requisito mudou em campo semântico (statement, scope, links, quality_scenarios, status, prioridade, ASR) sem incrementar item_revision, classificar semantic_change (patch/minor/major) e preencher change_reason.
+source:
+  stakeholder: specs
+  origin: codebase specs + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+links:
+  - type: relates_to
+    target: REQ-CICD-0005
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

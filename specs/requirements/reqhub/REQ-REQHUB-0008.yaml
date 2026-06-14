@@ -1,0 +1,21 @@
+id: REQ-REQHUB-0008
+slug: req-reqhub-0008
+title: Busca semântica por embeddings locais
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: reqhub
+  applies_to: product
+statement: O sistema deve calcular e armazenar vetores de embedding (embeddings.json) para cada requisito e exibir no workspace top-5 requisitos mais similares por similaridade cosseno, marcando possíveis duplicatas (score >= 0.8).
+source:
+  stakeholder: reqhub
+  origin: codebase reqhub + mapeamento multi-agente 2026-06-14
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

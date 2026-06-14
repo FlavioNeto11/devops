@@ -1,0 +1,28 @@
+id: REQ-ANARA-NFR-002
+slug: req-anara-nfr-002
+title: Acessibilidade WCAG 2.1 AA para públicos corporativos
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: anarabottini
+statement: 'O sistema deve atender ao atributo de qualidade "Acessibilidade WCAG 2.1 AA para públicos corporativos": Todos os CTAs navegáveis via teclado; labels explícitos; modais acessíveis; acordeão keyboard-friendly; imagens alt descritivas'
+source:
+  stakeholder: anarabottini
+  origin: codebase anarabottini + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: RH ou SESMT com deficiência visual usando screen reader ou ampliador
+    stimulus: Usuário navega palestras, materiais, FAQ com teclado/tech.assistiva
+    environment: NVDA/JAWS em Windows corporativo
+    artifact: Componentes React semânticos (main, nav, article, button, form)
+    response: Todos os CTAs navegáveis via teclado; labels explícitos; modais acessíveis; acordeão keyboard-friendly; imagens alt descritivas
+    response_measure: axe-core 100; Lighthouse accessibility ≥95; nenhuma violação WCAG AA
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

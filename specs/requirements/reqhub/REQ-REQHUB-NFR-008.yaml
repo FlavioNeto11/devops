@@ -1,0 +1,28 @@
+id: REQ-REQHUB-NFR-008
+slug: req-reqhub-nfr-008
+title: Representação visual clara de requisitos ASR e ligações propostas
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: reqhub
+statement: 'O sistema deve atender ao atributo de qualidade "Representação visual clara de requisitos ASR e ligações propostas": ASR e proposto visualmente distintos'
+source:
+  stakeholder: reqhub
+  origin: codebase reqhub + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: usabilidade/conformidade
+    stimulus: Visualização de requisito ASR e link proposto no workspace/grafo
+    environment: Badge 'ASR' em cor distinta (--asr); aresta proposta em tracejado
+    artifact: Elemento DOM renderizado
+    response: ASR e proposto visualmente distintos
+    response_measure: Contraste >= 4.5:1; tracejado claro em SVG; teste manual pass
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

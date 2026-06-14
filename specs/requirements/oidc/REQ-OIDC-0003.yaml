@@ -1,0 +1,21 @@
+id: REQ-OIDC-0003
+slug: req-oidc-0003
+title: Cripto HMAC-SHA256 de access token de sessão
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: oidc
+  applies_to: shared-module
+statement: "createAccessToken(payload, {secret, ttlSeconds, prefix}) deve gerar token com formato 'prefix.encodedPayload.signature' usando HMAC-SHA256; payload deve incluir iat, exp, jti automáticos; default prefix: 'oidc_access'."
+source:
+  stakeholder: oidc
+  origin: codebase oidc + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

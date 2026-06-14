@@ -1,0 +1,28 @@
+id: REQ-CONSOLE-NFR-007
+slug: req-console-nfr-007
+title: Kubernetes manifest idempotency
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: console
+statement: 'O sistema deve atender ao atributo de qualidade "Kubernetes manifest idempotency": second and subsequent runs detect no changes (no rollout restart, no resource recreation)'
+source:
+  stakeholder: console
+  origin: codebase console + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: platform operator running install script
+    stimulus: kubectl apply -f console/k8s/ or scripts/install-dashboard.ps1 executed multiple times
+    environment: devops-system namespace with existing console resources
+    artifact: k8s manifests (Deployment, Service, ConfigMap, RBAC, IngressRoute)
+    response: second and subsequent runs detect no changes (no rollout restart, no resource recreation)
+    response_measure: kubectl apply output shows unchanged for all resources; no downtime between runs
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

@@ -646,5 +646,2891 @@
       "REQ-CMS-0003",
       "REQ-CMS-NFR-002"
     ]
+  },
+  "rmambiental": {
+    "product_scope": "rmambiental",
+    "dir": "rmambiental",
+    "prefix": "RMAMB",
+    "owner": "plataforma-digital",
+    "origin": "codebase rmambiental + mapeamento multi-agente 2026-06-14",
+    "one_line": "Portal institucional premium da RM Ambiental Brasil — consultoria ambiental, licenciamento, engenharia e soluções ambientais.",
+    "stack": "Vite 5 + React 18 + TypeScript 5 + Tailwind CSS 3 + Framer Motion 11 + react-router-dom 6 + nginx:alpine",
+    "functional_requirements": [
+      {
+        "proposed_id": "REQ-RMAMB-0001",
+        "title": "Renderizar página inicial com hero, posicionamento e call-to-action",
+        "statement": "A aplicação deve renderizar uma página Home com seção hero (título, subtítulo, imagem/background), posicionamento corporativo (verde profundo + azul petróleo + grafite), e CTAs que direcionam para Soluções e Contato.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-RMAMB-0002",
+        "title": "Exibir 4 frentes de solução em página Soluções",
+        "statement": "A aplicação deve renderizar página Soluções com cards descrevendo as 4 frentes de consultoria ambiental (licenciamento, engenharia, conformidade, gestão), com scroll reveal animado e microcópias detalhadas.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-RMAMB-0003",
+        "title": "Exibir setores atendidos com ícones e descrições",
+        "statement": "A aplicação deve renderizar seção Setores (mineração, energia, concessões, obras) com ícones, backgrounds decorativos e microcópia descritiva de cada segmento de atuação.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-RMAMB-0004",
+        "title": "Renderizar galeria de projetos com casos de uso",
+        "statement": "A aplicação deve exibir galeria de casos reais (substituir placeholders por dados fornecidos) com imagens, descrições, setores envolvidos e status de implementação.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-RMAMB-0005",
+        "title": "Exibir seção ESG e números de autoridade",
+        "statement": "A aplicação deve renderizar seção ESG com valores corporativos, contadores animados mostrando números de autoridade/experiência (CETESB, IBAMA, projetos), e badges de conformidade.",
+        "scope": "product",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-RMAMB-0006",
+        "title": "Implementar página de Contato com formulário e canais",
+        "statement": "A aplicação deve renderizar página Contato com formulário de proposta nativa (sem backend; ações via mailto/WhatsApp), canais de contato configuráveis (e-mail, WhatsApp DDI+DDD+nº, endereço) e integração com redes sociais.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-RMAMB-0007",
+        "title": "Renderizar header fixo com navegação principal e theme toggle",
+        "statement": "A aplicação deve renderizar header fixo com logo, navegação client-side (`/`, `/solucoes`, `/contato`), scroll manager (anima até seções por hash), e botão de toggle entre modo claro/escuro com persistência em localStorage.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-RMAMB-0008",
+        "title": "Oferecer roteamento subpath /rmambiental sem strip",
+        "statement": "A aplicação deve estar disponível em subpath `/rmambiental` com base path embutida no build (vite.config.ts VITE_BASE_PATH=/rmambiental/), sem strip de prefixo no Traefik (nginx alias estático), prioridade 10 (acima do portal `/`).",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-RMAMB-0009",
+        "title": "Suportar dark mode com cores corporativas ajustadas",
+        "statement": "A aplicação deve oferecer dark mode (claro por padrão) com paleta corporativa escura (verde neon + azul profundo + grafite), respeitando localStorage e oferecendo toggle acessível no header.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-RMAMB-0010",
+        "title": "Exibir footer com links, redes sociais e política de privacidade",
+        "statement": "A aplicação deve renderizar footer com logo, links de navegação (reutilizar header), redes sociais configuráveis (LinkedIn, Instagram), dados de contato, e link para Política de Privacidade (a confirmar URL).",
+        "scope": "product",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-RMAMB-0011",
+        "title": "Implementar FAB WhatsApp condicionado a configuração",
+        "statement": "A aplicação deve renderizar floating action button WhatsApp que só aparece quando o número está preenchido em src/lib/site.ts; ao clicar, abre conversa no WhatsApp com mensagem pré-formulada.",
+        "scope": "product",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-RMAMB-0012",
+        "title": "Substituir placeholders de conteúdo por dados reais",
+        "statement": "A aplicação deve permitir configuração centralizada de placeholders em src/lib/site.ts (contato, redes, cidade) e src/data/* (projects, sectors, services) sem tocar em componentes React.",
+        "scope": "product",
+        "priority": "high"
+      }
+    ],
+    "non_functional_requirements": [
+      {
+        "proposed_id": "REQ-RMAMB-NFR-001",
+        "title": "SEO otimizado com metadados e Open Graph",
+        "quality_scenario": {
+          "source": "Mecanismo de busca (Google, Bing) ou rede social (LinkedIn, Facebook)",
+          "stimulus": "Usuário compartilha link do portal ou busca por 'RM Ambiental consultoria'",
+          "environment": "Navegador de desktop ou mobile, conexão normal",
+          "artifact": "Página Home com index.html renderizado",
+          "response": "Mecanismo de busca indexa título, descrição, imagem social (og:image), author e keywords; compartilhamento em redes exibe preview rico (title+description+imagem)",
+          "response_measure": "Lighthouse score SEO ≥92; meta tags presentes (title, description, og:*); canonical URL configurado"
+        }
+      },
+      {
+        "proposed_id": "REQ-RMAMB-NFR-002",
+        "title": "Acessibilidade WCAG 2.1 AA em toda a aplicação",
+        "quality_scenario": {
+          "source": "Usuário com deficiência visual/motora ou navegador com screen reader",
+          "stimulus": "Usuário navega com teclado, tech. assistiva ou ampliação; busca acessar todos os CTAs e seções",
+          "environment": "NVDA, JAWS, VoiceOver ou ampliador de tela; navegador desktop",
+          "artifact": "Aplicação Vite/React com componentes semânticos",
+          "response": "Todos os elementos interativos acessíveis via Tab, Enter, Space; texto alt em imagens; contrast ratio ≥4.5:1 (normal) e 3:1 (large); skip-link até main; labels explícitos",
+          "response_measure": "axe-core audit score 100%; Lighthouse accessibility ≥95; nenhum erro ao atrophy WCAG AA"
+        }
+      },
+      {
+        "proposed_id": "REQ-RMAMB-NFR-003",
+        "title": "Performance: First Contentful Paint <2.5s, LCP <4.0s mobile",
+        "quality_scenario": {
+          "source": "Usuário em rede 4G/3G (mobile real) acessando portal em horário de pico",
+          "stimulus": "Usuário digita URL ou clica link (cold cache, protocolo HTTP/2)",
+          "environment": "Slow 4G (4 Mbps), latência 50ms; cache browser vazio",
+          "artifact": "Build estático Vite + nginx comprimido (gzip)",
+          "response": "HTML inicia renderização <2.5s; main content (hero + title) visível <4.0s; imagens lazy-loaded após fold",
+          "response_measure": "Lighthouse Performance score ≥85 mobile; FCP <2.5s; LCP <4.0s; CLS <0.1"
+        }
+      },
+      {
+        "proposed_id": "REQ-RMAMB-NFR-004",
+        "title": "Tema escuro e claro respeitam preferência do sistema + persistência",
+        "quality_scenario": {
+          "source": "Usuário com preferência dark mode em SO (Windows, macOS, Android) ou toggle manual",
+          "stimulus": "Usuário abre portal pela primeira vez ou alterna theme toggle no header",
+          "environment": "Navegador moderno (Chrome, Safari, Firefox) em OS com dark mode",
+          "artifact": "HTML + CSS com prefers-color-scheme media query + localStorage (rmamb-theme)",
+          "response": "Tema escuro aplicado via CSS var (--bg, --fg, --neon etc.); sem flash; theme salvo em localStorage e restaurado na próxima visita",
+          "response_measure": "Nenhum flash ao reload; tema persiste entre abas; contraste AA mantido em ambos (light+dark)"
+        }
+      },
+      {
+        "proposed_id": "REQ-RMAMB-NFR-005",
+        "title": "Responsividade mobile-first com breakpoints Tailwind",
+        "quality_scenario": {
+          "source": "Usuário em dispositivo mobile (smartphone 320–375px) ou tablet (768px)",
+          "stimulus": "Usuário navega para seção Soluções ou Projetos em tela pequena",
+          "environment": "iOS Safari ou Chrome Android; orientações portrait/landscape",
+          "artifact": "Vite build + Tailwind responsive classes (sm:, md:, lg:)",
+          "response": "Layout reflow fluidamente; títulos escaláveis; imagens aspect-ratio mantido; CTAs >44px de altura/largura (WCAG touch); nenhum overflow horizontal",
+          "response_measure": "Viewport meta presente; Lighthouse mobile score ≥85; testes visuais em 375px e 768px sem overflow"
+        }
+      },
+      {
+        "proposed_id": "REQ-RMAMB-NFR-006",
+        "title": "Build reproduzível com package-lock.json versionado",
+        "quality_scenario": {
+          "source": "CI/CD pipeline (GitHub Actions ou local) rodando docker build",
+          "stimulus": "CI push nova tag ou deploy local com 'npm ci'",
+          "environment": "Container distroless/node ou ubuntu; sem npm install (usa npm ci)",
+          "artifact": "package-lock.json versionado em git + package.json imutável",
+          "response": "npm ci instala versões exatas; build produz imagem idêntica; nenhuma dependência flutuante quebra o build",
+          "response_measure": "package-lock.json presente e commitado; docker build -t ... roda sem npm install; build hash estável entre runs"
+        }
+      }
+    ],
+    "architecturally_significant": [
+      "Vite base path /rmambiental embutida no build (VITE_BASE_PATH env var) — não é strip no router",
+      "Frontend sem strip no Traefik; roteamento 100% client-side (react-router-dom); subpath em basename do router",
+      "SPA estática (sem backend, sem banco) — site institucional puro; contato é mailto/WhatsApp, não form submission",
+      "Dark mode com CSS vars (--bg, --fg, --neon etc.) em :root + .dark class + localStorage persistence",
+      "Componentes Framer Motion para scroll reveal + contadores animados; sem lib de charts pesada",
+      "nginx.conf com alias estático para /rmambiental/assets/ e /rmambiental/images/; CSP-safe; gzip enabled"
+    ]
+  },
+  "anarabottini": {
+    "product_scope": "anarabottini",
+    "dir": "anarabottini",
+    "prefix": "ANARA",
+    "owner": "plataforma-digital",
+    "origin": "codebase anarabottini + mapeamento multi-agente 2026-06-14",
+    "one_line": "Portal pessoal de Ana Rabottini — saúde mental corporativa, neurodiversidade, NR-1 e palestrante de desenvolvimento humano.",
+    "stack": "Vite 5 + React 18 + TypeScript 5 + Tailwind CSS 3 + Framer Motion 11 + react-router-dom 6 + nginx:alpine",
+    "functional_requirements": [
+      {
+        "proposed_id": "REQ-ANARA-0001",
+        "title": "Renderizar página inicial com apresentação pessoal e hero",
+        "statement": "A aplicação deve renderizar Home com apresentação pessoal de Ana Rabottini (Neuropsicopedagoga, Psicopedagoga Institucional, Palestrante), hero com monograma 'AR' e call-to-action para palestras/contato.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-ANARA-0002",
+        "title": "Exibir catálogo de 6 palestras com filtro por categoria",
+        "statement": "A aplicação deve renderizar seção Palestras com 6 palestras (NR-1, Bem-estar, Neurodiversidade, Liderança, Campanhas, Custom) em cards filtrável por categoria, modal de detalhe com descrição/formatos/duração/temas/benefícios e CTA 'Solicitar esta palestra'.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-ANARA-0003",
+        "title": "Renderizar galeria de vídeos com lightbox YouTube",
+        "statement": "A aplicação deve exibir seção Mídia com galeria de vídeos do YouTube (lazy-load), lightbox ao clicar, e estado 'vídeos em breve' quando lista vazia.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-ANARA-0004",
+        "title": "Ofertar materiais educativos (e-books, guias, checklists)",
+        "statement": "A aplicação deve renderizar seção Materiais & Recursos com download de e-books, guias e checklists (PDFs em public/materiais/), marcando disponibilidade real, e estado 'materiais em breve' quando vazio.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-ANARA-0005",
+        "title": "Exibir FAQ educativa sobre NR-1 em acordeão",
+        "statement": "A aplicação deve renderizar seção FAQ com perguntas frequentes sobre saúde mental corporativa e NR-1 em acordeão (expand/collapse), com conteúdo educativo.",
+        "scope": "product",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-ANARA-0006",
+        "title": "Renderizar seção 'Como trabalho' (timeline do método) e 'Abordagem' (valores)",
+        "statement": "A aplicação deve exibir timeline do método de trabalho de Ana e seção de valores/abordagem corporativa com ícones e microcópia educativa.",
+        "scope": "product",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-ANARA-0007",
+        "title": "Formulário de proposta com integração WhatsApp/e-mail",
+        "statement": "A aplicação deve renderizar formulário de proposta (nome, empresa, telefone, mensagem) que compõe WhatsApp/e-mail pré-formatado (sem backend; ação via mailto ou window.open).",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-ANARA-0008",
+        "title": "Exibir depoimentos e logos de marcas (opt-in)",
+        "statement": "A aplicação deve renderizar seção Depoimentos & Marcas com cards de depoimentos reais e logos; seção desaparece quando lista vazia (sem prova social inventada).",
+        "scope": "product",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-ANARA-0009",
+        "title": "Oferecer roteamento subpath /anarabottini sem strip",
+        "statement": "A aplicação deve estar disponível em subpath `/anarabottini` com base path embutida no build (vite.config.ts VITE_BASE_PATH=/anarabottini/), sem strip de prefixo, prioridade 10 (acima do portal `/`).",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-ANARA-0010",
+        "title": "Renderizar header com navegação e theme toggle",
+        "statement": "A aplicação deve renderizar header com logo/monograma, navegação client-side (`/`, `/contato`), scroll manager (anima até seções por hash), e botão dark mode toggle com persistência.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-ANARA-0011",
+        "title": "Suportar dark mode com paleta quente & humanista",
+        "statement": "A aplicação deve oferecer dark mode (claro por padrão) com paleta quente/humanista escalável, respeitando localStorage.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-ANARA-0012",
+        "title": "Implementar FAB WhatsApp e botão 'voltar ao topo'",
+        "statement": "A aplicação deve renderizar FAB WhatsApp (condicionado ao número preenchido) e botão flutuante 'voltar ao topo' com scroll smooth.",
+        "scope": "product",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-ANARA-0013",
+        "title": "Substituir placeholders de contato/mídia por dados reais",
+        "statement": "A aplicação deve permitir configuração centralizada em src/lib/site.ts (email, WhatsApp, city, social links, hero/about photos, media.youtube/spotify, forms.embedUrl) e src/data/*.ts (palestras, vídeos, materiais, FAQ, depoimentos, trilhas).",
+        "scope": "product",
+        "priority": "high"
+      }
+    ],
+    "non_functional_requirements": [
+      {
+        "proposed_id": "REQ-ANARA-NFR-001",
+        "title": "SEO otimizado para saúde mental corporativa + NR-1",
+        "quality_scenario": {
+          "source": "Mecanismo de busca (Google) ou LinkedIn ao procurar 'saúde mental corporativa' ou 'consultoria NR-1'",
+          "stimulus": "Usuário (RH, SESMT, gestor) busca por palestrante ou consultora em saúde mental",
+          "environment": "Navegador desktop em horário comercial",
+          "artifact": "index.html com metadados SEO, Open Graph, keywords 'saúde mental, NR-1, neurodiversidade'",
+          "response": "Página rankeia nos top resultados; preview em redes sociais mostra nome, especialidade e imagem; canonical URL correto",
+          "response_measure": "Lighthouse SEO score ≥92; keywords relevantes presentes; og:image configurado; title/description únicos"
+        }
+      },
+      {
+        "proposed_id": "REQ-ANARA-NFR-002",
+        "title": "Acessibilidade WCAG 2.1 AA para públicos corporativos",
+        "quality_scenario": {
+          "source": "RH ou SESMT com deficiência visual usando screen reader ou ampliador",
+          "stimulus": "Usuário navega palestras, materiais, FAQ com teclado/tech.assistiva",
+          "environment": "NVDA/JAWS em Windows corporativo",
+          "artifact": "Componentes React semânticos (main, nav, article, button, form)",
+          "response": "Todos os CTAs navegáveis via teclado; labels explícitos; modais acessíveis; acordeão keyboard-friendly; imagens alt descritivas",
+          "response_measure": "axe-core 100; Lighthouse accessibility ≥95; nenhuma violação WCAG AA"
+        }
+      },
+      {
+        "proposed_id": "REQ-ANARA-NFR-003",
+        "title": "Performance: FCP <2.5s, LCP <4.0s em mobile 4G",
+        "quality_scenario": {
+          "source": "Usuário mobile (RH em viagem/evento) com 4G/3G acessando no horário de pico",
+          "stimulus": "Usuário clica link para conhecer palestrante ou baixar material",
+          "environment": "Slow 4G, cold cache, latência 50ms",
+          "artifact": "Vite build otimizado + nginx gzip + lazy loading",
+          "response": "Hero carrega em <2.5s; main content visível <4.0s; vídeos YouTube lazy-load; PDFs link apenas (sem preload)",
+          "response_measure": "Lighthouse Performance ≥85 mobile; FCP <2.5s; LCP <4.0s; CLS <0.1"
+        }
+      },
+      {
+        "proposed_id": "REQ-ANARA-NFR-004",
+        "title": "Tema escuro automático baseado em preferência OS + persistência",
+        "quality_scenario": {
+          "source": "Usuário corporativo (Windows 11, macOS) com dark mode ativado no SO",
+          "stimulus": "Usuário abre portal pela primeira vez ou alterna toggle",
+          "environment": "Navegador moderno em OS com dark mode",
+          "artifact": "CSS prefers-color-scheme + localStorage",
+          "response": "Tema escuro automático; nenhum flash; tema persiste entre visitas; paleta quente mantém legibilidade (AA) em ambos",
+          "response_measure": "Sem flash ao load; tema salvo/restaurado; contraste AA light+dark; preferência SO respeitada"
+        }
+      },
+      {
+        "proposed_id": "REQ-ANARA-NFR-005",
+        "title": "Responsividade mobile-first para landscape/portrait",
+        "quality_scenario": {
+          "source": "Usuário em smartphone (320–420px) ou tablet em modo landscape",
+          "stimulus": "Usuário rola para palestras, clica para detalhe, tenta preencher formulário",
+          "environment": "iOS Safari ou Chrome Android; mudanças de orientação",
+          "artifact": "Tailwind responsive (sm:, md:, lg:) + aspect-ratio imagens",
+          "response": "Layout reflow sem overflow; CTAs ≥44px; imagens aspect-ratio mantido; formulário teclado mobile-friendly; nenhum horizontal scroll",
+          "response_measure": "Lighthouse mobile ≥85; testes visuais 320–420px–768px sem overflow; toque mínimo 44px"
+        }
+      },
+      {
+        "proposed_id": "REQ-ANARA-NFR-006",
+        "title": "Conteúdo degrada gracefully quando placeholders vazios",
+        "quality_scenario": {
+          "source": "Portal durante fase de preenchimento de dados (antes de divulgar)",
+          "stimulus": "YouTube/Spotify/formulário/depoimentos não preenchidos em site.ts ou data/*.ts",
+          "environment": "Navegador qualquer; estado vazio",
+          "artifact": "Componentes condicionais (conteúdo || fallback)",
+          "response": "Seção Mídia mostra 'vídeos em breve'; Materiais mostra 'materiais em breve'; FAB WhatsApp oculto; depoimentos seção desaparece; nenhum link quebrado",
+          "response_measure": "Nenhum 404; nenhuma seção vazia renderiza; UX clara ('em breve' vs ausência de CTA quebrado)"
+        }
+      }
+    ],
+    "architecturally_significant": [
+      "Vite base path /anarabottini embutida no build (VITE_BASE_PATH env var) — roteamento 100% client-side",
+      "SPA estática (sem backend, sem banco) — portal pessoal/portfólio puro; formulário compõe WhatsApp/mailto",
+      "Paleta quente & humanista (vs dark corporativa de RM Ambiental) com CSS vars escaláveis",
+      "Seções condicionais: Depoimentos, Mídia, Materiais desaparecem quando vazias (graceful degradation)",
+      "Framer Motion para scroll reveal + modal de palestras com vídeo/descrição/CTA",
+      "nginx.conf idêntico ao RM Ambiental; alias estático para /anarabottini/assets/ e /anarabottini/images/"
+    ]
+  },
+  "portal": {
+    "product_scope": "portal",
+    "dir": "portal",
+    "prefix": "PORTAL",
+    "owner": "plataforma-digital",
+    "origin": "codebase portal + mapeamento multi-agente 2026-06-14",
+    "one_line": "Landing NovaIT na raiz `/` — catálogo curado de produtos/ferramentas + descoberta dinâmica de apps do cluster com progressive enhancement.",
+    "stack": "HTML5 estático + ES6 vanilla JS (zero deps) + CSS3 com design tokens + nginx:alpine + node:test (testes sem build)",
+    "functional_requirements": [
+      {
+        "proposed_id": "REQ-PORTAL-0001",
+        "title": "Exibir catálogo curado de produtos em cards estáticos",
+        "statement": "A página deve renderizar catálogo declarativo (SICAT, GymOps, RM Ambiental, Ana Rabottini) em cards HTML estáticos com título, descrição, tags, role (Gestão Ambiental/Operacional/Portal), CTA e badge de status ('no ar'/'exige login').",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-PORTAL-0002",
+        "title": "Renderizar ferramentas internas da plataforma (Grafana, Argo CD, Console, Keycloak, Recorder)",
+        "statement": "A página deve exibir seção 'Ferramentas da Plataforma' (DevOps Console, Grafana, Argo CD, Keycloak, Portal Recorder) como cards com rótulo 'exige login' para todos (auth OIDC via middleware).",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-PORTAL-0003",
+        "title": "Descobrir dinamicamente apps publicadas via API /devops/api/ingressroutes",
+        "statement": "A página deve buscar GET /devops/api/ingressroutes (API read-only do Console), filtrar namespace 'apps', extrair base paths navegáveis (frontend na raiz /<app>), agrupar por raiz, e renderizar cards extras para apps não no catálogo curado.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-PORTAL-0004",
+        "title": "Marcar cards curados como 'no ar' quando descobertos no cluster",
+        "statement": "A página deve cruzar live paths do cluster com catálogo curado, marcando cada card com status 'no ar' quando IngressRoute existe, ou remover badge se app está offline.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-PORTAL-0005",
+        "title": "Exibir seção 'Aplicações Publicadas' oculta para anônimos",
+        "statement": "A página deve manter seção de descoberta dinâmica (cluster-apps) **oculta por padrão** (hidden); ao carregar portal.js, buscar /devops/api/ingressroutes (autenticado); 401 → seção fica oculta; sucesso → revela e popula.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-PORTAL-0006",
+        "title": "Implementar busca/filtro client-side em todos os cards",
+        "statement": "A página deve oferecer caixa de busca (input com id='app-search', role='search') que filtra cards curados + descobertos por nome, descrição, tags e role em tempo real, sem recarregar.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-PORTAL-0007",
+        "title": "Renderizar menu mobile (hamburger toggle) com navegação principal",
+        "statement": "A página deve incluir menu mobile responsivo (toggle id='nav-toggle', aria-expanded, aria-controls='nav-links') com links para Produtos, Ferramentas, seção de descoberta, e links rápidos.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-PORTAL-0008",
+        "title": "Oferecer botão 'Voltar ao topo' flutuante",
+        "statement": "A página deve exibir botão flutuante 'Voltar ao topo' (id='to-top', aria-label='Voltar ao topo') que aparece ao scroll down e anima página até topo ao clicar.",
+        "scope": "product",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-PORTAL-0009",
+        "title": "Implementar reveal on scroll com progressive enhancement",
+        "statement": "A página deve animar cards ao entrarem no viewport (slide/fade) sem bloquear o conteúdo; JS é optional — conteúdo sempre visível sem JS (progressive enhancement com js/no-anim classes).",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-PORTAL-0010",
+        "title": "Destacar seção ativa na navegação durante scroll",
+        "statement": "A página deve manter o link de navegação (header/mobile) alinhado com seção em viewport durante scroll, com destaque visual (classe 'active').",
+        "scope": "product",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-PORTAL-0011",
+        "title": "Dark mode automático baseado em prefers-color-scheme",
+        "statement": "A página deve oferecer tema claro (default) e escuro automático via CSS media query (prefers-color-scheme: dark), com tokens CSS unificados (--bg, --accent, --body, etc.).",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-PORTAL-0012",
+        "title": "Respeitar prefers-reduced-motion em animações",
+        "statement": "A página deve desabilitar reveal on scroll, scroll smooth e transições quando prefers-reduced-motion: reduce está ativo no SO/navegador, mantendo conteúdo acessível.",
+        "scope": "product",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-PORTAL-0013",
+        "title": "Renderizar footer com ano dinâmico e links da plataforma",
+        "statement": "A página deve exibir footer com copyright (ano dinâmico via JS), links de navegação, dados da empresa (NovaIT), e seção de ferramentas (oculta para anônimos até API responder).",
+        "scope": "product",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-PORTAL-0014",
+        "title": "Tratar estados de erro e timeout na descoberta dinâmica",
+        "statement": "A página deve exibir 'Tentar novamente' quando /devops/api/ingressroutes falha (timeout/5xx), permitir retry, e continuar mostrando cards curados mesmo se descoberta falhar (não quebra página).",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-PORTAL-0015",
+        "title": "Oferecer roteamento root `/` com prioridade 1 (menor, cai aqui)",
+        "statement": "A página deve estar em IngressRoute (devops-system) com PathPrefix('/') e priority 1 (mínima); paths específicos (/devops, /sicat, /grafana...) sempre vencem, só raiz `/` cai no portal.",
+        "scope": "platform",
+        "priority": "critical"
+      }
+    ],
+    "non_functional_requirements": [
+      {
+        "proposed_id": "REQ-PORTAL-NFR-001",
+        "title": "SEO completo: sem JS, sem JS quebrado, conteúdo sempre acessível",
+        "quality_scenario": {
+          "source": "Mecanismo de busca (GoogleBot), usuário sem JavaScript ou JS bloqueado, usuário low-bandwidth",
+          "stimulus": "GoogleBot indexa /; usuário visita com JS desabilitado ou script falha; usuário com conexão lenta/instável",
+          "environment": "Navegador headless, no-JS, low-bandwidth; arquivo index.html puro",
+          "artifact": "HTML semântico (header/nav/main/footer) + catálogo estático inline + dados estruturados (JSON-LD)",
+          "response": "Página renderiza e é navegável 100% sem JS; discovery dinâmica é enhancement opcional; metadados presentes (title, description, og:*, keywords); JSON-LD parseável",
+          "response_measure": "Lighthouse SEO ≥95; conteúdo visível sem JS; Google Search Console indexação ok; JSON-LD válido (schema.org)"
+        }
+      },
+      {
+        "proposed_id": "REQ-PORTAL-NFR-002",
+        "title": "Acessibilidade WCAG 2.1 AA: navegação teclado, contrast, aria-*",
+        "quality_scenario": {
+          "source": "Operador com deficiência motora usando apenas teclado, ou visual com screen reader",
+          "stimulus": "Operador usa Tab/Enter para navegar; tech.assistiva anuncia CTAs/seções",
+          "environment": "NVDA/JAWS em Windows; navegador desktop",
+          "artifact": "HTML semântico + ARIA roles/labels + skip-link + focus styles",
+          "response": "Todos os CTAs/botões navegáveis e ativáveis via teclado; skip-link até #main; labels explícitos; link e botão distintos; contraste ≥4.5:1 (text) / 3:1 (large); focus ring visível",
+          "response_measure": "axe-core 100; Lighthouse accessibility ≥95; NVDA/JAWS nav fluida; focus ring ≥2px"
+        }
+      },
+      {
+        "proposed_id": "REQ-PORTAL-NFR-003",
+        "title": "Performance: FCP <1.5s, LCP <2.5s; zero CLS em main content",
+        "quality_scenario": {
+          "source": "Usuário em navegador desktop/mobile com 4G/LTE em horário normal",
+          "stimulus": "Usuário digita URL ou clica bookmarks; primeira visita (cold cache)",
+          "environment": "4G (10 Mbps), latência 40ms; navegador moderno; CPU moderna",
+          "artifact": "HTML + CSS versionado (styles.css?v=10) + JS módulo async; nginx gzip; sem imagens pesadas (só SVG)",
+          "response": "HTML inicia pintura <1.5s; hero + catálogo visível <2.5s; cards não movem durante load (CLS ~0 antes do JS)",
+          "response_measure": "Lighthouse Performance ≥90; FCP <1.5s; LCP <2.5s; CLS <0.05 durante page load"
+        }
+      },
+      {
+        "proposed_id": "REQ-PORTAL-NFR-004",
+        "title": "Tema escuro automático via prefers-color-scheme, sem toggle",
+        "quality_scenario": {
+          "source": "Usuário com dark mode ativado em SO (Windows 11, macOS Monterey+) visitando portal",
+          "stimulus": "Usuário abre /; SO tem prefers-color-scheme: dark ativo",
+          "environment": "Navegador moderno em SO com dark mode",
+          "artifact": "CSS @media (prefers-color-scheme: dark) + tokens :root",
+          "response": "Tema escuro automático; nenhum flash; todos os elementos (cards, texto, links) com contraste AA light+dark",
+          "response_measure": "Nenhum flash ao load; CSS tokens aplicados corretamente; contrast ≥4.5:1 em ambos; sistema operacional dark modo respeitado"
+        }
+      },
+      {
+        "proposed_id": "REQ-PORTAL-NFR-005",
+        "title": "Responsividade mobile-first: layout fluido 320px–1440px",
+        "quality_scenario": {
+          "source": "Operador em smartphone (320px, 390px) ou desktop (1440px); orientações portrait/landscape",
+          "stimulus": "Operador navega com menu mobile; busca app; clica card",
+          "environment": "iPhone SE, Samsung Galaxy, iPad; mudanças de orientação",
+          "artifact": "CSS mobile-first (sem max-width na base) + media queries min-width",
+          "response": "Layout reflow fluido; menu hamburger em <640px; grid 2 cols (md), 3 cols (lg); CTAs ≥44px; nenhum horizontal overflow",
+          "response_measure": "Lighthouse mobile ≥85; testes visuais 320–390–768–1440px sem overflow; touch targets ≥44px"
+        }
+      },
+      {
+        "proposed_id": "REQ-PORTAL-NFR-006",
+        "title": "Segurança: CSP strict, headers de defesa, sem inline script (exceto hash)",
+        "quality_scenario": {
+          "source": "Auditor de segurança ou tentativa de XSS na página",
+          "stimulus": "Auditor escaneia headers; atacante tenta injetar JS na query string ou DOM",
+          "environment": "curl, scanner (OWASP ZAP), navegador with devtools",
+          "artifact": "nginx.conf com Content-Security-Policy strict; Traefik secure-headers",
+          "response": "CSP Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-...' (para inline gate script); nenhum eval/innerHTML; X-Content-Type-Options nosniff; X-Frame-Options DENY",
+          "response_measure": "CSP audit 100; nenhuma violação CSP em console; headers: Traefik + nginx presentes"
+        }
+      }
+    ],
+    "architecturally_significant": [
+      "HTML estático + ES6 vanilla JS — zero dependências runtime; node:test (native Node 18+) para testes, nenhuma lib",
+      "Progressive enhancement: conteúdo 100% acessível sem JS; JS enriquece com busca/filtro/reveal/dark mode; failsafe timer (2.5s) revela tudo se portal.js bloqueia",
+      "Descoberta dinâmica via /devops/api/ingressroutes (autenticada); gated por OIDC no Console; 401 → seção oculta (UX, não security)",
+      "Catálogo curado em frontend/assets/catalog.js (ESM puro, importável por portal.js + testes) + HTML estático sincronizado (dedupe, CTA validation)",
+      "Design tokens centralizados em CSS root; dark mode automático prefers-color-scheme (sem toggle); defesa em profundidade (Traefik + nginx)",
+      "nginx serve static HTML + versionado CSS/JS; gzip; CSP strict via nginx.conf (hash sha256 do gate script); fallback 404 → index.html (SPA-safe)"
+    ]
+  },
+  "portal-recorder": {
+    "product_scope": "portal-recorder",
+    "dir": "portal-recorder",
+    "prefix": "RECORDER",
+    "owner": "plataforma-digital",
+    "origin": "codebase portal-recorder + mapeamento multi-agente 2026-06-14",
+    "one_line": "Remote browser capture of external portals with redaction, normalization to canonical contract, and OIDC gating.",
+    "stack": "Node.js (Express), Playwright/CDP, React+Vite, Postgres, Traefik, Kubernetes",
+    "functional_requirements": [
+      {
+        "proposed_id": "REQ-RECORDER-0001",
+        "title": "Portal CRUD operations with slug uniqueness",
+        "statement": "API must support create, read, list, and delete operations for portals. Portal slug must be unique, lowercase alphanumeric with hyphens. Entry URL must be valid HTTP(S). API origins optional, defaulting to entry URL origin. Supports optional related_project_key for platform integration.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-RECORDER-0002",
+        "title": "Capture session lifecycle management",
+        "statement": "API must support creating sessions under a portal (with optional title), listing sessions filtered by portal/status/limit, getting individual session details, and stopping/deleting sessions. Session statuses: created, running, finalizing, normalized, failed, expired. Sessions must expire after 24 hours.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-RECORDER-0003",
+        "title": "Remote browser via Playwright/CDP per session",
+        "statement": "Recorder must launch one ephemeral Chromium context per session using Playwright, with sandboxing disabled and shared memory disabled for container deployments. Browser must navigate to portal entry_url with 60s timeout. Context must be isolated and destroyed on session stop.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-RECORDER-0004",
+        "title": "Redaction of PII/secrets at origin (before persistence)",
+        "statement": "Before any capture data is written to database, all sensitive keys (authorization, token, password, senha, cookie, recaptcha, cpf, cnpj, email, jwt, secret, bearer, x-access-token) must be masked to '***'. SHA256 hash (first 16 chars) of original value must be stored for correlation without exposing raw secret. Applies to request/response headers, request/response bodies, and cookies.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-RECORDER-0005",
+        "title": "Network event capture via CDP",
+        "statement": "Recorder must capture XHR/Fetch/Document network requests and responses using Chrome DevTools Protocol. Request phase records method, URL, headers (redacted), and body. Response phase records status code, headers, and body. Bodies larger than 64KB must be stored to PVC with blob_ref. Must track truncation state.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-RECORDER-0006",
+        "title": "Screencast streaming and input injection",
+        "statement": "Recorder must enable CDP Page.startScreencast (JPEG, quality 55, every 2nd frame) to stream browser canvas to frontend over WebSocket. Frontend must be able to inject mouse events (move, click, wheel) and keyboard input (chars via insertText, control keys via dispatchKeyEvent) back to the browser.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-RECORDER-0007",
+        "title": "Annotation and timeline management",
+        "statement": "API must support creating annotations on sessions with label, description, start/end offsets (milliseconds), step index, and expected endpoint. Auto-closing previous open annotation when new one starts. Timeline view must aggregate redacted events, annotations, and screenshots in temporal order (limit 2000 events).",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-RECORDER-0008",
+        "title": "Screenshot capture from active session",
+        "statement": "API must provide endpoint for taking screenshots of currently active session browser, storing as PNG to PVC with blob_ref in database. Screenshot may be associated with optional caption and annotation. Frontend must retrieve screenshots via direct blob URL without auth cookie exposure.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-RECORDER-0009",
+        "title": "Normalize capture to canonical portal contract",
+        "statement": "API must normalize captured request/response events into a portal contract (normalized view). Contract generation must: detect path parameters (segments varying across ≥2 samples with ID-like values become {param}), infer request/response schemas from observed bodies, detect requires_auth (401/403 hints) and requires_captcha, aggregate occurrence counts, and store per portal with versioning.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-RECORDER-0010",
+        "title": "Bearer token auth for write operations (fail-closed)",
+        "statement": "All write operations (POST/DELETE on portals, sessions, annotations, screenshots, normalize) must require Authorization: Bearer <PORTAL_REC_TOKEN> header. If PORTAL_REC_TOKEN env var is not configured, all writes must return 503 WRITES_DISABLED (fail-closed, never open by accident). Token comparison must use constant-time comparison to prevent timing attacks.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-RECORDER-0011",
+        "title": "Internal token for API-to-Recorder communication",
+        "statement": "API must communicate with Recorder service using separate RECORDER_INTERNAL_TOKEN (not the same as PORTAL_REC_TOKEN). Recorder exposes internal HTTP on port 8090 (not routed via Traefik) and WebSocket stream on port 8091. Best-effort calls: if Recorder unavailable, session creation continues in 'created' status and frontend can retry.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-RECORDER-0012",
+        "title": "OIDC gating on all external routes (Keycloak via Console oauth2-proxy)",
+        "statement": "All frontend (/portal-rec), API (/portal-rec/api), and streaming (/portal-rec/stream) routes must require OIDC login via Keycloak. Frontend redirects anonymous users with 302 (console-auth-redirect middleware). API/stream return 401 for anonymous (console-auth-401 middleware). Cross-namespace allowCrossNamespace: true. Bearer token is defensa-em-profundidad for writes (separate from OIDC session).",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-RECORDER-0013",
+        "title": "Schema inference with sensitivity detection",
+        "statement": "Normalization must infer observational JSON schema from request/response bodies. Schema must identify required fields (present in all samples), optional fields, data types, and mark sensitive properties (regex match on password, token, cookie, cpf, cnpj, email, recaptcha, authorization). Array types must be detected and recursively inferred.",
+        "scope": "product",
+        "priority": "medium"
+      }
+    ],
+    "non_functional_requirements": [
+      {
+        "proposed_id": "REQ-RECORDER-NFR-001",
+        "title": "Health check never fails due to database unavailability",
+        "quality_scenario": {
+          "source": "Operations (liveness probe)",
+          "stimulus": "GET /health while database is unreachable",
+          "environment": "Production Kubernetes cluster",
+          "artifact": "API service",
+          "response": "Returns 200 OK with { status: 'ok', db: false } within 1 second",
+          "response_measure": "Response time <1s, status=200, db flag reflects actual DB connectivity"
+        }
+      },
+      {
+        "proposed_id": "REQ-RECORDER-NFR-002",
+        "title": "Graceful degradation when Recorder service unavailable",
+        "quality_scenario": {
+          "source": "Frontend user initiating capture",
+          "stimulus": "Creating session while Recorder service is down",
+          "environment": "Production with partial failure",
+          "artifact": "API createSession endpoint",
+          "response": "Session created in 'created' status; frontend polls and retries Recorder connection",
+          "response_measure": "Session CRUD succeeds regardless of Recorder availability; best-effort call timeout 5s"
+        }
+      },
+      {
+        "proposed_id": "REQ-RECORDER-NFR-003",
+        "title": "Database migration resilient to temporary unavailability",
+        "quality_scenario": {
+          "source": "Container startup",
+          "stimulus": "Database is not ready at service startup",
+          "environment": "Kubernetes with typical startup delays",
+          "artifact": "DB migration loop",
+          "response": "Migration retries with exponential backoff (1s → 30s max); HTTP server listens immediately",
+          "response_measure": "Boot time <2s, migration attempts every 1-30s in background, never crashes"
+        }
+      },
+      {
+        "proposed_id": "REQ-RECORDER-NFR-004",
+        "title": "Concurrent session resource isolation and limits",
+        "quality_scenario": {
+          "source": "Multiple users starting capture sessions",
+          "stimulus": "Attempting to start N sessions when limit is reached",
+          "environment": "Recorder pod with MAX_CONCURRENT_SESSIONS limit",
+          "artifact": "SessionManager in Recorder",
+          "response": "Returns 429 Too Many Requests when limit exceeded; existing sessions remain unaffected",
+          "response_measure": "Memory per context ~300-800MB; Chromium contexts cleanly destroyed on stop; no orphaned processes"
+        }
+      },
+      {
+        "proposed_id": "REQ-RECORDER-NFR-005",
+        "title": "Request/response body truncation and overflow handling",
+        "quality_scenario": {
+          "source": "Portal returning large response bodies",
+          "stimulus": "Capturing response >64KB or streaming content",
+          "environment": "Real-world portal with large payloads",
+          "artifact": "Network event capture in Recorder",
+          "response": "Bodies stored to PVC; database tracks body_blob_ref + body_truncated flag; inline JSONB for <64KB",
+          "response_measure": "No OOM errors; truncation flag set accurately; blobs persistent across container restart"
+        }
+      },
+      {
+        "proposed_id": "REQ-RECORDER-NFR-006",
+        "title": "Secure shutdown with active session cleanup",
+        "quality_scenario": {
+          "source": "Kubernetes SIGTERM (pod eviction, rolling update)",
+          "stimulus": "Recorder pod receives SIGTERM with active sessions",
+          "environment": "Production Kubernetes",
+          "artifact": "Recorder process signal handler",
+          "response": "Stops all sessions (finalizing status), closes HTTP/WS servers, exits cleanly within 10s or force-exits",
+          "response_measure": "SIGTERM → clean shutdown ≤10s; no dangling browser processes; events persisted"
+        }
+      }
+    ],
+    "architecturally_significant": [
+      "Redaction at origin before persistence (prevents credential exposure in database backups)",
+      "Ephemeral per-session Chromium context (isolation, deterministic cleanup)",
+      "Separate internal token for API↔Recorder communication (defensa em profundidad against external exposure)",
+      "OIDC gating on all external routes (operador-only access, reusing Console oauth2-proxy)",
+      "Best-effort Recorder availability (session lifecycle continues even if Recorder temporarily unavailable)",
+      "Portal contract normalization with path parameter detection and schema inference (foundation for downstream comparator/gateway)",
+      "PVC storage for large capture bodies (database remains queryable; blobs persist independently)"
+    ]
+  },
+  "reqhub": {
+    "product_scope": "reqhub",
+    "dir": "reqhub",
+    "prefix": "REQHUB",
+    "owner": "plataforma-digital",
+    "origin": "codebase reqhub + mapeamento multi-agente 2026-06-14",
+    "one_line": "Workbench estático read-only da base de requisitos (fonte da verdade) com 7 telas: explorador com filtros/busca, workspace de requisito, versões & mudanças, mapa de impacto (grafo), cobertura (matriz), fila de reprocessamento, e editor assistido com abertura de PR no GitHub.",
+    "functional_requirements": [
+      {
+        "proposed_id": "REQ-REQHUB-0001",
+        "title": "Explorador com filtros e busca full-text",
+        "statement": "O sistema deve exibir uma grade de requisitos filtráveis por produto, tipo, status, prioridade, impacto (impact_band) e ASR (sim/não), com busca full-text em ID, título, enunciado e risk_tags normalizados (case-insensitive, sem acentos). Exibir contagem total e filtrada.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-REQHUB-0002",
+        "title": "Workspace do requisito com contexto bidirecional",
+        "statement": "O sistema deve exibir um requisito selecionado com: identidade (ID/título/tipo/status/escopo/prioridade/ASR), enunciado, critérios de aceite, métodos de verificação, cenários de qualidade (NFR), impacto (score/band/vizinhança outgoing/incoming), versão (baseline/revision/mudança semântica/motivo), alocação (serviço/infra/ADR/SLO/arquitetura) e requisitos similares por semântica.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-REQHUB-0003",
+        "title": "Versões & mudanças com diff de baseline",
+        "statement": "O sistema deve exibir um ledger versionado de cada requisito (baseline_version, item_revision, semantic_change, change_reason) e um diff real da baseline contra a versão anterior (git history), mostrando requisitos adicionados, alterados (com campos e Δimpacto) e removidos.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-REQHUB-0004",
+        "title": "Mapa de impacto com grafo interativo SVG",
+        "statement": "O sistema deve renderizar um grafo SVG direcionado dos requisitos e artefatos externos (nós agrupados por produto/coluna, arestas tipadas: depends_on/refines/constrains/allocates/verifies). Permitir filtros por tipo de link, produto e foco no nó selecionado. Indicar visualmente ASR e links propostos (tracejado).",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-REQHUB-0005",
+        "title": "Cobertura (matriz requisito × evidência/alocação)",
+        "statement": "O sistema deve exibir uma matriz de cobertura requisitos × dimensões (aceite/método/evidência/ADR/serviço/infra/SLO), marcando verde (✓) quando preenchido e vermelho (—) para lacunas. Calcular score de cobertura por requisito (% dimensões preenchidas).",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-REQHUB-0006",
+        "title": "Fila de reprocessamento com priorização",
+        "statement": "O sistema deve exibir uma fila ordenada por impacto de requisitos que exigem atenção do Claude (reprocess_queue): motivos incluem alto impacto, lacuna de verificação (sem método/evidência) ou mudança major. Clicável para abrir no workspace.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-REQHUB-0007",
+        "title": "Editor assistido com geração de YAML e abertura em PR",
+        "statement": "O sistema deve permitir criar/editar requisito via formulário, gerar YAML validado, copiar para clipboard e abrir uma janela de PR no GitHub (new/edit) sem escrever no git (autenticação do usuário). Após merge, regenerar baseline via /sync-spec.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-REQHUB-0008",
+        "title": "Busca semântica por embeddings locais",
+        "statement": "O sistema deve calcular e armazenar vetores de embedding (embeddings.json) para cada requisito e exibir no workspace top-5 requisitos mais similares por similaridade cosseno, marcando possíveis duplicatas (score >= 0.8).",
+        "scope": "product",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-REQHUB-0009",
+        "title": "Abas navegáveis de 7 telas principais",
+        "statement": "O sistema deve organizar as telas (Explorador, Workspace, Versões, Mapa de impacto, Cobertura, Fila de reprocessamento, Editor) em abas acessíveis por teclado (ArrowLeft/Right) e mouse, com indicador visual de seleção.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-REQHUB-0010",
+        "title": "Suporte a tema claro/escuro com persistência",
+        "statement": "O sistema deve detectar preferência do sistema (prefers-color-scheme) ou permitir alternância manual (botão ◐) e persistir em localStorage (reqhub-theme), aplicando paleta monocromática WCAG 2.2.",
+        "scope": "product",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-REQHUB-0011",
+        "title": "Validação de requisito no editor",
+        "statement": "O sistema deve validar rascunho de requisito antes de gerar YAML: ID casando REQ-<PRODUTO>-NNNN (ou NFR-NNN), título >= 3 chars, enunciado >= 10 chars, product_scope obrigatório, tipo válido (functional/non-functional/business-rule/constraint), NFR exigindo quality_scenario.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-REQHUB-0012",
+        "title": "Leitura de baseline gerada (JSON) sem backend",
+        "statement": "O sistema deve carregar baseline gerada (specs/baseline/current-baseline.json), mapa de impacto, manifesto de recuperação e dados opcionais (history, registry, embeddings) via fetch ao init, sem dependência de backend (nginx estático).",
+        "scope": "product",
+        "priority": "critical"
+      }
+    ],
+    "non_functional_requirements": [
+      {
+        "proposed_id": "REQ-REQHUB-NFR-001",
+        "title": "Frontend estático sem dependências externas (zero-dep)",
+        "quality_scenario": {
+          "source": "operação/CI",
+          "stimulus": "Build da imagem",
+          "environment": "Docker context = raiz do repo, Dockerfile em apps/reqhub/",
+          "artifact": "Imagem nginx:alpine com frontend (HTML/CSS/JS) + baseline (JSON)",
+          "response": "Imagem pronta, testes rodando com node:test",
+          "response_measure": "Build completa em < 30s; testes passam; tamanho imagem < 50MB"
+        }
+      },
+      {
+        "proposed_id": "REQ-REQHUB-NFR-002",
+        "title": "CSP estrita (script-src 'self', sem inline)",
+        "quality_scenario": {
+          "source": "segurança/operação",
+          "stimulus": "Requisição para /reqs/",
+          "environment": "Nginx serve com headers CSP; DOM construído via createElement (sem innerHTML)",
+          "artifact": "Resposta HTTP com Content-Security-Policy",
+          "response": "Header CSP aplicado; não há inline script/style",
+          "response_measure": "CSP policy: default-src 'self'; script-src 'self'; sem violations em browser console"
+        }
+      },
+      {
+        "proposed_id": "REQ-REQHUB-NFR-003",
+        "title": "Acessibilidade WCAG 2.2 nível AA (tabindex, labels, aria-*)",
+        "quality_scenario": {
+          "source": "conformidade/usabilidade",
+          "stimulus": "Navegação via teclado (Tab, ArrowLeft/Right, Enter) e screen reader",
+          "environment": "HTML semântico com aria-* labels; skip link; tabs com ARIA tablist",
+          "artifact": "Página renderizada",
+          "response": "Todos os controles acessíveis; estrutura lógica clara; skip funcional",
+          "response_measure": "0 violations em axe/WAVE; score acessibilidade >= 95%"
+        }
+      },
+      {
+        "proposed_id": "REQ-REQHUB-NFR-004",
+        "title": "Performance: carregamento da baseline < 2s, renderização < 1s",
+        "quality_scenario": {
+          "source": "UX/operação",
+          "stimulus": "Acesso a /reqs/ em navegador moderno; baseline com 69 requisitos",
+          "environment": "Conexão 4G; cache nginx (1h assets, 30s data/)",
+          "artifact": "Página renderizada com explorador visível",
+          "response": "Baseline carregada; tela interativa",
+          "response_measure": "FCP < 1s; TTI < 2s; Lighthouse performance score >= 90"
+        }
+      },
+      {
+        "proposed_id": "REQ-REQHUB-NFR-005",
+        "title": "Responsividade (desktop/tablet/mobile, 320px+)",
+        "quality_scenario": {
+          "source": "UX",
+          "stimulus": "Redimensionamento de viewport (DevTools 320px→1920px)",
+          "environment": "CSS grid-template-columns adaptativo; topbar sticky; tabela scrollável",
+          "artifact": "Página renderizada em múltiplos tamanhos",
+          "response": "Layout reflua sem quebra; conteúdo legível; scrollable horizontal em mobile",
+          "response_measure": "Nenhuma horizontal scroll bars < 600px; todos os controles clicáveis (min 44px)"
+        }
+      },
+      {
+        "proposed_id": "REQ-REQHUB-NFR-006",
+        "title": "Routing sem strip (subpath /reqs/, nginx prefix+alias)",
+        "quality_scenario": {
+          "source": "infra/operação",
+          "stimulus": "Traefik encaminha /reqs/* para pod; nginx não faz strip",
+          "environment": "IngressRoute priority 10; nginx location /reqs/ alias; base href=/reqs/",
+          "artifact": "Requisição HTTP para /reqs/; resposta HTML com <base href=/reqs/>",
+          "response": "Fetch de assets/data resolv para /reqs/assets e /reqs/data/",
+          "response_measure": "Todas as requests relativas funcionar; 404 em assets que não existem"
+        }
+      },
+      {
+        "proposed_id": "REQ-REQHUB-NFR-007",
+        "title": "Validação do rascunho de requisito com erros claros",
+        "quality_scenario": {
+          "source": "UX/qualidade de dados",
+          "stimulus": "Usuário tenta gerar YAML com dados inválidos",
+          "environment": "Form preenchido parcialmente",
+          "artifact": "Clique em 'Gerar YAML'; validação em lib.js::validateDraft()",
+          "response": "Lista de erros exibida; YAML não gerado",
+          "response_measure": "Cada erro mapeia a um campo; mensagens claras em português"
+        }
+      },
+      {
+        "proposed_id": "REQ-REQHUB-NFR-008",
+        "title": "Representação visual clara de requisitos ASR e ligações propostas",
+        "quality_scenario": {
+          "source": "usabilidade/conformidade",
+          "stimulus": "Visualização de requisito ASR e link proposto no workspace/grafo",
+          "environment": "Badge 'ASR' em cor distinta (--asr); aresta proposta em tracejado",
+          "artifact": "Elemento DOM renderizado",
+          "response": "ASR e proposto visualmente distintos",
+          "response_measure": "Contraste >= 4.5:1; tracejado claro em SVG; teste manual pass"
+        }
+      }
+    ],
+    "architecturally_significant": [
+      "REQ-REQHUB-0001 (filtros e busca — core da UX exploratória)",
+      "REQ-REQHUB-0002 (workspace bidirecional — núcleo analítico)",
+      "REQ-REQHUB-0004 (mapa de impacto/grafo — visualização crítica da rastreabilidade)",
+      "REQ-REQHUB-0007 (editor + abertura de PR — integração GitHub, bypass read-only)",
+      "REQ-REQHUB-0012 (leitura de baseline — acoplamento com specs/baseline/)",
+      "REQ-REQHUB-NFR-002 (CSP estrita — restrição de segurança arquitetural)",
+      "REQ-REQHUB-NFR-006 (routing sem strip — decisão infra/nginx)"
+    ]
+  },
+  "console": {
+    "product_scope": "console",
+    "dir": "console",
+    "prefix": "CONSOLE",
+    "owner": "plataforma-digital",
+    "origin": "codebase console + mapeamento multi-agente 2026-06-14",
+    "one_line": "Read-only cluster observation dashboard with real-time SSE, Projects & Tasks PM, CMS portal builder, and site renderer.",
+    "functional_requirements": [
+      {
+        "proposed_id": "REQ-CONSOLE-0001",
+        "title": "List cluster namespaces with metadata",
+        "statement": "O backend deve expor um endpoint GET /namespaces que retorna lista de todos os namespaces do cluster com nome, status, timestamp de criacao e labels. O frontend exibe os namespaces gerenciados pela plataforma (devops-system, traefik, argocd, observability, apps, apps-dev, apps-prod-local) em tempo real via SSE.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-0002",
+        "title": "Display pods with status, readiness, and restarts",
+        "statement": "O backend lista pods via GET /pods (com query opcional ?ns=) retornando: nome, namespace, phase, restart count, imagem, start time, age, node e readiness (containers prontos/total). O frontend exibe resumo visual em tempo real, atualizado pelo stream SSE (snapshot periodico de pods apenas quando ha mudanca).",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-0003",
+        "title": "Stream cluster state changes via Server-Sent Events",
+        "statement": "O backend expoe um endpoint SSE (GET /stream) que mantem uma conexao HTTP aberta e empurra snapshots do cluster (namespaces, pods, deployments, services, ingressroutes, eventos) sempre que o estado muda, detectado via informers/watches da API do Kubernetes. O frontend abre EventSource automaticamente para admin; members NAO recebem dados do cluster (apenas dados de seus projetos/tarefas).",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-0004",
+        "title": "Display deployment replicas and rollout status",
+        "statement": "O backend lista deployments via GET /deployments (query opcional ?ns=) retornando: nome, namespace, replicas desejadas/ready/available/atualizadas, imagem, age e labels/annotations. O frontend exibe graficamente o progresso do rollout (desired vs ready) em tempo real via SSE snapshot.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-0005",
+        "title": "Stream pod logs in real-time (follow mode)",
+        "statement": "O backend expoe GET /pods/:ns/:name/logs/stream como SSE que segue logs do kubelet em tempo real (follow=true). Parametros query: ?tailLines=200 (default), ?container=<name> (default=primeiro). O frontend renderiza stream de linhas com timestamp, permitindo diagnostico rapido sem re-fetch periodico.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-0006",
+        "title": "Fetch one-shot pod logs with tail limit",
+        "statement": "O backend expoe GET /pods/:ns/:name/logs com query params ?tailLines=200 (default) e ?container=name (opcional). Retorna JSON com namespace, pod, container, tailLines e logs (string). Usado para diagnostico pontual e como fallback se o stream falhar.",
+        "scope": "product",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-0007",
+        "title": "List cluster events with sorting and limit",
+        "statement": "O backend expoe GET /events (query opcional ?ns= e ?limit=50) que retorna eventos do cluster ordenados por timestamp decrescente (mais recentes primeiro), limitados ao numero informado. Cada evento contem namespace, nome, tipo (Normal/Warning), reason, message, count e involvedObject (kind/name/namespace).",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-0008",
+        "title": "Display Traefik IngressRoutes with hosts and paths",
+        "statement": "O backend lista IngressRoutes do Traefik via GET /ingressroutes (CRD traefik.io/v1alpha1). Para cada rota extrai: hosts (via regex Host(...)), paths (Path/PathPrefix), services, middlewares e priority. Frontend exibe roteamento e como cada app esta exposta no host unico (xpto.localhost ou dev.nvit.com.br futuro).",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-0009",
+        "title": "Display cluster overview with aggregated counts",
+        "statement": "O backend expoe GET /overview que retorna contagens agregadas: total de namespaces, pods (segmentados por phase), deployments, services e ingressroutes. Timestamp de geracao. Frontend renderiza como widgets resumidos no painel principal.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-0010",
+        "title": "Group and display applications by label",
+        "statement": "O backend agrupa recursos (pods, deployments, services) por label app.kubernetes.io/part-of (preferida) ou devops.flavioneto/app. GET /apps retorna lista com app name, type (cms_portal|product_software|platform_tool), namespaces, services, deployments, imagens, total restarts, age (do recurso mais antigo) e URLs publicadas derivadas de IngressRoutes.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-0011",
+        "title": "Display deployment history via annotations (publications)",
+        "statement": "O backend le annotations (devops.flavioneto/*) de deployments nos namespaces de implantacao (apps, apps-dev, apps-prod-local, devops-system). GET /publications retorna metadados do pipeline por deployment: commitSha, branch, imageTag, deployedAt, runId, image. Ordenado por data decrescente. Permite rastreio de quem/quando/como foi implantado.",
+        "scope": "product",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-0012",
+        "title": "Role-based access control (admin-only cluster view)",
+        "statement": "O backend implementa middleware que verifica header X-Auth-Request-Groups (injetado por oauth2-proxy/ForwardAuth na borda). Apenas admin (grupo 'platform-admins') pode acessar dados do cluster. Members sao barrados com 403. /health fica publico (probe k8s). Fallback (CONSOLE_DEV_TRUST_ADMIN=true) permite dev local sem headers.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-0013",
+        "title": "Create portal via wizard with optional content generation",
+        "statement": "O frontend exibe NewPortalWizard que aceita: nome, chave kebab-case, descricao, prompt opcional para IA gerar conteudo inicial. POST /projects (pm-api) cria portal nasce em status draft (member) ou published (admin). Member que cria ganha acesso edit automatico. Validacao de chave unica.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-0014",
+        "title": "Manage projects with type classification",
+        "statement": "GET/POST/PATCH/DELETE /projects (pm-api). Projetos podem ser app_type: cms_portal, product_software ou platform_tool. Admin cria qualquer tipo (nasce approved). Member so pode criar portal CMS (nasce pending_approval). PATCH (admin) permite editar campo, inclusive related_project_id (vinculo portal->produto para contexto IA). Usuarios veem lista escopada por acesso.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-0015",
+        "title": "Approve or reject pending portal creation",
+        "statement": "POST /projects/:id/approve e POST /projects/:id/reject (admin apenas). Atualizam approval_status e rastreiam quem/quando aprovou. Portal em approved passa a estar visivel na rota publica de CMS. Rejeicao deixa o portal invisivel.",
+        "scope": "product",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-0016",
+        "title": "Edit portal content with visual editor",
+        "statement": "Frontend ContentEditor carrega portal selecionado, exibe paginas (home + custom) e suas secoes (kind-based: hero, cards, gallery, form, etc.). SectionDrawer permite editar dados da secao, anchor (#link), e executar commands de IA. Modo visual (preview) ou lista (avancado). Reordenar secoes via drag-drop.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-0017",
+        "title": "Manage portal pages and sections",
+        "statement": "GET /cms/sites/:id (editable tree + metadata). POST /cms/sites/:id/pages, PATCH/DELETE. POST /cms/sites/:id/sections/:sectionId, PATCH com data/anchor, DELETE, reordenar. Cada secao tem kind (tipo), data (JSON arbitrario por kind), anchor. Frontend renderiza por kind em Blocks.jsx. Site-renderer consome rota publica.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-0018",
+        "title": "Site-renderer serves published portals",
+        "statement": "Site-renderer (React SPA servida em /sites/<key>) busca rota publica GET /cms/public/<key> (sem auth, so approved sites). Renderiza arvore de paginas/secoes via componentes Blocks (kind-based). Em modo edicao (?cmsEdit=1), a arvore editavel chega por postMessage e sobreescreve a publica, habilitando editor visual embarcado no console.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-0019",
+        "title": "AI-assisted content generation for sections and sites",
+        "statement": "POST /cms/sites/:id/ai/section e /cms/sites/:id/ai/site recebem instruction (texto livre). Backend chama IA para gerar/refinar conteudo da secao (data JSON) ou site inteiro. Frontend exibe output e permite aceitar/editar antes de salvar.",
+        "scope": "product",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-0020",
+        "title": "Media upload and picker for portal content",
+        "statement": "Frontend FileField / MediaPicker permitem upload de imagens/videos para portal. Backend armazena em storage. Rotas FormData POST com multipart. MediaPicker busca lista de uploads ja feitos, renderiza preview em modal. Used em sections.",
+        "scope": "product",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-0021",
+        "title": "Projects & Tasks board (kanban) with items and tasks",
+        "statement": "Frontend MetaProjects renderiza kanban com colunas por status. POST/PATCH/DELETE /items e /tasks (pm-api). Item = unidade maior (feature, epic); Task = unidade menor dentro de item. Admin cria projetos product_software/platform_tool. Member (com acesso) cria tasks em seus projetos.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-0022",
+        "title": "User access control per project",
+        "statement": "POST/PATCH /pm_user_access (admin). Define quem pode editar/ver qual projeto (can_edit boolean). GET /me retorna identidade do usuario: email, isAdmin, isMember, projects (list of assigned). Frontend usa isso para renderizar sidebar (member ve so painel+seus projetos/portal; admin ve cluster+tools).",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-0023",
+        "title": "Database migrations and seeding",
+        "statement": "pm-api auto-executa migrations ao startup (AUTO_MIGRATE=true default). scripts/seed.js popula dados iniciais. Rota POST /admin/seed permite re-seed idempotente sob demanda (admin). Migration tracking no banco via schema_migrations.",
+        "scope": "product",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-0024",
+        "title": "Shared resources and version tracking (drift detection)",
+        "statement": "Frontend SharedResources renderiza recursos compartilhados entre projetos com versionamento. GET /shared lista; POST/PATCH/DELETE /shared/:id. Drift detection: frontend compara versao no banco vs versao em uso em cada projeto, alerta se desincronizado.",
+        "scope": "product",
+        "priority": "low"
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-0025",
+        "title": "Admin user and access management interface",
+        "statement": "Frontend AccessAdmin (admin apenas) exibe usuarios, projetos, acesso e permissoes. GET /admin/users (lista), PATCH /admin/users/:email. GET /admin/access (matriz usuario x projeto). Auditoria: approved_by, approved_at, created_by rastreados para portais.",
+        "scope": "product",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-0026",
+        "title": "Health check endpoints for kubernetes probes",
+        "statement": "GET /health (backend) retorna {status: ok, service: console-backend, time}. GET /health (pm-api) checa conexao com banco. GET /healthz (frontend nginx) probe basico. Usados por readiness/liveness probes do Kubernetes.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-0027",
+        "title": "Portal palette (theme colors) customization",
+        "statement": "Site (portal) possui palette object (primary, accent, background hex colors) ou aiPalette (gerada por IA). Site-renderer aplica como CSS vars. Frontend permite editar paleta via editor ou IA. Cada portal tem tema unico.",
+        "scope": "product",
+        "priority": "low"
+      }
+    ],
+    "non_functional_requirements": [
+      {
+        "proposed_id": "REQ-CONSOLE-NFR-001",
+        "title": "Real-time cluster state updates via SSE",
+        "quality_scenario": {
+          "source": "admin user observing cluster",
+          "stimulus": "Pod enters Running state or deployment scales to new replica count",
+          "environment": "production cluster with active watch hub",
+          "artifact": "console-backend SSE stream and frontend EventSource",
+          "response": "snapshot published within 1 second; frontend updates UI without page reload",
+          "response_measure": "latency < 1s from cluster event to visual update; no data loss or duplicate frames"
+        }
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-NFR-002",
+        "title": "Least-privilege RBAC (read-only cluster access)",
+        "quality_scenario": {
+          "source": "kubernetes api-server enforcing rbac",
+          "stimulus": "backend attempts any verb other than get/list/watch on cluster resources",
+          "environment": "devops-system namespace with console-readonly ClusterRole",
+          "artifact": "ClusterRole console-readonly, ServiceAccount console, ClusterRoleBinding",
+          "response": "request denied with 403 Forbidden by api-server",
+          "response_measure": "zero write/delete/patch/create verbs granted; zero access to secrets; audit log shows denial"
+        }
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-NFR-003",
+        "title": "Responsive and accessible UI (mobile-first)",
+        "quality_scenario": {
+          "source": "end user on mobile device (iPad, iPhone, Android)",
+          "stimulus": "user navigates sidebar, opens logs, toggles theme in viewport < 600px wide",
+          "environment": "mobile browser (Safari, Chrome), slow 3G network",
+          "artifact": "frontend CSS media queries, collapsible sidebar, touch-friendly buttons",
+          "response": "UI reorganizes without horizontal scroll; buttons (min 44px tap target); theme toggle persists in localStorage",
+          "response_measure": "WCAG 2.1 AA compliance; Lighthouse accessibility > 90; first contentful paint < 2s on 3G"
+        }
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-NFR-004",
+        "title": "Code splitting and lazy loading for CMS editor",
+        "quality_scenario": {
+          "source": "user navigating to non-CMS tabs (Overview, Apps, Health)",
+          "stimulus": "initial page load or switching away from Conteudo tab",
+          "environment": "fiber/broadband and slow 2G networks",
+          "artifact": "frontend ContentEditor component with React lazy() and Suspense",
+          "response": "CMS editor (Tiptap, AutoForm, VisualEditor) NOT included in main bundle; loaded only when tab is opened",
+          "response_measure": "main bundle size reduction ~40-50% (CMS payload deferred); main chunk < 200KB gzipped"
+        }
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-NFR-005",
+        "title": "Database connection pooling and graceful shutdown",
+        "quality_scenario": {
+          "source": "kubernetes scheduler triggering pod eviction (SIGTERM)",
+          "stimulus": "termination signal received while requests are in-flight",
+          "environment": "pm-api pod with Postgres pool, 30+ concurrent connections",
+          "artifact": "pm-api index.js shutdown handler, pg pool.end()",
+          "response": "listener closes (stops new connections); in-flight requests complete; pool drains; process exits within 10s timeout",
+          "response_measure": "zero abrupt disconnects; no abandoned connections in Postgres; zero error logs during shutdown"
+        }
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-NFR-006",
+        "title": "SSE keep-alive and reconnection resilience",
+        "quality_scenario": {
+          "source": "frontend EventSource connection through proxy",
+          "stimulus": "proxy idle timeout (e.g., Traefik buffering) or brief network loss",
+          "environment": "HTTP/1.1 persistent connection, typical proxy config",
+          "artifact": "backend keep-alive comment frames (15s interval); EventSource auto-reconnect",
+          "response": "connection stays alive across idle periods; auto-reconnect on disconnect; no data loss after reconnect",
+          "response_measure": "keep-alive frame sent every 15s; EventSource reconnects within 1-3s; snapshot sent on reconnect"
+        }
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-NFR-007",
+        "title": "Kubernetes manifest idempotency",
+        "quality_scenario": {
+          "source": "platform operator running install script",
+          "stimulus": "kubectl apply -f console/k8s/ or scripts/install-dashboard.ps1 executed multiple times",
+          "environment": "devops-system namespace with existing console resources",
+          "artifact": "k8s manifests (Deployment, Service, ConfigMap, RBAC, IngressRoute)",
+          "response": "second and subsequent runs detect no changes (no rollout restart, no resource recreation)",
+          "response_measure": "kubectl apply output shows unchanged for all resources; no downtime between runs"
+        }
+      },
+      {
+        "proposed_id": "REQ-CONSOLE-NFR-008",
+        "title": "Read-only filesystem and non-root container security",
+        "quality_scenario": {
+          "source": "kubernetes pod security policy / admission controller",
+          "stimulus": "pod starts with readOnlyRootFilesystem=true, runAsNonRoot=true, drop=[ALL]",
+          "environment": "devops-system namespace, both backend and pm-api pods",
+          "artifact": "backend-deployment.yaml and pm-api.yaml securityContext config",
+          "response": "pod runs without attempting filesystem writes (logs via stdout) or privilege escalation",
+          "response_measure": "pod status Ready; zero errors in logs about filesystem write; audit shows no capability requests"
+        }
+      }
+    ],
+    "architecturally_significant": [
+      "REQ-CONSOLE-0003 — SSE with informer-based event streaming (cluster watch hub architecture)",
+      "REQ-CONSOLE-0012 — Role-based gating (admin vs member separation at backend middleware level)",
+      "Backend read-only by design (no mutations; RBAC enforced at cluster level)",
+      "Separate pm-api for write operations (Projects, Tasks, CMS) decoupled from read-only cluster observation",
+      "Site-renderer as standalone SPA serving approved portals publicly (multi-portal support)",
+      "Three-tier authentication: no auth for /health and public CMS; oauth2-proxy + Keycloak for authenticated APIs"
+    ]
+  },
+  "ai": {
+    "product_scope": "ai",
+    "dir": "ai",
+    "prefix": "AI",
+    "owner": "plataforma-digital",
+    "origin": "codebase ai + mapeamento multi-agente 2026-06-14",
+    "one_line": "Plataforma unificada de IA com contrato de tools, authz por identidade, observabilidade, eval e governança de prompts",
+    "stack": "Node.js, TypeScript, OpenAI gpt-5/reasoning, Langfuse, PostgreSQL+pgvector, Redis (BullMQ), Prometheus",
+    "functional_requirements": [
+      {
+        "proposed_id": "REQ-AI-0001",
+        "title": "Contrato AiTool com authz por identidade",
+        "statement": "Toda ferramenta de IA expõe inputSchema, authorize(ctx), risk (R1/R3/R4), mutates flag e execute(). A authz nunca é por canal — sempre recebe identidade (OIDC/sessão do app) e decide por escopo (membership real via BD).",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-AI-0002",
+        "title": "Dry-run e confirmação para mutações",
+        "statement": "Toda tool R3/R4 (mutante) roda dry-run primeiro (se suportado): retorna preview sem persistir. R4 exige confirmedToolCallId SEMPRE. Confirmação é idempotente (confirmedToolCallId vinculado ao turno).",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-AI-0003",
+        "title": "Grafo de raciocínio com Router e especialistas",
+        "statement": "Turno inicia em ROUTER (nano: classifica complexidade/especialista). Trivial/simple → FAST path (síntese com contexto). Complex → DEEP path (especialista + loop ReAct com tools + dispatchTool com authz). Todos os nós produzem métrica de latência.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-AI-0004",
+        "title": "VERIFY (judge em runtime)",
+        "statement": "Resposta final passa por judge (gpt-5-nano: groundedness 0-1). Score < 0.6 e não escalado → 1 retry no deep-path com instrução 'consulte tools antes'. Retry está ligado para qualidade sem custo/latência bloqueante.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-AI-0005",
+        "title": "Métricas canônicas ai_*",
+        "statement": "Prometheus: ai_turn_latency_seconds{app,stage,outcome}, ai_tokens_total{app,model,direction}, ai_cost_usd_total{app,model}, ai_tool_calls_total{app,tool,outcome}, ai_errors_total{app,stage,code}, ai_judge_score{app,dimension}, ai_escalation_total{app,reason}, ai_feedback_total{app,surface,kind}. Nomes são contrato — dashboards/evals dependem deles.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-AI-0006",
+        "title": "KPIs canônicos com metas",
+        "statement": "9 KPIs: groundedness (0.8), answer_relevance (0.85), tool_call_accuracy (0.9), task_completion_rate (0.75), deflection_rate (0.7), csat (0.8), cost_per_conversation (0.1 USD), latency_p95 (15s), escalation_rate (0.15). Metas ajustáveis por app no control-plane. Eval harness compara contra metas.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-AI-0007",
+        "title": "Tracer plugável (Langfuse default, LangSmith opcional)",
+        "statement": "createAiTracer({ langfuse?, metrics }): span(name, meta, fn) cronometra e emite ao Langfuse (opcional). LangChain ativa LangSmith via env LANGCHAIN_TRACING_V2 + LANGCHAIN_API_KEY (zero código). Falha de telemetria nunca propaga.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-AI-0008",
+        "title": "RAG em pgvector com chunking heading-aware",
+        "statement": "chunkMarkdownSections (##-based), splitWithOverlap com quebras naturais (parágrafo/sentença/espaço). pgvector store (HNSW) com ingestão incremental por hash (contentHash). Re-rank por LLM (gpt-5-nano) antes de cortar top-K. Sem RAG → [] defensivo.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-AI-0009",
+        "title": "Memória em 3 horizontes com escopagem por user_id",
+        "statement": "CURTO: createThreadStore (Postgres) — estado de thread sobrevive restart/pod e compartilhado entre processos. MÉDIO: createRollingSummarizer (sumarização progressiva quando excede budget). LONGO: createUserMemory (pgvector com HNSW, TTL 180 dias, recall SEMPRE escopado by user_id — nunca cruza usuários). Extração de fatos é assíncrona no worker.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-AI-0010",
+        "title": "Control-plane de prompts versionados (F5)",
+        "statement": "ai-control-plane: POST /v1/prompts/:name/versions (criar versão com activate flag), POST /v1/prompts/:name/activate (promover com confirmed:true, retorna 'previous' para rollback). Apps fetcham GET /v1/prompts/:name/active com timeout 2s + cache + fallback inline. Sem auth write retorna 503. FORA do caminho crítico.",
+        "scope": "platform",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-AI-0011",
+        "title": "Feedback rollup (thumbs) cross-app",
+        "statement": "POST /v1/feedback (SICAT + GymOps enviando; app, kind:thumbs_up|thumbs_down, surface, refId, toolName, comment, metadata). GET /v1/feedback/summary (agregação por app/kind/dias). Métrica ai_feedback_total{app,surface,kind}.",
+        "scope": "platform",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-AI-0012",
+        "title": "Registry de eval runs (resultado de golden sets)",
+        "statement": "POST /v1/eval-runs (app, mode:sample|full|graph|mock|ci, total, passed, failed, passRate, kpis, metadata). GET /v1/eval-runs (listar desc por created_at, filtro app). Rastreabilidade de cada run de CI dos apps.",
+        "scope": "platform",
+        "priority": "medium"
+      }
+    ],
+    "non_functional_requirements": [
+      {
+        "proposed_id": "REQ-AI-NFR-001",
+        "title": "Zero dependências de runtime em ai-core",
+        "quality_scenario": {
+          "source": "plataforma",
+          "stimulus": "aplicativo boot sem prom-client/langfuse/openai instalados",
+          "environment": "Node.js produção",
+          "artifact": "ai-core",
+          "response": "telemetria vira no-op, grafo segue funcionando, nenhum erro de require",
+          "response_measure": "100% dos caminhos críticos (IA) continuam operacionais sem pacotes opcionais"
+        }
+      },
+      {
+        "proposed_id": "REQ-AI-NFR-002",
+        "title": "Fallback gracioso com timeout + cache + inline",
+        "quality_scenario": {
+          "source": "operador do app",
+          "stimulus": "chamada IA falha (timeout, erro OpenAI, sem chave)",
+          "environment": "produção, timeout 2s (control-plane) ou 20s (sync turno)",
+          "artifact": "callAI, control-plane client",
+          "response": "retorna fallback (prompt inline ou valor padrão), métrica contabiliza erro, turno completa sem quebra",
+          "response_measure": "zero turnos quebrados por falha de IA; latência máxima 20s sync + cache valida até 1h"
+        }
+      },
+      {
+        "proposed_id": "REQ-AI-NFR-003",
+        "title": "Observabilidade com zero drift entre apps",
+        "quality_scenario": {
+          "source": "SRE monitorando Grafana dashboard ai-platform",
+          "stimulus": "PR toca ai-core/prompts/grafo dos apps",
+          "environment": "CI + produção (SICAT+GymOps simultâneos)",
+          "artifact": "ai_turn_latency_seconds, ai_tokens_total, ai_judge_score, KPI dashboard",
+          "response": "métricas aparecem em tempo real (5s raspagem Prometheus), nomenclatura idêntica, labels app-específicos",
+          "response_measure": "100% das chamadas IA em AMBOS os apps aparecem no dashboard com labels corretos; nenhum nome de métrica divergir"
+        }
+      },
+      {
+        "proposed_id": "REQ-AI-NFR-004",
+        "title": "Segurança: IA nunca excede permissão do usuário",
+        "quality_scenario": {
+          "source": "usuário A (sem acesso à unidade X)",
+          "stimulus": "IA propõe tool (query_overdue, create_activity) restrita à unidade X",
+          "environment": "GymOps produção, teste E2E com memberships reais",
+          "artifact": "authz do AiTool, toolContext (organizationId validado na rota)",
+          "response": "tool.authorize retorna { allowed: false, reason: '...' }, AiToolDeniedError lançado, turno não executa",
+          "response_measure": "100% das rejeições de authz testadas E2E; zero vazamento de dados cross-org/cross-user"
+        }
+      },
+      {
+        "proposed_id": "REQ-AI-NFR-005",
+        "title": "Idempotência de confirmação (confirmedToolCallId)",
+        "quality_scenario": {
+          "source": "usuário confirma ação R3/R4 (ex.: criar atividade)",
+          "stimulus": "request POST /ai/confirm {confirmedToolCallId} chega 2x (retry de rede)",
+          "environment": "GymOps produção",
+          "artifact": "dispatchTool com confirmedToolCallId, rota /ai/confirm",
+          "response": "ambas as requisições executam o mesmo create_activity uma única vez; segunda confirma o mesmo resultado",
+          "response_measure": "atividade criada uma única vez; ambas respostas idênticas; sem duplicate entries no BD"
+        }
+      },
+      {
+        "proposed_id": "REQ-AI-NFR-006",
+        "title": "RAG + memória NUNCA bloqueiam resposta",
+        "quality_scenario": {
+          "source": "turno do assistente (chat)",
+          "stimulus": "retrieval RAG fail ou memória Postgres slow (>1s)",
+          "environment": "SICAT produção, pgvector com 100k chunks, user_memory com 10k docs",
+          "artifact": "resolveMemory, createUserMemory.recall, reranker",
+          "response": "RAG falha → [] defensivo, memória falha → history vazio, turno continua com contexto reduzido (sem erro)",
+          "response_measure": "p95 latência do turno ≤ 15s COM ou SEM RAG/memória; zero timeouts do grafo por falha de dependência"
+        }
+      }
+    ],
+    "architecturally_significant": [
+      "Contrato AiTool unificado com authz por identidade (nunca por canal) + dry-run/confirmação para mutações",
+      "Grafo de raciocínio estrutural (Router→Fast/Deep paths) com especialistas e loop ReAct com tools",
+      "Observabilidade canônica (métricas ai_*, tracer plugável Langfuse/LangSmith, KPIs por app)",
+      "RAG em pgvector com chunking heading-aware, embedder estrutural, HNSW e re-ranker LLM",
+      "Memória em 3 horizontes: threads Postgres (sobrevivem restart), rolling summary, user memory pgvector com TTL",
+      "Control-plane de prompts (versionados com promote/rollback sem deploy, feedback rollup, eval registry)",
+      "Fallback gracioso: IA nunca quebra o turno (timeout+cache+inline fallback); memória/RAG/telemetria em best-effort",
+      "Zero dependências de runtime: estrutura injetável permite desabilitar telemetria e continuar operacional"
+    ]
+  },
+  "keycloak": {
+    "product_scope": "keycloak",
+    "dir": "keycloak",
+    "prefix": "KEYCLOAK",
+    "owner": "plataforma-digital",
+    "origin": "codebase keycloak + mapeamento multi-agente 2026-06-14",
+    "one_line": "Keycloak IdP/SSO (OIDC) para realm nvit, Grafana, Argo CD, DevOps Console e apps com autenticação aditiva.",
+    "stack": "Kubernetes (Deployment + Postgres PVC 1Gi), Traefik IngressRoute (/auth), Sealed Secrets, quay.io/keycloak/keycloak:26.0",
+    "functional_requirements": [
+      {
+        "proposed_id": "REQ-KEYCLOAK-0001",
+        "title": "Realm nvit e Issuer OIDC",
+        "statement": "Keycloak deve servir um realm 'nvit' com issuer OIDC em https://dev.nvit.com.br/auth/realms/nvit, exposição de .well-known/openid-configuration, e suporte a Authorization Code + Standard Flow.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-KEYCLOAK-0002",
+        "title": "Usuário admin da plataforma unificado",
+        "statement": "Admin da plataforma (admin@nvit.com.br) deve estar no grupo platform-admins no realm nvit e usar a mesma senha do realm master para acesso ao Keycloak console, Grafana, Argo CD e DevOps Console.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-KEYCLOAK-0003",
+        "title": "Grupo de papéis platform-admins",
+        "statement": "Realm nvit deve conter grupo platform-admins mapeado via group membership mapper nos clients OIDC; claim 'groups' deve incluir o grupo para permissões de admin.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-KEYCLOAK-0004",
+        "title": "Clients OIDC confidenciais (Grafana, Argo CD, DevOps Console)",
+        "statement": "Realm nvit deve possuir clientes confidenciais (Standard Flow) para Grafana, Argo CD e DevOps Console com redirect URIs específicas e group membership mappers; cada client secret armazenado como Sealed Secret.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-KEYCLOAK-0005",
+        "title": "Client público com PKCE para apps com login próprio",
+        "statement": "Realm nvit deve permitir clients públicos (publicClient: true) com PKCE S256 para apps como SICAT, redirect URI customizável (produção e dev), sem exigência de client secret.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-KEYCLOAK-0006",
+        "title": "Persistência Postgres dedicada",
+        "statement": "Keycloak deve usar Postgres 16 (Deployment keycloak-postgres em namespace identity) com PVC 1Gi, configuração via KC_DB_URL e credenciais no Secret keycloak-secrets (Sealed Secret).",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-KEYCLOAK-0007",
+        "title": "Bootstrapping de credenciais de admin",
+        "statement": "Bootstrap do admin (realm master) deve ser via variáveis KC_BOOTSTRAP_ADMIN_USERNAME/PASSWORD no Secret keycloak-secrets, nunca em plaintext no manifesto.",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-KEYCLOAK-0008",
+        "title": "Subpath /auth com proxy headers e health checks",
+        "statement": "Keycloak deve rodar com KC_HTTP_RELATIVE_PATH=/auth, KC_PROXY_HEADERS=xforwarded, KC_HTTP_ENABLED=true, KC_HOSTNAME_STRICT=false atrás do Traefik; health checks em :9000/auth/health/{ready,live}.",
+        "scope": "product",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-KEYCLOAK-0009",
+        "title": "Onboarding de novo client OIDC",
+        "statement": "Documentação e automação devem permitir onboardar novo app/ferramenta ao SSO via: criar client confidential no realm → selar o secret → configurar issuer e redirect URIs → mapear papéis via platform-admins.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-KEYCLOAK-0010",
+        "title": "Integração aditiva com apps com login próprio",
+        "statement": "Apps com autenticação própria (SICAT) devem poder integrar-se aditivamente via client público + PKCE sem quebrar login local ou outras autenticações (SIGOR/CETESB); o padrão usa validação no /userinfo do realm nvit.",
+        "scope": "product",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-KEYCLOAK-0011",
+        "title": "Issuers e endpoints canonicamente documentados",
+        "statement": "Documentação central deve listar realms, clientes, issuers, endpoints de descoberta, redirect URIs e grupos para todos os apps integrados (Grafana, Argo CD, DevOps Console, SICAT, etc.).",
+        "scope": "product",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-KEYCLOAK-0012",
+        "title": "GitOps com Sealed Secrets e kustomization",
+        "statement": "Manifesto do Keycloak (keycloak.yaml + sealed-keycloak-secrets.yaml) deve ser versionado via kustomization.yaml, aplicado por Argo CD (namespace identity, prune: true, selfHeal: true) sem toque manual.",
+        "scope": "platform",
+        "priority": "high"
+      }
+    ],
+    "non_functional_requirements": [
+      {
+        "proposed_id": "REQ-KEYCLOAK-NFR-001",
+        "title": "Disponibilidade do IdP",
+        "quality_scenario": {
+          "source": "Aplicação de autenticação (Grafana, Argo CD, SICAT)",
+          "stimulus": "Requisição de login OIDC durante operação normal",
+          "environment": "Cluster Kubernetes em modo prod",
+          "artifact": "Deployment keycloak + Service keycloak",
+          "response": "Keycloak responde com HTTP 200 ao /auth/realms/nvit/.well-known/openid-configuration dentro de 2s",
+          "response_measure": "P99 latência <= 2s; uptime >= 99.5%; health checks (readinessProbe/livenessProbe) no pod"
+        }
+      },
+      {
+        "proposed_id": "REQ-KEYCLOAK-NFR-002",
+        "title": "Segurança de secrets",
+        "quality_scenario": {
+          "source": "Operador do cluster",
+          "stimulus": "Leitura ou auditoria do repositório Git",
+          "environment": "Repositório público devops",
+          "artifact": "sealed-keycloak-secrets.yaml (SealedSecret)",
+          "response": "Credenciais (KC_BOOTSTRAP_ADMIN_PASSWORD, KC_DB_PASSWORD) nunca aparecem em plaintext; apenas o controller kube-system/sealed-secrets-controller consegue decifrá-las",
+          "response_measure": "0 ocorrências de senha/secret em plaintext no Git; SealedSecret validado pelo controller"
+        }
+      },
+      {
+        "proposed_id": "REQ-KEYCLOAK-NFR-003",
+        "title": "Recuperabilidade de chave do SealedSecret",
+        "quality_scenario": {
+          "source": "Operações de disaster recovery",
+          "stimulus": "Necessidade de restaurar o cluster ou recuperar secrets cifrados",
+          "environment": "Backup externo seguro (fora do Git)",
+          "artifact": "sealed-secrets-key-backup.yaml (kubectl -n kube-system get secret -l sealedsecrets.bitnami.com/sealed-secrets-key)",
+          "response": "Chave de decriptação do controller está feita backup seguro fora do Git; procedimento documentado em sso-keycloak.md §3",
+          "response_measure": "Backup validado; documentação clara de restauração"
+        }
+      },
+      {
+        "proposed_id": "REQ-KEYCLOAK-NFR-004",
+        "title": "Conformidade de probes de saúde",
+        "quality_scenario": {
+          "source": "Orquestrador Kubernetes",
+          "stimulus": "Verificação periódica de readiness e liveness do pod keycloak",
+          "environment": "Pod Deployment keycloak em execução",
+          "artifact": "readinessProbe (initialDelaySeconds: 20) + livenessProbe (initialDelaySeconds: 90) apontando para :9000/auth/health/{ready,live}",
+          "response": "readiness responde 200 OK após 20s; liveness responde 200 OK após 90s; falhas consecutivas (> failureThreshold) causam restart",
+          "response_measure": "Pod nunca recebe tráfego antes de estar pronto; pod é reiniciado se health falha > 30 (readiness) ou > 6 (liveness)"
+        }
+      },
+      {
+        "proposed_id": "REQ-KEYCLOAK-NFR-005",
+        "title": "Escalonabilidade de sessões OIDC",
+        "quality_scenario": {
+          "source": "Múltiplas aplicações (Grafana, Argo CD, DevOps Console, SICAT) autenticando-se simultaneamente",
+          "stimulus": "Picos de login OIDC durante início de jornada de trabalho",
+          "environment": "Cluster Kubernetes; Postgres 16 com fila transacional",
+          "artifact": "Deployment keycloak (1 replicate atual) + Service keycloak + Postgres backing",
+          "response": "Token endpoint /token responde em <= 500ms p99 sob carga; sessions são persistidas no Postgres sem deadlock",
+          "response_measure": "Latência P99 <= 500ms; database cpu <= 80% sob carga normal"
+        }
+      },
+      {
+        "proposed_id": "REQ-KEYCLOAK-NFR-006",
+        "title": "Auditoria de mudanças de realm e clientes",
+        "quality_scenario": {
+          "source": "Administrador de segurança",
+          "stimulus": "Alteração de configuração de realm, cliente, ou grupo no Keycloak",
+          "environment": "Console admin do Keycloak (realm master)",
+          "artifact": "Logs do Keycloak + audit event storage",
+          "response": "Mudanças devem ser rastreáveis (usuário, timestamp, operação, recurso) em logs ou banco de eventos",
+          "response_measure": "Logs contêm auditoria de criação/atualização de clientes e grupos; rastreabilidade em kubectl logs deploy/keycloak"
+        }
+      }
+    ],
+    "architecturally_significant": [
+      "Realm nvit como fonte única de autenticação/SSO para plataforma (Grafana, Argo CD, DevOps Console)",
+      "Separação de clients: confidencial (Grafana, Argo CD, DevOps Console) vs. público com PKCE (SICAT)",
+      "Integração aditiva via validação /userinfo (padrão SICAT) sem quebra de autenticações existentes",
+      "Postgres dedicado como backing store (não compartilhado) para isolamento de dados de identidade",
+      "Sealed Secrets como elo de GitOps: secrets versionados mas nunca em plaintext"
+    ]
+  },
+  "oidc": {
+    "product_scope": "oidc",
+    "dir": "oidc",
+    "prefix": "OIDC",
+    "owner": "plataforma-digital",
+    "origin": "codebase oidc + mapeamento multi-agente 2026-06-14",
+    "one_line": "Kit reutilizável OIDC/Keycloak (validação /userinfo, cripto de sessão, PKCE frontend) — zero dependências, compatível com SICAT.",
+    "stack": "Node.js ESM (source-direct, sem build), node:crypto + fetch global, testes via node --test, published em @flavioneto11/oidc-kit",
+    "functional_requirements": [
+      {
+        "proposed_id": "REQ-OIDC-0001",
+        "title": "Validação de token via /userinfo",
+        "statement": "validateKeycloakToken(accessToken, {userinfoUrl}) deve chamar o endpoint /userinfo do Keycloak, validar o Bearer token e retornar {ok, claims} ou {ok: false, code}; códigos: MISSING_TOKEN, NO_USERINFO_URL, KEYCLOAK_UNAVAILABLE, INVALID_TOKEN.",
+        "scope": "shared-module",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-OIDC-0002",
+        "title": "Extração de perfil a partir de claims OIDC",
+        "statement": "claimsToProfile(claims) deve extrair email (lowercased) e name (fallback a preferred_username ou email) dos claims retornados pelo /userinfo.",
+        "scope": "shared-module",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-OIDC-0003",
+        "title": "Cripto HMAC-SHA256 de access token de sessão",
+        "statement": "createAccessToken(payload, {secret, ttlSeconds, prefix}) deve gerar token com formato 'prefix.encodedPayload.signature' usando HMAC-SHA256; payload deve incluir iat, exp, jti automáticos; default prefix: 'oidc_access'.",
+        "scope": "shared-module",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-OIDC-0004",
+        "title": "Verificação e validação de access token",
+        "statement": "verifyAccessToken(token, {secret, prefix}) deve validar assinatura HMAC, formato, expiração (exp vs. agora) e retornar {valid: true, payload} ou {valid: false, reason} com codes: INVALID_FORMAT, INVALID_SIGNATURE, INVALID_PAYLOAD, TOKEN_EXPIRED.",
+        "scope": "shared-module",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-OIDC-0005",
+        "title": "Hash SHA256 de refresh token",
+        "statement": "hashTokenSha256(token) deve retornar hash hexadecimal SHA256; createRefreshToken({prefix}) deve gerar token opaco (prefix.random40bytes, base64url); hash armazenado em BD, token enviado ao client.",
+        "scope": "shared-module",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-OIDC-0006",
+        "title": "Hashing seguro de password (scrypt_v1)",
+        "statement": "hashPassword(password) deve usar scrypt com salt 16 bytes, formato 'scrypt_v1$saltb64url$hashb64url'; verifyPassword(pwd, hash) deve validar timing-safely sem leakage temporal.",
+        "scope": "shared-module",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-OIDC-0007",
+        "title": "Criptografia AES-256-GCM de secrets",
+        "statement": "encryptSecret(plainText, {secret}) deve gerar IV aleatório 12 bytes, cifrar com AES-256-GCM, retornar {ciphertext, iv, tag} (base64url); decryptSecret(payload, {secret}) deve validar tag e decifrá-lo timing-safely.",
+        "scope": "shared-module",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-OIDC-0008",
+        "title": "Compatibilidade byte-a-byte com SICAT (prefix configurável)",
+        "statement": "Access/refresh tokens com prefix 'sicat_access'/'sicat_refresh' devem ser byte-idênticos aos gerados por apps/sicat/backend/lib/sicat-security.ts; nenhuma mudança de cripto sem preservar essa compatibilidade.",
+        "scope": "shared-module",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-OIDC-0009",
+        "title": "PKCE S256 no frontend (Authorization Code flow)",
+        "statement": "startKeycloakLogin({authUrl, clientId, redirectUri, scope}) deve gerar verifier (32 bytes), challenge (SHA256), state (16 bytes); sessionStorage deve guardar verifier e state; redirecionar ao authUrl com params OIDC padrão.",
+        "scope": "shared-module",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-OIDC-0010",
+        "title": "Exchange de authorization code por token no callback",
+        "statement": "exchangeKeycloakCode({tokenUrl, clientId, redirectUri, code, state}) deve validar state, recuperar verifier do sessionStorage, fazer POST ao /token com code_verifier, retornar {access_token, ...}; limpar sessionStorage após exchange.",
+        "scope": "shared-module",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-OIDC-0011",
+        "title": "Middleware Express para autenticação de sessão",
+        "statement": "requireSession({secret, prefix}) deve retornar middleware que extrai token do header Authorization: Bearer, valida via verifyAccessToken, popula req.session com payload ou responde 401 {error: {code, message}}.",
+        "scope": "shared-module",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-OIDC-0012",
+        "title": "Exports e pontos de entrada modulares",
+        "statement": "Kit deve expor '.': Node (validacao + cripto + Express), './pkce': browser (PKCE), './express': middleware; types em index.d.ts com interfaces TokenPayload, EncryptedPayload.",
+        "scope": "shared-module",
+        "priority": "high"
+      }
+    ],
+    "non_functional_requirements": [
+      {
+        "proposed_id": "REQ-OIDC-NFR-001",
+        "title": "Zero dependências de runtime",
+        "quality_scenario": {
+          "source": "Consumidor do kit (app Node.js)",
+          "stimulus": "npm install @flavioneto11/oidc-kit; importar e usar funções",
+          "environment": "Node.js 20+",
+          "artifact": "package.json (sem dependencies, apenas node:crypto + fetch global)",
+          "response": "Nenhuma dependência externas são instaladas; apenas node:crypto (builtins) e fetch global (Node 18+) são usados",
+          "response_measure": "npm audit passa; node_modules/@flavioneto11/oidc-kit não contém submodulos externos"
+        }
+      },
+      {
+        "proposed_id": "REQ-OIDC-NFR-002",
+        "title": "Compatibilidade de sessão SICAT preservada",
+        "quality_scenario": {
+          "source": "Migração de app para usar @flavioneto11/oidc-kit",
+          "stimulus": "App SICAT adota oidc-kit com prefix 'sicat_access'; sessões vivas antes da adoção devem continuar válidas",
+          "environment": "SICAT backend com sessions ativas em BD",
+          "artifact": "Tokens gerados por sicat-security.ts vs. oidc-kit com prefix 'sicat_access'",
+          "response": "Tokens são byte-idênticos; sessões vivas permanecem autenticadas; zero logout forçado",
+          "response_measure": "Teste de compatibilidade com token byte-a-byte; CHANGELOG documenta mudança como non-breaking"
+        }
+      },
+      {
+        "proposed_id": "REQ-OIDC-NFR-003",
+        "title": "Timing-safety em validações criptográficas",
+        "quality_scenario": {
+          "source": "Attacker",
+          "stimulus": "Tentativa de timing attack ao validar assinatura HMAC ou password hash",
+          "environment": "API backend usando requireSession middleware",
+          "artifact": "timingSafeEqual (node:crypto) para comparação de signatures e password hashes",
+          "response": "Comparação leva tempo constante independente da diferença; sem leakage temporal",
+          "response_measure": "Code review: timingSafeEqual usado em verifyAccessToken e verifyPassword; testes de timing ausentes/não-práticos (documentado)"
+        }
+      },
+      {
+        "proposed_id": "REQ-OIDC-NFR-004",
+        "title": "Isolamento de contexto PKCE (browser)",
+        "quality_scenario": {
+          "source": "Aplicação frontend SPA",
+          "stimulus": "Múltiplas abas/janelas do mesmo origin navegando para o mesmo app",
+          "environment": "Browser moderno com sessionStorage compartilhado por origin",
+          "artifact": "sessionStorage guarda verifier/state; chaves: oidc_pkce_verifier, oidc_pkce_state (ou customizadas)",
+          "response": "Cada aba/janela pode ter seu próprio fluxo PKCE concorrente; state validation evita CSRF; limpeza após exchange",
+          "response_measure": "Testes simulam múltiplas abas; sessionStorage é isolado por aba (browser default); state mismatch causa erro"
+        }
+      },
+      {
+        "proposed_id": "REQ-OIDC-NFR-005",
+        "title": "Testabilidade sem dependências externas",
+        "quality_scenario": {
+          "source": "Desenvolvedor do oidc-kit ou consumidor",
+          "stimulus": "npm test (rodando testes unitários)",
+          "environment": "Node.js CLI (node --test)",
+          "artifact": "test/oidc-kit.test.js; mock fetch injetável em validateKeycloakToken",
+          "response": "Testes rodam sem rede, sem deps externas, sem setup de BD; ~0.5s para suite completa",
+          "response_measure": "npm test passa; cobertura > 80% das funções críticas; mock fetch funciona"
+        }
+      },
+      {
+        "proposed_id": "REQ-OIDC-NFR-006",
+        "title": "Versionamento SemVer com mudanças de cripto como BREAKING",
+        "quality_scenario": {
+          "source": "Mantenedor do kit",
+          "stimulus": "Mudança no formato/algoritmo de tokens OIDC",
+          "environment": "GitHub Packages registry; CHANGELOG.md",
+          "artifact": "package.json version, CHANGELOG.md, AGENTS.md §2 (versionamento)",
+          "response": "Qualquer mudança em cripto é tratada como MAJOR; changelog documenta impacto; janela de depreciação de 1 ciclo",
+          "response_measure": "Bump MAJOR; anúncio em CHANGELOG com 'BREAKING'; apps fixam range conscientemente"
+        }
+      }
+    ],
+    "architecturally_significant": [
+      "Zero dependências de runtime: apenas node:crypto (builtin) + fetch global (Node 18+) — reduz superfície de ataque e overhead de cadeia de deps",
+      "Compatibilidade byte-a-byte com SICAT via prefix configurável — sessions vivas continuam válidas durante migração",
+      "PKCE S256 obrigatório no browser para clients públicos — segurança contra code interception (OAuth 2.0 PKCE RFC 7636)",
+      "Integração aditiva: validação /userinfo sem quebra de outras autenticações — padrão reutilizável (SICAT → outros apps)",
+      "Cripto timing-safe (HMAC, scrypt, AES-GCM): proteção contra timing attacks e side-channels"
+    ]
+  },
+  "argocd": {
+    "product_scope": "argocd",
+    "dir": "argocd",
+    "prefix": "ARGO",
+    "owner": "plataforma-digital",
+    "origin": "codebase argocd + mapeamento multi-agente 2026-06-14",
+    "one_line": "GitOps declarativo com padrão app-of-apps, auto-sync, prune e selfHeal para reconciliação contínua do cluster.",
+    "functional_requirements": [
+      {
+        "proposed_id": "REQ-ARGO-0001",
+        "title": "Application raiz app-of-apps devops-platform",
+        "statement": "Implementar Application Argo CD `devops-platform` em `platform/argocd/apps` como ponto de entrada do GitOps, apontando para `https://github.com/FlavioNeto11/devops` com `directory.recurse=true` para descobrir todas as Applications filhas.",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-ARGO-0002",
+        "title": "Sincronização automática com prune e selfHeal",
+        "statement": "Configurar Application raiz com `syncPolicy.automated.prune=true` e `selfHeal=true` para sincronização contínua; mudanças manuais no cluster são revertidas via git.",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-ARGO-0003",
+        "title": "Descoberta recursiva de Applications filhas",
+        "statement": "Usar `directory.recurse=true` na Application raiz para descobrir e gerenciar automaticamente todas as Applications filhas em `platform/argocd/apps/*.yaml` (keycloak, devops-console, sicat, gymops, rmambiental, etc).",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-ARGO-0004",
+        "title": "Server Argo em subpath /argocd sem TLS próprio",
+        "statement": "Configurar Argo CD server com `--insecure`, `--rootpath /argocd` e `basehref /argocd/` para rodar atrás do Traefik em HTTP; TLS terminado na borda.",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-ARGO-0005",
+        "title": "SSO via OIDC (Keycloak realm nvit)",
+        "statement": "Integrar OIDC na configuração `configs.cm.oidc.config` apontando para issuer `https://dev.nvit.com.br/auth/realms/nvit`, clientID `argocd`; cliente secret vem do SealedSecret `argocd-oidc`.",
+        "scope": "platform",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-ARGO-0006",
+        "title": "RBAC com mapeamento de grupos Keycloak",
+        "statement": "Configurar RBAC em `configs.rbac` com policy `g, platform-admins, role:admin` para mapear grupo Keycloak `platform-admins` como admin no Argo; usuário `admin` local como fallback.",
+        "scope": "platform",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-ARGO-0007",
+        "title": "Footprint reduzido (laboratório)",
+        "statement": "Desabilitar redis-ha, dex, notifications, applicationSet, alertmanager; manter 1 réplica de controller/repoServer/server com resource requests/limits pequenas (CPU 50-100m, memória 64-256Mi).",
+        "scope": "platform",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-ARGO-0008",
+        "title": "Finalizer e reconciliação em cascata",
+        "statement": "Incluir finalizer `resources-finalizer.argocd.argoproj.io` na Application raiz para garantir limpeza em cascata de recursos gerenciados e Applications filhas ao deletar.",
+        "scope": "platform",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-ARGO-0009",
+        "title": "UI acessível via Traefik em http://localhost:8080/argocd",
+        "statement": "Expor Argo CD server via IngressRoute Traefik com rota `/argocd`; recomendado acessar via port-forward `kubectl port-forward svc/argocd-server -n argocd 8080:80` para evitar problema de subpath em navegadores.",
+        "scope": "platform",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-ARGO-0010",
+        "title": "Repositório público (sem credenciais)",
+        "statement": "Usar repositório público `https://github.com/FlavioNeto11/devops` sem credenciais de autenticação no Argo CD.",
+        "scope": "platform",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-ARGO-0011",
+        "title": "Namespace de destino criado automaticamente",
+        "statement": "Usar `syncOptions: [CreateNamespace=true]` para criar automaticamente namespace de destino (`argocd` para a raiz) se não existir.",
+        "scope": "platform",
+        "priority": "medium"
+      }
+    ],
+    "non_functional_requirements": [
+      {
+        "proposed_id": "REQ-ARGO-NFR-001",
+        "title": "Sincronização e reconciliação declarativa",
+        "quality_scenario": {
+          "source": "DevOps operator",
+          "stimulus": "Modificar um manifest em `platform/argocd/apps` e fazer push no Git",
+          "environment": "Cluster Docker Desktop em operação normal",
+          "artifact": "Application Argo CD com `selfHeal=true` e `prune=true`",
+          "response": "Argo CD sincroniza automaticamente o estado do cluster com Git em até 3 minutos; qualquer mudança manual é revertida",
+          "response_measure": "100% de sincronização bem-sucedida; drift = 0 em estado estável"
+        }
+      },
+      {
+        "proposed_id": "REQ-ARGO-NFR-002",
+        "title": "Disponibilidade do servidor GitOps",
+        "quality_scenario": {
+          "source": "DevOps operator ou usuário OIDC",
+          "stimulus": "Acessar UI do Argo CD em `/argocd` durante operação normal do cluster",
+          "environment": "Cluster Docker Desktop, replicas=1, sem HA",
+          "artifact": "Argo CD server pod rodando com `--insecure` e subpath configurado",
+          "response": "UI acessível e responsiva em <2s; API REST/gRPC funcional para CLI",
+          "response_measure": "99% uptime em labo; latência p50 < 200ms, p99 < 1s"
+        }
+      },
+      {
+        "proposed_id": "REQ-ARGO-NFR-003",
+        "title": "Performance de renderização de manifests",
+        "quality_scenario": {
+          "source": "Argo repo-server",
+          "stimulus": "Renderizar 15+ Applications com kustomize/helm durante reconciliação",
+          "environment": "Docker Desktop, repo-server com CPU 100m limit, memória 256Mi limit",
+          "artifact": "Repo-server pod com 1 réplica e resources.limits configurados",
+          "response": "Renderização completa em <30s; pod não faz OOMKill ou crashLoop",
+          "response_measure": "100% sucesso de renderização; memory usage <80% do limit"
+        }
+      },
+      {
+        "proposed_id": "REQ-ARGO-NFR-004",
+        "title": "Segurança de acesso via OIDC",
+        "quality_scenario": {
+          "source": "Usuário do realm Keycloak nvit",
+          "stimulus": "Fazer login no Argo CD via OAuth 2.0 com Keycloak",
+          "environment": "Cluster com SealedSecret `argocd-oidc` decifrado, Keycloak rodando em `/auth`",
+          "artifact": "Argo CD com OIDC config apontando para issuer Keycloak e RBAC mapeando grupos",
+          "response": "Autenticação bem-sucedida; membro de `platform-admins` recebe `role:admin`; demais recebem acesso limitado",
+          "response_measure": "100% taxa de autenticação bem-sucedida; RBAC policy aplicada em <1s"
+        }
+      }
+    ],
+    "architecturally_significant": [
+      "app-of-apps pattern para gerenciamento declarativo de múltiplas Applications",
+      "prune + selfHeal para garantir GitOps como fonte da verdade",
+      "integração OIDC + RBAC para governança de acesso multi-usuário"
+    ]
+  },
+  "traefik": {
+    "product_scope": "traefik",
+    "dir": "traefik",
+    "prefix": "TRAEFIK",
+    "owner": "plataforma-digital",
+    "origin": "codebase traefik + mapeamento multi-agente 2026-06-14",
+    "one_line": "Ingress controller com roteamento por path-prefix, stripPrefix seletivo e middlewares transversais (compress, secure-headers).",
+    "functional_requirements": [
+      {
+        "proposed_id": "REQ-TRAEFIK-0001",
+        "title": "Ingress controller via Helm (chart traefik/traefik)",
+        "statement": "Instalar Traefik no namespace `traefik` via Helm chart `traefik/traefik` com deployment.replicas=1 para laboratório; service.type=LoadBalancer para expor portas 80 e 443 no host.",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-TRAEFIK-0002",
+        "title": "Entrypoints web (80) e websecure (443)",
+        "statement": "Configurar entrypoints `web` (porta 8000→80) e `websecure` (porta 8443→443); HTTP sem redirect (HTTPS pendente); LoadBalancer mapeia portas do container para localhost.",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-TRAEFIK-0003",
+        "title": "Suporte a CRD Traefik (IngressRoute/Middleware)",
+        "statement": "Habilitar provider `kubernetesCRD` com `allowCrossNamespace=true` para permitir IngressRoutes em qualquer namespace referenciarem Middlewares e Services de outros namespaces.",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-TRAEFIK-0004",
+        "title": "Roteamento por path-prefix com priority",
+        "statement": "Suportar roteamento granular por `PathPrefix` com regra de ouro: api2 (priority=40) > api (priority=30) > frontend (priority=10) para resolver conflitos de prefixo aninhados.",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-TRAEFIK-0005",
+        "title": "Middleware StripPrefix para APIs",
+        "statement": "Usar Middleware `stripPrefix` (específico de cada app) para remover `<basePath>+<path>` completo de rotas API/api2, permitindo que processo veja rotas na raiz.",
+        "scope": "capability:path-routing",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-TRAEFIK-0006",
+        "title": "Middleware compress (gzip/brotli)",
+        "statement": "Implementar Middleware `compress` no namespace `traefik`, compartilhado entre rotas, com `minResponseBodyBytes=1024` para comprimir respostas >1KB.",
+        "scope": "platform",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-TRAEFIK-0007",
+        "title": "Middleware secure-headers (X-Frame-Options, HSTS, etc)",
+        "statement": "Implementar Middleware `secure-headers` com frameDeny=true, contentTypeNosniff=true, browserXssFilter=true, stsSeconds=31536000 para aplicar a todas as rotas.",
+        "scope": "platform",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-TRAEFIK-0008",
+        "title": "Dashboard via IngressRoute (api@internal)",
+        "statement": "Expor dashboard Traefik em host dedicado `traefik.localhost/dashboard/` ou path `/traefik` via IngressRoute apontando para TraefikService `api@internal`, com middlewares compress e secure-headers.",
+        "scope": "platform",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-TRAEFIK-0009",
+        "title": "Métricas Prometheus com labels enriquecidos",
+        "statement": "Habilitar `metrics.prometheus.enabled=true` com `addEntryPointsLabels`, `addRoutersLabels`, `addServicesLabels` para enriquecer séries com metadados; desabilitar `serviceMonitor` inicialmente (CRD não existe na instalação).",
+        "scope": "platform",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-TRAEFIK-0010",
+        "title": "Logs de acesso habilitados",
+        "statement": "Habilitar `logs.access.enabled=true` para auditoria; `logs.general.level=INFO` para observabilidade.",
+        "scope": "platform",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-TRAEFIK-0011",
+        "title": "IngressClass padrão do cluster",
+        "statement": "Registrar Traefik como `ingressClass` padrão (`isDefaultClass=true`) para que Ingress nativos sem `ingressClassName` sejam tratados automaticamente.",
+        "scope": "platform",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-TRAEFIK-0012",
+        "title": "Suporte a ExternalName Services",
+        "statement": "Habilitar `allowExternalNameServices=true` em ambos os providers (CRD e Ingress nativo) para permitir roteamento para serviços externos.",
+        "scope": "platform",
+        "priority": "low"
+      }
+    ],
+    "non_functional_requirements": [
+      {
+        "proposed_id": "REQ-TRAEFIK-NFR-001",
+        "title": "Latência de roteamento",
+        "quality_scenario": {
+          "source": "Cliente HTTP (navegador ou CLI)",
+          "stimulus": "Fazer requisição GET para rota `/aplicacao1/` (frontend) ou `/aplicacao1/api/v1/health` (API)",
+          "environment": "Docker Desktop, Traefik com 1 réplica, cluster sem sobrecarga",
+          "artifact": "IngressRoute com match correto, middlewares (compress, secure-headers) e serviço backend",
+          "response": "Requisição roteada em <50ms; resposta recebida com headers de segurança aplicados",
+          "response_measure": "p50 latência <30ms, p99 <100ms; 0% timeouts"
+        }
+      },
+      {
+        "proposed_id": "REQ-TRAEFIK-NFR-002",
+        "title": "Resolução de conflitos de roteamento (priority)",
+        "quality_scenario": {
+          "source": "Traefik router",
+          "stimulus": "Requisição para `/app/api2/trace` quando existem rotas `/app/api2` (priority 40), `/app/api` (priority 30) e `/app` (priority 10)",
+          "environment": "Cluster com múltiplas IngressRoutes para mesma app, todas ativas",
+          "artifact": "IngressRoute com priority explícita respeitando regra: api2>api>frontend",
+          "response": "Requisição sempre roteia para rota api2 (maior priority); nenhuma ambiguidade",
+          "response_measure": "100% taxa de acerto; zero roteamentos errados"
+        }
+      },
+      {
+        "proposed_id": "REQ-TRAEFIK-NFR-003",
+        "title": "Compressão de respostas",
+        "quality_scenario": {
+          "source": "Cliente HTTP com Accept-Encoding: gzip",
+          "stimulus": "Requisição GET para SPA (index.html >50KB) ou JSON API com payload >1KB",
+          "environment": "Traefik com middleware compress habilitado, minResponseBodyBytes=1024",
+          "artifact": "Middleware compress aplicado à rota",
+          "response": "Resposta retorna com Content-Encoding: gzip; tamanho reduzido para ~30% do original",
+          "response_measure": "Taxa de compressão >=70% para conteúdo text/html e application/json"
+        }
+      },
+      {
+        "proposed_id": "REQ-TRAEFIK-NFR-004",
+        "title": "Segurança de headers HTTP",
+        "quality_scenario": {
+          "source": "Navegador (verificação de headers)",
+          "stimulus": "Fazer requisição HTTP para qualquer rota com middleware secure-headers",
+          "environment": "Cluster em operação, Traefik com secure-headers middleware",
+          "artifact": "Middleware secure-headers aplicado à rota ou globalmente",
+          "response": "Resposta inclui X-Frame-Options: DENY, X-Content-Type-Options: nosniff, X-XSS-Protection, Strict-Transport-Security",
+          "response_measure": "100% das respostas contêm headers de segurança esperados"
+        }
+      }
+    ],
+    "architecturally_significant": [
+      "padrão de path-routing com priority para resolver conflitos de prefixos aninhados (api2>api>frontend)",
+      "middleware transversais (compress, secure-headers) compartilhados entre namespaces",
+      "integração com kube-prometheus-stack via ServiceMonitor (ativado após observabilidade instalada)"
+    ]
+  },
+  "observability": {
+    "product_scope": "observability",
+    "dir": "observability",
+    "prefix": "OBS",
+    "owner": "plataforma-digital",
+    "origin": "codebase observability + mapeamento multi-agente 2026-06-14",
+    "one_line": "Stack de observabilidade com Prometheus (métricas), Grafana (dashboards), Loki (logs), Langfuse (telemetria de IA).",
+    "functional_requirements": [
+      {
+        "proposed_id": "REQ-OBS-0001",
+        "title": "Prometheus via kube-prometheus-stack (Helm)",
+        "statement": "Instalar Prometheus no namespace `observability` via chart `prometheus-community/kube-prometheus-stack` com alertmanager desabilitado, retention 2d, node-exporter e kube-state-metrics habilitados.",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-OBS-0002",
+        "title": "Coleta de métricas do cluster e host",
+        "statement": "Usar node-exporter (CPU, memória, disco, rede do host) e kube-state-metrics (estado de pods/deployments/services) com seletores `serviceMonitorSelectorNilUsesHelmValues=false` para raspar todos os ServiceMonitor do cluster.",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-OBS-0003",
+        "title": "Grafana com SSO Keycloak",
+        "statement": "Instalar Grafana (subchart do kube-prometheus-stack) com OIDC habilitado apontando para issuer `https://dev.nvit.com.br/auth/realms/nvit`, client_id `grafana`, PKCE habilitado; clientSecret vem do SealedSecret `grafana-oidc`.",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-OBS-0004",
+        "title": "RBAC Grafana com mapeamento de grupos",
+        "statement": "Mapear grupo Keycloak `platform-admins` para role `Admin` no Grafana; demais usuários recebem `Viewer`; login_attribute_path=email para evitar colisão com usuário admin interno.",
+        "scope": "platform",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-OBS-0005",
+        "title": "Grafana em subpath /grafana",
+        "statement": "Configurar `server.root_url: https://dev.nvit.com.br/grafana` e `serve_from_sub_path: true` para servir Grafana atrás do Traefik em path `/grafana` com assets resolvidos corretamente.",
+        "scope": "platform",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-OBS-0006",
+        "title": "Datasources Prometheus e Loki",
+        "statement": "Provisionar datasource Prometheus (criado automaticamente pelo kube-prometheus-stack) e adicionar Loki como datasource com URL `http://loki.observability:3100`.",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-OBS-0007",
+        "title": "Loki single-binary com filesystem storage",
+        "statement": "Instalar Loki no modo single-binary com `deploymentMode: SingleBinary`, armazenamento em filesystem (PVC 2Gi), `auth_enabled=false`, replication_factor=1, retention 72h.",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-OBS-0008",
+        "title": "Promtail para coleta de logs",
+        "statement": "Instalar Promtail (chart `grafana/promtail`) apontando para endpoint Loki `http://loki.observability:3100/loki/api/v1/push` para coletar logs de todos os pods.",
+        "scope": "platform",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-OBS-0009",
+        "title": "Dashboards provisionados via ConfigMap + sidecar",
+        "statement": "Usar sidecar do Grafana (label `grafana_dashboard`) para carregar dashboards versionados em JSON (`cluster-overview.json`, `ai-platform.json`) como ConfigMaps em `observability`.",
+        "scope": "platform",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-OBS-0010",
+        "title": "Langfuse para tracing de IA",
+        "statement": "Instalar Langfuse (observabilidade de chamadas LLM) no namespace `observability` com Postgres dedicado (PVC 2Gi), init headless para criar org `nvit`/projeto `nvit-ai`, acessível em `http://langfuse.localhost`.",
+        "scope": "platform",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-OBS-0011",
+        "title": "ServiceMonitor Traefik (ativação pós-instalação)",
+        "statement": "Desabilitar ServiceMonitor Traefik na instalação inicial (CRD não existe); reativar após kube-prometheus-stack subir com `helm upgrade traefik … --set metrics.prometheus.serviceMonitor.enabled=true`.",
+        "scope": "platform",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-OBS-0012",
+        "title": "Workaround node-exporter em WSL2",
+        "statement": "Desabilitar `hostRootFsMount` do node-exporter (causa CrashLoopBackOff em Docker Desktop WSL2); coletar via /proc e /sys, aceitável para laboratório.",
+        "scope": "platform",
+        "priority": "medium"
+      }
+    ],
+    "non_functional_requirements": [
+      {
+        "proposed_id": "REQ-OBS-NFR-001",
+        "title": "Coleta de métricas com baixa latência",
+        "quality_scenario": {
+          "source": "Prometheus scraper",
+          "stimulus": "Fazer scrape de métricas de todos os targets (Traefik, node-exporter, kube-state-metrics, app endpoints)",
+          "environment": "Docker Desktop, Prometheus com 2d retention, todos os targets saudáveis",
+          "artifact": "Prometheus com interval scrape padrão (~15s), ServiceMonitors provisionados",
+          "response": "Métricas coletadas com sucesso em <10s por target; série TSDB atualizada",
+          "response_measure": "up metric = 1 para 100% dos targets monitorados; latência p99 < 5s"
+        }
+      },
+      {
+        "proposed_id": "REQ-OBS-NFR-002",
+        "title": "Disponibilidade de dashboards Grafana",
+        "quality_scenario": {
+          "source": "Usuário Grafana autenticado",
+          "stimulus": "Acessar dashboard `cluster-overview` em `/grafana/d/cluster-overview` ou listar dashboards",
+          "environment": "Grafana rodando em `observability`, ConfigMap com sidecar carregando JSONs",
+          "artifact": "Dashboard JSON em ConfigMap com label `grafana_dashboard`",
+          "response": "Dashboard carrega em <3s; queries ao Prometheus retornam dados em <2s",
+          "response_measure": "100% disponibilidade de dashboard; latência p99 <3s para renderizar"
+        }
+      },
+      {
+        "proposed_id": "REQ-OBS-NFR-003",
+        "title": "Retenção e armazenamento de logs",
+        "quality_scenario": {
+          "source": "Promtail collector",
+          "stimulus": "Coletar logs de centenas de pods durante 72h",
+          "environment": "Loki em mode single-binary, filesystem PVC 2Gi, retention_period 72h",
+          "artifact": "Loki pod rodando, PVC montado, Promtail enviando logs",
+          "response": "Logs armazenados e consultáveis via Grafana Loki datasource por 72h; PVC não excede 80% capacidade",
+          "response_measure": "retention 72h garantido; uso PVC <2Gi; query latência p99 <5s"
+        }
+      },
+      {
+        "proposed_id": "REQ-OBS-NFR-004",
+        "title": "Segurança de acesso via OIDC",
+        "quality_scenario": {
+          "source": "Usuário do realm Keycloak nvit",
+          "stimulus": "Fazer login no Grafana via OAuth 2.0 com Keycloak",
+          "environment": "Grafana com OIDC config, SealedSecret `grafana-oidc`, Keycloak saudável",
+          "artifact": "Grafana auth.generic_oauth.enabled=true com endpoints Keycloak",
+          "response": "Autenticação bem-sucedida em <5s; membro `platform-admins` recebe Admin, demais recebem Viewer",
+          "response_measure": "100% taxa de autenticação bem-sucedida; RBAC aplicado em <1s"
+        }
+      },
+      {
+        "proposed_id": "REQ-OBS-NFR-005",
+        "title": "Rastreabilidade de chamadas IA (Langfuse)",
+        "quality_scenario": {
+          "source": "App chamando Langfuse via `@flavioneto11/ai-core`",
+          "stimulus": "App faz chamada LLM com tracer Langfuse (`createAiTracer({ langfuse })`)",
+          "environment": "Langfuse rodando em `observability`, apps com PROJECT_PUBLIC_KEY/PROJECT_SECRET_KEY",
+          "artifact": "Langfuse deployment com Postgres, org `nvit` e projeto `nvit-ai` criados",
+          "response": "Trace enviado com sucesso (status 200); visível em UI Langfuse em <2s",
+          "response_measure": "100% taxa de entrega de traces; latência envio <500ms; retenção de dados ok"
+        }
+      }
+    ],
+    "architecturally_significant": [
+      "stack unificada (Prometheus + Grafana + Loki + Langfuse) em namespace `observability`",
+      "integração OIDC com Keycloak para governança de acesso multi-usuário",
+      "provisioning declarativo de dashboards via ConfigMap + sidecar (GitOps-friendly)",
+      "tracing de chamadas IA com Langfuse como recurso de plataforma"
+    ]
+  },
+  "platform": {
+    "product_scope": "platform",
+    "dir": "platform",
+    "prefix": "PLATFORM",
+    "owner": "plataforma-digital",
+    "origin": "codebase platform + mapeamento multi-agente 2026-06-14",
+    "one_line": "Governança e segurança da plataforma: namespaces, Sealed Secrets versionados, convenção GHCR, padrões de labels/anotações.",
+    "functional_requirements": [
+      {
+        "proposed_id": "REQ-PLATFORM-0001",
+        "title": "Namespaces governados (7 namespaces)",
+        "statement": "Criar 7 namespaces declarados em `platform/namespaces/namespaces.yaml`: `devops-system`, `traefik`, `argocd`, `observability`, `apps`, `apps-dev`, `apps-prod-local`; todos com labels `app.kubernetes.io/managed-by: devops-platform`.",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-PLATFORM-0002",
+        "title": "Labels canônicos em todos os recursos",
+        "statement": "Todo recurso de app leva labels `app.kubernetes.io/name`, `app.kubernetes.io/component`, `app.kubernetes.io/part-of`, `app.kubernetes.io/managed-by: devops-platform`; o Console agrupa por `part-of`.",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-PLATFORM-0003",
+        "title": "Sealed Secrets para segredos versionados",
+        "statement": "Usar SealedSecret (controller `kube-system/sealed-secrets-controller`) para versionar segredos cifrados no Git sem expor valores; padrão: `sealed-<app>-secrets`, `sealed-<component>-oidc`.",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-PLATFORM-0004",
+        "title": "Segregação de segredos reais vs versionados",
+        "statement": "Não versionar Secret real em git; apenas SealedSecret (cifrado). Secret real criado fora do git via `kubectl` e excluído do `kustomization.yaml` para Argo `prune: true` nunca apagá-lo.",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-PLATFORM-0005",
+        "title": "Convenção de imagens GHCR",
+        "statement": "Padrão: `ghcr.io/flavioneto11/<app>/<service>:<tag>`; tags: SHA (canônica), branch, `latest`; namespace sempre minúsculo; local no lab usa `<app>-<service>:local`.",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-PLATFORM-0006",
+        "title": "Registry guide com instruções de autenticação",
+        "statement": "Documentar em `platform/registry/ghcr-guide.md` como criar PAT, autenticar no Docker, nomear imagens, fazer build/push, gerenciar visibilidade (público/privado), e usar imagePullSecret no K8s.",
+        "scope": "platform",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-PLATFORM-0007",
+        "title": "Anotações de publicação no Deployment",
+        "statement": "CI deve anotar Deployment com `devops.flavioneto/commitSha`, `devops.flavioneto/branch`, `devops.flavioneto/imageTag`, `devops.flavioneto/deployedAt`, `devops.flavioneto/runId`; Console exibe em aba **Publicações**.",
+        "scope": "platform",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-PLATFORM-0008",
+        "title": "Hard constraints documentados",
+        "statement": "Documento `docs/standards/hard-constraints.md` lista 7 regras inegociáveis: labels, roteamento, segredos, GitOps, imagens, recursos, ambiente (Windows); quebrar qualquer uma derruba plataforma.",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-PLATFORM-0009",
+        "title": "Padrões de infraestrutura (infra-standards.md)",
+        "statement": "Documentar em `docs/standards/infra-standards.md` padrões operacionais: namespaces, labels, roteamento (regra de ouro api2>api>frontend), recursos (requests+limits HARD), secrets (SealedSecret), GitOps (Argo prune+selfHeal).",
+        "scope": "platform",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-PLATFORM-0010",
+        "title": "Path-routing pattern documentado",
+        "statement": "Documento `docs/path-routing-pattern.md` detalha regra de ouro de roteamento: frontend stripPrefix=false/priority=10, api stripPrefix=true/priority=30, api2 stripPrefix=true/priority=40; conflito resolvido por priority.",
+        "scope": "platform",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-PLATFORM-0011",
+        "title": "Non-functional requirements (NFR) definidos",
+        "statement": "Documento `docs/standards/non-functional-requirements.md` define tabela de recursos (requests/limits), SLOs, observabilidade, segurança e performance esperados da plataforma e das apps.",
+        "scope": "platform",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-PLATFORM-0012",
+        "title": "Environment (Windows Server, PowerShell 7)",
+        "statement": "Plataforma roda em Windows Server Datacenter x64, Docker Desktop, cluster K8s local; automação em PowerShell 7; todos scripts devem ser idempotentes e usar caminhos `C:\\...`.",
+        "scope": "platform",
+        "priority": "high"
+      }
+    ],
+    "non_functional_requirements": [
+      {
+        "proposed_id": "REQ-PLATFORM-NFR-001",
+        "title": "Segurança de segredos versionados",
+        "quality_scenario": {
+          "source": "DevOps operator",
+          "stimulus": "Fazer commit de SealedSecret em Git e fazer push para repositório público",
+          "environment": "Repositório público no GitHub, sealed-secrets controller rodando em `kube-system`",
+          "artifact": "SealedSecret contém valor cifrado; Secret real nunca é exposto em git",
+          "response": "SealedSecret decifrado pelo controller em <5s; Secret real nunca visível em logs/audit",
+          "response_measure": "100% dos segredos cifrados no git; 0 exposições em repositório público"
+        }
+      },
+      {
+        "proposed_id": "REQ-PLATFORM-NFR-002",
+        "title": "Conformidade de labels no cluster",
+        "quality_scenario": {
+          "source": "DevOps operator",
+          "stimulus": "Criar novo Deployment/Service em namespace `apps` com labels canonicamente corretos",
+          "environment": "Cluster rodando, Console Backend consultando recursos",
+          "artifact": "Recurso com labels `app.kubernetes.io/part-of: <app>` e demais labels canônicos",
+          "response": "Console agrupa recurso corretamente na aba **Apps**; nenhuma recurso orfão",
+          "response_measure": "100% dos recursos com labels canônicos; 0 erros de agrupamento no Console"
+        }
+      },
+      {
+        "proposed_id": "REQ-PLATFORM-NFR-003",
+        "title": "Auditoria de publicações",
+        "quality_scenario": {
+          "source": "Console Backend lendo anotações de Deployment",
+          "stimulus": "Verificar metadata de uma publicação recente (SHA, branch, data, run ID)",
+          "environment": "Deployment anotado por CI com metadados de publicação",
+          "artifact": "Deployment com anotações `devops.flavioneto/*`",
+          "response": "Console exibe todas as informações de publicação corretamente na aba **Publicações**",
+          "response_measure": "100% das publicações com auditoria completa; histórico consultável"
+        }
+      },
+      {
+        "proposed_id": "REQ-PLATFORM-NFR-004",
+        "title": "Governança declarativa via GitOps",
+        "quality_scenario": {
+          "source": "DevOps operator",
+          "stimulus": "Aplicar mudança de namespace ou label via Git e deixar Argo reconciliar",
+          "environment": "Argo CD com app-of-apps em auto-sync (prune=true, selfHeal=true)",
+          "artifact": "Manifest alterado em `platform/`, Argo Application descobrindo mudança",
+          "response": "Argo aplica mudança em <3min; cluster em estado desejado (Git é fonte da verdade)",
+          "response_measure": "100% de sincronização bem-sucedida; drift = 0"
+        }
+      }
+    ],
+    "architecturally_significant": [
+      "governança centralizada via Sealed Secrets: segredos versionados cifrados, nunca em plaintext no git",
+      "convenção de labels + anotações como contrato entre infra, CI e Console",
+      "hard constraints documentados como garantias invioláveis da plataforma",
+      "GitOps como único mecanismo de mudança: todas as alterações passam por Git, Argo é fonte da verdade"
+    ]
+  },
+  "specs": {
+    "product_scope": "specs",
+    "dir": "specs",
+    "prefix": "SPECS",
+    "owner": "plataforma-digital",
+    "origin": "codebase specs + mapeamento multi-agente 2026-06-14",
+    "one_line": "Plataforma versionada de requisitos como fonte da verdade, com baseline determinística, governança de CI, e consumo por Claude",
+    "functional_requirements": [
+      {
+        "proposed_id": "REQ-SPECS-0001",
+        "title": "Artefato canônico de requisito versionado (YAML schema)",
+        "statement": "O sistema deve permitir definir e versionare requisitos em YAML conforme specs/schema/requirement.schema.json, com identidade (id/slug/title/type), escopo explícito (product_scope/applies_to), conteúdo (statement/business_rationale), prioridade/criticidade, architectural_significance (ASR), acceptance_criteria, verification_method, evidence_links, quality_scenarios para NFR, rastreabilidade tipada (links), versionamento semântico (item_revision/semantic_change/change_reason) e alocação derivada (architecture_refs/infra_refs/adr_refs/service_refs/slo_refs).",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-SPECS-0002",
+        "title": "Baseline determinística gerada e commitada",
+        "statement": "O sistema deve gerar e commitar specs/baseline/current-baseline.json (determinístico, sem timestamp, ordenado por id) contendo todos os requisitos validados, métricas por contagem/tipo/status, impact_score calculado (5 fatores), reprocess_queue com motivos, baseline_hash para detecção de drift e retrieval-manifest como índice id→arquivo para consumo do Claude.",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-SPECS-0003",
+        "title": "Gerador e validador de baseline (build-baseline.mjs)",
+        "statement": "O sistema deve fornecer script Node.js (specs/tools/build-baseline.mjs) que carregue requisitos YAML recursivamente de specs/requirements/**, valide contra JSON Schema 2020-12 (ajv) + integridade (ids/slugs únicos, links sem alvo pendente), calcule impact_score, detecção de ADRs válidos em docs/decisions/, e emita baseline determinística com --check (validação sem escrita, falha em drift) e modo normal (escrita de artefatos).",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-SPECS-0004",
+        "title": "Mapa de impacto (rastreabilidade tipada e grafos)",
+        "statement": "O sistema deve gerar specs/baseline/impact-map.json contendo grafo de rastreabilidade com nós (requisitos + artefatos: ADR/service/infra/slo/test) e arestas tipadas (depends_on, constrains, allocates_to, verifies, derives_from, refines, conflicts_with, relates_to), marcando proposed vs canonical, para análise de impacto em mudança major/ASR e cobertura arquitetural.",
+        "scope": "platform",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-SPECS-0005",
+        "title": "Governança de versionamento semântico (CI gate specs-governance)",
+        "statement": "O workflow specs-governance.yml deve executar sempre (sem path filter) e validar schema + integridade + drift (baseline commitada == baseline regenerada); no PR, o job enforce-versioning deve falha se requisito mudou em campo semântico (statement, scope, links, quality_scenarios, status, prioridade, ASR) sem incrementar item_revision, classificar semantic_change (patch/minor/major) e preencher change_reason.",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-SPECS-0006",
+        "title": "Relatório de impacto em PR (specs-diff.yml)",
+        "statement": "O workflow specs-diff.yml deve executar em PRs que toquem specs/, compara baseline commitada (base do PR) vs HEAD e publica no Job Summary: change-report com requisitos adicionados/alterados/removidos, classificação patch/minor/major, e destaque para mudanças major/ASR que exigem /impact-review.",
+        "scope": "platform",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-SPECS-0007",
+        "title": "Registry de artefatos externos (vocabulário controlado)",
+        "statement": "O sistema deve manter specs/registry/artifacts.yaml com catálogo de artefatos derivados (services, infra, slos, tests) que podem ser referenciados em allocation.* dos requisitos; build-baseline.mjs valida links para artefatos contra este registry.",
+        "scope": "platform",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-SPECS-0008",
+        "title": "Ponte para consumo do Claude (specs/CLAUDE.md + skills)",
+        "statement": "O documento specs/CLAUDE.md deve definir regras de consumo: (1) consulte baseline antes de decidir implementação, (2) ao alterar/criar requisito, trate como questão de versão (item_revision/semantic_change/change_reason) e regenere baseline via /sync-spec, (3) em mudança major/ASR rode /impact-review, (4) nunca edite baseline à mão, (5) arquitetura/infra são derivadas dos requisitos. Skills: /sync-spec (sincronizar/regen + drift-check), /impact-review (análise de impacto), /baseline-diff (diff/classificação).",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-SPECS-0009",
+        "title": "Baseline inicial semeada de requisitos reais (bootstrap)",
+        "statement": "O sistema deve iniciar com baseline contendo requisitos reais extraídos de SICAT (24 FR + 8 NFR), GymOps (15 FR + 8 NFR), CMS (15 FR + 7 NFR) = 69 requisitos aprovados; rastreabilidade inicial (links REQ→REQ) curada em specs/tools/seed-links.json; evidências de verificação (evidence_links) e alocação a artefatos externos (architecture/infra/adr/service/slo/test refs) deixadas para iteração/UI, com itens marcados na reprocess_queue.",
+        "scope": "platform",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-SPECS-0010",
+        "title": "Fila de reprocessamento com motivos (reprocess_queue)",
+        "statement": "O baseline deve incluir reprocess_queue com requisitos que demandam atenção: motivos (alto impacto, sem método de verificação, sem evidência, mudança major, sem alocação arquitetural); UI/Claude usa para priorizar trabalho e acompanhar cobertura.",
+        "scope": "platform",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-SPECS-0011",
+        "title": "Sugestões de link propostas (suggested_links)",
+        "statement": "O baseline pode incluir suggested_links (ex.: sugeridas pelo Claude/UI) com status (proposed/accepted/rejected) e confidence (0-1); não contaminam links canônico até promoção, formando arestas 'proposed' no mapa de impacto.",
+        "scope": "platform",
+        "priority": "low"
+      },
+      {
+        "proposed_id": "REQ-SPECS-0012",
+        "title": "Índice de recuperação para Claude (retrieval-manifest.json)",
+        "statement": "O baseline deve incluir specs/baseline/retrieval-manifest.json mapeando id→arquivo para que o Claude recupere rapidamente artefatos de requisito; usado por skill /baseline-diff e consumo em conversas.",
+        "scope": "platform",
+        "priority": "medium"
+      }
+    ],
+    "non_functional_requirements": [
+      {
+        "proposed_id": "REQ-SPECS-NFR-001",
+        "title": "Determinismo da baseline (hash verificável)",
+        "quality_scenario": {
+          "source": "Desenvolvedor ou CI rodando build-baseline.mjs",
+          "stimulus": "Regenerar baseline a partir de requisitos YAML inalterados (mesmos arquivos, conteúdo idêntico)",
+          "environment": "Máquina A vs Máquina B; CI vs local; Node 22 padrão",
+          "artifact": "specs/baseline/current-baseline.json",
+          "response": "Baseline gerado é idêntico (byte-for-byte) ao anterior; baseline_hash coincide",
+          "response_measure": "Falha zero em drift-check (build-baseline.mjs --check); diff vazio entre runs em arquivos inalterados"
+        }
+      },
+      {
+        "proposed_id": "REQ-SPECS-NFR-002",
+        "title": "Validação de schema com erro descritivo",
+        "quality_scenario": {
+          "source": "Desenvolvedor editando requisito YAML com campo inválido (ex.: priority=invalid)",
+          "stimulus": "Executar build-baseline.mjs ou specs-governance CI",
+          "environment": "Ajv 2020-12 validando contra requirement.schema.json",
+          "artifact": "Processo de validação",
+          "response": "Falha com mensagem que identifica: arquivo, caminho JSON (instancePath), erro específico (type mismatch, enum violation, etc.)",
+          "response_measure": "Tempo de feedback < 5s; mensagem tem file:path:error em formato fixo para parsing"
+        }
+      },
+      {
+        "proposed_id": "REQ-SPECS-NFR-003",
+        "title": "Rastreabilidade transitiva com ciclicidade detectável",
+        "quality_scenario": {
+          "source": "Claude/UI analisando impacto de mudança de requisito A",
+          "stimulus": "Seguir grafo (depends_on, constrains, derives_from...) até folhas (até N=5 hops)",
+          "environment": "Impact-map.json com 69 requisitos, ~150 arestas canonical + proposed",
+          "artifact": "Grafo de rastreabilidade",
+          "response": "Enumerar requisitos afetados transitivamente; detectar ciclos (A→B→C→A) com aviso; marcar arestas proposed vs canonical",
+          "response_measure": "Nenhuma busca infinita (timeout); ciclos detectados em < 1s; arestas marcadas conforme link.status"
+        }
+      },
+      {
+        "proposed_id": "REQ-SPECS-NFR-004",
+        "title": "Performance de baseline para +500 requisitos",
+        "quality_scenario": {
+          "source": "Fase 2: plataforma em expansão com múltiplos produtos (SICAT, GymOps, CMS, novos portais...)",
+          "stimulus": "Executar build-baseline.mjs em 500 requisitos YAML",
+          "environment": "Node 22; specs/tools com ajv, yaml, crypto; CI ubuntu-latest",
+          "artifact": "specs/tools/build-baseline.mjs",
+          "response": "Baseline gerada (JSON), impact-map com 500 nós + ~1500 arestas, retrieval-manifest com índice completo",
+          "response_measure": "Tempo execution <= 15s; tamanho baseline.json <= 5MB; --check completa em <= 3s"
+        }
+      },
+      {
+        "proposed_id": "REQ-SPECS-NFR-005",
+        "title": "Integridade referencial: links sem alvo pendente",
+        "quality_scenario": {
+          "source": "Desenvolvedor criando novo requisito com links.target='REQ-XYZ-9999' (não existe)",
+          "stimulus": "Executar build-baseline.mjs ou specs-governance CI",
+          "environment": "Requisitos existentes registrados; schema + build-baseline.mjs validação",
+          "artifact": "Artefato com link pendente",
+          "response": "Falha com erro: 'link target REQ-XYZ-9999 não encontrado em file/line'; lista todos os links pendentes",
+          "response_measure": "Build falha (exit 1); todos os links pendentes reportados em uma passada; sem falsos positivos em ADR/service/infra válidos no registry"
+        }
+      },
+      {
+        "proposed_id": "REQ-SPECS-NFR-006",
+        "title": "Quality-Attribute-Scenario para NFR mensuráveis",
+        "quality_scenario": {
+          "source": "Requisito tipo=non-functional (ex.: performance, segurança, disponibilidade)",
+          "stimulus": "Build-baseline.mjs validando artefato",
+          "environment": "Schema requer quality_scenarios[] obrigatório para type=non-functional",
+          "artifact": "REQ-*.yaml com type=non-functional e quality_scenarios[] (source, stimulus, environment, artifact, response, response_measure)",
+          "response": "Validação passa; cenário é legível e operacionalizável (response_measure com métrica mensurável)",
+          "response_measure": "Nenhum NFR sem quality_scenarios; cada scenario tem todos os 6 campos preenchidos; response_measure é testável/observável"
+        }
+      }
+    ],
+    "architecturally_significant": [
+      "REQ-SPECS-0001 (artefato canônico YAML: dirige todo o modelo de requisitos)",
+      "REQ-SPECS-0002 (baseline determinística: base para consumo Claude + rastreabilidade)",
+      "REQ-SPECS-0003 (gerador build-baseline.mjs: transformação determinística requisitos→baseline)",
+      "REQ-SPECS-0004 (mapa de impacto: dirige análise de mudança major/ASR e cobertura)",
+      "REQ-SPECS-0005 (governança de versionamento: gate que força atenção em mudança incompatível)",
+      "REQ-SPECS-0008 (ponte Claude + skills: muda como a IA consome e manipula requisitos)"
+    ]
+  },
+  "cicd": {
+    "product_scope": "cicd",
+    "dir": "cicd",
+    "prefix": "CICD",
+    "owner": "plataforma-digital",
+    "origin": "codebase cicd + mapeamento multi-agente 2026-06-14",
+    "one_line": "Esteira declarativa com build/push GHCR, deploy no cluster local via self-hosted runner, governança de CI/CD (specs + health) e rastreabilidade por annotations",
+    "functional_requirements": [
+      {
+        "proposed_id": "REQ-CICD-0001",
+        "title": "Pipeline de descoberta de apps (discover phase)",
+        "statement": "O workflow deve descobrir automaticamente todas as aplicações no repositório lendo devops.yaml de cada app (apps/*/devops.yaml), extraindo metadados (name, services[], dependencies[], secrets[]) e passando para a matriz de build.",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-CICD-0002",
+        "title": "Build e push de imagens Docker para GHCR (reusable-build-push.yaml)",
+        "statement": "Workflow reutilizável deve buildar uma imagem Docker para um service específico com contexto customizável, fazer login no GHCR via token GitHub automático, gerar tags (SHA curto, branch, 'latest' em default), fazer push com cache (GitHub Actions gha), e expor image-tag como output para downstream.",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-CICD-0003",
+        "title": "Deploy no cluster Kubernetes local (reusable-deploy-k8s.yaml)",
+        "statement": "Workflow reutilizável deve rodar em self-hosted runner Windows (labels: self-hosted, windows, docker-desktop, local-k8s, flavio-devops), validar contexto kubectl (docker-desktop), garantir namespace, aplicar manifests via kubectl apply -f recursivo, anotar Deployment com metadados de rastreabilidade (commit SHA, branch, image tag, deployed-at, run-id) com --overwrite, aguardar rollout com timeout.",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-CICD-0004",
+        "title": "Matrix de build por service (multi-service apps)",
+        "statement": "Pipeline deve gerar dinamicamente matriz de build (frontend, api, worker, recorder...) a partir de devops.yaml, disparando um job build-push para cada service com context/dockerfile personalizados; outputs (image-tag) alimentam downstream deploy.",
+        "scope": "platform",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-CICD-0005",
+        "title": "Gate de validação de requisitos (specs-governance)",
+        "statement": "Workflow specs-governance deve executar sempre (sem path filter) no push (main) e PR, validar schema YAML + integridade (ids/slugs únicos, links sem alvo pendente, ADR válidos) e checar drift (baseline commitada == baseline regenerada); em PR, enforce semântico deve falhar se campo muda sem versionar.",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-CICD-0006",
+        "title": "Relatório de impacto de requisitos (specs-diff.yml)",
+        "statement": "Workflow specs-diff deve disparar em PRs que toquem specs/, comparar baseline da base vs HEAD, gerar change-report (added/changed/removed com classificação patch/minor/major) e publicar no Job Summary, destacando major/ASR que exigem /impact-review.",
+        "scope": "platform",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-CICD-0007",
+        "title": "Rastreabilidade de deploy via annotations",
+        "statement": "Cada deployment deve ser anotado com: devops.flavioneto/commitSha, devops.flavioneto/branch, devops.flavioneto/imageTag, devops.flavioneto/deployedAt (ISO 8601 UTC), devops.flavioneto/runId; Console e Argo CD consomem para exibir histórico e origem.",
+        "scope": "platform",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-CICD-0008",
+        "title": "Proteção de branch (branch protection rules)",
+        "statement": "Branch main deve exigir: (1) code review approval (≥1), (2) workflows obrigatórios passando (specs-governance, build, deploy), (3) dismissal de stale reviews em push, (4) sem force-push/delete, (5) CODEOWNERS para specs/ exigindo revisão do dono.",
+        "scope": "platform",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-CICD-0009",
+        "title": "Self-hosted runner com registro e validação (github-runner-setup.md)",
+        "statement": "Windows self-hosted runner deve ser instalado via scripts/install-github-runner.ps1 (idempotente), registrado com labels (self-hosted, windows, docker-desktop, local-k8s, flavio-devops), rodar como serviço Windows, ter acesso validado a kubectl/docker/cluster local, e autenticação no GHCR via PAT.",
+        "scope": "platform",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-CICD-0010",
+        "title": "Fallback de fluxo local vs GHCR",
+        "statement": "Aplicações podem publicar localmente (scripts/publish-app.ps1) com docker build -t <img>:local + kubectl apply (imagePullPolicy IfNotPresent) para iteração rápida, ou via Actions/GHCR (--token, tags por SHA/branch) para esteira completa; mesma interface (devops.yaml).",
+        "scope": "platform",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-CICD-0011",
+        "title": "Timeout e rollback em falha de deploy",
+        "statement": "Deploy job deve aguardar rollout com --timeout=180s; se exceder, falha com mensagem de timeout; operador reverte via kubectl rollout undo/helm rollback/argocd app rollback conforme o caso.",
+        "scope": "platform",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-CICD-0012",
+        "title": "Job Summary com resumo legível (build + deploy status)",
+        "statement": "Cada job (build, deploy) deve publicar no GITHUB_STEP_SUMMARY: app/service, tags publicadas, deploy status, anotações aplicadas, links para logs/Argo; summary aparecem no PR e run view.",
+        "scope": "platform",
+        "priority": "medium"
+      }
+    ],
+    "non_functional_requirements": [
+      {
+        "proposed_id": "REQ-CICD-NFR-001",
+        "title": "Performance de build/push (cache e camadas)",
+        "quality_scenario": {
+          "source": "Desenvolvedor fazendo push para branch feature com mudança em app/sicat/api",
+          "stimulus": "Workflow dispara matriz build-push para frontend (sem mudança) + api (com mudança) + worker (sem mudança)",
+          "environment": "GitHub Actions ubuntu-latest; Docker Buildx com cache gha; GHCR registry",
+          "artifact": "Build matrix jobs paralelos",
+          "response": "Frontend (cache hit) completa em <30s; api (rebuild) em <2min (maven cache + docker layer cache); worker (cache hit) em <30s",
+          "response_measure": "Tempo total build+push <= 3min; hit rate > 80% em camadas inalteradas; GHCR tags aparecem em < 1min"
+        }
+      },
+      {
+        "proposed_id": "REQ-CICD-NFR-002",
+        "title": "Idempotência de deploy e rollout",
+        "quality_scenario": {
+          "source": "Operador ou rerun de job (re-executa deploy-k8s job com mesma imagem)",
+          "stimulus": "Deploy roda 2x em sequência com mesma imagem/manifests",
+          "environment": "Kubernetes docker-desktop; kubectl apply idempotente; annotations --overwrite",
+          "artifact": "Deployment e pods",
+          "response": "Primeira execução: deploy criado/atualizado, rollout aguardado; segunda: kubectl apply e annotate são no-ops (nada muda), pods não são recriados",
+          "response_measure": "Rerun de job não causa disruption (zero pod restart); replica count mantido; logs mostram 'deployment already satisfied' ou similar"
+        }
+      },
+      {
+        "proposed_id": "REQ-CICD-NFR-003",
+        "title": "Detecção de erro em CI com retry strategy",
+        "quality_scenario": {
+          "source": "Build job falha por falha transiente (network timeout, rate limit)",
+          "stimulus": "Workflow roda; docker pull intermitentemente falha",
+          "environment": "GitHub Actions com retry automático em http transient; GHCR up/down",
+          "artifact": "Build job",
+          "response": "Job retenta até 3x com backoff; se persistir, falha clara com 'transient' vs 'fatal' (schema error, missing Dockerfile)",
+          "response_measure": "Taxa de sucesso em retry >= 95% para falhas transientes; tempo total <= 5min (includes retries); fatal errors fail fast"
+        }
+      },
+      {
+        "proposed_id": "REQ-CICD-NFR-004",
+        "title": "Rastreabilidade desde commit até pod",
+        "quality_scenario": {
+          "source": "Operador querendo saber: qual commit está rodando em pod X?",
+          "stimulus": "Consultar pod annotations ou devops console",
+          "environment": "Deployment anotado com commit SHA, branch, deployed-at, run-id",
+          "artifact": "Annotations no Deployment; DevOps Console exibindo",
+          "response": "Annotation devops.flavioneto/commitSha+branch+deployedAt claramente visível em 'kubectl describe' e Console; link para commit no GitHub",
+          "response_measure": "Toda app em produção tem annotations; Console mostra metadata em aba Deployments; zero perda de rastreabilidade"
+        }
+      },
+      {
+        "proposed_id": "REQ-CICD-NFR-005",
+        "title": "Segurança de secrets (PAT, token, credenciais de BD)",
+        "quality_scenario": {
+          "source": "Workflow ou script local buildando/deployando imagens",
+          "stimulus": "Processar credentials (GITHUB_TOKEN, PAT GHCR, BD password)",
+          "environment": "GitHub Actions secrets + runner local com env vars; Kubernetes Secret; git history",
+          "artifact": "Build pipeline, deploy pipeline, código",
+          "response": "Secrets nunca logados em saída de workflow; GITHUB_TOKEN escopado (packages:write, contents:read); PAT em Secret; Secrets do cluster separados (Secret YAML out-of-git); git hooks checam secrets (gitleaks.toml)",
+          "response_measure": "Zero secrets em git history (gitleaks presubmit pass); log sanitizado (*** em credential); falha rápida se secret vazado"
+        }
+      }
+    ],
+    "architecturally_significant": [
+      "REQ-CICD-0002 (build/push GHCR: determina como imagens são versionadas e distribuídas)",
+      "REQ-CICD-0003 (deploy via self-hosted runner: necessário para alcançar cluster local)",
+      "REQ-CICD-0005 (specs-governance gate: força governança de requisitos na esteira)",
+      "REQ-CICD-0007 (rastreabilidade via annotations: arquitetura de observabilidade)",
+      "REQ-CICD-0008 (branch protection: risco/segurança da main)"
+    ]
+  },
+  "portal-contracts": {
+    "product_scope": "portal-contracts",
+    "dir": "portal-contracts",
+    "prefix": "PCONTRACT",
+    "owner": "plataforma-digital",
+    "origin": "codebase portal-contracts + mapeamento multi-agente 2026-06-14",
+    "one_line": "Captura interativa de portais externos (browser remoto) → contrato normalizado + artefato para comparação SICAT vs portal real",
+    "functional_requirements": [
+      {
+        "proposed_id": "REQ-PCONTRACT-0001",
+        "title": "Registro e CRUD de portais (POST /v1/portals, GET /v1/portals*)",
+        "statement": "API (Express) deve permitir registrar novos portais com: slug (único), name, entry_url, api_origins (CORS whitelist, opcional), spa_kind (SPA/MPA/static, opcional), notes; GET listagem com filtros (limit); GET por id; payload envelope { data } / { error: { code, message } }.",
+        "scope": "capability:portal-recorder",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-PCONTRACT-0002",
+        "title": "Sessão de captura com gravação interativa (Playwright CDP)",
+        "statement": "API deve criar sessão de captura (POST /v1/portals/:id/sessions) que dispara browser remoto (Chromium via Playwright) com newContext() isolado; suportar title opcional, retorna session id; operador interage com portal no browser; recorder captura tudo via Chrome DevTools Protocol (rede, DOM, screenshots, eventos).",
+        "scope": "capability:portal-recorder",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-PCONTRACT-0003",
+        "title": "Captura de tráfego de rede com sanitização de secrets",
+        "statement": "Recorder deve interceptar requisições HTTP via Network.requestWillBeSent e Network.responseReceived, capturar request/response bodies, headers, e aplicar sanitização (redactObject/sanitizeHeaders) ANTES de persistência: substitui token/cookie/password/recaptcha por *** + sha256 hash para correlação sem expor; captura redigida vai para Postgres, captura crua nunca no git.",
+        "scope": "capability:portal-recorder",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-PCONTRACT-0004",
+        "title": "Streaming de captura ao vivo (WebSocket screencast)",
+        "statement": "Recorder deve expor WebSocket em /portal-rec/stream (prioridade 40 no IngressRoute) para que frontend live-stream a sessão; usar Page.startScreencast (CDP) para screenshots contínuos + Input.dispatch para comandos (click/type/scroll) do operador; payload: frame JPEG + event timeline.",
+        "scope": "capability:portal-recorder",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-PCONTRACT-0005",
+        "title": "Anotações sincronizadas com timeline de eventos",
+        "statement": "API deve permitir criar anotações durante sessão (POST /v1/sessions/:id/annotations) com timestamp, texto, tipo (step/issue/note), screenshot correlacionado; anotações persistem em Postgres e alimentam normalização do contrato.",
+        "scope": "capability:portal-recorder",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-PCONTRACT-0006",
+        "title": "Normalização de captura em contrato de portal",
+        "statement": "Pipeline (A5) deve processar sessão completa (rede redigida + anotações + dom snapshots) e emitir contrato em JSON: endpoints descobertos (GET/POST/PUT...), método, path, query params, body schema, auth (Bearer/Basic/Cookie), respostas 200/4xx/5xx; artefato vai para docs/portal-contracts/<portal>.json para diff vs SICAT/integração.",
+        "scope": "capability:portal-recorder",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-PCONTRACT-0007",
+        "title": "Gerenciamento de sessão com isolamento e TTL",
+        "statement": "API deve criar newContext() por sessão (isolado, cache/cookies separado), limpar com context.close() ao parar (POST /v1/sessions/:id/stop); configurar MAX_CONCURRENT_SESSIONS para evitar OOM (300-800MB/context); idle timeout (30min) para liberar Chromium órfão; replicação=1 + IfNotPresent.",
+        "scope": "capability:portal-recorder",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-PCONTRACT-0008",
+        "title": "Autenticação e autorização (OIDC + Bearer token)",
+        "statement": "Todas as rotas externas (/portal-rec, /portal-rec/api, /portal-rec/stream) exigem login via Keycloak (middleware console-auth-redirect para navegação 302, console-auth-401 para XHR 401); rotas internas (api↔recorder) usam RECORDER_INTERNAL_TOKEN; writes exigem Bearer PORTAL_REC_TOKEN (fail-closed: 503 sem token); anônimo bloqueia tudo.",
+        "scope": "capability:portal-recorder",
+        "priority": "critical"
+      },
+      {
+        "proposed_id": "REQ-PCONTRACT-0009",
+        "title": "Health check que nunca falha por DB",
+        "statement": "GET /health deve retornar { status: 'ok', db: boolean } dentro de 2s; se Postgres indisponível, status='ok' + db=false (fail-open para probe do Kubernetes); API aguarda DB em startup (wait-for-db script no entrypoint).",
+        "scope": "capability:portal-recorder",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-PCONTRACT-0010",
+        "title": "Armazenamento de blobs (HAR, screenshots, dumps) em PVC",
+        "statement": "Recorder escreve HAR.gz, screenshots PNG, DOM dumps em /data/blobs compartilhado (PVC portal-recorder-storage) entre api e recorder; GC periódico (> 7 dias) ou TTL em sessão; limite total (< 50GB).",
+        "scope": "capability:portal-recorder",
+        "priority": "medium"
+      },
+      {
+        "proposed_id": "REQ-PCONTRACT-0011",
+        "title": "Frontend de captura (React + live preview)",
+        "statement": "Frontend (React/Vite, basePath /portal-rec/) deve exibir: lista de portais cadastrados, botão 'nova sessão', tela de captura ao vivo (WebSocket screencast), timeline de eventos/anotações, controles (click/type/scroll), revisão de contrato gerado.",
+        "scope": "capability:portal-recorder",
+        "priority": "high"
+      },
+      {
+        "proposed_id": "REQ-PCONTRACT-0012",
+        "title": "Integração com Postgres via pool conexões",
+        "statement": "API deve conectar Postgres 16-alpine via pg/pg-pool; connection string via Secret POSTGRES_*; database=portal_recorder; migration/seed on startup; pool size = 10; retry on startup com backoff.",
+        "scope": "capability:portal-recorder",
+        "priority": "high"
+      }
+    ],
+    "non_functional_requirements": [
+      {
+        "proposed_id": "REQ-PCONTRACT-NFR-001",
+        "title": "Isolamento de contexto de browser (sem vazamento de credencial)",
+        "quality_scenario": {
+          "source": "Operador 1 capturando portal CETESB; Operador 2 capturando portal MTR em paralelo",
+          "stimulus": "Duas sessões simultâneas em portais diferentes",
+          "environment": "Playwright newContext() + isolação de cookies/cache; MAX_CONCURRENT_SESSIONS=2",
+          "artifact": "Sessions em Postgres; contexts no Chromium",
+          "response": "Cada contexto tem cookies/cache/localStorage separados; Operador 1 não vê credencial de Operador 2 no Chromium; close() libera 100% da RAM",
+          "response_measure": "Zero cross-session data leakage; contexto A isolado de B; memory freed after close (observable via top/k8s metrics)"
+        }
+      },
+      {
+        "proposed_id": "REQ-PCONTRACT-NFR-002",
+        "title": "Sanitização de secrets antes de escrita (zero credencial em DB)",
+        "quality_scenario": {
+          "source": "Operador capturando login em portal CETESB (usuário/senha reais)",
+          "stimulus": "Requisição POST com Authorization: Bearer <token> e Cookie: session=<real_value>",
+          "environment": "Recorder intercepta Network.* events; redactObject/sanitizeHeaders aplicados",
+          "artifact": "Captura redigida em Postgres; HAR.gz",
+          "response": "DB contém: Authorization: Bearer ***, Cookie: session=*** + sha256(real_value); credencial crua só em Chromium efêmero; após close(), zero rastreio",
+          "response_measure": "Gitleaks/grep não encontra credencial em Postgres dump; sha256 permite correlação sem exposição; audit log registra redação"
+        }
+      },
+      {
+        "proposed_id": "REQ-PCONTRACT-NFR-003",
+        "title": "Latência de streaming screencast < 500ms",
+        "quality_scenario": {
+          "source": "Operador navegando portal ao vivo",
+          "stimulus": "Clica em botão → frontend envia Input.dispatch → recorder processa → Page.startScreencast gera frame JPEG → WebSocket envia ao frontend",
+          "environment": "Localhost (docker-desktop) + Container recorder; Network latency <= 10ms",
+          "artifact": "WebSocket com frame stream",
+          "response": "Frame renderizado no frontend < 500ms de latência ponta-a-ponta (click → screen update visível)",
+          "response_measure": "Measurement via browser DevTools; P99 latency <= 500ms; frame rate >= 2fps (1 frame a cada 500ms)"
+        }
+      },
+      {
+        "proposed_id": "REQ-PCONTRACT-NFR-004",
+        "title": "Disponibilidade em degradação (DB fora = health=ok, db=false)",
+        "quality_scenario": {
+          "source": "Postgres do cluster falha ou torna-se inacessível",
+          "stimulus": "Liveness probe (kubelet) executa GET /health enquanto DB está down",
+          "environment": "Kubernetes pod health check; Postgres 5s indisponível",
+          "artifact": "GET /health endpoint",
+          "response": "HTTP 200 + { status: 'ok', db: false } em < 2s; pod não é reiciado; operador sabe (via db=false) e pode debugar",
+          "response_measure": "Zero false restarts; timeout < 2s; status='ok' mantém pod vivo; logs indicam 'db unavailable, retrying'"
+        }
+      },
+      {
+        "proposed_id": "REQ-PCONTRACT-NFR-005",
+        "title": "Segurança: fail-closed para writes sem token Bearer",
+        "quality_scenario": {
+          "source": "Request POST /v1/portals sem Authorization header",
+          "stimulus": "POST /v1/portals { slug, name, ... }",
+          "environment": "Middleware Bearer check em todas as rotas [w]",
+          "artifact": "Write endpoint",
+          "response": "HTTP 503 (Service Unavailable) + { error: { code: 'auth_required', message: '...' } } em < 100ms; request não processado",
+          "response_measure": "Nenhuma write execute sem Bearer válido; 503 vs 401 sinaliza 'fail-closed' vs 'forbidden'; teste de fuzzing prova inviolabilidade"
+        }
+      }
+    ],
+    "architecturally_significant": [
+      "REQ-PCONTRACT-0001 (CRUD de portais: modelo de dados core)",
+      "REQ-PCONTRACT-0002 (browser remoto via Playwright: diferencia portal-recorder de outras capturas)",
+      "REQ-PCONTRACT-0003 (sanitização de secrets: restrição de segurança que molda arquitetura)",
+      "REQ-PCONTRACT-0006 (normalização em contrato: transformação que alimenta comparador SICAT)",
+      "REQ-PCONTRACT-0008 (OIDC + fail-closed: governança de autenticação)"
+    ]
   }
 }

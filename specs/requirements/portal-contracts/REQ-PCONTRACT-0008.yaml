@@ -1,0 +1,22 @@
+id: REQ-PCONTRACT-0008
+slug: req-pcontract-0008
+title: Autenticação e autorização (OIDC + Bearer token)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: portal-contracts
+  applies_to: capability
+  capability: portal-recorder
+statement: "Todas as rotas externas (/portal-rec, /portal-rec/api, /portal-rec/stream) exigem login via Keycloak (middleware console-auth-redirect para navegação 302, console-auth-401 para XHR 401); rotas internas (api↔recorder) usam RECORDER_INTERNAL_TOKEN; writes exigem Bearer PORTAL_REC_TOKEN (fail-closed: 503 sem token); anônimo bloqueia tudo."
+source:
+  stakeholder: portal-contracts
+  origin: codebase portal-contracts + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

@@ -1,0 +1,28 @@
+id: REQ-PORTAL-NFR-005
+slug: req-portal-nfr-005
+title: "Responsividade mobile-first: layout fluido 320px–1440px"
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: portal
+statement: 'O sistema deve atender ao atributo de qualidade "Responsividade mobile-first: layout fluido 320px–1440px": Layout reflow fluido; menu hamburger em <640px; grid 2 cols (md), 3 cols (lg); CTAs ≥44px; nenhum horizontal overflow'
+source:
+  stakeholder: portal
+  origin: codebase portal + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Operador em smartphone (320px, 390px) ou desktop (1440px); orientações portrait/landscape
+    stimulus: Operador navega com menu mobile; busca app; clica card
+    environment: iPhone SE, Samsung Galaxy, iPad; mudanças de orientação
+    artifact: CSS mobile-first (sem max-width na base) + media queries min-width
+    response: Layout reflow fluido; menu hamburger em <640px; grid 2 cols (md), 3 cols (lg); CTAs ≥44px; nenhum horizontal overflow
+    response_measure: Lighthouse mobile ≥85; testes visuais 320–390–768–1440px sem overflow; touch targets ≥44px
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

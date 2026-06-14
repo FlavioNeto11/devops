@@ -1,0 +1,21 @@
+id: REQ-CONSOLE-0024
+slug: req-console-0024
+title: Shared resources and version tracking (drift detection)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: console
+  applies_to: product
+statement: "Frontend SharedResources renderiza recursos compartilhados entre projetos com versionamento. GET /shared lista; POST/PATCH/DELETE /shared/:id. Drift detection: frontend compara versao no banco vs versao em uso em cada projeto, alerta se desincronizado."
+source:
+  stakeholder: console
+  origin: codebase console + mapeamento multi-agente 2026-06-14
+priority: low
+criticality: low
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

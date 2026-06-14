@@ -1,0 +1,28 @@
+id: REQ-AI-NFR-002
+slug: req-ai-nfr-002
+title: Fallback gracioso com timeout + cache + inline
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: ai
+statement: 'O sistema deve atender ao atributo de qualidade "Fallback gracioso com timeout + cache + inline": retorna fallback (prompt inline ou valor padrão), métrica contabiliza erro, turno completa sem quebra'
+source:
+  stakeholder: ai
+  origin: codebase ai + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: operador do app
+    stimulus: chamada IA falha (timeout, erro OpenAI, sem chave)
+    environment: produção, timeout 2s (control-plane) ou 20s (sync turno)
+    artifact: callAI, control-plane client
+    response: retorna fallback (prompt inline ou valor padrão), métrica contabiliza erro, turno completa sem quebra
+    response_measure: zero turnos quebrados por falha de IA; latência máxima 20s sync + cache valida até 1h
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

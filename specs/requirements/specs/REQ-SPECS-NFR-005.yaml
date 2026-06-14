@@ -1,0 +1,28 @@
+id: REQ-SPECS-NFR-005
+slug: req-specs-nfr-005
+title: "Integridade referencial: links sem alvo pendente"
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: specs
+statement: "O sistema deve atender ao atributo de qualidade \"Integridade referencial: links sem alvo pendente\": Falha com erro: 'link target REQ-XYZ-9999 não encontrado em file/line'; lista todos os links pendentes"
+source:
+  stakeholder: specs
+  origin: codebase specs + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Desenvolvedor criando novo requisito com links.target='REQ-XYZ-9999' (não existe)
+    stimulus: Executar build-baseline.mjs ou specs-governance CI
+    environment: Requisitos existentes registrados; schema + build-baseline.mjs validação
+    artifact: Artefato com link pendente
+    response: "Falha com erro: 'link target REQ-XYZ-9999 não encontrado em file/line'; lista todos os links pendentes"
+    response_measure: Build falha (exit 1); todos os links pendentes reportados em uma passada; sem falsos positivos em ADR/service/infra válidos no registry
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

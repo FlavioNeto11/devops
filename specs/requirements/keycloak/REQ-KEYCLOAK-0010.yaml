@@ -1,0 +1,21 @@
+id: REQ-KEYCLOAK-0010
+slug: req-keycloak-0010
+title: Integração aditiva com apps com login próprio
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: keycloak
+  applies_to: product
+statement: Apps com autenticação própria (SICAT) devem poder integrar-se aditivamente via client público + PKCE sem quebrar login local ou outras autenticações (SIGOR/CETESB); o padrão usa validação no /userinfo do realm nvit.
+source:
+  stakeholder: keycloak
+  origin: codebase keycloak + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

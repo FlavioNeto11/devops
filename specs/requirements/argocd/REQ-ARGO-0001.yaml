@@ -1,0 +1,24 @@
+id: REQ-ARGO-0001
+slug: req-argo-0001
+title: Application raiz app-of-apps devops-platform
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: argocd
+  applies_to: product
+statement: Implementar Application Argo CD `devops-platform` em `platform/argocd/apps` como ponto de entrada do GitOps, apontando para `https://github.com/FlavioNeto11/devops` com `directory.recurse=true` para descobrir todas as Applications filhas.
+source:
+  stakeholder: argocd
+  origin: codebase argocd + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)
+allocation:
+  infra_refs:
+    - infra-argocd

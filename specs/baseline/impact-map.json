@@ -1,7 +1,11 @@
 {
   "metamodel_version": "1.0.0",
-  "baseline_hash": "c3dc1e9d2beed697ed072c23a73b19c339ad5cb08b320235abc21d7dbb797b4c",
+  "baseline_hash": "4cd62994135653205fa4f332faf85625099dc8989d7a29d5f9ef4d384f82cce0",
   "nodes": [
+    {
+      "id": "infra-argocd",
+      "kind": "infra"
+    },
     {
       "id": "infra-keycloak",
       "kind": "infra"
@@ -21,6 +25,696 @@
     {
       "id": "infra-traefik",
       "kind": "infra"
+    },
+    {
+      "id": "REQ-AI-0001",
+      "kind": "requirement",
+      "title": "Contrato AiTool com authz por identidade",
+      "type": "functional",
+      "product": "ai",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-AI-0002",
+      "kind": "requirement",
+      "title": "Dry-run e confirmação para mutações",
+      "type": "functional",
+      "product": "ai",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-AI-0003",
+      "kind": "requirement",
+      "title": "Grafo de raciocínio com Router e especialistas",
+      "type": "functional",
+      "product": "ai",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-AI-0004",
+      "kind": "requirement",
+      "title": "VERIFY (judge em runtime)",
+      "type": "functional",
+      "product": "ai",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-AI-0005",
+      "kind": "requirement",
+      "title": "Métricas canônicas ai_*",
+      "type": "functional",
+      "product": "ai",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-AI-0006",
+      "kind": "requirement",
+      "title": "KPIs canônicos com metas",
+      "type": "functional",
+      "product": "ai",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-AI-0007",
+      "kind": "requirement",
+      "title": "Tracer plugável (Langfuse default, LangSmith opcional)",
+      "type": "functional",
+      "product": "ai",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-AI-0008",
+      "kind": "requirement",
+      "title": "RAG em pgvector com chunking heading-aware",
+      "type": "functional",
+      "product": "ai",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-AI-0009",
+      "kind": "requirement",
+      "title": "Memória em 3 horizontes com escopagem por user_id",
+      "type": "functional",
+      "product": "ai",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-AI-0010",
+      "kind": "requirement",
+      "title": "Control-plane de prompts versionados (F5)",
+      "type": "functional",
+      "product": "ai",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-AI-0011",
+      "kind": "requirement",
+      "title": "Feedback rollup (thumbs) cross-app",
+      "type": "functional",
+      "product": "ai",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-AI-0012",
+      "kind": "requirement",
+      "title": "Registry de eval runs (resultado de golden sets)",
+      "type": "functional",
+      "product": "ai",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-AI-NFR-001",
+      "kind": "requirement",
+      "title": "Zero dependências de runtime em ai-core",
+      "type": "non-functional",
+      "product": "ai",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-AI-NFR-002",
+      "kind": "requirement",
+      "title": "Fallback gracioso com timeout + cache + inline",
+      "type": "non-functional",
+      "product": "ai",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-AI-NFR-003",
+      "kind": "requirement",
+      "title": "Observabilidade com zero drift entre apps",
+      "type": "non-functional",
+      "product": "ai",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-AI-NFR-004",
+      "kind": "requirement",
+      "title": "Segurança: IA nunca excede permissão do usuário",
+      "type": "non-functional",
+      "product": "ai",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-AI-NFR-005",
+      "kind": "requirement",
+      "title": "Idempotência de confirmação (confirmedToolCallId)",
+      "type": "non-functional",
+      "product": "ai",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-AI-NFR-006",
+      "kind": "requirement",
+      "title": "RAG + memória NUNCA bloqueiam resposta",
+      "type": "non-functional",
+      "product": "ai",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ANARA-0001",
+      "kind": "requirement",
+      "title": "Renderizar página inicial com apresentação pessoal e hero",
+      "type": "functional",
+      "product": "anarabottini",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-ANARA-0002",
+      "kind": "requirement",
+      "title": "Exibir catálogo de 6 palestras com filtro por categoria",
+      "type": "functional",
+      "product": "anarabottini",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-ANARA-0003",
+      "kind": "requirement",
+      "title": "Renderizar galeria de vídeos com lightbox YouTube",
+      "type": "functional",
+      "product": "anarabottini",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ANARA-0004",
+      "kind": "requirement",
+      "title": "Ofertar materiais educativos (e-books, guias, checklists)",
+      "type": "functional",
+      "product": "anarabottini",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ANARA-0005",
+      "kind": "requirement",
+      "title": "Exibir FAQ educativa sobre NR-1 em acordeão",
+      "type": "functional",
+      "product": "anarabottini",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ANARA-0006",
+      "kind": "requirement",
+      "title": "Renderizar seção 'Como trabalho' (timeline do método) e 'Abordagem' (valores)",
+      "type": "functional",
+      "product": "anarabottini",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ANARA-0007",
+      "kind": "requirement",
+      "title": "Formulário de proposta com integração WhatsApp/e-mail",
+      "type": "functional",
+      "product": "anarabottini",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ANARA-0008",
+      "kind": "requirement",
+      "title": "Exibir depoimentos e logos de marcas (opt-in)",
+      "type": "functional",
+      "product": "anarabottini",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ANARA-0009",
+      "kind": "requirement",
+      "title": "Oferecer roteamento subpath /anarabottini sem strip",
+      "type": "functional",
+      "product": "anarabottini",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-ANARA-0010",
+      "kind": "requirement",
+      "title": "Renderizar header com navegação e theme toggle",
+      "type": "functional",
+      "product": "anarabottini",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ANARA-0011",
+      "kind": "requirement",
+      "title": "Suportar dark mode com paleta quente & humanista",
+      "type": "functional",
+      "product": "anarabottini",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ANARA-0012",
+      "kind": "requirement",
+      "title": "Implementar FAB WhatsApp e botão 'voltar ao topo'",
+      "type": "functional",
+      "product": "anarabottini",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ANARA-0013",
+      "kind": "requirement",
+      "title": "Substituir placeholders de contato/mídia por dados reais",
+      "type": "functional",
+      "product": "anarabottini",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ANARA-NFR-001",
+      "kind": "requirement",
+      "title": "SEO otimizado para saúde mental corporativa + NR-1",
+      "type": "non-functional",
+      "product": "anarabottini",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ANARA-NFR-002",
+      "kind": "requirement",
+      "title": "Acessibilidade WCAG 2.1 AA para públicos corporativos",
+      "type": "non-functional",
+      "product": "anarabottini",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ANARA-NFR-003",
+      "kind": "requirement",
+      "title": "Performance: FCP <2.5s, LCP <4.0s em mobile 4G",
+      "type": "non-functional",
+      "product": "anarabottini",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ANARA-NFR-004",
+      "kind": "requirement",
+      "title": "Tema escuro automático baseado em preferência OS + persistência",
+      "type": "non-functional",
+      "product": "anarabottini",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ANARA-NFR-005",
+      "kind": "requirement",
+      "title": "Responsividade mobile-first para landscape/portrait",
+      "type": "non-functional",
+      "product": "anarabottini",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ANARA-NFR-006",
+      "kind": "requirement",
+      "title": "Conteúdo degrada gracefully quando placeholders vazios",
+      "type": "non-functional",
+      "product": "anarabottini",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ARGO-0001",
+      "kind": "requirement",
+      "title": "Application raiz app-of-apps devops-platform",
+      "type": "functional",
+      "product": "argocd",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-ARGO-0002",
+      "kind": "requirement",
+      "title": "Sincronização automática com prune e selfHeal",
+      "type": "functional",
+      "product": "argocd",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-ARGO-0003",
+      "kind": "requirement",
+      "title": "Descoberta recursiva de Applications filhas",
+      "type": "functional",
+      "product": "argocd",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-ARGO-0004",
+      "kind": "requirement",
+      "title": "Server Argo em subpath /argocd sem TLS próprio",
+      "type": "functional",
+      "product": "argocd",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-ARGO-0005",
+      "kind": "requirement",
+      "title": "SSO via OIDC (Keycloak realm nvit)",
+      "type": "functional",
+      "product": "argocd",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ARGO-0006",
+      "kind": "requirement",
+      "title": "RBAC com mapeamento de grupos Keycloak",
+      "type": "functional",
+      "product": "argocd",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ARGO-0007",
+      "kind": "requirement",
+      "title": "Footprint reduzido (laboratório)",
+      "type": "functional",
+      "product": "argocd",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ARGO-0008",
+      "kind": "requirement",
+      "title": "Finalizer e reconciliação em cascata",
+      "type": "functional",
+      "product": "argocd",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ARGO-0009",
+      "kind": "requirement",
+      "title": "UI acessível via Traefik em http://localhost:8080/argocd",
+      "type": "functional",
+      "product": "argocd",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ARGO-0010",
+      "kind": "requirement",
+      "title": "Repositório público (sem credenciais)",
+      "type": "functional",
+      "product": "argocd",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ARGO-0011",
+      "kind": "requirement",
+      "title": "Namespace de destino criado automaticamente",
+      "type": "functional",
+      "product": "argocd",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ARGO-NFR-001",
+      "kind": "requirement",
+      "title": "Sincronização e reconciliação declarativa",
+      "type": "non-functional",
+      "product": "argocd",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ARGO-NFR-002",
+      "kind": "requirement",
+      "title": "Disponibilidade do servidor GitOps",
+      "type": "non-functional",
+      "product": "argocd",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ARGO-NFR-003",
+      "kind": "requirement",
+      "title": "Performance de renderização de manifests",
+      "type": "non-functional",
+      "product": "argocd",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ARGO-NFR-004",
+      "kind": "requirement",
+      "title": "Segurança de acesso via OIDC",
+      "type": "non-functional",
+      "product": "argocd",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CICD-0001",
+      "kind": "requirement",
+      "title": "Pipeline de descoberta de apps (discover phase)",
+      "type": "functional",
+      "product": "cicd",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CICD-0002",
+      "kind": "requirement",
+      "title": "Build e push de imagens Docker para GHCR (reusable-build-push.yaml)",
+      "type": "functional",
+      "product": "cicd",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CICD-0003",
+      "kind": "requirement",
+      "title": "Deploy no cluster Kubernetes local (reusable-deploy-k8s.yaml)",
+      "type": "functional",
+      "product": "cicd",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CICD-0004",
+      "kind": "requirement",
+      "title": "Matrix de build por service (multi-service apps)",
+      "type": "functional",
+      "product": "cicd",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CICD-0005",
+      "kind": "requirement",
+      "title": "Gate de validação de requisitos (specs-governance)",
+      "type": "functional",
+      "product": "cicd",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CICD-0006",
+      "kind": "requirement",
+      "title": "Relatório de impacto de requisitos (specs-diff.yml)",
+      "type": "functional",
+      "product": "cicd",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CICD-0007",
+      "kind": "requirement",
+      "title": "Rastreabilidade de deploy via annotations",
+      "type": "functional",
+      "product": "cicd",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CICD-0008",
+      "kind": "requirement",
+      "title": "Proteção de branch (branch protection rules)",
+      "type": "functional",
+      "product": "cicd",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CICD-0009",
+      "kind": "requirement",
+      "title": "Self-hosted runner com registro e validação (github-runner-setup.md)",
+      "type": "functional",
+      "product": "cicd",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CICD-0010",
+      "kind": "requirement",
+      "title": "Fallback de fluxo local vs GHCR",
+      "type": "functional",
+      "product": "cicd",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CICD-0011",
+      "kind": "requirement",
+      "title": "Timeout e rollback em falha de deploy",
+      "type": "functional",
+      "product": "cicd",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CICD-0012",
+      "kind": "requirement",
+      "title": "Job Summary com resumo legível (build + deploy status)",
+      "type": "functional",
+      "product": "cicd",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CICD-NFR-001",
+      "kind": "requirement",
+      "title": "Performance de build/push (cache e camadas)",
+      "type": "non-functional",
+      "product": "cicd",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CICD-NFR-002",
+      "kind": "requirement",
+      "title": "Idempotência de deploy e rollout",
+      "type": "non-functional",
+      "product": "cicd",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CICD-NFR-003",
+      "kind": "requirement",
+      "title": "Detecção de erro em CI com retry strategy",
+      "type": "non-functional",
+      "product": "cicd",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CICD-NFR-004",
+      "kind": "requirement",
+      "title": "Rastreabilidade desde commit até pod",
+      "type": "non-functional",
+      "product": "cicd",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CICD-NFR-005",
+      "kind": "requirement",
+      "title": "Segurança de secrets (PAT, token, credenciais de BD)",
+      "type": "non-functional",
+      "product": "cicd",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
     },
     {
       "id": "REQ-CMS-0001",
@@ -238,6 +932,356 @@
       "title": "AI generation requests logged for auditability and context continuity",
       "type": "non-functional",
       "product": "cms",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-0001",
+      "kind": "requirement",
+      "title": "List cluster namespaces with metadata",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-0002",
+      "kind": "requirement",
+      "title": "Display pods with status, readiness, and restarts",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONSOLE-0003",
+      "kind": "requirement",
+      "title": "Stream cluster state changes via Server-Sent Events",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONSOLE-0004",
+      "kind": "requirement",
+      "title": "Display deployment replicas and rollout status",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-0005",
+      "kind": "requirement",
+      "title": "Stream pod logs in real-time (follow mode)",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-0006",
+      "kind": "requirement",
+      "title": "Fetch one-shot pod logs with tail limit",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-0007",
+      "kind": "requirement",
+      "title": "List cluster events with sorting and limit",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-0008",
+      "kind": "requirement",
+      "title": "Display Traefik IngressRoutes with hosts and paths",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-0009",
+      "kind": "requirement",
+      "title": "Display cluster overview with aggregated counts",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-0010",
+      "kind": "requirement",
+      "title": "Group and display applications by label",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-0011",
+      "kind": "requirement",
+      "title": "Display deployment history via annotations (publications)",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-0012",
+      "kind": "requirement",
+      "title": "Role-based access control (admin-only cluster view)",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONSOLE-0013",
+      "kind": "requirement",
+      "title": "Create portal via wizard with optional content generation",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-0014",
+      "kind": "requirement",
+      "title": "Manage projects with type classification",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-0015",
+      "kind": "requirement",
+      "title": "Approve or reject pending portal creation",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-0016",
+      "kind": "requirement",
+      "title": "Edit portal content with visual editor",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-0017",
+      "kind": "requirement",
+      "title": "Manage portal pages and sections",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-0018",
+      "kind": "requirement",
+      "title": "Site-renderer serves published portals",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-0019",
+      "kind": "requirement",
+      "title": "AI-assisted content generation for sections and sites",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-0020",
+      "kind": "requirement",
+      "title": "Media upload and picker for portal content",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-0021",
+      "kind": "requirement",
+      "title": "Projects & Tasks board (kanban) with items and tasks",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-0022",
+      "kind": "requirement",
+      "title": "User access control per project",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-0023",
+      "kind": "requirement",
+      "title": "Database migrations and seeding",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-0024",
+      "kind": "requirement",
+      "title": "Shared resources and version tracking (drift detection)",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 24,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-0025",
+      "kind": "requirement",
+      "title": "Admin user and access management interface",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-0026",
+      "kind": "requirement",
+      "title": "Health check endpoints for kubernetes probes",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-0027",
+      "kind": "requirement",
+      "title": "Portal palette (theme colors) customization",
+      "type": "functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 24,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-NFR-001",
+      "kind": "requirement",
+      "title": "Real-time cluster state updates via SSE",
+      "type": "non-functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-NFR-002",
+      "kind": "requirement",
+      "title": "Least-privilege RBAC (read-only cluster access)",
+      "type": "non-functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-NFR-003",
+      "kind": "requirement",
+      "title": "Responsive and accessible UI (mobile-first)",
+      "type": "non-functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-NFR-004",
+      "kind": "requirement",
+      "title": "Code splitting and lazy loading for CMS editor",
+      "type": "non-functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-NFR-005",
+      "kind": "requirement",
+      "title": "Database connection pooling and graceful shutdown",
+      "type": "non-functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-NFR-006",
+      "kind": "requirement",
+      "title": "SSE keep-alive and reconnection resilience",
+      "type": "non-functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-NFR-007",
+      "kind": "requirement",
+      "title": "Kubernetes manifest idempotency",
+      "type": "non-functional",
+      "product": "console",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONSOLE-NFR-008",
+      "kind": "requirement",
+      "title": "Read-only filesystem and non-root container security",
+      "type": "non-functional",
+      "product": "console",
       "asr": false,
       "impact_score": 38,
       "impact_band": "low"
@@ -468,6 +1512,1646 @@
       "title": "Compatibilidade de navegadores (Chrome, Firefox, Safari, Edge últimas 2 versões)",
       "type": "non-functional",
       "product": "gymops",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-KEYCLOAK-0001",
+      "kind": "requirement",
+      "title": "Realm nvit e Issuer OIDC",
+      "type": "functional",
+      "product": "keycloak",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-KEYCLOAK-0002",
+      "kind": "requirement",
+      "title": "Usuário admin da plataforma unificado",
+      "type": "functional",
+      "product": "keycloak",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-KEYCLOAK-0003",
+      "kind": "requirement",
+      "title": "Grupo de papéis platform-admins",
+      "type": "functional",
+      "product": "keycloak",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-KEYCLOAK-0004",
+      "kind": "requirement",
+      "title": "Clients OIDC confidenciais (Grafana, Argo CD, DevOps Console)",
+      "type": "functional",
+      "product": "keycloak",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-KEYCLOAK-0005",
+      "kind": "requirement",
+      "title": "Client público com PKCE para apps com login próprio",
+      "type": "functional",
+      "product": "keycloak",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-KEYCLOAK-0006",
+      "kind": "requirement",
+      "title": "Persistência Postgres dedicada",
+      "type": "functional",
+      "product": "keycloak",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-KEYCLOAK-0007",
+      "kind": "requirement",
+      "title": "Bootstrapping de credenciais de admin",
+      "type": "functional",
+      "product": "keycloak",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-KEYCLOAK-0008",
+      "kind": "requirement",
+      "title": "Subpath /auth com proxy headers e health checks",
+      "type": "functional",
+      "product": "keycloak",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-KEYCLOAK-0009",
+      "kind": "requirement",
+      "title": "Onboarding de novo client OIDC",
+      "type": "functional",
+      "product": "keycloak",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-KEYCLOAK-0010",
+      "kind": "requirement",
+      "title": "Integração aditiva com apps com login próprio",
+      "type": "functional",
+      "product": "keycloak",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-KEYCLOAK-0011",
+      "kind": "requirement",
+      "title": "Issuers e endpoints canonicamente documentados",
+      "type": "functional",
+      "product": "keycloak",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-KEYCLOAK-0012",
+      "kind": "requirement",
+      "title": "GitOps com Sealed Secrets e kustomization",
+      "type": "functional",
+      "product": "keycloak",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-KEYCLOAK-NFR-001",
+      "kind": "requirement",
+      "title": "Disponibilidade do IdP",
+      "type": "non-functional",
+      "product": "keycloak",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-KEYCLOAK-NFR-002",
+      "kind": "requirement",
+      "title": "Segurança de secrets",
+      "type": "non-functional",
+      "product": "keycloak",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-KEYCLOAK-NFR-003",
+      "kind": "requirement",
+      "title": "Recuperabilidade de chave do SealedSecret",
+      "type": "non-functional",
+      "product": "keycloak",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-KEYCLOAK-NFR-004",
+      "kind": "requirement",
+      "title": "Conformidade de probes de saúde",
+      "type": "non-functional",
+      "product": "keycloak",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-KEYCLOAK-NFR-005",
+      "kind": "requirement",
+      "title": "Escalonabilidade de sessões OIDC",
+      "type": "non-functional",
+      "product": "keycloak",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-KEYCLOAK-NFR-006",
+      "kind": "requirement",
+      "title": "Auditoria de mudanças de realm e clientes",
+      "type": "non-functional",
+      "product": "keycloak",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-OBS-0001",
+      "kind": "requirement",
+      "title": "Prometheus via kube-prometheus-stack (Helm)",
+      "type": "functional",
+      "product": "observability",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-OBS-0002",
+      "kind": "requirement",
+      "title": "Coleta de métricas do cluster e host",
+      "type": "functional",
+      "product": "observability",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-OBS-0003",
+      "kind": "requirement",
+      "title": "Grafana com SSO Keycloak",
+      "type": "functional",
+      "product": "observability",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-OBS-0004",
+      "kind": "requirement",
+      "title": "RBAC Grafana com mapeamento de grupos",
+      "type": "functional",
+      "product": "observability",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-OBS-0005",
+      "kind": "requirement",
+      "title": "Grafana em subpath /grafana",
+      "type": "functional",
+      "product": "observability",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-OBS-0006",
+      "kind": "requirement",
+      "title": "Datasources Prometheus e Loki",
+      "type": "functional",
+      "product": "observability",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-OBS-0007",
+      "kind": "requirement",
+      "title": "Loki single-binary com filesystem storage",
+      "type": "functional",
+      "product": "observability",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-OBS-0008",
+      "kind": "requirement",
+      "title": "Promtail para coleta de logs",
+      "type": "functional",
+      "product": "observability",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-OBS-0009",
+      "kind": "requirement",
+      "title": "Dashboards provisionados via ConfigMap + sidecar",
+      "type": "functional",
+      "product": "observability",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-OBS-0010",
+      "kind": "requirement",
+      "title": "Langfuse para tracing de IA",
+      "type": "functional",
+      "product": "observability",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-OBS-0011",
+      "kind": "requirement",
+      "title": "ServiceMonitor Traefik (ativação pós-instalação)",
+      "type": "functional",
+      "product": "observability",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-OBS-0012",
+      "kind": "requirement",
+      "title": "Workaround node-exporter em WSL2",
+      "type": "functional",
+      "product": "observability",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-OBS-NFR-001",
+      "kind": "requirement",
+      "title": "Coleta de métricas com baixa latência",
+      "type": "non-functional",
+      "product": "observability",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-OBS-NFR-002",
+      "kind": "requirement",
+      "title": "Disponibilidade de dashboards Grafana",
+      "type": "non-functional",
+      "product": "observability",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-OBS-NFR-003",
+      "kind": "requirement",
+      "title": "Retenção e armazenamento de logs",
+      "type": "non-functional",
+      "product": "observability",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-OBS-NFR-004",
+      "kind": "requirement",
+      "title": "Segurança de acesso via OIDC",
+      "type": "non-functional",
+      "product": "observability",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-OBS-NFR-005",
+      "kind": "requirement",
+      "title": "Rastreabilidade de chamadas IA (Langfuse)",
+      "type": "non-functional",
+      "product": "observability",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-OIDC-0001",
+      "kind": "requirement",
+      "title": "Validação de token via /userinfo",
+      "type": "functional",
+      "product": "oidc",
+      "asr": false,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-OIDC-0002",
+      "kind": "requirement",
+      "title": "Extração de perfil a partir de claims OIDC",
+      "type": "functional",
+      "product": "oidc",
+      "asr": false,
+      "impact_score": 58,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-OIDC-0003",
+      "kind": "requirement",
+      "title": "Cripto HMAC-SHA256 de access token de sessão",
+      "type": "functional",
+      "product": "oidc",
+      "asr": false,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-OIDC-0004",
+      "kind": "requirement",
+      "title": "Verificação e validação de access token",
+      "type": "functional",
+      "product": "oidc",
+      "asr": false,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-OIDC-0005",
+      "kind": "requirement",
+      "title": "Hash SHA256 de refresh token",
+      "type": "functional",
+      "product": "oidc",
+      "asr": false,
+      "impact_score": 58,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-OIDC-0006",
+      "kind": "requirement",
+      "title": "Hashing seguro de password (scrypt_v1)",
+      "type": "functional",
+      "product": "oidc",
+      "asr": false,
+      "impact_score": 58,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-OIDC-0007",
+      "kind": "requirement",
+      "title": "Criptografia AES-256-GCM de secrets",
+      "type": "functional",
+      "product": "oidc",
+      "asr": false,
+      "impact_score": 58,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-OIDC-0008",
+      "kind": "requirement",
+      "title": "Compatibilidade byte-a-byte com SICAT (prefix configurável)",
+      "type": "functional",
+      "product": "oidc",
+      "asr": false,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-OIDC-0009",
+      "kind": "requirement",
+      "title": "PKCE S256 no frontend (Authorization Code flow)",
+      "type": "functional",
+      "product": "oidc",
+      "asr": false,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-OIDC-0010",
+      "kind": "requirement",
+      "title": "Exchange de authorization code por token no callback",
+      "type": "functional",
+      "product": "oidc",
+      "asr": false,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-OIDC-0011",
+      "kind": "requirement",
+      "title": "Middleware Express para autenticação de sessão",
+      "type": "functional",
+      "product": "oidc",
+      "asr": false,
+      "impact_score": 58,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-OIDC-0012",
+      "kind": "requirement",
+      "title": "Exports e pontos de entrada modulares",
+      "type": "functional",
+      "product": "oidc",
+      "asr": false,
+      "impact_score": 58,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-OIDC-NFR-001",
+      "kind": "requirement",
+      "title": "Zero dependências de runtime",
+      "type": "non-functional",
+      "product": "oidc",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-OIDC-NFR-002",
+      "kind": "requirement",
+      "title": "Compatibilidade de sessão SICAT preservada",
+      "type": "non-functional",
+      "product": "oidc",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-OIDC-NFR-003",
+      "kind": "requirement",
+      "title": "Timing-safety em validações criptográficas",
+      "type": "non-functional",
+      "product": "oidc",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-OIDC-NFR-004",
+      "kind": "requirement",
+      "title": "Isolamento de contexto PKCE (browser)",
+      "type": "non-functional",
+      "product": "oidc",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-OIDC-NFR-005",
+      "kind": "requirement",
+      "title": "Testabilidade sem dependências externas",
+      "type": "non-functional",
+      "product": "oidc",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-OIDC-NFR-006",
+      "kind": "requirement",
+      "title": "Versionamento SemVer com mudanças de cripto como BREAKING",
+      "type": "non-functional",
+      "product": "oidc",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PCONTRACT-0001",
+      "kind": "requirement",
+      "title": "Registro e CRUD de portais (POST /v1/portals, GET /v1/portals*)",
+      "type": "functional",
+      "product": "portal-contracts",
+      "asr": false,
+      "impact_score": 55,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-PCONTRACT-0002",
+      "kind": "requirement",
+      "title": "Sessão de captura com gravação interativa (Playwright CDP)",
+      "type": "functional",
+      "product": "portal-contracts",
+      "asr": false,
+      "impact_score": 55,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-PCONTRACT-0003",
+      "kind": "requirement",
+      "title": "Captura de tráfego de rede com sanitização de secrets",
+      "type": "functional",
+      "product": "portal-contracts",
+      "asr": false,
+      "impact_score": 55,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-PCONTRACT-0004",
+      "kind": "requirement",
+      "title": "Streaming de captura ao vivo (WebSocket screencast)",
+      "type": "functional",
+      "product": "portal-contracts",
+      "asr": false,
+      "impact_score": 48,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-PCONTRACT-0005",
+      "kind": "requirement",
+      "title": "Anotações sincronizadas com timeline de eventos",
+      "type": "functional",
+      "product": "portal-contracts",
+      "asr": false,
+      "impact_score": 48,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-PCONTRACT-0006",
+      "kind": "requirement",
+      "title": "Normalização de captura em contrato de portal",
+      "type": "functional",
+      "product": "portal-contracts",
+      "asr": false,
+      "impact_score": 48,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-PCONTRACT-0007",
+      "kind": "requirement",
+      "title": "Gerenciamento de sessão com isolamento e TTL",
+      "type": "functional",
+      "product": "portal-contracts",
+      "asr": false,
+      "impact_score": 48,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-PCONTRACT-0008",
+      "kind": "requirement",
+      "title": "Autenticação e autorização (OIDC + Bearer token)",
+      "type": "functional",
+      "product": "portal-contracts",
+      "asr": false,
+      "impact_score": 55,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-PCONTRACT-0009",
+      "kind": "requirement",
+      "title": "Health check que nunca falha por DB",
+      "type": "functional",
+      "product": "portal-contracts",
+      "asr": false,
+      "impact_score": 40,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PCONTRACT-0010",
+      "kind": "requirement",
+      "title": "Armazenamento de blobs (HAR, screenshots, dumps) em PVC",
+      "type": "functional",
+      "product": "portal-contracts",
+      "asr": false,
+      "impact_score": 40,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PCONTRACT-0011",
+      "kind": "requirement",
+      "title": "Frontend de captura (React + live preview)",
+      "type": "functional",
+      "product": "portal-contracts",
+      "asr": false,
+      "impact_score": 48,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-PCONTRACT-0012",
+      "kind": "requirement",
+      "title": "Integração com Postgres via pool conexões",
+      "type": "functional",
+      "product": "portal-contracts",
+      "asr": false,
+      "impact_score": 48,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-PCONTRACT-NFR-001",
+      "kind": "requirement",
+      "title": "Isolamento de contexto de browser (sem vazamento de credencial)",
+      "type": "non-functional",
+      "product": "portal-contracts",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PCONTRACT-NFR-002",
+      "kind": "requirement",
+      "title": "Sanitização de secrets antes de escrita (zero credencial em DB)",
+      "type": "non-functional",
+      "product": "portal-contracts",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PCONTRACT-NFR-003",
+      "kind": "requirement",
+      "title": "Latência de streaming screencast < 500ms",
+      "type": "non-functional",
+      "product": "portal-contracts",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PCONTRACT-NFR-004",
+      "kind": "requirement",
+      "title": "Disponibilidade em degradação (DB fora = health=ok, db=false)",
+      "type": "non-functional",
+      "product": "portal-contracts",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PCONTRACT-NFR-005",
+      "kind": "requirement",
+      "title": "Segurança: fail-closed para writes sem token Bearer",
+      "type": "non-functional",
+      "product": "portal-contracts",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PLATFORM-0001",
+      "kind": "requirement",
+      "title": "Namespaces governados (7 namespaces)",
+      "type": "functional",
+      "product": "platform",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-PLATFORM-0002",
+      "kind": "requirement",
+      "title": "Labels canônicos em todos os recursos",
+      "type": "functional",
+      "product": "platform",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-PLATFORM-0003",
+      "kind": "requirement",
+      "title": "Sealed Secrets para segredos versionados",
+      "type": "functional",
+      "product": "platform",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-PLATFORM-0004",
+      "kind": "requirement",
+      "title": "Segregação de segredos reais vs versionados",
+      "type": "functional",
+      "product": "platform",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-PLATFORM-0005",
+      "kind": "requirement",
+      "title": "Convenção de imagens GHCR",
+      "type": "functional",
+      "product": "platform",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-PLATFORM-0006",
+      "kind": "requirement",
+      "title": "Registry guide com instruções de autenticação",
+      "type": "functional",
+      "product": "platform",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PLATFORM-0007",
+      "kind": "requirement",
+      "title": "Anotações de publicação no Deployment",
+      "type": "functional",
+      "product": "platform",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PLATFORM-0008",
+      "kind": "requirement",
+      "title": "Hard constraints documentados",
+      "type": "functional",
+      "product": "platform",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-PLATFORM-0009",
+      "kind": "requirement",
+      "title": "Padrões de infraestrutura (infra-standards.md)",
+      "type": "functional",
+      "product": "platform",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PLATFORM-0010",
+      "kind": "requirement",
+      "title": "Path-routing pattern documentado",
+      "type": "functional",
+      "product": "platform",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PLATFORM-0011",
+      "kind": "requirement",
+      "title": "Non-functional requirements (NFR) definidos",
+      "type": "functional",
+      "product": "platform",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PLATFORM-0012",
+      "kind": "requirement",
+      "title": "Environment (Windows Server, PowerShell 7)",
+      "type": "functional",
+      "product": "platform",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PLATFORM-NFR-001",
+      "kind": "requirement",
+      "title": "Segurança de segredos versionados",
+      "type": "non-functional",
+      "product": "platform",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PLATFORM-NFR-002",
+      "kind": "requirement",
+      "title": "Conformidade de labels no cluster",
+      "type": "non-functional",
+      "product": "platform",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PLATFORM-NFR-003",
+      "kind": "requirement",
+      "title": "Auditoria de publicações",
+      "type": "non-functional",
+      "product": "platform",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PLATFORM-NFR-004",
+      "kind": "requirement",
+      "title": "Governança declarativa via GitOps",
+      "type": "non-functional",
+      "product": "platform",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PORTAL-0001",
+      "kind": "requirement",
+      "title": "Exibir catálogo curado de produtos em cards estáticos",
+      "type": "functional",
+      "product": "portal",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-PORTAL-0002",
+      "kind": "requirement",
+      "title": "Renderizar ferramentas internas da plataforma (Grafana, Argo CD, Console, Keycloak, Recorder)",
+      "type": "functional",
+      "product": "portal",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PORTAL-0003",
+      "kind": "requirement",
+      "title": "Descobrir dinamicamente apps publicadas via API /devops/api/ingressroutes",
+      "type": "functional",
+      "product": "portal",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PORTAL-0004",
+      "kind": "requirement",
+      "title": "Marcar cards curados como 'no ar' quando descobertos no cluster",
+      "type": "functional",
+      "product": "portal",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PORTAL-0005",
+      "kind": "requirement",
+      "title": "Exibir seção 'Aplicações Publicadas' oculta para anônimos",
+      "type": "functional",
+      "product": "portal",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-PORTAL-0006",
+      "kind": "requirement",
+      "title": "Implementar busca/filtro client-side em todos os cards",
+      "type": "functional",
+      "product": "portal",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PORTAL-0007",
+      "kind": "requirement",
+      "title": "Renderizar menu mobile (hamburger toggle) com navegação principal",
+      "type": "functional",
+      "product": "portal",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PORTAL-0008",
+      "kind": "requirement",
+      "title": "Oferecer botão 'Voltar ao topo' flutuante",
+      "type": "functional",
+      "product": "portal",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PORTAL-0009",
+      "kind": "requirement",
+      "title": "Implementar reveal on scroll com progressive enhancement",
+      "type": "functional",
+      "product": "portal",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PORTAL-0010",
+      "kind": "requirement",
+      "title": "Destacar seção ativa na navegação durante scroll",
+      "type": "functional",
+      "product": "portal",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PORTAL-0011",
+      "kind": "requirement",
+      "title": "Dark mode automático baseado em prefers-color-scheme",
+      "type": "functional",
+      "product": "portal",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PORTAL-0012",
+      "kind": "requirement",
+      "title": "Respeitar prefers-reduced-motion em animações",
+      "type": "functional",
+      "product": "portal",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PORTAL-0013",
+      "kind": "requirement",
+      "title": "Renderizar footer com ano dinâmico e links da plataforma",
+      "type": "functional",
+      "product": "portal",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PORTAL-0014",
+      "kind": "requirement",
+      "title": "Tratar estados de erro e timeout na descoberta dinâmica",
+      "type": "functional",
+      "product": "portal",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PORTAL-0015",
+      "kind": "requirement",
+      "title": "Oferecer roteamento root `/` com prioridade 1 (menor, cai aqui)",
+      "type": "functional",
+      "product": "portal",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-PORTAL-NFR-001",
+      "kind": "requirement",
+      "title": "SEO completo: sem JS, sem JS quebrado, conteúdo sempre acessível",
+      "type": "non-functional",
+      "product": "portal",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PORTAL-NFR-002",
+      "kind": "requirement",
+      "title": "Acessibilidade WCAG 2.1 AA: navegação teclado, contrast, aria-*",
+      "type": "non-functional",
+      "product": "portal",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PORTAL-NFR-003",
+      "kind": "requirement",
+      "title": "Performance: FCP <1.5s, LCP <2.5s; zero CLS em main content",
+      "type": "non-functional",
+      "product": "portal",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PORTAL-NFR-004",
+      "kind": "requirement",
+      "title": "Tema escuro automático via prefers-color-scheme, sem toggle",
+      "type": "non-functional",
+      "product": "portal",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PORTAL-NFR-005",
+      "kind": "requirement",
+      "title": "Responsividade mobile-first: layout fluido 320px–1440px",
+      "type": "non-functional",
+      "product": "portal",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-PORTAL-NFR-006",
+      "kind": "requirement",
+      "title": "Segurança: CSP strict, headers de defesa, sem inline script (exceto hash)",
+      "type": "non-functional",
+      "product": "portal",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RECORDER-0001",
+      "kind": "requirement",
+      "title": "Portal CRUD operations with slug uniqueness",
+      "type": "functional",
+      "product": "portal-recorder",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RECORDER-0002",
+      "kind": "requirement",
+      "title": "Capture session lifecycle management",
+      "type": "functional",
+      "product": "portal-recorder",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RECORDER-0003",
+      "kind": "requirement",
+      "title": "Remote browser via Playwright/CDP per session",
+      "type": "functional",
+      "product": "portal-recorder",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-RECORDER-0004",
+      "kind": "requirement",
+      "title": "Redaction of PII/secrets at origin (before persistence)",
+      "type": "functional",
+      "product": "portal-recorder",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-RECORDER-0005",
+      "kind": "requirement",
+      "title": "Network event capture via CDP",
+      "type": "functional",
+      "product": "portal-recorder",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RECORDER-0006",
+      "kind": "requirement",
+      "title": "Screencast streaming and input injection",
+      "type": "functional",
+      "product": "portal-recorder",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RECORDER-0007",
+      "kind": "requirement",
+      "title": "Annotation and timeline management",
+      "type": "functional",
+      "product": "portal-recorder",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RECORDER-0008",
+      "kind": "requirement",
+      "title": "Screenshot capture from active session",
+      "type": "functional",
+      "product": "portal-recorder",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RECORDER-0009",
+      "kind": "requirement",
+      "title": "Normalize capture to canonical portal contract",
+      "type": "functional",
+      "product": "portal-recorder",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RECORDER-0010",
+      "kind": "requirement",
+      "title": "Bearer token auth for write operations (fail-closed)",
+      "type": "functional",
+      "product": "portal-recorder",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-RECORDER-0011",
+      "kind": "requirement",
+      "title": "Internal token for API-to-Recorder communication",
+      "type": "functional",
+      "product": "portal-recorder",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RECORDER-0012",
+      "kind": "requirement",
+      "title": "OIDC gating on all external routes (Keycloak via Console oauth2-proxy)",
+      "type": "functional",
+      "product": "portal-recorder",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-RECORDER-0013",
+      "kind": "requirement",
+      "title": "Schema inference with sensitivity detection",
+      "type": "functional",
+      "product": "portal-recorder",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RECORDER-NFR-001",
+      "kind": "requirement",
+      "title": "Health check never fails due to database unavailability",
+      "type": "non-functional",
+      "product": "portal-recorder",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RECORDER-NFR-002",
+      "kind": "requirement",
+      "title": "Graceful degradation when Recorder service unavailable",
+      "type": "non-functional",
+      "product": "portal-recorder",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RECORDER-NFR-003",
+      "kind": "requirement",
+      "title": "Database migration resilient to temporary unavailability",
+      "type": "non-functional",
+      "product": "portal-recorder",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RECORDER-NFR-004",
+      "kind": "requirement",
+      "title": "Concurrent session resource isolation and limits",
+      "type": "non-functional",
+      "product": "portal-recorder",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RECORDER-NFR-005",
+      "kind": "requirement",
+      "title": "Request/response body truncation and overflow handling",
+      "type": "non-functional",
+      "product": "portal-recorder",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RECORDER-NFR-006",
+      "kind": "requirement",
+      "title": "Secure shutdown with active session cleanup",
+      "type": "non-functional",
+      "product": "portal-recorder",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-REQHUB-0001",
+      "kind": "requirement",
+      "title": "Explorador com filtros e busca full-text",
+      "type": "functional",
+      "product": "reqhub",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-REQHUB-0002",
+      "kind": "requirement",
+      "title": "Workspace do requisito com contexto bidirecional",
+      "type": "functional",
+      "product": "reqhub",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-REQHUB-0003",
+      "kind": "requirement",
+      "title": "Versões & mudanças com diff de baseline",
+      "type": "functional",
+      "product": "reqhub",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-REQHUB-0004",
+      "kind": "requirement",
+      "title": "Mapa de impacto com grafo interativo SVG",
+      "type": "functional",
+      "product": "reqhub",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-REQHUB-0005",
+      "kind": "requirement",
+      "title": "Cobertura (matriz requisito × evidência/alocação)",
+      "type": "functional",
+      "product": "reqhub",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-REQHUB-0006",
+      "kind": "requirement",
+      "title": "Fila de reprocessamento com priorização",
+      "type": "functional",
+      "product": "reqhub",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-REQHUB-0007",
+      "kind": "requirement",
+      "title": "Editor assistido com geração de YAML e abertura em PR",
+      "type": "functional",
+      "product": "reqhub",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-REQHUB-0008",
+      "kind": "requirement",
+      "title": "Busca semântica por embeddings locais",
+      "type": "functional",
+      "product": "reqhub",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-REQHUB-0009",
+      "kind": "requirement",
+      "title": "Abas navegáveis de 7 telas principais",
+      "type": "functional",
+      "product": "reqhub",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-REQHUB-0010",
+      "kind": "requirement",
+      "title": "Suporte a tema claro/escuro com persistência",
+      "type": "functional",
+      "product": "reqhub",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-REQHUB-0011",
+      "kind": "requirement",
+      "title": "Validação de requisito no editor",
+      "type": "functional",
+      "product": "reqhub",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-REQHUB-0012",
+      "kind": "requirement",
+      "title": "Leitura de baseline gerada (JSON) sem backend",
+      "type": "functional",
+      "product": "reqhub",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-REQHUB-NFR-001",
+      "kind": "requirement",
+      "title": "Frontend estático sem dependências externas (zero-dep)",
+      "type": "non-functional",
+      "product": "reqhub",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-REQHUB-NFR-002",
+      "kind": "requirement",
+      "title": "CSP estrita (script-src 'self', sem inline)",
+      "type": "non-functional",
+      "product": "reqhub",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-REQHUB-NFR-003",
+      "kind": "requirement",
+      "title": "Acessibilidade WCAG 2.2 nível AA (tabindex, labels, aria-*)",
+      "type": "non-functional",
+      "product": "reqhub",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-REQHUB-NFR-004",
+      "kind": "requirement",
+      "title": "Performance: carregamento da baseline < 2s, renderização < 1s",
+      "type": "non-functional",
+      "product": "reqhub",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-REQHUB-NFR-005",
+      "kind": "requirement",
+      "title": "Responsividade (desktop/tablet/mobile, 320px+)",
+      "type": "non-functional",
+      "product": "reqhub",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-REQHUB-NFR-006",
+      "kind": "requirement",
+      "title": "Routing sem strip (subpath /reqs/, nginx prefix+alias)",
+      "type": "non-functional",
+      "product": "reqhub",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-REQHUB-NFR-007",
+      "kind": "requirement",
+      "title": "Validação do rascunho de requisito com erros claros",
+      "type": "non-functional",
+      "product": "reqhub",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-REQHUB-NFR-008",
+      "kind": "requirement",
+      "title": "Representação visual clara de requisitos ASR e ligações propostas",
+      "type": "non-functional",
+      "product": "reqhub",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RMAMB-0001",
+      "kind": "requirement",
+      "title": "Renderizar página inicial com hero, posicionamento e call-to-action",
+      "type": "functional",
+      "product": "rmambiental",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-RMAMB-0002",
+      "kind": "requirement",
+      "title": "Exibir 4 frentes de solução em página Soluções",
+      "type": "functional",
+      "product": "rmambiental",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-RMAMB-0003",
+      "kind": "requirement",
+      "title": "Exibir setores atendidos com ícones e descrições",
+      "type": "functional",
+      "product": "rmambiental",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RMAMB-0004",
+      "kind": "requirement",
+      "title": "Renderizar galeria de projetos com casos de uso",
+      "type": "functional",
+      "product": "rmambiental",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RMAMB-0005",
+      "kind": "requirement",
+      "title": "Exibir seção ESG e números de autoridade",
+      "type": "functional",
+      "product": "rmambiental",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RMAMB-0006",
+      "kind": "requirement",
+      "title": "Implementar página de Contato com formulário e canais",
+      "type": "functional",
+      "product": "rmambiental",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RMAMB-0007",
+      "kind": "requirement",
+      "title": "Renderizar header fixo com navegação principal e theme toggle",
+      "type": "functional",
+      "product": "rmambiental",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RMAMB-0008",
+      "kind": "requirement",
+      "title": "Oferecer roteamento subpath /rmambiental sem strip",
+      "type": "functional",
+      "product": "rmambiental",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-RMAMB-0009",
+      "kind": "requirement",
+      "title": "Suportar dark mode com cores corporativas ajustadas",
+      "type": "functional",
+      "product": "rmambiental",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RMAMB-0010",
+      "kind": "requirement",
+      "title": "Exibir footer com links, redes sociais e política de privacidade",
+      "type": "functional",
+      "product": "rmambiental",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RMAMB-0011",
+      "kind": "requirement",
+      "title": "Implementar FAB WhatsApp condicionado a configuração",
+      "type": "functional",
+      "product": "rmambiental",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RMAMB-0012",
+      "kind": "requirement",
+      "title": "Substituir placeholders de conteúdo por dados reais",
+      "type": "functional",
+      "product": "rmambiental",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RMAMB-NFR-001",
+      "kind": "requirement",
+      "title": "SEO otimizado com metadados e Open Graph",
+      "type": "non-functional",
+      "product": "rmambiental",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RMAMB-NFR-002",
+      "kind": "requirement",
+      "title": "Acessibilidade WCAG 2.1 AA em toda a aplicação",
+      "type": "non-functional",
+      "product": "rmambiental",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RMAMB-NFR-003",
+      "kind": "requirement",
+      "title": "Performance: First Contentful Paint <2.5s, LCP <4.0s mobile",
+      "type": "non-functional",
+      "product": "rmambiental",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RMAMB-NFR-004",
+      "kind": "requirement",
+      "title": "Tema escuro e claro respeitam preferência do sistema + persistência",
+      "type": "non-functional",
+      "product": "rmambiental",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RMAMB-NFR-005",
+      "kind": "requirement",
+      "title": "Responsividade mobile-first com breakpoints Tailwind",
+      "type": "non-functional",
+      "product": "rmambiental",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-RMAMB-NFR-006",
+      "kind": "requirement",
+      "title": "Build reproduzível com package-lock.json versionado",
+      "type": "non-functional",
+      "product": "rmambiental",
       "asr": false,
       "impact_score": 38,
       "impact_band": "low"
@@ -713,6 +3397,346 @@
       "impact_band": "low"
     },
     {
+      "id": "REQ-SPECS-0001",
+      "kind": "requirement",
+      "title": "Artefato canônico de requisito versionado (YAML schema)",
+      "type": "functional",
+      "product": "specs",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SPECS-0002",
+      "kind": "requirement",
+      "title": "Baseline determinística gerada e commitada",
+      "type": "functional",
+      "product": "specs",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SPECS-0003",
+      "kind": "requirement",
+      "title": "Gerador e validador de baseline (build-baseline.mjs)",
+      "type": "functional",
+      "product": "specs",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SPECS-0004",
+      "kind": "requirement",
+      "title": "Mapa de impacto (rastreabilidade tipada e grafos)",
+      "type": "functional",
+      "product": "specs",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SPECS-0005",
+      "kind": "requirement",
+      "title": "Governança de versionamento semântico (CI gate specs-governance)",
+      "type": "functional",
+      "product": "specs",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SPECS-0006",
+      "kind": "requirement",
+      "title": "Relatório de impacto em PR (specs-diff.yml)",
+      "type": "functional",
+      "product": "specs",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SPECS-0007",
+      "kind": "requirement",
+      "title": "Registry de artefatos externos (vocabulário controlado)",
+      "type": "functional",
+      "product": "specs",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SPECS-0008",
+      "kind": "requirement",
+      "title": "Ponte para consumo do Claude (specs/CLAUDE.md + skills)",
+      "type": "functional",
+      "product": "specs",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SPECS-0009",
+      "kind": "requirement",
+      "title": "Baseline inicial semeada de requisitos reais (bootstrap)",
+      "type": "functional",
+      "product": "specs",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SPECS-0010",
+      "kind": "requirement",
+      "title": "Fila de reprocessamento com motivos (reprocess_queue)",
+      "type": "functional",
+      "product": "specs",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SPECS-0011",
+      "kind": "requirement",
+      "title": "Sugestões de link propostas (suggested_links)",
+      "type": "functional",
+      "product": "specs",
+      "asr": false,
+      "impact_score": 24,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SPECS-0012",
+      "kind": "requirement",
+      "title": "Índice de recuperação para Claude (retrieval-manifest.json)",
+      "type": "functional",
+      "product": "specs",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SPECS-NFR-001",
+      "kind": "requirement",
+      "title": "Determinismo da baseline (hash verificável)",
+      "type": "non-functional",
+      "product": "specs",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SPECS-NFR-002",
+      "kind": "requirement",
+      "title": "Validação de schema com erro descritivo",
+      "type": "non-functional",
+      "product": "specs",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SPECS-NFR-003",
+      "kind": "requirement",
+      "title": "Rastreabilidade transitiva com ciclicidade detectável",
+      "type": "non-functional",
+      "product": "specs",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SPECS-NFR-004",
+      "kind": "requirement",
+      "title": "Performance de baseline para +500 requisitos",
+      "type": "non-functional",
+      "product": "specs",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SPECS-NFR-005",
+      "kind": "requirement",
+      "title": "Integridade referencial: links sem alvo pendente",
+      "type": "non-functional",
+      "product": "specs",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-SPECS-NFR-006",
+      "kind": "requirement",
+      "title": "Quality-Attribute-Scenario para NFR mensuráveis",
+      "type": "non-functional",
+      "product": "specs",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-TRAEFIK-0001",
+      "kind": "requirement",
+      "title": "Ingress controller via Helm (chart traefik/traefik)",
+      "type": "functional",
+      "product": "traefik",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-TRAEFIK-0002",
+      "kind": "requirement",
+      "title": "Entrypoints web (80) e websecure (443)",
+      "type": "functional",
+      "product": "traefik",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-TRAEFIK-0003",
+      "kind": "requirement",
+      "title": "Suporte a CRD Traefik (IngressRoute/Middleware)",
+      "type": "functional",
+      "product": "traefik",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-TRAEFIK-0004",
+      "kind": "requirement",
+      "title": "Roteamento por path-prefix com priority",
+      "type": "functional",
+      "product": "traefik",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-TRAEFIK-0005",
+      "kind": "requirement",
+      "title": "Middleware StripPrefix para APIs",
+      "type": "functional",
+      "product": "traefik",
+      "asr": false,
+      "impact_score": 55,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-TRAEFIK-0006",
+      "kind": "requirement",
+      "title": "Middleware compress (gzip/brotli)",
+      "type": "functional",
+      "product": "traefik",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-TRAEFIK-0007",
+      "kind": "requirement",
+      "title": "Middleware secure-headers (X-Frame-Options, HSTS, etc)",
+      "type": "functional",
+      "product": "traefik",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-TRAEFIK-0008",
+      "kind": "requirement",
+      "title": "Dashboard via IngressRoute (api@internal)",
+      "type": "functional",
+      "product": "traefik",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-TRAEFIK-0009",
+      "kind": "requirement",
+      "title": "Métricas Prometheus com labels enriquecidos",
+      "type": "functional",
+      "product": "traefik",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-TRAEFIK-0010",
+      "kind": "requirement",
+      "title": "Logs de acesso habilitados",
+      "type": "functional",
+      "product": "traefik",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-TRAEFIK-0011",
+      "kind": "requirement",
+      "title": "IngressClass padrão do cluster",
+      "type": "functional",
+      "product": "traefik",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-TRAEFIK-0012",
+      "kind": "requirement",
+      "title": "Suporte a ExternalName Services",
+      "type": "functional",
+      "product": "traefik",
+      "asr": false,
+      "impact_score": 24,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-TRAEFIK-NFR-001",
+      "kind": "requirement",
+      "title": "Latência de roteamento",
+      "type": "non-functional",
+      "product": "traefik",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-TRAEFIK-NFR-002",
+      "kind": "requirement",
+      "title": "Resolução de conflitos de roteamento (priority)",
+      "type": "non-functional",
+      "product": "traefik",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-TRAEFIK-NFR-003",
+      "kind": "requirement",
+      "title": "Compressão de respostas",
+      "type": "non-functional",
+      "product": "traefik",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-TRAEFIK-NFR-004",
+      "kind": "requirement",
+      "title": "Segurança de headers HTTP",
+      "type": "non-functional",
+      "product": "traefik",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
       "id": "slo-availability-99",
       "kind": "slo"
     },
@@ -745,6 +3769,10 @@
       "kind": "service"
     },
     {
+      "id": "svc-reqhub",
+      "kind": "service"
+    },
+    {
       "id": "svc-sicat-api",
       "kind": "service"
     },
@@ -758,6 +3786,33 @@
     }
   ],
   "edges": [
+    {
+      "from": "REQ-AI-0005",
+      "to": "infra-observability",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-AI-0005",
+      "to": "REQ-OBS-0001",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-AI-0005",
+      "to": "REQ-OBS-0006",
+      "type": "relates_to"
+    },
+    {
+      "from": "REQ-ARGO-0001",
+      "to": "infra-argocd",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-CICD-0003",
+      "to": "REQ-ARGO-0001",
+      "type": "relates_to"
+    },
     {
       "from": "REQ-CMS-0001",
       "to": "infra-postgres",
@@ -833,6 +3888,11 @@
     },
     {
       "from": "REQ-CMS-0009",
+      "to": "REQ-AI-0001",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-CMS-0009",
       "to": "REQ-CMS-0003",
       "type": "depends_on"
     },
@@ -872,6 +3932,11 @@
     {
       "from": "REQ-CMS-0011",
       "to": "REQ-CMS-0010",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-CMS-0013",
+      "to": "REQ-AI-0001",
       "type": "depends_on"
     },
     {
@@ -936,6 +4001,16 @@
       "to": "infra-keycloak",
       "type": "allocates_to",
       "allocation": true
+    },
+    {
+      "from": "REQ-GYMOPS-0001",
+      "to": "REQ-KEYCLOAK-0005",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-GYMOPS-0001",
+      "to": "REQ-OIDC-0001",
+      "type": "depends_on"
     },
     {
       "from": "REQ-GYMOPS-0001",
@@ -1047,6 +4122,16 @@
     },
     {
       "from": "REQ-GYMOPS-0013",
+      "to": "REQ-AI-0001",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-GYMOPS-0013",
+      "to": "REQ-AI-0002",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-GYMOPS-0013",
       "to": "REQ-GYMOPS-0004",
       "type": "relates_to"
     },
@@ -1104,10 +4189,58 @@
       "type": "constrains"
     },
     {
+      "from": "REQ-KEYCLOAK-0001",
+      "to": "infra-keycloak",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-OBS-0001",
+      "to": "infra-observability",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-OBS-0003",
+      "to": "REQ-KEYCLOAK-0004",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-REQHUB-0001",
+      "to": "REQ-SPECS-0002",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-REQHUB-0001",
+      "to": "svc-reqhub",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-RMAMB-0008",
+      "to": "REQ-TRAEFIK-0004",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-RMAMB-0008",
+      "to": "REQ-TRAEFIK-0005",
+      "type": "depends_on"
+    },
+    {
       "from": "REQ-SICAT-0001",
       "to": "infra-keycloak",
       "type": "allocates_to",
       "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-0001",
+      "to": "REQ-KEYCLOAK-0005",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0001",
+      "to": "REQ-OIDC-0001",
+      "type": "depends_on"
     },
     {
       "from": "REQ-SICAT-0001",
@@ -1120,6 +4253,11 @@
       "to": "infra-postgres",
       "type": "allocates_to",
       "allocation": true
+    },
+    {
+      "from": "REQ-SICAT-0002",
+      "to": "REQ-PCONTRACT-0006",
+      "type": "depends_on"
     },
     {
       "from": "REQ-SICAT-0002",
@@ -1196,6 +4334,11 @@
       "type": "depends_on"
     },
     {
+      "from": "REQ-SICAT-0006",
+      "to": "REQ-PCONTRACT-0006",
+      "type": "depends_on"
+    },
+    {
       "from": "REQ-SICAT-0007",
       "to": "REQ-SICAT-0005",
       "type": "depends_on"
@@ -1258,6 +4401,11 @@
     },
     {
       "from": "REQ-SICAT-0013",
+      "to": "REQ-OBS-0001",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0013",
       "to": "REQ-SICAT-0011",
       "type": "depends_on"
     },
@@ -1282,6 +4430,21 @@
       "from": "REQ-SICAT-0014",
       "to": "REQ-SICAT-0011",
       "type": "relates_to"
+    },
+    {
+      "from": "REQ-SICAT-0015",
+      "to": "REQ-AI-0001",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0015",
+      "to": "REQ-AI-0003",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-SICAT-0016",
+      "to": "REQ-AI-0001",
+      "type": "depends_on"
     },
     {
       "from": "REQ-SICAT-NFR-0001",
@@ -1376,6 +4539,17 @@
     {
       "from": "REQ-SICAT-NFR-0008",
       "to": "svc-sicat-worker",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-SPECS-0005",
+      "to": "REQ-CICD-0005",
+      "type": "relates_to"
+    },
+    {
+      "from": "REQ-TRAEFIK-0001",
+      "to": "infra-traefik",
       "type": "allocates_to",
       "allocation": true
     }

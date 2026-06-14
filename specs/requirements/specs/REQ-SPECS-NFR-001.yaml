@@ -1,0 +1,28 @@
+id: REQ-SPECS-NFR-001
+slug: req-specs-nfr-001
+title: Determinismo da baseline (hash verificável)
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: specs
+statement: 'O sistema deve atender ao atributo de qualidade "Determinismo da baseline (hash verificável)": Baseline gerado é idêntico (byte-for-byte) ao anterior; baseline_hash coincide'
+source:
+  stakeholder: specs
+  origin: codebase specs + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Desenvolvedor ou CI rodando build-baseline.mjs
+    stimulus: Regenerar baseline a partir de requisitos YAML inalterados (mesmos arquivos, conteúdo idêntico)
+    environment: Máquina A vs Máquina B; CI vs local; Node 22 padrão
+    artifact: specs/baseline/current-baseline.json
+    response: Baseline gerado é idêntico (byte-for-byte) ao anterior; baseline_hash coincide
+    response_measure: Falha zero em drift-check (build-baseline.mjs --check); diff vazio entre runs em arquivos inalterados
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

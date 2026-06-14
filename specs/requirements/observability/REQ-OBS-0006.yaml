@@ -1,0 +1,21 @@
+id: REQ-OBS-0006
+slug: req-obs-0006
+title: Datasources Prometheus e Loki
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: observability
+  applies_to: product
+statement: Provisionar datasource Prometheus (criado automaticamente pelo kube-prometheus-stack) e adicionar Loki como datasource com URL `http://loki.observability:3100`.
+source:
+  stakeholder: observability
+  origin: codebase observability + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

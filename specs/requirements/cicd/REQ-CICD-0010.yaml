@@ -1,0 +1,21 @@
+id: REQ-CICD-0010
+slug: req-cicd-0010
+title: Fallback de fluxo local vs GHCR
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: cicd
+  applies_to: product
+statement: Aplicações podem publicar localmente (scripts/publish-app.ps1) com docker build -t <img>:local + kubectl apply (imagePullPolicy IfNotPresent) para iteração rápida, ou via Actions/GHCR (--token, tags por SHA/branch) para esteira completa; mesma interface (devops.yaml).
+source:
+  stakeholder: cicd
+  origin: codebase cicd + mapeamento multi-agente 2026-06-14
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

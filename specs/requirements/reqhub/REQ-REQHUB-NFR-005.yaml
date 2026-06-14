@@ -1,0 +1,28 @@
+id: REQ-REQHUB-NFR-005
+slug: req-reqhub-nfr-005
+title: Responsividade (desktop/tablet/mobile, 320px+)
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: reqhub
+statement: 'O sistema deve atender ao atributo de qualidade "Responsividade (desktop/tablet/mobile, 320px+)": Layout reflua sem quebra; conteúdo legível; scrollable horizontal em mobile'
+source:
+  stakeholder: reqhub
+  origin: codebase reqhub + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: UX
+    stimulus: Redimensionamento de viewport (DevTools 320px→1920px)
+    environment: CSS grid-template-columns adaptativo; topbar sticky; tabela scrollável
+    artifact: Página renderizada em múltiplos tamanhos
+    response: Layout reflua sem quebra; conteúdo legível; scrollable horizontal em mobile
+    response_measure: Nenhuma horizontal scroll bars < 600px; todos os controles clicáveis (min 44px)
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

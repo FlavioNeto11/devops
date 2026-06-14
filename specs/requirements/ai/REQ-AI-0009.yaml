@@ -1,0 +1,21 @@
+id: REQ-AI-0009
+slug: req-ai-0009
+title: Memória em 3 horizontes com escopagem por user_id
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: ai
+  applies_to: product
+statement: "CURTO: createThreadStore (Postgres) — estado de thread sobrevive restart/pod e compartilhado entre processos. MÉDIO: createRollingSummarizer (sumarização progressiva quando excede budget). LONGO: createUserMemory (pgvector com HNSW, TTL 180 dias, recall SEMPRE escopado by user_id — nunca cruza usuários). Extração de fatos é assíncrona no worker."
+source:
+  stakeholder: ai
+  origin: codebase ai + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

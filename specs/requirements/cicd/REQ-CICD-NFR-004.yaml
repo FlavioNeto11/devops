@@ -1,0 +1,28 @@
+id: REQ-CICD-NFR-004
+slug: req-cicd-nfr-004
+title: Rastreabilidade desde commit até pod
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: cicd
+statement: "O sistema deve atender ao atributo de qualidade \"Rastreabilidade desde commit até pod\": Annotation devops.flavioneto/commitSha+branch+deployedAt claramente visível em 'kubectl describe' e Console; link para commit no GitHub"
+source:
+  stakeholder: cicd
+  origin: codebase cicd + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: "Operador querendo saber: qual commit está rodando em pod X?"
+    stimulus: Consultar pod annotations ou devops console
+    environment: Deployment anotado com commit SHA, branch, deployed-at, run-id
+    artifact: Annotations no Deployment; DevOps Console exibindo
+    response: Annotation devops.flavioneto/commitSha+branch+deployedAt claramente visível em 'kubectl describe' e Console; link para commit no GitHub
+    response_measure: Toda app em produção tem annotations; Console mostra metadata em aba Deployments; zero perda de rastreabilidade
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

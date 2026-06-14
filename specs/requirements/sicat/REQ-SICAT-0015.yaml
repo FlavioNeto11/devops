@@ -15,6 +15,11 @@ source:
 priority: medium
 criticality: medium
 architectural_significance: false
+links:
+  - type: depends_on
+    target: REQ-AI-0001
+  - type: depends_on
+    target: REQ-AI-0003
 version:
   baseline_version: 1.0.0
   item_revision: 1

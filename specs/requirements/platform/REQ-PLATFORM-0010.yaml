@@ -1,0 +1,21 @@
+id: REQ-PLATFORM-0010
+slug: req-platform-0010
+title: Path-routing pattern documentado
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: platform
+  applies_to: product
+statement: "Documento `docs/path-routing-pattern.md` detalha regra de ouro de roteamento: frontend stripPrefix=false/priority=10, api stripPrefix=true/priority=30, api2 stripPrefix=true/priority=40; conflito resolvido por priority."
+source:
+  stakeholder: platform
+  origin: codebase platform + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

@@ -1,0 +1,21 @@
+id: REQ-ARGO-0010
+slug: req-argo-0010
+title: Repositório público (sem credenciais)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: argocd
+  applies_to: product
+statement: Usar repositório público `https://github.com/FlavioNeto11/devops` sem credenciais de autenticação no Argo CD.
+source:
+  stakeholder: argocd
+  origin: codebase argocd + mapeamento multi-agente 2026-06-14
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

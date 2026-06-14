@@ -1,0 +1,28 @@
+id: REQ-KEYCLOAK-NFR-001
+slug: req-keycloak-nfr-001
+title: Disponibilidade do IdP
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: keycloak
+statement: 'O sistema deve atender ao atributo de qualidade "Disponibilidade do IdP": Keycloak responde com HTTP 200 ao /auth/realms/nvit/.well-known/openid-configuration dentro de 2s'
+source:
+  stakeholder: keycloak
+  origin: codebase keycloak + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Aplicação de autenticação (Grafana, Argo CD, SICAT)
+    stimulus: Requisição de login OIDC durante operação normal
+    environment: Cluster Kubernetes em modo prod
+    artifact: Deployment keycloak + Service keycloak
+    response: Keycloak responde com HTTP 200 ao /auth/realms/nvit/.well-known/openid-configuration dentro de 2s
+    response_measure: P99 latência <= 2s; uptime >= 99.5%; health checks (readinessProbe/livenessProbe) no pod
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

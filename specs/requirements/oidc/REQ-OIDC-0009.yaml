@@ -1,0 +1,21 @@
+id: REQ-OIDC-0009
+slug: req-oidc-0009
+title: PKCE S256 no frontend (Authorization Code flow)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: oidc
+  applies_to: shared-module
+statement: startKeycloakLogin({authUrl, clientId, redirectUri, scope}) deve gerar verifier (32 bytes), challenge (SHA256), state (16 bytes); sessionStorage deve guardar verifier e state; redirecionar ao authUrl com params OIDC padrão.
+source:
+  stakeholder: oidc
+  origin: codebase oidc + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

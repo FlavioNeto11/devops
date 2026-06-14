@@ -1,0 +1,28 @@
+id: REQ-PCONTRACT-NFR-001
+slug: req-pcontract-nfr-001
+title: Isolamento de contexto de browser (sem vazamento de credencial)
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: portal-contracts
+statement: 'O sistema deve atender ao atributo de qualidade "Isolamento de contexto de browser (sem vazamento de credencial)": Cada contexto tem cookies/cache/localStorage separados; Operador 1 não vê credencial de Operador 2 no Chromium; close() libera 100% da RAM'
+source:
+  stakeholder: portal-contracts
+  origin: codebase portal-contracts + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Operador 1 capturando portal CETESB; Operador 2 capturando portal MTR em paralelo
+    stimulus: Duas sessões simultâneas em portais diferentes
+    environment: Playwright newContext() + isolação de cookies/cache; MAX_CONCURRENT_SESSIONS=2
+    artifact: Sessions em Postgres; contexts no Chromium
+    response: Cada contexto tem cookies/cache/localStorage separados; Operador 1 não vê credencial de Operador 2 no Chromium; close() libera 100% da RAM
+    response_measure: Zero cross-session data leakage; contexto A isolado de B; memory freed after close (observable via top/k8s metrics)
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

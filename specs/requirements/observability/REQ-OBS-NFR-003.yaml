@@ -1,0 +1,28 @@
+id: REQ-OBS-NFR-003
+slug: req-obs-nfr-003
+title: Retenção e armazenamento de logs
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: observability
+statement: 'O sistema deve atender ao atributo de qualidade "Retenção e armazenamento de logs": Logs armazenados e consultáveis via Grafana Loki datasource por 72h; PVC não excede 80% capacidade'
+source:
+  stakeholder: observability
+  origin: codebase observability + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Promtail collector
+    stimulus: Coletar logs de centenas de pods durante 72h
+    environment: Loki em mode single-binary, filesystem PVC 2Gi, retention_period 72h
+    artifact: Loki pod rodando, PVC montado, Promtail enviando logs
+    response: Logs armazenados e consultáveis via Grafana Loki datasource por 72h; PVC não excede 80% capacidade
+    response_measure: retention 72h garantido; uso PVC <2Gi; query latência p99 <5s
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

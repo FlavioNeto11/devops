@@ -1,0 +1,28 @@
+id: REQ-SPECS-NFR-004
+slug: req-specs-nfr-004
+title: Performance de baseline para +500 requisitos
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: specs
+statement: 'O sistema deve atender ao atributo de qualidade "Performance de baseline para +500 requisitos": Baseline gerada (JSON), impact-map com 500 nós + ~1500 arestas, retrieval-manifest com índice completo'
+source:
+  stakeholder: specs
+  origin: codebase specs + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: "Fase 2: plataforma em expansão com múltiplos produtos (SICAT, GymOps, CMS, novos portais...)"
+    stimulus: Executar build-baseline.mjs em 500 requisitos YAML
+    environment: Node 22; specs/tools com ajv, yaml, crypto; CI ubuntu-latest
+    artifact: specs/tools/build-baseline.mjs
+    response: Baseline gerada (JSON), impact-map com 500 nós + ~1500 arestas, retrieval-manifest com índice completo
+    response_measure: Tempo execution <= 15s; tamanho baseline.json <= 5MB; --check completa em <= 3s
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

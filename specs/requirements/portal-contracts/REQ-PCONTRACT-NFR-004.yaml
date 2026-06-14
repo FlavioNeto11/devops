@@ -1,0 +1,28 @@
+id: REQ-PCONTRACT-NFR-004
+slug: req-pcontract-nfr-004
+title: Disponibilidade em degradação (DB fora = health=ok, db=false)
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: portal-contracts
+statement: "O sistema deve atender ao atributo de qualidade \"Disponibilidade em degradação (DB fora = health=ok, db=false)\": HTTP 200 + { status: 'ok', db: false } em < 2s; pod não é reiciado; operador sabe (via db=false) e pode debugar"
+source:
+  stakeholder: portal-contracts
+  origin: codebase portal-contracts + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Postgres do cluster falha ou torna-se inacessível
+    stimulus: Liveness probe (kubelet) executa GET /health enquanto DB está down
+    environment: Kubernetes pod health check; Postgres 5s indisponível
+    artifact: GET /health endpoint
+    response: "HTTP 200 + { status: 'ok', db: false } em < 2s; pod não é reiciado; operador sabe (via db=false) e pode debugar"
+    response_measure: Zero false restarts; timeout < 2s; status='ok' mantém pod vivo; logs indicam 'db unavailable, retrying'
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

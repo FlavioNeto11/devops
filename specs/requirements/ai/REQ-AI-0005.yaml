@@ -1,0 +1,29 @@
+id: REQ-AI-0005
+slug: req-ai-0005
+title: Métricas canônicas ai_*
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: ai
+  applies_to: product
+statement: "Prometheus: ai_turn_latency_seconds{app,stage,outcome}, ai_tokens_total{app,model,direction}, ai_cost_usd_total{app,model}, ai_tool_calls_total{app,tool,outcome}, ai_errors_total{app,stage,code}, ai_judge_score{app,dimension}, ai_escalation_total{app,reason}, ai_feedback_total{app,surface,kind}. Nomes são contrato — dashboards/evals dependem deles."
+source:
+  stakeholder: ai
+  origin: codebase ai + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+links:
+  - type: depends_on
+    target: REQ-OBS-0001
+  - type: relates_to
+    target: REQ-OBS-0006
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)
+allocation:
+  infra_refs:
+    - infra-observability

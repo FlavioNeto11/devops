@@ -1,0 +1,28 @@
+id: REQ-KEYCLOAK-NFR-002
+slug: req-keycloak-nfr-002
+title: Segurança de secrets
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: keycloak
+statement: 'O sistema deve atender ao atributo de qualidade "Segurança de secrets": Credenciais (KC_BOOTSTRAP_ADMIN_PASSWORD, KC_DB_PASSWORD) nunca aparecem em plaintext; apenas o controller kube-system/sealed-secrets-controller consegue decifrá-las'
+source:
+  stakeholder: keycloak
+  origin: codebase keycloak + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Operador do cluster
+    stimulus: Leitura ou auditoria do repositório Git
+    environment: Repositório público devops
+    artifact: sealed-keycloak-secrets.yaml (SealedSecret)
+    response: Credenciais (KC_BOOTSTRAP_ADMIN_PASSWORD, KC_DB_PASSWORD) nunca aparecem em plaintext; apenas o controller kube-system/sealed-secrets-controller consegue decifrá-las
+    response_measure: 0 ocorrências de senha/secret em plaintext no Git; SealedSecret validado pelo controller
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

@@ -1,0 +1,28 @@
+id: REQ-SPECS-NFR-006
+slug: req-specs-nfr-006
+title: Quality-Attribute-Scenario para NFR mensuráveis
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: specs
+statement: 'O sistema deve atender ao atributo de qualidade "Quality-Attribute-Scenario para NFR mensuráveis": Validação passa; cenário é legível e operacionalizável (response_measure com métrica mensurável)'
+source:
+  stakeholder: specs
+  origin: codebase specs + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: "Requisito tipo=non-functional (ex.: performance, segurança, disponibilidade)"
+    stimulus: Build-baseline.mjs validando artefato
+    environment: Schema requer quality_scenarios[] obrigatório para type=non-functional
+    artifact: REQ-*.yaml com type=non-functional e quality_scenarios[] (source, stimulus, environment, artifact, response, response_measure)
+    response: Validação passa; cenário é legível e operacionalizável (response_measure com métrica mensurável)
+    response_measure: Nenhum NFR sem quality_scenarios; cada scenario tem todos os 6 campos preenchidos; response_measure é testável/observável
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

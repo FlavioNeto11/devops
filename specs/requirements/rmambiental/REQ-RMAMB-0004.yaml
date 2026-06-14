@@ -1,0 +1,21 @@
+id: REQ-RMAMB-0004
+slug: req-rmamb-0004
+title: Renderizar galeria de projetos com casos de uso
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: rmambiental
+  applies_to: product
+statement: A aplicação deve exibir galeria de casos reais (substituir placeholders por dados fornecidos) com imagens, descrições, setores envolvidos e status de implementação.
+source:
+  stakeholder: rmambiental
+  origin: codebase rmambiental + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

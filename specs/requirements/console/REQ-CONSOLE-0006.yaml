@@ -1,0 +1,21 @@
+id: REQ-CONSOLE-0006
+slug: req-console-0006
+title: Fetch one-shot pod logs with tail limit
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: console
+  applies_to: product
+statement: O backend expoe GET /pods/:ns/:name/logs com query params ?tailLines=200 (default) e ?container=name (opcional). Retorna JSON com namespace, pod, container, tailLines e logs (string). Usado para diagnostico pontual e como fallback se o stream falhar.
+source:
+  stakeholder: console
+  origin: codebase console + mapeamento multi-agente 2026-06-14
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

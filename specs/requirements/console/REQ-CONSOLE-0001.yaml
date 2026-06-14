@@ -1,0 +1,21 @@
+id: REQ-CONSOLE-0001
+slug: req-console-0001
+title: List cluster namespaces with metadata
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: console
+  applies_to: product
+statement: O backend deve expor um endpoint GET /namespaces que retorna lista de todos os namespaces do cluster com nome, status, timestamp de criacao e labels. O frontend exibe os namespaces gerenciados pela plataforma (devops-system, traefik, argocd, observability, apps, apps-dev, apps-prod-local) em tempo real via SSE.
+source:
+  stakeholder: console
+  origin: codebase console + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

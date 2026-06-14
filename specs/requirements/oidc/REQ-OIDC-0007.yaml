@@ -1,0 +1,21 @@
+id: REQ-OIDC-0007
+slug: req-oidc-0007
+title: Criptografia AES-256-GCM de secrets
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: oidc
+  applies_to: shared-module
+statement: encryptSecret(plainText, {secret}) deve gerar IV aleatório 12 bytes, cifrar com AES-256-GCM, retornar {ciphertext, iv, tag} (base64url); decryptSecret(payload, {secret}) deve validar tag e decifrá-lo timing-safely.
+source:
+  stakeholder: oidc
+  origin: codebase oidc + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

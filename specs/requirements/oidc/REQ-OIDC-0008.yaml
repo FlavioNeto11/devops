@@ -1,0 +1,21 @@
+id: REQ-OIDC-0008
+slug: req-oidc-0008
+title: Compatibilidade byte-a-byte com SICAT (prefix configurável)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: oidc
+  applies_to: shared-module
+statement: Access/refresh tokens com prefix 'sicat_access'/'sicat_refresh' devem ser byte-idênticos aos gerados por apps/sicat/backend/lib/sicat-security.ts; nenhuma mudança de cripto sem preservar essa compatibilidade.
+source:
+  stakeholder: oidc
+  origin: codebase oidc + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

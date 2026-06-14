@@ -1,0 +1,21 @@
+id: REQ-RMAMB-0006
+slug: req-rmamb-0006
+title: Implementar página de Contato com formulário e canais
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: rmambiental
+  applies_to: product
+statement: A aplicação deve renderizar página Contato com formulário de proposta nativa (sem backend; ações via mailto/WhatsApp), canais de contato configuráveis (e-mail, WhatsApp DDI+DDD+nº, endereço) e integração com redes sociais.
+source:
+  stakeholder: rmambiental
+  origin: codebase rmambiental + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

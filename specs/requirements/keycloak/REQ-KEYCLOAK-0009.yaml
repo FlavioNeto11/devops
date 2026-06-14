@@ -1,0 +1,21 @@
+id: REQ-KEYCLOAK-0009
+slug: req-keycloak-0009
+title: Onboarding de novo client OIDC
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: keycloak
+  applies_to: product
+statement: "Documentação e automação devem permitir onboardar novo app/ferramenta ao SSO via: criar client confidential no realm → selar o secret → configurar issuer e redirect URIs → mapear papéis via platform-admins."
+source:
+  stakeholder: keycloak
+  origin: codebase keycloak + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

@@ -1,0 +1,28 @@
+id: REQ-OBS-NFR-002
+slug: req-obs-nfr-002
+title: Disponibilidade de dashboards Grafana
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: observability
+statement: 'O sistema deve atender ao atributo de qualidade "Disponibilidade de dashboards Grafana": Dashboard carrega em <3s; queries ao Prometheus retornam dados em <2s'
+source:
+  stakeholder: observability
+  origin: codebase observability + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Usuário Grafana autenticado
+    stimulus: Acessar dashboard `cluster-overview` em `/grafana/d/cluster-overview` ou listar dashboards
+    environment: Grafana rodando em `observability`, ConfigMap com sidecar carregando JSONs
+    artifact: Dashboard JSON em ConfigMap com label `grafana_dashboard`
+    response: Dashboard carrega em <3s; queries ao Prometheus retornam dados em <2s
+    response_measure: 100% disponibilidade de dashboard; latência p99 <3s para renderizar
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

@@ -1,0 +1,21 @@
+id: REQ-RECORDER-0005
+slug: req-recorder-0005
+title: Network event capture via CDP
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: portal-recorder
+  applies_to: product
+statement: Recorder must capture XHR/Fetch/Document network requests and responses using Chrome DevTools Protocol. Request phase records method, URL, headers (redacted), and body. Response phase records status code, headers, and body. Bodies larger than 64KB must be stored to PVC with blob_ref. Must track truncation state.
+source:
+  stakeholder: portal-recorder
+  origin: codebase portal-recorder + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

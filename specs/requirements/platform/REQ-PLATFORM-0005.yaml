@@ -1,0 +1,21 @@
+id: REQ-PLATFORM-0005
+slug: req-platform-0005
+title: Convenção de imagens GHCR
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: platform
+  applies_to: product
+statement: "Padrão: `ghcr.io/flavioneto11/<app>/<service>:<tag>`; tags: SHA (canônica), branch, `latest`; namespace sempre minúsculo; local no lab usa `<app>-<service>:local`."
+source:
+  stakeholder: platform
+  origin: codebase platform + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

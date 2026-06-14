@@ -1,0 +1,28 @@
+id: REQ-RECORDER-NFR-004
+slug: req-recorder-nfr-004
+title: Concurrent session resource isolation and limits
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: portal-recorder
+statement: 'O sistema deve atender ao atributo de qualidade "Concurrent session resource isolation and limits": Returns 429 Too Many Requests when limit exceeded; existing sessions remain unaffected'
+source:
+  stakeholder: portal-recorder
+  origin: codebase portal-recorder + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Multiple users starting capture sessions
+    stimulus: Attempting to start N sessions when limit is reached
+    environment: Recorder pod with MAX_CONCURRENT_SESSIONS limit
+    artifact: SessionManager in Recorder
+    response: Returns 429 Too Many Requests when limit exceeded; existing sessions remain unaffected
+    response_measure: Memory per context ~300-800MB; Chromium contexts cleanly destroyed on stop; no orphaned processes
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

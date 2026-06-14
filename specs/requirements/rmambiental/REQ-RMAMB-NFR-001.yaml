@@ -1,0 +1,28 @@
+id: REQ-RMAMB-NFR-001
+slug: req-rmamb-nfr-001
+title: SEO otimizado com metadados e Open Graph
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: rmambiental
+statement: 'O sistema deve atender ao atributo de qualidade "SEO otimizado com metadados e Open Graph": Mecanismo de busca indexa título, descrição, imagem social (og:image), author e keywords; compartilhamento em redes exibe preview rico (title+description+imagem)'
+source:
+  stakeholder: rmambiental
+  origin: codebase rmambiental + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Mecanismo de busca (Google, Bing) ou rede social (LinkedIn, Facebook)
+    stimulus: Usuário compartilha link do portal ou busca por 'RM Ambiental consultoria'
+    environment: Navegador de desktop ou mobile, conexão normal
+    artifact: Página Home com index.html renderizado
+    response: Mecanismo de busca indexa título, descrição, imagem social (og:image), author e keywords; compartilhamento em redes exibe preview rico (title+description+imagem)
+    response_measure: Lighthouse score SEO ≥92; meta tags presentes (title, description, og:*); canonical URL configurado
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

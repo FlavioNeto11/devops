@@ -1,0 +1,28 @@
+id: REQ-KEYCLOAK-NFR-006
+slug: req-keycloak-nfr-006
+title: Auditoria de mudanças de realm e clientes
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: keycloak
+statement: 'O sistema deve atender ao atributo de qualidade "Auditoria de mudanças de realm e clientes": Mudanças devem ser rastreáveis (usuário, timestamp, operação, recurso) em logs ou banco de eventos'
+source:
+  stakeholder: keycloak
+  origin: codebase keycloak + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Administrador de segurança
+    stimulus: Alteração de configuração de realm, cliente, ou grupo no Keycloak
+    environment: Console admin do Keycloak (realm master)
+    artifact: Logs do Keycloak + audit event storage
+    response: Mudanças devem ser rastreáveis (usuário, timestamp, operação, recurso) em logs ou banco de eventos
+    response_measure: Logs contêm auditoria de criação/atualização de clientes e grupos; rastreabilidade em kubectl logs deploy/keycloak
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

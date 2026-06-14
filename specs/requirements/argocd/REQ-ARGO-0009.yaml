@@ -1,0 +1,21 @@
+id: REQ-ARGO-0009
+slug: req-argo-0009
+title: UI acessível via Traefik em http://localhost:8080/argocd
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: argocd
+  applies_to: product
+statement: Expor Argo CD server via IngressRoute Traefik com rota `/argocd`; recomendado acessar via port-forward `kubectl port-forward svc/argocd-server -n argocd 8080:80` para evitar problema de subpath em navegadores.
+source:
+  stakeholder: argocd
+  origin: codebase argocd + mapeamento multi-agente 2026-06-14
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

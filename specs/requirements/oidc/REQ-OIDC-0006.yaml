@@ -1,0 +1,21 @@
+id: REQ-OIDC-0006
+slug: req-oidc-0006
+title: Hashing seguro de password (scrypt_v1)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: oidc
+  applies_to: shared-module
+statement: hashPassword(password) deve usar scrypt com salt 16 bytes, formato 'scrypt_v1$saltb64url$hashb64url'; verifyPassword(pwd, hash) deve validar timing-safely sem leakage temporal.
+source:
+  stakeholder: oidc
+  origin: codebase oidc + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

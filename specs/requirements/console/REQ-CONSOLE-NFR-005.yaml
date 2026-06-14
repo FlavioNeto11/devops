@@ -1,0 +1,28 @@
+id: REQ-CONSOLE-NFR-005
+slug: req-console-nfr-005
+title: Database connection pooling and graceful shutdown
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: console
+statement: 'O sistema deve atender ao atributo de qualidade "Database connection pooling and graceful shutdown": listener closes (stops new connections); in-flight requests complete; pool drains; process exits within 10s timeout'
+source:
+  stakeholder: console
+  origin: codebase console + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: kubernetes scheduler triggering pod eviction (SIGTERM)
+    stimulus: termination signal received while requests are in-flight
+    environment: pm-api pod with Postgres pool, 30+ concurrent connections
+    artifact: pm-api index.js shutdown handler, pg pool.end()
+    response: listener closes (stops new connections); in-flight requests complete; pool drains; process exits within 10s timeout
+    response_measure: zero abrupt disconnects; no abandoned connections in Postgres; zero error logs during shutdown
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

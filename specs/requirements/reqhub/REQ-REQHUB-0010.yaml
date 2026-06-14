@@ -1,0 +1,21 @@
+id: REQ-REQHUB-0010
+slug: req-reqhub-0010
+title: Suporte a tema claro/escuro com persistência
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: reqhub
+  applies_to: product
+statement: O sistema deve detectar preferência do sistema (prefers-color-scheme) ou permitir alternância manual (botão ◐) e persistir em localStorage (reqhub-theme), aplicando paleta monocromática WCAG 2.2.
+source:
+  stakeholder: reqhub
+  origin: codebase reqhub + mapeamento multi-agente 2026-06-14
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

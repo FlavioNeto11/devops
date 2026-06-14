@@ -1,0 +1,21 @@
+id: REQ-RECORDER-0013
+slug: req-recorder-0013
+title: Schema inference with sensitivity detection
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: portal-recorder
+  applies_to: product
+statement: Normalization must infer observational JSON schema from request/response bodies. Schema must identify required fields (present in all samples), optional fields, data types, and mark sensitive properties (regex match on password, token, cookie, cpf, cnpj, email, recaptcha, authorization). Array types must be detected and recursively inferred.
+source:
+  stakeholder: portal-recorder
+  origin: codebase portal-recorder + mapeamento multi-agente 2026-06-14
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

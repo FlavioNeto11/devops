@@ -1,0 +1,28 @@
+id: REQ-TRAEFIK-NFR-004
+slug: req-traefik-nfr-004
+title: Segurança de headers HTTP
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: traefik
+statement: 'O sistema deve atender ao atributo de qualidade "Segurança de headers HTTP": Resposta inclui X-Frame-Options: DENY, X-Content-Type-Options: nosniff, X-XSS-Protection, Strict-Transport-Security'
+source:
+  stakeholder: traefik
+  origin: codebase traefik + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Navegador (verificação de headers)
+    stimulus: Fazer requisição HTTP para qualquer rota com middleware secure-headers
+    environment: Cluster em operação, Traefik com secure-headers middleware
+    artifact: Middleware secure-headers aplicado à rota ou globalmente
+    response: "Resposta inclui X-Frame-Options: DENY, X-Content-Type-Options: nosniff, X-XSS-Protection, Strict-Transport-Security"
+    response_measure: 100% das respostas contêm headers de segurança esperados
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

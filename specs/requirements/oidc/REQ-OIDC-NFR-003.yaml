@@ -1,0 +1,28 @@
+id: REQ-OIDC-NFR-003
+slug: req-oidc-nfr-003
+title: Timing-safety em validações criptográficas
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: oidc
+statement: 'O sistema deve atender ao atributo de qualidade "Timing-safety em validações criptográficas": Comparação leva tempo constante independente da diferença; sem leakage temporal'
+source:
+  stakeholder: oidc
+  origin: codebase oidc + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Attacker
+    stimulus: Tentativa de timing attack ao validar assinatura HMAC ou password hash
+    environment: API backend usando requireSession middleware
+    artifact: timingSafeEqual (node:crypto) para comparação de signatures e password hashes
+    response: Comparação leva tempo constante independente da diferença; sem leakage temporal
+    response_measure: "Code review: timingSafeEqual usado em verifyAccessToken e verifyPassword; testes de timing ausentes/não-práticos (documentado)"
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

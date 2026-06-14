@@ -1,0 +1,21 @@
+id: REQ-PORTAL-0015
+slug: req-portal-0015
+title: Oferecer roteamento root `/` com prioridade 1 (menor, cai aqui)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: portal
+  applies_to: product
+statement: A página deve estar em IngressRoute (devops-system) com PathPrefix('/') e priority 1 (mínima); paths específicos (/devops, /sicat, /grafana...) sempre vencem, só raiz `/` cai no portal.
+source:
+  stakeholder: portal
+  origin: codebase portal + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

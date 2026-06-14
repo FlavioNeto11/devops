@@ -1,0 +1,28 @@
+id: REQ-ARGO-NFR-001
+slug: req-argo-nfr-001
+title: Sincronização e reconciliação declarativa
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: argocd
+statement: 'O sistema deve atender ao atributo de qualidade "Sincronização e reconciliação declarativa": Argo CD sincroniza automaticamente o estado do cluster com Git em até 3 minutos; qualquer mudança manual é revertida'
+source:
+  stakeholder: argocd
+  origin: codebase argocd + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: DevOps operator
+    stimulus: Modificar um manifest em `platform/argocd/apps` e fazer push no Git
+    environment: Cluster Docker Desktop em operação normal
+    artifact: Application Argo CD com `selfHeal=true` e `prune=true`
+    response: Argo CD sincroniza automaticamente o estado do cluster com Git em até 3 minutos; qualquer mudança manual é revertida
+    response_measure: 100% de sincronização bem-sucedida; drift = 0 em estado estável
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

@@ -1,0 +1,22 @@
+id: REQ-PCONTRACT-0010
+slug: req-pcontract-0010
+title: Armazenamento de blobs (HAR, screenshots, dumps) em PVC
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: portal-contracts
+  applies_to: capability
+  capability: portal-recorder
+statement: Recorder escreve HAR.gz, screenshots PNG, DOM dumps em /data/blobs compartilhado (PVC portal-recorder-storage) entre api e recorder; GC periódico (> 7 dias) ou TTL em sessão; limite total (< 50GB).
+source:
+  stakeholder: portal-contracts
+  origin: codebase portal-contracts + mapeamento multi-agente 2026-06-14
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

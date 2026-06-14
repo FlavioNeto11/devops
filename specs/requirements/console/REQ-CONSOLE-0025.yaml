@@ -1,0 +1,21 @@
+id: REQ-CONSOLE-0025
+slug: req-console-0025
+title: Admin user and access management interface
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: console
+  applies_to: product
+statement: "Frontend AccessAdmin (admin apenas) exibe usuarios, projetos, acesso e permissoes. GET /admin/users (lista), PATCH /admin/users/:email. GET /admin/access (matriz usuario x projeto). Auditoria: approved_by, approved_at, created_by rastreados para portais."
+source:
+  stakeholder: console
+  origin: codebase console + mapeamento multi-agente 2026-06-14
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

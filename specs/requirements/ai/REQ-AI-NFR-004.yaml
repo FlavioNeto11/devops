@@ -1,0 +1,28 @@
+id: REQ-AI-NFR-004
+slug: req-ai-nfr-004
+title: "Segurança: IA nunca excede permissão do usuário"
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: ai
+statement: "O sistema deve atender ao atributo de qualidade \"Segurança: IA nunca excede permissão do usuário\": tool.authorize retorna { allowed: false, reason: '...' }, AiToolDeniedError lançado, turno não executa"
+source:
+  stakeholder: ai
+  origin: codebase ai + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: usuário A (sem acesso à unidade X)
+    stimulus: IA propõe tool (query_overdue, create_activity) restrita à unidade X
+    environment: GymOps produção, teste E2E com memberships reais
+    artifact: authz do AiTool, toolContext (organizationId validado na rota)
+    response: "tool.authorize retorna { allowed: false, reason: '...' }, AiToolDeniedError lançado, turno não executa"
+    response_measure: 100% das rejeições de authz testadas E2E; zero vazamento de dados cross-org/cross-user
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

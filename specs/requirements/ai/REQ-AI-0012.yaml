@@ -1,0 +1,21 @@
+id: REQ-AI-0012
+slug: req-ai-0012
+title: Registry de eval runs (resultado de golden sets)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: ai
+  applies_to: product
+statement: POST /v1/eval-runs (app, mode:sample|full|graph|mock|ci, total, passed, failed, passRate, kpis, metadata). GET /v1/eval-runs (listar desc por created_at, filtro app). Rastreabilidade de cada run de CI dos apps.
+source:
+  stakeholder: ai
+  origin: codebase ai + mapeamento multi-agente 2026-06-14
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

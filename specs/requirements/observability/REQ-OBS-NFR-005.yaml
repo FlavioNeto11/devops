@@ -1,0 +1,28 @@
+id: REQ-OBS-NFR-005
+slug: req-obs-nfr-005
+title: Rastreabilidade de chamadas IA (Langfuse)
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: observability
+statement: 'O sistema deve atender ao atributo de qualidade "Rastreabilidade de chamadas IA (Langfuse)": Trace enviado com sucesso (status 200); visível em UI Langfuse em <2s'
+source:
+  stakeholder: observability
+  origin: codebase observability + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: App chamando Langfuse via `@flavioneto11/ai-core`
+    stimulus: App faz chamada LLM com tracer Langfuse (`createAiTracer({ langfuse })`)
+    environment: Langfuse rodando em `observability`, apps com PROJECT_PUBLIC_KEY/PROJECT_SECRET_KEY
+    artifact: Langfuse deployment com Postgres, org `nvit` e projeto `nvit-ai` criados
+    response: Trace enviado com sucesso (status 200); visível em UI Langfuse em <2s
+    response_measure: 100% taxa de entrega de traces; latência envio <500ms; retenção de dados ok
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

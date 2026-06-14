@@ -1,0 +1,28 @@
+id: REQ-RMAMB-NFR-006
+slug: req-rmamb-nfr-006
+title: Build reproduzível com package-lock.json versionado
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: rmambiental
+statement: 'O sistema deve atender ao atributo de qualidade "Build reproduzível com package-lock.json versionado": npm ci instala versões exatas; build produz imagem idêntica; nenhuma dependência flutuante quebra o build'
+source:
+  stakeholder: rmambiental
+  origin: codebase rmambiental + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: CI/CD pipeline (GitHub Actions ou local) rodando docker build
+    stimulus: CI push nova tag ou deploy local com 'npm ci'
+    environment: Container distroless/node ou ubuntu; sem npm install (usa npm ci)
+    artifact: package-lock.json versionado em git + package.json imutável
+    response: npm ci instala versões exatas; build produz imagem idêntica; nenhuma dependência flutuante quebra o build
+    response_measure: package-lock.json presente e commitado; docker build -t ... roda sem npm install; build hash estável entre runs
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

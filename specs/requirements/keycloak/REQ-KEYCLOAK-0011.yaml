@@ -1,0 +1,21 @@
+id: REQ-KEYCLOAK-0011
+slug: req-keycloak-0011
+title: Issuers e endpoints canonicamente documentados
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: keycloak
+  applies_to: product
+statement: Documentação central deve listar realms, clientes, issuers, endpoints de descoberta, redirect URIs e grupos para todos os apps integrados (Grafana, Argo CD, DevOps Console, SICAT, etc.).
+source:
+  stakeholder: keycloak
+  origin: codebase keycloak + mapeamento multi-agente 2026-06-14
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

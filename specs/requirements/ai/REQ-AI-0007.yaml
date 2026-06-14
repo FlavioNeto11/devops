@@ -1,0 +1,21 @@
+id: REQ-AI-0007
+slug: req-ai-0007
+title: Tracer plugável (Langfuse default, LangSmith opcional)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: ai
+  applies_to: product
+statement: "createAiTracer({ langfuse?, metrics }): span(name, meta, fn) cronometra e emite ao Langfuse (opcional). LangChain ativa LangSmith via env LANGCHAIN_TRACING_V2 + LANGCHAIN_API_KEY (zero código). Falha de telemetria nunca propaga."
+source:
+  stakeholder: ai
+  origin: codebase ai + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

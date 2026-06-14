@@ -1,0 +1,21 @@
+id: REQ-KEYCLOAK-0002
+slug: req-keycloak-0002
+title: Usuário admin da plataforma unificado
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: keycloak
+  applies_to: product
+statement: Admin da plataforma (admin@nvit.com.br) deve estar no grupo platform-admins no realm nvit e usar a mesma senha do realm master para acesso ao Keycloak console, Grafana, Argo CD e DevOps Console.
+source:
+  stakeholder: keycloak
+  origin: codebase keycloak + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

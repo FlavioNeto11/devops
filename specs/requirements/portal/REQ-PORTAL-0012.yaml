@@ -1,0 +1,21 @@
+id: REQ-PORTAL-0012
+slug: req-portal-0012
+title: Respeitar prefers-reduced-motion em animações
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: portal
+  applies_to: product
+statement: "A página deve desabilitar reveal on scroll, scroll smooth e transições quando prefers-reduced-motion: reduce está ativo no SO/navegador, mantendo conteúdo acessível."
+source:
+  stakeholder: portal
+  origin: codebase portal + mapeamento multi-agente 2026-06-14
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

@@ -1,0 +1,28 @@
+id: REQ-OIDC-NFR-001
+slug: req-oidc-nfr-001
+title: Zero dependências de runtime
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: oidc
+statement: 'O sistema deve atender ao atributo de qualidade "Zero dependências de runtime": Nenhuma dependência externas são instaladas; apenas node:crypto (builtins) e fetch global (Node 18+) são usados'
+source:
+  stakeholder: oidc
+  origin: codebase oidc + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Consumidor do kit (app Node.js)
+    stimulus: npm install @flavioneto11/oidc-kit; importar e usar funções
+    environment: Node.js 20+
+    artifact: package.json (sem dependencies, apenas node:crypto + fetch global)
+    response: Nenhuma dependência externas são instaladas; apenas node:crypto (builtins) e fetch global (Node 18+) são usados
+    response_measure: npm audit passa; node_modules/@flavioneto11/oidc-kit não contém submodulos externos
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

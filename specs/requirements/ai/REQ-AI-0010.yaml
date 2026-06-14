@@ -1,0 +1,21 @@
+id: REQ-AI-0010
+slug: req-ai-0010
+title: Control-plane de prompts versionados (F5)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: ai
+  applies_to: product
+statement: "ai-control-plane: POST /v1/prompts/:name/versions (criar versão com activate flag), POST /v1/prompts/:name/activate (promover com confirmed:true, retorna 'previous' para rollback). Apps fetcham GET /v1/prompts/:name/active com timeout 2s + cache + fallback inline. Sem auth write retorna 503. FORA do caminho crítico."
+source:
+  stakeholder: ai
+  origin: codebase ai + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

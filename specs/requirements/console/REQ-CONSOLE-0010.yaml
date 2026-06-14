@@ -1,0 +1,21 @@
+id: REQ-CONSOLE-0010
+slug: req-console-0010
+title: Group and display applications by label
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: console
+  applies_to: product
+statement: O backend agrupa recursos (pods, deployments, services) por label app.kubernetes.io/part-of (preferida) ou devops.flavioneto/app. GET /apps retorna lista com app name, type (cms_portal|product_software|platform_tool), namespaces, services, deployments, imagens, total restarts, age (do recurso mais antigo) e URLs publicadas derivadas de IngressRoutes.
+source:
+  stakeholder: console
+  origin: codebase console + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

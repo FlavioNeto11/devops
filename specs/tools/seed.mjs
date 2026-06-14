@@ -27,12 +27,20 @@ const seedLinks = fs.existsSync(linksPath) ? JSON.parse(fs.readFileSync(linksPat
 const allocPath = path.join(__dirname, 'seed-allocations.json');
 const seedAllocations = fs.existsSync(allocPath) ? JSON.parse(fs.readFileSync(allocPath, 'utf8')) : {};
 
-// produto extraído -> product_scope + diretório
+// Metadados por área. O padrão é entradas AUTO-DESCRITIVAS no seed-input
+// (product_scope/dir/owner/origin no próprio objeto); PRODUCTS é fallback legado
+// para as 3 primeiras áreas (chaves sicat/gymops/portalCms).
 const PRODUCTS = {
   sicat: { scope: 'sicat', dir: 'sicat', owner: 'plataforma-digital', origin: 'codebase apps/sicat + research-2026-06' },
   gymops: { scope: 'gymops', dir: 'gymops', owner: 'plataforma-digital', origin: 'codebase apps/gymops + research-2026-06' },
   portalCms: { scope: 'cms', dir: 'cms', owner: 'plataforma-digital', origin: 'codebase portal/CMS + research-2026-06' },
 };
+function resolveMeta(key, entry) {
+  if (entry && entry.product_scope && entry.dir) {
+    return { scope: entry.product_scope, dir: entry.dir, owner: entry.owner || 'plataforma-digital', origin: entry.origin || 'codebase + mapeamento multi-agente' };
+  }
+  return PRODUCTS[key] || null;
+}
 
 function mapScope(scopeStr, product) {
   const out = { product_scope: product };
@@ -60,15 +68,17 @@ function orderedDoc(d) {
 }
 
 let count = 0;
-for (const [key, meta] of Object.entries(PRODUCTS)) {
-  const product = input[key];
-  if (!product) continue;
+const dirs = new Set();
+for (const [key, entry] of Object.entries(input)) {
+  const meta = resolveMeta(key, entry);
+  if (!meta) continue;
   const outDir = path.join(REQ_DIR, meta.dir);
   fs.mkdirSync(outDir, { recursive: true });
+  dirs.add(meta.dir);
 
-  const asr = new Set(product.architecturally_significant ?? []);
+  const asr = new Set(entry.architecturally_significant ?? []);
 
-  for (const fr of product.functional_requirements ?? []) {
+  for (const fr of entry.functional_requirements ?? []) {
     const doc = orderedDoc({
       id: fr.proposed_id,
       slug: fr.proposed_id.toLowerCase(),
@@ -90,7 +100,7 @@ for (const [key, meta] of Object.entries(PRODUCTS)) {
     count++;
   }
 
-  for (const nfr of product.non_functional_requirements ?? []) {
+  for (const nfr of entry.non_functional_requirements ?? []) {
     const qs = nfr.quality_scenario;
     const doc = orderedDoc({
       id: nfr.proposed_id,
@@ -115,4 +125,4 @@ for (const [key, meta] of Object.entries(PRODUCTS)) {
   }
 }
 
-console.log(`[seed] ${count} requisitos escritos em specs/requirements/{sicat,gymops,cms}/`);
+console.log(`[seed] ${count} requisitos escritos em specs/requirements/{${[...dirs].sort().join(',')}}/`);

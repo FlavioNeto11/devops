@@ -1,0 +1,22 @@
+id: REQ-PCONTRACT-0003
+slug: req-pcontract-0003
+title: Captura de tráfego de rede com sanitização de secrets
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: portal-contracts
+  applies_to: capability
+  capability: portal-recorder
+statement: "Recorder deve interceptar requisições HTTP via Network.requestWillBeSent e Network.responseReceived, capturar request/response bodies, headers, e aplicar sanitização (redactObject/sanitizeHeaders) ANTES de persistência: substitui token/cookie/password/recaptcha por *** + sha256 hash para correlação sem expor; captura redigida vai para Postgres, captura crua nunca no git."
+source:
+  stakeholder: portal-contracts
+  origin: codebase portal-contracts + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

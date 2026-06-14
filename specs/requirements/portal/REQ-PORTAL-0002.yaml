@@ -1,0 +1,21 @@
+id: REQ-PORTAL-0002
+slug: req-portal-0002
+title: Renderizar ferramentas internas da plataforma (Grafana, Argo CD, Console, Keycloak, Recorder)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: portal
+  applies_to: product
+statement: A página deve exibir seção 'Ferramentas da Plataforma' (DevOps Console, Grafana, Argo CD, Keycloak, Portal Recorder) como cards com rótulo 'exige login' para todos (auth OIDC via middleware).
+source:
+  stakeholder: portal
+  origin: codebase portal + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

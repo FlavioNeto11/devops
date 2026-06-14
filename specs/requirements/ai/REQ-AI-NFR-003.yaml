@@ -1,0 +1,28 @@
+id: REQ-AI-NFR-003
+slug: req-ai-nfr-003
+title: Observabilidade com zero drift entre apps
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: ai
+statement: 'O sistema deve atender ao atributo de qualidade "Observabilidade com zero drift entre apps": métricas aparecem em tempo real (5s raspagem Prometheus), nomenclatura idêntica, labels app-específicos'
+source:
+  stakeholder: ai
+  origin: codebase ai + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: SRE monitorando Grafana dashboard ai-platform
+    stimulus: PR toca ai-core/prompts/grafo dos apps
+    environment: CI + produção (SICAT+GymOps simultâneos)
+    artifact: ai_turn_latency_seconds, ai_tokens_total, ai_judge_score, KPI dashboard
+    response: métricas aparecem em tempo real (5s raspagem Prometheus), nomenclatura idêntica, labels app-específicos
+    response_measure: 100% das chamadas IA em AMBOS os apps aparecem no dashboard com labels corretos; nenhum nome de métrica divergir
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

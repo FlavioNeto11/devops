@@ -19,6 +19,10 @@ links:
     target: REQ-GYMOPS-0004
   - type: relates_to
     target: REQ-GYMOPS-0005
+  - type: depends_on
+    target: REQ-AI-0001
+  - type: depends_on
+    target: REQ-AI-0002
 version:
   baseline_version: 1.0.0
   item_revision: 1

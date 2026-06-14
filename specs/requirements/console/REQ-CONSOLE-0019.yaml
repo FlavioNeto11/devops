@@ -1,0 +1,21 @@
+id: REQ-CONSOLE-0019
+slug: req-console-0019
+title: AI-assisted content generation for sections and sites
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: console
+  applies_to: product
+statement: POST /cms/sites/:id/ai/section e /cms/sites/:id/ai/site recebem instruction (texto livre). Backend chama IA para gerar/refinar conteudo da secao (data JSON) ou site inteiro. Frontend exibe output e permite aceitar/editar antes de salvar.
+source:
+  stakeholder: console
+  origin: codebase console + mapeamento multi-agente 2026-06-14
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

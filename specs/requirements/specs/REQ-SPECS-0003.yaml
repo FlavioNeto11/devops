@@ -1,0 +1,21 @@
+id: REQ-SPECS-0003
+slug: req-specs-0003
+title: Gerador e validador de baseline (build-baseline.mjs)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: specs
+  applies_to: product
+statement: O sistema deve fornecer script Node.js (specs/tools/build-baseline.mjs) que carregue requisitos YAML recursivamente de specs/requirements/**, valide contra JSON Schema 2020-12 (ajv) + integridade (ids/slugs únicos, links sem alvo pendente), calcule impact_score, detecção de ADRs válidos em docs/decisions/, e emita baseline determinística com --check (validação sem escrita, falha em drift) e modo normal (escrita de artefatos).
+source:
+  stakeholder: specs
+  origin: codebase specs + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

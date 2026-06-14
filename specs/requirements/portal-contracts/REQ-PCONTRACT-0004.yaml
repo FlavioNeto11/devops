@@ -1,0 +1,22 @@
+id: REQ-PCONTRACT-0004
+slug: req-pcontract-0004
+title: Streaming de captura ao vivo (WebSocket screencast)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: portal-contracts
+  applies_to: capability
+  capability: portal-recorder
+statement: "Recorder deve expor WebSocket em /portal-rec/stream (prioridade 40 no IngressRoute) para que frontend live-stream a sessão; usar Page.startScreencast (CDP) para screenshots contínuos + Input.dispatch para comandos (click/type/scroll) do operador; payload: frame JPEG + event timeline."
+source:
+  stakeholder: portal-contracts
+  origin: codebase portal-contracts + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

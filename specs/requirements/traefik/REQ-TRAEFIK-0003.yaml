@@ -1,0 +1,21 @@
+id: REQ-TRAEFIK-0003
+slug: req-traefik-0003
+title: Suporte a CRD Traefik (IngressRoute/Middleware)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: traefik
+  applies_to: product
+statement: Habilitar provider `kubernetesCRD` com `allowCrossNamespace=true` para permitir IngressRoutes em qualquer namespace referenciarem Middlewares e Services de outros namespaces.
+source:
+  stakeholder: traefik
+  origin: codebase traefik + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

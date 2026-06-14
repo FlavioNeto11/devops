@@ -1,0 +1,21 @@
+id: REQ-CONSOLE-0004
+slug: req-console-0004
+title: Display deployment replicas and rollout status
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: console
+  applies_to: product
+statement: "O backend lista deployments via GET /deployments (query opcional ?ns=) retornando: nome, namespace, replicas desejadas/ready/available/atualizadas, imagem, age e labels/annotations. O frontend exibe graficamente o progresso do rollout (desired vs ready) em tempo real via SSE snapshot."
+source:
+  stakeholder: console
+  origin: codebase console + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

@@ -1,0 +1,21 @@
+id: REQ-PLATFORM-0004
+slug: req-platform-0004
+title: Segregação de segredos reais vs versionados
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: platform
+  applies_to: product
+statement: "Não versionar Secret real em git; apenas SealedSecret (cifrado). Secret real criado fora do git via `kubectl` e excluído do `kustomization.yaml` para Argo `prune: true` nunca apagá-lo."
+source:
+  stakeholder: platform
+  origin: codebase platform + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

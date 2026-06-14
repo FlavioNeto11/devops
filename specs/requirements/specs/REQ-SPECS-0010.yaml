@@ -1,0 +1,21 @@
+id: REQ-SPECS-0010
+slug: req-specs-0010
+title: Fila de reprocessamento com motivos (reprocess_queue)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: specs
+  applies_to: product
+statement: "O baseline deve incluir reprocess_queue com requisitos que demandam atenção: motivos (alto impacto, sem método de verificação, sem evidência, mudança major, sem alocação arquitetural); UI/Claude usa para priorizar trabalho e acompanhar cobertura."
+source:
+  stakeholder: specs
+  origin: codebase specs + mapeamento multi-agente 2026-06-14
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

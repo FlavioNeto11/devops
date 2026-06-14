@@ -1,0 +1,28 @@
+id: REQ-TRAEFIK-NFR-002
+slug: req-traefik-nfr-002
+title: Resolução de conflitos de roteamento (priority)
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: traefik
+statement: 'O sistema deve atender ao atributo de qualidade "Resolução de conflitos de roteamento (priority)": Requisição sempre roteia para rota api2 (maior priority); nenhuma ambiguidade'
+source:
+  stakeholder: traefik
+  origin: codebase traefik + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Traefik router
+    stimulus: Requisição para `/app/api2/trace` quando existem rotas `/app/api2` (priority 40), `/app/api` (priority 30) e `/app` (priority 10)
+    environment: Cluster com múltiplas IngressRoutes para mesma app, todas ativas
+    artifact: "IngressRoute com priority explícita respeitando regra: api2>api>frontend"
+    response: Requisição sempre roteia para rota api2 (maior priority); nenhuma ambiguidade
+    response_measure: 100% taxa de acerto; zero roteamentos errados
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

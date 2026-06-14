@@ -1,0 +1,24 @@
+id: REQ-KEYCLOAK-0001
+slug: req-keycloak-0001
+title: Realm nvit e Issuer OIDC
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: keycloak
+  applies_to: product
+statement: Keycloak deve servir um realm 'nvit' com issuer OIDC em https://dev.nvit.com.br/auth/realms/nvit, exposição de .well-known/openid-configuration, e suporte a Authorization Code + Standard Flow.
+source:
+  stakeholder: keycloak
+  origin: codebase keycloak + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)
+allocation:
+  infra_refs:
+    - infra-keycloak

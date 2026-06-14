@@ -1,0 +1,21 @@
+id: REQ-OIDC-0005
+slug: req-oidc-0005
+title: Hash SHA256 de refresh token
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: oidc
+  applies_to: shared-module
+statement: hashTokenSha256(token) deve retornar hash hexadecimal SHA256; createRefreshToken({prefix}) deve gerar token opaco (prefix.random40bytes, base64url); hash armazenado em BD, token enviado ao client.
+source:
+  stakeholder: oidc
+  origin: codebase oidc + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

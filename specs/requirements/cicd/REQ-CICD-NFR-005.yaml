@@ -1,0 +1,28 @@
+id: REQ-CICD-NFR-005
+slug: req-cicd-nfr-005
+title: Segurança de secrets (PAT, token, credenciais de BD)
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: cicd
+statement: 'O sistema deve atender ao atributo de qualidade "Segurança de secrets (PAT, token, credenciais de BD)": Secrets nunca logados em saída de workflow; GITHUB_TOKEN escopado (packages:write, contents:read); PAT em Secret; Secrets do cluster separados (Secret YAML out-of-git); git hooks checam secrets (gitleaks.toml)'
+source:
+  stakeholder: cicd
+  origin: codebase cicd + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Workflow ou script local buildando/deployando imagens
+    stimulus: Processar credentials (GITHUB_TOKEN, PAT GHCR, BD password)
+    environment: GitHub Actions secrets + runner local com env vars; Kubernetes Secret; git history
+    artifact: Build pipeline, deploy pipeline, código
+    response: Secrets nunca logados em saída de workflow; GITHUB_TOKEN escopado (packages:write, contents:read); PAT em Secret; Secrets do cluster separados (Secret YAML out-of-git); git hooks checam secrets (gitleaks.toml)
+    response_measure: Zero secrets em git history (gitleaks presubmit pass); log sanitizado (*** em credential); falha rápida se secret vazado
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

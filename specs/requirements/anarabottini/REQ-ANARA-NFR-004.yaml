@@ -1,0 +1,28 @@
+id: REQ-ANARA-NFR-004
+slug: req-anara-nfr-004
+title: Tema escuro automático baseado em preferência OS + persistência
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: anarabottini
+statement: 'O sistema deve atender ao atributo de qualidade "Tema escuro automático baseado em preferência OS + persistência": Tema escuro automático; nenhum flash; tema persiste entre visitas; paleta quente mantém legibilidade (AA) em ambos'
+source:
+  stakeholder: anarabottini
+  origin: codebase anarabottini + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Usuário corporativo (Windows 11, macOS) com dark mode ativado no SO
+    stimulus: Usuário abre portal pela primeira vez ou alterna toggle
+    environment: Navegador moderno em OS com dark mode
+    artifact: CSS prefers-color-scheme + localStorage
+    response: Tema escuro automático; nenhum flash; tema persiste entre visitas; paleta quente mantém legibilidade (AA) em ambos
+    response_measure: Sem flash ao load; tema salvo/restaurado; contraste AA light+dark; preferência SO respeitada
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

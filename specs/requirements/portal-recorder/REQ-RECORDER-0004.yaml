@@ -1,0 +1,21 @@
+id: REQ-RECORDER-0004
+slug: req-recorder-0004
+title: Redaction of PII/secrets at origin (before persistence)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: portal-recorder
+  applies_to: product
+statement: Before any capture data is written to database, all sensitive keys (authorization, token, password, senha, cookie, recaptcha, cpf, cnpj, email, jwt, secret, bearer, x-access-token) must be masked to '***'. SHA256 hash (first 16 chars) of original value must be stored for correlation without exposing raw secret. Applies to request/response headers, request/response bodies, and cookies.
+source:
+  stakeholder: portal-recorder
+  origin: codebase portal-recorder + mapeamento multi-agente 2026-06-14
+priority: critical
+criticality: critical
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

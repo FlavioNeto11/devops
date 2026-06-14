@@ -1,0 +1,21 @@
+id: REQ-OBS-0008
+slug: req-obs-0008
+title: Promtail para coleta de logs
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: observability
+  applies_to: product
+statement: Instalar Promtail (chart `grafana/promtail`) apontando para endpoint Loki `http://loki.observability:3100/loki/api/v1/push` para coletar logs de todos os pods.
+source:
+  stakeholder: observability
+  origin: codebase observability + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

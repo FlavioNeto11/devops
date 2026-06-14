@@ -1,0 +1,21 @@
+id: REQ-RMAMB-0010
+slug: req-rmamb-0010
+title: Exibir footer com links, redes sociais e política de privacidade
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: rmambiental
+  applies_to: product
+statement: A aplicação deve renderizar footer com logo, links de navegação (reutilizar header), redes sociais configuráveis (LinkedIn, Instagram), dados de contato, e link para Política de Privacidade (a confirmar URL).
+source:
+  stakeholder: rmambiental
+  origin: codebase rmambiental + mapeamento multi-agente 2026-06-14
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

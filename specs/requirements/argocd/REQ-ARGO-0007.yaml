@@ -1,0 +1,21 @@
+id: REQ-ARGO-0007
+slug: req-argo-0007
+title: Footprint reduzido (laboratório)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: argocd
+  applies_to: product
+statement: Desabilitar redis-ha, dex, notifications, applicationSet, alertmanager; manter 1 réplica de controller/repoServer/server com resource requests/limits pequenas (CPU 50-100m, memória 64-256Mi).
+source:
+  stakeholder: argocd
+  origin: codebase argocd + mapeamento multi-agente 2026-06-14
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

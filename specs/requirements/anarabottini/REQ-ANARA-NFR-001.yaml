@@ -1,0 +1,28 @@
+id: REQ-ANARA-NFR-001
+slug: req-anara-nfr-001
+title: SEO otimizado para saúde mental corporativa + NR-1
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: anarabottini
+statement: 'O sistema deve atender ao atributo de qualidade "SEO otimizado para saúde mental corporativa + NR-1": Página rankeia nos top resultados; preview em redes sociais mostra nome, especialidade e imagem; canonical URL correto'
+source:
+  stakeholder: anarabottini
+  origin: codebase anarabottini + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Mecanismo de busca (Google) ou LinkedIn ao procurar 'saúde mental corporativa' ou 'consultoria NR-1'
+    stimulus: Usuário (RH, SESMT, gestor) busca por palestrante ou consultora em saúde mental
+    environment: Navegador desktop em horário comercial
+    artifact: index.html com metadados SEO, Open Graph, keywords 'saúde mental, NR-1, neurodiversidade'
+    response: Página rankeia nos top resultados; preview em redes sociais mostra nome, especialidade e imagem; canonical URL correto
+    response_measure: Lighthouse SEO score ≥92; keywords relevantes presentes; og:image configurado; title/description únicos
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

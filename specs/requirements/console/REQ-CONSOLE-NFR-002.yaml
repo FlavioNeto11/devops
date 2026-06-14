@@ -1,0 +1,28 @@
+id: REQ-CONSOLE-NFR-002
+slug: req-console-nfr-002
+title: Least-privilege RBAC (read-only cluster access)
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: console
+statement: 'O sistema deve atender ao atributo de qualidade "Least-privilege RBAC (read-only cluster access)": request denied with 403 Forbidden by api-server'
+source:
+  stakeholder: console
+  origin: codebase console + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: kubernetes api-server enforcing rbac
+    stimulus: backend attempts any verb other than get/list/watch on cluster resources
+    environment: devops-system namespace with console-readonly ClusterRole
+    artifact: ClusterRole console-readonly, ServiceAccount console, ClusterRoleBinding
+    response: request denied with 403 Forbidden by api-server
+    response_measure: zero write/delete/patch/create verbs granted; zero access to secrets; audit log shows denial
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

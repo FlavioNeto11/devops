@@ -1,0 +1,28 @@
+id: REQ-REQHUB-NFR-003
+slug: req-reqhub-nfr-003
+title: Acessibilidade WCAG 2.2 nível AA (tabindex, labels, aria-*)
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: reqhub
+statement: 'O sistema deve atender ao atributo de qualidade "Acessibilidade WCAG 2.2 nível AA (tabindex, labels, aria-*)": Todos os controles acessíveis; estrutura lógica clara; skip funcional'
+source:
+  stakeholder: reqhub
+  origin: codebase reqhub + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: conformidade/usabilidade
+    stimulus: Navegação via teclado (Tab, ArrowLeft/Right, Enter) e screen reader
+    environment: HTML semântico com aria-* labels; skip link; tabs com ARIA tablist
+    artifact: Página renderizada
+    response: Todos os controles acessíveis; estrutura lógica clara; skip funcional
+    response_measure: 0 violations em axe/WAVE; score acessibilidade >= 95%
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

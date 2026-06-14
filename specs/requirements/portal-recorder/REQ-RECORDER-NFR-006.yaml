@@ -1,0 +1,28 @@
+id: REQ-RECORDER-NFR-006
+slug: req-recorder-nfr-006
+title: Secure shutdown with active session cleanup
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: portal-recorder
+statement: 'O sistema deve atender ao atributo de qualidade "Secure shutdown with active session cleanup": Stops all sessions (finalizing status), closes HTTP/WS servers, exits cleanly within 10s or force-exits'
+source:
+  stakeholder: portal-recorder
+  origin: codebase portal-recorder + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Kubernetes SIGTERM (pod eviction, rolling update)
+    stimulus: Recorder pod receives SIGTERM with active sessions
+    environment: Production Kubernetes
+    artifact: Recorder process signal handler
+    response: Stops all sessions (finalizing status), closes HTTP/WS servers, exits cleanly within 10s or force-exits
+    response_measure: SIGTERM → clean shutdown ≤10s; no dangling browser processes; events persisted
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

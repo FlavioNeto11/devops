@@ -1,0 +1,28 @@
+id: REQ-REQHUB-NFR-007
+slug: req-reqhub-nfr-007
+title: Validação do rascunho de requisito com erros claros
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: reqhub
+statement: 'O sistema deve atender ao atributo de qualidade "Validação do rascunho de requisito com erros claros": Lista de erros exibida; YAML não gerado'
+source:
+  stakeholder: reqhub
+  origin: codebase reqhub + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: UX/qualidade de dados
+    stimulus: Usuário tenta gerar YAML com dados inválidos
+    environment: Form preenchido parcialmente
+    artifact: Clique em 'Gerar YAML'; validação em lib.js::validateDraft()
+    response: Lista de erros exibida; YAML não gerado
+    response_measure: Cada erro mapeia a um campo; mensagens claras em português
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)

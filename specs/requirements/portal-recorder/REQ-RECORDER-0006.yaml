@@ -1,0 +1,21 @@
+id: REQ-RECORDER-0006
+slug: req-recorder-0006
+title: Screencast streaming and input injection
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: portal-recorder
+  applies_to: product
+statement: Recorder must enable CDP Page.startScreencast (JPEG, quality 55, every 2nd frame) to stream browser canvas to frontend over WebSocket. Frontend must be able to inject mouse events (move, click, wheel) and keyboard input (chars via insertText, control keys via dispatchKeyEvent) back to the browser.
+source:
+  stakeholder: portal-recorder
+  origin: codebase portal-recorder + mapeamento multi-agente 2026-06-14
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: baseline inicial (bootstrap)
