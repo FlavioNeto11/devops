@@ -1,0 +1,33 @@
+# =============================================================================
+# design-tokens-gate — drift-check da camada universal do design system.
+# -----------------------------------------------------------------------------
+# Os tokens vivem em packages/design-tokens/tokens.json e são gerados (codegen-sync)
+# para dentro de cada app (apps/<app>/src/tokens.generated.css), porque cada app
+# builda em contexto Docker isolado. Este gate falha se algum arquivo gerado estiver
+# fora de sincronia com tokens.json (alguém editou o gerado à mão, ou mudou o JSON sem
+# rodar `node build.mjs`). Sempre executado (sem path-filter) — pode ser check exigido.
+# =============================================================================
+name: design-tokens-gate
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    name: Design tokens (drift)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Validar sincronia dos tokens gerados
+        run: node packages/design-tokens/build.mjs --check

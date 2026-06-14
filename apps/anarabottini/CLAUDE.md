@@ -37,7 +37,7 @@ backend, banco, auth ou segredo. Servido por nginx sob `/anarabottini/`, host `d
 | Aspecto | Decisão | Por quê |
 |---|---|---|
 | Frontend | Vite 5 + React 18 + TypeScript 5 | SPA estática leve, build rápido |
-| Estilo | Tailwind CSS 3 + tokens (CSS-vars) em `index.css` | paleta **quente & humanista** (claro) |
+| Estilo | Tailwind CSS 3 + tokens do design system compartilhado (`packages/design-tokens` → gerado em `src/tokens.generated.css`) | paleta **quente & humanista** (claro); NÃO editar o gerado, editar `tokens.json` |
 | Animação | Framer Motion 11 | scroll reveal, motivo ∞ animado, micro-interações |
 | Ícones | `lucide-react` | SVG, sem imagens de terceiros |
 | Rotas | `react-router-dom` 6 (`/`, `/contato`), base `/anarabottini` | Home em scroll + contato |

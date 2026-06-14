@@ -35,7 +35,7 @@ no dev local), basePath `/rmambiental`. Encaixa na esteira como um app `frontend
 | Aspecto | Decisão | Por quê |
 |---|---|---|
 | Frontend | Vite 5 + React 18 + TypeScript 5 | SPA estática leve, build rápido |
-| Estilo | Tailwind CSS 3 (`tailwind.config.js`) + tokens em `index.css` | design system corporativo dark |
+| Estilo | Tailwind CSS 3 + tokens do design system compartilhado (`packages/design-tokens` → gerado em `src/tokens.generated.css`) | fonte única; NÃO editar o gerado, editar `tokens.json` |
 | Animação | Framer Motion 11 | scroll reveal, contadores, micro-interações, modal |
 | Ícones | `lucide-react` | SVG, sem imagens de terceiros |
 | Rotas | `react-router-dom` 6 (`/`, `/solucoes`, `/contato`), base `/rmambiental` | roteamento client-side |

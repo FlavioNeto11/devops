@@ -1,0 +1,38 @@
+/* GERADO por packages/design-tokens/build.mjs — marca: anarabottini (Ana Rabottini — quente/humanista (só claro)).
+   NÃO EDITAR À MÃO: edite packages/design-tokens/tokens.json e rode `node build.mjs`.
+   CI valida drift com `node build.mjs --check`. */
+:root {
+  color-scheme: light;
+  --bg: 250 247 242;
+  --surface: 255 255 255;
+  --surface2: 242 236 226;
+  --fg: 30 26 23;
+  --muted: 107 98 88;
+  --neon: 138 101 32;
+  --on-neon: 255 255 255;
+  --terra: 201 123 90;
+  --terra-light: 216 152 122;
+  --sage: 126 139 114;
+  --sage-mid: 143 156 128;
+  --gold-neuro: 201 162 39;
+  --ink: 30 26 23;
+  --gradient-brand: linear-gradient(95deg, rgb(var(--neon)), rgb(var(--terra)));
+  --btn-brightness: 1.06;
+  --btn-shadow-alpha: 0.5;
+  --btn-ghost-hover-border-alpha: 0.5;
+  --btn-ghost-hover-bg-alpha: 0.05;
+  --scrollbar-thumb-alpha: 0.18;
+  --scrollbar-thumb-hover-alpha: 0.3;
+  --selection-alpha: 0.22;
+  --glass-bg-alpha: 0.7;
+  --glass-border-alpha: 0.07;
+  --tech-grid-alpha: 0.04;
+}
+
+html { scroll-behavior: smooth; }
+section[id] { scroll-margin-top: 92px; }
+::selection { background: rgb(var(--neon) / var(--selection-alpha)); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: rgb(var(--bg)); }
+::-webkit-scrollbar-thumb { background: rgb(var(--fg) / var(--scrollbar-thumb-alpha)); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--fg) / var(--scrollbar-thumb-hover-alpha)); }

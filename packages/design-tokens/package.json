@@ -1,0 +1,12 @@
+{
+  "name": "@flavioneto11/design-tokens",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Fonte única dos tokens de design da plataforma NovaIT (camada universal do design system). Gera, por marca, os tokens CSS sincronizados dentro de cada app (codegen-sync + drift-check).",
+  "main": "tokens.json",
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node build.mjs --check"
+  }
+}

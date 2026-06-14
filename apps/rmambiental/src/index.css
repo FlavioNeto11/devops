@@ -1,75 +1,13 @@
+/* Tokens de marca + base (scrollbar/selection) vêm de packages/design-tokens (gerado).
+   NÃO edite tokens.generated.css à mão — edite packages/design-tokens/tokens.json. */
+@import './tokens.generated.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ============================================================================
-   Sistema de tema (claro por padrão; .dark no <html> ativa o escuro).
-   Cores como triplas RGB para casar com rgb(var(--x) / <alpha>) no Tailwind.
-   ============================================================================ */
-:root {
-  color-scheme: light;
-  --bg: 247 249 248;
-  --surface: 255 255 255;
-  --surface2: 237 243 240;
-  --fg: 15 27 22;
-  --muted: 86 105 96;
-  --neon: 13 148 92; /* emerald profundo — boa leitura sobre branco */
-  --on-neon: 255 255 255; /* texto sobre o verde (claro: branco) */
-  --petrol: 16 110 124;
-  --petrolLight: 21 130 145;
-  --green: 22 122 90;
-  --greenMid: 27 138 102;
-  --gold: 176 138 43;
-  --ink: 6 16 12;
-}
-
-.dark {
-  color-scheme: dark;
-  --bg: 10 15 13;
-  --surface: 16 24 21;
-  --surface2: 21 33 29;
-  --fg: 232 239 235;
-  --muted: 157 179 170;
-  --neon: 52 227 155; /* neon vivo no escuro */
-  --on-neon: 6 16 12; /* texto escuro sobre o neon */
-  --petrol: 13 59 67;
-  --petrolLight: 21 96 110;
-  --green: 15 61 46;
-  --greenMid: 27 122 87;
-  --gold: 201 162 75;
-  --ink: 6 16 12;
-}
-
-html {
-  scroll-behavior: smooth;
-}
-
 body {
   @apply bg-brand-bg text-brand-text font-sans antialiased;
   overflow-x: hidden;
-}
-
-section[id] {
-  scroll-margin-top: 92px;
-}
-
-::selection {
-  background: rgb(var(--neon) / 0.25);
-}
-
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-::-webkit-scrollbar-track {
-  background: rgb(var(--bg));
-}
-::-webkit-scrollbar-thumb {
-  background: rgb(var(--fg) / 0.2);
-  border-radius: 8px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgb(var(--fg) / 0.35);
 }
 
 @layer components {
@@ -78,8 +16,8 @@ section[id] {
   }
 
   .glass {
-    background: rgb(var(--surface) / 0.6);
-    border: 1px solid rgb(var(--fg) / 0.08);
+    background: rgb(var(--surface) / var(--glass-bg-alpha));
+    border: 1px solid rgb(var(--fg) / var(--glass-border-alpha));
     backdrop-filter: blur(12px);
   }
 
@@ -89,7 +27,7 @@ section[id] {
 
   .text-gradient {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(90deg, rgb(var(--neon)), rgb(var(--greenMid)), rgb(var(--petrolLight)));
+    background-image: var(--gradient-brand);
   }
 
   .eyebrow {
@@ -106,10 +44,10 @@ section[id] {
     @apply btn;
     background: rgb(var(--neon));
     color: rgb(var(--on-neon));
-    box-shadow: 0 0 0 1px rgb(var(--neon) / 0.22), 0 16px 40px -18px rgb(var(--neon) / 0.45);
+    box-shadow: 0 0 0 1px rgb(var(--neon) / 0.22), 0 16px 40px -18px rgb(var(--neon) / var(--btn-shadow-alpha));
   }
   .btn-primary:hover {
-    filter: brightness(1.07);
+    filter: brightness(var(--btn-brightness));
     transform: translateY(-2px);
   }
   .btn-ghost {
@@ -119,15 +57,15 @@ section[id] {
     background: rgb(var(--fg) / 0.03);
   }
   .btn-ghost:hover {
-    border-color: rgb(var(--neon) / 0.45);
-    background: rgb(var(--fg) / 0.06);
+    border-color: rgb(var(--neon) / var(--btn-ghost-hover-border-alpha));
+    background: rgb(var(--fg) / var(--btn-ghost-hover-bg-alpha));
   }
 }
 
 /* Grid técnico sutil — linhas baseadas no fg (adaptam ao tema). */
 .bg-tech-grid {
   background-image:
-    linear-gradient(to right, rgb(var(--fg) / 0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(var(--fg) / 0.05) 1px, transparent 1px);
+    linear-gradient(to right, rgb(var(--fg) / var(--tech-grid-alpha)) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(var(--fg) / var(--tech-grid-alpha)) 1px, transparent 1px);
   background-size: 56px 56px;
 }
