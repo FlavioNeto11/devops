@@ -55,6 +55,15 @@ if (git -C $repoRoot status --porcelain --untracked-files=no) {
   throw "Há mudanças rastreadas não commitadas. Commite/descarte antes do release (o bump precisa ser isolado)."
 }
 
+# Exige o BUILD CONTEXT (portal/frontend) IDÊNTICO ao git: nenhum arquivo
+# modificado OU NÃO RASTREADO lá. Senão o `docker build` incorporaria conteúdo
+# fora do tree-sha → a imagem LOCAL divergiria da imagem do CI (mesma tag, conteúdo
+# diferente). `git status -- portal/frontend` inclui untracked não-gitignorados.
+$ctxDirty = git -C $repoRoot status --porcelain -- portal/frontend
+if ($ctxDirty) {
+  throw "portal/frontend tem conteúdo fora do git (rastreado ou untracked):`n$ctxDirty`nO build divergiria do tree-sha/CI. Commite ou limpe antes do release."
+}
+
 # TAG = hash do CONTEÚDO de portal/frontend (igual aqui e no CI). Muda só quando o
 # conteúdo muda; commits que só tocam portal/k8s (o bump) NÃO mudam a tag.
 $tag = (git -C $repoRoot rev-parse 'HEAD:portal/frontend').Trim().Substring(0, 12)

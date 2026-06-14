@@ -54,7 +54,7 @@ on:
         default: ""
     outputs:
       image-tag:
-        description: "SHA curto do commit usado como tag principal da imagem."
+        description: "Tag principal da imagem: o `tag` informado (ex.: tree-sha) ou o SHA curto do commit."
         value: ${{ jobs.build.outputs.image-tag }}
 
 jobs:
@@ -68,8 +68,9 @@ jobs:
       contents: read
 
     outputs:
-      # SHA curto (7 caracteres) exposto para jobs posteriores (ex.: deploy).
-      image-tag: ${{ steps.shortsha.outputs.sha }}
+      # Tag principal exposta a jobs posteriores: o `tag` informado (ex.: tree-sha do
+      # conteúdo) quando houver; senão o SHA curto do commit.
+      image-tag: ${{ inputs.tag != '' && inputs.tag || steps.shortsha.outputs.sha }}
 
     steps:
       # -----------------------------------------------------------------------
