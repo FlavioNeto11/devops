@@ -1,0 +1,93 @@
+# =============================================================================
+# auto-merge-validated — fecha a esteira: PR da Claude -> validacao -> merge -> deploy.
+# -----------------------------------------------------------------------------
+# Auto-merge de PRs gerados pela esteira (label claude-generated) SOMENTE quando:
+#   (1) o PR tem o label `gpt-approved` (aplicado pelo loop de validacao no ChatGPT,
+#       via browser: posta-se o PR/diff no GPT -> aprovacao -> `gh pr edit --add-label
+#       gpt-approved`. O ChatGPT com conector NAO tem API p/ o CI chamar, por isso a
+#       validacao e por LABEL, fiel ao loop que usamos); E
+#   (2) todos os checks obrigatorios estao verdes e o PR e mergeable e nao-rascunho.
+# Apos o merge, o Argo (auto-sync) / pipeline do app deploya; o reconciliador marca
+# o requisito como `merged` em implementation-status.json (best-effort).
+# =============================================================================
+name: auto-merge-validated
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+on:
+  pull_request:
+    types: [labeled, synchronize, opened, reopened]
+  pull_request_target:
+    types: [closed]
+  check_suite:
+    types: [completed]
+  status: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    name: Auto-merge (gpt-approved + CI verde)
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mesclar PRs validados
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # PRs abertos com AMBOS os labels.
+          nums=$(gh pr list --repo "$REPO" --state open --label gpt-approved --label claude-generated --json number --jq '.[].number')
+          for n in $nums; do
+            info=$(gh pr view "$n" --repo "$REPO" --json mergeable,isDraft,statusCheckRollup)
+            draft=$(echo "$info" | jq -r '.isDraft')
+            mergeable=$(echo "$info" | jq -r '.mergeable')
+            failed=$(echo "$info" | jq -r '[.statusCheckRollup[]? | ((.conclusion // .state) // "") | select(. == "FAILURE" or . == "ERROR" or . == "CANCELLED" or . == "TIMED_OUT")] | length')
+            pending=$(echo "$info" | jq -r '[.statusCheckRollup[]? | ((.conclusion // .state) // "PENDING") | select(. == "PENDING" or . == "EXPECTED" or . == "")] | length')
+            if [ "$draft" = "true" ]; then echo "PR #$n: rascunho — skip"; continue; fi
+            if [ "$failed" != "0" ]; then echo "PR #$n: $failed check(s) falho(s) — skip"; continue; fi
+            if [ "$pending" != "0" ]; then echo "PR #$n: $pending check(s) pendente(s) — aguarda proximo evento"; continue; fi
+            if [ "$mergeable" != "MERGEABLE" ]; then echo "PR #$n: mergeable=$mergeable — skip"; continue; fi
+            echo "PR #$n: validado (gpt-approved + CI verde) — MERGE"
+            gh pr merge "$n" --repo "$REPO" --squash --delete-branch
+          done
+
+  reconcile-merged:
+    name: Reconciliar status (merged)
+    if: github.event.action == 'closed' && github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'claude-generated')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Marcar requisito(s) como merged
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+          PRNUM: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+          # Extrai REQ-IDs do trailer "Closes-Req: REQ-..." (um ou mais).
+          ids=$(printf '%s\n' "$BODY" | sed -n 's/.*Closes-Req:[[:space:]]*\(REQ-[A-Z0-9-]*\).*/\1/p' | sort -u)
+          if [ -z "$ids" ]; then echo "Sem trailer Closes-Req — nada a reconciliar."; exit 0; fi
+          changed=0
+          for id in $ids; do
+            node specs/tools/impl-status.mjs --set "$id" status=merged pr="https://github.com/${{ github.repository }}/pull/${PRNUM}" commit="${SHA}" >/dev/null && changed=1
+            echo "  $id -> merged"
+          done
+          node specs/tools/impl-status.mjs --check || true
+          if [ "$changed" = "1" ] && ! git diff --quiet -- specs/baseline/implementation-status.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add specs/baseline/implementation-status.json
+            git commit -m "chore(specs): status merged via PR #${PRNUM} [skip ci]"
+            git push origin main || echo "::warning::push do status falhou (branch protection p/ bot?). Atualize implementation-status localmente via /sync-spec."
+          fi
