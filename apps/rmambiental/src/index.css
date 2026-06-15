@@ -69,3 +69,18 @@ body {
     linear-gradient(to bottom, rgb(var(--fg) / var(--tech-grid-alpha)) 1px, transparent 1px);
   background-size: 56px 56px;
 }
+
+/* Acessibilidade: quando o usuário pede menos movimento, atenuamos transições e
+   desligamos animações decorativas em loop (floaty, ping, SMIL <animate> do SVG de
+   fundo). As entradas de scroll-reveal/contadores já são neutralizadas no JS via
+   useReducedMotion (framer-motion). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

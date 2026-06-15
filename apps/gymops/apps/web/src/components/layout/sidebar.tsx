@@ -52,6 +52,7 @@ export function Sidebar({ units, organizationName, mobileOpen, onMobileClose }: 
         />
       )}
       <aside
+        id="app-sidebar"
         data-tutorial="app-sidebar"
         className={cn(
           // Grafite nos dois modos (tokens sidebar-*): identidade visual do produto.
@@ -187,6 +188,7 @@ export function Sidebar({ units, organizationName, mobileOpen, onMobileClose }: 
         onClick={() => setCollapsed(!collapsed)}
         className="absolute -right-3 top-16 hidden md:flex h-6 w-6 items-center justify-center rounded-full border bg-background shadow-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
         aria-label={collapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+        aria-expanded={!collapsed}
       >
         {collapsed ? <ChevronRight className="h-3 w-3" aria-hidden="true" /> : <ChevronLeft className="h-3 w-3" aria-hidden="true" />}
       </button>

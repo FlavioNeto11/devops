@@ -22,12 +22,25 @@ export function fromVuetifyThemeName(themeName) {
   return normalizeThemeMode(themeName);
 }
 
+function prefersDarkScheme() {
+  return typeof globalThis.matchMedia === 'function'
+    && globalThis.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
 export function getStoredThemeMode() {
   if (!hasStorage()) {
-    return THEME_LIGHT;
+    return prefersDarkScheme() ? THEME_DARK : THEME_LIGHT;
   }
 
   const storedTheme = globalThis.localStorage.getItem(THEME_STORAGE_KEY);
+
+  // Sem preferência salva, segue o tema do sistema operacional (dark por
+  // padrão se o SO estiver em dark). A escolha manual grava no localStorage e
+  // passa a vencer este fallback nas próximas cargas.
+  if (storedTheme === null) {
+    return prefersDarkScheme() ? THEME_DARK : THEME_LIGHT;
+  }
+
   return normalizeThemeMode(storedTheme);
 }
 

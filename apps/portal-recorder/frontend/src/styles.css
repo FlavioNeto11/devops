@@ -193,6 +193,17 @@ code {
   outline-offset: 2px;
   border-radius: 4px;
 }
+/* foco visivel reforcado nos controles interativos (teclado): anel + outline,
+   legivel em tema claro e escuro, sem depender de cor sozinha. */
+.btn:focus-visible,
+.input:focus-visible,
+select.input:focus-visible,
+.brand-btn:focus-visible,
+.event-card__head:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: var(--ring);
+}
 
 /* ── Shell / layout ──────────────────────────────────────────────────────── */
 .shell {
@@ -392,6 +403,8 @@ code {
   color: var(--text);
   border-radius: var(--radius-xs);
   padding: 8px 15px;
+  /* alvo de toque acessivel (>=44px) para os botoes principais */
+  min-height: 44px;
   font-family: inherit;
   font-size: 0.86rem;
   font-weight: 600;
@@ -399,6 +412,13 @@ code {
   cursor: pointer;
   transition: background var(--t), border-color var(--t), color var(--t),
     transform var(--t), box-shadow var(--t), opacity var(--t);
+}
+/* botao so-icone: quadrado, com alvo de toque garantido */
+.btn-icon {
+  min-width: 44px;
+  padding-left: 10px;
+  padding-right: 10px;
+  font-size: 1rem;
 }
 .btn:hover {
   border-color: var(--accent);
@@ -415,6 +435,9 @@ code {
 }
 .btn-sm {
   padding: 5px 10px;
+  /* contexto denso (linhas de sessao): alvo confortavel acima do minimo AA (24px),
+     sem estourar as linhas de acao com 3 botoes lado a lado */
+  min-height: 36px;
   font-size: 0.79rem;
   border-radius: var(--radius-xs);
 }
@@ -473,6 +496,8 @@ select.input {
   color: var(--text);
   border-radius: var(--radius-xs);
   padding: 8px 11px;
+  /* alvo de toque acessivel (>=44px) para campos e selects */
+  min-height: 44px;
   font-size: 0.86rem;
   font-family: inherit;
   transition: border-color var(--t), box-shadow var(--t);

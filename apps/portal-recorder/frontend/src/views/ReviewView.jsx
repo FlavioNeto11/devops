@@ -108,7 +108,12 @@ export default function ReviewView({ sessionId }) {
       <div className="view__head">
         <h2 className="view__title">Revisao da sessao</h2>
         <div className="review__toolbar">
-          <select className="input" value={methodFilter} onChange={(e) => setMethodFilter(e.target.value)}>
+          <select
+            className="input"
+            value={methodFilter}
+            onChange={(e) => setMethodFilter(e.target.value)}
+            aria-label="Filtrar por metodo HTTP"
+          >
             <option value="">todos os metodos</option>
             {methods.map((m) => (
               <option key={m} value={m}>
@@ -116,7 +121,12 @@ export default function ReviewView({ sessionId }) {
               </option>
             ))}
           </select>
-          <select className="input" value={hostFilter} onChange={(e) => setHostFilter(e.target.value)}>
+          <select
+            className="input"
+            value={hostFilter}
+            onChange={(e) => setHostFilter(e.target.value)}
+            aria-label="Filtrar por host"
+          >
             <option value="">todos os hosts</option>
             {hosts.map((h) => (
               <option key={h} value={h}>
@@ -130,13 +140,13 @@ export default function ReviewView({ sessionId }) {
         </div>
       </div>
 
-      {normalizeErr && <div className="alert alert-err">{normalizeErr}</div>}
+      {normalizeErr && <div className="alert alert-err" role="alert">{normalizeErr}</div>}
       {contract && <ContractTable contract={contract} />}
 
-      {error && <div className="alert alert-err">{error}</div>}
+      {error && <div className="alert alert-err" role="alert">{error}</div>}
 
       {loading ? (
-        <div className="empty">Carregando timeline…</div>
+        <div className="empty" role="status">Carregando timeline…</div>
       ) : visible.length === 0 ? (
         <div className="empty">
           <p style={{ margin: 0 }}>Nenhuma atividade capturada nesta sessão.</p>
@@ -175,7 +185,12 @@ function EventRow({ ev }) {
   const redacted = Array.isArray(ev.redacted_keys) && ev.redacted_keys.length > 0;
   return (
     <div className="card event-card">
-      <button className="event-card__head" onClick={() => setOpen((o) => !o)}>
+      <button
+        className="event-card__head"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-label={`${ev.method || ''} ${ev.host || ''}${ev.path || ''} — ${open ? 'recolher' : 'expandir'} detalhes`}
+      >
         <span className={'method method--' + methodKind(ev.method)}>{ev.method || '—'}</span>
         <span className="event-card__host mono">{ev.host}</span>
         <span className="event-card__path mono">{ev.path}</span>
@@ -183,7 +198,7 @@ function EventRow({ ev }) {
           <span className={'status status--' + httpKind(ev.status_code)}>{ev.status_code}</span>
         )}
         {redacted && <span className="badge badge-warn" title={ev.redacted_keys.join(', ')}>redigido</span>}
-        <span className="event-card__chev">{open ? '▾' : '▸'}</span>
+        <span className="event-card__chev" aria-hidden="true">{open ? '▾' : '▸'}</span>
       </button>
       {open && (
         <div className="event-card__detail">

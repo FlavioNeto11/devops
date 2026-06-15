@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
 /** Grid técnico sutil + glows radiais. Decorativo, full-bleed. */
 export function GridGlow({ className = '' }: { className?: string }) {
@@ -44,6 +44,7 @@ const NODES = [
  * presença conectados por linhas técnicas animadas. Representa a atuação nacional.
  */
 export function CoverageMap({ className = '' }: { className?: string }) {
+  const reduce = useReducedMotion();
   return (
     <svg viewBox="0 0 420 480" className={className} fill="none" aria-hidden>
       <defs>
@@ -76,10 +77,10 @@ export function CoverageMap({ className = '' }: { className?: string }) {
           stroke="rgba(52,227,155,0.30)"
           strokeWidth="1"
           strokeDasharray="3 5"
-          initial={{ pathLength: 0, opacity: 0 }}
-          whileInView={{ pathLength: 1, opacity: 1 }}
+          initial={reduce ? false : { pathLength: 0, opacity: 0 }}
+          whileInView={reduce ? undefined : { pathLength: 1, opacity: 1 }}
           viewport={{ once: true }}
-          transition={{ duration: 1.1, delay: 0.25 + i * 0.12 }}
+          transition={reduce ? undefined : { duration: 1.1, delay: 0.25 + i * 0.12 }}
         />
       ))}
 
@@ -91,9 +92,9 @@ export function CoverageMap({ className = '' }: { className?: string }) {
             cy={n.y}
             r="14"
             fill="url(#rm-node)"
-            animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0.1, 0.5] }}
-            transition={{ duration: 2.6, repeat: Infinity, delay: i * 0.3 }}
-            style={{ transformOrigin: `${n.x}px ${n.y}px` }}
+            animate={reduce ? undefined : { scale: [1, 1.5, 1], opacity: [0.5, 0.1, 0.5] }}
+            transition={reduce ? undefined : { duration: 2.6, repeat: Infinity, delay: i * 0.3 }}
+            style={{ transformOrigin: `${n.x}px ${n.y}px`, opacity: reduce ? 0.4 : undefined }}
           />
           <circle cx={n.x} cy={n.y} r="3.4" fill="#34E39B" />
         </g>
@@ -102,8 +103,12 @@ export function CoverageMap({ className = '' }: { className?: string }) {
       {/* hub central */}
       <circle cx={HUB.x} cy={HUB.y} r="6" fill="#34E39B" />
       <circle cx={HUB.x} cy={HUB.y} r="6" fill="none" stroke="#34E39B" strokeOpacity="0.4">
-        <animate attributeName="r" values="6;16;6" dur="2.8s" repeatCount="indefinite" />
-        <animate attributeName="stroke-opacity" values="0.5;0;0.5" dur="2.8s" repeatCount="indefinite" />
+        {!reduce && (
+          <>
+            <animate attributeName="r" values="6;16;6" dur="2.8s" repeatCount="indefinite" />
+            <animate attributeName="stroke-opacity" values="0.5;0;0.5" dur="2.8s" repeatCount="indefinite" />
+          </>
+        )}
       </circle>
     </svg>
   );

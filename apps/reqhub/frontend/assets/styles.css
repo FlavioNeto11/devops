@@ -120,19 +120,41 @@ td .rid { font-family: var(--mono); color: var(--fg-1); }
 .btn-link { background: none; border: 0; color: var(--accent); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
 
 /* impact canvas */
-.impact-canvas { border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-1); overflow: auto; }
-.impact-canvas svg { display: block; min-width: 100%; }
+.impact-canvas { position: relative; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-1); overflow: hidden; }
+.impact-canvas svg { display: block; width: 100%; height: auto; touch-action: none; cursor: grab; }
+.impact-canvas svg.panning { cursor: grabbing; }
+.impact-controls { position: absolute; top: 8px; right: 8px; z-index: 2; display: flex; gap: 6px; }
+.impact-controls .icon-btn.sm { min-width: 32px; min-height: 32px; font-size: 15px; line-height: 1; padding: 0; box-shadow: var(--shadow); }
 .node rect { fill: var(--bg-2); stroke: var(--line-2); }
 .node.asr rect { stroke: var(--asr); }
 .node text { fill: var(--fg); font-size: 11px; font-family: var(--mono); }
+.node { cursor: pointer; }
 .edge { stroke: var(--line-2); fill: none; opacity: 0.7; }
 .edge.proposed { stroke-dasharray: 4 3; stroke: var(--asr); }
 .node:hover rect { stroke: var(--accent); }
+.node:focus-visible rect { stroke: var(--accent); stroke-width: 2; }
+
+/* recentes (últimos REQs abertos) */
+.recents { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.workspace > .recents { grid-column: 1 / -1; margin-bottom: 0; }
+.recents-l { color: var(--muted); font-size: 12px; margin-right: 2px; }
+.chip-btn { font-family: var(--mono); cursor: pointer; }
+.chip-btn:hover { border-color: var(--accent); color: var(--accent); }
+.chip-btn.is-current { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+
+/* resumo de cobertura por dimensão */
+.cov-summary { gap: 14px; }
+.cov-stat { display: inline-flex; align-items: center; gap: 6px; }
+.cov-stat-l { color: var(--fg-1); font-size: 12.5px; }
 
 /* coverage matrix */
 .matrix td.miss { color: var(--danger); text-align: center; }
 .matrix td.hit { color: var(--ok); text-align: center; }
 .legend { display: flex; gap: 14px; flex-wrap: wrap; margin: 10px 0; font-size: 12px; color: var(--muted); }
+/* 1ª coluna (ID) fixa na rolagem horizontal da matriz */
+.matrix-sticky th:first-child, .matrix-sticky td:first-child { position: sticky; left: 0; z-index: 1; background: var(--bg-1); }
+.matrix-sticky thead th:first-child { z-index: 3; background: var(--bg-2); }
+.matrix-sticky tbody tr:hover td:first-child { background: var(--bg-2); }
 
 /* botões / ações */
 .btn { background: var(--bg-2); border: 1px solid var(--line-2); color: var(--fg); padding: 8px 14px; min-height: 40px; border-radius: 8px; cursor: pointer; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; }

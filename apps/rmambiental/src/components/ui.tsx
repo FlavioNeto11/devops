@@ -1,11 +1,16 @@
-import { motion, useInView, animate } from 'framer-motion';
+import { motion, useInView, useReducedMotion, animate } from 'framer-motion';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { cn } from '../lib/utils';
 
 type RevealProps = { children: ReactNode; delay?: number; y?: number; className?: string };
 
-/** Wrapper de scroll-reveal (entra ao aparecer no viewport). */
+/** Wrapper de scroll-reveal (entra ao aparecer no viewport).
+ *  Respeita prefers-reduced-motion: sem deslocamento/fade, conteúdo já visível. */
 export function Reveal({ children, delay = 0, y = 26, className }: RevealProps) {
+  const reduce = useReducedMotion();
+  if (reduce) {
+    return <div className={className}>{children}</div>;
+  }
   return (
     <motion.div
       initial={{ opacity: 0, y }}
@@ -33,16 +38,22 @@ export function Counter({
 }) {
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true, margin: '-60px' });
+  const reduce = useReducedMotion();
   const [val, setVal] = useState(0);
   useEffect(() => {
     if (!inView) return;
+    // prefers-reduced-motion: mostra o valor final sem animar a contagem.
+    if (reduce) {
+      setVal(to);
+      return;
+    }
     const controls = animate(0, to, {
       duration,
       ease: 'easeOut',
       onUpdate: (v) => setVal(Math.round(v)),
     });
     return () => controls.stop();
-  }, [inView, to, duration]);
+  }, [inView, to, duration, reduce]);
   return (
     <span ref={ref}>
       {prefix}

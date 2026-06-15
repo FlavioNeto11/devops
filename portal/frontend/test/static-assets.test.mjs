@@ -23,6 +23,28 @@ test('sitemap.xml é bem-formado e referencia a raiz', () => {
   assert.match(s, /<loc>https:\/\/dev\.nvit\.com\.br\/<\/loc>/);
 });
 
+test('sitemap.xml lista os portais públicos (CMS) e NÃO expõe rotas com login/operador', () => {
+  const s = readFrontend('sitemap.xml');
+  // Portais públicos indexáveis
+  assert.match(s, /<loc>https:\/\/dev\.nvit\.com\.br\/rmambiental<\/loc>/);
+  assert.match(s, /<loc>https:\/\/dev\.nvit\.com\.br\/anarabottini<\/loc>/);
+  // Apps com login e ferramentas de operador não entram no sitemap
+  for (const priv of [
+    '/sicat',
+    '/gymops',
+    '/devops',
+    '/argocd',
+    '/grafana',
+    '/auth',
+    '/portal-rec',
+  ]) {
+    assert.ok(
+      !s.includes(`<loc>https://dev.nvit.com.br${priv}</loc>`),
+      `sitemap não deve listar ${priv}`,
+    );
+  }
+});
+
 test('site.webmanifest é JSON válido com campos essenciais', () => {
   const m = JSON.parse(readFrontend('site.webmanifest'));
   assert.equal(m.start_url, '/');
@@ -105,4 +127,16 @@ test('CSS tem tokens e modo escuro', () => {
   assert.ok(!/^\.reveal\s*\{[^}]*opacity:\s*0/m.test(css), '.reveal não deve esconder sem .js');
   // Failsafe: .no-anim revela tudo se o módulo morrer
   assert.match(css, /\.no-anim \.reveal\s*\{/);
+});
+
+test('CSS: foco visível e alvos de toque >=44px (a11y)', () => {
+  const css = readFrontend('assets/styles.css');
+  // Foco visível consistente em elementos interativos
+  assert.match(css, /:focus-visible/);
+  // Botão hamburguer (só-ícone) tem alvo de toque >=44px
+  const navToggle = (css.match(/\.nav-toggle\s*\{([^}]*)\}/) || [])[1] || '';
+  assert.match(navToggle, /width:\s*44px/);
+  assert.match(navToggle, /height:\s*44px/);
+  // Botões ganham min-height de 44px no mobile
+  assert.match(css, /min-height:\s*44px/);
 });

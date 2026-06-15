@@ -1,6 +1,6 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft } from './lib.js?v=8';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList } from './lib.js?v=9';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -54,15 +54,42 @@ const AI = {
     return { ok: r.ok, status: r.status, data };
   },
 };
+/* ---------- recentes (últimos REQs abertos, persistidos no localStorage) ---------- */
+const RECENTS = {
+  key: 'reqhub-recent',
+  get() { try { return JSON.parse(localStorage.getItem(this.key) || '[]'); } catch { return []; } },
+  push(id) { try { localStorage.setItem(this.key, JSON.stringify(recentList(this.get(), id, 8))); } catch { /* ignore */ } },
+};
+
 function prioCls(p) { return p === 'critical' ? 'b-crit' : p === 'high' ? 'b-high' : p === 'low' ? 'b-low' : 'b-med'; }
 function bandCls(b) { return b === 'high' ? 'b-high' : b === 'medium' ? 'b-med' : 'b-low'; }
 function setStatus(msg, err) { const s = document.getElementById('status'); s.textContent = msg || ''; s.hidden = !msg; s.className = 'status' + (err ? ' error' : ''); }
 
 /* ---------- Explorer ---------- */
+// Faixa de "recentes" (últimos REQs abertos), reusada no Explorador e no Workspace.
+function recentsStrip() {
+  const ids = RECENTS.get().filter((id) => byId(id));
+  if (!ids.length) return null;
+  const nav = h('nav', { class: 'recents', 'aria-label': 'Requisitos abertos recentemente' });
+  nav.append(h('span', { class: 'recents-l', text: 'Recentes:' }));
+  for (const id of ids) {
+    nav.append(h('button', {
+      class: 'chip chip-btn' + (id === state.selectedId ? ' is-current' : ''),
+      type: 'button',
+      'aria-current': id === state.selectedId ? 'true' : null,
+      'aria-label': `Abrir ${id}`,
+      onclick: () => openReq(id),
+    }, id));
+  }
+  return nav;
+}
+
 function renderExplorer() {
   const reqs = filterReqs(DATA.baseline.requirements, { ...state.filters, q: state.q });
   const grid = document.getElementById('explorer-grid');
   grid.replaceChildren();
+  const recents = recentsStrip();
+  if (recents) grid.append(recents);
   const table = h('table');
   table.append(h('thead', {}, h('tr', {},
     h('th', { text: 'ID' }), h('th', { text: 'Título' }), h('th', { text: 'Tipo' }),
@@ -117,6 +144,8 @@ function buildExplorerFilters() {
 function renderWorkspace() {
   const body = document.getElementById('workspace-body');
   body.replaceChildren();
+  const recents = recentsStrip();
+  if (recents) body.append(recents);
   const r = state.selectedId ? byId(state.selectedId) : null;
   if (!r) { body.append(h('p', { class: 'empty', text: 'Selecione um requisito no Explorador para ver os detalhes, impacto e versão.' })); return; }
 
@@ -307,25 +336,99 @@ function drawImpact() {
   if (f.type) edges = edges.filter((e) => e.type === f.type);
   const layout = graphLayout(nodes, edges, f.focus && state.selectedId ? state.selectedId : null);
   document.getElementById('impact-count').textContent = `${layout.nodes.length} nós · ${layout.edges.length} arestas`;
-  const s = svg('svg', { viewBox: `0 0 ${layout.width} ${layout.height}`, width: layout.width, height: layout.height, role: 'img', 'aria-label': 'Grafo de impacto entre requisitos' });
+  const s = svg('svg', { viewBox: `0 0 ${layout.width} ${layout.height}`, width: layout.width, height: layout.height, role: 'img', 'aria-label': 'Grafo de impacto entre requisitos. Use a roda do mouse para zoom e arraste para mover.' });
+  // <g> com transform: alvo do zoom (wheel) e pan (drag). Colunas/arestas/nós vivem aqui.
+  const root = svg('g', { class: 'impact-root' });
+  s.append(root);
   // colunas (rótulos)
-  for (const c of layout.columns) s.append(Object.assign(svg('text', { x: layout.colX[c] + 4, y: 24, class: 'colhead' }), { textContent: c }));
+  for (const c of layout.columns) root.append(Object.assign(svg('text', { x: layout.colX[c] + 4, y: 24, class: 'colhead' }), { textContent: c }));
   const pos = Object.fromEntries(layout.nodes.map((n) => [n.id, n]));
   for (const e of layout.edges) {
     const a = pos[e.from], b = pos[e.to];
     if (!a || !b) continue;
     const path = svg('path', { class: 'edge' + (e.proposed ? ' proposed' : ''), d: `M ${a.x + 150} ${a.y + 12} C ${a.x + 220} ${a.y + 12}, ${b.x - 30} ${b.y + 12}, ${b.x} ${b.y + 12}` });
-    s.append(path);
+    root.append(path);
   }
   for (const n of layout.nodes) {
-    const g = svg('g', { class: 'node' + (n.asr ? ' asr' : ''), tabindex: '0', role: 'button', 'aria-label': n.id });
+    const links = neighborhood(layout.edges, n.id);
+    const titleText = `${n.id}${n.asr ? ' · ASR' : ''} · ${n.product || 'externo'} · sai ${links.outgoing.length} / entra ${links.incoming.length}`;
+    const g = svg('g', { class: 'node' + (n.asr ? ' asr' : ''), tabindex: '0', role: 'button', 'aria-label': titleText });
+    // <title> nativo do SVG: tooltip + a11y (lido por leitores de tela ao focar).
+    g.append(Object.assign(svg('title'), { textContent: titleText }));
     g.append(svg('rect', { x: n.x, y: n.y, width: 150, height: 24, rx: 5 }));
     const tx = svg('text', { x: n.x + 8, y: n.y + 16 }); tx.textContent = n.id; g.append(tx);
     g.addEventListener('click', () => openReq(n.id));
-    g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') openReq(n.id); });
-    s.append(g);
+    g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openReq(n.id); } });
+    root.append(g);
   }
-  canvas.append(s);
+  wireZoomPan(s, root, layout);
+  canvas.append(controlsBar(s, root, layout), s);
+}
+
+// Estado do viewport do grafo (zoom/pan), aplicado via transform no <g> raiz.
+function applyTransform(root, vp) {
+  root.setAttribute('transform', `translate(${vp.x} ${vp.y}) scale(${vp.k})`);
+}
+function controlsBar(s, root, layout) {
+  const vp = s._vp;
+  const bar = h('div', { class: 'impact-controls' });
+  const set = (k, cx, cy) => {
+    const nk = Math.min(4, Math.max(0.3, k));
+    // mantém o ponto central estável ao mudar o zoom
+    vp.x = cx - (cx - vp.x) * (nk / vp.k);
+    vp.y = cy - (cy - vp.y) * (nk / vp.k);
+    vp.k = nk;
+    applyTransform(root, vp);
+  };
+  const center = () => ({ cx: (s.clientWidth || layout.width) / 2, cy: (s.clientHeight || layout.height) / 2 });
+  bar.append(
+    h('button', { class: 'icon-btn sm', type: 'button', 'aria-label': 'Aproximar (zoom in)', title: 'Aproximar', onclick: () => { const c = center(); set(vp.k * 1.25, c.cx, c.cy); } }, '+'),
+    h('button', { class: 'icon-btn sm', type: 'button', 'aria-label': 'Afastar (zoom out)', title: 'Afastar', onclick: () => { const c = center(); set(vp.k / 1.25, c.cx, c.cy); } }, '−'),
+    h('button', { class: 'icon-btn sm', type: 'button', 'aria-label': 'Restaurar zoom e posição', title: 'Restaurar', onclick: () => { vp.x = 0; vp.y = 0; vp.k = 1; applyTransform(root, vp); } }, '⟲'),
+  );
+  return bar;
+}
+// Liga zoom (wheel) e pan (drag) ao SVG do grafo. Aditivo: clique/teclado nos nós seguem.
+function wireZoomPan(s, root, layout) {
+  const vp = { x: 0, y: 0, k: 1 };
+  s._vp = vp;
+  applyTransform(root, vp);
+  const ptInSvg = (ev) => {
+    const rect = s.getBoundingClientRect();
+    const sx = (layout.width) / (rect.width || layout.width);
+    const sy = (layout.height) / (rect.height || layout.height);
+    return { x: (ev.clientX - rect.left) * sx, y: (ev.clientY - rect.top) * sy };
+  };
+  s.addEventListener('wheel', (ev) => {
+    ev.preventDefault();
+    const p = ptInSvg(ev);
+    const factor = ev.deltaY < 0 ? 1.12 : 1 / 1.12;
+    const nk = Math.min(4, Math.max(0.3, vp.k * factor));
+    vp.x = p.x - (p.x - vp.x) * (nk / vp.k);
+    vp.y = p.y - (p.y - vp.y) * (nk / vp.k);
+    vp.k = nk;
+    applyTransform(root, vp);
+  }, { passive: false });
+  let drag = null;
+  s.addEventListener('pointerdown', (ev) => {
+    // não inicia pan ao clicar num nó (preserva o clique de abrir o requisito)
+    if (ev.target.closest('.node')) return;
+    drag = { sx: ev.clientX, sy: ev.clientY, x0: vp.x, y0: vp.y };
+    s.classList.add('panning');
+    s.setPointerCapture(ev.pointerId);
+  });
+  s.addEventListener('pointermove', (ev) => {
+    if (!drag) return;
+    const rect = s.getBoundingClientRect();
+    const sx = (layout.width) / (rect.width || layout.width);
+    const sy = (layout.height) / (rect.height || layout.height);
+    vp.x = drag.x0 + (ev.clientX - drag.sx) * sx;
+    vp.y = drag.y0 + (ev.clientY - drag.sy) * sy;
+    applyTransform(root, vp);
+  });
+  const endPan = () => { drag = null; s.classList.remove('panning'); };
+  s.addEventListener('pointerup', endPan);
+  s.addEventListener('pointercancel', endPan);
 }
 
 /* ---------- Cobertura ---------- */
@@ -359,8 +462,22 @@ function renderCoverage() {
   }
   const cols = [['acceptance', 'Aceite'], ['method', 'Método'], ['evidence', 'Evidência'], ['adr', 'ADR'], ['service', 'Serviço'], ['infra', 'Infra'], ['slo', 'SLO']];
   const reqs = filterReqs(DATA.baseline.requirements, { ...state.filters, q: state.q }).slice().sort((a, b) => coverageScore(a) - coverageScore(b));
+
+  // Resumo por dimensão (coberto/faltando) sobre os requisitos exibidos — calculado em lib.js.
+  const summary = coverageSummary(reqs);
+  const sumCard = h('div', { class: 'card' }, h('h3', { text: `Resumo por dimensão — ${reqs.length} requisito(s)` }));
+  const chips = h('div', { class: 'ws-actions cov-summary' });
+  for (const d of summary) {
+    chips.append(h('span', { class: 'cov-stat' },
+      h('span', { class: 'cov-stat-l', text: d.label }),
+      badge(`${d.hit}/${d.total}`, d.pct >= 70 ? 'b-ok' : d.pct >= 30 ? 'b-high' : 'b-crit'),
+      h('span', { class: 'muted', text: d.miss ? ` ${d.miss} falt.` : ' completo' })));
+  }
+  sumCard.append(chips);
+  body.append(sumCard);
+
   const wrap = h('div', { class: 'grid-wrap' });
-  const t = h('table', { class: 'matrix' });
+  const t = h('table', { class: 'matrix matrix-sticky' });
   t.append(h('thead', {}, h('tr', {}, h('th', { text: 'ID' }), h('th', { text: 'Produto' }), ...cols.map((c) => h('th', { text: c[1] })), h('th', { text: 'Cobertura' }))));
   const tb = h('tbody');
   for (const r of reqs) {
@@ -629,12 +746,13 @@ function switchView(view) {
   for (const tab of document.querySelectorAll('.tab')) {
     const sel = tab.dataset.view === view;
     tab.setAttribute('aria-selected', sel ? 'true' : 'false');
+    if (sel) tab.setAttribute('aria-current', 'page'); else tab.removeAttribute('aria-current');
     tab.tabIndex = sel ? 0 : -1;
   }
   for (const v of document.querySelectorAll('.view')) v.hidden = v.id !== 'view-' + view;
   RENDER[view]();
 }
-function openReq(id) { state.selectedId = id; switchView('workspace'); document.getElementById('tab-workspace').focus(); }
+function openReq(id) { state.selectedId = id; RECENTS.push(id); switchView('workspace'); document.getElementById('tab-workspace').focus(); }
 
 function wireTabs() {
   const tabs = [...document.querySelectorAll('.tab')];
@@ -650,13 +768,17 @@ function wireTabs() {
 }
 function wireTheme() {
   const btn = document.getElementById('theme');
+  const label = (t) => `Tema: ${t === 'dark' ? 'escuro' : t === 'light' ? 'claro' : 'automático'} (clique para alternar)`;
+  const sync = () => { const t = document.documentElement.dataset.theme || ''; btn.setAttribute('aria-label', label(t)); btn.setAttribute('title', label(t)); };
   const saved = localStorage.getItem('reqhub-theme');
   if (saved) document.documentElement.dataset.theme = saved;
+  sync();
   btn.addEventListener('click', () => {
     const cur = document.documentElement.dataset.theme;
     const next = cur === 'dark' ? 'light' : cur === 'light' ? '' : 'dark';
     if (next) document.documentElement.dataset.theme = next; else delete document.documentElement.dataset.theme;
     localStorage.setItem('reqhub-theme', next);
+    sync();
   });
 }
 function wireSearch() {

@@ -1,5 +1,5 @@
 import { useMemo, useState, type CSSProperties } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { ArrowRight, Check, Clock, Download, ExternalLink, Lock, Play, Clapperboard, Youtube, Instagram } from 'lucide-react';
 import { Reveal, SectionHeading } from './ui';
 import { GridGlow, PortraitCard, InfinityMotif } from './backgrounds';
@@ -95,6 +95,7 @@ const DEFAULT_FLOATING: D[] = [
 function HeroBlock({ d }: { d: D }) {
   const { site } = useSite();
   const edit = useEditMode();
+  const reduceMotion = useReducedMotion();
   const allFloating: D[] = Array.isArray(d.floating) ? d.floating : (edit ? [] : DEFAULT_FLOATING);
   const floating: D[] = allFloating.filter((f: D) => f && f.visible !== false);
   return (
@@ -128,7 +129,7 @@ function HeroBlock({ d }: { d: D }) {
             </div>
           )}
         </div>
-        <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, delay: 0.2 }} className="relative mx-auto w-full max-w-sm">
+        <motion.div initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96 }} animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }} transition={reduceMotion ? { duration: 0.2, delay: 0.1 } : { duration: 0.8, delay: 0.2 }} className="relative mx-auto w-full max-w-sm">
           <div className="glass relative rounded-[2rem] p-4 shadow-glass">
             <div className="absolute -inset-px rounded-[2rem] bg-gradient-to-br from-brand-neon/12 to-transparent" aria-hidden />
             <MediaSlot site path="photos.hero" empty={!site.photos?.hero} accept="image/*" className="relative block rounded-3xl">
@@ -149,7 +150,7 @@ function HeroBlock({ d }: { d: D }) {
             return (
               <motion.div key={(f.label || '') + i} className="absolute z-10 hidden items-center gap-2 rounded-xl border border-brand-text/10 bg-brand-surface/90 px-3.5 py-2.5 shadow-soft backdrop-blur-md sm:flex"
                 style={floatStyle(f, idx)}
-                initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.55 + i * 0.18 }}>
+                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 14 }} animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }} transition={reduceMotion ? { duration: 0.2, delay: 0.1 + i * 0.05 } : { duration: 0.6, delay: 0.55 + i * 0.18 }}>
                 <span className="grid h-7 w-7 place-items-center rounded-lg bg-brand-neon/15"><Ico className="h-3.5 w-3.5 text-brand-neon" /></span>
                 <span className="text-xs font-semibold text-brand-text">
                   {edit ? <EditableText as="span" path={`floating.${idx}.label`} value={f.label || ''} placeholder="label" /> : f.label}

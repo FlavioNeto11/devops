@@ -19,7 +19,7 @@ import { isPortal } from '../lib/appTypes.js';
 import NewPortalWizard from './cms/NewPortalWizard.jsx';
 import AiAssist from './cms/AiAssist.jsx';
 import { pmApproveProject, pmRejectProject, pmPatchProject, pmDeleteProject, pmCmsAiSection, pmCmsAiSite } from '../api.js';
-import { withSiteSkeleton } from '../lib/fieldKit.js';
+import { withSiteSkeleton, missingRequired } from '../lib/fieldKit.js';
 
 // ===========================================================================
 function SectionDrawer({ section, onClose, onSaved }) {
@@ -35,6 +35,11 @@ function SectionDrawer({ section, onClose, onSaved }) {
   }, [onClose]);
 
   const save = async () => {
+    const missing = missingRequired(data);
+    if (missing.length) {
+      toast.err(`Preencha os campos obrigatórios: ${[...new Set(missing)].join(', ')}.`);
+      return;
+    }
     setBusy(true);
     try {
       await pmCmsPatchSection(section.id, { data, anchor: anchor || null });
@@ -184,6 +189,11 @@ export default function ContentEditor({ initialId = null, me = null }) {
     try { setSiteDraft(withSiteSkeleton(await pmCmsSite(selId))); } catch (e) { toast.err(e.message); }
   };
   const saveSite = async () => {
+    const missing = missingRequired(siteDraft);
+    if (missing.length) {
+      toast.err(`Preencha os campos obrigatórios: ${[...new Set(missing)].join(', ')}.`);
+      return;
+    }
     setSiteBusy(true);
     try { await pmCmsSaveSite(selId, siteDraft); toast.ok('Configuração salva.'); setSiteDraft(null); }
     catch (e) { toast.err(e.message); } finally { setSiteBusy(false); }
@@ -336,7 +346,7 @@ export default function ContentEditor({ initialId = null, me = null }) {
                     {s.visible ? 'visível' : 'oculto'}
                   </button>
                   <button className="btn" style={{ fontSize: '.8rem', padding: '4px 10px' }} onClick={() => setDrawer({ ...s, _projectId: selId })}>Editar</button>
-                  <button className="icon-btn" title="excluir" onClick={() => setConfirmDel(s)}><Icon name="trash2" size={16} /></button>
+                  <button className="icon-btn" title="excluir" aria-label={`Excluir seção ${KIND_LABEL[s.kind] || s.kind}`} onClick={() => setConfirmDel(s)}><Icon name="trash2" size={16} /></button>
                 </div>
               </article>
             ))}

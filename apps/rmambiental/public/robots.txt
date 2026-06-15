@@ -1,0 +1,5 @@
+# RM Ambiental Brasil — portal institucional (servido sob /rmambiental/)
+User-agent: *
+Allow: /
+
+Sitemap: https://dev.nvit.com.br/rmambiental/sitemap.xml

@@ -82,7 +82,11 @@ export default function Overview({ streamData, streamStatus }) {
         <Card label="Namespaces" value={asCount(counts?.namespaces)} />
         <Card label="Pods (total)" value={asCount(counts?.pods)} />
         <Card label="Pods Running" value={asCount(byPhase.Running)} tone="ok" />
-        <Card label="Pods Pending" value={asCount(byPhase.Pending)} tone="warn" />
+        <Card
+          label="Pods Pending"
+          value={asCount(byPhase.Pending)}
+          tone={asCount(byPhase.Pending) > 0 ? 'warn' : 'muted'}
+        />
         <Card
           label="Pods Failed"
           value={asCount(byPhase.Failed)}

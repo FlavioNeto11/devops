@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -114,8 +115,9 @@ export function NewActivityDialog({ open, onClose, organizationId, unitId, areas
         <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4 pt-2">
           {/* Area (first — filters templates) */}
           <div className="space-y-1">
-            <label className="text-sm font-medium">Área *</label>
+            <label htmlFor="activity-area" className="text-sm font-medium">Área *</label>
             <select
+              id="activity-area"
               {...register('areaId')}
               className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               onChange={(e) => { register('areaId').onChange(e); setSelectedTemplate(null); setValue('templateId', undefined); }}
@@ -131,8 +133,9 @@ export function NewActivityDialog({ open, onClose, organizationId, unitId, areas
           {/* Template selector */}
           {watchedAreaId && templates.length > 0 && (
             <div className="space-y-1">
-              <label className="text-sm font-medium">Usar template</label>
+              <label htmlFor="activity-template" className="text-sm font-medium">Usar template</label>
               <select
+                id="activity-template"
                 value={selectedTemplate?.id ?? ''}
                 onChange={(e) => {
                   const tmpl = templates.find((t) => t.id === e.target.value) ?? null;
@@ -163,22 +166,23 @@ export function NewActivityDialog({ open, onClose, organizationId, unitId, areas
 
           {/* Title */}
           <div className="space-y-1">
-            <label className="text-sm font-medium">Título *</label>
-            <Input {...register('title')} placeholder="Ex: Verificar ar-condicionado sala 2" autoFocus />
+            <label htmlFor="activity-title" className="text-sm font-medium">Título *</label>
+            <Input id="activity-title" {...register('title')} placeholder="Ex: Verificar ar-condicionado sala 2" autoFocus />
             {errors.title && <p className="text-xs text-red-500">{errors.title.message}</p>}
           </div>
 
           {/* Description */}
           <div className="space-y-1">
-            <label className="text-sm font-medium">Descrição</label>
-            <Textarea {...register('description')} placeholder="Detalhes opcionais..." rows={2} />
+            <label htmlFor="activity-description" className="text-sm font-medium">Descrição</label>
+            <Textarea id="activity-description" {...register('description')} placeholder="Detalhes opcionais..." rows={2} />
           </div>
 
           {/* Priority + Due date */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-sm font-medium">Prioridade</label>
+              <label htmlFor="activity-priority" className="text-sm font-medium">Prioridade</label>
               <select
+                id="activity-priority"
                 {...register('priority')}
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
@@ -189,8 +193,8 @@ export function NewActivityDialog({ open, onClose, organizationId, unitId, areas
             </div>
 
             <div className="space-y-1">
-              <label className="text-sm font-medium">Prazo</label>
-              <Input {...register('dueAt')} type="date" />
+              <label htmlFor="activity-due" className="text-sm font-medium">Prazo</label>
+              <Input id="activity-due" {...register('dueAt')} type="date" />
             </div>
           </div>
 
@@ -199,7 +203,14 @@ export function NewActivityDialog({ open, onClose, organizationId, unitId, areas
               Cancelar
             </Button>
             <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? 'Criando...' : 'Criar atividade'}
+              {mutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                  Criando...
+                </>
+              ) : (
+                'Criar atividade'
+              )}
             </Button>
           </div>
         </form>

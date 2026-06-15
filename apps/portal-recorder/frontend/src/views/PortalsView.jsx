@@ -56,10 +56,10 @@ export default function PortalsView() {
     <div className="view">
       <NewPortalForm onCreated={load} />
 
-      {error && <div className="alert alert-err">{error}</div>}
+      {error && <div className="alert alert-err" role="alert">{error}</div>}
 
       {loading ? (
-        <div className="empty">Carregando portais…</div>
+        <div className="empty" role="status">Carregando portais…</div>
       ) : portals.length === 0 ? (
         <div className="empty">Nenhum portal ainda. Crie o primeiro acima.</div>
       ) : (
@@ -192,7 +192,7 @@ function NewPortalForm({ onCreated }) {
           </datalist>
         </label>
       </div>
-      {err && <div className="alert alert-err">{err}</div>}
+      {err && <div className="alert alert-err" role="alert">{err}</div>}
       <div className="form-actions">
         <button className="btn btn-primary" type="submit" disabled={busy}>
           {busy ? 'Criando…' : 'Criar portal externo'}
@@ -280,7 +280,7 @@ function PortalCard({ portal, sessions, onChanged }) {
         </div>
       </div>
 
-      {err && <div className="alert alert-err">{err}</div>}
+      {err && <div className="alert alert-err" role="alert">{err}</div>}
 
       <div className="portal-card__sessions">
         {sessions.length === 0 ? (

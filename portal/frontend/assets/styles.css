@@ -294,13 +294,13 @@ header.scrolled {
   font-weight: 700;
 }
 
-/* Botão hamburguer (mobile) */
+/* Botão hamburguer (mobile) — alvo de toque >=44px (a11y, WCAG 2.5.5). */
 .nav-toggle {
   display: none;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   border-radius: 10px;
   border: 1px solid var(--line2);
   background: var(--surface);
@@ -1127,10 +1127,6 @@ footer {
   .btn,
   .btn.sm {
     min-height: 44px;
-  }
-  .nav-toggle {
-    width: 44px;
-    height: 44px;
   }
 }
 

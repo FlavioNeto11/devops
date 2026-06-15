@@ -1,17 +1,18 @@
-import { motion, useInView, animate } from 'framer-motion';
+import { motion, useInView, useReducedMotion, animate } from 'framer-motion';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { cn } from '../lib/utils';
 
 type RevealProps = { children: ReactNode; delay?: number; y?: number; className?: string };
 
-/** Wrapper de scroll-reveal (entra ao aparecer no viewport). */
+/** Wrapper de scroll-reveal (entra ao aparecer no viewport). Respeita prefers-reduced-motion. */
 export function Reveal({ children, delay = 0, y = 26, className }: RevealProps) {
+  const reduceMotion = useReducedMotion();
   return (
     <motion.div
-      initial={{ opacity: 0, y }}
-      whileInView={{ opacity: 1, y: 0 }}
+      initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y }}
+      whileInView={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-80px' }}
-      transition={{ duration: 0.6, delay, ease: [0.22, 0.61, 0.36, 1] }}
+      transition={reduceMotion ? { duration: 0.2, delay } : { duration: 0.6, delay, ease: [0.22, 0.61, 0.36, 1] }}
       className={className}
     >
       {children}
@@ -33,16 +34,22 @@ export function Counter({
 }) {
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true, margin: '-60px' });
+  const reduceMotion = useReducedMotion();
   const [val, setVal] = useState(0);
   useEffect(() => {
     if (!inView) return;
+    // prefers-reduced-motion: vai direto ao valor final, sem contagem animada.
+    if (reduceMotion) {
+      setVal(to);
+      return;
+    }
     const controls = animate(0, to, {
       duration,
       ease: 'easeOut',
       onUpdate: (v) => setVal(Math.round(v)),
     });
     return () => controls.stop();
-  }, [inView, to, duration]);
+  }, [inView, to, duration, reduceMotion]);
   return (
     <span ref={ref}>
       {prefix}

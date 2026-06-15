@@ -262,7 +262,11 @@ export default function CaptureView({ sessionId }) {
     <div className="capture">
       <div className="capture__bar card">
         <div className="capture__status">
-          <span className={'status status--dot status--' + wsKind(wsStatus)}>
+          <span
+            className={'status status--dot status--' + wsKind(wsStatus)}
+            role="status"
+            aria-live="polite"
+          >
             <span className="status__pulse" aria-hidden="true" />
             {wsLabel(wsStatus)}
           </span>
@@ -282,6 +286,8 @@ export default function CaptureView({ sessionId }) {
             ref={canvasRef}
             className="screencast"
             tabIndex={0}
+            role="application"
+            aria-label="Tela do browser remoto — clique para focar; mouse e teclado sao enviados ao portal"
             onMouseMove={onMouseMove}
             onMouseDown={onMouseDown}
             onMouseUp={onMouseUp}
@@ -324,7 +330,7 @@ export default function CaptureView({ sessionId }) {
             </button>
           </div>
 
-          {actionErr && <div className="alert alert-err">{actionErr}</div>}
+          {actionErr && <div className="alert alert-err" role="alert">{actionErr}</div>}
 
           <div className="panel__steps">
             <div className="muted small">Passos marcados ({steps.length})</div>

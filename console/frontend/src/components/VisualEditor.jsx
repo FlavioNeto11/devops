@@ -16,7 +16,7 @@ import AutoForm from './cms/AutoForm.jsx';
 import RichTextField from './cms/RichTextField.jsx';
 import AiAssist from './cms/AiAssist.jsx';
 import { pmCmsAiSection, pmCmsAiSite } from '../api.js';
-import { withSiteSkeleton } from '../lib/fieldKit.js';
+import { withSiteSkeleton, missingRequired } from '../lib/fieldKit.js';
 import MediaPicker from './cms/MediaPicker.jsx';
 import IconPicker from './cms/IconPicker.jsx';
 import VideoPicker from './cms/VideoPicker.jsx';
@@ -56,6 +56,8 @@ export default function VisualEditor({ project }) {
   const [pendingAdd, setPendingAdd] = useState(null); // { afterSectionId? }
   const [confirmDel, setConfirmDel] = useState(null);
   const [panelOpen, setPanelOpen] = useState(true);
+  // Feedback "salvando…": ligado enquanto há um patch com debounce pendente/em voo.
+  const [saving, setSaving] = useState(false);
 
   const iframeSrc = useMemo(() => {
     const base = (project.route || `/${project.key}`).replace(/\/+$/, '');
@@ -111,11 +113,13 @@ export default function VisualEditor({ project }) {
   // ---- persistência --------------------------------------------------------
   const schedulePatch = useCallback((sectionId) => {
     clearTimeout(timersRef.current[sectionId]);
+    setSaving(true);
     timersRef.current[sectionId] = setTimeout(async () => {
       const sec = findSection(treeRef.current, sectionId);
-      if (!sec) return;
+      if (!sec) { setSaving(false); return; }
       try { await pmCmsPatchSection(sectionId, { data: sec.data, anchor: sec.anchor ?? null }); }
       catch (e) { toast.err(e.message); buildTree().catch(() => {}); }
+      finally { setSaving(false); }
     }, PATCH_DEBOUNCE);
   }, [toast, buildTree]);
 
@@ -138,9 +142,11 @@ export default function VisualEditor({ project }) {
   // ---- persistência site-level (foto do hero etc., editada no lugar) -------
   const scheduleSiteSave = useCallback(() => {
     clearTimeout(timersRef.current.__site);
+    setSaving(true);
     timersRef.current.__site = setTimeout(async () => {
       try { await pmCmsSaveSite(project.id, treeRef.current?.site || {}); }
       catch (e) { toast.err(e.message); buildTree().catch(() => {}); }
+      finally { setSaving(false); }
     }, PATCH_DEBOUNCE);
   }, [project.id, toast, buildTree]);
 
@@ -291,6 +297,11 @@ export default function VisualEditor({ project }) {
   // ---- site (contato/redes/fotos) -----------------------------------------
   const openSite = async () => { try { setSiteDraft(withSiteSkeleton(await pmCmsSite(project.id))); } catch (e) { toast.err(e.message); } };
   const saveSite = async () => {
+    const missing = missingRequired(siteDraft);
+    if (missing.length) {
+      toast.err(`Preencha os campos obrigatórios: ${[...new Set(missing)].join(', ')}.`);
+      return;
+    }
     setSiteBusy(true);
     try { await pmCmsSaveSite(project.id, siteDraft); toast.ok('Configuração salva.'); setSiteDraft(null); post('cms:tree', { tree: { ...treeRef.current, site: siteDraft } }); commitTree({ ...treeRef.current, site: siteDraft }); }
     catch (e) { toast.err(e.message); } finally { setSiteBusy(false); }
@@ -315,9 +326,15 @@ export default function VisualEditor({ project }) {
           ))}
         </div>
         <span style={{ flex: 1 }} />
+        <span className="ve__save-state" role="status" aria-live="polite">
+          {saving ? <><span className="ve__save-dot" aria-hidden="true" /> Salvando…</> : 'Salvo'}
+        </span>
         <button className="btn" onClick={() => setPendingAdd({ afterSectionId: null })}><Icon name="plus" size={16} /> Seção</button>
         <button className="btn" onClick={openSite}><Icon name="file-text" size={16} /> Editar site</button>
-        <button className="btn" onClick={() => setPanelOpen((o) => !o)} title="Painel"><Icon name={panelOpen ? 'chevronRight' : 'chevronLeft'} size={16} /></button>
+        <button className="btn" onClick={() => setPanelOpen((o) => !o)} title="Painel"
+          aria-label={panelOpen ? 'Recolher painel de edição' : 'Abrir painel de edição'} aria-expanded={panelOpen}>
+          <Icon name={panelOpen ? 'chevronRight' : 'chevronLeft'} size={16} />
+        </button>
         <a className="btn" href={iframeSrc.replace('?cmsEdit=1', '')} target="_blank" rel="noopener noreferrer" title="Abrir o site publicado em nova aba">
           <Icon name="external" size={15} /> Ver site
         </a>

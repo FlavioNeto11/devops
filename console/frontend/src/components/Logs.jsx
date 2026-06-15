@@ -49,6 +49,10 @@ export default function Logs() {
   const [nowTick, setNowTick] = useState(() => Date.now());
 
   const boxRef = useRef(null);
+  // "Preso ao fim": enquanto o usuário está no rodapé, o auto-scroll acompanha as
+  // linhas novas. Se ele rolar pra cima (ex.: lendo logs antigos durante o follow),
+  // paramos o auto-scroll e mostramos o botão "ir para o fim".
+  const [atBottom, setAtBottom] = useState(true);
   // Buffer de linhas recebidas pelo stream entre flushes (coalescing de render
   // no CLIENTE — não toca o servidor; o backend faz push, isto só agrupa updates).
   const followBufRef = useRef([]);
@@ -148,11 +152,29 @@ export default function Logs() {
     return () => clearInterval(id);
   }, [lastUpdated]);
 
-  // Auto-scroll ao final quando o texto muda.
+  // Auto-scroll ao final quando o texto muda — mas só se o usuário já estiver
+  // no rodapé (preserva a posição de quem rolou pra cima para ler logs antigos).
   useEffect(() => {
     const el = boxRef.current;
+    if (el && atBottom) el.scrollTop = el.scrollHeight;
+  }, [logText, atBottom]);
+
+  // Detecta se o usuário está (perto d)o rodapé; tolera 24px de folga.
+  const onScroll = useCallback((e) => {
+    const el = e.currentTarget;
+    const near = el.scrollHeight - el.scrollTop - el.clientHeight <= 24;
+    setAtBottom(near);
+  }, []);
+
+  // Pula para as últimas linhas e re-ancora o auto-scroll.
+  const jumpToLatest = useCallback(() => {
+    const el = boxRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [logText]);
+    setAtBottom(true);
+  }, []);
+
+  // Ao trocar de pod, volta a ancorar no rodapé.
+  useEffect(() => { setAtBottom(true); }, [selected]);
 
   // Pods filtrados por namespace e agrupados por app.
   const groups = useMemo(() => {
@@ -291,22 +313,30 @@ export default function Logs() {
                 </div>
               </div>
 
-              <div ref={boxRef} className={'logbox logbox--lines' + (wrap ? ' logbox--wrap' : '')} aria-label={`Logs de ${selected.name}`}>
-                {visibleLines.length === 0 ? (
-                  <span className="logline muted">{loadingLogs ? '' : '(sem logs para exibir)'}</span>
-                ) : (
-                  visibleLines.map((line, idx) => {
-                    const lvl = classify(line);
-                    const m = RE_TS.exec(line);
-                    const ts = m ? m[0] : '';
-                    const rest = m ? line.slice(m[0].length) : line;
-                    return (
-                      <span key={idx} className={'logline' + (lvl ? ' logline--' + lvl : '')}>
-                        {ts && <span className="logline__ts">{ts}</span>}
-                        {highlight(rest, search, idx)}
-                      </span>
-                    );
-                  })
+              <div className="logbox-wrap">
+                <div ref={boxRef} onScroll={onScroll} className={'logbox logbox--lines' + (wrap ? ' logbox--wrap' : '')} aria-label={`Logs de ${selected.name}`}>
+                  {visibleLines.length === 0 ? (
+                    <span className="logline muted">{loadingLogs ? '' : '(sem logs para exibir)'}</span>
+                  ) : (
+                    visibleLines.map((line, idx) => {
+                      const lvl = classify(line);
+                      const m = RE_TS.exec(line);
+                      const ts = m ? m[0] : '';
+                      const rest = m ? line.slice(m[0].length) : line;
+                      return (
+                        <span key={idx} className={'logline' + (lvl ? ' logline--' + lvl : '')}>
+                          {ts && <span className="logline__ts">{ts}</span>}
+                          {highlight(rest, search, idx)}
+                        </span>
+                      );
+                    })
+                  )}
+                </div>
+                {!atBottom && visibleLines.length > 0 && (
+                  <button type="button" className="logbox__jump" onClick={jumpToLatest}
+                    aria-label="Ir para as últimas linhas">
+                    ↓ últimas linhas
+                  </button>
                 )}
               </div>
             </>

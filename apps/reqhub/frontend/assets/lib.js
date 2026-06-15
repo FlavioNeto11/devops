@@ -123,6 +123,28 @@ export function bandRank(band) {
   return band === 'high' ? 3 : band === 'medium' ? 2 : 1;
 }
 
+// Resumo da matriz de cobertura: por dimensão, quantos requisitos cobrem (hit)
+// e quantos faltam (miss), com o percentual. Puro — entrada são os requisitos.
+export function coverageSummary(reqs) {
+  const dims = [
+    ['acceptance', 'Aceite'], ['method', 'Método'], ['evidence', 'Evidência'],
+    ['adr', 'ADR'], ['service', 'Serviço'], ['infra', 'Infra'], ['slo', 'SLO'],
+  ];
+  const total = reqs.length;
+  return dims.map(([key, label]) => {
+    const hit = reqs.reduce((acc, r) => acc + (coverageRow(r)[key] ? 1 : 0), 0);
+    return { key, label, hit, miss: total - hit, total, pct: total ? Math.round((hit / total) * 100) : 0 };
+  });
+}
+
+// Lista de "recentes": prepõe `id`, remove duplicata anterior e limita a `max`.
+// Puro: não toca localStorage; ids inválidos (vazios) são ignorados.
+export function recentList(prev, id, max = 8) {
+  const base = Array.isArray(prev) ? prev.filter((x) => typeof x === 'string' && x) : [];
+  if (!id) return base.slice(0, max);
+  return [id, ...base.filter((x) => x !== id)].slice(0, max);
+}
+
 /* ---------- similaridade semântica (embeddings locais) ---------- */
 export function cosineSim(a, b) {
   if (!a || !b || a.length !== b.length) return 0;

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { norm, matchesQuery, filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, bandRank, cosineSim, topSimilar, toYaml, scalarYaml, validateDraft } from '../assets/lib.js';
+import { norm, matchesQuery, filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, bandRank, cosineSim, topSimilar, toYaml, scalarYaml, validateDraft, coverageSummary, recentList } from '../assets/lib.js';
 
 const reqs = [
   { id: 'REQ-SICAT-0002', title: 'Submissão MTR', statement: 'O sistema deve submeter', type: 'functional', status: 'approved', priority: 'critical', architectural_significance: true, impact_band: 'high', impact_score: 80, scope: { product_scope: 'sicat', applies_to: 'product' }, acceptance_criteria: ['x'], verification_method: ['test-integration'], version: { item_revision: 1 }, allocation: { adr_refs: ['ADR-0002'] } },
@@ -107,6 +107,32 @@ test('toYaml: escalares, objetos, arrays e quoting', () => {
 test('toYaml: array de objetos (quality_scenarios)', () => {
   const y = toYaml({ quality_scenarios: [{ source: 's', stimulus: 'x: y' }] });
   assert.match(y, /quality_scenarios:\n {2}- source: s\n {4}stimulus: "x: y"/);
+});
+
+test('coverageSummary conta hit/miss/pct por dimensão', () => {
+  const sum = coverageSummary(reqs);
+  const byKey = Object.fromEntries(sum.map((d) => [d.key, d]));
+  // só reqs[0] tem acceptance_criteria
+  assert.equal(byKey.acceptance.hit, 1);
+  assert.equal(byKey.acceptance.miss, 2);
+  assert.equal(byKey.acceptance.total, 3);
+  assert.equal(byKey.acceptance.pct, 33);
+  // só reqs[0] tem adr_refs
+  assert.equal(byKey.adr.hit, 1);
+  // ninguém tem evidência
+  assert.equal(byKey.evidence.hit, 0);
+  assert.equal(byKey.evidence.pct, 0);
+  assert.equal(coverageSummary([]).every((d) => d.total === 0 && d.pct === 0), true);
+});
+
+test('recentList prepõe, deduplica e limita', () => {
+  assert.deepEqual(recentList([], 'A'), ['A']);
+  assert.deepEqual(recentList(['A', 'B'], 'C'), ['C', 'A', 'B']);
+  assert.deepEqual(recentList(['A', 'B', 'C'], 'B'), ['B', 'A', 'C']);
+  assert.deepEqual(recentList(['A', 'B', 'C'], 'D', 2), ['D', 'A']);
+  assert.deepEqual(recentList(['A', 'B'], ''), ['A', 'B']);
+  assert.deepEqual(recentList(null, 'A'), ['A']);
+  assert.deepEqual(recentList(['', null, 'A', 5], 'B'), ['B', 'A']);
 });
 
 test('validateDraft pega erros', () => {

@@ -30,6 +30,9 @@ export default function Health({ streamData, streamStatus }) {
     const f = filter.toLowerCase();
     return (name || '').toLowerCase().includes(f) || (ns || '').toLowerCase().includes(f);
   }, [filter]);
+  // Ordenação clicável por coluna (tri-state: asc → desc → none) em cada tabela.
+  const podSort = useSort();
+  const depSort = useSort();
   // Tipo da app (cadastro do pm-api): rotula deployments como Portal CMS/Produto/Interno.
   const [types, setTypes] = useState({});
   useEffect(() => {
@@ -93,6 +96,40 @@ export default function Health({ streamData, streamStatus }) {
     return acc;
   }, [evaluated]);
 
+  // Linhas visíveis (filtro + ordenação) de cada tabela.
+  const visiblePods = useMemo(() => {
+    const rows = evaluated.filter((p) => match(p.name, p.namespace));
+    return sortRows(rows, podSort.sort, (p, key) => {
+      switch (key) {
+        case 'health': return HEALTH_RANK[p._health] ?? 0;
+        case 'name': return p.name || '';
+        case 'namespace': return p.namespace || '';
+        case 'phase': return p.phase || '';
+        case 'ready': return readyText(p);
+        case 'restarts': return asCount(p.restartCount);
+        default: return '';
+      }
+    });
+  }, [evaluated, match, podSort.sort]);
+
+  const visibleDeployments = useMemo(() => {
+    const rows = deployments.filter((d) => match(d.name, d.namespace));
+    return sortRows(rows, depSort.sort, (d, key) => {
+      const r = d.replicas || {};
+      const ready = asCount(r.ready);
+      const desired = asCount(r.desired);
+      const health = desired === 0 ? 'warn' : ready >= desired ? 'ok' : ready > 0 ? 'warn' : 'err';
+      switch (key) {
+        case 'health': return HEALTH_RANK[health] ?? 0;
+        case 'name': return d.name || '';
+        case 'type': return (typeOfDeployment(d) || '').toString();
+        case 'namespace': return d.namespace || '';
+        case 'ready': return desired > 0 ? ready / desired : -1;
+        default: return '';
+      }
+    });
+  }, [deployments, match, depSort.sort, typeOfDeployment]);
+
   if (loading && pods.length === 0 && deployments.length === 0) {
     return (
       <section className="health" aria-label="Saude do cluster">
@@ -130,12 +167,12 @@ export default function Health({ streamData, streamStatus }) {
         <table className="table">
           <thead>
             <tr>
-              <th>Saude</th>
-              <th>Nome</th>
-              <th>Namespace</th>
-              <th>Fase</th>
-              <th>Ready</th>
-              <th className="num">Restarts</th>
+              <SortableTh label="Saude" sortKey="health" sort={podSort} />
+              <SortableTh label="Nome" sortKey="name" sort={podSort} />
+              <SortableTh label="Namespace" sortKey="namespace" sort={podSort} />
+              <SortableTh label="Fase" sortKey="phase" sort={podSort} />
+              <SortableTh label="Ready" sortKey="ready" sort={podSort} />
+              <SortableTh label="Restarts" sortKey="restarts" sort={podSort} className="num" />
             </tr>
           </thead>
           <tbody>
@@ -146,7 +183,7 @@ export default function Health({ streamData, streamStatus }) {
                 </td>
               </tr>
             )}
-            {evaluated.filter((p) => match(p.name, p.namespace)).map((p) => {
+            {visiblePods.map((p) => {
               const restarts = asCount(p.restartCount);
               return (
                 <tr key={`${p.namespace}/${p.name}`}>
@@ -177,11 +214,11 @@ export default function Health({ streamData, streamStatus }) {
         <table className="table">
           <thead>
             <tr>
-              <th>Saude</th>
-              <th>Nome</th>
-              <th>Tipo</th>
-              <th>Namespace</th>
-              <th className="num">Ready / Desejado</th>
+              <SortableTh label="Saude" sortKey="health" sort={depSort} />
+              <SortableTh label="Nome" sortKey="name" sort={depSort} />
+              <SortableTh label="Tipo" sortKey="type" sort={depSort} />
+              <SortableTh label="Namespace" sortKey="namespace" sort={depSort} />
+              <SortableTh label="Ready / Desejado" sortKey="ready" sort={depSort} className="num" />
             </tr>
           </thead>
           <tbody>
@@ -192,7 +229,7 @@ export default function Health({ streamData, streamStatus }) {
                 </td>
               </tr>
             )}
-            {deployments.filter((d) => match(d.name, d.namespace)).map((d) => {
+            {visibleDeployments.map((d) => {
               const r = d.replicas || {};
               const ready = asCount(r.ready);
               const desired = asCount(r.desired);
@@ -224,6 +261,59 @@ export default function Health({ streamData, streamStatus }) {
         </table>
       </div>
     </section>
+  );
+}
+
+// --------------------------------------------------------------------------
+// Ordenação clicável por coluna (tri-state)
+// --------------------------------------------------------------------------
+
+/** Ordem relativa dos estados de saúde (críticos primeiro no asc). */
+const HEALTH_RANK = { err: 0, warn: 1, ok: 2 };
+
+/** Estado de ordenação por tabela: { key, dir } com tri-state asc→desc→none. */
+function useSort() {
+  const [sort, setSort] = useState({ key: null, dir: null });
+  const toggle = useCallback((key) => {
+    setSort((cur) => {
+      if (cur.key !== key) return { key, dir: 'asc' };
+      if (cur.dir === 'asc') return { key, dir: 'desc' };
+      return { key: null, dir: null }; // 3º clique limpa a ordenação
+    });
+  }, []);
+  return { sort, toggle };
+}
+
+/** Ordena `rows` de forma estável usando `valueOf(row, key)` (números ou strings). */
+function sortRows(rows, sort, valueOf) {
+  if (!sort.key || !sort.dir) return rows;
+  const factor = sort.dir === 'desc' ? -1 : 1;
+  return rows
+    .map((row, i) => [row, i])
+    .sort(([a, ia], [b, ib]) => {
+      const va = valueOf(a, sort.key);
+      const vb = valueOf(b, sort.key);
+      let cmp;
+      if (typeof va === 'number' && typeof vb === 'number') cmp = va - vb;
+      else cmp = String(va).localeCompare(String(vb), 'pt-BR', { numeric: true });
+      return cmp !== 0 ? cmp * factor : ia - ib; // estável: empata pelo índice original
+    })
+    .map(([row]) => row);
+}
+
+/** Cabeçalho clicável com aria-sort e seta indicadora do estado atual. */
+function SortableTh({ label, sortKey, sort, className }) {
+  const active = sort.sort.key === sortKey;
+  const dir = active ? sort.sort.dir : null;
+  const ariaSort = dir === 'asc' ? 'ascending' : dir === 'desc' ? 'descending' : 'none';
+  return (
+    <th className={className} aria-sort={ariaSort}>
+      <button type="button" className="th-sort" onClick={() => sort.toggle(sortKey)}
+        title={`Ordenar por ${label}`}>
+        {label}
+        <span className="th-sort__arrow" aria-hidden="true">{dir === 'asc' ? '▲' : dir === 'desc' ? '▼' : '⇅'}</span>
+      </button>
+    </th>
   );
 }
 

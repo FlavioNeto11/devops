@@ -208,6 +208,7 @@ export default function App() {
           <TopBar
             section={SECTIONS[activeTab]}
             onMenu={() => setMobileNavOpen((o) => !o)}
+            navOpen={mobileNavOpen}
             theme={theme}
             onToggleTheme={toggleTheme}
             me={me}

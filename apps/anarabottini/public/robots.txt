@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://dev.nvit.com.br/anarabottini/sitemap.xml

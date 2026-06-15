@@ -71,7 +71,9 @@ const emit = defineEmits([
               color="primary"
               aria-label="Voltar para a home pública"
               @click="emit('goPublicHome')"
-            />
+            >
+              <v-icon size="18">mdi-home-import-outline</v-icon>
+            </v-btn>
           </template>
         </v-tooltip>
       </div>

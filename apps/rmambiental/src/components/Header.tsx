@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, ArrowRight } from 'lucide-react';
 import { asset, cn } from '../lib/utils';
@@ -16,7 +16,20 @@ const NAV = [
   { label: 'Contato', to: '/contato' },
 ];
 
+/** Item da navegação ativo para a rota atual (pathname + hash).
+ *  Âncoras (/#secao) só ficam ativas com o hash correspondente; "Início" fica
+ *  ativo na home sem hash. */
+function isNavActive(to: string, pathname: string, hash: string): boolean {
+  const [path, anchor] = to.split('#');
+  const target = path || '/';
+  if (target !== pathname) return false;
+  if (anchor) return hash === `#${anchor}`;
+  // Sem âncora: só ativo quando não há hash apontando para uma seção da home.
+  return target === '/' ? hash === '' : true;
+}
+
 export default function Header() {
+  const { pathname, hash } = useLocation();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -49,15 +62,22 @@ export default function Header() {
         </Link>
 
         <nav className="hidden items-center gap-0.5 xl:flex">
-          {NAV.map((n) => (
-            <Link
-              key={n.label}
-              to={n.to}
-              className="rounded-lg px-3 py-2 text-sm font-medium text-brand-muted transition-colors hover:text-brand-text"
-            >
-              {n.label}
-            </Link>
-          ))}
+          {NAV.map((n) => {
+            const active = isNavActive(n.to, pathname, hash);
+            return (
+              <Link
+                key={n.label}
+                to={n.to}
+                aria-current={active ? 'page' : undefined}
+                className={cn(
+                  'rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:text-brand-text',
+                  active ? 'text-brand-text' : 'text-brand-muted',
+                )}
+              >
+                {n.label}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="hidden items-center gap-3 xl:flex">
@@ -70,9 +90,11 @@ export default function Header() {
         <div className="flex items-center gap-2 xl:hidden">
           <ThemeToggle />
           <button
+            type="button"
             className="grid h-10 w-10 place-items-center rounded-lg border border-brand-text/10 text-brand-text"
             onClick={() => setOpen((v) => !v)}
-            aria-label="Abrir menu"
+            aria-label={open ? 'Fechar menu' : 'Abrir menu'}
+            aria-expanded={open}
           >
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
@@ -89,16 +111,23 @@ export default function Header() {
             className="overflow-hidden border-t border-brand-text/10 bg-brand-bg/95 backdrop-blur-xl xl:hidden"
           >
             <nav className="container-wide flex flex-col gap-1 py-5">
-              {NAV.map((n) => (
-                <Link
-                  key={n.label}
-                  to={n.to}
-                  onClick={() => setOpen(false)}
-                  className="rounded-lg px-3 py-3 text-base font-medium text-brand-muted transition-colors hover:bg-brand-text/5 hover:text-brand-text"
-                >
-                  {n.label}
-                </Link>
-              ))}
+              {NAV.map((n) => {
+                const active = isNavActive(n.to, pathname, hash);
+                return (
+                  <Link
+                    key={n.label}
+                    to={n.to}
+                    onClick={() => setOpen(false)}
+                    aria-current={active ? 'page' : undefined}
+                    className={cn(
+                      'rounded-lg px-3 py-3 text-base font-medium transition-colors hover:bg-brand-text/5 hover:text-brand-text',
+                      active ? 'bg-brand-text/5 text-brand-text' : 'text-brand-muted',
+                    )}
+                  >
+                    {n.label}
+                  </Link>
+                );
+              })}
               <Link to="/contato" onClick={() => setOpen(false)} className="btn-primary mt-3">
                 Fale com um especialista <ArrowRight className="h-4 w-4" />
               </Link>

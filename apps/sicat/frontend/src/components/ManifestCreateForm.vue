@@ -944,6 +944,13 @@ async function createSingleFlow(manifestPayload, shouldSubmitNow) {
 }
 
 async function handleCreate(shouldSubmitNow) {
+  // Guarda de reentrância: evita criar/submeter um MTR duplicado caso o botão
+  // seja acionado duas vezes em sequência (duplo clique ou Enter) antes do
+  // estado `loading` desabilitar a ação no template.
+  if (loading.value) {
+    return;
+  }
+
   errorMessage.value = '';
   successMessage.value = '';
   loading.value = true;
@@ -1289,10 +1296,10 @@ async function handleCreate(shouldSubmitNow) {
             </div>
 
             <div v-if="currentStep === stepDefinitions.length" class="d-flex ga-2 flex-wrap justify-end">
-              <v-btn v-if="!isSingleOnly" variant="outlined" color="secondary" :disabled="loading || catalogsLoading" data-testid="wizard-submit-draft" @click="handleCreate(false)">
+              <v-btn v-if="!isSingleOnly" variant="outlined" color="secondary" :loading="loading" :disabled="loading || catalogsLoading" data-testid="wizard-submit-draft" @click="handleCreate(false)">
                 {{ loading ? 'Processando...' : resolvedDraftLabel }}
               </v-btn>
-              <v-btn color="primary" :disabled="!canImmediateSubmit" data-testid="wizard-submit-primary" @click="handleCreate(isSingleOnly ? false : true)">
+              <v-btn color="primary" :loading="loading" :disabled="!canImmediateSubmit" data-testid="wizard-submit-primary" @click="handleCreate(isSingleOnly ? false : true)">
                 {{ loading ? 'Processando...' : resolvedPrimaryLabel }}
               </v-btn>
             </div>

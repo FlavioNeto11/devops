@@ -3,6 +3,8 @@
 User-agent: *
 Allow: /$
 Allow: /assets/
+Allow: /rmambiental
+Allow: /anarabottini
 Disallow: /devops
 Disallow: /argocd
 Disallow: /grafana

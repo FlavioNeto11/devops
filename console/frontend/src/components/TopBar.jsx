@@ -5,7 +5,7 @@ import Icon from './Icon.jsx';
  * TopBar — barra superior: hamburger (mobile), título+descrição da seção e, à direita,
  * badge de tempo real (SSE), toggle de tema e menu do usuário (avatar + e-mail + papel + sair).
  */
-export default function TopBar({ section, onMenu, theme, onToggleTheme, me, live }) {
+export default function TopBar({ section, onMenu, navOpen = false, theme, onToggleTheme, me, live }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -30,7 +30,13 @@ export default function TopBar({ section, onMenu, theme, onToggleTheme, me, live
 
   return (
     <header className="topbar">
-      <button className="topbar__menu icon-btn" onClick={onMenu} aria-label="Abrir menu">
+      <button
+        className="topbar__menu icon-btn"
+        onClick={onMenu}
+        aria-label={navOpen ? 'Fechar menu' : 'Abrir menu'}
+        aria-expanded={navOpen}
+        aria-controls="sidebar-nav"
+      >
         <Icon name="menu" size={20} />
       </button>
 

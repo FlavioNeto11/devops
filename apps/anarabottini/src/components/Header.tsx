@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -15,6 +15,20 @@ const NAV = [
   { label: 'Materiais', to: '/#materiais' },
   { label: 'Contato', to: '/contato' },
 ];
+
+/**
+ * Determina se um item de NAV está ativo a partir da rota atual (pathname + hash).
+ * Itens com hash (#secao) casam pela âncora; "/" só casa na Home sem hash; "/contato" pelo path.
+ */
+function isActiveNav(to: string, pathname: string, hash: string): boolean {
+  const [path, anchor] = to.split('#');
+  const targetPath = path || '/';
+  if (targetPath !== pathname) return false;
+  if (anchor) return hash === `#${anchor}`;
+  // Sem âncora: "/" só é ativo quando não há hash (evita marcar Início ao rolar numa seção).
+  if (targetPath === '/') return hash === '';
+  return true;
+}
 
 /** Marca textual (wordmark) com motivo ∞ — Ana não possui logotipo de imagem. */
 function Wordmark() {
@@ -41,6 +55,7 @@ function Wordmark() {
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const { pathname, hash } = useLocation();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -70,16 +85,23 @@ export default function Header() {
           <Wordmark />
         </Link>
 
-        <nav className="hidden items-center gap-0.5 lg:flex">
-          {NAV.map((n) => (
-            <Link
-              key={n.label}
-              to={n.to}
-              className="rounded-lg px-3 py-2 text-sm font-medium text-brand-muted transition-colors hover:text-brand-text"
-            >
-              {n.label}
-            </Link>
-          ))}
+        <nav className="hidden items-center gap-0.5 lg:flex" aria-label="Principal">
+          {NAV.map((n) => {
+            const active = isActiveNav(n.to, pathname, hash);
+            return (
+              <Link
+                key={n.label}
+                to={n.to}
+                aria-current={active ? 'page' : undefined}
+                className={cn(
+                  'rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:text-brand-text',
+                  active ? 'text-brand-text' : 'text-brand-muted',
+                )}
+              >
+                {n.label}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="hidden lg:flex">
@@ -107,17 +129,24 @@ export default function Header() {
             transition={{ duration: 0.25 }}
             className="overflow-hidden border-t border-brand-text/10 bg-brand-bg/95 backdrop-blur-xl lg:hidden"
           >
-            <nav className="container-wide flex flex-col gap-1 py-5">
-              {NAV.map((n) => (
-                <Link
-                  key={n.label}
-                  to={n.to}
-                  onClick={() => setOpen(false)}
-                  className="rounded-lg px-3 py-3 text-base font-medium text-brand-muted transition-colors hover:bg-brand-text/5 hover:text-brand-text"
-                >
-                  {n.label}
-                </Link>
-              ))}
+            <nav className="container-wide flex flex-col gap-1 py-5" aria-label="Principal (mobile)">
+              {NAV.map((n) => {
+                const active = isActiveNav(n.to, pathname, hash);
+                return (
+                  <Link
+                    key={n.label}
+                    to={n.to}
+                    onClick={() => setOpen(false)}
+                    aria-current={active ? 'page' : undefined}
+                    className={cn(
+                      'rounded-lg px-3 py-3 text-base font-medium transition-colors hover:bg-brand-text/5 hover:text-brand-text',
+                      active ? 'bg-brand-text/5 text-brand-text' : 'text-brand-muted',
+                    )}
+                  >
+                    {n.label}
+                  </Link>
+                );
+              })}
               <ProposalButton label="Solicitar proposta" className="mt-3" />
             </nav>
           </motion.div>

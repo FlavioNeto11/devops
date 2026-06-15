@@ -32,6 +32,7 @@ function isGroupActive(group) {
         :to="group.to"
         class="sicat-nav__link"
         :class="{ 'is-active': isActive(group.to) }"
+        :aria-current="isActive(group.to) ? 'page' : undefined"
         @click="$emit('navigate', group.to)"
       >
         <v-icon size="18">{{ group.icon }}</v-icon>
@@ -68,6 +69,7 @@ function isGroupActive(group) {
               :title="item.label"
               :subtitle="item.description"
               :active="isActive(item.to)"
+              :aria-current="isActive(item.to) ? 'page' : undefined"
               :to="item.to"
               rounded="lg"
               @click="$emit('navigate', item.to)"

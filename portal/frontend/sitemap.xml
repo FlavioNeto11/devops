@@ -1,8 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Apenas URLs PÚBLICAS e indexáveis. Produtos com login (/sicat, /gymops) e
+     ferramentas de operador (/devops, /argocd, /grafana, /auth, /portal-rec)
+     ficam fora — são bloqueados no robots.txt. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://dev.nvit.com.br/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://dev.nvit.com.br/rmambiental</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://dev.nvit.com.br/anarabottini</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
   </url>
 </urlset>

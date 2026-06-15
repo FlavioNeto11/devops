@@ -44,7 +44,7 @@ export default function App() {
             {route.name === 'portals' && 'Portais & Sessoes'}
           </span>
         </div>
-        <nav className="topbar__nav">
+        <nav className="topbar__nav" aria-label="Navegacao principal">
           {route.name !== 'portals' && (
             <button className="btn btn-ghost" onClick={() => navigate('#/')}>
               ← Portais
@@ -66,8 +66,14 @@ export default function App() {
               Captura
             </button>
           )}
-          <button className="btn btn-ghost" onClick={toggleTheme} title="Alternar tema">
-            {theme === 'dark' ? '☀' : '☾'}
+          <button
+            className="btn btn-ghost btn-icon"
+            onClick={toggleTheme}
+            title="Alternar tema"
+            aria-label={theme === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
+            aria-pressed={theme === 'dark'}
+          >
+            <span aria-hidden="true">{theme === 'dark' ? '☀' : '☾'}</span>
           </button>
         </nav>
       </header>
@@ -109,7 +115,10 @@ function TokenBar() {
   const hasToken = !!getToken();
 
   return (
-    <div className={'tokenbar' + (hasToken ? ' tokenbar--ok' : ' tokenbar--warn')}>
+    <section
+      className={'tokenbar' + (hasToken ? ' tokenbar--ok' : ' tokenbar--warn')}
+      aria-label="Token de escrita"
+    >
       <span className="tokenbar__label">Token de escrita (PORTAL_REC_TOKEN)</span>
       {editing ? (
         <>
@@ -121,6 +130,7 @@ function TokenBar() {
             onChange={(e) => setTokenState(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && save()}
             autoComplete="off"
+            aria-label="Token de escrita PORTAL_REC_TOKEN"
           />
           <button className="btn btn-primary" onClick={save} disabled={!token.trim()}>
             Salvar
@@ -142,6 +152,6 @@ function TokenBar() {
           )}
         </>
       )}
-    </div>
+    </section>
   );
 }

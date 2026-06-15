@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
 /** Grade técnica sutil + glows quentes radiais. Decorativo, full-bleed. */
 export function GridGlow({ className = '' }: { className?: string }) {
@@ -15,8 +15,10 @@ export function GridGlow({ className = '' }: { className?: string }) {
 /**
  * Motivo do INFINITO (símbolo da neurodiversidade), em traço dourado animado.
  * Decorativo — reforça o posicionamento sem afirmar dado algum.
+ * Respeita prefers-reduced-motion (renderiza o traço já desenhado, sem o efeito de escrita).
  */
 export function InfinityMotif({ className = '' }: { className?: string }) {
+  const reduceMotion = useReducedMotion();
   return (
     <svg viewBox="0 0 240 120" className={className} fill="none" aria-hidden preserveAspectRatio="xMidYMid meet">
       <defs>
@@ -30,10 +32,10 @@ export function InfinityMotif({ className = '' }: { className?: string }) {
         stroke="url(#ar-inf)"
         strokeWidth="5"
         strokeLinecap="round"
-        initial={{ pathLength: 0, opacity: 0 }}
+        initial={reduceMotion ? { pathLength: 1, opacity: 1 } : { pathLength: 0, opacity: 0 }}
         whileInView={{ pathLength: 1, opacity: 1 }}
         viewport={{ once: true }}
-        transition={{ duration: 1.8, ease: 'easeInOut' }}
+        transition={reduceMotion ? { duration: 0 } : { duration: 1.8, ease: 'easeInOut' }}
       />
     </svg>
   );

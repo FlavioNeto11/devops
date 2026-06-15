@@ -199,10 +199,23 @@ async function handleAddItemConfirm() {
   }
 }
 
-async function handleRemoveItem(itemId) {
+async function handleRemoveItem(itemId, itemLabel = '') {
+  const label = String(itemLabel || '').trim();
+  const ok = await confirm({
+    title: 'Remover item da DMR?',
+    message: label && label !== '-'
+      ? `Remover o item ${label} desta declaração? Esta ação não pode ser desfeita.`
+      : 'Remover este item da declaração? Esta ação não pode ser desfeita.',
+    confirmLabel: 'Remover item',
+    cancelLabel: 'Manter',
+    danger: true
+  });
+  if (!ok) return;
+
   clearCommandState();
   try {
     await removeItem(itemId);
+    notify.success('Item removido.');
   } catch {
     if (commandError.value) notify.error(commandError.value);
   }
@@ -272,7 +285,7 @@ function goBack() {
         :empty="{ title: 'Nenhum item consolidado', description: 'Use Consolidar para puxar dos manifestos do período ou adicione manualmente.', icon: 'mdi-table-plus' }"
       >
         <template #[`item.actions`]="{ item }">
-          <v-btn size="small" variant="text" color="error" :disabled="!isItemMutable || commandLoading" @click="handleRemoveItem(item.id)">Remover</v-btn>
+          <v-btn size="small" variant="text" color="error" :disabled="!isItemMutable || commandLoading" @click="handleRemoveItem(item.id, item.mtr)">Remover</v-btn>
         </template>
       </SicatDataTable>
     </SicatCard>

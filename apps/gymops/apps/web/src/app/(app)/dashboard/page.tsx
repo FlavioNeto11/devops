@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, Clock, Wrench, TrendingDown, ChevronUp, ChevronDown, Brain } from 'lucide-react';
+import { AlertTriangle, Clock, Wrench, TrendingDown, ChevronUp, ChevronDown, Brain, Building2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { activitiesApi, type ActivityListItem } from '@/lib/activities-api';
 import { useAuthStore } from '@/store/auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
 import { DelayAnalysisModal } from '@/components/ai/DelayAnalysisModal';
 import { TutorialTrigger } from '@/features/tutorial';
 import Link from 'next/link';
@@ -63,6 +65,20 @@ function KpiCard({
             {value}
           </p>
           <p className="text-xs text-muted-foreground">{label}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function KpiCardSkeleton() {
+  return (
+    <Card>
+      <CardContent className="flex items-center gap-4 p-4">
+        <Skeleton className="h-10 w-10 shrink-0 rounded-lg" />
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-12" />
+          <Skeleton className="h-3 w-24" />
         </div>
       </CardContent>
     </Card>
@@ -146,28 +162,34 @@ export default function DashboardPage() {
 
       {/* KPIs */}
       <div data-tutorial="dashboard-kpis" className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiCard
-          icon={AlertTriangle}
-          label="Unidades com atraso crítico"
-          value={overview?.kpis.unitsWithCriticalOverdue ?? 0}
-          variant="danger"
-        />
-        <KpiCard
-          icon={TrendingDown}
-          label="Atividades atrasadas"
-          value={overview?.kpis.totalOverdue ?? 0}
-          variant="warning"
-        />
-        <KpiCard
-          icon={Clock}
-          label="Financeiro vencendo hoje"
-          value={overview?.kpis.financialDueToday ?? 0}
-        />
-        <KpiCard
-          icon={Wrench}
-          label="Manutenções abertas"
-          value={overview?.kpis.maintenanceOpen ?? 0}
-        />
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => <KpiCardSkeleton key={i} />)
+        ) : (
+          <>
+            <KpiCard
+              icon={AlertTriangle}
+              label="Unidades com atraso crítico"
+              value={overview?.kpis.unitsWithCriticalOverdue ?? 0}
+              variant="danger"
+            />
+            <KpiCard
+              icon={TrendingDown}
+              label="Atividades atrasadas"
+              value={overview?.kpis.totalOverdue ?? 0}
+              variant="warning"
+            />
+            <KpiCard
+              icon={Clock}
+              label="Financeiro vencendo hoje"
+              value={overview?.kpis.financialDueToday ?? 0}
+            />
+            <KpiCard
+              icon={Wrench}
+              label="Manutenções abertas"
+              value={overview?.kpis.maintenanceOpen ?? 0}
+            />
+          </>
+        )}
       </div>
 
       {/* Units table */}
@@ -177,14 +199,35 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
-              Carregando...
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/50">
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Unidade</th>
+                    <th className="px-4 py-3 text-center font-medium text-muted-foreground">Abertas</th>
+                    <th className="px-4 py-3 text-center font-medium text-muted-foreground">Atrasadas</th>
+                    <th className="px-4 py-3 text-center font-medium text-muted-foreground">Críticas</th>
+                    <th className="px-4 py-3 text-center font-medium text-muted-foreground">Sem resp.</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i}>
+                      <td className="px-4 py-3"><Skeleton className="h-4 w-32" /></td>
+                      <td className="px-4 py-3"><Skeleton className="mx-auto h-4 w-6" /></td>
+                      <td className="px-4 py-3"><Skeleton className="mx-auto h-4 w-6" /></td>
+                      <td className="px-4 py-3"><Skeleton className="mx-auto h-4 w-6" /></td>
+                      <td className="px-4 py-3"><Skeleton className="mx-auto h-4 w-6" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="max-h-[60vh] overflow-auto">
             <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/50">
+              <thead className="sticky top-0 z-10">
+                <tr className="border-b bg-muted">
                   <th scope="col" aria-sort={sortCol === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined} className={thCls('name')} onClick={() => handleSort('name')}>
                     Unidade <SortIcon active={sortCol === 'name'} dir={sortDir} />
                   </th>
@@ -244,8 +287,12 @@ export default function DashboardPage() {
                 ))}
                 {sortedUnits.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
-                      Nenhuma unidade encontrada
+                    <td colSpan={5} className="p-0">
+                      <EmptyState
+                        icon={Building2}
+                        title="Nenhuma unidade encontrada"
+                        description="Cadastre uma unidade para acompanhar a operação por aqui."
+                      />
                     </td>
                   </tr>
                 )}

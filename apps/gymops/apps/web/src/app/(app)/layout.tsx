@@ -69,7 +69,7 @@ export default function AppLayout({ children }: { readonly children: React.React
       <div className="flex h-screen flex-col overflow-hidden">
         {/* Mobile top bar */}
         <div className="flex h-14 shrink-0 items-center border-b bg-background px-4 md:hidden">
-          <Button variant="ghost" size="icon" onClick={() => setMobileNavOpen(true)} aria-label="Abrir menu de navegação" title="Menu de navegação">
+          <Button variant="ghost" size="icon" onClick={() => setMobileNavOpen(true)} aria-label="Abrir menu de navegação" title="Menu de navegação" aria-expanded={mobileNavOpen} aria-controls="app-sidebar">
             <Menu className="h-5 w-5" aria-hidden="true" />
           </Button>
           <span className="ml-2 truncate text-sm font-semibold flex-1">

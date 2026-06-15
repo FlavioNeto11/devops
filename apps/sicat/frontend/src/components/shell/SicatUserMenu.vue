@@ -19,7 +19,15 @@ const emit = defineEmits([
 <template>
   <v-menu location="bottom end" offset="12">
     <template #activator="{ props: menuProps }">
-      <v-btn v-bind="menuProps" class="user-trigger" variant="text" rounded="pill" height="46">
+      <v-btn
+        v-bind="menuProps"
+        class="user-trigger"
+        variant="text"
+        rounded="pill"
+        height="46"
+        :aria-label="`Abrir menu do usuário (${user?.name || 'Usuário SICAT'})`"
+        aria-haspopup="menu"
+      >
         <v-avatar size="34" color="primary" variant="tonal" class="me-3">
           <span class="user-trigger__avatar">{{ userInitials }}</span>
         </v-avatar>

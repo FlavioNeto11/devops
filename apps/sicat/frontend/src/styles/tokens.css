@@ -107,3 +107,49 @@
   --gradient-primary: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary) 100%);
   --gradient-hero: linear-gradient(180deg, #10181c 0%, #0c1114 100%);
 }
+
+/* Dark por padrão quando o SO está em dark — SEM quebrar o toggle manual.
+   O JS (bootstrapDocumentTheme) define `data-theme` cedo a partir da preferência
+   salva ou do SO; este bloco só vale enquanto NENHUM `data-theme` foi aplicado
+   (`:root:not([data-theme])`), atuando como fallback/anti-FOUC antes do JS rodar.
+   Assim que o atributo existe (light OU dark, manual ou automático), estas regras
+   deixam de valer e a escolha do usuário sempre vence. Espelha os tokens de
+   `:root[data-theme='dark']`. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --color-bg: #0c1114;
+    --color-bg-accent: #11181c;
+    --color-surface: #131a1e;
+    --color-surface-raised: #192328;
+    --color-surface-subtle: #1e2a30;
+    --color-sidebar: #0a0f12;
+    --color-border: #263239;
+    --color-border-strong: #3b4d56;
+    --color-text: #e6ecef;
+    --color-text-muted: #97a8b0;
+    --color-primary: #35b493;
+    --color-primary-dark: #259478;
+    --color-primary-contrast: #08110e;
+    --color-error: #e07b7b;
+    --color-success: #4cc28e;
+    --color-warning: #dca557;
+    --color-info: #56b8c4;
+
+    --color-status-neutral-bg: #222e35;
+    --color-status-neutral-fg: #c3d4dc;
+    --color-status-running-bg: #173e43;
+    --color-status-running-fg: #8adde2;
+    --color-status-success-bg: #1b4231;
+    --color-status-success-fg: #9fe5c3;
+    --color-status-error-bg: #46282c;
+    --color-status-error-fg: #f2adb3;
+    --color-status-warning-bg: #423318;
+    --color-status-warning-fg: #f0ce9b;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
+    --gradient-primary: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary) 100%);
+    --gradient-hero: linear-gradient(180deg, #10181c 0%, #0c1114 100%);
+  }
+}

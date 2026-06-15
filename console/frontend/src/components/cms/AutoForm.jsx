@@ -5,7 +5,7 @@ import IconPicker from './IconPicker.jsx';
 import VideoPicker from './VideoPicker.jsx';
 import {
   labelFor, hintFor, isHiddenKey, isColorField, toInputHex, enumOptionsFor,
-  isColumnsField, extractYouTubeId,
+  isColumnsField, extractYouTubeId, isRequiredKey, isEmptyRequired,
 } from '../../lib/fieldKit.js';
 
 // Editor de conteudo GENERICO: percorre o objeto `data` (jsonb) e renderiza o
@@ -59,10 +59,11 @@ function StringField({ k, value, onChange, projectId, siblings }) {
   if (k === 'html') return <RichTextField value={value} onChange={onChange} />;
   if (k === 'icon') return <IconPicker value={value} onChange={onChange} />;
   if (isColorField(k, value)) return <ColorField value={value} onChange={onChange} />;
+  const label = labelFor(k);
   const options = enumOptionsFor(k, value, siblings);
   if (options) {
     return (
-      <select className="select" value={value || ''} onChange={(e) => onChange(e.target.value)}>
+      <select className="select" aria-label={label} value={value || ''} onChange={(e) => onChange(e.target.value)}>
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
     );
@@ -71,8 +72,8 @@ function StringField({ k, value, onChange, projectId, siblings }) {
   if (FILE_KEY.test(k)) return <MediaPicker projectId={projectId} value={value} onChange={onChange} />;
   const multi = TEXTAREA_KEYS.has(k) || (typeof value === 'string' && value.length > LONG);
   return multi
-    ? <textarea className="textarea" value={value || ''} onChange={(e) => onChange(e.target.value)} />
-    : <input className="input" value={value || ''} onChange={(e) => onChange(e.target.value)} />;
+    ? <textarea className="textarea" aria-label={label} value={value || ''} onChange={(e) => onChange(e.target.value)} />
+    : <input className="input" aria-label={label} value={value || ''} onChange={(e) => onChange(e.target.value)} />;
 }
 
 function ArrayOfStrings({ value, onChange }) {
@@ -107,9 +108,9 @@ function ArrayOfObjects({ value, onChange, projectId }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
             <strong style={{ fontSize: '.78rem', opacity: 0.7 }}>#{i + 1}</strong>
             <span style={{ display: 'flex', gap: 4 }}>
-              <button type="button" className="icon-btn" title="subir" onClick={() => move(i, -1)}>↑</button>
-              <button type="button" className="icon-btn" title="descer" onClick={() => move(i, 1)}>↓</button>
-              <button type="button" className="icon-btn" title="remover" onClick={() => onChange(items.filter((_, idx) => idx !== i))}>✕</button>
+              <button type="button" className="icon-btn" title="subir" aria-label={`Mover item ${i + 1} para cima`} onClick={() => move(i, -1)}>↑</button>
+              <button type="button" className="icon-btn" title="descer" aria-label={`Mover item ${i + 1} para baixo`} onClick={() => move(i, 1)}>↓</button>
+              <button type="button" className="icon-btn" title="remover" aria-label={`Remover item ${i + 1}`} onClick={() => onChange(items.filter((_, idx) => idx !== i))}>✕</button>
             </span>
           </div>
           <AutoForm value={it} onChange={(n) => setItem(i, n)} projectId={projectId} />
@@ -132,9 +133,14 @@ export default function AutoForm({ value, onChange, projectId }) {
         const v = value[k];
         const isScalar = !Array.isArray(v) && !isObj(v);
         const hint = hintFor(k);
+        const required = isRequiredKey(k);
+        const missing = isEmptyRequired(k, v);
         return (
           <div key={k} className="field">
-            <span className="field__label">{labelFor(k)}</span>
+            <span className="field__label">
+              {labelFor(k)}
+              {required && <span className="field__req" aria-hidden="true" title="Campo obrigatório"> *</span>}
+            </span>
             {Array.isArray(v) ? (
               v.length && isObj(v[0])
                 ? <ArrayOfObjects value={v} onChange={(n) => set(k, n)} projectId={projectId} />
@@ -145,20 +151,21 @@ export default function AutoForm({ value, onChange, projectId }) {
               </div>
             ) : typeof v === 'boolean' ? (
               <label className="check-inline" style={{ paddingBottom: 0 }}>
-                <input type="checkbox" checked={v} onChange={(e) => set(k, e.target.checked)} /> {v ? 'sim' : 'não'}
+                <input type="checkbox" aria-label={labelFor(k)} checked={v} onChange={(e) => set(k, e.target.checked)} /> {v ? 'sim' : 'não'}
               </label>
             ) : typeof v === 'number' ? (
               isColumnsField(k) ? (
-                <select className="select" value={v} onChange={(e) => set(k, Number(e.target.value))}>
+                <select className="select" aria-label={labelFor(k)} value={v} onChange={(e) => set(k, Number(e.target.value))}>
                   {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n} coluna{n > 1 ? 's' : ''}</option>)}
                 </select>
               ) : (
-                <input className="input" type="number" value={v} onChange={(e) => set(k, Number(e.target.value))} />
+                <input className="input" type="number" aria-label={labelFor(k)} value={v} onChange={(e) => set(k, Number(e.target.value))} />
               )
             ) : (
               isScalar && <StringField k={k} value={v} onChange={(n) => set(k, n)} projectId={projectId} siblings={keys} />
             )}
             {hint && <span className="muted" style={{ fontSize: '.75rem', marginTop: 4 }}>{hint}</span>}
+            {missing && <span className="field__req-msg" role="alert">Este campo é obrigatório.</span>}
           </div>
         );
       })}

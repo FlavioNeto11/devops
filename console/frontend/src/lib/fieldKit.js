@@ -92,6 +92,44 @@ export function isHiddenKey(k) {
 }
 
 // ---------------------------------------------------------------------------
+// Campos obrigatórios: chaves canônicas que não devem ficar vazias ao salvar.
+// Marcamos com asterisco no formulário e avisamos/bloqueamos o save explícito.
+// Conservador de propósito — só campos cujo vazio quebra a apresentação.
+const REQUIRED_KEYS = new Set(['name', 'title', 'heading', 'label', 'q', 'a', 'quote']);
+
+/** True quando a chave é um campo obrigatório (não pode ficar vazio). */
+export function isRequiredKey(k) {
+  return REQUIRED_KEYS.has(k);
+}
+
+/** True quando o valor de um campo obrigatório está "vazio" (string em branco). */
+export function isEmptyRequired(k, v) {
+  if (!isRequiredKey(k)) return false;
+  if (v == null) return true;
+  if (typeof v === 'string') return v.trim() === '';
+  return false; // não-strings (números/objetos) não contam como vazios aqui
+}
+
+/**
+ * Percorre `data` (recursivo) e retorna os rótulos dos campos obrigatórios
+ * vazios — usado para avisar/bloquear no save. Ignora chaves internas.
+ */
+export function missingRequired(data, acc = []) {
+  if (!data || typeof data !== 'object') return acc;
+  if (Array.isArray(data)) {
+    for (const item of data) missingRequired(item, acc);
+    return acc;
+  }
+  for (const k of Object.keys(data)) {
+    if (isHiddenKey(k)) continue;
+    const v = data[k];
+    if (isEmptyRequired(k, v)) acc.push(labelFor(k));
+    else if (v && typeof v === 'object') missingRequired(v, acc);
+  }
+  return acc;
+}
+
+// ---------------------------------------------------------------------------
 // Cores: chave de cor + valor hex (ou vazio) → seletor visual de cor.
 const COLOR_KEYS = new Set(['primary', 'accent', 'background', 'color', 'colour', 'bg']);
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;

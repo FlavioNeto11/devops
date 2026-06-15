@@ -15,7 +15,7 @@ export default function Sidebar({ groups, links = [], activeKey, onSelect, colla
         <span className="sidebar__logo-text">DevOps Console</span>
       </div>
 
-      <nav className="sidebar__nav">
+      <nav className="sidebar__nav" id="sidebar-nav">
         {groups.map((g) => (
           <div key={g.label} className="sidebar__group">
             <div className="sidebar__group-label">{g.label}</div>

@@ -58,6 +58,7 @@ function handleNavigate(path) {
               :title="group.label"
               :subtitle="group.description"
               :active="isActive(group.to)"
+              :aria-current="isActive(group.to) ? 'page' : undefined"
               rounded="lg"
               @click="handleNavigate(group.to)"
             />
@@ -76,6 +77,7 @@ function handleNavigate(path) {
                 :title="item.label"
                 :subtitle="item.description"
                 :active="isActive(item.to)"
+                :aria-current="isActive(item.to) ? 'page' : undefined"
                 rounded="lg"
                 @click="handleNavigate(item.to)"
               />
