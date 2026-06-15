@@ -123,6 +123,250 @@ export function bandRank(band) {
   return band === 'high' ? 3 : band === 'medium' ? 2 : 1;
 }
 
+/* ============================================================================
+   MAPA DE IMPACTO — grafo orgânico (force-directed) + paleta automática.
+   Tudo PURO e testável. As posições derivam de um HASH ESTÁVEL do id (sem
+   aleatoriedade de runtime, sem relógio): mesmas entradas => mesmas posições,
+   logo o mapa nunca "reembaralha" entre renders.
+   ============================================================================ */
+
+// Hash estável FNV-1a (32 bits) — semente determinística de posição/desempate.
+export function hashStr(s) {
+  let h = 2166136261 >>> 0;
+  const str = s == null ? '' : String(s);
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h >>> 0;
+}
+function hash01(s) { return hashStr(s) / 4294967296; }
+
+// grau (nº de conexões) por id, a partir das arestas.
+export function degreeMap(edges) {
+  const d = {};
+  for (const e of edges || []) { d[e.from] = (d[e.from] || 0) + 1; d[e.to] = (d[e.to] || 0) + 1; }
+  return d;
+}
+
+/* ---------- cor por produto (paleta automática estável) + contraste WCAG ---------- */
+// HSL (h:0..360, s/l:0..1) -> hex. Puro.
+export function hslToHex(h, s, l) {
+  h = ((h % 360) + 360) % 360;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  let r = 0, g = 0, b = 0;
+  if (h < 60) { r = c; g = x; }
+  else if (h < 120) { r = x; g = c; }
+  else if (h < 180) { g = c; b = x; }
+  else if (h < 240) { g = x; b = c; }
+  else if (h < 300) { r = x; b = c; }
+  else { r = c; b = x; }
+  const to = (v) => Math.round((v + m) * 255).toString(16).padStart(2, '0');
+  return '#' + to(r) + to(g) + to(b);
+}
+// luminância relativa WCAG de um hex (#rrggbb).
+export function relLuminance(hex) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || ''));
+  if (!m) return 0;
+  const ch = [m[1], m[2], m[3]].map((p) => {
+    const v = parseInt(p, 16) / 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+}
+// razão de contraste WCAG entre dois hex (>= 1).
+export function contrastRatio(a, b) {
+  const la = relLuminance(a), lb = relLuminance(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+// melhor cor de texto (claro/escuro) sobre um fundo — SEMPRE >= 4.5:1, pois o
+// máximo de contraste a preto/branco é >= 4.58:1 para qualquer cor de fundo.
+export function textColorFor(bgHex) {
+  const light = '#ffffff', dark = '#000000';
+  return contrastRatio(bgHex, light) >= contrastRatio(bgHex, dark) ? light : dark;
+}
+// paleta: cada produto (ordenado) recebe um matiz por ÂNGULO ÁUREO -> cores
+// distinguíveis e ESTÁVEIS (independem da seleção). Texto por contraste.
+export function productPalette(products) {
+  const list = [...new Set((products || []).filter((p) => p != null && p !== ''))].sort();
+  const GOLDEN = 137.508;
+  const pal = {};
+  list.forEach((p, i) => {
+    const hue = Math.round((i * GOLDEN) % 360);
+    const fill = hslToHex(hue, 0.58, 0.55);
+    pal[p] = { product: p, hue, fill, text: textColorFor(fill) };
+  });
+  return pal;
+}
+// cor de um nó: produto -> paleta; alvo de alocação (sem produto) -> grafite neutro.
+export function nodeColor(node, palette) {
+  const p = node && node.product;
+  if (p && palette && palette[p]) return palette[p];
+  return { product: null, hue: null, fill: '#3a4654', text: '#ffffff', target: true };
+}
+
+/* ---------- vizinhança para realce (clique) ---------- */
+// realce de um nó: vizinhos diretos (Set) + arestas que o conectam.
+export function highlightSet(edges, id) {
+  const neighbors = new Set();
+  const conn = [];
+  for (const e of edges || []) {
+    if (e.from === id) { neighbors.add(e.to); conn.push(e); }
+    else if (e.to === id) { neighbors.add(e.from); conn.push(e); }
+  }
+  return { focus: id, neighbors, edges: conn };
+}
+
+/* ---------- visibilidade do mapa (produtos + isolados + revelação cross-product) ----------
+   Decide quais nós/arestas aparecem. PURO. Regras:
+   - products: Set de produtos selecionados (vazio/null => todos);
+   - includeIsolated: mostra nós de grau 0 (após o filtro de tipo de aresta);
+   - edgeTypes: Set de tipos de aresta permitidos (vazio/null => todos);
+   - selectedId: REVELAÇÃO — o nó selecionado e seus vizinhos diretos SEMPRE
+     aparecem, mesmo de produto não selecionado (mostra a conexão);
+   - alvos de alocação (sem produto) aparecem quando tocam um nó visível. */
+export function visibleGraph(nodes, edges, opts = {}) {
+  const prodSel = opts.products && opts.products.size ? opts.products : null;
+  const types = opts.edgeTypes && opts.edgeTypes.size ? opts.edgeTypes : null;
+  const includeIsolated = !!opts.includeIsolated;
+  const selectedId = opts.selectedId || null;
+  const es = (edges || []).filter((e) => !types || types.has(e.type));
+  const deg = degreeMap(es);
+  const inProduct = (n) => !prodSel || (n.product && prodSel.has(n.product));
+  // BASE por produto + isolamento (independe da seleção): primeiro os REQs…
+  const base = new Set();
+  for (const n of nodes) {
+    if (!n.product) continue;           // alvos: 2ª passada
+    if (!inProduct(n)) continue;
+    if (!includeIsolated && !deg[n.id]) continue;
+    base.add(n.id);
+  }
+  // …depois os alvos de alocação (sem produto), se tocam um REQ da base.
+  for (const n of nodes) {
+    if (n.product || base.has(n.id)) continue;
+    if (es.some((e) => (e.from === n.id && base.has(e.to)) || (e.to === n.id && base.has(e.from)))) base.add(n.id);
+  }
+  // REVELAÇÃO cross-product: vizinhos diretos do selecionado que NÃO estão na base
+  // (de produto não selecionado) — aparecem só p/ mostrar a conexão.
+  const revealed = new Set();
+  if (selectedId) {
+    for (const e of es) {
+      if (e.from === selectedId && !base.has(e.to)) revealed.add(e.to);
+      if (e.to === selectedId && !base.has(e.from)) revealed.add(e.from);
+    }
+  }
+  const visible = new Set(base);
+  if (selectedId) visible.add(selectedId);   // o selecionado é sempre visível
+  for (const id of revealed) visible.add(id);
+  const vedges = es.filter((e) => visible.has(e.from) && visible.has(e.to));
+  return { nodeIds: visible, revealed, edges: vedges, degree: deg };
+}
+
+/* ---------- rótulo curto p/ a miniatura do nó ---------- */
+export function truncateLabel(s, max = 26) {
+  const t = String(s == null ? '' : s).trim();
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max - 1);
+  const soft = cut.replace(/\s+\S*$/, '');
+  return (soft.length >= max * 0.6 ? soft : cut).trimEnd() + '…';
+}
+
+/* ---------- layout force-directed determinístico (Fruchterman-Reingold + clustering) ----------
+   Posiciona `nodes` num quadro W×H. PURO/determinístico (init por hash do id, nº
+   fixo de iterações). Forças: repulsão entre todos os pares (O(n^2)); mola nas
+   arestas; gravidade ao centro; clustering ao centroide do próprio grupo (produto,
+   ou 'infra' p/ alvos) => forma "regiões" no mapa. Retorna nós {…,x,y,deg}
+   normalizados ao quadro com padding. */
+export function forceLayout(nodes, edges, opts = {}) {
+  const W = opts.width || 1000;
+  const H = opts.height || 680;
+  const pad = opts.pad || 54;
+  const n = (nodes || []).length;
+  if (!n) return { nodes: [], edges: [], width: W, height: H };
+  const iterations = opts.iterations || (n > 200 ? 200 : 340);
+  const kRep = opts.repulsion || 5200;
+  const kAttr = opts.attraction || 0.045;
+  const rest = opts.restLength || 84;
+  const kCluster = opts.cluster != null ? opts.cluster : 0.02;
+  const kGravity = opts.gravity != null ? opts.gravity : 0.014;
+  const cx = W / 2, cy = H / 2;
+  const groupOf = (nd) => nd.product || 'infra';
+  const pos = new Map();
+  for (const nd of nodes) {
+    pos.set(nd.id, {
+      x: cx + (hash01(nd.id + ':x') - 0.5) * W * 0.8,
+      y: cy + (hash01(nd.id + ':y') - 0.5) * H * 0.8,
+    });
+  }
+  const E = (edges || []).filter((e) => pos.has(e.from) && pos.has(e.to));
+  let temp = Math.max(W, H) / 8;
+  const cool = temp / (iterations + 1);
+  const disp = new Map(nodes.map((nd) => [nd.id, { x: 0, y: 0 }]));
+  for (let it = 0; it < iterations; it++) {
+    for (const nd of nodes) { const d = disp.get(nd.id); d.x = 0; d.y = 0; }
+    for (let i = 0; i < n; i++) {
+      const a = pos.get(nodes[i].id);
+      for (let j = i + 1; j < n; j++) {
+        const b = pos.get(nodes[j].id);
+        let dx = a.x - b.x, dy = a.y - b.y;
+        let d2 = dx * dx + dy * dy;
+        if (d2 < 0.01) { // desempate determinístico por hash do par
+          dx = (hashStr(nodes[i].id + '|' + nodes[j].id) % 7) - 3 || 1;
+          dy = (hashStr(nodes[j].id + '|' + nodes[i].id) % 7) - 3 || 1;
+          d2 = dx * dx + dy * dy;
+        }
+        const d = Math.sqrt(d2);
+        const f = kRep / d2;
+        const fx = (dx / d) * f, fy = (dy / d) * f;
+        const da = disp.get(nodes[i].id), db = disp.get(nodes[j].id);
+        da.x += fx; da.y += fy; db.x -= fx; db.y -= fy;
+      }
+    }
+    for (const e of E) {
+      const a = pos.get(e.from), b = pos.get(e.to);
+      let dx = a.x - b.x, dy = a.y - b.y;
+      const d = Math.sqrt(dx * dx + dy * dy) || 0.01;
+      const f = kAttr * (d - rest);
+      const fx = (dx / d) * f, fy = (dy / d) * f;
+      const da = disp.get(e.from), db = disp.get(e.to);
+      da.x -= fx; da.y -= fy; db.x += fx; db.y += fy;
+    }
+    const cent = new Map();
+    for (const nd of nodes) {
+      const g = groupOf(nd); const p = pos.get(nd.id);
+      const c = cent.get(g) || { x: 0, y: 0, n: 0 };
+      c.x += p.x; c.y += p.y; c.n++; cent.set(g, c);
+    }
+    for (const [, c] of cent) { c.x /= c.n; c.y /= c.n; }
+    for (const nd of nodes) {
+      const p = pos.get(nd.id), d = disp.get(nd.id);
+      const c = cent.get(groupOf(nd));
+      if (c) { d.x += (c.x - p.x) * kCluster; d.y += (c.y - p.y) * kCluster; }
+      d.x += (cx - p.x) * kGravity; d.y += (cy - p.y) * kGravity;
+    }
+    for (const nd of nodes) {
+      const p = pos.get(nd.id), d = disp.get(nd.id);
+      const len = Math.sqrt(d.x * d.x + d.y * d.y) || 0.01;
+      p.x += (d.x / len) * Math.min(len, temp);
+      p.y += (d.y / len) * Math.min(len, temp);
+    }
+    temp -= cool;
+  }
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const nd of nodes) { const p = pos.get(nd.id); if (p.x < minX) minX = p.x; if (p.y < minY) minY = p.y; if (p.x > maxX) maxX = p.x; if (p.y > maxY) maxY = p.y; }
+  const s = Math.min((W - 2 * pad) / Math.max(1e-6, maxX - minX), (H - 2 * pad) / Math.max(1e-6, maxY - minY));
+  const offX = pad + ((W - 2 * pad) - (maxX - minX) * s) / 2;
+  const offY = pad + ((H - 2 * pad) - (maxY - minY) * s) / 2;
+  const deg = degreeMap(edges);
+  const out = nodes.map((nd) => {
+    const p = pos.get(nd.id);
+    return { ...nd, x: offX + (p.x - minX) * s, y: offY + (p.y - minY) * s, deg: deg[nd.id] || 0 };
+  });
+  return { nodes: out, edges: E, width: W, height: H };
+}
+
 // Resumo da matriz de cobertura: por dimensão, quantos requisitos cobrem (hit)
 // e quantos faltam (miss), com o percentual. Puro — entrada são os requisitos.
 export function coverageSummary(reqs) {

@@ -1,6 +1,6 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList } from './lib.js?v=9';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel } from './lib.js?v=10';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -310,59 +310,325 @@ function renderVersions() {
   t.append(tb); wrap.append(t); body.append(wrap);
 }
 
-/* ---------- Mapa de impacto (SVG) ---------- */
+/* ---------- Mapa de impacto (force-directed orgânico) ----------
+   Arquitetura: a CENA (SVG: arestas + nós posicionados pelo forceLayout puro) é
+   construída UMA vez por população (recomputa só ao ligar/desligar isolados). As
+   interações (seleção, hover, filtro de produto/tipo) só REPINTAM classes/atributos
+   sobre a cena cacheada — o layout nunca "reembaralha". Cores dinâmicas vão em
+   atributos SVG (fill) e estados em classes CSS (CSP estrita: sem style inline). */
+const IMPACT = { W: 1600, H: 1000, st: null, layout: null, palette: null, deg: null, nodeEls: null, edgeEls: null, svg: null, root: null, inspector: null };
+const EDGE_META = {
+  depends_on: { cls: 'e-depends', label: 'depende de' },
+  allocates_to: { cls: 'e-alloc', label: 'aloca em' },
+  constrains: { cls: 'e-constrains', label: 'restringe' },
+  relates_to: { cls: 'e-relates', label: 'relaciona-se' },
+  refines: { cls: 'e-refines', label: 'refina' },
+  verifies: { cls: 'e-verifies', label: 'verifica' },
+};
+const TARGET_LABEL = { infra: 'infraestrutura', service: 'serviço', slo: 'SLO' };
+
 function renderImpact() {
-  const wrap = document.getElementById('impact-filters');
-  wrap.replaceChildren();
-  const types = uniqueValues(DATA.impact.edges, (e) => e.type);
-  const prods = uniqueValues(DATA.impact.nodes, (n) => n.product);
-  const tSel = h('select', { 'aria-label': 'Tipo de link', onchange: (e) => { state.impactFilter.type = e.target.value; drawImpact(); } }, h('option', { value: '', text: 'Tipo de link (todos)' }));
-  types.forEach((t) => tSel.append(h('option', { value: t, text: t })));
-  const pSel = h('select', { 'aria-label': 'Produto', onchange: (e) => { state.impactFilter.product = e.target.value; drawImpact(); } }, h('option', { value: '', text: 'Produto (todos)' }));
-  prods.forEach((p) => pSel.append(h('option', { value: p, text: p })));
-  const focus = h('label', {}, 'Focar no selecionado',
-    h('input', { type: 'checkbox', onchange: (e) => { state.impactFilter.focus = e.target.checked; drawImpact(); } }));
-  wrap.append(h('label', {}, 'Link', tSel), h('label', {}, 'Produto', pSel), focus,
-    h('span', { class: 'count', id: 'impact-count' }));
-  drawImpact();
+  const filters = document.getElementById('impact-filters');
+  if (!IMPACT.st) IMPACT.st = { products: null, edgeTypes: null, includeIsolated: false, selectedId: null, hoverId: null };
+  IMPACT.deg = degreeMap(DATA.impact.edges);
+  IMPACT.palette = productPalette(uniqueValues(DATA.impact.nodes, (n) => n.product));
+  buildImpactControls(filters);
+  buildImpactScene(document.getElementById('impact-canvas'));
+  paintImpact();
 }
-function drawImpact() {
-  const canvas = document.getElementById('impact-canvas');
+
+// contagem de nós por produto na população atual (respeita o toggle de isolados).
+function impactPopulationCounts() {
+  const c = {};
+  for (const n of DATA.impact.nodes) {
+    if (!n.product) continue;
+    if (!IMPACT.st.includeIsolated && !IMPACT.deg[n.id]) continue;
+    c[n.product] = (c[n.product] || 0) + 1;
+  }
+  return c;
+}
+// bolinha colorida (cor via atributo SVG fill — CSP-safe).
+function svgDot(color) {
+  const s = svg('svg', { class: 'lg-dot', width: '11', height: '11', viewBox: '0 0 11 11', 'aria-hidden': 'true' });
+  s.append(svg('circle', { cx: '5.5', cy: '5.5', r: '5', fill: color }));
+  return s;
+}
+
+function buildImpactControls(filters) {
+  filters.replaceChildren();
+  const st = IMPACT.st;
+  const counts = impactPopulationCounts();
+  const products = Object.keys(IMPACT.palette).filter((p) => counts[p]);
+  // legenda-filtro de PRODUTOS (multi-seleção) — a legenda É o seletor.
+  const legend = h('div', { class: 'map-legend', role: 'group', 'aria-label': 'Filtrar por produto (a cor de cada produto é a do mapa)' });
+  const isAll = st.products === null;
+  legend.append(h('button', { class: 'lg-all', type: 'button', 'aria-pressed': String(isAll), title: 'Mostrar todos os produtos', onclick: () => { st.products = null; buildImpactControls(filters); paintImpact(); } }, 'Todos'));
+  for (const p of products) {
+    const pressed = isAll || st.products.has(p);
+    legend.append(h('button', { class: 'lg-chip', type: 'button', 'data-prod': p, 'aria-pressed': String(pressed), onclick: () => toggleProduct(p) },
+      svgDot(IMPACT.palette[p].fill), h('span', { class: 'lg-name', text: p }), h('span', { class: 'lg-n', text: String(counts[p]) })));
+  }
+  // legenda-filtro de TIPOS DE RELAÇÃO (toggle).
+  const types = uniqueValues(DATA.impact.edges, (e) => e.type);
+  const eLegend = h('div', { class: 'map-legend edges', role: 'group', 'aria-label': 'Filtrar por tipo de relação' });
+  for (const t of types) {
+    const pressed = st.edgeTypes === null || st.edgeTypes.has(t);
+    eLegend.append(h('button', { class: 'lg-chip etype ' + (EDGE_META[t] ? EDGE_META[t].cls : ''), type: 'button', 'data-etype': t, 'aria-pressed': String(pressed), onclick: () => toggleEdgeType(t) },
+      h('span', { class: 'e-swatch', 'aria-hidden': 'true' }), h('span', { text: EDGE_META[t] ? EDGE_META[t].label : t })));
+  }
+  // controles auxiliares: incluir isolados, localizar, contador.
+  const isoInput = h('input', { type: 'checkbox', onchange: (e) => { st.includeIsolated = e.target.checked; st.selectedId = null; st.hoverId = null; renderImpact(); } });
+  if (st.includeIsolated) isoInput.checked = true;
+  const iso = h('label', { class: 'map-toggle' }, isoInput, `Incluir os ${DATA.impact.nodes.filter((n) => n.product && !IMPACT.deg[n.id]).length} sem conexão`);
+  const locate = h('input', { type: 'search', class: 'map-locate', placeholder: 'Localizar no mapa…', 'aria-label': 'Localizar requisito no mapa', onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); locateNode(e.target.value); } } });
+  filters.append(legend, eLegend, iso, locate, h('span', { class: 'count', id: 'impact-count', role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' }));
+}
+
+function toggleProduct(p) {
+  const st = IMPACT.st;
+  if (st.products === null) st.products = new Set([p]);       // de "todos" -> focar nesse produto
+  else if (st.products.has(p)) { st.products.delete(p); if (!st.products.size) st.products = null; }
+  else st.products.add(p);
+  buildImpactControls(document.getElementById('impact-filters'));
+  paintImpact();
+}
+function toggleEdgeType(t) {
+  const st = IMPACT.st;
+  const all = uniqueValues(DATA.impact.edges, (e) => e.type);
+  if (st.edgeTypes === null) st.edgeTypes = new Set(all);
+  if (st.edgeTypes.has(t)) st.edgeTypes.delete(t); else st.edgeTypes.add(t);
+  if (st.edgeTypes.size === all.length) st.edgeTypes = null;
+  buildImpactControls(document.getElementById('impact-filters'));
+  paintImpact();
+}
+// localizar: casa por id/título, revela (mesmo fora do filtro), seleciona e centraliza.
+function locateNode(q) {
+  if (!q || !q.trim()) return;
+  const hit = DATA.impact.nodes.find((n) => matchesQuery(byId(n.id) || { id: n.id }, q));
+  if (!hit) { const cnt = document.getElementById('impact-count'); if (cnt) cnt.textContent = `nada encontrado para "${q}"`; return; }
+  IMPACT.st.selectedId = hit.id;
+  // se o nó está fora da população desenhada (isolado sem o toggle), liga isolados e reconstrói a cena.
+  if (!IMPACT.nodeEls.has(hit.id)) {
+    if (!IMPACT.deg[hit.id]) IMPACT.st.includeIsolated = true;
+    renderImpact();
+  } else {
+    paintImpact();
+  }
+  centerOnNode(hit.id);
+}
+
+function nodeAria(n, req) {
+  const d = IMPACT.deg[n.id] || 0;
+  if (req) return `${n.id}: ${req.title || ''}. ${req.type === 'non-functional' ? 'NFR' : 'funcional'}, produto ${req.product || '—'}, impacto ${req.impact_band}, ${d} conexões${n.asr ? ', ASR' : ''}.`;
+  return `${n.id}: alvo de alocação (${TARGET_LABEL[n.kind] || n.kind}), ${d} conexões.`;
+}
+
+function buildImpactScene(canvas) {
   canvas.replaceChildren();
-  let nodes = DATA.impact.nodes;
-  let edges = DATA.impact.edges;
-  const f = state.impactFilter;
-  if (f.product) { nodes = nodes.filter((n) => n.product === f.product); const keep = new Set(nodes.map((n) => n.id)); edges = edges.filter((e) => keep.has(e.from) && keep.has(e.to)); }
-  if (f.type) edges = edges.filter((e) => e.type === f.type);
-  const layout = graphLayout(nodes, edges, f.focus && state.selectedId ? state.selectedId : null);
-  document.getElementById('impact-count').textContent = `${layout.nodes.length} nós · ${layout.edges.length} arestas`;
-  const s = svg('svg', { viewBox: `0 0 ${layout.width} ${layout.height}`, width: layout.width, height: layout.height, role: 'img', 'aria-label': 'Grafo de impacto entre requisitos. Use a roda do mouse para zoom e arraste para mover.' });
-  // <g> com transform: alvo do zoom (wheel) e pan (drag). Colunas/arestas/nós vivem aqui.
-  const root = svg('g', { class: 'impact-root' });
-  s.append(root);
-  // colunas (rótulos)
-  for (const c of layout.columns) root.append(Object.assign(svg('text', { x: layout.colX[c] + 4, y: 24, class: 'colhead' }), { textContent: c }));
+  const st = IMPACT.st;
+  const population = st.includeIsolated ? DATA.impact.nodes : DATA.impact.nodes.filter((n) => IMPACT.deg[n.id]);
+  const layout = forceLayout(population, DATA.impact.edges, { width: IMPACT.W, height: IMPACT.H });
+  IMPACT.layout = layout;
   const pos = Object.fromEntries(layout.nodes.map((n) => [n.id, n]));
+  const s = svg('svg', { viewBox: `0 0 ${layout.width} ${layout.height}`, role: 'group', 'aria-label': 'Mapa de impacto entre requisitos. Use Tab para focar um nó, setas para navegar entre nós, Enter para destacar suas conexões, O para abrir o requisito, Esc para limpar. Arraste para mover; roda do mouse para aproximar.' });
+  const root = svg('g', { class: 'impact-root' });
+  const gEdges = svg('g', { class: 'edges-layer' });
+  const gNodes = svg('g', { class: 'nodes-layer' });
+  root.append(gEdges, gNodes); s.append(root);
+  IMPACT.svg = s; IMPACT.root = root;
+  // arestas (curva Bézier suave; estilo por tipo via classe CSS).
+  IMPACT.edgeEls = [];
   for (const e of layout.edges) {
     const a = pos[e.from], b = pos[e.to];
     if (!a || !b) continue;
-    const path = svg('path', { class: 'edge' + (e.proposed ? ' proposed' : ''), d: `M ${a.x + 150} ${a.y + 12} C ${a.x + 220} ${a.y + 12}, ${b.x - 30} ${b.y + 12}, ${b.x} ${b.y + 12}` });
-    root.append(path);
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2 - 22;
+    const path = svg('path', { class: 'edge ' + (EDGE_META[e.type] ? EDGE_META[e.type].cls : '') + (e.proposed ? ' proposed' : ''), d: `M ${a.x} ${a.y} Q ${mx} ${my} ${b.x} ${b.y}` });
+    gEdges.append(path);
+    IMPACT.edgeEls.push({ path, e });
   }
+  // nós = chips coloridos pelo produto, com o id curto (texto em cor de contraste).
+  IMPACT.nodeEls = new Map();
   for (const n of layout.nodes) {
-    const links = neighborhood(layout.edges, n.id);
-    const titleText = `${n.id}${n.asr ? ' · ASR' : ''} · ${n.product || 'externo'} · sai ${links.outgoing.length} / entra ${links.incoming.length}`;
-    const g = svg('g', { class: 'node' + (n.asr ? ' asr' : ''), tabindex: '0', role: 'button', 'aria-label': titleText });
-    // <title> nativo do SVG: tooltip + a11y (lido por leitores de tela ao focar).
-    g.append(Object.assign(svg('title'), { textContent: titleText }));
-    g.append(svg('rect', { x: n.x, y: n.y, width: 150, height: 24, rx: 5 }));
-    const tx = svg('text', { x: n.x + 8, y: n.y + 16 }); tx.textContent = n.id; g.append(tx);
-    g.addEventListener('click', () => openReq(n.id));
-    g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openReq(n.id); } });
-    root.append(g);
+    const col = nodeColor(n, IMPACT.palette);
+    const req = byId(n.id);
+    const short = n.id.startsWith('REQ-') ? n.id.slice(4) : n.id;
+    const title = req ? truncateLabel(req.title, 22) : '';      // R3: miniatura útil (id + título)
+    const twoLine = !!title;
+    const isHub = (n.deg || 0) >= 3;
+    const w = Math.max(56, Math.max(short.length * 7.6, title.length * 5.9) + 22);
+    const hgt = twoLine ? (isHub ? 34 : 31) : 23;
+    const x = n.x - w / 2, y = n.y - hgt / 2;
+    const cls = 'node' + (n.asr ? ' asr' : '') + (col.target ? ' target' : '') + (isHub ? ' hub' : '') + (req && req.type === 'non-functional' ? ' nfr' : '');
+    // roving tabindex: nasce fora do Tab (-1); updateRoving define o único Tab-stop.
+    const g = svg('g', { class: cls, tabindex: '-1', role: 'button', 'aria-label': nodeAria(n, req) });
+    g.append(Object.assign(svg('title'), { textContent: nodeAria(n, req) }));
+    g.append(svg('rect', { class: 'chip', x, y, width: w, height: hgt, rx: col.target ? '5' : (twoLine ? '9' : String(hgt / 2)), fill: col.fill }));
+    if (twoLine) {
+      const t1 = svg('text', { class: 'chip-lbl id', x: n.x, y: y + 12, 'text-anchor': 'middle', fill: col.text }); t1.textContent = short;
+      const t2 = svg('text', { class: 'chip-lbl ti', x: n.x, y: y + hgt - 8, 'text-anchor': 'middle', fill: col.text }); t2.textContent = title;
+      g.append(t1, t2);
+    } else {
+      const tx = svg('text', { class: 'chip-lbl', x: n.x, y: n.y, 'text-anchor': 'middle', 'dominant-baseline': 'central', fill: col.text }); tx.textContent = short;
+      g.append(tx);
+    }
+    g.addEventListener('click', (ev) => { ev.stopPropagation(); selectNode(n.id); });
+    g.addEventListener('dblclick', (ev) => { ev.stopPropagation(); if (req) openReq(n.id); });
+    g.addEventListener('keydown', (ev) => onNodeKey(ev, n.id, req));
+    g.addEventListener('mouseenter', () => setHover(n.id));
+    g.addEventListener('mouseleave', () => clearHover(n.id));
+    g.addEventListener('focus', () => setHover(n.id));
+    g.addEventListener('blur', () => clearHover(n.id));
+    gNodes.append(g);
+    IMPACT.nodeEls.set(n.id, { g });
   }
+  // inspetor (overlay) + controles (zoom/pan/centrar). Fundo: clique limpa a seleção.
+  IMPACT.inspector = h('div', { class: 'impact-inspector is-hidden', role: 'region', 'aria-label': 'Detalhes do requisito em foco' });
   wireZoomPan(s, root, layout);
-  canvas.append(controlsBar(s, root, layout), s);
+  canvas.append(controlsBar(s, root, layout), IMPACT.inspector, s);
+}
+
+function selectNode(id) {
+  IMPACT.st.selectedId = IMPACT.st.selectedId === id ? null : id; // toggle: reclica para limpar
+  paintImpact();
+}
+function clearSelection() { if (IMPACT.st.selectedId) { IMPACT.st.selectedId = null; paintImpact(); } }
+function setHover(id) {
+  IMPACT.st.hoverId = id;
+  const el = IMPACT.nodeEls.get(id); if (el) el.g.classList.add('is-hover');
+  if (!IMPACT.st.selectedId) showInspector(id, true);
+}
+function clearHover(id) {
+  IMPACT.st.hoverId = null;
+  const el = IMPACT.nodeEls.get(id); if (el) el.g.classList.remove('is-hover');
+  if (!IMPACT.st.selectedId) hideInspector();
+}
+// --- navegação por teclado nos nós: roving tabindex (um Tab-stop) + setas entre nós visíveis ---
+function visibleNodeGs() {
+  const out = [];
+  for (const { g } of IMPACT.nodeEls.values()) if (!g.classList.contains('is-hidden')) out.push(g);
+  return out;
+}
+function onNodeKey(ev, id, req) {
+  const k = ev.key;
+  if (k === 'Enter' || k === ' ') { ev.preventDefault(); selectNode(id); return; }
+  if (k === 'o' || k === 'O') { if (req) openReq(id); return; }
+  if (k === 'Escape') { clearSelection(); return; }
+  if (k === 'ArrowRight' || k === 'ArrowDown' || k === 'ArrowLeft' || k === 'ArrowUp') {
+    ev.preventDefault();
+    const gs = visibleNodeGs();
+    if (!gs.length) return;
+    const cur = IMPACT.nodeEls.get(id);
+    const i = cur ? gs.indexOf(cur.g) : -1;
+    const dir = (k === 'ArrowRight' || k === 'ArrowDown') ? 1 : -1;
+    const next = gs[(i + dir + gs.length) % gs.length];
+    for (const { g } of IMPACT.nodeEls.values()) g.setAttribute('tabindex', g === next ? '0' : '-1');
+    next.focus();
+  }
+}
+// define o único Tab-stop do mapa: o selecionado (se visível) ou o 1º nó visível.
+function updateRoving() {
+  if (!IMPACT.nodeEls) return;
+  const sel = IMPACT.st.selectedId && IMPACT.nodeEls.get(IMPACT.st.selectedId);
+  let anchor = sel && !sel.g.classList.contains('is-hidden') ? sel.g : null;
+  if (!anchor) anchor = visibleNodeGs()[0] || null;
+  for (const { g } of IMPACT.nodeEls.values()) g.setAttribute('tabindex', g === anchor ? '0' : '-1');
+}
+function centerOnNode(id) {
+  const n = IMPACT.layout && IMPACT.layout.nodes.find((x) => x.id === id);
+  const s = IMPACT.svg; if (!n || !s || !s._vp) return;
+  const vp = s._vp;
+  vp.k = Math.max(vp.k, 1.5);
+  vp.x = IMPACT.W / 2 - n.x * vp.k;
+  vp.y = IMPACT.H / 2 - n.y * vp.k;
+  applyTransform(IMPACT.root, vp);
+}
+
+function showInspector(id, transient) {
+  const host = IMPACT.inspector; if (!host) return;
+  const req = byId(id);
+  const node = DATA.impact.nodes.find((n) => n.id === id);
+  const card = h('div', { class: 'insp-card' });
+  card.append(h('div', { class: 'insp-head' },
+    h('span', { class: 'insp-id', text: id }),
+    h('button', { class: 'insp-x', type: 'button', 'aria-label': 'Fechar detalhes', onclick: () => { IMPACT.st.selectedId = null; IMPACT.st.hoverId = null; paintImpact(); } }, '×')));
+  if (req) {
+    card.append(h('div', { class: 'insp-title', text: req.title || '' }));
+    const badges = h('div', { class: 'insp-badges' });
+    badges.append(badge(req.type === 'non-functional' ? 'NFR' : 'funcional', req.type === 'non-functional' ? 'b-nfr' : 'b-fn'));
+    if (req.priority) badges.append(badge(req.priority, req.priority === 'critical' ? 'b-crit' : req.priority === 'high' ? 'b-high' : 'b-med'));
+    if (req.impact_band) badges.append(badge(`${req.impact_band} (${req.impact_score})`, bandCls(req.impact_band)));
+    if (req.architectural_significance || (node && node.asr)) badges.append(badge('ASR', 'b-asr'));
+    if (req.status) badges.append(badge(req.status, 'b-ok'));
+    card.append(badges);
+  } else {
+    card.append(h('div', { class: 'insp-title', text: 'Alvo de alocação — ' + (node ? (TARGET_LABEL[node.kind] || node.kind) : '') }));
+  }
+  const nb = neighborhood(DATA.impact.edges, id);
+  const conns = [
+    ...nb.outgoing.map((e) => ({ other: e.to, type: e.type })),
+    ...nb.incoming.map((e) => ({ other: e.from, type: e.type })),
+  ];
+  card.append(h('div', { class: 'insp-sub', text: conns.length ? `${conns.length} conexões — clique para navegar` : 'Sem conexões' }));
+  if (conns.length) {
+    const ul = h('ul', { class: 'insp-conns' });
+    for (const c of conns.slice(0, 40)) {
+      const other = byId(c.other);
+      ul.append(h('li', {}, h('button', { class: 'insp-conn', type: 'button', onclick: () => { IMPACT.st.selectedId = c.other; paintImpact(); centerOnNode(c.other); } },
+        svgDot(nodeColor(DATA.impact.nodes.find((x) => x.id === c.other) || {}, IMPACT.palette).fill),
+        h('span', { class: 'insp-conn-id', text: c.other }),
+        h('span', { class: 'insp-conn-t', text: EDGE_META[c.type] ? EDGE_META[c.type].label : c.type }),
+        other ? h('span', { class: 'insp-conn-ti', text: truncateLabel(other.title, 34) }) : null)));
+    }
+    card.append(ul);
+  }
+  if (req) card.append(h('button', { class: 'btn insp-open', type: 'button', onclick: () => openReq(id) }, 'Abrir no Workspace ↗'));
+  host.replaceChildren(card);
+  host.classList.remove('is-hidden');
+  host.classList.toggle('is-transient', !!transient);
+}
+function hideInspector() { if (IMPACT.inspector) IMPACT.inspector.classList.add('is-hidden'); }
+
+// Repintura PURA da cena: liga/desliga visibilidade e estados via classes — sem recriar SVG.
+function paintImpact() {
+  const st = IMPACT.st;
+  if (!IMPACT.nodeEls) return;
+  const vg = visibleGraph(DATA.impact.nodes, DATA.impact.edges, { products: st.products, edgeTypes: st.edgeTypes, includeIsolated: st.includeIsolated, selectedId: st.selectedId });
+  const typedEdges = st.edgeTypes ? DATA.impact.edges.filter((e) => st.edgeTypes.has(e.type)) : DATA.impact.edges;
+  const hl = st.selectedId ? highlightSet(typedEdges, st.selectedId) : null;
+  const hot = new Set(hl ? [hl.focus, ...hl.neighbors] : []);
+  let shown = 0;
+  for (const [id, el] of IMPACT.nodeEls) {
+    const visible = vg.nodeIds.has(id);
+    el.g.classList.toggle('is-hidden', !visible);
+    if (visible) shown++;
+    el.g.classList.toggle('is-focus', id === st.selectedId);
+    el.g.classList.toggle('is-neighbor', !!hl && hot.has(id) && id !== st.selectedId);
+    el.g.classList.toggle('is-dim', !!st.selectedId && visible && !hot.has(id));
+    el.g.classList.toggle('is-revealed', vg.revealed.has(id) && id !== st.selectedId);
+  }
+  for (const { path, e } of IMPACT.edgeEls) {
+    const visible = vg.nodeIds.has(e.from) && vg.nodeIds.has(e.to) && (!st.edgeTypes || st.edgeTypes.has(e.type));
+    path.classList.toggle('is-hidden', !visible);
+    const active = !!st.selectedId && (e.from === st.selectedId || e.to === st.selectedId) && visible;
+    path.classList.toggle('is-active', active);
+    path.classList.toggle('is-dim', !!st.selectedId && visible && !active);
+  }
+  const cnt = document.getElementById('impact-count');
+  if (cnt) cnt.textContent = st.selectedId
+    ? `${st.selectedId} · ${Math.max(0, hot.size - 1)} conexões em destaque · ${shown} nós visíveis`
+    : `${shown} nós no mapa · ${IMPACT.edgeEls.length} relações`;
+  // a11y: roving tabindex + recupera o foco se o nó focado tiver sido ocultado.
+  const active = document.activeElement;
+  const lostFocus = active && active.classList && active.classList.contains('node') && active.classList.contains('is-hidden');
+  updateRoving();
+  if (lostFocus) {
+    const sel = st.selectedId && IMPACT.nodeEls.get(st.selectedId);
+    const target = (sel && !sel.g.classList.contains('is-hidden')) ? sel.g : visibleNodeGs()[0];
+    if (target) target.focus();
+  }
+  if (st.selectedId) showInspector(st.selectedId, false);
+  else if (st.hoverId) showInspector(st.hoverId, true);
+  else hideInspector();
 }
 
 // Estado do viewport do grafo (zoom/pan), aplicado via transform no <g> raiz.
@@ -380,10 +646,11 @@ function controlsBar(s, root, layout) {
     vp.k = nk;
     applyTransform(root, vp);
   };
-  const center = () => ({ cx: (s.clientWidth || layout.width) / 2, cy: (s.clientHeight || layout.height) / 2 });
+  const center = () => ({ cx: layout.width / 2, cy: layout.height / 2 });
   bar.append(
     h('button', { class: 'icon-btn sm', type: 'button', 'aria-label': 'Aproximar (zoom in)', title: 'Aproximar', onclick: () => { const c = center(); set(vp.k * 1.25, c.cx, c.cy); } }, '+'),
     h('button', { class: 'icon-btn sm', type: 'button', 'aria-label': 'Afastar (zoom out)', title: 'Afastar', onclick: () => { const c = center(); set(vp.k / 1.25, c.cx, c.cy); } }, '−'),
+    h('button', { class: 'icon-btn sm', type: 'button', 'aria-label': 'Centrar no nó selecionado', title: 'Centrar no selecionado', onclick: () => { if (IMPACT.st && IMPACT.st.selectedId) centerOnNode(IMPACT.st.selectedId); } }, '◎'),
     h('button', { class: 'icon-btn sm', type: 'button', 'aria-label': 'Restaurar zoom e posição', title: 'Restaurar', onclick: () => { vp.x = 0; vp.y = 0; vp.k = 1; applyTransform(root, vp); } }, '⟲'),
   );
   return bar;
@@ -411,14 +678,15 @@ function wireZoomPan(s, root, layout) {
   }, { passive: false });
   let drag = null;
   s.addEventListener('pointerdown', (ev) => {
-    // não inicia pan ao clicar num nó (preserva o clique de abrir o requisito)
+    // não inicia pan ao clicar num nó (preserva o clique de selecionar)
     if (ev.target.closest('.node')) return;
-    drag = { sx: ev.clientX, sy: ev.clientY, x0: vp.x, y0: vp.y };
+    drag = { sx: ev.clientX, sy: ev.clientY, x0: vp.x, y0: vp.y, moved: false };
     s.classList.add('panning');
     s.setPointerCapture(ev.pointerId);
   });
   s.addEventListener('pointermove', (ev) => {
     if (!drag) return;
+    if (Math.abs(ev.clientX - drag.sx) + Math.abs(ev.clientY - drag.sy) > 4) drag.moved = true;
     const rect = s.getBoundingClientRect();
     const sx = (layout.width) / (rect.width || layout.width);
     const sy = (layout.height) / (rect.height || layout.height);
@@ -426,9 +694,13 @@ function wireZoomPan(s, root, layout) {
     vp.y = drag.y0 + (ev.clientY - drag.sy) * sy;
     applyTransform(root, vp);
   });
-  const endPan = () => { drag = null; s.classList.remove('panning'); };
+  // clique simples no fundo (sem arrastar) limpa a seleção/foco do mapa.
+  const endPan = (ev) => {
+    if (drag && !drag.moved && ev && ev.target && !ev.target.closest('.node')) clearSelection();
+    drag = null; s.classList.remove('panning');
+  };
   s.addEventListener('pointerup', endPan);
-  s.addEventListener('pointercancel', endPan);
+  s.addEventListener('pointercancel', () => { drag = null; s.classList.remove('panning'); });
 }
 
 /* ---------- Cobertura ---------- */
