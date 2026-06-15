@@ -1,3 +1,11 @@
+---
+title: "Design System da plataforma NovaIT"
+status: canonical
+applies_to: [platform]
+updated: 2026-06-14
+language: pt-BR
+---
+
 # Design System da plataforma NovaIT
 
 > Governança de UX/design da plataforma (Fase 5 do roadmap de UX). Fonte dos tokens:
