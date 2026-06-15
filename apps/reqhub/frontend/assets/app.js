@@ -1,6 +1,6 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel } from './lib.js?v=10';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel } from './lib.js?v=11';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -316,7 +316,7 @@ function renderVersions() {
    interações (seleção, hover, filtro de produto/tipo) só REPINTAM classes/atributos
    sobre a cena cacheada — o layout nunca "reembaralha". Cores dinâmicas vão em
    atributos SVG (fill) e estados em classes CSS (CSP estrita: sem style inline). */
-const IMPACT = { W: 1600, H: 1000, st: null, layout: null, palette: null, deg: null, nodeEls: null, edgeEls: null, svg: null, root: null, inspector: null };
+const IMPACT = { W: 2400, H: 1560, st: null, layout: null, palette: null, deg: null, nodeEls: null, edgeEls: null, svg: null, root: null, inspector: null };
 const EDGE_META = {
   depends_on: { cls: 'e-depends', label: 'depende de' },
   allocates_to: { cls: 'e-alloc', label: 'aloca em' },
@@ -329,7 +329,7 @@ const TARGET_LABEL = { infra: 'infraestrutura', service: 'serviço', slo: 'SLO' 
 
 function renderImpact() {
   const filters = document.getElementById('impact-filters');
-  if (!IMPACT.st) IMPACT.st = { products: null, edgeTypes: null, includeIsolated: false, selectedId: null, hoverId: null };
+  if (!IMPACT.st) IMPACT.st = { products: null, edgeTypes: null, includeIsolated: false, selectedId: null, hoverId: null, query: '' };
   IMPACT.deg = degreeMap(DATA.impact.edges);
   IMPACT.palette = productPalette(uniqueValues(DATA.impact.nodes, (n) => n.product));
   buildImpactControls(filters);
@@ -380,7 +380,9 @@ function buildImpactControls(filters) {
   const isoInput = h('input', { type: 'checkbox', onchange: (e) => { st.includeIsolated = e.target.checked; st.selectedId = null; st.hoverId = null; renderImpact(); } });
   if (st.includeIsolated) isoInput.checked = true;
   const iso = h('label', { class: 'map-toggle' }, isoInput, `Incluir os ${DATA.impact.nodes.filter((n) => n.product && !IMPACT.deg[n.id]).length} sem conexão`);
-  const locate = h('input', { type: 'search', class: 'map-locate', placeholder: 'Localizar no mapa…', 'aria-label': 'Localizar requisito no mapa', onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); locateNode(e.target.value); } } });
+  const locate = h('input', { type: 'search', class: 'map-locate', placeholder: 'Filtrar / localizar no mapa…', 'aria-label': 'Filtrar e localizar requisitos no mapa', value: st.query || '',
+    oninput: (e) => { st.query = e.target.value; paintImpact(); },
+    onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); locateNode(e.target.value); } } });
   filters.append(legend, eLegend, iso, locate, h('span', { class: 'count', id: 'impact-count', role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' }));
 }
 
@@ -596,14 +598,21 @@ function paintImpact() {
   const typedEdges = st.edgeTypes ? DATA.impact.edges.filter((e) => st.edgeTypes.has(e.type)) : DATA.impact.edges;
   const hl = st.selectedId ? highlightSet(typedEdges, st.selectedId) : null;
   const hot = new Set(hl ? [hl.focus, ...hl.neighbors] : []);
-  let shown = 0;
+  const q = (st.query || '').trim();
+  const matchOf = q ? (id) => matchesQuery(byId(id) || { id }, q) : null;   // filtro dinâmico
+  let shown = 0, matches = 0;
   for (const [id, el] of IMPACT.nodeEls) {
     const visible = vg.nodeIds.has(id);
     el.g.classList.toggle('is-hidden', !visible);
     if (visible) shown++;
+    const isMatch = !!matchOf && visible && matchOf(id);
+    if (isMatch) matches++;
     el.g.classList.toggle('is-focus', id === st.selectedId);
     el.g.classList.toggle('is-neighbor', !!hl && hot.has(id) && id !== st.selectedId);
-    el.g.classList.toggle('is-dim', !!st.selectedId && visible && !hot.has(id));
+    const mutedBySel = !!st.selectedId && visible && !hot.has(id);
+    const mutedByQuery = !!matchOf && visible && !isMatch && id !== st.selectedId;
+    el.g.classList.toggle('is-dim', mutedBySel || mutedByQuery);
+    el.g.classList.toggle('is-match', isMatch && id !== st.selectedId);
     el.g.classList.toggle('is-revealed', vg.revealed.has(id) && id !== st.selectedId);
   }
   for (const { path, e } of IMPACT.edgeEls) {
@@ -616,7 +625,9 @@ function paintImpact() {
   const cnt = document.getElementById('impact-count');
   if (cnt) cnt.textContent = st.selectedId
     ? `${st.selectedId} · ${Math.max(0, hot.size - 1)} conexões em destaque · ${shown} nós visíveis`
-    : `${shown} nós no mapa · ${IMPACT.edgeEls.length} relações`;
+    : q
+      ? `${matches} correspondência${matches === 1 ? '' : 's'} para "${q}" · ${shown} nós no mapa`
+      : `${shown} nós no mapa · ${IMPACT.edgeEls.length} relações`;
   // a11y: roving tabindex + recupera o foco se o nó focado tiver sido ocultado.
   const active = document.activeElement;
   const lostFocus = active && active.classList && active.classList.contains('node') && active.classList.contains('is-hidden');

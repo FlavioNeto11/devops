@@ -282,15 +282,15 @@ export function truncateLabel(s, max = 26) {
 export function forceLayout(nodes, edges, opts = {}) {
   const W = opts.width || 1000;
   const H = opts.height || 680;
-  const pad = opts.pad || 54;
+  const pad = opts.pad || 64;
   const n = (nodes || []).length;
   if (!n) return { nodes: [], edges: [], width: W, height: H };
-  const iterations = opts.iterations || (n > 200 ? 200 : 340);
-  const kRep = opts.repulsion || 5200;
-  const kAttr = opts.attraction || 0.045;
-  const rest = opts.restLength || 84;
-  const kCluster = opts.cluster != null ? opts.cluster : 0.02;
-  const kGravity = opts.gravity != null ? opts.gravity : 0.014;
+  const iterations = opts.iterations || (n > 200 ? 220 : 360);
+  const kRep = opts.repulsion || 7400;
+  const kAttr = opts.attraction || 0.04;
+  const rest = opts.restLength || 110;
+  const kCluster = opts.cluster != null ? opts.cluster : 0.011;
+  const kGravity = opts.gravity != null ? opts.gravity : 0.011;
   const cx = W / 2, cy = H / 2;
   const groupOf = (nd) => nd.product || 'infra';
   const pos = new Map();
@@ -364,6 +364,25 @@ export function forceLayout(nodes, edges, opts = {}) {
     const p = pos.get(nd.id);
     return { ...nd, x: offX + (p.x - minX) * s, y: offY + (p.y - minY) * s, deg: deg[nd.id] || 0 };
   });
+  // Relaxação de COLISÃO (determinística, anisotrópica para a forma dos chips):
+  // garante um respiro mínimo entre nós — o mapa "abre" em vez de ficar amontoado.
+  const mdx = opts.minDistX || 138, mdy = opts.minDistY || 58;
+  const loX = pad, hiX = W - pad, loY = pad, hiY = H - pad;
+  for (let p = 0; p < (opts.collidePasses || 16); p++) {
+    for (let i = 0; i < out.length; i++) {
+      for (let j = i + 1; j < out.length; j++) {
+        let dx = out[i].x - out[j].x, dy = out[i].y - out[j].y;
+        let nd = Math.sqrt((dx / mdx) * (dx / mdx) + (dy / mdy) * (dy / mdy));
+        if (nd === 0) { dx = ((hashStr(out[i].id + '~' + out[j].id) % 7) - 3) || 1; dy = ((hashStr(out[j].id + '~' + out[i].id) % 7) - 3) || 1; nd = Math.sqrt((dx / mdx) * (dx / mdx) + (dy / mdy) * (dy / mdy)); }
+        if (nd < 1) {
+          const f = (1 / nd - 1) / 2;
+          out[i].x += dx * f; out[i].y += dy * f;
+          out[j].x -= dx * f; out[j].y -= dy * f;
+        }
+      }
+    }
+    for (const o of out) { o.x = Math.max(loX, Math.min(hiX, o.x)); o.y = Math.max(loY, Math.min(hiY, o.y)); }
+  }
   return { nodes: out, edges: E, width: W, height: H };
 }
 
