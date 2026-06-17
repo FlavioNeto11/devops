@@ -1,6 +1,6 @@
 {
-  "metamodel_version": "1.0.0",
-  "baseline_hash": "c4db9dfa05884a19047d77b87f3069e68f96b815c2c49a58bcbe7d64952756d0",
+  "metamodel_version": "1.1.0",
+  "baseline_hash": "bf55c6b85f051bb79f641cfb4d57afb6752f6421a6eb3f58cce2b65250bdfb51",
   "nodes": [
     {
       "id": "infra-argocd",
@@ -1282,6 +1282,56 @@
       "title": "Read-only filesystem and non-root container security",
       "type": "non-functional",
       "product": "console",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CRM-0001",
+      "kind": "requirement",
+      "title": "Fundação do app CRM-lite (scaffold, layout, health, auth básica)",
+      "type": "functional",
+      "product": "crm",
+      "asr": true,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CRM-0002",
+      "kind": "requirement",
+      "title": "Modelo de dados e persistência (empresas, contatos, negócios)",
+      "type": "functional",
+      "product": "crm",
+      "asr": true,
+      "impact_score": 58,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CRM-0003",
+      "kind": "requirement",
+      "title": "CRUD de contatos (API + tela)",
+      "type": "functional",
+      "product": "crm",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CRM-0004",
+      "kind": "requirement",
+      "title": "CRUD de empresas (API + tela) com vínculo de contatos",
+      "type": "functional",
+      "product": "crm",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CRM-0005",
+      "kind": "requirement",
+      "title": "Funil de negócios (deals) + painel",
+      "type": "functional",
+      "product": "crm",
       "asr": false,
       "impact_score": 38,
       "impact_band": "low"
@@ -3995,6 +4045,36 @@
       "from": "REQ-CMS-NFR-007",
       "to": "REQ-CMS-0009",
       "type": "constrains"
+    },
+    {
+      "from": "REQ-CRM-0002",
+      "to": "REQ-CRM-0001",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-CRM-0003",
+      "to": "REQ-CRM-0002",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-CRM-0004",
+      "to": "REQ-CRM-0002",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-CRM-0005",
+      "to": "REQ-CRM-0002",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-CRM-0005",
+      "to": "REQ-CRM-0003",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-CRM-0005",
+      "to": "REQ-CRM-0004",
+      "type": "depends_on"
     },
     {
       "from": "REQ-GYMOPS-0001",

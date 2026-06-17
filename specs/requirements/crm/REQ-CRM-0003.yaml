@@ -1,0 +1,26 @@
+id: REQ-CRM-0003
+title: "CRUD de contatos (API + tela)"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: product
+  product_scope: crm
+statement: "O operador deve criar, listar (com busca por nome/e-mail), ver, editar e remover contatos pela tela /crm/contatos, que consome a API REST /crm/api/contacts. Um contato tem nome, e-mail, telefone e empresa (opcional)."
+business_rationale: "Contatos são a entidade central de um CRM; o operador precisa cadastrá-los e encontrá-los rápido."
+source:
+  origin: "FORGE — brief do produto"
+  source_paths: ["specs/products/crm/product-brief.md"]
+priority: high
+criticality: high
+architectural_significance: false
+acceptance_criteria:
+  - "API: GET/POST/GET:id/PUT:id/DELETE:id em /api/contacts com validação de entrada; lista aceita ?q= para busca."
+  - "Tela /crm/contatos lista, busca, cria, edita e remove contatos com feedback de sucesso/erro."
+  - "Remover um contato não quebra negócios vinculados (set null ou bloqueio com mensagem)."
+verification_method: [test-integration, test-e2e]
+links:
+  - { type: depends_on, target: REQ-CRM-0002, note: "precisa do modelo de dados" }
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

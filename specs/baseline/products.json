@@ -1,3 +1,33 @@
 {
-  "products": []
+  "products": [
+    {
+      "name": "crm",
+      "display_name": "CRM-lite",
+      "base_path": "/crm",
+      "blueprint": "node-api-vue-spa",
+      "vision": "Um CRM enxuto para pequenas operações de vendas: cadastrar contatos e empresas, registrar negócios (deals) num funil simples e ver um painel com a situação atual. Sem complexidade — uma tela por tarefa, busca rápida, foco em colocar dados e acompanhar.",
+      "app_type": "product_software",
+      "requirement_ids": [
+        "REQ-CRM-0001",
+        "REQ-CRM-0002",
+        "REQ-CRM-0003",
+        "REQ-CRM-0004",
+        "REQ-CRM-0005"
+      ],
+      "phases": {
+        "requirements": {
+          "status": "approved"
+        },
+        "architecture": {
+          "status": "approved"
+        },
+        "scaffold": {
+          "status": "not_started"
+        },
+        "build": {
+          "status": "not_started"
+        }
+      }
+    }
+  ]
 }

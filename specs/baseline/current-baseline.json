@@ -1,9 +1,9 @@
 {
-  "metamodel_version": "1.0.0",
-  "baseline_hash": "c4db9dfa05884a19047d77b87f3069e68f96b815c2c49a58bcbe7d64952756d0",
+  "metamodel_version": "1.1.0",
+  "baseline_hash": "bf55c6b85f051bb79f641cfb4d57afb6752f6421a6eb3f58cce2b65250bdfb51",
   "schema": "specs/schema/requirement.schema.json",
   "counts": {
-    "total": 371,
+    "total": 376,
     "by_product": {
       "ai": 18,
       "anarabottini": 19,
@@ -11,6 +11,7 @@
       "cicd": 17,
       "cms": 22,
       "console": 35,
+      "crm": 5,
       "gymops": 23,
       "keycloak": 18,
       "observability": 17,
@@ -26,10 +27,10 @@
       "traefik": 16
     },
     "by_status": {
-      "approved": 371
+      "approved": 376
     },
     "by_type": {
-      "functional": 257,
+      "functional": 262,
       "non-functional": 114
     }
   },
@@ -4711,6 +4712,235 @@
       "impact_score": 38,
       "impact_band": "low",
       "file": "requirements/console/REQ-CONSOLE-NFR-008.yaml"
+    },
+    {
+      "id": "REQ-CRM-0001",
+      "title": "Fundação do app CRM-lite (scaffold, layout, health, auth básica)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "product-foundation",
+        "product_scope": "crm",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O CRM-lite deve existir como aplicação no padrão da plataforma (frontend Vue em /crm sem strip, API Node/Express em /crm/api com strip, worker, Postgres), com health em cada serviço, layout base navegável (cabeçalho + menu: Contatos, Empresas, Negócios, Painel) e autenticação básica por sessão.",
+      "business_rationale": "Sem a fundação (estrutura, roteamento, banco, layout e auth) nenhum recurso de negócio pode ser construído. Este é o requisito de scaffold do produto.",
+      "source": {
+        "origin": "FORGE — brief do produto",
+        "source_paths": [
+          "specs/products/crm/product-brief.md"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": true,
+      "acceptance_criteria": [
+        "GET /crm/api/health responde 200 {status:ok} e o frontend responde 200 em /crm/.",
+        "O layout base mostra o menu com Contatos, Empresas, Negócios e Painel, navegável.",
+        "Existe login básico por sessão (usuário seed) protegendo as telas; logout funciona."
+      ],
+      "verification_method": [
+        "test-integration",
+        "demo"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 65,
+      "impact_band": "medium",
+      "file": "requirements/crm/REQ-CRM-0001.yaml"
+    },
+    {
+      "id": "REQ-CRM-0002",
+      "title": "Modelo de dados e persistência (empresas, contatos, negócios)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "crm"
+      },
+      "statement": "O CRM-lite deve persistir em Postgres as entidades companies, contacts e deals, com migrations versionadas e um seed inicial. contacts referencia companies (opcional); deals referencia contacts/companies e tem um estágio (lead, qualified, proposal, won, lost) e um valor.",
+      "business_rationale": "É a base de dados sobre a qual os CRUDs e o funil operam. Sem schema/migrations/seed, nada se persiste.",
+      "source": {
+        "origin": "FORGE — brief do produto",
+        "source_paths": [
+          "specs/products/crm/product-brief.md"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "high",
+      "architectural_significance": true,
+      "acceptance_criteria": [
+        "Migrations criam as tabelas companies, contacts (FK opcional p/ companies) e deals (FK p/ contacts/companies, stage enum, amount numérico, timestamps).",
+        "Um seed insere ao menos 2 empresas, 3 contatos e 2 negócios de exemplo.",
+        "A API expõe a conexão com o banco e as migrations rodam no boot (idempotente)."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-CRM-0001",
+          "note": "precisa da fundação (scaffold + Postgres)"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 58,
+      "impact_band": "medium",
+      "file": "requirements/crm/REQ-CRM-0002.yaml"
+    },
+    {
+      "id": "REQ-CRM-0003",
+      "title": "CRUD de contatos (API + tela)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "crm"
+      },
+      "statement": "O operador deve criar, listar (com busca por nome/e-mail), ver, editar e remover contatos pela tela /crm/contatos, que consome a API REST /crm/api/contacts. Um contato tem nome, e-mail, telefone e empresa (opcional).",
+      "business_rationale": "Contatos são a entidade central de um CRM; o operador precisa cadastrá-los e encontrá-los rápido.",
+      "source": {
+        "origin": "FORGE — brief do produto",
+        "source_paths": [
+          "specs/products/crm/product-brief.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": false,
+      "acceptance_criteria": [
+        "API: GET/POST/GET:id/PUT:id/DELETE:id em /api/contacts com validação de entrada; lista aceita ?q= para busca.",
+        "Tela /crm/contatos lista, busca, cria, edita e remove contatos com feedback de sucesso/erro.",
+        "Remover um contato não quebra negócios vinculados (set null ou bloqueio com mensagem)."
+      ],
+      "verification_method": [
+        "test-integration",
+        "test-e2e"
+      ],
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-CRM-0002",
+          "note": "precisa do modelo de dados"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 38,
+      "impact_band": "low",
+      "file": "requirements/crm/REQ-CRM-0003.yaml"
+    },
+    {
+      "id": "REQ-CRM-0004",
+      "title": "CRUD de empresas (API + tela) com vínculo de contatos",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "crm"
+      },
+      "statement": "O operador deve criar, listar (com busca), ver, editar e remover empresas pela tela /crm/empresas, consumindo /crm/api/companies. A tela de detalhe de uma empresa mostra os contatos vinculados a ela. Uma empresa tem nome, segmento e site.",
+      "business_rationale": "Empresas organizam os contatos e os negócios; o operador precisa gerenciá-las e ver quem trabalha em cada uma.",
+      "source": {
+        "origin": "FORGE — brief do produto",
+        "source_paths": [
+          "specs/products/crm/product-brief.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": false,
+      "acceptance_criteria": [
+        "API: GET/POST/GET:id/PUT:id/DELETE:id em /api/companies com validação; lista aceita ?q=.",
+        "Tela /crm/empresas lista, busca, cria, edita e remove; o detalhe mostra os contatos da empresa.",
+        "Remover uma empresa com contatos/negócios trata o vínculo (set null ou bloqueio com mensagem clara)."
+      ],
+      "verification_method": [
+        "test-integration",
+        "test-e2e"
+      ],
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-CRM-0002",
+          "note": "precisa do modelo de dados"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 30,
+      "impact_band": "low",
+      "file": "requirements/crm/REQ-CRM-0004.yaml"
+    },
+    {
+      "id": "REQ-CRM-0005",
+      "title": "Funil de negócios (deals) + painel",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "crm"
+      },
+      "statement": "O operador deve gerenciar negócios (deals) num funil de estágios (lead, qualified, proposal, won, lost) pela tela /crm/negocios (consumindo /crm/api/deals), movendo um negócio entre estágios e associando-o a um contato/empresa e a um valor. O Painel (/crm/) mostra totais por estágio e os últimos negócios.",
+      "business_rationale": "O funil é o coração do acompanhamento comercial; o painel dá ao gestor a visão imediata da operação.",
+      "source": {
+        "origin": "FORGE — brief do produto",
+        "source_paths": [
+          "specs/products/crm/product-brief.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": false,
+      "acceptance_criteria": [
+        "API: CRUD em /api/deals + endpoint para mudar o estágio; um deal tem título, valor, estágio, contato e empresa.",
+        "Tela /crm/negocios lista por estágio e permite criar/editar/mover um negócio entre estágios.",
+        "O Painel mostra a contagem e o valor somado por estágio e a lista dos últimos negócios."
+      ],
+      "verification_method": [
+        "test-integration",
+        "test-e2e",
+        "demo"
+      ],
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-CRM-0002",
+          "note": "modelo de dados"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-CRM-0003",
+          "note": "contatos para associar"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-CRM-0004",
+          "note": "empresas para associar"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 38,
+      "impact_band": "low",
+      "file": "requirements/crm/REQ-CRM-0005.yaml"
     },
     {
       "id": "REQ-GYMOPS-0001",
@@ -13924,6 +14154,15 @@
       ]
     },
     {
+      "id": "REQ-CRM-0001",
+      "title": "Fundação do app CRM-lite (scaffold, layout, health, auth básica)",
+      "product": "crm",
+      "impact_score": 65,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
       "id": "REQ-GYMOPS-0002",
       "title": "Modelo hierárquico de escopo (Organização → Unidade → Área → Atividade)",
       "product": "gymops",
@@ -14029,6 +14268,15 @@
       "impact_score": 58,
       "reasons": [
         "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-CRM-0002",
+      "title": "Modelo de dados e persistência (empresas, contatos, negócios)",
+      "product": "crm",
+      "impact_score": 58,
+      "reasons": [
+        "sem evidência de verificação"
       ]
     },
     {
@@ -15526,6 +15774,24 @@
       ]
     },
     {
+      "id": "REQ-CRM-0003",
+      "title": "CRUD de contatos (API + tela)",
+      "product": "crm",
+      "impact_score": 38,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-CRM-0005",
+      "title": "Funil de negócios (deals) + painel",
+      "product": "crm",
+      "impact_score": 38,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
       "id": "REQ-GYMOPS-0007",
       "title": "Recorrência de atividades com 4 frequências e 2 modos de geração",
       "product": "gymops",
@@ -16981,6 +17247,15 @@
       "impact_score": 30,
       "reasons": [
         "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-CRM-0004",
+      "title": "CRUD de empresas (API + tela) com vínculo de contatos",
+      "product": "crm",
+      "impact_score": 30,
+      "reasons": [
+        "sem evidência de verificação"
       ]
     },
     {

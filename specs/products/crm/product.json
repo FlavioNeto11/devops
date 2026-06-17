@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.1.0",
+  "name": "crm",
+  "display_name": "CRM-lite",
+  "base_path": "/crm",
+  "namespace": "apps",
+  "app_type": "product_software",
+  "blueprint": "node-api-vue-spa",
+  "vision": "Um CRM enxuto para pequenas operações de vendas: cadastrar contatos e empresas, registrar negócios (deals) num funil simples e ver um painel com a situação atual. Sem complexidade — uma tela por tarefa, busca rápida, foco em colocar dados e acompanhar.",
+  "persona": ["operador de vendas", "gestor comercial"],
+  "scope_summary": "DENTRO: CRUD de contatos e empresas, funil de negócios (deals) com estágios, painel/listagens com busca, autenticação básica. FORA (v1): automações, e-mail/WhatsApp, importação, relatórios avançados, multiusuário com RBAC fino.",
+  "target_nfrs": [
+    { "attribute": "latency", "target": "p95 das telas de lista <= 2s com 1k registros" },
+    { "attribute": "availability", "target": "app responde a /crm e /crm/api/health (healthchecks verdes)" }
+  ],
+  "requirement_ids": ["REQ-CRM-0001", "REQ-CRM-0002", "REQ-CRM-0003", "REQ-CRM-0004", "REQ-CRM-0005"],
+  "phases": {
+    "requirements": { "status": "approved" },
+    "architecture": { "status": "approved" },
+    "scaffold": { "status": "not_started" },
+    "build": { "status": "not_started" }
+  },
+  "version": { "revision": 1, "change_reason": "definição inicial do produto (FORGE piloto)" }
+}

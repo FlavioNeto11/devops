@@ -1,6 +1,6 @@
 {
-  "metamodel_version": "1.0.0",
-  "baseline_hash": "c4db9dfa05884a19047d77b87f3069e68f96b815c2c49a58bcbe7d64952756d0",
+  "metamodel_version": "1.1.0",
+  "baseline_hash": "bf55c6b85f051bb79f641cfb4d57afb6752f6421a6eb3f58cce2b65250bdfb51",
   "items": [
     {
       "id": "REQ-AI-0001",
@@ -1387,6 +1387,61 @@
       "asr": false,
       "impact_band": "low",
       "file": "requirements/console/REQ-CONSOLE-NFR-008.yaml"
+    },
+    {
+      "id": "REQ-CRM-0001",
+      "title": "Fundação do app CRM-lite (scaffold, layout, health, auth básica)",
+      "type": "functional",
+      "status": "approved",
+      "product": "crm",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/crm/REQ-CRM-0001.yaml"
+    },
+    {
+      "id": "REQ-CRM-0002",
+      "title": "Modelo de dados e persistência (empresas, contatos, negócios)",
+      "type": "functional",
+      "status": "approved",
+      "product": "crm",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/crm/REQ-CRM-0002.yaml"
+    },
+    {
+      "id": "REQ-CRM-0003",
+      "title": "CRUD de contatos (API + tela)",
+      "type": "functional",
+      "status": "approved",
+      "product": "crm",
+      "capability": null,
+      "asr": false,
+      "impact_band": "low",
+      "file": "requirements/crm/REQ-CRM-0003.yaml"
+    },
+    {
+      "id": "REQ-CRM-0004",
+      "title": "CRUD de empresas (API + tela) com vínculo de contatos",
+      "type": "functional",
+      "status": "approved",
+      "product": "crm",
+      "capability": null,
+      "asr": false,
+      "impact_band": "low",
+      "file": "requirements/crm/REQ-CRM-0004.yaml"
+    },
+    {
+      "id": "REQ-CRM-0005",
+      "title": "Funil de negócios (deals) + painel",
+      "type": "functional",
+      "status": "approved",
+      "product": "crm",
+      "capability": null,
+      "asr": false,
+      "impact_band": "low",
+      "file": "requirements/crm/REQ-CRM-0005.yaml"
     },
     {
       "id": "REQ-GYMOPS-0001",

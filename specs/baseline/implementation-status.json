@@ -1,11 +1,12 @@
 {
-  "metamodel_version": "1.0.0",
-  "baseline_hash": "c4db9dfa05884a19047d77b87f3069e68f96b815c2c49a58bcbe7d64952756d0",
+  "metamodel_version": "1.1.0",
+  "baseline_hash": "bf55c6b85f051bb79f641cfb4d57afb6752f6421a6eb3f58cce2b65250bdfb51",
   "counts": {
-    "total": 371,
+    "total": 376,
     "by_status": {
-      "deployed": 319,
-      "done": 52
+      "deployed": 320,
+      "done": 52,
+      "not_started": 4
     }
   },
   "items": {
@@ -747,6 +748,27 @@
       "req_revision": 1,
       "deployed_at": "2026-06-15",
       "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
+    },
+    "REQ-CRM-0001": {
+      "status": "deployed",
+      "req_revision": 1,
+      "notes": "scaffold (fase C) via scaffold-product.ps1"
+    },
+    "REQ-CRM-0002": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-CRM-0003": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-CRM-0004": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-CRM-0005": {
+      "status": "not_started",
+      "req_revision": 1
     },
     "REQ-GYMOPS-0001": {
       "status": "deployed",

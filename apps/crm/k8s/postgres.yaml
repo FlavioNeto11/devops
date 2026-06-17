@@ -1,0 +1,36 @@
+# Postgres do crm (gerado pelo FORGE scaffold). Secret crm-db (POSTGRES_*) criado
+# no cluster (NÃO versionado). PVC persiste os dados.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: crm-pgdata, namespace: apps, labels: { app.kubernetes.io/part-of: crm } }
+spec: { accessModes: ['ReadWriteOnce'], resources: { requests: { storage: 2Gi } } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crm-postgres
+  namespace: apps
+  labels: { app.kubernetes.io/name: crm-postgres, app.kubernetes.io/component: database, app.kubernetes.io/part-of: crm }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app.kubernetes.io/name: crm-postgres } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: crm-postgres, app.kubernetes.io/part-of: crm } }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          envFrom: [ { secretRef: { name: crm-db } } ]
+          ports: [ { name: postgres, containerPort: 5432 } ]
+          volumeMounts: [ { name: pgdata, mountPath: /var/lib/postgresql/data, subPath: pgdata } ]
+          readinessProbe: { exec: { command: ['sh','-c','pg_isready -U $POSTGRES_USER -d $POSTGRES_DB'] }, initialDelaySeconds: 5, periodSeconds: 10 }
+          resources: { requests: { cpu: 50m, memory: 256Mi }, limits: { cpu: '1', memory: 1Gi } }
+      volumes: [ { name: pgdata, persistentVolumeClaim: { claimName: crm-pgdata } } ]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: crm-postgres, namespace: apps, labels: { app.kubernetes.io/part-of: crm } }
+spec:
+  selector: { app.kubernetes.io/name: crm-postgres }
+  ports: [ { name: postgres, port: 5432, targetPort: postgres } ]

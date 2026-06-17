@@ -1,5 +1,5 @@
 {
-  "metamodel_version": "1.0.0",
+  "metamodel_version": "1.1.0",
   "services": [
     {
       "id": "svc-sicat-api",

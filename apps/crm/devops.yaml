@@ -1,0 +1,32 @@
+# Contrato gerado por new-app.ps1 (ver ~/.claude/CLAUDE.md e docs/new-project-contract.md)
+app:
+  name: crm
+  namespace: apps
+  host: nvit.localhost
+  basePath: /crm
+  appType: product_software
+services:
+  frontend:
+    type: frontend
+    path: /
+    image: ghcr.io/flavioneto11/crm/frontend
+    port: 80
+    expose: true
+    stripPrefix: false
+  api:
+    type: api
+    path: /api
+    image: ghcr.io/flavioneto11/crm/api
+    port: 8080
+    expose: true
+    stripPrefix: true
+    health: { path: /health }
+  worker:
+    type: worker
+    path: /worker
+    image: ghcr.io/flavioneto11/crm/worker
+    port: 8081
+    expose: false
+    stripPrefix: true
+    health: { path: /health }
+

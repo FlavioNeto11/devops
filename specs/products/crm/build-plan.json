@@ -1,0 +1,56 @@
+{
+  "product": "crm",
+  "blueprint": "node-api-vue-spa",
+  "baseline_hash": "bf55c6b85f051bb79f641cfb4d57afb6752f6421a6eb3f58cce2b65250bdfb51",
+  "generated_by": "forge.build-plan@1",
+  "status": "approved",
+  "scaffold_req": "REQ-CRM-0001",
+  "modules": [],
+  "waves": [
+    {
+      "id": "w0-foundation",
+      "gate": "auto",
+      "work_orders": [
+        "REQ-CRM-0001"
+      ]
+    },
+    {
+      "id": "w1",
+      "gate": "auto",
+      "work_orders": [
+        "REQ-CRM-0002"
+      ],
+      "depends_on": [
+        "w0"
+      ]
+    },
+    {
+      "id": "w2",
+      "gate": "auto",
+      "work_orders": [
+        "REQ-CRM-0003",
+        "REQ-CRM-0004"
+      ],
+      "depends_on": [
+        "w1"
+      ]
+    },
+    {
+      "id": "w3",
+      "gate": "auto",
+      "work_orders": [
+        "REQ-CRM-0005"
+      ],
+      "depends_on": [
+        "w2"
+      ]
+    }
+  ],
+  "order": [
+    "REQ-CRM-0001",
+    "REQ-CRM-0002",
+    "REQ-CRM-0003",
+    "REQ-CRM-0004",
+    "REQ-CRM-0005"
+  ]
+}

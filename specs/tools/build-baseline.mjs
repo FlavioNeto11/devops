@@ -32,7 +32,7 @@ const SCHEMA_PATH = path.join(SPECS_DIR, 'schema', 'requirement.schema.json');
 const OUT_DIR = path.join(SPECS_DIR, 'baseline');
 
 const CHECK = process.argv.includes('--check');
-const METAMODEL_VERSION = '1.0.0'; // versão do metamodelo (schema + shape da baseline) consumido pelo workbench/Claude
+const METAMODEL_VERSION = '1.1.0'; // 1.1.0: + scope.blueprint e applies_to:product-foundation (FORGE). versão do metamodelo consumido pelo workbench/Claude
 
 // Registry de artefatos externos (svc/infra/slo/test) — vocabulário controlado.
 function loadRegistry() {
