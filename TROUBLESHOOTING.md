@@ -399,6 +399,38 @@ adianta — o Docker reescreve o arquivo e reverte. Para ligar o autostart, use 
 GUI** ("Start Docker Desktop when you log in") ou edite com o Docker **parado**. O
 start-on-login básico já vem da chave Run do Windows (`HKCU\...\Run\Docker Desktop`).
 
+### 13.7 Pós-reboot: a plataforma "não subiu sozinha" (start parcial)
+
+Após reiniciar o PC, `dev.nvit.com.br` cai e **não volta** automaticamente. A chave Run só
+dispara o Docker Desktop **no login interativo** da sessão do desktop — se ninguém logou
+nessa sessão, o Docker não inicia. Pista: o **`cloudflared` continua Running** (o túnel está
+de pé apontando para um Traefik que caiu), então a queda é do cluster, não do túnel.
+
+Tentar `docker desktop start` nesta máquina costuma **travar** ou subir só pela metade: a GUI
+(`Docker Desktop`, `com.docker.backend`) aparece, mas o serviço **`com.docker.service` fica
+`Stopped`** e o **`vmmem` (VM do engine) não existe** → o engine nunca responde (foi o "docker
+deu erro"). Diagnostique **sem o CLI do Docker** (ele pendura com o engine meio-subido):
+
+```powershell
+foreach ($n in 'Docker Desktop','com.docker.backend','com.docker.service','vmmem','cloudflared') {
+  $p = Get-Process -Name $n -ErrorAction SilentlyContinue
+  "{0,-22} {1}" -f $n, ($(if ($p) {'OK'} else {'-- parado'})) }
+(Get-Service com.docker.service).Status   # Stopped => engine NÃO vai subir
+```
+
+**Recuperação** (o `recover-docker.ps1` religa o `com.docker.service` e relança limpo — não
+insista no `docker desktop start`):
+
+```powershell
+.\scripts\recover-docker.ps1            # PowerShell 7 como Admin
+# aguarde o engine (docker version) e depois o nó Ready; a 1ª provisão do k8s leva alguns minutos
+# os pods (Traefik, Argo, apps) se recriam sozinhos; Argo re-sincroniza do git
+.\scripts\validate-platform.ps1
+```
+
+> Ordem segura de espera (não use o CLI do Docker num loop apertado): pollar `docker version`
+> até o engine responder, **depois** `kubectl get nodes` até `Ready`. Só então os pods sobem.
+
 ---
 
 ## 14. SPA (Vite/React) em branco sob subpath: MIME dos assets + cache Cloudflare
