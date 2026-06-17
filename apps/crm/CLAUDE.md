@@ -1,3 +1,11 @@
+---
+title: "CRM-lite — Manual para Claude Code"
+status: guide
+applies_to: [crm]
+updated: 2026-06-17
+language: pt-BR
+---
+
 # CRM-lite — Manual para Claude Code
 
 > App GERADO pelo FORGE (produto greenfield) a partir dos requisitos em

@@ -1,3 +1,11 @@
+---
+title: "CRM-lite — contrato de agentes"
+status: guide
+applies_to: [crm]
+updated: 2026-06-17
+language: pt-BR
+---
+
 # CRM-lite — contrato de agentes (AGENTS.md)
 
 ## Fronteiras de operação (ver ../../AGENTS.md §5)

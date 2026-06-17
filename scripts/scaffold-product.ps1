@@ -131,7 +131,16 @@ stringData:
 
 # 3b) meta-docs (CLAUDE.md/AGENTS.md/README) semeadas do brief + blueprint.
 $reuses = ($bp.reuses -join ', ')
+$today = Get-Date -Format 'yyyy-MM-dd'
 $claudeMd = @"
+---
+title: "$($prod.display_name) — Manual para Claude Code"
+status: guide
+applies_to: [$Name]
+updated: $today
+language: pt-BR
+---
+
 # $($prod.display_name) — Manual para Claude Code
 
 > App GERADO pelo FORGE (produto greenfield) a partir dos requisitos em
@@ -157,6 +166,14 @@ Ver ``../../docs/standards/hard-constraints.md`` (labels, roteamento, segredos, 
 Set-Content (Join-Path $root 'CLAUDE.md') $claudeMd -Encoding utf8
 
 $agentsMd = @"
+---
+title: "$($prod.display_name) — contrato de agentes"
+status: guide
+applies_to: [$Name]
+updated: $today
+language: pt-BR
+---
+
 # $($prod.display_name) — contrato de agentes (AGENTS.md)
 
 ## Fronteiras de operação (ver ../../AGENTS.md §5)

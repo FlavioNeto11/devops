@@ -1,47 +1,56 @@
 {
-  "metamodel_version": "1.0.0",
+  "metamodel_version": "1.1.0",
   "has_previous": true,
   "from": {
-    "commit": "69000f1b8f32",
-    "baseline_hash": "a4d21139291ac6d58344cb5db4ba3334c48d75ec8f961e5d8f8ac78f86bee8a2"
-  },
-  "to": {
-    "commit": "working-tree",
+    "commit": "a9e716673c16",
     "baseline_hash": "c4db9dfa05884a19047d77b87f3069e68f96b815c2c49a58bcbe7d64952756d0"
   },
-  "counts": {
-    "added": 0,
-    "removed": 0,
-    "changed": 2
+  "to": {
+    "commit": "19f67b874ca7",
+    "baseline_hash": "bf55c6b85f051bb79f641cfb4d57afb6752f6421a6eb3f58cce2b65250bdfb51"
   },
-  "added": [],
-  "removed": [],
-  "changed": [
+  "counts": {
+    "added": 5,
+    "removed": 0,
+    "changed": 0
+  },
+  "added": [
     {
-      "id": "REQ-CMS-NFR-001",
-      "title": "Public content served with optimized cache headers and immutable assets",
-      "product": "cms",
-      "type": "non-functional",
-      "impact_band": "medium",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "quality_scenarios"
-      ],
-      "impact_delta": 0
+      "id": "REQ-CRM-0001",
+      "title": "Fundação do app CRM-lite (scaffold, layout, health, auth básica)",
+      "product": "crm",
+      "type": "functional",
+      "impact_band": "medium"
     },
     {
-      "id": "REQ-CONSOLE-0008",
-      "title": "Display Traefik IngressRoutes with hosts and paths",
-      "product": "console",
+      "id": "REQ-CRM-0002",
+      "title": "Modelo de dados e persistência (empresas, contatos, negócios)",
+      "product": "crm",
       "type": "functional",
-      "impact_band": "low",
-      "semantic_change": "none",
-      "change_reason": "baseline inicial (bootstrap)",
-      "fields": [
-        "statement"
-      ],
-      "impact_delta": 0
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CRM-0003",
+      "title": "CRUD de contatos (API + tela)",
+      "product": "crm",
+      "type": "functional",
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CRM-0004",
+      "title": "CRUD de empresas (API + tela) com vínculo de contatos",
+      "product": "crm",
+      "type": "functional",
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-CRM-0005",
+      "title": "Funil de negócios (deals) + painel",
+      "product": "crm",
+      "type": "functional",
+      "impact_band": "low"
     }
-  ]
+  ],
+  "removed": [],
+  "changed": []
 }
