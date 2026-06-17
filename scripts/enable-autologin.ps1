@@ -36,6 +36,14 @@ if (-not $isAdmin) { throw "Rode em PowerShell 7 COMO ADMINISTRADOR." }
 
 $winlogon = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
 
+# Remove um valor do Winlogon SE existir (evita erro de StrictMode em propriedade ausente).
+function Remove-WinlogonValue([string]$name) {
+  $props = Get-ItemProperty -Path $winlogon -ErrorAction SilentlyContinue
+  if ($props -and ($props.PSObject.Properties.Name -contains $name)) {
+    Remove-ItemProperty -Path $winlogon -Name $name -ErrorAction SilentlyContinue
+  }
+}
+
 if (-not ([System.Management.Automation.PSTypeName]'LsaUtil').Type) {
   Add-Type -TypeDefinition @'
 using System;
@@ -78,9 +86,7 @@ function Set-LsaSecret([string]$key, [IntPtr]$dataPtr) {
 
 if ($Disable) {
   Set-ItemProperty $winlogon -Name 'AutoAdminLogon' -Value '0'
-  foreach ($n in 'DefaultUserName','DefaultDomainName','DefaultPassword') {
-    if ($null -ne (Get-ItemProperty $winlogon -Name $n -ErrorAction SilentlyContinue).$n) { Remove-ItemProperty $winlogon -Name $n -ErrorAction SilentlyContinue }
-  }
+  foreach ($n in 'DefaultUserName','DefaultDomainName','DefaultPassword') { Remove-WinlogonValue $n }
   Set-LsaSecret 'DefaultPassword' ([IntPtr]::Zero)   # apaga o secret
   Write-Host "[OK] Auto-login DESABILITADO e senha removida do LSA." -ForegroundColor Green
   return
@@ -113,9 +119,7 @@ try {
 Set-ItemProperty $winlogon -Name 'AutoAdminLogon' -Value '1'
 Set-ItemProperty $winlogon -Name 'DefaultUserName' -Value $UserName
 Set-ItemProperty $winlogon -Name 'DefaultDomainName' -Value $Domain
-if ($null -ne (Get-ItemProperty $winlogon -Name 'DefaultPassword' -ErrorAction SilentlyContinue).DefaultPassword) {
-  Remove-ItemProperty $winlogon -Name 'DefaultPassword' -ErrorAction SilentlyContinue
-}
+Remove-WinlogonValue 'DefaultPassword'   # garante que nao fique senha em texto puro
 
 Write-Host "[OK] Auto-login HABILITADO para $Domain\$UserName (senha no LSA, criptografada)." -ForegroundColor Green
 Write-Host "     AutoAdminLogon=$((Get-ItemProperty $winlogon -Name AutoAdminLogon).AutoAdminLogon)  DefaultUserName=$((Get-ItemProperty $winlogon -Name DefaultUserName).DefaultUserName)"
