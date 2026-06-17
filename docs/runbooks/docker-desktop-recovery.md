@@ -117,6 +117,30 @@ Manifesto do pod efêmero (pg16): `securityContext.runAsUser/Group/fsGroup: 999`
 `subPath: pgdata`, e roda `/usr/lib/postgresql/16/bin/pg_resetwal -f /var/lib/postgresql/data`.
 Depois confirme `pg_isready` e o health do app.
 
+## Durabilidade — a plataforma voltar sozinha após um reboot
+
+A raiz do "não subiu sozinho": o **Docker Desktop é um app de sessão** e só dá autostart **no
+login interativo** (chave Run). Num reboot sem ninguém logar, ele não inicia. Mitigação em duas
+partes:
+
+1. **Watchdog de boot (automático, sem credencial)** — já instalado:
+   ```powershell
+   pwsh -File C:\devops\scripts\install-boot-task.ps1   # registra a task "NVIT Platform Boot Watchdog"
+   ```
+   A Tarefa Agendada roda `scripts\boot-up-platform.ps1` **ao logon** (elevada, `LogonType
+   Interactive` — **sem senha armazenada**): garante `com.docker.service` Automatic, lança o
+   Docker Desktop, espera o engine (e chama `recover-docker.ps1` se houver start parcial), espera
+   o Kubernetes Ready. Log em `logs\boot-up-platform.log`. Idempotente — corrige sozinho os modos
+   de falha deste runbook a cada sessão.
+
+2. **Auto-login (passo do operador — envolve a SENHA, faça você mesmo)** — necessário para reboot
+   **desacompanhado** (criar a sessão para o watchdog rodar):
+   - **Recomendado:** Sysinternals **Autologon** (`autologon.exe`) — guarda a senha como **LSA
+     secret criptografado**, não em texto puro.
+   - Alternativa: `netplwiz` → desmarcar "Os usuários devem digitar um nome e uma senha…" → confirmar.
+   - ⚠️ Trade-off de segurança: o servidor passa a iniciar numa sessão de admin logada. Avalie o
+     acesso físico/RDP antes de habilitar.
+
 ## Regras de ouro (não piorar)
 - **Nunca force-kill o Docker** sem necessidade (deixa sockets AF_UNIX órfãos → crash no boot).
 - **Não** usar "Reset to factory defaults".

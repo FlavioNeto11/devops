@@ -58,3 +58,6 @@ diagnostics/
 
 # Relatórios gerados pelos gates (validador/comparador de contratos, smoke de IA)
 /artifacts/
+
+# Logs locais de runtime (watchdog de boot etc.)
+/logs/
