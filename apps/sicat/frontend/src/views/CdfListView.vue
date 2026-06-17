@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, reactive, ref, watch, computed } from 'vue';
 import { downloadCdfDocument, listCdfCertificates } from '../services/api.js';
-import { formatDateBr, formatDateTimeBr } from '../utils/date-format.js';
+import { formatDateBr, formatDateTimeBr, isoDaysAgo, isoToday } from '../utils/date-format.js';
 import { evaluateDateRange } from '../utils/date-range-validation.js';
 import { useCdfOperationalContext } from '../composables/useCdfOperationalContext.js';
 import { useNotification } from '../composables/useNotification.js';
@@ -13,14 +13,6 @@ import SicatDataTable from '../components/sicat/SicatDataTable.vue';
 import SicatInlineAlert from '../components/sicat/SicatInlineAlert.vue';
 
 const CDF_MAX_WINDOW_DAYS = 31;
-
-function pad2(value) {
-  return String(value).padStart(2, '0');
-}
-
-function formatLocalDateInput(date = new Date()) {
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
-}
 
 function sanitizeFileName(fileName, fallbackName) {
   const normalized = String(fileName || '').trim() || fallbackName;
@@ -58,8 +50,8 @@ const {
 } = useCdfOperationalContext();
 
 const filters = reactive({
-  dateFrom: '',
-  dateTo: formatLocalDateInput(new Date())
+  dateFrom: isoDaysAgo(29),
+  dateTo: isoToday()
 });
 
 const certificates = ref([]);
@@ -96,6 +88,15 @@ const activeChips = computed(() => {
   if (filters.dateFrom) chips.push({ key: 'dateFrom', label: `De: ${formatDateBr(filters.dateFrom)}` });
   if (filters.dateTo) chips.push({ key: 'dateTo', label: `Até: ${formatDateBr(filters.dateTo)}` });
   return chips;
+});
+
+// Destaca o atalho de período correspondente ao range atual (0 = nenhum).
+const activeDatePresetDays = computed(() => {
+  if (filters.dateTo !== isoToday()) return 0;
+  for (const days of [1, 7, 30]) {
+    if (filters.dateFrom === isoDaysAgo(days - 1)) return days;
+  }
+  return 0;
 });
 
 function validateCertificateDateRange() {
@@ -162,9 +163,16 @@ async function loadCertificates(options = {}) {
   }
 }
 
+// Atalhos de período (janela máx. de 31 dias do CDF). N dias inclui o dia de hoje.
+function applyDatePreset(days) {
+  filters.dateTo = isoToday();
+  filters.dateFrom = isoDaysAgo(Math.max(0, Number(days) - 1));
+  void loadCertificates();
+}
+
 function clearFilters() {
-  filters.dateFrom = '';
-  filters.dateTo = formatLocalDateInput(new Date());
+  filters.dateFrom = isoDaysAgo(29);
+  filters.dateTo = isoToday();
   void loadCertificates();
 }
 
@@ -255,6 +263,30 @@ onMounted(() => {
         @clear="clearFilters"
         @remove="removeChip"
       >
+        <div class="cdf-date-presets">
+          <span class="cdf-date-presets__label">Período rápido:</span>
+          <v-chip
+            size="small"
+            :variant="activeDatePresetDays === 1 ? 'flat' : 'tonal'"
+            :color="activeDatePresetDays === 1 ? 'primary' : undefined"
+            :disabled="certificatesLoading"
+            @click="applyDatePreset(1)"
+          >Hoje</v-chip>
+          <v-chip
+            size="small"
+            :variant="activeDatePresetDays === 7 ? 'flat' : 'tonal'"
+            :color="activeDatePresetDays === 7 ? 'primary' : undefined"
+            :disabled="certificatesLoading"
+            @click="applyDatePreset(7)"
+          >7 dias</v-chip>
+          <v-chip
+            size="small"
+            :variant="activeDatePresetDays === 30 ? 'flat' : 'tonal'"
+            :color="activeDatePresetDays === 30 ? 'primary' : undefined"
+            :disabled="certificatesLoading"
+            @click="applyDatePreset(30)"
+          >30 dias</v-chip>
+        </div>
         <v-text-field
           v-model="filters.dateFrom"
           label="Data inicial"
@@ -299,3 +331,19 @@ onMounted(() => {
     </SicatCard>
   </SicatPageLayout>
 </template>
+
+<style scoped>
+.cdf-date-presets {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.cdf-date-presets__label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgba(var(--v-theme-on-surface), 0.66);
+}
+</style>

@@ -17,6 +17,7 @@ import SicatFiltersPanel from '../../components/sicat/SicatFiltersPanel.vue';
 import SicatDataTable from '../../components/sicat/SicatDataTable.vue';
 import SicatStatusBadge from '../../components/sicat/SicatStatusBadge.vue';
 import SicatInlineAlert from '../../components/sicat/SicatInlineAlert.vue';
+import { isoDaysAgo, isoToday } from '../../utils/date-format.js';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -71,9 +72,25 @@ const activeChips = computed(() => {
   return chips;
 });
 
+// Destaca o atalho de período correspondente ao range atual (0 = nenhum).
+const activeDatePresetDays = computed(() => {
+  if (filters.periodEnd !== isoToday()) return 0;
+  for (const days of [30, 90, 365]) {
+    if (filters.periodStart === isoDaysAgo(days - 1)) return days;
+  }
+  return 0;
+});
+
 async function applyFilters() {
   filters.offset = 0;
   await fetchList();
+}
+
+// Atalhos de período: N dias inclui o dia de hoje.
+function applyDatePreset(days) {
+  filters.periodEnd = isoToday();
+  filters.periodStart = isoDaysAgo(Math.max(0, Number(days) - 1));
+  void applyFilters();
 }
 
 function removeChip(key) {
@@ -142,6 +159,30 @@ onMounted(async () => {
         @clear="resetFilters"
         @remove="removeChip"
       >
+        <div class="dmr-date-presets">
+          <span class="dmr-date-presets__label">Período rápido:</span>
+          <v-chip
+            size="small"
+            :variant="activeDatePresetDays === 30 ? 'flat' : 'tonal'"
+            :color="activeDatePresetDays === 30 ? 'primary' : undefined"
+            :disabled="loadingList"
+            @click="applyDatePreset(30)"
+          >30 dias</v-chip>
+          <v-chip
+            size="small"
+            :variant="activeDatePresetDays === 90 ? 'flat' : 'tonal'"
+            :color="activeDatePresetDays === 90 ? 'primary' : undefined"
+            :disabled="loadingList"
+            @click="applyDatePreset(90)"
+          >90 dias</v-chip>
+          <v-chip
+            size="small"
+            :variant="activeDatePresetDays === 365 ? 'flat' : 'tonal'"
+            :color="activeDatePresetDays === 365 ? 'primary' : undefined"
+            :disabled="loadingList"
+            @click="applyDatePreset(365)"
+          >12 meses</v-chip>
+        </div>
         <v-select
           v-model="filters.status"
           :items="DMR_STATUS_OPTIONS"
@@ -215,3 +256,19 @@ onMounted(async () => {
     </SicatCard>
   </SicatPageLayout>
 </template>
+
+<style scoped>
+.dmr-date-presets {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.dmr-date-presets__label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgba(var(--v-theme-on-surface), 0.66);
+}
+</style>

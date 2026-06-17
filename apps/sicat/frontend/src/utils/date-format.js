@@ -14,6 +14,20 @@ export function getTodayBr() {
   return `${dd}/${mm}/${yyyy}`;
 }
 
+// Data de hoje no formato ISO local (yyyy-mm-dd) — para inputs type="date".
+export function isoToday() {
+  const now = new Date();
+  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+}
+
+// Data de N dias atrás, ISO local (yyyy-mm-dd). Usa data LOCAL (sem UTC) para
+// não pular um dia perto da meia-noite.
+export function isoDaysAgo(days) {
+  const d = new Date();
+  d.setDate(d.getDate() - Number(days || 0));
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
 export function normalizeBrDateInput(value) {
   const raw = String(value || '').trim();
   if (!raw) return '';

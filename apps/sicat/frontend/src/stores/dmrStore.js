@@ -22,8 +22,15 @@ import {
   submitDmr
 } from '../services/dmrService.js';
 import { useAuthStore } from './auth.js';
+import { isoDaysAgo, isoToday } from '../utils/date-format.js';
 
 const DMR_FILTERS_KEY = 'sicat_dmr_list_filters';
+
+// Range padrão: últimos 30 dias (a tela começava sem período e não trazia nada).
+// isoDaysAgo(29) = 30 dias inclusivos (casa com o atalho "30 dias").
+function defaultDmrRange() {
+  return { periodStart: isoDaysAgo(29), periodEnd: isoToday() };
+}
 
 const DEFAULT_FILTERS = Object.freeze({
   integrationAccountId: '',
@@ -95,6 +102,12 @@ export function useDmrStore() {
     integrationAccountId: initialContext.integrationAccountId
       || String(persisted?.integrationAccountId || '').trim()
   });
+
+  // Sem período salvo (usuário novo ou filtros antigos vazios) => usa o range padrão,
+  // para a lista já abrir trazendo dados (em vez de vazia).
+  if (!String(filters.periodStart || '').trim() && !String(filters.periodEnd || '').trim()) {
+    Object.assign(filters, defaultDmrRange());
+  }
 
   const items = ref([]);
   const total = ref(0);
@@ -315,7 +328,7 @@ export function useDmrStore() {
   }
 
   function resetFilters() {
-    Object.assign(filters, DEFAULT_FILTERS);
+    Object.assign(filters, DEFAULT_FILTERS, defaultDmrRange());
     const ctx = resolveActiveContext(authStore);
     filters.integrationAccountId = ctx.integrationAccountId || '';
     items.value = [];
