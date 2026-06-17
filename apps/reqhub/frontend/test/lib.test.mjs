@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { norm, matchesQuery, filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, bandRank, cosineSim, topSimilar, toYaml, scalarYaml, validateDraft, coverageSummary, recentList, hashStr, degreeMap, hslToHex, relLuminance, contrastRatio, textColorFor, productPalette, nodeColor, highlightSet, visibleGraph, truncateLabel, forceLayout } from '../assets/lib.js';
+import { norm, matchesQuery, filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, bandRank, cosineSim, topSimilar, toYaml, scalarYaml, validateDraft, coverageSummary, recentList, hashStr, degreeMap, hslToHex, relLuminance, contrastRatio, textColorFor, productPalette, nodeColor, highlightSet, visibleGraph, truncateLabel, forceLayout, textTokens, textSimilarity, findSimilarReqs } from '../assets/lib.js';
 
 const reqs = [
   { id: 'REQ-SICAT-0002', title: 'Submissão MTR', statement: 'O sistema deve submeter', type: 'functional', status: 'approved', priority: 'critical', architectural_significance: true, impact_band: 'high', impact_score: 80, scope: { product_scope: 'sicat', applies_to: 'product' }, acceptance_criteria: ['x'], verification_method: ['test-integration'], version: { item_revision: 1 }, allocation: { adr_refs: ['ADR-0002'] } },
@@ -286,4 +286,37 @@ test('forceLayout: casos triviais (vazio e único)', () => {
   assert.equal(one.nodes.length, 1);
   assert.ok(one.nodes[0].x >= 0 && one.nodes[0].x <= 400);
   assert.ok(one.nodes[0].y >= 0 && one.nodes[0].y <= 300);
+});
+
+/* ============================ VALIDAÇÃO / DUPLICATA (Editor) ============================ */
+test('textTokens normaliza, remove stopwords e dedup', () => {
+  assert.deepEqual(textTokens('O sistema deve submeter o MTR').sort(), ['mtr', 'submeter']);
+  assert.deepEqual(textTokens('Relatório relatorio RELATÓRIO').sort(), ['relatorio']); // dedup + acento
+  assert.deepEqual(textTokens(''), []);
+  assert.deepEqual(textTokens(null), []);
+});
+
+test('textSimilarity: Jaccard 0..1', () => {
+  assert.equal(textSimilarity('submissão de manifesto MTR', 'submissão de manifesto MTR'), 1);
+  assert.equal(textSimilarity('relatório mensal financeiro', 'cadastro de usuário'), 0);
+  assert.equal(textSimilarity('', 'qualquer'), 0);
+  const s = textSimilarity('submissão assíncrona de manifesto', 'submissão de manifesto ao órgão');
+  assert.ok(s > 0 && s < 1);
+});
+
+test('findSimilarReqs acha parecidos, exclui o próprio e ordena', () => {
+  const reqs = [
+    { id: 'REQ-SICAT-0002', title: 'Submissão de manifesto MTR', statement: 'Submeter manifesto ao órgão', scope: { product_scope: 'sicat' } },
+    { id: 'REQ-SICAT-0003', title: 'Login OIDC', statement: 'Autenticar via OIDC', scope: { product_scope: 'sicat' } },
+    { id: 'REQ-GYMOPS-0001', title: 'Cadastro de atividade', statement: 'CRUD de atividades', scope: { product_scope: 'gymops' } },
+  ];
+  const draft = { id: 'REQ-NEW-0001', title: 'Submissão de manifesto MTR ao órgão', statement: 'Submeter manifesto MTR' };
+  const sim = findSimilarReqs(draft, reqs, 5);
+  assert.ok(sim.length >= 1);
+  assert.equal(sim[0].id, 'REQ-SICAT-0002');     // o mais parecido vem 1º
+  assert.ok(sim[0].score > 0);
+  // editar o próprio não retorna ele mesmo
+  assert.ok(!findSimilarReqs({ id: 'REQ-SICAT-0002', title: 'Submissão de manifesto MTR', statement: 'x' }, reqs).some((x) => x.id === 'REQ-SICAT-0002'));
+  // rascunho vazio => sem resultados
+  assert.deepEqual(findSimilarReqs({ title: '', statement: '' }, reqs), []);
 });

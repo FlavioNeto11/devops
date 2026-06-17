@@ -1,6 +1,6 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel } from './lib.js?v=11';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs } from './lib.js?v=12';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -359,16 +359,30 @@ function buildImpactControls(filters) {
   const st = IMPACT.st;
   const counts = impactPopulationCounts();
   const products = Object.keys(IMPACT.palette).filter((p) => counts[p]);
-  // legenda-filtro de PRODUTOS (multi-seleção) — a legenda É o seletor.
-  const legend = h('div', { class: 'map-legend', role: 'group', 'aria-label': 'Filtrar por produto (a cor de cada produto é a do mapa)' });
+  const isolatedN = DATA.impact.nodes.filter((n) => n.product && !IMPACT.deg[n.id]).length;
+
+  // LINHA PRIMÁRIA: filtro dinâmico (protagonista) + opções + contador (à direita).
+  const locate = h('input', { type: 'search', class: 'map-locate', placeholder: 'Filtrar ou localizar no mapa — digite id, título…', 'aria-label': 'Filtrar e localizar requisitos no mapa', value: st.query || '',
+    oninput: (e) => { st.query = e.target.value; paintImpact(); },
+    onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); locateNode(e.target.value); } } });
+  const isoInput = h('input', { type: 'checkbox', onchange: (e) => { st.includeIsolated = e.target.checked; st.selectedId = null; st.hoverId = null; renderImpact(); } });
+  if (st.includeIsolated) isoInput.checked = true;
+  const iso = h('label', { class: 'map-toggle' }, isoInput, `Incluir ${isolatedN} sem conexão`);
+  const count = h('span', { class: 'count', id: 'impact-count', role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' });
+  const primary = h('div', { class: 'map-row primary' }, h('span', { class: 'map-search-ico', 'aria-hidden': 'true', text: '⌕' }), locate, iso, count);
+
+  // GRUPO PRODUTOS: a legenda colorida É o filtro multi-seleção.
   const isAll = st.products === null;
+  const legend = h('div', { class: 'map-legend', role: 'group', 'aria-label': 'Filtrar por produto (a cor de cada produto é a do mapa)' });
   legend.append(h('button', { class: 'lg-all', type: 'button', 'aria-pressed': String(isAll), title: 'Mostrar todos os produtos', onclick: () => { st.products = null; buildImpactControls(filters); paintImpact(); } }, 'Todos'));
   for (const p of products) {
     const pressed = isAll || st.products.has(p);
     legend.append(h('button', { class: 'lg-chip', type: 'button', 'data-prod': p, 'aria-pressed': String(pressed), onclick: () => toggleProduct(p) },
       svgDot(IMPACT.palette[p].fill), h('span', { class: 'lg-name', text: p }), h('span', { class: 'lg-n', text: String(counts[p]) })));
   }
-  // legenda-filtro de TIPOS DE RELAÇÃO (toggle).
+  const prodGroup = h('div', { class: 'map-group' }, h('span', { class: 'map-group-l', text: 'Produtos' }), legend);
+
+  // GRUPO RELAÇÕES: filtro por tipo de aresta (toggle).
   const types = uniqueValues(DATA.impact.edges, (e) => e.type);
   const eLegend = h('div', { class: 'map-legend edges', role: 'group', 'aria-label': 'Filtrar por tipo de relação' });
   for (const t of types) {
@@ -376,14 +390,9 @@ function buildImpactControls(filters) {
     eLegend.append(h('button', { class: 'lg-chip etype ' + (EDGE_META[t] ? EDGE_META[t].cls : ''), type: 'button', 'data-etype': t, 'aria-pressed': String(pressed), onclick: () => toggleEdgeType(t) },
       h('span', { class: 'e-swatch', 'aria-hidden': 'true' }), h('span', { text: EDGE_META[t] ? EDGE_META[t].label : t })));
   }
-  // controles auxiliares: incluir isolados, localizar, contador.
-  const isoInput = h('input', { type: 'checkbox', onchange: (e) => { st.includeIsolated = e.target.checked; st.selectedId = null; st.hoverId = null; renderImpact(); } });
-  if (st.includeIsolated) isoInput.checked = true;
-  const iso = h('label', { class: 'map-toggle' }, isoInput, `Incluir os ${DATA.impact.nodes.filter((n) => n.product && !IMPACT.deg[n.id]).length} sem conexão`);
-  const locate = h('input', { type: 'search', class: 'map-locate', placeholder: 'Filtrar / localizar no mapa…', 'aria-label': 'Filtrar e localizar requisitos no mapa', value: st.query || '',
-    oninput: (e) => { st.query = e.target.value; paintImpact(); },
-    onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); locateNode(e.target.value); } } });
-  filters.append(legend, eLegend, iso, locate, h('span', { class: 'count', id: 'impact-count', role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' }));
+  const relGroup = h('div', { class: 'map-group' }, h('span', { class: 'map-group-l', text: 'Relações' }), eLegend);
+
+  filters.append(h('div', { class: 'map-toolbar' }, primary, h('div', { class: 'map-row' }, prodGroup), h('div', { class: 'map-row' }, relGroup)));
 }
 
 function toggleProduct(p) {
@@ -846,12 +855,8 @@ function renderEditor() {
   const body = document.getElementById('editor-body');
   body.replaceChildren();
   const ed = state.editId ? byId(state.editId) : null;
-  body.append(h('div', { class: 'ws-actions' },
-    h('strong', { text: ed ? `Editar ${ed.id}` : 'Novo requisito' }),
-    ed ? h('button', { class: 'btn-link', type: 'button', onclick: () => { state.editId = null; renderEditor(); }, text: '+ novo (limpar)' }) : ''));
-  body.append(h('p', { class: 'muted', text: 'Preencha, gere o YAML e proponha via PR no GitHub. A UI NÃO escreve no git — o commit é seu (autenticação do GitHub). Depois do merge, rode /sync-spec p/ regenerar a baseline.' }));
 
-  const products = uniqueValues(DATA.baseline.requirements, (r) => r.scope && r.scope.product_scope);
+  // ---- formulário (campos) — coluna direita ----
   const f = {};
   const form = h('div', { class: 'form' });
   const add = (label, key, el) => { form.append(h('label', { class: 'fld' }, h('span', { class: 'fld-l', text: label }), el)); f[key] = el; };
@@ -881,11 +886,141 @@ function renderEditor() {
   add('item_revision', 'irev', inp(String(ed ? (ed.version?.item_revision || 1) + 1 : 1)));
   add('semantic_change', 'sem', select(['none', 'patch', 'minor', 'major'], ed ? 'minor' : 'none'));
   add('change_reason', 'reason', inp(ed ? '' : 'novo requisito'));
-  body.append(form);
-  body.append(aiPanel());
-
   const out = h('div');
-  body.append(h('div', { class: 'ws-actions' }, h('button', { class: 'btn', type: 'button', onclick: gen, text: 'Gerar YAML' })), out);
+
+  // ---- VALIDAÇÃO AUTOMÁTICA (client-side, sem API): roda ao digitar ----
+  const valOut = h('div', { class: 'val-out' });
+  let valTimer = null;
+  const currentDraftText = () => ({
+    id: (f.id.value || '').trim() || (ed && ed.id) || '',
+    title: (f.title.value || '').trim() || (sketch.value || '').trim(),
+    statement: (f.statement.value || '').trim(),
+  });
+  function valItem(s, dup) {
+    return h('li', { class: 'val-item' },
+      h('button', { class: 'btn-link', type: 'button', onclick: () => openReq(s.id), text: s.id }),
+      h('span', { class: 'val-pct' + (dup ? ' hi' : ''), text: Math.round(s.score * 100) + '%' }),
+      s.product ? h('span', { class: 'val-prod', text: s.product }) : null,
+      h('span', { class: 'val-ti', text: truncateLabel(s.title, 64) }));
+  }
+  function runValidation() {
+    const d = currentDraftText();
+    if (!d.title && !d.statement) {
+      valOut.replaceChildren(h('p', { class: 'muted', text: 'Comece pelo esboço ou pelo título/enunciado — verifico duplicatas e sugiro vínculos automaticamente, mesmo sem acionar a IA.' }));
+      return;
+    }
+    const sims = findSimilarReqs(d, DATA.baseline.requirements, 6);
+    const strong = sims.filter((s) => s.score >= 0.45);
+    const related = sims.filter((s) => s.score >= 0.12 && s.score < 0.45);
+    valOut.replaceChildren();
+    if (strong.length) {
+      const warn = h('div', { class: 'val-card dup' }, h('div', { class: 'val-h' }, h('span', { class: 'val-ic', text: '⚠' }), h('strong', { text: 'Possível duplicata — revise antes de criar' })));
+      const ul = h('ul', { class: 'val-list' }); strong.forEach((s) => ul.append(valItem(s, true))); warn.append(ul);
+      valOut.append(warn);
+    }
+    if (related.length) {
+      const card = h('div', { class: 'val-card rel' }, h('div', { class: 'val-h' }, h('span', { class: 'val-ic', text: '🔗' }), h('strong', { text: 'Requisitos relacionados — candidatos a vínculo' })));
+      const ul = h('ul', { class: 'val-list' }); related.forEach((s) => ul.append(valItem(s, false)));
+      card.append(ul, h('p', { class: 'muted small', text: 'Inclua os IDs relevantes ao abrir o PR; "Classificar vínculos (IA)" sugere o tipo (depends_on/relates_to/…).' }));
+      valOut.append(card);
+    }
+    if (!strong.length && !related.length) valOut.append(h('p', { class: 'val-ok', text: '✓ Nada parecido encontrado — parece ser um requisito novo.' }));
+  }
+  const scheduleValidation = () => { if (valTimer) clearTimeout(valTimer); valTimer = setTimeout(runValidation, 350); };
+  f.title.addEventListener('input', scheduleValidation);
+  f.statement.addEventListener('input', scheduleValidation);
+
+  // ---- ASSISTENTE DE IA (protagonista) ----
+  const status = h('p', { class: 'muted ai-status', text: 'Verificando IA…' });
+  const tok = h('input', { type: 'password', value: AI.getToken(), placeholder: 'Bearer token (operador)' });
+  const sketch = h('textarea', { class: 'ai-sketch', rows: '4', placeholder: 'Descreva a feature/regra em linguagem natural — ex.: "o operador deve submeter o manifesto MTR de forma assíncrona, com retomada em falha"…' });
+  sketch.addEventListener('input', scheduleValidation);
+  const aiOut = h('div', { class: 'ai-out' });
+
+  function showErr(r) {
+    const code = r.data && r.data.error ? r.data.error.code : 'HTTP ' + r.status;
+    const msg = r.data && r.data.error ? r.data.error.message : '';
+    aiOut.replaceChildren(h('div', { class: 'card' }, h('h3', { text: 'IA: ' + code }), h('p', { class: 'muted', text: msg })));
+  }
+  async function guard(fn) {
+    aiOut.replaceChildren(h('p', { class: 'muted', text: 'Consultando a IA…' }));
+    try { await fn(); } catch (e) { aiOut.replaceChildren(h('p', { class: 'empty', text: 'Erro de rede ao chamar a IA: ' + (e && e.message ? e.message : e) })); }
+  }
+  function doDraft() {
+    guard(async () => {
+      const r = await AI.post('/v1/authoring/draft', { sketch: (sketch.value || '').trim(), scope: (f.product.value || '').trim() });
+      if (!r.ok) return showErr(r);
+      applyDraftToForm(r.data.draft || {});
+      runValidation();
+      const warns = (r.data.draft && r.data.draft.warnings) || [];
+      aiOut.replaceChildren(h('div', { class: 'card' },
+        h('h3', { text: 'Rascunho aplicado (' + (r.data.prompt_version || '') + ')' }),
+        h('p', { class: 'muted', text: warns.length ? 'Avisos: ' + warns.join('; ') : 'Campos preenchidos à direita — revise e clique em Gerar YAML.' })));
+    });
+  }
+  function doAnalyze() {
+    guard(async () => {
+      const r = await AI.post('/v1/authoring/analyze', { requirement: collectDraft() });
+      if (!r.ok) return showErr(r);
+      const card = h('div', { class: 'card' }, h('h3', { text: 'Lacunas — prontidão ' + (r.data.score != null ? r.data.score : '?') }));
+      const gaps = r.data.gaps || [];
+      if (!gaps.length) card.append(h('p', { class: 'empty', text: 'Sem lacunas apontadas.' }));
+      else { const ul = h('ul', { class: 'errlist' }); gaps.forEach((g) => ul.append(h('li', {}, badge(g.severity || 'info', g.severity === 'blocker' ? 'b-crit' : ''), ' ' + ((g.field ? g.field + ': ' : '') + (g.message || ''))))); card.append(ul); }
+      aiOut.replaceChildren(card);
+    });
+  }
+  function doLinks() {
+    guard(async () => {
+      const draft = collectDraft();
+      // candidatos: embeddings (ao editar) OU similaridade textual (requisito novo)
+      let cands;
+      if (DATA.embeddings && DATA.embeddings.vectors && state.editId) {
+        cands = topSimilar(DATA.embeddings.vectors, state.editId, 6).map((s) => ({ id: s.id, title: (byId(s.id) || {}).title || '', score: Number(s.score.toFixed(3)) }));
+      } else {
+        cands = findSimilarReqs(draft, DATA.baseline.requirements, 6).map((s) => ({ id: s.id, title: s.title, score: s.score }));
+      }
+      if (!cands.length) { aiOut.replaceChildren(h('p', { class: 'muted', text: 'Sem candidatos de vínculo — descreva mais o requisito.' })); return; }
+      const r = await AI.post('/v1/authoring/suggest-links', { requirement: draft, candidates: cands });
+      if (!r.ok) return showErr(r);
+      const sg = r.data.suggestions || [];
+      const card = h('div', { class: 'card' }, h('h3', { text: 'Vínculos sugeridos (proposed) — ' + (r.data.prompt_version || '') }));
+      if (!sg.length) card.append(h('p', { class: 'empty', text: 'Nenhum vínculo relevante entre os candidatos.' }));
+      else { const ul = h('ul', { class: 'linklist' }); sg.forEach((s) => ul.append(h('li', {}, badge(s.type, 'b'), ' ', h('button', { class: 'btn-link', type: 'button', onclick: () => openReq(s.target), text: s.target }), ' ', h('span', { class: 'muted', text: '(' + (s.confidence != null ? s.confidence : '?') + ') ' + (s.note || '') })))); card.append(ul); }
+      aiOut.replaceChildren(card);
+    });
+  }
+  AI.health().then((r) => {
+    if (!r.ok) { status.textContent = 'reqhub-api indisponível — a IA é opcional (a validação de duplicatas funciona sem ela).'; return; }
+    status.textContent = r.data && r.data.ai ? 'IA habilitada (gpt-5). Cole seu token de operador para rascunhar/analisar.' : 'IA desabilitada no servidor — a validação de duplicatas segue funcionando.';
+  }).catch(() => { status.textContent = 'reqhub-api indisponível — a validação de duplicatas funciona sem ela.'; });
+
+  const assistant = h('section', { class: 'editor-assistant' },
+    h('div', { class: 'asst-head' }, h('span', { class: 'asst-spark', 'aria-hidden': 'true', text: '✨' }), h('h3', { text: 'Assistente de IA' })),
+    status,
+    h('label', { class: 'fld' }, h('span', { class: 'fld-l', text: 'Descreva o requisito (esboço)' }), sketch),
+    h('div', { class: 'asst-actions' },
+      h('button', { class: 'btn primary', type: 'button', text: '✨ Rascunhar com IA', onclick: doDraft }),
+      h('button', { class: 'btn', type: 'button', text: 'Analisar lacunas', onclick: doAnalyze }),
+      h('button', { class: 'btn', type: 'button', text: 'Classificar vínculos (IA)', onclick: doLinks })),
+    aiOut,
+    h('div', { class: 'asst-val' }, h('h4', { text: 'Validação automática' }), valOut),
+    h('details', { class: 'asst-token' }, h('summary', { text: 'Token de operador (IA)' }),
+      h('div', { class: 'ws-actions' }, tok, h('button', { class: 'btn-link', type: 'button', text: 'Salvar', onclick: () => { AI.setToken(tok.value.trim()); status.textContent = 'Token salvo neste navegador.'; } }))));
+
+  const formCol = h('section', { class: 'editor-formcol' },
+    h('h3', { text: 'Detalhes do requisito' }),
+    form,
+    h('div', { class: 'ws-actions' }, h('button', { class: 'btn primary', type: 'button', onclick: gen, text: 'Gerar YAML' })),
+    out);
+
+  body.append(
+    h('div', { class: 'editor-head' },
+      h('div', {}, h('h2', { class: 'editor-title', text: ed ? `Editar ${ed.id}` : 'Novo requisito' }),
+        h('p', { class: 'muted', text: 'O Assistente de IA redige; a validação verifica duplicatas e sugere vínculos automaticamente — mesmo sem acionar a IA. A UI não escreve no git: o commit é seu (PR). Após o merge, rode /sync-spec.' })),
+      ed ? h('button', { class: 'btn-link', type: 'button', onclick: () => { state.editId = null; renderEditor(); }, text: '+ novo (limpar)' }) : null),
+    h('div', { class: 'editor-grid' }, assistant, formCol));
+
+  runValidation();
 
   // Coleta o rascunho a partir do formulario (reusado por Gerar YAML e pela IA de analise).
   function collectDraft() {
@@ -946,80 +1081,6 @@ function renderEditor() {
       h('p', { class: 'muted', text: 'O PR passa pelo gate specs-governance (schema/drift/versão). A baseline é regenerada por /sync-spec após o merge.' })));
   }
 
-  // Painel da IA de autoria (opcional). Chama o reqhub-api (/reqs/api) e degrada
-  // com mensagem clara se a IA estiver indisponivel/desabilitada/sem token.
-  function aiPanel() {
-    const wrap = h('details', { class: 'card ai-panel' });
-    wrap.append(h('summary', { text: '✨ Assistente de IA (autoria) — opcional' }));
-    const status = h('p', { class: 'muted', text: 'Verificando IA…' });
-    const tok = h('input', { type: 'password', value: AI.getToken(), placeholder: 'Bearer token (operador)' });
-    const tokRow = h('div', { class: 'ws-actions' },
-      h('span', { class: 'fld-l', text: 'Token' }), tok,
-      h('button', { class: 'btn-link', type: 'button', text: 'Salvar', onclick: () => { AI.setToken(tok.value.trim()); status.textContent = 'Token salvo (localStorage deste navegador).'; } }));
-    const sketch = h('textarea', { rows: '3', placeholder: 'Descreva o requisito em linguagem natural (esboço)…' });
-    const aiOut = h('div');
-    wrap.append(status, tokRow,
-      h('label', { class: 'fld' }, h('span', { class: 'fld-l', text: 'Esboço' }), sketch),
-      h('div', { class: 'ws-actions' },
-        h('button', { class: 'btn', type: 'button', text: 'Rascunhar com IA', onclick: doDraft }),
-        h('button', { class: 'btn', type: 'button', text: 'Analisar lacunas', onclick: doAnalyze }),
-        h('button', { class: 'btn', type: 'button', text: 'Sugerir links', onclick: doLinks })),
-      aiOut);
-
-    AI.health().then((r) => {
-      if (!r.ok) { status.textContent = 'reqhub-api indisponível — a IA é opcional (o workbench segue read-only).'; return; }
-      status.textContent = r.data && r.data.ai ? 'IA habilitada (gpt-5). Cole seu token de operador para usar.' : 'IA desabilitada no servidor (configure o Secret reqhub-api-config).';
-    }).catch(() => { status.textContent = 'reqhub-api indisponível — a IA é opcional.'; });
-
-    function showErr(r) {
-      const code = r.data && r.data.error ? r.data.error.code : 'HTTP ' + r.status;
-      const msg = r.data && r.data.error ? r.data.error.message : '';
-      aiOut.replaceChildren(h('div', { class: 'card' }, h('h3', { text: 'IA: ' + code }), h('p', { class: 'muted', text: msg })));
-    }
-    async function guard(fn) {
-      aiOut.replaceChildren(h('p', { class: 'muted', text: 'Consultando a IA…' }));
-      try { await fn(); } catch (e) { aiOut.replaceChildren(h('p', { class: 'empty', text: 'Erro de rede ao chamar a IA: ' + (e && e.message ? e.message : e) })); }
-    }
-    function doDraft() {
-      guard(async () => {
-        const r = await AI.post('/v1/authoring/draft', { sketch: (sketch.value || '').trim(), scope: (f.product.value || '').trim() });
-        if (!r.ok) return showErr(r);
-        applyDraftToForm(r.data.draft || {});
-        const warns = (r.data.draft && r.data.draft.warnings) || [];
-        aiOut.replaceChildren(h('div', { class: 'card' },
-          h('h3', { text: 'Rascunho aplicado (' + (r.data.prompt_version || '') + ')' }),
-          h('p', { class: 'muted', text: warns.length ? 'Avisos: ' + warns.join('; ') : 'Campos preenchidos — revise e clique em Gerar YAML.' })));
-      });
-    }
-    function doAnalyze() {
-      guard(async () => {
-        const r = await AI.post('/v1/authoring/analyze', { requirement: collectDraft() });
-        if (!r.ok) return showErr(r);
-        const card = h('div', { class: 'card' }, h('h3', { text: 'Lacunas — prontidão ' + (r.data.score != null ? r.data.score : '?') }));
-        const gaps = r.data.gaps || [];
-        if (!gaps.length) card.append(h('p', { class: 'empty', text: 'Sem lacunas apontadas.' }));
-        else { const ul = h('ul', { class: 'errlist' }); gaps.forEach((g) => ul.append(h('li', {}, badge(g.severity || 'info', g.severity === 'blocker' ? 'b-crit' : ''), ' ' + ((g.field ? g.field + ': ' : '') + (g.message || ''))))); card.append(ul); }
-        aiOut.replaceChildren(card);
-      });
-    }
-    function doLinks() {
-      guard(async () => {
-        if (!(DATA.embeddings && DATA.embeddings.vectors && state.editId)) {
-          aiOut.replaceChildren(h('p', { class: 'muted', text: 'Sugerir links: disponível ao EDITAR um requisito existente (os candidatos vêm dos embeddings locais).' }));
-          return;
-        }
-        const cands = topSimilar(DATA.embeddings.vectors, state.editId, 6).map((s) => ({ id: s.id, title: (byId(s.id) || {}).title || '', score: Number(s.score.toFixed(3)) }));
-        const r = await AI.post('/v1/authoring/suggest-links', { requirement: collectDraft(), candidates: cands });
-        if (!r.ok) return showErr(r);
-        const sg = r.data.suggestions || [];
-        const card = h('div', { class: 'card' }, h('h3', { text: 'Links sugeridos (proposed) — ' + (r.data.prompt_version || '') }));
-        if (!sg.length) card.append(h('p', { class: 'empty', text: 'Nenhum link relevante entre os candidatos.' }));
-        else { const ul = h('ul', { class: 'linklist' }); sg.forEach((s) => ul.append(h('li', {}, badge(s.type, 'b'), ' ', h('button', { class: 'btn-link', type: 'button', onclick: () => openReq(s.target), text: s.target }), ' ', h('span', { class: 'muted', text: '(' + (s.confidence != null ? s.confidence : '?') + ') ' + (s.note || '') })))); card.append(ul); }
-        aiOut.replaceChildren(card);
-      });
-    }
-    return wrap;
-  }
 }
 
 /* ---------- navegação / abas ---------- */
@@ -1070,10 +1131,27 @@ function wireSearch() {
     if (['explorer', 'versions', 'coverage'].includes(state.view)) RENDER[state.view]();
   });
 }
+// Modo tela cheia (Fullscreen API) — vale para todas as telas do workbench.
+function wireFullscreen() {
+  const btn = document.getElementById('fullscreen');
+  if (!btn) return;
+  const sync = () => {
+    const on = !!document.fullscreenElement;
+    btn.textContent = on ? '⤢' : '⛶';
+    const lbl = on ? 'Sair da tela cheia' : 'Entrar em tela cheia';
+    btn.setAttribute('aria-label', lbl); btn.setAttribute('title', lbl);
+  };
+  btn.addEventListener('click', () => {
+    if (document.fullscreenElement) { if (document.exitFullscreen) document.exitFullscreen(); }
+    else { const p = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); if (p && p.catch) p.catch(() => {}); }
+  });
+  document.addEventListener('fullscreenchange', sync);
+  sync();
+}
 
 async function init() {
   document.documentElement.classList.remove('no-js');
-  wireTabs(); wireTheme(); wireSearch();
+  wireTabs(); wireTheme(); wireSearch(); wireFullscreen();
   try {
     const [b, im, rt] = await Promise.all([
       fetch('data/current-baseline.json').then((r) => { if (!r.ok) throw new Error('baseline ' + r.status); return r.json(); }),

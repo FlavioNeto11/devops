@@ -4,1493 +4,2184 @@
   "counts": {
     "total": 371,
     "by_status": {
-      "not_started": 371
+      "deployed": 319,
+      "done": 52
     }
   },
   "items": {
     "REQ-AI-0001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/ai-control-plane + Langfuse no cluster; packages/ai-core/ai-kit em uso"
     },
     "REQ-AI-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/ai-control-plane + Langfuse no cluster; packages/ai-core/ai-kit em uso"
     },
     "REQ-AI-0003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/ai-control-plane + Langfuse no cluster; packages/ai-core/ai-kit em uso"
     },
     "REQ-AI-0004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/ai-control-plane + Langfuse no cluster; packages/ai-core/ai-kit em uso"
     },
     "REQ-AI-0005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/ai-control-plane + Langfuse no cluster; packages/ai-core/ai-kit em uso"
     },
     "REQ-AI-0006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/ai-control-plane + Langfuse no cluster; packages/ai-core/ai-kit em uso"
     },
     "REQ-AI-0007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/ai-control-plane + Langfuse no cluster; packages/ai-core/ai-kit em uso"
     },
     "REQ-AI-0008": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/ai-control-plane + Langfuse no cluster; packages/ai-core/ai-kit em uso"
     },
     "REQ-AI-0009": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/ai-control-plane + Langfuse no cluster; packages/ai-core/ai-kit em uso"
     },
     "REQ-AI-0010": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/ai-control-plane + Langfuse no cluster; packages/ai-core/ai-kit em uso"
     },
     "REQ-AI-0011": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/ai-control-plane + Langfuse no cluster; packages/ai-core/ai-kit em uso"
     },
     "REQ-AI-0012": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/ai-control-plane + Langfuse no cluster; packages/ai-core/ai-kit em uso"
     },
     "REQ-AI-NFR-001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/ai-control-plane + Langfuse no cluster; packages/ai-core/ai-kit em uso"
     },
     "REQ-AI-NFR-002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/ai-control-plane + Langfuse no cluster; packages/ai-core/ai-kit em uso"
     },
     "REQ-AI-NFR-003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/ai-control-plane + Langfuse no cluster; packages/ai-core/ai-kit em uso"
     },
     "REQ-AI-NFR-004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/ai-control-plane + Langfuse no cluster; packages/ai-core/ai-kit em uso"
     },
     "REQ-AI-NFR-005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/ai-control-plane + Langfuse no cluster; packages/ai-core/ai-kit em uso"
     },
     "REQ-AI-NFR-006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/ai-control-plane + Langfuse no cluster; packages/ai-core/ai-kit em uso"
     },
     "REQ-ANARA-0001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-ANARA-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-ANARA-0003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-ANARA-0004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-ANARA-0005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-ANARA-0006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-ANARA-0007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-ANARA-0008": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-ANARA-0009": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-ANARA-0010": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-ANARA-0011": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-ANARA-0012": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-ANARA-0013": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-ANARA-NFR-001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-ANARA-NFR-002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-ANARA-NFR-003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-ANARA-NFR-004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-ANARA-NFR-005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-ANARA-NFR-006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-ARGO-0001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/argocd — GitOps app-of-apps no cluster (ns argocd)"
     },
     "REQ-ARGO-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/argocd — GitOps app-of-apps no cluster (ns argocd)"
     },
     "REQ-ARGO-0003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/argocd — GitOps app-of-apps no cluster (ns argocd)"
     },
     "REQ-ARGO-0004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/argocd — GitOps app-of-apps no cluster (ns argocd)"
     },
     "REQ-ARGO-0005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/argocd — GitOps app-of-apps no cluster (ns argocd)"
     },
     "REQ-ARGO-0006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/argocd — GitOps app-of-apps no cluster (ns argocd)"
     },
     "REQ-ARGO-0007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/argocd — GitOps app-of-apps no cluster (ns argocd)"
     },
     "REQ-ARGO-0008": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/argocd — GitOps app-of-apps no cluster (ns argocd)"
     },
     "REQ-ARGO-0009": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/argocd — GitOps app-of-apps no cluster (ns argocd)"
     },
     "REQ-ARGO-0010": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/argocd — GitOps app-of-apps no cluster (ns argocd)"
     },
     "REQ-ARGO-0011": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/argocd — GitOps app-of-apps no cluster (ns argocd)"
     },
     "REQ-ARGO-NFR-001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/argocd — GitOps app-of-apps no cluster (ns argocd)"
     },
     "REQ-ARGO-NFR-002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/argocd — GitOps app-of-apps no cluster (ns argocd)"
     },
     "REQ-ARGO-NFR-003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/argocd — GitOps app-of-apps no cluster (ns argocd)"
     },
     "REQ-ARGO-NFR-004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/argocd — GitOps app-of-apps no cluster (ns argocd)"
     },
     "REQ-CICD-0001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": ".github/workflows — esteira de CI/CD (build/test/deploy) ativa"
     },
     "REQ-CICD-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": ".github/workflows — esteira de CI/CD (build/test/deploy) ativa"
     },
     "REQ-CICD-0003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": ".github/workflows — esteira de CI/CD (build/test/deploy) ativa"
     },
     "REQ-CICD-0004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": ".github/workflows — esteira de CI/CD (build/test/deploy) ativa"
     },
     "REQ-CICD-0005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": ".github/workflows — esteira de CI/CD (build/test/deploy) ativa"
     },
     "REQ-CICD-0006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": ".github/workflows — esteira de CI/CD (build/test/deploy) ativa"
     },
     "REQ-CICD-0007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": ".github/workflows — esteira de CI/CD (build/test/deploy) ativa"
     },
     "REQ-CICD-0008": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": ".github/workflows — esteira de CI/CD (build/test/deploy) ativa"
     },
     "REQ-CICD-0009": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": ".github/workflows — esteira de CI/CD (build/test/deploy) ativa"
     },
     "REQ-CICD-0010": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": ".github/workflows — esteira de CI/CD (build/test/deploy) ativa"
     },
     "REQ-CICD-0011": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": ".github/workflows — esteira de CI/CD (build/test/deploy) ativa"
     },
     "REQ-CICD-0012": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": ".github/workflows — esteira de CI/CD (build/test/deploy) ativa"
     },
     "REQ-CICD-NFR-001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": ".github/workflows — esteira de CI/CD (build/test/deploy) ativa"
     },
     "REQ-CICD-NFR-002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": ".github/workflows — esteira de CI/CD (build/test/deploy) ativa"
     },
     "REQ-CICD-NFR-003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": ".github/workflows — esteira de CI/CD (build/test/deploy) ativa"
     },
     "REQ-CICD-NFR-004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": ".github/workflows — esteira de CI/CD (build/test/deploy) ativa"
     },
     "REQ-CICD-NFR-005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": ".github/workflows — esteira de CI/CD (build/test/deploy) ativa"
     },
     "REQ-CMS-0001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "CMS integrado ao Console (taxonomia/mídia/site-renderer/editor) no cluster"
     },
     "REQ-CMS-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "CMS integrado ao Console (taxonomia/mídia/site-renderer/editor) no cluster"
     },
     "REQ-CMS-0003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "CMS integrado ao Console (taxonomia/mídia/site-renderer/editor) no cluster"
     },
     "REQ-CMS-0004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "CMS integrado ao Console (taxonomia/mídia/site-renderer/editor) no cluster"
     },
     "REQ-CMS-0005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "CMS integrado ao Console (taxonomia/mídia/site-renderer/editor) no cluster"
     },
     "REQ-CMS-0006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "CMS integrado ao Console (taxonomia/mídia/site-renderer/editor) no cluster"
     },
     "REQ-CMS-0007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "CMS integrado ao Console (taxonomia/mídia/site-renderer/editor) no cluster"
     },
     "REQ-CMS-0008": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "CMS integrado ao Console (taxonomia/mídia/site-renderer/editor) no cluster"
     },
     "REQ-CMS-0009": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "CMS integrado ao Console (taxonomia/mídia/site-renderer/editor) no cluster"
     },
     "REQ-CMS-0010": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "CMS integrado ao Console (taxonomia/mídia/site-renderer/editor) no cluster"
     },
     "REQ-CMS-0011": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "CMS integrado ao Console (taxonomia/mídia/site-renderer/editor) no cluster"
     },
     "REQ-CMS-0012": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "CMS integrado ao Console (taxonomia/mídia/site-renderer/editor) no cluster"
     },
     "REQ-CMS-0013": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "CMS integrado ao Console (taxonomia/mídia/site-renderer/editor) no cluster"
     },
     "REQ-CMS-0014": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "CMS integrado ao Console (taxonomia/mídia/site-renderer/editor) no cluster"
     },
     "REQ-CMS-0015": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "CMS integrado ao Console (taxonomia/mídia/site-renderer/editor) no cluster"
     },
     "REQ-CMS-NFR-001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "CMS integrado ao Console (taxonomia/mídia/site-renderer/editor) no cluster"
     },
     "REQ-CMS-NFR-002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "CMS integrado ao Console (taxonomia/mídia/site-renderer/editor) no cluster"
     },
     "REQ-CMS-NFR-003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "CMS integrado ao Console (taxonomia/mídia/site-renderer/editor) no cluster"
     },
     "REQ-CMS-NFR-004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "CMS integrado ao Console (taxonomia/mídia/site-renderer/editor) no cluster"
     },
     "REQ-CMS-NFR-005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "CMS integrado ao Console (taxonomia/mídia/site-renderer/editor) no cluster"
     },
     "REQ-CMS-NFR-006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "CMS integrado ao Console (taxonomia/mídia/site-renderer/editor) no cluster"
     },
     "REQ-CMS-NFR-007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "CMS integrado ao Console (taxonomia/mídia/site-renderer/editor) no cluster"
     },
     "REQ-CONSOLE-0001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-0003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-0004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-0005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-0006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-0007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-0008": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-0009": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-0010": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-0011": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-0012": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-0013": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-0014": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-0015": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-0016": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-0017": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-0018": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-0019": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-0020": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-0021": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-0022": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-0023": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-0024": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-0025": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-0026": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-0027": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-NFR-001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-NFR-002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-NFR-003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-NFR-004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-NFR-005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-NFR-006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-NFR-007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONSOLE-NFR-008": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-GYMOPS-0001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
     },
     "REQ-GYMOPS-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
     },
     "REQ-GYMOPS-0003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
     },
     "REQ-GYMOPS-0004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
     },
     "REQ-GYMOPS-0005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
     },
     "REQ-GYMOPS-0006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
     },
     "REQ-GYMOPS-0007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
     },
     "REQ-GYMOPS-0008": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
     },
     "REQ-GYMOPS-0009": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
     },
     "REQ-GYMOPS-0010": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
     },
     "REQ-GYMOPS-0011": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
     },
     "REQ-GYMOPS-0012": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
     },
     "REQ-GYMOPS-0013": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
     },
     "REQ-GYMOPS-0014": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
     },
     "REQ-GYMOPS-0015": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
     },
     "REQ-GYMOPS-NFR-001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
     },
     "REQ-GYMOPS-NFR-002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
     },
     "REQ-GYMOPS-NFR-003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
     },
     "REQ-GYMOPS-NFR-004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
     },
     "REQ-GYMOPS-NFR-005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
     },
     "REQ-GYMOPS-NFR-006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
     },
     "REQ-GYMOPS-NFR-007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
     },
     "REQ-GYMOPS-NFR-008": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
     },
     "REQ-KEYCLOAK-0001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/keycloak — SSO/OIDC no cluster (ns identity), sob Argo"
     },
     "REQ-KEYCLOAK-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/keycloak — SSO/OIDC no cluster (ns identity), sob Argo"
     },
     "REQ-KEYCLOAK-0003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/keycloak — SSO/OIDC no cluster (ns identity), sob Argo"
     },
     "REQ-KEYCLOAK-0004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/keycloak — SSO/OIDC no cluster (ns identity), sob Argo"
     },
     "REQ-KEYCLOAK-0005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/keycloak — SSO/OIDC no cluster (ns identity), sob Argo"
     },
     "REQ-KEYCLOAK-0006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/keycloak — SSO/OIDC no cluster (ns identity), sob Argo"
     },
     "REQ-KEYCLOAK-0007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/keycloak — SSO/OIDC no cluster (ns identity), sob Argo"
     },
     "REQ-KEYCLOAK-0008": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/keycloak — SSO/OIDC no cluster (ns identity), sob Argo"
     },
     "REQ-KEYCLOAK-0009": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/keycloak — SSO/OIDC no cluster (ns identity), sob Argo"
     },
     "REQ-KEYCLOAK-0010": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/keycloak — SSO/OIDC no cluster (ns identity), sob Argo"
     },
     "REQ-KEYCLOAK-0011": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/keycloak — SSO/OIDC no cluster (ns identity), sob Argo"
     },
     "REQ-KEYCLOAK-0012": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/keycloak — SSO/OIDC no cluster (ns identity), sob Argo"
     },
     "REQ-KEYCLOAK-NFR-001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/keycloak — SSO/OIDC no cluster (ns identity), sob Argo"
     },
     "REQ-KEYCLOAK-NFR-002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/keycloak — SSO/OIDC no cluster (ns identity), sob Argo"
     },
     "REQ-KEYCLOAK-NFR-003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/keycloak — SSO/OIDC no cluster (ns identity), sob Argo"
     },
     "REQ-KEYCLOAK-NFR-004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/keycloak — SSO/OIDC no cluster (ns identity), sob Argo"
     },
     "REQ-KEYCLOAK-NFR-005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/keycloak — SSO/OIDC no cluster (ns identity), sob Argo"
     },
     "REQ-KEYCLOAK-NFR-006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/keycloak — SSO/OIDC no cluster (ns identity), sob Argo"
     },
     "REQ-OBS-0001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/observability — kube-prometheus-stack + Loki no cluster"
     },
     "REQ-OBS-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/observability — kube-prometheus-stack + Loki no cluster"
     },
     "REQ-OBS-0003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/observability — kube-prometheus-stack + Loki no cluster"
     },
     "REQ-OBS-0004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/observability — kube-prometheus-stack + Loki no cluster"
     },
     "REQ-OBS-0005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/observability — kube-prometheus-stack + Loki no cluster"
     },
     "REQ-OBS-0006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/observability — kube-prometheus-stack + Loki no cluster"
     },
     "REQ-OBS-0007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/observability — kube-prometheus-stack + Loki no cluster"
     },
     "REQ-OBS-0008": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/observability — kube-prometheus-stack + Loki no cluster"
     },
     "REQ-OBS-0009": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/observability — kube-prometheus-stack + Loki no cluster"
     },
     "REQ-OBS-0010": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/observability — kube-prometheus-stack + Loki no cluster"
     },
     "REQ-OBS-0011": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/observability — kube-prometheus-stack + Loki no cluster"
     },
     "REQ-OBS-0012": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/observability — kube-prometheus-stack + Loki no cluster"
     },
     "REQ-OBS-NFR-001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/observability — kube-prometheus-stack + Loki no cluster"
     },
     "REQ-OBS-NFR-002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/observability — kube-prometheus-stack + Loki no cluster"
     },
     "REQ-OBS-NFR-003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/observability — kube-prometheus-stack + Loki no cluster"
     },
     "REQ-OBS-NFR-004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/observability — kube-prometheus-stack + Loki no cluster"
     },
     "REQ-OBS-NFR-005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/observability — kube-prometheus-stack + Loki no cluster"
     },
     "REQ-OIDC-0001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "packages/oidc-kit — biblioteca OIDC consumida pelas apps deployadas"
     },
     "REQ-OIDC-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "packages/oidc-kit — biblioteca OIDC consumida pelas apps deployadas"
     },
     "REQ-OIDC-0003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "packages/oidc-kit — biblioteca OIDC consumida pelas apps deployadas"
     },
     "REQ-OIDC-0004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "packages/oidc-kit — biblioteca OIDC consumida pelas apps deployadas"
     },
     "REQ-OIDC-0005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "packages/oidc-kit — biblioteca OIDC consumida pelas apps deployadas"
     },
     "REQ-OIDC-0006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "packages/oidc-kit — biblioteca OIDC consumida pelas apps deployadas"
     },
     "REQ-OIDC-0007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "packages/oidc-kit — biblioteca OIDC consumida pelas apps deployadas"
     },
     "REQ-OIDC-0008": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "packages/oidc-kit — biblioteca OIDC consumida pelas apps deployadas"
     },
     "REQ-OIDC-0009": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "packages/oidc-kit — biblioteca OIDC consumida pelas apps deployadas"
     },
     "REQ-OIDC-0010": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "packages/oidc-kit — biblioteca OIDC consumida pelas apps deployadas"
     },
     "REQ-OIDC-0011": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "packages/oidc-kit — biblioteca OIDC consumida pelas apps deployadas"
     },
     "REQ-OIDC-0012": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "packages/oidc-kit — biblioteca OIDC consumida pelas apps deployadas"
     },
     "REQ-OIDC-NFR-001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "packages/oidc-kit — biblioteca OIDC consumida pelas apps deployadas"
     },
     "REQ-OIDC-NFR-002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "packages/oidc-kit — biblioteca OIDC consumida pelas apps deployadas"
     },
     "REQ-OIDC-NFR-003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "packages/oidc-kit — biblioteca OIDC consumida pelas apps deployadas"
     },
     "REQ-OIDC-NFR-004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "packages/oidc-kit — biblioteca OIDC consumida pelas apps deployadas"
     },
     "REQ-OIDC-NFR-005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "packages/oidc-kit — biblioteca OIDC consumida pelas apps deployadas"
     },
     "REQ-OIDC-NFR-006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "packages/oidc-kit — biblioteca OIDC consumida pelas apps deployadas"
     },
     "REQ-PCONTRACT-0001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "contrato canônico CETESB + comparador no CI + portal-recorder"
     },
     "REQ-PCONTRACT-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "contrato canônico CETESB + comparador no CI + portal-recorder"
     },
     "REQ-PCONTRACT-0003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "contrato canônico CETESB + comparador no CI + portal-recorder"
     },
     "REQ-PCONTRACT-0004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "contrato canônico CETESB + comparador no CI + portal-recorder"
     },
     "REQ-PCONTRACT-0005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "contrato canônico CETESB + comparador no CI + portal-recorder"
     },
     "REQ-PCONTRACT-0006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "contrato canônico CETESB + comparador no CI + portal-recorder"
     },
     "REQ-PCONTRACT-0007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "contrato canônico CETESB + comparador no CI + portal-recorder"
     },
     "REQ-PCONTRACT-0008": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "contrato canônico CETESB + comparador no CI + portal-recorder"
     },
     "REQ-PCONTRACT-0009": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "contrato canônico CETESB + comparador no CI + portal-recorder"
     },
     "REQ-PCONTRACT-0010": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "contrato canônico CETESB + comparador no CI + portal-recorder"
     },
     "REQ-PCONTRACT-0011": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "contrato canônico CETESB + comparador no CI + portal-recorder"
     },
     "REQ-PCONTRACT-0012": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "contrato canônico CETESB + comparador no CI + portal-recorder"
     },
     "REQ-PCONTRACT-NFR-001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "contrato canônico CETESB + comparador no CI + portal-recorder"
     },
     "REQ-PCONTRACT-NFR-002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "contrato canônico CETESB + comparador no CI + portal-recorder"
     },
     "REQ-PCONTRACT-NFR-003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "contrato canônico CETESB + comparador no CI + portal-recorder"
     },
     "REQ-PCONTRACT-NFR-004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "contrato canônico CETESB + comparador no CI + portal-recorder"
     },
     "REQ-PCONTRACT-NFR-005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "done",
+      "req_revision": 1,
+      "notes": "contrato canônico CETESB + comparador no CI + portal-recorder"
     },
     "REQ-PLATFORM-0001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "infraestrutura GitOps (Sealed Secrets, namespaces, registry) no cluster"
     },
     "REQ-PLATFORM-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "infraestrutura GitOps (Sealed Secrets, namespaces, registry) no cluster"
     },
     "REQ-PLATFORM-0003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "infraestrutura GitOps (Sealed Secrets, namespaces, registry) no cluster"
     },
     "REQ-PLATFORM-0004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "infraestrutura GitOps (Sealed Secrets, namespaces, registry) no cluster"
     },
     "REQ-PLATFORM-0005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "infraestrutura GitOps (Sealed Secrets, namespaces, registry) no cluster"
     },
     "REQ-PLATFORM-0006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "infraestrutura GitOps (Sealed Secrets, namespaces, registry) no cluster"
     },
     "REQ-PLATFORM-0007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "infraestrutura GitOps (Sealed Secrets, namespaces, registry) no cluster"
     },
     "REQ-PLATFORM-0008": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "infraestrutura GitOps (Sealed Secrets, namespaces, registry) no cluster"
     },
     "REQ-PLATFORM-0009": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "infraestrutura GitOps (Sealed Secrets, namespaces, registry) no cluster"
     },
     "REQ-PLATFORM-0010": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "infraestrutura GitOps (Sealed Secrets, namespaces, registry) no cluster"
     },
     "REQ-PLATFORM-0011": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "infraestrutura GitOps (Sealed Secrets, namespaces, registry) no cluster"
     },
     "REQ-PLATFORM-0012": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "infraestrutura GitOps (Sealed Secrets, namespaces, registry) no cluster"
     },
     "REQ-PLATFORM-NFR-001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "infraestrutura GitOps (Sealed Secrets, namespaces, registry) no cluster"
     },
     "REQ-PLATFORM-NFR-002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "infraestrutura GitOps (Sealed Secrets, namespaces, registry) no cluster"
     },
     "REQ-PLATFORM-NFR-003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "infraestrutura GitOps (Sealed Secrets, namespaces, registry) no cluster"
     },
     "REQ-PLATFORM-NFR-004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "infraestrutura GitOps (Sealed Secrets, namespaces, registry) no cluster"
     },
     "REQ-PORTAL-0001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "portal — landing pública no cluster (imagem GHCR pinada por tree-sha)"
     },
     "REQ-PORTAL-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "portal — landing pública no cluster (imagem GHCR pinada por tree-sha)"
     },
     "REQ-PORTAL-0003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "portal — landing pública no cluster (imagem GHCR pinada por tree-sha)"
     },
     "REQ-PORTAL-0004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "portal — landing pública no cluster (imagem GHCR pinada por tree-sha)"
     },
     "REQ-PORTAL-0005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "portal — landing pública no cluster (imagem GHCR pinada por tree-sha)"
     },
     "REQ-PORTAL-0006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "portal — landing pública no cluster (imagem GHCR pinada por tree-sha)"
     },
     "REQ-PORTAL-0007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "portal — landing pública no cluster (imagem GHCR pinada por tree-sha)"
     },
     "REQ-PORTAL-0008": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "portal — landing pública no cluster (imagem GHCR pinada por tree-sha)"
     },
     "REQ-PORTAL-0009": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "portal — landing pública no cluster (imagem GHCR pinada por tree-sha)"
     },
     "REQ-PORTAL-0010": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "portal — landing pública no cluster (imagem GHCR pinada por tree-sha)"
     },
     "REQ-PORTAL-0011": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "portal — landing pública no cluster (imagem GHCR pinada por tree-sha)"
     },
     "REQ-PORTAL-0012": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "portal — landing pública no cluster (imagem GHCR pinada por tree-sha)"
     },
     "REQ-PORTAL-0013": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "portal — landing pública no cluster (imagem GHCR pinada por tree-sha)"
     },
     "REQ-PORTAL-0014": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "portal — landing pública no cluster (imagem GHCR pinada por tree-sha)"
     },
     "REQ-PORTAL-0015": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "portal — landing pública no cluster (imagem GHCR pinada por tree-sha)"
     },
     "REQ-PORTAL-NFR-001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "portal — landing pública no cluster (imagem GHCR pinada por tree-sha)"
     },
     "REQ-PORTAL-NFR-002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "portal — landing pública no cluster (imagem GHCR pinada por tree-sha)"
     },
     "REQ-PORTAL-NFR-003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "portal — landing pública no cluster (imagem GHCR pinada por tree-sha)"
     },
     "REQ-PORTAL-NFR-004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "portal — landing pública no cluster (imagem GHCR pinada por tree-sha)"
     },
     "REQ-PORTAL-NFR-005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "portal — landing pública no cluster (imagem GHCR pinada por tree-sha)"
     },
     "REQ-PORTAL-NFR-006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "portal — landing pública no cluster (imagem GHCR pinada por tree-sha)"
     },
     "REQ-RECORDER-0001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/portal-recorder — captura de portais no cluster (ns apps)"
     },
     "REQ-RECORDER-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/portal-recorder — captura de portais no cluster (ns apps)"
     },
     "REQ-RECORDER-0003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/portal-recorder — captura de portais no cluster (ns apps)"
     },
     "REQ-RECORDER-0004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/portal-recorder — captura de portais no cluster (ns apps)"
     },
     "REQ-RECORDER-0005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/portal-recorder — captura de portais no cluster (ns apps)"
     },
     "REQ-RECORDER-0006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/portal-recorder — captura de portais no cluster (ns apps)"
     },
     "REQ-RECORDER-0007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/portal-recorder — captura de portais no cluster (ns apps)"
     },
     "REQ-RECORDER-0008": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/portal-recorder — captura de portais no cluster (ns apps)"
     },
     "REQ-RECORDER-0009": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/portal-recorder — captura de portais no cluster (ns apps)"
     },
     "REQ-RECORDER-0010": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/portal-recorder — captura de portais no cluster (ns apps)"
     },
     "REQ-RECORDER-0011": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/portal-recorder — captura de portais no cluster (ns apps)"
     },
     "REQ-RECORDER-0012": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/portal-recorder — captura de portais no cluster (ns apps)"
     },
     "REQ-RECORDER-0013": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/portal-recorder — captura de portais no cluster (ns apps)"
     },
     "REQ-RECORDER-NFR-001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/portal-recorder — captura de portais no cluster (ns apps)"
     },
     "REQ-RECORDER-NFR-002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/portal-recorder — captura de portais no cluster (ns apps)"
     },
     "REQ-RECORDER-NFR-003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/portal-recorder — captura de portais no cluster (ns apps)"
     },
     "REQ-RECORDER-NFR-004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/portal-recorder — captura de portais no cluster (ns apps)"
     },
     "REQ-RECORDER-NFR-005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/portal-recorder — captura de portais no cluster (ns apps)"
     },
     "REQ-RECORDER-NFR-006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/portal-recorder — captura de portais no cluster (ns apps)"
     },
     "REQ-REQHUB-0001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/reqhub — workbench + reqhub-api no cluster (ns apps)"
     },
     "REQ-REQHUB-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/reqhub — workbench + reqhub-api no cluster (ns apps)"
     },
     "REQ-REQHUB-0003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/reqhub — workbench + reqhub-api no cluster (ns apps)"
     },
     "REQ-REQHUB-0004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/reqhub — workbench + reqhub-api no cluster (ns apps)"
     },
     "REQ-REQHUB-0005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/reqhub — workbench + reqhub-api no cluster (ns apps)"
     },
     "REQ-REQHUB-0006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/reqhub — workbench + reqhub-api no cluster (ns apps)"
     },
     "REQ-REQHUB-0007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/reqhub — workbench + reqhub-api no cluster (ns apps)"
     },
     "REQ-REQHUB-0008": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/reqhub — workbench + reqhub-api no cluster (ns apps)"
     },
     "REQ-REQHUB-0009": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/reqhub — workbench + reqhub-api no cluster (ns apps)"
     },
     "REQ-REQHUB-0010": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/reqhub — workbench + reqhub-api no cluster (ns apps)"
     },
     "REQ-REQHUB-0011": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/reqhub — workbench + reqhub-api no cluster (ns apps)"
     },
     "REQ-REQHUB-0012": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/reqhub — workbench + reqhub-api no cluster (ns apps)"
     },
     "REQ-REQHUB-NFR-001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/reqhub — workbench + reqhub-api no cluster (ns apps)"
     },
     "REQ-REQHUB-NFR-002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/reqhub — workbench + reqhub-api no cluster (ns apps)"
     },
     "REQ-REQHUB-NFR-003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/reqhub — workbench + reqhub-api no cluster (ns apps)"
     },
     "REQ-REQHUB-NFR-004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/reqhub — workbench + reqhub-api no cluster (ns apps)"
     },
     "REQ-REQHUB-NFR-005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/reqhub — workbench + reqhub-api no cluster (ns apps)"
     },
     "REQ-REQHUB-NFR-006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/reqhub — workbench + reqhub-api no cluster (ns apps)"
     },
     "REQ-REQHUB-NFR-007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/reqhub — workbench + reqhub-api no cluster (ns apps)"
     },
     "REQ-REQHUB-NFR-008": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/reqhub — workbench + reqhub-api no cluster (ns apps)"
     },
     "REQ-RMAMB-0001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-RMAMB-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-RMAMB-0003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-RMAMB-0004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-RMAMB-0005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-RMAMB-0006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-RMAMB-0007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-RMAMB-0008": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-RMAMB-0009": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-RMAMB-0010": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-RMAMB-0011": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-RMAMB-0012": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-RMAMB-NFR-001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-RMAMB-NFR-002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-RMAMB-NFR-003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-RMAMB-NFR-004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-RMAMB-NFR-005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-RMAMB-NFR-006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-SICAT-0001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/sicat — full-stack (Vue+Node+Postgres+worker) no cluster (ns apps)"
     },
     "REQ-SICAT-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/sicat — full-stack (Vue+Node+Postgres+worker) no cluster (ns apps)"
     },
     "REQ-SICAT-0003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/sicat — full-stack (Vue+Node+Postgres+worker) no cluster (ns apps)"
     },
     "REQ-SICAT-0004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/sicat — full-stack (Vue+Node+Postgres+worker) no cluster (ns apps)"
     },
     "REQ-SICAT-0005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/sicat — full-stack (Vue+Node+Postgres+worker) no cluster (ns apps)"
     },
     "REQ-SICAT-0006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/sicat — full-stack (Vue+Node+Postgres+worker) no cluster (ns apps)"
     },
     "REQ-SICAT-0007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/sicat — full-stack (Vue+Node+Postgres+worker) no cluster (ns apps)"
     },
     "REQ-SICAT-0008": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/sicat — full-stack (Vue+Node+Postgres+worker) no cluster (ns apps)"
     },
     "REQ-SICAT-0009": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/sicat — full-stack (Vue+Node+Postgres+worker) no cluster (ns apps)"
     },
     "REQ-SICAT-0010": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/sicat — full-stack (Vue+Node+Postgres+worker) no cluster (ns apps)"
     },
     "REQ-SICAT-0011": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/sicat — full-stack (Vue+Node+Postgres+worker) no cluster (ns apps)"
     },
     "REQ-SICAT-0012": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/sicat — full-stack (Vue+Node+Postgres+worker) no cluster (ns apps)"
     },
     "REQ-SICAT-0013": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/sicat — full-stack (Vue+Node+Postgres+worker) no cluster (ns apps)"
     },
     "REQ-SICAT-0014": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/sicat — full-stack (Vue+Node+Postgres+worker) no cluster (ns apps)"
     },
     "REQ-SICAT-0015": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/sicat — full-stack (Vue+Node+Postgres+worker) no cluster (ns apps)"
     },
     "REQ-SICAT-0016": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/sicat — full-stack (Vue+Node+Postgres+worker) no cluster (ns apps)"
     },
     "REQ-SICAT-NFR-0001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/sicat — full-stack (Vue+Node+Postgres+worker) no cluster (ns apps)"
     },
     "REQ-SICAT-NFR-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/sicat — full-stack (Vue+Node+Postgres+worker) no cluster (ns apps)"
     },
     "REQ-SICAT-NFR-0003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/sicat — full-stack (Vue+Node+Postgres+worker) no cluster (ns apps)"
     },
     "REQ-SICAT-NFR-0004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/sicat — full-stack (Vue+Node+Postgres+worker) no cluster (ns apps)"
     },
     "REQ-SICAT-NFR-0005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/sicat — full-stack (Vue+Node+Postgres+worker) no cluster (ns apps)"
     },
     "REQ-SICAT-NFR-0006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/sicat — full-stack (Vue+Node+Postgres+worker) no cluster (ns apps)"
     },
     "REQ-SICAT-NFR-0007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/sicat — full-stack (Vue+Node+Postgres+worker) no cluster (ns apps)"
     },
     "REQ-SICAT-NFR-0008": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "apps/sicat — full-stack (Vue+Node+Postgres+worker) no cluster (ns apps)"
     },
     "REQ-SPECS-0001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "plataforma de requisitos — reqhub no cluster + baseline/tooling/CI ativos"
     },
     "REQ-SPECS-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "plataforma de requisitos — reqhub no cluster + baseline/tooling/CI ativos"
     },
     "REQ-SPECS-0003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "plataforma de requisitos — reqhub no cluster + baseline/tooling/CI ativos"
     },
     "REQ-SPECS-0004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "plataforma de requisitos — reqhub no cluster + baseline/tooling/CI ativos"
     },
     "REQ-SPECS-0005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "plataforma de requisitos — reqhub no cluster + baseline/tooling/CI ativos"
     },
     "REQ-SPECS-0006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "plataforma de requisitos — reqhub no cluster + baseline/tooling/CI ativos"
     },
     "REQ-SPECS-0007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "plataforma de requisitos — reqhub no cluster + baseline/tooling/CI ativos"
     },
     "REQ-SPECS-0008": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "plataforma de requisitos — reqhub no cluster + baseline/tooling/CI ativos"
     },
     "REQ-SPECS-0009": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "plataforma de requisitos — reqhub no cluster + baseline/tooling/CI ativos"
     },
     "REQ-SPECS-0010": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "plataforma de requisitos — reqhub no cluster + baseline/tooling/CI ativos"
     },
     "REQ-SPECS-0011": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "plataforma de requisitos — reqhub no cluster + baseline/tooling/CI ativos"
     },
     "REQ-SPECS-0012": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "plataforma de requisitos — reqhub no cluster + baseline/tooling/CI ativos"
     },
     "REQ-SPECS-NFR-001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "plataforma de requisitos — reqhub no cluster + baseline/tooling/CI ativos"
     },
     "REQ-SPECS-NFR-002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "plataforma de requisitos — reqhub no cluster + baseline/tooling/CI ativos"
     },
     "REQ-SPECS-NFR-003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "plataforma de requisitos — reqhub no cluster + baseline/tooling/CI ativos"
     },
     "REQ-SPECS-NFR-004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "plataforma de requisitos — reqhub no cluster + baseline/tooling/CI ativos"
     },
     "REQ-SPECS-NFR-005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "plataforma de requisitos — reqhub no cluster + baseline/tooling/CI ativos"
     },
     "REQ-SPECS-NFR-006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "plataforma de requisitos — reqhub no cluster + baseline/tooling/CI ativos"
     },
     "REQ-TRAEFIK-0001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/traefik — ingress + middlewares no cluster (ns traefik)"
     },
     "REQ-TRAEFIK-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/traefik — ingress + middlewares no cluster (ns traefik)"
     },
     "REQ-TRAEFIK-0003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/traefik — ingress + middlewares no cluster (ns traefik)"
     },
     "REQ-TRAEFIK-0004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/traefik — ingress + middlewares no cluster (ns traefik)"
     },
     "REQ-TRAEFIK-0005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/traefik — ingress + middlewares no cluster (ns traefik)"
     },
     "REQ-TRAEFIK-0006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/traefik — ingress + middlewares no cluster (ns traefik)"
     },
     "REQ-TRAEFIK-0007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/traefik — ingress + middlewares no cluster (ns traefik)"
     },
     "REQ-TRAEFIK-0008": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/traefik — ingress + middlewares no cluster (ns traefik)"
     },
     "REQ-TRAEFIK-0009": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/traefik — ingress + middlewares no cluster (ns traefik)"
     },
     "REQ-TRAEFIK-0010": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/traefik — ingress + middlewares no cluster (ns traefik)"
     },
     "REQ-TRAEFIK-0011": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/traefik — ingress + middlewares no cluster (ns traefik)"
     },
     "REQ-TRAEFIK-0012": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/traefik — ingress + middlewares no cluster (ns traefik)"
     },
     "REQ-TRAEFIK-NFR-001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/traefik — ingress + middlewares no cluster (ns traefik)"
     },
     "REQ-TRAEFIK-NFR-002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/traefik — ingress + middlewares no cluster (ns traefik)"
     },
     "REQ-TRAEFIK-NFR-003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/traefik — ingress + middlewares no cluster (ns traefik)"
     },
     "REQ-TRAEFIK-NFR-004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-06-15",
+      "notes": "platform/traefik — ingress + middlewares no cluster (ns traefik)"
     }
   }
 }

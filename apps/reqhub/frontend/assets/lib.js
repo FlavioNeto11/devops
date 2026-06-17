@@ -426,6 +426,36 @@ export function topSimilar(vectors, id, n = 5) {
     .slice(0, n);
 }
 
+/* ---------- detecção de DUPLICATA por texto (client-side, sem API) ----------
+   Usada na validação automática do Editor: ao digitar título/enunciado, acha
+   requisitos parecidos para alertar duplicata e sugerir vínculos. PURO. */
+const STOPWORDS = new Set(['o', 'a', 'os', 'as', 'de', 'da', 'do', 'das', 'dos', 'e', 'em', 'um', 'uma', 'para', 'por', 'com', 'que', 'no', 'na', 'nos', 'nas', 'se', 'ao', 'aos', 'sem', 'sob', 'ou', 'the', 'of', 'to', 'and', 'in', 'for', 'on', 'sistema', 'deve']);
+export function textTokens(s) {
+  return [...new Set(norm(s).split(/[^a-z0-9]+/).filter((t) => t.length >= 3 && !STOPWORDS.has(t)))];
+}
+// similaridade de Jaccard entre dois textos (0..1) sobre tokens significativos.
+export function textSimilarity(a, b) {
+  const ta = new Set(textTokens(a)), tb = textTokens(b);
+  if (!ta.size || !tb.length) return 0;
+  let inter = 0;
+  for (const t of tb) if (ta.has(t)) inter++;
+  const union = ta.size + tb.length - inter;
+  return union ? inter / union : 0;
+}
+// top-N requisitos mais parecidos com um rascunho (título+enunciado). PURO.
+// exclui o próprio id (ao editar). Retorna [{id,title,product,score}] desc.
+export function findSimilarReqs(draft, reqs, n = 5) {
+  const text = ((draft && draft.title) || '') + ' ' + ((draft && draft.statement) || '');
+  if (!textTokens(text).length) return [];
+  const selfId = draft && draft.id;
+  return (reqs || [])
+    .filter((r) => r && r.id !== selfId)
+    .map((r) => ({ id: r.id, title: r.title || '', product: r.scope && r.scope.product_scope, score: Math.round(textSimilarity(text, (r.title || '') + ' ' + (r.statement || '')) * 100) / 100 }))
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, n);
+}
+
 /* ---------- emissor YAML mínimo (edição assistida) ---------- */
 export function scalarYaml(v) {
   if (v === null || v === undefined) return 'null';
