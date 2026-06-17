@@ -13,8 +13,8 @@
   "db": "postgres",
   "reuses": ["packages/oidc-kit", "packages/design-tokens", "infra-postgres", "infra-traefik", "infra-argocd"],
   "scaffold": {
-    "generator": "scripts/new-app.ps1",
-    "args": { "Services": ["frontend", "api", "worker"], "Type": "product_software", "NoArgo": true }
+    "generator": "scripts/scaffold-product.ps1",
+    "args": { "Services": ["frontend", "api", "worker"], "Type": "product_software" }
   },
   "structure": [
     "devops.yaml",
