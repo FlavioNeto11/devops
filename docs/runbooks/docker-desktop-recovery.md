@@ -134,10 +134,15 @@ partes:
    de falha deste runbook a cada sessão.
 
 2. **Auto-login (passo do operador — envolve a SENHA, faça você mesmo)** — necessário para reboot
-   **desacompanhado** (criar a sessão para o watchdog rodar):
-   - **Recomendado:** Sysinternals **Autologon** (`autologon.exe`) — guarda a senha como **LSA
-     secret criptografado**, não em texto puro.
-   - Alternativa: `netplwiz` → desmarcar "Os usuários devem digitar um nome e uma senha…" → confirmar.
+   **desacompanhado** (criar a sessão para o watchdog rodar). Use o script (pede a senha a VOCÊ e a
+   guarda como **LSA secret criptografado**, igual ao Sysinternals Autologon — nunca em texto puro):
+   ```powershell
+   # PowerShell 7 ELEVADO — você digita a senha no prompt (o assistente não digita senhas)
+   pwsh -NoProfile -ExecutionPolicy Bypass -File C:\devops\scripts\enable-autologin.ps1
+   # reverter:  ...\enable-autologin.ps1 -Disable
+   ```
+   Alternativas equivalentes: Sysinternals `autologon.exe`, ou `netplwiz` (desmarcar "Os usuários
+   devem digitar…").
    - ⚠️ Trade-off de segurança: o servidor passa a iniciar numa sessão de admin logada. Avalie o
      acesso físico/RDP antes de habilitar.
 
