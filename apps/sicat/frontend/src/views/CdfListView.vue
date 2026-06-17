@@ -226,17 +226,22 @@ onMounted(() => {
   <SicatPageLayout>
     <template #header>
       <SicatPageHeader
-        kicker="Certificados · CDF"
-        title="Certificados emitidos"
-        description="Consulte CDFs emitidos, filtre por período e baixe o PDF. Janela máxima: 31 dias."
+        kicker="Certificados (CDF)"
+        title="Meus certificados"
+        description="O certificado (CDF) é a prova de que o resíduo teve o destino correto. Aqui você consulta e baixa os que já saíram."
       />
     </template>
 
     <template #banner>
       <SicatInlineAlert
+        tone="info"
+        title="O que é o certificado (CDF)?"
+        message="É o comprovante de que o resíduo foi tratado ou descartado do jeito certo. Para criar um novo, use “Gerar certificado”."
+      />
+      <SicatInlineAlert
         v-if="!contextReady"
         tone="warning"
-        message="O contexto operacional CETESB ainda não está pronto para consulta de CDF."
+        message="Ainda estamos preparando a conexão com a CETESB para consultar os certificados. Aguarde alguns segundos."
       />
       <SicatInlineAlert v-if="certificatesError" tone="error" :message="certificatesError" />
     </template>
@@ -276,7 +281,7 @@ onMounted(() => {
         :headers="headers"
         :items="rows"
         :loading="certificatesLoading"
-        :empty="{ title: 'Nenhum certificado encontrado', description: 'Ajuste o período e consulte novamente.', icon: 'mdi-certificate-outline' }"
+        :empty="{ title: 'Nenhum certificado neste período', description: 'Tente outro período acima, ou crie um novo em “Gerar certificado”.', icon: 'mdi-certificate-outline' }"
       >
         <template #[`item.actions`]="{ item }">
           <v-btn

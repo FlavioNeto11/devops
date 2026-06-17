@@ -5,6 +5,8 @@ import { useAuthStore } from '../stores/auth.js';
 import { getTodayBr, normalizeBrDateInput, toApiDate } from '../utils/date-format.js';
 import FilterableDropdown from './FilterableDropdown.vue';
 import SicatInlineAlert from './sicat/SicatInlineAlert.vue';
+import SicatHelpHint from './sicat/SicatHelpHint.vue';
+import SicatNextStep from './sicat/SicatNextStep.vue';
 
 const props = defineProps({
   integrationAccountId: {
@@ -200,10 +202,10 @@ const catalogContextWarning = computed(() => {
 });
 const currentStep = ref(1);
 const stepDefinitions = [
-  { value: 1, title: 'Contexto', subtitle: 'Conta, lote e expedição' },
-  { value: 2, title: 'Participantes', subtitle: 'Gerador, transportador e destinador' },
-  { value: 3, title: 'Resíduo', subtitle: 'Catálogos, quantidades e condições' },
-  { value: 4, title: 'Revisão', subtitle: 'Resumo final e envio' }
+  { value: 1, title: 'Dados da viagem', subtitle: 'Conta, cópias e data de saída' },
+  { value: 2, title: 'Quem participa', subtitle: 'Quem gera, quem leva e quem recebe' },
+  { value: 3, title: 'O que está sendo levado', subtitle: 'O resíduo, a quantidade e a embalagem' },
+  { value: 4, title: 'Conferir e enviar', subtitle: 'Revise tudo antes de enviar' }
 ];
 const currentStepMeta = computed(() => stepDefinitions.find((step) => step.value === currentStep.value) || stepDefinitions[0]);
 const completionRatio = computed(() => Math.round((currentStep.value / stepDefinitions.length) * 100));
@@ -1004,6 +1006,14 @@ async function handleCreate(shouldSubmitNow) {
 
     <SicatInlineAlert v-if="errorMessage" tone="error" :message="errorMessage" />
     <SicatInlineAlert v-if="successMessage" tone="success" :message="successMessage" />
+    <SicatNextStep
+      v-if="successMessage"
+      class="mt-3"
+      title="Pronto! E agora?"
+      message="Você pode acompanhar, imprimir ou enviar o manifesto na sua lista."
+      action-label="Ver meus manifestos"
+      to="/manifestos"
+    />
     <SicatInlineAlert v-if="catalogContextWarning" tone="warning" :message="catalogContextWarning" />
 
     <div class="wizard-layout">
@@ -1089,7 +1099,7 @@ async function handleCreate(shouldSubmitNow) {
                 </v-col>
                 <v-col cols="12" md="6">
                   <div class="wizard-dropdown-field">
-                    <span>Transportador *</span>
+                    <span>Transportador *<SicatHelpHint term="transportador" /></span>
                     <FilterableDropdown
                       v-model="partnerSearch.carrier.selectedCode"
                       v-model:search-value="partnerSearch.carrier.query"
@@ -1110,7 +1120,7 @@ async function handleCreate(shouldSubmitNow) {
                 </v-col>
                 <v-col cols="12" md="6">
                   <div class="wizard-dropdown-field">
-                    <span>Destinador *</span>
+                    <span>Destinador *<SicatHelpHint term="destinador" /></span>
                     <FilterableDropdown
                       v-model="partnerSearch.receiver.selectedCode"
                       v-model:search-value="partnerSearch.receiver.query"
@@ -1134,15 +1144,18 @@ async function handleCreate(shouldSubmitNow) {
 
             <div v-show="currentStep === 3" class="wizard-step-body">
               <v-row>
-                <v-col cols="12" md="4">
-                  <v-text-field v-model.number="form.quantity" type="number" min="0.001" step="0.001" label="Quantidade" :disabled="loading || catalogsLoading" />
+                <v-col cols="12">
+                  <h4 class="wizard-subsection">Quanto está sendo levado</h4>
                 </v-col>
                 <v-col cols="12" md="4">
-                  <v-text-field v-model.number="form.weightTon" type="number" min="0.001" step="0.001" label="Peso (ton)" :disabled="loading || catalogsLoading" />
+                  <v-text-field v-model.number="form.quantity" type="number" min="0.001" step="0.001" label="Quantidade" hint="Quanto está sendo levado, na unidade ao lado." persistent-hint :disabled="loading || catalogsLoading" />
+                </v-col>
+                <v-col cols="12" md="4">
+                  <v-text-field v-model.number="form.weightTon" type="number" min="0.001" step="0.001" label="Peso (toneladas)" hint="O peso total da carga, em toneladas." persistent-hint :disabled="loading || catalogsLoading" />
                 </v-col>
                 <v-col cols="12" md="4">
                   <div class="wizard-dropdown-field">
-                    <span>Unidade *</span>
+                    <span>Unidade *<SicatHelpHint title="Unidade" text="A medida da quantidade: litros, quilos, peças, metros cúbicos…" /></span>
                     <FilterableDropdown
                       v-model="form.unitCode"
                       :options="catalogOptions.units"
@@ -1156,9 +1169,13 @@ async function handleCreate(shouldSubmitNow) {
                     />
                   </div>
                 </v-col>
+
+                <v-col cols="12">
+                  <h4 class="wizard-subsection">Qual é o resíduo</h4>
+                </v-col>
                 <v-col cols="12">
                   <div class="wizard-dropdown-field">
-                    <span>Resíduo *</span>
+                    <span>Resíduo *<SicatHelpHint title="Tipo de resíduo" text="Escolha na lista o que mais parece com o seu lixo. Digite uma palavra para filtrar (ex.: óleo, tinta, entulho)." /></span>
                     <FilterableDropdown
                       v-model="form.residueCode"
                       :options="catalogOptions.residueClasses"
@@ -1179,9 +1196,13 @@ async function handleCreate(shouldSubmitNow) {
                     </div>
                   </div>
                 </v-col>
+
+                <v-col cols="12">
+                  <h4 class="wizard-subsection">Detalhes do resíduo</h4>
+                </v-col>
                 <v-col cols="12" md="4">
                   <div class="wizard-dropdown-field">
-                    <span>Tratamento *</span>
+                    <span>Tratamento *<SicatHelpHint term="tratamento" /></span>
                     <FilterableDropdown
                       v-model="form.treatmentCode"
                       :options="catalogOptions.residueTreatments"
@@ -1197,7 +1218,7 @@ async function handleCreate(shouldSubmitNow) {
                 </v-col>
                 <v-col cols="12" md="4">
                   <div class="wizard-dropdown-field">
-                    <span>Classe *</span>
+                    <span>Classe *<SicatHelpHint term="classe" /></span>
                     <FilterableDropdown
                       v-model="form.classCode"
                       :options="catalogOptions.classes"
@@ -1213,7 +1234,7 @@ async function handleCreate(shouldSubmitNow) {
                 </v-col>
                 <v-col cols="12" md="4">
                   <div class="wizard-dropdown-field">
-                    <span>Estado físico *</span>
+                    <span>Estado físico *<SicatHelpHint term="estado_fisico" /></span>
                     <FilterableDropdown
                       v-model="form.stateTypeCode"
                       :options="catalogOptions.residueStates"
@@ -1227,9 +1248,13 @@ async function handleCreate(shouldSubmitNow) {
                     />
                   </div>
                 </v-col>
+
+                <v-col cols="12">
+                  <h4 class="wizard-subsection">Como está embalado</h4>
+                </v-col>
                 <v-col cols="12" md="6">
                   <div class="wizard-dropdown-field">
-                    <span>Acondicionamento *</span>
+                    <span>Acondicionamento *<SicatHelpHint term="acondicionamento" /></span>
                     <FilterableDropdown
                       v-model="form.packagingTypeCode"
                       :options="catalogOptions.packagingGroups"
@@ -1245,8 +1270,18 @@ async function handleCreate(shouldSubmitNow) {
                 </v-col>
                 <v-col cols="12" md="6">
                   <div class="wizard-flags-card">
-                    <v-switch v-model="form.hasTemporaryStorage" inset color="primary" label="Possui armazenamento temporário" :disabled="loading" hide-details />
-                    <v-switch v-model="form.hasCadriInResidueList" inset color="primary" label="Possui CADRI na lista de resíduos" :disabled="loading" hide-details />
+                    <v-switch v-model="form.hasTemporaryStorage" inset color="primary" :disabled="loading" hide-details>
+                      <template #label>
+                        Ficou guardado em local temporário?
+                        <SicatHelpHint title="Armazenamento temporário" text="Marque se o resíduo ficou guardado num local temporário antes de ir para o destino." />
+                      </template>
+                    </v-switch>
+                    <v-switch v-model="form.hasCadriInResidueList" inset color="primary" :disabled="loading" hide-details>
+                      <template #label>
+                        Tem CADRI?
+                        <SicatHelpHint term="cadri" />
+                      </template>
+                    </v-switch>
                   </div>
                 </v-col>
               </v-row>
@@ -1534,6 +1569,15 @@ async function handleCreate(shouldSubmitNow) {
   background: rgba(var(--v-theme-surface), 0.72);
 }
 
+.wizard-subsection {
+  margin: 6px 0 -2px;
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: rgba(var(--v-theme-on-surface), 0.84);
+  border-left: 3px solid rgb(var(--v-theme-primary));
+  padding-left: 10px;
+}
+
 .wizard-static-field span,
 .wizard-dropdown-field span,
 .wizard-summary-item span,
@@ -1544,6 +1588,8 @@ async function handleCreate(shouldSubmitNow) {
   letter-spacing: 0.08em;
   color: rgba(var(--v-theme-on-surface), 0.56);
 }
+/* a ajuda "?" alinha com o rótulo do campo */
+.wizard-dropdown-field span :deep(.sicat-help-hint) { vertical-align: -6px; }
 
 .wizard-static-field strong,
 .wizard-summary-item strong,

@@ -377,43 +377,43 @@ export function canRemoveManifest(manifest) {
 export function describeCdfManifestRestriction(manifest) {
   const snapshot = resolveManifestSnapshot(manifest);
   if (!snapshot || !(snapshot.manCodigo || snapshot.manNumero || snapshot.manHashCode)) {
-    return 'Sem identificadores CETESB para CDF.';
+    return 'Ainda não sincronizado com a CETESB. Use “Atualizar da CETESB”.';
   }
   const status = normalizedStatusValue(manifest);
   if (hasIssuedCdfReference(manifest)) {
-    return 'Manifesto ja associado a CDF emitido.';
+    return 'Este manifesto já tem um certificado (CDF).';
   }
   if (status.includes('cancel')) {
-    return 'Manifesto cancelado.';
+    return 'Este manifesto foi cancelado.';
   }
   if (status.includes('fail') || status.includes('error') || status.includes('dlq')) {
-    return 'Manifesto com falha operacional.';
+    return 'Este manifesto teve um problema. Reenvie antes de gerar o certificado.';
   }
   if (!status.includes('receb')) {
-    return 'Aguardando recebimento confirmado.';
+    return 'Ainda não foi recebido. O certificado só sai depois do recebimento.';
   }
-  return 'Manifesto indisponivel para CDF.';
+  return 'Este manifesto não pode gerar certificado agora.';
 }
 
 export function describeReceiveManifestRestriction(manifest) {
   const snapshot = resolveManifestSnapshot(manifest);
   if (!snapshot || !(snapshot.manCodigo || snapshot.manNumero || snapshot.manHashCode)) {
-    return 'Sem identificadores CETESB para recebimento.';
+    return 'Ainda não sincronizado com a CETESB. Use “Atualizar da CETESB”.';
   }
   const status = normalizedStatusValue(manifest);
   if (status.includes('receb')) {
-    return 'Manifesto ja recebido.';
+    return 'Este manifesto já foi recebido.';
   }
   if (status.includes('cancel')) {
-    return 'Manifesto cancelado.';
+    return 'Este manifesto foi cancelado.';
   }
   if (status.includes('fail') || status.includes('error') || status.includes('dlq')) {
-    return 'Manifesto com falha operacional.';
+    return 'Este manifesto teve um problema.';
   }
   if (status.includes('draft') || status.includes('queue') || status.includes('process')) {
-    return 'Manifesto ainda nao esta estavel para recebimento.';
+    return 'Este manifesto ainda está sendo processado. Aguarde um pouco.';
   }
-  return 'Manifesto indisponivel para recebimento.';
+  return 'Este manifesto não pode ser recebido agora.';
 }
 
 export function describeCancelManifestRestriction(manifest) {

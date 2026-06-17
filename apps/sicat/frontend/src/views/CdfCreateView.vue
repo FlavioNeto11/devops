@@ -124,23 +124,23 @@ function describeCdfManifestRestriction(manifest, hasRemoteIdentity) {
   const hasFailure = status.includes('fail') || status.includes('erro') || status.includes('error') || status.includes('dlq');
 
   if (!hasRemoteIdentity) {
-    return 'Sem identificadores CETESB para geracao.';
+    return 'Ainda não sincronizado com a CETESB. Use “Atualizar da CETESB”.';
   }
 
   if (hasIssuedCdfReference(manifest)) {
-    return 'Manifesto ja associado a CDF emitido.';
+    return 'Este manifesto já tem um certificado (CDF).';
   }
 
   if (alreadyCancelled) {
-    return 'Manifesto cancelado.';
+    return 'Este manifesto foi cancelado.';
   }
 
   if (hasFailure) {
-    return 'Manifesto com falha operacional.';
+    return 'Este manifesto teve um problema. Reenvie antes de gerar o certificado.';
   }
 
   if (!status.includes('receb')) {
-    return 'Aguardando recebimento confirmado.';
+    return 'Ainda não foi recebido. O certificado só sai depois do recebimento.';
   }
 
   return '';

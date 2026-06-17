@@ -1739,14 +1739,14 @@ onUnmounted(() => {
   <SicatPageLayout>
     <template #header>
       <SicatPageHeader
-        :kicker="isReceiverOperationalMode ? 'Operação do destinador' : 'MTR'"
-        title="Manifestos"
-        :description="isReceiverOperationalMode ? 'Ponto de entrada para recebimento de MTR e fluxo de CDF.' : 'Gerencie e acompanhe todos os manifestos emitidos.'"
+        :kicker="isReceiverOperationalMode ? 'Receber manifestos' : 'Manifestos (MTR)'"
+        :title="isReceiverOperationalMode ? 'Manifestos para receber' : 'Meus manifestos'"
+        :description="isReceiverOperationalMode ? 'Aqui você confirma o recebimento dos manifestos e gera o certificado (CDF).' : 'Veja e acompanhe os manifestos que você criou.'"
       >
         <template #actions>
-          <v-btn variant="outlined" :loading="resyncLoading" prepend-icon="mdi-sync" @click="resyncManifests">Ressinc. CETESB</v-btn>
-          <v-btn v-if="isReceiverOperationalMode" color="primary" variant="flat" prepend-icon="mdi-file-document-multiple" @click="goToCdfFlowFromSelection">Gerar CDF</v-btn>
-          <v-btn v-else color="primary" variant="flat" prepend-icon="mdi-plus" @click="goToCreate">Novo Manifesto</v-btn>
+          <v-btn variant="outlined" :loading="resyncLoading" prepend-icon="mdi-sync" @click="resyncManifests">Atualizar da CETESB</v-btn>
+          <v-btn v-if="isReceiverOperationalMode" color="primary" variant="flat" prepend-icon="mdi-file-document-multiple" @click="goToCdfFlowFromSelection">Gerar certificado</v-btn>
+          <v-btn v-else color="primary" variant="flat" prepend-icon="mdi-plus" @click="goToCreate">Criar manifesto</v-btn>
         </template>
       </SicatPageHeader>
     </template>
@@ -1972,10 +1972,12 @@ onUnmounted(() => {
               </tr>
               <tr v-if="!items.length && !loadingList">
                 <td colspan="7" class="text-center pa-6">
-                  <div class="text-body-2 text-medium-emphasis mb-1">Nenhum manifesto encontrado.</div>
+                  <div class="text-body-1 font-weight-bold mb-1">Nenhum manifesto aqui</div>
+                  <div class="text-body-2 text-medium-emphasis mb-1">Pode ser por causa do filtro abaixo, ou você ainda não criou nenhum.</div>
                   <div v-if="activeFiltersSummary" class="text-caption text-medium-emphasis mb-3">{{ activeFiltersSummary }}</div>
                   <div class="d-flex justify-center flex-wrap ga-2">
-                    <v-btn size="small" variant="outlined" @click="applyDatePreset(30)">Buscar últimos 30 dias</v-btn>
+                    <v-btn v-if="!isReceiverOperationalMode" size="small" color="primary" variant="flat" prepend-icon="mdi-plus" @click="goToCreate">Criar manifesto</v-btn>
+                    <v-btn size="small" variant="outlined" @click="applyDatePreset(30)">Ver últimos 30 dias</v-btn>
                     <v-btn size="small" variant="text" @click="clearFilters">Limpar filtros</v-btn>
                   </div>
                 </td>

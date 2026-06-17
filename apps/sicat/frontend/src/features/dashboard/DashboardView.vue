@@ -172,6 +172,15 @@ async function loadDashboard() {
   }
 }
 
+// Boas-vindas (apenas no 1º acesso do operador) — onboarding leve.
+const WELCOME_KEY = 'sicat.ui.operator-welcomed';
+const showWelcome = ref(false);
+try { showWelcome.value = !localStorage.getItem(WELCOME_KEY); } catch { /* sem localStorage: não mostra */ }
+function dismissWelcome() {
+  showWelcome.value = false;
+  try { localStorage.setItem(WELCOME_KEY, '1'); } catch { /* ignore */ }
+}
+
 onMounted(loadDashboard);
 </script>
 
@@ -203,6 +212,15 @@ onMounted(loadDashboard);
         </template>
       </SicatInlineAlert>
     </template>
+
+    <div v-if="showWelcome" class="dashboard-welcome">
+      <v-icon icon="mdi-hand-wave-outline" size="30" class="dashboard-welcome__icon" aria-hidden="true" />
+      <div class="dashboard-welcome__body">
+        <strong>Bem-vindo ao SICAT!</strong>
+        <p>Aqui você cria e acompanha os documentos da CETESB sem complicação. Comece criando um manifesto — e se tiver dúvida em alguma palavra, clique no “?” ao lado dela.</p>
+      </div>
+      <v-btn variant="tonal" color="primary" @click="dismissWelcome">Entendi</v-btn>
+    </div>
 
     <section class="dashboard-hub" aria-label="O que você quer fazer">
       <h2 class="dashboard-hub__title">O que você quer fazer?</h2>
@@ -275,6 +293,21 @@ onMounted(loadDashboard);
 </template>
 
 <style scoped>
+.dashboard-welcome {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(var(--v-theme-primary), 0.28);
+  background: rgba(var(--v-theme-primary), 0.07);
+}
+.dashboard-welcome__icon { color: rgb(var(--v-theme-primary)); flex-shrink: 0; }
+.dashboard-welcome__body { margin-right: auto; min-width: 0; }
+.dashboard-welcome__body strong { display: block; font-size: 1.05rem; color: rgba(var(--v-theme-on-surface), 0.92); }
+.dashboard-welcome__body p { margin: 2px 0 0; font-size: 0.92rem; color: rgba(var(--v-theme-on-surface), 0.74); }
+@media (max-width: 640px) { .dashboard-welcome { flex-wrap: wrap; } }
+
 .dashboard-hub__title {
   margin: 0 0 var(--space-3);
   font-size: 1.15rem;

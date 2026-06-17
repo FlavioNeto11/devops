@@ -110,22 +110,27 @@ onMounted(async () => {
   <SicatPageLayout>
     <template #header>
       <SicatPageHeader
-        kicker="Resíduos · DMR"
-        title="Declarações DMR"
-        :description="`Crie, consolide e submeta declarações periódicas. Conta ativa: ${activeAccountLabel}.`"
+        kicker="Declaração mensal (DMR)"
+        title="Minhas declarações"
+        :description="`Resumos do período enviados à CETESB. Conta da CETESB: ${activeAccountLabel}.`"
       >
         <template #actions>
           <v-btn variant="outlined" prepend-icon="mdi-clock-alert-outline" :to="{ name: 'DmrPendentes' }">Pendentes</v-btn>
-          <v-btn color="primary" variant="flat" prepend-icon="mdi-plus" :to="{ name: 'DmrNovo' }">Nova declaração</v-btn>
+          <v-btn color="primary" variant="flat" prepend-icon="mdi-plus" :to="{ name: 'DmrNovo' }">Criar declaração</v-btn>
         </template>
       </SicatPageHeader>
     </template>
 
     <template #banner>
       <SicatInlineAlert
+        tone="info"
+        title="O que é a declaração mensal (DMR)?"
+        message="É um resumo do período com tudo que foi movimentado. A CETESB usa para conferir. Para fazer uma nova, use “Criar declaração”."
+      />
+      <SicatInlineAlert
         v-if="!authStore.hasActiveCetesbAccount.value"
         tone="warning"
-        message="Selecione uma conta CETESB para operar declarações DMR."
+        message="Conecte a sua conta da CETESB para fazer declarações."
       />
     </template>
 
@@ -186,7 +191,7 @@ onMounted(async () => {
         :items="rows"
         :loading="loadingList"
         :error="listError"
-        :empty="{ title: 'Nenhuma declaração encontrada', description: 'Ajuste os filtros ou crie uma nova DMR.', icon: 'mdi-file-tree-outline' }"
+        :empty="{ title: 'Nenhuma declaração neste filtro', description: 'Tente outro filtro acima, ou crie uma nova em “Criar declaração”.', icon: 'mdi-file-tree-outline' }"
         @row-click="(row) => row?.id && goToDetail(row.id)"
       >
         <template #[`item.status`]="{ item }">
