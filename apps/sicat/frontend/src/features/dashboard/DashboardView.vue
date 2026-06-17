@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { getDashboardOverview } from '../../services/api.js';
 import { useAuthStore } from '../../stores/auth.js';
+import { usePersona } from '../../composables/usePersona.js';
 import { formatDateBr, getTodayBr, toApiDate } from '../../utils/date-format.js';
 import { resolveManifestStatusTone } from '../../lib/status-map.js';
 import SicatPageLayout from '../../components/sicat/SicatPageLayout.vue';
@@ -18,6 +19,7 @@ import SicatInlineAlert from '../../components/sicat/SicatInlineAlert.vue';
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
+const { isReceiver, isCarrier } = usePersona();
 
 const items = ref([]);
 const loading = ref(false);
@@ -70,20 +72,47 @@ const summary = computed(() => {
   return result;
 });
 
-const metricCards = computed(() => [
-  { key: 'pending', label: 'Sendo enviados', value: summary.value.pending, tone: 'running', icon: 'mdi-progress-clock', focus: 'pending' },
-  { key: 'completed', label: 'Prontos hoje', value: summary.value.completed, tone: 'success', icon: 'mdi-check-circle-outline', focus: 'completed' },
-  { key: 'draft', label: 'Não enviados ainda', value: summary.value.draft, tone: 'warning', icon: 'mdi-file-outline', focus: 'draft' },
-  { key: 'failed', label: 'Com problema', value: summary.value.failed, tone: 'error', icon: 'mdi-alert-circle-outline', focus: 'failed' }
-]);
+// Métricas com rótulos por perfil (mesmos valores; o destinador lê "Aguardando baixa"/"Recebidos").
+const metricCards = computed(() => {
+  const recv = isReceiver.value;
+  return [
+    { key: 'pending', label: recv ? 'Aguardando baixa' : 'Sendo enviados', value: summary.value.pending, tone: 'running', icon: 'mdi-progress-clock', focus: 'pending' },
+    { key: 'completed', label: recv ? 'Recebidos' : 'Prontos hoje', value: summary.value.completed, tone: 'success', icon: 'mdi-check-circle-outline', focus: 'completed' },
+    { key: 'draft', label: recv ? 'Em aberto' : 'Não enviados ainda', value: summary.value.draft, tone: 'warning', icon: 'mdi-file-outline', focus: 'draft' },
+    { key: 'failed', label: 'Com problema', value: summary.value.failed, tone: 'error', icon: 'mdi-alert-circle-outline', focus: 'failed' }
+  ];
+});
 
-// Hub de ação: o que o operador quer fazer (lê em 1 olhada, botões grandes).
-const primaryActions = computed(() => [
-  { key: 'criar', icon: 'mdi-file-plus-outline', tone: 'primary', title: 'Criar um manifesto', description: 'Autorizar o transporte de um resíduo.', to: '/manifestos/novo' },
-  { key: 'ver', icon: 'mdi-file-document-multiple-outline', tone: 'info', title: 'Ver meus manifestos', description: 'Acompanhar o que já foi criado.', to: '/manifestos', badge: summary.value.pending > 0 ? summary.value.pending : '' },
-  { key: 'cdf', icon: 'mdi-certificate-outline', tone: 'success', title: 'Gerar certificado', description: 'Comprovar o destino final (CDF).', to: '/cdf/novo' },
-  { key: 'ajuda', icon: 'mdi-chat-processing-outline', tone: 'warning', title: 'Tirar uma dúvida', description: 'Perguntar ao assistente.', to: '/conversacional/chat' }
-]);
+// Hub de ação POR PERFIL: cada perfil vê em destaque a ação que é a SUA.
+const primaryActions = computed(() => {
+  const ver = { key: 'ver', icon: 'mdi-file-document-multiple-outline', tone: 'info', title: 'Ver os manifestos', description: 'Acompanhar os manifestos.', to: '/manifestos', badge: summary.value.pending > 0 ? summary.value.pending : '' };
+  const ajuda = { key: 'ajuda', icon: 'mdi-chat-processing-outline', tone: 'warning', title: 'Tirar uma dúvida', description: 'Perguntar ao assistente.', to: '/conversacional/chat' };
+  if (isReceiver.value) {
+    // Destinador: a função dele é DAR BAIXA (receber) e gerar o certificado — não criar.
+    return [
+      { key: 'receber', icon: 'mdi-check-decagram-outline', tone: 'primary', title: 'Receber manifestos', description: 'Dar baixa nos manifestos que chegaram.', to: '/manifestos', badge: summary.value.pending > 0 ? summary.value.pending : '' },
+      { key: 'cdf', icon: 'mdi-certificate-outline', tone: 'success', title: 'Gerar certificado', description: 'Emitir o certificado de destino final (CDF).', to: '/cdf/novo' },
+      ajuda
+    ];
+  }
+  if (isCarrier.value) {
+    // Transportador: só acompanha.
+    return [{ ...ver, tone: 'primary', title: 'Ver os manifestos', description: 'Acompanhar os manifestos da viagem.' }, ajuda];
+  }
+  // Gerador (padrão): cria o manifesto.
+  return [
+    { key: 'criar', icon: 'mdi-file-plus-outline', tone: 'primary', title: 'Criar um manifesto', description: 'Autorizar o transporte de um resíduo.', to: '/manifestos/novo' },
+    { ...ver, title: 'Ver meus manifestos', description: 'Acompanhar o que já foi criado.' },
+    ajuda
+  ];
+});
+
+// Texto de boas-vindas por perfil (onboarding).
+const welcomeText = computed(() => {
+  if (isReceiver.value) return 'Aqui você dá baixa nos manifestos que chegam e gera o certificado (CDF). Se tiver dúvida em alguma palavra, clique no “?” ao lado dela.';
+  if (isCarrier.value) return 'Aqui você acompanha os manifestos das suas viagens. Se tiver dúvida em alguma palavra, clique no “?” ao lado dela.';
+  return 'Aqui você cria e acompanha os documentos da CETESB sem complicação. Comece criando um manifesto — e se tiver dúvida em alguma palavra, clique no “?” ao lado dela.';
+});
 
 const pendingActions = computed(() => {
   const actions = [];
@@ -217,7 +246,7 @@ onMounted(loadDashboard);
       <v-icon icon="mdi-hand-wave-outline" size="30" class="dashboard-welcome__icon" aria-hidden="true" />
       <div class="dashboard-welcome__body">
         <strong>Bem-vindo ao SICAT!</strong>
-        <p>Aqui você cria e acompanha os documentos da CETESB sem complicação. Comece criando um manifesto — e se tiver dúvida em alguma palavra, clique no “?” ao lado dela.</p>
+        <p>{{ welcomeText }}</p>
       </div>
       <v-btn variant="tonal" color="primary" @click="dismissWelcome">Entendi</v-btn>
     </div>

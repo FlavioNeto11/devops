@@ -34,18 +34,22 @@ export const NAVIGATION_GROUPS = [
     kind: 'group',
     module: 'operacao',
     glossaryKey: 'mtr',
+    labelByPersona: { receiver: 'Receber manifestos' },
     items: [
       {
         to: '/manifestos',
         label: 'Meus manifestos',
         icon: 'mdi-file-document-multiple-outline',
-        description: 'Ver e acompanhar os manifestos'
+        description: 'Ver e acompanhar os manifestos',
+        labelByPersona: { receiver: 'Receber / dar baixa' },
+        descriptionByPersona: { receiver: 'Confirmar o recebimento dos manifestos' }
       },
       {
         to: '/manifestos/novo',
         label: 'Criar manifesto',
         icon: 'mdi-file-plus-outline',
-        description: 'Criar e enviar um novo manifesto'
+        description: 'Criar e enviar um novo manifesto',
+        personas: ['generator']
       },
       {
         to: '/relatorios/mtrs',
@@ -63,7 +67,8 @@ export const NAVIGATION_GROUPS = [
     module: 'operacao',
     to: '/mtr-provisorio',
     glossaryKey: 'mtr_provisorio',
-    description: 'Quando precisa sair sem tudo pronto'
+    description: 'Quando precisa sair sem tudo pronto',
+    personas: ['generator']
   },
   {
     id: 'dmr',
@@ -100,6 +105,7 @@ export const NAVIGATION_GROUPS = [
     kind: 'group',
     module: 'operacao',
     glossaryKey: 'cdf',
+    personas: ['receiver'],
     items: [
       {
         to: '/cdf',
@@ -209,7 +215,27 @@ export const NAVIGATION_GROUPS = [
  * @param {boolean} options.canAccessAdmin
  * @returns {Array} grupos visíveis, com itens filtrados.
  */
-export function filterNavigationGroups({ canAccessAdmin = false } = {}) {
+const PERSONA_TYPES = ['generator', 'carrier', 'receiver'];
+
+// Um nó (grupo/item) é permitido se não declara `personas`, ou se o tipo da conta
+// está na lista. Tipo não resolvido (vazio/desconhecido) NÃO restringe nada.
+function personaAllows(node, accountType) {
+  if (!node.personas || !node.personas.length) return true;
+  if (!PERSONA_TYPES.includes(accountType)) return true;
+  return node.personas.includes(accountType);
+}
+
+// Aplica rótulo/descrição específicos do perfil, se houver (ex.: "Receber manifestos"
+// para o destinador). Retorna o mesmo nó quando não há override.
+function applyPersonaLabel(node, accountType) {
+  const label = node.labelByPersona && node.labelByPersona[accountType];
+  const description = node.descriptionByPersona && node.descriptionByPersona[accountType];
+  if (!label && !description) return node;
+  return { ...node, ...(label ? { label } : {}), ...(description ? { description } : {}) };
+}
+
+export function filterNavigationGroups({ canAccessAdmin = false, accountType = '' } = {}) {
+  const type = String(accountType || '').toLowerCase();
   return NAVIGATION_GROUPS
     .map((group) => {
       // Admin/SRE é persona de sistema: não enxerga o módulo "Operação" (telas de operador).
@@ -219,19 +245,25 @@ export function filterNavigationGroups({ canAccessAdmin = false } = {}) {
       if (group.requiresAdminAccess && !canAccessAdmin) {
         return null;
       }
-
-      if (group.kind === 'direct') {
-        return group;
+      if (!personaAllows(group, type)) {
+        return null;
       }
 
-      const items = (group.items || []).filter((item) => {
-        if (item.hidden) return false;
-        if (item.requiresAdminAccess && !canAccessAdmin) return false;
-        return true;
-      });
+      if (group.kind === 'direct') {
+        return applyPersonaLabel(group, type);
+      }
+
+      const items = (group.items || [])
+        .filter((item) => {
+          if (item.hidden) return false;
+          if (item.requiresAdminAccess && !canAccessAdmin) return false;
+          if (!personaAllows(item, type)) return false;
+          return true;
+        })
+        .map((item) => applyPersonaLabel(item, type));
 
       if (!items.length) return null;
-      return { ...group, items };
+      return applyPersonaLabel({ ...group, items }, type);
     })
     .filter(Boolean);
 }

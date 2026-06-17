@@ -21,7 +21,8 @@ const authStore = useAuthStore();
 const { isAuthenticated, hasActiveCetesbAccount, user, activeAccount, canAccessAdmin } = authStore;
 
 const navigationGroups = computed(() => filterNavigationGroups({
-  canAccessAdmin: Boolean(canAccessAdmin?.value)
+  canAccessAdmin: Boolean(canAccessAdmin?.value),
+  accountType: activeAccount?.value?.accountType || ''
 }));
 
 const showShell = computed(
