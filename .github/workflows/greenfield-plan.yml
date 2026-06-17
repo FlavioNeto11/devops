@@ -1,0 +1,108 @@
+# =============================================================================
+# greenfield-plan — FORGE fase B: SÍNTESE DE ARQUITETURA de um produto greenfield.
+# Gera o build-plan DETERMINÍSTICO (build-plan.mjs: DAG/waves a partir das deps) e,
+# best-effort, aciona a Claude para propor ADRs (docs/decisions/**) e enriquecer o
+# plano — CONSTRANGIDA por um guard de planejamento (só docs/decisions/** e
+# specs/products/<product>/**; a DENYLIST segue bloqueando .github/platform/segredos).
+# Abre um PR DE PLANEJAMENTO (sem label claude-generated => fora do auto-merge): o
+# humano revisa e mergeia = GATE G2, que destrava a fase C (scaffold) e a D (build).
+#
+# Self-hosted (Claude headless via runner). Sem token Claude, segue só com o plano
+# determinístico (não falha).
+# =============================================================================
+name: greenfield-plan
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+on:
+  workflow_dispatch:
+    inputs:
+      product:
+        description: "Produto greenfield (ex.: crm) — já com product.json + requisitos na main"
+        type: string
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  synthesize:
+    name: Sintetizar arquitetura (plano + ADRs)
+    runs-on: [self-hosted, windows, docker-desktop, local-k8s, flavio-devops]
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false   # passo da Claude sem credencial git
+
+      # PASSO 1 — plano determinístico + Claude (ADRs), guard de planejamento. Sem GH_TOKEN.
+      - name: Plano determinístico + Claude (ADRs) + guard
+        env:
+          PRODUCT: ${{ github.event.inputs.product }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $prod = $env:PRODUCT
+          if ($prod -notmatch '^[a-z][a-z0-9-]{1,30}$') { Write-Host "::error::product inválido: '$prod'"; exit 1 }
+          Push-Location specs/tools; npm ci --no-audit --no-fund | Out-Null; Pop-Location
+
+          # 1a) plano DETERMINÍSTICO (topo-sort das deps) — a espinha dorsal, sem Claude.
+          node specs/tools/build-plan.mjs $prod
+          node specs/tools/build-products.mjs   # valida + regenera índices
+
+          git config user.name "github-actions[bot]" 2>$null
+          git config user.email "github-actions[bot]@users.noreply.github.com" 2>$null
+          Set-Content -Encoding ascii .git/info/exclude "changed.txt`nplan-wo.json"
+
+          # 1b) Claude (best-effort): propõe ADRs em docs/decisions/** e enriquece o plano.
+          if ($env:CLAUDE_BIN_DIR -and (Test-Path $env:CLAUDE_BIN_DIR)) { $env:PATH = "$env:CLAUDE_BIN_DIR;$env:PATH" }
+          $haveClaude = $env:CLAUDE_CODE_OAUTH_TOKEN -and (Get-Command claude -ErrorAction SilentlyContinue)
+          if ($haveClaude) {
+            $brief = if (Test-Path "specs/products/$prod/product-brief.md") { Get-Content "specs/products/$prod/product-brief.md" -Raw } else { "" }
+            claude -p "Você é arquiteto. Produto '$prod'. Leia specs/products/$prod/product.json, os requisitos em specs/requirements/$prod/, o blueprint referenciado em specs/blueprints/, e o plano em specs/products/$prod/build-plan.json. PROPONHA: (1) ADRs em docs/decisions/NNNN-$prod-*.md (stack, modelo de dados, auth, integrações) seguindo o padrão dos ADRs existentes; (2) enriqueça specs/products/$prod/build-plan.json preenchendo 'adrs' e 'modules' (sem alterar 'order'/'waves'/'scaffold_req'/'baseline_hash'). NÃO toque em mais nada (nem .github, platform, secrets, specs/requirements). NÃO use git." `
+              --append-system-prompt $brief `
+              --permission-mode acceptEdits `
+              --allowedTools "Edit" "Write" "Read" "Grep" "Glob" `
+              --output-format json
+            if ($LASTEXITCODE -ne 0) { Write-Host "::warning::Claude exit $LASTEXITCODE — seguindo com o plano determinístico." }
+          } else {
+            Write-Host "::warning::sem token/CLI Claude no runner — seguindo só com o plano determinístico (sem ADRs)."
+          }
+
+          # 1c) GUARD DE PLANEJAMENTO: só docs/decisions/** e specs/products/<product>/** (DENYLIST aplica).
+          git add -A 2>$null
+          $changed = @(git diff --cached --name-only)
+          if (-not $changed -or $changed.Count -eq 0) { Write-Host "::error::nenhuma mudança gerada (plano não criado?)."; exit 1 }
+          $changed | Set-Content -Encoding utf8 changed.txt
+          $wo = @{ orders = @(@{ allowed_paths = @("docs/decisions/**", "specs/products/$prod/**"); restricted = $false }) }
+          $wo | ConvertTo-Json -Depth 6 | Set-Content -Encoding utf8 plan-wo.json
+          node specs/tools/guard-worktree.mjs --work-order plan-wo.json --changed-file changed.txt
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::guard de planejamento REPROVOU (Claude saiu do escopo docs/decisions + specs/products/$prod)."; exit 1 }
+
+      # PASSO 2 — publica o PR de planejamento (único ponto com GH_TOKEN). Humano = G2.
+      - name: Abrir PR de planejamento (G2)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PRODUCT: ${{ github.event.inputs.product }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $prod = $env:PRODUCT
+          $branch = "forge/plan/$prod"
+          gh auth setup-git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          gh label create forge    --color 0e8a16 --description "FORGE (geração greenfield)" 2>$null
+          gh label create planning --color fbca04 --description "PR de planejamento (arquitetura/build-plan)" 2>$null
+          git checkout -B $branch 2>$null
+          git add docs/decisions specs/products specs/baseline 2>$null
+          git commit -m "plan($prod): arquitetura + build-plan (FORGE fase B, run_id=$env:RUN_ID)" 2>$null | Out-Null
+          git push -u origin $branch --force-with-lease
+          gh pr create --base main --head $branch --title "plan($prod): arquitetura + build-plan (FORGE)" `
+            --label forge --label planning `
+            --body "FORGE fase B — síntese de arquitetura do produto **$prod** (run_id=$env:RUN_ID).`n`nRevise os ADRs (docs/decisions) e o build-plan (specs/products/$prod/build-plan.json). **Aprovar = mergear este PR (GATE G2)** — destrava a fase C (scaffold-product.ps1) e a D (greenfield-orchestrate). NÃO tem auto-merge (sem label claude-generated)."

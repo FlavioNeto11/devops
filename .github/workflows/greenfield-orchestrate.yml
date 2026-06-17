@@ -1,0 +1,70 @@
+# =============================================================================
+# greenfield-orchestrate — FORGE fase D/E: dispara a esteira req-implement na
+# ORDEM do build-plan, para um produto greenfield. NÃO ganha privilégio novo:
+# apenas chama `gh workflow run req-implement.yml -f req_id=<id>` para os requisitos
+# PRONTOS (deps satisfeitas, status not_started, scaffold feito). Toda a segurança
+# (guard, gpt-approved, sem git/segredo pela Claude) permanece na esteira existente.
+#
+# Stateless/idempotente: o estado de verdade é specs/baseline/implementation-status.json;
+# re-rodar continua de onde parou. Teto por rodada (max) p/ não sobrecarregar o runner
+# single-host (lições dos incidentes OOM).
+#
+# Pré-requisito: o build-plan aprovado (fase B) + o scaffold mergeado (fase C). Se o
+# scaffold estiver pendente, o orquestrador falha pedindo a fase C.
+# =============================================================================
+name: greenfield-orchestrate
+
+on:
+  workflow_dispatch:
+    inputs:
+      product:
+        description: "Produto greenfield (ex.: crm)"
+        type: string
+        required: true
+      max:
+        description: "Máx. de requisitos a disparar nesta rodada (teto do runner)"
+        type: string
+        required: false
+        default: "3"
+
+permissions:
+  actions: write    # disparar req-implement (gh workflow run)
+  contents: read
+
+concurrency:
+  group: greenfield-${{ github.event.inputs.product }}
+  cancel-in-progress: false
+
+jobs:
+  orchestrate:
+    name: Orquestrar build (dispara waves prontos)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Instalar deps de specs/tools
+        working-directory: specs/tools
+        run: npm ci --no-audit --no-fund
+
+      - name: Status do build
+        run: node specs/tools/orchestrate-build.mjs "${{ github.event.inputs.product }}" --status
+
+      - name: Disparar requisitos prontos (esteira req-implement)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node specs/tools/orchestrate-build.mjs "${{ github.event.inputs.product }}" --dispatch --max "${{ github.event.inputs.max }}"
+
+      - name: Resumo
+        if: always()
+        run: |
+          {
+            echo "### Build greenfield — ${{ github.event.inputs.product }}"
+            echo ""
+            echo '```'
+            node specs/tools/orchestrate-build.mjs "${{ github.event.inputs.product }}" --status || true
+            echo '```'
+            echo ""
+            echo "Re-rode este workflow após os PRs da wave atual serem mergeados (gpt-approved) para liberar a próxima."
+          } >> "$GITHUB_STEP_SUMMARY"
