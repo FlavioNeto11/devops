@@ -65,10 +65,12 @@ spec:
           resources:
             requests:
               cpu: "50m"
-              memory: "128Mi"
+              memory: "256Mi"
             limits:
               cpu: "1"
-              memory: "512Mi"
+              # 512Mi OOMKillava o Postgres (pgvector + checkpoints do chat) e o kill
+              # no meio de uma escrita corrompeu o WAL no reboot. 1Gi dá folga.
+              memory: "1Gi"
       volumes:
         - name: pgdata
           persistentVolumeClaim:
