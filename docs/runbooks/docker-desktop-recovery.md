@@ -86,6 +86,37 @@ do apiserver, contorna o forwarding quebrado — mas **não sobrevive a reboot/f
 kubectl port-forward --address 0.0.0.0 -n traefik svc/traefik 80:80 443:443
 ```
 
+## Postgres de um app em CrashLoop com WAL corrompido (pós-OOMKill/reboot)
+
+Um reboot abrupto (ou um `OOMKilled` no meio de uma escrita) pode corromper o WAL de um
+Postgres → CrashLoopBackOff com:
+```
+PANIC: could not locate a valid checkpoint record   (invalid resource manager ID / invalid checkpoint record)
+```
+Os **data files costumam estar íntegros** — só o WAL/checkpoint está ilegível. Recuperação com
+`pg_resetwal` (preserva tudo até o último checkpoint; pode perder as escritas mais recentes —
+confirme com o dono dos dados antes). **Não há backup automático** dos PVCs hostpath.
+
+> ⚠️ Causa comum: **limite de memória baixo** no Postgres (era `512Mi` no SICAT) → suba o limite
+> junto, senão volta a OOMKillar e re-corromper. Ex.: SICAT agora usa `1Gi`.
+
+```powershell
+# 1) desligar o selfHeal do Argo do app (senão ele religa o pod e trava o PVC RWO)
+kubectl patch application <app> -n argocd --type=merge -p '{"spec":{"syncPolicy":{"automated":null}}}'
+# 2) parar o Postgres (libera o PVC)
+kubectl scale deploy/<app>-postgres -n apps --replicas=0   # espere o pod sair
+# 3) rodar pg_resetwal num pod efêmero sobre o MESMO PVC (subPath e uid do postgres = 999)
+#    command: pg_resetwal -n <PGDATA>  (dry-run)  e depois  pg_resetwal -f <PGDATA>
+#    PGDATA do SICAT: /var/lib/postgresql/data  (mount com subPath: pgdata)
+# 4) religar e reativar o Argo
+kubectl apply -f apps/<app>/k8s/postgres.yaml      # replicas=1 (+ memória corrigida)
+kubectl patch application <app> -n argocd --type=merge -p '{"spec":{"syncPolicy":{"automated":{"prune":true,"selfHeal":true}}}}'
+kubectl delete pod -n apps -l app.kubernetes.io/name=<app>-api   # reinicia o backend (pula o backoff)
+```
+Manifesto do pod efêmero (pg16): `securityContext.runAsUser/Group/fsGroup: 999`, monta o PVC com
+`subPath: pgdata`, e roda `/usr/lib/postgresql/16/bin/pg_resetwal -f /var/lib/postgresql/data`.
+Depois confirme `pg_isready` e o health do app.
+
 ## Regras de ouro (não piorar)
 - **Nunca force-kill o Docker** sem necessidade (deixa sockets AF_UNIX órfãos → crash no boot).
 - **Não** usar "Reset to factory defaults".
