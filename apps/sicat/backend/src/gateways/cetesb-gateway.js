@@ -36,6 +36,10 @@ const BUSINESS_SENSITIVE_EXACT_KEYS = new Set(['pardescricao', 'parnomefantasia'
 const RECEIPT_MANIFEST_SEARCH_SEGMENTS = Object.freeze({ tipoManifesto: 9, statusFilter: 0, kind: 'all' });
 const CDF_RECEIVED_MANIFEST_SEARCH_SEGMENTS = Object.freeze({ tipoManifesto: 9, statusFilter: 0 });
 const CDF_CERTIFICATE_SEARCH_SEGMENTS = Object.freeze({ tipoCertificado: 9, statusFilter: 0, kind: 'all' });
+// A CETESB rejeita busca de CDF com intervalo > 31 dias; fatiamos por trás dos panos em janelas <= 31 dias.
+const CDF_CERTIFICATE_SEARCH_MAX_WINDOW_DAYS = 31;
+// Teto de segurança de janelas (~2,2 anos) para não encadear chamadas demais à CETESB.
+const CDF_CERTIFICATE_SEARCH_MAX_WINDOWS = 27;
 
 function defaultHeaders() {
   return {
@@ -212,6 +216,32 @@ function enumerateDateRangeBr(dateFromBr, dateToBr) {
   }
 
   return days;
+}
+
+// Fatia [dateFromBr..dateToBr] (DD-MM-YYYY) em janelas consecutivas com span
+// INCLUSIVO <= maxDays. Usado para respeitar o limite de 31 dias da CETESB sem
+// expor o erro ao usuário. Datas inválidas => 1 janela com as datas originais.
+function chunkDateRangeBr(dateFromBr, dateToBr, maxDays) {
+  const start = parseDateBrToUtc(dateFromBr);
+  const end = parseDateBrToUtc(dateToBr);
+  if (!start || !end) {
+    return [{ dateFrom: dateFromBr, dateTo: dateToBr }];
+  }
+
+  const rangeStart = start.getTime() <= end.getTime() ? start : end;
+  const rangeEnd = start.getTime() <= end.getTime() ? end : start;
+  const step = Math.max(1, Number(maxDays) || 1);
+  const windows = [];
+  let cursor = new Date(rangeStart);
+
+  while (cursor.getTime() <= rangeEnd.getTime()) {
+    const tentativeEnd = addDays(cursor, step - 1);
+    const windowEnd = tentativeEnd.getTime() <= rangeEnd.getTime() ? tentativeEnd : rangeEnd;
+    windows.push({ dateFrom: formatDateBr(cursor), dateTo: formatDateBr(windowEnd) });
+    cursor = addDays(windowEnd, 1);
+  }
+
+  return windows;
 }
 
 function addDays(date, days) {
@@ -2912,10 +2942,24 @@ class RealCetesbGateway {
     const now = new Date();
     const dateFrom = normalizeDateForCetesb(options.dateFrom, addDays(now, -Math.abs(Number(config.cetesbManifestSearchDaysBack || 30))));
     const dateTo = normalizeDateForCetesb(options.dateTo, now);
-    const result = await this.executeAuthenticatedJsonOperation({
+
+    // A CETESB rejeita intervalos > 31 dias. Fatiamos por trás dos panos em
+    // janelas <= 31 dias e mesclamos os resultados, para o chat e a tela de CDFs
+    // nunca esbarrarem nesse limite em buscas mais longas.
+    const windows = chunkDateRangeBr(dateFrom, dateTo, CDF_CERTIFICATE_SEARCH_MAX_WINDOW_DAYS);
+    if (windows.length > CDF_CERTIFICATE_SEARCH_MAX_WINDOWS) {
+      throw new AppError(
+        400,
+        'Bad Request',
+        'O período solicitado para busca de CDFs é muito amplo. Refine para até cerca de 2 anos.',
+        { code: 'CDF_SEARCH_RANGE_TOO_WIDE' }
+      );
+    }
+
+    const runWindow = (windowFrom, windowTo) => this.executeAuthenticatedJsonOperation({
       options,
       method: 'GET',
-      path: `/api/mtr/certificadoDestinacao/${CDF_CERTIFICATE_SEARCH_SEGMENTS.tipoCertificado}/${context.partnerCode}/${CDF_CERTIFICATE_SEARCH_SEGMENTS.statusFilter}/${CDF_CERTIFICATE_SEARCH_SEGMENTS.kind}/${dateFrom}/${dateTo}`,
+      path: `/api/mtr/certificadoDestinacao/${CDF_CERTIFICATE_SEARCH_SEGMENTS.tipoCertificado}/${context.partnerCode}/${CDF_CERTIFICATE_SEARCH_SEGMENTS.statusFilter}/${CDF_CERTIFICATE_SEARCH_SEGMENTS.kind}/${windowFrom}/${windowTo}`,
       auditPath: '/api/mtr/certificadoDestinacao/9/{partnerCode}/0/all/{dataInicial_dd-MM-yyyy}/{dataFinal_dd-MM-yyyy}',
       dataBuilder: (envelope) => ({
         message: envelope?.mensagem || null,
@@ -2923,15 +2967,60 @@ class RealCetesbGateway {
         envelope,
         search: {
           partnerCode: context.partnerCode,
-          dateFrom,
-          dateTo,
+          dateFrom: windowFrom,
+          dateTo: windowTo,
           tipoCertificado: CDF_CERTIFICATE_SEARCH_SEGMENTS.tipoCertificado,
           statusFilter: CDF_CERTIFICATE_SEARCH_SEGMENTS.statusFilter,
           kind: CDF_CERTIFICATE_SEARCH_SEGMENTS.kind
         }
       })
     });
-    return result.exchange;
+
+    // Caminho simples (<= 31 dias): comportamento idêntico ao anterior.
+    if (windows.length <= 1) {
+      const single = windows[0] || { dateFrom, dateTo };
+      const result = await runWindow(single.dateFrom, single.dateTo);
+      return result.exchange;
+    }
+
+    // Múltiplas janelas: encadeia sequencialmente (cada chamada respeita o refresh
+    // de sessão/token) e mescla + deduplica os certificados por cerHashCode || cerCodigo.
+    let baseExchange = null;
+    let mergedMessage = null;
+    const aggregatedItems = [];
+    const windowAudit = [];
+
+    for (const window of windows) {
+      const result = await runWindow(window.dateFrom, window.dateTo);
+      const exchange = result.exchange;
+      if (!baseExchange) baseExchange = exchange;
+      const data = exchange?.response?.data || {};
+      const windowItems = Array.isArray(data.items) ? data.items : [];
+      if (!mergedMessage && data.message) mergedMessage = data.message;
+      aggregatedItems.push(...windowItems);
+      windowAudit.push({ dateFrom: window.dateFrom, dateTo: window.dateTo, resultCount: windowItems.length });
+    }
+
+    const dedupedItems = uniqueBy(
+      aggregatedItems,
+      (item) => String(item?.cerHashCode || item?.cerCodigo || JSON.stringify(item))
+    );
+
+    if (baseExchange?.response?.data) {
+      baseExchange.response.data.items = dedupedItems;
+      baseExchange.response.data.message = mergedMessage || baseExchange.response.data.message || null;
+      baseExchange.response.data.search = {
+        ...(baseExchange.response.data.search || {}),
+        dateFrom,
+        dateTo,
+        segmented: true,
+        windowCount: windows.length,
+        windows: windowAudit,
+        resultCount: dedupedItems.length
+      };
+    }
+
+    return baseExchange;
   }
 
   async printCdfCertificate(cerHashCode, options = {}) {

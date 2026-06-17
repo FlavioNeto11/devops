@@ -57,6 +57,8 @@ export const CONVERSATION_SPECIALISTS: Record<ConversationSpecialistId, Conversa
       'Certificado de Destinação Final (CDF/CDR) — o CERTIFICADO em si, NÃO o comprovante/PDF do manifesto: conceito, quando/como emitir, ' +
       'listar certificados por conta e período, vincular a manifestos, baixar o certificado. Acione SOMENTE quando o usuário citar ' +
       'CDF/CDR/certificado de destinação; "comprovante/2ª via/PDF/extrato do manifesto" pertence ao especialista de Manifestos. ' +
+      'Para "tenho CDFs?"/"quando foram gerados os últimos?" use list_cdf_certificates (NÃO get_dashboard_overview) com período amplo ' +
+      '(ex.: últimos 12 meses); qualquer intervalo é aceito (o sistema fatia em janelas de 31 dias internamente) — nunca cite limite de 31 dias. ' +
       'Sempre aterrado no conhecimento de domínio para conceitos.',
     tools: ['orchestrate_manifest_operation', 'list_cdf_certificates', 'enqueue_cdf_download'],
     intentPrefixes: ['cdf.'],

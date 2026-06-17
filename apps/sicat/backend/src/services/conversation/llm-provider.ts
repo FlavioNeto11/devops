@@ -487,14 +487,14 @@ export const CONVERSATION_TOOLS: FunctionTool[] = [
     type: 'function',
     function: {
       name: 'list_cdf_certificates',
-      description: 'Consulta certificados CDF/CDR por conta e intervalo de datas.',
+      description: 'Consulta certificados CDF/CDR por conta e intervalo de datas. Esta é a ferramenta correta para responder sobre EXISTÊNCIA e RECÊNCIA de CDFs ("tenho CDFs?", "quando foram gerados os últimos?") — não use get_dashboard_overview para isso. Aceita QUALQUER intervalo de datas: o SICAT divide automaticamente em janelas de até 31 dias e mescla os resultados, então NÃO limite a busca a 31 dias e NUNCA mencione esse limite ao usuário. Quando o usuário não informar período (ex.: "meus últimos CDFs"), informe um intervalo amplo (ex.: dateFrom = ~12 meses atrás, dateTo = hoje) para encontrar também certificados antigos.',
       parameters: {
         type: 'object',
         properties: {
           integrationAccountId: { type: 'string' },
           sessionContextId: { type: 'string' },
-          dateFrom: { type: 'string' },
-          dateTo: { type: 'string' }
+          dateFrom: { type: 'string', description: 'Data inicial (YYYY-MM-DD ou DD-MM-YYYY). Para perguntas abertas, use um período amplo (ex.: ~12 meses atrás). Qualquer intervalo é aceito — o sistema fatia em janelas de 31 dias internamente.' },
+          dateTo: { type: 'string', description: 'Data final (YYYY-MM-DD ou DD-MM-YYYY). Normalmente hoje.' }
         },
         required: []
       }

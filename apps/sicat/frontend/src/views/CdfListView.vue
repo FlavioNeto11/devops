@@ -12,7 +12,10 @@ import SicatFiltersPanel from '../components/sicat/SicatFiltersPanel.vue';
 import SicatDataTable from '../components/sicat/SicatDataTable.vue';
 import SicatInlineAlert from '../components/sicat/SicatInlineAlert.vue';
 
-const CDF_MAX_WINDOW_DAYS = 31;
+// Teto amigável de 2 anos. A regra de 31 dias da CETESB é tratada no backend,
+// que fatia a busca em janelas <= 31 dias por trás dos panos — a tela nunca
+// mostra o erro de 31 dias.
+const CDF_MAX_RANGE_DAYS = 731;
 
 function sanitizeFileName(fileName, fallbackName) {
   const normalized = String(fileName || '').trim() || fallbackName;
@@ -93,7 +96,7 @@ const activeChips = computed(() => {
 // Destaca o atalho de período correspondente ao range atual (0 = nenhum).
 const activeDatePresetDays = computed(() => {
   if (filters.dateTo !== isoToday()) return 0;
-  for (const days of [1, 7, 30]) {
+  for (const days of [1, 7, 30, 90, 365]) {
     if (filters.dateFrom === isoDaysAgo(days - 1)) return days;
   }
   return 0;
@@ -105,11 +108,13 @@ function validateCertificateDateRange() {
     dateTo: filters.dateTo,
     fromLabel: 'Data inicial',
     toLabel: 'Data final',
-    maxDays: CDF_MAX_WINDOW_DAYS
+    maxDays: CDF_MAX_RANGE_DAYS
   });
 
   if (!validation.isValid) {
-    certificatesError.value = validation.errorMessage;
+    certificatesError.value = Number(validation.spanDays) > CDF_MAX_RANGE_DAYS
+      ? 'Para buscas muito longas, escolha um período de até 2 anos.'
+      : validation.errorMessage;
     certificatesLoaded.value = true;
     return false;
   }
@@ -286,7 +291,24 @@ onMounted(() => {
             :disabled="certificatesLoading"
             @click="applyDatePreset(30)"
           >30 dias</v-chip>
+          <v-chip
+            size="small"
+            :variant="activeDatePresetDays === 90 ? 'flat' : 'tonal'"
+            :color="activeDatePresetDays === 90 ? 'primary' : undefined"
+            :disabled="certificatesLoading"
+            @click="applyDatePreset(90)"
+          >90 dias</v-chip>
+          <v-chip
+            size="small"
+            :variant="activeDatePresetDays === 365 ? 'flat' : 'tonal'"
+            :color="activeDatePresetDays === 365 ? 'primary' : undefined"
+            :disabled="certificatesLoading"
+            @click="applyDatePreset(365)"
+          >12 meses</v-chip>
         </div>
+        <p class="cdf-date-presets__hint">
+          Você pode buscar períodos longos (até 2 anos). Buscas grandes são consultadas em partes e podem levar alguns segundos.
+        </p>
         <v-text-field
           v-model="filters.dateFrom"
           label="Data inicial"
@@ -345,5 +367,13 @@ onMounted(() => {
   font-size: 0.82rem;
   font-weight: 600;
   color: rgba(var(--v-theme-on-surface), 0.66);
+}
+
+.cdf-date-presets__hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: rgba(var(--v-theme-on-surface), 0.58);
 }
 </style>

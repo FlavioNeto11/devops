@@ -689,3 +689,122 @@ test('searchManifests agrega range dia a dia e preserva dias válidos quando CET
   assert.equal(result.length, 1);
   assert.equal(result[0].manNumero, '260010000007');
 });
+
+function stubCdfOperationContext(gateway) {
+  gateway.resolveAuthenticatedOperationContext = async () => ({
+    sessionContext: { id: 'scx_cdf', jwtToken: 'token-valido', partnerCode: 176163, metadata: {} },
+    integrationAccount: { id: 'acc_cdf', partner_code: 176163, state_code: 26 },
+    partnerCode: 176163,
+    stateCode: 26
+  });
+}
+
+function buildCdfRequestResponse(path, objetoResposta) {
+  return {
+    request: { endpoint: `https://example.test${path}`, httpMethod: 'GET', sanitizedHeaders: {}, sanitizedBody: {} },
+    response: {
+      endpoint: `https://example.test${path}`,
+      httpMethod: 'GET',
+      httpStatus: 200,
+      latencyMs: 8,
+      sanitizedHeaders: {},
+      sanitizedBody: {},
+      data: { erro: false, mensagem: null, objetoResposta }
+    }
+  };
+}
+
+test('searchCdfCertificates fatia ranges > 31 dias em janelas e mescla/deduplica por cerHashCode', async () => {
+  configureGatewayForTests();
+  const gateway = createCetesbGateway();
+  stubCdfOperationContext(gateway);
+
+  const calledPaths = [];
+  gateway.requestJson = async ({ path }) => {
+    calledPaths.push(path);
+    if (path.includes('/01-01-2026/31-01-2026')) {
+      return buildCdfRequestResponse(path, [
+        { cerHashCode: 'A', cerCodigo: 1 },
+        { cerHashCode: 'B', cerCodigo: 2 }
+      ]);
+    }
+    if (path.includes('/01-02-2026/03-03-2026')) {
+      // 'B' repetido entre janelas deve ser deduplicado.
+      return buildCdfRequestResponse(path, [
+        { cerHashCode: 'B', cerCodigo: 2 },
+        { cerHashCode: 'C', cerCodigo: 3 }
+      ]);
+    }
+    if (path.includes('/04-03-2026/15-03-2026')) {
+      return buildCdfRequestResponse(path, [{ cerHashCode: 'D', cerCodigo: 4 }]);
+    }
+    throw new Error(`path inesperado no teste: ${path}`);
+  };
+
+  const exchange = await gateway.searchCdfCertificates({
+    integrationAccountId: 'acc_cdf',
+    sessionContextId: 'scx_cdf',
+    dateFrom: '2026-01-01',
+    dateTo: '2026-03-15'
+  });
+
+  // 74 dias => 3 janelas de <= 31 dias.
+  assert.equal(calledPaths.length, 3);
+  const items = exchange.response.data.items;
+  assert.equal(Array.isArray(items), true);
+  assert.equal(items.length, 4);
+  assert.deepEqual(items.map((item) => item.cerHashCode).sort(), ['A', 'B', 'C', 'D']);
+  assert.equal(exchange.response.data.search.segmented, true);
+  assert.equal(exchange.response.data.search.windowCount, 3);
+});
+
+test('searchCdfCertificates mantém uma única chamada para ranges <= 31 dias', async () => {
+  configureGatewayForTests();
+  const gateway = createCetesbGateway();
+  stubCdfOperationContext(gateway);
+
+  const calledPaths = [];
+  gateway.requestJson = async ({ path }) => {
+    calledPaths.push(path);
+    return buildCdfRequestResponse(path, [{ cerHashCode: 'X', cerCodigo: 10 }]);
+  };
+
+  const exchange = await gateway.searchCdfCertificates({
+    integrationAccountId: 'acc_cdf',
+    sessionContextId: 'scx_cdf',
+    dateFrom: '2026-03-01',
+    dateTo: '2026-03-15'
+  });
+
+  assert.equal(calledPaths.length, 1);
+  assert.equal(exchange.response.data.items.length, 1);
+  assert.notEqual(exchange.response.data.search.segmented, true);
+});
+
+test('searchCdfCertificates rejeita período muito amplo com CDF_SEARCH_RANGE_TOO_WIDE', async () => {
+  configureGatewayForTests();
+  const gateway = createCetesbGateway();
+  stubCdfOperationContext(gateway);
+
+  let calls = 0;
+  gateway.requestJson = async () => {
+    calls += 1;
+    return buildCdfRequestResponse('/api/mtr/certificadoDestinacao', []);
+  };
+
+  await assert.rejects(
+    gateway.searchCdfCertificates({
+      integrationAccountId: 'acc_cdf',
+      sessionContextId: 'scx_cdf',
+      dateFrom: '2020-01-01',
+      dateTo: '2026-01-01'
+    }),
+    (error) => {
+      assert.equal(error.code, 'CDF_SEARCH_RANGE_TOO_WIDE');
+      return true;
+    }
+  );
+
+  // A guarda dispara antes de qualquer chamada à CETESB.
+  assert.equal(calls, 0);
+});

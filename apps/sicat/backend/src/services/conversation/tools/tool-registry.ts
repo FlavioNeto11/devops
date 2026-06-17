@@ -52,7 +52,7 @@ const TOOL_INVENTORY: Record<ConversationToolName, ConversationToolInventoryItem
   list_cdf_certificates: {
     toolName: 'list_cdf_certificates',
     category: 'cdf',
-    objective: 'Consultar lista de certificados CDF/CDR por conta e periodo.',
+    objective: 'Consultar lista de certificados CDF/CDR por conta e periodo. Aceita qualquer intervalo (fatiado automaticamente em janelas de 31 dias); ferramenta correta para existencia/recencia de CDFs.',
     dependencies: ['manifest-service'],
     policy: {
       riskLevel: 'R1',
