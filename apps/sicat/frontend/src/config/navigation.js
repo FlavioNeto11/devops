@@ -21,104 +21,108 @@ export const NAVIGATION_GROUPS = [
   {
     id: 'home',
     label: 'Início',
-    icon: 'mdi-view-dashboard-outline',
+    icon: 'mdi-home-outline',
     kind: 'direct',
     module: 'operacao',
     to: '/dashboard',
-    description: 'Painel operacional e pendências do dia'
+    description: 'Veja o que fazer hoje'
   },
   {
     id: 'mtr',
-    label: 'MTR',
+    label: 'Manifestos (MTR)',
     icon: 'mdi-file-document-multiple-outline',
     kind: 'group',
     module: 'operacao',
+    glossaryKey: 'mtr',
     items: [
       {
         to: '/manifestos',
-        label: 'Manifestos',
+        label: 'Meus manifestos',
         icon: 'mdi-file-document-multiple-outline',
-        description: 'Consultar, acompanhar e operar MTRs'
+        description: 'Ver e acompanhar os manifestos'
       },
       {
         to: '/manifestos/novo',
-        label: 'Emitir MTR',
+        label: 'Criar manifesto',
         icon: 'mdi-file-plus-outline',
-        description: 'Criar e enviar um novo MTR'
+        description: 'Criar e enviar um novo manifesto'
       },
       {
         to: '/relatorios/mtrs',
         label: 'Relatórios',
         icon: 'mdi-chart-box-outline',
-        description: 'Relatório consolidado dos MTRs'
+        description: 'Resumo dos seus manifestos'
       }
     ]
   },
   {
     id: 'mtr-provisorio',
-    label: 'MTR Provisório',
+    label: 'Manifesto de emergência',
     icon: 'mdi-file-clock-outline',
     kind: 'direct',
     module: 'operacao',
     to: '/mtr-provisorio',
-    description: 'Fluxo emergencial de MTR Provisório'
+    glossaryKey: 'mtr_provisorio',
+    description: 'Quando precisa sair sem tudo pronto'
   },
   {
     id: 'dmr',
-    label: 'Resíduos · DMR',
+    label: 'Declaração mensal (DMR)',
     icon: 'mdi-file-tree-outline',
     kind: 'group',
     module: 'operacao',
+    glossaryKey: 'dmr',
     items: [
       {
         to: '/dmr',
-        label: 'Declarações',
+        label: 'Minhas declarações',
         icon: 'mdi-file-tree-outline',
-        description: 'Declarações DMR existentes'
+        description: 'Ver as declarações já feitas'
       },
       {
         to: '/dmr/pendentes',
         label: 'Pendentes',
         icon: 'mdi-clock-alert-outline',
-        description: 'DMRs que requerem ação'
+        description: 'Declarações que precisam de ação'
       },
       {
         to: '/dmr/novo',
-        label: 'Nova declaração',
+        label: 'Criar declaração',
         icon: 'mdi-file-plus-outline',
-        description: 'Criar uma nova DMR'
+        description: 'Fazer uma nova declaração'
       }
     ]
   },
   {
     id: 'cdf',
-    label: 'Certificados · CDF',
+    label: 'Certificados (CDF)',
     icon: 'mdi-certificate-outline',
     kind: 'group',
     module: 'operacao',
+    glossaryKey: 'cdf',
     items: [
       {
         to: '/cdf',
-        label: 'Emitidos',
+        label: 'Meus certificados',
         icon: 'mdi-file-certificate-outline',
-        description: 'Lista, filtros e download de CDFs'
+        description: 'Ver e baixar os certificados'
       },
       {
         to: '/cdf/novo',
-        label: 'Gerar CDF',
+        label: 'Gerar certificado',
         icon: 'mdi-file-plus-outline',
-        description: 'Solicitar emissão de novo CDF à CETESB'
+        description: 'Pedir um novo certificado à CETESB'
       }
     ]
   },
   {
     id: 'conversacional',
-    label: 'Assistente',
+    label: 'Tirar dúvidas',
     icon: 'mdi-chat-processing-outline',
     kind: 'direct',
     module: 'operacao',
     to: '/conversacional/chat',
-    description: 'Assistente conversacional SICAT'
+    description: 'Pergunte ao assistente'
   },
   {
     id: 'sistema',

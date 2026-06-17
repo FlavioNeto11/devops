@@ -8,6 +8,7 @@ import { resolveManifestStatusTone } from '../../lib/status-map.js';
 import SicatPageLayout from '../../components/sicat/SicatPageLayout.vue';
 import SicatPageHeader from '../../components/shell/SicatPageHeader.vue';
 import SicatCard from '../../components/sicat/SicatCard.vue';
+import SicatActionCard from '../../components/sicat/SicatActionCard.vue';
 import SicatMetricCard from '../../components/sicat/SicatMetricCard.vue';
 import SicatDataTable from '../../components/sicat/SicatDataTable.vue';
 import SicatStatusBadge from '../../components/sicat/SicatStatusBadge.vue';
@@ -70,10 +71,18 @@ const summary = computed(() => {
 });
 
 const metricCards = computed(() => [
-  { key: 'pending', label: 'Em processamento', value: summary.value.pending, tone: 'running', icon: 'mdi-progress-clock', focus: 'pending' },
-  { key: 'completed', label: 'Concluídos hoje', value: summary.value.completed, tone: 'success', icon: 'mdi-check-circle-outline', focus: 'completed' },
-  { key: 'draft', label: 'Rascunhos', value: summary.value.draft, tone: 'warning', icon: 'mdi-file-outline', focus: 'draft' },
-  { key: 'failed', label: 'Falhas', value: summary.value.failed, tone: 'error', icon: 'mdi-alert-circle-outline', focus: 'failed' }
+  { key: 'pending', label: 'Sendo enviados', value: summary.value.pending, tone: 'running', icon: 'mdi-progress-clock', focus: 'pending' },
+  { key: 'completed', label: 'Prontos hoje', value: summary.value.completed, tone: 'success', icon: 'mdi-check-circle-outline', focus: 'completed' },
+  { key: 'draft', label: 'Não enviados ainda', value: summary.value.draft, tone: 'warning', icon: 'mdi-file-outline', focus: 'draft' },
+  { key: 'failed', label: 'Com problema', value: summary.value.failed, tone: 'error', icon: 'mdi-alert-circle-outline', focus: 'failed' }
+]);
+
+// Hub de ação: o que o operador quer fazer (lê em 1 olhada, botões grandes).
+const primaryActions = computed(() => [
+  { key: 'criar', icon: 'mdi-file-plus-outline', tone: 'primary', title: 'Criar um manifesto', description: 'Autorizar o transporte de um resíduo.', to: '/manifestos/novo' },
+  { key: 'ver', icon: 'mdi-file-document-multiple-outline', tone: 'info', title: 'Ver meus manifestos', description: 'Acompanhar o que já foi criado.', to: '/manifestos', badge: summary.value.pending > 0 ? summary.value.pending : '' },
+  { key: 'cdf', icon: 'mdi-certificate-outline', tone: 'success', title: 'Gerar certificado', description: 'Comprovar o destino final (CDF).', to: '/cdf/novo' },
+  { key: 'ajuda', icon: 'mdi-chat-processing-outline', tone: 'warning', title: 'Tirar uma dúvida', description: 'Perguntar ao assistente.', to: '/conversacional/chat' }
 ]);
 
 const pendingActions = computed(() => {
@@ -102,13 +111,6 @@ const pendingActions = computed(() => {
   }
   return actions;
 });
-
-const quickActions = [
-  { key: 'emitir', label: 'Emitir MTR', icon: 'mdi-file-plus-outline', to: '/manifestos/novo', color: 'primary' },
-  { key: 'dmr', label: 'Nova DMR', icon: 'mdi-file-tree-outline', to: '/dmr/novo' },
-  { key: 'cdf', label: 'Gerar CDF', icon: 'mdi-certificate-outline', to: '/cdf/novo' },
-  { key: 'provisorio', label: 'MTR Provisório', icon: 'mdi-file-clock-outline', to: '/mtr-provisorio' }
-];
 
 const recentHeaders = [
   { title: 'Manifesto', key: 'label', sortable: false },
@@ -179,11 +181,10 @@ onMounted(loadDashboard);
       <SicatPageHeader
         kicker="Início"
         :title="`Olá, ${userName}`"
-        :description="`Conta ativa: ${activeAccountLabel}. Aqui está o resumo da sua operação hoje.`"
+        :description="`Conta da CETESB: ${activeAccountLabel}. Escolha abaixo o que você quer fazer.`"
       >
         <template #actions>
           <v-btn variant="text" :loading="loading" prepend-icon="mdi-refresh" @click="loadDashboard">Atualizar</v-btn>
-          <v-btn color="primary" variant="flat" prepend-icon="mdi-file-plus-outline" :to="{ name: 'ManifestoNovo' }">Emitir MTR</v-btn>
         </template>
       </SicatPageHeader>
     </template>
@@ -203,22 +204,25 @@ onMounted(loadDashboard);
       </SicatInlineAlert>
     </template>
 
-    <div class="dashboard-metrics">
-      <SicatMetricCard
-        v-for="card in metricCards"
-        :key="card.key"
-        :label="card.label"
-        :value="card.value"
-        :icon="card.icon"
-        :tone="card.tone"
-        clickable
-        @click="openManifests(card.focus)"
-      />
-    </div>
+    <section class="dashboard-hub" aria-label="O que você quer fazer">
+      <h2 class="dashboard-hub__title">O que você quer fazer?</h2>
+      <div class="dashboard-hub__grid">
+        <SicatActionCard
+          v-for="action in primaryActions"
+          :key="action.key"
+          :icon="action.icon"
+          :tone="action.tone"
+          :title="action.title"
+          :description="action.description"
+          :to="action.to"
+          :badge="action.badge"
+        />
+      </div>
+    </section>
 
     <SicatCard
       v-if="pendingActions.length"
-      title="Pendências que precisam de atenção"
+      title="O que precisa da sua atenção"
       icon="mdi-bell-alert-outline"
     >
       <div class="dashboard-pending">
@@ -235,38 +239,34 @@ onMounted(loadDashboard);
       </div>
     </SicatCard>
 
-    <div class="dashboard-columns">
-      <SicatCard title="Últimos manifestos" icon="mdi-history" class="dashboard-columns__main" flush-body>
-        <SicatDataTable
-          :headers="recentHeaders"
-          :items="recentRows"
-          density="compact"
-          :empty="{ title: 'Nenhum manifesto hoje', description: 'Emita um MTR para começar.', icon: 'mdi-file-document-outline' }"
-          @row-click="(row) => row?.id && router.push(`/manifestos/${row.id}`)"
-        >
-          <template #[`item.status`]="{ item }">
-            <SicatStatusBadge :status="item.status" domain="manifest" with-dot />
-          </template>
-        </SicatDataTable>
-      </SicatCard>
+    <SicatCard title="Resumo de hoje" icon="mdi-chart-box-outline">
+      <div class="dashboard-metrics">
+        <SicatMetricCard
+          v-for="card in metricCards"
+          :key="card.key"
+          :label="card.label"
+          :value="card.value"
+          :icon="card.icon"
+          :tone="card.tone"
+          clickable
+          @click="openManifests(card.focus)"
+        />
+      </div>
+    </SicatCard>
 
-      <SicatCard title="Ações rápidas" icon="mdi-lightning-bolt-outline" class="dashboard-columns__aside">
-        <div class="dashboard-quick">
-          <v-btn
-            v-for="action in quickActions"
-            :key="action.key"
-            :color="action.color || undefined"
-            :variant="action.color ? 'flat' : 'outlined'"
-            :prepend-icon="action.icon"
-            :to="action.to"
-            block
-            class="dashboard-quick__btn"
-          >
-            {{ action.label }}
-          </v-btn>
-        </div>
-      </SicatCard>
-    </div>
+    <SicatCard title="Últimos manifestos" icon="mdi-history" flush-body>
+      <SicatDataTable
+        :headers="recentHeaders"
+        :items="recentRows"
+        density="compact"
+        :empty="{ title: 'Você ainda não criou manifestos hoje', description: 'Use \'Criar um manifesto\' acima para começar.', icon: 'mdi-file-document-outline' }"
+        @row-click="(row) => row?.id && router.push(`/manifestos/${row.id}`)"
+      >
+        <template #[`item.status`]="{ item }">
+          <SicatStatusBadge :status="item.status" domain="manifest" with-dot />
+        </template>
+      </SicatDataTable>
+    </SicatCard>
 
     <template #footer>
       <span v-if="lastUpdatedLabel">Atualizado em {{ lastUpdatedLabel }}.</span>
@@ -275,6 +275,18 @@ onMounted(loadDashboard);
 </template>
 
 <style scoped>
+.dashboard-hub__title {
+  margin: 0 0 var(--space-3);
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: rgba(var(--v-theme-on-surface), 0.92);
+}
+.dashboard-hub__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-4);
+}
+
 .dashboard-metrics {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -331,25 +343,4 @@ onMounted(loadDashboard);
   color: rgba(var(--v-theme-on-surface), 0.6);
 }
 
-.dashboard-columns {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
-  gap: var(--space-4);
-  align-items: start;
-}
-
-.dashboard-quick {
-  display: grid;
-  gap: 10px;
-}
-
-.dashboard-quick__btn {
-  justify-content: flex-start;
-}
-
-@media (max-width: 959px) {
-  .dashboard-columns {
-    grid-template-columns: 1fr;
-  }
-}
 </style>

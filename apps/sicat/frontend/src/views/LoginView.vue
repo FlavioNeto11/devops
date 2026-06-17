@@ -5,6 +5,7 @@ import { useTheme } from 'vuetify';
 import { useAuthStore } from '../stores/auth.js';
 import { startKeycloakLogin } from '../services/keycloak.js';
 import { toggleAppTheme } from '../composables/useAppTheme.js';
+import SicatAuthSteps from '../components/sicat/SicatAuthSteps.vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -191,10 +192,15 @@ async function handleRegister() {
 
         <div class="auth-panel-head">
           <div>
-            <h1 class="auth-panel-title">Bem-vindo ao SICAT</h1>
-            <p class="auth-panel-subtitle">Faça login para continuar</p>
+            <h1 class="auth-panel-title">Entrar no SICAT</h1>
+            <p class="auth-panel-subtitle">
+              Este é o <strong>primeiro de dois acessos</strong>. Depois você vai conectar a sua conta da
+              CETESB — é por ela que o SICAT envia o manifesto por você.
+            </p>
           </div>
         </div>
+
+        <SicatAuthSteps :current="1" />
 
         <v-alert
           v-if="sessionExpiredMessage"

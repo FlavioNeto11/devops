@@ -3,6 +3,10 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useTheme } from 'vuetify';
 import ConfirmDialog from '../components/sicat/SicatConfirmDialog.vue';
+import SicatAuthSteps from '../components/sicat/SicatAuthSteps.vue';
+import SicatFormField from '../components/sicat/SicatFormField.vue';
+import SicatHelpHint from '../components/sicat/SicatHelpHint.vue';
+import SicatInlineAlert from '../components/sicat/SicatInlineAlert.vue';
 import { useConfirmDialog } from '../composables/useConfirmDialog.js';
 import { toggleAppTheme } from '../composables/useAppTheme.js';
 import { useAuthStore } from '../stores/auth.js';
@@ -45,6 +49,8 @@ const addFormSuccess = ref('');
 const showAddAccountForm = ref(false);
 const partnerLookupLoading = ref(false);
 const partnerLookupError = ref('');
+const showAdvanced = ref(false);
+const hasAutoFilledInfo = computed(() => Boolean(String(addForm.email || '').trim() && String(addForm.partnerCode || '').trim()));
 
 const isDarkTheme = computed(() => Boolean(theme.global.current.value.dark));
 const accounts = computed(() => authStore.accounts.value || []);
@@ -113,7 +119,7 @@ async function resolvePartnerInfoFromLogin() {
       }
     }
   } catch (err) {
-    partnerLookupError.value = err?.message || 'Não foi possível carregar o código do parceiro para este CNPJ/CPF.';
+    partnerLookupError.value = err?.message || 'Não encontramos seus dados na CETESB. Confira o CNPJ/CPF (só números) e tente de novo.';
   } finally {
     partnerLookupLoading.value = false;
   }
@@ -207,12 +213,17 @@ async function handleAddAccount() {
   addFormSuccess.value = '';
 
   if (!String(addForm.login || '').trim()) {
-    addFormError.value = 'Informe o login da conta CETESB.';
+    addFormError.value = 'Digite o seu CNPJ ou CPF.';
     return;
   }
 
   if (!String(addForm.password || '').trim()) {
-    addFormError.value = 'Informe a senha da conta CETESB.';
+    addFormError.value = 'Digite a sua senha da CETESB.';
+    return;
+  }
+
+  if (!String(addForm.email || '').trim() || !String(addForm.partnerCode || '').trim()) {
+    addFormError.value = 'Ainda estamos buscando seus dados na CETESB pelo seu CNPJ/CPF. Aguarde alguns segundos, ou abra "Ver/ajustar dados" e preencha o e-mail e o código do parceiro.';
     return;
   }
 
@@ -264,7 +275,7 @@ onMounted(async () => {
 
           <div class="account-stage-floating account-stage-floating-top">
             <v-icon size="16">mdi-link-variant</v-icon>
-            <span>CETESB Session</span>
+            <span>Conta da CETESB</span>
           </div>
 
           <div class="account-stage-illustration">
@@ -288,14 +299,14 @@ onMounted(async () => {
 
           <div class="account-stage-floating account-stage-floating-bottom">
             <v-icon size="16">mdi-arrow-right-thin-circle-outline</v-icon>
-            <span>Activate and continue</span>
+            <span>Conectar e continuar</span>
           </div>
         </div>
       </section>
 
       <v-sheet class="account-selection-panel">
         <div class="account-selection-panel-toolbar">
-          <div class="text-caption text-medium-emphasis">SICAT Internal</div>
+          <div class="text-caption text-medium-emphasis">Passo 2 de 2</div>
           <div class="account-selection-toolbar-actions">
             <v-tooltip location="bottom" text="Ir para a home publica">
               <template #activator="{ props: tooltipProps }">
@@ -326,8 +337,11 @@ onMounted(async () => {
 
         <div class="account-selection-panel-head">
           <div>
-            <h1 class="account-panel-title">Welcome back</h1>
-            <p class="account-panel-subtitle">Choose or add a CETESB account</p>
+            <h1 class="account-panel-title">Conecte sua conta da CETESB</h1>
+            <p class="account-panel-subtitle">
+              Use o mesmo CNPJ/CPF e a senha que você usa no site da CETESB. O SICAT usa essa conta para
+              enviar o manifesto no seu lugar.
+            </p>
           </div>
           <div class="d-flex ga-1 align-center">
             <v-btn variant="text" prepend-icon="mdi-logout" size="small" @click="authStore.logout(); router.push('/login')">
@@ -336,25 +350,27 @@ onMounted(async () => {
           </div>
         </div>
 
+        <SicatAuthSteps :current="2" />
+
         <v-alert v-if="pageError" type="error" variant="tonal" class="mb-4">{{ pageError }}</v-alert>
         <v-alert v-if="pageSuccess" type="success" variant="tonal" class="mb-4">{{ pageSuccess }}</v-alert>
 
         <div class="account-metrics mb-4">
           <div class="account-metric-item">
-            <span>Saved accounts</span>
+            <span>Contas salvas</span>
             <strong>{{ accounts.length }}</strong>
           </div>
           <div class="account-metric-item">
-            <span>Active</span>
-            <strong class="account-metric-active-value">{{ activeAccountId || 'None' }}</strong>
+            <span>Em uso</span>
+            <strong class="account-metric-active-value">{{ activeAccountId || 'Nenhuma' }}</strong>
           </div>
         </div>
 
         <div class="account-selection-stack">
           <v-card variant="outlined" class="account-saved-card" rounded="lg">
             <v-card-item>
-              <v-card-title>Use saved account</v-card-title>
-              <v-card-subtitle>Fast access with existing credentials</v-card-subtitle>
+              <v-card-title>Usar uma conta já salva</v-card-title>
+              <v-card-subtitle>Acesso rápido com uma conta que você já conectou</v-card-subtitle>
             </v-card-item>
 
             <v-card-text>
@@ -398,56 +414,121 @@ onMounted(async () => {
 
           <v-card variant="outlined" class="account-new-card" rounded="lg">
             <v-card-item>
-              <v-card-title>Add a new account</v-card-title>
-              <v-card-subtitle>Authenticate another CETESB credential</v-card-subtitle>
+              <v-card-title>Conectar uma conta nova</v-card-title>
+              <v-card-subtitle>Você só precisa do seu CNPJ/CPF e da senha da CETESB</v-card-subtitle>
             </v-card-item>
 
             <v-card-text>
-              <v-btn block variant="outlined" class="mb-3" @click="toggleAddAccountForm">
-                {{ showAddAccountForm ? 'Cancel adding account' : 'Add a new account' }}
+              <v-btn
+                block
+                variant="outlined"
+                size="large"
+                class="mb-3"
+                :prepend-icon="showAddAccountForm ? 'mdi-close' : 'mdi-plus'"
+                @click="toggleAddAccountForm"
+              >
+                {{ showAddAccountForm ? 'Cancelar' : 'Conectar uma conta nova' }}
               </v-btn>
 
               <v-expand-transition>
                 <div v-if="showAddAccountForm">
-                  <v-alert v-if="addFormError" type="error" variant="tonal" class="mb-3">{{ addFormError }}</v-alert>
-                  <v-alert v-if="addFormSuccess" type="success" variant="tonal" class="mb-3">{{ addFormSuccess }}</v-alert>
+                  <SicatInlineAlert v-if="addFormError" tone="error" :message="addFormError" class="mb-3" />
+                  <SicatInlineAlert v-if="addFormSuccess" tone="success" :message="addFormSuccess" class="mb-3" />
 
                   <v-form @submit.prevent="handleAddAccount">
                     <v-text-field
                       v-model="addForm.login"
-                      label="CETESB login"
+                      label="Seu CNPJ ou CPF *"
+                      placeholder="Ex.: 12.345.678/0001-99"
+                      hint="O número da sua empresa (CNPJ) ou o seu (CPF). Pode digitar só os números."
+                      persistent-hint
                       autocomplete="username"
-                      class="mb-3"
+                      class="mb-4"
                       :disabled="addingAccount || partnerLookupLoading"
                       @blur="resolvePartnerInfoFromLogin"
-                    />
+                    >
+                      <template #append-inner>
+                        <SicatHelpHint term="cnpj_cpf" />
+                      </template>
+                    </v-text-field>
+
                     <v-text-field
                       v-model="addForm.password"
-                      label="CETESB password"
+                      label="Sua senha da CETESB *"
                       type="password"
+                      hint="A senha que você usa no site da CETESB — não é a senha do SICAT."
+                      persistent-hint
                       autocomplete="current-password"
                       class="mb-3"
                       :disabled="addingAccount"
+                    >
+                      <template #append-inner>
+                        <SicatHelpHint term="senha_cetesb" />
+                      </template>
+                    </v-text-field>
+
+                    <SicatInlineAlert
+                      v-if="partnerLookupLoading"
+                      tone="info"
+                      message="Buscando seus dados na CETESB pelo seu CNPJ/CPF…"
+                      class="mb-3"
                     />
-                    <v-text-field v-model="addForm.email" label="Email (optional)" class="mb-3" :disabled="addingAccount" />
-                    <v-text-field v-model="addForm.partnerCode" label="Partner code (optional)" class="mb-3" :disabled="addingAccount" />
-                    <v-text-field v-model="addForm.recaptchaToken" label="reCAPTCHA token (optional)" class="mb-3" :disabled="addingAccount" />
+                    <SicatInlineAlert
+                      v-else-if="partnerLookupError"
+                      tone="warning"
+                      :message="partnerLookupError"
+                      class="mb-3"
+                    />
+                    <SicatInlineAlert
+                      v-else-if="hasAutoFilledInfo"
+                      tone="success"
+                      title="Pronto! Preenchemos pra você"
+                      :message="`E-mail: ${addForm.email} · Código do parceiro: ${addForm.partnerCode}`"
+                      class="mb-3"
+                    />
 
-                    <v-alert v-if="partnerLookupLoading" type="info" variant="tonal" class="mb-3" density="compact">
-                      Carregando código do parceiro...
-                    </v-alert>
-                    <v-alert v-else-if="partnerLookupError" type="warning" variant="tonal" class="mb-3" density="compact">
-                      {{ partnerLookupError }}
-                    </v-alert>
-
-                    <div class="d-flex ga-2 flex-wrap">
-                      <v-btn color="primary" type="submit" :loading="addingAccount">
-                        Sign in with new account
+                    <div class="mb-3">
+                      <v-btn
+                        variant="text"
+                        size="small"
+                        :prepend-icon="showAdvanced ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+                        @click="showAdvanced = !showAdvanced"
+                      >
+                        Ver/ajustar dados
                       </v-btn>
-                      <v-btn variant="outlined" :loading="pageLoading" prepend-icon="mdi-refresh" @click="loadAccounts">
-                        Atualizar
-                      </v-btn>
+                      <v-expand-transition>
+                        <div v-if="showAdvanced" class="mt-2">
+                          <v-text-field
+                            v-model="addForm.email"
+                            label="E-mail"
+                            hint="Preenchido automaticamente pelo seu CNPJ/CPF. Confira ou ajuste se precisar."
+                            persistent-hint
+                            class="mb-3"
+                            :disabled="addingAccount"
+                          />
+                          <v-text-field
+                            v-model="addForm.partnerCode"
+                            label="Código do parceiro"
+                            hint="Buscado automaticamente na CETESB pelo seu CNPJ/CPF."
+                            persistent-hint
+                            class="mb-3"
+                            :disabled="addingAccount"
+                          />
+                          <v-text-field
+                            v-model="addForm.recaptchaToken"
+                            label="Token reCAPTCHA (opcional)"
+                            hint="Quase nunca é preciso. Pode deixar em branco."
+                            persistent-hint
+                            class="mb-2"
+                            :disabled="addingAccount"
+                          />
+                        </div>
+                      </v-expand-transition>
                     </div>
+
+                    <v-btn color="primary" size="large" block type="submit" :loading="addingAccount">
+                      Conectar e continuar
+                    </v-btn>
                   </v-form>
                 </div>
               </v-expand-transition>
