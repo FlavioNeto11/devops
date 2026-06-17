@@ -27,14 +27,15 @@
       "required": ["product_scope"],
       "description": "Escopo EXPLÍCITO — evita duplicação entre produtos e habilita herança (novos portais nascem herdando requisitos aprovados de escopo compartilhado).",
       "properties": {
-        "applies_to": { "enum": ["product", "shared-module", "portal-template", "portal-instance", "capability", "platform"] },
+        "applies_to": { "enum": ["product", "product-foundation", "shared-module", "portal-template", "portal-instance", "capability", "platform"] },
         "product_scope": {
           "type": "string",
           "description": "Produto/componente dono. Ex.: sicat, gymops, cms, portal, platform."
         },
         "portal_scope": { "type": ["string", "null"] },
         "domain": { "type": ["string", "null"] },
-        "capability": { "type": ["string", "null"] }
+        "capability": { "type": ["string", "null"] },
+        "blueprint": { "type": ["string", "null"], "description": "Id do blueprint curado (specs/blueprints/<id>) ao qual um produto greenfield adere. Usado pelo Forge; ausente nos requisitos legados." }
       }
     },
     "statement": { "type": "string", "minLength": 10, "description": "Enunciado verificável. Funcional: 'O sistema deve...'." },

@@ -56,7 +56,11 @@ jobs:
         working-directory: specs/tools
         run: node coverage-report.mjs --check
 
-      - name: Testes do tooling deterministico (work-order + guard + coverage)
+      - name: Validar produtos/blueprints do Forge + indices (drift)
+        working-directory: specs/tools
+        run: node build-products.mjs --check
+
+      - name: Testes do tooling deterministico (work-order + guard + coverage + forge)
         working-directory: specs/tools
         run: node --test
 

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nvit.com.br/devops/specs/blueprint.schema.json",
+  "title": "Blueprint curado — stack-ouro instanciável pelo Forge",
+  "description": "Catálogo de stacks suportados para gerar uma aplicação completa do zero. O scaffold determinístico instancia o blueprint (estrutura + golden path) e o Claude preenche a lógica de negócio dentro de apps/<app>/**.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "version", "name", "stack", "services", "scaffold"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9-]+$", "description": "Id estável (= nome da pasta em specs/blueprints/). Referenciado por scope.blueprint dos requisitos." },
+    "version": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+){0,2}$" },
+    "name": { "type": "string", "minLength": 3 },
+    "summary": { "type": "string" },
+    "stack": {
+      "type": "object",
+      "description": "Tecnologia por camada (ex.: api, web, db, worker).",
+      "additionalProperties": { "type": "string" }
+    },
+    "services": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "enum": ["frontend", "api", "api2", "worker"] },
+      "description": "Serviços do devops.yaml que o scaffold cria."
+    },
+    "db": { "type": ["string", "null"], "description": "Banco (ex.: postgres) ou null se sem banco." },
+    "reuses": { "type": "array", "items": { "type": "string" }, "description": "Packages/infra reusados (packages/oidc-kit, infra-keycloak, infra-postgres, ...)." },
+    "scaffold": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generator", "args"],
+      "properties": {
+        "generator": { "type": "string", "description": "Script gerador do golden path (ex.: scripts/new-app.ps1)." },
+        "args": { "type": "object", "description": "Argumentos default do gerador (Services, Type, ...)." }
+      }
+    },
+    "structure": { "type": "array", "items": { "type": "string" }, "description": "Inventário de pastas/arquivos que o app gerado deve conter (alvo da geração)." },
+    "default_adrs": { "type": "array", "items": { "type": "string" }, "description": "ADRs sugeridos para a fase de arquitetura." },
+    "seed_nfrs": { "type": "array", "items": { "type": "string" }, "description": "Ids de NFR/SLO do registry a herdar." }
+  }
+}

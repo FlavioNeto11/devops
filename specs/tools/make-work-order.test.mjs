@@ -35,3 +35,22 @@ test('escopo de infra/CICD e RESTRITO (allowed vazio)', () => {
     assert.deepEqual(wo.allowed_paths, []);
   }
 });
+
+test('produto greenfield: blueprint anexado + allowed_paths = apps/<app>/**', () => {
+  const products = { crm: { name: 'crm', blueprint: 'node-api-vue-spa' } };
+  const wo = buildWorkOrder({ ...req, id: 'REQ-CRM-0003', scope: { product_scope: 'crm' } }, [], {}, products);
+  assert.equal(wo.product_scope, 'crm');
+  assert.equal(wo.blueprint, 'node-api-vue-spa');
+  assert.equal(wo.restricted, false);
+  assert.deepEqual(wo.allowed_paths, ['apps/crm/**']);
+});
+
+test('scope.blueprint do requisito tem precedencia sobre o do produto', () => {
+  const wo = buildWorkOrder({ ...req, scope: { product_scope: 'sicat', blueprint: 'explicit-bp' } }, [], {});
+  assert.equal(wo.blueprint, 'explicit-bp');
+});
+
+test('sem produto/blueprint => blueprint null (retrocompat)', () => {
+  const wo = buildWorkOrder(req, edges, baseline);
+  assert.equal(wo.blueprint, null);
+});

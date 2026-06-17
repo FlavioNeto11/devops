@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nvit.com.br/devops/specs/product.schema.json",
+  "title": "Produto greenfield — brief + estado das fases do Forge",
+  "description": "Manifesto de um PRODUTO NOVO a ser gerado do zero pelo Forge. Mora em specs/products/<name>/product.json. Fora de specs/requirements/** (não dispara a esteira nem está na DENYLIST). phases.build é DERIVADO do implementation-status (não é fonte concorrente de verdade).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "name", "display_name", "base_path", "blueprint", "vision", "phases"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,30}$", "description": "= product_scope = nome da pasta apps/<name> e o subpath /<name>." },
+    "display_name": { "type": "string", "minLength": 2 },
+    "base_path": { "type": "string", "pattern": "^/[a-z0-9-]+$" },
+    "namespace": { "type": "string", "default": "apps" },
+    "app_type": { "enum": ["product_software", "cms_portal", "platform_tool"], "default": "product_software" },
+    "blueprint": { "type": "string", "pattern": "^[a-z0-9-]+$", "description": "Id de um blueprint em specs/blueprints/." },
+    "vision": { "type": "string", "minLength": 10 },
+    "persona": { "type": "array", "items": { "type": "string" } },
+    "scope_summary": { "type": "string" },
+    "target_nfrs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["attribute", "target"],
+        "properties": { "attribute": { "type": "string" }, "target": { "type": "string" } }
+      }
+    },
+    "requirement_ids": { "type": "array", "items": { "type": "string", "pattern": "^REQ-[A-Z0-9]+-(NFR-)?[0-9]{3,4}$" } },
+    "phases": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requirements", "architecture", "scaffold", "build"],
+      "description": "Máquina de estados dos gates. requirements/architecture: proposed|approved. scaffold: not_started|merged. build: derivado (agregado dos REQ no implementation-status).",
+      "properties": {
+        "requirements": { "$ref": "#/$defs/phase" },
+        "architecture": { "$ref": "#/$defs/phase" },
+        "scaffold": { "$ref": "#/$defs/phase" },
+        "build": { "$ref": "#/$defs/phase" }
+      }
+    },
+    "version": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision"],
+      "properties": { "revision": { "type": "integer", "minimum": 1 }, "change_reason": { "type": "string" } }
+    }
+  },
+  "$defs": {
+    "phase": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["status"],
+      "properties": {
+        "status": { "enum": ["not_started", "proposed", "approved", "in_progress", "pr_open", "merged", "deployed", "done", "blocked"] }
+      }
+    }
+  }
+}

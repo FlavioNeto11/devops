@@ -1,0 +1,37 @@
+{
+  "id": "node-api-vue-spa",
+  "version": "1.0.0",
+  "name": "API Node + SPA Vue (produto CRUD com Postgres)",
+  "summary": "Stack-ouro para um produto de negócio CRUD completo: SPA Vue 3 + API Node/Express + worker de fila transacional + Postgres. Espelha a anatomia do SICAT (frontend Vue, backend Express com camadas route→service→repository, worker, migrations SQL, seed) e entra no golden path da plataforma (Traefik path-routing, GHCR/:local, Argo).",
+  "stack": {
+    "web": "Vue 3 + Vite (nginx)",
+    "api": "Node 20 + Express (TypeScript via tsx)",
+    "worker": "Node 20 (mesma imagem da api, npm run worker)",
+    "db": "PostgreSQL 16"
+  },
+  "services": ["frontend", "api", "worker"],
+  "db": "postgres",
+  "reuses": ["packages/oidc-kit", "packages/design-tokens", "infra-postgres", "infra-traefik", "infra-argocd"],
+  "scaffold": {
+    "generator": "scripts/new-app.ps1",
+    "args": { "Services": ["frontend", "api", "worker"], "Type": "product_software", "NoArgo": true }
+  },
+  "structure": [
+    "devops.yaml",
+    "CLAUDE.md",
+    "AGENTS.md",
+    "README.md",
+    "frontend/{src/{App.vue,components/,views/,lib/,assets/},package.json,vite.config.ts,index.html,Dockerfile,nginx.conf}",
+    "backend/{src/{server.ts,routes/,services/,repositories/,db/{pool.ts,migrate.ts},sql/,workers/,lib/},package.json,tsconfig.json,Dockerfile,.env.example}",
+    "k8s/{backend.yaml,worker.yaml,postgres.yaml,ingressroute.yaml,secret.example.yaml,pvc.yaml}",
+    "docs/{architecture.md,api-spec.md,data-model.md}",
+    "test/smoke.mjs"
+  ],
+  "default_adrs": [
+    "Persistência: Postgres 16 + fila transacional na tabela jobs (FOR UPDATE SKIP LOCKED), sem broker externo",
+    "Camadas do backend: route → service → repository → worker (sem acesso a dados nas rotas)",
+    "Auth: sessão própria do app via packages/oidc-kit (OIDC Keycloak) — aditivo, sem tocar outras auths",
+    "Frontend Vue buildado com base path /<app>/ (sem stripPrefix); API com stripPrefix"
+  ],
+  "seed_nfrs": []
+}

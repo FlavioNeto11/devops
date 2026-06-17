@@ -1,0 +1,139 @@
+// =============================================================================
+// build-products.mjs — valida e indexa os artefatos do FORGE (geração greenfield):
+//   - specs/blueprints/<id>/blueprint.json      (catálogo de stacks-ouro)
+//   - specs/products/<name>/product.json         (brief + estado das fases)
+//   - specs/products/<name>/build-plan.json      (DAG + ordem; opcional até a fase de arquitetura)
+//
+// Valida contra os schemas (ajv) + integridade (id == pasta, blueprint referenciado
+// existe, build-plan casa com o produto) e EMITE, determinístico, em specs/baseline/:
+//   - blueprints.json   : catálogo p/ a UI do Forge
+//   - products.json     : lista de produtos + fases p/ a UI do Forge
+//
+// Saída sem timestamp/ordenada (igual build-baseline) p/ o CI checar drift com --check.
+//
+// Uso:  node build-products.mjs            # gera/atualiza
+//       node build-products.mjs --check    # NÃO escreve; falha em erro OU drift
+// =============================================================================
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import Ajv2020 from 'ajv/dist/2020.js';
+import addFormats from 'ajv-formats';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const SPECS_DIR = path.resolve(__dirname, '..');
+const SCHEMA_DIR = path.join(SPECS_DIR, 'schema');
+const BLUEPRINTS_DIR = path.join(SPECS_DIR, 'blueprints');
+const PRODUCTS_DIR = path.join(SPECS_DIR, 'products');
+const OUT_DIR = path.join(SPECS_DIR, 'baseline');
+const CHECK = process.argv.includes('--check');
+
+function fail(msg) { console.error(`\x1b[31m[products] ${msg}\x1b[0m`); process.exitCode = 1; }
+function stable(obj) { return JSON.stringify(obj, null, 2) + '\n'; }
+
+const ajv = new Ajv2020({ allErrors: true, strict: false });
+addFormats(ajv);
+function compile(name) { return ajv.compile(JSON.parse(fs.readFileSync(path.join(SCHEMA_DIR, name), 'utf8'))); }
+const vBlueprint = compile('blueprint.schema.json');
+const vProduct = compile('product.schema.json');
+const vBuildPlan = compile('build-plan.schema.json');
+
+function listDirs(root) {
+  if (!fs.existsSync(root)) return [];
+  return fs.readdirSync(root, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
+}
+function readJson(p) { return JSON.parse(fs.readFileSync(p, 'utf8')); }
+
+// --- blueprints ---------------------------------------------------------------
+function loadBlueprints() {
+  const out = [];
+  for (const id of listDirs(BLUEPRINTS_DIR)) {
+    const p = path.join(BLUEPRINTS_DIR, id, 'blueprint.json');
+    if (!fs.existsSync(p)) { fail(`blueprint sem blueprint.json: specs/blueprints/${id}/`); continue; }
+    let doc;
+    try { doc = readJson(p); } catch (e) { fail(`JSON inválido em specs/blueprints/${id}/blueprint.json: ${e.message}`); continue; }
+    if (!vBlueprint(doc)) { for (const err of vBlueprint.errors) fail(`blueprints/${id} :: ${err.instancePath || '/'} ${err.message}`); continue; }
+    if (doc.id !== id) fail(`blueprint id '${doc.id}' != pasta '${id}' (specs/blueprints/${id}/)`);
+    out.push(doc);
+  }
+  return out;
+}
+
+// --- products + build-plans ---------------------------------------------------
+function loadProducts(blueprintIds) {
+  const products = [];
+  for (const name of listDirs(PRODUCTS_DIR)) {
+    const pp = path.join(PRODUCTS_DIR, name, 'product.json');
+    if (!fs.existsSync(pp)) { fail(`produto sem product.json: specs/products/${name}/`); continue; }
+    let prod;
+    try { prod = readJson(pp); } catch (e) { fail(`JSON inválido em specs/products/${name}/product.json: ${e.message}`); continue; }
+    if (!vProduct(prod)) { for (const err of vProduct.errors) fail(`products/${name} :: ${err.instancePath || '/'} ${err.message}`); continue; }
+    if (prod.name !== name) fail(`product name '${prod.name}' != pasta '${name}' (specs/products/${name}/)`);
+    if (prod.base_path !== `/${prod.name}`) fail(`products/${name}: base_path '${prod.base_path}' deveria ser '/${prod.name}'`);
+    if (!blueprintIds.has(prod.blueprint)) fail(`products/${name}: blueprint '${prod.blueprint}' não existe em specs/blueprints/`);
+
+    // build-plan.json é opcional até a fase de arquitetura
+    const bpPath = path.join(PRODUCTS_DIR, name, 'build-plan.json');
+    if (fs.existsSync(bpPath)) {
+      let plan;
+      try { plan = readJson(bpPath); } catch (e) { fail(`JSON inválido em specs/products/${name}/build-plan.json: ${e.message}`); plan = null; }
+      if (plan) {
+        if (!vBuildPlan(plan)) { for (const err of vBuildPlan.errors) fail(`products/${name}/build-plan :: ${err.instancePath || '/'} ${err.message}`); }
+        else {
+          if (plan.product !== name) fail(`products/${name}/build-plan: product '${plan.product}' != '${name}'`);
+          if (plan.blueprint !== prod.blueprint) fail(`products/${name}/build-plan: blueprint '${plan.blueprint}' != product.blueprint '${prod.blueprint}'`);
+          // todo REQ do plano deve estar na lista do produto
+          const reqSet = new Set(prod.requirement_ids || []);
+          for (const id of plan.order || []) if (!reqSet.has(id)) fail(`products/${name}/build-plan: order tem '${id}' fora de product.requirement_ids`);
+        }
+      }
+    }
+    products.push(prod);
+  }
+  return products;
+}
+
+// --- montar índices (determinísticos) -----------------------------------------
+function build() {
+  const blueprints = loadBlueprints().sort((a, b) => a.id.localeCompare(b.id));
+  const blueprintIds = new Set(blueprints.map((b) => b.id));
+  const products = loadProducts(blueprintIds).sort((a, b) => a.name.localeCompare(b.name));
+
+  const blueprintsIndex = {
+    blueprints: blueprints.map((b) => ({ id: b.id, version: b.version, name: b.name, summary: b.summary || '', stack: b.stack, services: b.services, db: b.db ?? null, reuses: b.reuses || [] })),
+  };
+  const productsIndex = {
+    products: products.map((p) => ({
+      name: p.name, display_name: p.display_name, base_path: p.base_path, blueprint: p.blueprint,
+      vision: p.vision, app_type: p.app_type || 'product_software',
+      requirement_ids: p.requirement_ids || [], phases: p.phases,
+    })),
+  };
+  return {
+    'blueprints.json': stable(blueprintsIndex),
+    'products.json': stable(productsIndex),
+  };
+}
+
+function main() {
+  const artifacts = build();
+  if (process.exitCode === 1) { console.error('\x1b[31m[products] validação FALHOU.\x1b[0m'); process.exit(1); }
+
+  if (CHECK) {
+    let drift = false;
+    for (const [name, content] of Object.entries(artifacts)) {
+      const p = path.join(OUT_DIR, name);
+      const cur = fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : null;
+      if (cur !== content) { drift = true; fail(`índice desatualizado: baseline/${name} difere do regerado. Rode 'node build-products.mjs' e commite.`); }
+    }
+    if (drift) process.exit(1);
+    console.log('\x1b[32m[products] OK — blueprints/produtos válidos; índices em dia.\x1b[0m');
+    return;
+  }
+
+  fs.mkdirSync(OUT_DIR, { recursive: true });
+  for (const [name, content] of Object.entries(artifacts)) fs.writeFileSync(path.join(OUT_DIR, name), content);
+  console.log(`\x1b[32m[products] índices gerados -> specs/baseline/{blueprints,products}.json\x1b[0m`);
+}
+
+main();
