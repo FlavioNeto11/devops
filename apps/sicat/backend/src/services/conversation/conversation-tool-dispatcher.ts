@@ -94,6 +94,10 @@ const SAFE_BATCH_MAX_ITEMS = 10;
 const SAFE_PRINT_MAX_ITEMS = 50;
 // Teto de ids guardados no snapshot determinístico (cobre o maior lote suportado).
 const SAFE_SNAPSHOT_MAX_ITEMS = 50;
+// Teto de certificados CDF devolvidos no canal conversacional (amostra). Evita
+// serializar listas longas com `externalSnapshot` (objeto cru da CETESB), que
+// estouravam o heap em buscas amplas. A contagem total continua em `totalItems`.
+const CDF_CONVERSATION_ITEM_CAP = 50;
 
 function maxBatchItemsForOperation(operation?: BatchOperation): number {
   return operation === 'print' ? SAFE_PRINT_MAX_ITEMS : SAFE_BATCH_MAX_ITEMS;
@@ -2984,17 +2988,41 @@ export async function dispatchConversationTool(input: ConversationDispatchInput)
         input.headers
       );
 
+      const cdfResponseRecord = toRecord(response);
+      const cdfFullItems = asListResponseItems(response).map((item) => toRecord(item));
+
+      // O canal conversacional não renderiza a lista bruta: ele só precisa da
+      // contagem + uma amostra. Devolver centenas de itens com `externalSnapshot`
+      // (o objeto cru da CETESB) inflava a serialização do resultado (resposta
+      // HTTP + trilha de auditoria) e estourava o heap em buscas longas (12 meses).
+      // A tela (rota /v1/cdf/certificates) segue com o payload completo do contrato.
+      const slimCdfItems = cdfFullItems.slice(0, CDF_CONVERSATION_ITEM_CAP).map((item) => {
+        const copy = { ...item };
+        delete copy.externalSnapshot;
+        return copy;
+      });
+      const cdfTotalItems = typeof cdfResponseRecord.totalItems === 'number'
+        ? cdfResponseRecord.totalItems
+        : cdfFullItems.length;
+      const slimCdfData = {
+        ...cdfResponseRecord,
+        items: slimCdfItems,
+        totalItems: cdfTotalItems,
+        returnedItems: slimCdfItems.length,
+        truncated: slimCdfItems.length < cdfFullItems.length
+      };
+
       return {
         kind: 'query',
         type: 'cdf_list',
-        data: response,
+        data: slimCdfData,
         artifacts: [],
         actions: [],
         assistantSummary: buildCdfListSummary({
-          items: asListResponseItems(response).map((item) => toRecord(item)),
-          dateFrom: toNullableString((response as Record<string, unknown>).dateFrom),
-          dateTo: toNullableString((response as Record<string, unknown>).dateTo),
-          message: toNullableString((response as Record<string, unknown>).message)
+          items: cdfFullItems,
+          dateFrom: toNullableString(cdfResponseRecord.dateFrom),
+          dateTo: toNullableString(cdfResponseRecord.dateTo),
+          message: toNullableString(cdfResponseRecord.message)
         })
       };
     }

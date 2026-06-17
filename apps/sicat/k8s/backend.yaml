@@ -63,6 +63,10 @@ spec:
               value: "false"
             - name: PORT
               value: "8080"
+            # Heap explícito < limite do container (2Gi): o motor conversacional
+            # (LangGraph + LLM) é memory-hungry; sem isso o Node OOMa no default.
+            - name: NODE_OPTIONS
+              value: "--max-old-space-size=1536"
             - name: STORAGE_DIR
               value: "/data/storage"
             - name: NODE_EXTRA_CA_CERTS
@@ -146,7 +150,7 @@ spec:
               memory: "256Mi"
             limits:
               cpu: "1"
-              memory: "1Gi"
+              memory: "2Gi"
       volumes:
         - name: storage
           persistentVolumeClaim:
@@ -186,6 +190,8 @@ spec:
             - secretRef:
                 name: sicat-config
           env:
+            - name: NODE_OPTIONS
+              value: "--max-old-space-size=1536"
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -243,7 +249,7 @@ spec:
               memory: "256Mi"
             limits:
               cpu: "1"
-              memory: "1Gi"
+              memory: "2Gi"
       volumes:
         - name: storage
           persistentVolumeClaim:
