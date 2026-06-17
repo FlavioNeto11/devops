@@ -6,7 +6,8 @@
     "by_status": {
       "deployed": 320,
       "done": 52,
-      "not_started": 4
+      "pr_open": 1,
+      "not_started": 3
     }
   },
   "items": {
@@ -755,8 +756,10 @@
       "notes": "scaffold (fase C) via scaffold-product.ps1"
     },
     "REQ-CRM-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "branch": "@{id=REQ-CRM-0002; branch=req/REQ-CRM-0002/r1; restricted=false; title=feat(crm): implementa REQ-CRM-0002 — Modelo de dados e persistência (empresas, contatos, n}.branch",
+      "run_id": "27726301174"
     },
     "REQ-CRM-0003": {
       "status": "not_started",
