@@ -7,7 +7,8 @@
       "deployed": 320,
       "done": 52,
       "merged": 2,
-      "not_started": 2
+      "pr_open": 1,
+      "not_started": 1
     }
   },
   "items": {
@@ -764,8 +765,10 @@
       "run_id": "27726301174"
     },
     "REQ-CRM-0003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "branch": "@{id=REQ-CRM-0003; branch=req/REQ-CRM-0003/r1; restricted=false; title=feat(crm): implementa REQ-CRM-0003 — CRUD de contatos (API + tela)}.branch",
+      "run_id": "27730078023"
     },
     "REQ-CRM-0004": {
       "status": "merged",

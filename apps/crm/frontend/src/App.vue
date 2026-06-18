@@ -1,6 +1,7 @@
 <template>
   <nav>
     <RouterLink to="/empresas">Empresas</RouterLink>
+    <RouterLink to="/contatos">Contatos</RouterLink>
   </nav>
   <main>
     <RouterView />
