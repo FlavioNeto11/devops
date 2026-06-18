@@ -10,7 +10,10 @@ import { PROMPTS } from './prompts.js';
 const schema = (validate) => ({ parse: (v) => { validate(v || {}); return v; } });
 const need = (cond, msg) => { if (!cond) throw new Error(msg); };
 
-async function llmJson(llm, { system, user, reasoningEffort = 'low', maxTokens = 1800 }) {
+// reasoningEffort 'minimal' (tarefas de EXTRAÇÃO estruturada, não raciocínio profundo) +
+// orçamento amplo: no gpt-5 o max_completion_tokens INCLUI os tokens de raciocínio, então
+// valores baixos faziam o conteúdo sair vazio/truncado -> LLM_INVALID_JSON.
+async function llmJson(llm, { system, user, reasoningEffort = 'minimal', maxTokens = 6000 }) {
   if (!llm || typeof llm.complete !== 'function') {
     throw new AiToolError('AI_DISABLED', 'LLM nao disponivel');
   }
@@ -104,7 +107,7 @@ export function buildForgeTools() {
         const { parsed, usage } = await llmJson(ctx.llm, {
           system: PROMPTS.proposeRequirements.system,
           user: PROMPTS.proposeRequirements.user(input),
-          maxTokens: 2600,
+          maxTokens: 12000,
         });
         const requirements = Array.isArray(parsed.requirements) ? parsed.requirements : [];
         return { prompt_version: PROMPTS.proposeRequirements.version, requirements, notes: parsed.notes || '', usage };
@@ -120,7 +123,7 @@ export function buildForgeTools() {
         const { parsed, usage } = await llmJson(ctx.llm, {
           system: PROMPTS.proposeArchitecture.system,
           user: PROMPTS.proposeArchitecture.user(input),
-          maxTokens: 2200,
+          maxTokens: 9000,
         });
         return {
           prompt_version: PROMPTS.proposeArchitecture.version,
