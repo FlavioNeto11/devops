@@ -1,7 +1,7 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId } from './lib.js?v=34';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=34';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId } from './lib.js?v=35';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=35';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -998,10 +998,18 @@ function renderContextStage(body) {
   }
   wrap.append(h('div', { class: 'ctx-graph' }, g.el), right);
   body.append(wrap);
-  body.append(h('div', { class: 'ctx-cta' },
-    h('button', { class: 'btn primary', type: 'button', onclick: () => { state.editor.sketch = ''; state.editor.stage = 'classify'; renderEditor(); }, text: '✨ Descrever uma mudança…' }),
-    h('button', { class: 'btn', type: 'button', onclick: () => { state.editor.target_req_id = null; state.editor.stage = 'chat'; renderEditor(); }, text: 'Conversar (chat) →' }),
-    h('button', { class: 'btn', type: 'button', onclick: () => { state.editId = null; state.editor.draft = null; state.editor.stage = 'review'; renderEditor(); }, text: 'Formulário manual' })));
+  // CAMINHO ÚNICO: descreva a mudança aqui mesmo (no contexto do sistema); a IA decide o resto.
+  // chat e formulário viram escapes discretos (links), não 3 botões equivalentes.
+  const desc = h('textarea', { class: 'ai-sketch', rows: '3', 'aria-label': 'O que você quer mudar', placeholder: 'ex.: "na tela de perfil (/profile) mostrar o endereço do empreendimento do usuário"' });
+  if (state.editor.sketch) desc.value = state.editor.sketch;
+  const go = () => { const v = (desc.value || '').trim(); if (v.length < 3) { desc.focus(); return; } state.editor.sketch = v; state.editor._autoClassify = true; state.editor.stage = 'classify'; renderEditor(); };
+  desc.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); go(); } });
+  body.append(h('div', { class: 'ctx-describe' },
+    h('label', { class: 'fld wide' }, h('span', { class: 'fld-l', text: 'O que você quer mudar neste sistema? (a IA decide se é um refinamento de tela, um ajuste ou um requisito novo)' }), desc),
+    h('div', { class: 'ws-actions ctx-describe-act' },
+      h('button', { class: 'btn primary', type: 'button', onclick: go, text: '✨ Continuar' }),
+      h('button', { class: 'btn-link', type: 'button', onclick: () => { state.editor.target_req_id = null; state.editor.stage = 'chat'; renderEditor(); }, text: 'Prefiro conversar' }),
+      h('button', { class: 'btn-link', type: 'button', onclick: () => { state.editId = null; state.editor.draft = null; state.editor.stage = 'review'; renderEditor(); }, text: 'Prefiro o formulário' }))));
   heading.focus();
 }
 
@@ -1534,6 +1542,14 @@ function renderReviewForm(body) {
 
   runValidation();
   reviewHeading.focus(); // move o foco ao entrar no estágio (a11y de navegação SPA)
+  // AUTONOMIA: veio do classify com um esboço (níveis "requisito novo"/"editar") → aproveita o texto:
+  // pré-preenche o assistente e, p/ requisito NOVO, rascunha automaticamente (não pede p/ redigitar).
+  if (state.editor && state.editor.reviewSketch && !state.editor._reqDrafted) {
+    state.editor._reqDrafted = true;
+    sketch.value = state.editor.reviewSketch;
+    if (!ed && (state.editor.reviewType === 'functional' || state.editor.reviewType === 'non-functional')) { f.type.value = state.editor.reviewType; toggleNfr(); }
+    if (!ed) AI.health().then((hr) => { if (hr.ok && hr.data && hr.data.ai) doDraft(); }).catch(() => {});
+  }
 
   // Coleta o rascunho a partir do formulario (reusado por Gerar YAML e pela IA de analise).
   function collectDraft() {
@@ -1645,14 +1661,20 @@ function renderClassifyStage(body) {
   body.append(h('div', { class: 'classify-map' }, h('p', { class: 'muted small', text: 'Mapa do sistema (clique nas âncoras sugeridas para focar):' }), g.el));
 
   function route(level, data) {
+    data = data || {};
     if (level === 'refinement') {
       state.editor.refAnchors = (data.anchors || []).filter((a) => byId(a.requirement_id)).map((a) => ({ requirement_id: a.requirement_id, relation: a.relation || 'refines' }));
-      state.editor.refSketch = state.editor.sketch; state.editor.stage = 'refine'; renderEditor(); return;
+      state.editor.refSketch = state.editor.sketch; state.editor._refDrafted = false; state.editor.stage = 'refine'; renderEditor(); return;
     }
+    // os outros 2 níveis também aproveitam o sketch: o review pré-preenche e auto-rascunha (não joga fora).
     if (level === 'requirement-edit' && data.target_req_id && byId(data.target_req_id)) {
-      state.editId = data.target_req_id; state.editor.draft = null; state.editor.stage = 'review'; renderEditor(); return;
+      state.editId = data.target_req_id; state.editor.draft = null;
+      state.editor.reviewSketch = state.editor.sketch; state.editor.reviewType = null; state.editor._reqDrafted = false;
+      state.editor.stage = 'review'; renderEditor(); return;
     }
-    state.editId = null; state.editor.draft = null; state.editor.stage = 'review'; renderEditor();
+    state.editId = null; state.editor.draft = null;
+    state.editor.reviewSketch = state.editor.sketch; state.editor.reviewType = data.suggested_type || null; state.editor._reqDrafted = false;
+    state.editor.stage = 'review'; renderEditor();
   }
 
   function renderResult(data) {
@@ -1697,7 +1719,11 @@ function renderClassifyStage(body) {
     finally { btn.disabled = false; btn.removeAttribute('aria-busy'); }
   }
   btn.addEventListener('click', classify);
+  sketch.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); classify(); } });
   heading.focus();
+  // AUTONOMIA: se o operador já descreveu a mudança no estágio anterior (context), classifica
+  // automaticamente ao entrar — ele vê a recomendação direto, sem um clique extra.
+  if (state.editor._autoClassify && (sketch.value || '').trim().length >= 3) { state.editor._autoClassify = false; classify(); }
 }
 
 /* Estágio — autoria de um REFINAMENTO rico (form de tela + picker de âncoras no mapa). */
@@ -1863,62 +1889,89 @@ function renderRefineStage(body) {
   // ---- coluna do assistente de IA ----
   const sketch = h('textarea', { class: 'ai-sketch', rows: '4', 'aria-label': 'Esboço do refinamento', placeholder: 'Descreva a mudança de tela em linguagem natural…' });
   if (state.editor.refSketch) sketch.value = state.editor.refSketch;
+  sketch.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); startRefine({ draftFirst: true }); } });
   const aiOut = h('div', { class: 'ai-out' });
   const valOut = h('div', { class: 'val-out', 'aria-live': 'polite' });
-  function runValidation() { const errs = validateRefinement(collectRefDraft()); valOut.replaceChildren(errs.length ? h('ul', { class: 'errlist' }, ...errs.map((e) => h('li', { text: e }))) : h('p', { class: 'val-ok', text: '✓ Pronto para gerar o YAML.' })); }
+  // valida ao vivo; quando ZERA as lacunas, revela o PR automaticamente (genRef) — sem clique extra.
+  function runValidation() {
+    const errs = validateRefinement(collectRefDraft());
+    if (errs.length) {
+      const ul = h('ul', { class: 'errlist' });
+      errs.forEach((e) => ul.append(h('li', { text: e })));
+      valOut.replaceChildren(ul);
+      out.replaceChildren();
+    } else {
+      valOut.replaceChildren(h('p', { class: 'val-ok', text: '✓ Pronto — o PR está logo abaixo.' }));
+      genRef();
+    }
+  }
   function showErr(r) { const code = r.data && r.data.error ? r.data.error.code : 'HTTP ' + r.status; aiOut.replaceChildren(h('div', { class: 'card' }, h('h3', { text: 'IA: ' + code }), h('p', { class: 'muted', text: (r.data && r.data.error && r.data.error.message) || '' }))); }
   async function guard(fn) { aiOut.replaceChildren(h('p', { class: 'muted', text: 'Consultando a IA…' })); try { await fn(); } catch (e) { aiOut.replaceChildren(h('p', { class: 'empty', text: 'Erro de rede: ' + (e && e.message ? e.message : e) })); } }
   function anchorArray() { return [...anchors].map(([requirement_id, relation]) => ({ requirement_id, relation })); }
+  // rascunho RICO via IA (grounded: passa os requisitos do produto p/ a IA herdar convenções/rota/papéis).
+  async function draftRefOnce() {
+    const r = await AI.post('/v1/authoring/draft-refinement', { product, sketch: (sketch.value || '').trim(), anchors: anchorArray(), grounding: productGrounding(DATA.baseline.requirements, product) });
+    if (!r.ok) { showErr(r); return false; }
+    applyRefDraftToForm(r.data.draft || {}); runValidation();
+    return true;
+  }
   function doDraftRef() {
     guard(async () => {
-      const r = await AI.post('/v1/authoring/draft-refinement', { product, sketch: (sketch.value || '').trim(), anchors: anchorArray() });
-      if (!r.ok) return showErr(r);
-      applyRefDraftToForm(r.data.draft || {}); runValidation();
-      const warns = (r.data.warnings) || [];
-      aiOut.replaceChildren(h('div', { class: 'card' }, h('h3', { text: 'Rascunho aplicado (' + (r.data.prompt_version || '') + ')' }), h('p', { class: 'muted', text: warns.length ? 'Avisos: ' + warns.join('; ') : 'Campos preenchidos à direita — revise e gere o YAML.' })));
+      const ok = await draftRefOnce();
+      if (ok) aiOut.replaceChildren(h('div', { class: 'card' }, h('h3', { text: 'Rascunho aplicado' }), h('p', { class: 'muted', text: 'Campos preenchidos à direita — revise e gere o YAML, ou clique "Refinar com IA" para a IA analisar e corrigir.' })));
     });
   }
   // loop autônomo de refino (reusa a decisão pura refineDecision; endpoints de REFINAMENTO).
   let refining = false; let refineBtn = null;
   const SEV_LABEL = { blocker: 'crítico', warning: 'atenção', info: 'opcional' };
   const SEV_CLS = { blocker: 'b-crit', warning: 'b-high', info: 'b-low' };
-  function doRefineLoop() {
-    if (refining) return;
+  // corpo do loop analisar→corrigir→re-analisar (sem guard próprio; chamado por startRefine).
+  async function runLoopBody() {
     const MAX = 8, STALE = 2;
+    const log = h('div', { class: 'refine-log' });
+    const liveSummary = h('p', { class: 'visually-hidden', role: 'status', 'aria-live': 'polite' });
+    aiOut.replaceChildren(h('div', { class: 'card' }, h('h3', {}, h('span', { class: 'asst-spark', 'aria-hidden': 'true', text: '✨' }), ' Refinar com IA'), h('p', { class: 'muted small', text: 'A IA analisa, corrige e re-analisa o refinamento sozinha até zerar as lacunas que travam (ou até não conseguir mais melhorar).' }), liveSummary, log));
+    const gapItem = (gp) => { const sev = gp.severity || 'info'; return h('li', {}, badge(SEV_LABEL[sev] || sev, SEV_CLS[sev] || 'b-low'), ' ' + ((gp.field ? gp.field + ': ' : '') + (gp.message || ''))); };
+    const finish = (action, score, dec) => {
+      let head;
+      if (action === 'ready') head = h('p', { class: 'refine-ok', tabindex: '-1', text: '✓ Refinamento pronto (prontidão ' + score + '). Revise e gere o YAML.' });
+      else if (action === 'plateau') head = h('p', { class: 'refine-warn', tabindex: '-1', text: '⚠ A IA refinou até onde conseguiu (prontidão ' + score + '). Os pontos abaixo precisam da sua decisão — a IA não inventa o que não está definido.' });
+      else head = h('p', { class: 'refine-warn', tabindex: '-1', text: 'Parei após ' + MAX + ' rodadas (prontidão ' + score + ').' });
+      log.append(head);
+      if (dec.actionable.length) { const ul = h('ul', { class: 'errlist' }); dec.actionable.forEach((gp) => ul.append(gapItem(gp))); log.append(h('p', { class: 'muted small', text: 'Pontos que precisam de você (' + dec.actionable.length + '):' }), ul); }
+      if (dec.info.length) { const det = h('details', { class: 'refine-optional' }); det.append(h('summary', { text: dec.info.length + ' sugestão(ões) opcional(is)' })); const ul = h('ul', { class: 'errlist' }); dec.info.forEach((gp) => ul.append(gapItem(gp))); det.append(ul); log.append(det); }
+      log.append(h('div', { class: 'ws-actions' }, h('button', { class: 'btn', type: 'button', text: 'Refinar de novo', onclick: () => startRefine({ draftFirst: false }) })));
+      liveSummary.textContent = head.textContent || '';
+      try { head.focus(); } catch (e) { /* best-effort */ }
+    };
+    let best = null, stale = 0;
+    for (let i = 0; i < MAX; i++) {
+      const step = h('p', { class: 'refine-step', text: 'Rodada ' + (i + 1) + ' — analisando…' }); log.append(step);
+      const ra = await AI.post('/v1/authoring/analyze-refinement', { refinement: collectRefDraft() });
+      if (!ra.ok) { showErr(ra); return; }
+      const score = ra.data.score != null ? Number(ra.data.score) : 0;
+      const dec = refineDecision({ round: i, score, gaps: ra.data.gaps || [], best, stale, maxRounds: MAX, staleLimit: STALE });
+      best = dec.best; stale = dec.stale;
+      step.replaceChildren(h('strong', { text: 'Rodada ' + (i + 1) }), ' · prontidão ', h('span', { class: 'refine-score', text: String(score) }), ' · ' + (dec.actionable.length ? dec.actionable.length + ' lacuna(s) crítica(s)' : 'sem lacunas críticas') + (dec.info.length ? ' (+' + dec.info.length + ' opcional)' : ''));
+      if (dec.action !== 'fix') return finish(dec.action, score, dec);
+      log.append(h('p', { class: 'refine-fix muted small', text: '↳ corrigindo ' + dec.actionable.length + ' lacuna(s) com IA…' }));
+      const rv = await AI.post('/v1/authoring/revise-refinement', { refinement: collectRefDraft(), gaps: dec.actionable.concat(dec.info) });
+      if (!rv.ok) { showErr(rv); return; }
+      if (rv.data && rv.data.draft) { applyRefDraftToForm(rv.data.draft); runValidation(); }
+    }
+  }
+  // AÇÃO ÚNICA "Refinar com IA": rascunha (se draftFirst) e roda o loop até pronto/platô. Autônomo.
+  function startRefine({ draftFirst }) {
+    if (refining) return;
     refining = true;
     if (refineBtn) { refineBtn.disabled = true; refineBtn.setAttribute('aria-busy', 'true'); }
     guard(async () => {
-      const log = h('div', { class: 'refine-log' });
-      const liveSummary = h('p', { class: 'visually-hidden', role: 'status', 'aria-live': 'polite' });
-      aiOut.replaceChildren(h('div', { class: 'card' }, h('h3', {}, h('span', { class: 'asst-spark', 'aria-hidden': 'true', text: '✨' }), ' Analisar & refinar'), h('p', { class: 'muted small', text: 'A IA analisa, corrige e re-analisa o refinamento sozinha até zerar as lacunas que travam (ou até não conseguir mais melhorar).' }), liveSummary, log));
-      const gapItem = (gp) => { const sev = gp.severity || 'info'; return h('li', {}, badge(SEV_LABEL[sev] || sev, SEV_CLS[sev] || 'b-low'), ' ' + ((gp.field ? gp.field + ': ' : '') + (gp.message || ''))); };
-      const finish = (action, score, dec) => {
-        let head;
-        if (action === 'ready') head = h('p', { class: 'refine-ok', tabindex: '-1', text: '✓ Refinamento pronto (prontidão ' + score + '). Revise e gere o YAML.' });
-        else if (action === 'plateau') head = h('p', { class: 'refine-warn', tabindex: '-1', text: '⚠ A IA refinou até onde conseguiu (prontidão ' + score + '). Os pontos abaixo precisam da sua decisão.' });
-        else head = h('p', { class: 'refine-warn', tabindex: '-1', text: 'Parei após ' + MAX + ' rodadas (prontidão ' + score + ').' });
-        log.append(head);
-        if (dec.actionable.length) { const ul = h('ul', { class: 'errlist' }); dec.actionable.forEach((gp) => ul.append(gapItem(gp))); log.append(h('p', { class: 'muted small', text: 'Pontos que precisam de você (' + dec.actionable.length + '):' }), ul); }
-        if (dec.info.length) { const det = h('details', { class: 'refine-optional' }); det.append(h('summary', { text: dec.info.length + ' sugestão(ões) opcional(is)' })); const ul = h('ul', { class: 'errlist' }); dec.info.forEach((gp) => ul.append(gapItem(gp))); det.append(ul); log.append(det); }
-        log.append(h('div', { class: 'ws-actions' }, h('button', { class: 'btn', type: 'button', text: 'Refinar de novo', onclick: doRefineLoop })));
-        liveSummary.textContent = head.textContent || '';
-        try { head.focus(); } catch (e) { /* best-effort */ }
-      };
-      let best = null, stale = 0;
-      for (let i = 0; i < MAX; i++) {
-        const step = h('p', { class: 'refine-step', text: 'Rodada ' + (i + 1) + ' — analisando…' }); log.append(step);
-        const ra = await AI.post('/v1/authoring/analyze-refinement', { refinement: collectRefDraft() });
-        if (!ra.ok) { showErr(ra); return; }
-        const score = ra.data.score != null ? Number(ra.data.score) : 0;
-        const dec = refineDecision({ round: i, score, gaps: ra.data.gaps || [], best, stale, maxRounds: MAX, staleLimit: STALE });
-        best = dec.best; stale = dec.stale;
-        step.replaceChildren(h('strong', { text: 'Rodada ' + (i + 1) }), ' · prontidão ', h('span', { class: 'refine-score', text: String(score) }), ' · ' + (dec.actionable.length ? dec.actionable.length + ' lacuna(s) crítica(s)' : 'sem lacunas críticas') + (dec.info.length ? ' (+' + dec.info.length + ' opcional)' : ''));
-        if (dec.action !== 'fix') return finish(dec.action, score, dec);
-        log.append(h('p', { class: 'refine-fix muted small', text: '↳ corrigindo ' + dec.actionable.length + ' lacuna(s) com IA…' }));
-        const rv = await AI.post('/v1/authoring/revise-refinement', { refinement: collectRefDraft(), gaps: dec.actionable.concat(dec.info) });
-        if (!rv.ok) { showErr(rv); return; }
-        if (rv.data && rv.data.draft) { applyRefDraftToForm(rv.data.draft); runValidation(); }
+      if (draftFirst) {
+        aiOut.replaceChildren(h('p', { class: 'muted', text: 'Rascunhando o refinamento com a IA…' }));
+        const ok = await draftRefOnce();
+        if (!ok) return;
       }
+      await runLoopBody();
     }).finally(() => { refining = false; if (refineBtn) { refineBtn.disabled = false; refineBtn.removeAttribute('aria-busy'); } });
   }
 
@@ -1930,8 +1983,8 @@ function renderRefineStage(body) {
     status,
     h('label', { class: 'fld' }, h('span', { class: 'fld-l', text: 'Descreva a mudança de tela (esboço)' }), sketch),
     h('div', { class: 'asst-actions' },
-      h('button', { class: 'btn primary', type: 'button', text: '✨ Rascunhar refinamento (IA)', onclick: doDraftRef }),
-      (refineBtn = h('button', { class: 'btn', type: 'button', text: '✨ Analisar & refinar', onclick: doRefineLoop }))),
+      (refineBtn = h('button', { class: 'btn primary', type: 'button', text: '✨ Refinar com IA', onclick: () => startRefine({ draftFirst: true }) })),
+      h('button', { class: 'btn-link', type: 'button', text: 'só rascunhar', title: 'Preenche o formulário sem rodar a análise', onclick: doDraftRef })),
     aiOut,
     h('div', { class: 'asst-val' }, h('h4', { text: 'Validação automática' }), valOut),
     h('details', { class: 'asst-token' }, h('summary', { text: 'Token de operador (IA)' }),
@@ -1953,14 +2006,23 @@ function renderRefineStage(body) {
         h('a', { class: 'btn', href: newUrl, target: '_blank', rel: 'noopener' }, 'Abrir no GitHub (novo → PR)')),
       h('p', { class: 'muted', text: 'O PR passa pelo gate specs-governance (schema/âncoras/origem/drift). A baseline é regenerada por /sync-spec após o merge.' })));
   }
-  const formCol = h('section', { class: 'editor-formcol' }, form,
-    h('div', { class: 'ws-actions' }, h('button', { class: 'btn primary', type: 'button', text: 'Gerar YAML', onclick: genRef })), out);
+  // o PR aparece sozinho quando a validação zera (runValidation→genRef); sem botão "Gerar YAML".
+  const formCol = h('section', { class: 'editor-formcol' }, form, out);
+  // revalida ao vivo quando o operador edita o formulário (debounce) → o PR acompanha as edições.
+  let valTimer = null;
+  form.addEventListener('input', () => { clearTimeout(valTimer); valTimer = setTimeout(runValidation, 350); });
 
   body.append(h('div', { class: 'editor-head' }, h('div', {}, reviewHeading,
     h('p', { class: 'muted', text: 'Um refinamento detalha o funcionamento de uma TELA ancorado a 1+ requisitos — sem alterar o requisito. A UI não escreve no git: o commit é seu (PR).' }))),
     h('div', { class: 'editor-grid' }, assistant, formCol));
   runValidation();
   reviewHeading.focus();
+  // AUTONOMIA: veio do classify com esboço + âncoras → rascunha automaticamente (form pré-preenchido),
+  // se a IA estiver habilitada. Senão, o form fica pronto para preenchimento manual (fail-closed).
+  if (state.editor.refSketch && anchors.size && !state.editor._refDrafted) {
+    state.editor._refDrafted = true;
+    AI.health().then((hr) => { if (hr.ok && hr.data && hr.data.ai) doDraftRef(); }).catch(() => {});
+  }
 }
 
 /* ---------- navegação / abas ---------- */
@@ -2672,6 +2734,15 @@ function renderUsabilityDetail(host, r) {
     anc.forEach((a) => { const req = byId(a.requirement_id); ac.append(h('button', { class: 'btn-link chat-cite', type: 'button', title: req ? req.title : '', onclick: () => openReq(a.requirement_id), text: a.requirement_id + ' · ' + a.relation })); });
     head.append(ac);
   }
+  // AÇÃO: do entendimento à mudança — abre o Editor no estágio refine JÁ ancorado nesta tela.
+  const uProd = r.scope?.product_scope || r.product;
+  head.append(h('div', { class: 'ws-actions usability-cta' },
+    h('button', { class: 'btn primary', type: 'button', text: '✨ Propor mudança nesta tela →', onclick: () => {
+      state.editId = null;
+      state.editor = { stage: 'refine', product: uProd, messages: [], draft: null, graph: null, target_req_id: null,
+        refAnchors: (r.anchors || []).map((a) => ({ requirement_id: a.requirement_id, relation: a.relation || 'refines' })), refSketch: '', _refDrafted: true };
+      switchView('editor');
+    } })));
   host.append(head);
   const beh = r.behavior || {};
   // ESTADOS — cartões coloridos por tipo (normal/carregando/erro/vazio/oculto)

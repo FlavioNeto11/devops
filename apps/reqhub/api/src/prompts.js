@@ -134,12 +134,22 @@ export const PROMPTS = {
       `"verification_method": string[] (cada um de ${JSON.stringify(VERIFICATION_METHODS)}), ` +
       '"source": { "source_paths": string[] } }, "warnings": string[] }. ' +
       'Modele estados realistas (inclua error e empty quando a tela buscar dados). NAO gere id, version, scope ' +
-      'nem anchors — quem fecha e a UI (o operador ja escolheu as ancoras). Sobre source: proponha ao menos um ' +
-      'caminho-fonte plausivel sob "apps/<produto>/..." (ponto de partida; nunca finja um caminho exato).',
-    user: ({ product, sketch, anchors } = {}) =>
-      `produto: ${product || '(nao informado)'}\n` +
-      `ancoras (requisitos que o refino detalha):\n${JSON.stringify(anchors || [], null, 2).slice(0, 3000)}\n\n` +
-      `esboco da mudanca:\n${String(sketch || '').slice(0, 3000)}`,
+      'nem anchors — quem fecha e a UI (o operador ja escolheu as ancoras). Use o GROUNDING (requisitos do ' +
+      'produto) para herdar convencoes coerentes — rota/papeis/nomes de estados alinhados aos requisitos que ' +
+      'este refino DETALHA; nao contradiga os requisitos ancora. Sobre source: proponha ao menos um caminho-fonte ' +
+      'plausivel sob "apps/<produto>/..." (ponto de partida; nunca finja um caminho exato).',
+    user: ({ product, sketch, anchors, grounding } = {}) => {
+      const g = (Array.isArray(grounding) ? grounding : [])
+        .map((r) => `${r.id} | ${r.title} | ${String(r.statement || '').slice(0, 240)}`)
+        .join('\n')
+        .slice(0, 9000);
+      return (
+        `produto: ${product || '(nao informado)'}\n` +
+        `ancoras (requisitos que o refino detalha):\n${JSON.stringify(anchors || [], null, 2).slice(0, 2000)}\n\n` +
+        (g ? `REQUISITOS DO PRODUTO (grounding — herde convencoes):\n${g}\n\n` : '') +
+        `esboco da mudanca:\n${String(sketch || '').slice(0, 3000)}`
+      );
+    },
   },
 
   // analyzeRefinement: lacunas de um refinamento. Saida = {gaps, score} (mesmo shape de analyze
