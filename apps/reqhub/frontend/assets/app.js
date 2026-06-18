@@ -1,7 +1,7 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId } from './lib.js?v=35';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=35';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId } from './lib.js?v=36';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=36';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -897,7 +897,6 @@ function renderEditor() {
   const st = state.editor.stage;
   if (st === 'pick') return renderPickStage(body);
   if (st === 'context') return renderContextStage(body);
-  if (st === 'classify') return renderClassifyStage(body);
   if (st === 'refine') return renderRefineStage(body);
   if (st === 'chat') return renderChatStage(body);
   return renderReviewForm(body);
@@ -998,19 +997,76 @@ function renderContextStage(body) {
   }
   wrap.append(h('div', { class: 'ctx-graph' }, g.el), right);
   body.append(wrap);
-  // CAMINHO ÚNICO: descreva a mudança aqui mesmo (no contexto do sistema); a IA decide o resto.
-  // chat e formulário viram escapes discretos (links), não 3 botões equivalentes.
+  // CAMINHO ÚNICO E FLUIDO: descreva a mudança aqui; a IA classifica INLINE (sem trocar de tela
+  // nem repetir o mapa do sistema) e te leva ao caminho certo. chat/formulário = escapes discretos.
   const desc = h('textarea', { class: 'ai-sketch', rows: '3', 'aria-label': 'O que você quer mudar', placeholder: 'ex.: "na tela de perfil (/profile) mostrar o endereço do empreendimento do usuário"' });
   if (state.editor.sketch) desc.value = state.editor.sketch;
-  const go = () => { const v = (desc.value || '').trim(); if (v.length < 3) { desc.focus(); return; } state.editor.sketch = v; state.editor._autoClassify = true; state.editor.stage = 'classify'; renderEditor(); };
-  desc.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); go(); } });
+  const btn = h('button', { class: 'btn primary', type: 'button', text: '✨ Continuar' });
+  const out = h('div', { class: 'ai-out' });
+  const statusLive = h('p', { class: 'visually-hidden', role: 'status', 'aria-live': 'polite' });
+
+  function route(level, data) {
+    data = data || {};
+    if (level === 'refinement') {
+      state.editor.refAnchors = (data.anchors || []).filter((a) => byId(a.requirement_id)).map((a) => ({ requirement_id: a.requirement_id, relation: a.relation || 'refines' }));
+      state.editor.refSketch = state.editor.sketch; state.editor._refDrafted = false; state.editor.stage = 'refine'; renderEditor(); return;
+    }
+    if (level === 'requirement-edit' && data.target_req_id && byId(data.target_req_id)) {
+      state.editId = data.target_req_id; state.editor.draft = null;
+      state.editor.reviewSketch = state.editor.sketch; state.editor.reviewType = null; state.editor._reqDrafted = false;
+      state.editor.stage = 'review'; renderEditor(); return;
+    }
+    state.editId = null; state.editor.draft = null;
+    state.editor.reviewSketch = state.editor.sketch; state.editor.reviewType = data.suggested_type || null; state.editor._reqDrafted = false;
+    state.editor.stage = 'review'; renderEditor();
+  }
+  function renderResult(d) {
+    const lm = levelMeta(d.level);
+    const card = h('div', { class: 'card classify-card', tabindex: '-1', 'aria-label': 'Recomendação: ' + lm.label },
+      h('div', { class: 'classify-head' }, h('span', { class: 'classify-ic', 'aria-hidden': 'true', text: '✨' }), badge(lm.label, lm.cls),
+        d.confidence != null ? h('span', { class: 'muted small', text: 'confiança ' + d.confidence }) : null),
+      h('p', { class: 'classify-rat', text: d.rationale || lm.desc }));
+    const cites = filterCitations((d.anchors || []).map((a) => a.requirement_id).concat(d.target_req_id ? [d.target_req_id] : []), DATA.baseline.requirements);
+    if (cites.length) {
+      const cc = h('div', { class: 'classify-anchors' }, h('span', { class: 'muted small', text: d.level === 'requirement-edit' ? 'Requisito alvo:' : 'Ancorar em:' }));
+      cites.forEach((id) => cc.append(h('button', { class: 'btn-link chat-cite', type: 'button', onclick: () => state.editor.graph && state.editor.graph.focus(id), text: id })));
+      card.append(cc);
+    }
+    const acts = h('div', { class: 'classify-acts' });
+    const primary = h('button', { class: 'btn primary', type: 'button',
+      text: d.level === 'refinement' ? 'Criar refinamento →' : (d.level === 'requirement-edit' && byId(d.target_req_id) ? 'Editar ' + d.target_req_id + ' →' : 'Criar requisito novo →'),
+      onclick: () => route(d.level, d) });
+    acts.append(primary);
+    if (d.level !== 'refinement') acts.append(h('button', { class: 'btn', type: 'button', text: 'É um refinamento', onclick: () => route('refinement', { anchors: d.anchors || [] }) }));
+    if (d.level !== 'new-requirement') acts.append(h('button', { class: 'btn', type: 'button', text: 'É um requisito novo', onclick: () => route('new-requirement', {}) }));
+    card.append(h('p', { class: 'muted small', text: 'A IA recomenda; você decide o caminho.' }), acts);
+    out.replaceChildren(card);
+    statusLive.textContent = 'Recomendação: ' + lm.label + (d.confidence != null ? ' (confiança ' + d.confidence + ')' : '') + '.';
+    card.focus();
+  }
+  async function classify() {
+    const sk = (desc.value || '').trim();
+    state.editor.sketch = sk;
+    if (sk.length < 3) { desc.focus(); statusLive.textContent = 'Descreva a mudança (ao menos uma frase).'; return; }
+    out.replaceChildren(h('p', { class: 'muted', text: 'Consultando a IA…' })); statusLive.textContent = 'Consultando a IA…';
+    btn.disabled = true; btn.setAttribute('aria-busy', 'true');
+    try {
+      const r = await AI.post('/v1/authoring/classify', { product, sketch: sk, grounding: productGrounding(DATA.baseline.requirements, product) });
+      if (!r.ok) { const code = r.data && r.data.error ? r.data.error.code : 'HTTP ' + r.status; out.replaceChildren(h('div', { class: 'card' }, h('h3', { text: 'IA: ' + code }), h('p', { class: 'muted', text: (r.data && r.data.error && r.data.error.message) || '' }))); return; }
+      renderResult(r.data);
+    } catch (e) { out.replaceChildren(h('p', { class: 'empty', text: 'Erro de rede ao chamar a IA: ' + (e && e.message ? e.message : e) })); }
+    finally { btn.disabled = false; btn.removeAttribute('aria-busy'); }
+  }
+  btn.addEventListener('click', classify);
+  desc.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); classify(); } });
   body.append(h('div', { class: 'ctx-describe' },
     h('label', { class: 'fld wide' }, h('span', { class: 'fld-l', text: 'O que você quer mudar neste sistema? (a IA decide se é um refinamento de tela, um ajuste ou um requisito novo)' }), desc),
-    h('div', { class: 'ws-actions ctx-describe-act' },
-      h('button', { class: 'btn primary', type: 'button', onclick: go, text: '✨ Continuar' }),
+    h('div', { class: 'ws-actions ctx-describe-act' }, btn,
       h('button', { class: 'btn-link', type: 'button', onclick: () => { state.editor.target_req_id = null; state.editor.stage = 'chat'; renderEditor(); }, text: 'Prefiro conversar' }),
-      h('button', { class: 'btn-link', type: 'button', onclick: () => { state.editId = null; state.editor.draft = null; state.editor.stage = 'review'; renderEditor(); }, text: 'Prefiro o formulário' }))));
+      h('button', { class: 'btn-link', type: 'button', onclick: () => { state.editId = null; state.editor.draft = null; state.editor.stage = 'review'; renderEditor(); }, text: 'Prefiro o formulário' })),
+    statusLive, out));
   heading.focus();
+  if (state.editor._autoClassify && (desc.value || '').trim().length >= 3) { state.editor._autoClassify = false; classify(); }
 }
 
 const INTENT_CHIPS = [
@@ -1637,94 +1693,7 @@ function levelMeta(level) {
   return { label: 'Requisito novo', cls: 'b-crit', desc: 'Capacidade nova/drástica que nenhum requisito cobre ainda.' };
 }
 
-/* Estágio — descrever a mudança e classificar o nível (a IA recomenda; o operador decide). */
-function renderClassifyStage(body) {
-  const product = state.editor.product;
-  const meta = productMeta(product);
-  body.append(edCrumbs(product, 'Classificar mudança'));
-  const heading = h('h2', { class: 'editor-title', tabindex: '-1', text: 'Descreva a mudança — ' + (meta.display_name || product) });
-  body.append(h('div', { class: 'ed-guided-head' }, heading,
-    h('p', { class: 'muted', text: 'Conte em uma frase o que você quer mudar. A IA classifica o nível — um refinamento de tela (ancorado a requisitos), uma edição de requisito, ou um requisito novo — e te leva ao caminho certo. A IA recomenda; você confirma.' })));
-
-  const sketch = h('textarea', { class: 'ai-sketch', rows: '3', 'aria-label': 'O que você quer mudar', placeholder: 'ex.: "na tela de perfil (/profile) quero mostrar o endereço do empreendimento do usuário"' });
-  if (state.editor.sketch) sketch.value = state.editor.sketch;
-  const btn = h('button', { class: 'btn primary', type: 'button', text: '✨ Classificar (IA)' });
-  const out = h('div', { class: 'ai-out' }); // hospeda o card rico/erro (SEM aria-live)
-  // região viva DEDICADA só p/ texto curto de status (não inunda o AT com o card inteiro)
-  const statusLive = h('p', { class: 'visually-hidden', role: 'status', 'aria-live': 'polite' });
-  body.append(h('div', { class: 'classify-form' },
-    h('label', { class: 'fld wide' }, h('span', { class: 'fld-l', text: 'O que você quer mudar?' }), sketch),
-    h('div', { class: 'ws-actions' }, btn), statusLive, out));
-
-  const { g } = buildSystemGraph(product, true);
-  state.editor.graph = g;
-  body.append(h('div', { class: 'classify-map' }, h('p', { class: 'muted small', text: 'Mapa do sistema (clique nas âncoras sugeridas para focar):' }), g.el));
-
-  function route(level, data) {
-    data = data || {};
-    if (level === 'refinement') {
-      state.editor.refAnchors = (data.anchors || []).filter((a) => byId(a.requirement_id)).map((a) => ({ requirement_id: a.requirement_id, relation: a.relation || 'refines' }));
-      state.editor.refSketch = state.editor.sketch; state.editor._refDrafted = false; state.editor.stage = 'refine'; renderEditor(); return;
-    }
-    // os outros 2 níveis também aproveitam o sketch: o review pré-preenche e auto-rascunha (não joga fora).
-    if (level === 'requirement-edit' && data.target_req_id && byId(data.target_req_id)) {
-      state.editId = data.target_req_id; state.editor.draft = null;
-      state.editor.reviewSketch = state.editor.sketch; state.editor.reviewType = null; state.editor._reqDrafted = false;
-      state.editor.stage = 'review'; renderEditor(); return;
-    }
-    state.editId = null; state.editor.draft = null;
-    state.editor.reviewSketch = state.editor.sketch; state.editor.reviewType = data.suggested_type || null; state.editor._reqDrafted = false;
-    state.editor.stage = 'review'; renderEditor();
-  }
-
-  function renderResult(data) {
-    const lm = levelMeta(data.level);
-    // o card recebe foco (tabindex=-1 num contêiner NÃO-interativo) — os botões ficam na ordem natural de Tab
-    const card = h('div', { class: 'card classify-card', tabindex: '-1', 'aria-label': 'Recomendação: ' + lm.label },
-      h('div', { class: 'classify-head' }, h('span', { class: 'classify-ic', 'aria-hidden': 'true', text: '✨' }), badge(lm.label, lm.cls),
-        data.confidence != null ? h('span', { class: 'muted small', text: 'confiança ' + data.confidence }) : null),
-      h('p', { class: 'classify-rat', text: data.rationale || lm.desc }));
-    const cites = filterCitations((data.anchors || []).map((a) => a.requirement_id).concat(data.target_req_id ? [data.target_req_id] : []), DATA.baseline.requirements);
-    if (cites.length) {
-      const cc = h('div', { class: 'classify-anchors' }, h('span', { class: 'muted small', text: data.level === 'requirement-edit' ? 'Requisito alvo:' : 'Ancorar em:' }));
-      cites.forEach((id) => cc.append(h('button', { class: 'btn-link chat-cite', type: 'button', onclick: () => state.editor.graph && state.editor.graph.focus(id), text: id })));
-      card.append(cc);
-    }
-    const acts = h('div', { class: 'classify-acts' });
-    const primary = h('button', { class: 'btn primary', type: 'button',
-      text: data.level === 'refinement' ? 'Criar refinamento →' : (data.level === 'requirement-edit' && byId(data.target_req_id) ? 'Editar ' + data.target_req_id + ' →' : 'Criar requisito novo →'),
-      onclick: () => route(data.level, data) });
-    acts.append(primary);
-    // alternativas (o operador pode discordar da recomendação)
-    if (data.level !== 'refinement') acts.append(h('button', { class: 'btn', type: 'button', text: 'É um refinamento', onclick: () => route('refinement', { anchors: data.anchors || [] }) }));
-    if (data.level !== 'new-requirement') acts.append(h('button', { class: 'btn', type: 'button', text: 'É um requisito novo', onclick: () => route('new-requirement', {}) }));
-    card.append(h('p', { class: 'muted small', text: 'A IA recomenda; você decide o caminho.' }), acts);
-    out.replaceChildren(card);
-    statusLive.textContent = 'Recomendação: ' + lm.label + (data.confidence != null ? ' (confiança ' + data.confidence + ')' : '') + '.';
-    card.focus();
-  }
-
-  async function classify() {
-    const sk = (sketch.value || '').trim();
-    state.editor.sketch = sk;
-    if (sk.length < 3) { out.replaceChildren(h('p', { class: 'empty', text: 'Descreva a mudança (ao menos uma frase).' })); statusLive.textContent = 'Descreva a mudança (ao menos uma frase).'; return; }
-    out.replaceChildren(h('p', { class: 'muted', text: 'Consultando a IA…' })); statusLive.textContent = 'Consultando a IA…';
-    btn.disabled = true; btn.setAttribute('aria-busy', 'true');
-    try {
-      const grounding = productGrounding(DATA.baseline.requirements, product);
-      const r = await AI.post('/v1/authoring/classify', { product, sketch: sk, grounding });
-      if (!r.ok) { const code = r.data && r.data.error ? r.data.error.code : 'HTTP ' + r.status; out.replaceChildren(h('div', { class: 'card' }, h('h3', { text: 'IA: ' + code }), h('p', { class: 'muted', text: (r.data && r.data.error && r.data.error.message) || '' }))); return; }
-      renderResult(r.data);
-    } catch (e) { out.replaceChildren(h('p', { class: 'empty', text: 'Erro de rede ao chamar a IA: ' + (e && e.message ? e.message : e) })); }
-    finally { btn.disabled = false; btn.removeAttribute('aria-busy'); }
-  }
-  btn.addEventListener('click', classify);
-  sketch.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); classify(); } });
-  heading.focus();
-  // AUTONOMIA: se o operador já descreveu a mudança no estágio anterior (context), classifica
-  // automaticamente ao entrar — ele vê a recomendação direto, sem um clique extra.
-  if (state.editor._autoClassify && (sketch.value || '').trim().length >= 3) { state.editor._autoClassify = false; classify(); }
-}
+/* (renderClassifyStage removido — a classificação agora é INLINE no renderContextStage) */
 
 /* Estágio — autoria de um REFINAMENTO rico (form de tela + picker de âncoras no mapa). */
 function renderRefineStage(body) {
@@ -2681,115 +2650,123 @@ function renderUsability() {
       h('div', { class: 'ws-actions' }, h('button', { class: 'btn primary', type: 'button', onclick: () => switchView('editor'), text: 'Ir ao Editor →' }))));
     return;
   }
+  // DRILL: tela selecionada → detalhe focado (com voltar). Senão → mapa visual (grade de cards).
+  const sel = state.usabilitySel ? refById(state.usabilitySel) : null;
+  if (sel) { renderUsabilityDetail(body, sel); return; }
+
   const byProd = {};
   for (const r of refs) { const p = r.scope?.product_scope || r.product || 'outros'; (byProd[p] = byProd[p] || []).push(r); }
   const prods = Object.keys(byProd).sort();
-  let sel = state.usabilitySel ? refById(state.usabilitySel) : null;
-  if (!sel) sel = byProd[prods[0]][0];
+  if (state.usabilityProd && !byProd[state.usabilityProd]) state.usabilityProd = null;
 
-  const wrap = h('div', { class: 'usability-grid' });
-  const list = h('aside', { class: 'usability-list', 'aria-label': 'Telas e refinamentos' });
-  for (const p of prods) {
-    const items = byProd[p].slice();
-    const byKind = {}; for (const r of items) (byKind[r.kind || 'component'] = byKind[r.kind || 'component'] || []).push(r);
-    list.append(h('div', { class: 'usability-prod' }, h('span', { text: productMeta(p).display_name || p }), h('span', { class: 'usability-prod-n', text: String(items.length) })));
-    for (const k of KIND_ORDER) {
-      if (!byKind[k]) continue;
-      list.append(h('p', { class: 'usability-kindh', text: (byKind[k].length > 1 ? (KIND_PLURAL[k] || k) : (KIND_LABEL[k] || k)) + ' · ' + byKind[k].length }));
-      const ul = h('ul', { class: 'usability-items' });
-      for (const r of byKind[k].sort((a, b) => String(a.id).localeCompare(String(b.id)))) {
-        const active = sel && sel.id === r.id;
-        ul.append(h('li', {}, h('button', { class: 'usability-item' + (active ? ' is-active' : ''), type: 'button', 'aria-current': active ? 'true' : null, title: r.title || r.id, onclick: () => { state.usabilitySel = r.id; renderUsability(); } },
-          h('span', { class: 'usability-ti', text: truncateLabel(r.title || r.id, 38) }),
-          (r.surface && r.surface.route) ? h('span', { class: 'usability-route', text: r.surface.route }) : null)));
-      }
-      list.append(ul);
-    }
+  body.append(h('p', { class: 'muted usa-intro', text: 'O mapa de telas de cada sistema — clique numa tela para ver o comportamento detalhado (estados, dados, interações, fluxos) e propor uma mudança.' }));
+  if (prods.length > 1) {
+    const filt = h('div', { class: 'usa-filter', role: 'group', 'aria-label': 'Filtrar por sistema' });
+    const chip = (label, val) => h('button', { class: 'usa-fchip' + ((state.usabilityProd || null) === val ? ' is-on' : ''), type: 'button', 'aria-pressed': ((state.usabilityProd || null) === val) ? 'true' : 'false', text: label, onclick: () => { state.usabilityProd = val; renderUsability(); } });
+    filt.append(chip('Todos os sistemas', null));
+    for (const p of prods) filt.append(chip((productMeta(p).display_name || p) + ' · ' + byProd[p].length, p));
+    body.append(filt);
   }
-  const detail = h('div', { class: 'usability-detail' });
-  renderUsabilityDetail(detail, sel);
-  wrap.append(list, detail);
-  body.append(wrap);
+  const showProds = state.usabilityProd ? [state.usabilityProd] : prods;
+  for (const p of showProds) {
+    const items = byProd[p].slice().sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    const byKind = {}; for (const r of items) byKind[r.kind || 'component'] = (byKind[r.kind || 'component'] || 0) + 1;
+    const sub = KIND_ORDER.filter((k) => byKind[k]).map((k) => (byKind[k] > 1 ? (KIND_PLURAL[k] || k) : (KIND_LABEL[k] || k)) + ' ' + byKind[k]).join(' · ');
+    body.append(h('div', { class: 'usa-prodhead' }, h('h3', { text: productMeta(p).display_name || p }), h('span', { class: 'muted small', text: sub })));
+    const grid = h('div', { class: 'usa-grid' });
+    for (const r of items) grid.append(usaCard(r));
+    body.append(grid);
+  }
+}
+/* card visual de uma tela/refinamento no mapa (kind + rota + chips de estado coloridos + meta). */
+function usaCard(r) {
+  const beh = r.behavior || {};
+  const states = Array.isArray(beh.states) ? beh.states : [];
+  const card = h('button', { class: 'usa-card', type: 'button', title: r.title || r.id, 'aria-label': (KIND_LABEL[r.kind] || 'componente') + ': ' + (r.title || r.id), onclick: () => { state.usabilitySel = r.id; renderUsability(); } });
+  card.append(h('div', { class: 'usa-card-top' }, badge(KIND_LABEL[r.kind] || r.kind || 'componente', 'b-fn'),
+    (r.surface && r.surface.route) ? h('span', { class: 'usability-route', text: r.surface.route }) : null));
+  card.append(h('div', { class: 'usa-card-ti', text: truncateLabel(r.title || r.id, 64) }));
+  if (states.length) { const sc = h('div', { class: 'usa-card-states', 'aria-hidden': 'true' }); states.slice(0, 8).forEach((s) => sc.append(h('span', { class: 'usa-sdot ' + usStateClass(s.name), title: s.name }))); card.append(sc); }
+  const nReq = (r.anchors || []).length, nInt = (beh.interactions || []).length, nState = states.length;
+  card.append(h('div', { class: 'usa-card-foot muted small', text: nState + ' estado' + (nState === 1 ? '' : 's') + ' · ' + nReq + ' req' + (nInt ? ' · ' + nInt + ' interaç' + (nInt === 1 ? 'ão' : 'ões') : '') }));
+  return card;
 }
 function renderUsabilityDetail(host, r) {
   host.replaceChildren();
-  if (!r) { host.append(h('p', { class: 'empty', text: 'Selecione um refinamento à esquerda.' })); return; }
-  const kindLabel = KIND_LABEL[r.kind] || r.kind || 'componente';
-  const head = h('div', { class: 'card usability-card' },
-    h('div', { class: 'usability-head' }, badge(kindLabel, 'b-fn'), h('h2', { class: 'usability-title', tabindex: '-1', text: r.title || r.id }), r.status ? badge(r.status, 'b') : null),
-    h('p', { class: 'muted small', text: r.id }));
-  // ACESSO — em destaque: por onde se entra e quem acessa (o "ficar claro o acesso").
-  const acc = h('div', { class: 'usability-access' });
-  const route = r.surface && r.surface.route;
-  acc.append(h('div', { class: 'ua-row' }, h('span', { class: 'ua-k', text: 'Acesso' }),
-    route ? h('span', { class: 'ua-route', text: route }) : h('span', { class: 'muted small', text: kindLabel + ' (sem rota própria — aparece dentro de outra tela)' }),
-    (route && (r.scope?.product_scope === 'portal')) ? h('a', { class: 'btn-link ua-open', href: route, target: '_blank', rel: 'noopener', text: 'abrir ↗' }) : null));
-  const roles = (r.surface && r.surface.roles) || [];
-  acc.append(h('div', { class: 'ua-row' }, h('span', { class: 'ua-k', text: 'Quem acessa' }),
-    roles.length ? h('span', { class: 'ua-roles' }, ...roles.map((x) => badge(x, 'b-low'))) : h('span', { class: 'muted small', text: 'público (sem login)' })));
-  head.append(acc);
-  const anc = Array.isArray(r.anchors) ? r.anchors : [];
-  if (anc.length) {
-    const ac = h('div', { class: 'usability-anchors' }, h('span', { class: 'muted small', text: 'Detalha os requisitos:' }));
-    anc.forEach((a) => { const req = byId(a.requirement_id); ac.append(h('button', { class: 'btn-link chat-cite', type: 'button', title: req ? req.title : '', onclick: () => openReq(a.requirement_id), text: a.requirement_id + ' · ' + a.relation })); });
-    head.append(ac);
-  }
-  // AÇÃO: do entendimento à mudança — abre o Editor no estágio refine JÁ ancorado nesta tela.
+  if (!r) { host.append(h('p', { class: 'empty', text: 'Selecione uma tela no mapa.' })); return; }
   const uProd = r.scope?.product_scope || r.product;
-  head.append(h('div', { class: 'ws-actions usability-cta' },
-    h('button', { class: 'btn primary', type: 'button', text: '✨ Propor mudança nesta tela →', onclick: () => {
-      state.editId = null;
-      state.editor = { stage: 'refine', product: uProd, messages: [], draft: null, graph: null, target_req_id: null,
-        refAnchors: (r.anchors || []).map((a) => ({ requirement_id: a.requirement_id, relation: a.relation || 'refines' })), refSketch: '', _refDrafted: true };
-      switchView('editor');
-    } })));
-  host.append(head);
+  const kindLabel = KIND_LABEL[r.kind] || r.kind || 'componente';
+  const route = r.surface && r.surface.route;
+  const secIc = (g) => h('span', { class: 'us-sec-ic', 'aria-hidden': 'true', text: g });
+  // VOLTAR ao mapa de telas (drill-down fluido)
+  host.append(h('nav', { class: 'ed-crumbs', 'aria-label': 'Você está em' },
+    h('button', { class: 'btn-link', type: 'button', onclick: () => { state.usabilitySel = null; renderUsability(); }, text: '‹ Telas de ' + (productMeta(uProd).display_name || uProd) })));
+  const heading = h('h2', { class: 'usability-title', tabindex: '-1', text: r.title || r.id });
+  host.append(h('div', { class: 'usa-detail-head' }, badge(kindLabel, 'b-fn'), heading, r.status ? badge(r.status, 'b') : null, h('span', { class: 'muted small usa-detail-id', text: r.id })));
+
+  const grid = h('div', { class: 'usa-detail-grid' });
+  const main = h('div', { class: 'usa-main' });
+  const side = h('aside', { class: 'usa-side' });
   const beh = r.behavior || {};
-  // ESTADOS — cartões coloridos por tipo (normal/carregando/erro/vazio/oculto)
+  // MAIN — o comportamento (estados/dados/interações/fluxos/aceite)
   if (Array.isArray(beh.states) && beh.states.length) {
-    const c = h('div', { class: 'card' }, h('h3', {}, h('span', { class: 'us-sec-ic', 'aria-hidden': 'true', text: '◑' }), ' Estados da tela'));
-    const grid = h('div', { class: 'usability-states' });
-    for (const s of beh.states) grid.append(h('div', { class: 'us-state ' + usStateClass(s.name) },
-      h('div', { class: 'us-state-h' }, h('span', { class: 'us-dot', 'aria-hidden': 'true' }), h('strong', { text: s.name })),
-      s.when ? h('p', { class: 'us-when', text: 'Quando: ' + s.when }) : null,
-      s.ui ? h('p', { class: 'us-ui', text: s.ui }) : null));
-    c.append(grid); host.append(c);
+    const c = h('div', { class: 'card' }, h('h3', {}, secIc('◑'), ' Estados (' + beh.states.length + ')'));
+    const g2 = h('div', { class: 'usa-states' });
+    for (const s of beh.states) g2.append(h('div', { class: 'usa-state ' + usStateClass(s.name) },
+      h('div', { class: 'usa-state-h' }, h('span', { class: 'us-dot', 'aria-hidden': 'true' }), h('strong', { text: s.name })),
+      s.when ? h('p', { class: 'usa-state-w muted small', text: 'Quando: ' + s.when }) : null,
+      s.ui ? h('p', { class: 'usa-state-u', text: s.ui }) : null));
+    c.append(g2); main.append(c);
   }
-  // DADOS
   if (Array.isArray(beh.data) && beh.data.length) {
-    const c = h('div', { class: 'card' }, h('h3', {}, h('span', { class: 'us-sec-ic', 'aria-hidden': 'true', text: '▦' }), ' Dados exibidos'));
+    const c = h('div', { class: 'card' }, h('h3', {}, secIc('▦'), ' Dados exibidos'));
     const tb = h('tbody');
     for (const d of beh.data) tb.append(h('tr', {}, h('td', {}, h('code', { text: d.field })), h('td', { text: d.source }), h('td', {}, badge(d.editable ? 'editável' : 'leitura', d.editable ? 'b-high' : 'b-low'))));
-    c.append(h('table', { class: 'usability-table' }, h('thead', {}, h('tr', {}, h('th', { text: 'Campo' }), h('th', { text: 'Fonte' }), h('th', { text: 'Modo' }))), tb)); host.append(c);
+    c.append(h('table', { class: 'usability-table' }, h('thead', {}, h('tr', {}, h('th', { text: 'Campo' }), h('th', { text: 'Fonte' }), h('th', { text: 'Modo' }))), tb)); main.append(c);
   }
-  // INTERAÇÕES — gatilho → ação → resultado
   if (Array.isArray(beh.interactions) && beh.interactions.length) {
-    const c = h('div', { class: 'card' }, h('h3', {}, h('span', { class: 'us-sec-ic', 'aria-hidden': 'true', text: '⇄' }), ' Interações'));
+    const c = h('div', { class: 'card' }, h('h3', {}, secIc('⇄'), ' Interações'));
     const ul = h('ul', { class: 'usability-inter' });
-    for (const it of beh.interactions) ul.append(h('li', {},
-      h('span', { class: 'ui-trig', text: it.trigger }), h('span', { class: 'ui-arr', 'aria-hidden': 'true', text: ' → ' }),
-      h('span', { class: 'ui-act', text: it.action }), h('span', { class: 'ui-arr', 'aria-hidden': 'true', text: ' → ' }),
-      h('span', { class: 'ui-res muted', text: it.result })));
-    c.append(ul); host.append(c);
+    for (const it of beh.interactions) ul.append(h('li', {}, h('span', { class: 'ui-trig', text: it.trigger }), h('span', { class: 'ui-arr', 'aria-hidden': 'true', text: ' → ' }), h('span', { class: 'ui-act', text: it.action }), h('span', { class: 'ui-arr', 'aria-hidden': 'true', text: ' → ' }), h('span', { class: 'ui-res muted', text: it.result })));
+    c.append(ul); main.append(c);
   }
-  // FLUXOS — passos numerados
   if (Array.isArray(beh.flows) && beh.flows.length) {
-    const c = h('div', { class: 'card' }, h('h3', {}, h('span', { class: 'us-sec-ic', 'aria-hidden': 'true', text: '↡' }), ' Fluxos do usuário'));
-    for (const fl of beh.flows) {
-      const steps = Array.isArray(fl) ? fl : [fl];
-      const ol = h('ol', { class: 'usability-steps' });
-      steps.forEach((p) => ol.append(h('li', { text: p })));
-      c.append(ol);
-    }
-    host.append(c);
+    const c = h('div', { class: 'card' }, h('h3', {}, secIc('↡'), ' Fluxos do usuário'));
+    for (const fl of beh.flows) { const steps = Array.isArray(fl) ? fl : [fl]; const ol = h('ol', { class: 'usability-steps' }); steps.forEach((p) => ol.append(h('li', { text: p }))); c.append(ol); }
+    main.append(c);
   }
   if (Array.isArray(r.acceptance_criteria) && r.acceptance_criteria.length) {
-    host.append(h('div', { class: 'card' }, h('h3', {}, h('span', { class: 'us-sec-ic', 'aria-hidden': 'true', text: '✓' }), ' Critérios de aceite'), h('ul', { class: 'usability-acc' }, ...r.acceptance_criteria.map((x) => h('li', { text: x })))));
+    main.append(h('div', { class: 'card' }, h('h3', {}, secIc('✓'), ' Critérios de aceite'), h('ul', { class: 'usability-acc' }, ...r.acceptance_criteria.map((x) => h('li', { text: x })))));
   }
+  if (!main.children.length) main.append(h('div', { class: 'card' }, h('p', { class: 'empty', text: 'Sem comportamento detalhado ainda — clique em "Propor mudança nesta tela" para descrever.' })));
+
+  // SIDE — acesso, requisitos, ação, origem (a régua do Workspace: lateral estreita)
+  const accCard = h('div', { class: 'card' }, h('h3', {}, secIc('⊙'), ' Acesso'));
+  accCard.append(h('div', { class: 'ua-row' }, h('span', { class: 'ua-k', text: 'Rota' }),
+    route ? h('span', { class: 'ua-route', text: route }) : h('span', { class: 'muted small', text: 'sem rota (dentro de outra tela)' }),
+    (route && uProd === 'portal') ? h('a', { class: 'btn-link ua-open', href: route, target: '_blank', rel: 'noopener', text: 'abrir ↗' }) : null));
+  const roles = (r.surface && r.surface.roles) || [];
+  accCard.append(h('div', { class: 'ua-row' }, h('span', { class: 'ua-k', text: 'Quem acessa' }),
+    roles.length ? h('span', { class: 'ua-roles' }, ...roles.map((x) => badge(x, 'b-low'))) : h('span', { class: 'muted small', text: 'público' })));
+  side.append(accCard);
+  const anc = Array.isArray(r.anchors) ? r.anchors : [];
+  if (anc.length) {
+    const ac = h('div', { class: 'card' }, h('h3', {}, secIc('⚓'), ' Detalha os requisitos'));
+    const al = h('div', { class: 'usa-anchorlist' });
+    anc.forEach((a) => { const req = byId(a.requirement_id); al.append(h('button', { class: 'btn-link usa-anchor', type: 'button', title: req ? req.title : '', onclick: () => openReq(a.requirement_id) }, badge(a.relation, 'b-low'), ' ', h('span', { text: a.requirement_id }))); });
+    ac.append(al); side.append(ac);
+  }
+  side.append(h('div', { class: 'card usa-action' }, h('button', { class: 'btn primary', type: 'button', text: '✨ Propor mudança nesta tela →', onclick: () => {
+    state.editId = null;
+    state.editor = { stage: 'refine', product: uProd, messages: [], draft: null, graph: null, target_req_id: null, refAnchors: anc.map((a) => ({ requirement_id: a.requirement_id, relation: a.relation || 'refines' })), refSketch: '', _refDrafted: true };
+    switchView('editor');
+  } })));
   if (r.source && Array.isArray(r.source.source_paths) && r.source.source_paths.length) {
-    host.append(h('p', { class: 'muted small usability-src' }, h('strong', { text: 'Origem no código: ' }), r.source.source_paths.join(' · ')));
+    side.append(h('div', { class: 'card' }, h('h3', {}, secIc('⌗'), ' Origem no código'), h('ul', { class: 'usa-src' }, ...r.source.source_paths.map((s) => h('li', {}, h('code', { text: s }))))));
   }
-  const t = host.querySelector('.usability-title'); if (t) t.focus();
+  grid.append(main, side);
+  host.append(grid);
+  heading.focus();
 }
 
 /* ===================== Visão geral (Overview — front-door do produto) ===================== */
