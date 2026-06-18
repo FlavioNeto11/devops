@@ -6,8 +6,7 @@
     "by_status": {
       "deployed": 320,
       "done": 52,
-      "merged": 2,
-      "pr_open": 1,
+      "merged": 3,
       "not_started": 1
     }
   },
@@ -765,9 +764,11 @@
       "run_id": "27726301174"
     },
     "REQ-CRM-0003": {
-      "status": "pr_open",
+      "status": "merged",
       "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/24",
       "branch": "@{id=REQ-CRM-0003; branch=req/REQ-CRM-0003/r1; restricted=false; title=feat(crm): implementa REQ-CRM-0003 — CRUD de contatos (API + tela)}.branch",
+      "commit": "bffa583e680d64979f8a58667274f3b1f168f5f5",
       "run_id": "27730078023"
     },
     "REQ-CRM-0004": {
