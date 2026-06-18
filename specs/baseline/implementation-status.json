@@ -4,9 +4,8 @@
   "counts": {
     "total": 376,
     "by_status": {
-      "deployed": 320,
-      "done": 52,
-      "merged": 4
+      "deployed": 324,
+      "done": 52
     }
   },
   "items": {
@@ -752,38 +751,39 @@
     "REQ-CRM-0001": {
       "status": "deployed",
       "req_revision": 1,
+      "commit": "3ebdbb590e10492e3539c86c39b520e5fd551663",
       "notes": "scaffold (fase C) via scaffold-product.ps1"
     },
     "REQ-CRM-0002": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "pr": "https://github.com/FlavioNeto11/devops/pull/22",
       "branch": "@{id=REQ-CRM-0002; branch=req/REQ-CRM-0002/r1; restricted=false; title=feat(crm): implementa REQ-CRM-0002 — Modelo de dados e persistência (empresas, contatos, n}.branch",
-      "commit": "4472cd6eb8cb109a1632a1f23884626a08a0166d",
+      "commit": "3ebdbb590e10492e3539c86c39b520e5fd551663",
       "run_id": "27726301174"
     },
     "REQ-CRM-0003": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "pr": "https://github.com/FlavioNeto11/devops/pull/24",
       "branch": "@{id=REQ-CRM-0003; branch=req/REQ-CRM-0003/r1; restricted=false; title=feat(crm): implementa REQ-CRM-0003 — CRUD de contatos (API + tela)}.branch",
-      "commit": "bffa583e680d64979f8a58667274f3b1f168f5f5",
+      "commit": "3ebdbb590e10492e3539c86c39b520e5fd551663",
       "run_id": "27730078023"
     },
     "REQ-CRM-0004": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "pr": "https://github.com/FlavioNeto11/devops/pull/23",
       "branch": "@{id=REQ-CRM-0004; branch=req/REQ-CRM-0004/r1; restricted=false; title=feat(crm): implementa REQ-CRM-0004 — CRUD de empresas (API + tela) com vínculo de contatos}.branch",
-      "commit": "df133479ce5a06d65dd16d2fdd636716a0de2f5c",
+      "commit": "3ebdbb590e10492e3539c86c39b520e5fd551663",
       "run_id": "27729105257"
     },
     "REQ-CRM-0005": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "pr": "https://github.com/FlavioNeto11/devops/pull/25",
       "branch": "@{id=REQ-CRM-0005; branch=req/REQ-CRM-0005/r1; restricted=false; title=feat(crm): implementa REQ-CRM-0005 — Funil de negócios (deals) + painel}.branch",
-      "commit": "ece88733e086e26a440ee334ab423fbb092ebaf7",
+      "commit": "3ebdbb590e10492e3539c86c39b520e5fd551663",
       "run_id": "27730381580"
     },
     "REQ-GYMOPS-0001": {
