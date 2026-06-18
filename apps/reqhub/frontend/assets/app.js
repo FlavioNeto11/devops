@@ -1,7 +1,7 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations } from './lib.js?v=29';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=29';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision } from './lib.js?v=31';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=31';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -1370,41 +1370,58 @@ function renderReviewForm(body) {
         h('p', { class: 'muted', text: warns.length ? 'Avisos: ' + warns.join('; ') : 'Campos preenchidos à direita — revise e clique em Gerar YAML.' })));
     });
   }
-  // LOOP de reasoning: analisa → corrige (revise) → re-analisa, SOZINHO, até a prontidão ficar
-  // boa (>= TARGET), platô (não melhora) ou o teto de rodadas. Aplica as correções no formulário
-  // a cada rodada e mostra o progresso. Decisão de parar é por SCORE, não por nº fixo de cliques.
+  // LOOP de reasoning: analisa → corrige (revise) → re-analisa, SOZINHO. A decisão de parar é
+  // por LACUNA ACIONÁVEL + PROGRESSO (refineDecision, pura/testada em lib.js), não por um score-alvo
+  // fixo: enquanto sobrar lacuna que TRAVA o requisito (blocker/warning) e a IA ainda conseguir
+  // reduzir lacunas/subir a prontidão, ela continua corrigindo retroativamente. Só entrega ao
+  // humano quando zera as acionáveis (pronto), empaca (platô) ou bate o teto de rodadas (anti-loop).
   let refining = false;
+  let refineBtn = null; // ref. ao botão p/ aria-busy/disabled durante o loop
+  // rótulo/cor por severidade (apresentação pt-BR; não é heurística de conteúdo): warning é
+  // acionável → cor de atenção; só info é opcional. As classes b-crit/b-high/b-low já existem.
+  const SEV_LABEL = { blocker: 'crítico', warning: 'atenção', info: 'opcional' };
+  const SEV_CLS = { blocker: 'b-crit', warning: 'b-high', info: 'b-low' };
   function doRefine() {
     if (refining) return;
-    const TARGET = 0.85, MAX = 6;
+    const MAX = 8, STALE = 2;
     refining = true;
+    if (refineBtn) { refineBtn.disabled = true; refineBtn.setAttribute('aria-busy', 'true'); }
     guard(async () => {
-      const log = h('div', { class: 'refine-log' });
-      aiOut.replaceChildren(h('div', { class: 'card' }, h('h3', {}, h('span', { class: 'asst-spark', 'aria-hidden': 'true', text: '✨' }), ' Analisar & refinar'), h('p', { class: 'muted small', text: 'A IA analisa, corrige e re-analisa sozinha até o requisito ficar pronto.' }), log));
-      const remainingGaps = (gaps) => {
-        if (gaps && gaps.length) { const ul = h('ul', { class: 'errlist' }); gaps.forEach((g) => ul.append(h('li', {}, badge(g.severity || 'info', g.severity === 'blocker' ? 'b-crit' : ''), ' ' + ((g.field ? g.field + ': ' : '') + (g.message || ''))))); log.append(h('p', { class: 'muted small', text: 'Pontos que ainda precisam de você:' }), ul); }
+      const log = h('div', { class: 'refine-log' }); // log visual (NÃO live — evita inundar o AT)
+      // região viva DEDICADA: recebe só o resumo final (1 update => 1 anúncio limpo)
+      const liveSummary = h('p', { class: 'visually-hidden', role: 'status', 'aria-live': 'polite' });
+      aiOut.replaceChildren(h('div', { class: 'card' }, h('h3', {}, h('span', { class: 'asst-spark', 'aria-hidden': 'true', text: '✨' }), ' Analisar & refinar'), h('p', { class: 'muted small', text: 'A IA analisa, corrige e re-analisa sozinha até zerar as lacunas que travam o requisito (ou até não conseguir mais melhorar).' }), liveSummary, log));
+      const gapItem = (g) => { const sev = g.severity || 'info'; return h('li', {}, badge(SEV_LABEL[sev] || sev, SEV_CLS[sev] || 'b-low'), ' ' + ((g.field ? g.field + ': ' : '') + (g.message || ''))); };
+      const finish = (action, score, dec) => {
+        let head;
+        if (action === 'ready') head = h('p', { class: 'refine-ok', tabindex: '-1', text: '✓ Requisito pronto (prontidão ' + score + '). Sem lacunas que travem — revise e clique em Gerar YAML.' });
+        else if (action === 'plateau') head = h('p', { class: 'refine-warn', tabindex: '-1', text: '⚠ A IA refinou até onde conseguiu (prontidão ' + score + '). Os pontos abaixo precisam da sua decisão — a IA não inventa o que não está definido.' });
+        else head = h('p', { class: 'refine-warn', tabindex: '-1', text: 'Parei após ' + MAX + ' rodadas (prontidão ' + score + ') para não ficar em loop. Revise os pontos abaixo.' });
+        log.append(head);
+        if (dec.actionable.length) { const ul = h('ul', { class: 'errlist' }); dec.actionable.forEach((g) => ul.append(gapItem(g))); log.append(h('p', { class: 'muted small', text: 'Pontos que precisam de você (' + dec.actionable.length + '):' }), ul); }
+        if (dec.info.length) { const det = h('details', { class: 'refine-optional' }); det.append(h('summary', { text: dec.info.length + ' sugestão(ões) opcional(is) de polimento' })); const ul = h('ul', { class: 'errlist' }); dec.info.forEach((g) => ul.append(gapItem(g))); det.append(ul); log.append(det); }
         log.append(h('div', { class: 'ws-actions' }, h('button', { class: 'btn', type: 'button', text: 'Refinar de novo', onclick: doRefine })));
+        liveSummary.textContent = (head.textContent || '') + (dec.actionable.length ? ' ' + dec.actionable.length + ' ponto(s) precisam de você.' : '');
+        try { head.focus(); } catch (e) { /* foco best-effort */ }
       };
-      let prev = -1, lastScore = 0, lastGaps = [];
+      let best = null, stale = 0;
       for (let i = 0; i < MAX; i++) {
         const step = h('p', { class: 'refine-step', text: 'Rodada ' + (i + 1) + ' — analisando…' }); log.append(step);
         const ra = await AI.post('/v1/authoring/analyze', { requirement: collectDraft() });
         if (!ra.ok) { showErr(ra); return; }
         const score = ra.data.score != null ? Number(ra.data.score) : 0;
         const gaps = ra.data.gaps || [];
-        lastScore = score; lastGaps = gaps;
-        step.replaceChildren(h('strong', { text: 'Rodada ' + (i + 1) }), ' · prontidão ', h('span', { class: 'refine-score', text: String(score) }), ' · ' + (gaps.length ? gaps.length + ' lacuna(s)' : 'sem lacunas'));
-        if (score >= TARGET || !gaps.length) { log.append(h('p', { class: 'refine-ok', text: '✓ Requisito pronto (prontidão ' + score + '). Revise e clique em Gerar YAML.' })); return remainingGaps(gaps); }
-        if (i >= 1 && score <= prev) { log.append(h('p', { class: 'refine-warn', text: '⚠ A IA não conseguiu melhorar além de ' + score + '.' })); return remainingGaps(gaps); }
-        prev = score;
-        log.append(h('p', { class: 'refine-fix muted small', text: '↳ corrigindo ' + gaps.length + ' lacuna(s) com IA…' }));
-        const rv = await AI.post('/v1/authoring/revise', { requirement: collectDraft(), gaps });
+        const dec = refineDecision({ round: i, score, gaps, best, stale, maxRounds: MAX, staleLimit: STALE });
+        best = dec.best; stale = dec.stale;
+        step.replaceChildren(h('strong', { text: 'Rodada ' + (i + 1) }), ' · prontidão ', h('span', { class: 'refine-score', text: String(score) }), ' · ' + (dec.actionable.length ? dec.actionable.length + ' lacuna(s) crítica(s)' : 'sem lacunas críticas') + (dec.info.length ? ' (+' + dec.info.length + ' opcional)' : ''));
+        if (dec.action !== 'fix') return finish(dec.action, score, dec);
+        log.append(h('p', { class: 'refine-fix muted small', text: '↳ corrigindo ' + dec.actionable.length + ' lacuna(s) crítica(s) com IA…' }));
+        // prioriza as acionáveis no revise; manda as opcionais como contexto secundário
+        const rv = await AI.post('/v1/authoring/revise', { requirement: collectDraft(), gaps: dec.actionable.concat(dec.info) });
         if (!rv.ok) { showErr(rv); return; }
         if (rv.data && rv.data.draft) { applyDraftToForm(rv.data.draft); runValidation(); }
       }
-      log.append(h('p', { class: 'refine-warn', text: 'Parei após ' + MAX + ' rodadas (prontidão ' + lastScore + ').' }));
-      remainingGaps(lastGaps);
-    }).finally(() => { refining = false; });
+    }).finally(() => { refining = false; if (refineBtn) { refineBtn.disabled = false; refineBtn.removeAttribute('aria-busy'); } });
   }
   function doLinks() {
     guard(async () => {
@@ -1451,7 +1468,7 @@ function renderReviewForm(body) {
     h('label', { class: 'fld' }, h('span', { class: 'fld-l', text: 'Descreva o requisito (esboço)' }), sketch),
     h('div', { class: 'asst-actions' },
       h('button', { class: 'btn primary', type: 'button', text: '✨ Rascunhar com IA', onclick: doDraft }),
-      h('button', { class: 'btn', type: 'button', text: '✨ Analisar & refinar', onclick: doRefine }),
+      (refineBtn = h('button', { class: 'btn', type: 'button', text: '✨ Analisar & refinar', onclick: doRefine })),
       h('button', { class: 'btn', type: 'button', text: 'Classificar vínculos (IA)', onclick: doLinks })),
     aiOut,
     h('div', { class: 'asst-val' }, h('h4', { text: 'Validação automática' }), valOut),

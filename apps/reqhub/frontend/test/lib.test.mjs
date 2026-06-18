@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { norm, matchesQuery, filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, bandRank, cosineSim, topSimilar, toYaml, scalarYaml, validateDraft, coverageSummary, recentList, hashStr, degreeMap, hslToHex, relLuminance, contrastRatio, textColorFor, productPalette, nodeColor, highlightSet, visibleGraph, truncateLabel, forceLayout, textTokens, textSimilarity, findSimilarReqs, productGrounding, filterCitations } from '../assets/lib.js';
+import { norm, matchesQuery, filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, bandRank, cosineSim, topSimilar, toYaml, scalarYaml, validateDraft, coverageSummary, recentList, hashStr, degreeMap, hslToHex, relLuminance, contrastRatio, textColorFor, productPalette, nodeColor, highlightSet, visibleGraph, truncateLabel, forceLayout, textTokens, textSimilarity, findSimilarReqs, productGrounding, filterCitations, actionableGaps, refineDecision } from '../assets/lib.js';
 
 const reqs = [
   { id: 'REQ-SICAT-0002', title: 'Submissão MTR', statement: 'O sistema deve submeter', type: 'functional', status: 'approved', priority: 'critical', architectural_significance: true, impact_band: 'high', impact_score: 80, scope: { product_scope: 'sicat', applies_to: 'product' }, acceptance_criteria: ['x'], verification_method: ['test-integration'], version: { item_revision: 1 }, allocation: { adr_refs: ['ADR-0002'] } },
@@ -349,4 +349,94 @@ test('findSimilarReqs acha parecidos, exclui o próprio e ordena', () => {
   assert.ok(!findSimilarReqs({ id: 'REQ-SICAT-0002', title: 'Submissão de manifesto MTR', statement: 'x' }, reqs).some((x) => x.id === 'REQ-SICAT-0002'));
   // rascunho vazio => sem resultados
   assert.deepEqual(findSimilarReqs({ title: '', statement: '' }, reqs), []);
+});
+
+test('actionableGaps: só blocker/warning/desconhecido travam; info é opcional', () => {
+  const gaps = [{ severity: 'blocker' }, { severity: 'warning' }, { severity: 'info' }, { severity: 'info' }, {}];
+  assert.equal(actionableGaps(gaps).length, 3); // blocker + warning + sem-severidade
+  assert.equal(actionableGaps([]).length, 0);
+  assert.equal(actionableGaps(null).length, 0);
+});
+
+test('refineDecision: ready só quando ZERA as lacunas acionáveis (info não trava)', () => {
+  // score 0.86 mas ainda com 2 warnings => NÃO é pronto (era o bug: parava por score>=0.85)
+  const d1 = refineDecision({ round: 1, score: 0.86, gaps: [{ severity: 'warning' }, { severity: 'warning' }, { severity: 'info' }], best: { score: 0.72, actionable: 4 }, stale: 0 });
+  assert.equal(d1.action, 'fix');
+  assert.equal(d1.actionable.length, 2);
+  assert.equal(d1.info.length, 1);
+  // só infos restantes => pronto, mesmo com score moderado
+  const d2 = refineDecision({ round: 3, score: 0.8, gaps: [{ severity: 'info' }, { severity: 'info' }], best: { score: 0.86, actionable: 2 }, stale: 0 });
+  assert.equal(d2.action, 'ready');
+  // nenhuma lacuna => pronto
+  assert.equal(refineDecision({ round: 0, score: 0.95, gaps: [], best: null, stale: 0 }).action, 'ready');
+});
+
+test('refineDecision: platô após staleLimit rodadas sem progresso (entrega ao humano)', () => {
+  // best já em score 0.8 / 2 acionáveis; nova rodada não melhora nada
+  const noProgress = { round: 4, score: 0.8, gaps: [{ severity: 'warning' }, { severity: 'warning' }], best: { score: 0.8, actionable: 2 } };
+  const a = refineDecision({ ...noProgress, stale: 0 }); // 1ª sem progresso => ainda tenta
+  assert.equal(a.action, 'fix');
+  assert.equal(a.stale, 1);
+  const b = refineDecision({ ...noProgress, stale: 1 }); // 2ª seguida sem progresso => platô
+  assert.equal(b.action, 'plateau');
+  // progresso (reduziu acionáveis) zera o contador de platô
+  const c = refineDecision({ round: 4, score: 0.8, gaps: [{ severity: 'warning' }], best: { score: 0.8, actionable: 2 }, stale: 1 });
+  assert.equal(c.improved, true);
+  assert.equal(c.stale, 0);
+  assert.equal(c.action, 'fix');
+});
+
+test('refineDecision: teto duro (capped) com lacuna acionável persistente, sem loop infinito', () => {
+  // round 7 (0-based) com maxRounds 8 e ainda melhorando: não há mais rodada => capped
+  const d = refineDecision({ round: 7, score: 0.9, gaps: [{ severity: 'warning' }], best: { score: 0.85, actionable: 2 }, stale: 0, maxRounds: 8 });
+  assert.equal(d.action, 'capped'); // melhorou (improved) mas bateu o teto
+  // antes do teto, melhorando => fix
+  assert.equal(refineDecision({ round: 6, score: 0.9, gaps: [{ severity: 'warning' }], best: { score: 0.85, actionable: 2 }, stale: 0, maxRounds: 8 }).action, 'fix');
+});
+
+test('refineDecision: desempate na última rodada — platô vence o teto (precedência travada)', () => {
+  // round 7 (teto) E 2ª rodada seguida sem progresso (stale->2) ao mesmo tempo => platô (não capped)
+  const clash = refineDecision({ round: 7, score: 0.85, gaps: [{ severity: 'warning' }], best: { score: 0.85, actionable: 1 }, stale: 1, maxRounds: 8, staleLimit: 2 });
+  assert.equal(clash.action, 'plateau');
+});
+
+test('refineDecision: entrada inicial canônica do loop (best=null, round 0, com lacuna acionável)', () => {
+  // é o 1º passo real de doRefine: best=null/stale=0 + gaps não-vazio
+  const d0 = refineDecision({ round: 0, score: 0.5, gaps: [{ severity: 'warning' }], best: null, stale: 0 });
+  assert.equal(d0.action, 'fix');
+  assert.equal(d0.improved, true);
+  assert.deepEqual(d0.best, { score: 0.5, actionable: 1 }); // prevScore=-1, prevAct=Infinity sanados
+  assert.equal(d0.stale, 0);
+});
+
+test('refineDecision: saneia score não-numérico (NaN/undefined/null/string) sem poluir best', () => {
+  const a = refineDecision({ round: 1, score: undefined, gaps: [{ severity: 'warning' }], best: { score: 0.72, actionable: 2 }, stale: 0 });
+  assert.equal(a.score, 0);
+  assert.equal(a.best.score, 0.72); // Math.max ignora o 0 saneado, nunca vira NaN
+  assert.equal(Number.isNaN(a.best.score), false);
+  const b = refineDecision({ round: 1, score: 'high', gaps: [{ severity: 'warning' }], best: { score: 0.8, actionable: 2 }, stale: 0 });
+  assert.equal(b.score, 0); // 'high' => NaN => saneado p/ 0
+  assert.equal(Number.isNaN(b.best.score), false);
+  const c = refineDecision({ round: 1, score: '0.86', gaps: [{ severity: 'warning' }], best: { score: 0.72, actionable: 2 }, stale: 0 });
+  assert.equal(c.score, 0.86); // string numérica é coagida
+  assert.equal(c.improved, true);
+});
+
+test('refineDecision: ENCADEADO 2 rodadas (espelha doRefine) — acumuladores best convergem p/ platô', () => {
+  // encadeia dec.best/dec.stale como o app real (app.js: best=dec.best; stale=dec.stale).
+  // Pega regressões de operador (Math.min->Math.max em best.actionable; Math.max->Math.min em score).
+  let best = null, stale = 0;
+  let dec = refineDecision({ round: 0, score: 0.8, gaps: [{ severity: 'warning' }, { severity: 'warning' }], best, stale });
+  best = dec.best; stale = dec.stale;
+  assert.equal(dec.action, 'fix');
+  assert.deepEqual(dec.best, { score: 0.8, actionable: 2 }); // Math.min mantém 2 (não 4)
+  dec = refineDecision({ round: 1, score: 0.8, gaps: [{ severity: 'warning' }, { severity: 'warning' }], best, stale });
+  best = dec.best; stale = dec.stale;
+  assert.equal(dec.action, 'fix'); // 1ª sem progresso ainda tenta
+  dec = refineDecision({ round: 2, score: 0.8, gaps: [{ severity: 'warning' }, { severity: 'warning' }], best, stale });
+  assert.equal(dec.action, 'plateau'); // 2ª seguida sem progresso => platô
+  // ramo de progresso: reduzir acionáveis baixa best.actionable (Math.min) e sobe best.score (Math.max)
+  const prog = refineDecision({ round: 1, score: 0.9, gaps: [{ severity: 'warning' }], best: { score: 0.8, actionable: 2 }, stale: 1 });
+  assert.deepEqual(prog.best, { score: 0.9, actionable: 1 });
+  assert.equal(prog.stale, 0);
 });

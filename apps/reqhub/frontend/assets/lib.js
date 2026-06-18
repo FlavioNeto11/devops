@@ -527,3 +527,34 @@ export function validateDraft(d) {
   if (d.type === 'non-functional' && !(d.quality_scenarios && d.quality_scenarios.length)) errs.push('NFR exige ao menos um quality_scenario');
   return errs;
 }
+
+// Lacuna acionável = a que TRAVA o requisito (blocker/warning ou severidade desconhecida).
+// 'info' é polimento opcional — não impede o requisito de ser implementável.
+export function actionableGaps(gaps) {
+  return (Array.isArray(gaps) ? gaps : []).filter((g) => g && g.severity !== 'info');
+}
+
+// Decisão PURA do loop de refino (reasoning fora da UI, testável). Dado o estado acumulado da
+// rodada atual, decide a próxima ação. O critério de parada é por LACUNA ACIONÁVEL + PROGRESSO,
+// não por um score-alvo fixo: enquanto a IA ainda reduz lacunas que travam o requisito (ou sobe a
+// prontidão), ela continua corrigindo retroativamente; só entrega ao humano quando zera as
+// acionáveis (pronto), empaca por `staleLimit` rodadas seguidas (platô) ou bate o teto (anti-loop).
+//   action: 'fix' (rodar revise + nova análise) | 'ready' | 'plateau' | 'capped'
+export function refineDecision({ round, score, gaps, best, stale, maxRounds = 8, staleLimit = 2 }) {
+  const list = Array.isArray(gaps) ? gaps : [];
+  const actionable = actionableGaps(list);
+  const info = list.filter((g) => g && g.severity === 'info');
+  const s = Number.isFinite(Number(score)) ? Number(score) : 0;
+  const prevScore = best && Number.isFinite(best.score) ? best.score : -1;
+  const prevAct = best && Number.isFinite(best.actionable) ? best.actionable : Infinity;
+  // Progresso = subiu a prontidão OU reduziu o nº de lacunas acionáveis.
+  const improved = s > prevScore + 0.001 || actionable.length < prevAct;
+  const nextBest = { score: Math.max(prevScore, s), actionable: Math.min(prevAct, actionable.length) };
+  const nextStale = improved ? 0 : (Number(stale) || 0) + 1;
+  let action;
+  if (!actionable.length) action = 'ready';                 // sem lacuna que trava → pronto
+  else if (nextStale >= staleLimit) action = 'plateau';     // não melhora há N rodadas → decisão humana
+  else if (round + 1 >= maxRounds) action = 'capped';       // teto duro (evita loop infinito)
+  else action = 'fix';                                      // ainda dá p/ melhorar → corrige e re-analisa
+  return { action, score: s, actionable, info, improved, best: nextBest, stale: nextStale };
+}
