@@ -36,6 +36,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--dir", "apps/gymops", "--filter", "@gymops/web", "dev"],
       "port": 3000
+    },
+    {
+      "name": "reqhub-preview",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/reqhub-preview.cjs"],
+      "port": 5599
     }
   ]
 }

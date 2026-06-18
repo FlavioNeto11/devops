@@ -9,7 +9,7 @@
     <title>Reqhub — base de requisitos (fonte da verdade)</title>
     <meta name="description" content="Workbench da base de requisitos versionada da plataforma: explora, analisa impacto e cobertura, e prioriza o reprocessamento — lendo a baseline gerada de specs/." />
     <link rel="icon" href="assets/favicon.svg" />
-    <link rel="stylesheet" href="assets/styles.css?v=12" />
+    <link rel="stylesheet" href="assets/styles.css?v=14" />
   </head>
   <body>
     <a class="skip" href="#main">Pular para o conteúdo</a>
@@ -41,6 +41,7 @@
       <button class="tab" role="tab" id="tab-reprocess" aria-controls="view-reprocess" aria-selected="false" data-view="reprocess" tabindex="-1">Fila de reprocessamento</button>
       <button class="tab" role="tab" id="tab-dev" aria-controls="view-dev" aria-selected="false" data-view="dev" tabindex="-1">Desenvolvimento</button>
       <button class="tab" role="tab" id="tab-editor" aria-controls="view-editor" aria-selected="false" data-view="editor" tabindex="-1">Editor</button>
+      <button class="tab" role="tab" id="tab-forge" aria-controls="view-forge" aria-selected="false" data-view="forge" tabindex="-1">Forge</button>
     </nav>
 
     <main id="main" tabindex="-1">
@@ -80,6 +81,10 @@
       <section id="view-editor" class="view" role="tabpanel" aria-labelledby="tab-editor" hidden>
         <div id="editor-body" class="editor"></div>
       </section>
+
+      <section id="view-forge" class="view" role="tabpanel" aria-labelledby="tab-forge" hidden>
+        <div id="forge-body"></div>
+      </section>
     </main>
 
     <footer class="foot" role="contentinfo">
@@ -89,6 +94,6 @@
       </span>
     </footer>
 
-    <script type="module" src="assets/app.js?v=12"></script>
+    <script type="module" src="assets/app.js?v=14"></script>
   </body>
 </html>

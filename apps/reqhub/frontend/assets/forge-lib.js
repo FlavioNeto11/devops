@@ -1,0 +1,222 @@
+// forge-lib.js — lógica PURA da aba Forge (sem DOM). Testável com node:test.
+// O Forge é um scheduler determinístico em cima da esteira: aqui só modelamos
+// dados (produtos, fases, DAG de waves, progresso) e geramos texto (YAML/comandos).
+// Nada de fetch, nada de DOM, nada de efeito colateral — render fica no app.js.
+
+export const DONE_STATUSES = ['deployed', 'done', 'merged'];
+export const ACTIVE_STATUSES = ['in_progress', 'pr_open', 'merged'];
+export const STATUS_ORDER = ['not_started', 'in_progress', 'pr_open', 'merged', 'deployed', 'done', 'blocked'];
+
+const PHASE_KEYS = ['definir', 'arquitetura', 'build'];
+
+/** Status de implementação de um requisito (default not_started). */
+export function reqStatus(implStatus, id) {
+  const it = implStatus && implStatus.items && implStatus.items[id];
+  return (it && it.status) || 'not_started';
+}
+
+/** Rollup de progresso de um conjunto de requisitos a partir do implementation-status. */
+export function progressOf(reqIds, implStatus) {
+  const ids = Array.isArray(reqIds) ? reqIds : [];
+  const by = {};
+  for (const s of STATUS_ORDER) by[s] = 0;
+  let done = 0;
+  for (const id of ids) {
+    const st = reqStatus(implStatus, id);
+    by[st] = (by[st] || 0) + 1;
+    if (DONE_STATUSES.includes(st)) done++;
+  }
+  const total = ids.length;
+  return { by, done, total, pct: total ? Math.round((done / total) * 100) : 0 };
+}
+
+/** Lista de produtos com progresso vivo, ordenada por display_name. */
+export function productSummaries(products, implStatus) {
+  const list = (products && products.products) || [];
+  return list
+    .map((p) => ({
+      name: p.name,
+      display_name: p.display_name || p.name,
+      blueprint: p.blueprint || null,
+      vision: p.vision || '',
+      base_path: p.base_path || '/' + p.name,
+      app_type: p.app_type || 'product_software',
+      reqIds: p.requirement_ids || [],
+      reqCount: (p.requirement_ids || []).length,
+      progress: progressOf(p.requirement_ids || [], implStatus),
+      phases: p.phases || {},
+    }))
+    .sort((a, b) => String(a.display_name).localeCompare(String(b.display_name), 'pt-BR'));
+}
+
+export function findProduct(products, name) {
+  return ((products && products.products) || []).find((p) => p.name === name) || null;
+}
+
+export function blueprintById(blueprints, id) {
+  return ((blueprints && blueprints.blueprints) || []).find((b) => b.id === id) || null;
+}
+
+/**
+ * Modelo do stepper de 3 fases (Definir → Arquitetura → Build), derivado de dados REAIS:
+ * - definir: phases.requirements approved + tem requisitos
+ * - arquitetura: phases.architecture approved
+ * - build: 100% dos requisitos deployed/done
+ * Exatamente uma fase 'current' (a primeira não concluída); as demais 'done' ou 'todo'.
+ */
+export function phaseModel(product, buildPlan, implStatus) {
+  const phases = (product && product.phases) || {};
+  const reqIds = (product && product.requirement_ids) || [];
+  const prog = progressOf(reqIds, implStatus);
+  const nWaves = ((buildPlan && buildPlan.waves) || []).length;
+  const done = {
+    definir: ((phases.requirements && phases.requirements.status) === 'approved') && reqIds.length > 0,
+    arquitetura: (phases.architecture && phases.architecture.status) === 'approved' && !!buildPlan,
+    build: prog.total > 0 && prog.pct === 100,
+  };
+  const meta = {
+    definir: { label: 'Definir', detail: reqIds.length ? `${reqIds.length} requisito(s)` : 'sem requisitos' },
+    arquitetura: { label: 'Arquitetura', detail: buildPlan ? `${nWaves} wave(s) · plano ${buildPlan.status || '?'}` : 'sem plano de build' },
+    build: { label: 'Build', detail: `${prog.done}/${prog.total} no ar · ${prog.pct}%` },
+  };
+  let currentAssigned = false;
+  return PHASE_KEYS.map((k) => {
+    let status;
+    if (done[k]) status = 'done';
+    else if (!currentAssigned) { status = 'current'; currentAssigned = true; }
+    else status = 'todo';
+    return { key: k, label: meta[k].label, detail: meta[k].detail, status };
+  });
+}
+
+/**
+ * DAG de build a partir das waves: nós = requisitos (com wave e status), arestas
+ * conectam cada requisito aos da wave imediatamente anterior (ordem do build-plan,
+ * que já é topologicamente ordenada). Determinístico e puro.
+ */
+export function buildDag(buildPlan, implStatus) {
+  const waves = (buildPlan && buildPlan.waves) || [];
+  const nodes = [];
+  const edges = [];
+  waves.forEach((w, i) => {
+    for (const id of w.work_orders || []) {
+      nodes.push({ id, wave: i, waveId: w.id, status: reqStatus(implStatus, id) });
+    }
+  });
+  for (let i = 1; i < waves.length; i++) {
+    const prev = waves[i - 1].work_orders || [];
+    const cur = waves[i].work_orders || [];
+    for (const c of cur) for (const p of prev) edges.push({ from: p, to: c });
+  }
+  return { nodes, edges };
+}
+
+/**
+ * Estado por wave para o stepper de Build. Uma wave fica:
+ * - done: todos os requisitos done/deployed/merged
+ * - active: a anterior concluiu e há requisito em andamento
+ * - ready: a anterior concluiu e nada começou
+ * - blocked: a anterior não concluiu
+ */
+export function waveProgress(buildPlan, implStatus) {
+  const waves = (buildPlan && buildPlan.waves) || [];
+  let prevDone = true; // "todas as waves anteriores concluiram" (gating cumulativo)
+  return waves.map((w) => {
+    const reqs = (w.work_orders || []).map((id) => ({ id, status: reqStatus(implStatus, id) }));
+    const total = reqs.length;
+    const done = reqs.filter((r) => DONE_STATUSES.includes(r.status)).length;
+    const allDone = total === 0 || done === total; // wave vazia nao tem nada a fazer -> nao bloqueia
+    const anyActive = reqs.some((r) => ACTIVE_STATUSES.includes(r.status));
+    let state;
+    if (allDone) state = 'done';
+    else if (prevDone && (anyActive || done > 0)) state = 'active';
+    else if (prevDone) state = 'ready';
+    else state = 'blocked';
+    const out = { id: w.id, gate: w.gate || 'auto', reqs, done, total, state };
+    prevDone = prevDone && allDone;
+    return out;
+  });
+}
+
+/** Rótulo pt-BR do tipo de requisito (alinha o vocabulario do metamodelo). */
+export function typeLabel(type) {
+  return { functional: 'Funcional', non_functional: 'Não-funcional', 'non-functional': 'Não-funcional',
+    constraint: 'Restrição', interface: 'Interface', 'business-rule': 'Regra de negócio' }[type] || (type || 'Funcional');
+}
+
+/** Garante array (a IA pode devolver string/undefined em campos de lista). */
+export function asList(v) {
+  if (Array.isArray(v)) return v.filter((x) => x != null && x !== '');
+  if (v == null || v === '') return [];
+  return [v];
+}
+
+/** Linha da tabela de build de um requisito (junta baseline + status). */
+export function reqRow(id, baseline, implStatus) {
+  const r = baseline && baseline.requirements && baseline.requirements.find((x) => x.id === id);
+  const it = implStatus && implStatus.items && implStatus.items[id];
+  return {
+    id,
+    title: r ? r.title : '',
+    type: r ? r.type : '',
+    product: r && r.scope ? r.scope.product_scope : '',
+    status: (it && it.status) || 'not_started',
+    pr: (it && it.pr) || null,
+    deployed_at: (it && it.deployed_at) || null,
+  };
+}
+
+/** Classe CSS de badge por status de desenvolvimento (alinhada ao reqhub). */
+export function forgeStatusCls(status) {
+  if (DONE_STATUSES.includes(status)) return 'b-ok';
+  if (status === 'blocked') return 'b-crit';
+  if (ACTIVE_STATUSES.includes(status)) return 'b-high';
+  return 'b-low';
+}
+
+/** Valida o padrão canônico de REQ-ID (REQ-PRODUTO-[NFR-]NNN[N]). */
+export function validateReqId(id) {
+  return /^REQ-[A-Z0-9]+-(NFR-)?\d{3,4}$/.test(String(id || ''));
+}
+
+/** Próximo número livre de REQ para um produto (ex.: REQ-CRM-0006). */
+export function nextReqId(productName, existingIds) {
+  const prefix = 'REQ-' + String(productName || '').toUpperCase().replace(/[^A-Z0-9]/g, '') + '-';
+  let max = 0;
+  for (const id of existingIds || []) {
+    const m = String(id).match(/-(\d{3,4})$/);
+    if (id.startsWith(prefix) && m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return prefix + String(max + 1).padStart(4, '0');
+}
+
+/** Caminho do arquivo YAML de um requisito (para o comando de PR). */
+export function reqFilePath(id, productName) {
+  return `specs/requirements/${productName}/${id}.yaml`;
+}
+
+/** Branch sugerida para a proposta de requisitos (a UI não escreve git). */
+export function proposeBranch(productName) {
+  return `forge/${String(productName || 'produto')}/requisitos`;
+}
+
+/**
+ * One-liner informativo do fluxo de PR (a UI NUNCA escreve no git — mostra o caminho).
+ * Não executa nada; é texto para o operador copiar.
+ */
+export function proposeHint(productName, count) {
+  const branch = proposeBranch(productName);
+  return `# Revise os YAMLs abaixo, salve em specs/requirements/${productName}/ e abra o PR:\n` +
+    `git checkout -b ${branch} && git add specs/requirements/${productName}/ && \\\n` +
+    `git commit -m "feat(${productName}): ${count} requisito(s) propostos pelo Forge" && \\\n` +
+    `git push -u origin ${branch} && gh pr create --fill --label requirement`;
+}
+
+/** Resumo agregado de todos os produtos (para o cabeçalho do hub). */
+export function hubSummary(products, implStatus) {
+  const summ = productSummaries(products, implStatus);
+  const totalReqs = summ.reduce((a, p) => a + p.reqCount, 0);
+  const totalDone = summ.reduce((a, p) => a + p.progress.done, 0);
+  const live = summ.filter((p) => p.progress.total > 0 && p.progress.pct === 100).length;
+  return { products: summ.length, totalReqs, totalDone, live, pct: totalReqs ? Math.round((totalDone / totalReqs) * 100) : 0 };
+}

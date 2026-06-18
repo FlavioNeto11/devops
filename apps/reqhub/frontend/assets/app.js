@@ -1,11 +1,12 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs } from './lib.js?v=12';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs } from './lib.js?v=14';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList } from './forge-lib.js?v=14';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
-const state = { view: 'explorer', filters: {}, q: '', selectedId: null, impactFilter: { type: '', product: '', focus: false }, editId: null, devFilter: { status: '', product: '' } };
-const DATA = { baseline: null, impact: null, retrieval: null, history: null, registry: null, embeddings: null, implStatus: null, coverage: null };
+const state = { view: 'explorer', filters: {}, q: '', selectedId: null, impactFilter: { type: '', product: '', focus: false }, editId: null, devFilter: { status: '', product: '' }, forge: { product: null, step: 'definir', filter: 'all' } };
+const DATA = { baseline: null, impact: null, retrieval: null, history: null, registry: null, embeddings: null, implStatus: null, coverage: null, products: null, blueprints: null, buildPlans: {} };
 
 /* ---------- DOM helpers (seguros) ---------- */
 function h(tag, attrs = {}, ...kids) {
@@ -1084,7 +1085,401 @@ function renderEditor() {
 }
 
 /* ---------- navegação / abas ---------- */
-const RENDER = { explorer: renderExplorer, workspace: renderWorkspace, versions: renderVersions, impact: renderImpact, coverage: renderCoverage, reprocess: renderReprocess, dev: renderDev, editor: renderEditor };
+/* ===================== Forge — construir um produto a partir de requisitos =====================
+   Hub de produtos → detalhe com breadcrumb + stepper (Definir → Arquitetura → Build).
+   Lê dados estáticos (products/blueprints/build-plan/implementation-status); a IA (opcional,
+   fail-closed) propõe requisitos. A UI NUNCA escreve no git — mostra o YAML e o caminho do PR. */
+const DONE_ST = ['deployed', 'done', 'merged'];
+function dStateCls(status) {
+  if (DONE_ST.includes(status)) return 'done';
+  if (status === 'blocked') return 'blocked';
+  if (status === 'in_progress' || status === 'pr_open') return 'active';
+  return 'todo';
+}
+async function loadBuildPlan(name) {
+  if (DATA.buildPlans[name] !== undefined) return DATA.buildPlans[name];
+  try { const r = await fetch('data/products/' + encodeURIComponent(name) + '/build-plan.json'); DATA.buildPlans[name] = r.ok ? await r.json() : null; }
+  catch { DATA.buildPlans[name] = null; }
+  return DATA.buildPlans[name];
+}
+function openForgeProduct(name) {
+  state.forge.product = name; state.forge.newMode = false; state.forge.step = 'definir';
+  switchView('forge'); document.getElementById('tab-forge').focus();
+  if (name && DATA.buildPlans[name] === undefined) loadBuildPlan(name).then(() => { if (state.view === 'forge' && state.forge.product === name) renderForge(); });
+}
+function openForgeNew() { state.forge.product = null; state.forge.newMode = true; switchView('forge'); }
+function backToHub() { state.forge.product = null; state.forge.newMode = false; renderForge(); }
+function forgeStep(step) { state.forge.step = step; renderForge(); }
+
+// barra de progresso em SVG (largura por ATRIBUTO, cor por classe no stylesheet — CSP-safe)
+function progressBar(pct) {
+  const p = Math.max(0, Math.min(100, Math.round(pct)));
+  const wrap = h('div', { class: 'forge-bar-wrap' });
+  const s = svg('svg', { class: 'forge-bar', viewBox: '0 0 100 7', preserveAspectRatio: 'none', role: 'img', 'aria-label': p + '% concluído' });
+  s.append(svg('rect', { class: 'forge-bar-track', x: '0', y: '0', width: '100', height: '7', rx: '3' }));
+  s.append(svg('rect', { class: 'forge-bar-fill' + (p >= 100 ? ' is-complete' : ''), x: '0', y: '0', width: String(p), height: '7', rx: '3' }));
+  wrap.append(s, h('span', { class: 'forge-pct', text: p + '%' }));
+  return wrap;
+}
+function svgText(attrs, label) { const t = svg('text', attrs); t.append(document.createTextNode(label)); return t; }
+function setForgeTitle(suffix) { try { document.title = 'Forge' + (suffix ? ' — ' + suffix : '') + ' · Reqhub'; } catch { /* ignore */ } }
+// bloco de código com botão "Copiar" (clipboard API; feedback temporário)
+function codeBlock(text, cls, label) {
+  const wrap = h('div', { class: 'forge-codeblock' });
+  const btn = h('button', { class: 'btn forge-copy', type: 'button', 'aria-label': 'Copiar ' + (label || 'código'), text: 'Copiar' });
+  btn.addEventListener('click', () => {
+    const done = () => { btn.textContent = 'Copiado ✓'; btn.classList.add('copied'); setTimeout(() => { btn.textContent = 'Copiar'; btn.classList.remove('copied'); }, 1600); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(() => {});
+    else done();
+  });
+  wrap.append(btn, h('pre', { class: cls }, text));
+  return wrap;
+}
+
+function renderForge() {
+  const body = document.getElementById('forge-body');
+  body.replaceChildren();
+  if (!DATA.products || !((DATA.products.products) || []).length) {
+    body.append(forgeIntroHead());
+    body.append(h('p', { class: 'empty', text: 'Nenhum produto registrado ainda — gere um com o Forge (brief → requisitos → PR) ou rode build-products.mjs.' }));
+    return;
+  }
+  if (state.forge.newMode) { setForgeTitle('Novo produto'); renderForgeNew(body); }
+  else if (state.forge.product) { const p = findProduct(DATA.products, state.forge.product); setForgeTitle(p ? p.display_name : state.forge.product); renderForgeDetail(body, state.forge.product); }
+  else { setForgeTitle('Produtos'); renderForgeHub(body); }
+}
+function forgeIntroHead() {
+  return h('div', { class: 'forge-head' }, h('div', {},
+    h('h2', { class: 'forge-title', text: 'Forge — construir um produto a partir de requisitos' }),
+    h('p', { class: 'muted', text: 'Um conjunto de requisitos vira uma aplicação real no repositório (frontend + API + worker + banco + k8s), pela mesma esteira do SICAT e do GymOps. Cada requisito vira código rastreável.' })));
+}
+
+function renderForgeHub(body) {
+  const summ = hubSummary(DATA.products, DATA.implStatus);
+  const head = forgeIntroHead();
+  head.querySelector('div').append(h('div', { class: 'forge-stats' },
+    h('span', { class: 'forge-stat' }, h('b', { text: String(summ.products) }), ' produto(s)'),
+    h('span', { class: 'forge-stat' }, h('b', { text: String(summ.totalReqs) }), ' requisitos'),
+    h('span', { class: 'forge-stat' }, h('b', { text: String(summ.totalDone) }), ' no ar'),
+    h('span', { class: 'forge-stat' }, h('b', { text: summ.pct + '%' }), ' concluído')));
+  body.append(head);
+
+  const all = productSummaries(DATA.products, DATA.implStatus);
+  const cat = (p) => (p.progress.total > 0 && p.progress.pct === 100) ? 'live' : (p.progress.done > 0 || (p.progress.total - (p.progress.by.not_started || 0)) > 0) ? 'building' : 'new';
+  // filtro por status (segmentado) — facilita "navegar tudo que está sendo criado"
+  const filters = [['all', 'Todos'], ['building', 'Em construção'], ['live', 'No ar'], ['new', 'Não iniciados']];
+  const bar = h('div', { class: 'forge-filter', role: 'group', 'aria-label': 'Filtrar produtos por status' });
+  for (const [key, label] of filters) {
+    const n = key === 'all' ? all.length : all.filter((p) => cat(p) === key).length;
+    bar.append(h('button', { class: 'lg-chip', type: 'button', 'aria-pressed': state.forge.filter === key ? 'true' : 'false', onclick: () => { state.forge.filter = key; renderForge(); } },
+      h('span', { class: 'lg-name', text: label }), h('span', { class: 'lg-n', text: String(n) })));
+  }
+  body.append(bar);
+
+  const shown = all.filter((p) => state.forge.filter === 'all' || cat(p) === state.forge.filter);
+  const cards = h('div', { class: 'forge-cards' });
+  for (const p of shown) {
+    const live = p.progress.pct === 100 && p.progress.total > 0;
+    const card = h('button', { class: 'forge-card', type: 'button', 'aria-label': `${p.display_name}: ${p.progress.done} de ${p.reqCount} requisitos no ar (${p.progress.pct}%)`, onclick: () => openForgeProduct(p.name) },
+      h('div', { class: 'forge-card-top' }, h('span', { class: 'forge-card-name', text: p.display_name }), h('span', { class: 'forge-card-path', text: p.base_path })),
+      p.blueprint ? h('span', { class: 'forge-card-bp', text: p.blueprint }) : null,
+      h('p', { class: 'forge-card-vision', text: p.vision || 'Sem descrição.' }),
+      h('div', { class: 'forge-card-foot' }, h('span', { class: 'muted', text: `${p.progress.done}/${p.reqCount} no ar` }), badge(live ? 'no ar' : (cat(p) === 'new' ? 'não iniciado' : 'em construção'), live ? 'b-ok' : (cat(p) === 'new' ? 'b-low' : 'b-high'))),
+      progressBar(p.progress.pct));
+    cards.append(card);
+  }
+  if (!shown.length) cards.append(h('p', { class: 'empty', text: 'Nenhum produto neste filtro.' }));
+  cards.append(h('button', { class: 'forge-card forge-new', type: 'button', 'aria-label': 'Criar novo produto a partir de um brief', onclick: () => openForgeNew() },
+    h('span', { class: 'plus', 'aria-hidden': 'true', text: '+' }), h('strong', { text: 'Novo produto' }), h('span', { class: 'muted', text: 'brief → requisitos (IA) → PR' })));
+  body.append(cards);
+}
+
+function forgeCrumbs(parts) {
+  const nav = h('nav', { class: 'forge-crumbs', 'aria-label': 'Trilha' });
+  parts.forEach((p, i) => {
+    if (i) nav.append(h('span', { class: 'sep', text: '›' }));
+    if (p.onclick) nav.append(h('button', { class: 'btn-link', type: 'button', onclick: p.onclick, text: p.label }));
+    else nav.append(h('span', { class: 'cur', 'aria-current': 'page', text: p.label }));
+  });
+  return nav;
+}
+
+function renderForgeDetail(body, name) {
+  const product = findProduct(DATA.products, name);
+  if (!product) { body.append(forgeCrumbs([{ label: 'Produtos', onclick: backToHub }, { label: name }]), h('p', { class: 'empty', text: 'Produto não encontrado.' })); return; }
+  const buildPlan = DATA.buildPlans[name] || null;
+  const steps = phaseModel(product, buildPlan, DATA.implStatus);
+  const cur = steps.find((s) => s.key === state.forge.step) || steps[0];
+  const labels = { definir: 'Definir', arquitetura: 'Arquitetura', build: 'Build' };
+  body.append(forgeCrumbs([{ label: 'Produtos', onclick: backToHub }, { label: product.display_name || name, onclick: null }, { label: labels[state.forge.step] }]));
+  body.append(h('div', { class: 'forge-detail-head' }, h('h2', { text: product.display_name || name }),
+    product.blueprint ? badge(product.blueprint, 'b-nfr') : null, badge(product.base_path, 'b-low')));
+
+  // stepper de fases (clicável, com estados reais)
+  const stepper = h('div', { class: 'forge-stepper', role: 'tablist', 'aria-label': 'Fases do Forge' });
+  const keys = steps.map((s) => s.key);
+  steps.forEach((s, i) => {
+    if (i) stepper.append(h('span', { class: 'forge-step-conn', 'aria-hidden': 'true' }));
+    const active = s.key === state.forge.step;
+    const onkey = (ev) => {
+      let j = null;
+      if (ev.key === 'ArrowRight' || ev.key === 'ArrowDown') j = (i + 1) % keys.length;
+      else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowUp') j = (i - 1 + keys.length) % keys.length;
+      else if (ev.key === 'Home') j = 0; else if (ev.key === 'End') j = keys.length - 1;
+      if (j != null) { ev.preventDefault(); forgeStep(keys[j]); const el = document.querySelector('#view-forge .forge-step.is-sel'); if (el) el.focus(); }
+    };
+    const btn = h('button', { class: 'forge-step is-' + s.status + (active ? ' is-sel' : ''), type: 'button', role: 'tab', 'aria-selected': active ? 'true' : 'false', tabindex: active ? '0' : '-1', onclick: () => forgeStep(s.key), onkeydown: onkey },
+      h('span', { class: 'forge-step-box' },
+        h('span', { class: 'forge-step-num', 'aria-hidden': 'true', text: s.status === 'done' ? '✓' : String(i + 1) }),
+        h('span', { class: 'forge-step-tx' }, h('span', { class: 'forge-step-label', text: s.label }), h('span', { class: 'forge-step-detail', text: s.detail }))));
+    stepper.append(btn);
+  });
+  body.append(stepper);
+
+  const panel = h('div', { class: 'forge-panel' + (state.forge.step !== 'definir' ? ' two' : '') });
+  if (state.forge.step === 'definir') forgeDefinir(panel, product);
+  else if (state.forge.step === 'arquitetura') forgeArquitetura(panel, product, buildPlan);
+  else forgeBuild(panel, product, buildPlan);
+  body.append(panel);
+}
+
+function productReqs(product) {
+  const ids = new Set(product.requirement_ids || []);
+  const reqs = (DATA.baseline.requirements || []).filter((r) => ids.has(r.id) || (r.scope && r.scope.product_scope === product.name));
+  return reqs.sort((a, b) => a.id.localeCompare(b.id));
+}
+
+function forgeDefinir(panel, product) {
+  const left = h('div', { class: 'forge-section' });
+  left.append(h('h3', { text: 'Visão do produto' }), h('p', { class: 'forge-vision', text: product.vision || 'Sem descrição.' }));
+  const reqs = productReqs(product);
+  left.append(h('h3', { text: `Requisitos (${reqs.length})` }));
+  if (!reqs.length) left.append(h('p', { class: 'empty', text: 'Nenhum requisito ainda — use "Propor requisitos (IA)" para começar.' }));
+  else {
+    const ul = h('ul', { class: 'forge-reqlist' });
+    for (const r of reqs) {
+      const st = DATA.implStatus && DATA.implStatus.items && DATA.implStatus.items[r.id] ? DATA.implStatus.items[r.id].status : 'not_started';
+      ul.append(h('li', { class: 'forge-reqitem' },
+        h('button', { class: 'btn-link rid', type: 'button', onclick: () => openReq(r.id), text: r.id }),
+        h('span', { class: 'rt', text: truncateLabel(r.title || '', 72) }),
+        badge(st, forgeStatusCls(st))));
+    }
+    left.append(ul);
+  }
+  panel.append(left);
+  panel.append(h('div', { class: 'forge-note' },
+    h('strong', { text: 'Como adicionar requisitos: ' }),
+    'a autoria é por git/PR (fonte da verdade em ', h('code', { text: 'specs/requirements/' + product.name + '/' }), '). ',
+    'Use ', h('button', { class: 'btn-link', type: 'button', onclick: () => openForgeNew(), text: 'Novo produto / propor requisitos (IA)' }),
+    ' para gerar rascunhos — a UI não escreve no git.'));
+}
+
+function forgeArquitetura(panel, product, buildPlan) {
+  // coluna esquerda: blueprint + ADRs
+  const left = h('div', { class: 'forge-section' });
+  const bp = blueprintById(DATA.blueprints, product.blueprint);
+  left.append(h('h3', { text: 'Blueprint' }));
+  if (!bp) left.append(h('p', { class: 'empty', text: 'Blueprint "' + (product.blueprint || '?') + '" não encontrado.' }));
+  else {
+    left.append(h('div', { class: 'card' },
+      h('strong', { text: bp.name }), h('p', { class: 'muted', text: bp.summary || '' }),
+      h('dl', { class: 'forge-bp-stack' }, ...Object.entries(bp.stack || {}).flatMap(([k, v]) => [h('dt', { text: k }), h('dd', { text: v })])),
+      h('h4', { text: 'Serviços' }), h('div', { class: 'forge-chips' }, ...(bp.services || []).map((s) => h('span', { class: 'chip', text: s })), bp.db ? h('span', { class: 'chip', text: 'db: ' + bp.db }) : null),
+      (bp.reuses || []).length ? h('h4', { text: 'Reusa' }) : null,
+      (bp.reuses || []).length ? h('div', { class: 'forge-chips' }, ...(bp.reuses || []).map((s) => h('span', { class: 'chip', text: s }))) : null));
+  }
+  const adrs = (buildPlan && buildPlan.adrs) || (bp && bp.default_adrs) || [];
+  if (adrs.length) {
+    left.append(h('h3', { text: 'Decisões de arquitetura (ADRs)' }));
+    const ul = h('ul', { class: 'linklist' });
+    for (const a of adrs) ul.append(h('li', {}, h('span', { class: 'lt', text: 'ADR' }), typeof a === 'string' ? a : (a.title || a.decision || JSON.stringify(a))));
+    left.append(ul);
+  }
+  panel.append(left);
+
+  // coluna direita: DAG das waves
+  const right = h('div', { class: 'forge-section' });
+  right.append(h('h3', { text: 'Plano de build (waves)' }));
+  if (!buildPlan) right.append(h('p', { class: 'empty', text: 'Sem build-plan.json para este produto.' }));
+  else { right.append(forgeDagLegend(), forgeDagSvg(buildPlan), h('p', { class: 'muted small', text: 'Cada nó é um requisito; as setas seguem a ordem de construção (waves). A cor reflete o status real.' })); }
+  panel.append(right);
+}
+
+function forgeBuild(panel, product, buildPlan) {
+  const reqIds = product.requirement_ids || [];
+  const prog = (function () { let d = 0; for (const id of reqIds) { const it = DATA.implStatus && DATA.implStatus.items && DATA.implStatus.items[id]; if (it && DONE_ST.includes(it.status)) d++; } return { d, t: reqIds.length, pct: reqIds.length ? Math.round((d / reqIds.length) * 100) : 0 }; })();
+  // esquerda: waves + tabela de requisitos
+  const left = h('div', { class: 'forge-section' });
+  left.append(h('h3', { text: `Progresso — ${prog.d}/${prog.t} no ar` }), progressBar(prog.pct));
+  if (buildPlan) {
+    const waves = waveProgress(buildPlan, DATA.implStatus);
+    const stateLabel = { done: 'concluída', active: 'em andamento', ready: 'pronta', blocked: 'bloqueada' };
+    const list = h('div', { class: 'forge-waves', role: 'list', 'aria-label': `Ondas de construção (${waves.length})` });
+    for (const w of waves) {
+      const row = h('div', { class: 'forge-wave s-' + w.state, role: 'listitem', 'aria-label': `Wave ${w.id}: ${stateLabel[w.state] || w.state} — ${w.done} de ${w.total} no ar` },
+        h('span', { class: 'forge-wave-dot', 'aria-hidden': 'true' }),
+        h('span', { class: 'forge-wave-id', text: w.id }),
+        h('span', { class: 'forge-wave-reqs' }, ...w.reqs.map((r) => badge(r.id.replace('REQ-' + product.name.toUpperCase() + '-', '#'), forgeStatusCls(r.status)))),
+        h('span', { class: 'forge-wave-n', 'aria-hidden': 'true', text: `${w.done}/${w.total}` }));
+      list.append(row);
+    }
+    left.append(h('h3', { text: 'Waves' }), list);
+  }
+  panel.append(left);
+
+  // direita: tabela requisito → status → PR → deploy
+  const right = h('div', { class: 'forge-section' });
+  right.append(h('h3', { text: 'Requisitos → código' }));
+  const t = h('table');
+  t.append(h('thead', {}, h('tr', {}, h('th', { text: 'ID' }), h('th', { text: 'Título' }), h('th', { text: 'Status' }), h('th', { text: 'PR' }))));
+  const tb = h('tbody');
+  for (const id of reqIds) {
+    const row = reqRow(id, DATA.baseline, DATA.implStatus);
+    tb.append(h('tr', { tabindex: '0', role: 'button', onclick: () => openReq(id), onkeydown: (ev) => { if (ev.key === 'Enter') openReq(id); } },
+      h('td', {}, h('span', { class: 'rid', text: id })),
+      h('td', { text: truncateLabel(row.title, 60) }),
+      h('td', {}, badge(row.status, forgeStatusCls(row.status))),
+      h('td', {}, row.pr ? h('a', { class: 'btn-link', href: row.pr, target: '_blank', rel: 'noopener', text: 'PR' }) : h('span', { class: 'empty', text: '—' }))));
+  }
+  const gw = h('div', { class: 'grid-wrap' }); t.append(tb); gw.append(t); right.append(gw);
+  panel.append(right);
+}
+
+function forgeDagSvg(buildPlan) {
+  const dag = buildDag(buildPlan, DATA.implStatus);
+  if (!dag.nodes.length) return h('p', { class: 'empty', text: 'Sem waves para desenhar.' });
+  const W = 1000, H = 560;
+  const nodes = dag.nodes.map((n) => ({ ...n, product: 'w' + n.wave }));
+  const laid = forceLayout(nodes, dag.edges, { width: W, height: H, iterations: 320, minDistX: 165, minDistY: 76 });
+  const by = {}; for (const n of laid.nodes) by[n.id] = n;
+  const wrap = h('div', { class: 'forge-dag' });
+  const s = svg('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Grafo de dependências do build por waves' });
+  for (const e of dag.edges) {
+    const a = by[e.from], b = by[e.to]; if (!a || !b) continue;
+    const done = DONE_ST.includes(a.status) && DONE_ST.includes(b.status);
+    s.append(svg('line', { class: 'forge-dedge' + (done ? ' done' : ''), x1: a.x, y1: a.y, x2: b.x, y2: b.y }));
+  }
+  const stLbl = { done: 'concluído', active: 'em andamento', blocked: 'bloqueado', todo: 'não iniciado' };
+  for (const n of laid.nodes) {
+    const g = svg('g', { class: 'forge-dnode s-' + dStateCls(n.status), transform: `translate(${n.x},${n.y})`, role: 'listitem' });
+    const ttl = svg('title'); ttl.append(document.createTextNode(`${n.id} — wave ${n.wave + 1} — ${stLbl[dStateCls(n.status)]}`)); g.append(ttl);
+    g.append(svg('rect', { class: 'chip', x: '-66', y: '-15', width: '132', height: '30', rx: '8' }));
+    g.append(svgText({ class: 'dlbl', x: '0', y: '4', 'text-anchor': 'middle', 'aria-hidden': 'true' }, n.id.replace(/^REQ-/, '')));
+    s.append(g);
+  }
+  wrap.append(s);
+  return wrap;
+}
+function forgeDagLegend() {
+  const items = [['s-done', 'Pronto'], ['s-active', 'Em andamento'], ['s-blocked', 'Bloqueado'], ['s-todo', 'Não iniciado']];
+  const leg = h('div', { class: 'forge-dag-legend', 'aria-hidden': 'true' });
+  for (const [cls, label] of items) leg.append(h('span', {}, h('span', { class: 'legend-dot ' + cls }), label));
+  return leg;
+}
+
+/* ---- Novo produto: brief → requisitos (IA, fail-closed) → YAML + caminho de PR ---- */
+function renderForgeNew(body) {
+  body.append(forgeCrumbs([{ label: 'Produtos', onclick: backToHub }, { label: 'Novo produto' }]));
+  body.append(h('div', { class: 'forge-detail-head' }, h('h2', { text: 'Novo produto' })));
+  body.append(h('p', { class: 'muted', text: 'Descreva o produto; a IA propõe um conjunto inicial de requisitos. Você revisa, ajusta e abre o PR — a UI não escreve no git.' }));
+
+  const grid = h('div', { class: 'forge-panel two' });
+  // esquerda — formulário
+  const left = h('div', { class: 'forge-section' });
+  const name = h('input', { type: 'text', placeholder: 'ex.: helpdesk', 'aria-label': 'Nome do produto (slug)' });
+  const bpsel = h('select', { 'aria-label': 'Blueprint' });
+  for (const b of (DATA.blueprints && DATA.blueprints.blueprints) || []) bpsel.append(h('option', { value: b.id, text: b.name }));
+  if (!bpsel.children.length) bpsel.append(h('option', { value: '', text: '(sem blueprints)' }));
+  const brief = h('textarea', { class: 'ai-sketch', rows: '6', 'aria-label': 'Brief', placeholder: 'Ex.: um helpdesk simples — abrir chamados, atribuir a agentes, acompanhar status num quadro, e um painel com SLAs. Sem complexidade.' });
+  const tok = h('input', { type: 'password', value: AI.getToken(), placeholder: 'Bearer token (operador)' });
+  const status = h('p', { class: 'muted ai-status' }, h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), 'Verificando IA…');
+  const btn = h('button', { class: 'btn primary', type: 'button', text: '✨ Propor requisitos (IA)' });
+  left.append(
+    h('label', { class: 'fld' }, h('span', { class: 'fld-l', text: 'Produto (slug)' }), name),
+    h('label', { class: 'fld' }, h('span', { class: 'fld-l', text: 'Blueprint' }), bpsel),
+    h('label', { class: 'fld' }, h('span', { class: 'fld-l', text: 'Brief' }), brief),
+    status, h('div', { class: 'ws-actions' }, btn),
+    h('details', { class: 'asst-token' }, h('summary', { text: 'Token do operador' }), tok));
+  grid.append(left);
+
+  // direita — saída (região viva: anuncia a proposta para leitores de tela)
+  const out = h('div', { class: 'forge-section', role: 'region', 'aria-live': 'polite', 'aria-label': 'Proposta de requisitos' });
+  out.append(h('h3', { text: 'Proposta' }), h('p', { class: 'muted', text: 'Os requisitos propostos aparecem aqui, com checagem de duplicata contra a base.' }));
+  grid.append(out);
+  body.append(grid);
+
+  tok.addEventListener('change', () => AI.setToken(tok.value.trim()));
+  const setStatusText = (t) => status.replaceChildren(document.createTextNode(t));
+  AI.health().then((r) => setStatusText(r.ok ? 'IA pronta (gpt-5).' : 'IA indisponível (' + (r.data && r.data.error ? r.data.error.code : r.status) + ') — você ainda pode criar requisitos manualmente via PR.'))
+    .catch(() => setStatusText('IA indisponível (sem servidor) — crie requisitos manualmente via PR.'));
+
+  const errCard = (title, msg) => out.replaceChildren(h('h3', { text: 'Proposta' }), h('div', { class: 'card' }, h('h4', {}, badge('erro', 'b-crit'), ' ' + title), msg ? h('p', { class: 'muted', text: msg }) : null));
+  btn.addEventListener('click', async () => {
+    AI.setToken(tok.value.trim());
+    const pname = (name.value || '').trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+    if (!pname) { errCard('Informe o slug do produto.'); name.focus(); return; }
+    if ((brief.value || '').trim().length < 10) { errCard('Descreva o produto no brief (mínimo ~10 caracteres).'); brief.focus(); return; }
+    btn.disabled = true;
+    out.replaceChildren(h('h3', { text: 'Proposta' }), h('p', { class: 'muted' }, h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), 'Consultando a IA…'));
+    try {
+      const r = await AI.post('/v1/forge/propose-requirements', { product: pname, blueprint: bpsel.value, brief: (brief.value || '').trim() });
+      if (!r.ok) { const code = r.data && r.data.error ? r.data.error.code : 'HTTP ' + r.status; const msg = r.data && r.data.error ? r.data.error.message : ''; errCard('IA: ' + code, msg); return; }
+      renderProposal(out, pname, bpsel.value, r.data);
+    } catch (e) { errCard('Erro de rede ao chamar a IA', e && e.message ? e.message : String(e)); }
+    finally { btn.disabled = false; }
+  });
+}
+
+function renderProposal(out, pname, blueprint, data) {
+  const reqs = (data && data.requirements) || [];
+  const head = h('h3', { tabindex: '-1', text: `Proposta — ${reqs.length} requisito(s) (${data.prompt_version || 'ia'})` });
+  out.replaceChildren(head);
+  if (!reqs.length) { out.append(h('p', { class: 'empty', text: 'A IA não retornou requisitos.' })); head.focus(); return; }
+  const existingIds = ((DATA.baseline && DATA.baseline.requirements) || []).map((r) => r.id);
+  let n = 0;
+  const yamls = [];
+  const ul = h('ul', { class: 'forge-reqlist' });
+  for (const req of reqs) {
+    const id = req.id || nextReqId(pname, existingIds.concat(yamls.map((y) => y.id)));
+    yamls.push({ id, req });
+    const sims = findSimilarReqs({ id, title: req.title || '', statement: req.statement || '' }, (DATA.baseline && DATA.baseline.requirements) || [], 1);
+    const dup = sims[0] && sims[0].score >= 0.45 ? sims[0] : null;
+    ul.append(h('li', { class: 'forge-reqitem forge-proposed' },
+      h('span', { class: 'rid', text: id }),
+      h('span', { class: 'rt', text: truncateLabel(req.title || '(sem título)', 64) }),
+      dup
+        ? h('span', { class: 'forge-dup' }, badge('possível duplicata', 'b-crit'), h('button', { class: 'btn-link', type: 'button', onclick: () => openReq(dup.id), text: `${dup.id} · ${Math.round(dup.score * 100)}%` }))
+        : badge(typeLabel(req.type), 'b-fn')));
+    n++;
+  }
+  out.append(ul);
+  if (data.notes) out.append(h('p', { class: 'muted small', text: data.notes }));
+  // YAMLs + caminho do PR (com botão copiar). A UI nunca escreve no git.
+  const yamlText = yamls.map(({ id, req }) => toYaml(forgeReqObject(id, pname, blueprint, req))).join('\n---\n');
+  out.append(h('h4', { text: 'YAML dos requisitos' }), codeBlock(yamlText, 'yaml', 'YAML'));
+  out.append(h('div', { class: 'forge-note' }, h('strong', { text: 'Próximo passo (operador): ' }), 'salve cada requisito em ', h('code', { text: 'specs/requirements/' + pname + '/<ID>.yaml' }), ' e abra o PR.'),
+    codeBlock(proposeHint(pname, n), 'forge-cmd', 'comando'));
+  head.focus();
+}
+
+function forgeReqObject(id, pname, blueprint, req) {
+  return {
+    id,
+    title: req.title || '',
+    type: req.type || 'functional',
+    status: 'proposed',
+    owner: 'plataforma-digital',
+    priority: req.priority || 'medium',
+    statement: req.statement || '',
+    scope: { applies_to: 'product', product_scope: pname, blueprint: blueprint || null },
+    source: { source_paths: ['specs/products/' + pname + '/product-brief.md'] },
+    acceptance_criteria: asList(req.acceptance_criteria),
+    verification_method: asList(req.verification_method).length ? asList(req.verification_method) : ['test'],
+    version: { baseline_version: '1.0.0', item_revision: 1, semantic_change: 'none', change_reason: 'proposto pelo Forge' },
+  };
+}
+
+const RENDER = { explorer: renderExplorer, workspace: renderWorkspace, versions: renderVersions, impact: renderImpact, coverage: renderCoverage, reprocess: renderReprocess, dev: renderDev, editor: renderEditor, forge: renderForge };
 function switchView(view) {
   state.view = view;
   for (const tab of document.querySelectorAll('.tab')) {
@@ -1161,7 +1556,7 @@ async function init() {
     DATA.baseline = b; DATA.impact = im; DATA.retrieval = rt;
     // opcionais (toleram ausência): diff de baseline, registry de artefatos, embeddings.
     const opt = (u) => fetch(u).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-    [DATA.history, DATA.registry, DATA.embeddings, DATA.implStatus, DATA.coverage] = await Promise.all([opt('data/history.json'), opt('data/registry.json'), opt('data/embeddings.json'), opt('data/implementation-status.json'), opt('data/coverage-report.json')]);
+    [DATA.history, DATA.registry, DATA.embeddings, DATA.implStatus, DATA.coverage, DATA.products, DATA.blueprints] = await Promise.all([opt('data/history.json'), opt('data/registry.json'), opt('data/embeddings.json'), opt('data/implementation-status.json'), opt('data/coverage-report.json'), opt('data/products.json'), opt('data/blueprints.json')]);
   } catch (err) {
     setStatus('Falha ao carregar a baseline: ' + err.message, true);
     return;

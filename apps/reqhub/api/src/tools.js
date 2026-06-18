@@ -88,3 +88,48 @@ export function buildAuthoringTools() {
     },
   ];
 }
+
+// AiTools do FORGE (greenfield): propor um CONJUNTO de requisitos a partir do brief e
+// propor a arquitetura (ADRs + waves) a partir deles. R1: geram CONTEUDO, NAO escrevem
+// no git nem disparam a esteira — a UI mostra o YAML/o caminho do PR; o operador decide.
+export function buildForgeTools() {
+  return [
+    {
+      name: 'forge.propose_requirements',
+      description: 'Propoe um conjunto inicial de requisitos (MVP) de um produto novo a partir de um brief + blueprint.',
+      risk: 'R1',
+      inputSchema: schema((v) => need(typeof v.brief === 'string' && v.brief.trim().length >= 10, 'brief obrigatorio (>=10 chars)')),
+      authorize: authorizeOperator,
+      execute: async (input, ctx) => {
+        const { parsed, usage } = await llmJson(ctx.llm, {
+          system: PROMPTS.proposeRequirements.system,
+          user: PROMPTS.proposeRequirements.user(input),
+          maxTokens: 2600,
+        });
+        const requirements = Array.isArray(parsed.requirements) ? parsed.requirements : [];
+        return { prompt_version: PROMPTS.proposeRequirements.version, requirements, notes: parsed.notes || '', usage };
+      },
+    },
+    {
+      name: 'forge.propose_architecture',
+      description: 'Propoe arquitetura (ADRs + ordem de build em waves) de um produto novo a partir de seus requisitos e do blueprint.',
+      risk: 'R1',
+      inputSchema: schema((v) => need(Array.isArray(v.requirements) && v.requirements.length > 0, 'requirements (array nao-vazio) obrigatorio')),
+      authorize: authorizeOperator,
+      execute: async (input, ctx) => {
+        const { parsed, usage } = await llmJson(ctx.llm, {
+          system: PROMPTS.proposeArchitecture.system,
+          user: PROMPTS.proposeArchitecture.user(input),
+          maxTokens: 2200,
+        });
+        return {
+          prompt_version: PROMPTS.proposeArchitecture.version,
+          adrs: Array.isArray(parsed.adrs) ? parsed.adrs : [],
+          waves: Array.isArray(parsed.waves) ? parsed.waves : [],
+          notes: parsed.notes || '',
+          usage,
+        };
+      },
+    },
+  ];
+}

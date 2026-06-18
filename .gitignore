@@ -61,3 +61,6 @@ diagnostics/
 
 # Logs locais de runtime (watchdog de boot etc.)
 /logs/
+
+# Staging local do preview do Reqhub (baseline copiada p/ servir estático; é assada na imagem)
+/apps/reqhub/frontend/data/

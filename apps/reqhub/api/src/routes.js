@@ -8,7 +8,7 @@
 // contrato (authorize -> execute -> validar saida) e os erros sao tipados.
 import express from 'express';
 import { createToolRegistry, dispatchTool } from '@flavioneto11/ai-core';
-import { buildAuthoringTools } from './tools.js';
+import { buildAuthoringTools, buildForgeTools } from './tools.js';
 import { requireAuthoringAuth } from './auth.js';
 import { aiEnabled, getLlm } from './llm.js';
 
@@ -26,7 +26,7 @@ function statusForError(err) {
 }
 
 export function buildRouter({ registry, llm } = {}) {
-  const reg = registry || createToolRegistry(buildAuthoringTools());
+  const reg = registry || createToolRegistry([...buildAuthoringTools(), ...buildForgeTools()]);
   const router = express.Router();
 
   router.get('/health', (_req, res) => {
@@ -50,6 +50,10 @@ export function buildRouter({ registry, llm } = {}) {
   router.post('/v1/authoring/draft', requireAuthoringAuth, run('req.authoring.draft'));
   router.post('/v1/authoring/analyze', requireAuthoringAuth, run('req.authoring.analyze'));
   router.post('/v1/authoring/suggest-links', requireAuthoringAuth, run('req.authoring.suggest_links'));
+
+  // Forge (greenfield): propor requisitos/arquitetura — geram conteudo, nao escrevem git.
+  router.post('/v1/forge/propose-requirements', requireAuthoringAuth, run('forge.propose_requirements'));
+  router.post('/v1/forge/propose-architecture', requireAuthoringAuth, run('forge.propose_architecture'));
 
   return router;
 }

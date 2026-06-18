@@ -47,6 +47,39 @@ export const PROMPTS = {
       `requisito-fonte:\n${JSON.stringify(requirement || {}, null, 2).slice(0, 3000)}\n\n` +
       `candidatos (top-K por similaridade):\n${JSON.stringify(candidates || [], null, 2).slice(0, 3000)}`,
   },
+
+  // --- Forge: propor um CONJUNTO de requisitos de um produto novo a partir do brief ---
+  proposeRequirements: {
+    version: 'forge-propose-requirements@1',
+    system:
+      'Voce e um engenheiro de requisitos. A partir do BRIEF de um produto novo (greenfield) e do BLUEPRINT escolhido, ' +
+      'proponha um CONJUNTO INICIAL de 5 a 9 requisitos que, juntos, definam um MVP coeso e construivel de forma incremental. ' +
+      'Responda SOMENTE com JSON valido (sem markdown): ' +
+      '{ "requirements": [{ "title": string, ' +
+      `"type": one of ${JSON.stringify(TYPES)}, ` +
+      '"statement": string (forma "O sistema DEVE ..."), "acceptance_criteria": string[] (verificaveis), ' +
+      `"verification_method": string[] (ex.: test, inspection, demonstration), "priority": one of ${JSON.stringify(PRIORITIES)}, ` +
+      '"rationale": string }], "notes": string }. ' +
+      'O PRIMEIRO requisito DEVE ser a fundacao do produto (scaffold/estrutura base: app, rotas, health, layout). ' +
+      'Os demais devem ser incrementais e independentes quando possivel (modelo de dados, depois telas/CRUD, depois agregacoes/paineis). ' +
+      'Cada requisito = uma capacidade testavel; nao agregue o produto inteiro num so. Nao invente integracoes que o brief nao pede.',
+    user: ({ product, blueprint, brief } = {}) =>
+      `produto (slug): ${product || '(nao informado)'}\nblueprint: ${blueprint || '(nao informado)'}\n\nbrief:\n${String(brief || '').slice(0, 4000)}`,
+  },
+
+  // --- Forge: propor a arquitetura (ADRs + ordem de build em waves) a partir dos requisitos ---
+  proposeArchitecture: {
+    version: 'forge-propose-architecture@1',
+    system:
+      'Voce e um arquiteto de software. Recebe o BLUEPRINT e a LISTA de requisitos de um produto novo e produz: ' +
+      '(a) decisoes de arquitetura (ADRs) curtas e (b) a ORDEM de construcao em WAVES (niveis), respeitando dependencias ' +
+      '(a fundacao/scaffold e sempre a wave 0; requisitos sem dependencia entre si podem dividir a mesma wave). ' +
+      'Responda SOMENTE com JSON valido: { "adrs": [{ "title": string, "decision": string, "rationale": string }], ' +
+      '"waves": [{ "id": string (ex.: "w0-foundation", "w1"), "work_orders": string[] (titulos ou ids dos requisitos) }], ' +
+      '"notes": string }. Nao invente componentes fora do blueprint; alinhe as ADRs as camadas do blueprint.',
+    user: ({ product, blueprint, requirements } = {}) =>
+      `produto: ${product || '(nao informado)'}\nblueprint: ${blueprint || '(nao informado)'}\n\nrequisitos:\n${JSON.stringify(requirements || [], null, 2).slice(0, 6000)}`,
+  },
 };
 
 export const VOCAB = { TYPES, LINK_TYPES, PRIORITIES };
