@@ -1,7 +1,7 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs } from './lib.js?v=19';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves } from './forge-lib.js?v=19';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs } from './lib.js?v=20';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves } from './forge-lib.js?v=20';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -872,8 +872,14 @@ function renderEditor() {
   const scopes = uniqueValues(DATA.baseline.requirements, (r) => r.scope && r.scope.product_scope).filter(Boolean).sort();
   const prodNames = {}; for (const p of ((DATA.products && DATA.products.products) || [])) prodNames[p.name] = p.display_name || p.name;
   const productSel = h('select', { 'aria-label': 'Produto (product_scope)' });
-  for (const sc of scopes) { const op = h('option', { value: sc, text: prodNames[sc] ? `${prodNames[sc]} · ${sc}` : sc }); if (ed && sc === (ed.scope && ed.scope.product_scope)) op.selected = true; productSel.append(op); }
+  const edScope = (ed && ed.scope && ed.scope.product_scope) || '';
+  // ao editar um requisito cujo produto ainda nao esta na baseline (produto novo), inclui o
+  // escopo dele como opcao selecionavel — senao o select casaria com o produto errado.
+  const optScopes = edScope && !scopes.includes(edScope) ? [edScope, ...scopes] : scopes;
+  for (const sc of optScopes) { const op = h('option', { value: sc, text: prodNames[sc] ? `${prodNames[sc]} · ${sc}` : sc }); if (sc === edScope) op.selected = true; productSel.append(op); }
   productSel.append(h('option', { value: '__new__', text: '+ outro produto…' }));
+  // o produto faz parte da identidade do requisito — fixo ao editar (mover de produto = outro fluxo).
+  if (ed) productSel.disabled = true;
   const productNew = h('input', { type: 'text', placeholder: 'slug do produto novo (ex.: helpdesk)', hidden: 'hidden', 'aria-label': 'Produto novo' });
   const productScope = () => (productSel.value === '__new__' ? (productNew.value || '').trim().toLowerCase().replace(/[^a-z0-9-]/g, '') : productSel.value);
   field(sId, 'Produto', null, h('div', { class: 'ed-prod' }, productSel, productNew), true);
@@ -910,11 +916,12 @@ function renderEditor() {
   field(sAcc, 'Critérios de aceite (1 por linha)', 'acceptance', area((ed?.acceptance_criteria || []).join('\n'), 3), true);
   const VM = ['test-unit', 'test-integration', 'test-e2e', 'architecture-review', 'deployment-policy-check', 'manual-review', 'monitoring', 'demo'];
   const vmSel = new Set(ed?.verification_method || []);
-  const vmWrap = h('div', { class: 'vm-chips', role: 'group', 'aria-label': 'Métodos de verificação' });
+  const vmHint = h('p', { class: 'vm-hint', id: 'vm-hint', text: 'Seleção múltipla — clique para marcar/desmarcar quantos métodos forem aplicáveis.' });
+  const vmWrap = h('div', { class: 'vm-chips', role: 'group', 'aria-label': 'Métodos de verificação', 'aria-describedby': 'vm-hint' });
   const vmChips = {};
   for (const m of VM) { const c = h('button', { class: 'vm-chip', type: 'button', 'aria-pressed': vmSel.has(m) ? 'true' : 'false', text: m }); c.addEventListener('click', () => { const on = c.getAttribute('aria-pressed') === 'true'; c.setAttribute('aria-pressed', on ? 'false' : 'true'); if (on) vmSel.delete(m); else vmSel.add(m); }); vmChips[m] = c; vmWrap.append(c); }
   f.methods = { get value() { return [...vmSel]; }, set value(arr) { const want = new Set(Array.isArray(arr) ? arr : []); vmSel.clear(); for (const m of VM) { const on = want.has(m); if (on) vmSel.add(m); if (vmChips[m]) vmChips[m].setAttribute('aria-pressed', on ? 'true' : 'false'); } } };
-  field(sAcc, 'Métodos de verificação', null, vmWrap, true);
+  field(sAcc, 'Métodos de verificação', null, h('div', { class: 'vm-field' }, vmHint, vmWrap), true);
 
   // ---- 6) Cenários de qualidade (NFR) — condicional ao tipo ----
   const sNfr = section('Cenários de qualidade (NFR)', 'Obrigatório para requisitos não-funcionais — formato SEI: fonte/estímulo/ambiente/artefato → resposta + medida.');
@@ -927,10 +934,11 @@ function renderEditor() {
   f.type.addEventListener('change', toggleNfr);
 
   // ---- 7) Versionamento (avançado, recolhido) ----
-  const sVerDet = h('details', { class: 'ed-section ed-adv' }, h('summary', { text: 'Versionamento (avançado)' }));
+  const sVerDet = h('details', { class: 'ed-section ed-adv' }, h('summary', { text: 'Versionamento (gerenciado automaticamente)' }));
+  sVerDet.append(h('p', { class: 'ed-hint', id: 'ver-auto', text: 'baseline_version e item_revision são gerados automaticamente; ajuste apenas o tipo de mudança e a justificativa.' }));
   const sVer = h('div', { class: 'ed-grid' }); sVerDet.append(sVer); form.append(sVerDet);
-  field(sVer, 'baseline_version', 'bver', inp(ed?.version?.baseline_version || '1.0.0', { readonly: 'readonly' }));
-  field(sVer, 'item_revision', 'irev', inp(String(ed ? (ed.version?.item_revision || 1) + 1 : 1), { readonly: 'readonly' }));
+  field(sVer, 'baseline_version', 'bver', inp(ed?.version?.baseline_version || '1.0.0', { readonly: 'readonly', title: 'Gerado automaticamente', 'aria-describedby': 'ver-auto' }));
+  field(sVer, 'item_revision', 'irev', inp(String(ed ? (ed.version?.item_revision || 1) + 1 : 1), { readonly: 'readonly', title: 'Gerado automaticamente', 'aria-describedby': 'ver-auto' }));
   field(sVer, 'semantic_change', 'sem', sel(['none', 'patch', 'minor', 'major'], ed ? 'minor' : 'none'));
   field(sVer, 'change_reason', 'reason', inp(ed ? '' : 'novo requisito'), true);
 
@@ -939,7 +947,7 @@ function renderEditor() {
   const out = h('div');
 
   // ---- VALIDAÇÃO AUTOMÁTICA (client-side, sem API): roda ao digitar ----
-  const valOut = h('div', { class: 'val-out' });
+  const valOut = h('div', { class: 'val-out', 'aria-live': 'polite', 'aria-atomic': 'false' });
   let valTimer = null;
   const currentDraftText = () => ({
     id: (f.id.value || '').trim() || (ed && ed.id) || '',
@@ -1109,6 +1117,15 @@ function renderEditor() {
     if (typeof d.architectural_significance === 'boolean') setSel(f.asr, String(d.architectural_significance));
     if (Array.isArray(d.acceptance_criteria)) f.acceptance.value = d.acceptance_criteria.join('\n');
     if (Array.isArray(d.verification_method)) f.methods.value = d.verification_method;
+    // escopo do rascunho (a IA pode devolver scope.applies_to / scope.product_scope) — preenche
+    // sem quebrar a escolha do operador quando o produto vem fixo (edicao desabilita o select).
+    if (d.scope && d.scope.applies_to) setSel(f.applies_to, d.scope.applies_to);
+    if (!ed && d.scope && d.scope.product_scope) {
+      const ps = String(d.scope.product_scope);
+      if (Array.from(productSel.options).some((o) => o.value === ps)) productSel.value = ps;
+      else { productSel.value = '__new__'; productNew.hidden = false; productNew.value = ps; }
+      recomputeId();
+    }
     const q = (Array.isArray(d.quality_scenarios) && d.quality_scenarios[0]) || null;
     if (q) { setVal(f.qs_stimulus, q.stimulus); setVal(f.qs_response, q.response); setVal(f.qs_measure, q.measure || q.response_measure); }
     toggleNfr();
@@ -1454,7 +1471,7 @@ function interactiveGraph(opts = {}) {
     detail.classList.remove('is-hidden');
   }
   function hideDetail() { detail.classList.add('is-hidden'); detail.replaceChildren(); }
-  function select(id) { sel = (sel === id) ? null : id; paint(); }
+  function select(id) { sel = (sel === id) ? null : id; paint(); if (sel) { const x = detail.querySelector('.insp-x'); if (x) x.focus(); } } // foco no fechar ao selecionar (a11y)
 
   function setData(newNodes, newEdges) {
     nodes = (newNodes || []).slice(); edges = (newEdges || []).slice();
@@ -1486,12 +1503,16 @@ function interactiveGraph(opts = {}) {
       el.g.setAttribute('transform', `translate(${n.x},${n.y})`);
       el.tx.textContent = String(n.label || n.id).replace(/^REQ-/, '');
       el.ttl.textContent = n.title ? `${n.id} — ${n.title}` : n.id;
-      el.g.setAttribute('aria-label', n.title ? `${n.id}: ${n.title}` : n.id);
+      let aria = n.title ? `${n.id}: ${n.title}` : n.id;
+      if (detailOf) { const dd = detailOf(n, n.id); if (dd && dd.sub) aria += `, ${dd.sub}`; } // anuncia wave/status ao leitor de tela
+      el.g.setAttribute('aria-label', aria);
     }
     for (const [id, el] of els) if (!keep.has(id)) { el.g.remove(); els.delete(id); }
     paint();
   }
 
+  // Esc fecha o painel de detalhe e devolve o foco ao no selecionado (a11y de teclado).
+  canvas.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && sel) { ev.stopPropagation(); const back = els.get(sel); sel = null; paint(); if (back) back.g.focus(); } });
   wireZoomPanLocal(s, root, { width: W, height: H }, () => { sel = null; paint(); });
   return { el: wrap, setData, focus: (id) => { sel = id; paint(); } };
 }
@@ -1543,6 +1564,16 @@ function renderForgeNew(body) {
   // direita — MAPA AO VIVO
   const right = h('div', { class: 'forge-section', role: 'region', 'aria-live': 'polite', 'aria-label': 'Mapa de requisitos' });
   const mapStatus = h('p', { class: 'muted small forge-mapstatus', text: 'O mapa de requisitos se forma aqui ao propor.' });
+  const mapLegend = h('div', { class: 'ig-wv-legend', hidden: 'hidden' });
+  // legenda dinâmica das waves — deixa explícito que a COR agrupa por etapa de construção
+  // e as SETAS indicam a ordem de dependência (não a cor).
+  const showWaveLegend = (nWaves) => {
+    mapLegend.replaceChildren();
+    if (!nWaves || nWaves < 2) { mapLegend.hidden = true; return; }
+    mapLegend.append(h('span', { class: 'ig-wv-cap', text: 'Cor = wave (etapa de construção); as setas indicam a ordem de dependência.' }));
+    for (let i = 0; i < nWaves; i++) mapLegend.append(h('span', { class: 'ig-wv-item' }, h('span', { class: 'ig-wv-dot wv-' + (i % 6), 'aria-hidden': 'true' }), 'Wave ' + (i + 1)));
+    mapLegend.hidden = false;
+  };
   const graphHost = h('div', {});
   let proposed = []; let graph = null;
   const byProp = (id) => proposed.find((p) => p.id === id);
@@ -1561,7 +1592,7 @@ function renderForgeNew(body) {
     graphHost.replaceChildren(graph.el);
     return graph;
   }
-  right.append(h('h3', { text: 'Mapa de requisitos' }), mapStatus, graphHost);
+  right.append(h('h3', { text: 'Mapa de requisitos' }), mapStatus, mapLegend, graphHost);
   grid.append(right);
   body.append(grid);
 
@@ -1591,6 +1622,7 @@ function renderForgeNew(body) {
       const existingIds = ((DATA.baseline && DATA.baseline.requirements) || []).map((x) => x.id);
       proposed = []; for (const req of reqs) { const id = req.id || nextReqId(pname, existingIds.concat(proposed.map((p) => p.id))); proposed.push({ id, req }); }
       const nodes = proposed.map((p) => ({ id: p.id, title: p.req.title || '' }));
+      showWaveLegend(0);                                                        // ainda sem waves
       ensureGraph().setData(dagFromWaves(nodes, []).nodes, []);                 // fase 1: nós surgem
       renderProposedList(out, pname, bpsel.value, proposed, r.data, graph);
       spinTxt('Analisando dependências…');
@@ -1599,6 +1631,7 @@ function renderForgeNew(body) {
         if (a.ok && a.data && Array.isArray(a.data.waves) && a.data.waves.length) {
           const dag = dagFromWaves(nodes, a.data.waves);
           graph.setData(dag.nodes, dag.edges);
+          showWaveLegend(a.data.waves.length);
           mapStatus.textContent = `Mapa formado · ${dag.nodes.length} requisitos em ${a.data.waves.length} wave(s) — clique num nó para o detalhe.`;
           renderArchAdrs(out, a.data);
         } else { mapStatus.textContent = `${proposed.length} requisitos propostos (sem dependências sugeridas).`; }
