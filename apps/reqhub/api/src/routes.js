@@ -61,6 +61,7 @@ export function buildRouter({ registry, llm, memory } = {}) {
   router.post('/v1/authoring/draft', requireAuthoringAuth, run('req.authoring.draft'));
   router.post('/v1/authoring/analyze', requireAuthoringAuth, run('req.authoring.analyze'));
   router.post('/v1/authoring/suggest-links', requireAuthoringAuth, run('req.authoring.suggest_links'));
+  router.post('/v1/authoring/revise', requireAuthoringAuth, run('req.authoring.revise'));
   router.post('/v1/authoring/assist', requireAuthoringAuth, run('req.authoring.assist'));
 
   // Chat de autoria pelo MOTOR DE GRAFO (router -> deep ReAct com tools R1 -> judge).

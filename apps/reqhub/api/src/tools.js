@@ -114,6 +114,22 @@ export function buildAuthoringTools() {
       },
     },
     {
+      name: 'req.authoring.revise',
+      description: 'Recebe um requisito + as lacunas apontadas (de analyze) e devolve a versao CORRIGIDA (mesmo shape do draft). R1: nao muta, nao escreve no git.',
+      risk: 'R1',
+      inputSchema: schema((v) => need(v.requirement && typeof v.requirement === 'object', 'requirement (objeto) obrigatorio')),
+      authorize: authorizeOperator,
+      execute: async (input, ctx) => {
+        const { parsed, usage } = await llmJson(ctx.llm, { system: PROMPTS.revise.system, user: PROMPTS.revise.user(input), maxTokens: 6000 });
+        return {
+          prompt_version: PROMPTS.revise.version,
+          draft: parsed.draft && typeof parsed.draft === 'object' ? parsed.draft : null,
+          notes: typeof parsed.notes === 'string' ? parsed.notes : '',
+          usage,
+        };
+      },
+    },
+    {
       name: 'req.authoring.suggest_links',
       description: 'Classifica o TIPO de relacao entre um requisito e candidatos ja recuperados por similaridade (nao descobre novos alvos).',
       risk: 'R1',

@@ -46,7 +46,7 @@ test('todas as tools sao R1 (sem mutacao)', () => {
     assert.equal(t.risk, 'R1');
     assert.ok(!t.mutates);
   }
-  assert.deepEqual(reg.list().map((t) => t.name).sort(), ['req.authoring.analyze', 'req.authoring.assist', 'req.authoring.draft', 'req.authoring.suggest_links']);
+  assert.deepEqual(reg.list().map((t) => t.name).sort(), ['req.authoring.analyze', 'req.authoring.assist', 'req.authoring.draft', 'req.authoring.revise', 'req.authoring.suggest_links']);
 });
 
 test('draft: gera rascunho a partir do esboco (operador autenticado)', async () => {
@@ -131,6 +131,19 @@ test('assist: JSON invalido do modelo -> LLM_INVALID_JSON (chat vive no JSON)', 
     () => dispatchTool(reg.get('req.authoring.assist'), { product: 'sicat', message: 'oi', grounding: [] }, ctx(stubLlm(null, { raw: 'Claro! Aqui esta um texto solto.' }))),
     (e) => e.code === 'LLM_INVALID_JSON'
   );
+});
+
+test('revise: corrige o requisito a partir das lacunas (shape do draft)', async () => {
+  const payload = { draft: { title: 'Exportar CDF', type: 'functional', statement: 'O sistema DEVE exportar CDF em PDF', acceptance_criteria: ['gera PDF', 'inclui periodo'], verification_method: ['test-e2e'], scope: { applies_to: 'product', product_scope: 'sicat' }, priority: 'high' }, notes: 'Adicionei criterios de aceite e metodo de verificacao.' };
+  const out = await dispatchTool(reg.get('req.authoring.revise'), { requirement: { id: 'REQ-SICAT-0020', statement: 'exportar CDF' }, gaps: [{ field: 'acceptance_criteria', message: 'ausente' }] }, ctx(stubLlm(payload)));
+  assert.equal(out.output.prompt_version, PROMPTS.revise.version);
+  assert.equal(out.output.draft.title, 'Exportar CDF');
+  assert.ok(out.output.draft.acceptance_criteria.length >= 1);
+  assert.match(out.output.notes, /criterios/i);
+});
+
+test('revise: input invalido -> TOOL_INVALID_INPUT (sem requirement)', async () => {
+  await assert.rejects(() => dispatchTool(reg.get('req.authoring.revise'), {}, ctx(stubLlm({}))), (e) => e.code === 'TOOL_INVALID_INPUT');
 });
 
 test('suggest-links: classifica candidatos e marca status=proposed', async () => {

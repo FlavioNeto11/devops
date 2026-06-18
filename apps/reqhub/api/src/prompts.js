@@ -5,7 +5,8 @@
 // Vocabulario canonico do metamodelo (mantido alinhado a schema/requirement.schema.json).
 // alinhado a specs/schema/requirement.schema.json (o app de revisão e validateDraft só aceitam estes)
 const TYPES = ['functional', 'non-functional', 'business-rule', 'constraint'];
-const LINK_TYPES = ['depends_on', 'refines', 'derives_from', 'constrains', 'conflicts_with', 'duplicate'];
+// alinhado a specs/schema/requirement.schema.json (links[].type) — o gerador rejeita tipo fora disto.
+const LINK_TYPES = ['depends_on', 'relates_to', 'refines', 'derives_from', 'constrains', 'conflicts_with', 'allocates_to', 'verifies'];
 const PRIORITIES = ['low', 'medium', 'high', 'critical'];
 // alinhados a specs/schema/requirement.schema.json (usados pelo assist para gerar drafts diretamente válidos)
 const VERIFICATION_METHODS = ['test-unit', 'test-integration', 'test-e2e', 'architecture-review', 'deployment-policy-check', 'manual-review', 'monitoring', 'demo'];
@@ -40,16 +41,37 @@ export const PROMPTS = {
   },
 
   suggestLinks: {
-    version: 'suggest-links@1',
+    version: 'suggest-links@2',
     system:
       'Voce CLASSIFICA o tipo de relacao entre UM requisito-fonte e candidatos ja recuperados por similaridade ' +
       '(embeddings). NAO descubra novos alvos: use apenas os candidatos fornecidos. Responda SOMENTE com JSON valido: ' +
       `{ "suggestions": [{ "target": string (id do candidato), "type": one of ${JSON.stringify(LINK_TYPES)}, ` +
-      '"confidence": number (0..1), "note": string, "status": "proposed" }] }. ' +
-      'Inclua um candidato so se houver relacao real; duplicate apenas se forem essencialmente o mesmo requisito.',
+      '"confidence": number (0..1), "note": string (curta, por que esse tipo), "status": "proposed" }] }. ' +
+      'Inclua um candidato so se houver relacao real e clara; na duvida entre tipos, prefira relates_to.',
     user: ({ requirement, candidates } = {}) =>
       `requisito-fonte:\n${JSON.stringify(requirement || {}, null, 2).slice(0, 3000)}\n\n` +
       `candidatos (top-K por similaridade):\n${JSON.stringify(candidates || [], null, 2).slice(0, 3000)}`,
+  },
+
+  // --- Revise: corrige UM requisito a partir das lacunas apontadas (mesmo shape do draft) ---
+  revise: {
+    version: 'revise@1',
+    system:
+      'Voce e um engenheiro de requisitos. Recebe UM requisito (JSON) e uma lista de LACUNAS apontadas. ' +
+      'Devolva a VERSAO CORRIGIDA que ENDERECA cada lacuna (statement testavel; acceptance_criteria ' +
+      'verificaveis; verification_method do ENUM; quality_scenario para non-functional; etc.) SEM inventar ' +
+      'fatos nem mudar a intencao do requisito. Responda SOMENTE com JSON valido: { "draft": { "title": string, ' +
+      `"type": one of ${JSON.stringify(TYPES)}, "statement": string (forma "O sistema DEVE ..."), ` +
+      '"acceptance_criteria": string[], ' +
+      `"verification_method": string[] (cada um de ${JSON.stringify(VERIFICATION_METHODS)}), ` +
+      '"quality_scenarios": [{ "stimulus": string, "response": string, "measure": string }] (so non-functional), ' +
+      `"priority": one of ${JSON.stringify(PRIORITIES)}, "criticality": one of ${JSON.stringify(PRIORITIES)}, ` +
+      `"architectural_significance": boolean, "scope": { "applies_to": one of ${JSON.stringify(APPLIES_TO)}, "product_scope": string } }, ` +
+      '"notes": string (1-2 frases: o que mudou) }. PRESERVE o id, o scope.product_scope, version e source do ' +
+      'requisito recebido — NAO gere novos.',
+    user: ({ requirement, gaps } = {}) =>
+      `requisito atual:\n${JSON.stringify(requirement || {}, null, 2).slice(0, 5000)}\n\n` +
+      `lacunas a corrigir:\n${JSON.stringify(gaps || [], null, 2).slice(0, 3000)}`,
   },
 
   // --- Assist: conversa GUIADA e GROUNDED sobre os requisitos de UM produto ---

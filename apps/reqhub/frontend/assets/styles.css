@@ -591,6 +591,18 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 .vm-chip:hover { border-color: var(--line-2); color: var(--fg); }
 .vm-chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--fg); font-weight: 600; }
 .vm-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* vínculos & rastreabilidade (links[]) */
+.ed-links { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.ed-links-empty { font-size: 12.5px; padding: 4px 0; }
+.ed-link-item { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-1); }
+.ed-link-item .rid { font-family: var(--mono); font-size: 11.5px; }
+.ed-link-note { flex: 1 1 100%; }
+.ed-link-rm { margin-left: auto; color: var(--muted); font-size: 13px; line-height: 1; }
+.ed-link-rm:hover { color: var(--danger); }
+.ed-link-add { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
+.ed-link-add .ed-link-tgt { flex: 1 1 180px; font-family: var(--mono); font-size: 12.5px; }
+.ed-link-add select { flex: none; }
+.linklist .link-add.is-added { color: var(--ok); }
 
 /* ===================== Grafo interativo (Forge) ===================== */
 .ig-wrap { width: 100%; }

@@ -1,7 +1,7 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations } from './lib.js?v=25';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=25';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations } from './lib.js?v=26';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=26';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -1201,6 +1201,41 @@ function renderReviewForm(body) {
   const toggleNfr = () => { sNfrFieldset.hidden = f.type.value !== 'non-functional'; };
   f.type.addEventListener('change', toggleNfr);
 
+  // ---- Vínculos & rastreabilidade (alimenta o mapa de impacto / cobertura) ----
+  const LINK_TYPES = ['depends_on', 'relates_to', 'refines', 'derives_from', 'constrains', 'conflicts_with', 'allocates_to', 'verifies'];
+  const links = (ed && Array.isArray(ed.links)) ? ed.links.map((l) => ({ type: l.type, target: l.target, note: l.note })).filter((l) => l.type && l.target) : [];
+  const sLinks = h('fieldset', { class: 'ed-section ed-links-sec' }, h('legend', { text: 'Vínculos & rastreabilidade' }),
+    h('p', { class: 'ed-hint', text: 'Liga este requisito a outros (REQ-…) ou artefatos (ADR-…, svc-…) — vira aresta no mapa de impacto. Adicione manualmente abaixo ou use “Classificar vínculos (IA)” no assistente. Vão para o YAML ao gerar.' }));
+  const linksList = h('ul', { class: 'ed-links' });
+  const linkType = sel(LINK_TYPES, 'depends_on');
+  const linkTarget = h('input', { type: 'text', class: 'ed-link-tgt', placeholder: 'REQ-… ou ADR-…/svc-…', list: 'ed-req-ids', 'aria-label': 'Alvo do vínculo' });
+  const linkAdd = h('button', { class: 'btn', type: 'button', text: '+ Adicionar' });
+  const dl = h('datalist', { id: 'ed-req-ids' });
+  for (const r of DATA.baseline.requirements) dl.append(h('option', { value: r.id }));
+  sLinks.append(linksList, h('div', { class: 'ed-link-add' }, linkType, linkTarget, linkAdd), dl);
+  form.append(sLinks);
+  function renderLinksList() {
+    linksList.replaceChildren();
+    if (!links.length) { linksList.append(h('li', { class: 'ed-links-empty muted', text: 'Nenhum vínculo ainda.' })); return; }
+    links.forEach((l, i) => linksList.append(h('li', { class: 'ed-link-item' },
+      badge(l.type, 'b'),
+      h('button', { class: 'btn-link rid', type: 'button', title: byId(l.target) ? 'Abrir requisito' : 'alvo externo', onclick: () => { if (byId(l.target)) openReq(l.target); }, text: l.target }),
+      l.note ? h('span', { class: 'muted small ed-link-note', text: l.note }) : null,
+      h('button', { class: 'btn-link ed-link-rm', type: 'button', 'aria-label': 'Remover vínculo ' + l.type + ' ' + l.target, title: 'Remover', onclick: () => { links.splice(i, 1); renderLinksList(); }, text: '✕' }))));
+  }
+  // addLink: dedupe por type+target. Retorna true se adicionou. Reusado pelos vínculos sugeridos pela IA.
+  function addLink(type, target, note) {
+    type = String(type || '').trim(); target = String(target || '').trim();
+    if (!type || !target || !LINK_TYPES.includes(type)) return false;
+    if (links.some((l) => l.type === type && l.target === target)) return false;
+    links.push({ type, target, ...(note ? { note: String(note) } : {}) });
+    renderLinksList();
+    return true;
+  }
+  linkAdd.addEventListener('click', () => { if (addLink(linkType.value, linkTarget.value)) linkTarget.value = ''; else linkTarget.focus(); });
+  linkTarget.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); linkAdd.click(); } });
+  renderLinksList();
+
   // ---- 7) Versionamento (avançado, recolhido) ----
   const sVerDet = h('details', { class: 'ed-section ed-adv' }, h('summary', { text: 'Versionamento (gerenciado automaticamente)' }));
   sVerDet.append(h('p', { class: 'ed-hint', id: 'ver-auto', text: 'baseline_version e item_revision são gerados automaticamente; ajuste apenas o tipo de mudança e a justificativa.' }));
@@ -1291,8 +1326,26 @@ function renderReviewForm(body) {
       const card = h('div', { class: 'card' }, h('h3', { text: 'Lacunas — prontidão ' + (r.data.score != null ? r.data.score : '?') }));
       const gaps = r.data.gaps || [];
       if (!gaps.length) card.append(h('p', { class: 'empty', text: 'Sem lacunas apontadas.' }));
-      else { const ul = h('ul', { class: 'errlist' }); gaps.forEach((g) => ul.append(h('li', {}, badge(g.severity || 'info', g.severity === 'blocker' ? 'b-crit' : ''), ' ' + ((g.field ? g.field + ': ' : '') + (g.message || ''))))); card.append(ul); }
+      else {
+        const ul = h('ul', { class: 'errlist' }); gaps.forEach((g) => ul.append(h('li', {}, badge(g.severity || 'info', g.severity === 'blocker' ? 'b-crit' : ''), ' ' + ((g.field ? g.field + ': ' : '') + (g.message || ''))))); card.append(ul);
+        // RESOLVER as lacunas com IA: corrige os campos do formulário e re-analisa.
+        card.append(h('div', { class: 'ws-actions' }, h('button', { class: 'btn primary', type: 'button', text: '✨ Corrigir com IA', onclick: () => doRevise(gaps) })));
+      }
       aiOut.replaceChildren(card);
+    });
+  }
+  function doRevise(gaps) {
+    guard(async () => {
+      const r = await AI.post('/v1/authoring/revise', { requirement: collectDraft(), gaps });
+      if (!r.ok) return showErr(r);
+      const revised = (r.data && r.data.draft) || null;
+      if (!revised) { aiOut.replaceChildren(h('div', { class: 'card' }, h('h3', { text: 'Sem correções' }), h('p', { class: 'muted', text: 'A IA não retornou uma versão corrigida.' }))); return; }
+      applyDraftToForm(revised);
+      runValidation();
+      aiOut.replaceChildren(h('div', { class: 'card' },
+        h('h3', {}, badge('aplicado', 'b-ok'), ' Correções da IA'),
+        h('p', { class: 'muted', text: r.data.notes || 'Campos atualizados — revise e clique em “Analisar lacunas” de novo ou em “Gerar YAML”.' }),
+        h('div', { class: 'ws-actions' }, h('button', { class: 'btn', type: 'button', text: 'Analisar de novo', onclick: doAnalyze }))));
     });
   }
   function doLinks() {
@@ -1309,9 +1362,23 @@ function renderReviewForm(body) {
       const r = await AI.post('/v1/authoring/suggest-links', { requirement: draft, candidates: cands });
       if (!r.ok) return showErr(r);
       const sg = r.data.suggestions || [];
-      const card = h('div', { class: 'card' }, h('h3', { text: 'Vínculos sugeridos (proposed) — ' + (r.data.prompt_version || '') }));
+      const card = h('div', { class: 'card' }, h('h3', { text: 'Vínculos sugeridos — ' + (r.data.prompt_version || '') }));
       if (!sg.length) card.append(h('p', { class: 'empty', text: 'Nenhum vínculo relevante entre os candidatos.' }));
-      else { const ul = h('ul', { class: 'linklist' }); sg.forEach((s) => ul.append(h('li', {}, badge(s.type, 'b'), ' ', h('button', { class: 'btn-link', type: 'button', onclick: () => openReq(s.target), text: s.target }), ' ', h('span', { class: 'muted', text: '(' + (s.confidence != null ? s.confidence : '?') + ') ' + (s.note || '') })))); card.append(ul); }
+      else {
+        card.append(h('p', { class: 'muted small', text: 'Clique em “adicionar” para incluir o vínculo no requisito (entra no YAML ao gerar).' }));
+        const ul = h('ul', { class: 'linklist' });
+        sg.forEach((s) => {
+          const addBtn = h('button', { class: 'btn-link link-add', type: 'button', text: '+ adicionar' });
+          addBtn.addEventListener('click', () => {
+            if (addLink(s.type, s.target, s.note)) { addBtn.textContent = '✓ adicionado'; addBtn.disabled = true; addBtn.classList.add('is-added'); }
+            else { addBtn.textContent = 'já adicionado'; addBtn.disabled = true; }
+          });
+          ul.append(h('li', {}, badge(s.type, 'b'), ' ',
+            h('button', { class: 'btn-link', type: 'button', onclick: () => openReq(s.target), text: s.target }), ' ',
+            h('span', { class: 'muted', text: '(' + (s.confidence != null ? s.confidence : '?') + ') ' + (s.note || '') }), ' ', addBtn));
+        });
+        card.append(ul);
+      }
       aiOut.replaceChildren(card);
     });
   }
@@ -1382,6 +1449,7 @@ function renderReviewForm(body) {
       source: srcPaths.length ? { source_paths: srcPaths } : undefined,
       acceptance_criteria: lines.length ? lines : undefined,
       verification_method: methods.length ? methods : undefined,
+      links: links.length ? links.map((l) => ({ type: l.type, target: l.target, ...(l.note ? { note: l.note } : {}) })) : undefined,
       version: { baseline_version: f.bver.value.trim() || '1.0.0', item_revision: Number(f.irev.value) || 1, semantic_change: f.sem.value, change_reason: f.reason.value.trim() || undefined },
     };
     if (d.type === 'non-functional') {
