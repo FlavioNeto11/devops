@@ -177,7 +177,7 @@ td .rid { font-family: var(--mono); color: var(--fg-1); }
 
 /* workspace */
 .workspace { display: grid; grid-template-columns: 1fr; gap: 16px; }
-@media (min-width: 900px) { .workspace { grid-template-columns: 1.5fr 1fr; } }
+@media (min-width: 900px) { .workspace { grid-template-columns: minmax(0, 1.6fr) minmax(260px, 340px); } }
 .card { background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
 .card h3 { margin: 0 0 10px; font-size: 14px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; }
 .card h4 { margin: 16px 0 6px; font-size: 13px; color: var(--fg-1); }
@@ -309,6 +309,22 @@ td .rid { font-family: var(--mono); color: var(--fg-1); }
 .cov-summary { gap: 14px; }
 .cov-stat { display: inline-flex; align-items: center; gap: 6px; }
 .cov-stat-l { color: var(--fg-1); font-size: 12.5px; }
+.cov-metrics { display: flex; gap: 24px; flex-wrap: wrap; margin: 4px 0 14px; }
+.cov-metric { display: inline-flex; align-items: baseline; gap: 6px; }
+.cov-metric strong { font-size: 22px; font-weight: 700; letter-spacing: -0.4px; }
+.cov-scopes { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+.cov-scopes summary { cursor: pointer; font-size: 12.5px; color: var(--accent); font-weight: 600; }
+.cov-scopes summary:hover { text-decoration: underline; }
+.cov-scopes table { margin-top: 10px; }
+
+/* estado-vazio acionável (padrão de todas as telas) */
+.empty-state { text-align: center; padding: 30px 22px; }
+.empty-state h3 { margin: 0 0 6px; font-size: 15px; }
+.empty-state .muted { max-width: 52ch; margin: 0 auto 14px; }
+.empty-state .ws-actions { justify-content: center; }
+
+/* slug pequeno do produto ao lado do display_name nas linhas de grupo */
+.gr-slug { font-family: var(--mono); font-size: 10.5px; color: var(--muted); font-weight: 400; }
 
 /* coverage matrix */
 .matrix td.miss { color: var(--danger); text-align: center; }
@@ -532,7 +548,9 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 .ov-hero h2 { margin: 0 0 7px; font-size: 25px; letter-spacing: -0.6px; }
 .ov-hero p { margin: 0; color: var(--fg-1); max-width: 70ch; font-size: 14.5px; line-height: 1.55; }
 .ov-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(178px, 1fr)); gap: 14px; margin-bottom: 20px; }
-.ov-metric { background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 16px 18px; box-shadow: var(--shadow-sm); }
+.ov-metric { background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 16px 18px; box-shadow: var(--shadow-sm); display: block; width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; transition: border-color .12s, transform .12s; }
+.ov-metric:hover { border-color: var(--accent); transform: translateY(-1px); }
+.ov-metric:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .ov-metric .m-ic { width: 34px; height: 34px; border-radius: 9px; background: var(--bg-2); color: var(--accent); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 11px; }
 .ov-metric .m-ic svg { width: 18px; height: 18px; }
 .ov-metric .m-v { font-size: 27px; font-weight: 700; letter-spacing: -0.5px; line-height: 1; }
@@ -561,10 +579,12 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 .ov-qbtn:hover { border-color: var(--accent); }
 .ov-qbtn svg { width: 18px; height: 18px; color: var(--accent); flex: none; }
 .ov-recent { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.ov-recent li { display: flex; align-items: center; gap: 9px; padding: 8px 0; border-bottom: 1px dashed var(--line); font-size: 12.5px; }
-.ov-recent li:last-child { border-bottom: 0; }
-.ov-recent .rid { font-family: var(--mono); font-size: 11.5px; flex: none; }
-.ov-recent .rt { color: var(--fg-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov-recent-i { display: flex; align-items: center; gap: 9px; padding: 8px 4px; border: 0; border-bottom: 1px dashed var(--line); border-radius: 6px; background: none; font: inherit; font-size: 12.5px; color: inherit; cursor: pointer; text-align: left; width: 100%; }
+.ov-recent-i:last-child { border-bottom: 0; }
+.ov-recent-i:hover { background: var(--bg-2); }
+.ov-recent-i:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.ov-recent-i .rid { font-family: var(--mono); font-size: 11.5px; flex: none; }
+.ov-recent-t { color: var(--fg-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ===================== Editor — formulário em seções ===================== */
 .ed-form { display: flex; flex-direction: column; }

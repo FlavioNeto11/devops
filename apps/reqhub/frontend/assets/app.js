@@ -1,11 +1,11 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId } from './lib.js?v=36';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=36';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId } from './lib.js?v=37';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=37';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
-const state = { view: 'explorer', filters: {}, q: '', selectedId: null, impactFilter: { type: '', product: '', focus: false }, editId: null, editor: null, devFilter: { status: '', product: '' }, forge: { product: null, step: 'definir', filter: 'all' } };
+const state = { view: 'explorer', filters: {}, q: '', selectedId: null, impactFilter: { type: '', product: '', focus: false }, editId: null, editor: null, devFilter: { status: '', product: '' }, reproFilter: { reason: '' }, forge: { product: null, step: 'definir', filter: 'all' } };
 const DATA = { baseline: null, impact: null, retrieval: null, history: null, registry: null, embeddings: null, implStatus: null, coverage: null, products: null, blueprints: null, buildPlans: {} };
 
 /* ---------- DOM helpers (seguros) ---------- */
@@ -71,6 +71,33 @@ function prioCls(p) { return p === 'critical' ? 'b-crit' : p === 'high' ? 'b-hig
 function bandCls(b) { return b === 'high' ? 'b-high' : b === 'medium' ? 'b-med' : 'b-low'; }
 function setStatus(msg, err) { const s = document.getElementById('status'); s.textContent = msg || ''; s.hidden = !msg; s.className = 'status' + (err ? ' error' : ''); }
 
+/* ---------- helpers de UI compartilhados (consistência entre telas) ---------- */
+// ícone de seção (glifo): mesma marca visual em todos os h3 de card detalhado.
+function secIc(g) { return h('span', { class: 'us-sec-ic', 'aria-hidden': 'true', text: g }); }
+// rótulo de produto numa linha de grupo: display_name + slug mono só quando diferem.
+function prodLabelNodes(p) { const dn = productMeta(p).display_name || p; return dn === p ? [p] : [dn, h('span', { class: 'gr-slug', text: ' ' + p })]; }
+// estado-vazio ACIONÁVEL padrão: título + explicação curta + CTA do próximo passo.
+function emptyState(opts) {
+  const o = opts || {};
+  const card = h('div', { class: 'card empty-state' }, h('h3', { text: o.title || 'Nada por aqui' }));
+  if (o.text) card.append(h('p', { class: 'muted', text: o.text }));
+  const acts = h('div', { class: 'ws-actions' });
+  if (o.ctaLabel) acts.append(h('button', { class: 'btn primary', type: 'button', onclick: o.ctaOnClick || (() => {}), text: o.ctaLabel }));
+  if (o.altLabel) acts.append(h('button', { class: 'btn', type: 'button', onclick: o.altOnClick || (() => {}), text: o.altLabel }));
+  if (acts.children.length) card.append(acts);
+  return card;
+}
+// há algum filtro/busca ativo? (decide se o vazio é "limpar filtros" ou "começar")
+function hasActiveFilters() { return !!(state.q || Object.values(state.filters || {}).some(Boolean) || (state.devFilter && (state.devFilter.status || state.devFilter.product))); }
+// zera filtros/busca e re-renderiza a tela atual (próximo passo dos estados-vazios filtrados).
+function clearFilters() {
+  state.filters = {};
+  state.q = '';
+  state.devFilter = { status: '', product: '' };
+  const qi = document.getElementById('q'); if (qi) qi.value = '';
+  if (RENDER[state.view]) RENDER[state.view]();
+}
+
 /* ---------- Explorer ---------- */
 // Faixa de "recentes" (últimos REQs abertos), reusada no Explorador e no Workspace.
 function recentsStrip() {
@@ -103,7 +130,7 @@ function renderExplorer() {
     h('th', { scope: 'col', text: 'Status' }), h('th', { scope: 'col', text: 'Prioridade' }), h('th', { scope: 'col', text: 'ASR' }), h('th', { scope: 'col', text: 'Impacto' }))));
   const tb = h('tbody');
   for (const { product, items } of groupByProduct(reqs)) {
-    tb.append(h('tr', { class: 'group-row' }, h('td', { colspan: '7', text: `${product} · ${items.length}` })));
+    tb.append(h('tr', { class: 'group-row' }, h('td', { colspan: '7' }, ...prodLabelNodes(product), ' · ' + items.length)));
     for (const r of items) {
       const tr = h('tr', { tabindex: '0', role: 'button', 'aria-label': `Abrir ${r.id}`, onclick: () => openReq(r.id),
         onkeydown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openReq(r.id); } } },
@@ -118,7 +145,9 @@ function renderExplorer() {
     }
   }
   table.append(tb);
-  if (!reqs.length) grid.append(h('p', { class: 'empty', text: 'Nenhum requisito para os filtros atuais.' }));
+  if (!reqs.length) grid.append(hasActiveFilters()
+    ? emptyState({ title: 'Nenhum requisito para os filtros atuais', text: 'Ajuste ou limpe os filtros para ver a base completa.', ctaLabel: 'Limpar filtros', ctaOnClick: clearFilters })
+    : emptyState({ title: 'A base está vazia', text: 'Nenhum requisito registrado ainda — comece autorando o primeiro.', ctaLabel: '+ Novo requisito', ctaOnClick: () => openEditor(null) }));
   else grid.append(table);
   document.getElementById('explorer-count').textContent = `${reqs.length} de ${DATA.baseline.requirements.length}`;
 }
@@ -154,30 +183,34 @@ function renderWorkspace() {
   const recents = recentsStrip();
   if (recents) body.append(recents);
   const r = state.selectedId ? byId(state.selectedId) : null;
-  if (!r) { body.append(h('p', { class: 'empty', text: 'Selecione um requisito no Explorador para ver os detalhes, impacto e versão.' })); return; }
+  if (!r) { body.append(emptyState({ title: 'Nenhum requisito selecionado', text: 'Escolha um requisito no Explorador para ver aqui o detalhe, impacto, versão e refinamentos.', ctaLabel: 'Abrir o Explorador →', ctaOnClick: () => switchView('explorer') })); return; }
+
+  // Cabeçalho de detalhe (mesma régua da Usabilidade): badge tipo + título focável + status + ASR + id.
+  const isNfr = r.type === 'non-functional';
+  const heading = h('h2', { class: 'usability-title', tabindex: '-1', text: r.title || r.id });
+  body.append(h('div', { class: 'usa-detail-head' }, badge(isNfr ? 'NFR' : 'FN', isNfr ? 'b-nfr' : 'b-fn'), heading,
+    r.status ? badge(r.status, 'b') : null, r.architectural_significance ? badge('ASR', 'b-asr') : null,
+    h('span', { class: 'muted small usa-detail-id', text: r.id })));
 
   const main = h('div');
   const head = h('div', { class: 'card' },
-    h('h3', { text: 'Requisito' }),
+    h('h3', {}, secIc('◷'), 'Requisito'),
     h('div', { class: 'kv' },
-      dt('ID'), dd(h('span', { class: 'rid', text: r.id })),
-      dt('Título'), dd(r.title),
-      dt('Tipo'), dd(r.type), dt('Status'), dd(r.status),
-      dt('Escopo'), dd(`${r.scope.applies_to || '—'} · ${r.scope.product_scope}${r.scope.capability ? ' · ' + r.scope.capability : ''}`),
-      dt('Prioridade'), dd(h('span', {}, badge(r.priority, prioCls(r.priority)), ' ', r.architectural_significance ? badge('ASR', 'b-asr') : '')),
+      dt('Escopo'), dd(`${r.scope.applies_to || '—'} · ${productMeta(r.scope.product_scope).display_name || r.scope.product_scope}${r.scope.capability ? ' · ' + r.scope.capability : ''}`),
+      dt('Prioridade'), dd(h('span', {}, badge(r.priority, prioCls(r.priority)))),
       dt('Enunciado'), dd(r.statement),
     ));
   main.append(head);
   main.append(h('div', { class: 'ws-actions' }, h('button', { class: 'btn', type: 'button', onclick: () => openEditor(r.id), text: '✎ Editar (propor via PR)' })));
 
   if ((r.acceptance_criteria || []).length || (r.verification_method || []).length) {
-    const v = h('div', { class: 'card' }, h('h3', { text: 'Verificação' }));
+    const v = h('div', { class: 'card' }, h('h3', {}, secIc('✓'), 'Verificação'));
     if ((r.acceptance_criteria || []).length) { v.append(h('strong', { text: 'Critérios de aceite' })); const ul = h('ul'); r.acceptance_criteria.forEach((c) => ul.append(h('li', { text: c }))); v.append(ul); }
     if ((r.verification_method || []).length) v.append(h('p', {}, h('strong', { text: 'Métodos: ' }), r.verification_method.join(', ')));
     main.append(v);
   }
   if ((r.quality_scenarios || []).length) {
-    const q = h('div', { class: 'card' }, h('h3', { text: 'Cenários de qualidade (NFR)' }));
+    const q = h('div', { class: 'card' }, h('h3', {}, secIc('◑'), 'Cenários de qualidade (NFR)'));
     for (const s of r.quality_scenarios) {
       q.append(h('div', { class: 'qscenario' },
         h('div', {}, h('b', { text: 'Estímulo: ' }), `${s.source} → ${s.stimulus}`),
@@ -191,7 +224,7 @@ function renderWorkspace() {
   // refinamentos (REF-*) que detalham ESTE requisito (telas/comportamento ancorados a ele)
   const refs = refsForReq(r.id);
   if (refs.length) {
-    const rc = h('div', { class: 'card' }, h('h3', { text: 'Refinamentos (telas)' }),
+    const rc = h('div', { class: 'card' }, h('h3', {}, secIc('▤'), 'Refinamentos (telas)'),
       h('p', { class: 'muted small', text: 'Telas/comportamentos que detalham este requisito — clique para ver a usabilidade.' }));
     const ul = h('ul', { class: 'ws-reflist' });
     for (const rf of refs) {
@@ -208,7 +241,7 @@ function renderWorkspace() {
   // painel lateral: impacto + versão
   const side = h('div');
   const nb = neighborhood(DATA.impact.edges, r.id);
-  const imp = h('div', { class: 'card' }, h('h3', { text: 'Impacto' }),
+  const imp = h('div', { class: 'card' }, h('h3', {}, secIc('⇄'), 'Impacto'),
     h('p', {}, h('strong', { text: 'Score: ' }), badge(`${r.impact_band} (${r.impact_score})`, bandCls(r.impact_band))));
   imp.append(h('p', { class: 'muted', text: 'Sai (afeta / aloca / verifica):' }));
   imp.append(linkList(nb.outgoing, 'to'));
@@ -216,21 +249,21 @@ function renderWorkspace() {
   imp.append(linkList(nb.incoming, 'from'));
   side.append(imp);
 
-  const ver = h('div', { class: 'card' }, h('h3', { text: 'Versão' }),
+  const ver = h('div', { class: 'card' }, h('h3', {}, secIc('⌗'), 'Versão'),
     h('div', { class: 'kv' },
-      dt('baseline'), dd(r.version.baseline_version),
-      dt('revisão'), dd(String(r.version.item_revision)),
-      dt('mudança'), dd(r.version.semantic_change || 'none'),
-      dt('motivo'), dd(r.version.change_reason || '—'),
-      dt('arquivo'), dd(h('code', { text: r.file }))));
+      dt('Baseline'), dd(r.version.baseline_version),
+      dt('Revisão'), dd(String(r.version.item_revision)),
+      dt('Mudança'), dd(badge(semChangeLabel(r.version.semantic_change), semChangeCls(r.version.semantic_change))),
+      dt('Motivo'), dd(r.version.change_reason || '—'),
+      dt('Arquivo'), dd(h('code', { text: r.file }))));
   side.append(ver);
 
   // Desenvolvimento (status REQ → PR → deploy)
   const dv = DATA.implStatus && DATA.implStatus.items && DATA.implStatus.items[r.id];
   if (dv) {
-    const dev = h('div', { class: 'card' }, h('h3', { text: 'Desenvolvimento' }),
+    const dev = h('div', { class: 'card' }, h('h3', {}, secIc('⚙'), 'Desenvolvimento'),
       h('div', { class: 'kv' },
-        dt('status'), dd(badge(dv.status, devStatusCls(dv.status))),
+        dt('status'), dd(badge(devStatusLabel(dv.status), devStatusCls(dv.status))),
         ...(dv.pr ? [dt('PR'), dd(h('a', { class: 'btn-link', href: dv.pr, target: '_blank', rel: 'noopener', text: dv.pr }))] : []),
         ...(dv.commit ? [dt('commit'), dd(h('code', { text: dv.commit }))] : []),
         ...(dv.deployment ? [dt('deployment'), dd(dv.deployment)] : []),
@@ -241,7 +274,8 @@ function renderWorkspace() {
   // Alocação (arquitetura/infra DERIVADAS dos requisitos)
   const al = r.allocation || {};
   const allocRows = [['Serviços', al.service_refs], ['Infra', al.infra_refs], ['SLOs', al.slo_refs], ['ADRs', al.adr_refs], ['Arquitetura', al.architecture_refs]].filter(([, v]) => (v || []).length);
-  const alloc = h('div', { class: 'card' }, h('h3', { text: 'Alocação (arquitetura/infra derivadas)' }));
+  const alloc = h('div', { class: 'card' }, h('h3', {}, secIc('◳'), 'Alocação'),
+    h('p', { class: 'muted small', text: 'Arquitetura/infra derivadas dos requisitos.' }));
   if (!allocRows.length) alloc.append(h('p', { class: 'empty', text: 'Sem alocação registrada — lacuna (autore via edição).' }));
   else for (const [label, vals] of allocRows) alloc.append(h('p', {}, h('strong', { text: label + ': ' }), ...vals.flatMap((v, i) => [i ? ', ' : '', h('code', { text: v })])));
   side.append(alloc);
@@ -249,7 +283,7 @@ function renderWorkspace() {
   // Requisitos similares (semântica via embeddings locais)
   if (DATA.embeddings && DATA.embeddings.vectors) {
     const sims = topSimilar(DATA.embeddings.vectors, r.id, 5);
-    const sc = h('div', { class: 'card' }, h('h3', { text: 'Requisitos similares (semântica)' }));
+    const sc = h('div', { class: 'card' }, h('h3', {}, secIc('≈'), 'Requisitos similares (semântica)'));
     if (!sims.length) sc.append(h('p', { class: 'empty', text: '—' }));
     else {
       const ul = h('ul', { class: 'linklist' });
@@ -266,6 +300,7 @@ function renderWorkspace() {
   }
 
   body.append(main, side);
+  try { heading.focus({ preventScroll: true }); } catch { /* noop */ }
 }
 function dt(t) { return h('dt', { text: t }); }
 function dd(c) { return h('dd', {}, c); }
@@ -283,6 +318,9 @@ function linkList(edges, dir) {
 }
 
 /* ---------- Versões & mudanças ---------- */
+const SEM_CHANGE_LBL = { major: 'maior', minor: 'menor', patch: 'correção', none: 'sem mudança' };
+const semChangeLabel = (s) => SEM_CHANGE_LBL[s] || s || 'sem mudança';
+const semChangeCls = (s) => s === 'major' ? 'b-crit' : s === 'minor' ? 'b-high' : s === 'patch' ? 'b-med' : 'b-low';
 function renderVersions() {
   const body = document.getElementById('versions-body');
   body.replaceChildren();
@@ -306,8 +344,8 @@ function renderVersions() {
       for (const it of arr) {
         const r = kind === 'changed'
           ? h('tr', { tabindex: '0', role: 'button', onclick: () => openReq(it.id), onkeydown: (ev) => { if (ev.key === 'Enter') openReq(it.id); } },
-              h('td', {}, h('span', { class: 'rid', text: it.id })), h('td', { text: it.product }),
-              h('td', {}, badge(it.semantic_change || 'none', it.semantic_change === 'major' ? 'b-crit' : 'b-med')),
+              h('td', {}, h('span', { class: 'rid', text: it.id })), h('td', { text: productMeta(it.product).display_name || it.product }),
+              h('td', {}, badge(semChangeLabel(it.semantic_change), semChangeCls(it.semantic_change))),
               h('td', { text: (it.fields || []).join(', ') || '—' }),
               h('td', { text: it.impact_delta ? (it.impact_delta > 0 ? '+' : '') + it.impact_delta : '0' }))
           : h('tr', { tabindex: '0', role: 'button', onclick: () => openReq(it.id), onkeydown: (ev) => { if (ev.key === 'Enter') openReq(it.id); } },
@@ -322,15 +360,19 @@ function renderVersions() {
     body.append(card);
   }
 
-  body.append(h('p', { class: 'muted', text: 'Ledger: estado de versão de cada requisito. O diff acima compara a baseline atual com a anterior (git). O diff por PR também é publicado pelo CI (specs-diff / skill /baseline-diff).' }));
+  body.append(h('p', { class: 'muted', text: 'Ledger: estado de versão de cada requisito, agrupado por produto. O diff acima compara a baseline atual com a anterior (git); o diff por PR também é publicado pelo CI (specs-diff / skill /baseline-diff).' }));
   const reqs = filterReqs(DATA.baseline.requirements, { q: state.q }).slice().sort((a, b) => a.id.localeCompare(b.id));
+  if (!reqs.length) { body.append(emptyState({ title: 'Nenhum requisito para a busca', text: 'Limpe a busca para ver o ledger completo.', ctaLabel: 'Limpar busca', ctaOnClick: clearFilters })); return; }
   const wrap = h('div', { class: 'grid-wrap' });
   const t = h('table');
-  t.append(h('thead', {}, h('tr', {}, h('th', { text: 'ID' }), h('th', { text: 'baseline' }), h('th', { text: 'rev' }), h('th', { text: 'mudança' }), h('th', { text: 'motivo' }))));
+  t.append(h('thead', {}, h('tr', {}, h('th', { text: 'Requisito' }), h('th', { text: 'Versão da baseline' }), h('th', { text: 'Revisão' }), h('th', { text: 'Tipo de mudança' }), h('th', { text: 'Motivo' }))));
   const tb = h('tbody');
-  for (const r of reqs) tb.append(h('tr', { tabindex: '0', role: 'button', onclick: () => openReq(r.id), onkeydown: (ev) => { if (ev.key === 'Enter') openReq(r.id); } },
-    h('td', {}, h('span', { class: 'rid', text: r.id })), h('td', { text: r.version.baseline_version }), h('td', { text: String(r.version.item_revision) }),
-    h('td', {}, badge(r.version.semantic_change || 'none', r.version.semantic_change === 'major' ? 'b-crit' : 'b-med')), h('td', { text: r.version.change_reason || '—' })));
+  for (const { product, items } of groupByProduct(reqs)) {
+    tb.append(h('tr', { class: 'group-row' }, h('td', { colspan: '5' }, ...prodLabelNodes(product), ' · ' + items.length)));
+    for (const r of items) tb.append(h('tr', { tabindex: '0', role: 'button', 'aria-label': `Abrir ${r.id}`, onclick: () => openReq(r.id), onkeydown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openReq(r.id); } } },
+      h('td', {}, h('span', { class: 'rid', text: r.id })), h('td', { text: r.version.baseline_version }), h('td', { text: String(r.version.item_revision) }),
+      h('td', {}, badge(semChangeLabel(r.version.semantic_change), semChangeCls(r.version.semantic_change))), h('td', { text: r.version.change_reason || '—' })));
+  }
   t.append(tb); wrap.append(t); body.append(wrap);
 }
 
@@ -751,39 +793,33 @@ function wireZoomPan(s, root, layout) {
 
 /* ---------- Cobertura ---------- */
 function renderCoverage() {
+  const wrapF = document.getElementById('coverage-filters');
+  if (wrapF) wrapF.replaceChildren();
   const body = document.getElementById('coverage-body');
   body.replaceChildren();
-  body.append(h('p', { class: 'muted', text: 'Matriz requisito × evidência/alocação. Verde = preenchido; vermelho = lacuna. Links a artefatos externos (ADR/serviço/infra/SLO) e evidências são autorados na iteração (Fase 2+).' }));
 
-  // Resumo "da cobertura" (coverage-report.json): % por dimensão no total + lacunas por escopo.
-  const cov = DATA.coverage;
-  if (cov && cov.totals) {
-    const dimLbl = { source_paths: 'Origem', links: 'Links', allocation: 'Alocação', evidence: 'Evidência', verification_method: 'Método' };
-    const card = h('div', { class: 'card' }, h('h3', { text: `Cobertura da base — ${cov.totals.total} requisitos · ${cov.totals.scopes} escopos` }));
-    const chips = h('div', { class: 'ws-actions' });
-    for (const d of cov.dimensions) {
-      const pct = cov.totals.coverage_pct[d];
-      chips.append(badge(`${dimLbl[d] || d}: ${pct}%`, pct >= 70 ? 'b-ok' : pct >= 30 ? '' : 'b-crit'));
-    }
-    card.append(chips);
-    // escopos mais "rasos" por origem/links/alocação (lacunas reais a preencher)
-    const scopes = Object.entries(cov.by_scope).sort((a, b) => (b[1].without_links + b[1].without_allocation) - (a[1].without_links + a[1].without_allocation)).slice(0, 6);
-    const tbl = h('table', { class: 'matrix' });
-    tbl.append(h('thead', {}, h('tr', {}, h('th', { text: 'Escopo' }), h('th', { text: 'Total' }), ...cov.dimensions.map((d) => h('th', { text: dimLbl[d] || d })))));
-    const tb = h('tbody');
-    for (const [scope, c] of scopes) {
-      tb.append(h('tr', {}, h('td', { text: scope }), h('td', { text: String(c.total) }),
-        ...cov.dimensions.map((d) => { const w = c[`without_${d}`]; return h('td', { class: w === 0 ? 'hit' : 'miss', text: w === 0 ? '✓' : `−${w}` }); })));
-    }
-    tbl.append(tb); card.append(h('p', { class: 'muted', text: 'Escopos com mais lacunas (sem link/alocação). −N = N requisitos sem aquela dimensão.' }), tbl);
-    body.append(card);
-  }
   const cols = [['acceptance', 'Aceite'], ['method', 'Método'], ['evidence', 'Evidência'], ['adr', 'ADR'], ['service', 'Serviço'], ['infra', 'Infra'], ['slo', 'SLO']];
-  const reqs = filterReqs(DATA.baseline.requirements, { ...state.filters, q: state.q }).slice().sort((a, b) => coverageScore(a) - coverageScore(b));
+  const allReqs = DATA.baseline.requirements;
+  const reqs = filterReqs(allReqs, { ...state.filters, q: state.q }).slice().sort((a, b) => coverageScore(a) - coverageScore(b));
 
-  // Resumo por dimensão (coberto/faltando) sobre os requisitos exibidos — calculado em lib.js.
+  // Toolbar de filtro (Produto) + contador — antes a lista filtrava em silêncio.
+  if (wrapF) {
+    const products = uniqueValues(allReqs, (r) => r.scope && r.scope.product_scope);
+    const sel = h('select', { 'aria-label': 'Produto', onchange: (e) => { state.filters.product = e.target.value; renderCoverage(); } }, h('option', { value: '', text: 'Produto' }));
+    for (const v of products) { const o = h('option', { value: v, text: productMeta(v).display_name || v }); if (v === state.filters.product) o.selected = true; sel.append(o); }
+    wrapF.append(h('label', {}, 'Produto', sel), h('span', { class: 'count', text: `${reqs.length} de ${allReqs.length}` }));
+  }
+
+  body.append(h('p', { class: 'muted', text: 'Matriz requisito × evidência/alocação. Verde = preenchido; vermelho = lacuna. Os piores (mais lacunas) aparecem no topo. Links e evidências externos são autorados na iteração (Fase 2+).' }));
+
+  // RESUMO UNIFICADO: uma faixa de chips (sobre os exibidos) + escopos mais rasos num bloco colapsável.
+  const cov = DATA.coverage;
   const summary = coverageSummary(reqs);
-  const sumCard = h('div', { class: 'card' }, h('h3', { text: `Resumo por dimensão — ${reqs.length} requisito(s)` }));
+  const sumCard = h('div', { class: 'card' }, h('h3', {}, secIc('◑'), 'Resumo da cobertura'));
+  const metrics = h('div', { class: 'cov-metrics' });
+  if (cov && cov.totals) metrics.append(h('span', { class: 'cov-metric' }, h('strong', { text: `${cov.totals.total}` }), h('span', { class: 'muted small', text: ` requisitos na base · ${cov.totals.scopes} escopos` })));
+  metrics.append(h('span', { class: 'cov-metric' }, h('strong', { text: `${reqs.length}` }), h('span', { class: 'muted small', text: ' no filtro atual' })));
+  sumCard.append(metrics);
   const chips = h('div', { class: 'ws-actions cov-summary' });
   for (const d of summary) {
     chips.append(h('span', { class: 'cov-stat' },
@@ -792,65 +828,128 @@ function renderCoverage() {
       h('span', { class: 'muted', text: d.miss ? ` ${d.miss} falt.` : ' completo' })));
   }
   sumCard.append(chips);
+  // Escopos mais rasos (detalhe secundário, colapsável) — lacunas reais a preencher por escopo.
+  if (cov && cov.totals && cov.by_scope) {
+    const dimLbl = { source_paths: 'Origem', links: 'Links', allocation: 'Alocação', evidence: 'Evidência', verification_method: 'Método' };
+    const det = h('details', { class: 'cov-scopes' });
+    det.append(h('summary', { text: 'Escopos com mais lacunas (sem link/alocação)' }));
+    const scopes = Object.entries(cov.by_scope).sort((a, b) => (b[1].without_links + b[1].without_allocation) - (a[1].without_links + a[1].without_allocation)).slice(0, 6);
+    const tbl = h('table', { class: 'matrix' });
+    tbl.append(h('thead', {}, h('tr', {}, h('th', { text: 'Escopo' }), h('th', { text: 'Total' }), ...cov.dimensions.map((d) => h('th', { text: dimLbl[d] || d })))));
+    const stb = h('tbody');
+    for (const [scope, c] of scopes) {
+      stb.append(h('tr', {}, h('td', { text: scope }), h('td', { text: String(c.total) }),
+        ...cov.dimensions.map((d) => { const w = c[`without_${d}`]; return h('td', { class: w === 0 ? 'hit' : 'miss', title: `${dimLbl[d] || d}: ${w === 0 ? 'completo' : w + ' sem'}`, text: w === 0 ? '✓' : `−${w}` }); })));
+    }
+    tbl.append(stb); det.append(h('p', { class: 'muted small', text: '−N = N requisitos sem aquela dimensão.' }), tbl);
+    sumCard.append(det);
+  }
   body.append(sumCard);
+
+  if (!reqs.length) { body.append(emptyState({ title: 'Nenhum requisito para os filtros atuais', text: 'Ajuste ou limpe os filtros para ver a matriz completa.', ctaLabel: 'Limpar filtros', ctaOnClick: clearFilters })); return; }
 
   const wrap = h('div', { class: 'grid-wrap' });
   const t = h('table', { class: 'matrix matrix-sticky' });
-  t.append(h('thead', {}, h('tr', {}, h('th', { text: 'ID' }), h('th', { text: 'Produto' }), ...cols.map((c) => h('th', { text: c[1] })), h('th', { text: 'Cobertura' }))));
+  t.append(h('thead', {}, h('tr', {}, h('th', { text: 'Requisito' }), h('th', { text: 'Produto' }), ...cols.map((c) => h('th', { text: c[1] })), h('th', { text: 'Cobertura' }))));
   const tb = h('tbody');
   for (const r of reqs) {
     const row = coverageRow(r);
-    const tr = h('tr', { tabindex: '0', role: 'button', onclick: () => openReq(r.id), onkeydown: (ev) => { if (ev.key === 'Enter') openReq(r.id); } },
-      h('td', {}, h('span', { class: 'rid', text: r.id })), h('td', { text: r.scope.product_scope }),
-      ...cols.map((c) => h('td', { class: row[c[0]] ? 'hit' : 'miss', text: row[c[0]] ? '✓' : '—' })),
-      h('td', { text: Math.round(coverageScore(r) * 100) + '%' }));
+    const pct = Math.round(coverageScore(r) * 100);
+    const tr = h('tr', { tabindex: '0', role: 'button', 'aria-label': `Abrir ${r.id} — ${pct}% de cobertura`, onclick: () => openReq(r.id), onkeydown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openReq(r.id); } } },
+      h('td', {}, h('span', { class: 'rid', text: r.id })), h('td', { text: productMeta(r.scope.product_scope).display_name || r.scope.product_scope }),
+      ...cols.map((c) => h('td', { class: row[c[0]] ? 'hit' : 'miss', title: `${c[1]}: ${row[c[0]] ? 'presente' : 'ausente'}`, 'aria-label': `${c[1]}: ${row[c[0]] ? 'presente' : 'ausente'}`, text: row[c[0]] ? '✓' : '✕' })),
+      h('td', {}, badge(pct + '%', pct >= 70 ? 'b-ok' : pct >= 30 ? 'b-high' : 'b-crit')));
     tb.append(tr);
   }
   t.append(tb); wrap.append(t); body.append(wrap);
 }
 
 /* ---------- Fila de reprocessamento ---------- */
+// Os motivos chegam como frases pt-BR; a cor sai por palavra-chave (severidade), não por enum fixo.
+const reasonLabel = (x) => x;
+function reasonCls(x) {
+  const s = String(x || '').toLowerCase();
+  if (/verifica|evid[êe]ncia/.test(s)) return 'b-crit';
+  if (/impacto/.test(s)) return 'b-high';
+  if (/maior|major|arquitet/.test(s)) return 'b-nfr';
+  return 'b-med';
+}
 function renderReprocess() {
+  const wrap = document.getElementById('reprocess-filters');
+  if (wrap) wrap.replaceChildren();
   const body = document.getElementById('reprocess-body');
   body.replaceChildren();
   const q = DATA.baseline.reprocess_queue || [];
-  body.append(h('p', { class: 'muted', text: `${q.length} item(ns) exigem atenção do Claude — priorizados por impacto. Motivos: alto impacto, lacuna de verificação (sem método/evidência) ou mudança major.` }));
-  const wrap = h('div', { class: 'grid-wrap' });
+
+  // Fila vazia = bom sinal (nada pendente) → estado-vazio acionável.
+  if (!q.length) {
+    body.append(emptyState({ title: 'Fila limpa', text: 'Nenhum requisito exige reprocessamento agora. Quando a baseline mudar (alto impacto, lacuna de verificação ou mudança maior), os itens aparecem aqui.', ctaLabel: 'Ver requisitos →', ctaOnClick: () => switchView('explorer') }));
+    return;
+  }
+
+  // Resumo por motivo (chips clicáveis = filtro) — espelha o padrão do Dev/Usabilidade.
+  const reasonCounts = {};
+  for (const item of q) for (const x of (item.reasons || [])) reasonCounts[x] = (reasonCounts[x] || 0) + 1;
+  const filt = h('div', { class: 'usa-filter', role: 'group', 'aria-label': 'Filtrar por motivo' });
+  const fchip = (label, val) => h('button', { class: 'usa-fchip' + ((state.reproFilter.reason || '') === val ? ' is-on' : ''), type: 'button', 'aria-pressed': ((state.reproFilter.reason || '') === val) ? 'true' : 'false', text: label, onclick: () => { state.reproFilter.reason = (state.reproFilter.reason === val ? '' : val); renderReprocess(); } });
+  filt.append(fchip('Todos · ' + q.length, ''));
+  for (const x of Object.keys(reasonCounts).sort()) filt.append(fchip(reasonLabel(x) + ' · ' + reasonCounts[x], x));
+  (wrap || body).append(filt);
+
+  body.append(h('p', { class: 'muted', text: 'Itens que exigem atenção do Claude — priorizados por impacto. Clique numa linha para abrir o requisito.' }));
+
+  const shown = state.reproFilter.reason ? q.filter((it) => (it.reasons || []).includes(state.reproFilter.reason)) : q;
+  if (!shown.length) {
+    body.append(emptyState({ title: 'Nenhum item para este motivo', text: 'Nenhum requisito na fila com o motivo selecionado.', ctaLabel: 'Limpar filtro', ctaOnClick: () => { state.reproFilter.reason = ''; renderReprocess(); } }));
+    return;
+  }
+  const gw = h('div', { class: 'grid-wrap' });
   const t = h('table');
-  t.append(h('thead', {}, h('tr', {}, h('th', { text: '#' }), h('th', { text: 'ID' }), h('th', { text: 'Produto' }), h('th', { text: 'Título' }), h('th', { text: 'Score' }), h('th', { text: 'Motivos' }))));
+  t.append(h('thead', {}, h('tr', {}, h('th', { text: '#' }), h('th', { text: 'Requisito' }), h('th', { text: 'Produto' }), h('th', { text: 'Título' }), h('th', { text: 'Impacto' }), h('th', { text: 'Motivos' }))));
   const tb = h('tbody');
-  q.forEach((item, i) => {
+  shown.forEach((item, i) => {
     const r = byId(item.id);
-    tb.append(h('tr', { tabindex: '0', role: 'button', onclick: () => openReq(item.id), onkeydown: (ev) => { if (ev.key === 'Enter') openReq(item.id); } },
-      h('td', { text: String(i + 1) }), h('td', {}, h('span', { class: 'rid', text: item.id })), h('td', { text: item.product }),
-      h('td', { text: r ? r.title : '' }), h('td', {}, badge(String(item.impact_score), bandCls(r ? r.impact_band : 'low'))),
-      h('td', {}, ...(item.reasons || []).map((x) => badge(x, 'b-med')))));
+    tb.append(h('tr', { tabindex: '0', role: 'button', 'aria-label': `Abrir ${item.id}`, onclick: () => openReq(item.id), onkeydown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openReq(item.id); } } },
+      h('td', { text: String(i + 1) }), h('td', {}, h('span', { class: 'rid', text: item.id })),
+      h('td', { text: productMeta(item.product).display_name || item.product }),
+      h('td', { text: r ? r.title : '' }),
+      h('td', {}, badge(`${r ? r.impact_band : 'low'} (${item.impact_score})`, bandCls(r ? r.impact_band : 'low')), r && r.architectural_significance ? h('span', {}, ' ', badge('ASR', 'b-asr')) : ''),
+      h('td', {}, ...(item.reasons || []).flatMap((x, j) => [j ? ' ' : '', badge(reasonLabel(x), reasonCls(x))]))));
   });
-  t.append(tb); wrap.append(t); body.append(wrap);
+  t.append(tb); gw.append(t); body.append(gw);
 }
 
 /* ---------- Desenvolvimento (status REQ → PR → deploy) ---------- */
 function devStatusCls(s) {
   return s === 'done' || s === 'deployed' ? 'b-ok' : s === 'blocked' ? 'b-crit' : s === 'not_started' ? 'b-low' : 'b-high';
 }
+const DEV_STATUS_LBL = { deployed: 'No ar', done: 'Concluído', merged: 'Mesclado', pr_open: 'PR aberto', in_progress: 'Em progresso', blocked: 'Bloqueado', not_started: 'Não iniciado' };
+const devStatusLabel = (s) => DEV_STATUS_LBL[s] || s;
 function renderDev() {
   const wrap = document.getElementById('dev-filters');
   wrap.replaceChildren();
   const body = document.getElementById('dev-body');
   body.replaceChildren();
   const st = DATA.implStatus;
-  if (!st || !st.items) { body.append(h('p', { class: 'empty', text: 'Sem dados de desenvolvimento (implementation-status.json ausente).' })); return; }
-  const statuses = [...new Set(Object.values(st.items).map((x) => x.status))].sort();
+  if (!st || !st.items) { body.append(emptyState({ title: 'Sem dados de desenvolvimento', text: 'A esteira ainda não publicou o status de implementação (implementation-status.json). Os requisitos aparecem aqui à medida que entram em PR/deploy.', ctaLabel: 'Ver requisitos →', ctaOnClick: () => switchView('explorer') })); return; }
   const products = uniqueValues(DATA.baseline.requirements, (r) => r.scope && r.scope.product_scope);
-  const mk = (key, label, vals) => {
-    const sel = h('select', { 'aria-label': label, onchange: (e) => { state.devFilter[key] = e.target.value; renderDev(); } }, h('option', { value: '', text: label }));
-    for (const v of vals) { const o = h('option', { value: v, text: v }); if (v === state.devFilter[key]) o.selected = true; sel.append(o); }
-    return h('label', {}, label, sel);
-  };
-  wrap.append(mk('status', 'Status', statuses), mk('product', 'Produto', products), h('span', { class: 'count', id: 'dev-count' }));
-  const counts = (st.counts && st.counts.by_status) || {};
-  body.append(h('p', { class: 'muted' }, 'Estado do desenvolvimento por requisito (REQ → PR → deploy), atualizado pela esteira. ',
-    ...Object.keys(counts).sort().flatMap((s) => [badge(`${s}: ${counts[s]}`, devStatusCls(s)), ' '])));
+  // Só o filtro de Produto fica no select; o Status vira chips-filtro abaixo (distribuição + filtro num gesto).
+  const sel = h('select', { 'aria-label': 'Produto', onchange: (e) => { state.devFilter.product = e.target.value; renderDev(); } }, h('option', { value: '', text: 'Produto' }));
+  for (const v of products) { const o = h('option', { value: v, text: productMeta(v).display_name || v }); if (v === state.devFilter.product) o.selected = true; sel.append(o); }
+  wrap.append(h('label', {}, 'Produto', sel), h('span', { class: 'count', id: 'dev-count' }));
+
+  // Distribuição por status como CHIPS-FILTRO (clicar = filtra; clicar de novo = limpa).
+  const counts = (st.counts && st.counts.by_status) || (() => { const m = {}; for (const v of Object.values(st.items)) { const k = v.status || 'not_started'; m[k] = (m[k] || 0) + 1; } return m; })();
+  const statusOrder = ['deployed', 'done', 'merged', 'pr_open', 'in_progress', 'blocked', 'not_started'];
+  const ordered = [...new Set([...statusOrder, ...Object.keys(counts)])].filter((s) => counts[s]);
+  const filt = h('div', { class: 'usa-filter', role: 'group', 'aria-label': 'Filtrar por status' });
+  const totalItems = Object.values(counts).reduce((a, b) => a + b, 0);
+  const fchip = (label, val) => h('button', { class: 'usa-fchip' + ((state.devFilter.status || '') === val ? ' is-on' : ''), type: 'button', 'aria-pressed': ((state.devFilter.status || '') === val) ? 'true' : 'false', text: label, onclick: () => { state.devFilter.status = (state.devFilter.status === val ? '' : val); renderDev(); } });
+  filt.append(fchip('Todos · ' + totalItems, ''));
+  for (const s of ordered) filt.append(fchip(devStatusLabel(s) + ' · ' + counts[s], s));
+  body.append(filt);
+  body.append(h('p', { class: 'muted', text: 'Estado da entrega por requisito (REQ → PR → deploy), atualizado pela esteira. Clique numa linha para abrir o requisito.' }));
+
   const ids = Object.keys(st.items).filter((id) => {
     const it = st.items[id]; const r = byId(id);
     if (state.devFilter.status && it.status !== state.devFilter.status) return false;
@@ -858,18 +957,30 @@ function renderDev() {
     return true;
   }).sort();
   document.getElementById('dev-count').textContent = `${ids.length} de ${Object.keys(st.items).length}`;
+  if (!ids.length) { body.append(emptyState({ title: 'Nenhum requisito para os filtros atuais', text: 'Ajuste ou limpe os filtros de status/produto.', ctaLabel: 'Limpar filtros', ctaOnClick: clearFilters })); return; }
+
   const t = h('table');
-  t.append(h('thead', {}, h('tr', {}, h('th', { text: 'ID' }), h('th', { text: 'Produto' }), h('th', { text: 'Título' }), h('th', { text: 'Status' }), h('th', { text: 'PR' }), h('th', { text: 'Deploy' }))));
+  t.append(h('thead', {}, h('tr', {}, h('th', { text: 'Requisito' }), h('th', { text: 'Título' }), h('th', { text: 'Status' }), h('th', { text: 'PR' }), h('th', { text: 'Deploy' }))));
   const tb = h('tbody');
-  for (const id of ids) {
+  const devRow = (id) => {
     const it = st.items[id]; const r = byId(id);
-    tb.append(h('tr', { tabindex: '0', role: 'button', onclick: () => openReq(id), onkeydown: (ev) => { if (ev.key === 'Enter') openReq(id); } },
+    return h('tr', { tabindex: '0', role: 'button', 'aria-label': `Abrir ${id}`, onclick: () => openReq(id), onkeydown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openReq(id); } } },
       h('td', {}, h('span', { class: 'rid', text: id })),
-      h('td', { text: r ? r.scope.product_scope : '—' }),
       h('td', { text: r ? r.title : '' }),
-      h('td', {}, badge(it.status, devStatusCls(it.status))),
+      h('td', {}, badge(devStatusLabel(it.status), devStatusCls(it.status))),
       h('td', {}, it.pr ? h('a', { class: 'btn-link', href: it.pr, target: '_blank', rel: 'noopener', text: 'PR' }) : h('span', { class: 'empty', text: '—' })),
-      h('td', { text: it.deployed_at ? it.deployed_at.slice(0, 10) : it.deployment || '—' })));
+      h('td', { text: it.deployed_at ? it.deployed_at.slice(0, 10) : it.deployment || '—' }));
+  };
+  // Sem filtro de produto → agrupa por produto (consistência com Explorer/Versões). Com filtro → lista plana.
+  if (!state.devFilter.product) {
+    const byProd = {};
+    for (const id of ids) { const r = byId(id); const p = (r && r.scope && r.scope.product_scope) || 'outros'; (byProd[p] = byProd[p] || []).push(id); }
+    for (const p of Object.keys(byProd).sort()) {
+      tb.append(h('tr', { class: 'group-row' }, h('td', { colspan: '5' }, ...prodLabelNodes(p), ' · ' + byProd[p].length)));
+      for (const id of byProd[p]) tb.append(devRow(id));
+    }
+  } else {
+    for (const id of ids) tb.append(devRow(id));
   }
   const gw = h('div', { class: 'grid-wrap' });
   t.append(tb); gw.append(t); body.append(gw);
@@ -2697,7 +2808,6 @@ function renderUsabilityDetail(host, r) {
   const uProd = r.scope?.product_scope || r.product;
   const kindLabel = KIND_LABEL[r.kind] || r.kind || 'componente';
   const route = r.surface && r.surface.route;
-  const secIc = (g) => h('span', { class: 'us-sec-ic', 'aria-hidden': 'true', text: g });
   // VOLTAR ao mapa de telas (drill-down fluido)
   host.append(h('nav', { class: 'ed-crumbs', 'aria-label': 'Você está em' },
     h('button', { class: 'btn-link', type: 'button', onclick: () => { state.usabilitySel = null; renderUsability(); }, text: '‹ Telas de ' + (productMeta(uProd).display_name || uProd) })));
@@ -2786,12 +2896,13 @@ function renderOverview() {
     h('h2', { text: 'Base de requisitos' }),
     h('p', { text: 'A intenção da plataforma vive aqui como fonte da verdade — versionada em specs/. Explore os requisitos, analise impacto e cobertura, acompanhe a entrega e construa produtos novos a partir deles.' })));
 
-  const metric = (ic, val, label) => h('div', { class: 'ov-metric', role: 'group', 'aria-label': val + ' ' + label }, h('span', { class: 'm-ic' }, icon(ic)), h('div', { class: 'm-v', 'aria-hidden': 'true', text: String(val) }), h('div', { class: 'm-l', 'aria-hidden': 'true', text: label }));
+  // Métricas clicáveis → deep-link para a tela que detalha cada número (antes eram becos sem saída).
+  const metric = (ic, val, label, onClick) => h('button', { class: 'ov-metric', type: 'button', 'aria-label': val + ' ' + label + ' — abrir', onclick: onClick }, h('span', { class: 'm-ic' }, icon(ic)), h('div', { class: 'm-v', 'aria-hidden': 'true', text: String(val) }), h('div', { class: 'm-l', 'aria-hidden': 'true', text: label }));
   body.append(h('div', { class: 'ov-metrics' },
-    metric('layers', c.total, 'requisitos'),
-    metric('products', prods.length, 'produtos'),
-    metric('rocket', implPct + '%', 'no ar (entrega)'),
-    metric('impact', asr, 'ASR (arquiteturais)')));
+    metric('layers', c.total, 'requisitos', () => switchView('explorer')),
+    metric('products', prods.length, 'produtos', () => switchView('forge')),
+    metric('rocket', implPct + '%', 'no ar (entrega)', () => switchView('dev')),
+    metric('impact', asr, 'ASR (arquiteturais)', () => { state.filters = { asr: 'yes' }; switchView('explorer'); })));
 
   // coluna esquerda: entrega por produto
   const left = h('div', { class: 'ov-card' }, h('h3', {}, 'Entrega por produto', h('button', { class: 'btn-link', type: 'button', onclick: () => switchView('forge'), text: 'Abrir Forge →' })));
@@ -2824,11 +2935,19 @@ function renderOverview() {
   const qb = (ic, label, view) => h('button', { class: 'ov-qbtn', type: 'button', onclick: () => switchView(view) }, icon(ic), label);
   qgrid.append(qb('explorer', 'Explorar requisitos', 'explorer'), qb('impact', 'Mapa de impacto', 'impact'), qb('forge', 'Construir produto', 'forge'), qb('editor', 'Novo requisito', 'editor'));
   quick.append(qgrid);
-  right.append(stCard, h('div', { style: null }), quick);
+  right.append(stCard, quick);
+
+  // Continuar de onde parou (recentes) — retomada na front-door.
+  const recentIds = RECENTS.get().filter((id) => byId(id));
+  if (recentIds.length) {
+    const rc = h('div', { class: 'ov-card' }, h('h3', {}, 'Continuar de onde parou'));
+    const rl = h('div', { class: 'ov-recent' });
+    for (const id of recentIds.slice(0, 6)) { const rr = byId(id); rl.append(h('button', { class: 'ov-recent-i', type: 'button', 'aria-label': `Abrir ${id}`, onclick: () => openReq(id) }, h('span', { class: 'rid', text: id }), h('span', { class: 'ov-recent-t', text: truncateLabel(rr.title || '', 48) }))); }
+    rc.append(rl);
+    right.append(rc);
+  }
 
   const grid = h('div', { class: 'ov-grid' }, left, right);
-  // espaçamento entre os dois cards da direita
-  right.style && (right.style.display = 'grid');
   body.append(grid);
 }
 
