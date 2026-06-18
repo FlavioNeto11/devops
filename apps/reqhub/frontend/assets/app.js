@@ -1,7 +1,7 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations } from './lib.js?v=23';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=23';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations } from './lib.js?v=24';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=24';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -990,17 +990,25 @@ const INTENT_CHIPS = [
 function chatBubble(turn) {
   const who = turn.role === 'user' ? 'is-user' : 'is-ai';
   const b = h('div', { class: 'chat-msg ' + who + (turn.error ? ' is-err' : '') });
-  if (turn.role === 'assistant' && turn.grounded === false) b.append(h('div', { class: 'chat-nobase' }, badge('não consta na base', 'b-low')));
+  // "não consta" só faz sentido numa PERGUNTA sobre o sistema (não em criar/refinar/clarify)
+  if (turn.role === 'assistant' && turn.intent === 'question' && turn.grounded === false) b.append(h('div', { class: 'chat-nobase' }, badge('não consta na base', 'b-low')));
   String(turn.content || '').split(/\n{2,}/).map((p) => p.trim()).filter(Boolean).forEach((p) => b.append(h('p', { class: 'chat-par', text: p })));
   if (turn.citations && turn.citations.length) {
     const c = h('div', { class: 'chat-cites' }, h('span', { class: 'chat-cites-l', text: 'Requisitos citados:' }));
     for (const id of turn.citations) c.append(h('button', { class: 'btn-link chat-cite', type: 'button', onclick: () => { if (state.editor.graph) state.editor.graph.focus(id); }, text: id }));
     b.append(c);
   }
-  if (turn.open_questions && turn.open_questions.length) {
-    const oq = h('ul', { class: 'chat-oq' });
-    for (const q of turn.open_questions) oq.append(h('li', { text: q }));
-    b.append(oq);
+  // UMA pergunta de cada vez (substitui a lista de open_questions)
+  if (turn.next_question) b.append(h('p', { class: 'chat-next-q', text: turn.next_question }));
+  // rascunho proposto: card enxuto com CTA (não despeja o draft na prosa)
+  if (turn.draft) {
+    const d = turn.draft;
+    const card = h('div', { class: 'chat-draft-card' },
+      h('div', { class: 'chat-draft-head' }, h('span', { class: 'chat-draft-ic', 'aria-hidden': 'true', text: '✦' }), h('strong', { text: d.title || 'Requisito proposto' })),
+      h('p', { class: 'chat-draft-st', text: truncateLabel(d.statement || '', 140) }),
+      h('div', { class: 'chat-draft-meta' }, badge(typeLabel(d.type) || 'funcional', 'b-fn'), d.priority ? badge(d.priority, prioCls(d.priority)) : null),
+      h('button', { class: 'btn primary chat-draft-cta', type: 'button', onclick: () => applyProposalToReview(d), text: 'Revisar mudança →' }));
+    b.append(card);
   }
   return b;
 }
@@ -1038,8 +1046,8 @@ function renderChatStage(body) {
   }
   function renderActions() {
     actions.replaceChildren();
+    // o CTA "Revisar" vive no card de draft DENTRO da bolha (chatBubble); aqui só chips de resposta rápida.
     const last = [...state.editor.messages].reverse().find((m) => m.role === 'assistant' && !m.error);
-    if (last && last.draft) actions.append(h('button', { class: 'btn primary chat-cta', type: 'button', onclick: () => applyProposalToReview(last.draft), text: 'Revisar mudança estruturada →' }));
     const chips = last ? (last.quick_replies || []) : INTENT_CHIPS.map((c) => c.msg);
     const labels = last ? null : INTENT_CHIPS.map((c) => c.label);
     chips.forEach((msg, i) => actions.append(h('button', { class: 'chat-chip', type: 'button', onclick: () => send(msg), text: labels ? labels[i] : msg })));
@@ -1076,7 +1084,7 @@ function renderChatStage(body) {
         role: 'assistant', content: d.reply || '(sem resposta)', intent: d.intent,
         citations: filterCitations(d.citations || [], DATA.baseline.requirements),
         grounded: d.grounded !== false, draft: d.draft || null,
-        open_questions: d.open_questions || [], quick_replies: d.quick_replies || [],
+        next_question: d.next_question || '', quick_replies: d.quick_replies || [],
       });
       repaint();
     } catch (e) {

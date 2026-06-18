@@ -82,25 +82,33 @@ export function buildAuthoringTools() {
       }),
       authorize: authorizeOperator,
       execute: async (input, ctx) => {
+        // a CONCISAO e responsabilidade do prompt (2-3 frases); maxTokens e so o teto (inclui o
+        // raciocinio do gpt-5). Orcamento fixo adequado para reply curto + draft estruturado.
         const { parsed, usage } = await llmJson(ctx.llm, {
           system: PROMPTS.assist.system,
           user: PROMPTS.assist.user(input),
           reasoningEffort: 'low',
-          maxTokens: 9000,
+          maxTokens: 6000,
         });
         // defesa anti-alucinacao SERVER-SIDE: so citamos IDs presentes no grounding recebido
         // (o cliente tambem filtra, mas o contrato deve ser auto-suficiente para qualquer chamador).
         const known = new Set((Array.isArray(input.grounding) ? input.grounding : []).map((r) => r && r.id).filter(Boolean));
         const citations = Array.isArray(parsed.citations) ? parsed.citations.filter((x) => typeof x === 'string' && known.has(x)) : [];
+        const draft = parsed.draft && typeof parsed.draft === 'object' ? parsed.draft : null;
+        // next_question: string unica; tolera modelo que ainda devolva open_questions[] (pega a 1a).
+        let nextQuestion = typeof parsed.next_question === 'string' ? parsed.next_question.trim() : '';
+        if (!nextQuestion && Array.isArray(parsed.open_questions) && parsed.open_questions.length) {
+          nextQuestion = String(parsed.open_questions.find((x) => typeof x === 'string' && x.trim()) || '').trim();
+        }
         return {
           prompt_version: PROMPTS.assist.version,
-          intent: typeof parsed.intent === 'string' ? parsed.intent : 'question',
+          intent: typeof parsed.intent === 'string' ? parsed.intent : (draft ? 'create' : (nextQuestion ? 'clarify' : 'question')),
           reply: typeof parsed.reply === 'string' ? parsed.reply : '',
           citations,
           grounded: parsed.grounded !== false,
-          draft: parsed.draft && typeof parsed.draft === 'object' ? parsed.draft : null,
-          open_questions: Array.isArray(parsed.open_questions) ? parsed.open_questions.filter((x) => typeof x === 'string') : [],
-          quick_replies: Array.isArray(parsed.quick_replies) ? parsed.quick_replies.filter((x) => typeof x === 'string') : [],
+          draft,
+          next_question: draft ? '' : nextQuestion, // ao propor draft, nao pergunta
+          quick_replies: Array.isArray(parsed.quick_replies) ? parsed.quick_replies.filter((x) => typeof x === 'string').slice(0, 4) : [],
           usage,
         };
       },

@@ -98,11 +98,27 @@ test('assist: pergunta -> reply grounded + citations, draft null', async () => {
 });
 
 test('assist: pedido de mudanca -> draft preenchido (shape do applyDraftToForm)', async () => {
-  const payload = { intent: 'create', reply: 'Proponho um novo requisito.', citations: [], grounded: true, draft: { title: 'Exportar CDF', type: 'functional', statement: 'O sistema DEVE exportar CDF', acceptance_criteria: ['gera PDF'], scope: { applies_to: 'product', product_scope: 'sicat' }, priority: 'high' } };
+  const payload = { intent: 'create', reply: 'Proponho um novo requisito.', citations: [], grounded: true, next_question: 'isso seria ignorado', draft: { title: 'Exportar CDF', type: 'functional', statement: 'O sistema DEVE exportar CDF', acceptance_criteria: ['gera PDF'], scope: { applies_to: 'product', product_scope: 'sicat' }, priority: 'high' } };
   const out = await dispatchTool(reg.get('req.authoring.assist'), { product: 'sicat', message: 'preciso exportar o CDF', grounding: [] }, ctx(stubLlm(payload)));
   assert.equal(out.output.intent, 'create');
   assert.equal(out.output.draft.title, 'Exportar CDF');
   assert.equal(out.output.draft.scope.product_scope, 'sicat');
+  assert.equal(out.output.next_question, ''); // ao propor draft, nao pergunta
+});
+
+test('assist: clarify -> next_question unica (string), draft null', async () => {
+  const payload = { intent: 'clarify', reply: 'Para propor, preciso de um detalhe.', grounded: false, draft: null, next_question: 'Quem deve ver a tela: todos ou só no primeiro login?', quick_replies: ['Todos', 'Só no primeiro login'] };
+  const out = await dispatchTool(reg.get('req.authoring.assist'), { product: 'gymops', message: 'quero uma tela de boas-vindas', grounding: [] }, ctx(stubLlm(payload)));
+  assert.equal(out.output.intent, 'clarify');
+  assert.equal(out.output.draft, null);
+  assert.equal(out.output.next_question, 'Quem deve ver a tela: todos ou só no primeiro login?');
+  assert.equal(out.output.quick_replies.length, 2);
+});
+
+test('assist: tolera open_questions[] legado -> pega a 1a como next_question', async () => {
+  const payload = { intent: 'clarify', reply: 'Preciso de mais um detalhe.', draft: null, open_questions: ['Em quais telas aparece?', 'Tem variação por papel?'] };
+  const out = await dispatchTool(reg.get('req.authoring.assist'), { product: 'gymops', message: 'algo novo', grounding: [] }, ctx(stubLlm(payload)));
+  assert.equal(out.output.next_question, 'Em quais telas aparece?');
 });
 
 test('assist: input invalido -> TOOL_INVALID_INPUT (sem product/message/grounding)', async () => {

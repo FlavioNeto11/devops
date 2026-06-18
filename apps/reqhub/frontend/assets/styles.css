@@ -708,7 +708,13 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 .chat-cites { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; padding-top: 7px; border-top: 1px solid var(--line); }
 .chat-cites-l { font-size: 11px; color: var(--muted); }
 .chat-cite { font-family: var(--mono); font-size: 11px; }
-.chat-oq { margin: 8px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--fg-1); }
+.chat-next-q { margin: 9px 0 0; padding: 8px 11px; font-size: 13px; color: var(--fg); font-weight: 500; border-left: 2px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; }
+.chat-draft-card { margin-top: 10px; padding: 11px 13px; border: 1px solid var(--accent); border-radius: 11px; background: color-mix(in srgb, var(--accent) 8%, var(--bg-1)); }
+.chat-draft-head { display: flex; align-items: center; gap: 7px; font-size: 13.5px; }
+.chat-draft-ic { color: var(--accent); }
+.chat-draft-st { margin: 6px 0 8px; font-size: 12.5px; color: var(--fg-1); line-height: 1.45; }
+.chat-draft-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.chat-draft-cta { width: 100%; }
 .chat-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
 .chat-cta { font-weight: 600; }
 .chat-chip { background: var(--bg-2); border: 1px solid var(--line); color: var(--fg-1); border-radius: 999px; padding: 6px 13px; font: inherit; font-size: 12.5px; cursor: pointer; }
