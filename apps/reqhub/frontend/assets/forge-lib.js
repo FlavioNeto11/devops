@@ -251,6 +251,31 @@ export function dagFromWaves(reqs, waves) {
   return { nodes, edges };
 }
 
+/**
+ * Escopos que NÃO são produtos de software de negócio: infra/plataforma e ferramentas.
+ * Não entram no Editor guiado (que AUTORA requisitos de PRODUTO) — continuam visíveis nas
+ * demais telas (Explorador, Mapa de impacto, Cobertura). Lista estável (infra muda pouco);
+ * um produto de negócio novo aparece automaticamente sem editar isto.
+ */
+export const NON_PRODUCT_SCOPES = ['ai', 'argocd', 'cicd', 'keycloak', 'observability', 'oidc', 'platform', 'portal-contracts', 'portal-recorder', 'specs', 'traefik'];
+
+/**
+ * Escopos de PRODUTO DE SOFTWARE DE NEGÓCIO presentes na baseline (para o picker do Editor):
+ * escopos com requisito, menos os de infra/plataforma (NON_PRODUCT_SCOPES), menos os que um
+ * dia forem declarados em products.json com app_type != 'product_software' (futuro-proof).
+ * PURO. Sites CMS não aparecem porque seus requisitos não existem mais na base.
+ */
+export function businessProductScopes(reqs, products) {
+  const declared = {};
+  for (const p of ((products && products.products) || [])) declared[p.name] = p.app_type || 'product_software';
+  const skip = new Set(NON_PRODUCT_SCOPES);
+  const seen = new Set();
+  for (const r of (reqs || [])) { const s = r && r.scope && r.scope.product_scope; if (s) seen.add(s); }
+  return [...seen]
+    .filter((s) => !skip.has(s) && (declared[s] === undefined || declared[s] === 'product_software'))
+    .sort();
+}
+
 /** Resumo agregado de todos os produtos (para o cabeçalho do hub). */
 export function hubSummary(products, implStatus) {
   const summ = productSummaries(products, implStatus);

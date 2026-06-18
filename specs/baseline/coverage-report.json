@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "bf55c6b85f051bb79f641cfb4d57afb6752f6421a6eb3f58cce2b65250bdfb51",
+  "baseline_hash": "ae017f52cb124304084f547cebc320660b202ae3dea102df4096ebe5b9a1f9ca",
   "dimensions": [
     "links",
     "allocation",
@@ -9,19 +9,19 @@
     "verification_method"
   ],
   "totals": {
-    "total": 376,
-    "without_links": 314,
-    "without_allocation": 349,
+    "total": 339,
+    "without_links": 278,
+    "without_allocation": 312,
     "without_source_paths": 0,
-    "without_evidence": 376,
-    "without_verification_method": 371,
-    "scopes": 20,
+    "without_evidence": 339,
+    "without_verification_method": 334,
+    "scopes": 18,
     "coverage_pct": {
-      "links": 16.5,
-      "allocation": 7.2,
+      "links": 18,
+      "allocation": 8,
       "source_paths": 100,
       "evidence": 0,
-      "verification_method": 1.3
+      "verification_method": 1.5
     }
   },
   "by_scope": {
@@ -35,21 +35,6 @@
       "coverage_pct": {
         "links": 5.6,
         "allocation": 5.6,
-        "source_paths": 100,
-        "evidence": 0,
-        "verification_method": 0
-      }
-    },
-    "anarabottini": {
-      "total": 19,
-      "without_links": 19,
-      "without_allocation": 19,
-      "without_source_paths": 0,
-      "without_evidence": 19,
-      "without_verification_method": 19,
-      "coverage_pct": {
-        "links": 0,
-        "allocation": 0,
         "source_paths": 100,
         "evidence": 0,
         "verification_method": 0
@@ -260,21 +245,6 @@
       "coverage_pct": {
         "links": 5,
         "allocation": 5,
-        "source_paths": 100,
-        "evidence": 0,
-        "verification_method": 0
-      }
-    },
-    "rmambiental": {
-      "total": 18,
-      "without_links": 17,
-      "without_allocation": 18,
-      "without_source_paths": 0,
-      "without_evidence": 18,
-      "without_verification_method": 18,
-      "coverage_pct": {
-        "links": 5.6,
-        "allocation": 0,
         "source_paths": 100,
         "evidence": 0,
         "verification_method": 0

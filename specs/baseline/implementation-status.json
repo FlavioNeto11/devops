@@ -1,10 +1,10 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "bf55c6b85f051bb79f641cfb4d57afb6752f6421a6eb3f58cce2b65250bdfb51",
+  "baseline_hash": "ae017f52cb124304084f547cebc320660b202ae3dea102df4096ebe5b9a1f9ca",
   "counts": {
-    "total": 376,
+    "total": 339,
     "by_status": {
-      "deployed": 324,
+      "deployed": 287,
       "done": 52
     }
   },
@@ -116,120 +116,6 @@
       "req_revision": 1,
       "deployed_at": "2026-06-15",
       "notes": "apps/ai-control-plane + Langfuse no cluster; packages/ai-core/ai-kit em uso"
-    },
-    "REQ-ANARA-0001": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-ANARA-0002": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-ANARA-0003": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-ANARA-0004": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-ANARA-0005": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-ANARA-0006": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-ANARA-0007": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-ANARA-0008": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-ANARA-0009": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-ANARA-0010": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-ANARA-0011": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-ANARA-0012": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-ANARA-0013": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-ANARA-NFR-001": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-ANARA-NFR-002": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-ANARA-NFR-003": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-ANARA-NFR-004": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-ANARA-NFR-005": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-ANARA-NFR-006": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/anarabottini — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-ARGO-0001": {
       "status": "deployed",
@@ -1764,114 +1650,6 @@
       "req_revision": 1,
       "deployed_at": "2026-06-15",
       "notes": "apps/reqhub — workbench + reqhub-api no cluster (ns apps)"
-    },
-    "REQ-RMAMB-0001": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-RMAMB-0002": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-RMAMB-0003": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-RMAMB-0004": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-RMAMB-0005": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-RMAMB-0006": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-RMAMB-0007": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-RMAMB-0008": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-RMAMB-0009": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-RMAMB-0010": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-RMAMB-0011": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-RMAMB-0012": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-RMAMB-NFR-001": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-RMAMB-NFR-002": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-RMAMB-NFR-003": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-RMAMB-NFR-004": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-RMAMB-NFR-005": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
-    },
-    "REQ-RMAMB-NFR-006": {
-      "status": "deployed",
-      "req_revision": 1,
-      "deployed_at": "2026-06-15",
-      "notes": "apps/rmambiental — SPA Vite/React no cluster (ns apps)"
     },
     "REQ-SICAT-0001": {
       "status": "deployed",

@@ -452,16 +452,6 @@
       "target": "REQ-KEYCLOAK-0004"
     }
   ],
-  "REQ-RMAMB-0008": [
-    {
-      "type": "depends_on",
-      "target": "REQ-TRAEFIK-0004"
-    },
-    {
-      "type": "depends_on",
-      "target": "REQ-TRAEFIK-0005"
-    }
-  ],
   "REQ-REQHUB-0001": [
     {
       "type": "depends_on",

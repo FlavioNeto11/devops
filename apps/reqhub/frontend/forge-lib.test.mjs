@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   progressOf, productSummaries, phaseModel, buildDag, waveProgress, reqRow,
   validateReqId, nextReqId, forgeStatusCls, hubSummary, blueprintById, DONE_STATUSES,
-  typeLabel, asList, dagFromWaves,
+  typeLabel, asList, dagFromWaves, businessProductScopes, NON_PRODUCT_SCOPES,
 } from './assets/forge-lib.js';
 
 const implStatus = {
@@ -180,6 +180,25 @@ test('hubSummary agrega produtos', () => {
   const h = hubSummary(products, implStatus);
   assert.equal(h.products, 1); assert.equal(h.totalReqs, 5); assert.equal(h.totalDone, 5);
   assert.equal(h.live, 1); assert.equal(h.pct, 100);
+});
+
+test('businessProductScopes: só software de negócio (exclui infra; CMS já sem reqs)', () => {
+  const reqs = [
+    { id: 'REQ-SICAT-0001', scope: { product_scope: 'sicat' } },
+    { id: 'REQ-CRM-0001', scope: { product_scope: 'crm' } },
+    { id: 'REQ-ARGOCD-0001', scope: { product_scope: 'argocd' } },   // infra -> fora
+    { id: 'REQ-TRAEFIK-0001', scope: { product_scope: 'traefik' } }, // infra -> fora
+    { id: 'REQ-CONSOLE-0001', scope: { product_scope: 'console' } },
+  ];
+  assert.deepEqual(businessProductScopes(reqs, null), ['console', 'crm', 'sicat']);
+  // todos os escopos de infra são excluídos
+  for (const sc of NON_PRODUCT_SCOPES) {
+    assert.equal(businessProductScopes([{ id: 'X', scope: { product_scope: sc } }], null).length, 0, sc);
+  }
+  // produto declarado com app_type != product_software também sai
+  const products = { products: [{ name: 'crm', app_type: 'cms_portal' }] };
+  assert.deepEqual(businessProductScopes(reqs, products), ['console', 'sicat']);
+  assert.deepEqual(businessProductScopes([], null), []);
 });
 
 test('blueprintById', () => {

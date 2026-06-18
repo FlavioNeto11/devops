@@ -1,7 +1,7 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations } from './lib.js?v=22';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves } from './forge-lib.js?v=22';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations } from './lib.js?v=23';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=23';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -911,7 +911,8 @@ function renderPickStage(body) {
   const heading = h('h2', { class: 'editor-title', tabindex: '-1', text: 'Sobre qual sistema você quer trabalhar?' });
   body.append(h('div', { class: 'ed-guided-head' }, heading,
     h('p', { class: 'muted', text: 'Escolha um sistema: o assistente de IA conhece os requisitos dele. Você vê o mapa, conversa para entender ou propor uma mudança, e o resultado vira um PR — a UI nunca escreve no git.' })));
-  const scopes = uniqueValues(DATA.baseline.requirements, (r) => r.scope && r.scope.product_scope).filter(Boolean).sort();
+  // só PRODUTOS DE SOFTWARE DE NEGÓCIO (exclui infra/plataforma; sites CMS já não têm requisitos)
+  const scopes = businessProductScopes(DATA.baseline.requirements, DATA.products);
   const counts = {}; for (const r of DATA.baseline.requirements) { const s = r.scope && r.scope.product_scope; if (s) counts[s] = (counts[s] || 0) + 1; }
   const grid = h('div', { class: 'pick-grid' });
   for (const sc of scopes) {
