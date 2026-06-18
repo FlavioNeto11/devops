@@ -1,7 +1,7 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId } from './lib.js?v=37';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=37';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId } from './lib.js?v=38';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=38';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -59,6 +59,21 @@ const AI = {
   },
   assist(body) { return this.post('/v1/authoring/assist', body); },
   chat(body) { return this.post('/v1/authoring/chat', body); },
+  // Primitiva grounded reutilizável fora do funil do Editor (copiloto, Workspace, etc.).
+  // Pergunta à base no contexto de UM produto (grounding ≤60). Degrada fail-closed.
+  async ask({ question, product, history }) {
+    const reqs = (DATA.baseline && DATA.baseline.requirements) || [];
+    const r = await this.chat({ product: product || null, message: question, history: history || [], grounding: productGrounding(reqs, product) });
+    const d = r.ok ? (r.data || {}) : {};
+    return { ok: r.ok, status: r.status, reply: d.reply || '', citations: filterCitations(d.citations || [], reqs), grounded: d.grounded !== false, intent: d.intent, draft: d.draft || null, next_question: d.next_question || '', error: r.ok ? null : (r.data && r.data.error) };
+  },
+  // health cacheado por sessão (vários pontos do app consultam — Overview, copiloto, ações).
+  _aiUp: null,
+  async aiAvailable() {
+    if (this._aiUp !== null) return this._aiUp;
+    try { const r = await this.health(); this._aiUp = !!(r.ok && r.data && r.data.ai); } catch { this._aiUp = false; }
+    return this._aiUp;
+  },
 };
 /* ---------- recentes (últimos REQs abertos, persistidos no localStorage) ---------- */
 const RECENTS = {
@@ -74,6 +89,9 @@ function setStatus(msg, err) { const s = document.getElementById('status'); s.te
 /* ---------- helpers de UI compartilhados (consistência entre telas) ---------- */
 // ícone de seção (glifo): mesma marca visual em todos os h3 de card detalhado.
 function secIc(g) { return h('span', { class: 'us-sec-ic', 'aria-hidden': 'true', text: g }); }
+// limiar de "possível duplicata" sobre similaridade por EMBEDDINGS (cosseno). O caminho léxico
+// (Jaccard/findSimilarReqs no Editor/Forge) usa seu próprio limiar, pois é outra métrica.
+const SIMILAR_THRESHOLD = 0.8;
 // rótulo de produto numa linha de grupo: display_name + slug mono só quando diferem.
 function prodLabelNodes(p) { const dn = productMeta(p).display_name || p; return dn === p ? [p] : [dn, h('span', { class: 'gr-slug', text: ' ' + p })]; }
 // estado-vazio ACIONÁVEL padrão: título + explicação curta + CTA do próximo passo.
@@ -99,10 +117,21 @@ function clearFilters() {
 }
 
 /* ---------- Explorer ---------- */
-// Faixa de "recentes" (últimos REQs abertos), reusada no Explorador e no Workspace.
-function recentsStrip() {
+// Faixa de "recentes" (últimos REQs abertos) — fonte/ação ÚNICAS (RECENTS→openReq), 2 variantes:
+// 'chips' (Explorador/Workspace) e 'list' (card "Continuar de onde parou" da Overview).
+function recentsStrip(opts) {
+  const variant = (opts && opts.variant) || 'chips';
   const ids = RECENTS.get().filter((id) => byId(id));
   if (!ids.length) return null;
+  if (variant === 'list') {
+    const rl = h('div', { class: 'ov-recent' });
+    for (const id of ids.slice(0, 6)) {
+      const rr = byId(id);
+      rl.append(h('button', { class: 'ov-recent-i', type: 'button', 'aria-label': `Abrir ${id}`, onclick: () => openReq(id) },
+        h('span', { class: 'rid', text: id }), h('span', { class: 'ov-recent-t', text: truncateLabel((rr && rr.title) || '', 48) })));
+    }
+    return rl;
+  }
   const nav = h('nav', { class: 'recents', 'aria-label': 'Requisitos abertos recentemente' });
   nav.append(h('span', { class: 'recents-l', text: 'Recentes:' }));
   for (const id of ids) {
@@ -247,6 +276,7 @@ function renderWorkspace() {
   imp.append(linkList(nb.outgoing, 'to'));
   imp.append(h('p', { class: 'muted', text: 'Entra (depende / refina / constrange):' }));
   imp.append(linkList(nb.incoming, 'from'));
+  imp.append(h('div', { class: 'ws-actions' }, h('button', { class: 'btn-link', type: 'button', onclick: () => openImpactAt(r.id), text: 'Ver no mapa ↗' })));
   side.append(imp);
 
   const ver = h('div', { class: 'card' }, h('h3', {}, secIc('⌗'), 'Versão'),
@@ -256,6 +286,7 @@ function renderWorkspace() {
       dt('Mudança'), dd(badge(semChangeLabel(r.version.semantic_change), semChangeCls(r.version.semantic_change))),
       dt('Motivo'), dd(r.version.change_reason || '—'),
       dt('Arquivo'), dd(h('code', { text: r.file }))));
+  ver.append(h('div', { class: 'ws-actions' }, h('button', { class: 'btn-link', type: 'button', onclick: () => { state.q = r.id; const qi = document.getElementById('q'); if (qi) qi.value = r.id; switchView('versions'); }, text: 'Ver no ledger →' })));
   side.append(ver);
 
   // Desenvolvimento (status REQ → PR → deploy)
@@ -287,14 +318,18 @@ function renderWorkspace() {
     if (!sims.length) sc.append(h('p', { class: 'empty', text: '—' }));
     else {
       const ul = h('ul', { class: 'linklist' });
+      let dupe = null;
       for (const s of sims) {
         const sr = byId(s.id);
+        if (s.score >= SIMILAR_THRESHOLD && !dupe) dupe = s.id;
         ul.append(h('li', {}, h('span', { class: 'lt', text: s.score.toFixed(2) }), ' ',
           h('button', { class: 'btn-link', onclick: () => openReq(s.id), text: s.id }),
-          s.score >= 0.8 ? h('span', {}, ' ', badge('possível duplicata', 'b-crit')) : '',
+          s.score >= SIMILAR_THRESHOLD ? h('span', {}, ' ', badge('possível duplicata', 'b-crit')) : '',
           sr ? h('span', { class: 'muted', text: ' · ' + sr.title.slice(0, 38) }) : ''));
       }
       sc.append(ul);
+      // Ação de IA: pedir ao copiloto que compare/decida duplicata (grounded no produto). Fail-closed.
+      if (dupe) sc.append(h('div', { class: 'ws-actions' }, h('button', { class: 'btn-link', type: 'button', onclick: () => openCmdk(`${r.id} e ${dupe} são duplicatas ou se complementam? Compare e recomende.`), text: '✨ Comparar com a IA →' })));
     }
     side.append(sc);
   }
@@ -357,6 +392,10 @@ function renderVersions() {
     mkSec('Alterados', hist.changed, 'changed');
     mkSec('Adicionados', hist.added, 'added');
     mkSec('Removidos', hist.removed, 'removed');
+    // Narrar as mudanças com IA (grounded no produto do 1º item alterado; copiloto degrada fail-closed).
+    const firstChanged = (hist.changed[0] || hist.added[0] || {});
+    card.append(h('div', { class: 'ws-actions' }, h('button', { class: 'btn-link', type: 'button', onclick: () => openCmdk('Resuma em linguagem clara as mudanças recentes da baseline (' + (hist.counts.added + hist.counts.changed + hist.counts.removed) + ' itens) e o que devo revisar.'), text: '✨ Narrar mudanças com a IA →' })));
+    void firstChanged;
     body.append(card);
   }
 
@@ -396,6 +435,8 @@ const TARGET_LABEL = { infra: 'infraestrutura', service: 'serviço', slo: 'SLO' 
 function renderImpact() {
   const filters = document.getElementById('impact-filters');
   if (!IMPACT.st) IMPACT.st = { products: null, edgeTypes: null, includeIsolated: false, selectedId: null, hoverId: null, query: '' };
+  // unifica o "req em foco" entre Workspace e Mapa: ao abrir o mapa pela nav, foca o último REQ visto.
+  if (!IMPACT.st.selectedId && state.selectedId && byId(state.selectedId)) IMPACT.st.selectedId = state.selectedId;
   IMPACT.deg = degreeMap(DATA.impact.edges);
   IMPACT.palette = productPalette(uniqueValues(DATA.impact.nodes, (n) => n.product));
   buildImpactControls(filters);
@@ -896,16 +937,23 @@ function renderReprocess() {
   for (const x of Object.keys(reasonCounts).sort()) filt.append(fchip(reasonLabel(x) + ' · ' + reasonCounts[x], x));
   (wrap || body).append(filt);
 
-  body.append(h('p', { class: 'muted', text: 'Itens que exigem atenção do Claude — priorizados por impacto. Clique numa linha para abrir o requisito.' }));
+  body.append(h('p', { class: 'muted', text: 'Itens que exigem atenção do Claude — priorizados por impacto. Cada motivo leva à sua origem (mapa / cobertura / versões); "analisar" abre o copiloto.' }));
 
   const shown = state.reproFilter.reason ? q.filter((it) => (it.reasons || []).includes(state.reproFilter.reason)) : q;
   if (!shown.length) {
     body.append(emptyState({ title: 'Nenhum item para este motivo', text: 'Nenhum requisito na fila com o motivo selecionado.', ctaLabel: 'Limpar filtro', ctaOnClick: () => { state.reproFilter.reason = ''; renderReprocess(); } }));
     return;
   }
+  // cada motivo deep-linka à evidência que o gerou: impacto→mapa, verificação→Workspace, mudança→Versões
+  const motiveTarget = (x, item) => {
+    const s = String(x).toLowerCase();
+    if (/impacto/.test(s)) return () => openImpactAt(item.id);
+    if (/maior|major/.test(s)) return () => { state.q = item.id; const qi = document.getElementById('q'); if (qi) qi.value = item.id; switchView('versions'); };
+    return () => openReq(item.id);
+  };
   const gw = h('div', { class: 'grid-wrap' });
   const t = h('table');
-  t.append(h('thead', {}, h('tr', {}, h('th', { text: '#' }), h('th', { text: 'Requisito' }), h('th', { text: 'Produto' }), h('th', { text: 'Título' }), h('th', { text: 'Impacto' }), h('th', { text: 'Motivos' }))));
+  t.append(h('thead', {}, h('tr', {}, h('th', { text: '#' }), h('th', { text: 'Requisito' }), h('th', { text: 'Produto' }), h('th', { text: 'Título' }), h('th', { text: 'Impacto' }), h('th', { text: 'Motivos' }), h('th', { text: 'Ação' }))));
   const tb = h('tbody');
   shown.forEach((item, i) => {
     const r = byId(item.id);
@@ -914,7 +962,8 @@ function renderReprocess() {
       h('td', { text: productMeta(item.product).display_name || item.product }),
       h('td', { text: r ? r.title : '' }),
       h('td', {}, badge(`${r ? r.impact_band : 'low'} (${item.impact_score})`, bandCls(r ? r.impact_band : 'low')), r && r.architectural_significance ? h('span', {}, ' ', badge('ASR', 'b-asr')) : ''),
-      h('td', {}, ...(item.reasons || []).flatMap((x, j) => [j ? ' ' : '', badge(reasonLabel(x), reasonCls(x))]))));
+      h('td', {}, ...(item.reasons || []).flatMap((x, j) => [j ? ' ' : '', h('button', { class: 'b ' + reasonCls(x) + ' reason-btn', type: 'button', title: 'ver a origem deste motivo', onclick: (ev) => { ev.stopPropagation(); motiveTarget(x, item)(); }, text: reasonLabel(x) })])),
+      h('td', {}, h('button', { class: 'btn-link', type: 'button', onclick: (ev) => { ev.stopPropagation(); openCmdk(`Por que ${item.id} está na fila de reprocessamento e qual a próxima ação?`); }, text: '✨ analisar' }))));
   });
   t.append(tb); gw.append(t); body.append(gw);
 }
@@ -924,6 +973,7 @@ function devStatusCls(s) {
   return s === 'done' || s === 'deployed' ? 'b-ok' : s === 'blocked' ? 'b-crit' : s === 'not_started' ? 'b-low' : 'b-high';
 }
 const DEV_STATUS_LBL = { deployed: 'No ar', done: 'Concluído', merged: 'Mesclado', pr_open: 'PR aberto', in_progress: 'Em progresso', blocked: 'Bloqueado', not_started: 'Não iniciado' };
+const DEV_STATUS_ORDER = ['deployed', 'done', 'merged', 'pr_open', 'in_progress', 'blocked', 'not_started'];
 const devStatusLabel = (s) => DEV_STATUS_LBL[s] || s;
 function renderDev() {
   const wrap = document.getElementById('dev-filters');
@@ -940,8 +990,7 @@ function renderDev() {
 
   // Distribuição por status como CHIPS-FILTRO (clicar = filtra; clicar de novo = limpa).
   const counts = (st.counts && st.counts.by_status) || (() => { const m = {}; for (const v of Object.values(st.items)) { const k = v.status || 'not_started'; m[k] = (m[k] || 0) + 1; } return m; })();
-  const statusOrder = ['deployed', 'done', 'merged', 'pr_open', 'in_progress', 'blocked', 'not_started'];
-  const ordered = [...new Set([...statusOrder, ...Object.keys(counts)])].filter((s) => counts[s]);
+  const ordered = [...new Set([...DEV_STATUS_ORDER, ...Object.keys(counts)])].filter((s) => counts[s]);
   const filt = h('div', { class: 'usa-filter', role: 'group', 'aria-label': 'Filtrar por status' });
   const totalItems = Object.values(counts).reduce((a, b) => a + b, 0);
   const fchip = (label, val) => h('button', { class: 'usa-fchip' + ((state.devFilter.status || '') === val ? ' is-on' : ''), type: 'button', 'aria-pressed': ((state.devFilter.status || '') === val) ? 'true' : 'false', text: label, onclick: () => { state.devFilter.status = (state.devFilter.status === val ? '' : val); renderDev(); } });
@@ -1188,7 +1237,8 @@ const INTENT_CHIPS = [
 ];
 
 /* bolha de chat CSP-safe (só nós via h(), sem innerHTML; parágrafos por \n\n). */
-function chatBubble(turn) {
+function chatBubble(turn, opts) {
+  const onCite = (opts && opts.onCite) || ((id) => { if (state.editor && state.editor.graph) state.editor.graph.focus(id); });
   const who = turn.role === 'user' ? 'is-user' : 'is-ai';
   const b = h('div', { class: 'chat-msg ' + who + (turn.error ? ' is-err' : '') });
   // "não consta" só faz sentido numa PERGUNTA sobre o sistema (não em criar/refinar/clarify)
@@ -1196,7 +1246,7 @@ function chatBubble(turn) {
   String(turn.content || '').split(/\n{2,}/).map((p) => p.trim()).filter(Boolean).forEach((p) => b.append(h('p', { class: 'chat-par', text: p })));
   if (turn.citations && turn.citations.length) {
     const c = h('div', { class: 'chat-cites' }, h('span', { class: 'chat-cites-l', text: 'Requisitos citados:' }));
-    for (const id of turn.citations) c.append(h('button', { class: 'btn-link chat-cite', type: 'button', onclick: () => { if (state.editor.graph) state.editor.graph.focus(id); }, text: id }));
+    for (const id of turn.citations) c.append(h('button', { class: 'btn-link chat-cite', type: 'button', onclick: () => onCite(id), text: id }));
     b.append(c);
   }
   // UMA pergunta de cada vez (substitui a lista de open_questions)
@@ -2735,6 +2785,17 @@ function switchView(view) {
 }
 function openReq(id) { state.selectedId = id; RECENTS.push(id); switchView('workspace'); const t = document.getElementById('tab-workspace'); if (t) t.focus(); }
 function openUsability(id) { state.usabilitySel = id; switchView('usability'); const t = document.getElementById('tab-usability'); if (t) t.focus(); }
+// Destino SIMÉTRICO a openReq: foca o REQ no Mapa de impacto (Workspace/Reprocesso/copiloto ↔ Mapa).
+function openImpactAt(id) {
+  if (!byId(id) && !(DATA.impact && DATA.impact.nodes && DATA.impact.nodes.find((n) => n.id === id))) return;
+  if (!IMPACT.st) IMPACT.st = { products: null, edgeTypes: null, includeIsolated: false, selectedId: null, hoverId: null, query: '' };
+  IMPACT.st.selectedId = id;
+  // se o nó é isolado e estiver oculto, revela os isolados para conseguir focá-lo
+  if (DATA.impact && (!IMPACT.deg || !IMPACT.deg[id])) IMPACT.st.includeIsolated = true;
+  switchView('impact');
+  centerOnNode(id); showInspector(id, false);
+  const t = document.getElementById('tab-impact'); if (t) t.focus();
+}
 
 /* ===================== Usabilidade — telas/refinamentos (o funcionamento detalhado) =====================
    Navega produto → refinamentos agrupados por tipo → ACESSO (rota+papéis) + comportamento detalhado
@@ -2879,6 +2940,35 @@ function renderUsabilityDetail(host, r) {
   heading.focus();
 }
 
+/* Briefing proativo da base — insights DETERMINÍSTICOS (sempre on) sobre dados já carregados,
+   cada um com deep-link, e um atalho para perguntar à IA. Não depende do servidor. */
+function overviewBriefing(reqs, prods) {
+  const card = h('div', { class: 'ov-card ov-briefing' }, h('h3', {}, secIc('✦'), 'Briefing da base'));
+  const list = h('div', { class: 'ov-brief-list' });
+  const row = (sev, text, onClick) => h('button', { class: 'ov-brief-i', type: 'button', onclick: onClick },
+    h('span', { class: 'ov-brief-dot ' + sev, 'aria-hidden': 'true' }), h('span', { class: 'ov-brief-t', text }), h('span', { class: 'ov-brief-go', 'aria-hidden': 'true', text: '→' }));
+  // 1. ASR sem método de verificação (risco arquitetural não verificado)
+  const asrNoVerif = reqs.filter((r) => r && r.architectural_significance && !((r.verification_method || []).length));
+  if (asrNoVerif.length) list.append(row('is-crit', `${asrNoVerif.length} requisito(s) ASR sem método de verificação`, () => { state.filters = { asr: 'yes' }; switchView('explorer'); }));
+  // 2. fila — itens de ALTO IMPACTO (o topo prioritário, não a fila inteira)
+  const qcrit = ((DATA.baseline && DATA.baseline.reprocess_queue) || []).filter((it) => it.impact_score >= 70);
+  if (qcrit.length) list.append(row('is-warn', `${qcrit.length} requisito(s) de alto impacto a reprocessar`, () => switchView('reprocess')));
+  // 3. produtos sem nada no ar ainda
+  const stalled = (prods || []).filter((p) => p.progress && p.progress.done === 0 && p.reqCount > 0);
+  if (stalled.length) list.append(row('is-info', `${stalled.length} produto(s) ainda sem nada no ar`, () => switchView('forge')));
+  // 4. dimensão de cobertura mais fraca da base
+  if (DATA.coverage && DATA.coverage.totals && DATA.coverage.totals.coverage_pct) {
+    const dimLbl = { source_paths: 'origem', links: 'links', allocation: 'alocação', evidence: 'evidência', verification_method: 'método de verificação' };
+    let worst = null;
+    for (const d of (DATA.coverage.dimensions || [])) { const pct = DATA.coverage.totals.coverage_pct[d]; if (worst === null || pct < worst.pct) worst = { d, pct }; }
+    if (worst && worst.pct < 60) list.append(row('is-info', `Cobertura de ${dimLbl[worst.d] || worst.d} em ${worst.pct}% (a mais baixa)`, () => switchView('coverage')));
+  }
+  if (!list.children.length) list.append(h('p', { class: 'muted small', text: 'Nenhuma anomalia crítica detectada — a base está saudável.' }));
+  card.append(list);
+  card.append(h('div', { class: 'ws-actions' }, h('button', { class: 'btn-link', type: 'button', onclick: () => openCmdk('Quais requisitos exigem mais atenção agora e por quê?'), text: '✨ Perguntar à IA sobre a base →' })));
+  return card;
+}
+
 /* ===================== Visão geral (Overview — front-door do produto) ===================== */
 function renderOverview() {
   const body = document.getElementById('overview-body');
@@ -2904,6 +2994,9 @@ function renderOverview() {
     metric('rocket', implPct + '%', 'no ar (entrega)', () => switchView('dev')),
     metric('impact', asr, 'ASR (arquiteturais)', () => { state.filters = { asr: 'yes' }; switchView('explorer'); })));
 
+  // Briefing proativo da base (determinístico, sempre disponível) — anomalias acionáveis + deep-links.
+  body.append(overviewBriefing(reqs, prods));
+
   // coluna esquerda: entrega por produto
   const left = h('div', { class: 'ov-card' }, h('h3', {}, 'Entrega por produto', h('button', { class: 'btn-link', type: 'button', onclick: () => switchView('forge'), text: 'Abrir Forge →' })));
   if (!prods.length) left.append(h('p', { class: 'empty', text: 'Nenhum produto registrado ainda.' }));
@@ -2919,13 +3012,11 @@ function renderOverview() {
   const st = DATA.implStatus;
   const byStatus = (st && st.counts && st.counts.by_status) || (() => { const m = {}; for (const v of implVals) { const k = (v && v.status) || 'not_started'; m[k] = (m[k] || 0) + 1; } return m; })();
   const totalImpl = Object.values(byStatus).reduce((a, b) => a + b, 0) || 1;
-  const statusOrder = ['deployed', 'done', 'merged', 'pr_open', 'in_progress', 'blocked', 'not_started'];
-  const statusLbl = { deployed: 'No ar', done: 'Concluído', merged: 'Mesclado', pr_open: 'PR aberto', in_progress: 'Em progresso', blocked: 'Bloqueado', not_started: 'Não iniciado' };
   const stCard = h('div', { class: 'ov-card' }, h('h3', {}, 'Distribuição por status', h('button', { class: 'btn-link', type: 'button', onclick: () => switchView('dev'), text: 'Desenvolvimento →' })));
   const bars = h('div', { class: 'ov-bars' });
-  for (const s of statusOrder) {
+  for (const s of DEV_STATUS_ORDER) {
     const n = byStatus[s] || 0; if (!n) continue;
-    bars.append(h('div', { class: 'ov-statbar' }, h('span', { class: 'sl' }, badge(statusLbl[s] || s, devStatusCls(s))), miniBar((n / totalImpl) * 100, ['deployed', 'done', 'merged'].includes(s) ? 'ok' : s === 'blocked' ? 'danger' : ['pr_open', 'in_progress'].includes(s) ? 'warn' : ''), h('span', { class: 'sn', text: String(n) })));
+    bars.append(h('div', { class: 'ov-statbar' }, h('span', { class: 'sl' }, badge(devStatusLabel(s), devStatusCls(s))), miniBar((n / totalImpl) * 100, ['deployed', 'done', 'merged'].includes(s) ? 'ok' : s === 'blocked' ? 'danger' : ['pr_open', 'in_progress'].includes(s) ? 'warn' : ''), h('span', { class: 'sn', text: String(n) })));
   }
   if (!bars.children.length) bars.append(h('p', { class: 'empty', text: 'Sem dados de desenvolvimento.' }));
   stCard.append(bars);
@@ -2937,15 +3028,9 @@ function renderOverview() {
   quick.append(qgrid);
   right.append(stCard, quick);
 
-  // Continuar de onde parou (recentes) — retomada na front-door.
-  const recentIds = RECENTS.get().filter((id) => byId(id));
-  if (recentIds.length) {
-    const rc = h('div', { class: 'ov-card' }, h('h3', {}, 'Continuar de onde parou'));
-    const rl = h('div', { class: 'ov-recent' });
-    for (const id of recentIds.slice(0, 6)) { const rr = byId(id); rl.append(h('button', { class: 'ov-recent-i', type: 'button', 'aria-label': `Abrir ${id}`, onclick: () => openReq(id) }, h('span', { class: 'rid', text: id }), h('span', { class: 'ov-recent-t', text: truncateLabel(rr.title || '', 48) }))); }
-    rc.append(rl);
-    right.append(rc);
-  }
+  // Continuar de onde parou (recentes) — retomada na front-door, mesmo componente das outras telas.
+  const recentList = recentsStrip({ variant: 'list' });
+  if (recentList) right.append(h('div', { class: 'ov-card' }, h('h3', {}, 'Continuar de onde parou'), recentList));
 
   const grid = h('div', { class: 'ov-grid' }, left, right);
   body.append(grid);
@@ -2963,6 +3048,27 @@ function wireNav() {
       if (j != null) { ev.preventDefault(); items[j].focus(); }
     });
   });
+}
+// Badges de estado VIVO na sidebar — a casca vira painel de atenção sem abrir cada tela.
+function refreshNavBadges() {
+  const setBadge = (tabId, text, cls) => {
+    const it = document.getElementById(tabId); if (!it) return;
+    let b = it.querySelector('.nav-badge');
+    if (!text) { if (b) b.remove(); return; }
+    if (!b) { b = h('span', { class: 'nav-badge' }); it.appendChild(b); }
+    b.className = 'nav-badge' + (cls ? ' ' + cls : '');
+    b.textContent = text;
+  };
+  // Reprocessamento: nº de itens de ALTO IMPACTO (a fila inteira é grande; o que importa é o topo).
+  const q = (DATA.baseline && DATA.baseline.reprocess_queue) || [];
+  const crit = q.filter((it) => it.impact_score >= 70).length;
+  setBadge('tab-reprocess', crit ? String(crit) : '', 'is-crit');
+  // Desenvolvimento: % no ar (entrega).
+  const items = (DATA.implStatus && DATA.implStatus.items) ? Object.values(DATA.implStatus.items) : [];
+  if (items.length) {
+    const deployed = items.filter((x) => x && ['deployed', 'done', 'merged'].includes(x.status)).length;
+    setBadge('tab-dev', Math.round((deployed / items.length) * 100) + '%', 'is-ok');
+  }
 }
 function wireIcons() {
   const bl = document.getElementById('brand-logo'); if (bl) bl.append(icon('brand'));
@@ -3009,9 +3115,24 @@ function wireTheme() {
   });
 }
 function wireSearch() {
-  document.getElementById('q').addEventListener('input', (e) => {
+  const q = document.getElementById('q');
+  q.addEventListener('input', (e) => {
     state.q = e.target.value.trim();
     if (['explorer', 'versions', 'coverage'].includes(state.view)) RENDER[state.view]();
+    if (state.view === 'impact' && IMPACT.st) { IMPACT.st.query = state.q; locateNode(state.q); }
+  });
+  // Enter = busca GLOBAL: abre o REQ se o termo casa um id/título exato, senão vai ao Explorador filtrado.
+  q.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Enter') return;
+    ev.preventDefault();
+    const term = (q.value || '').trim();
+    if (!term) return;
+    const reqs = (DATA.baseline && DATA.baseline.requirements) || [];
+    const low = term.toLowerCase();
+    const exact = reqs.find((r) => r.id.toLowerCase() === low) || reqs.find((r) => (r.title || '').toLowerCase() === low);
+    if (exact) { openReq(exact.id); return; }
+    state.q = term;
+    if (state.view !== 'explorer') switchView('explorer'); else renderExplorer();
   });
 }
 // Modo tela cheia (Fullscreen API) — vale para todas as telas do workbench.
@@ -3065,6 +3186,122 @@ async function wireUserMenu() {
   wrap.hidden = false;
 }
 
+/* ===================== Copiloto onipresente (Ctrl-K / ✨ na topbar) =====================
+   Tira a IA do funil Editor/Forge: pergunta à base grounded R1 (AI.ask) DE QUALQUER tela,
+   com citações que deep-linkam (openReq / openImpactAt). Fail-closed: sem IA, vira typeahead
+   puro (matchesQuery) que lista e abre requisitos. CSP-safe (h(), sem inline). */
+const CMDK = { messages: [], product: null, el: null, open: false };
+function wireCommandPalette() {
+  const tools = document.querySelector('.topbar-tools');
+  if (!tools) return;
+  const btn = h('button', { class: 'icon-btn cmdk-btn', id: 'cmdk-btn', type: 'button', 'aria-label': 'Perguntar à base (Ctrl+K)', title: 'Perguntar à base — Ctrl+K' }, h('span', { 'aria-hidden': 'true', text: '✨' }));
+  btn.addEventListener('click', () => openCmdk());
+  tools.insertBefore(btn, tools.firstChild);
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); openCmdk(); }
+    else if (e.key === 'Escape' && CMDK.open) closeCmdk();
+  });
+}
+function productScopeOptions() { return uniqueValues((DATA.baseline && DATA.baseline.requirements) || [], (r) => r.scope && r.scope.product_scope); }
+function cmdkDefaultProduct() {
+  const sel = state.selectedId && byId(state.selectedId);
+  if (sel && sel.scope && sel.scope.product_scope) return sel.scope.product_scope;
+  if (state.editor && state.editor.product) return state.editor.product;
+  if (state.forge && state.forge.product) return state.forge.product;
+  const o = productScopeOptions(); return o[0] || null;
+}
+function buildCmdk() {
+  const overlay = h('div', { class: 'cmdk-overlay', hidden: 'hidden' });
+  const panel = h('div', { class: 'cmdk', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Perguntar à base de requisitos' });
+  const prodSel = h('select', { class: 'cmdk-prod', 'aria-label': 'Sistema (contexto da pergunta)' });
+  const head = h('div', { class: 'cmdk-head' },
+    h('span', { class: 'cmdk-ic', 'aria-hidden': 'true', text: '✨' }),
+    h('strong', { class: 'cmdk-title', text: 'Perguntar à base' }),
+    h('label', { class: 'cmdk-prod-l' }, h('span', { class: 'muted small', text: 'sistema:' }), prodSel),
+    h('button', { class: 'cmdk-x', type: 'button', 'aria-label': 'Fechar', onclick: () => closeCmdk() }, '×'));
+  const banner = h('div', {});
+  const log = h('div', { class: 'cmdk-log', role: 'log', 'aria-live': 'polite', 'aria-label': 'Respostas da IA' });
+  const typingEl = h('div', { class: 'chat-msg is-ai chat-typing', hidden: 'hidden' }, h('span', { class: 'visually-hidden', text: 'A IA está respondendo…' }), h('span', { class: 'dot', 'aria-hidden': 'true' }), h('span', { class: 'dot', 'aria-hidden': 'true' }), h('span', { class: 'dot', 'aria-hidden': 'true' }));
+  const hits = h('div', { class: 'cmdk-hits' }); // typeahead instantâneo (sem IA)
+  const ta = h('textarea', { class: 'cmdk-input', rows: '1', 'aria-label': 'Pergunte sobre a base', placeholder: 'Pergunte sobre a base… (Enter envia · Esc fecha)' });
+  const sendBtn = h('button', { class: 'btn primary cmdk-send', type: 'button', text: 'Perguntar' });
+  panel.append(head, banner, log, hits, h('div', { class: 'cmdk-inputrow' }, ta, sendBtn));
+  overlay.append(panel);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeCmdk(); });
+  document.body.appendChild(overlay);
+
+  let pending = false, painted = 0;
+  const onCite = (id) => { closeCmdk(); openReq(id); };
+  function repaint() {
+    for (let i = painted; i < CMDK.messages.length; i++) log.insertBefore(chatBubble(CMDK.messages[i], { onCite }), typingEl);
+    painted = CMDK.messages.length;
+    if (![...log.children].includes(typingEl)) log.append(typingEl);
+    typingEl.hidden = !pending; log.setAttribute('aria-busy', pending ? 'true' : 'false');
+    log.scrollTop = log.scrollHeight;
+  }
+  function renderHits() {
+    hits.replaceChildren();
+    const term = (ta.value || '').trim();
+    if (term.length < 2) return;
+    const reqs = (DATA.baseline && DATA.baseline.requirements) || [];
+    const matches = reqs.filter((r) => matchesQuery(r, term)).slice(0, 6);
+    if (!matches.length) return;
+    hits.append(h('div', { class: 'cmdk-hits-l muted small', text: 'Requisitos que casam:' }));
+    for (const r of matches) hits.append(h('button', { class: 'cmdk-hit', type: 'button', onclick: () => { closeCmdk(); openReq(r.id); } },
+      h('span', { class: 'rid', text: r.id }), h('span', { class: 'cmdk-hit-t', text: truncateLabel(r.title || '', 56) })));
+  }
+  async function send() {
+    const text = (ta.value || '').trim();
+    if (!text || pending) return;
+    const up = await AI.aiAvailable();
+    if (!up) { // fail-closed: sem IA, o typeahead é a resposta
+      renderHits();
+      banner.replaceChildren(h('div', { class: 'cmdk-banner' }, h('span', { text: 'A IA está indisponível agora — mostrando os requisitos que casam com a busca. Clique para abrir.' })));
+      return;
+    }
+    CMDK.messages.push({ role: 'user', content: text });
+    ta.value = ''; hits.replaceChildren(); pending = true; sendBtn.disabled = true; repaint();
+    try {
+      const r = await AI.ask({ question: text, product: CMDK.product, history: CMDK.messages.slice(0, -1).filter((m) => !m.error).map((m) => ({ role: m.role, content: m.content })) });
+      pending = false; sendBtn.disabled = false;
+      if (!r.ok) { CMDK.messages.push({ role: 'assistant', error: true, content: 'A IA respondeu com erro' + (r.error && r.error.code ? ' (' + r.error.code + ')' : '') + '. Tente de novo.' }); repaint(); return; }
+      CMDK.messages.push({ role: 'assistant', content: r.reply || '(sem resposta)', intent: r.intent, citations: r.citations, grounded: r.grounded, draft: r.draft, next_question: r.next_question });
+      repaint();
+    } catch (e) { pending = false; sendBtn.disabled = false; CMDK.messages.push({ role: 'assistant', error: true, content: 'Erro de rede ao falar com a IA.' }); repaint(); }
+  }
+  sendBtn.addEventListener('click', send);
+  ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
+  ta.addEventListener('input', renderHits);
+  prodSel.addEventListener('change', () => { CMDK.product = prodSel.value; CMDK.messages = []; painted = 0; log.replaceChildren(typingEl); greet(); });
+  function greet() {
+    const meta = productMeta(CMDK.product);
+    log.insertBefore(chatBubble({ role: 'assistant', grounded: true, content: 'Pergunte sobre ' + (meta.display_name || CMDK.product || 'a base') + ' — respondo citando os requisitos, e os IDs abrem direto. Ex.: "quais requisitos tratam de autenticação?"' }, { onCite }), typingEl);
+  }
+  CMDK.el = { overlay, panel, prodSel, log, ta, typingEl, banner, hits, repaint, renderHits, greet, reset() { painted = 0; } };
+}
+async function openCmdk(seedQuestion) {
+  if (!CMDK.el) buildCmdk();
+  const { overlay, prodSel, log, ta, typingEl, banner } = CMDK.el;
+  // (re)popula o seletor de sistema, default = produto do REQ em foco
+  const opts = productScopeOptions();
+  if (!CMDK.product || !opts.includes(CMDK.product)) CMDK.product = cmdkDefaultProduct();
+  prodSel.replaceChildren(...opts.map((p) => { const o = h('option', { value: p, text: productMeta(p).display_name || p }); if (p === CMDK.product) o.selected = true; return o; }));
+  banner.replaceChildren();
+  if (!CMDK.messages.length) { log.replaceChildren(typingEl); CMDK.el.reset(); CMDK.el.greet(); }
+  overlay.hidden = false; CMDK.open = true;
+  document.body.classList.add('cmdk-on');
+  // banner se a IA estiver fora
+  AI.aiAvailable().then((up) => { if (!up) banner.replaceChildren(h('div', { class: 'cmdk-banner' }, h('span', { text: 'IA indisponível — a busca abaixo lista os requisitos que casam (sem síntese). ' }))); });
+  if (seedQuestion) { ta.value = seedQuestion; CMDK.el.renderHits(); }
+  setTimeout(() => ta.focus(), 30);
+}
+function closeCmdk() {
+  if (!CMDK.el) return;
+  CMDK.el.overlay.hidden = true; CMDK.open = false;
+  document.body.classList.remove('cmdk-on');
+  const b = document.getElementById('cmdk-btn'); if (b) b.focus();
+}
+
 async function init() {
   document.documentElement.classList.remove('no-js');
   wireIcons(); wireNav(); wireSidebar(); wireTheme(); wireSearch(); wireFullscreen();
@@ -3087,6 +3324,8 @@ async function init() {
   const c = DATA.baseline.counts;
   document.getElementById('foot-meta').textContent = `${c.total} requisitos · metamodelo ${DATA.baseline.metamodel_version || '?'} · hash ${String(DATA.baseline.baseline_hash).slice(0, 12)}`;
   buildExplorerFilters();
+  refreshNavBadges();
+  wireCommandPalette();
   switchView('overview');
 }
 init();

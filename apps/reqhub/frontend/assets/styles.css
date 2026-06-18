@@ -865,3 +865,53 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 .chat-typing .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); display: inline-block; }
 @media (prefers-reduced-motion: no-preference) { .chat-typing .dot { animation: chatdot 1s infinite ease-in-out; } .chat-typing .dot:nth-child(2) { animation-delay: 0.15s; } .chat-typing .dot:nth-child(3) { animation-delay: 0.3s; } }
 @keyframes chatdot { 0%, 80%, 100% { opacity: 0.3; } 40% { opacity: 1; } }
+
+/* ===== Integração & AI-oriented: nav badges, briefing, copiloto Ctrl-K, motivos clicáveis ===== */
+/* badges de estado vivo na sidebar */
+.nav-badge { margin-left: auto; font-size: 10.5px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--bg-2); color: var(--muted); border: 1px solid var(--line); flex: none; }
+.nav-badge.is-crit { color: var(--danger); border-color: var(--danger); }
+.nav-badge.is-ok { color: var(--ok); border-color: var(--ok); }
+.is-collapsed .nav-badge { display: none; }
+
+/* briefing proativo na Overview */
+.ov-brief-list { display: flex; flex-direction: column; gap: 6px; margin: 2px 0 10px; }
+.ov-brief-i { display: flex; align-items: center; gap: 10px; padding: 9px 11px; background: var(--bg-1); border: 1px solid var(--line); border-radius: 9px; cursor: pointer; text-align: left; font: inherit; color: inherit; width: 100%; }
+.ov-brief-i:hover { border-color: var(--accent); }
+.ov-brief-i:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ov-brief-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--muted); }
+.ov-brief-dot.is-crit { background: var(--danger); }
+.ov-brief-dot.is-warn { background: var(--warn); }
+.ov-brief-dot.is-info { background: var(--accent); }
+.ov-brief-t { flex: 1; font-size: 13px; }
+.ov-brief-go { color: var(--muted); flex: none; }
+
+/* motivo clicável (Reprocessamento) — badge que leva à origem */
+.reason-btn { cursor: pointer; border: 0; font: inherit; }
+.reason-btn:hover { text-decoration: underline; filter: brightness(1.05); }
+.reason-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* botão ✨ do copiloto na topbar */
+.cmdk-btn span { font-size: 16px; line-height: 1; }
+
+/* copiloto onipresente (Ctrl-K) */
+.cmdk-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.42); z-index: 200; display: flex; align-items: flex-start; justify-content: center; padding: 8vh 16px 16px; }
+.cmdk-overlay[hidden] { display: none; }
+.cmdk { width: min(700px, 100%); max-height: 82vh; display: flex; flex-direction: column; background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: 0 24px 70px rgba(0, 0, 0, 0.4); overflow: hidden; }
+.cmdk-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.cmdk-ic { font-size: 16px; }
+.cmdk-title { font-size: 14px; }
+.cmdk-prod-l { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
+.cmdk-prod { background: var(--bg-2); border: 1px solid var(--line); color: var(--fg); border-radius: 8px; padding: 5px 8px; font-size: 12.5px; max-width: 160px; }
+.cmdk-x { background: none; border: 0; color: var(--muted); font-size: 22px; line-height: 1; cursor: pointer; padding: 0 4px; }
+.cmdk-x:hover { color: var(--fg); }
+.cmdk-log { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; min-height: 130px; }
+.cmdk-hits { padding: 0 16px 4px; display: flex; flex-direction: column; gap: 5px; }
+.cmdk-hits-l { padding: 4px 0 2px; }
+.cmdk-hit { display: flex; gap: 9px; align-items: center; padding: 7px 10px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; text-align: left; font: inherit; color: inherit; }
+.cmdk-hit:hover { border-color: var(--accent); }
+.cmdk-hit-t { color: var(--fg-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
+.cmdk-banner { margin: 10px 16px 0; padding: 8px 11px; background: var(--bg-2); border: 1px solid var(--line); border-left: 3px solid var(--warn); border-radius: 8px; font-size: 12.5px; color: var(--fg-1); }
+.cmdk-inputrow { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); }
+.cmdk-input { flex: 1; resize: none; background: var(--bg-2); border: 1px solid var(--line); color: var(--fg); border-radius: 8px; padding: 9px 11px; font: inherit; font-size: 13.5px; min-height: 38px; }
+.cmdk-send { white-space: nowrap; }
+body.cmdk-on { overflow: hidden; }
