@@ -1,7 +1,7 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId } from './lib.js?v=38';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=38';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId } from './lib.js?v=39';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=39';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -435,8 +435,10 @@ const TARGET_LABEL = { infra: 'infraestrutura', service: 'serviço', slo: 'SLO' 
 function renderImpact() {
   const filters = document.getElementById('impact-filters');
   if (!IMPACT.st) IMPACT.st = { products: null, edgeTypes: null, includeIsolated: false, selectedId: null, hoverId: null, query: '' };
-  // unifica o "req em foco" entre Workspace e Mapa: ao abrir o mapa pela nav, foca o último REQ visto.
-  if (!IMPACT.st.selectedId && state.selectedId && byId(state.selectedId)) IMPACT.st.selectedId = state.selectedId;
+  // unifica o "req em foco" entre Workspace e Mapa: ao ENTRAR no mapa (não a cada re-render de
+  // controle, p.ex. o toggle de isolados que zera a seleção de propósito), foca o último REQ visto.
+  if (IMPACT.enterSeed && !IMPACT.st.selectedId && state.selectedId && byId(state.selectedId)) IMPACT.st.selectedId = state.selectedId;
+  IMPACT.enterSeed = false;
   IMPACT.deg = degreeMap(DATA.impact.edges);
   IMPACT.palette = productPalette(uniqueValues(DATA.impact.nodes, (n) => n.product));
   buildImpactControls(filters);
@@ -2768,6 +2770,7 @@ const VIEW_META = {
 
 const RENDER = { overview: renderOverview, explorer: renderExplorer, workspace: renderWorkspace, versions: renderVersions, impact: renderImpact, coverage: renderCoverage, usability: renderUsability, reprocess: renderReprocess, dev: renderDev, editor: renderEditor, forge: renderForge };
 function switchView(view) {
+  if (view === 'impact' && state.view !== 'impact') IMPACT.enterSeed = true; // semeia o "req em foco" só na ENTRADA
   state.view = view;
   for (const it of document.querySelectorAll('.nav-item')) {
     const sel = it.dataset.view === view;
@@ -3228,6 +3231,15 @@ function buildCmdk() {
   panel.append(head, banner, log, hits, h('div', { class: 'cmdk-inputrow' }, ta, sendBtn));
   overlay.append(panel);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeCmdk(); });
+  // focus-trap (WCAG 2.4.3): Tab/Shift+Tab circula só dentro do diálogo (o fundo fica inert em openCmdk).
+  panel.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab') return;
+    const f = [...panel.querySelectorAll('button,select,textarea,a[href],[tabindex]:not([tabindex="-1"])')].filter((el) => !el.disabled && el.offsetParent !== null);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
   document.body.appendChild(overlay);
 
   let pending = false, painted = 0;
@@ -3288,8 +3300,11 @@ async function openCmdk(seedQuestion) {
   prodSel.replaceChildren(...opts.map((p) => { const o = h('option', { value: p, text: productMeta(p).display_name || p }); if (p === CMDK.product) o.selected = true; return o; }));
   banner.replaceChildren();
   if (!CMDK.messages.length) { log.replaceChildren(typingEl); CMDK.el.reset(); CMDK.el.greet(); }
+  CMDK.returnFocus = document.activeElement; // restaura o foco ao gatilho que abriu (não só à topbar)
   overlay.hidden = false; CMDK.open = true;
   document.body.classList.add('cmdk-on');
+  // isola o resto do app de teclado/AT enquanto o modal está aberto (o overlay é irmão de #app)
+  const app = document.getElementById('app'); if (app) { app.setAttribute('inert', ''); app.setAttribute('aria-hidden', 'true'); }
   // banner se a IA estiver fora
   AI.aiAvailable().then((up) => { if (!up) banner.replaceChildren(h('div', { class: 'cmdk-banner' }, h('span', { text: 'IA indisponível — a busca abaixo lista os requisitos que casam (sem síntese). ' }))); });
   if (seedQuestion) { ta.value = seedQuestion; CMDK.el.renderHits(); }
@@ -3299,7 +3314,12 @@ function closeCmdk() {
   if (!CMDK.el) return;
   CMDK.el.overlay.hidden = true; CMDK.open = false;
   document.body.classList.remove('cmdk-on');
-  const b = document.getElementById('cmdk-btn'); if (b) b.focus();
+  const app = document.getElementById('app'); if (app) { app.removeAttribute('inert'); app.removeAttribute('aria-hidden'); }
+  // devolve o foco ao gatilho real (botão na lista/card), com fallback ao ✨ da topbar
+  const r = CMDK.returnFocus;
+  if (r && document.contains(r) && r.offsetParent !== null && typeof r.focus === 'function') r.focus();
+  else { const b = document.getElementById('cmdk-btn'); if (b) b.focus(); }
+  CMDK.returnFocus = null;
 }
 
 async function init() {
