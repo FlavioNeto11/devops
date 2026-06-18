@@ -70,7 +70,8 @@ jobs:
           else
             BEFORE="${{ github.event.before }}"
             if ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then BEFORE=$(git rev-parse HEAD~1 || echo ""); fi
-            CANDS=$(git diff --name-only "$BEFORE" "${{ github.sha }}" -- 'specs/requirements/**/*.yaml' 2>/dev/null \
+            # --diff-filter=d EXCLUI deleções: apagar requisitos NÃO dispara implementação.
+            CANDS=$(git diff --name-only --diff-filter=d "$BEFORE" "${{ github.sha }}" -- 'specs/requirements/**/*.yaml' 2>/dev/null \
               | sed -n 's#.*/\(REQ-[A-Z0-9-]*\)\.yaml#\1#p' | sort -u | tr '\n' ' ')
           fi
           echo "candidatos: $CANDS"
