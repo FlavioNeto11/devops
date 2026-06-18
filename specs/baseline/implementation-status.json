@@ -6,9 +6,8 @@
     "by_status": {
       "deployed": 320,
       "done": 52,
-      "merged": 1,
-      "not_started": 2,
-      "pr_open": 1
+      "merged": 2,
+      "not_started": 2
     }
   },
   "items": {
@@ -769,9 +768,11 @@
       "req_revision": 1
     },
     "REQ-CRM-0004": {
-      "status": "pr_open",
+      "status": "merged",
       "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/23",
       "branch": "@{id=REQ-CRM-0004; branch=req/REQ-CRM-0004/r1; restricted=false; title=feat(crm): implementa REQ-CRM-0004 — CRUD de empresas (API + tela) com vínculo de contatos}.branch",
+      "commit": "df133479ce5a06d65dd16d2fdd636716a0de2f5c",
       "run_id": "27729105257"
     },
     "REQ-CRM-0005": {
