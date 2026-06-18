@@ -113,9 +113,13 @@ spec:
   ports: [ { name: postgres, port: 5432, targetPort: postgres } ]
 "@
   Set-Content (Join-Path $k8sDir 'postgres.yaml') $pg -Encoding utf8
+  # ATENCAO: extensao .tmpl (NAO .yaml). A Application do Argo aponta apps/<app>/k8s com
+  # prune+selfHeal; o Argo APLICA todo .yaml/.yml/.json daquele path. Se este template fosse
+  # .yaml, o Argo sobrescreveria o Secret real <app>-db com os placeholders CHANGE_ME. Como
+  # .tmpl, o Argo o ignora. O Secret real e criado fora do git (Sealed Secrets / kubectl).
   $sec = @"
 # Template do Secret do banco — copie para $Name-db.secret.yaml (gitignored) ou use Sealed Secrets.
-# NUNCA commite o secret real.
+# NAO e aplicado pelo Argo (extensao .tmpl). NUNCA commite o secret real.
 apiVersion: v1
 kind: Secret
 metadata: { name: $Name-db, namespace: $ns }
@@ -125,8 +129,30 @@ stringData:
   POSTGRES_DB: $($Name)_db
   DATABASE_URL: postgres://$($Name):CHANGE_ME@$Name-postgres:5432/$($Name)_db
 "@
-  Set-Content (Join-Path $k8sDir 'secret.example.yaml') $sec -Encoding utf8
-  Write-Host "  -> Postgres + secret.example gerados (k8s/postgres.yaml, k8s/secret.example.yaml)"
+  Set-Content (Join-Path $k8sDir 'secret.example.yaml.tmpl') $sec -Encoding utf8
+  Write-Host "  -> Postgres + secret.example gerados (k8s/postgres.yaml, k8s/secret.example.yaml.tmpl)"
+
+  # Liga a conexao ao banco: injeta `envFrom: secretRef <app>-db` nos containers api/worker do
+  # manifesto gerado pelo new-app.ps1 (que e generico e nao conhece o db). Sem isso, DATABASE_URL
+  # fica vazio e o `pg` cai em localhost:5432 (ECONNREFUSED) no migrate/seed do boot da api.
+  $appYaml = Join-Path $k8sDir "$Name.yaml"
+  if (Test-Path $appYaml) {
+    $out = [System.Collections.Generic.List[string]]::new()
+    $curSvc = $null
+    $injected = 0
+    foreach ($line in (Get-Content -Path $appYaml)) {
+      $out.Add($line)
+      if ($line -match '^        - name: (\S+)\s*$') { $curSvc = $Matches[1] }
+      elseif ($line -match '^          imagePullPolicy: IfNotPresent\s*$' -and $curSvc -and $curSvc -notmatch '^frontend') {
+        $out.Add('          envFrom:')
+        $out.Add('            - secretRef:')
+        $out.Add("                name: $Name-db")
+        $injected++
+      }
+    }
+    Set-Content -Path $appYaml -Value $out -Encoding utf8
+    Write-Host "  -> envFrom secretRef '$Name-db' injetado em $injected deployment(s) nao-frontend (api/worker)"
+  }
 }
 
 # 3b) meta-docs (CLAUDE.md/AGENTS.md/README) semeadas do brief + blueprint.
