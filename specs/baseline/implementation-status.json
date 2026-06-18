@@ -6,8 +6,7 @@
     "by_status": {
       "deployed": 320,
       "done": 52,
-      "merged": 3,
-      "pr_open": 1
+      "merged": 4
     }
   },
   "items": {
@@ -780,9 +779,11 @@
       "run_id": "27729105257"
     },
     "REQ-CRM-0005": {
-      "status": "pr_open",
+      "status": "merged",
       "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/25",
       "branch": "@{id=REQ-CRM-0005; branch=req/REQ-CRM-0005/r1; restricted=false; title=feat(crm): implementa REQ-CRM-0005 — Funil de negócios (deals) + painel}.branch",
+      "commit": "ece88733e086e26a440ee334ab423fbb092ebaf7",
       "run_id": "27730381580"
     },
     "REQ-GYMOPS-0001": {
