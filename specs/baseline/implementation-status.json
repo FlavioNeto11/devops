@@ -10,7 +10,7 @@
     "refinements": {
       "total": 1,
       "by_status": {
-        "not_started": 1
+        "pr_open": 1
       }
     }
   },
@@ -2008,8 +2008,10 @@
   },
   "refinement_items": {
     "REF-GYMOPS-0001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "branch": "@{id=REF-GYMOPS-0001; branch=ref/REF-GYMOPS-0001/r1; restricted=false; title=feat(gymops): implementa REF-GYMOPS-0001 — Endereço do(s) empreendimento(s) do usuário na }.branch",
+      "run_id": "27780965028"
     }
   }
 }
