@@ -1,7 +1,7 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations } from './lib.js?v=27';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=27';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations } from './lib.js?v=28';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=28';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -1204,12 +1204,20 @@ function renderReviewForm(body) {
   // ---- Vínculos & rastreabilidade — SELEÇÃO VISUAL no mapa do sistema ----
   const LINK_TYPES = ['depends_on', 'relates_to', 'refines', 'derives_from', 'constrains', 'conflicts_with', 'allocates_to', 'verifies'];
   const links = (ed && Array.isArray(ed.links)) ? ed.links.map((l) => ({ type: l.type, target: l.target, note: l.note })).filter((l) => l.type && l.target) : [];
-  const linkProduct = () => productScope();
   const linkType = sel(LINK_TYPES, 'depends_on');
+  // produto cujo MAPA é exibido para vincular. Default = o produto DESTE requisito; pode trocar
+  // para vincular a requisitos de OUTROS projetos (ai, sicat, …). Todos os escopos com requisitos.
+  const allScopes = uniqueValues(DATA.baseline.requirements, (r) => r.scope && r.scope.product_scope).filter(Boolean).sort();
+  const initialProduct = (ed && ed.scope && ed.scope.product_scope) || (state.editor && state.editor.product) || (allScopes[0] || '');
+  const mapProductSel = h('select', { 'aria-label': 'Sistema do mapa de vínculos' });
+  for (const sc of allScopes) { const dn = productMeta(sc).display_name; const op = h('option', { value: sc, text: (dn && dn !== sc) ? (dn + ' · ' + sc) : sc }); if (sc === initialProduct) op.selected = true; mapProductSel.append(op); }
+  const linkProduct = () => mapProductSel.value || initialProduct;
   const sLinks = h('fieldset', { class: 'ed-section ed-links-sec' },
     h('legend', { text: 'Vínculos & rastreabilidade' }),
-    h('p', { class: 'ed-hint', text: 'Escolha o tipo de relação e clique num requisito no mapa para vincular (vira aresta no mapa de impacto e vai para o YAML ao gerar). Os já vinculados aparecem destacados.' }),
-    h('label', { class: 'ed-link-tb' }, h('span', { class: 'fld-l', text: 'Tipo de relação' }), linkType));
+    h('p', { class: 'ed-hint', text: 'Escolha o tipo de relação e clique num requisito no mapa para vincular (vira aresta no mapa de impacto e vai para o YAML ao gerar). Troque o “Sistema do mapa” para vincular a requisitos de OUTROS projetos. No assistente, “Classificar vínculos (IA)” sugere vínculos automaticamente.' }),
+    h('div', { class: 'ed-link-tb' },
+      h('label', { class: 'ed-link-tb-f' }, h('span', { class: 'fld-l', text: 'Tipo de relação' }), linkType),
+      h('label', { class: 'ed-link-tb-f' }, h('span', { class: 'fld-l', text: 'Sistema do mapa' }), mapProductSel)));
   const linkMapHost = h('div', { class: 'ed-link-map' });
   const linksList = h('ul', { class: 'ed-links' });
   sLinks.append(linkMapHost, h('p', { class: 'ed-links-head muted small', text: 'Vínculos deste requisito' }), linksList);
@@ -1275,7 +1283,9 @@ function renderReviewForm(body) {
   }
   buildLinkMap();
   renderLinksList();
-  productSel.addEventListener('change', buildLinkMap); // produto mudou (requisito novo) → outro mapa
+  mapProductSel.addEventListener('change', buildLinkMap); // trocar o sistema do mapa → vincular cross-projeto
+  // ao trocar o produto DO REQUISITO (criação), o mapa acompanha por padrão.
+  productSel.addEventListener('change', () => { mapProductSel.value = productScope() || mapProductSel.value; buildLinkMap(); });
 
   // ---- 7) Versionamento (avançado, recolhido) ----
   const sVerDet = h('details', { class: 'ed-section ed-adv' }, h('summary', { text: 'Versionamento (gerenciado automaticamente)' }));

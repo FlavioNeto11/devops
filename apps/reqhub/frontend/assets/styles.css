@@ -592,9 +592,10 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 .vm-chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--fg); font-weight: 600; }
 .vm-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 /* vínculos & rastreabilidade (links[]) — seleção visual no mapa do sistema */
-.ed-link-tb { display: flex; align-items: center; gap: 9px; margin: 4px 0 10px; }
-.ed-link-tb .fld-l { margin: 0; }
-.ed-link-tb select { flex: none; min-width: 160px; }
+.ed-link-tb { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin: 4px 0 10px; }
+.ed-link-tb-f { display: flex; flex-direction: column; gap: 4px; }
+.ed-link-tb-f .fld-l { margin: 0; }
+.ed-link-tb-f select { min-width: 170px; }
 .ed-link-map { margin-bottom: 12px; }
 .ed-link-map .ig-canvas svg { height: 340px; min-height: 260px; }
 /* nós: vinculado = preenchido em accent; este requisito (self) = tracejado, não clicável p/ vincular */
