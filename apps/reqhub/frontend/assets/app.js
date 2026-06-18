@@ -1,7 +1,7 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations } from './lib.js?v=24';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=24';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations } from './lib.js?v=25';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=25';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -55,6 +55,7 @@ const AI = {
     return { ok: r.ok, status: r.status, data };
   },
   assist(body) { return this.post('/v1/authoring/assist', body); },
+  chat(body) { return this.post('/v1/authoring/chat', body); },
 };
 /* ---------- recentes (últimos REQs abertos, persistidos no localStorage) ---------- */
 const RECENTS = {
@@ -1067,7 +1068,7 @@ function renderChatStage(body) {
     state.editor.messages.push({ role: 'user', content: text });
     pending = true; sendBtn.disabled = true; ta.value = ''; repaint();
     try {
-      const r = await AI.assist({
+      const r = await AI.chat({
         product, target_req_id: state.editor.target_req_id || undefined, message: text,
         history: state.editor.messages.slice(0, -1).filter((m) => !m.error).map((m) => ({ role: m.role, content: m.content })),
         grounding: productGrounding(DATA.baseline.requirements, product),

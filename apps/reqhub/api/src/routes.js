@@ -3,7 +3,8 @@
 //   POST /v1/authoring/draft             -> req.authoring.draft        (R1)
 //   POST /v1/authoring/analyze           -> req.authoring.analyze      (R1)
 //   POST /v1/authoring/suggest-links     -> req.authoring.suggest_links(R1)
-//   POST /v1/authoring/assist            -> req.authoring.assist       (R1)
+//   POST /v1/authoring/assist            -> req.authoring.assist       (R1, single-shot — fallback)
+//   POST /v1/authoring/chat              -> motor de GRAFO (router->deep ReAct->judge)  (R1)
 // As rotas de autoria exigem Bearer token (requireAuthoringAuth) E OPENAI_API_KEY
 // (getLlm != null) — ambos fail-closed (503). O dispatchTool do ai-core aplica o
 // contrato (authorize -> execute -> validar saida) e os erros sao tipados.
@@ -12,6 +13,7 @@ import { createToolRegistry, dispatchTool } from '@flavioneto11/ai-core';
 import { buildAuthoringTools, buildForgeTools } from './tools.js';
 import { requireAuthoringAuth, ssoIdentity } from './auth.js';
 import { aiEnabled, getLlm } from './llm.js';
+import { runAuthoringChatTurn } from './ai/graph.js';
 
 // Mapeia erros tipados do contrato AiTool -> HTTP.
 function statusForError(err) {
@@ -26,7 +28,7 @@ function statusForError(err) {
   }
 }
 
-export function buildRouter({ registry, llm } = {}) {
+export function buildRouter({ registry, llm, memory } = {}) {
   const reg = registry || createToolRegistry([...buildAuthoringTools(), ...buildForgeTools()]);
   const router = express.Router();
 
@@ -60,6 +62,27 @@ export function buildRouter({ registry, llm } = {}) {
   router.post('/v1/authoring/analyze', requireAuthoringAuth, run('req.authoring.analyze'));
   router.post('/v1/authoring/suggest-links', requireAuthoringAuth, run('req.authoring.suggest_links'));
   router.post('/v1/authoring/assist', requireAuthoringAuth, run('req.authoring.assist'));
+
+  // Chat de autoria pelo MOTOR DE GRAFO (router -> deep ReAct com tools R1 -> judge).
+  // memory (F3) injetada via buildRouter({memory}); ausente -> grafo usa turn.history.
+  // Gate de rollback: REQHUB_AI_CHAT=assist usa o single-shot (mesmo contrato) SEM redeploy do front.
+  router.post('/v1/authoring/chat', requireAuthoringAuth, async (req, res, next) => {
+    try {
+      if ((process.env.REQHUB_AI_CHAT || 'graph').toLowerCase() === 'assist') {
+        const theLlm = llm || (await getLlm());
+        if (!theLlm) return res.status(503).json({ error: { code: 'AI_DISABLED', message: 'OPENAI_API_KEY nao configurado' } });
+        const result = await dispatchTool(reg.get('req.authoring.assist'), req.body || {}, { llm: theLlm, authenticated: true, identity: req.identity });
+        return res.json({ status: 'ok', ...result.output });
+      }
+      const b = req.body || {};
+      const out = await runAuthoringChatTurn({
+        product: b.product, message: b.message, history: b.history,
+        target_req_id: b.target_req_id, grounding: b.grounding,
+        identity: { sub: String(req.identity || 'operator') },
+      }, memory);
+      res.json({ status: 'ok', ...out });
+    } catch (err) { next(err); }
+  });
 
   // Forge (greenfield): propor requisitos/arquitetura — geram conteudo, nao escrevem git.
   router.post('/v1/forge/propose-requirements', requireAuthoringAuth, run('forge.propose_requirements'));
