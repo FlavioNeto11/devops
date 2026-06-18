@@ -18,4 +18,11 @@ export const api = {
     update: (id, data) => request('PUT', '/companies/' + id, data),
     remove: (id) => request('DELETE', '/companies/' + id),
   },
+  contacts: {
+    list: (q) => request('GET', '/contacts' + (q ? '?q=' + encodeURIComponent(q) : '')),
+    get: (id) => request('GET', '/contacts/' + id),
+    create: (data) => request('POST', '/contacts', data),
+    update: (id, data) => request('PUT', '/contacts/' + id, data),
+    remove: (id) => request('DELETE', '/contacts/' + id),
+  },
 }

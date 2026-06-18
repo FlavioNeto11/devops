@@ -224,3 +224,149 @@ test('companies: campos opcionais segment e website aceitam null', async () => {
   assert.equal(created.website, null);
   await del(`/companies/${created.id}`);
 });
+
+// ── REQ-CRM-0003 — CRUD de contatos ──────────────────────────────────────────
+
+test('contacts: lista aceita ?q= (busca por nome)', async () => {
+  const all = await get('/contacts');
+  assert.ok(Array.isArray(all));
+  assert.ok(all.length >= 3, `esperado >= 3 contatos, obtido ${all.length}`);
+  const first = all[0];
+  const fragment = first.name.slice(0, 3);
+  const filtered = await get(`/contacts?q=${encodeURIComponent(fragment)}`);
+  assert.ok(Array.isArray(filtered));
+  assert.ok(filtered.some((c) => c.id === first.id), 'busca por nome deve encontrar o contato');
+});
+
+test('contacts: lista aceita ?q= (busca por e-mail)', async () => {
+  const all = await get('/contacts');
+  const withEmail = all.find((c) => c.email);
+  if (!withEmail) return; // seed sem e-mail — skip
+  const fragment = withEmail.email.slice(0, 4);
+  const found = await get(`/contacts?q=${encodeURIComponent(fragment)}`);
+  assert.ok(found.some((c) => c.id === withEmail.id), 'busca por e-mail deve encontrar o contato');
+});
+
+test('contacts: busca sem resultado retorna array vazio', async () => {
+  const result = await get('/contacts?q=XYZZY_IMPOSSIVEL_99999');
+  assert.ok(Array.isArray(result));
+  assert.equal(result.length, 0);
+});
+
+test('contacts: GET /:id retorna contato existente', async () => {
+  const list = await get('/contacts');
+  const c = list[0];
+  const detail = await get(`/contacts/${c.id}`);
+  assert.equal(detail.id, c.id);
+  assert.equal(detail.name, c.name);
+  assert.ok('company_id' in detail, 'deve expor company_id');
+});
+
+test('contacts: GET /:id retorna 404 para id inexistente', async () => {
+  const res = await fetch(`${api}/contacts/999999999`);
+  assert.equal(res.status, 404);
+  const body = await res.json();
+  assert.ok(body.error, 'deve retornar campo error');
+});
+
+test('contacts: POST cria contato com campos completos', async () => {
+  const companies = await get('/companies');
+  const payload = {
+    name: 'TestContact Integration',
+    email: 'testcontact@example.com',
+    phone: '(11) 9 0000-0001',
+    company_id: companies[0]?.id || null,
+  };
+  const created = await post('/contacts', payload);
+  assert.ok(created.id, 'deve retornar id');
+  assert.equal(created.name, payload.name);
+  assert.equal(created.email, payload.email);
+  assert.equal(created.phone, payload.phone);
+
+  // cleanup
+  await del(`/contacts/${created.id}`);
+});
+
+test('contacts: POST cria contato sem empresa (company_id null)', async () => {
+  const created = await post('/contacts', { name: 'SemEmpresaContato' });
+  assert.ok(created.id);
+  assert.equal(created.company_id, null);
+  await del(`/contacts/${created.id}`);
+});
+
+test('contacts: POST rejeita nome ausente com 400', async () => {
+  const res = await fetch(`${api}/contacts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'x@x.com' }),
+  });
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.ok(body.error, 'deve retornar campo error');
+});
+
+test('contacts: POST rejeita nome em branco com 400', async () => {
+  const res = await fetch(`${api}/contacts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: '   ' }),
+  });
+  assert.equal(res.status, 400);
+});
+
+test('contacts: PUT atualiza contato existente', async () => {
+  const created = await post('/contacts', { name: 'OriginalContact' });
+  const updated = await put(`/contacts/${created.id}`, {
+    name: 'UpdatedContact',
+    email: 'updated@example.com',
+    phone: '(11) 9 0000-0002',
+  });
+  assert.equal(updated.name, 'UpdatedContact');
+  assert.equal(updated.email, 'updated@example.com');
+  assert.ok(updated.updated_at !== created.updated_at, 'updated_at deve ser atualizado');
+
+  // cleanup
+  await del(`/contacts/${created.id}`);
+});
+
+test('contacts: PUT rejeita nome em branco com 400', async () => {
+  const list = await get('/contacts');
+  const c = list[0];
+  const res = await fetch(`${api}/contacts/${c.id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: '' }),
+  });
+  assert.equal(res.status, 400);
+});
+
+test('contacts: PUT retorna 404 para id inexistente', async () => {
+  const res = await fetch(`${api}/contacts/999999999`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Ghost' }),
+  });
+  assert.equal(res.status, 404);
+});
+
+test('contacts: DELETE remove contato e retorna 204', async () => {
+  const created = await post('/contacts', { name: 'ToDeleteContact' });
+  await del(`/contacts/${created.id}`);
+  const res = await fetch(`${api}/contacts/${created.id}`);
+  assert.equal(res.status, 404, 'contato deletado deve retornar 404');
+});
+
+test('contacts: DELETE retorna 404 para id inexistente', async () => {
+  const res = await fetch(`${api}/contacts/999999999`, { method: 'DELETE' });
+  assert.equal(res.status, 404);
+});
+
+test('contacts: DELETE com negócios vinculados aplica set null (sem bloqueio)', async () => {
+  const contact = await post('/contacts', { name: 'ContatoParaCascade' });
+
+  // FK em deals ON DELETE SET NULL — delete não deve falhar
+  await del(`/contacts/${contact.id}`);
+
+  const check = await fetch(`${api}/contacts/${contact.id}`);
+  assert.equal(check.status, 404);
+});
