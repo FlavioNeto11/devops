@@ -566,6 +566,70 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 .ov-recent .rid { font-family: var(--mono); font-size: 11.5px; flex: none; }
 .ov-recent .rt { color: var(--fg-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* ===================== Editor — formulário em seções ===================== */
+.ed-form { display: flex; flex-direction: column; }
+.ed-section { border: 1px solid var(--line); border-radius: 12px; padding: 10px 16px 14px; margin: 0 0 14px; background: var(--bg-1); min-width: 0; }
+.ed-section > legend { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--accent); font-weight: 600; padding: 0 6px; }
+.ed-section.ed-adv { padding: 0; }
+.ed-section.ed-adv > summary { cursor: pointer; padding: 11px 16px; font-size: 13px; color: var(--fg-1); }
+.ed-section.ed-adv .ed-grid { padding: 0 16px 14px; }
+.ed-hint { margin: 2px 6px 11px; font-size: 12px; color: var(--muted); }
+.ed-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px 14px; }
+@media (max-width: 620px) { .ed-grid { grid-template-columns: 1fr; } }
+.ed-grid .fld.wide { grid-column: 1 / -1; }
+.ed-prod { display: flex; flex-direction: column; gap: 6px; }
+.ed-id { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.ed-id input { flex: 1 1 160px; }
+.ed-id input[readonly] { font-family: var(--mono); color: var(--accent); background: var(--bg-2); }
+.ed-id-edit { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.fld input[readonly], .fld textarea[readonly] { opacity: 0.9; }
+.vm-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.vm-chip { background: var(--bg-2); border: 1px solid var(--line); color: var(--fg-1); border-radius: 999px; padding: 5px 11px; font: inherit; font-size: 12px; cursor: pointer; font-family: var(--mono); }
+.vm-chip:hover { border-color: var(--line-2); color: var(--fg); }
+.vm-chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--fg); font-weight: 600; }
+.vm-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* ===================== Grafo interativo (Forge) ===================== */
+.ig-wrap { width: 100%; }
+.ig-canvas { position: relative; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-1);
+  background-image: radial-gradient(var(--line) 0.6px, transparent 0.6px); background-size: 20px 20px; overflow: hidden; }
+.ig-canvas svg { display: block; width: 100%; height: 44vh; min-height: 300px; touch-action: none; cursor: grab; }
+.ig-canvas.tall svg { height: 56vh; min-height: 360px; }
+.ig-canvas svg.panning { cursor: grabbing; }
+.ig-node { cursor: pointer; }
+.ig-node .chip { stroke: var(--chip-stroke); stroke-width: 1; fill: var(--bg-2); }
+.ig-node .dlbl { font-family: var(--mono); font-size: 10px; fill: var(--fg-1); pointer-events: none; }
+.ig-node:hover .chip, .ig-node:focus-visible .chip { stroke: var(--accent); stroke-width: 2; }
+.ig-node.is-focus .chip { stroke: var(--accent); stroke-width: 3; }
+.ig-node.is-neighbor .chip { stroke: var(--accent); stroke-width: 2; }
+.ig-node.is-dim { opacity: 0.26; }
+.ig-edge { fill: none; stroke: var(--line-2); stroke-width: 1.4; opacity: 0.6; }
+.ig-edge.is-active { opacity: 1; stroke-width: 2.6; stroke: var(--accent); }
+.ig-edge.is-dim { opacity: 0.06; }
+/* cor por status (Arquitetura/Build) vem de .forge-dnode.s-*; cor por wave (Novo produto): */
+.ig-node.wv-0 .chip { fill: color-mix(in srgb, var(--accent) 24%, var(--bg-2)); stroke: var(--accent); }
+.ig-node.wv-1 .chip { fill: color-mix(in srgb, var(--ok) 22%, var(--bg-2)); stroke: var(--ok); }
+.ig-node.wv-2 .chip { fill: color-mix(in srgb, var(--asr) 22%, var(--bg-2)); stroke: var(--asr); }
+.ig-node.wv-3 .chip { fill: color-mix(in srgb, var(--warn) 22%, var(--bg-2)); stroke: var(--warn); }
+.ig-node.wv-4 .chip { fill: color-mix(in srgb, var(--accent-2) 24%, var(--bg-2)); stroke: var(--accent-2); }
+.ig-node.wv-5 .chip { fill: color-mix(in srgb, var(--danger) 20%, var(--bg-2)); stroke: var(--danger); }
+@media (prefers-reduced-motion: no-preference) {
+  .ig-node { transition: transform 0.55s cubic-bezier(.4,0,.2,1), opacity 0.25s ease; }
+  .ig-node .chip { transition: stroke 0.14s ease, stroke-width 0.14s ease, fill 0.45s ease; }
+  .ig-edge { transition: opacity 0.35s ease, stroke-width 0.14s ease; }
+}
+.ig-detail { position: absolute; top: 10px; left: 10px; z-index: 3; width: min(280px, 78%); max-height: calc(100% - 20px); overflow: auto; background: var(--bg-1); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-lg); }
+.ig-detail.is-hidden { display: none; }
+.ig-detail-card { padding: 12px 14px; }
+.ig-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ig-detail-id { font-family: var(--mono); font-size: 11.5px; color: var(--accent); }
+.ig-detail-title { font-size: 13.5px; font-weight: 600; margin: 7px 0 8px; line-height: 1.35; }
+.forge-mapstatus { margin: 0 0 9px; min-height: 18px; }
+.forge-export { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; }
+.forge-export > summary { cursor: pointer; font-size: 13px; color: var(--fg-1); }
+.forge-reqitem[role="button"] { cursor: pointer; }
+.forge-reqitem[role="button"]:hover { border-color: var(--accent); }
+
 .foot { max-width: none; margin: 0; padding: 18px clamp(16px, 2.6vw, 32px); border-top: 1px solid var(--line); color: var(--muted); font-size: 12.5px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 
 @media (prefers-reduced-motion: no-preference) { .view { animation: fade 0.18s ease; } }

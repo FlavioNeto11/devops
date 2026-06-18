@@ -1,7 +1,7 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs } from './lib.js?v=16';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList } from './forge-lib.js?v=16';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs } from './lib.js?v=17';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList } from './forge-lib.js?v=17';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -860,34 +860,82 @@ function renderEditor() {
 
   // ---- formulário (campos) — coluna direita ----
   const f = {};
-  const form = h('div', { class: 'form' });
-  const add = (label, key, el) => { form.append(h('label', { class: 'fld' }, h('span', { class: 'fld-l', text: label }), el)); f[key] = el; };
-  const inp = (v) => h('input', { type: 'text', value: v ?? '' });
+  const form = h('div', { class: 'ed-form' });
+  const inp = (v, attrs) => h('input', { type: 'text', value: v ?? '', ...(attrs || {}) });
   const area = (v, rows) => h('textarea', { rows: String(rows || 3) }, v ?? '');
-  const select = (opts, v) => { const s = h('select'); for (const o of opts) { const op = h('option', { value: o, text: o }); if (o === v) op.selected = true; s.append(op); } return s; };
+  const sel = (opts, v) => { const s = h('select'); for (const o of opts) { const op = h('option', { value: o, text: o }); if (o === v) op.selected = true; s.append(op); } return s; };
+  const section = (title, hint) => { const sec = h('fieldset', { class: 'ed-section' }, h('legend', { text: title })); if (hint) sec.append(h('p', { class: 'ed-hint', text: hint })); const g = h('div', { class: 'ed-grid' }); sec.append(g); form.append(sec); return g; };
+  const field = (grid, label, key, el, wide) => { grid.append(h('label', { class: 'fld' + (wide ? ' wide' : '') }, h('span', { class: 'fld-l', text: label }), el)); if (key) f[key] = el; };
 
-  add('id', 'id', inp(ed?.id));
-  add('Produto (product_scope)', 'product', inp(ed?.scope?.product_scope));
-  add('applies_to', 'applies_to', select(['product', 'shared-module', 'capability', 'portal-template', 'portal-instance', 'platform'], ed?.scope?.applies_to || 'product'));
-  add('Tipo', 'type', select(['functional', 'non-functional', 'business-rule', 'constraint'], ed?.type || 'functional'));
-  add('Status', 'status', select(['draft', 'proposed', 'approved', 'deprecated', 'retired'], ed?.status || 'proposed'));
-  add('Owner', 'owner', inp(ed?.owner || 'plataforma-digital'));
-  add('Prioridade', 'priority', select(['low', 'medium', 'high', 'critical'], ed?.priority || 'medium'));
-  add('Criticidade', 'criticality', select(['low', 'medium', 'high', 'critical'], ed?.criticality || ed?.priority || 'medium'));
-  add('ASR', 'asr', select(['false', 'true'], String(!!ed?.architectural_significance)));
-  add('Título', 'title', inp(ed?.title));
-  add('Enunciado', 'statement', area(ed?.statement, 4));
-  add('Caminhos-fonte / origem (1/linha, OBRIGATÓRIO)', 'source_paths', area((ed?.source?.source_paths || []).join('\n'), 2));
-  add('Critérios de aceite (1/linha)', 'acceptance', area((ed?.acceptance_criteria || []).join('\n'), 3));
-  add('Métodos de verificação (vírgula)', 'methods', inp((ed?.verification_method || []).join(', ')));
+  // ---- 1) Identidade ----
+  const sId = section('Identidade');
+  const scopes = uniqueValues(DATA.baseline.requirements, (r) => r.scope && r.scope.product_scope).filter(Boolean).sort();
+  const prodNames = {}; for (const p of ((DATA.products && DATA.products.products) || [])) prodNames[p.name] = p.display_name || p.name;
+  const productSel = h('select', { 'aria-label': 'Produto (product_scope)' });
+  for (const sc of scopes) { const op = h('option', { value: sc, text: prodNames[sc] ? `${prodNames[sc]} · ${sc}` : sc }); if (ed && sc === (ed.scope && ed.scope.product_scope)) op.selected = true; productSel.append(op); }
+  productSel.append(h('option', { value: '__new__', text: '+ outro produto…' }));
+  const productNew = h('input', { type: 'text', placeholder: 'slug do produto novo (ex.: helpdesk)', hidden: 'hidden', 'aria-label': 'Produto novo' });
+  const productScope = () => (productSel.value === '__new__' ? (productNew.value || '').trim().toLowerCase().replace(/[^a-z0-9-]/g, '') : productSel.value);
+  field(sId, 'Produto', null, h('div', { class: 'ed-prod' }, productSel, productNew), true);
+  const idInput = h('input', { type: 'text', value: ed?.id || '', readonly: 'readonly', 'aria-label': 'ID do requisito' });
+  f.id = idInput;
+  const idEdit = h('input', { type: 'checkbox' });
+  const recomputeId = () => { if (ed || idEdit.checked) return; const sc = productScope(); idInput.value = sc ? nextReqId(sc, DATA.baseline.requirements.map((r) => r.id)) : ''; };
+  field(sId, 'ID', null, h('div', { class: 'ed-id' }, idInput, ed ? null : h('label', { class: 'ed-id-edit' }, idEdit, ' editar manualmente')), true);
+  idEdit.addEventListener('change', () => { if (idEdit.checked) idInput.removeAttribute('readonly'); else { idInput.setAttribute('readonly', 'readonly'); recomputeId(); } });
+  productSel.addEventListener('change', () => { productNew.hidden = productSel.value !== '__new__'; recomputeId(); runValidation(); });
+  productNew.addEventListener('input', recomputeId);
+  field(sId, 'Título', 'title', inp(ed?.title), true);
+
+  // ---- 2) Classificação ----
+  const sClass = section('Classificação');
+  field(sClass, 'Tipo', 'type', sel(['functional', 'non-functional', 'business-rule', 'constraint'], ed?.type || 'functional'));
+  field(sClass, 'Aplica-se a', 'applies_to', sel(['product', 'product-foundation', 'shared-module', 'capability', 'portal-template', 'portal-instance', 'platform'], ed?.scope?.applies_to || 'product'));
+  field(sClass, 'Status', 'status', sel(['draft', 'proposed', 'approved', 'deprecated', 'retired'], ed?.status || 'proposed'));
+  field(sClass, 'Owner', 'owner', inp(ed?.owner || 'plataforma-digital'));
+
+  // ---- 3) Prioridade & criticidade ----
+  const sPrio = section('Prioridade & criticidade');
+  field(sPrio, 'Prioridade', 'priority', sel(['low', 'medium', 'high', 'critical'], ed?.priority || 'medium'));
+  field(sPrio, 'Criticidade', 'criticality', sel(['low', 'medium', 'high', 'critical'], ed?.criticality || ed?.priority || 'medium'));
+  field(sPrio, 'Significância arquitetural (ASR)', 'asr', sel(['false', 'true'], String(!!ed?.architectural_significance)));
+
+  // ---- 4) Definição ----
+  const sDef = section('Definição');
+  field(sDef, 'Enunciado (o sistema DEVE…)', 'statement', area(ed?.statement, 4), true);
+  field(sDef, 'Origem / source_paths (1 por linha)', 'source_paths', area((ed?.source?.source_paths || []).join('\n'), 2), true);
+
+  // ---- 5) Aceite & verificação ----
+  const sAcc = section('Aceite & verificação');
+  field(sAcc, 'Critérios de aceite (1 por linha)', 'acceptance', area((ed?.acceptance_criteria || []).join('\n'), 3), true);
+  const VM = ['test-unit', 'test-integration', 'test-e2e', 'architecture-review', 'deployment-policy-check', 'manual-review', 'monitoring', 'demo'];
+  const vmSel = new Set(ed?.verification_method || []);
+  const vmWrap = h('div', { class: 'vm-chips', role: 'group', 'aria-label': 'Métodos de verificação' });
+  const vmChips = {};
+  for (const m of VM) { const c = h('button', { class: 'vm-chip', type: 'button', 'aria-pressed': vmSel.has(m) ? 'true' : 'false', text: m }); c.addEventListener('click', () => { const on = c.getAttribute('aria-pressed') === 'true'; c.setAttribute('aria-pressed', on ? 'false' : 'true'); if (on) vmSel.delete(m); else vmSel.add(m); }); vmChips[m] = c; vmWrap.append(c); }
+  f.methods = { get value() { return [...vmSel]; }, set value(arr) { const want = new Set(Array.isArray(arr) ? arr : []); vmSel.clear(); for (const m of VM) { const on = want.has(m); if (on) vmSel.add(m); if (vmChips[m]) vmChips[m].setAttribute('aria-pressed', on ? 'true' : 'false'); } } };
+  field(sAcc, 'Métodos de verificação', null, vmWrap, true);
+
+  // ---- 6) Cenários de qualidade (NFR) — condicional ao tipo ----
+  const sNfr = section('Cenários de qualidade (NFR)', 'Obrigatório para requisitos não-funcionais — formato SEI: fonte/estímulo/ambiente/artefato → resposta + medida.');
+  const sNfrFieldset = sNfr.parentElement;
   const qs = ed?.quality_scenarios?.[0] || {};
-  for (const [k, lbl] of [['qs_source', 'NFR source'], ['qs_stimulus', 'NFR stimulus'], ['qs_environment', 'NFR environment'], ['qs_artifact', 'NFR artifact'], ['qs_response', 'NFR response'], ['qs_measure', 'NFR response_measure']]) {
-    add(lbl, k, inp(qs[k.replace('qs_', '').replace('measure', 'response_measure')]));
+  for (const [k, lbl] of [['qs_source', 'Fonte'], ['qs_stimulus', 'Estímulo'], ['qs_environment', 'Ambiente'], ['qs_artifact', 'Artefato'], ['qs_response', 'Resposta'], ['qs_measure', 'Medida (response_measure)']]) {
+    field(sNfr, lbl, k, inp(qs[k.replace('qs_', '').replace('measure', 'response_measure')]));
   }
-  add('baseline_version', 'bver', inp(ed?.version?.baseline_version || '1.0.0'));
-  add('item_revision', 'irev', inp(String(ed ? (ed.version?.item_revision || 1) + 1 : 1)));
-  add('semantic_change', 'sem', select(['none', 'patch', 'minor', 'major'], ed ? 'minor' : 'none'));
-  add('change_reason', 'reason', inp(ed ? '' : 'novo requisito'));
+  const toggleNfr = () => { sNfrFieldset.hidden = f.type.value !== 'non-functional'; };
+  f.type.addEventListener('change', toggleNfr);
+
+  // ---- 7) Versionamento (avançado, recolhido) ----
+  const sVerDet = h('details', { class: 'ed-section ed-adv' }, h('summary', { text: 'Versionamento (avançado)' }));
+  const sVer = h('div', { class: 'ed-grid' }); sVerDet.append(sVer); form.append(sVerDet);
+  field(sVer, 'baseline_version', 'bver', inp(ed?.version?.baseline_version || '1.0.0', { readonly: 'readonly' }));
+  field(sVer, 'item_revision', 'irev', inp(String(ed ? (ed.version?.item_revision || 1) + 1 : 1), { readonly: 'readonly' }));
+  field(sVer, 'semantic_change', 'sem', sel(['none', 'patch', 'minor', 'major'], ed ? 'minor' : 'none'));
+  field(sVer, 'change_reason', 'reason', inp(ed ? '' : 'novo requisito'), true);
+
+  recomputeId();
+  toggleNfr();
   const out = h('div');
 
   // ---- VALIDAÇÃO AUTOMÁTICA (client-side, sem API): roda ao digitar ----
@@ -1027,12 +1075,12 @@ function renderEditor() {
   // Coleta o rascunho a partir do formulario (reusado por Gerar YAML e pela IA de analise).
   function collectDraft() {
     const lines = (f.acceptance.value || '').split('\n').map((x) => x.trim()).filter(Boolean);
-    const methods = (f.methods.value || '').split(',').map((x) => x.trim()).filter(Boolean);
+    const methods = (f.methods.value || []).filter(Boolean);
     const srcPaths = (f.source_paths.value || '').split('\n').map((x) => x.trim()).filter(Boolean);
     const d = {
       id: f.id.value.trim(), slug: f.id.value.trim().toLowerCase(), title: f.title.value.trim(),
       type: f.type.value, status: f.status.value, owner: f.owner.value.trim() || undefined,
-      scope: { applies_to: f.applies_to.value, product_scope: (f.product.value || '').trim() },
+      scope: { applies_to: f.applies_to.value, product_scope: productScope() },
       statement: f.statement.value.trim(), priority: f.priority.value, criticality: f.criticality.value,
       architectural_significance: f.asr.value === 'true',
       source: srcPaths.length ? { source_paths: srcPaths } : undefined,
@@ -1060,9 +1108,10 @@ function renderEditor() {
     setSel(f.criticality, d.criticality);
     if (typeof d.architectural_significance === 'boolean') setSel(f.asr, String(d.architectural_significance));
     if (Array.isArray(d.acceptance_criteria)) f.acceptance.value = d.acceptance_criteria.join('\n');
-    if (Array.isArray(d.verification_method)) f.methods.value = d.verification_method.join(', ');
+    if (Array.isArray(d.verification_method)) f.methods.value = d.verification_method;
     const q = (Array.isArray(d.quality_scenarios) && d.quality_scenarios[0]) || null;
     if (q) { setVal(f.qs_stimulus, q.stimulus); setVal(f.qs_response, q.response); setVal(f.qs_measure, q.measure || q.response_measure); }
+    toggleNfr();
   }
 
   function gen() {
@@ -1302,7 +1351,7 @@ function forgeArquitetura(panel, product, buildPlan) {
   const right = h('div', { class: 'forge-section' });
   right.append(h('h3', { text: 'Plano de build (waves)' }));
   if (!buildPlan) right.append(h('p', { class: 'empty', text: 'Sem build-plan.json para este produto.' }));
-  else { right.append(forgeDagLegend(), forgeDagSvg(buildPlan), h('p', { class: 'muted small', text: 'Cada nó é um requisito; as setas seguem a ordem de construção (waves). A cor reflete o status real.' })); }
+  else { right.append(forgeDagLegend(), buildPlanGraph(buildPlan, true).el, h('p', { class: 'muted small', text: 'Cada nó é um requisito; arraste/role para navegar. Clique realça as dependências e mostra o detalhe; duplo-clique (ou “o”) abre o requisito.' })); }
   panel.append(right);
 }
 
@@ -1325,6 +1374,7 @@ function forgeBuild(panel, product, buildPlan) {
       list.append(row);
     }
     left.append(h('h3', { text: 'Waves' }), list);
+    left.append(h('h3', { text: 'Mapa do build' }), forgeDagLegend(), buildPlanGraph(buildPlan, false).el);
   }
   panel.append(left);
 
@@ -1346,30 +1396,117 @@ function forgeBuild(panel, product, buildPlan) {
   panel.append(right);
 }
 
-function forgeDagSvg(buildPlan) {
-  const dag = buildDag(buildPlan, DATA.implStatus);
-  if (!dag.nodes.length) return h('p', { class: 'empty', text: 'Sem waves para desenhar.' });
-  const W = 1000, H = 560;
-  const nodes = dag.nodes.map((n) => ({ ...n, product: 'w' + n.wave }));
-  const laid = forceLayout(nodes, dag.edges, { width: W, height: H, iterations: 320, minDistX: 165, minDistY: 76 });
-  const by = {}; for (const n of laid.nodes) by[n.id] = n;
-  const wrap = h('div', { class: 'forge-dag' });
-  const s = svg('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Grafo de dependências do build por waves' });
-  for (const e of dag.edges) {
-    const a = by[e.from], b = by[e.to]; if (!a || !b) continue;
-    const done = DONE_ST.includes(a.status) && DONE_ST.includes(b.status);
-    s.append(svg('line', { class: 'forge-dedge' + (done ? ' done' : ''), x1: a.x, y1: a.y, x2: b.x, y2: b.y }));
+// Zoom (wheel) + pan (drag) local, sem acoplamento ao Mapa de impacto. onBg = clique no fundo.
+function wireZoomPanLocal(s, root, layout, onBg) {
+  const vp = { x: 0, y: 0, k: 1 }; s._vp = vp; applyTransform(root, vp);
+  const pt = (ev) => { const r = s.getBoundingClientRect(); return { x: (ev.clientX - r.left) * (layout.width / (r.width || layout.width)), y: (ev.clientY - r.top) * (layout.height / (r.height || layout.height)) }; };
+  s.addEventListener('wheel', (ev) => {
+    ev.preventDefault(); const p = pt(ev); const nk = Math.min(4, Math.max(0.4, vp.k * (ev.deltaY < 0 ? 1.12 : 1 / 1.12)));
+    vp.x = p.x - (p.x - vp.x) * (nk / vp.k); vp.y = p.y - (p.y - vp.y) * (nk / vp.k); vp.k = nk; applyTransform(root, vp);
+  }, { passive: false });
+  let drag = null;
+  s.addEventListener('pointerdown', (ev) => { if (ev.target.closest('.ig-node')) return; drag = { sx: ev.clientX, sy: ev.clientY, x0: vp.x, y0: vp.y, moved: false }; s.classList.add('panning'); s.setPointerCapture(ev.pointerId); });
+  s.addEventListener('pointermove', (ev) => { if (!drag) return; if (Math.abs(ev.clientX - drag.sx) + Math.abs(ev.clientY - drag.sy) > 4) drag.moved = true; const r = s.getBoundingClientRect(); vp.x = drag.x0 + (ev.clientX - drag.sx) * (layout.width / (r.width || layout.width)); vp.y = drag.y0 + (ev.clientY - drag.sy) * (layout.height / (r.height || layout.height)); applyTransform(root, vp); });
+  s.addEventListener('pointerup', (ev) => { if (drag && !drag.moved && onBg && ev.target && !ev.target.closest('.ig-node')) onBg(); drag = null; s.classList.remove('panning'); });
+  s.addEventListener('pointercancel', () => { drag = null; s.classList.remove('panning'); });
+}
+
+/**
+ * Grafo INTERATIVO reutilizável (Novo produto / Arquitetura / Build). forceLayout + SVG;
+ * hover/clique → realça vizinhança + painel de detalhe; zoom/pan; posição por transform
+ * (anima a "formação" do mapa); cor por classe no nó (CSP-safe). Retorna { el, setData, focus }.
+ */
+function interactiveGraph(opts = {}) {
+  const W = 1000, H = 600;
+  const nodeClass = opts.nodeClass || (() => '');
+  const onOpen = opts.onOpen || null;
+  const detailOf = opts.detailOf || null;
+  let nodes = [], edges = [], hoverId = null, sel = null;
+  const els = new Map(); // id -> { g, tx, ttl }
+  const wrap = h('div', { class: 'ig-wrap' });
+  const canvas = h('div', { class: 'ig-canvas' + (opts.tall ? ' tall' : '') });
+  const detail = h('div', { class: 'ig-detail is-hidden', role: 'region', 'aria-label': 'Detalhe do nó' });
+  const s = svg('svg', { viewBox: `0 0 ${W} ${H}`, role: 'group', 'aria-label': opts.label || 'Grafo de requisitos' });
+  const root = svg('g', {}); const gEdges = svg('g', {}); const gNodes = svg('g', {});
+  root.append(gEdges, gNodes); s.append(root); canvas.append(detail, s); wrap.append(canvas);
+
+  const focusId = () => sel || hoverId;
+  function neighbors(id) { const set = new Set([id]); for (const e of edges) { if (e.from === id) set.add(e.to); if (e.to === id) set.add(e.from); } return set; }
+  function paint() {
+    const fc = focusId(); const nb = fc ? neighbors(fc) : null;
+    for (const [id, el] of els) {
+      el.g.classList.toggle('is-focus', fc === id);
+      el.g.classList.toggle('is-neighbor', !!nb && nb.has(id) && id !== fc);
+      el.g.classList.toggle('is-dim', !!fc && !nb.has(id));
+    }
+    for (const e of gEdges.children) { const on = fc && (e._from === fc || e._to === fc); e.classList.toggle('is-active', !!on); e.classList.toggle('is-dim', !!fc && !on); }
+    if (fc && detailOf) showDetail(fc); else hideDetail();
   }
+  function showDetail(id) {
+    const d = detailOf(nodes.find((n) => n.id === id), id); if (!d) { hideDetail(); return; }
+    detail.replaceChildren(h('div', { class: 'ig-detail-card' },
+      h('div', { class: 'ig-detail-head' }, h('span', { class: 'ig-detail-id', text: id }),
+        sel === id ? h('button', { class: 'insp-x', type: 'button', 'aria-label': 'Fechar', onclick: () => { sel = null; paint(); } }, '×') : null),
+      d.title ? h('div', { class: 'ig-detail-title', text: d.title }) : null,
+      d.badges && d.badges.length ? h('div', { class: 'insp-badges' }, ...d.badges) : null,
+      d.sub ? h('p', { class: 'muted small', text: d.sub }) : null,
+      onOpen && d.openable ? h('button', { class: 'btn-link', type: 'button', onclick: () => onOpen(id), text: 'Abrir requisito →' }) : null));
+    detail.classList.remove('is-hidden');
+  }
+  function hideDetail() { detail.classList.add('is-hidden'); detail.replaceChildren(); }
+  function select(id) { sel = (sel === id) ? null : id; paint(); }
+
+  function setData(newNodes, newEdges) {
+    nodes = (newNodes || []).slice(); edges = (newEdges || []).slice();
+    if (!nodes.length) { gEdges.replaceChildren(); for (const [, el] of els) el.g.remove(); els.clear(); return; }
+    const ln = nodes.map((n) => ({ ...n, product: n.group || ('w' + (n.wave || 0)) }));
+    const laid = forceLayout(ln, edges, { width: W, height: H, iterations: nodes.length > 24 ? 260 : 340, minDistX: 150, minDistY: 74 });
+    const by = {}; for (const n of laid.nodes) by[n.id] = n;
+    gEdges.replaceChildren();
+    for (const e of edges) { const a = by[e.from], b = by[e.to]; if (!a || !b) continue; const l = svg('line', { class: 'forge-dedge ig-edge', x1: a.x, y1: a.y, x2: b.x, y2: b.y }); l._from = e.from; l._to = e.to; gEdges.append(l); }
+    const keep = new Set();
+    for (const n of laid.nodes) {
+      keep.add(n.id);
+      let el = els.get(n.id);
+      if (!el) {
+        const g = svg('g', { class: 'forge-dnode ig-node', tabindex: '-1', role: 'button' });
+        const ttl = svg('title'); g.append(ttl);
+        g.append(svg('rect', { class: 'chip', x: '-66', y: '-15', width: '132', height: '30', rx: '9' }));
+        const tx = svgText({ class: 'dlbl', x: '0', y: '4', 'text-anchor': 'middle', 'aria-hidden': 'true' }, '');
+        g.append(tx);
+        g.addEventListener('click', (ev) => { ev.stopPropagation(); select(n.id); });
+        g.addEventListener('dblclick', () => { if (onOpen) onOpen(n.id); });
+        g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); select(n.id); } else if ((ev.key === 'o' || ev.key === 'O') && onOpen) onOpen(n.id); });
+        g.addEventListener('mouseenter', () => { hoverId = n.id; if (!sel) paint(); });
+        g.addEventListener('mouseleave', () => { if (hoverId === n.id) hoverId = null; if (!sel) paint(); });
+        g.addEventListener('focus', () => { hoverId = n.id; if (!sel) paint(); });
+        el = { g, ttl, tx }; els.set(n.id, el); gNodes.append(g);
+      }
+      el.g.setAttribute('class', 'forge-dnode ig-node' + (nodeClass(n) ? ' ' + nodeClass(n) : ''));
+      el.g.setAttribute('transform', `translate(${n.x},${n.y})`);
+      el.tx.textContent = String(n.label || n.id).replace(/^REQ-/, '');
+      el.ttl.textContent = n.title ? `${n.id} — ${n.title}` : n.id;
+      el.g.setAttribute('aria-label', n.title ? `${n.id}: ${n.title}` : n.id);
+    }
+    for (const [id, el] of els) if (!keep.has(id)) { el.g.remove(); els.delete(id); }
+    paint();
+  }
+
+  wireZoomPanLocal(s, root, { width: W, height: H }, () => { sel = null; paint(); });
+  return { el: wrap, setData, focus: (id) => { sel = id; paint(); } };
+}
+
+// Constrói o grafo interativo de um build-plan (waves + status real) — Arquitetura/Build.
+function buildPlanGraph(buildPlan, tall) {
   const stLbl = { done: 'concluído', active: 'em andamento', blocked: 'bloqueado', todo: 'não iniciado' };
-  for (const n of laid.nodes) {
-    const g = svg('g', { class: 'forge-dnode s-' + dStateCls(n.status), transform: `translate(${n.x},${n.y})`, role: 'listitem' });
-    const ttl = svg('title'); ttl.append(document.createTextNode(`${n.id} — wave ${n.wave + 1} — ${stLbl[dStateCls(n.status)]}`)); g.append(ttl);
-    g.append(svg('rect', { class: 'chip', x: '-66', y: '-15', width: '132', height: '30', rx: '8' }));
-    g.append(svgText({ class: 'dlbl', x: '0', y: '4', 'text-anchor': 'middle', 'aria-hidden': 'true' }, n.id.replace(/^REQ-/, '')));
-    s.append(g);
-  }
-  wrap.append(s);
-  return wrap;
+  const g = interactiveGraph({
+    tall, label: 'Grafo de dependências do build por waves', onOpen: (id) => openReq(id),
+    nodeClass: (n) => 's-' + dStateCls(n.status),
+    detailOf: (n, id) => { const r = byId(id); return { title: r ? r.title : '', openable: !!r, sub: `wave ${(n ? n.wave : 0) + 1} · ${stLbl[dStateCls(n ? n.status : 'todo')]}`, badges: r ? [badge(r.type === 'non-functional' ? 'NFR' : 'funcional', r.type === 'non-functional' ? 'b-nfr' : 'b-fn'), badge((n && n.status) || 'not_started', forgeStatusCls((n && n.status) || 'not_started'))] : [] }; },
+  });
+  const dag = buildDag(buildPlan, DATA.implStatus);
+  g.setData(dag.nodes, dag.edges);
+  return g;
 }
 function forgeDagLegend() {
   const items = [['s-done', 'Pronto'], ['s-active', 'Em andamento'], ['s-blocked', 'Bloqueado'], ['s-todo', 'Não iniciado']];
@@ -1382,7 +1519,7 @@ function forgeDagLegend() {
 function renderForgeNew(body) {
   body.append(forgeCrumbs([{ label: 'Produtos', onclick: backToHub }, { label: 'Novo produto' }]));
   body.append(h('div', { class: 'forge-detail-head' }, h('h2', { text: 'Novo produto' })));
-  body.append(h('p', { class: 'muted', text: 'Descreva o produto; a IA propõe um conjunto inicial de requisitos. Você revisa, ajusta e abre o PR — a UI não escreve no git.' }));
+  body.append(h('p', { class: 'muted', text: 'Descreva o produto; a IA propõe os requisitos e o mapa de dependências se forma ao vivo. Você revisa, ajusta e abre o PR — a UI não escreve no git.' }));
 
   const grid = h('div', { class: 'forge-panel two' });
   // esquerda — formulário
@@ -1391,76 +1528,121 @@ function renderForgeNew(body) {
   const bpsel = h('select', { 'aria-label': 'Blueprint' });
   for (const b of (DATA.blueprints && DATA.blueprints.blueprints) || []) bpsel.append(h('option', { value: b.id, text: b.name }));
   if (!bpsel.children.length) bpsel.append(h('option', { value: '', text: '(sem blueprints)' }));
-  const brief = h('textarea', { class: 'ai-sketch', rows: '6', 'aria-label': 'Brief', placeholder: 'Ex.: um helpdesk simples — abrir chamados, atribuir a agentes, acompanhar status num quadro, e um painel com SLAs. Sem complexidade.' });
+  const brief = h('textarea', { class: 'ai-sketch', rows: '7', 'aria-label': 'Brief', placeholder: 'Ex.: um helpdesk simples — abrir chamados, atribuir a agentes, acompanhar status num quadro, e um painel com SLAs. Sem complexidade.' });
   const tok = h('input', { type: 'password', value: AI.getToken(), placeholder: 'Bearer token (operador)' });
-  const status = h('p', { class: 'muted ai-status' }, h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), 'Verificando IA…');
+  const aiStatus = h('p', { class: 'muted ai-status' }, h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), 'Verificando IA…');
   const btn = h('button', { class: 'btn primary', type: 'button', text: '✨ Propor requisitos (IA)' });
   left.append(
     h('label', { class: 'fld' }, h('span', { class: 'fld-l', text: 'Produto (slug)' }), name),
     h('label', { class: 'fld' }, h('span', { class: 'fld-l', text: 'Blueprint' }), bpsel),
     h('label', { class: 'fld' }, h('span', { class: 'fld-l', text: 'Brief' }), brief),
-    status, h('div', { class: 'ws-actions' }, btn),
+    aiStatus, h('div', { class: 'ws-actions' }, btn),
     h('details', { class: 'asst-token' }, h('summary', { text: 'Token do operador' }), tok));
   grid.append(left);
 
-  // direita — saída (região viva: anuncia a proposta para leitores de tela)
-  const out = h('div', { class: 'forge-section', role: 'region', 'aria-live': 'polite', 'aria-label': 'Proposta de requisitos' });
-  out.append(h('h3', { text: 'Proposta' }), h('p', { class: 'muted', text: 'Os requisitos propostos aparecem aqui, com checagem de duplicata contra a base.' }));
-  grid.append(out);
+  // direita — MAPA AO VIVO
+  const right = h('div', { class: 'forge-section', role: 'region', 'aria-live': 'polite', 'aria-label': 'Mapa de requisitos' });
+  const mapStatus = h('p', { class: 'muted small forge-mapstatus', text: 'O mapa de requisitos se forma aqui ao propor.' });
+  const graphHost = h('div', {});
+  let proposed = []; let graph = null;
+  const byProp = (id) => proposed.find((p) => p.id === id);
+  function ensureGraph() {
+    if (graph) return graph;
+    graph = interactiveGraph({
+      tall: true, label: 'Mapa de requisitos propostos',
+      nodeClass: (n) => 'wv-' + ((n.wave || 0) % 6),
+      detailOf: (n, id) => {
+        const p = byProp(id); if (!p) return { title: id };
+        const sims = findSimilarReqs({ id, title: p.req.title || '', statement: p.req.statement || '' }, (DATA.baseline && DATA.baseline.requirements) || [], 1);
+        const dup = sims[0] && sims[0].score >= 0.45 ? sims[0] : null;
+        return { title: p.req.title || '(sem título)', sub: p.req.statement ? truncateLabel(p.req.statement, 140) : '', badges: [badge(typeLabel(p.req.type), 'b-fn'), dup ? badge('possível duplicata: ' + dup.id, 'b-crit') : null].filter(Boolean) };
+      },
+    });
+    graphHost.replaceChildren(graph.el);
+    return graph;
+  }
+  right.append(h('h3', { text: 'Mapa de requisitos' }), mapStatus, graphHost);
+  grid.append(right);
   body.append(grid);
 
-  tok.addEventListener('change', () => AI.setToken(tok.value.trim()));
-  const setStatusText = (t) => status.replaceChildren(document.createTextNode(t));
-  AI.health().then((r) => setStatusText(r.ok ? 'IA pronta (gpt-5).' : 'IA indisponível (' + (r.data && r.data.error ? r.data.error.code : r.status) + ') — você ainda pode criar requisitos manualmente via PR.'))
-    .catch(() => setStatusText('IA indisponível (sem servidor) — crie requisitos manualmente via PR.'));
+  // abaixo (largura total) — lista + export
+  const out = h('div', { class: 'forge-section', role: 'region', 'aria-live': 'polite', 'aria-label': 'Requisitos propostos' });
+  body.append(out);
 
-  const errCard = (title, msg) => out.replaceChildren(h('h3', { text: 'Proposta' }), h('div', { class: 'card' }, h('h4', {}, badge('erro', 'b-crit'), ' ' + title), msg ? h('p', { class: 'muted', text: msg }) : null));
+  tok.addEventListener('change', () => AI.setToken(tok.value.trim()));
+  const setAi = (t) => aiStatus.replaceChildren(document.createTextNode(t));
+  AI.health().then((r) => setAi(r.ok ? 'IA pronta (gpt-5).' : 'IA indisponível (' + (r.data && r.data.error ? r.data.error.code : r.status) + ') — você ainda pode criar requisitos manualmente via PR.'))
+    .catch(() => setAi('IA indisponível (sem servidor) — crie requisitos manualmente via PR.'));
+
+  const spinTxt = (t) => mapStatus.replaceChildren(h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), t);
+  const errCard = (title, msg) => { mapStatus.textContent = ''; out.replaceChildren(h('div', { class: 'card' }, h('h4', {}, badge('erro', 'b-crit'), ' ' + title), msg ? h('p', { class: 'muted', text: msg }) : null)); };
+
   btn.addEventListener('click', async () => {
     AI.setToken(tok.value.trim());
     const pname = (name.value || '').trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
     if (!pname) { errCard('Informe o slug do produto.'); name.focus(); return; }
     if ((brief.value || '').trim().length < 10) { errCard('Descreva o produto no brief (mínimo ~10 caracteres).'); brief.focus(); return; }
-    btn.disabled = true;
-    out.replaceChildren(h('h3', { text: 'Proposta' }), h('p', { class: 'muted' }, h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), 'Consultando a IA…'));
+    btn.disabled = true; out.replaceChildren(); spinTxt('Propondo requisitos…');
     try {
       const r = await AI.post('/v1/forge/propose-requirements', { product: pname, blueprint: bpsel.value, brief: (brief.value || '').trim() });
-      if (!r.ok) { const code = r.data && r.data.error ? r.data.error.code : 'HTTP ' + r.status; const msg = r.data && r.data.error ? r.data.error.message : ''; errCard('IA: ' + code, msg); return; }
-      renderProposal(out, pname, bpsel.value, r.data);
+      if (!r.ok) { const code = r.data && r.data.error ? r.data.error.code : 'HTTP ' + r.status; errCard('IA: ' + code, r.data && r.data.error ? r.data.error.message : ''); return; }
+      const reqs = (r.data && r.data.requirements) || [];
+      if (!reqs.length) { mapStatus.textContent = 'A IA não retornou requisitos.'; return; }
+      const existingIds = ((DATA.baseline && DATA.baseline.requirements) || []).map((x) => x.id);
+      proposed = []; for (const req of reqs) { const id = req.id || nextReqId(pname, existingIds.concat(proposed.map((p) => p.id))); proposed.push({ id, req }); }
+      const nodes = proposed.map((p) => ({ id: p.id, title: p.req.title || '' }));
+      ensureGraph().setData(dagFromWaves(nodes, []).nodes, []);                 // fase 1: nós surgem
+      renderProposedList(out, pname, bpsel.value, proposed, r.data, graph);
+      spinTxt('Analisando dependências…');
+      try {                                                                     // fase 2: dependências formam o mapa
+        const a = await AI.post('/v1/forge/propose-architecture', { product: pname, blueprint: bpsel.value, requirements: proposed.map((p) => ({ id: p.id, title: p.req.title, type: p.req.type, statement: p.req.statement })) });
+        if (a.ok && a.data && Array.isArray(a.data.waves) && a.data.waves.length) {
+          const dag = dagFromWaves(nodes, a.data.waves);
+          graph.setData(dag.nodes, dag.edges);
+          mapStatus.textContent = `Mapa formado · ${dag.nodes.length} requisitos em ${a.data.waves.length} wave(s) — clique num nó para o detalhe.`;
+          renderArchAdrs(out, a.data);
+        } else { mapStatus.textContent = `${proposed.length} requisitos propostos (sem dependências sugeridas).`; }
+      } catch { mapStatus.textContent = `${proposed.length} requisitos propostos (dependências indisponíveis).`; }
     } catch (e) { errCard('Erro de rede ao chamar a IA', e && e.message ? e.message : String(e)); }
     finally { btn.disabled = false; }
   });
 }
 
-function renderProposal(out, pname, blueprint, data) {
-  const reqs = (data && data.requirements) || [];
-  const head = h('h3', { tabindex: '-1', text: `Proposta — ${reqs.length} requisito(s) (${data.prompt_version || 'ia'})` });
-  out.replaceChildren(head);
-  if (!reqs.length) { out.append(h('p', { class: 'empty', text: 'A IA não retornou requisitos.' })); head.focus(); return; }
-  const existingIds = ((DATA.baseline && DATA.baseline.requirements) || []).map((r) => r.id);
-  let n = 0;
-  const yamls = [];
+// Lista dos requisitos propostos (clique realça o nó no mapa) + export recolhido (YAML + PR).
+function renderProposedList(out, pname, blueprint, proposed, data, graph) {
+  out.replaceChildren();
+  const head = h('h3', { tabindex: '-1', text: `Requisitos propostos — ${proposed.length} (${data.prompt_version || 'ia'})` });
+  out.append(head);
   const ul = h('ul', { class: 'forge-reqlist' });
-  for (const req of reqs) {
-    const id = req.id || nextReqId(pname, existingIds.concat(yamls.map((y) => y.id)));
-    yamls.push({ id, req });
+  for (const { id, req } of proposed) {
     const sims = findSimilarReqs({ id, title: req.title || '', statement: req.statement || '' }, (DATA.baseline && DATA.baseline.requirements) || [], 1);
     const dup = sims[0] && sims[0].score >= 0.45 ? sims[0] : null;
-    ul.append(h('li', { class: 'forge-reqitem forge-proposed' },
+    ul.append(h('li', { class: 'forge-reqitem forge-proposed', tabindex: '0', role: 'button', 'aria-label': 'Realçar ' + id + ' no mapa', onclick: () => graph && graph.focus(id), onkeydown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); graph && graph.focus(id); } } },
       h('span', { class: 'rid', text: id }),
       h('span', { class: 'rt', text: truncateLabel(req.title || '(sem título)', 64) }),
       dup
-        ? h('span', { class: 'forge-dup' }, badge('possível duplicata', 'b-crit'), h('button', { class: 'btn-link', type: 'button', onclick: () => openReq(dup.id), text: `${dup.id} · ${Math.round(dup.score * 100)}%` }))
+        ? h('span', { class: 'forge-dup' }, badge('possível duplicata', 'b-crit'), h('button', { class: 'btn-link', type: 'button', onclick: (e) => { e.stopPropagation(); openReq(dup.id); }, text: `${dup.id} · ${Math.round(dup.score * 100)}%` }))
         : badge(typeLabel(req.type), 'b-fn')));
-    n++;
   }
   out.append(ul);
   if (data.notes) out.append(h('p', { class: 'muted small', text: data.notes }));
-  // YAMLs + caminho do PR (com botão copiar). A UI nunca escreve no git.
-  const yamlText = yamls.map(({ id, req }) => toYaml(forgeReqObject(id, pname, blueprint, req))).join('\n---\n');
-  out.append(h('h4', { text: 'YAML dos requisitos' }), codeBlock(yamlText, 'yaml', 'YAML'));
-  out.append(h('div', { class: 'forge-note' }, h('strong', { text: 'Próximo passo (operador): ' }), 'salve cada requisito em ', h('code', { text: 'specs/requirements/' + pname + '/<ID>.yaml' }), ' e abra o PR.'),
-    codeBlock(proposeHint(pname, n), 'forge-cmd', 'comando'));
+  const yamlText = proposed.map(({ id, req }) => toYaml(forgeReqObject(id, pname, blueprint, req))).join('\n---\n');
+  out.append(h('details', { class: 'forge-export' }, h('summary', { text: 'Exportar (YAML + comando de PR)' }),
+    h('p', { class: 'muted small' }, 'salve cada requisito em ', h('code', { text: 'specs/requirements/' + pname + '/<ID>.yaml' }), ' e abra o PR. A UI não escreve no git.'),
+    codeBlock(yamlText, 'yaml', 'YAML'), codeBlock(proposeHint(pname, proposed.length), 'forge-cmd', 'comando')));
   head.focus();
+}
+
+// ADRs sugeridas pela arquitetura (inseridas antes do export).
+function renderArchAdrs(out, archData) {
+  const adrs = Array.isArray(archData.adrs) ? archData.adrs : [];
+  if (!adrs.length) return;
+  const card = h('div', { class: 'card' }, h('h4', { text: 'Decisões de arquitetura sugeridas (ADRs)' }));
+  const ul = h('ul', { class: 'linklist' });
+  for (const a of adrs) ul.append(h('li', {}, h('span', { class: 'lt', text: 'ADR' }), typeof a === 'string' ? a : (a.title || a.decision || JSON.stringify(a))));
+  card.append(ul);
+  const exp = out.querySelector('details.forge-export');
+  if (exp) out.insertBefore(card, exp); else out.append(card);
 }
 
 function forgeReqObject(id, pname, blueprint, req) {

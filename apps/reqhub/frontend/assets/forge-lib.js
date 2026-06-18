@@ -212,6 +212,45 @@ export function proposeHint(productName, count) {
     `git push -u origin ${branch} && gh pr create --fill --label requirement`;
 }
 
+/** Normaliza texto p/ casar título de work_order ↔ requisito. */
+function normTitle(s) { return String(s || '').toLowerCase().replace(/\s+/g, ' ').trim(); }
+
+/**
+ * Constrói {nodes, edges} a partir de requisitos PROPOSTOS (com id+title) e das WAVES
+ * vindas de propose-architecture (work_orders por id OU título). Arestas = adjacência
+ * entre waves consecutivas. Requisitos sem wave caem numa wave extra ao final. Puro.
+ * Com waves=[] → todos viram nós soltos (wave 0, sem arestas) — o "mapa antes da arquitetura".
+ */
+export function dagFromWaves(reqs, waves) {
+  const list = Array.isArray(reqs) ? reqs : [];
+  const byId = new Map(list.map((r) => [r.id, r]));
+  const byTitle = new Map(list.map((r) => [normTitle(r.title), r]));
+  const match = (wo) => byId.get(wo) || byTitle.get(normTitle(wo)) || null;
+  const nodes = [];
+  const seen = new Set();
+  const waveList = Array.isArray(waves) ? waves : [];
+  const perWave = [];
+  waveList.forEach((w, i) => {
+    const ids = [];
+    for (const wo of (w.work_orders || [])) {
+      const r = match(wo);
+      if (!r || seen.has(r.id)) continue;
+      seen.add(r.id); ids.push(r.id);
+      nodes.push({ id: r.id, title: r.title || '', wave: i, waveId: w.id || ('w' + i) });
+    }
+    perWave.push(ids);
+  });
+  const extra = list.filter((r) => !seen.has(r.id));
+  if (extra.length) {
+    const i = perWave.length; const ids = [];
+    for (const r of extra) { ids.push(r.id); nodes.push({ id: r.id, title: r.title || '', wave: waveList.length ? i : 0, waveId: 'w' + i }); }
+    perWave.push(ids);
+  }
+  const edges = [];
+  for (let i = 1; i < perWave.length; i++) for (const c of perWave[i]) for (const p of perWave[i - 1]) edges.push({ from: p, to: c });
+  return { nodes, edges };
+}
+
 /** Resumo agregado de todos os produtos (para o cabeçalho do hub). */
 export function hubSummary(products, implStatus) {
   const summ = productSummaries(products, implStatus);

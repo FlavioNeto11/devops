@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   progressOf, productSummaries, phaseModel, buildDag, waveProgress, reqRow,
   validateReqId, nextReqId, forgeStatusCls, hubSummary, blueprintById, DONE_STATUSES,
-  typeLabel, asList,
+  typeLabel, asList, dagFromWaves,
 } from './assets/forge-lib.js';
 
 const implStatus = {
@@ -102,6 +102,38 @@ test('waveProgress: wave vazia nao bloqueia as seguintes', () => {
   assert.equal(wp[0].state, 'done');
   assert.equal(wp[1].state, 'done');     // vazia conta como concluida
   assert.equal(wp[2].state, 'active');   // NAO bloqueada pela vazia
+});
+
+test('dagFromWaves: casa por id e por título; arestas entre waves', () => {
+  const reqs = [
+    { id: 'REQ-HD-0001', title: 'Fundação do app' },
+    { id: 'REQ-HD-0002', title: 'Abrir chamado' },
+    { id: 'REQ-HD-0003', title: 'Painel de SLAs' },
+  ];
+  const waves = [
+    { id: 'w0-foundation', work_orders: ['REQ-HD-0001'] },          // por id
+    { id: 'w1', work_orders: ['Abrir chamado'] },                    // por título
+    { id: 'w2', work_orders: ['REQ-HD-0003'] },
+  ];
+  const dag = dagFromWaves(reqs, waves);
+  assert.equal(dag.nodes.length, 3);
+  assert.equal(dag.nodes.find((n) => n.id === 'REQ-HD-0002').wave, 1);
+  // 0001->0002, 0002->0003
+  assert.equal(dag.edges.length, 2);
+  assert.ok(dag.edges.some((e) => e.from === 'REQ-HD-0001' && e.to === 'REQ-HD-0002'));
+});
+
+test('dagFromWaves: sem waves = nós soltos (sem arestas); requisito órfão entra em wave extra', () => {
+  const reqs = [{ id: 'REQ-X-0001', title: 'A' }, { id: 'REQ-X-0002', title: 'B' }];
+  const only = dagFromWaves(reqs, []);
+  assert.equal(only.nodes.length, 2);
+  assert.equal(only.edges.length, 0);
+  assert.ok(only.nodes.every((n) => n.wave === 0));
+  // órfão (não citado em wave) entra ao final e liga-se à última wave
+  const partial = dagFromWaves(reqs, [{ id: 'w0', work_orders: ['REQ-X-0001'] }]);
+  assert.equal(partial.nodes.length, 2);
+  assert.equal(partial.nodes.find((n) => n.id === 'REQ-X-0002').wave, 1);
+  assert.equal(partial.edges.length, 1);
 });
 
 test('typeLabel / asList', () => {
