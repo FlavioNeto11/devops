@@ -6,7 +6,7 @@
     "by_status": {
       "deployed": 320,
       "done": 52,
-      "pr_open": 1,
+      "merged": 1,
       "not_started": 3
     }
   },
@@ -756,9 +756,11 @@
       "notes": "scaffold (fase C) via scaffold-product.ps1"
     },
     "REQ-CRM-0002": {
-      "status": "pr_open",
+      "status": "merged",
       "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/22",
       "branch": "@{id=REQ-CRM-0002; branch=req/REQ-CRM-0002/r1; restricted=false; title=feat(crm): implementa REQ-CRM-0002 — Modelo de dados e persistência (empresas, contatos, n}.branch",
+      "commit": "4472cd6eb8cb109a1632a1f23884626a08a0166d",
       "run_id": "27726301174"
     },
     "REQ-CRM-0003": {
