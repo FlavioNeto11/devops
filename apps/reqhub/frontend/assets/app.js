@@ -1,7 +1,7 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations } from './lib.js?v=26';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=26';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations } from './lib.js?v=27';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=27';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -1201,40 +1201,81 @@ function renderReviewForm(body) {
   const toggleNfr = () => { sNfrFieldset.hidden = f.type.value !== 'non-functional'; };
   f.type.addEventListener('change', toggleNfr);
 
-  // ---- Vínculos & rastreabilidade (alimenta o mapa de impacto / cobertura) ----
+  // ---- Vínculos & rastreabilidade — SELEÇÃO VISUAL no mapa do sistema ----
   const LINK_TYPES = ['depends_on', 'relates_to', 'refines', 'derives_from', 'constrains', 'conflicts_with', 'allocates_to', 'verifies'];
   const links = (ed && Array.isArray(ed.links)) ? ed.links.map((l) => ({ type: l.type, target: l.target, note: l.note })).filter((l) => l.type && l.target) : [];
-  const sLinks = h('fieldset', { class: 'ed-section ed-links-sec' }, h('legend', { text: 'Vínculos & rastreabilidade' }),
-    h('p', { class: 'ed-hint', text: 'Liga este requisito a outros (REQ-…) ou artefatos (ADR-…, svc-…) — vira aresta no mapa de impacto. Adicione manualmente abaixo ou use “Classificar vínculos (IA)” no assistente. Vão para o YAML ao gerar.' }));
-  const linksList = h('ul', { class: 'ed-links' });
+  const linkProduct = () => productScope();
   const linkType = sel(LINK_TYPES, 'depends_on');
-  const linkTarget = h('input', { type: 'text', class: 'ed-link-tgt', placeholder: 'REQ-… ou ADR-…/svc-…', list: 'ed-req-ids', 'aria-label': 'Alvo do vínculo' });
-  const linkAdd = h('button', { class: 'btn', type: 'button', text: '+ Adicionar' });
-  const dl = h('datalist', { id: 'ed-req-ids' });
-  for (const r of DATA.baseline.requirements) dl.append(h('option', { value: r.id }));
-  sLinks.append(linksList, h('div', { class: 'ed-link-add' }, linkType, linkTarget, linkAdd), dl);
+  const sLinks = h('fieldset', { class: 'ed-section ed-links-sec' },
+    h('legend', { text: 'Vínculos & rastreabilidade' }),
+    h('p', { class: 'ed-hint', text: 'Escolha o tipo de relação e clique num requisito no mapa para vincular (vira aresta no mapa de impacto e vai para o YAML ao gerar). Os já vinculados aparecem destacados.' }),
+    h('label', { class: 'ed-link-tb' }, h('span', { class: 'fld-l', text: 'Tipo de relação' }), linkType));
+  const linkMapHost = h('div', { class: 'ed-link-map' });
+  const linksList = h('ul', { class: 'ed-links' });
+  sLinks.append(linkMapHost, h('p', { class: 'ed-links-head muted small', text: 'Vínculos deste requisito' }), linksList);
   form.append(sLinks);
+
+  const linkOf = (id) => links.find((l) => l.target === id);
   function renderLinksList() {
     linksList.replaceChildren();
-    if (!links.length) { linksList.append(h('li', { class: 'ed-links-empty muted', text: 'Nenhum vínculo ainda.' })); return; }
-    links.forEach((l, i) => linksList.append(h('li', { class: 'ed-link-item' },
+    if (!links.length) { linksList.append(h('li', { class: 'ed-links-empty muted', text: 'Nenhum vínculo ainda — clique num requisito no mapa acima.' })); return; }
+    links.forEach((l) => linksList.append(h('li', { class: 'ed-link-item' },
       badge(l.type, 'b'),
-      h('button', { class: 'btn-link rid', type: 'button', title: byId(l.target) ? 'Abrir requisito' : 'alvo externo', onclick: () => { if (byId(l.target)) openReq(l.target); }, text: l.target }),
+      h('button', { class: 'btn-link rid', type: 'button', title: byId(l.target) ? 'Focar no mapa' : 'alvo externo', onclick: () => { if (linkGraph && byId(l.target)) linkGraph.focus(l.target); }, text: l.target }),
       l.note ? h('span', { class: 'muted small ed-link-note', text: l.note }) : null,
-      h('button', { class: 'btn-link ed-link-rm', type: 'button', 'aria-label': 'Remover vínculo ' + l.type + ' ' + l.target, title: 'Remover', onclick: () => { links.splice(i, 1); renderLinksList(); }, text: '✕' }))));
+      h('button', { class: 'btn-link ed-link-rm', type: 'button', 'aria-label': 'Remover vínculo ' + l.type + ' ' + l.target, title: 'Remover', onclick: () => removeLink(l.target, l.type), text: '✕' }))));
   }
-  // addLink: dedupe por type+target. Retorna true se adicionou. Reusado pelos vínculos sugeridos pela IA.
+  // re-marca os nós vinculados no mapa (re-setData; forceLayout é determinístico → posições estáveis,
+  // e o painel de detalhe do nó focado re-renderiza com a ação atualizada).
+  function syncMark() { if (linkGraph) { const d = productGraphData(linkProduct()); linkGraph.setData(d.nodes, d.edges); } }
+  // addLink: dedupe por type+target; nunca vincula a si mesmo. Reusado pelos vínculos sugeridos pela IA.
   function addLink(type, target, note) {
     type = String(type || '').trim(); target = String(target || '').trim();
     if (!type || !target || !LINK_TYPES.includes(type)) return false;
+    if (ed && ed.id === target) return false;
     if (links.some((l) => l.type === type && l.target === target)) return false;
     links.push({ type, target, ...(note ? { note: String(note) } : {}) });
-    renderLinksList();
+    renderLinksList(); syncMark();
     return true;
   }
-  linkAdd.addEventListener('click', () => { if (addLink(linkType.value, linkTarget.value)) linkTarget.value = ''; else linkTarget.focus(); });
-  linkTarget.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); linkAdd.click(); } });
+  function removeLink(target, type) {
+    const before = links.length;
+    for (let i = links.length - 1; i >= 0; i--) if (links[i].target === target && (!type || links[i].type === type)) links.splice(i, 1);
+    if (links.length !== before) { renderLinksList(); syncMark(); }
+  }
+
+  let linkGraph = null;
+  function buildLinkMap() {
+    const product = linkProduct();
+    const data = productGraphData(product);
+    if (!data.nodes.length) { linkGraph = null; linkMapHost.replaceChildren(h('p', { class: 'empty', text: product ? 'Este sistema ainda não tem requisitos para vincular.' : 'Selecione o produto (acima) para ver o mapa.' })); return; }
+    linkGraph = interactiveGraph({
+      label: 'Mapa de requisitos — clique para vincular',
+      nodeClass: (n) => (linkOf(n.id) ? 'is-linked' : '') + (ed && ed.id === n.id ? ' is-self' : ''),
+      onOpen: (id) => { if (byId(id)) openReq(id); },
+      detailOf: (n, id) => {
+        const r = byId(id) || {};
+        const self = ed && ed.id === id;
+        const existing = linkOf(id);
+        const actions = [];
+        if (!self) {
+          if (existing) actions.push({ label: '✕ Remover vínculo (' + existing.type + ')', cls: 'btn-link ed-link-danger', onClick: () => removeLink(id) });
+          else actions.push({ label: '🔗 Vincular como ' + linkType.value, cls: 'btn primary ig-act', onClick: () => addLink(linkType.value, id) });
+        }
+        return {
+          title: r.title || '',
+          sub: id + (self ? ' · este requisito (não vincula a si)' : (existing ? ' · vinculado: ' + existing.type : '')),
+          badges: r.type ? [badge(r.type === 'non-functional' ? 'NFR' : 'funcional', r.type === 'non-functional' ? 'b-nfr' : 'b-fn')] : [],
+          openable: !!r.id, actions,
+        };
+      },
+    });
+    linkGraph.setData(data.nodes, data.edges);
+    linkMapHost.replaceChildren(linkGraph.el);
+  }
+  buildLinkMap();
   renderLinksList();
+  productSel.addEventListener('change', buildLinkMap); // produto mudou (requisito novo) → outro mapa
 
   // ---- 7) Versionamento (avançado, recolhido) ----
   const sVerDet = h('details', { class: 'ed-section ed-adv' }, h('summary', { text: 'Versionamento (gerenciado automaticamente)' }));
@@ -1817,12 +1858,14 @@ function interactiveGraph(opts = {}) {
   }
   function showDetail(id) {
     const d = detailOf(nodes.find((n) => n.id === id), id); if (!d) { hideDetail(); return; }
+    const actions = Array.isArray(d.actions) ? d.actions : [];
     detail.replaceChildren(h('div', { class: 'ig-detail-card' },
       h('div', { class: 'ig-detail-head' }, h('span', { class: 'ig-detail-id', text: id }),
         sel === id ? h('button', { class: 'insp-x', type: 'button', 'aria-label': 'Fechar', onclick: () => { sel = null; paint(); } }, '×') : null),
       d.title ? h('div', { class: 'ig-detail-title', text: d.title }) : null,
       d.badges && d.badges.length ? h('div', { class: 'insp-badges' }, ...d.badges) : null,
       d.sub ? h('p', { class: 'muted small', text: d.sub }) : null,
+      actions.length ? h('div', { class: 'ig-detail-actions' }, ...actions.map((a) => h('button', { class: a.cls || 'btn-link', type: 'button', onclick: a.onClick }, a.label))) : null,
       onOpen && d.openable ? h('button', { class: 'btn-link', type: 'button', onclick: () => onOpen(id), text: 'Abrir requisito →' }) : null));
     detail.classList.remove('is-hidden');
   }

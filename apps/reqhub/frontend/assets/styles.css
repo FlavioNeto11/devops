@@ -591,17 +591,26 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 .vm-chip:hover { border-color: var(--line-2); color: var(--fg); }
 .vm-chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--fg); font-weight: 600; }
 .vm-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-/* vínculos & rastreabilidade (links[]) */
-.ed-links { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+/* vínculos & rastreabilidade (links[]) — seleção visual no mapa do sistema */
+.ed-link-tb { display: flex; align-items: center; gap: 9px; margin: 4px 0 10px; }
+.ed-link-tb .fld-l { margin: 0; }
+.ed-link-tb select { flex: none; min-width: 160px; }
+.ed-link-map { margin-bottom: 12px; }
+.ed-link-map .ig-canvas svg { height: 340px; min-height: 260px; }
+/* nós: vinculado = preenchido em accent; este requisito (self) = tracejado, não clicável p/ vincular */
+.ig-node.is-linked .chip { fill: color-mix(in srgb, var(--accent) 30%, var(--bg-2)); stroke: var(--accent); stroke-width: 2; }
+.ig-node.is-self .chip { stroke: var(--asr); stroke-dasharray: 4 3; }
+.ig-detail-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 9px; }
+.ig-detail-actions .ig-act { font-size: 12.5px; padding: 6px 12px; }
+.ed-link-danger:hover { color: var(--danger); }
+.ed-links-head { margin: 2px 0 5px; }
+.ed-links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
 .ed-links-empty { font-size: 12.5px; padding: 4px 0; }
 .ed-link-item { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-1); }
 .ed-link-item .rid { font-family: var(--mono); font-size: 11.5px; }
 .ed-link-note { flex: 1 1 100%; }
 .ed-link-rm { margin-left: auto; color: var(--muted); font-size: 13px; line-height: 1; }
 .ed-link-rm:hover { color: var(--danger); }
-.ed-link-add { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
-.ed-link-add .ed-link-tgt { flex: 1 1 180px; font-family: var(--mono); font-size: 12.5px; }
-.ed-link-add select { flex: none; }
 .linklist .link-add.is-added { color: var(--ok); }
 
 /* ===================== Grafo interativo (Forge) ===================== */
