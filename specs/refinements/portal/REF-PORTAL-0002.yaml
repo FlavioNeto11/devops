@@ -1,0 +1,115 @@
+id: REF-PORTAL-0002
+slug: ref-portal-0002
+title: Cabeçalho e navegação (sticky + menu mobile + scroll spy)
+kind: component
+status: draft
+owner: plataforma-digital
+
+scope:
+  product_scope: portal
+  applies_to: component
+
+# Detalha o comportamento do header/navegação do portal NovaIT.
+# O refinamento APONTA para os requisitos; nenhum requisito é alterado.
+anchors:
+  - requirement_id: REQ-PORTAL-0007
+    relation: refines
+    note: detalha o cabeçalho fixo, links de navegação e menu mobile da landing pública
+  - requirement_id: REQ-PORTAL-0010
+    relation: refines
+    note: detalha a revelação condicional do link "Plataforma" só para o operador autenticado
+
+surface:
+  name: Cabeçalho e navegação do portal
+  route: /
+  roles: [anonymous, operator]
+
+behavior:
+  states:
+    - name: normal
+      when: topo da página (window.scrollY <= 10)
+      ui: header sticky translúcido (backdrop-filter blur, --header-bg) com borda inferior transparente, sem sombra; nav com brand à esquerda e links à direita
+    - name: scrolled
+      when: "rolagem além de 10px (window.scrollY > 10) — setupHeaderShadow alterna a classe .scrolled em #hdr"
+      ui: header ganha fundo mais sólido (--header-bg-solid) e borda inferior visível (--line), separando-o do conteúdo
+    - name: mobile-collapsed
+      when: viewport <= 780px e menu fechado (links sem a classe .open) — botão hamburguer com aria-expanded=false
+      ui: "nav-links escondida (display:none), botão #nav-toggle visível exibindo o ícone .icon-open (3 barras)"
+    - name: mobile-open
+      when: viewport <= 780px e menu aberto (links com .open via clique no toggle) — aria-expanded=true
+      ui: nav-links em coluna sobreposta abaixo do header (position:absolute, top:100%, fundo --surface, sombra); botão troca para .icon-close (X)
+    - name: link-ativo
+      when: "uma seção ancorada (#produtos / #portais / #capacidades / #plataforma) intersecta a faixa rootMargin -30%/-55% — setupNavSpy (IntersectionObserver)"
+      ui: o link de nav correspondente recebe a classe .is-here (cor --ink, font-weight 700) e os demais a perdem
+    - name: plataforma-oculto
+      when: visitante anônimo — a API do Console (/devops/api/ingressroutes) responde 401/403 (isAuthError) ou ainda não autorizou
+      ui: "link #nav-plataforma permanece com atributo hidden (não aparece na nav); seção #plataforma e coluna #foot-plataforma também ocultas"
+    - name: plataforma-revelado
+      when: operador autenticado — a API do Console responde 200 e setOperatorUI(true) é chamado em loadClusterApps
+      ui: "#nav-plataforma deixa de estar hidden e aparece na navegação (junto da seção #plataforma e da coluna do rodapé)"
+  data:
+    - field: nav-links
+      source: portal/frontend/index.html (#nav-links — Produtos, Portais, Capacidades, Plataforma, "Acessar sistemas")
+      format: "âncoras para #produtos / #portais / #capacidades / #plataforma + botão .btn.sm para #produtos"
+      editable: false
+    - field: nav-toggle[aria-expanded]
+      source: estado do menu mobile (setupMobileMenu — links.classList.toggle('open'))
+      format: "false | true"
+      editable: false
+    - field: nav-plataforma[hidden]
+      source: setOperatorUI a partir de /devops/api/ingressroutes (200 = revela; 401/403 = oculta)
+      format: presença/ausência do atributo hidden
+      editable: false
+  interactions:
+    - trigger: rolar a página
+      action: "setupHeaderShadow compara window.scrollY > 10 (listener scroll passivo) e alterna a classe .scrolled em #hdr"
+      result: o header ganha/perde fundo sólido e borda inferior (sombra de separação)
+    - trigger: clicar no botão hamburguer (#nav-toggle) no mobile
+      action: links.classList.toggle('open') e toggle.setAttribute('aria-expanded', String(open))
+      result: abre/fecha o menu sobreposto e alterna os ícones open/close; aria-expanded reflete o estado
+    - trigger: clicar em qualquer link da nav com o menu aberto
+      action: handler close() remove .open e seta aria-expanded=false
+      result: o menu mobile fecha ao navegar para a seção
+    - trigger: pressionar Esc com o menu mobile aberto
+      action: keydown handler chama close() e devolve o foco ao botão (toggle.focus())
+      result: menu fecha e o foco volta ao hamburguer (orientação para teclado)
+    - trigger: rolar até uma seção ancorada
+      action: "setupNavSpy (IntersectionObserver, rootMargin -30% 0px -55% 0px) marca o link cujo href casa com #<id> da seção visível"
+      result: o link da seção corrente recebe .is-here (scroll spy) e os demais a perdem
+    - trigger: descoberta de cluster autorizada (200) ou negada (401/403)
+      action: "setOperatorUI(true|false) alterna hidden em #plataforma, #nav-plataforma e #foot-plataforma"
+      result: o link "Plataforma" aparece só para operador autenticado; visitante anônimo não o vê
+  flows:
+    - [carregar /, ver header sticky no topo sem sombra, rolar a página, ver o header ganhar fundo sólido e borda]
+    - [no mobile (<=780px) tocar no hamburguer, ver o menu sobrepor abaixo do header, tocar num link, ver o menu fechar e a seção rolar]
+    - [no mobile abrir o menu, pressionar Esc, ver o menu fechar com o foco de volta no botão hamburguer]
+    - [rolar entre as seções, observar o link de nav correspondente ficar realçado (scroll spy)]
+    - [como anônimo não ver o link "Plataforma"; como operador autenticado (API 200) ver o link "Plataforma" surgir na nav]
+
+acceptance_criteria:
+  - O header é sticky (position:sticky, top:0) e permanece visível ao rolar.
+  - Ao rolar além de 10px o header recebe a classe .scrolled, ganhando fundo sólido e borda inferior (sombra de separação); ao voltar ao topo a remove.
+  - Em viewport <= 780px o botão hamburguer (#nav-toggle, alvo >=44px) é exibido e a nav-links some até ser aberta.
+  - Clicar no hamburguer alterna links.open e o atributo aria-expanded entre "false" e "true", trocando os ícones abrir/fechar.
+  - Clicar em um link da nav com o menu aberto fecha o menu (remove .open, aria-expanded=false).
+  - Pressionar Esc com o menu mobile aberto fecha o menu e devolve o foco ao botão hamburguer.
+  - Conforme a seção visível muda, exatamente o link de nav correspondente recebe .is-here (scroll spy via IntersectionObserver).
+  - O link "Plataforma" (#nav-plataforma) inicia com atributo hidden e só é revelado quando a API do Console responde 200 (operador); para 401/403 (anônimo) permanece oculto.
+
+verification_method:
+  - test-e2e
+  - manual-review
+
+source:
+  stakeholder: portal
+  origin: leitura do código real do portal NovaIT (header sticky, menu mobile, scroll spy e gating do link Plataforma)
+  source_paths:
+    - portal/frontend/index.html
+    - portal/frontend/assets/portal.js
+    - portal/frontend/assets/styles.css
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: novo refinamento — cabeçalho e navegação do portal

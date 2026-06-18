@@ -643,30 +643,56 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 .node.ref > .chip { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 3; }
 
 /* --- Visualizador de usabilidade --- */
-.usability-grid { display: grid; grid-template-columns: minmax(220px, 280px) 1fr; gap: 18px; align-items: start; }
+.usability-grid { display: grid; grid-template-columns: minmax(230px, 300px) 1fr; gap: 18px; align-items: start; }
 @media (max-width: 760px) { .usability-grid { grid-template-columns: 1fr; } }
-.usability-list { display: flex; flex-direction: column; gap: 4px; }
-.usability-prod { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 10px 0 2px; }
-.usability-items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
-.usability-item { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; padding: 7px 9px; border: 1px solid var(--border, rgba(127,127,127,0.18)); border-radius: 8px; background: transparent; cursor: pointer; color: inherit; }
+.usability-list { display: flex; flex-direction: column; gap: 2px; }
+.usability-prod { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 700; color: var(--ink, inherit); margin: 14px 0 4px; padding-bottom: 4px; border-bottom: 1px solid var(--border, rgba(127,127,127,0.18)); }
+.usability-prod:first-child { margin-top: 0; }
+.usability-prod-n { font-size: 11px; font-weight: 600; color: var(--muted); background: var(--surface-2, rgba(127,127,127,0.1)); border-radius: 999px; padding: 1px 8px; }
+.usability-kindh { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 8px 0 2px; }
+.usability-items { list-style: none; margin: 0 0 2px; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.usability-item { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 7px 10px; border: 1px solid transparent; border-radius: 8px; background: transparent; cursor: pointer; color: inherit; }
 .usability-item:hover { background: var(--surface-2, rgba(127,127,127,0.07)); }
-.usability-item.is-active { border-color: var(--accent); background: var(--surface-2, rgba(127,127,127,0.1)); }
+.usability-item.is-active { border-color: var(--accent); background: var(--surface-2, rgba(127,127,127,0.12)); }
 .usability-ti { flex: 1; font-size: 13px; }
-.usability-route { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.usability-route { font-family: var(--mono); font-size: 10.5px; color: var(--accent); background: var(--surface-2, rgba(127,127,127,0.1)); border-radius: 5px; padding: 1px 6px; white-space: nowrap; }
 .usability-detail { display: flex; flex-direction: column; gap: 14px; }
 .usability-card { border-left: 3px solid var(--accent); }
 .usability-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.usability-title { margin: 0; font-size: 18px; }
+.usability-title { margin: 0; font-size: 19px; }
+/* banner de ACESSO (rota + quem acessa em destaque) */
+.usability-access { margin: 12px 0 4px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2, rgba(127,127,127,0.07)); border: 1px solid var(--border, rgba(127,127,127,0.16)); display: flex; flex-direction: column; gap: 6px; }
+.ua-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ua-k { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); min-width: 92px; }
+.ua-route { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--accent); background: var(--bg, transparent); border: 1px solid var(--border, rgba(127,127,127,0.2)); border-radius: 6px; padding: 2px 9px; }
+.ua-roles { display: inline-flex; gap: 5px; flex-wrap: wrap; }
+.ua-open { font-size: 12px; }
 .usability-anchors { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
-.usability-states { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.usability-states > li { padding-left: 10px; border-left: 2px solid var(--border, rgba(127,127,127,0.2)); }
-.usability-ui { margin: 2px 0 0; font-size: 13px; }
+.us-sec-ic { color: var(--accent); margin-right: 4px; }
+/* estados — cartões coloridos por tipo */
+.usability-states { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.us-state { border: 1px solid var(--border, rgba(127,127,127,0.18)); border-left-width: 3px; border-radius: 9px; padding: 9px 11px; background: var(--surface-2, rgba(127,127,127,0.04)); }
+.us-state-h { display: flex; align-items: center; gap: 7px; }
+.us-state-h strong { font-size: 13px; }
+.us-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+.us-when { margin: 5px 0 0; font-size: 12px; color: var(--muted); }
+.us-ui { margin: 4px 0 0; font-size: 12.5px; }
+.us-state.st-normal { border-left-color: var(--ok, #16a34a); } .us-state.st-normal .us-dot { background: var(--ok, #16a34a); }
+.us-state.st-loading { border-left-color: var(--accent); } .us-state.st-loading .us-dot { background: var(--accent); }
+.us-state.st-error { border-left-color: var(--danger, #dc2626); } .us-state.st-error .us-dot { background: var(--danger, #dc2626); }
+.us-state.st-empty { border-left-color: var(--warn, #b45309); } .us-state.st-empty .us-dot { background: var(--warn, #b45309); }
+.us-state.st-hidden { border-left-color: var(--muted); } .us-state.st-hidden .us-dot { background: var(--muted); }
 .usability-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.usability-table th, .usability-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border, rgba(127,127,127,0.15)); }
+.usability-table th, .usability-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border, rgba(127,127,127,0.15)); vertical-align: top; }
 .usability-table th { color: var(--muted); font-weight: 600; }
-.usability-inter { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
-.usability-flow { font-size: 13px; margin: 4px 0; }
+.usability-table code { font-size: 12px; }
+.usability-inter { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.usability-inter > li { display: flex; align-items: baseline; gap: 2px; flex-wrap: wrap; }
+.ui-trig { font-weight: 600; } .ui-arr { color: var(--accent); } .ui-res { font-size: 12.5px; }
+.usability-steps { margin: 6px 0 10px; padding-left: 22px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.usability-steps + .usability-steps { border-top: 1px dashed var(--border, rgba(127,127,127,0.2)); padding-top: 8px; }
 .usability-acc { margin: 4px 0 0; }
+.usability-src { word-break: break-word; }
 .ws-reflist { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 
 /* ===================== Grafo interativo (Forge) ===================== */

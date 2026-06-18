@@ -1,0 +1,148 @@
+id: REF-PORTAL-0003
+title: Seção Hero
+kind: component
+status: draft
+
+scope:
+  product_scope: portal
+  applies_to: component
+
+surface:
+  name: Hero
+  roles:
+    - visitante
+    - operador
+
+anchors:
+  - requirement_id: REQ-PORTAL-0001
+    relation: relates_to
+  - requirement_id: REQ-PORTAL-NFR-001
+    relation: refines
+
+behavior:
+  states:
+    - name: normal
+      when: Página carregada com conteúdo já visível (sem depender de JS).
+      ui: >-
+        Section .hero com aria-labelledby=hero-title. Mostra, em ordem: pill mono
+        "plataforma cloud-native em produção" com bolinha .live verde; H1 (#hero-title)
+        "Tecnologia que opera o mundo real", onde "opera o mundo real" usa .grad-txt
+        (gradiente azul→roxo via background-clip:text); subtítulo .lead; bloco .hero-cta
+        com 2 CTAs (botão primário "Conhecer os produtos" → #produtos e botão fantasma
+        "O que fazemos" → #capacidades); grade .stats com 5 stat pills
+        (2 produtos · 3+ portais · Argo GitOps/CD · K8s cloud-native · SSO identidade única).
+    - name: reveal-animado
+      when: >-
+        JS ativo — o <script> síncrono do <head> adiciona a classe `js` em <html>
+        antes do paint, então o portal.js inicializa e observa o scroll.
+    - name: oculto-pre-reveal
+      when: >-
+        Classe `js` presente e elemento .reveal ainda não entrou na viewport
+        (portal.js ainda não adicionou .in).
+      ui: >-
+        Regra .js .reveal aplica opacity:0 e transform:translateY(20px); pill, H1, lead,
+        hero-cta e stats (todos .reveal) ficam temporariamente invisíveis até receberem .in.
+    - name: revelado
+      when: O elemento .reveal entra na viewport e portal.js adiciona a classe .in.
+      ui: >-
+        .js .reveal.in volta a opacity:1 e transform:none, com transição de 0.6s
+        (cubic-bezier 0.2,0.7,0.2,1) — fade + slide-up suave de cada elemento do hero.
+    - name: fallback-sem-js
+      when: JS desabilitado, bloqueado ou ausente (classe `js` nunca é adicionada).
+      ui: >-
+        Nenhuma regra .js .reveal incide, então o hero permanece totalmente visível
+        em opacity:1 — não há conteúdo preso em opacity:0 órfão.
+    - name: failsafe-modulo-falhou
+      when: >-
+        O módulo portal.js não inicializa em 2,5s (falha/bloqueio/erro) — o timer
+        do <head> adiciona a classe `no-anim` em <html>.
+      ui: >-
+        .no-anim .reveal força opacity:1, transform:none e transition:none com !important,
+        revelando todo o hero mesmo sem o observer de scroll.
+    - name: movimento-reduzido
+      when: "O usuário tem prefers-reduced-motion: reduce."
+      ui: >-
+        .js .reveal fica em opacity:1/transform:none (sem animação de reveal) e a
+        animação `pulse` da bolinha .live do pill é desligada.
+
+  data:
+    - field: pill_label
+      source: 'index.html — span.pill (.hero): "plataforma cloud-native em produção"'
+      editable: false
+    - field: hero_title
+      source: 'index.html — h1#hero-title: "Tecnologia que opera o mundo real" (trecho final em .grad-txt)'
+      editable: false
+    - field: hero_lead
+      source: 'index.html — p.lead: descrição da NovaIT (plataformas cloud-native, automação e inteligência aplicada)'
+      editable: false
+    - field: cta_primaria
+      source: 'index.html — a.btn (.hero-cta): "Conhecer os produtos" → href="#produtos"'
+      editable: false
+    - field: cta_secundaria
+      source: 'index.html — a.btn.ghost (.hero-cta): "O que fazemos" → href="#capacidades"'
+      editable: false
+    - field: stats
+      source: >-
+        index.html — div.stats com 5 div.stat (n/l): 2 produtos · 3+ portais ·
+        Argo GitOps/CD · K8s cloud-native · SSO identidade única
+      format: lista de 5 pares número/rótulo (estáticos no HTML)
+      editable: false
+
+  interactions:
+    - trigger: Clique/Enter na CTA primária "Conhecer os produtos".
+      action: "Navega para a âncora interna #produtos."
+      result: Rolagem suave (html scroll-behavior:smooth) até a seção de produtos.
+    - trigger: Clique/Enter na CTA secundária (botão fantasma) "O que fazemos".
+      action: "Navega para a âncora interna #capacidades."
+      result: Rolagem suave até a seção de capacidades.
+    - trigger: Hover na CTA primária (.btn).
+      action: Aplica estilo de hover do botão.
+      result: Fundo escurece (--btn-bg-ink), translateY(-1px) e sombra (--shadow-btn).
+    - trigger: Hover na CTA secundária (.btn.ghost).
+      action: Aplica estilo de hover do botão fantasma.
+      result: Borda e texto passam a cor de acento (--accent), sem sombra.
+    - trigger: Foco por teclado em qualquer CTA do hero.
+      action: Estado :focus-visible.
+      result: Outline de 2px na cor de acento com offset (foco visível e consistente).
+    - trigger: Scroll que traz elementos .reveal do hero à viewport (JS ativo).
+      action: portal.js adiciona a classe .in aos elementos observados.
+      result: Cada elemento do hero faz fade + slide-up de 0.6s (respeitando reduced-motion).
+
+  flows:
+    - - Usuário abre a raiz / do portal.
+      - O <script> do <head> marca <html> com `js` e arma um timer de 2,5s para `no-anim`.
+      - O hero renderiza com pill, título gradiente, subtítulo, 2 CTAs e 5 stats.
+      - portal.js inicializa, cancela o timer de failsafe e observa o scroll.
+      - Ao entrar na viewport, os elementos .reveal do hero recebem .in e animam (fade/slide-up).
+    - - Usuário sem JS (ou JS bloqueado) abre a raiz / do portal.
+      - A classe `js` nunca é adicionada a <html>.
+      - O hero aparece totalmente visível (sem opacity:0 órfão) com todos os elementos e CTAs funcionais.
+    - - O módulo portal.js falha ao inicializar dentro de 2,5s.
+      - O timer do <head> adiciona `no-anim` a <html>.
+      - .no-anim .reveal revela todo o hero imediatamente (opacity:1, sem transição).
+
+acceptance_criteria:
+  - "O hero exibe exatamente 2 CTAs - \"Conhecer os produtos\" (botão primário → #produtos) e \"O que fazemos\" (botão fantasma → #capacidades)."
+  - O trecho "opera o mundo real" do H1 é renderizado com gradiente via .grad-txt, com fallback de cor sólida acessível onde background-clip:text não é suportado.
+  - O hero exibe 5 stat pills com os rótulos produtos, portais, GitOps·CD, cloud-native e identidade única.
+  - Com JS desabilitado, todo o conteúdo do hero (pill, título, subtítulo, CTAs e stats) permanece visível, sem nenhum elemento preso em opacity:0.
+  - Se portal.js não inicializar em 2,5s, a classe no-anim revela todo o hero (opacity:1, transform:none, sem transição).
+  - Com prefers-reduced-motion:reduce, os elementos .reveal do hero aparecem sem animação e a pulsação da bolinha .live é desativada.
+  - Todas as CTAs do hero têm foco visível por teclado (outline de 2px na cor de acento via :focus-visible).
+  - "As CTAs apontam para âncoras internas existentes (#produtos e #capacidades) e a rolagem é suave (scroll-behavior:smooth)."
+
+verification_method:
+  - manual-review
+  - test-e2e
+  - architecture-review
+
+source:
+  source_paths:
+    - portal/frontend/index.html
+    - portal/frontend/assets/styles.css
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: novo refinamento — Hero

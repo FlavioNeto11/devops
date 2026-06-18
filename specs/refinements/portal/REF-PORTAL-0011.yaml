@@ -1,0 +1,158 @@
+id: REF-PORTAL-0011
+title: Tema e movimento (dark mode + reduced motion)
+kind: interaction
+status: draft
+
+scope:
+  product_scope: portal
+  applies_to: capability
+
+anchors:
+  - requirement_id: REQ-PORTAL-0011
+    relation: refines
+  - requirement_id: REQ-PORTAL-0012
+    relation: refines
+  - requirement_id: REQ-PORTAL-NFR-004
+    relation: relates_to
+
+surface:
+  name: Tema e movimento do portal NovaIT
+
+behavior:
+  states:
+    - name: tema-claro
+      when: >-
+        Sistema operacional/navegador sem preferencia de cor escura
+        (prefers-color-scheme nao avalia dark). Tema padrao definido em :root.
+      ui: >-
+        Tokens claros aplicados via :root: --bg #ffffff, --bg-soft #f7f9fc,
+        --surface #ffffff, --ink #0b1220, --body #3c4658, --muted #6b7488,
+        --line #ebeef4, --accent #2563eb. Header translucido com
+        backdrop-filter blur (--header-bg rgba branca 0.72). Todas as
+        superficies tokenizadas (sem cores cruas), de modo que nada "vaza"
+        branco fixo.
+    - name: tema-escuro
+      when: >-
+        Navegador avalia @media (prefers-color-scheme: dark) como verdadeiro
+        (preferencia do SO por tema escuro). Aplicado automaticamente, sem
+        toggle de UI e sem flash — apenas re-resolucao dos custom properties
+        em :root.
+      ui: >-
+        Mesmo :root sobrescrito dentro de @media (prefers-color-scheme: dark):
+        --bg #0b1220, --bg-soft #0e1626, --surface #111a2e, --ink #f1f5f9,
+        --body #cbd5e1, --muted #9aa6bd, --line #1e293b, --accent #5b8bff,
+        --header-bg rgba escura 0.72, sombras/grid-dot/focus ajustados ao
+        escuro. Layout e componentes inalterados; so as variaveis de cor
+        mudam. Contraste mantido em AA (ex.: --btn-bg fixo #2563eb com texto
+        branco = 5.8:1 nos dois temas; --muted2 escurecido para >=4.5:1 em
+        textos pequenos).
+    - name: movimento-pleno
+      when: >-
+        Sistema sem preferencia de movimento reduzido (prefers-reduced-motion
+        nao avalia reduce). Estado padrao de animacao.
+      ui: >-
+        html com scroll-behavior: smooth. Reveal-on-scroll ativo (.js .reveal
+        com opacity 0 + translateY 20px transicionando para visivel). Pulso do
+        indicador "live" da pill (@keyframes pulse, 2.2s infinite). Shimmer do
+        skeleton de carregamento (@keyframes shimmer, 1.4s infinite). Transicoes
+        de hover em botoes, cards, back-to-top e setas de link ativas.
+    - name: movimento-reduzido
+      when: >-
+        @media (prefers-reduced-motion: reduce) verdadeiro (usuario configurou
+        reducao de movimento no SO). Resposta automatica, sem gatilho de UI.
+      ui: >-
+        scroll-behavior forcado para auto em todos os elementos (rolagem sem
+        animacao suave). Reveal-on-scroll neutralizado (.js .reveal com
+        opacity 1 / transform none / sem transition) — conteudo aparece
+        imediatamente. Pulso da pill .live desligado (animation: none).
+        Shimmer do skeleton desligado (animation: none). Transicoes de
+        to-top, btn, card e lnk svg removidas. Nenhum conteudo fica preso em
+        opacity:0.
+    - name: oculto
+      when: >-
+        Elementos com atributo [hidden] (ex.: estados de loading/erro/vazio
+        nao ativos). Independente de tema/movimento.
+      ui: >-
+        [hidden] aplica display: none !important, vencendo o display:flex de
+        .prod/.tool/.state — o elemento nao ocupa espaco em nenhum tema.
+  data:
+    - field: prefers-color-scheme
+      source: media-query do SO/navegador (preferencia de tema do usuario)
+      format: light | dark
+      editable: false
+    - field: prefers-reduced-motion
+      source: media-query do SO/navegador (preferencia de movimento do usuario)
+      format: no-preference | reduce
+      editable: false
+    - field: design-tokens
+      source: custom properties CSS em :root (tema claro e bloco @media dark)
+      format: tokens de cor/sombra/foco (--bg, --ink, --accent, --focus, ...)
+      editable: false
+  interactions:
+    - trigger: >-
+        Usuario alterna o tema do SO para escuro (prefers-color-scheme: dark
+        passa a avaliar verdadeiro)
+      action: >-
+        Navegador reaplica o bloco @media (prefers-color-scheme: dark) que
+        sobrescreve as variaveis de cor em :root
+      result: >-
+        Toda a interface adota a paleta escura automaticamente, sem recarregar,
+        sem toggle de UI e sem flash de tema; contraste permanece em AA
+    - trigger: >-
+        Usuario habilita "reduzir movimento" no SO (prefers-reduced-motion:
+        reduce passa a avaliar verdadeiro)
+      action: >-
+        Navegador aplica o bloco @media (prefers-reduced-motion: reduce) que
+        desativa reveal, pulse, shimmer, smooth-scroll e transicoes
+      result: >-
+        Animacoes e transicoes nao essenciais cessam; o conteudo permanece
+        totalmente visivel e a rolagem deixa de ser suave
+  flows:
+    - - SO/navegador expoe prefers-color-scheme e prefers-reduced-motion
+      - CSS resolve :root com tokens claros por padrao
+      - Se prefers-color-scheme=dark, @media dark sobrescreve os tokens de cor
+      - Se prefers-reduced-motion=reduce, @media reduce desliga animacoes/transicoes/smooth-scroll
+      - Interface renderiza no tema e nivel de movimento correspondentes a preferencia, sem acao do usuario na pagina
+
+acceptance_criteria:
+  - >-
+    Com prefers-color-scheme: dark ativo, --bg resolve para #0b1220 e --ink
+    para #f1f5f9 (paleta escura aplicada via @media, sem necessidade de
+    recarregar ou de qualquer toggle).
+  - >-
+    Com prefers-color-scheme: light (ou ausente), --bg resolve para #ffffff e
+    --ink para #0b1220 (tema claro padrao de :root).
+  - >-
+    Nao existe nenhum controle de UI de troca de tema; o tema e determinado
+    exclusivamente por prefers-color-scheme.
+  - >-
+    O botao usa --btn-bg #2563eb com texto branco nos dois temas (contraste
+    >=4.5:1, AA), sem herdar o --accent claro do dark.
+  - >-
+    Com prefers-reduced-motion: reduce, .js .reveal fica com opacity 1 e
+    transform none (sem transition) — o conteudo aparece imediatamente.
+  - >-
+    Com prefers-reduced-motion: reduce, a animacao pulse (.pill .live) e a
+    animacao shimmer (.skeleton) tem animation: none.
+  - >-
+    Com prefers-reduced-motion: reduce, scroll-behavior e forcado para auto em
+    todos os elementos e as transicoes de .to-top/.btn/.card/.lnk svg sao
+    removidas.
+  - >-
+    Em movimento pleno, html mantem scroll-behavior: smooth e as animacoes
+    pulse/shimmer e o reveal-on-scroll permanecem ativos.
+
+verification_method:
+  - manual-review
+  - test-e2e
+  - architecture-review
+
+source:
+  source_paths:
+    - portal/frontend/assets/styles.css
+
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1
+  semantic_change: none
+  change_reason: "novo refinamento — Tema e movimento do portal NovaIT"

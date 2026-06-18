@@ -1,0 +1,104 @@
+id: REF-PORTAL-0006
+title: Capacidades (o que fazemos)
+kind: component
+status: draft
+
+scope:
+  product_scope: portal
+  applies_to: component
+
+anchors:
+  - requirement_id: REQ-PORTAL-NFR-001
+    relation: refines
+
+surface:
+  name: Seção Capacidades (#capacidades)
+  route: /
+
+behavior:
+  states:
+    - name: normal
+      when: Página carregada e a seção entra no viewport com JS ativo e reveal disparado (classe `in` aplicada).
+      ui: >
+        Seção `block alt` (fundo --bg-soft com bordas superior/inferior --line) com cabeçalho
+        (eyebrow mono "// capacidades", h2 "Engenharia de ponta a ponta", intro) e grade `g3` de
+        6 cards de capacidade flat (.card.cap). Cada card mostra: caixa de ícone 42px (fundo
+        --surface, borda --line2, traço SVG em --accent), título h3 e parágrafo descritivo em
+        --muted. Os 6 cards: Engenharia de Software; Cloud-Native & Kubernetes; DevOps & GitOps;
+        Inteligência Artificial; Segurança & Identidade; Observabilidade. Cards opacos e visíveis
+        (opacity:1, sem translateY).
+    - name: oculto-pre-reveal
+      when: JS ativo (html.js) e o card ainda NÃO entrou no viewport (sem classe `in`).
+      ui: >
+        Cada `.reveal` inicia em opacity:0 e transform:translateY(20px); ao cruzar o limiar de
+        scroll ganha a classe `in` e transiciona para opacity:1/translateY(0) em ~0.6s. Estado
+        puramente visual de entrada — sem placeholder, spinner ou conteúdo alternativo.
+    - name: sem-js
+      when: JavaScript desabilitado, bloqueado ou ainda não executado (a classe `js` nunca é adicionada a <html>).
+      ui: >
+        Conteúdo totalmente visível por padrão (progressive enhancement real): a regra que esconde
+        os `.reveal` depende do seletor `.js .reveal`, então sem a classe `js` os 6 cards aparecem
+        sem animação e sem ficarem presos em opacity:0.
+    - name: failsafe-no-anim
+      when: O módulo /assets/portal.js não inicializa em até 2,5s (falha de rede, bloqueio ou erro); o <script> inline do <head> adiciona `no-anim` a <html>.
+      ui: >
+        A classe `no-anim` força todos os `.reveal` para opacity:1 !important, transform:none e
+        transition:none — os 6 cards aparecem imediatamente, garantindo que o conteúdo nunca fique
+        invisível mesmo se o JS de reveal falhar.
+    - name: movimento-reduzido
+      when: "Usuário com prefers-reduced-motion: reduce."
+      ui: >
+        A animação de reveal é neutralizada (`.js .reveal` forçado a opacity:1/transform:none, sem
+        transition); os 6 cards ficam imediatamente visíveis e estáticos, sem deslize de entrada.
+
+  data:
+    - field: capability.title
+      source: HTML estático (h3 de cada article.card.cap em portal/frontend/index.html)
+      editable: false
+    - field: capability.description
+      source: HTML estático (p de cada article.card.cap)
+      editable: false
+    - field: capability.icon
+      source: HTML estático (SVG inline dentro de .ic, stroke=currentColor herdado como --accent)
+      editable: false
+
+  interactions:
+    - trigger: A seção/cards cruzam o limiar de scroll (entram no viewport) com JS ativo
+      action: O observador de scroll adiciona a classe `in` ao elemento `.reveal`
+      result: Transição de entrada (fade + slide-up ~0.6s); ocorre uma única vez por card
+    - trigger: Hover/foco do mouse sobre um card de capacidade
+      action: Nenhuma (regra .cap:hover zera transform e box-shadow; card é flat sem borda/sombra)
+      result: Sem efeito visual de elevação — os cards são informativos, não interativos
+
+  flows:
+    - - "Visitante rola a página até a seção Capacidades (ou navega via âncora #capacidades / link \"O que fazemos\" do hero)"
+      - Cabeçalho e os 6 cards entram no viewport
+      - Reveal-on-scroll aplica `in` e os cards aparecem com fade + slide-up
+      - Visitante lê os 6 cards informativos; nenhuma ação adicional é oferecida dentro da seção
+
+acceptance_criteria:
+  - "A seção #capacidades renderiza exatamente 6 cards de capacidade (article.card.cap), nesta ordem - Engenharia de Software, Cloud-Native & Kubernetes, DevOps & GitOps, Inteligência Artificial, Segurança & Identidade, Observabilidade."
+  - Cada card de capacidade contém uma caixa de ícone (.ic) com SVG, um título h3 e um parágrafo descritivo; nenhum card de capacidade contém link, botão ou badge clicável.
+  - Os cards .cap são flat - background transparente, sem borda, sem box-shadow, e :hover não aplica translate nem sombra (sem efeito de elevação).
+  - A seção usa o tema alternado (class="block alt") com fundo --bg-soft e bordas superior/inferior --line.
+  - A grade é g3 (3 colunas), colapsando para 2 colunas em telas <=880px e 1 coluna em <=600px.
+  - Com JavaScript desabilitado/bloqueado os 6 cards permanecem visíveis (sem opacity:0 órfão); o reveal só esconde quando html tem a classe `js`.
+  - Se portal.js não inicializar em 2,5s, a classe `no-anim` torna os cards imediatamente visíveis (opacity:1).
+  - "Com prefers-reduced-motion: reduce, os cards aparecem sem animação de reveal."
+  - A única interação da seção é o reveal-on-scroll (adição da classe `in`); não há filtro, busca, expansão ou estado dinâmico de dados.
+
+verification_method:
+  - manual-review
+  - test-e2e
+  - architecture-review
+
+source:
+  source_paths:
+    - portal/frontend/index.html
+    - portal/frontend/assets/styles.css
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: "novo refinamento — Seção Capacidades (#capacidades)"

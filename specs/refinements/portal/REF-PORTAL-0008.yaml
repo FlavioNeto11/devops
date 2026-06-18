@@ -1,0 +1,139 @@
+id: REF-PORTAL-0008
+title: Plataforma (ferramentas do operador, auth-gated)
+kind: component
+status: draft
+owner: platform
+scope:
+  product_scope: portal
+  applies_to: component
+  domain: portal-operator-tools
+anchors:
+  - requirement_id: REQ-PORTAL-0002
+    relation: refines
+  - requirement_id: REQ-PORTAL-0005
+    relation: relates_to
+surface:
+  name: Plataforma — ferramentas do operador
+  roles:
+    - operador
+    - platform-admins
+behavior:
+  states:
+    - name: oculto
+      when: >-
+        Estado inicial e estado para visitante anônimo. A seção #plataforma, o
+        link #nav-plataforma e a coluna #foot-plataforma do rodapé nascem com
+        atributo `hidden` no HTML. Permanece oculto enquanto a descoberta de
+        cluster não confirma sessão de operador, ou quando a API responde 401/403
+        (isAuthError) — caso em que setOperatorUI(false) reesconde tudo.
+      ui: >-
+        Site público corporativo (produtos + portais). Os 5 cards de ferramenta
+        interna (DevOps Console, Grafana, Argo CD, Keycloak, Portal Recorder) não
+        aparecem em lugar nenhum; seus cards ficam fora da busca (applySearch pula
+        cards dentro de #plataforma/#cluster-section quando a seção está hidden).
+    - name: revelado
+      when: >-
+        loadClusterApps recebe 200 de GET /devops/api/ingressroutes (operador
+        autenticado pela sessão do Console) e chama setOperatorUI(true).
+      ui: >-
+        A seção #plataforma deixa de ser hidden e markRevealed('#plataforma')
+        força os .reveal internos a `in`. Renderiza os 5 cards de ferramenta com
+        ícone, título, descrição, selo "login" (badge is-login) e link "Abrir
+        <ferramenta>". O link Plataforma da nav (#nav-plataforma) e a coluna
+        Plataforma do rodapé (#foot-plataforma) também são revelados.
+    - name: oculto-por-erro-de-auth
+      when: >-
+        A consulta falha com status 401 ou 403 (isAuthError === true) — visitante
+        anônimo. Mesmo após eventual tentativa de carga, setOperatorUI(false) é
+        chamado e a seção #cluster-section é reescondida.
+      ui: >-
+        Idêntico ao estado oculto: nenhum atalho interno visível; applySearch
+        recalcula a contagem sem as ferramentas. Erros de auth NÃO mostram a UI
+        de erro transitória (essa é reservada a rede/timeout/5xx da descoberta).
+  data:
+    - field: cards_de_ferramenta
+      source: portal/frontend/assets/catalog.js (TOOLS)
+      format: >-
+        5 entradas estáticas type=platform_tool, scope=internal, requiresLogin=true:
+        DevOps Console (/devops), Grafana (/grafana), Argo CD (/argocd),
+        Keycloak (/auth), Portal Recorder (/portal-rec). Espelhadas em HTML
+        estático (article.card.tool) para SEO/no-JS.
+      editable: false
+    - field: visibilidade_operador
+      source: api:/devops/api/ingressroutes
+      format: >-
+        Derivada do status HTTP da descoberta: 200 -> setOperatorUI(true)
+        (revelado); 401/403 -> setOperatorUI(false) (oculto). Estado inicial do
+        DOM = hidden.
+      editable: false
+    - field: selo_login
+      source: portal/frontend/index.html (span.badge.is-login)
+      format: 'Selo textual "login" em cada card; title="Requer autenticação" (Portal Recorder: OIDC).'
+      editable: false
+    - field: link_destino
+      source: portal/frontend/assets/catalog.js (TOOLS[].path)
+      format: 'Subpath no mesmo domínio: /devops, /grafana, /argocd, /auth, /portal-rec.'
+      editable: false
+  interactions:
+    - trigger: Carga inicial da página (init -> loadClusterApps) e refresh silencioso a cada 60s
+      action: GET /devops/api/ingressroutes com timeout de 8s (AbortController)
+      result: >-
+        200 chama setOperatorUI(true) e revela a seção Plataforma + nav + rodapé;
+        401/403 chama setOperatorUI(false) e mantém tudo oculto.
+    - trigger: Clique em "Abrir <ferramenta>" num card revelado
+      action: Navegação para o subpath da ferramenta (TOOLS[].path)
+      result: >-
+        Abre a ferramenta interna (DevOps Console/Grafana/Argo/Keycloak/Portal
+        Recorder), cada uma exige sua própria autenticação (SSO/OIDC).
+    - trigger: "Busca no campo #app-search com a seção Plataforma revelada"
+      action: applySearch filtra cards por data-search (matchesQuery)
+      result: >-
+        Cards de ferramenta entram na contagem e no filtro; com a seção oculta
+        (anônimo) eles são ignorados pela busca.
+  flows:
+    - - Operador abre o portal (sessão válida no Console)
+      - portal.js init() dispara loadClusterApps()
+      - GET /devops/api/ingressroutes responde 200
+      - "setOperatorUI(true) revela #plataforma, #nav-plataforma e #foot-plataforma"
+      - markRevealed('#plataforma') anima os 5 cards de ferramenta
+      - Operador clica em "Abrir DevOps Console" e navega para /devops
+    - - Visitante anônimo abre o portal
+      - portal.js init() dispara loadClusterApps()
+      - GET /devops/api/ingressroutes responde 401/403 (isAuthError)
+      - "setOperatorUI(false) mantém #plataforma, nav e rodapé ocultos"
+      - applySearch recalcula contagem sem as ferramentas internas
+      - Site exibe apenas produtos e portais públicos
+acceptance_criteria:
+  - >-
+    A seção #plataforma, o link #nav-plataforma e a coluna #foot-plataforma
+    nascem com atributo hidden no HTML estático (estado oculto por padrão).
+  - >-
+    São exatamente 5 cards de ferramenta, todos com selo "login" (exige
+    autenticação): DevOps Console (/devops), Grafana (/grafana), Argo CD
+    (/argocd), Keycloak (/auth) e Portal Recorder (/portal-rec).
+  - >-
+    Um 200 de GET /devops/api/ingressroutes chama setOperatorUI(true) e revela
+    a seção Plataforma, o link da nav e a coluna do rodapé.
+  - >-
+    Um 401 ou 403 (isAuthError) chama setOperatorUI(false) e mantém a UI de
+    operador oculta; visitante anônimo não vê os atalhos internos.
+  - >-
+    Com a seção oculta, os cards de ferramenta não entram na busca nem na
+    contagem (applySearch ignora cards dentro de #plataforma quando hidden).
+  - >-
+    Os destinos dos cards (catalog.js TOOLS[].path) batem com os hrefs do HTML
+    estático: /devops, /grafana, /argocd, /auth, /portal-rec.
+verification_method:
+  - test-unit
+  - test-e2e
+  - manual-review
+source:
+  source_paths:
+    - portal/frontend/index.html
+    - portal/frontend/assets/catalog.js
+    - portal/frontend/assets/portal.js
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: novo refinamento — Plataforma (ferramentas do operador, auth-gated)

@@ -1,0 +1,106 @@
+id: REF-PORTAL-0009
+slug: ref-portal-0009
+title: Chamada final (CTA) e rodapé
+kind: component
+status: draft
+owner: plataforma-digital
+
+scope:
+  product_scope: portal
+  applies_to: component
+
+# Detalha a seção CTA final e o rodapé do portal público NovaIT (landing na raiz "/").
+# O refinamento APONTA para o requisito; nenhum requisito é alterado.
+anchors:
+  - requirement_id: REQ-PORTAL-0013
+    relation: refines
+    note: detalha a chamada final (CTA com mailto + scroll p/ produtos) e o rodapé (colunas, ano dinâmico, copyright)
+
+surface:
+  name: CTA final + rodapé (NovaIT)
+  route: /
+  roles: [anonimo, operador]
+
+behavior:
+  states:
+    - name: normal
+      when: página carregada (qualquer visitante); a seção CTA e as colunas públicas do rodapé estão sempre presentes
+      ui: |
+        Seção CTA "Vamos construir o próximo sistema?" com texto de apoio e dois botões
+        ("Falar com a NovaIT" -> mailto:contato@nvit.com.br; "Ver produtos" -> #produtos).
+        Rodapé com coluna "sobre" (marca novaIT + tagline), coluna "Produtos"
+        (SICAT, RM Ambiental, GymOps, Ana Rabottini) e barra inferior com copyright (ano em #yr)
+        + "dev.nvit.com.br · kubernetes · gitops".
+    - name: reveal-pendente
+      when: antes do IntersectionObserver disparar (.cta tem classe reveal, ainda sem .in)
+      ui: bloco da CTA inicia oculto/transladado; ao entrar no viewport ganha .in e anima a entrada (ou é revelado pelo failsafe no-anim após 2,5s / sem IntersectionObserver)
+    - name: ano-dinamico
+      when: módulo portal.js inicializa (init())
+      ui: "o conteúdo de #yr (fallback estático \"2026\" no HTML) é sobrescrito por new Date().getFullYear()"
+    - name: oculto
+      when: visitante anônimo — a API do Console (/devops/api/ingressroutes) responde 401/403, setOperatorUI(false)
+      ui: a coluna "Plataforma" do rodapé (#foot-plataforma) permanece com hidden=true; rodapé mostra só "sobre" + "Produtos"
+    - name: operador
+      when: operador autenticado — a API do Console responde 200, setOperatorUI(true)
+      ui: a coluna "Plataforma" do rodapé é revelada (hidden=false), listando DevOps Console, Grafana, Argo CD, Keycloak (SSO) e Portal Recorder
+  data:
+    - field: cta.title
+      source: index.html (#cta-title "Vamos construir o próximo sistema?")
+      editable: false
+    - field: cta.mailto
+      source: index.html (a.btn href="mailto:contato@nvit.com.br")
+      format: mailto contato@nvit.com.br
+      editable: false
+    - field: footer.year
+      source: portal.js init() -> new Date().getFullYear() (span#yr; fallback estático "2026" no HTML)
+      format: ano de 4 dígitos
+      editable: false
+    - field: footer.platform_column
+      source: portal.js setOperatorUI() -> nav#foot-plataforma.hidden (gated pela auth da API do Console)
+      format: visível só para operador autenticado
+      editable: false
+  interactions:
+    - trigger: clicar em "Falar com a NovaIT" na CTA
+      action: segue o href mailto:contato@nvit.com.br
+      result: o cliente de e-mail abre uma nova mensagem para contato@nvit.com.br
+    - trigger: clicar em "Ver produtos" na CTA (a.btn.ghost href="#produtos")
+      action: "âncora interna para #produtos"
+      result: a página rola até a seção de produtos
+    - trigger: portal.js init() (DOMContentLoaded ou já interativo)
+      action: "lê #yr e escreve String(new Date().getFullYear())"
+      result: o ano do copyright fica sempre atual sem rebuild
+    - trigger: loadClusterApps() resolve a chamada à API do Console
+      action: setOperatorUI(true) em 200 / setOperatorUI(false) em 401/403
+      result: a coluna "Plataforma" do rodapé (#foot-plataforma) é revelada para operador e mantida oculta para anônimo
+    - trigger: clicar nos links da coluna "Produtos" do rodapé
+      action: navega para /sicat, /rmambiental, /gymops ou /anarabottini
+      result: abre o produto/portal correspondente
+  flows:
+    - [rolar até o fim da página, ver a CTA entrar (reveal), clicar em "Falar com a NovaIT", abrir e-mail para contato@nvit.com.br]
+    - [visitante anônimo abre "/", vê CTA + rodapé com colunas "sobre" e "Produtos", coluna "Plataforma" permanece oculta]
+    - [operador autenticado abre "/", a API do Console responde 200, a coluna "Plataforma" do rodapé é revelada com os atalhos internos]
+
+acceptance_criteria:
+  - A seção CTA exibe o título "Vamos construir o próximo sistema?" e um botão "Falar com a NovaIT" cujo href é exatamente mailto:contato@nvit.com.br.
+  - O segundo botão da CTA ("Ver produtos") é uma âncora href="#produtos" que rola a página até a seção de produtos.
+  - O rodapé sempre apresenta a coluna "sobre" (marca novaIT + tagline) e a coluna "Produtos" com os links de SICAT, RM Ambiental, GymOps e Ana Rabottini.
+  - O ano do copyright (#yr) é definido em runtime por new Date().getFullYear() no init() do portal.js, mantendo o fallback estático do HTML quando o JS não roda.
+  - Para visitante anônimo (API do Console responde 401/403), a coluna "Plataforma" do rodapé (#foot-plataforma) permanece com hidden=true.
+  - Para operador autenticado (API do Console responde 200), a coluna "Plataforma" do rodapé é revelada, listando DevOps Console, Grafana, Argo CD, Keycloak (SSO) e Portal Recorder.
+
+verification_method:
+  - test-e2e
+  - manual-review
+
+source:
+  stakeholder: portal
+  origin: leitura do código real (index.html seção CTA + footer; portal.js init()/setOperatorUI())
+  source_paths:
+    - portal/frontend/index.html
+    - portal/frontend/assets/portal.js
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: novo refinamento — chamada final (CTA) e rodapé

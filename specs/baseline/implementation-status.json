@@ -8,9 +8,9 @@
       "done": 52
     },
     "refinements": {
-      "total": 1,
+      "total": 13,
       "by_status": {
-        "not_started": 1
+        "not_started": 13
       }
     }
   },
@@ -2008,6 +2008,54 @@
   },
   "refinement_items": {
     "REF-GYMOPS-0001": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-PORTAL-0001": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-PORTAL-0002": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-PORTAL-0003": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-PORTAL-0004": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-PORTAL-0005": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-PORTAL-0006": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-PORTAL-0007": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-PORTAL-0008": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-PORTAL-0009": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-PORTAL-0010": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-PORTAL-0011": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-PORTAL-0012": {
       "status": "not_started",
       "req_revision": 1
     }

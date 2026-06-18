@@ -1,0 +1,170 @@
+id: REF-PORTAL-0001
+title: Landing pública NovaIT (página inicial)
+kind: screen
+status: draft
+
+scope:
+  product_scope: portal
+  applies_to: screen
+
+surface:
+  route: /
+  name: Landing pública NovaIT
+  roles:
+    - público
+    - operador
+
+anchors:
+  - requirement_id: REQ-PORTAL-0001
+    relation: refines
+  - requirement_id: REQ-PORTAL-0005
+    relation: relates_to
+  - requirement_id: REQ-PORTAL-NFR-001
+    relation: relates_to
+
+behavior:
+  states:
+    - name: normal-anonimo
+      when: >-
+        Visitante anônimo (sem sessão de operador). A API somente-leitura do Console
+        (/devops/api/ingressroutes) responde 401/403 — isAuthError(status) true.
+      ui: >-
+        Página corporativa completa: header (brand novaIT + nav Produtos/Portais/Capacidades
+        + botão "Acessar sistemas"), hero (pill "plataforma cloud-native em produção", título
+        com gradiente, lead, CTAs "Conhecer os produtos"/"O que fazemos", 5 stats), seção
+        Produtos (cards curados SICAT e GymOps com badge "exige login"), seção Portais (RM
+        Ambiental e Ana Rabottini), busca/filtro de aplicações, seção Capacidades (6 cards),
+        Showcase (3 figuras placeholder) e CTA final. As superfícies de OPERADOR ficam ocultas:
+        seção #plataforma (hidden), link de nav #nav-plataforma (hidden), coluna de rodapé
+        #foot-plataforma (hidden) e #cluster-section (hidden). setOperatorUI(false) garante
+        isso; o skeleton ADIADO (350ms) nunca aparece porque o 401 chega antes. A busca não
+        conta cards dentro de seções de operador ocultas.
+    - name: operador-logado
+      when: >-
+        Operador autenticado (sessão reconhecida pelo Console). fetchWithTimeout(API_URL)
+        retorna 200 com a lista de IngressRoutes do cluster.
+      ui: >-
+        Tudo do estado anônimo MAIS as superfícies de operador reveladas via setOperatorUI(true):
+        seção #plataforma (DevOps Console, Grafana, Argo CD, Keycloak, Portal Recorder — cada um
+        com badge "login"), link de nav "Plataforma" e coluna "Plataforma" do rodapé. A seção
+        "Aplicações publicadas na plataforma" (#cluster-section) é exibida com cards descobertos
+        dinamicamente (discoverExtras: só apps navegáveis do namespace apps que servem a própria
+        raiz e não estão no catálogo curado), cada um com badge "no ar". Os cards curados cujo
+        basePath está vivo (livePathSet) recebem o badge "no ar" via enrichCuratedCards. Refresh
+        automático silencioso a cada 60s (REFRESH_MS) reconcilia a lista.
+    - name: carregando
+      when: >-
+        Carga inicial não silenciosa do cluster que demora mais de 350ms a responder
+        (operador logado com cluster lento). loadClusterApps com loadingTimer disparado.
+      ui: >-
+        #cluster-section revelado e #cluster-state com aria-busy=true exibindo stateMarkup('loading')
+        — grade de 3 skeletons (.skeleton-grid aria-hidden). Substituído pelo resultado quando a
+        resposta chega; em respostas rápidas o skeleton nunca aparece (sem flicker). No refresh
+        silencioso (60s) nenhum estado de carregamento é mostrado.
+    - name: vazio
+      when: >-
+        API respondeu 200 mas discoverExtras retornou 0 apps extras (todas as apps no ar já
+        estão no catálogo curado).
+      ui: >-
+        #cluster-state visível com stateMarkup('empty'): ícone + "Nenhuma aplicação extra publicada"
+        + texto explicando que apps novas aparecem ao ganharem rota no namespace apps. A grade
+        #cluster-apps fica vazia.
+    - name: erro
+      when: >-
+        Erro transitório na carga inicial (rede/timeout/5xx; AbortError por TIMEOUT_MS=8000) que
+        NÃO é 401/403. No refresh silencioso o erro é engolido para não estragar a UI anterior.
+      ui: >-
+        #cluster-section visível e #cluster-state com stateMarkup('error') role=alert: ícone +
+        "Descoberta dinâmica indisponível" + mensagem ("o cluster demorou a responder (timeout)."
+        ou "a API do Console não respondeu.") + botão "Tentar novamente" (data-retry) que re-dispara
+        loadClusterApps. Os cards curados acima permanecem acessíveis.
+    - name: sem-js
+      when: >-
+        JavaScript desabilitado/bloqueado, ou o módulo externo portal.js falha em inicializar.
+      ui: >-
+        Conteúdo curado totalmente visível (progressive enhancement): header, hero, Produtos,
+        Portais, Capacidades, Showcase, CTA e footer são HTML estático. Os .reveal não dependem
+        de JS para o conteúdo; um failsafe no <head> adiciona a classe no-anim após 2,5s
+        (window.__pf) revelando tudo se portal.js não cancelar o timer em init(). Sem JS algum,
+        nada disso roda e o conteúdo já está visível. As superfícies de operador permanecem
+        hidden (HTML inicial), mantendo o site público.
+
+  data:
+    - field: clusterApps
+      source: GET /devops/api/ingressroutes (API somente-leitura do DevOps Console)
+      format: array de { name, namespace, basePath, hosts, requiresLogin } via parseIngressRoutes
+      editable: false
+    - field: curatedProducts
+      source: HTML estático index.html (cards SICAT, GymOps, RM Ambiental, Ana Rabottini)
+      format: cards com data-app-type / data-path / data-search
+      editable: false
+    - field: requiresLogin
+      source: inferRequiresLogin(middlewares) — middlewares auth/oidc/sso/keycloak/forward da rota
+      format: boolean (badge "exige login")
+      editable: false
+    - field: footerYear
+      source: "portal.js init() -> new Date().getFullYear() no elemento #yr"
+      format: ano (string)
+      editable: false
+    - field: searchQuery
+      source: "input #app-search (filtro client-side sobre data-search)"
+      format: texto livre
+      editable: true
+
+  interactions:
+    - trigger: "Digitar no campo de busca #app-search"
+      action: applySearch() — matchesQuery sobre data-search de cada card; cards em seção de operador oculta ficam fora
+      result: "cards filtrados (hidden) e contador #search-count atualizado (\"N resultados\" ou \"N aplicações\")"
+    - trigger: "Clicar no botão hamburger #nav-toggle (mobile)"
+      action: "setupMobileMenu — alterna classe open em #nav-links e aria-expanded; Esc fecha e devolve foco"
+      result: menu de navegação abre/fecha; clicar num link fecha o menu
+    - trigger: Rolar a página
+      action: setupHeaderShadow (scrolled >10px), setupBackToTop (show >600px), setupReveal (IntersectionObserver), setupNavSpy
+      result: sombra no header, botão "voltar ao topo" visível, animação reveal e destaque is-here na nav da seção ativa
+    - trigger: Clicar em "Tentar novamente" (data-retry) no estado de erro
+      action: loadClusterApps() re-disparado (listener once)
+      result: nova consulta ao cluster; some o erro se a API responder
+    - trigger: "Clicar em \"Voltar ao topo\" #to-top"
+      action: window.scrollTo top (smooth, ou auto se prefers-reduced-motion)
+      result: página rola ao topo
+    - trigger: API do Console autoriza (200) vs nega (401/403)
+      action: "setOperatorUI(true|false) sobre #plataforma, #nav-plataforma, #foot-plataforma"
+      result: superfícies de operador reveladas (logado) ou mantidas ocultas (anônimo)
+
+  flows:
+    - - Carrega index.html (HTML curado já visível, head marca <html class=js> e arma failsafe 2,5s)
+      - portal.js init() cancela o failsafe, define o ano do rodapé e liga header/menu/reveal/navspy/busca
+      - loadClusterApps() faz fetchWithTimeout(/devops/api/ingressroutes, 8s)
+      - 401/403 -> esconde descoberta e ferramentas de operador (site público); 200 -> revela operador, enriquece cards curados, renderiza extras, trata vazio
+      - setInterval a cada 60s refaz a carga em modo silencioso para reconciliar o cluster
+    - - Visitante anônimo abre /
+      - Vê header + hero + Produtos + Portais + Capacidades + Showcase + CTA + footer
+      - Não vê seção Plataforma, link Plataforma nem coluna Plataforma do rodapé
+      - Pode buscar/filtrar produtos e navegar pelos CTAs
+
+acceptance_criteria:
+  - O conteúdo curado (header, hero, Produtos, Portais, Capacidades, Showcase, CTA, footer) é renderizado e legível com JavaScript desabilitado.
+  - "Para visitante anônimo (API responde 401/403), as superfícies de operador (#plataforma, #nav-plataforma, #foot-plataforma, #cluster-section) permanecem ocultas."
+  - Para operador autenticado (API responde 200), a seção Plataforma, o link de nav e a coluna de rodapé são revelados e a seção "Aplicações publicadas na plataforma" lista os apps descobertos.
+  - Cards curados cujo basePath está vivo no cluster recebem o badge "no ar"; os que exigem login exibem o badge "exige login".
+  - Durante uma carga inicial lenta (>350ms) o estado de carregando exibe a grade de skeletons; em respostas rápidas o skeleton não aparece (sem flicker).
+  - Quando não há apps extras além das curadas, o estado vazio "Nenhuma aplicação extra publicada" é exibido.
+  - Em erro transitório (rede/timeout/5xx, exceto 401/403) na carga inicial, o estado de erro com role=alert e botão "Tentar novamente" é exibido, e clicá-lo re-dispara a consulta.
+  - O campo de busca filtra os cards via data-search e atualiza o contador, ignorando cards em seções de operador ocultas.
+  - O failsafe de 2,5s revela todo o conteúdo caso portal.js não inicialize, e é cancelado quando init() roda.
+
+verification_method:
+  - test-unit
+  - test-e2e
+  - manual-review
+
+source:
+  source_paths:
+    - portal/frontend/index.html
+    - portal/frontend/assets/portal.js
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: novo refinamento — Landing pública NovaIT (/)

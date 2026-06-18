@@ -1,0 +1,176 @@
+id: REF-PORTAL-0012
+title: Acessibilidade e navegação por teclado
+kind: interaction
+status: draft
+
+scope:
+  product_scope: portal
+  applies_to: capability
+
+anchors:
+  - requirement_id: REQ-PORTAL-NFR-002
+    relation: refines
+  - requirement_id: REQ-PORTAL-0008
+    relation: relates_to
+  - requirement_id: REQ-PORTAL-0009
+    relation: relates_to
+
+surface:
+  name: Portal NovaIT — camada de acessibilidade e teclado
+  roles:
+    - visitante
+    - operador
+
+behavior:
+  states:
+    - name: normal
+      when: Página carregada com teclado/mouse; usuário navega pela ordem natural do DOM (header > nav > main > footer).
+      ui: >-
+        HTML semântico (header#hdr, nav, main#main, footer, section[aria-labelledby]). Skip-link
+        "Pular para o conteúdo" é o primeiro elemento focável (href="#main"), mas fica fora da tela
+        (transform: translateY(-200%)). Ícones SVG decorativos marcados aria-hidden="true"; fundos
+        .bg-grid/.bg-wash também aria-hidden. Botão "voltar ao topo" (#to-top) presente porém invisível
+        (opacity:0; visibility:hidden) até o scroll passar de 600px.
+    - name: skip-link-focado
+      when: Usuário pressiona Tab logo após carregar a página (primeiro stop de tabulação).
+      ui: >-
+        .skip-link recebe foco e desliza para dentro da viewport via .skip-link:focus
+        (transform: translateY(0), transição 0.18s), no topo-esquerda (z-index 100), fundo --accent e
+        texto branco. Enter leva o foco direto para #main (conteúdo principal), pulando o header.
+    - name: foco-visivel
+      when: Qualquer elemento interativo (a, button, input, [tabindex]) recebe foco por teclado.
+      ui: >-
+        Anel de foco consistente via :focus-visible — outline 2px solid var(--accent), outline-offset 2px,
+        border-radius 6px. O input de busca usa box-shadow var(--focus) ao focar; .card aplica
+        outline 2px no :focus-within (card destacado quando um filho recebe foco).
+    - name: menu-mobile-aberto
+      when: Em viewport estreita (<=780px) o usuário aciona o botão hamburguer (#nav-toggle).
+      ui: >-
+        nav-toggle alterna aria-expanded para "true" e os links (.nav-links) ganham a classe .open
+        (display:flex em coluna). O ícone troca de hambúrguer para "X" via CSS guiado pelo
+        aria-expanded (.icon-open oculto, .icon-close visível). O alvo do botão é 44x44px (WCAG 2.5.5).
+    - name: menu-fechado-por-esc
+      when: Com o menu mobile aberto, o usuário pressiona Escape (ou clica em qualquer link do menu).
+      ui: >-
+        O menu fecha (remove .open, aria-expanded volta a "false") e, no caso do Escape, o foco
+        retorna ao botão hamburguer (toggle.focus()) — devolução explícita de foco para orientação
+        por teclado. Clicar num link também fecha o menu.
+    - name: busca-contagem-anunciada
+      when: Usuário digita no campo de busca (#app-search) ou os cards são (re)filtrados.
+      ui: >-
+        O contador #search-count (aria-live="polite") é atualizado: "<n> resultados" quando há termo,
+        ou "<n> aplicações" quando o campo está vazio — anunciado por leitores de tela sem roubar foco.
+        Cards ocultos pelo filtro recebem [hidden] (display:none !important).
+    - name: estado-vivo-anunciado
+      when: "A descoberta dinâmica do cluster carrega/erra (operador autenticado) — região #cluster-state."
+      ui: >-
+        #cluster-state tem aria-live="polite" e alterna aria-busy="true" durante o loading (skeleton
+        com aria-hidden), removendo-o ao concluir. O estado de erro usa role="alert" e o vazio é texto
+        anunciável; ícones internos desses estados são aria-hidden.
+    - name: failsafe-sem-anim
+      when: O módulo portal.js não inicializa (falha, bloqueio do CSP, erro de import) e init() nunca roda.
+      ui: >-
+        O <script> síncrono do <head> agenda um timer de 2,5s (window.__pf) que adiciona a classe
+        .no-anim em <html>, revelando todo o conteúdo (.reveal -> opacity:1, transform:none,
+        transition:none !important). init() chama clearTimeout(window.__pf) para cancelar o failsafe
+        quando o JS está vivo. Sem JS algum, a classe .js nunca é adicionada e o conteúdo já é visível
+        por padrão (sem opacity:0 órfão).
+    - name: movimento-reduzido
+      when: O usuário declara prefers-reduced-motion ou prefers-color-scheme via SO.
+      ui: >-
+        Com prefers-reduced-motion as animações de reveal, pulse, shimmer e transições de botões/cards
+        são desligadas e scroll-behavior vira auto; o clique no "voltar ao topo" também respeita a
+        preferência (scrollTo behavior 'auto' vs 'smooth'). prefers-color-scheme: dark recalcula os
+        tokens de cor mantendo contraste.
+
+  data:
+    - field: nav-toggle.aria-expanded
+      source: "estado da classe .open em #nav-links (setupMobileMenu)"
+      format: "false | true"
+      editable: false
+    - field: search-count.textContent
+      source: applySearch() — contagem de cards visíveis/disponíveis após o filtro
+      format: "<n> resultados | <n> aplicações"
+      editable: false
+    - field: cluster-state.aria-busy
+      source: loadClusterApps() — presente durante o loading da API do Console
+      format: "true (durante loading)"
+      editable: false
+    - field: to-top.classList.show
+      source: window.scrollY > 600 (setupBackToTop)
+      editable: false
+    - field: yr.textContent
+      source: new Date().getFullYear() no init() (ano do rodapé)
+      format: "AAAA"
+      editable: false
+
+  interactions:
+    - trigger: Tab no carregamento da página
+      action: Mover o foco para o primeiro elemento focável (.skip-link)
+      result: "O skip-link desliza para dentro da viewport (visível ao foco); Enter envia o foco para #main"
+    - trigger: Foco por teclado em a/button/input/[tabindex]
+      action: Aplicar :focus-visible
+      result: Outline de 2px (var(--accent)) com offset 2px e border-radius 6px no elemento focado
+    - trigger: Clique/Enter no botão hamburguer (#nav-toggle)
+      action: "Alternar .open em #nav-links e setar aria-expanded"
+      result: Menu abre/fecha; o ícone alterna entre hambúrguer e X conforme aria-expanded
+    - trigger: Escape com o menu mobile aberto
+      action: close() do menu e toggle.focus()
+      result: Menu fecha (aria-expanded=false) e o foco volta ao botão hamburguer
+    - trigger: Clique num link do menu mobile
+      action: close()
+      result: Menu fecha após a navegação por âncora
+    - trigger: Digitar no campo de busca (#app-search)
+      action: "applySearch() filtra os cards e atualiza #search-count"
+      result: Cards não correspondentes recebem [hidden]; contagem anunciada via aria-live polite
+    - trigger: Clique no botão "voltar ao topo" (#to-top)
+      action: window.scrollTo top respeitando prefers-reduced-motion
+      result: Página rola ao topo (smooth, ou auto se movimento reduzido)
+    - trigger: portal.js falha em inicializar
+      action: Timer de 2,5s do <head> adiciona .no-anim em <html>
+      result: Todo o conteúdo .reveal fica visível; init() cancela o timer quando o JS está vivo
+
+  flows:
+    - - Usuário entra na página e pressiona Tab
+      - Foco vai para o skip-link, que desliza para dentro da viewport
+      - Usuário pressiona Enter
+      - "Foco salta para #main, pulando header/nav"
+    - - Em viewport estreita, usuário foca e aciona o hamburguer (#nav-toggle)
+      - aria-expanded vira "true" e o menu (.nav-links.open) aparece com o ícone X
+      - Usuário pressiona Escape
+      - Menu fecha (aria-expanded=false) e o foco retorna ao botão hamburguer
+    - - Usuário foca o campo de busca e digita um termo
+      - applySearch() oculta cards não correspondentes via [hidden]
+      - "#search-count (aria-live polite) anuncia \"<n> resultados\""
+    - - portal.js não carrega/inicializa
+      - O timer do <head> dispara após 2,5s e adiciona .no-anim em <html>
+      - Todo o conteúdo .reveal é revelado, sem ficar preso em opacity:0
+
+acceptance_criteria:
+  - "O skip-link é o primeiro elemento focável e fica fora da tela até receber foco; ao focar, fica visível (transform translateY(0)) e seu href aponta para #main."
+  - Todo elemento interativo (a, button, input, [tabindex]) exibe outline de 2px var(--accent) com offset 2px ao :focus-visible.
+  - O botão hamburguer tem alvo de toque de 44x44px e reflete o estado do menu em aria-expanded (false/true).
+  - Pressionar Escape com o menu mobile aberto fecha o menu e devolve o foco ao botão hamburguer.
+  - O contador de busca (#search-count) tem aria-live="polite" e atualiza o texto para "<n> resultados" / "<n> aplicações".
+  - Ícones SVG puramente decorativos e os fundos .bg-grid/.bg-wash têm aria-hidden="true".
+  - A estrutura usa HTML semântico (header, nav[aria-label], main, footer e section[aria-labelledby]).
+  - Existe botão "voltar ao topo" (#to-top, aria-label "Voltar ao topo") que aparece após 600px de scroll e respeita prefers-reduced-motion.
+  - Se o portal.js não inicializar, a classe .no-anim é adicionada em até 2,5s revelando todo o conteúdo; sem JS, o conteúdo já é visível por padrão.
+  - prefers-reduced-motion desliga as animações de reveal/pulse/shimmer e usa scroll não-animado.
+
+verification_method:
+  - manual-review
+  - test-e2e
+  - architecture-review
+
+source:
+  source_paths:
+    - portal/frontend/index.html
+    - portal/frontend/assets/styles.css
+    - portal/frontend/assets/portal.js
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: "novo refinamento — Acessibilidade e navegação por teclado"

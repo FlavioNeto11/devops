@@ -34,6 +34,90 @@
       "product": "gymops"
     },
     {
+      "id": "REF-PORTAL-0001",
+      "kind": "refinement",
+      "title": "Landing pública NovaIT (página inicial)",
+      "refinement_kind": "screen",
+      "product": "portal"
+    },
+    {
+      "id": "REF-PORTAL-0002",
+      "kind": "refinement",
+      "title": "Cabeçalho e navegação (sticky + menu mobile + scroll spy)",
+      "refinement_kind": "component",
+      "product": "portal"
+    },
+    {
+      "id": "REF-PORTAL-0003",
+      "kind": "refinement",
+      "title": "Seção Hero",
+      "refinement_kind": "component",
+      "product": "portal"
+    },
+    {
+      "id": "REF-PORTAL-0004",
+      "kind": "refinement",
+      "title": "Produtos & portais (catálogo curado + busca)",
+      "refinement_kind": "component",
+      "product": "portal"
+    },
+    {
+      "id": "REF-PORTAL-0005",
+      "kind": "refinement",
+      "title": "Descoberta dinâmica de apps do cluster",
+      "refinement_kind": "component",
+      "product": "portal"
+    },
+    {
+      "id": "REF-PORTAL-0006",
+      "kind": "refinement",
+      "title": "Capacidades (o que fazemos)",
+      "refinement_kind": "component",
+      "product": "portal"
+    },
+    {
+      "id": "REF-PORTAL-0007",
+      "kind": "refinement",
+      "title": "Showcase (telas dos produtos)",
+      "refinement_kind": "component",
+      "product": "portal"
+    },
+    {
+      "id": "REF-PORTAL-0008",
+      "kind": "refinement",
+      "title": "Plataforma (ferramentas do operador, auth-gated)",
+      "refinement_kind": "component",
+      "product": "portal"
+    },
+    {
+      "id": "REF-PORTAL-0009",
+      "kind": "refinement",
+      "title": "Chamada final (CTA) e rodapé",
+      "refinement_kind": "component",
+      "product": "portal"
+    },
+    {
+      "id": "REF-PORTAL-0010",
+      "kind": "refinement",
+      "title": "Página 404 (erro amigável)",
+      "refinement_kind": "screen",
+      "product": "portal"
+    },
+    {
+      "id": "REF-PORTAL-0011",
+      "kind": "refinement",
+      "title": "Tema e movimento (dark mode + reduced motion)",
+      "refinement_kind": "interaction",
+      "product": "portal"
+    },
+    {
+      "id": "REF-PORTAL-0012",
+      "kind": "refinement",
+      "title": "Acessibilidade e navegação por teclado",
+      "refinement_kind": "interaction",
+      "product": "portal"
+    },
+    {
       "id": "REQ-AI-0001",
       "kind": "requirement",
       "title": "Contrato AiTool com authz por identidade",
@@ -3482,6 +3566,168 @@
     {
       "from": "REF-GYMOPS-0001",
       "to": "REQ-GYMOPS-0010",
+      "type": "refines",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0001",
+      "to": "REQ-PORTAL-0001",
+      "type": "refines",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0001",
+      "to": "REQ-PORTAL-0005",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0001",
+      "to": "REQ-PORTAL-NFR-001",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0002",
+      "to": "REQ-PORTAL-0007",
+      "type": "refines",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0002",
+      "to": "REQ-PORTAL-0010",
+      "type": "refines",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0003",
+      "to": "REQ-PORTAL-0001",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0003",
+      "to": "REQ-PORTAL-NFR-001",
+      "type": "refines",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0004",
+      "to": "REQ-PORTAL-0001",
+      "type": "refines",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0004",
+      "to": "REQ-PORTAL-0006",
+      "type": "refines",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0005",
+      "to": "REQ-PORTAL-0003",
+      "type": "refines",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0005",
+      "to": "REQ-PORTAL-0004",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0005",
+      "to": "REQ-PORTAL-0005",
+      "type": "refines",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0005",
+      "to": "REQ-PORTAL-0014",
+      "type": "refines",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0006",
+      "to": "REQ-PORTAL-NFR-001",
+      "type": "refines",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0007",
+      "to": "REQ-PORTAL-0001",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0007",
+      "to": "REQ-PORTAL-NFR-003",
+      "type": "refines",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0008",
+      "to": "REQ-PORTAL-0002",
+      "type": "refines",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0008",
+      "to": "REQ-PORTAL-0005",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0009",
+      "to": "REQ-PORTAL-0013",
+      "type": "refines",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0010",
+      "to": "REQ-PORTAL-0015",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0010",
+      "to": "REQ-PORTAL-NFR-001",
+      "type": "refines",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0011",
+      "to": "REQ-PORTAL-0011",
+      "type": "refines",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0011",
+      "to": "REQ-PORTAL-0012",
+      "type": "refines",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0011",
+      "to": "REQ-PORTAL-NFR-004",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0012",
+      "to": "REQ-PORTAL-0008",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0012",
+      "to": "REQ-PORTAL-0009",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-PORTAL-0012",
+      "to": "REQ-PORTAL-NFR-002",
       "type": "refines",
       "refinement": true
     },

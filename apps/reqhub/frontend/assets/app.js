@@ -1,7 +1,7 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId } from './lib.js?v=32';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=32';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId } from './lib.js?v=34';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=34';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -2595,8 +2595,20 @@ function openReq(id) { state.selectedId = id; RECENTS.push(id); switchView('work
 function openUsability(id) { state.usabilitySel = id; switchView('usability'); const t = document.getElementById('tab-usability'); if (t) t.focus(); }
 
 /* ===================== Usabilidade — telas/refinamentos (o funcionamento detalhado) =====================
-   Navega produto → refinamentos (telas) → comportamento detalhado (estados/dados/interações/fluxos),
-   ancorado aos requisitos. Lê DATA.baseline.refinements (fail-soft). */
+   Navega produto → refinamentos agrupados por tipo → ACESSO (rota+papéis) + comportamento detalhado
+   (estados coloridos / dados / interações / fluxos numerados), ancorado aos requisitos. Fail-soft. */
+const KIND_LABEL = { screen: 'Tela', component: 'Componente', flow: 'Fluxo', interaction: 'Interação', content: 'Conteúdo' };
+const KIND_PLURAL = { screen: 'Telas', component: 'Componentes', flow: 'Fluxos', interaction: 'Interações', content: 'Conteúdos' };
+const KIND_ORDER = ['screen', 'component', 'flow', 'interaction', 'content'];
+function usStateClass(name) {
+  const n = String(name || '').toLowerCase();
+  if (/err|fail|timeout|falh/.test(n)) return 'st-error';
+  if (/carreg|loading|skeleton/.test(n)) return 'st-loading';
+  if (/vazio|empty|sem /.test(n)) return 'st-empty';
+  if (/ocult|hidden|anon|anôn|401|403|gated|sem login|logout/.test(n)) return 'st-hidden';
+  if (/normal|pronto|sucesso|logad|operad|revelad/.test(n)) return 'st-normal';
+  return 'st-default';
+}
 function renderUsability() {
   const body = document.getElementById('usability-body');
   body.replaceChildren();
@@ -2614,17 +2626,23 @@ function renderUsability() {
   if (!sel) sel = byProd[prods[0]][0];
 
   const wrap = h('div', { class: 'usability-grid' });
-  const list = h('aside', { class: 'usability-list' });
+  const list = h('aside', { class: 'usability-list', 'aria-label': 'Telas e refinamentos' });
   for (const p of prods) {
-    list.append(h('h3', { class: 'usability-prod', text: (productMeta(p).display_name || p) }));
-    const ul = h('ul', { class: 'usability-items' });
-    for (const r of byProd[p].slice().sort((a, b) => String(a.id).localeCompare(String(b.id)))) {
-      const active = sel && sel.id === r.id;
-      ul.append(h('li', {}, h('button', { class: 'usability-item' + (active ? ' is-active' : ''), type: 'button', 'aria-current': active ? 'true' : null, title: r.title || r.id, onclick: () => { state.usabilitySel = r.id; renderUsability(); } },
-        badge(r.kind || 'screen', 'b'), h('span', { class: 'usability-ti', text: truncateLabel(r.title || r.id, 40) }),
-        (r.surface && r.surface.route) ? h('span', { class: 'usability-route', text: r.surface.route }) : null)));
+    const items = byProd[p].slice();
+    const byKind = {}; for (const r of items) (byKind[r.kind || 'component'] = byKind[r.kind || 'component'] || []).push(r);
+    list.append(h('div', { class: 'usability-prod' }, h('span', { text: productMeta(p).display_name || p }), h('span', { class: 'usability-prod-n', text: String(items.length) })));
+    for (const k of KIND_ORDER) {
+      if (!byKind[k]) continue;
+      list.append(h('p', { class: 'usability-kindh', text: (byKind[k].length > 1 ? (KIND_PLURAL[k] || k) : (KIND_LABEL[k] || k)) + ' · ' + byKind[k].length }));
+      const ul = h('ul', { class: 'usability-items' });
+      for (const r of byKind[k].sort((a, b) => String(a.id).localeCompare(String(b.id)))) {
+        const active = sel && sel.id === r.id;
+        ul.append(h('li', {}, h('button', { class: 'usability-item' + (active ? ' is-active' : ''), type: 'button', 'aria-current': active ? 'true' : null, title: r.title || r.id, onclick: () => { state.usabilitySel = r.id; renderUsability(); } },
+          h('span', { class: 'usability-ti', text: truncateLabel(r.title || r.id, 38) }),
+          (r.surface && r.surface.route) ? h('span', { class: 'usability-route', text: r.surface.route }) : null)));
+      }
+      list.append(ul);
     }
-    list.append(ul);
   }
   const detail = h('div', { class: 'usability-detail' });
   renderUsabilityDetail(detail, sel);
@@ -2634,45 +2652,72 @@ function renderUsability() {
 function renderUsabilityDetail(host, r) {
   host.replaceChildren();
   if (!r) { host.append(h('p', { class: 'empty', text: 'Selecione um refinamento à esquerda.' })); return; }
+  const kindLabel = KIND_LABEL[r.kind] || r.kind || 'componente';
   const head = h('div', { class: 'card usability-card' },
-    h('div', { class: 'usability-head' }, badge(r.kind || 'screen', 'b-fn'), h('h2', { class: 'usability-title', tabindex: '-1', text: r.title || r.id }), r.status ? badge(r.status, 'b') : null),
-    h('p', { class: 'muted small', text: r.id + ((r.surface && r.surface.route) ? ' · ' + r.surface.route : '') + ((r.surface && r.surface.name) ? ' · ' + r.surface.name : '') }));
+    h('div', { class: 'usability-head' }, badge(kindLabel, 'b-fn'), h('h2', { class: 'usability-title', tabindex: '-1', text: r.title || r.id }), r.status ? badge(r.status, 'b') : null),
+    h('p', { class: 'muted small', text: r.id }));
+  // ACESSO — em destaque: por onde se entra e quem acessa (o "ficar claro o acesso").
+  const acc = h('div', { class: 'usability-access' });
+  const route = r.surface && r.surface.route;
+  acc.append(h('div', { class: 'ua-row' }, h('span', { class: 'ua-k', text: 'Acesso' }),
+    route ? h('span', { class: 'ua-route', text: route }) : h('span', { class: 'muted small', text: kindLabel + ' (sem rota própria — aparece dentro de outra tela)' }),
+    (route && (r.scope?.product_scope === 'portal')) ? h('a', { class: 'btn-link ua-open', href: route, target: '_blank', rel: 'noopener', text: 'abrir ↗' }) : null));
+  const roles = (r.surface && r.surface.roles) || [];
+  acc.append(h('div', { class: 'ua-row' }, h('span', { class: 'ua-k', text: 'Quem acessa' }),
+    roles.length ? h('span', { class: 'ua-roles' }, ...roles.map((x) => badge(x, 'b-low'))) : h('span', { class: 'muted small', text: 'público (sem login)' })));
+  head.append(acc);
   const anc = Array.isArray(r.anchors) ? r.anchors : [];
   if (anc.length) {
     const ac = h('div', { class: 'usability-anchors' }, h('span', { class: 'muted small', text: 'Detalha os requisitos:' }));
-    anc.forEach((a) => { const req = byId(a.requirement_id); ac.append(h('button', { class: 'btn-link chat-cite', type: 'button', title: req ? req.title : '', onclick: () => openReq(a.requirement_id), text: a.requirement_id + ' (' + a.relation + ')' })); });
+    anc.forEach((a) => { const req = byId(a.requirement_id); ac.append(h('button', { class: 'btn-link chat-cite', type: 'button', title: req ? req.title : '', onclick: () => openReq(a.requirement_id), text: a.requirement_id + ' · ' + a.relation })); });
     head.append(ac);
   }
-  if (r.surface && Array.isArray(r.surface.roles) && r.surface.roles.length) head.append(h('p', { class: 'muted small', text: 'Papéis: ' + r.surface.roles.join(', ') }));
   host.append(head);
   const beh = r.behavior || {};
+  // ESTADOS — cartões coloridos por tipo (normal/carregando/erro/vazio/oculto)
   if (Array.isArray(beh.states) && beh.states.length) {
-    const c = h('div', { class: 'card' }, h('h3', { text: 'Estados da tela' }));
-    const ul = h('ul', { class: 'usability-states' });
-    for (const s of beh.states) ul.append(h('li', {}, h('strong', { text: s.name }), s.when ? h('span', { class: 'muted', text: ' — quando ' + s.when }) : null, s.ui ? h('p', { class: 'usability-ui', text: s.ui }) : null));
-    c.append(ul); host.append(c);
+    const c = h('div', { class: 'card' }, h('h3', {}, h('span', { class: 'us-sec-ic', 'aria-hidden': 'true', text: '◑' }), ' Estados da tela'));
+    const grid = h('div', { class: 'usability-states' });
+    for (const s of beh.states) grid.append(h('div', { class: 'us-state ' + usStateClass(s.name) },
+      h('div', { class: 'us-state-h' }, h('span', { class: 'us-dot', 'aria-hidden': 'true' }), h('strong', { text: s.name })),
+      s.when ? h('p', { class: 'us-when', text: 'Quando: ' + s.when }) : null,
+      s.ui ? h('p', { class: 'us-ui', text: s.ui }) : null));
+    c.append(grid); host.append(c);
   }
+  // DADOS
   if (Array.isArray(beh.data) && beh.data.length) {
-    const c = h('div', { class: 'card' }, h('h3', { text: 'Dados exibidos' }));
+    const c = h('div', { class: 'card' }, h('h3', {}, h('span', { class: 'us-sec-ic', 'aria-hidden': 'true', text: '▦' }), ' Dados exibidos'));
     const tb = h('tbody');
-    for (const d of beh.data) tb.append(h('tr', {}, h('td', { text: d.field }), h('td', { text: d.source }), h('td', { text: d.editable ? 'editável' : 'leitura' })));
+    for (const d of beh.data) tb.append(h('tr', {}, h('td', {}, h('code', { text: d.field })), h('td', { text: d.source }), h('td', {}, badge(d.editable ? 'editável' : 'leitura', d.editable ? 'b-high' : 'b-low'))));
     c.append(h('table', { class: 'usability-table' }, h('thead', {}, h('tr', {}, h('th', { text: 'Campo' }), h('th', { text: 'Fonte' }), h('th', { text: 'Modo' }))), tb)); host.append(c);
   }
+  // INTERAÇÕES — gatilho → ação → resultado
   if (Array.isArray(beh.interactions) && beh.interactions.length) {
-    const c = h('div', { class: 'card' }, h('h3', { text: 'Interações' }));
+    const c = h('div', { class: 'card' }, h('h3', {}, h('span', { class: 'us-sec-ic', 'aria-hidden': 'true', text: '⇄' }), ' Interações'));
     const ul = h('ul', { class: 'usability-inter' });
-    for (const it of beh.interactions) ul.append(h('li', {}, h('strong', { text: it.trigger }), ' → ', h('span', { text: it.action }), ' → ', h('span', { class: 'muted', text: it.result })));
+    for (const it of beh.interactions) ul.append(h('li', {},
+      h('span', { class: 'ui-trig', text: it.trigger }), h('span', { class: 'ui-arr', 'aria-hidden': 'true', text: ' → ' }),
+      h('span', { class: 'ui-act', text: it.action }), h('span', { class: 'ui-arr', 'aria-hidden': 'true', text: ' → ' }),
+      h('span', { class: 'ui-res muted', text: it.result })));
     c.append(ul); host.append(c);
   }
+  // FLUXOS — passos numerados
   if (Array.isArray(beh.flows) && beh.flows.length) {
-    const c = h('div', { class: 'card' }, h('h3', { text: 'Fluxos' }));
-    for (const fl of beh.flows) c.append(h('p', { class: 'usability-flow', text: (Array.isArray(fl) ? fl : [fl]).join('  ›  ') }));
+    const c = h('div', { class: 'card' }, h('h3', {}, h('span', { class: 'us-sec-ic', 'aria-hidden': 'true', text: '↡' }), ' Fluxos do usuário'));
+    for (const fl of beh.flows) {
+      const steps = Array.isArray(fl) ? fl : [fl];
+      const ol = h('ol', { class: 'usability-steps' });
+      steps.forEach((p) => ol.append(h('li', { text: p })));
+      c.append(ol);
+    }
     host.append(c);
   }
   if (Array.isArray(r.acceptance_criteria) && r.acceptance_criteria.length) {
-    host.append(h('div', { class: 'card' }, h('h3', { text: 'Critérios de aceite' }), h('ul', { class: 'usability-acc' }, ...r.acceptance_criteria.map((x) => h('li', { text: x })))));
+    host.append(h('div', { class: 'card' }, h('h3', {}, h('span', { class: 'us-sec-ic', 'aria-hidden': 'true', text: '✓' }), ' Critérios de aceite'), h('ul', { class: 'usability-acc' }, ...r.acceptance_criteria.map((x) => h('li', { text: x })))));
   }
-  if (r.source && Array.isArray(r.source.source_paths) && r.source.source_paths.length) host.append(h('p', { class: 'muted small', text: 'Origem: ' + r.source.source_paths.join(' · ') }));
+  if (r.source && Array.isArray(r.source.source_paths) && r.source.source_paths.length) {
+    host.append(h('p', { class: 'muted small usability-src' }, h('strong', { text: 'Origem no código: ' }), r.source.source_paths.join(' · ')));
+  }
   const t = host.querySelector('.usability-title'); if (t) t.focus();
 }
 

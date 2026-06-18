@@ -1,0 +1,123 @@
+id: REF-PORTAL-0007
+title: Showcase (telas dos produtos)
+kind: component
+status: draft
+
+scope:
+  product_scope: portal
+  applies_to: component
+
+anchors:
+  - requirement_id: REQ-PORTAL-0001
+    relation: relates_to
+  - requirement_id: REQ-PORTAL-NFR-003
+    relation: refines
+
+surface:
+  route: /
+  name: showcase
+  roles:
+    - visitante
+    - operador
+
+behavior:
+  states:
+    - name: normal
+      when: "Pagina carregada; a secao #showcase e renderizada estaticamente no HTML (3 figuras presentes no markup, sem depender de fetch)."
+      ui: >-
+        Secao .block#showcase com sec-head (eyebrow "// em producao", h2 "Sistemas reais, operando hoje",
+        intro "Telas dos produtos que entregamos e mantemos no ar." seguida de <em> "(Imagens ilustrativas
+        — capturas reais em breve.)"). Grid .grid.g3.showcase com 3 <figure class="shot"> (SICAT, GymOps,
+        RM Ambiental); cada figura tem <a> envolvendo <img> e um <figcaption> com <strong> do produto.
+    - name: loading
+      when: Imagem ainda nao baixada — <img loading="lazy"> so dispara o request quando a figura entra (ou se aproxima) do viewport; decoding="async" nao bloqueia a renderizacao.
+      ui: >-
+        A caixa da imagem ja ocupa o espaco final via aspect-ratio:16/10 + width/height 1600x1000
+        (sem layout shift / CLS); o fundo .shot img mostra var(--bg-soft) enquanto a imagem nao pinta.
+        O atual src e /assets/shots/placeholder.svg (placeholder ilustrativo ate as capturas reais).
+    - name: oculto
+      when: JS ativo e a figura ainda nao entrou no viewport (.reveal sem .in) — a classe `js` em <html> aplica opacity:0 + translateY(20px).
+      ui: >-
+        As .shot.reveal comecam invisiveis (translateY 20px) e revelam (.in -> opacity:1, transform:none)
+        ao entrar no scroll. Failsafe: se portal.js nao iniciar, o <script> do <head> adiciona `no-anim`
+        apos 2,5s e tudo fica visivel; sem JS a classe `js` nunca e adicionada e o conteudo ja nasce visivel.
+    - name: reduced-motion
+      when: Usuario com prefers-reduced-motion=reduce.
+      ui: >-
+        .js .reveal forcado a opacity:1/transform:none (sem animacao de entrada) e .shot perde a transicao
+        de transform; o conteudo aparece imediatamente, sem hover-lift animado.
+    - name: error
+      when: O arquivo da imagem (src) falha ao carregar (404/erro de rede).
+      ui: >-
+        Sem onerror dedicado; a figura preserva o espaco reservado pelo aspect-ratio mostrando o fundo
+        var(--bg-soft), e o <figcaption> e o link continuam funcionais (degradacao graciosa, sem quebrar layout).
+
+  data:
+    - field: figure.href
+      source: index.html (atributo href do <a> de cada figura)
+      format: rota interna do produto (/sicat, /gymops, /rmambiental)
+      editable: false
+    - field: figure.img.src
+      source: index.html (/assets/shots/placeholder.svg — placeholder; futuro assets/shots/<app>.png)
+      format: caminho de imagem
+      editable: false
+    - field: figure.img.alt
+      source: index.html (texto alternativo descritivo por produto)
+      format: texto a11y
+      editable: false
+    - field: figure.img.dimensions
+      source: index.html (width=1600 height=1000)
+      format: intrinsic size para reservar aspect-ratio
+      editable: false
+    - field: figcaption
+      source: index.html (<strong>Produto</strong> + descricao curta)
+      format: texto
+      editable: false
+
+  interactions:
+    - trigger: Hover/foco sobre uma figura .shot
+      action: CSS aplica transform translateY(-4px) + troca de border-color e box-shadow (var(--shadow-hover))
+      result: Efeito de elevacao do card (microinteracao); desativado sob prefers-reduced-motion.
+    - trigger: Clique no link da figura (<a href="/sicat" | "/gymops" | "/rmambiental">)
+      action: Navegacao para a rota interna do produto correspondente
+      result: Usuario chega na aplicacao/portal (SICAT, GymOps ou RM Ambiental); aria-label do <a> anuncia o destino.
+    - trigger: Foco por teclado no <a> da figura
+      action: .shot a:focus-visible aplica outline 2px var(--accent) com outline-offset -2px
+      result: Indicador de foco visivel e consistente (a11y) sem extrapolar o overflow:hidden do card.
+    - trigger: Figura entra no viewport (scroll)
+      action: portal.js adiciona .in a .reveal e o lazy-load (loading="lazy") inicia o download da imagem
+      result: A figura revela (fade+slide) e a imagem aparece com decode assincrono (decoding="async").
+
+  flows:
+    - - Usuario rola a pagina ate a secao "Sistemas reais, operando hoje"
+      - As figuras .shot.reveal revelam com fade/slide ao entrar no viewport
+      - O navegador inicia o lazy-load das imagens (loading=lazy) sem ter baixado antes
+      - O espaco ja estava reservado por aspect-ratio 16/10 + width/height (sem CLS)
+      - "Usuario clica numa figura (ex.: SICAT)"
+      - Navega para a rota interna do produto (/sicat)
+
+acceptance_criteria:
+  - "A secao #showcase contem exatamente 3 figuras .shot (SICAT, GymOps, RM Ambiental), cada uma com um <a> e um <img>."
+  - Toda <img> da showcase declara loading="lazy" e decoding="async".
+  - Toda <img> da showcase declara width=1600 e height=1000 e o CSS aplica aspect-ratio:16/10, de modo que o espaco e reservado antes do download (CLS = 0).
+  - Cada figura linka para a rota interna correta (/sicat, /gymops, /rmambiental) e o <a> tem aria-label descritivo.
+  - Cada <img> tem atributo alt descritivo nao vazio.
+  - No hover de .shot ha transform translateY(-4px); sob prefers-reduced-motion=reduce a transicao de transform e suprimida.
+  - As .shot.reveal sao visiveis sem JS (degradacao graciosa) e revelam ao entrar no viewport quando o JS esta ativo.
+  - O fundo do placeholder (var(--bg-soft)) preenche a area enquanto a imagem nao carrega ou se ela falhar, sem quebrar o layout.
+
+verification_method:
+  - manual-review
+  - test-e2e
+  - architecture-review
+
+source:
+  source_paths:
+    - portal/frontend/index.html
+    - portal/frontend/assets/styles.css
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: "novo refinamento — showcase"

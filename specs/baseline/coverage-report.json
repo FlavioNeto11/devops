@@ -16,7 +16,7 @@
     "without_source_paths": 0,
     "without_evidence": 339,
     "without_verification_method": 334,
-    "without_refinement": 337,
+    "without_refinement": 318,
     "scopes": 18,
     "coverage_pct": {
       "links": 18,
@@ -24,7 +24,7 @@
       "source_paths": 100,
       "evidence": 0,
       "verification_method": 1.5,
-      "refinement": 0.6
+      "refinement": 6.2
     }
   },
   "by_scope": {
@@ -222,14 +222,14 @@
       "without_source_paths": 0,
       "without_evidence": 21,
       "without_verification_method": 21,
-      "without_refinement": 21,
+      "without_refinement": 2,
       "coverage_pct": {
         "links": 0,
         "allocation": 0,
         "source_paths": 100,
         "evidence": 0,
         "verification_method": 0,
-        "refinement": 0
+        "refinement": 90.5
       }
     },
     "portal-contracts": {

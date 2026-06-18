@@ -1,7 +1,7 @@
 {
   "metamodel_version": "1.1.0",
   "baseline_hash": "ae017f52cb124304084f547cebc320660b202ae3dea102df4096ebe5b9a1f9ca",
-  "refinements_hash": "4e1f5b9a3bea1bbd98d8d732536114360b595907a55c5094226bc261c4c7ec8b",
+  "refinements_hash": "8c2404f1df38762f23de2d95606729971e0b22061bc4df82fddd1431e42222b0",
   "schema": "specs/schema/requirement.schema.json",
   "counts": {
     "total": 339,
@@ -33,12 +33,15 @@
       "non-functional": 102
     },
     "refinements": {
-      "total": 1,
+      "total": 13,
       "by_product": {
-        "gymops": 1
+        "gymops": 1,
+        "portal": 12
       },
       "by_kind": {
-        "screen": 1
+        "screen": 3,
+        "component": 8,
+        "interaction": 2
       }
     }
   },
@@ -12893,6 +12896,1911 @@
         "change_reason": "novo refinamento — exibir endereço do empreendimento na tela de perfil"
       },
       "file": "refinements/gymops/REF-GYMOPS-0001.yaml"
+    },
+    {
+      "id": "REF-PORTAL-0001",
+      "title": "Landing pública NovaIT (página inicial)",
+      "kind": "screen",
+      "status": "draft",
+      "scope": {
+        "product_scope": "portal",
+        "applies_to": "screen"
+      },
+      "surface": {
+        "route": "/",
+        "name": "Landing pública NovaIT",
+        "roles": [
+          "público",
+          "operador"
+        ]
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-PORTAL-0001",
+          "relation": "refines"
+        },
+        {
+          "requirement_id": "REQ-PORTAL-0005",
+          "relation": "relates_to"
+        },
+        {
+          "requirement_id": "REQ-PORTAL-NFR-001",
+          "relation": "relates_to"
+        }
+      ],
+      "behavior": {
+        "states": [
+          {
+            "name": "normal-anonimo",
+            "when": "Visitante anônimo (sem sessão de operador). A API somente-leitura do Console (/devops/api/ingressroutes) responde 401/403 — isAuthError(status) true.",
+            "ui": "Página corporativa completa: header (brand novaIT + nav Produtos/Portais/Capacidades + botão \"Acessar sistemas\"), hero (pill \"plataforma cloud-native em produção\", título com gradiente, lead, CTAs \"Conhecer os produtos\"/\"O que fazemos\", 5 stats), seção Produtos (cards curados SICAT e GymOps com badge \"exige login\"), seção Portais (RM Ambiental e Ana Rabottini), busca/filtro de aplicações, seção Capacidades (6 cards), Showcase (3 figuras placeholder) e CTA final. As superfícies de OPERADOR ficam ocultas: seção #plataforma (hidden), link de nav #nav-plataforma (hidden), coluna de rodapé #foot-plataforma (hidden) e #cluster-section (hidden). setOperatorUI(false) garante isso; o skeleton ADIADO (350ms) nunca aparece porque o 401 chega antes. A busca não conta cards dentro de seções de operador ocultas."
+          },
+          {
+            "name": "operador-logado",
+            "when": "Operador autenticado (sessão reconhecida pelo Console). fetchWithTimeout(API_URL) retorna 200 com a lista de IngressRoutes do cluster.",
+            "ui": "Tudo do estado anônimo MAIS as superfícies de operador reveladas via setOperatorUI(true): seção #plataforma (DevOps Console, Grafana, Argo CD, Keycloak, Portal Recorder — cada um com badge \"login\"), link de nav \"Plataforma\" e coluna \"Plataforma\" do rodapé. A seção \"Aplicações publicadas na plataforma\" (#cluster-section) é exibida com cards descobertos dinamicamente (discoverExtras: só apps navegáveis do namespace apps que servem a própria raiz e não estão no catálogo curado), cada um com badge \"no ar\". Os cards curados cujo basePath está vivo (livePathSet) recebem o badge \"no ar\" via enrichCuratedCards. Refresh automático silencioso a cada 60s (REFRESH_MS) reconcilia a lista."
+          },
+          {
+            "name": "carregando",
+            "when": "Carga inicial não silenciosa do cluster que demora mais de 350ms a responder (operador logado com cluster lento). loadClusterApps com loadingTimer disparado.",
+            "ui": "#cluster-section revelado e #cluster-state com aria-busy=true exibindo stateMarkup('loading') — grade de 3 skeletons (.skeleton-grid aria-hidden). Substituído pelo resultado quando a resposta chega; em respostas rápidas o skeleton nunca aparece (sem flicker). No refresh silencioso (60s) nenhum estado de carregamento é mostrado."
+          },
+          {
+            "name": "vazio",
+            "when": "API respondeu 200 mas discoverExtras retornou 0 apps extras (todas as apps no ar já estão no catálogo curado).",
+            "ui": "#cluster-state visível com stateMarkup('empty'): ícone + \"Nenhuma aplicação extra publicada\" + texto explicando que apps novas aparecem ao ganharem rota no namespace apps. A grade #cluster-apps fica vazia."
+          },
+          {
+            "name": "erro",
+            "when": "Erro transitório na carga inicial (rede/timeout/5xx; AbortError por TIMEOUT_MS=8000) que NÃO é 401/403. No refresh silencioso o erro é engolido para não estragar a UI anterior.",
+            "ui": "#cluster-section visível e #cluster-state com stateMarkup('error') role=alert: ícone + \"Descoberta dinâmica indisponível\" + mensagem (\"o cluster demorou a responder (timeout).\" ou \"a API do Console não respondeu.\") + botão \"Tentar novamente\" (data-retry) que re-dispara loadClusterApps. Os cards curados acima permanecem acessíveis."
+          },
+          {
+            "name": "sem-js",
+            "when": "JavaScript desabilitado/bloqueado, ou o módulo externo portal.js falha em inicializar.",
+            "ui": "Conteúdo curado totalmente visível (progressive enhancement): header, hero, Produtos, Portais, Capacidades, Showcase, CTA e footer são HTML estático. Os .reveal não dependem de JS para o conteúdo; um failsafe no <head> adiciona a classe no-anim após 2,5s (window.__pf) revelando tudo se portal.js não cancelar o timer em init(). Sem JS algum, nada disso roda e o conteúdo já está visível. As superfícies de operador permanecem hidden (HTML inicial), mantendo o site público."
+          }
+        ],
+        "data": [
+          {
+            "field": "clusterApps",
+            "source": "GET /devops/api/ingressroutes (API somente-leitura do DevOps Console)",
+            "format": "array de { name, namespace, basePath, hosts, requiresLogin } via parseIngressRoutes",
+            "editable": false
+          },
+          {
+            "field": "curatedProducts",
+            "source": "HTML estático index.html (cards SICAT, GymOps, RM Ambiental, Ana Rabottini)",
+            "format": "cards com data-app-type / data-path / data-search",
+            "editable": false
+          },
+          {
+            "field": "requiresLogin",
+            "source": "inferRequiresLogin(middlewares) — middlewares auth/oidc/sso/keycloak/forward da rota",
+            "format": "boolean (badge \"exige login\")",
+            "editable": false
+          },
+          {
+            "field": "footerYear",
+            "source": "portal.js init() -> new Date().getFullYear() no elemento #yr",
+            "format": "ano (string)",
+            "editable": false
+          },
+          {
+            "field": "searchQuery",
+            "source": "input #app-search (filtro client-side sobre data-search)",
+            "format": "texto livre",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "Digitar no campo de busca #app-search",
+            "action": "applySearch() — matchesQuery sobre data-search de cada card; cards em seção de operador oculta ficam fora",
+            "result": "cards filtrados (hidden) e contador #search-count atualizado (\"N resultados\" ou \"N aplicações\")"
+          },
+          {
+            "trigger": "Clicar no botão hamburger #nav-toggle (mobile)",
+            "action": "setupMobileMenu — alterna classe open em #nav-links e aria-expanded; Esc fecha e devolve foco",
+            "result": "menu de navegação abre/fecha; clicar num link fecha o menu"
+          },
+          {
+            "trigger": "Rolar a página",
+            "action": "setupHeaderShadow (scrolled >10px), setupBackToTop (show >600px), setupReveal (IntersectionObserver), setupNavSpy",
+            "result": "sombra no header, botão \"voltar ao topo\" visível, animação reveal e destaque is-here na nav da seção ativa"
+          },
+          {
+            "trigger": "Clicar em \"Tentar novamente\" (data-retry) no estado de erro",
+            "action": "loadClusterApps() re-disparado (listener once)",
+            "result": "nova consulta ao cluster; some o erro se a API responder"
+          },
+          {
+            "trigger": "Clicar em \"Voltar ao topo\" #to-top",
+            "action": "window.scrollTo top (smooth, ou auto se prefers-reduced-motion)",
+            "result": "página rola ao topo"
+          },
+          {
+            "trigger": "API do Console autoriza (200) vs nega (401/403)",
+            "action": "setOperatorUI(true|false) sobre #plataforma, #nav-plataforma, #foot-plataforma",
+            "result": "superfícies de operador reveladas (logado) ou mantidas ocultas (anônimo)"
+          }
+        ],
+        "flows": [
+          [
+            "Carrega index.html (HTML curado já visível, head marca <html class=js> e arma failsafe 2,5s)",
+            "portal.js init() cancela o failsafe, define o ano do rodapé e liga header/menu/reveal/navspy/busca",
+            "loadClusterApps() faz fetchWithTimeout(/devops/api/ingressroutes, 8s)",
+            "401/403 -> esconde descoberta e ferramentas de operador (site público); 200 -> revela operador, enriquece cards curados, renderiza extras, trata vazio",
+            "setInterval a cada 60s refaz a carga em modo silencioso para reconciliar o cluster"
+          ],
+          [
+            "Visitante anônimo abre /",
+            "Vê header + hero + Produtos + Portais + Capacidades + Showcase + CTA + footer",
+            "Não vê seção Plataforma, link Plataforma nem coluna Plataforma do rodapé",
+            "Pode buscar/filtrar produtos e navegar pelos CTAs"
+          ]
+        ]
+      },
+      "acceptance_criteria": [
+        "O conteúdo curado (header, hero, Produtos, Portais, Capacidades, Showcase, CTA, footer) é renderizado e legível com JavaScript desabilitado.",
+        "Para visitante anônimo (API responde 401/403), as superfícies de operador (#plataforma, #nav-plataforma, #foot-plataforma, #cluster-section) permanecem ocultas.",
+        "Para operador autenticado (API responde 200), a seção Plataforma, o link de nav e a coluna de rodapé são revelados e a seção \"Aplicações publicadas na plataforma\" lista os apps descobertos.",
+        "Cards curados cujo basePath está vivo no cluster recebem o badge \"no ar\"; os que exigem login exibem o badge \"exige login\".",
+        "Durante uma carga inicial lenta (>350ms) o estado de carregando exibe a grade de skeletons; em respostas rápidas o skeleton não aparece (sem flicker).",
+        "Quando não há apps extras além das curadas, o estado vazio \"Nenhuma aplicação extra publicada\" é exibido.",
+        "Em erro transitório (rede/timeout/5xx, exceto 401/403) na carga inicial, o estado de erro com role=alert e botão \"Tentar novamente\" é exibido, e clicá-lo re-dispara a consulta.",
+        "O campo de busca filtra os cards via data-search e atualiza o contador, ignorando cards em seções de operador ocultas.",
+        "O failsafe de 2,5s revela todo o conteúdo caso portal.js não inicialize, e é cancelado quando init() roda."
+      ],
+      "verification_method": [
+        "test-unit",
+        "test-e2e",
+        "manual-review"
+      ],
+      "source": {
+        "source_paths": [
+          "portal/frontend/index.html",
+          "portal/frontend/assets/portal.js"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "novo refinamento — Landing pública NovaIT (/)"
+      },
+      "file": "refinements/portal/REF-PORTAL-0001.yaml"
+    },
+    {
+      "id": "REF-PORTAL-0002",
+      "slug": "ref-portal-0002",
+      "title": "Cabeçalho e navegação (sticky + menu mobile + scroll spy)",
+      "kind": "component",
+      "status": "draft",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "portal",
+        "applies_to": "component"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-PORTAL-0007",
+          "relation": "refines",
+          "note": "detalha o cabeçalho fixo, links de navegação e menu mobile da landing pública"
+        },
+        {
+          "requirement_id": "REQ-PORTAL-0010",
+          "relation": "refines",
+          "note": "detalha a revelação condicional do link \"Plataforma\" só para o operador autenticado"
+        }
+      ],
+      "surface": {
+        "name": "Cabeçalho e navegação do portal",
+        "route": "/",
+        "roles": [
+          "anonymous",
+          "operator"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "topo da página (window.scrollY <= 10)",
+            "ui": "header sticky translúcido (backdrop-filter blur, --header-bg) com borda inferior transparente, sem sombra; nav com brand à esquerda e links à direita"
+          },
+          {
+            "name": "scrolled",
+            "when": "rolagem além de 10px (window.scrollY > 10) — setupHeaderShadow alterna a classe .scrolled em #hdr",
+            "ui": "header ganha fundo mais sólido (--header-bg-solid) e borda inferior visível (--line), separando-o do conteúdo"
+          },
+          {
+            "name": "mobile-collapsed",
+            "when": "viewport <= 780px e menu fechado (links sem a classe .open) — botão hamburguer com aria-expanded=false",
+            "ui": "nav-links escondida (display:none), botão #nav-toggle visível exibindo o ícone .icon-open (3 barras)"
+          },
+          {
+            "name": "mobile-open",
+            "when": "viewport <= 780px e menu aberto (links com .open via clique no toggle) — aria-expanded=true",
+            "ui": "nav-links em coluna sobreposta abaixo do header (position:absolute, top:100%, fundo --surface, sombra); botão troca para .icon-close (X)"
+          },
+          {
+            "name": "link-ativo",
+            "when": "uma seção ancorada (#produtos / #portais / #capacidades / #plataforma) intersecta a faixa rootMargin -30%/-55% — setupNavSpy (IntersectionObserver)",
+            "ui": "o link de nav correspondente recebe a classe .is-here (cor --ink, font-weight 700) e os demais a perdem"
+          },
+          {
+            "name": "plataforma-oculto",
+            "when": "visitante anônimo — a API do Console (/devops/api/ingressroutes) responde 401/403 (isAuthError) ou ainda não autorizou",
+            "ui": "link #nav-plataforma permanece com atributo hidden (não aparece na nav); seção #plataforma e coluna #foot-plataforma também ocultas"
+          },
+          {
+            "name": "plataforma-revelado",
+            "when": "operador autenticado — a API do Console responde 200 e setOperatorUI(true) é chamado em loadClusterApps",
+            "ui": "#nav-plataforma deixa de estar hidden e aparece na navegação (junto da seção #plataforma e da coluna do rodapé)"
+          }
+        ],
+        "data": [
+          {
+            "field": "nav-links",
+            "source": "portal/frontend/index.html (#nav-links — Produtos, Portais, Capacidades, Plataforma, \"Acessar sistemas\")",
+            "format": "âncoras para #produtos / #portais / #capacidades / #plataforma + botão .btn.sm para #produtos",
+            "editable": false
+          },
+          {
+            "field": "nav-toggle[aria-expanded]",
+            "source": "estado do menu mobile (setupMobileMenu — links.classList.toggle('open'))",
+            "format": "false | true",
+            "editable": false
+          },
+          {
+            "field": "nav-plataforma[hidden]",
+            "source": "setOperatorUI a partir de /devops/api/ingressroutes (200 = revela; 401/403 = oculta)",
+            "format": "presença/ausência do atributo hidden",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "rolar a página",
+            "action": "setupHeaderShadow compara window.scrollY > 10 (listener scroll passivo) e alterna a classe .scrolled em #hdr",
+            "result": "o header ganha/perde fundo sólido e borda inferior (sombra de separação)"
+          },
+          {
+            "trigger": "clicar no botão hamburguer (#nav-toggle) no mobile",
+            "action": "links.classList.toggle('open') e toggle.setAttribute('aria-expanded', String(open))",
+            "result": "abre/fecha o menu sobreposto e alterna os ícones open/close; aria-expanded reflete o estado"
+          },
+          {
+            "trigger": "clicar em qualquer link da nav com o menu aberto",
+            "action": "handler close() remove .open e seta aria-expanded=false",
+            "result": "o menu mobile fecha ao navegar para a seção"
+          },
+          {
+            "trigger": "pressionar Esc com o menu mobile aberto",
+            "action": "keydown handler chama close() e devolve o foco ao botão (toggle.focus())",
+            "result": "menu fecha e o foco volta ao hamburguer (orientação para teclado)"
+          },
+          {
+            "trigger": "rolar até uma seção ancorada",
+            "action": "setupNavSpy (IntersectionObserver, rootMargin -30% 0px -55% 0px) marca o link cujo href casa com #<id> da seção visível",
+            "result": "o link da seção corrente recebe .is-here (scroll spy) e os demais a perdem"
+          },
+          {
+            "trigger": "descoberta de cluster autorizada (200) ou negada (401/403)",
+            "action": "setOperatorUI(true|false) alterna hidden em #plataforma, #nav-plataforma e #foot-plataforma",
+            "result": "o link \"Plataforma\" aparece só para operador autenticado; visitante anônimo não o vê"
+          }
+        ],
+        "flows": [
+          [
+            "carregar /",
+            "ver header sticky no topo sem sombra",
+            "rolar a página",
+            "ver o header ganhar fundo sólido e borda"
+          ],
+          [
+            "no mobile (<=780px) tocar no hamburguer",
+            "ver o menu sobrepor abaixo do header",
+            "tocar num link",
+            "ver o menu fechar e a seção rolar"
+          ],
+          [
+            "no mobile abrir o menu",
+            "pressionar Esc",
+            "ver o menu fechar com o foco de volta no botão hamburguer"
+          ],
+          [
+            "rolar entre as seções",
+            "observar o link de nav correspondente ficar realçado (scroll spy)"
+          ],
+          [
+            "como anônimo não ver o link \"Plataforma\"; como operador autenticado (API 200) ver o link \"Plataforma\" surgir na nav"
+          ]
+        ]
+      },
+      "acceptance_criteria": [
+        "O header é sticky (position:sticky, top:0) e permanece visível ao rolar.",
+        "Ao rolar além de 10px o header recebe a classe .scrolled, ganhando fundo sólido e borda inferior (sombra de separação); ao voltar ao topo a remove.",
+        "Em viewport <= 780px o botão hamburguer (#nav-toggle, alvo >=44px) é exibido e a nav-links some até ser aberta.",
+        "Clicar no hamburguer alterna links.open e o atributo aria-expanded entre \"false\" e \"true\", trocando os ícones abrir/fechar.",
+        "Clicar em um link da nav com o menu aberto fecha o menu (remove .open, aria-expanded=false).",
+        "Pressionar Esc com o menu mobile aberto fecha o menu e devolve o foco ao botão hamburguer.",
+        "Conforme a seção visível muda, exatamente o link de nav correspondente recebe .is-here (scroll spy via IntersectionObserver).",
+        "O link \"Plataforma\" (#nav-plataforma) inicia com atributo hidden e só é revelado quando a API do Console responde 200 (operador); para 401/403 (anônimo) permanece oculto."
+      ],
+      "verification_method": [
+        "test-e2e",
+        "manual-review"
+      ],
+      "source": {
+        "stakeholder": "portal",
+        "origin": "leitura do código real do portal NovaIT (header sticky, menu mobile, scroll spy e gating do link Plataforma)",
+        "source_paths": [
+          "portal/frontend/index.html",
+          "portal/frontend/assets/portal.js",
+          "portal/frontend/assets/styles.css"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "novo refinamento — cabeçalho e navegação do portal"
+      },
+      "file": "refinements/portal/REF-PORTAL-0002.yaml"
+    },
+    {
+      "id": "REF-PORTAL-0003",
+      "title": "Seção Hero",
+      "kind": "component",
+      "status": "draft",
+      "scope": {
+        "product_scope": "portal",
+        "applies_to": "component"
+      },
+      "surface": {
+        "name": "Hero",
+        "roles": [
+          "visitante",
+          "operador"
+        ]
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-PORTAL-0001",
+          "relation": "relates_to"
+        },
+        {
+          "requirement_id": "REQ-PORTAL-NFR-001",
+          "relation": "refines"
+        }
+      ],
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "Página carregada com conteúdo já visível (sem depender de JS).",
+            "ui": "Section .hero com aria-labelledby=hero-title. Mostra, em ordem: pill mono \"plataforma cloud-native em produção\" com bolinha .live verde; H1 (#hero-title) \"Tecnologia que opera o mundo real\", onde \"opera o mundo real\" usa .grad-txt (gradiente azul→roxo via background-clip:text); subtítulo .lead; bloco .hero-cta com 2 CTAs (botão primário \"Conhecer os produtos\" → #produtos e botão fantasma \"O que fazemos\" → #capacidades); grade .stats com 5 stat pills (2 produtos · 3+ portais · Argo GitOps/CD · K8s cloud-native · SSO identidade única)."
+          },
+          {
+            "name": "reveal-animado",
+            "when": "JS ativo — o <script> síncrono do <head> adiciona a classe `js` em <html> antes do paint, então o portal.js inicializa e observa o scroll."
+          },
+          {
+            "name": "oculto-pre-reveal",
+            "when": "Classe `js` presente e elemento .reveal ainda não entrou na viewport (portal.js ainda não adicionou .in).",
+            "ui": "Regra .js .reveal aplica opacity:0 e transform:translateY(20px); pill, H1, lead, hero-cta e stats (todos .reveal) ficam temporariamente invisíveis até receberem .in."
+          },
+          {
+            "name": "revelado",
+            "when": "O elemento .reveal entra na viewport e portal.js adiciona a classe .in.",
+            "ui": ".js .reveal.in volta a opacity:1 e transform:none, com transição de 0.6s (cubic-bezier 0.2,0.7,0.2,1) — fade + slide-up suave de cada elemento do hero."
+          },
+          {
+            "name": "fallback-sem-js",
+            "when": "JS desabilitado, bloqueado ou ausente (classe `js` nunca é adicionada).",
+            "ui": "Nenhuma regra .js .reveal incide, então o hero permanece totalmente visível em opacity:1 — não há conteúdo preso em opacity:0 órfão."
+          },
+          {
+            "name": "failsafe-modulo-falhou",
+            "when": "O módulo portal.js não inicializa em 2,5s (falha/bloqueio/erro) — o timer do <head> adiciona a classe `no-anim` em <html>.",
+            "ui": ".no-anim .reveal força opacity:1, transform:none e transition:none com !important, revelando todo o hero mesmo sem o observer de scroll."
+          },
+          {
+            "name": "movimento-reduzido",
+            "when": "O usuário tem prefers-reduced-motion: reduce.",
+            "ui": ".js .reveal fica em opacity:1/transform:none (sem animação de reveal) e a animação `pulse` da bolinha .live do pill é desligada."
+          }
+        ],
+        "data": [
+          {
+            "field": "pill_label",
+            "source": "index.html — span.pill (.hero): \"plataforma cloud-native em produção\"",
+            "editable": false
+          },
+          {
+            "field": "hero_title",
+            "source": "index.html — h1#hero-title: \"Tecnologia que opera o mundo real\" (trecho final em .grad-txt)",
+            "editable": false
+          },
+          {
+            "field": "hero_lead",
+            "source": "index.html — p.lead: descrição da NovaIT (plataformas cloud-native, automação e inteligência aplicada)",
+            "editable": false
+          },
+          {
+            "field": "cta_primaria",
+            "source": "index.html — a.btn (.hero-cta): \"Conhecer os produtos\" → href=\"#produtos\"",
+            "editable": false
+          },
+          {
+            "field": "cta_secundaria",
+            "source": "index.html — a.btn.ghost (.hero-cta): \"O que fazemos\" → href=\"#capacidades\"",
+            "editable": false
+          },
+          {
+            "field": "stats",
+            "source": "index.html — div.stats com 5 div.stat (n/l): 2 produtos · 3+ portais · Argo GitOps/CD · K8s cloud-native · SSO identidade única",
+            "format": "lista de 5 pares número/rótulo (estáticos no HTML)",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "Clique/Enter na CTA primária \"Conhecer os produtos\".",
+            "action": "Navega para a âncora interna #produtos.",
+            "result": "Rolagem suave (html scroll-behavior:smooth) até a seção de produtos."
+          },
+          {
+            "trigger": "Clique/Enter na CTA secundária (botão fantasma) \"O que fazemos\".",
+            "action": "Navega para a âncora interna #capacidades.",
+            "result": "Rolagem suave até a seção de capacidades."
+          },
+          {
+            "trigger": "Hover na CTA primária (.btn).",
+            "action": "Aplica estilo de hover do botão.",
+            "result": "Fundo escurece (--btn-bg-ink), translateY(-1px) e sombra (--shadow-btn)."
+          },
+          {
+            "trigger": "Hover na CTA secundária (.btn.ghost).",
+            "action": "Aplica estilo de hover do botão fantasma.",
+            "result": "Borda e texto passam a cor de acento (--accent), sem sombra."
+          },
+          {
+            "trigger": "Foco por teclado em qualquer CTA do hero.",
+            "action": "Estado :focus-visible.",
+            "result": "Outline de 2px na cor de acento com offset (foco visível e consistente)."
+          },
+          {
+            "trigger": "Scroll que traz elementos .reveal do hero à viewport (JS ativo).",
+            "action": "portal.js adiciona a classe .in aos elementos observados.",
+            "result": "Cada elemento do hero faz fade + slide-up de 0.6s (respeitando reduced-motion)."
+          }
+        ],
+        "flows": [
+          [
+            "Usuário abre a raiz / do portal.",
+            "O <script> do <head> marca <html> com `js` e arma um timer de 2,5s para `no-anim`.",
+            "O hero renderiza com pill, título gradiente, subtítulo, 2 CTAs e 5 stats.",
+            "portal.js inicializa, cancela o timer de failsafe e observa o scroll.",
+            "Ao entrar na viewport, os elementos .reveal do hero recebem .in e animam (fade/slide-up)."
+          ],
+          [
+            "Usuário sem JS (ou JS bloqueado) abre a raiz / do portal.",
+            "A classe `js` nunca é adicionada a <html>.",
+            "O hero aparece totalmente visível (sem opacity:0 órfão) com todos os elementos e CTAs funcionais."
+          ],
+          [
+            "O módulo portal.js falha ao inicializar dentro de 2,5s.",
+            "O timer do <head> adiciona `no-anim` a <html>.",
+            ".no-anim .reveal revela todo o hero imediatamente (opacity:1, sem transição)."
+          ]
+        ]
+      },
+      "acceptance_criteria": [
+        "O hero exibe exatamente 2 CTAs - \"Conhecer os produtos\" (botão primário → #produtos) e \"O que fazemos\" (botão fantasma → #capacidades).",
+        "O trecho \"opera o mundo real\" do H1 é renderizado com gradiente via .grad-txt, com fallback de cor sólida acessível onde background-clip:text não é suportado.",
+        "O hero exibe 5 stat pills com os rótulos produtos, portais, GitOps·CD, cloud-native e identidade única.",
+        "Com JS desabilitado, todo o conteúdo do hero (pill, título, subtítulo, CTAs e stats) permanece visível, sem nenhum elemento preso em opacity:0.",
+        "Se portal.js não inicializar em 2,5s, a classe no-anim revela todo o hero (opacity:1, transform:none, sem transição).",
+        "Com prefers-reduced-motion:reduce, os elementos .reveal do hero aparecem sem animação e a pulsação da bolinha .live é desativada.",
+        "Todas as CTAs do hero têm foco visível por teclado (outline de 2px na cor de acento via :focus-visible).",
+        "As CTAs apontam para âncoras internas existentes (#produtos e #capacidades) e a rolagem é suave (scroll-behavior:smooth)."
+      ],
+      "verification_method": [
+        "manual-review",
+        "test-e2e",
+        "architecture-review"
+      ],
+      "source": {
+        "source_paths": [
+          "portal/frontend/index.html",
+          "portal/frontend/assets/styles.css"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "novo refinamento — Hero"
+      },
+      "file": "refinements/portal/REF-PORTAL-0003.yaml"
+    },
+    {
+      "id": "REF-PORTAL-0004",
+      "title": "Produtos & portais (catálogo curado + busca)",
+      "kind": "component",
+      "status": "draft",
+      "scope": {
+        "product_scope": "portal",
+        "applies_to": "component"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-PORTAL-0001",
+          "relation": "refines"
+        },
+        {
+          "requirement_id": "REQ-PORTAL-0006",
+          "relation": "refines"
+        }
+      ],
+      "surface": {
+        "name": "Catálogo de produtos e portais (seção #produtos / #portais)",
+        "roles": [
+          "visitante",
+          "operador"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "Página carregada, input #app-search vazio (sem termo de busca).",
+            "ui": "Grade de cards curados visível: 2 produtos (SICAT, GymOps) na seção #produtos e 2 portais CMS (RM Ambiental, Ana Rabottini) na seção #portais. Cada card mostra ícone, role (ex.: \"Gestão Ambiental\"), título, descrição, tags e CTA. Produtos com requiresLogin exibem o badge \"exige login\" (.badge.is-login). O contador #search-count mostra \"N aplicações\" (total de cards não-gated visíveis)."
+          },
+          {
+            "name": "filtrado",
+            "when": "Usuário digita no input #app-search; applySearch() roda no evento input e matchesQuery() casa o termo (AND de tokens minúsculos via includes) contra o data-search de cada card.",
+            "ui": "Cards cujo data-search contém todos os tokens permanecem visíveis; os demais recebem hidden. O contador #search-count (aria-live=polite) anuncia \"N resultado\" / \"N resultados\" conforme a contagem de hits."
+          },
+          {
+            "name": "sem-resultado",
+            "when": "O termo digitado não casa com nenhum data-search (0 hits).",
+            "ui": "Todos os cards ficam hidden; o contador #search-count anuncia \"0 resultados\" via aria-live=polite. Nenhuma mensagem de vazio dedicada — o feedback é o contador zerado."
+          },
+          {
+            "name": "status-ao-vivo",
+            "when": "loadClusterApps() obtém as IngressRoutes vivas (API do Console) e enrichCuratedCards() marca os paths ativos.",
+            "ui": "O slot [data-status] dos cards cujo data-path está vivo recebe o badge \"no ar\" (.badge.is-online com dot). Enriquecimento aditivo: sem resposta autorizada da API, os cards permanecem no estado normal sem o badge."
+          }
+        ],
+        "data": [
+          {
+            "field": "card.role",
+            "source": "portal/frontend/assets/catalog.js (PRODUCTS[].role)",
+            "format": "rótulo curto (ex.: Gestão Ambiental, Portal Institucional)",
+            "editable": false
+          },
+          {
+            "field": "card.tags",
+            "source": "portal/frontend/assets/catalog.js (PRODUCTS[].tags)",
+            "format": "lista de chips .tag",
+            "editable": false
+          },
+          {
+            "field": "card.cta",
+            "source": "portal/frontend/assets/catalog.js (PRODUCTS[].cta)",
+            "format": "texto do botão (ex.: Acessar SICAT)",
+            "editable": false
+          },
+          {
+            "field": "card.badge.is-login",
+            "source": "portal/frontend/assets/catalog.js (PRODUCTS[].requiresLogin)",
+            "format": "badge \"exige login\" quando requiresLogin=true",
+            "editable": false
+          },
+          {
+            "field": "card.data-path",
+            "source": "portal/frontend/assets/catalog.js (PRODUCTS[].path)",
+            "format": "base path roteado pelo Traefik (ex.: /sicat)",
+            "editable": false
+          },
+          {
+            "field": "card.data-search",
+            "source": "portal/frontend/index.html (atributo data-search do <article>)",
+            "format": "texto indexável minúsculo (nome + tags + termos)",
+            "editable": false
+          },
+          {
+            "field": "card.badge.is-online",
+            "source": "api:/devops/api/ingressroutes (livePathSet via enrichCuratedCards)",
+            "format": "badge \"no ar\" injetado em [data-status] quando o path está vivo",
+            "editable": false
+          },
+          {
+            "field": "search-count",
+            "source": "portal/frontend/assets/portal.js (applySearch -> #search-count.textContent)",
+            "format": "N aplicações (vazio) | N resultado(s) (filtrando)",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "Usuário digita ou apaga texto no input #app-search",
+            "action": "Listener input chama applySearch(); para cada [data-search], matchesQuery(data-search, valor) decide card.hidden = !hit.",
+            "result": "Cards não-casados ficam hidden, casados visíveis; #search-count atualiza a contagem (aria-live=polite anuncia para leitores de tela)."
+          },
+          {
+            "trigger": "Usuário limpa o campo de busca (termo vazio)",
+            "action": "matchesQuery retorna true para todos; applySearch reexibe os cards.",
+            "result": "Todos os cards não-gated voltam a aparecer; contador volta a \"N aplicações\"."
+          },
+          {
+            "trigger": "Usuário clica no CTA de um card (ex.: \"Acessar SICAT\")",
+            "action": "Navega para o href = data-path do card (ex.: /sicat).",
+            "result": "Abre o produto/portal correspondente roteado pelo Traefik."
+          },
+          {
+            "trigger": "API do Console responde 200 (operador autenticado)",
+            "action": "loadClusterApps -> enrichCuratedCards marca data-path vivos; applySearch recalcula contagem incluindo as seções de operador reveladas.",
+            "result": "Cards curados vivos ganham o badge \"no ar\"; o contador passa a refletir também os cards das seções de operador agora visíveis."
+          }
+        ],
+        "flows": [
+          [
+            "Visitante abre o portal",
+            "Vê os 4 cards curados (2 produtos + 2 portais) com role/tags/CTA/badge",
+            "Contador exibe \"4 aplicações\"",
+            "Digita \"ia\" no #app-search",
+            "Apenas cards com IA nas tags permanecem; contador anuncia \"N resultados\"",
+            "Apaga o termo e os 4 cards voltam, contador \"4 aplicações\""
+          ],
+          [
+            "Usuário digita um termo sem correspondência (ex.: \"zzz\")",
+            "matchesQuery não casa nenhum card",
+            "Todos os cards ficam hidden",
+            "#search-count anuncia 0 resultados via aria-live"
+          ]
+        ]
+      },
+      "acceptance_criteria": [
+        "Os 4 cards curados (SICAT, GymOps, RM Ambiental, Ana Rabottini) existem no HTML estático com role, tags, CTA e data-path espelhando catalog.js (PRODUCTS), úteis sem JS (SEO/no-JS).",
+        "Cards de produto com requiresLogin=true (SICAT, GymOps) renderizam o badge \"exige login\" (.badge.is-login); os portais CMS não.",
+        "Digitar no #app-search filtra os cards client-side: matchesQuery casa quando TODOS os tokens (minúsculos) estão contidos no data-search; cards não-casados recebem hidden.",
+        "Com termo vazio, #search-count mostra \"N aplicações\"; com termo, mostra \"N resultado\"/\"N resultados\" (singular/plural correto) e é aria-live=polite.",
+        "Termo sem correspondência deixa zero cards visíveis e o contador anuncia \"0 resultados\".",
+        "Cards dentro de seção de operador oculta (#plataforma, #cluster-section hidden) são excluídos da busca e da contagem para o visitante anônimo.",
+        "Quando a API do Console autoriza, [data-status] dos cards com path vivo recebe o badge \"no ar\" (.badge.is-online) — enriquecimento aditivo que nunca é pré-requisito para o conteúdo."
+      ],
+      "verification_method": [
+        "test-unit",
+        "test-e2e",
+        "manual-review"
+      ],
+      "source": {
+        "source_paths": [
+          "portal/frontend/index.html",
+          "portal/frontend/assets/catalog.js",
+          "portal/frontend/assets/portal.js"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "novo refinamento — Produtos & portais (catálogo curado + busca)"
+      },
+      "file": "refinements/portal/REF-PORTAL-0004.yaml"
+    },
+    {
+      "id": "REF-PORTAL-0005",
+      "title": "Descoberta dinâmica de apps do cluster",
+      "kind": "component",
+      "status": "draft",
+      "scope": {
+        "product_scope": "portal",
+        "applies_to": "component"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-PORTAL-0003",
+          "relation": "refines"
+        },
+        {
+          "requirement_id": "REQ-PORTAL-0004",
+          "relation": "relates_to"
+        },
+        {
+          "requirement_id": "REQ-PORTAL-0005",
+          "relation": "refines"
+        },
+        {
+          "requirement_id": "REQ-PORTAL-0014",
+          "relation": "refines"
+        }
+      ],
+      "surface": {
+        "name": "cluster-section",
+        "roles": [
+          "operator",
+          "anonymous"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "oculto",
+            "when": "Estado inicial e estado de visitante anônimo. A seção #cluster-section nasce com o atributo hidden no HTML. Quando o fetch a GET /devops/api/ingressroutes retorna 401 ou 403 (isAuthError), a seção é mantida/colocada hidden e a UI de operador (seção Plataforma, link da nav e coluna do rodapé) é escondida via setOperatorUI(false). O site público mostra apenas os cards curados.",
+            "ui": "Nenhum bloco de cluster visível; cards .card dentro de #cluster-section ficam fora da busca (applySearch ignora seções hidden). A contagem de busca é recalculada sem os cards de cluster/ferramentas."
+          },
+          {
+            "name": "loading",
+            "when": "Carga inicial (não-silent) quando a resposta da API demora. Um timer ADIADO de 350ms revela a seção e exibe o skeleton; se a resposta chega antes (caso típico do 401 rápido do anônimo) o skeleton nunca aparece, evitando flicker.",
+            "ui": "Grade de skeletons shimmer (stateMarkup('loading') = três divs .skeleton em .skeleton-grid) na região #cluster-state, com aria-busy=true. Sem skeleton no refresh silencioso."
+          },
+          {
+            "name": "normal",
+            "when": "Fetch a GET /devops/api/ingressroutes responde 200 (operador autenticado) e discoverExtras retorna pelo menos uma app navegável fora do catálogo curado.",
+            "ui": "Seção #cluster-section revelada (hidden=false, .reveal marcados como in). Grade #cluster-apps preenchida com cards extras renderizados por extraCardHTML (cada card mostra badge \"no ar\", nome prettificado, base path em code e botão Acessar; badge \"exige login\" quando requiresLogin). Cards curados ganham badge \"no ar\" via enrichCuratedCards. setOperatorUI(true) revela as ferramentas de operador. #cluster-state fica vazio e hidden. applySearch reexecutado."
+          },
+          {
+            "name": "empty",
+            "when": "Fetch responde 200 mas discoverExtras retorna lista vazia (nenhuma app extra publicada além das curadas no namespace apps).",
+            "ui": "Seção revelada; grade #cluster-apps vazia; #cluster-state visível com stateMarkup('empty') — ícone, título \"Nenhuma aplicação extra publicada\" e explicação de que apps novas surgem automaticamente ao ganharem rota no namespace apps."
+          },
+          {
+            "name": "error",
+            "when": "Erro transitório na carga inicial (não-silent): timeout/AbortError (8s), falha de rede ou 5xx — qualquer erro que NÃO seja 401/403. No refresh silencioso o erro é ignorado para não estragar uma UI boa anterior.",
+            "ui": "Seção revelada; #cluster-state visível com stateMarkup('error') role=alert — ícone de alerta, título \"Descoberta dinâmica indisponível\", mensagem contextual (\"o cluster demorou a responder (timeout).\" para AbortError ou \"a API do Console não respondeu.\") e botão \"Tentar novamente\" (data-retry) que rechama loadClusterApps() uma vez."
+          }
+        ],
+        "data": [
+          {
+            "field": "name",
+            "source": "GET /devops/api/ingressroutes — ir.name (prettificado por prettifyName)",
+            "format": "texto (ex.: \"portal-recorder\" -> \"Portal Recorder\")",
+            "editable": false
+          },
+          {
+            "field": "namespace",
+            "source": "GET /devops/api/ingressroutes — ir.namespace (filtrado por appsInNamespace = 'apps')",
+            "format": "texto",
+            "editable": false
+          },
+          {
+            "field": "basePath",
+            "source": "derivado de ir.paths via basePathOf/appRoot (menor path não-raiz, trailing slash normalizado)",
+            "format": "path absoluto (ex.: /sicat)",
+            "editable": false
+          },
+          {
+            "field": "hosts",
+            "source": "GET /devops/api/ingressroutes — ir.hosts",
+            "format": "lista de hostnames",
+            "editable": false
+          },
+          {
+            "field": "requiresLogin",
+            "source": "inferido de ir.routes[].middlewares via inferRequiresLogin (auth/oidc/sso/keycloak/forward)",
+            "format": "boolean",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "Carregamento do módulo portal.js (init) no browser",
+            "action": "Chama loadClusterApps() uma vez para a descoberta inicial",
+            "result": "Resolve para um dos estados (oculto/loading/normal/empty/error) conforme a resposta da API"
+          },
+          {
+            "trigger": "Timer setInterval de 60s (REFRESH_MS)",
+            "action": "Chama loadClusterApps({ silent: true }) — refresh silencioso, sem skeleton e sem card de erro",
+            "result": "Atualiza a grade e badges se houver resposta válida; mantém UI anterior em caso de erro transitório"
+          },
+          {
+            "trigger": "Clique no botão \"Tentar novamente\" (data-retry) no estado de erro",
+            "action": "Rechama loadClusterApps() (listener once) refazendo o fetch",
+            "result": "Reentra no fluxo de carga; pode resolver para normal/empty/error"
+          },
+          {
+            "trigger": "Resposta 401/403 da API (visitante anônimo)",
+            "action": "section.hidden = true, setOperatorUI(false), applySearch()",
+            "result": "Descoberta e ferramentas de operador ocultas; site público fica corporativo"
+          },
+          {
+            "trigger": "Disparo concorrente de refresh enquanto uma carga está em andamento",
+            "action": "Guarda clusterLoading retorna cedo (dedupe simples)",
+            "result": "Evita requisições concorrentes sobrepostas à mesma API"
+          }
+        ],
+        "flows": [
+          [
+            "Módulo portal.js inicializa (init) e chama loadClusterApps()",
+            "Agenda skeleton adiado de 350ms (somente na carga inicial não-silenciosa)",
+            "fetchWithTimeout dispara GET /devops/api/ingressroutes com timeout de 8s",
+            "Resposta 200: parseIngressRoutes + appsInNamespace('apps') normaliza as apps",
+            "enrichCuratedCards marca cards curados vivos com badge \"no ar\"",
+            "discoverExtras agrupa por raiz e filtra só apps navegáveis fora do catálogo",
+            "Renderiza cards extras (extraCardHTML) na grade #cluster-apps e revela a seção",
+            "setOperatorUI(true) revela as ferramentas de operador; applySearch reexecuta"
+          ],
+          [
+            "Refresh silencioso a cada 60s chama loadClusterApps({ silent: true })",
+            "Sem skeleton e sem card de erro; só atualiza a UI quando há resposta válida",
+            "Erro transitório no refresh é engolido para preservar a UI boa anterior"
+          ],
+          [
+            "Visitante anônimo recebe 401/403 (isAuthError)",
+            "Seção #cluster-section é mantida hidden e ferramentas de operador escondidas",
+            "applySearch recalcula a contagem sem os cards de cluster/ferramentas"
+          ]
+        ]
+      },
+      "acceptance_criteria": [
+        "A seção #cluster-section inicia com atributo hidden e só é revelada após resposta 200 de GET /devops/api/ingressroutes.",
+        "Para resposta 401 ou 403 a seção permanece oculta e a UI de operador (Plataforma/nav/rodapé) é escondida (setOperatorUI(false)).",
+        "O skeleton de loading só aparece se a resposta demorar mais de 350ms na carga inicial, e nunca no refresh silencioso.",
+        "Com resposta 200 e ao menos uma app extra navegável, cards são renderizados em #cluster-apps via extraCardHTML com nome, base path e badges (no ar / exige login conforme requiresLogin).",
+        "Com resposta 200 sem apps extras, é exibido o estado empty (\"Nenhuma aplicação extra publicada\").",
+        "Em erro transitório (timeout/rede/5xx) na carga inicial é exibido o estado de erro com role=alert e botão \"Tentar novamente\" que rechama loadClusterApps().",
+        "Um refresh silencioso ocorre a cada 60s (REFRESH_MS) e não substitui uma UI válida anterior por estado de erro.",
+        "Cada app descoberta expõe os campos name, namespace, basePath, hosts e requiresLogin derivados de parseIngressRoutes.",
+        "A guarda clusterLoading impede requisições concorrentes de refresh sobrepostas."
+      ],
+      "verification_method": [
+        "test-unit",
+        "test-integration",
+        "manual-review"
+      ],
+      "source": {
+        "source_paths": [
+          "portal/frontend/index.html",
+          "portal/frontend/assets/portal.js"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "novo refinamento — cluster-section"
+      },
+      "file": "refinements/portal/REF-PORTAL-0005.yaml"
+    },
+    {
+      "id": "REF-PORTAL-0006",
+      "title": "Capacidades (o que fazemos)",
+      "kind": "component",
+      "status": "draft",
+      "scope": {
+        "product_scope": "portal",
+        "applies_to": "component"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-PORTAL-NFR-001",
+          "relation": "refines"
+        }
+      ],
+      "surface": {
+        "name": "Seção Capacidades (#capacidades)",
+        "route": "/"
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "Página carregada e a seção entra no viewport com JS ativo e reveal disparado (classe `in` aplicada).",
+            "ui": "Seção `block alt` (fundo --bg-soft com bordas superior/inferior --line) com cabeçalho (eyebrow mono \"// capacidades\", h2 \"Engenharia de ponta a ponta\", intro) e grade `g3` de 6 cards de capacidade flat (.card.cap). Cada card mostra: caixa de ícone 42px (fundo --surface, borda --line2, traço SVG em --accent), título h3 e parágrafo descritivo em --muted. Os 6 cards: Engenharia de Software; Cloud-Native & Kubernetes; DevOps & GitOps; Inteligência Artificial; Segurança & Identidade; Observabilidade. Cards opacos e visíveis (opacity:1, sem translateY).\n"
+          },
+          {
+            "name": "oculto-pre-reveal",
+            "when": "JS ativo (html.js) e o card ainda NÃO entrou no viewport (sem classe `in`).",
+            "ui": "Cada `.reveal` inicia em opacity:0 e transform:translateY(20px); ao cruzar o limiar de scroll ganha a classe `in` e transiciona para opacity:1/translateY(0) em ~0.6s. Estado puramente visual de entrada — sem placeholder, spinner ou conteúdo alternativo.\n"
+          },
+          {
+            "name": "sem-js",
+            "when": "JavaScript desabilitado, bloqueado ou ainda não executado (a classe `js` nunca é adicionada a <html>).",
+            "ui": "Conteúdo totalmente visível por padrão (progressive enhancement real): a regra que esconde os `.reveal` depende do seletor `.js .reveal`, então sem a classe `js` os 6 cards aparecem sem animação e sem ficarem presos em opacity:0.\n"
+          },
+          {
+            "name": "failsafe-no-anim",
+            "when": "O módulo /assets/portal.js não inicializa em até 2,5s (falha de rede, bloqueio ou erro); o <script> inline do <head> adiciona `no-anim` a <html>.",
+            "ui": "A classe `no-anim` força todos os `.reveal` para opacity:1 !important, transform:none e transition:none — os 6 cards aparecem imediatamente, garantindo que o conteúdo nunca fique invisível mesmo se o JS de reveal falhar.\n"
+          },
+          {
+            "name": "movimento-reduzido",
+            "when": "Usuário com prefers-reduced-motion: reduce.",
+            "ui": "A animação de reveal é neutralizada (`.js .reveal` forçado a opacity:1/transform:none, sem transition); os 6 cards ficam imediatamente visíveis e estáticos, sem deslize de entrada.\n"
+          }
+        ],
+        "data": [
+          {
+            "field": "capability.title",
+            "source": "HTML estático (h3 de cada article.card.cap em portal/frontend/index.html)",
+            "editable": false
+          },
+          {
+            "field": "capability.description",
+            "source": "HTML estático (p de cada article.card.cap)",
+            "editable": false
+          },
+          {
+            "field": "capability.icon",
+            "source": "HTML estático (SVG inline dentro de .ic, stroke=currentColor herdado como --accent)",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "A seção/cards cruzam o limiar de scroll (entram no viewport) com JS ativo",
+            "action": "O observador de scroll adiciona a classe `in` ao elemento `.reveal`",
+            "result": "Transição de entrada (fade + slide-up ~0.6s); ocorre uma única vez por card"
+          },
+          {
+            "trigger": "Hover/foco do mouse sobre um card de capacidade",
+            "action": "Nenhuma (regra .cap:hover zera transform e box-shadow; card é flat sem borda/sombra)",
+            "result": "Sem efeito visual de elevação — os cards são informativos, não interativos"
+          }
+        ],
+        "flows": [
+          [
+            "Visitante rola a página até a seção Capacidades (ou navega via âncora #capacidades / link \"O que fazemos\" do hero)",
+            "Cabeçalho e os 6 cards entram no viewport",
+            "Reveal-on-scroll aplica `in` e os cards aparecem com fade + slide-up",
+            "Visitante lê os 6 cards informativos; nenhuma ação adicional é oferecida dentro da seção"
+          ]
+        ]
+      },
+      "acceptance_criteria": [
+        "A seção #capacidades renderiza exatamente 6 cards de capacidade (article.card.cap), nesta ordem - Engenharia de Software, Cloud-Native & Kubernetes, DevOps & GitOps, Inteligência Artificial, Segurança & Identidade, Observabilidade.",
+        "Cada card de capacidade contém uma caixa de ícone (.ic) com SVG, um título h3 e um parágrafo descritivo; nenhum card de capacidade contém link, botão ou badge clicável.",
+        "Os cards .cap são flat - background transparente, sem borda, sem box-shadow, e :hover não aplica translate nem sombra (sem efeito de elevação).",
+        "A seção usa o tema alternado (class=\"block alt\") com fundo --bg-soft e bordas superior/inferior --line.",
+        "A grade é g3 (3 colunas), colapsando para 2 colunas em telas <=880px e 1 coluna em <=600px.",
+        "Com JavaScript desabilitado/bloqueado os 6 cards permanecem visíveis (sem opacity:0 órfão); o reveal só esconde quando html tem a classe `js`.",
+        "Se portal.js não inicializar em 2,5s, a classe `no-anim` torna os cards imediatamente visíveis (opacity:1).",
+        "Com prefers-reduced-motion: reduce, os cards aparecem sem animação de reveal.",
+        "A única interação da seção é o reveal-on-scroll (adição da classe `in`); não há filtro, busca, expansão ou estado dinâmico de dados."
+      ],
+      "verification_method": [
+        "manual-review",
+        "test-e2e",
+        "architecture-review"
+      ],
+      "source": {
+        "source_paths": [
+          "portal/frontend/index.html",
+          "portal/frontend/assets/styles.css"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "novo refinamento — Seção Capacidades (#capacidades)"
+      },
+      "file": "refinements/portal/REF-PORTAL-0006.yaml"
+    },
+    {
+      "id": "REF-PORTAL-0007",
+      "title": "Showcase (telas dos produtos)",
+      "kind": "component",
+      "status": "draft",
+      "scope": {
+        "product_scope": "portal",
+        "applies_to": "component"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-PORTAL-0001",
+          "relation": "relates_to"
+        },
+        {
+          "requirement_id": "REQ-PORTAL-NFR-003",
+          "relation": "refines"
+        }
+      ],
+      "surface": {
+        "route": "/",
+        "name": "showcase",
+        "roles": [
+          "visitante",
+          "operador"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "Pagina carregada; a secao #showcase e renderizada estaticamente no HTML (3 figuras presentes no markup, sem depender de fetch).",
+            "ui": "Secao .block#showcase com sec-head (eyebrow \"// em producao\", h2 \"Sistemas reais, operando hoje\", intro \"Telas dos produtos que entregamos e mantemos no ar.\" seguida de <em> \"(Imagens ilustrativas — capturas reais em breve.)\"). Grid .grid.g3.showcase com 3 <figure class=\"shot\"> (SICAT, GymOps, RM Ambiental); cada figura tem <a> envolvendo <img> e um <figcaption> com <strong> do produto."
+          },
+          {
+            "name": "loading",
+            "when": "Imagem ainda nao baixada — <img loading=\"lazy\"> so dispara o request quando a figura entra (ou se aproxima) do viewport; decoding=\"async\" nao bloqueia a renderizacao.",
+            "ui": "A caixa da imagem ja ocupa o espaco final via aspect-ratio:16/10 + width/height 1600x1000 (sem layout shift / CLS); o fundo .shot img mostra var(--bg-soft) enquanto a imagem nao pinta. O atual src e /assets/shots/placeholder.svg (placeholder ilustrativo ate as capturas reais)."
+          },
+          {
+            "name": "oculto",
+            "when": "JS ativo e a figura ainda nao entrou no viewport (.reveal sem .in) — a classe `js` em <html> aplica opacity:0 + translateY(20px).",
+            "ui": "As .shot.reveal comecam invisiveis (translateY 20px) e revelam (.in -> opacity:1, transform:none) ao entrar no scroll. Failsafe: se portal.js nao iniciar, o <script> do <head> adiciona `no-anim` apos 2,5s e tudo fica visivel; sem JS a classe `js` nunca e adicionada e o conteudo ja nasce visivel."
+          },
+          {
+            "name": "reduced-motion",
+            "when": "Usuario com prefers-reduced-motion=reduce.",
+            "ui": ".js .reveal forcado a opacity:1/transform:none (sem animacao de entrada) e .shot perde a transicao de transform; o conteudo aparece imediatamente, sem hover-lift animado."
+          },
+          {
+            "name": "error",
+            "when": "O arquivo da imagem (src) falha ao carregar (404/erro de rede).",
+            "ui": "Sem onerror dedicado; a figura preserva o espaco reservado pelo aspect-ratio mostrando o fundo var(--bg-soft), e o <figcaption> e o link continuam funcionais (degradacao graciosa, sem quebrar layout)."
+          }
+        ],
+        "data": [
+          {
+            "field": "figure.href",
+            "source": "index.html (atributo href do <a> de cada figura)",
+            "format": "rota interna do produto (/sicat, /gymops, /rmambiental)",
+            "editable": false
+          },
+          {
+            "field": "figure.img.src",
+            "source": "index.html (/assets/shots/placeholder.svg — placeholder; futuro assets/shots/<app>.png)",
+            "format": "caminho de imagem",
+            "editable": false
+          },
+          {
+            "field": "figure.img.alt",
+            "source": "index.html (texto alternativo descritivo por produto)",
+            "format": "texto a11y",
+            "editable": false
+          },
+          {
+            "field": "figure.img.dimensions",
+            "source": "index.html (width=1600 height=1000)",
+            "format": "intrinsic size para reservar aspect-ratio",
+            "editable": false
+          },
+          {
+            "field": "figcaption",
+            "source": "index.html (<strong>Produto</strong> + descricao curta)",
+            "format": "texto",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "Hover/foco sobre uma figura .shot",
+            "action": "CSS aplica transform translateY(-4px) + troca de border-color e box-shadow (var(--shadow-hover))",
+            "result": "Efeito de elevacao do card (microinteracao); desativado sob prefers-reduced-motion."
+          },
+          {
+            "trigger": "Clique no link da figura (<a href=\"/sicat\" | \"/gymops\" | \"/rmambiental\">)",
+            "action": "Navegacao para a rota interna do produto correspondente",
+            "result": "Usuario chega na aplicacao/portal (SICAT, GymOps ou RM Ambiental); aria-label do <a> anuncia o destino."
+          },
+          {
+            "trigger": "Foco por teclado no <a> da figura",
+            "action": ".shot a:focus-visible aplica outline 2px var(--accent) com outline-offset -2px",
+            "result": "Indicador de foco visivel e consistente (a11y) sem extrapolar o overflow:hidden do card."
+          },
+          {
+            "trigger": "Figura entra no viewport (scroll)",
+            "action": "portal.js adiciona .in a .reveal e o lazy-load (loading=\"lazy\") inicia o download da imagem",
+            "result": "A figura revela (fade+slide) e a imagem aparece com decode assincrono (decoding=\"async\")."
+          }
+        ],
+        "flows": [
+          [
+            "Usuario rola a pagina ate a secao \"Sistemas reais, operando hoje\"",
+            "As figuras .shot.reveal revelam com fade/slide ao entrar no viewport",
+            "O navegador inicia o lazy-load das imagens (loading=lazy) sem ter baixado antes",
+            "O espaco ja estava reservado por aspect-ratio 16/10 + width/height (sem CLS)",
+            "Usuario clica numa figura (ex.: SICAT)",
+            "Navega para a rota interna do produto (/sicat)"
+          ]
+        ]
+      },
+      "acceptance_criteria": [
+        "A secao #showcase contem exatamente 3 figuras .shot (SICAT, GymOps, RM Ambiental), cada uma com um <a> e um <img>.",
+        "Toda <img> da showcase declara loading=\"lazy\" e decoding=\"async\".",
+        "Toda <img> da showcase declara width=1600 e height=1000 e o CSS aplica aspect-ratio:16/10, de modo que o espaco e reservado antes do download (CLS = 0).",
+        "Cada figura linka para a rota interna correta (/sicat, /gymops, /rmambiental) e o <a> tem aria-label descritivo.",
+        "Cada <img> tem atributo alt descritivo nao vazio.",
+        "No hover de .shot ha transform translateY(-4px); sob prefers-reduced-motion=reduce a transicao de transform e suprimida.",
+        "As .shot.reveal sao visiveis sem JS (degradacao graciosa) e revelam ao entrar no viewport quando o JS esta ativo.",
+        "O fundo do placeholder (var(--bg-soft)) preenche a area enquanto a imagem nao carrega ou se ela falhar, sem quebrar o layout."
+      ],
+      "verification_method": [
+        "manual-review",
+        "test-e2e",
+        "architecture-review"
+      ],
+      "source": {
+        "source_paths": [
+          "portal/frontend/index.html",
+          "portal/frontend/assets/styles.css"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "novo refinamento — showcase"
+      },
+      "file": "refinements/portal/REF-PORTAL-0007.yaml"
+    },
+    {
+      "id": "REF-PORTAL-0008",
+      "title": "Plataforma (ferramentas do operador, auth-gated)",
+      "kind": "component",
+      "status": "draft",
+      "owner": "platform",
+      "scope": {
+        "product_scope": "portal",
+        "applies_to": "component",
+        "domain": "portal-operator-tools"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-PORTAL-0002",
+          "relation": "refines"
+        },
+        {
+          "requirement_id": "REQ-PORTAL-0005",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "name": "Plataforma — ferramentas do operador",
+        "roles": [
+          "operador",
+          "platform-admins"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "oculto",
+            "when": "Estado inicial e estado para visitante anônimo. A seção #plataforma, o link #nav-plataforma e a coluna #foot-plataforma do rodapé nascem com atributo `hidden` no HTML. Permanece oculto enquanto a descoberta de cluster não confirma sessão de operador, ou quando a API responde 401/403 (isAuthError) — caso em que setOperatorUI(false) reesconde tudo.",
+            "ui": "Site público corporativo (produtos + portais). Os 5 cards de ferramenta interna (DevOps Console, Grafana, Argo CD, Keycloak, Portal Recorder) não aparecem em lugar nenhum; seus cards ficam fora da busca (applySearch pula cards dentro de #plataforma/#cluster-section quando a seção está hidden)."
+          },
+          {
+            "name": "revelado",
+            "when": "loadClusterApps recebe 200 de GET /devops/api/ingressroutes (operador autenticado pela sessão do Console) e chama setOperatorUI(true).",
+            "ui": "A seção #plataforma deixa de ser hidden e markRevealed('#plataforma') força os .reveal internos a `in`. Renderiza os 5 cards de ferramenta com ícone, título, descrição, selo \"login\" (badge is-login) e link \"Abrir <ferramenta>\". O link Plataforma da nav (#nav-plataforma) e a coluna Plataforma do rodapé (#foot-plataforma) também são revelados."
+          },
+          {
+            "name": "oculto-por-erro-de-auth",
+            "when": "A consulta falha com status 401 ou 403 (isAuthError === true) — visitante anônimo. Mesmo após eventual tentativa de carga, setOperatorUI(false) é chamado e a seção #cluster-section é reescondida.",
+            "ui": "Idêntico ao estado oculto: nenhum atalho interno visível; applySearch recalcula a contagem sem as ferramentas. Erros de auth NÃO mostram a UI de erro transitória (essa é reservada a rede/timeout/5xx da descoberta)."
+          }
+        ],
+        "data": [
+          {
+            "field": "cards_de_ferramenta",
+            "source": "portal/frontend/assets/catalog.js (TOOLS)",
+            "format": "5 entradas estáticas type=platform_tool, scope=internal, requiresLogin=true: DevOps Console (/devops), Grafana (/grafana), Argo CD (/argocd), Keycloak (/auth), Portal Recorder (/portal-rec). Espelhadas em HTML estático (article.card.tool) para SEO/no-JS.",
+            "editable": false
+          },
+          {
+            "field": "visibilidade_operador",
+            "source": "api:/devops/api/ingressroutes",
+            "format": "Derivada do status HTTP da descoberta: 200 -> setOperatorUI(true) (revelado); 401/403 -> setOperatorUI(false) (oculto). Estado inicial do DOM = hidden.",
+            "editable": false
+          },
+          {
+            "field": "selo_login",
+            "source": "portal/frontend/index.html (span.badge.is-login)",
+            "format": "Selo textual \"login\" em cada card; title=\"Requer autenticação\" (Portal Recorder: OIDC).",
+            "editable": false
+          },
+          {
+            "field": "link_destino",
+            "source": "portal/frontend/assets/catalog.js (TOOLS[].path)",
+            "format": "Subpath no mesmo domínio: /devops, /grafana, /argocd, /auth, /portal-rec.",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "Carga inicial da página (init -> loadClusterApps) e refresh silencioso a cada 60s",
+            "action": "GET /devops/api/ingressroutes com timeout de 8s (AbortController)",
+            "result": "200 chama setOperatorUI(true) e revela a seção Plataforma + nav + rodapé; 401/403 chama setOperatorUI(false) e mantém tudo oculto."
+          },
+          {
+            "trigger": "Clique em \"Abrir <ferramenta>\" num card revelado",
+            "action": "Navegação para o subpath da ferramenta (TOOLS[].path)",
+            "result": "Abre a ferramenta interna (DevOps Console/Grafana/Argo/Keycloak/Portal Recorder), cada uma exige sua própria autenticação (SSO/OIDC)."
+          },
+          {
+            "trigger": "Busca no campo #app-search com a seção Plataforma revelada",
+            "action": "applySearch filtra cards por data-search (matchesQuery)",
+            "result": "Cards de ferramenta entram na contagem e no filtro; com a seção oculta (anônimo) eles são ignorados pela busca."
+          }
+        ],
+        "flows": [
+          [
+            "Operador abre o portal (sessão válida no Console)",
+            "portal.js init() dispara loadClusterApps()",
+            "GET /devops/api/ingressroutes responde 200",
+            "setOperatorUI(true) revela #plataforma, #nav-plataforma e #foot-plataforma",
+            "markRevealed('#plataforma') anima os 5 cards de ferramenta",
+            "Operador clica em \"Abrir DevOps Console\" e navega para /devops"
+          ],
+          [
+            "Visitante anônimo abre o portal",
+            "portal.js init() dispara loadClusterApps()",
+            "GET /devops/api/ingressroutes responde 401/403 (isAuthError)",
+            "setOperatorUI(false) mantém #plataforma, nav e rodapé ocultos",
+            "applySearch recalcula contagem sem as ferramentas internas",
+            "Site exibe apenas produtos e portais públicos"
+          ]
+        ]
+      },
+      "acceptance_criteria": [
+        "A seção #plataforma, o link #nav-plataforma e a coluna #foot-plataforma nascem com atributo hidden no HTML estático (estado oculto por padrão).",
+        "São exatamente 5 cards de ferramenta, todos com selo \"login\" (exige autenticação): DevOps Console (/devops), Grafana (/grafana), Argo CD (/argocd), Keycloak (/auth) e Portal Recorder (/portal-rec).",
+        "Um 200 de GET /devops/api/ingressroutes chama setOperatorUI(true) e revela a seção Plataforma, o link da nav e a coluna do rodapé.",
+        "Um 401 ou 403 (isAuthError) chama setOperatorUI(false) e mantém a UI de operador oculta; visitante anônimo não vê os atalhos internos.",
+        "Com a seção oculta, os cards de ferramenta não entram na busca nem na contagem (applySearch ignora cards dentro de #plataforma quando hidden).",
+        "Os destinos dos cards (catalog.js TOOLS[].path) batem com os hrefs do HTML estático: /devops, /grafana, /argocd, /auth, /portal-rec."
+      ],
+      "verification_method": [
+        "test-unit",
+        "test-e2e",
+        "manual-review"
+      ],
+      "source": {
+        "source_paths": [
+          "portal/frontend/index.html",
+          "portal/frontend/assets/catalog.js",
+          "portal/frontend/assets/portal.js"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "novo refinamento — Plataforma (ferramentas do operador, auth-gated)"
+      },
+      "file": "refinements/portal/REF-PORTAL-0008.yaml"
+    },
+    {
+      "id": "REF-PORTAL-0009",
+      "slug": "ref-portal-0009",
+      "title": "Chamada final (CTA) e rodapé",
+      "kind": "component",
+      "status": "draft",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "portal",
+        "applies_to": "component"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-PORTAL-0013",
+          "relation": "refines",
+          "note": "detalha a chamada final (CTA com mailto + scroll p/ produtos) e o rodapé (colunas, ano dinâmico, copyright)"
+        }
+      ],
+      "surface": {
+        "name": "CTA final + rodapé (NovaIT)",
+        "route": "/",
+        "roles": [
+          "anonimo",
+          "operador"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "página carregada (qualquer visitante); a seção CTA e as colunas públicas do rodapé estão sempre presentes",
+            "ui": "Seção CTA \"Vamos construir o próximo sistema?\" com texto de apoio e dois botões\n(\"Falar com a NovaIT\" -> mailto:contato@nvit.com.br; \"Ver produtos\" -> #produtos).\nRodapé com coluna \"sobre\" (marca novaIT + tagline), coluna \"Produtos\"\n(SICAT, RM Ambiental, GymOps, Ana Rabottini) e barra inferior com copyright (ano em #yr)\n+ \"dev.nvit.com.br · kubernetes · gitops\".\n"
+          },
+          {
+            "name": "reveal-pendente",
+            "when": "antes do IntersectionObserver disparar (.cta tem classe reveal, ainda sem .in)",
+            "ui": "bloco da CTA inicia oculto/transladado; ao entrar no viewport ganha .in e anima a entrada (ou é revelado pelo failsafe no-anim após 2,5s / sem IntersectionObserver)"
+          },
+          {
+            "name": "ano-dinamico",
+            "when": "módulo portal.js inicializa (init())",
+            "ui": "o conteúdo de #yr (fallback estático \"2026\" no HTML) é sobrescrito por new Date().getFullYear()"
+          },
+          {
+            "name": "oculto",
+            "when": "visitante anônimo — a API do Console (/devops/api/ingressroutes) responde 401/403, setOperatorUI(false)",
+            "ui": "a coluna \"Plataforma\" do rodapé (#foot-plataforma) permanece com hidden=true; rodapé mostra só \"sobre\" + \"Produtos\""
+          },
+          {
+            "name": "operador",
+            "when": "operador autenticado — a API do Console responde 200, setOperatorUI(true)",
+            "ui": "a coluna \"Plataforma\" do rodapé é revelada (hidden=false), listando DevOps Console, Grafana, Argo CD, Keycloak (SSO) e Portal Recorder"
+          }
+        ],
+        "data": [
+          {
+            "field": "cta.title",
+            "source": "index.html (#cta-title \"Vamos construir o próximo sistema?\")",
+            "editable": false
+          },
+          {
+            "field": "cta.mailto",
+            "source": "index.html (a.btn href=\"mailto:contato@nvit.com.br\")",
+            "format": "mailto contato@nvit.com.br",
+            "editable": false
+          },
+          {
+            "field": "footer.year",
+            "source": "portal.js init() -> new Date().getFullYear() (span#yr; fallback estático \"2026\" no HTML)",
+            "format": "ano de 4 dígitos",
+            "editable": false
+          },
+          {
+            "field": "footer.platform_column",
+            "source": "portal.js setOperatorUI() -> nav#foot-plataforma.hidden (gated pela auth da API do Console)",
+            "format": "visível só para operador autenticado",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clicar em \"Falar com a NovaIT\" na CTA",
+            "action": "segue o href mailto:contato@nvit.com.br",
+            "result": "o cliente de e-mail abre uma nova mensagem para contato@nvit.com.br"
+          },
+          {
+            "trigger": "clicar em \"Ver produtos\" na CTA (a.btn.ghost href=\"#produtos\")",
+            "action": "âncora interna para #produtos",
+            "result": "a página rola até a seção de produtos"
+          },
+          {
+            "trigger": "portal.js init() (DOMContentLoaded ou já interativo)",
+            "action": "lê #yr e escreve String(new Date().getFullYear())",
+            "result": "o ano do copyright fica sempre atual sem rebuild"
+          },
+          {
+            "trigger": "loadClusterApps() resolve a chamada à API do Console",
+            "action": "setOperatorUI(true) em 200 / setOperatorUI(false) em 401/403",
+            "result": "a coluna \"Plataforma\" do rodapé (#foot-plataforma) é revelada para operador e mantida oculta para anônimo"
+          },
+          {
+            "trigger": "clicar nos links da coluna \"Produtos\" do rodapé",
+            "action": "navega para /sicat, /rmambiental, /gymops ou /anarabottini",
+            "result": "abre o produto/portal correspondente"
+          }
+        ],
+        "flows": [
+          [
+            "rolar até o fim da página",
+            "ver a CTA entrar (reveal)",
+            "clicar em \"Falar com a NovaIT\"",
+            "abrir e-mail para contato@nvit.com.br"
+          ],
+          [
+            "visitante anônimo abre \"/\"",
+            "vê CTA + rodapé com colunas \"sobre\" e \"Produtos\"",
+            "coluna \"Plataforma\" permanece oculta"
+          ],
+          [
+            "operador autenticado abre \"/\"",
+            "a API do Console responde 200",
+            "a coluna \"Plataforma\" do rodapé é revelada com os atalhos internos"
+          ]
+        ]
+      },
+      "acceptance_criteria": [
+        "A seção CTA exibe o título \"Vamos construir o próximo sistema?\" e um botão \"Falar com a NovaIT\" cujo href é exatamente mailto:contato@nvit.com.br.",
+        "O segundo botão da CTA (\"Ver produtos\") é uma âncora href=\"#produtos\" que rola a página até a seção de produtos.",
+        "O rodapé sempre apresenta a coluna \"sobre\" (marca novaIT + tagline) e a coluna \"Produtos\" com os links de SICAT, RM Ambiental, GymOps e Ana Rabottini.",
+        "O ano do copyright (#yr) é definido em runtime por new Date().getFullYear() no init() do portal.js, mantendo o fallback estático do HTML quando o JS não roda.",
+        "Para visitante anônimo (API do Console responde 401/403), a coluna \"Plataforma\" do rodapé (#foot-plataforma) permanece com hidden=true.",
+        "Para operador autenticado (API do Console responde 200), a coluna \"Plataforma\" do rodapé é revelada, listando DevOps Console, Grafana, Argo CD, Keycloak (SSO) e Portal Recorder."
+      ],
+      "verification_method": [
+        "test-e2e",
+        "manual-review"
+      ],
+      "source": {
+        "stakeholder": "portal",
+        "origin": "leitura do código real (index.html seção CTA + footer; portal.js init()/setOperatorUI())",
+        "source_paths": [
+          "portal/frontend/index.html",
+          "portal/frontend/assets/portal.js"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "novo refinamento — chamada final (CTA) e rodapé"
+      },
+      "file": "refinements/portal/REF-PORTAL-0009.yaml"
+    },
+    {
+      "id": "REF-PORTAL-0010",
+      "title": "Página 404 (erro amigável)",
+      "kind": "screen",
+      "status": "draft",
+      "scope": {
+        "product_scope": "portal",
+        "applies_to": "screen"
+      },
+      "surface": {
+        "route": "/404",
+        "name": "error-page",
+        "roles": []
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-PORTAL-0015",
+          "relation": "relates_to"
+        },
+        {
+          "requirement_id": "REQ-PORTAL-NFR-001",
+          "relation": "refines"
+        }
+      ],
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "nginx responde 404 para qualquer path que não seja arquivo real (error_page 404 -> /404.html, location interno) e serve a página de erro amigável",
+            "ui": "Página centralizada (main.error-page > div.error-card) sobre o fundo decorativo (div.bg-grid + div.bg-wash, ambos aria-hidden). Conteúdo, na ordem: marca clicável (a.brand href=/ com logo SVG de gradiente azul->roxo e wordmark \"novaIT\"); código de erro grande \"404\" em texto com gradiente (p.error-code.grad-txt); título h1 \"Página não encontrada\"; parágrafo descritivo explicando que o endereço não existe ou foi movido; bloco de CTAs (div.hero-cta) com dois botões."
+          },
+          {
+            "name": "cta-voltar",
+            "when": "usuário decide retornar ao portal a partir da página de erro",
+            "ui": "Botão primário \"Voltar ao início\" (a.btn href=/) leva à raiz do portal. A marca no topo (a.brand href=/) é um caminho de retorno redundante para a home."
+          },
+          {
+            "name": "cta-console",
+            "when": "usuário quer ir direto para o painel operacional a partir do erro",
+            "ui": "Botão secundário \"Abrir DevOps Console\" (a.btn.ghost href=/devops) leva ao Console."
+          },
+          {
+            "name": "oculto",
+            "when": "requisição é para um arquivo estático real existente (ex.: /index.html, /assets/*, /favicon.svg) ou para /healthz",
+            "ui": "A página 404 não é exibida; o nginx serve o recurso solicitado normalmente. /healthz retorna 200 'ok'. A location = /404.html é \"internal\" — não pode ser acessada diretamente por URL, apenas via error_page."
+          }
+        ],
+        "data": [
+          {
+            "field": "error_code",
+            "source": "404.html (p.error-code \"404\")",
+            "format": "número estático renderizado com gradiente de texto",
+            "editable": false
+          },
+          {
+            "field": "title",
+            "source": "404.html (h1 \"Página não encontrada\")",
+            "format": "texto estático",
+            "editable": false
+          },
+          {
+            "field": "description",
+            "source": "404.html (parágrafo \"O endereço que você acessou não existe ou foi movido...\")",
+            "format": "texto estático",
+            "editable": false
+          },
+          {
+            "field": "meta_robots",
+            "source": "404.html (meta name=robots)",
+            "format": "noindex, follow",
+            "editable": false
+          },
+          {
+            "field": "page_title",
+            "source": "404.html (title \"Página não encontrada — NovaIT\")",
+            "format": "texto estático",
+            "editable": false
+          },
+          {
+            "field": "meta_description",
+            "source": "404.html (meta name=description)",
+            "format": "A página que você procurou não existe no portal NovaIT.",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "requisição HTTP a um path inexistente",
+            "action": "nginx aplica error_page 404 -> /404.html servindo o conteúdo interno com headers de segurança (always)",
+            "result": "navegador exibe a página 404 amigável com status 404"
+          },
+          {
+            "trigger": "clique em \"Voltar ao início\" (a.btn href=/) ou na marca (a.brand href=/)",
+            "action": "navegação para a raiz \"/\"",
+            "result": "portal inicial (home) é carregado"
+          },
+          {
+            "trigger": "clique em \"Abrir DevOps Console\" (a.btn.ghost href=/devops)",
+            "action": "navegação para /devops",
+            "result": "DevOps Console é aberto"
+          },
+          {
+            "trigger": "rastreador de busca acessa a página",
+            "action": "meta robots noindex,follow instrui a não indexar a URL mas seguir os links",
+            "result": "a página 404 não é indexada; os links (home, console) podem ser rastreados"
+          }
+        ],
+        "flows": [
+          [
+            "usuário acessa um endereço inexistente do portal",
+            "nginx não encontra arquivo real e dispara error_page 404 -> /404.html (location interno)",
+            "navegador recebe status 404 e renderiza a página amigável (código 404, título, descrição, CTAs)",
+            "usuário clica em \"Voltar ao início\" e retorna à home do portal"
+          ],
+          [
+            "usuário cai na página 404",
+            "usuário clica em \"Abrir DevOps Console\"",
+            "navegação para /devops carrega o Console"
+          ]
+        ]
+      },
+      "acceptance_criteria": [
+        "Requisição a um path inexistente do portal responde com HTTP 404 e renderiza /404.html (error_page 404 -> /404.html configurado no nginx).",
+        "A página exibe o código \"404\" em destaque, o título \"Página não encontrada\" (h1) e um parágrafo descritivo.",
+        "Há exatamente dois CTAs: \"Voltar ao início\" (href=/) e \"Abrir DevOps Console\" (href=/devops); a marca no topo também aponta para /.",
+        "O <head> contém meta name=robots com conteúdo \"noindex, follow\".",
+        "A location = /404.html é marcada como internal e não pode ser servida por acesso direto à URL /404.html.",
+        "Os headers de segurança (CSP, X-Content-Type-Options nosniff, Referrer-Policy, Permissions-Policy) são aplicados também na resposta 404 (add_header ... always).",
+        "/healthz e arquivos estáticos reais (index.html, /assets/*) NÃO acionam a página 404."
+      ],
+      "verification_method": [
+        "test-e2e",
+        "manual-review",
+        "architecture-review"
+      ],
+      "source": {
+        "source_paths": [
+          "portal/frontend/404.html",
+          "portal/frontend/nginx.conf"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "novo refinamento — /404"
+      },
+      "file": "refinements/portal/REF-PORTAL-0010.yaml"
+    },
+    {
+      "id": "REF-PORTAL-0011",
+      "title": "Tema e movimento (dark mode + reduced motion)",
+      "kind": "interaction",
+      "status": "draft",
+      "scope": {
+        "product_scope": "portal",
+        "applies_to": "capability"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-PORTAL-0011",
+          "relation": "refines"
+        },
+        {
+          "requirement_id": "REQ-PORTAL-0012",
+          "relation": "refines"
+        },
+        {
+          "requirement_id": "REQ-PORTAL-NFR-004",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "name": "Tema e movimento do portal NovaIT"
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "tema-claro",
+            "when": "Sistema operacional/navegador sem preferencia de cor escura (prefers-color-scheme nao avalia dark). Tema padrao definido em :root.",
+            "ui": "Tokens claros aplicados via :root: --bg #ffffff, --bg-soft #f7f9fc, --surface #ffffff, --ink #0b1220, --body #3c4658, --muted #6b7488, --line #ebeef4, --accent #2563eb. Header translucido com backdrop-filter blur (--header-bg rgba branca 0.72). Todas as superficies tokenizadas (sem cores cruas), de modo que nada \"vaza\" branco fixo."
+          },
+          {
+            "name": "tema-escuro",
+            "when": "Navegador avalia @media (prefers-color-scheme: dark) como verdadeiro (preferencia do SO por tema escuro). Aplicado automaticamente, sem toggle de UI e sem flash — apenas re-resolucao dos custom properties em :root.",
+            "ui": "Mesmo :root sobrescrito dentro de @media (prefers-color-scheme: dark): --bg #0b1220, --bg-soft #0e1626, --surface #111a2e, --ink #f1f5f9, --body #cbd5e1, --muted #9aa6bd, --line #1e293b, --accent #5b8bff, --header-bg rgba escura 0.72, sombras/grid-dot/focus ajustados ao escuro. Layout e componentes inalterados; so as variaveis de cor mudam. Contraste mantido em AA (ex.: --btn-bg fixo #2563eb com texto branco = 5.8:1 nos dois temas; --muted2 escurecido para >=4.5:1 em textos pequenos)."
+          },
+          {
+            "name": "movimento-pleno",
+            "when": "Sistema sem preferencia de movimento reduzido (prefers-reduced-motion nao avalia reduce). Estado padrao de animacao.",
+            "ui": "html com scroll-behavior: smooth. Reveal-on-scroll ativo (.js .reveal com opacity 0 + translateY 20px transicionando para visivel). Pulso do indicador \"live\" da pill (@keyframes pulse, 2.2s infinite). Shimmer do skeleton de carregamento (@keyframes shimmer, 1.4s infinite). Transicoes de hover em botoes, cards, back-to-top e setas de link ativas."
+          },
+          {
+            "name": "movimento-reduzido",
+            "when": "@media (prefers-reduced-motion: reduce) verdadeiro (usuario configurou reducao de movimento no SO). Resposta automatica, sem gatilho de UI.",
+            "ui": "scroll-behavior forcado para auto em todos os elementos (rolagem sem animacao suave). Reveal-on-scroll neutralizado (.js .reveal com opacity 1 / transform none / sem transition) — conteudo aparece imediatamente. Pulso da pill .live desligado (animation: none). Shimmer do skeleton desligado (animation: none). Transicoes de to-top, btn, card e lnk svg removidas. Nenhum conteudo fica preso em opacity:0."
+          },
+          {
+            "name": "oculto",
+            "when": "Elementos com atributo [hidden] (ex.: estados de loading/erro/vazio nao ativos). Independente de tema/movimento.",
+            "ui": "[hidden] aplica display: none !important, vencendo o display:flex de .prod/.tool/.state — o elemento nao ocupa espaco em nenhum tema."
+          }
+        ],
+        "data": [
+          {
+            "field": "prefers-color-scheme",
+            "source": "media-query do SO/navegador (preferencia de tema do usuario)",
+            "format": "light | dark",
+            "editable": false
+          },
+          {
+            "field": "prefers-reduced-motion",
+            "source": "media-query do SO/navegador (preferencia de movimento do usuario)",
+            "format": "no-preference | reduce",
+            "editable": false
+          },
+          {
+            "field": "design-tokens",
+            "source": "custom properties CSS em :root (tema claro e bloco @media dark)",
+            "format": "tokens de cor/sombra/foco (--bg, --ink, --accent, --focus, ...)",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "Usuario alterna o tema do SO para escuro (prefers-color-scheme: dark passa a avaliar verdadeiro)",
+            "action": "Navegador reaplica o bloco @media (prefers-color-scheme: dark) que sobrescreve as variaveis de cor em :root",
+            "result": "Toda a interface adota a paleta escura automaticamente, sem recarregar, sem toggle de UI e sem flash de tema; contraste permanece em AA"
+          },
+          {
+            "trigger": "Usuario habilita \"reduzir movimento\" no SO (prefers-reduced-motion: reduce passa a avaliar verdadeiro)",
+            "action": "Navegador aplica o bloco @media (prefers-reduced-motion: reduce) que desativa reveal, pulse, shimmer, smooth-scroll e transicoes",
+            "result": "Animacoes e transicoes nao essenciais cessam; o conteudo permanece totalmente visivel e a rolagem deixa de ser suave"
+          }
+        ],
+        "flows": [
+          [
+            "SO/navegador expoe prefers-color-scheme e prefers-reduced-motion",
+            "CSS resolve :root com tokens claros por padrao",
+            "Se prefers-color-scheme=dark, @media dark sobrescreve os tokens de cor",
+            "Se prefers-reduced-motion=reduce, @media reduce desliga animacoes/transicoes/smooth-scroll",
+            "Interface renderiza no tema e nivel de movimento correspondentes a preferencia, sem acao do usuario na pagina"
+          ]
+        ]
+      },
+      "acceptance_criteria": [
+        "Com prefers-color-scheme: dark ativo, --bg resolve para #0b1220 e --ink para #f1f5f9 (paleta escura aplicada via @media, sem necessidade de recarregar ou de qualquer toggle).",
+        "Com prefers-color-scheme: light (ou ausente), --bg resolve para #ffffff e --ink para #0b1220 (tema claro padrao de :root).",
+        "Nao existe nenhum controle de UI de troca de tema; o tema e determinado exclusivamente por prefers-color-scheme.",
+        "O botao usa --btn-bg #2563eb com texto branco nos dois temas (contraste >=4.5:1, AA), sem herdar o --accent claro do dark.",
+        "Com prefers-reduced-motion: reduce, .js .reveal fica com opacity 1 e transform none (sem transition) — o conteudo aparece imediatamente.",
+        "Com prefers-reduced-motion: reduce, a animacao pulse (.pill .live) e a animacao shimmer (.skeleton) tem animation: none.",
+        "Com prefers-reduced-motion: reduce, scroll-behavior e forcado para auto em todos os elementos e as transicoes de .to-top/.btn/.card/.lnk svg sao removidas.",
+        "Em movimento pleno, html mantem scroll-behavior: smooth e as animacoes pulse/shimmer e o reveal-on-scroll permanecem ativos."
+      ],
+      "verification_method": [
+        "manual-review",
+        "test-e2e",
+        "architecture-review"
+      ],
+      "source": {
+        "source_paths": [
+          "portal/frontend/assets/styles.css"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "novo refinamento — Tema e movimento do portal NovaIT"
+      },
+      "file": "refinements/portal/REF-PORTAL-0011.yaml"
+    },
+    {
+      "id": "REF-PORTAL-0012",
+      "title": "Acessibilidade e navegação por teclado",
+      "kind": "interaction",
+      "status": "draft",
+      "scope": {
+        "product_scope": "portal",
+        "applies_to": "capability"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-PORTAL-NFR-002",
+          "relation": "refines"
+        },
+        {
+          "requirement_id": "REQ-PORTAL-0008",
+          "relation": "relates_to"
+        },
+        {
+          "requirement_id": "REQ-PORTAL-0009",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "name": "Portal NovaIT — camada de acessibilidade e teclado",
+        "roles": [
+          "visitante",
+          "operador"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "Página carregada com teclado/mouse; usuário navega pela ordem natural do DOM (header > nav > main > footer).",
+            "ui": "HTML semântico (header#hdr, nav, main#main, footer, section[aria-labelledby]). Skip-link \"Pular para o conteúdo\" é o primeiro elemento focável (href=\"#main\"), mas fica fora da tela (transform: translateY(-200%)). Ícones SVG decorativos marcados aria-hidden=\"true\"; fundos .bg-grid/.bg-wash também aria-hidden. Botão \"voltar ao topo\" (#to-top) presente porém invisível (opacity:0; visibility:hidden) até o scroll passar de 600px."
+          },
+          {
+            "name": "skip-link-focado",
+            "when": "Usuário pressiona Tab logo após carregar a página (primeiro stop de tabulação).",
+            "ui": ".skip-link recebe foco e desliza para dentro da viewport via .skip-link:focus (transform: translateY(0), transição 0.18s), no topo-esquerda (z-index 100), fundo --accent e texto branco. Enter leva o foco direto para #main (conteúdo principal), pulando o header."
+          },
+          {
+            "name": "foco-visivel",
+            "when": "Qualquer elemento interativo (a, button, input, [tabindex]) recebe foco por teclado.",
+            "ui": "Anel de foco consistente via :focus-visible — outline 2px solid var(--accent), outline-offset 2px, border-radius 6px. O input de busca usa box-shadow var(--focus) ao focar; .card aplica outline 2px no :focus-within (card destacado quando um filho recebe foco)."
+          },
+          {
+            "name": "menu-mobile-aberto",
+            "when": "Em viewport estreita (<=780px) o usuário aciona o botão hamburguer (#nav-toggle).",
+            "ui": "nav-toggle alterna aria-expanded para \"true\" e os links (.nav-links) ganham a classe .open (display:flex em coluna). O ícone troca de hambúrguer para \"X\" via CSS guiado pelo aria-expanded (.icon-open oculto, .icon-close visível). O alvo do botão é 44x44px (WCAG 2.5.5)."
+          },
+          {
+            "name": "menu-fechado-por-esc",
+            "when": "Com o menu mobile aberto, o usuário pressiona Escape (ou clica em qualquer link do menu).",
+            "ui": "O menu fecha (remove .open, aria-expanded volta a \"false\") e, no caso do Escape, o foco retorna ao botão hamburguer (toggle.focus()) — devolução explícita de foco para orientação por teclado. Clicar num link também fecha o menu."
+          },
+          {
+            "name": "busca-contagem-anunciada",
+            "when": "Usuário digita no campo de busca (#app-search) ou os cards são (re)filtrados.",
+            "ui": "O contador #search-count (aria-live=\"polite\") é atualizado: \"<n> resultados\" quando há termo, ou \"<n> aplicações\" quando o campo está vazio — anunciado por leitores de tela sem roubar foco. Cards ocultos pelo filtro recebem [hidden] (display:none !important)."
+          },
+          {
+            "name": "estado-vivo-anunciado",
+            "when": "A descoberta dinâmica do cluster carrega/erra (operador autenticado) — região #cluster-state.",
+            "ui": "#cluster-state tem aria-live=\"polite\" e alterna aria-busy=\"true\" durante o loading (skeleton com aria-hidden), removendo-o ao concluir. O estado de erro usa role=\"alert\" e o vazio é texto anunciável; ícones internos desses estados são aria-hidden."
+          },
+          {
+            "name": "failsafe-sem-anim",
+            "when": "O módulo portal.js não inicializa (falha, bloqueio do CSP, erro de import) e init() nunca roda.",
+            "ui": "O <script> síncrono do <head> agenda um timer de 2,5s (window.__pf) que adiciona a classe .no-anim em <html>, revelando todo o conteúdo (.reveal -> opacity:1, transform:none, transition:none !important). init() chama clearTimeout(window.__pf) para cancelar o failsafe quando o JS está vivo. Sem JS algum, a classe .js nunca é adicionada e o conteúdo já é visível por padrão (sem opacity:0 órfão)."
+          },
+          {
+            "name": "movimento-reduzido",
+            "when": "O usuário declara prefers-reduced-motion ou prefers-color-scheme via SO.",
+            "ui": "Com prefers-reduced-motion as animações de reveal, pulse, shimmer e transições de botões/cards são desligadas e scroll-behavior vira auto; o clique no \"voltar ao topo\" também respeita a preferência (scrollTo behavior 'auto' vs 'smooth'). prefers-color-scheme: dark recalcula os tokens de cor mantendo contraste."
+          }
+        ],
+        "data": [
+          {
+            "field": "nav-toggle.aria-expanded",
+            "source": "estado da classe .open em #nav-links (setupMobileMenu)",
+            "format": "false | true",
+            "editable": false
+          },
+          {
+            "field": "search-count.textContent",
+            "source": "applySearch() — contagem de cards visíveis/disponíveis após o filtro",
+            "format": "<n> resultados | <n> aplicações",
+            "editable": false
+          },
+          {
+            "field": "cluster-state.aria-busy",
+            "source": "loadClusterApps() — presente durante o loading da API do Console",
+            "format": "true (durante loading)",
+            "editable": false
+          },
+          {
+            "field": "to-top.classList.show",
+            "source": "window.scrollY > 600 (setupBackToTop)",
+            "editable": false
+          },
+          {
+            "field": "yr.textContent",
+            "source": "new Date().getFullYear() no init() (ano do rodapé)",
+            "format": "AAAA",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "Tab no carregamento da página",
+            "action": "Mover o foco para o primeiro elemento focável (.skip-link)",
+            "result": "O skip-link desliza para dentro da viewport (visível ao foco); Enter envia o foco para #main"
+          },
+          {
+            "trigger": "Foco por teclado em a/button/input/[tabindex]",
+            "action": "Aplicar :focus-visible",
+            "result": "Outline de 2px (var(--accent)) com offset 2px e border-radius 6px no elemento focado"
+          },
+          {
+            "trigger": "Clique/Enter no botão hamburguer (#nav-toggle)",
+            "action": "Alternar .open em #nav-links e setar aria-expanded",
+            "result": "Menu abre/fecha; o ícone alterna entre hambúrguer e X conforme aria-expanded"
+          },
+          {
+            "trigger": "Escape com o menu mobile aberto",
+            "action": "close() do menu e toggle.focus()",
+            "result": "Menu fecha (aria-expanded=false) e o foco volta ao botão hamburguer"
+          },
+          {
+            "trigger": "Clique num link do menu mobile",
+            "action": "close()",
+            "result": "Menu fecha após a navegação por âncora"
+          },
+          {
+            "trigger": "Digitar no campo de busca (#app-search)",
+            "action": "applySearch() filtra os cards e atualiza #search-count",
+            "result": "Cards não correspondentes recebem [hidden]; contagem anunciada via aria-live polite"
+          },
+          {
+            "trigger": "Clique no botão \"voltar ao topo\" (#to-top)",
+            "action": "window.scrollTo top respeitando prefers-reduced-motion",
+            "result": "Página rola ao topo (smooth, ou auto se movimento reduzido)"
+          },
+          {
+            "trigger": "portal.js falha em inicializar",
+            "action": "Timer de 2,5s do <head> adiciona .no-anim em <html>",
+            "result": "Todo o conteúdo .reveal fica visível; init() cancela o timer quando o JS está vivo"
+          }
+        ],
+        "flows": [
+          [
+            "Usuário entra na página e pressiona Tab",
+            "Foco vai para o skip-link, que desliza para dentro da viewport",
+            "Usuário pressiona Enter",
+            "Foco salta para #main, pulando header/nav"
+          ],
+          [
+            "Em viewport estreita, usuário foca e aciona o hamburguer (#nav-toggle)",
+            "aria-expanded vira \"true\" e o menu (.nav-links.open) aparece com o ícone X",
+            "Usuário pressiona Escape",
+            "Menu fecha (aria-expanded=false) e o foco retorna ao botão hamburguer"
+          ],
+          [
+            "Usuário foca o campo de busca e digita um termo",
+            "applySearch() oculta cards não correspondentes via [hidden]",
+            "#search-count (aria-live polite) anuncia \"<n> resultados\""
+          ],
+          [
+            "portal.js não carrega/inicializa",
+            "O timer do <head> dispara após 2,5s e adiciona .no-anim em <html>",
+            "Todo o conteúdo .reveal é revelado, sem ficar preso em opacity:0"
+          ]
+        ]
+      },
+      "acceptance_criteria": [
+        "O skip-link é o primeiro elemento focável e fica fora da tela até receber foco; ao focar, fica visível (transform translateY(0)) e seu href aponta para #main.",
+        "Todo elemento interativo (a, button, input, [tabindex]) exibe outline de 2px var(--accent) com offset 2px ao :focus-visible.",
+        "O botão hamburguer tem alvo de toque de 44x44px e reflete o estado do menu em aria-expanded (false/true).",
+        "Pressionar Escape com o menu mobile aberto fecha o menu e devolve o foco ao botão hamburguer.",
+        "O contador de busca (#search-count) tem aria-live=\"polite\" e atualiza o texto para \"<n> resultados\" / \"<n> aplicações\".",
+        "Ícones SVG puramente decorativos e os fundos .bg-grid/.bg-wash têm aria-hidden=\"true\".",
+        "A estrutura usa HTML semântico (header, nav[aria-label], main, footer e section[aria-labelledby]).",
+        "Existe botão \"voltar ao topo\" (#to-top, aria-label \"Voltar ao topo\") que aparece após 600px de scroll e respeita prefers-reduced-motion.",
+        "Se o portal.js não inicializar, a classe .no-anim é adicionada em até 2,5s revelando todo o conteúdo; sem JS, o conteúdo já é visível por padrão.",
+        "prefers-reduced-motion desliga as animações de reveal/pulse/shimmer e usa scroll não-animado."
+      ],
+      "verification_method": [
+        "manual-review",
+        "test-e2e",
+        "architecture-review"
+      ],
+      "source": {
+        "source_paths": [
+          "portal/frontend/index.html",
+          "portal/frontend/assets/styles.css",
+          "portal/frontend/assets/portal.js"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "novo refinamento — Acessibilidade e navegação por teclado"
+      },
+      "file": "refinements/portal/REF-PORTAL-0012.yaml"
     }
   ],
   "reprocess_queue": [

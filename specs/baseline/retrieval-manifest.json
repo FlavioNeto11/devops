@@ -3745,6 +3745,165 @@
         "REQ-GYMOPS-0002"
       ],
       "file": "refinements/gymops/REF-GYMOPS-0001.yaml"
+    },
+    {
+      "id": "REF-PORTAL-0001",
+      "title": "Landing pública NovaIT (página inicial)",
+      "kind": "screen",
+      "status": "draft",
+      "product": "portal",
+      "route": "/",
+      "anchors": [
+        "REQ-PORTAL-0001",
+        "REQ-PORTAL-0005",
+        "REQ-PORTAL-NFR-001"
+      ],
+      "file": "refinements/portal/REF-PORTAL-0001.yaml"
+    },
+    {
+      "id": "REF-PORTAL-0002",
+      "title": "Cabeçalho e navegação (sticky + menu mobile + scroll spy)",
+      "kind": "component",
+      "status": "draft",
+      "product": "portal",
+      "route": "/",
+      "anchors": [
+        "REQ-PORTAL-0007",
+        "REQ-PORTAL-0010"
+      ],
+      "file": "refinements/portal/REF-PORTAL-0002.yaml"
+    },
+    {
+      "id": "REF-PORTAL-0003",
+      "title": "Seção Hero",
+      "kind": "component",
+      "status": "draft",
+      "product": "portal",
+      "route": null,
+      "anchors": [
+        "REQ-PORTAL-0001",
+        "REQ-PORTAL-NFR-001"
+      ],
+      "file": "refinements/portal/REF-PORTAL-0003.yaml"
+    },
+    {
+      "id": "REF-PORTAL-0004",
+      "title": "Produtos & portais (catálogo curado + busca)",
+      "kind": "component",
+      "status": "draft",
+      "product": "portal",
+      "route": null,
+      "anchors": [
+        "REQ-PORTAL-0001",
+        "REQ-PORTAL-0006"
+      ],
+      "file": "refinements/portal/REF-PORTAL-0004.yaml"
+    },
+    {
+      "id": "REF-PORTAL-0005",
+      "title": "Descoberta dinâmica de apps do cluster",
+      "kind": "component",
+      "status": "draft",
+      "product": "portal",
+      "route": null,
+      "anchors": [
+        "REQ-PORTAL-0003",
+        "REQ-PORTAL-0004",
+        "REQ-PORTAL-0005",
+        "REQ-PORTAL-0014"
+      ],
+      "file": "refinements/portal/REF-PORTAL-0005.yaml"
+    },
+    {
+      "id": "REF-PORTAL-0006",
+      "title": "Capacidades (o que fazemos)",
+      "kind": "component",
+      "status": "draft",
+      "product": "portal",
+      "route": "/",
+      "anchors": [
+        "REQ-PORTAL-NFR-001"
+      ],
+      "file": "refinements/portal/REF-PORTAL-0006.yaml"
+    },
+    {
+      "id": "REF-PORTAL-0007",
+      "title": "Showcase (telas dos produtos)",
+      "kind": "component",
+      "status": "draft",
+      "product": "portal",
+      "route": "/",
+      "anchors": [
+        "REQ-PORTAL-0001",
+        "REQ-PORTAL-NFR-003"
+      ],
+      "file": "refinements/portal/REF-PORTAL-0007.yaml"
+    },
+    {
+      "id": "REF-PORTAL-0008",
+      "title": "Plataforma (ferramentas do operador, auth-gated)",
+      "kind": "component",
+      "status": "draft",
+      "product": "portal",
+      "route": null,
+      "anchors": [
+        "REQ-PORTAL-0002",
+        "REQ-PORTAL-0005"
+      ],
+      "file": "refinements/portal/REF-PORTAL-0008.yaml"
+    },
+    {
+      "id": "REF-PORTAL-0009",
+      "title": "Chamada final (CTA) e rodapé",
+      "kind": "component",
+      "status": "draft",
+      "product": "portal",
+      "route": "/",
+      "anchors": [
+        "REQ-PORTAL-0013"
+      ],
+      "file": "refinements/portal/REF-PORTAL-0009.yaml"
+    },
+    {
+      "id": "REF-PORTAL-0010",
+      "title": "Página 404 (erro amigável)",
+      "kind": "screen",
+      "status": "draft",
+      "product": "portal",
+      "route": "/404",
+      "anchors": [
+        "REQ-PORTAL-0015",
+        "REQ-PORTAL-NFR-001"
+      ],
+      "file": "refinements/portal/REF-PORTAL-0010.yaml"
+    },
+    {
+      "id": "REF-PORTAL-0011",
+      "title": "Tema e movimento (dark mode + reduced motion)",
+      "kind": "interaction",
+      "status": "draft",
+      "product": "portal",
+      "route": null,
+      "anchors": [
+        "REQ-PORTAL-0011",
+        "REQ-PORTAL-0012",
+        "REQ-PORTAL-NFR-004"
+      ],
+      "file": "refinements/portal/REF-PORTAL-0011.yaml"
+    },
+    {
+      "id": "REF-PORTAL-0012",
+      "title": "Acessibilidade e navegação por teclado",
+      "kind": "interaction",
+      "status": "draft",
+      "product": "portal",
+      "route": null,
+      "anchors": [
+        "REQ-PORTAL-NFR-002",
+        "REQ-PORTAL-0008",
+        "REQ-PORTAL-0009"
+      ],
+      "file": "refinements/portal/REF-PORTAL-0012.yaml"
     }
   ]
 }

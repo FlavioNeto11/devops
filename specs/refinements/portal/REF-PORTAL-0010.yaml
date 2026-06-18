@@ -1,0 +1,120 @@
+id: REF-PORTAL-0010
+title: Página 404 (erro amigável)
+kind: screen
+status: draft
+
+scope:
+  product_scope: portal
+  applies_to: screen
+
+surface:
+  route: /404
+  name: error-page
+  roles: []
+
+anchors:
+  - requirement_id: REQ-PORTAL-0015
+    relation: relates_to
+  - requirement_id: REQ-PORTAL-NFR-001
+    relation: refines
+
+behavior:
+  states:
+    - name: normal
+      when: nginx responde 404 para qualquer path que não seja arquivo real (error_page 404 -> /404.html, location interno) e serve a página de erro amigável
+      ui: >-
+        Página centralizada (main.error-page > div.error-card) sobre o fundo decorativo
+        (div.bg-grid + div.bg-wash, ambos aria-hidden). Conteúdo, na ordem: marca clicável
+        (a.brand href=/ com logo SVG de gradiente azul->roxo e wordmark "novaIT"); código de
+        erro grande "404" em texto com gradiente (p.error-code.grad-txt); título h1
+        "Página não encontrada"; parágrafo descritivo explicando que o endereço não existe
+        ou foi movido; bloco de CTAs (div.hero-cta) com dois botões.
+    - name: cta-voltar
+      when: usuário decide retornar ao portal a partir da página de erro
+      ui: >-
+        Botão primário "Voltar ao início" (a.btn href=/) leva à raiz do portal. A marca no
+        topo (a.brand href=/) é um caminho de retorno redundante para a home.
+    - name: cta-console
+      when: usuário quer ir direto para o painel operacional a partir do erro
+      ui: >-
+        Botão secundário "Abrir DevOps Console" (a.btn.ghost href=/devops) leva ao Console.
+    - name: oculto
+      when: "requisição é para um arquivo estático real existente (ex.: /index.html, /assets/*, /favicon.svg) ou para /healthz"
+      ui: >-
+        A página 404 não é exibida; o nginx serve o recurso solicitado normalmente. /healthz
+        retorna 200 'ok'. A location = /404.html é "internal" — não pode ser acessada
+        diretamente por URL, apenas via error_page.
+
+  data:
+    - field: error_code
+      source: 404.html (p.error-code "404")
+      format: número estático renderizado com gradiente de texto
+      editable: false
+    - field: title
+      source: 404.html (h1 "Página não encontrada")
+      format: texto estático
+      editable: false
+    - field: description
+      source: 404.html (parágrafo "O endereço que você acessou não existe ou foi movido...")
+      format: texto estático
+      editable: false
+    - field: meta_robots
+      source: 404.html (meta name=robots)
+      format: "noindex, follow"
+      editable: false
+    - field: page_title
+      source: 404.html (title "Página não encontrada — NovaIT")
+      format: texto estático
+      editable: false
+    - field: meta_description
+      source: 404.html (meta name=description)
+      format: "A página que você procurou não existe no portal NovaIT."
+      editable: false
+
+  interactions:
+    - trigger: requisição HTTP a um path inexistente
+      action: nginx aplica error_page 404 -> /404.html servindo o conteúdo interno com headers de segurança (always)
+      result: navegador exibe a página 404 amigável com status 404
+    - trigger: clique em "Voltar ao início" (a.btn href=/) ou na marca (a.brand href=/)
+      action: navegação para a raiz "/"
+      result: portal inicial (home) é carregado
+    - trigger: clique em "Abrir DevOps Console" (a.btn.ghost href=/devops)
+      action: navegação para /devops
+      result: DevOps Console é aberto
+    - trigger: rastreador de busca acessa a página
+      action: meta robots noindex,follow instrui a não indexar a URL mas seguir os links
+      result: a página 404 não é indexada; os links (home, console) podem ser rastreados
+
+  flows:
+    - - usuário acessa um endereço inexistente do portal
+      - nginx não encontra arquivo real e dispara error_page 404 -> /404.html (location interno)
+      - navegador recebe status 404 e renderiza a página amigável (código 404, título, descrição, CTAs)
+      - usuário clica em "Voltar ao início" e retorna à home do portal
+    - - usuário cai na página 404
+      - usuário clica em "Abrir DevOps Console"
+      - navegação para /devops carrega o Console
+
+acceptance_criteria:
+  - Requisição a um path inexistente do portal responde com HTTP 404 e renderiza /404.html (error_page 404 -> /404.html configurado no nginx).
+  - A página exibe o código "404" em destaque, o título "Página não encontrada" (h1) e um parágrafo descritivo.
+  - "Há exatamente dois CTAs: \"Voltar ao início\" (href=/) e \"Abrir DevOps Console\" (href=/devops); a marca no topo também aponta para /."
+  - O <head> contém meta name=robots com conteúdo "noindex, follow".
+  - A location = /404.html é marcada como internal e não pode ser servida por acesso direto à URL /404.html.
+  - Os headers de segurança (CSP, X-Content-Type-Options nosniff, Referrer-Policy, Permissions-Policy) são aplicados também na resposta 404 (add_header ... always).
+  - /healthz e arquivos estáticos reais (index.html, /assets/*) NÃO acionam a página 404.
+
+verification_method:
+  - test-e2e
+  - manual-review
+  - architecture-review
+
+source:
+  source_paths:
+    - portal/frontend/404.html
+    - portal/frontend/nginx.conf
+
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1
+  semantic_change: none
+  change_reason: "novo refinamento — /404"

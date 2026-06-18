@@ -1,0 +1,157 @@
+id: REF-PORTAL-0005
+title: Descoberta dinâmica de apps do cluster
+kind: component
+status: draft
+
+scope:
+  product_scope: portal
+  applies_to: component
+
+anchors:
+  - requirement_id: REQ-PORTAL-0003
+    relation: refines
+  - requirement_id: REQ-PORTAL-0004
+    relation: relates_to
+  - requirement_id: REQ-PORTAL-0005
+    relation: refines
+  - requirement_id: REQ-PORTAL-0014
+    relation: refines
+
+surface:
+  name: cluster-section
+  roles:
+    - operator
+    - anonymous
+
+behavior:
+  states:
+    - name: oculto
+      when: >-
+        Estado inicial e estado de visitante anônimo. A seção #cluster-section nasce
+        com o atributo hidden no HTML. Quando o fetch a GET /devops/api/ingressroutes
+        retorna 401 ou 403 (isAuthError), a seção é mantida/colocada hidden e a UI de
+        operador (seção Plataforma, link da nav e coluna do rodapé) é escondida via
+        setOperatorUI(false). O site público mostra apenas os cards curados.
+      ui: >-
+        Nenhum bloco de cluster visível; cards .card dentro de #cluster-section ficam
+        fora da busca (applySearch ignora seções hidden). A contagem de busca é
+        recalculada sem os cards de cluster/ferramentas.
+    - name: loading
+      when: >-
+        Carga inicial (não-silent) quando a resposta da API demora. Um timer ADIADO
+        de 350ms revela a seção e exibe o skeleton; se a resposta chega antes (caso
+        típico do 401 rápido do anônimo) o skeleton nunca aparece, evitando flicker.
+      ui: >-
+        Grade de skeletons shimmer (stateMarkup('loading') = três divs .skeleton em
+        .skeleton-grid) na região #cluster-state, com aria-busy=true. Sem skeleton no
+        refresh silencioso.
+    - name: normal
+      when: >-
+        Fetch a GET /devops/api/ingressroutes responde 200 (operador autenticado) e
+        discoverExtras retorna pelo menos uma app navegável fora do catálogo curado.
+      ui: >-
+        Seção #cluster-section revelada (hidden=false, .reveal marcados como in). Grade
+        #cluster-apps preenchida com cards extras renderizados por extraCardHTML (cada
+        card mostra badge "no ar", nome prettificado, base path em code e botão Acessar;
+        badge "exige login" quando requiresLogin). Cards curados ganham badge "no ar"
+        via enrichCuratedCards. setOperatorUI(true) revela as ferramentas de operador.
+        #cluster-state fica vazio e hidden. applySearch reexecutado.
+    - name: empty
+      when: >-
+        Fetch responde 200 mas discoverExtras retorna lista vazia (nenhuma app extra
+        publicada além das curadas no namespace apps).
+      ui: >-
+        Seção revelada; grade #cluster-apps vazia; #cluster-state visível com
+        stateMarkup('empty') — ícone, título "Nenhuma aplicação extra publicada" e
+        explicação de que apps novas surgem automaticamente ao ganharem rota no
+        namespace apps.
+    - name: error
+      when: >-
+        Erro transitório na carga inicial (não-silent): timeout/AbortError (8s),
+        falha de rede ou 5xx — qualquer erro que NÃO seja 401/403. No refresh
+        silencioso o erro é ignorado para não estragar uma UI boa anterior.
+      ui: >-
+        Seção revelada; #cluster-state visível com stateMarkup('error') role=alert —
+        ícone de alerta, título "Descoberta dinâmica indisponível", mensagem contextual
+        ("o cluster demorou a responder (timeout)." para AbortError ou "a API do Console
+        não respondeu.") e botão "Tentar novamente" (data-retry) que rechama
+        loadClusterApps() uma vez.
+  data:
+    - field: name
+      source: GET /devops/api/ingressroutes — ir.name (prettificado por prettifyName)
+      format: "texto (ex.: \"portal-recorder\" -> \"Portal Recorder\")"
+      editable: false
+    - field: namespace
+      source: GET /devops/api/ingressroutes — ir.namespace (filtrado por appsInNamespace = 'apps')
+      format: texto
+      editable: false
+    - field: basePath
+      source: derivado de ir.paths via basePathOf/appRoot (menor path não-raiz, trailing slash normalizado)
+      format: "path absoluto (ex.: /sicat)"
+      editable: false
+    - field: hosts
+      source: GET /devops/api/ingressroutes — ir.hosts
+      format: lista de hostnames
+      editable: false
+    - field: requiresLogin
+      source: inferido de ir.routes[].middlewares via inferRequiresLogin (auth/oidc/sso/keycloak/forward)
+      format: boolean
+      editable: false
+  interactions:
+    - trigger: Carregamento do módulo portal.js (init) no browser
+      action: Chama loadClusterApps() uma vez para a descoberta inicial
+      result: Resolve para um dos estados (oculto/loading/normal/empty/error) conforme a resposta da API
+    - trigger: Timer setInterval de 60s (REFRESH_MS)
+      action: "Chama loadClusterApps({ silent: true }) — refresh silencioso, sem skeleton e sem card de erro"
+      result: Atualiza a grade e badges se houver resposta válida; mantém UI anterior em caso de erro transitório
+    - trigger: Clique no botão "Tentar novamente" (data-retry) no estado de erro
+      action: Rechama loadClusterApps() (listener once) refazendo o fetch
+      result: Reentra no fluxo de carga; pode resolver para normal/empty/error
+    - trigger: Resposta 401/403 da API (visitante anônimo)
+      action: section.hidden = true, setOperatorUI(false), applySearch()
+      result: Descoberta e ferramentas de operador ocultas; site público fica corporativo
+    - trigger: Disparo concorrente de refresh enquanto uma carga está em andamento
+      action: Guarda clusterLoading retorna cedo (dedupe simples)
+      result: Evita requisições concorrentes sobrepostas à mesma API
+  flows:
+    - - Módulo portal.js inicializa (init) e chama loadClusterApps()
+      - Agenda skeleton adiado de 350ms (somente na carga inicial não-silenciosa)
+      - fetchWithTimeout dispara GET /devops/api/ingressroutes com timeout de 8s
+      - "Resposta 200: parseIngressRoutes + appsInNamespace('apps') normaliza as apps"
+      - enrichCuratedCards marca cards curados vivos com badge "no ar"
+      - discoverExtras agrupa por raiz e filtra só apps navegáveis fora do catálogo
+      - "Renderiza cards extras (extraCardHTML) na grade #cluster-apps e revela a seção"
+      - setOperatorUI(true) revela as ferramentas de operador; applySearch reexecuta
+    - - "Refresh silencioso a cada 60s chama loadClusterApps({ silent: true })"
+      - Sem skeleton e sem card de erro; só atualiza a UI quando há resposta válida
+      - Erro transitório no refresh é engolido para preservar a UI boa anterior
+    - - Visitante anônimo recebe 401/403 (isAuthError)
+      - "Seção #cluster-section é mantida hidden e ferramentas de operador escondidas"
+      - applySearch recalcula a contagem sem os cards de cluster/ferramentas
+
+acceptance_criteria:
+  - "A seção #cluster-section inicia com atributo hidden e só é revelada após resposta 200 de GET /devops/api/ingressroutes."
+  - Para resposta 401 ou 403 a seção permanece oculta e a UI de operador (Plataforma/nav/rodapé) é escondida (setOperatorUI(false)).
+  - O skeleton de loading só aparece se a resposta demorar mais de 350ms na carga inicial, e nunca no refresh silencioso.
+  - "Com resposta 200 e ao menos uma app extra navegável, cards são renderizados em #cluster-apps via extraCardHTML com nome, base path e badges (no ar / exige login conforme requiresLogin)."
+  - Com resposta 200 sem apps extras, é exibido o estado empty ("Nenhuma aplicação extra publicada").
+  - Em erro transitório (timeout/rede/5xx) na carga inicial é exibido o estado de erro com role=alert e botão "Tentar novamente" que rechama loadClusterApps().
+  - Um refresh silencioso ocorre a cada 60s (REFRESH_MS) e não substitui uma UI válida anterior por estado de erro.
+  - Cada app descoberta expõe os campos name, namespace, basePath, hosts e requiresLogin derivados de parseIngressRoutes.
+  - A guarda clusterLoading impede requisições concorrentes de refresh sobrepostas.
+
+verification_method:
+  - test-unit
+  - test-integration
+  - manual-review
+
+source:
+  source_paths:
+    - portal/frontend/index.html
+    - portal/frontend/assets/portal.js
+
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1
+  semantic_change: none
+  change_reason: "novo refinamento — cluster-section"

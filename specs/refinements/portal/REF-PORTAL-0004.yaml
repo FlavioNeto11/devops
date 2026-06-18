@@ -1,0 +1,157 @@
+id: REF-PORTAL-0004
+title: Produtos & portais (catálogo curado + busca)
+kind: component
+status: draft
+scope:
+  product_scope: portal
+  applies_to: component
+anchors:
+  - requirement_id: REQ-PORTAL-0001
+    relation: refines
+  - requirement_id: REQ-PORTAL-0006
+    relation: refines
+surface:
+  name: "Catálogo de produtos e portais (seção #produtos / #portais)"
+  roles:
+    - visitante
+    - operador
+behavior:
+  states:
+    - name: normal
+      when: "Página carregada, input #app-search vazio (sem termo de busca)."
+      ui: >-
+        Grade de cards curados visível: 2 produtos (SICAT, GymOps) na seção
+        #produtos e 2 portais CMS (RM Ambiental, Ana Rabottini) na seção
+        #portais. Cada card mostra ícone, role (ex.: "Gestão Ambiental"), título,
+        descrição, tags e CTA. Produtos com requiresLogin exibem o badge
+        "exige login" (.badge.is-login). O contador #search-count mostra
+        "N aplicações" (total de cards não-gated visíveis).
+    - name: filtrado
+      when: >-
+        Usuário digita no input #app-search; applySearch() roda no evento input
+        e matchesQuery() casa o termo (AND de tokens minúsculos via includes)
+        contra o data-search de cada card.
+      ui: >-
+        Cards cujo data-search contém todos os tokens permanecem visíveis; os
+        demais recebem hidden. O contador #search-count (aria-live=polite)
+        anuncia "N resultado" / "N resultados" conforme a contagem de hits.
+    - name: sem-resultado
+      when: O termo digitado não casa com nenhum data-search (0 hits).
+      ui: >-
+        Todos os cards ficam hidden; o contador #search-count anuncia
+        "0 resultados" via aria-live=polite. Nenhuma mensagem de vazio
+        dedicada — o feedback é o contador zerado.
+    - name: status-ao-vivo
+      when: >-
+        loadClusterApps() obtém as IngressRoutes vivas (API do Console) e
+        enrichCuratedCards() marca os paths ativos.
+      ui: >-
+        O slot [data-status] dos cards cujo data-path está vivo recebe o badge
+        "no ar" (.badge.is-online com dot). Enriquecimento aditivo: sem resposta
+        autorizada da API, os cards permanecem no estado normal sem o badge.
+  data:
+    - field: card.role
+      source: portal/frontend/assets/catalog.js (PRODUCTS[].role)
+      format: "rótulo curto (ex.: Gestão Ambiental, Portal Institucional)"
+      editable: false
+    - field: card.tags
+      source: portal/frontend/assets/catalog.js (PRODUCTS[].tags)
+      format: lista de chips .tag
+      editable: false
+    - field: card.cta
+      source: portal/frontend/assets/catalog.js (PRODUCTS[].cta)
+      format: "texto do botão (ex.: Acessar SICAT)"
+      editable: false
+    - field: card.badge.is-login
+      source: portal/frontend/assets/catalog.js (PRODUCTS[].requiresLogin)
+      format: badge "exige login" quando requiresLogin=true
+      editable: false
+    - field: card.data-path
+      source: portal/frontend/assets/catalog.js (PRODUCTS[].path)
+      format: "base path roteado pelo Traefik (ex.: /sicat)"
+      editable: false
+    - field: card.data-search
+      source: portal/frontend/index.html (atributo data-search do <article>)
+      format: texto indexável minúsculo (nome + tags + termos)
+      editable: false
+    - field: card.badge.is-online
+      source: "api:/devops/api/ingressroutes (livePathSet via enrichCuratedCards)"
+      format: badge "no ar" injetado em [data-status] quando o path está vivo
+      editable: false
+    - field: search-count
+      source: "portal/frontend/assets/portal.js (applySearch -> #search-count.textContent)"
+      format: "N aplicações (vazio) | N resultado(s) (filtrando)"
+      editable: false
+  interactions:
+    - trigger: "Usuário digita ou apaga texto no input #app-search"
+      action: >-
+        Listener input chama applySearch(); para cada [data-search],
+        matchesQuery(data-search, valor) decide card.hidden = !hit.
+      result: >-
+        Cards não-casados ficam hidden, casados visíveis; #search-count atualiza
+        a contagem (aria-live=polite anuncia para leitores de tela).
+    - trigger: Usuário limpa o campo de busca (termo vazio)
+      action: matchesQuery retorna true para todos; applySearch reexibe os cards.
+      result: >-
+        Todos os cards não-gated voltam a aparecer; contador volta a
+        "N aplicações".
+    - trigger: "Usuário clica no CTA de um card (ex.: \"Acessar SICAT\")"
+      action: "Navega para o href = data-path do card (ex.: /sicat)."
+      result: Abre o produto/portal correspondente roteado pelo Traefik.
+    - trigger: API do Console responde 200 (operador autenticado)
+      action: >-
+        loadClusterApps -> enrichCuratedCards marca data-path vivos; applySearch
+        recalcula contagem incluindo as seções de operador reveladas.
+      result: >-
+        Cards curados vivos ganham o badge "no ar"; o contador passa a refletir
+        também os cards das seções de operador agora visíveis.
+  flows:
+    - - Visitante abre o portal
+      - Vê os 4 cards curados (2 produtos + 2 portais) com role/tags/CTA/badge
+      - Contador exibe "4 aplicações"
+      - "Digita \"ia\" no #app-search"
+      - Apenas cards com IA nas tags permanecem; contador anuncia "N resultados"
+      - Apaga o termo e os 4 cards voltam, contador "4 aplicações"
+    - - "Usuário digita um termo sem correspondência (ex.: \"zzz\")"
+      - matchesQuery não casa nenhum card
+      - Todos os cards ficam hidden
+      - "#search-count anuncia 0 resultados via aria-live"
+acceptance_criteria:
+  - >-
+    Os 4 cards curados (SICAT, GymOps, RM Ambiental, Ana Rabottini) existem no
+    HTML estático com role, tags, CTA e data-path espelhando catalog.js
+    (PRODUCTS), úteis sem JS (SEO/no-JS).
+  - >-
+    Cards de produto com requiresLogin=true (SICAT, GymOps) renderizam o badge
+    "exige login" (.badge.is-login); os portais CMS não.
+  - >-
+    Digitar no #app-search filtra os cards client-side: matchesQuery casa quando
+    TODOS os tokens (minúsculos) estão contidos no data-search; cards não-casados
+    recebem hidden.
+  - >-
+    Com termo vazio, #search-count mostra "N aplicações"; com termo, mostra
+    "N resultado"/"N resultados" (singular/plural correto) e é aria-live=polite.
+  - >-
+    Termo sem correspondência deixa zero cards visíveis e o contador anuncia
+    "0 resultados".
+  - >-
+    Cards dentro de seção de operador oculta (#plataforma, #cluster-section
+    hidden) são excluídos da busca e da contagem para o visitante anônimo.
+  - >-
+    Quando a API do Console autoriza, [data-status] dos cards com path vivo
+    recebe o badge "no ar" (.badge.is-online) — enriquecimento aditivo que nunca
+    é pré-requisito para o conteúdo.
+verification_method:
+  - test-unit
+  - test-e2e
+  - manual-review
+source:
+  source_paths:
+    - portal/frontend/index.html
+    - portal/frontend/assets/catalog.js
+    - portal/frontend/assets/portal.js
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: novo refinamento — Produtos & portais (catálogo curado + busca)
