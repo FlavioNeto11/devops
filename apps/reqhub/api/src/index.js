@@ -1,15 +1,19 @@
-// Bootstrap do reqhub-api (IA de autoria). Sem banco: o servico e stateless e
-// fica FORA do caminho critico do Reqhub (o workbench funciona read-only sem ele;
-// a IA so enriquece o Editor). HTTP sobe imediato; /health nao depende da key.
+// Bootstrap do reqhub-api (IA de autoria). MEMORIA DURAVEL (Postgres+pgvector) e OPCIONAL e
+// FAIL-SOFT: sem DATABASE_URL/DB fora, o chat funciona com a memoria da conversa (history) e o
+// resto do reqhub segue read-only. HTTP sobe imediato; /health nao depende de key/DB.
 import express from 'express';
 import { buildRouter, statusForError } from './routes.js';
+import { buildDurableMemory } from './ai/memory.js';
 
 const PORT = Number.parseInt(process.env.PORT || '8080', 10);
+
+// Constroi a memoria duravel ANTES do router (best-effort; undefined -> grafo usa history).
+const memory = await buildDurableMemory();
 
 const app = express();
 app.disable('x-powered-by');
 app.use(express.json({ limit: '512kb' }));
-app.use(buildRouter());
+app.use(buildRouter({ memory }));
 
 // 404 no envelope de erro.
 app.use((req, res) => {

@@ -5,3 +5,4 @@ kind: Kustomization
 resources:
   - reqhub.yaml
   - api.yaml
+  - postgres.yaml   # F3: Postgres+pgvector da memoria duravel do chat (secret reqhub-db fora do git)
