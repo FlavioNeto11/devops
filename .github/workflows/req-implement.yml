@@ -35,6 +35,7 @@ on:
     branches: [main]
     paths:
       - "specs/requirements/**"
+      - "specs/refinements/**"
 
 permissions:
   contents: write
@@ -70,9 +71,10 @@ jobs:
           else
             BEFORE="${{ github.event.before }}"
             if ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then BEFORE=$(git rev-parse HEAD~1 || echo ""); fi
-            # --diff-filter=d EXCLUI deleções: apagar requisitos NÃO dispara implementação.
-            CANDS=$(git diff --name-only --diff-filter=d "$BEFORE" "${{ github.sha }}" -- 'specs/requirements/**/*.yaml' 2>/dev/null \
-              | sed -n 's#.*/\(REQ-[A-Z0-9-]*\)\.yaml#\1#p' | sort -u | tr '\n' ' ')
+            # --diff-filter=d EXCLUI deleções: apagar requisitos/refinamentos NÃO dispara implementação.
+            # RE[QF] casa REQ-* (requisitos) e REF-* (refinamentos).
+            CANDS=$(git diff --name-only --diff-filter=d "$BEFORE" "${{ github.sha }}" -- 'specs/requirements/**/*.yaml' 'specs/refinements/**/*.yaml' 2>/dev/null \
+              | sed -n 's#.*/\(RE[QF]-[A-Z0-9-]*\)\.yaml#\1#p' | sort -u | tr '\n' ' ')
           fi
           echo "candidatos: $CANDS"
           # Idempotencia: so REQs com status not_started (ignora in_progress/pr_open/merged/deployed/done).
@@ -223,7 +225,7 @@ jobs:
           gh label create gpt-approved     --color 5319e7 --description "Validado no ChatGPT (auto-merge)" 2>$null
           foreach ($a in $approved) {
             # valida o branch name (defesa contra approved.json adulterado) antes de qualquer uso
-            if ($a.branch -notmatch '^req/[A-Z0-9-]+/r[0-9]+$' -or $a.id -notmatch '^REQ-[A-Z0-9-]+$') {
+            if ($a.branch -notmatch '^re[qf]/[A-Z0-9-]+/r[0-9]+$' -or $a.id -notmatch '^RE[QF]-[A-Z0-9-]+$') {
               Write-Host "::warning::branch/id invalido em approved.json ('$($a.branch)'/'$($a.id)') — pulando."; continue
             }
             git checkout $a.branch 2>$null

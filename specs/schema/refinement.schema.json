@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nvit.com.br/devops/specs/refinement.schema.json",
+  "title": "Refinamento de tela/usabilidade (artefato derivado, ancorado a requisitos)",
+  "description": "Artefato RICO que descreve o funcionamento detalhado de uma tela/componente (rota, estados, dados exibidos, interações, fluxos) ANCORADO a 1+ requisitos funcionais/não-funcionais. NÃO altera o requisito (o requisito não aponta para o refino — o refino aponta para o requisito via anchors[]). Versionado no git; consumido pelo workbench e pelo Claude via baseline gerada. NOTA DE DRIFT: os enums status, verification_method e version.semantic_change são DUPLICADOS de requirement.schema.json (JSON Schema 2020-12 não dá $ref de enum cross-file trivial aqui) — um teste guard compara os dois e falha se divergirem.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "title", "kind", "status", "scope", "anchors", "behavior", "source", "version"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^REF-[A-Z0-9]+-[0-9]{3,4}$",
+      "description": "Identificador estável. Ex.: REF-GYMOPS-0001, REF-SICAT-0012."
+    },
+    "slug": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$", "description": "Versão do metamodelo a que este artefato adere (opcional; default = versão corrente da baseline)." },
+    "title": { "type": "string", "minLength": 3 },
+    "kind": {
+      "enum": ["screen", "component", "flow", "interaction", "content"],
+      "description": "screen = tela/rota; component = componente reusável; flow = jornada multi-tela; interaction = comportamento de interação; content = conteúdo/copy."
+    },
+    "status": { "enum": ["draft", "proposed", "approved", "deprecated", "retired"] },
+    "owner": { "type": "string" },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["product_scope"],
+      "description": "Produto/superfície dona do refinamento.",
+      "properties": {
+        "product_scope": { "type": "string", "description": "Produto/componente dono. Ex.: gymops, sicat, reqhub." },
+        "applies_to": { "enum": ["screen", "component", "flow", "capability"] },
+        "domain": { "type": ["string", "null"] }
+      }
+    },
+    "anchors": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Requisitos (funcionais E/OU não-funcionais) que este refinamento DETALHA. >=1 obrigatório. O build falha se algum requirement_id não existir (anti-fabricação). O refino aponta para o requisito; o requisito nunca aponta para o refino.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["requirement_id", "relation"],
+        "properties": {
+          "requirement_id": { "type": "string", "pattern": "^REQ-[A-Z0-9]+-(NFR-)?[0-9]{3,4}$" },
+          "relation": { "enum": ["implements", "refines", "derives_from", "relates_to"] },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "surface": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A superfície (tela/rota) que o refinamento descreve. route é obrigatório quando kind=screen.",
+      "properties": {
+        "route": { "type": "string", "description": "Rota/URL da tela. Ex.: /profile, /settings/units." },
+        "name": { "type": "string" },
+        "roles": { "type": "array", "items": { "type": "string" }, "description": "Papéis que acessam (RBAC). Ex.: owner, unit_manager, member." }
+      }
+    },
+    "behavior": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["states"],
+      "description": "O comportamento detalhado da tela/usabilidade.",
+      "properties": {
+        "states": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Estados da tela. Canônicos: normal, loading, error, empty (mas name é livre p/ componentes com estados próprios).",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string" },
+              "when": { "type": "string", "description": "Condição que dispara o estado." },
+              "ui": { "type": "string", "description": "O que a tela mostra nesse estado." }
+            }
+          }
+        },
+        "data": {
+          "type": "array",
+          "description": "Dados/campos exibidos na tela.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["field", "source", "editable"],
+            "properties": {
+              "field": { "type": "string" },
+              "source": { "type": "string", "description": "Fonte do dado (ex.: REQ-..., svc-..., Unit.address, api:/path)." },
+              "format": { "type": "string" },
+              "editable": { "type": "boolean" }
+            }
+          }
+        },
+        "interactions": {
+          "type": "array",
+          "description": "Interações do usuário com a tela.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["trigger", "action", "result"],
+            "properties": {
+              "trigger": { "type": "string" },
+              "action": { "type": "string" },
+              "result": { "type": "string" }
+            }
+          }
+        },
+        "flows": {
+          "type": "array",
+          "description": "Fluxos (sequências de passos) que percorrem a tela.",
+          "items": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "acceptance_criteria": { "type": "array", "items": { "type": "string" }, "description": "Critérios objetivos de aceite do comportamento descrito." },
+    "verification_method": {
+      "type": "array",
+      "items": { "enum": ["test-unit", "test-integration", "test-e2e", "architecture-review", "deployment-policy-check", "manual-review", "monitoring", "demo"] }
+    },
+    "evidence_links": { "type": "array", "items": { "type": "string" }, "description": "Provas de verificação (caminhos de teste, dashboards, runs de CI)." },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_paths"],
+      "description": "Origem rastreável. O build valida que cada source_path existe (enforce de origem — sem fabricação).",
+      "properties": {
+        "stakeholder": { "type": "string" },
+        "origin": { "type": "string" },
+        "source_paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "version": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseline_version", "item_revision"],
+      "description": "Versionamento semântico do refinamento (igual ao requisito). Mudança em anchors/behavior/surface/acceptance/status/kind é semântica.",
+      "properties": {
+        "baseline_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "item_revision": { "type": "integer", "minimum": 1 },
+        "semantic_change": { "enum": ["none", "patch", "minor", "major"] },
+        "change_reason": { "type": "string" }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "screen" } }, "required": ["kind"] },
+      "then": { "properties": { "surface": { "required": ["route"] } }, "required": ["surface"] }
+    }
+  ]
+}

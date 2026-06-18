@@ -67,6 +67,7 @@ test('registry de producao expõe autoria + forge juntos', () => {
   const full = createToolRegistry([...buildAuthoringTools(), ...buildForgeTools()]);
   assert.deepEqual(full.list().map((t) => t.name).sort(), [
     'forge.propose_architecture', 'forge.propose_requirements',
-    'req.authoring.analyze', 'req.authoring.assist', 'req.authoring.draft', 'req.authoring.revise', 'req.authoring.suggest_links',
+    'req.authoring.analyze', 'req.authoring.analyze_refinement', 'req.authoring.assist', 'req.authoring.classify_change',
+    'req.authoring.draft', 'req.authoring.draft_refinement', 'req.authoring.revise', 'req.authoring.revise_refinement', 'req.authoring.suggest_links',
   ]);
 });

@@ -46,7 +46,17 @@ test('todas as tools sao R1 (sem mutacao)', () => {
     assert.equal(t.risk, 'R1');
     assert.ok(!t.mutates);
   }
-  assert.deepEqual(reg.list().map((t) => t.name).sort(), ['req.authoring.analyze', 'req.authoring.assist', 'req.authoring.draft', 'req.authoring.revise', 'req.authoring.suggest_links']);
+  assert.deepEqual(reg.list().map((t) => t.name).sort(), [
+    'req.authoring.analyze',
+    'req.authoring.analyze_refinement',
+    'req.authoring.assist',
+    'req.authoring.classify_change',
+    'req.authoring.draft',
+    'req.authoring.draft_refinement',
+    'req.authoring.revise',
+    'req.authoring.revise_refinement',
+    'req.authoring.suggest_links',
+  ]);
 });
 
 test('draft: gera rascunho a partir do esboco (operador autenticado)', async () => {
@@ -161,4 +171,64 @@ test('suggest-links: classifica candidatos e marca status=proposed', async () =>
   );
   assert.equal(out.output.suggestions[0].status, 'proposed');
   assert.ok(VOCAB.LINK_TYPES.includes(out.output.suggestions[0].type));
+});
+
+// --- CAMADA DE REFINAMENTO (REF-*) -------------------------------------------
+const refGrounding = [{ id: 'REQ-GYMOPS-0010', title: 'Telas administrativas', statement: 'O sistema DEVE expor /settings...' }];
+
+test('classify_change: refinement -> anchors/citations filtrados pelo grounding', async () => {
+  const payload = { level: 'refinement', confidence: 0.9, rationale: 'detalha o perfil', anchors: [{ requirement_id: 'REQ-GYMOPS-0010', relation: 'refines' }], target_req_id: null, suggested_type: null, citations: ['REQ-GYMOPS-0010'] };
+  const out = await dispatchTool(reg.get('req.authoring.classify_change'), { product: 'gymops', sketch: 'mostrar endereço no /profile', grounding: refGrounding }, ctx(stubLlm(payload)));
+  assert.equal(out.status, 'executed');
+  assert.equal(out.output.level, 'refinement');
+  assert.deepEqual(out.output.anchors, [{ requirement_id: 'REQ-GYMOPS-0010', relation: 'refines' }]);
+  assert.deepEqual(out.output.citations, ['REQ-GYMOPS-0010']);
+  assert.equal(VOCAB.CHANGE_LEVELS.includes(out.output.level), true);
+});
+
+test('classify_change: ANTI-FABRICACAO — ancora/target fora do grounding sao descartados', async () => {
+  const payload = { level: 'refinement', anchors: [{ requirement_id: 'REQ-GYMOPS-9999', relation: 'refines' }], target_req_id: 'REQ-GYMOPS-8888', citations: ['REQ-GYMOPS-9999'] };
+  const out = await dispatchTool(reg.get('req.authoring.classify_change'), { product: 'gymops', sketch: 'algo', grounding: refGrounding }, ctx(stubLlm(payload)));
+  assert.deepEqual(out.output.anchors, []); // id fantasma removido
+  assert.equal(out.output.target_req_id, null);
+  assert.deepEqual(out.output.citations, []);
+});
+
+test('classify_change: level fora do enum -> LLM_INVALID_JSON', async () => {
+  await assert.rejects(
+    () => dispatchTool(reg.get('req.authoring.classify_change'), { product: 'gymops', sketch: 'mudança qualquer', grounding: [] }, ctx(stubLlm({ level: 'enorme' }))),
+    (e) => e.code === 'LLM_INVALID_JSON'
+  );
+});
+
+test('classify_change: input invalido -> TOOL_INVALID_INPUT (sem grounding)', async () => {
+  await assert.rejects(() => dispatchTool(reg.get('req.authoring.classify_change'), { product: 'gymops', sketch: 'mudança qualquer' }, ctx(stubLlm({}))), (e) => e.code === 'TOOL_INVALID_INPUT');
+});
+
+test('draft_refinement: devolve draft rico (surface/states)', async () => {
+  const draft = { title: 'Endereço no perfil', kind: 'screen', surface: { route: '/profile', name: 'Perfil' }, behavior: { states: [{ name: 'normal', when: 'tem unidade', ui: 'mostra endereço' }, { name: 'empty', when: 'sem unidade', ui: 'Sem unidades' }], data: [{ field: 'unit.address', source: 'Unit.address', editable: false }] }, acceptance_criteria: ['exibe endereço'], verification_method: ['test-e2e'], source: { source_paths: ['apps/gymops/apps/web/src/app/(app)/profile'] } };
+  const out = await dispatchTool(reg.get('req.authoring.draft_refinement'), { product: 'gymops', sketch: 'endereço no /profile', anchors: [{ requirement_id: 'REQ-GYMOPS-0010', relation: 'refines' }] }, ctx(stubLlm({ draft, warnings: [] })));
+  assert.equal(out.output.prompt_version, PROMPTS.draftRefinement.version);
+  assert.equal(out.output.draft.kind, 'screen');
+  assert.equal(out.output.draft.surface.route, '/profile');
+  assert.ok(out.output.draft.behavior.states.length >= 2);
+});
+
+test('draft_refinement: input invalido -> TOOL_INVALID_INPUT (sem anchors)', async () => {
+  await assert.rejects(() => dispatchTool(reg.get('req.authoring.draft_refinement'), { sketch: 'algo' }, ctx(stubLlm({}))), (e) => e.code === 'TOOL_INVALID_INPUT');
+});
+
+test('analyze_refinement: devolve gaps + score (mesmo shape de analyze)', async () => {
+  const payload = { gaps: [{ kind: 'states', field: 'behavior.states', message: 'faltou error/empty', severity: 'warning' }], score: 0.6 };
+  const out = await dispatchTool(reg.get('req.authoring.analyze_refinement'), { refinement: { id: 'REF-GYMOPS-0001', kind: 'screen' } }, ctx(stubLlm(payload)));
+  assert.equal(out.output.score, 0.6);
+  assert.equal(out.output.gaps.length, 1);
+});
+
+test('revise_refinement: corrige o refinamento (draft + notes)', async () => {
+  const draft = { title: 'Endereço no perfil', kind: 'screen', surface: { route: '/profile' }, behavior: { states: [{ name: 'normal' }, { name: 'error' }, { name: 'empty' }] }, source: { source_paths: ['apps/gymops/apps/web/src/app/(app)/profile'] } };
+  const out = await dispatchTool(reg.get('req.authoring.revise_refinement'), { refinement: { id: 'REF-GYMOPS-0001' }, gaps: [{ field: 'behavior.states', message: 'faltou error/empty' }] }, ctx(stubLlm({ draft, notes: 'adicionei error e empty' })));
+  assert.equal(out.output.prompt_version, PROMPTS.reviseRefinement.version);
+  assert.ok(out.output.draft.behavior.states.length >= 3);
+  assert.match(out.output.notes, /error/i);
 });

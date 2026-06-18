@@ -1,7 +1,7 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision } from './lib.js?v=31';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=31';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId } from './lib.js?v=32';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=32';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -28,6 +28,9 @@ function svg(tag, attrs = {}) {
   return e;
 }
 const byId = (id) => DATA.baseline.requirements.find((r) => r.id === id);
+const refList = () => (DATA.refinements && Array.isArray(DATA.refinements.items)) ? DATA.refinements.items : ((DATA.baseline && Array.isArray(DATA.baseline.refinements)) ? DATA.baseline.refinements : []);
+const refById = (id) => refList().find((r) => r.id === id);
+const refsForReq = (reqId) => refList().filter((r) => Array.isArray(r.anchors) && r.anchors.some((a) => a.requirement_id === reqId));
 function badge(text, cls) { return h('span', { class: 'b ' + (cls || ''), text }); }
 
 /* ---------- cliente da IA de autoria (reqhub-api, mesmo origin /reqs/api) ----------
@@ -183,6 +186,23 @@ function renderWorkspace() {
         h('div', {}, h('b', { text: 'Medida: ' }), s.response_measure)));
     }
     main.append(q);
+  }
+
+  // refinamentos (REF-*) que detalham ESTE requisito (telas/comportamento ancorados a ele)
+  const refs = refsForReq(r.id);
+  if (refs.length) {
+    const rc = h('div', { class: 'card' }, h('h3', { text: 'Refinamentos (telas)' }),
+      h('p', { class: 'muted small', text: 'Telas/comportamentos que detalham este requisito — clique para ver a usabilidade.' }));
+    const ul = h('ul', { class: 'ws-reflist' });
+    for (const rf of refs) {
+      const rel = (rf.anchors.find((a) => a.requirement_id === r.id) || {}).relation || 'refines';
+      ul.append(h('li', {}, h('button', { class: 'btn-link', type: 'button', onclick: () => openUsability(rf.id), title: rf.title || rf.id },
+        badge(rf.kind || 'screen', 'b'), ' ', h('span', { text: truncateLabel(rf.title || rf.id, 52) }),
+        (rf.surface && rf.surface.route) ? h('span', { class: 'muted small', text: ' · ' + rf.surface.route }) : null),
+        ' ', badge(rel, 'b-low')));
+    }
+    rc.append(ul);
+    main.append(rc);
   }
 
   // painel lateral: impacto + versão
@@ -435,6 +455,7 @@ function locateNode(q) {
 function nodeAria(n, req) {
   const d = IMPACT.deg[n.id] || 0;
   if (req) return `${n.id}: ${req.title || ''}. ${req.type === 'non-functional' ? 'NFR' : 'funcional'}, produto ${req.product || '—'}, impacto ${req.impact_band}, ${d} conexões${n.asr ? ', ASR' : ''}.`;
+  if (n.kind === 'refinement') return `${n.id}: refinamento de tela${n.title ? ' — ' + n.title : ''}, ${d} conexões. Duplo-clique abre a Usabilidade.`;
   return `${n.id}: alvo de alocação (${TARGET_LABEL[n.kind] || n.kind}), ${d} conexões.`;
 }
 
@@ -466,14 +487,15 @@ function buildImpactScene(canvas) {
   for (const n of layout.nodes) {
     const col = nodeColor(n, IMPACT.palette);
     const req = byId(n.id);
-    const short = n.id.startsWith('REQ-') ? n.id.slice(4) : n.id;
-    const title = req ? truncateLabel(req.title, 22) : '';      // R3: miniatura útil (id + título)
+    const isRef = n.kind === 'refinement';
+    const short = (n.id.startsWith('REQ-') || n.id.startsWith('REF-')) ? n.id.slice(4) : n.id;
+    const title = req ? truncateLabel(req.title, 22) : (isRef && n.title ? truncateLabel(n.title, 22) : '');      // R3: miniatura útil (id + título)
     const twoLine = !!title;
     const isHub = (n.deg || 0) >= 3;
     const w = Math.max(56, Math.max(short.length * 7.6, title.length * 5.9) + 22);
     const hgt = twoLine ? (isHub ? 34 : 31) : 23;
     const x = n.x - w / 2, y = n.y - hgt / 2;
-    const cls = 'node' + (n.asr ? ' asr' : '') + (col.target ? ' target' : '') + (isHub ? ' hub' : '') + (req && req.type === 'non-functional' ? ' nfr' : '');
+    const cls = 'node' + (n.asr ? ' asr' : '') + (col.target ? ' target' : '') + (isHub ? ' hub' : '') + (req && req.type === 'non-functional' ? ' nfr' : '') + (isRef ? ' ref' : '');
     // roving tabindex: nasce fora do Tab (-1); updateRoving define o único Tab-stop.
     const g = svg('g', { class: cls, tabindex: '-1', role: 'button', 'aria-label': nodeAria(n, req) });
     g.append(Object.assign(svg('title'), { textContent: nodeAria(n, req) }));
@@ -487,7 +509,7 @@ function buildImpactScene(canvas) {
       g.append(tx);
     }
     g.addEventListener('click', (ev) => { ev.stopPropagation(); selectNode(n.id); });
-    g.addEventListener('dblclick', (ev) => { ev.stopPropagation(); if (req) openReq(n.id); });
+    g.addEventListener('dblclick', (ev) => { ev.stopPropagation(); if (req) openReq(n.id); else if (isRef) openUsability(n.id); });
     g.addEventListener('keydown', (ev) => onNodeKey(ev, n.id, req));
     g.addEventListener('mouseenter', () => setHover(n.id));
     g.addEventListener('mouseleave', () => clearHover(n.id));
@@ -875,6 +897,8 @@ function renderEditor() {
   const st = state.editor.stage;
   if (st === 'pick') return renderPickStage(body);
   if (st === 'context') return renderContextStage(body);
+  if (st === 'classify') return renderClassifyStage(body);
+  if (st === 'refine') return renderRefineStage(body);
   if (st === 'chat') return renderChatStage(body);
   return renderReviewForm(body);
 }
@@ -975,8 +999,9 @@ function renderContextStage(body) {
   wrap.append(h('div', { class: 'ctx-graph' }, g.el), right);
   body.append(wrap);
   body.append(h('div', { class: 'ctx-cta' },
-    h('button', { class: 'btn primary', type: 'button', onclick: () => { state.editor.target_req_id = null; state.editor.stage = 'chat'; renderEditor(); }, text: 'Conversar sobre uma mudança →' }),
-    h('button', { class: 'btn', type: 'button', onclick: () => { state.editId = null; state.editor.draft = null; state.editor.stage = 'review'; renderEditor(); }, text: 'Preencher formulário manualmente' })));
+    h('button', { class: 'btn primary', type: 'button', onclick: () => { state.editor.sketch = ''; state.editor.stage = 'classify'; renderEditor(); }, text: '✨ Descrever uma mudança…' }),
+    h('button', { class: 'btn', type: 'button', onclick: () => { state.editor.target_req_id = null; state.editor.stage = 'chat'; renderEditor(); }, text: 'Conversar (chat) →' }),
+    h('button', { class: 'btn', type: 'button', onclick: () => { state.editId = null; state.editor.draft = null; state.editor.stage = 'review'; renderEditor(); }, text: 'Formulário manual' })));
   heading.focus();
 }
 
@@ -1586,6 +1611,354 @@ function renderReviewForm(body) {
 
 }
 
+/* ===================== CAMADA DE REFINAMENTO (REF-*) =====================
+   classify: descreve a mudança → a IA recomenda o NÍVEL (refinamento | edição de
+   requisito | requisito novo) → o operador confirma e é roteado. refine: autora um
+   refinamento RICO de tela ancorado a 1+ requisitos (picker visual no mapa) → YAML → PR. */
+function levelMeta(level) {
+  if (level === 'refinement') return { label: 'Refinamento de tela', cls: 'b-fn', desc: 'Detalha o comportamento/uma tela de capacidades que JÁ existem — sem alterar o requisito.' };
+  if (level === 'requirement-edit') return { label: 'Edição de requisito', cls: 'b-high', desc: 'Ajuste compatível de um requisito existente (patch/minor).' };
+  return { label: 'Requisito novo', cls: 'b-crit', desc: 'Capacidade nova/drástica que nenhum requisito cobre ainda.' };
+}
+
+/* Estágio — descrever a mudança e classificar o nível (a IA recomenda; o operador decide). */
+function renderClassifyStage(body) {
+  const product = state.editor.product;
+  const meta = productMeta(product);
+  body.append(edCrumbs(product, 'Classificar mudança'));
+  const heading = h('h2', { class: 'editor-title', tabindex: '-1', text: 'Descreva a mudança — ' + (meta.display_name || product) });
+  body.append(h('div', { class: 'ed-guided-head' }, heading,
+    h('p', { class: 'muted', text: 'Conte em uma frase o que você quer mudar. A IA classifica o nível — um refinamento de tela (ancorado a requisitos), uma edição de requisito, ou um requisito novo — e te leva ao caminho certo. A IA recomenda; você confirma.' })));
+
+  const sketch = h('textarea', { class: 'ai-sketch', rows: '3', 'aria-label': 'O que você quer mudar', placeholder: 'ex.: "na tela de perfil (/profile) quero mostrar o endereço do empreendimento do usuário"' });
+  if (state.editor.sketch) sketch.value = state.editor.sketch;
+  const btn = h('button', { class: 'btn primary', type: 'button', text: '✨ Classificar (IA)' });
+  const out = h('div', { class: 'ai-out', role: 'status', 'aria-live': 'polite' });
+  body.append(h('div', { class: 'classify-form' },
+    h('label', { class: 'fld wide' }, h('span', { class: 'fld-l', text: 'O que você quer mudar?' }), sketch),
+    h('div', { class: 'ws-actions' }, btn), out));
+
+  const { g } = buildSystemGraph(product, true);
+  state.editor.graph = g;
+  body.append(h('div', { class: 'classify-map' }, h('p', { class: 'muted small', text: 'Mapa do sistema (clique nas âncoras sugeridas para focar):' }), g.el));
+
+  function route(level, data) {
+    if (level === 'refinement') {
+      state.editor.refAnchors = (data.anchors || []).filter((a) => byId(a.requirement_id)).map((a) => ({ requirement_id: a.requirement_id, relation: a.relation || 'refines' }));
+      state.editor.refSketch = state.editor.sketch; state.editor.stage = 'refine'; renderEditor(); return;
+    }
+    if (level === 'requirement-edit' && data.target_req_id && byId(data.target_req_id)) {
+      state.editId = data.target_req_id; state.editor.draft = null; state.editor.stage = 'review'; renderEditor(); return;
+    }
+    state.editId = null; state.editor.draft = null; state.editor.stage = 'review'; renderEditor();
+  }
+
+  function renderResult(data) {
+    const lm = levelMeta(data.level);
+    const card = h('div', { class: 'card classify-card' },
+      h('div', { class: 'classify-head' }, h('span', { class: 'classify-ic', 'aria-hidden': 'true', text: '✨' }), badge(lm.label, lm.cls),
+        data.confidence != null ? h('span', { class: 'muted small', text: 'confiança ' + data.confidence }) : null),
+      h('p', { class: 'classify-rat', text: data.rationale || lm.desc }));
+    const cites = filterCitations((data.anchors || []).map((a) => a.requirement_id).concat(data.target_req_id ? [data.target_req_id] : []), DATA.baseline.requirements);
+    if (cites.length) {
+      const cc = h('div', { class: 'classify-anchors' }, h('span', { class: 'muted small', text: data.level === 'requirement-edit' ? 'Requisito alvo:' : 'Ancorar em:' }));
+      cites.forEach((id) => cc.append(h('button', { class: 'btn-link chat-cite', type: 'button', onclick: () => state.editor.graph && state.editor.graph.focus(id), text: id })));
+      card.append(cc);
+    }
+    const acts = h('div', { class: 'classify-acts' });
+    const primary = h('button', { class: 'btn primary', type: 'button', tabindex: '-1',
+      text: data.level === 'refinement' ? 'Criar refinamento →' : (data.level === 'requirement-edit' && byId(data.target_req_id) ? 'Editar ' + data.target_req_id + ' →' : 'Criar requisito novo →'),
+      onclick: () => route(data.level, data) });
+    acts.append(primary);
+    // alternativas (o operador pode discordar da recomendação)
+    if (data.level !== 'refinement') acts.append(h('button', { class: 'btn', type: 'button', text: 'É um refinamento', onclick: () => route('refinement', { anchors: data.anchors || [] }) }));
+    if (data.level !== 'new-requirement') acts.append(h('button', { class: 'btn', type: 'button', text: 'É um requisito novo', onclick: () => route('new-requirement', {}) }));
+    card.append(h('p', { class: 'muted small', text: 'A IA recomenda; você decide o caminho.' }), acts);
+    out.replaceChildren(card);
+    primary.focus();
+  }
+
+  async function classify() {
+    const sk = (sketch.value || '').trim();
+    state.editor.sketch = sk;
+    if (sk.length < 3) { out.replaceChildren(h('p', { class: 'empty', text: 'Descreva a mudança (ao menos uma frase).' })); return; }
+    out.replaceChildren(h('p', { class: 'muted', text: 'Consultando a IA…' }));
+    btn.disabled = true; btn.setAttribute('aria-busy', 'true');
+    try {
+      const grounding = productGrounding(DATA.baseline.requirements, product);
+      const r = await AI.post('/v1/authoring/classify', { product, sketch: sk, grounding });
+      if (!r.ok) { const code = r.data && r.data.error ? r.data.error.code : 'HTTP ' + r.status; out.replaceChildren(h('div', { class: 'card' }, h('h3', { text: 'IA: ' + code }), h('p', { class: 'muted', text: (r.data && r.data.error && r.data.error.message) || '' }))); return; }
+      renderResult(r.data);
+    } catch (e) { out.replaceChildren(h('p', { class: 'empty', text: 'Erro de rede ao chamar a IA: ' + (e && e.message ? e.message : e) })); }
+    finally { btn.disabled = false; btn.removeAttribute('aria-busy'); }
+  }
+  btn.addEventListener('click', classify);
+  heading.focus();
+}
+
+/* Estágio — autoria de um REFINAMENTO rico (form de tela + picker de âncoras no mapa). */
+function renderRefineStage(body) {
+  const product = state.editor.product;
+  const meta = productMeta(product);
+  body.append(edCrumbs(product, 'Refinamento'));
+  const reviewHeading = h('h2', { class: 'editor-title', tabindex: '-1', text: 'Refinamento de tela — ' + (meta.display_name || product) });
+
+  // helpers locais (duplicados de propósito — caminho de dados isolado do form do REQUISITO)
+  const f = {};
+  const form = h('div', { class: 'ed-form' });
+  const inp = (v, attrs) => h('input', { type: 'text', value: v ?? '', ...(attrs || {}) });
+  const area = (v, rows) => h('textarea', { rows: String(rows || 3) }, v ?? '');
+  const sel = (opts, v) => { const s = h('select'); for (const o of opts) { const op = h('option', { value: o, text: o }); if (o === v) op.selected = true; s.append(op); } return s; };
+  const section = (title, hint) => { const sec = h('fieldset', { class: 'ed-section' }, h('legend', { text: title })); if (hint) sec.append(h('p', { class: 'ed-hint', text: hint })); const g = h('div', { class: 'ed-grid' }); sec.append(g); form.append(sec); return g; };
+  const field = (grid, label, key, el, wide) => { grid.append(h('label', { class: 'fld' + (wide ? ' wide' : '') }, h('span', { class: 'fld-l', text: label }), el)); if (key) f[key] = el; };
+
+  // ---- 1) Identidade ----
+  const sId = section('Identidade');
+  const refIds = refList().map((x) => x.id);
+  const idInput = h('input', { type: 'text', readonly: 'readonly', 'aria-label': 'ID do refinamento', value: nextRefId(product, refIds) });
+  f.id = idInput;
+  field(sId, 'Produto', null, h('span', { class: 'ed-fixed', text: meta.display_name ? (meta.display_name + ' · ' + product) : product }), true);
+  field(sId, 'ID', null, idInput, true);
+  field(sId, 'Título', 'title', inp(''), true);
+  field(sId, 'Tipo de refino', 'kind', sel(['screen', 'component', 'flow', 'interaction', 'content'], 'screen'));
+  field(sId, 'Status', 'status', sel(['draft', 'proposed', 'approved'], 'draft'));
+
+  // ---- 2) Âncoras (requisitos que este refino detalha) — SELEÇÃO VISUAL no mapa ----
+  const REF_REL = ['implements', 'refines', 'derives_from', 'relates_to'];
+  const anchors = new Map(); // reqId -> relation
+  for (const a of (state.editor.refAnchors || [])) if (byId(a.requirement_id)) anchors.set(a.requirement_id, REF_REL.includes(a.relation) ? a.relation : 'refines');
+  const anchorRel = sel(REF_REL, 'refines');
+  const sAnch = h('fieldset', { class: 'ed-section ed-links-sec' },
+    h('legend', { text: 'Âncoras — requisitos que este refino detalha' }),
+    h('p', { class: 'ed-hint', text: 'Escolha a relação e clique num requisito no mapa para ancorar (1+ obrigatório; pode incluir requisitos NÃO-funcionais). O refino aponta para o requisito — o requisito não é alterado.' }),
+    h('div', { class: 'ed-link-tb' }, h('label', { class: 'ed-link-tb-f' }, h('span', { class: 'fld-l', text: 'Relação' }), anchorRel)));
+  const anchorMapHost = h('div', { class: 'ed-link-map' });
+  const anchorList = h('ul', { class: 'ed-links' });
+  sAnch.append(anchorMapHost, h('p', { class: 'ed-links-head muted small', text: 'Âncoras deste refinamento' }), anchorList);
+  form.append(sAnch);
+  let anchorGraph = null;
+  function renderAnchorList() {
+    anchorList.replaceChildren();
+    if (!anchors.size) { anchorList.append(h('li', { class: 'ed-links-empty muted', text: 'Nenhuma âncora ainda — clique num requisito no mapa acima.' })); return; }
+    for (const [id, rel] of anchors) {
+      const r = byId(id) || {};
+      anchorList.append(h('li', { class: 'ed-link-item' }, badge(rel, 'b'),
+        h('button', { class: 'btn-link rid', type: 'button', onclick: () => anchorGraph && anchorGraph.focus(id), text: id }),
+        h('span', { class: 'muted small ed-link-note', text: truncateLabel(r.title || '', 48) }),
+        h('button', { class: 'btn-link ed-link-rm', type: 'button', 'aria-label': 'Remover âncora ' + id, title: 'Remover', onclick: () => { anchors.delete(id); renderAnchorList(); syncAnchors(); }, text: '✕' })));
+    }
+  }
+  function syncAnchors() { if (anchorGraph) { const d = productGraphData(product); anchorGraph.setData(d.nodes, d.edges); } }
+  function buildAnchorMap() {
+    const data = productGraphData(product);
+    if (!data.nodes.length) { anchorGraph = null; anchorMapHost.replaceChildren(h('p', { class: 'empty', text: 'Este sistema ainda não tem requisitos para ancorar.' })); return; }
+    anchorGraph = interactiveGraph({
+      label: 'Mapa de requisitos — clique para ancorar',
+      nodeClass: (n) => anchors.has(n.id) ? 'is-anchor' : '',
+      onOpen: (id) => { if (byId(id)) openReq(id); },
+      detailOf: (n, id) => {
+        const r = byId(id) || {};
+        const has = anchors.has(id);
+        const actions = has
+          ? [{ label: '✕ Remover âncora (' + anchors.get(id) + ')', cls: 'btn-link ed-link-danger', onClick: () => { anchors.delete(id); renderAnchorList(); syncAnchors(); } }]
+          : [{ label: '⚓ Ancorar como ' + anchorRel.value, cls: 'btn primary ig-act', onClick: () => { anchors.set(id, anchorRel.value); renderAnchorList(); syncAnchors(); } }];
+        return { title: r.title || '', sub: id + (has ? ' · âncora: ' + anchors.get(id) : ''), badges: r.type ? [badge(r.type === 'non-functional' ? 'NFR' : 'funcional', r.type === 'non-functional' ? 'b-nfr' : 'b-fn')] : [], openable: !!r.id, actions };
+      },
+    });
+    anchorGraph.setData(data.nodes, data.edges);
+    anchorMapHost.replaceChildren(anchorGraph.el);
+  }
+  buildAnchorMap(); renderAnchorList();
+
+  // ---- 3) Superfície (tela) ----
+  const sSurf = section('Superfície (tela)', 'A rota é obrigatória quando o tipo é "screen".');
+  field(sSurf, 'Rota', 'route', inp('', { placeholder: '/profile' }));
+  field(sSurf, 'Nome da tela', 'surface_name', inp(''));
+  field(sSurf, 'Papéis (roles, 1 por linha)', 'roles', area('', 2), true);
+
+  // ---- 4) Comportamento (estados/dados/interações/fluxos) — listas linha-a-linha ----
+  const sBeh = section('Comportamento da tela', 'Modele os estados (normal/carregando/erro/vazio), os dados exibidos, as interações e os fluxos.');
+  field(sBeh, 'Estados (um por linha: nome | quando | o que mostra)', 'states', area('', 4), true);
+  field(sBeh, 'Dados exibidos (um por linha: campo | fonte | editável?)', 'data', area('', 3), true);
+  field(sBeh, 'Interações (uma por linha: gatilho | ação | resultado)', 'interactions', area('', 3), true);
+  field(sBeh, 'Fluxos (um por linha: passo › passo › passo)', 'flows', area('', 2), true);
+
+  // ---- 5) Aceite & verificação ----
+  const sAcc = section('Aceite & verificação');
+  field(sAcc, 'Critérios de aceite (1 por linha)', 'acceptance', area('', 3), true);
+  const VM = ['test-unit', 'test-integration', 'test-e2e', 'architecture-review', 'deployment-policy-check', 'manual-review', 'monitoring', 'demo'];
+  const vmSel = new Set();
+  const vmWrap = h('div', { class: 'vm-chips', role: 'group', 'aria-label': 'Métodos de verificação' });
+  const vmChips = {};
+  for (const m of VM) { const c = h('button', { class: 'vm-chip', type: 'button', 'aria-pressed': 'false', text: m }); c.addEventListener('click', () => { const on = c.getAttribute('aria-pressed') === 'true'; c.setAttribute('aria-pressed', on ? 'false' : 'true'); if (on) vmSel.delete(m); else vmSel.add(m); }); vmChips[m] = c; vmWrap.append(c); }
+  f.methods = { get value() { return [...vmSel]; }, set value(arr) { const want = new Set(Array.isArray(arr) ? arr : []); vmSel.clear(); for (const m of VM) { const on = want.has(m); if (on) vmSel.add(m); if (vmChips[m]) vmChips[m].setAttribute('aria-pressed', on ? 'true' : 'false'); } } };
+  field(sAcc, 'Métodos de verificação', null, h('div', { class: 'vm-field' }, vmWrap), true);
+
+  // ---- 6) Origem ----
+  const sSrc = section('Origem', 'Caminhos reais (relativos à raiz do repo) da tela/código que o refino descreve.');
+  field(sSrc, 'source_paths (1 por linha)', 'source_paths', area('', 2), true);
+
+  // ---- 7) Versionamento (auto) ----
+  const sVerDet = h('details', { class: 'ed-section ed-adv' }, h('summary', { text: 'Versionamento (gerenciado automaticamente)' }));
+  const sVer = h('div', { class: 'ed-grid' }); sVerDet.append(sVer); form.append(sVerDet);
+  field(sVer, 'baseline_version', 'bver', inp('1.0.0', { readonly: 'readonly' }));
+  field(sVer, 'item_revision', 'irev', inp('1', { readonly: 'readonly' }));
+  field(sVer, 'semantic_change', 'sem', sel(['none', 'patch', 'minor', 'major'], 'none'));
+  field(sVer, 'change_reason', 'reason', inp('novo refinamento'), true);
+
+  // ---- parse/serialize do comportamento (formato linha-a-linha) ----
+  const splitPipe = (line) => line.split('|').map((x) => x.trim());
+  function collectRefDraft() {
+    const states = (f.states.value || '').split('\n').map((x) => x.trim()).filter(Boolean).map((l) => { const [name, when, ui] = splitPipe(l); return { name: name || 'estado', ...(when ? { when } : {}), ...(ui ? { ui } : {}) }; });
+    const data = (f.data.value || '').split('\n').map((x) => x.trim()).filter(Boolean).map((l) => { const [fld, src, ed] = splitPipe(l); return { field: fld || '', source: src || '', editable: /^(sim|true|yes|edit)/i.test(ed || '') }; });
+    const interactions = (f.interactions.value || '').split('\n').map((x) => x.trim()).filter(Boolean).map((l) => { const [trigger, action, result] = splitPipe(l); return { trigger: trigger || '', action: action || '', result: result || '' }; });
+    const flows = (f.flows.value || '').split('\n').map((x) => x.trim()).filter(Boolean).map((l) => l.split(/›|>/).map((s) => s.trim()).filter(Boolean));
+    const roles = (f.roles.value || '').split('\n').map((x) => x.trim()).filter(Boolean);
+    const srcPaths = (f.source_paths.value || '').split('\n').map((x) => x.trim()).filter(Boolean);
+    const accept = (f.acceptance.value || '').split('\n').map((x) => x.trim()).filter(Boolean);
+    const methods = (f.methods.value || []).filter(Boolean);
+    const behavior = { states };
+    if (data.length) behavior.data = data;
+    if (interactions.length) behavior.interactions = interactions;
+    if (flows.length) behavior.flows = flows;
+    const surface = {};
+    if ((f.route.value || '').trim()) surface.route = f.route.value.trim();
+    if ((f.surface_name.value || '').trim()) surface.name = f.surface_name.value.trim();
+    if (roles.length) surface.roles = roles;
+    const d = {
+      id: f.id.value.trim(), slug: f.id.value.trim().toLowerCase(), title: f.title.value.trim(),
+      kind: f.kind.value, status: f.status.value,
+      scope: { product_scope: product, applies_to: f.kind.value === 'screen' ? 'screen' : (f.kind.value === 'component' ? 'component' : (f.kind.value === 'flow' ? 'flow' : 'capability')) },
+      anchors: [...anchors].map(([requirement_id, relation]) => ({ requirement_id, relation })),
+      ...(Object.keys(surface).length ? { surface } : {}),
+      behavior,
+      acceptance_criteria: accept.length ? accept : undefined,
+      verification_method: methods.length ? methods : undefined,
+      source: srcPaths.length ? { source_paths: srcPaths } : undefined,
+      version: { baseline_version: f.bver.value.trim() || '1.0.0', item_revision: Number(f.irev.value) || 1, semantic_change: f.sem.value, change_reason: f.reason.value.trim() || undefined },
+    };
+    return d;
+  }
+  function applyRefDraftToForm(draft) {
+    const d = draft || {};
+    const setVal = (el, v) => { if (el && v != null && v !== '') el.value = String(v); };
+    const setSel = (el, v) => { if (!el || v == null) return; if (Array.from(el.options).some((o) => o.value === v)) el.value = v; };
+    setVal(f.title, d.title);
+    setSel(f.kind, d.kind);
+    if (d.surface) { setVal(f.route, d.surface.route); setVal(f.surface_name, d.surface.name); if (Array.isArray(d.surface.roles) && d.surface.roles.length && !(f.roles.value || '').trim()) f.roles.value = d.surface.roles.join('\n'); }
+    const beh = d.behavior || {};
+    if (Array.isArray(beh.states) && beh.states.length) f.states.value = beh.states.map((s) => [s.name, s.when, s.ui].filter((x) => x != null).join(' | ')).join('\n');
+    if (Array.isArray(beh.data) && beh.data.length) f.data.value = beh.data.map((x) => [x.field, x.source, x.editable ? 'sim' : 'não'].join(' | ')).join('\n');
+    if (Array.isArray(beh.interactions) && beh.interactions.length) f.interactions.value = beh.interactions.map((x) => [x.trigger, x.action, x.result].join(' | ')).join('\n');
+    if (Array.isArray(beh.flows) && beh.flows.length) f.flows.value = beh.flows.map((fl) => (Array.isArray(fl) ? fl.join(' › ') : String(fl))).join('\n');
+    if (Array.isArray(d.acceptance_criteria) && d.acceptance_criteria.length) f.acceptance.value = d.acceptance_criteria.join('\n');
+    if (Array.isArray(d.verification_method)) f.methods.value = d.verification_method;
+    if (d.source && Array.isArray(d.source.source_paths) && d.source.source_paths.length && !(f.source_paths.value || '').trim()) f.source_paths.value = d.source.source_paths.join('\n');
+  }
+
+  // ---- coluna do assistente de IA ----
+  const sketch = h('textarea', { class: 'ai-sketch', rows: '4', 'aria-label': 'Esboço do refinamento', placeholder: 'Descreva a mudança de tela em linguagem natural…' });
+  if (state.editor.refSketch) sketch.value = state.editor.refSketch;
+  const aiOut = h('div', { class: 'ai-out' });
+  const valOut = h('div', { class: 'val-out', 'aria-live': 'polite' });
+  function runValidation() { const errs = validateRefinement(collectRefDraft()); valOut.replaceChildren(errs.length ? h('ul', { class: 'errlist' }, ...errs.map((e) => h('li', { text: e }))) : h('p', { class: 'val-ok', text: '✓ Pronto para gerar o YAML.' })); }
+  function showErr(r) { const code = r.data && r.data.error ? r.data.error.code : 'HTTP ' + r.status; aiOut.replaceChildren(h('div', { class: 'card' }, h('h3', { text: 'IA: ' + code }), h('p', { class: 'muted', text: (r.data && r.data.error && r.data.error.message) || '' }))); }
+  async function guard(fn) { aiOut.replaceChildren(h('p', { class: 'muted', text: 'Consultando a IA…' })); try { await fn(); } catch (e) { aiOut.replaceChildren(h('p', { class: 'empty', text: 'Erro de rede: ' + (e && e.message ? e.message : e) })); } }
+  function anchorArray() { return [...anchors].map(([requirement_id, relation]) => ({ requirement_id, relation })); }
+  function doDraftRef() {
+    guard(async () => {
+      const r = await AI.post('/v1/authoring/draft-refinement', { product, sketch: (sketch.value || '').trim(), anchors: anchorArray() });
+      if (!r.ok) return showErr(r);
+      applyRefDraftToForm(r.data.draft || {}); runValidation();
+      const warns = (r.data.warnings) || [];
+      aiOut.replaceChildren(h('div', { class: 'card' }, h('h3', { text: 'Rascunho aplicado (' + (r.data.prompt_version || '') + ')' }), h('p', { class: 'muted', text: warns.length ? 'Avisos: ' + warns.join('; ') : 'Campos preenchidos à direita — revise e gere o YAML.' })));
+    });
+  }
+  // loop autônomo de refino (reusa a decisão pura refineDecision; endpoints de REFINAMENTO).
+  let refining = false; let refineBtn = null;
+  const SEV_LABEL = { blocker: 'crítico', warning: 'atenção', info: 'opcional' };
+  const SEV_CLS = { blocker: 'b-crit', warning: 'b-high', info: 'b-low' };
+  function doRefineLoop() {
+    if (refining) return;
+    const MAX = 8, STALE = 2;
+    refining = true;
+    if (refineBtn) { refineBtn.disabled = true; refineBtn.setAttribute('aria-busy', 'true'); }
+    guard(async () => {
+      const log = h('div', { class: 'refine-log' });
+      const liveSummary = h('p', { class: 'visually-hidden', role: 'status', 'aria-live': 'polite' });
+      aiOut.replaceChildren(h('div', { class: 'card' }, h('h3', {}, h('span', { class: 'asst-spark', 'aria-hidden': 'true', text: '✨' }), ' Analisar & refinar'), h('p', { class: 'muted small', text: 'A IA analisa, corrige e re-analisa o refinamento sozinha até zerar as lacunas que travam (ou até não conseguir mais melhorar).' }), liveSummary, log));
+      const gapItem = (gp) => { const sev = gp.severity || 'info'; return h('li', {}, badge(SEV_LABEL[sev] || sev, SEV_CLS[sev] || 'b-low'), ' ' + ((gp.field ? gp.field + ': ' : '') + (gp.message || ''))); };
+      const finish = (action, score, dec) => {
+        let head;
+        if (action === 'ready') head = h('p', { class: 'refine-ok', tabindex: '-1', text: '✓ Refinamento pronto (prontidão ' + score + '). Revise e gere o YAML.' });
+        else if (action === 'plateau') head = h('p', { class: 'refine-warn', tabindex: '-1', text: '⚠ A IA refinou até onde conseguiu (prontidão ' + score + '). Os pontos abaixo precisam da sua decisão.' });
+        else head = h('p', { class: 'refine-warn', tabindex: '-1', text: 'Parei após ' + MAX + ' rodadas (prontidão ' + score + ').' });
+        log.append(head);
+        if (dec.actionable.length) { const ul = h('ul', { class: 'errlist' }); dec.actionable.forEach((gp) => ul.append(gapItem(gp))); log.append(h('p', { class: 'muted small', text: 'Pontos que precisam de você (' + dec.actionable.length + '):' }), ul); }
+        if (dec.info.length) { const det = h('details', { class: 'refine-optional' }); det.append(h('summary', { text: dec.info.length + ' sugestão(ões) opcional(is)' })); const ul = h('ul', { class: 'errlist' }); dec.info.forEach((gp) => ul.append(gapItem(gp))); det.append(ul); log.append(det); }
+        log.append(h('div', { class: 'ws-actions' }, h('button', { class: 'btn', type: 'button', text: 'Refinar de novo', onclick: doRefineLoop })));
+        liveSummary.textContent = head.textContent || '';
+        try { head.focus(); } catch (e) { /* best-effort */ }
+      };
+      let best = null, stale = 0;
+      for (let i = 0; i < MAX; i++) {
+        const step = h('p', { class: 'refine-step', text: 'Rodada ' + (i + 1) + ' — analisando…' }); log.append(step);
+        const ra = await AI.post('/v1/authoring/analyze-refinement', { refinement: collectRefDraft() });
+        if (!ra.ok) { showErr(ra); return; }
+        const score = ra.data.score != null ? Number(ra.data.score) : 0;
+        const dec = refineDecision({ round: i, score, gaps: ra.data.gaps || [], best, stale, maxRounds: MAX, staleLimit: STALE });
+        best = dec.best; stale = dec.stale;
+        step.replaceChildren(h('strong', { text: 'Rodada ' + (i + 1) }), ' · prontidão ', h('span', { class: 'refine-score', text: String(score) }), ' · ' + (dec.actionable.length ? dec.actionable.length + ' lacuna(s) crítica(s)' : 'sem lacunas críticas') + (dec.info.length ? ' (+' + dec.info.length + ' opcional)' : ''));
+        if (dec.action !== 'fix') return finish(dec.action, score, dec);
+        log.append(h('p', { class: 'refine-fix muted small', text: '↳ corrigindo ' + dec.actionable.length + ' lacuna(s) com IA…' }));
+        const rv = await AI.post('/v1/authoring/revise-refinement', { refinement: collectRefDraft(), gaps: dec.actionable.concat(dec.info) });
+        if (!rv.ok) { showErr(rv); return; }
+        if (rv.data && rv.data.draft) { applyRefDraftToForm(rv.data.draft); runValidation(); }
+      }
+    }).finally(() => { refining = false; if (refineBtn) { refineBtn.disabled = false; refineBtn.removeAttribute('aria-busy'); } });
+  }
+
+  const status = h('p', { class: 'muted small', id: 'ref-ai-status' });
+  AI.health().then((r) => { status.textContent = (r.ok && r.data && r.data.ai) ? 'IA habilitada (gpt-5). Cole seu token de operador para rascunhar/analisar.' : 'IA desabilitada no servidor — o formulário funciona sem ela.'; }).catch(() => { status.textContent = 'reqhub-api indisponível — o formulário funciona sem a IA.'; });
+  const tok = h('input', { type: 'password', class: 'ai-tok', placeholder: 'token do operador', value: AI.getToken() });
+  const assistant = h('section', { class: 'editor-assistant' },
+    h('div', { class: 'asst-head' }, h('span', { class: 'asst-spark', 'aria-hidden': 'true', text: '✨' }), h('h3', { text: 'Assistente de IA' })),
+    status,
+    h('label', { class: 'fld' }, h('span', { class: 'fld-l', text: 'Descreva a mudança de tela (esboço)' }), sketch),
+    h('div', { class: 'asst-actions' },
+      h('button', { class: 'btn primary', type: 'button', text: '✨ Rascunhar refinamento (IA)', onclick: doDraftRef }),
+      (refineBtn = h('button', { class: 'btn', type: 'button', text: '✨ Analisar & refinar', onclick: doRefineLoop }))),
+    aiOut,
+    h('div', { class: 'asst-val' }, h('h4', { text: 'Validação automática' }), valOut),
+    h('details', { class: 'asst-token' }, h('summary', { text: 'Token de operador (IA)' }),
+      h('div', { class: 'ws-actions' }, tok, h('button', { class: 'btn-link', type: 'button', text: 'Salvar', onclick: () => { AI.setToken(tok.value.trim()); status.textContent = 'Token salvo neste navegador.'; } }))));
+
+  // ---- gerar YAML → PR (a UI nunca escreve git) ----
+  const out = h('div');
+  function genRef() {
+    out.replaceChildren();
+    const d = collectRefDraft();
+    const errs = validateRefinement(d);
+    if (errs.length) { out.append(h('div', { class: 'card' }, h('h3', { text: 'Corrija antes de gerar' }), h('ul', { class: 'errlist' }, ...errs.map((e) => h('li', { text: e }))))); return; }
+    const yaml = toYaml(d) + '\n';
+    const filePath = `specs/refinements/${product}/${d.id}.yaml`;
+    const newUrl = `https://github.com/${REPO}/new/main?filename=${encodeURIComponent(filePath)}&value=${encodeURIComponent(yaml)}`;
+    out.append(h('div', { class: 'card' }, h('h3', { text: filePath }), h('pre', { class: 'yaml' }, yaml),
+      h('div', { class: 'ws-actions' },
+        h('button', { class: 'btn', type: 'button', onclick: () => { if (navigator.clipboard) navigator.clipboard.writeText(yaml); }, text: 'Copiar YAML' }),
+        h('a', { class: 'btn', href: newUrl, target: '_blank', rel: 'noopener' }, 'Abrir no GitHub (novo → PR)')),
+      h('p', { class: 'muted', text: 'O PR passa pelo gate specs-governance (schema/âncoras/origem/drift). A baseline é regenerada por /sync-spec após o merge.' })));
+  }
+  const formCol = h('section', { class: 'editor-formcol' }, form,
+    h('div', { class: 'ws-actions' }, h('button', { class: 'btn primary', type: 'button', text: 'Gerar YAML', onclick: genRef })), out);
+
+  body.append(h('div', { class: 'editor-head' }, h('div', {}, reviewHeading,
+    h('p', { class: 'muted', text: 'Um refinamento detalha o funcionamento de uma TELA ancorado a 1+ requisitos — sem alterar o requisito. A UI não escreve no git: o commit é seu (PR).' }))),
+    h('div', { class: 'editor-grid' }, assistant, formCol));
+  runValidation();
+  reviewHeading.focus();
+}
+
 /* ---------- navegação / abas ---------- */
 /* ===================== Forge — construir um produto a partir de requisitos =====================
    Hub de produtos → detalhe com breadcrumb + stepper (Definir → Arquitetura → Build).
@@ -2190,13 +2563,14 @@ const VIEW_META = {
   versions: { title: 'Versões & mudanças', sub: 'Histórico e classificação semântica' },
   impact: { title: 'Mapa de impacto', sub: 'Grafo de dependências entre requisitos' },
   coverage: { title: 'Cobertura', sub: 'Requisitos × evidência e alocação' },
+  usability: { title: 'Usabilidade', sub: 'Telas e refinamentos — o funcionamento detalhado, ancorado aos requisitos' },
   reprocess: { title: 'Fila de reprocessamento', sub: 'O que revisar após mudanças na baseline' },
   dev: { title: 'Desenvolvimento', sub: 'Status de entrega por requisito (REQ → PR → deploy)' },
   editor: { title: 'Editor', sub: 'Autoria assistida por IA → PR no git' },
   forge: { title: 'Forge', sub: 'Construir um produto completo a partir de requisitos' },
 };
 
-const RENDER = { overview: renderOverview, explorer: renderExplorer, workspace: renderWorkspace, versions: renderVersions, impact: renderImpact, coverage: renderCoverage, reprocess: renderReprocess, dev: renderDev, editor: renderEditor, forge: renderForge };
+const RENDER = { overview: renderOverview, explorer: renderExplorer, workspace: renderWorkspace, versions: renderVersions, impact: renderImpact, coverage: renderCoverage, usability: renderUsability, reprocess: renderReprocess, dev: renderDev, editor: renderEditor, forge: renderForge };
 function switchView(view) {
   state.view = view;
   for (const it of document.querySelectorAll('.nav-item')) {
@@ -2214,6 +2588,89 @@ function switchView(view) {
   RENDER[view]();
 }
 function openReq(id) { state.selectedId = id; RECENTS.push(id); switchView('workspace'); const t = document.getElementById('tab-workspace'); if (t) t.focus(); }
+function openUsability(id) { state.usabilitySel = id; switchView('usability'); const t = document.getElementById('tab-usability'); if (t) t.focus(); }
+
+/* ===================== Usabilidade — telas/refinamentos (o funcionamento detalhado) =====================
+   Navega produto → refinamentos (telas) → comportamento detalhado (estados/dados/interações/fluxos),
+   ancorado aos requisitos. Lê DATA.baseline.refinements (fail-soft). */
+function renderUsability() {
+  const body = document.getElementById('usability-body');
+  body.replaceChildren();
+  const refs = refList();
+  if (!refs.length) {
+    body.append(h('div', { class: 'card' }, h('h3', { text: 'Nenhum refinamento ainda' }),
+      h('p', { class: 'muted', text: 'Refinamentos descrevem o funcionamento detalhado de uma tela ancorado a 1+ requisitos — sem alterar o requisito. Crie um no Editor → “Descrever uma mudança”.' }),
+      h('div', { class: 'ws-actions' }, h('button', { class: 'btn primary', type: 'button', onclick: () => switchView('editor'), text: 'Ir ao Editor →' }))));
+    return;
+  }
+  const byProd = {};
+  for (const r of refs) { const p = r.scope?.product_scope || r.product || 'outros'; (byProd[p] = byProd[p] || []).push(r); }
+  const prods = Object.keys(byProd).sort();
+  let sel = state.usabilitySel ? refById(state.usabilitySel) : null;
+  if (!sel) sel = byProd[prods[0]][0];
+
+  const wrap = h('div', { class: 'usability-grid' });
+  const list = h('aside', { class: 'usability-list' });
+  for (const p of prods) {
+    list.append(h('h3', { class: 'usability-prod', text: (productMeta(p).display_name || p) }));
+    const ul = h('ul', { class: 'usability-items' });
+    for (const r of byProd[p].slice().sort((a, b) => String(a.id).localeCompare(String(b.id)))) {
+      const active = sel && sel.id === r.id;
+      ul.append(h('li', {}, h('button', { class: 'usability-item' + (active ? ' is-active' : ''), type: 'button', 'aria-current': active ? 'true' : null, title: r.title || r.id, onclick: () => { state.usabilitySel = r.id; renderUsability(); } },
+        badge(r.kind || 'screen', 'b'), h('span', { class: 'usability-ti', text: truncateLabel(r.title || r.id, 40) }),
+        (r.surface && r.surface.route) ? h('span', { class: 'usability-route', text: r.surface.route }) : null)));
+    }
+    list.append(ul);
+  }
+  const detail = h('div', { class: 'usability-detail' });
+  renderUsabilityDetail(detail, sel);
+  wrap.append(list, detail);
+  body.append(wrap);
+}
+function renderUsabilityDetail(host, r) {
+  host.replaceChildren();
+  if (!r) { host.append(h('p', { class: 'empty', text: 'Selecione um refinamento à esquerda.' })); return; }
+  const head = h('div', { class: 'card usability-card' },
+    h('div', { class: 'usability-head' }, badge(r.kind || 'screen', 'b-fn'), h('h2', { class: 'usability-title', tabindex: '-1', text: r.title || r.id }), r.status ? badge(r.status, 'b') : null),
+    h('p', { class: 'muted small', text: r.id + ((r.surface && r.surface.route) ? ' · ' + r.surface.route : '') + ((r.surface && r.surface.name) ? ' · ' + r.surface.name : '') }));
+  const anc = Array.isArray(r.anchors) ? r.anchors : [];
+  if (anc.length) {
+    const ac = h('div', { class: 'usability-anchors' }, h('span', { class: 'muted small', text: 'Detalha os requisitos:' }));
+    anc.forEach((a) => { const req = byId(a.requirement_id); ac.append(h('button', { class: 'btn-link chat-cite', type: 'button', title: req ? req.title : '', onclick: () => openReq(a.requirement_id), text: a.requirement_id + ' (' + a.relation + ')' })); });
+    head.append(ac);
+  }
+  if (r.surface && Array.isArray(r.surface.roles) && r.surface.roles.length) head.append(h('p', { class: 'muted small', text: 'Papéis: ' + r.surface.roles.join(', ') }));
+  host.append(head);
+  const beh = r.behavior || {};
+  if (Array.isArray(beh.states) && beh.states.length) {
+    const c = h('div', { class: 'card' }, h('h3', { text: 'Estados da tela' }));
+    const ul = h('ul', { class: 'usability-states' });
+    for (const s of beh.states) ul.append(h('li', {}, h('strong', { text: s.name }), s.when ? h('span', { class: 'muted', text: ' — quando ' + s.when }) : null, s.ui ? h('p', { class: 'usability-ui', text: s.ui }) : null));
+    c.append(ul); host.append(c);
+  }
+  if (Array.isArray(beh.data) && beh.data.length) {
+    const c = h('div', { class: 'card' }, h('h3', { text: 'Dados exibidos' }));
+    const tb = h('tbody');
+    for (const d of beh.data) tb.append(h('tr', {}, h('td', { text: d.field }), h('td', { text: d.source }), h('td', { text: d.editable ? 'editável' : 'leitura' })));
+    c.append(h('table', { class: 'usability-table' }, h('thead', {}, h('tr', {}, h('th', { text: 'Campo' }), h('th', { text: 'Fonte' }), h('th', { text: 'Modo' }))), tb)); host.append(c);
+  }
+  if (Array.isArray(beh.interactions) && beh.interactions.length) {
+    const c = h('div', { class: 'card' }, h('h3', { text: 'Interações' }));
+    const ul = h('ul', { class: 'usability-inter' });
+    for (const it of beh.interactions) ul.append(h('li', {}, h('strong', { text: it.trigger }), ' → ', h('span', { text: it.action }), ' → ', h('span', { class: 'muted', text: it.result })));
+    c.append(ul); host.append(c);
+  }
+  if (Array.isArray(beh.flows) && beh.flows.length) {
+    const c = h('div', { class: 'card' }, h('h3', { text: 'Fluxos' }));
+    for (const fl of beh.flows) c.append(h('p', { class: 'usability-flow', text: (Array.isArray(fl) ? fl : [fl]).join('  ›  ') }));
+    host.append(c);
+  }
+  if (Array.isArray(r.acceptance_criteria) && r.acceptance_criteria.length) {
+    host.append(h('div', { class: 'card' }, h('h3', { text: 'Critérios de aceite' }), h('ul', { class: 'usability-acc' }, ...r.acceptance_criteria.map((x) => h('li', { text: x })))));
+  }
+  if (r.source && Array.isArray(r.source.source_paths) && r.source.source_paths.length) host.append(h('p', { class: 'muted small', text: 'Origem: ' + r.source.source_paths.join(' · ') }));
+  const t = host.querySelector('.usability-title'); if (t) t.focus();
+}
 
 /* ===================== Visão geral (Overview — front-door do produto) ===================== */
 function renderOverview() {

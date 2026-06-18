@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildWorkOrder, RESTRICTED_SCOPES } from './make-work-order.mjs';
+import { buildWorkOrder, buildRefinementWorkOrder, RESTRICTED_SCOPES } from './make-work-order.mjs';
 
 const req = {
   id: 'REQ-SICAT-0002', scope: { product_scope: 'sicat' }, title: 'Submit MTR', type: 'functional',
@@ -13,6 +13,26 @@ const edges = [
   { from: 'REQ-SICAT-NFR-0002', to: 'REQ-SICAT-0002', type: 'constrains' },
 ];
 const baseline = { reprocess_queue: [{ id: 'REQ-SICAT-0002', reasons: ['sem evidência de verificação'] }] };
+
+test('work order de REFINAMENTO: puxa âncoras (com título/critérios) + head ref/<id>', () => {
+  const ref = {
+    id: 'REF-GYMOPS-0001', scope: { product_scope: 'gymops' }, title: 'Endereço no perfil', kind: 'screen',
+    surface: { route: '/profile' }, behavior: { states: [{ name: 'normal' }] },
+    acceptance_criteria: ['exibe endereço'], source: { source_paths: ['apps/gymops'] }, version: { item_revision: 1 },
+    anchors: [{ requirement_id: 'REQ-GYMOPS-0010', relation: 'refines' }],
+  };
+  const reqById = new Map([['REQ-GYMOPS-0010', { id: 'REQ-GYMOPS-0010', title: 'Telas administrativas', statement: 'O sistema DEVE...', acceptance_criteria: ['c1'] }]]);
+  const wo = buildRefinementWorkOrder(ref, reqById, { refinements: [ref] }, {});
+  assert.equal(wo.ref_id, 'REF-GYMOPS-0001');
+  assert.equal(wo.product_scope, 'gymops');
+  assert.deepEqual(wo.allowed_paths, ['apps/gymops/**']);
+  assert.equal(wo.pr_template.head, 'ref/REF-GYMOPS-0001/r1');
+  assert.equal(wo.pr_template.trailer, 'Closes-Ref: REF-GYMOPS-0001');
+  assert.ok(wo.pr_template.labels.includes('refinement'));
+  assert.equal(wo.anchors[0].title, 'Telas administrativas'); // âncora resolvida da baseline
+  assert.deepEqual(wo.anchors[0].acceptance_criteria, ['c1']);
+  assert.equal(wo.refinement.surface.route, '/profile');
+});
 
 test('work order de produto (nao restrito)', () => {
   const wo = buildWorkOrder(req, edges, baseline);

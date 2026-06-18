@@ -6,7 +6,8 @@
     "allocation",
     "source_paths",
     "evidence",
-    "verification_method"
+    "verification_method",
+    "refinement"
   ],
   "totals": {
     "total": 339,
@@ -15,13 +16,15 @@
     "without_source_paths": 0,
     "without_evidence": 339,
     "without_verification_method": 334,
+    "without_refinement": 337,
     "scopes": 18,
     "coverage_pct": {
       "links": 18,
       "allocation": 8,
       "source_paths": 100,
       "evidence": 0,
-      "verification_method": 1.5
+      "verification_method": 1.5,
+      "refinement": 0.6
     }
   },
   "by_scope": {
@@ -32,12 +35,14 @@
       "without_source_paths": 0,
       "without_evidence": 18,
       "without_verification_method": 18,
+      "without_refinement": 18,
       "coverage_pct": {
         "links": 5.6,
         "allocation": 5.6,
         "source_paths": 100,
         "evidence": 0,
-        "verification_method": 0
+        "verification_method": 0,
+        "refinement": 0
       }
     },
     "argocd": {
@@ -47,12 +52,14 @@
       "without_source_paths": 0,
       "without_evidence": 15,
       "without_verification_method": 15,
+      "without_refinement": 15,
       "coverage_pct": {
         "links": 0,
         "allocation": 6.7,
         "source_paths": 100,
         "evidence": 0,
-        "verification_method": 0
+        "verification_method": 0,
+        "refinement": 0
       }
     },
     "cicd": {
@@ -62,12 +69,14 @@
       "without_source_paths": 0,
       "without_evidence": 17,
       "without_verification_method": 17,
+      "without_refinement": 17,
       "coverage_pct": {
         "links": 5.9,
         "allocation": 0,
         "source_paths": 100,
         "evidence": 0,
-        "verification_method": 0
+        "verification_method": 0,
+        "refinement": 0
       }
     },
     "cms": {
@@ -77,12 +86,14 @@
       "without_source_paths": 0,
       "without_evidence": 22,
       "without_verification_method": 22,
+      "without_refinement": 22,
       "coverage_pct": {
         "links": 72.7,
         "allocation": 27.3,
         "source_paths": 100,
         "evidence": 0,
-        "verification_method": 0
+        "verification_method": 0,
+        "refinement": 0
       }
     },
     "console": {
@@ -92,12 +103,14 @@
       "without_source_paths": 0,
       "without_evidence": 35,
       "without_verification_method": 35,
+      "without_refinement": 35,
       "coverage_pct": {
         "links": 0,
         "allocation": 0,
         "source_paths": 100,
         "evidence": 0,
-        "verification_method": 0
+        "verification_method": 0,
+        "refinement": 0
       }
     },
     "crm": {
@@ -107,12 +120,14 @@
       "without_source_paths": 0,
       "without_evidence": 5,
       "without_verification_method": 0,
+      "without_refinement": 5,
       "coverage_pct": {
         "links": 80,
         "allocation": 0,
         "source_paths": 100,
         "evidence": 0,
-        "verification_method": 100
+        "verification_method": 100,
+        "refinement": 0
       }
     },
     "gymops": {
@@ -122,12 +137,14 @@
       "without_source_paths": 0,
       "without_evidence": 23,
       "without_verification_method": 23,
+      "without_refinement": 21,
       "coverage_pct": {
         "links": 69.6,
         "allocation": 26.1,
         "source_paths": 100,
         "evidence": 0,
-        "verification_method": 0
+        "verification_method": 0,
+        "refinement": 8.7
       }
     },
     "keycloak": {
@@ -137,12 +154,14 @@
       "without_source_paths": 0,
       "without_evidence": 18,
       "without_verification_method": 18,
+      "without_refinement": 18,
       "coverage_pct": {
         "links": 0,
         "allocation": 5.6,
         "source_paths": 100,
         "evidence": 0,
-        "verification_method": 0
+        "verification_method": 0,
+        "refinement": 0
       }
     },
     "observability": {
@@ -152,12 +171,14 @@
       "without_source_paths": 0,
       "without_evidence": 17,
       "without_verification_method": 17,
+      "without_refinement": 17,
       "coverage_pct": {
         "links": 5.9,
         "allocation": 5.9,
         "source_paths": 100,
         "evidence": 0,
-        "verification_method": 0
+        "verification_method": 0,
+        "refinement": 0
       }
     },
     "oidc": {
@@ -167,12 +188,14 @@
       "without_source_paths": 0,
       "without_evidence": 18,
       "without_verification_method": 18,
+      "without_refinement": 18,
       "coverage_pct": {
         "links": 0,
         "allocation": 0,
         "source_paths": 100,
         "evidence": 0,
-        "verification_method": 0
+        "verification_method": 0,
+        "refinement": 0
       }
     },
     "platform": {
@@ -182,12 +205,14 @@
       "without_source_paths": 0,
       "without_evidence": 16,
       "without_verification_method": 16,
+      "without_refinement": 16,
       "coverage_pct": {
         "links": 0,
         "allocation": 0,
         "source_paths": 100,
         "evidence": 0,
-        "verification_method": 0
+        "verification_method": 0,
+        "refinement": 0
       }
     },
     "portal": {
@@ -197,12 +222,14 @@
       "without_source_paths": 0,
       "without_evidence": 21,
       "without_verification_method": 21,
+      "without_refinement": 21,
       "coverage_pct": {
         "links": 0,
         "allocation": 0,
         "source_paths": 100,
         "evidence": 0,
-        "verification_method": 0
+        "verification_method": 0,
+        "refinement": 0
       }
     },
     "portal-contracts": {
@@ -212,12 +239,14 @@
       "without_source_paths": 0,
       "without_evidence": 17,
       "without_verification_method": 17,
+      "without_refinement": 17,
       "coverage_pct": {
         "links": 0,
         "allocation": 0,
         "source_paths": 100,
         "evidence": 0,
-        "verification_method": 0
+        "verification_method": 0,
+        "refinement": 0
       }
     },
     "portal-recorder": {
@@ -227,12 +256,14 @@
       "without_source_paths": 0,
       "without_evidence": 19,
       "without_verification_method": 19,
+      "without_refinement": 19,
       "coverage_pct": {
         "links": 0,
         "allocation": 0,
         "source_paths": 100,
         "evidence": 0,
-        "verification_method": 0
+        "verification_method": 0,
+        "refinement": 0
       }
     },
     "reqhub": {
@@ -242,12 +273,14 @@
       "without_source_paths": 0,
       "without_evidence": 20,
       "without_verification_method": 20,
+      "without_refinement": 20,
       "coverage_pct": {
         "links": 5,
         "allocation": 5,
         "source_paths": 100,
         "evidence": 0,
-        "verification_method": 0
+        "verification_method": 0,
+        "refinement": 0
       }
     },
     "sicat": {
@@ -257,12 +290,14 @@
       "without_source_paths": 0,
       "without_evidence": 24,
       "without_verification_method": 24,
+      "without_refinement": 24,
       "coverage_pct": {
         "links": 83.3,
         "allocation": 37.5,
         "source_paths": 100,
         "evidence": 0,
-        "verification_method": 0
+        "verification_method": 0,
+        "refinement": 0
       }
     },
     "specs": {
@@ -272,12 +307,14 @@
       "without_source_paths": 0,
       "without_evidence": 18,
       "without_verification_method": 18,
+      "without_refinement": 18,
       "coverage_pct": {
         "links": 5.6,
         "allocation": 0,
         "source_paths": 100,
         "evidence": 0,
-        "verification_method": 0
+        "verification_method": 0,
+        "refinement": 0
       }
     },
     "traefik": {
@@ -287,12 +324,14 @@
       "without_source_paths": 0,
       "without_evidence": 16,
       "without_verification_method": 16,
+      "without_refinement": 16,
       "coverage_pct": {
         "links": 0,
         "allocation": 6.3,
         "source_paths": 100,
         "evidence": 0,
-        "verification_method": 0
+        "verification_method": 0,
+        "refinement": 0
       }
     }
   }

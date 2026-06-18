@@ -27,7 +27,7 @@ test('without_source_paths == 0 (Gate 1 cobre todos)', () => {
 });
 
 test('percentuais entre 0 e 100 e dimensões declaradas', () => {
-  assert.deepEqual(cov.dimensions.sort(), ['allocation', 'evidence', 'links', 'source_paths', 'verification_method']);
+  assert.deepEqual(cov.dimensions.sort(), ['allocation', 'evidence', 'links', 'refinement', 'source_paths', 'verification_method']);
   for (const s of Object.values(cov.by_scope)) {
     for (const d of cov.dimensions) {
       assert.ok(s.coverage_pct[d] >= 0 && s.coverage_pct[d] <= 100);

@@ -24,6 +24,9 @@ const has = (arr) => Array.isArray(arr) && arr.length > 0;
 const hasAllocation = (a) =>
   !!a && ['adr_refs', 'service_refs', 'infra_refs', 'slo_refs', 'architecture_refs'].some((k) => has(a[k]));
 
+// Set de requisitos que têm ao menos um refinamento ancorado (preenchido em build()).
+let refAnchoredReqIds = new Set();
+
 // Dimensões medidas (chave -> predicado "ESTÁ coberto").
 const DIMS = {
   links: (r) => has(r.links),
@@ -31,6 +34,7 @@ const DIMS = {
   source_paths: (r) => has(r.source?.source_paths),
   evidence: (r) => has(r.evidence_links),
   verification_method: (r) => has(r.verification_method),
+  refinement: (r) => refAnchoredReqIds.has(r.id),
 };
 
 function emptyCounts() {
@@ -42,6 +46,9 @@ function emptyCounts() {
 function build() {
   const baseline = JSON.parse(fs.readFileSync(BASELINE, 'utf8'));
   const reqs = [...(baseline.requirements ?? [])].sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  // requisitos com ao menos um refinamento (REF-*) ancorado → dimensão "refinement"
+  refAnchoredReqIds = new Set();
+  for (const rf of baseline.refinements ?? []) for (const a of rf.anchors ?? []) refAnchoredReqIds.add(a.requirement_id);
 
   const totals = emptyCounts();
   const byScopeMap = {};

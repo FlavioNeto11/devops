@@ -27,6 +27,13 @@
       "kind": "infra"
     },
     {
+      "id": "REF-GYMOPS-0001",
+      "kind": "refinement",
+      "title": "Endereço do(s) empreendimento(s) do usuário na tela de perfil",
+      "refinement_kind": "screen",
+      "product": "gymops"
+    },
+    {
       "id": "REQ-AI-0001",
       "kind": "requirement",
       "title": "Contrato AiTool com authz por identidade",
@@ -3466,6 +3473,18 @@
     }
   ],
   "edges": [
+    {
+      "from": "REF-GYMOPS-0001",
+      "to": "REQ-GYMOPS-0002",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-GYMOPS-0001",
+      "to": "REQ-GYMOPS-0010",
+      "type": "refines",
+      "refinement": true
+    },
     {
       "from": "REQ-AI-0005",
       "to": "infra-observability",

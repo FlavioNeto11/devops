@@ -5,6 +5,10 @@
 //   POST /v1/authoring/suggest-links     -> req.authoring.suggest_links(R1)
 //   POST /v1/authoring/assist            -> req.authoring.assist       (R1, single-shot — fallback)
 //   POST /v1/authoring/chat              -> motor de GRAFO (router->deep ReAct->judge)  (R1)
+//   POST /v1/authoring/classify          -> req.authoring.classify_change   (R1)
+//   POST /v1/authoring/draft-refinement  -> req.authoring.draft_refinement  (R1)
+//   POST /v1/authoring/analyze-refinement-> req.authoring.analyze_refinement(R1)
+//   POST /v1/authoring/revise-refinement -> req.authoring.revise_refinement (R1)
 // As rotas de autoria exigem Bearer token (requireAuthoringAuth) E OPENAI_API_KEY
 // (getLlm != null) — ambos fail-closed (503). O dispatchTool do ai-core aplica o
 // contrato (authorize -> execute -> validar saida) e os erros sao tipados.
@@ -63,6 +67,12 @@ export function buildRouter({ registry, llm, memory } = {}) {
   router.post('/v1/authoring/suggest-links', requireAuthoringAuth, run('req.authoring.suggest_links'));
   router.post('/v1/authoring/revise', requireAuthoringAuth, run('req.authoring.revise'));
   router.post('/v1/authoring/assist', requireAuthoringAuth, run('req.authoring.assist'));
+
+  // Camada de REFINAMENTO (REF-*): classificar nivel da mudanca + autorar refinamento de tela.
+  router.post('/v1/authoring/classify', requireAuthoringAuth, run('req.authoring.classify_change'));
+  router.post('/v1/authoring/draft-refinement', requireAuthoringAuth, run('req.authoring.draft_refinement'));
+  router.post('/v1/authoring/analyze-refinement', requireAuthoringAuth, run('req.authoring.analyze_refinement'));
+  router.post('/v1/authoring/revise-refinement', requireAuthoringAuth, run('req.authoring.revise_refinement'));
 
   // Chat de autoria pelo MOTOR DE GRAFO (router -> deep ReAct com tools R1 -> judge).
   // memory (F3) injetada via buildRouter({memory}); ausente -> grafo usa turn.history.

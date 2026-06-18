@@ -27,6 +27,13 @@ um detalhe.
    `links` só apontam para alvos reais (o gerador falha em link pendente).
 5. **Arquitetura e infra são artefatos _derivados_** dos requisitos (`allocation.*_refs`), não um meio
    paralelo. Ao mexer em arquitetura/infra, ligue de volta ao requisito que a motiva.
+6. **Refinamentos (`REF-*`, `specs/refinements/**`)** descrevem o funcionamento detalhado de uma TELA
+   (rota, estados, dados, interações, fluxos) **ancorado a 1+ requisitos** (`anchors[]`). Um refinamento
+   **NÃO altera o requisito** — ele aponta para o requisito (nunca o contrário). Use um refinamento para
+   detalhar UX/comportamento sem inflar a base com requisitos novos; crie/edite um requisito só quando a
+   mudança for de CAPACIDADE. O build **falha** se uma âncora não existir (anti-fabricação) e se faltar
+   origem (`source.source_paths`). Validado por `schema/refinement.schema.json`; entra na baseline em
+   `refinements[]` (hash próprio `refinements_hash` — editar REF NÃO muda `baseline_hash`).
 
 ## Gatilho de reprocessamento
 

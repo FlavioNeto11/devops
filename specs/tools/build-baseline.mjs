@@ -28,7 +28,9 @@ import { validateSourcePath } from './source-paths.mjs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SPECS_DIR = path.resolve(__dirname, '..');
 const REQ_DIR = path.join(SPECS_DIR, 'requirements');
+const REF_DIR = path.join(SPECS_DIR, 'refinements');
 const SCHEMA_PATH = path.join(SPECS_DIR, 'schema', 'requirement.schema.json');
+const REF_SCHEMA_PATH = path.join(SPECS_DIR, 'schema', 'refinement.schema.json');
 const OUT_DIR = path.join(SPECS_DIR, 'baseline');
 
 const CHECK = process.argv.includes('--check');
@@ -50,12 +52,12 @@ function fail(msg) {
 }
 
 // --- 1) carregar artefatos -----------------------------------------------------
-function loadRequirements() {
-  if (!fs.existsSync(REQ_DIR)) return [];
+function loadYamlDir(dir) {
+  if (!fs.existsSync(dir)) return [];
   const files = fs
-    .readdirSync(REQ_DIR, { recursive: true })
+    .readdirSync(dir, { recursive: true })
     .filter((f) => typeof f === 'string' && /\.ya?ml$/.test(f))
-    .map((f) => path.join(REQ_DIR, f));
+    .map((f) => path.join(dir, f));
   const items = [];
   for (const file of files) {
     let doc;
@@ -69,6 +71,9 @@ function loadRequirements() {
   }
   return items;
 }
+function loadRequirements() { return loadYamlDir(REQ_DIR); }
+// Refinamentos (REF-*): artefatos de tela/usabilidade ancorados a requisitos. Dir ausente => [].
+function loadRefinements() { return loadYamlDir(REF_DIR); }
 
 // --- 2) validar (schema + integridade) ----------------------------------------
 function validate(items) {
@@ -149,6 +154,52 @@ function validate(items) {
       if (!v.ok) { ok = false; fail(`source_path inválido em ${file}: '${sp}' — ${v.reason}`); }
     }
   }
+  return { ok, reqIds: new Set(ids.keys()) };
+}
+
+// --- 2b) validar REFINAMENTOS (schema + integridade + âncoras reais) -----------
+// REF-* aponta para requisitos via anchors[]; o build FALHA se a âncora não existir
+// (anti-fabricação, igual a link pendente). source_paths reais (enforce de origem).
+function validateRefinements(refItems, reqIds) {
+  if (!refItems.length) return true;
+  const ajv = new Ajv2020({ allErrors: true, strict: false });
+  addFormats(ajv);
+  const schema = JSON.parse(fs.readFileSync(REF_SCHEMA_PATH, 'utf8'));
+  const validateFn = ajv.compile(schema);
+  const REPO_ROOT = path.resolve(SPECS_DIR, '..');
+  const ids = new Map();
+  const slugs = new Map();
+  let ok = true;
+
+  for (const { file, doc } of refItems) {
+    if (!validateFn(doc)) {
+      ok = false;
+      for (const err of validateFn.errors) fail(`${file} :: ${err.instancePath || '/'} ${err.message}`);
+    }
+    if (doc && doc.id) {
+      if (ids.has(doc.id)) { ok = false; fail(`id de refinamento duplicado '${doc.id}' em ${file} e ${ids.get(doc.id)}`); }
+      else ids.set(doc.id, file);
+    }
+    if (doc && doc.slug) {
+      if (slugs.has(doc.slug)) { ok = false; fail(`slug duplicado '${doc.slug}' em ${file} e ${slugs.get(doc.slug)}`); }
+      else slugs.set(doc.slug, file);
+    }
+    // âncora pendente: cada anchor.requirement_id tem de existir como requisito real.
+    for (const a of doc?.anchors ?? []) {
+      const t = a.requirement_id ?? '';
+      if (!reqIds.has(t)) { ok = false; fail(`âncora pendente em ${file}: '${a.relation} -> ${t}' (requisito não existe)`); }
+    }
+    // enforce de origem: source_paths reais (mesma regra do requisito).
+    const sps = doc?.source?.source_paths;
+    if (!Array.isArray(sps) || sps.length === 0) {
+      ok = false; fail(`refinamento SEM origem em ${file}: declare source.source_paths (>=1 caminho real).`);
+    } else {
+      for (const sp of sps) {
+        const v = validateSourcePath(sp, REPO_ROOT);
+        if (!v.ok) { ok = false; fail(`source_path inválido em ${file}: '${sp}' — ${v.reason}`); }
+      }
+    }
+  }
   return ok;
 }
 
@@ -187,10 +238,14 @@ function stable(obj) {
   return JSON.stringify(obj, null, 2) + '\n';
 }
 
-function build(items) {
+function build(items, refItems = []) {
   const registry = loadRegistry();
   const reqs = items
     .map(({ file, doc }) => ({ ...doc, _file: file, impact_score: impactScore(doc), impact_band: band(impactScore(doc)) }))
+    .sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  // refinamentos (REF-*): tela/usabilidade ancorada a requisitos. Ordenados por id (determinismo).
+  const refs = refItems
+    .map(({ file, doc }) => ({ ...doc, _file: file }))
     .sort((a, b) => String(a.id).localeCompare(String(b.id)));
 
   // current-baseline.json
@@ -203,13 +258,26 @@ function build(items) {
     byStatus[r.status] = (byStatus[r.status] ?? 0) + 1;
     byType[r.type] = (byType[r.type] ?? 0) + 1;
   }
+  // contagem de refinamentos (aditiva — counts.total continua = nº de requisitos)
+  const refByProduct = {};
+  const refByKind = {};
+  for (const rf of refs) {
+    const p = rf.scope?.product_scope ?? 'unknown';
+    refByProduct[p] = (refByProduct[p] ?? 0) + 1;
+    refByKind[rf.kind] = (refByKind[rf.kind] ?? 0) + 1;
+  }
+  const refinements = refs.map(({ _file, ...r }) => ({ ...r, file: _file }));
   const baselineCore = {
     schema: 'specs/schema/requirement.schema.json',
-    counts: { total: reqs.length, by_product: byProduct, by_status: byStatus, by_type: byType },
+    counts: { total: reqs.length, by_product: byProduct, by_status: byStatus, by_type: byType, refinements: { total: refs.length, by_product: refByProduct, by_kind: refByKind } },
     requirements: reqs.map(({ _file, ...r }) => ({ ...r, file: _file })),
+    refinements,
   };
   const baselineHash = crypto.createHash('sha256').update(stable(baselineCore.requirements)).digest('hex');
-  const currentBaseline = { metamodel_version: METAMODEL_VERSION, baseline_hash: baselineHash, ...baselineCore };
+  // hash SEPARADO p/ refinamentos: editar um REF NÃO muda baseline_hash (evita drift
+  // cascateado em impl-status/coverage/embeddings, que comparam baseline_hash de requisitos).
+  const refinementsHash = crypto.createHash('sha256').update(stable(refinements)).digest('hex');
+  const currentBaseline = { metamodel_version: METAMODEL_VERSION, baseline_hash: baselineHash, refinements_hash: refinementsHash, ...baselineCore };
 
   // impact-map.json (grafo)
   const nodes = new Map();
@@ -254,6 +322,14 @@ function build(items) {
       }
     }
   }
+  // nós/arestas de REFINAMENTO: REF -> REQ (refino detalha o requisito). O nó leva `product`
+  // (herda a cor do produto na UI) e a aresta a flag `refinement:true` (consumidor antigo ignora).
+  for (const rf of refs) {
+    addNode(rf.id, 'refinement', { title: rf.title, refinement_kind: rf.kind, product: rf.scope?.product_scope });
+    for (const a of rf.anchors ?? []) {
+      edges.push({ from: rf.id, to: a.requirement_id, type: a.relation, refinement: true });
+    }
+  }
   const impactMap = {
     metamodel_version: METAMODEL_VERSION,
     baseline_hash: baselineHash,
@@ -274,6 +350,16 @@ function build(items) {
       capability: r.scope?.capability ?? null,
       asr: !!r.architectural_significance,
       impact_band: r.impact_band,
+      file: r._file,
+    })),
+    refinements: refs.map((r) => ({
+      id: r.id,
+      title: r.title,
+      kind: r.kind,
+      status: r.status,
+      product: r.scope?.product_scope,
+      route: r.surface?.route ?? null,
+      anchors: (r.anchors ?? []).map((a) => a.requirement_id),
       file: r._file,
     })),
   };
@@ -308,12 +394,14 @@ function build(items) {
 // --- 5) escrever ou checar -----------------------------------------------------
 function main() {
   const items = loadRequirements();
-  const valid = validate(items);
-  if (!valid) {
+  const refItems = loadRefinements();
+  const { ok: reqOk, reqIds } = validate(items);
+  const refOk = validateRefinements(refItems, reqIds);
+  if (!reqOk || !refOk) {
     console.error('\x1b[31m[specs] validação FALHOU — baseline não gerada.\x1b[0m');
     process.exit(1);
   }
-  const artifacts = build(items);
+  const artifacts = build(items, refItems);
 
   if (CHECK) {
     let drift = false;
@@ -326,7 +414,7 @@ function main() {
       }
     }
     if (drift) process.exit(1);
-    console.log(`\x1b[32m[specs] OK — ${items.length} requisitos válidos; baseline em dia.\x1b[0m`);
+    console.log(`\x1b[32m[specs] OK — ${items.length} requisitos + ${refItems.length} refinamentos válidos; baseline em dia.\x1b[0m`);
     return;
   }
 
@@ -334,7 +422,7 @@ function main() {
   for (const [name, content] of Object.entries(artifacts)) {
     fs.writeFileSync(path.join(OUT_DIR, name), content);
   }
-  console.log(`\x1b[32m[specs] baseline gerada: ${items.length} requisitos -> ${path.relative(SPECS_DIR, OUT_DIR)}/{current-baseline,impact-map,retrieval-manifest}.json\x1b[0m`);
+  console.log(`\x1b[32m[specs] baseline gerada: ${items.length} requisitos + ${refItems.length} refinamentos -> ${path.relative(SPECS_DIR, OUT_DIR)}/{current-baseline,impact-map,retrieval-manifest}.json\x1b[0m`);
 }
 
 main();

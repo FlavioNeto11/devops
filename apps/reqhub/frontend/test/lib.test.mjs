@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { norm, matchesQuery, filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, bandRank, cosineSim, topSimilar, toYaml, scalarYaml, validateDraft, coverageSummary, recentList, hashStr, degreeMap, hslToHex, relLuminance, contrastRatio, textColorFor, productPalette, nodeColor, highlightSet, visibleGraph, truncateLabel, forceLayout, textTokens, textSimilarity, findSimilarReqs, productGrounding, filterCitations, actionableGaps, refineDecision } from '../assets/lib.js';
+import { norm, matchesQuery, filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, bandRank, cosineSim, topSimilar, toYaml, scalarYaml, validateDraft, coverageSummary, recentList, hashStr, degreeMap, hslToHex, relLuminance, contrastRatio, textColorFor, productPalette, nodeColor, highlightSet, visibleGraph, truncateLabel, forceLayout, textTokens, textSimilarity, findSimilarReqs, productGrounding, filterCitations, actionableGaps, refineDecision, validateRefinement, nextRefId } from '../assets/lib.js';
 
 const reqs = [
   { id: 'REQ-SICAT-0002', title: 'Submissão MTR', statement: 'O sistema deve submeter', type: 'functional', status: 'approved', priority: 'critical', architectural_significance: true, impact_band: 'high', impact_score: 80, scope: { product_scope: 'sicat', applies_to: 'product' }, acceptance_criteria: ['x'], verification_method: ['test-integration'], version: { item_revision: 1 }, allocation: { adr_refs: ['ADR-0002'] } },
@@ -420,6 +420,35 @@ test('refineDecision: saneia score não-numérico (NaN/undefined/null/string) se
   const c = refineDecision({ round: 1, score: '0.86', gaps: [{ severity: 'warning' }], best: { score: 0.72, actionable: 2 }, stale: 0 });
   assert.equal(c.score, 0.86); // string numérica é coagida
   assert.equal(c.improved, true);
+});
+
+test('validateRefinement: aceita refinamento valido; reprova sem ancora/estado/origem/route', () => {
+  const ok = {
+    id: 'REF-GYMOPS-0001', title: 'Endereço no perfil', kind: 'screen',
+    scope: { product_scope: 'gymops' }, anchors: [{ requirement_id: 'REQ-GYMOPS-0010', relation: 'refines' }],
+    surface: { route: '/profile' }, behavior: { states: [{ name: 'normal' }] },
+    source: { source_paths: ['apps/gymops'] },
+  };
+  assert.deepEqual(validateRefinement(ok), []);
+  assert.ok(validateRefinement({ ...ok, id: 'REQ-X-0001' }).some((e) => /id deve casar REF/.test(e)));
+  assert.ok(validateRefinement({ ...ok, anchors: [] }).some((e) => /âncora/.test(e)));
+  assert.ok(validateRefinement({ ...ok, behavior: { states: [] } }).some((e) => /estado/.test(e)));
+  assert.ok(validateRefinement({ ...ok, source: { source_paths: [] } }).some((e) => /origem/.test(e)));
+  assert.ok(validateRefinement({ ...ok, surface: {} }).some((e) => /route/.test(e)));
+  assert.ok(validateRefinement({ ...ok, kind: 'pagina' }).some((e) => /kind/.test(e)));
+  // âncora com id fora do padrão REQ-* reprova
+  assert.ok(validateRefinement({ ...ok, anchors: [{ requirement_id: 'X', relation: 'refines' }] }).some((e) => /âncora/.test(e)));
+});
+
+test('toYaml: serializa array de array (flows) como sequência aninhada válida', () => {
+  const y = toYaml({ flows: [['a', 'b'], ['c']] });
+  assert.equal(y, 'flows:\n  - - a\n    - b\n  - - c');
+});
+
+test('nextRefId: proximo numero livre por produto (REF-<PROD>-NNNN)', () => {
+  assert.equal(nextRefId('gymops', []), 'REF-GYMOPS-0001');
+  assert.equal(nextRefId('gymops', ['REF-GYMOPS-0001', 'REF-GYMOPS-0003', 'REF-SICAT-0009']), 'REF-GYMOPS-0004');
+  assert.equal(nextRefId('gymops', ['REQ-GYMOPS-0050']), 'REF-GYMOPS-0001'); // ignora REQ-
 });
 
 test('refineDecision: ENCADEADO 2 rodadas (espelha doRefine) — acumuladores best convergem p/ platô', () => {

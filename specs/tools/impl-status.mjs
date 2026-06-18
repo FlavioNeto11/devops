@@ -33,30 +33,47 @@ if (SET) {
 
 const STATUSES = ['not_started', 'in_progress', 'pr_open', 'merged', 'deployed', 'done', 'blocked'];
 const KEEP = ['status', 'req_revision', 'pr', 'branch', 'commit', 'run_id', 'deployment', 'deployed_at', 'notes'];
+const isRef = (id) => /^REF-/.test(id || '');
 
 const baseline = JSON.parse(fs.readFileSync(BASELINE, 'utf8'));
-const prior = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT, 'utf8')).items ?? {} : {};
-if (SET && setReq) prior[setReq] = { ...(prior[setReq] || {}), ...setOverrides };
-
-const items = {};
-for (const r of [...baseline.requirements].sort((a, b) => a.id.localeCompare(b.id))) {
-  const p = prior[r.id] || {};
-  const entry = { status: STATUSES.includes(p.status) ? p.status : 'not_started', req_revision: r.version?.item_revision ?? 1 };
-  for (const k of KEEP) if (k !== 'status' && k !== 'req_revision' && p[k] != null) entry[k] = p[k];
-  // ordena campos de forma estável
-  const ordered = {};
-  for (const k of KEEP) if (entry[k] !== undefined) ordered[k] = entry[k];
-  items[r.id] = ordered;
+const priorAll = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT, 'utf8')) : {};
+const prior = priorAll.items ?? {};
+const priorRef = priorAll.refinement_items ?? {};
+// --set roteia REF-* para refinement_items; REQ-* para items.
+if (SET && setReq) {
+  const bag = isRef(setReq) ? priorRef : prior;
+  bag[setReq] = { ...(bag[setReq] || {}), ...setOverrides };
 }
+
+// Reconcilia uma coleção (requisitos OU refinamentos) preservando status conhecido.
+function reconcile(list) {
+  const out = {};
+  for (const r of [...list].sort((a, b) => a.id.localeCompare(b.id))) {
+    const bag = isRef(r.id) ? priorRef : prior;
+    const p = bag[r.id] || {};
+    const entry = { status: STATUSES.includes(p.status) ? p.status : 'not_started', req_revision: r.version?.item_revision ?? 1 };
+    for (const k of KEEP) if (k !== 'status' && k !== 'req_revision' && p[k] != null) entry[k] = p[k];
+    const ordered = {};
+    for (const k of KEEP) if (entry[k] !== undefined) ordered[k] = entry[k];
+    out[r.id] = ordered;
+  }
+  return out;
+}
+
+const items = reconcile(baseline.requirements ?? []);
+const refinementItems = reconcile(baseline.refinements ?? []);
 
 const byStatus = {};
 for (const id of Object.keys(items)) byStatus[items[id].status] = (byStatus[items[id].status] || 0) + 1;
+const refByStatus = {};
+for (const id of Object.keys(refinementItems)) refByStatus[refinementItems[id].status] = (refByStatus[refinementItems[id].status] || 0) + 1;
 
 const payload = {
   metamodel_version: baseline.metamodel_version ?? null,
   baseline_hash: baseline.baseline_hash,
-  counts: { total: Object.keys(items).length, by_status: byStatus },
+  counts: { total: Object.keys(items).length, by_status: byStatus, refinements: { total: Object.keys(refinementItems).length, by_status: refByStatus } },
   items,
+  refinement_items: refinementItems,
 };
 const content = JSON.stringify(payload, null, 2) + '\n';
 

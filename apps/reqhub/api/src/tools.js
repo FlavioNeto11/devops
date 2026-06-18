@@ -147,6 +147,89 @@ export function buildAuthoringTools() {
         return { prompt_version: PROMPTS.suggestLinks.version, suggestions, usage };
       },
     },
+    // --- CAMADA DE REFINAMENTO (REF-*) ---------------------------------------
+    {
+      name: 'req.authoring.classify_change',
+      description: 'Classifica o NIVEL de uma mudanca descrita (refinement | requirement-edit | new-requirement) ancorando em requisitos REAIS do grounding. R1.',
+      risk: 'R1',
+      inputSchema: schema((v) => {
+        need(typeof v.product === 'string' && v.product.trim().length > 0, 'product obrigatorio');
+        need(typeof v.sketch === 'string' && v.sketch.trim().length >= 3, 'sketch obrigatorio (>=3 chars)');
+        need(Array.isArray(v.grounding), 'grounding (array) obrigatorio');
+      }),
+      authorize: authorizeOperator,
+      execute: async (input, ctx) => {
+        const { parsed, usage } = await llmJson(ctx.llm, { system: PROMPTS.classifyChange.system, user: PROMPTS.classifyChange.user(input) });
+        const LEVELS = ['refinement', 'requirement-edit', 'new-requirement'];
+        const level = LEVELS.includes(parsed.level) ? parsed.level : null;
+        if (!level) throw new AiToolError('LLM_INVALID_JSON', 'level fora do enum', { level: parsed.level });
+        // anti-fabricacao SERVER-SIDE: ancoras/target/citations so valem se existirem no grounding.
+        const known = new Set((Array.isArray(input.grounding) ? input.grounding : []).map((r) => r && r.id).filter(Boolean));
+        const REL = ['implements', 'refines', 'derives_from', 'relates_to'];
+        const anchors = Array.isArray(parsed.anchors)
+          ? parsed.anchors.filter((a) => a && known.has(a.requirement_id)).map((a) => ({ requirement_id: a.requirement_id, relation: REL.includes(a.relation) ? a.relation : 'refines' }))
+          : [];
+        const target_req_id = typeof parsed.target_req_id === 'string' && known.has(parsed.target_req_id) ? parsed.target_req_id : null;
+        const citations = Array.isArray(parsed.citations) ? parsed.citations.filter((x) => typeof x === 'string' && known.has(x)) : [];
+        return {
+          prompt_version: PROMPTS.classifyChange.version,
+          level,
+          confidence: typeof parsed.confidence === 'number' ? parsed.confidence : null,
+          rationale: typeof parsed.rationale === 'string' ? parsed.rationale : '',
+          anchors,
+          target_req_id,
+          suggested_type: parsed.suggested_type === 'functional' || parsed.suggested_type === 'non-functional' ? parsed.suggested_type : null,
+          citations,
+          usage,
+        };
+      },
+    },
+    {
+      name: 'req.authoring.draft_refinement',
+      description: 'Gera um rascunho RICO de refinamento de tela (surface/states/data/interactions/flows) a partir de esboco + ancoras. R1.',
+      risk: 'R1',
+      inputSchema: schema((v) => {
+        need(typeof v.sketch === 'string' && v.sketch.trim().length >= 3, 'sketch obrigatorio (>=3 chars)');
+        need(Array.isArray(v.anchors), 'anchors (array) obrigatorio');
+      }),
+      authorize: authorizeOperator,
+      execute: async (input, ctx) => {
+        const { parsed, usage } = await llmJson(ctx.llm, { system: PROMPTS.draftRefinement.system, user: PROMPTS.draftRefinement.user(input), maxTokens: 9000 });
+        return {
+          prompt_version: PROMPTS.draftRefinement.version,
+          draft: parsed.draft && typeof parsed.draft === 'object' ? parsed.draft : null,
+          warnings: Array.isArray(parsed.warnings) ? parsed.warnings : [],
+          usage,
+        };
+      },
+    },
+    {
+      name: 'req.authoring.analyze_refinement',
+      description: 'Analisa um refinamento e aponta lacunas (estados/dados/interacoes/aceite/origem). Saida = {gaps, score} (mesmo shape de analyze). R1.',
+      risk: 'R1',
+      inputSchema: schema((v) => need(v.refinement && typeof v.refinement === 'object', 'refinement (objeto) obrigatorio')),
+      authorize: authorizeOperator,
+      execute: async (input, ctx) => {
+        const { parsed, usage } = await llmJson(ctx.llm, { system: PROMPTS.analyzeRefinement.system, user: PROMPTS.analyzeRefinement.user(input) });
+        return { prompt_version: PROMPTS.analyzeRefinement.version, ...parsed, usage };
+      },
+    },
+    {
+      name: 'req.authoring.revise_refinement',
+      description: 'Corrige um refinamento a partir das lacunas (mesmo shape do draft de refinamento). R1.',
+      risk: 'R1',
+      inputSchema: schema((v) => need(v.refinement && typeof v.refinement === 'object', 'refinement (objeto) obrigatorio')),
+      authorize: authorizeOperator,
+      execute: async (input, ctx) => {
+        const { parsed, usage } = await llmJson(ctx.llm, { system: PROMPTS.reviseRefinement.system, user: PROMPTS.reviseRefinement.user(input), maxTokens: 9000 });
+        return {
+          prompt_version: PROMPTS.reviseRefinement.version,
+          draft: parsed.draft && typeof parsed.draft === 'object' ? parsed.draft : null,
+          notes: typeof parsed.notes === 'string' ? parsed.notes : '',
+          usage,
+        };
+      },
+    },
   ];
 }
 

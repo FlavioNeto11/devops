@@ -6,6 +6,12 @@
     "by_status": {
       "deployed": 287,
       "done": 52
+    },
+    "refinements": {
+      "total": 1,
+      "by_status": {
+        "not_started": 1
+      }
     }
   },
   "items": {
@@ -1998,6 +2004,12 @@
       "req_revision": 1,
       "deployed_at": "2026-06-15",
       "notes": "platform/traefik — ingress + middlewares no cluster (ns traefik)"
+    }
+  },
+  "refinement_items": {
+    "REF-GYMOPS-0001": {
+      "status": "not_started",
+      "req_revision": 1
     }
   }
 }

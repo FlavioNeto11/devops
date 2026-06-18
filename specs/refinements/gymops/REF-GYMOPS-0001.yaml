@@ -1,0 +1,79 @@
+id: REF-GYMOPS-0001
+slug: ref-gymops-0001
+title: Endereço do(s) empreendimento(s) do usuário na tela de perfil
+kind: screen
+status: draft
+owner: plataforma-digital
+
+scope:
+  product_scope: gymops
+  applies_to: screen
+
+# Refina o item "perfil" das telas administrativas e usa o modelo Org->Unit.
+# O refinamento APONTA para os requisitos; nenhum requisito é alterado.
+anchors:
+  - requirement_id: REQ-GYMOPS-0010
+    relation: refines
+    note: detalha o item "perfil (avatar, nome, telefone, timezone)" das telas administrativas
+  - requirement_id: REQ-GYMOPS-0002
+    relation: relates_to
+    note: usa o modelo hierárquico Org->Unit (Unit.address é a fonte do endereço)
+
+surface:
+  route: /profile
+  name: Perfil do usuário
+  roles: [owner, unit_manager, member]
+
+behavior:
+  states:
+    - name: normal
+      when: usuário tem 1+ membership ativo em unidade com endereço cadastrado
+      ui: bloco "Endereço do empreendimento" listando, por unidade, nome + endereço (somente leitura)
+    - name: empty
+      when: usuário sem membership ativo em nenhuma unidade
+      ui: mensagem "Sem unidades associadas"
+    - name: multiple
+      when: usuário com 2+ unidades
+      ui: lista compacta/expansível identificando cada unidade + seu endereço
+    - name: missing-address
+      when: unidade sem campo address preenchido
+      ui: rótulo "Endereço não informado" (editar em /settings/units se proprietário/unit_manager)
+  data:
+    - field: unit.name
+      source: Unit.name (do membership ativo do usuário logado)
+      editable: false
+    - field: unit.address
+      source: Unit.address
+      format: endereço livre (uma linha)
+      editable: false
+  interactions:
+    - trigger: abrir /profile
+      action: carrega os memberships ativos do usuário logado e os endereços das unidades
+      result: renderiza o bloco "Endereço do empreendimento" por unidade
+  flows:
+    - [acessar /profile, ver dados pessoais (nome, e-mail, telefone), ver bloco "Endereço do empreendimento" por unidade]
+
+acceptance_criteria:
+  - Em /profile, para cada membership ativo do usuário, o sistema exibe o nome da unidade e o endereço (Unit.address) em somente leitura.
+  - Se o usuário não tem membership ativo, o bloco exibe "Sem unidades associadas".
+  - Se a unidade não tem endereço cadastrado, exibe "Endereço não informado" em vez de erro.
+  - Com 2+ unidades, a apresentação é compacta/expansível e identifica cada unidade.
+  - A edição do endereço NÃO ocorre nesta tela (somente leitura); editar em /settings/units.
+
+verification_method:
+  - test-integration
+  - test-e2e
+  - manual-review
+
+source:
+  stakeholder: gymops
+  origin: pedido do operador 2026-06-18 + leitura do código (User.memberships -> Unit.address já existe no Prisma)
+  source_paths:
+    - apps/gymops/apps/web/src/app/(app)/profile
+    - apps/gymops/packages/db/prisma/schema.prisma
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: novo refinamento — exibir endereço do empreendimento na tela de perfil

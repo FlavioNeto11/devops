@@ -3731,5 +3731,20 @@
       "impact_band": "low",
       "file": "requirements/traefik/REQ-TRAEFIK-NFR-004.yaml"
     }
+  ],
+  "refinements": [
+    {
+      "id": "REF-GYMOPS-0001",
+      "title": "Endereço do(s) empreendimento(s) do usuário na tela de perfil",
+      "kind": "screen",
+      "status": "draft",
+      "product": "gymops",
+      "route": "/profile",
+      "anchors": [
+        "REQ-GYMOPS-0010",
+        "REQ-GYMOPS-0002"
+      ],
+      "file": "refinements/gymops/REF-GYMOPS-0001.yaml"
+    }
   ]
 }

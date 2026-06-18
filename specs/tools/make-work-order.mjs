@@ -80,6 +80,48 @@ export function buildWorkOrder(req, edges, baseline, products = {}) {
   };
 }
 
+// Pura e testável: monta a ordem de trabalho de UM refinamento (REF-*). Puxa os
+// requisitos-ÂNCORA (resumidos) como contexto — o implementador satisfaz os critérios
+// do refino E dos requisitos ancorados. `reqById`: Map id -> requisito (da baseline).
+export function buildRefinementWorkOrder(ref, reqById, baseline, products = {}) {
+  const id = ref.id;
+  const scope = (ref.scope && ref.scope.product_scope) || 'unknown';
+  const restricted = RESTRICTED_SCOPES.has(scope);
+  const product = products[scope] || null;
+  const appName = (product && product.name) || scope;
+  const allowed_paths = restricted ? [] : SCOPE_PATHS[scope] || [`apps/${appName}/**`];
+  const anchors = (ref.anchors || []).map((a) => {
+    const r = reqById.get ? reqById.get(a.requirement_id) : null;
+    return { requirement_id: a.requirement_id, relation: a.relation, title: r ? r.title : null, statement: r ? r.statement : null, acceptance_criteria: (r && r.acceptance_criteria) || [] };
+  });
+  return {
+    ref_id: id,
+    revision: (ref.version && ref.version.item_revision) || 1,
+    product_scope: scope,
+    restricted,
+    refinement: {
+      title: ref.title,
+      kind: ref.kind,
+      surface: ref.surface || {},
+      behavior: ref.behavior || {},
+      acceptance_criteria: ref.acceptance_criteria || [],
+      verification_method: ref.verification_method || [],
+      source_paths: (ref.source && ref.source.source_paths) || [],
+      file: ref.file,
+    },
+    anchors,
+    allowed_paths,
+    gates_expected: ['Validar requisitos e baseline', 'Reqhub gate', 'ci-apps'],
+    pr_template: {
+      title: `feat(${scope}): implementa ${id} — ${ref.title}`.slice(0, 90),
+      trailer: `Closes-Ref: ${id}`,
+      labels: ['refinement', 'claude-generated'],
+      base: 'main',
+      head: `ref/${id}/r${(ref.version && ref.version.item_revision) || 1}`,
+    },
+  };
+}
+
 // Carrega os produtos greenfield registrados (specs/products/*/product.json) num
 // mapa product_scope -> product.json. Habilita o guard a conhecer um app NOVO.
 export function loadProducts(specsDir = SPECS_DIR) {
@@ -104,10 +146,21 @@ function main() {
   const baseline = JSON.parse(fs.readFileSync(path.join(SPECS_DIR, 'baseline', 'current-baseline.json'), 'utf8'));
   const impact = JSON.parse(fs.readFileSync(path.join(SPECS_DIR, 'baseline', 'impact-map.json'), 'utf8'));
   const byId = new Map(baseline.requirements.map((r) => [r.id, r]));
+  const refById = new Map((baseline.refinements || []).map((r) => [r.id, r]));
   const products = loadProducts();
 
   const orders = [];
   for (const id of ids) {
+    // REF-* => ordem de trabalho de refinamento (puxa os requisitos-âncora como contexto).
+    if (/^REF-/.test(id)) {
+      const ref = refById.get(id);
+      if (!ref) { console.error(`[work-order] refinamento não encontrado na baseline: ${id}`); process.exit(1); }
+      const scope = (ref.scope && ref.scope.product_scope) || 'unknown';
+      const known = !!SCOPE_PATHS[scope] || RESTRICTED_SCOPES.has(scope) || !!products[scope];
+      if (!known) { console.error(`[work-order] product_scope DESCONHECIDO: '${scope}'.`); process.exit(1); }
+      orders.push(buildRefinementWorkOrder(ref, byId, baseline, products));
+      continue;
+    }
     const req = byId.get(id);
     if (!req) { console.error(`[work-order] requisito não encontrado na baseline: ${id}`); process.exit(1); }
     const scope = (req.scope && req.scope.product_scope) || 'unknown';
@@ -122,7 +175,7 @@ function main() {
   }
   fs.writeFileSync(outPath, JSON.stringify({ count: orders.length, orders }, null, 2) + '\n');
   console.log(`[work-order] ${orders.length} ordem(ns) -> ${outPath}`);
-  for (const o of orders) console.log(`  ${o.req_id} [${o.product_scope}${o.restricted ? ', RESTRITO' : ''}] allowed=${o.allowed_paths.join(',') || '(nenhum)'}`);
+  for (const o of orders) console.log(`  ${o.req_id || o.ref_id} [${o.product_scope}${o.restricted ? ', RESTRITO' : ''}] allowed=${o.allowed_paths.join(',') || '(nenhum)'}`);
 }
 
 if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith('make-work-order.mjs')) main();

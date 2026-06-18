@@ -509,6 +509,12 @@ export function toYaml(value, indent = 0) {
         const entries = Object.entries(item).filter(([, v]) => v !== undefined);
         return entries.map(([k, v], i) => renderKV(i === 0 ? `${pad}- ` : `${pad}  `, k, v, indent + 1)).join('\n');
       }
+      // sequência ANINHADA (array de array) — ex.: behavior.flows. Requisitos não usam isto
+      // (saída inalterada p/ eles); refinamentos usam para listas de passos.
+      if (Array.isArray(item)) {
+        if (item.length === 0) return `${pad}- []`;
+        return item.map((sub, i) => `${pad}${i === 0 ? '- ' : '  '}- ${scalarYaml(sub)}`).join('\n');
+      }
       return `${pad}- ${scalarYaml(item)}`;
     }).join('\n');
   }
@@ -526,6 +532,32 @@ export function validateDraft(d) {
   if (!['functional', 'non-functional', 'business-rule', 'constraint'].includes(d.type)) errs.push('tipo inválido');
   if (d.type === 'non-functional' && !(d.quality_scenarios && d.quality_scenarios.length)) errs.push('NFR exige ao menos um quality_scenario');
   return errs;
+}
+
+// Valida um REFINAMENTO (REF-*) — espelha validateDraft p/ o metamodelo de tela/usabilidade.
+// PURA/testável; o app só gera o YAML se passar (a UI nunca escreve git, gera PR).
+export function validateRefinement(d) {
+  const errs = [];
+  if (!/^REF-[A-Z0-9]+-[0-9]{3,4}$/.test(d.id || '')) errs.push('id deve casar REF-<PRODUTO>-NNNN');
+  if (!d.title || d.title.length < 3) errs.push('título obrigatório (>= 3 chars)');
+  if (!['screen', 'component', 'flow', 'interaction', 'content'].includes(d.kind)) errs.push('kind inválido (screen|component|flow|interaction|content)');
+  if (!d.scope || !d.scope.product_scope) errs.push('escopo.product_scope obrigatório');
+  if (!(Array.isArray(d.anchors) && d.anchors.length && d.anchors.every((a) => a && /^REQ-[A-Z0-9]+-(NFR-)?[0-9]{3,4}$/.test(a.requirement_id || '')))) errs.push('ao menos uma âncora válida (vincule a 1+ requisito no mapa)');
+  if (!(d.behavior && Array.isArray(d.behavior.states) && d.behavior.states.length)) errs.push('ao menos um estado em behavior.states');
+  if (!(d.source && Array.isArray(d.source.source_paths) && d.source.source_paths.length)) errs.push('origem obrigatória: ao menos um caminho-fonte (source.source_paths)');
+  if (d.kind === 'screen' && !(d.surface && d.surface.route)) errs.push('kind=screen exige surface.route (a rota da tela)');
+  return errs;
+}
+
+// Próximo número livre de REF para um produto (ex.: REF-GYMOPS-0002). Espelha nextReqId.
+export function nextRefId(productName, existingIds) {
+  const prefix = 'REF-' + String(productName || '').toUpperCase().replace(/[^A-Z0-9]/g, '') + '-';
+  let max = 0;
+  for (const id of existingIds || []) {
+    const m = String(id).match(/-(\d{3,4})$/);
+    if (String(id).startsWith(prefix) && m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return prefix + String(max + 1).padStart(4, '0');
 }
 
 // Lacuna acionável = a que TRAVA o requisito (blocker/warning ou severidade desconhecida).

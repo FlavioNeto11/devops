@@ -11,6 +11,10 @@ const PRIORITIES = ['low', 'medium', 'high', 'critical'];
 // alinhados a specs/schema/requirement.schema.json (usados pelo assist para gerar drafts diretamente válidos)
 const VERIFICATION_METHODS = ['test-unit', 'test-integration', 'test-e2e', 'architecture-review', 'deployment-policy-check', 'manual-review', 'monitoring', 'demo'];
 const APPLIES_TO = ['product', 'product-foundation', 'shared-module', 'capability', 'portal-template', 'portal-instance', 'platform'];
+// Camada de REFINAMENTO (REF-*): alinhados a specs/schema/refinement.schema.json.
+const REF_KINDS = ['screen', 'component', 'flow', 'interaction', 'content'];
+const REF_RELATIONS = ['implements', 'refines', 'derives_from', 'relates_to']; // anchor -> requisito
+const CHANGE_LEVELS = ['refinement', 'requirement-edit', 'new-requirement'];
 
 export const PROMPTS = {
   draft: {
@@ -75,6 +79,103 @@ export const PROMPTS = {
       'ponto de partida que o operador refina, nunca invente um caminho que finja ser exato.',
     user: ({ requirement, gaps } = {}) =>
       `requisito atual:\n${JSON.stringify(requirement || {}, null, 2).slice(0, 5000)}\n\n` +
+      `lacunas a corrigir:\n${JSON.stringify(gaps || [], null, 2).slice(0, 3000)}`,
+  },
+
+  // --- CAMADA DE REFINAMENTO (REF-*) ---------------------------------------------
+  // classifyChange: dado um esboco + requisitos existentes, classifica o NIVEL da
+  // mudanca (refinamento | edicao de requisito | requisito novo). Decisao do modelo.
+  classifyChange: {
+    version: 'classify-change@1',
+    system:
+      'Voce e um engenheiro de requisitos. Recebe a DESCRICAO de uma mudanca que um operador quer fazer num ' +
+      'produto e os REQUISITOS EXISTENTES (grounding). CLASSIFIQUE o NIVEL da mudanca em UM de tres, citando ' +
+      'APENAS IDs reais do grounding (NUNCA invente IDs):\n' +
+      '- "refinement": detalha o COMPORTAMENTO/uma TELA de capacidades que JA existem (ex.: mostrar um campo ' +
+      'a mais numa tela ja prevista). NAO muda o que o sistema fundamentalmente deve fazer. anchors = os ' +
+      'requisitos que esse refino detalha (>=1); target_req_id=null.\n' +
+      '- "requirement-edit": AJUSTE compativel de UM requisito existente (corrige/expande enunciado ou ' +
+      'criterios sem virar capacidade nova). target_req_id = o requisito a editar; anchors=[].\n' +
+      '- "new-requirement": capacidade NOVA/drastica que nenhum requisito cobre. suggested_type = ' +
+      '"functional" ou "non-functional"; anchors=[]; target_req_id=null.\n' +
+      'Regra de desempate: se EXISTE um requisito que ja preve a tela/capacidade, prefira "refinement" a ' +
+      '"new-requirement". Responda SOMENTE com JSON valido: { ' +
+      `"level": one of ${JSON.stringify(CHANGE_LEVELS)}, "confidence": number (0..1), ` +
+      '"rationale": string (1-2 frases, pt-BR, por que esse nivel), ' +
+      `"anchors": [{ "requirement_id": string, "relation": one of ${JSON.stringify(REF_RELATIONS)} }], ` +
+      '"target_req_id": string|null, "suggested_type": "functional"|"non-functional"|null, ' +
+      '"citations": string[] (ids citados) }.',
+    user: ({ product, sketch, grounding } = {}) => {
+      const g = (Array.isArray(grounding) ? grounding : [])
+        .map((r) => `${r.id} | ${r.title} | ${String(r.statement || '').slice(0, 240)}`)
+        .join('\n')
+        .slice(0, 12000);
+      return (
+        `produto: ${product || '(nao informado)'}\n` +
+        `\nREQUISITOS EXISTENTES (grounding — fonte da verdade):\n${g || '(produto sem requisitos ainda)'}\n` +
+        `\nMUDANCA DESCRITA PELO OPERADOR:\n${String(sketch || '').slice(0, 2000)}`
+      );
+    },
+  },
+
+  // draftRefinement: produz um refinamento RICO de tela a partir de esboco + ancoras.
+  draftRefinement: {
+    version: 'draft-refinement@1',
+    system:
+      'Voce e um engenheiro de requisitos/UX. A partir de um esboco de mudanca de TELA/usabilidade e dos ' +
+      'requisitos-ANCORA, produza UM refinamento RICO no metamodelo. Responda SOMENTE com JSON valido (sem ' +
+      'markdown): { "draft": { "title": string, ' +
+      `"kind": one of ${JSON.stringify(REF_KINDS)}, ` +
+      '"surface": { "route": string, "name": string, "roles": string[] }, ' +
+      '"behavior": { "states": [{ "name": string (use normal/loading/error/empty quando fizer sentido), ' +
+      '"when": string, "ui": string }], "data": [{ "field": string, "source": string, "format": string, ' +
+      '"editable": boolean }], "interactions": [{ "trigger": string, "action": string, "result": string }], ' +
+      '"flows": [string[]] }, "acceptance_criteria": string[] (verificaveis), ' +
+      `"verification_method": string[] (cada um de ${JSON.stringify(VERIFICATION_METHODS)}), ` +
+      '"source": { "source_paths": string[] } }, "warnings": string[] }. ' +
+      'Modele estados realistas (inclua error e empty quando a tela buscar dados). NAO gere id, version, scope ' +
+      'nem anchors — quem fecha e a UI (o operador ja escolheu as ancoras). Sobre source: proponha ao menos um ' +
+      'caminho-fonte plausivel sob "apps/<produto>/..." (ponto de partida; nunca finja um caminho exato).',
+    user: ({ product, sketch, anchors } = {}) =>
+      `produto: ${product || '(nao informado)'}\n` +
+      `ancoras (requisitos que o refino detalha):\n${JSON.stringify(anchors || [], null, 2).slice(0, 3000)}\n\n` +
+      `esboco da mudanca:\n${String(sketch || '').slice(0, 3000)}`,
+  },
+
+  // analyzeRefinement: lacunas de um refinamento. Saida = {gaps, score} (mesmo shape de analyze
+  // => o loop refineDecision do front e reusado verbatim).
+  analyzeRefinement: {
+    version: 'analyze-refinement@1',
+    system:
+      'Voce revisa um REFINAMENTO de tela/usabilidade (JSON) e aponta LACUNAS objetivas. Responda SOMENTE com ' +
+      'JSON valido: { "gaps": [{ "kind": string, "field": string, "message": string, "severity": ' +
+      '"info"|"warning"|"blocker" }], "score": number (0..1, prontidao) }. Considere: kind=screen sem ' +
+      'surface.route; estados incompletos (faltou error/empty quando a tela busca dados); data sem source; ' +
+      'interactions vagas (trigger/action/result incompletos); acceptance_criteria ausentes/nao verificaveis; ' +
+      'verification_method ausente; source.source_paths vazio. Nao invente; aponte so o que falta de fato.',
+    user: ({ refinement } = {}) => JSON.stringify(refinement || {}, null, 2).slice(0, 6000),
+  },
+
+  // reviseRefinement: corrige um refinamento a partir das lacunas (mesmo shape do draft de refino).
+  reviseRefinement: {
+    version: 'revise-refinement@1',
+    system:
+      'Voce e um engenheiro de requisitos/UX. Recebe UM refinamento (JSON) + LACUNAS apontadas. Devolva a ' +
+      'VERSAO CORRIGIDA que ENDERECA cada lacuna SEM inventar fatos nem mudar a intencao. Responda SOMENTE com ' +
+      'JSON valido: { "draft": { "title": string, ' +
+      `"kind": one of ${JSON.stringify(REF_KINDS)}, ` +
+      '"surface": { "route": string, "name": string, "roles": string[] }, ' +
+      '"behavior": { "states": [{ "name": string, "when": string, "ui": string }], ' +
+      '"data": [{ "field": string, "source": string, "format": string, "editable": boolean }], ' +
+      '"interactions": [{ "trigger": string, "action": string, "result": string }], "flows": [string[]] }, ' +
+      '"acceptance_criteria": string[], ' +
+      `"verification_method": string[] (cada um de ${JSON.stringify(VERIFICATION_METHODS)}), ` +
+      '"source": { "source_paths": string[] } }, "notes": string (1-2 frases: o que mudou) }. ' +
+      'PRESERVE id, scope, anchors e version do refinamento recebido (NAO os inclua no draft — a UI os mantem). ' +
+      'Sobre source: se ja houver source.source_paths nao-vazio PRESERVE; se vazio (e a lacuna apontar), ' +
+      'proponha ao menos um caminho plausivel sob "apps/<produto>/..." (nunca finja um caminho exato).',
+    user: ({ refinement, gaps } = {}) =>
+      `refinamento atual:\n${JSON.stringify(refinement || {}, null, 2).slice(0, 5000)}\n\n` +
       `lacunas a corrigir:\n${JSON.stringify(gaps || [], null, 2).slice(0, 3000)}`,
   },
 
@@ -199,4 +300,4 @@ export const PROMPTS = {
   },
 };
 
-export const VOCAB = { TYPES, LINK_TYPES, PRIORITIES, VERIFICATION_METHODS, APPLIES_TO };
+export const VOCAB = { TYPES, LINK_TYPES, PRIORITIES, VERIFICATION_METHODS, APPLIES_TO, REF_KINDS, REF_RELATIONS, CHANGE_LEVELS };
