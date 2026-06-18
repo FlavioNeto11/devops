@@ -33,8 +33,29 @@ export function evaluateAuth(authorizationHeader, configuredToken) {
   return { ok: true, identity: 'operator' };
 }
 
-// Middleware Express para as rotas de autoria.
+// Identidade vinda da BORDA (oauth2-proxy ForwardAuth — mesmo SSO da /devops). A borda
+// SEMPRE injeta/sobrescreve X-Auth-Request-* e o processo so e alcancavel via Traefik,
+// entao confiar nesses headers e seguro (mesmo modelo do pm-api do Console).
+export function parseGroups(raw) {
+  return String(raw || '').split(',').map((g) => g.trim()).filter(Boolean);
+}
+export function ssoIdentity(headers = {}) {
+  const email = String(headers['x-auth-request-email'] || headers['x-forwarded-email'] || '').trim().toLowerCase();
+  const user = String(headers['x-auth-request-user'] || headers['x-forwarded-user'] || '').trim();
+  const groups = parseGroups(headers['x-auth-request-groups'] || headers['x-forwarded-groups']);
+  if (!email && !user && groups.length === 0) return null;
+  return { email: email || null, user: user || null, groups, isAdmin: groups.includes('platform-admins') };
+}
+
+// Middleware Express para as rotas de autoria. Aceita: (1) admin autenticado pelo SSO
+// (sem token separado — UX de produto: logou, usa); (2) Bearer token (scripts/uso fora
+// da borda). Member logado (sem platform-admins) -> 403. Sem nada -> 401/503 (fail-closed).
 export function requireAuthoringAuth(req, res, next) {
+  const sso = ssoIdentity(req.headers);
+  if (sso && sso.isAdmin) { req.identity = sso.email || 'sso-admin'; req.sso = sso; return next(); }
+  if (sso && !sso.isAdmin) {
+    return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'autoria com IA requer o grupo platform-admins' } });
+  }
   const result = evaluateAuth(req.headers.authorization, process.env.REQHUB_API_TOKEN);
   if (!result.ok) {
     return res.status(result.status).json({ error: { code: result.code, message: result.message } });

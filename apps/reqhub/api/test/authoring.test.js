@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { dispatchTool, createToolRegistry } from '@flavioneto11/ai-core';
 import { buildAuthoringTools } from '../src/tools.js';
-import { evaluateAuth } from '../src/auth.js';
+import { evaluateAuth, ssoIdentity, parseGroups } from '../src/auth.js';
 import { PROMPTS, VOCAB } from '../src/prompts.js';
 
 // Stub de LLM: devolve `payload` como JSON (ou um texto cru para simular JSON invalido).
@@ -28,6 +28,17 @@ test('auth: token errado -> 401; correto -> operator', () => {
   const ok = evaluateAuth('Bearer segredo', 'segredo');
   assert.equal(ok.ok, true);
   assert.equal(ok.identity, 'operator');
+});
+
+test('ssoIdentity: le X-Auth-Request-* da borda; admin via platform-admins', () => {
+  const admin = ssoIdentity({ 'x-auth-request-email': 'Flavio@nvit.com.br', 'x-auth-request-groups': 'platform-admins, project-members' });
+  assert.equal(admin.email, 'flavio@nvit.com.br');
+  assert.equal(admin.isAdmin, true);
+  assert.deepEqual(admin.groups, ['platform-admins', 'project-members']);
+  const member = ssoIdentity({ 'x-auth-request-email': 'm@x.com', 'x-auth-request-groups': 'project-members' });
+  assert.equal(member.isAdmin, false);
+  assert.equal(ssoIdentity({}), null); // sem headers -> sem sessao
+  assert.deepEqual(parseGroups('a, b ,,c'), ['a', 'b', 'c']);
 });
 
 test('todas as tools sao R1 (sem mutacao)', () => {

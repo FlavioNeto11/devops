@@ -106,6 +106,10 @@ spec:
         - name: reqhub-frontend
           port: 80
       middlewares:
+        # Gate OIDC (Keycloak via oauth2-proxy do Console): 302 -> login na navegacao
+        # quando sem sessao; 202 quando ok. MESMO SSO da /devops (cookie no dominio inteiro).
+        - name: console-auth-redirect
+          namespace: devops-system
         - name: compress
           namespace: traefik
         - name: secure-headers

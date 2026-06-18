@@ -1,7 +1,7 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs } from './lib.js?v=14';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList } from './forge-lib.js?v=14';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs } from './lib.js?v=15';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList } from './forge-lib.js?v=15';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -1479,34 +1479,181 @@ function forgeReqObject(id, pname, blueprint, req) {
   };
 }
 
-const RENDER = { explorer: renderExplorer, workspace: renderWorkspace, versions: renderVersions, impact: renderImpact, coverage: renderCoverage, reprocess: renderReprocess, dev: renderDev, editor: renderEditor, forge: renderForge };
+/* ===================== Ícones (SVG inline, stroke, CSP-safe) ===================== */
+const ICONS = {
+  brand: [['circle', { cx: 12, cy: 12, r: 9 }], ['circle', { cx: 12, cy: 12, r: '3.4' }]],
+  overview: [['rect', { x: 3, y: 3, width: 7, height: 7, rx: 1 }], ['rect', { x: 14, y: 3, width: 7, height: 7, rx: 1 }], ['rect', { x: 14, y: 14, width: 7, height: 7, rx: 1 }], ['rect', { x: 3, y: 14, width: 7, height: 7, rx: 1 }]],
+  explorer: [['line', { x1: 8, y1: 6, x2: 21, y2: 6 }], ['line', { x1: 8, y1: 12, x2: 21, y2: 12 }], ['line', { x1: 8, y1: 18, x2: 21, y2: 18 }], ['line', { x1: 3, y1: 6, x2: '3.01', y2: 6 }], ['line', { x1: 3, y1: 12, x2: '3.01', y2: 12 }], ['line', { x1: 3, y1: 18, x2: '3.01', y2: 18 }]],
+  workspace: [['path', { d: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z' }], ['polyline', { points: '14 2 14 8 20 8' }]],
+  editor: [['path', { d: 'M12 20h9' }], ['path', { d: 'M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z' }]],
+  impact: [['circle', { cx: 18, cy: 5, r: 3 }], ['circle', { cx: 6, cy: 12, r: 3 }], ['circle', { cx: 18, cy: 19, r: 3 }], ['line', { x1: '8.6', y1: '10.5', x2: '15.4', y2: '6.5' }], ['line', { x1: '8.6', y1: '13.5', x2: '15.4', y2: '17.5' }]],
+  coverage: [['path', { d: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z' }], ['path', { d: 'M9 12l2 2 4-4' }]],
+  versions: [['line', { x1: 6, y1: 3, x2: 6, y2: 15 }], ['circle', { cx: 18, cy: 6, r: 3 }], ['circle', { cx: 6, cy: 18, r: 3 }], ['path', { d: 'M18 9a9 9 0 0 1-9 9' }]],
+  dev: [['path', { d: 'M22 12h-4l-3 9L9 3l-3 9H2' }]],
+  forge: [['path', { d: 'M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z' }], ['path', { d: 'M19 15l.7 1.8 1.8.7-1.8.7L19 20l-.7-1.8L16.5 17.5l1.8-.7z' }]],
+  reprocess: [['path', { d: 'M21 2v6h-6' }], ['path', { d: 'M3 12a9 9 0 0 1 15-6.7L21 8' }], ['path', { d: 'M3 22v-6h6' }], ['path', { d: 'M21 12a9 9 0 0 1-15 6.7L3 16' }]],
+  search: [['circle', { cx: 11, cy: 11, r: 8 }], ['line', { x1: 21, y1: 21, x2: '16.65', y2: '16.65' }]],
+  user: [['path', { d: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2' }], ['circle', { cx: 12, cy: 7, r: 4 }]],
+  logout: [['path', { d: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4' }], ['polyline', { points: '16 17 21 12 16 7' }], ['line', { x1: 21, y1: 12, x2: 9, y2: 12 }]],
+  menu: [['line', { x1: 3, y1: 6, x2: 21, y2: 6 }], ['line', { x1: 3, y1: 12, x2: 21, y2: 12 }], ['line', { x1: 3, y1: 18, x2: 21, y2: 18 }]],
+  theme: [['path', { d: 'M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z' }]],
+  expand: [['path', { d: 'M8 3H5a2 2 0 0 0-2 2v3' }], ['path', { d: 'M21 8V5a2 2 0 0 0-2-2h-3' }], ['path', { d: 'M3 16v3a2 2 0 0 0 2 2h3' }], ['path', { d: 'M16 21h3a2 2 0 0 0 2-2v-3' }]],
+  minimize: [['path', { d: 'M8 3v3a2 2 0 0 1-2 2H3' }], ['path', { d: 'M21 8h-3a2 2 0 0 1-2-2V3' }], ['path', { d: 'M3 16h3a2 2 0 0 1 2 2v3' }], ['path', { d: 'M16 21v-3a2 2 0 0 1 2-2h3' }]],
+  collapse: [['polyline', { points: '11 17 6 12 11 7' }], ['polyline', { points: '18 17 13 12 18 7' }]],
+  products: [['path', { d: 'M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z' }], ['polyline', { points: '3.3 7 12 12 20.7 7' }], ['line', { x1: 12, y1: 22, x2: 12, y2: 12 }]],
+  layers: [['polygon', { points: '12 2 2 7 12 12 22 7 12 2' }], ['polyline', { points: '2 17 12 22 22 17' }], ['polyline', { points: '2 12 12 17 22 12' }]],
+  rocket: [['path', { d: 'M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z' }], ['path', { d: 'M12 15l-3-3a22 22 0 0 1 8-10c2 0 3 0 4 1s1 2 1 4a22 22 0 0 1-10 8z' }], ['path', { d: 'M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0' }], ['path', { d: 'M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5' }]],
+};
+function icon(name, size) {
+  const s = svg('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', focusable: 'false' });
+  if (size) { s.setAttribute('width', size); s.setAttribute('height', size); }
+  for (const [tag, attrs] of (ICONS[name] || [])) s.append(svg(tag, attrs));
+  return s;
+}
+// barra de progresso fina (SVG — largura por atributo, cor por classe; CSP-safe)
+function miniBar(pct, cls) {
+  const p = Math.max(0, Math.min(100, Math.round(pct)));
+  const s = svg('svg', { class: 'mini-bar', viewBox: '0 0 100 8', preserveAspectRatio: 'none', 'aria-hidden': 'true' });
+  s.append(svg('rect', { class: 't', x: '0', y: '0', width: '100', height: '8', rx: '4' }));
+  s.append(svg('rect', { class: 'f' + (cls ? ' ' + cls : ''), x: '0', y: '0', width: String(p), height: '8', rx: '4' }));
+  return s;
+}
+
+const VIEW_META = {
+  overview: { title: 'Visão geral', sub: 'Panorama da base de requisitos' },
+  explorer: { title: 'Explorador', sub: 'Navegue e filtre todos os requisitos' },
+  workspace: { title: 'Workspace', sub: 'Detalhe do requisito selecionado' },
+  versions: { title: 'Versões & mudanças', sub: 'Histórico e classificação semântica' },
+  impact: { title: 'Mapa de impacto', sub: 'Grafo de dependências entre requisitos' },
+  coverage: { title: 'Cobertura', sub: 'Requisitos × evidência e alocação' },
+  reprocess: { title: 'Fila de reprocessamento', sub: 'O que revisar após mudanças na baseline' },
+  dev: { title: 'Desenvolvimento', sub: 'Status de entrega por requisito (REQ → PR → deploy)' },
+  editor: { title: 'Editor', sub: 'Autoria assistida por IA → PR no git' },
+  forge: { title: 'Forge', sub: 'Construir um produto completo a partir de requisitos' },
+};
+
+const RENDER = { overview: renderOverview, explorer: renderExplorer, workspace: renderWorkspace, versions: renderVersions, impact: renderImpact, coverage: renderCoverage, reprocess: renderReprocess, dev: renderDev, editor: renderEditor, forge: renderForge };
 function switchView(view) {
   state.view = view;
-  for (const tab of document.querySelectorAll('.tab')) {
-    const sel = tab.dataset.view === view;
-    tab.setAttribute('aria-selected', sel ? 'true' : 'false');
-    if (sel) tab.setAttribute('aria-current', 'page'); else tab.removeAttribute('aria-current');
-    tab.tabIndex = sel ? 0 : -1;
+  for (const it of document.querySelectorAll('.nav-item')) {
+    const sel = it.dataset.view === view;
+    it.classList.toggle('is-active', sel);
+    if (sel) it.setAttribute('aria-current', 'page'); else it.removeAttribute('aria-current');
+    it.tabIndex = sel ? 0 : -1;
   }
   for (const v of document.querySelectorAll('.view')) v.hidden = v.id !== 'view-' + view;
+  const meta = VIEW_META[view] || { title: 'Reqhub', sub: '' };
+  const t = document.getElementById('page-title'); if (t) t.textContent = meta.title;
+  const sub = document.getElementById('page-sub'); if (sub) sub.textContent = meta.sub;
+  const app = document.getElementById('app'); if (app) app.classList.remove('is-open');
+  const scrim = document.getElementById('sidebar-scrim'); if (scrim) scrim.hidden = true;
   RENDER[view]();
 }
-function openReq(id) { state.selectedId = id; RECENTS.push(id); switchView('workspace'); document.getElementById('tab-workspace').focus(); }
+function openReq(id) { state.selectedId = id; RECENTS.push(id); switchView('workspace'); const t = document.getElementById('tab-workspace'); if (t) t.focus(); }
 
-function wireTabs() {
-  const tabs = [...document.querySelectorAll('.tab')];
-  tabs.forEach((tab, i) => {
-    tab.addEventListener('click', () => switchView(tab.dataset.view));
-    tab.addEventListener('keydown', (ev) => {
+/* ===================== Visão geral (Overview — front-door do produto) ===================== */
+function renderOverview() {
+  const body = document.getElementById('overview-body');
+  body.replaceChildren();
+  const reqs = (DATA.baseline && DATA.baseline.requirements) || [];
+  const c = (DATA.baseline && DATA.baseline.counts) || { total: reqs.length, by_product: {} };
+  const prods = productSummaries(DATA.products || {}, DATA.implStatus);
+  const implItems = (DATA.implStatus && DATA.implStatus.items) || {};
+  const implVals = Object.values(implItems);
+  const deployed = implVals.filter((x) => x && ['deployed', 'done', 'merged'].includes(x.status)).length;
+  const implPct = implVals.length ? Math.round((deployed / implVals.length) * 100) : 0;
+  const asr = reqs.filter((r) => r && r.architectural_significance).length;
+
+  body.append(h('div', { class: 'ov-hero' },
+    h('h2', { text: 'Base de requisitos' }),
+    h('p', { text: 'A intenção da plataforma vive aqui como fonte da verdade — versionada em specs/. Explore os requisitos, analise impacto e cobertura, acompanhe a entrega e construa produtos novos a partir deles.' })));
+
+  const metric = (ic, val, label) => h('div', { class: 'ov-metric' }, h('span', { class: 'm-ic' }, icon(ic)), h('div', { class: 'm-v', text: String(val) }), h('div', { class: 'm-l', text: label }));
+  body.append(h('div', { class: 'ov-metrics' },
+    metric('layers', c.total, 'requisitos'),
+    metric('products', prods.length, 'produtos'),
+    metric('rocket', implPct + '%', 'no ar (entrega)'),
+    metric('impact', asr, 'ASR (arquiteturais)')));
+
+  // coluna esquerda: entrega por produto
+  const left = h('div', { class: 'ov-card' }, h('h3', {}, 'Entrega por produto', h('button', { class: 'btn-link', type: 'button', onclick: () => switchView('forge'), text: 'Abrir Forge →' })));
+  if (!prods.length) left.append(h('p', { class: 'empty', text: 'Nenhum produto registrado ainda.' }));
+  else {
+    const pl = h('div', { class: 'ov-prodlist' });
+    for (const p of prods) pl.append(h('button', { class: 'ov-prodrow', type: 'button', 'aria-label': `${p.display_name}: ${p.progress.done} de ${p.reqCount} no ar`, onclick: () => openForgeProduct(p.name) },
+      h('span', { class: 'pn', text: p.display_name }), miniBar(p.progress.pct, p.progress.pct === 100 ? 'ok' : ''), h('span', { class: 'pp', text: `${p.progress.done}/${p.reqCount}` })));
+    left.append(pl);
+  }
+
+  // coluna direita: distribuição por status + atalhos
+  const right = h('div', { class: 'ov-col' });
+  const st = DATA.implStatus;
+  const byStatus = (st && st.counts && st.counts.by_status) || (() => { const m = {}; for (const v of implVals) { const k = (v && v.status) || 'not_started'; m[k] = (m[k] || 0) + 1; } return m; })();
+  const totalImpl = Object.values(byStatus).reduce((a, b) => a + b, 0) || 1;
+  const statusOrder = ['deployed', 'done', 'merged', 'pr_open', 'in_progress', 'blocked', 'not_started'];
+  const statusLbl = { deployed: 'No ar', done: 'Concluído', merged: 'Mesclado', pr_open: 'PR aberto', in_progress: 'Em progresso', blocked: 'Bloqueado', not_started: 'Não iniciado' };
+  const stCard = h('div', { class: 'ov-card' }, h('h3', {}, 'Distribuição por status', h('button', { class: 'btn-link', type: 'button', onclick: () => switchView('dev'), text: 'Desenvolvimento →' })));
+  const bars = h('div', { class: 'ov-bars' });
+  for (const s of statusOrder) {
+    const n = byStatus[s] || 0; if (!n) continue;
+    bars.append(h('div', { class: 'ov-statbar' }, h('span', { class: 'sl' }, badge(statusLbl[s] || s, devStatusCls(s))), miniBar((n / totalImpl) * 100, ['deployed', 'done', 'merged'].includes(s) ? 'ok' : s === 'blocked' ? 'danger' : ['pr_open', 'in_progress'].includes(s) ? 'warn' : ''), h('span', { class: 'sn', text: String(n) })));
+  }
+  if (!bars.children.length) bars.append(h('p', { class: 'empty', text: 'Sem dados de desenvolvimento.' }));
+  stCard.append(bars);
+
+  const quick = h('div', { class: 'ov-card' }, h('h3', {}, 'Atalhos'));
+  const qgrid = h('div', { class: 'ov-quick' });
+  const qb = (ic, label, view) => h('button', { class: 'ov-qbtn', type: 'button', onclick: () => switchView(view) }, icon(ic), label);
+  qgrid.append(qb('explorer', 'Explorar requisitos', 'explorer'), qb('impact', 'Mapa de impacto', 'impact'), qb('forge', 'Construir produto', 'forge'), qb('editor', 'Novo requisito', 'editor'));
+  quick.append(qgrid);
+  right.append(stCard, h('div', { style: null }), quick);
+
+  const grid = h('div', { class: 'ov-grid' }, left, right);
+  // espaçamento entre os dois cards da direita
+  right.style && (right.style.display = 'grid');
+  body.append(grid);
+}
+
+function wireNav() {
+  const items = [...document.querySelectorAll('.nav-item')];
+  items.forEach((it, i) => {
+    it.addEventListener('click', () => switchView(it.dataset.view));
+    it.addEventListener('keydown', (ev) => {
       let j = null;
-      if (ev.key === 'ArrowRight') j = (i + 1) % tabs.length;
-      else if (ev.key === 'ArrowLeft') j = (i - 1 + tabs.length) % tabs.length;
-      if (j != null) { ev.preventDefault(); tabs[j].focus(); switchView(tabs[j].dataset.view); }
+      if (ev.key === 'ArrowDown' || ev.key === 'ArrowRight') j = (i + 1) % items.length;
+      else if (ev.key === 'ArrowUp' || ev.key === 'ArrowLeft') j = (i - 1 + items.length) % items.length;
+      else if (ev.key === 'Home') j = 0; else if (ev.key === 'End') j = items.length - 1;
+      if (j != null) { ev.preventDefault(); items[j].focus(); }
     });
   });
 }
+function wireIcons() {
+  const bl = document.getElementById('brand-logo'); if (bl) bl.append(icon('brand'));
+  for (const it of document.querySelectorAll('.nav-item[data-icon]')) it.prepend(icon(it.dataset.icon));
+  const si = document.querySelector('.search-ic'); if (si) si.append(icon('search', 15));
+  const st = document.getElementById('sidebar-toggle'); if (st) st.append(icon('menu'));
+  const sc = document.getElementById('sidebar-collapse'); if (sc) sc.prepend(icon('collapse'));
+}
+function wireSidebar() {
+  const app = document.getElementById('app');
+  const scrim = document.getElementById('sidebar-scrim');
+  if (localStorage.getItem('reqhub-sidebar') === 'collapsed') app.classList.add('is-collapsed');
+  const collapse = document.getElementById('sidebar-collapse');
+  if (collapse) collapse.addEventListener('click', () => {
+    app.classList.toggle('is-collapsed');
+    localStorage.setItem('reqhub-sidebar', app.classList.contains('is-collapsed') ? 'collapsed' : 'open');
+  });
+  const toggle = document.getElementById('sidebar-toggle');
+  if (toggle) toggle.addEventListener('click', () => {
+    const open = app.classList.toggle('is-open');
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (scrim) scrim.hidden = !open;
+  });
+  if (scrim) scrim.addEventListener('click', () => { app.classList.remove('is-open'); scrim.hidden = true; if (toggle) toggle.setAttribute('aria-expanded', 'false'); });
+}
 function wireTheme() {
   const btn = document.getElementById('theme');
+  btn.replaceChildren(icon('theme'));
   const label = (t) => `Tema: ${t === 'dark' ? 'escuro' : t === 'light' ? 'claro' : 'automático'} (clique para alternar)`;
   const sync = () => { const t = document.documentElement.dataset.theme || ''; btn.setAttribute('aria-label', label(t)); btn.setAttribute('title', label(t)); };
   const saved = localStorage.getItem('reqhub-theme');
@@ -1532,7 +1679,7 @@ function wireFullscreen() {
   if (!btn) return;
   const sync = () => {
     const on = !!document.fullscreenElement;
-    btn.textContent = on ? '⤢' : '⛶';
+    btn.replaceChildren(icon(on ? 'minimize' : 'expand'));
     const lbl = on ? 'Sair da tela cheia' : 'Entrar em tela cheia';
     btn.setAttribute('aria-label', lbl); btn.setAttribute('title', lbl);
   };
@@ -1543,10 +1690,33 @@ function wireFullscreen() {
   document.addEventListener('fullscreenchange', sync);
   sync();
 }
+// Menu do usuário (identidade SSO da borda — oauth2-proxy). Sem sessão (ex.: preview local) some.
+async function wireUserMenu() {
+  let me = null;
+  try { const r = await fetch(AI.BASE + '/v1/me'); if (r.ok) me = await r.json(); } catch { /* sem SSO */ }
+  const wrap = document.getElementById('usermenu');
+  if (!wrap || !me || !me.email) return;
+  state.me = me;
+  const initial = (me.email.trim()[0] || '?').toUpperCase();
+  const role = me.isAdmin ? 'platform-admin' : (me.groups && me.groups.length ? me.groups.join(', ') : 'sessão autenticada');
+  const btn = h('button', { class: 'usermenu__btn', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-label': 'Menu do usuário (' + me.email + ')' },
+    h('span', { class: 'usermenu__avatar', text: initial }), h('span', { class: 'usermenu__email', text: me.email }));
+  const pop = h('div', { class: 'usermenu__pop', role: 'menu', hidden: 'hidden' },
+    h('div', { class: 'usermenu__head' }, h('span', { class: 'usermenu__avatar usermenu__avatar--lg', text: initial }),
+      h('div', {}, h('div', { class: 'usermenu__email-full', text: me.email }), h('div', { class: 'usermenu__role', text: role }))),
+    h('a', { class: 'usermenu__item', href: '/oauth2/sign_out', role: 'menuitem', 'aria-label': 'Sair — você será desconectado' }, icon('logout', 15), ' Sair'));
+  const close = () => { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+  btn.addEventListener('click', (e) => { e.stopPropagation(); const open = pop.hidden; pop.hidden = !open; btn.setAttribute('aria-expanded', open ? 'true' : 'false'); });
+  document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) close(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+  wrap.replaceChildren(btn, pop);
+  wrap.hidden = false;
+}
 
 async function init() {
   document.documentElement.classList.remove('no-js');
-  wireTabs(); wireTheme(); wireSearch(); wireFullscreen();
+  wireIcons(); wireNav(); wireSidebar(); wireTheme(); wireSearch(); wireFullscreen();
+  wireUserMenu();
   try {
     const [b, im, rt] = await Promise.all([
       fetch('data/current-baseline.json').then((r) => { if (!r.ok) throw new Error('baseline ' + r.status); return r.json(); }),
@@ -1558,13 +1728,13 @@ async function init() {
     const opt = (u) => fetch(u).then((r) => (r.ok ? r.json() : null)).catch(() => null);
     [DATA.history, DATA.registry, DATA.embeddings, DATA.implStatus, DATA.coverage, DATA.products, DATA.blueprints] = await Promise.all([opt('data/history.json'), opt('data/registry.json'), opt('data/embeddings.json'), opt('data/implementation-status.json'), opt('data/coverage-report.json'), opt('data/products.json'), opt('data/blueprints.json')]);
   } catch (err) {
-    setStatus('Falha ao carregar a baseline: ' + err.message, true);
+    setStatus('Falha ao carregar a base de requisitos: ' + err.message, true);
     return;
   }
   setStatus('');
   const c = DATA.baseline.counts;
-  document.getElementById('foot-meta').textContent = `${c.total} requisitos · ${Object.entries(c.by_product).map(([k, v]) => k + ' ' + v).join(' · ')} · metamodelo ${DATA.baseline.metamodel_version || '?'} · hash ${String(DATA.baseline.baseline_hash).slice(0, 12)}`;
+  document.getElementById('foot-meta').textContent = `${c.total} requisitos · metamodelo ${DATA.baseline.metamodel_version || '?'} · hash ${String(DATA.baseline.baseline_hash).slice(0, 12)}`;
   buildExplorerFilters();
-  switchView('explorer');
+  switchView('overview');
 }
 init();

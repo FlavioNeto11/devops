@@ -9,7 +9,7 @@
 import express from 'express';
 import { createToolRegistry, dispatchTool } from '@flavioneto11/ai-core';
 import { buildAuthoringTools, buildForgeTools } from './tools.js';
-import { requireAuthoringAuth } from './auth.js';
+import { requireAuthoringAuth, ssoIdentity } from './auth.js';
 import { aiEnabled, getLlm } from './llm.js';
 
 // Mapeia erros tipados do contrato AiTool -> HTTP.
@@ -31,6 +31,14 @@ export function buildRouter({ registry, llm } = {}) {
 
   router.get('/health', (_req, res) => {
     res.json({ status: 'ok', service: 'reqhub-api', ai: aiEnabled(), tools: reg.list().map((t) => t.name) });
+  });
+
+  // Quem sou eu (identidade da borda SSO — oauth2-proxy). Publico, mas so e alcancavel
+  // quando autenticado (o gate console-auth-401 esta na frente). O frontend usa p/ mostrar
+  // o usuario logado + decidir o que habilitar (admin usa a IA sem token). Sem sessao -> nulo.
+  router.get('/v1/me', (req, res) => {
+    const sso = ssoIdentity(req.headers);
+    res.json(sso || { email: null, user: null, groups: [], isAdmin: false });
   });
 
   const run = (toolName) => async (req, res, next) => {

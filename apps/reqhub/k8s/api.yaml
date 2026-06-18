@@ -150,6 +150,10 @@ spec:
         - name: reqhub-api
           port: 8080
       middlewares:
+        # Gate OIDC (oauth2-proxy do Console): 401 p/ XHR sem sessao; 202 + headers
+        # X-Auth-Request-* quando autenticado. PRIMEIRO (antes do strip). Mesmo SSO da /devops.
+        - name: console-auth-401
+          namespace: devops-system
         - name: reqhub-api-strip
         - name: compress
           namespace: traefik
