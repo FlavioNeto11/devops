@@ -381,6 +381,31 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
     return reply.send({ data: user });
   });
 
+  // ── GET /me/units ────────────────────────────────────────────────────────────
+  app.get('/units', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const userId = request.user.sub;
+
+    const memberships = await db.membership.findMany({
+      where: { userId, scopeType: 'unit', deletedAt: null },
+      select: { scopeId: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (memberships.length === 0) {
+      return reply.send({ data: [] });
+    }
+
+    const unitIds = memberships.map((m) => m.scopeId);
+
+    const units = await db.unit.findMany({
+      where: { id: { in: unitIds }, deletedAt: null },
+      select: { id: true, name: true, address: true },
+      orderBy: { name: 'asc' },
+    });
+
+    return reply.send({ data: units.map((u) => ({ id: u.id, name: u.name, address: u.address })) });
+  });
+
   // ── GET /me/profile ──────────────────────────────────────────────────────────
   app.get('/profile', { preHandler: [app.authenticate] }, async (request, reply) => {
     const userId = request.user.sub;

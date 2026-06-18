@@ -7,7 +7,7 @@ import { useAuthStore } from '@/store/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { UserAvatar } from '@/components/ui/avatar';
-import { Camera, Save, Loader2 } from 'lucide-react';
+import { Camera, Save, Loader2, ChevronDown } from 'lucide-react';
 import { TutorialTrigger } from '@/features/tutorial';
 
 export default function ProfilePage() {
@@ -24,6 +24,14 @@ export default function ProfilePage() {
   const profile = data?.data;
 
   const [form, setForm] = useState({ name: '', phone: '' });
+  const [unitsExpanded, setUnitsExpanded] = useState(true);
+
+  const { data: unitsData, isLoading: isLoadingUnits } = useQuery({
+    queryKey: ['me/units'],
+    queryFn: () => profileApi.getUnits(),
+  });
+
+  const units = unitsData?.data ?? [];
 
   const updateMutation = useMutation({
     mutationFn: profileApi.update,
@@ -159,6 +167,42 @@ export default function ProfilePage() {
           </Button>
         </div>
       </form>
+
+      {/* Endereço do empreendimento */}
+      <div className="mt-6 rounded-lg border bg-card overflow-hidden" data-testid="unit-addresses">
+        <button
+          type="button"
+          onClick={() => { if (units.length > 1) setUnitsExpanded((v) => !v); }}
+          className={`flex w-full items-center justify-between px-4 py-3 text-left${units.length > 1 ? ' hover:bg-muted/40' : ''}`}
+        >
+          <h2 className="text-sm font-semibold">Endereço do empreendimento</h2>
+          {units.length > 1 && (
+            <ChevronDown
+              aria-hidden="true"
+              className={`h-4 w-4 text-muted-foreground transition-transform duration-150${unitsExpanded ? '' : ' -rotate-90'}`}
+            />
+          )}
+        </button>
+
+        {isLoadingUnits ? (
+          <div className="border-t px-4 py-3">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          </div>
+        ) : units.length === 0 ? (
+          <p className="border-t px-4 py-3 text-sm text-muted-foreground">Sem unidades associadas.</p>
+        ) : (units.length === 1 || unitsExpanded) ? (
+          <ul className="divide-y border-t">
+            {units.map((unit) => (
+              <li key={unit.id} className="px-4 py-3">
+                <p className="text-sm font-medium">{unit.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  {unit.address ?? 'Endereço não informado'}
+                </p>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
     </div>
   );
 }

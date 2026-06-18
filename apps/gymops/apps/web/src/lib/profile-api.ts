@@ -10,6 +10,12 @@ export interface UserProfile {
   avatarUrl: string | null;
 }
 
+export interface UserUnit {
+  id: string;
+  name: string;
+  address: string | null;
+}
+
 export const profileApi = {
   get: () => api.get<ApiResponse<UserProfile>>('/me/profile'),
 
@@ -21,6 +27,8 @@ export const profileApi = {
 
   confirmAvatar: (objectKey: string) =>
     api.post<ApiResponse<UserProfile>>('/me/avatar', { objectKey }),
+
+  getUnits: () => api.get<ApiResponse<UserUnit[]>>('/me/units'),
 };
 
 // ── Blueprint do onboarding (espelha o zod do backend) ────────────────────────
