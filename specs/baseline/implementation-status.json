@@ -7,7 +7,7 @@
       "deployed": 320,
       "done": 52,
       "merged": 3,
-      "not_started": 1
+      "pr_open": 1
     }
   },
   "items": {
@@ -780,8 +780,10 @@
       "run_id": "27729105257"
     },
     "REQ-CRM-0005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "branch": "@{id=REQ-CRM-0005; branch=req/REQ-CRM-0005/r1; restricted=false; title=feat(crm): implementa REQ-CRM-0005 — Funil de negócios (deals) + painel}.branch",
+      "run_id": "27730381580"
     },
     "REQ-GYMOPS-0001": {
       "status": "deployed",
