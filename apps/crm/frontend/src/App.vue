@@ -1,5 +1,7 @@
 <template>
   <nav>
+    <RouterLink to="/">Painel</RouterLink>
+    <RouterLink to="/negocios">Negócios</RouterLink>
     <RouterLink to="/empresas">Empresas</RouterLink>
     <RouterLink to="/contatos">Contatos</RouterLink>
   </nav>

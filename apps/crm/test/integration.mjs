@@ -43,6 +43,19 @@ async function del(path) {
   if (res.status !== 204) throw new Error(`DELETE ${path} => ${res.status}`);
 }
 
+async function patch(path, body) {
+  const res = await fetch(`${api}${path}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`PATCH ${path} => ${res.status}: ${err.error || ''}`);
+  }
+  return res.json();
+}
+
 // ── REQ-CRM-0002 ──────────────────────────────────────────────────────────────
 
 test('health: API responde e DB está conectado', async () => {
@@ -369,4 +382,182 @@ test('contacts: DELETE com negócios vinculados aplica set null (sem bloqueio)',
 
   const check = await fetch(`${api}/contacts/${contact.id}`);
   assert.equal(check.status, 404);
+});
+
+// ── REQ-CRM-0005 — CRUD de negócios ──────────────────────────────────────────
+
+test('deals: lista aceita ?stage= (filtro por estágio)', async () => {
+  const all = await get('/deals');
+  assert.ok(all.length >= 1, 'precisa de ao menos 1 deal para testar filtro');
+  const targetStage = all[0].stage;
+  const filtered = await get(`/deals?stage=${targetStage}`);
+  assert.ok(Array.isArray(filtered));
+  assert.ok(filtered.every((d) => d.stage === targetStage), 'todos devem ter o estágio filtrado');
+});
+
+test('deals: filtro por estágio inválido retorna 400', async () => {
+  const res = await fetch(`${api}/deals?stage=invalid_stage`);
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.ok(body.error, 'deve retornar campo error');
+});
+
+test('deals: GET /:id retorna negócio com contact_name e company_name', async () => {
+  const list = await get('/deals');
+  const d = list[0];
+  const detail = await get(`/deals/${d.id}`);
+  assert.equal(detail.id, d.id);
+  assert.ok('contact_name' in detail, 'deve expor contact_name');
+  assert.ok('company_name' in detail, 'deve expor company_name');
+});
+
+test('deals: GET /:id retorna 404 para id inexistente', async () => {
+  const res = await fetch(`${api}/deals/999999999`);
+  assert.equal(res.status, 404);
+  const body = await res.json();
+  assert.ok(body.error, 'deve retornar campo error');
+});
+
+test('deals: POST cria negócio com campos completos', async () => {
+  const [companies, contacts] = await Promise.all([get('/companies'), get('/contacts')]);
+  const payload = {
+    title: 'TestDeal Integration',
+    amount: 9999.99,
+    stage: 'proposal',
+    contact_id: contacts[0]?.id ?? null,
+    company_id: companies[0]?.id ?? null,
+  };
+  const created = await post('/deals', payload);
+  assert.ok(created.id, 'deve retornar id');
+  assert.equal(created.title, payload.title);
+  assert.equal(created.stage, payload.stage);
+  assert.ok(Math.abs(Number(created.amount) - payload.amount) < 0.01, 'amount deve ser preservado');
+
+  await del(`/deals/${created.id}`);
+});
+
+test('deals: POST sem empresa e contato cria com null', async () => {
+  const created = await post('/deals', { title: 'DealSemVinculos' });
+  assert.ok(created.id);
+  assert.equal(created.contact_id, null);
+  assert.equal(created.company_id, null);
+  assert.equal(created.stage, 'lead');
+  await del(`/deals/${created.id}`);
+});
+
+test('deals: POST rejeita título ausente com 400', async () => {
+  const res = await fetch(`${api}/deals`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ amount: 100, stage: 'lead' }),
+  });
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.ok(body.error, 'deve retornar campo error');
+});
+
+test('deals: POST rejeita título em branco com 400', async () => {
+  const res = await fetch(`${api}/deals`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: '   ' }),
+  });
+  assert.equal(res.status, 400);
+});
+
+test('deals: POST rejeita estágio inválido com 400', async () => {
+  const res = await fetch(`${api}/deals`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: 'TestStageInvalid', stage: 'invalid' }),
+  });
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.ok(body.error, 'deve retornar campo error');
+});
+
+test('deals: PUT atualiza negócio existente', async () => {
+  const created = await post('/deals', { title: 'OriginalDeal', stage: 'lead' });
+  const updated = await put(`/deals/${created.id}`, {
+    title: 'UpdatedDeal',
+    amount: 5000,
+    stage: 'qualified',
+  });
+  assert.equal(updated.title, 'UpdatedDeal');
+  assert.equal(updated.stage, 'qualified');
+  assert.ok(updated.updated_at !== created.updated_at, 'updated_at deve ser atualizado');
+
+  await del(`/deals/${created.id}`);
+});
+
+test('deals: PUT rejeita título em branco com 400', async () => {
+  const created = await post('/deals', { title: 'TitleTest' });
+  const res = await fetch(`${api}/deals/${created.id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: '' }),
+  });
+  assert.equal(res.status, 400);
+  await del(`/deals/${created.id}`);
+});
+
+test('deals: PUT retorna 404 para id inexistente', async () => {
+  const res = await fetch(`${api}/deals/999999999`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: 'Ghost' }),
+  });
+  assert.equal(res.status, 404);
+});
+
+test('deals: PATCH /:id/stage muda somente o estágio', async () => {
+  const created = await post('/deals', { title: 'MoveDeal', stage: 'lead' });
+  const updated = await patch(`/deals/${created.id}/stage`, { stage: 'won' });
+  assert.equal(updated.stage, 'won');
+  assert.equal(updated.title, created.title, 'título não deve mudar');
+
+  await del(`/deals/${created.id}`);
+});
+
+test('deals: PATCH /:id/stage rejeita estágio inválido com 400', async () => {
+  const created = await post('/deals', { title: 'PatchStageTest', stage: 'lead' });
+  const res = await fetch(`${api}/deals/${created.id}/stage`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ stage: 'invalid' }),
+  });
+  assert.equal(res.status, 400);
+  await del(`/deals/${created.id}`);
+});
+
+test('deals: PATCH /:id/stage retorna 404 para id inexistente', async () => {
+  const res = await fetch(`${api}/deals/999999999/stage`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ stage: 'won' }),
+  });
+  assert.equal(res.status, 404);
+});
+
+test('deals: DELETE remove negócio e retorna 204', async () => {
+  const created = await post('/deals', { title: 'ToDeleteDeal', stage: 'lead' });
+  await del(`/deals/${created.id}`);
+  const res = await fetch(`${api}/deals/${created.id}`);
+  assert.equal(res.status, 404, 'negócio deletado deve retornar 404');
+});
+
+test('deals: DELETE retorna 404 para id inexistente', async () => {
+  const res = await fetch(`${api}/deals/999999999`, { method: 'DELETE' });
+  assert.equal(res.status, 404);
+});
+
+test('deals: GET /summary retorna byStage e recent', async () => {
+  const data = await get('/deals/summary');
+  assert.ok(Array.isArray(data.byStage), 'byStage deve ser array');
+  assert.ok(Array.isArray(data.recent),  'recent deve ser array');
+  for (const row of data.byStage) {
+    assert.ok(row.stage, 'cada entrada deve ter stage');
+    assert.equal(typeof row.count, 'number', 'count deve ser número');
+  }
+  assert.ok(data.recent.length >= 2, 'recent deve conter ao menos os deals do seed');
 });

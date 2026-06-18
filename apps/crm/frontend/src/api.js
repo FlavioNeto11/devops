@@ -10,6 +10,13 @@ async function request(method, path, body) {
   return data
 }
 
+function toQuery(params) {
+  if (!params) return ''
+  const entries = Object.entries(params).filter(([, v]) => v != null && v !== '')
+  if (!entries.length) return ''
+  return '?' + new URLSearchParams(entries).toString()
+}
+
 export const api = {
   companies: {
     list: (q) => request('GET', '/companies' + (q ? '?q=' + encodeURIComponent(q) : '')),
@@ -24,5 +31,14 @@ export const api = {
     create: (data) => request('POST', '/contacts', data),
     update: (id, data) => request('PUT', '/contacts/' + id, data),
     remove: (id) => request('DELETE', '/contacts/' + id),
+  },
+  deals: {
+    list: (params) => request('GET', '/deals' + toQuery(params)),
+    summary: () => request('GET', '/deals/summary'),
+    get: (id) => request('GET', '/deals/' + id),
+    create: (data) => request('POST', '/deals', data),
+    update: (id, data) => request('PUT', '/deals/' + id, data),
+    changeStage: (id, stage) => request('PATCH', '/deals/' + id + '/stage', { stage }),
+    remove: (id) => request('DELETE', '/deals/' + id),
   },
 }
