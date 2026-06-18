@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { norm, matchesQuery, filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, bandRank, cosineSim, topSimilar, toYaml, scalarYaml, validateDraft, coverageSummary, recentList, hashStr, degreeMap, hslToHex, relLuminance, contrastRatio, textColorFor, productPalette, nodeColor, highlightSet, visibleGraph, truncateLabel, forceLayout, textTokens, textSimilarity, findSimilarReqs } from '../assets/lib.js';
+import { norm, matchesQuery, filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, bandRank, cosineSim, topSimilar, toYaml, scalarYaml, validateDraft, coverageSummary, recentList, hashStr, degreeMap, hslToHex, relLuminance, contrastRatio, textColorFor, productPalette, nodeColor, highlightSet, visibleGraph, truncateLabel, forceLayout, textTokens, textSimilarity, findSimilarReqs, productGrounding, filterCitations } from '../assets/lib.js';
 
 const reqs = [
   { id: 'REQ-SICAT-0002', title: 'Submissão MTR', statement: 'O sistema deve submeter', type: 'functional', status: 'approved', priority: 'critical', architectural_significance: true, impact_band: 'high', impact_score: 80, scope: { product_scope: 'sicat', applies_to: 'product' }, acceptance_criteria: ['x'], verification_method: ['test-integration'], version: { item_revision: 1 }, allocation: { adr_refs: ['ADR-0002'] } },
@@ -286,6 +286,36 @@ test('forceLayout: casos triviais (vazio e único)', () => {
   assert.equal(one.nodes.length, 1);
   assert.ok(one.nodes[0].x >= 0 && one.nodes[0].x <= 400);
   assert.ok(one.nodes[0].y >= 0 && one.nodes[0].y <= 300);
+});
+
+test('productGrounding: só os reqs do produto, shape {id,title,statement}', () => {
+  const g = productGrounding(reqs, 'sicat');
+  assert.equal(g.length, 1);
+  assert.deepEqual(g[0], { id: 'REQ-SICAT-0002', title: 'Submissão MTR', statement: 'O sistema deve submeter' });
+  assert.deepEqual(Object.keys(g[0]).sort(), ['id', 'statement', 'title']);
+});
+
+test('productGrounding: produto sem reqs -> [] (greenfield seguro)', () => {
+  assert.deepEqual(productGrounding(reqs, 'inexistente'), []);
+  assert.deepEqual(productGrounding(reqs, ''), []);
+  assert.deepEqual(productGrounding(reqs, null), []);
+});
+
+test('productGrounding: respeita max (orçamento de tokens)', () => {
+  const many = Array.from({ length: 80 }, (_, i) => ({ id: 'REQ-X-' + i, title: 't' + i, statement: 's', scope: { product_scope: 'x' } }));
+  assert.equal(productGrounding(many, 'x', 60).length, 60);
+  assert.equal(productGrounding(many, 'x', 10).length, 10);
+  // orçamento: serialização id|title|statement do maior produto cabe folgado
+  const serialized = productGrounding(many, 'x').map((r) => `${r.id} | ${r.title} | ${r.statement}`).join('\n');
+  assert.ok(serialized.length < 12000, `grounding serializado=${serialized.length}`);
+});
+
+test('filterCitations: só IDs que existem na baseline, sem duplicatas', () => {
+  assert.deepEqual(filterCitations(['REQ-SICAT-0002', 'REQ-FAKE-9999', 'REQ-GYMOPS-0004'], reqs), ['REQ-SICAT-0002', 'REQ-GYMOPS-0004']);
+  assert.deepEqual(filterCitations(['REQ-SICAT-0002', 'REQ-SICAT-0002'], reqs), ['REQ-SICAT-0002']); // dedup
+  assert.deepEqual(filterCitations(['REQ-FAKE-1'], reqs), []); // alucinação descartada
+  assert.deepEqual(filterCitations(null, reqs), []);
+  assert.deepEqual(filterCitations(['REQ-SICAT-0002'], []), []);
 });
 
 /* ============================ VALIDAÇÃO / DUPLICATA (Editor) ============================ */

@@ -1,11 +1,11 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs } from './lib.js?v=20';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves } from './forge-lib.js?v=20';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations } from './lib.js?v=22';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves } from './forge-lib.js?v=22';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
-const state = { view: 'explorer', filters: {}, q: '', selectedId: null, impactFilter: { type: '', product: '', focus: false }, editId: null, devFilter: { status: '', product: '' }, forge: { product: null, step: 'definir', filter: 'all' } };
+const state = { view: 'explorer', filters: {}, q: '', selectedId: null, impactFilter: { type: '', product: '', focus: false }, editId: null, editor: null, devFilter: { status: '', product: '' }, forge: { product: null, step: 'definir', filter: 'all' } };
 const DATA = { baseline: null, impact: null, retrieval: null, history: null, registry: null, embeddings: null, implStatus: null, coverage: null, products: null, blueprints: null, buildPlans: {} };
 
 /* ---------- DOM helpers (seguros) ---------- */
@@ -54,6 +54,7 @@ const AI = {
     const data = await r.json().catch(() => ({}));
     return { ok: r.ok, status: r.status, data };
   },
+  assist(body) { return this.post('/v1/authoring/assist', body); },
 };
 /* ---------- recentes (últimos REQs abertos, persistidos no localStorage) ---------- */
 const RECENTS = {
@@ -851,11 +852,268 @@ function renderDev() {
   t.append(tb); gw.append(t); body.append(gw);
 }
 
-/* ---------- Editor (autoria assistida → PR no GitHub; a UI NÃO escreve no git) ---------- */
-function openEditor(id) { state.editId = id || null; switchView('editor'); }
+/* ---------- Editor GUIADO POR IA (autoria assistida → PR no GitHub; a UI NÃO escreve no git)
+   Fluxo em estágios: pick (escolher o sistema) → context (mapa/contexto do sistema) →
+   chat (conversa grounded que conhece os requisitos) → review (formulário de confirmação,
+   schema/collectDraft INTACTOS) → PR. ----------------------------------------------------- */
+function freshEditorState() { return { stage: 'pick', product: null, messages: [], draft: null, graph: null, target_req_id: null }; }
+function openEditor(id) {
+  state.editId = id || null;
+  if (id) {
+    const r = byId(id);
+    state.editor = { stage: 'review', product: (r && r.scope && r.scope.product_scope) || null, messages: [], draft: null, graph: null, target_req_id: id };
+  } else {
+    state.editor = freshEditorState();
+  }
+  switchView('editor');
+}
 function renderEditor() {
+  if (!state.editor) state.editor = freshEditorState();
   const body = document.getElementById('editor-body');
   body.replaceChildren();
+  const st = state.editor.stage;
+  if (st === 'pick') return renderPickStage(body);
+  if (st === 'context') return renderContextStage(body);
+  if (st === 'chat') return renderChatStage(body);
+  return renderReviewForm(body);
+}
+
+/* dados do mapa de UM sistema: nós = requisitos do produto; arestas = vínculos do impact-map
+   com AMBAS as pontas no produto. Reusado nos estágios context e chat. */
+function productGraphData(product) {
+  const reqs = DATA.baseline.requirements.filter((r) => r.scope && r.scope.product_scope === product);
+  const ids = new Set(reqs.map((r) => r.id));
+  const edges = ((DATA.impact && DATA.impact.edges) || [])
+    .filter((e) => ids.has(e.from) && ids.has(e.to))
+    .map((e) => ({ from: e.from, to: e.to }));
+  return { reqs, nodes: reqs.map((r) => ({ id: r.id, title: r.title || '' })), edges };
+}
+function buildSystemGraph(product, tall) {
+  const g = interactiveGraph({
+    tall, label: 'Mapa de requisitos de ' + product,
+    nodeClass: (n) => { const r = byId(n.id); return 'imp-' + ((r && r.impact_band) || 'low'); },
+    onOpen: (id) => openReq(id),
+    detailOf: (n, id) => {
+      const r = byId(id); if (!r) return { title: id };
+      return { title: r.title || '', openable: true, sub: id + ' · ' + r.status + ' · impacto ' + (r.impact_band || '?'),
+        badges: [badge(r.type === 'non-functional' ? 'NFR' : 'funcional', r.type === 'non-functional' ? 'b-nfr' : 'b-fn'), badge(r.priority, prioCls(r.priority))] };
+    },
+  });
+  const data = productGraphData(product);
+  g.setData(data.nodes, data.edges);
+  return { g, data };
+}
+function productMeta(product) { return ((DATA.products && DATA.products.products) || []).find((p) => p.name === product) || {}; }
+function productReqCount(product) { return DATA.baseline.requirements.filter((r) => r.scope && r.scope.product_scope === product).length; }
+
+/* Estágio 1 — escolher o sistema (a IA só ativa depois disto). */
+function renderPickStage(body) {
+  const heading = h('h2', { class: 'editor-title', tabindex: '-1', text: 'Sobre qual sistema você quer trabalhar?' });
+  body.append(h('div', { class: 'ed-guided-head' }, heading,
+    h('p', { class: 'muted', text: 'Escolha um sistema: o assistente de IA conhece os requisitos dele. Você vê o mapa, conversa para entender ou propor uma mudança, e o resultado vira um PR — a UI nunca escreve no git.' })));
+  const scopes = uniqueValues(DATA.baseline.requirements, (r) => r.scope && r.scope.product_scope).filter(Boolean).sort();
+  const counts = {}; for (const r of DATA.baseline.requirements) { const s = r.scope && r.scope.product_scope; if (s) counts[s] = (counts[s] || 0) + 1; }
+  const grid = h('div', { class: 'pick-grid' });
+  for (const sc of scopes) {
+    const meta = productMeta(sc);
+    grid.append(h('button', { class: 'pick-card', type: 'button', 'aria-label': 'Trabalhar no sistema ' + (meta.display_name || sc),
+      onclick: () => { state.editor = { stage: 'context', product: sc, messages: [], draft: null, graph: null, target_req_id: null }; renderEditor(); } },
+      h('span', { class: 'pick-name', text: meta.display_name || sc }),
+      h('span', { class: 'pick-scope', text: sc }),
+      meta.vision ? h('span', { class: 'pick-vision', text: truncateLabel(meta.vision, 96) }) : null,
+      h('span', { class: 'pick-count' }, badge(counts[sc] + ' requisito' + (counts[sc] === 1 ? '' : 's'), 'b'))));
+  }
+  body.append(grid);
+  body.append(h('div', { class: 'pick-foot' },
+    h('button', { class: 'btn', type: 'button', onclick: () => openForgeNew(), text: '+ Criar um sistema novo (Forge)' }),
+    h('button', { class: 'btn-link', type: 'button', onclick: () => { state.editId = null; state.editor = { stage: 'review', product: null, messages: [], draft: null, graph: null, target_req_id: null }; renderEditor(); }, text: 'Editor clássico (formulário direto)' })));
+  heading.focus();
+}
+
+/* breadcrumb reutilizável dos estágios guiados. */
+function edCrumbs(product, leaf) {
+  const meta = productMeta(product);
+  return h('nav', { class: 'ed-crumbs', 'aria-label': 'Você está em' },
+    h('button', { class: 'btn-link', type: 'button', onclick: () => { state.editor.stage = 'pick'; renderEditor(); }, text: 'Sistemas' }),
+    h('span', { class: 'crumb-sep', 'aria-hidden': 'true', text: '›' }),
+    h('button', { class: 'btn-link', type: 'button', onclick: () => { state.editor.stage = 'context'; renderEditor(); }, text: meta.display_name || product }),
+    leaf ? h('span', { class: 'crumb-sep', 'aria-hidden': 'true', text: '›' }) : null,
+    leaf ? h('span', { class: 'crumb-leaf', text: leaf }) : null);
+}
+
+/* Estágio 2 — o sistema hoje: mapa + painel de requisitos. */
+function renderContextStage(body) {
+  const product = state.editor.product;
+  const meta = productMeta(product);
+  body.append(edCrumbs(product, null));
+  const heading = h('h2', { class: 'editor-title', tabindex: '-1', text: 'O sistema hoje — ' + (meta.display_name || product) });
+  body.append(h('div', { class: 'ed-guided-head' }, heading,
+    h('p', { class: 'muted', text: meta.vision || 'Veja os requisitos que já definem este sistema. Clique num requisito para focá-lo no mapa; depois, converse com a IA para entender ou propor uma mudança.' })));
+  const { g, data } = buildSystemGraph(product, true);
+  state.editor.graph = g;
+  const wrap = h('div', { class: 'ctx-grid' });
+  const right = h('aside', { class: 'sys-panel' });
+  // resumo por status
+  const byStatus = {}; for (const r of data.reqs) byStatus[r.status] = (byStatus[r.status] || 0) + 1;
+  const sum = h('div', { class: 'sys-sum' }, h('strong', { text: data.reqs.length + ' requisito' + (data.reqs.length === 1 ? '' : 's') }));
+  for (const [s, n] of Object.entries(byStatus)) sum.append(badge(s + ' ' + n, 'b'));
+  right.append(h('h3', { text: 'Requisitos do sistema' }), sum);
+  if (!data.reqs.length) {
+    right.append(h('p', { class: 'empty', text: 'Este sistema ainda não tem requisitos. Vá ao chat e descreva o primeiro.' }));
+  } else {
+    const ul = h('ul', { class: 'sys-list' });
+    for (const r of [...data.reqs].sort((a, b) => (b.impact_score || 0) - (a.impact_score || 0))) {
+      ul.append(h('li', { class: 'sys-item' },
+        h('button', { class: 'btn-link rid', type: 'button', onclick: () => state.editor.graph && state.editor.graph.focus(r.id), 'aria-label': 'Focar ' + r.id + ' no mapa', text: r.id }),
+        h('span', { class: 'sys-ti', text: truncateLabel(r.title || '', 56) }),
+        h('button', { class: 'btn-link sys-refine', type: 'button', onclick: () => { state.editor.target_req_id = r.id; state.editor.stage = 'chat'; renderEditor(); }, title: 'Refinar este requisito com a IA', text: '✎ refinar' })));
+    }
+    right.append(ul);
+  }
+  wrap.append(h('div', { class: 'ctx-graph' }, g.el), right);
+  body.append(wrap);
+  body.append(h('div', { class: 'ctx-cta' },
+    h('button', { class: 'btn primary', type: 'button', onclick: () => { state.editor.target_req_id = null; state.editor.stage = 'chat'; renderEditor(); }, text: 'Conversar sobre uma mudança →' }),
+    h('button', { class: 'btn', type: 'button', onclick: () => { state.editId = null; state.editor.draft = null; state.editor.stage = 'review'; renderEditor(); }, text: 'Preencher formulário manualmente' })));
+  heading.focus();
+}
+
+const INTENT_CHIPS = [
+  { label: '❓ Entender o sistema', msg: 'Me explique, com base nos requisitos, o que este sistema faz hoje.' },
+  { label: '+ Adicionar capacidade', msg: 'Quero adicionar uma nova capacidade ao sistema. Vou descrever a seguir.' },
+  { label: '✎ Refinar um requisito', msg: 'Quero refinar/ajustar um requisito existente.' },
+  { label: '⚠ Reportar uma lacuna', msg: 'Acho que falta algo no sistema. Me ajude a identificar e a estruturar.' },
+];
+
+/* bolha de chat CSP-safe (só nós via h(), sem innerHTML; parágrafos por \n\n). */
+function chatBubble(turn) {
+  const who = turn.role === 'user' ? 'is-user' : 'is-ai';
+  const b = h('div', { class: 'chat-msg ' + who + (turn.error ? ' is-err' : '') });
+  if (turn.role === 'assistant' && turn.grounded === false) b.append(h('div', { class: 'chat-nobase' }, badge('não consta na base', 'b-low')));
+  String(turn.content || '').split(/\n{2,}/).map((p) => p.trim()).filter(Boolean).forEach((p) => b.append(h('p', { class: 'chat-par', text: p })));
+  if (turn.citations && turn.citations.length) {
+    const c = h('div', { class: 'chat-cites' }, h('span', { class: 'chat-cites-l', text: 'Requisitos citados:' }));
+    for (const id of turn.citations) c.append(h('button', { class: 'btn-link chat-cite', type: 'button', onclick: () => { if (state.editor.graph) state.editor.graph.focus(id); }, text: id }));
+    b.append(c);
+  }
+  if (turn.open_questions && turn.open_questions.length) {
+    const oq = h('ul', { class: 'chat-oq' });
+    for (const q of turn.open_questions) oq.append(h('li', { text: q }));
+    b.append(oq);
+  }
+  return b;
+}
+
+/* Estágio 3 — chat guiado e grounded (único estágio que usa /v1/authoring/assist). */
+function renderChatStage(body) {
+  const product = state.editor.product;
+  const meta = productMeta(product);
+  const count = productReqCount(product);
+  body.append(edCrumbs(product, 'Conversa'));
+  const heading = h('h2', { class: 'editor-title', tabindex: '-1', text: 'Conversa — ' + (meta.display_name || product) });
+  body.append(h('div', { class: 'ed-guided-head' }, heading,
+    h('p', { class: 'muted', text: 'Pergunte sobre o sistema (respondo citando os requisitos) ou descreva a mudança que precisa — eu proponho um requisito estruturado para você revisar.' })));
+  const wrap = h('div', { class: 'chat-wrap' });
+  const left = h('div', { class: 'chat-col' });
+  const banner = h('div', {});
+  const log = h('div', { class: 'chat-log', role: 'log', 'aria-live': 'polite', 'aria-label': 'Conversa com a IA' });
+  // indicador de "digitando" PERSISTENTE (só alterna hidden) — anunciável (texto oculto + aria-busy no log)
+  const typingEl = h('div', { class: 'chat-msg is-ai chat-typing', hidden: 'hidden' },
+    h('span', { class: 'visually-hidden', text: 'A IA está respondendo…' }),
+    h('span', { class: 'dot', 'aria-hidden': 'true' }), h('span', { class: 'dot', 'aria-hidden': 'true' }), h('span', { class: 'dot', 'aria-hidden': 'true' }));
+  const actions = h('div', { class: 'chat-actions' });
+  const ta = h('textarea', { class: 'chat-input', rows: '2', 'aria-label': 'Sua mensagem', placeholder: 'Pergunte sobre o sistema ou descreva a mudança que você precisa… (Ctrl+Enter envia)' });
+  const sendBtn = h('button', { class: 'btn primary', type: 'button', text: 'Enviar' });
+  const { g } = buildSystemGraph(product, false);
+  state.editor.graph = g;
+  const right = h('aside', { class: 'chat-rail' }, h('h3', { text: 'Mapa do sistema' }), g.el);
+  let pending = false, painted = 0;
+
+  function greetingText() {
+    const tgt = state.editor.target_req_id;
+    return tgt
+      ? `Vamos refinar ${tgt}. O que você quer ajustar? Posso explicar o requisito atual e propor a versão revisada.`
+      : `Conheço os ${count} requisito(s) de ${meta.display_name || product}. Pergunte sobre o sistema, ou descreva a capacidade/mudança que você precisa — eu proponho um requisito estruturado para você revisar.`;
+  }
+  function renderActions() {
+    actions.replaceChildren();
+    const last = [...state.editor.messages].reverse().find((m) => m.role === 'assistant' && !m.error);
+    if (last && last.draft) actions.append(h('button', { class: 'btn primary chat-cta', type: 'button', onclick: () => applyProposalToReview(last.draft), text: 'Revisar mudança estruturada →' }));
+    const chips = last ? (last.quick_replies || []) : INTENT_CHIPS.map((c) => c.msg);
+    const labels = last ? null : INTENT_CHIPS.map((c) => c.label);
+    chips.forEach((msg, i) => actions.append(h('button', { class: 'chat-chip', type: 'button', onclick: () => send(msg), text: labels ? labels[i] : msg })));
+  }
+  // APPEND incremental: só anexa as bolhas NOVAS ao live region (replaceChildren não anuncia de forma confiável).
+  function repaint() {
+    for (let i = painted; i < state.editor.messages.length; i++) log.insertBefore(chatBubble(state.editor.messages[i]), typingEl);
+    painted = state.editor.messages.length;
+    typingEl.hidden = !pending;
+    log.setAttribute('aria-busy', pending ? 'true' : 'false');
+    log.scrollTop = log.scrollHeight;
+    renderActions();
+  }
+  async function send(text) {
+    text = String(text || '').trim();
+    if (!text || pending) return;
+    state.editor.messages.push({ role: 'user', content: text });
+    pending = true; sendBtn.disabled = true; ta.value = ''; repaint();
+    try {
+      const r = await AI.assist({
+        product, target_req_id: state.editor.target_req_id || undefined, message: text,
+        history: state.editor.messages.slice(0, -1).filter((m) => !m.error).map((m) => ({ role: m.role, content: m.content })),
+        grounding: productGrounding(DATA.baseline.requirements, product),
+      });
+      pending = false; sendBtn.disabled = false;
+      if (!r.ok) {
+        const code = r.data && r.data.error ? r.data.error.code : 'HTTP ' + r.status;
+        const msg = r.data && r.data.error ? r.data.error.message : '';
+        state.editor.messages.push({ role: 'assistant', error: true, content: 'A IA respondeu com erro (' + code + ')' + (msg ? ': ' + msg : '') + '. Você pode tentar de novo ou preencher manualmente.' });
+        repaint(); return;
+      }
+      const d = r.data || {};
+      state.editor.messages.push({
+        role: 'assistant', content: d.reply || '(sem resposta)', intent: d.intent,
+        citations: filterCitations(d.citations || [], DATA.baseline.requirements),
+        grounded: d.grounded !== false, draft: d.draft || null,
+        open_questions: d.open_questions || [], quick_replies: d.quick_replies || [],
+      });
+      repaint();
+    } catch (e) {
+      pending = false; sendBtn.disabled = false;
+      state.editor.messages.push({ role: 'assistant', error: true, content: 'Erro de rede ao falar com a IA: ' + (e && e.message ? e.message : e) });
+      repaint();
+    }
+  }
+  sendBtn.addEventListener('click', () => send(ta.value));
+  ta.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); send(ta.value); } });
+
+  // saudação inicial (uma bolha) + indicador de digitando sempre por último no log
+  log.append(chatBubble({ role: 'assistant', content: greetingText(), grounded: true }), typingEl);
+  left.append(banner, log, actions, h('div', { class: 'chat-inputrow' }, ta, sendBtn));
+  wrap.append(left, right);
+  body.append(wrap);
+  repaint();
+  heading.focus(); // move o foco ao entrar no estágio (transição de SPA não deve perder o foco)
+  AI.health().then((r) => {
+    if (!r.ok || !(r.data && r.data.ai)) {
+      banner.replaceChildren(h('div', { class: 'chat-banner' },
+        h('span', { text: 'A IA está indisponível agora (o servidor respondeu sem ela). Você ainda pode estruturar o requisito manualmente.' }),
+        h('button', { class: 'btn-link', type: 'button', onclick: () => { state.editor.stage = 'review'; renderEditor(); }, text: 'Preencher manualmente →' })));
+    }
+  }).catch(() => {});
+}
+
+function applyProposalToReview(draft) {
+  // Refinar um requisito EXISTENTE edita-o no lugar (id fixo + URL de edit no PR); senão cria novo.
+  const tgt = state.editor.target_req_id;
+  state.editId = (tgt && byId(tgt)) ? tgt : null;
+  state.editor.draft = draft;
+  state.editor.stage = 'review';
+  renderEditor();
+}
+
+/* Estágio 4 — CONFIRMAÇÃO estruturada (o formulário de sempre; schema/collectDraft INTACTOS). */
+function renderReviewForm(body) {
   const ed = state.editId ? byId(state.editId) : null;
 
   // ---- formulário (campos) — coluna direita ----
@@ -1071,14 +1329,34 @@ function renderEditor() {
     h('div', { class: 'ws-actions' }, h('button', { class: 'btn primary', type: 'button', onclick: gen, text: 'Gerar YAML' })),
     out);
 
+  // Veio da conversa guiada? mostra a trilha + atalho para voltar ao chat (vale p/ criar OU refinar).
+  const fromChat = state.editor && state.editor.messages && state.editor.messages.length;
+  const guided = fromChat && !ed; // proposta de requisito NOVO a partir da conversa
+  const headActions = h('div', { class: 'ed-head-actions' });
+  if (fromChat) headActions.append(h('button', { class: 'btn-link', type: 'button', onclick: () => { state.editor.stage = 'chat'; renderEditor(); }, text: '← Voltar à conversa' }));
+  headActions.append(h('button', { class: 'btn-link', type: 'button', onclick: () => openEditor(null), text: ed ? '+ novo (limpar)' : 'Trocar de sistema' }));
+  const reviewHeading = h('h2', { class: 'editor-title', tabindex: '-1', text: ed ? `Editar ${ed.id}` : (guided ? 'Revisar a mudança proposta' : 'Novo requisito') });
   body.append(
     h('div', { class: 'editor-head' },
-      h('div', {}, h('h2', { class: 'editor-title', text: ed ? `Editar ${ed.id}` : 'Novo requisito' }),
-        h('p', { class: 'muted', text: 'O Assistente de IA redige; a validação verifica duplicatas e sugere vínculos automaticamente — mesmo sem acionar a IA. A UI não escreve no git: o commit é seu (PR). Após o merge, rode /sync-spec.' })),
-      ed ? h('button', { class: 'btn-link', type: 'button', onclick: () => { state.editId = null; renderEditor(); }, text: '+ novo (limpar)' }) : null),
+      h('div', {},
+        reviewHeading,
+        h('p', { class: 'muted', text: (guided || (ed && fromChat))
+          ? 'Revise a proposta da IA (campos pré-preenchidos), ajuste o que precisar e gere o YAML. A UI não escreve no git: o commit é seu (PR). Após o merge, rode /sync-spec.'
+          : 'O Assistente de IA redige; a validação verifica duplicatas e sugere vínculos automaticamente — mesmo sem acionar a IA. A UI não escreve no git: o commit é seu (PR). Após o merge, rode /sync-spec.' })),
+      headActions),
     h('div', { class: 'editor-grid' }, assistant, formCol));
 
+  // pré-seleção do produto vindo do fluxo guiado (quando não é edição de req existente)
+  if (!ed && state.editor && state.editor.product && Array.from(productSel.options).some((o) => o.value === state.editor.product)) {
+    productSel.value = state.editor.product; recomputeId();
+  }
+  // proposta da IA → pré-preenche o formulário (mesmo shape do draft; schema intacto).
+  // Vale também ao refinar um req existente (ed != null): a proposta sobrepõe os campos,
+  // mantendo id/origem do requisito original (que já foram carregados acima).
+  if (state.editor && state.editor.draft) applyDraftToForm(state.editor.draft);
+
   runValidation();
+  reviewHeading.focus(); // move o foco ao entrar no estágio (a11y de navegação SPA)
 
   // Coleta o rascunho a partir do formulario (reusado por Gerar YAML e pela IA de analise).
   function collectDraft() {
@@ -1110,7 +1388,7 @@ function renderEditor() {
     const setSel = (el, v) => { if (!el || v == null) return; const ok = Array.from(el.options).some((o) => o.value === v); if (ok) el.value = v; };
     setVal(f.title, d.title);
     setVal(f.statement, d.statement);
-    const typeMap = { functional: 'functional', non_functional: 'non-functional', 'non-functional': 'non-functional', constraint: 'constraint', interface: 'functional' };
+    const typeMap = { functional: 'functional', non_functional: 'non-functional', 'non-functional': 'non-functional', 'business-rule': 'business-rule', constraint: 'constraint', interface: 'functional' };
     setSel(f.type, typeMap[d.type] || 'functional');
     setSel(f.priority, d.priority);
     setSel(f.criticality, d.criticality);
@@ -1493,10 +1771,15 @@ function interactiveGraph(opts = {}) {
         g.append(tx);
         g.addEventListener('click', (ev) => { ev.stopPropagation(); select(n.id); });
         g.addEventListener('dblclick', () => { if (onOpen) onOpen(n.id); });
-        g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); select(n.id); } else if ((ev.key === 'o' || ev.key === 'O') && onOpen) onOpen(n.id); });
+        g.addEventListener('keydown', (ev) => {
+          if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); select(n.id); }
+          else if ((ev.key === 'o' || ev.key === 'O') && onOpen) onOpen(n.id);
+          else if (ev.key === 'ArrowRight' || ev.key === 'ArrowDown') { ev.preventDefault(); moveRoving(n.id, 1); }
+          else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowUp') { ev.preventDefault(); moveRoving(n.id, -1); }
+        });
         g.addEventListener('mouseenter', () => { hoverId = n.id; if (!sel) paint(); });
         g.addEventListener('mouseleave', () => { if (hoverId === n.id) hoverId = null; if (!sel) paint(); });
-        g.addEventListener('focus', () => { hoverId = n.id; if (!sel) paint(); });
+        g.addEventListener('focus', () => { hoverId = n.id; setRoving(n.id); if (!sel) paint(); });
         el = { g, ttl, tx }; els.set(n.id, el); gNodes.append(g);
       }
       el.g.setAttribute('class', 'forge-dnode ig-node' + (nodeClass(n) ? ' ' + nodeClass(n) : ''));
@@ -1508,8 +1791,14 @@ function interactiveGraph(opts = {}) {
       el.g.setAttribute('aria-label', aria);
     }
     for (const [id, el] of els) if (!keep.has(id)) { el.g.remove(); els.delete(id); }
+    ensureRoving();
     paint();
   }
+
+  // roving tabindex: exatamente UM nó é tabbable; setas movem o foco entre nós (WCAG 2.1.1).
+  function setRoving(id) { for (const [k, el] of els) el.g.setAttribute('tabindex', k === id ? '0' : '-1'); }
+  function ensureRoving() { let has = false; for (const [, el] of els) if (el.g.getAttribute('tabindex') === '0') { has = true; break; } if (!has) { const first = els.keys().next().value; if (first) els.get(first).g.setAttribute('tabindex', '0'); } }
+  function moveRoving(fromId, dir) { const ids = [...els.keys()]; if (ids.length < 2) return; let i = ids.indexOf(fromId); i = (i + dir + ids.length) % ids.length; const el = els.get(ids[i]); if (el) { setRoving(ids[i]); el.g.focus(); } }
 
   // Esc fecha o painel de detalhe e devolve o foco ao no selecionado (a11y de teclado).
   canvas.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && sel) { ev.stopPropagation(); const back = els.get(sel); sel = null; paint(); if (back) back.g.focus(); } });

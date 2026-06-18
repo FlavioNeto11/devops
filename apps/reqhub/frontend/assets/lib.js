@@ -456,6 +456,31 @@ export function findSimilarReqs(draft, reqs, n = 5) {
     .slice(0, n);
 }
 
+/* ---------- grounding da IA conversacional (Editor guiado) ---------- */
+/* Monta o CONTEXTO (fonte da verdade) que o assistente recebe: os requisitos JÁ
+   EXISTENTES de UM produto, reduzidos a {id,title,statement}. PURO, node:test-able.
+   `max` limita o nº de itens (orçamento de tokens). Produto sem requisitos -> []
+   (greenfield seguro: a IA não inventa um sistema que não existe). */
+export function productGrounding(reqs, product, max = 60) {
+  if (!product) return [];
+  return (reqs || [])
+    .filter((r) => r && r.scope && r.scope.product_scope === product)
+    .slice(0, max)
+    .map((r) => ({ id: r.id, title: r.title || '', statement: r.statement || '' }));
+}
+
+/* Mantém só os IDs citados pela IA que EXISTEM de fato na baseline — defesa contra
+   ID alucinado antes de focar no mapa. PURO. Preserva ordem, remove duplicatas. */
+export function filterCitations(citations, reqs) {
+  const known = new Set((reqs || []).map((r) => r && r.id).filter(Boolean));
+  const seen = new Set();
+  const out = [];
+  for (const id of Array.isArray(citations) ? citations : []) {
+    if (known.has(id) && !seen.has(id)) { seen.add(id); out.push(id); }
+  }
+  return out;
+}
+
 /* ---------- emissor YAML mínimo (edição assistida) ---------- */
 export function scalarYaml(v) {
   if (v === null || v === undefined) return 'null';

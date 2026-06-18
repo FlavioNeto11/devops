@@ -3,6 +3,7 @@
 //   POST /v1/authoring/draft             -> req.authoring.draft        (R1)
 //   POST /v1/authoring/analyze           -> req.authoring.analyze      (R1)
 //   POST /v1/authoring/suggest-links     -> req.authoring.suggest_links(R1)
+//   POST /v1/authoring/assist            -> req.authoring.assist       (R1)
 // As rotas de autoria exigem Bearer token (requireAuthoringAuth) E OPENAI_API_KEY
 // (getLlm != null) — ambos fail-closed (503). O dispatchTool do ai-core aplica o
 // contrato (authorize -> execute -> validar saida) e os erros sao tipados.
@@ -58,6 +59,7 @@ export function buildRouter({ registry, llm } = {}) {
   router.post('/v1/authoring/draft', requireAuthoringAuth, run('req.authoring.draft'));
   router.post('/v1/authoring/analyze', requireAuthoringAuth, run('req.authoring.analyze'));
   router.post('/v1/authoring/suggest-links', requireAuthoringAuth, run('req.authoring.suggest_links'));
+  router.post('/v1/authoring/assist', requireAuthoringAuth, run('req.authoring.assist'));
 
   // Forge (greenfield): propor requisitos/arquitetura — geram conteudo, nao escrevem git.
   router.post('/v1/forge/propose-requirements', requireAuthoringAuth, run('forge.propose_requirements'));

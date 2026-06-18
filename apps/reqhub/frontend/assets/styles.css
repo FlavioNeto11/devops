@@ -651,3 +651,74 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 
 @media (prefers-reduced-motion: no-preference) { .view { animation: fade 0.18s ease; } }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ===================== Editor guiado por IA (pick → context → chat → review) ===================== */
+.ed-guided-head { margin: 0 0 14px; }
+.ed-guided-head .editor-title { margin: 0 0 4px; }
+.ed-crumbs { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; font-size: 12.5px; margin: 0 0 10px; }
+.ed-crumbs .crumb-sep { color: var(--muted); }
+.ed-crumbs .crumb-leaf { color: var(--fg-1); font-weight: 600; }
+.ed-head-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+
+/* estágio pick — cards de sistema */
+.pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.pick-card { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; text-align: left; padding: 15px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg-1); cursor: pointer; font: inherit; color: var(--fg); transition: border-color 0.14s ease, transform 0.14s ease, box-shadow 0.14s ease; }
+.pick-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.pick-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pick-name { font-size: 15px; font-weight: 700; }
+.pick-scope { font-family: var(--mono); font-size: 11px; color: var(--accent); }
+.pick-vision { font-size: 12px; color: var(--muted); line-height: 1.4; }
+.pick-count { margin-top: 4px; }
+.pick-foot { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+
+/* estágio context — mapa + painel "o sistema hoje" */
+.ctx-grid { display: grid; grid-template-columns: 1fr minmax(260px, 340px); gap: 16px; align-items: start; }
+@media (max-width: 860px) { .ctx-grid { grid-template-columns: 1fr; } }
+.ctx-graph { min-width: 0; }
+.sys-panel { border: 1px solid var(--line); border-radius: 14px; background: var(--bg-1); padding: 12px 14px; max-height: 60vh; overflow: auto; }
+.sys-panel h3 { margin: 0 0 8px; font-size: 13px; }
+.sys-sum { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 10px; }
+.sys-list { list-style: none; margin: 0; padding: 0; }
+.sys-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.sys-item:last-child { border-bottom: 0; }
+.sys-item .rid { font-family: var(--mono); font-size: 11px; flex: none; }
+.sys-ti { color: var(--fg-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; min-width: 0; }
+.sys-refine { flex: none; font-size: 11.5px; }
+.ctx-cta { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 16px; }
+
+/* cor do nó do mapa por banda de impacto (estágios context/chat) — só por CLASSE (CSP-safe) */
+.ig-node.imp-high .chip { fill: color-mix(in srgb, var(--accent) 26%, var(--bg-2)); stroke: var(--accent); }
+.ig-node.imp-medium .chip { fill: color-mix(in srgb, var(--warn) 22%, var(--bg-2)); stroke: var(--warn); }
+.ig-node.imp-low .chip { fill: color-mix(in srgb, var(--ok) 18%, var(--bg-2)); stroke: var(--ok); }
+
+/* estágio chat — conversa + side-rail com o mapa */
+.chat-wrap { display: grid; grid-template-columns: 1fr minmax(280px, 380px); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .chat-wrap { grid-template-columns: 1fr; } }
+.chat-col { display: flex; flex-direction: column; min-width: 0; }
+.chat-rail { border: 1px solid var(--line); border-radius: 14px; background: var(--bg-1); padding: 12px 14px; position: sticky; top: 12px; }
+.chat-rail h3 { margin: 0 0 8px; font-size: 13px; }
+.chat-log { display: flex; flex-direction: column; gap: 10px; min-height: 220px; max-height: 56vh; overflow: auto; padding: 4px; }
+.chat-msg { max-width: 86%; padding: 10px 13px; border-radius: 13px; font-size: 13.5px; line-height: 1.5; border: 1px solid var(--line); }
+.chat-msg.is-user { align-self: flex-end; background: var(--accent-soft); border-color: var(--accent); }
+.chat-msg.is-ai { align-self: flex-start; background: var(--bg-1); }
+.chat-msg.is-err { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--bg-1)); }
+.chat-par { margin: 0 0 7px; }
+.chat-par:last-child { margin-bottom: 0; }
+.chat-nobase { margin-bottom: 6px; }
+.chat-cites { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; padding-top: 7px; border-top: 1px solid var(--line); }
+.chat-cites-l { font-size: 11px; color: var(--muted); }
+.chat-cite { font-family: var(--mono); font-size: 11px; }
+.chat-oq { margin: 8px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--fg-1); }
+.chat-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+.chat-cta { font-weight: 600; }
+.chat-chip { background: var(--bg-2); border: 1px solid var(--line); color: var(--fg-1); border-radius: 999px; padding: 6px 13px; font: inherit; font-size: 12.5px; cursor: pointer; }
+.chat-chip:hover { border-color: var(--accent); color: var(--fg); }
+.chat-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.chat-inputrow { display: flex; gap: 8px; align-items: flex-end; margin-top: 4px; }
+.chat-input { flex: 1 1 auto; resize: vertical; }
+.chat-banner { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 9px 12px; margin-bottom: 10px; border: 1px solid var(--warn); border-radius: 10px; background: color-mix(in srgb, var(--warn) 12%, var(--bg-1)); font-size: 12.5px; }
+.chat-typing { display: inline-flex; gap: 4px; align-items: center; }
+.chat-typing[hidden] { display: none; }
+.chat-typing .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); display: inline-block; }
+@media (prefers-reduced-motion: no-preference) { .chat-typing .dot { animation: chatdot 1s infinite ease-in-out; } .chat-typing .dot:nth-child(2) { animation-delay: 0.15s; } .chat-typing .dot:nth-child(3) { animation-delay: 0.3s; } }
+@keyframes chatdot { 0%, 80%, 100% { opacity: 0.3; } 40% { opacity: 1; } }

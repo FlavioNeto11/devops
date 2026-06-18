@@ -46,7 +46,7 @@ test('todas as tools sao R1 (sem mutacao)', () => {
     assert.equal(t.risk, 'R1');
     assert.ok(!t.mutates);
   }
-  assert.deepEqual(reg.list().map((t) => t.name).sort(), ['req.authoring.analyze', 'req.authoring.draft', 'req.authoring.suggest_links']);
+  assert.deepEqual(reg.list().map((t) => t.name).sort(), ['req.authoring.analyze', 'req.authoring.assist', 'req.authoring.draft', 'req.authoring.suggest_links']);
 });
 
 test('draft: gera rascunho a partir do esboco (operador autenticado)', async () => {
@@ -83,6 +83,38 @@ test('analyze: devolve gaps + score', async () => {
   const out = await dispatchTool(reg.get('req.authoring.analyze'), { requirement: { id: 'REQ-X', statement: 'x' } }, ctx(stubLlm(payload)));
   assert.equal(out.output.score, 0.4);
   assert.equal(out.output.gaps.length, 1);
+});
+
+test('assist: pergunta -> reply grounded + citations, draft null', async () => {
+  const payload = { intent: 'question', reply: 'A autenticacao usa OIDC (ver REQ-SICAT-0001).', citations: ['REQ-SICAT-0001'], grounded: true, draft: null, open_questions: [], quick_replies: ['Como funciona o MTR?'] };
+  const out = await dispatchTool(reg.get('req.authoring.assist'), { product: 'sicat', message: 'como funciona a autenticacao?', grounding: [{ id: 'REQ-SICAT-0001', title: 'OIDC', statement: 'O sistema DEVE autenticar via OIDC' }] }, ctx(stubLlm(payload)));
+  assert.equal(out.status, 'executed');
+  assert.equal(out.output.prompt_version, PROMPTS.assist.version);
+  assert.equal(out.output.intent, 'question');
+  assert.deepEqual(out.output.citations, ['REQ-SICAT-0001']);
+  assert.equal(out.output.grounded, true);
+  assert.equal(out.output.draft, null);
+  assert.equal(out.output.quick_replies.length, 1);
+});
+
+test('assist: pedido de mudanca -> draft preenchido (shape do applyDraftToForm)', async () => {
+  const payload = { intent: 'create', reply: 'Proponho um novo requisito.', citations: [], grounded: true, draft: { title: 'Exportar CDF', type: 'functional', statement: 'O sistema DEVE exportar CDF', acceptance_criteria: ['gera PDF'], scope: { applies_to: 'product', product_scope: 'sicat' }, priority: 'high' } };
+  const out = await dispatchTool(reg.get('req.authoring.assist'), { product: 'sicat', message: 'preciso exportar o CDF', grounding: [] }, ctx(stubLlm(payload)));
+  assert.equal(out.output.intent, 'create');
+  assert.equal(out.output.draft.title, 'Exportar CDF');
+  assert.equal(out.output.draft.scope.product_scope, 'sicat');
+});
+
+test('assist: input invalido -> TOOL_INVALID_INPUT (sem product/message/grounding)', async () => {
+  await assert.rejects(() => dispatchTool(reg.get('req.authoring.assist'), { message: 'oi' }, ctx(stubLlm({}))), (e) => e.code === 'TOOL_INVALID_INPUT');
+  await assert.rejects(() => dispatchTool(reg.get('req.authoring.assist'), { product: 'sicat', message: 'oi' }, ctx(stubLlm({}))), (e) => e.code === 'TOOL_INVALID_INPUT');
+});
+
+test('assist: JSON invalido do modelo -> LLM_INVALID_JSON (chat vive no JSON)', async () => {
+  await assert.rejects(
+    () => dispatchTool(reg.get('req.authoring.assist'), { product: 'sicat', message: 'oi', grounding: [] }, ctx(stubLlm(null, { raw: 'Claro! Aqui esta um texto solto.' }))),
+    (e) => e.code === 'LLM_INVALID_JSON'
+  );
 });
 
 test('suggest-links: classifica candidatos e marca status=proposed', async () => {

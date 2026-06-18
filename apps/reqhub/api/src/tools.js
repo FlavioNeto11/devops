@@ -72,6 +72,40 @@ export function buildAuthoringTools() {
       },
     },
     {
+      name: 'req.authoring.assist',
+      description: 'Conversa guiada e GROUNDED sobre os requisitos de UM produto: responde perguntas citando IDs (ou "nao consta") e, quando pedido, propoe um draft de requisito. R1: nao muta, nao escreve no git.',
+      risk: 'R1',
+      inputSchema: schema((v) => {
+        need(typeof v.product === 'string' && v.product.trim().length > 0, 'product obrigatorio');
+        need(typeof v.message === 'string' && v.message.trim().length >= 2, 'message obrigatorio (>=2 chars)');
+        need(Array.isArray(v.grounding), 'grounding (array) obrigatorio');
+      }),
+      authorize: authorizeOperator,
+      execute: async (input, ctx) => {
+        const { parsed, usage } = await llmJson(ctx.llm, {
+          system: PROMPTS.assist.system,
+          user: PROMPTS.assist.user(input),
+          reasoningEffort: 'low',
+          maxTokens: 9000,
+        });
+        // defesa anti-alucinacao SERVER-SIDE: so citamos IDs presentes no grounding recebido
+        // (o cliente tambem filtra, mas o contrato deve ser auto-suficiente para qualquer chamador).
+        const known = new Set((Array.isArray(input.grounding) ? input.grounding : []).map((r) => r && r.id).filter(Boolean));
+        const citations = Array.isArray(parsed.citations) ? parsed.citations.filter((x) => typeof x === 'string' && known.has(x)) : [];
+        return {
+          prompt_version: PROMPTS.assist.version,
+          intent: typeof parsed.intent === 'string' ? parsed.intent : 'question',
+          reply: typeof parsed.reply === 'string' ? parsed.reply : '',
+          citations,
+          grounded: parsed.grounded !== false,
+          draft: parsed.draft && typeof parsed.draft === 'object' ? parsed.draft : null,
+          open_questions: Array.isArray(parsed.open_questions) ? parsed.open_questions.filter((x) => typeof x === 'string') : [],
+          quick_replies: Array.isArray(parsed.quick_replies) ? parsed.quick_replies.filter((x) => typeof x === 'string') : [],
+          usage,
+        };
+      },
+    },
+    {
       name: 'req.authoring.suggest_links',
       description: 'Classifica o TIPO de relacao entre um requisito e candidatos ja recuperados por similaridade (nao descobre novos alvos).',
       risk: 'R1',
