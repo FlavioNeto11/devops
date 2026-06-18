@@ -9,7 +9,7 @@
   --line-2: #38465699;
   --fg: #e9eef4;
   --fg-1: #abb6c2;
-  --muted: #7e8b99;
+  --muted: #8b97a4;
   --accent: #46a7d6;     /* petróleo claro — 4.5:1+ sobre bg escuro */
   --accent-2: #5fd0c4;   /* ciano-teal (extremo do gradiente da marca) */
   --accent-soft: #46a7d622;
@@ -533,7 +533,7 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 .ov-hero p { margin: 0; color: var(--fg-1); max-width: 70ch; font-size: 14.5px; line-height: 1.55; }
 .ov-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(178px, 1fr)); gap: 14px; margin-bottom: 20px; }
 .ov-metric { background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 16px 18px; box-shadow: var(--shadow-sm); }
-.ov-metric .m-ic { width: 34px; height: 34px; border-radius: 9px; background: var(--accent-soft); color: var(--accent); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 11px; }
+.ov-metric .m-ic { width: 34px; height: 34px; border-radius: 9px; background: var(--bg-2); color: var(--accent); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 11px; }
 .ov-metric .m-ic svg { width: 18px; height: 18px; }
 .ov-metric .m-v { font-size: 27px; font-weight: 700; letter-spacing: -0.5px; line-height: 1; }
 .ov-metric .m-l { font-size: 12.5px; color: var(--muted); margin-top: 5px; }

@@ -1,7 +1,7 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs } from './lib.js?v=15';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList } from './forge-lib.js?v=15';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs } from './lib.js?v=16';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList } from './forge-lib.js?v=16';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -92,9 +92,10 @@ function renderExplorer() {
   const recents = recentsStrip();
   if (recents) grid.append(recents);
   const table = h('table');
+  table.append(h('caption', { class: 'visually-hidden', text: `${reqs.length} requisito(s) encontrado(s) — Enter abre o detalhe` }));
   table.append(h('thead', {}, h('tr', {},
-    h('th', { text: 'ID' }), h('th', { text: 'Título' }), h('th', { text: 'Tipo' }),
-    h('th', { text: 'Status' }), h('th', { text: 'Prioridade' }), h('th', { text: 'ASR' }), h('th', { text: 'Impacto' }))));
+    h('th', { scope: 'col', text: 'ID' }), h('th', { scope: 'col', text: 'Título' }), h('th', { scope: 'col', text: 'Tipo' }),
+    h('th', { scope: 'col', text: 'Status' }), h('th', { scope: 'col', text: 'Prioridade' }), h('th', { scope: 'col', text: 'ASR' }), h('th', { scope: 'col', text: 'Impacto' }))));
   const tb = h('tbody');
   for (const { product, items } of groupByProduct(reqs)) {
     tb.append(h('tr', { class: 'group-row' }, h('td', { colspan: '7', text: `${product} · ${items.length}` })));
@@ -1568,7 +1569,7 @@ function renderOverview() {
     h('h2', { text: 'Base de requisitos' }),
     h('p', { text: 'A intenção da plataforma vive aqui como fonte da verdade — versionada em specs/. Explore os requisitos, analise impacto e cobertura, acompanhe a entrega e construa produtos novos a partir deles.' })));
 
-  const metric = (ic, val, label) => h('div', { class: 'ov-metric' }, h('span', { class: 'm-ic' }, icon(ic)), h('div', { class: 'm-v', text: String(val) }), h('div', { class: 'm-l', text: label }));
+  const metric = (ic, val, label) => h('div', { class: 'ov-metric', role: 'group', 'aria-label': val + ' ' + label }, h('span', { class: 'm-ic' }, icon(ic)), h('div', { class: 'm-v', 'aria-hidden': 'true', text: String(val) }), h('div', { class: 'm-l', 'aria-hidden': 'true', text: label }));
   body.append(h('div', { class: 'ov-metrics' },
     metric('layers', c.total, 'requisitos'),
     metric('products', prods.length, 'produtos'),
@@ -1639,10 +1640,14 @@ function wireSidebar() {
   const scrim = document.getElementById('sidebar-scrim');
   if (localStorage.getItem('reqhub-sidebar') === 'collapsed') app.classList.add('is-collapsed');
   const collapse = document.getElementById('sidebar-collapse');
-  if (collapse) collapse.addEventListener('click', () => {
-    app.classList.toggle('is-collapsed');
-    localStorage.setItem('reqhub-sidebar', app.classList.contains('is-collapsed') ? 'collapsed' : 'open');
-  });
+  if (collapse) {
+    collapse.setAttribute('aria-pressed', app.classList.contains('is-collapsed') ? 'true' : 'false');
+    collapse.addEventListener('click', () => {
+      const col = app.classList.toggle('is-collapsed');
+      collapse.setAttribute('aria-pressed', col ? 'true' : 'false');
+      localStorage.setItem('reqhub-sidebar', col ? 'collapsed' : 'open');
+    });
+  }
   const toggle = document.getElementById('sidebar-toggle');
   if (toggle) toggle.addEventListener('click', () => {
     const open = app.classList.toggle('is-open');
@@ -1705,10 +1710,21 @@ async function wireUserMenu() {
     h('div', { class: 'usermenu__head' }, h('span', { class: 'usermenu__avatar usermenu__avatar--lg', text: initial }),
       h('div', {}, h('div', { class: 'usermenu__email-full', text: me.email }), h('div', { class: 'usermenu__role', text: role }))),
     h('a', { class: 'usermenu__item', href: '/oauth2/sign_out', role: 'menuitem', 'aria-label': 'Sair — você será desconectado' }, icon('logout', 15), ' Sair'));
-  const close = () => { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
-  btn.addEventListener('click', (e) => { e.stopPropagation(); const open = pop.hidden; pop.hidden = !open; btn.setAttribute('aria-expanded', open ? 'true' : 'false'); });
-  document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) close(); });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+  const items = () => [...pop.querySelectorAll('.usermenu__item')];
+  const open = (focusFirst) => { pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); if (focusFirst) { const it = items()[0]; if (it) it.focus(); } };
+  const close = (refocus) => { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); if (refocus) btn.focus(); };
+  btn.addEventListener('click', (e) => { e.stopPropagation(); if (pop.hidden) open(false); else close(false); });
+  btn.addEventListener('keydown', (e) => { if (e.key === 'ArrowDown') { e.preventDefault(); open(true); } });
+  pop.addEventListener('keydown', (e) => {
+    const list = items(); const i = list.indexOf(document.activeElement);
+    if (e.key === 'Escape') { e.preventDefault(); close(true); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); (list[(i + 1) % list.length] || list[0]).focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); (list[(i - 1 + list.length) % list.length] || list[list.length - 1]).focus(); }
+    else if (e.key === 'Home') { e.preventDefault(); list[0] && list[0].focus(); }
+    else if (e.key === 'End') { e.preventDefault(); list[list.length - 1] && list[list.length - 1].focus(); }
+  });
+  document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) close(false); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !pop.hidden) close(false); });
   wrap.replaceChildren(btn, pop);
   wrap.hidden = false;
 }

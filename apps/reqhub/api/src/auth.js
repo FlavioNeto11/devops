@@ -4,12 +4,12 @@
 // aberto por engano. Mesmo padrao do ai-control-plane (operador autenticado).
 import crypto from 'node:crypto';
 
-// Comparacao em tempo constante (evita timing attack no token).
+// Comparacao em tempo constante (evita timing attack no token). Compara DIGESTS
+// SHA-256 (sempre 32 bytes) p/ nao vazar o comprimento do segredo via early-return.
 export function timingSafeEqualStr(a, b) {
-  const bufA = Buffer.from(String(a));
-  const bufB = Buffer.from(String(b));
-  if (bufA.length !== bufB.length) return false;
-  return crypto.timingSafeEqual(bufA, bufB);
+  const ha = crypto.createHash('sha256').update(String(a)).digest();
+  const hb = crypto.createHash('sha256').update(String(b)).digest();
+  return crypto.timingSafeEqual(ha, hb);
 }
 
 // Pura/testavel: decide a autorizacao a partir do header e do token configurado.
