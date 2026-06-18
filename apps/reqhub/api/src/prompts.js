@@ -66,9 +66,13 @@ export const PROMPTS = {
       `"verification_method": string[] (cada um de ${JSON.stringify(VERIFICATION_METHODS)}), ` +
       '"quality_scenarios": [{ "stimulus": string, "response": string, "measure": string }] (so non-functional), ' +
       `"priority": one of ${JSON.stringify(PRIORITIES)}, "criticality": one of ${JSON.stringify(PRIORITIES)}, ` +
-      `"architectural_significance": boolean, "scope": { "applies_to": one of ${JSON.stringify(APPLIES_TO)}, "product_scope": string } }, ` +
-      '"notes": string (1-2 frases: o que mudou) }. PRESERVE o id, o scope.product_scope, version e source do ' +
-      'requisito recebido — NAO gere novos.',
+      `"architectural_significance": boolean, "scope": { "applies_to": one of ${JSON.stringify(APPLIES_TO)}, "product_scope": string }, ` +
+      '"source": { "source_paths": string[] } }, ' +
+      '"notes": string (1-2 frases: o que mudou) }. PRESERVE o id, o scope.product_scope e version do ' +
+      'requisito recebido. Sobre o SOURCE (origem): se o requisito JA tiver source.source_paths nao-vazio, ' +
+      'PRESERVE; se estiver vazio (e a lacuna apontar isso), PROPONHA ao menos um caminho-fonte plausivel sob ' +
+      'a area do produto — apps de negocio ficam em "apps/<product_scope>/..." (ex.: apps/gymops/...); e um ' +
+      'ponto de partida que o operador refina, nunca invente um caminho que finja ser exato.',
     user: ({ requirement, gaps } = {}) =>
       `requisito atual:\n${JSON.stringify(requirement || {}, null, 2).slice(0, 5000)}\n\n` +
       `lacunas a corrigir:\n${JSON.stringify(gaps || [], null, 2).slice(0, 3000)}`,

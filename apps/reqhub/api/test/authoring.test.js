@@ -142,6 +142,12 @@ test('revise: corrige o requisito a partir das lacunas (shape do draft)', async 
   assert.match(out.output.notes, /criterios/i);
 });
 
+test('revise: propaga source.source_paths quando o modelo preenche a origem', async () => {
+  const payload = { draft: { title: 'X', statement: 'O sistema DEVE X', source: { source_paths: ['apps/gymops/apps/api/src/x.ts'] } }, notes: 'origem proposta' };
+  const out = await dispatchTool(reg.get('req.authoring.revise'), { requirement: { id: 'REQ-GYMOPS-0020', statement: 'x', scope: { product_scope: 'gymops' } }, gaps: [{ field: 'source', message: 'origem ausente' }] }, ctx(stubLlm(payload)));
+  assert.deepEqual(out.output.draft.source.source_paths, ['apps/gymops/apps/api/src/x.ts']);
+});
+
 test('revise: input invalido -> TOOL_INVALID_INPUT (sem requirement)', async () => {
   await assert.rejects(() => dispatchTool(reg.get('req.authoring.revise'), {}, ctx(stubLlm({}))), (e) => e.code === 'TOOL_INVALID_INPUT');
 });

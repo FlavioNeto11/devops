@@ -1,7 +1,7 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations } from './lib.js?v=28';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=28';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations } from './lib.js?v=29';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=29';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -1370,34 +1370,41 @@ function renderReviewForm(body) {
         h('p', { class: 'muted', text: warns.length ? 'Avisos: ' + warns.join('; ') : 'Campos preenchidos à direita — revise e clique em Gerar YAML.' })));
     });
   }
-  function doAnalyze() {
+  // LOOP de reasoning: analisa → corrige (revise) → re-analisa, SOZINHO, até a prontidão ficar
+  // boa (>= TARGET), platô (não melhora) ou o teto de rodadas. Aplica as correções no formulário
+  // a cada rodada e mostra o progresso. Decisão de parar é por SCORE, não por nº fixo de cliques.
+  let refining = false;
+  function doRefine() {
+    if (refining) return;
+    const TARGET = 0.85, MAX = 6;
+    refining = true;
     guard(async () => {
-      const r = await AI.post('/v1/authoring/analyze', { requirement: collectDraft() });
-      if (!r.ok) return showErr(r);
-      const card = h('div', { class: 'card' }, h('h3', { text: 'Lacunas — prontidão ' + (r.data.score != null ? r.data.score : '?') }));
-      const gaps = r.data.gaps || [];
-      if (!gaps.length) card.append(h('p', { class: 'empty', text: 'Sem lacunas apontadas.' }));
-      else {
-        const ul = h('ul', { class: 'errlist' }); gaps.forEach((g) => ul.append(h('li', {}, badge(g.severity || 'info', g.severity === 'blocker' ? 'b-crit' : ''), ' ' + ((g.field ? g.field + ': ' : '') + (g.message || ''))))); card.append(ul);
-        // RESOLVER as lacunas com IA: corrige os campos do formulário e re-analisa.
-        card.append(h('div', { class: 'ws-actions' }, h('button', { class: 'btn primary', type: 'button', text: '✨ Corrigir com IA', onclick: () => doRevise(gaps) })));
+      const log = h('div', { class: 'refine-log' });
+      aiOut.replaceChildren(h('div', { class: 'card' }, h('h3', {}, h('span', { class: 'asst-spark', 'aria-hidden': 'true', text: '✨' }), ' Analisar & refinar'), h('p', { class: 'muted small', text: 'A IA analisa, corrige e re-analisa sozinha até o requisito ficar pronto.' }), log));
+      const remainingGaps = (gaps) => {
+        if (gaps && gaps.length) { const ul = h('ul', { class: 'errlist' }); gaps.forEach((g) => ul.append(h('li', {}, badge(g.severity || 'info', g.severity === 'blocker' ? 'b-crit' : ''), ' ' + ((g.field ? g.field + ': ' : '') + (g.message || ''))))); log.append(h('p', { class: 'muted small', text: 'Pontos que ainda precisam de você:' }), ul); }
+        log.append(h('div', { class: 'ws-actions' }, h('button', { class: 'btn', type: 'button', text: 'Refinar de novo', onclick: doRefine })));
+      };
+      let prev = -1, lastScore = 0, lastGaps = [];
+      for (let i = 0; i < MAX; i++) {
+        const step = h('p', { class: 'refine-step', text: 'Rodada ' + (i + 1) + ' — analisando…' }); log.append(step);
+        const ra = await AI.post('/v1/authoring/analyze', { requirement: collectDraft() });
+        if (!ra.ok) { showErr(ra); return; }
+        const score = ra.data.score != null ? Number(ra.data.score) : 0;
+        const gaps = ra.data.gaps || [];
+        lastScore = score; lastGaps = gaps;
+        step.replaceChildren(h('strong', { text: 'Rodada ' + (i + 1) }), ' · prontidão ', h('span', { class: 'refine-score', text: String(score) }), ' · ' + (gaps.length ? gaps.length + ' lacuna(s)' : 'sem lacunas'));
+        if (score >= TARGET || !gaps.length) { log.append(h('p', { class: 'refine-ok', text: '✓ Requisito pronto (prontidão ' + score + '). Revise e clique em Gerar YAML.' })); return remainingGaps(gaps); }
+        if (i >= 1 && score <= prev) { log.append(h('p', { class: 'refine-warn', text: '⚠ A IA não conseguiu melhorar além de ' + score + '.' })); return remainingGaps(gaps); }
+        prev = score;
+        log.append(h('p', { class: 'refine-fix muted small', text: '↳ corrigindo ' + gaps.length + ' lacuna(s) com IA…' }));
+        const rv = await AI.post('/v1/authoring/revise', { requirement: collectDraft(), gaps });
+        if (!rv.ok) { showErr(rv); return; }
+        if (rv.data && rv.data.draft) { applyDraftToForm(rv.data.draft); runValidation(); }
       }
-      aiOut.replaceChildren(card);
-    });
-  }
-  function doRevise(gaps) {
-    guard(async () => {
-      const r = await AI.post('/v1/authoring/revise', { requirement: collectDraft(), gaps });
-      if (!r.ok) return showErr(r);
-      const revised = (r.data && r.data.draft) || null;
-      if (!revised) { aiOut.replaceChildren(h('div', { class: 'card' }, h('h3', { text: 'Sem correções' }), h('p', { class: 'muted', text: 'A IA não retornou uma versão corrigida.' }))); return; }
-      applyDraftToForm(revised);
-      runValidation();
-      aiOut.replaceChildren(h('div', { class: 'card' },
-        h('h3', {}, badge('aplicado', 'b-ok'), ' Correções da IA'),
-        h('p', { class: 'muted', text: r.data.notes || 'Campos atualizados — revise e clique em “Analisar lacunas” de novo ou em “Gerar YAML”.' }),
-        h('div', { class: 'ws-actions' }, h('button', { class: 'btn', type: 'button', text: 'Analisar de novo', onclick: doAnalyze }))));
-    });
+      log.append(h('p', { class: 'refine-warn', text: 'Parei após ' + MAX + ' rodadas (prontidão ' + lastScore + ').' }));
+      remainingGaps(lastGaps);
+    }).finally(() => { refining = false; });
   }
   function doLinks() {
     guard(async () => {
@@ -1444,7 +1451,7 @@ function renderReviewForm(body) {
     h('label', { class: 'fld' }, h('span', { class: 'fld-l', text: 'Descreva o requisito (esboço)' }), sketch),
     h('div', { class: 'asst-actions' },
       h('button', { class: 'btn primary', type: 'button', text: '✨ Rascunhar com IA', onclick: doDraft }),
-      h('button', { class: 'btn', type: 'button', text: 'Analisar lacunas', onclick: doAnalyze }),
+      h('button', { class: 'btn', type: 'button', text: '✨ Analisar & refinar', onclick: doRefine }),
       h('button', { class: 'btn', type: 'button', text: 'Classificar vínculos (IA)', onclick: doLinks })),
     aiOut,
     h('div', { class: 'asst-val' }, h('h4', { text: 'Validação automática' }), valOut),
@@ -1524,6 +1531,10 @@ function renderReviewForm(body) {
     if (typeof d.architectural_significance === 'boolean') setSel(f.asr, String(d.architectural_significance));
     if (Array.isArray(d.acceptance_criteria)) f.acceptance.value = d.acceptance_criteria.join('\n');
     if (Array.isArray(d.verification_method)) f.methods.value = d.verification_method;
+    // origem (source_paths): só preenche se ainda estiver vazio (não sobrescreve o que o operador pôs).
+    if (d.source && Array.isArray(d.source.source_paths) && d.source.source_paths.length && !(f.source_paths.value || '').trim()) {
+      f.source_paths.value = d.source.source_paths.join('\n');
+    }
     // escopo do rascunho (a IA pode devolver scope.applies_to / scope.product_scope) — preenche
     // sem quebrar a escolha do operador quando o produto vem fixo (edicao desabilita o select).
     if (d.scope && d.scope.applies_to) setSel(f.applies_to, d.scope.applies_to);
