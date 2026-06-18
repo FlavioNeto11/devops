@@ -455,7 +455,7 @@ function locateNode(q) {
 function nodeAria(n, req) {
   const d = IMPACT.deg[n.id] || 0;
   if (req) return `${n.id}: ${req.title || ''}. ${req.type === 'non-functional' ? 'NFR' : 'funcional'}, produto ${req.product || '—'}, impacto ${req.impact_band}, ${d} conexões${n.asr ? ', ASR' : ''}.`;
-  if (n.kind === 'refinement') return `${n.id}: refinamento de tela${n.title ? ' — ' + n.title : ''}, ${d} conexões. Duplo-clique abre a Usabilidade.`;
+  if (n.kind === 'refinement') return `${n.id}: refinamento de tela${n.title ? ' — ' + n.title : ''}, ${d} conexões. Pressione O para abrir a Usabilidade.`;
   return `${n.id}: alvo de alocação (${TARGET_LABEL[n.kind] || n.kind}), ${d} conexões.`;
 }
 
@@ -510,7 +510,7 @@ function buildImpactScene(canvas) {
     }
     g.addEventListener('click', (ev) => { ev.stopPropagation(); selectNode(n.id); });
     g.addEventListener('dblclick', (ev) => { ev.stopPropagation(); if (req) openReq(n.id); else if (isRef) openUsability(n.id); });
-    g.addEventListener('keydown', (ev) => onNodeKey(ev, n.id, req));
+    g.addEventListener('keydown', (ev) => onNodeKey(ev, n.id, req, isRef));
     g.addEventListener('mouseenter', () => setHover(n.id));
     g.addEventListener('mouseleave', () => clearHover(n.id));
     g.addEventListener('focus', () => setHover(n.id));
@@ -545,10 +545,10 @@ function visibleNodeGs() {
   for (const { g } of IMPACT.nodeEls.values()) if (!g.classList.contains('is-hidden')) out.push(g);
   return out;
 }
-function onNodeKey(ev, id, req) {
+function onNodeKey(ev, id, req, isRef) {
   const k = ev.key;
   if (k === 'Enter' || k === ' ') { ev.preventDefault(); selectNode(id); return; }
-  if (k === 'o' || k === 'O') { if (req) openReq(id); return; }
+  if (k === 'o' || k === 'O') { if (req) openReq(id); else if (isRef) openUsability(id); return; }
   if (k === 'Escape') { clearSelection(); return; }
   if (k === 'ArrowRight' || k === 'ArrowDown' || k === 'ArrowLeft' || k === 'ArrowUp') {
     ev.preventDefault();
@@ -1633,10 +1633,12 @@ function renderClassifyStage(body) {
   const sketch = h('textarea', { class: 'ai-sketch', rows: '3', 'aria-label': 'O que você quer mudar', placeholder: 'ex.: "na tela de perfil (/profile) quero mostrar o endereço do empreendimento do usuário"' });
   if (state.editor.sketch) sketch.value = state.editor.sketch;
   const btn = h('button', { class: 'btn primary', type: 'button', text: '✨ Classificar (IA)' });
-  const out = h('div', { class: 'ai-out', role: 'status', 'aria-live': 'polite' });
+  const out = h('div', { class: 'ai-out' }); // hospeda o card rico/erro (SEM aria-live)
+  // região viva DEDICADA só p/ texto curto de status (não inunda o AT com o card inteiro)
+  const statusLive = h('p', { class: 'visually-hidden', role: 'status', 'aria-live': 'polite' });
   body.append(h('div', { class: 'classify-form' },
     h('label', { class: 'fld wide' }, h('span', { class: 'fld-l', text: 'O que você quer mudar?' }), sketch),
-    h('div', { class: 'ws-actions' }, btn), out));
+    h('div', { class: 'ws-actions' }, btn), statusLive, out));
 
   const { g } = buildSystemGraph(product, true);
   state.editor.graph = g;
@@ -1655,7 +1657,8 @@ function renderClassifyStage(body) {
 
   function renderResult(data) {
     const lm = levelMeta(data.level);
-    const card = h('div', { class: 'card classify-card' },
+    // o card recebe foco (tabindex=-1 num contêiner NÃO-interativo) — os botões ficam na ordem natural de Tab
+    const card = h('div', { class: 'card classify-card', tabindex: '-1', 'aria-label': 'Recomendação: ' + lm.label },
       h('div', { class: 'classify-head' }, h('span', { class: 'classify-ic', 'aria-hidden': 'true', text: '✨' }), badge(lm.label, lm.cls),
         data.confidence != null ? h('span', { class: 'muted small', text: 'confiança ' + data.confidence }) : null),
       h('p', { class: 'classify-rat', text: data.rationale || lm.desc }));
@@ -1666,7 +1669,7 @@ function renderClassifyStage(body) {
       card.append(cc);
     }
     const acts = h('div', { class: 'classify-acts' });
-    const primary = h('button', { class: 'btn primary', type: 'button', tabindex: '-1',
+    const primary = h('button', { class: 'btn primary', type: 'button',
       text: data.level === 'refinement' ? 'Criar refinamento →' : (data.level === 'requirement-edit' && byId(data.target_req_id) ? 'Editar ' + data.target_req_id + ' →' : 'Criar requisito novo →'),
       onclick: () => route(data.level, data) });
     acts.append(primary);
@@ -1675,14 +1678,15 @@ function renderClassifyStage(body) {
     if (data.level !== 'new-requirement') acts.append(h('button', { class: 'btn', type: 'button', text: 'É um requisito novo', onclick: () => route('new-requirement', {}) }));
     card.append(h('p', { class: 'muted small', text: 'A IA recomenda; você decide o caminho.' }), acts);
     out.replaceChildren(card);
-    primary.focus();
+    statusLive.textContent = 'Recomendação: ' + lm.label + (data.confidence != null ? ' (confiança ' + data.confidence + ')' : '') + '.';
+    card.focus();
   }
 
   async function classify() {
     const sk = (sketch.value || '').trim();
     state.editor.sketch = sk;
-    if (sk.length < 3) { out.replaceChildren(h('p', { class: 'empty', text: 'Descreva a mudança (ao menos uma frase).' })); return; }
-    out.replaceChildren(h('p', { class: 'muted', text: 'Consultando a IA…' }));
+    if (sk.length < 3) { out.replaceChildren(h('p', { class: 'empty', text: 'Descreva a mudança (ao menos uma frase).' })); statusLive.textContent = 'Descreva a mudança (ao menos uma frase).'; return; }
+    out.replaceChildren(h('p', { class: 'muted', text: 'Consultando a IA…' })); statusLive.textContent = 'Consultando a IA…';
     btn.disabled = true; btn.setAttribute('aria-busy', 'true');
     try {
       const grounding = productGrounding(DATA.baseline.requirements, product);

@@ -52,7 +52,7 @@
       "additionalProperties": false,
       "description": "A superfície (tela/rota) que o refinamento descreve. route é obrigatório quando kind=screen.",
       "properties": {
-        "route": { "type": "string", "description": "Rota/URL da tela. Ex.: /profile, /settings/units." },
+        "route": { "type": "string", "minLength": 1, "pattern": "^/", "description": "Rota/URL da tela (começa com /). Ex.: /profile, /settings/units." },
         "name": { "type": "string" },
         "roles": { "type": "array", "items": { "type": "string" }, "description": "Papéis que acessam (RBAC). Ex.: owner, unit_manager, member." }
       }
@@ -72,7 +72,7 @@
             "additionalProperties": false,
             "required": ["name"],
             "properties": {
-              "name": { "type": "string" },
+              "name": { "type": "string", "minLength": 1 },
               "when": { "type": "string", "description": "Condição que dispara o estado." },
               "ui": { "type": "string", "description": "O que a tela mostra nesse estado." }
             }

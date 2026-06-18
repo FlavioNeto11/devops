@@ -4,7 +4,7 @@
 // no HTTP). Saida do modelo e parseada como JSON ESTRITO; JSON invalido vira erro
 // ESTRUTURADO (LLM_INVALID_JSON) — nunca fallback silencioso nem heuristica chumbada.
 import { AiToolError } from '@flavioneto11/ai-core';
-import { PROMPTS } from './prompts.js';
+import { PROMPTS, VOCAB } from './prompts.js';
 
 // Schema estrutural minimo (objeto com .parse()) — o dispatchTool do ai-core o aplica.
 const schema = (validate) => ({ parse: (v) => { validate(v || {}); return v; } });
@@ -41,6 +41,20 @@ const authorizeOperator = (ctx) => ({
   reason: ctx && ctx.authenticated === true ? 'operador autenticado' : 'requer operador autenticado',
 });
 
+// Saneia o draft de REFINAMENTO na FRONTEIRA da API (defesa em profundidade; o gate real e o
+// schema no build). Falha-rapido em kind fora do enum (igual ao `level` de classify_change) e
+// filtra verification_method ao ENUM — sem fallback silencioso, sem heuristica chumbada.
+function sanitizeRefDraft(draft) {
+  if (!draft || typeof draft !== 'object') return null;
+  if (draft.kind != null && !VOCAB.REF_KINDS.includes(draft.kind)) {
+    throw new AiToolError('LLM_INVALID_JSON', 'kind de refinamento fora do enum', { kind: draft.kind });
+  }
+  if (Array.isArray(draft.verification_method)) {
+    draft.verification_method = draft.verification_method.filter((m) => VOCAB.VERIFICATION_METHODS.includes(m));
+  }
+  return draft;
+}
+
 export function buildAuthoringTools() {
   return [
     {
@@ -68,7 +82,8 @@ export function buildAuthoringTools() {
           system: PROMPTS.analyze.system,
           user: PROMPTS.analyze.user(input),
         });
-        return { prompt_version: PROMPTS.analyze.version, ...parsed, usage };
+        // projeta SÓ os campos do contrato (sem spread: o modelo não sobrescreve prompt_version nem vaza chaves)
+        return { prompt_version: PROMPTS.analyze.version, gaps: Array.isArray(parsed.gaps) ? parsed.gaps : [], score: typeof parsed.score === 'number' ? parsed.score : null, usage };
       },
     },
     {
@@ -195,9 +210,10 @@ export function buildAuthoringTools() {
       authorize: authorizeOperator,
       execute: async (input, ctx) => {
         const { parsed, usage } = await llmJson(ctx.llm, { system: PROMPTS.draftRefinement.system, user: PROMPTS.draftRefinement.user(input), maxTokens: 9000 });
+        const draft = sanitizeRefDraft(parsed.draft);
         return {
           prompt_version: PROMPTS.draftRefinement.version,
-          draft: parsed.draft && typeof parsed.draft === 'object' ? parsed.draft : null,
+          draft,
           warnings: Array.isArray(parsed.warnings) ? parsed.warnings : [],
           usage,
         };
@@ -211,7 +227,8 @@ export function buildAuthoringTools() {
       authorize: authorizeOperator,
       execute: async (input, ctx) => {
         const { parsed, usage } = await llmJson(ctx.llm, { system: PROMPTS.analyzeRefinement.system, user: PROMPTS.analyzeRefinement.user(input) });
-        return { prompt_version: PROMPTS.analyzeRefinement.version, ...parsed, usage };
+        // projeta SÓ {gaps,score} (sem spread): o modelo não sobrescreve prompt_version nem vaza chaves
+        return { prompt_version: PROMPTS.analyzeRefinement.version, gaps: Array.isArray(parsed.gaps) ? parsed.gaps : [], score: typeof parsed.score === 'number' ? parsed.score : null, usage };
       },
     },
     {
@@ -224,7 +241,7 @@ export function buildAuthoringTools() {
         const { parsed, usage } = await llmJson(ctx.llm, { system: PROMPTS.reviseRefinement.system, user: PROMPTS.reviseRefinement.user(input), maxTokens: 9000 });
         return {
           prompt_version: PROMPTS.reviseRefinement.version,
-          draft: parsed.draft && typeof parsed.draft === 'object' ? parsed.draft : null,
+          draft: sanitizeRefDraft(parsed.draft),
           notes: typeof parsed.notes === 'string' ? parsed.notes : '',
           usage,
         };

@@ -154,13 +154,13 @@ function validate(items) {
       if (!v.ok) { ok = false; fail(`source_path inválido em ${file}: '${sp}' — ${v.reason}`); }
     }
   }
-  return { ok, reqIds: new Set(ids.keys()) };
+  return { ok, reqIds: new Set(ids.keys()), reqSlugs: slugs };
 }
 
 // --- 2b) validar REFINAMENTOS (schema + integridade + âncoras reais) -----------
 // REF-* aponta para requisitos via anchors[]; o build FALHA se a âncora não existir
 // (anti-fabricação, igual a link pendente). source_paths reais (enforce de origem).
-function validateRefinements(refItems, reqIds) {
+function validateRefinements(refItems, reqIds, reqSlugs = new Map()) {
   if (!refItems.length) return true;
   const ajv = new Ajv2020({ allErrors: true, strict: false });
   addFormats(ajv);
@@ -181,7 +181,9 @@ function validateRefinements(refItems, reqIds) {
       else ids.set(doc.id, file);
     }
     if (doc && doc.slug) {
+      // slug único DENTRO dos refinamentos E entre refinamentos e requisitos (namespace compartilhado)
       if (slugs.has(doc.slug)) { ok = false; fail(`slug duplicado '${doc.slug}' em ${file} e ${slugs.get(doc.slug)}`); }
+      else if (reqSlugs.has(doc.slug)) { ok = false; fail(`slug duplicado '${doc.slug}' em ${file} e ${reqSlugs.get(doc.slug)} (colisão refinamento×requisito)`); }
       else slugs.set(doc.slug, file);
     }
     // âncora pendente: cada anchor.requirement_id tem de existir como requisito real.
@@ -395,8 +397,8 @@ function build(items, refItems = []) {
 function main() {
   const items = loadRequirements();
   const refItems = loadRefinements();
-  const { ok: reqOk, reqIds } = validate(items);
-  const refOk = validateRefinements(refItems, reqIds);
+  const { ok: reqOk, reqIds, reqSlugs } = validate(items);
+  const refOk = validateRefinements(refItems, reqIds, reqSlugs);
   if (!reqOk || !refOk) {
     console.error('\x1b[31m[specs] validação FALHOU — baseline não gerada.\x1b[0m');
     process.exit(1);

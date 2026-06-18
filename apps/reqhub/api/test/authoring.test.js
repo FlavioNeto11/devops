@@ -225,6 +225,26 @@ test('analyze_refinement: devolve gaps + score (mesmo shape de analyze)', async 
   assert.equal(out.output.gaps.length, 1);
 });
 
+test('analyze_refinement: PROJETA so {gaps,score} — modelo nao sobrescreve prompt_version nem vaza chaves', async () => {
+  const payload = { gaps: [], score: 0.5, prompt_version: 'HACKED@999', arbitrary_extra: 'leaked' };
+  const out = await dispatchTool(reg.get('req.authoring.analyze_refinement'), { refinement: { id: 'REF-X', kind: 'screen' } }, ctx(stubLlm(payload)));
+  assert.equal(out.output.prompt_version, PROMPTS.analyzeRefinement.version); // NAO foi sobrescrito
+  assert.equal(out.output.arbitrary_extra, undefined); // chave fantasma nao vaza
+});
+
+test('draft_refinement: kind fora do enum -> LLM_INVALID_JSON (fail-fast na API)', async () => {
+  await assert.rejects(
+    () => dispatchTool(reg.get('req.authoring.draft_refinement'), { product: 'gymops', sketch: 'algo de tela', anchors: [] }, ctx(stubLlm({ draft: { title: 'X', kind: 'pagina' } }))),
+    (e) => e.code === 'LLM_INVALID_JSON'
+  );
+});
+
+test('draft_refinement: filtra verification_method ao ENUM', async () => {
+  const draft = { title: 'X', kind: 'screen', verification_method: ['test-e2e', 'inventado', 'manual-review'] };
+  const out = await dispatchTool(reg.get('req.authoring.draft_refinement'), { product: 'gymops', sketch: 'algo de tela', anchors: [] }, ctx(stubLlm({ draft })));
+  assert.deepEqual(out.output.draft.verification_method, ['test-e2e', 'manual-review']);
+});
+
 test('revise_refinement: corrige o refinamento (draft + notes)', async () => {
   const draft = { title: 'Endereço no perfil', kind: 'screen', surface: { route: '/profile' }, behavior: { states: [{ name: 'normal' }, { name: 'error' }, { name: 'empty' }] }, source: { source_paths: ['apps/gymops/apps/web/src/app/(app)/profile'] } };
   const out = await dispatchTool(reg.get('req.authoring.revise_refinement'), { refinement: { id: 'REF-GYMOPS-0001' }, gaps: [{ field: 'behavior.states', message: 'faltou error/empty' }] }, ctx(stubLlm({ draft, notes: 'adicionei error e empty' })));

@@ -74,6 +74,18 @@ test('refinement: campo desconhecido reprova (additionalProperties:false)', () =
   assert.equal(validate(d), false);
 });
 
+test('refinement: screen com route VAZIA ou sem barra reprova (não só presença)', () => {
+  const d1 = valid(); d1.surface.route = '';
+  assert.equal(validate(d1), false);
+  const d2 = valid(); d2.surface.route = 'profile'; // sem barra inicial
+  assert.equal(validate(d2), false);
+});
+
+test('refinement: state com name VAZIO reprova', () => {
+  const d = valid(); d.behavior.states = [{ name: '' }];
+  assert.equal(validate(d), false);
+});
+
 // --- GUARD de drift de enum: os enums compartilhados são DUPLICADOS entre os dois
 // schemas (JSON Schema 2020-12 não dá $ref de enum cross-file trivial). Este teste falha
 // se alguém evoluir um enum num schema e esquecer o outro.
