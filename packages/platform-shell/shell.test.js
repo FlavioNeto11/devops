@@ -1,7 +1,7 @@
 // node:test das funções PURAS da casca (sem DOM). Roda: `node --test`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SURFACES, normalizeMe, healthFromStatus, groupSurfaces, activeSurfaceKey } from './shell.js';
+import { SURFACES, normalizeMe, roleLabel, healthFromStatus, groupSurfaces, activeSurfaceKey } from './shell.js';
 
 test('SURFACES: manifesto canônico tem os 7 surfaces e caminhos únicos', () => {
   const keys = SURFACES.map((s) => s.key);
@@ -11,16 +11,45 @@ test('SURFACES: manifesto canônico tem os 7 surfaces e caminhos únicos', () =>
   assert.deepEqual(SURFACES.filter((s) => s.external).map((s) => s.key).sort(), ['argocd', 'auth', 'grafana']);
 });
 
-test('normalizeMe: email/grupos/isAdmin/initial; fail-soft', () => {
+test('normalizeMe: eco básico { email, groups, isAdmin } + isMember por grupo', () => {
   const a = normalizeMe({ email: 'flavio@x.com', groups: ['platform-admins', 'project-members'] });
-  assert.deepEqual(a, { email: 'flavio@x.com', groups: ['platform-admins', 'project-members'], isAdmin: true, initial: 'F', authed: true });
+  assert.equal(a.email, 'flavio@x.com');
+  assert.deepEqual(a.groups, ['platform-admins', 'project-members']);
+  assert.equal(a.isAdmin, true);
+  assert.equal(a.isMember, true);
+  assert.deepEqual(a.projects, []);
+  assert.equal(a.initial, 'F');
+  assert.equal(a.authed, true);
   const b = normalizeMe({ user: 'a@b.com', groups: 'project-members,outro' });
   assert.deepEqual(b.groups, ['project-members', 'outro']);
   assert.equal(b.isAdmin, false);
+  assert.equal(b.isMember, true);
   assert.equal(b.authed, true);
+});
+
+test('normalizeMe: anônimo e flags explícitas', () => {
   const c = normalizeMe(null);
-  assert.deepEqual(c, { email: '', groups: [], isAdmin: false, initial: '?', authed: false });
+  assert.equal(c.authed, false);
+  assert.equal(c.email, '');
+  assert.equal(c.initial, '?');
   assert.equal(normalizeMe({ email: 'x@y.z', isAdmin: true }).isAdmin, true);
+});
+
+test('normalizeMe: desembrulha o { data } do pm-api (isMember + projects)', () => {
+  const m = normalizeMe({ data: { email: 'm@x.com', isAdmin: false, isMember: true, projects: [{ id: 1 }, { id: 2 }] } });
+  assert.equal(m.email, 'm@x.com');
+  assert.equal(m.isAdmin, false);
+  assert.equal(m.isMember, true);
+  assert.equal(m.projects.length, 2);
+  assert.equal(m.authed, true);
+});
+
+test('roleLabel: admin > membro > 1º grupo > sessão', () => {
+  assert.equal(roleLabel(normalizeMe({ email: 'a@x', groups: ['platform-admins'] })), 'platform-admin');
+  assert.equal(roleLabel(normalizeMe({ data: { email: 'm@x', isMember: true } })), 'acesso a projetos');
+  assert.equal(roleLabel(normalizeMe({ email: 'g@x', groups: ['time-foo'] })), 'time-foo');
+  assert.equal(roleLabel(normalizeMe({ email: 's@x' })), 'sessão autenticada');
+  assert.equal(roleLabel(null), '');
 });
 
 test('healthFromStatus: 2xx/3xx/401/403 = up; 404/5xx = down; null = unknown', () => {

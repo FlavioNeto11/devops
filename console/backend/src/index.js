@@ -759,7 +759,8 @@ router.get(
     );
     const groups = requesterGroups(req);
     const isAdmin = groups.includes(CONSOLE_ADMIN_GROUP);
-    res.json({ email, groups, isAdmin });
+    const isMember = groups.includes(CONSOLE_MEMBER_GROUP);
+    res.json({ email, groups, isAdmin, isMember });
   }),
 );
 
@@ -1007,6 +1008,7 @@ app.use((req, _res, next) => {
 // em DEV (sem headers) libera para nao travar o desenvolvimento local.
 // ---------------------------------------------------------------------------
 const CONSOLE_ADMIN_GROUP = process.env.CONSOLE_ADMIN_GROUP || 'platform-admins';
+const CONSOLE_MEMBER_GROUP = process.env.CONSOLE_MEMBER_GROUP || 'project-members';
 // Fallback "sem identidade" = permitir (default true): evita trancar o admin caso o forward
 // dos headers falhe. SEGURO contra members — a borda sempre injeta X-Auth-Request-Groups e o
 // Traefik sobrescreve forjas, entao um member sempre chega COM o grupo (e e barrado abaixo).

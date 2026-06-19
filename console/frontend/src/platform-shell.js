@@ -27,11 +27,22 @@ export const SURFACES = [
 // ---- funções PURAS (testáveis em node:test; sem DOM) ----
 // identidade normalizada a partir do /me (eco dos headers X-Auth-Request-* ou /v1/me).
 export function normalizeMe(json) {
-  const j = json || {};
+  // aceita tanto o eco básico { email, groups, isAdmin } quanto o rico do pm-api
+  // ({ data: { email, isAdmin, isMember, projects } }) — desembrulha o `data` se houver.
+  const j = (json && json.data && typeof json.data === 'object') ? json.data : (json || {});
   const email = (j.email || j.user || '').trim();
   const groups = Array.isArray(j.groups) ? j.groups : (typeof j.groups === 'string' && j.groups ? j.groups.split(',').map((s) => s.trim()).filter(Boolean) : []);
   const isAdmin = j.isAdmin === true || groups.includes('platform-admins');
-  return { email, groups, isAdmin, initial: (email[0] || '?').toUpperCase(), authed: !!email };
+  const isMember = j.isMember === true || groups.includes('project-members');
+  const projects = Array.isArray(j.projects) ? j.projects : [];
+  return { email, groups, isAdmin, isMember, projects, initial: (email[0] || '?').toUpperCase(), authed: !!email };
+}
+// rótulo de papel a partir da identidade normalizada (admin > membro > 1º grupo > sessão).
+export function roleLabel(me) {
+  if (!me) return '';
+  if (me.isAdmin) return 'platform-admin';
+  if (me.isMember) return 'acesso a projetos';
+  return me.groups && me.groups.length ? me.groups[0] : 'sessão autenticada';
 }
 // saúde a partir de um status HTTP de probe (null = erro de rede). 404/5xx = fora; demais = no ar.
 export function healthFromStatus(status) {
@@ -158,10 +169,17 @@ class PlatformShell extends Base {
   _syncTheme() { const dark = this._currentTheme() === 'dark'; if (this.themeBtn) { this.themeBtn.setAttribute('aria-label', dark ? 'Mudar para tema claro' : 'Mudar para tema escuro'); this.classList.toggle('pshell-dark', dark); } }
   _toggleTheme() { this._applyTheme(this._currentTheme() === 'dark' ? 'light' : 'dark'); }
 
-  // ----- identidade: /me por surface; fail-soft -> "Entrar" -----
+  // ----- identidade: cadeia me-url (preferida, ex.: pm/me rica) -> me-url-fallback (eco
+  //       básico); usa a 1ª resposta AUTENTICADA. Fail-soft total -> "Entrar". -----
   async _loadIdentity() {
+    const urls = [this.meUrl, this.getAttribute('me-url-fallback')].filter(Boolean);
     let me = null;
-    if (this.meUrl) { try { const r = await fetch(this.meUrl, { headers: { Accept: 'application/json' } }); if (r.ok) me = normalizeMe(await r.json()); } catch { /* sem sessão/sem endpoint */ } }
+    for (const u of urls) {
+      try {
+        const r = await fetch(u, { headers: { Accept: 'application/json' } });
+        if (r.ok) { const m = normalizeMe(await r.json()); if (m.authed) { me = m; break; } }
+      } catch { /* tenta o próximo da cadeia */ }
+    }
     this._renderIdentity(me);
   }
   _renderIdentity(me) {
@@ -171,12 +189,14 @@ class PlatformShell extends Base {
       this.identitySlot.append(el('a', { class: 'pshell-enter', href: '/oauth2/start?rd=' + rd, text: 'Entrar' }));
       return;
     }
-    const role = me.isAdmin ? 'platform-admin' : (me.groups[0] || 'sessão');
+    const role = roleLabel(me);
     const btn = el('button', { class: 'pshell-user', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-label': 'Menu do usuário (' + me.email + ')', onclick: (e) => { e.stopPropagation(); this._toggleMenu(); } },
       el('span', { class: 'pshell-avatar', text: me.initial }), el('span', { class: 'pshell-user-e', text: me.email }));
-    const menu = el('div', { class: 'pshell-menu', role: 'menu', hidden: 'hidden' },
-      el('div', { class: 'pshell-menu-h' }, el('span', { class: 'pshell-avatar pshell-avatar-lg', text: me.initial }), el('div', {}, el('div', { class: 'pshell-menu-e', text: me.email }), el('div', { class: 'pshell-menu-r', text: role }))),
-      el('a', { class: 'pshell-menu-i', href: '/oauth2/sign_out', role: 'menuitem', text: 'Sair' }));
+    const head = el('div', { class: 'pshell-menu-h' }, el('span', { class: 'pshell-avatar pshell-avatar-lg', text: me.initial }), el('div', {}, el('div', { class: 'pshell-menu-e', text: me.email }), el('div', { class: 'pshell-menu-r', text: role })));
+    const menu = el('div', { class: 'pshell-menu', role: 'menu', hidden: 'hidden' }, head);
+    // toque rico (quando vem do pm/me): nº de projetos do membro
+    if (me.projects && me.projects.length) menu.append(el('div', { class: 'pshell-menu-meta', text: me.projects.length + ' projeto' + (me.projects.length === 1 ? '' : 's') }));
+    menu.append(el('a', { class: 'pshell-menu-i', href: '/oauth2/sign_out', role: 'menuitem', text: 'Sair' }));
     this.identityBtn = btn; this.identityMenu = menu;
     this.identitySlot.append(btn, menu);
   }

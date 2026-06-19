@@ -187,7 +187,11 @@ export default function App() {
       {/* App-bar global da plataforma (Web Component). Fica no TOPO da árvore, acima
           do shell/sidebar próprios do Console. React 18 passa surface/me-url como
           strings ao custom element. */}
-      <platform-shell surface="devops" me-url="/devops/api/me"></platform-shell>
+      <platform-shell
+        surface="devops"
+        me-url="/devops/api/pm/me"
+        me-url-fallback="/devops/api/me"
+      ></platform-shell>
       <div className={'shell' + (sidebarCollapsed ? ' shell--collapsed' : '') + (mobileNavOpen ? ' shell--navopen' : '')}>
         <Sidebar
           groups={sidebarGroups}
