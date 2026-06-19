@@ -1,0 +1,41 @@
+/* =============================================================================
+   platform-tokens.css — a PALETA NEUTRA da plataforma NovaIT (marca-guarda).
+   Vars namespeadas `--p-*` (triplas RGB → permitem rgb(var(--p-x) / <alpha>)), então
+   NUNCA colidem com as vars próprias de cada app (--bg/--fg/--accent…). Cada app importa
+   este arquivo e faz um alias mínimo (--accent: rgb(var(--p-neon)); …) p/ adotar a paleta.
+   Dark casa as duas convenções: atributo [data-theme=dark] e classe .dark.
+   Sincronizado por codegen-sync (packages/platform-shell/build.mjs) — não editar a cópia
+   dentro do app; edite packages/platform-shell/platform-tokens.css.
+   ============================================================================= */
+:root {
+  color-scheme: light;
+  --p-bg: 248 250 252;
+  --p-surface: 255 255 255;
+  --p-surface2: 241 245 249;
+  --p-fg: 15 23 42;
+  --p-muted: 100 116 139;
+  --p-neon: 79 70 229;
+  --p-on-neon: 255 255 255;
+  --p-accent2: 13 148 136;
+  --p-ok: 22 163 74;
+  --p-warn: 217 119 6;
+  --p-danger: 220 38 38;
+  --p-border: 226 232 240;
+  --p-ink: 2 6 23;
+}
+[data-theme="dark"], .dark {
+  color-scheme: dark;
+  --p-bg: 14 17 22;
+  --p-surface: 22 27 34;
+  --p-surface2: 30 37 46;
+  --p-fg: 226 232 240;
+  --p-muted: 148 163 184;
+  --p-neon: 129 140 248;
+  --p-on-neon: 9 11 17;
+  --p-accent2: 45 212 191;
+  --p-ok: 74 222 128;
+  --p-warn: 251 191 36;
+  --p-danger: 248 113 113;
+  --p-border: 42 50 62;
+  --p-ink: 226 232 240;
+}

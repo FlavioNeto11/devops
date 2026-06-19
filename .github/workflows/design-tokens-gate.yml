@@ -31,3 +31,7 @@ jobs:
           node-version: "22"
       - name: Validar sincronia dos tokens gerados
         run: node packages/design-tokens/build.mjs --check
+      - name: Validar sincronia da casca global (platform-shell)
+        run: node packages/platform-shell/build.mjs --check
+      - name: Testes das funções puras da casca
+        run: node --test packages/platform-shell/shell.test.js

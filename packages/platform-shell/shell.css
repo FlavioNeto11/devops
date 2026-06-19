@@ -1,0 +1,91 @@
+/* =============================================================================
+   platform-shell.css — estilo da casca global (namespaced .pshell-*). Usa a paleta
+   `platform-tokens.css` (--p-bg/--p-surface/--p-fg/--p-muted/--p-neon/--p-border…) com
+   fallbacks, então funciona mesmo antes do app importar a paleta.
+   Sincronizado por codegen-sync (packages/platform-shell/build.mjs) — NÃO editar a
+   cópia dentro do app; edite packages/platform-shell/shell.css.
+   ============================================================================= */
+.pshell-host { display: block; }
+.pshell {
+  display: flex; align-items: center; gap: 12px;
+  height: 52px; padding: 0 14px;
+  background: rgb(var(--p-surface, 255 255 255));
+  border-bottom: 1px solid rgb(var(--p-border, 226 232 240));
+  color: rgb(var(--p-fg, 15 23 42));
+  font-family: Inter, system-ui, sans-serif; font-size: 13.5px;
+  position: relative; z-index: 50;
+}
+.pshell-spacer { flex: 1; }
+.pshell button, .pshell a { font-family: inherit; }
+
+/* launcher button (grade de pontos) */
+.pshell-launch { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: 1px solid rgb(var(--p-border, 226 232 240)); border-radius: 9px; background: rgb(var(--p-bg, 248 250 252)); color: rgb(var(--p-fg, 15 23 42)); cursor: pointer; flex: none; }
+.pshell-launch:hover { border-color: rgb(var(--p-neon, 79 70 229)); }
+.pshell-launch:focus-visible { outline: 2px solid rgb(var(--p-neon, 79 70 229)); outline-offset: 2px; }
+.pshell-grid { width: 16px; height: 16px; pointer-events: none; background:
+  radial-gradient(circle at 2px 2px, currentColor 1.4px, transparent 1.6px),
+  radial-gradient(circle at 8px 2px, currentColor 1.4px, transparent 1.6px),
+  radial-gradient(circle at 14px 2px, currentColor 1.4px, transparent 1.6px),
+  radial-gradient(circle at 2px 8px, currentColor 1.4px, transparent 1.6px),
+  radial-gradient(circle at 8px 8px, currentColor 1.4px, transparent 1.6px),
+  radial-gradient(circle at 14px 8px, currentColor 1.4px, transparent 1.6px),
+  radial-gradient(circle at 2px 14px, currentColor 1.4px, transparent 1.6px),
+  radial-gradient(circle at 8px 14px, currentColor 1.4px, transparent 1.6px),
+  radial-gradient(circle at 14px 14px, currentColor 1.4px, transparent 1.6px); }
+
+/* brand */
+.pshell-brand { display: inline-flex; align-items: center; gap: 9px; text-decoration: none; color: inherit; }
+.pshell-logo { width: 28px; height: 28px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; color: rgb(var(--p-on-neon, 255 255 255)); background: rgb(var(--p-neon, 79 70 229)); flex: none; }
+.pshell-brand-txt { display: flex; flex-direction: column; line-height: 1.05; }
+.pshell-brand-txt strong { font-size: 14px; letter-spacing: -0.2px; }
+.pshell-brand-sub { font-size: 10.5px; color: rgb(var(--p-muted, 100 116 139)); }
+
+/* chip do surface ativo */
+.pshell-here { display: inline-flex; align-items: center; gap: 7px; margin-left: 6px; padding: 4px 10px; border-radius: 999px; background: rgb(var(--p-bg, 248 250 252)); border: 1px solid rgb(var(--p-border, 226 232 240)); color: rgb(var(--p-muted, 100 116 139)); font-size: 12px; }
+.pshell-here-g { color: rgb(var(--p-neon, 79 70 229)); }
+
+/* right cluster */
+.pshell-right { display: inline-flex; align-items: center; gap: 8px; }
+.pshell-icon { width: 36px; height: 36px; border: 1px solid rgb(var(--p-border, 226 232 240)); border-radius: 9px; background: rgb(var(--p-bg, 248 250 252)); color: rgb(var(--p-fg, 15 23 42)); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.pshell-icon:hover { border-color: rgb(var(--p-neon, 79 70 229)); }
+.pshell-theme-ic { width: 15px; height: 15px; border-radius: 50%; background: rgb(var(--p-fg, 15 23 42)); box-shadow: inset -4px -4px 0 0 rgb(var(--p-surface, 255 255 255)); }
+.pshell-dark .pshell-theme-ic { box-shadow: none; background: rgb(var(--p-warn, 251 191 36)); }
+
+/* identidade */
+.pshell-enter { display: inline-flex; align-items: center; padding: 7px 14px; border-radius: 9px; background: rgb(var(--p-neon, 79 70 229)); color: rgb(var(--p-on-neon, 255 255 255)); text-decoration: none; font-weight: 600; font-size: 13px; }
+.pshell-enter:hover { filter: brightness(1.06); }
+.pshell-identity { position: relative; }
+.pshell-user { display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px 4px 4px; border: 1px solid rgb(var(--p-border, 226 232 240)); border-radius: 999px; background: rgb(var(--p-bg, 248 250 252)); color: rgb(var(--p-fg, 15 23 42)); cursor: pointer; max-width: 230px; }
+.pshell-user:hover { border-color: rgb(var(--p-neon, 79 70 229)); }
+.pshell-user-e { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
+.pshell-avatar { width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: rgb(var(--p-neon, 79 70 229)); color: rgb(var(--p-on-neon, 255 255 255)); font-weight: 700; font-size: 12px; flex: none; }
+.pshell-avatar-lg { width: 38px; height: 38px; font-size: 15px; }
+.pshell-menu { position: absolute; right: 0; top: calc(100% + 8px); min-width: 240px; background: rgb(var(--p-surface, 255 255 255)); border: 1px solid rgb(var(--p-border, 226 232 240)); border-radius: 12px; box-shadow: 0 18px 50px -20px rgb(0 0 0 / 0.35); padding: 6px; z-index: 60; }
+.pshell-menu-h { display: flex; align-items: center; gap: 11px; padding: 10px 10px 12px; border-bottom: 1px solid rgb(var(--p-border, 226 232 240)); margin-bottom: 6px; }
+.pshell-menu-e { font-size: 13px; font-weight: 600; }
+.pshell-menu-r { font-size: 11.5px; color: rgb(var(--p-muted, 100 116 139)); }
+.pshell-menu-i { display: block; padding: 9px 11px; border-radius: 8px; text-decoration: none; color: rgb(var(--p-fg, 15 23 42)); font-size: 13px; }
+.pshell-menu-i:hover { background: rgb(var(--p-bg, 248 250 252)); }
+
+/* launcher panel */
+.pshell-launcher { position: absolute; left: 12px; top: calc(52px + 4px); width: min(620px, calc(100vw - 24px)); background: rgb(var(--p-surface, 255 255 255)); border: 1px solid rgb(var(--p-border, 226 232 240)); border-radius: 14px; box-shadow: 0 24px 70px -24px rgb(0 0 0 / 0.4); padding: 14px 16px 16px; z-index: 60; }
+.pshell-launcher-h { font-size: 11px; text-transform: uppercase; letter-spacing: 0.7px; color: rgb(var(--p-muted, 100 116 139)); margin-bottom: 10px; }
+.pshell-launcher-g { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: rgb(var(--p-muted, 100 116 139)); margin: 12px 2px 8px; }
+.pshell-launcher-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 9px; }
+.pshell-app { display: flex; align-items: center; gap: 11px; padding: 11px 12px; border: 1px solid rgb(var(--p-border, 226 232 240)); border-radius: 11px; background: rgb(var(--p-bg, 248 250 252)); color: rgb(var(--p-fg, 15 23 42)); text-decoration: none; cursor: pointer; text-align: left; width: 100%; position: relative; }
+.pshell-app:hover { border-color: rgb(var(--p-neon, 79 70 229)); transform: translateY(-1px); }
+.pshell-app.is-active { border-color: rgb(var(--p-neon, 79 70 229)); box-shadow: inset 0 0 0 1px rgb(var(--p-neon, 79 70 229)); }
+.pshell-app-ic { width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; background: rgb(var(--p-surface2, 241 245 249)); color: rgb(var(--p-neon, 79 70 229)); font-size: 15px; flex: none; }
+.pshell-app-tx { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.pshell-app-n { font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; }
+.pshell-app-s { font-size: 11px; color: rgb(var(--p-muted, 100 116 139)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pshell-ext { color: rgb(var(--p-muted, 100 116 139)); font-weight: 400; }
+.pshell-dot { width: 8px; height: 8px; border-radius: 50%; background: rgb(var(--p-muted, 100 116 139) / 0.4); flex: none; }
+.pshell-dot.is-up { background: rgb(var(--p-ok, 22 163 74)); }
+.pshell-dot.is-down { background: rgb(var(--p-danger, 220 38 38)); }
+.pshell-dot.is-unknown { background: rgb(var(--p-muted, 100 116 139) / 0.5); }
+
+@media (max-width: 640px) {
+  .pshell-here, .pshell-brand-sub { display: none; }
+  .pshell-user-e { display: none; }
+}
