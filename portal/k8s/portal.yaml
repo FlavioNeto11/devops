@@ -46,7 +46,7 @@ spec:
     spec:
       containers:
         - name: portal
-          image: ghcr.io/flavioneto11/portal/frontend:da039c28fd2a
+          image: ghcr.io/flavioneto11/portal/frontend:abfc3e15a774
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
