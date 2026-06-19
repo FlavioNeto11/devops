@@ -747,6 +747,22 @@ router.get(
   }),
 );
 
+// Identidade unificada: ECOA a identidade injetada pelo oauth2-proxy nos headers
+// X-Auth-Request-* (read-only puro, NAO toca o cluster). Qualquer sessao
+// autenticada pode ver a propria identidade — nao exige o gate de admin (e so
+// eco de headers, sem dados sensiveis). Sem header de identidade -> anonimo.
+router.get(
+  '/me',
+  asyncHandler(async (req, res) => {
+    const email = String(
+      req.headers['x-auth-request-email'] || req.headers['x-auth-request-user'] || '',
+    );
+    const groups = requesterGroups(req);
+    const isAdmin = groups.includes(CONSOLE_ADMIN_GROUP);
+    res.json({ email, groups, isAdmin });
+  }),
+);
+
 // Logs de um Pod especifico (query opcional ?tailLines=).
 router.get(
   '/pods/:ns/:name/logs',

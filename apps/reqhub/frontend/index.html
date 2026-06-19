@@ -9,10 +9,13 @@
     <title>Reqhub — base de requisitos</title>
     <meta name="description" content="Reqhub — a base de requisitos da plataforma como fonte da verdade: explore, analise impacto e cobertura, acompanhe a entrega e construa produtos a partir dos requisitos." />
     <link rel="icon" href="assets/favicon.svg" />
-    <link rel="stylesheet" href="assets/styles.css?v=39" />
+    <link rel="stylesheet" href="assets/platform-tokens.css?v=40" />
+    <link rel="stylesheet" href="assets/platform-shell.css?v=40" />
+    <link rel="stylesheet" href="assets/styles.css?v=40" />
   </head>
   <body>
     <a class="skip" href="#main">Pular para o conteúdo</a>
+    <platform-shell surface="reqs" me-url="api/v1/me"></platform-shell>
 
     <div class="app" id="app">
       <!-- ============================ SIDEBAR ============================ -->
@@ -138,6 +141,7 @@
       </div>
     </div>
 
-    <script type="module" src="assets/app.js?v=39"></script>
+    <script type="module" src="assets/platform-shell.js?v=40"></script>
+    <script type="module" src="assets/app.js?v=40"></script>
   </body>
 </html>

@@ -1,51 +1,37 @@
-/* Reqhub — design system monocromático (slate/petróleo), dark por padrão, WCAG 2.2.
+/* Reqhub — adota a PALETA NEUTRA da plataforma (--p-*, em assets/platform-tokens.css).
+   As vars do app derivam de --p-*; o tema (claro/escuro) é unificado: vem de platform-tokens.css
+   (toggle [data-theme] da casca + preferência do sistema) — sem blocos de tema próprios aqui.
    Sem dependências, sem inline (CSP script-src 'self'). */
 :root {
-  --bg: #0a0d11;
-  --bg-1: #11161d;
-  --bg-2: #19212b;
-  --bg-3: #212b37;
-  --line: #28323f;
-  --line-2: #38465699;
-  --fg: #e9eef4;
-  --fg-1: #abb6c2;
-  --muted: #8b97a4;
-  --accent: #46a7d6;     /* petróleo claro — 4.5:1+ sobre bg escuro */
-  --accent-2: #5fd0c4;   /* ciano-teal (extremo do gradiente da marca) */
-  --accent-soft: #46a7d622;
-  --accent-fg: #07121a;
-  --ok: #4cb892;
-  --warn: #e0a94e;
-  --danger: #e07070;
-  --asr: #b88de0;
-  --chip-stroke: rgba(0, 0, 0, 0.45);
+  --bg: rgb(var(--p-bg));
+  --bg-1: rgb(var(--p-surface));
+  --bg-2: rgb(var(--p-surface2));
+  --bg-3: rgb(var(--p-surface2));
+  --line: rgb(var(--p-border));
+  --line-2: rgb(var(--p-border) / 0.7);
+  --fg: rgb(var(--p-fg));
+  --fg-1: rgb(var(--p-fg) / 0.74);
+  --muted: rgb(var(--p-muted));
+  --accent: rgb(var(--p-neon));
+  --accent-2: rgb(var(--p-accent2));
+  --accent-soft: rgb(var(--p-neon) / 0.13);
+  --accent-fg: rgb(var(--p-on-neon));
+  --ok: rgb(var(--p-ok));
+  --warn: rgb(var(--p-warn));
+  --danger: rgb(var(--p-danger));
+  --asr: #8c6fd0;
+  --chip-stroke: rgb(var(--p-ink) / 0.18);
   --radius: 10px;
   --radius-lg: 16px;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03), 0 10px 30px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.08);
+  --shadow: 0 1px 0 rgb(255 255 255 / 0.03), 0 10px 30px rgb(0 0 0 / 0.18);
+  --shadow-lg: 0 18px 48px rgb(0 0 0 / 0.24);
   --sidebar-w: 230px;
   --sidebar-w-collapsed: 64px;
   --topbar-h: 60px;
   --maxw: 1320px;
   --mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
   --sans: "Inter var", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-}
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    --bg: #eef1f5; --bg-1: #ffffff; --bg-2: #f1f4f8; --bg-3: #e7ecf2; --line: #dde3ea; --line-2: #c4cdd899;
-    --fg: #161d26; --fg-1: #3d4753; --muted: #616c79; --accent: #1f6f93; --accent-2: #138a7e; --accent-soft: #1f6f9314; --accent-fg: #ffffff;
-    --ok: #1f8a5b; --warn: #9a6a16; --danger: #b23b3b; --asr: #7a4fb0; --chip-stroke: rgba(20,30,40,0.22);
-    --shadow-sm: 0 1px 2px rgba(20,30,40,0.06);
-    --shadow: 0 1px 0 rgba(0,0,0,0.02), 0 10px 30px rgba(20,30,40,0.10); --shadow-lg: 0 18px 48px rgba(20,30,40,0.16);
-  }
-}
-:root[data-theme="light"] {
-  --bg: #eef1f5; --bg-1: #ffffff; --bg-2: #f1f4f8; --bg-3: #e7ecf2; --line: #dde3ea; --line-2: #c4cdd899;
-  --fg: #161d26; --fg-1: #3d4753; --muted: #616c79; --accent: #1f6f93; --accent-2: #138a7e; --accent-soft: #1f6f9314; --accent-fg: #ffffff;
-  --ok: #1f8a5b; --warn: #9a6a16; --danger: #b23b3b; --asr: #7a4fb0; --chip-stroke: rgba(20,30,40,0.22);
-  --shadow-sm: 0 1px 2px rgba(20,30,40,0.06);
-  --shadow: 0 1px 0 rgba(0,0,0,0.02), 0 10px 30px rgba(20,30,40,0.10); --shadow-lg: 0 18px 48px rgba(20,30,40,0.16);
 }
 
 * { box-sizing: border-box; }
@@ -62,10 +48,10 @@ a { color: var(--accent); }
 code { font-family: var(--mono); font-size: 0.92em; background: var(--bg-2); padding: 1px 5px; border-radius: 5px; }
 
 /* ===================== App shell (sidebar + topbar) ===================== */
-.app { display: flex; min-height: 100vh; }
+.app { display: flex; min-height: calc(100vh - 52px); } /* 52px = altura da casca global (platform-shell) */
 
 /* sidebar */
-.sidebar { width: var(--sidebar-w); flex: none; background: var(--bg-1); border-right: 1px solid var(--line); display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; z-index: 30; transition: width .18s ease; }
+.sidebar { width: var(--sidebar-w); flex: none; background: var(--bg-1); border-right: 1px solid var(--line); display: flex; flex-direction: column; position: sticky; top: 52px; height: calc(100vh - 52px); z-index: 30; transition: width .18s ease; }
 .sidebar-brand { display: flex; align-items: center; gap: 11px; padding: 16px 18px 12px; }
 .brand-logo { width: 30px; height: 30px; flex: none; border-radius: 9px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 5px 16px -5px var(--accent); }
 .brand-logo svg { width: 18px; height: 18px; color: var(--accent-fg); }
@@ -136,7 +122,7 @@ main { max-width: none; margin: 0; padding: 22px clamp(16px, 2.6vw, 32px) 12px; 
 .sidebar-scrim { display: none; }
 @media (max-width: 860px) {
   .topbar-burger { display: inline-flex; }
-  .sidebar { position: fixed; left: 0; top: 0; transform: translateX(-100%); transition: transform .2s ease; box-shadow: var(--shadow-lg); }
+  .sidebar { position: fixed; left: 0; top: 52px; transform: translateX(-100%); transition: transform .2s ease; box-shadow: var(--shadow-lg); }
   .app.is-open .sidebar { transform: none; }
   .app.is-collapsed .sidebar { width: var(--sidebar-w); }
   .sidebar-collapse { display: none; }

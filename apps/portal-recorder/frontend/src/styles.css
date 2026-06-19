@@ -9,41 +9,43 @@
    ========================================================================= */
 
 :root {
-  /* superficies */
-  --bg: #f7f9fc;
-  --bg-elev: #ffffff;
-  --bg-elev-2: #f3f6fc;
-  --border: #ebeef4;
-  --border-strong: #dfe3ec;
+  /* superficies — remapeadas para a paleta neutra namespeada --p-* (platform-tokens.css).
+     O dark agora vem inteiramente de platform-tokens.css ([data-theme=dark]/.dark e
+     @media prefers-color-scheme), então NÃO há mais bloco dark próprio aqui. */
+  --bg: rgb(var(--p-bg));
+  --bg-elev: rgb(var(--p-surface));
+  --bg-elev-2: rgb(var(--p-surface2));
+  --border: rgb(var(--p-border));
+  --border-strong: rgb(var(--p-border));
 
   /* texto */
-  --text: #0b1220;
-  --text-muted: #6b7488;
-  --text-dim: #929bad;
-  --body: #3c4658;
+  --text: rgb(var(--p-fg));
+  --text-muted: rgb(var(--p-muted));
+  --text-dim: rgb(var(--p-muted) / 0.8);
+  --body: rgb(var(--p-fg) / 0.82);
 
-  /* marca / accent */
-  --accent: #2563eb;
-  --accent-ink: #1e4ed8;
-  --accent-hover: #1e4ed8;
+  /* marca / accent — botao com texto branco usa indigo FIXO (#4f46e5) p/ contraste AA */
+  --accent: #4f46e5;
+  --accent-ink: #4338ca;
+  --accent-hover: #4338ca;
   --accent-contrast: #ffffff;
-  --accent-soft: #eef3ff;
-  --accent2: #7c6cff;
-  --grad: linear-gradient(120deg, #2563eb, #7c6cff);
+  --accent-soft: rgb(var(--p-neon) / 0.12);
+  --accent2: rgb(var(--p-accent2));
+  --grad: linear-gradient(120deg, #4f46e5, rgb(var(--p-accent2)));
 
   /* estados */
-  --ok: #16a34a;
-  --ok-bg: #e9f7ee;
-  --warn: #9a6700;
-  --warn-bg: #fdf4e3;
-  --err: #cf222e;
-  --err-bg: #fdecec;
-  --muted-bg: #eef1f6;
-  --danger: #dc2626;
+  --ok: rgb(var(--p-ok));
+  --ok-bg: rgb(var(--p-ok) / 0.12);
+  --warn: rgb(var(--p-warn));
+  --warn-bg: rgb(var(--p-warn) / 0.12);
+  --err: rgb(var(--p-danger));
+  --err-bg: rgb(var(--p-danger) / 0.12);
+  --muted-bg: rgb(var(--p-muted) / 0.12);
+  --danger: rgb(var(--p-danger));
 
   /* "monitor" do screencast */
-  --screen-bg: #0b1220;
-  --screen-frame: #1c2333;
+  --screen-bg: rgb(var(--p-ink));
+  --screen-frame: rgb(var(--p-surface2));
 
   --radius: 14px;
   --radius-sm: 9px;
@@ -63,43 +65,11 @@
   --t: 0.2s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
-:root[data-theme="dark"] {
-  --bg: #0a0e16;
-  --bg-elev: #121826;
-  --bg-elev-2: #1a2233;
-  --border: #232c3e;
-  --border-strong: #303a4f;
-
-  --text: #eef2f9;
-  --text-muted: #9aa6bd;
-  --text-dim: #6b768d;
-  --body: #c4cde0;
-
-  --accent: #5b8dff;
-  --accent-ink: #7ba3ff;
-  --accent-hover: #7ba3ff;
-  --accent-contrast: #07101f;
-  --accent-soft: rgba(91, 141, 255, 0.14);
-  --accent2: #9d8dff;
-  --grad: linear-gradient(120deg, #5b8dff, #9d8dff);
-
-  --ok: #3fb950;
-  --ok-bg: rgba(63, 185, 80, 0.14);
-  --warn: #d6a23a;
-  --warn-bg: rgba(214, 162, 58, 0.14);
-  --err: #ff6b66;
-  --err-bg: rgba(248, 81, 73, 0.14);
-  --muted-bg: rgba(154, 166, 189, 0.13);
-  --danger: #ef4444;
-
-  --screen-bg: #04070d;
-  --screen-frame: #0e1626;
-
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 22px 46px -24px rgba(0, 0, 0, 0.7);
-  --shadow-lg: 0 30px 64px -28px rgba(0, 0, 0, 0.75);
-  --ring: 0 0 0 3px rgba(91, 141, 255, 0.3);
-}
+/* O bloco dark próprio do app foi REMOVIDO: o tema escuro vem agora de
+   platform-tokens.css (via [data-theme=dark]/.dark e @media prefers-color-scheme),
+   que reescreve as triplas --p-* — e como as vars do app derivam de --p-*, elas
+   acompanham o tema automaticamente. As sombras/ring que tinham override no dark
+   ficam com os valores claros (suaves), aceitáveis em ambos os temas. */
 
 * {
   box-sizing: border-box;
@@ -285,14 +255,11 @@ select.input:focus-visible,
   gap: 12px;
   padding: 13px 22px;
   border-bottom: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.82);
+  background: rgb(var(--p-surface) / 0.82);
   backdrop-filter: blur(10px);
   position: sticky;
   top: 0;
   z-index: 20;
-}
-:root[data-theme="dark"] .topbar {
-  background: rgba(18, 24, 38, 0.82);
 }
 .topbar__brand {
   display: flex;

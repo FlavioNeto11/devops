@@ -31,6 +31,7 @@ export default function App() {
 
   return (
     <div className="shell">
+      <platform-shell surface="portal-rec" me-url="/devops/api/me"></platform-shell>
       <TokenBar />
       <header className="topbar">
         <div className="topbar__brand">
