@@ -11,13 +11,20 @@
     <title>DevOps Console</title>
     <!-- favicon (diamante da marca) inline — sem request extra -->
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2 22 12 12 22 2 12Z' fill='%232f6fed'/%3E%3C/svg%3E" />
-    <!-- Tema aplicado ANTES do bundle p/ evitar flash (FOUC). Default: light. -->
+    <!-- Tema aplicado ANTES do bundle p/ evitar flash (FOUC). Chave única da casca
+         (nvit-theme); sem escolha explícita, o CSS resolve por prefers-color-scheme. -->
     <script>
       (function () {
         try {
-          document.documentElement.dataset.theme = localStorage.getItem('console-theme') || 'light';
+          var t = localStorage.getItem('nvit-theme');
+          if (t === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.documentElement.classList.add('dark');
+          } else if (t === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
+          }
         } catch (e) {
-          document.documentElement.dataset.theme = 'light';
+          /* sem storage: deixa o CSS resolver */
         }
       })();
     </script>

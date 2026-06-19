@@ -1022,8 +1022,9 @@ function requesterGroups(req) {
 }
 
 app.use((req, res, next) => {
-  // /health (montado em '/' e '/api') sempre liberado para o probe do k8s.
-  if (req.path === '/health' || req.path === '/api/health') return next();
+  // /health (probe do k8s) e /me (eco read-only da identidade — qualquer sessão autenticada
+  // pode ver a própria; a casca global precisa disto p/ NÃO mostrar "Entrar" a não-admin) liberados.
+  if (req.path === '/health' || req.path === '/api/health' || req.path === '/me' || req.path === '/api/me') return next();
   const groups = requesterGroups(req);
   const hasIdentity =
     groups.length > 0 || req.headers['x-auth-request-email'] || req.headers['x-forwarded-email'];

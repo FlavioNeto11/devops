@@ -66,16 +66,7 @@ export default function App() {
   const [streamData, setStreamData] = useState(null);
   const esRef = useRef(null);
 
-  // Tema (valor inicial vem do index.html, anti-flash).
-  const [theme, setTheme] = useState(
-    () => (typeof document !== 'undefined' && document.documentElement.dataset.theme) || 'light',
-  );
-  const toggleTheme = () => {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    if (typeof document !== 'undefined') document.documentElement.dataset.theme = next;
-    try { localStorage.setItem('console-theme', next); } catch { /* ignore */ }
-    setTheme(next);
-  };
+  // Tema vive na casca global (<platform-shell>, chave nvit-theme) — sem toggle próprio aqui.
 
   const toggleCollapse = () => {
     setSidebarCollapsed((c) => {
@@ -213,9 +204,6 @@ export default function App() {
             section={SECTIONS[activeTab]}
             onMenu={() => setMobileNavOpen((o) => !o)}
             navOpen={mobileNavOpen}
-            theme={theme}
-            onToggleTheme={toggleTheme}
-            me={me}
             live={!isMember ? streamBadge : null}
           />
 

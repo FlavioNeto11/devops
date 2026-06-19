@@ -148,6 +148,13 @@ function recentsStrip(opts) {
 
 function renderExplorer() {
   const reqs = filterReqs(DATA.baseline.requirements, { ...state.filters, q: state.q });
+  // reflete o estado nos <select> da toolbar (deep-link ?product= via casca/Console seta state.filters
+  // depois de a toolbar já ter sido montada — sem isto o controle ficaria no placeholder).
+  for (const sel of document.querySelectorAll('#explorer-filters select')) {
+    const lbl = (sel.getAttribute('aria-label') || '').toLowerCase();
+    const key = lbl === 'produto' ? 'product' : lbl === 'tipo' ? 'type' : lbl === 'status' ? 'status' : lbl === 'prioridade' ? 'priority' : lbl === 'impacto' ? 'band' : lbl === 'asr' ? 'asr' : null;
+    if (key) sel.value = state.filters[key] || '';
+  }
   const grid = document.getElementById('explorer-grid');
   grid.replaceChildren();
   const recents = recentsStrip();
@@ -3127,22 +3134,6 @@ function wireSidebar() {
   });
   if (scrim) scrim.addEventListener('click', () => { app.classList.remove('is-open'); scrim.hidden = true; if (toggle) toggle.setAttribute('aria-expanded', 'false'); });
 }
-function wireTheme() {
-  const btn = document.getElementById('theme');
-  btn.replaceChildren(icon('theme'));
-  const label = (t) => `Tema: ${t === 'dark' ? 'escuro' : t === 'light' ? 'claro' : 'automático'} (clique para alternar)`;
-  const sync = () => { const t = document.documentElement.dataset.theme || ''; btn.setAttribute('aria-label', label(t)); btn.setAttribute('title', label(t)); };
-  const saved = localStorage.getItem('reqhub-theme');
-  if (saved) document.documentElement.dataset.theme = saved;
-  sync();
-  btn.addEventListener('click', () => {
-    const cur = document.documentElement.dataset.theme;
-    const next = cur === 'dark' ? 'light' : cur === 'light' ? '' : 'dark';
-    if (next) document.documentElement.dataset.theme = next; else delete document.documentElement.dataset.theme;
-    localStorage.setItem('reqhub-theme', next);
-    sync();
-  });
-}
 function wireSearch() {
   const q = document.getElementById('q');
   q.addEventListener('input', (e) => {
@@ -3181,39 +3172,7 @@ function wireFullscreen() {
   document.addEventListener('fullscreenchange', sync);
   sync();
 }
-// Menu do usuário (identidade SSO da borda — oauth2-proxy). Sem sessão (ex.: preview local) some.
-async function wireUserMenu() {
-  let me = null;
-  try { const r = await fetch(AI.BASE + '/v1/me'); if (r.ok) me = await r.json(); } catch { /* sem SSO */ }
-  const wrap = document.getElementById('usermenu');
-  if (!wrap || !me || !me.email) return;
-  state.me = me;
-  const initial = (me.email.trim()[0] || '?').toUpperCase();
-  const role = me.isAdmin ? 'platform-admin' : (me.groups && me.groups.length ? me.groups.join(', ') : 'sessão autenticada');
-  const btn = h('button', { class: 'usermenu__btn', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-label': 'Menu do usuário (' + me.email + ')' },
-    h('span', { class: 'usermenu__avatar', text: initial }), h('span', { class: 'usermenu__email', text: me.email }));
-  const pop = h('div', { class: 'usermenu__pop', role: 'menu', hidden: 'hidden' },
-    h('div', { class: 'usermenu__head' }, h('span', { class: 'usermenu__avatar usermenu__avatar--lg', text: initial }),
-      h('div', {}, h('div', { class: 'usermenu__email-full', text: me.email }), h('div', { class: 'usermenu__role', text: role }))),
-    h('a', { class: 'usermenu__item', href: '/oauth2/sign_out', role: 'menuitem', 'aria-label': 'Sair — você será desconectado' }, icon('logout', 15), ' Sair'));
-  const items = () => [...pop.querySelectorAll('.usermenu__item')];
-  const open = (focusFirst) => { pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); if (focusFirst) { const it = items()[0]; if (it) it.focus(); } };
-  const close = (refocus) => { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); if (refocus) btn.focus(); };
-  btn.addEventListener('click', (e) => { e.stopPropagation(); if (pop.hidden) open(false); else close(false); });
-  btn.addEventListener('keydown', (e) => { if (e.key === 'ArrowDown') { e.preventDefault(); open(true); } });
-  pop.addEventListener('keydown', (e) => {
-    const list = items(); const i = list.indexOf(document.activeElement);
-    if (e.key === 'Escape') { e.preventDefault(); close(true); }
-    else if (e.key === 'ArrowDown') { e.preventDefault(); (list[(i + 1) % list.length] || list[0]).focus(); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); (list[(i - 1 + list.length) % list.length] || list[list.length - 1]).focus(); }
-    else if (e.key === 'Home') { e.preventDefault(); list[0] && list[0].focus(); }
-    else if (e.key === 'End') { e.preventDefault(); list[list.length - 1] && list[list.length - 1].focus(); }
-  });
-  document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) close(false); });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !pop.hidden) close(false); });
-  wrap.replaceChildren(btn, pop);
-  wrap.hidden = false;
-}
+/* (tema e identidade vivem na casca global <platform-shell> — wireTheme/wireUserMenu removidos) */
 
 /* ===================== Copiloto onipresente (Ctrl-K / ✨ na topbar) =====================
    Tira a IA do funil Editor/Forge: pergunta à base grounded R1 (AI.ask) DE QUALQUER tela,
@@ -3373,5 +3332,6 @@ async function init() {
   refreshNavBadges();
   wireCommandPalette();
   if (!applyHashRoute()) switchView('overview'); // deep-link da URL (ex.: vindo do Console) ou padrão
+  window.addEventListener('hashchange', () => applyHashRoute()); // deep-link em aba já aberta (idempotente)
 }
 init();

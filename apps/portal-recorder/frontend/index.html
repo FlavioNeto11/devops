@@ -21,10 +21,15 @@
     <script>
       (function () {
         try {
-          document.documentElement.dataset.theme =
-            localStorage.getItem('portal-rec-theme') || 'light';
+          var t = localStorage.getItem('nvit-theme');
+          if (t === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.documentElement.classList.add('dark');
+          } else if (t === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
+          }
         } catch (e) {
-          document.documentElement.dataset.theme = 'light';
+          /* sem storage: deixa o CSS resolver */
         }
       })();
     </script>
