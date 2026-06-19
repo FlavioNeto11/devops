@@ -5,7 +5,14 @@ import globals from 'globals';
 
 export default [
   // sincronizados de packages/platform-shell (codegen-sync; lint/format vivem no pacote)
-  { ignores: ['node_modules/**', 'assets/platform-shell.js', 'assets/platform-shell.css', 'assets/platform-tokens.css'] },
+  {
+    ignores: [
+      'node_modules/**',
+      'assets/platform-shell.js',
+      'assets/platform-shell.css',
+      'assets/platform-tokens.css',
+    ],
+  },
   js.configs.recommended,
   {
     files: ['assets/**/*.js'],
