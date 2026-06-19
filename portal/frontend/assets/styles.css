@@ -9,97 +9,58 @@
  * ========================================================================== */
 
 /* ---- Design tokens (claro) ---------------------------------------------- */
+/* Os tokens do portal agora DERIVAM da paleta neutra da plataforma (--p-*, em
+   assets/platform-tokens.css). O claro vem do :root abaixo; o ESCURO vem do próprio
+   --p-* (que responde a [data-theme=dark]/.dark do toggle da casca E à preferência do
+   sistema) — por isso não há mais bloco @media de dark aqui: a paleta é unificada. */
 :root {
   /* superfícies */
-  --bg: #ffffff;
-  --bg-soft: #f7f9fc;
-  --surface: #ffffff;
-  --surface-2: #ffffff;
-  --header-bg: rgba(255, 255, 255, 0.72);
-  --header-bg-solid: rgba(255, 255, 255, 0.9);
+  --bg: rgb(var(--p-bg));
+  --bg-soft: rgb(var(--p-surface2));
+  --surface: rgb(var(--p-surface));
+  --surface-2: rgb(var(--p-surface));
+  --header-bg: rgb(var(--p-surface) / 0.78);
+  --header-bg-solid: rgb(var(--p-surface) / 0.93);
 
   /* texto */
-  --ink: #0b1220;
-  --body: #3c4658;
-  --muted: #6b7488;
-  --muted2: #6e7689;
+  --ink: rgb(var(--p-fg));
+  --body: rgb(var(--p-fg) / 0.82);
+  --muted: rgb(var(--p-muted));
+  --muted2: rgb(var(--p-muted));
 
   /* linhas / bordas */
-  --line: #ebeef4;
-  --line2: #dfe3ec;
-
-  /* muted2 escurecido p/ atingir contraste AA (>=4.5:1) em textos pequenos
-     sobre superfície clara (stats, contadores, eyebrow mono). */
+  --line: rgb(var(--p-border));
+  --line2: rgb(var(--p-border));
 
   /* marca / acento */
-  --accent: #2563eb;
-  --accent-ink: #1e4ed8;
-  --accent-soft: #eef3ff;
-  --accent-border: #dde7ff;
-  --accent2: #7c6cff;
-  /* Fundo dos botões (texto branco). Fixo nos dois temas: branco sobre #2563eb
-     = 5.8:1 (AA). NÃO herda o --accent claro do dark (que é p/ TEXTO sobre fundo
-     escuro e reprovaria em botão com texto branco). */
-  --btn-bg: #2563eb;
-  --btn-bg-ink: #1e4ed8;
+  --accent: rgb(var(--p-neon));
+  --accent-ink: rgb(var(--p-neon));
+  --accent-soft: rgb(var(--p-neon) / 0.1);
+  --accent-border: rgb(var(--p-neon) / 0.28);
+  --accent2: rgb(var(--p-accent2));
+  /* Fundo dos botões (texto branco). FIXO nos dois temas (índigo escuro = AA com
+     branco); não usa --p-neon, que clareia no dark e reprovaria texto branco. */
+  --btn-bg: #4f46e5;
+  --btn-bg-ink: #4338ca;
 
   /* estados semânticos */
-  --ok: #16a34a;
-  --ok-soft: #e9f9ef;
-  --warn: #b45309;
-  --warn-soft: #fdf1e3;
-  --danger: #dc2626;
-  --danger-soft: #fdecec;
+  --ok: rgb(var(--p-ok));
+  --ok-soft: rgb(var(--p-ok) / 0.12);
+  --warn: rgb(var(--p-warn));
+  --warn-soft: rgb(var(--p-warn) / 0.12);
+  --danger: rgb(var(--p-danger));
+  --danger-soft: rgb(var(--p-danger) / 0.12);
 
-  --grad: linear-gradient(120deg, #2563eb, #7c6cff);
-  --grid-dot: rgba(20, 32, 64, 0.05);
-  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.03);
-  --shadow-hover: 0 18px 38px -20px rgba(20, 32, 64, 0.28);
-  --shadow-btn: 0 10px 22px -12px rgba(37, 99, 235, 0.6);
+  --grad: linear-gradient(120deg, rgb(var(--p-neon)), rgb(var(--p-accent2)));
+  --grid-dot: rgb(var(--p-fg) / 0.05);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.06);
+  --shadow-hover: 0 18px 38px -20px rgb(0 0 0 / 0.3);
+  --shadow-btn: 0 10px 22px -12px rgb(var(--p-neon) / 0.5);
 
   --mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
   --r: 14px;
   --maxw: 1140px;
-  --focus: 0 0 0 3px rgba(37, 99, 235, 0.45);
-}
-
-/* ---- Design tokens (escuro) --------------------------------------------- */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0b1220;
-    --bg-soft: #0e1626;
-    --surface: #111a2e;
-    --surface-2: #0f1830;
-    --header-bg: rgba(11, 18, 32, 0.72);
-    --header-bg-solid: rgba(11, 18, 32, 0.92);
-
-    --ink: #f1f5f9;
-    --body: #cbd5e1;
-    --muted: #9aa6bd;
-    --muted2: #828fa9;
-
-    --line: #1e293b;
-    --line2: #2c3a52;
-
-    --accent: #5b8bff;
-    --accent-ink: #7aa2ff;
-    --accent-soft: #16213a;
-    --accent-border: #25406e;
-    --accent2: #9a8cff;
-
-    --ok: #34d399;
-    --ok-soft: #10241c;
-    --warn: #fbbf24;
-    --warn-soft: #271d0c;
-    --danger: #f87171;
-    --danger-soft: #2a1414;
-
-    --grid-dot: rgba(120, 150, 220, 0.07);
-    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-hover: 0 18px 38px -18px rgba(0, 0, 0, 0.6);
-    --shadow-btn: 0 10px 22px -12px rgba(37, 99, 235, 0.5);
-    --focus: 0 0 0 3px rgba(91, 139, 255, 0.55);
-  }
+  --focus: 0 0 0 3px rgb(var(--p-neon) / 0.45);
 }
 
 /* ---- Reset / base ------------------------------------------------------- */

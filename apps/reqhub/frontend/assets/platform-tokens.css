@@ -24,6 +24,7 @@
   --p-border: 226 232 240;
   --p-ink: 2 6 23;
 }
+/* dark explícito (toggle da casca: [data-theme=dark] / .dark) */
 [data-theme="dark"], .dark {
   color-scheme: dark;
   --p-bg: 14 17 22;
@@ -39,4 +40,23 @@
   --p-danger: 248 113 113;
   --p-border: 42 50 62;
   --p-ink: 226 232 240;
+}
+/* dark por preferência do SISTEMA quando não há escolha explícita do usuário */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --p-bg: 14 17 22;
+    --p-surface: 22 27 34;
+    --p-surface2: 30 37 46;
+    --p-fg: 226 232 240;
+    --p-muted: 148 163 184;
+    --p-neon: 129 140 248;
+    --p-on-neon: 9 11 17;
+    --p-accent2: 45 212 191;
+    --p-ok: 74 222 128;
+    --p-warn: 251 191 36;
+    --p-danger: 248 113 113;
+    --p-border: 42 50 62;
+    --p-ink: 226 232 240;
+  }
 }
