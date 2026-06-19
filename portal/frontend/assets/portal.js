@@ -202,6 +202,7 @@ export function stateMarkup(kind, ctx = {}) {
 /* ------------------------------ browser init ------------------------------ */
 
 const API_URL = '/devops/api/ingressroutes';
+const PUBLICATIONS_URL = '/devops/api/publications';
 const REFRESH_MS = 60000;
 const TIMEOUT_MS = 8000;
 
@@ -267,6 +268,64 @@ function setOperatorUI(visible) {
   if (visible) markRevealed('#plataforma');
 }
 
+/* Pulso da plataforma: últimos deploys (de /devops/api/publications) na home, só p/ operador.
+   Fail-soft: qualquer erro esconde o bloco. DOM via createElement (sem innerHTML). */
+function shortTag(t) {
+  t = String(t || '');
+  const m = t.split(':').pop() || t;
+  return m.length > 14 ? m.slice(0, 12) + '…' : m;
+}
+function relTime(s) {
+  if (!s) return '';
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return String(s).slice(0, 16);
+  const sec = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (sec < 60) return 'agora';
+  if (sec < 3600) return Math.floor(sec / 60) + 'min';
+  if (sec < 86400) return Math.floor(sec / 3600) + 'h';
+  return Math.floor(sec / 86400) + 'd';
+}
+async function loadPulse() {
+  const box = document.getElementById('platform-pulse');
+  if (!box) return;
+  try {
+    const data = await fetchWithTimeout(PUBLICATIONS_URL);
+    const list = Array.isArray(data) ? data : (data && data.publications) || [];
+    if (!list.length) {
+      box.hidden = true;
+      return;
+    }
+    box.replaceChildren();
+    const h = document.createElement('div');
+    h.className = 'pulse-h';
+    h.textContent = '// pulso da plataforma — deploys recentes';
+    box.appendChild(h);
+    const ul = document.createElement('div');
+    ul.className = 'pulse-list';
+    for (const p of list.slice(0, 6)) {
+      const a = document.createElement('a');
+      a.className = 'pulse-i';
+      a.href = '/devops';
+      const app = document.createElement('span');
+      app.className = 'pulse-app';
+      app.textContent = p.app || p.name || '—';
+      const tag = document.createElement('span');
+      tag.className = 'pulse-tag mono';
+      tag.textContent = shortTag(p.imageTag || p.tag || '');
+      const when = document.createElement('span');
+      when.className = 'pulse-when';
+      when.textContent = relTime(p.deployedAt || p.deployed_at || '');
+      a.append(app, tag, when);
+      ul.appendChild(a);
+    }
+    box.appendChild(ul);
+    box.hidden = false;
+    markRevealed('#platform-pulse');
+  } catch {
+    box.hidden = true;
+  }
+}
+
 async function loadClusterApps({ silent = false } = {}) {
   const section = document.getElementById('cluster-section');
   const grid = document.getElementById('cluster-apps');
@@ -304,6 +363,7 @@ async function loadClusterApps({ silent = false } = {}) {
       markRevealed('#cluster-section');
     }
     setOperatorUI(true); // operador autenticado: revela as ferramentas de operação
+    loadPulse(); // pulso da plataforma (deploys recentes) — fail-soft, fire-and-forget
     stateBox.removeAttribute('aria-busy');
 
     if (extras.length === 0) {

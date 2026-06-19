@@ -1114,3 +1114,48 @@ footer {
     transition: none;
   }
 }
+
+/* ---- Pulso da plataforma (deploys recentes na home — só operador) -------- */
+.pulse {
+  margin: 0 0 22px;
+}
+.pulse-h {
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.pulse-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+}
+.pulse-i {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  text-decoration: none;
+  color: var(--ink);
+}
+.pulse-i:hover {
+  border-color: var(--accent);
+}
+.pulse-app {
+  font-weight: 600;
+  font-size: 0.86rem;
+}
+.pulse-tag {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.pulse-when {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
