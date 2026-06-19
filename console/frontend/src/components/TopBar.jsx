@@ -1,33 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import Icon from './Icon.jsx';
 
 /**
- * TopBar — barra superior: hamburger (mobile), título+descrição da seção e, à direita,
- * badge de tempo real (SSE), toggle de tema e menu do usuário (avatar + e-mail + papel + sair).
+ * TopBar — barra superior da seção: hamburger (mobile), título+descrição e o badge de
+ * tempo real (SSE). O TEMA e o MENU DO USUÁRIO agora vivem na casca global
+ * (<platform-shell>), evitando duplicação — aqui fica só o que é específico do Console.
  */
-export default function TopBar({ section, onMenu, navOpen = false, theme, onToggleTheme, me, live }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    const onKey = (e) => {
-      if (e.key === 'Escape') {
-        setOpen(false);
-        // devolve o foco ao botão do menu (navegação por teclado não se perde)
-        ref.current?.querySelector('.usermenu__btn')?.focus();
-      }
-    };
-    document.addEventListener('mousedown', onDoc);
-    document.addEventListener('keydown', onKey);
-    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey); };
-  }, [open]);
-
-  const email = me?.email || '';
-  const initial = (email.trim()[0] || '?').toUpperCase();
-  const role = me?.isAdmin ? 'Administrador' : me?.isMember ? 'Acesso a projetos' : 'Sessão';
-
+export default function TopBar({ section, onMenu, navOpen = false, live }) {
   return (
     <header className="topbar">
       <button
@@ -46,36 +25,11 @@ export default function TopBar({ section, onMenu, navOpen = false, theme, onTogg
       </div>
 
       <div className="topbar__actions">
-        {live && <span className={live.cls} title="Observação do cluster em tempo real (SSE)">{live.text}</span>}
-        <button
-          className="icon-btn topbar__icon"
-          onClick={onToggleTheme}
-          title="Alternar tema claro/escuro"
-          aria-label="Alternar tema claro/escuro"
-        >
-          <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={18} />
-        </button>
-
-        <div className="usermenu" ref={ref}>
-          <button className="usermenu__btn" onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open}>
-            <span className="usermenu__avatar">{initial}</span>
-            {email && <span className="usermenu__email">{email}</span>}
-          </button>
-          {open && (
-            <div className="usermenu__pop" role="menu">
-              <div className="usermenu__head">
-                <span className="usermenu__avatar usermenu__avatar--lg">{initial}</span>
-                <div className="usermenu__id">
-                  <div className="usermenu__email-full">{email || 'sessão autenticada'}</div>
-                  <span className="badge badge-accent">{role}</span>
-                </div>
-              </div>
-              <a href="/oauth2/sign_out" className="usermenu__item" role="menuitem" aria-label="Sair — você será desconectado">
-                <Icon name="logout" size={16} /> Sair
-              </a>
-            </div>
-          )}
-        </div>
+        {live && (
+          <span className={live.cls} title="Observação do cluster em tempo real (SSE)">
+            {live.text}
+          </span>
+        )}
       </div>
     </header>
   );

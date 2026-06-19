@@ -15,20 +15,7 @@ import ReviewView from './views/ReviewView.jsx';
 export default function App() {
   const route = useRoute();
 
-  const [theme, setTheme] = useState(
-    () => (typeof document !== 'undefined' && document.documentElement.dataset.theme) || 'light',
-  );
-  const toggleTheme = () => {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    if (typeof document !== 'undefined') document.documentElement.dataset.theme = next;
-    try {
-      localStorage.setItem('portal-rec-theme', next);
-    } catch {
-      /* ignore */
-    }
-    setTheme(next);
-  };
-
+  // O tema agora é controlado pela casca global (<platform-shell>) — sem toggle próprio aqui.
   return (
     <div className="shell">
       <platform-shell surface="portal-rec" me-url="/devops/api/me"></platform-shell>
@@ -67,15 +54,6 @@ export default function App() {
               Captura
             </button>
           )}
-          <button
-            className="btn btn-ghost btn-icon"
-            onClick={toggleTheme}
-            title="Alternar tema"
-            aria-label={theme === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
-            aria-pressed={theme === 'dark'}
-          >
-            <span aria-hidden="true">{theme === 'dark' ? '☀' : '☾'}</span>
-          </button>
         </nav>
       </header>
 

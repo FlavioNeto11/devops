@@ -83,6 +83,9 @@ class PlatformShell extends Base {
     this._launcherOpen = false; this._menuOpen = false;
     this.classList.add('pshell-host');
     this._render();
+    // aplica a ESCOLHA explícita salva (nvit-theme) na conexão; sem escolha, deixa o CSS
+    // resolver (claro padrão + preferência do sistema). Assim o tema persiste entre reloads.
+    try { const s = localStorage.getItem('nvit-theme'); if (s === 'dark' || s === 'light') this._applyTheme(s); } catch { /* ignore */ }
     this._loadIdentity();
     this._probeHealth();
     document.addEventListener('click', (e) => { if (!this.contains(e.target)) this._closeAll(); });
