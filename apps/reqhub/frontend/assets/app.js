@@ -299,6 +299,8 @@ function renderWorkspace() {
         ...(dv.commit ? [dt('commit'), dd(h('code', { text: dv.commit }))] : []),
         ...(dv.deployment ? [dt('deployment'), dd(dv.deployment)] : []),
         ...(dv.deployed_at ? [dt('deployed'), dd(dv.deployed_at)] : [])));
+    // sinergia cross-app: do requisito → o app vivo no Console (cluster/health/deploys)
+    dev.append(h('div', { class: 'ws-actions' }, h('a', { class: 'btn-link', href: '/devops', target: '_blank', rel: 'noopener', text: 'Ver no Console (cluster) ↗' })));
     side.append(dev);
   }
 
@@ -2785,6 +2787,30 @@ function switchView(view) {
   const app = document.getElementById('app'); if (app) app.classList.remove('is-open');
   const scrim = document.getElementById('sidebar-scrim'); if (scrim) scrim.hidden = true;
   RENDER[view]();
+  writeHash();
+}
+// Hash routing leve: a URL reflete a tela (e o REQ/produto em foco) — torna o estado linkável
+// e permite deep-link DE OUTROS APPS (ex.: o Console abre /reqs#/explorer?product=<app>).
+function writeHash() {
+  try {
+    let h = '#/' + state.view;
+    const qp = [];
+    if (state.view === 'workspace' && state.selectedId) qp.push('id=' + encodeURIComponent(state.selectedId));
+    if (state.filters && state.filters.product && ['explorer', 'coverage'].includes(state.view)) qp.push('product=' + encodeURIComponent(state.filters.product));
+    if (qp.length) h += '?' + qp.join('&');
+    if (location.hash !== h) history.replaceState(null, '', h);
+  } catch { /* ignore */ }
+}
+function applyHashRoute() {
+  const m = (location.hash || '').match(/^#\/([a-z-]+)(?:\?(.*))?$/i);
+  if (!m || !RENDER[m[1]]) return false;
+  const view = m[1];
+  const params = new URLSearchParams(m[2] || '');
+  if (params.get('product')) state.filters.product = params.get('product');
+  if (params.get('id') && byId(params.get('id'))) state.selectedId = params.get('id');
+  if (view === 'workspace' && !state.selectedId) return false; // sem REQ → cai no default
+  switchView(view);
+  return true;
 }
 function openReq(id) { state.selectedId = id; RECENTS.push(id); switchView('workspace'); const t = document.getElementById('tab-workspace'); if (t) t.focus(); }
 function openUsability(id) { state.usabilitySel = id; switchView('usability'); const t = document.getElementById('tab-usability'); if (t) t.focus(); }
@@ -3346,6 +3372,6 @@ async function init() {
   buildExplorerFilters();
   refreshNavBadges();
   wireCommandPalette();
-  switchView('overview');
+  if (!applyHashRoute()) switchView('overview'); // deep-link da URL (ex.: vindo do Console) ou padrão
 }
 init();

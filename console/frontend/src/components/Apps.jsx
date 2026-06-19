@@ -128,6 +128,15 @@ export default function Apps() {
                     {u} ↗
                   </a>
                 ))}
+                {/* sinergia cross-app: do app vivo → seus requisitos no Reqhub (filtrado por produto) */}
+                <a
+                  href={`/reqs#/explorer?product=${encodeURIComponent(app.app)}`}
+                  className="quick-link"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Requisitos ↗
+                </a>
               </div>
             </header>
 
