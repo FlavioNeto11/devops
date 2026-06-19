@@ -119,7 +119,21 @@ test('config.js (no-op default) existe e é carregado antes do portal.js', () =>
 test('CSS tem tokens e modo escuro', () => {
   const css = readFrontend('assets/styles.css');
   assert.match(css, /:root\s*\{/);
-  assert.match(css, /prefers-color-scheme: dark/);
+  // O portal adota a PALETA NEUTRA da plataforma (--p-*, em platform-tokens.css);
+  // o modo escuro vem de lá (toggle [data-theme=dark] + preferência do sistema),
+  // por isso não há mais @media de dark no styles.css do portal.
+  assert.match(css, /var\(--p-neon\)/, 'styles.css deve derivar da paleta da plataforma (--p-*)');
+  const ptok = readFrontend('assets/platform-tokens.css');
+  assert.match(
+    ptok,
+    /prefers-color-scheme: dark/,
+    'platform-tokens.css trata dark por preferência do sistema',
+  );
+  assert.match(
+    ptok,
+    /\[data-theme="dark"\]/,
+    'platform-tokens.css trata dark pelo toggle da casca',
+  );
   assert.match(css, /prefers-reduced-motion: reduce/);
   assert.match(css, /\.skip-link/);
   // Progressive enhancement: o esconder do reveal é gated por .js (não global)
