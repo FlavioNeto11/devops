@@ -1,0 +1,6 @@
+node_modules
+# Arquivos SINCRONIZADOS de packages/platform-shell (codegen-sync; não formatar aqui —
+# a fonte e o drift-gate vivem no pacote). Mesmo princípio dos *.generated.css.
+assets/platform-shell.js
+assets/platform-shell.css
+assets/platform-tokens.css
