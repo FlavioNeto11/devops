@@ -206,7 +206,14 @@ class PlatformShell extends Base {
     for (const s of SURFACES) {
       const dot = this.launcher.querySelector('.pshell-dot[data-key="' + s.key + '"]');
       if (!dot) continue;
-      this._probe(s.path).then((h) => { dot.classList.add('is-' + h); dot.setAttribute('title', h === 'up' ? 'no ar' : h === 'down' ? 'fora' : 'desconhecido'); });
+      this._probe(s.path).then((h) => {
+        dot.classList.add('is-' + h);
+        const t = h === 'up' ? 'no ar' : h === 'down' ? 'fora' : 'desconhecido';
+        dot.setAttribute('title', t);
+        // status acessível na PRÓPRIA opção (a cor do dot sozinha falha WCAG 1.4.1)
+        const card = dot.closest && dot.closest('.pshell-app');
+        if (card) card.setAttribute('aria-label', s.label + ' — ' + t);
+      });
     }
   }
   async _probe(path) {

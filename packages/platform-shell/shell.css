@@ -12,11 +12,22 @@
   background: rgb(var(--p-surface, 255 255 255));
   border-bottom: 1px solid rgb(var(--p-border, 226 232 240));
   color: rgb(var(--p-fg, 15 23 42));
-  font-family: Inter, system-ui, sans-serif; font-size: 13.5px;
-  position: relative; z-index: 50;
+  font-family: var(--p-font-sans, Inter, system-ui, sans-serif); font-size: 13.5px;
+  position: relative; z-index: var(--p-z-bar, 50);
 }
 .pshell-spacer { flex: 1; }
 .pshell button, .pshell a { font-family: inherit; }
+
+/* micro-interações + FOCO VISÍVEL consistentes em toda a casca (a11y WCAG 2.4.7).
+   Antes só o launcher tinha :focus-visible; agora todos os controles ganham o anel
+   da marca e uma transição suave (sem snaps secos). Neutralizado no reduced-motion. */
+.pshell-launch, .pshell-icon, .pshell-enter, .pshell-user, .pshell-app, .pshell-menu-i {
+  transition: border-color .15s ease, background-color .15s ease, transform .15s ease, box-shadow .15s ease, filter .15s ease;
+}
+.pshell-launch:focus-visible, .pshell-icon:focus-visible, .pshell-enter:focus-visible,
+.pshell-user:focus-visible, .pshell-app:focus-visible, .pshell-menu-i:focus-visible {
+  outline: 2px solid rgb(var(--p-neon, 79 70 229)); outline-offset: 2px; border-radius: var(--p-radius-sm, 7px);
+}
 
 /* launcher button (grade de pontos) */
 .pshell-launch { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: 1px solid rgb(var(--p-border, 226 232 240)); border-radius: 9px; background: rgb(var(--p-bg, 248 250 252)); color: rgb(var(--p-fg, 15 23 42)); cursor: pointer; flex: none; }
@@ -35,9 +46,9 @@
 
 /* brand */
 .pshell-brand { display: inline-flex; align-items: center; gap: 9px; text-decoration: none; color: inherit; }
-.pshell-logo { width: 28px; height: 28px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; color: rgb(var(--p-on-neon, 255 255 255)); background: rgb(var(--p-neon, 79 70 229)); flex: none; }
+.pshell-logo { width: 28px; height: 28px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-family: var(--p-font-display, Sora, Inter, sans-serif); font-weight: 800; font-size: 15px; color: rgb(var(--p-on-neon, 255 255 255)); background: rgb(var(--p-neon, 79 70 229)); flex: none; }
 .pshell-brand-txt { display: flex; flex-direction: column; line-height: 1.05; }
-.pshell-brand-txt strong { font-size: 14px; letter-spacing: -0.2px; }
+.pshell-brand-txt strong { font-family: var(--p-font-display, Sora, Inter, sans-serif); font-size: 14px; font-weight: 700; letter-spacing: -0.2px; }
 .pshell-brand-sub { font-size: 10.5px; color: rgb(var(--p-muted, 100 116 139)); }
 
 /* chip do surface ativo */
@@ -60,7 +71,7 @@
 .pshell-user-e { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
 .pshell-avatar { width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: rgb(var(--p-neon, 79 70 229)); color: rgb(var(--p-on-neon, 255 255 255)); font-weight: 700; font-size: 12px; flex: none; }
 .pshell-avatar-lg { width: 38px; height: 38px; font-size: 15px; }
-.pshell-menu { position: absolute; right: 0; top: calc(100% + 8px); min-width: 240px; background: rgb(var(--p-surface, 255 255 255)); border: 1px solid rgb(var(--p-border, 226 232 240)); border-radius: 12px; box-shadow: 0 18px 50px -20px rgb(0 0 0 / 0.35); padding: 6px; z-index: 60; }
+.pshell-menu { position: absolute; right: 0; top: calc(100% + 8px); min-width: 240px; background: rgb(var(--p-surface, 255 255 255)); border: 1px solid rgb(var(--p-border, 226 232 240)); border-radius: 12px; box-shadow: var(--p-shadow-lg, 0 18px 50px -20px rgb(0 0 0 / 0.35)); padding: 6px; z-index: var(--p-z-pop, 60); }
 .pshell-menu-h { display: flex; align-items: center; gap: 11px; padding: 10px 10px 12px; border-bottom: 1px solid rgb(var(--p-border, 226 232 240)); margin-bottom: 6px; }
 .pshell-menu-e { font-size: 13px; font-weight: 600; }
 .pshell-menu-r { font-size: 11.5px; color: rgb(var(--p-muted, 100 116 139)); }
@@ -69,8 +80,8 @@
 .pshell-menu-i:hover { background: rgb(var(--p-bg, 248 250 252)); }
 
 /* launcher panel */
-.pshell-launcher { position: absolute; left: 12px; top: calc(52px + 4px); width: min(620px, calc(100vw - 24px)); background: rgb(var(--p-surface, 255 255 255)); border: 1px solid rgb(var(--p-border, 226 232 240)); border-radius: 14px; box-shadow: 0 24px 70px -24px rgb(0 0 0 / 0.4); padding: 14px 16px 16px; z-index: 60; }
-.pshell-launcher-h { font-size: 11px; text-transform: uppercase; letter-spacing: 0.7px; color: rgb(var(--p-muted, 100 116 139)); margin-bottom: 10px; }
+.pshell-launcher { position: absolute; left: 12px; top: calc(52px + 4px); width: min(620px, calc(100vw - 24px)); background: rgb(var(--p-surface, 255 255 255)); border: 1px solid rgb(var(--p-border, 226 232 240)); border-radius: 14px; box-shadow: var(--p-shadow-lg, 0 24px 70px -24px rgb(0 0 0 / 0.4)); padding: 14px 16px 16px; z-index: var(--p-z-pop, 60); }
+.pshell-launcher-h { font-family: var(--p-font-display, Sora, Inter, sans-serif); font-size: 11px; text-transform: uppercase; letter-spacing: 0.7px; color: rgb(var(--p-muted, 100 116 139)); margin-bottom: 10px; }
 .pshell-launcher-g { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: rgb(var(--p-muted, 100 116 139)); margin: 12px 2px 8px; }
 .pshell-launcher-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 9px; }
 .pshell-app { display: flex; align-items: center; gap: 11px; padding: 11px 12px; border: 1px solid rgb(var(--p-border, 226 232 240)); border-radius: 11px; background: rgb(var(--p-bg, 248 250 252)); color: rgb(var(--p-fg, 15 23 42)); text-decoration: none; cursor: pointer; text-align: left; width: 100%; position: relative; }
@@ -89,4 +100,15 @@
 @media (max-width: 640px) {
   .pshell-here, .pshell-brand-sub { display: none; }
   .pshell-user-e { display: none; }
+  /* alvos de toque confortáveis (>=40px) no mobile — WCAG 2.5.8 */
+  .pshell-launch, .pshell-icon { width: 40px; height: 40px; }
+  .pshell-menu-i, .pshell-app { min-height: 44px; }
+}
+
+/* Movimento reduzido: sem transições/transform/animação na casca (WCAG 2.3.3). */
+@media (prefers-reduced-motion: reduce) {
+  .pshell-launch, .pshell-icon, .pshell-enter, .pshell-user, .pshell-app, .pshell-menu-i {
+    transition: none;
+  }
+  .pshell-app:hover { transform: none; }
 }
