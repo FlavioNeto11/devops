@@ -99,7 +99,7 @@ h2 { font-size: 1.125rem; font-weight: 600; margin: 1.5rem 0 1rem; }
 .stage-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
 .stage-card { background: rgb(var(--p-surface)); border-radius: 8px; padding: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,.08); border-left: 4px solid rgb(var(--p-border)); }
 .stage-card.lead      { border-left-color: rgb(var(--p-muted)); }
-.stage-card.qualified { border-left-color: #4f46e5; }
+.stage-card.qualified { border-left-color: rgb(var(--p-neon)); }
 .stage-card.proposal  { border-left-color: rgb(var(--p-warn)); }
 .stage-card.won       { border-left-color: rgb(var(--p-ok)); }
 .stage-card.lost      { border-left-color: rgb(var(--p-danger)); }
@@ -112,7 +112,7 @@ td { padding: .75rem 1rem; border-bottom: 1px solid rgb(var(--p-surface2)); font
 td.empty { text-align: center; color: rgb(var(--p-muted)); padding: 2.5rem; }
 .badge { padding: .2rem .6rem; border-radius: 12px; font-size: .8rem; font-weight: 500; }
 .badge.lead      { background: rgb(var(--p-surface2)); color: rgb(var(--p-muted)); }
-.badge.qualified { background: rgb(79 70 229 / 0.12); color: #4f46e5; }
+.badge.qualified { background: rgb(var(--p-neon) / 0.14); color: rgb(var(--p-neon)); }
 .badge.proposal  { background: rgb(var(--p-warn) / 0.16); color: rgb(var(--p-warn)); }
 .badge.won       { background: rgb(var(--p-ok) / 0.16); color: rgb(var(--p-ok)); }
 .badge.lost      { background: rgb(var(--p-danger) / 0.14); color: rgb(var(--p-danger)); }

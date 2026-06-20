@@ -203,7 +203,7 @@ h1 { font-size: 1.5rem; font-weight: 700; }
 .btn-sm { padding: .25rem .65rem; min-height: 2.25rem; border: 1px solid rgb(var(--p-border)); border-radius: 4px; background: rgb(var(--p-surface)); cursor: pointer; font-size: .85rem; transition: background-color .15s ease, color .15s ease, box-shadow .15s ease; }
 .btn-sm:hover { background: rgb(var(--p-surface2)); }
 .btn-danger { background: rgb(var(--p-danger)); color: #fff; border: none; border-radius: 6px; padding: .5rem 1rem; cursor: pointer; font-size: .95rem; transition: background-color .15s ease, color .15s ease, box-shadow .15s ease; }
-.btn-danger:hover { background: rgb(var(--p-danger)); }
+.btn-danger:hover { background: rgb(var(--p-danger)); filter: brightness(0.92); }
 .btn-danger:disabled { opacity: .6; cursor: not-allowed; }
 .btn-sm.btn-danger { padding: .25rem .65rem; font-size: .85rem; border-radius: 4px; }
 @media (pointer: coarse) { .btn-sm { min-height: 2.75rem; } }
@@ -212,7 +212,7 @@ th { background: rgb(var(--p-bg)); text-align: left; padding: .75rem 1rem; font-
 td { padding: .75rem 1rem; border-bottom: 1px solid rgb(var(--p-surface2)); font-size: .9rem; vertical-align: middle; }
 td.actions { white-space: nowrap; display: flex; gap: .5rem; align-items: center; }
 td.empty { text-align: center; color: rgb(var(--p-muted)); padding: 2.5rem; }
-a { color: #4f46e5; text-decoration: none; }
+a { color: rgb(var(--p-neon)); text-decoration: none; }
 a:hover { text-decoration: underline; }
 .msg { padding: .75rem 1rem; border-radius: 6px; margin-bottom: 1rem; }
 .msg.error { background: rgb(var(--p-danger) / 0.14); color: rgb(var(--p-danger)); }

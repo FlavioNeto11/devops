@@ -125,7 +125,7 @@ onMounted(load)
 </script>
 
 <style scoped>
-.back { display: inline-block; color: #4f46e5; text-decoration: none; margin-bottom: 1.5rem; font-size: .9rem; }
+.back { display: inline-block; color: rgb(var(--p-neon)); text-decoration: none; margin-bottom: 1.5rem; font-size: .9rem; }
 .back:hover { text-decoration: underline; }
 .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .75rem; }
 h1 { font-size: 1.75rem; font-weight: 700; }
@@ -140,7 +140,7 @@ table { width: 100%; border-collapse: collapse; background: rgb(var(--p-surface)
 th { background: rgb(var(--p-bg)); text-align: left; padding: .75rem 1rem; font-size: .875rem; font-weight: 600; color: rgb(var(--p-muted)); border-bottom: 1px solid rgb(var(--p-border)); }
 td { padding: .75rem 1rem; border-bottom: 1px solid rgb(var(--p-surface2)); font-size: .9rem; }
 .empty { color: rgb(var(--p-muted)); padding: .5rem 0; }
-a { color: #4f46e5; text-decoration: none; }
+a { color: rgb(var(--p-neon)); text-decoration: none; }
 a:hover { text-decoration: underline; }
 .msg { padding: .75rem 1rem; border-radius: 6px; margin-bottom: 1rem; }
 .msg.error { background: rgb(var(--p-danger) / 0.14); color: rgb(var(--p-danger)); }

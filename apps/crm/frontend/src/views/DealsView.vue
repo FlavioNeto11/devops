@@ -329,7 +329,7 @@ h1 { font-size: 1.5rem; font-weight: 700; }
 .btn-sm { padding: .25rem .65rem; min-height: 2.25rem; border: 1px solid rgb(var(--p-border)); border-radius: 4px; background: rgb(var(--p-surface)); cursor: pointer; font-size: .85rem; transition: background-color .15s ease, color .15s ease, box-shadow .15s ease; }
 .btn-sm:hover { background: rgb(var(--p-surface2)); }
 .btn-danger { background: rgb(var(--p-danger)); color: #fff; border: none; border-radius: 6px; padding: .5rem 1rem; cursor: pointer; font-size: .95rem; transition: background-color .15s ease, color .15s ease, box-shadow .15s ease; }
-.btn-danger:hover { background: rgb(var(--p-danger)); }
+.btn-danger:hover { background: rgb(var(--p-danger)); filter: brightness(0.92); }
 .btn-danger:disabled { opacity: .6; cursor: not-allowed; }
 .btn-sm.btn-danger { padding: .25rem .65rem; font-size: .85rem; border-radius: 4px; }
 @media (pointer: coarse) { .btn-sm, .tab { min-height: 2.75rem; } }
@@ -340,7 +340,7 @@ td.actions { white-space: nowrap; display: flex; gap: .5rem; align-items: center
 td.empty { text-align: center; color: rgb(var(--p-muted)); padding: 2.5rem; }
 .badge { padding: .2rem .6rem; border-radius: 12px; font-size: .8rem; font-weight: 500; }
 .badge.lead      { background: rgb(var(--p-surface2)); color: rgb(var(--p-muted)); }
-.badge.qualified { background: rgb(79 70 229 / 0.12); color: #4f46e5; }
+.badge.qualified { background: rgb(var(--p-neon) / 0.14); color: rgb(var(--p-neon)); }
 .badge.proposal  { background: rgb(var(--p-warn) / 0.16); color: rgb(var(--p-warn)); }
 .badge.won       { background: rgb(var(--p-ok) / 0.16); color: rgb(var(--p-ok)); }
 .badge.lost      { background: rgb(var(--p-danger) / 0.14); color: rgb(var(--p-danger)); }
