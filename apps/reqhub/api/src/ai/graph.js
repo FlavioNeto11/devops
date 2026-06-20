@@ -4,12 +4,15 @@
 // propose_requirement_draft (em result.evidence) e as citations dos search/get — canais separados,
 // sem duplicacao. Decisao via LLM; o codigo so monta contexto e extrai. R1: nao escreve git.
 import { createAiGraph, AiToolError } from '@flavioneto11/ai-core';
-import { getLlm, DEFAULT_MODEL } from '../llm.js';
+import { getLlm, DEFAULT_MODEL, aiProvider } from '../llm.js';
 import { buildChatTools } from './tools.js';
 import { PROMPTS } from '../prompts.js';
 
-const ROUTER = () => process.env.REQHUB_AI_ROUTER_MODEL || 'gpt-5-nano';
-const JUDGE = () => process.env.REQHUB_AI_JUDGE_MODEL || 'gpt-5-nano';
+// Modelo "barato" (router/synth/judge) por provider — o adapter é ÚNICO, então TODOS os
+// estágios do grafo precisam falar o modelo do provider ativo (Claude não conhece gpt-5-nano).
+const CHEAP = () => (aiProvider() === 'anthropic' ? 'claude-haiku-4-5-20251001' : 'gpt-5-nano');
+const ROUTER = () => process.env.REQHUB_AI_ROUTER_MODEL || CHEAP();
+const JUDGE = () => process.env.REQHUB_AI_JUDGE_MODEL || CHEAP();
 
 let _graph = null;
 
