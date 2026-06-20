@@ -78,9 +78,36 @@ spec:
                   name: reqhub-db
                   key: DATABASE_URL
                   optional: true
+            # --- Painel "Uso da IA" (admin-only): contas dos provedores + telemetria interna.
+            #     Tudo OPCIONAL/fail-soft: sem chaves, mostra só a telemetria; conta = 503. ---
+            - name: OPENAI_ADMIN_KEY        # Admin/Usage API da conta OpenAI (org) — custo/uso oficial
+              valueFrom: { secretKeyRef: { name: reqhub-api-config, key: OPENAI_ADMIN_KEY, optional: true } }
+            - name: ANTHROPIC_ADMIN_KEY     # Admin/Usage API da conta Anthropic (sk-ant-admin…)
+              valueFrom: { secretKeyRef: { name: reqhub-api-config, key: ANTHROPIC_ADMIN_KEY, optional: true } }
+            - name: ANTHROPIC_API_KEY       # chave normal — só p/ o probe de rate-limit (opt-in)
+              valueFrom: { secretKeyRef: { name: reqhub-api-config, key: ANTHROPIC_API_KEY, optional: true } }
+            - name: LANGFUSE_PUBLIC_KEY
+              valueFrom: { secretKeyRef: { name: reqhub-api-config, key: LANGFUSE_PUBLIC_KEY, optional: true } }
+            - name: LANGFUSE_SECRET_KEY
+              valueFrom: { secretKeyRef: { name: reqhub-api-config, key: LANGFUSE_SECRET_KEY, optional: true } }
+            - name: LANGFUSE_BASE_URL
+              value: "http://langfuse.observability.svc.cluster.local:3000"
+            - name: PROMETHEUS_URL   # service headless do operator (existe em qualquer kube-prometheus-stack)
+              value: "http://prometheus-operated.observability.svc.cluster.local:9090"
+            - name: METRICS_PORT
+              value: "9464"
+            - name: AI_USAGE_PROBE_ENABLED  # probe gasta 1 token/janela — desligado por padrão
+              value: "false"
+          # Orçamentos (não-secretos) p/ os alertas do painel — ConfigMap reqhub-usage-config.
+          envFrom:
+            - configMapRef:
+                name: reqhub-usage-config
+                optional: true
           ports:
             - name: http
               containerPort: 8080
+            - name: metrics            # métricas ai_* do reqhub (scrape do kube-prometheus)
+              containerPort: 9464
           readinessProbe:
             httpGet:
               path: /health
@@ -105,7 +132,7 @@ spec:
               memory: "64Mi"
             limits:
               cpu: "300m"
-              memory: "256Mi"   # +pg pool + grafo/memoria
+              memory: "320Mi"   # +pg pool + grafo/memoria + cache do painel de uso/SSE
 ---
 apiVersion: v1
 kind: Service
@@ -124,6 +151,9 @@ spec:
     - name: http
       port: 8080
       targetPort: http
+    - name: metrics
+      port: 9464
+      targetPort: metrics
 ---
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
@@ -150,6 +180,20 @@ spec:
   entryPoints:
     - web
   routes:
+    # SSE do painel de Uso da IA -> SEM `compress` (que bufferiza o event-stream). priority 40
+    # (vence a rota geral /reqs/api de priority 30). Mesma cadeia de auth/strip.
+    - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/reqs/api/v1/ai-usage/stream`)
+      kind: Rule
+      priority: 40
+      services:
+        - name: reqhub-api
+          port: 8080
+      middlewares:
+        - name: console-auth-401
+          namespace: devops-system
+        - name: reqhub-api-strip
+        - name: secure-headers
+          namespace: traefik
     # API -> strip /reqs/api, priority 30 (vence o frontend /reqs priority 10).
     - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/reqs/api`)
       kind: Rule

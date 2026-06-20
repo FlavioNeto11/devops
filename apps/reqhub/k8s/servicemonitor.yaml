@@ -1,0 +1,19 @@
+# ServiceMonitor: o kube-prometheus-stack (selectors nulos = raspa todos) coleta as métricas
+# ai_* do reqhub-api (porta dedicada `metrics` 9464, fora do Traefik) — assim o reqhub aparece
+# como um "módulo" no próprio painel de Uso da IA. Mesmo padrão de apps/sicat/k8s/servicemonitor.yaml.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: reqhub-api-ai
+  namespace: apps
+  labels: { app.kubernetes.io/part-of: reqhub }
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: reqhub
+      app.kubernetes.io/component: api
+  namespaceSelector: { matchNames: [apps] }
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s

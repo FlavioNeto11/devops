@@ -1,0 +1,17 @@
+# ConfigMap (NÃO-secreto) com os orçamentos mensais do painel "Uso da IA". O reqhub-api lê via
+# envFrom; ausente -> sem orçamento (fail-soft, sem alerta). Ajuste os valores conforme a operação.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: reqhub-usage-config
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: reqhub-api
+    app.kubernetes.io/part-of: reqhub
+data:
+  # Orçamento mensal por provedor (USD). Vazio/0 -> sem gauge de orçamento p/ aquele provedor.
+  AI_BUDGET_OPENAI_MONTHLY_USD: "200"
+  AI_BUDGET_ANTHROPIC_MONTHLY_USD: "100"
+  # Faixas (% do orçamento) que disparam warn/breach nos alertas e gauges.
+  AI_BUDGET_WARN_PCT: "80"
+  AI_BUDGET_BREACH_PCT: "100"

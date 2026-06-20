@@ -6,3 +6,5 @@ resources:
   - reqhub.yaml
   - api.yaml
   - postgres.yaml   # F3: Postgres+pgvector da memoria duravel do chat (secret reqhub-db fora do git)
+  - usage-config.yaml    # orcamentos (nao-secreto) do painel "Uso da IA"
+  - servicemonitor.yaml  # scrape das metricas ai_* do reqhub-api (porta 9464)
