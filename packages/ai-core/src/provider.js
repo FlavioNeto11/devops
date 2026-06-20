@@ -37,6 +37,15 @@ export function estimateCostUsd(model, inputTokens = 0, outputTokens = 0) {
   return Math.round(cost * 1e8) / 1e8; // 8 casas — evita ruído de float em somas
 }
 
+// Deriva o PROVIDER pelo nome do modelo: claude -> anthropic; gpt/o1/o3/text-embedding -> openai.
+export function providerForModel(model) {
+  const m = String(model || '').toLowerCase().trim();
+  if (!m) return 'unknown';
+  if (m.startsWith('claude') || m.startsWith('anthropic') || m.includes('claude')) return 'anthropic';
+  if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4') || m.startsWith('chatgpt') || m.startsWith('text-') || m.startsWith('davinci') || m.startsWith('babbage')) return 'openai';
+  return 'unknown';
+}
+
 /** Extrai { inputTokens, outputTokens } do `usage` de uma resposta OpenAI/LangChain (defensivo). */
 export function extractTokenUsage(usage) {
   if (!usage || typeof usage !== 'object') return { inputTokens: 0, outputTokens: 0 };

@@ -12,14 +12,15 @@
 
 export * from '@flavioneto11/ai-kit';
 
-export { priceForModel, estimateCostUsd, extractTokenUsage } from './provider.js';
+export { priceForModel, estimateCostUsd, extractTokenUsage, providerForModel } from './provider.js';
 export {
   TOOL_RISKS,
   AiToolError, AiToolDeniedError, AiToolConfirmationRequiredError, AiToolInvalidInputError,
   assertValidTool, createToolRegistry, dispatchTool,
 } from './tools.js';
 export { createAiMetrics, createAiTracer, AI_METRIC_NAMES } from './observability.js';
-export { createOpenAiLlm, toOpenAiToolDef } from './llm.js';
+export { createOpenAiLlm, toOpenAiToolDef, createLlm } from './llm.js';
+export { createAnthropicLlm, toAnthropicTool, toAnthropicMessages, toAnthropicToolChoice } from './llm-anthropic.js';
 export { createAiGraph } from './graph.js';
 export {
   hashContent, splitWithOverlap, chunkMarkdownSections,

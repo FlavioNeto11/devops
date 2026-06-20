@@ -6,6 +6,7 @@
 // tudo vira no-op e o caminho de IA NUNCA quebra por causa de telemetria.
 // LangSmith não precisa de código aqui: o LangChain ativa sozinho via env
 // (LANGCHAIN_TRACING_V2=true + LANGCHAIN_API_KEY) — documentado no README.
+import { providerForModel } from './provider.js';
 
 const NAMES = Object.freeze({
   latency: 'ai_turn_latency_seconds',
@@ -49,13 +50,13 @@ export function createAiMetrics({ promClient, app, registers } = {}) {
   const tokens = new promClient.Counter({
     name: NAMES.tokens,
     help: 'Tokens consumidos pelas chamadas de IA.',
-    labelNames: ['app', 'model', 'direction'],
+    labelNames: ['app', 'provider', 'model', 'direction'],
     ...opts,
   });
   const cost = new promClient.Counter({
     name: NAMES.cost,
     help: 'Custo estimado (USD) das chamadas de IA.',
-    labelNames: ['app', 'model'],
+    labelNames: ['app', 'provider', 'model'],
     ...opts,
   });
   const toolCalls = new promClient.Counter({
@@ -94,10 +95,11 @@ export function createAiMetrics({ promClient, app, registers } = {}) {
     enabled: true,
     observeTurn: (stage, outcome, seconds) => latency.labels(app, stage, outcome).observe(seconds),
     addTokens: (model, inputTokens, outputTokens) => {
-      if (inputTokens) tokens.labels(app, model, 'input').inc(inputTokens);
-      if (outputTokens) tokens.labels(app, model, 'output').inc(outputTokens);
+      const provider = providerForModel(model);
+      if (inputTokens) tokens.labels(app, provider, model, 'input').inc(inputTokens);
+      if (outputTokens) tokens.labels(app, provider, model, 'output').inc(outputTokens);
     },
-    addCost: (model, usd) => { if (usd > 0) cost.labels(app, model).inc(usd); },
+    addCost: (model, usd) => { if (usd > 0) cost.labels(app, providerForModel(model), model).inc(usd); },
     countToolCall: (tool, outcome) => toolCalls.labels(app, tool, outcome).inc(),
     countError: (stage, code) => errors.labels(app, stage, String(code || 'unknown')).inc(),
     observeJudgeScore: (dimension, score) => judge.labels(app, dimension).observe(score),

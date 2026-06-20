@@ -7,9 +7,20 @@
 // Mantém o contrato gpt-5 (reasoning_effort, sem temperature) via ai-kit.
 
 import { buildChatParams } from '@flavioneto11/ai-kit';
+import { createAnthropicLlm } from './llm-anthropic.js';
 
 function safeJsonParse(s) {
   try { return JSON.parse(s); } catch { return {}; }
+}
+
+/**
+ * Factory PROVIDER-AGNÓSTICA: devolve o adapter certo a partir do provider + cliente já
+ * construído pelo app (com a chave/credencial). `provider` 'anthropic' → Claude; senão OpenAI.
+ * Mantém o MESMO contrato complete({...}) → { text, toolCalls, usage } p/ o grafo não saber a diferença.
+ */
+export function createLlm({ provider, client, defaultModel } = {}) {
+  if (String(provider || '').toLowerCase() === 'anthropic') return createAnthropicLlm(client, defaultModel ? { defaultModel } : {});
+  return createOpenAiLlm(client, defaultModel ? { defaultModel } : {});
 }
 
 /** Converte uma AiTool (com `parameters` JSON Schema) para o formato OpenAI. */
