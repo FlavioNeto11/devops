@@ -33,7 +33,7 @@ export default function ThemeToggle({ className }: { className?: string }) {
       aria-label={theme === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
       title={theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
       className={cn(
-        'grid h-10 w-10 place-items-center rounded-lg border border-brand-text/15 text-brand-text transition-colors hover:border-brand-neon/45 hover:text-brand-neon',
+        'grid h-10 w-10 place-items-center rounded-lg border border-brand-text/15 text-brand-text transition-colors hover:border-brand-neon/45 hover:text-brand-neon focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--neon))] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--bg))]',
         className,
       )}
     >

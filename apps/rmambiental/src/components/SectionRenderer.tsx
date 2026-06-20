@@ -112,7 +112,7 @@ function HeroBlock({ d }: { d: D }) {
                   : <CoverageMap className="h-full w-full" />}
               </div>
             </MediaSlot>
-            <div className="relative mt-2 flex items-center justify-between rounded-xl border border-brand-text/10 bg-black/20 px-4 py-3">
+            <div className="relative mt-2 flex items-center justify-between rounded-xl border border-brand-text/10 bg-brand-text/5 px-4 py-3">
               <span className="text-xs uppercase tracking-widest text-brand-muted">
                 {edit ? <EditableText as="span" path="mapLabel" value={d.mapLabel || 'Pontos de atuação'} placeholder="label" /> : (d.mapLabel || 'Pontos de atuação')}
               </span>
@@ -223,7 +223,7 @@ function TimelineBlock({ d, anchor, surface }: { d: D; anchor?: string | null; s
                 <motion.div key={(s.title || '') + i} initial={reduce ? false : { opacity: 0, x: -16 }} whileInView={reduce ? undefined : { opacity: 1, x: 0 }} viewport={{ once: true, margin: '-60px' }} transition={reduce ? undefined : { duration: 0.5, delay: i * 0.06 }} className={cn('relative flex items-start gap-5 md:odd:flex-row-reverse md:odd:text-right', edit && 'cms-item')}>
                   <ItemControls path="steps" index={i} count={steps.length} />
                   <span className="relative z-10 grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-brand-neon/30 bg-brand-bg text-brand-neon shadow-glow"><Ico className="h-6 w-6" /><span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-brand-neon text-[11px] font-bold text-brand-onNeon">{i + 1}</span></span>
-                  <div className="flex-1 rounded-2xl border border-white/10 bg-brand-surface/70 p-5 md:max-w-[44%]"><h3 className="font-display text-base font-bold text-brand-text">{edit ? <EditableText as="span" path={`steps.${i}.title`} value={s.title || ''} placeholder="título" /> : s.title}</h3><p className="mt-1.5 text-sm leading-relaxed text-brand-muted">{edit ? <EditableText as="span" path={`steps.${i}.desc`} value={s.desc || ''} placeholder="descrição" multiline /> : s.desc}</p></div>
+                  <div className="flex-1 rounded-2xl border border-brand-text/10 bg-brand-surface/70 p-5 md:max-w-[44%]"><h3 className="font-display text-base font-bold text-brand-text">{edit ? <EditableText as="span" path={`steps.${i}.title`} value={s.title || ''} placeholder="título" /> : s.title}</h3><p className="mt-1.5 text-sm leading-relaxed text-brand-muted">{edit ? <EditableText as="span" path={`steps.${i}.desc`} value={s.desc || ''} placeholder="descrição" multiline /> : s.desc}</p></div>
                   <div className="hidden flex-1 md:block" aria-hidden />
                 </motion.div>
               );

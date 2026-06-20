@@ -94,7 +94,7 @@ export default function Header() {
                 to={n.to}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:text-brand-text',
+                  'rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:text-brand-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-neon/45 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg',
                   active ? 'text-brand-text' : 'text-brand-muted',
                 )}
               >
@@ -139,7 +139,7 @@ export default function Header() {
                     onClick={() => setOpen(false)}
                     aria-current={active ? 'page' : undefined}
                     className={cn(
-                      'rounded-lg px-3 py-3 text-base font-medium transition-colors hover:bg-brand-text/5 hover:text-brand-text',
+                      'rounded-lg px-3 py-3 text-base font-medium transition-colors hover:bg-brand-text/5 hover:text-brand-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-neon/45 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg',
                       active ? 'bg-brand-text/5 text-brand-text' : 'text-brand-muted',
                     )}
                   >

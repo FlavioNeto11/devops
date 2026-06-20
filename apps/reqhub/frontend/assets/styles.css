@@ -91,7 +91,7 @@ code { font-family: var(--mono); font-size: 0.92em; background: var(--bg-2); pad
 .search-ic svg { width: 15px; height: 15px; }
 .search input { background: var(--bg-2); border: 1px solid var(--line); color: var(--fg); padding: 8px 12px 8px 32px; border-radius: 9px; width: min(32vw, 290px); font-size: 13.5px; }
 .search input::placeholder { color: var(--muted); }
-.search input:focus-visible { outline: none; border-color: var(--accent); }
+.search input:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgb(var(--p-neon) / 0.45); }
 .icon-btn { background: var(--bg-2); border: 1px solid var(--line); color: var(--fg-1); min-width: 38px; min-height: 38px; border-radius: 9px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .icon-btn svg { width: 17px; height: 17px; }
 .icon-btn:hover { border-color: var(--line-2); color: var(--fg); }
@@ -252,7 +252,7 @@ td .rid { font-family: var(--mono); color: var(--fg-1); }
 .map-group-l { flex: none; width: 72px; padding-top: 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); }
 .map-group .map-legend { flex: 1; }
 .map-locate { background: var(--bg-2); border: 1px solid var(--line); color: var(--fg); padding: 8px 12px; border-radius: 8px; font-size: 13.5px; min-height: 38px; min-width: 200px; }
-.map-locate:focus-visible { border-color: var(--accent); }
+.map-locate:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 2px rgb(var(--p-neon) / 0.45); }
 
 /* inspetor (card flutuante clean sobre o canvas) */
 .impact-inspector { position: absolute; top: 10px; left: 10px; z-index: 3; width: min(300px, 78%); max-height: calc(100% - 20px); overflow: hidden auto; background: var(--bg-1); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
@@ -324,6 +324,9 @@ td .rid { font-family: var(--mono); color: var(--fg-1); }
 /* botões / ações */
 .btn { background: var(--bg-2); border: 1px solid var(--line-2); color: var(--fg); padding: 8px 14px; min-height: 40px; border-radius: 8px; cursor: pointer; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; }
 .btn:hover { border-color: var(--accent); color: var(--accent); }
+/* botão async (disabled + aria-busy): deixa de parecer ativo e cancela o hover de acento */
+.btn:disabled, .btn[aria-busy="true"] { opacity: 0.6; cursor: progress; }
+.btn:disabled:hover, .btn[aria-busy="true"]:hover { border-color: var(--line-2); color: var(--fg); }
 .ws-actions { display: flex; gap: 10px; align-items: center; margin: 10px 0; flex-wrap: wrap; }
 
 /* editor / form */
@@ -901,3 +904,12 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 .cmdk-input { flex: 1; resize: none; background: var(--bg-2); border: 1px solid var(--line); color: var(--fg); border-radius: 8px; padding: 9px 11px; font: inherit; font-size: 13.5px; min-height: 38px; }
 .cmdk-send { white-space: nowrap; }
 body.cmdk-on { overflow: hidden; }
+
+/* Alvos de toque (telas com ponteiro grosso): chips/botões pequenos sobem p/ ≥40px.
+   Só em (pointer: coarse) — não engorda a densidade no desktop com mouse. */
+@media (pointer: coarse) {
+  .icon-btn, .impact-controls .icon-btn.sm { min-width: 40px; min-height: 40px; }
+  .lg-all, .lg-chip { min-height: 40px; }
+  .map-locate { min-height: 40px; }
+  .toolbar select, .toolbar input { min-height: 40px; }
+}

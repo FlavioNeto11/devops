@@ -3075,6 +3075,11 @@ function renderOverview() {
 function wireNav() {
   const items = [...document.querySelectorAll('.nav-item')];
   items.forEach((it, i) => {
+    // Nome acessível: em modo colapsado a .nav-label some (display:none) e o botão fica só com
+    // o ícone — title + aria-label preservam o rótulo p/ leitor de tela e tooltip.
+    const lbl = it.querySelector('.nav-label');
+    const name = lbl ? lbl.textContent.trim() : '';
+    if (name) { it.title = name; it.setAttribute('aria-label', name); }
     it.addEventListener('click', () => switchView(it.dataset.view));
     it.addEventListener('keydown', (ev) => {
       let j = null;

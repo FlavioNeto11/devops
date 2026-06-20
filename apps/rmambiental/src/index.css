@@ -38,7 +38,7 @@ body {
   }
 
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-300 focus:outline-none focus-visible:ring-2;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-[transform,background,box-shadow,filter] duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--neon))] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--bg))];
   }
   .btn-primary {
     @apply btn;
@@ -48,7 +48,7 @@ body {
   }
   .btn-primary:hover {
     filter: brightness(var(--btn-brightness));
-    transform: translateY(-2px);
+    transform: translateY(-1px);
   }
   .btn-ghost {
     @apply btn;

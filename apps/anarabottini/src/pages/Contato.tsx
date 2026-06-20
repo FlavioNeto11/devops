@@ -41,7 +41,7 @@ export default function Contato() {
                 href={wa}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-4 rounded-2xl border border-brand-text/10 bg-brand-surface/70 p-5 shadow-soft transition-colors hover:border-brand-neon/40"
+                className="flex items-center gap-4 rounded-2xl border border-brand-text/10 bg-brand-surface/70 p-5 shadow-soft transition-colors hover:border-brand-neon/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-neon/45 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg"
               >
                 <span className="grid h-12 w-12 place-items-center rounded-xl bg-brand-neon/12">
                   <MessageCircle className="h-6 w-6 text-brand-neon" />
@@ -69,7 +69,7 @@ export default function Contato() {
             {mail ? (
               <a
                 href={mail}
-                className="flex items-center gap-4 rounded-2xl border border-brand-text/10 bg-brand-surface/70 p-5 shadow-soft transition-colors hover:border-brand-neon/40"
+                className="flex items-center gap-4 rounded-2xl border border-brand-text/10 bg-brand-surface/70 p-5 shadow-soft transition-colors hover:border-brand-neon/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-neon/45 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg"
               >
                 <span className="grid h-12 w-12 place-items-center rounded-xl bg-brand-neon/12">
                   <Mail className="h-6 w-6 text-brand-neon" />
@@ -101,7 +101,7 @@ export default function Contato() {
                     href={site.social.instagram}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-lg border border-brand-text/10 px-4 py-2 text-sm font-medium text-brand-text transition-colors hover:border-brand-neon/40 hover:text-brand-neon"
+                    className="inline-flex items-center gap-2 rounded-lg border border-brand-text/10 px-4 py-2 text-sm font-medium text-brand-text transition-colors hover:border-brand-neon/40 hover:text-brand-neon focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-neon/45 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg"
                   >
                     <Instagram className="h-4 w-4" /> Instagram
                   </a>
@@ -111,7 +111,7 @@ export default function Contato() {
                     href={site.social.linkedin}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-lg border border-brand-text/10 px-4 py-2 text-sm font-medium text-brand-text transition-colors hover:border-brand-neon/40 hover:text-brand-neon"
+                    className="inline-flex items-center gap-2 rounded-lg border border-brand-text/10 px-4 py-2 text-sm font-medium text-brand-text transition-colors hover:border-brand-neon/40 hover:text-brand-neon focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-neon/45 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg"
                   >
                     <Linkedin className="h-4 w-4" /> LinkedIn
                   </a>

@@ -49,12 +49,12 @@ export function CoverageMap({ className = '' }: { className?: string }) {
     <svg viewBox="0 0 420 480" className={className} fill="none" aria-hidden>
       <defs>
         <linearGradient id="rm-land" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#15616F" stopOpacity="0.28" />
-          <stop offset="1" stopColor="#0F3D2E" stopOpacity="0.12" />
+          <stop offset="0" stopColor="rgb(var(--petrol))" stopOpacity="0.28" />
+          <stop offset="1" stopColor="rgb(var(--green))" stopOpacity="0.12" />
         </linearGradient>
         <radialGradient id="rm-node" cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0" stopColor="#34E39B" />
-          <stop offset="1" stopColor="#34E39B" stopOpacity="0" />
+          <stop offset="0" stopColor="rgb(var(--neon))" />
+          <stop offset="1" stopColor="rgb(var(--neon))" stopOpacity="0" />
         </radialGradient>
       </defs>
 
@@ -62,7 +62,7 @@ export function CoverageMap({ className = '' }: { className?: string }) {
       <path
         d="M150 58 C182 48 214 60 232 82 C254 70 288 80 292 112 C322 122 348 152 350 188 C360 220 344 256 330 290 C320 326 300 356 280 386 C266 416 250 446 220 452 C198 458 184 440 180 414 C150 410 120 388 110 354 C94 318 80 290 76 254 C66 218 60 178 82 150 C98 120 122 92 150 58 Z"
         fill="url(#rm-land)"
-        stroke="rgba(52,227,155,0.32)"
+        stroke="rgb(var(--neon) / 0.32)"
         strokeWidth="1.4"
       />
 
@@ -74,7 +74,7 @@ export function CoverageMap({ className = '' }: { className?: string }) {
           y1={HUB.y}
           x2={n.x}
           y2={n.y}
-          stroke="rgba(52,227,155,0.30)"
+          stroke="rgb(var(--neon) / 0.30)"
           strokeWidth="1"
           strokeDasharray="3 5"
           initial={reduce ? false : { pathLength: 0, opacity: 0 }}
@@ -96,13 +96,13 @@ export function CoverageMap({ className = '' }: { className?: string }) {
             transition={reduce ? undefined : { duration: 2.6, repeat: Infinity, delay: i * 0.3 }}
             style={{ transformOrigin: `${n.x}px ${n.y}px`, opacity: reduce ? 0.4 : undefined }}
           />
-          <circle cx={n.x} cy={n.y} r="3.4" fill="#34E39B" />
+          <circle cx={n.x} cy={n.y} r="3.4" fill="rgb(var(--neon))" />
         </g>
       ))}
 
       {/* hub central */}
-      <circle cx={HUB.x} cy={HUB.y} r="6" fill="#34E39B" />
-      <circle cx={HUB.x} cy={HUB.y} r="6" fill="none" stroke="#34E39B" strokeOpacity="0.4">
+      <circle cx={HUB.x} cy={HUB.y} r="6" fill="rgb(var(--neon))" />
+      <circle cx={HUB.x} cy={HUB.y} r="6" fill="none" stroke="rgb(var(--neon))" strokeOpacity="0.4">
         {!reduce && (
           <>
             <animate attributeName="r" values="6;16;6" dur="2.8s" repeatCount="indefinite" />

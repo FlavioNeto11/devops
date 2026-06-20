@@ -70,7 +70,7 @@ export default function Header() {
                 to={n.to}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:text-brand-text',
+                  'rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:text-brand-text focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--neon))] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--bg))]',
                   active ? 'text-brand-text' : 'text-brand-muted',
                 )}
               >
@@ -91,7 +91,7 @@ export default function Header() {
           <ThemeToggle />
           <button
             type="button"
-            className="grid h-10 w-10 place-items-center rounded-lg border border-brand-text/10 text-brand-text"
+            className="grid h-10 w-10 place-items-center rounded-lg border border-brand-text/10 text-brand-text focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--neon))] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--bg))]"
             onClick={() => setOpen((v) => !v)}
             aria-label={open ? 'Fechar menu' : 'Abrir menu'}
             aria-expanded={open}
@@ -120,7 +120,7 @@ export default function Header() {
                     onClick={() => setOpen(false)}
                     aria-current={active ? 'page' : undefined}
                     className={cn(
-                      'rounded-lg px-3 py-3 text-base font-medium transition-colors hover:bg-brand-text/5 hover:text-brand-text',
+                      'rounded-lg px-3 py-3 text-base font-medium transition-colors hover:bg-brand-text/5 hover:text-brand-text focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--neon))] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--bg))]',
                       active ? 'bg-brand-text/5 text-brand-text' : 'text-brand-muted',
                     )}
                   >

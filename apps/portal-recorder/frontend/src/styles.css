@@ -53,7 +53,7 @@
   --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.04);
   --shadow-md: 0 18px 38px -22px rgba(20, 32, 64, 0.28);
   --shadow-lg: 0 28px 60px -28px rgba(20, 32, 64, 0.32);
-  --ring: 0 0 0 3px rgba(37, 99, 235, 0.22);
+  --ring: 0 0 0 3px rgb(var(--p-neon) / 0.35);
 
   --mono: ui-monospace, SFMono-Regular, "SF Mono", "JetBrains Mono", Menlo,
     Consolas, "Liberation Mono", monospace;
@@ -70,6 +70,16 @@
    que reescreve as triplas --p-* — e como as vars do app derivam de --p-*, elas
    acompanham o tema automaticamente. As sombras/ring que tinham override no dark
    ficam com os valores claros (suaves), aceitáveis em ambos os temas. */
+
+/* Paridade de elevação/foco no DARK: sombras claras somem no escuro, então
+   reforçamos as sombras (preto mais opaco) p/ os cards manterem profundidade e
+   subimos a opacidade do anel de foco p/ ficar visível sobre o fundo escuro. */
+:root[data-theme="dark"],
+.dark {
+  --shadow-md: 0 18px 38px -22px rgb(0 0 0 / 0.45);
+  --shadow-lg: 0 28px 60px -28px rgb(0 0 0 / 0.45);
+  --ring: 0 0 0 3px rgb(var(--p-neon) / 0.55);
+}
 
 * {
   box-sizing: border-box;
@@ -299,7 +309,7 @@ select.input:focus-visible,
   border-radius: 9px;
   background: var(--grad);
   flex: 0 0 auto;
-  box-shadow: 0 6px 16px -8px rgba(37, 99, 235, 0.7);
+  box-shadow: 0 6px 16px -8px rgb(var(--p-neon) / 0.7);
   position: relative;
 }
 .brand-dot::after {
@@ -419,7 +429,7 @@ select.input:focus-visible,
   border-color: var(--accent-ink);
   color: var(--accent-contrast);
   transform: translateY(-1px);
-  box-shadow: 0 12px 24px -12px rgba(37, 99, 235, 0.6);
+  box-shadow: 0 12px 24px -12px rgb(var(--p-neon) / 0.6);
 }
 
 .btn-ghost {
@@ -448,7 +458,7 @@ select.input:focus-visible,
 
 /* "Excluir" discreto: vermelho so no hover, sem competir com a acao primaria */
 .btn-danger-ghost {
-  color: var(--text-dim);
+  color: rgb(var(--p-danger) / 0.85);
 }
 .btn-danger-ghost:hover {
   color: #fff;
@@ -847,7 +857,7 @@ select.input {
 }
 .screencast:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35),
+  box-shadow: 0 0 0 3px rgb(var(--p-neon) / 0.35),
     0 10px 30px -16px rgba(0, 0, 0, 0.7);
 }
 .screencast__overlay {
@@ -866,7 +876,7 @@ select.input {
 }
 .screencast__hint {
   text-align: center;
-  color: #aab6c8 !important;
+  color: var(--text-dim);
   font-size: 0.78rem;
   padding: 0 6px;
 }
