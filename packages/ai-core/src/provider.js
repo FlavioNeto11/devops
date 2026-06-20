@@ -13,6 +13,11 @@ const DEFAULT_PRICES_PER_MTOK = Object.freeze({
   'gpt-4o-mini': { in: 0.15, out: 0.6 },
   'text-embedding-3-small': { in: 0.02, out: 0 },
   'text-embedding-3-large': { in: 0.13, out: 0 },
+  // Anthropic (USD por 1M tokens) — override por env AI_PRICE_IN_/OUT_<MODEL> se mudar.
+  'claude-opus-4-8': { in: 15, out: 75 },
+  'claude-sonnet-4-6': { in: 3, out: 15 },
+  'claude-haiku-4-5-20251001': { in: 1, out: 5 },
+  'claude-haiku-4-5': { in: 1, out: 5 },
 });
 
 function envKeyFor(model, direction) {

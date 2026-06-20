@@ -52,8 +52,14 @@ spec:
           env:
             - name: PORT
               value: "8080"
+            # Provider de IA: anthropic = Claude (assinatura Claude Code via ANTHROPIC_AUTH_TOKEN,
+            # Bearer + beta oauth). Trocar p/ "openai" reverte ao gpt-5 sem redeploy de código.
+            - name: AI_PROVIDER
+              value: "anthropic"
             - name: REQHUB_AI_MODEL
-              value: "gpt-5"
+              value: "claude-sonnet-4-6"
+            - name: ANTHROPIC_AUTH_TOKEN
+              valueFrom: { secretKeyRef: { name: reqhub-api-config, key: ANTHROPIC_AUTH_TOKEN, optional: true } }
             # OPENAI_API_KEY: REUSA a chave que ja existe na plataforma (secret sicat-config,
             # ns apps) por REFERENCIA — o valor nunca e copiado, o k8s resolve no runtime.
             # Para desacoplar, crie um secret dedicado com scripts/setup-reqhub-secret.ps1 e
