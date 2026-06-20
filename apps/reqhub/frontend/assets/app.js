@@ -5,7 +5,7 @@ import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, wav
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
-const state = { view: 'explorer', filters: {}, q: '', selectedId: null, impactFilter: { type: '', product: '', focus: false }, editId: null, editor: null, devFilter: { status: '', product: '' }, reproFilter: { reason: '' }, forge: { product: null, step: 'definir', filter: 'all' } };
+const state = { view: 'explorer', filters: {}, q: '', selectedId: null, impactFilter: { type: '', product: '', focus: false }, editId: null, editor: null, devFilter: { status: '', product: '' }, reproFilter: { reason: '' }, forge: { product: null, step: 'definir', filter: 'all' }, me: null, aiUsage: { window: '30d', es: null, liveState: 'off', reconnectMs: 1000, reconnectTimer: null, lastBreakdown: null } };
 const DATA = { baseline: null, impact: null, retrieval: null, history: null, registry: null, embeddings: null, implStatus: null, coverage: null, products: null, blueprints: null, buildPlans: {} };
 
 /* ---------- DOM helpers (seguros) ---------- */
@@ -57,6 +57,15 @@ const AI = {
     const data = await r.json().catch(() => ({}));
     return { ok: r.ok, status: r.status, data };
   },
+  async get(path) {
+    const tok = this.getToken();
+    const r = await fetch(this.BASE + path, { headers: { Accept: 'application/json', ...(tok ? { Authorization: 'Bearer ' + tok } : {}) } });
+    const data = await r.json().catch(() => ({}));
+    return { ok: r.ok, status: r.status, data };
+  },
+  // SSE same-origin (CSP connect-src 'self' permite). EventSource não manda Authorization:
+  // o /stream autentica pelo SSO de borda (X-Auth-Request-*), igual a /v1/me.
+  stream(path) { return new EventSource(this.BASE + path); },
   assist(body) { return this.post('/v1/authoring/assist', body); },
   chat(body) { return this.post('/v1/authoring/chat', body); },
   // Primitiva grounded reutilizável fora do funil do Editor (copiloto, Workspace, etc.).
@@ -2747,6 +2756,7 @@ const ICONS = {
   products: [['path', { d: 'M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z' }], ['polyline', { points: '3.3 7 12 12 20.7 7' }], ['line', { x1: 12, y1: 22, x2: 12, y2: 12 }]],
   layers: [['polygon', { points: '12 2 2 7 12 12 22 7 12 2' }], ['polyline', { points: '2 17 12 22 22 17' }], ['polyline', { points: '2 12 12 17 22 12' }]],
   rocket: [['path', { d: 'M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z' }], ['path', { d: 'M12 15l-3-3a22 22 0 0 1 8-10c2 0 3 0 4 1s1 2 1 4a22 22 0 0 1-10 8z' }], ['path', { d: 'M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0' }], ['path', { d: 'M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5' }]],
+  aiusage: [['path', { d: 'M3 12a9 9 0 1 1 18 0' }], ['path', { d: 'M12 12l4-2.5' }], ['line', { x1: 3, y1: 20, x2: 21, y2: 20 }]],
 };
 function icon(name, size) {
   const s = svg('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', focusable: 'false' });
@@ -2775,11 +2785,13 @@ const VIEW_META = {
   dev: { title: 'Desenvolvimento', sub: 'Status de entrega por requisito (REQ → PR → deploy)' },
   editor: { title: 'Editor', sub: 'Autoria assistida por IA → PR no git' },
   forge: { title: 'Forge', sub: 'Construir um produto completo a partir de requisitos' },
+  aiusage: { title: 'Uso da IA', sub: 'Custo, tokens e limites — Claude (Anthropic) e OpenAI' },
 };
 
-const RENDER = { overview: renderOverview, explorer: renderExplorer, workspace: renderWorkspace, versions: renderVersions, impact: renderImpact, coverage: renderCoverage, usability: renderUsability, reprocess: renderReprocess, dev: renderDev, editor: renderEditor, forge: renderForge };
+const RENDER = { overview: renderOverview, explorer: renderExplorer, workspace: renderWorkspace, versions: renderVersions, impact: renderImpact, coverage: renderCoverage, usability: renderUsability, reprocess: renderReprocess, dev: renderDev, editor: renderEditor, forge: renderForge, aiusage: renderAiUsage };
 function switchView(view) {
   if (view === 'impact' && state.view !== 'impact') IMPACT.enterSeed = true; // semeia o "req em foco" só na ENTRADA
+  if (state.view === 'aiusage' && view !== 'aiusage') disconnectAiStream(); // fecha o SSE ao sair do painel
   state.view = view;
   for (const it of document.querySelectorAll('.nav-item')) {
     const sel = it.dataset.view === view;
@@ -3312,10 +3324,217 @@ function closeCmdk() {
   CMDK.returnFocus = null;
 }
 
+/* ===================== Painel "Uso da IA" (Claude + OpenAI) — admin only =====================
+   Consome /reqs/api/v1/ai-usage/* (telemetria interna + contas + live SSE). CSP-safe: DOM via
+   h()/svg, cor de status por CLASSE (nada inline). Gating por platform-admins. */
+function applyAdminGating() {
+  const admin = !!(state.me && state.me.isAdmin);
+  const grp = document.getElementById('nav-group-ai'); if (grp) grp.hidden = !admin;
+  const tab = document.getElementById('tab-aiusage');
+  if (tab) { tab.disabled = !admin; if (!admin) tab.setAttribute('aria-disabled', 'true'); else tab.removeAttribute('aria-disabled'); }
+}
+function fmtUsd(n) { const v = Number(n) || 0; if (v === 0) return 'US$ 0'; if (v < 1) return 'US$ ' + v.toFixed(v < 0.01 ? 4 : 3); return 'US$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function fmtTokens(n) { const v = Number(n) || 0; if (v >= 1e6) return (v / 1e6).toFixed(2).replace(/\.?0+$/, '') + 'M'; if (v >= 1e3) return (v / 1e3).toFixed(1).replace(/\.0$/, '') + 'k'; return String(Math.round(v)); }
+function fmtInt(n) { return (Number(n) || 0).toLocaleString('pt-BR'); }
+function aiSeverityCls(pct) { const p = Number(pct) || 0; return p >= 90 ? 'danger' : p >= 70 ? 'warn' : 'ok'; }
+function aiSeverityLabel(pct) { const p = Number(pct) || 0; return p >= 90 ? 'crítico' : p >= 70 ? 'atenção' : 'ok'; }
+function windowLabel() { const m = { '24h': '24h', '7d': '7d', '30d': '30d', '90d': '90d', mtd: 'mês' }; return m[state.aiUsage.window] || state.aiUsage.window; }
+function aiSourceBadge(p) { return p && p.account ? badge('oficial (conta)', 'b-ok') : badge('estimado (telemetria)', 'b-low'); }
+
+// gauge SVG de % (arco; comprimento por atributo, cor por CLASSE — CSP-safe)
+function aiGauge(pct, label) {
+  const p = Math.max(0, Math.min(100, Number(pct) || 0));
+  const len = Math.PI * 54;
+  const s = svg('svg', { class: 'aiu-gauge', viewBox: '0 0 120 70', role: 'img', 'aria-label': (label || 'limite') + ': ' + Math.round(p) + '% (' + aiSeverityLabel(p) + ')' });
+  s.append(svg('path', { class: 'aiu-gauge-track', d: 'M8 62 A54 54 0 0 1 112 62', fill: 'none' }));
+  s.append(svg('path', { class: 'aiu-gauge-arc ' + aiSeverityCls(p), d: 'M8 62 A54 54 0 0 1 112 62', fill: 'none', 'stroke-dasharray': String(len), 'stroke-dashoffset': String(len * (1 - p / 100)) }));
+  const t = svg('text', { class: 'aiu-gauge-v', x: '60', y: '54', 'text-anchor': 'middle' }); t.textContent = Math.round(p) + '%';
+  s.append(t);
+  return s;
+}
+
+function aiUsageToolbar() {
+  const bar = h('div', { class: 'toolbar aiu-toolbar' });
+  const winSel = h('select', { class: 'aiu-win', 'aria-label': 'Janela de tempo' });
+  for (const [v, lbl] of [['24h', 'Últimas 24h'], ['7d', '7 dias'], ['30d', '30 dias'], ['90d', '90 dias'], ['mtd', 'Mês corrente']]) {
+    const o = h('option', { value: v, text: lbl }); if (v === state.aiUsage.window) o.selected = true; winSel.append(o);
+  }
+  winSel.addEventListener('change', (e) => { state.aiUsage.window = e.target.value; renderAiUsage(); });
+  bar.append(h('label', { class: 'aiu-win-l' }, h('span', { text: 'Janela' }), winSel));
+  bar.append(aiLiveIndicator());
+  const refresh = h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Atualizar', title: 'Atualizar' }); refresh.append(icon('reprocess', 16));
+  refresh.addEventListener('click', () => renderAiUsage());
+  bar.append(refresh);
+  return bar;
+}
+function aiLiveText(s) { return s === 'live' ? 'ao vivo' : s === 'reconnecting' ? 'reconectando…' : s === 'offline' ? 'ao vivo indisponível' : 'conectando…'; }
+function aiLiveIndicator() {
+  const s = state.aiUsage.liveState;
+  return h('span', { class: 'aiu-live is-' + s, id: 'aiu-live-ind', role: 'status', 'aria-live': 'off' }, h('span', { class: 'aiu-live-dot', 'aria-hidden': 'true' }), h('span', { class: 'aiu-live-t', text: aiLiveText(s) }));
+}
+function setLiveState(s) { state.aiUsage.liveState = s; const el = document.getElementById('aiu-live-ind'); if (el) { el.className = 'aiu-live is-' + s; const t = el.querySelector('.aiu-live-t'); if (t) t.textContent = aiLiveText(s); } }
+
+function aiSourcesBanner(sh0) {
+  const sh = sh0 || {};
+  const lab = { ok: 'ok', configured: 'pronto', degraded: 'degradado', down: 'fora', absent: 'ausente', error: 'erro', unknown: '?' };
+  const cls = (st) => (st === 'ok' || st === 'configured') ? 'ok' : (st === 'absent') ? 'off' : 'warn';
+  const item = (name, st) => h('span', { class: 'aiu-src-pill is-' + cls(st), text: name + ': ' + (lab[st] || st) });
+  return h('div', { class: 'aiu-sources', 'aria-label': 'Estado das fontes de dados' },
+    item('Prometheus', sh.prometheus), item('Langfuse', sh.langfuse), item('conta OpenAI', sh.openaiAdmin), item('conta Anthropic', sh.anthropicAdmin));
+}
+
+function aiKpi(label, value, sub) {
+  const c = h('div', { class: 'aiu-kpi' }, h('div', { class: 'k-l', text: label }), h('div', { class: 'k-v', text: value }));
+  if (sub) c.append(sub);
+  return c;
+}
+function aiLiveBlock(provider) {
+  return h('div', { class: 'aiu-live-rates', 'data-prov': provider, role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' },
+    h('span', { class: 'aiu-rate' }, h('b', { class: 'r-cost', text: '—' }), ' US$/min'),
+    h('span', { class: 'aiu-rate' }, h('b', { class: 'r-tok', text: '—' }), ' tok/min'),
+    h('span', { class: 'aiu-rate' }, h('b', { class: 'r-req', text: '—' }), ' req/min'));
+}
+function applyAiRates(snap) {
+  for (const pr of (snap.providers || [])) {
+    const el = document.querySelector('.aiu-live-rates[data-prov="' + pr.provider + '"]'); if (!el) continue;
+    const rc = el.querySelector('.r-cost'); if (rc) rc.textContent = (pr.rolling.costUsdPerMin || 0).toFixed(4);
+    const rt = el.querySelector('.r-tok'); if (rt) rt.textContent = fmtTokens(pr.rolling.tokensPerMin || 0);
+    const rq = el.querySelector('.r-req'); if (rq) rq.textContent = String(Math.round(pr.rolling.requestsPerMin || 0));
+  }
+}
+
+function aiModuleTable(p) {
+  const mods = p.modules || [];
+  const wrap = h('div', { class: 'aiu-tbl-wrap' }, h('h3', { class: 'aiu-tbl-h' }, secIc('▤'), 'Consumo por módulo'));
+  if (!mods.length) { wrap.append(h('p', { class: 'muted', text: 'Sem consumo interno nesta janela.' })); return wrap; }
+  const total = mods.reduce((a, m) => a + (m.internal.cost || 0), 0) || 1;
+  const tbl = h('table', { class: 'aiu-tbl' });
+  tbl.append(h('thead', {}, h('tr', {}, h('th', { text: 'Módulo' }), h('th', { class: 'num', text: 'Custo' }), h('th', { class: 'num', text: 'Tokens' }), h('th', { class: 'num', text: 'Req.' }), h('th', { text: '% do provedor' }))));
+  const tb = h('tbody');
+  for (const m of mods) {
+    const pct = Math.round(((m.internal.cost || 0) / total) * 100);
+    tb.append(h('tr', {}, h('td', { text: m.module }), h('td', { class: 'num', text: fmtUsd(m.internal.cost) }), h('td', { class: 'num', text: fmtTokens((m.internal.tokensIn || 0) + (m.internal.tokensOut || 0)) }), h('td', { class: 'num', text: fmtInt(m.internal.requests) }), h('td', { class: 'aiu-bar-cell' }, miniBar(pct, 'ok'), h('span', { class: 'aiu-bar-n', text: pct + '%' }))));
+  }
+  tbl.append(tb); wrap.append(tbl); return wrap;
+}
+function aiModelTable(p) {
+  const agg = new Map();
+  for (const m of (p.modules || [])) for (const md of (m.models || [])) {
+    const e = agg.get(md.model) || { model: md.model, cost: 0, tokensIn: 0, tokensOut: 0, requests: 0 };
+    e.cost += md.cost || 0; e.tokensIn += md.tokensIn || 0; e.tokensOut += md.tokensOut || 0; e.requests += md.requests || 0; agg.set(md.model, e);
+  }
+  const rows = [...agg.values()].sort((a, b) => b.cost - a.cost);
+  const wrap = h('div', { class: 'aiu-tbl-wrap' }, h('h3', { class: 'aiu-tbl-h' }, secIc('◳'), 'Consumo por modelo'));
+  if (!rows.length) { wrap.append(h('p', { class: 'muted', text: '—' })); return wrap; }
+  const total = rows.reduce((a, m) => a + m.cost, 0) || 1;
+  const tbl = h('table', { class: 'aiu-tbl' });
+  tbl.append(h('thead', {}, h('tr', {}, h('th', { text: 'Modelo' }), h('th', { class: 'num', text: 'Custo' }), h('th', { class: 'num', text: 'Tokens' }), h('th', { class: 'num', text: 'Req.' }), h('th', { text: '%' }))));
+  const tb = h('tbody');
+  for (const m of rows) { const pct = Math.round((m.cost / total) * 100); tb.append(h('tr', {}, h('td', {}, h('code', { text: m.model })), h('td', { class: 'num', text: fmtUsd(m.cost) }), h('td', { class: 'num', text: fmtTokens(m.tokensIn + m.tokensOut) }), h('td', { class: 'num', text: fmtInt(m.requests) }), h('td', { class: 'aiu-bar-cell' }, miniBar(pct, 'ok'), h('span', { class: 'aiu-bar-n', text: pct + '%' })))); }
+  tbl.append(tb); wrap.append(tbl); return wrap;
+}
+
+function providerSection(p) {
+  const acc = p.account; const intr = p.internal || {};
+  const cost = acc ? acc.cost : intr.cost; const tin = acc ? acc.tokensIn : intr.tokensIn;
+  const tout = acc ? acc.tokensOut : intr.tokensOut; const reqs = acc ? acc.requests : intr.requests;
+  const sec = h('section', { class: 'aiu-provider', 'aria-label': p.label });
+  sec.append(h('div', { class: 'aiu-prov-h' }, h('h2', { class: 'aiu-prov-t', tabindex: '-1' }, secIc(p.provider === 'anthropic' ? '✶' : '◆'), p.label), aiSourceBadge(p)));
+  if (p.provider === 'anthropic' && !acc && (intr.requests || 0) === 0 && (!p.modules || !p.modules.length)) {
+    sec.append(h('div', { class: 'aiu-empty-claude' }, h('p', { class: 'muted', text: 'Claude ainda não está em uso na plataforma — o painel já está pronto: assim que um módulo passar a consumir a API da Anthropic (ou você plugar a chave admin da conta), custo, tokens, modelos e limites aparecem aqui automaticamente.' })));
+  }
+  const kpis = h('div', { class: 'aiu-kpis' });
+  kpis.append(aiKpi('Custo (' + windowLabel() + ')', fmtUsd(cost), aiSourceBadge(p)));
+  kpis.append(aiKpi('Tokens entrada', fmtTokens(tin)));
+  kpis.append(aiKpi('Tokens saída', fmtTokens(tout)));
+  kpis.append(aiKpi('Requisições', fmtInt(reqs)));
+  if (p.budget) kpis.append(aiKpi('Orçamento mensal', Math.round(p.budget.pctOfLimit) + '%', h('span', { class: 'aiu-kpi-band ' + aiSeverityCls(p.budget.pctOfLimit), text: aiSeverityLabel(p.budget.pctOfLimit) })));
+  sec.append(kpis);
+  sec.append(aiLiveBlock(p.provider));
+  const gauges = h('div', { class: 'aiu-gauges' });
+  if (p.budget) gauges.append(h('div', { class: 'aiu-gauge-wrap' }, aiGauge(p.budget.pctOfLimit, 'Orçamento mensal'), h('span', { class: 'aiu-gauge-l', text: 'Orçamento — US$ ' + Number(p.budget.spentUsd).toFixed(2) + ' / ' + Number(p.budget.monthlyUsd).toFixed(2) })));
+  for (const rl of (p.limits && p.limits.rateLimits) || []) gauges.append(h('div', { class: 'aiu-gauge-wrap' }, aiGauge(rl.pctUsed, rl.kind), h('span', { class: 'aiu-gauge-l', text: rl.kind + ' — ' + fmtInt(rl.remaining) + '/' + fmtInt(rl.limit) + ' ' + (rl.unit || '') })));
+  if (gauges.children.length) sec.append(gauges);
+  sec.append(aiModuleTable(p));
+  sec.append(aiModelTable(p));
+  if (!acc) sec.append(h('p', { class: 'aiu-note muted', text: 'Conta oficial indisponível (chave admin não configurada) — números acima são estimados pela telemetria interna.' }));
+  else if (p.drift != null) sec.append(h('p', { class: 'aiu-note muted', text: 'Conta oficial (faturada, ' + (acc.lag || 'diário') + '). Diferença vs. estimado: US$ ' + Number(p.drift).toFixed(2) + '.' }));
+  if (p.claudeCodeSubscriptionNote) sec.append(h('p', { class: 'aiu-note muted aiu-note-claude', text: p.claudeCodeSubscriptionNote }));
+  return sec;
+}
+
+function renderAiAlerts(alerts) {
+  const el = document.getElementById('aiusage-alerts'); if (!el) return;
+  el.replaceChildren();
+  for (const a of (alerts || [])) {
+    const crit = a.severity === 'critical';
+    el.append(h('div', { class: 'aiu-alert is-' + (crit ? 'danger' : 'warn'), role: crit ? 'alert' : 'status', 'aria-live': crit ? 'assertive' : 'polite' },
+      h('span', { class: 'aiu-alert-ic', 'aria-hidden': 'true', text: crit ? '⚠' : '!' }),
+      h('div', { class: 'aiu-alert-tx' }, h('strong', { text: a.title }), h('p', { text: a.detail || '' }))));
+  }
+  const it = document.getElementById('tab-aiusage');
+  if (it) { let b = it.querySelector('.nav-badge'); const n = (alerts || []).length; if (!n) { if (b) b.remove(); } else { if (!b) { b = h('span', { class: 'nav-badge' }); it.appendChild(b); } b.className = 'nav-badge is-crit'; b.textContent = String(n); } }
+}
+
+function connectAiStream() {
+  if (state.aiUsage.es || !(state.me && state.me.isAdmin) || state.view !== 'aiusage') return;
+  setLiveState('connecting');
+  let es; try { es = AI.stream('/v1/ai-usage/stream'); } catch { setLiveState('offline'); return; }
+  state.aiUsage.es = es;
+  es.addEventListener('rates', (ev) => { try { applyAiRates(JSON.parse(ev.data)); setLiveState('live'); state.aiUsage.reconnectMs = 1000; } catch { /* frame inválido */ } });
+  es.addEventListener('error', () => { setLiveState('reconnecting'); scheduleAiReconnect(); });
+}
+function scheduleAiReconnect() {
+  if (state.view !== 'aiusage') { disconnectAiStream(); return; }
+  if (state.aiUsage.es) { try { state.aiUsage.es.close(); } catch { /* ignore */ } state.aiUsage.es = null; }
+  clearTimeout(state.aiUsage.reconnectTimer);
+  const delay = Math.min(30000, state.aiUsage.reconnectMs);
+  state.aiUsage.reconnectMs = Math.min(30000, state.aiUsage.reconnectMs * 2);
+  state.aiUsage.reconnectTimer = setTimeout(() => { if (state.view === 'aiusage') connectAiStream(); else setLiveState('offline'); }, delay);
+}
+function disconnectAiStream() {
+  clearTimeout(state.aiUsage.reconnectTimer); state.aiUsage.reconnectTimer = null;
+  if (state.aiUsage.es) { try { state.aiUsage.es.close(); } catch { /* ignore */ } state.aiUsage.es = null; }
+  setLiveState('off');
+}
+
+function aiUsageSkeleton() { const w = h('div', { class: 'aiu-skel' }); for (let i = 0; i < 2; i++) w.append(h('div', { class: 'aiu-skel-card' })); return w; }
+
+async function renderAiUsage() {
+  const body = document.getElementById('aiusage-body'); if (!body) return;
+  if (!(state.me && state.me.isAdmin)) {
+    disconnectAiStream();
+    body.replaceChildren(emptyState({ title: 'Acesso restrito', text: 'O painel de Uso da IA é exclusivo de platform-admins.' }));
+    const al = document.getElementById('aiusage-alerts'); if (al) al.replaceChildren();
+    return;
+  }
+  body.setAttribute('aria-busy', 'true');
+  body.replaceChildren(aiUsageToolbar(), aiUsageSkeleton());
+  const win = state.aiUsage.window;
+  let res; let alertsRes;
+  try { [res, alertsRes] = await Promise.all([AI.get('/v1/ai-usage/breakdown?window=' + win), AI.get('/v1/ai-usage/alerts?window=' + win)]); } catch { res = { ok: false }; }
+  body.removeAttribute('aria-busy');
+  if (!res || !res.ok) {
+    body.replaceChildren(aiUsageToolbar(), emptyState({ title: 'Uso da IA indisponível', text: 'Não foi possível agregar o consumo (status ' + ((res && res.status) || 'rede') + ').', ctaLabel: 'Tentar de novo', ctaOnClick: renderAiUsage }));
+    return;
+  }
+  const bd = res.data; state.aiUsage.lastBreakdown = bd;
+  renderAiAlerts((alertsRes && alertsRes.ok && alertsRes.data && alertsRes.data.alerts) || []);
+  const frag = document.createDocumentFragment();
+  frag.append(aiUsageToolbar());
+  frag.append(aiSourcesBanner(bd.sourcesHealth));
+  for (const p of (bd.providers || [])) frag.append(providerSection(p));
+  body.replaceChildren(frag);
+  connectAiStream();
+}
+
 async function init() {
   document.documentElement.classList.remove('no-js');
   // tema e identidade agora vivem na casca global (<platform-shell>) — sem wireTheme/wireUserMenu aqui.
   wireIcons(); wireNav(); wireSidebar(); wireSearch(); wireFullscreen();
+  // identidade p/ gating do painel de Uso da IA (a casca não reemite o me). Fail-soft: erro => não-admin.
+  try { const r = await fetch('api/v1/me', { headers: { Accept: 'application/json' } }); state.me = r.ok ? await r.json() : null; } catch { state.me = null; }
+  applyAdminGating();
   try {
     const [b, im, rt] = await Promise.all([
       fetch('data/current-baseline.json').then((r) => { if (!r.ok) throw new Error('baseline ' + r.status); return r.json(); }),

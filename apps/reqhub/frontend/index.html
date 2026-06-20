@@ -11,7 +11,7 @@
     <link rel="icon" href="assets/favicon.svg" />
     <link rel="stylesheet" href="assets/platform-tokens.css?v=41" />
     <link rel="stylesheet" href="assets/platform-shell.css?v=41" />
-    <link rel="stylesheet" href="assets/styles.css?v=41" />
+    <link rel="stylesheet" href="assets/styles.css?v=45" />
   </head>
   <body>
     <a class="skip" href="#main">Pular para o conteúdo</a>
@@ -51,6 +51,11 @@
             <button class="nav-item" id="tab-dev" type="button" data-view="dev" data-icon="dev"><span class="nav-label">Desenvolvimento</span></button>
             <button class="nav-item" id="tab-forge" type="button" data-view="forge" data-icon="forge"><span class="nav-label">Forge</span></button>
             <button class="nav-item" id="tab-reprocess" type="button" data-view="reprocess" data-icon="reprocess"><span class="nav-label">Reprocessamento</span></button>
+          </div>
+          <!-- Grupo de OPERADOR: revelado pelo app.js só para platform-admins (gating). -->
+          <div class="nav-group" id="nav-group-ai" hidden>
+            <span class="nav-group-l" aria-hidden="true">Operação</span>
+            <button class="nav-item" id="tab-aiusage" type="button" data-view="aiusage" data-icon="aiusage"><span class="nav-label">Uso da IA</span></button>
           </div>
         </nav>
 
@@ -129,6 +134,11 @@
             <div id="forge-body"></div>
           </section>
 
+          <section id="view-aiusage" class="view" role="region" aria-label="Uso da IA" hidden>
+            <div id="aiusage-alerts" role="region" aria-label="Alertas de orçamento e limite"></div>
+            <div id="aiusage-body"></div>
+          </section>
+
           <footer class="foot" role="contentinfo">
             <span id="foot-meta">Reqhub</span>
             <span class="foot-links">
@@ -140,6 +150,6 @@
     </div>
 
     <script type="module" src="assets/platform-shell.js?v=44"></script>
-    <script type="module" src="assets/app.js?v=43"></script>
+    <script type="module" src="assets/app.js?v=45"></script>
   </body>
 </html>
