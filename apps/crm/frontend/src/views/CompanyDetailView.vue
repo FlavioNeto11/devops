@@ -125,30 +125,30 @@ onMounted(load)
 </script>
 
 <style scoped>
-.back { display: inline-block; color: #3b82f6; text-decoration: none; margin-bottom: 1.5rem; font-size: .9rem; }
+.back { display: inline-block; color: #4f46e5; text-decoration: none; margin-bottom: 1.5rem; font-size: .9rem; }
 .back:hover { text-decoration: underline; }
 .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .75rem; }
 h1 { font-size: 1.75rem; font-weight: 700; }
 h2 { font-size: 1.125rem; font-weight: 600; margin: 1.5rem 0 .75rem; }
-.btn-primary { background: #3b82f6; color: #fff; border: none; border-radius: 6px; padding: .5rem 1rem; cursor: pointer; font-size: .95rem; font-weight: 500; }
-.btn-primary:hover { background: #2563eb; }
+.btn-primary { background: #4f46e5; color: #fff; border: none; border-radius: 6px; padding: .5rem 1rem; cursor: pointer; font-size: .95rem; font-weight: 500; transition: background-color .15s ease, color .15s ease, box-shadow .15s ease; }
+.btn-primary:hover { background: #4338ca; }
 .btn-primary:disabled { opacity: .6; cursor: not-allowed; }
-.info { display: grid; grid-template-columns: 120px 1fr; gap: .4rem .75rem; background: #fff; padding: 1rem 1.25rem; border-radius: 8px; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
-dt { font-size: .875rem; font-weight: 500; color: #64748b; align-self: center; }
+.info { display: grid; grid-template-columns: 120px 1fr; gap: .4rem .75rem; background: rgb(var(--p-surface)); padding: 1rem 1.25rem; border-radius: 8px; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+dt { font-size: .875rem; font-weight: 500; color: rgb(var(--p-muted)); align-self: center; }
 dd { font-size: .95rem; align-self: center; }
-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
-th { background: #f8fafc; text-align: left; padding: .75rem 1rem; font-size: .875rem; font-weight: 600; color: #64748b; border-bottom: 1px solid #e2e8f0; }
-td { padding: .75rem 1rem; border-bottom: 1px solid #f1f5f9; font-size: .9rem; }
-.empty { color: #94a3b8; padding: .5rem 0; }
-a { color: #3b82f6; text-decoration: none; }
+table { width: 100%; border-collapse: collapse; background: rgb(var(--p-surface)); border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+th { background: rgb(var(--p-bg)); text-align: left; padding: .75rem 1rem; font-size: .875rem; font-weight: 600; color: rgb(var(--p-muted)); border-bottom: 1px solid rgb(var(--p-border)); }
+td { padding: .75rem 1rem; border-bottom: 1px solid rgb(var(--p-surface2)); font-size: .9rem; }
+.empty { color: rgb(var(--p-muted)); padding: .5rem 0; }
+a { color: #4f46e5; text-decoration: none; }
 a:hover { text-decoration: underline; }
 .msg { padding: .75rem 1rem; border-radius: 6px; margin-bottom: 1rem; }
-.msg.error { background: #fee2e2; color: #b91c1c; }
+.msg.error { background: rgb(var(--p-danger) / 0.14); color: rgb(var(--p-danger)); }
 .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 1rem; }
-.modal { background: #fff; border-radius: 12px; padding: 1.5rem; width: 100%; max-width: 480px; }
+.modal { background: rgb(var(--p-surface)); border-radius: 12px; padding: 1.5rem; width: 100%; max-width: 480px; }
 .modal h2 { margin-bottom: 1rem; font-size: 1.125rem; font-weight: 600; }
-label { display: flex; flex-direction: column; gap: .3rem; margin-bottom: .85rem; font-size: .875rem; font-weight: 500; color: #374151; }
-label input { padding: .5rem .75rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: .95rem; outline: none; }
-label input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px #bfdbfe; }
+label { display: flex; flex-direction: column; gap: .3rem; margin-bottom: .85rem; font-size: .875rem; font-weight: 500; color: rgb(var(--p-fg) / 0.78); }
+label input { padding: .5rem .75rem; border: 1px solid rgb(var(--p-border)); border-radius: 6px; font-size: .95rem; outline: none; background: rgb(var(--p-surface)); color: rgb(var(--p-fg)); }
+label input:focus-visible { border-color: #4f46e5; box-shadow: 0 0 0 2px rgb(79 70 229 / 0.35); }
 .modal-actions { display: flex; justify-content: flex-end; gap: .75rem; margin-top: 1.25rem; }
 </style>

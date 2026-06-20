@@ -21,10 +21,13 @@ const HEADER_JS = `// ${NOTE}\n`;
 
 // [arquivo-fonte, [destinos]]
 const APPS = ['portal/frontend/assets', 'apps/reqhub/frontend/assets', 'console/frontend/src', 'apps/portal-recorder/frontend/src'];
+// Apps que adotam APENAS a paleta neutra (--p-*), sem o web component da casca
+// (ex.: CRM tem nav próprio). Recebem só platform-tokens.css, com drift-gate.
+const TOKENS_ONLY = ['apps/crm/frontend/src'];
 const SOURCES = [
   ['shell.js', APPS.map((d) => d + '/platform-shell.js')],
   ['shell.css', APPS.map((d) => d + '/platform-shell.css')],
-  ['platform-tokens.css', APPS.map((d) => d + '/platform-tokens.css')],
+  ['platform-tokens.css', [...APPS, ...TOKENS_ONLY].map((d) => d + '/platform-tokens.css')],
 ];
 
 function bodyFor(src) {

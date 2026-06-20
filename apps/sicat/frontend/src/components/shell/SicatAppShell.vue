@@ -152,6 +152,8 @@ function handleNavigate(path) {
 .sicat-shell__content--chat > .sicat-shell__container {
   flex: 1;
   min-height: 0;
+  /* O chat ocupa a largura total: anula o cap de leitura do container base. */
+  max-width: none;
   display: flex;
   flex-direction: column;
   padding-bottom: 0;
@@ -159,8 +161,8 @@ function handleNavigate(path) {
 
 .sicat-shell__container {
   width: 100%;
-  max-width: none;
-  margin: 0;
+  max-width: var(--app-max-width);
+  margin-inline: auto;
   padding: 0 clamp(18px, 2.2vw, 28px);
 }
 

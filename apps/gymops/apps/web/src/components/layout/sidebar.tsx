@@ -80,10 +80,10 @@ export function Sidebar({ units, organizationName, mobileOpen, onMobileClose }: 
             href={item.href}
             onClick={onMobileClose}
             className={cn(
-              'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+              'relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-foreground/40',
               pathname === item.href
-                ? 'bg-white/10 font-medium text-sidebar-foreground'
+                ? 'bg-white/[0.14] font-medium text-sidebar-foreground before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-0.5 before:rounded-full before:bg-sidebar-foreground'
                 : 'text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground',
               collapsed && 'justify-center px-2',
             )}
@@ -112,10 +112,10 @@ export function Sidebar({ units, organizationName, mobileOpen, onMobileClose }: 
             href={`/units/${unit.id}`}
             onClick={onMobileClose}
             className={cn(
-              'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+              'relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-foreground/40',
               pathname === `/units/${unit.id}`
-                ? 'bg-white/10 font-medium text-sidebar-foreground'
+                ? 'bg-white/[0.14] font-medium text-sidebar-foreground before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-0.5 before:rounded-full before:bg-sidebar-foreground'
                 : 'text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground',
               collapsed && 'justify-center px-2',
             )}
