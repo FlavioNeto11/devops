@@ -32,6 +32,12 @@
       "port": 5056
     },
     {
+      "name": "crm-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "apps/crm/frontend", "--", "--port", "5192", "--strictPort"],
+      "port": 5192
+    },
+    {
       "name": "gymops-web-dev",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--dir", "apps/gymops", "--filter", "@gymops/web", "dev"],
