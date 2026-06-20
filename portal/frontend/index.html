@@ -66,9 +66,9 @@
       rel="stylesheet"
     />
 
-    <link rel="stylesheet" href="/assets/platform-tokens.css?v=1" />
-    <link rel="stylesheet" href="/assets/platform-shell.css?v=2" />
-    <link rel="stylesheet" href="/assets/styles.css?v=12" />
+    <link rel="stylesheet" href="/assets/platform-tokens.css?v=2" />
+    <link rel="stylesheet" href="/assets/platform-shell.css?v=3" />
+    <link rel="stylesheet" href="/assets/styles.css?v=13" />
 
     <!-- Dados estruturados (SEO) -->
     <script type="application/ld+json">
@@ -119,8 +119,8 @@
           >
             <defs>
               <linearGradient id="lg" x1="0" y1="0" x2="48" y2="48">
-                <stop stop-color="#2563eb" />
-                <stop offset="1" stop-color="#7c6cff" />
+                <stop stop-color="#4f46e5" />
+                <stop offset="1" stop-color="#0d9488" />
               </linearGradient>
             </defs>
             <rect x="3" y="3" width="42" height="42" rx="12" fill="url(#lg)" />
@@ -255,6 +255,18 @@
               />
             </div>
             <span class="result-count" id="search-count" aria-live="polite"></span>
+          </div>
+
+          <!-- Estado vazio da busca: revelado pelo portal.js quando a query não casa nada. -->
+          <div id="search-empty" class="state" hidden aria-live="polite">
+            <div class="state-ic" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+            </div>
+            <p>Nenhuma aplicação corresponde a <strong id="search-empty-q"></strong>.</p>
+            <button type="button" class="btn ghost sm" id="search-clear">Limpar busca</button>
           </div>
 
           <div class="grid g3">
@@ -452,10 +464,12 @@
         </div>
       </section>
 
-      <!-- SHOWCASE / RESULTADOS — imagens ILUSTRATIVAS (placeholders).
-           TODO: substituir cada src por uma captura real em assets/shots/<app>.png
-           (~1600x1000, otimizada). Ver docs/IMPLEMENTACAO_MELHORIAS_PORTAL.md. -->
-      <section class="block" id="showcase" aria-labelledby="showcase-title">
+      <!-- SHOWCASE / RESULTADOS — OCULTO até existirem capturas reais.
+           Três placeholders idênticos com a legenda "imagens ilustrativas" minavam a
+           credibilidade da home ("sistemas reais, operando hoje"). Para reativar: trocar
+           cada src por uma captura real em assets/shots/<app>.png (~1600x1000, otimizada),
+           remover o atributo `hidden` e a ressalva "(Imagens ilustrativas…)". -->
+      <section class="block" id="showcase" aria-labelledby="showcase-title" hidden>
         <div class="wrap">
           <div class="sec-head reveal">
             <p class="eyebrow">// em produção</p>
@@ -622,7 +636,7 @@
 
     <!-- Config de runtime opcional (no-op por padrão); habilita analytics por deploy. -->
     <script src="/assets/config.js?v=10"></script>
-    <script type="module" src="/assets/platform-shell.js?v=3"></script>
-    <script type="module" src="/assets/portal.js?v=12"></script>
+    <script type="module" src="/assets/platform-shell.js?v=4"></script>
+    <script type="module" src="/assets/portal.js?v=13"></script>
   </body>
 </html>

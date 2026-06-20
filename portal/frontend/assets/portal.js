@@ -431,12 +431,30 @@ function applySearch() {
       ? `${visible} resultado${visible === 1 ? '' : 's'}`
       : `${available} aplicações`;
   }
+  // Estado vazio: query digitada que não casa nada — evita "grade vazia silenciosa".
+  const empty = document.getElementById('search-empty');
+  if (empty) {
+    const show = q.trim() !== '' && visible === 0 && available > 0;
+    empty.hidden = !show;
+    if (show) {
+      const qEl = document.getElementById('search-empty-q');
+      if (qEl) qEl.textContent = `“${q.trim()}”`;
+    }
+  }
 }
 
 function setupSearch() {
   const input = document.getElementById('app-search');
   if (!input) return;
   input.addEventListener('input', applySearch);
+  const clear = document.getElementById('search-clear');
+  if (clear) {
+    clear.addEventListener('click', () => {
+      input.value = '';
+      applySearch();
+      input.focus();
+    });
+  }
   applySearch();
 }
 
