@@ -4,6 +4,7 @@
 // a IA esta de fato habilitada. Sem OPENAI_API_KEY -> getLlm() retorna null
 // (as rotas respondem 503 AI_DISABLED). Isso mantem o pod no ar mesmo sem o secret.
 import { createOpenAiLlm } from '@flavioneto11/ai-core';
+import { recordUsage } from './usage/ai-metrics.js';
 
 export function aiEnabled() {
   return Boolean((process.env.OPENAI_API_KEY || '').trim());
@@ -19,7 +20,18 @@ export async function getLlm() {
   if (_llm) return _llm;
   const { default: OpenAI } = await import('openai');
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  _llm = createOpenAiLlm(client, { defaultModel: DEFAULT_MODEL() });
+  const adapter = createOpenAiLlm(client, { defaultModel: DEFAULT_MODEL() });
+  // Instrumenta: cada complete() registra tokens+custo nas métricas ai_* (reqhub vira módulo
+  // no painel de Uso da IA). Best-effort — nunca altera o resultado nem quebra a chamada.
+  if (adapter && typeof adapter.complete === 'function') {
+    const orig = adapter.complete.bind(adapter);
+    adapter.complete = async (args) => {
+      const r = await orig(args);
+      recordUsage((args && args.model) || DEFAULT_MODEL(), r && r.usage);
+      return r;
+    };
+  }
+  _llm = adapter;
   return _llm;
 }
 

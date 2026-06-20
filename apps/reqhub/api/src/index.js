@@ -4,6 +4,7 @@
 import express from 'express';
 import { buildRouter, statusForError } from './routes.js';
 import { buildDurableMemory } from './ai/memory.js';
+import { startAiMetricsServer } from './usage/ai-metrics.js';
 
 const PORT = Number.parseInt(process.env.PORT || '8080', 10);
 
@@ -39,6 +40,9 @@ app.use((err, _req, res, _next) => {
 const server = app.listen(PORT, () => {
   console.log(`[reqhub-api] listening on :${PORT} (ai=${Boolean((process.env.OPENAI_API_KEY || '').trim())})`);
 });
+
+// Métricas ai_* do reqhub (porta separada 9464, scrape do kube-prometheus). Best-effort.
+try { startAiMetricsServer(); } catch (err) { console.error('[reqhub-api] metrics off:', err && err.message); }
 
 let shuttingDown = false;
 function shutdown(signal) {

@@ -18,6 +18,7 @@ import { buildAuthoringTools, buildForgeTools } from './tools.js';
 import { requireAuthoringAuth, ssoIdentity } from './auth.js';
 import { aiEnabled, getLlm } from './llm.js';
 import { runAuthoringChatTurn } from './ai/graph.js';
+import { buildUsageRouter } from './usage/index.js';
 
 // Mapeia erros tipados do contrato AiTool -> HTTP.
 function statusForError(err) {
@@ -98,6 +99,12 @@ export function buildRouter({ registry, llm, memory } = {}) {
   // Forge (greenfield): propor requisitos/arquitetura — geram conteudo, nao escrevem git.
   router.post('/v1/forge/propose-requirements', requireAuthoringAuth, run('forge.propose_requirements'));
   router.post('/v1/forge/propose-architecture', requireAuthoringAuth, run('forge.propose_architecture'));
+
+  // Painel "Uso da IA" (/v1/ai-usage/*): leitura admin-only de custo/uso/limites (Claude+OpenAI),
+  // agregando telemetria interna (Prometheus/Langfuse) + contas. Fail-soft; mantém o reqhub no ar.
+  const { router: usageRouter, ctx: usageCtx } = buildUsageRouter();
+  router.use('/v1/ai-usage', usageRouter);
+  router._usageCtx = usageCtx; // exposto p/ a fase de live (SSE) reusar o mesmo contexto
 
   return router;
 }

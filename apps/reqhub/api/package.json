@@ -17,6 +17,7 @@
     "@flavioneto11/ai-kit": "file:vendor/flavioneto11-ai-kit-0.1.0.tgz",
     "express": "^4.21.2",
     "openai": "^4.77.0",
-    "pg": "^8.21.0"
+    "pg": "^8.21.0",
+    "prom-client": "^15.1.3"
   }
 }
