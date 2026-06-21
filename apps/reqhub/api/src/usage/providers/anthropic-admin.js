@@ -18,13 +18,30 @@ export function createAnthropicAdminClient({ adminKey, apiKey, base = 'https://a
     } catch (err) { return { ok: false, code: 'PROVIDER_NET', error: String((err && err.message) || err) }; }
   }
 
+  // A Admin API limita bucket_width=1d a limit<=31 por pagina -> pagina via next_page p/ cobrir
+  // janelas > 31 dias (ex.: 90d). Erro na 1a pagina propaga; erro nas seguintes retorna o parcial.
+  async function adminGetPaged(path, params, maxPages = 16) {
+    const buckets = [];
+    let page;
+    for (let i = 0; i < maxPages; i++) {
+      const res = await adminGet(path, page ? { ...params, page } : params);
+      if (!res.ok) return i === 0 ? res : { ok: true, data: { data: buckets } };
+      const d = res.data || {};
+      if (Array.isArray(d.data)) for (const b of d.data) buckets.push(b);
+      if (!d.has_more || !d.next_page) break;
+      page = d.next_page;
+    }
+    return { ok: true, data: { data: buckets } };
+  }
+
   async function accountUsage({ fromMs, toMs }) {
     if (!enabled) return { ok: false, code: 'PROVIDER_KEY_ABSENT', error: 'ANTHROPIC_ADMIN_KEY ausente' };
     const starting_at = new Date(fromMs).toISOString();
     const ending_at = new Date(toMs).toISOString();
+    // bucket_width SEMPRE 1d (cost_report so aceita 1d) e limit<=31 (cap da API) — paginado.
     const [usageRes, costRes] = await Promise.all([
-      adminGet('/v1/organizations/usage_report/messages', { starting_at, ending_at, bucket_width: '1d', limit: 180 }),
-      adminGet('/v1/organizations/cost_report', { starting_at, ending_at, limit: 180 }),
+      adminGetPaged('/v1/organizations/usage_report/messages', { starting_at, ending_at, bucket_width: '1d', limit: 31 }),
+      adminGetPaged('/v1/organizations/cost_report', { starting_at, ending_at, bucket_width: '1d', limit: 31 }),
     ]);
     let cost = 0;
     if (costRes.ok) {
