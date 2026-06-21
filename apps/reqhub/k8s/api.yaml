@@ -56,8 +56,10 @@ spec:
             # Bearer + beta oauth). Trocar p/ "openai" reverte ao gpt-5 sem redeploy de código.
             - name: AI_PROVIDER
               value: "anthropic"
+            # haiku-4-5: confiável na assinatura atual (sonnet-4-6 rate-limita/429 — compartilha
+            # o pool da assinatura com o runner/sessão). Trocar p/ sonnet com API key dedicada.
             - name: REQHUB_AI_MODEL
-              value: "claude-sonnet-4-6"
+              value: "claude-haiku-4-5-20251001"
             - name: ANTHROPIC_AUTH_TOKEN
               valueFrom: { secretKeyRef: { name: reqhub-api-config, key: ANTHROPIC_AUTH_TOKEN, optional: true } }
             # OPENAI_API_KEY: REUSA a chave que ja existe na plataforma (secret sicat-config,
