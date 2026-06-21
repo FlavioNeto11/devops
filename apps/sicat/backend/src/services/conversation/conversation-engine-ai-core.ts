@@ -25,7 +25,8 @@
 
 import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
 import type { ChatOpenAI } from '@langchain/openai';
-import { createAiGraph, createToolRegistry } from '@flavioneto11/ai-core';
+import Anthropic from '@anthropic-ai/sdk';
+import { createAiGraph, createToolRegistry, createAnthropicLlm } from '@flavioneto11/ai-core';
 import { aiMetrics } from '../../lib/ai-metrics.js';
 import { createChatModel, getAiConfig } from './ai-config.js';
 import { retrieveKnowledge, buildKnowledgeContextBlock } from './knowledge/conversation-knowledge-service.js';
@@ -65,7 +66,13 @@ function engineVerifyEnabled(): boolean {
   return (process.env.CONVERSATION_ENGINE_VERIFY || 'on').trim().toLowerCase() !== 'off';
 }
 
+// Provider de IA do engine. anthropic = Claude (assinatura via ANTHROPIC_AUTH_TOKEN ou API key).
+// Embeddings/RAG e o caminho LEGADO seguem em OpenAI; só o LLM do grafo (engine ai-core) troca.
+const isAnthropic = (): boolean => (process.env.AI_PROVIDER || 'openai').trim().toLowerCase() === 'anthropic';
+const anthropicModel = (): string => (process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001').trim();
+
 function engineRouterModel(): string {
+  if (isAnthropic()) return anthropicModel();
   return (process.env.CONVERSATION_ENGINE_ROUTER_MODEL || 'gpt-5-nano').trim();
 }
 
@@ -105,6 +112,19 @@ function toLangChainMessages(messages: Array<LooseRecord>) {
 }
 
 function createEngineLlm() {
+  // CLAUDE: o adapter ai-core (createAnthropicLlm) tem o MESMO contrato complete({model,messages,
+  // tools,...}) — a conversão de mensagens/tools é interna (provado no reqhub). Token de assinatura
+  // via Bearer+beta oauth ou API key. Sem credencial Claude → cai no caminho OpenAI (fail-soft).
+  if (isAnthropic()) {
+    const authToken = (process.env.ANTHROPIC_AUTH_TOKEN || '').trim();
+    const apiKey = (process.env.ANTHROPIC_API_KEY || '').trim();
+    if (authToken || apiKey) {
+      const client = authToken
+        ? new Anthropic({ authToken, defaultHeaders: { 'anthropic-beta': process.env.ANTHROPIC_OAUTH_BETA || 'oauth-2025-04-20' } })
+        : new Anthropic({ apiKey });
+      return createAnthropicLlm(client, { defaultModel: anthropicModel() });
+    }
+  }
   const cache = new Map<string, ChatOpenAI>();
   function modelFor(model: string, effort: string): ChatOpenAI {
     const key = `${model}:${effort}`;
@@ -303,8 +323,8 @@ export function createAiCoreLlmProvider(legacy: LlmProvider): LlmProvider {
       judgeThreshold: JUDGE_THRESHOLD,
       models: {
         router: engineRouterModel(),
-        deep: config.openAiAgentModel,
-        synth: config.openAiSynthesisModel,
+        deep: isAnthropic() ? anthropicModel() : config.openAiAgentModel,
+        synth: isAnthropic() ? anthropicModel() : config.openAiSynthesisModel,
         judge: engineRouterModel()
       },
       metrics: aiMetrics
