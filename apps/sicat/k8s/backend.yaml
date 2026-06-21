@@ -101,17 +101,20 @@ spec:
             # do engine. ROLLBACK: trocar para "legacy" (ou remover a env).
             - name: CONVERSATION_ENGINE
               value: "ai-core"
-            # Provider do LLM do engine ai-core: anthropic = Claude (assinatura via
-            # ANTHROPIC_AUTH_TOKEN, injetado pelo envFrom sicat-config). Embeddings/RAG e o
-            # caminho LEGADO seguem em OpenAI. ROLLBACK instantâneo: AI_PROVIDER=openai.
-            # haiku-4-5: confiável na assinatura (sonnet-4-6 rate-limita/429).
+            # Provider do LLM do engine ai-core: anthropic = Claude. Credencial = API key dedicada
+            # (ANTHROPIC_API_KEY, x-api-key). Embeddings/RAG e o caminho LEGADO seguem em OpenAI.
+            # ROLLBACK instantâneo: AI_PROVIDER=openai (fallback OpenAI mantido).
+            # sonnet-4-6: liberado pela API key dedicada (limite próprio, sem o 429 da assinatura).
             - name: AI_PROVIDER
               value: "anthropic"
             - name: ANTHROPIC_MODEL
-              value: "claude-haiku-4-5-20251001"
-            # Token da assinatura Claude. sicat-config é SealedSecret (Argo) e kubeseal não está
-            # nesta máquina → o token vive no secret PLAIN reqhub-api-config (ns apps, persiste).
-            # secretKeyRef explícito VENCE o envFrom. Migrar p/ sicat-config selada com API key dedicada.
+              value: "claude-sonnet-4-6"
+            # Credenciais Claude. sicat-config é SealedSecret (Argo) e kubeseal não está nesta máquina
+            # → as chaves vivem no secret PLAIN reqhub-api-config (ns apps, persiste). secretKeyRef
+            # explícito VENCE o envFrom. O código prefere a API key; AUTH_TOKEN fica como fallback opcional.
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef: { name: reqhub-api-config, key: ANTHROPIC_API_KEY, optional: true }
             - name: ANTHROPIC_AUTH_TOKEN
               valueFrom:
                 secretKeyRef: { name: reqhub-api-config, key: ANTHROPIC_AUTH_TOKEN, optional: true }

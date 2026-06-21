@@ -52,14 +52,17 @@ spec:
           env:
             - name: PORT
               value: "8080"
-            # Provider de IA: anthropic = Claude (assinatura Claude Code via ANTHROPIC_AUTH_TOKEN,
-            # Bearer + beta oauth). Trocar p/ "openai" reverte ao gpt-5 sem redeploy de código.
+            # Provider de IA: anthropic = Claude. Credencial = API key dedicada (ANTHROPIC_API_KEY,
+            # x-api-key); o código prefere o token de assinatura SE presente, senão usa a API key.
+            # Trocar p/ "openai" reverte ao gpt-5 sem redeploy de código.
             - name: AI_PROVIDER
               value: "anthropic"
-            # haiku-4-5: confiável na assinatura atual (sonnet-4-6 rate-limita/429 — compartilha
-            # o pool da assinatura com o runner/sessão). Trocar p/ sonnet com API key dedicada.
+            # sonnet-4-6: liberado pela API key dedicada (limite próprio, sem o 429 da assinatura).
             - name: REQHUB_AI_MODEL
-              value: "claude-haiku-4-5-20251001"
+              value: "claude-sonnet-4-6"
+            - name: ANTHROPIC_API_KEY
+              valueFrom: { secretKeyRef: { name: reqhub-api-config, key: ANTHROPIC_API_KEY, optional: true } }
+            # Fallback opcional: token de assinatura (ausente do secret após a migração p/ API key).
             - name: ANTHROPIC_AUTH_TOKEN
               valueFrom: { secretKeyRef: { name: reqhub-api-config, key: ANTHROPIC_AUTH_TOKEN, optional: true } }
             # OPENAI_API_KEY: REUSA a chave que ja existe na plataforma (secret sicat-config,
