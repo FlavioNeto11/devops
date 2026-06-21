@@ -105,6 +105,12 @@ export interface LlmAdapter {
 }
 export function createOpenAiLlm(client: unknown, opts?: { defaultModel?: string }): LlmAdapter;
 export function toOpenAiToolDef(tool: AiTool): Record<string, unknown>;
+export function createAnthropicLlm(client: unknown, opts?: { defaultModel?: string; defaultMaxTokens?: number }): LlmAdapter;
+export function createLlm(opts: { provider?: string; client: unknown; defaultModel?: string }): LlmAdapter;
+export function providerForModel(model: string): string;
+export function toAnthropicTool(tool: AiTool): Record<string, unknown>;
+export function toAnthropicMessages(messages: Array<Record<string, unknown>>): { system: string; messages: Array<Record<string, unknown>> };
+export function toAnthropicToolChoice(toolChoice?: unknown): Record<string, unknown>;
 
 export interface AiSpecialist { id: string; description: string; systemPrompt: string }
 export interface GraphTurn {

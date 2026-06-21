@@ -2,12 +2,14 @@
 // com tools read-only → VERIFY (judge), com MEMÓRIA em 3 horizontes (F3):
 // thread server-side em Postgres (sobrevive a reload/restart), rolling summary
 // e memória longa por usuário em pgvector. Atrás da flag AI_GRAPH (default off).
+import OpenAI from 'openai';
 import {
-  createAiGraph, createOpenAiLlm, createAiTracer,
+  createAiGraph, createLlm, createAiTracer,
   createThreadStore, createRollingSummarizer, createUserMemory, createEmbedder, extractMemoryFacts,
   type GraphTurn, type GraphResult, type LlmAdapter,
 } from '@flavioneto11/ai-core';
 import { getOpenAI } from '../ai.service.js';
+import { env } from '../../env.js';
 import { aiMetrics } from '../ai-metrics.js';
 import { gymopsToolRegistry } from './tools.js';
 import { db } from '../../lib/prisma.js';
@@ -88,36 +90,46 @@ let memoryLlm: LlmAdapter | null = null;
 function getGraph() {
   if (graph) return graph;
   const client = getOpenAI();
-  if (!client) return null; // sem OPENAI_API_KEY → caller usa o caminho legado/fallback
-  const model = process.env.OPENAI_MODEL?.trim() || 'gpt-5-nano';
-  const llm = createOpenAiLlm(client, { defaultModel: model });
+  if (!client) return null; // sem credencial → caller usa o caminho legado/fallback
+  const provider = (process.env.AI_PROVIDER ?? 'openai').trim().toLowerCase();
+  const isAnthropic = provider === 'anthropic';
+  // Modelo do estágio "deep" + um modelo "barato" (router/synth/judge) por provider.
+  const model = isAnthropic
+    ? (process.env.ANTHROPIC_MODEL?.trim() || 'claude-sonnet-4-6')
+    : (process.env.OPENAI_MODEL?.trim() || 'gpt-5-nano');
+  const cheap = isAnthropic ? 'claude-haiku-4-5-20251001' : 'gpt-5-nano';
+  const llm = createLlm({ provider, client, defaultModel: model });
   memoryLlm = llm;
 
-  // F3: memória — thread store (Postgres), rolling summary e memória longa (pgvector).
-  const embedder = createEmbedder({
-    embedFn: async (texts: string[]) => {
-      const res = await client.embeddings.create({ model: 'text-embedding-3-small', input: texts });
-      return res.data.map((d) => d.embedding);
-    },
-    dimensions: 1536,
-  });
+  // F3: memória. Embeddings são SEMPRE OpenAI (Anthropic não expõe /embeddings) — usa um cliente
+  // OpenAI dedicado se houver OPENAI_API_KEY; sem ele, a memória longa (pgvector) degrada (fail-soft).
+  const embedClient = env.OPENAI_API_KEY ? new OpenAI({ apiKey: env.OPENAI_API_KEY }) : (isAnthropic ? null : (client as OpenAI));
   const threadStore = createThreadStore({ query: rawQuery });
   const summarizer = createRollingSummarizer({ llm, keepRecent: 8, triggerAt: 16 });
-  userMemory = createUserMemory({ query: rawQuery, embedder, ttlDays: 180 });
+  if (embedClient) {
+    const embedder = createEmbedder({
+      embedFn: async (texts: string[]) => {
+        const res = await embedClient.embeddings.create({ model: 'text-embedding-3-small', input: texts });
+        return res.data.map((d) => d.embedding);
+      },
+      dimensions: 1536,
+    });
+    userMemory = createUserMemory({ query: rawQuery, embedder, ttlDays: 180 });
+  }
 
   graph = createAiGraph({
     llm,
     registry: gymopsToolRegistry,
     specialists: SPECIALISTS,
     models: {
-      router: process.env.OPENAI_ROUTER_MODEL?.trim() || 'gpt-5-nano',
-      deep: process.env.OPENAI_DEEP_MODEL?.trim() || model,
-      synth: process.env.OPENAI_SYNTH_MODEL?.trim() || model,
-      judge: process.env.OPENAI_JUDGE_MODEL?.trim() || 'gpt-5-nano',
+      router: process.env.AI_ROUTER_MODEL?.trim() || cheap,
+      deep: process.env.AI_DEEP_MODEL?.trim() || model,
+      synth: process.env.AI_SYNTH_MODEL?.trim() || model,
+      judge: process.env.AI_JUDGE_MODEL?.trim() || cheap,
     },
     metrics: aiMetrics,
     tracer: createAiTracer({ metrics: aiMetrics, app: 'gymops' }),
-    memory: { threadStore, summarizer, userMemory },
+    memory: { threadStore, summarizer, userMemory: userMemory ?? undefined },
     verify: (process.env.AI_GRAPH_VERIFY ?? 'on').trim().toLowerCase() !== 'off',
   });
   return graph;

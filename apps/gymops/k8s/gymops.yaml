@@ -169,6 +169,13 @@ spec:
           envFrom:
             - secretRef: { name: gymops-config }
           env:
+            # Provider de IA: anthropic = Claude (assinatura Claude Code via ANTHROPIC_AUTH_TOKEN,
+            # injetado pelo envFrom gymops-config). Embeddings seguem em OpenAI (OPENAI_API_KEY).
+            # Trocar p/ "openai" reverte ao gpt-5 sem redeploy de código.
+            - name: AI_PROVIDER
+              value: "anthropic"
+            - name: ANTHROPIC_MODEL
+              value: "claude-sonnet-4-6"
             # F1/F4: turno de chat roteia pelo grafo ai-core (router fast/deep +
             # tools com authz + VERIFY); erro no grafo → fallback gracioso ao legado.
             - name: AI_GRAPH

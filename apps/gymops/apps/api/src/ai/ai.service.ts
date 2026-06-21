@@ -1,73 +1,90 @@
 import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import { env } from '../env.js';
-import { callWithFallback, chatJSON as kitChatJSON, chatText as kitChatText } from '@flavioneto11/ai-kit';
+import { callWithFallback } from '@flavioneto11/ai-kit';
+import { createLlm, providerForModel, estimateCostUsd, extractTokenUsage } from '@flavioneto11/ai-core';
 import { aiMetrics } from './ai-metrics.js';
 
-// Contrato gpt-5 centralizado em @flavioneto11/ai-kit (compartilhado com o SICAT).
-// Flag de rollback (ver docs/standards/deprecation-policy.md): AI_KIT=off volta ao
-// caminho inline legado por 1 ciclo, caso algo regrida.
-const AI_KIT_ENABLED = (process.env.AI_KIT ?? 'on').trim().toLowerCase() !== 'off';
+// Camada de IA PROVIDER-AGNÓSTICA. AI_PROVIDER=anthropic → Claude (SDK @anthropic-ai); token de
+// ASSINATURA do Claude Code (ANTHROPIC_AUTH_TOKEN) via Bearer + beta `oauth-...`, ou API key
+// (ANTHROPIC_API_KEY) via x-api-key. Default openai (gpt-5). Todo o produto (draft/checklist/
+// delay/chat/summary) chama chatJSON/chatText → adapter ai-core, então a troca é por ENV.
 
-let _client: OpenAI | null = null;
+const AI_PROVIDER = (): string => (process.env.AI_PROVIDER ?? 'openai').trim().toLowerCase();
 
-export function getOpenAI(): OpenAI | null {
-  if (!env.OPENAI_API_KEY) return null;
-  if (_client) return _client;
-  _client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+// Cliente estrutural do provider ativo (truthy se a credencial existe; senão null → fail-soft).
+type AiClient = unknown;
+let _client: AiClient | null = null;
+let _clientProvider = '';
+export function getClient(): AiClient | null {
+  const provider = AI_PROVIDER();
+  if (_client && _clientProvider === provider) return _client;
+  if (provider === 'anthropic') {
+    const authToken = (process.env.ANTHROPIC_AUTH_TOKEN ?? '').trim();
+    const apiKey = (process.env.ANTHROPIC_API_KEY ?? '').trim();
+    if (!authToken && !apiKey) return null;
+    _client = authToken
+      ? new Anthropic({ authToken, defaultHeaders: { 'anthropic-beta': process.env.ANTHROPIC_OAUTH_BETA || 'oauth-2025-04-20' } })
+      : new Anthropic({ apiKey });
+  } else {
+    if (!env.OPENAI_API_KEY) return null;
+    _client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+  }
+  _clientProvider = provider;
   return _client;
 }
+// Compat: o grafo/IA antigos importam getOpenAI(); agora devolve o cliente do provider ativo.
+export const getOpenAI = getClient;
 
 const SYNC_TIMEOUT_MS = 20_000;
 const ASYNC_TIMEOUT_MS = 60_000;
-// Esforço de reasoning p/ modelos gpt-5*/o* (low = rápido e bom o bastante; tunável via env).
-const REASONING_EFFORT = (process.env.OPENAI_REASONING_EFFORT?.trim() || 'low') as
-  | 'minimal'
-  | 'low'
-  | 'medium'
-  | 'high';
-// Modelo configurável via OPENAI_MODEL (default gpt-5-nano — liberado nesta conta).
-const defaultModel = (): string => process.env.OPENAI_MODEL?.trim() || 'gpt-5-nano';
+// Modelo default por provider (env: ANTHROPIC_MODEL / OPENAI_MODEL).
+const defaultModel = (): string =>
+  AI_PROVIDER() === 'anthropic'
+    ? process.env.ANTHROPIC_MODEL?.trim() || 'claude-sonnet-4-6'
+    : process.env.OPENAI_MODEL?.trim() || 'gpt-5-nano';
 
-function isReasoningModel(model: string): boolean {
-  return /^(gpt-5|o\d)/i.test(model);
+function recordUsage(usage: unknown, model: string): void {
+  try {
+    const { inputTokens, outputTokens } = extractTokenUsage(usage);
+    aiMetrics.addTokens(model, inputTokens, outputTokens);
+    aiMetrics.addCost(model, estimateCostUsd(model, inputTokens, outputTokens));
+  } catch { /* telemetria nunca quebra a IA */ }
+}
+
+// Extrai JSON de uma resposta de texto (Claude às vezes embrulha em ```json ... ```).
+function parseJsonLoose(text: string): unknown {
+  const t = String(text || '').trim();
+  const fenced = t.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const body = (fenced && fenced[1] ? fenced[1] : t).trim();
+  try {
+    return JSON.parse(body);
+  } catch {
+    const s = body.indexOf('{');
+    const e = body.lastIndexOf('}');
+    if (s >= 0 && e > s) {
+      try { return JSON.parse(body.slice(s, e + 1)); } catch { /* cai abaixo */ }
+    }
+    return {};
+  }
 }
 
 /** Opções do callAI: número = timeoutMs (compat); objeto permite rotular o stage nas métricas. */
 type CallAiOpts = number | { timeoutMs?: number; stage?: string };
 
 export async function callAI<T>(
-  fn: (client: OpenAI) => Promise<T>,
+  fn: (client: AiClient) => Promise<T>,
   fallback: T,
   opts: CallAiOpts = SYNC_TIMEOUT_MS,
 ): Promise<T> {
   const timeoutMs = typeof opts === 'number' ? opts : (opts.timeoutMs ?? SYNC_TIMEOUT_MS);
   const stage = typeof opts === 'number' ? 'call' : (opts.stage ?? 'call');
-  const client = getOpenAI();
+  const client = getClient();
   const start = Date.now();
 
-  let result: T;
-  if (AI_KIT_ENABLED) {
-    result = await callWithFallback(fn, fallback, timeoutMs, client);
-  } else if (!client) {
-    result = fallback;
-  } else {
-    // --- legado (AI_KIT=off) ---
-    try {
-      result = await Promise.race([
-        fn(client),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('AI_TIMEOUT')), timeoutMs),
-        ),
-      ]);
-      console.info(`[ai] call completed in ${Date.now() - start}ms`);
-    } catch (err) {
-      console.warn(`[ai] call failed after ${Date.now() - start}ms:`, (err as Error).message);
-      result = fallback;
-    }
-  }
+  const result = await callWithFallback(fn, fallback, timeoutMs, client);
 
-  // Instrumentação F0 (só telemetria — comportamento intacto). Fallback é
-  // detectado por identidade de referência (o mesmo objeto passado entra na resposta).
+  // Instrumentação (latência/erro). usedFallback por identidade de referência.
   const seconds = (Date.now() - start) / 1000;
   const usedFallback = Object.is(result, fallback);
   aiMetrics.observeTurn(stage, usedFallback ? 'error' : 'ok', seconds);
@@ -76,51 +93,33 @@ export async function callAI<T>(
 }
 
 export async function callAIAsync<T>(
-  fn: (client: OpenAI) => Promise<T>,
+  fn: (client: AiClient) => Promise<T>,
   fallback: T,
   stage = 'async',
 ): Promise<T> {
   return callAI(fn, fallback, { timeoutMs: ASYNC_TIMEOUT_MS, stage });
 }
 
-export async function chatJSON<T>(
-  client: OpenAI,
+/** Saída estruturada (JSON). client vem do callAI; o adapter resolve o provider ativo. */
+export async function chatJSON(
+  client: AiClient,
   prompt: string,
   model: string = defaultModel(),
 ): Promise<unknown> {
-  if (AI_KIT_ENABLED) {
-    return kitChatJSON(client, prompt, { model, reasoningEffort: REASONING_EFFORT });
-  }
-  // --- legado (AI_KIT=off): modelos de reasoning rejeitam temperature -> omitimos ---
-  const reasoning = isReasoningModel(model);
-  const completion = await client.chat.completions.create({
-    model,
-    response_format: { type: 'json_object' },
-    messages: [{ role: 'user', content: prompt }],
-    ...(reasoning ? { reasoning_effort: REASONING_EFFORT } : { temperature: 0.3 }),
-  });
-  const content = completion.choices[0]?.message?.content ?? '{}';
-  return JSON.parse(content) as unknown;
+  const llm = createLlm({ provider: AI_PROVIDER(), client, defaultModel: model });
+  const out = await llm.complete({ model, messages: [{ role: 'user', content: prompt }], jsonMode: true });
+  recordUsage(out.usage, model);
+  return parseJsonLoose(out.text);
 }
 
-/**
- * Chat de texto livre (conversacional) — resposta generativa em linguagem natural.
- * Usado pelo assistente do operador (POST /ai/chat).
- */
+/** Chat de texto livre (assistente do operador, POST /ai/chat). */
 export async function chatText(
-  client: OpenAI,
+  client: AiClient,
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
   model: string = defaultModel(),
 ): Promise<string> {
-  if (AI_KIT_ENABLED) {
-    return kitChatText(client, messages, { model, reasoningEffort: REASONING_EFFORT });
-  }
-  // --- legado (AI_KIT=off) ---
-  const reasoning = isReasoningModel(model);
-  const completion = await client.chat.completions.create({
-    model,
-    messages,
-    ...(reasoning ? { reasoning_effort: REASONING_EFFORT } : { temperature: 0.4 }),
-  });
-  return completion.choices[0]?.message?.content ?? '';
+  const llm = createLlm({ provider: AI_PROVIDER(), client, defaultModel: model });
+  const out = await llm.complete({ model, messages });
+  recordUsage(out.usage, model);
+  return out.text;
 }
