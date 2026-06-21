@@ -970,6 +970,20 @@ body.cmdk-on { overflow: hidden; }
 .aiu-bar-cell .mini-bar { width: 80px; }
 .aiu-bar-n { font-size: 11.5px; color: var(--muted); min-width: 34px; text-align: right; }
 
+/* Visão geral produto × modelo × custo + tabela agrupada */
+.aiu-unified { background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px 22px; margin: 0 0 28px; }
+.aiu-unified .aiu-prov-t { font-size: 18px; }
+.aiu-kpis-top { margin-bottom: 18px; }
+.aiu-tbl-grouped tr.aiu-grp td { background: var(--bg-2); border-top: 1px solid var(--line-2); font-weight: 600; }
+.aiu-grp-name { display: inline-flex; align-items: center; gap: 8px; }
+.aiu-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: inline-block; flex: none; }
+.aiu-sub-model { padding-left: 18px !important; }
+.aiu-tree { color: var(--line-2); margin-right: 7px; }
+.aiu-prov-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+.aiu-prov-chip.aiu-prov-anthropic { color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.aiu-prov-chip.aiu-prov-openai { color: var(--ok); background: color-mix(in srgb, var(--ok) 16%, transparent); }
+.aiu-prov-chip .us-sec-ic { font-size: 11px; }
+
 .aiu-note { font-size: 12px; margin: 6px 0 0; }
 .aiu-note-claude { border-left: 2px solid var(--line-2); padding-left: 10px; }
 

@@ -3434,6 +3434,84 @@ function aiModelTable(p) {
   tbl.append(tb); wrap.append(tbl); return wrap;
 }
 
+// ── Visão por PRODUTO → MODELO → CUSTO (o que o operador quer ver claro) ──
+// Agrega providers[].modules[].models[] num mapa produto -> modelos (cross-provider).
+function aiUnifiedProductRows(bd) {
+  const map = new Map();
+  for (const p of (bd.providers || [])) {
+    for (const m of (p.modules || [])) {
+      let prod = map.get(m.module);
+      if (!prod) { prod = { product: m.module, cost: 0, tokensIn: 0, tokensOut: 0, requests: 0, models: [] }; map.set(m.module, prod); }
+      for (const md of (m.models || [])) {
+        prod.models.push({ model: md.model, provider: p.provider, providerLabel: p.label, cost: md.cost || 0, tokensIn: md.tokensIn || 0, tokensOut: md.tokensOut || 0, requests: md.requests || 0 });
+        prod.cost += md.cost || 0; prod.tokensIn += md.tokensIn || 0; prod.tokensOut += md.tokensOut || 0; prod.requests += md.requests || 0;
+      }
+    }
+  }
+  return [...map.values()].sort((a, b) => (b.cost || 0) - (a.cost || 0));
+}
+// Linhas produto->modelo de UM provedor (sem coluna de provedor).
+function aiProviderProductRows(p) {
+  return (p.modules || []).map((m) => ({
+    product: m.module,
+    cost: (m.internal && m.internal.cost) || 0,
+    tokensIn: (m.internal && m.internal.tokensIn) || 0,
+    tokensOut: (m.internal && m.internal.tokensOut) || 0,
+    requests: (m.internal && m.internal.requests) || 0,
+    models: (m.models || []).map((md) => ({ model: md.model, cost: md.cost || 0, tokensIn: md.tokensIn || 0, tokensOut: md.tokensOut || 0, requests: md.requests || 0 })),
+  }));
+}
+// Tabela AGRUPADA: cada produto é um cabeçalho com subtotal; abaixo, os modelos que ele usa,
+// com o custo POR MODELO. opts.showProvider = mostra de qual provedor é cada modelo.
+function aiGroupedProductModelTable(productRows, opts) {
+  opts = opts || {};
+  const showProvider = !!opts.showProvider;
+  const wrap = h('div', { class: 'aiu-tbl-wrap' }, h('h3', { class: 'aiu-tbl-h' }, secIc('▦'), opts.title || 'Consumo por produto e modelo'));
+  if (!productRows.length) { wrap.append(h('p', { class: 'muted', text: opts.empty || 'Sem consumo interno nesta janela.' })); return wrap; }
+  const grand = productRows.reduce((a, p) => a + (p.cost || 0), 0) || 1;
+  const tbl = h('table', { class: 'aiu-tbl aiu-tbl-grouped' });
+  const head = [h('th', { text: 'Produto / modelo' })];
+  if (showProvider) head.push(h('th', { text: 'Provedor' }));
+  head.push(h('th', { class: 'num', text: 'Custo' }), h('th', { class: 'num', text: 'Tokens' }), h('th', { class: 'num', text: 'Req.' }), h('th', { text: opts.pctLabel || '% do total' }));
+  tbl.append(h('thead', {}, h('tr', {}, ...head)));
+  const tb = h('tbody');
+  for (const prod of productRows) {
+    const ppct = Math.round(((prod.cost || 0) / grand) * 100);
+    const grp = [h('td', { class: 'aiu-grp-name' }, h('span', { class: 'aiu-dot', 'aria-hidden': 'true' }), h('strong', { text: prod.product }))];
+    if (showProvider) grp.push(h('td', {}));
+    grp.push(h('td', { class: 'num' }, h('strong', { text: fmtUsd(prod.cost) })), h('td', { class: 'num', text: fmtTokens((prod.tokensIn || 0) + (prod.tokensOut || 0)) }), h('td', { class: 'num', text: fmtInt(prod.requests) }), h('td', { class: 'aiu-bar-cell' }, miniBar(ppct, 'accent'), h('span', { class: 'aiu-bar-n', text: ppct + '%' })));
+    tb.append(h('tr', { class: 'aiu-grp' }, ...grp));
+    const models = (prod.models || []).slice().sort((a, b) => (b.cost || 0) - (a.cost || 0));
+    if (!models.length) { const span = showProvider ? 6 : 5; tb.append(h('tr', { class: 'aiu-sub' }, h('td', { class: 'aiu-sub-model muted', colspan: String(span), text: 'sem modelo registrado' }))); }
+    for (const md of models) {
+      const mpct = Math.round(((md.cost || 0) / (prod.cost || 1)) * 100);
+      const cells = [h('td', { class: 'aiu-sub-model' }, h('span', { class: 'aiu-tree', 'aria-hidden': 'true', text: '└' }), h('code', { text: md.model }))];
+      if (showProvider) cells.push(h('td', {}, h('span', { class: 'aiu-prov-chip aiu-prov-' + md.provider }, secIc(md.provider === 'anthropic' ? '✶' : '◆'), h('span', { text: md.providerLabel || md.provider }))));
+      cells.push(h('td', { class: 'num', text: fmtUsd(md.cost) }), h('td', { class: 'num', text: fmtTokens((md.tokensIn || 0) + (md.tokensOut || 0)) }), h('td', { class: 'num', text: fmtInt(md.requests) }), h('td', { class: 'aiu-bar-cell' }, miniBar(mpct, 'ok'), h('span', { class: 'aiu-bar-n', text: mpct + '%' })));
+      tb.append(h('tr', { class: 'aiu-sub' }, ...cells));
+    }
+  }
+  tbl.append(tb); wrap.append(tbl); return wrap;
+}
+// Resumo no topo: total agregado de TODOS os provedores (bd.totals).
+function aiUsageSummary(bd) {
+  const t = bd.totals || { cost: 0, tokensIn: 0, tokensOut: 0, requests: 0 };
+  const kpis = h('div', { class: 'aiu-kpis aiu-kpis-top' });
+  kpis.append(aiKpi('Custo total (' + windowLabel() + ')', fmtUsd(t.cost)));
+  kpis.append(aiKpi('Tokens entrada', fmtTokens(t.tokensIn)));
+  kpis.append(aiKpi('Tokens saída', fmtTokens(t.tokensOut)));
+  kpis.append(aiKpi('Requisições', fmtInt(t.requests)));
+  return kpis;
+}
+// Seção de visão geral cross-provider (o "barramento" produto×modelo×custo pedido).
+function aiUnifiedSection(bd) {
+  const sec = h('section', { class: 'aiu-provider aiu-unified', 'aria-label': 'Visão geral por produto e modelo' });
+  sec.append(h('div', { class: 'aiu-prov-h' }, h('h2', { class: 'aiu-prov-t', tabindex: '-1' }, secIc('▦'), 'Visão geral — produto × modelo × custo'), h('span', { class: 'aiu-src-badge', text: 'estimado (telemetria)' })));
+  sec.append(aiUsageSummary(bd));
+  sec.append(aiGroupedProductModelTable(aiUnifiedProductRows(bd), { showProvider: true, title: 'Cada produto, os modelos que ele consome e o custo por modelo', empty: 'Nenhum produto registrou uso de IA nesta janela — use as aplicações e os custos aparecem aqui.' }));
+  return sec;
+}
+
 function providerSection(p) {
   const acc = p.account; const intr = p.internal || {};
   const cost = acc ? acc.cost : intr.cost; const tin = acc ? acc.tokensIn : intr.tokensIn;
@@ -3455,7 +3533,7 @@ function providerSection(p) {
   if (p.budget) gauges.append(h('div', { class: 'aiu-gauge-wrap' }, aiGauge(p.budget.pctOfLimit, 'Orçamento mensal'), h('span', { class: 'aiu-gauge-l', text: 'Orçamento — US$ ' + Number(p.budget.spentUsd).toFixed(2) + ' / ' + Number(p.budget.monthlyUsd).toFixed(2) })));
   for (const rl of (p.limits && p.limits.rateLimits) || []) gauges.append(h('div', { class: 'aiu-gauge-wrap' }, aiGauge(rl.pctUsed, rl.kind), h('span', { class: 'aiu-gauge-l', text: rl.kind + ' — ' + fmtInt(rl.remaining) + '/' + fmtInt(rl.limit) + ' ' + (rl.unit || '') })));
   if (gauges.children.length) sec.append(gauges);
-  sec.append(aiModuleTable(p));
+  sec.append(aiGroupedProductModelTable(aiProviderProductRows(p), { title: 'Consumo por produto e modelo neste provedor', pctLabel: '% do provedor' }));
   sec.append(aiModelTable(p));
   if (!acc) sec.append(h('p', { class: 'aiu-note muted', text: 'Conta oficial indisponível (chave admin não configurada) — números acima são estimados pela telemetria interna.' }));
   else if (p.drift != null) sec.append(h('p', { class: 'aiu-note muted', text: 'Conta oficial (faturada, ' + (acc.lag || 'diário') + '). Diferença vs. estimado: US$ ' + Number(p.drift).toFixed(2) + '.' }));
@@ -3523,6 +3601,7 @@ async function renderAiUsage() {
   const frag = document.createDocumentFragment();
   frag.append(aiUsageToolbar());
   frag.append(aiSourcesBanner(bd.sourcesHealth));
+  frag.append(aiUnifiedSection(bd));
   for (const p of (bd.providers || [])) frag.append(providerSection(p));
   body.replaceChildren(frag);
   connectAiStream();
