@@ -434,6 +434,7 @@ async function save() {
       // novo baseline (deixa de estar "sujo")
       for (const k of Object.keys(snapshot)) snapshot[k] = form.values[k];
       toast.success('Pedido atualizado com sucesso.');
+      router.push(backTo.value);
     } catch (e) {
       toast.error('Não foi possível salvar o pedido.', {
         detail: (e && e.message) || '',

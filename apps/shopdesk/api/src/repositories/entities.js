@@ -58,6 +58,7 @@ export const ENTITIES = [
       { name: 'status', type: 'status', required: true },
       { name: 'paymentStatus', type: 'status', required: false },
       { name: 'trackingCode', type: 'text', required: false },
+      { name: 'shippingAddress', type: 'longtext', required: false },
     ],
     seed: [
       { code: 'PED-1001', customer_name: 'Ana Souza', customer_email: 'ana@exemplo.com', total: 119.8, items_count: 2, status: 'pago', payment_status: 'aprovado', tracking_code: null },
