@@ -63,6 +63,7 @@ export const routes = [
   { path: '/inventory', name: 'inventory', component: InventoryListView },
   { path: '/inventory/:id', name: 'inventory-item', component: InventoryDetailView, props: true },
   { path: '/inventory/:id/adjust', name: 'inventory-adjust', component: InventoryAdjustView, props: true },
+  { path: '/inventory/:id/edit', name: 'inventory-edit', component: InventoryAdjustView, props: true },
   // domínio de reposição (reorders) — recurso real api.reorders (/v1/reorders).
   { path: '/reorders', name: 'reorders', component: ReorderListView },
   { path: '/reorders/new', name: 'reorder-new', component: ReorderCreateView },

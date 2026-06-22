@@ -362,7 +362,7 @@
 
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import {
   UiPageLayout, UiCard, UiButton, UiFormField, UiFormSection, UiStatusBadge,
   UiEmptyState,
@@ -373,6 +373,7 @@ import { inventory } from '../api.js';
 // Recurso REAL: GET/PUT /v1/inventory (export `inventory` = resource("inventory") em api.js → /v1/inventory).
 
 const route = useRoute();
+const router = useRouter();
 const toast = useToast();
 const confirm = useConfirm();
 
@@ -620,6 +621,7 @@ async function onSubmit() {
     form.setField('mode', 'set');
     delete form.errors.setValue; delete form.errors.delta; delete form.errors.reason;
     toast.success('Ajuste registrado e auditado com sucesso.');
+    router.push('/inventory/' + itemId.value);
   } catch (e) {
     toast.error('Não foi possível registrar o ajuste.', {
       detail: e && e.message ? e.message : '',

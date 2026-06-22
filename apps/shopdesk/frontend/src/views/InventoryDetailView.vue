@@ -30,6 +30,11 @@
         @click="refresh"
       >Atualizar</UiButton>
       <UiButton
+        variant="ghost"
+        :disabled="!item"
+        :to="'/inventory/' + itemId + '/edit'"
+      >Ajustar estoque</UiButton>
+      <UiButton
         variant="primary"
         :disabled="!item"
         @click="openReorder"
