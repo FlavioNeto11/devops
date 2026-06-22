@@ -10,9 +10,9 @@
     "refinements": {
       "total": 44,
       "by_status": {
-        "pr_open": 1,
+        "pr_open": 2,
         "deployed": 12,
-        "not_started": 31
+        "not_started": 30
       }
     }
   },
@@ -2239,8 +2239,10 @@
       "req_revision": 1
     },
     "REF-SHOPDESK-0009": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "branch": "@{id=REF-SHOPDESK-0009; branch=ref/REF-SHOPDESK-0009/r1; restricted=false; title=feat(shopdesk): implementa REF-SHOPDESK-0009 — Editar pedido}.branch",
+      "run_id": "27961042757"
     },
     "REF-SHOPDESK-0010": {
       "status": "not_started",
