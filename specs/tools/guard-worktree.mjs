@@ -31,6 +31,10 @@ export const DENYLIST = [
   '**/*.secret.yml',
   '**/secret.yaml',
   '**/secret.yml',
+  // Testes LOCKED gerados na concepção (make-test-suite.mjs): o headless implementa CÓDIGO,
+  // nunca enfraquece o contrato de teste. Mudar exige spec + regenerar (humano). Ver verify-test-locks.mjs.
+  'apps/*/tests/locked/**',
+  'apps/*/tests/.test-locks.json',
 ];
 
 // Exceções legítimas que a skill atualiza fora do escopo do produto.

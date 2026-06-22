@@ -39,6 +39,19 @@ test('denylist transversal: .github, platform, .claude sempre proibidos', () => 
   }
 });
 
+test('testes LOCKED são denylist mesmo dentro do allowed_paths do app', () => {
+  // o headless tem allowed_paths apps/<app>/** mas NÃO pode tocar tests/locked nem o manifesto
+  const a = evaluate(['apps/stockpilot/tests/locked/functional/REQ-STOCKPILOT-0001.ac1.test.mjs'], { allowedPaths: ['apps/stockpilot/**'], restricted: false });
+  assert.equal(a.ok, false);
+  assert.match(a.violations[0].reason, /denylist/);
+  const m = evaluate(['apps/stockpilot/tests/.test-locks.json'], { allowedPaths: ['apps/stockpilot/**'], restricted: false });
+  assert.equal(m.ok, false);
+  assert.match(m.violations[0].reason, /denylist/);
+  // testes NÃO-locked (fora de tests/locked) seguem editáveis pelo headless
+  const ok = evaluate(['apps/stockpilot/test/integration.mjs', 'apps/stockpilot/api/test/x.test.mjs'], { allowedPaths: ['apps/stockpilot/**'], restricted: false });
+  assert.equal(ok.ok, true);
+});
+
 test('escopo restrito: qualquer edição reprova (allowed vazio)', () => {
   const out = evaluate(['platform/keycloak/realm.yaml', 'apps/x/y.js'], { allowedPaths: [], restricted: true });
   assert.equal(out.ok, false);

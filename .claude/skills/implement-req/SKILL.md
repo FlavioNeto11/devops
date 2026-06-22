@@ -26,8 +26,33 @@ fonte da verdade: [`specs/CLAUDE.md`](../../specs/CLAUDE.md).
   **não** implementar headless — não edite nada de código (o guard reprova tudo fora de allowed_paths, que é
   vazio). A esteira abre **PR-rascunho** p/ revisão humana.
 - **Não mexer em segredos** (herda `.claude/settings.json`: deny `*.secret.yaml`, `.env`).
+- **Testes LOCKED são IMUTÁVEIS.** Nunca edite/apague `apps/<app>/tests/locked/**` nem
+  `apps/<app>/tests/.test-locks.json` — são o contrato de aceite gerado na concepção (make-test-suite).
+  O `guard-worktree` (denylist) reprova qualquer toque neles, e o `verify-test-locks` confirma no CI. Você
+  implementa CÓDIGO que **passa** nesses testes; **adicione** seus próprios testes em `tests/**` (fora de
+  `locked/`) à vontade. Se um teste locked está genuinamente errado para o sistema funcionar, **NÃO o
+  edite** — use o **Escape controlado** abaixo.
 - O **merge é gate externo** (branch protection + validação no ChatGPT → label `gpt-approved`, aplicado
   só por aprovador confiável). Nem você nem a esteira mesclam sem isso.
+
+## Escape controlado (fail-closed) — quando um teste LOCKED conflita
+
+Se, para satisfazer o requisito, você concluir que um teste **locked** precisa mudar (o spec divergiu da
+realidade), **não tente editá-lo** (o guard bloqueia). Em vez disso, **FALHE a ordem de forma estruturada**:
+escreva `apps/<app>/.forge/work-order-result.json` (dentro de `allowed_paths`) com:
+
+```json
+{ "req_id": "REQ-...", "status": "blocked-by-lock",
+  "lock_conflict": { "file": "apps/<app>/tests/locked/.../X.test.mjs",
+    "reason": "<por que o teste locked contradiz o requisito/realidade>",
+    "needed_spec_change": "<qual requisito/critério precisa mudar>" },
+  "action_required": "operador: corrigir specs/requirements/** + /sync-spec + re-rodar make-test-suite" }
+```
+
+A esteira lê esse arquivo, marca `impl-status=blocked` e **não abre PR**. A ÚNICA via de alterar um teste
+locked é o operador editar o requisito (`specs/requirements/**`), regenerar a baseline e re-rodar
+`make-test-suite.mjs` (humano, único que pode escrever a árvore protegida). Você nunca implementa **e**
+relaxa o próprio teste de aceite.
 
 ## Fluxo
 
