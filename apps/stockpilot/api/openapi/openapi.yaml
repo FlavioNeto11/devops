@@ -26,6 +26,8 @@ tags:
     description: Produtos em RUPTURA ou com falha de envio ao fornecedor.
   - name: Audit
     description: Trilha sanitizada das trocas com o fornecedor externo (segredos redigidos).
+  - name: Notifications
+    description: Notificações multi-canal por evento (ruptura/falha_pedido) com desfecho por canal.
 paths:
   /:
     get:
@@ -465,6 +467,49 @@ paths:
                     duration_ms: 134
         '401':
           $ref: '#/components/responses/Unauthorized'
+  /v1/notifications:
+    get:
+      operationId: listNotifications
+      tags:
+        - Notifications
+      summary: Lista notificações multi-canal do tenant
+      description: >-
+        Registros de notificação por evento (ruptura/falha_pedido), com o desfecho
+        POR canal (sent/failed/skipped — canal sem configuração é pulado). Escopado por tenant.
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200':
+          description: Notificações do tenant (máx. 200)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Notification'
+              example:
+                data:
+                  - id: 7
+                    tenant_id: default
+                    usuario_id: null
+                    tipo: ruptura
+                    referencia_id: 1
+                    canais:
+                      - channel: email
+                        status: sent
+                      - channel: push
+                        status: skipped
+                        reason: unconfigured
+                      - channel: whatsapp
+                        status: skipped
+                        reason: unconfigured
+                    status: sent
+                    tentativas: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 components:
   parameters:
     PathId:
@@ -533,6 +578,74 @@ components:
           type:
             - string
             - 'null'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ChannelResult:
+      type: object
+      description: Desfecho da entrega em um canal específico.
+      required:
+        - channel
+        - status
+      properties:
+        channel:
+          type: string
+          enum:
+            - email
+            - push
+            - whatsapp
+        status:
+          type: string
+          enum:
+            - sent
+            - failed
+            - skipped
+        reason:
+          type: string
+          description: Motivo quando skipped (unconfigured) ou failed (erro do canal).
+    Notification:
+      type: object
+      description: Notificação multi-canal por evento, com o desfecho por canal.
+      required:
+        - id
+        - tipo
+        - status
+      properties:
+        id:
+          type: integer
+        tenant_id:
+          type: string
+        usuario_id:
+          type:
+            - string
+            - 'null'
+        tipo:
+          type: string
+          enum:
+            - ruptura
+            - falha_pedido
+        referencia_id:
+          type:
+            - integer
+            - 'null'
+          description: produto_id (ruptura) ou job_id/pedido (falha_pedido).
+        canais:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChannelResult'
+        status:
+          type: string
+          description: Agregado — sent (≥1 entregue), failed (nenhum entregue e algum falhou) ou skipped (todos pulados).
+          enum:
+            - pending
+            - sent
+            - failed
+            - skipped
+        tentativas:
+          type: integer
         created_at:
           type: string
           format: date-time

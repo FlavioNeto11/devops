@@ -12,6 +12,7 @@ import { pool } from '../db.js';
 import * as productsRepo from '../repositories/products-repo.js';
 import * as ordersRepo from '../repositories/orders-repo.js';
 import * as jobsRepo from '../repositories/jobs-repo.js';
+import * as notificationService from './notification-service.js';
 
 export const REORDER_JOB_TYPE = 'order.dispatch';
 
@@ -50,10 +51,17 @@ export async function requestReorder(productId, tenant, deps = {}) {
 // Varredura automática: encontra produtos abaixo do mínimo SEM pedido aberto e dispara reposição
 // para cada um. Usada pelo worker como gatilho periódico ("dispara sempre que estoque < mínimo").
 export async function autoReorderScan(deps = {}) {
-  const { db = pool } = deps;
+  // REQ-STOCKPILOT-0007 — gancho de evento: `due` são exatamente os produtos em RUPTURA (abaixo do
+  // mínimo, sem pedido aberto). Notifica ANTES de repor (a reposição cria um pedido e tira o produto
+  // da RUPTURA). `emitNotification` é injetável → testável; o default enfileira o evento via a fila.
+  const { db = pool, emitNotification = (spec) => notificationService.emitEvent(spec, deps) } = deps;
   const due = await productsRepo.listBelowMinimumAllTenants(db);
   const results = [];
-  for (const p of due) results.push(await requestReorder(p.id, p.tenant_id, deps));
+  for (const p of due) {
+    // Fail-soft: um problema ao notificar NUNCA derruba a reposição (o negócio não espera o envio).
+    try { await emitNotification(notificationService.ruptureSpec(p)); } catch (e) { console.warn('[reorder] notificação de ruptura falhou: ' + (e?.message || e)); }
+    results.push(await requestReorder(p.id, p.tenant_id, deps));
+  }
   return results;
 }
 

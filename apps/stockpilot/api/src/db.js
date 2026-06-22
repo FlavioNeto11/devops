@@ -26,7 +26,23 @@ const MIGRATIONS = [`CREATE TABLE IF NOT EXISTS records (id SERIAL PRIMARY KEY, 
      error_redacted TEXT,
      duration_ms INTEGER,
      created_at TIMESTAMPTZ DEFAULT now()
-   ); CREATE INDEX IF NOT EXISTS idx_gateway_audit_tenant ON gateway_audit(tenant_id, id DESC);`];
+   ); CREATE INDEX IF NOT EXISTS idx_gateway_audit_tenant ON gateway_audit(tenant_id, id DESC);`,
+  // REQ-STOCKPILOT-0007 — notificações multi-canal (e-mail/push/whatsapp) por evento (ruptura/falha_pedido).
+  // Um registro por evento; `canais` guarda o desfecho POR canal (sent/failed/skipped); `dedupe_key` UNIQUE
+  // dá idempotência (mesmo evento não duplica). Escopado por tenant_id (REQ-STOCKPILOT-0002).
+  `CREATE TABLE IF NOT EXISTS notifications (
+     id BIGSERIAL PRIMARY KEY,
+     tenant_id TEXT NOT NULL DEFAULT 'default',
+     usuario_id TEXT,
+     tipo TEXT NOT NULL CHECK (tipo IN ('ruptura','falha_pedido')),
+     referencia_id BIGINT,
+     dedupe_key TEXT UNIQUE,
+     canais JSONB NOT NULL DEFAULT '[]'::jsonb,
+     status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','sent','failed','skipped')),
+     tentativas INTEGER NOT NULL DEFAULT 0,
+     created_at TIMESTAMPTZ DEFAULT now(),
+     updated_at TIMESTAMPTZ DEFAULT now()
+   ); CREATE INDEX IF NOT EXISTS idx_notifications_tenant ON notifications(tenant_id, id DESC);`];
 export async function migrate() {
   const c = await pool.connect();
   try {

@@ -4,6 +4,7 @@ import { M, startMetricsServer } from './metrics.js';
 import * as jobsRepo from './repositories/jobs-repo.js';
 import * as ordersRepo from './repositories/orders-repo.js';
 import { REORDER_JOB_TYPE, processReorderJob, autoReorderScan } from './services/reorder-service.js';
+import { NOTIFY_JOB_TYPE, processNotifyJob, emitEvent, reorderFailedSpec } from './services/notification-service.js';
 import { dispatch } from './gateways/gateway.js';
 const WORKER_ID = 'w-' + process.pid; let running = true;
 async function handle(job) {
@@ -11,6 +12,13 @@ async function handle(job) {
   if (job.type === REORDER_JOB_TYPE) {
     try { await processReorderJob(job.payload || {}, { dispatch }); M.gatewayCalls.inc({ outcome: 'ok' }); }
     catch (e) { M.gatewayCalls.inc({ outcome: 'error' }); throw e; }
+    return;
+  }
+  // REQ-STOCKPILOT-0007 — notificações multi-canal: o service faz o fan-out (degradação graciosa);
+  // lança só quando nenhum canal entregou e algum falhou → o worker reenfileira/DLQ como qualquer job.
+  if (job.type === NOTIFY_JOB_TYPE) {
+    const r = await processNotifyJob(job.payload || {});
+    for (const c of r.results) M.notifications.inc({ channel: c.channel, status: c.status });
     return;
   }
   // legado: record.submit
@@ -26,7 +34,15 @@ async function tick() {
   catch (e) { const msg = String(e.message || e); const o = await jobsRepo.fail(job, msg); M.jobsTotal.inc({ status: o });
     if (o === 'dlq') {
       const p = job.payload || {};
-      if (job.type === REORDER_JOB_TYPE) { try { await ordersRepo.markFailed(p.orderId, p.tenant, msg); } catch {} }
+      if (job.type === REORDER_JOB_TYPE) {
+        try { await ordersRepo.markFailed(p.orderId, p.tenant, msg); } catch {}
+        // REQ-STOCKPILOT-0007 — evento reorder.failed: a submissão ao fornecedor esgotou tentativas (DLQ)
+        // → emite notificação (fail-soft: nunca derruba o worker). Idempotente pela job_key do evento.
+        try {
+          const prod = (await pool.query('SELECT name FROM products WHERE id=$1 AND tenant_id=$2', [p.productId, p.tenant])).rows[0];
+          await emitEvent(reorderFailedSpec({ tenant: p.tenant, orderId: p.orderId, jobId: job.id, productName: prod?.name, error: msg }));
+        } catch (e) { console.warn('[worker] notificação reorder.failed falhou: ' + (e.message || e)); }
+      }
       else { try { await pool.query(`UPDATE records SET status='failed', updated_at=now() WHERE id=$1`, [p.recordId]); } catch {} }
     }
     console.warn('[worker] job ' + job.id + ' falhou (' + job.attempts + '/' + job.max_attempts + ') -> ' + o); }
