@@ -16,7 +16,7 @@
     "without_source_paths": 0,
     "without_evidence": 373,
     "without_verification_method": 334,
-    "without_refinement": 338,
+    "without_refinement": 331,
     "scopes": 24,
     "coverage_pct": {
       "links": 16.4,
@@ -24,7 +24,7 @@
       "source_paths": 100,
       "evidence": 0,
       "verification_method": 10.5,
-      "refinement": 9.4
+      "refinement": 11.3
     }
   },
   "by_scope": {
@@ -171,14 +171,14 @@
       "without_source_paths": 0,
       "without_evidence": 8,
       "without_verification_method": 0,
-      "without_refinement": 8,
+      "without_refinement": 1,
       "coverage_pct": {
         "links": 0,
         "allocation": 0,
         "source_paths": 100,
         "evidence": 0,
         "verification_method": 100,
-        "refinement": 0
+        "refinement": 87.5
       }
     },
     "keycloak": {

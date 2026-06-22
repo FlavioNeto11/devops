@@ -1,7 +1,7 @@
 {
   "metamodel_version": "1.1.0",
   "baseline_hash": "781dadc2ef8a3fdd48f47f60f6bd380fc784e97c54bd358a261314c62e78755a",
-  "refinements_hash": "3a077c780719fa40791e6efad62d4dd6125079a4b71489afdb63ffcc76895c8e",
+  "refinements_hash": "749c9e90fa209e7ebf5196d0549a3b3236d4747760d3855c27066be87b434749",
   "schema": "specs/schema/requirement.schema.json",
   "counts": {
     "total": 373,
@@ -39,15 +39,16 @@
       "non-functional": 104
     },
     "refinements": {
-      "total": 65,
+      "total": 101,
       "by_product": {
         "gymops": 1,
+        "helpflow": 36,
         "portal": 12,
         "shopdesk": 31,
         "stockpilot": 21
       },
       "by_kind": {
-        "screen": 55,
+        "screen": 91,
         "component": 8,
         "interaction": 2
       }
@@ -14415,6 +14416,3335 @@
         "change_reason": "novo refinamento — exibir endereço do empreendimento na tela de perfil"
       },
       "file": "refinements/gymops/REF-GYMOPS-0001.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0001",
+      "slug": "ref-helpflow-0001",
+      "title": "Painel do Service Desk",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0001",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-HELPFLOW-0004",
+          "relation": "relates_to"
+        },
+        {
+          "requirement_id": "REQ-HELPFLOW-0003",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/",
+        "name": "Painel do Service Desk",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "metricas e fila carregadas",
+            "ui": "cards de KPI (chamados abertos, em SLA, violados), atalhos para filas"
+          },
+          {
+            "name": "loading",
+            "when": "buscando resumo do service desk",
+            "ui": "skeletons nos cards e listas"
+          },
+          {
+            "name": "empty",
+            "when": "nenhum chamado no periodo",
+            "ui": "estado vazio com convite para abrir o primeiro chamado"
+          },
+          {
+            "name": "error",
+            "when": "falha ao carregar o resumo",
+            "ui": "mensagem de erro com botao de tentar novamente"
+          }
+        ],
+        "data": [
+          {
+            "field": "kpis",
+            "source": "api:/dashboard/summary",
+            "editable": false,
+            "format": "metricas agregadas (abertos/em SLA/violados/resolvidos)"
+          },
+          {
+            "field": "queue_health",
+            "source": "api:/teams?withQueue=true",
+            "editable": false,
+            "format": "saude das filas por time"
+          },
+          {
+            "field": "recent_tickets",
+            "source": "api:/tickets?recent=true",
+            "editable": false,
+            "format": "ultimos chamados movimentados"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /",
+            "action": "carrega KPIs, saude das filas e chamados recentes",
+            "result": "renderiza cards de status e atalhos operacionais"
+          },
+          {
+            "trigger": "clicar em um card de KPI",
+            "action": "navega para a lista de chamados filtrada",
+            "result": "abre /tickets com o filtro aplicado"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0001.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0002",
+      "slug": "ref-helpflow-0002",
+      "title": "Chamados",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0003",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-HELPFLOW-0004",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/tickets",
+        "name": "Chamados",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "lista de chamados carregada",
+            "ui": "tabela de chamados com status, prioridade, SLA e responsavel"
+          },
+          {
+            "name": "loading",
+            "when": "buscando chamados",
+            "ui": "skeleton de linhas na tabela"
+          },
+          {
+            "name": "empty",
+            "when": "nenhum chamado encontrado",
+            "ui": "estado vazio com acao de abrir novo chamado"
+          },
+          {
+            "name": "error",
+            "when": "falha ao listar chamados",
+            "ui": "mensagem de erro com botao de tentar novamente"
+          }
+        ],
+        "data": [
+          {
+            "field": "tickets",
+            "source": "api:/tickets",
+            "editable": false,
+            "format": "lista paginada de chamados"
+          },
+          {
+            "field": "filters",
+            "source": "api:/tickets?status&priority&team",
+            "editable": true,
+            "format": "filtros por status, prioridade e fila"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /tickets",
+            "action": "carrega a lista de chamados",
+            "result": "renderiza a tabela com paginacao e filtros"
+          },
+          {
+            "trigger": "clicar em um chamado",
+            "action": "navega para o detalhe",
+            "result": "abre /tickets/:id"
+          },
+          {
+            "trigger": "clicar em novo chamado",
+            "action": "navega para o formulario de criacao",
+            "result": "abre /tickets/new"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0002.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0003",
+      "slug": "ref-helpflow-0003",
+      "title": "Novo chamado",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0003",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-HELPFLOW-0006",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/tickets/new",
+        "name": "Novo chamado",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "formulario pronto",
+            "ui": "formulario de abertura de chamado com solicitante, assunto, prioridade e fila"
+          },
+          {
+            "name": "loading",
+            "when": "carregando opcoes (solicitantes, times, SLA)",
+            "ui": "campos desabilitados com indicador de carregamento"
+          },
+          {
+            "name": "empty",
+            "when": "formulario sem dados preenchidos",
+            "ui": "placeholders e ajuda inline por campo"
+          },
+          {
+            "name": "error",
+            "when": "validacao falhou ou erro ao salvar",
+            "ui": "mensagens de erro por campo e alerta geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "subject",
+            "source": "input:usuario",
+            "editable": true,
+            "format": "assunto do chamado"
+          },
+          {
+            "field": "requester_id",
+            "source": "api:/customers",
+            "editable": true,
+            "format": "solicitante vinculado"
+          },
+          {
+            "field": "priority",
+            "source": "input:usuario",
+            "editable": true,
+            "format": "prioridade (baixa/media/alta/critica)"
+          },
+          {
+            "field": "team_id",
+            "source": "api:/teams",
+            "editable": true,
+            "format": "fila/time de atendimento"
+          },
+          {
+            "field": "kb_suggestions",
+            "source": "api:/kb-articles?suggest=true",
+            "editable": false,
+            "format": "artigos sugeridos pelo assunto"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "preencher assunto",
+            "action": "busca sugestoes na base de conhecimento",
+            "result": "exibe artigos relacionados ao problema"
+          },
+          {
+            "trigger": "clicar em salvar",
+            "action": "valida e cria o chamado",
+            "result": "redireciona para o detalhe do chamado criado"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0003.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0004",
+      "slug": "ref-helpflow-0004",
+      "title": "Detalhe do chamado",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0003",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-HELPFLOW-0005",
+          "relation": "relates_to"
+        },
+        {
+          "requirement_id": "REQ-HELPFLOW-0007",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/tickets/:id",
+        "name": "Detalhe do chamado",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "chamado carregado",
+            "ui": "cabecalho com status/SLA, thread de mensagens, painel de metadados e acoes"
+          },
+          {
+            "name": "loading",
+            "when": "buscando o chamado",
+            "ui": "skeleton do cabecalho e da thread"
+          },
+          {
+            "name": "empty",
+            "when": "chamado sem mensagens",
+            "ui": "thread vazia com convite para responder"
+          },
+          {
+            "name": "error",
+            "when": "chamado nao encontrado ou erro ao carregar",
+            "ui": "mensagem de erro com link de volta para a lista"
+          }
+        ],
+        "data": [
+          {
+            "field": "ticket",
+            "source": "api:/tickets/:id",
+            "editable": false,
+            "format": "dados do chamado (status, prioridade, SLA, responsavel)"
+          },
+          {
+            "field": "messages",
+            "source": "api:/tickets/:id/messages",
+            "editable": false,
+            "format": "thread de interacoes"
+          },
+          {
+            "field": "sla_timer",
+            "source": "api:/tickets/:id/sla",
+            "editable": false,
+            "format": "tempo restante de SLA"
+          },
+          {
+            "field": "ai_reply_suggestion",
+            "source": "api:/tickets/:id/assist",
+            "editable": false,
+            "format": "sugestao de resposta grounded da IA"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "enviar resposta",
+            "action": "adiciona mensagem a thread",
+            "result": "atualiza a conversa e o estado do SLA"
+          },
+          {
+            "trigger": "clicar em editar",
+            "action": "navega para edicao do chamado",
+            "result": "abre /tickets/:id/edit"
+          },
+          {
+            "trigger": "aplicar sugestao da IA",
+            "action": "insere o rascunho sugerido no campo de resposta",
+            "result": "permite revisao antes do envio"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0004.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0005",
+      "slug": "ref-helpflow-0005",
+      "title": "Editar chamado",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0003",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/tickets/:id/edit",
+        "name": "Editar chamado",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "formulario carregado com os dados do chamado",
+            "ui": "formulario preenchido com status, prioridade, fila e responsavel"
+          },
+          {
+            "name": "loading",
+            "when": "buscando o chamado para edicao",
+            "ui": "campos desabilitados com indicador de carregamento"
+          },
+          {
+            "name": "empty",
+            "when": "campos opcionais sem valor",
+            "ui": "placeholders e ajuda inline"
+          },
+          {
+            "name": "error",
+            "when": "validacao falhou ou erro ao salvar",
+            "ui": "mensagens de erro por campo e alerta geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "status",
+            "source": "api:/tickets/:id",
+            "editable": true,
+            "format": "estado do chamado"
+          },
+          {
+            "field": "priority",
+            "source": "api:/tickets/:id",
+            "editable": true,
+            "format": "prioridade"
+          },
+          {
+            "field": "team_id",
+            "source": "api:/teams",
+            "editable": true,
+            "format": "fila/time"
+          },
+          {
+            "field": "assignee_id",
+            "source": "api:/agents",
+            "editable": true,
+            "format": "agente responsavel"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "alterar campos",
+            "action": "valida em tempo real",
+            "result": "habilita salvar quando valido"
+          },
+          {
+            "trigger": "clicar em salvar",
+            "action": "persiste as alteracoes",
+            "result": "redireciona para o detalhe do chamado"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0005.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0006",
+      "slug": "ref-helpflow-0006",
+      "title": "Solicitantes",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0003",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-HELPFLOW-0002",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/customers",
+        "name": "Solicitantes",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "lista de solicitantes carregada",
+            "ui": "tabela de solicitantes com nome, contato e chamados abertos"
+          },
+          {
+            "name": "loading",
+            "when": "buscando solicitantes",
+            "ui": "skeleton de linhas na tabela"
+          },
+          {
+            "name": "empty",
+            "when": "nenhum solicitante cadastrado",
+            "ui": "estado vazio com acao de novo solicitante"
+          },
+          {
+            "name": "error",
+            "when": "falha ao listar solicitantes",
+            "ui": "mensagem de erro com botao de tentar novamente"
+          }
+        ],
+        "data": [
+          {
+            "field": "customers",
+            "source": "api:/customers",
+            "editable": false,
+            "format": "lista paginada de solicitantes"
+          },
+          {
+            "field": "search",
+            "source": "api:/customers?q=",
+            "editable": true,
+            "format": "busca por nome ou email"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /customers",
+            "action": "carrega a lista de solicitantes",
+            "result": "renderiza a tabela com busca e paginacao"
+          },
+          {
+            "trigger": "clicar em um solicitante",
+            "action": "navega para o detalhe",
+            "result": "abre /customers/:id"
+          },
+          {
+            "trigger": "clicar em novo solicitante",
+            "action": "navega para o formulario",
+            "result": "abre /customers/new"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0006.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0007",
+      "slug": "ref-helpflow-0007",
+      "title": "Novo solicitante",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0003",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/customers/new",
+        "name": "Novo solicitante",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "formulario pronto",
+            "ui": "formulario de cadastro de solicitante"
+          },
+          {
+            "name": "loading",
+            "when": "carregando opcoes (tenant/organizacao)",
+            "ui": "campos desabilitados com indicador de carregamento"
+          },
+          {
+            "name": "empty",
+            "when": "formulario sem dados preenchidos",
+            "ui": "placeholders e ajuda inline por campo"
+          },
+          {
+            "name": "error",
+            "when": "validacao falhou ou erro ao salvar",
+            "ui": "mensagens de erro por campo e alerta geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "name",
+            "source": "input:usuario",
+            "editable": true,
+            "format": "nome do solicitante"
+          },
+          {
+            "field": "email",
+            "source": "input:usuario",
+            "editable": true,
+            "format": "email de contato"
+          },
+          {
+            "field": "organization",
+            "source": "input:usuario",
+            "editable": true,
+            "format": "organizacao/empresa"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "preencher campos",
+            "action": "valida em tempo real",
+            "result": "habilita salvar quando valido"
+          },
+          {
+            "trigger": "clicar em salvar",
+            "action": "cria o solicitante",
+            "result": "redireciona para o detalhe do solicitante"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0007.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0008",
+      "slug": "ref-helpflow-0008",
+      "title": "Detalhe do solicitante",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0003",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/customers/:id",
+        "name": "Detalhe do solicitante",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "solicitante carregado",
+            "ui": "dados do solicitante e historico de chamados"
+          },
+          {
+            "name": "loading",
+            "when": "buscando o solicitante",
+            "ui": "skeleton dos dados e do historico"
+          },
+          {
+            "name": "empty",
+            "when": "solicitante sem chamados",
+            "ui": "historico vazio com convite para abrir chamado"
+          },
+          {
+            "name": "error",
+            "when": "solicitante nao encontrado ou erro ao carregar",
+            "ui": "mensagem de erro com link de volta para a lista"
+          }
+        ],
+        "data": [
+          {
+            "field": "customer",
+            "source": "api:/customers/:id",
+            "editable": false,
+            "format": "dados do solicitante"
+          },
+          {
+            "field": "ticket_history",
+            "source": "api:/customers/:id/tickets",
+            "editable": false,
+            "format": "chamados do solicitante"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clicar em editar",
+            "action": "navega para edicao",
+            "result": "abre /customers/:id/edit"
+          },
+          {
+            "trigger": "clicar em um chamado do historico",
+            "action": "navega para o detalhe do chamado",
+            "result": "abre /tickets/:id"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0008.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0009",
+      "slug": "ref-helpflow-0009",
+      "title": "Editar solicitante",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0003",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/customers/:id/edit",
+        "name": "Editar solicitante",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "formulario carregado com os dados do solicitante",
+            "ui": "formulario preenchido com nome, email e organizacao"
+          },
+          {
+            "name": "loading",
+            "when": "buscando o solicitante para edicao",
+            "ui": "campos desabilitados com indicador de carregamento"
+          },
+          {
+            "name": "empty",
+            "when": "campos opcionais sem valor",
+            "ui": "placeholders e ajuda inline"
+          },
+          {
+            "name": "error",
+            "when": "validacao falhou ou erro ao salvar",
+            "ui": "mensagens de erro por campo e alerta geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "name",
+            "source": "api:/customers/:id",
+            "editable": true,
+            "format": "nome do solicitante"
+          },
+          {
+            "field": "email",
+            "source": "api:/customers/:id",
+            "editable": true,
+            "format": "email de contato"
+          },
+          {
+            "field": "organization",
+            "source": "api:/customers/:id",
+            "editable": true,
+            "format": "organizacao/empresa"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "alterar campos",
+            "action": "valida em tempo real",
+            "result": "habilita salvar quando valido"
+          },
+          {
+            "trigger": "clicar em salvar",
+            "action": "persiste as alteracoes",
+            "result": "redireciona para o detalhe do solicitante"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0009.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0010",
+      "slug": "ref-helpflow-0010",
+      "title": "Agentes",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0002",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/agents",
+        "name": "Agentes",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "lista de agentes carregada",
+            "ui": "tabela de agentes com nome, time, carga e disponibilidade"
+          },
+          {
+            "name": "loading",
+            "when": "buscando agentes",
+            "ui": "skeleton de linhas na tabela"
+          },
+          {
+            "name": "empty",
+            "when": "nenhum agente cadastrado",
+            "ui": "estado vazio com acao de novo agente"
+          },
+          {
+            "name": "error",
+            "when": "falha ao listar agentes",
+            "ui": "mensagem de erro com botao de tentar novamente"
+          }
+        ],
+        "data": [
+          {
+            "field": "agents",
+            "source": "api:/agents",
+            "editable": false,
+            "format": "lista paginada de agentes"
+          },
+          {
+            "field": "search",
+            "source": "api:/agents?q=",
+            "editable": true,
+            "format": "busca por nome ou time"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /agents",
+            "action": "carrega a lista de agentes",
+            "result": "renderiza a tabela com busca e paginacao"
+          },
+          {
+            "trigger": "clicar em um agente",
+            "action": "navega para o detalhe",
+            "result": "abre /agents/:id"
+          },
+          {
+            "trigger": "clicar em novo agente",
+            "action": "navega para o formulario",
+            "result": "abre /agents/new"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0010.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0011",
+      "slug": "ref-helpflow-0011",
+      "title": "Novo agente",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0002",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/agents/new",
+        "name": "Novo agente",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "formulario pronto",
+            "ui": "formulario de cadastro de agente com papel e time"
+          },
+          {
+            "name": "loading",
+            "when": "carregando opcoes (times/papeis)",
+            "ui": "campos desabilitados com indicador de carregamento"
+          },
+          {
+            "name": "empty",
+            "when": "formulario sem dados preenchidos",
+            "ui": "placeholders e ajuda inline por campo"
+          },
+          {
+            "name": "error",
+            "when": "validacao falhou ou erro ao salvar",
+            "ui": "mensagens de erro por campo e alerta geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "name",
+            "source": "input:usuario",
+            "editable": true,
+            "format": "nome do agente"
+          },
+          {
+            "field": "email",
+            "source": "input:usuario",
+            "editable": true,
+            "format": "email do agente"
+          },
+          {
+            "field": "role",
+            "source": "input:usuario",
+            "editable": true,
+            "format": "papel (agente/supervisor/admin)"
+          },
+          {
+            "field": "team_id",
+            "source": "api:/teams",
+            "editable": true,
+            "format": "time/fila do agente"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "preencher campos",
+            "action": "valida em tempo real",
+            "result": "habilita salvar quando valido"
+          },
+          {
+            "trigger": "clicar em salvar",
+            "action": "cria o agente",
+            "result": "redireciona para o detalhe do agente"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0011.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0012",
+      "slug": "ref-helpflow-0012",
+      "title": "Detalhe do agente",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0002",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-HELPFLOW-0003",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/agents/:id",
+        "name": "Detalhe do agente",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "agente carregado",
+            "ui": "perfil do agente, time, carga atual e chamados atribuidos"
+          },
+          {
+            "name": "loading",
+            "when": "buscando o agente",
+            "ui": "skeleton do perfil e dos chamados"
+          },
+          {
+            "name": "empty",
+            "when": "agente sem chamados atribuidos",
+            "ui": "estado vazio na lista de chamados atribuidos"
+          },
+          {
+            "name": "error",
+            "when": "agente nao encontrado ou erro ao carregar",
+            "ui": "mensagem de erro com link de volta para a lista"
+          }
+        ],
+        "data": [
+          {
+            "field": "agent",
+            "source": "api:/agents/:id",
+            "editable": false,
+            "format": "perfil e papel do agente"
+          },
+          {
+            "field": "assigned_tickets",
+            "source": "api:/agents/:id/tickets",
+            "editable": false,
+            "format": "chamados atribuidos ao agente"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clicar em editar",
+            "action": "navega para edicao",
+            "result": "abre /agents/:id/edit"
+          },
+          {
+            "trigger": "clicar em um chamado atribuido",
+            "action": "navega para o detalhe do chamado",
+            "result": "abre /tickets/:id"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0012.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0013",
+      "slug": "ref-helpflow-0013",
+      "title": "Editar agente",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0002",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/agents/:id/edit",
+        "name": "Editar agente",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "formulario carregado com os dados do agente",
+            "ui": "formulario preenchido com papel e time"
+          },
+          {
+            "name": "loading",
+            "when": "buscando o agente para edicao",
+            "ui": "campos desabilitados com indicador de carregamento"
+          },
+          {
+            "name": "empty",
+            "when": "campos opcionais sem valor",
+            "ui": "placeholders e ajuda inline"
+          },
+          {
+            "name": "error",
+            "when": "validacao falhou ou erro ao salvar",
+            "ui": "mensagens de erro por campo e alerta geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "name",
+            "source": "api:/agents/:id",
+            "editable": true,
+            "format": "nome do agente"
+          },
+          {
+            "field": "role",
+            "source": "api:/agents/:id",
+            "editable": true,
+            "format": "papel (agente/supervisor/admin)"
+          },
+          {
+            "field": "team_id",
+            "source": "api:/teams",
+            "editable": true,
+            "format": "time/fila do agente"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "alterar campos",
+            "action": "valida em tempo real",
+            "result": "habilita salvar quando valido"
+          },
+          {
+            "trigger": "clicar em salvar",
+            "action": "persiste as alteracoes",
+            "result": "redireciona para o detalhe do agente"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0013.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0014",
+      "slug": "ref-helpflow-0014",
+      "title": "Times e Filas",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0003",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-HELPFLOW-0004",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/teams",
+        "name": "Times e Filas",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "lista de times carregada",
+            "ui": "tabela de times/filas com volume na fila e SLA medio"
+          },
+          {
+            "name": "loading",
+            "when": "buscando times",
+            "ui": "skeleton de linhas na tabela"
+          },
+          {
+            "name": "empty",
+            "when": "nenhum time cadastrado",
+            "ui": "estado vazio com acao de novo time/fila"
+          },
+          {
+            "name": "error",
+            "when": "falha ao listar times",
+            "ui": "mensagem de erro com botao de tentar novamente"
+          }
+        ],
+        "data": [
+          {
+            "field": "teams",
+            "source": "api:/teams",
+            "editable": false,
+            "format": "lista de times/filas"
+          },
+          {
+            "field": "queue_metrics",
+            "source": "api:/teams?withMetrics=true",
+            "editable": false,
+            "format": "volume na fila e SLA por time"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /teams",
+            "action": "carrega a lista de times/filas",
+            "result": "renderiza a tabela com metricas de fila"
+          },
+          {
+            "trigger": "clicar em um time",
+            "action": "navega para o detalhe",
+            "result": "abre /teams/:id"
+          },
+          {
+            "trigger": "clicar em novo time/fila",
+            "action": "navega para o formulario",
+            "result": "abre /teams/new"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0014.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0015",
+      "slug": "ref-helpflow-0015",
+      "title": "Novo time/fila",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0003",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/teams/new",
+        "name": "Novo time/fila",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "formulario pronto",
+            "ui": "formulario de cadastro de time/fila com regra de roteamento"
+          },
+          {
+            "name": "loading",
+            "when": "carregando opcoes (agentes/SLA)",
+            "ui": "campos desabilitados com indicador de carregamento"
+          },
+          {
+            "name": "empty",
+            "when": "formulario sem dados preenchidos",
+            "ui": "placeholders e ajuda inline por campo"
+          },
+          {
+            "name": "error",
+            "when": "validacao falhou ou erro ao salvar",
+            "ui": "mensagens de erro por campo e alerta geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "name",
+            "source": "input:usuario",
+            "editable": true,
+            "format": "nome do time/fila"
+          },
+          {
+            "field": "routing_rule",
+            "source": "input:usuario",
+            "editable": true,
+            "format": "regra de roteamento de chamados"
+          },
+          {
+            "field": "default_sla_policy_id",
+            "source": "api:/sla-policies",
+            "editable": true,
+            "format": "politica de SLA padrao da fila"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "preencher campos",
+            "action": "valida em tempo real",
+            "result": "habilita salvar quando valido"
+          },
+          {
+            "trigger": "clicar em salvar",
+            "action": "cria o time/fila",
+            "result": "redireciona para o detalhe do time"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0015.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0016",
+      "slug": "ref-helpflow-0016",
+      "title": "Detalhe do time",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0003",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-HELPFLOW-0004",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/teams/:id",
+        "name": "Detalhe do time",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "time carregado",
+            "ui": "dados do time, agentes membros, fila atual e SLA"
+          },
+          {
+            "name": "loading",
+            "when": "buscando o time",
+            "ui": "skeleton dos dados e da fila"
+          },
+          {
+            "name": "empty",
+            "when": "time sem chamados na fila",
+            "ui": "estado vazio na fila do time"
+          },
+          {
+            "name": "error",
+            "when": "time nao encontrado ou erro ao carregar",
+            "ui": "mensagem de erro com link de volta para a lista"
+          }
+        ],
+        "data": [
+          {
+            "field": "team",
+            "source": "api:/teams/:id",
+            "editable": false,
+            "format": "dados do time/fila"
+          },
+          {
+            "field": "members",
+            "source": "api:/teams/:id/agents",
+            "editable": false,
+            "format": "agentes do time"
+          },
+          {
+            "field": "queue",
+            "source": "api:/teams/:id/tickets",
+            "editable": false,
+            "format": "chamados na fila do time"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clicar em editar",
+            "action": "navega para edicao",
+            "result": "abre /teams/:id/edit"
+          },
+          {
+            "trigger": "clicar em um chamado da fila",
+            "action": "navega para o detalhe do chamado",
+            "result": "abre /tickets/:id"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0016.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0017",
+      "slug": "ref-helpflow-0017",
+      "title": "Editar time/fila",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0003",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/teams/:id/edit",
+        "name": "Editar time/fila",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "formulario carregado com os dados do time",
+            "ui": "formulario preenchido com nome, regra de roteamento e SLA"
+          },
+          {
+            "name": "loading",
+            "when": "buscando o time para edicao",
+            "ui": "campos desabilitados com indicador de carregamento"
+          },
+          {
+            "name": "empty",
+            "when": "campos opcionais sem valor",
+            "ui": "placeholders e ajuda inline"
+          },
+          {
+            "name": "error",
+            "when": "validacao falhou ou erro ao salvar",
+            "ui": "mensagens de erro por campo e alerta geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "name",
+            "source": "api:/teams/:id",
+            "editable": true,
+            "format": "nome do time/fila"
+          },
+          {
+            "field": "routing_rule",
+            "source": "api:/teams/:id",
+            "editable": true,
+            "format": "regra de roteamento"
+          },
+          {
+            "field": "default_sla_policy_id",
+            "source": "api:/sla-policies",
+            "editable": true,
+            "format": "politica de SLA padrao"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "alterar campos",
+            "action": "valida em tempo real",
+            "result": "habilita salvar quando valido"
+          },
+          {
+            "trigger": "clicar em salvar",
+            "action": "persiste as alteracoes",
+            "result": "redireciona para o detalhe do time"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0017.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0018",
+      "slug": "ref-helpflow-0018",
+      "title": "Políticas de SLA",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0003",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-HELPFLOW-0004",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/sla-policies",
+        "name": "Políticas de SLA",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "lista de politicas carregada",
+            "ui": "tabela de politicas com metas por prioridade e horario de atendimento"
+          },
+          {
+            "name": "loading",
+            "when": "buscando politicas de SLA",
+            "ui": "skeleton de linhas na tabela"
+          },
+          {
+            "name": "empty",
+            "when": "nenhuma politica cadastrada",
+            "ui": "estado vazio com acao de nova politica"
+          },
+          {
+            "name": "error",
+            "when": "falha ao listar politicas",
+            "ui": "mensagem de erro com botao de tentar novamente"
+          }
+        ],
+        "data": [
+          {
+            "field": "policies",
+            "source": "api:/sla-policies",
+            "editable": false,
+            "format": "lista de politicas de SLA"
+          },
+          {
+            "field": "search",
+            "source": "api:/sla-policies?q=",
+            "editable": true,
+            "format": "busca por nome da politica"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /sla-policies",
+            "action": "carrega a lista de politicas",
+            "result": "renderiza a tabela com metas por prioridade"
+          },
+          {
+            "trigger": "clicar em uma politica",
+            "action": "navega para o detalhe",
+            "result": "abre /sla-policies/:id"
+          },
+          {
+            "trigger": "clicar em nova politica",
+            "action": "navega para o formulario",
+            "result": "abre /sla-policies/new"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0018.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0019",
+      "slug": "ref-helpflow-0019",
+      "title": "Nova política de SLA",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0003",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-HELPFLOW-0004",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/sla-policies/new",
+        "name": "Nova política de SLA",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "formulario pronto",
+            "ui": "formulario com metas de resposta/resolucao por prioridade e calendario"
+          },
+          {
+            "name": "loading",
+            "when": "carregando opcoes (calendarios/prioridades)",
+            "ui": "campos desabilitados com indicador de carregamento"
+          },
+          {
+            "name": "empty",
+            "when": "formulario sem dados preenchidos",
+            "ui": "placeholders e ajuda inline por campo"
+          },
+          {
+            "name": "error",
+            "when": "validacao falhou ou erro ao salvar",
+            "ui": "mensagens de erro por campo e alerta geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "name",
+            "source": "input:usuario",
+            "editable": true,
+            "format": "nome da politica"
+          },
+          {
+            "field": "first_response_target",
+            "source": "input:usuario",
+            "editable": true,
+            "format": "meta de primeira resposta por prioridade"
+          },
+          {
+            "field": "resolution_target",
+            "source": "input:usuario",
+            "editable": true,
+            "format": "meta de resolucao por prioridade"
+          },
+          {
+            "field": "business_calendar",
+            "source": "input:usuario",
+            "editable": true,
+            "format": "horario de atendimento"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "preencher metas",
+            "action": "valida coerencia entre prioridades",
+            "result": "habilita salvar quando valido"
+          },
+          {
+            "trigger": "clicar em salvar",
+            "action": "cria a politica de SLA",
+            "result": "redireciona para o detalhe da politica"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0019.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0020",
+      "slug": "ref-helpflow-0020",
+      "title": "Detalhe da política de SLA",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0003",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-HELPFLOW-0004",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/sla-policies/:id",
+        "name": "Detalhe da política de SLA",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "politica carregada",
+            "ui": "metas por prioridade, calendario e times que usam a politica"
+          },
+          {
+            "name": "loading",
+            "when": "buscando a politica",
+            "ui": "skeleton das metas e dos vinculos"
+          },
+          {
+            "name": "empty",
+            "when": "politica sem times vinculados",
+            "ui": "estado vazio na lista de times vinculados"
+          },
+          {
+            "name": "error",
+            "when": "politica nao encontrada ou erro ao carregar",
+            "ui": "mensagem de erro com link de volta para a lista"
+          }
+        ],
+        "data": [
+          {
+            "field": "policy",
+            "source": "api:/sla-policies/:id",
+            "editable": false,
+            "format": "metas e calendario da politica"
+          },
+          {
+            "field": "linked_teams",
+            "source": "api:/sla-policies/:id/teams",
+            "editable": false,
+            "format": "times que aplicam esta politica"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clicar em editar",
+            "action": "navega para edicao",
+            "result": "abre /sla-policies/:id/edit"
+          },
+          {
+            "trigger": "clicar em um time vinculado",
+            "action": "navega para o detalhe do time",
+            "result": "abre /teams/:id"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0020.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0021",
+      "slug": "ref-helpflow-0021",
+      "title": "Editar política de SLA",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0003",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/sla-policies/:id/edit",
+        "name": "Editar política de SLA",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "formulario carregado com os dados da politica",
+            "ui": "formulario preenchido com metas e calendario"
+          },
+          {
+            "name": "loading",
+            "when": "buscando a politica para edicao",
+            "ui": "campos desabilitados com indicador de carregamento"
+          },
+          {
+            "name": "empty",
+            "when": "campos opcionais sem valor",
+            "ui": "placeholders e ajuda inline"
+          },
+          {
+            "name": "error",
+            "when": "validacao falhou ou erro ao salvar",
+            "ui": "mensagens de erro por campo e alerta geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "name",
+            "source": "api:/sla-policies/:id",
+            "editable": true,
+            "format": "nome da politica"
+          },
+          {
+            "field": "first_response_target",
+            "source": "api:/sla-policies/:id",
+            "editable": true,
+            "format": "meta de primeira resposta"
+          },
+          {
+            "field": "resolution_target",
+            "source": "api:/sla-policies/:id",
+            "editable": true,
+            "format": "meta de resolucao"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "alterar metas",
+            "action": "valida coerencia",
+            "result": "habilita salvar quando valido"
+          },
+          {
+            "trigger": "clicar em salvar",
+            "action": "persiste as alteracoes",
+            "result": "redireciona para o detalhe da politica"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0021.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0022",
+      "slug": "ref-helpflow-0022",
+      "title": "Base de Conhecimento",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0006",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/kb-articles",
+        "name": "Base de Conhecimento",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "lista de artigos carregada",
+            "ui": "tabela de artigos com titulo, categoria, status e ultima atualizacao"
+          },
+          {
+            "name": "loading",
+            "when": "buscando artigos",
+            "ui": "skeleton de linhas na tabela"
+          },
+          {
+            "name": "empty",
+            "when": "nenhum artigo publicado",
+            "ui": "estado vazio com acao de novo artigo"
+          },
+          {
+            "name": "error",
+            "when": "falha ao listar artigos",
+            "ui": "mensagem de erro com botao de tentar novamente"
+          }
+        ],
+        "data": [
+          {
+            "field": "articles",
+            "source": "api:/kb-articles",
+            "editable": false,
+            "format": "lista paginada de artigos"
+          },
+          {
+            "field": "search",
+            "source": "api:/kb-articles?q=",
+            "editable": true,
+            "format": "busca por titulo ou categoria"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /kb-articles",
+            "action": "carrega a lista de artigos",
+            "result": "renderiza a tabela com busca e paginacao"
+          },
+          {
+            "trigger": "clicar em um artigo",
+            "action": "navega para o detalhe",
+            "result": "abre /kb-articles/:id"
+          },
+          {
+            "trigger": "clicar em novo artigo",
+            "action": "navega para o formulario",
+            "result": "abre /kb-articles/new"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0022.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0023",
+      "slug": "ref-helpflow-0023",
+      "title": "Novo artigo",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0006",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/kb-articles/new",
+        "name": "Novo artigo",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "formulario pronto",
+            "ui": "editor de artigo com titulo, categoria e corpo"
+          },
+          {
+            "name": "loading",
+            "when": "carregando opcoes (categorias)",
+            "ui": "campos desabilitados com indicador de carregamento"
+          },
+          {
+            "name": "empty",
+            "when": "formulario sem dados preenchidos",
+            "ui": "placeholders e ajuda inline por campo"
+          },
+          {
+            "name": "error",
+            "when": "validacao falhou ou erro ao salvar",
+            "ui": "mensagens de erro por campo e alerta geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "title",
+            "source": "input:usuario",
+            "editable": true,
+            "format": "titulo do artigo"
+          },
+          {
+            "field": "category",
+            "source": "input:usuario",
+            "editable": true,
+            "format": "categoria do artigo"
+          },
+          {
+            "field": "body",
+            "source": "input:usuario",
+            "editable": true,
+            "format": "conteudo do artigo (markdown)"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "preencher conteudo",
+            "action": "valida campos obrigatorios",
+            "result": "habilita salvar quando valido"
+          },
+          {
+            "trigger": "clicar em salvar",
+            "action": "cria o artigo",
+            "result": "redireciona para o detalhe do artigo"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0023.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0024",
+      "slug": "ref-helpflow-0024",
+      "title": "Detalhe do artigo",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0006",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/kb-articles/:id",
+        "name": "Detalhe do artigo",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "artigo carregado",
+            "ui": "conteudo renderizado, metadados e artigos relacionados"
+          },
+          {
+            "name": "loading",
+            "when": "buscando o artigo",
+            "ui": "skeleton do conteudo"
+          },
+          {
+            "name": "empty",
+            "when": "artigo sem artigos relacionados",
+            "ui": "secao de relacionados vazia"
+          },
+          {
+            "name": "error",
+            "when": "artigo nao encontrado ou erro ao carregar",
+            "ui": "mensagem de erro com link de volta para a lista"
+          }
+        ],
+        "data": [
+          {
+            "field": "article",
+            "source": "api:/kb-articles/:id",
+            "editable": false,
+            "format": "conteudo e metadados do artigo"
+          },
+          {
+            "field": "related",
+            "source": "api:/kb-articles/:id/related",
+            "editable": false,
+            "format": "artigos relacionados"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clicar em editar",
+            "action": "navega para edicao",
+            "result": "abre /kb-articles/:id/edit"
+          },
+          {
+            "trigger": "clicar em um artigo relacionado",
+            "action": "navega para o detalhe",
+            "result": "abre /kb-articles/:id"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0024.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0025",
+      "slug": "ref-helpflow-0025",
+      "title": "Editar artigo",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0006",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/kb-articles/:id/edit",
+        "name": "Editar artigo",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "editor carregado com o artigo",
+            "ui": "editor preenchido com titulo, categoria e corpo"
+          },
+          {
+            "name": "loading",
+            "when": "buscando o artigo para edicao",
+            "ui": "campos desabilitados com indicador de carregamento"
+          },
+          {
+            "name": "empty",
+            "when": "campos opcionais sem valor",
+            "ui": "placeholders e ajuda inline"
+          },
+          {
+            "name": "error",
+            "when": "validacao falhou ou erro ao salvar",
+            "ui": "mensagens de erro por campo e alerta geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "title",
+            "source": "api:/kb-articles/:id",
+            "editable": true,
+            "format": "titulo do artigo"
+          },
+          {
+            "field": "category",
+            "source": "api:/kb-articles/:id",
+            "editable": true,
+            "format": "categoria"
+          },
+          {
+            "field": "body",
+            "source": "api:/kb-articles/:id",
+            "editable": true,
+            "format": "conteudo (markdown)"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "alterar conteudo",
+            "action": "valida campos obrigatorios",
+            "result": "habilita salvar quando valido"
+          },
+          {
+            "trigger": "clicar em salvar",
+            "action": "persiste as alteracoes",
+            "result": "redireciona para o detalhe do artigo"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0025.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0026",
+      "slug": "ref-helpflow-0026",
+      "title": "Busca grounded na KB",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0006",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/kb-search",
+        "name": "Busca grounded na KB",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "resultados com citacoes carregados",
+            "ui": "resposta grounded com trechos citados e links para os artigos fonte"
+          },
+          {
+            "name": "loading",
+            "when": "executando a busca grounded",
+            "ui": "indicador de processamento da consulta"
+          },
+          {
+            "name": "empty",
+            "when": "nenhum artigo relevante encontrado",
+            "ui": "estado vazio convidando a refinar a consulta"
+          },
+          {
+            "name": "error",
+            "when": "falha na busca ou IA indisponivel (fail-closed)",
+            "ui": "mensagem de erro sem resposta fabricada"
+          }
+        ],
+        "data": [
+          {
+            "field": "query",
+            "source": "input:usuario",
+            "editable": true,
+            "format": "consulta em linguagem natural"
+          },
+          {
+            "field": "answer",
+            "source": "api:/kb-search",
+            "editable": false,
+            "format": "resposta grounded com citacoes"
+          },
+          {
+            "field": "citations",
+            "source": "api:/kb-search?withCitations=true",
+            "editable": false,
+            "format": "artigos fonte citados"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "submeter consulta",
+            "action": "busca artigos relevantes e gera resposta grounded",
+            "result": "exibe a resposta com citacoes verificaveis"
+          },
+          {
+            "trigger": "clicar em uma citacao",
+            "action": "navega para o artigo fonte",
+            "result": "abre /kb-articles/:id"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0026.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0027",
+      "slug": "ref-helpflow-0027",
+      "title": "Assistente de IA",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0007",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-HELPFLOW-0006",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/assistant",
+        "name": "Assistente de IA",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "conversa ativa com a IA",
+            "ui": "chat grounded com sugestoes de resposta e citacoes da KB"
+          },
+          {
+            "name": "loading",
+            "when": "IA processando a mensagem",
+            "ui": "indicador de digitacao da IA"
+          },
+          {
+            "name": "empty",
+            "when": "conversa sem mensagens",
+            "ui": "estado inicial com exemplos de perguntas"
+          },
+          {
+            "name": "error",
+            "when": "IA indisponivel ou falha (fail-closed)",
+            "ui": "mensagem de erro sem resposta fabricada"
+          }
+        ],
+        "data": [
+          {
+            "field": "messages",
+            "source": "api:/assistant/thread",
+            "editable": false,
+            "format": "historico da conversa"
+          },
+          {
+            "field": "draft",
+            "source": "input:usuario",
+            "editable": true,
+            "format": "mensagem do usuario"
+          },
+          {
+            "field": "citations",
+            "source": "api:/assistant/respond?withCitations=true",
+            "editable": false,
+            "format": "fontes citadas pela IA"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "enviar mensagem",
+            "action": "consulta a IA grounded na KB e nos chamados",
+            "result": "exibe a resposta com citacoes verificaveis"
+          },
+          {
+            "trigger": "aplicar sugestao a um chamado",
+            "action": "insere o rascunho no chamado de origem",
+            "result": "permite revisao antes do envio"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0027.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0028",
+      "slug": "ref-helpflow-0028",
+      "title": "Controle da IA",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0007",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/ai-control",
+        "name": "Controle da IA",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "configuracoes e telemetria da IA carregadas",
+            "ui": "toggles de capacidade, limites de uso e historico de chamadas"
+          },
+          {
+            "name": "loading",
+            "when": "buscando configuracao e telemetria",
+            "ui": "skeleton dos paineis de controle"
+          },
+          {
+            "name": "empty",
+            "when": "sem chamadas registradas no periodo",
+            "ui": "estado vazio no historico de uso"
+          },
+          {
+            "name": "error",
+            "when": "falha ao carregar configuracao da IA",
+            "ui": "mensagem de erro com botao de tentar novamente"
+          }
+        ],
+        "data": [
+          {
+            "field": "settings",
+            "source": "api:/ai-control/settings",
+            "editable": true,
+            "format": "capacidades habilitadas e modo (dry-run/ativo)"
+          },
+          {
+            "field": "usage",
+            "source": "api:/ai-control/usage",
+            "editable": false,
+            "format": "tokens, custo e chamadas por capacidade"
+          },
+          {
+            "field": "audit",
+            "source": "api:/ai-control/audit",
+            "editable": false,
+            "format": "trilha de auditoria das acoes da IA"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "alternar uma capacidade",
+            "action": "atualiza a configuracao da IA",
+            "result": "habilita/desabilita a capacidade com confirmacao"
+          },
+          {
+            "trigger": "ajustar limite de uso",
+            "action": "persiste o novo budget",
+            "result": "aplica o limite e atualiza a telemetria"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0028.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0029",
+      "slug": "ref-helpflow-0029",
+      "title": "Integrações",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0005",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/integrations",
+        "name": "Integrações",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "lista de integracoes carregada",
+            "ui": "tabela de integracoes com tipo, status de conexao e ultima sincronizacao"
+          },
+          {
+            "name": "loading",
+            "when": "buscando integracoes",
+            "ui": "skeleton de linhas na tabela"
+          },
+          {
+            "name": "empty",
+            "when": "nenhuma integracao configurada",
+            "ui": "estado vazio com acao de nova integracao"
+          },
+          {
+            "name": "error",
+            "when": "falha ao listar integracoes",
+            "ui": "mensagem de erro com botao de tentar novamente"
+          }
+        ],
+        "data": [
+          {
+            "field": "integrations",
+            "source": "api:/integrations",
+            "editable": false,
+            "format": "lista de integracoes (email, chat, webhook)"
+          },
+          {
+            "field": "connection_status",
+            "source": "api:/integrations?withStatus=true",
+            "editable": false,
+            "format": "status de saude de cada conexao"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /integrations",
+            "action": "carrega a lista de integracoes",
+            "result": "renderiza a tabela com status de conexao"
+          },
+          {
+            "trigger": "clicar em uma integracao",
+            "action": "navega para o detalhe",
+            "result": "abre /integrations/:id"
+          },
+          {
+            "trigger": "clicar em nova integracao",
+            "action": "navega para o formulario",
+            "result": "abre /integrations/new"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0029.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0030",
+      "slug": "ref-helpflow-0030",
+      "title": "Nova integração",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0005",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/integrations/new",
+        "name": "Nova integração",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "formulario pronto",
+            "ui": "formulario com tipo de integracao, credenciais e mapeamento"
+          },
+          {
+            "name": "loading",
+            "when": "carregando tipos de integracao disponiveis",
+            "ui": "campos desabilitados com indicador de carregamento"
+          },
+          {
+            "name": "empty",
+            "when": "formulario sem dados preenchidos",
+            "ui": "placeholders e ajuda inline por campo"
+          },
+          {
+            "name": "error",
+            "when": "validacao falhou, credencial invalida ou erro ao salvar",
+            "ui": "mensagens de erro por campo e alerta geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "type",
+            "source": "input:usuario",
+            "editable": true,
+            "format": "tipo (email/chat/webhook)"
+          },
+          {
+            "field": "credentials",
+            "source": "input:usuario",
+            "editable": true,
+            "format": "credenciais da integracao (redigidas)"
+          },
+          {
+            "field": "mapping",
+            "source": "input:usuario",
+            "editable": true,
+            "format": "mapeamento para filas/times"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "preencher credenciais",
+            "action": "valida e testa a conexao",
+            "result": "indica sucesso ou falha do teste"
+          },
+          {
+            "trigger": "clicar em salvar",
+            "action": "cria a integracao",
+            "result": "redireciona para o detalhe da integracao"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0030.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0031",
+      "slug": "ref-helpflow-0031",
+      "title": "Detalhe da integração",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0005",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/integrations/:id",
+        "name": "Detalhe da integração",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "integracao carregada",
+            "ui": "configuracao, status de conexao e log de eventos recentes"
+          },
+          {
+            "name": "loading",
+            "when": "buscando a integracao",
+            "ui": "skeleton da configuracao e do log"
+          },
+          {
+            "name": "empty",
+            "when": "integracao sem eventos registrados",
+            "ui": "estado vazio no log de eventos"
+          },
+          {
+            "name": "error",
+            "when": "integracao nao encontrada ou erro ao carregar",
+            "ui": "mensagem de erro com link de volta para a lista"
+          }
+        ],
+        "data": [
+          {
+            "field": "integration",
+            "source": "api:/integrations/:id",
+            "editable": false,
+            "format": "configuracao da integracao (credenciais redigidas)"
+          },
+          {
+            "field": "events",
+            "source": "api:/integrations/:id/events",
+            "editable": false,
+            "format": "eventos de sincronizacao recentes"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clicar em editar",
+            "action": "navega para edicao",
+            "result": "abre /integrations/:id/edit"
+          },
+          {
+            "trigger": "clicar em testar conexao",
+            "action": "executa um teste de conectividade",
+            "result": "atualiza o status de conexao"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0031.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0032",
+      "slug": "ref-helpflow-0032",
+      "title": "Editar integração",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0005",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/integrations/:id/edit",
+        "name": "Editar integração",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "formulario carregado com a integracao",
+            "ui": "formulario preenchido com credenciais e mapeamento"
+          },
+          {
+            "name": "loading",
+            "when": "buscando a integracao para edicao",
+            "ui": "campos desabilitados com indicador de carregamento"
+          },
+          {
+            "name": "empty",
+            "when": "campos opcionais sem valor",
+            "ui": "placeholders e ajuda inline"
+          },
+          {
+            "name": "error",
+            "when": "validacao falhou, credencial invalida ou erro ao salvar",
+            "ui": "mensagens de erro por campo e alerta geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "type",
+            "source": "api:/integrations/:id",
+            "editable": false,
+            "format": "tipo da integracao"
+          },
+          {
+            "field": "credentials",
+            "source": "api:/integrations/:id",
+            "editable": true,
+            "format": "credenciais (redigidas)"
+          },
+          {
+            "field": "mapping",
+            "source": "api:/integrations/:id",
+            "editable": true,
+            "format": "mapeamento para filas/times"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "alterar credenciais",
+            "action": "valida e testa a conexao",
+            "result": "indica sucesso ou falha do teste"
+          },
+          {
+            "trigger": "clicar em salvar",
+            "action": "persiste as alteracoes",
+            "result": "redireciona para o detalhe da integracao"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0032.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0033",
+      "slug": "ref-helpflow-0033",
+      "title": "Fila de Processamento",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0004",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/jobs",
+        "name": "Fila de Processamento",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "lista de jobs carregada",
+            "ui": "tabela de jobs com tipo, status, tentativas e agendamento"
+          },
+          {
+            "name": "loading",
+            "when": "buscando jobs",
+            "ui": "skeleton de linhas na tabela"
+          },
+          {
+            "name": "empty",
+            "when": "nenhum job na fila",
+            "ui": "estado vazio indicando fila ociosa"
+          },
+          {
+            "name": "error",
+            "when": "falha ao listar jobs",
+            "ui": "mensagem de erro com botao de tentar novamente"
+          }
+        ],
+        "data": [
+          {
+            "field": "jobs",
+            "source": "api:/jobs",
+            "editable": false,
+            "format": "lista de jobs em fila/processando/concluidos/falhos"
+          },
+          {
+            "field": "filters",
+            "source": "api:/jobs?status&type",
+            "editable": true,
+            "format": "filtros por status e tipo"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /jobs",
+            "action": "carrega a fila de processamento",
+            "result": "renderiza a tabela com status dos jobs"
+          },
+          {
+            "trigger": "clicar em um job",
+            "action": "navega para o detalhe",
+            "result": "abre /jobs/:id"
+          },
+          {
+            "trigger": "clicar em reprocessar um job falho",
+            "action": "reenfileira o job",
+            "result": "atualiza o status para em fila"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0033.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0034",
+      "slug": "ref-helpflow-0034",
+      "title": "Detalhe do job",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0004",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/jobs/:id",
+        "name": "Detalhe do job",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "job carregado",
+            "ui": "payload, historico de tentativas, erro e log de execucao"
+          },
+          {
+            "name": "loading",
+            "when": "buscando o job",
+            "ui": "skeleton dos dados e do log"
+          },
+          {
+            "name": "empty",
+            "when": "job sem tentativas registradas",
+            "ui": "estado vazio no historico de tentativas"
+          },
+          {
+            "name": "error",
+            "when": "job nao encontrado ou erro ao carregar",
+            "ui": "mensagem de erro com link de volta para a fila"
+          }
+        ],
+        "data": [
+          {
+            "field": "job",
+            "source": "api:/jobs/:id",
+            "editable": false,
+            "format": "dados do job (tipo, status, payload)"
+          },
+          {
+            "field": "attempts",
+            "source": "api:/jobs/:id/attempts",
+            "editable": false,
+            "format": "historico de tentativas e erros"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clicar em reprocessar",
+            "action": "reenfileira o job",
+            "result": "atualiza o status e registra nova tentativa"
+          },
+          {
+            "trigger": "clicar em voltar",
+            "action": "navega para a fila",
+            "result": "abre /jobs"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0034.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0035",
+      "slug": "ref-helpflow-0035",
+      "title": "Observabilidade",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0001",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/observability",
+        "name": "Observabilidade",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "metricas e saude carregadas",
+            "ui": "paineis de health, latencia, throughput e erros do service desk"
+          },
+          {
+            "name": "loading",
+            "when": "buscando metricas",
+            "ui": "skeleton dos paineis"
+          },
+          {
+            "name": "empty",
+            "when": "sem dados no intervalo selecionado",
+            "ui": "estado vazio convidando a alterar o periodo"
+          },
+          {
+            "name": "error",
+            "when": "falha ao carregar metricas",
+            "ui": "mensagem de erro com botao de tentar novamente"
+          }
+        ],
+        "data": [
+          {
+            "field": "health",
+            "source": "api:/observability/health",
+            "editable": false,
+            "format": "status dos servicos (api/worker/db)"
+          },
+          {
+            "field": "metrics",
+            "source": "api:/observability/metrics",
+            "editable": false,
+            "format": "latencia, throughput e taxa de erro"
+          },
+          {
+            "field": "time_range",
+            "source": "input:usuario",
+            "editable": true,
+            "format": "intervalo de tempo selecionado"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /observability",
+            "action": "carrega health e metricas",
+            "result": "renderiza os paineis de observabilidade"
+          },
+          {
+            "trigger": "alterar o intervalo",
+            "action": "recarrega as metricas para o periodo",
+            "result": "atualiza os graficos"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0035.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0036",
+      "slug": "ref-helpflow-0036",
+      "title": "Configurações e Tenant",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "helpflow",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-HELPFLOW-0002",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/settings",
+        "name": "Configurações e Tenant",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "when": "configuracoes do tenant carregadas",
+            "ui": "abas de identidade do tenant, preferencias e papeis de acesso"
+          },
+          {
+            "name": "loading",
+            "when": "buscando configuracoes",
+            "ui": "skeleton das secoes de configuracao"
+          },
+          {
+            "name": "empty",
+            "when": "tenant sem preferencias customizadas",
+            "ui": "valores padrao com convite para personalizar"
+          },
+          {
+            "name": "error",
+            "when": "validacao falhou ou erro ao salvar",
+            "ui": "mensagens de erro por campo e alerta geral"
+          }
+        ],
+        "data": [
+          {
+            "field": "tenant_profile",
+            "source": "api:/settings/tenant",
+            "editable": true,
+            "format": "nome, dominio e identidade do tenant"
+          },
+          {
+            "field": "preferences",
+            "source": "api:/settings/preferences",
+            "editable": true,
+            "format": "preferencias operacionais (fuso, idioma, notificacoes)"
+          },
+          {
+            "field": "roles",
+            "source": "api:/settings/roles",
+            "editable": true,
+            "format": "papeis e permissoes de acesso"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "alterar uma configuracao",
+            "action": "valida e habilita salvar",
+            "result": "destaca alteracoes pendentes"
+          },
+          {
+            "trigger": "clicar em salvar",
+            "action": "persiste as configuracoes do tenant",
+            "result": "confirma a atualizacao com feedback de sucesso"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/helpflow/product.json",
+          "apps/helpflow/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/helpflow/REF-HELPFLOW-0036.yaml"
     },
     {
       "id": "REF-PORTAL-0001",

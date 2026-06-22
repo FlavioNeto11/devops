@@ -1,0 +1,63 @@
+id: REF-HELPFLOW-0013
+slug: ref-helpflow-0013
+title: "Editar agente"
+kind: screen
+status: approved
+
+scope:
+  product_scope: helpflow
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-HELPFLOW-0002
+    relation: implements
+
+surface:
+  route: "/agents/:id/edit"
+  name: "Editar agente"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+      when: "formulario carregado com os dados do agente"
+      ui: "formulario preenchido com papel e time"
+    - name: loading
+      when: "buscando o agente para edicao"
+      ui: "campos desabilitados com indicador de carregamento"
+    - name: empty
+      when: "campos opcionais sem valor"
+      ui: "placeholders e ajuda inline"
+    - name: error
+      when: "validacao falhou ou erro ao salvar"
+      ui: "mensagens de erro por campo e alerta geral"
+  data:
+    - field: "name"
+      source: "api:/agents/:id"
+      editable: true
+      format: "nome do agente"
+    - field: "role"
+      source: "api:/agents/:id"
+      editable: true
+      format: "papel (agente/supervisor/admin)"
+    - field: "team_id"
+      source: "api:/teams"
+      editable: true
+      format: "time/fila do agente"
+  interactions:
+    - trigger: "alterar campos"
+      action: "valida em tempo real"
+      result: "habilita salvar quando valido"
+    - trigger: "clicar em salvar"
+      action: "persiste as alteracoes"
+      result: "redireciona para o detalhe do agente"
+
+source:
+  source_paths:
+    - specs/products/helpflow/product.json
+    - apps/helpflow/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

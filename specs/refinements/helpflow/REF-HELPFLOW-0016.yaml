@@ -1,0 +1,65 @@
+id: REF-HELPFLOW-0016
+slug: ref-helpflow-0016
+title: "Detalhe do time"
+kind: screen
+status: approved
+
+scope:
+  product_scope: helpflow
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-HELPFLOW-0003
+    relation: implements
+  - requirement_id: REQ-HELPFLOW-0004
+    relation: relates_to
+
+surface:
+  route: "/teams/:id"
+  name: "Detalhe do time"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+      when: "time carregado"
+      ui: "dados do time, agentes membros, fila atual e SLA"
+    - name: loading
+      when: "buscando o time"
+      ui: "skeleton dos dados e da fila"
+    - name: empty
+      when: "time sem chamados na fila"
+      ui: "estado vazio na fila do time"
+    - name: error
+      when: "time nao encontrado ou erro ao carregar"
+      ui: "mensagem de erro com link de volta para a lista"
+  data:
+    - field: "team"
+      source: "api:/teams/:id"
+      editable: false
+      format: "dados do time/fila"
+    - field: "members"
+      source: "api:/teams/:id/agents"
+      editable: false
+      format: "agentes do time"
+    - field: "queue"
+      source: "api:/teams/:id/tickets"
+      editable: false
+      format: "chamados na fila do time"
+  interactions:
+    - trigger: "clicar em editar"
+      action: "navega para edicao"
+      result: "abre /teams/:id/edit"
+    - trigger: "clicar em um chamado da fila"
+      action: "navega para o detalhe do chamado"
+      result: "abre /tickets/:id"
+
+source:
+  source_paths:
+    - specs/products/helpflow/product.json
+    - apps/helpflow/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

@@ -1,0 +1,64 @@
+id: REF-HELPFLOW-0014
+slug: ref-helpflow-0014
+title: "Times e Filas"
+kind: screen
+status: approved
+
+scope:
+  product_scope: helpflow
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-HELPFLOW-0003
+    relation: implements
+  - requirement_id: REQ-HELPFLOW-0004
+    relation: relates_to
+
+surface:
+  route: "/teams"
+  name: "Times e Filas"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+      when: "lista de times carregada"
+      ui: "tabela de times/filas com volume na fila e SLA medio"
+    - name: loading
+      when: "buscando times"
+      ui: "skeleton de linhas na tabela"
+    - name: empty
+      when: "nenhum time cadastrado"
+      ui: "estado vazio com acao de novo time/fila"
+    - name: error
+      when: "falha ao listar times"
+      ui: "mensagem de erro com botao de tentar novamente"
+  data:
+    - field: "teams"
+      source: "api:/teams"
+      editable: false
+      format: "lista de times/filas"
+    - field: "queue_metrics"
+      source: "api:/teams?withMetrics=true"
+      editable: false
+      format: "volume na fila e SLA por time"
+  interactions:
+    - trigger: "abrir /teams"
+      action: "carrega a lista de times/filas"
+      result: "renderiza a tabela com metricas de fila"
+    - trigger: "clicar em um time"
+      action: "navega para o detalhe"
+      result: "abre /teams/:id"
+    - trigger: "clicar em novo time/fila"
+      action: "navega para o formulario"
+      result: "abre /teams/new"
+
+source:
+  source_paths:
+    - specs/products/helpflow/product.json
+    - apps/helpflow/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

@@ -1,0 +1,63 @@
+id: REF-HELPFLOW-0026
+slug: ref-helpflow-0026
+title: "Busca grounded na KB"
+kind: screen
+status: approved
+
+scope:
+  product_scope: helpflow
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-HELPFLOW-0006
+    relation: implements
+
+surface:
+  route: "/kb-search"
+  name: "Busca grounded na KB"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+      when: "resultados com citacoes carregados"
+      ui: "resposta grounded com trechos citados e links para os artigos fonte"
+    - name: loading
+      when: "executando a busca grounded"
+      ui: "indicador de processamento da consulta"
+    - name: empty
+      when: "nenhum artigo relevante encontrado"
+      ui: "estado vazio convidando a refinar a consulta"
+    - name: error
+      when: "falha na busca ou IA indisponivel (fail-closed)"
+      ui: "mensagem de erro sem resposta fabricada"
+  data:
+    - field: "query"
+      source: "input:usuario"
+      editable: true
+      format: "consulta em linguagem natural"
+    - field: "answer"
+      source: "api:/kb-search"
+      editable: false
+      format: "resposta grounded com citacoes"
+    - field: "citations"
+      source: "api:/kb-search?withCitations=true"
+      editable: false
+      format: "artigos fonte citados"
+  interactions:
+    - trigger: "submeter consulta"
+      action: "busca artigos relevantes e gera resposta grounded"
+      result: "exibe a resposta com citacoes verificaveis"
+    - trigger: "clicar em uma citacao"
+      action: "navega para o artigo fonte"
+      result: "abre /kb-articles/:id"
+
+source:
+  source_paths:
+    - specs/products/helpflow/product.json
+    - apps/helpflow/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

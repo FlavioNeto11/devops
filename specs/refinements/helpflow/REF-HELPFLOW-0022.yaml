@@ -1,0 +1,62 @@
+id: REF-HELPFLOW-0022
+slug: ref-helpflow-0022
+title: "Base de Conhecimento"
+kind: screen
+status: approved
+
+scope:
+  product_scope: helpflow
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-HELPFLOW-0006
+    relation: implements
+
+surface:
+  route: "/kb-articles"
+  name: "Base de Conhecimento"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+      when: "lista de artigos carregada"
+      ui: "tabela de artigos com titulo, categoria, status e ultima atualizacao"
+    - name: loading
+      when: "buscando artigos"
+      ui: "skeleton de linhas na tabela"
+    - name: empty
+      when: "nenhum artigo publicado"
+      ui: "estado vazio com acao de novo artigo"
+    - name: error
+      when: "falha ao listar artigos"
+      ui: "mensagem de erro com botao de tentar novamente"
+  data:
+    - field: "articles"
+      source: "api:/kb-articles"
+      editable: false
+      format: "lista paginada de artigos"
+    - field: "search"
+      source: "api:/kb-articles?q="
+      editable: true
+      format: "busca por titulo ou categoria"
+  interactions:
+    - trigger: "abrir /kb-articles"
+      action: "carrega a lista de artigos"
+      result: "renderiza a tabela com busca e paginacao"
+    - trigger: "clicar em um artigo"
+      action: "navega para o detalhe"
+      result: "abre /kb-articles/:id"
+    - trigger: "clicar em novo artigo"
+      action: "navega para o formulario"
+      result: "abre /kb-articles/new"
+
+source:
+  source_paths:
+    - specs/products/helpflow/product.json
+    - apps/helpflow/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

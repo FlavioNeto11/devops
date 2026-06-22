@@ -1,0 +1,63 @@
+id: REF-HELPFLOW-0028
+slug: ref-helpflow-0028
+title: "Controle da IA"
+kind: screen
+status: approved
+
+scope:
+  product_scope: helpflow
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-HELPFLOW-0007
+    relation: implements
+
+surface:
+  route: "/ai-control"
+  name: "Controle da IA"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+      when: "configuracoes e telemetria da IA carregadas"
+      ui: "toggles de capacidade, limites de uso e historico de chamadas"
+    - name: loading
+      when: "buscando configuracao e telemetria"
+      ui: "skeleton dos paineis de controle"
+    - name: empty
+      when: "sem chamadas registradas no periodo"
+      ui: "estado vazio no historico de uso"
+    - name: error
+      when: "falha ao carregar configuracao da IA"
+      ui: "mensagem de erro com botao de tentar novamente"
+  data:
+    - field: "settings"
+      source: "api:/ai-control/settings"
+      editable: true
+      format: "capacidades habilitadas e modo (dry-run/ativo)"
+    - field: "usage"
+      source: "api:/ai-control/usage"
+      editable: false
+      format: "tokens, custo e chamadas por capacidade"
+    - field: "audit"
+      source: "api:/ai-control/audit"
+      editable: false
+      format: "trilha de auditoria das acoes da IA"
+  interactions:
+    - trigger: "alternar uma capacidade"
+      action: "atualiza a configuracao da IA"
+      result: "habilita/desabilita a capacidade com confirmacao"
+    - trigger: "ajustar limite de uso"
+      action: "persiste o novo budget"
+      result: "aplica o limite e atualiza a telemetria"
+
+source:
+  source_paths:
+    - specs/products/helpflow/product.json
+    - apps/helpflow/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

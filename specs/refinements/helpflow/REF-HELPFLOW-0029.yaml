@@ -1,0 +1,62 @@
+id: REF-HELPFLOW-0029
+slug: ref-helpflow-0029
+title: "Integrações"
+kind: screen
+status: approved
+
+scope:
+  product_scope: helpflow
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-HELPFLOW-0005
+    relation: implements
+
+surface:
+  route: "/integrations"
+  name: "Integrações"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+      when: "lista de integracoes carregada"
+      ui: "tabela de integracoes com tipo, status de conexao e ultima sincronizacao"
+    - name: loading
+      when: "buscando integracoes"
+      ui: "skeleton de linhas na tabela"
+    - name: empty
+      when: "nenhuma integracao configurada"
+      ui: "estado vazio com acao de nova integracao"
+    - name: error
+      when: "falha ao listar integracoes"
+      ui: "mensagem de erro com botao de tentar novamente"
+  data:
+    - field: "integrations"
+      source: "api:/integrations"
+      editable: false
+      format: "lista de integracoes (email, chat, webhook)"
+    - field: "connection_status"
+      source: "api:/integrations?withStatus=true"
+      editable: false
+      format: "status de saude de cada conexao"
+  interactions:
+    - trigger: "abrir /integrations"
+      action: "carrega a lista de integracoes"
+      result: "renderiza a tabela com status de conexao"
+    - trigger: "clicar em uma integracao"
+      action: "navega para o detalhe"
+      result: "abre /integrations/:id"
+    - trigger: "clicar em nova integracao"
+      action: "navega para o formulario"
+      result: "abre /integrations/new"
+
+source:
+  source_paths:
+    - specs/products/helpflow/product.json
+    - apps/helpflow/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

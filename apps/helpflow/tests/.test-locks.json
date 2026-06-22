@@ -1,0 +1,259 @@
+{
+  "app": "helpflow",
+  "generatedBy": "make-test-suite.mjs",
+  "minCount": 63,
+  "files": [
+    {
+      "path": "apps/helpflow/tests/locked/_lib.mjs",
+      "sha256": "217b81da2002b3b6892b8b175705bcdd5f4b8001cba2348f0daaf67196f212c6"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/capability/camadas-rigidas.test.mjs",
+      "sha256": "7e8a53dcd9c872dbd2c6684557c14572f4d76e2f89bee1458ddf377ab9c80ef7"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/capability/contract-openapi.test.mjs",
+      "sha256": "a5e164ffeca669c9a022843356b38aa8e73afc146002331e8c91aeeeb2c56568"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/capability/control-ai-por-app.test.mjs",
+      "sha256": "4b696cd6e6d77c2ba3e2d01dac4f2bde8745e538bc9f50239c22a0172e29be25"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/capability/design-system.test.mjs",
+      "sha256": "e7304fbd55f5ba9fdd5f86763fbde746529091b76c2bd1243fd9eaebf47b2bfb"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/capability/gateway-externo.test.mjs",
+      "sha256": "c7764cf6b8917534d3fa2ddfd760d4bf82092a70cfe94aa9cd616338044ebe61"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/capability/ia-grafo.test.mjs",
+      "sha256": "e025fad7b70a47e2dc4c005d31c07c08c2524001244728737687da281d992828"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/capability/idempotencia.test.mjs",
+      "sha256": "bd02f782ee81704885dfb1b45a4fc6df4165884861c0c9810db652e852845f6f"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/capability/migrations-versionadas.test.mjs",
+      "sha256": "aff72c8efb3417fbedb4ce64806758964733ee97198edb33d0435e58e816461a"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/capability/observabilidade.test.mjs",
+      "sha256": "8c732800c092a77201f6f36a84346c555e15e10150db2ef9896551f621bb0914"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/capability/oidc-sessao.test.mjs",
+      "sha256": "2523845f52ae5198b66c3bbf8b56d275438a8d2ceaf9736cd34a92f3ca47192d"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/capability/rag-pgvector.test.mjs",
+      "sha256": "ee3b41febad99b8d73e83332c06a6e6a375113a9cabbe15c378a16bd69766aaf"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/capability/structured-outputs.test.mjs",
+      "sha256": "802aa7a3e2807a96aa92e45bff1ed6b74a67d3132ce4edbb86a36e5ffe062829"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/capability/worker-queue-transacional.test.mjs",
+      "sha256": "7c17d86dbf5bbf6bb458468afd0e1eca6a25f48c2f787d32e047c7bbc4ae13eb"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0001.ac1.test.mjs",
+      "sha256": "af3466af67178de31f3a6fe07b187a8f03e1b6c395d212052d5b9127123bbd16"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0001.ac2.test.mjs",
+      "sha256": "dd41e06622a48d690539c4ee7ff367174f158492761c54003239cdd204953178"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0001.ac3.test.mjs",
+      "sha256": "883d415f4bda16783b373d803cc076d2b265974d297634a57ab8eb127a42f0e6"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0001.ac4.test.mjs",
+      "sha256": "6d4be2b23e2f90d3b6faa1978ccfb9e1e684a28b1899e6c42b36bf1cc73de056"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0001.ac5.test.mjs",
+      "sha256": "0c0bf16246096c612457dad0d42ea9c3fc2cf359e8cb1fac155bdb7c5b8d804f"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0001.ac6.test.mjs",
+      "sha256": "fdf239a23aeae036509a3a63cf89b674e671d1dd67fad66ab59b88a5d77a0b92"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0002.ac1.test.mjs",
+      "sha256": "d293c9d2706b38f0f8ecaef68361003a72fb0281cf8776e81c116bf3b1904784"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0002.ac2.test.mjs",
+      "sha256": "1250e16d78d1c81c0a74d2eeacb7cff16c98fc112caf144558b7a9275afb8d53"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0002.ac3.test.mjs",
+      "sha256": "9d0d0ee48e0a2bbc66a0332b4f2b9b04f38102080c798ce671db9e400f6cba9c"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0002.ac4.test.mjs",
+      "sha256": "ecaa303e5849b0f0f76d0de2c279044e62d9f475eb0469e58e862b9ef9ce69a8"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0002.ac5.test.mjs",
+      "sha256": "ce82c9c00287e8e84953b1d20abdb045821f6093fca67d342437e0b754cfa2a9"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0002.ac6.test.mjs",
+      "sha256": "7c011b33d1c2e6cd4e09fb9184c0139daf81db977711a89900042321ce87758b"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0003.ac1.test.mjs",
+      "sha256": "3f936f1f9ae2a07463db036fb105ffcca4046ba635f139054b23ad6a15dd9390"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0003.ac2.test.mjs",
+      "sha256": "154849314f0209a94def8832b60b00c0e714f1a1df3e90f5644e31cc555bb4e5"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0003.ac3.test.mjs",
+      "sha256": "d80f78922da6bc5ba0ed733e0505d831c3dc80b42b7fdc3c6b56d4aeb6bb0a0e"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0003.ac4.test.mjs",
+      "sha256": "3c14daa7348d1143cbbece6d0cc6ed7b9613d8b561c9f0d8d361301a12389fca"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0003.ac5.test.mjs",
+      "sha256": "3af447e3f136bee144c47033b7f1c2bd3af3322a69716437f0e38844d71235c6"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0003.ac6.test.mjs",
+      "sha256": "0e1c0888f3c0bdd3a51fa9eca355fcc4c77aa0b39117050ba474253eced15c6c"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0004.ac1.test.mjs",
+      "sha256": "3d57e1f9cf3ec70d01ac48c7abc37984f3e529dd015767664f3dd6f333d2c0be"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0004.ac2.test.mjs",
+      "sha256": "0e781a7f94f9bcd8d41d20706cedcc552deea0eb769673135aee8cdacb0386e1"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0004.ac3.test.mjs",
+      "sha256": "3df4cde0da00c345b067492b906138a61136642c5ae096a485f805b1568210b0"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0004.ac4.test.mjs",
+      "sha256": "b48a520f2c8fbb5c653828e0d92aff3532da0268e45b7f321fb66bdef5399ee2"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0004.ac5.test.mjs",
+      "sha256": "209b5c25bf5ed6e175e413bb1960662c2d438d801e3db2d4d1d58f8cb5c572e7"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0004.ac6.test.mjs",
+      "sha256": "4fe022db00535f2963895cbcb0a866c3ed3face5778a08c29614b679b9028f7c"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0005.ac1.test.mjs",
+      "sha256": "38868a6f16d6c1c625bb290c86f965b6953444b29360f8ca0dad1757e8b01547"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0005.ac2.test.mjs",
+      "sha256": "0d95e8fde9ea2707e7a1b7c0a07e46aa7ee705d7b5533d1e7a1aa56772f91a05"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0005.ac3.test.mjs",
+      "sha256": "98f5611a605b7adb9ff3cdf45b42deb0716a07fec8007cabff526a37368aedac"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0005.ac4.test.mjs",
+      "sha256": "4262038517494c7bc7b22c0bec9b3ee44a7ad9b0e9fbe9f9bce3fb0579cc3bf2"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0005.ac5.test.mjs",
+      "sha256": "f1032bd2e5921477fcf873767831a228a153273f32cd5f3575ca080f1cfb7d6a"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0005.ac6.test.mjs",
+      "sha256": "c37377abcbd58066782501268a16b19ecef2f2789893d5ab68b7bc2e7439a18d"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0006.ac1.test.mjs",
+      "sha256": "a883f71e3b11a4b6cac23e250c47b6fc93879af19411bcdafdfac614802614f7"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0006.ac2.test.mjs",
+      "sha256": "e927a9d2da4db6348b18e33071e0c2932afe3ee0266de7d19bc2c320bf6def82"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0006.ac3.test.mjs",
+      "sha256": "ecff3a4305bedc7a5867520b2d4a8877ce53e45af35551911c04104309f8cddc"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0006.ac4.test.mjs",
+      "sha256": "1fe8a96bb111f2becfe3f059aedc60c6d7f4eb4491aabb834d056b5d21343462"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0006.ac5.test.mjs",
+      "sha256": "9e26875f02ec7d0d74c6c1dd8e4b5a821cdd61587c15e105be20fb91c1fc91ff"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0006.ac6.test.mjs",
+      "sha256": "4aafe66879b47b69b66d40d30dd9b29d523db6d4b2adbe1fb3ac1d0126f6391b"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0007.ac1.test.mjs",
+      "sha256": "1d1b6c66288a2d4fa358072843f3fe67bc7235bf66a769025cb8e272892ce45b"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0007.ac2.test.mjs",
+      "sha256": "31efe4df8a99fa5a7bc248177fd16421db30e7fba522f55325dae64c78684a27"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0007.ac3.test.mjs",
+      "sha256": "d44c4bc0070638730192c175d6e852f5be32996b89df356254ea11fd2a585f83"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0007.ac4.test.mjs",
+      "sha256": "1a2a42ade2245400a1aed15c56f1281f609cc42ab5ae7145c17e9680a26b8b15"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0007.ac5.test.mjs",
+      "sha256": "54892d1825c9c14d0214f55aae7a47485ffef2e5c7392ca683e35c2c32f12b52"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0007.ac6.test.mjs",
+      "sha256": "8eca9dfc3d3b7dad9a083413f61751a7b6680198cd04c40477566064043348c1"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0008.ac1.test.mjs",
+      "sha256": "bfb7b6332f0706c7f72c67a158a63aa4b9a0dec026ab4247a1f6fe5110051d9b"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0008.ac2.test.mjs",
+      "sha256": "6a5479975811cb8b999e9ffa65aee3d51a70fea3bf03484749b7ac3c8c8a935d"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0008.ac3.test.mjs",
+      "sha256": "79a5601e1920b146dd63ec89dedd5580d29ac7ec7b573108b67a8d967aaea32d"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0008.ac4.test.mjs",
+      "sha256": "4dee5f23bf9d4c278c84bb29dc2b57dff7febca26d6a741e46d4a07e8be20ab5"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0008.ac5.test.mjs",
+      "sha256": "d0757352748f1e78b2a4c43ceff2a04fad532188819391b7cb9300d7c5029f03"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/functional/REQ-HELPFLOW-0008.ac6.test.mjs",
+      "sha256": "032ac677862fe6088c252e7737d2a45329118307eef2ff1284f67b8178fee1ad"
+    },
+    {
+      "path": "apps/helpflow/tests/locked/nfr/REQ-HELPFLOW-0008.qs1.test.mjs",
+      "sha256": "44a5ddc53ca4efcd11dec7bac7105e698c7a944c8b6a3a1f4cb2d716e9ead90d"
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+id: REF-HELPFLOW-0020
+slug: ref-helpflow-0020
+title: "Detalhe da política de SLA"
+kind: screen
+status: approved
+
+scope:
+  product_scope: helpflow
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-HELPFLOW-0003
+    relation: implements
+  - requirement_id: REQ-HELPFLOW-0004
+    relation: relates_to
+
+surface:
+  route: "/sla-policies/:id"
+  name: "Detalhe da política de SLA"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+      when: "politica carregada"
+      ui: "metas por prioridade, calendario e times que usam a politica"
+    - name: loading
+      when: "buscando a politica"
+      ui: "skeleton das metas e dos vinculos"
+    - name: empty
+      when: "politica sem times vinculados"
+      ui: "estado vazio na lista de times vinculados"
+    - name: error
+      when: "politica nao encontrada ou erro ao carregar"
+      ui: "mensagem de erro com link de volta para a lista"
+  data:
+    - field: "policy"
+      source: "api:/sla-policies/:id"
+      editable: false
+      format: "metas e calendario da politica"
+    - field: "linked_teams"
+      source: "api:/sla-policies/:id/teams"
+      editable: false
+      format: "times que aplicam esta politica"
+  interactions:
+    - trigger: "clicar em editar"
+      action: "navega para edicao"
+      result: "abre /sla-policies/:id/edit"
+    - trigger: "clicar em um time vinculado"
+      action: "navega para o detalhe do time"
+      result: "abre /teams/:id"
+
+source:
+  source_paths:
+    - specs/products/helpflow/product.json
+    - apps/helpflow/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

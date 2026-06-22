@@ -1,0 +1,59 @@
+id: REF-HELPFLOW-0031
+slug: ref-helpflow-0031
+title: "Detalhe da integração"
+kind: screen
+status: approved
+
+scope:
+  product_scope: helpflow
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-HELPFLOW-0005
+    relation: implements
+
+surface:
+  route: "/integrations/:id"
+  name: "Detalhe da integração"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+      when: "integracao carregada"
+      ui: "configuracao, status de conexao e log de eventos recentes"
+    - name: loading
+      when: "buscando a integracao"
+      ui: "skeleton da configuracao e do log"
+    - name: empty
+      when: "integracao sem eventos registrados"
+      ui: "estado vazio no log de eventos"
+    - name: error
+      when: "integracao nao encontrada ou erro ao carregar"
+      ui: "mensagem de erro com link de volta para a lista"
+  data:
+    - field: "integration"
+      source: "api:/integrations/:id"
+      editable: false
+      format: "configuracao da integracao (credenciais redigidas)"
+    - field: "events"
+      source: "api:/integrations/:id/events"
+      editable: false
+      format: "eventos de sincronizacao recentes"
+  interactions:
+    - trigger: "clicar em editar"
+      action: "navega para edicao"
+      result: "abre /integrations/:id/edit"
+    - trigger: "clicar em testar conexao"
+      action: "executa um teste de conectividade"
+      result: "atualiza o status de conexao"
+
+source:
+  source_paths:
+    - specs/products/helpflow/product.json
+    - apps/helpflow/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

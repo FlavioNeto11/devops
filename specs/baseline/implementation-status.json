@@ -9,11 +9,11 @@
       "not_started": 8
     },
     "refinements": {
-      "total": 65,
+      "total": 101,
       "by_status": {
         "pr_open": 1,
-        "deployed": 12,
-        "not_started": 52
+        "not_started": 88,
+        "deployed": 12
       }
     }
   },
@@ -2178,6 +2178,150 @@
       "status": "pr_open",
       "req_revision": 1,
       "notes": "PR #26 (esteira)"
+    },
+    "REF-HELPFLOW-0001": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0002": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0003": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0004": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0005": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0006": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0007": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0008": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0009": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0010": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0011": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0012": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0013": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0014": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0015": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0016": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0017": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0018": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0019": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0020": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0021": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0022": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0023": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0024": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0025": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0026": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0027": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0028": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0029": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0030": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0031": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0032": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0033": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0034": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0035": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-HELPFLOW-0036": {
+      "status": "not_started",
+      "req_revision": 1
     },
     "REF-PORTAL-0001": {
       "status": "deployed",

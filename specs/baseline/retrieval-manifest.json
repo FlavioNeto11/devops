@@ -4121,6 +4121,452 @@
       "file": "refinements/gymops/REF-GYMOPS-0001.yaml"
     },
     {
+      "id": "REF-HELPFLOW-0001",
+      "title": "Painel do Service Desk",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/",
+      "anchors": [
+        "REQ-HELPFLOW-0001",
+        "REQ-HELPFLOW-0004",
+        "REQ-HELPFLOW-0003"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0001.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0002",
+      "title": "Chamados",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/tickets",
+      "anchors": [
+        "REQ-HELPFLOW-0003",
+        "REQ-HELPFLOW-0004"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0002.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0003",
+      "title": "Novo chamado",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/tickets/new",
+      "anchors": [
+        "REQ-HELPFLOW-0003",
+        "REQ-HELPFLOW-0006"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0003.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0004",
+      "title": "Detalhe do chamado",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/tickets/:id",
+      "anchors": [
+        "REQ-HELPFLOW-0003",
+        "REQ-HELPFLOW-0005",
+        "REQ-HELPFLOW-0007"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0004.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0005",
+      "title": "Editar chamado",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/tickets/:id/edit",
+      "anchors": [
+        "REQ-HELPFLOW-0003"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0005.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0006",
+      "title": "Solicitantes",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/customers",
+      "anchors": [
+        "REQ-HELPFLOW-0003",
+        "REQ-HELPFLOW-0002"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0006.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0007",
+      "title": "Novo solicitante",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/customers/new",
+      "anchors": [
+        "REQ-HELPFLOW-0003"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0007.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0008",
+      "title": "Detalhe do solicitante",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/customers/:id",
+      "anchors": [
+        "REQ-HELPFLOW-0003"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0008.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0009",
+      "title": "Editar solicitante",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/customers/:id/edit",
+      "anchors": [
+        "REQ-HELPFLOW-0003"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0009.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0010",
+      "title": "Agentes",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/agents",
+      "anchors": [
+        "REQ-HELPFLOW-0002"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0010.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0011",
+      "title": "Novo agente",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/agents/new",
+      "anchors": [
+        "REQ-HELPFLOW-0002"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0011.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0012",
+      "title": "Detalhe do agente",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/agents/:id",
+      "anchors": [
+        "REQ-HELPFLOW-0002",
+        "REQ-HELPFLOW-0003"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0012.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0013",
+      "title": "Editar agente",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/agents/:id/edit",
+      "anchors": [
+        "REQ-HELPFLOW-0002"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0013.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0014",
+      "title": "Times e Filas",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/teams",
+      "anchors": [
+        "REQ-HELPFLOW-0003",
+        "REQ-HELPFLOW-0004"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0014.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0015",
+      "title": "Novo time/fila",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/teams/new",
+      "anchors": [
+        "REQ-HELPFLOW-0003"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0015.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0016",
+      "title": "Detalhe do time",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/teams/:id",
+      "anchors": [
+        "REQ-HELPFLOW-0003",
+        "REQ-HELPFLOW-0004"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0016.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0017",
+      "title": "Editar time/fila",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/teams/:id/edit",
+      "anchors": [
+        "REQ-HELPFLOW-0003"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0017.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0018",
+      "title": "Políticas de SLA",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/sla-policies",
+      "anchors": [
+        "REQ-HELPFLOW-0003",
+        "REQ-HELPFLOW-0004"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0018.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0019",
+      "title": "Nova política de SLA",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/sla-policies/new",
+      "anchors": [
+        "REQ-HELPFLOW-0003",
+        "REQ-HELPFLOW-0004"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0019.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0020",
+      "title": "Detalhe da política de SLA",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/sla-policies/:id",
+      "anchors": [
+        "REQ-HELPFLOW-0003",
+        "REQ-HELPFLOW-0004"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0020.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0021",
+      "title": "Editar política de SLA",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/sla-policies/:id/edit",
+      "anchors": [
+        "REQ-HELPFLOW-0003"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0021.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0022",
+      "title": "Base de Conhecimento",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/kb-articles",
+      "anchors": [
+        "REQ-HELPFLOW-0006"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0022.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0023",
+      "title": "Novo artigo",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/kb-articles/new",
+      "anchors": [
+        "REQ-HELPFLOW-0006"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0023.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0024",
+      "title": "Detalhe do artigo",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/kb-articles/:id",
+      "anchors": [
+        "REQ-HELPFLOW-0006"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0024.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0025",
+      "title": "Editar artigo",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/kb-articles/:id/edit",
+      "anchors": [
+        "REQ-HELPFLOW-0006"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0025.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0026",
+      "title": "Busca grounded na KB",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/kb-search",
+      "anchors": [
+        "REQ-HELPFLOW-0006"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0026.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0027",
+      "title": "Assistente de IA",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/assistant",
+      "anchors": [
+        "REQ-HELPFLOW-0007",
+        "REQ-HELPFLOW-0006"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0027.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0028",
+      "title": "Controle da IA",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/ai-control",
+      "anchors": [
+        "REQ-HELPFLOW-0007"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0028.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0029",
+      "title": "Integrações",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/integrations",
+      "anchors": [
+        "REQ-HELPFLOW-0005"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0029.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0030",
+      "title": "Nova integração",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/integrations/new",
+      "anchors": [
+        "REQ-HELPFLOW-0005"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0030.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0031",
+      "title": "Detalhe da integração",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/integrations/:id",
+      "anchors": [
+        "REQ-HELPFLOW-0005"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0031.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0032",
+      "title": "Editar integração",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/integrations/:id/edit",
+      "anchors": [
+        "REQ-HELPFLOW-0005"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0032.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0033",
+      "title": "Fila de Processamento",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/jobs",
+      "anchors": [
+        "REQ-HELPFLOW-0004"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0033.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0034",
+      "title": "Detalhe do job",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/jobs/:id",
+      "anchors": [
+        "REQ-HELPFLOW-0004"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0034.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0035",
+      "title": "Observabilidade",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/observability",
+      "anchors": [
+        "REQ-HELPFLOW-0001"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0035.yaml"
+    },
+    {
+      "id": "REF-HELPFLOW-0036",
+      "title": "Configurações e Tenant",
+      "kind": "screen",
+      "status": "approved",
+      "product": "helpflow",
+      "route": "/settings",
+      "anchors": [
+        "REQ-HELPFLOW-0002"
+      ],
+      "file": "refinements/helpflow/REF-HELPFLOW-0036.yaml"
+    },
+    {
       "id": "REF-PORTAL-0001",
       "title": "Landing pública NovaIT (página inicial)",
       "kind": "screen",

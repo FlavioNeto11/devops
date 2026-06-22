@@ -1,0 +1,65 @@
+id: REF-HELPFLOW-0027
+slug: ref-helpflow-0027
+title: "Assistente de IA"
+kind: screen
+status: approved
+
+scope:
+  product_scope: helpflow
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-HELPFLOW-0007
+    relation: implements
+  - requirement_id: REQ-HELPFLOW-0006
+    relation: relates_to
+
+surface:
+  route: "/assistant"
+  name: "Assistente de IA"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+      when: "conversa ativa com a IA"
+      ui: "chat grounded com sugestoes de resposta e citacoes da KB"
+    - name: loading
+      when: "IA processando a mensagem"
+      ui: "indicador de digitacao da IA"
+    - name: empty
+      when: "conversa sem mensagens"
+      ui: "estado inicial com exemplos de perguntas"
+    - name: error
+      when: "IA indisponivel ou falha (fail-closed)"
+      ui: "mensagem de erro sem resposta fabricada"
+  data:
+    - field: "messages"
+      source: "api:/assistant/thread"
+      editable: false
+      format: "historico da conversa"
+    - field: "draft"
+      source: "input:usuario"
+      editable: true
+      format: "mensagem do usuario"
+    - field: "citations"
+      source: "api:/assistant/respond?withCitations=true"
+      editable: false
+      format: "fontes citadas pela IA"
+  interactions:
+    - trigger: "enviar mensagem"
+      action: "consulta a IA grounded na KB e nos chamados"
+      result: "exibe a resposta com citacoes verificaveis"
+    - trigger: "aplicar sugestao a um chamado"
+      action: "insere o rascunho no chamado de origem"
+      result: "permite revisao antes do envio"
+
+source:
+  source_paths:
+    - specs/products/helpflow/product.json
+    - apps/helpflow/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

@@ -1,0 +1,69 @@
+id: REF-HELPFLOW-0019
+slug: ref-helpflow-0019
+title: "Nova política de SLA"
+kind: screen
+status: approved
+
+scope:
+  product_scope: helpflow
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-HELPFLOW-0003
+    relation: implements
+  - requirement_id: REQ-HELPFLOW-0004
+    relation: relates_to
+
+surface:
+  route: "/sla-policies/new"
+  name: "Nova política de SLA"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+      when: "formulario pronto"
+      ui: "formulario com metas de resposta/resolucao por prioridade e calendario"
+    - name: loading
+      when: "carregando opcoes (calendarios/prioridades)"
+      ui: "campos desabilitados com indicador de carregamento"
+    - name: empty
+      when: "formulario sem dados preenchidos"
+      ui: "placeholders e ajuda inline por campo"
+    - name: error
+      when: "validacao falhou ou erro ao salvar"
+      ui: "mensagens de erro por campo e alerta geral"
+  data:
+    - field: "name"
+      source: "input:usuario"
+      editable: true
+      format: "nome da politica"
+    - field: "first_response_target"
+      source: "input:usuario"
+      editable: true
+      format: "meta de primeira resposta por prioridade"
+    - field: "resolution_target"
+      source: "input:usuario"
+      editable: true
+      format: "meta de resolucao por prioridade"
+    - field: "business_calendar"
+      source: "input:usuario"
+      editable: true
+      format: "horario de atendimento"
+  interactions:
+    - trigger: "preencher metas"
+      action: "valida coerencia entre prioridades"
+      result: "habilita salvar quando valido"
+    - trigger: "clicar em salvar"
+      action: "cria a politica de SLA"
+      result: "redireciona para o detalhe da politica"
+
+source:
+  source_paths:
+    - specs/products/helpflow/product.json
+    - apps/helpflow/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

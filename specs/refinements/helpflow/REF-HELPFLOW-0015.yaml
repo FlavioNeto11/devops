@@ -1,0 +1,63 @@
+id: REF-HELPFLOW-0015
+slug: ref-helpflow-0015
+title: "Novo time/fila"
+kind: screen
+status: approved
+
+scope:
+  product_scope: helpflow
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-HELPFLOW-0003
+    relation: implements
+
+surface:
+  route: "/teams/new"
+  name: "Novo time/fila"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+      when: "formulario pronto"
+      ui: "formulario de cadastro de time/fila com regra de roteamento"
+    - name: loading
+      when: "carregando opcoes (agentes/SLA)"
+      ui: "campos desabilitados com indicador de carregamento"
+    - name: empty
+      when: "formulario sem dados preenchidos"
+      ui: "placeholders e ajuda inline por campo"
+    - name: error
+      when: "validacao falhou ou erro ao salvar"
+      ui: "mensagens de erro por campo e alerta geral"
+  data:
+    - field: "name"
+      source: "input:usuario"
+      editable: true
+      format: "nome do time/fila"
+    - field: "routing_rule"
+      source: "input:usuario"
+      editable: true
+      format: "regra de roteamento de chamados"
+    - field: "default_sla_policy_id"
+      source: "api:/sla-policies"
+      editable: true
+      format: "politica de SLA padrao da fila"
+  interactions:
+    - trigger: "preencher campos"
+      action: "valida em tempo real"
+      result: "habilita salvar quando valido"
+    - trigger: "clicar em salvar"
+      action: "cria o time/fila"
+      result: "redireciona para o detalhe do time"
+
+source:
+  source_paths:
+    - specs/products/helpflow/product.json
+    - apps/helpflow/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

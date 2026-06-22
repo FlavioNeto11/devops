@@ -34,6 +34,258 @@
       "product": "gymops"
     },
     {
+      "id": "REF-HELPFLOW-0001",
+      "kind": "refinement",
+      "title": "Painel do Service Desk",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0002",
+      "kind": "refinement",
+      "title": "Chamados",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0003",
+      "kind": "refinement",
+      "title": "Novo chamado",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0004",
+      "kind": "refinement",
+      "title": "Detalhe do chamado",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0005",
+      "kind": "refinement",
+      "title": "Editar chamado",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0006",
+      "kind": "refinement",
+      "title": "Solicitantes",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0007",
+      "kind": "refinement",
+      "title": "Novo solicitante",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0008",
+      "kind": "refinement",
+      "title": "Detalhe do solicitante",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0009",
+      "kind": "refinement",
+      "title": "Editar solicitante",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0010",
+      "kind": "refinement",
+      "title": "Agentes",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0011",
+      "kind": "refinement",
+      "title": "Novo agente",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0012",
+      "kind": "refinement",
+      "title": "Detalhe do agente",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0013",
+      "kind": "refinement",
+      "title": "Editar agente",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0014",
+      "kind": "refinement",
+      "title": "Times e Filas",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0015",
+      "kind": "refinement",
+      "title": "Novo time/fila",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0016",
+      "kind": "refinement",
+      "title": "Detalhe do time",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0017",
+      "kind": "refinement",
+      "title": "Editar time/fila",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0018",
+      "kind": "refinement",
+      "title": "Políticas de SLA",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0019",
+      "kind": "refinement",
+      "title": "Nova política de SLA",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0020",
+      "kind": "refinement",
+      "title": "Detalhe da política de SLA",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0021",
+      "kind": "refinement",
+      "title": "Editar política de SLA",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0022",
+      "kind": "refinement",
+      "title": "Base de Conhecimento",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0023",
+      "kind": "refinement",
+      "title": "Novo artigo",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0024",
+      "kind": "refinement",
+      "title": "Detalhe do artigo",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0025",
+      "kind": "refinement",
+      "title": "Editar artigo",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0026",
+      "kind": "refinement",
+      "title": "Busca grounded na KB",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0027",
+      "kind": "refinement",
+      "title": "Assistente de IA",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0028",
+      "kind": "refinement",
+      "title": "Controle da IA",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0029",
+      "kind": "refinement",
+      "title": "Integrações",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0030",
+      "kind": "refinement",
+      "title": "Nova integração",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0031",
+      "kind": "refinement",
+      "title": "Detalhe da integração",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0032",
+      "kind": "refinement",
+      "title": "Editar integração",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0033",
+      "kind": "refinement",
+      "title": "Fila de Processamento",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0034",
+      "kind": "refinement",
+      "title": "Detalhe do job",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0035",
+      "kind": "refinement",
+      "title": "Observabilidade",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
+      "id": "REF-HELPFLOW-0036",
+      "kind": "refinement",
+      "title": "Configurações e Tenant",
+      "refinement_kind": "screen",
+      "product": "helpflow"
+    },
+    {
       "id": "REF-PORTAL-0001",
       "kind": "refinement",
       "title": "Landing pública NovaIT (página inicial)",
@@ -4271,6 +4523,306 @@
       "from": "REF-GYMOPS-0001",
       "to": "REQ-GYMOPS-0010",
       "type": "refines",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0001",
+      "to": "REQ-HELPFLOW-0001",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0001",
+      "to": "REQ-HELPFLOW-0003",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0001",
+      "to": "REQ-HELPFLOW-0004",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0002",
+      "to": "REQ-HELPFLOW-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0002",
+      "to": "REQ-HELPFLOW-0004",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0003",
+      "to": "REQ-HELPFLOW-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0003",
+      "to": "REQ-HELPFLOW-0006",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0004",
+      "to": "REQ-HELPFLOW-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0004",
+      "to": "REQ-HELPFLOW-0005",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0004",
+      "to": "REQ-HELPFLOW-0007",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0005",
+      "to": "REQ-HELPFLOW-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0006",
+      "to": "REQ-HELPFLOW-0002",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0006",
+      "to": "REQ-HELPFLOW-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0007",
+      "to": "REQ-HELPFLOW-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0008",
+      "to": "REQ-HELPFLOW-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0009",
+      "to": "REQ-HELPFLOW-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0010",
+      "to": "REQ-HELPFLOW-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0011",
+      "to": "REQ-HELPFLOW-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0012",
+      "to": "REQ-HELPFLOW-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0012",
+      "to": "REQ-HELPFLOW-0003",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0013",
+      "to": "REQ-HELPFLOW-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0014",
+      "to": "REQ-HELPFLOW-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0014",
+      "to": "REQ-HELPFLOW-0004",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0015",
+      "to": "REQ-HELPFLOW-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0016",
+      "to": "REQ-HELPFLOW-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0016",
+      "to": "REQ-HELPFLOW-0004",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0017",
+      "to": "REQ-HELPFLOW-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0018",
+      "to": "REQ-HELPFLOW-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0018",
+      "to": "REQ-HELPFLOW-0004",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0019",
+      "to": "REQ-HELPFLOW-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0019",
+      "to": "REQ-HELPFLOW-0004",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0020",
+      "to": "REQ-HELPFLOW-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0020",
+      "to": "REQ-HELPFLOW-0004",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0021",
+      "to": "REQ-HELPFLOW-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0022",
+      "to": "REQ-HELPFLOW-0006",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0023",
+      "to": "REQ-HELPFLOW-0006",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0024",
+      "to": "REQ-HELPFLOW-0006",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0025",
+      "to": "REQ-HELPFLOW-0006",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0026",
+      "to": "REQ-HELPFLOW-0006",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0027",
+      "to": "REQ-HELPFLOW-0006",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0027",
+      "to": "REQ-HELPFLOW-0007",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0028",
+      "to": "REQ-HELPFLOW-0007",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0029",
+      "to": "REQ-HELPFLOW-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0030",
+      "to": "REQ-HELPFLOW-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0031",
+      "to": "REQ-HELPFLOW-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0032",
+      "to": "REQ-HELPFLOW-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0033",
+      "to": "REQ-HELPFLOW-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0034",
+      "to": "REQ-HELPFLOW-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0035",
+      "to": "REQ-HELPFLOW-0001",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-HELPFLOW-0036",
+      "to": "REQ-HELPFLOW-0002",
+      "type": "implements",
       "refinement": true
     },
     {

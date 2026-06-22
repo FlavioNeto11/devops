@@ -1,0 +1,63 @@
+id: REF-HELPFLOW-0023
+slug: ref-helpflow-0023
+title: "Novo artigo"
+kind: screen
+status: approved
+
+scope:
+  product_scope: helpflow
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-HELPFLOW-0006
+    relation: implements
+
+surface:
+  route: "/kb-articles/new"
+  name: "Novo artigo"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+      when: "formulario pronto"
+      ui: "editor de artigo com titulo, categoria e corpo"
+    - name: loading
+      when: "carregando opcoes (categorias)"
+      ui: "campos desabilitados com indicador de carregamento"
+    - name: empty
+      when: "formulario sem dados preenchidos"
+      ui: "placeholders e ajuda inline por campo"
+    - name: error
+      when: "validacao falhou ou erro ao salvar"
+      ui: "mensagens de erro por campo e alerta geral"
+  data:
+    - field: "title"
+      source: "input:usuario"
+      editable: true
+      format: "titulo do artigo"
+    - field: "category"
+      source: "input:usuario"
+      editable: true
+      format: "categoria do artigo"
+    - field: "body"
+      source: "input:usuario"
+      editable: true
+      format: "conteudo do artigo (markdown)"
+  interactions:
+    - trigger: "preencher conteudo"
+      action: "valida campos obrigatorios"
+      result: "habilita salvar quando valido"
+    - trigger: "clicar em salvar"
+      action: "cria o artigo"
+      result: "redireciona para o detalhe do artigo"
+
+source:
+  source_paths:
+    - specs/products/helpflow/product.json
+    - apps/helpflow/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

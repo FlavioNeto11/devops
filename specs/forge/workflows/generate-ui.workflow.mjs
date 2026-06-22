@@ -111,6 +111,7 @@ const VERIFY_SCHEMA = {
     tokensDrift: { enum: ['pass', 'fail', 'skip'] },
     openapiDrift: { enum: ['pass', 'fail', 'skip'] },
     recordsClean: { type: 'boolean', description: 'true = nenhuma ocorrência de /records em frontend/src' },
+    apiBackendConsistent: { type: 'boolean', description: 'true = todo recurso do api.js tem rota /v1/<name> real no backend (Só endpoints REAIS)' },
     repairs: { type: 'number' },
     summary: { type: 'string' },
     routesWired: { type: 'array', items: { type: 'string' } },
@@ -161,19 +162,22 @@ await agent([
   'Não toque em ' + APPDIR + '/tests/locked/** nem em arquivos *.generated.css / src/ui/**.',
 ].join('\n'), { label: 'prep-base', phase: 'Base + Backend' });
 
-// P2 — backend das entidades que faltam (1 agente, edita arquivos compartilhados de forma coerente)
-if (newEntities.length) {
-  log('Backend: criando endpoints p/ ' + newEntities.map((e) => e.name).join(', '));
+// P2 — backend de domínio: GARANTE que TODA entidade do inventário tenha rota REAL /v1/<name>.
+// NÃO confia no flag hasEndpoints do arquiteto (ele erra — ex.: marcar a entidade CENTRAL como
+// já-existente e o backend ser pulado, deixando o frontend chamar uma rota 404). O agente verifica
+// cada uma no server.js e cria as que faltarem — incluindo a entidade central do domínio.
+if (entities.length) {
+  log('Backend: verificando/criando endpoints de domínio (' + entities.map((e) => e.name).join(', ') + ')');
   await agent([
-    'Você implementa o BACKEND de domínio do app ' + APP + ' (stack Node/Express estilo SICAT). Adicione CRUD REAL para as entidades abaixo, seguindo EXATAMENTE os padrões do app (leia apps/' + APP + '/api/src/db.js, server.js, repositories/ e migrations/seed).',
-    'Entidades novas: ' + JSON.stringify(newEntities),
-    'Para CADA entidade <name>:',
-    '- Migração: tabela <name> com colunas dos fields (+ id serial, tenant_id, created_at/updated_at) — adicione no mesmo mecanismo de migrate() do db.js. Seed 2-3 linhas de exemplo.',
-    '- Rotas REST finas em server.js: GET /v1/<name> (lista, suporta ?page&pageSize&sort&dir e devolve {data,total}), GET /v1/<name>/:id, POST /v1/<name>, PUT /v1/<name>/:id, DELETE /v1/<name>/:id. Use o wrap()/pool existentes. Validação mínima (campos required).',
-    '- Se o app tiver openapi/openapi.yaml, ADICIONE as rotas lá (agrupe métodos por path) para o validate:openapi não acusar drift.',
-    'NÃO altere ' + APPDIR + '/tests/locked/**. Rode apps/' + APP + '/api npm test se existir e estiver rápido. Mantenha o estilo (camadas: rota fina -> repo).',
-    'Devolva um resumo curto (texto) das rotas adicionadas.',
-  ].join('\n'), { label: 'backend-entidades', phase: 'Base + Backend' });
+    'Você implementa o BACKEND de domínio do app ' + APP + ' (Node/Express estilo SICAT). Leia apps/' + APP + '/api/src/db.js, server.js, repositories/ e o migrate()/seed para seguir EXATAMENTE os padrões.',
+    'Entidades do domínio (propostas pelo arquiteto): ' + JSON.stringify(entities),
+    'REGRA DURA ("Só endpoints REAIS"): para CADA entidade <name>, rode `grep -n "/v1/<name>" apps/' + APP + '/api/src/server.js`. Se a rota NÃO existir, CRIE o backend REAL dela — IGNORE o flag hasEndpoints (o arquiteto erra; a entidade CENTRAL do domínio, ex.: tickets, PRECISA ser real, não pode ser pulada):',
+    '- Migração: tabela <name> (plural) com colunas dos fields (+ id serial, tenant_id, created_at/updated_at) no migrate() do db.js. Seed 2-3 linhas de exemplo. Se a entidade referencia outra (ex.: comments.ticket_id), garanta que a tabela referenciada exista.',
+    '- Repo + rotas REST finas em server.js: GET /v1/<name> (lista ?page&pageSize&sort&dir -> {data,total}), GET /v1/<name>/:id, POST /v1/<name>, PUT /v1/<name>/:id, DELETE /v1/<name>/:id (use wrap()/pool; validação mínima dos required).',
+    '- openapi/openapi.yaml (se houver): ADICIONE as rotas (agrupe métodos por path) p/ o validate:openapi não acusar drift.',
+    'Entidades que JÁ têm /v1/<name> no server.js: deixe como estão. NÃO altere ' + APPDIR + '/tests/locked/**. Mantenha as camadas (rota fina -> repo).',
+    'Ao final, confirme: NENHUMA entidade do inventário ficou sem /v1/<name> real. Devolva um resumo das rotas criadas + a confirmação.',
+  ].join('\n'), { label: 'backend-dominio', phase: 'Base + Backend' });
 }
 
 // ---------------- P3 — Telas (pipeline: build -> crítica -> correção) ----------------
@@ -236,7 +240,8 @@ const verify = await agent([
   '7) Rode na raiz C:\\\\devops: node packages/ui-vue/build.mjs --check ; node packages/design-tokens/build.mjs --check. Se acusar drift do app, rode sem --check e confira.',
   '8) Se houver ' + APPDIR + '/api/openapi/validate.mjs, rode "npm run validate:openapi" em apps/' + APP + '/api e corrija drift.',
   '9) GUARDA OBRIGATÓRIA (a Forja se autocorrige): rode `grep -rn "/records" ' + APPDIR + '/frontend/src` — se houver QUALQUER ocorrência (link, rota, import, comentário de código vivo), CORRIJA até ZERO e rode de novo. Só conclua com 0 ocorrências. Reporte recordsClean=true.',
-  'NÃO toque em ' + APPDIR + '/tests/locked/**. Devolva o VerifyReport (viteBuild pass/fail é o gate principal; recordsClean DEVE ser true).',
+  '10) GUARDA "Só endpoints REAIS" (regra #4 do contrato; a Forja se autocorrige): para CADA recurso exportado no api.js (resourceFactory("<name>"), `= resource("<name>")`, store/objetos de domínio), rode `grep -n "/v1/<name>" ' + APPDIR + '/api/src/server.js`. Se ALGUM recurso do frontend NÃO tiver a rota /v1/<name> REAL no backend (ex.: a entidade central pulada por hasEndpoints errado), é VIOLAÇÃO — CRIE o backend dela (tabela no migrate()+seed, repo, rotas CRUD em server.js, openapi) seguindo os padrões do app; só re-aponte a view se o recurso for redundante. Repita até ZERO recursos órfãos. Confirme rodando o integration.mjs/locked se possível. Reporte apiBackendConsistent=true.',
+  'NÃO toque em ' + APPDIR + '/tests/locked/**. Devolva o VerifyReport (viteBuild pass/fail é o gate principal; recordsClean E apiBackendConsistent DEVEM ser true).',
 ].join('\n'), { schema: VERIFY_SCHEMA, label: 'integrar-verificar', phase: 'Integração' });
 
 const report = {

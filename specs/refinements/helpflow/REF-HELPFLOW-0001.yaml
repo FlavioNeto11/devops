@@ -1,0 +1,67 @@
+id: REF-HELPFLOW-0001
+slug: ref-helpflow-0001
+title: "Painel do Service Desk"
+kind: screen
+status: approved
+
+scope:
+  product_scope: helpflow
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-HELPFLOW-0001
+    relation: implements
+  - requirement_id: REQ-HELPFLOW-0004
+    relation: relates_to
+  - requirement_id: REQ-HELPFLOW-0003
+    relation: relates_to
+
+surface:
+  route: "/"
+  name: "Painel do Service Desk"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+      when: "metricas e fila carregadas"
+      ui: "cards de KPI (chamados abertos, em SLA, violados), atalhos para filas"
+    - name: loading
+      when: "buscando resumo do service desk"
+      ui: "skeletons nos cards e listas"
+    - name: empty
+      when: "nenhum chamado no periodo"
+      ui: "estado vazio com convite para abrir o primeiro chamado"
+    - name: error
+      when: "falha ao carregar o resumo"
+      ui: "mensagem de erro com botao de tentar novamente"
+  data:
+    - field: "kpis"
+      source: "api:/dashboard/summary"
+      editable: false
+      format: "metricas agregadas (abertos/em SLA/violados/resolvidos)"
+    - field: "queue_health"
+      source: "api:/teams?withQueue=true"
+      editable: false
+      format: "saude das filas por time"
+    - field: "recent_tickets"
+      source: "api:/tickets?recent=true"
+      editable: false
+      format: "ultimos chamados movimentados"
+  interactions:
+    - trigger: "abrir /"
+      action: "carrega KPIs, saude das filas e chamados recentes"
+      result: "renderiza cards de status e atalhos operacionais"
+    - trigger: "clicar em um card de KPI"
+      action: "navega para a lista de chamados filtrada"
+      result: "abre /tickets com o filtro aplicado"
+
+source:
+  source_paths:
+    - specs/products/helpflow/product.json
+    - apps/helpflow/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

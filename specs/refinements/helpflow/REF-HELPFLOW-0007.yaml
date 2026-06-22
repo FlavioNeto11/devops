@@ -1,0 +1,63 @@
+id: REF-HELPFLOW-0007
+slug: ref-helpflow-0007
+title: "Novo solicitante"
+kind: screen
+status: approved
+
+scope:
+  product_scope: helpflow
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-HELPFLOW-0003
+    relation: implements
+
+surface:
+  route: "/customers/new"
+  name: "Novo solicitante"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+      when: "formulario pronto"
+      ui: "formulario de cadastro de solicitante"
+    - name: loading
+      when: "carregando opcoes (tenant/organizacao)"
+      ui: "campos desabilitados com indicador de carregamento"
+    - name: empty
+      when: "formulario sem dados preenchidos"
+      ui: "placeholders e ajuda inline por campo"
+    - name: error
+      when: "validacao falhou ou erro ao salvar"
+      ui: "mensagens de erro por campo e alerta geral"
+  data:
+    - field: "name"
+      source: "input:usuario"
+      editable: true
+      format: "nome do solicitante"
+    - field: "email"
+      source: "input:usuario"
+      editable: true
+      format: "email de contato"
+    - field: "organization"
+      source: "input:usuario"
+      editable: true
+      format: "organizacao/empresa"
+  interactions:
+    - trigger: "preencher campos"
+      action: "valida em tempo real"
+      result: "habilita salvar quando valido"
+    - trigger: "clicar em salvar"
+      action: "cria o solicitante"
+      result: "redireciona para o detalhe do solicitante"
+
+source:
+  source_paths:
+    - specs/products/helpflow/product.json
+    - apps/helpflow/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

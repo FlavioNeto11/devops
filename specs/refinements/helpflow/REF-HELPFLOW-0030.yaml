@@ -1,0 +1,63 @@
+id: REF-HELPFLOW-0030
+slug: ref-helpflow-0030
+title: "Nova integração"
+kind: screen
+status: approved
+
+scope:
+  product_scope: helpflow
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-HELPFLOW-0005
+    relation: implements
+
+surface:
+  route: "/integrations/new"
+  name: "Nova integração"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+      when: "formulario pronto"
+      ui: "formulario com tipo de integracao, credenciais e mapeamento"
+    - name: loading
+      when: "carregando tipos de integracao disponiveis"
+      ui: "campos desabilitados com indicador de carregamento"
+    - name: empty
+      when: "formulario sem dados preenchidos"
+      ui: "placeholders e ajuda inline por campo"
+    - name: error
+      when: "validacao falhou, credencial invalida ou erro ao salvar"
+      ui: "mensagens de erro por campo e alerta geral"
+  data:
+    - field: "type"
+      source: "input:usuario"
+      editable: true
+      format: "tipo (email/chat/webhook)"
+    - field: "credentials"
+      source: "input:usuario"
+      editable: true
+      format: "credenciais da integracao (redigidas)"
+    - field: "mapping"
+      source: "input:usuario"
+      editable: true
+      format: "mapeamento para filas/times"
+  interactions:
+    - trigger: "preencher credenciais"
+      action: "valida e testa a conexao"
+      result: "indica sucesso ou falha do teste"
+    - trigger: "clicar em salvar"
+      action: "cria a integracao"
+      result: "redireciona para o detalhe da integracao"
+
+source:
+  source_paths:
+    - specs/products/helpflow/product.json
+    - apps/helpflow/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
