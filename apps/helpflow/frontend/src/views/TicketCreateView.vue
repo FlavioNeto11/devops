@@ -692,7 +692,7 @@ async function runKbSuggest() {
   kb.loading = true;
   kb.error = '';
   try {
-    const res = await kbArticles.list({ q: term, pageSize: 5, status: 'published' });
+    const res = await kbArticles.suggest({ q: term, pageSize: 5, status: 'published' });
     if (seq !== kbSeq) return;
     const rows = (res && res.data) || [];
     kbResults.value = rows.map((a) => ({

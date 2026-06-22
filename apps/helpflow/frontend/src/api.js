@@ -48,15 +48,20 @@ export const integrationTest = (id) => request('POST', '/v1/integrations/' + id 
 export const integrationAudit = (id, params) => request('GET', '/v1/integrations/' + id + '/audit' + qs(params));
 
 // kb-articles — base de conhecimento. CRUD real em /v1/kb-articles
-// (apps/helpflow/api/src/server.js) + ação de domínio:
-//  · reindex(id) → POST /v1/kb-articles/{id}/reindex  (refatia e re-embedda o
+// (apps/helpflow/api/src/server.js) + ações de domínio:
+//  · reindex(id)   → POST /v1/kb-articles/{id}/reindex  (refatia e re-embedda o
 //    artigo para a busca semântica em pgvector)
-// A ação reindex segue o padrão da plataforma; enquanto o backend não a montar,
-// a chamada devolve 404/501/503 e a tela degrada graciosamente (fail-closed),
+//  · suggest(params) → GET /v1/kb-articles?suggest=true&... (sugestão por texto;
+//    o backend usa ILIKE como degradação graciosa até pgvector estar disponível;
+//    o flag suggest=true sinaliza intenção semântica para futura rota vetorial)
+// As ações seguem o padrão da plataforma; enquanto o backend não montar rotas
+// dedicadas, a chamada devolve 404/501/503 e a tela degrada (fail-closed),
 // nunca fabricando dados.
 export const kbArticles = {
   ...resourceFactory('kb-articles'),
   reindex: (id) => request('POST', '/v1/kb-articles/' + id + '/reindex'),
+  suggest: (params) => request('GET', '/v1/kb-articles' + qs({ ...params, suggest: 'true' }))
+    .then((d) => (d && d.data !== undefined ? d : { data: d || [], total: (d || []).length })),
 };
 // Alias de namespace com chave kebab-case: algumas telas acessam o recurso por
 // `api['kb-articles']` (espelhando o segmento REST). Export com nome em string
