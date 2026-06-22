@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "fcdd3b3035f16d682b7541a669d02f093f51867b010235ef7be1a38368f1859b",
+  "baseline_hash": "6bf16f0b66d8a61eb936bcf0a5bc2b5480ba28b6c888324c5bd1f2aa943f5a11",
   "nodes": [
     {
       "id": "infra-argocd",
@@ -3416,6 +3416,86 @@
       "asr": false,
       "impact_score": 38,
       "impact_band": "low"
+    },
+    {
+      "id": "REQ-STOCKPILOT-0001",
+      "kind": "requirement",
+      "title": "Fundação: Arquitetura em camadas + Observabilidade integral",
+      "type": "functional",
+      "product": "stockpilot",
+      "asr": true,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-STOCKPILOT-0002",
+      "kind": "requirement",
+      "title": "Autenticação federada e isolamento multi-tenant",
+      "type": "functional",
+      "product": "stockpilot",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-STOCKPILOT-0003",
+      "kind": "requirement",
+      "title": "Processamento assíncrono de pedidos com idempotência e resilência",
+      "type": "functional",
+      "product": "stockpilot",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-STOCKPILOT-0004",
+      "kind": "requirement",
+      "title": "Integração com fornecedor externo via gateway com auditoria",
+      "type": "functional",
+      "product": "stockpilot",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-STOCKPILOT-0005",
+      "kind": "requirement",
+      "title": "Painel de estoque, pedidos e alertas com autenticação",
+      "type": "functional",
+      "product": "stockpilot",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-STOCKPILOT-0006",
+      "kind": "requirement",
+      "title": "API em contract-first (OpenAPI) com validação no CI",
+      "type": "functional",
+      "product": "stockpilot",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-STOCKPILOT-0007",
+      "kind": "requirement",
+      "title": "Alertas e notificações multi-canal de ruptura de estoque",
+      "type": "functional",
+      "product": "stockpilot",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-STOCKPILOT-0008",
+      "kind": "requirement",
+      "title": "Assistente de IA para sugestão de quantidade de reposição com RAG",
+      "type": "functional",
+      "product": "stockpilot",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
     },
     {
       "id": "REQ-TEAMFLOW-0001",

@@ -1,0 +1,53 @@
+{
+  "schema_version": "1.2.0",
+  "name": "stockpilot",
+  "display_name": "StockPilot — Reposicao de Estoque",
+  "base_path": "/stockpilot",
+  "namespace": "apps",
+  "app_type": "product_software",
+  "blueprint": "node-api-vue-spa",
+  "stack": "sicat",
+  "capability_blocks": [
+    "camadas-rigidas",
+    "migrations-versionadas",
+    "observabilidade",
+    "oidc-sessao",
+    "worker-queue-transacional",
+    "idempotencia",
+    "gateway-externo",
+    "contract-openapi",
+    "design-system",
+    "ia-grafo",
+    "rag-pgvector",
+    "structured-outputs"
+  ],
+  "vision": "Sistema de controle de estoque multi-empresa (multi-tenant): cada empresa cadastra produtos e seus niveis de estoque minimo. Quando um produto fica abaixo do minimo, o sistema deve criar AUTOMATICA e ASSINCRONAMENTE um pedido de reposicao e envia-lo a um fornecedor externo (integracao via gateway) com retentativa, timeout e idempotencia (nao duplicar pedido). Um painel mostra estoque atual, pedidos de reposicao e alertas de ruptura. Operadores autenticam por SSO. Precisa de observabilidade por padrao (metricas Prometheus, ServiceMonitor e alertas SLO).",
+  "requirement_ids": [
+    "REQ-STOCKPILOT-0001",
+    "REQ-STOCKPILOT-0002",
+    "REQ-STOCKPILOT-0003",
+    "REQ-STOCKPILOT-0004",
+    "REQ-STOCKPILOT-0005",
+    "REQ-STOCKPILOT-0006",
+    "REQ-STOCKPILOT-0007",
+    "REQ-STOCKPILOT-0008"
+  ],
+  "phases": {
+    "requirements": {
+      "status": "approved"
+    },
+    "architecture": {
+      "status": "approved"
+    },
+    "scaffold": {
+      "status": "not_started"
+    },
+    "build": {
+      "status": "not_started"
+    }
+  },
+  "version": {
+    "revision": 1,
+    "change_reason": "FORGE greenfield — concepção+arquitetura pela IA"
+  }
+}

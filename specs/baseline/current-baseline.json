@@ -1,10 +1,10 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "fcdd3b3035f16d682b7541a669d02f093f51867b010235ef7be1a38368f1859b",
+  "baseline_hash": "6bf16f0b66d8a61eb936bcf0a5bc2b5480ba28b6c888324c5bd1f2aa943f5a11",
   "refinements_hash": "8c2404f1df38762f23de2d95606729971e0b22061bc4df82fddd1431e42222b0",
   "schema": "specs/schema/requirement.schema.json",
   "counts": {
-    "total": 349,
+    "total": 357,
     "by_product": {
       "ai": 18,
       "argocd": 15,
@@ -25,14 +25,15 @@
       "reqhub": 20,
       "sicat": 24,
       "specs": 18,
+      "stockpilot": 8,
       "teamflow": 3,
       "traefik": 16
     },
     "by_status": {
-      "approved": 349
+      "approved": 357
     },
     "by_type": {
-      "functional": 247,
+      "functional": 255,
       "non-functional": 102
     },
     "refinements": {
@@ -12516,6 +12517,364 @@
       "file": "requirements/specs/REQ-SPECS-NFR-006.yaml"
     },
     {
+      "id": "REQ-STOCKPILOT-0001",
+      "title": "Fundação: Arquitetura em camadas + Observabilidade integral",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "product-foundation",
+        "product_scope": "stockpilot",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O sistema DEVE ser construído sobre arquitetura em camadas rígidas (route → service → repository → worker → gateway) com observabilidade por padrão (health checks, métricas Prometheus, ServiceMonitor, alertas SLO e dashboard Grafana).",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/stockpilot/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "camadas-rigidas",
+        "migrations-versionadas",
+        "observabilidade"
+      ],
+      "acceptance_criteria": [
+        "Rotas mapeiam apenas HTTP e validam entrada; nenhuma rota acessa banco ou rede externa diretamente",
+        "Toda regra de negócio vive em services; todo SQL vive em repositories",
+        "Trabalho assíncrono isolado em workers",
+        "Chamadas HTTP externas delegadas a gateways",
+        "GET /health retorna status de sistema, workers e jobs com código HTTP apropriado",
+        "GET /v1/health/{system,workers,jobs} disponível para scraping"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 65,
+      "impact_band": "medium",
+      "file": "requirements/stockpilot/REQ-STOCKPILOT-0001.yaml"
+    },
+    {
+      "id": "REQ-STOCKPILOT-0002",
+      "title": "Autenticação federada e isolamento multi-tenant",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "stockpilot",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O sistema DEVE suportar autenticação via OIDC (Keycloak, realm nvit) com sessão própria do app, e isolar completamente dados por tenant (empresa) com RBAC em cascata (owner > org_manager > unit_manager > area_leader > assignee).",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/stockpilot/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "oidc-sessao",
+        "rbac-multitenant"
+      ],
+      "acceptance_criteria": [
+        "Login inicia fluxo PKCE contra Keycloak realm nvit",
+        "Backend valida token via /userinfo do Keycloak e emite JWT curto próprio",
+        "Frontend guarda sessão (JWT curto) em cookie HttpOnly",
+        "Toda query de repositório inclui filtro WHERE tenant_id = ? obrigatório",
+        "Toda tabela de negócio possui coluna tenant_id + índice (tenant_id, id)",
+        "Usuário não pode acessar dados de outro tenant mesmo manipulando JWT"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/stockpilot/REQ-STOCKPILOT-0002.yaml"
+    },
+    {
+      "id": "REQ-STOCKPILOT-0003",
+      "title": "Processamento assíncrono de pedidos com idempotência e resilência",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "stockpilot",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O sistema DEVE disparar criação de pedidos de reposição automaticamente quando estoque fica abaixo do mínimo, enfileirando de forma assíncrona, idempotente e resiliente com retry, timeout e backoff, garantindo que não há duplicação.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/stockpilot/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "worker-queue-transacional",
+        "idempotencia"
+      ],
+      "acceptance_criteria": [
+        "Tabela de jobs (pedido_reposicao) com colunas: id, tenant_id, produto_id, job_key (UNIQUE), tentativas, proxima_execucao, status (pending/processing/done/failed), erro_mensagem, created_at, updated_at",
+        "Função SQL que dispara sempre que estoque_atual < estoque_minimo de um produto",
+        "Job criado com job_key = hash(tenant_id, produto_id, timestamp_intervalo) → deduplicação automática",
+        "Worker consome jobs com FOR UPDATE SKIP LOCKED (claim transacional)",
+        "Retry automático com backoff exponencial: 1s, 2s, 4s, ..., máx 3 tentativas",
+        "Timeout por job: 30s; se exceder, job retorna ao estado pending para retry"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/stockpilot/REQ-STOCKPILOT-0003.yaml"
+    },
+    {
+      "id": "REQ-STOCKPILOT-0004",
+      "title": "Integração com fornecedor externo via gateway com auditoria",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "stockpilot",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O sistema DEVE submeter pedidos de reposição a um fornecedor externo via gateway centralizado com timeout, retry com backoff, redação de segredos em log, erros tipados (AppError) e trilha de auditoria completa das trocas.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/stockpilot/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "gateway-externo"
+      ],
+      "acceptance_criteria": [
+        "Gateway de submissão isolado em gateways/fornecedor-gateway.ts",
+        "Requisição HTTP para API de fornecedor (POST /api/pedidos) com timeout configurável (padrão 10s)",
+        "Retry com backoff: 1s, 2s, 4s, ..., máx 3 tentativas",
+        "Segredos (API key, token) redatados em logs e alertas (LOG.info substitui token por ****)",
+        "Erros retornam AppError tipado: { code, message, statusCode, originalError (stack não logado) }",
+        "Tabela auditoria_gateway: id, tenant_id, operacao (ex.: 'submeter_pedido'), status (success/failure), request_payload (sanitizado), response_payload, tempo_resposta_ms, timestamp"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/stockpilot/REQ-STOCKPILOT-0004.yaml"
+    },
+    {
+      "id": "REQ-STOCKPILOT-0005",
+      "title": "Painel de estoque, pedidos e alertas com autenticação",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "stockpilot",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O sistema DEVE fornecer painel web (SPA Vue) que exibe estoque atual de cada produto, pedidos de reposição abertos e alertas de ruptura, com design system unificado da plataforma e controle de acesso por RBAC.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/stockpilot/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "design-system"
+      ],
+      "acceptance_criteria": [
+        "Página principal lista produtos com colunas: nome, estoque_atual, estoque_minimo, status (OK/ALERTA/RUPTURA), data_ultimo_pedido",
+        "Status baseado em regra: RUPTURA se estoque_atual < estoque_minimo E não há pedido aberto; ALERTA se estoque_atual < 1.5x minimo E há pedido aberto; OK caso contrário",
+        "Abas: Produtos | Pedidos | Alertas",
+        "Aba Produtos: filtro por status, ordenação por estoque/data, ação de 'Criar pedido manual'",
+        "Aba Pedidos: lista pedidos abertos com status (pending/processing/delivered), ID remoto do fornecedor, data de criação",
+        "Aba Alertas: lista produtos em RUPTURA ou com falha de envio a fornecedor, mostra última tentativa + erro"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/stockpilot/REQ-STOCKPILOT-0005.yaml"
+    },
+    {
+      "id": "REQ-STOCKPILOT-0006",
+      "title": "API em contract-first (OpenAPI) com validação no CI",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "stockpilot",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O sistema DEVE definir sua superfície HTTP via OpenAPI canônico com tipos gerados automaticamente e validação em CI, de forma que mudanças de rota sejam auditáveis e sincronizadas com exemplos e testes.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/stockpilot/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "contract-openapi"
+      ],
+      "acceptance_criteria": [
+        "Arquivo openapi.yaml contém definição completa de endpoints: GET /api/v1/estoque/dashboard, POST /api/v1/pedidos, GET /api/v1/pedidos, etc.",
+        "Cada endpoint documenta: operationId, tags, parameters, requestBody, responses com exemplos",
+        "CI rodar validate:openapi que verifica sintaxe OpenAPI + tipos gerados",
+        "Tipos TypeScript gerados a partir de OpenAPI (gen:operations) em src/generated/",
+        "Rotas implementam contratos gerados (interface gerada impõe schema de request/response)",
+        "Toda mudança de rota atualiza openapi.yaml no mesmo PR"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/stockpilot/REQ-STOCKPILOT-0006.yaml"
+    },
+    {
+      "id": "REQ-STOCKPILOT-0007",
+      "title": "Alertas e notificações multi-canal de ruptura de estoque",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "stockpilot",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O sistema DEVE notificar operadores por múltiplos canais (e-mail, push web, WhatsApp) quando um produto fica em ruptura ou quando falha a submissão de pedido a fornecedor, com degradação graciosa se um canal estiver indisponível.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/stockpilot/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "notificacoes-multicanal"
+      ],
+      "acceptance_criteria": [
+        "Tabela notificacoes: id, tenant_id, usuario_id, tipo (ruptura/falha_pedido), referencia_id (produto_id/job_id), canais (bitmask ou array JSON), status (pending/sent/failed), tentativas, created_at, updated_at",
+        "Função SQL que dispara notificação quando estoque_atual < estoque_minimo",
+        "Função SQL que dispara notificação quando job de pedido falha 3x",
+        "Worker de notificações consome jobs de notificacao com retry/backoff",
+        "E-mail via SMTP/Nodemailer: template HTML com nome do produto, estoque, ação recomendada",
+        "Push web via VAPID/web-push: notificação desktop com título e ação de 'Ver painel'"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/stockpilot/REQ-STOCKPILOT-0007.yaml"
+    },
+    {
+      "id": "REQ-STOCKPILOT-0008",
+      "title": "Assistente de IA para sugestão de quantidade de reposição com RAG",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "stockpilot",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O sistema PODE incluir assistente de IA conversacional (opcional, fase 2) que sugere quantidade de reposição baseada em histórico de vendas e manuais de fornecedores (RAG com pgvector), com confirmação do usuário antes de criar pedido.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/stockpilot/product.json"
+        ]
+      },
+      "priority": "medium",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "ia-grafo",
+        "rag-pgvector",
+        "structured-outputs"
+      ],
+      "acceptance_criteria": [
+        "Tabela ai_documentos: id, tenant_id, fonte (manual_fornecedor, historico_vendas), titulo, conteudo_fatiado (chunks), embedding (vector pgvector), criado_em",
+        "Extensão pgvector ativa no Postgres (CREATE EXTENSION IF NOT EXISTS vector)",
+        "Rota POST /api/v1/assistente/sugerir-reposicao com input: { produto_id, historico_dias }",
+        "Assistente (via motor @flavioneto11/ai-core) consulta pgvector com semantic search, recupera top-3 chunks de histórico/manuais",
+        "Saída estruturada: { quantidade_sugerida, confianca, fontes_citadas, rascunho_pedido }",
+        "Saída validada contra schema (JSON mode); inválida retorna AppError"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/stockpilot/REQ-STOCKPILOT-0008.yaml"
+    },
+    {
       "id": "REQ-TEAMFLOW-0001",
       "title": "Fundação Fastify + RBAC multi-tenant + observabilidade",
       "type": "functional",
@@ -15430,10 +15789,82 @@
       ]
     },
     {
+      "id": "REQ-STOCKPILOT-0001",
+      "title": "Fundação: Arquitetura em camadas + Observabilidade integral",
+      "product": "stockpilot",
+      "impact_score": 65,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
       "id": "REQ-TEAMFLOW-0001",
       "title": "Fundação Fastify + RBAC multi-tenant + observabilidade",
       "product": "teamflow",
       "impact_score": 65,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-STOCKPILOT-0002",
+      "title": "Autenticação federada e isolamento multi-tenant",
+      "product": "stockpilot",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-STOCKPILOT-0003",
+      "title": "Processamento assíncrono de pedidos com idempotência e resilência",
+      "product": "stockpilot",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-STOCKPILOT-0004",
+      "title": "Integração com fornecedor externo via gateway com auditoria",
+      "product": "stockpilot",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-STOCKPILOT-0005",
+      "title": "Painel de estoque, pedidos e alertas com autenticação",
+      "product": "stockpilot",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-STOCKPILOT-0006",
+      "title": "API em contract-first (OpenAPI) com validação no CI",
+      "product": "stockpilot",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-STOCKPILOT-0007",
+      "title": "Alertas e notificações multi-canal de ruptura de estoque",
+      "product": "stockpilot",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-STOCKPILOT-0008",
+      "title": "Assistente de IA para sugestão de quantidade de reposição com RAG",
+      "product": "stockpilot",
+      "impact_score": 60,
       "reasons": [
         "sem evidência de verificação"
       ]

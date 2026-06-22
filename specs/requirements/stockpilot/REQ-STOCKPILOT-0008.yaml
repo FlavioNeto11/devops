@@ -1,0 +1,29 @@
+id: REQ-STOCKPILOT-0008
+title: "Assistente de IA para sugestão de quantidade de reposição com RAG"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: stockpilot
+  blueprint: node-api-vue-spa
+statement: "O sistema PODE incluir assistente de IA conversacional (opcional, fase 2) que sugere quantidade de reposição baseada em histórico de vendas e manuais de fornecedores (RAG com pgvector), com confirmação do usuário antes de criar pedido."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/stockpilot/product.json"]
+priority: medium
+criticality: medium
+architectural_significance: true
+capability_blocks: ["ia-grafo", "rag-pgvector", "structured-outputs"]
+acceptance_criteria:
+  - "Tabela ai_documentos: id, tenant_id, fonte (manual_fornecedor, historico_vendas), titulo, conteudo_fatiado (chunks), embedding (vector pgvector), criado_em"
+  - "Extensão pgvector ativa no Postgres (CREATE EXTENSION IF NOT EXISTS vector)"
+  - "Rota POST /api/v1/assistente/sugerir-reposicao com input: { produto_id, historico_dias }"
+  - "Assistente (via motor @flavioneto11/ai-core) consulta pgvector com semantic search, recupera top-3 chunks de histórico/manuais"
+  - "Saída estruturada: { quantidade_sugerida, confianca, fontes_citadas, rascunho_pedido }"
+  - "Saída validada contra schema (JSON mode); inválida retorna AppError"
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

@@ -1,0 +1,29 @@
+id: REQ-STOCKPILOT-0005
+title: "Painel de estoque, pedidos e alertas com autenticação"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: stockpilot
+  blueprint: node-api-vue-spa
+statement: "O sistema DEVE fornecer painel web (SPA Vue) que exibe estoque atual de cada produto, pedidos de reposição abertos e alertas de ruptura, com design system unificado da plataforma e controle de acesso por RBAC."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/stockpilot/product.json"]
+priority: high
+criticality: medium
+architectural_significance: true
+capability_blocks: ["design-system"]
+acceptance_criteria:
+  - "Página principal lista produtos com colunas: nome, estoque_atual, estoque_minimo, status (OK/ALERTA/RUPTURA), data_ultimo_pedido"
+  - "Status baseado em regra: RUPTURA se estoque_atual < estoque_minimo E não há pedido aberto; ALERTA se estoque_atual < 1.5x minimo E há pedido aberto; OK caso contrário"
+  - "Abas: Produtos | Pedidos | Alertas"
+  - "Aba Produtos: filtro por status, ordenação por estoque/data, ação de 'Criar pedido manual'"
+  - "Aba Pedidos: lista pedidos abertos com status (pending/processing/delivered), ID remoto do fornecedor, data de criação"
+  - "Aba Alertas: lista produtos em RUPTURA ou com falha de envio a fornecedor, mostra última tentativa + erro"
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

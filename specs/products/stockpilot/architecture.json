@@ -1,0 +1,218 @@
+{
+  "stack_rationale": "Stockpilot é um sistema CRUD de gestão de estoque com integração a fornecedor externo, contract-first OpenAPI, fila transacional e gateway. Encaixa perfeitamente no padrão SICAT (Node API + Vue SPA, Postgres, worker transacional, gateway externo, contract-openapi). Não é multi-tenant em cascata (RBAC simples) nem precisa de Redis BullMQ; a fila transacional do Postgres com FOR UPDATE SKIP LOCKED é suficiente para pedidos de reposição com auditoria e retry.",
+  "adrs": [
+    {
+      "title": "ADR-001: Stack SICAT (Node API + Vue SPA) em vez de GymOps",
+      "decision": "Usar node-api-vue-spa (SICAT) em vez de gymops-style (Next.js + Fastify + BullMQ).",
+      "rationale": "Stockpilot não é multi-tenant em cascata complexa (RBACs rígidos); não precisa de BullMQ com múltiplas filas de domínio concorrentes. Worker transacional no Postgres (FOR UPDATE SKIP LOCKED) é suficiente para pedidos de reposição idempotentes com auditoria. API com contract-first OpenAPI é alinhada com integração a fornecedor externo (SICAT pattern). Vue SPA é mais leve que Next.js para painel de gestão visual.",
+      "blocks": [
+        "camadas-rigidas",
+        "migrations-versionadas",
+        "worker-queue-transacional",
+        "gateway-externo",
+        "contract-openapi"
+      ],
+      "cites": [
+        "node-api-vue-spa (sicat): API Node + SPA Vue (produto CRUD com Postgres). default: [camadas-rigidas, migrations-versionadas, observabilidade]; compativel: [worker-queue-transacional, gateway-externo, oidc-sessao, contract-openapi, ...]"
+      ]
+    },
+    {
+      "title": "ADR-002: Worker transacional (Postgres) em vez de Redis BullMQ",
+      "decision": "Usar worker-queue-transacional (Postgres com FOR UPDATE SKIP LOCKED) para enfileiramento de reorder jobs.",
+      "rationale": "Submissão de pedido a fornecedor é operação crítica que precisa de auditoria e retry com transação garantida. Postgres transacional com advisory-lock + claim + DLQ é mais confiável que Redis para este caso. Não há necessidade de alta concorrência de múltiplas filas; uma fila 'reorder-product' é suficiente. Reduz dependência de Redis.",
+      "blocks": [
+        "worker-queue-transacional",
+        "idempotencia",
+        "migrations-versionadas"
+      ],
+      "cites": [
+        "worker-queue-transacional (sicat): Worker + fila transacional no Postgres (FOR UPDATE SKIP LOCKED). Processamento assíncrono confiável sem broker externo: comandos longos viram jobs persistidos numa tabela do Postgres, consumidos por um worker (mesma imagem da API) com claim transacional FOR UPDATE SKIP LOCKED, retry com backoff exponencial, dead-letter queue (DLQ), heartbeat de claim, requeue de jobs travados e graceful shutdown."
+      ]
+    },
+    {
+      "title": "ADR-003: Gateway externo centralizado para fornecedor",
+      "decision": "Toda chamada HTTP ao fornecedor passa por GatewayService com timeout, retry, logging redatado e auditoria.",
+      "rationale": "Integração com fornecedor é crítica; centralizar em gateway evita código duplicado em múltiplas rotas, garante resiliência uniforme (timeout 30s, retry 3x com backoff), redação de segredos (API_KEY não vaza em logs), erros tipados (AppError) e trilha de auditoria persistida. Facilita mudanças de fornecedor (muda um lugar) e debugging.",
+      "blocks": [
+        "gateway-externo",
+        "camadas-rigidas"
+      ],
+      "cites": [
+        "gateway-externo (sicat): Gateway externo centralizado (única porta para HTTP de terceiros). Toda integração HTTP com um sistema externo passa por uma camada gateway única e resiliente: timeout, retry com backoff, redação de segredos no log, erros tipados (AppError) e trilha de auditoria das trocas. Routes/services nunca chamam o externo direto."
+      ]
+    },
+    {
+      "title": "ADR-004: Contract-first OpenAPI para auditabilidade de API",
+      "decision": "Definir superfície HTTP em OpenAPI canônico antes de implementar rotas; gerar tipos e validar em CI.",
+      "rationale": "Stockpilot será integrado por fornecedor (possivelmente via terceiros). Contrato estável e auditável é essencial. OpenAPI-first garante sincronismo: mudança de rota → OpenAPI → exemplos → tipos gerados → rotas → testes de contrato no mesmo PR. Evita surpresas de breaking change.",
+      "blocks": [
+        "contract-openapi"
+      ],
+      "cites": [
+        "contract-openapi (sicat): Contract-first OpenAPI (tipos gerados + validação no CI). A superfície HTTP é definida primeiro num OpenAPI canônico; tipos e operações são gerados a partir dele (gen:operations) e a validação roda no CI (validate:openapi). Use quando a API é auditável/integrável por terceiros e a estabilidade do contrato importa (estilo SICAT)."
+      ]
+    },
+    {
+      "title": "ADR-005: RBAC simples (não cascata GymOps) por tenant + papel",
+      "decision": "Isolar dados por tenant_id; RBAC em 5 níveis (owner > org_manager > unit_manager > area_leader > assignee). Soft-delete para auditoria.",
+      "rationale": "Stockpilot é gestão de estoque por unidade de negócio (loja, depósito). RBAC cascata garante que operador area_leader não vê estoque de outra área, owner vê tudo. Não é complexo como GymOps (IA, múltiplas unidades dinâmicas); é 5 papéis fixos. Soft-delete preserva auditoria sem perder dados.",
+      "blocks": [
+        "rbac-multitenant",
+        "oidc-sessao"
+      ],
+      "cites": [
+        "rbac-multitenant (gymops): Multi-tenant + RBAC fino (escopo por tenant/unidade e papéis em cascata). Isolamento por tenant (toda tabela carrega tenant_id e toda query é escopada) e controle de acesso em camadas de papéis (ex.: owner > org_manager > unit_manager > area_leader > assignee), com deny por padrão fora do escopo e soft-delete."
+      ]
+    },
+    {
+      "title": "ADR-006: Idempotência em todas as operações que criam efeito",
+      "decision": "Header Idempotency-Key em POST, dedupe em jobs via job_key, cache de resposta com TTL 1440 min.",
+      "rationale": "Cliente ou retry automático pode enviar mesma requisição múltiplas vezes. Idempotência garante que repetir criação de pedido produz UM único pedido, não duplica submissão ao fornecedor (que rejeitaria com erro). job_key (hash de tenant + product + timestamp) evita duplicação em fila.",
+      "blocks": [
+        "idempotencia",
+        "worker-queue-transacional"
+      ],
+      "cites": [
+        "idempotencia (sicat/gymops): Idempotência (Idempotency-Key + dedupe de jobs). Operações que criam efeito (POSTs, submissões à fila, importações) são idempotentes: uma chave idempotente (Idempotency-Key no request, job_key na fila) garante que repetir a mesma operação produz UM único efeito. Use sempre que houver retry (cliente, esteira, fila) e duplicar o efeito for inaceitável (cobrança, submissão externa, criação de recurso)."
+      ]
+    },
+    {
+      "title": "ADR-007: Design system reutilizado para painel Vue",
+      "decision": "Frontend Vue herda design-tokens (codegen-sync) + componentes de platform-shell (shell, navegação, tema).",
+      "rationale": "Painel precisa estar alinhado visualmente com plataforma nvit (tema, marca, acessibilidade). Reusando packages/design-tokens e packages/platform-shell, nunca reinventamos CSS, ganhamos tema claro/escuro automático e conformidade com wcag. Mudança de design-token sincroniza em todas as apps.",
+      "blocks": [
+        "design-system"
+      ],
+      "cites": [
+        "design-system (sicat/gymops): Design system unificado (design-tokens + componentes). Frontend consistente com a plataforma: tokens de design únicos (packages/design-tokens, codegen-sync para dentro de cada app — nunca editar o .generated.css) + componentes reusáveis e casca compartilhada (packages/platform-shell)."
+      ]
+    },
+    {
+      "title": "ADR-008: Notificações multi-canal para operadores (fase 1)",
+      "decision": "Disparar eventos 'stock.rupture' que enfileiram jobs em fila 'notifications' (e-mail, push web, WhatsApp) com degradação graciosa.",
+      "rationale": "Operadores precisam ser avisados fora da sessão quando estoque fica crítico ou pedido falha. Multi-canal (e-mail corporativo, push web, WhatsApp) alcança mais pessoas. Degradação graciosa evita que falha de WhatsApp (Twilio indisponível) derrube notificações de e-mail. Jobs enfileirados garantem retry + audit.",
+      "blocks": [
+        "notificacoes-multicanal"
+      ],
+      "cites": [
+        "notificacoes-multicanal (gymops): Notificações multi-canal (e-mail, push, WhatsApp). Envio de notificações por múltiplos canais — e-mail (SMTP/Nodemailer), push web (VAPID/web-push) e WhatsApp (Twilio) — disparado por eventos do domínio, com degradação graciosa (canal ausente não derruba o fluxo) e enfileiramento (a notificação é um job)."
+      ]
+    },
+    {
+      "title": "ADR-009: IA + RAG opcional em fase 2",
+      "decision": "Assistente de IA (ia-grafo + rag-pgvector + structured-outputs) é feature opcional adiada para fase 2.",
+      "rationale": "Fase 1 entrega gestão CRUD + alertas. Assistente (sugerir quantidade de reposição consultando vendas + manuais) é nice-to-have que requer integração com modelos LLM, pgvector, estrutura de RAG. Implementar em phase 2 permite validar demanda com usuários e refinar requisitos. Blocos são compatíveis com SICAT, fácil adicionar.",
+      "blocks": [
+        "ia-grafo",
+        "rag-pgvector",
+        "structured-outputs"
+      ],
+      "cites": [
+        "ia-grafo (sicat/gymops): Assistente de IA pelo motor de grafo (@flavioneto11/ai-core). Assistente conversacional/assistivo construído sobre o motor de grafo da plataforma... Use quando a IA precisa raciocinar com ferramentas (buscar dados, citar fontes, propor um rascunho ou ação), não apenas completar texto.",
+        "rag-pgvector (sicat/gymops): RAG / busca semântica com pgvector (embeddings + retrieval grounded). Base de conhecimento vetorial no Postgres (extensão pgvector)... Use quando o assistente precisa responder citando fontes (manuais, contratos, base de conhecimento) e recusar quando não há fonte.",
+        "structured-outputs (sicat/gymops): Saídas estruturadas de IA (JSON validado por schema, fail-closed). Toda chamada de IA que produz dados retorna JSON validado contra um schema declarado..."
+      ]
+    }
+  ],
+  "waves": [
+    {
+      "id": "w0-foundation",
+      "work_orders": [
+        "scaffold: monorepo Node/Vue, docker-compose (Postgres + Redis opt, Keycloak)",
+        "migrations: tabelas products, reorder_jobs, audit_log, idempotency_cache com advisory-lock boot",
+        "routes scaffold: GET /health, /v1/health/{system,workers,jobs}",
+        "metrics: Prometheus :9464, stockpilot_reorder_jobs_total, stockpilot_gateway_calls_duration_seconds, stockpilot_stock_alerts_total",
+        "ServiceMonitor + SLO PrometheusRule (p95<500ms, erro<0.5%, queue empty<30s)",
+        "Grafana dashboard (Jobs, Gateway latency, Alert rate)"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "w1-core-crud-api",
+      "work_orders": [
+        "OpenAPI schema: GET /products, POST /reorders (Idempotency-Key), GET /reorders/:id, PATCH /products/:id/stock",
+        "gen:operations + validate:openapi CI",
+        "Repository layer: ProductRepository (queries by tenant), ReorderJobRepository (CRUD, DLQ)",
+        "Service layer: ProductService (detect low stock), ReorderService (create job, idempotent cache check)",
+        "Routes: GET /products (lista estoque), POST /reorders (cria job), GET /reorders/:id",
+        "OIDC middleware: validateKeycloakToken + requireSession",
+        "RBAC middleware: checkTenantScope + checkRole (owner/org_manager/unit_manager/area_leader/assignee)",
+        "Testes de contrato (OpenAPI)"
+      ],
+      "depends_on": [
+        "w0-foundation"
+      ]
+    },
+    {
+      "id": "w2-worker-gateway",
+      "work_orders": [
+        "Worker class: processReorderJob (FOR UPDATE SKIP LOCKED, claim heartbeat, backoff retry, DLQ, graceful shutdown)",
+        "GatewayService: submitReorderToVendor (timeout 30s, retry 3x backoff, secret redaction, AppError, audit log)",
+        "Job enqueue logic: when ProductService detects low stock, enqueue job with job_key (tenant+product+timestamp hash)",
+        "Idempotency middleware: Idempotency-Key header, cache lookup, response replay",
+        "Audit logging: tabela audit_log com action/payload/timestamp/tenant_id",
+        "Testes: worker retry, gateway timeout/retry, idempotency cache hit"
+      ],
+      "depends_on": [
+        "w1-core-crud-api"
+      ]
+    },
+    {
+      "id": "w3-frontend-design-system",
+      "work_orders": [
+        "Vue SPA scaff + codegen-sync design-tokens",
+        "Import packages/platform-shell (shell, navbar, theme light/dark)",
+        "Pages: /products (table com stock/min/status badge), /reorders (tabs open/history), /alerts (feed com ruptura)",
+        "Components: Badge (status: ok/low/rupture), Alert, Modal, Table, Form (confirm reorder)",
+        "OIDC flow PKCE + JWT session store",
+        "RBAC guards: v-if hasRole('area_leader') para filtros",
+        "Acessibilidade (WCAG via design-tokens)"
+      ],
+      "depends_on": [
+        "w1-core-crud-api"
+      ]
+    },
+    {
+      "id": "w4-notifications",
+      "work_orders": [
+        "Event emitter: when job fails or stock rupture, emit 'stock.rupture' / 'reorder.failed'",
+        "Notification service: enqueue job em fila 'notifications' com payload {type, recipient, channels, context}",
+        "Mailer channel: Nodemailer SMTP template HTML (rupture alert, reorder confirmation)",
+        "Push channel: VAPID/web-push (browser subscription store em tabela push_subscriptions)",
+        "WhatsApp channel: Twilio integração (graceful degrade se falha)",
+        "Worker notifications: process, retry, log (no redact de Twilio secrets)",
+        "Testes: event emission, channel degradation, retry"
+      ],
+      "depends_on": [
+        "w2-worker-gateway",
+        "w3-frontend-design-system"
+      ]
+    },
+    {
+      "id": "w5-integration-smoke-tests",
+      "work_orders": [
+        "E2E: criar produto → baixar estoque → job enqueue → gateway call → audit log check",
+        "Smoke: OpenAPI validation, metrics available, SLO dashboard shows data",
+        "Load: submit 100 reorders concurrently, check dedupe (idempotency), worker claim distribution",
+        "Staging deploy + smoke"
+      ],
+      "depends_on": [
+        "w4-notifications"
+      ]
+    },
+    {
+      "id": "w6-phase-2-optional-ia",
+      "work_orders": [
+        "pgvector extension + seed documents (vendor manuals, sales history)",
+        "createPgVectorStore + embedder (Ollama/OpenAI) + reranker",
+        "AssistantService: createAiGraph (router → specialist deep ReAct → tools: searchSalesHistory, queryVendorManuals, proposeReorderQty → judge/verify)",
+        "Structured outputs schema: { suggestion, justification, sources }",
+        "UI: /assistant page, conversational input, confirmation modal before create reorder",
+        "Testes: RAG retrieval, structured output validation, end-to-end assistant flow"
+      ],
+      "depends_on": [
+        "w5-integration-smoke-tests"
+      ]
+    }
+  ]
+}

@@ -1,11 +1,12 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "fcdd3b3035f16d682b7541a669d02f093f51867b010235ef7be1a38368f1859b",
+  "baseline_hash": "6bf16f0b66d8a61eb936bcf0a5bc2b5480ba28b6c888324c5bd1f2aa943f5a11",
   "counts": {
-    "total": 349,
+    "total": 357,
     "by_status": {
       "deployed": 297,
-      "done": 52
+      "done": 52,
+      "not_started": 8
     },
     "refinements": {
       "total": 13,
@@ -1945,6 +1946,38 @@
       "req_revision": 1,
       "deployed_at": "2026-06-15",
       "notes": "plataforma de requisitos — reqhub no cluster + baseline/tooling/CI ativos"
+    },
+    "REQ-STOCKPILOT-0001": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-STOCKPILOT-0002": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-STOCKPILOT-0003": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-STOCKPILOT-0004": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-STOCKPILOT-0005": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-STOCKPILOT-0006": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-STOCKPILOT-0007": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-STOCKPILOT-0008": {
+      "status": "not_started",
+      "req_revision": 1
     },
     "REQ-TEAMFLOW-0001": {
       "status": "deployed",

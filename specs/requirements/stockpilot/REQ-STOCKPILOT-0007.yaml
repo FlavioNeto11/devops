@@ -1,0 +1,29 @@
+id: REQ-STOCKPILOT-0007
+title: "Alertas e notificações multi-canal de ruptura de estoque"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: stockpilot
+  blueprint: node-api-vue-spa
+statement: "O sistema DEVE notificar operadores por múltiplos canais (e-mail, push web, WhatsApp) quando um produto fica em ruptura ou quando falha a submissão de pedido a fornecedor, com degradação graciosa se um canal estiver indisponível."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/stockpilot/product.json"]
+priority: high
+criticality: medium
+architectural_significance: true
+capability_blocks: ["notificacoes-multicanal"]
+acceptance_criteria:
+  - "Tabela notificacoes: id, tenant_id, usuario_id, tipo (ruptura/falha_pedido), referencia_id (produto_id/job_id), canais (bitmask ou array JSON), status (pending/sent/failed), tentativas, created_at, updated_at"
+  - "Função SQL que dispara notificação quando estoque_atual < estoque_minimo"
+  - "Função SQL que dispara notificação quando job de pedido falha 3x"
+  - "Worker de notificações consome jobs de notificacao com retry/backoff"
+  - "E-mail via SMTP/Nodemailer: template HTML com nome do produto, estoque, ação recomendada"
+  - "Push web via VAPID/web-push: notificação desktop com título e ação de 'Ver painel'"
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1
