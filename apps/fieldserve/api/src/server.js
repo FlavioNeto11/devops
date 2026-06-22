@@ -7,6 +7,7 @@ import * as ordersRepo from './repositories/orders-repo.js';
 import * as jobsRepo from './repositories/jobs-repo.js';
 import * as ordersSvc from './services/orders-service.js';
 import * as aiSvc from './services/ai-service.js';
+import { landingHtml } from './landing.js';
 
 const app = express();
 app.use(express.json());
@@ -16,7 +17,8 @@ app.use(express.json());
 app.use((req, _res, next) => { req.tenantId = Number(req.header('X-Tenant-Id')) || 1; next(); });
 const wrap = (fn) => (req, res) => Promise.resolve(fn(req, res)).catch((e) => { M.httpErrors.inc(); res.status(e.status || 500).json({ error: { message: e.message || 'erro' } }); });
 
-app.get('/', (_req, res) => res.json({ app: 'fieldserve', service: 'api', ok: true }));
+const LANDING = landingHtml({ title: 'FieldServe — Ordens de Serviço de Campo', base: '/fieldserve', stack: 'sicat', caps: ['fila transacional', 'gateway externo', 'idempotência', 'multi-tenant', 'IA triagem', 'observabilidade'] });
+app.get('/', (req, res) => String(req.headers.accept || '').includes('text/html') ? res.type('html').send(LANDING) : res.json({ app: 'fieldserve', service: 'api', ok: true }));
 app.get('/health', wrap(async (_req, res) => { await pool.query('SELECT 1'); res.json({ status: 'ok', db: 'connected' }); }));
 app.get('/v1/health/jobs', wrap(async (_req, res) => res.json({ status: 'ok', jobs: await jobsRepo.counts() })));
 

@@ -113,6 +113,11 @@ metadata: { name: opsboard-api-strip, namespace: apps }
 spec: { stripPrefix: { prefixes: ["/opsboard/api"] } }
 ---
 apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata: { name: opsboard-root-strip, namespace: apps }
+spec: { stripPrefix: { prefixes: ["/opsboard"] } }
+---
+apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata: { name: opsboard, namespace: apps, labels: { app.kubernetes.io/part-of: opsboard } }
 spec:
@@ -123,6 +128,11 @@ spec:
       priority: 40
       services: [ { name: opsboard-api, port: 8080 } ]
       middlewares: [ { name: opsboard-api-strip } ]
+    - match: PathPrefix(`/opsboard`)
+      kind: Rule
+      priority: 10
+      services: [ { name: opsboard-api, port: 8080 } ]
+      middlewares: [ { name: opsboard-root-strip } ]
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
