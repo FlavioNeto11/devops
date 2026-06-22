@@ -6,7 +6,7 @@
     "by_status": {
       "deployed": 288,
       "done": 52,
-      "not_started": 1
+      "pr_open": 1
     },
     "refinements": {
       "total": 13,
@@ -1124,8 +1124,10 @@
       "run_id": "local-drive"
     },
     "REQ-OPSBOARD-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "branch": "@{id=REQ-OPSBOARD-0002; branch=req/REQ-OPSBOARD-0002/r1; restricted=false; title=feat(opsboard): implementa REQ-OPSBOARD-0002 — Filtro por status na listagem de registros }.branch",
+      "run_id": "27926554488"
     },
     "REQ-PCONTRACT-0001": {
       "status": "done",
