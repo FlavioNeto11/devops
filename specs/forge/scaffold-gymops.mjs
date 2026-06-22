@@ -29,7 +29,7 @@ if (product.stack !== 'gymops') { console.error(`scaffold-gymops só gera stack 
 const byId = loadCatalog();
 const blocks = resolveBlocks(product.capability_blocks || [], 'gymops', byId);
 const has = (id) => blocks.includes(id);
-const F = { redis: has('redis-bullmq'), gateway: has('gateway-externo'), rbac: has('rbac-multitenant'), idem: has('idempotencia') };
+const F = { redis: has('redis-bullmq'), gateway: has('gateway-externo'), rbac: has('rbac-multitenant'), idem: has('idempotencia'), oidc: has('oidc-sessao') };
 
 const APP = product.name;
 const TITLE = product.display_name || APP;
@@ -80,7 +80,14 @@ if (F.rbac) add('api/src/rbac.js', [
   '// rbac.js — RBAC multi-tenant (bloco rbac-multitenant). Papéis em cascata; deny por padrão.',
   "// NOTA: identidade via header (X-Tenant-Id/X-Role) como stand-in da sessão OIDC (login real = client no Keycloak).",
   "const RANK = { admin: 3, manager: 2, member: 1 };",
-  'export function authContext(req) { return { tenantId: Number(req.headers["x-tenant-id"]) || 1, role: (req.headers["x-role"] || "member").toLowerCase() }; }',
+  "// Identidade: pela borda OIDC (oauth2-proxy do Console -> X-Auth-Request-*) quando atrás do SSO;",
+  "// senão pelos headers X-Role/X-Tenant-Id (teste local/direto). Sem login direto no app.",
+  'export function authContext(req) {',
+  '  const ssoEmail = req.headers["x-auth-request-email"] || req.headers["x-auth-request-user"] || "";',
+  '  const ssoGroups = req.headers["x-auth-request-groups"] || "";',
+  '  const role = ssoEmail ? (ssoGroups.includes("platform-admins") ? "admin" : "member") : (req.headers["x-role"] || "member").toLowerCase();',
+  '  return { tenantId: Number(req.headers["x-tenant-id"]) || 1, role, user: ssoEmail || "local" };',
+  '}',
   'export function requireRole(role) { return async (req, reply) => { const ctx = authContext(req); if ((RANK[ctx.role] || 0) < (RANK[role] || 99)) { reply.code(403).send({ error: { message: "acesso negado (precisa de " + role + ")" } }); return reply; } }; }', '',
 ].join('\n'));
 
@@ -300,8 +307,11 @@ function buildK8s() {
     L.push('---', 'apiVersion: v1', 'kind: Service', 'metadata: { name: @@APP@@-worker, namespace: apps, labels: { app.kubernetes.io/name: @@APP@@-worker, app.kubernetes.io/part-of: @@APP@@ } }', 'spec: { selector: { app.kubernetes.io/name: @@APP@@-worker }, ports: [ { name: metrics, port: 9464, targetPort: 9464 } ] }');
   }
   L.push('---', 'apiVersion: traefik.io/v1alpha1', 'kind: Middleware', 'metadata: { name: @@APP@@-api-strip, namespace: apps }', 'spec: { stripPrefix: { prefixes: ["@@BASE@@/api"] } }');
+  // bloco oidc-sessao: reusa o SSO de borda da plataforma (oauth2-proxy do Console -> Keycloak realm
+  // nvit) via ForwardAuth — SEM client novo no Keycloak. 401 p/ XHR sem sessao; X-Auth-Request-* quando ok.
+  const apiMws = (F.oidc ? '{ name: console-auth-401, namespace: devops-system }, ' : '') + '{ name: @@APP@@-api-strip }';
   L.push('---', 'apiVersion: traefik.io/v1alpha1', 'kind: IngressRoute', 'metadata: { name: @@APP@@, namespace: apps, labels: { app.kubernetes.io/part-of: @@APP@@ } }',
-    'spec:', '  entryPoints: [web]', '  routes:', '    - match: PathPrefix(`@@BASE@@/api`)', '      kind: Rule', '      priority: 40', '      services: [ { name: @@APP@@-api, port: 8080 } ]', '      middlewares: [ { name: @@APP@@-api-strip } ]');
+    'spec:', '  entryPoints: [web]', '  routes:', '    - match: PathPrefix(`@@BASE@@/api`)', '      kind: Rule', '      priority: 40', '      services: [ { name: @@APP@@-api, port: 8080 } ]', '      middlewares: [ ' + apiMws + ' ]');
   L.push('---', 'apiVersion: monitoring.coreos.com/v1', 'kind: ServiceMonitor', 'metadata: { name: @@APP@@, namespace: apps, labels: { app.kubernetes.io/part-of: @@APP@@, release: kube-prometheus-stack } }',
     'spec:', '  selector: { matchLabels: { app.kubernetes.io/part-of: @@APP@@ } }', '  namespaceSelector: { matchNames: [apps] }', '  endpoints: [ { port: metrics, path: /metrics, interval: 15s } ]');
   L.push('---', 'apiVersion: monitoring.coreos.com/v1', 'kind: PrometheusRule', 'metadata: { name: @@APP@@-slo, namespace: apps, labels: { app.kubernetes.io/part-of: @@APP@@, release: kube-prometheus-stack } }',
