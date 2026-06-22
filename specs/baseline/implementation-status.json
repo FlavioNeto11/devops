@@ -4,9 +4,9 @@
   "counts": {
     "total": 365,
     "by_status": {
-      "deployed": 305,
+      "deployed": 307,
       "done": 52,
-      "not_started": 8
+      "not_started": 6
     },
     "refinements": {
       "total": 13,
@@ -1696,16 +1696,18 @@
       "notes": "apps/reqhub — workbench + reqhub-api no cluster (ns apps)"
     },
     "REQ-SHOPDESK-0001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "run_id": "flagship"
     },
     "REQ-SHOPDESK-0002": {
       "status": "not_started",
       "req_revision": 1
     },
     "REQ-SHOPDESK-0003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "run_id": "flagship-payment"
     },
     "REQ-SHOPDESK-0004": {
       "status": "not_started",
