@@ -19,7 +19,7 @@
 
   Marca StockPilot (estoque/reposicao, teal/graphite) só via tokens --ui-*.
   CSP-safe: só classes + data-*; sem style inline / :style / v-html.
-  Links de dominio do inventario (só rotas reais): /notifications.
+  Links de dominio do inventario (só rotas reais): /channels.
 -->
 <template>
   <UiPageLayout
@@ -36,7 +36,7 @@
     <template #actions>
       <UiButton variant="ghost" :to="listRoute">
         <template #icon-left><span class="ce-ic" aria-hidden="true">‹</span></template>
-        Notificacoes
+        Canais
       </UiButton>
       <UiButton v-if="hasChannel" variant="ghost" :loading="testing" @click="onCheckConfig">
         Conferir configuracao
@@ -66,7 +66,7 @@
         :description="emptyDescription"
       >
         <template #action>
-          <UiButton :to="listRoute">Voltar para notificacoes</UiButton>
+          <UiButton :to="listRoute">Voltar para canais</UiButton>
         </template>
       </UiEmptyState>
     </UiCard>
@@ -317,7 +317,7 @@ const toast = useToast();
 const confirm = useConfirm();
 
 /* ---- rota de DOMINIO (só rotas reais do inventário) ---------------------- */
-const listRoute = '/notifications';
+const listRoute = '/channels';
 
 /* ---- catálogo de domínio (canais + eventos) ------------------------------ */
 const CHANNEL_OPTIONS = [
