@@ -759,6 +759,50 @@ paths:
                     tentativas: 1
         '401':
           $ref: '#/components/responses/Unauthorized'
+  /v1/notifications/{id}:
+    get:
+      operationId: getNotification
+      tags:
+        - Notifications
+      summary: Detalhe de uma notificação
+      description: >-
+        Retorna o registro completo da notificação (tipo, canais com desfecho, status agregado,
+        tentativas). Escopado por tenant: notificação inexistente ou de outro tenant retorna 404.
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200':
+          description: Notificação encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+              example:
+                id: 7
+                tenant_id: default
+                usuario_id: null
+                tipo: ruptura
+                referencia_id: 1
+                canais:
+                  - channel: email
+                    status: sent
+                  - channel: push
+                    status: skipped
+                    reason: unconfigured
+                status: sent
+                tentativas: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Notificação não encontrada (inexistente ou de outro tenant)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  message: notificação não encontrada
   /v1/suppliers:
     get:
       operationId: listSuppliers

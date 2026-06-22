@@ -120,7 +120,7 @@
         :total="filtered.length"
         paginated
         :empty="emptyState"
-        @row-click="openDetail"
+        @row-click="navigateToDetail"
         @update:sort="onSort"
         @update:page="onPage"
         @update:pageSize="onPageSize"
@@ -187,92 +187,6 @@
       </p>
     </template>
 
-    <!-- Detalhe do evento (modal) -->
-    <UiModal v-model:open="detailOpen" :title="detailTitle" width="md">
-      <div v-if="selected" class="nl-detail">
-        <dl class="nl-dl">
-          <div class="nl-dl-row">
-            <dt>Evento</dt>
-            <dd>
-              <span class="nl-event" :data-event="selected.tipo">
-                <span class="nl-event-dot" aria-hidden="true" />
-                {{ eventLabel(selected.tipo) }}
-              </span>
-            </dd>
-          </div>
-          <div class="nl-dl-row">
-            <dt>Status agregado</dt>
-            <dd><UiStatusBadge :status="selected.status" :label="aggregateLabel(selected.status)" /></dd>
-          </div>
-          <div class="nl-dl-row">
-            <dt>Referência</dt>
-            <dd>
-              <button
-                v-if="selected.referencia_id != null"
-                type="button"
-                class="nl-ref"
-                @click="openReference(selected)"
-              >
-                {{ referenceLabel(selected) }}
-              </button>
-              <span v-else class="ui-muted">—</span>
-            </dd>
-          </div>
-          <div class="nl-dl-row">
-            <dt>Tentativas</dt>
-            <dd>{{ selected.tentativas ?? '—' }}</dd>
-          </div>
-          <div class="nl-dl-row">
-            <dt>Usuário</dt>
-            <dd>{{ selected.usuario_id || 'Sistema' }}</dd>
-          </div>
-          <div class="nl-dl-row">
-            <dt>Criado em</dt>
-            <dd>{{ format.formatDateTime(selected.created_at) }}</dd>
-          </div>
-          <div class="nl-dl-row">
-            <dt>Atualizado em</dt>
-            <dd>{{ format.formatDateTime(selected.updated_at) }}</dd>
-          </div>
-        </dl>
-
-        <h3 class="nl-detail-head">Desfecho por canal</h3>
-        <ul class="nl-channels" aria-label="Desfecho por canal">
-          <li
-            v-for="ch in normalizeChannels(selected.canais)"
-            :key="ch.channel"
-            class="nl-channel"
-            :data-status="ch.status"
-          >
-            <span class="nl-channel-glyph" aria-hidden="true">{{ channelGlyph(ch.channel) }}</span>
-            <div class="nl-channel-body">
-              <span class="nl-channel-name">{{ channelLabel(ch.channel) }}</span>
-              <span v-if="reasonLabel(ch)" class="nl-channel-reason">{{ reasonLabel(ch) }}</span>
-            </div>
-            <UiStatusBadge
-              :status="ch.status"
-              :tone="channelTone(ch.status)"
-              :label="channelStatusLabel(ch.status)"
-              size="sm"
-            />
-          </li>
-          <li v-if="!normalizeChannels(selected.canais).length" class="nl-channel-empty ui-muted">
-            Nenhum canal registrado para este evento.
-          </li>
-        </ul>
-      </div>
-
-      <template #footer>
-        <UiButton variant="ghost" @click="detailOpen = false">Fechar</UiButton>
-        <UiButton
-          v-if="selected && selected.referencia_id != null"
-          variant="subtle"
-          @click="goReferenceFromModal"
-        >
-          Abrir referência
-        </UiButton>
-      </template>
-    </UiModal>
   </UiPageLayout>
 </template>
 
@@ -287,7 +201,6 @@ import {
   UiMetricCard,
   UiStatusBadge,
   UiFiltersPanel,
-  UiModal,
   useResource,
   useToast,
   format,
@@ -448,13 +361,6 @@ const channelLabel = (c) => (CHANNELS[c] && CHANNELS[c].label) || format.humaniz
 const channelGlyph = (c) => (CHANNELS[c] && CHANNELS[c].glyph) || '•';
 const channelStatusLabel = (s) => CHANNEL_STATUS[s] || format.humanize(s);
 
-function channelTone(status) {
-  if (status === 'sent') return 'success';
-  if (status === 'failed') return 'error';
-  if (status === 'skipped') return 'warning';
-  return 'neutral';
-}
-
 // `reason` vem do fan-out: 'unconfigured' p/ canal sem config (skipped) ou a MENSAGEM de erro (failed).
 function reasonLabel(ch) {
   if (!ch.reason) return '';
@@ -518,14 +424,8 @@ function onPageSize(ps) {
   page.value = 1;
 }
 
-// Detalhe
-const detailOpen = ref(false);
-const selected = ref(null);
-const detailTitle = computed(() => (selected.value ? eventLabel(selected.value.tipo) + ' · #' + selected.value.id : 'Notificação'));
-
-function openDetail(row) {
-  selected.value = row;
-  detailOpen.value = true;
+function navigateToDetail(row) {
+  router.push('/notifications/' + row.id);
 }
 
 // Navega para a entidade de DOMÍNIO referenciada (produto/pedido) — só rotas reais.
@@ -536,11 +436,6 @@ function openReference(row) {
   }
   const path = row.tipo === 'ruptura' ? '/products/' : '/orders/';
   router.push(path + row.referencia_id);
-}
-
-function goReferenceFromModal() {
-  if (selected.value) openReference(selected.value);
-  detailOpen.value = false;
 }
 
 onMounted(r.load);
@@ -680,47 +575,10 @@ onMounted(r.load);
 
 .nl-foot { margin: 0; }
 
-/* Detalhe */
-.nl-detail { display: flex; flex-direction: column; gap: var(--ui-space-5); }
-.nl-dl { display: grid; grid-template-columns: 1fr; gap: var(--ui-space-2); margin: 0; }
-.nl-dl-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--ui-space-4);
-  padding-bottom: var(--ui-space-2);
-  border-bottom: 1px solid rgb(var(--ui-border));
-}
-.nl-dl-row:last-child { border-bottom: none; padding-bottom: 0; }
-.nl-dl dt { color: rgb(var(--ui-muted)); font-size: var(--ui-text-sm); font-weight: 600; }
-.nl-dl dd { margin: 0; text-align: right; font-weight: 600; }
-
-.nl-detail-head { font-size: var(--ui-text-md); margin: 0; }
-.nl-channels { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--ui-space-2); }
-.nl-channel {
-  display: flex;
-  align-items: center;
-  gap: var(--ui-space-3);
-  padding: var(--ui-space-3);
-  border: 1px solid rgb(var(--ui-border));
-  border-left: 3px solid rgb(var(--ui-faint));
-  border-radius: var(--ui-radius-md);
-  background: rgb(var(--ui-surface-2));
-}
-.nl-channel[data-status="sent"] { border-left-color: rgb(var(--ui-ok)); }
-.nl-channel[data-status="failed"] { border-left-color: rgb(var(--ui-danger)); }
-.nl-channel[data-status="skipped"] { border-left-color: rgb(var(--ui-warn)); }
-.nl-channel-glyph { font-size: 1.1rem; color: rgb(var(--ui-muted)); width: 1.4rem; text-align: center; }
-.nl-channel-body { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
-.nl-channel-name { font-weight: 600; }
-.nl-channel-reason { font-size: var(--ui-text-xs); color: rgb(var(--ui-muted)); word-break: break-word; }
-.nl-channel-empty { padding: var(--ui-space-3); }
-
 @media (max-width: 860px) {
   .nl-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 520px) {
   .nl-metrics { grid-template-columns: 1fr; }
-  .nl-dl dd { text-align: left; }
 }
 </style>

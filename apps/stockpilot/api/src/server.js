@@ -107,6 +107,11 @@ app.get('/v1/audit', requireAuth, wrap(async (req, res) => res.json({ data: awai
 // Notificações multi-canal (REQ-STOCKPILOT-0007): registro persistido por evento (ruptura/falha_pedido)
 // com o desfecho POR canal (sent/failed/skipped). Escopado por tenant (cross-tenant nunca vaza).
 app.get('/v1/notifications', requireAuth, wrap(async (req, res) => res.json({ data: await notificationsRepo.listByTenant(req.tenant) })));
+app.get('/v1/notifications/:id', requireAuth, wrap(async (req, res) => {
+  const notif = await notificationsRepo.getById(Number(req.params.id), req.tenant);
+  if (!notif) return res.status(404).json({ error: { message: 'notificação não encontrada' } });
+  res.json(notif);
+}));
 
 // CRUD de Fornecedores (REQ-STOCKPILOT-0004): gateway externo configurável (URL + forma de auth +
 // timeout/retry). Rotas finas → suppliers-repo; tudo escopado por tenant (cross-tenant → 404).

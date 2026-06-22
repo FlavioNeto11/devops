@@ -44,9 +44,7 @@ export const orders = {
   audit: (id) => request('GET', '/v1/orders/' + id + '/audit'),
 };
 export const alerts = resourceFactory('alerts');
-// notifications é LIST-ONLY no backend (server.js só expõe GET /v1/notifications, REQ-STOCKPILOT-0007).
-// NÃO chame notifications.get(id) — não há GET /v1/notifications/{id}; o detalhe reaproveita o objeto
-// da linha já carregado pela listagem.
+// notifications expõe list (GET /v1/notifications) e get(id) (GET /v1/notifications/:id) para a tela de detalhe.
 export const notifications = resourceFactory('notifications');
 export const channels = resourceFactory('channels');
 export const suppliers = resourceFactory('suppliers');
