@@ -1,0 +1,17 @@
+{
+  "name": "shopdesk-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ShopDesk — Loja + Checkout + NF — gerado pela Forge (SICAT-style robusto).",
+  "scripts": {
+    "start": "node src/server.js",
+    "worker": "node src/worker.js",
+    "test": "node --test test"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "pg": "^8.11.5",
+    "prom-client": "^15.1.2"
+  }
+}

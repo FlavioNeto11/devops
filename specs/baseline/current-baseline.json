@@ -1,10 +1,10 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "6bf16f0b66d8a61eb936bcf0a5bc2b5480ba28b6c888324c5bd1f2aa943f5a11",
+  "baseline_hash": "b40ddfbf09f13258fd0968c5b19bfe638ccac9caf7bdc25627ac75789170652b",
   "refinements_hash": "8c2404f1df38762f23de2d95606729971e0b22061bc4df82fddd1431e42222b0",
   "schema": "specs/schema/requirement.schema.json",
   "counts": {
-    "total": 357,
+    "total": 365,
     "by_product": {
       "ai": 18,
       "argocd": 15,
@@ -23,6 +23,7 @@
       "portal": 21,
       "portal-recorder": 19,
       "reqhub": 20,
+      "shopdesk": 8,
       "sicat": 24,
       "specs": 18,
       "stockpilot": 8,
@@ -30,11 +31,11 @@
       "traefik": 16
     },
     "by_status": {
-      "approved": 357
+      "approved": 365
     },
     "by_type": {
-      "functional": 255,
-      "non-functional": 102
+      "functional": 262,
+      "non-functional": 103
     },
     "refinements": {
       "total": 13,
@@ -10756,6 +10757,378 @@
       "file": "requirements/reqhub/REQ-REQHUB-NFR-008.yaml"
     },
     {
+      "id": "REQ-SHOPDESK-0001",
+      "title": "Fundação: Arquitetura em camadas + Observabilidade por padrão",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "product-foundation",
+        "product_scope": "shopdesk",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O sistema DEVE implementar arquitetura em camadas rígidas (route → service → repository → worker → gateway) com observabilidade nativa (health checks, métricas Prometheus, ServiceMonitor, alertas SLO e dashboard Grafana).",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/shopdesk/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "camadas-rigidas",
+        "migrations-versionadas",
+        "observabilidade"
+      ],
+      "acceptance_criteria": [
+        "Endpoints de health estruturados em /health e /v1/health/{system,workers,jobs} retornam status de DB, workers e fila",
+        "Métricas Prometheus na porta :9464 (fora do Traefik) incluem latência p95, taxa de erro, saturação de fila",
+        "ServiceMonitor criado para kube-prometheus-stack raspar métricas",
+        "Dashboard Grafana gerado automaticamente com SLOs de latência, erro e throughput",
+        "Rotas validam entrada e mapeiam HTTP; services contêm regra de negócio; repositories contêm SQL; gateways contêm chamadas HTTP externas",
+        "Nenhuma rota acessa banco ou rede externa diretamente"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 65,
+      "impact_band": "medium",
+      "file": "requirements/shopdesk/REQ-SHOPDESK-0001.yaml"
+    },
+    {
+      "id": "REQ-SHOPDESK-0002",
+      "title": "Isolamento multi-tenant + RBAC + Login SSO",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "shopdesk",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O sistema DEVE isolar dados por tenant (loja), controlar acesso por papéis em cascata (owner > admin > operador) e autenticar operadores via OIDC (Keycloak).",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/shopdesk/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "rbac-multitenant",
+        "oidc-sessao"
+      ],
+      "acceptance_criteria": [
+        "Toda tabela de dados de negócio carrega tenant_id e toda query é escopada por tenant do usuário",
+        "Papéis em cascata: owner > admin > operador; deny por padrão fora do escopo",
+        "Login via Keycloak (realm nvit) com fluxo PKCE; backend valida token em /userinfo e emite JWT curto da sessão do app",
+        "Soft-delete em entities críticas; auditoria de acesso por usuário/tenant/recurso",
+        "Teste de isolamento: usuário da loja A não vê dados da loja B"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/shopdesk/REQ-SHOPDESK-0002.yaml"
+    },
+    {
+      "id": "REQ-SHOPDESK-0003",
+      "title": "Carrinho, checkout e pagamento idempotente com webhook",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "shopdesk",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O sistema DEVE gerenciar carrinho de compra, processar checkout com cobrança idempotente (dedup por Idempotency-Key) via gateway de pagamento e processar webhook de confirmação sem duplicação.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/shopdesk/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "pagamentos-gateway",
+        "idempotencia",
+        "gateway-externo"
+      ],
+      "acceptance_criteria": [
+        "Endpoint POST /checkout aceita Idempotency-Key header; mesma chave retorna mesmo resultado (idempotência)",
+        "Cobrança tokenizada (tokenizer configurable, nunca armazena número de cartão)",
+        "Gateway de pagamento centralizado: timeout 30s, retry com backoff exponencial, redação de segredos em log",
+        "Webhook de PSP verifica assinatura e deduplica por chave de evento do PSP",
+        "Provider 'sandbox' determinístico por padrão (ex.: Stripe testkeys); PSP real atrás de env var PAYMENT_PROVIDER/PAYMENT_API_KEY (fail-closed sem chave)",
+        "Trilha de auditoria: toda transação registra timestamp, valor, status, erro (se houver)"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/shopdesk/REQ-SHOPDESK-0003.yaml"
+    },
+    {
+      "id": "REQ-SHOPDESK-0004",
+      "title": "Emissão de NF-e assíncrona e resiliente pós-pagamento",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "shopdesk",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O sistema DEVE emitir Nota Fiscal Eletrônica (NF-e) após aprovação de pagamento de forma assíncrona, resiliente e auditada, com retry exponencial e dead-letter queue.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/shopdesk/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "nota-fiscal-emissao",
+        "worker-queue-transacional",
+        "idempotencia"
+      ],
+      "acceptance_criteria": [
+        "Aprovação de pagamento dispara job de emissão de NF-e numa fila (NF-e enqueue)",
+        "Job monta XML de NF-e conforme CT-e/RFB, assina e submete à SEFAZ",
+        "SEFAZ 'sandbox' determinístico por padrão (respostas fixas); SEFAZ real atrás de env var NF_SEFAZ_ENV (fail-closed sem certificado)",
+        "Retry com backoff exponencial (1s, 10s, 100s, 1000s); max 5 tentativas",
+        "Dead-letter queue (DLQ) para jobs que falharam 5x; alertas de SLO para DLQ não vazia",
+        "Auditoria: toda submissão à SEFAZ registra timestamp, XML, resposta, status final"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/shopdesk/REQ-SHOPDESK-0004.yaml"
+    },
+    {
+      "id": "REQ-SHOPDESK-0005",
+      "title": "Painel web de vendas, pedidos e estoque com design system",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "shopdesk",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O sistema DEVE oferecer painel web (SPA Vue) para o lojista acompanhar pedidos, vendas (receita, ticket médio), estoque (quantidade, reposição) com design unificado da plataforma.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/shopdesk/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "design-system"
+      ],
+      "acceptance_criteria": [
+        "Dashboard mostra: resumo de vendas (receita hoje/mês/ano), quantidade de pedidos, ticket médio, estoque crítico",
+        "Listagem de pedidos com filtros (status, data, valor), busca, paginação e ações (visualizar, reembolsar, rastrear)",
+        "Listagem de estoque com quantidade, sku, alerta de baixa quantidade, botão para criar ordem de reposição",
+        "Frontend herda tokens de design + componentes reusáveis via packages/design-tokens e packages/platform-shell (sem CSS custom)",
+        "Tema claro/escuro sincronizado com plataforma; acessibilidade WCAG AA",
+        "Relatório exportável (CSV) de vendas e estoque"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/shopdesk/REQ-SHOPDESK-0005.yaml"
+    },
+    {
+      "id": "REQ-SHOPDESK-0006",
+      "title": "Assistente de IA para lojista (sugestão de preço/descrição e Q&A sobre pedidos)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "shopdesk",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O sistema DEVE oferecer assistente de IA que sugere preço e descrição de produtos (com confirmação antes de persistir) e responde perguntas sobre pedidos (com rastreamento de fonte via RAG).",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/shopdesk/product.json"
+        ]
+      },
+      "priority": "medium",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "ia-grafo",
+        "rag-pgvector",
+        "structured-outputs"
+      ],
+      "acceptance_criteria": [
+        "Endpoint POST /ai/suggest-product-price: recebe produto, histórico de vendas → IA sugere preço com intervalo de confiança → dry-run (não persiste)",
+        "Endpoint POST /ai/suggest-product-description: recebe categoria, características → IA sugere texto SEO → dry-run",
+        "Endpoint POST /ai/ask-about-order: pergunta em linguagem natural → IA busca pedidos similares via RAG (pgvector) → responde citando fontes (pedido_id, data, valor)",
+        "Toda sugestão de preço/descrição exige confirmação explícita do usuário (botão 'Aplicar') antes de persistir",
+        "IA falha-fechada: timeout 10s sem resposta → retorna erro estruturado, não fallback silencioso",
+        "Autorização: assistente responde apenas sobre pedidos do tenant do usuário autenticado"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/shopdesk/REQ-SHOPDESK-0006.yaml"
+    },
+    {
+      "id": "REQ-SHOPDESK-0007",
+      "title": "Notificações multi-canal (e-mail e SMS) para eventos de pedido",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "shopdesk",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O sistema DEVE enviar notificações ao lojista (e-mail e SMS) quando pedido é criado, pagamento aprovado ou falha, e NF-e é emitida, com degradação graciosa se canal indisponível.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/shopdesk/product.json"
+        ]
+      },
+      "priority": "medium",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "notificacoes-multicanal",
+        "worker-queue-transacional"
+      ],
+      "acceptance_criteria": [
+        "Evento 'pedido.criado' dispara notificação por e-mail + SMS (se número registrado)",
+        "Evento 'pagamento.aprovado' → e-mail confirmando e link para visualizar pedido",
+        "Evento 'pagamento.falhou' → SMS alertando; e-mail com motivo e link para tentar novamente",
+        "Evento 'nf-e.emitida' → e-mail com link para download/visualização do XML",
+        "E-mail via SMTP/Nodemailer; SMS via Twilio (provider configurable, fallback para log em desenvolvimento)",
+        "Notificação enfileirada: não bloqueia fluxo principal; retry de falhas de envio com backoff"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/shopdesk/REQ-SHOPDESK-0007.yaml"
+    },
+    {
+      "id": "REQ-SHOPDESK-0008",
+      "title": "Contract-first OpenAPI para API pública integrável",
+      "type": "non-functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "shopdesk",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O sistema DEVE definir contrato HTTP via OpenAPI 3.0 canônico; tipos, operações e validação são gerados; mudanças de rota são propostas em PR com exemplos, testes de contrato e validação no CI.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/shopdesk/product.json"
+        ]
+      },
+      "priority": "medium",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "contract-openapi"
+      ],
+      "acceptance_criteria": [
+        "Arquivo openapi.yml (ou .json) canônico define todos os endpoints, schemas, respostas de erro",
+        "Types TypeScript gerados via gen:operations (no build ou pre-commit); nunca editados manualmente",
+        "Validação OpenAPI no CI: validate:openapi verifica aderência de rotas ao contrato",
+        "Mudança de rota: PR contém OpenAPI → exemplos → tipos gerados → rotas → testes de contrato no mesmo commit",
+        "Documentação interativa via Swagger UI (rota /api/docs)",
+        "Erros estruturados: todas as respostas 4xx/5xx retornam schema de erro padrão (code, message, details)"
+      ],
+      "quality_scenarios": [
+        {
+          "source": "desenvolvedor/integrador",
+          "stimulus": "uma rota é adicionada/alterada sem atualizar o OpenAPI",
+          "environment": "CI (validate:openapi)",
+          "artifact": "contrato OpenAPI + rotas",
+          "response": "o gate de contrato reprova o drift bidirecional",
+          "response_measure": "100% das rotas implementadas estão documentadas e vice-versa (zero drift)"
+        }
+      ],
+      "verification_method": [
+        "test-integration",
+        "architecture-review"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/shopdesk/REQ-SHOPDESK-0008.yaml"
+    },
+    {
       "id": "REQ-SICAT-0001",
       "slug": "req-sicat-0001",
       "title": "Autenticação dupla (SICAT + CETESB)",
@@ -15771,6 +16144,15 @@
       ]
     },
     {
+      "id": "REQ-SHOPDESK-0001",
+      "title": "Fundação: Arquitetura em camadas + Observabilidade por padrão",
+      "product": "shopdesk",
+      "impact_score": 65,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
       "id": "REQ-SICAT-0001",
       "title": "Autenticação dupla (SICAT + CETESB)",
       "product": "sicat",
@@ -15802,6 +16184,69 @@
       "title": "Fundação Fastify + RBAC multi-tenant + observabilidade",
       "product": "teamflow",
       "impact_score": 65,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SHOPDESK-0002",
+      "title": "Isolamento multi-tenant + RBAC + Login SSO",
+      "product": "shopdesk",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SHOPDESK-0003",
+      "title": "Carrinho, checkout e pagamento idempotente com webhook",
+      "product": "shopdesk",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SHOPDESK-0004",
+      "title": "Emissão de NF-e assíncrona e resiliente pós-pagamento",
+      "product": "shopdesk",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SHOPDESK-0005",
+      "title": "Painel web de vendas, pedidos e estoque com design system",
+      "product": "shopdesk",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SHOPDESK-0006",
+      "title": "Assistente de IA para lojista (sugestão de preço/descrição e Q&A sobre pedidos)",
+      "product": "shopdesk",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SHOPDESK-0007",
+      "title": "Notificações multi-canal (e-mail e SMS) para eventos de pedido",
+      "product": "shopdesk",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-SHOPDESK-0008",
+      "title": "Contract-first OpenAPI para API pública integrável",
+      "product": "shopdesk",
+      "impact_score": 60,
       "reasons": [
         "sem evidência de verificação"
       ]

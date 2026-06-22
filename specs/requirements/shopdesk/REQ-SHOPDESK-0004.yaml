@@ -1,0 +1,29 @@
+id: REQ-SHOPDESK-0004
+title: "Emissão de NF-e assíncrona e resiliente pós-pagamento"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: shopdesk
+  blueprint: node-api-vue-spa
+statement: "O sistema DEVE emitir Nota Fiscal Eletrônica (NF-e) após aprovação de pagamento de forma assíncrona, resiliente e auditada, com retry exponencial e dead-letter queue."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/shopdesk/product.json"]
+priority: high
+criticality: medium
+architectural_significance: true
+capability_blocks: ["nota-fiscal-emissao", "worker-queue-transacional", "idempotencia"]
+acceptance_criteria:
+  - "Aprovação de pagamento dispara job de emissão de NF-e numa fila (NF-e enqueue)"
+  - "Job monta XML de NF-e conforme CT-e/RFB, assina e submete à SEFAZ"
+  - "SEFAZ 'sandbox' determinístico por padrão (respostas fixas); SEFAZ real atrás de env var NF_SEFAZ_ENV (fail-closed sem certificado)"
+  - "Retry com backoff exponencial (1s, 10s, 100s, 1000s); max 5 tentativas"
+  - "Dead-letter queue (DLQ) para jobs que falharam 5x; alertas de SLO para DLQ não vazia"
+  - "Auditoria: toda submissão à SEFAZ registra timestamp, XML, resposta, status final"
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

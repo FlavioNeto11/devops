@@ -74,7 +74,19 @@ function reqYaml(r, i, total) {
   if (blocks.length) L.push(`capability_blocks: [${blocks.map((b) => q(b)).join(', ')}]`);
   L.push('acceptance_criteria:');
   for (const a of acs) L.push(`  - ${q(a)}`);
-  L.push('verification_method: [test-integration]');
+  // non-functional EXIGE quality_scenarios (schema). Se a IA não trouxe, sintetiza 1 cenário (SEI) do critério.
+  if (r.type === 'non-functional') {
+    L.push('quality_scenarios:');
+    L.push('  - source: "operador/sistema"');
+    L.push('    stimulus: ' + q((r.statement || r.title || '').slice(0, 140)));
+    L.push('    environment: "produção"');
+    L.push('    artifact: ' + q(NAME));
+    L.push('    response: "atende o atributo de qualidade especificado"');
+    L.push('    response_measure: ' + q(acs[0] || 'conforme acceptance_criteria'));
+    L.push('verification_method: [test-integration, monitoring]');
+  } else {
+    L.push('verification_method: [test-integration]');
+  }
   L.push('version:', '  baseline_version: "1.0.0"', '  item_revision: 1', '');
   return { id, yaml: L.join('\n') };
 }

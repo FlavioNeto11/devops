@@ -1,11 +1,12 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "6bf16f0b66d8a61eb936bcf0a5bc2b5480ba28b6c888324c5bd1f2aa943f5a11",
+  "baseline_hash": "b40ddfbf09f13258fd0968c5b19bfe638ccac9caf7bdc25627ac75789170652b",
   "counts": {
-    "total": 357,
+    "total": 365,
     "by_status": {
       "deployed": 305,
-      "done": 52
+      "done": 52,
+      "not_started": 8
     },
     "refinements": {
       "total": 13,
@@ -1693,6 +1694,38 @@
       "req_revision": 1,
       "deployed_at": "2026-06-15",
       "notes": "apps/reqhub — workbench + reqhub-api no cluster (ns apps)"
+    },
+    "REQ-SHOPDESK-0001": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SHOPDESK-0002": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SHOPDESK-0003": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SHOPDESK-0004": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SHOPDESK-0005": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SHOPDESK-0006": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SHOPDESK-0007": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-SHOPDESK-0008": {
+      "status": "not_started",
+      "req_revision": 1
     },
     "REQ-SICAT-0001": {
       "status": "deployed",

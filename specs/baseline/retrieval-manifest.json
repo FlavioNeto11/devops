@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "6bf16f0b66d8a61eb936bcf0a5bc2b5480ba28b6c888324c5bd1f2aa943f5a11",
+  "baseline_hash": "b40ddfbf09f13258fd0968c5b19bfe638ccac9caf7bdc25627ac75789170652b",
   "items": [
     {
       "id": "REQ-AI-0001",
@@ -3169,6 +3169,94 @@
       "asr": false,
       "impact_band": "low",
       "file": "requirements/reqhub/REQ-REQHUB-NFR-008.yaml"
+    },
+    {
+      "id": "REQ-SHOPDESK-0001",
+      "title": "Fundação: Arquitetura em camadas + Observabilidade por padrão",
+      "type": "functional",
+      "status": "approved",
+      "product": "shopdesk",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/shopdesk/REQ-SHOPDESK-0001.yaml"
+    },
+    {
+      "id": "REQ-SHOPDESK-0002",
+      "title": "Isolamento multi-tenant + RBAC + Login SSO",
+      "type": "functional",
+      "status": "approved",
+      "product": "shopdesk",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/shopdesk/REQ-SHOPDESK-0002.yaml"
+    },
+    {
+      "id": "REQ-SHOPDESK-0003",
+      "title": "Carrinho, checkout e pagamento idempotente com webhook",
+      "type": "functional",
+      "status": "approved",
+      "product": "shopdesk",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/shopdesk/REQ-SHOPDESK-0003.yaml"
+    },
+    {
+      "id": "REQ-SHOPDESK-0004",
+      "title": "Emissão de NF-e assíncrona e resiliente pós-pagamento",
+      "type": "functional",
+      "status": "approved",
+      "product": "shopdesk",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/shopdesk/REQ-SHOPDESK-0004.yaml"
+    },
+    {
+      "id": "REQ-SHOPDESK-0005",
+      "title": "Painel web de vendas, pedidos e estoque com design system",
+      "type": "functional",
+      "status": "approved",
+      "product": "shopdesk",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/shopdesk/REQ-SHOPDESK-0005.yaml"
+    },
+    {
+      "id": "REQ-SHOPDESK-0006",
+      "title": "Assistente de IA para lojista (sugestão de preço/descrição e Q&A sobre pedidos)",
+      "type": "functional",
+      "status": "approved",
+      "product": "shopdesk",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/shopdesk/REQ-SHOPDESK-0006.yaml"
+    },
+    {
+      "id": "REQ-SHOPDESK-0007",
+      "title": "Notificações multi-canal (e-mail e SMS) para eventos de pedido",
+      "type": "functional",
+      "status": "approved",
+      "product": "shopdesk",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/shopdesk/REQ-SHOPDESK-0007.yaml"
+    },
+    {
+      "id": "REQ-SHOPDESK-0008",
+      "title": "Contract-first OpenAPI para API pública integrável",
+      "type": "non-functional",
+      "status": "approved",
+      "product": "shopdesk",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/shopdesk/REQ-SHOPDESK-0008.yaml"
     },
     {
       "id": "REQ-SICAT-0001",

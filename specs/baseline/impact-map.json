@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "6bf16f0b66d8a61eb936bcf0a5bc2b5480ba28b6c888324c5bd1f2aa943f5a11",
+  "baseline_hash": "b40ddfbf09f13258fd0968c5b19bfe638ccac9caf7bdc25627ac75789170652b",
   "nodes": [
     {
       "id": "infra-argocd",
@@ -2996,6 +2996,86 @@
       "asr": false,
       "impact_score": 38,
       "impact_band": "low"
+    },
+    {
+      "id": "REQ-SHOPDESK-0001",
+      "kind": "requirement",
+      "title": "Fundação: Arquitetura em camadas + Observabilidade por padrão",
+      "type": "functional",
+      "product": "shopdesk",
+      "asr": true,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SHOPDESK-0002",
+      "kind": "requirement",
+      "title": "Isolamento multi-tenant + RBAC + Login SSO",
+      "type": "functional",
+      "product": "shopdesk",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SHOPDESK-0003",
+      "kind": "requirement",
+      "title": "Carrinho, checkout e pagamento idempotente com webhook",
+      "type": "functional",
+      "product": "shopdesk",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SHOPDESK-0004",
+      "kind": "requirement",
+      "title": "Emissão de NF-e assíncrona e resiliente pós-pagamento",
+      "type": "functional",
+      "product": "shopdesk",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SHOPDESK-0005",
+      "kind": "requirement",
+      "title": "Painel web de vendas, pedidos e estoque com design system",
+      "type": "functional",
+      "product": "shopdesk",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SHOPDESK-0006",
+      "kind": "requirement",
+      "title": "Assistente de IA para lojista (sugestão de preço/descrição e Q&A sobre pedidos)",
+      "type": "functional",
+      "product": "shopdesk",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SHOPDESK-0007",
+      "kind": "requirement",
+      "title": "Notificações multi-canal (e-mail e SMS) para eventos de pedido",
+      "type": "functional",
+      "product": "shopdesk",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-SHOPDESK-0008",
+      "kind": "requirement",
+      "title": "Contract-first OpenAPI para API pública integrável",
+      "type": "non-functional",
+      "product": "shopdesk",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
     },
     {
       "id": "REQ-SICAT-0001",

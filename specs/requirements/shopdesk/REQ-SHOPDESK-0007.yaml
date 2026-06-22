@@ -1,0 +1,29 @@
+id: REQ-SHOPDESK-0007
+title: "Notificações multi-canal (e-mail e SMS) para eventos de pedido"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: shopdesk
+  blueprint: node-api-vue-spa
+statement: "O sistema DEVE enviar notificações ao lojista (e-mail e SMS) quando pedido é criado, pagamento aprovado ou falha, e NF-e é emitida, com degradação graciosa se canal indisponível."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/shopdesk/product.json"]
+priority: medium
+criticality: medium
+architectural_significance: true
+capability_blocks: ["notificacoes-multicanal", "worker-queue-transacional"]
+acceptance_criteria:
+  - "Evento 'pedido.criado' dispara notificação por e-mail + SMS (se número registrado)"
+  - "Evento 'pagamento.aprovado' → e-mail confirmando e link para visualizar pedido"
+  - "Evento 'pagamento.falhou' → SMS alertando; e-mail com motivo e link para tentar novamente"
+  - "Evento 'nf-e.emitida' → e-mail com link para download/visualização do XML"
+  - "E-mail via SMTP/Nodemailer; SMS via Twilio (provider configurable, fallback para log em desenvolvimento)"
+  - "Notificação enfileirada: não bloqueia fluxo principal; retry de falhas de envio com backoff"
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1
