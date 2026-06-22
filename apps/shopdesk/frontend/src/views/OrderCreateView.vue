@@ -240,7 +240,7 @@
                 variant="primary"
                 block
                 size="lg"
-                :disabled="!cart.length"
+                :disabled="!canSubmit"
                 :loading="processing"
               >
                 {{ processing ? 'Processando…' : 'Pagar ' + formatMoney(cartTotal) }}
@@ -302,6 +302,7 @@
 
 <script setup>
 import { ref, reactive, computed } from 'vue';
+import { useRouter } from 'vue-router';
 import {
   UiPageLayout,
   UiCard,
@@ -323,6 +324,7 @@ import * as api from '../api.js';
 
 const toast = useToast();
 const confirm = useConfirm();
+const router = useRouter();
 
 /* ------------------------------------------------------------------ *
  * Camada de dados — só endpoints REAIS do backend ShopDesk:
@@ -333,10 +335,10 @@ const confirm = useConfirm();
  * api.orders); senão usa um cliente fino sobre a MESMA base do api.js.
  * ------------------------------------------------------------------ */
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/shopdesk/api';
-async function call(method, path, body) {
+async function call(method, path, body, extraHeaders) {
   const res = await fetch(API_BASE + path, {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: Object.assign({ 'Content-Type': 'application/json' }, extraHeaders || {}),
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
@@ -368,14 +370,15 @@ function createOrder(payload) {
 
 function runCheckout(orderCode, amount) {
   // store.checkout (api.js) já envia paymentMethodToken e chama /v1/checkout.
+  // orderCode como Idempotency-Key garante que reenvio do mesmo pedido não cobra duas vezes (REQ-SHOPDESK-0003).
   if (api.store && typeof api.store.checkout === 'function') {
-    return api.store.checkout(orderCode, amount);
+    return api.store.checkout(orderCode, amount, 'tok_ok', orderCode);
   }
   return call('POST', '/v1/checkout', {
     orderId: String(orderCode),
     amount: Number(amount),
     paymentMethodToken: 'tok_ok',
-  });
+  }, { 'Idempotency-Key': orderCode });
 }
 
 /* ------------------------------------------------------------------ *
@@ -545,6 +548,9 @@ const customer = useForm({
   },
 });
 
+// Botão Salvar habilitado somente quando o carrinho tem itens E o nome do cliente é válido.
+const canSubmit = computed(() => cart.length > 0 && customer.values.customerName.trim().length >= 2);
+
 /* ------------------------------------------------------------------ *
  * Submissão: cria pedido (POST /v1/orders) + checkout idempotente (POST /v1/checkout)
  * ------------------------------------------------------------------ */
@@ -599,19 +605,26 @@ async function submitOrder() {
       toast.error('Falha no pagamento: ' + (payErr.message || 'erro desconhecido') + '. Pedido registrado.');
     }
 
-    receipt.value = {
-      code,
-      id: created && created.id,
-      customerName: customer.values.customerName,
-      customerEmail: customer.values.customerEmail || '',
-      itemsCount: itemsCount.value,
-      total: amount,
-      status: orderStatus,
-      paymentStatus,
-      transactionId: paid && paid.transactionId ? paid.transactionId : '',
-      provider: paid && paid.provider ? paid.provider : '',
-    };
-    receiptOpen.value = true;
+    const orderId = created && (created.id || (created.data && created.data.id));
+    if (orderId) {
+      // navega para o detalhe do pedido recém-criado (REF-SHOPDESK-0007)
+      router.push('/orders/' + orderId);
+    } else {
+      // fallback quando o backend não retorna id: exibe modal de recibo
+      receipt.value = {
+        code,
+        id: null,
+        customerName: customer.values.customerName,
+        customerEmail: customer.values.customerEmail || '',
+        itemsCount: itemsCount.value,
+        total: amount,
+        status: orderStatus,
+        paymentStatus,
+        transactionId: paid && paid.transactionId ? paid.transactionId : '',
+        provider: paid && paid.provider ? paid.provider : '',
+      };
+      receiptOpen.value = true;
+    }
   } catch (e) {
     toast.error('Não foi possível criar o pedido: ' + (e.message || 'erro desconhecido'));
   } finally {
