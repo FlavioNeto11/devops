@@ -44,7 +44,7 @@ const add = (rel, content) => { files[rel] = content; };
 add('api/package.json', JSON.stringify({
   name: '@@APP@@-api', version: '1.0.0', private: true, type: 'module',
   description: '@@TITLE@@ — gerado pela Forge (SICAT-style robusto).',
-  scripts: Object.assign({ start: 'node src/server.js', worker: 'node src/worker.js', test: 'node --test test' }, F.contract ? { 'validate:openapi': 'node openapi/validate.mjs' } : {}),
+  scripts: Object.assign({ start: 'node src/server.js', worker: 'node src/worker.js', test: 'node --test "test/**/*.test.mjs"' }, F.contract ? { 'validate:openapi': 'node openapi/validate.mjs' } : {}),
   dependencies: Object.assign({ express: '^4.19.2', pg: '^8.11.5', 'prom-client': '^15.1.2' }),
 }, null, 2) + '\n');
 

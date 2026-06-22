@@ -44,7 +44,7 @@ if (F.redis) { deps.bullmq = '^5.12.0'; deps.ioredis = '^5.4.1'; }
 add('api/package.json', JSON.stringify({
   name: '@@APP@@-api', version: '1.0.0', private: true, type: 'module',
   description: '@@TITLE@@ — gerado pela Forge (gymops-style: Fastify + Redis/BullMQ + RBAC).',
-  scripts: { start: 'node src/server.js', worker: 'node src/worker.js', test: 'node --test test' },
+  scripts: { start: 'node src/server.js', worker: 'node src/worker.js', test: 'node --test "test/**/*.test.mjs"' },
   dependencies: deps,
 }, null, 2) + '\n');
 
