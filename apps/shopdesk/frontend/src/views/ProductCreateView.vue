@@ -10,35 +10,13 @@
       <UiButton
         variant="primary"
         :loading="form.submitting.value"
+        :disabled="!canSubmit || form.submitting.value"
         @click="onSubmit"
       >Salvar produto</UiButton>
     </template>
 
-    <!-- Estado: sucesso (produto criado) -->
-    <UiCard v-if="created" class="created-card">
-      <div class="created">
-        <div class="created-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20 6 9 17l-5-5" />
-          </svg>
-        </div>
-        <div class="created-body">
-          <h2 class="created-title">Produto cadastrado</h2>
-          <p class="created-sub">
-            <strong>{{ created.name }}</strong>
-            <span v-if="created.sku" class="ui-mono created-sku">{{ created.sku }}</span>
-            foi criado com sucesso.
-          </p>
-          <div class="created-actions">
-            <UiButton variant="primary" @click="resetForNew">Cadastrar outro</UiButton>
-            <UiButton variant="ghost" to="/products">Ver catálogo</UiButton>
-          </div>
-        </div>
-      </div>
-    </UiCard>
-
     <!-- Estado: formulário -->
-    <form v-else class="layout" novalidate @submit.prevent="onSubmit">
+    <form class="layout" novalidate @submit.prevent="onSubmit">
       <div class="layout-main">
         <UiCard>
           <UiFormSection
@@ -394,7 +372,6 @@ const form = useForm({
   },
 });
 
-const created = ref(null);
 // erro PERSISTENTE de submit (além do toast efêmero): alimenta o UiErrorState no rodapé do form,
 // com botão "Tentar novamente" que reenvia o último payload validado.
 const submitError = reactive({ message: '', code: '', retryable: true });
@@ -424,6 +401,14 @@ const marginHint = computed(() => {
   if (margin.value < 0.2) return 'Margem apertada';
   return 'Margem saudável';
 });
+
+// habilita/desabilita o botão Salvar: campos obrigatórios preenchidos e válidos
+const canSubmit = computed(() =>
+  String(form.values.sku || '').trim().length >= 2 &&
+  String(form.values.name || '').trim().length >= 2 &&
+  form.values.price !== '' && form.values.price != null && Number(form.values.price) > 0 &&
+  form.values.stockQty !== '' && form.values.stockQty != null && Number(form.values.stockQty) >= 0
+);
 
 // ----- assistente de IA (dry-run) -----
 const ai = reactive({ loading: false, error: '', code: '', retryable: true, unavailable: false, suggestion: null });
@@ -535,9 +520,9 @@ async function persist(payload) {
   submitError.message = '';
   try {
     const res = await products.create(payload);
-    created.value = res && res.id ? res : payload;
     lastPayload.value = null;
     toast.success('Produto "' + payload.name + '" cadastrado.');
+    router.push('/products/' + (res && res.id ? res.id : ''));
   } catch (e) {
     lastPayload.value = payload;
     submitError.message = 'Não foi possível cadastrar o produto. ' + (e.message || 'Verifique os dados e tente novamente.');
@@ -567,15 +552,7 @@ function retrySubmit() {
   if (lastPayload.value) persist(lastPayload.value);
 }
 
-function resetForNew() {
-  form.reset();
-  created.value = null;
-  ai.suggestion = null;
-  ai.error = '';
-  ai.unavailable = false;
-  submitError.message = '';
-  lastPayload.value = null;
-}
+
 </script>
 
 <style scoped>
@@ -740,24 +717,6 @@ function resetForNew() {
 .summary-row dt { color: rgb(var(--ui-muted)); font-size: var(--ui-text-sm); }
 .summary-row dd { margin: 0; font-weight: 600; font-size: var(--ui-text-sm); text-align: right; }
 
-/* sucesso */
-.created-card :deep(.ui-card-body) { padding: var(--ui-space-6); }
-.created { display: flex; align-items: flex-start; gap: var(--ui-space-4); }
-.created-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: rgb(var(--ui-ok) / 0.14);
-  color: rgb(var(--ui-ok));
-  flex-shrink: 0;
-}
-.created-title { font-size: var(--ui-text-xl); }
-.created-sub { margin: var(--ui-space-2) 0 0; color: rgb(var(--ui-muted)); }
-.created-sku { margin: 0 6px; }
-.created-actions { display: flex; gap: var(--ui-space-2); flex-wrap: wrap; margin-top: var(--ui-space-4); }
 
 .req-mark { color: rgb(var(--ui-danger)); font-weight: 700; }
 </style>
