@@ -1,0 +1,23 @@
+{
+  "id": "design-system",
+  "title": "Design system unificado (design-tokens + componentes)",
+  "description": "Frontend consistente com a plataforma: tokens de design únicos (packages/design-tokens, codegen-sync para dentro de cada app — nunca editar o .generated.css) + componentes reusáveis e casca compartilhada (packages/platform-shell). Use em todo frontend para herdar identidade, tema (claro/escuro), acessibilidade e a casca/navegação da plataforma, sem reinventar CSS.",
+  "category": "ui",
+  "requires": [],
+  "conflicts_with": [],
+  "compatible_stacks": ["sicat", "gymops"],
+  "reference": [
+    { "stack": "platform", "path": "packages/design-tokens", "note": "tokens.json → codegen-sync para tokens.generated.css de cada app; drift-gate no CI." },
+    { "stack": "platform", "path": "packages/platform-shell", "note": "casca/topbar/sidebar/navegação compartilhada (Web Component)." }
+  ],
+  "reuses": ["packages/design-tokens", "packages/platform-shell"],
+  "scaffold_overlay": {
+    "adds_reuses": ["packages/design-tokens"],
+    "notes": "Importa tokens.generated.css no frontend + (opcional) platform-shell."
+  },
+  "work_order_guidance": "Use o design system: importe os tokens de packages/design-tokens (consuma o tokens.generated.css, NUNCA edite o gerado) e a casca de packages/platform-shell quando aplicável. Telas usam os componentes/tokens do DS; nada de estilo inline ad-hoc. Respeite claro/escuro e a11y herdados.",
+  "verification": [
+    { "method": "architecture-review", "assertion": "frontend importa os tokens do DS; sem CSS inline ad-hoc; .generated.css não editado à mão" }
+  ],
+  "default_adrs": ["Frontend sobre o design system da plataforma (design-tokens + platform-shell), tokens sincronizados por codegen"]
+}

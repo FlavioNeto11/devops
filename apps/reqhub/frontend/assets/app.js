@@ -2652,7 +2652,9 @@ function renderForgeNew(body) {
     if ((brief.value || '').trim().length < 10) { errCard('Descreva o produto no brief (mínimo ~10 caracteres).'); brief.focus(); return; }
     btn.disabled = true; out.replaceChildren(); spinTxt('Propondo requisitos…');
     try {
-      const r = await AI.post('/v1/forge/propose-requirements', { product: pname, blueprint: bpsel.value, brief: (brief.value || '').trim() });
+      const forgeCatalog = (DATA.capabilities && DATA.capabilities.capabilities) || [];
+      const forgeBlueprints = (DATA.blueprints && DATA.blueprints.blueprints) || [];
+      const r = await AI.post('/v1/forge/propose-requirements', { product: pname, blueprint: bpsel.value, brief: (brief.value || '').trim(), capabilities: forgeCatalog, blueprints: forgeBlueprints });
       if (!r.ok) { const code = r.data && r.data.error ? r.data.error.code : 'HTTP ' + r.status; errCard('IA: ' + code, r.data && r.data.error ? r.data.error.message : ''); return; }
       const reqs = (r.data && r.data.requirements) || [];
       if (!reqs.length) { mapStatus.textContent = 'A IA não retornou requisitos.'; return; }
@@ -2664,7 +2666,7 @@ function renderForgeNew(body) {
       renderProposedList(out, pname, bpsel.value, proposed, r.data, graph);
       spinTxt('Analisando dependências…');
       try {                                                                     // fase 2: dependências formam o mapa
-        const a = await AI.post('/v1/forge/propose-architecture', { product: pname, blueprint: bpsel.value, requirements: proposed.map((p) => ({ id: p.id, title: p.req.title, type: p.req.type, statement: p.req.statement })) });
+        const a = await AI.post('/v1/forge/propose-architecture', { product: pname, blueprint: bpsel.value, requirements: proposed.map((p) => ({ id: p.id, title: p.req.title, type: p.req.type, statement: p.req.statement, capability_blocks: p.req.capability_blocks || [] })), capabilities: forgeCatalog, blueprints: forgeBlueprints });
         if (a.ok && a.data && Array.isArray(a.data.waves) && a.data.waves.length) {
           const dag = dagFromWaves(nodes, a.data.waves);
           graph.setData(dag.nodes, dag.edges);
@@ -3623,7 +3625,7 @@ async function init() {
     DATA.baseline = b; DATA.impact = im; DATA.retrieval = rt;
     // opcionais (toleram ausência): diff de baseline, registry de artefatos, embeddings.
     const opt = (u) => fetch(u).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-    [DATA.history, DATA.registry, DATA.embeddings, DATA.implStatus, DATA.coverage, DATA.products, DATA.blueprints] = await Promise.all([opt('data/history.json'), opt('data/registry.json'), opt('data/embeddings.json'), opt('data/implementation-status.json'), opt('data/coverage-report.json'), opt('data/products.json'), opt('data/blueprints.json')]);
+    [DATA.history, DATA.registry, DATA.embeddings, DATA.implStatus, DATA.coverage, DATA.products, DATA.blueprints, DATA.capabilities] = await Promise.all([opt('data/history.json'), opt('data/registry.json'), opt('data/embeddings.json'), opt('data/implementation-status.json'), opt('data/coverage-report.json'), opt('data/products.json'), opt('data/blueprints.json'), opt('data/capabilities.json')]);
   } catch (err) {
     setStatus('Falha ao carregar a base de requisitos: ' + err.message, true);
     return;

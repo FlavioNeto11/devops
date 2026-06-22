@@ -22,9 +22,11 @@ import addFormats from 'ajv-formats';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SPECS_DIR = path.resolve(__dirname, '..');
+const REPO_ROOT = path.resolve(SPECS_DIR, '..');
 const SCHEMA_DIR = path.join(SPECS_DIR, 'schema');
 const BLUEPRINTS_DIR = path.join(SPECS_DIR, 'blueprints');
 const PRODUCTS_DIR = path.join(SPECS_DIR, 'products');
+const CAPABILITIES_DIR = path.join(SPECS_DIR, 'forge', 'capabilities', 'blocks');
 const OUT_DIR = path.join(SPECS_DIR, 'baseline');
 const CHECK = process.argv.includes('--check');
 
@@ -37,6 +39,7 @@ function compile(name) { return ajv.compile(JSON.parse(fs.readFileSync(path.join
 const vBlueprint = compile('blueprint.schema.json');
 const vProduct = compile('product.schema.json');
 const vBuildPlan = compile('build-plan.schema.json');
+const vCapability = compile('capability.schema.json');
 
 function listDirs(root) {
   if (!fs.existsSync(root)) return [];
@@ -54,6 +57,25 @@ function loadBlueprints() {
     try { doc = readJson(p); } catch (e) { fail(`JSON inválido em specs/blueprints/${id}/blueprint.json: ${e.message}`); continue; }
     if (!vBlueprint(doc)) { for (const err of vBlueprint.errors) fail(`blueprints/${id} :: ${err.instancePath || '/'} ${err.message}`); continue; }
     if (doc.id !== id) fail(`blueprint id '${doc.id}' != pasta '${id}' (specs/blueprints/${id}/)`);
+    out.push(doc);
+  }
+  return out;
+}
+
+// --- capabilities (blocos de capacidade do Forge) -----------------------------
+function loadCapabilities() {
+  const out = [];
+  if (!fs.existsSync(CAPABILITIES_DIR)) return out;
+  for (const f of fs.readdirSync(CAPABILITIES_DIR).filter((f) => f.endsWith('.json')).sort()) {
+    const id = f.replace(/\.json$/, '');
+    let doc;
+    try { doc = readJson(path.join(CAPABILITIES_DIR, f)); } catch (e) { fail(`JSON inválido em specs/forge/capabilities/blocks/${f}: ${e.message}`); continue; }
+    if (!vCapability(doc)) { for (const err of vCapability.errors) fail(`capabilities/${id} :: ${err.instancePath || '/'} ${err.message}`); continue; }
+    if (doc.id !== id) fail(`capability id '${doc.id}' != arquivo '${f}' (specs/forge/capabilities/blocks/)`);
+    // anti-fabricação: todo reference.path tem de existir no repo
+    for (const ref of doc.reference || []) {
+      if (!fs.existsSync(path.resolve(REPO_ROOT, ref.path))) fail(`capabilities/${id}: reference.path inexistente no repo: '${ref.path}' (exemplar fantasma)`);
+    }
     out.push(doc);
   }
   return out;
@@ -97,10 +119,28 @@ function loadProducts(blueprintIds) {
 function build() {
   const blueprints = loadBlueprints().sort((a, b) => a.id.localeCompare(b.id));
   const blueprintIds = new Set(blueprints.map((b) => b.id));
+  const capabilities = loadCapabilities().sort((a, b) => a.id.localeCompare(b.id));
+  const capIds = new Set(capabilities.map((c) => c.id));
+  // integridade do catálogo: requires/conflicts apontam para blocos reais
+  for (const c of capabilities) {
+    for (const r of c.requires || []) if (!capIds.has(r)) fail(`capabilities/${c.id}: requires '${r}' não existe em specs/forge/capabilities/blocks/`);
+    for (const x of c.conflicts_with || []) if (!capIds.has(x)) fail(`capabilities/${c.id}: conflicts_with '${x}' não existe`);
+  }
+  // blueprint -> blocos: existem e são stack-compatíveis
+  for (const b of blueprints) {
+    for (const id of [...(b.default_blocks || []), ...(b.compatible_blocks || [])]) {
+      const cap = capabilities.find((c) => c.id === id);
+      if (!cap) { fail(`blueprints/${b.id}: bloco '${id}' não existe em specs/forge/capabilities/blocks/`); continue; }
+      if (b.base_stack && !cap.compatible_stacks.includes(b.base_stack)) fail(`blueprints/${b.id}: bloco '${id}' não é compatível com a stack '${b.base_stack}'`);
+    }
+  }
   const products = loadProducts(blueprintIds).sort((a, b) => a.name.localeCompare(b.name));
 
   const blueprintsIndex = {
-    blueprints: blueprints.map((b) => ({ id: b.id, version: b.version, name: b.name, summary: b.summary || '', stack: b.stack, services: b.services, db: b.db ?? null, reuses: b.reuses || [] })),
+    blueprints: blueprints.map((b) => ({ id: b.id, version: b.version, name: b.name, summary: b.summary || '', stack: b.stack, services: b.services, db: b.db ?? null, reuses: b.reuses || [], base_stack: b.base_stack ?? null, default_blocks: b.default_blocks || [], compatible_blocks: b.compatible_blocks || [] })),
+  };
+  const capabilitiesIndex = {
+    capabilities: capabilities.map((c) => ({ id: c.id, title: c.title, description: c.description, category: c.category, requires: c.requires || [], conflicts_with: c.conflicts_with || [], compatible_stacks: c.compatible_stacks, reuses: c.reuses || [], reference: (c.reference || []).map((r) => ({ stack: r.stack, path: r.path, note: r.note })), scaffold_overlay: c.scaffold_overlay || {}, work_order_guidance: c.work_order_guidance, verification: c.verification, default_adrs: c.default_adrs || [] })),
   };
   const productsIndex = {
     products: products.map((p) => ({
@@ -112,6 +152,7 @@ function build() {
   return {
     'blueprints.json': stable(blueprintsIndex),
     'products.json': stable(productsIndex),
+    'capabilities.json': stable(capabilitiesIndex),
   };
 }
 
@@ -133,7 +174,7 @@ function main() {
 
   fs.mkdirSync(OUT_DIR, { recursive: true });
   for (const [name, content] of Object.entries(artifacts)) fs.writeFileSync(path.join(OUT_DIR, name), content);
-  console.log(`\x1b[32m[products] índices gerados -> specs/baseline/{blueprints,products}.json\x1b[0m`);
+  console.log(`\x1b[32m[products] índices gerados -> specs/baseline/{blueprints,products,capabilities}.json\x1b[0m`);
 }
 
 main();

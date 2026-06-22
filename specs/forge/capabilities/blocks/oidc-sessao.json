@@ -1,0 +1,24 @@
+{
+  "id": "oidc-sessao",
+  "title": "Login OIDC (Keycloak) + sessão própria do app",
+  "description": "Autenticação federada via Keycloak (realm nvit) com sessão própria do app emitida por cima: o backend valida o token no /userinfo do Keycloak e emite a sessão (JWT curto) do próprio app; o frontend faz o fluxo PKCE e guarda a sessão. Aditivo — não toca outras auths. Use sempre que o sistema tiver usuários corporativos e precisar de SSO com a plataforma, reusando packages/oidc-kit (tokens, hashing, validateKeycloakToken, requireSession).",
+  "category": "auth",
+  "requires": [],
+  "conflicts_with": [],
+  "compatible_stacks": ["sicat", "gymops"],
+  "reference": [
+    { "stack": "platform", "path": "packages/oidc-kit", "note": "createAccessToken/verify, validateKeycloakToken, claimsToProfile, requireSession — reusar, não reescrever." }
+  ],
+  "reuses": ["packages/oidc-kit"],
+  "scaffold_overlay": {
+    "adds_env": ["OIDC_ISSUER", "OIDC_CLIENT_ID", "OIDC_CLIENT_SECRET", "SESSION_SECRET"],
+    "adds_reuses": ["packages/oidc-kit"],
+    "notes": "Cria rotas de auth (login/callback/logout/me) + middleware requireSession reusando oidc-kit."
+  },
+  "work_order_guidance": "Implemente a auth REUSANDO packages/oidc-kit (NÃO reescreva JWT/validação): backend valida o token Keycloak (validateKeycloakToken/userinfo) e emite a sessão própria; rotas protegidas usam o middleware requireSession; o frontend faz PKCE. Mapeie claims→papel via claimsToProfile. Aditivo: não altere nenhuma outra auth.",
+  "verification": [
+    { "method": "test-integration", "assertion": "rota protegida sem sessão → 401; com sessão válida → 200; logout invalida a sessão" },
+    { "method": "demo", "assertion": "fluxo de login redireciona ao Keycloak e volta com a sessão do app emitida" }
+  ],
+  "default_adrs": ["Auth: sessão própria do app via packages/oidc-kit (OIDC Keycloak) — aditivo, sem tocar outras auths"]
+}

@@ -35,6 +35,9 @@
     },
     "structure": { "type": "array", "items": { "type": "string" }, "description": "Inventário de pastas/arquivos que o app gerado deve conter (alvo da geração)." },
     "default_adrs": { "type": "array", "items": { "type": "string" }, "description": "ADRs sugeridos para a fase de arquitetura." },
-    "seed_nfrs": { "type": "array", "items": { "type": "string" }, "description": "Ids de NFR/SLO do registry a herdar." }
+    "seed_nfrs": { "type": "array", "items": { "type": "string" }, "description": "Ids de NFR/SLO do registry a herdar." },
+    "base_stack": { "enum": ["sicat", "gymops"], "description": "Stack-base do blueprint — casa com capability.compatible_stacks. sicat = Vue+Express+Postgres; gymops = Next+Fastify+Prisma+Redis." },
+    "default_blocks": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9-]+$" }, "description": "Ids de blocos de capacidade SEMPRE incluídos neste blueprint (validados vs specs/forge/capabilities/blocks/)." },
+    "compatible_blocks": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9-]+$" }, "description": "Ids de blocos OPCIONAIS que a IA pode ligar conforme os requisitos (validados + stack-compatível)." }
   }
 }

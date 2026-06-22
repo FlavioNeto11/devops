@@ -1,0 +1,24 @@
+{
+  "id": "notificacoes-multicanal",
+  "title": "Notificações multi-canal (e-mail, push, WhatsApp)",
+  "description": "Envio de notificações por múltiplos canais — e-mail (SMTP/Nodemailer), push web (VAPID/web-push) e WhatsApp (Twilio) — disparado por eventos do domínio, com degradação graciosa (canal ausente não derruba o fluxo) e enfileiramento (a notificação é um job). Use quando o sistema precisa avisar usuários fora da sessão (lembretes, alertas, convites) por canais configuráveis.",
+  "category": "integration",
+  "requires": ["redis-bullmq"],
+  "conflicts_with": [],
+  "compatible_stacks": ["gymops"],
+  "reference": [
+    { "stack": "gymops", "path": "apps/gymops/apps/api/src/lib/mailer.ts", "note": "e-mail via SMTP/Nodemailer com degradação graciosa." },
+    { "stack": "gymops", "path": "apps/gymops/apps/api/src/lib/push.ts", "note": "push web via VAPID (web-push)." },
+    { "stack": "gymops", "path": "apps/gymops/apps/api/src/lib/whatsapp.ts", "note": "WhatsApp via Twilio." }
+  ],
+  "reuses": [],
+  "scaffold_overlay": {
+    "adds_env": ["SMTP_URL", "VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY", "TWILIO_SID", "TWILIO_TOKEN"],
+    "notes": "Cria lib/{mailer,push,whatsapp} + worker de notificação (fila)."
+  },
+  "work_order_guidance": "Implemente notificações SEGUINDO o GymOps: canais em lib/{mailer,push,whatsapp}, disparados por evento via fila (notification worker), com degradação graciosa — canal sem credencial é pulado sem derrubar o fluxo. Nunca bloqueie a operação de negócio aguardando o envio.",
+  "verification": [
+    { "method": "test-integration", "assertion": "evento gera notificação enfileirada; canal sem credencial é pulado sem erro fatal" }
+  ],
+  "default_adrs": ["Notificações multi-canal (e-mail/push/WhatsApp) por evento via fila, com degradação graciosa por canal"]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "worker-queue-transacional",
+  "title": "Worker + fila transacional no Postgres (FOR UPDATE SKIP LOCKED)",
+  "description": "Processamento assíncrono confiável sem broker externo: comandos longos viram jobs persistidos numa tabela do Postgres, consumidos por um worker (mesma imagem da API) com claim transacional FOR UPDATE SKIP LOCKED, retry com backoff exponencial, dead-letter queue (DLQ), heartbeat de claim, requeue de jobs travados e graceful shutdown. Use quando a operação demora, pode falhar e precisa ser retentada/auditada (ex.: submissão a sistema externo, geração de documento, sincronização de catálogo).",
+  "category": "async",
+  "requires": ["camadas-rigidas"],
+  "conflicts_with": ["redis-bullmq"],
+  "compatible_stacks": ["sicat", "gymops"],
+  "reference": [
+    { "stack": "sicat", "path": "apps/sicat/backend/src/workers/job-runner.ts", "note": "loop de claim (SKIP LOCKED), attempts/retry/backoff, DLQ, heartbeat, requeue de stale, graceful shutdown." },
+    { "stack": "sicat", "path": "apps/sicat/backend/src/repositories/job-repo.ts", "note": "schema da tabela jobs + claim/ack/fail/dlq tipados." }
+  ],
+  "reuses": [],
+  "scaffold_overlay": {
+    "adds_services": ["worker"],
+    "notes": "Adiciona o serviço worker (mesma imagem da api, command npm run worker) + tabela jobs nas migrations."
+  },
+  "work_order_guidance": "Implemente a fila SEGUINDO o job-runner do SICAT: tabela jobs (id, type, payload, status, attempts, max_attempts, run_after, locked_at, locked_by), claim com SELECT ... FOR UPDATE SKIP LOCKED, ack/fail por transação, retry com backoff exponencial, DLQ ao exceder max_attempts, heartbeat do claim, requeue de jobs com lock expirado e graceful shutdown. O enqueue é feito pelo service (não pela rota).",
+  "verification": [
+    { "method": "test-integration", "assertion": "dois workers concorrentes nunca pegam o mesmo job (SKIP LOCKED); cada job é processado uma vez" },
+    { "method": "test-integration", "assertion": "falha retryável reenfileira com backoff; exceder max_attempts move para DLQ" }
+  ],
+  "default_adrs": ["Persistência: fila transacional na tabela jobs (FOR UPDATE SKIP LOCKED), sem broker externo"]
+}

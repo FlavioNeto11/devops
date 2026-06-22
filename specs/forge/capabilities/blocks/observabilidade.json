@@ -1,0 +1,27 @@
+{
+  "id": "observabilidade",
+  "title": "Observabilidade por padrão (health + métricas + ServiceMonitor + SLO + Grafana)",
+  "description": "Todo app nasce observável: endpoints de health estruturados (/health + /v1/health/{system,workers,jobs}), métricas Prometheus numa porta dedicada fora do Traefik (:9464, série ai_* via @flavioneto11/ai-core quando há IA + métricas de domínio/fila), ServiceMonitor para o kube-prometheus-stack raspar, anotações devops.flavioneto/* para o DevOps Console, alertas de SLO (PrometheusRule: p95 de latência, taxa de erro, saturação de fila) e um dashboard Grafana gerado. É bloco DEFAULT — sempre incluído.",
+  "category": "observability",
+  "requires": [],
+  "conflicts_with": [],
+  "compatible_stacks": ["sicat", "gymops"],
+  "reference": [
+    { "stack": "gymops", "path": "apps/gymops/apps/api/src/ai/ai-metrics.ts", "note": "createAiMetrics({promClient, app}) + startMetricsServer() na :9464 (prom-client)." },
+    { "stack": "platform", "path": "packages/ai-core/src/observability.js", "note": "séries canônicas ai_* (latência, tokens, custo, tool_calls, erros, judge_score)." },
+    { "stack": "sicat", "path": "apps/sicat/k8s/servicemonitor.yaml", "note": "ServiceMonitor (porta metrics/9464, path /metrics, selector part-of)." },
+    { "stack": "sicat", "path": "apps/sicat/backend/src/routes/health-routes.ts", "note": "health estruturado (/v1/health/{system,workers,jobs/active,jobs/dlq})." }
+  ],
+  "reuses": ["packages/ai-core"],
+  "scaffold_overlay": {
+    "adds_env": ["METRICS_PORT"],
+    "adds_reuses": ["packages/ai-core"],
+    "notes": "Gera health routes + ai-metrics na :9464 + apps/<app>/k8s/{servicemonitor,prometheusrule}.yaml + anotações devops.flavioneto/* + platform/observability/dashboards/<app>.json (dashboard é humano-run, está em platform/**)."
+  },
+  "work_order_guidance": "Instrumente o app: health estruturado espelhando o SICAT (/health + /v1/health/{system,workers,jobs}); exponha métricas na porta 9464 via createAiMetrics/startMetricsServer (prom-client) reusando ai-core. NÃO recrie artefatos de platform/** (o ServiceMonitor, o PrometheusRule do app e o dashboard Grafana já vêm do scaffold/bootstrap) — só instrumente o código dentro de apps/<app>/**.",
+  "verification": [
+    { "method": "monitoring", "assertion": "/metrics na :9464 expõe ai_* e métricas de domínio; target do ServiceMonitor UP no Prometheus" },
+    { "method": "monitoring", "assertion": "PrometheusRule de SLO carregada (p95 latência/erro/saturação); dashboard Grafana renderiza; Console mostra o app com anotações devops.flavioneto/*" }
+  ],
+  "default_adrs": ["Observabilidade por padrão: health estruturado + métricas Prometheus :9464 + ServiceMonitor + PrometheusRule SLO + dashboard Grafana"]
+}

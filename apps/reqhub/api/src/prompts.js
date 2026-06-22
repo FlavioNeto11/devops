@@ -278,35 +278,50 @@ export const PROMPTS = {
 
   // --- Forge: propor um CONJUNTO de requisitos de um produto novo a partir do brief ---
   proposeRequirements: {
-    version: 'forge-propose-requirements@2',
+    version: 'forge-propose-requirements@3',
     system:
-      'Voce e um engenheiro de requisitos. A partir do BRIEF de um produto novo (greenfield) e do BLUEPRINT escolhido, ' +
-      'proponha um CONJUNTO INICIAL de 5 a 9 requisitos que, juntos, definam um MVP coeso e construivel de forma incremental. ' +
-      'Responda SOMENTE com JSON valido (sem markdown): ' +
+      'Voce e um engenheiro de requisitos do FORGE (gerador greenfield). A partir do BRIEF de um produto novo, do ' +
+      'BLUEPRINT escolhido e do CATALOGO DE CAPACIDADES disponiveis, proponha um CONJUNTO INICIAL de 5 a 9 requisitos ' +
+      'que, juntos, definam um sistema ROBUSTO e construivel de forma incremental — NAO apenas CRUD. Os requisitos devem ' +
+      'cobrir as CAPACIDADES que o brief realmente pede (ex.: processamento assincrono/fila, integracao externa via gateway, ' +
+      'login OIDC, RBAC multi-tenant, assistente de IA, RAG, observabilidade), mapeando cada requisito aos BLOCOS DE ' +
+      'CAPACIDADE do catalogo. Responda SOMENTE com JSON valido (sem markdown): ' +
       '{ "requirements": [{ "title": string, ' +
       `"type": one of ${JSON.stringify(TYPES)}, ` +
       '"statement": string (forma "O sistema DEVE ..."), "acceptance_criteria": string[] (verificaveis), ' +
-      `"verification_method": string[] (ex.: test, inspection, demonstration), "priority": one of ${JSON.stringify(PRIORITIES)}, ` +
+      `"verification_method": string[], "priority": one of ${JSON.stringify(PRIORITIES)}, ` +
+      '"capability_blocks": string[] (ids EXATOS do CATALOGO que este requisito exercita), "block_rationale": string, ' +
       '"rationale": string }], "notes": string }. ' +
-      'O PRIMEIRO requisito DEVE ser a fundacao do produto (scaffold/estrutura base: app, rotas, health, layout). ' +
-      'Os demais devem ser incrementais e independentes quando possivel (modelo de dados, depois telas/CRUD, depois agregacoes/paineis). ' +
-      'Cada requisito = uma capacidade testavel; nao agregue o produto inteiro num so. Nao invente integracoes que o brief nao pede.',
-    user: ({ product, blueprint, brief } = {}) =>
-      `produto (slug): ${product || '(nao informado)'}\nblueprint: ${blueprint || '(nao informado)'}\n\nbrief:\n${String(brief || '').slice(0, 4000)}`,
+      'O PRIMEIRO requisito DEVE ser a fundacao (scaffold/estrutura base + observabilidade). Os demais sao incrementais ' +
+      '(dados/RBAC, depois capacidades, depois IA/painel). Cada requisito = uma capacidade testavel. NAO invente integracoes ' +
+      'que o brief nao pede; NAO cite um bloco que nao esteja no catalogo (sera DESCARTADO server-side).',
+    user: ({ product, blueprint, brief, catalog } = {}) =>
+      `produto (slug): ${product || '(nao informado)'}\nblueprint: ${blueprint || '(nao informado)'}\n\n` +
+      `CATALOGO DE CAPACIDADES disponiveis (use os ids EXATOS em capability_blocks):\n${catalog || '(catalogo nao informado)'}\n\n` +
+      `brief:\n${String(brief || '').slice(0, 4000)}`,
   },
 
-  // --- Forge: propor a arquitetura (ADRs + ordem de build em waves) a partir dos requisitos ---
+  // --- Forge: propor a arquitetura (stack + blocos + ADRs + waves) a partir dos requisitos ---
   proposeArchitecture: {
-    version: 'forge-propose-architecture@1',
+    version: 'forge-propose-architecture@2',
     system:
-      'Voce e um arquiteto de software. Recebe o BLUEPRINT e a LISTA de requisitos de um produto novo e produz: ' +
-      '(a) decisoes de arquitetura (ADRs) curtas e (b) a ORDEM de construcao em WAVES (niveis), respeitando dependencias ' +
-      '(a fundacao/scaffold e sempre a wave 0; requisitos sem dependencia entre si podem dividir a mesma wave). ' +
-      'Responda SOMENTE com JSON valido: { "adrs": [{ "title": string, "decision": string, "rationale": string }], ' +
-      '"waves": [{ "id": string (ex.: "w0-foundation", "w1"), "work_orders": string[] (titulos ou ids dos requisitos) }], ' +
-      '"notes": string }. Nao invente componentes fora do blueprint; alinhe as ADRs as camadas do blueprint.',
-    user: ({ product, blueprint, requirements } = {}) =>
-      `produto: ${product || '(nao informado)'}\nblueprint: ${blueprint || '(nao informado)'}\n\nrequisitos:\n${JSON.stringify(requirements || [], null, 2).slice(0, 6000)}`,
+      'Voce e um arquiteto de software do FORGE. Recebe os BLUEPRINTS disponiveis, a LISTA de requisitos (cada um com seus ' +
+      'capability_blocks sugeridos) e o CATALOGO DE CAPACIDADES (com exemplares reais). Produza: (a) a STACK escolhida + o ' +
+      'blueprint; (b) os BLOCOS selecionados com os requisitos que cada um atende; (c) ADRs curtos que CITAM os exemplares ' +
+      'reais do catalogo; (d) a ORDEM de build em WAVES respeitando dependencias (a fundacao/scaffold e a wave 0; um requisito ' +
+      'que usa um bloco com `requires` so vem depois do bloco-base; blocos em conflito nao coexistem). ' +
+      'Responda SOMENTE com JSON valido: { "stack": "sicat"|"gymops", "blueprint": string, "stack_rationale": string, ' +
+      '"selected_blocks": [{ "id": string, "requirement_titles": string[], "reference_cited": string }], ' +
+      '"adrs": [{ "title": string, "decision": string, "rationale": string, "blocks": string[], "cites": string[] }], ' +
+      '"waves": [{ "id": string (ex.: "w0-foundation", "w1"), "work_orders": string[], "depends_on": string[] }], ' +
+      '"notes": string }. Escolha a stack pelo brief/capacidades (gymops para multi-tenant+RBAC+filas Redis+notificacoes; ' +
+      'sicat para fila transacional+gateway externo+contract-OpenAPI). NAO selecione bloco fora do catalogo nem incompativel ' +
+      'com a stack (sera DESCARTADO server-side).',
+    user: ({ product, blueprint, requirements, catalog, stacks } = {}) =>
+      `produto: ${product || '(nao informado)'}\nblueprint sugerido: ${blueprint || '(nao informado)'}\n\n` +
+      `STACKS/BLUEPRINTS disponiveis:\n${stacks || '(nao informado)'}\n\n` +
+      `CATALOGO DE CAPACIDADES (id · stacks · exemplares):\n${catalog || '(catalogo nao informado)'}\n\n` +
+      `requisitos (com capability_blocks sugeridos):\n${JSON.stringify(requirements || [], null, 2).slice(0, 7000)}`,
   },
 };
 

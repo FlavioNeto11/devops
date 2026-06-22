@@ -1,0 +1,25 @@
+{
+  "id": "structured-outputs",
+  "title": "Saídas estruturadas de IA (JSON validado por schema, fail-closed)",
+  "description": "Toda chamada de IA que produz dados retorna JSON validado contra um schema declarado (jsonMode + parse estrito); saída inválida vira erro estruturado, nunca um fallback silencioso; rascunhos gerados pela IA exigem confirmação do usuário antes de persistir. É o alicerce de qualquer feature de IA confiável e pré-requisito do bloco de grafo. Use quando a IA precisa devolver um objeto consumível pelo sistema (rascunho de entidade, classificação, checklist).",
+  "category": "ai",
+  "requires": [],
+  "conflicts_with": [],
+  "compatible_stacks": ["sicat", "gymops"],
+  "reference": [
+    { "stack": "gymops", "path": "apps/gymops/apps/api/src/ai/schemas", "note": "schemas Zod por feature de IA (validação da saída)." },
+    { "stack": "gymops", "path": "apps/gymops/apps/api/src/ai/prompts", "note": "prompts versionados por feature; saída sempre estruturada." },
+    { "stack": "platform", "path": "apps/reqhub/api/src/tools.js", "note": "padrão jsonMode + parse estrito + AiToolError (erro estruturado, sem fallback silencioso)." }
+  ],
+  "reuses": ["packages/ai-core"],
+  "scaffold_overlay": {
+    "adds_env": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "AI_PROVIDER"],
+    "adds_reuses": ["packages/ai-core"],
+    "notes": "Cria dir ai/{schemas,prompts} + helper de chamada estruturada."
+  },
+  "work_order_guidance": "Implemente saída estruturada SEGUINDO o padrão do reqhub/GymOps: schema declarado por feature, jsonMode na chamada, parse estrito; saída que não casa o schema → erro estruturado (AiToolError), NUNCA fallback silencioso nem heurística chumbada. Rascunho gerado pela IA não é salvo direto — devolve para o usuário confirmar.",
+  "verification": [
+    { "method": "test-unit", "assertion": "saída fora do schema → erro estruturado; rascunho exige confirmação antes de persistir" }
+  ],
+  "default_adrs": ["IA com saída estruturada (schema declarado + jsonMode + erro estruturado), sem fallback silencioso"]
+}

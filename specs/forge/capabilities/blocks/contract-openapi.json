@@ -1,0 +1,22 @@
+{
+  "id": "contract-openapi",
+  "title": "Contract-first OpenAPI (tipos gerados + validação no CI)",
+  "description": "A superfície HTTP é definida primeiro num OpenAPI canônico; tipos e operações são gerados a partir dele (gen:operations) e a validação roda no CI (validate:openapi). Mudança de rota acontece em lockstep: OpenAPI → exemplos → tipos gerados → rotas → testes de contrato, tudo no mesmo PR. Use quando a API é auditável/integrável por terceiros e a estabilidade do contrato importa (estilo SICAT).",
+  "category": "architecture",
+  "requires": ["camadas-rigidas"],
+  "conflicts_with": [],
+  "compatible_stacks": ["sicat"],
+  "reference": [
+    { "stack": "sicat", "path": "apps/sicat/backend/openapi/mtr_automacao_openapi_interna.yaml", "note": "OpenAPI canônico — fonte da superfície HTTP." },
+    { "stack": "sicat", "path": "apps/sicat/backend/src/generated/operations.ts", "note": "tipos/operações gerados do OpenAPI (não editar à mão)." }
+  ],
+  "reuses": [],
+  "scaffold_overlay": {
+    "notes": "Cria openapi/<app>_openapi.yaml + script gen:operations + gate validate:openapi."
+  },
+  "work_order_guidance": "Implemente contract-first SEGUINDO o SICAT: defina a rota no OpenAPI primeiro, gere os tipos (gen:operations), implemente a rota tipada e o teste de contrato — tudo no mesmo PR. Nunca crie uma rota que não esteja no OpenAPI. Não edite src/generated/** à mão.",
+  "verification": [
+    { "method": "test-integration", "assertion": "validate:openapi + gen:operations verdes; toda rota existe no OpenAPI; tipos gerados em dia" }
+  ],
+  "default_adrs": ["Contract-first: superfície HTTP definida no OpenAPI → tipos gerados → rotas → testes de contrato em lockstep"]
+}

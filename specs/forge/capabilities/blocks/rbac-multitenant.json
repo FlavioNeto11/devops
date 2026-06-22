@@ -1,0 +1,23 @@
+{
+  "id": "rbac-multitenant",
+  "title": "Multi-tenant + RBAC fino (escopo por tenant/unidade e papéis em cascata)",
+  "description": "Isolamento por tenant (toda tabela carrega tenant_id e toda query é escopada) e controle de acesso em camadas de papéis (ex.: owner > org_manager > unit_manager > area_leader > assignee), com deny por padrão fora do escopo e soft-delete. Use quando o sistema serve múltiplas organizações/unidades e o acesso depende do papel do usuário no recorte (estilo GymOps: Org → Unit → Area).",
+  "category": "auth",
+  "requires": ["oidc-sessao"],
+  "conflicts_with": [],
+  "compatible_stacks": ["gymops"],
+  "reference": [
+    { "stack": "gymops", "path": "apps/gymops/apps/api/src/lib/rbac.ts", "note": "matriz papel×ação + checagem de permissão em cascata." },
+    { "stack": "gymops", "path": "apps/gymops/apps/api/src/lib/auth-context.ts", "note": "contexto de identidade/tenant resolvido por request; escopo das queries." },
+    { "stack": "gymops", "path": "apps/gymops/packages/db/prisma/schema.prisma", "note": "modelo Org→Unit→Area + enums de papel; tenant_id em todas as entidades." }
+  ],
+  "reuses": [],
+  "scaffold_overlay": {
+    "notes": "Adiciona auth-context (resolve tenant+papel por request) + guard rbac + tenant_id no schema."
+  },
+  "work_order_guidance": "Implemente RBAC multi-tenant SEGUINDO o GymOps: tenant_id em TODAS as tabelas; toda query escopada pelo auth-context (nunca confiar em id do cliente); matriz papel×ação em lib/rbac.ts com checagem em cascata; deny por padrão fora do escopo; soft-delete (deletedAt) em vez de hard-delete. Cross-tenant deve retornar 403/404, nunca vazar dados.",
+  "verification": [
+    { "method": "test-integration", "assertion": "tenant A não lê nem edita recursos do tenant B (403/404); papel sem permissão é negado" }
+  ],
+  "default_adrs": ["Multi-tenant: tenant_id em todas as entidades + query escopada pelo auth-context; RBAC em cascata, deny por padrão"]
+}

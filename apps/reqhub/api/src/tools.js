@@ -5,6 +5,16 @@
 // ESTRUTURADO (LLM_INVALID_JSON) — nunca fallback silencioso nem heuristica chumbada.
 import { AiToolError } from '@flavioneto11/ai-core';
 import { PROMPTS, VOCAB } from './prompts.js';
+import { summarizeForPrompt, catalogIndex, filterKnownBlocks, validateSelection } from './capabilities.js';
+
+// Resolve os blocos default/compatible de um blueprint a partir do catálogo recebido do frontend.
+function blueprintBlocks(input, blueprintId) {
+  const bp = (Array.isArray(input.blueprints) ? input.blueprints : []).find((b) => b && b.id === blueprintId) || {};
+  return { defaultBlocks: bp.default_blocks || [], compatibleBlocks: bp.compatible_blocks || [], blueprint: bp };
+}
+const stacksSummary = (input) => (Array.isArray(input.blueprints) ? input.blueprints : [])
+  .map((b) => `- ${b.id} (stack ${b.base_stack || '?'}): ${b.name || ''}. default: [${(b.default_blocks || []).join(', ')}]; compativel: [${(b.compatible_blocks || []).join(', ')}]`)
+  .join('\n');
 
 // Schema estrutural minimo (objeto com .parse()) — o dispatchTool do ai-core o aplica.
 const schema = (validate) => ({ parse: (v) => { validate(v || {}); return v; } });
@@ -257,34 +267,63 @@ export function buildForgeTools() {
   return [
     {
       name: 'forge.propose_requirements',
-      description: 'Propoe um conjunto inicial de requisitos (MVP) de um produto novo a partir de um brief + blueprint.',
+      description: 'Propoe um conjunto inicial de requisitos de um produto novo a partir de um brief + blueprint + catalogo de capacidades (sistemas robustos, nao so CRUD).',
       risk: 'R1',
       inputSchema: schema((v) => need(typeof v.brief === 'string' && v.brief.trim().length >= 10, 'brief obrigatorio (>=10 chars)')),
       authorize: authorizeOperator,
       execute: async (input, ctx) => {
+        const { defaultBlocks, compatibleBlocks } = blueprintBlocks(input, input.blueprint);
+        const catalog = summarizeForPrompt(input.capabilities, { defaultBlocks, compatibleBlocks });
         const { parsed, usage } = await llmJson(ctx.llm, {
           system: PROMPTS.proposeRequirements.system,
-          user: PROMPTS.proposeRequirements.user(input),
+          user: PROMPTS.proposeRequirements.user({ ...input, catalog }),
           maxTokens: 12000,
         });
-        const requirements = Array.isArray(parsed.requirements) ? parsed.requirements : [];
+        // fail-closed: filtra capability_blocks de cada requisito ao conjunto CONHECIDO do catalogo.
+        const known = catalogIndex(input.capabilities).ids;
+        const requirements = (Array.isArray(parsed.requirements) ? parsed.requirements : []).map((r) => {
+          if (!r || typeof r !== 'object') return r;
+          if (known.size) r.capability_blocks = filterKnownBlocks(r.capability_blocks, known).kept;
+          return r;
+        });
         return { prompt_version: PROMPTS.proposeRequirements.version, requirements, notes: parsed.notes || '', usage };
       },
     },
     {
       name: 'forge.propose_architecture',
-      description: 'Propoe arquitetura (ADRs + ordem de build em waves) de um produto novo a partir de seus requisitos e do blueprint.',
+      description: 'Propoe arquitetura (stack + blocos de capacidade + ADRs + waves) de um produto novo a partir de seus requisitos, do catalogo e dos blueprints.',
       risk: 'R1',
       inputSchema: schema((v) => need(Array.isArray(v.requirements) && v.requirements.length > 0, 'requirements (array nao-vazio) obrigatorio')),
       authorize: authorizeOperator,
       execute: async (input, ctx) => {
+        const catalog = summarizeForPrompt(input.capabilities, {});
         const { parsed, usage } = await llmJson(ctx.llm, {
           system: PROMPTS.proposeArchitecture.system,
-          user: PROMPTS.proposeArchitecture.user(input),
+          user: PROMPTS.proposeArchitecture.user({ ...input, catalog, stacks: stacksSummary(input) }),
           maxTokens: 9000,
         });
+        const hasCatalog = catalogIndex(input.capabilities).ids.size > 0;
+        // fail-closed: a stack tem de ser sicat|gymops (erro estruturado se nao).
+        const stack = parsed.stack === 'sicat' || parsed.stack === 'gymops' ? parsed.stack : null;
+        if (hasCatalog && !stack) throw new AiToolError('FORGE_INVALID_SELECTION', `stack invalida: ${JSON.stringify(parsed.stack)} (esperado sicat|gymops)`);
+        // resolve o blueprint da stack escolhida e VALIDA os blocos (existe/compativel/blueprint/conflito).
+        const chosenBp = (Array.isArray(input.blueprints) ? input.blueprints : []).find((b) => b.base_stack === stack) || {};
+        const selIds = (Array.isArray(parsed.selected_blocks) ? parsed.selected_blocks : []).map((s) => s && s.id).filter(Boolean);
+        const sel = hasCatalog
+          ? validateSelection(selIds, { stack, capabilities: input.capabilities, defaultBlocks: chosenBp.default_blocks, compatibleBlocks: chosenBp.compatible_blocks })
+          : { valid: selIds, dropped: [] };
+        const validSet = new Set(sel.valid);
+        const selected_blocks = (Array.isArray(parsed.selected_blocks) ? parsed.selected_blocks : [])
+          .filter((s) => s && validSet.has(s.id));
+        // garante que blocos default (ex.: observabilidade) presentes mesmo sem o LLM citar
+        for (const id of sel.valid) if (!selected_blocks.some((s) => s.id === id)) selected_blocks.push({ id, requirement_titles: [], reference_cited: '' });
         return {
           prompt_version: PROMPTS.proposeArchitecture.version,
+          stack,
+          blueprint: chosenBp.id || input.blueprint || null,
+          stack_rationale: parsed.stack_rationale || '',
+          selected_blocks,
+          dropped_blocks: sel.dropped,
           adrs: Array.isArray(parsed.adrs) ? parsed.adrs : [],
           waves: Array.isArray(parsed.waves) ? parsed.waves : [],
           notes: parsed.notes || '',

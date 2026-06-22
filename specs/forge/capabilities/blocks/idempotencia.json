@@ -1,0 +1,22 @@
+{
+  "id": "idempotencia",
+  "title": "Idempotência (Idempotency-Key + dedupe de jobs)",
+  "description": "Operações que criam efeito (POSTs, submissões à fila, importações) são idempotentes: uma chave idempotente (Idempotency-Key no request, job_key na fila) garante que repetir a mesma operação produz UM único efeito. Use sempre que houver retry (cliente, esteira, fila) e duplicar o efeito for inaceitável (cobrança, submissão externa, criação de recurso).",
+  "category": "data",
+  "requires": [],
+  "conflicts_with": [],
+  "compatible_stacks": ["sicat", "gymops"],
+  "reference": [
+    { "stack": "sicat", "path": "apps/sicat/backend/src/services/idempotency-service.ts", "note": "honra Idempotency-Key: mesma chave → mesmo resultado, um efeito." },
+    { "stack": "sicat", "path": "apps/sicat/backend/src/repositories/idempotency-repo.ts", "note": "persistência da chave + resultado para dedupe." }
+  ],
+  "reuses": [],
+  "scaffold_overlay": {
+    "notes": "Adiciona tabela/serviço de idempotência + dedupe por job_key na fila."
+  },
+  "work_order_guidance": "Implemente idempotência SEGUINDO o SICAT: o service honra o header Idempotency-Key (persiste chave+resultado; repetição devolve o mesmo recurso sem novo efeito); jobs de fila deduplicam por job_key. Aplique nas rotas de criação e nos enqueues.",
+  "verification": [
+    { "method": "test-integration", "assertion": "duas requisições com a mesma Idempotency-Key → um único recurso; reenfileirar com mesmo job_key → um job" }
+  ],
+  "default_adrs": ["Idempotência por Idempotency-Key (rotas) e job_key (fila): repetição produz um único efeito"]
+}

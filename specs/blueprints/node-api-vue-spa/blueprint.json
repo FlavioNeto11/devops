@@ -33,5 +33,8 @@
     "Auth: sessão própria do app via packages/oidc-kit (OIDC Keycloak) — aditivo, sem tocar outras auths",
     "Frontend Vue buildado com base path /<app>/ (sem stripPrefix); API com stripPrefix"
   ],
-  "seed_nfrs": []
+  "seed_nfrs": [],
+  "base_stack": "sicat",
+  "default_blocks": ["camadas-rigidas", "migrations-versionadas", "observabilidade"],
+  "compatible_blocks": ["worker-queue-transacional", "gateway-externo", "oidc-sessao", "contract-openapi", "ia-grafo", "structured-outputs", "rag-pgvector", "idempotencia", "design-system"]
 }

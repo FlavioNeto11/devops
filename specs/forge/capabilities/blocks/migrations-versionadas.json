@@ -1,0 +1,23 @@
+{
+  "id": "migrations-versionadas",
+  "title": "Migrations versionadas + seed (advisory-lock no boot)",
+  "description": "Esquema de banco evoluído por migrations versionadas e idempotentes, aplicadas no boot com advisory-lock (seguro com múltiplas réplicas) e seed reproduzível. SICAT usa SQL versionado em src/sql; GymOps usa Prisma migrations. Use em qualquer sistema com banco — é a base para evoluir o schema sem corromper dados e para subir o app já com dados de exemplo.",
+  "category": "data",
+  "requires": [],
+  "conflicts_with": [],
+  "compatible_stacks": ["sicat", "gymops"],
+  "reference": [
+    { "stack": "sicat", "path": "apps/sicat/backend/src/db/migrate.ts", "note": "runner de migrations com advisory-lock no boot (idempotente)." },
+    { "stack": "gymops", "path": "apps/gymops/packages/db/prisma/schema.prisma", "note": "schema-first Prisma + migrations versionadas em packages/db." }
+  ],
+  "reuses": [],
+  "scaffold_overlay": {
+    "adds_env": ["AUTO_MIGRATE", "AUTO_SEED"],
+    "notes": "Cria runner de migrations + seed; AUTO_MIGRATE/AUTO_SEED no boot."
+  },
+  "work_order_guidance": "Implemente migrations SEGUINDO a stack: SICAT = SQL numerado em src/sql + runner com advisory-lock no boot; GymOps = Prisma schema + migrate. Migrations idempotentes (rodar 2× não duplica). Seed reproduzível com dados de exemplo. AUTO_MIGRATE/AUTO_SEED controlam o boot.",
+  "verification": [
+    { "method": "test-integration", "assertion": "migrate rodado duas vezes não duplica efeito; seed cria os dados de exemplo esperados" }
+  ],
+  "default_adrs": ["Migrations versionadas idempotentes com advisory-lock no boot + seed reproduzível"]
+}

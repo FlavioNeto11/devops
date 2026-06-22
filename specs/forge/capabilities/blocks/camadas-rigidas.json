@@ -1,0 +1,23 @@
+{
+  "id": "camadas-rigidas",
+  "title": "Arquitetura em camadas rígidas (route → service → repository → worker → gateway)",
+  "description": "Separação estrita de responsabilidades no backend: as rotas só mapeiam HTTP e validam entrada; toda regra vive em services; todo SQL vive em repositories; trabalho assíncrono em workers; toda chamada HTTP externa em gateways. Nenhuma rota acessa banco ou rede externa diretamente. É a fundação que torna os demais blocos (fila, gateway, idempotência) auditáveis e testáveis, e é pré-requisito de qualquer sistema robusto.",
+  "category": "architecture",
+  "requires": [],
+  "conflicts_with": [],
+  "compatible_stacks": ["sicat", "gymops"],
+  "reference": [
+    { "stack": "sicat", "path": "apps/sicat/backend/src/services", "note": "services orquestram regra + idempotência + enqueue; nunca SQL solto." },
+    { "stack": "sicat", "path": "apps/sicat/backend/src/repositories", "note": "todo acesso a dados tipado vive aqui; rotas nunca importam repositories diretamente sem passar por service." },
+    { "stack": "gymops", "path": "apps/gymops/apps/api/src/routes", "note": "rotas Fastify por domínio, finas; lógica em services/lib." }
+  ],
+  "reuses": [],
+  "scaffold_overlay": {
+    "notes": "Cria dirs route/service/repository/(worker)/(gateway) com um stub por camada apontando o exemplar; não adiciona serviço novo."
+  },
+  "work_order_guidance": "Implemente respeitando a fronteira de camadas do SICAT: a rota chama o service; o service contém a regra e chama o repository; o repository concentra o SQL; trabalho assíncrono vai para worker; HTTP externo só pelo gateway. NUNCA faça SQL ou fetch externo dentro de routes/. Espelhe a anatomia de apps/sicat/backend/src.",
+  "verification": [
+    { "method": "architecture-review", "assertion": "nenhum import de pg/knex/fetch-externo dentro de routes/; SQL só em repositories/; HTTP externo só em gateways/" }
+  ],
+  "default_adrs": ["Camadas do backend: route → service → repository → worker → gateway (sem acesso a dados/rede nas rotas)"]
+}

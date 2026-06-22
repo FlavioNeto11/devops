@@ -1,0 +1,45 @@
+{
+  "id": "gymops-style",
+  "version": "1.0.0",
+  "name": "Monorepo Next.js + Fastify + Prisma (produto multi-tenant com IA)",
+  "summary": "Stack-ouro para um sistema operacional multiunidade rico: monorepo pnpm com web Next.js 14 (App Router) + API Fastify 4 (TypeScript) + Prisma (schema-first) sobre Postgres 16 com pgvector + Redis/BullMQ para filas. Espelha a anatomia do GymOps (RBAC multi-tenant Org→Unit→Area, IA assistiva estruturada, notificações multicanal) e entra no golden path da plataforma (Traefik path-routing, GHCR/:local, Argo).",
+  "stack": {
+    "web": "Next.js 14 App Router + React 18 + Tailwind (pnpm)",
+    "api": "Fastify 4 + TypeScript (Zod)",
+    "worker": "Node 20 (BullMQ, worker-process)",
+    "db": "PostgreSQL 16 + pgvector",
+    "cache": "Redis 7"
+  },
+  "services": ["frontend", "api", "worker"],
+  "db": "postgres",
+  "reuses": ["packages/oidc-kit", "packages/ai-core", "packages/design-tokens", "packages/platform-shell", "infra-postgres", "infra-redis", "infra-traefik", "infra-argocd"],
+  "scaffold": {
+    "generator": "scripts/scaffold-product-gymops.ps1",
+    "args": { "Services": ["frontend", "api", "worker"], "Type": "product_software" }
+  },
+  "structure": [
+    "devops.yaml",
+    "CLAUDE.md",
+    "AGENTS.md",
+    "README.md",
+    "package.json",
+    "pnpm-workspace.yaml",
+    "tsconfig.base.json",
+    "apps/web/{src/app/,src/components/,next.config.mjs,package.json,Dockerfile}",
+    "apps/api/{src/{app.ts,index.ts,env.ts,routes/,services/,lib/,workers/,worker-process.ts},package.json,Dockerfile}",
+    "packages/db/{prisma/{schema.prisma,migrations/},package.json}",
+    "packages/shared/{src/,package.json}",
+    "k8s/{web.yaml,api.yaml,worker.yaml,postgres.yaml,redis.yaml,ingressroute.yaml,secret.example.yaml,servicemonitor.yaml}",
+    "test/smoke.mjs"
+  ],
+  "default_adrs": [
+    "Persistência: Prisma schema-first sobre Postgres 16 + pgvector; migrations versionadas em packages/db",
+    "Filas: Redis + BullMQ com filas nomeadas por domínio e degradação graciosa sem Redis",
+    "Multi-tenant: tenant_id em todas as entidades + RBAC em cascata (Org→Unit→Area), deny por padrão",
+    "API Fastify com validação Zod; envelope de resposta {data,meta,error}; frontend Next.js base path /<app>/"
+  ],
+  "seed_nfrs": [],
+  "base_stack": "gymops",
+  "default_blocks": ["camadas-rigidas", "migrations-versionadas", "redis-bullmq", "rbac-multitenant", "oidc-sessao", "structured-outputs", "observabilidade"],
+  "compatible_blocks": ["ia-grafo", "rag-pgvector", "notificacoes-multicanal", "idempotencia", "design-system"]
+}

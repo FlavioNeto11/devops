@@ -1,0 +1,720 @@
+{
+  "capabilities": [
+    {
+      "id": "camadas-rigidas",
+      "title": "Arquitetura em camadas rígidas (route → service → repository → worker → gateway)",
+      "description": "Separação estrita de responsabilidades no backend: as rotas só mapeiam HTTP e validam entrada; toda regra vive em services; todo SQL vive em repositories; trabalho assíncrono em workers; toda chamada HTTP externa em gateways. Nenhuma rota acessa banco ou rede externa diretamente. É a fundação que torna os demais blocos (fila, gateway, idempotência) auditáveis e testáveis, e é pré-requisito de qualquer sistema robusto.",
+      "category": "architecture",
+      "requires": [],
+      "conflicts_with": [],
+      "compatible_stacks": [
+        "sicat",
+        "gymops"
+      ],
+      "reuses": [],
+      "reference": [
+        {
+          "stack": "sicat",
+          "path": "apps/sicat/backend/src/services",
+          "note": "services orquestram regra + idempotência + enqueue; nunca SQL solto."
+        },
+        {
+          "stack": "sicat",
+          "path": "apps/sicat/backend/src/repositories",
+          "note": "todo acesso a dados tipado vive aqui; rotas nunca importam repositories diretamente sem passar por service."
+        },
+        {
+          "stack": "gymops",
+          "path": "apps/gymops/apps/api/src/routes",
+          "note": "rotas Fastify por domínio, finas; lógica em services/lib."
+        }
+      ],
+      "scaffold_overlay": {
+        "notes": "Cria dirs route/service/repository/(worker)/(gateway) com um stub por camada apontando o exemplar; não adiciona serviço novo."
+      },
+      "work_order_guidance": "Implemente respeitando a fronteira de camadas do SICAT: a rota chama o service; o service contém a regra e chama o repository; o repository concentra o SQL; trabalho assíncrono vai para worker; HTTP externo só pelo gateway. NUNCA faça SQL ou fetch externo dentro de routes/. Espelhe a anatomia de apps/sicat/backend/src.",
+      "verification": [
+        {
+          "method": "architecture-review",
+          "assertion": "nenhum import de pg/knex/fetch-externo dentro de routes/; SQL só em repositories/; HTTP externo só em gateways/"
+        }
+      ],
+      "default_adrs": [
+        "Camadas do backend: route → service → repository → worker → gateway (sem acesso a dados/rede nas rotas)"
+      ]
+    },
+    {
+      "id": "contract-openapi",
+      "title": "Contract-first OpenAPI (tipos gerados + validação no CI)",
+      "description": "A superfície HTTP é definida primeiro num OpenAPI canônico; tipos e operações são gerados a partir dele (gen:operations) e a validação roda no CI (validate:openapi). Mudança de rota acontece em lockstep: OpenAPI → exemplos → tipos gerados → rotas → testes de contrato, tudo no mesmo PR. Use quando a API é auditável/integrável por terceiros e a estabilidade do contrato importa (estilo SICAT).",
+      "category": "architecture",
+      "requires": [
+        "camadas-rigidas"
+      ],
+      "conflicts_with": [],
+      "compatible_stacks": [
+        "sicat"
+      ],
+      "reuses": [],
+      "reference": [
+        {
+          "stack": "sicat",
+          "path": "apps/sicat/backend/openapi/mtr_automacao_openapi_interna.yaml",
+          "note": "OpenAPI canônico — fonte da superfície HTTP."
+        },
+        {
+          "stack": "sicat",
+          "path": "apps/sicat/backend/src/generated/operations.ts",
+          "note": "tipos/operações gerados do OpenAPI (não editar à mão)."
+        }
+      ],
+      "scaffold_overlay": {
+        "notes": "Cria openapi/<app>_openapi.yaml + script gen:operations + gate validate:openapi."
+      },
+      "work_order_guidance": "Implemente contract-first SEGUINDO o SICAT: defina a rota no OpenAPI primeiro, gere os tipos (gen:operations), implemente a rota tipada e o teste de contrato — tudo no mesmo PR. Nunca crie uma rota que não esteja no OpenAPI. Não edite src/generated/** à mão.",
+      "verification": [
+        {
+          "method": "test-integration",
+          "assertion": "validate:openapi + gen:operations verdes; toda rota existe no OpenAPI; tipos gerados em dia"
+        }
+      ],
+      "default_adrs": [
+        "Contract-first: superfície HTTP definida no OpenAPI → tipos gerados → rotas → testes de contrato em lockstep"
+      ]
+    },
+    {
+      "id": "design-system",
+      "title": "Design system unificado (design-tokens + componentes)",
+      "description": "Frontend consistente com a plataforma: tokens de design únicos (packages/design-tokens, codegen-sync para dentro de cada app — nunca editar o .generated.css) + componentes reusáveis e casca compartilhada (packages/platform-shell). Use em todo frontend para herdar identidade, tema (claro/escuro), acessibilidade e a casca/navegação da plataforma, sem reinventar CSS.",
+      "category": "ui",
+      "requires": [],
+      "conflicts_with": [],
+      "compatible_stacks": [
+        "sicat",
+        "gymops"
+      ],
+      "reuses": [
+        "packages/design-tokens",
+        "packages/platform-shell"
+      ],
+      "reference": [
+        {
+          "stack": "platform",
+          "path": "packages/design-tokens",
+          "note": "tokens.json → codegen-sync para tokens.generated.css de cada app; drift-gate no CI."
+        },
+        {
+          "stack": "platform",
+          "path": "packages/platform-shell",
+          "note": "casca/topbar/sidebar/navegação compartilhada (Web Component)."
+        }
+      ],
+      "scaffold_overlay": {
+        "adds_reuses": [
+          "packages/design-tokens"
+        ],
+        "notes": "Importa tokens.generated.css no frontend + (opcional) platform-shell."
+      },
+      "work_order_guidance": "Use o design system: importe os tokens de packages/design-tokens (consuma o tokens.generated.css, NUNCA edite o gerado) e a casca de packages/platform-shell quando aplicável. Telas usam os componentes/tokens do DS; nada de estilo inline ad-hoc. Respeite claro/escuro e a11y herdados.",
+      "verification": [
+        {
+          "method": "architecture-review",
+          "assertion": "frontend importa os tokens do DS; sem CSS inline ad-hoc; .generated.css não editado à mão"
+        }
+      ],
+      "default_adrs": [
+        "Frontend sobre o design system da plataforma (design-tokens + platform-shell), tokens sincronizados por codegen"
+      ]
+    },
+    {
+      "id": "gateway-externo",
+      "title": "Gateway externo centralizado (única porta para HTTP de terceiros)",
+      "description": "Toda integração HTTP com um sistema externo passa por uma camada gateway única e resiliente: timeout, retry com backoff, redação de segredos no log, erros tipados (AppError) e trilha de auditoria das trocas. Routes/services nunca chamam o externo direto. Use quando o sistema submete/consulta uma API de terceiro (órgão, ERP, provedor) e precisa de resiliência + auditoria + um ponto único de manutenção do contrato externo.",
+      "category": "integration",
+      "requires": [
+        "camadas-rigidas"
+      ],
+      "conflicts_with": [],
+      "compatible_stacks": [
+        "sicat"
+      ],
+      "reuses": [],
+      "reference": [
+        {
+          "stack": "sicat",
+          "path": "apps/sicat/backend/src/gateways/cetesb-gateway.js",
+          "note": "cliente https com retry/backoff, redação, AppError, auditoria da troca; única porta de saída para o externo."
+        }
+      ],
+      "scaffold_overlay": {
+        "adds_env": [
+          "EXTERNAL_BASE_URL",
+          "EXTERNAL_GATEWAY_MODE"
+        ],
+        "notes": "Cria dir gateways/ com um cliente espelhando o cetesb-gateway."
+      },
+      "work_order_guidance": "Implemente o gateway SEGUINDO o cetesb-gateway do SICAT: classe/módulo único responsável por toda HTTP externa, com timeout, retry+backoff em erros transitórios, redação de segredos nos logs, erros tipados (AppError) e registro da troca para auditoria. NUNCA chame o externo de routes/ ou services/ diretamente — sempre pelo gateway.",
+      "verification": [
+        {
+          "method": "architecture-review",
+          "assertion": "nenhuma chamada HTTP ao externo fora de gateways/"
+        },
+        {
+          "method": "test-integration",
+          "assertion": "5xx/timeout do externo dispara retry com backoff; após N tentativas devolve erro tipado"
+        }
+      ],
+      "default_adrs": [
+        "Integração externa centralizada num gateway (timeout/retry/redação/auditoria), nunca chamada direta das rotas"
+      ]
+    },
+    {
+      "id": "ia-grafo",
+      "title": "Assistente de IA pelo motor de grafo (@flavioneto11/ai-core)",
+      "description": "Assistente conversacional/assistivo construído sobre o motor de grafo da plataforma (createAiGraph: router → especialista deep com loop ReAct e tools R1 → judge/verify), com autorização por identidade, dry-run/confirmação em mutações e tools que LEEM o domínio antes de propor. Use quando a IA precisa raciocinar com ferramentas (buscar dados, citar fontes, propor um rascunho ou ação), não apenas completar texto. Reusa packages/ai-core; nunca heurística chumbada.",
+      "category": "ai",
+      "requires": [
+        "structured-outputs"
+      ],
+      "conflicts_with": [],
+      "compatible_stacks": [
+        "sicat",
+        "gymops"
+      ],
+      "reuses": [
+        "packages/ai-core"
+      ],
+      "reference": [
+        {
+          "stack": "platform",
+          "path": "apps/reqhub/api/src/ai/graph.js",
+          "note": "createAiGraph (router→deep→judge), extração de reply/draft/citations do evidence."
+        },
+        {
+          "stack": "platform",
+          "path": "apps/reqhub/api/src/ai/tools.js",
+          "note": "tools R1 no contrato AiTool (authorize por identidade, parameters JSON Schema, read-only)."
+        },
+        {
+          "stack": "platform",
+          "path": "packages/ai-core/index.d.ts",
+          "note": "createAiGraph, createToolRegistry, dispatchTool (risk/dryRun/authorization), createLlm."
+        }
+      ],
+      "scaffold_overlay": {
+        "adds_env": [
+          "AI_PROVIDER",
+          "ANTHROPIC_API_KEY",
+          "OPENAI_API_KEY"
+        ],
+        "adds_reuses": [
+          "packages/ai-core"
+        ],
+        "notes": "Cria ai/{graph,tools,prompts} + rota de chat/assist; fail-closed sem chave (503)."
+      },
+      "work_order_guidance": "Implemente o assistente SEGUINDO o grafo do reqhub: createAiGraph com router→especialista deep (loop ReAct com tools R1 que LEEM o domínio)→judge; tools no contrato AiTool de ai-core com authorize por identidade; mutações em dry-run→preview→confirmação; reply/draft/citations saem em canais separados (texto vs evidence). Sem chave de IA → 503 (fail-closed). Decisão via reasoning, nunca mapa de sinônimos no código.",
+      "verification": [
+        {
+          "method": "test-integration",
+          "assertion": "turn é roteado; tool R1 é chamada; judge ≥ threshold; sem chave → 503"
+        },
+        {
+          "method": "demo",
+          "assertion": "mutação proposta pela IA exige confirmação (dry-run) antes de efetivar"
+        }
+      ],
+      "default_adrs": [
+        "IA assistiva pelo motor de grafo @flavioneto11/ai-core (router→deep→judge), authz por identidade, dry-run em mutações"
+      ]
+    },
+    {
+      "id": "idempotencia",
+      "title": "Idempotência (Idempotency-Key + dedupe de jobs)",
+      "description": "Operações que criam efeito (POSTs, submissões à fila, importações) são idempotentes: uma chave idempotente (Idempotency-Key no request, job_key na fila) garante que repetir a mesma operação produz UM único efeito. Use sempre que houver retry (cliente, esteira, fila) e duplicar o efeito for inaceitável (cobrança, submissão externa, criação de recurso).",
+      "category": "data",
+      "requires": [],
+      "conflicts_with": [],
+      "compatible_stacks": [
+        "sicat",
+        "gymops"
+      ],
+      "reuses": [],
+      "reference": [
+        {
+          "stack": "sicat",
+          "path": "apps/sicat/backend/src/services/idempotency-service.ts",
+          "note": "honra Idempotency-Key: mesma chave → mesmo resultado, um efeito."
+        },
+        {
+          "stack": "sicat",
+          "path": "apps/sicat/backend/src/repositories/idempotency-repo.ts",
+          "note": "persistência da chave + resultado para dedupe."
+        }
+      ],
+      "scaffold_overlay": {
+        "notes": "Adiciona tabela/serviço de idempotência + dedupe por job_key na fila."
+      },
+      "work_order_guidance": "Implemente idempotência SEGUINDO o SICAT: o service honra o header Idempotency-Key (persiste chave+resultado; repetição devolve o mesmo recurso sem novo efeito); jobs de fila deduplicam por job_key. Aplique nas rotas de criação e nos enqueues.",
+      "verification": [
+        {
+          "method": "test-integration",
+          "assertion": "duas requisições com a mesma Idempotency-Key → um único recurso; reenfileirar com mesmo job_key → um job"
+        }
+      ],
+      "default_adrs": [
+        "Idempotência por Idempotency-Key (rotas) e job_key (fila): repetição produz um único efeito"
+      ]
+    },
+    {
+      "id": "migrations-versionadas",
+      "title": "Migrations versionadas + seed (advisory-lock no boot)",
+      "description": "Esquema de banco evoluído por migrations versionadas e idempotentes, aplicadas no boot com advisory-lock (seguro com múltiplas réplicas) e seed reproduzível. SICAT usa SQL versionado em src/sql; GymOps usa Prisma migrations. Use em qualquer sistema com banco — é a base para evoluir o schema sem corromper dados e para subir o app já com dados de exemplo.",
+      "category": "data",
+      "requires": [],
+      "conflicts_with": [],
+      "compatible_stacks": [
+        "sicat",
+        "gymops"
+      ],
+      "reuses": [],
+      "reference": [
+        {
+          "stack": "sicat",
+          "path": "apps/sicat/backend/src/db/migrate.ts",
+          "note": "runner de migrations com advisory-lock no boot (idempotente)."
+        },
+        {
+          "stack": "gymops",
+          "path": "apps/gymops/packages/db/prisma/schema.prisma",
+          "note": "schema-first Prisma + migrations versionadas em packages/db."
+        }
+      ],
+      "scaffold_overlay": {
+        "adds_env": [
+          "AUTO_MIGRATE",
+          "AUTO_SEED"
+        ],
+        "notes": "Cria runner de migrations + seed; AUTO_MIGRATE/AUTO_SEED no boot."
+      },
+      "work_order_guidance": "Implemente migrations SEGUINDO a stack: SICAT = SQL numerado em src/sql + runner com advisory-lock no boot; GymOps = Prisma schema + migrate. Migrations idempotentes (rodar 2× não duplica). Seed reproduzível com dados de exemplo. AUTO_MIGRATE/AUTO_SEED controlam o boot.",
+      "verification": [
+        {
+          "method": "test-integration",
+          "assertion": "migrate rodado duas vezes não duplica efeito; seed cria os dados de exemplo esperados"
+        }
+      ],
+      "default_adrs": [
+        "Migrations versionadas idempotentes com advisory-lock no boot + seed reproduzível"
+      ]
+    },
+    {
+      "id": "notificacoes-multicanal",
+      "title": "Notificações multi-canal (e-mail, push, WhatsApp)",
+      "description": "Envio de notificações por múltiplos canais — e-mail (SMTP/Nodemailer), push web (VAPID/web-push) e WhatsApp (Twilio) — disparado por eventos do domínio, com degradação graciosa (canal ausente não derruba o fluxo) e enfileiramento (a notificação é um job). Use quando o sistema precisa avisar usuários fora da sessão (lembretes, alertas, convites) por canais configuráveis.",
+      "category": "integration",
+      "requires": [
+        "redis-bullmq"
+      ],
+      "conflicts_with": [],
+      "compatible_stacks": [
+        "gymops"
+      ],
+      "reuses": [],
+      "reference": [
+        {
+          "stack": "gymops",
+          "path": "apps/gymops/apps/api/src/lib/mailer.ts",
+          "note": "e-mail via SMTP/Nodemailer com degradação graciosa."
+        },
+        {
+          "stack": "gymops",
+          "path": "apps/gymops/apps/api/src/lib/push.ts",
+          "note": "push web via VAPID (web-push)."
+        },
+        {
+          "stack": "gymops",
+          "path": "apps/gymops/apps/api/src/lib/whatsapp.ts",
+          "note": "WhatsApp via Twilio."
+        }
+      ],
+      "scaffold_overlay": {
+        "adds_env": [
+          "SMTP_URL",
+          "VAPID_PUBLIC_KEY",
+          "VAPID_PRIVATE_KEY",
+          "TWILIO_SID",
+          "TWILIO_TOKEN"
+        ],
+        "notes": "Cria lib/{mailer,push,whatsapp} + worker de notificação (fila)."
+      },
+      "work_order_guidance": "Implemente notificações SEGUINDO o GymOps: canais em lib/{mailer,push,whatsapp}, disparados por evento via fila (notification worker), com degradação graciosa — canal sem credencial é pulado sem derrubar o fluxo. Nunca bloqueie a operação de negócio aguardando o envio.",
+      "verification": [
+        {
+          "method": "test-integration",
+          "assertion": "evento gera notificação enfileirada; canal sem credencial é pulado sem erro fatal"
+        }
+      ],
+      "default_adrs": [
+        "Notificações multi-canal (e-mail/push/WhatsApp) por evento via fila, com degradação graciosa por canal"
+      ]
+    },
+    {
+      "id": "observabilidade",
+      "title": "Observabilidade por padrão (health + métricas + ServiceMonitor + SLO + Grafana)",
+      "description": "Todo app nasce observável: endpoints de health estruturados (/health + /v1/health/{system,workers,jobs}), métricas Prometheus numa porta dedicada fora do Traefik (:9464, série ai_* via @flavioneto11/ai-core quando há IA + métricas de domínio/fila), ServiceMonitor para o kube-prometheus-stack raspar, anotações devops.flavioneto/* para o DevOps Console, alertas de SLO (PrometheusRule: p95 de latência, taxa de erro, saturação de fila) e um dashboard Grafana gerado. É bloco DEFAULT — sempre incluído.",
+      "category": "observability",
+      "requires": [],
+      "conflicts_with": [],
+      "compatible_stacks": [
+        "sicat",
+        "gymops"
+      ],
+      "reuses": [
+        "packages/ai-core"
+      ],
+      "reference": [
+        {
+          "stack": "gymops",
+          "path": "apps/gymops/apps/api/src/ai/ai-metrics.ts",
+          "note": "createAiMetrics({promClient, app}) + startMetricsServer() na :9464 (prom-client)."
+        },
+        {
+          "stack": "platform",
+          "path": "packages/ai-core/src/observability.js",
+          "note": "séries canônicas ai_* (latência, tokens, custo, tool_calls, erros, judge_score)."
+        },
+        {
+          "stack": "sicat",
+          "path": "apps/sicat/k8s/servicemonitor.yaml",
+          "note": "ServiceMonitor (porta metrics/9464, path /metrics, selector part-of)."
+        },
+        {
+          "stack": "sicat",
+          "path": "apps/sicat/backend/src/routes/health-routes.ts",
+          "note": "health estruturado (/v1/health/{system,workers,jobs/active,jobs/dlq})."
+        }
+      ],
+      "scaffold_overlay": {
+        "adds_env": [
+          "METRICS_PORT"
+        ],
+        "adds_reuses": [
+          "packages/ai-core"
+        ],
+        "notes": "Gera health routes + ai-metrics na :9464 + apps/<app>/k8s/{servicemonitor,prometheusrule}.yaml + anotações devops.flavioneto/* + platform/observability/dashboards/<app>.json (dashboard é humano-run, está em platform/**)."
+      },
+      "work_order_guidance": "Instrumente o app: health estruturado espelhando o SICAT (/health + /v1/health/{system,workers,jobs}); exponha métricas na porta 9464 via createAiMetrics/startMetricsServer (prom-client) reusando ai-core. NÃO recrie artefatos de platform/** (o ServiceMonitor, o PrometheusRule do app e o dashboard Grafana já vêm do scaffold/bootstrap) — só instrumente o código dentro de apps/<app>/**.",
+      "verification": [
+        {
+          "method": "monitoring",
+          "assertion": "/metrics na :9464 expõe ai_* e métricas de domínio; target do ServiceMonitor UP no Prometheus"
+        },
+        {
+          "method": "monitoring",
+          "assertion": "PrometheusRule de SLO carregada (p95 latência/erro/saturação); dashboard Grafana renderiza; Console mostra o app com anotações devops.flavioneto/*"
+        }
+      ],
+      "default_adrs": [
+        "Observabilidade por padrão: health estruturado + métricas Prometheus :9464 + ServiceMonitor + PrometheusRule SLO + dashboard Grafana"
+      ]
+    },
+    {
+      "id": "oidc-sessao",
+      "title": "Login OIDC (Keycloak) + sessão própria do app",
+      "description": "Autenticação federada via Keycloak (realm nvit) com sessão própria do app emitida por cima: o backend valida o token no /userinfo do Keycloak e emite a sessão (JWT curto) do próprio app; o frontend faz o fluxo PKCE e guarda a sessão. Aditivo — não toca outras auths. Use sempre que o sistema tiver usuários corporativos e precisar de SSO com a plataforma, reusando packages/oidc-kit (tokens, hashing, validateKeycloakToken, requireSession).",
+      "category": "auth",
+      "requires": [],
+      "conflicts_with": [],
+      "compatible_stacks": [
+        "sicat",
+        "gymops"
+      ],
+      "reuses": [
+        "packages/oidc-kit"
+      ],
+      "reference": [
+        {
+          "stack": "platform",
+          "path": "packages/oidc-kit",
+          "note": "createAccessToken/verify, validateKeycloakToken, claimsToProfile, requireSession — reusar, não reescrever."
+        }
+      ],
+      "scaffold_overlay": {
+        "adds_env": [
+          "OIDC_ISSUER",
+          "OIDC_CLIENT_ID",
+          "OIDC_CLIENT_SECRET",
+          "SESSION_SECRET"
+        ],
+        "adds_reuses": [
+          "packages/oidc-kit"
+        ],
+        "notes": "Cria rotas de auth (login/callback/logout/me) + middleware requireSession reusando oidc-kit."
+      },
+      "work_order_guidance": "Implemente a auth REUSANDO packages/oidc-kit (NÃO reescreva JWT/validação): backend valida o token Keycloak (validateKeycloakToken/userinfo) e emite a sessão própria; rotas protegidas usam o middleware requireSession; o frontend faz PKCE. Mapeie claims→papel via claimsToProfile. Aditivo: não altere nenhuma outra auth.",
+      "verification": [
+        {
+          "method": "test-integration",
+          "assertion": "rota protegida sem sessão → 401; com sessão válida → 200; logout invalida a sessão"
+        },
+        {
+          "method": "demo",
+          "assertion": "fluxo de login redireciona ao Keycloak e volta com a sessão do app emitida"
+        }
+      ],
+      "default_adrs": [
+        "Auth: sessão própria do app via packages/oidc-kit (OIDC Keycloak) — aditivo, sem tocar outras auths"
+      ]
+    },
+    {
+      "id": "rag-pgvector",
+      "title": "RAG / busca semântica com pgvector (embeddings + retrieval grounded)",
+      "description": "Base de conhecimento vetorial no Postgres (extensão pgvector): documentos são fatiados, embeddados e indexados; consultas recuperam os top-K trechos por similaridade para fundamentar (ground) as respostas da IA com citações. Use quando o assistente precisa responder citando fontes (manuais, contratos, base de conhecimento) e recusar quando não há fonte. Reusa packages/ai-core (createPgVectorStore/createEmbedder/createReranker).",
+      "category": "ai",
+      "requires": [
+        "ia-grafo"
+      ],
+      "conflicts_with": [],
+      "compatible_stacks": [
+        "sicat",
+        "gymops"
+      ],
+      "reuses": [
+        "packages/ai-core"
+      ],
+      "reference": [
+        {
+          "stack": "platform",
+          "path": "packages/ai-core/src/rag.js",
+          "note": "createPgVectorStore/createEmbedder/createReranker — store, upsertSource, search por score."
+        },
+        {
+          "stack": "sicat",
+          "path": "apps/sicat/backend/src/services/conversation/memory",
+          "note": "uso de memória/retrieval vetorial no engine de conversa do SICAT."
+        }
+      ],
+      "scaffold_overlay": {
+        "adds_infra": [
+          "postgres-pgvector"
+        ],
+        "adds_env": [
+          "EMBEDDINGS_MODEL"
+        ],
+        "adds_reuses": [
+          "packages/ai-core"
+        ],
+        "notes": "Troca a imagem do Postgres para pgvector/pgvector:pg16 + migration CREATE EXTENSION vector + tabelas de chunks/sources."
+      },
+      "work_order_guidance": "Implemente o RAG REUSANDO packages/ai-core: CREATE EXTENSION vector na migration, tabelas de sources/chunks com coluna vector + índice ivfflat; ingest fatia+embeda+upserta; a consulta recupera top-K por similaridade e o assistente CITA os trechos (citations[]). Sem fonte relevante, recuse em vez de inventar. Embeddings ficam em OpenAI (Anthropic não expõe /embeddings).",
+      "verification": [
+        {
+          "method": "test-integration",
+          "assertion": "ingest gera chunks/embeddings; consulta retorna top-K por score; resposta inclui citations dos trechos reais"
+        }
+      ],
+      "default_adrs": [
+        "RAG com pgvector (chunks+embeddings no Postgres) + retrieval grounded com citações; embeddings via OpenAI"
+      ]
+    },
+    {
+      "id": "rbac-multitenant",
+      "title": "Multi-tenant + RBAC fino (escopo por tenant/unidade e papéis em cascata)",
+      "description": "Isolamento por tenant (toda tabela carrega tenant_id e toda query é escopada) e controle de acesso em camadas de papéis (ex.: owner > org_manager > unit_manager > area_leader > assignee), com deny por padrão fora do escopo e soft-delete. Use quando o sistema serve múltiplas organizações/unidades e o acesso depende do papel do usuário no recorte (estilo GymOps: Org → Unit → Area).",
+      "category": "auth",
+      "requires": [
+        "oidc-sessao"
+      ],
+      "conflicts_with": [],
+      "compatible_stacks": [
+        "gymops"
+      ],
+      "reuses": [],
+      "reference": [
+        {
+          "stack": "gymops",
+          "path": "apps/gymops/apps/api/src/lib/rbac.ts",
+          "note": "matriz papel×ação + checagem de permissão em cascata."
+        },
+        {
+          "stack": "gymops",
+          "path": "apps/gymops/apps/api/src/lib/auth-context.ts",
+          "note": "contexto de identidade/tenant resolvido por request; escopo das queries."
+        },
+        {
+          "stack": "gymops",
+          "path": "apps/gymops/packages/db/prisma/schema.prisma",
+          "note": "modelo Org→Unit→Area + enums de papel; tenant_id em todas as entidades."
+        }
+      ],
+      "scaffold_overlay": {
+        "notes": "Adiciona auth-context (resolve tenant+papel por request) + guard rbac + tenant_id no schema."
+      },
+      "work_order_guidance": "Implemente RBAC multi-tenant SEGUINDO o GymOps: tenant_id em TODAS as tabelas; toda query escopada pelo auth-context (nunca confiar em id do cliente); matriz papel×ação em lib/rbac.ts com checagem em cascata; deny por padrão fora do escopo; soft-delete (deletedAt) em vez de hard-delete. Cross-tenant deve retornar 403/404, nunca vazar dados.",
+      "verification": [
+        {
+          "method": "test-integration",
+          "assertion": "tenant A não lê nem edita recursos do tenant B (403/404); papel sem permissão é negado"
+        }
+      ],
+      "default_adrs": [
+        "Multi-tenant: tenant_id em todas as entidades + query escopada pelo auth-context; RBAC em cascata, deny por padrão"
+      ]
+    },
+    {
+      "id": "redis-bullmq",
+      "title": "Filas com Redis + BullMQ (jobs nomeados, estado de curta duração)",
+      "description": "Processamento assíncrono baseado em Redis/BullMQ com filas nomeadas (recorrência, importação, notificação, sumário-IA), retry/backoff por fila, degradação graciosa para execução inline quando não há Redis configurado. Use no estilo GymOps quando há muitas filas de domínio com ciclo de vida curto, agendamento e concorrência elevada, e o estado da fila não precisa ser transacional com o banco de negócio.",
+      "category": "async",
+      "requires": [],
+      "conflicts_with": [
+        "worker-queue-transacional"
+      ],
+      "compatible_stacks": [
+        "gymops"
+      ],
+      "reuses": [],
+      "reference": [
+        {
+          "stack": "gymops",
+          "path": "apps/gymops/apps/api/src/lib/queues.ts",
+          "note": "definição de filas nomeadas BullMQ + enqueue tipado + fallback sem Redis."
+        },
+        {
+          "stack": "gymops",
+          "path": "apps/gymops/apps/api/src/lib/redis.ts",
+          "note": "conexão Redis singleton com degradação graciosa."
+        },
+        {
+          "stack": "gymops",
+          "path": "apps/gymops/apps/api/src/workers/import-worker.ts",
+          "note": "consumidor de fila com retry/backoff e progresso."
+        }
+      ],
+      "scaffold_overlay": {
+        "adds_services": [
+          "worker"
+        ],
+        "adds_infra": [
+          "redis"
+        ],
+        "adds_env": [
+          "REDIS_URL"
+        ],
+        "notes": "Adiciona dependência Redis (Deployment+Service) + worker BullMQ (node dist/worker-process.js)."
+      },
+      "work_order_guidance": "Implemente as filas SEGUINDO o padrão GymOps: filas nomeadas em lib/queues.ts, conexão única em lib/redis.ts com fallback inline (setImmediate) quando REDIS_URL ausente, workers em workers/*-worker.ts com retry/backoff por fila. Não persista o estado da fila no banco de negócio (é de curta duração no Redis).",
+      "verification": [
+        {
+          "method": "test-integration",
+          "assertion": "enfileira e consome um job pela fila Redis; sem REDIS_URL cai no fallback inline sem erro"
+        }
+      ],
+      "default_adrs": [
+        "Filas: Redis + BullMQ com filas nomeadas por domínio e degradação graciosa sem Redis"
+      ]
+    },
+    {
+      "id": "structured-outputs",
+      "title": "Saídas estruturadas de IA (JSON validado por schema, fail-closed)",
+      "description": "Toda chamada de IA que produz dados retorna JSON validado contra um schema declarado (jsonMode + parse estrito); saída inválida vira erro estruturado, nunca um fallback silencioso; rascunhos gerados pela IA exigem confirmação do usuário antes de persistir. É o alicerce de qualquer feature de IA confiável e pré-requisito do bloco de grafo. Use quando a IA precisa devolver um objeto consumível pelo sistema (rascunho de entidade, classificação, checklist).",
+      "category": "ai",
+      "requires": [],
+      "conflicts_with": [],
+      "compatible_stacks": [
+        "sicat",
+        "gymops"
+      ],
+      "reuses": [
+        "packages/ai-core"
+      ],
+      "reference": [
+        {
+          "stack": "gymops",
+          "path": "apps/gymops/apps/api/src/ai/schemas",
+          "note": "schemas Zod por feature de IA (validação da saída)."
+        },
+        {
+          "stack": "gymops",
+          "path": "apps/gymops/apps/api/src/ai/prompts",
+          "note": "prompts versionados por feature; saída sempre estruturada."
+        },
+        {
+          "stack": "platform",
+          "path": "apps/reqhub/api/src/tools.js",
+          "note": "padrão jsonMode + parse estrito + AiToolError (erro estruturado, sem fallback silencioso)."
+        }
+      ],
+      "scaffold_overlay": {
+        "adds_env": [
+          "OPENAI_API_KEY",
+          "ANTHROPIC_API_KEY",
+          "AI_PROVIDER"
+        ],
+        "adds_reuses": [
+          "packages/ai-core"
+        ],
+        "notes": "Cria dir ai/{schemas,prompts} + helper de chamada estruturada."
+      },
+      "work_order_guidance": "Implemente saída estruturada SEGUINDO o padrão do reqhub/GymOps: schema declarado por feature, jsonMode na chamada, parse estrito; saída que não casa o schema → erro estruturado (AiToolError), NUNCA fallback silencioso nem heurística chumbada. Rascunho gerado pela IA não é salvo direto — devolve para o usuário confirmar.",
+      "verification": [
+        {
+          "method": "test-unit",
+          "assertion": "saída fora do schema → erro estruturado; rascunho exige confirmação antes de persistir"
+        }
+      ],
+      "default_adrs": [
+        "IA com saída estruturada (schema declarado + jsonMode + erro estruturado), sem fallback silencioso"
+      ]
+    },
+    {
+      "id": "worker-queue-transacional",
+      "title": "Worker + fila transacional no Postgres (FOR UPDATE SKIP LOCKED)",
+      "description": "Processamento assíncrono confiável sem broker externo: comandos longos viram jobs persistidos numa tabela do Postgres, consumidos por um worker (mesma imagem da API) com claim transacional FOR UPDATE SKIP LOCKED, retry com backoff exponencial, dead-letter queue (DLQ), heartbeat de claim, requeue de jobs travados e graceful shutdown. Use quando a operação demora, pode falhar e precisa ser retentada/auditada (ex.: submissão a sistema externo, geração de documento, sincronização de catálogo).",
+      "category": "async",
+      "requires": [
+        "camadas-rigidas"
+      ],
+      "conflicts_with": [
+        "redis-bullmq"
+      ],
+      "compatible_stacks": [
+        "sicat",
+        "gymops"
+      ],
+      "reuses": [],
+      "reference": [
+        {
+          "stack": "sicat",
+          "path": "apps/sicat/backend/src/workers/job-runner.ts",
+          "note": "loop de claim (SKIP LOCKED), attempts/retry/backoff, DLQ, heartbeat, requeue de stale, graceful shutdown."
+        },
+        {
+          "stack": "sicat",
+          "path": "apps/sicat/backend/src/repositories/job-repo.ts",
+          "note": "schema da tabela jobs + claim/ack/fail/dlq tipados."
+        }
+      ],
+      "scaffold_overlay": {
+        "adds_services": [
+          "worker"
+        ],
+        "notes": "Adiciona o serviço worker (mesma imagem da api, command npm run worker) + tabela jobs nas migrations."
+      },
+      "work_order_guidance": "Implemente a fila SEGUINDO o job-runner do SICAT: tabela jobs (id, type, payload, status, attempts, max_attempts, run_after, locked_at, locked_by), claim com SELECT ... FOR UPDATE SKIP LOCKED, ack/fail por transação, retry com backoff exponencial, DLQ ao exceder max_attempts, heartbeat do claim, requeue de jobs com lock expirado e graceful shutdown. O enqueue é feito pelo service (não pela rota).",
+      "verification": [
+        {
+          "method": "test-integration",
+          "assertion": "dois workers concorrentes nunca pegam o mesmo job (SKIP LOCKED); cada job é processado uma vez"
+        },
+        {
+          "method": "test-integration",
+          "assertion": "falha retryável reenfileira com backoff; exceder max_attempts move para DLQ"
+        }
+      ],
+      "default_adrs": [
+        "Persistência: fila transacional na tabela jobs (FOR UPDATE SKIP LOCKED), sem broker externo"
+      ]
+    }
+  ]
+}

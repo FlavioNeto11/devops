@@ -1,0 +1,23 @@
+{
+  "id": "gateway-externo",
+  "title": "Gateway externo centralizado (única porta para HTTP de terceiros)",
+  "description": "Toda integração HTTP com um sistema externo passa por uma camada gateway única e resiliente: timeout, retry com backoff, redação de segredos no log, erros tipados (AppError) e trilha de auditoria das trocas. Routes/services nunca chamam o externo direto. Use quando o sistema submete/consulta uma API de terceiro (órgão, ERP, provedor) e precisa de resiliência + auditoria + um ponto único de manutenção do contrato externo.",
+  "category": "integration",
+  "requires": ["camadas-rigidas"],
+  "conflicts_with": [],
+  "compatible_stacks": ["sicat"],
+  "reference": [
+    { "stack": "sicat", "path": "apps/sicat/backend/src/gateways/cetesb-gateway.js", "note": "cliente https com retry/backoff, redação, AppError, auditoria da troca; única porta de saída para o externo." }
+  ],
+  "reuses": [],
+  "scaffold_overlay": {
+    "adds_env": ["EXTERNAL_BASE_URL", "EXTERNAL_GATEWAY_MODE"],
+    "notes": "Cria dir gateways/ com um cliente espelhando o cetesb-gateway."
+  },
+  "work_order_guidance": "Implemente o gateway SEGUINDO o cetesb-gateway do SICAT: classe/módulo único responsável por toda HTTP externa, com timeout, retry+backoff em erros transitórios, redação de segredos nos logs, erros tipados (AppError) e registro da troca para auditoria. NUNCA chame o externo de routes/ ou services/ diretamente — sempre pelo gateway.",
+  "verification": [
+    { "method": "architecture-review", "assertion": "nenhuma chamada HTTP ao externo fora de gateways/" },
+    { "method": "test-integration", "assertion": "5xx/timeout do externo dispara retry com backoff; após N tentativas devolve erro tipado" }
+  ],
+  "default_adrs": ["Integração externa centralizada num gateway (timeout/retry/redação/auditoria), nunca chamada direta das rotas"]
+}

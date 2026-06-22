@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nvit.com.br/devops/specs/capability.schema.json",
+  "title": "Bloco de capacidade — unidade componível que o Forge propõe, scaffolda e implementa",
+  "description": "Catálogo declarativo de CAPACIDADES (worker+fila, gateway externo, OIDC, IA-grafo, observabilidade, RBAC, ...) que o Forge compõe sobre um blueprint para gerar sistemas robustos (nível SICAT/GymOps), não só CRUD. Cada bloco aponta para um EXEMPLAR REAL no monorepo (validado por fs.existsSync no build — fantasma quebra o build), declara dependências/conflitos entre blocos (→ ordem de wave), o overlay de scaffold que adiciona, a orientação para o /implement-req e os critérios de verificação. A IA decide quais blocos usar RACIOCINANDO sobre a `description` (não por palavra-chave); o código só computa o conjunto canônico.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "title", "description", "category", "compatible_stacks", "reference", "work_order_guidance", "verification"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9-]+$", "description": "Id estável (= nome do arquivo em specs/forge/capabilities/blocks/)." },
+    "title": { "type": "string", "minLength": 3 },
+    "description": { "type": "string", "minLength": 30, "description": "Descrição rica do que o bloco entrega e quando usá-lo — é o SINAL CANÔNICO pelo qual a IA raciocina, não um conjunto de palavras-chave." },
+    "category": { "enum": ["architecture", "async", "integration", "auth", "ai", "data", "ui", "observability"] },
+    "requires": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9-]+$" }, "description": "Ids de blocos dos quais este depende (o build valida que existem; vira aresta de dependência → ordem de wave)." },
+    "conflicts_with": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9-]+$" }, "description": "Ids de blocos mutuamente exclusivos (ex.: fila transacional Postgres vs Redis/BullMQ)." },
+    "compatible_stacks": { "type": "array", "minItems": 1, "items": { "enum": ["sicat", "gymops"] }, "description": "Stacks-base que suportam este bloco." },
+    "reference": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Exemplares REAIS no monorepo que o /implement-req deve copiar/seguir. O build valida que cada `path` existe (anti-fabricação).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["stack", "path", "note"],
+        "properties": {
+          "stack": { "enum": ["sicat", "gymops", "platform"] },
+          "path": { "type": "string", "minLength": 1, "description": "Caminho relativo à raiz do repo (validado por fs.existsSync no build)." },
+          "note": { "type": "string", "description": "O padrão exato a copiar deste exemplar." }
+        }
+      }
+    },
+    "reuses": { "type": "array", "items": { "type": "string" }, "description": "Packages/infra reusados (packages/ai-core, packages/oidc-kit, ...)." },
+    "scaffold_overlay": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "O que o bloco ADICIONA à base (sobrepõe, não substitui). Consumido pelo applier de scaffold (apply-capabilities.mjs).",
+      "properties": {
+        "adds_services": { "type": "array", "items": { "enum": ["frontend", "api", "api2", "worker"] } },
+        "adds_infra": { "type": "array", "items": { "type": "string" }, "description": "Dependências de infra (redis, postgres-pgvector, ...)." },
+        "adds_env": { "type": "array", "items": { "type": "string" }, "description": "Variáveis de ambiente que o bloco introduz." },
+        "adds_reuses": { "type": "array", "items": { "type": "string" } },
+        "notes": { "type": "string" }
+      }
+    },
+    "work_order_guidance": { "type": "string", "minLength": 20, "description": "Instrução injetada no work-order para o /implement-req implementar a capacidade SEGUINDO a referência (não do zero)." },
+    "verification": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Como provar que o bloco funciona. `method` reusa o enum canônico de verification_method dos requisitos.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["method", "assertion"],
+        "properties": {
+          "method": { "enum": ["test-unit", "test-integration", "test-e2e", "architecture-review", "deployment-policy-check", "manual-review", "monitoring", "demo"] },
+          "assertion": { "type": "string", "minLength": 5 }
+        }
+      }
+    },
+    "default_adrs": { "type": "array", "items": { "type": "string" }, "description": "ADRs sugeridos para a fase de arquitetura quando este bloco é selecionado." }
+  }
+}

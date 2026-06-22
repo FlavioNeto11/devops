@@ -1,0 +1,26 @@
+{
+  "id": "ia-grafo",
+  "title": "Assistente de IA pelo motor de grafo (@flavioneto11/ai-core)",
+  "description": "Assistente conversacional/assistivo construído sobre o motor de grafo da plataforma (createAiGraph: router → especialista deep com loop ReAct e tools R1 → judge/verify), com autorização por identidade, dry-run/confirmação em mutações e tools que LEEM o domínio antes de propor. Use quando a IA precisa raciocinar com ferramentas (buscar dados, citar fontes, propor um rascunho ou ação), não apenas completar texto. Reusa packages/ai-core; nunca heurística chumbada.",
+  "category": "ai",
+  "requires": ["structured-outputs"],
+  "conflicts_with": [],
+  "compatible_stacks": ["sicat", "gymops"],
+  "reference": [
+    { "stack": "platform", "path": "apps/reqhub/api/src/ai/graph.js", "note": "createAiGraph (router→deep→judge), extração de reply/draft/citations do evidence." },
+    { "stack": "platform", "path": "apps/reqhub/api/src/ai/tools.js", "note": "tools R1 no contrato AiTool (authorize por identidade, parameters JSON Schema, read-only)." },
+    { "stack": "platform", "path": "packages/ai-core/index.d.ts", "note": "createAiGraph, createToolRegistry, dispatchTool (risk/dryRun/authorization), createLlm." }
+  ],
+  "reuses": ["packages/ai-core"],
+  "scaffold_overlay": {
+    "adds_env": ["AI_PROVIDER", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"],
+    "adds_reuses": ["packages/ai-core"],
+    "notes": "Cria ai/{graph,tools,prompts} + rota de chat/assist; fail-closed sem chave (503)."
+  },
+  "work_order_guidance": "Implemente o assistente SEGUINDO o grafo do reqhub: createAiGraph com router→especialista deep (loop ReAct com tools R1 que LEEM o domínio)→judge; tools no contrato AiTool de ai-core com authorize por identidade; mutações em dry-run→preview→confirmação; reply/draft/citations saem em canais separados (texto vs evidence). Sem chave de IA → 503 (fail-closed). Decisão via reasoning, nunca mapa de sinônimos no código.",
+  "verification": [
+    { "method": "test-integration", "assertion": "turn é roteado; tool R1 é chamada; judge ≥ threshold; sem chave → 503" },
+    { "method": "demo", "assertion": "mutação proposta pela IA exige confirmação (dry-run) antes de efetivar" }
+  ],
+  "default_adrs": ["IA assistiva pelo motor de grafo @flavioneto11/ai-core (router→deep→judge), authz por identidade, dry-run em mutações"]
+}

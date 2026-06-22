@@ -62,6 +62,11 @@
       "type": "array",
       "items": { "enum": ["test-unit", "test-integration", "test-e2e", "architecture-review", "deployment-policy-check", "manual-review", "monitoring", "demo"] }
     },
+    "capability_blocks": {
+      "type": "array",
+      "description": "Blocos de capacidade do Forge que este requisito exercita (ids em specs/forge/capabilities/blocks/). Usado pelo make-work-order para injetar guidance/exemplars/verification no /implement-req. Opcional (ausente nos requisitos legados).",
+      "items": { "type": "string", "pattern": "^[a-z0-9-]+$" }
+    },
     "evidence_links": { "type": "array", "items": { "type": "string" }, "description": "Provas de verificação (caminhos de teste, dashboards, runs de CI)." },
     "quality_scenarios": {
       "type": "array",

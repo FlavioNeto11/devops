@@ -1,0 +1,26 @@
+{
+  "id": "redis-bullmq",
+  "title": "Filas com Redis + BullMQ (jobs nomeados, estado de curta duração)",
+  "description": "Processamento assíncrono baseado em Redis/BullMQ com filas nomeadas (recorrência, importação, notificação, sumário-IA), retry/backoff por fila, degradação graciosa para execução inline quando não há Redis configurado. Use no estilo GymOps quando há muitas filas de domínio com ciclo de vida curto, agendamento e concorrência elevada, e o estado da fila não precisa ser transacional com o banco de negócio.",
+  "category": "async",
+  "requires": [],
+  "conflicts_with": ["worker-queue-transacional"],
+  "compatible_stacks": ["gymops"],
+  "reference": [
+    { "stack": "gymops", "path": "apps/gymops/apps/api/src/lib/queues.ts", "note": "definição de filas nomeadas BullMQ + enqueue tipado + fallback sem Redis." },
+    { "stack": "gymops", "path": "apps/gymops/apps/api/src/lib/redis.ts", "note": "conexão Redis singleton com degradação graciosa." },
+    { "stack": "gymops", "path": "apps/gymops/apps/api/src/workers/import-worker.ts", "note": "consumidor de fila com retry/backoff e progresso." }
+  ],
+  "reuses": [],
+  "scaffold_overlay": {
+    "adds_services": ["worker"],
+    "adds_infra": ["redis"],
+    "adds_env": ["REDIS_URL"],
+    "notes": "Adiciona dependência Redis (Deployment+Service) + worker BullMQ (node dist/worker-process.js)."
+  },
+  "work_order_guidance": "Implemente as filas SEGUINDO o padrão GymOps: filas nomeadas em lib/queues.ts, conexão única em lib/redis.ts com fallback inline (setImmediate) quando REDIS_URL ausente, workers em workers/*-worker.ts com retry/backoff por fila. Não persista o estado da fila no banco de negócio (é de curta duração no Redis).",
+  "verification": [
+    { "method": "test-integration", "assertion": "enfileira e consome um job pela fila Redis; sem REDIS_URL cai no fallback inline sem erro" }
+  ],
+  "default_adrs": ["Filas: Redis + BullMQ com filas nomeadas por domínio e degradação graciosa sem Redis"]
+}
