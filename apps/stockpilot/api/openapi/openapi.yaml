@@ -369,6 +369,65 @@ paths:
               example:
                 error:
                   message: produto não encontrado
+    put:
+      operationId: updateProduct
+      tags:
+        - Products
+      summary: Atualiza um produto (nome, sku, estoques)
+      description: >-
+        Edita o cadastro do produto (nome, SKU, estoque atual, estoque mínimo).
+        Escopado por tenant: produto inexistente ou de outro tenant retorna 404.
+        Aceita atualização parcial (apenas os campos enviados são alterados).
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - $ref: '#/components/parameters/TenantHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+            example:
+              name: Álcool 70% — galão 5L
+              sku: ALC-70-5L
+              current_stock: 10
+              min_stock: 50
+      responses:
+        '200':
+          description: Produto atualizado (com status derivado e has_open_order)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+              example:
+                id: 1
+                name: Álcool 70% — galão 5L
+                sku: ALC-70-5L
+                current_stock: 10
+                min_stock: 50
+                has_open_order: false
+                last_order_date: null
+                status: RUPTURA
+        '400':
+          description: Campos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  message: name obrigatório
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Produto não encontrado (inexistente ou de outro tenant)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  message: produto não encontrado
   /v1/products/{id}/order:
     post:
       operationId: createProductOrder
@@ -1239,6 +1298,28 @@ components:
         updated_at:
           type: string
           format: date-time
+    ProductInput:
+      type: object
+      description: Campos editáveis de um produto (PUT /v1/products/{id}). Aceita atualização parcial.
+      properties:
+        name:
+          type: string
+          maxLength: 120
+          description: Nome do produto (obrigatório no PUT completo).
+        sku:
+          type:
+            - string
+            - 'null'
+          maxLength: 64
+          description: Código interno ou SKU (opcional).
+        current_stock:
+          type: integer
+          minimum: 0
+          description: Estoque atual em unidades.
+        min_stock:
+          type: integer
+          minimum: 0
+          description: Estoque mínimo (gatilho de reposição automática).
     Product:
       type: object
       description: Produto de estoque com status derivado.
@@ -1253,6 +1334,11 @@ components:
           type: integer
         name:
           type: string
+        sku:
+          type:
+            - string
+            - 'null'
+          description: Código interno ou SKU (opcional).
         current_stock:
           type: integer
         min_stock:

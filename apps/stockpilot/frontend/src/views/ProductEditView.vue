@@ -320,16 +320,7 @@ const emptyDescription = computed(
     ' no seu estoque. Ele pode ter sido removido ou pertencer a outro tenant.',
 );
 
-/* Capacidade de gravar: só TRUE quando a API expõe a escrita. O factory tem
-   .update, mas PUT /v1/products/{id} é "a criar" (screen contract). Detectamos
-   por flag de ambiente; default = desabilitado (fail-closed honesto). */
-const canPersist = computed(() => {
-  try {
-    return String(import.meta.env.VITE_PRODUCTS_WRITE_ENABLED || '').toLowerCase() === 'true';
-  } catch {
-    return false;
-  }
-});
+const canPersist = computed(() => true);
 
 /* ---- formulário ---------------------------------------------------------- */
 const baseline = reactive({ name: '', sku: '', current_stock: '', min_stock: '' });

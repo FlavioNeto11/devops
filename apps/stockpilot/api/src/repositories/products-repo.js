@@ -36,7 +36,7 @@ export async function findById(id, tenant, db = pool) {
 export async function getDetail(id, tenant, db = pool) {
   const { rows } = await db.query(`
     SELECT
-      p.id, p.name, p.current_stock, p.min_stock, p.created_at, p.updated_at,
+      p.id, p.name, p.sku, p.current_stock, p.min_stock, p.created_at, p.updated_at,
       (SELECT MAX(po.created_at) FROM product_orders po WHERE po.product_id = p.id AND po.tenant_id = p.tenant_id) AS last_order_date,
       EXISTS(
         SELECT 1 FROM product_orders po WHERE po.product_id = p.id AND po.tenant_id = p.tenant_id AND po.status IN ('pending','processing')
@@ -84,6 +84,51 @@ export async function listBelowMinimumAllTenants(db = pool) {
     ORDER BY p.tenant_id, p.id
   `);
   return rows;
+}
+
+export function validate(body, { partial = false } = {}) {
+  const errs = [];
+  if (!partial || body.name !== undefined) {
+    if (!body.name || typeof body.name !== 'string' || !body.name.trim()) errs.push('name obrigatório');
+    else if (body.name.trim().length > 120) errs.push('name muito longo (máx. 120)');
+  }
+  if (body.sku !== undefined && body.sku !== null && body.sku !== '') {
+    if (typeof body.sku !== 'string') errs.push('sku deve ser string');
+    else if (body.sku.length > 64) errs.push('sku muito longo (máx. 64)');
+  }
+  if (!partial || body.current_stock !== undefined) {
+    const cs = Number(body.current_stock);
+    if (body.current_stock === undefined || body.current_stock === null || body.current_stock === '') errs.push('current_stock obrigatório');
+    else if (!Number.isInteger(cs) || cs < 0) errs.push('current_stock deve ser inteiro não-negativo');
+  }
+  if (!partial || body.min_stock !== undefined) {
+    const ms = Number(body.min_stock);
+    if (body.min_stock === undefined || body.min_stock === null || body.min_stock === '') errs.push('min_stock obrigatório');
+    else if (!Number.isInteger(ms) || ms < 0) errs.push('min_stock deve ser inteiro não-negativo');
+  }
+  return errs;
+}
+
+export async function update(id, body, tenant, db = pool) {
+  const existing = await findById(id, tenant, db);
+  if (!existing) return null;
+  const name = body.name !== undefined ? String(body.name).trim() : existing.name;
+  const sku = body.sku !== undefined ? (body.sku ? String(body.sku).trim() : null) : (existing.sku || null);
+  const current_stock = body.current_stock !== undefined ? Number(body.current_stock) : existing.current_stock;
+  const min_stock = body.min_stock !== undefined ? Number(body.min_stock) : existing.min_stock;
+  const { rows } = await db.query(
+    `UPDATE products SET name=$1, sku=$2, current_stock=$3, min_stock=$4, updated_at=now()
+     WHERE id=$5 AND tenant_id=$6 RETURNING *`,
+    [name, sku, current_stock, min_stock, id, tenant],
+  );
+  const updated = rows[0];
+  if (!updated) return null;
+  const { rows: orows } = await db.query(
+    `SELECT 1 FROM product_orders WHERE product_id=$1 AND tenant_id=$2 AND status IN ('pending','processing') LIMIT 1`,
+    [id, tenant],
+  );
+  const has_open_order = orows.length > 0;
+  return { ...updated, has_open_order, status: computeStatus({ ...updated, has_open_order }) };
 }
 
 export async function listAlerts(tenant, db = pool) {

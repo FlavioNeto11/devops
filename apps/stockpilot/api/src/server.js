@@ -50,6 +50,16 @@ app.get('/v1/products/:id', requireAuth, wrap(async (req, res) => {
   res.json({ product, orders, alerts });
 }));
 
+// Edição de produto (REF-STOCKPILOT-0005): atualiza nome, sku, estoque atual e mínimo.
+// Escopado por tenant (cross-tenant → 404). Valida antes de persistir (erros → 400).
+app.put('/v1/products/:id', requireAuth, wrap(async (req, res) => {
+  const errs = productsRepo.validate(req.body || {}, { partial: true });
+  if (errs.length) return res.status(400).json({ error: { message: errs.join('; ') } });
+  const r = await productsRepo.update(Number(req.params.id), req.body || {}, req.tenant);
+  if (!r) return res.status(404).json({ error: { message: 'produto não encontrado' } });
+  res.json(r);
+}));
+
 // Criação de pedido manual para um produto
 app.post('/v1/products/:id/order', requireAuth, wrap(async (req, res) => {
   const product = await productsRepo.findById(Number(req.params.id), req.tenant);
