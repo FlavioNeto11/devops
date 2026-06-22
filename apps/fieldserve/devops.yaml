@@ -1,0 +1,38 @@
+app: { name: fieldserve, namespace: apps, host: nvit.localhost, basePath: /fieldserve }
+# Gerado pela FORGE 2.0 como prova de sistema ROBUSTO (worker+fila transacional, gateway externo,
+# idempotência, observabilidade) — não só CRUD. Blocos resolvidos em .forge/applied-capabilities.json.
+services:
+  api:
+    type: api
+    path: /api
+    image: ghcr.io/flavioneto11/fieldserve/api
+    port: 8080
+    expose: true
+    stripPrefix: true
+    priority: 40
+    health: { path: /health }
+    env:
+      EXTERNAL_BASE_URL: http://fieldserve-mock-central:8090
+      METRICS_PORT: "9464"
+      AUTO_MIGRATE: "true"
+      AUTO_SEED: "true"
+  worker:
+    type: worker
+    image: ghcr.io/flavioneto11/fieldserve/api
+    port: 9464
+    expose: false
+    command: ["npm", "run", "worker"]
+capabilities: # resolvidos pela Forge (specs/products/fieldserve/product.json -> apply-capabilities.mjs)
+  - camadas-rigidas
+  - migrations-versionadas
+  - observabilidade
+  - worker-queue-transacional
+  - gateway-externo
+  - idempotencia
+  - structured-outputs
+  - ia-grafo
+  - oidc-sessao
+observability:
+  metricsPort: 9464
+  serviceMonitor: true
+  prometheusRule: true

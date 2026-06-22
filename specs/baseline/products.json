@@ -28,6 +28,29 @@
           "status": "not_started"
         }
       }
+    },
+    {
+      "name": "fieldserve",
+      "display_name": "FieldServe — Ordens de Serviço de Campo",
+      "base_path": "/fieldserve",
+      "blueprint": "node-api-vue-spa",
+      "vision": "Plataforma de gestão de ordens de serviço de campo (field-service ops): empresas registram ativos e técnicos, abrem ordens de serviço e as SUBMETEM de forma ASSÍNCRONA a uma central externa (gateway) com retentativa, com um assistente de IA que triagem/prioriza chamados. Gerado pela Forge como PROVA de que a esteira gera sistemas robustos (worker+fila transacional, gateway externo, IA, observabilidade), não só CRUD.",
+      "app_type": "product_software",
+      "requirement_ids": [],
+      "phases": {
+        "requirements": {
+          "status": "approved"
+        },
+        "architecture": {
+          "status": "approved"
+        },
+        "scaffold": {
+          "status": "not_started"
+        },
+        "build": {
+          "status": "not_started"
+        }
+      }
     }
   ]
 }
