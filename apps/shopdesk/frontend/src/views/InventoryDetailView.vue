@@ -30,6 +30,11 @@
         @click="refresh"
       >Atualizar</UiButton>
       <UiButton
+        variant="subtle"
+        :disabled="!item"
+        :to="item ? '/inventory/' + item.id + '/edit' : undefined"
+      >Editar</UiButton>
+      <UiButton
         variant="primary"
         :disabled="!item"
         @click="openReorder"

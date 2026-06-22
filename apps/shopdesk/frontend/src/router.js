@@ -18,6 +18,7 @@ import CartDetailView from './views/CartDetailView.vue';
 import InventoryListView from './views/InventoryListView.vue';
 import InventoryDetailView from './views/InventoryDetailView.vue';
 import InventoryAdjustView from './views/InventoryAdjustView.vue';
+import InventoryEditView from './views/InventoryEditView.vue';
 import ReorderListView from './views/ReorderListView.vue';
 import ReorderCreateView from './views/ReorderCreateView.vue';
 import ReorderDetailView from './views/ReorderDetailView.vue';
@@ -62,6 +63,7 @@ export const routes = [
   // domínio de estoque (inventory) — recurso real api.inventory (/v1/inventory).
   { path: '/inventory', name: 'inventory', component: InventoryListView },
   { path: '/inventory/:id', name: 'inventory-item', component: InventoryDetailView, props: true },
+  { path: '/inventory/:id/edit', name: 'inventory-edit', component: InventoryEditView, props: true },
   { path: '/inventory/:id/adjust', name: 'inventory-adjust', component: InventoryAdjustView, props: true },
   // domínio de reposição (reorders) — recurso real api.reorders (/v1/reorders).
   { path: '/reorders', name: 'reorders', component: ReorderListView },
