@@ -8,6 +8,7 @@ import * as ordersRepo from './repositories/orders-repo.js';
 import * as gatewayAuditRepo from './repositories/gateway-audit-repo.js';
 import * as notificationsRepo from './repositories/notifications-repo.js';
 import { requestReorder } from './services/reorder-service.js';
+import { suggestReorder } from './services/ai-suggest-service.js';
 import { requireAuth } from './lib/auth-context.js';
 const app = express(); app.use(express.json());
 app.use((req, _res, next) => { req.tenantId = Number(req.header('X-Tenant-Id')) || 1; next(); });
@@ -40,6 +41,15 @@ app.post('/v1/products/:id/reorder', requireAuth, wrap(async (req, res) => {
   const result = await requestReorder(Number(req.params.id), req.tenant);
   if (!result.ok) return res.status(404).json({ error: { message: 'produto não encontrado' } });
   res.status(result.created ? 201 : 200).json({ order: result.order, deduped: result.deduped, enqueued: result.jobId != null || result.deduped });
+}));
+
+// Assistente de IA (REQ-STOCKPILOT-0008): SUGERE a quantidade de reposição de um produto, GROUNDED
+// nos dados REAIS (estoque + histórico de pedidos do tenant). DRY-RUN: só sugere — NÃO cria pedido nem
+// altera estado (o operador confirma via /reorder). Saída ESTRUTURADA validada por schema (fail-closed:
+// IA sem JSON válido → AppError 502). SEM ANTHROPIC_API_KEY → 503 claro, o resto do app intacto.
+app.post('/v1/products/:id/suggest-reorder', requireAuth, wrap(async (req, res) => {
+  const result = await suggestReorder(Number(req.params.id), req.tenant);
+  res.json(result);
 }));
 
 // Pedidos abertos (pending/processing)

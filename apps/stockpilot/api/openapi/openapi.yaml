@@ -28,6 +28,10 @@ tags:
     description: Trilha sanitizada das trocas com o fornecedor externo (segredos redigidos).
   - name: Notifications
     description: Notificações multi-canal por evento (ruptura/falha_pedido) com desfecho por canal.
+  - name: AI
+    description: >-
+      Assistente de IA que SUGERE a quantidade de reposição (grounded nos dados reais do produto +
+      histórico). Saída estruturada validada por schema; DRY-RUN (não cria pedido nem altera estado).
 paths:
   /:
     get:
@@ -368,6 +372,75 @@ paths:
               example:
                 error:
                   message: produto não encontrado
+  /v1/products/{id}/suggest-reorder:
+    post:
+      operationId: suggestReorder
+      tags:
+        - AI
+        - Products
+      summary: Assistente de IA — sugere a quantidade de reposição (DRY-RUN)
+      description: >-
+        Usa a IA (Claude via @anthropic-ai/sdk) para SUGERIR a quantidade de
+        reposição de um produto, fundamentada (grounded) nos dados REAIS — estoque
+        atual/mínimo e o histórico recente de pedidos do tenant (RAG-lite sobre o
+        banco). A saída é ESTRUTURADA e validada por schema; saída inválida retorna
+        erro estruturado (fail-closed). DRY-RUN: a sugestão NÃO cria pedido nem
+        altera estado — o operador confirma (via /reorder). Sem ANTHROPIC_API_KEY
+        configurada, retorna 503 (fail-closed) sem afetar o resto do app.
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200':
+          description: Sugestão (rascunho) gerada — requer confirmação do operador
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReorderSuggestionResult'
+              example:
+                product:
+                  id: 1
+                  name: Álcool 70%
+                  current_stock: 5
+                  min_stock: 50
+                suggestion:
+                  suggested_quantity: 60
+                  rationale: Estoque 5 está abaixo do mínimo 50; repor para operar com folga.
+                  confidence: medium
+                  sources:
+                    - estoque_atual=5 unidades
+                    - estoque_minimo=50 unidades
+                applied: false
+                model: claude-haiku-4-5-20251001
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Produto não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  message: produto não encontrado
+        '502':
+          description: IA retornou saída fora do schema esperado (fail-closed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  message: 'IA retornou saída fora do schema esperado: suggested_quantity deve ser inteiro >= 0'
+        '503':
+          description: Assistente de IA indisponível (ANTHROPIC_API_KEY não configurada)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  message: 'assistente de IA indisponível: ANTHROPIC_API_KEY não configurada'
   /v1/orders:
     get:
       operationId: listOpenOrders
@@ -718,6 +791,73 @@ components:
         created_at:
           type: string
           format: date-time
+    ReorderSuggestion:
+      type: object
+      description: >-
+        Sugestão estruturada do assistente de IA (validada por schema; fail-closed).
+        É um RASCUNHO — não cria pedido nem altera estado.
+      required:
+        - suggested_quantity
+        - rationale
+        - confidence
+      properties:
+        suggested_quantity:
+          type: integer
+          minimum: 0
+          description: Quantidade sugerida de reposição.
+        rationale:
+          type: string
+          description: Justificativa curta (1 frase) fundamentada nos dados reais.
+        confidence:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+        sources:
+          type: array
+          description: Trechos dos dados reais citados (estoque/mínimo/histórico) — grounding.
+          items:
+            type: string
+    ReorderSuggestionResult:
+      type: object
+      description: >-
+        Resposta do assistente de IA (DRY-RUN). `applied` é sempre false — a sugestão
+        precisa de confirmação do operador antes de virar pedido.
+      required:
+        - suggestion
+        - applied
+      properties:
+        product:
+          type: object
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+            current_stock:
+              type: integer
+            min_stock:
+              type: integer
+        suggestion:
+          $ref: '#/components/schemas/ReorderSuggestion'
+        grounding:
+          type: object
+          description: Resumo do contexto usado (histórico) e fontes citáveis.
+          properties:
+            history_summary:
+              type: object
+              additionalProperties: true
+            sources:
+              type: array
+              items:
+                type: string
+        applied:
+          type: boolean
+          description: Sempre false (dry-run) — o operador confirma para efetivar.
+        model:
+          type: string
+          description: Modelo de IA usado (ex. claude-haiku-4-5-20251001).
     ReorderResult:
       type: object
       description: Resultado de uma reposição (cria ou devolve o pedido aberto existente).
