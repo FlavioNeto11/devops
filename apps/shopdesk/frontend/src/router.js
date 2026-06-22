@@ -21,6 +21,7 @@ import InventoryAdjustView from './views/InventoryAdjustView.vue';
 import ReorderListView from './views/ReorderListView.vue';
 import ReorderCreateView from './views/ReorderCreateView.vue';
 import ReorderDetailView from './views/ReorderDetailView.vue';
+import ReorderEditView from './views/ReorderEditView.vue';
 import TransactionListView from './views/TransactionListView.vue';
 import InvoiceListView from './views/InvoiceListView.vue';
 import InvoiceEmitView from './views/InvoiceEmitView.vue';
@@ -67,6 +68,7 @@ export const routes = [
   { path: '/reorders', name: 'reorders', component: ReorderListView },
   { path: '/reorders/new', name: 'reorder-new', component: ReorderCreateView },
   { path: '/reorders/:id', name: 'reorder', component: ReorderDetailView, props: true },
+  { path: '/reorders/:id/edit', name: 'reorder-edit', component: ReorderEditView, props: true },
   // transações de pagamento — leitura via api.transactions (defensiva na view).
   { path: '/transactions', name: 'transactions', component: TransactionListView },
   // domínio fiscal (NF-e) — backend REAL expõe só POST /v1/invoices (emissão/reemissão via

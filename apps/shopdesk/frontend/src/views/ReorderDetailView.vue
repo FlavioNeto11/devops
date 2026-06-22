@@ -23,6 +23,11 @@
       <UiButton
         v-if="reorder"
         variant="subtle"
+        :to="'/reorders/' + reorderId + '/edit'"
+      >Editar</UiButton>
+      <UiButton
+        v-if="reorder"
+        variant="subtle"
         :disabled="!canRequest || actionBusy"
         :loading="requestBusy"
         @click="confirmRequest"
