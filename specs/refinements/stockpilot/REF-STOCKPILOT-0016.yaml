@@ -1,0 +1,55 @@
+id: REF-STOCKPILOT-0016
+slug: ref-stockpilot-0016
+title: "Detalhe do fornecedor"
+kind: screen
+status: approved
+
+scope:
+  product_scope: stockpilot
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-STOCKPILOT-0004
+    relation: implements
+
+surface:
+  route: "/suppliers/:id"
+  name: "Detalhe do fornecedor"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+    - name: loading
+    - name: empty
+    - name: error
+  data:
+    - field: "supplier"
+      source: "api:/suppliers/:id"
+      editable: false
+      format: "ficha completa do fornecedor"
+    - field: "orders"
+      source: "api:/suppliers/:id/orders"
+      editable: false
+      format: "pedidos de reposicao vinculados ao fornecedor"
+    - field: "audit_trail"
+      source: "api:/audit?supplier=:id"
+      editable: false
+      format: "trilha de auditoria do fornecedor"
+  interactions:
+    - trigger: "abrir /suppliers/:id"
+      action: "carrega a ficha do fornecedor"
+      result: "renderiza dados, pedidos e trilha de auditoria"
+    - trigger: "clicar em Editar"
+      action: "navega para /suppliers/:id/edit"
+      result: "abre o formulario de edicao"
+
+source:
+  source_paths:
+    - specs/products/stockpilot/product.json
+    - apps/stockpilot/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

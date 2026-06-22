@@ -1,0 +1,55 @@
+id: REF-STOCKPILOT-0020
+slug: ref-stockpilot-0020
+title: "Assistente de reposicao (IA)"
+kind: screen
+status: approved
+
+scope:
+  product_scope: stockpilot
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-STOCKPILOT-0008
+    relation: implements
+
+surface:
+  route: "/assistant"
+  name: "Assistente de reposicao (IA)"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+    - name: loading
+    - name: empty
+    - name: error
+  data:
+    - field: "suggestions"
+      source: "api:/assistant/suggestions"
+      editable: false
+      format: "sugestoes de reposicao fundamentadas (grounded, dry-run)"
+    - field: "rationale"
+      source: "api:/assistant/suggestions"
+      editable: false
+      format: "justificativa com sinais de estoque e demanda"
+    - field: "prompt"
+      source: "ui:form"
+      editable: true
+      format: "pergunta do operador ao assistente"
+  interactions:
+    - trigger: "abrir /assistant"
+      action: "solicita sugestoes de reposicao a IA (dry-run, fail-closed)"
+      result: "renderiza sugestoes e justificativas fundamentadas"
+    - trigger: "clicar em Aplicar sugestao"
+      action: "cria pedido de reposicao com a quantidade sugerida"
+      result: "abre o pedido criado"
+
+source:
+  source_paths:
+    - specs/products/stockpilot/product.json
+    - apps/stockpilot/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

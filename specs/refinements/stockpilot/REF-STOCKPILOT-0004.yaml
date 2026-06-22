@@ -1,0 +1,62 @@
+id: REF-STOCKPILOT-0004
+slug: ref-stockpilot-0004
+title: "Detalhe do produto"
+kind: screen
+status: approved
+
+scope:
+  product_scope: stockpilot
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-STOCKPILOT-0005
+    relation: implements
+  - requirement_id: REQ-STOCKPILOT-0003
+    relation: relates_to
+  - requirement_id: REQ-STOCKPILOT-0008
+    relation: relates_to
+
+surface:
+  route: "/products/:id"
+  name: "Detalhe do produto"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+    - name: loading
+    - name: empty
+    - name: error
+  data:
+    - field: "product"
+      source: "api:/products/:id"
+      editable: false
+      format: "ficha completa do produto"
+    - field: "stock_status"
+      source: "api:/products/:id"
+      editable: false
+      format: "sinal de status (OK/ALERTA/RUPTURA)"
+    - field: "reorder_history"
+      source: "api:/products/:id/orders"
+      editable: false
+      format: "historico de pedidos de reposicao"
+  interactions:
+    - trigger: "abrir /products/:id"
+      action: "carrega a ficha do produto"
+      result: "renderiza dados, status e historico"
+    - trigger: "clicar em Editar"
+      action: "navega para o formulario de edicao"
+      result: "abre /products/:id/edit"
+    - trigger: "clicar em Sugerir reposicao"
+      action: "navega para a sugestao de IA"
+      result: "abre /products/:id/suggest"
+
+source:
+  source_paths:
+    - specs/products/stockpilot/product.json
+    - apps/stockpilot/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

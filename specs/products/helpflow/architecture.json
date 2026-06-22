@@ -1,0 +1,237 @@
+{
+  "stack_rationale": "HelpFlow é um sistema CRUD de helpdesk com autenticação OIDC, processamento assíncrono robusto, integração com sistemas externos e base de conhecimento vetorial. A stack SICAT (Node API + Vue SPA) é ideal: suporta contract-first OpenAPI para API auditável, worker-queue-transacional para jobs resilientes, gateway-externo para integrações centralizadas, rag-pgvector para busca semântica em artigos, ia-grafo com estruturas validadas para assistente conversacional, e design-system para frontend unificado. GymOps seria overkill (multi-tenant RBACs em cascata + Redis BullMQ + notificações multi-canal) não mencionadas nos requisitos.",
+  "adrs": [
+    {
+      "title": "ADR-001: Stack SICAT para HelpFlow",
+      "decision": "Escolher node-api-vue-spa (stack SICAT) em vez de gymops-style",
+      "rationale": "HelpFlow é helpdesk CRUD com autenticação corporativa, processamento assíncrono de longa duração, integração com sistemas externos e busca semântica em base de conhecimento — requisitos naturais de SICAT. GymOps é otimizado para multi-tenant em cascata com filas Redis de curta duração e notificações multi-canal, não mencionadas nos requisitos. SICAT oferece contract-first OpenAPI, worker-queue-transacional Postgres, gateway-externo centralizado, rag-pgvector e ia-grafo — todos críticos para HelpFlow.",
+      "blocks": [
+        "oidc-sessao",
+        "rbac-multitenant",
+        "contract-openapi",
+        "worker-queue-transacional",
+        "gateway-externo",
+        "rag-pgvector",
+        "ia-grafo"
+      ],
+      "cites": [
+        "Monorepo Node API + Vue SPA (SICAT): API Node + SPA Vue para CRUD com Postgres, suporta worker-queue-transacional, gateway-externo, contract-openapi, rag-pgvector, ia-grafo, structured-outputs, control-ai-por-app",
+        "GymOps é para multi-tenant em cascata com Redis BullMQ + rbac-multitenant + notificações-multicanal — não alinhado com requisitos de HelpFlow"
+      ]
+    },
+    {
+      "title": "ADR-002: Arquitetura em Camadas Rígidas + Migrations Versionadas",
+      "decision": "Implementar camadas-rigidas (route → service → repository → worker → gateway) com migrations-versionadas + seed",
+      "rationale": "Fundação de robustez: camadas rígidas tornam o sistema auditável e testável, separam responsabilidades (rotas HTTP vs regra vs SQL vs trabalho async vs I/O externo) e são pré-requisito para fila transacional, gateway e idempotência. Migrations versionadas no Postgres (SQL em src/sql) com advisory-lock no boot garantem evolução segura do schema e reprodutibilidade de dados (seed com categorias, prioridades padrão).",
+      "blocks": [
+        "camadas-rigidas",
+        "migrations-versionadas"
+      ],
+      "cites": [
+        "camadas-rigidas: Separação estrita de responsabilidades — rotas só mapeiam HTTP, toda regra em services, todo SQL em repositories, trabalho async em workers, I/O externo em gateways. Nenhuma rota acessa banco ou rede. Pré-requisito de sistema robusto.",
+        "migrations-versionadas: SQL versionado em src/sql, advisory-lock no boot, seed reproduzível. Base para evoluir schema sem corromper dados."
+      ]
+    },
+    {
+      "title": "ADR-003: Processamento Assíncrono Idempotente com Worker + Fila Transacional",
+      "decision": "Usar worker-queue-transacional (Postgres FOR UPDATE SKIP LOCKED) + idempotencia (Idempotency-Key/job_key) para operações longas",
+      "rationale": "HelpFlow precisa submeter dados a sistemas externos (ERP, gateway), gerar documentos e sincronizar catálogos de forma confiável. Worker-queue-transacional no Postgres (mesma imagem da API) com claim FOR UPDATE SKIP LOCKED, retry exponencial, DLQ e heartbeat oferece resiliência sem broker externo. Idempotência por job_key + Idempotency-Key no cliente garante um único efeito mesmo com retries — crítico para POST ticket/comentário.",
+      "blocks": [
+        "worker-queue-transacional",
+        "idempotencia"
+      ],
+      "cites": [
+        "worker-queue-transacional: Jobs na tabela Postgres, worker (mesma imagem API) com FOR UPDATE SKIP LOCKED, retry/backoff, DLQ, heartbeat, graceful shutdown. Sem broker externo.",
+        "idempotencia: Idempotency-Key no request, job_key na fila. Repetir mesma operação = um único efeito — crítico com retry."
+      ]
+    },
+    {
+      "title": "ADR-004: Contract-First OpenAPI para Superfície HTTP Auditável",
+      "decision": "Definir OpenAPI canônico versionado, gerar tipos/operações via gen:operations, validar no CI (validate:openapi)",
+      "rationale": "HelpFlow é API CRUD que será integrada por terceiros (dashboards, bots, integrações). Contract-first OpenAPI garante estabilidade do contrato: mudanças (rotas, parâmetros, schemas) ocorrem em lockstep (OpenAPI → exemplos → tipos → rotas → testes). Modelos de domínio (Ticket, Comentário, Artigo, Categoria, Prioridade) são definidos no OpenAPI e reutilizados no código gerado.",
+      "blocks": [
+        "contract-openapi"
+      ],
+      "cites": [
+        "contract-openapi: Superfície HTTP definida primeiro em OpenAPI, tipos/operações gerados via gen:operations, validação no CI. Mudança em lockstep: OpenAPI → exemplos → tipos gerados → rotas → testes no mesmo PR."
+      ]
+    },
+    {
+      "title": "ADR-005: Gateway Externo Centralizado para Integrações",
+      "decision": "Centralizar toda chamada HTTP externa (ERP, notificação, base remota) numa camada gateway única",
+      "rationale": "HelpFlow integra-se com múltiplos sistemas externos (ERP para categorias, gateway de notificação, base de conhecimento remota). Gateway externo oferece um ponto único para timeout, retry com backoff, redação de segredos no log, erros tipados (AppError) e trilha de auditoria. Services chamam gateways (nunca rotas chamam direto), e resultados são persistidos ou enfileirados. Exemplo: sincronizar categorias de ERP via job na fila.",
+      "blocks": [
+        "gateway-externo"
+      ],
+      "cites": [
+        "gateway-externo: Camada gateway única para HTTP de terceiros. Timeout, retry com backoff, redação de segredos, erros tipados (AppError), auditoria. Routes nunca chamam externo direto — apenas services via gateways."
+      ]
+    },
+    {
+      "title": "ADR-006: OIDC/Keycloak + RBAC Multi-Tenant para Autorização",
+      "decision": "Autenticar via OIDC (Keycloak realm nvit), emitir sessão JWT do app, escopar acesso por tenant + papel com deny padrão",
+      "rationale": "HelpFlow serve múltiplas organizações (tenants). OIDC/Keycloak fornece SSO corporativo; o app emite sessão própria (JWT curto) por cima. RBAC multi-tenant isola dados por tenant_id (toda tabela, toda query), controla acesso por papel (owner, org_manager, unit_manager, area_leader, assignee) em cascata e aplica deny por padrão fora do escopo. Soft-delete preserva auditoria.",
+      "blocks": [
+        "oidc-sessao",
+        "rbac-multitenant"
+      ],
+      "cites": [
+        "oidc-sessao: Login OIDC (Keycloak realm nvit) + sessão JWT do app. Backend valida /userinfo, emite JWT curto; frontend faz PKCE. Reusa packages/oidc-kit.",
+        "rbac-multitenant: Isolamento por tenant (tenant_id em tabelas, queries escopadas), papéis em cascata (owner > org_manager > ...), deny por padrão, soft-delete."
+      ]
+    },
+    {
+      "title": "ADR-007: RAG com pgvector para Base de Conhecimento Vetorial",
+      "decision": "Indexar Artigos com embeddings (pgvector) no Postgres, recuperar top-K por similaridade semântica, fundamentar respostas com citações",
+      "rationale": "HelpFlow precisa sugerir respostas a tickets citando artigos da base de conhecimento. RAG com pgvector mantém embeddings no Postgres, recupera top-K artigos por similaridade (sem IA remota no retrieval) e usa ai-core (createPgVectorStore/createEmbedder/createReranker) para fundamentar respostas. Artigos são fatiados (chunking), embeddados e reindexados quando atualizados. Recusa responder quando não há fonte.",
+      "blocks": [
+        "rag-pgvector"
+      ],
+      "cites": [
+        "rag-pgvector: Embeddings no Postgres (pgvector), consultas recuperam top-K por similaridade semântica, fundamentam com citações, recusam sem fonte. Reusa packages/ai-core (createPgVectorStore/createEmbedder/createReranker). Artigos fatiados, embeddados, reindexados."
+      ]
+    },
+    {
+      "title": "ADR-008: Assistente IA com Motor de Grafo, Tools e Saídas Estruturadas",
+      "decision": "Implementar assistente via ia-grafo (ai-core: createAiGraph, router → especialista + ReAct), structured-outputs (JSON validado) e control-ai-por-app (prompts versionados, fallback offline)",
+      "rationale": "HelpFlow precisa de IA para classificar tickets, propor respostas com citações e raciocinar com tools (buscar tickets similares, recuperar artigos, listar categorias). Motor de grafo (ai-core: createAiGraph) oferece router, especialista deep com loop ReAct, judge/verify e tools R1 que LEEM o domínio antes de propor. Saídas estruturadas (structured-outputs: JSON + schema) validam classificação/rascunho. Control-ai-por-app mantém prompts versionados no repo com fallback offline se control plane sair — fail-closed sem chave de IA.",
+      "blocks": [
+        "ia-grafo",
+        "structured-outputs",
+        "control-ai-por-app"
+      ],
+      "cites": [
+        "ia-grafo: Assistente via motor de grafo (@flavioneto11/ai-core: createAiGraph, router → especialista deep + ReAct + judge/verify), autorização por identidade, dry-run/confirmação em mutações, tools que LEEM domínio antes de propor.",
+        "structured-outputs: JSON validado contra schema, jsonMode + parse estrito. Classificação/rascunho são objetos validados — saída inválida = erro estruturado. Rascunhos exigem confirmação.",
+        "control-ai-por-app: Grafo de IA próprio + prompts versionados do control plane com timeout/cache/fallback offline para prompt no repo, fail-closed sem chave. Resiliente se control plane sair."
+      ]
+    },
+    {
+      "title": "ADR-009: Design System Unificado no Frontend Vue SPA",
+      "decision": "Herdar tokens de design, componentes e navegação da plataforma via design-system (packages/design-tokens + packages/platform-shell)",
+      "rationale": "Frontend Vue SPA reutiliza design system da plataforma: tokens gerados via codegen-sync (build-time, nunca customizar .generated.css), componentes reusáveis de shell (padrão plataforma), Tailwind acoplado. Painel de tickets, modal novo ticket, listagem de artigos usam componentes de shell — tema/acessibilidade herdados por padrão. Evita reinventar CSS e mantém identidade visual consistente.",
+      "blocks": [
+        "design-system"
+      ],
+      "cites": [
+        "design-system: Tokens únicos (packages/design-tokens, codegen-sync), componentes reusáveis (packages/platform-shell), CSS gerado acoplado ao Tailwind. Painel de tickets, modal reutilizam shell. Tema/acessibilidade herdados."
+      ]
+    },
+    {
+      "title": "ADR-010: Observabilidade Nativa (Health, Métricas, SLO, Grafana)",
+      "decision": "Bloco DEFAULT observabilidade: health checks estruturados, métricas Prometheus (:9464), ServiceMonitor, SLO (p95, taxa erro, saturação fila), dashboard Grafana",
+      "rationale": "Toda aplicação SICAT nasce observável. HelpFlow inclui: /health + /v1/health/{system,workers,jobs} para availability, métricas Prometheus (ai_* se houver IA, métricas de fila), ServiceMonitor para kube-prometheus-stack raspar, alertas SLO (p95 latência, taxa erro, fila saturada), dashboard Grafana gerado. Anotações devops.flavioneto/* para DevOps Console.",
+      "blocks": [
+        "observabilidade"
+      ],
+      "cites": [
+        "observabilidade: Health checks (/health, /v1/health/{system,workers,jobs}), Prometheus (:9464, ai_* via @flavioneto11/ai-core + métricas domínio/fila), ServiceMonitor, SLO (p95 latência, taxa erro, saturação fila), Grafana, anotações devops.flavioneto/*. Bloco DEFAULT."
+      ]
+    }
+  ],
+  "waves": [
+    {
+      "id": "w0-foundation",
+      "work_orders": [
+        "Setup monorepo Node API + Vue SPA (sicat blueprint)",
+        "Implement camadas-rigidas (routes, services, repositories, workers, gateways)",
+        "Implement migrations-versionadas (SQL em src/sql, advisory-lock, seed: categorias, prioridades padrão)",
+        "Implement observabilidade (health checks, Prometheus :9464, ServiceMonitor, SLO, Grafana)"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "w1-authentication-authorization",
+      "work_orders": [
+        "Implement oidc-sessao (Keycloak realm nvit, JWT app, packages/oidc-kit)",
+        "Implement rbac-multitenant (tenant_id em schema, queries escopadas, papéis em cascata, deny padrão, soft-delete)"
+      ],
+      "depends_on": [
+        "w0-foundation"
+      ]
+    },
+    {
+      "id": "w2-contract-and-models",
+      "work_orders": [
+        "Implement contract-openapi (OpenAPI canônico versionado: Ticket, Comentário, Artigo, Categoria, Prioridade enums)",
+        "Gen:operations no CI (tipos/operações geradas)",
+        "Validate:openapi no CI (contrato validado em lockstep com rotas)"
+      ],
+      "depends_on": [
+        "w1-authentication-authorization"
+      ]
+    },
+    {
+      "id": "w3-async-processing",
+      "work_orders": [
+        "Implement worker-queue-transacional (tabela jobs Postgres, worker com FOR UPDATE SKIP LOCKED, retry, DLQ, heartbeat)",
+        "Implement idempotencia (Idempotency-Key em requests, job_key em fila, deduplicação)"
+      ],
+      "depends_on": [
+        "w0-foundation"
+      ]
+    },
+    {
+      "id": "w4-external-integrations",
+      "work_orders": [
+        "Implement gateway-externo (timeout, retry, redação de segredos, AppError, auditoria)",
+        "Integrate com ERP: sync categorias via job (fila transacional w3)"
+      ],
+      "depends_on": [
+        "w3-async-processing"
+      ]
+    },
+    {
+      "id": "w5-knowledge-base",
+      "work_orders": [
+        "Implement rag-pgvector (extensão pgvector, chunking, embeddings, retrieval top-K, reranking)",
+        "Model Artigo (id, tenant_id, título, conteúdo, tags, embeddings)",
+        "Reusa packages/ai-core (createPgVectorStore, createEmbedder, createReranker)"
+      ],
+      "depends_on": [
+        "w2-contract-and-models",
+        "w1-authentication-authorization"
+      ]
+    },
+    {
+      "id": "w6-ai-assistant",
+      "work_orders": [
+        "Implement ia-grafo (createAiGraph: router → especialista + ReAct + judge/verify, tools: buscar tickets, recuperar artigos, listar categorias)",
+        "Implement structured-outputs (classificação/rascunho como JSON validado + schema)",
+        "Implement control-ai-por-app (prompts versionados em repo, timeout/cache, fallback offline, fail-closed)"
+      ],
+      "depends_on": [
+        "w5-knowledge-base",
+        "w2-contract-and-models"
+      ]
+    },
+    {
+      "id": "w7-frontend",
+      "work_orders": [
+        "Implement design-system (tokens de design via codegen-sync, componentes shell packages/platform-shell)",
+        "Build painel de tickets (listagem, filtro por status/prioridade/tenant, chat com assistente)",
+        "Build modal novo ticket (título, descrição, categoria auto-complete, prioridade select, assist IA propõe categoria)",
+        "Build detalhe ticket (histórico de comentários, campo novo comentário, assist IA propõe resposta com citações)",
+        "Build base de conhecimento (listagem artigos, busca semântica, edit/delete)"
+      ],
+      "depends_on": [
+        "w6-ai-assistant",
+        "w1-authentication-authorization"
+      ]
+    },
+    {
+      "id": "w8-integration-testing",
+      "work_orders": [
+        "Contract tests (validate:openapi CI, exemplos OpenAPI gerados)",
+        "E2E: criar ticket → classificação automática → sugestão de resposta com citações → resolver",
+        "E2E: sincronizar categorias de ERP via job",
+        "E2E: idempotência (repetir POST ticket com mesma Idempotency-Key)",
+        "Load: health, métricas, SLO (p95, taxa erro, saturação fila)"
+      ],
+      "depends_on": [
+        "w7-frontend",
+        "w4-external-integrations"
+      ]
+    }
+  ]
+}

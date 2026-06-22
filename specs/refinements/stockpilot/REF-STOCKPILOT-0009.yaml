@@ -1,0 +1,51 @@
+id: REF-STOCKPILOT-0009
+slug: ref-stockpilot-0009
+title: "Notificacoes"
+kind: screen
+status: approved
+
+scope:
+  product_scope: stockpilot
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-STOCKPILOT-0007
+    relation: implements
+
+surface:
+  route: "/notifications"
+  name: "Notificacoes"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+    - name: loading
+    - name: empty
+    - name: error
+  data:
+    - field: "notifications"
+      source: "api:/notifications"
+      editable: false
+      format: "lista de notificacoes enviadas (email/push/whatsapp)"
+    - field: "channel_filter"
+      source: "ui:local"
+      editable: true
+      format: "filtro por canal"
+  interactions:
+    - trigger: "abrir /notifications"
+      action: "carrega o historico de notificacoes"
+      result: "renderiza lista com canal, status de entrega e data"
+    - trigger: "clicar em uma notificacao"
+      action: "navega para /notifications/:id"
+      result: "abre o detalhe da notificacao"
+
+source:
+  source_paths:
+    - specs/products/stockpilot/product.json
+    - apps/stockpilot/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

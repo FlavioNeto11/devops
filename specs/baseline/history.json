@@ -2,12 +2,12 @@
   "metamodel_version": "1.1.0",
   "has_previous": true,
   "from": {
-    "commit": "068fd2c11bee",
-    "baseline_hash": "6bf16f0b66d8a61eb936bcf0a5bc2b5480ba28b6c888324c5bd1f2aa943f5a11"
+    "commit": "1d6ade86b1bc",
+    "baseline_hash": "b40ddfbf09f13258fd0968c5b19bfe638ccac9caf7bdc25627ac75789170652b"
   },
   "to": {
-    "commit": "a0cc631a3c83",
-    "baseline_hash": "b40ddfbf09f13258fd0968c5b19bfe638ccac9caf7bdc25627ac75789170652b"
+    "commit": "working-tree",
+    "baseline_hash": "781dadc2ef8a3fdd48f47f60f6bd380fc784e97c54bd358a261314c62e78755a"
   },
   "counts": {
     "added": 8,
@@ -16,58 +16,58 @@
   },
   "added": [
     {
-      "id": "REQ-SHOPDESK-0001",
-      "title": "Fundação: Arquitetura em camadas + Observabilidade por padrão",
-      "product": "shopdesk",
+      "id": "REQ-HELPFLOW-0001",
+      "title": "Fundação de Arquitetura e Observabilidade",
+      "product": "helpflow",
       "type": "functional",
       "impact_band": "medium"
     },
     {
-      "id": "REQ-SHOPDESK-0002",
-      "title": "Isolamento multi-tenant + RBAC + Login SSO",
-      "product": "shopdesk",
+      "id": "REQ-HELPFLOW-0002",
+      "title": "Autenticação OIDC, Autorização RBAC Multi-Tenant e Persistência de Sessão",
+      "product": "helpflow",
       "type": "functional",
       "impact_band": "medium"
     },
     {
-      "id": "REQ-SHOPDESK-0003",
-      "title": "Carrinho, checkout e pagamento idempotente com webhook",
-      "product": "shopdesk",
+      "id": "REQ-HELPFLOW-0003",
+      "title": "API Contract-First (OpenAPI) e Modelos de Domínio",
+      "product": "helpflow",
       "type": "functional",
       "impact_band": "medium"
     },
     {
-      "id": "REQ-SHOPDESK-0004",
-      "title": "Emissão de NF-e assíncrona e resiliente pós-pagamento",
-      "product": "shopdesk",
+      "id": "REQ-HELPFLOW-0004",
+      "title": "Processamento Assíncrono Idempotente de Longa Duração (Worker + Fila Transacional)",
+      "product": "helpflow",
       "type": "functional",
       "impact_band": "medium"
     },
     {
-      "id": "REQ-SHOPDESK-0005",
-      "title": "Painel web de vendas, pedidos e estoque com design system",
-      "product": "shopdesk",
+      "id": "REQ-HELPFLOW-0005",
+      "title": "Integração com Sistemas Externos via Gateway Centralizado",
+      "product": "helpflow",
       "type": "functional",
       "impact_band": "medium"
     },
     {
-      "id": "REQ-SHOPDESK-0006",
-      "title": "Assistente de IA para lojista (sugestão de preço/descrição e Q&A sobre pedidos)",
-      "product": "shopdesk",
+      "id": "REQ-HELPFLOW-0006",
+      "title": "Base de Conhecimento Vetorial (RAG com pgvector) e Recuperação Grounded",
+      "product": "helpflow",
       "type": "functional",
       "impact_band": "medium"
     },
     {
-      "id": "REQ-SHOPDESK-0007",
-      "title": "Notificações multi-canal (e-mail e SMS) para eventos de pedido",
-      "product": "shopdesk",
+      "id": "REQ-HELPFLOW-0007",
+      "title": "Assistente de IA com Grafo, Tools e Controle Próprio",
+      "product": "helpflow",
       "type": "functional",
       "impact_band": "medium"
     },
     {
-      "id": "REQ-SHOPDESK-0008",
-      "title": "Contract-first OpenAPI para API pública integrável",
-      "product": "shopdesk",
+      "id": "REQ-HELPFLOW-0008",
+      "title": "Design System Unificado no Frontend (Vue SPA)",
+      "product": "helpflow",
       "type": "non-functional",
       "impact_band": "medium"
     }

@@ -14,6 +14,22 @@ export async function listOpen(tenant, db = pool) {
   return rows;
 }
 
+// Detalhe canônico de UM pedido (REQ-STOCKPILOT-0003): cobre TODOS os estados (incl. delivered/failed),
+// ao contrário de listOpen que só enxerga pending/processing. Escopado por tenant_id — cross-tenant → null
+// (a rota traduz para 404, nunca vaza). Inclui product_name, last_attempt_at, last_error e external_ref:
+// os campos autoritativos que a tela de detalhe (linha do tempo / último erro / KPIs) precisa.
+export async function getById(orderId, tenant, db = pool) {
+  const { rows } = await db.query(`
+    SELECT po.id, po.product_id, po.tenant_id, po.status, po.external_ref, po.last_error,
+           po.last_attempt_at, po.created_at, po.updated_at,
+           p.name AS product_name
+    FROM product_orders po
+    LEFT JOIN products p ON p.id = po.product_id AND p.tenant_id = po.tenant_id
+    WHERE po.id = $1 AND po.tenant_id = $2
+  `, [orderId, tenant]);
+  return rows[0] || null;
+}
+
 export async function create(productId, tenant, db = pool) {
   const { rows } = await db.query(
     `INSERT INTO product_orders(product_id, tenant_id, status) VALUES ($1, $2, 'pending') RETURNING *`,

@@ -42,7 +42,37 @@ const MIGRATIONS = [`CREATE TABLE IF NOT EXISTS records (id SERIAL PRIMARY KEY, 
      tentativas INTEGER NOT NULL DEFAULT 0,
      created_at TIMESTAMPTZ DEFAULT now(),
      updated_at TIMESTAMPTZ DEFAULT now()
-   ); CREATE INDEX IF NOT EXISTS idx_notifications_tenant ON notifications(tenant_id, id DESC);`];
+   ); CREATE INDEX IF NOT EXISTS idx_notifications_tenant ON notifications(tenant_id, id DESC);`,
+  // REQ-STOCKPILOT-0004 — CRUD de fornecedores (gateway externo configurável). Guarda a FORMA da
+  // autenticação (auth_type) + a URL do gateway + política de timeout/retry; NUNCA o segredo em si
+  // (api_key/token vêm de env/Sealed Secrets na hora da troca). Escopado por tenant_id.
+  `CREATE TABLE IF NOT EXISTS suppliers (
+     id SERIAL PRIMARY KEY,
+     tenant_id TEXT NOT NULL DEFAULT 'default',
+     name TEXT NOT NULL,
+     gateway_url TEXT NOT NULL,
+     auth_type TEXT NOT NULL DEFAULT 'none' CHECK (auth_type IN ('api_key','bearer','basic','none')),
+     timeout_ms INTEGER,
+     max_retries INTEGER,
+     active BOOLEAN NOT NULL DEFAULT true,
+     notes TEXT,
+     created_at TIMESTAMPTZ DEFAULT now(),
+     updated_at TIMESTAMPTZ DEFAULT now()
+   ); CREATE INDEX IF NOT EXISTS idx_suppliers_tenant ON suppliers(tenant_id, id);`,
+  // REQ-STOCKPILOT-0007 — CRUD de canais de notificação (assinaturas de webhook). Complementa o
+  // fan-out multi-canal (notifications) com a CONFIGURAÇÃO persistida por canal: tipo, webhook,
+  // eventos assinados, habilitado e o último desfecho da entrega. Escopado por tenant_id.
+  `CREATE TABLE IF NOT EXISTS channels (
+     id SERIAL PRIMARY KEY,
+     tenant_id TEXT NOT NULL DEFAULT 'default',
+     channel TEXT NOT NULL CHECK (channel IN ('email','push','whatsapp')),
+     webhook_url TEXT NOT NULL,
+     events TEXT CHECK (events IS NULL OR events IN ('ruptura','falha_pedido')),
+     enabled BOOLEAN NOT NULL DEFAULT true,
+     last_status TEXT CHECK (last_status IS NULL OR last_status IN ('sent','failed','skipped')),
+     created_at TIMESTAMPTZ DEFAULT now(),
+     updated_at TIMESTAMPTZ DEFAULT now()
+   ); CREATE INDEX IF NOT EXISTS idx_channels_tenant ON channels(tenant_id, id);`];
 export async function migrate() {
   const c = await pool.connect();
   try {
@@ -61,6 +91,24 @@ export async function seed() {
   const { rows: recs } = await pool.query('SELECT count(*)::int AS n FROM records');
   if (recs[0].n === 0) {
     await pool.query(`INSERT INTO records(title) VALUES ('Registro de exemplo')`);
+  }
+  // REQ-STOCKPILOT-0004 — fornecedores de exemplo (idempotente: só se a tabela estiver vazia).
+  const { rows: sup } = await pool.query('SELECT count(*)::int AS n FROM suppliers');
+  if (sup[0].n === 0) {
+    await pool.query(`
+      INSERT INTO suppliers(name, gateway_url, auth_type, timeout_ms, max_retries, active, notes) VALUES
+        ('MedSupply Brasil', 'https://gw.medsupply.example/v1/orders', 'api_key', 5000, 4, true, 'Fornecedor principal de EPI'),
+        ('Distribuidora Norte', 'https://api.distnorte.example/orders', 'bearer', 8000, 2, true, 'Cobertura região Norte'),
+        ('Legado Hospitalar', 'https://legacy.hosp.example/submit', 'basic', 10000, 1, false, 'Em desativação')`);
+  }
+  // REQ-STOCKPILOT-0007 — canais de notificação de exemplo (idempotente).
+  const { rows: ch } = await pool.query('SELECT count(*)::int AS n FROM channels');
+  if (ch[0].n === 0) {
+    await pool.query(`
+      INSERT INTO channels(channel, webhook_url, events, enabled, last_status) VALUES
+        ('email', 'https://hooks.example/email', 'ruptura', true, 'sent'),
+        ('whatsapp', 'https://hooks.example/whatsapp', 'falha_pedido', true, 'failed'),
+        ('push', 'https://hooks.example/push', 'ruptura', false, 'skipped')`);
   }
   const { rows: prods } = await pool.query('SELECT count(*)::int AS n FROM products');
   if (prods[0].n > 0) return;

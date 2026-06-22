@@ -1,0 +1,50 @@
+id: REF-STOCKPILOT-0017
+slug: ref-stockpilot-0017
+title: "Editar fornecedor"
+kind: screen
+status: approved
+
+scope:
+  product_scope: stockpilot
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-STOCKPILOT-0004
+    relation: implements
+
+surface:
+  route: "/suppliers/:id/edit"
+  name: "Editar fornecedor"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+    - name: loading
+    - name: empty
+    - name: error
+  data:
+    - field: "form"
+      source: "api:/suppliers/:id"
+      editable: true
+      format: "campos do fornecedor pre-preenchidos"
+  interactions:
+    - trigger: "abrir /suppliers/:id/edit"
+      action: "carrega e preenche o formulario do fornecedor"
+      result: "renderiza campos editaveis com valores atuais"
+    - trigger: "clicar em Salvar"
+      action: "PUT /suppliers/:id"
+      result: "salva e navega para o detalhe"
+    - trigger: "clicar em Cancelar"
+      action: "descarta as alteracoes"
+      result: "volta para o detalhe do fornecedor"
+
+source:
+  source_paths:
+    - specs/products/stockpilot/product.json
+    - apps/stockpilot/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

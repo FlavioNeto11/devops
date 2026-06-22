@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "b40ddfbf09f13258fd0968c5b19bfe638ccac9caf7bdc25627ac75789170652b",
+  "baseline_hash": "781dadc2ef8a3fdd48f47f60f6bd380fc784e97c54bd358a261314c62e78755a",
   "items": [
     {
       "id": "REQ-AI-0001",
@@ -1541,6 +1541,94 @@
       "asr": false,
       "impact_band": "low",
       "file": "requirements/gymops/REQ-GYMOPS-NFR-008.yaml"
+    },
+    {
+      "id": "REQ-HELPFLOW-0001",
+      "title": "Fundação de Arquitetura e Observabilidade",
+      "type": "functional",
+      "status": "approved",
+      "product": "helpflow",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/helpflow/REQ-HELPFLOW-0001.yaml"
+    },
+    {
+      "id": "REQ-HELPFLOW-0002",
+      "title": "Autenticação OIDC, Autorização RBAC Multi-Tenant e Persistência de Sessão",
+      "type": "functional",
+      "status": "approved",
+      "product": "helpflow",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/helpflow/REQ-HELPFLOW-0002.yaml"
+    },
+    {
+      "id": "REQ-HELPFLOW-0003",
+      "title": "API Contract-First (OpenAPI) e Modelos de Domínio",
+      "type": "functional",
+      "status": "approved",
+      "product": "helpflow",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/helpflow/REQ-HELPFLOW-0003.yaml"
+    },
+    {
+      "id": "REQ-HELPFLOW-0004",
+      "title": "Processamento Assíncrono Idempotente de Longa Duração (Worker + Fila Transacional)",
+      "type": "functional",
+      "status": "approved",
+      "product": "helpflow",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/helpflow/REQ-HELPFLOW-0004.yaml"
+    },
+    {
+      "id": "REQ-HELPFLOW-0005",
+      "title": "Integração com Sistemas Externos via Gateway Centralizado",
+      "type": "functional",
+      "status": "approved",
+      "product": "helpflow",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/helpflow/REQ-HELPFLOW-0005.yaml"
+    },
+    {
+      "id": "REQ-HELPFLOW-0006",
+      "title": "Base de Conhecimento Vetorial (RAG com pgvector) e Recuperação Grounded",
+      "type": "functional",
+      "status": "approved",
+      "product": "helpflow",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/helpflow/REQ-HELPFLOW-0006.yaml"
+    },
+    {
+      "id": "REQ-HELPFLOW-0007",
+      "title": "Assistente de IA com Grafo, Tools e Controle Próprio",
+      "type": "functional",
+      "status": "approved",
+      "product": "helpflow",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/helpflow/REQ-HELPFLOW-0007.yaml"
+    },
+    {
+      "id": "REQ-HELPFLOW-0008",
+      "title": "Design System Unificado no Frontend (Vue SPA)",
+      "type": "non-functional",
+      "status": "approved",
+      "product": "helpflow",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/helpflow/REQ-HELPFLOW-0008.yaml"
     },
     {
       "id": "REQ-KEYCLOAK-0001",
@@ -4575,6 +4663,266 @@
         "REQ-SHOPDESK-0008"
       ],
       "file": "refinements/shopdesk/REF-SHOPDESK-0031.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0001",
+      "title": "Painel de controle",
+      "kind": "screen",
+      "status": "approved",
+      "product": "stockpilot",
+      "route": "/",
+      "anchors": [
+        "REQ-STOCKPILOT-0005",
+        "REQ-STOCKPILOT-0001"
+      ],
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0001.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0002",
+      "title": "Produtos",
+      "kind": "screen",
+      "status": "approved",
+      "product": "stockpilot",
+      "route": "/products",
+      "anchors": [
+        "REQ-STOCKPILOT-0005",
+        "REQ-STOCKPILOT-0003"
+      ],
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0002.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0003",
+      "title": "Novo produto",
+      "kind": "screen",
+      "status": "approved",
+      "product": "stockpilot",
+      "route": "/products/new",
+      "anchors": [
+        "REQ-STOCKPILOT-0005"
+      ],
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0003.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0004",
+      "title": "Detalhe do produto",
+      "kind": "screen",
+      "status": "approved",
+      "product": "stockpilot",
+      "route": "/products/:id",
+      "anchors": [
+        "REQ-STOCKPILOT-0005",
+        "REQ-STOCKPILOT-0003",
+        "REQ-STOCKPILOT-0008"
+      ],
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0004.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0005",
+      "title": "Editar produto",
+      "kind": "screen",
+      "status": "approved",
+      "product": "stockpilot",
+      "route": "/products/:id/edit",
+      "anchors": [
+        "REQ-STOCKPILOT-0005"
+      ],
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0005.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0006",
+      "title": "Pedidos de reposicao",
+      "kind": "screen",
+      "status": "approved",
+      "product": "stockpilot",
+      "route": "/orders",
+      "anchors": [
+        "REQ-STOCKPILOT-0003",
+        "REQ-STOCKPILOT-0005"
+      ],
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0006.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0007",
+      "title": "Detalhe do pedido",
+      "kind": "screen",
+      "status": "approved",
+      "product": "stockpilot",
+      "route": "/orders/:id",
+      "anchors": [
+        "REQ-STOCKPILOT-0003",
+        "REQ-STOCKPILOT-0004"
+      ],
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0007.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0008",
+      "title": "Alertas de estoque",
+      "kind": "screen",
+      "status": "approved",
+      "product": "stockpilot",
+      "route": "/alerts",
+      "anchors": [
+        "REQ-STOCKPILOT-0007",
+        "REQ-STOCKPILOT-0005"
+      ],
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0008.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0009",
+      "title": "Notificacoes",
+      "kind": "screen",
+      "status": "approved",
+      "product": "stockpilot",
+      "route": "/notifications",
+      "anchors": [
+        "REQ-STOCKPILOT-0007"
+      ],
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0009.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0010",
+      "title": "Detalhe da notificacao",
+      "kind": "screen",
+      "status": "approved",
+      "product": "stockpilot",
+      "route": "/notifications/:id",
+      "anchors": [
+        "REQ-STOCKPILOT-0007"
+      ],
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0010.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0011",
+      "title": "Canais de notificacao",
+      "kind": "screen",
+      "status": "approved",
+      "product": "stockpilot",
+      "route": "/channels",
+      "anchors": [
+        "REQ-STOCKPILOT-0007"
+      ],
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0011.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0012",
+      "title": "Novo canal",
+      "kind": "screen",
+      "status": "approved",
+      "product": "stockpilot",
+      "route": "/channels/new",
+      "anchors": [
+        "REQ-STOCKPILOT-0007"
+      ],
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0012.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0013",
+      "title": "Editar canal",
+      "kind": "screen",
+      "status": "approved",
+      "product": "stockpilot",
+      "route": "/channels/:id/edit",
+      "anchors": [
+        "REQ-STOCKPILOT-0007"
+      ],
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0013.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0014",
+      "title": "Fornecedores",
+      "kind": "screen",
+      "status": "approved",
+      "product": "stockpilot",
+      "route": "/suppliers",
+      "anchors": [
+        "REQ-STOCKPILOT-0004"
+      ],
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0014.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0015",
+      "title": "Novo fornecedor",
+      "kind": "screen",
+      "status": "approved",
+      "product": "stockpilot",
+      "route": "/suppliers/new",
+      "anchors": [
+        "REQ-STOCKPILOT-0004"
+      ],
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0015.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0016",
+      "title": "Detalhe do fornecedor",
+      "kind": "screen",
+      "status": "approved",
+      "product": "stockpilot",
+      "route": "/suppliers/:id",
+      "anchors": [
+        "REQ-STOCKPILOT-0004"
+      ],
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0016.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0017",
+      "title": "Editar fornecedor",
+      "kind": "screen",
+      "status": "approved",
+      "product": "stockpilot",
+      "route": "/suppliers/:id/edit",
+      "anchors": [
+        "REQ-STOCKPILOT-0004"
+      ],
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0017.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0018",
+      "title": "Auditoria do fornecedor",
+      "kind": "screen",
+      "status": "approved",
+      "product": "stockpilot",
+      "route": "/audit",
+      "anchors": [
+        "REQ-STOCKPILOT-0004"
+      ],
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0018.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0019",
+      "title": "Detalhe da auditoria",
+      "kind": "screen",
+      "status": "approved",
+      "product": "stockpilot",
+      "route": "/audit/:id",
+      "anchors": [
+        "REQ-STOCKPILOT-0004"
+      ],
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0019.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0020",
+      "title": "Assistente de reposicao (IA)",
+      "kind": "screen",
+      "status": "approved",
+      "product": "stockpilot",
+      "route": "/assistant",
+      "anchors": [
+        "REQ-STOCKPILOT-0008"
+      ],
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0020.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0021",
+      "title": "Saude da fila",
+      "kind": "screen",
+      "status": "approved",
+      "product": "stockpilot",
+      "route": "/queue",
+      "anchors": [
+        "REQ-STOCKPILOT-0001",
+        "REQ-STOCKPILOT-0003"
+      ],
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0021.yaml"
     }
   ]
 }

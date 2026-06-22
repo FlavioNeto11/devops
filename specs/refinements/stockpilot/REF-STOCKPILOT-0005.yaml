@@ -1,0 +1,50 @@
+id: REF-STOCKPILOT-0005
+slug: ref-stockpilot-0005
+title: "Editar produto"
+kind: screen
+status: approved
+
+scope:
+  product_scope: stockpilot
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-STOCKPILOT-0005
+    relation: implements
+
+surface:
+  route: "/products/:id/edit"
+  name: "Editar produto"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+    - name: loading
+    - name: empty
+    - name: error
+  data:
+    - field: "form"
+      source: "api:/products/:id"
+      editable: true
+      format: "campos do produto pre-preenchidos"
+  interactions:
+    - trigger: "abrir /products/:id/edit"
+      action: "carrega e preenche o formulario"
+      result: "renderiza campos editaveis com valores atuais"
+    - trigger: "submeter o formulario"
+      action: "valida e envia PUT /products/:id"
+      result: "salva e navega para o detalhe"
+    - trigger: "cancelar"
+      action: "descarta as alteracoes"
+      result: "volta para o detalhe do produto"
+
+source:
+  source_paths:
+    - specs/products/stockpilot/product.json
+    - apps/stockpilot/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

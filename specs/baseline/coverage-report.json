@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "b40ddfbf09f13258fd0968c5b19bfe638ccac9caf7bdc25627ac75789170652b",
+  "baseline_hash": "781dadc2ef8a3fdd48f47f60f6bd380fc784e97c54bd358a261314c62e78755a",
   "dimensions": [
     "links",
     "allocation",
@@ -10,21 +10,21 @@
     "refinement"
   ],
   "totals": {
-    "total": 365,
-    "without_links": 304,
-    "without_allocation": 338,
+    "total": 373,
+    "without_links": 312,
+    "without_allocation": 346,
     "without_source_paths": 0,
-    "without_evidence": 365,
+    "without_evidence": 373,
     "without_verification_method": 334,
-    "without_refinement": 336,
-    "scopes": 23,
+    "without_refinement": 338,
+    "scopes": 24,
     "coverage_pct": {
-      "links": 16.7,
-      "allocation": 7.4,
+      "links": 16.4,
+      "allocation": 7.2,
       "source_paths": 100,
       "evidence": 0,
-      "verification_method": 8.5,
-      "refinement": 7.9
+      "verification_method": 10.5,
+      "refinement": 9.4
     }
   },
   "by_scope": {
@@ -162,6 +162,23 @@
         "evidence": 0,
         "verification_method": 0,
         "refinement": 8.7
+      }
+    },
+    "helpflow": {
+      "total": 8,
+      "without_links": 8,
+      "without_allocation": 8,
+      "without_source_paths": 0,
+      "without_evidence": 8,
+      "without_verification_method": 0,
+      "without_refinement": 8,
+      "coverage_pct": {
+        "links": 0,
+        "allocation": 0,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 100,
+        "refinement": 0
       }
     },
     "keycloak": {
@@ -375,14 +392,14 @@
       "without_source_paths": 0,
       "without_evidence": 8,
       "without_verification_method": 0,
-      "without_refinement": 8,
+      "without_refinement": 2,
       "coverage_pct": {
         "links": 0,
         "allocation": 0,
         "source_paths": 100,
         "evidence": 0,
         "verification_method": 100,
-        "refinement": 0
+        "refinement": 75
       }
     },
     "teamflow": {

@@ -1,10 +1,10 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "b40ddfbf09f13258fd0968c5b19bfe638ccac9caf7bdc25627ac75789170652b",
-  "refinements_hash": "86c50bca11900de5da4de8bd01e5280d190b148ef5b643754e343b9f30b4807e",
+  "baseline_hash": "781dadc2ef8a3fdd48f47f60f6bd380fc784e97c54bd358a261314c62e78755a",
+  "refinements_hash": "3a077c780719fa40791e6efad62d4dd6125079a4b71489afdb63ffcc76895c8e",
   "schema": "specs/schema/requirement.schema.json",
   "counts": {
-    "total": 365,
+    "total": 373,
     "by_product": {
       "ai": 18,
       "argocd": 15,
@@ -14,6 +14,7 @@
       "crm": 5,
       "fieldserve": 5,
       "gymops": 23,
+      "helpflow": 8,
       "keycloak": 18,
       "observability": 17,
       "oidc": 18,
@@ -31,21 +32,22 @@
       "traefik": 16
     },
     "by_status": {
-      "approved": 365
+      "approved": 373
     },
     "by_type": {
-      "functional": 262,
-      "non-functional": 103
+      "functional": 269,
+      "non-functional": 104
     },
     "refinements": {
-      "total": 44,
+      "total": 65,
       "by_product": {
         "gymops": 1,
         "portal": 12,
-        "shopdesk": 31
+        "shopdesk": 31,
+        "stockpilot": 21
       },
       "by_kind": {
-        "screen": 34,
+        "screen": 55,
         "component": 8,
         "interaction": 2
       }
@@ -5485,6 +5487,375 @@
       "impact_score": 38,
       "impact_band": "low",
       "file": "requirements/gymops/REQ-GYMOPS-NFR-008.yaml"
+    },
+    {
+      "id": "REQ-HELPFLOW-0001",
+      "title": "Fundação de Arquitetura e Observabilidade",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "product-foundation",
+        "product_scope": "helpflow",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O sistema DEVE implementar uma arquitetura em camadas rígidas (route → service → repository → worker → gateway) com observabilidade nativa (health checks, métricas Prometheus, ServiceMonitor, SLO e dashboard Grafana), garantindo que toda mudança no schema ou operações assíncronas sejam rastreáveis e auditáveis desde o boot.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/helpflow/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "camadas-rigidas",
+        "migrations-versionadas",
+        "observabilidade"
+      ],
+      "acceptance_criteria": [
+        "Routes mapeiam apenas HTTP e validação de entrada; nenhuma regra de negócio ou SQL em rotas",
+        "Services contêm toda lógica de domínio (SLA, status, categoria); repositories isolam SQL",
+        "Migrations versionadas com advisory-lock no boot (sem race conditions em múltiplas réplicas)",
+        "Endpoints /health e /v1/health/{system,workers,jobs} retornam status estruturado",
+        "Métricas Prometheus (latência p95, taxa de erro, saturação de fila) raspadasem porta :9464",
+        "ServiceMonitor registrado para kube-prometheus-stack"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 65,
+      "impact_band": "medium",
+      "file": "requirements/helpflow/REQ-HELPFLOW-0001.yaml"
+    },
+    {
+      "id": "REQ-HELPFLOW-0002",
+      "title": "Autenticação OIDC, Autorização RBAC Multi-Tenant e Persistência de Sessão",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "helpflow",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O sistema DEVE autenticar operadores via OIDC/Keycloak (realm nvit), emitir sessão própria (JWT) do app, escopar todo acesso por tenant (organização) e papel (owner, gerente, agente, solicitante) com deny por padrão fora do escopo, garantindo isolamento entre empresas e controle fino de permissões para visualizar/editar tickets e conhecimento.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/helpflow/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "oidc-sessao",
+        "rbac-multitenant"
+      ],
+      "acceptance_criteria": [
+        "Fluxo OIDC PKCE completo: frontend redireciona para Keycloak, backend valida /userinfo, emite sessão JWT do app",
+        "Middleware de autenticação rejeita requisições sem sessão válida (código 401)",
+        "Toda query ao banco carrega WHERE tenant_id = ? baseado na sessão do usuário",
+        "Middleware de autorização nega acesso a recurso fora do escopo do papel (código 403)",
+        "Soft-delete ativo: registros deletados têm deleted_at preenchido, never hard-delete",
+        "Testes verificam isolamento: usuário de tenant A não vê tickets de tenant B"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/helpflow/REQ-HELPFLOW-0002.yaml"
+    },
+    {
+      "id": "REQ-HELPFLOW-0003",
+      "title": "API Contract-First (OpenAPI) e Modelos de Domínio",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "helpflow",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O sistema DEVE definir a superfície HTTP num OpenAPI canônico versionado, gerar tipos/operações via gen:operations no CI, validar contrato no CI (validate:openapi), e manter lockstep entre OpenAPI → exemplos → tipos gerados → rotas → testes de contrato. Modelos de domínio: Ticket (id, tenant_id, categoria, prioridade, status, solicitante, agente, sla_deadline, created_at, updated_at), Comentário (id, ticket_id, author_id, texto, criado_em), Artigo (id, tenant_id, título, conteúdo, tags, embeddings), Categoria e Prioridade como enums reusáveis.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/helpflow/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "contract-openapi"
+      ],
+      "acceptance_criteria": [
+        "OpenAPI 3.1 definido em docs/openapi.yaml com todos os endpoints (GET/POST/PATCH ticket, comentário, artigo)",
+        "CI executa validate:openapi (lint, type coverage 100%, exemplos válidos)",
+        "Types TypeScript gerados em src/generated/openapi.ts via gen:operations",
+        "Tipos gerados importados em routes e services (nunca types manuais incompatíveis)",
+        "Rotas respondem exatamente conforme schema (status code, headers, body)",
+        "Testes de contrato verificam exemplos do OpenAPI (pact-like, sem mock)"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/helpflow/REQ-HELPFLOW-0003.yaml"
+    },
+    {
+      "id": "REQ-HELPFLOW-0004",
+      "title": "Processamento Assíncrono Idempotente de Longa Duração (Worker + Fila Transacional)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "helpflow",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O sistema DEVE processar operações longas (submissão a gateway externo, geração de documento, sincronização de catálogo) de forma assíncrona e idempotente: jobs persistidos numa tabela do Postgres, consumidos por worker (mesma imagem da API) com claim transacional FOR UPDATE SKIP LOCKED, retry com backoff exponencial, idempotência por job_key, dead-letter queue (DLQ), heartbeat de claim e graceful shutdown. Toda operação que cria efeito (POST ticket, comentário) recebe uma Idempotency-Key do cliente, garantindo um único efeito mesmo com retries.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/helpflow/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "worker-queue-transacional",
+        "idempotencia"
+      ],
+      "acceptance_criteria": [
+        "Tabela job_queue com colunas: id, key, tipo, payload, tenant_id, estado (pending/processing/success/failed/dlq), attempts, heartbeat_at, created_at",
+        "POST /tickets com header Idempotency-Key retorna mesmo resultado em retry (idempotência de ponta a ponta)",
+        "Worker poll com SELECT FOR UPDATE SKIP LOCKED, incremente heartbeat a cada 10s, requeue se heartbeat espirou",
+        "Retry com backoff exponencial (1s, 2s, 4s, ..., max 5 tentativas)",
+        "Jobs que falham 5x vão para DLQ (jobs com falha persistente, revisão manual)",
+        "Graceful shutdown: SIGTERM aguarda jobs em voo completar ou timeout 30s"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/helpflow/REQ-HELPFLOW-0004.yaml"
+    },
+    {
+      "id": "REQ-HELPFLOW-0005",
+      "title": "Integração com Sistemas Externos via Gateway Centralizado",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "helpflow",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O sistema DEVE centralizar toda integração HTTP com sistemas externos (ERP, sistema de notificação, base de conhecimento remota) numa camada gateway única: timeout, retry com backoff, redação de segredos no log, erros tipados (AppError), trilha de auditoria de trocas e resiliência. Gateway nunca é chamado diretamente por rotas; apenas services podem chamar gateways, e o resultado é persistido no banco ou enfileirado. Exemplo: sincronizar categorias de um ERP a cada startup ou por job.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/helpflow/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "gateway-externo"
+      ],
+      "acceptance_criteria": [
+        "Classe GatewayClient abstrai HTTP: timeout configurável (default 10s), retry com backoff",
+        "Toda chamada HTTP externa passa por esta classe; nenhuma requisição direta via fetch/axios",
+        "Segredos (API keys, certificados) nunca aparecem em logs; substituídos por ***",
+        "Respostas mapeadas para AppError tipado; cliente sabe exatamente qual falha ocorreu (timeout, 4xx, 5xx, parse)",
+        "Auditoria: tabela gateway_audit log com timestamp, método, endpoint, status, duration_ms, tenant_id",
+        "Falha de gateway não derruba a API (fail-closed, degradação graciosa); fallback para cache/default"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/helpflow/REQ-HELPFLOW-0005.yaml"
+    },
+    {
+      "id": "REQ-HELPFLOW-0006",
+      "title": "Base de Conhecimento Vetorial (RAG com pgvector) e Recuperação Grounded",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "helpflow",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O sistema DEVE manter uma base de conhecimento (artigos) indexada por embeddings (pgvector) no Postgres. Quando um usuário abre um ticket ou o assistente precisa sugerir resposta, recupera os top-K artigos mais relevantes por similaridade semântica, fundamenta a resposta com citações e recusa responder quando não há fonte de conhecimento. Artigos são fatiados (chunking), embeddados via embedder (pacote ai-core) e reindexados quando atualizados.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/helpflow/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "rag-pgvector"
+      ],
+      "acceptance_criteria": [
+        "Tabela artigos com: id, tenant_id, título, conteúdo, tags, embeddings (vector), created_at, updated_at",
+        "Comando de indexação: fatiador quebra artigo em chunks (~500 tokens), embeddador gera embedding por chunk",
+        "Query semântica: dado um texto, recupera top-3 chunks mais similares (cosine similarity > threshold)",
+        "Resposta do assistente inclui citações: 'De acordo com [Artigo: Resetar Senha], …'",
+        "Se nenhum chunk atinge threshold, assistente recusa: 'Não encontrei artigo relevante na base de conhecimento'",
+        "Testes validam retrieval: query de usuário retorna artigos esperados com alta similaridade"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/helpflow/REQ-HELPFLOW-0006.yaml"
+    },
+    {
+      "id": "REQ-HELPFLOW-0007",
+      "title": "Assistente de IA com Grafo, Tools e Controle Próprio",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "helpflow",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O sistema DEVE disponibilizar um assistente de IA conversacional que: (1) sugere categoria/prioridade de novo ticket baseado em descrição e histórico (classificação); (2) propõe rascunho de resposta a ticket aberto, citando artigos da base; (3) realiza ReAct reasoning com tools de domínio (buscar tickets similares, recuperar artigos, listar categorias). O assistente usa o motor de grafo (ai-core: createAiGraph com router → especialista deep + loop ReAct + judge/verify), prompts versionados e resiliência (fallback offline se control plane estiver fora). Saídas estruturadas validadas contra schema (classificação, rascunho).",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/helpflow/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "ia-grafo",
+        "structured-outputs",
+        "control-ai-por-app"
+      ],
+      "acceptance_criteria": [
+        "Grafo de IA: router direciona 'classificação de ticket' vs 'rascunho de resposta' a especialistas",
+        "Especialista de classificação: input = descrição do ticket → output = {categoria, prioridade, confiança}",
+        "Especialista de resposta: input = ticket aberto + artigos recuperados → output = {rascunho_texto, artigos_citados, actions_propostas}",
+        "Loop ReAct com tools: pensar → agir (buscar artigos, buscar tickets similares) → pensar → responder",
+        "Dry-run em mutações: resposta é rascunho, usuário confirma antes de publicar",
+        "Prompts versionados no control plane; fallback offline para prompt v1 (fail-closed)"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/helpflow/REQ-HELPFLOW-0007.yaml"
+    },
+    {
+      "id": "REQ-HELPFLOW-0008",
+      "title": "Design System Unificado no Frontend (Vue SPA)",
+      "type": "non-functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "helpflow",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O frontend Vue SPA DEVE herdar identidade visual, tema (claro/escuro), acessibilidade e navegação da plataforma via design system unificado: tokens de design únicos (packages/design-tokens, gerados no build via codegen-sync), componentes reusáveis (packages/platform-shell) nunca customizados no app, CSS gerado acoplado ao Tailwind. Todo componente app-specific (ex.: painel de tickets, modal de novo ticket) reutiliza componentes de shell e tokens. Tema e acessibilidade herdadas por padrão.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/helpflow/product.json"
+        ]
+      },
+      "priority": "medium",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "design-system"
+      ],
+      "acceptance_criteria": [
+        "packages/design-tokens importado no projeto; build sincroniza tokens gerados em src/design-tokens.generated.css",
+        "Componentes de shell (Button, Input, Card, Modal, etc.) reusados 100% em tickets, comentários, artigos",
+        "Nenhum CSS customizado no app; apenas Tailwind + tokens (variáveis CSS herdadas)",
+        "Tema claro/escuro alterável em runtime; preferência persistida em localStorage",
+        "WCAG 2.1 AA alcançado: contraste, navegação por teclado, labels acessíveis (aria-*)",
+        "Documentação de componentes (Storybook ou equiv.) atualizada junto com shell"
+      ],
+      "quality_scenarios": [
+        {
+          "source": "operador/sistema",
+          "stimulus": "O frontend Vue SPA DEVE herdar identidade visual, tema (claro/escuro), acessibilidade e navegação da plataforma via design system unificado:",
+          "environment": "produção",
+          "artifact": "helpflow",
+          "response": "atende o atributo de qualidade especificado",
+          "response_measure": "packages/design-tokens importado no projeto; build sincroniza tokens gerados em src/design-tokens.generated.css"
+        }
+      ],
+      "verification_method": [
+        "test-integration",
+        "monitoring"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/helpflow/REQ-HELPFLOW-0008.yaml"
     },
     {
       "id": "REQ-KEYCLOAK-0001",
@@ -18383,6 +18754,1719 @@
         "item_revision": 1
       },
       "file": "refinements/shopdesk/REF-SHOPDESK-0031.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0001",
+      "slug": "ref-stockpilot-0001",
+      "title": "Painel de controle",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "stockpilot",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-STOCKPILOT-0005",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-STOCKPILOT-0001",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/",
+        "name": "Painel de controle",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "kpis",
+            "source": "api:/dashboard/summary",
+            "editable": false,
+            "format": "metricas agregadas de estoque (OK/ALERTA/RUPTURA)"
+          },
+          {
+            "field": "low_stock",
+            "source": "api:/products?status=low",
+            "editable": false,
+            "format": "lista de itens em alerta"
+          },
+          {
+            "field": "recent_alerts",
+            "source": "api:/alerts?recent=true",
+            "editable": false,
+            "format": "alertas recentes"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /",
+            "action": "carrega KPIs, itens em alerta e alertas recentes",
+            "result": "renderiza cards de status e atalhos operacionais"
+          },
+          {
+            "trigger": "clicar em um card de status",
+            "action": "navega para a lista filtrada correspondente",
+            "result": "abre a tela alvo com filtro aplicado"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/stockpilot/product.json",
+          "apps/stockpilot/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0001.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0002",
+      "slug": "ref-stockpilot-0002",
+      "title": "Produtos",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "stockpilot",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-STOCKPILOT-0005",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-STOCKPILOT-0003",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/products",
+        "name": "Produtos",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "items",
+            "source": "api:/products",
+            "editable": false,
+            "format": "lista paginada de produtos"
+          },
+          {
+            "field": "filters",
+            "source": "ui:local",
+            "editable": true,
+            "format": "busca e filtro por status de estoque"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /products",
+            "action": "carrega a lista de produtos",
+            "result": "renderiza tabela densa com sinais de status"
+          },
+          {
+            "trigger": "clicar em uma linha",
+            "action": "navega para o detalhe do produto",
+            "result": "abre /products/:id"
+          },
+          {
+            "trigger": "clicar em Novo produto",
+            "action": "navega para o formulario de criacao",
+            "result": "abre /products/new"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/stockpilot/product.json",
+          "apps/stockpilot/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0002.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0003",
+      "slug": "ref-stockpilot-0003",
+      "title": "Novo produto",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "stockpilot",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-STOCKPILOT-0005",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/products/new",
+        "name": "Novo produto",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "form",
+            "source": "ui:local",
+            "editable": true,
+            "format": "campos do produto (sku, nome, estoque, ponto de reposicao)"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /products/new",
+            "action": "exibe formulario vazio",
+            "result": "renderiza campos editaveis"
+          },
+          {
+            "trigger": "submeter o formulario",
+            "action": "valida e envia POST /products",
+            "result": "cria o produto e navega para o detalhe"
+          },
+          {
+            "trigger": "cancelar",
+            "action": "descarta as alteracoes",
+            "result": "volta para a lista de produtos"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/stockpilot/product.json",
+          "apps/stockpilot/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0003.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0004",
+      "slug": "ref-stockpilot-0004",
+      "title": "Detalhe do produto",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "stockpilot",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-STOCKPILOT-0005",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-STOCKPILOT-0003",
+          "relation": "relates_to"
+        },
+        {
+          "requirement_id": "REQ-STOCKPILOT-0008",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/products/:id",
+        "name": "Detalhe do produto",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "product",
+            "source": "api:/products/:id",
+            "editable": false,
+            "format": "ficha completa do produto"
+          },
+          {
+            "field": "stock_status",
+            "source": "api:/products/:id",
+            "editable": false,
+            "format": "sinal de status (OK/ALERTA/RUPTURA)"
+          },
+          {
+            "field": "reorder_history",
+            "source": "api:/products/:id/orders",
+            "editable": false,
+            "format": "historico de pedidos de reposicao"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /products/:id",
+            "action": "carrega a ficha do produto",
+            "result": "renderiza dados, status e historico"
+          },
+          {
+            "trigger": "clicar em Editar",
+            "action": "navega para o formulario de edicao",
+            "result": "abre /products/:id/edit"
+          },
+          {
+            "trigger": "clicar em Sugerir reposicao",
+            "action": "navega para a sugestao de IA",
+            "result": "abre /products/:id/suggest"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/stockpilot/product.json",
+          "apps/stockpilot/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0004.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0005",
+      "slug": "ref-stockpilot-0005",
+      "title": "Editar produto",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "stockpilot",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-STOCKPILOT-0005",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/products/:id/edit",
+        "name": "Editar produto",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "form",
+            "source": "api:/products/:id",
+            "editable": true,
+            "format": "campos do produto pre-preenchidos"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /products/:id/edit",
+            "action": "carrega e preenche o formulario",
+            "result": "renderiza campos editaveis com valores atuais"
+          },
+          {
+            "trigger": "submeter o formulario",
+            "action": "valida e envia PUT /products/:id",
+            "result": "salva e navega para o detalhe"
+          },
+          {
+            "trigger": "cancelar",
+            "action": "descarta as alteracoes",
+            "result": "volta para o detalhe do produto"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/stockpilot/product.json",
+          "apps/stockpilot/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0005.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0006",
+      "slug": "ref-stockpilot-0006",
+      "title": "Pedidos de reposicao",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "stockpilot",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-STOCKPILOT-0003",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-STOCKPILOT-0005",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/orders",
+        "name": "Pedidos de reposicao",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "orders",
+            "source": "api:/orders",
+            "editable": false,
+            "format": "lista de pedidos de reposicao com status e fornecedor"
+          },
+          {
+            "field": "status_filter",
+            "source": "ui:local",
+            "editable": true,
+            "format": "filtro por status do pedido"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /orders",
+            "action": "carrega a lista de pedidos de reposicao",
+            "result": "renderiza tabela com status e datas"
+          },
+          {
+            "trigger": "clicar em uma linha",
+            "action": "navega para /orders/:id",
+            "result": "abre o detalhe do pedido"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/stockpilot/product.json",
+          "apps/stockpilot/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0006.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0007",
+      "slug": "ref-stockpilot-0007",
+      "title": "Detalhe do pedido",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "stockpilot",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-STOCKPILOT-0003",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-STOCKPILOT-0004",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/orders/:id",
+        "name": "Detalhe do pedido",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "order",
+            "source": "api:/orders/:id",
+            "editable": false,
+            "format": "cabecalho do pedido (status, fornecedor, datas)"
+          },
+          {
+            "field": "lines",
+            "source": "api:/orders/:id",
+            "editable": false,
+            "format": "itens do pedido com quantidades"
+          },
+          {
+            "field": "supplier",
+            "source": "api:/suppliers/:id",
+            "editable": false,
+            "format": "fornecedor vinculado ao pedido"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /orders/:id",
+            "action": "carrega o pedido e seus itens",
+            "result": "renderiza cabecalho, itens e fornecedor"
+          },
+          {
+            "trigger": "clicar no fornecedor",
+            "action": "navega para /suppliers/:id",
+            "result": "abre o detalhe do fornecedor"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/stockpilot/product.json",
+          "apps/stockpilot/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0007.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0008",
+      "slug": "ref-stockpilot-0008",
+      "title": "Alertas de estoque",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "stockpilot",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-STOCKPILOT-0007",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-STOCKPILOT-0005",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/alerts",
+        "name": "Alertas de estoque",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "alerts",
+            "source": "api:/alerts",
+            "editable": false,
+            "format": "lista de alertas de estoque (ALERTA/RUPTURA)"
+          },
+          {
+            "field": "severity_filter",
+            "source": "ui:local",
+            "editable": true,
+            "format": "filtro por severidade"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /alerts",
+            "action": "carrega os alertas de estoque",
+            "result": "renderiza lista com severidade e produto afetado"
+          },
+          {
+            "trigger": "clicar em um alerta",
+            "action": "navega para o produto relacionado",
+            "result": "abre /products/:id"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/stockpilot/product.json",
+          "apps/stockpilot/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0008.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0009",
+      "slug": "ref-stockpilot-0009",
+      "title": "Notificacoes",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "stockpilot",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-STOCKPILOT-0007",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/notifications",
+        "name": "Notificacoes",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "notifications",
+            "source": "api:/notifications",
+            "editable": false,
+            "format": "lista de notificacoes enviadas (email/push/whatsapp)"
+          },
+          {
+            "field": "channel_filter",
+            "source": "ui:local",
+            "editable": true,
+            "format": "filtro por canal"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /notifications",
+            "action": "carrega o historico de notificacoes",
+            "result": "renderiza lista com canal, status de entrega e data"
+          },
+          {
+            "trigger": "clicar em uma notificacao",
+            "action": "navega para /notifications/:id",
+            "result": "abre o detalhe da notificacao"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/stockpilot/product.json",
+          "apps/stockpilot/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0009.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0010",
+      "slug": "ref-stockpilot-0010",
+      "title": "Detalhe da notificacao",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "stockpilot",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-STOCKPILOT-0007",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/notifications/:id",
+        "name": "Detalhe da notificacao",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "notification",
+            "source": "api:/notifications/:id",
+            "editable": false,
+            "format": "conteudo da notificacao, canal e destinatario"
+          },
+          {
+            "field": "delivery_status",
+            "source": "api:/notifications/:id",
+            "editable": false,
+            "format": "status de entrega e degradacao graciosa"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /notifications/:id",
+            "action": "carrega o detalhe da notificacao",
+            "result": "renderiza conteudo, canal e status de entrega"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/stockpilot/product.json",
+          "apps/stockpilot/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0010.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0011",
+      "slug": "ref-stockpilot-0011",
+      "title": "Canais de notificacao",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "stockpilot",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-STOCKPILOT-0007",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/channels",
+        "name": "Canais de notificacao",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "channels",
+            "source": "api:/channels",
+            "editable": false,
+            "format": "lista de canais configurados (email/push/whatsapp)"
+          },
+          {
+            "field": "enabled_status",
+            "source": "api:/channels",
+            "editable": false,
+            "format": "estado de habilitacao por canal"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /channels",
+            "action": "carrega os canais de notificacao",
+            "result": "renderiza lista com tipo e estado de cada canal"
+          },
+          {
+            "trigger": "clicar em Novo canal",
+            "action": "navega para /channels/new",
+            "result": "abre o formulario de criacao"
+          },
+          {
+            "trigger": "clicar em Editar",
+            "action": "navega para /channels/:id/edit",
+            "result": "abre o formulario de edicao"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/stockpilot/product.json",
+          "apps/stockpilot/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0011.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0012",
+      "slug": "ref-stockpilot-0012",
+      "title": "Novo canal",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "stockpilot",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-STOCKPILOT-0007",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/channels/new",
+        "name": "Novo canal",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "type",
+            "source": "ui:form",
+            "editable": true,
+            "format": "tipo do canal (email/push/whatsapp)"
+          },
+          {
+            "field": "target",
+            "source": "ui:form",
+            "editable": true,
+            "format": "destino do canal (endereco/numero/token)"
+          },
+          {
+            "field": "enabled",
+            "source": "ui:form",
+            "editable": true,
+            "format": "estado de habilitacao"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /channels/new",
+            "action": "exibe formulario vazio de canal",
+            "result": "renderiza campos com validacao inline"
+          },
+          {
+            "trigger": "clicar em Salvar",
+            "action": "POST /channels",
+            "result": "cria o canal e volta para /channels"
+          },
+          {
+            "trigger": "clicar em Cancelar",
+            "action": "descarta o formulario",
+            "result": "retorna para /channels"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/stockpilot/product.json",
+          "apps/stockpilot/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0012.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0013",
+      "slug": "ref-stockpilot-0013",
+      "title": "Editar canal",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "stockpilot",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-STOCKPILOT-0007",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/channels/:id/edit",
+        "name": "Editar canal",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "form",
+            "source": "api:/channels/:id",
+            "editable": true,
+            "format": "campos do canal pre-preenchidos"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /channels/:id/edit",
+            "action": "carrega e preenche o formulario do canal",
+            "result": "renderiza campos editaveis com valores atuais"
+          },
+          {
+            "trigger": "clicar em Salvar",
+            "action": "PUT /channels/:id",
+            "result": "salva e volta para /channels"
+          },
+          {
+            "trigger": "clicar em Cancelar",
+            "action": "descarta as alteracoes",
+            "result": "retorna para /channels"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/stockpilot/product.json",
+          "apps/stockpilot/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0013.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0014",
+      "slug": "ref-stockpilot-0014",
+      "title": "Fornecedores",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "stockpilot",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-STOCKPILOT-0004",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/suppliers",
+        "name": "Fornecedores",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "suppliers",
+            "source": "api:/suppliers",
+            "editable": false,
+            "format": "lista de fornecedores com contato e status"
+          },
+          {
+            "field": "search",
+            "source": "ui:local",
+            "editable": true,
+            "format": "termo de busca"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /suppliers",
+            "action": "carrega a lista de fornecedores",
+            "result": "renderiza tabela com fornecedores e contatos"
+          },
+          {
+            "trigger": "clicar em Novo fornecedor",
+            "action": "navega para /suppliers/new",
+            "result": "abre o formulario de criacao"
+          },
+          {
+            "trigger": "clicar em uma linha",
+            "action": "navega para /suppliers/:id",
+            "result": "abre o detalhe do fornecedor"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/stockpilot/product.json",
+          "apps/stockpilot/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0014.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0015",
+      "slug": "ref-stockpilot-0015",
+      "title": "Novo fornecedor",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "stockpilot",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-STOCKPILOT-0004",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/suppliers/new",
+        "name": "Novo fornecedor",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "name",
+            "source": "ui:form",
+            "editable": true,
+            "format": "nome do fornecedor"
+          },
+          {
+            "field": "contact",
+            "source": "ui:form",
+            "editable": true,
+            "format": "contato (email/telefone)"
+          },
+          {
+            "field": "lead_time",
+            "source": "ui:form",
+            "editable": true,
+            "format": "prazo de entrega em dias"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /suppliers/new",
+            "action": "exibe formulario vazio de fornecedor",
+            "result": "renderiza campos com validacao inline"
+          },
+          {
+            "trigger": "clicar em Salvar",
+            "action": "POST /suppliers",
+            "result": "cria o fornecedor e navega para o detalhe"
+          },
+          {
+            "trigger": "clicar em Cancelar",
+            "action": "descarta o formulario",
+            "result": "retorna para /suppliers"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/stockpilot/product.json",
+          "apps/stockpilot/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0015.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0016",
+      "slug": "ref-stockpilot-0016",
+      "title": "Detalhe do fornecedor",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "stockpilot",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-STOCKPILOT-0004",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/suppliers/:id",
+        "name": "Detalhe do fornecedor",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "supplier",
+            "source": "api:/suppliers/:id",
+            "editable": false,
+            "format": "ficha completa do fornecedor"
+          },
+          {
+            "field": "orders",
+            "source": "api:/suppliers/:id/orders",
+            "editable": false,
+            "format": "pedidos de reposicao vinculados ao fornecedor"
+          },
+          {
+            "field": "audit_trail",
+            "source": "api:/audit?supplier=:id",
+            "editable": false,
+            "format": "trilha de auditoria do fornecedor"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /suppliers/:id",
+            "action": "carrega a ficha do fornecedor",
+            "result": "renderiza dados, pedidos e trilha de auditoria"
+          },
+          {
+            "trigger": "clicar em Editar",
+            "action": "navega para /suppliers/:id/edit",
+            "result": "abre o formulario de edicao"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/stockpilot/product.json",
+          "apps/stockpilot/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0016.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0017",
+      "slug": "ref-stockpilot-0017",
+      "title": "Editar fornecedor",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "stockpilot",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-STOCKPILOT-0004",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/suppliers/:id/edit",
+        "name": "Editar fornecedor",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "form",
+            "source": "api:/suppliers/:id",
+            "editable": true,
+            "format": "campos do fornecedor pre-preenchidos"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /suppliers/:id/edit",
+            "action": "carrega e preenche o formulario do fornecedor",
+            "result": "renderiza campos editaveis com valores atuais"
+          },
+          {
+            "trigger": "clicar em Salvar",
+            "action": "PUT /suppliers/:id",
+            "result": "salva e navega para o detalhe"
+          },
+          {
+            "trigger": "clicar em Cancelar",
+            "action": "descarta as alteracoes",
+            "result": "volta para o detalhe do fornecedor"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/stockpilot/product.json",
+          "apps/stockpilot/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0017.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0018",
+      "slug": "ref-stockpilot-0018",
+      "title": "Auditoria do fornecedor",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "stockpilot",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-STOCKPILOT-0004",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/audit",
+        "name": "Auditoria do fornecedor",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "audit_events",
+            "source": "api:/audit",
+            "editable": false,
+            "format": "trilha de auditoria com redacao de dados sensiveis"
+          },
+          {
+            "field": "supplier_filter",
+            "source": "ui:local",
+            "editable": true,
+            "format": "filtro por fornecedor"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /audit",
+            "action": "carrega a trilha de auditoria",
+            "result": "renderiza eventos com ator, acao e data"
+          },
+          {
+            "trigger": "clicar em um evento",
+            "action": "navega para /audit/:id",
+            "result": "abre o detalhe da auditoria"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/stockpilot/product.json",
+          "apps/stockpilot/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0018.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0019",
+      "slug": "ref-stockpilot-0019",
+      "title": "Detalhe da auditoria",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "stockpilot",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-STOCKPILOT-0004",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/audit/:id",
+        "name": "Detalhe da auditoria",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "event",
+            "source": "api:/audit/:id",
+            "editable": false,
+            "format": "evento de auditoria completo (ator, acao, payload redigido)"
+          },
+          {
+            "field": "context",
+            "source": "api:/audit/:id",
+            "editable": false,
+            "format": "contexto do evento e recurso afetado"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /audit/:id",
+            "action": "carrega o detalhe do evento de auditoria",
+            "result": "renderiza ator, acao, contexto e payload redigido"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/stockpilot/product.json",
+          "apps/stockpilot/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0019.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0020",
+      "slug": "ref-stockpilot-0020",
+      "title": "Assistente de reposicao (IA)",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "stockpilot",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-STOCKPILOT-0008",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/assistant",
+        "name": "Assistente de reposicao (IA)",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "suggestions",
+            "source": "api:/assistant/suggestions",
+            "editable": false,
+            "format": "sugestoes de reposicao fundamentadas (grounded, dry-run)"
+          },
+          {
+            "field": "rationale",
+            "source": "api:/assistant/suggestions",
+            "editable": false,
+            "format": "justificativa com sinais de estoque e demanda"
+          },
+          {
+            "field": "prompt",
+            "source": "ui:form",
+            "editable": true,
+            "format": "pergunta do operador ao assistente"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /assistant",
+            "action": "solicita sugestoes de reposicao a IA (dry-run, fail-closed)",
+            "result": "renderiza sugestoes e justificativas fundamentadas"
+          },
+          {
+            "trigger": "clicar em Aplicar sugestao",
+            "action": "cria pedido de reposicao com a quantidade sugerida",
+            "result": "abre o pedido criado"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/stockpilot/product.json",
+          "apps/stockpilot/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0020.yaml"
+    },
+    {
+      "id": "REF-STOCKPILOT-0021",
+      "slug": "ref-stockpilot-0021",
+      "title": "Saude da fila",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "stockpilot",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-STOCKPILOT-0001",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-STOCKPILOT-0003",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/queue",
+        "name": "Saude da fila",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "queue_metrics",
+            "source": "api:/queue/health",
+            "editable": false,
+            "format": "metricas da fila (pendentes, em processamento, falhas)"
+          },
+          {
+            "field": "workers",
+            "source": "api:/queue/health",
+            "editable": false,
+            "format": "estado dos workers e throughput"
+          },
+          {
+            "field": "dead_letters",
+            "source": "api:/queue/dead-letters",
+            "editable": false,
+            "format": "itens em dead-letter para reprocessamento"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /queue",
+            "action": "carrega as metricas de saude da fila",
+            "result": "renderiza indicadores e estado dos workers"
+          },
+          {
+            "trigger": "clicar em Reprocessar",
+            "action": "reenfileira itens em dead-letter",
+            "result": "atualiza as metricas da fila"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/stockpilot/product.json",
+          "apps/stockpilot/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/stockpilot/REF-STOCKPILOT-0021.yaml"
     }
   ],
   "reprocess_queue": [
@@ -18525,6 +20609,15 @@
       ]
     },
     {
+      "id": "REQ-HELPFLOW-0001",
+      "title": "Fundação de Arquitetura e Observabilidade",
+      "product": "helpflow",
+      "impact_score": 65,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
       "id": "REQ-OIDC-0001",
       "title": "Validação de token via /userinfo",
       "product": "oidc",
@@ -18619,6 +20712,69 @@
       "title": "Fundação Fastify + RBAC multi-tenant + observabilidade",
       "product": "teamflow",
       "impact_score": 65,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-HELPFLOW-0002",
+      "title": "Autenticação OIDC, Autorização RBAC Multi-Tenant e Persistência de Sessão",
+      "product": "helpflow",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-HELPFLOW-0003",
+      "title": "API Contract-First (OpenAPI) e Modelos de Domínio",
+      "product": "helpflow",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-HELPFLOW-0004",
+      "title": "Processamento Assíncrono Idempotente de Longa Duração (Worker + Fila Transacional)",
+      "product": "helpflow",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-HELPFLOW-0005",
+      "title": "Integração com Sistemas Externos via Gateway Centralizado",
+      "product": "helpflow",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-HELPFLOW-0006",
+      "title": "Base de Conhecimento Vetorial (RAG com pgvector) e Recuperação Grounded",
+      "product": "helpflow",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-HELPFLOW-0007",
+      "title": "Assistente de IA com Grafo, Tools e Controle Próprio",
+      "product": "helpflow",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-HELPFLOW-0008",
+      "title": "Design System Unificado no Frontend (Vue SPA)",
+      "product": "helpflow",
+      "impact_score": 60,
       "reasons": [
         "sem evidência de verificação"
       ]

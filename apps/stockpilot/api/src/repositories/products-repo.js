@@ -29,6 +29,32 @@ export async function findById(id, tenant, db = pool) {
   return rows[0] || null;
 }
 
+// Detalhe canônico de UM produto (tela de detalhe): mesmos campos derivados da lista
+// (status OK/ALERTA/RUPTURA, has_open_order, last_order_date) + os timestamps do registro.
+// Escopado por tenant_id (REQ-STOCKPILOT-0002): produto inexistente ou de outro tenant → null
+// (a rota traduz para 404, nunca vaza dados cross-tenant).
+export async function getDetail(id, tenant, db = pool) {
+  const { rows } = await db.query(`
+    SELECT
+      p.id, p.name, p.current_stock, p.min_stock, p.created_at, p.updated_at,
+      (SELECT MAX(po.created_at) FROM product_orders po WHERE po.product_id = p.id AND po.tenant_id = p.tenant_id) AS last_order_date,
+      EXISTS(
+        SELECT 1 FROM product_orders po WHERE po.product_id = p.id AND po.tenant_id = p.tenant_id AND po.status IN ('pending','processing')
+      ) AS has_open_order
+    FROM products p
+    WHERE p.id = $1 AND p.tenant_id = $2
+  `, [id, tenant]);
+  const r = rows[0];
+  return r ? { ...r, status: computeStatus(r) } : null;
+}
+
+// Alertas (RUPTURA / falha de envio) de UM produto — derivado da mesma regra de listAlerts,
+// porém escopado a um único produto/tenant (a tela de detalhe mostra só os alertas dele).
+export async function listAlertsForProduct(id, tenant, db = pool) {
+  const all = await listAlerts(tenant, db);
+  return all.filter((a) => Number(a.id) === Number(id));
+}
+
 // REQ-STOCKPILOT-0003 — produtos abaixo do mínimo SEM pedido aberto: candidatos à reposição.
 export async function listBelowMinimum(tenant, db = pool) {
   const { rows } = await db.query(`

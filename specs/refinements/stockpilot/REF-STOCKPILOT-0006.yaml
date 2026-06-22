@@ -1,0 +1,53 @@
+id: REF-STOCKPILOT-0006
+slug: ref-stockpilot-0006
+title: "Pedidos de reposicao"
+kind: screen
+status: approved
+
+scope:
+  product_scope: stockpilot
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-STOCKPILOT-0003
+    relation: implements
+  - requirement_id: REQ-STOCKPILOT-0005
+    relation: relates_to
+
+surface:
+  route: "/orders"
+  name: "Pedidos de reposicao"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+    - name: loading
+    - name: empty
+    - name: error
+  data:
+    - field: "orders"
+      source: "api:/orders"
+      editable: false
+      format: "lista de pedidos de reposicao com status e fornecedor"
+    - field: "status_filter"
+      source: "ui:local"
+      editable: true
+      format: "filtro por status do pedido"
+  interactions:
+    - trigger: "abrir /orders"
+      action: "carrega a lista de pedidos de reposicao"
+      result: "renderiza tabela com status e datas"
+    - trigger: "clicar em uma linha"
+      action: "navega para /orders/:id"
+      result: "abre o detalhe do pedido"
+
+source:
+  source_paths:
+    - specs/products/stockpilot/product.json
+    - apps/stockpilot/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

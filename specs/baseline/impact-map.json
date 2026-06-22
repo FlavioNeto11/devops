@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "b40ddfbf09f13258fd0968c5b19bfe638ccac9caf7bdc25627ac75789170652b",
+  "baseline_hash": "781dadc2ef8a3fdd48f47f60f6bd380fc784e97c54bd358a261314c62e78755a",
   "nodes": [
     {
       "id": "infra-argocd",
@@ -333,6 +333,153 @@
       "title": "Documentacao da API",
       "refinement_kind": "screen",
       "product": "shopdesk"
+    },
+    {
+      "id": "REF-STOCKPILOT-0001",
+      "kind": "refinement",
+      "title": "Painel de controle",
+      "refinement_kind": "screen",
+      "product": "stockpilot"
+    },
+    {
+      "id": "REF-STOCKPILOT-0002",
+      "kind": "refinement",
+      "title": "Produtos",
+      "refinement_kind": "screen",
+      "product": "stockpilot"
+    },
+    {
+      "id": "REF-STOCKPILOT-0003",
+      "kind": "refinement",
+      "title": "Novo produto",
+      "refinement_kind": "screen",
+      "product": "stockpilot"
+    },
+    {
+      "id": "REF-STOCKPILOT-0004",
+      "kind": "refinement",
+      "title": "Detalhe do produto",
+      "refinement_kind": "screen",
+      "product": "stockpilot"
+    },
+    {
+      "id": "REF-STOCKPILOT-0005",
+      "kind": "refinement",
+      "title": "Editar produto",
+      "refinement_kind": "screen",
+      "product": "stockpilot"
+    },
+    {
+      "id": "REF-STOCKPILOT-0006",
+      "kind": "refinement",
+      "title": "Pedidos de reposicao",
+      "refinement_kind": "screen",
+      "product": "stockpilot"
+    },
+    {
+      "id": "REF-STOCKPILOT-0007",
+      "kind": "refinement",
+      "title": "Detalhe do pedido",
+      "refinement_kind": "screen",
+      "product": "stockpilot"
+    },
+    {
+      "id": "REF-STOCKPILOT-0008",
+      "kind": "refinement",
+      "title": "Alertas de estoque",
+      "refinement_kind": "screen",
+      "product": "stockpilot"
+    },
+    {
+      "id": "REF-STOCKPILOT-0009",
+      "kind": "refinement",
+      "title": "Notificacoes",
+      "refinement_kind": "screen",
+      "product": "stockpilot"
+    },
+    {
+      "id": "REF-STOCKPILOT-0010",
+      "kind": "refinement",
+      "title": "Detalhe da notificacao",
+      "refinement_kind": "screen",
+      "product": "stockpilot"
+    },
+    {
+      "id": "REF-STOCKPILOT-0011",
+      "kind": "refinement",
+      "title": "Canais de notificacao",
+      "refinement_kind": "screen",
+      "product": "stockpilot"
+    },
+    {
+      "id": "REF-STOCKPILOT-0012",
+      "kind": "refinement",
+      "title": "Novo canal",
+      "refinement_kind": "screen",
+      "product": "stockpilot"
+    },
+    {
+      "id": "REF-STOCKPILOT-0013",
+      "kind": "refinement",
+      "title": "Editar canal",
+      "refinement_kind": "screen",
+      "product": "stockpilot"
+    },
+    {
+      "id": "REF-STOCKPILOT-0014",
+      "kind": "refinement",
+      "title": "Fornecedores",
+      "refinement_kind": "screen",
+      "product": "stockpilot"
+    },
+    {
+      "id": "REF-STOCKPILOT-0015",
+      "kind": "refinement",
+      "title": "Novo fornecedor",
+      "refinement_kind": "screen",
+      "product": "stockpilot"
+    },
+    {
+      "id": "REF-STOCKPILOT-0016",
+      "kind": "refinement",
+      "title": "Detalhe do fornecedor",
+      "refinement_kind": "screen",
+      "product": "stockpilot"
+    },
+    {
+      "id": "REF-STOCKPILOT-0017",
+      "kind": "refinement",
+      "title": "Editar fornecedor",
+      "refinement_kind": "screen",
+      "product": "stockpilot"
+    },
+    {
+      "id": "REF-STOCKPILOT-0018",
+      "kind": "refinement",
+      "title": "Auditoria do fornecedor",
+      "refinement_kind": "screen",
+      "product": "stockpilot"
+    },
+    {
+      "id": "REF-STOCKPILOT-0019",
+      "kind": "refinement",
+      "title": "Detalhe da auditoria",
+      "refinement_kind": "screen",
+      "product": "stockpilot"
+    },
+    {
+      "id": "REF-STOCKPILOT-0020",
+      "kind": "refinement",
+      "title": "Assistente de reposicao (IA)",
+      "refinement_kind": "screen",
+      "product": "stockpilot"
+    },
+    {
+      "id": "REF-STOCKPILOT-0021",
+      "kind": "refinement",
+      "title": "Saude da fila",
+      "refinement_kind": "screen",
+      "product": "stockpilot"
     },
     {
       "id": "REQ-AI-0001",
@@ -1733,6 +1880,86 @@
       "asr": false,
       "impact_score": 38,
       "impact_band": "low"
+    },
+    {
+      "id": "REQ-HELPFLOW-0001",
+      "kind": "requirement",
+      "title": "Fundação de Arquitetura e Observabilidade",
+      "type": "functional",
+      "product": "helpflow",
+      "asr": true,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-HELPFLOW-0002",
+      "kind": "requirement",
+      "title": "Autenticação OIDC, Autorização RBAC Multi-Tenant e Persistência de Sessão",
+      "type": "functional",
+      "product": "helpflow",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-HELPFLOW-0003",
+      "kind": "requirement",
+      "title": "API Contract-First (OpenAPI) e Modelos de Domínio",
+      "type": "functional",
+      "product": "helpflow",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-HELPFLOW-0004",
+      "kind": "requirement",
+      "title": "Processamento Assíncrono Idempotente de Longa Duração (Worker + Fila Transacional)",
+      "type": "functional",
+      "product": "helpflow",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-HELPFLOW-0005",
+      "kind": "requirement",
+      "title": "Integração com Sistemas Externos via Gateway Centralizado",
+      "type": "functional",
+      "product": "helpflow",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-HELPFLOW-0006",
+      "kind": "requirement",
+      "title": "Base de Conhecimento Vetorial (RAG com pgvector) e Recuperação Grounded",
+      "type": "functional",
+      "product": "helpflow",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-HELPFLOW-0007",
+      "kind": "requirement",
+      "title": "Assistente de IA com Grafo, Tools e Controle Próprio",
+      "type": "functional",
+      "product": "helpflow",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-HELPFLOW-0008",
+      "kind": "requirement",
+      "title": "Design System Unificado no Frontend (Vue SPA)",
+      "type": "non-functional",
+      "product": "helpflow",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
     },
     {
       "id": "REQ-KEYCLOAK-0001",
@@ -4470,6 +4697,180 @@
       "from": "REF-SHOPDESK-0031",
       "to": "REQ-SHOPDESK-0008",
       "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0001",
+      "to": "REQ-STOCKPILOT-0001",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0001",
+      "to": "REQ-STOCKPILOT-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0002",
+      "to": "REQ-STOCKPILOT-0003",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0002",
+      "to": "REQ-STOCKPILOT-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0003",
+      "to": "REQ-STOCKPILOT-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0004",
+      "to": "REQ-STOCKPILOT-0003",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0004",
+      "to": "REQ-STOCKPILOT-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0004",
+      "to": "REQ-STOCKPILOT-0008",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0005",
+      "to": "REQ-STOCKPILOT-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0006",
+      "to": "REQ-STOCKPILOT-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0006",
+      "to": "REQ-STOCKPILOT-0005",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0007",
+      "to": "REQ-STOCKPILOT-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0007",
+      "to": "REQ-STOCKPILOT-0004",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0008",
+      "to": "REQ-STOCKPILOT-0005",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0008",
+      "to": "REQ-STOCKPILOT-0007",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0009",
+      "to": "REQ-STOCKPILOT-0007",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0010",
+      "to": "REQ-STOCKPILOT-0007",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0011",
+      "to": "REQ-STOCKPILOT-0007",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0012",
+      "to": "REQ-STOCKPILOT-0007",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0013",
+      "to": "REQ-STOCKPILOT-0007",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0014",
+      "to": "REQ-STOCKPILOT-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0015",
+      "to": "REQ-STOCKPILOT-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0016",
+      "to": "REQ-STOCKPILOT-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0017",
+      "to": "REQ-STOCKPILOT-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0018",
+      "to": "REQ-STOCKPILOT-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0019",
+      "to": "REQ-STOCKPILOT-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0020",
+      "to": "REQ-STOCKPILOT-0008",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0021",
+      "to": "REQ-STOCKPILOT-0001",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-STOCKPILOT-0021",
+      "to": "REQ-STOCKPILOT-0003",
+      "type": "relates_to",
       "refinement": true
     },
     {

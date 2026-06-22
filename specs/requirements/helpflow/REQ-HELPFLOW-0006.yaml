@@ -1,0 +1,29 @@
+id: REQ-HELPFLOW-0006
+title: "Base de Conhecimento Vetorial (RAG com pgvector) e Recuperação Grounded"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: helpflow
+  blueprint: node-api-vue-spa
+statement: "O sistema DEVE manter uma base de conhecimento (artigos) indexada por embeddings (pgvector) no Postgres. Quando um usuário abre um ticket ou o assistente precisa sugerir resposta, recupera os top-K artigos mais relevantes por similaridade semântica, fundamenta a resposta com citações e recusa responder quando não há fonte de conhecimento. Artigos são fatiados (chunking), embeddados via embedder (pacote ai-core) e reindexados quando atualizados."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/helpflow/product.json"]
+priority: high
+criticality: medium
+architectural_significance: true
+capability_blocks: ["rag-pgvector"]
+acceptance_criteria:
+  - "Tabela artigos com: id, tenant_id, título, conteúdo, tags, embeddings (vector), created_at, updated_at"
+  - "Comando de indexação: fatiador quebra artigo em chunks (~500 tokens), embeddador gera embedding por chunk"
+  - "Query semântica: dado um texto, recupera top-3 chunks mais similares (cosine similarity > threshold)"
+  - "Resposta do assistente inclui citações: 'De acordo com [Artigo: Resetar Senha], …'"
+  - "Se nenhum chunk atinge threshold, assistente recusa: 'Não encontrei artigo relevante na base de conhecimento'"
+  - "Testes validam retrieval: query de usuário retorna artigos esperados com alta similaridade"
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

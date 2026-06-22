@@ -1,0 +1,57 @@
+id: REF-STOCKPILOT-0021
+slug: ref-stockpilot-0021
+title: "Saude da fila"
+kind: screen
+status: approved
+
+scope:
+  product_scope: stockpilot
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-STOCKPILOT-0001
+    relation: implements
+  - requirement_id: REQ-STOCKPILOT-0003
+    relation: relates_to
+
+surface:
+  route: "/queue"
+  name: "Saude da fila"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+    - name: loading
+    - name: empty
+    - name: error
+  data:
+    - field: "queue_metrics"
+      source: "api:/queue/health"
+      editable: false
+      format: "metricas da fila (pendentes, em processamento, falhas)"
+    - field: "workers"
+      source: "api:/queue/health"
+      editable: false
+      format: "estado dos workers e throughput"
+    - field: "dead_letters"
+      source: "api:/queue/dead-letters"
+      editable: false
+      format: "itens em dead-letter para reprocessamento"
+  interactions:
+    - trigger: "abrir /queue"
+      action: "carrega as metricas de saude da fila"
+      result: "renderiza indicadores e estado dos workers"
+    - trigger: "clicar em Reprocessar"
+      action: "reenfileira itens em dead-letter"
+      result: "atualiza as metricas da fila"
+
+source:
+  source_paths:
+    - specs/products/stockpilot/product.json
+    - apps/stockpilot/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

@@ -1,0 +1,58 @@
+{
+  "schema_version": "1.2.0",
+  "name": "helpflow",
+  "display_name": "HelpFlow - Service Desk",
+  "base_path": "/helpflow",
+  "namespace": "apps",
+  "app_type": "product_software",
+  "blueprint": "node-api-vue-spa",
+  "stack": "sicat",
+  "interfaces": [
+    "api",
+    "web"
+  ],
+  "capability_blocks": [
+    "camadas-rigidas",
+    "migrations-versionadas",
+    "observabilidade",
+    "oidc-sessao",
+    "contract-openapi",
+    "worker-queue-transacional",
+    "idempotencia",
+    "gateway-externo",
+    "rag-pgvector",
+    "ia-grafo",
+    "structured-outputs",
+    "control-ai-por-app",
+    "design-system"
+  ],
+  "vision": "Sistema de service desk (central de chamados) multi-empresa. Solicitantes abrem chamados (tickets) com categoria, prioridade e descricao; agentes atendem, comentam e mudam o status (aberto, em_andamento, aguardando, resolvido, fechado) respeitando SLA por prioridade. Base de conhecimento (artigos) para autoatendimento. Painel com filas, SLA em risco e volume por categoria/agente. Assistente de IA sugere categoria/prioridade e rascunho de resposta a partir do historico. Operadores autenticam por SSO; multi-tenant; observabilidade por padrao; API contract-first (OpenAPI).",
+  "requirement_ids": [
+    "REQ-HELPFLOW-0001",
+    "REQ-HELPFLOW-0002",
+    "REQ-HELPFLOW-0003",
+    "REQ-HELPFLOW-0004",
+    "REQ-HELPFLOW-0005",
+    "REQ-HELPFLOW-0006",
+    "REQ-HELPFLOW-0007",
+    "REQ-HELPFLOW-0008"
+  ],
+  "phases": {
+    "requirements": {
+      "status": "approved"
+    },
+    "architecture": {
+      "status": "approved"
+    },
+    "scaffold": {
+      "status": "not_started"
+    },
+    "build": {
+      "status": "not_started"
+    }
+  },
+  "version": {
+    "revision": 1,
+    "change_reason": "FORGE greenfield — concepção+arquitetura pela IA"
+  }
+}

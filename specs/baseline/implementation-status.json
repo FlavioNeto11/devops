@@ -1,18 +1,19 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "b40ddfbf09f13258fd0968c5b19bfe638ccac9caf7bdc25627ac75789170652b",
+  "baseline_hash": "781dadc2ef8a3fdd48f47f60f6bd380fc784e97c54bd358a261314c62e78755a",
   "counts": {
-    "total": 365,
+    "total": 373,
     "by_status": {
       "deployed": 313,
-      "done": 52
+      "done": 52,
+      "not_started": 8
     },
     "refinements": {
-      "total": 44,
+      "total": 65,
       "by_status": {
         "pr_open": 1,
         "deployed": 12,
-        "not_started": 31
+        "not_started": 52
       }
     }
   },
@@ -842,6 +843,38 @@
       "req_revision": 1,
       "deployed_at": "2026-06-15",
       "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
+    },
+    "REQ-HELPFLOW-0001": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-HELPFLOW-0002": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-HELPFLOW-0003": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-HELPFLOW-0004": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-HELPFLOW-0005": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-HELPFLOW-0006": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-HELPFLOW-0007": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-HELPFLOW-0008": {
+      "status": "not_started",
+      "req_revision": 1
     },
     "REQ-KEYCLOAK-0001": {
       "status": "deployed",
@@ -2327,6 +2360,90 @@
       "req_revision": 1
     },
     "REF-SHOPDESK-0031": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-STOCKPILOT-0001": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-STOCKPILOT-0002": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-STOCKPILOT-0003": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-STOCKPILOT-0004": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-STOCKPILOT-0005": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-STOCKPILOT-0006": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-STOCKPILOT-0007": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-STOCKPILOT-0008": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-STOCKPILOT-0009": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-STOCKPILOT-0010": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-STOCKPILOT-0011": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-STOCKPILOT-0012": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-STOCKPILOT-0013": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-STOCKPILOT-0014": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-STOCKPILOT-0015": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-STOCKPILOT-0016": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-STOCKPILOT-0017": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-STOCKPILOT-0018": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-STOCKPILOT-0019": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-STOCKPILOT-0020": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-STOCKPILOT-0021": {
       "status": "not_started",
       "req_revision": 1
     }

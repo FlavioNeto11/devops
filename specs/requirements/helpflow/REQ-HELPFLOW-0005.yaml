@@ -1,0 +1,29 @@
+id: REQ-HELPFLOW-0005
+title: "Integração com Sistemas Externos via Gateway Centralizado"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: helpflow
+  blueprint: node-api-vue-spa
+statement: "O sistema DEVE centralizar toda integração HTTP com sistemas externos (ERP, sistema de notificação, base de conhecimento remota) numa camada gateway única: timeout, retry com backoff, redação de segredos no log, erros tipados (AppError), trilha de auditoria de trocas e resiliência. Gateway nunca é chamado diretamente por rotas; apenas services podem chamar gateways, e o resultado é persistido no banco ou enfileirado. Exemplo: sincronizar categorias de um ERP a cada startup ou por job."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/helpflow/product.json"]
+priority: high
+criticality: medium
+architectural_significance: true
+capability_blocks: ["gateway-externo"]
+acceptance_criteria:
+  - "Classe GatewayClient abstrai HTTP: timeout configurável (default 10s), retry com backoff"
+  - "Toda chamada HTTP externa passa por esta classe; nenhuma requisição direta via fetch/axios"
+  - "Segredos (API keys, certificados) nunca aparecem em logs; substituídos por ***"
+  - "Respostas mapeadas para AppError tipado; cliente sabe exatamente qual falha ocorreu (timeout, 4xx, 5xx, parse)"
+  - "Auditoria: tabela gateway_audit log com timestamp, método, endpoint, status, duration_ms, tenant_id"
+  - "Falha de gateway não derruba a API (fail-closed, degradação graciosa); fallback para cache/default"
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

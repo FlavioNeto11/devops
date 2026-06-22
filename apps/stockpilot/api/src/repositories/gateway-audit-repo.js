@@ -45,3 +45,16 @@ export async function listByTenant(tenant, db = pool, limit = 200) {
   );
   return rows;
 }
+
+// Trilha de auditoria das trocas com o fornecedor PARA UM PEDIDO (tela de detalhe do pedido).
+// Filtro de domínio NO BANCO (não baixa o universo do tenant para filtrar no cliente). Escopado por
+// tenant_id E order_id — cross-tenant nunca vaza. Segredos já vêm redigidos da gravação.
+export async function listByOrder(orderId, tenant, db = pool, limit = 200) {
+  const { rows } = await db.query(
+    `SELECT id, tenant_id, operation, product_id, order_id, outcome, status_code, attempt,
+            request_payload, response_payload, error_redacted, duration_ms, created_at
+     FROM gateway_audit WHERE tenant_id=$1 AND order_id=$2 ORDER BY id DESC LIMIT $3`,
+    [tenant, orderId, limit]
+  );
+  return rows;
+}
