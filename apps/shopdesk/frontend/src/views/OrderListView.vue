@@ -137,7 +137,7 @@
         <!-- Ações por linha -->
         <template #cell-actions="{ row }">
           <div class="orders-actions" @click.stop>
-            <UiButton variant="ghost" size="sm" @click="openDetail(row)">Ver</UiButton>
+            <UiButton variant="ghost" size="sm" :to="{ name: 'order', params: { id: row.id } }">Ver</UiButton>
             <UiButton
               variant="ghost"
               size="sm"
@@ -166,79 +166,6 @@
       </UiDataTable>
     </UiCard>
 
-    <!-- Modal: detalhe do pedido -->
-    <UiModal v-model:open="detailOpen" :title="detailTitle" width="md">
-      <UiLoadingState v-if="detailLoading" variant="spinner" />
-      <UiErrorState
-        v-else-if="detailError"
-        :message="detailError"
-        @retry="reloadDetail"
-      />
-      <dl v-else-if="detail" class="orders-detail">
-        <div class="orders-detail-row">
-          <dt>Código</dt>
-          <dd class="ui-mono">{{ detail.code || '—' }}</dd>
-        </div>
-        <div class="orders-detail-row">
-          <dt>Cliente</dt>
-          <dd>{{ detail.customer_name || '—' }}</dd>
-        </div>
-        <div class="orders-detail-row">
-          <dt>E-mail</dt>
-          <dd>{{ detail.customer_email || '—' }}</dd>
-        </div>
-        <div class="orders-detail-row">
-          <dt>Situação</dt>
-          <dd><UiStatusBadge :status="detail.status" :label="labelFor(detail.status)" /></dd>
-        </div>
-        <div class="orders-detail-row">
-          <dt>Pagamento</dt>
-          <dd>
-            <UiStatusBadge
-              v-if="detail.payment_status"
-              :status="detail.payment_status"
-              :label="labelFor(detail.payment_status)"
-            />
-            <span v-else class="ui-muted">—</span>
-          </dd>
-        </div>
-        <div class="orders-detail-row">
-          <dt>Itens</dt>
-          <dd>{{ detail.items_count != null ? format.formatNumber(detail.items_count) : '—' }}</dd>
-        </div>
-        <div class="orders-detail-row">
-          <dt>Total</dt>
-          <dd class="orders-total">{{ format.formatCurrency(detail.total) }}</dd>
-        </div>
-        <div class="orders-detail-row">
-          <dt>Rastreio</dt>
-          <dd class="ui-mono">{{ detail.tracking_code || '—' }}</dd>
-        </div>
-        <div class="orders-detail-row">
-          <dt>Criado em</dt>
-          <dd>{{ format.formatDateTime(detail.created_at) }}</dd>
-        </div>
-      </dl>
-      <template #footer>
-        <UiButton
-          v-if="detail && canTrack(detail)"
-          variant="ghost"
-          @click="openTracking(detail)"
-        >
-          Rastrear
-        </UiButton>
-        <UiButton
-          v-if="detail && canRefund(detail)"
-          variant="danger"
-          :loading="busyId === detail.id"
-          @click="refund(detail)"
-        >
-          Reembolsar
-        </UiButton>
-        <UiButton variant="primary" @click="detailOpen = false">Fechar</UiButton>
-      </template>
-    </UiModal>
-
     <!-- Modal: rastreamento -->
     <UiModal v-model:open="trackOpen" title="Rastreamento do pedido" width="sm">
       <div v-if="trackTarget" class="orders-track">
@@ -264,6 +191,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import {
   UiPageLayout,
   UiCard,
@@ -273,8 +201,6 @@ import {
   UiStatusBadge,
   UiButton,
   UiModal,
-  UiLoadingState,
-  UiErrorState,
   useResource,
   useToast,
   useConfirm,
@@ -293,6 +219,7 @@ const orders = api.orders || {
   list: () => Promise.reject(new Error(ORDERS_UNAVAILABLE)),
 };
 const r = useResource(orders, { pageSize: 25, sort: { key: 'created_at', dir: 'desc' } });
+const router = useRouter();
 const toast = useToast();
 const confirm = useConfirm();
 
@@ -460,32 +387,10 @@ const canRefund = (row) => REFUNDABLE.has(row.status) && typeof orders.update ==
 const canTrack = (row) => !!(row && row.tracking_code);
 
 // ---------------------------------------------------------------------------
-// Detalhe (GET /v1/orders/:id).
+// Detalhe: navega para /orders/:id (OrderDetailView).
 // ---------------------------------------------------------------------------
-const detailOpen = ref(false);
-const detail = ref(null);
-const detailLoading = ref(false);
-const detailError = ref('');
-let lastDetailId = null;
-const detailTitle = computed(() => (detail.value ? 'Pedido ' + (detail.value.code || detail.value.id) : 'Pedido'));
-
-async function openDetail(row) {
-  detailOpen.value = true;
-  lastDetailId = row.id;
-  detail.value = row; // mostra o que já temos, então refina com o get
-  detailError.value = '';
-  if (typeof orders.get !== 'function') return;
-  detailLoading.value = true;
-  try {
-    detail.value = await orders.get(row.id);
-  } catch (e) {
-    detailError.value = e.message || 'Não foi possível carregar o pedido.';
-  } finally {
-    detailLoading.value = false;
-  }
-}
-function reloadDetail() {
-  if (lastDetailId != null) openDetail({ id: lastDetailId });
+function openDetail(row) {
+  router.push({ name: 'order', params: { id: row.id } });
 }
 
 // ---------------------------------------------------------------------------
@@ -538,9 +443,6 @@ async function refund(row) {
   try {
     await orders.update(row.id, { status: 'reembolsado', paymentStatus: 'estornado' });
     toast.success('Pedido ' + (row.code || row.id) + ' reembolsado.');
-    if (detail.value && detail.value.id === row.id) {
-      detail.value = { ...detail.value, status: 'reembolsado', payment_status: 'estornado' };
-    }
     await r.refresh();
   } catch (e) {
     toast.error('Falha ao reembolsar', { detail: e.message, code: e.status ? 'HTTP ' + e.status : '' });
@@ -643,31 +545,6 @@ onMounted(r.load);
   flex-wrap: wrap;
 }
 
-.orders-detail {
-  display: grid;
-  gap: var(--ui-space-1);
-  margin: 0;
-}
-.orders-detail-row {
-  display: grid;
-  grid-template-columns: 130px 1fr;
-  gap: var(--ui-space-3);
-  align-items: center;
-  padding: var(--ui-space-2) 0;
-  border-bottom: 1px solid rgb(var(--ui-border));
-}
-.orders-detail-row:last-child {
-  border-bottom: none;
-}
-.orders-detail dt {
-  color: rgb(var(--ui-muted));
-  font-size: var(--ui-text-sm);
-  font-weight: 600;
-}
-.orders-detail dd {
-  margin: 0;
-}
-
 .orders-track {
   display: flex;
   flex-direction: column;
@@ -713,10 +590,6 @@ onMounted(r.load);
 @media (max-width: 560px) {
   .orders-kpis {
     grid-template-columns: 1fr;
-  }
-  .orders-detail-row {
-    grid-template-columns: 1fr;
-    gap: 2px;
   }
 }
 </style>
