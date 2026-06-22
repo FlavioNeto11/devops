@@ -42,10 +42,11 @@ export const products = {
   remove: (id) => request("DELETE", "/v1/products/" + id),
 };
 // recurso de carrinho (o backend expõe /v1/carts; CRUD em api/src/server.js — update via PUT /v1/carts/:id).
-// get por id + list desembrulha o envelope; update/create/remove alinhados às rotas reais (PUT, não PATCH).
+// list() devolve o ENVELOPE inteiro { data, total, page, pageSize } — o useResource (server-mode)
+// lê res.total p/ a paginação; desembrulhar .data aqui quebraria a contagem total.
 export const carts = {
   get: (id) => request("GET", "/v1/carts/" + id),
-  list: (params) => request("GET", "/v1/carts" + qs(params)).then((d) => d.data || d),
+  list: (params) => request("GET", "/v1/carts" + qs(params)),
   create: (body) => request("POST", "/v1/carts", body),
   update: (id, body) => request("PUT", "/v1/carts/" + id, body),
   remove: (id) => request("DELETE", "/v1/carts/" + id),

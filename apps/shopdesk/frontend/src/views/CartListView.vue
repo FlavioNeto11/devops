@@ -91,7 +91,7 @@
         :total="r.total.value"
         paginated
         :empty="emptyState"
-        @row-click="openDetail"
+        @row-click="navigateToDetail"
         @update:sort="onSort"
         @update:page="r.setPage"
         @update:page-size="onPageSize"
@@ -130,7 +130,7 @@
         <!-- Ações por linha -->
         <template #cell-actions="{ row }">
           <div class="carts-actions" @click.stop>
-            <UiButton variant="ghost" size="sm" @click="openDetail(row)">Ver</UiButton>
+            <UiButton variant="ghost" size="sm" @click="navigateToDetail(row)">Ver</UiButton>
             <UiButton
               variant="primary"
               size="sm"
@@ -151,57 +151,6 @@
       </UiDataTable>
     </UiCard>
 
-    <!-- Modal: detalhe do carrinho -->
-    <UiModal v-model:open="detailOpen" :title="detailTitle" width="md">
-      <UiLoadingState v-if="detailLoading" variant="spinner" />
-      <UiErrorState
-        v-else-if="detailError"
-        :message="detailError"
-        @retry="reloadDetail"
-      />
-      <dl v-else-if="detail" class="carts-detail">
-        <div class="carts-detail-row">
-          <dt>Identificação</dt>
-          <dd class="ui-mono">{{ detail.code || ('#' + detail.id) }}</dd>
-        </div>
-        <div class="carts-detail-row">
-          <dt>Cliente</dt>
-          <dd>{{ customerName(detail) || '—' }}</dd>
-        </div>
-        <div class="carts-detail-row">
-          <dt>Situação</dt>
-          <dd>
-            <UiStatusBadge :status="statusOf(detail)" :tone="toneFor(detail)" :label="labelFor(statusOf(detail))" />
-          </dd>
-        </div>
-        <div class="carts-detail-row">
-          <dt>Itens</dt>
-          <dd>{{ itemsCount(detail) != null ? format.formatNumber(itemsCount(detail)) : '—' }}</dd>
-        </div>
-        <div class="carts-detail-row">
-          <dt>Subtotal</dt>
-          <dd class="carts-subtotal">{{ format.formatCurrency(subtotalOf(detail)) }}</dd>
-        </div>
-        <div class="carts-detail-row">
-          <dt>Atualizado em</dt>
-          <dd>
-            {{ format.formatDateTime(updatedAt(detail)) }}
-            <span class="carts-when-rel">{{ relativeTime(updatedAt(detail)) }}</span>
-          </dd>
-        </div>
-      </dl>
-      <template #footer>
-        <UiButton variant="ghost" @click="detailOpen = false">Fechar</UiButton>
-        <UiButton
-          v-if="detail && canCheckout(detail)"
-          variant="primary"
-          :loading="busyId === detail.id"
-          @click="goToCheckout(detail)"
-        >
-          Ir ao checkout
-        </UiButton>
-      </template>
-    </UiModal>
   </UiPageLayout>
 </template>
 
@@ -216,9 +165,6 @@ import {
   UiFiltersPanel,
   UiStatusBadge,
   UiButton,
-  UiModal,
-  UiLoadingState,
-  UiErrorState,
   useResource,
   useToast,
   useConfirm,
@@ -417,34 +363,10 @@ const canCheckout = (row) => {
 };
 
 // ---------------------------------------------------------------------------
-// Detalhe (GET /v1/carts/:id, refinando o que já temos).
+// Navegação para o detalhe do carrinho (/carts/:id — CartDetailView).
 // ---------------------------------------------------------------------------
-const detailOpen = ref(false);
-const detail = ref(null);
-const detailLoading = ref(false);
-const detailError = ref('');
-let lastDetailId = null;
-const detailTitle = computed(() =>
-  detail.value ? 'Carrinho ' + (detail.value.code || ('#' + detail.value.id)) : 'Carrinho',
-);
-
-async function openDetail(row) {
-  detailOpen.value = true;
-  lastDetailId = row.id;
-  detail.value = row; // mostra o que já temos; refina com o get se houver
-  detailError.value = '';
-  if (typeof carts.get !== 'function') return;
-  detailLoading.value = true;
-  try {
-    detail.value = await carts.get(row.id);
-  } catch (e) {
-    detailError.value = e.message || 'Não foi possível carregar o carrinho.';
-  } finally {
-    detailLoading.value = false;
-  }
-}
-function reloadDetail() {
-  if (lastDetailId != null) openDetail({ id: lastDetailId });
+function navigateToDetail(row) {
+  router.push('/carts/' + row.id);
 }
 
 // ---------------------------------------------------------------------------
@@ -472,7 +394,6 @@ async function goToCheckout(row) {
   try {
     await router.push({ path: '/loja', query: { cart: row.id } });
     toast.success('Checkout iniciado para ' + who + '.');
-    detailOpen.value = false;
   } catch (e) {
     toast.error('Não foi possível abrir o checkout', { detail: e && e.message });
   } finally {

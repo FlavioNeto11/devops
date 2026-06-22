@@ -56,9 +56,9 @@ export const routes = [
   { path: '/orders/:id/edit', name: 'order-edit', component: OrderEditView, props: true },
   // checkout tokenizado/idempotente de um carrinho — :cartId é lido por CheckoutView.
   { path: '/checkout/:cartId', name: 'checkout', component: CheckoutView, props: true },
-  // carrinhos — lista (/carts) e detalhe (/carrinhos/:id; CartDetailView lê route.params.id).
+  // carrinhos — lista (/carts) e detalhe (/carts/:id; CartDetailView lê route.params.id).
   { path: '/carts', name: 'carts', component: CartListView },
-  { path: '/carrinhos/:id', name: 'cart', component: CartDetailView, props: true },
+  { path: '/carts/:id', name: 'cart', component: CartDetailView, props: true },
   // domínio de estoque (inventory) — recurso real api.inventory (/v1/inventory).
   { path: '/inventory', name: 'inventory', component: InventoryListView },
   { path: '/inventory/:id', name: 'inventory-item', component: InventoryDetailView, props: true },
