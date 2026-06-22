@@ -4,10 +4,9 @@
   "counts": {
     "total": 357,
     "by_status": {
-      "deployed": 298,
+      "deployed": 299,
       "done": 52,
-      "not_started": 6,
-      "pr_open": 1
+      "not_started": 6
     },
     "refinements": {
       "total": 13,
@@ -1966,10 +1965,10 @@
       "req_revision": 1
     },
     "REQ-STOCKPILOT-0005": {
-      "status": "pr_open",
+      "status": "deployed",
       "req_revision": 1,
       "branch": "@{id=REQ-STOCKPILOT-0005; branch=req/REQ-STOCKPILOT-0005/r1; restricted=false; title=feat(stockpilot): implementa REQ-STOCKPILOT-0005 — Painel de estoque, pedidos e alertas co}.branch",
-      "run_id": "27928034305"
+      "run_id": "esteira-stockpilot"
     },
     "REQ-STOCKPILOT-0006": {
       "status": "not_started",
