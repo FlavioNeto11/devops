@@ -627,6 +627,38 @@ paths:
       responses:
         "201": { description: created }
         "400": { description: "campos obrigatórios ausentes." }
+  /v1/dashboard/summary:
+    get:
+      operationId: dashboardSummary
+      summary: KPIs agregados do painel (receita hoje/mês/ano, pedidos, ticket médio, estoque crítico, série de vendas).
+      parameters:
+        - { $ref: "#/components/parameters/TenantId" }
+      responses:
+        "200": { description: ok }
+  /v1/dashboard/recent:
+    get:
+      operationId: dashboardRecent
+      summary: Eventos recentes do painel (últimos pedidos).
+      parameters:
+        - { $ref: "#/components/parameters/TenantId" }
+      responses:
+        "200": { description: ok }
+  /v1/dashboard/export/sales:
+    get:
+      operationId: dashboardExportSales
+      summary: Exportar relatório de vendas em CSV (AC6).
+      parameters:
+        - { $ref: "#/components/parameters/TenantId" }
+      responses:
+        "200": { description: "CSV de vendas." }
+  /v1/dashboard/export/stock:
+    get:
+      operationId: dashboardExportStock
+      summary: Exportar relatório de estoque em CSV (AC6).
+      parameters:
+        - { $ref: "#/components/parameters/TenantId" }
+      responses:
+        "200": { description: "CSV de estoque." }
   /v1/audit-logs/{id}:
     get:
       operationId: getAuditLog

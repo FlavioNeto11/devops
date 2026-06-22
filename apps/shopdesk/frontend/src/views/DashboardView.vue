@@ -23,6 +23,14 @@
     @retry="loadAll"
   >
     <template #actions>
+      <UiButton variant="ghost" size="sm" @click="exportCsv('sales')" :aria-label="'Exportar vendas em CSV'">
+        <template #icon-left><span aria-hidden="true">⬇</span></template>
+        Exportar vendas
+      </UiButton>
+      <UiButton variant="ghost" size="sm" @click="exportCsv('stock')" :aria-label="'Exportar estoque em CSV'">
+        <template #icon-left><span aria-hidden="true">⬇</span></template>
+        Exportar estoque
+      </UiButton>
       <UiButton variant="ghost" size="sm" :loading="refreshing" @click="loadAll(true)">
         <template #icon-left><span aria-hidden="true">↻</span></template>
         Atualizar
@@ -50,43 +58,43 @@
       <UiMetricCard
         label="Receita hoje"
         :value="kpis.revenueToday"
-        :loading="ordersLoading"
+        :loading="summaryLoading"
         tone="primary"
-        :hint="ordersError ? 'Pedidos indisponíveis' : revenueHint('Pedidos pagos lançados hoje')"
+        :hint="summaryError ? 'Resumo indisponível' : revenueHint('Pedidos pagos lançados hoje')"
       />
       <UiMetricCard
         label="Receita no mês"
         :value="kpis.revenueMonth"
-        :loading="ordersLoading"
+        :loading="summaryLoading"
         tone="success"
-        :hint="ordersError ? 'Pedidos indisponíveis' : revenueHint(monthLabel)"
+        :hint="summaryError ? 'Resumo indisponível' : revenueHint(monthLabel)"
       />
       <UiMetricCard
         label="Receita no ano"
         :value="kpis.revenueYear"
-        :loading="ordersLoading"
-        :hint="ordersError ? 'Pedidos indisponíveis' : revenueHint(yearLabel)"
+        :loading="summaryLoading"
+        :hint="summaryError ? 'Resumo indisponível' : revenueHint(yearLabel)"
       />
       <UiMetricCard
         label="Pedidos"
         :value="kpis.orderCount"
-        :loading="ordersLoading"
+        :loading="summaryLoading"
         clickable
-        :hint="ordersError ? 'Pedidos indisponíveis' : (capped ? 'Amostra recente · clique para detalhar' : 'Total no período · clique para detalhar')"
+        :hint="summaryError ? 'Resumo indisponível' : 'Total de pedidos · clique para detalhar'"
         @click="goRecords"
       />
       <UiMetricCard
         label="Ticket médio"
         :value="kpis.avgTicket"
-        :loading="ordersLoading"
+        :loading="summaryLoading"
         hint="Receita do mês ÷ pedidos pagos do mês"
       />
       <UiMetricCard
         label="Estoque crítico"
         :value="kpis.criticalStock"
-        :loading="inventoryLoading"
+        :loading="summaryLoading"
         :tone="kpis.criticalStockRaw > 0 ? 'warning' : 'neutral'"
-        :hint="inventoryError ? 'Estoque indisponível' : 'SKUs abaixo do ponto de reposição'"
+        :hint="summaryError ? 'Resumo indisponível' : 'SKUs abaixo do ponto de reposição'"
       />
       <UiMetricCard
         label="Fila de NF-e"
@@ -108,18 +116,18 @@
       <UiCard title="Vendas dos últimos 14 dias" subtitle="Receita diária de pedidos pagos">
         <template #actions>
           <UiStatusBadge
-            v-if="!ordersLoading && !ordersError"
+            v-if="!summaryLoading && !summaryError"
             :status="salesTrendTone"
             :label="salesTrendLabel"
           />
         </template>
 
-        <UiLoadingState v-if="ordersLoading" variant="skeleton" :skeleton-lines="4" />
+        <UiLoadingState v-if="summaryLoading" variant="skeleton" :skeleton-lines="4" />
         <UiErrorState
-          v-else-if="ordersError"
-          :message="ordersError"
+          v-else-if="summaryError"
+          :message="summaryError"
           retryable
-          @retry="loadOrders"
+          @retry="loadSummary"
         />
         <UiEmptyState
           v-else-if="!salesSeries.length || salesMax === 0"
@@ -222,8 +230,8 @@
       <UiDataTable
         :columns="orderColumns"
         :rows="recentOrders"
-        :loading="ordersLoading"
-        :error="ordersError"
+        :loading="recentLoading"
+        :error="recentError"
         row-key="id"
         density="comfortable"
         :empty="{
@@ -231,7 +239,7 @@
           description: 'Os pedidos da sua loja aparecerão aqui assim que chegarem.',
           icon: '🧾',
         }"
-        @retry="loadOrders"
+        @retry="loadRecent"
       >
         <template #cell-code="{ row }">
           <span class="dash-ordercode ui-mono">{{ row.code || ('#' + row.id) }}</span>
@@ -319,6 +327,7 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import * as api from '../api.js';
+const dashboardApi = api.dashboard || null;
 import {
   UiPageLayout,
   UiCard,
@@ -375,12 +384,21 @@ function rowsOf(res) {
 }
 
 // --- Estado --------------------------------------------------------------
-const SAMPLE_SIZE = 200; // teto da amostra de pedidos (sem endpoint de agregação canônico).
+const SAMPLE_SIZE = 200;
 const firstLoad = ref(true);
 const refreshing = ref(false);
 const fatalError = ref(null);
 const lastUpdated = ref(null);
 
+// Endpoints dedicados (REF-SHOPDESK-0001): usados como caminho principal.
+const summaryData = ref(null);
+const summaryLoading = ref(false);
+const summaryError = ref(null);
+const recentData = ref([]);
+const recentLoading = ref(false);
+const recentError = ref(null);
+
+// Fallback (pedidos brutos para estoque baixo e sparkline, se summary falhar).
 const orders = ref([]);
 const ordersLoading = ref(false);
 const ordersError = ref(null);
@@ -394,6 +412,27 @@ const jobsLoading = ref(false);
 const apiOnline = ref(false);
 
 // --- Carregadores (cada um isolado: falha de um não derruba os outros) ----
+
+async function loadSummary() {
+  if (!dashboardApi) { summaryError.value = 'Endpoint de resumo indisponível.'; return; }
+  summaryLoading.value = true; summaryError.value = null;
+  try { summaryData.value = await dashboardApi.summary(); }
+  catch (e) { summaryError.value = e.message || 'Falha ao carregar resumo.'; summaryData.value = null; }
+  finally { summaryLoading.value = false; }
+}
+
+async function loadRecent() {
+  if (!dashboardApi) {
+    // fallback: usa os pedidos já carregados como recentes.
+    recentData.value = recentOrders.value;
+    return;
+  }
+  recentLoading.value = true; recentError.value = null;
+  try { const r = await dashboardApi.recent(); recentData.value = rowsOf(r); }
+  catch (e) { recentError.value = e.message || 'Falha ao carregar recentes.'; recentData.value = []; }
+  finally { recentLoading.value = false; }
+}
+
 // Recurso AUSENTE → erro VISÍVEL (não "sem vendas" silencioso). Recurso presente que FALHA → erro.
 async function loadOrders() {
   if (!ordersList) { orders.value = []; ordersError.value = MISSING_ORDERS; return; }
@@ -429,11 +468,20 @@ async function loadAll(isRefresh = false) {
   if (isRefresh) refreshing.value = true;
   fatalError.value = null;
   try {
-    await Promise.allSettled([loadHealth(), loadOrders(), loadInventory(), loadJobs()]);
+    // Caminho principal: endpoints dedicados do dashboard (REF-SHOPDESK-0001).
+    // Fallback automático: loadOrders() alimenta o sparkline quando summary falhar.
+    await Promise.allSettled([
+      loadHealth(),
+      loadSummary(),
+      loadRecent(),
+      loadInventory(),
+      loadJobs(),
+    ]);
+    // Se o summary falhou, carrega pedidos brutos para manter o sparkline e o recentOrders.
+    if (summaryError.value) await loadOrders();
     lastUpdated.value = new Date();
-    // Erro fatal: nada dos dois domínios pôde ser carregado — seja por AUSÊNCIA do recurso,
-    // seja por FALHA. (Não exigimos apiOnline=false: um recurso ausente já é estado fatal do painel.)
-    if (ordersError.value && inventoryError.value) {
+    const kpisFailed = summaryError.value && ordersError.value;
+    if (kpisFailed && inventoryError.value) {
       fatalError.value = 'Não foi possível carregar o painel. Verifique a conexão com a API.';
     }
     if (isRefresh && !fatalError.value) toast.success('Painel atualizado.');
@@ -500,16 +548,21 @@ const lowStock = computed(() =>
     })
     .sort((a, b) => Number(a.quantity) - Number(b.quantity)));
 
-const kpis = computed(() => ({
-  revenueToday: format.formatCurrency(revenueToday.value),
-  revenueMonth: format.formatCurrency(revenueMonth.value),
-  revenueYear: format.formatCurrency(revenueYear.value),
-  orderCount: format.formatNumber(orders.value.length),
-  avgTicket: format.formatCurrency(avgTicketRaw.value),
-  criticalStock: format.formatNumber(lowStock.value.length),
-  criticalStockRaw: lowStock.value.length,
-  invoiceQueue: format.formatNumber(invoiceQueueRaw.value),
-}));
+// Quando summaryData está disponível, usa os valores server-side (mais precisos).
+// Quando não está (erro/loading), cai para computação client-side sobre orders.
+const kpis = computed(() => {
+  const s = summaryData.value;
+  return {
+    revenueToday:    format.formatCurrency(s ? s.revenue.today  : revenueToday.value),
+    revenueMonth:    format.formatCurrency(s ? s.revenue.month  : revenueMonth.value),
+    revenueYear:     format.formatCurrency(s ? s.revenue.year   : revenueYear.value),
+    orderCount:      format.formatNumber(s   ? s.orders.count   : orders.value.length),
+    avgTicket:       format.formatCurrency(s ? s.orders.avgTicket : avgTicketRaw.value),
+    criticalStock:   format.formatNumber(s   ? s.criticalStock  : lowStock.value.length),
+    criticalStockRaw: s ? s.criticalStock : lowStock.value.length,
+    invoiceQueue:    format.formatNumber(invoiceQueueRaw.value),
+  };
+});
 
 // hint honesto: quando a amostra satura, sinalizamos que o número é parcial.
 function revenueHint(base) {
@@ -528,7 +581,12 @@ const SPARK_W = 600;
 const SPARK_H = 120;
 const SPARK_DAYS = 14;
 
+// Prefere a série server-side do summary (mais completa); cai para cálculo client-side.
 const salesSeries = computed(() => {
+  const s = summaryData.value;
+  if (s && Array.isArray(s.salesSeries) && s.salesSeries.length === SPARK_DAYS) {
+    return s.salesSeries.map((d) => d.revenue);
+  }
   const buckets = [];
   for (let i = SPARK_DAYS - 1; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
@@ -599,18 +657,30 @@ const orderColumns = [
   { key: 'status', label: 'Status' },
   { key: 'created_at', label: 'Criado em' },
 ];
-// ordena por data desc; pedidos sem data válida vão para o fim (não desaparecem da lista recente).
-const recentOrders = computed(() =>
-  [...orders.value]
+// Prefere os recentes server-side (dashboard.recent); cai para slice dos orders brutos.
+const recentOrders = computed(() => {
+  if (recentData.value && recentData.value.length > 0) return recentData.value;
+  return [...orders.value]
     .sort((a, b) => {
       const da = orderDate(a);
       const db = orderDate(b);
       return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
     })
-    .slice(0, 8));
+    .slice(0, 8);
+});
 
 function stockStatus(it) {
   return Number(it.quantity) <= 0 ? 'esgotado' : 'baixo';
+}
+
+// --- Exportação CSV (AC6: relatório exportável de vendas e estoque) ------
+function exportCsv(type) {
+  if (!dashboardApi) { toast.warning('Exportação indisponível nesta instalação.'); return; }
+  const url = type === 'sales' ? dashboardApi.exportSalesUrl() : dashboardApi.exportStockUrl();
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = type === 'sales' ? 'vendas.csv' : 'estoque.csv';
+  a.click();
 }
 
 // --- Navegação / ações ---------------------------------------------------

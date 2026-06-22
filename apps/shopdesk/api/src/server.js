@@ -12,6 +12,7 @@ import * as checkoutSvc from './services/checkout-service.js';
 import * as fiscalSvc from './services/fiscal-service.js';
 import * as assistantSvc from './services/assistant-service.js';
 import * as notifySvc from './services/notification-service.js';
+import * as dashboardRepo from './repositories/dashboard-repo.js';
 import { authContext } from './lib/auth-context.js';
 import { openapiToJson } from '../openapi/openapi-json.mjs';
 // Contrato OpenAPI canônico — lido UMA vez no boot (cache em módulo), servido em YAML (download)
@@ -42,6 +43,12 @@ app.post('/v1/assistant', wrap(async (req, res) => { const b = req.body || {}; r
 app.get('/v1/assistant/health', (_q, res) => res.json({ ai: assistantSvc.aiEnabled }));
 // bloco notificacoes-multicanal: histórico de notificações (e-mail/push/whatsapp por webhook, degrada graciosamente).
 app.get('/v1/notifications', wrap(async (_q, res) => res.json({ data: notifySvc.recentNotifications() })));
+
+// dashboard: KPIs agregados server-side + eventos recentes + exportação CSV (REF-SHOPDESK-0001).
+app.get('/v1/dashboard/summary', wrap(async (req, res) => res.json(await dashboardRepo.summary(req.tenantId))));
+app.get('/v1/dashboard/recent', wrap(async (req, res) => res.json({ data: await dashboardRepo.recent(req.tenantId) })));
+app.get('/v1/dashboard/export/sales', wrap(async (req, res) => { res.type('text/csv').set('Content-Disposition', 'attachment; filename="vendas.csv"').send(await dashboardRepo.exportSalesCsv(req.tenantId)); }));
+app.get('/v1/dashboard/export/stock', wrap(async (req, res) => { res.type('text/csv').set('Content-Disposition', 'attachment; filename="estoque.csv"').send(await dashboardRepo.exportStockCsv(req.tenantId)); }));
 
 // ---------------------------------------------------------------------------
 // CRUD de domínio (products/orders/carts/inventory/reorders/users/audit-logs).

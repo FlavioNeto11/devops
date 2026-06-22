@@ -144,6 +144,14 @@ export const checkout = {
   run: (orderId, amount, paymentMethodToken, idempotencyKey) =>
     request("POST", "/v1/checkout", { orderId: orderId, amount: Number(amount), paymentMethodToken: paymentMethodToken }, idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined),
 };
+// dashboard: KPIs agregados server-side e eventos recentes (REF-SHOPDESK-0001).
+// exportSalesUrl/exportStockUrl retornam a URL absoluta do CSV para download direto (não JSON).
+export const dashboard = {
+  summary: () => request("GET", "/v1/dashboard/summary"),
+  recent: () => request("GET", "/v1/dashboard/recent"),
+  exportSalesUrl: () => (BASE + "/v1/dashboard/export/sales"),
+  exportStockUrl: () => (BASE + "/v1/dashboard/export/stock"),
+};
 // assistente de IA da loja (control-ai-kit) — `ask` chama a rota REAL POST /v1/assistant
 // (fail-closed: 503 sem ANTHROPIC_API_KEY). Exportado como objeto próprio (além de api.store.assistant)
 // para OrderDetailView resolver `api.assistant.ask` sem fallback. `health` espelha /v1/assistant/health.
