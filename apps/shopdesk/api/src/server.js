@@ -52,8 +52,8 @@ app.get('/v1/notifications', wrap(async (_q, res) => res.json({ data: notifySvc.
 // ---------------------------------------------------------------------------
 const repos = Object.fromEntries(ENTITIES.map((e) => [e.route, makeRepo(e)]));
 const crudList = (route) => wrap(async (req, res) => {
-  const { page, pageSize, sort, dir } = req.query;
-  res.json(await repos[route].list(req.tenantId, { page, pageSize, sort, dir }));
+  const { page, pageSize, sort, dir, ...filters } = req.query;
+  res.json(await repos[route].list(req.tenantId, { page, pageSize, sort, dir, ...filters }));
 });
 const crudGet = (route) => wrap(async (req, res) => {
   const r = await repos[route].get(req.tenantId, req.params.id);

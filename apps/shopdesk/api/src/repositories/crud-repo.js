@@ -22,16 +22,51 @@ export function makeRepo({ table, columns }) {
       .map((r) => r.field);
   }
 
-  async function list(tenantId, { page = 1, pageSize = 20, sort = 'id', dir = 'desc' } = {}) {
+  async function list(tenantId, { page = 1, pageSize = 20, sort = 'id', dir = 'desc', q, ...rest } = {}) {
     const col = sortable.has(sort) ? sort : 'id';
     const order = String(dir).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
     const ps = Math.min(Math.max(Number(pageSize) || 20, 1), 200);
     const pg = Math.max(Number(page) || 1, 1);
     const offset = (pg - 1) * ps;
-    const totalRes = await pool.query(`SELECT count(*)::int AS n FROM ${table} WHERE tenant_id=$1`, [tenantId]);
+
+    // Build WHERE conditions (tenant isolation always first).
+    const conds = ['tenant_id=$1'];
+    const qp = [tenantId];
+
+    // q: ILIKE search across all text/longtext columns (name, sku, description, etc.).
+    if (q && String(q).trim()) {
+      const textCols = writable
+        .filter((w) => {
+          const c = columns.find((x) => x.name === w.field);
+          return c && (c.type === 'text' || c.type === 'longtext');
+        })
+        .map((w) => w.col);
+      if (textCols.length) {
+        qp.push('%' + String(q).trim() + '%');
+        const idx = qp.length;
+        conds.push('(' + textCols.map((c) => `${c} ILIKE $${idx}`).join(' OR ') + ')');
+      }
+    }
+
+    // Exact-match filters for any param that matches a known writable column.
+    for (const [key, val] of Object.entries(rest)) {
+      if (val === undefined || val === null || val === '') continue;
+      const w = writable.find((x) => x.col === key || x.field === key);
+      if (!w) continue;
+      const colDef = columns.find((c) => c.name === w.field);
+      const typed =
+        colDef && colDef.type === 'boolean'
+          ? val === 'true' || val === true || val === '1'
+          : val;
+      qp.push(typed);
+      conds.push(`${w.col}=$${qp.length}`);
+    }
+
+    const where = conds.join(' AND ');
+    const totalRes = await pool.query(`SELECT count(*)::int AS n FROM ${table} WHERE ${where}`, qp);
     const rowsRes = await pool.query(
-      `SELECT * FROM ${table} WHERE tenant_id=$1 ORDER BY ${col} ${order} LIMIT $2 OFFSET $3`,
-      [tenantId, ps, offset],
+      `SELECT * FROM ${table} WHERE ${where} ORDER BY ${col} ${order} LIMIT $${qp.length + 1} OFFSET $${qp.length + 2}`,
+      [...qp, ps, offset],
     );
     return { data: rowsRes.rows, total: totalRes.rows[0].n, page: pg, pageSize: ps };
   }

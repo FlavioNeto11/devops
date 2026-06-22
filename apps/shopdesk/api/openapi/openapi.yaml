@@ -268,6 +268,10 @@ paths:
         - { $ref: "#/components/parameters/PageSize" }
         - { $ref: "#/components/parameters/Sort" }
         - { $ref: "#/components/parameters/Dir" }
+        - { name: q, in: query, required: false, schema: { type: string }, description: "Busca por nome ou SKU (ILIKE)." }
+        - { name: status, in: query, required: false, schema: { type: string }, description: "Filtrar por situação (rascunho, publicado, arquivado)." }
+        - { name: active, in: query, required: false, schema: { type: boolean }, description: "Filtrar por ativo (true) ou inativo (false)." }
+        - { name: category, in: query, required: false, schema: { type: string }, description: "Filtrar por categoria." }
       responses:
         "200": { description: ok }
     post:
