@@ -83,6 +83,52 @@
               </UiFormField>
 
               <UiFormField
+                label="Contato"
+                :error="f.errors.contact"
+                hint="E-mail ou telefone do responsável. Ex.: contato@fornecedor.com"
+                full-width
+              >
+                <template #default="{ id, describedBy, hasError }">
+                  <input
+                    :id="id"
+                    ref="contactInput"
+                    type="text"
+                    :value="f.values.contact"
+                    :aria-describedby="describedBy"
+                    :aria-invalid="hasError ? 'true' : null"
+                    placeholder="email@fornecedor.com ou (11) 99999-9999"
+                    autocomplete="off"
+                    @input="f.setField('contact', $event.target.value)"
+                    @blur="f.validateField('contact')"
+                  />
+                </template>
+              </UiFormField>
+
+              <UiFormField
+                label="Prazo de entrega (dias)"
+                :error="f.errors.lead_time"
+                hint="Dias corridos entre o pedido e a entrega. Ex.: 3"
+              >
+                <template #default="{ id, describedBy, hasError }">
+                  <input
+                    :id="id"
+                    ref="leadTimeInput"
+                    type="number"
+                    inputmode="numeric"
+                    min="0"
+                    max="365"
+                    step="1"
+                    :value="f.values.lead_time"
+                    :aria-describedby="describedBy"
+                    :aria-invalid="hasError ? 'true' : null"
+                    placeholder="3"
+                    @input="f.setField('lead_time', $event.target.value)"
+                    @blur="f.validateField('lead_time')"
+                  />
+                </template>
+              </UiFormField>
+
+              <UiFormField
                 label="URL do gateway"
                 :required="true"
                 :error="f.errors.gateway_url"
@@ -416,6 +462,14 @@
               <dd>{{ f.values.name || '—' }}</dd>
             </div>
             <div class="sc-preview-row">
+              <dt>Contato</dt>
+              <dd>{{ f.values.contact || '—' }}</dd>
+            </div>
+            <div class="sc-preview-row">
+              <dt>Prazo de entrega</dt>
+              <dd>{{ f.values.lead_time !== '' ? f.values.lead_time + ' dias' : '—' }}</dd>
+            </div>
+            <div class="sc-preview-row">
               <dt>Gateway</dt>
               <dd class="sc-mono sc-preview-url">{{ f.values.gateway_url || '—' }}</dd>
             </div>
@@ -542,6 +596,8 @@ function authLabelFor(t) {
 
 // ---- refs de campo (foco a partir do ValidationSummary) ----------------------
 const nameInput = ref(null);
+const contactInput = ref(null);
+const leadTimeInput = ref(null);
 const gatewayInput = ref(null);
 const authTypeInput = ref(null);
 const apiKeyInput = ref(null);
@@ -553,6 +609,8 @@ const retriesInput = ref(null);
 const notesInput = ref(null);
 const fieldRefs = {
   name: nameInput,
+  contact: contactInput,
+  lead_time: leadTimeInput,
   gateway_url: gatewayInput,
   auth_type: authTypeInput,
   api_key: apiKeyInput,
@@ -565,6 +623,8 @@ const fieldRefs = {
 };
 const fieldLabels = {
   name: 'Nome do fornecedor',
+  contact: 'Contato',
+  lead_time: 'Prazo de entrega (dias)',
   gateway_url: 'URL do gateway',
   auth_type: 'Tipo de autenticação',
   api_key: 'API Key',
@@ -588,6 +648,8 @@ const requireForBasic = (msg) => (v, all) =>
 const f = useForm({
   initial: {
     name: '',
+    contact: '',
+    lead_time: '',
     gateway_url: '',
     auth_type: '',
     api_key: '',
@@ -601,6 +663,12 @@ const f = useForm({
   },
   rules: {
     name: [validators.required('Informe o nome do fornecedor'), validators.minLen(2)],
+    contact: [validators.maxLen(255)],
+    lead_time: [
+      validators.numeric('Use apenas números'),
+      validators.min(0, 'Não pode ser negativo'),
+      validators.max(365, 'Máximo de 365 dias'),
+    ],
     gateway_url: [
       validators.required('Informe a URL do gateway'),
       validators.pattern(/^https?:\/\/.+/i, 'Use uma URL http(s) válida'),
@@ -686,6 +754,8 @@ const resilienceSummary = computed(() => {
 const isDirty = computed(() =>
   !!(
     f.values.name ||
+    f.values.contact ||
+    f.values.lead_time !== '' ||
     f.values.gateway_url ||
     f.values.auth_type ||
     f.values.api_key ||
@@ -746,6 +816,8 @@ async function cancel() {
 function buildPayload(vals) {
   const payload = {
     name: String(vals.name).trim(),
+    contact: vals.contact ? String(vals.contact).trim() : null,
+    lead_time: vals.lead_time === '' ? null : Number(vals.lead_time),
     gateway_url: String(vals.gateway_url).trim(),
     auth_type: vals.auth_type,
     active: !!vals.active,

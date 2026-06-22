@@ -1529,6 +1529,16 @@ components:
           type:
             - string
             - 'null'
+        contact:
+          type:
+            - string
+            - 'null'
+          description: Contato do fornecedor (e-mail ou telefone)
+        lead_time:
+          type:
+            - integer
+            - 'null'
+          description: Prazo de entrega em dias
         created_at:
           type: string
           format: date-time
@@ -1563,6 +1573,12 @@ components:
           type: boolean
         notes:
           type: string
+        contact:
+          type: string
+          description: Contato do fornecedor (e-mail ou telefone)
+        lead_time:
+          type: integer
+          description: Prazo de entrega em dias
     SupplierList:
       type: object
       description: Página de fornecedores ({data,total}).

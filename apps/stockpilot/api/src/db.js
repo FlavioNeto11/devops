@@ -72,7 +72,9 @@ const MIGRATIONS = [`CREATE TABLE IF NOT EXISTS records (id SERIAL PRIMARY KEY, 
      last_status TEXT CHECK (last_status IS NULL OR last_status IN ('sent','failed','skipped')),
      created_at TIMESTAMPTZ DEFAULT now(),
      updated_at TIMESTAMPTZ DEFAULT now()
-   ); CREATE INDEX IF NOT EXISTS idx_channels_tenant ON channels(tenant_id, id);`];
+   ); CREATE INDEX IF NOT EXISTS idx_channels_tenant ON channels(tenant_id, id);`,
+  // REF-STOCKPILOT-0015 — adiciona contact (email/telefone) e lead_time (prazo em dias) ao fornecedor.
+  `ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS contact TEXT; ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS lead_time INTEGER;`];
 export async function migrate() {
   const c = await pool.connect();
   try {

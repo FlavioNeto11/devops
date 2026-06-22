@@ -5,7 +5,7 @@
 // Toda query é OBRIGATORIAMENTE escopada por tenant_id (REQ-STOCKPILOT-0002). `db` injetável p/ testes.
 import { pool } from '../db.js';
 
-const SORTABLE = new Set(['id', 'name', 'auth_type', 'timeout_ms', 'max_retries', 'active', 'created_at']);
+const SORTABLE = new Set(['id', 'name', 'auth_type', 'timeout_ms', 'max_retries', 'active', 'lead_time', 'created_at']);
 const AUTH_TYPES = new Set(['api_key', 'bearer', 'basic', 'none']);
 
 // Normaliza paginação/ordenação a partir da query string (defensivo: clampa e usa allowlist de colunas).
@@ -21,7 +21,7 @@ export async function list(tenant, params = {}, db = pool) {
   const { page, pageSize, sort, dir, offset } = parseListParams(params);
   const { rows: cnt } = await db.query('SELECT count(*)::int AS n FROM suppliers WHERE tenant_id=$1', [tenant]);
   const { rows } = await db.query(
-    `SELECT id, tenant_id, name, gateway_url, auth_type, timeout_ms, max_retries, active, notes, created_at, updated_at
+    `SELECT id, tenant_id, name, gateway_url, auth_type, timeout_ms, max_retries, active, notes, contact, lead_time, created_at, updated_at
        FROM suppliers WHERE tenant_id=$1 ORDER BY ${sort} ${dir} LIMIT $2 OFFSET $3`,
     [tenant, pageSize, offset]
   );
@@ -50,13 +50,15 @@ export function validate(body = {}, { partial = false } = {}) {
 
 export async function create(body, tenant, db = pool) {
   const { rows } = await db.query(
-    `INSERT INTO suppliers(tenant_id, name, gateway_url, auth_type, timeout_ms, max_retries, active, notes)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+    `INSERT INTO suppliers(tenant_id, name, gateway_url, auth_type, timeout_ms, max_retries, active, notes, contact, lead_time)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
     [tenant, body.name, body.gateway_url, body.auth_type,
       body.timeout_ms == null ? null : Number(body.timeout_ms),
       body.max_retries == null ? null : Number(body.max_retries),
       body.active === false ? false : Boolean(body.active),
-      body.notes ?? null]
+      body.notes ?? null,
+      body.contact ?? null,
+      body.lead_time == null ? null : Number(body.lead_time)]
   );
   return rows[0];
 }
@@ -66,10 +68,10 @@ export async function update(id, body, tenant, db = pool) {
   const cols = [];
   const vals = [];
   let i = 1;
-  for (const k of ['name', 'gateway_url', 'auth_type', 'timeout_ms', 'max_retries', 'active', 'notes']) {
+  for (const k of ['name', 'gateway_url', 'auth_type', 'timeout_ms', 'max_retries', 'active', 'notes', 'contact', 'lead_time']) {
     if (k in body) {
       cols.push(`${k}=$${i++}`);
-      if (k === 'timeout_ms' || k === 'max_retries') vals.push(body[k] == null ? null : Number(body[k]));
+      if (k === 'timeout_ms' || k === 'max_retries' || k === 'lead_time') vals.push(body[k] == null ? null : Number(body[k]));
       else if (k === 'active') vals.push(Boolean(body[k]));
       else vals.push(body[k]);
     }
