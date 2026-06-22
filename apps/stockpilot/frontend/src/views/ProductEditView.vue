@@ -320,14 +320,14 @@ const emptyDescription = computed(
     ' no seu estoque. Ele pode ter sido removido ou pertencer a outro tenant.',
 );
 
-/* Capacidade de gravar: só TRUE quando a API expõe a escrita. O factory tem
-   .update, mas PUT /v1/products/{id} é "a criar" (screen contract). Detectamos
-   por flag de ambiente; default = desabilitado (fail-closed honesto). */
+/* PUT /v1/products/{id} está implementado (REF-STOCKPILOT-0002). canPersist é sempre
+   true; o env VITE_PRODUCTS_WRITE_ENABLED ainda pode desabilitar em deploy específico. */
 const canPersist = computed(() => {
   try {
-    return String(import.meta.env.VITE_PRODUCTS_WRITE_ENABLED || '').toLowerCase() === 'true';
+    const v = import.meta.env.VITE_PRODUCTS_WRITE_ENABLED;
+    return v === undefined || String(v).toLowerCase() !== 'false';
   } catch {
-    return false;
+    return true;
   }
 });
 

@@ -36,6 +36,26 @@ app.post('/v1/records/:id/submit', wrap(async (req, res) => { const id = Number(
 // Produtos com status derivado (OK/ALERTA/RUPTURA)
 app.get('/v1/products', requireAuth, wrap(async (req, res) => res.json({ data: await productsRepo.listWithStatus(req.tenant) })));
 
+// CRUD de produtos (REF-STOCKPILOT-0002): criação, edição e exclusão do catálogo.
+// Rotas finas → products-repo; tudo escopado por tenant (cross-tenant → 404).
+app.post('/v1/products', requireAuth, wrap(async (req, res) => {
+  const errs = productsRepo.validate(req.body || {});
+  if (errs.length) return res.status(400).json({ error: { message: errs.join('; ') } });
+  res.status(201).json(await productsRepo.create(req.body, req.tenant));
+}));
+app.put('/v1/products/:id', requireAuth, wrap(async (req, res) => {
+  const errs = productsRepo.validate(req.body || {}, { partial: true });
+  if (errs.length) return res.status(400).json({ error: { message: errs.join('; ') } });
+  const r = await productsRepo.update(Number(req.params.id), req.body || {}, req.tenant);
+  if (!r) return res.status(404).json({ error: { message: 'produto não encontrado' } });
+  res.json(r);
+}));
+app.delete('/v1/products/:id', requireAuth, wrap(async (req, res) => {
+  const r = await productsRepo.remove(Number(req.params.id), req.tenant);
+  if (!r) return res.status(404).json({ error: { message: 'produto não encontrado' } });
+  res.status(204).end();
+}));
+
 // Detalhe canônico de UM produto (REQ-STOCKPILOT-0002/0003): produto (com status derivado,
 // has_open_order e last_order_date) + histórico recente de pedidos + alertas ativos do produto.
 // Escopado por tenant: inexistente ou de outro tenant → 404 deny-by-default (nunca vaza cross-tenant).

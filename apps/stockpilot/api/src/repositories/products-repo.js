@@ -12,7 +12,7 @@ function computeStatus({ current_stock, min_stock, has_open_order }) {
 export async function listWithStatus(tenant, db = pool) {
   const { rows } = await db.query(`
     SELECT
-      p.id, p.name, p.current_stock, p.min_stock,
+      p.id, p.name, p.sku, p.current_stock, p.min_stock,
       (SELECT MAX(po.created_at) FROM product_orders po WHERE po.product_id = p.id AND po.tenant_id = p.tenant_id) AS last_order_date,
       EXISTS(
         SELECT 1 FROM product_orders po WHERE po.product_id = p.id AND po.tenant_id = p.tenant_id AND po.status IN ('pending','processing')
@@ -26,6 +26,70 @@ export async function listWithStatus(tenant, db = pool) {
 
 export async function findById(id, tenant, db = pool) {
   const { rows } = await db.query('SELECT * FROM products WHERE id=$1 AND tenant_id=$2', [id, tenant]);
+  return rows[0] || null;
+}
+
+export function validate(body, { partial = false } = {}) {
+  const errs = [];
+  if (!partial || body.name !== undefined) {
+    if (!body.name || !String(body.name).trim()) errs.push('name obrigatório');
+    else if (String(body.name).trim().length > 120) errs.push('name máximo 120 caracteres');
+  }
+  if (!partial || body.current_stock !== undefined) {
+    const v = Number(body.current_stock);
+    if (body.current_stock === undefined || body.current_stock === null || body.current_stock === '') {
+      if (!partial) errs.push('current_stock obrigatório');
+    } else if (!Number.isInteger(v) || v < 0) {
+      errs.push('current_stock deve ser inteiro >= 0');
+    }
+  }
+  if (!partial || body.min_stock !== undefined) {
+    const v = Number(body.min_stock);
+    if (body.min_stock === undefined || body.min_stock === null || body.min_stock === '') {
+      if (!partial) errs.push('min_stock obrigatório');
+    } else if (!Number.isInteger(v) || v < 0) {
+      errs.push('min_stock deve ser inteiro >= 0');
+    }
+  }
+  if (body.sku !== undefined && body.sku !== null && body.sku !== '') {
+    if (String(body.sku).length > 60) errs.push('sku máximo 60 caracteres');
+  }
+  return errs;
+}
+
+export async function create(body, tenant, db = pool) {
+  const { rows } = await db.query(
+    `INSERT INTO products(tenant_id, name, sku, current_stock, min_stock)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id, tenant_id, name, sku, current_stock, min_stock, created_at, updated_at`,
+    [tenant, String(body.name).trim(), body.sku ? String(body.sku).trim() : null,
+     Number(body.current_stock), Number(body.min_stock)],
+  );
+  return rows[0];
+}
+
+export async function update(id, body, tenant, db = pool) {
+  const sets = [];
+  const vals = [];
+  if (body.name !== undefined) { sets.push(`name=$${vals.push(String(body.name).trim())}`); }
+  if (body.sku !== undefined) { sets.push(`sku=$${vals.push(body.sku ? String(body.sku).trim() : null)}`); }
+  if (body.current_stock !== undefined) { sets.push(`current_stock=$${vals.push(Number(body.current_stock))}`); }
+  if (body.min_stock !== undefined) { sets.push(`min_stock=$${vals.push(Number(body.min_stock))}`); }
+  if (!sets.length) return findById(id, tenant, db);
+  sets.push(`updated_at=now()`);
+  vals.push(id, tenant);
+  const { rows } = await db.query(
+    `UPDATE products SET ${sets.join(', ')} WHERE id=$${vals.length - 1} AND tenant_id=$${vals.length} RETURNING *`,
+    vals,
+  );
+  return rows[0] || null;
+}
+
+export async function remove(id, tenant, db = pool) {
+  const { rows } = await db.query(
+    'DELETE FROM products WHERE id=$1 AND tenant_id=$2 RETURNING id',
+    [id, tenant],
+  );
   return rows[0] || null;
 }
 

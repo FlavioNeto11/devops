@@ -59,6 +59,9 @@ const MIGRATIONS = [`CREATE TABLE IF NOT EXISTS records (id SERIAL PRIMARY KEY, 
      created_at TIMESTAMPTZ DEFAULT now(),
      updated_at TIMESTAMPTZ DEFAULT now()
    ); CREATE INDEX IF NOT EXISTS idx_suppliers_tenant ON suppliers(tenant_id, id);`,
+  // REF-STOCKPILOT-0002 — coluna sku no catálogo de produtos (opcional, max 60 chars).
+  // Exibida na lista de produtos e editável via CRUD de produtos (POST/PUT /v1/products).
+  `ALTER TABLE products ADD COLUMN IF NOT EXISTS sku TEXT;`,
   // REQ-STOCKPILOT-0007 — CRUD de canais de notificação (assinaturas de webhook). Complementa o
   // fan-out multi-canal (notifications) com a CONFIGURAÇÃO persistida por canal: tipo, webhook,
   // eventos assinados, habilitado e o último desfecho da entrega. Escopado por tenant_id.
