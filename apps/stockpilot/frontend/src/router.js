@@ -4,6 +4,7 @@ import ProductListView from './views/ProductListView.vue';
 import ProductCreateView from './views/ProductCreateView.vue';
 import ProductDetailView from './views/ProductDetailView.vue';
 import ProductEditView from './views/ProductEditView.vue';
+import ProductSuggestView from './views/ProductSuggestView.vue';
 
 import OrderListView from './views/OrderListView.vue';
 import OrderDetailView from './views/OrderDetailView.vue';
@@ -43,6 +44,7 @@ export const routes = [
   { path: '/products/new', name: 'product-new', component: ProductCreateView },
   { path: '/products/:id', name: 'product', component: ProductDetailView, props: true },
   { path: '/products/:id/edit', name: 'product-edit', component: ProductEditView, props: true },
+  { path: '/products/:id/suggest', name: 'product-suggest', component: ProductSuggestView, props: true },
 
   // Pedidos de reposição (fila assíncrona + detalhe/DLQ)
   { path: '/orders', name: 'orders', component: OrderListView },

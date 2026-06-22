@@ -18,6 +18,10 @@
         <template #icon-left><span class="pd-ic" aria-hidden="true">↻</span></template>
         Atualizar
       </UiButton>
+      <UiButton v-if="!notFound" variant="ghost" :to="'/products/' + id + '/suggest'">
+        <template #icon-left><span class="pd-ic" aria-hidden="true">✦</span></template>
+        Sugerir reposição
+      </UiButton>
       <UiButton v-if="!notFound" variant="subtle" :loading="ordering" :disabled="busy" @click="onManualOrder">
         <template #icon-left><span class="pd-ic" aria-hidden="true">＋</span></template>
         Pedido manual
