@@ -6,6 +6,11 @@
 import { AiToolError } from '@flavioneto11/ai-core';
 import { PROMPTS, VOCAB } from './prompts.js';
 import { summarizeForPrompt, catalogIndex, filterKnownBlocks, validateSelection } from './capabilities.js';
+import { aiProvider } from './llm.js';
+
+// Modelo RÁPIDO para as tools do FORGE (proposta de requisitos/arquitetura): o wizard precisa ser
+// ágil (UX) e a tarefa é extração estruturada — haiku responde em segundos vs ~2min do sonnet.
+const FAST_MODEL = () => (aiProvider() === 'anthropic' ? 'claude-haiku-4-5-20251001' : 'gpt-5-nano');
 
 // Resolve os blocos default/compatible de um blueprint a partir do catálogo recebido do frontend.
 function blueprintBlocks(input, blueprintId) {
@@ -35,7 +40,7 @@ function parseJsonLoose(text) {
 // reasoningEffort 'minimal' (tarefas de EXTRAÇÃO estruturada, não raciocínio profundo) +
 // orçamento amplo: no gpt-5 o max_completion_tokens INCLUI os tokens de raciocínio, então
 // valores baixos faziam o conteúdo sair vazio/truncado -> LLM_INVALID_JSON.
-async function llmJson(llm, { system, user, reasoningEffort = 'minimal', maxTokens = 6000 }) {
+async function llmJson(llm, { system, user, reasoningEffort = 'minimal', maxTokens = 6000, model }) {
   if (!llm || typeof llm.complete !== 'function') {
     throw new AiToolError('AI_DISABLED', 'LLM nao disponivel');
   }
@@ -47,6 +52,7 @@ async function llmJson(llm, { system, user, reasoningEffort = 'minimal', maxToke
     jsonMode: true,
     reasoningEffort,
     maxTokens,
+    ...(model ? { model } : {}),
   });
   const text = (res && res.text) || '';
   let parsed;
@@ -293,6 +299,7 @@ export function buildForgeTools() {
           system: PROMPTS.proposeRequirements.system,
           user: PROMPTS.proposeRequirements.user({ ...input, catalog }),
           maxTokens: 12000,
+          model: FAST_MODEL(),
         });
         // fail-closed: filtra capability_blocks de cada requisito ao conjunto CONHECIDO do catalogo.
         const known = catalogIndex(input.capabilities).ids;
@@ -316,6 +323,7 @@ export function buildForgeTools() {
           system: PROMPTS.proposeArchitecture.system,
           user: PROMPTS.proposeArchitecture.user({ ...input, catalog, stacks: stacksSummary(input) }),
           maxTokens: 9000,
+          model: FAST_MODEL(),
         });
         const hasCatalog = catalogIndex(input.capabilities).ids.size > 0;
         // fail-closed: a stack tem de ser sicat|gymops (erro estruturado se nao).

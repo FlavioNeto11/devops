@@ -1,7 +1,7 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
 import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId } from './lib.js?v=41';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes } from './forge-lib.js?v=41';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes, capabilityPlain, planSummary, CAPABILITY_PLAIN } from './forge-lib.js?v=49';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -2235,7 +2235,7 @@ function renderForge() {
     body.append(h('p', { class: 'empty', text: 'Nenhum produto registrado ainda — gere um com o Forge (brief → requisitos → PR) ou rode build-products.mjs.' }));
     return;
   }
-  if (state.forge.newMode) { setForgeTitle('Novo produto'); renderForgeNew(body); }
+  if (state.forge.newMode) { setForgeTitle('Criar um sistema'); renderForgeWizard(body); }
   else if (state.forge.product) { const p = findProduct(DATA.products, state.forge.product); setForgeTitle(p ? p.display_name : state.forge.product); renderForgeDetail(body, state.forge.product); }
   else { setForgeTitle('Produtos'); renderForgeHub(body); }
 }
@@ -2574,6 +2574,190 @@ function forgeDagLegend() {
 }
 
 /* ---- Novo produto: brief → requisitos (IA, fail-closed) → YAML + caminho de PR ---- */
+// ─── WIZARD de criação (duas TRILHAS de UX) ──────────────────────────────────
+// 'guided' (leigo: linguagem comum, sem jargão) e 'advanced' (técnico: requisitos, blocos, YAML).
+// 4 etapas: Ideia → O que será criado → Plano → Revisar. A IA MOSTRA, passo a passo, as
+// capacidades (em linguagem comum), as telas/funções e a documentação. Nada é escrito sem revisão.
+function forgeWizardState() {
+  const blueprints = (DATA.blueprints && DATA.blueprints.blueprints) || [];
+  if (!state.forge.wizard) state.forge.wizard = { stage: 1, mode: 'guided', name: '', brief: '', slug: '', blueprint: (blueprints[0] && blueprints[0].id) || '', proposed: [], arch: null, reqMeta: null, error: '' };
+  return state.forge.wizard;
+}
+const FW_STEPS = [
+  { n: 1, label: 'Ideia', sub: 'descreva o que quer' },
+  { n: 2, label: 'O que será criado', sub: 'capacidades e telas' },
+  { n: 3, label: 'Plano de construção', sub: 'ordem das etapas' },
+  { n: 4, label: 'Revisar e criar', sub: 'documentação + pedido' },
+];
+function fwRerender() { renderForge(); }
+function fwMaxStage(w) { return (w.proposed && w.proposed.length) ? 4 : 1; }
+function fwGoto(n) { const w = forgeWizardState(); if (n >= 1 && n <= fwMaxStage(w)) { w.stage = n; fwRerender(); } }
+function fwNav(back, next, nextLabel) {
+  const row = h('div', { class: 'fw-nav' });
+  if (back) row.append(h('button', { class: 'btn', type: 'button', text: '← Voltar', onclick: () => fwGoto(back) }));
+  if (next && nextLabel) row.append(h('button', { class: 'btn primary', type: 'button', onclick: () => fwGoto(next) }, nextLabel + ' →'));
+  return row;
+}
+
+function renderForgeWizard(body) {
+  const w = forgeWizardState();
+  const blueprints = (DATA.blueprints && DATA.blueprints.blueprints) || [];
+  const catalog = (DATA.capabilities && DATA.capabilities.capabilities) || [];
+  body.append(forgeCrumbs([{ label: 'Produtos', onclick: () => { state.forge.wizard = null; backToHub(); } }, { label: 'Criar um sistema' }]));
+
+  const mk = (mode, label, sub) => h('button', { class: 'fw-mode' + (w.mode === mode ? ' is-on' : ''), type: 'button', 'aria-pressed': String(w.mode === mode), onclick: () => { w.mode = mode; fwRerender(); } }, h('strong', { text: label }), h('span', { class: 'fw-mode-sub', text: sub }));
+  body.append(h('div', { class: 'fw-head' },
+    h('div', { class: 'fw-head-t' }, h('h2', { text: 'Criar um sistema novo' }), h('p', { class: 'muted', text: 'Descreva sua ideia — a IA mostra, passo a passo, tudo que será criado. Você revisa e confirma; nada é escrito sem você.' })),
+    h('div', { class: 'fw-modes', role: 'group', 'aria-label': 'Trilha de uso' }, mk('guided', 'Guiado', 'simples, sem termos técnicos'), mk('advanced', 'Avançado', 'requisitos, blocos, YAML'))));
+
+  const stepper = h('ol', { class: 'fw-steps' });
+  for (const s of FW_STEPS) {
+    const cls = w.stage === s.n ? 'is-current' : (s.n < w.stage ? 'is-done' : 'is-todo');
+    const clickable = s.n <= fwMaxStage(w);
+    stepper.append(h('li', { class: 'fw-step ' + cls + (clickable ? ' is-click' : ''), 'aria-current': w.stage === s.n ? 'step' : null, role: clickable ? 'button' : null, tabindex: clickable ? '0' : null, onclick: clickable ? () => fwGoto(s.n) : null, onkeydown: clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fwGoto(s.n); } } : null },
+      h('span', { class: 'fw-step-n', 'aria-hidden': 'true', text: s.n < w.stage ? '✓' : String(s.n) }),
+      h('span', { class: 'fw-step-tx' }, h('span', { class: 'fw-step-l', text: s.label }), h('span', { class: 'fw-step-s', text: s.sub }))));
+  }
+  body.append(stepper);
+
+  const stage = h('div', { class: 'fw-stage', role: 'region', 'aria-live': 'polite' });
+  body.append(stage);
+  if (w.stage === 1) fwStageIdea(stage, w, { blueprints });
+  else if (w.stage === 2) fwStageWhat(stage, w, { catalog });
+  else if (w.stage === 3) fwStagePlan(stage, w);
+  else fwStageReview(stage, w, { catalog });
+}
+
+function fwStageIdea(host, w, { blueprints }) {
+  const card = h('div', { class: 'fw-card' });
+  card.append(h('h3', { class: 'fw-q', tabindex: '-1', text: w.mode === 'guided' ? 'O que você quer criar?' : 'Defina o produto' }));
+  const name = h('input', { class: 'fw-input', type: 'text', value: w.name, placeholder: w.mode === 'guided' ? 'Ex.: Central de chamados' : 'slug (ex.: helpdesk)', 'aria-label': 'Nome do sistema' });
+  name.addEventListener('input', () => { w.name = name.value; });
+  card.append(h('label', { class: 'fw-fld' }, h('span', { class: 'fw-fld-l', text: w.mode === 'guided' ? 'Nome do sistema' : 'Slug do produto' }), name));
+  const brief = h('textarea', { class: 'fw-textarea', rows: '6', 'aria-label': 'Descrição', placeholder: 'Descreva como falaria com uma pessoa: o que o sistema faz, para quem, e o que é importante. Ex.: "abrir e acompanhar chamados, atribuir a técnicos, e avisar quando algo atrasa".' });
+  brief.value = w.brief;
+  brief.addEventListener('input', () => { w.brief = brief.value; });
+  card.append(h('label', { class: 'fw-fld' }, h('span', { class: 'fw-fld-l', text: 'Descreva sua ideia' }), brief));
+  if (w.mode === 'guided') {
+    const ex = [
+      ['Central de chamados', 'Um sistema para abrir e acompanhar chamados de suporte, atribuir a técnicos e avisar quando algo atrasa.'],
+      ['Controle de estoque', 'Controle de produtos e estoque, com alertas de baixa quantidade e relatórios.'],
+      ['Agenda de clientes', 'Cadastro de clientes e agendamento de serviços, com lembretes automáticos por mensagem.'],
+    ];
+    const chips = h('div', { class: 'fw-chips' });
+    for (const [t, b] of ex) chips.append(h('button', { class: 'fw-chip', type: 'button', onclick: () => { w.name = t; w.brief = b; fwRerender(); } }, '💡 ' + t));
+    card.append(h('p', { class: 'fw-hint', text: 'Sem ideia? comece por um exemplo:' }), chips);
+  } else {
+    const bpsel = h('select', { class: 'fw-input', 'aria-label': 'Blueprint' });
+    for (const b of blueprints) bpsel.append(h('option', { value: b.id, text: b.name, selected: b.id === w.blueprint }));
+    bpsel.addEventListener('change', () => { w.blueprint = bpsel.value; });
+    const tok = h('input', { class: 'fw-input', type: 'password', value: AI.getToken(), placeholder: 'Bearer token (operador)' });
+    tok.addEventListener('change', () => AI.setToken(tok.value.trim()));
+    card.append(h('label', { class: 'fw-fld' }, h('span', { class: 'fw-fld-l', text: 'Blueprint (stack base)' }), bpsel), h('details', { class: 'fw-adv' }, h('summary', { text: 'Token do operador' }), tok));
+  }
+  const gen = h('button', { class: 'btn primary fw-cta', type: 'button', text: '✨ Ver o que a IA vai criar' });
+  const status = h('p', { class: 'fw-status muted' });
+  if (w.error) status.replaceChildren(h('span', { class: 'fw-err', text: w.error }));
+  gen.addEventListener('click', () => fwGenerate(w, status, gen));
+  card.append(h('div', { class: 'fw-actions' }, gen), status);
+  host.append(card);
+  AI.health().then((r) => { if (!r.ok && !w.error) status.textContent = 'Obs.: a IA está indisponível agora — você ainda pode exportar requisitos no modo avançado.'; }).catch(() => {});
+  card.querySelector('.fw-q').focus();
+}
+
+async function fwGenerate(w, status, btn) {
+  const slug = (w.name || '').trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
+  if (!slug) { w.error = 'Dê um nome ao sistema.'; status.replaceChildren(h('span', { class: 'fw-err', text: w.error })); return; }
+  if ((w.brief || '').trim().length < 10) { w.error = 'Descreva um pouco mais a sua ideia (uma ou duas frases).'; status.replaceChildren(h('span', { class: 'fw-err', text: w.error })); return; }
+  w.slug = slug; w.error = ''; btn.disabled = true;
+  status.replaceChildren(h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' A IA está desenhando o sistema — requisitos e arquitetura…');
+  const catalog = (DATA.capabilities && DATA.capabilities.capabilities) || [];
+  const blueprints = (DATA.blueprints && DATA.blueprints.blueprints) || [];
+  try {
+    const r = await AI.post('/v1/forge/propose-requirements', { product: slug, blueprint: w.blueprint, brief: w.brief.trim(), capabilities: catalog, blueprints });
+    if (!r.ok) throw new Error((r.data && r.data.error && r.data.error.message) || ('IA ' + r.status));
+    const reqs = (r.data && r.data.requirements) || [];
+    if (!reqs.length) throw new Error('A IA não retornou requisitos. Tente descrever de outra forma.');
+    const existing = ((DATA.baseline && DATA.baseline.requirements) || []).map((x) => x.id);
+    w.proposed = []; for (const req of reqs) { const id = req.id || nextReqId(slug, existing.concat(w.proposed.map((p) => p.id))); w.proposed.push({ id, req }); }
+    w.reqMeta = r.data; w.arch = null; w.archLoading = true;
+    w.stage = 2; fwRerender(); // mostra a tela 2 já com os requisitos (não espera a arquitetura)
+    // arquitetura (ordem das waves) em SEGUNDO PLANO — carrega enquanto o usuário lê a tela 2.
+    AI.post('/v1/forge/propose-architecture', { product: slug, blueprint: w.blueprint, requirements: w.proposed.map((p) => ({ id: p.id, title: p.req.title, type: p.req.type, statement: p.req.statement, capability_blocks: p.req.capability_blocks || [] })), capabilities: catalog, blueprints })
+      .then((a) => { w.arch = (a && a.ok) ? a.data : null; })
+      .catch(() => { w.arch = null; })
+      .finally(() => { w.archLoading = false; if (state.forge.wizard === w && w.stage >= 3) fwRerender(); });
+  } catch (e) {
+    w.error = String(e.message || e); btn.disabled = false;
+    status.replaceChildren(h('span', { class: 'fw-err', text: 'Não consegui gerar: ' + w.error }));
+  }
+}
+
+function fwStageWhat(host, w, { catalog }) {
+  const sum = planSummary(w.proposed.map((p) => p.req), w.arch, catalog);
+  const dn = w.name || w.slug;
+  host.append(h('h3', { class: 'fw-q', tabindex: '-1', text: 'Veja o que será criado' }),
+    h('p', { class: 'fw-lead' }, 'Entendi! Vou criar o ', h('strong', { text: dn }), ' — um sistema com ', h('strong', { text: String(sum.counts.capabilities) }), ' capacidades e ', h('strong', { text: String(sum.counts.screens) }), ' telas/funções.'));
+  const caps = h('div', { class: 'fw-caps' });
+  for (const c of sum.capabilities) caps.append(h('div', { class: 'fw-cap' }, h('span', { class: 'fw-cap-ic', 'aria-hidden': 'true', text: c.icon }), h('div', { class: 'fw-cap-tx' }, h('strong', { class: 'fw-cap-t', text: c.title }), h('p', { class: 'fw-cap-d', text: c.desc }), w.mode === 'advanced' ? h('code', { class: 'fw-cap-id', text: c.id }) : null)));
+  host.append(h('h4', { class: 'fw-sec', text: 'O que o sistema saberá fazer' }), caps);
+  const screens = h('div', { class: 'fw-screens' });
+  w.proposed.forEach((p, i) => screens.append(h('div', { class: 'fw-screen' },
+    h('span', { class: 'fw-screen-n', 'aria-hidden': 'true', text: String(i + 1) }),
+    h('div', { class: 'fw-screen-tx' }, h('strong', { text: p.req.title || ('Tela ' + (i + 1)) }), h('p', { class: 'fw-screen-d', text: p.req.statement || '' }),
+      w.mode === 'advanced' ? h('div', { class: 'fw-screen-meta' }, badge(typeLabel(p.req.type), 'b-fn'), ...((p.req.capability_blocks || []).map((b) => h('code', { class: 'fw-cap-id', text: b })))) : null))));
+  host.append(h('h4', { class: 'fw-sec', text: w.mode === 'guided' ? 'Telas e funções que serão criadas' : 'Requisitos propostos (telas/funções)' }), screens);
+  host.append(fwNav(1, 3, 'Ver o plano de construção'));
+  host.querySelector('.fw-q').focus();
+}
+
+function fwStagePlan(host, w) {
+  host.append(h('h3', { class: 'fw-q', tabindex: '-1', text: 'Plano de construção' }));
+  if (!w.arch && w.archLoading) { host.append(h('p', { class: 'fw-lead' }, h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' Calculando a ordem de construção…')); host.append(fwNav(2, null, null)); host.querySelector('.fw-q').focus(); return; }
+  const waves = (w.arch && Array.isArray(w.arch.waves) && w.arch.waves.length) ? w.arch.waves : null;
+  const titleOf = (woId) => { const p = w.proposed.find((x) => x.id === woId || x.req.title === woId); return p ? (p.req.title || p.id) : woId; };
+  if (w.mode === 'guided') {
+    host.append(h('p', { class: 'fw-lead', text: waves ? `Será construído em ${waves.length} etapas, na ordem certa (uma parte depende da outra):` : 'Será construído de forma incremental, na ordem das dependências.' }));
+    const tl = h('ol', { class: 'fw-timeline' });
+    (waves || []).forEach((wv, i) => tl.append(h('li', { class: 'fw-tl-item' }, h('span', { class: 'fw-tl-n', text: 'Etapa ' + (i + 1) }), h('div', { class: 'fw-tl-tx' }, ...(wv.work_orders || []).map((wo) => h('p', { class: 'fw-tl-t', text: '• ' + titleOf(wo) }))))));
+    host.append(tl);
+  } else {
+    if (w.arch && w.arch.stack) host.append(h('p', { class: 'fw-lead' }, 'Stack escolhida: ', badge(w.arch.stack, 'b-fn'), w.arch.blueprint ? h('code', { class: 'fw-cap-id', text: w.arch.blueprint }) : null));
+    const nodes = w.proposed.map((p) => ({ id: p.id, title: p.req.title || '' }));
+    const g = interactiveGraph({ tall: true, label: 'Mapa de dependências', nodeClass: (n) => 'wv-' + ((n.wave || 0) % 6), detailOf: (n, id) => { const p = w.proposed.find((x) => x.id === id); return p ? { title: p.req.title || id, sub: p.req.statement ? truncateLabel(p.req.statement, 140) : '' } : { title: id }; } });
+    host.append(g.el); const dag = dagFromWaves(nodes, waves || []); g.setData(dag.nodes, dag.edges);
+    const adrs = (w.arch && Array.isArray(w.arch.adrs)) ? w.arch.adrs : [];
+    if (adrs.length) { const ul = h('ul', { class: 'linklist' }); for (const a of adrs) ul.append(h('li', {}, h('span', { class: 'lt', text: 'ADR' }), typeof a === 'string' ? a : (a.title || a.decision || ''))); host.append(h('h4', { class: 'fw-sec', text: 'Decisões de arquitetura' }), ul); }
+  }
+  host.append(fwNav(2, 4, 'Revisar e criar'));
+  host.querySelector('.fw-q').focus();
+}
+
+function fwStageReview(host, w, { catalog }) {
+  const sum = planSummary(w.proposed.map((p) => p.req), w.arch, catalog);
+  host.append(h('h3', { class: 'fw-q', tabindex: '-1', text: 'Revisar e criar' }));
+  if (w.mode === 'guided') {
+    host.append(h('div', { class: 'fw-card' },
+      h('p', { class: 'fw-lead' }, 'Tudo pronto para criar o ', h('strong', { text: w.name || w.slug }), '.'),
+      h('ul', { class: 'fw-review' },
+        h('li', {}, '✅ ', h('strong', { text: String(sum.counts.capabilities) }), ' capacidades'),
+        h('li', {}, '✅ ', h('strong', { text: String(sum.counts.screens) }), ' telas/funções'),
+        h('li', {}, '✅ ', h('strong', { text: String(sum.counts.waves || 1) }), ' etapas de construção')),
+      h('div', { class: 'fw-next' }, h('h4', { text: 'O que acontece quando você confirmar' }),
+        h('ol', {}, h('li', { text: 'A documentação e os requisitos são preparados (em specs/requirements/' + w.slug + '/).' }),
+          h('li', { text: 'Você abre o pedido (PR) — nada é escrito sem a sua revisão.' }),
+          h('li', { text: 'A esteira constrói cada parte, na ordem do plano, e publica.' }))),
+      h('div', { class: 'fw-actions' }, h('button', { class: 'btn primary fw-cta', type: 'button', text: '📦 Gerar a documentação e o pedido', onclick: () => { w.mode = 'advanced'; fwRerender(); } }))));
+  } else {
+    const out = h('div', { class: 'forge-section' });
+    host.append(out);
+    renderProposedList(out, w.slug, w.blueprint, w.proposed, w.reqMeta || {}, null);
+    if (w.arch) renderArchAdrs(out, w.arch);
+  }
+  host.append(fwNav(3, null, null));
+  host.querySelector('.fw-q').focus();
+}
+
 function renderForgeNew(body) {
   body.append(forgeCrumbs([{ label: 'Produtos', onclick: backToHub }, { label: 'Novo produto' }]));
   body.append(h('div', { class: 'forge-detail-head' }, h('h2', { text: 'Novo produto' })));

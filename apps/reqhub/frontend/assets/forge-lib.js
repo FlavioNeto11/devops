@@ -284,3 +284,49 @@ export function hubSummary(products, implStatus) {
   const live = summ.filter((p) => p.progress.total > 0 && p.progress.pct === 100).length;
   return { products: summ.length, totalReqs, totalDone, live, pct: totalReqs ? Math.round((totalDone / totalReqs) * 100) : 0 };
 }
+
+// ─── Camada de LINGUAGEM COMUM (trilha guiada) ──────────────────────────────
+// Traduz cada BLOCO DE CAPACIDADE técnico para algo que um leigo entende: ícone +
+// "o que o sistema faz" + 1 frase. É COPY de UI (apresentação), não decisão de IA.
+// Sem mapeamento -> usa o título/descrição do catálogo (fallback), nunca inventa.
+export const CAPABILITY_PLAIN = {
+  'camadas-rigidas': { icon: '🧱', title: 'Base bem organizada', desc: 'O sistema é construído em camadas limpas — fácil de manter e evoluir.' },
+  'migrations-versionadas': { icon: '🗄️', title: 'Banco de dados seguro', desc: 'Guarda seus dados e evolui o formato sem perder nada.' },
+  'observabilidade': { icon: '📊', title: 'Monitoramento', desc: 'Acompanha a saúde e o uso do sistema em tempo real, com alertas.' },
+  'worker-queue-transacional': { icon: '⚙️', title: 'Tarefas em segundo plano', desc: 'Processa tarefas pesadas sem travar a tela, com novas tentativas se algo falhar.' },
+  'redis-bullmq': { icon: '⚡', title: 'Filas rápidas', desc: 'Processa muitas tarefas em paralelo, com agilidade.' },
+  'gateway-externo': { icon: '🔌', title: 'Conexão com sistemas externos', desc: 'Conversa com outros sistemas (órgãos, parceiros) de forma segura e confiável.' },
+  'oidc-sessao': { icon: '🔐', title: 'Login corporativo', desc: 'Entrar com a conta da empresa (login único / SSO).' },
+  'rbac-multitenant': { icon: '👥', title: 'Várias empresas e permissões', desc: 'Cada empresa vê só os seus dados; cada pessoa tem o seu nível de acesso.' },
+  'ia-grafo': { icon: '🤖', title: 'Assistente de IA', desc: 'Um assistente inteligente que ajuda, sugere e responde.' },
+  'structured-outputs': { icon: '✅', title: 'Respostas confiáveis da IA', desc: 'A IA responde sempre no formato certo, sem surpresas.' },
+  'rag-pgvector': { icon: '📚', title: 'IA que consulta documentos', desc: 'O assistente responde citando os seus manuais e documentos.' },
+  'contract-openapi': { icon: '📜', title: 'API documentada', desc: 'Uma API estável e documentada para integrar com outros sistemas.' },
+  'idempotencia': { icon: '🔁', title: 'Sem duplicação', desc: 'Clicar duas vezes não cria pedido duplicado.' },
+  'design-system': { icon: '🎨', title: 'Visual consistente', desc: 'Telas bonitas e padronizadas com a identidade da plataforma.' },
+  'notificacoes-multicanal': { icon: '📣', title: 'Avisos automáticos', desc: 'Envia e-mail, push e WhatsApp quando algo importante acontece.' },
+};
+export function capabilityPlain(id, catalog) {
+  const p = CAPABILITY_PLAIN[id];
+  if (p) return { id, icon: p.icon, title: p.title, desc: p.desc };
+  const c = (catalog || []).find((b) => b && b.id === id);
+  return { id, icon: '🧩', title: c ? c.title : id, desc: c ? c.description : '' };
+}
+
+// Resumo do que será criado (para a etapa "O que será criado"). Puro/testável.
+// reqs: [{ title, statement, type, capability_blocks }]; arch (opcional): { stack, selected_blocks, waves }.
+export function planSummary(reqs, arch, catalog) {
+  const rs = asList(reqs);
+  const blockSet = new Set();
+  for (const r of rs) for (const b of asList(r && r.capability_blocks)) blockSet.add(b);
+  for (const s of asList(arch && arch.selected_blocks)) if (s && s.id) blockSet.add(s.id);
+  const capabilities = [...blockSet].map((id) => capabilityPlain(id, catalog));
+  // "telas/funções" = requisitos funcionais (uma capacidade testável cada).
+  const screens = rs.map((r) => ({ title: (r && r.title) || '', what: (r && r.statement) || '' }));
+  return {
+    capabilities,
+    screens,
+    counts: { capabilities: capabilities.length, screens: screens.length, waves: asList(arch && arch.waves).length },
+    stack: (arch && arch.stack) || null,
+  };
+}
