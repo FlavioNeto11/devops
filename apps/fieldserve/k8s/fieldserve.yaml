@@ -81,6 +81,11 @@ spec:
             - { name: METRICS_PORT, value: "9464" }
             - { name: AUTO_MIGRATE, value: "true" }
             - { name: AUTO_SEED, value: "true" }
+            # bloco ia-grafo: assistente de IA na Claude (chave dedicada reusada do secret reqhub-api-config).
+            - { name: AI_PROVIDER, value: "anthropic" }
+            - { name: ANTHROPIC_MODEL, value: "claude-haiku-4-5-20251001" }
+            - name: ANTHROPIC_API_KEY
+              valueFrom: { secretKeyRef: { name: reqhub-api-config, key: ANTHROPIC_API_KEY, optional: true } }
           ports:
             - { name: http, containerPort: 8080 }
             - { name: metrics, containerPort: 9464 }

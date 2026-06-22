@@ -6,6 +6,7 @@ import { M, startMetricsServer } from './metrics.js';
 import * as ordersRepo from './repositories/orders-repo.js';
 import * as jobsRepo from './repositories/jobs-repo.js';
 import * as ordersSvc from './services/orders-service.js';
+import * as aiSvc from './services/ai-service.js';
 
 const app = express();
 app.use(express.json());
@@ -26,6 +27,8 @@ app.post('/v1/work-orders/:id/submit', wrap(async (req, res) => res.status(202).
 app.get('/v1/assets', wrap(async (req, res) => res.json({ data: await ordersRepo.listAssets(req.tenantId) })));
 app.get('/v1/technicians', wrap(async (req, res) => res.json({ data: await ordersRepo.listTechnicians(req.tenantId) })));
 app.get('/v1/dashboard', wrap(async (req, res) => res.json(await ordersRepo.dashboard(req.tenantId))));
+// Assistente de IA (ia-grafo + structured-outputs): triagem/priorização — DRY-RUN (sugere, não aplica).
+app.post('/v1/ai/triage/:id', wrap(async (req, res) => { const o = await ordersRepo.getOrder(req.tenantId, Number(req.params.id)); if (!o) return res.status(404).json({ error: { message: 'não encontrada' } }); res.json(await aiSvc.triageOrder(o)); }));
 
 async function updateQueueDepth() {
   try { const c = await jobsRepo.counts(); for (const s of ['queued', 'running', 'done', 'dlq']) M.queueDepth.set({ status: s }, c[s] || 0); } catch { /* best-effort */ }
