@@ -1,0 +1,26 @@
+id: REQ-OPSBOARD-0002
+title: "Filtro por status na listagem de registros (GET /v1/records?status=)"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: opsboard
+  blueprint: node-api-vue-spa
+statement: "O GET /v1/records deve aceitar o query param opcional ?status=<status> que filtra os registros pelo status informado, mantendo o isolamento por tenant e o limite de 200 registros. Sem o param, o comportamento atual (todos os registros do tenant) é preservado."
+business_rationale: "Um painel de operações precisa filtrar a fila por status (ex.: ver só os 'failed' ou os 'submitting') sem baixar tudo e filtrar no cliente. O filtro no servidor é parametrizado (sem concatenar SQL) e respeita o tenant, como os demais endpoints."
+source:
+  origin: "FORGE — evolução do produto opsboard (esteira automática pós-billing)"
+  source_paths: ["specs/products/opsboard/product.json"]
+priority: high
+criticality: medium
+architectural_significance: false
+capability_blocks: ["camadas-rigidas"]
+acceptance_criteria:
+  - "GET /v1/records?status=submitted retorna apenas registros com status 'submitted' do tenant corrente."
+  - "GET /v1/records (sem o param) mantém o comportamento atual: todos os registros do tenant, ordenados por id desc, limite 200."
+  - "O filtro é parametrizado (valor passa como bind param, nunca concatenado no SQL) e respeita WHERE tenant_id."
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

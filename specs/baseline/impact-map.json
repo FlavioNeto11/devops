@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "ab23d4cdd1f33bf1a2abfe1a15af12902c99a18f0fd02012f86494d9b6219b39",
+  "baseline_hash": "fb60dc23320f6ede5a595801767475db0dfa8945f10034853f993f634a12685a",
   "nodes": [
     {
       "id": "infra-argocd",
@@ -2001,6 +2001,16 @@
       "id": "REQ-OPSBOARD-0001",
       "kind": "requirement",
       "title": "Endpoint de estatísticas de registros (GET /v1/records/stats)",
+      "type": "functional",
+      "product": "opsboard",
+      "asr": false,
+      "impact_score": 40,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-OPSBOARD-0002",
+      "kind": "requirement",
+      "title": "Filtro por status na listagem de registros (GET /v1/records?status=)",
       "type": "functional",
       "product": "opsboard",
       "asr": false,

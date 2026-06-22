@@ -1,10 +1,10 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "ab23d4cdd1f33bf1a2abfe1a15af12902c99a18f0fd02012f86494d9b6219b39",
+  "baseline_hash": "fb60dc23320f6ede5a595801767475db0dfa8945f10034853f993f634a12685a",
   "refinements_hash": "8c2404f1df38762f23de2d95606729971e0b22061bc4df82fddd1431e42222b0",
   "schema": "specs/schema/requirement.schema.json",
   "counts": {
-    "total": 340,
+    "total": 341,
     "by_product": {
       "ai": 18,
       "argocd": 15,
@@ -16,7 +16,7 @@
       "keycloak": 18,
       "observability": 17,
       "oidc": 18,
-      "opsboard": 1,
+      "opsboard": 2,
       "portal-contracts": 17,
       "platform": 16,
       "portal": 21,
@@ -27,10 +27,10 @@
       "traefik": 16
     },
     "by_status": {
-      "approved": 340
+      "approved": 341
     },
     "by_type": {
-      "functional": 238,
+      "functional": 239,
       "non-functional": 102
     },
     "refinements": {
@@ -7199,6 +7199,47 @@
       "impact_score": 40,
       "impact_band": "low",
       "file": "requirements/opsboard/REQ-OPSBOARD-0001.yaml"
+    },
+    {
+      "id": "REQ-OPSBOARD-0002",
+      "title": "Filtro por status na listagem de registros (GET /v1/records?status=)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "opsboard",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O GET /v1/records deve aceitar o query param opcional ?status=<status> que filtra os registros pelo status informado, mantendo o isolamento por tenant e o limite de 200 registros. Sem o param, o comportamento atual (todos os registros do tenant) é preservado.",
+      "business_rationale": "Um painel de operações precisa filtrar a fila por status (ex.: ver só os 'failed' ou os 'submitting') sem baixar tudo e filtrar no cliente. O filtro no servidor é parametrizado (sem concatenar SQL) e respeita o tenant, como os demais endpoints.",
+      "source": {
+        "origin": "FORGE — evolução do produto opsboard (esteira automática pós-billing)",
+        "source_paths": [
+          "specs/products/opsboard/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": false,
+      "capability_blocks": [
+        "camadas-rigidas"
+      ],
+      "acceptance_criteria": [
+        "GET /v1/records?status=submitted retorna apenas registros com status 'submitted' do tenant corrente.",
+        "GET /v1/records (sem o param) mantém o comportamento atual: todos os registros do tenant, ordenados por id desc, limite 200.",
+        "O filtro é parametrizado (valor passa como bind param, nunca concatenado no SQL) e respeita WHERE tenant_id."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 40,
+      "impact_band": "low",
+      "file": "requirements/opsboard/REQ-OPSBOARD-0002.yaml"
     },
     {
       "id": "REQ-PCONTRACT-0001",
@@ -15771,6 +15812,15 @@
     {
       "id": "REQ-OPSBOARD-0001",
       "title": "Endpoint de estatísticas de registros (GET /v1/records/stats)",
+      "product": "opsboard",
+      "impact_score": 40,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-OPSBOARD-0002",
+      "title": "Filtro por status na listagem de registros (GET /v1/records?status=)",
       "product": "opsboard",
       "impact_score": 40,
       "reasons": [
