@@ -1,0 +1,15 @@
+{
+  "name": "@flavioneto11/fiscal-kit",
+  "version": "0.1.0",
+  "description": "Kit de emissao de nota fiscal brasileira (NF-e/NFCe), sandbox-first: funciona sem certificado; SEFAZ real atras de config, fail-closed. Emissao modelada como job assincrono (passos puros; a app roda no worker). Zero deps de runtime.",
+  "type": "module",
+  "main": "src/index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": "./src/index.js",
+    "./sandbox": "./src/sefaz/sandbox.js"
+  },
+  "files": ["src", "index.d.ts", "README.md"],
+  "scripts": { "test": "node --test" },
+  "license": "UNLICENSED"
+}

@@ -83,6 +83,63 @@
       ]
     },
     {
+      "id": "control-ai-por-app",
+      "title": "IA de controle do app (grafo próprio + prompts versionados)",
+      "description": "Uma IA de controle PRÓPRIA do app: seu grafo de IA (ai-core) com especialistas e tools de domínio, puxando prompts versionados do control plane da plataforma com timeout + cache + fallback offline para um prompt versionado no repo, fail-closed sem chave de IA. Use quando o app precisa de IA própria/governada além da da plataforma, resiliente ao control plane estar fora.",
+      "category": "ai",
+      "requires": [
+        "ia-grafo"
+      ],
+      "conflicts_with": [],
+      "compatible_stacks": [
+        "sicat",
+        "gymops"
+      ],
+      "reuses": [
+        "packages/control-ai-kit",
+        "packages/ai-core"
+      ],
+      "reference": [
+        {
+          "stack": "platform",
+          "path": "packages/control-ai-kit/example/usage.js",
+          "note": "createControlAi(app) sobre ai-core; prompt-source com cache+timeout+fallback local; fail-closed sem LLM."
+        },
+        {
+          "stack": "platform",
+          "path": "apps/ai-control-plane/README.md",
+          "note": "contrato /v1/prompts/:name/active + regra FORA do caminho crítico (cache+fallback)."
+        }
+      ],
+      "scaffold_overlay": {
+        "adds_env": [
+          "AI_PROVIDER",
+          "ANTHROPIC_API_KEY",
+          "OPENAI_API_KEY",
+          "AI_CONTROL_PLANE_URL"
+        ],
+        "adds_reuses": [
+          "packages/control-ai-kit",
+          "packages/ai-core"
+        ],
+        "notes": "Cria ai/control/{graph,tools,prompts} + rota de chat; prompts do control-plane com fallback local; 503 sem chave."
+      },
+      "work_order_guidance": "Use packages/control-ai-kit sobre @flavioneto11/ai-core: createControlAi({ appName, llm, prompts, controlPlaneUrl }). Os prompts vêm do ai-control-plane (timeout 2s + cache) com FALLBACK para o prompt versionado no repo (control-plane fora NÃO quebra). Tools de domínio R1 (read-first, dry-run em mutações). Fail-closed: sem chave de IA -> 503.",
+      "verification": [
+        {
+          "method": "test-integration",
+          "assertion": "control-plane indisponível -> usa o prompt local versionado (sem quebrar); sem chave de IA -> 503"
+        },
+        {
+          "method": "demo",
+          "assertion": "uma tool de domínio é chamada e a IA cita a evidência"
+        }
+      ],
+      "default_adrs": [
+        "IA de controle por app via packages/control-ai-kit sobre @flavioneto11/ai-core; prompts versionados do ai-control-plane com cache+fallback local; fail-closed sem chave"
+      ]
+    },
+    {
       "id": "design-system",
       "title": "Design system unificado (design-tokens + componentes)",
       "description": "Frontend consistente com a plataforma: tokens de design únicos (packages/design-tokens, codegen-sync para dentro de cada app — nunca editar o .generated.css) + componentes reusáveis e casca compartilhada (packages/platform-shell). Use em todo frontend para herdar identidade, tema (claro/escuro), acessibilidade e a casca/navegação da plataforma, sem reinventar CSS.",
@@ -308,6 +365,61 @@
       ]
     },
     {
+      "id": "nota-fiscal-emissao",
+      "title": "Emissão de NF-e/NFCe (XML + assinatura + SEFAZ) como job",
+      "description": "Emissão de nota fiscal brasileira (NF-e/NFCe): monta o XML, assina e submete à SEFAZ — rodando como job ASSÍNCRONO (com retry e auditoria). SEFAZ 'sandbox' determinística por padrão; SEFAZ real atrás de config; fail-closed sem certificado. Use quando o sistema precisa emitir documentos fiscais de forma confiável sem acesso real a certificado/SEFAZ durante o build.",
+      "category": "integration",
+      "requires": [
+        "worker-queue-transacional"
+      ],
+      "conflicts_with": [],
+      "compatible_stacks": [
+        "sicat"
+      ],
+      "reuses": [
+        "packages/fiscal-kit"
+      ],
+      "reference": [
+        {
+          "stack": "platform",
+          "path": "packages/fiscal-kit/example/usage.js",
+          "note": "build->sign->submit->queryStatus como passo de worker; sandbox SEFAZ por default, real atrás de cert."
+        },
+        {
+          "stack": "sicat",
+          "path": "apps/sicat/backend/src/gateways/cetesb-gateway.js",
+          "note": "cliente externo resiliente (timeout/retry/redação/auditoria) — espelhar para o gateway SEFAZ real."
+        }
+      ],
+      "scaffold_overlay": {
+        "adds_env": [
+          "FISCAL_MODE",
+          "FISCAL_UF",
+          "FISCAL_ENVIRONMENT",
+          "FISCAL_CERT_PFX",
+          "FISCAL_CERT_PASSWORD"
+        ],
+        "adds_reuses": [
+          "packages/fiscal-kit"
+        ],
+        "notes": "Cria services/fiscal + tipo de job nfe.emit no worker; sandbox SEFAZ por default."
+      },
+      "work_order_guidance": "Use packages/fiscal-kit (reutilize): a emissão é um JOB na fila transacional — build (puro) -> sign -> submit -> poll queryStatus, com retry/DLQ do worker. Sandbox SEFAZ por default; modo real atrás de FISCAL_* + certificado, fail-closed sem cert. Persista o protocolo/erro para auditoria. Nunca gere NF inválida silenciosamente.",
+      "verification": [
+        {
+          "method": "test-integration",
+          "assertion": "job nfe.emit em sandbox -> XML construído, assinado (stub) e protocolo autorizado; modo real sem certificado -> fail-closed"
+        },
+        {
+          "method": "test-unit",
+          "assertion": "buildNfeXml é determinístico para a mesma nota"
+        }
+      ],
+      "default_adrs": [
+        "NF-e/NFCe via packages/fiscal-kit como job na fila transacional; sandbox SEFAZ por default, real atrás de certificado; fail-closed sem cert"
+      ]
+    },
+    {
       "id": "notificacoes-multicanal",
       "title": "Notificações multi-canal (e-mail, push, WhatsApp)",
       "description": "Envio de notificações por múltiplos canais — e-mail (SMTP/Nodemailer), push web (VAPID/web-push) e WhatsApp (Twilio) — disparado por eventos do domínio, com degradação graciosa (canal ausente não derruba o fluxo) e enfileiramento (a notificação é um job). Use quando o sistema precisa avisar usuários fora da sessão (lembretes, alertas, convites) por canais configuráveis.",
@@ -464,6 +576,60 @@
       ],
       "default_adrs": [
         "Auth: sessão própria do app via packages/oidc-kit (OIDC Keycloak) — aditivo, sem tocar outras auths"
+      ]
+    },
+    {
+      "id": "pagamentos-gateway",
+      "title": "Gateway de pagamento (cobrança idempotente + webhook + sandbox)",
+      "description": "Integração de pagamento por um gateway único e resiliente: cobranças idempotentes (um efeito por chave), verificação de assinatura de webhook, trilha de auditoria de transações, timeout/retry. Provider 'sandbox' determinístico por padrão e PSP real atrás de PAYMENT_PROVIDER/PAYMENT_API_KEY (fail-closed sem chave). Nunca armazena número de cartão (tokenizado). Use quando o sistema cobra/estorna dinheiro e precisa de confiabilidade + auditoria sem credenciais reais durante o build.",
+      "category": "integration",
+      "requires": [
+        "idempotencia"
+      ],
+      "conflicts_with": [],
+      "compatible_stacks": [
+        "sicat",
+        "gymops"
+      ],
+      "reuses": [
+        "packages/payments-kit"
+      ],
+      "reference": [
+        {
+          "stack": "platform",
+          "path": "packages/payments-kit/example/usage.js",
+          "note": "createPaymentGateway sandbox->real por env; charge idempotente; verifyWebhookSignature."
+        },
+        {
+          "stack": "sicat",
+          "path": "apps/sicat/backend/src/services/idempotency-service.ts",
+          "note": "honra Idempotency-Key — mesmo padrão de dedupe para cobrança."
+        }
+      ],
+      "scaffold_overlay": {
+        "adds_env": [
+          "PAYMENT_PROVIDER",
+          "PAYMENT_API_KEY",
+          "PAYMENT_WEBHOOK_SECRET"
+        ],
+        "adds_reuses": [
+          "packages/payments-kit"
+        ],
+        "notes": "Cria services/payments + rota de webhook; sandbox por default, PSP real atrás de env."
+      },
+      "work_order_guidance": "Implemente com packages/payments-kit (reutilize, não reescreva): createPaymentGateway({ provider: env || 'sandbox', onAudit }) num service; charge idempotente por Idempotency-Key; rota de webhook valida a assinatura (verifyWebhookSignature) antes de processar; persista a trilha de auditoria. NUNCA receba/guarde número de cartão — só paymentMethodToken.",
+      "verification": [
+        {
+          "method": "test-integration",
+          "assertion": "duas cobranças com a mesma Idempotency-Key produzem um único efeito; webhook com assinatura inválida é rejeitado; provider real sem PAYMENT_API_KEY falha-closed"
+        },
+        {
+          "method": "architecture-review",
+          "assertion": "nenhum número de cartão trafega ou é persistido — apenas token"
+        }
+      ],
+      "default_adrs": [
+        "Pagamentos via packages/payments-kit: sandbox por default, PSP real atrás de PAYMENT_PROVIDER/PAYMENT_API_KEY; cobrança idempotente; webhook assinado; nunca armazenar PAN"
       ]
     },
     {

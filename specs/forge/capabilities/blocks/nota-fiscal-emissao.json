@@ -1,0 +1,25 @@
+{
+  "id": "nota-fiscal-emissao",
+  "title": "Emissão de NF-e/NFCe (XML + assinatura + SEFAZ) como job",
+  "description": "Emissão de nota fiscal brasileira (NF-e/NFCe): monta o XML, assina e submete à SEFAZ — rodando como job ASSÍNCRONO (com retry e auditoria). SEFAZ 'sandbox' determinística por padrão; SEFAZ real atrás de config; fail-closed sem certificado. Use quando o sistema precisa emitir documentos fiscais de forma confiável sem acesso real a certificado/SEFAZ durante o build.",
+  "category": "integration",
+  "compatible_stacks": ["sicat"],
+  "requires": ["worker-queue-transacional"],
+  "conflicts_with": [],
+  "reference": [
+    { "stack": "platform", "path": "packages/fiscal-kit/example/usage.js", "note": "build->sign->submit->queryStatus como passo de worker; sandbox SEFAZ por default, real atrás de cert." },
+    { "stack": "sicat", "path": "apps/sicat/backend/src/gateways/cetesb-gateway.js", "note": "cliente externo resiliente (timeout/retry/redação/auditoria) — espelhar para o gateway SEFAZ real." }
+  ],
+  "reuses": ["packages/fiscal-kit"],
+  "scaffold_overlay": {
+    "adds_env": ["FISCAL_MODE", "FISCAL_UF", "FISCAL_ENVIRONMENT", "FISCAL_CERT_PFX", "FISCAL_CERT_PASSWORD"],
+    "adds_reuses": ["packages/fiscal-kit"],
+    "notes": "Cria services/fiscal + tipo de job nfe.emit no worker; sandbox SEFAZ por default."
+  },
+  "work_order_guidance": "Use packages/fiscal-kit (reutilize): a emissão é um JOB na fila transacional — build (puro) -> sign -> submit -> poll queryStatus, com retry/DLQ do worker. Sandbox SEFAZ por default; modo real atrás de FISCAL_* + certificado, fail-closed sem cert. Persista o protocolo/erro para auditoria. Nunca gere NF inválida silenciosamente.",
+  "verification": [
+    { "method": "test-integration", "assertion": "job nfe.emit em sandbox -> XML construído, assinado (stub) e protocolo autorizado; modo real sem certificado -> fail-closed" },
+    { "method": "test-unit", "assertion": "buildNfeXml é determinístico para a mesma nota" }
+  ],
+  "default_adrs": ["NF-e/NFCe via packages/fiscal-kit como job na fila transacional; sandbox SEFAZ por default, real atrás de certificado; fail-closed sem cert"]
+}

@@ -1,0 +1,25 @@
+{
+  "id": "control-ai-por-app",
+  "title": "IA de controle do app (grafo próprio + prompts versionados)",
+  "description": "Uma IA de controle PRÓPRIA do app: seu grafo de IA (ai-core) com especialistas e tools de domínio, puxando prompts versionados do control plane da plataforma com timeout + cache + fallback offline para um prompt versionado no repo, fail-closed sem chave de IA. Use quando o app precisa de IA própria/governada além da da plataforma, resiliente ao control plane estar fora.",
+  "category": "ai",
+  "compatible_stacks": ["sicat", "gymops"],
+  "requires": ["ia-grafo"],
+  "conflicts_with": [],
+  "reference": [
+    { "stack": "platform", "path": "packages/control-ai-kit/example/usage.js", "note": "createControlAi(app) sobre ai-core; prompt-source com cache+timeout+fallback local; fail-closed sem LLM." },
+    { "stack": "platform", "path": "apps/ai-control-plane/README.md", "note": "contrato /v1/prompts/:name/active + regra FORA do caminho crítico (cache+fallback)." }
+  ],
+  "reuses": ["packages/control-ai-kit", "packages/ai-core"],
+  "scaffold_overlay": {
+    "adds_env": ["AI_PROVIDER", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "AI_CONTROL_PLANE_URL"],
+    "adds_reuses": ["packages/control-ai-kit", "packages/ai-core"],
+    "notes": "Cria ai/control/{graph,tools,prompts} + rota de chat; prompts do control-plane com fallback local; 503 sem chave."
+  },
+  "work_order_guidance": "Use packages/control-ai-kit sobre @flavioneto11/ai-core: createControlAi({ appName, llm, prompts, controlPlaneUrl }). Os prompts vêm do ai-control-plane (timeout 2s + cache) com FALLBACK para o prompt versionado no repo (control-plane fora NÃO quebra). Tools de domínio R1 (read-first, dry-run em mutações). Fail-closed: sem chave de IA -> 503.",
+  "verification": [
+    { "method": "test-integration", "assertion": "control-plane indisponível -> usa o prompt local versionado (sem quebrar); sem chave de IA -> 503" },
+    { "method": "demo", "assertion": "uma tool de domínio é chamada e a IA cita a evidência" }
+  ],
+  "default_adrs": ["IA de controle por app via packages/control-ai-kit sobre @flavioneto11/ai-core; prompts versionados do ai-control-plane com cache+fallback local; fail-closed sem chave"]
+}

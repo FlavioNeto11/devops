@@ -36,5 +36,5 @@
   "seed_nfrs": [],
   "base_stack": "sicat",
   "default_blocks": ["camadas-rigidas", "migrations-versionadas", "observabilidade"],
-  "compatible_blocks": ["worker-queue-transacional", "gateway-externo", "oidc-sessao", "contract-openapi", "ia-grafo", "structured-outputs", "rag-pgvector", "idempotencia", "design-system"]
+  "compatible_blocks": ["worker-queue-transacional", "gateway-externo", "oidc-sessao", "contract-openapi", "ia-grafo", "structured-outputs", "rag-pgvector", "idempotencia", "design-system", "pagamentos-gateway", "nota-fiscal-emissao", "control-ai-por-app"]
 }

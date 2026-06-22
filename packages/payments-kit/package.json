@@ -1,0 +1,16 @@
+{
+  "name": "@flavioneto11/payments-kit",
+  "version": "0.1.0",
+  "description": "Gateway de pagamentos provider-agnostic, SANDBOX-FIRST: funciona sem credenciais; provedor real atras de config e fail-closed. Idempotencia, retry/backoff, verificacao de webhook (HMAC) e auditoria. NUNCA armazena PAN. Zero deps de runtime.",
+  "private": false,
+  "type": "module",
+  "main": "src/index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": "./src/index.js",
+    "./sandbox": "./src/providers/sandbox.js"
+  },
+  "files": ["src", "index.d.ts", "README.md"],
+  "scripts": { "test": "node --test" },
+  "license": "UNLICENSED"
+}

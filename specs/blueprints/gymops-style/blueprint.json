@@ -41,5 +41,5 @@
   "seed_nfrs": [],
   "base_stack": "gymops",
   "default_blocks": ["camadas-rigidas", "migrations-versionadas", "redis-bullmq", "rbac-multitenant", "oidc-sessao", "structured-outputs", "observabilidade"],
-  "compatible_blocks": ["ia-grafo", "rag-pgvector", "notificacoes-multicanal", "idempotencia", "design-system"]
+  "compatible_blocks": ["ia-grafo", "rag-pgvector", "notificacoes-multicanal", "idempotencia", "design-system", "pagamentos-gateway", "control-ai-por-app"]
 }

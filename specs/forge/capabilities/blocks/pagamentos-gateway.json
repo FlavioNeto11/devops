@@ -1,0 +1,25 @@
+{
+  "id": "pagamentos-gateway",
+  "title": "Gateway de pagamento (cobrança idempotente + webhook + sandbox)",
+  "description": "Integração de pagamento por um gateway único e resiliente: cobranças idempotentes (um efeito por chave), verificação de assinatura de webhook, trilha de auditoria de transações, timeout/retry. Provider 'sandbox' determinístico por padrão e PSP real atrás de PAYMENT_PROVIDER/PAYMENT_API_KEY (fail-closed sem chave). Nunca armazena número de cartão (tokenizado). Use quando o sistema cobra/estorna dinheiro e precisa de confiabilidade + auditoria sem credenciais reais durante o build.",
+  "category": "integration",
+  "compatible_stacks": ["sicat", "gymops"],
+  "requires": ["idempotencia"],
+  "conflicts_with": [],
+  "reference": [
+    { "stack": "platform", "path": "packages/payments-kit/example/usage.js", "note": "createPaymentGateway sandbox->real por env; charge idempotente; verifyWebhookSignature." },
+    { "stack": "sicat", "path": "apps/sicat/backend/src/services/idempotency-service.ts", "note": "honra Idempotency-Key — mesmo padrão de dedupe para cobrança." }
+  ],
+  "reuses": ["packages/payments-kit"],
+  "scaffold_overlay": {
+    "adds_env": ["PAYMENT_PROVIDER", "PAYMENT_API_KEY", "PAYMENT_WEBHOOK_SECRET"],
+    "adds_reuses": ["packages/payments-kit"],
+    "notes": "Cria services/payments + rota de webhook; sandbox por default, PSP real atrás de env."
+  },
+  "work_order_guidance": "Implemente com packages/payments-kit (reutilize, não reescreva): createPaymentGateway({ provider: env || 'sandbox', onAudit }) num service; charge idempotente por Idempotency-Key; rota de webhook valida a assinatura (verifyWebhookSignature) antes de processar; persista a trilha de auditoria. NUNCA receba/guarde número de cartão — só paymentMethodToken.",
+  "verification": [
+    { "method": "test-integration", "assertion": "duas cobranças com a mesma Idempotency-Key produzem um único efeito; webhook com assinatura inválida é rejeitado; provider real sem PAYMENT_API_KEY falha-closed" },
+    { "method": "architecture-review", "assertion": "nenhum número de cartão trafega ou é persistido — apenas token" }
+  ],
+  "default_adrs": ["Pagamentos via packages/payments-kit: sandbox por default, PSP real atrás de PAYMENT_PROVIDER/PAYMENT_API_KEY; cobrança idempotente; webhook assinado; nunca armazenar PAN"]
+}

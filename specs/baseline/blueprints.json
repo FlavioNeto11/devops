@@ -43,7 +43,9 @@
         "rag-pgvector",
         "notificacoes-multicanal",
         "idempotencia",
-        "design-system"
+        "design-system",
+        "pagamentos-gateway",
+        "control-ai-por-app"
       ]
     },
     {
@@ -85,7 +87,10 @@
         "structured-outputs",
         "rag-pgvector",
         "idempotencia",
-        "design-system"
+        "design-system",
+        "pagamentos-gateway",
+        "nota-fiscal-emissao",
+        "control-ai-por-app"
       ]
     }
   ]

@@ -1,0 +1,20 @@
+{
+  "name": "@flavioneto11/control-ai-kit",
+  "version": "0.1.0",
+  "description": "IA de controle POR APP da plataforma: prompts versionados puxados do ai-control-plane (timeout + cache + fallback OFFLINE para o prompt versionado no repo) + fabrica fina de grafo sobre @flavioneto11/ai-core (PEER, nao vendorizado). Fail-closed sem LLM. Zero deps de runtime.",
+  "type": "module",
+  "main": "src/index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": "./src/index.js",
+    "./prompt-source": "./src/prompt-source.js"
+  },
+  "files": ["src", "index.d.ts", "README.md"],
+  "scripts": {
+    "test": "node --test"
+  },
+  "peerDependencies": {
+    "@flavioneto11/ai-core": ">=0.6"
+  },
+  "license": "UNLICENSED"
+}
