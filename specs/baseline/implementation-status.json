@@ -4,9 +4,8 @@
   "counts": {
     "total": 341,
     "by_status": {
-      "deployed": 288,
-      "done": 52,
-      "pr_open": 1
+      "deployed": 289,
+      "done": 52
     },
     "refinements": {
       "total": 13,
@@ -1124,10 +1123,10 @@
       "run_id": "local-drive"
     },
     "REQ-OPSBOARD-0002": {
-      "status": "pr_open",
+      "status": "deployed",
       "req_revision": 1,
       "branch": "@{id=REQ-OPSBOARD-0002; branch=req/REQ-OPSBOARD-0002/r1; restricted=false; title=feat(opsboard): implementa REQ-OPSBOARD-0002 — Filtro por status na listagem de registros }.branch",
-      "run_id": "27926554488"
+      "run_id": "esteira-auto"
     },
     "REQ-PCONTRACT-0001": {
       "status": "done",
