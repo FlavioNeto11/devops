@@ -12,10 +12,9 @@
   Endpoints REAIS (api.js):
     · GET  /v1/channels/{id}  — carrega o canal (api.channels.get)
     · PUT  /v1/channels/{id}  — persiste     (api.channels.update)
-  O screen contract marca o PUT como "a criar". Enquanto ele nao entra no
-  contrato do backend, a GRAVACAO fica fail-closed (regra dura: sem endpoint
-  real → nao dispara a acao): banner honesto + botao "Salvar" desabilitado.
-  A capacidade e ligada por flag de ambiente; default = desligado.
+  Ambos publicados no contrato (openapi.yaml) e implementados em server.js.
+  A gravacao pode ser desabilitada via VITE_CHANNELS_WRITE_ENABLED=false
+  para ambientes sem a migracao rodada; default = habilitado.
 
   Marca StockPilot (estoque/reposicao, teal/graphite) só via tokens --ui-*.
   CSP-safe: só classes + data-*; sem style inline / :style / v-html.
@@ -43,16 +42,16 @@
       </UiButton>
     </template>
 
-    <!-- banner de capacidade: gravação ainda não publicada pelo backend -->
+    <!-- banner de capacidade: gravação desabilitada por flag de ambiente -->
     <template v-if="hasChannel && !canPersist" #banner>
       <div class="ce-banner" role="status">
         <span class="ce-banner-ic" aria-hidden="true">⚑</span>
         <div class="ce-banner-txt">
-          <p class="ce-banner-title">Gravacao ainda nao disponivel</p>
+          <p class="ce-banner-title">Gravacao desabilitada por configuracao</p>
           <p class="ce-banner-sub">
-            A edicao depende de <code class="ce-code">PUT /v1/channels/{id}</code>, que ainda nao foi
-            publicado pela API. Voce pode revisar e validar as mudancas aqui — salvar sera habilitado
-            assim que o endpoint entrar no contrato.
+            A edicao esta desabilitada via <code class="ce-code">VITE_CHANNELS_WRITE_ENABLED=false</code>.
+            Voce pode revisar e validar as mudancas aqui — salvar sera habilitado assim que a variavel
+            for removida ou definida como <code class="ce-code">true</code>.
           </p>
         </div>
       </div>
@@ -351,14 +350,17 @@ const LAST_STATUS = {
 };
 const FIELD_LABELS = { channel: 'Canal', webhook_url: 'Webhook URL', events: 'Eventos' };
 
-/* ---- capacidade de gravar (fail-closed honesto) --------------------------
-   Sem endpoint real publicado, a gravação fica desligada por padrão; uma flag
-   de ambiente liga assim que o backend publicar o PUT. */
+/* ---- capacidade de gravar: PUT /v1/channels/{id} publicado no backend ---
+   O endpoint está no contrato (openapi.yaml) e implementado em server.js.
+   Pode ser desabilitado via VITE_CHANNELS_WRITE_ENABLED=false para ambientes
+   que ainda não tiverem a migração rodada. */
 const canPersist = computed(() => {
   try {
-    return String(import.meta.env.VITE_CHANNELS_WRITE_ENABLED || '').toLowerCase() === 'true';
+    const flag = import.meta.env.VITE_CHANNELS_WRITE_ENABLED;
+    if (flag === undefined || flag === null || flag === '') return true;
+    return String(flag).toLowerCase() !== 'false';
   } catch {
-    return false;
+    return true;
   }
 });
 

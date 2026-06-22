@@ -167,6 +167,11 @@
           <span class="cl-actions" @click.stop>
             <UiButton
               size="sm"
+              variant="subtle"
+              :to="'/channels/' + row.id + '/edit'"
+            >Editar</UiButton>
+            <UiButton
+              size="sm"
               :variant="row.enabled ? 'ghost' : 'subtle'"
               :loading="busyId === row.id"
               @click="toggleEnabled(row)"
