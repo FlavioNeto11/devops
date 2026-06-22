@@ -4,9 +4,9 @@
   "counts": {
     "total": 357,
     "by_status": {
-      "deployed": 297,
+      "deployed": 298,
       "done": 52,
-      "not_started": 8
+      "not_started": 7
     },
     "refinements": {
       "total": 13,
@@ -1948,8 +1948,9 @@
       "notes": "plataforma de requisitos — reqhub no cluster + baseline/tooling/CI ativos"
     },
     "REQ-STOCKPILOT-0001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "run_id": "forge-scaffold"
     },
     "REQ-STOCKPILOT-0002": {
       "status": "not_started",

@@ -1,0 +1,7 @@
+app: { name: stockpilot, namespace: apps, host: nvit.localhost, basePath: /stockpilot }
+# Gerado pela FORGE (SICAT-style). Blocos: observabilidade, camadas-rigidas, migrations-versionadas, oidc-sessao, worker-queue-transacional, idempotencia, gateway-externo, contract-openapi, design-system, ia-grafo, rag-pgvector, structured-outputs
+services:
+  api: { type: api, path: /api, port: 8080, expose: true, stripPrefix: true, priority: 40, health: { path: /health } }
+  worker: { type: worker, port: 9464, expose: false, command: ["npm", "run", "worker"] }
+capabilities: [observabilidade, camadas-rigidas, migrations-versionadas, oidc-sessao, worker-queue-transacional, idempotencia, gateway-externo, contract-openapi, design-system, ia-grafo, rag-pgvector, structured-outputs]
+observability: { metricsPort: 9464, serviceMonitor: true, prometheusRule: true }
