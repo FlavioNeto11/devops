@@ -15,6 +15,7 @@
     "app_type": { "enum": ["product_software", "cms_portal", "platform_tool"], "default": "product_software" },
     "blueprint": { "type": "string", "pattern": "^[a-z0-9-]+$", "description": "Id de um blueprint em specs/blueprints/." },
     "stack": { "enum": ["sicat", "gymops"], "description": "Stack-base escolhida na fase de arquitetura (= blueprint.base_stack). Define o gerador de scaffold." },
+    "interfaces": { "type": "array", "items": { "enum": ["api", "web"] }, "default": ["api"], "description": "Superfícies geradas: 'api' (sempre); 'web' adiciona o frontend SPA Vue (scaffold-frontend.mjs). Só-API quando contém apenas 'api'." },
     "capability_blocks": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9-]+$" }, "description": "Blocos de capacidade selecionados para este produto (ids em specs/forge/capabilities/blocks/). O applier de scaffold aplica os overlays correspondentes." },
     "vision": { "type": "string", "minLength": 10 },
     "persona": { "type": "array", "items": { "type": "string" } },

@@ -61,7 +61,19 @@ if ($hasStack -and $hasBlocks -and -not $WhatIfOnly) {
     $genPath = Join-Path $SpecsDir "forge\$gen"
     if ($Force) { & node $genPath --product $Name --force } else { & node $genPath --product $Name }
     if ($LASTEXITCODE -ne 0) { throw "gerador $gen falhou (exit $LASTEXITCODE)." }
-    Write-Host "OK — app gerado em apps\$Name. Próximo: docker build das imagens :local + Secret '$Name-db' + kubectl apply -f apps\$Name\k8s\." -ForegroundColor Green
+    # Interface web -> frontend Vue (aditivo). product.interfaces inclui 'web' => SPA; só-API caso contrário.
+    $ifaces = if ($prod.PSObject.Properties.Name -contains 'interfaces') { @($prod.interfaces) } else { @('api') }
+    if ($ifaces -contains 'web') {
+      Write-Host "== FORGE 2.0: gerando frontend Vue (scaffold-frontend.mjs) ==" -ForegroundColor Cyan
+      $feGen = Join-Path $SpecsDir 'forge\scaffold-frontend.mjs'
+      if ($Force) { & node $feGen --product $Name --force } else { & node $feGen --product $Name }
+      if ($LASTEXITCODE -ne 0) { throw "scaffold-frontend falhou (exit $LASTEXITCODE)." }
+    }
+    # Suíte de testes LOCKED na concepção (a partir dos requisitos na baseline). Humano-run.
+    Write-Host "== FORGE 2.0: gerando suíte de testes LOCKED (make-test-suite.mjs) ==" -ForegroundColor Cyan
+    & node (Join-Path $SpecsDir 'tools\make-test-suite.mjs') --product $Name
+    if ($LASTEXITCODE -ne 0) { Write-Host "[forge] aviso: make-test-suite saiu $LASTEXITCODE (requisitos podem não estar na baseline ainda)." -ForegroundColor Yellow }
+    Write-Host "OK — app gerado em apps\$Name (api$(if ($ifaces -contains 'web') {' + frontend'}) + testes locked). Próximo: docker build :local + Secret '$Name-db' + kubectl apply -f apps\$Name\k8s\." -ForegroundColor Green
     return
   }
   Write-Host "[forge] stack '$($prod.stack)' sem gerador dedicado — usando o scaffold golden-path legado." -ForegroundColor Yellow
