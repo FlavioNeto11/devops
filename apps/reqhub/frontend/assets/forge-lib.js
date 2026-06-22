@@ -69,14 +69,19 @@ export function phaseModel(product, buildPlan, implStatus) {
   const reqIds = (product && product.requirement_ids) || [];
   const prog = progressOf(reqIds, implStatus);
   const nWaves = ((buildPlan && buildPlan.waves) || []).length;
+  const archApproved = (phases.architecture && phases.architecture.status) === 'approved';
   const done = {
     definir: ((phases.requirements && phases.requirements.status) === 'approved') && reqIds.length > 0,
-    arquitetura: (phases.architecture && phases.architecture.status) === 'approved' && !!buildPlan,
+    // arquitetura aprovada = fase concluída (o plano de build/waves é um detalhe, não o gate):
+    // sistemas no ar não devem mais aparecer como "sem plano de build".
+    arquitetura: archApproved,
     build: prog.total > 0 && prog.pct === 100,
   };
+  const archDetail = (buildPlan && nWaves) ? `${nWaves} wave(s) · plano ${buildPlan.status || 'proposed'}`
+    : (archApproved ? 'arquitetura aprovada' : 'sem plano de build');
   const meta = {
     definir: { label: 'Definir', detail: reqIds.length ? `${reqIds.length} requisito(s)` : 'sem requisitos' },
-    arquitetura: { label: 'Arquitetura', detail: buildPlan ? `${nWaves} wave(s) · plano ${buildPlan.status || '?'}` : 'sem plano de build' },
+    arquitetura: { label: 'Arquitetura', detail: archDetail },
     build: { label: 'Build', detail: `${prog.done}/${prog.total} no ar · ${prog.pct}%` },
   };
   let currentAssigned = false;

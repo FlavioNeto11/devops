@@ -18,9 +18,27 @@ $products = Join-Path $base 'products.json'
 $status = Join-Path $base 'implementation-status.json'
 if (-not (Test-Path $products)) { throw "products.json não encontrado: $products (rode build-products.mjs)" }
 if (-not (Test-Path $status)) { throw "implementation-status.json não encontrado: $status (rode impl-status.mjs)" }
+
+# architectures.json = mapa name -> { status, stack, waves } a partir de cada specs/products/<name>/architecture.json
+# (a IA da Forja escreve isso; alimenta o "plano de build" visível na aba Arquitetura do reqhub).
+$prodsDir = Join-Path $PSScriptRoot '..\specs\products'
+$arch = [ordered]@{}
+Get-ChildItem $prodsDir -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+  $ap = Join-Path $_.FullName 'architecture.json'
+  $pp = Join-Path $_.FullName 'product.json'
+  if ((Test-Path $ap) -and (Test-Path $pp)) {
+    $a = Get-Content $ap -Raw | ConvertFrom-Json
+    $p = Get-Content $pp -Raw | ConvertFrom-Json
+    $arch[$_.Name] = @{ status = ($(if ($p.phases.architecture.status -eq 'approved') { 'approved' } else { 'proposed' })); stack = $p.stack; waves = @($a.waves) }
+  }
+}
+$archFile = Join-Path ([System.IO.Path]::GetTempPath()) 'architectures.json'
+($arch | ConvertTo-Json -Depth 8) | Set-Content -Encoding utf8 $archFile
+
 kubectl create configmap reqhub-forge-state -n $Namespace `
   --from-file=products.json=$products `
   --from-file=implementation-status.json=$status `
+  --from-file=architectures.json=$archFile `
   --dry-run=client -o yaml | kubectl apply -f -
 Write-Host "OK — ConfigMap reqhub-forge-state atualizado (ns $Namespace) a partir de specs/baseline/." -ForegroundColor Green
 Write-Host "    O endpoint /reqs/api/v1/forge/state refletirá em ~60s (propagação do ConfigMap) + 3s (cache)."

@@ -36,26 +36,35 @@ export function forgeState() {
   if (cache && now - cache.at < 3000) return cache.payload;
   const products = readJson('products.json');
   const implStatus = readJson('implementation-status.json');
+  // architectures.json = mapa name -> { status, stack, waves[] } (empacotado pelo sync a partir de
+  // specs/products/<name>/architecture.json). Alimenta o plano de build visível na aba Arquitetura.
+  const architectures = readJson('architectures.json') || {};
   const list = (products && products.products) || [];
   const out = list
-    .map((p) => ({
-      name: p.name,
-      display_name: p.display_name || p.name,
-      base_path: p.base_path || '/' + p.name,
-      blueprint: p.blueprint || null,
-      stack: p.stack || null,
-      app_type: p.app_type || 'product_software',
-      vision: p.vision || '',
-      phases: p.phases || {},
-      capability_blocks: p.capability_blocks || [],
-      requirement_ids: p.requirement_ids || [],
-      reqCount: (p.requirement_ids || []).length,
-      progress: progressOf(p.requirement_ids || [], implStatus),
-      reqs: (p.requirement_ids || []).map((id) => ({
-        id,
-        status: ((implStatus && implStatus.items && implStatus.items[id]) || {}).status || 'not_started',
-      })),
-    }))
+    .map((p) => {
+      const arch = architectures[p.name];
+      const archApproved = ((p.phases || {}).architecture || {}).status === 'approved';
+      const buildPlan = arch ? { status: arch.status || (archApproved ? 'approved' : 'proposed'), stack: arch.stack || p.stack || null, waves: arch.waves || [] } : null;
+      return {
+        name: p.name,
+        display_name: p.display_name || p.name,
+        base_path: p.base_path || '/' + p.name,
+        blueprint: p.blueprint || null,
+        stack: p.stack || null,
+        app_type: p.app_type || 'product_software',
+        vision: p.vision || '',
+        phases: p.phases || {},
+        capability_blocks: p.capability_blocks || [],
+        requirement_ids: p.requirement_ids || [],
+        reqCount: (p.requirement_ids || []).length,
+        progress: progressOf(p.requirement_ids || [], implStatus),
+        buildPlan,
+        reqs: (p.requirement_ids || []).map((id) => ({
+          id,
+          status: ((implStatus && implStatus.items && implStatus.items[id]) || {}).status || 'not_started',
+        })),
+      };
+    })
     .sort((a, b) => String(a.display_name).localeCompare(String(b.display_name), 'pt-BR'));
   const payload = {
     generatedAt: new Date().toISOString(),

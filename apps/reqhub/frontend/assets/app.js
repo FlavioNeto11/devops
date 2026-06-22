@@ -1,7 +1,7 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
 import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId } from './lib.js?v=41';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes, capabilityPlain, planSummary, CAPABILITY_PLAIN } from './forge-lib.js?v=49';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes, capabilityPlain, planSummary, CAPABILITY_PLAIN } from './forge-lib.js?v=51';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -2242,6 +2242,8 @@ function applyForgeState(payload) {
   const items = {};
   for (const p of payload.products) for (const r of (p.reqs || [])) items[r.id] = { status: r.status };
   DATA.implStatus = { items };
+  // plano de build vivo (waves) -> alimenta o stepper "Arquitetura" (fim do "sem plano de build")
+  for (const p of payload.products) if (p.buildPlan !== undefined) DATA.buildPlans[p.name] = p.buildPlan;
   return true;
 }
 async function refreshForgeState(forceRender) {
