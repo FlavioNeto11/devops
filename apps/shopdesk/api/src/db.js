@@ -8,7 +8,29 @@ const DOMAIN_DDL = ENTITIES.map((e) => ddlFor(e)).join('\n');
 const MIGRATIONS = [`CREATE TABLE IF NOT EXISTS records (id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, title TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open', payload JSONB NOT NULL DEFAULT '{}'::jsonb, external_ref TEXT, created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now());`,
   `CREATE TABLE IF NOT EXISTS jobs (id BIGSERIAL PRIMARY KEY, type TEXT NOT NULL, payload JSONB NOT NULL DEFAULT '{}'::jsonb, status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','running','done','dlq')), attempts INTEGER NOT NULL DEFAULT 0, max_attempts INTEGER NOT NULL DEFAULT 4, run_after TIMESTAMPTZ NOT NULL DEFAULT now(), locked_at TIMESTAMPTZ, locked_by TEXT, last_error TEXT, job_key TEXT UNIQUE, created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now()); CREATE INDEX IF NOT EXISTS jobs_claim_idx ON jobs (status, run_after) WHERE status='queued';`,
   `CREATE TABLE IF NOT EXISTS idempotency_keys (key TEXT PRIMARY KEY, response JSONB NOT NULL, created_at TIMESTAMPTZ DEFAULT now());`,
-  DOMAIN_DDL];
+  DOMAIN_DDL,
+  // migração 5: tabela de notas fiscais com trilha de auditoria SEFAZ (bloco nota-fiscal-emissao).
+  `CREATE TABLE IF NOT EXISTS invoices (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    order_id TEXT NOT NULL,
+    total NUMERIC(12,2) DEFAULT 0,
+    cnpj TEXT,
+    items JSONB,
+    status TEXT NOT NULL DEFAULT 'enfileirada',
+    mode TEXT DEFAULT 'sandbox',
+    xml TEXT,
+    receipt TEXT,
+    protocol TEXT,
+    sefaz_response JSONB,
+    job_id BIGINT,
+    submitted_at TIMESTAMPTZ,
+    final_status_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+  );
+  CREATE INDEX IF NOT EXISTS invoices_order_idx ON invoices (order_id);
+  CREATE INDEX IF NOT EXISTS invoices_tenant_created_idx ON invoices (tenant_id, created_at DESC);`];
 export async function migrate() {
   const c = await pool.connect();
   try {

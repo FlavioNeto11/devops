@@ -635,8 +635,13 @@ async function emit() {
     if (resultOk.value) {
       toast.success('NF-e enfileirada', {
         detail: 'Pedido ' + ref + ' — situação ' + (result.value.status || 'enfileirada') + '.',
-        code: result.value.number || '',
+        code: result.value.number || result.value.protocol || '',
       });
+      // navega para o detalhe da nota recém-criada (REF-SHOPDESK-0021: cria o registro e navega para o detalhe).
+      if (res && res.id) {
+        router.push({ name: 'invoice', params: { id: String(res.id) } });
+        return;
+      }
     } else {
       toast.warning('Emissão não confirmada', {
         detail: 'A fila retornou situação ' + (result.value.status || 'desconhecida') + '.',

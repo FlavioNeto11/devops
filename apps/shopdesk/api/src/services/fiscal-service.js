@@ -15,5 +15,5 @@ export function emitInvoice({ orderId, cnpj, items, total }) {
   const signed = fiscal.signXml(xml);
   const { receipt } = fiscal.submit(signed);
   const result = fiscal.queryStatus(receipt);
-  return { orderId: String(orderId), protocol: result.protocol, status: result.status, receipt, mode: process.env.FISCAL_MODE || 'sandbox' };
+  return { orderId: String(orderId), protocol: result.protocol, status: result.status, receipt, xml: signed, mode: process.env.FISCAL_MODE || 'sandbox' };
 }

@@ -217,9 +217,25 @@ paths:
       responses:
         "200": { description: ok }
   /v1/invoices:
+    get:
+      operationId: listInvoices
+      summary: Listar notas fiscais (paginado, filtrável por orderId).
+      parameters:
+        - { $ref: "#/components/parameters/TenantId" }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/PageSize" }
+        - { $ref: "#/components/parameters/Sort" }
+        - { $ref: "#/components/parameters/Dir" }
+        - name: orderId
+          in: query
+          required: false
+          description: Filtrar por pedido.
+          schema: { type: string }
+      responses:
+        "200": { description: ok }
     post:
       operationId: emitInvoice
-      summary: Emitir NF-e (sandbox por default).
+      summary: Enfileirar emissão de NF-e (assíncrona e resiliente, sandbox por default).
       parameters:
         - { $ref: "#/components/parameters/TenantId" }
       requestBody:
@@ -230,6 +246,16 @@ paths:
       responses:
         "201": { description: created }
         "400": { description: "orderId obrigatório." }
+  /v1/invoices/{id}:
+    get:
+      operationId: getInvoice
+      summary: Obter nota fiscal por identificador (inclui auditoria SEFAZ).
+      parameters:
+        - { $ref: "#/components/parameters/TenantId" }
+        - { $ref: "#/components/parameters/PathId" }
+      responses:
+        "200": { description: ok }
+        "404": { description: "não encontrada." }
   /v1/assistant:
     post:
       operationId: assistant

@@ -11,7 +11,10 @@ export async function claim(workerId) {
 export async function ack(id) { await pool.query(`UPDATE jobs SET status='done', locked_at=NULL, last_error=NULL, updated_at=now() WHERE id=$1`, [id]); }
 export async function fail(job, msg) {
   if (job.attempts >= job.max_attempts) { await pool.query(`UPDATE jobs SET status='dlq', locked_at=NULL, last_error=$2, updated_at=now() WHERE id=$1`, [job.id, msg]); return 'dlq'; }
-  const backoff = Math.min(60, Math.pow(2, job.attempts));
+  // nfe.* jobs: backoff exponencial 1s,10s,100s,1000s (10^(attempts-1)); demais: 2^attempts capped 60s.
+  const backoff = (job.type || '').startsWith('nfe.')
+    ? Math.pow(10, Math.max(0, job.attempts - 1))
+    : Math.min(60, Math.pow(2, job.attempts));
   await pool.query(`UPDATE jobs SET status='queued', locked_at=NULL, last_error=$2, run_after=now() + ($3 || ' seconds')::interval, updated_at=now() WHERE id=$1`, [job.id, msg, String(backoff)]);
   return 'requeued';
 }

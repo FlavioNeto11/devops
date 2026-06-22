@@ -33,10 +33,55 @@ app.get('/v1/records/:id', wrap(async (req, res) => { const r = (await pool.quer
 app.post('/v1/records', wrap(async (req, res) => { if (!req.body || !req.body.title) { return res.status(400).json({ error: { message: 'title obrigatório' } }); } const r = (await pool.query('INSERT INTO records(tenant_id,title) VALUES ($1,$2) RETURNING *', [req.tenantId, req.body.title])).rows[0]; M.recordsTotal.inc({ outcome: 'created' }); res.status(201).json(r); }));
 app.post('/v1/records/:id/submit', wrap(async (req, res) => { const id = Number(req.params.id); const r = (await pool.query('SELECT id FROM records WHERE id=$1', [id])).rows[0]; if (!r) return res.status(404).json({ error: { message: 'não encontrado' } }); await pool.query(`UPDATE records SET status='submitting', updated_at=now() WHERE id=$1`, [id]); const jid = await jobsRepo.enqueue('record.submit', { recordId: id }, 'submit:' + id); res.status(202).json({ id, status: 'submitting', enqueued: jid != null }); }));
 // bloco pagamentos-gateway: checkout com cobrança idempotente via @flavioneto11/payments-kit (sandbox por default).
-app.post('/v1/checkout', wrap(async (req, res) => { const b = req.body || {}; if (!b.orderId || !b.amount) return res.status(400).json({ error: { message: 'orderId e amount obrigatórios' } }); const r = await checkoutSvc.checkout({ tenantId: req.tenantId, orderId: String(b.orderId), amount: Number(b.amount), paymentMethodToken: b.paymentMethodToken }); notifySvc.notify('order.paid', { orderId: r.orderId, status: r.status }).catch(() => {}); res.status(201).json(r); }));
+app.post('/v1/checkout', wrap(async (req, res) => {
+  const b = req.body || {};
+  if (!b.orderId || !b.amount) return res.status(400).json({ error: { message: 'orderId e amount obrigatórios' } });
+  const r = await checkoutSvc.checkout({ tenantId: req.tenantId, orderId: String(b.orderId), amount: Number(b.amount), paymentMethodToken: b.paymentMethodToken });
+  notifySvc.notify('order.paid', { orderId: r.orderId, status: r.status }).catch(() => {});
+  // AC1: pagamento aprovado → enfileira NF-e assincronamente (fail-open: não bloqueia resposta).
+  if (/approv|autoriza/i.test(String(r.status || ''))) {
+    try {
+      const { rows: ir } = await pool.query(
+        `INSERT INTO invoices(tenant_id, order_id, total, status, mode) VALUES ($1,$2,$3,'enfileirada',$4) RETURNING id`,
+        [req.tenantId, String(b.orderId), Number(b.amount), process.env.FISCAL_MODE || 'sandbox']);
+      const jid = await jobsRepo.enqueue('nfe.emit', { invoiceId: ir[0].id }, 'nfe:checkout:' + req.tenantId + ':' + b.orderId, 5);
+      if (jid) await pool.query('UPDATE invoices SET job_id=$2, updated_at=now() WHERE id=$1', [ir[0].id, jid]);
+    } catch (enqErr) { console.warn('[checkout] nfe enqueue falhou:', enqErr.message); }
+  }
+  res.status(201).json(r);
+}));
 app.get('/v1/checkout/audit', wrap(async (_q, res) => res.json({ data: checkoutSvc.recentAudit() })));
-// bloco nota-fiscal-emissao: emite NF-e (sandbox por default) — na app plena roda no worker pós-pagamento.
-app.post('/v1/invoices', wrap(async (req, res) => { const b = req.body || {}; if (!b.orderId) return res.status(400).json({ error: { message: 'orderId obrigatório' } }); res.status(201).json(fiscalSvc.emitInvoice({ orderId: b.orderId, total: b.total, cnpj: b.cnpj, items: b.items })); }));
+// bloco nota-fiscal-emissao: emissão assíncrona e resiliente — cria registro + enfileira job nfe.emit.
+// O worker processa (build->sign->submit->audit) com retry exponencial (1s,10s,100s,1000s) e DLQ.
+app.post('/v1/invoices', wrap(async (req, res) => {
+  const b = req.body || {};
+  if (!b.orderId) return res.status(400).json({ error: { message: 'orderId obrigatório' } });
+  const { rows } = await pool.query(
+    `INSERT INTO invoices(tenant_id, order_id, total, cnpj, items, status, mode) VALUES ($1,$2,$3,$4,$5::jsonb,'enfileirada',$6) RETURNING *`,
+    [req.tenantId, String(b.orderId), Number(b.total) || 0, b.cnpj || null,
+     b.items ? JSON.stringify(b.items) : null, process.env.FISCAL_MODE || 'sandbox']);
+  const invoice = rows[0];
+  const jobId = await jobsRepo.enqueue('nfe.emit', { invoiceId: invoice.id }, 'nfe:' + invoice.id, 5);
+  if (jobId) { invoice.job_id = jobId; await pool.query('UPDATE invoices SET job_id=$2, updated_at=now() WHERE id=$1', [invoice.id, jobId]); }
+  res.status(201).json(invoice);
+}));
+app.get('/v1/invoices', wrap(async (req, res) => {
+  const { page = 1, pageSize = 20, sort = 'created_at', dir = 'desc', orderId } = req.query;
+  const pg = Math.max(1, Number(page)); const ps = Math.min(100, Math.max(1, Number(pageSize)));
+  const col = ['id','order_id','status','created_at','protocol'].includes(sort) ? sort : 'created_at';
+  const d = dir === 'asc' ? 'ASC' : 'DESC';
+  const params = [req.tenantId]; let where = 'WHERE tenant_id=$1';
+  if (orderId) { params.push(String(orderId)); where += ' AND order_id=$' + params.length; }
+  const total = (await pool.query('SELECT count(*)::int AS n FROM invoices ' + where, params)).rows[0].n;
+  params.push(ps, (pg - 1) * ps);
+  const { rows } = await pool.query(`SELECT id,order_id,total,status,protocol,mode,submitted_at,final_status_at,created_at FROM invoices ${where} ORDER BY ${col} ${d} LIMIT $${params.length-1} OFFSET $${params.length}`, params);
+  res.json({ data: rows, total, page: pg, pageSize: ps });
+}));
+app.get('/v1/invoices/:id', wrap(async (req, res) => {
+  const { rows } = await pool.query('SELECT * FROM invoices WHERE id=$1 AND tenant_id=$2', [Number(req.params.id), req.tenantId]);
+  if (!rows[0]) return res.status(404).json({ error: { message: 'não encontrada' } });
+  res.json(rows[0]);
+}));
 // bloco control-ai-por-app: assistente de IA do lojista (fail-closed sem chave).
 app.post('/v1/assistant', wrap(async (req, res) => { const b = req.body || {}; res.json(await assistantSvc.assist(b.message || b.input)); }));
 app.get('/v1/assistant/health', (_q, res) => res.json({ ai: assistantSvc.aiEnabled }));
