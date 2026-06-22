@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.2.0",
+  "name": "opsboard",
+  "display_name": "OpsBoard — Painel de Operações",
+  "base_path": "/opsboard",
+  "namespace": "apps",
+  "app_type": "product_software",
+  "blueprint": "node-api-vue-spa",
+  "stack": "sicat",
+  "capability_blocks": ["camadas-rigidas", "migrations-versionadas", "observabilidade", "worker-queue-transacional", "gateway-externo", "idempotencia"],
+  "vision": "Painel de operações gerado pela Forge para provar o GERADOR de scaffold SICAT-style: fundação + observabilidade + fila transacional + gateway externo + idempotência, deployável sem implementação manual.",
+  "requirement_ids": [],
+  "phases": { "requirements": { "status": "approved" }, "architecture": { "status": "approved" }, "scaffold": { "status": "not_started" }, "build": { "status": "not_started" } },
+  "version": { "revision": 1, "change_reason": "prova do gerador scaffold-sicat" }
+}
