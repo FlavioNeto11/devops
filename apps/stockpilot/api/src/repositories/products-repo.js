@@ -29,6 +29,37 @@ export async function findById(id, tenant, db = pool) {
   return rows[0] || null;
 }
 
+// REQ-STOCKPILOT-0003 — produtos abaixo do mínimo SEM pedido aberto: candidatos à reposição.
+export async function listBelowMinimum(tenant, db = pool) {
+  const { rows } = await db.query(`
+    SELECT p.id, p.tenant_id, p.name, p.current_stock, p.min_stock
+    FROM products p
+    WHERE p.tenant_id = $1
+      AND p.current_stock < p.min_stock
+      AND NOT EXISTS (
+        SELECT 1 FROM product_orders po
+        WHERE po.product_id = p.id AND po.tenant_id = p.tenant_id AND po.status IN ('pending','processing')
+      )
+    ORDER BY p.id
+  `, [tenant]);
+  return rows;
+}
+
+// Varredura de sistema (gatilho automático do worker): todos os tenants de uma vez.
+export async function listBelowMinimumAllTenants(db = pool) {
+  const { rows } = await db.query(`
+    SELECT p.id, p.tenant_id, p.name, p.current_stock, p.min_stock
+    FROM products p
+    WHERE p.current_stock < p.min_stock
+      AND NOT EXISTS (
+        SELECT 1 FROM product_orders po
+        WHERE po.product_id = p.id AND po.tenant_id = p.tenant_id AND po.status IN ('pending','processing')
+      )
+    ORDER BY p.tenant_id, p.id
+  `);
+  return rows;
+}
+
 export async function listAlerts(tenant, db = pool) {
   const { rows } = await db.query(`
     SELECT DISTINCT ON (p.id)

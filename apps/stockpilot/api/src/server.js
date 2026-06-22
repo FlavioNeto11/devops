@@ -5,6 +5,7 @@ import { M, startMetricsServer } from './metrics.js';
 import * as jobsRepo from './repositories/jobs-repo.js';
 import * as productsRepo from './repositories/products-repo.js';
 import * as ordersRepo from './repositories/orders-repo.js';
+import { requestReorder } from './services/reorder-service.js';
 import { requireAuth } from './lib/auth-context.js';
 const app = express(); app.use(express.json());
 app.use((req, _res, next) => { req.tenantId = Number(req.header('X-Tenant-Id')) || 1; next(); });
@@ -28,6 +29,15 @@ app.post('/v1/products/:id/order', requireAuth, wrap(async (req, res) => {
   if (!product) return res.status(404).json({ error: { message: 'produto não encontrado' } });
   const order = await ordersRepo.create(product.id, req.tenant);
   res.status(201).json(order);
+}));
+
+// Reposição assíncrona (REQ-STOCKPILOT-0003): cria pedido pending + enfileira job idempotente.
+// O service decide e enfileira (rota fina). Idempotente: repetir com pedido aberto devolve o mesmo
+// recurso (200, deduped) sem criar outro; primeira reposição cria (201). O worker processa via gateway.
+app.post('/v1/products/:id/reorder', requireAuth, wrap(async (req, res) => {
+  const result = await requestReorder(Number(req.params.id), req.tenant);
+  if (!result.ok) return res.status(404).json({ error: { message: 'produto não encontrado' } });
+  res.status(result.created ? 201 : 200).json({ order: result.order, deduped: result.deduped, enqueued: result.jobId != null || result.deduped });
 }));
 
 // Pedidos abertos (pending/processing)
