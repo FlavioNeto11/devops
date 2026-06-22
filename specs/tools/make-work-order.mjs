@@ -37,7 +37,7 @@ export const RESTRICTED_SCOPES = new Set(['keycloak', 'traefik', 'argocd', 'obse
 // `products` (opcional): mapa product_scope -> product.json (de specs/products/*),
 // usado p/ resolver o app de um produto GREENFIELD e anexar o blueprint. Mantém
 // retrocompat: sem `products`, o comportamento é o legado (fallback apps/<scope>/**).
-export function buildWorkOrder(req, edges, baseline, products = {}) {
+export function buildWorkOrder(req, edges, baseline, products = {}, capIndex = {}) {
   const id = req.id;
   const scope = (req.scope && req.scope.product_scope) || 'unknown';
   const restricted = RESTRICTED_SCOPES.has(scope);
@@ -48,11 +48,22 @@ export function buildWorkOrder(req, edges, baseline, products = {}) {
   const outgoing = (edges || []).filter((e) => e.from === id);
   const incoming = (edges || []).filter((e) => e.to === id);
   const rq = (baseline.reprocess_queue || []).find((q) => q.id === id);
+  // FORGE: anexa, por bloco de capacidade do requisito, o EXEMPLAR a copiar + a guidance + a
+  // verificação (do catálogo specs/baseline/capabilities.json) — o /implement-req segue a referência.
+  const capability_guidance = (Array.isArray(req.capability_blocks) ? req.capability_blocks : [])
+    .map((bid) => {
+      const blk = capIndex[bid];
+      if (!blk) return null;
+      return { id: bid, exemplars: (blk.reference || []).map((r) => r.path), work_order_guidance: blk.work_order_guidance || '', verification: (blk.verification || []).map((v) => v.assertion) };
+    })
+    .filter(Boolean);
+  const capabilityGates = capability_guidance.flatMap((c) => c.verification);
   return {
     req_id: id,
     revision: (req.version && req.version.item_revision) || 1,
     product_scope: scope,
     blueprint,
+    stack: (product && product.stack) || null,
     restricted,
     requirement: {
       title: req.title,
@@ -64,12 +75,14 @@ export function buildWorkOrder(req, edges, baseline, products = {}) {
       priority: req.priority,
       criticality: req.criticality,
       architectural_significance: !!req.architectural_significance,
+      capability_blocks: Array.isArray(req.capability_blocks) ? req.capability_blocks : [],
       file: req.file,
     },
+    capability_guidance,
     impact: { outgoing, incoming, allocation: req.allocation || {} },
     reprocess_reasons: (rq && rq.reasons) || [],
     allowed_paths,
-    gates_expected: ['Validar requisitos e baseline', 'Reqhub gate', 'ci-apps'],
+    gates_expected: ['Validar requisitos e baseline', 'Reqhub gate', 'ci-apps', ...capabilityGates],
     pr_template: {
       title: `feat(${scope}): implementa ${id} — ${req.title}`.slice(0, 90),
       trailer: `Closes-Req: ${id}`,
@@ -136,6 +149,15 @@ export function loadProducts(specsDir = SPECS_DIR) {
   return map;
 }
 
+// Carrega o catálogo de capacidades (specs/baseline/capabilities.json) num mapa id -> bloco.
+export function loadCapabilities(specsDir = SPECS_DIR) {
+  const p = path.join(specsDir, 'baseline', 'capabilities.json');
+  const map = {};
+  if (!fs.existsSync(p)) return map;
+  try { const j = JSON.parse(fs.readFileSync(p, 'utf8')); for (const c of (j.capabilities || [])) if (c && c.id) map[c.id] = c; } catch { /* ignora; build-products --check pega */ }
+  return map;
+}
+
 function main() {
   const args = process.argv.slice(2);
   const outIdx = args.indexOf('--out');
@@ -148,6 +170,7 @@ function main() {
   const byId = new Map(baseline.requirements.map((r) => [r.id, r]));
   const refById = new Map((baseline.refinements || []).map((r) => [r.id, r]));
   const products = loadProducts();
+  const capIndex = loadCapabilities();
 
   const orders = [];
   for (const id of ids) {
@@ -171,7 +194,7 @@ function main() {
       console.error(`[work-order] product_scope DESCONHECIDO: '${scope}' (não está em SCOPE_PATHS, não é RESTRITO, e não há specs/products/${scope}/product.json). Registre o produto antes de implementar.`);
       process.exit(1);
     }
-    orders.push(buildWorkOrder(req, impact.edges, baseline, products));
+    orders.push(buildWorkOrder(req, impact.edges, baseline, products, capIndex));
   }
   fs.writeFileSync(outPath, JSON.stringify({ count: orders.length, orders }, null, 2) + '\n');
   console.log(`[work-order] ${orders.length} ordem(ns) -> ${outPath}`);

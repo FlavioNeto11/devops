@@ -1,0 +1,109 @@
+// =============================================================================
+// apply-capabilities.mjs — RESOLVE o conjunto de blocos de capacidade de um produto
+// (fecho de `requires`, força `observabilidade`, dropa conflitos/incompatíveis) e EMITE
+// o manifesto canônico `apps/<app>/.forge/applied-capabilities.json` (o que o app DEVE ter:
+// serviços/infra/env agregados + exemplares + guidance por bloco). Determinístico e idempotente.
+// O scaffold (scaffold-product.ps1) e o make-work-order consomem o manifesto; o operador/scaffold
+// aplica os `adds_*` ao devops.yaml/k8s (merge aditivo).
+//
+// Uso:
+//   node apply-capabilities.mjs --product <name>            # lê specs/products/<name>/product.json
+//   node apply-capabilities.mjs --stack sicat --blocks a,b  # ad-hoc (sem produto registrado)
+//   (opcional) --out <dir>  : raiz do app (default apps/<name>)
+// =============================================================================
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const SPECS_DIR = path.resolve(__dirname, '..');
+const REPO_ROOT = path.resolve(SPECS_DIR, '..');
+
+export function loadCatalog(specsDir = SPECS_DIR) {
+  const p = path.join(specsDir, 'baseline', 'capabilities.json');
+  if (!fs.existsSync(p)) return new Map();
+  const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+  return new Map((j.capabilities || []).filter((c) => c && c.id).map((c) => [c.id, c]));
+}
+
+// RESOLVE o conjunto final de blocos (puro/testável): força observabilidade, fecha `requires`,
+// dropa incompatível-com-stack e conflitos (mantém o primeiro pela ordem do catálogo).
+export function resolveBlocks(selected, stack, byId) {
+  const compatible = (id) => { const b = byId.get(id); return b && (!stack || b.compatible_stacks.includes(stack)); };
+  const chosen = new Set();
+  if (byId.has('observabilidade') && compatible('observabilidade')) chosen.add('observabilidade'); // DEFAULT
+  for (const id of (selected || [])) if (byId.has(id) && compatible(id)) chosen.add(id);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const id of [...chosen]) for (const r of (byId.get(id)?.requires || [])) if (!chosen.has(r) && compatible(r)) { chosen.add(r); changed = true; }
+  }
+  for (const id of [...chosen]) if (chosen.has(id)) for (const c of (byId.get(id)?.conflicts_with || [])) if (chosen.has(c)) chosen.delete(c);
+  return [...chosen];
+}
+
+// Monta o manifesto a partir do conjunto resolvido (puro).
+export function buildManifest({ app, stack, blocks, byId }) {
+  const detail = blocks.map((id) => {
+    const b = byId.get(id) || {};
+    const ov = b.scaffold_overlay || {};
+    return { id, title: b.title || id, category: b.category || '', adds_services: ov.adds_services || [], adds_infra: ov.adds_infra || [], adds_env: ov.adds_env || [], reuses: b.reuses || [], exemplars: (b.reference || []).map((r) => r.path), work_order_guidance: b.work_order_guidance || '', verification: (b.verification || []).map((v) => v.assertion) };
+  });
+  const uniq = (xs) => [...new Set(xs)].sort();
+  return {
+    app,
+    stack: stack || null,
+    blocks,
+    aggregated: {
+      services: uniq(detail.flatMap((d) => d.adds_services)),
+      infra: uniq(detail.flatMap((d) => d.adds_infra)),
+      env: uniq(detail.flatMap((d) => d.adds_env)),
+      reuses: uniq(detail.flatMap((d) => d.reuses)),
+    },
+    detail,
+  };
+}
+
+function parseArgs(argv) {
+  const a = {};
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--product') a.product = argv[++i];
+    else if (argv[i] === '--stack') a.stack = argv[++i];
+    else if (argv[i] === '--blocks') a.blocks = (argv[++i] || '').split(',').map((s) => s.trim()).filter(Boolean);
+    else if (argv[i] === '--out') a.out = argv[++i];
+  }
+  return a;
+}
+
+function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const byId = loadCatalog();
+  if (!byId.size) { console.error('[apply-capabilities] catálogo vazio — rode build-products.mjs antes.'); process.exit(1); }
+
+  let app, stack, selected;
+  if (args.product) {
+    const pp = path.join(SPECS_DIR, 'products', args.product, 'product.json');
+    if (!fs.existsSync(pp)) { console.error(`[apply-capabilities] produto não encontrado: ${pp}`); process.exit(1); }
+    const prod = JSON.parse(fs.readFileSync(pp, 'utf8'));
+    app = prod.name; stack = prod.stack || null; selected = prod.capability_blocks || [];
+  } else if (args.stack && args.blocks) {
+    app = args.out ? path.basename(args.out) : 'adhoc'; stack = args.stack; selected = args.blocks;
+  } else {
+    console.error('uso: node apply-capabilities.mjs --product <name>  |  --stack <s> --blocks a,b [--out apps/<app>]');
+    process.exit(2);
+  }
+
+  const blocks = resolveBlocks(selected, stack, byId);
+  const manifest = buildManifest({ app, stack, blocks, byId });
+  const appDir = args.out || path.join(REPO_ROOT, 'apps', app);
+  const forgeDir = path.join(appDir, '.forge');
+  fs.mkdirSync(forgeDir, { recursive: true });
+  fs.writeFileSync(path.join(forgeDir, 'applied-capabilities.json'), JSON.stringify(manifest, null, 2) + '\n');
+
+  console.log(`[apply-capabilities] ${app} (stack ${stack || '?'}) — ${blocks.length} blocos: ${blocks.join(', ')}`);
+  console.log(`  serviços: [${manifest.aggregated.services.join(', ')}]  infra: [${manifest.aggregated.infra.join(', ')}]`);
+  console.log(`  env: [${manifest.aggregated.env.join(', ')}]  reuses: [${manifest.aggregated.reuses.join(', ')}]`);
+  console.log(`  -> ${path.relative(REPO_ROOT, path.join(forgeDir, 'applied-capabilities.json'))}`);
+}
+
+if (process.argv[1] && process.argv[1].endsWith('apply-capabilities.mjs')) main();
