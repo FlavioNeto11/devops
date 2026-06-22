@@ -83,10 +83,14 @@
               <span class="ia-preview-change">
                 <span class="ia-preview-from">{{ formatQty(item.quantity) }}</span>
                 <span class="ia-arrow" aria-hidden="true">→</span>
-                <span class="ia-preview-to" :data-dir="qtyDirection">{{ formatQty(previewQuantity) }}</span>
+                <span class="ia-preview-to" :data-dir="qtyDirection">
+                  {{ previewInvalid ? 'inválido' : formatQty(previewQuantity) }}
+                </span>
               </span>
             </div>
-            <p class="ia-preview-delta" :data-dir="qtyDirection" role="status">
+            <!-- Resumo do resultado: única região aria-live="polite" da prévia (anuncia o efeito do
+                 ajuste). As demais notas/contadores são apenas visuais para não competir no leitor. -->
+            <p class="ia-preview-delta" :data-dir="qtyDirection" aria-live="polite">
               <span aria-hidden="true">{{ deltaGlyph }}</span>
               {{ deltaLabel }}
             </p>
@@ -119,17 +123,17 @@
               </span>
             </div>
 
+            <!-- Avisos de situação: apenas visuais (sem role=status) — o anúncio ao leitor de tela
+                 já é coberto pela região viva única acima (ia-preview-delta). -->
             <p
               v-if="previewStatus === 'esgotado'"
               class="ia-preview-warn ia-preview-warn--danger"
-              role="status"
             >
               Após o ajuste o item ficará <strong>esgotado</strong>.
             </p>
             <p
               v-else-if="previewStatus === 'baixo'"
               class="ia-preview-warn"
-              role="status"
             >
               Após o ajuste o item ficará <strong>abaixo</strong> do ponto de reposição.
             </p>
@@ -328,7 +332,7 @@
                     placeholder="Ex.: Recontagem física do dia 22/06; encontrada divergência de 4 unidades."
                     @input="onField('reason', $event.target.value)"
                   />
-                  <p class="ia-counter" :data-warn="reasonRemaining <= 20 ? 'true' : null" role="status">
+                  <p class="ia-counter" :data-warn="reasonRemaining <= 20 ? 'true' : null">
                     {{ reasonRemaining }} caracteres restantes
                   </p>
                 </div>
@@ -338,14 +342,17 @@
 
           <template #footer>
             <div class="ia-actions">
-              <p v-if="hasChange" class="ia-note" role="status">
-                Será registrado um ajuste auditável neste item.
+              <p v-if="hasChange" class="ia-note">
+                Será registrado um ajuste e o motivo ficará na auditoria.
               </p>
-              <p v-else class="ia-note ia-note--muted" role="status">
+              <p v-else class="ia-note ia-note--muted">
                 Nenhuma alteração até agora.
               </p>
               <div class="ia-actions-btns">
-                <UiButton variant="ghost" type="button" :disabled="saving || !dirty" @click="discard">
+                <UiButton variant="ghost" type="button" :to="cancelTo">
+                  Cancelar
+                </UiButton>
+                <UiButton variant="subtle" type="button" :disabled="saving || !dirty" @click="discard">
                   Limpar
                 </UiButton>
                 <UiButton variant="primary" type="submit" :loading="saving" :disabled="!hasChange">
@@ -368,15 +375,24 @@ import {
   UiEmptyState,
   useForm, useToast, useConfirm, validators, format,
 } from '../ui/index.js';
-import { inventory } from '../api.js';
+import { inventory, auditLogs } from '../api.js';
 
-// Recurso REAL: GET/PUT /v1/inventory (export `inventory` = resource("inventory") em api.js → /v1/inventory).
+// Recursos REAIS:
+//  - GET/PUT /v1/inventory (export `inventory` = resource("inventory") em api.js → /v1/inventory).
+//  - POST /v1/audit-logs (export `auditLogs` = resource("audit-logs")). A trilha é a razão de ser
+//    desta tela: o MOTIVO precisa ficar gravado. A entidade audit_logs persiste apenas as colunas
+//    declaradas (actor/action/resource/tenant/at — ver api/src/repositories/entities.js); o CRUD
+//    genérico DESCARTA chaves fora dessas colunas. Por isso o motivo + o resumo do ajuste são
+//    codificados em `resource` (única coluna de texto livre que persiste E aparece na Auditoria).
 
 const route = useRoute();
 const toast = useToast();
 const confirm = useConfirm();
 
 const itemId = computed(() => route.params.id);
+// Cancelar volta para o DETALHE do item (rota de domínio do inventário) quando houver id;
+// se não houver, cai para a lista de estoque. Sempre rotas de domínio.
+const cancelTo = computed(() => (itemId.value ? '/inventory/' + itemId.value : '/inventory'));
 
 const reasonPresets = ['Recontagem física', 'Entrada de mercadoria', 'Perda / avaria', 'Devolução', 'Correção de erro'];
 const quickAdjusts = [-10, -5, -1, 1, 5, 10];
@@ -451,7 +467,9 @@ function pickReason(preset) { form.setField('reason', preset); }
 
 /* ---- formatação / derivação ------------------------------------------------ */
 const formatQty = (v) => (v == null || v === '' || !isFinite(Number(v)) ? '—' : format.formatNumber(Number(v)));
-const statusText = (s) => format.humanize(s);
+// Rótulos de NEGÓCIO da situação de estoque (mais ricos que o humanize cru de 'ok'/'baixo'/'esgotado').
+const STATUS_LABELS = { ok: 'Em estoque', baixo: 'Abaixo do mínimo', esgotado: 'Esgotado' };
+const statusText = (s) => STATUS_LABELS[s] || format.humanize(s);
 const updatedAtLabel = computed(() => {
   const v = item.value.updatedAt || item.value.updated_at;
   return v ? format.formatDateTime(v) : '—';
@@ -475,16 +493,22 @@ function deriveStatus(qty, reorder) {
 }
 const currentStatus = computed(() => item.value.status || deriveStatus(item.value.quantity, item.value.reorderPoint));
 
-// quantidade resultante segundo o modo
-const previewQuantity = computed(() => {
+// quantidade resultante BRUTA segundo o modo (pode ser negativa no modo delta — usada para detectar
+// o estado inválido na prévia em vez de mascarar com Math.max(0,...)).
+const rawResult = computed(() => {
   const base = Number(item.value.quantity || 0);
   if (form.values.mode === 'set') {
     const v = Number(form.values.setValue);
-    return form.values.setValue === '' || !isFinite(v) ? base : Math.max(0, Math.round(v));
+    return form.values.setValue === '' || !isFinite(v) ? base : Math.round(v);
   }
   const d = Number(form.values.delta);
-  return form.values.delta === '' || !isFinite(d) ? base : Math.max(0, Math.round(base + d));
+  return form.values.delta === '' || !isFinite(d) ? base : Math.round(base + d);
 });
+// prévia em estado inválido = o ajuste levaria a quantidade a um valor negativo (mesma regra que a
+// validação do useForm cobre na l. do delta). A prévia REFLETE esse erro em vez de exibir 0 calado.
+const previewInvalid = computed(() => rawResult.value < 0);
+// quantidade resultante exibível (clampada apenas quando válida).
+const previewQuantity = computed(() => Math.max(0, rawResult.value));
 const previewReorder = computed(() => {
   if (form.values.reorderPoint === '' || form.values.reorderPoint == null) {
     return item.value.reorderPoint == null ? null : Number(item.value.reorderPoint);
@@ -495,9 +519,17 @@ const previewReorder = computed(() => {
 const previewStatus = computed(() => deriveStatus(previewQuantity.value, previewReorder.value));
 
 const netDelta = computed(() => previewQuantity.value - Number(item.value.quantity || 0));
-const qtyDirection = computed(() => (netDelta.value > 0 ? 'up' : netDelta.value < 0 ? 'down' : 'flat'));
-const deltaGlyph = computed(() => (netDelta.value > 0 ? '▲' : netDelta.value < 0 ? '▼' : '＝'));
+// direção visual: 'invalid' quando o resultado seria negativo (prévia e validação consistentes).
+const qtyDirection = computed(() => {
+  if (previewInvalid.value) return 'invalid';
+  return netDelta.value > 0 ? 'up' : netDelta.value < 0 ? 'down' : 'flat';
+});
+const deltaGlyph = computed(() => {
+  if (previewInvalid.value) return '⚠';
+  return netDelta.value > 0 ? '▲' : netDelta.value < 0 ? '▼' : '＝';
+});
 const deltaLabel = computed(() => {
+  if (previewInvalid.value) return 'Resultado inválido: a quantidade não pode ficar negativa.';
   const n = netDelta.value;
   if (n === 0) return 'Sem mudança na quantidade.';
   const abs = format.formatNumber(Math.abs(n));
@@ -564,19 +596,42 @@ async function reload() {
 onMounted(reload);
 
 /* ---- salvar ---------------------------------------------------------------- */
-function toPayload() {
+// Payload do INVENTÁRIO: só as colunas que a entidade `inventory` persiste de fato
+// (quantity/reorderPoint — ver entities.js). NÃO enviamos `reason`/`adjustment` aqui: a entidade
+// não tem essas colunas e o CRUD genérico as descartaria em silêncio. O motivo vai para a AUDITORIA.
+function toInventoryPayload() {
   return {
     quantity: previewQuantity.value,
     reorderPoint: previewReorder.value,
-    reason: String(form.values.reason || '').trim(),
-    adjustment: {
-      mode: form.values.mode,
-      from: Number(item.value.quantity || 0),
-      to: previewQuantity.value,
-      delta: netDelta.value,
-      reason: String(form.values.reason || '').trim(),
-    },
   };
+}
+
+// `resource` da auditoria: única coluna de texto livre que persiste E aparece na trilha (Auditoria).
+// Codifica o item + o efeito do ajuste + o motivo num resumo legível e auditável.
+function buildAuditResource() {
+  const sku = item.value.sku || ('#' + itemId.value);
+  const from = Number(item.value.quantity || 0);
+  const to = previewQuantity.value;
+  const reason = String(form.values.reason || '').trim();
+  const qtyPart = netDelta.value === 0
+    ? 'qtd ' + format.formatNumber(to)
+    : 'qtd ' + format.formatNumber(from) + '→' + format.formatNumber(to) +
+      ' (' + (netDelta.value > 0 ? '+' : '') + format.formatNumber(netDelta.value) + ')';
+  return sku + ' · ' + qtyPart + ' · motivo: ' + reason;
+}
+
+// Grava a auditoria do ajuste. Usa SÓ colunas reais de audit_logs (action/resource/tenant/at).
+// `actor` é omitido de propósito: o front não tem fonte confiável do usuário atual (não há /v1/me
+// nesta app) — a Auditoria já exibe "Sistema" quando o ator é vazio. Não fabricamos um ator.
+async function writeAudit() {
+  if (!auditLogs || typeof auditLogs.create !== 'function') return false;
+  await auditLogs.create({
+    action: 'inventory.adjust',
+    resource: buildAuditResource(),
+    tenant: 'default',
+    at: new Date().toISOString(),
+  });
+  return true;
 }
 
 async function onSubmit() {
@@ -599,19 +654,39 @@ async function onSubmit() {
       ' para ' + format.formatNumber(previewQuantity.value) +
       ' (' + (netDelta.value > 0 ? '+' : '') + format.formatNumber(netDelta.value) + ').';
 
+  // Copy do confirm é condicionada ao que de fato vai acontecer: só prometemos a auditoria quando o
+  // recurso de auditoria está disponível (caso contrário não mentimos sobre o registro do motivo).
+  const canAudit = !!(auditLogs && typeof auditLogs.create === 'function');
+  const auditClause = canAudit
+    ? ' O motivo informado ficará registrado na auditoria.'
+    : ' Atenção: a trilha de auditoria está indisponível agora — o motivo NÃO será registrado.';
+
   const ok = await confirm({
     title: 'Registrar ajuste de estoque?',
-    message: summary + ' O motivo informado ficará na auditoria e não pode ser apagado.',
+    message: summary + auditClause,
     confirmLabel: 'Registrar ajuste',
     cancelLabel: 'Revisar',
-    danger: previewStatus.value === 'esgotado',
+    danger: previewStatus.value === 'esgotado' || !canAudit,
   });
   if (!ok) return;
 
   saving.value = true;
   try {
-    const res = await inventory.update(itemId.value, toPayload());
+    const res = await inventory.update(itemId.value, toInventoryPayload());
     const saved = res && res.data ? res.data : res;
+
+    // O PROPÓSITO da tela: gravar o motivo na auditoria. Encadeamos o POST /v1/audit-logs após o
+    // PUT do inventário bem-sucedido. Como o api.js só expõe CRUD genérico (sem endpoint /adjust
+    // transacional), este encadeamento é o mínimo viável. A falha da auditoria NÃO é mascarada:
+    // o ajuste de quantidade já persistiu, mas avisamos honestamente que o motivo não foi registrado.
+    let audited = false;
+    let auditError = '';
+    try {
+      audited = await writeAudit();
+    } catch (ae) {
+      auditError = ae && ae.message ? ae.message : '';
+    }
+
     // hydrate() já re-preenche setValue (= nova quantidade) e reorderPoint com o estado salvo;
     // aqui só zeramos os campos de ajuste pontual (delta/motivo) e voltamos ao modo "definir valor".
     hydrate({ ...item.value, ...(saved && typeof saved === 'object' ? saved : {}), id: itemId.value });
@@ -619,7 +694,15 @@ async function onSubmit() {
     form.setField('reason', '');
     form.setField('mode', 'set');
     delete form.errors.setValue; delete form.errors.delta; delete form.errors.reason;
-    toast.success('Ajuste registrado e auditado com sucesso.');
+
+    if (audited) {
+      toast.success('Ajuste registrado e motivo gravado na auditoria.');
+    } else {
+      // Quantidade salva, auditoria não: mensagem honesta (sem afirmar que auditou).
+      toast.warning('Ajuste de estoque salvo, mas o motivo NÃO foi registrado na auditoria.', {
+        detail: auditError || 'A trilha de auditoria está indisponível.',
+      });
+    }
   } catch (e) {
     toast.error('Não foi possível registrar o ajuste.', {
       detail: e && e.message ? e.message : '',
@@ -677,9 +760,11 @@ async function discard() {
 .ia-preview-to { font-family: var(--ui-font-display); font-weight: 700; font-size: var(--ui-text-lg); color: rgb(var(--ui-fg)); }
 .ia-preview-to[data-dir="up"] { color: rgb(var(--ui-ok)); }
 .ia-preview-to[data-dir="down"] { color: rgb(var(--ui-danger)); }
+.ia-preview-to[data-dir="invalid"] { color: rgb(var(--ui-danger)); font-style: italic; }
 .ia-preview-delta { margin: 0; font-size: var(--ui-text-sm); font-weight: 600; display: flex; align-items: center; gap: var(--ui-space-2); }
 .ia-preview-delta[data-dir="up"] { color: rgb(var(--ui-ok)); }
 .ia-preview-delta[data-dir="down"] { color: rgb(var(--ui-danger)); }
+.ia-preview-delta[data-dir="invalid"] { color: rgb(var(--ui-danger)); }
 .ia-preview-delta[data-dir="flat"] { color: rgb(var(--ui-muted)); }
 .ia-preview-warn { margin: var(--ui-space-1) 0 0; font-size: var(--ui-text-sm); padding: var(--ui-space-2) var(--ui-space-3); border-radius: var(--ui-radius-sm); background: rgb(var(--ui-warn) / 0.12); color: rgb(var(--ui-warn)); }
 .ia-preview-warn--danger { background: rgb(var(--ui-danger) / 0.12); color: rgb(var(--ui-danger)); }

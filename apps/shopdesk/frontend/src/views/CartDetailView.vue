@@ -1,10 +1,11 @@
 <!--
   CartDetailView — Detalhe do carrinho (REF/REQ-SHOPDESK-0003)
-  Mostra itens do carrinho, dados do cliente (CustomerInfo) e o subtotal; permite editar itens
-  (CartEditor: ajustar quantidade / remover, recalcula o subtotal) e avançar para o checkout
-  (CheckoutButton). Edições via api.carts.update; remoção de item é destrutiva → useConfirm.
+  Itens do carrinho (CartEditor), dados do cliente (CustomerInfo) e subtotal; ações para editar
+  itens (ajustar quantidade / remover, recalcula o subtotal) e avançar para o checkout
+  (CheckoutButton → /checkout/:id). Edições via api.carts.update; remoções são destrutivas → useConfirm.
   100% sobre o kit ui-vue · só tokens --ui-* · CSP-safe (sem style inline / :style / v-html) ·
   todos os estados (loading/empty/error/normal) · a11y · responsivo. Só endpoints reais via ../api.js.
+  Links de domínio apenas (/carts, /products, /checkout/:id).
 -->
 <template>
   <UiPageLayout
@@ -20,13 +21,17 @@
   >
     <!-- ações de topo -->
     <template #actions>
-      <UiButton variant="ghost" to="/loja">Voltar à loja</UiButton>
+      <UiButton variant="ghost" to="/carts">
+        <template #icon-left><span aria-hidden="true">←</span></template>
+        Carrinhos
+      </UiButton>
       <UiButton
         variant="subtle"
         :disabled="loading || !cart"
         :loading="refreshing"
         @click="reload"
       >
+        <template #icon-left><span aria-hidden="true">↻</span></template>
         Atualizar
       </UiButton>
       <!-- CheckoutButton (topo) -->
@@ -64,7 +69,10 @@
       :description="'Não localizamos o carrinho ' + cartLabel + '. Ele pode ter expirado ou já ter sido removido.'"
     >
       <template #action>
-        <UiButton variant="primary" to="/loja">Ir para a loja</UiButton>
+        <div class="cd-empty-actions">
+          <UiButton variant="primary" to="/carts">Ver carrinhos</UiButton>
+          <UiButton variant="ghost" to="/products">Ir para o catálogo</UiButton>
+        </div>
       </template>
     </UiEmptyState>
 
@@ -73,8 +81,8 @@
       <!-- COLUNA PRINCIPAL: itens + editor -->
       <div class="cd-main">
         <!-- KPIs do carrinho -->
-        <div class="cd-metrics">
-          <UiMetricCard label="Itens" :value="format.formatNumber(itemsCount)" tone="primary" />
+        <div class="cd-metrics" role="group" aria-label="Indicadores do carrinho">
+          <UiMetricCard label="Itens" :value="format.formatNumber(itemsCount)" tone="primary" hint="Unidades no carrinho" />
           <UiMetricCard
             label="Produtos distintos"
             :value="format.formatNumber(items.length)"
@@ -91,7 +99,7 @@
         <!-- CartEditor: tabela de itens com ajuste de quantidade e remoção -->
         <UiCard title="Itens do carrinho" :subtitle="editableHint">
           <template #actions>
-            <UiStatusBadge :status="cart.status" :label="statusLabel" />
+            <UiStatusBadge :status="cart.status" :tone="statusTone" :label="statusLabel" />
           </template>
 
           <UiDataTable
@@ -103,7 +111,7 @@
             <!-- nome do produto + SKU -->
             <template #cell-name="{ row }">
               <div class="cd-prod">
-                <span class="cd-prod-name">{{ row.name || row.productName || 'Produto' }}</span>
+                <span class="cd-prod-name">{{ row.name || row.productName || row.product_name || 'Produto' }}</span>
                 <span v-if="row.sku" class="cd-prod-sku ui-mono">{{ row.sku }}</span>
               </div>
             </template>
@@ -115,12 +123,12 @@
 
             <!-- quantidade: stepper acessível (CSP-safe, só classes) -->
             <template #cell-quantity="{ row }">
-              <div v-if="canEdit" class="cd-qty" role="group" :aria-label="'Quantidade de ' + (row.name || 'item')">
+              <div v-if="canEdit" class="cd-qty" role="group" :aria-label="'Quantidade de ' + itemName(row)">
                 <button
                   type="button"
                   class="cd-qty-btn"
                   :disabled="busyItem === row._k || quantityOf(row) <= 1"
-                  :aria-label="'Diminuir quantidade de ' + (row.name || 'item')"
+                  :aria-label="'Diminuir quantidade de ' + itemName(row)"
                   @click="changeQuantity(row, quantityOf(row) - 1)"
                 >−</button>
                 <span class="cd-qty-value" aria-live="polite">{{ format.formatNumber(quantityOf(row)) }}</span>
@@ -128,7 +136,7 @@
                   type="button"
                   class="cd-qty-btn"
                   :disabled="busyItem === row._k"
-                  :aria-label="'Aumentar quantidade de ' + (row.name || 'item')"
+                  :aria-label="'Aumentar quantidade de ' + itemName(row)"
                   @click="changeQuantity(row, quantityOf(row) + 1)"
                 >+</button>
               </div>
@@ -137,7 +145,7 @@
 
             <!-- total da linha -->
             <template #cell-lineTotal="{ row }">
-              <strong>{{ format.formatCurrency(lineTotalOf(row)) }}</strong>
+              <strong class="cd-line-total">{{ format.formatCurrency(lineTotalOf(row)) }}</strong>
             </template>
 
             <!-- remover item -->
@@ -147,7 +155,7 @@
                 variant="danger"
                 size="sm"
                 :loading="busyItem === row._k"
-                :aria-label="'Remover ' + (row.name || 'item') + ' do carrinho'"
+                :aria-label="'Remover ' + itemName(row) + ' do carrinho'"
                 @click="removeItem(row)"
               >
                 Remover
@@ -156,7 +164,7 @@
             </template>
 
             <template #empty-action>
-              <UiButton variant="primary" to="/loja">Adicionar produtos</UiButton>
+              <UiButton variant="primary" to="/products">Adicionar produtos</UiButton>
             </template>
           </UiDataTable>
 
@@ -176,7 +184,7 @@
                 >
                   Editar itens
                 </UiButton>
-                <UiButton variant="ghost" to="/loja">Continuar comprando</UiButton>
+                <UiButton variant="ghost" to="/products">Continuar comprando</UiButton>
               </div>
             </div>
           </template>
@@ -184,7 +192,7 @@
       </div>
 
       <!-- COLUNA LATERAL: cliente + resumo + checkout -->
-      <aside class="cd-side">
+      <aside class="cd-side" aria-label="Cliente e resumo">
         <!-- CustomerInfo -->
         <UiCard title="Cliente" subtitle="Quem está comprando.">
           <template #actions>
@@ -200,7 +208,7 @@
           <dl class="cd-kv">
             <div class="cd-kv-row">
               <dt>Nome</dt>
-              <dd>{{ cart.customerName || cart.customer_name || 'Visitante' }}</dd>
+              <dd>{{ customerName || 'Visitante' }}</dd>
             </div>
             <div class="cd-kv-row">
               <dt>Itens</dt>
@@ -208,11 +216,11 @@
             </div>
             <div class="cd-kv-row">
               <dt>Situação</dt>
-              <dd><UiStatusBadge :status="cart.status" :label="statusLabel" size="sm" /></dd>
+              <dd><UiStatusBadge :status="cart.status" :tone="statusTone" :label="statusLabel" size="sm" /></dd>
             </div>
             <div class="cd-kv-row">
               <dt>Atualizado em</dt>
-              <dd>{{ format.formatDateTime(cart.updatedAt || cart.updated_at) }}</dd>
+              <dd>{{ format.formatDateTime(updatedAt) }}</dd>
             </div>
           </dl>
         </UiCard>
@@ -223,6 +231,10 @@
             <div class="cd-sum-row">
               <dt>Itens</dt>
               <dd>{{ format.formatNumber(itemsCount) }}</dd>
+            </div>
+            <div class="cd-sum-row">
+              <dt>Produtos distintos</dt>
+              <dd>{{ format.formatNumber(items.length) }}</dd>
             </div>
             <div class="cd-sum-row">
               <dt>Subtotal</dt>
@@ -250,9 +262,9 @@
                 variant="subtle"
                 size="lg"
                 block
-                to="/loja"
+                to="/carts"
               >
-                Voltar à loja
+                Voltar aos carrinhos
               </UiButton>
               <p v-if="!isConverted && !canCheckout" class="cd-checkout-hint ui-muted">
                 {{ checkoutHint }}
@@ -282,11 +294,11 @@
         <ul v-else class="cd-editor-list">
           <li v-for="(it, idx) in draftItems" :key="it._k" class="cd-editor-row">
             <div class="cd-editor-info">
-              <span class="cd-editor-name">{{ it.name || it.productName || 'Produto' }}</span>
+              <span class="cd-editor-name">{{ itemName(it) }}</span>
               <span class="cd-editor-price ui-muted">{{ format.formatCurrency(unitPriceOf(it)) }} / un.</span>
             </div>
             <UiFormField
-              :label="'Quantidade de ' + (it.name || 'item')"
+              :label="'Quantidade de ' + itemName(it)"
               :id="'qty-' + it._k"
               :error="draftErrors[it._k] || ''"
               v-slot="{ id, describedBy, hasError }"
@@ -329,12 +341,13 @@
       </template>
     </UiModal>
 
-    <!-- MODAL: editar dados do cliente -->
+    <!-- MODAL: editar dados do cliente (CustomerInfo) -->
     <UiModal v-model:open="customerOpen" title="Editar cliente" width="sm">
       <form class="cd-cust-form" novalidate @submit.prevent="saveCustomer">
         <UiFormField
           label="Nome do cliente"
           required
+          hint="Identifica o carrinho na lista e no checkout."
           :error="custForm.errors.customerName"
           v-slot="{ id, describedBy, hasError }"
         >
@@ -408,7 +421,8 @@ const loadError = ref(null);
 const cart = ref(null);
 
 // --- normalização dos itens ----------------------------------------------
-// O backend pode entregar a lista em `items`, `lineItems` ou nada (carrinho só com agregados).
+// O backend pode entregar a lista em `items`, `lineItems`/`line_items` ou nada (carrinho só com
+// agregados). Cada linha ganha uma chave estável `_k` para v-for/edição sem depender do índice.
 function normalizeItems(data) {
   if (!data) return [];
   const raw = data.items || data.lineItems || data.line_items || [];
@@ -418,11 +432,18 @@ function normalizeItems(data) {
 
 const items = ref([]);
 
-// --- derivados ------------------------------------------------------------
+// --- leitores tolerantes (camelCase OU snake_case do backend) ------------
+const itemName = (it) => it.name || it.productName || it.product_name || 'Produto';
 const unitPriceOf = (it) => Number(it.unitPrice ?? it.unit_price ?? it.price ?? 0);
 const quantityOf = (it) => Number(it.quantity ?? it.qty ?? 0);
 const lineTotalOf = (it) => unitPriceOf(it) * quantityOf(it);
 
+const customerName = computed(() => cart.value?.customerName ?? cart.value?.customer_name ?? '');
+const updatedAt = computed(() => cart.value?.updatedAt ?? cart.value?.updated_at ?? null);
+
+// --- derivados ------------------------------------------------------------
+// Quando há linhas, os agregados vêm da soma real das linhas (fonte da verdade da tela após edição).
+// Sem linhas, caímos nos agregados do carrinho (carrinho serializado só com totais).
 const itemsCount = computed(() => {
   if (items.value.length) return items.value.reduce((s, it) => s + quantityOf(it), 0);
   return Number(cart.value?.itemsCount ?? cart.value?.items_count ?? 0);
@@ -436,7 +457,13 @@ const statusOf = computed(() => String(cart.value?.status || '').toLowerCase());
 const isConverted = computed(() => statusOf.value === 'convertido');
 const isAbandoned = computed(() => statusOf.value === 'abandonado');
 const isEmpty = computed(() => itemsCount.value <= 0 && subtotal.value <= 0);
-const statusLabel = computed(() => format.humanize(cart.value?.status || ''));
+
+// Enum de domínio (aberto | abandonado | convertido). Tom declarado aqui porque essas palavras não
+// estão no resolvedor genérico do kit; o rótulo legível acompanha sempre (a cor nunca é o único sinal).
+const STATUS_LABELS = { aberto: 'Aberto', abandonado: 'Abandonado', convertido: 'Convertido' };
+const STATUS_TONES = { aberto: 'running', abandonado: 'warning', convertido: 'success' };
+const statusLabel = computed(() => STATUS_LABELS[statusOf.value] || format.humanize(cart.value?.status || ''));
+const statusTone = computed(() => STATUS_TONES[statusOf.value] || 'neutral');
 
 // só edita carrinho que NÃO foi convertido (transação já realizada não se altera)
 const canEdit = computed(() => !!cart.value && !isConverted.value);
@@ -482,7 +509,7 @@ async function load(opts = {}) {
     items.value = normalizeItems(data);
   } catch (e) {
     if (e && e.status === 404) {
-      cart.value = null; // cai no empty-state
+      cart.value = null; // cai no empty-state "não encontrado"
     } else {
       loadError.value = e;
     }
@@ -496,8 +523,9 @@ const reload = () => load({ refresh: !!cart.value });
 // --- edição inline de quantidade (stepper) -------------------------------
 const busyItem = ref(null);
 
+// Persiste a lista de linhas. O backend recalcula os agregados; a tela reflete a resposta quando ela
+// traz itens, senão mantém o estado otimista local (sem perder o que o usuário fez).
 async function persistItems(nextItems, successMsg) {
-  // payload mínimo: linhas { id?, sku?, quantity }. O backend recalcula agregados.
   const payload = {
     items: nextItems.map((it) => ({
       id: it.id ?? undefined,
@@ -516,6 +544,13 @@ async function persistItems(nextItems, successMsg) {
   if (successMsg) toast.success(successMsg);
 }
 
+function persistError(e, fallback) {
+  toast.error(fallback, {
+    detail: (e && e.message) || '',
+    code: e && e.status ? 'HTTP ' + e.status : '',
+  });
+}
+
 async function changeQuantity(row, nextQty) {
   const qty = Math.max(1, Math.floor(Number(nextQty) || 0));
   if (qty === quantityOf(row)) return;
@@ -525,10 +560,7 @@ async function changeQuantity(row, nextQty) {
     await persistItems(next);
     toast.success('Quantidade atualizada.');
   } catch (e) {
-    toast.error('Não foi possível atualizar a quantidade.', {
-      detail: (e && e.message) || '',
-      code: e && e.status ? 'HTTP ' + e.status : '',
-    });
+    persistError(e, 'Não foi possível atualizar a quantidade.');
   } finally {
     busyItem.value = null;
   }
@@ -537,7 +569,7 @@ async function changeQuantity(row, nextQty) {
 async function removeItem(row) {
   const ok = await confirm({
     title: 'Remover item?',
-    message: 'Remover “' + (row.name || row.productName || 'este item') + '” do carrinho? Esta ação não pode ser desfeita.',
+    message: 'Remover “' + itemName(row) + '” do carrinho? Esta ação não pode ser desfeita.',
     confirmLabel: 'Remover',
     cancelLabel: 'Manter',
     danger: true,
@@ -549,10 +581,7 @@ async function removeItem(row) {
     await persistItems(next);
     toast.success('Item removido do carrinho.');
   } catch (e) {
-    toast.error('Não foi possível remover o item.', {
-      detail: (e && e.message) || '',
-      code: e && e.status ? 'HTTP ' + e.status : '',
-    });
+    persistError(e, 'Não foi possível remover o item.');
   } finally {
     busyItem.value = null;
   }
@@ -584,7 +613,7 @@ function draftQtyRules(it) {
 function validateDraftRow(it) {
   const raw = it.quantity;
   let msg = validators.runRules(draftQtyRules(it), raw);
-  if (!msg && !Number.isInteger(Number(raw))) msg = 'Use um número inteiro';
+  if (!msg && raw !== '' && !Number.isInteger(Number(raw))) msg = 'Use um número inteiro';
   if (msg) draftErrors[it._k] = msg; else delete draftErrors[it._k];
   return !msg;
 }
@@ -617,6 +646,8 @@ const editorDirty = computed(() => {
   });
 });
 
+const saving = ref(false);
+
 async function saveEditor() {
   // bloqueia o salvar quando alguma linha viola as regras de quantidade (numeric/min/max).
   if (!validateDraftAll()) {
@@ -648,17 +679,13 @@ async function saveEditor() {
     toast.success('Carrinho atualizado.');
     editorOpen.value = false;
   } catch (e) {
-    toast.error('Não foi possível salvar o carrinho.', {
-      detail: (e && e.message) || '',
-      code: e && e.status ? 'HTTP ' + e.status : '',
-    });
+    persistError(e, 'Não foi possível salvar o carrinho.');
   } finally {
     saving.value = false;
   }
 }
 
 // --- editar cliente (CustomerInfo) ---------------------------------------
-const saving = ref(false);
 const customerOpen = ref(false);
 const custForm = useForm({
   initial: { customerName: '' },
@@ -666,25 +693,23 @@ const custForm = useForm({
 });
 
 function openCustomer() {
-  custForm.setField('customerName', cart.value?.customerName || cart.value?.customer_name || '');
+  custForm.setField('customerName', customerName.value || '');
   delete custForm.errors.customerName;
   delete custForm.touched.customerName;
   customerOpen.value = true;
 }
 async function saveCustomer() {
   await custForm.handleSubmit(async (values) => {
+    const name = values.customerName.trim();
     try {
-      const updated = await api.carts.update(cartId.value, { customerName: values.customerName.trim() });
+      const updated = await api.carts.update(cartId.value, { customerName: name });
       if (updated && typeof updated === 'object') cart.value = { ...cart.value, ...updated };
-      else cart.value = { ...cart.value, customerName: values.customerName.trim() };
+      else cart.value = { ...cart.value, customerName: name };
       toast.success('Cliente atualizado.');
       customerOpen.value = false;
     } catch (e) {
-      toast.error('Não foi possível salvar o cliente.', {
-        detail: (e && e.message) || '',
-        code: e && e.status ? 'HTTP ' + e.status : '',
-      });
-      throw e;
+      persistError(e, 'Não foi possível salvar o cliente.');
+      throw e; // mantém o submitting do useForm consistente (relança p/ não marcar sucesso)
     }
   });
 }
@@ -723,6 +748,9 @@ onMounted(() => load());
 .cd-note[data-tone="neutral"] { background: rgb(var(--ui-surface-2)); color: rgb(var(--ui-muted)); }
 .cd-note-icon { flex-shrink: 0; }
 
+/* ações do estado "não encontrado" */
+.cd-empty-actions { display: inline-flex; gap: var(--ui-space-2); flex-wrap: wrap; justify-content: center; }
+
 /* layout em 2 colunas (conteúdo + lateral) */
 .cd-grid {
   display: grid;
@@ -744,6 +772,8 @@ onMounted(() => load());
 .cd-prod { display: flex; flex-direction: column; gap: var(--ui-space-1); min-width: 0; }
 .cd-prod-name { font-weight: 600; color: rgb(var(--ui-fg)); }
 .cd-prod-sku { font-size: var(--ui-text-xs); color: rgb(var(--ui-muted)); }
+
+.cd-line-total { font-variant-numeric: tabular-nums; }
 
 /* stepper de quantidade — tamanho do controle derivado da escala de tokens
    (--ui-space-5 = 24px) e centralizado numa custom property nomeada (sem px ad-hoc espalhado). */

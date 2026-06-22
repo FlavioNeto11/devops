@@ -1,24 +1,51 @@
+<!-- OrderCreateView — REF/REQ-SHOPDESK-0003: criar pedido manual (venda balcão).
+     Fluxo em 3 momentos numa só tela: (1) ProductPicker — catálogo real GET /v1/products com
+     busca/estados; (2) CartEditor — monte/ajuste o carrinho com limite de estoque; (3) CustomerForm
+     + CheckoutButton — identifique o cliente e finalize com cobrança IDEMPOTENTE (POST /v1/orders +
+     POST /v1/checkout via ../api.js, Idempotency-Key estável por código de pedido).
+     Contrato de UI: SÓ componentes do kit + tokens --ui-* ; sem style inline / :style / v-html ;
+     todos os estados (loading/empty/error/normal) ; a11y + responsivo ; ação destrutiva via useConfirm ;
+     toast em sucesso/erro. Links de domínio apenas (/orders, /products). -->
 <template>
   <UiPageLayout
-    eyebrow="Pedidos"
+    eyebrow="Pedidos · Venda balcão"
     title="Novo pedido"
-    subtitle="Venda balcão: escolha os produtos, monte o carrinho, identifique o cliente e prossiga ao checkout idempotente."
+    subtitle="Escolha os produtos, monte o carrinho, identifique o cliente e finalize com pagamento idempotente."
     width="wide"
   >
     <template #actions>
       <UiButton variant="ghost" to="/orders">Voltar aos pedidos</UiButton>
+      <UiButton variant="subtle" to="/products">Gerenciar catálogo</UiButton>
+    </template>
+
+    <!-- Trilha de progresso da venda balcão -->
+    <template #banner>
+      <ol class="oc-steps" aria-label="Etapas da venda">
+        <li class="oc-step" :data-state="stepState(1)">
+          <span class="oc-step-dot" aria-hidden="true">{{ stepDone(1) ? '✓' : '1' }}</span>
+          <span class="oc-step-label">Selecionar produtos</span>
+        </li>
+        <li class="oc-step" :data-state="stepState(2)">
+          <span class="oc-step-dot" aria-hidden="true">{{ stepDone(2) ? '✓' : '2' }}</span>
+          <span class="oc-step-label">Conferir carrinho</span>
+        </li>
+        <li class="oc-step" :data-state="stepState(3)">
+          <span class="oc-step-dot" aria-hidden="true">{{ stepDone(3) ? '✓' : '3' }}</span>
+          <span class="oc-step-label">Cliente e pagamento</span>
+        </li>
+      </ol>
     </template>
 
     <div class="oc-grid">
-      <!-- ===================== Coluna esquerda: catálogo ===================== -->
-      <div class="oc-catalog">
-        <UiCard title="Catálogo" subtitle="Selecione produtos para adicionar ao carrinho.">
+      <!-- ============================ ProductPicker ============================ -->
+      <section class="oc-catalog" aria-label="Catálogo de produtos">
+        <UiCard title="Catálogo" subtitle="Toque em um produto para adicioná-lo ao carrinho.">
           <template #actions>
             <UiButton
               variant="subtle"
               size="sm"
               :loading="catalog.loading.value"
-              @click="catalog.refresh()"
+              @click="reloadCatalog"
             >Atualizar</UiButton>
           </template>
 
@@ -30,8 +57,9 @@
                   v-model="query"
                   :aria-describedby="describedBy"
                   type="search"
-                  placeholder="Camiseta, SKU-001, Vestuário…"
+                  inputmode="search"
                   autocomplete="off"
+                  placeholder="Camiseta, SKU-001, Vestuário…"
                 />
               </template>
             </UiFormField>
@@ -41,7 +69,7 @@
           <UiLoadingState
             v-if="catalog.loading.value"
             variant="skeleton"
-            :skeleton-lines="5"
+            :skeleton-lines="6"
             title="Carregando catálogo…"
           />
 
@@ -51,7 +79,7 @@
             :message="catalogErrorMessage"
             :code="catalogErrorCode"
             retryable
-            @retry="catalog.refresh()"
+            @retry="reloadCatalog"
           />
 
           <!-- estado: vazio (sem produtos cadastrados) -->
@@ -59,20 +87,20 @@
             v-else-if="!catalog.items.value.length"
             icon="📦"
             title="Nenhum produto cadastrado"
-            description="Cadastre produtos no catálogo para começar a montar pedidos."
+            description="Cadastre produtos no catálogo para começar a montar pedidos de balcão."
           >
             <template #action>
-              <UiButton variant="primary" to="/products">Ir para o catálogo</UiButton>
+              <UiButton variant="primary" to="/products/new">Cadastrar produto</UiButton>
             </template>
           </UiEmptyState>
 
-          <!-- estado: vazio (filtro sem resultado) -->
+          <!-- estado: vazio (busca sem resultado) -->
           <UiEmptyState
             v-else-if="!filteredProducts.length"
-            icon="🔍"
-            title="Nada encontrado"
-            :description="'Nenhum produto corresponde a “' + query + '”.'"
+            icon="search"
             compact
+            title="Nada encontrado"
+            :description="'Nenhum produto corresponde a “' + query.trim() + '”.'"
           >
             <template #action>
               <UiButton variant="ghost" size="sm" @click="query = ''">Limpar busca</UiButton>
@@ -86,43 +114,45 @@
               :key="p.id"
               class="oc-product"
               :data-out="isOutOfStock(p) ? 'true' : null"
+              :data-incart="inCartQty(p) ? 'true' : null"
             >
               <div class="oc-product-main">
                 <p class="oc-product-name">{{ p.name }}</p>
                 <p class="oc-product-meta">
-                  <span class="oc-mono">{{ p.sku }}</span>
-                  <span v-if="p.category" class="oc-dot" aria-hidden="true">·</span>
-                  <span v-if="p.category">{{ p.category }}</span>
+                  <span class="ui-mono">{{ p.sku || '—' }}</span>
+                  <template v-if="p.category">
+                    <span class="oc-dot" aria-hidden="true">·</span>
+                    <span>{{ p.category }}</span>
+                  </template>
                 </p>
                 <div class="oc-product-tags">
-                  <UiStatusBadge :status="stockStatus(p)" :label="stockLabel(p)" size="sm" />
-                  <UiStatusBadge
-                    v-if="p.status"
-                    :status="p.status"
-                    size="sm"
-                  />
+                  <UiStatusBadge :status="stockTone(p)" :label="stockLabel(p)" size="sm" />
+                  <UiStatusBadge v-if="p.status" :status="p.status" size="sm" />
+                  <span v-if="inCartQty(p)" class="oc-incart" aria-live="polite">
+                    {{ inCartQty(p) }} no carrinho
+                  </span>
                 </div>
               </div>
               <div class="oc-product-side">
-                <p class="oc-product-price">{{ formatMoney(unitPrice(p)) }}</p>
+                <p class="oc-product-price">{{ money(p.price) }}</p>
                 <UiButton
                   variant="primary"
                   size="sm"
-                  :disabled="isOutOfStock(p)"
+                  :disabled="isOutOfStock(p) || atStockLimitFor(p)"
                   :aria-label="'Adicionar ' + p.name + ' ao carrinho'"
                   @click="addToCart(p)"
                 >
-                  {{ inCartQty(p) ? 'Adicionar (+1)' : 'Adicionar' }}
+                  {{ inCartQty(p) ? 'Adicionar mais' : 'Adicionar' }}
                 </UiButton>
               </div>
             </li>
           </ul>
         </UiCard>
-      </div>
+      </section>
 
-      <!-- ===================== Coluna direita: carrinho + cliente + checkout ===================== -->
-      <div class="oc-aside">
-        <!-- ---------- Carrinho ---------- -->
+      <!-- ===================== CartEditor + CustomerForm + Checkout ===================== -->
+      <aside class="oc-aside" aria-label="Carrinho e finalização">
+        <!-- ---------- CartEditor ---------- -->
         <UiCard title="Carrinho" :subtitle="cartSubtitle">
           <template #actions>
             <UiButton
@@ -136,19 +166,19 @@
           <UiEmptyState
             v-if="!cart.length"
             icon="🛒"
+            compact
             title="Carrinho vazio"
             description="Adicione produtos do catálogo ao lado para iniciar a venda."
-            compact
           />
 
           <ul v-else class="oc-cart" aria-label="Itens do carrinho">
             <li v-for="item in cart" :key="item.id" class="oc-cart-item">
               <div class="oc-cart-info">
-                <p class="oc-cart-name">{{ item.name }}</p>
+                <p class="oc-cart-name" :title="item.name">{{ item.name }}</p>
                 <p class="oc-cart-unit">
-                  <span class="oc-mono">{{ item.sku }}</span>
+                  <span class="ui-mono">{{ item.sku || '—' }}</span>
                   <span class="oc-dot" aria-hidden="true">·</span>
-                  {{ formatMoney(item.price) }} / un.
+                  <span>{{ money(item.price) }} / un.</span>
                 </p>
               </div>
               <div class="oc-qty" role="group" :aria-label="'Quantidade de ' + item.name">
@@ -167,11 +197,10 @@
                   @click="increment(item)"
                 >+</UiButton>
               </div>
-              <p class="oc-cart-line">{{ formatMoney(item.price * item.qty) }}</p>
+              <p class="oc-cart-line">{{ money(item.price * item.qty) }}</p>
               <UiButton
                 variant="ghost"
                 size="sm"
-                class="oc-cart-remove"
                 :aria-label="'Remover ' + item.name + ' do carrinho'"
                 @click="removeItem(item)"
               >✕</UiButton>
@@ -182,89 +211,160 @@
             <dl class="oc-totals">
               <div class="oc-total-row">
                 <dt>Itens</dt>
-                <dd>{{ itemsCount }}</dd>
+                <dd>{{ format.formatNumber(itemsCount) }}</dd>
               </div>
               <div class="oc-total-row oc-total-grand">
                 <dt>Total</dt>
-                <dd>{{ formatMoney(cartTotal) }}</dd>
+                <dd>{{ money(cartTotal) }}</dd>
               </div>
             </dl>
           </template>
         </UiCard>
 
-        <!-- ---------- Cliente ---------- -->
-        <UiCard title="Cliente" subtitle="Identifique quem está comprando.">
+        <!-- ---------- CustomerForm + CheckoutButton ---------- -->
+        <UiCard title="Cliente e pagamento" subtitle="Identifique quem compra e finalize a venda.">
           <form class="oc-form" novalidate @submit.prevent="submitOrder">
             <UiFormSection :columns="1">
               <UiFormField
                 label="Nome do cliente"
                 required
-                :error="customer.errors.customerName"
-                hint="Nome de quem recebe a venda."
+                :error="customerError('customerName')"
+                hint="Quem recebe a venda (use “Consumidor” para venda anônima)."
               >
-                <template #default="{ id, describedBy }">
+                <template #default="{ id, describedBy, hasError }">
                   <input
                     :id="id"
                     :value="customer.values.customerName"
                     :aria-describedby="describedBy"
+                    :aria-invalid="hasError ? 'true' : null"
                     type="text"
                     autocomplete="name"
                     placeholder="Ex.: Ana Souza"
                     @input="customer.setField('customerName', $event.target.value)"
+                    @blur="customer.validateField('customerName')"
                   />
                 </template>
               </UiFormField>
 
               <UiFormField
                 label="E-mail do cliente"
-                :error="customer.errors.customerEmail"
+                :error="customerError('customerEmail')"
                 hint="Opcional — recibo e atualizações do pedido."
               >
-                <template #default="{ id, describedBy }">
+                <template #default="{ id, describedBy, hasError }">
                   <input
                     :id="id"
                     :value="customer.values.customerEmail"
                     :aria-describedby="describedBy"
+                    :aria-invalid="hasError ? 'true' : null"
                     type="email"
+                    inputmode="email"
                     autocomplete="email"
                     placeholder="cliente@exemplo.com"
                     @input="customer.setField('customerEmail', $event.target.value)"
+                    @blur="customer.validateField('customerEmail')"
+                  />
+                </template>
+              </UiFormField>
+
+              <UiFormField
+                label="Forma de pagamento"
+                required
+                :error="customerError('method')"
+              >
+                <template #default="{ id, describedBy }">
+                  <select
+                    :id="id"
+                    :aria-describedby="describedBy"
+                    :value="customer.values.method"
+                    @change="onMethodChange($event.target.value)"
+                    @blur="customer.validateField('method')"
+                  >
+                    <option v-for="m in methods" :key="m.value" :value="m.value">{{ m.label }}</option>
+                  </select>
+                </template>
+              </UiFormField>
+
+              <UiFormField
+                label="Token do método"
+                required
+                hint="Identificador tokenizado do cofre de pagamento (ex.: tok_card_…). Nunca pedimos o número do cartão."
+                :error="customerError('paymentMethodToken')"
+              >
+                <template #default="{ id, describedBy, hasError }">
+                  <input
+                    :id="id"
+                    :value="customer.values.paymentMethodToken"
+                    :aria-describedby="describedBy"
+                    :aria-invalid="hasError ? 'true' : null"
+                    type="text"
+                    inputmode="latin"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="tok_…"
+                    @input="customer.setField('paymentMethodToken', $event.target.value)"
+                    @blur="customer.validateField('paymentMethodToken')"
                   />
                 </template>
               </UiFormField>
             </UiFormSection>
 
+            <!-- Garantia de idempotência (CheckoutButton context) -->
+            <div class="oc-idem">
+              <div class="oc-idem-head">
+                <span class="oc-idem-label">Idempotency-Key</span>
+                <UiStatusBadge tone="success" status="ok" label="Cobrança única garantida" />
+              </div>
+              <code class="oc-idem-key ui-mono">{{ idempotencyKey }}</code>
+              <p class="oc-idem-note ui-muted">
+                Reenviar o mesmo pedido com esta chave não gera nova cobrança — a transação é reaproveitada.
+              </p>
+            </div>
+
+            <div class="oc-charge">
+              <span class="ui-muted">Total a cobrar</span>
+              <strong class="oc-charge-value">{{ money(cartTotal) }}</strong>
+            </div>
+
             <div class="oc-actions">
               <UiButton
                 type="submit"
                 variant="primary"
-                block
                 size="lg"
+                block
                 :disabled="!cart.length"
                 :loading="processing"
               >
-                {{ processing ? 'Processando…' : 'Pagar ' + formatMoney(cartTotal) }}
+                {{ processing ? 'Processando pagamento…' : 'Finalizar e pagar ' + money(cartTotal) }}
               </UiButton>
-              <p class="oc-fineprint">
-                Pagamento idempotente — reenviar o mesmo pedido não cobra duas vezes.
+              <p v-if="!cart.length" class="oc-fineprint">
+                Adicione ao menos um produto para finalizar.
+              </p>
+              <p v-else class="oc-fineprint">
+                Cria o pedido e cobra de forma idempotente em uma única ação.
               </p>
             </div>
           </form>
         </UiCard>
-      </div>
+      </aside>
     </div>
 
-    <!-- ===================== Confirmação de venda concluída ===================== -->
+    <!-- ============================ Recibo (resultado) ============================ -->
     <UiModal v-model:open="receiptOpen" title="Pedido criado" width="md" persistent>
       <div v-if="receipt" class="oc-receipt">
-        <div class="oc-receipt-head">
-          <UiStatusBadge
-            :status="receipt.paymentStatus"
-            :label="receiptBadgeLabel"
-            size="lg"
-          />
-          <p class="oc-receipt-code">Pedido <span class="oc-mono">{{ receipt.code }}</span></p>
+        <div class="oc-receipt-head" :data-outcome="receiptTone">
+          <span class="oc-receipt-icon" aria-hidden="true">{{ receiptApproved ? '✓' : '!' }}</span>
+          <div class="oc-receipt-head-text" role="status" aria-live="polite">
+            <p class="oc-receipt-title">
+              {{ receiptApproved ? 'Pagamento aprovado' : 'Pedido registrado — pagamento pendente' }}
+            </p>
+            <p class="oc-receipt-code ui-muted">
+              Pedido <span class="ui-mono">{{ receipt.code }}</span>
+            </p>
+          </div>
+          <UiStatusBadge :status="receipt.paymentStatus" size="lg" />
         </div>
+
         <dl class="oc-receipt-list">
           <div class="oc-receipt-row">
             <dt>Cliente</dt>
@@ -276,15 +376,19 @@
           </div>
           <div class="oc-receipt-row">
             <dt>Itens</dt>
-            <dd>{{ receipt.itemsCount }}</dd>
+            <dd>{{ format.formatNumber(receipt.itemsCount) }}</dd>
           </div>
           <div class="oc-receipt-row">
             <dt>Total</dt>
-            <dd>{{ formatMoney(receipt.total) }}</dd>
+            <dd>{{ money(receipt.total) }}</dd>
+          </div>
+          <div class="oc-receipt-row">
+            <dt>Situação do pedido</dt>
+            <dd><UiStatusBadge :status="receipt.status" size="sm" /></dd>
           </div>
           <div v-if="receipt.transactionId" class="oc-receipt-row">
             <dt>Transação</dt>
-            <dd class="oc-mono">{{ receipt.transactionId }}</dd>
+            <dd class="ui-mono">{{ receipt.transactionId }}</dd>
           </div>
           <div v-if="receipt.provider" class="oc-receipt-row">
             <dt>Gateway</dt>
@@ -293,7 +397,8 @@
         </dl>
       </div>
       <template #footer>
-        <UiButton variant="ghost" @click="closeReceipt">Fechar</UiButton>
+        <UiButton v-if="receipt && receipt.id" variant="ghost" :to="'/orders/' + receipt.id">Ver pedido</UiButton>
+        <UiButton v-else variant="ghost" to="/orders">Ver pedidos</UiButton>
         <UiButton variant="primary" @click="startNewOrder">Novo pedido</UiButton>
       </template>
     </UiModal>
@@ -313,6 +418,7 @@ import {
   UiLoadingState,
   UiErrorState,
   UiModal,
+  useResource,
   useForm,
   useToast,
   useConfirm,
@@ -325,98 +431,17 @@ const toast = useToast();
 const confirm = useConfirm();
 
 /* ------------------------------------------------------------------ *
- * Camada de dados — só endpoints REAIS do backend ShopDesk:
- *   GET  /v1/products  (catálogo)
- *   POST /v1/orders    (cria o pedido de domínio)
- *   POST /v1/checkout  (cobrança idempotente — via store.checkout do api.js)
- * Prefere os recursos do api.js quando o integrador os expõe (api.products /
- * api.orders); senão usa um cliente fino sobre a MESMA base do api.js.
+ * Endpoints REAIS (só via ../api.js):
+ *   GET  /v1/products  → api.products.list   (catálogo)
+ *   POST /v1/orders    → api.orders.create   (pedido de domínio)
+ *   POST /v1/checkout  → api.store.checkout  (cobrança idempotente, Idempotency-Key no header)
  * ------------------------------------------------------------------ */
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '/shopdesk/api';
-async function call(method, path, body) {
-  const res = await fetch(API_BASE + path, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const err = new Error((data && data.error && data.error.message) || ('HTTP ' + res.status));
-    err.status = res.status;
-    throw err;
-  }
-  return data;
-}
 
-const productsResource =
-  api.products && typeof api.products.list === 'function'
-    ? api.products
-    : { list: (params) => call('GET', '/v1/products' + toQuery(params)) };
+/* ---------------------------- ProductPicker --------------------------- */
+const catalog = useResource(api.products, { pageSize: 200 });
 
-function toQuery(params) {
-  const usp = new URLSearchParams();
-  if (params && params.page) usp.set('page', params.page);
-  if (params && params.pageSize) usp.set('pageSize', params.pageSize);
-  const s = usp.toString();
-  return s ? '?' + s : '';
-}
-
-function createOrder(payload) {
-  if (api.orders && typeof api.orders.create === 'function') return api.orders.create(payload);
-  return call('POST', '/v1/orders', payload);
-}
-
-function runCheckout(orderCode, amount) {
-  // store.checkout (api.js) já envia paymentMethodToken e chama /v1/checkout.
-  if (api.store && typeof api.store.checkout === 'function') {
-    return api.store.checkout(orderCode, amount);
-  }
-  return call('POST', '/v1/checkout', {
-    orderId: String(orderCode),
-    amount: Number(amount),
-    paymentMethodToken: 'tok_ok',
-  });
-}
-
-/* ------------------------------------------------------------------ *
- * Catálogo de produtos (estados: loading / error / empty / normal)
- * ------------------------------------------------------------------ */
-const products = ref([]);
-const catalog = {
-  items: products,
-  loading: ref(false),
-  error: ref(null),
-  async load() {
-    catalog.loading.value = true;
-    catalog.error.value = null;
-    try {
-      const res = await productsResource.list({ page: 1, pageSize: 200 });
-      const rows = Array.isArray(res) ? res : res.data || res.items || [];
-      products.value = rows.map(normalizeProduct);
-    } catch (e) {
-      catalog.error.value = e;
-      products.value = [];
-    } finally {
-      catalog.loading.value = false;
-    }
-  },
-  refresh() {
-    return catalog.load();
-  },
-};
-
-// normaliza snake_case do Postgres → camelCase usado na tela.
-function normalizeProduct(row) {
-  return {
-    id: row.id,
-    sku: row.sku || '',
-    name: row.name || 'Produto sem nome',
-    category: row.category || '',
-    price: Number(row.price != null ? row.price : 0),
-    stockQty: Number(row.stockQty != null ? row.stockQty : row.stock_qty != null ? row.stock_qty : 0),
-    active: row.active === undefined ? true : !!row.active,
-    status: row.status || '',
-  };
+function reloadCatalog() {
+  return catalog.load();
 }
 
 const catalogErrorMessage = computed(() => {
@@ -429,26 +454,34 @@ const catalogErrorCode = computed(() => {
   return e && e.status ? String(e.status) : '';
 });
 
-/* ------------------------------------------------------------------ *
- * Busca / filtro do catálogo
- * ------------------------------------------------------------------ */
+// normaliza snake_case do Postgres → camelCase usado na tela (mantém o cru intacto).
+function product(row) {
+  return {
+    id: row.id,
+    sku: row.sku || '',
+    name: row.name || 'Produto sem nome',
+    category: row.category || '',
+    price: Number(row.price != null ? row.price : 0),
+    stockQty: Number(row.stockQty != null ? row.stockQty : row.stock_qty != null ? row.stock_qty : 0),
+    active: row.active === undefined ? true : !!row.active,
+    status: row.status || '',
+  };
+}
+const products = computed(() => catalog.items.value.map(product));
+
 const query = ref('');
 const filteredProducts = computed(() => {
   const q = query.value.trim().toLowerCase();
-  const list = products.value;
-  if (!q) return list;
-  return list.filter((p) =>
-    [p.name, p.sku, p.category].some((field) => String(field || '').toLowerCase().includes(q)),
+  if (!q) return products.value;
+  return products.value.filter((p) =>
+    [p.name, p.sku, p.category].some((f) => String(f || '').toLowerCase().includes(q)),
   );
 });
 
-function unitPrice(p) {
-  return Number(p.price || 0);
-}
 function isOutOfStock(p) {
   return p.active === false || Number(p.stockQty) <= 0;
 }
-function stockStatus(p) {
+function stockTone(p) {
   if (isOutOfStock(p)) return 'esgotado';
   if (Number(p.stockQty) <= 5) return 'baixo';
   return 'ativo';
@@ -456,25 +489,26 @@ function stockStatus(p) {
 function stockLabel(p) {
   if (p.active === false) return 'Inativo';
   if (Number(p.stockQty) <= 0) return 'Sem estoque';
-  return Number(p.stockQty) + ' em estoque';
+  if (Number(p.stockQty) <= 5) return 'Baixo · ' + p.stockQty + ' un.';
+  return p.stockQty + ' em estoque';
 }
 
-/* ------------------------------------------------------------------ *
- * Carrinho
- * ------------------------------------------------------------------ */
+/* ------------------------------ CartEditor ----------------------------- */
 const cart = reactive([]);
 
-function cartEntry(p) {
-  return cart.find((i) => i.id === p.id);
-}
-function inCartQty(p) {
-  const e = cartEntry(p);
-  return e ? e.qty : 0;
+const cartEntry = (p) => cart.find((i) => i.id === p.id);
+const inCartQty = (p) => (cartEntry(p) ? cartEntry(p).qty : 0);
+
+function stockOf(id) {
+  const src = products.value.find((p) => p.id === id);
+  return src ? Number(src.stockQty) : Infinity;
 }
 function atStockLimit(item) {
-  const source = products.value.find((p) => p.id === item.id);
-  if (!source) return false;
-  return item.qty >= Number(source.stockQty);
+  return item.qty >= stockOf(item.id);
+}
+function atStockLimitFor(p) {
+  const e = cartEntry(p);
+  return e ? e.qty >= stockOf(p.id) : false;
 }
 
 function addToCart(p) {
@@ -490,9 +524,9 @@ function addToCart(p) {
     }
     entry.qty += 1;
   } else {
-    cart.push({ id: p.id, sku: p.sku, name: p.name, price: unitPrice(p), qty: 1 });
+    cart.push({ id: p.id, sku: p.sku, name: p.name, price: p.price, qty: 1 });
   }
-  toast.success(p.name + ' adicionado ao carrinho.', { timeout: 2200 });
+  toast.success(p.name + ' adicionado.', { timeout: 1800 });
 }
 function increment(item) {
   if (atStockLimit(item)) {
@@ -530,31 +564,54 @@ const itemsCount = computed(() => cart.reduce((acc, i) => acc + i.qty, 0));
 const cartTotal = computed(() => cart.reduce((acc, i) => acc + i.price * i.qty, 0));
 const cartSubtitle = computed(() =>
   cart.length
-    ? itemsCount.value + ' item(ns) · ' + formatMoney(cartTotal.value)
+    ? format.formatNumber(itemsCount.value) + ' item(ns) · ' + money(cartTotal.value)
     : 'Nenhum item adicionado.',
 );
 
-/* ------------------------------------------------------------------ *
- * Cliente (formulário validado)
- * ------------------------------------------------------------------ */
+/* ------------------------------ CustomerForm --------------------------- */
+const methods = [
+  { value: 'credit_card', label: 'Cartão de crédito (tokenizado)' },
+  { value: 'pix', label: 'PIX' },
+  { value: 'boleto', label: 'Boleto bancário' },
+];
+const TOKEN_RE = /^tok_[\w-]{2,}$/i;
 const customer = useForm({
-  initial: { customerName: '', customerEmail: '' },
+  initial: { customerName: '', customerEmail: '', method: 'credit_card', paymentMethodToken: '' },
   rules: {
     customerName: [validators.required('Informe o nome do cliente'), validators.minLen(2)],
     customerEmail: [validators.email()],
+    method: [validators.required('Escolha uma forma de pagamento')],
+    paymentMethodToken: [
+      validators.required('Informe o token do método'),
+      validators.pattern(TOKEN_RE, 'Token inválido — use o formato tok_…'),
+    ],
   },
 });
+const customerError = (key) => (customer.touched[key] ? customer.errors[key] || '' : '');
 
-/* ------------------------------------------------------------------ *
- * Submissão: cria pedido (POST /v1/orders) + checkout idempotente (POST /v1/checkout)
- * ------------------------------------------------------------------ */
+function onMethodChange(value) {
+  customer.setField('method', value);
+  // sugestão de token só quando o operador ainda não digitou um próprio.
+  if (!customer.values.paymentMethodToken || /^tok_(card|pix|boleto)_$/i.test(customer.values.paymentMethodToken)) {
+    const prefix = { credit_card: 'tok_card_', pix: 'tok_pix_', boleto: 'tok_boleto_' }[value] || 'tok_';
+    customer.setField('paymentMethodToken', prefix);
+  }
+}
+
+/* ----------------------------- Idempotência --------------------------- */
+// Código de pedido estável durante a montagem (recriado só ao iniciar nova venda) → chave constante.
+const orderCode = ref(newOrderCode());
+function newOrderCode() {
+  return 'PED-' + Date.now().toString(36).toUpperCase().slice(-6);
+}
+const idempotencyKey = computed(() => 'order:' + orderCode.value);
+
+/* --------------------------- CheckoutButton --------------------------- */
 const processing = ref(false);
 const receiptOpen = ref(false);
 const receipt = ref(null);
 
-function newOrderCode() {
-  return 'PED-' + Date.now().toString(36).toUpperCase().slice(-6);
-}
+const PAID_RE = /approv|aprovad|paid|success|ok|authorized|autorizad|pago/i;
 
 async function submitOrder() {
   if (!cart.length) {
@@ -562,17 +619,27 @@ async function submitOrder() {
     return;
   }
   if (!customer.validate()) {
-    toast.error('Revise os dados do cliente.');
+    toast.error('Revise os dados do cliente e do pagamento.');
     return;
   }
   if (processing.value) return;
 
-  processing.value = true;
-  const code = newOrderCode();
   const amount = cartTotal.value;
+  const ok = await confirm({
+    title: 'Finalizar pedido',
+    message:
+      'Cobrar ' + money(amount) + ' de ' + customer.values.customerName +
+      ' (' + format.formatNumber(itemsCount.value) + ' item(ns)) pelo método tokenizado selecionado?',
+    confirmLabel: 'Pagar agora',
+    cancelLabel: 'Revisar',
+  });
+  if (!ok) return;
+
+  processing.value = true;
+  const code = orderCode.value;
   try {
-    // 1) cria o pedido de domínio
-    const created = await createOrder({
+    // 1) cria o pedido de domínio (POST /v1/orders)
+    const created = await api.orders.create({
       code,
       customerName: customer.values.customerName,
       customerEmail: customer.values.customerEmail || null,
@@ -582,21 +649,29 @@ async function submitOrder() {
       paymentStatus: 'aguardando',
     });
 
-    // 2) cobrança idempotente
+    // 2) cobrança idempotente (POST /v1/checkout) — Idempotency-Key estável por pedido.
     let paid = null;
     let paymentStatus = 'aguardando';
     let orderStatus = 'pendente';
     try {
-      paid = await runCheckout(code, amount);
-      const okPay = paid && /approv|aprovad|paid|success|ok|authorized|autorizad/i.test(String(paid.status || ''));
-      paymentStatus = okPay ? 'aprovado' : 'recusado';
-      orderStatus = okPay ? 'pago' : 'falha_pagamento';
-      if (okPay) toast.success('Pagamento aprovado — pedido ' + code + '.');
-      else toast.warning('Pagamento não aprovado. Pedido ' + code + ' registrado como pendente.');
+      paid = await api.store.checkout(code, amount, customer.values.paymentMethodToken, idempotencyKey.value);
+      const approved = paid && PAID_RE.test(String(paid.status || ''));
+      paymentStatus = approved ? 'aprovado' : 'recusado';
+      orderStatus = approved ? 'pago' : 'falha_pagamento';
+      if (approved) {
+        toast.success('Pagamento aprovado — pedido ' + code + '.', {
+          detail: paid.transactionId ? 'Transação ' + paid.transactionId : '',
+        });
+      } else {
+        toast.warning('Pagamento não aprovado. Pedido ' + code + ' registrado como pendente.');
+      }
     } catch (payErr) {
       paymentStatus = 'recusado';
       orderStatus = 'falha_pagamento';
-      toast.error('Falha no pagamento: ' + (payErr.message || 'erro desconhecido') + '. Pedido registrado.');
+      toast.error('Falha no pagamento', {
+        detail: (payErr && payErr.message) || 'Erro desconhecido. O pedido foi registrado.',
+        code: payErr && payErr.status,
+      });
     }
 
     receipt.value = {
@@ -608,40 +683,51 @@ async function submitOrder() {
       total: amount,
       status: orderStatus,
       paymentStatus,
-      transactionId: paid && paid.transactionId ? paid.transactionId : '',
-      provider: paid && paid.provider ? paid.provider : '',
+      transactionId: (paid && paid.transactionId) || '',
+      provider: (paid && paid.provider) || '',
     };
     receiptOpen.value = true;
   } catch (e) {
-    toast.error('Não foi possível criar o pedido: ' + (e.message || 'erro desconhecido'));
+    toast.error('Não foi possível criar o pedido', {
+      detail: (e && e.message) || 'Erro desconhecido.',
+      code: e && e.status,
+    });
   } finally {
     processing.value = false;
   }
 }
 
-const receiptBadgeLabel = computed(() => {
-  if (!receipt.value) return '';
-  return receipt.value.paymentStatus === 'aprovado'
-    ? 'Pagamento aprovado'
-    : 'Pagamento pendente';
-});
+const receiptApproved = computed(() => receipt.value && receipt.value.paymentStatus === 'aprovado');
+const receiptTone = computed(() => (receiptApproved.value ? 'success' : 'warning'));
 
-function closeReceipt() {
-  receiptOpen.value = false;
-}
 function startNewOrder() {
   receiptOpen.value = false;
   receipt.value = null;
   cart.splice(0, cart.length);
   customer.reset();
   query.value = '';
+  orderCode.value = newOrderCode();
   toast.info('Pronto para um novo pedido.');
 }
 
-/* ------------------------------------------------------------------ *
- * Helpers de formatação
- * ------------------------------------------------------------------ */
-function formatMoney(value) {
+/* ------------------------------ Stepper UI ----------------------------- */
+function stepDone(n) {
+  if (n === 1) return cart.length > 0;
+  if (n === 2) return cart.length > 0;
+  if (n === 3) return !!receipt.value;
+  return false;
+}
+function stepState(n) {
+  if (stepDone(n)) return 'done';
+  // ativo = o primeiro passo ainda não concluído.
+  if (n === 1 && !cart.length) return 'active';
+  if (n === 2 && cart.length && !receipt.value) return 'active';
+  if (n === 3 && cart.length && !receipt.value) return 'active';
+  return 'idle';
+}
+
+/* ------------------------------- Helpers ------------------------------- */
+function money(value) {
   return format.formatCurrency(value);
 }
 
@@ -649,6 +735,59 @@ catalog.load();
 </script>
 
 <style scoped>
+/* ----------------------------- Stepper ----------------------------- */
+.oc-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-space-3);
+}
+.oc-step {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+  padding: var(--ui-space-2) var(--ui-space-3);
+  border: 1px solid rgb(var(--ui-border));
+  border-radius: var(--ui-radius-pill);
+  background: rgb(var(--ui-surface));
+  font-size: var(--ui-text-sm);
+  color: rgb(var(--ui-muted));
+}
+.oc-step[data-state='active'] {
+  border-color: rgb(var(--ui-accent));
+  color: rgb(var(--ui-fg));
+}
+.oc-step[data-state='done'] {
+  border-color: rgb(var(--ui-ok) / 0.5);
+  color: rgb(var(--ui-fg));
+}
+.oc-step-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: var(--ui-text-xs);
+  font-weight: 700;
+  background: rgb(var(--ui-muted) / 0.18);
+  color: rgb(var(--ui-muted));
+}
+.oc-step[data-state='active'] .oc-step-dot {
+  background: rgb(var(--ui-accent));
+  color: rgb(var(--ui-accent-fg));
+}
+.oc-step[data-state='done'] .oc-step-dot {
+  background: rgb(var(--ui-ok) / 0.18);
+  color: rgb(var(--ui-ok));
+}
+.oc-step-label {
+  font-weight: 600;
+}
+
+/* ------------------------------ Layout ----------------------------- */
 .oc-grid {
   display: grid;
   grid-template-columns: 1.6fr 1fr;
@@ -663,12 +802,12 @@ catalog.load();
   top: var(--ui-space-5);
 }
 
-/* ---------- busca ---------- */
+/* ------------------------------ Busca ------------------------------ */
 .oc-search {
   margin-bottom: var(--ui-space-4);
 }
 
-/* ---------- lista de produtos ---------- */
+/* --------------------------- ProductPicker ------------------------- */
 .oc-products {
   list-style: none;
   margin: 0;
@@ -695,6 +834,9 @@ catalog.load();
 .oc-product[data-out='true'] {
   opacity: 0.7;
 }
+.oc-product[data-incart='true'] {
+  border-color: rgb(var(--ui-accent) / 0.5);
+}
 .oc-product-main {
   min-width: 0;
   display: flex;
@@ -717,9 +859,15 @@ catalog.load();
 }
 .oc-product-tags {
   display: flex;
+  align-items: center;
   gap: var(--ui-space-2);
   flex-wrap: wrap;
   margin-top: 2px;
+}
+.oc-incart {
+  font-size: var(--ui-text-xs);
+  font-weight: 600;
+  color: rgb(var(--ui-accent-strong));
 }
 .oc-product-side {
   display: flex;
@@ -731,11 +879,11 @@ catalog.load();
 .oc-product-price {
   margin: 0;
   font-weight: 700;
-  font-size: var(--ui-text-md);
+  font-variant-numeric: tabular-nums;
   color: rgb(var(--ui-fg));
 }
 
-/* ---------- carrinho ---------- */
+/* ------------------------------ CartEditor ------------------------- */
 .oc-cart {
   list-style: none;
   margin: 0;
@@ -786,11 +934,8 @@ catalog.load();
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.oc-cart-remove {
-  color: rgb(var(--ui-muted));
-}
 
-/* ---------- totais ---------- */
+/* ------------------------------ Totais ----------------------------- */
 .oc-totals {
   margin: 0;
   display: flex;
@@ -821,17 +966,68 @@ catalog.load();
   color: rgb(var(--ui-accent-strong));
 }
 
-/* ---------- formulário cliente / ações ---------- */
+/* --------------------------- CustomerForm -------------------------- */
 .oc-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-4);
+}
+
+/* --------------------------- Idempotência -------------------------- */
+.oc-idem {
+  border: 1px dashed rgb(var(--ui-border-strong));
+  border-radius: var(--ui-radius-md);
+  padding: var(--ui-space-4);
+  background: rgb(var(--ui-surface-2));
   display: flex;
   flex-direction: column;
   gap: var(--ui-space-2);
 }
+.oc-idem-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-3);
+  flex-wrap: wrap;
+}
+.oc-idem-label {
+  font-size: var(--ui-text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgb(var(--ui-muted));
+  font-weight: 700;
+}
+.oc-idem-key {
+  display: block;
+  font-size: var(--ui-text-sm);
+  color: rgb(var(--ui-fg));
+  word-break: break-all;
+  background: rgb(var(--ui-bg));
+  border: 1px solid rgb(var(--ui-border));
+  border-radius: var(--ui-radius-sm);
+  padding: var(--ui-space-2) var(--ui-space-3);
+}
+.oc-idem-note {
+  margin: 0;
+  font-size: var(--ui-text-xs);
+}
+
+.oc-charge {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ui-space-4);
+}
+.oc-charge-value {
+  font-family: var(--ui-font-display);
+  font-size: var(--ui-text-xl);
+}
+
+/* ------------------------------ Ações ------------------------------ */
 .oc-actions {
   display: flex;
   flex-direction: column;
   gap: var(--ui-space-2);
-  margin-top: var(--ui-space-2);
 }
 .oc-fineprint {
   margin: 0;
@@ -840,7 +1036,7 @@ catalog.load();
   color: rgb(var(--ui-muted));
 }
 
-/* ---------- recibo (modal) ---------- */
+/* ------------------------------ Recibo ----------------------------- */
 .oc-receipt {
   display: flex;
   flex-direction: column;
@@ -849,13 +1045,45 @@ catalog.load();
 .oc-receipt-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--ui-space-3);
   flex-wrap: wrap;
+  padding-bottom: var(--ui-space-3);
+  border-bottom: 1px solid rgb(var(--ui-border));
+}
+.oc-receipt-icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: var(--ui-text-lg);
+  background: rgb(var(--ui-muted) / 0.16);
+  color: rgb(var(--ui-muted));
+}
+.oc-receipt-head[data-outcome='success'] .oc-receipt-icon {
+  background: rgb(var(--ui-ok) / 0.16);
+  color: rgb(var(--ui-ok));
+}
+.oc-receipt-head[data-outcome='warning'] .oc-receipt-icon {
+  background: rgb(var(--ui-warn) / 0.18);
+  color: rgb(var(--ui-warn));
+}
+.oc-receipt-head-text {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.oc-receipt-title {
+  margin: 0;
+  font-family: var(--ui-font-display);
+  font-weight: 700;
+  font-size: var(--ui-text-lg);
 }
 .oc-receipt-code {
-  margin: 0;
-  color: rgb(var(--ui-muted));
+  margin: 2px 0 0;
+  font-size: var(--ui-text-sm);
 }
 .oc-receipt-list {
   margin: 0;
@@ -884,16 +1112,12 @@ catalog.load();
   text-align: right;
 }
 
-/* ---------- utilitários locais ---------- */
-.oc-mono {
-  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 0.92em;
-}
+/* --------------------------- Utilitários --------------------------- */
 .oc-dot {
   color: rgb(var(--ui-border-strong));
 }
 
-/* ---------- responsivo ---------- */
+/* ----------------------------- Responsivo -------------------------- */
 @media (max-width: 960px) {
   .oc-grid {
     grid-template-columns: 1fr;
@@ -922,7 +1146,7 @@ catalog.load();
   .oc-cart-info {
     grid-area: info;
   }
-  .oc-cart-remove {
+  .oc-cart-item > .ui-btn {
     grid-area: remove;
     justify-self: end;
   }

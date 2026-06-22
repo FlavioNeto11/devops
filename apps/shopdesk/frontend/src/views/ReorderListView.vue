@@ -5,11 +5,11 @@
     subtitle="Acompanhe pedidos de reposição por fornecedor, confirme o recebimento e cancele o que não for mais necessário."
     width="wide"
     :error="r.error.value"
-    @retry="r.load"
+    @retry="reload"
   >
     <!-- Ações de cabeçalho -->
     <template #actions>
-      <UiButton variant="ghost" :loading="r.loading.value" @click="r.refresh">
+      <UiButton variant="ghost" :loading="r.loading.value" :disabled="!resourceReady" @click="reload">
         <template #icon-left><span aria-hidden="true">↻</span></template>
         Atualizar
       </UiButton>
@@ -20,6 +20,10 @@
       >
         <template #icon-left><span aria-hidden="true">⬇</span></template>
         Exportar CSV
+      </UiButton>
+      <UiButton variant="primary" to="/reorders/new">
+        <template #icon-left><span aria-hidden="true">＋</span></template>
+        Nova ordem
       </UiButton>
     </template>
 
@@ -113,6 +117,16 @@
 
     <!-- Tabela de ordens: loading / empty / error / normal cobertos -->
     <UiCard title="Lista de ordens" :subtitle="resultSummary">
+      <template #actions>
+        <UiStatusBadge
+          v-if="activeFilterCount > 0"
+          tone="running"
+          status="Filtro ativo"
+          :with-dot="true"
+          size="sm"
+        />
+      </template>
+
       <UiDataTable
         :columns="columns"
         :rows="r.items.value"
@@ -189,9 +203,27 @@
         <!-- Estado vazio contextual -->
         <template #empty-action>
           <UiButton v-if="activeFilterCount > 0" variant="ghost" @click="resetAllFilters">Limpar filtros</UiButton>
-          <UiButton v-else variant="ghost" @click="r.load">Recarregar</UiButton>
+          <UiButton v-else variant="primary" to="/reorders/new">Criar primeira ordem</UiButton>
         </template>
       </UiDataTable>
+    </UiCard>
+
+    <!-- Atalhos para o domínio de inventário -->
+    <UiCard title="Atalhos do estoque" subtitle="Continue de onde a reposição se conecta ao inventário.">
+      <div class="rl-links" role="group" aria-label="Atalhos do domínio de estoque">
+        <UiButton variant="ghost" to="/inventory">
+          <template #icon-left><span aria-hidden="true">📦</span></template>
+          Ver posição de estoque
+        </UiButton>
+        <UiButton variant="ghost" to="/products">
+          <template #icon-left><span aria-hidden="true">🏷️</span></template>
+          Catálogo de produtos
+        </UiButton>
+        <UiButton variant="ghost" to="/orders">
+          <template #icon-left><span aria-hidden="true">🧾</span></template>
+          Pedidos da loja
+        </UiButton>
+      </div>
     </UiCard>
 
     <template #footer>
@@ -234,6 +266,13 @@
       </dl>
       <template #footer>
         <UiButton
+          v-if="detail && detail.id != null"
+          variant="ghost"
+          :to="'/reorders/' + detail.id"
+        >
+          Abrir ordem completa
+        </UiButton>
+        <UiButton
           v-if="detail && canCancel(detail)"
           variant="danger"
           :loading="busyId === detail.id && busyAction === 'cancel'"
@@ -249,7 +288,7 @@
         >
           Marcar como recebida
         </UiButton>
-        <UiButton variant="ghost" @click="detailOpen = false">Fechar</UiButton>
+        <UiButton variant="subtle" @click="detailOpen = false">Fechar</UiButton>
       </template>
     </UiModal>
   </UiPageLayout>
@@ -293,6 +332,17 @@ const r = useResource(reorders || { list: async () => ({ data: [], total: 0 }) }
 });
 const toast = useToast();
 const confirm = useConfirm();
+
+// Recarrega respeitando o fail-closed (também atende ao @retry do PageLayout).
+function reload() {
+  if (!resourceReady.value) {
+    r.error.value = new Error(
+      'Recurso de reposições indisponível. A API de ordens de reposição não está conectada ao cliente.',
+    );
+    return;
+  }
+  r.load();
+}
 
 // ---------------------------------------------------------------------------
 // FONTE ÚNICA dos status do domínio (value + label legível + tom do kit).
@@ -403,8 +453,8 @@ const resultSummary = computed(() => {
 });
 const emptyState = computed(() =>
   activeFilterCount.value > 0
-    ? { title: 'Nenhuma ordem no filtro', description: 'Nenhuma ordem corresponde aos filtros atuais. Ajuste a busca ou limpe os filtros.', icon: '🔍' }
-    : { title: 'Nenhuma ordem de reposição', description: 'As ordens de reposição aparecerão aqui assim que forem criadas.', icon: '📦' },
+    ? { title: 'Nenhuma ordem no filtro', description: 'Nenhuma ordem corresponde aos filtros atuais. Ajuste a busca ou limpe os filtros.', icon: 'search' }
+    : { title: 'Nenhuma ordem de reposição', description: 'As ordens de reposição aparecerão aqui assim que forem criadas.', icon: 'box' },
 );
 
 // ---------------------------------------------------------------------------
@@ -556,16 +606,7 @@ function exportCsv() {
   }
 }
 
-onMounted(() => {
-  if (!resourceReady.value) {
-    // Fail-closed: sem o fio do cliente, não chamamos undefined.list().
-    r.error.value = new Error(
-      'Recurso de reposições indisponível. A API de ordens de reposição não está conectada ao cliente.',
-    );
-    return;
-  }
-  r.load();
-});
+onMounted(reload);
 </script>
 
 <style scoped>
@@ -701,6 +742,13 @@ onMounted(() => {
   gap: var(--ui-space-2);
   justify-content: flex-end;
   flex-wrap: wrap;
+}
+
+/* Atalhos de domínio */
+.rl-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-space-3);
 }
 
 /* Detalhe (modal) */

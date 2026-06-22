@@ -1,34 +1,52 @@
 <!--
-  InvoiceListView — Lista de NF-e (situação SEFAZ).
-  Acompanha emissão: enfileiradas / processando / autorizadas / rejeitadas / DLQ.
-  Tudo sobre o kit ui-vue (tokens --ui-*), CSP-safe (sem estilo inline, sem binding de estilo,
-  sem HTML cru), todos os estados (loading / empty / error / normal / degradado), a11y.
+  InvoiceListView — Notas fiscais (NF-e) · REQ-SHOPDESK-0004.
+  Lista de NF-e emitidas/em processamento/rejeitadas/DLQ com situação SEFAZ, protocolo
+  e número, filtro por situação + busca + período, chips de situação (FilterChips) e link
+  para baixar o XML (DownloadXmlLink). Reprocessar (rejeitada/DLQ) é AÇÃO SENSÍVEL: passa
+  por confirmação (useConfirm) e reemite via POST /v1/invoices.
 
-  CONTRATO REAL (apps/shopdesk/api/openapi/openapi.yaml + server.js):
-    POST /v1/invoices        → emite/reemite a NF-e (api.store.emitInvoice).
-  NÃO existe (ainda) GET /v1/invoices (lista) nem GET /v1/invoices/:id no backend —
-  `invoices` não é uma entidade CRUD (ver repositories/entities.js). Por isso esta tela:
-    1) consome o recurso de LISTA de forma DEFENSIVA (igual InvoiceDetailView/InvoiceEmitView):
-       só usa api.invoices.list se ele existir; senão entra num estado DEGRADADO honesto
-       ("recurso de lista ainda não exposto") em vez de quebrar contra o client real;
-    2) NÃO inventa rota — quando a esteira expuser GET /v1/invoices, a tela funciona sem mudar.
+  Tudo sobre o kit ui-vue (tokens --ui-*), CSP-safe (sem style inline / :style / v-html,
+  estado visual só por class + data-*), TODOS os estados (loading skeleton / empty com CTA /
+  error com retry / degradado honesto / normal) e a11y (labels, aria-pressed nos chips,
+  navegação por teclado, foco visível do kit).
+
+  CONTRATO REAL (apps/shopdesk/api/src/server.js + openapi/openapi.yaml):
+    POST /v1/invoices  → emite/reemite a NF-e (api.invoices.emit/reprocess; api.store.emitInvoice).
+  GET /v1/invoices (lista) e GET /v1/invoices/:id (detalhe) NÃO são CRUD garantido — `invoices`
+  não é entidade no repositório (ver repositories/entities.js). Por isso esta tela consome a
+  LEITURA de forma DEFENSIVA: só usa api.invoices.list/get quando o integrador os expõe; sem
+  o endpoint de lista, entra num estado DEGRADADO honesto (sem inventar rota). Quando a esteira
+  publicar GET /v1/invoices, a tela passa a listar sem nenhuma alteração.
+
+  Rotas usadas (todas de DOMÍNIO, registradas no router): /invoices (esta), /invoices/new
+  (emitir), /invoices/:id (detalhe — recebe a nota via router state), /orders/:id (pedido).
 -->
 <template>
   <UiPageLayout
     eyebrow="Fiscal"
     title="Notas fiscais"
-    subtitle="Acompanhe a emissão de NF-e: enfileiradas, em processamento, autorizadas, rejeitadas ou na fila morta (DLQ)."
+    subtitle="Acompanhe a emissão de NF-e: enfileiradas, em processamento, autorizadas, rejeitadas ou na fila morta (DLQ). Filtre por situação, busque e baixe o XML."
     width="wide"
     :error="r && r.error.value"
     @retry="reload"
   >
     <!-- Ações de cabeçalho -->
     <template #actions>
-      <UiButton variant="ghost" :disabled="!listAvailable || (r && r.loading.value)" @click="reload">
+      <UiButton variant="primary" to="/invoices/new">
+        <template #icon-left><span aria-hidden="true">＋</span></template>
+        Emitir NF-e
+      </UiButton>
+      <UiButton
+        v-if="listAvailable"
+        variant="ghost"
+        :loading="r && r.loading.value"
+        @click="reload"
+      >
         <template #icon-left><span aria-hidden="true">↻</span></template>
         Atualizar
       </UiButton>
       <UiButton
+        v-if="listAvailable"
         variant="subtle"
         :disabled="!filteredRows.length || (r && r.loading.value)"
         @click="exportCsv"
@@ -38,7 +56,7 @@
       </UiButton>
     </template>
 
-    <!-- Filtros estruturados (só quando o recurso de lista está disponível) -->
+    <!-- Filtros estruturados — só quando o recurso de lista está disponível. -->
     <template v-if="listAvailable" #filters>
       <UiFiltersPanel
         v-model="filters"
@@ -48,35 +66,37 @@
       />
     </template>
 
-    <!-- ESTADO DEGRADADO: o recurso de LISTA (GET /v1/invoices) ainda não foi exposto pela API.
-         Honesto: não inventamos rota nem deixamos a tela quebrar. -->
+    <!-- ESTADO DEGRADADO: o recurso de LISTA (GET /v1/invoices) ainda não foi exposto.
+         Honesto: não inventamos rota nem deixamos a tela quebrar; oferecemos o caminho real. -->
     <template v-if="!listAvailable">
-      <UiEmptyState
-        title="Listagem de NF-e ainda não disponível"
-        :description="unavailableReason"
-        icon="doc"
-      >
-        <template #action>
-          <UiButton variant="primary" to="/invoices/new">Emitir uma NF-e</UiButton>
-        </template>
-      </UiEmptyState>
+      <UiCard title="Consulta de notas indisponível" subtitle="O que dá para fazer agora">
+        <UiEmptyState
+          title="Listagem de NF-e ainda não exposta"
+          :description="unavailableReason"
+          icon="doc"
+        >
+          <template #action>
+            <UiButton variant="primary" to="/invoices/new">Emitir uma NF-e</UiButton>
+          </template>
+        </UiEmptyState>
+      </UiCard>
     </template>
 
-    <!-- TELA NORMAL: recurso de lista disponível -->
+    <!-- TELA NORMAL -->
     <template v-else>
-      <!-- KPIs derivados das notas reais carregadas. Escopo HONESTO: refletem só a
-           página carregada (server-mode paginado), por isso o hint diz "nesta página". -->
-      <div class="inv-kpis" role="group" aria-label="Indicadores de notas fiscais (nesta página)">
+      <!-- KPIs derivados das notas REAIS carregadas. Escopo HONESTO: refletem a página
+           carregada (server-mode paginado), por isso o hint diz "nesta página". -->
+      <div class="inv-kpis" role="group" aria-label="Indicadores de notas fiscais nesta página">
         <UiMetricCard
           label="Autorizadas"
           :value="kpis.autorizada"
           tone="success"
-          hint="NF-e com protocolo · nesta página"
+          hint="Com protocolo SEFAZ · nesta página"
           :loading="r.loading.value"
         />
         <UiMetricCard
           label="Em processamento"
-          :value="kpis.emProcessamento"
+          :value="kpis.processando"
           tone="running"
           hint="Enfileiradas ou processando · nesta página"
           :loading="r.loading.value"
@@ -97,7 +117,8 @@
         />
       </div>
 
-      <!-- Chips de filtro rápido por situação (FilterChips) -->
+      <!-- FilterChips: filtro rápido por situação, sincronizado com o filtro do servidor.
+           As contagens vêm das linhas reais da página. -->
       <div class="inv-chips" role="group" aria-label="Filtrar por situação">
         <button
           v-for="chip in statusChips"
@@ -113,16 +134,24 @@
           <span class="inv-chip-label">{{ chip.label }}</span>
           <span class="inv-chip-count">{{ chip.count }}</span>
         </button>
+        <button
+          v-if="activeStatus || hasLocalFilter || filters.q"
+          type="button"
+          class="inv-chip inv-chip-clear"
+          @click="onClear"
+        >
+          Limpar
+        </button>
       </div>
 
-      <!-- Tabela de notas fiscais -->
+      <!-- Tabela de NF-e -->
       <UiCard title="Lista de NF-e" :subtitle="resultSummary">
         <template #actions>
           <UiStatusBadge
             v-if="hasLocalFilter"
             tone="running"
             status="Filtro local ativo"
-            label="Filtro local ativo"
+            label="Filtro de período (local)"
             :with-dot="true"
           />
         </template>
@@ -130,7 +159,7 @@
         <UiDataTable
           :columns="columns"
           :rows="filteredRows"
-          row-key="id"
+          row-key="rowKey"
           density="comfortable"
           clickable-rows
           server-mode
@@ -149,7 +178,7 @@
           <!-- Número + pedido -->
           <template #cell-number="{ row }">
             <div class="inv-id">
-              <span class="inv-id-number">{{ invoiceNumber(row) || '—' }}</span>
+              <span class="inv-id-number ui-mono">{{ invoiceNumber(row) || 'sem número' }}</span>
               <span class="inv-id-order">Pedido {{ orderIdOf(row) || '—' }}</span>
             </div>
           </template>
@@ -165,8 +194,8 @@
             <span class="inv-total">{{ format.formatCurrency(value) }}</span>
           </template>
 
-          <!-- Situação: tom EXPLÍCITO pelo enum (o status-map casa termos no masculino e
-               erra autorizada/rejeitada/enfileirada; aqui forçamos a hierarquia visual). -->
+          <!-- Situação: tom EXPLÍCITO pelo enum (o status-map resolve no masculino e
+               erra autorizada/rejeitada/enfileirada do domínio feminino). -->
           <template #cell-status="{ value }">
             <UiStatusBadge :status="value" :label="labelFor(value)" :tone="toneFor(value)" />
           </template>
@@ -185,7 +214,7 @@
           <template #cell-actions="{ row }">
             <div class="inv-actions" @click.stop>
               <UiButton variant="ghost" size="sm" @click="openDetail(row)">Ver</UiButton>
-              <!-- DownloadXmlLink: só quando há XML real disponível na linha -->
+              <!-- DownloadXmlLink: baixa quando há XML real na linha; senão indica o motivo. -->
               <UiButton
                 v-if="hasXml(row)"
                 variant="ghost"
@@ -200,7 +229,7 @@
                 v-if="canReprocess(row)"
                 variant="danger"
                 size="sm"
-                :loading="busyId === row.id"
+                :loading="busyId === keyOf(row)"
                 @click="reprocess(row)"
               >
                 Reprocessar
@@ -208,17 +237,17 @@
             </div>
           </template>
 
-          <!-- Sem resultados após filtro -->
+          <!-- Sem resultados (após filtro ou base vazia) -->
           <template #empty-action>
-            <UiButton v-if="hasLocalFilter || activeStatus" variant="ghost" @click="onClear">Limpar filtros</UiButton>
-            <UiButton v-else variant="ghost" @click="reload">Recarregar</UiButton>
+            <UiButton v-if="hasAnyFilter" variant="ghost" @click="onClear">Limpar filtros</UiButton>
+            <UiButton v-else variant="primary" to="/invoices/new">Emitir a primeira NF-e</UiButton>
           </template>
         </UiDataTable>
       </UiCard>
     </template>
 
-    <!-- Modal: detalhe da nota (fonte única de detalhe nesta tela — não há rota
-         /invoices/:id registrada; o reprocess/download reusam os mesmos handlers). -->
+    <!-- Modal: detalhe rápido da nota (pré-visualização). "Abrir página" leva à rota de
+         domínio /invoices/:id, passando a nota via router state (contrato da DetailView). -->
     <UiModal v-model:open="detailOpen" :title="detailTitle" width="md">
       <UiLoadingState v-if="detailLoading" variant="spinner" />
       <UiErrorState
@@ -252,22 +281,18 @@
           <dd>{{ attemptsOf(detail) }}</dd>
         </div>
         <div class="inv-detail-row">
-          <dt>Recibo</dt>
-          <dd class="ui-mono">{{ receiptOf(detail) || '—' }}</dd>
-        </div>
-        <div class="inv-detail-row">
           <dt>Emitida em</dt>
           <dd>{{ format.formatDateTime(issuedAtOf(detail)) }}</dd>
         </div>
       </dl>
       <template #footer>
         <UiButton
-          v-if="detail && detail.id != null"
+          v-if="detail && orderIdOf(detail)"
           variant="ghost"
-          @click="openDetailPage(detail)"
+          @click="goToOrder(detail)"
         >
           <template #icon-left><span aria-hidden="true">↗</span></template>
-          Abrir página
+          Ver pedido
         </UiButton>
         <UiButton
           v-if="detail && hasXml(detail)"
@@ -280,10 +305,14 @@
         <UiButton
           v-if="detail && canReprocess(detail)"
           variant="danger"
-          :loading="busyId === detail.id"
+          :loading="busyId === keyOf(detail)"
           @click="reprocess(detail)"
         >
           Reprocessar
+        </UiButton>
+        <UiButton variant="ghost" @click="openDetailPage(detail)">
+          <template #icon-left><span aria-hidden="true">↗</span></template>
+          Abrir página
         </UiButton>
         <UiButton variant="primary" @click="detailOpen = false">Fechar</UiButton>
       </template>
@@ -317,19 +346,10 @@ const router = useRouter();
 const toast = useToast();
 const confirm = useConfirm();
 
-// Abre a PÁGINA de detalhe (/invoices/:id) passando a nota inteira em router state —
-// o backend não expõe GET /v1/invoices/:id, então a DetailView lê do state da navegação.
-function openDetailPage(row) {
-  if (!row || row.id == null) return;
-  router.push({ name: 'invoice', params: { id: String(row.id) }, state: { invoice: { ...row } } });
-}
-
 // ---------------------------------------------------------------------------
-// Consumo DEFENSIVO do recurso de lista (igual InvoiceDetailView/InvoiceEmitView).
-// O backend REAL expõe só POST /v1/invoices (emissão). GET /v1/invoices (lista)
-// pode ainda não estar exposto no client → guardamos para NÃO quebrar o useResource.
-//   - listAvailable=false → estado degradado honesto (sem inventar rota).
-//   - quando a esteira expuser api.invoices.list, a tela funciona sem alterações.
+// Consumo DEFENSIVO da leitura de NF-e. O backend REAL expõe só POST /v1/invoices.
+// GET /v1/invoices (lista) só é usado se o integrador injetar api.invoices.list —
+// senão a tela degrada honestamente, sem inventar rota nem quebrar o useResource.
 // ---------------------------------------------------------------------------
 const invoicesApi =
   api.invoices && typeof api.invoices.list === 'function' ? api.invoices : null;
@@ -337,9 +357,9 @@ const listAvailable = computed(() => invoicesApi !== null);
 const unavailableReason =
   'O recurso de consulta de notas (GET /v1/invoices) ainda não está exposto por esta API — ' +
   'apenas a emissão (POST /v1/invoices) está disponível. Assim que a esteira publicar o endpoint ' +
-  'de listagem, esta tela passa a exibir as notas automaticamente.';
+  'de listagem, esta tela passa a exibir as notas automaticamente, sem nenhuma alteração.';
 
-// useResource só é instanciado quando há recurso real; nunca passamos `undefined`.
+// useResource só é instanciado quando há recurso real (nunca passamos undefined).
 const r = invoicesApi
   ? useResource(invoicesApi, { pageSize: 25, sort: { key: 'issuedAt', dir: 'desc' } })
   : null;
@@ -349,10 +369,9 @@ function reload() {
 }
 
 // ---------------------------------------------------------------------------
-// Enums do domínio (situação da NF-e) com rótulos legíveis e TOM explícito.
-// O status-map do kit resolve por substring no masculino (autorizado/rejeitado/
-// enfileirado) e erra o feminino do domínio (autorizada/rejeitada/enfileirada) →
-// passamos :tone explícito para garantir a hierarquia visual de situação.
+// Enum da situação da NF-e — rótulos legíveis e TOM explícito. O status-map do kit
+// casa por substring no masculino (autorizado/rejeitado/enfileirado) e erra o feminino
+// do domínio; por isso passamos :tone explícito para travar a hierarquia visual.
 // ---------------------------------------------------------------------------
 const STATUS_LABELS = {
   enfileirada: 'Enfileirada',
@@ -371,8 +390,8 @@ const STATUS_TONE = {
 const labelFor = (v) => STATUS_LABELS[v] || format.humanize(v);
 const toneFor = (v) => STATUS_TONE[v] || null; // null → kit resolve por palavra-chave
 
-// O backend pode serializar em snake_case (order_id, issued_at) ou camelCase
-// (orderId, issuedAt). Lemos de forma tolerante sem inventar dados.
+// O backend pode serializar em snake_case (order_id, issued_at) ou camelCase.
+// Leitura tolerante, sem inventar dados.
 const pick = (row, ...keys) => {
   for (const k of keys) {
     if (row && row[k] !== undefined && row[k] !== null && row[k] !== '') return row[k];
@@ -382,16 +401,17 @@ const pick = (row, ...keys) => {
 const orderIdOf = (row) => pick(row, 'orderId', 'order_id');
 const invoiceNumber = (row) => pick(row, 'number', 'nfe_number', 'numero');
 const protocolOf = (row) => pick(row, 'protocol', 'protocolo');
-const receiptOf = (row) => pick(row, 'receipt', 'recibo');
-const issuedAtOf = (row) => pick(row, 'issuedAt', 'issued_at', 'created_at', 'createdAt');
+const issuedAtOf = (row) => pick(row, 'issuedAt', 'issued_at', 'createdAt', 'created_at');
 const attemptsOf = (row) => {
   const a = pick(row, 'attempts', 'tentativas');
   return a == null ? 0 : Number(a);
 };
+// Chave estável por linha (id real do backend ou, na falta, o pedido) — usada como
+// row-key da tabela e como alvo do estado de "ocupado" por ação.
+const keyOf = (row) => (row && row.id != null ? row.id : orderIdOf(row) || invoiceNumber(row) || '');
 
 // ---------------------------------------------------------------------------
-// Colunas. `number`, `protocol`, `attempts` e `issuedAt` usam slots p/ render
-// rico; status vira badge; total formata moeda.
+// Colunas. number/protocol/status/total/attempts/issuedAt usam slots ou format.
 // ---------------------------------------------------------------------------
 const columns = [
   { key: 'number', label: 'Número / Pedido', sortable: true },
@@ -404,8 +424,8 @@ const columns = [
 ];
 
 // ---------------------------------------------------------------------------
-// Filtros estruturados. `q` (busca) e `status` vão ao servidor; o intervalo de
-// datas é refinado no cliente sobre as linhas REAIS, com aviso visível.
+// Filtros estruturados. q (busca) e status vão ao SERVIDOR; o período (from/to)
+// é refinado no cliente sobre as linhas REAIS da página, com aviso visível.
 // ---------------------------------------------------------------------------
 const STATUS_OPTIONS = [
   { value: 'enfileirada', label: 'Enfileirada' },
@@ -442,15 +462,14 @@ function onPageSize(size) {
 }
 
 // ---------------------------------------------------------------------------
-// Linhas da página atual (server-mode). Tudo derivado disto é, por definição,
-// ESCOPO DA PÁGINA — rotulado honestamente como tal nos KPIs/summary.
+// Linhas da página (server-mode). Garantimos uma rowKey estável para o DataTable
+// (algumas notas podem chegar sem `id`), sem mutar o objeto original do backend.
 // ---------------------------------------------------------------------------
-const pageRows = computed(() => (r ? r.items.value : []));
+const pageRows = computed(() =>
+  (r ? r.items.value : []).map((row, i) => ({ ...row, rowKey: keyOf(row) || 'row-' + i })),
+);
 
-// ---------------------------------------------------------------------------
-// Chips de situação (FilterChips): sincronizados com o filtro de status do
-// servidor. Clicar alterna; contagens vêm das linhas REAIS da página.
-// ---------------------------------------------------------------------------
+// FilterChips — alterna o filtro de situação do servidor; contagens das linhas reais.
 const activeStatus = computed(() => filters.value.status || '');
 const statusChips = computed(() => {
   const rows = pageRows.value;
@@ -468,10 +487,11 @@ function toggleStatusChip(value) {
   applyFilters();
 }
 
-// ---------------------------------------------------------------------------
-// Refino local por intervalo de datas, sobre a página carregada.
-// ---------------------------------------------------------------------------
+// Refino local por período, sobre a página carregada.
 const hasLocalFilter = computed(() => !!(filters.value.from || filters.value.to));
+const hasAnyFilter = computed(
+  () => hasLocalFilter.value || !!activeStatus.value || !!filters.value.q,
+);
 const filteredRows = computed(() => {
   const f = filters.value;
   const fromTs = f.from ? new Date(f.from + 'T00:00:00').getTime() : null;
@@ -487,15 +507,13 @@ const filteredRows = computed(() => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// KPIs derivados das linhas reais exibidas (escopo HONESTO: nesta página).
-// ---------------------------------------------------------------------------
+// KPIs derivados das linhas exibidas (escopo honesto: nesta página).
 const kpis = computed(() => {
   const rows = filteredRows.value;
   const by = (v) => rows.filter((x) => x.status === v).length;
   return {
     autorizada: by('autorizada'),
-    emProcessamento: by('processando') + by('enfileirada'),
+    processando: by('processando') + by('enfileirada'),
     rejeitada: by('rejeitada'),
     dlq: by('dlq'),
   };
@@ -505,31 +523,28 @@ const resultSummary = computed(() => {
   if (r.loading.value) return 'Carregando…';
   const shown = filteredRows.value.length;
   if (!r.total.value) return 'Nenhuma nota emitida';
-  if (hasLocalFilter.value) return shown + ' de ' + pageRows.value.length + ' nesta página (filtro local)';
+  if (hasLocalFilter.value) return shown + ' de ' + pageRows.value.length + ' nesta página (filtro de período)';
   return shown + ' nesta página · ' + r.total.value + ' no total';
 });
 const emptyState = computed(() =>
-  hasLocalFilter.value || activeStatus.value
-    ? { title: 'Nenhuma nota no filtro', description: 'Ajuste a situação, a busca ou o período.', icon: '🔍' }
-    : { title: 'Nenhuma NF-e ainda', description: 'As notas fiscais aparecerão aqui assim que forem emitidas pela loja.', icon: '🧾' },
+  hasAnyFilter.value
+    ? { title: 'Nenhuma nota no filtro', description: 'Ajuste a situação, a busca ou o período.', icon: 'search' }
+    : { title: 'Nenhuma NF-e ainda', description: 'As notas fiscais aparecerão aqui assim que forem emitidas pela loja.', icon: 'doc' },
 );
 
-// ---------------------------------------------------------------------------
-// Tentativas: destaque quando há retentativas acumuladas.
-// ---------------------------------------------------------------------------
+// Tentativas: destaca retentativas acumuladas.
 const attemptsClass = (row) => (attemptsOf(row) > 1 ? 'inv-attempts inv-attempts-hot' : 'inv-attempts');
 
 // ---------------------------------------------------------------------------
-// Download de XML (DownloadXmlLink). Honesto: só baixa quando a linha carrega
-// o conteúdo XML real (campo `xml`). O backend de lista realisticamente NÃO
-// embute o XML por linha (custo) — quando a esteira expuser GET /v1/invoices/:id/xml,
-// trocar por <a :href> para a rota dedicada. Até lá, mantemos o indicador "XML —".
+// DownloadXmlLink. Honesto: só baixa quando a linha carrega o XML real (campo `xml`).
+// A listagem realisticamente não embute o XML por linha (custo); até a esteira expor
+// uma rota de download dedicada, mostramos o indicador "XML —" com o motivo.
 // ---------------------------------------------------------------------------
 const hasXml = (row) => typeof (row && row.xml) === 'string' && row.xml.length > 0;
 const xmlHint = (row) =>
   row && row.status === 'autorizada'
     ? 'XML completo indisponível na listagem; abra o detalhe ou aguarde a rota de download.'
-    : 'XML disponível apenas após a autorização da SEFAZ.';
+    : 'O XML fica disponível apenas após a autorização da SEFAZ.';
 
 function downloadXml(row) {
   if (!hasXml(row)) {
@@ -537,7 +552,7 @@ function downloadXml(row) {
     return;
   }
   try {
-    const name = 'nfe-' + (invoiceNumber(row) || orderIdOf(row) || row.id) + '.xml';
+    const name = 'nfe-' + (invoiceNumber(row) || orderIdOf(row) || keyOf(row)) + '.xml';
     const blob = new Blob([row.xml], { type: 'application/xml;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -554,8 +569,9 @@ function downloadXml(row) {
 }
 
 // ---------------------------------------------------------------------------
-// Detalhe (GET /v1/invoices/:id quando disponível). Fonte única de detalhe
-// desta tela (não há rota /invoices/:id registrada no router).
+// Detalhe rápido (modal). Refina com api.invoices.get quando existir; senão usa
+// a linha já carregada. "Abrir página" navega para /invoices/:id (rota de domínio),
+// passando a nota via router state — contrato lido pela InvoiceDetailView.
 // ---------------------------------------------------------------------------
 const detailOpen = ref(false);
 const detail = ref(null);
@@ -563,12 +579,12 @@ const detailLoading = ref(false);
 const detailError = ref('');
 let lastDetailId = null;
 const detailTitle = computed(() =>
-  detail.value ? 'NF-e ' + (invoiceNumber(detail.value) || detail.value.id) : 'Nota fiscal',
+  detail.value ? 'NF-e ' + (invoiceNumber(detail.value) || 'do pedido ' + (orderIdOf(detail.value) || '—')) : 'Nota fiscal',
 );
 
 async function openDetail(row) {
   detailOpen.value = true;
-  lastDetailId = row.id;
+  lastDetailId = row.id != null ? row.id : null;
   detail.value = row; // mostra o que já temos; refina com o get se houver
   detailError.value = '';
   if (!invoicesApi || typeof invoicesApi.get !== 'function' || row.id == null) return;
@@ -584,42 +600,58 @@ async function openDetail(row) {
 function reloadDetail() {
   if (lastDetailId != null) openDetail({ id: lastDetailId });
 }
+function openDetailPage(row) {
+  if (!row) return;
+  const id = row.id != null ? String(row.id) : orderIdOf(row) || invoiceNumber(row);
+  if (!id) {
+    toast.warning('Sem identificador para abrir a página da nota.');
+    return;
+  }
+  router.push({ name: 'invoice', params: { id: String(id) }, state: { invoice: { ...row } } });
+}
+function goToOrder(row) {
+  const oid = orderIdOf(row);
+  if (!oid) return;
+  router.push({ name: 'order', params: { id: String(oid) } });
+}
 
 // ---------------------------------------------------------------------------
-// Reprocessar (ação sensível): só para rejeitadas/DLQ. Confirmação + reemissão
-// real via POST /v1/invoices. Preferimos api.store.emitInvoice (rota REAL e
-// canônica do contrato); se um client futuro expuser invoices.create, usamos.
+// Reprocessar (AÇÃO SENSÍVEL): só para rejeitadas/DLQ. Confirmação (useConfirm) +
+// reemissão REAL via POST /v1/invoices (api.invoices.reprocess/emit; fallback store).
 // ---------------------------------------------------------------------------
 const REPROCESSABLE = new Set(['rejeitada', 'dlq']);
 const canReemit =
-  (api.store && typeof api.store.emitInvoice === 'function') ||
-  (invoicesApi && typeof invoicesApi.create === 'function');
+  (api.invoices && typeof api.invoices.reprocess === 'function') ||
+  (api.invoices && typeof api.invoices.emit === 'function') ||
+  (api.store && typeof api.store.emitInvoice === 'function');
 const canReprocess = (row) => REPROCESSABLE.has(row && row.status) && canReemit;
 
 const busyId = ref(null);
 async function reprocess(row) {
   if (!canReprocess(row)) return;
+  const orderId = orderIdOf(row) || row.id;
   const ok = await confirm({
     title: 'Reprocessar emissão',
     message:
       'Reenviar a NF-e do pedido ' +
-      (orderIdOf(row) || row.id) +
+      (orderId || '—') +
       ' para a SEFAZ? Uma nova tentativa de emissão será disparada.',
     confirmLabel: 'Reprocessar',
     danger: true,
   });
   if (!ok) return;
-  busyId.value = row.id;
+  busyId.value = keyOf(row);
   try {
-    const orderId = orderIdOf(row) || row.id;
     const total = Number(row.total) || 0;
-    if (api.store && typeof api.store.emitInvoice === 'function') {
-      await api.store.emitInvoice(orderId, total);
+    if (api.invoices && typeof api.invoices.reprocess === 'function') {
+      await api.invoices.reprocess(orderId, total);
+    } else if (api.invoices && typeof api.invoices.emit === 'function') {
+      await api.invoices.emit(orderId, total);
     } else {
-      await invoicesApi.create({ orderId, total });
+      await api.store.emitInvoice(orderId, total);
     }
-    toast.success('Reprocessamento da NF-e do pedido ' + orderId + ' disparado.');
-    if (detail.value && detail.value.id === row.id) detailOpen.value = false;
+    toast.success('Reprocessamento da NF-e do pedido ' + (orderId || '—') + ' disparado.');
+    if (detail.value && keyOf(detail.value) === keyOf(row)) detailOpen.value = false;
     if (r) await r.refresh();
   } catch (e) {
     toast.error('Falha ao reprocessar', { detail: e.message, code: e.status ? 'HTTP ' + e.status : '' });
@@ -689,6 +721,7 @@ onMounted(() => {
   display: flex;
   gap: var(--ui-space-2);
   flex-wrap: wrap;
+  align-items: center;
 }
 .inv-chip {
   display: inline-flex;
@@ -703,7 +736,7 @@ onMounted(() => {
   background: rgb(var(--ui-surface));
   color: rgb(var(--ui-fg));
   cursor: pointer;
-  transition: background .15s ease, border-color .15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 .inv-chip:hover {
   background: rgb(var(--ui-surface-2));
@@ -737,6 +770,10 @@ onMounted(() => {
   color: rgb(var(--ui-accent-strong));
   background: rgb(var(--ui-accent) / 0.16);
 }
+.inv-chip-clear {
+  color: rgb(var(--ui-muted));
+  border-style: dashed;
+}
 
 /* Células */
 .inv-id {
@@ -746,7 +783,6 @@ onMounted(() => {
 }
 .inv-id-number {
   font-weight: 600;
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 .inv-id-order {
   font-size: var(--ui-text-xs);
@@ -779,7 +815,7 @@ onMounted(() => {
   cursor: default;
 }
 
-/* Detalhe */
+/* Detalhe (modal) */
 .inv-detail {
   display: grid;
   gap: var(--ui-space-1);

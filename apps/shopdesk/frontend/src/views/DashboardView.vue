@@ -1,11 +1,20 @@
 <!--
-  DashboardView — Painel da loja (ShopDesk)
-  Visão geral: receita (hoje/mês/ano), pedidos, ticket médio, estoque crítico e fila de NF-e.
+  DashboardView — Painel inicial do lojista (ShopDesk)
+  Ref: REQ-SHOPDESK-0005, REQ-SHOPDESK-0001
+  Visão geral: receita (hoje/mês/ano), nº de pedidos, ticket médio, estoque crítico,
+  fila de NF-e e atalhos. Cards de KPI + mini-gráfico de vendas + pedidos recentes + estoque baixo.
 
   Contrato de UI: usa SÓ o kit ui-vue, SÓ tokens --ui-*; sem style inline / :style / v-html;
-  todos os estados (loading/empty/error/normal); endpoints REAIS via ../api.js
-  (orders -> /v1/orders, inventory -> /v1/inventory, reorders -> POST /v1/reorders,
-   healthJobs -> GET /v1/health/jobs, health -> GET /health). Ações via useForm + useConfirm + toast.
+  todos os estados (loading/empty/error/normal); endpoints REAIS via ../api.js:
+    api.orders.list   -> GET /v1/orders
+    api.inventory.list-> GET /v1/inventory
+    api.reorders.create-> POST /v1/reorders   (ação de reposição)
+    api.healthJobs    -> GET /v1/health/jobs   (fila de NF-e / jobs)
+    api.health        -> GET /health            (saúde da API)
+  Ações destrutivas/efetivas via useConfirm + toast (sucesso/erro).
+
+  Roteamento de DOMÍNIO apenas: cards e atalhos vão para /orders, /inventory,
+  /reorders, /invoices, /products, /ai.
 
   Honestidade dos números: o backend ainda não expõe agregação canônica (ex.: /v1/orders/summary),
   então a receita é computada no cliente sobre uma AMOSTRA dos pedidos mais recentes (SAMPLE_SIZE).
@@ -27,21 +36,22 @@
         <template #icon-left><span aria-hidden="true">↻</span></template>
         Atualizar
       </UiButton>
-      <UiButton to="/records" size="sm">Ver registros</UiButton>
+      <UiButton to="/orders/new" size="sm">Registrar venda</UiButton>
     </template>
 
     <!-- Banner de saúde da API / fila -->
     <template #banner>
-      <div class="dash-banner" :data-tone="apiOnline ? 'ok' : 'error'" role="status">
+      <div class="dash-banner" :data-tone="bannerTone" role="status">
         <span class="dash-banner-dot" aria-hidden="true" />
         <span class="dash-banner-text">
           <strong v-if="apiOnline">API no ar.</strong>
           <strong v-else>API indisponível.</strong>
-          <span v-if="apiOnline && jobsTotal > 0"> {{ jobsTotal }} {{ jobsTotal === 1 ? 'tarefa' : 'tarefas' }} na fila de processamento.</span>
+          <span v-if="apiOnline && jobsDlq > 0"> {{ jobsDlq }} {{ jobsDlq === 1 ? 'nota com erro' : 'notas com erro' }} na fila fiscal (DLQ).</span>
+          <span v-else-if="apiOnline && jobsTotal > 0"> {{ jobsTotal }} {{ jobsTotal === 1 ? 'tarefa' : 'tarefas' }} na fila de processamento.</span>
           <span v-else-if="apiOnline"> Nenhuma tarefa pendente na fila.</span>
           <span v-else> Não foi possível falar com o backend — tente novamente.</span>
         </span>
-        <span class="dash-banner-updated ui-muted" v-if="lastUpdatedLabel">Atualizado {{ lastUpdatedLabel }}</span>
+        <span v-if="lastUpdatedLabel" class="dash-banner-updated ui-muted">Atualizado {{ lastUpdatedLabel }}</span>
       </div>
     </template>
 
@@ -59,6 +69,7 @@
         :value="kpis.revenueMonth"
         :loading="ordersLoading"
         tone="success"
+        :trend="ordersError ? null : revenueTrend"
         :hint="ordersError ? 'Pedidos indisponíveis' : revenueHint(monthLabel)"
       />
       <UiMetricCard
@@ -72,28 +83,32 @@
         :value="kpis.orderCount"
         :loading="ordersLoading"
         clickable
-        :hint="ordersError ? 'Pedidos indisponíveis' : (capped ? 'Amostra recente · clique para detalhar' : 'Total no período · clique para detalhar')"
-        @click="goRecords"
+        :hint="ordersError ? 'Pedidos indisponíveis' : (capped ? 'Amostra recente · ver pedidos' : 'Total no período · ver pedidos')"
+        @click="goOrders"
       />
       <UiMetricCard
         label="Ticket médio"
         :value="kpis.avgTicket"
         :loading="ordersLoading"
-        hint="Receita do mês ÷ pedidos pagos do mês"
+        :hint="ordersError ? 'Pedidos indisponíveis' : 'Receita do mês ÷ pedidos pagos do mês'"
       />
       <UiMetricCard
         label="Estoque crítico"
         :value="kpis.criticalStock"
         :loading="inventoryLoading"
+        clickable
         :tone="kpis.criticalStockRaw > 0 ? 'warning' : 'neutral'"
-        :hint="inventoryError ? 'Estoque indisponível' : 'SKUs abaixo do ponto de reposição'"
+        :hint="inventoryError ? 'Estoque indisponível' : 'SKUs abaixo do ponto de reposição · ver estoque'"
+        @click="goInventory"
       />
       <UiMetricCard
         label="Fila de NF-e"
         :value="kpis.invoiceQueue"
         :loading="jobsLoading"
+        clickable
         :tone="jobsDlq > 0 ? 'error' : (invoiceQueueRaw > 0 ? 'running' : 'neutral')"
-        :hint="jobsDlq > 0 ? (jobsDlq + ' em erro (DLQ)') : 'Notas aguardando emissão'"
+        :hint="jobsDlq > 0 ? (jobsDlq + ' em erro (DLQ) · ver notas') : 'Notas aguardando emissão · ver notas'"
+        @click="goInvoices"
       />
       <UiMetricCard
         label="Saúde da API"
@@ -108,10 +123,11 @@
       <UiCard title="Vendas dos últimos 14 dias" subtitle="Receita diária de pedidos pagos">
         <template #actions>
           <UiStatusBadge
-            v-if="!ordersLoading && !ordersError"
+            v-if="!ordersLoading && !ordersError && salesMax > 0"
             :status="salesTrendTone"
             :label="salesTrendLabel"
           />
+          <UiButton to="/orders" variant="ghost" size="sm">Ver pedidos</UiButton>
         </template>
 
         <UiLoadingState v-if="ordersLoading" variant="skeleton" :skeleton-lines="4" />
@@ -123,7 +139,7 @@
         />
         <UiEmptyState
           v-else-if="!salesSeries.length || salesMax === 0"
-          icon="📈"
+          icon="chart"
           title="Sem vendas no período"
           description="Quando houver pedidos pagos, o gráfico de receita aparece aqui."
         >
@@ -182,42 +198,57 @@
         />
         <UiEmptyState
           v-else-if="!lowStock.length"
-          icon="✓"
+          icon="check"
           title="Estoque saudável"
           description="Nenhum item abaixo do ponto de reposição. Bom trabalho!"
-        />
-        <ul v-else class="dash-lowstock">
-          <li v-for="it in lowStock" :key="it.id" class="dash-lowstock-item">
-            <div class="dash-lowstock-main">
-              <span class="dash-lowstock-name">{{ it.product_name || it.sku }}</span>
-              <span class="dash-lowstock-sku ui-mono ui-muted">{{ it.sku }}</span>
-            </div>
-            <div class="dash-lowstock-qty">
-              <span class="dash-lowstock-num" :data-zero="Number(it.quantity) <= 0 ? 'true' : null">
-                {{ format.formatNumber(it.quantity) }}
-              </span>
-              <span class="dash-lowstock-of ui-muted">/ {{ format.formatNumber(it.reorder_point) }}</span>
-            </div>
-            <UiStatusBadge
-              :status="stockStatus(it)"
-              :label="Number(it.quantity) <= 0 ? 'Esgotado' : 'Baixo'"
-              size="sm"
-            />
-            <UiButton
-              size="sm"
-              variant="subtle"
-              :aria-label="'Repor ' + (it.product_name || it.sku)"
-              @click="openReorder(it)"
-            >Repor</UiButton>
-          </li>
-        </ul>
+        >
+          <template #action><UiButton to="/inventory" variant="subtle" size="sm">Ver estoque</UiButton></template>
+        </UiEmptyState>
+        <template v-else>
+          <ul class="dash-lowstock">
+            <li v-for="it in lowStock" :key="it.id || it.sku" class="dash-lowstock-item">
+              <button
+                class="dash-lowstock-main"
+                type="button"
+                :aria-label="'Abrir estoque de ' + (it.product_name || it.sku)"
+                @click="goInventoryItem(it)"
+              >
+                <span class="dash-lowstock-name">{{ it.product_name || it.sku }}</span>
+                <span class="dash-lowstock-sku ui-mono ui-muted">{{ it.sku }}</span>
+              </button>
+              <div class="dash-lowstock-qty">
+                <span class="dash-lowstock-num" :data-zero="Number(it.quantity) <= 0 ? 'true' : null">
+                  {{ format.formatNumber(it.quantity) }}
+                </span>
+                <span class="dash-lowstock-of ui-muted">/ {{ format.formatNumber(it.reorder_point) }}</span>
+              </div>
+              <UiStatusBadge
+                :status="stockStatus(it)"
+                :label="Number(it.quantity) <= 0 ? 'Esgotado' : 'Baixo'"
+                size="sm"
+              />
+              <UiButton
+                size="sm"
+                variant="subtle"
+                :aria-label="'Repor ' + (it.product_name || it.sku)"
+                @click="openReorder(it)"
+              >Repor</UiButton>
+            </li>
+          </ul>
+        </template>
+        <template v-if="lowStock.length" #footer>
+          <div class="dash-card-foot">
+            <span class="ui-muted">{{ lowStock.length }} {{ lowStock.length === 1 ? 'item precisa' : 'itens precisam' }} de atenção</span>
+            <UiButton to="/reorders" variant="ghost" size="sm">Ver reposições</UiButton>
+          </div>
+        </template>
       </UiCard>
     </section>
 
     <!-- ===================== Pedidos recentes ===================== -->
     <UiCard title="Pedidos recentes" subtitle="Últimas movimentações da loja">
       <template #actions>
-        <UiButton to="/records" variant="ghost" size="sm">Ver tudo</UiButton>
+        <UiButton to="/orders" variant="ghost" size="sm">Ver tudo</UiButton>
       </template>
       <UiDataTable
         :columns="orderColumns"
@@ -226,12 +257,14 @@
         :error="ordersError"
         row-key="id"
         density="comfortable"
+        clickable-rows
         :empty="{
           title: 'Nenhum pedido ainda',
           description: 'Os pedidos da sua loja aparecerão aqui assim que chegarem.',
-          icon: '🧾',
+          icon: 'doc',
         }"
         @retry="loadOrders"
+        @row-click="goOrderRow"
       >
         <template #cell-code="{ row }">
           <span class="dash-ordercode ui-mono">{{ row.code || ('#' + row.id) }}</span>
@@ -258,24 +291,24 @@
       <div class="dash-quick-grid">
         <RouterLink class="dash-quick-card" to="/orders/new">
           <span class="dash-quick-ic" aria-hidden="true">🛒</span>
-          <span class="dash-quick-h">Checkout</span>
-          <span class="dash-quick-d ui-muted">Registrar uma venda e cobrar o pedido</span>
+          <span class="dash-quick-h">Registrar venda</span>
+          <span class="dash-quick-d ui-muted">Criar um pedido e cobrar o cliente</span>
         </RouterLink>
-        <RouterLink class="dash-quick-card" to="/records">
-          <span class="dash-quick-ic" aria-hidden="true">📋</span>
-          <span class="dash-quick-h">Registros</span>
-          <span class="dash-quick-d ui-muted">Acompanhar e submeter registros</span>
+        <RouterLink class="dash-quick-card" to="/inventory">
+          <span class="dash-quick-ic" aria-hidden="true">📦</span>
+          <span class="dash-quick-h">Estoque</span>
+          <span class="dash-quick-d ui-muted">Conferir posição e ajustar quantidades</span>
         </RouterLink>
-        <RouterLink class="dash-quick-card" to="/assistant">
+        <RouterLink class="dash-quick-card" to="/invoices">
+          <span class="dash-quick-ic" aria-hidden="true">🧾</span>
+          <span class="dash-quick-h">Notas fiscais</span>
+          <span class="dash-quick-d ui-muted">Acompanhar a fila e emitir NF-e</span>
+        </RouterLink>
+        <RouterLink class="dash-quick-card" to="/ai">
           <span class="dash-quick-ic" aria-hidden="true">🤖</span>
           <span class="dash-quick-h">Assistente</span>
           <span class="dash-quick-d ui-muted">Pedir sugestões para a IA da loja</span>
         </RouterLink>
-        <button class="dash-quick-card" type="button" @click="loadAll(true)">
-          <span class="dash-quick-ic" aria-hidden="true">↻</span>
-          <span class="dash-quick-h">Atualizar painel</span>
-          <span class="dash-quick-d ui-muted">Recarregar os indicadores agora</span>
-        </button>
       </div>
     </section>
 
@@ -466,6 +499,8 @@ const now = new Date();
 const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 const startOfYear = new Date(now.getFullYear(), 0, 1).getTime();
+// mês anterior (para a tendência do KPI de receita do mês).
+const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime();
 
 // pedidos pagos COM data válida (base de toda agregação temporal).
 const paidOrders = computed(() =>
@@ -482,12 +517,29 @@ const revenueMonth = computed(() => monthPaid.value.reduce((s, o) => s + orderTo
 const revenueYear = computed(() =>
   paidOrders.value.filter((o) => orderDate(o).getTime() >= startOfYear).reduce((s, o) => s + orderTotal(o), 0));
 
+// receita do mês anterior (mesma janela calendárica) — só para a seta de tendência.
+const revenuePrevMonth = computed(() =>
+  paidOrders.value
+    .filter((o) => { const t = orderDate(o).getTime(); return t >= startOfPrevMonth && t < startOfMonth; })
+    .reduce((s, o) => s + orderTotal(o), 0));
+// trend %: comparação mês-a-mês. Sem base anterior (0) → null (não mostra seta enganosa).
+const revenueTrend = computed(() => {
+  const prev = revenuePrevMonth.value;
+  if (!prev) return null;
+  return Math.round(((revenueMonth.value - prev) / prev) * 100);
+});
+
 // Ticket médio: MESMA janela (receita do mês ÷ pedidos pagos do mês) — não mistura janelas.
 const avgTicketRaw = computed(() => (monthPaid.value.length ? revenueMonth.value / monthPaid.value.length : 0));
 
 const invoiceQueueRaw = computed(() => (Number(jobs.value.queued) || 0) + (Number(jobs.value.running) || 0));
 const jobsDlq = computed(() => Number(jobs.value.dlq) || 0);
 const jobsTotal = computed(() => Object.values(jobs.value || {}).reduce((s, n) => s + (Number(n) || 0), 0));
+
+const bannerTone = computed(() => {
+  if (!apiOnline.value) return 'error';
+  return jobsDlq.value > 0 ? 'warn' : 'ok';
+});
 
 const lowStock = computed(() =>
   inventory.value
@@ -613,8 +665,12 @@ function stockStatus(it) {
   return Number(it.quantity) <= 0 ? 'esgotado' : 'baixo';
 }
 
-// --- Navegação / ações ---------------------------------------------------
-function goRecords() { router.push('/records'); }
+// --- Navegação (SOMENTE rotas de DOMÍNIO) ----------------
+function goOrders() { router.push('/orders'); }
+function goInventory() { router.push('/inventory'); }
+function goInvoices() { router.push('/invoices'); }
+function goOrderRow(row) { if (row && row.id != null) router.push('/orders/' + row.id); }
+function goInventoryItem(it) { if (it && it.id != null) router.push('/inventory/' + it.id); else router.push('/inventory'); }
 
 // --- Reposição: formulário validado (useForm) + ação real via POST /v1/reorders ----
 function toQty(v) {
@@ -689,9 +745,11 @@ onMounted(() => loadAll(false));
   font-size: var(--ui-text-sm);
 }
 .dash-banner[data-tone="ok"] { border-left-color: rgb(var(--ui-ok)); }
+.dash-banner[data-tone="warn"] { border-left-color: rgb(var(--ui-warn)); }
 .dash-banner[data-tone="error"] { border-left-color: rgb(var(--ui-danger)); }
 .dash-banner-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; background: rgb(var(--ui-faint)); }
 .dash-banner[data-tone="ok"] .dash-banner-dot { background: rgb(var(--ui-ok)); }
+.dash-banner[data-tone="warn"] .dash-banner-dot { background: rgb(var(--ui-warn)); }
 .dash-banner[data-tone="error"] .dash-banner-dot { background: rgb(var(--ui-danger)); }
 .dash-banner-text { color: rgb(var(--ui-fg)); }
 .dash-banner-updated { margin-left: auto; font-size: var(--ui-text-xs); }
@@ -757,13 +815,31 @@ onMounted(() => loadAll(false));
   border-bottom: 1px solid rgb(var(--ui-border));
 }
 .dash-lowstock-item:last-child { border-bottom: none; }
-.dash-lowstock-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
-.dash-lowstock-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-lowstock-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: rgb(var(--ui-fg));
+  cursor: pointer;
+  border-radius: var(--ui-radius-sm);
+}
+.dash-lowstock-main:hover .dash-lowstock-name { color: rgb(var(--ui-accent-strong)); }
+.dash-lowstock-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: color .15s ease; }
 .dash-lowstock-sku { font-size: var(--ui-text-xs); }
 .dash-lowstock-qty { display: flex; align-items: baseline; gap: 3px; flex-shrink: 0; }
 .dash-lowstock-num { font-family: var(--ui-font-display); font-weight: 700; color: rgb(var(--ui-warn)); }
 .dash-lowstock-num[data-zero="true"] { color: rgb(var(--ui-danger)); }
 .dash-lowstock-of { font-size: var(--ui-text-xs); }
+
+/* ---- Rodapé de card ---- */
+.dash-card-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-3); flex-wrap: wrap; }
 
 /* ---- Tabela de pedidos ---- */
 .dash-ordercode { font-weight: 600; }
@@ -827,5 +903,8 @@ onMounted(() => loadAll(false));
   .dash-kpis { grid-template-columns: 1fr; }
   .dash-quick-grid { grid-template-columns: 1fr; }
   .dash-banner-updated { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dash-quick-card:hover { transform: none; }
 }
 </style>

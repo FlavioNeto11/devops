@@ -1,13 +1,21 @@
 <!--
   InventoryDetailView — Posição detalhada de um SKU em estoque (REQ-SHOPDESK-0005).
-  Mostra quantidade, ponto de reposição, local e situação; histórico de movimentação
-  (derivado das reposições do SKU) e atalho para REPOR (cria uma reposição via /v1/reorders).
-  Construída 100% sobre o kit ui-vue (tokens --ui-*), CSP-safe (sem style inline / :style / v-html),
-  com TODOS os estados (loading/empty/error/normal), ação destrutiva via useConfirm, toasts e a11y.
+  DetailHeader (título + ações), banner de situação, FieldGrid (ficha dt/dd da entidade),
+  KPIs (quantidade / ponto de reposição / cobertura / movimentações), MovementHistory
+  (timeline das reposições do SKU com saldo corrente) e ReorderButton (atalho que cria
+  uma reposição via /v1/reorders, com modal + confirmação).
 
-  Endpoints reais (api.js → resourceFactory): api.inventory (/v1/inventory) e api.reorders (/v1/reorders).
-  Se o integrador ainda não tiver exposto esses recursos, a tela degrada com um estado de erro claro
-  (nunca inventa rota nem renderiza tela em branco).
+  100% sobre o kit ui-vue (tokens --ui-*), CSP-safe (sem style inline / :style / v-html),
+  com TODOS os estados (loading/empty/error/normal), ação destrutiva via useConfirm,
+  toasts em sucesso/erro e a11y (labels, aria-*, foco visível, navegação por teclado).
+
+  Endpoints REAIS (api.js → resourceFactory):
+    - api.inventory (/v1/inventory)  → ficha do SKU
+    - api.reorders  (/v1/reorders)   → histórico de movimentação + criar reposição
+    - api.products  (/v1/products)    → enriquece com o produto (preço/categoria) quando casa o SKU
+  Recurso ausente ⇒ degradação graciosa (erro claro / histórico vazio honesto), nunca tela em branco.
+  Todos os links/rotas apontam para o DOMÍNIO de inventário (/inventory, /inventory/:id/adjust),
+  produtos (/products/:id) e reposições (/reorders, /reorders/:id).
 -->
 <template>
   <UiPageLayout
@@ -20,7 +28,7 @@
     :error="loadError"
     @retry="load"
   >
-    <!-- AÇÕES (DetailHeader) -->
+    <!-- DetailHeader — ações -->
     <template #actions>
       <UiButton variant="ghost" to="/inventory">Voltar ao estoque</UiButton>
       <UiButton
@@ -30,13 +38,18 @@
         @click="refresh"
       >Atualizar</UiButton>
       <UiButton
+        v-if="item"
+        variant="subtle"
+        :to="'/inventory/' + itemId + '/adjust'"
+      >Ajustar estoque</UiButton>
+      <UiButton
         variant="primary"
         :disabled="!item"
         @click="openReorder"
       >Repor estoque</UiButton>
     </template>
 
-    <!-- BANNER de situação (ReorderButton em destaque quando abaixo do ponto) -->
+    <!-- Banner de situação (ReorderButton em destaque quando abaixo do ponto) -->
     <template #banner>
       <div
         v-if="item"
@@ -54,7 +67,7 @@
 
     <!-- CONTEÚDO (normal) -->
     <template v-if="item">
-      <!-- KPIs (FieldGrid em forma de métricas) -->
+      <!-- KPIs -->
       <section class="iv-metrics" aria-label="Resumo da posição de estoque">
         <UiMetricCard
           label="Em estoque"
@@ -93,11 +106,24 @@
             <dl class="iv-dl">
               <div class="iv-dl-row">
                 <dt>SKU</dt>
-                <dd class="ui-mono">{{ item.sku || '—' }}</dd>
+                <dd class="iv-copy">
+                  <span class="ui-mono">{{ item.sku || '—' }}</span>
+                  <UiButton
+                    v-if="item.sku"
+                    variant="ghost"
+                    size="sm"
+                    @click="copy(item.sku, 'SKU')"
+                  >Copiar</UiButton>
+                </dd>
               </div>
               <div class="iv-dl-row">
                 <dt>Produto</dt>
-                <dd>{{ item.product_name || '—' }}</dd>
+                <dd>
+                  <RouterLink v-if="linkedProductId != null" :to="'/products/' + linkedProductId" class="iv-link">
+                    {{ item.product_name || '—' }}
+                  </RouterLink>
+                  <span v-else>{{ item.product_name || '—' }}</span>
+                </dd>
               </div>
               <div class="iv-dl-row">
                 <dt>Quantidade</dt>
@@ -115,6 +141,13 @@
                 <dd>
                   <span v-if="item.location" class="ui-mono">{{ item.location }}</span>
                   <span v-else class="ui-muted">não informado</span>
+                </dd>
+              </div>
+              <div v-if="linkedProduct && linkedProduct.price != null" class="iv-dl-row">
+                <dt>Valor em estoque</dt>
+                <dd>
+                  <strong>{{ fmtCurrency(stockValue) }}</strong>
+                  <span class="ui-muted iv-unit"> ({{ fmtCurrency(linkedProduct.price) }}/un.)</span>
                 </dd>
               </div>
               <div class="iv-dl-row">
@@ -151,7 +184,7 @@
             </template>
           </UiCard>
 
-          <!-- MovementHistory — histórico de movimentação (reposições do SKU) -->
+          <!-- MovementHistory — histórico de movimentação (reposições do SKU, saldo corrente) -->
           <UiCard title="Histórico de movimentação" :subtitle="movementsSubtitle">
             <template #actions>
               <UiButton
@@ -178,7 +211,12 @@
                 <span class="iv-tl-dot" aria-hidden="true" />
                 <div class="iv-tl-body">
                   <div class="iv-tl-head">
-                    <span class="iv-tl-title">{{ mv.title }}</span>
+                    <RouterLink
+                      v-if="mv.reorderId != null"
+                      :to="'/reorders/' + mv.reorderId"
+                      class="iv-tl-title iv-link"
+                    >{{ mv.title }}</RouterLink>
+                    <span v-else class="iv-tl-title">{{ mv.title }}</span>
                     <UiStatusBadge v-if="mv.status" :status="mv.status" size="sm" />
                   </div>
                   <p v-if="mv.detail" class="iv-tl-detail">{{ mv.detail }}</p>
@@ -189,8 +227,8 @@
             <UiEmptyState
               v-else
               title="Sem movimentação registrada"
-              description="Este SKU ainda não teve reposições. Crie a primeira reposição para começar o histórico."
-              icon="📦"
+              description="Este SKU ainda não teve reposições. Crie a primeira para começar o histórico de movimentação."
+              icon="package"
             >
               <template #action>
                 <UiButton variant="subtle" @click="openReorder">Repor estoque</UiButton>
@@ -204,7 +242,7 @@
           <!-- Recomendação de reposição -->
           <UiCard title="Reposição" subtitle="Sugestão baseada no ponto de reposição">
             <dl class="iv-dl">
-              <div class="iv-dl-row">
+              <div class="iv-dl-row iv-dl-row--tight">
                 <dt>Recomendação</dt>
                 <dd>
                   <UiStatusBadge
@@ -213,22 +251,30 @@
                   />
                 </dd>
               </div>
-              <div class="iv-dl-row">
+              <div class="iv-dl-row iv-dl-row--tight">
                 <dt>Déficit</dt>
-                <dd>{{ deficit > 0 ? fmtNumber(deficit) + ' unidade(s)' : '—' }}</dd>
+                <dd>{{ deficit > 0 ? fmtNumber(deficit) + ' un.' : '—' }}</dd>
               </div>
-              <div class="iv-dl-row">
+              <div class="iv-dl-row iv-dl-row--tight">
                 <dt>Qtd. sugerida</dt>
-                <dd>{{ suggestedQty > 0 ? fmtNumber(suggestedQty) : '—' }}</dd>
+                <dd>{{ suggestedQty > 0 ? fmtNumber(suggestedQty) + ' un.' : '—' }}</dd>
+              </div>
+              <div v-if="pendingCount" class="iv-dl-row iv-dl-row--tight">
+                <dt>Em trânsito</dt>
+                <dd>{{ fmtNumber(pendingQty) }} un. · {{ pendingCount }} pedido(s)</dd>
               </div>
             </dl>
+            <p class="iv-side-note ui-muted">{{ reorderAdvice }}</p>
             <template #footer>
               <UiButton variant="primary" block @click="openReorder">Repor estoque</UiButton>
             </template>
           </UiCard>
 
-          <!-- Reposições em aberto deste SKU -->
+          <!-- Pedidos de reposição deste SKU -->
           <UiCard title="Pedidos de reposição" subtitle="Solicitações vinculadas ao SKU">
+            <template #actions>
+              <UiButton variant="ghost" size="sm" to="/reorders">Ver todas</UiButton>
+            </template>
             <UiLoadingState v-if="movementsLoading" variant="skeleton" :skeleton-lines="3" />
             <UiDataTable
               v-else
@@ -236,12 +282,18 @@
               :rows="movements"
               row-key="key"
               density="compact"
+              clickable-rows
               :empty="{
                 title: 'Nenhuma reposição',
                 description: 'Sem pedidos de reposição para este SKU.',
               }"
+              @row-click="openReorderRow"
             >
               <template #cell-quantity="{ value }">{{ fmtNumber(value) }}</template>
+              <template #cell-status="{ value }"><UiStatusBadge :status="value" size="sm" /></template>
+              <template #empty-action>
+                <UiButton variant="subtle" size="sm" @click="openReorder">Repor estoque</UiButton>
+              </template>
             </UiDataTable>
           </UiCard>
         </div>
@@ -253,7 +305,7 @@
       <UiEmptyState
         title="Item de estoque não encontrado"
         description="Não localizamos este SKU no estoque. Ele pode ter sido removido ou o endereço está incorreto."
-        icon="🔍"
+        icon="search"
       >
         <template #action>
           <UiButton to="/inventory">Ver todo o estoque</UiButton>
@@ -275,13 +327,15 @@
           :error="reorderErrors.quantity"
           hint="Número de unidades a solicitar ao fornecedor."
         >
-          <template #default="{ id, describedBy }">
+          <template #default="{ id, describedBy, hasError }">
             <input
               :id="id"
               v-model="reorderForm.quantity"
               :aria-describedby="describedBy"
+              :aria-invalid="hasError ? 'true' : null"
               type="number"
               min="1"
+              step="1"
               inputmode="numeric"
             />
           </template>
@@ -312,7 +366,7 @@
 
 <script setup>
 import { ref, reactive, computed, watch, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter, RouterLink } from 'vue-router';
 import {
   UiPageLayout,
   UiCard,
@@ -334,17 +388,21 @@ import {
 import * as api from '../api.js';
 
 const route = useRoute();
+const router = useRouter();
 const toast = useToast();
 const confirm = useConfirm();
 
 const fmtNumber = (v) => format.formatNumber(v);
 const fmtDateTime = (v) => format.formatDateTime(v);
+const fmtCurrency = (v) => format.formatCurrency(v);
 
 // ---- estado base ----
 const item = ref(null);
 const loading = ref(false);
 const loadError = ref('');
 const refreshing = ref(false);
+
+const linkedProduct = ref(null); // produto correlacionado pelo SKU (enriquece a ficha)
 
 const movements = ref([]);
 const movementsLoading = ref(false);
@@ -358,12 +416,14 @@ const reorderErrors = reactive({ quantity: '', supplier: '' });
 const itemId = computed(() => route.params.id);
 
 // ---- acesso à API (recursos reais; degradação graciosa) ----------------------
-// O integrador expõe api.inventory / api.reorders (resourceFactory → /v1/inventory, /v1/reorders).
 function inventoryResource() {
   return api.inventory && typeof api.inventory.get === 'function' ? api.inventory : null;
 }
 function reorderResource() {
   return api.reorders && typeof api.reorders.list === 'function' ? api.reorders : null;
+}
+function productResource() {
+  return api.products && typeof api.products.list === 'function' ? api.products : null;
 }
 
 function unwrap(r) {
@@ -373,6 +433,22 @@ function unwrapList(r) {
   if (Array.isArray(r)) return r;
   if (r && Array.isArray(r.data)) return r.data;
   return [];
+}
+
+// ---- copiar (clipboard com fallback honesto) --------------------------------
+async function copy(value, what) {
+  const text = String(value == null ? '' : value);
+  if (!text) return;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      toast.success('Copiado: ' + (what || 'valor') + '.');
+      return;
+    }
+    throw new Error('clipboard indisponível');
+  } catch {
+    toast.info('Copie manualmente o ' + (what || 'valor') + ': ' + text);
+  }
 }
 
 // ---- carregamento -----------------------------------------------------------
@@ -387,7 +463,10 @@ async function load() {
   }
   try {
     item.value = unwrap(await inv.get(itemId.value));
-    if (item.value) loadMovements();
+    if (item.value) {
+      loadMovements();
+      loadLinkedProduct();
+    }
   } catch (e) {
     if (e && e.status === 404) {
       item.value = null; // estado "não encontrado"
@@ -405,7 +484,7 @@ async function refresh() {
   const inv = inventoryResource();
   try {
     if (inv) item.value = unwrap(await inv.get(itemId.value));
-    await loadMovements();
+    await Promise.all([loadMovements(), loadLinkedProduct()]);
     toast.success('Posição de estoque atualizada.');
   } catch (e) {
     toast.error('Não foi possível atualizar.', { detail: (e && e.message) || '' });
@@ -414,13 +493,28 @@ async function refresh() {
   }
 }
 
+// enriquece a ficha com o produto do mesmo SKU (preço/valor em estoque, link p/ /products/:id).
+// Vínculo HONESTO: só casa quando o SKU é idêntico — sem isso, não atribuímos produto.
+async function loadLinkedProduct() {
+  linkedProduct.value = null;
+  const prods = productResource();
+  const sku = item.value ? item.value.sku : null;
+  if (!prods || !sku) return;
+  try {
+    const all = unwrapList(await prods.list({ q: sku, pageSize: 50 }));
+    linkedProduct.value =
+      all.find((p) => p && String(p.sku || '').trim() === String(sku).trim()) || null;
+  } catch {
+    linkedProduct.value = null; // enriquecimento é best-effort; nunca derruba a tela
+  }
+}
+
 async function loadMovements() {
   movementsLoading.value = true;
   movementsError.value = '';
   const reord = reorderResource();
   if (!reord) {
-    // sem recurso de reposições: histórico vazio honesto (não é erro fatal da tela)
-    movements.value = [];
+    movements.value = []; // histórico vazio honesto (não é erro fatal da tela)
     movementsLoading.value = false;
     return;
   }
@@ -445,19 +539,21 @@ async function loadMovements() {
 
 function toMovement(r) {
   const qty = r.quantity != null ? r.quantity : 0;
+  const status = r.status || 'rascunho';
   return {
     key: r.id != null ? 'r' + r.id : 'r' + Math.random().toString(36).slice(2),
+    reorderId: r.id != null ? r.id : null,
     title: 'Reposição +' + fmtNumber(qty),
     quantity: qty,
-    supplier: r.supplier || '',
-    status: r.status || 'rascunho',
+    supplier: r.supplier || '—',
+    status,
     detail: r.supplier ? 'Fornecedor: ' + r.supplier : 'Sem fornecedor definido',
     at: r.created_at || r.updated_at || null,
-    tone: resolveTone(r.status),
+    tone: resolveTone(status),
   };
 }
 
-// ---- ação: repor estoque (modal + confirmação destrutiva-leve) --------------
+// ---- ação: repor estoque (modal + confirmação) ------------------------------
 function openReorder() {
   if (!item.value) return;
   reorderForm.quantity = String(suggestedQty.value > 0 ? suggestedQty.value : 1);
@@ -465,6 +561,10 @@ function openReorder() {
   reorderErrors.quantity = '';
   reorderErrors.supplier = '';
   reorderOpen.value = true;
+}
+
+function openReorderRow(row) {
+  if (row && row.reorderId != null) router.push('/reorders/' + row.reorderId);
 }
 
 const reorderRules = [
@@ -539,6 +639,15 @@ const hasReorderPoint = computed(
   () => item.value && item.value.reorder_point != null && item.value.reorder_point !== '',
 );
 
+const linkedProductId = computed(() =>
+  linkedProduct.value && linkedProduct.value.id != null ? linkedProduct.value.id : null,
+);
+
+const stockValue = computed(() => {
+  if (!item.value || !linkedProduct.value || linkedProduct.value.price == null) return 0;
+  return Number(linkedProduct.value.price) * Number(item.value.quantity || 0);
+});
+
 // situação canônica: usa o status do item; senão deriva de quantidade × ponto de reposição.
 const situation = computed(() => {
   if (!item.value) return 'ok';
@@ -582,6 +691,27 @@ const suggestedQty = computed(() => {
   }
   const q = Number(item.value.quantity || 0);
   return q <= 0 ? 1 : 0;
+});
+
+// reposições "em trânsito" = solicitadas e ainda não recebidas/canceladas.
+const pendingMovements = computed(() =>
+  movements.value.filter((m) => {
+    const s = String(m.status || '').toLowerCase();
+    return s !== 'recebida' && s !== 'cancelada';
+  }),
+);
+const pendingCount = computed(() => pendingMovements.value.length);
+const pendingQty = computed(() =>
+  pendingMovements.value.reduce((sum, m) => sum + Number(m.quantity || 0), 0),
+);
+
+const reorderAdvice = computed(() => {
+  if (!item.value) return '';
+  if (!needsReorder.value)
+    return 'Nível saudável — sem necessidade de reposição no momento.';
+  if (pendingQty.value > 0)
+    return 'Já há ' + fmtNumber(pendingQty.value) + ' un. em trânsito; avalie antes de pedir mais.';
+  return 'Recomendamos repor ' + (suggestedQty.value > 0 ? fmtNumber(suggestedQty.value) + ' unidade(s).' : 'agora.');
 });
 
 const quantityTone = computed(() => {
@@ -658,20 +788,20 @@ const bannerMessage = computed(() => {
   if (!item.value) return '';
   if (situation.value === 'esgotado') return 'SKU esgotado — reponha o quanto antes.';
   if (needsReorder.value)
-    return 'Estoque abaixo do ponto de reposição — recomende-se repor ' + (suggestedQty.value > 0 ? fmtNumber(suggestedQty.value) + ' unidade(s).' : 'agora.');
+    return 'Estoque abaixo do ponto de reposição — recomenda-se repor ' + (suggestedQty.value > 0 ? fmtNumber(suggestedQty.value) + ' unidade(s).' : 'agora.');
   return 'Estoque em nível saudável.';
 });
 
 const movementsSubtitle = computed(() =>
   movements.value.length
-    ? 'Reposições registradas para este SKU'
+    ? movements.value.length + ' reposição(ões) registrada(s) para este SKU'
     : 'Pedidos de reposição vinculados ao SKU',
 );
 
 const reorderColumns = [
   { key: 'quantity', label: 'Qtd', align: 'right' },
   { key: 'supplier', label: 'Fornecedor' },
-  { key: 'status', label: 'Situação', format: 'badge' },
+  { key: 'status', label: 'Situação' },
 ];
 
 const pageTitle = computed(() => {
@@ -687,6 +817,7 @@ const pageSubtitle = computed(() => {
 watch(itemId, () => {
   movements.value = [];
   movementsError.value = '';
+  linkedProduct.value = null;
   reorderOpen.value = false;
   load();
 });
@@ -741,11 +872,20 @@ onMounted(load);
   padding-bottom: var(--ui-space-2);
   border-bottom: 1px solid rgb(var(--ui-border));
 }
+.iv-dl-row--tight { grid-template-columns: 110px 1fr; }
 .iv-dl-row:last-child { border-bottom: none; padding-bottom: 0; }
 .iv-dl dt { color: rgb(var(--ui-muted)); font-size: var(--ui-text-sm); }
 .iv-dl dd { margin: 0; font-weight: 500; word-break: break-word; }
 .iv-qty { font-family: var(--ui-font-display); font-size: var(--ui-text-lg); }
 .iv-unit { font-weight: 400; font-size: var(--ui-text-sm); }
+.iv-copy { display: flex; align-items: center; gap: var(--ui-space-2); flex-wrap: wrap; }
+
+/* links de domínio */
+.iv-link { color: rgb(var(--ui-accent-strong)); font-weight: 600; text-decoration: none; }
+.iv-link:hover { text-decoration: underline; }
+
+/* nota lateral */
+.iv-side-note { margin: var(--ui-space-3) 0 0; font-size: var(--ui-text-sm); }
 
 /* medidor de estoque (sem style inline: largura por buckets de classe) */
 .iv-foot-row { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-4); flex-wrap: wrap; }
@@ -836,6 +976,6 @@ onMounted(load);
 }
 @media (max-width: 560px) {
   .iv-metrics { grid-template-columns: 1fr; }
-  .iv-dl-row { grid-template-columns: 1fr; gap: 2px; }
+  .iv-dl-row, .iv-dl-row--tight { grid-template-columns: 1fr; gap: 2px; }
 }
 </style>

@@ -9,6 +9,10 @@
   >
     <!-- Ações de cabeçalho -->
     <template #actions>
+      <UiButton variant="ghost" to="/orders">
+        <template #icon-left><span aria-hidden="true">↗</span></template>
+        Pedidos
+      </UiButton>
       <UiButton variant="ghost" :loading="loading" @click="load">
         <template #icon-left><span aria-hidden="true">↻</span></template>
         Atualizar
@@ -33,7 +37,7 @@
       />
     </template>
 
-    <!-- Aviso de fonte: a trilha mantém as últimas cobranças em memória do gateway -->
+    <!-- Aviso de fonte: a trilha mantém as últimas cobranças do gateway -->
     <template #banner>
       <div class="tx-banner" role="note">
         <span class="tx-banner-icon" aria-hidden="true">🛈</span>
@@ -117,7 +121,7 @@
 
         <!-- Tipo de evento -->
         <template #cell-event="{ value }">
-          <span class="tx-event" :data-event="value">
+          <span class="tx-event" :data-event="String(value).toLowerCase()">
             <span class="tx-event-mark" aria-hidden="true">{{ eventIcon(value) }}</span>
             {{ eventLabel(value) }}
           </span>
@@ -166,10 +170,10 @@
           </div>
         </template>
 
-        <!-- Sem resultados após filtro -->
+        <!-- Sem resultados após filtro / trilha vazia -->
         <template #empty-action>
           <UiButton v-if="hasActiveFilter" variant="ghost" @click="onClear">Limpar filtros</UiButton>
-          <UiButton v-else variant="ghost" @click="load">Recarregar trilha</UiButton>
+          <UiButton v-else variant="ghost" to="/orders">Ver pedidos</UiButton>
         </template>
       </UiDataTable>
     </UiCard>
@@ -183,12 +187,17 @@
         </div>
         <div class="tx-detail-row">
           <dt>Pedido</dt>
-          <dd>{{ detail.orderId || 'Não vinculado' }}</dd>
+          <dd>
+            <RouterLink v-if="detail.orderId" class="tx-link" :to="'/orders/' + detail.orderId">
+              {{ detail.orderId }}
+            </RouterLink>
+            <span v-else class="ui-muted">Não vinculado</span>
+          </dd>
         </div>
         <div class="tx-detail-row">
           <dt>Evento</dt>
           <dd>
-            <span class="tx-event" :data-event="detail.event">
+            <span class="tx-event" :data-event="String(detail.event).toLowerCase()">
               <span class="tx-event-mark" aria-hidden="true">{{ eventIcon(detail.event) }}</span>
               {{ eventLabel(detail.event) }}
             </span>
@@ -237,11 +246,11 @@
       />
       <template #footer>
         <UiButton
-          v-if="detail && detail.idempotencyKey"
+          v-if="detail && detail.orderId"
           variant="ghost"
-          @click="copyKey(detail.idempotencyKey)"
+          :to="'/orders/' + detail.orderId"
         >
-          Copiar Idempotency-Key
+          Abrir pedido
         </UiButton>
         <UiButton variant="primary" @click="detailOpen = false">Fechar</UiButton>
       </template>
@@ -251,6 +260,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { RouterLink } from 'vue-router';
 import {
   UiPageLayout,
   UiCard,
@@ -269,42 +279,32 @@ import * as api from '../api.js';
 const toast = useToast();
 
 // ---------------------------------------------------------------------------
-// Fonte REAL da trilha de auditoria: GET /v1/checkout/audit -> { data: [...] }.
-// Cada entrada do gateway carrega: { at, event, idempotencyKey, transactionId,
-// status, amount } (e, quando houver, provider/orderId/error). O endpoint
-// devolve as cobranças mais recentes — sem paginação no servidor — então
-// filtramos/ordenamos/paginamos no cliente sobre os registros reais.
-//
-// Se o integrador tiver fiado resourceFactory("transactions") (api.transactions),
-// preferimos esse recurso; caso contrário caímos no endpoint canônico de auditoria,
-// reusando a MESMA base da api.js (sem inventar rota).
+// Fonte REAL da trilha de auditoria — via api.js (sem fetch cru, sem rota inventada):
+//   1) api.transactions.list()  -> envelope { data } quando a esteira publicar
+//      GET /v1/transactions (resourceFactory garantido pelo integrador);
+//   2) api.checkout.audit()     -> GET /v1/checkout/audit (rota canônica REAL),
+//      já desembrulhando o envelope { data } em api.js.
+// Cada entrada do gateway carrega { at, event, idempotencyKey, transactionId,
+// status, amount } e, quando houver, provider/orderId/error. O endpoint devolve
+// as cobranças mais recentes — sem paginação no servidor — então filtramos,
+// ordenamos e paginamos no cliente sobre os registros reais.
 // ---------------------------------------------------------------------------
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '/shopdesk/api';
-
 async function fetchAuditTrail() {
   const tx = api.transactions;
   if (tx && typeof tx.list === 'function') {
     const res = await tx.list();
     return Array.isArray(res) ? res : res.data || res.items || [];
   }
-  const res = await fetch(API_BASE + '/v1/checkout/audit', {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const e = new Error((data && data.error && data.error.message) || 'HTTP ' + res.status);
-    e.status = res.status;
-    throw e;
-  }
-  return data.data || data.items || (Array.isArray(data) ? data : []);
+  const res = await api.checkout.audit();
+  return Array.isArray(res) ? res : res.data || res.items || [];
 }
 
 // Normaliza cada entrada em uma linha estável (rowId p/ key + sort determinístico).
 function normalize(entry, index) {
   const e = entry || {};
+  const rawId = e.id || e.transactionId || e.transaction_id;
   return {
-    rowId: e.id || e.transactionId ? String(e.id || e.transactionId) + ':' + index : 'tx-' + index,
+    rowId: rawId ? String(rawId) + ':' + index : 'tx-' + index,
     transactionId: e.transactionId ?? e.transaction_id ?? '',
     orderId: e.orderId ?? e.order_id ?? '',
     event: e.event ?? 'charge',
@@ -326,10 +326,11 @@ async function load() {
   loadError.value = null;
   try {
     const raw = await fetchAuditTrail();
-    rows.value = raw.map(normalize);
+    rows.value = (Array.isArray(raw) ? raw : []).map(normalize);
   } catch (e) {
     loadError.value = e.message || 'Não foi possível carregar a trilha de auditoria.';
     rows.value = [];
+    toast.error('Falha ao carregar a trilha de auditoria.', { detail: e.message });
   } finally {
     loading.value = false;
   }
@@ -360,7 +361,10 @@ const statusLabelFor = (v) => STATUS_LABELS[String(v || '').toLowerCase()] || fo
 
 const EVENT_LABELS = { charge: 'Cobrança', refund: 'Estorno', capture: 'Captura' };
 const eventLabel = (v) => EVENT_LABELS[String(v || '').toLowerCase()] || format.humanize(v);
-const eventIcon = (v) => (String(v).toLowerCase() === 'refund' ? '↩' : String(v).toLowerCase() === 'capture' ? '✓' : '＋');
+const eventIcon = (v) => {
+  const s = String(v).toLowerCase();
+  return s === 'refund' ? '↩' : s === 'capture' ? '✓' : '＋';
+};
 
 const PROVIDER_LABELS = { sandbox: 'Sandbox', real: 'PSP (produção)' };
 const providerLabel = (v) => (v ? PROVIDER_LABELS[String(v).toLowerCase()] || format.humanize(v) : '—');
@@ -402,6 +406,7 @@ const filterFields = [
     options: [
       { value: 'charge', label: 'Cobrança' },
       { value: 'refund', label: 'Estorno' },
+      { value: 'capture', label: 'Captura' },
     ],
   },
   { key: 'from', label: 'De', type: 'date' },
@@ -532,7 +537,7 @@ const emptyState = computed(() =>
     ? { title: 'Nenhuma transação no filtro', description: 'Ajuste a busca, a situação ou o período.', icon: '🔍' }
     : {
         title: 'Trilha de auditoria vazia',
-        description: 'As cobranças aparecerão aqui assim que o gateway processar o primeiro pagamento.',
+        description: 'As cobranças aparecerão aqui assim que o gateway processar o primeiro pagamento de um pedido.',
         icon: '🧾',
       },
 );
@@ -568,7 +573,7 @@ async function copyKey(key) {
 }
 
 // ---------------------------------------------------------------------------
-// Exportar CSV (cliente, sobre as linhas filtradas; CSP-safe via Blob).
+// Exportar CSV (cliente, sobre as linhas filtradas/ordenadas; CSP-safe via Blob).
 // ---------------------------------------------------------------------------
 function csvCell(v) {
   const s = v == null ? '' : String(v);
@@ -677,6 +682,10 @@ onMounted(load);
   background: rgb(var(--ui-warn) / 0.18);
   color: rgb(var(--ui-warn));
 }
+.tx-event[data-event="capture"] .tx-event-mark {
+  background: rgb(var(--ui-accent) / 0.16);
+  color: rgb(var(--ui-accent-strong));
+}
 
 .tx-amount {
   font-weight: 600;
@@ -719,6 +728,15 @@ onMounted(load);
   display: inline-flex;
   gap: var(--ui-space-2);
   justify-content: flex-end;
+}
+
+.tx-link {
+  color: rgb(var(--ui-accent-strong));
+  font-weight: 600;
+  text-decoration: none;
+}
+.tx-link:hover {
+  text-decoration: underline;
 }
 
 .tx-detail {

@@ -7,14 +7,24 @@
     :error="pageError"
     @retry="load"
   >
-    <!-- ações de cabeçalho -->
+    <!-- ações de cabeçalho: exportar CSV, ver reposições, nova reposição e repor baixos -->
     <template #actions>
       <ExportCsvButton
         variant="ghost"
         :disabled="!r.items.value.length || r.loading.value"
         @export="exportCsv"
       />
-      <UiButton variant="primary" :loading="bulkBusy" :disabled="!reorderableCount || !reordersReady" @click="reorderAllLow">
+      <UiButton variant="ghost" to="/reorders">Reposições</UiButton>
+      <UiButton variant="subtle" to="/reorders/new">
+        <template #icon-left><span class="iv-plus" aria-hidden="true">＋</span></template>
+        Nova reposição
+      </UiButton>
+      <UiButton
+        variant="primary"
+        :loading="bulkBusy"
+        :disabled="!reorderableCount || !reordersReady"
+        @click="reorderAllLow"
+      >
         <template #icon-left><span class="iv-cart" aria-hidden="true">⟳</span></template>
         Repor {{ reorderableCount ? '(' + reorderableCount + ')' : 'baixos' }}
       </UiButton>
@@ -23,7 +33,12 @@
     <!-- KPIs derivados -->
     <template #banner>
       <div class="iv-kpis">
-        <UiMetricCard label="Itens em estoque" :value="format.formatNumber(kpis.total)" tone="primary" hint="total filtrado" />
+        <UiMetricCard
+          label="Itens em estoque"
+          :value="format.formatNumber(kpis.total)"
+          tone="primary"
+          hint="total filtrado"
+        />
         <UiMetricCard
           label="Em dia"
           :value="format.formatNumber(kpis.ok)"
@@ -97,6 +112,21 @@
       </div>
     </template>
 
+    <!-- resumo de resultados acima da tabela -->
+    <div v-if="!pageError" class="iv-resultline" aria-live="polite">
+      <span class="iv-resultcount">
+        <template v-if="r.loading.value">Carregando estoque…</template>
+        <template v-else-if="r.total.value">
+          {{ format.formatNumber(r.total.value) }} item(ns) no total · página
+          {{ r.page.value }} de {{ totalPages }}
+        </template>
+        <template v-else>Sem itens para os filtros atuais.</template>
+      </span>
+      <span v-if="reorderableCount && !r.loading.value" class="iv-resultflag">
+        {{ format.formatNumber(reorderableCount) }} pedindo reposição nesta página
+      </span>
+    </div>
+
     <!-- tabela: loading / empty / error / normal cobertos -->
     <UiDataTable
       :columns="columns"
@@ -156,6 +186,7 @@
           <ReorderButton
             :level="levelOf(row)"
             :loading="busyId === row.id"
+            :disabled="!reordersReady"
             @reorder="reorderItem(row)"
           />
         </div>
@@ -233,7 +264,7 @@ const reordersReady = computed(
   () => !!(api.reorders && typeof api.reorders.create === 'function'),
 );
 // recurso seguro para o useResource: se ausente, list() devolve vazio em vez de
-// lançar TypeError; a tela exibe o estado de erro (resourceError) acima da tabela.
+// lançar TypeError; a tela exibe o estado de erro (pageError) acima da tabela.
 const inventoryResource = {
   list: (params) =>
     api.inventory && typeof api.inventory.list === 'function'
@@ -243,8 +274,8 @@ const inventoryResource = {
 
 /* -----------------------------------------------------------------------------
  * Componentes locais montados SOBRE o kit (sem CSS framework, só tokens --ui-*).
- * StockBadge  -> UiStatusBadge com tom semântico do nível de estoque.
- * ReorderButton -> UiButton com cópia/variante por nível.
+ * StockBadge      -> UiStatusBadge com tom semântico do nível de estoque.
+ * ReorderButton   -> UiButton com cópia/variante por nível.
  * ExportCsvButton -> UiButton que emite "export".
  * --------------------------------------------------------------------------- */
 const LEVEL_LABEL = { ok: 'Em dia', baixo: 'Baixo', esgotado: 'Esgotado' };
@@ -260,13 +291,14 @@ const StockBadge = defineComponent({
         label: LEVEL_LABEL[props.level] || 'Em dia',
         status: props.level,
         size: props.size,
+        withDot: true,
       });
   },
 });
 
 const ReorderButton = defineComponent({
   name: 'ReorderButton',
-  props: { level: { type: String, default: 'ok' }, loading: Boolean },
+  props: { level: { type: String, default: 'ok' }, loading: Boolean, disabled: Boolean },
   emits: ['reorder'],
   setup(props, { emit }) {
     return () =>
@@ -276,6 +308,7 @@ const ReorderButton = defineComponent({
           variant: props.level === 'ok' ? 'subtle' : 'primary',
           size: 'sm',
           loading: props.loading,
+          disabled: props.disabled,
           onClick: () => emit('reorder'),
         },
         { default: () => 'Repor' },
@@ -398,6 +431,9 @@ function resetAllFilters() {
 }
 
 /* -------------------------------- paginação --------------------------------- */
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil((r.total.value || 0) / (r.pageSize.value || 1))),
+);
 function onPageSize(size) {
   r.pageSize.value = size;
   r.setPage(1);
@@ -437,6 +473,7 @@ const emptyState = computed(() =>
 );
 
 /* -------------------------------- navegação --------------------------------- */
+// Sempre rotas de DOMÍNIO do inventário/reposição.
 function openItem(row) {
   router.push('/inventory/' + row.id);
 }
@@ -481,7 +518,10 @@ async function reorderItem(row) {
   busyId.value = row.id;
   try {
     await api.reorders.create(reorderPayload(row));
-    toast.success('Ordem de reposição criada para ' + (row.productName || row.sku) + '.');
+    toast.success('Ordem de reposição criada para ' + (row.productName || row.sku) + '.', {
+      actionLabel: 'Ver reposições',
+      onAction: () => router.push('/reorders'),
+    });
     await r.load();
   } catch (e) {
     toast.error('Não foi possível criar a ordem de reposição.', { detail: e && e.message });
@@ -528,7 +568,12 @@ async function confirmBulkReorder() {
   }
   bulkBusy.value = false;
   bulkModal.open = false;
-  if (okCount) toast.success(format.formatNumber(okCount) + ' ordem(ns) de reposição criada(s).');
+  if (okCount) {
+    toast.success(format.formatNumber(okCount) + ' ordem(ns) de reposição criada(s).', {
+      actionLabel: 'Ver reposições',
+      onAction: () => router.push('/reorders'),
+    });
+  }
   if (failCount) toast.error(format.formatNumber(failCount) + ' item(ns) falharam ao criar a reposição.');
   await r.load();
 }
@@ -588,6 +633,7 @@ onMounted(load);
 <style scoped>
 /* ícones inline (texto, não SVG) */
 .iv-cart { font-size: 1.05em; line-height: 1; font-weight: 700; }
+.iv-plus { font-size: 1.05em; line-height: 1; font-weight: 700; }
 .iv-dl { font-weight: 700; }
 
 /* KPIs */
@@ -715,6 +761,28 @@ onMounted(load);
   font-size: var(--ui-text-sm);
 }
 
+/* linha de resumo de resultados */
+.iv-resultline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-3);
+  flex-wrap: wrap;
+  font-size: var(--ui-text-sm);
+  color: rgb(var(--ui-muted));
+}
+.iv-resultcount { font-variant-numeric: tabular-nums; }
+.iv-resultflag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ui-space-1);
+  font-weight: 600;
+  color: rgb(var(--ui-warn));
+  background: rgb(var(--ui-warn) / 0.14);
+  padding: var(--ui-space-1) var(--ui-space-3);
+  border-radius: var(--ui-radius-pill);
+}
+
 /* células */
 .iv-sku { color: rgb(var(--ui-muted)); font-size: var(--ui-text-xs); }
 .iv-name-cell { display: flex; flex-direction: column; gap: 2px; }
@@ -797,5 +865,6 @@ onMounted(load);
   .iv-toolbar { flex-direction: column; align-items: stretch; }
   .iv-actions { justify-content: flex-start; }
   .iv-qty { justify-content: flex-start; }
+  .iv-resultline { flex-direction: column; align-items: flex-start; }
 }
 </style>

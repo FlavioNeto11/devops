@@ -23,8 +23,10 @@
       </UiButton>
     </template>
 
-    <!-- Filtros estruturados: ator/recurso/loja vão ao servidor; o período é
-         refinado no cliente sobre as linhas REAIS carregadas, com aviso visível. -->
+    <!-- Filtros REAIS-mas-locais: busca, categoria, ator e período refinam SOMENTE
+         a página já carregada. O backend de /v1/audit-logs honra apenas
+         page/pageSize/sort/dir (crud-repo.list), então NÃO enviamos q/action/actor
+         ao servidor — seria uma affordance morta. O rótulo deixa isso explícito. -->
     <template #filters>
       <UiFiltersPanel
         v-model="filters"
@@ -75,22 +77,32 @@
       />
     </div>
 
-    <!-- Chips de filtro rápido por categoria de ação (FilterChips). -->
-    <div class="aud-chips" role="group" aria-label="Filtrar por categoria de ação">
-      <button
-        v-for="chip in categoryChips"
-        :key="chip.value"
-        type="button"
-        class="aud-chip"
-        :data-tone="chip.tone"
-        :data-active="activeCategory === chip.value ? 'true' : null"
-        :aria-pressed="activeCategory === chip.value ? 'true' : 'false'"
-        @click="toggleCategory(chip.value)"
+    <!-- Chips de filtro rápido por categoria de ação. Contagens são desta página
+         (não do total) — refinam a mesma página que o restante dos filtros. -->
+    <div class="aud-chips-wrap">
+      <p class="aud-chips-caption" id="aud-chips-caption">
+        Categoria <span class="aud-chips-scope">(contagem nesta página)</span>
+      </p>
+      <div
+        class="aud-chips"
+        role="group"
+        aria-labelledby="aud-chips-caption"
       >
-        <span class="aud-chip-dot" aria-hidden="true" />
-        <span class="aud-chip-label">{{ chip.label }}</span>
-        <span class="aud-chip-count">{{ chip.count }}</span>
-      </button>
+        <button
+          v-for="chip in categoryChips"
+          :key="chip.value"
+          type="button"
+          class="aud-chip"
+          :data-tone="chip.tone"
+          :data-active="activeCategory === chip.value ? 'true' : null"
+          :aria-pressed="activeCategory === chip.value ? 'true' : 'false'"
+          @click="toggleCategory(chip.value)"
+        >
+          <span class="aud-chip-dot" aria-hidden="true" />
+          <span class="aud-chip-label">{{ chip.label }}</span>
+          <span class="aud-chip-count" :aria-label="chip.count + ' nesta página'">{{ chip.count }}</span>
+        </button>
+      </div>
     </div>
 
     <!-- Tabela da trilha de auditoria. -->
@@ -99,13 +111,13 @@
         <UiStatusBadge
           v-if="hasLocalFilter"
           tone="running"
-          :status="'Período — refina só esta página'"
+          :status="'Filtro refina só esta página'"
           :with-dot="true"
         />
       </template>
 
       <!-- Região viva: anuncia a leitores de tela a nova contagem ao aplicar
-           filtro de período/categoria ou ao recarregar (item a11y). -->
+           filtro de busca/categoria/ator/período ou ao recarregar (item a11y). -->
       <p class="aud-sr-live" role="status" aria-live="polite">{{ liveSummary }}</p>
 
       <UiDataTable
@@ -173,7 +185,7 @@
 
         <!-- Sem resultados após filtro -->
         <template #empty-action>
-          <UiButton v-if="hasLocalFilter || hasServerFilter" variant="ghost" @click="onClear">
+          <UiButton v-if="hasLocalFilter" variant="ghost" @click="onClear">
             Limpar filtros
           </UiButton>
           <UiButton v-else variant="ghost" @click="r.load">Recarregar</UiButton>
@@ -181,15 +193,11 @@
       </UiDataTable>
     </UiCard>
 
-    <!-- Modal: detalhe do evento (somente leitura). -->
+    <!-- Modal: detalhe do evento (somente leitura). A linha da lista já traz o
+         registro COMPLETO (list e get fazem o mesmo SELECT *), então exibimos a
+         própria linha — sem round-trip redundante por clique. -->
     <UiModal v-model:open="detailOpen" :title="detailTitle" width="md">
-      <UiLoadingState v-if="detailLoading" variant="spinner" />
-      <UiErrorState
-        v-else-if="detailError"
-        :message="detailError"
-        @retry="reloadDetail"
-      />
-      <dl v-else-if="detail" class="aud-detail">
+      <dl v-if="detail" class="aud-detail">
         <div class="aud-detail-row">
           <dt>Ação</dt>
           <dd>
@@ -232,6 +240,12 @@
           </dd>
         </div>
       </dl>
+      <UiEmptyState
+        v-else
+        title="Sem detalhes"
+        description="Não há um evento selecionado para exibir."
+        icon="🗂️"
+      />
       <template #footer>
         <UiButton variant="primary" @click="detailOpen = false">Fechar</UiButton>
       </template>
@@ -250,8 +264,7 @@ import {
   UiStatusBadge,
   UiButton,
   UiModal,
-  UiLoadingState,
-  UiErrorState,
+  UiEmptyState,
   useResource,
   useToast,
   format,
@@ -259,10 +272,17 @@ import {
 import { auditLogs } from '../api.js';
 
 // ---------------------------------------------------------------------------
-// Recurso REAL: GET /v1/audit-logs e GET /v1/audit-logs/:id (api/src/server.js
-// linhas 104-108). A chave da rota tem hífen, então `api.js` exporta o recurso
-// como `auditLogs` (camelCase) — importado direto aqui, sem lookup por colchete.
-// list() devolve o envelope { data, total, page, pageSize } (server-mode).
+// Recurso REAL: GET /v1/audit-logs (api/src/server.js:116). A chave da rota tem
+// hífen, então `api.js` exporta o recurso como `auditLogs` (camelCase) —
+// importado direto aqui, sem lookup por colchete. list() devolve o envelope
+// { data, total, page, pageSize } (server-mode).
+//
+// CONTRATO HONESTO: o backend (crud-repo.list) honra SOMENTE page/pageSize/sort/
+// dir — NÃO há WHERE por q/action/actor. Por isso esta tela NÃO envia esses
+// params ao servidor (seriam affordances mortas): a busca, a categoria, o ator e
+// o período refinam SOMENTE a página já carregada, com rótulo explícito. Quando o
+// crud-repo passar a filtrar por categoria/ator (expandindo ACTION_CATEGORIES em
+// termos ILIKE de `action`), promova esses campos a server-mode via r.setFilters.
 // ---------------------------------------------------------------------------
 const r = useResource(auditLogs, { pageSize: 25, sort: { key: 'at', dir: 'desc' } });
 const toast = useToast();
@@ -330,8 +350,11 @@ const columns = [
 ];
 
 // ---------------------------------------------------------------------------
-// Filtros estruturados. `q`, `actor`, `action` e `tenant` vão ao servidor; o
-// intervalo de datas refina no cliente sobre as linhas REAIS, com aviso.
+// Filtros — TODOS locais (refinam só a página carregada). O backend honra apenas
+// page/pageSize/sort/dir, então não enviamos q/action/actor/from/to ao servidor:
+// `filteredRows` aplica busca, categoria, ator e período sobre r.items.value.
+// `@apply`/`@clear` do painel só mexem no estado reativo `filters` — o computed
+// reage sozinho (sem round-trip). A paginação/ordenação continuam server-mode.
 // ---------------------------------------------------------------------------
 const ACTION_OPTIONS = ACTION_CATEGORIES.map((c) => ({ value: c.value, label: c.label }));
 const filterFields = [
@@ -344,34 +367,31 @@ const filterFields = [
 const blankFilters = () => ({ q: '', action: '', actor: '', from: '', to: '' });
 const filters = ref(blankFilters());
 
-// Só o que o servidor entende vira parâmetro do recurso.
+// Aplicar/limpar são puramente locais: o v-model já mantém `filters` atualizado;
+// `@apply` só confirma a intenção e `@clear` reseta. Nada vai ao servidor — o
+// computed `filteredRows` recalcula. (Mantidos como handlers para o painel.)
 function applyFilters() {
-  r.setFilters({
-    q: filters.value.q || undefined,
-    action: filters.value.action || undefined,
-    actor: filters.value.actor || undefined,
-  });
+  /* no-op: filtros são locais; o computed reage à mudança de `filters` */
 }
 function onClear() {
   filters.value = blankFilters();
-  r.setFilters({ q: undefined, action: undefined, actor: undefined });
 }
 function onPageSize(size) {
   r.pageSize.value = size;
   r.setPage(1);
 }
 
-const hasServerFilter = computed(
-  () => !!(filters.value.q || filters.value.action || filters.value.actor),
-);
-
 // ---------------------------------------------------------------------------
-// Chips de categoria (FilterChips): sincronizados com o filtro `action` do
-// servidor. Contagens vêm das linhas REAIS da página exibida.
+// Chips de categoria: sincronizados com o filtro LOCAL `action`. As contagens
+// vêm das linhas REAIS da página exibida (rotuladas "nesta página" na UI, pois
+// não há agregação server-side — seriam parciais por design).
+// Contam sobre `pageRows` (a página inteira, antes do recorte por categoria/
+// busca/ator), para que cada chip mostre quantos da página caem nela mesmo
+// quando outro filtro está ativo.
 // ---------------------------------------------------------------------------
 const activeCategory = computed(() => filters.value.action || '');
 const categoryChips = computed(() => {
-  const rows = filteredRows.value;
+  const rows = pageRows.value;
   return ACTION_CATEGORIES.map((c) => ({
     value: c.value,
     label: c.label,
@@ -381,24 +401,47 @@ const categoryChips = computed(() => {
 });
 function toggleCategory(value) {
   filters.value.action = activeCategory.value === value ? '' : value;
-  applyFilters();
 }
 
 // ---------------------------------------------------------------------------
-// Refino local por intervalo de datas, sobre a página carregada.
+// Refino LOCAL completo, sobre a página carregada (r.items): busca livre,
+// categoria, ator e intervalo de datas. Tudo no cliente porque o backend não
+// filtra por esses campos (ver contrato acima). `pageRows` é a página crua;
+// `filteredRows` é o resultado após todos os filtros locais.
 // ---------------------------------------------------------------------------
-const hasLocalFilter = computed(() => !!(filters.value.from || filters.value.to));
+const pageRows = computed(() => r.items.value);
+// Qualquer filtro local ativo (busca/categoria/ator/período) → refina só a página.
+const hasLocalFilter = computed(
+  () => !!(filters.value.q || filters.value.action || filters.value.actor || filters.value.from || filters.value.to),
+);
 const filteredRows = computed(() => {
   const f = filters.value;
+  const q = String(f.q || '').trim().toLowerCase();
+  const category = f.action || '';
+  const actor = String(f.actor || '').trim().toLowerCase();
   const fromTs = f.from ? new Date(f.from + 'T00:00:00').getTime() : null;
   const toTs = f.to ? new Date(f.to + 'T23:59:59').getTime() : null;
-  if (fromTs == null && toTs == null) return r.items.value;
-  return r.items.value.filter((row) => {
-    const raw = atOf(row);
-    const ts = raw ? new Date(raw).getTime() : NaN;
-    if (isNaN(ts)) return false;
-    if (fromTs != null && ts < fromTs) return false;
-    if (toTs != null && ts > toTs) return false;
+  if (!q && !category && !actor && fromTs == null && toTs == null) return pageRows.value;
+  return pageRows.value.filter((row) => {
+    // Busca livre: ator, recurso ou loja.
+    if (q) {
+      const hay = [actorOf(row), resourceOf(row), tenantOf(row), actionOf(row)]
+        .map((v) => String(v || '').toLowerCase())
+        .join(' ');
+      if (!hay.includes(q)) return false;
+    }
+    // Categoria (mapeada da ação por palavra-chave).
+    if (category && categoryOf(actionOf(row)) !== category) return false;
+    // Ator (substring, tolerante a maiúsculas).
+    if (actor && !String(actorOf(row) || '').toLowerCase().includes(actor)) return false;
+    // Intervalo de datas.
+    if (fromTs != null || toTs != null) {
+      const raw = atOf(row);
+      const ts = raw ? new Date(raw).getTime() : NaN;
+      if (isNaN(ts)) return false;
+      if (fromTs != null && ts < fromTs) return false;
+      if (toTs != null && ts > toTs) return false;
+    }
     return true;
   });
 });
@@ -425,7 +468,7 @@ const resultSummary = computed(() => {
   if (r.loading.value) return 'Carregando…';
   const shown = filteredRows.value.length;
   if (!r.total.value) return 'Nenhum evento registrado';
-  if (hasLocalFilter.value) return shown + ' de ' + r.items.value.length + ' nesta página (período refina só a página carregada)';
+  if (hasLocalFilter.value) return shown + ' de ' + pageRows.value.length + ' nesta página (os filtros refinam só a página carregada)';
   return shown + ' nesta página · ' + r.total.value + ' no total';
 });
 
@@ -437,22 +480,18 @@ const liveSummary = computed(() => {
   if (!r.total.value) return 'Nenhum evento de auditoria registrado.';
   const base = shown + (shown === 1 ? ' evento exibido' : ' eventos exibidos');
   if (hasLocalFilter.value) {
-    return base + ' de ' + r.items.value.length + ' na página, após o filtro de período.';
+    return base + ' de ' + pageRows.value.length + ' na página, após os filtros (refinam só esta página).';
   }
-  if (hasServerFilter.value) return base + ' nesta página, após o filtro aplicado.';
   return base + ' nesta página, de ' + r.total.value + ' no total.';
 });
 
 const emptyState = computed(() => {
   if (hasLocalFilter.value) {
     return {
-      title: 'Nenhum evento no período',
-      description: 'O filtro de período refina apenas a página já carregada. Limpe o período ou avance as páginas para ver outros intervalos.',
+      title: 'Nenhum evento nos filtros',
+      description: 'Os filtros (busca, categoria, ator e período) refinam apenas a página já carregada. Ajuste-os, limpe-os ou avance as páginas para ver outros eventos.',
       icon: '🔍',
     };
-  }
-  if (hasServerFilter.value) {
-    return { title: 'Nenhum evento no filtro', description: 'Ajuste o ator, a categoria ou a busca.', icon: '🔍' };
   }
   return {
     title: 'Nenhum evento de auditoria',
@@ -494,14 +533,15 @@ function relativeTime(value) {
 }
 
 // ---------------------------------------------------------------------------
-// Detalhe (somente leitura). Usa GET /v1/audit-logs/:id quando disponível;
-// senão, mostra o que já temos na linha.
+// Detalhe (somente leitura). A linha da lista JÁ traz o registro completo:
+// list() e get() executam o mesmo SELECT * na mesma tabela (crud-repo), logo o
+// GET /v1/audit-logs/:id devolveria exatamente a mesma linha. Por isso exibimos
+// a própria `row` — sem round-trip redundante por clique e sem estado de
+// loading/erro para uma chamada que não acrescenta dados. Se um dia o list()
+// passar a devolver projeção reduzida, reintroduza o get só nesse caso.
 // ---------------------------------------------------------------------------
 const detailOpen = ref(false);
 const detail = ref(null);
-const detailLoading = ref(false);
-const detailError = ref('');
-let lastDetailId = null;
 
 const detailTitle = computed(() =>
   detail.value ? 'Evento · ' + labelForAction(actionOf(detail.value)) : 'Evento de auditoria',
@@ -529,24 +569,9 @@ const detailMetaEntries = computed(() => {
   return out;
 });
 
-async function openDetail(row) {
+function openDetail(row) {
+  detail.value = row; // a linha já é o registro completo (mesmo SELECT * do get)
   detailOpen.value = true;
-  lastDetailId = row.id;
-  detail.value = row; // mostra o que já temos; refina com o get se houver
-  detailError.value = '';
-  if (typeof auditLogs.get !== 'function' || row.id == null) return;
-  detailLoading.value = true;
-  try {
-    detail.value = await auditLogs.get(row.id);
-  } catch (e) {
-    // Mantém a linha já exibida; sinaliza que o detalhe completo falhou.
-    detailError.value = e.message || 'Não foi possível carregar o detalhe do evento.';
-  } finally {
-    detailLoading.value = false;
-  }
-}
-function reloadDetail() {
-  if (lastDetailId != null) openDetail({ id: lastDetailId });
 }
 
 // ---------------------------------------------------------------------------
@@ -640,6 +665,21 @@ onMounted(r.load);
 }
 
 /* FilterChips */
+.aud-chips-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-2);
+}
+.aud-chips-caption {
+  margin: 0;
+  font-size: var(--ui-text-sm);
+  font-weight: 600;
+  color: rgb(var(--ui-fg));
+}
+.aud-chips-scope {
+  font-weight: 400;
+  color: rgb(var(--ui-muted));
+}
 .aud-chips {
   display: flex;
   gap: var(--ui-space-2);

@@ -2,7 +2,7 @@
   <UiPageLayout
     eyebrow="Comunicação com o cliente"
     title="Notificações"
-    subtitle="Histórico de notificações multicanal (e-mail, SMS, push e WhatsApp) disparadas a cada evento de pedido."
+    subtitle="Histórico multicanal (e-mail, SMS, push e WhatsApp) disparado a cada evento de pedido. Canal sem URL de webhook é pulado com graça, sem derrubar os demais."
     width="wide"
     :error="errorMessage"
     @retry="reload"
@@ -21,31 +21,26 @@
         <template #icon-left><span aria-hidden="true">⬇</span></template>
         Exportar CSV
       </UiButton>
+      <UiButton variant="ghost" to="/orders">
+        <template #icon-left><span aria-hidden="true">↗</span></template>
+        Ver pedidos
+      </UiButton>
     </template>
 
     <!-- Aviso de degradação graciosa: canais pulados por falta de URL configurada -->
-    <template v-if="degraded.length && !loading" #banner>
+    <template v-if="degraded.length && !loading && !errorMessage" #banner>
       <div class="ntf-banner" role="status">
         <span class="ntf-banner-icon" aria-hidden="true">⚠</span>
         <div class="ntf-banner-text">
           <strong>Degradação graciosa ativa.</strong>
           {{ degradedLabel }} sem URL de webhook configurada — os envios desses canais são
-          <em>pulados</em> em vez de falhar. Configure a URL do canal para reativar a entrega.
+          <em>pulados</em> em vez de falhar. Configure o canal em
+          <RouterLink class="ntf-banner-link" to="/settings">Configurações</RouterLink> para reativar a entrega.
         </div>
       </div>
     </template>
 
-    <!-- Filtros (client-side sobre o histórico real carregado) -->
-    <template #filters>
-      <UiFiltersPanel
-        v-model="filters"
-        :fields="filterFields"
-        @apply="noop"
-        @clear="noop"
-      />
-    </template>
-
-    <!-- KPIs derivados das entregas reais -->
+    <!-- KPIs derivados das entregas reais (filtro corrente) -->
     <div class="ntf-kpis" role="group" aria-label="Indicadores de notificações">
       <UiMetricCard
         label="Entregas"
@@ -58,7 +53,7 @@
         label="Enviadas"
         :value="kpis.sent"
         tone="success"
-        :hint="kpis.deliveryRate + '% de sucesso'"
+        :hint="kpis.deliveryRate + '% das tentativas'"
         :loading="loading"
       />
       <UiMetricCard
@@ -85,8 +80,65 @@
           tone="running"
           status="Filtro ativo"
           :with-dot="true"
+          size="sm"
         />
       </template>
+
+      <!-- FilterChips: situação + canal (acessíveis, CSP-safe) + busca -->
+      <div class="ntf-toolbar">
+        <div class="ntf-chips" role="group" aria-label="Filtrar por situação">
+          <span class="ntf-chips-label">Situação</span>
+          <button
+            v-for="opt in statusChips"
+            :key="opt.value"
+            type="button"
+            class="ntf-chip"
+            :data-tone="opt.tone"
+            :data-active="filters.status === opt.value ? 'true' : null"
+            :aria-pressed="filters.status === opt.value ? 'true' : 'false'"
+            @click="toggleStatus(opt.value)"
+          >
+            <span class="ntf-chip-dot" aria-hidden="true" />
+            {{ opt.label }}
+            <span class="ntf-chip-count">{{ statusCounts[opt.value] || 0 }}</span>
+          </button>
+        </div>
+
+        <div class="ntf-chips" role="group" aria-label="Filtrar por canal">
+          <span class="ntf-chips-label">Canal</span>
+          <button
+            v-for="ch in channelChips"
+            :key="ch.value"
+            type="button"
+            class="ntf-chip ntf-chip-channel"
+            :data-channel="ch.value"
+            :data-active="filters.channel === ch.value ? 'true' : null"
+            :aria-pressed="filters.channel === ch.value ? 'true' : 'false'"
+            @click="toggleChannel(ch.value)"
+          >
+            <span class="ntf-chip-glyph" aria-hidden="true">{{ channelIcon(ch.value) }}</span>
+            {{ ch.label }}
+            <span class="ntf-chip-count">{{ channelCounts[ch.value] || 0 }}</span>
+          </button>
+        </div>
+
+        <div class="ntf-toolbar-grow">
+          <label class="ntf-search">
+            <span class="ntf-search-label">Buscar evento</span>
+            <input
+              v-model="filters.q"
+              type="search"
+              class="ntf-search-input"
+              placeholder="pedido.criado, pagamento…"
+              aria-label="Buscar por evento"
+            />
+          </label>
+        </div>
+
+        <UiButton v-if="hasActiveFilter" variant="ghost" size="sm" @click="clearFilters">
+          Limpar filtros
+        </UiButton>
+      </div>
 
       <UiDataTable
         :columns="columns"
@@ -94,6 +146,7 @@
         row-key="rowId"
         density="comfortable"
         clickable-rows
+        server-mode
         :loading="loading"
         :sort="sort"
         :page="page"
@@ -109,8 +162,11 @@
         <!-- Evento que disparou a notificação -->
         <template #cell-event="{ row }">
           <div class="ntf-event">
-            <span class="ntf-event-icon" aria-hidden="true">{{ eventIcon(row.event) }}</span>
-            <span class="ntf-event-label">{{ eventLabel(row.event) }}</span>
+            <span class="ntf-event-icon" :data-event="row.event" aria-hidden="true">{{ eventIcon(row.event) }}</span>
+            <span class="ntf-event-text">
+              <span class="ntf-event-label">{{ eventLabel(row.event) }}</span>
+              <span class="ntf-event-key ui-mono">{{ row.event }}</span>
+            </span>
           </div>
         </template>
 
@@ -122,9 +178,14 @@
           </span>
         </template>
 
-        <!-- Situação (StatusBadge em pt-BR) -->
+        <!-- Situação do canal (StatusBadge em pt-BR) -->
         <template #cell-status="{ row }">
           <UiStatusBadge :status="row.status" :tone="toneFor(row.status)" :label="statusLabelPt(row.status)" />
+        </template>
+
+        <!-- Resultado agregado do evento -->
+        <template #cell-eventStatus="{ row }">
+          <UiStatusBadge :status="row.eventStatus" :tone="toneFor(row.eventStatus)" :label="statusLabelPt(row.eventStatus)" size="sm" />
         </template>
 
         <!-- Enviada em -->
@@ -139,10 +200,10 @@
           </div>
         </template>
 
-        <!-- Sem resultados após filtro -->
+        <!-- Sem resultados após filtro / vazio real -->
         <template #empty-action>
           <UiButton v-if="hasActiveFilter" variant="ghost" @click="clearFilters">Limpar filtros</UiButton>
-          <UiButton v-else variant="ghost" @click="reload">Recarregar</UiButton>
+          <UiButton v-else variant="primary" to="/orders">Ver pedidos</UiButton>
         </template>
       </UiDataTable>
     </UiCard>
@@ -154,8 +215,11 @@
           <div class="ntf-detail-row">
             <dt>Evento</dt>
             <dd>
-              <span class="ntf-event-icon" aria-hidden="true">{{ eventIcon(detailEvent.event) }}</span>
-              {{ eventLabel(detailEvent.event) }}
+              <span class="ntf-event-icon" :data-event="detailEvent.event" aria-hidden="true">{{ eventIcon(detailEvent.event) }}</span>
+              <span class="ntf-detail-evtext">
+                {{ eventLabel(detailEvent.event) }}
+                <span class="ntf-event-key ui-mono">{{ detailEvent.event }}</span>
+              </span>
             </dd>
           </div>
           <div class="ntf-detail-row">
@@ -176,12 +240,14 @@
 
         <h4 class="ntf-detail-heading">Canais ({{ detailEvent.channels.length }})</h4>
         <ul class="ntf-channels">
-          <li v-for="c in detailEvent.channels" :key="c.channel" class="ntf-channel-item">
+          <li v-for="(c, i) in detailEvent.channels" :key="i" class="ntf-channel-item" :data-status="c.status">
             <span class="ntf-chan" :data-channel="c.channel">
               <span class="ntf-chan-icon" aria-hidden="true">{{ channelIcon(c.channel) }}</span>
               {{ channelLabel(c.channel) }}
             </span>
             <UiStatusBadge :status="c.status" :tone="toneFor(c.status)" :label="statusLabelPt(c.status)" size="sm" />
+            <span v-if="c.status === 'skipped'" class="ntf-channel-note">Sem URL de webhook configurada</span>
+            <span v-else-if="c.status === 'failed'" class="ntf-channel-note ntf-channel-note-err">Webhook respondeu com erro</span>
           </li>
         </ul>
         <p v-if="detailEvent.channels.some((c) => c.status === 'skipped')" class="ntf-detail-note ui-muted">
@@ -193,9 +259,10 @@
         v-else
         title="Sem detalhes"
         description="Selecione um envio na lista para ver os canais."
-        icon="🔔"
+        icon="bell"
       />
       <template #footer>
+        <UiButton variant="ghost" to="/settings">Configurar canais</UiButton>
         <UiButton variant="primary" @click="detailOpen = false">Fechar</UiButton>
       </template>
     </UiModal>
@@ -204,12 +271,12 @@
 
 <script setup>
 import { ref, reactive, computed, watch, onMounted } from 'vue';
+import { RouterLink } from 'vue-router';
 import {
   UiPageLayout,
   UiCard,
   UiMetricCard,
   UiDataTable,
-  UiFiltersPanel,
   UiStatusBadge,
   UiButton,
   UiModal,
@@ -220,15 +287,15 @@ import {
 import * as api from '../api.js';
 
 // ---------------------------------------------------------------------------
-// Recurso REAL: GET /v1/notifications → { data: [{ at, event, status, channels:[{channel,status}] }] }.
-// O endpoint não pagina/filtra no servidor (retorna as últimas notificações), então
-// carregamos o histórico e refinamos no cliente sobre as linhas REAIS.
+// Recurso REAL: GET /v1/notifications → { data: [{ at, event, status,
+//   channels:[{ channel, status }] }] }. O endpoint não pagina/filtra no servidor
+// (devolve as últimas notificações em memória), então carregamos o histórico e
+// refinamos/ordenamos/paginamos no cliente sobre as linhas REAIS.
 //
-// Leitura com degradação graciosa (espelha OrderDetailView): se o integrador expuser o
-// resourceFactory `api.notifications.list`, usamos ele; senão caímos para o endpoint REAL
-// de api.js (`api.store.notifications()`, que já desembrulha o envelope .data). Sem nenhum
-// dos dois, lançamos um erro honesto em vez de um TypeError opaco. A normalização abaixo
-// aceita as duas formas (array cru OU envelope { data | items }).
+// Leitura com degradação graciosa: se o integrador expuser o resourceFactory
+// `api.notifications.list`, usamos ele; senão caímos para `api.store.notifications()`
+// (que já desembrulha o envelope .data). Sem nenhum dos dois, erro honesto — sem
+// inventar rota. A normalização aceita as duas formas (array cru OU envelope).
 // ---------------------------------------------------------------------------
 const toast = useToast();
 
@@ -253,14 +320,19 @@ async function load() {
   try {
     const res = await fetchNotifications();
     const list = Array.isArray(res) ? res : res && (res.data || res.items) ? res.data || res.items : [];
-    // normaliza: garante channels[] e ordena do mais recente para o mais antigo.
     events.value = (list || [])
-      .map((r) => ({
-        at: r.at || r.sentAt || r.created_at || null,
-        event: r.event || '',
-        status: r.status || deriveStatus(r.channels),
-        channels: Array.isArray(r.channels) ? r.channels : [],
-      }))
+      .map((r) => {
+        const channels = (Array.isArray(r.channels) ? r.channels : []).map((c) => ({
+          channel: c.channel || c.name || '—',
+          status: normStatus(c.status),
+        }));
+        return {
+          at: r.at || r.sentAt || r.created_at || null,
+          event: r.event || '',
+          status: normStatus(r.status || deriveStatus(channels)),
+          channels,
+        };
+      })
       .sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0));
   } catch (e) {
     error.value = e;
@@ -271,10 +343,18 @@ async function load() {
 }
 async function reload() {
   await load();
-  if (!error.value) toast.success('Histórico de notificações atualizado.');
+  if (!error.value) toast.success('Histórico de notificações atualizado.', { detail: events.value.length + ' evento(s)' });
   else toast.error('Falha ao atualizar', { detail: errorMessage.value });
 }
 
+// Normaliza status pt/en → chave canônica do domínio (enviada/pulada/falhou).
+function normStatus(v) {
+  const s = String(v ?? '').toLowerCase().trim();
+  if (['sent', 'enviada', 'enviado', 'success', 'ok', 'delivered', 'entregue'].includes(s)) return 'sent';
+  if (['skipped', 'pulada', 'pulado', 'skip'].includes(s)) return 'skipped';
+  if (['failed', 'falhou', 'falha', 'error', 'erro'].includes(s)) return 'failed';
+  return s || 'skipped';
+}
 // status geral derivado dos canais (mesma regra do backend), caso não venha pronto.
 function deriveStatus(channels) {
   const cs = Array.isArray(channels) ? channels : [];
@@ -285,7 +365,6 @@ function deriveStatus(channels) {
 
 // ---------------------------------------------------------------------------
 // Achatado: uma linha por (evento × canal) = histórico multicanal real.
-// rowId estável a partir do evento + timestamp + canal + índice.
 // ---------------------------------------------------------------------------
 const flatRows = computed(() => {
   const out = [];
@@ -297,6 +376,7 @@ const flatRows = computed(() => {
         event: ev.event,
         channel: c.channel,
         status: c.status,
+        eventStatus: ev.status,
         at: ev.at,
         _event: ev, // referência ao registro completo para o detalhe
       });
@@ -310,86 +390,97 @@ const flatRows = computed(() => {
 // ---------------------------------------------------------------------------
 const EVENT_LABELS = {
   'pedido.criado': 'Pedido criado',
+  'order.created': 'Pedido criado',
   'pagamento.aprovado': 'Pagamento aprovado',
+  'order.paid': 'Pagamento aprovado',
+  'payment.approved': 'Pagamento aprovado',
   'pagamento.falhou': 'Pagamento recusado',
+  'payment.failed': 'Pagamento recusado',
   'nf-e.emitida': 'NF-e emitida',
+  'invoice.emitted': 'NF-e emitida',
 };
-const EVENT_ICONS = {
-  'pedido.criado': '🛒',
-  'pagamento.aprovado': '💳',
-  'pagamento.falhou': '⛔',
-  'nf-e.emitida': '🧾',
-};
-const eventLabel = (v) => EVENT_LABELS[v] || format.humanize(v);
-const eventIcon = (v) => EVENT_ICONS[v] || '🔔';
-
-const CHANNEL_LABELS = { email: 'E-mail', sms: 'SMS', push: 'Push', whatsapp: 'WhatsApp' };
-const CHANNEL_ICONS = { email: '✉', sms: '💬', push: '🔔', whatsapp: '🟢' };
-const channelLabel = (v) => CHANNEL_LABELS[v] || format.humanize(v);
-const channelIcon = (v) => CHANNEL_ICONS[v] || '📡';
-
-const STATUS_LABELS = { sent: 'Enviada', skipped: 'Pulada', failed: 'Falhou', enviada: 'Enviada', pulada: 'Pulada', falhou: 'Falhou' };
-const statusLabelPt = (v) => STATUS_LABELS[v] || format.humanize(v);
-// tom explícito: pulada é neutra (degradação esperada), não um erro.
-const STATUS_TONES = { sent: 'success', enviada: 'success', skipped: 'neutral', pulada: 'neutral', failed: 'error', falhou: 'error' };
-const toneFor = (v) => STATUS_TONES[v] || 'neutral';
-
-// ---------------------------------------------------------------------------
-// Filtros (client-side sobre as linhas reais).
-// ---------------------------------------------------------------------------
-const filterFields = [
-  {
-    key: 'event',
-    label: 'Evento',
-    type: 'select',
-    options: [
-      { value: 'pedido.criado', label: 'Pedido criado' },
-      { value: 'pagamento.aprovado', label: 'Pagamento aprovado' },
-      { value: 'pagamento.falhou', label: 'Pagamento recusado' },
-      { value: 'nf-e.emitida', label: 'NF-e emitida' },
-    ],
-  },
-  {
-    key: 'channel',
-    label: 'Canal',
-    type: 'select',
-    options: [
-      { value: 'email', label: 'E-mail' },
-      { value: 'sms', label: 'SMS' },
-      { value: 'push', label: 'Push' },
-      { value: 'whatsapp', label: 'WhatsApp' },
-    ],
-  },
-  {
-    key: 'status',
-    label: 'Situação',
-    type: 'select',
-    options: [
-      { value: 'sent', label: 'Enviada' },
-      { value: 'skipped', label: 'Pulada' },
-      { value: 'failed', label: 'Falhou' },
-    ],
-  },
-];
-const blankFilters = () => ({ event: '', channel: '', status: '' });
-const filters = ref(blankFilters());
-const hasActiveFilter = computed(() => Object.values(filters.value).some((v) => v));
-const noop = () => {};
-function clearFilters() {
-  filters.value = blankFilters();
+const eventLabel = (v) => EVENT_LABELS[String(v || '').toLowerCase()] || format.humanize(v);
+function eventIcon(v) {
+  const s = String(v || '').toLowerCase();
+  if (s.includes('cria') || s.includes('created')) return '🛒';
+  if (s.includes('falh') || s.includes('failed') || s.includes('recus')) return '⛔';
+  if (s.includes('aprov') || s.includes('paid') || s.includes('approved')) return '💳';
+  if (s.includes('nf') || s.includes('invoice')) return '🧾';
+  return '🔔';
 }
 
+const CHANNEL_LABELS = { email: 'E-mail', sms: 'SMS', push: 'Push', whatsapp: 'WhatsApp' };
+const channelLabel = (v) => CHANNEL_LABELS[String(v || '').toLowerCase()] || format.humanize(v);
+function channelIcon(v) {
+  const s = String(v || '').toLowerCase();
+  if (s === 'email') return '✉';
+  if (s === 'sms') return '💬';
+  if (s === 'push') return '🔔';
+  if (s === 'whatsapp') return '🟢';
+  return '📡';
+}
+
+const STATUS_LABELS = { sent: 'Enviada', skipped: 'Pulada', failed: 'Falhou' };
+const statusLabelPt = (v) => STATUS_LABELS[normStatus(v)] || format.humanize(v);
+// tom explícito: pulada é AVISO (degradação esperada), enviada sucesso, falhou erro.
+function toneFor(v) {
+  const s = normStatus(v);
+  if (s === 'sent') return 'success';
+  if (s === 'failed') return 'error';
+  if (s === 'skipped') return 'warning';
+  return 'neutral';
+}
+
+// ---------------------------------------------------------------------------
+// FilterChips: situação + canal (client-side sobre as linhas reais) + busca.
+// ---------------------------------------------------------------------------
+const statusChips = [
+  { value: 'sent', label: 'Enviada', tone: 'success' },
+  { value: 'skipped', label: 'Pulada', tone: 'warning' },
+  { value: 'failed', label: 'Falhou', tone: 'error' },
+];
+const channelChips = [
+  { value: 'email', label: 'E-mail' },
+  { value: 'sms', label: 'SMS' },
+  { value: 'push', label: 'Push' },
+  { value: 'whatsapp', label: 'WhatsApp' },
+];
+
+const filters = reactive({ q: '', status: '', channel: '' });
+const hasActiveFilter = computed(() => !!(filters.q || filters.status || filters.channel));
+function toggleStatus(v) { filters.status = filters.status === v ? '' : v; page.value = 1; }
+function toggleChannel(v) { filters.channel = filters.channel === v ? '' : v; page.value = 1; }
+function clearFilters() { filters.q = ''; filters.status = ''; filters.channel = ''; page.value = 1; }
+
+// contagens por chip (sobre TODAS as linhas carregadas, não as filtradas).
+const statusCounts = computed(() => {
+  const acc = { sent: 0, skipped: 0, failed: 0 };
+  for (const r of flatRows.value) if (acc[r.status] !== undefined) acc[r.status]++;
+  return acc;
+});
+const channelCounts = computed(() => {
+  const acc = {};
+  for (const r of flatRows.value) {
+    const k = String(r.channel || '').toLowerCase();
+    acc[k] = (acc[k] || 0) + 1;
+  }
+  return acc;
+});
+
 const filteredRows = computed(() => {
-  const f = filters.value;
+  const q = filters.q.trim().toLowerCase();
   return flatRows.value.filter((row) => {
-    if (f.event && row.event !== f.event) return false;
-    if (f.channel && row.channel !== f.channel) return false;
-    if (f.status && row.status !== f.status) return false;
+    if (filters.status && row.status !== filters.status) return false;
+    if (filters.channel && String(row.channel || '').toLowerCase() !== filters.channel) return false;
+    if (q) {
+      const hay = [row.event, eventLabel(row.event), channelLabel(row.channel)].join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
     return true;
   });
 });
 
-// reset de página ao mudar filtro.
+// reset de página ao mudar filtro / recarregar.
 watch(filteredRows, () => {
   if ((page.value - 1) * pageSize.value >= filteredRows.value.length) page.value = 1;
 });
@@ -400,7 +491,8 @@ watch(filteredRows, () => {
 const columns = [
   { key: 'event', label: 'Evento', sortable: true },
   { key: 'channel', label: 'Canal', sortable: true },
-  { key: 'status', label: 'Situação', sortable: true },
+  { key: 'status', label: 'Situação do canal', sortable: true },
+  { key: 'eventStatus', label: 'Resultado', align: 'center' },
   { key: 'at', label: 'Enviada em', sortable: true },
   { key: 'actions', label: '', align: 'right' },
 ];
@@ -412,11 +504,17 @@ const sortedRows = computed(() => {
   const s = sort.value;
   if (!s || !s.key) return filteredRows.value;
   const mul = s.dir === 'desc' ? -1 : 1;
+  const isDate = s.key === 'at';
   return [...filteredRows.value].sort((a, b) => {
-    const x = a[s.key];
-    const y = b[s.key];
-    if (x == null) return 1;
-    if (y == null) return -1;
+    let x = a[s.key];
+    let y = b[s.key];
+    if (isDate) {
+      x = x ? new Date(x).getTime() : 0;
+      y = y ? new Date(y).getTime() : 0;
+    } else {
+      x = String(x ?? '').toLowerCase();
+      y = String(y ?? '').toLowerCase();
+    }
     return (x > y ? 1 : x < y ? -1 : 0) * mul;
   });
 });
@@ -424,17 +522,9 @@ const pagedRows = computed(() => {
   const start = (page.value - 1) * pageSize.value;
   return sortedRows.value.slice(start, start + pageSize.value);
 });
-function onSort(s) {
-  sort.value = s;
-  page.value = 1;
-}
-function onPage(p) {
-  page.value = p;
-}
-function onPageSize(size) {
-  pageSize.value = size;
-  page.value = 1;
-}
+function onSort(s) { sort.value = s; page.value = 1; }
+function onPage(p) { page.value = p; }
+function onPageSize(size) { pageSize.value = size; page.value = 1; }
 
 // ---------------------------------------------------------------------------
 // KPIs derivados das entregas reais (sobre o filtro corrente).
@@ -465,6 +555,7 @@ const degraded = computed(() => {
 const degradedLabel = computed(() => {
   const names = degraded.value.map(channelLabel);
   if (names.length === 1) return 'O canal ' + names[0] + ' está';
+  if (names.length === 2) return 'Os canais ' + names[0] + ' e ' + names[1] + ' estão';
   return 'Os canais ' + names.slice(0, -1).join(', ') + ' e ' + names[names.length - 1] + ' estão';
 });
 
@@ -480,16 +571,16 @@ const resultSummary = computed(() => {
 });
 const emptyState = computed(() =>
   hasActiveFilter.value
-    ? { title: 'Nenhum envio no filtro', description: 'Ajuste evento, canal ou situação.', icon: '🔍' }
+    ? { title: 'Nenhum envio no filtro', description: 'Ajuste a situação, o canal ou a busca.', icon: 'search' }
     : {
         title: 'Nenhuma notificação ainda',
-        description: 'Os disparos aparecerão aqui assim que um evento de pedido (criação, pagamento ou NF-e) ocorrer.',
-        icon: '🔔',
+        description: 'Os disparos aparecem aqui assim que um evento de pedido (criação, pagamento ou NF-e) ocorrer.',
+        icon: 'bell',
       },
 );
 
 // ---------------------------------------------------------------------------
-// Detalhe (modal por evento, sobre o registro já carregado).
+// Detalhe (modal por evento, sobre o registro já carregado — sem chamada extra).
 // ---------------------------------------------------------------------------
 const detailOpen = ref(false);
 const detailEvent = ref(null);
@@ -507,16 +598,23 @@ function csvCell(v) {
   return /[",\n;]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
 function exportCsv() {
-  const rows = filteredRows.value;
+  const rows = sortedRows.value;
   if (!rows.length) {
     toast.warning('Nada para exportar.');
     return;
   }
-  const head = ['Evento', 'Canal', 'Situação', 'Enviada em'];
+  const head = ['Evento', 'Chave do evento', 'Canal', 'Situação', 'Resultado do evento', 'Enviada em'];
   const lines = [head.join(';')];
   for (const r of rows) {
     lines.push(
-      [csvCell(eventLabel(r.event)), csvCell(channelLabel(r.channel)), csvCell(statusLabelPt(r.status)), csvCell(r.at)].join(';'),
+      [
+        csvCell(eventLabel(r.event)),
+        csvCell(r.event),
+        csvCell(channelLabel(r.channel)),
+        csvCell(statusLabelPt(r.status)),
+        csvCell(statusLabelPt(r.eventStatus)),
+        csvCell(r.at),
+      ].join(';'),
     );
   }
   try {
@@ -566,6 +664,140 @@ onMounted(load);
   font-size: var(--ui-text-sm);
   line-height: 1.5;
 }
+.ntf-banner-link {
+  color: rgb(var(--ui-accent-strong));
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+/* Toolbar (FilterChips + busca) */
+.ntf-toolbar {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--ui-space-4);
+  margin-bottom: var(--ui-space-4);
+}
+.ntf-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ui-space-2);
+}
+.ntf-chips-label {
+  font-size: var(--ui-text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgb(var(--ui-muted));
+  margin-right: 2px;
+}
+.ntf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: var(--ui-text-sm);
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: var(--ui-radius-pill);
+  border: 1px solid rgb(var(--ui-border-strong));
+  background: rgb(var(--ui-surface));
+  color: rgb(var(--ui-fg));
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.ntf-chip:hover {
+  border-color: rgb(var(--ui-accent));
+}
+.ntf-chip:focus-visible {
+  outline: 2px solid rgb(var(--ui-accent));
+  outline-offset: 2px;
+}
+.ntf-chip-count {
+  font-size: var(--ui-text-xs);
+  font-weight: 700;
+  color: rgb(var(--ui-muted));
+  background: rgb(var(--ui-muted) / 0.14);
+  border-radius: var(--ui-radius-pill);
+  padding: 1px 7px;
+}
+.ntf-chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgb(var(--ui-faint));
+}
+.ntf-chip[data-tone="success"] .ntf-chip-dot { background: rgb(var(--ui-ok)); }
+.ntf-chip[data-tone="warning"] .ntf-chip-dot { background: rgb(var(--ui-warn)); }
+.ntf-chip[data-tone="error"] .ntf-chip-dot { background: rgb(var(--ui-danger)); }
+
+/* Chip ativo: tom semântico por situação */
+.ntf-chip[data-active="true"][data-tone="success"] {
+  border-color: rgb(var(--ui-ok));
+  background: rgb(var(--ui-ok) / 0.12);
+  color: rgb(var(--ui-ok));
+}
+.ntf-chip[data-active="true"][data-tone="warning"] {
+  border-color: rgb(var(--ui-warn));
+  background: rgb(var(--ui-warn) / 0.14);
+  color: rgb(var(--ui-warn));
+}
+.ntf-chip[data-active="true"][data-tone="error"] {
+  border-color: rgb(var(--ui-danger));
+  background: rgb(var(--ui-danger) / 0.12);
+  color: rgb(var(--ui-danger));
+}
+.ntf-chip[data-active="true"] .ntf-chip-count {
+  background: rgb(var(--ui-bg) / 0.55);
+  color: inherit;
+}
+
+/* Chips de canal */
+.ntf-chip-channel[data-active="true"] {
+  border-color: rgb(var(--ui-accent));
+  background: rgb(var(--ui-accent) / 0.12);
+  color: rgb(var(--ui-accent-strong));
+}
+.ntf-chip-channel[data-active="true"] .ntf-chip-count {
+  background: rgb(var(--ui-accent) / 0.18);
+  color: rgb(var(--ui-accent-strong));
+}
+.ntf-chip-glyph {
+  font-size: var(--ui-text-sm);
+}
+
+/* Busca */
+.ntf-toolbar-grow {
+  flex: 1 1 200px;
+  min-width: 180px;
+}
+.ntf-search {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ntf-search-label {
+  font-size: var(--ui-text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgb(var(--ui-muted));
+}
+.ntf-search-input {
+  background: rgb(var(--ui-bg));
+  color: rgb(var(--ui-fg));
+  border: 1px solid rgb(var(--ui-border-strong));
+  border-radius: var(--ui-radius-sm);
+  padding: 7px 10px;
+  font: inherit;
+  width: 100%;
+}
+.ntf-search-input:focus-visible {
+  outline: 2px solid rgb(var(--ui-accent));
+  outline-offset: 1px;
+  border-color: rgb(var(--ui-accent));
+}
 
 /* Evento */
 .ntf-event {
@@ -574,10 +806,38 @@ onMounted(load);
   gap: var(--ui-space-2);
 }
 .ntf-event-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: var(--ui-radius-md);
   font-size: var(--ui-text-md);
+  background: rgb(var(--ui-accent) / 0.12);
+}
+.ntf-event-icon[data-event*="falh"],
+.ntf-event-icon[data-event*="failed"],
+.ntf-event-icon[data-event*="recus"] {
+  background: rgb(var(--ui-danger) / 0.12);
+}
+.ntf-event-icon[data-event*="aprov"],
+.ntf-event-icon[data-event*="paid"],
+.ntf-event-icon[data-event*="approved"] {
+  background: rgb(var(--ui-ok) / 0.12);
+}
+.ntf-event-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
 }
 .ntf-event-label {
   font-weight: 600;
+}
+.ntf-event-key {
+  font-size: var(--ui-text-xs);
+  color: rgb(var(--ui-muted));
 }
 
 /* ChannelBadge */
@@ -594,8 +854,7 @@ onMounted(load);
   color: rgb(var(--ui-fg));
   white-space: nowrap;
 }
-/* Cor por canal: tratamento coerente para os 4 canais (não arbitrário) — cada um
-   mapeia para um tom semântico do tema, todos via tokens (CSP-safe pelo data-channel). */
+/* Cor por canal: cada um mapeia para um tom semântico do tema (todos via tokens). */
 .ntf-chan[data-channel="email"] {
   background: rgb(var(--ui-info) / 0.12);
   border-color: rgb(var(--ui-info) / 0.35);
@@ -665,6 +924,11 @@ onMounted(load);
   align-items: center;
   gap: var(--ui-space-2);
 }
+.ntf-detail-evtext {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 1px;
+}
 .ntf-detail-heading {
   margin: 0;
   font-size: var(--ui-text-sm);
@@ -683,12 +947,22 @@ onMounted(load);
 .ntf-channel-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--ui-space-3);
+  flex-wrap: wrap;
   padding: var(--ui-space-3);
-  background: rgb(var(--ui-surface-2));
+  background: rgb(var(--ui-surface));
   border: 1px solid rgb(var(--ui-border));
   border-radius: var(--ui-radius-md);
+}
+.ntf-channel-item[data-status="sent"] { border-left: 3px solid rgb(var(--ui-ok)); }
+.ntf-channel-item[data-status="skipped"] { border-left: 3px solid rgb(var(--ui-warn)); }
+.ntf-channel-item[data-status="failed"] { border-left: 3px solid rgb(var(--ui-danger)); }
+.ntf-channel-note {
+  font-size: var(--ui-text-xs);
+  color: rgb(var(--ui-muted));
+}
+.ntf-channel-note-err {
+  color: rgb(var(--ui-danger));
 }
 .ntf-detail-note {
   margin: 0;

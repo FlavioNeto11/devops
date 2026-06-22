@@ -1,13 +1,18 @@
 <!-- SystemHealthView — Painel de observabilidade do ShopDesk.
-     Lê SÓ endpoints reais: GET /health e GET /v1/health/jobs (via api.js, resolvidos
-     defensivamente). CSP-safe (estado visual por class/data-attr), tokens --ui-* apenas,
-     todos os estados (loading/empty/error/normal), a11y e responsivo.
+     Componentes do contrato: HealthCards · QueueDepthChart · SloPanel · DlqAlert.
+     Lê SÓ endpoints REAIS via ../api.js:
+       GET /health           -> { status, db: 'connected' }   (saúde da API + banco)
+       GET /v1/health/jobs   -> { status, jobs: { queued, running, done, dlq } }
+     CSP-safe: zero style inline / :style / v-html — estado visual por class + data-*.
+     Só tokens --ui-*. Todos os estados (loading/empty/error/normal). a11y + responsivo.
+     Toast em sucesso/erro. Links de plataforma (Grafana) são ABSOLUTOS à raiz (/grafana),
+     nunca para o subpath /shopdesk.
      Âncoras: REQ-SHOPDESK-0001, REQ-SHOPDESK-0004. -->
 <template>
   <UiPageLayout
     eyebrow="ShopDesk · Operação"
     title="Saúde do sistema"
-    subtitle="Banco, workers e fila de processamento, com latência da sonda e contadores acumulados da fila em um só painel."
+    subtitle="Banco, workers e fila de processamento em um só painel — com latência da sonda, contadores acumulados da fila e atalho para o histórico no Grafana."
     width="wide"
     :loading="firstLoad"
     loading-message="Sondando banco, fila e workers…"
@@ -37,9 +42,9 @@
       </UiButton>
     </template>
 
-    <!-- ===================== Banner geral / DlqAlert ===================== -->
+    <!-- ===================== Banner: DlqAlert + Pulso ===================== -->
     <template #banner>
-      <!-- DlqAlert: prioridade máxima quando a DLQ não está vazia -->
+      <!-- DlqAlert — prioridade máxima quando a DLQ não está vazia -->
       <div v-if="dlq > 0" class="sh-alert" data-tone="error" role="alert">
         <span class="sh-alert-ic" aria-hidden="true">⛔</span>
         <div class="sh-alert-body">
@@ -47,15 +52,18 @@
             {{ dlq }} {{ dlq === 1 ? 'tarefa parou' : 'tarefas pararam' }} na fila de erros (DLQ)
           </p>
           <p class="sh-alert-desc">
-            Itens na <abbr title="Dead Letter Queue — fila de mensagens mortas">DLQ</abbr>
-            esgotaram as tentativas e exigem ação manual. Investigue a causa antes de reprocessar.
+            Itens na
+            <abbr title="Dead Letter Queue — fila de mensagens mortas">DLQ</abbr>
+            esgotaram as tentativas e exigem ação manual. Investigue a causa-raiz antes de reprocessar.
           </p>
         </div>
-        <UiButton :href="grafanaDlqUrl" variant="danger" size="sm">Ver no Grafana</UiButton>
+        <div class="sh-alert-actions">
+          <UiButton :href="grafanaDlqUrl" variant="danger" size="sm">Ver no Grafana</UiButton>
+        </div>
       </div>
 
       <!-- Pulso geral do sistema -->
-      <div class="sh-pulse" :data-tone="overall.tone" role="status">
+      <div class="sh-pulse" :data-tone="overall.tone" role="status" aria-live="polite">
         <span class="sh-pulse-dot" aria-hidden="true" />
         <span class="sh-pulse-text">
           <strong>{{ overall.title }}</strong>
@@ -114,7 +122,7 @@
         />
 
         <div v-else class="sh-queue">
-          <!-- barras (SVG puro, sem style inline; alturas/cores por classe+atributo) -->
+          <!-- barras (sem style inline; alturas/cores por classe + data-attr) -->
           <ul class="sh-bars" role="img" :aria-label="queueAriaLabel">
             <li v-for="b in queueBars" :key="b.key" class="sh-bar-col">
               <span class="sh-bar-count">{{ format.formatNumber(b.value) }}</span>
@@ -129,7 +137,7 @@
             </li>
           </ul>
 
-          <!-- legenda / leituras -->
+          <!-- leituras agregadas da fila -->
           <dl class="sh-queue-stats">
             <div class="sh-stat">
               <dt>Total</dt>
@@ -152,7 +160,7 @@
       </UiCard>
 
       <!-- ---------- SloPanel ---------- -->
-      <UiCard title="Indicadores" subtitle="Latência instantânea da sonda + contadores acumulados da fila">
+      <UiCard title="Indicadores (SLO)" subtitle="Latência instantânea da sonda + contadores acumulados da fila">
         <template #actions>
           <UiStatusBadge :status="sloOverallTone" :tone="sloOverallTone" :label="sloOverallLabel" />
         </template>
@@ -285,8 +293,9 @@ const fatalError = ref(null);
 const lastUpdated = ref(null);
 
 const apiReachable = ref(false);
-// dbState: 'connected' | 'down' | 'unknown' (sem sinal explícito de banco no /health).
-// Nunca inferimos "conectado" de status:'ok' ou resposta vazia — evita falso-positivo.
+// dbState: 'connected' | 'down' | 'unknown' — só afirmamos "conectado" com o sinal
+// EXPLÍCITO do backend (db === 'connected', emitido após um SELECT 1 real). Nunca
+// inferimos "conectado" de status:'ok' ou resposta vazia (evita falso-positivo).
 const dbState = ref('unknown');
 const latencyMs = ref(null);
 
@@ -309,9 +318,6 @@ async function loadHealth() {
     const t1 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
     latencyMs.value = Math.max(0, Math.round(t1 - t0));
     apiReachable.value = true;
-    // Só afirmamos "conectado" com o sinal EXPLÍCITO do backend (db === 'connected',
-    // emitido após um SELECT 1 real). 'down' se o backend reportar outro valor; do
-    // contrário 'unknown' — não tratamos status:'ok' nem resposta vazia como banco OK.
     const db = r && r.db;
     dbState.value = db === 'connected' ? 'connected' : (db ? 'down' : 'unknown');
   } catch {
@@ -523,8 +529,7 @@ const overall = computed(() => {
 // HONESTIDADE: só a latência é uma medida INSTANTÂNEA (sonda /health). Erro e
 // volume vêm de CONTADORES ACUMULADOS da fila — não são taxas por janela de
 // tempo — então rotulamos como "acumulado" e marcamos metas informativas, sem
-// prometer "agora"/"throughput". O histórico real (com janela/rate) está no
-// Grafana (Prometheus: shopdesk_jobs_total / queue_depth).
+// prometer "agora"/"throughput". O histórico real (rate/janela) está no Grafana.
 const slos = computed(() => {
   const out = [];
 
@@ -666,6 +671,7 @@ onBeforeUnmount(stopTimer);
 .sh-alert-title { margin: 0; font-weight: 700; color: rgb(var(--ui-danger)); }
 .sh-alert-desc { margin: 2px 0 0; font-size: var(--ui-text-sm); color: rgb(var(--ui-fg)); }
 .sh-alert-desc abbr { text-decoration: underline dotted; cursor: help; }
+.sh-alert-actions { flex-shrink: 0; }
 
 /* ===================== Pulso geral ===================== */
 .sh-pulse {
@@ -871,5 +877,6 @@ onBeforeUnmount(stopTimer);
   .sh-cards { grid-template-columns: 1fr; }
   .sh-bar-track { height: 110px; }
   .sh-pulse-time { margin-left: 0; }
+  .sh-alert-actions { flex: 1 1 100%; }
 }
 </style>

@@ -142,6 +142,11 @@ paths:
       operationId: healthJobs
       summary: Saúde da fila de jobs (queued/running/done/dlq).
       responses: { "200": { description: ok } }
+  /me:
+    get:
+      operationId: me
+      summary: Identidade do usuário logado pela borda SSO (X-Auth-Request-*). Sem header devolve email null.
+      responses: { "200": { description: "Identidade { email, name, role } (email null em dev)." } }
   /v1/openapi.yaml:
     get:
       operationId: openapiYaml

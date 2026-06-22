@@ -3,7 +3,10 @@
   Altera o PAPEL (dono/administrador/operador) e o STATUS (ativo/inativo) de um usuário do tenant,
   com soft-delete REAL (desativar = preservar o cadastro e revogar o acesso; reversível).
   Identidade (e-mail/nome/último acesso) é somente-leitura — vem do provedor de identidade (OIDC/SSO).
+  Deny por padrão fora do escopo: o RBAC fino é decidido pelo BACKEND (403); a UI não finge permissão.
+
   100% sobre o kit ui-vue · só tokens --ui-* · CSP-safe (sem style inline / :style / v-html) · a11y · responsivo.
+  Componentes do contrato: FormSection (UiFormSection) · RoleSelect (UiFormField + <select>) · FormActions (barra fixa).
 
   CONTRATO REAL do backend (apps/shopdesk/api/src/server.js:98-102 + repositories/crud-repo.js):
     GET    /v1/users/:id  → linha CRUA da tabela users (email/name/role/active/last_login_at).
@@ -15,6 +18,7 @@
     soft-delete           → PUT { active:false } (a coluna `active` existe). DELETE físico apagaria
                             o registro (RETURNING id) e NÃO preservaria auditoria — por isso NÃO usamos.
   api.js normaliza last_login_at → lastLoginAt (snake→camel) para "Último acesso" funcionar.
+  Voltar/Cancelar apontam SEMPRE para /settings/users (domínio real).
 -->
 <template>
   <UiPageLayout
@@ -117,7 +121,7 @@
         </template>
       </UiCard>
 
-      <!-- AVISO quando a edição não está disponível no backend (capacidade real do recurso) -->
+      <!-- AVISO quando a edição não está disponível no backend (capacidade real do recurso / deny por padrão) -->
       <p v-if="scopeNotice" class="ue-banner ue-banner--info" role="status">
         <span aria-hidden="true">ℹ️</span>
         {{ scopeNotice }}
@@ -161,22 +165,29 @@
         </UiFormSection>
       </UiCard>
 
-      <!-- STATUS (ativo/inativo) -->
+      <!-- STATUS (ativo/inativo) — segmented radiogroup acessível por teclado -->
       <UiCard>
         <UiFormSection
           title="Status de acesso"
           description="Um usuário inativo continua cadastrado, mas não consegue entrar no sistema."
           :columns="1"
         >
-          <div class="ue-toggle" role="group" aria-label="Status de acesso do usuário">
+          <div
+            class="ue-toggle"
+            role="radiogroup"
+            aria-label="Status de acesso do usuário"
+            @keydown="onStatusKeydown"
+          >
             <button
               v-for="opt in statusOptions"
               :key="String(opt.value)"
               type="button"
+              role="radio"
               class="ue-toggle-btn"
               :class="{ 'is-on': form.values.active === opt.value }"
               :data-tone="opt.tone"
-              :aria-pressed="form.values.active === opt.value"
+              :aria-checked="form.values.active === opt.value"
+              :tabindex="form.values.active === opt.value ? 0 : -1"
               :disabled="!canEdit"
               @click="setActive(opt.value)"
             >
@@ -199,6 +210,22 @@
         </UiFormSection>
       </UiCard>
 
+      <!-- RESUMO DAS MUDANÇAS PENDENTES (grounded — só o que de fato muda) -->
+      <UiCard v-if="isDirty">
+        <UiFormSection title="Mudanças a aplicar" description="Revise antes de salvar." :columns="1">
+          <ul class="ue-diff" aria-label="Resumo das alterações pendentes">
+            <li v-for="(chg, i) in pendingChanges" :key="i" class="ue-diff-row">
+              <span class="ue-diff-field">{{ chg.label }}</span>
+              <span class="ue-diff-flow">
+                <span class="ue-diff-from">{{ chg.from }}</span>
+                <span class="ue-diff-arrow" aria-hidden="true">→</span>
+                <span class="ue-diff-to" :data-tone="chg.tone">{{ chg.to }}</span>
+              </span>
+            </li>
+          </ul>
+        </UiFormSection>
+      </UiCard>
+
       <!-- ZONA DE RISCO: soft-delete (PUT active=false — preserva o cadastro) -->
       <UiCard v-if="canEdit" class="ue-danger">
         <UiFormSection
@@ -214,10 +241,10 @@
               type="button"
               variant="danger"
               :loading="removing"
-              :disabled="form.submitting.value || (snapshot.active === false && form.values.active === false)"
+              :disabled="form.submitting.value || alreadyInactive"
               @click="softDelete"
             >
-              Remover acesso
+              {{ alreadyInactive ? 'Já está inativo' : 'Remover acesso' }}
             </UiButton>
           </div>
         </UiFormSection>
@@ -335,7 +362,7 @@ const statusOptions = [
 
 const roleOptions = computed(() => ROLES.map((r) => ({ value: r.value, label: r.label })));
 
-// aviso honesto quando a edição NÃO está disponível pelo recurso real (capacidade ausente).
+// aviso honesto quando a edição NÃO está disponível pelo recurso real (capacidade ausente / deny por padrão).
 const scopeNotice = computed(() =>
   canEdit.value
     ? ''
@@ -363,6 +390,7 @@ const snapshot = reactive({ role: '', active: true });
 
 // --- identidade ------------------------------------------------------------
 const userId = computed(() => String(props.id ?? '').trim());
+// SEMPRE rota de DOMÍNIO real (lista de usuários).
 const backTo = '/settings/users';
 const displayName = computed(() => (user.value && (user.value.name || '').trim()) || 'Sem nome');
 const pageTitle = computed(() =>
@@ -400,6 +428,7 @@ const form = useForm({
 
 const effectiveActive = computed(() => form.values.active === true);
 const willDeactivate = computed(() => snapshot.active === true && form.values.active === false);
+const alreadyInactive = computed(() => snapshot.active === false && form.values.active === false);
 
 const isDirty = computed(
   () =>
@@ -409,6 +438,28 @@ const isDirty = computed(
 const canSubmit = computed(() => isDirty.value && canEdit.value && !form.submitting.value);
 const showDirtyBanner = computed(() => isDirty.value && !loading.value && !loadError.value && !!user.value);
 
+// resumo GROUNDED do que vai mudar (apenas os campos efetivamente alterados).
+const pendingChanges = computed(() => {
+  const out = [];
+  if (String(form.values.role ?? '') !== String(snapshot.role ?? '')) {
+    out.push({
+      label: 'Papel',
+      from: roleLabel(snapshot.role),
+      to: roleLabel(form.values.role),
+      tone: 'accent',
+    });
+  }
+  if (form.values.active !== snapshot.active) {
+    out.push({
+      label: 'Status',
+      from: snapshot.active ? 'Ativo' : 'Inativo',
+      to: form.values.active ? 'Ativo' : 'Inativo',
+      tone: form.values.active ? 'ok' : 'danger',
+    });
+  }
+  return out;
+});
+
 // --- handlers (CSP-safe: sem :style / inline) ------------------------------
 function onRoleChange(event) {
   form.setField('role', event.target.value);
@@ -416,6 +467,20 @@ function onRoleChange(event) {
 function setActive(value) {
   if (!canEdit.value) return;
   form.setField('active', value);
+}
+// teclado no radiogroup de status: setas/Home/End alternam (padrão WAI-ARIA radiogroup).
+function onStatusKeydown(event) {
+  if (!canEdit.value) return;
+  const keys = ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'];
+  if (!keys.includes(event.key)) return;
+  event.preventDefault();
+  const idx = statusOptions.findIndex((o) => o.value === form.values.active);
+  let next = idx;
+  if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = (idx + 1) % statusOptions.length;
+  else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = (idx - 1 + statusOptions.length) % statusOptions.length;
+  else if (event.key === 'Home') next = 0;
+  else if (event.key === 'End') next = statusOptions.length - 1;
+  setActive(statusOptions[next].value);
 }
 
 // --- carregamento ----------------------------------------------------------
@@ -505,7 +570,7 @@ async function save() {
       form.setField('active', snapshot.active);
       toast.success('Usuário atualizado com sucesso.');
     } catch (e) {
-      // o backend é quem aplica o RBAC fino: 403 = fora do escopo de quem edita.
+      // o backend é quem aplica o RBAC fino: 403 = fora do escopo de quem edita (deny por padrão).
       if (e && e.status === 403) {
         toast.error('Você não tem permissão para editar este usuário.', { code: 'HTTP 403' });
       } else {
@@ -806,6 +871,58 @@ onMounted(load);
 }
 .ue-toggle-desc {
   font-size: var(--ui-text-sm);
+}
+
+/* ---- resumo de mudanças pendentes ---- */
+.ue-diff {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-2);
+}
+.ue-diff-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-3);
+  flex-wrap: wrap;
+  padding: var(--ui-space-2) var(--ui-space-3);
+  border: 1px solid rgb(var(--ui-border));
+  border-radius: var(--ui-radius-md);
+  background: rgb(var(--ui-surface-2));
+}
+.ue-diff-field {
+  font-size: var(--ui-text-sm);
+  font-weight: 600;
+  color: rgb(var(--ui-muted));
+}
+.ue-diff-flow {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+  font-size: var(--ui-text-sm);
+}
+.ue-diff-from {
+  color: rgb(var(--ui-muted));
+  text-decoration: line-through;
+}
+.ue-diff-arrow {
+  color: rgb(var(--ui-muted));
+}
+.ue-diff-to {
+  font-weight: 700;
+  color: rgb(var(--ui-fg));
+}
+.ue-diff-to[data-tone='accent'] {
+  color: rgb(var(--ui-accent-strong));
+}
+.ue-diff-to[data-tone='ok'] {
+  color: rgb(var(--ui-ok));
+}
+.ue-diff-to[data-tone='danger'] {
+  color: rgb(var(--ui-danger));
 }
 
 /* ---- zona de risco ---- */

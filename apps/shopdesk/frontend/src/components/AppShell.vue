@@ -1,5 +1,5 @@
 <template>
-  <UiAppShell title="ShopDesk" :nav="nav">
+  <UiAppShell title="ShopDesk" :nav="nav" me-url="/shopdesk/api/me">
     <slot />
   </UiAppShell>
 </template>

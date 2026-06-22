@@ -28,6 +28,14 @@ app.get('/health', wrap(async (_q, res) => { await pool.query('SELECT 1'); res.j
 app.get('/v1/openapi.yaml', (_q, res) => res.type('application/yaml').send(OPENAPI_YAML));
 app.get('/v1/openapi.json', (_q, res) => res.type('application/json').send(OPENAPI_JSON));
 app.get('/v1/health/jobs', wrap(async (_q, res) => res.json({ status: 'ok', jobs: await jobsRepo.counts() })));
+// Identidade do usuário logado pela BORDA SSO (oauth2-proxy/Keycloak -> X-Auth-Request-*).
+// A casca (UiAppShell) chama GET /shopdesk/api/me (stripPrefix -> /me) p/ mostrar o usuário logado
+// em vez de "Entrar". Sem header (dev/local) devolve { email: null } (NUNCA 500).
+app.get('/me', (req, res) => res.json({
+  email: req.header('X-Auth-Request-Email') || null,
+  name: req.header('X-Auth-Request-Preferred-Username') || req.header('X-Auth-Request-User') || null,
+  role: req.header('X-Auth-Request-Groups') || null,
+}));
 app.get('/v1/records', wrap(async (req, res) => res.json({ data: (await pool.query('SELECT * FROM records WHERE tenant_id=$1 ORDER BY id DESC LIMIT 200', [req.tenantId])).rows })));
 app.get('/v1/records/:id', wrap(async (req, res) => { const r = (await pool.query('SELECT * FROM records WHERE tenant_id=$1 AND id=$2', [req.tenantId, Number(req.params.id)])).rows[0]; if (!r) return res.status(404).json({ error: { message: 'não encontrado' } }); res.json(r); }));
 app.post('/v1/records', wrap(async (req, res) => { if (!req.body || !req.body.title) { return res.status(400).json({ error: { message: 'title obrigatório' } }); } const r = (await pool.query('INSERT INTO records(tenant_id,title) VALUES ($1,$2) RETURNING *', [req.tenantId, req.body.title])).rows[0]; M.recordsTotal.inc({ outcome: 'created' }); res.status(201).json(r); }));

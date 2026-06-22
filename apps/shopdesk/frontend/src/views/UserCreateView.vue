@@ -11,6 +11,7 @@
         v-if="!invited"
         variant="primary"
         :loading="form.submitting.value"
+        :disabled="!!duplicateError"
         @click="onSubmit"
       >Enviar convite</UiButton>
     </template>

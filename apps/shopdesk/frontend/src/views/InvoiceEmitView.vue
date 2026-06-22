@@ -106,16 +106,28 @@
           </UiEmptyState>
 
           <!-- estado: normal — lista selecionável de pedidos -->
-          <ul v-else class="iv-orders" role="listbox" aria-label="Pedidos elegíveis">
-            <li v-for="o in eligibleOrders" :key="o.id">
+          <ul
+            v-else
+            ref="ordersList"
+            class="iv-orders"
+            role="listbox"
+            aria-label="Pedidos elegíveis"
+            @keydown.down.prevent="moveActive(1)"
+            @keydown.up.prevent="moveActive(-1)"
+            @keydown.home.prevent="moveActiveTo(0)"
+            @keydown.end.prevent="moveActiveTo(eligibleOrders.length - 1)"
+          >
+            <li v-for="(o, i) in eligibleOrders" :key="o.id">
               <button
                 type="button"
                 class="iv-order"
                 role="option"
                 :data-selected="isSelected(o) ? 'true' : null"
                 :data-paid="isPaid(o) ? 'true' : null"
+                :tabindex="i === activeIndex ? '0' : '-1'"
                 :aria-selected="isSelected(o) ? 'true' : 'false'"
                 @click="selectOrder(o)"
+                @focus="activeIndex = i"
               >
                 <span class="iv-order-main">
                   <span class="iv-order-code ui-mono">{{ o.code || ('#' + o.id) }}</span>
@@ -433,6 +445,35 @@ function reloadOrders() {
 function applySearch() {
   // Busca é local sobre a página carregada; nada a fazer além de manter foco/UX.
 }
+
+/* ------------------------------------------------------------------ *
+ * Navegação por teclado no listbox de pedidos (a11y de roving tabindex).
+ * ------------------------------------------------------------------ */
+const ordersList = ref(null);
+const activeIndex = ref(0);
+
+function focusOption(i) {
+  if (!ordersList.value) return;
+  const btns = ordersList.value.querySelectorAll('.iv-order');
+  const el = btns[i];
+  if (el && el.focus) el.focus();
+}
+function moveActiveTo(i) {
+  const n = eligibleOrders.value.length;
+  if (!n) return;
+  activeIndex.value = Math.max(0, Math.min(n - 1, i));
+  focusOption(activeIndex.value);
+}
+function moveActive(delta) {
+  const n = eligibleOrders.value.length;
+  if (!n) return;
+  moveActiveTo((activeIndex.value + delta + n) % n);
+}
+
+// mantém o item ativo dentro dos limites quando a lista filtrada muda.
+watch(eligibleOrders, (list) => {
+  if (activeIndex.value > list.length - 1) activeIndex.value = Math.max(0, list.length - 1);
+});
 function toggleOnlyPaid(ev) {
   onlyPaid.value = typeof ev === 'boolean' ? ev : !!ev?.target?.checked;
 }

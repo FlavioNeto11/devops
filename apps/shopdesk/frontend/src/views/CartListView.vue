@@ -1,3 +1,9 @@
+<!-- CartListView — REQ-SHOPDESK-0003: recuperação de vendas.
+     Lista carrinhos abertos/abandonados/convertidos com subtotal e última atividade.
+     Ação principal: levar um carrinho ao CHECKOUT (rota de domínio /checkout/:cartId).
+     Contrato de UI: só componentes do kit (../ui/index.js), só tokens --ui-*, sem style inline / :style / v-html,
+     todos os estados (loading/empty/error/normal), só endpoints reais (api.carts), ações destrutivas via useConfirm,
+     toasts em sucesso/erro, responsivo + a11y. Só rotas de domínio. -->
 <template>
   <UiPageLayout
     eyebrow="Recuperação de vendas"
@@ -21,6 +27,18 @@
         <template #icon-left><span aria-hidden="true">⬇</span></template>
         Exportar CSV
       </UiButton>
+    </template>
+
+    <!-- Banner de oportunidade: só quando há valor abandonado a recuperar -->
+    <template v-if="showRecoveryBanner" #banner>
+      <div class="carts-banner" role="status">
+        <span class="carts-banner-icon" aria-hidden="true">💸</span>
+        <p class="carts-banner-text">
+          <strong>{{ format.formatCurrency(kpis.abandonedValue) }}</strong>
+          em {{ kpis.abandoned }} {{ kpis.abandoned === 1 ? 'carrinho abandonado' : 'carrinhos abandonados' }}
+          esperando recuperação. Selecione um carrinho e siga para o checkout.
+        </p>
+      </div>
     </template>
 
     <!-- Filtros -->
@@ -53,7 +71,7 @@
         label="Abandonados"
         :value="kpis.abandoned"
         tone="warning"
-        hint="Oportunidades de recuperação"
+        :hint="abandonedHint"
         :loading="r.loading.value"
       />
       <UiMetricCard
@@ -100,7 +118,7 @@
         <template #cell-customer="{ row }">
           <div class="carts-cust">
             <span class="carts-cust-name">{{ customerName(row) || 'Cliente anônimo' }}</span>
-            <span class="carts-cust-id ui-mono">{{ row.code || ('#' + row.id) }}</span>
+            <span class="carts-cust-id ui-mono">{{ identifier(row) }}</span>
           </div>
         </template>
 
@@ -123,7 +141,9 @@
         <template #cell-updated="{ row }">
           <div class="carts-when">
             <span>{{ format.formatDateTime(updatedAt(row)) }}</span>
-            <span class="carts-when-rel">{{ relativeTime(updatedAt(row)) }}</span>
+            <span class="carts-when-rel" :data-stale="isStale(row) ? 'true' : null">
+              {{ relativeTime(updatedAt(row)) }}
+            </span>
           </div>
         </template>
 
@@ -146,7 +166,7 @@
         <!-- Sem resultados após filtro -->
         <template #empty-action>
           <UiButton v-if="hasLocalFilter" variant="ghost" @click="onClear">Limpar filtros</UiButton>
-          <UiButton v-else variant="ghost" @click="r.load">Recarregar</UiButton>
+          <UiButton v-else variant="ghost" to="/orders">Ver pedidos</UiButton>
         </template>
       </UiDataTable>
     </UiCard>
@@ -162,7 +182,7 @@
       <dl v-else-if="detail" class="carts-detail">
         <div class="carts-detail-row">
           <dt>Identificação</dt>
-          <dd class="ui-mono">{{ detail.code || ('#' + detail.id) }}</dd>
+          <dd class="ui-mono">{{ identifier(detail) }}</dd>
         </div>
         <div class="carts-detail-row">
           <dt>Cliente</dt>
@@ -184,14 +204,21 @@
         </div>
         <div class="carts-detail-row">
           <dt>Atualizado em</dt>
-          <dd>
-            {{ format.formatDateTime(updatedAt(detail)) }}
+          <dd class="carts-detail-when">
+            <span>{{ format.formatDateTime(updatedAt(detail)) }}</span>
             <span class="carts-when-rel">{{ relativeTime(updatedAt(detail)) }}</span>
           </dd>
         </div>
       </dl>
       <template #footer>
         <UiButton variant="ghost" @click="detailOpen = false">Fechar</UiButton>
+        <UiButton
+          v-if="detail"
+          variant="subtle"
+          :to="'/carrinhos/' + detail.id"
+        >
+          Abrir página
+        </UiButton>
         <UiButton
           v-if="detail && canCheckout(detail)"
           variant="primary"
@@ -227,11 +254,16 @@ import {
 import * as api from '../api.js';
 
 // ---------------------------------------------------------------------------
-// Recurso REAL: GET /v1/carts (resourceFactory("carts") em api.js).
-// useResource trata { data, total, page, pageSize } e os estados de lista.
+// Recurso REAL: GET/GET:id /v1/carts (api.carts em api.js).
+// useResource trata o envelope { data, total, page, pageSize } e os estados de lista.
+// Cinto de segurança: se o integrador não injetar api.carts, caímos num stub que
+// rejeita de forma controlada (a tela vai ao estado de erro em vez de TypeError).
 // ---------------------------------------------------------------------------
+const CARTS_UNAVAILABLE = 'Recurso de carrinhos indisponível.';
+const carts = api.carts || {
+  list: () => Promise.reject(new Error(CARTS_UNAVAILABLE)),
+};
 const router = useRouter();
-const carts = api.carts;
 const r = useResource(carts, { pageSize: 25, sort: { key: 'updatedAt', dir: 'desc' } });
 const toast = useToast();
 const confirm = useConfirm();
@@ -249,6 +281,7 @@ const itemsCount = (row) => {
 const subtotalOf = (row) => (row ? Number(row.subtotal ?? 0) : 0);
 const statusOf = (row) => (row ? (row.status ?? '') : '');
 const updatedAt = (row) => (row ? (row.updatedAt ?? row.updated_at ?? null) : null);
+const identifier = (row) => (row ? (row.code || ('#' + row.id)) : '—');
 
 // ---------------------------------------------------------------------------
 // Enum de domínio (aberto | abandonado | convertido). Tom é declarado aqui
@@ -280,9 +313,9 @@ const columns = [
   { key: 'actions', label: 'Ações', align: 'right' },
 ];
 
-// As colunas lógicas (chaves da tabela) mapeiam para os campos reais ao
-// ordenar no servidor. `tableSort` guarda a chave LÓGICA para a tabela desenhar
-// a seta na coluna certa; o recurso recebe o campo REAL.
+// As colunas lógicas (chaves da tabela) mapeiam para os campos reais ao ordenar
+// no servidor. `tableSort` guarda a chave LÓGICA para a tabela desenhar a seta na
+// coluna certa; o recurso recebe o campo REAL (camelCase → api.js converte p/ snake).
 const SORT_FIELD = {
   customer: 'customerName',
   subtotal: 'subtotal',
@@ -361,14 +394,25 @@ const filteredRows = computed(() => {
 const kpis = computed(() => {
   const rows = filteredRows.value;
   const abandoned = rows.filter((c) => statusOf(c) === 'abandonado');
+  const converted = rows.filter((c) => statusOf(c) === 'convertido').length;
   return {
     count: rows.length,
     subtotal: rows.reduce((s, c) => s + subtotalOf(c), 0),
     abandoned: abandoned.length,
     abandonedValue: abandoned.reduce((s, c) => s + subtotalOf(c), 0),
+    converted,
   };
 });
 const totalHint = computed(() => (r.total.value ? r.total.value + ' no total' : 'Sem carrinhos'));
+const abandonedHint = computed(() => {
+  const k = kpis.value;
+  if (!k.count) return 'Oportunidades de recuperação';
+  const pct = Math.round((k.abandoned / k.count) * 100);
+  return pct + '% dos carrinhos exibidos';
+});
+const showRecoveryBanner = computed(
+  () => !r.loading.value && !r.error.value && kpis.value.abandoned > 0 && kpis.value.abandonedValue > 0,
+);
 const resultSummary = computed(() => {
   if (r.loading.value) return 'Carregando…';
   const shown = filteredRows.value.length;
@@ -387,7 +431,8 @@ const emptyState = computed(() =>
 );
 
 // ---------------------------------------------------------------------------
-// Tempo relativo (puro, sem dependências; CSP-safe).
+// Tempo relativo (puro, sem dependências; CSP-safe). Um carrinho "parado" há
+// mais de 24h é destacado como oportunidade fria de recuperação.
 // ---------------------------------------------------------------------------
 function relativeTime(value) {
   if (!value) return '';
@@ -403,6 +448,13 @@ function relativeTime(value) {
   if (d < 30) return 'há ' + d + ' d';
   const mo = Math.round(d / 30);
   return 'há ' + mo + ' mês' + (mo > 1 ? 'es' : '');
+}
+const STALE_MS = 24 * 60 * 60 * 1000;
+function isStale(row) {
+  if (statusOf(row) === 'convertido') return false;
+  const raw = updatedAt(row);
+  const ts = raw ? new Date(raw).getTime() : NaN;
+  return !isNaN(ts) && Date.now() - ts > STALE_MS;
 }
 
 // ---------------------------------------------------------------------------
@@ -425,7 +477,7 @@ const detailLoading = ref(false);
 const detailError = ref('');
 let lastDetailId = null;
 const detailTitle = computed(() =>
-  detail.value ? 'Carrinho ' + (detail.value.code || ('#' + detail.value.id)) : 'Carrinho',
+  detail.value ? 'Carrinho ' + identifier(detail.value) : 'Carrinho',
 );
 
 async function openDetail(row) {
@@ -448,7 +500,8 @@ function reloadDetail() {
 }
 
 // ---------------------------------------------------------------------------
-// Ação principal: levar o carrinho ao checkout (confirmação + navegação).
+// Ação principal: levar o carrinho ao CHECKOUT (rota de domínio /checkout/:cartId).
+// Confirmação antes de navegar (passo de efeito colateral comercial).
 // ---------------------------------------------------------------------------
 const busyId = ref(null);
 async function goToCheckout(row) {
@@ -456,7 +509,7 @@ async function goToCheckout(row) {
     toast.warning('Este carrinho não pode seguir para o checkout.');
     return;
   }
-  const who = customerName(row) || (row.code || ('#' + row.id));
+  const who = customerName(row) || identifier(row);
   const ok = await confirm({
     title: 'Ir ao checkout',
     message:
@@ -470,7 +523,7 @@ async function goToCheckout(row) {
   if (!ok) return;
   busyId.value = row.id;
   try {
-    await router.push({ path: '/loja', query: { cart: row.id } });
+    await router.push({ path: '/checkout/' + row.id });
     toast.success('Checkout iniciado para ' + who + '.');
     detailOpen.value = false;
   } catch (e) {
@@ -498,7 +551,7 @@ function exportCsv() {
   for (const c of rows) {
     lines.push(
       [
-        csvCell(c.code || ('#' + c.id)),
+        csvCell(identifier(c)),
         csvCell(customerName(c)),
         csvCell(itemsCount(c)),
         csvCell(subtotalOf(c)),
@@ -533,6 +586,25 @@ onMounted(r.load);
   gap: var(--ui-space-4);
 }
 
+.carts-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-3);
+  padding: var(--ui-space-3) var(--ui-space-4);
+  border: 1px solid rgb(var(--ui-warn));
+  border-radius: var(--ui-radius-lg);
+  background: rgb(var(--ui-warn) / 0.1);
+  color: rgb(var(--ui-fg));
+}
+.carts-banner-icon {
+  font-size: var(--ui-text-lg);
+  line-height: 1;
+}
+.carts-banner-text {
+  margin: 0;
+  font-size: var(--ui-text-sm);
+}
+
 .carts-cust {
   display: flex;
   flex-direction: column;
@@ -559,6 +631,10 @@ onMounted(r.load);
 .carts-when-rel {
   font-size: var(--ui-text-xs);
   color: rgb(var(--ui-muted));
+}
+.carts-when-rel[data-stale="true"] {
+  color: rgb(var(--ui-warn));
+  font-weight: 600;
 }
 
 .carts-actions {
@@ -591,6 +667,12 @@ onMounted(r.load);
 }
 .carts-detail dd {
   margin: 0;
+}
+.carts-detail-when {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ui-space-2);
+  flex-wrap: wrap;
 }
 
 @media (max-width: 980px) {

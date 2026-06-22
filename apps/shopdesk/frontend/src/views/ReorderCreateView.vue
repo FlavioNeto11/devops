@@ -1,12 +1,21 @@
+<!-- ReorderCreateView — REF/REQ-SHOPDESK-0005: criar ordem de reposição para um SKU com baixa
+     quantidade (produto, quantidade sugerida, fornecedor).
+     Fluxo numa só tela: (1) ProductPicker sobre o estoque real (GET /v1/inventory) com busca e
+     todos os estados; (2) NumberInput (stepper) + fornecedor + situação; (3) FormActions criando a
+     ordem em POST /v1/reorders. Coluna lateral com KPI de itens abaixo do ponto + resumo ao vivo.
+     Contrato de UI: SÓ componentes do kit + tokens --ui-* ; sem style inline / :style / v-html ;
+     todos os estados (loading/empty/error/normal) ; a11y + responsivo ; ação destrutiva via
+     useConfirm ; toast em sucesso/erro. Links de domínio apenas (/reorders, /inventory). -->
 <template>
   <UiPageLayout
-    eyebrow="Reposição"
+    eyebrow="Estoque · Reposição"
     title="Nova ordem de reposição"
     subtitle="Selecione um SKU com estoque baixo, defina a quantidade a comprar e o fornecedor. A ordem entra como rascunho e pode ser solicitada em seguida."
     width="wide"
   >
     <template #actions>
-      <UiButton variant="ghost" to="/reorders">Voltar</UiButton>
+      <UiButton variant="ghost" to="/reorders">Voltar às ordens</UiButton>
+      <UiButton variant="subtle" to="/inventory">Ver estoque</UiButton>
     </template>
 
     <div class="rc-grid">
@@ -21,6 +30,7 @@
             <UiButton
               variant="subtle"
               size="sm"
+              type="button"
               :loading="inventory.loading.value"
               @click="inventory.refresh()"
             >Atualizar estoque</UiButton>
@@ -29,7 +39,7 @@
           <UiFormSection :columns="1">
             <UiFormField
               label="Buscar no estoque"
-              hint="Filtra por SKU ou nome do produto. Itens abaixo do ponto de reposição aparecem destacados."
+              hint="Filtra por SKU, nome do produto ou local. Itens no ou abaixo do ponto de reposição aparecem destacados."
             >
               <template #default="{ id, describedBy }">
                 <input
@@ -68,22 +78,26 @@
           <!-- estado: vazio (sem nenhum item de estoque cadastrado) -->
           <UiEmptyState
             v-else-if="!inventory.items.value.length"
-            icon="📦"
+            icon="box"
             title="Estoque vazio"
             description="Nenhum item de estoque foi encontrado. Você ainda pode criar a ordem informando o SKU manualmente abaixo."
             compact
-          />
+          >
+            <template #action>
+              <UiButton variant="ghost" size="sm" to="/inventory">Abrir estoque</UiButton>
+            </template>
+          </UiEmptyState>
 
           <!-- estado: vazio (filtro sem resultado) -->
           <UiEmptyState
             v-else-if="!filteredInventory.length"
-            icon="🔍"
+            icon="search"
             :title="'Nada encontrado para “' + query.trim() + '”'"
             description="Ajuste a busca ou informe o SKU manualmente no campo abaixo."
             compact
           >
             <template #action>
-              <UiButton variant="ghost" size="sm" @click="query = ''">Limpar busca</UiButton>
+              <UiButton variant="ghost" size="sm" type="button" @click="query = ''">Limpar busca</UiButton>
             </template>
           </UiEmptyState>
 
@@ -113,12 +127,14 @@
                 <p class="rc-picker-name">{{ item.productName || 'Produto sem nome' }}</p>
                 <p class="rc-picker-meta">
                   <span class="rc-mono">{{ item.sku }}</span>
-                  <span v-if="item.location" class="rc-dot" aria-hidden="true">·</span>
-                  <span v-if="item.location">{{ item.location }}</span>
+                  <template v-if="item.location">
+                    <span class="rc-dot" aria-hidden="true">·</span>
+                    <span>{{ item.location }}</span>
+                  </template>
                 </p>
               </div>
               <div class="rc-picker-stock">
-                <UiStatusBadge :status="stockTone(item)" :label="stockLabel(item)" size="sm" />
+                <UiStatusBadge :status="stockStatus(item)" :tone="stockToneOverride(item)" :label="stockLabel(item)" />
                 <p class="rc-picker-qty">
                   {{ formatNumber(item.quantity) }}<span class="rc-picker-qty-unit"> un.</span>
                 </p>
@@ -127,22 +143,25 @@
           </ul>
 
           <!-- SKU / produto efetivos (preenchidos pela seleção, editáveis para entrada manual) -->
-          <UiFormSection title="Identificação do item" :columns="2">
+          <UiFormSection title="Identificação do item" description="Confirme ou ajuste o item que será reposto." :columns="2">
             <UiFormField
               label="SKU"
               required
-              :error="form.errors.sku"
+              :error="skuError"
               hint="Código do produto a ser reposto."
             >
-              <template #default="{ id, describedBy }">
+              <template #default="{ id, describedBy, hasError }">
                 <input
                   :id="id"
                   :value="form.values.sku"
                   :aria-describedby="describedBy"
+                  :aria-invalid="hasError ? 'true' : null"
                   type="text"
                   autocomplete="off"
+                  spellcheck="false"
                   placeholder="Ex.: SKU-002"
                   @input="onSkuInput($event.target.value)"
+                  @blur="form.validateField('sku')"
                 />
               </template>
             </UiFormField>
@@ -174,10 +193,10 @@
             <UiFormField
               label="Quantidade solicitada"
               required
-              :error="form.errors.quantity"
+              :error="quantityError"
               :hint="quantityHint"
             >
-              <template #default="{ id, describedBy }">
+              <template #default="{ id, describedBy, hasError }">
                 <div class="rc-stepper" role="group" aria-label="Quantidade solicitada">
                   <UiButton
                     variant="ghost"
@@ -191,6 +210,7 @@
                     :id="id"
                     :value="form.values.quantity"
                     :aria-describedby="describedBy"
+                    :aria-invalid="hasError ? 'true' : null"
                     class="rc-stepper-input"
                     type="number"
                     inputmode="numeric"
@@ -198,6 +218,7 @@
                     step="1"
                     placeholder="0"
                     @input="form.setField('quantity', $event.target.value)"
+                    @blur="form.validateField('quantity')"
                   />
                   <UiButton
                     variant="ghost"
@@ -251,20 +272,23 @@
           </UiFormSection>
 
           <!-- sugestões rápidas de quantidade -->
-          <div v-if="quantitySuggestions.length" class="rc-suggest" aria-label="Sugestões de quantidade">
-            <span class="rc-suggest-label">Sugestões:</span>
-            <UiButton
-              v-for="s in quantitySuggestions"
-              :key="s.value"
-              variant="subtle"
-              size="sm"
-              type="button"
-              @click="applySuggestion(s.value)"
-            >{{ s.label }}</UiButton>
+          <div v-if="quantitySuggestions.length" class="rc-suggest">
+            <span class="rc-suggest-label" id="rc-suggest-label">Sugestões:</span>
+            <div class="rc-suggest-chips" role="group" aria-labelledby="rc-suggest-label">
+              <UiButton
+                v-for="s in quantitySuggestions"
+                :key="s.value"
+                variant="subtle"
+                size="sm"
+                type="button"
+                :data-active="Number(form.values.quantity) === s.value ? 'true' : null"
+                @click="applySuggestion(s.value)"
+              >{{ s.label }}</UiButton>
+            </div>
           </div>
         </UiCard>
 
-        <!-- ---------------- Ações ---------------- -->
+        <!-- ---------------- FormActions ---------------- -->
         <div class="rc-actions">
           <UiButton
             variant="ghost"
@@ -284,7 +308,7 @@
       </form>
 
       <!-- ============================ Coluna lateral: resumo + contexto ============================ -->
-      <aside class="rc-aside">
+      <aside class="rc-aside" aria-label="Resumo da reposição">
         <!-- KPI: itens abaixo do ponto -->
         <UiMetricCard
           label="Itens abaixo do ponto de reposição"
@@ -327,7 +351,7 @@
             </div>
             <div class="rc-summary-row">
               <dt>Situação</dt>
-              <dd><UiStatusBadge :status="form.values.status" :label="statusLabelFor(form.values.status)" size="sm" /></dd>
+              <dd><UiStatusBadge :status="form.values.status" :label="statusLabelFor(form.values.status)" /></dd>
             </div>
           </dl>
 
@@ -351,7 +375,7 @@
         </UiCard>
 
         <!-- dica fixa -->
-        <UiCard title="Como funciona" padded>
+        <UiCard title="Como funciona">
           <ul class="rc-tips">
             <li>Selecione um item do estoque para preencher SKU e nome automaticamente.</li>
             <li>A quantidade sugerida cobre a diferença até o ponto de reposição, com folga.</li>
@@ -365,12 +389,12 @@
     <UiModal v-model:open="createdOpen" title="Ordem de reposição criada" width="md" persistent>
       <div v-if="created" class="rc-receipt">
         <div class="rc-receipt-head">
-          <UiStatusBadge
-            :status="created.status"
-            :label="statusLabelFor(created.status)"
-            size="lg"
-          />
-          <p v-if="created.id" class="rc-receipt-id">Ordem <span class="rc-mono">#{{ created.id }}</span></p>
+          <span class="rc-receipt-icon" aria-hidden="true">✓</span>
+          <div class="rc-receipt-head-text" role="status" aria-live="polite">
+            <p class="rc-receipt-title">Reposição registrada</p>
+            <p v-if="created.id" class="rc-receipt-id">Ordem <span class="rc-mono">#{{ created.id }}</span></p>
+          </div>
+          <UiStatusBadge :status="created.status" :label="statusLabelFor(created.status)" size="lg" />
         </div>
         <dl class="rc-receipt-list">
           <div class="rc-receipt-row">
@@ -393,14 +417,14 @@
       </div>
       <template #footer>
         <UiButton variant="ghost" to="/reorders">Ir para a lista</UiButton>
-        <UiButton variant="primary" @click="startAnother">Criar outra</UiButton>
+        <UiButton variant="primary" type="button" @click="startAnother">Criar outra</UiButton>
       </template>
     </UiModal>
   </UiPageLayout>
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue';
+import { ref, computed } from 'vue';
 import {
   UiPageLayout,
   UiCard,
@@ -425,41 +449,10 @@ const toast = useToast();
 const confirm = useConfirm();
 
 /* ------------------------------------------------------------------ *
- * Camada de dados — SÓ endpoints REAIS do backend ShopDesk:
- *   GET  /v1/inventory  (itens de estoque → ProductPicker)
- *   POST /v1/reorders   (cria a ordem de reposição)
- * Prefere os recursos do api.js quando o integrador os expõe
- * (api.inventory / api.reorders); senão usa um cliente fino sobre a
- * MESMA base do api.js (idêntico ao padrão de OrderCreateView).
+ * Camada de dados — SÓ endpoints REAIS do backend ShopDesk via ../api.js:
+ *   GET  /v1/inventory  → api.inventory.list  (itens de estoque → ProductPicker)
+ *   POST /v1/reorders   → api.reorders.create (cria a ordem de reposição)
  * ------------------------------------------------------------------ */
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '/shopdesk/api';
-async function call(method, path, body) {
-  const res = await fetch(API_BASE + path, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const err = new Error((data && data.error && data.error.message) || ('HTTP ' + res.status));
-    err.status = res.status;
-    throw err;
-  }
-  return data;
-}
-
-function listInventory() {
-  if (api.inventory && typeof api.inventory.list === 'function') {
-    return api.inventory.list({ page: 1, pageSize: 200 });
-  }
-  return call('GET', '/v1/inventory?pageSize=200');
-}
-function createReorder(payload) {
-  if (api.reorders && typeof api.reorders.create === 'function') {
-    return api.reorders.create(payload);
-  }
-  return call('POST', '/v1/reorders', payload);
-}
 
 // normaliza snake_case do Postgres → camelCase usado na tela.
 function normalizeInventory(row) {
@@ -483,7 +476,7 @@ function normalizeReorder(row) {
     productName: row.productName || row.product_name || '',
     quantity: Number(row.quantity != null ? row.quantity : 0),
     supplier: row.supplier || '',
-    status: row.status || '',
+    status: row.status || 'rascunho',
   };
 }
 
@@ -499,7 +492,7 @@ const inventory = {
     inventory.loading.value = true;
     inventory.error.value = null;
     try {
-      const res = await listInventory();
+      const res = await api.inventory.list({ page: 1, pageSize: 200 });
       const rows = Array.isArray(res) ? res : res.data || res.items || [];
       items.value = rows.map(normalizeInventory);
     } catch (e) {
@@ -541,10 +534,14 @@ function isLow(it) {
   if (it.reorderPoint == null) return false;
   return Number(it.quantity) <= Number(it.reorderPoint);
 }
-function stockTone(it) {
+// status -> resolveTone do kit; só sobrescrevemos o tom de "esgotado" (palavra que o mapa não conhece).
+function stockStatus(it) {
   if (Number(it.quantity) <= 0) return 'esgotado';
   if (isLow(it)) return 'baixo';
   return 'ok';
+}
+function stockToneOverride(it) {
+  return Number(it.quantity) <= 0 ? 'error' : null;
 }
 function stockLabel(it) {
   if (Number(it.quantity) <= 0) return 'Sem estoque';
@@ -591,7 +588,7 @@ function onSkuInput(value) {
 
 /* ------------------------------------------------------------------ *
  * Sugestão de quantidade — cobre a diferença até o ponto + folga.
- * Heurística de UI (apresentação), não regra de negócio do backend.
+ * Heurística de APRESENTAÇÃO (ajuda o operador), não regra de negócio do backend.
  * ------------------------------------------------------------------ */
 function suggestedQuantity(it) {
   if (!it) return 0;
@@ -650,6 +647,9 @@ const form = useForm({
     status: [validators.required('Selecione a situação')],
   },
 });
+// só mostra o erro depois que o campo foi tocado (evita ruído ao abrir a tela).
+const skuError = computed(() => (form.touched.sku ? form.errors.sku || '' : ''));
+const quantityError = computed(() => (form.touched.quantity ? form.errors.quantity || '' : ''));
 
 const numericQuantity = computed(() => {
   const n = Number(form.values.quantity);
@@ -678,6 +678,7 @@ const createdOpen = ref(false);
 const created = ref(null);
 
 async function submit() {
+  if (form.submitting.value) return; // anti-duplo-submit
   if (!form.validate()) {
     toast.error('Revise os campos destacados antes de continuar.');
     return;
@@ -691,12 +692,15 @@ async function submit() {
         supplier: (values.supplier || '').trim() || null,
         status: values.status,
       };
-      const res = await createReorder(payload);
-      created.value = normalizeReorder(res || payload);
+      const res = await api.reorders.create(payload);
+      created.value = normalizeReorder(res && res.id ? res : Object.assign({}, payload, { id: res && res.id }));
       createdOpen.value = true;
       toast.success('Ordem de reposição criada para ' + payload.sku + '.');
     } catch (e) {
-      toast.error('Não foi possível criar a ordem: ' + (e.message || 'erro desconhecido'));
+      toast.error('Não foi possível criar a ordem', {
+        detail: (e && e.message) || 'Erro desconhecido.',
+        code: e && e.status,
+      });
     }
   });
 }
@@ -783,6 +787,10 @@ inventory.load();
   border-color: rgb(var(--ui-border-strong));
   background: rgb(var(--ui-surface-2));
 }
+.rc-picker-item:focus-visible {
+  outline: 2px solid rgb(var(--ui-accent));
+  outline-offset: 2px;
+}
 .rc-picker-item[data-selected='true'] {
   border-color: rgb(var(--ui-accent));
   background: rgb(var(--ui-accent) / 0.08);
@@ -854,13 +862,23 @@ inventory.load();
   display: flex;
   align-items: center;
   flex-wrap: wrap;
+  gap: var(--ui-space-3);
+  margin-top: var(--ui-space-4);
+}
+.rc-suggest-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: var(--ui-space-2);
-  margin-top: var(--ui-space-3);
 }
 .rc-suggest-label {
   font-size: var(--ui-text-sm);
   color: rgb(var(--ui-muted));
   font-weight: 600;
+}
+.rc-suggest-chips :deep(.ui-btn[data-active='true']) {
+  border-color: rgb(var(--ui-accent));
+  color: rgb(var(--ui-accent-strong));
 }
 
 /* ---------------- ações ---------------- */
@@ -974,13 +992,38 @@ inventory.load();
 .rc-receipt-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--ui-space-3);
   flex-wrap: wrap;
+  padding-bottom: var(--ui-space-3);
+  border-bottom: 1px solid rgb(var(--ui-border));
+}
+.rc-receipt-icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: var(--ui-text-lg);
+  background: rgb(var(--ui-ok) / 0.16);
+  color: rgb(var(--ui-ok));
+}
+.rc-receipt-head-text {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.rc-receipt-title {
+  margin: 0;
+  font-family: var(--ui-font-display);
+  font-weight: 700;
+  font-size: var(--ui-text-lg);
 }
 .rc-receipt-id {
-  margin: 0;
+  margin: 2px 0 0;
   color: rgb(var(--ui-muted));
+  font-size: var(--ui-text-sm);
 }
 .rc-receipt-list {
   margin: 0;

@@ -10,13 +10,9 @@ async function request(method, path, body, extraHeaders) {
 export const health = () => request("GET", "/health");
 // saúde da fila de jobs (o backend expõe GET /v1/health/jobs -> { status, jobs:{queued,running,done,dlq} }).
 export const healthJobs = () => request("GET", "/v1/health/jobs");
-// recurso genérico `records` (o gerador de backend expõe /v1/records).
-export const records = {
-  list: () => request("GET", "/v1/records").then((d) => d.data || d),
-  get: (id) => request("GET", "/v1/records/" + id),
-  create: (rec) => request("POST", "/v1/records", rec),
-  submit: (id) => request("POST", "/v1/records/" + id + "/submit", {}),
-};
+// identidade do usuário logado (borda SSO): GET /api/me -> { email, name, role }.
+// Sem header (dev) o backend devolve { email: null } (não 500). A casca lê via meUrl.
+export const me = () => request("GET", "/me");
 // querystring para listas (server-mode): paginação/ordenação/filtro. Vazios são omitidos.
 // `sort` é mapeado de camelCase (contrato do front) para snake_case (coluna física do Postgres),
 // pois o backend ordena por nome de coluna (ex.: createdAt -> created_at, stockQty -> stock_qty).

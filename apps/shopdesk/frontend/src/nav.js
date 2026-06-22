@@ -10,8 +10,10 @@ export const nav = [
     items: [
       { to: '/', label: 'Visão geral', icon: '◰' },
       { to: '/orders', label: 'Pedidos', icon: '🧾' },
-      { to: '/loja', label: 'Loja', icon: '🛒' },
-      { to: '/carts', label: 'Carrinhos', icon: '🛍' },
+      // Carrinhos é a rampa de acesso do checkout (tokenizado por carrinho em /checkout/:cartId):
+      // selecione um carrinho na lista e siga para o checkout. Uma única entrada (rota real /carts)
+      // evita link morto (/checkout exige :cartId) e chave duplicada na sidebar.
+      { to: '/carts', label: 'Carrinhos e checkout', icon: '🛒' },
     ],
   },
   {
@@ -41,7 +43,7 @@ export const nav = [
     items: [
       { to: '/settings', label: 'Configurações da loja', icon: '⚙' },
       { to: '/settings/users', label: 'Usuários', icon: '👥' },
-      { to: '/auditoria', label: 'Auditoria', icon: '🗒' },
+      { to: '/audit-logs', label: 'Auditoria', icon: '🗒' },
       { to: '/health', label: 'Saúde do sistema', icon: '❤' },
       { to: '/settings/api-docs', label: 'Documentação da API', icon: '⟨⟩' },
     ],
