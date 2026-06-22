@@ -154,6 +154,8 @@
         :loading="loading"
         :error="tableError"
         :empty="emptyState"
+        clickable-rows
+        @row-click="navigateToProduct"
         @retry="reload"
       >
         <!-- Produto -->
@@ -194,7 +196,7 @@
 
         <!-- Última falha (erro de envio) -->
         <template #cell-last_error="{ row }">
-          <button v-if="row.last_error" class="al-errlink" type="button" @click="openError(row)">
+          <button v-if="row.last_error" class="al-errlink" type="button" @click.stop="openError(row)">
             <span class="al-errlink-icon" aria-hidden="true">⚠</span>
             <span class="al-errlink-text">{{ truncate(row.last_error, 48) }}</span>
           </button>
@@ -347,6 +349,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import {
   UiPageLayout,
   UiCard,
@@ -393,8 +396,13 @@ async function postSubresource(resource, id, action, body) {
 const reorderFn = (id) => postSubresource('products', id, 'reorder');
 const suggestFn = (id) => postSubresource('products', id, 'suggest-reorder');
 
+const router = useRouter();
 const toast = useToast();
 const confirm = useConfirm();
+
+function navigateToProduct(row) {
+  router.push('/products/' + row.id);
+}
 
 // ---------------------------------------------------------------------------
 // Estado da lista (loading / error / normal / empty cobertos).
