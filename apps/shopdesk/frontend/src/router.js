@@ -25,6 +25,7 @@ import TransactionListView from './views/TransactionListView.vue';
 import InvoiceListView from './views/InvoiceListView.vue';
 import InvoiceEmitView from './views/InvoiceEmitView.vue';
 import InvoiceDetailView from './views/InvoiceDetailView.vue';
+import InvoiceEditView from './views/InvoiceEditView.vue';
 import AiAssistantView from './views/AiAssistantView.vue';
 import NotificationListView from './views/NotificationListView.vue';
 import SystemHealthView from './views/SystemHealthView.vue';
@@ -74,6 +75,7 @@ export const routes = [
   { path: '/invoices', name: 'invoices', component: InvoiceListView },
   { path: '/invoices/new', name: 'invoice-new', component: InvoiceEmitView },
   { path: '/invoices/:id', name: 'invoice', component: InvoiceDetailView, props: true },
+  { path: '/invoices/:id/edit', name: 'invoice-edit', component: InvoiceEditView, props: true },
   // engajamento — notificações multicanal (api.notifications ou api.store.notifications()).
   { path: '/notifications', name: 'notifications', component: NotificationListView },
   // observabilidade — painel de saúde (banco/workers/fila + SLOs). Lê SÓ /health e /v1/health/jobs.

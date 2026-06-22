@@ -31,6 +31,13 @@
     <!-- DetailHeader: ações -->
     <template #actions>
       <UiButton variant="ghost" to="/invoices">Voltar às notas</UiButton>
+      <!-- Editar: navega para /invoices/:id/edit passando os dados da nota no router state -->
+      <UiButton
+        variant="subtle"
+        :disabled="!invoice"
+        :title="invoice ? 'Editar dados desta NF-e' : 'Carregue a nota para editar'"
+        @click="goToEdit"
+      >Editar</UiButton>
       <!-- DownloadXmlLink: o MOTIVO da indisponibilidade é exposto a leitores de tela
            (title + aria-label dinâmicos) — não apenas "botão indisponível". -->
       <UiButton
@@ -493,6 +500,16 @@ async function loadJobs() {
   } finally {
     jobsLoading.value = false;
   }
+}
+
+// ---- ação: navegar para edição ----
+function goToEdit() {
+  if (!invoice.value) return;
+  router.push({
+    name: 'invoice-edit',
+    params: { id: String(invoiceId.value) },
+    state: { invoice: { ...invoice.value } },
+  });
 }
 
 // ---- ação: reprocessar (RetryButton) ----
