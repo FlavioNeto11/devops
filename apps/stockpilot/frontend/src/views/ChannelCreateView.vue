@@ -34,9 +34,9 @@
   >
     <!-- ações do cabeçalho -->
     <template #actions>
-      <UiButton variant="ghost" :to="NOTIFICATIONS_ROUTE">
+      <UiButton variant="ghost" :to="CHANNELS_ROUTE">
         <template #icon-left><span class="cc-ic" aria-hidden="true">‹</span></template>
-        Voltar às notificações
+        Voltar para canais
       </UiButton>
     </template>
 
@@ -473,6 +473,7 @@ const toast = useToast();
 const ask = useConfirm();
 
 /* ── rotas de DOMÍNIO (só rotas reais do inventário) ─────────────────────── */
+const CHANNELS_ROUTE = '/channels';
 const NOTIFICATIONS_ROUTE = '/notifications';
 
 /* ── catálogo de domínio (REQ-STOCKPILOT-0007) ──────────────────────────── */
@@ -671,7 +672,7 @@ async function onCancel() {
     });
     if (!ok) return;
   }
-  router.push(NOTIFICATIONS_ROUTE);
+  router.push(CHANNELS_ROUTE);
 }
 
 async function onSubmit() {
@@ -692,7 +693,7 @@ async function onSubmit() {
       if (vals.events) payload.events = vals.events;
       await channels.create(payload); // POST /v1/channels (real)
       toast.success('Canal criado', { detail: selectedChannel.value.label });
-      router.push(NOTIFICATIONS_ROUTE);
+      router.push(CHANNELS_ROUTE);
     } catch (e) {
       const msg = (e && e.message) || 'Erro inesperado ao salvar.';
       submitError.value = msg;
