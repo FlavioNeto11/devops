@@ -1,0 +1,47 @@
+id: REF-SHOPDESK-0031
+slug: ref-shopdesk-0031
+title: "Documentacao da API"
+kind: screen
+status: approved
+
+scope:
+  product_scope: shopdesk
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-SHOPDESK-0008
+    relation: implements
+
+surface:
+  route: "/settings/api-docs"
+  name: "Documentacao da API"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+    - name: loading
+    - name: empty
+    - name: error
+  data:
+    - field: "view"
+      source: "api:/settings/api-docs"
+      editable: false
+      format: "estado da tela"
+  interactions:
+    - trigger: "abrir /settings/api-docs"
+      action: "carrega o estado da tela especializada"
+      result: "renderiza a interface dedicada"
+    - trigger: "acao primaria da tela"
+      action: "executa o fluxo especifico desta superficie"
+      result: "reflete o resultado na propria tela"
+
+source:
+  source_paths:
+    - specs/products/shopdesk/product.json
+    - apps/shopdesk/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

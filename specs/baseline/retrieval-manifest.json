@@ -4190,6 +4190,391 @@
         "REQ-PORTAL-0009"
       ],
       "file": "refinements/portal/REF-PORTAL-0012.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0001",
+      "title": "Visao geral",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/",
+      "anchors": [
+        "REQ-SHOPDESK-0005",
+        "REQ-SHOPDESK-0001"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0001.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0002",
+      "title": "Produtos",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/products",
+      "anchors": [
+        "REQ-SHOPDESK-0005",
+        "REQ-SHOPDESK-0003"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0002.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0003",
+      "title": "Novo produto",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/products/new",
+      "anchors": [
+        "REQ-SHOPDESK-0005",
+        "REQ-SHOPDESK-0006"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0003.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0004",
+      "title": "Detalhe do produto",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/products/:id",
+      "anchors": [
+        "REQ-SHOPDESK-0005"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0004.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0005",
+      "title": "Editar produto",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/products/:id/edit",
+      "anchors": [
+        "REQ-SHOPDESK-0005",
+        "REQ-SHOPDESK-0006"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0005.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0006",
+      "title": "Pedidos",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/orders",
+      "anchors": [
+        "REQ-SHOPDESK-0005",
+        "REQ-SHOPDESK-0003"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0006.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0007",
+      "title": "Novo pedido",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/orders/new",
+      "anchors": [
+        "REQ-SHOPDESK-0003"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0007.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0008",
+      "title": "Detalhe do pedido",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/orders/:id",
+      "anchors": [
+        "REQ-SHOPDESK-0003",
+        "REQ-SHOPDESK-0004",
+        "REQ-SHOPDESK-0007",
+        "REQ-SHOPDESK-0006"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0008.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0009",
+      "title": "Editar pedido",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/orders/:id/edit",
+      "anchors": [
+        "REQ-SHOPDESK-0005"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0009.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0010",
+      "title": "Checkout",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/checkout/:cartId",
+      "anchors": [
+        "REQ-SHOPDESK-0003"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0010.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0011",
+      "title": "Carrinhos",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/carts",
+      "anchors": [
+        "REQ-SHOPDESK-0003"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0011.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0012",
+      "title": "Detalhe do carrinho",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/carts/:id",
+      "anchors": [
+        "REQ-SHOPDESK-0003"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0012.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0013",
+      "title": "Estoque",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/inventory",
+      "anchors": [
+        "REQ-SHOPDESK-0005"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0013.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0014",
+      "title": "Detalhe de estoque",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/inventory/:id",
+      "anchors": [
+        "REQ-SHOPDESK-0005"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0014.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0015",
+      "title": "Ajustar estoque",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/inventory/:id/edit",
+      "anchors": [
+        "REQ-SHOPDESK-0005",
+        "REQ-SHOPDESK-0002"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0015.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0016",
+      "title": "Ordens de reposicao",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/reorders",
+      "anchors": [
+        "REQ-SHOPDESK-0005"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0016.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0017",
+      "title": "Nova ordem de reposicao",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/reorders/new",
+      "anchors": [
+        "REQ-SHOPDESK-0005"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0017.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0018",
+      "title": "Detalhe da reposicao",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/reorders/:id",
+      "anchors": [
+        "REQ-SHOPDESK-0005"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0018.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0019",
+      "title": "Notas fiscais",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/invoices",
+      "anchors": [
+        "REQ-SHOPDESK-0004"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0019.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0020",
+      "title": "Detalhe da NF-e",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/invoices/:id",
+      "anchors": [
+        "REQ-SHOPDESK-0004"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0020.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0021",
+      "title": "Emitir NF-e",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/invoices/new",
+      "anchors": [
+        "REQ-SHOPDESK-0004"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0021.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0022",
+      "title": "Assistente de IA",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/assistant",
+      "anchors": [
+        "REQ-SHOPDESK-0006"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0022.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0023",
+      "title": "Notificacoes",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/notifications",
+      "anchors": [
+        "REQ-SHOPDESK-0007"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0023.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0024",
+      "title": "Usuarios",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/settings/users",
+      "anchors": [
+        "REQ-SHOPDESK-0002"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0024.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0025",
+      "title": "Convidar usuario",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/settings/users/new",
+      "anchors": [
+        "REQ-SHOPDESK-0002"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0025.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0026",
+      "title": "Editar usuario",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/settings/users/:id/edit",
+      "anchors": [
+        "REQ-SHOPDESK-0002"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0026.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0027",
+      "title": "Configuracoes da loja",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/settings/store",
+      "anchors": [
+        "REQ-SHOPDESK-0002",
+        "REQ-SHOPDESK-0004",
+        "REQ-SHOPDESK-0007"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0027.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0028",
+      "title": "Auditoria",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/settings/audit",
+      "anchors": [
+        "REQ-SHOPDESK-0002",
+        "REQ-SHOPDESK-0003"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0028.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0029",
+      "title": "Transacoes de pagamento",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/transactions",
+      "anchors": [
+        "REQ-SHOPDESK-0003"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0029.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0030",
+      "title": "Saude do sistema",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/settings/health",
+      "anchors": [
+        "REQ-SHOPDESK-0001",
+        "REQ-SHOPDESK-0004"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0030.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0031",
+      "title": "Documentacao da API",
+      "kind": "screen",
+      "status": "approved",
+      "product": "shopdesk",
+      "route": "/settings/api-docs",
+      "anchors": [
+        "REQ-SHOPDESK-0008"
+      ],
+      "file": "refinements/shopdesk/REF-SHOPDESK-0031.yaml"
     }
   ]
 }

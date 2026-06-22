@@ -1,0 +1,59 @@
+id: REF-SHOPDESK-0028
+slug: ref-shopdesk-0028
+title: "Auditoria"
+kind: screen
+status: approved
+
+scope:
+  product_scope: shopdesk
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-SHOPDESK-0002
+    relation: implements
+  - requirement_id: REQ-SHOPDESK-0003
+    relation: relates_to
+
+surface:
+  route: "/settings/audit"
+  name: "Auditoria"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+    - name: loading
+    - name: empty
+    - name: error
+  data:
+    - field: "items"
+      source: "api:/audit-logs"
+      editable: false
+      format: "colecao paginada"
+    - field: "total"
+      source: "api:/audit-logs"
+      editable: false
+      format: "inteiro"
+    - field: "query"
+      source: "estado-local (filtro/busca)"
+      editable: true
+  interactions:
+    - trigger: "abrir /settings/audit"
+      action: "carrega a colecao de audit-logs"
+      result: "renderiza tabela/lista com paginacao"
+    - trigger: "digitar na busca/filtro"
+      action: "consulta a colecao filtrada"
+      result: "atualiza a lista exibida"
+    - trigger: "clicar em uma linha"
+      action: "navega para o detalhe"
+      result: "abre /settings/audit/:id"
+
+source:
+  source_paths:
+    - specs/products/shopdesk/product.json
+    - apps/shopdesk/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

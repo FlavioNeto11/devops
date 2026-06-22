@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "ae017f52cb124304084f547cebc320660b202ae3dea102df4096ebe5b9a1f9ca",
+  "baseline_hash": "b40ddfbf09f13258fd0968c5b19bfe638ccac9caf7bdc25627ac75789170652b",
   "dimensions": [
     "links",
     "allocation",
@@ -10,21 +10,21 @@
     "refinement"
   ],
   "totals": {
-    "total": 339,
-    "without_links": 278,
-    "without_allocation": 312,
+    "total": 365,
+    "without_links": 304,
+    "without_allocation": 338,
     "without_source_paths": 0,
-    "without_evidence": 339,
+    "without_evidence": 365,
     "without_verification_method": 334,
-    "without_refinement": 318,
-    "scopes": 18,
+    "without_refinement": 336,
+    "scopes": 23,
     "coverage_pct": {
-      "links": 18,
-      "allocation": 8,
+      "links": 16.7,
+      "allocation": 7.4,
       "source_paths": 100,
       "evidence": 0,
-      "verification_method": 1.5,
-      "refinement": 6.2
+      "verification_method": 8.5,
+      "refinement": 7.9
     }
   },
   "by_scope": {
@@ -130,6 +130,23 @@
         "refinement": 0
       }
     },
+    "fieldserve": {
+      "total": 5,
+      "without_links": 5,
+      "without_allocation": 5,
+      "without_source_paths": 0,
+      "without_evidence": 5,
+      "without_verification_method": 0,
+      "without_refinement": 5,
+      "coverage_pct": {
+        "links": 0,
+        "allocation": 0,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 100,
+        "refinement": 0
+      }
+    },
     "gymops": {
       "total": 23,
       "without_links": 7,
@@ -195,6 +212,23 @@
         "source_paths": 100,
         "evidence": 0,
         "verification_method": 0,
+        "refinement": 0
+      }
+    },
+    "opsboard": {
+      "total": 2,
+      "without_links": 2,
+      "without_allocation": 2,
+      "without_source_paths": 0,
+      "without_evidence": 2,
+      "without_verification_method": 0,
+      "without_refinement": 2,
+      "coverage_pct": {
+        "links": 0,
+        "allocation": 0,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 100,
         "refinement": 0
       }
     },
@@ -283,6 +317,23 @@
         "refinement": 0
       }
     },
+    "shopdesk": {
+      "total": 8,
+      "without_links": 8,
+      "without_allocation": 8,
+      "without_source_paths": 0,
+      "without_evidence": 8,
+      "without_verification_method": 0,
+      "without_refinement": 0,
+      "coverage_pct": {
+        "links": 0,
+        "allocation": 0,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 100,
+        "refinement": 100
+      }
+    },
     "sicat": {
       "total": 24,
       "without_links": 4,
@@ -314,6 +365,40 @@
         "source_paths": 100,
         "evidence": 0,
         "verification_method": 0,
+        "refinement": 0
+      }
+    },
+    "stockpilot": {
+      "total": 8,
+      "without_links": 8,
+      "without_allocation": 8,
+      "without_source_paths": 0,
+      "without_evidence": 8,
+      "without_verification_method": 0,
+      "without_refinement": 8,
+      "coverage_pct": {
+        "links": 0,
+        "allocation": 0,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 100,
+        "refinement": 0
+      }
+    },
+    "teamflow": {
+      "total": 3,
+      "without_links": 3,
+      "without_allocation": 3,
+      "without_source_paths": 0,
+      "without_evidence": 3,
+      "without_verification_method": 0,
+      "without_refinement": 3,
+      "coverage_pct": {
+        "links": 0,
+        "allocation": 0,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 100,
         "refinement": 0
       }
     },

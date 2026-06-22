@@ -1,0 +1,47 @@
+id: REF-SHOPDESK-0018
+slug: ref-shopdesk-0018
+title: "Detalhe da reposicao"
+kind: screen
+status: approved
+
+scope:
+  product_scope: shopdesk
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-SHOPDESK-0005
+    relation: implements
+
+surface:
+  route: "/reorders/:id"
+  name: "Detalhe da reposicao"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+    - name: loading
+    - name: empty
+    - name: error
+  data:
+    - field: "record"
+      source: "api:/reorders/:id"
+      editable: false
+      format: "objeto do dominio"
+  interactions:
+    - trigger: "abrir /reorders/:id"
+      action: "carrega o registro de reorders por id"
+      result: "renderiza os dados do registro"
+    - trigger: "clicar em Editar"
+      action: "navega para a tela de edicao"
+      result: "abre /reorders/:id/edit"
+
+source:
+  source_paths:
+    - specs/products/shopdesk/product.json
+    - apps/shopdesk/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

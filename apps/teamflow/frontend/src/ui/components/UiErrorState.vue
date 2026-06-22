@@ -1,7 +1,7 @@
 <!-- SINCRONIZADO de packages/ui-vue — NÃO editar aqui; edite o pacote e rode `node build.mjs`. -->
 <template>
   <div class="ui-error" role="alert">
-    <span class="ui-error-icon" aria-hidden="true">{{ icon || '⚠' }}</span>
+    <span class="ui-error-icon" aria-hidden="true">{{ glyph }}</span>
     <p class="ui-error-msg">{{ resolvedMessage }}</p>
     <p v-if="code" class="ui-error-code ui-mono">{{ code }}</p>
     <div class="ui-error-actions">
@@ -13,6 +13,7 @@
 <script setup>
 import { computed } from 'vue';
 import UiButton from './UiButton.vue';
+import { resolveGlyph } from '../lib/glyphs.js';
 const props = defineProps({
   message: { type: [String, Object], default: '' },
   code: { type: [String, Number], default: '' },
@@ -20,6 +21,8 @@ const props = defineProps({
   icon: String,
 });
 defineEmits(['retry']);
+// `icon` aceita glifo/emoji direto OU nome canônico → glifo (fallback '⚠').
+const glyph = computed(() => resolveGlyph(props.icon, '⚠'));
 const resolvedMessage = computed(() => {
   const m = props.message;
   if (!m) return 'Algo deu errado.';

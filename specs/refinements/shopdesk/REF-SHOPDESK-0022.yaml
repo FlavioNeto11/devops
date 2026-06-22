@@ -1,0 +1,47 @@
+id: REF-SHOPDESK-0022
+slug: ref-shopdesk-0022
+title: "Assistente de IA"
+kind: screen
+status: approved
+
+scope:
+  product_scope: shopdesk
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-SHOPDESK-0006
+    relation: implements
+
+surface:
+  route: "/assistant"
+  name: "Assistente de IA"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+    - name: loading
+    - name: empty
+    - name: error
+  data:
+    - field: "view"
+      source: "api:/assistant"
+      editable: false
+      format: "estado da tela"
+  interactions:
+    - trigger: "abrir /assistant"
+      action: "carrega o estado da tela especializada"
+      result: "renderiza a interface dedicada"
+    - trigger: "acao primaria da tela"
+      action: "executa o fluxo especifico desta superficie"
+      result: "reflete o resultado na propria tela"
+
+source:
+  source_paths:
+    - specs/products/shopdesk/product.json
+    - apps/shopdesk/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

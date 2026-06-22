@@ -7,6 +7,8 @@ COPY package*.json ./
 COPY vendor ./vendor
 RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi
 COPY src ./src
+# Contrato OpenAPI (servido em runtime: GET /v1/openapi.yaml e /v1/openapi.json; importado por src/server.js).
+COPY openapi ./openapi
 EXPOSE 8080 9464
 USER node
 CMD ["npm", "start"]

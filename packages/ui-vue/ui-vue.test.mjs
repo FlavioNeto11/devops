@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { required, minLen, email, numeric, min, runRules } from './src/lib/validators.js';
 import { humanize, formatValue, formatCurrency } from './src/lib/format.js';
 import { resolveTone, statusLabel } from './src/lib/status-map.js';
+import { resolveGlyph } from './src/lib/glyphs.js';
 
 test('validators: required', () => {
   assert.equal(required()(''), 'Obrigatório');
@@ -51,4 +52,21 @@ test('status-map: resolveTone por palavra-chave', () => {
 test('status-map: statusLabel humaniza ou usa explícito', () => {
   assert.equal(statusLabel('in_progress'), 'In progress');
   assert.equal(statusLabel('x', 'Rótulo'), 'Rótulo');
+});
+
+test('glyphs: nome canônico vira glifo, emoji passa intacto, nome desconhecido não vaza', () => {
+  // nomes canônicos → glifo (não a palavra literal)
+  assert.equal(resolveGlyph('doc'), '📄');
+  assert.equal(resolveGlyph('clock'), '🕘');
+  assert.equal(resolveGlyph('search'), '🔎');
+  assert.equal(resolveGlyph('DOC'), '📄'); // case-insensitive
+  // glifo/emoji já pronto → intacto
+  assert.equal(resolveGlyph('📄'), '📄');
+  assert.equal(resolveGlyph('🔎'), '🔎');
+  // vazio → fallback (default e custom)
+  assert.equal(resolveGlyph(''), '∅');
+  assert.equal(resolveGlyph(undefined), '∅');
+  assert.equal(resolveGlyph(null, '⚠'), '⚠');
+  // nome canônico desconhecido → fallback (NUNCA a palavra literal)
+  assert.equal(resolveGlyph('unknownname'), '∅');
 });

@@ -1,0 +1,47 @@
+id: REF-SHOPDESK-0014
+slug: ref-shopdesk-0014
+title: "Detalhe de estoque"
+kind: screen
+status: approved
+
+scope:
+  product_scope: shopdesk
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-SHOPDESK-0005
+    relation: implements
+
+surface:
+  route: "/inventory/:id"
+  name: "Detalhe de estoque"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+    - name: loading
+    - name: empty
+    - name: error
+  data:
+    - field: "record"
+      source: "api:/inventory/:id"
+      editable: false
+      format: "objeto do dominio"
+  interactions:
+    - trigger: "abrir /inventory/:id"
+      action: "carrega o registro de inventory por id"
+      result: "renderiza os dados do registro"
+    - trigger: "clicar em Editar"
+      action: "navega para a tela de edicao"
+      result: "abre /inventory/:id/edit"
+
+source:
+  source_paths:
+    - specs/products/shopdesk/product.json
+    - apps/shopdesk/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

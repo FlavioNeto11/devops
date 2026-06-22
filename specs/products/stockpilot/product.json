@@ -7,6 +7,7 @@
   "app_type": "product_software",
   "blueprint": "node-api-vue-spa",
   "stack": "sicat",
+  "interfaces": ["api", "web"],
   "capability_blocks": [
     "camadas-rigidas",
     "migrations-versionadas",

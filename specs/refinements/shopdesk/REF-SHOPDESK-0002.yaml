@@ -1,0 +1,59 @@
+id: REF-SHOPDESK-0002
+slug: ref-shopdesk-0002
+title: "Produtos"
+kind: screen
+status: approved
+
+scope:
+  product_scope: shopdesk
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-SHOPDESK-0005
+    relation: implements
+  - requirement_id: REQ-SHOPDESK-0003
+    relation: relates_to
+
+surface:
+  route: "/products"
+  name: "Produtos"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+    - name: loading
+    - name: empty
+    - name: error
+  data:
+    - field: "items"
+      source: "api:/products"
+      editable: false
+      format: "colecao paginada"
+    - field: "total"
+      source: "api:/products"
+      editable: false
+      format: "inteiro"
+    - field: "query"
+      source: "estado-local (filtro/busca)"
+      editable: true
+  interactions:
+    - trigger: "abrir /products"
+      action: "carrega a colecao de products"
+      result: "renderiza tabela/lista com paginacao"
+    - trigger: "digitar na busca/filtro"
+      action: "consulta a colecao filtrada"
+      result: "atualiza a lista exibida"
+    - trigger: "clicar em uma linha"
+      action: "navega para o detalhe"
+      result: "abre /products/:id"
+
+source:
+  source_paths:
+    - specs/products/shopdesk/product.json
+    - apps/shopdesk/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

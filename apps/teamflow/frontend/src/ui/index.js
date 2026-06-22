@@ -27,3 +27,4 @@ export { useResource } from './composables/useResource.js';
 export * as validators from './lib/validators.js';
 export * as format from './lib/format.js';
 export { resolveTone, statusLabel } from './lib/status-map.js';
+export { resolveGlyph } from './lib/glyphs.js';

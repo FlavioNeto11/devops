@@ -117,9 +117,11 @@ function reqYaml(r, i, total) {
   // emite o product.json
   const prodDir = path.join(SPECS, 'products', NAME);
   fs.mkdirSync(prodDir, { recursive: true });
+  // interfaces: 'api' sempre; 'web' adiciona o frontend SPA (default p/ produtos com UI). Override via --interfaces api ou api,web.
+  const interfaces = (arg('interfaces', 'api,web')).split(',').map((s) => s.trim()).filter(Boolean);
   const product = {
     schema_version: '1.2.0', name: NAME, display_name: DISPLAY, base_path: BASE_PATH, namespace: 'apps',
-    app_type: 'product_software', blueprint: ar.blueprint || BLUEPRINT, stack,
+    app_type: 'product_software', blueprint: ar.blueprint || BLUEPRINT, stack, interfaces,
     capability_blocks: blocks, vision: BRIEF.slice(0, 600), requirement_ids: ids,
     phases: { requirements: { status: 'approved' }, architecture: { status: 'approved' }, scaffold: { status: 'not_started' }, build: { status: 'not_started' } },
     version: { revision: 1, change_reason: 'FORGE greenfield — concepção+arquitetura pela IA' },

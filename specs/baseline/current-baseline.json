@@ -1,7 +1,7 @@
 {
   "metamodel_version": "1.1.0",
   "baseline_hash": "b40ddfbf09f13258fd0968c5b19bfe638ccac9caf7bdc25627ac75789170652b",
-  "refinements_hash": "8c2404f1df38762f23de2d95606729971e0b22061bc4df82fddd1431e42222b0",
+  "refinements_hash": "86c50bca11900de5da4de8bd01e5280d190b148ef5b643754e343b9f30b4807e",
   "schema": "specs/schema/requirement.schema.json",
   "counts": {
     "total": 365,
@@ -38,13 +38,14 @@
       "non-functional": 103
     },
     "refinements": {
-      "total": 13,
+      "total": 44,
       "by_product": {
         "gymops": 1,
-        "portal": 12
+        "portal": 12,
+        "shopdesk": 31
       },
       "by_kind": {
-        "screen": 3,
+        "screen": 34,
         "component": 8,
         "interaction": 2
       }
@@ -15948,6 +15949,2440 @@
         "change_reason": "novo refinamento — Acessibilidade e navegação por teclado"
       },
       "file": "refinements/portal/REF-PORTAL-0012.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0001",
+      "slug": "ref-shopdesk-0001",
+      "title": "Visao geral",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0005",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-SHOPDESK-0001",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/",
+        "name": "Visao geral",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "kpis",
+            "source": "api:/dashboard/summary",
+            "editable": false,
+            "format": "metricas agregadas"
+          },
+          {
+            "field": "recent",
+            "source": "api:/dashboard/recent",
+            "editable": false,
+            "format": "eventos recentes"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /",
+            "action": "carrega KPIs e eventos recentes",
+            "result": "renderiza cards de metricas e atalhos"
+          },
+          {
+            "trigger": "clicar em um KPI/atalho",
+            "action": "navega para a area correspondente",
+            "result": "abre a tela alvo"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0001.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0002",
+      "slug": "ref-shopdesk-0002",
+      "title": "Produtos",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0005",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-SHOPDESK-0003",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/products",
+        "name": "Produtos",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "items",
+            "source": "api:/products",
+            "editable": false,
+            "format": "colecao paginada"
+          },
+          {
+            "field": "total",
+            "source": "api:/products",
+            "editable": false,
+            "format": "inteiro"
+          },
+          {
+            "field": "query",
+            "source": "estado-local (filtro/busca)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /products",
+            "action": "carrega a colecao de products",
+            "result": "renderiza tabela/lista com paginacao"
+          },
+          {
+            "trigger": "digitar na busca/filtro",
+            "action": "consulta a colecao filtrada",
+            "result": "atualiza a lista exibida"
+          },
+          {
+            "trigger": "clicar em uma linha",
+            "action": "navega para o detalhe",
+            "result": "abre /products/:id"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0002.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0003",
+      "slug": "ref-shopdesk-0003",
+      "title": "Novo produto",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0005",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-SHOPDESK-0006",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/products/new",
+        "name": "Novo produto",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "form",
+            "source": "estado-local (rascunho)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "preencher o formulario",
+            "action": "valida os campos no cliente",
+            "result": "habilita/desabilita o botao Salvar"
+          },
+          {
+            "trigger": "clicar em Salvar",
+            "action": "envia POST para api:/products",
+            "result": "cria o registro e navega para o detalhe"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0003.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0004",
+      "slug": "ref-shopdesk-0004",
+      "title": "Detalhe do produto",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0005",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/products/:id",
+        "name": "Detalhe do produto",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "record",
+            "source": "api:/products/:id",
+            "editable": false,
+            "format": "objeto do dominio"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /products/:id",
+            "action": "carrega o registro de products por id",
+            "result": "renderiza os dados do registro"
+          },
+          {
+            "trigger": "clicar em Editar",
+            "action": "navega para a tela de edicao",
+            "result": "abre /products/:id/edit"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0004.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0005",
+      "slug": "ref-shopdesk-0005",
+      "title": "Editar produto",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0005",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-SHOPDESK-0006",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/products/:id/edit",
+        "name": "Editar produto",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "record",
+            "source": "api:/products/:id",
+            "editable": false,
+            "format": "objeto do dominio"
+          },
+          {
+            "field": "form",
+            "source": "estado-local (rascunho a partir do record)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /products/:id/edit",
+            "action": "carrega o registro de products para edicao",
+            "result": "preenche o formulario"
+          },
+          {
+            "trigger": "clicar em Salvar",
+            "action": "envia PUT/PATCH para api:/products/:id",
+            "result": "persiste e retorna ao detalhe"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0005.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0006",
+      "slug": "ref-shopdesk-0006",
+      "title": "Pedidos",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0005",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-SHOPDESK-0003",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/orders",
+        "name": "Pedidos",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "items",
+            "source": "api:/orders",
+            "editable": false,
+            "format": "colecao paginada"
+          },
+          {
+            "field": "total",
+            "source": "api:/orders",
+            "editable": false,
+            "format": "inteiro"
+          },
+          {
+            "field": "query",
+            "source": "estado-local (filtro/busca)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /orders",
+            "action": "carrega a colecao de orders",
+            "result": "renderiza tabela/lista com paginacao"
+          },
+          {
+            "trigger": "digitar na busca/filtro",
+            "action": "consulta a colecao filtrada",
+            "result": "atualiza a lista exibida"
+          },
+          {
+            "trigger": "clicar em uma linha",
+            "action": "navega para o detalhe",
+            "result": "abre /orders/:id"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0006.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0007",
+      "slug": "ref-shopdesk-0007",
+      "title": "Novo pedido",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0003",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/orders/new",
+        "name": "Novo pedido",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "form",
+            "source": "estado-local (rascunho)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "preencher o formulario",
+            "action": "valida os campos no cliente",
+            "result": "habilita/desabilita o botao Salvar"
+          },
+          {
+            "trigger": "clicar em Salvar",
+            "action": "envia POST para api:/orders",
+            "result": "cria o registro e navega para o detalhe"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0007.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0008",
+      "slug": "ref-shopdesk-0008",
+      "title": "Detalhe do pedido",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0003",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-SHOPDESK-0004",
+          "relation": "relates_to"
+        },
+        {
+          "requirement_id": "REQ-SHOPDESK-0007",
+          "relation": "relates_to"
+        },
+        {
+          "requirement_id": "REQ-SHOPDESK-0006",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/orders/:id",
+        "name": "Detalhe do pedido",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "record",
+            "source": "api:/orders/:id",
+            "editable": false,
+            "format": "objeto do dominio"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /orders/:id",
+            "action": "carrega o registro de orders por id",
+            "result": "renderiza os dados do registro"
+          },
+          {
+            "trigger": "clicar em Editar",
+            "action": "navega para a tela de edicao",
+            "result": "abre /orders/:id/edit"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0008.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0009",
+      "slug": "ref-shopdesk-0009",
+      "title": "Editar pedido",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0005",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/orders/:id/edit",
+        "name": "Editar pedido",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "record",
+            "source": "api:/orders/:id",
+            "editable": false,
+            "format": "objeto do dominio"
+          },
+          {
+            "field": "form",
+            "source": "estado-local (rascunho a partir do record)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /orders/:id/edit",
+            "action": "carrega o registro de orders para edicao",
+            "result": "preenche o formulario"
+          },
+          {
+            "trigger": "clicar em Salvar",
+            "action": "envia PUT/PATCH para api:/orders/:id",
+            "result": "persiste e retorna ao detalhe"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0009.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0010",
+      "slug": "ref-shopdesk-0010",
+      "title": "Checkout",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0003",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/checkout/:cartId",
+        "name": "Checkout",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "view",
+            "source": "api:/checkout/:param",
+            "editable": false,
+            "format": "estado da tela"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /checkout/:cartId",
+            "action": "carrega o estado da tela especializada",
+            "result": "renderiza a interface dedicada"
+          },
+          {
+            "trigger": "acao primaria da tela",
+            "action": "executa o fluxo especifico desta superficie",
+            "result": "reflete o resultado na propria tela"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0010.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0011",
+      "slug": "ref-shopdesk-0011",
+      "title": "Carrinhos",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0003",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/carts",
+        "name": "Carrinhos",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "items",
+            "source": "api:/carts",
+            "editable": false,
+            "format": "colecao paginada"
+          },
+          {
+            "field": "total",
+            "source": "api:/carts",
+            "editable": false,
+            "format": "inteiro"
+          },
+          {
+            "field": "query",
+            "source": "estado-local (filtro/busca)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /carts",
+            "action": "carrega a colecao de carts",
+            "result": "renderiza tabela/lista com paginacao"
+          },
+          {
+            "trigger": "digitar na busca/filtro",
+            "action": "consulta a colecao filtrada",
+            "result": "atualiza a lista exibida"
+          },
+          {
+            "trigger": "clicar em uma linha",
+            "action": "navega para o detalhe",
+            "result": "abre /carts/:id"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0011.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0012",
+      "slug": "ref-shopdesk-0012",
+      "title": "Detalhe do carrinho",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0003",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/carts/:id",
+        "name": "Detalhe do carrinho",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "record",
+            "source": "api:/carts/:id",
+            "editable": false,
+            "format": "objeto do dominio"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /carts/:id",
+            "action": "carrega o registro de carts por id",
+            "result": "renderiza os dados do registro"
+          },
+          {
+            "trigger": "clicar em Editar",
+            "action": "navega para a tela de edicao",
+            "result": "abre /carts/:id/edit"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0012.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0013",
+      "slug": "ref-shopdesk-0013",
+      "title": "Estoque",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0005",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/inventory",
+        "name": "Estoque",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "items",
+            "source": "api:/inventory",
+            "editable": false,
+            "format": "colecao paginada"
+          },
+          {
+            "field": "total",
+            "source": "api:/inventory",
+            "editable": false,
+            "format": "inteiro"
+          },
+          {
+            "field": "query",
+            "source": "estado-local (filtro/busca)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /inventory",
+            "action": "carrega a colecao de inventory",
+            "result": "renderiza tabela/lista com paginacao"
+          },
+          {
+            "trigger": "digitar na busca/filtro",
+            "action": "consulta a colecao filtrada",
+            "result": "atualiza a lista exibida"
+          },
+          {
+            "trigger": "clicar em uma linha",
+            "action": "navega para o detalhe",
+            "result": "abre /inventory/:id"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0013.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0014",
+      "slug": "ref-shopdesk-0014",
+      "title": "Detalhe de estoque",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0005",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/inventory/:id",
+        "name": "Detalhe de estoque",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "record",
+            "source": "api:/inventory/:id",
+            "editable": false,
+            "format": "objeto do dominio"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /inventory/:id",
+            "action": "carrega o registro de inventory por id",
+            "result": "renderiza os dados do registro"
+          },
+          {
+            "trigger": "clicar em Editar",
+            "action": "navega para a tela de edicao",
+            "result": "abre /inventory/:id/edit"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0014.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0015",
+      "slug": "ref-shopdesk-0015",
+      "title": "Ajustar estoque",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0005",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-SHOPDESK-0002",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/inventory/:id/edit",
+        "name": "Ajustar estoque",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "record",
+            "source": "api:/inventory/:id",
+            "editable": false,
+            "format": "objeto do dominio"
+          },
+          {
+            "field": "form",
+            "source": "estado-local (rascunho a partir do record)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /inventory/:id/edit",
+            "action": "carrega o registro de inventory para edicao",
+            "result": "preenche o formulario"
+          },
+          {
+            "trigger": "clicar em Salvar",
+            "action": "envia PUT/PATCH para api:/inventory/:id",
+            "result": "persiste e retorna ao detalhe"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0015.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0016",
+      "slug": "ref-shopdesk-0016",
+      "title": "Ordens de reposicao",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0005",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/reorders",
+        "name": "Ordens de reposicao",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "items",
+            "source": "api:/reorders",
+            "editable": false,
+            "format": "colecao paginada"
+          },
+          {
+            "field": "total",
+            "source": "api:/reorders",
+            "editable": false,
+            "format": "inteiro"
+          },
+          {
+            "field": "query",
+            "source": "estado-local (filtro/busca)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /reorders",
+            "action": "carrega a colecao de reorders",
+            "result": "renderiza tabela/lista com paginacao"
+          },
+          {
+            "trigger": "digitar na busca/filtro",
+            "action": "consulta a colecao filtrada",
+            "result": "atualiza a lista exibida"
+          },
+          {
+            "trigger": "clicar em uma linha",
+            "action": "navega para o detalhe",
+            "result": "abre /reorders/:id"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0016.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0017",
+      "slug": "ref-shopdesk-0017",
+      "title": "Nova ordem de reposicao",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0005",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/reorders/new",
+        "name": "Nova ordem de reposicao",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "form",
+            "source": "estado-local (rascunho)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "preencher o formulario",
+            "action": "valida os campos no cliente",
+            "result": "habilita/desabilita o botao Salvar"
+          },
+          {
+            "trigger": "clicar em Salvar",
+            "action": "envia POST para api:/reorders",
+            "result": "cria o registro e navega para o detalhe"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0017.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0018",
+      "slug": "ref-shopdesk-0018",
+      "title": "Detalhe da reposicao",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0005",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/reorders/:id",
+        "name": "Detalhe da reposicao",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "record",
+            "source": "api:/reorders/:id",
+            "editable": false,
+            "format": "objeto do dominio"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /reorders/:id",
+            "action": "carrega o registro de reorders por id",
+            "result": "renderiza os dados do registro"
+          },
+          {
+            "trigger": "clicar em Editar",
+            "action": "navega para a tela de edicao",
+            "result": "abre /reorders/:id/edit"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0018.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0019",
+      "slug": "ref-shopdesk-0019",
+      "title": "Notas fiscais",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0004",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/invoices",
+        "name": "Notas fiscais",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "items",
+            "source": "api:/invoices",
+            "editable": false,
+            "format": "colecao paginada"
+          },
+          {
+            "field": "total",
+            "source": "api:/invoices",
+            "editable": false,
+            "format": "inteiro"
+          },
+          {
+            "field": "query",
+            "source": "estado-local (filtro/busca)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /invoices",
+            "action": "carrega a colecao de invoices",
+            "result": "renderiza tabela/lista com paginacao"
+          },
+          {
+            "trigger": "digitar na busca/filtro",
+            "action": "consulta a colecao filtrada",
+            "result": "atualiza a lista exibida"
+          },
+          {
+            "trigger": "clicar em uma linha",
+            "action": "navega para o detalhe",
+            "result": "abre /invoices/:id"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0019.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0020",
+      "slug": "ref-shopdesk-0020",
+      "title": "Detalhe da NF-e",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0004",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/invoices/:id",
+        "name": "Detalhe da NF-e",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "record",
+            "source": "api:/invoices/:id",
+            "editable": false,
+            "format": "objeto do dominio"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /invoices/:id",
+            "action": "carrega o registro de invoices por id",
+            "result": "renderiza os dados do registro"
+          },
+          {
+            "trigger": "clicar em Editar",
+            "action": "navega para a tela de edicao",
+            "result": "abre /invoices/:id/edit"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0020.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0021",
+      "slug": "ref-shopdesk-0021",
+      "title": "Emitir NF-e",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0004",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/invoices/new",
+        "name": "Emitir NF-e",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "form",
+            "source": "estado-local (rascunho)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "preencher o formulario",
+            "action": "valida os campos no cliente",
+            "result": "habilita/desabilita o botao Salvar"
+          },
+          {
+            "trigger": "clicar em Salvar",
+            "action": "envia POST para api:/invoices",
+            "result": "cria o registro e navega para o detalhe"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0021.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0022",
+      "slug": "ref-shopdesk-0022",
+      "title": "Assistente de IA",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0006",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/assistant",
+        "name": "Assistente de IA",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "view",
+            "source": "api:/assistant",
+            "editable": false,
+            "format": "estado da tela"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /assistant",
+            "action": "carrega o estado da tela especializada",
+            "result": "renderiza a interface dedicada"
+          },
+          {
+            "trigger": "acao primaria da tela",
+            "action": "executa o fluxo especifico desta superficie",
+            "result": "reflete o resultado na propria tela"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0022.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0023",
+      "slug": "ref-shopdesk-0023",
+      "title": "Notificacoes",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0007",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/notifications",
+        "name": "Notificacoes",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "items",
+            "source": "api:/notifications",
+            "editable": false,
+            "format": "colecao paginada"
+          },
+          {
+            "field": "total",
+            "source": "api:/notifications",
+            "editable": false,
+            "format": "inteiro"
+          },
+          {
+            "field": "query",
+            "source": "estado-local (filtro/busca)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /notifications",
+            "action": "carrega a colecao de notifications",
+            "result": "renderiza tabela/lista com paginacao"
+          },
+          {
+            "trigger": "digitar na busca/filtro",
+            "action": "consulta a colecao filtrada",
+            "result": "atualiza a lista exibida"
+          },
+          {
+            "trigger": "clicar em uma linha",
+            "action": "navega para o detalhe",
+            "result": "abre /notifications/:id"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0023.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0024",
+      "slug": "ref-shopdesk-0024",
+      "title": "Usuarios",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0002",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/settings/users",
+        "name": "Usuarios",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "items",
+            "source": "api:/users",
+            "editable": false,
+            "format": "colecao paginada"
+          },
+          {
+            "field": "total",
+            "source": "api:/users",
+            "editable": false,
+            "format": "inteiro"
+          },
+          {
+            "field": "query",
+            "source": "estado-local (filtro/busca)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /settings/users",
+            "action": "carrega a colecao de users",
+            "result": "renderiza tabela/lista com paginacao"
+          },
+          {
+            "trigger": "digitar na busca/filtro",
+            "action": "consulta a colecao filtrada",
+            "result": "atualiza a lista exibida"
+          },
+          {
+            "trigger": "clicar em uma linha",
+            "action": "navega para o detalhe",
+            "result": "abre /settings/users/:id"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0024.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0025",
+      "slug": "ref-shopdesk-0025",
+      "title": "Convidar usuario",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0002",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/settings/users/new",
+        "name": "Convidar usuario",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "form",
+            "source": "estado-local (rascunho)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "preencher o formulario",
+            "action": "valida os campos no cliente",
+            "result": "habilita/desabilita o botao Salvar"
+          },
+          {
+            "trigger": "clicar em Salvar",
+            "action": "envia POST para api:/users",
+            "result": "cria o registro e navega para o detalhe"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0025.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0026",
+      "slug": "ref-shopdesk-0026",
+      "title": "Editar usuario",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0002",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/settings/users/:id/edit",
+        "name": "Editar usuario",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "record",
+            "source": "api:/users/:id",
+            "editable": false,
+            "format": "objeto do dominio"
+          },
+          {
+            "field": "form",
+            "source": "estado-local (rascunho a partir do record)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /settings/users/:id/edit",
+            "action": "carrega o registro de users para edicao",
+            "result": "preenche o formulario"
+          },
+          {
+            "trigger": "clicar em Salvar",
+            "action": "envia PUT/PATCH para api:/users/:id",
+            "result": "persiste e retorna ao detalhe"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0026.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0027",
+      "slug": "ref-shopdesk-0027",
+      "title": "Configuracoes da loja",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0002",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-SHOPDESK-0004",
+          "relation": "relates_to"
+        },
+        {
+          "requirement_id": "REQ-SHOPDESK-0007",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/settings/store",
+        "name": "Configuracoes da loja",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "view",
+            "source": "api:/settings/store",
+            "editable": false,
+            "format": "estado da tela"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /settings/store",
+            "action": "carrega o estado da tela especializada",
+            "result": "renderiza a interface dedicada"
+          },
+          {
+            "trigger": "acao primaria da tela",
+            "action": "executa o fluxo especifico desta superficie",
+            "result": "reflete o resultado na propria tela"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0027.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0028",
+      "slug": "ref-shopdesk-0028",
+      "title": "Auditoria",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0002",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-SHOPDESK-0003",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/settings/audit",
+        "name": "Auditoria",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "items",
+            "source": "api:/audit-logs",
+            "editable": false,
+            "format": "colecao paginada"
+          },
+          {
+            "field": "total",
+            "source": "api:/audit-logs",
+            "editable": false,
+            "format": "inteiro"
+          },
+          {
+            "field": "query",
+            "source": "estado-local (filtro/busca)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /settings/audit",
+            "action": "carrega a colecao de audit-logs",
+            "result": "renderiza tabela/lista com paginacao"
+          },
+          {
+            "trigger": "digitar na busca/filtro",
+            "action": "consulta a colecao filtrada",
+            "result": "atualiza a lista exibida"
+          },
+          {
+            "trigger": "clicar em uma linha",
+            "action": "navega para o detalhe",
+            "result": "abre /settings/audit/:id"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0028.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0029",
+      "slug": "ref-shopdesk-0029",
+      "title": "Transacoes de pagamento",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0003",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/transactions",
+        "name": "Transacoes de pagamento",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "items",
+            "source": "api:/transactions",
+            "editable": false,
+            "format": "colecao paginada"
+          },
+          {
+            "field": "total",
+            "source": "api:/transactions",
+            "editable": false,
+            "format": "inteiro"
+          },
+          {
+            "field": "query",
+            "source": "estado-local (filtro/busca)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /transactions",
+            "action": "carrega a colecao de transactions",
+            "result": "renderiza tabela/lista com paginacao"
+          },
+          {
+            "trigger": "digitar na busca/filtro",
+            "action": "consulta a colecao filtrada",
+            "result": "atualiza a lista exibida"
+          },
+          {
+            "trigger": "clicar em uma linha",
+            "action": "navega para o detalhe",
+            "result": "abre /transactions/:id"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0029.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0030",
+      "slug": "ref-shopdesk-0030",
+      "title": "Saude do sistema",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0001",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-SHOPDESK-0004",
+          "relation": "relates_to"
+        }
+      ],
+      "surface": {
+        "route": "/settings/health",
+        "name": "Saude do sistema",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "view",
+            "source": "api:/settings/health",
+            "editable": false,
+            "format": "estado da tela"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /settings/health",
+            "action": "carrega o estado da tela especializada",
+            "result": "renderiza a interface dedicada"
+          },
+          {
+            "trigger": "acao primaria da tela",
+            "action": "executa o fluxo especifico desta superficie",
+            "result": "reflete o resultado na propria tela"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0030.yaml"
+    },
+    {
+      "id": "REF-SHOPDESK-0031",
+      "slug": "ref-shopdesk-0031",
+      "title": "Documentacao da API",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "shopdesk",
+        "applies_to": "screen"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-SHOPDESK-0008",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/settings/api-docs",
+        "name": "Documentacao da API",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "view",
+            "source": "api:/settings/api-docs",
+            "editable": false,
+            "format": "estado da tela"
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir /settings/api-docs",
+            "action": "carrega o estado da tela especializada",
+            "result": "renderiza a interface dedicada"
+          },
+          {
+            "trigger": "acao primaria da tela",
+            "action": "executa o fluxo especifico desta superficie",
+            "result": "reflete o resultado na propria tela"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/shopdesk/product.json",
+          "apps/shopdesk/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/shopdesk/REF-SHOPDESK-0031.yaml"
     }
   ],
   "reprocess_queue": [

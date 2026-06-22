@@ -1,0 +1,48 @@
+id: REF-SHOPDESK-0003
+slug: ref-shopdesk-0003
+title: "Novo produto"
+kind: screen
+status: approved
+
+scope:
+  product_scope: shopdesk
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-SHOPDESK-0005
+    relation: implements
+  - requirement_id: REQ-SHOPDESK-0006
+    relation: relates_to
+
+surface:
+  route: "/products/new"
+  name: "Novo produto"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+    - name: loading
+    - name: empty
+    - name: error
+  data:
+    - field: "form"
+      source: "estado-local (rascunho)"
+      editable: true
+  interactions:
+    - trigger: "preencher o formulario"
+      action: "valida os campos no cliente"
+      result: "habilita/desabilita o botao Salvar"
+    - trigger: "clicar em Salvar"
+      action: "envia POST para api:/products"
+      result: "cria o registro e navega para o detalhe"
+
+source:
+  source_paths:
+    - specs/products/shopdesk/product.json
+    - apps/shopdesk/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

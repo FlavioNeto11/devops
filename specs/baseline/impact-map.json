@@ -118,6 +118,223 @@
       "product": "portal"
     },
     {
+      "id": "REF-SHOPDESK-0001",
+      "kind": "refinement",
+      "title": "Visao geral",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0002",
+      "kind": "refinement",
+      "title": "Produtos",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0003",
+      "kind": "refinement",
+      "title": "Novo produto",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0004",
+      "kind": "refinement",
+      "title": "Detalhe do produto",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0005",
+      "kind": "refinement",
+      "title": "Editar produto",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0006",
+      "kind": "refinement",
+      "title": "Pedidos",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0007",
+      "kind": "refinement",
+      "title": "Novo pedido",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0008",
+      "kind": "refinement",
+      "title": "Detalhe do pedido",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0009",
+      "kind": "refinement",
+      "title": "Editar pedido",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0010",
+      "kind": "refinement",
+      "title": "Checkout",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0011",
+      "kind": "refinement",
+      "title": "Carrinhos",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0012",
+      "kind": "refinement",
+      "title": "Detalhe do carrinho",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0013",
+      "kind": "refinement",
+      "title": "Estoque",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0014",
+      "kind": "refinement",
+      "title": "Detalhe de estoque",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0015",
+      "kind": "refinement",
+      "title": "Ajustar estoque",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0016",
+      "kind": "refinement",
+      "title": "Ordens de reposicao",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0017",
+      "kind": "refinement",
+      "title": "Nova ordem de reposicao",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0018",
+      "kind": "refinement",
+      "title": "Detalhe da reposicao",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0019",
+      "kind": "refinement",
+      "title": "Notas fiscais",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0020",
+      "kind": "refinement",
+      "title": "Detalhe da NF-e",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0021",
+      "kind": "refinement",
+      "title": "Emitir NF-e",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0022",
+      "kind": "refinement",
+      "title": "Assistente de IA",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0023",
+      "kind": "refinement",
+      "title": "Notificacoes",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0024",
+      "kind": "refinement",
+      "title": "Usuarios",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0025",
+      "kind": "refinement",
+      "title": "Convidar usuario",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0026",
+      "kind": "refinement",
+      "title": "Editar usuario",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0027",
+      "kind": "refinement",
+      "title": "Configuracoes da loja",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0028",
+      "kind": "refinement",
+      "title": "Auditoria",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0029",
+      "kind": "refinement",
+      "title": "Transacoes de pagamento",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0030",
+      "kind": "refinement",
+      "title": "Saude do sistema",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
+      "id": "REF-SHOPDESK-0031",
+      "kind": "refinement",
+      "title": "Documentacao da API",
+      "refinement_kind": "screen",
+      "product": "shopdesk"
+    },
+    {
       "id": "REQ-AI-0001",
       "kind": "requirement",
       "title": "Contrato AiTool com authz por identidade",
@@ -3989,6 +4206,270 @@
       "from": "REF-PORTAL-0012",
       "to": "REQ-PORTAL-NFR-002",
       "type": "refines",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0001",
+      "to": "REQ-SHOPDESK-0001",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0001",
+      "to": "REQ-SHOPDESK-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0002",
+      "to": "REQ-SHOPDESK-0003",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0002",
+      "to": "REQ-SHOPDESK-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0003",
+      "to": "REQ-SHOPDESK-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0003",
+      "to": "REQ-SHOPDESK-0006",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0004",
+      "to": "REQ-SHOPDESK-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0005",
+      "to": "REQ-SHOPDESK-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0005",
+      "to": "REQ-SHOPDESK-0006",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0006",
+      "to": "REQ-SHOPDESK-0003",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0006",
+      "to": "REQ-SHOPDESK-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0007",
+      "to": "REQ-SHOPDESK-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0008",
+      "to": "REQ-SHOPDESK-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0008",
+      "to": "REQ-SHOPDESK-0004",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0008",
+      "to": "REQ-SHOPDESK-0006",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0008",
+      "to": "REQ-SHOPDESK-0007",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0009",
+      "to": "REQ-SHOPDESK-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0010",
+      "to": "REQ-SHOPDESK-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0011",
+      "to": "REQ-SHOPDESK-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0012",
+      "to": "REQ-SHOPDESK-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0013",
+      "to": "REQ-SHOPDESK-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0014",
+      "to": "REQ-SHOPDESK-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0015",
+      "to": "REQ-SHOPDESK-0002",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0015",
+      "to": "REQ-SHOPDESK-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0016",
+      "to": "REQ-SHOPDESK-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0017",
+      "to": "REQ-SHOPDESK-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0018",
+      "to": "REQ-SHOPDESK-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0019",
+      "to": "REQ-SHOPDESK-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0020",
+      "to": "REQ-SHOPDESK-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0021",
+      "to": "REQ-SHOPDESK-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0022",
+      "to": "REQ-SHOPDESK-0006",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0023",
+      "to": "REQ-SHOPDESK-0007",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0024",
+      "to": "REQ-SHOPDESK-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0025",
+      "to": "REQ-SHOPDESK-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0026",
+      "to": "REQ-SHOPDESK-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0027",
+      "to": "REQ-SHOPDESK-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0027",
+      "to": "REQ-SHOPDESK-0004",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0027",
+      "to": "REQ-SHOPDESK-0007",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0028",
+      "to": "REQ-SHOPDESK-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0028",
+      "to": "REQ-SHOPDESK-0003",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0029",
+      "to": "REQ-SHOPDESK-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0030",
+      "to": "REQ-SHOPDESK-0001",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0030",
+      "to": "REQ-SHOPDESK-0004",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-SHOPDESK-0031",
+      "to": "REQ-SHOPDESK-0008",
+      "type": "implements",
       "refinement": true
     },
     {

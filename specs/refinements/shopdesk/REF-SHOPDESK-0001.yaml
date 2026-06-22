@@ -1,0 +1,53 @@
+id: REF-SHOPDESK-0001
+slug: ref-shopdesk-0001
+title: "Visao geral"
+kind: screen
+status: approved
+
+scope:
+  product_scope: shopdesk
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-SHOPDESK-0005
+    relation: implements
+  - requirement_id: REQ-SHOPDESK-0001
+    relation: relates_to
+
+surface:
+  route: "/"
+  name: "Visao geral"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+    - name: loading
+    - name: empty
+    - name: error
+  data:
+    - field: "kpis"
+      source: "api:/dashboard/summary"
+      editable: false
+      format: "metricas agregadas"
+    - field: "recent"
+      source: "api:/dashboard/recent"
+      editable: false
+      format: "eventos recentes"
+  interactions:
+    - trigger: "abrir /"
+      action: "carrega KPIs e eventos recentes"
+      result: "renderiza cards de metricas e atalhos"
+    - trigger: "clicar em um KPI/atalho"
+      action: "navega para a area correspondente"
+      result: "abre a tela alvo"
+
+source:
+  source_paths:
+    - specs/products/shopdesk/product.json
+    - apps/shopdesk/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

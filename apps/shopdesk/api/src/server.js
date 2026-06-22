@@ -1,18 +1,32 @@
 // server.js — API (camadas: rotas finas). Servida em /shopdesk/api (stripPrefix). Gerado pela Forge.
 import express from 'express';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { pool, migrate, seed } from './db.js';
 import { M, startMetricsServer } from './metrics.js';
 import * as jobsRepo from './repositories/jobs-repo.js';
+import { makeRepo } from './repositories/crud-repo.js';
+import { ENTITIES } from './repositories/entities.js';
 import * as checkoutSvc from './services/checkout-service.js';
 import * as fiscalSvc from './services/fiscal-service.js';
 import * as assistantSvc from './services/assistant-service.js';
 import * as notifySvc from './services/notification-service.js';
 import { authContext } from './lib/auth-context.js';
+import { openapiToJson } from '../openapi/openapi-json.mjs';
+// Contrato OpenAPI canônico — lido UMA vez no boot (cache em módulo), servido em YAML (download)
+// e JSON (consumido pela tela de documentação, sem parser no frontend). Fonte única no disco.
+const __dir = dirname(fileURLToPath(import.meta.url));
+const OPENAPI_YAML = readFileSync(join(__dir, '../openapi/openapi.yaml'), 'utf8');
+const OPENAPI_JSON = JSON.stringify(openapiToJson(OPENAPI_YAML), null, 2);
 const app = express(); app.use(express.json());
 app.use((req, _res, next) => { req.tenantId = Number(req.header('X-Tenant-Id')) || 1; req.auth = authContext(req); next(); });
 const wrap = (fn) => (req, res) => Promise.resolve(fn(req, res)).catch((e) => { M.httpErrors.inc(); res.status(e.status || 500).json({ error: { message: e.message || 'erro' } }); });
 app.get('/', (_q, res) => res.json({ app: 'shopdesk', service: 'api', ok: true }));
 app.get('/health', wrap(async (_q, res) => { await pool.query('SELECT 1'); res.json({ status: 'ok', db: 'connected' }); }));
+// Contrato OpenAPI: YAML para download, JSON para a tela de documentação (res.json shape).
+app.get('/v1/openapi.yaml', (_q, res) => res.type('application/yaml').send(OPENAPI_YAML));
+app.get('/v1/openapi.json', (_q, res) => res.type('application/json').send(OPENAPI_JSON));
 app.get('/v1/health/jobs', wrap(async (_q, res) => res.json({ status: 'ok', jobs: await jobsRepo.counts() })));
 app.get('/v1/records', wrap(async (req, res) => res.json({ data: (await pool.query('SELECT * FROM records WHERE tenant_id=$1 ORDER BY id DESC LIMIT 200', [req.tenantId])).rows })));
 app.get('/v1/records/:id', wrap(async (req, res) => { const r = (await pool.query('SELECT * FROM records WHERE tenant_id=$1 AND id=$2', [req.tenantId, Number(req.params.id)])).rows[0]; if (!r) return res.status(404).json({ error: { message: 'não encontrado' } }); res.json(r); }));
@@ -28,6 +42,82 @@ app.post('/v1/assistant', wrap(async (req, res) => { const b = req.body || {}; r
 app.get('/v1/assistant/health', (_q, res) => res.json({ ai: assistantSvc.aiEnabled }));
 // bloco notificacoes-multicanal: histórico de notificações (e-mail/push/whatsapp por webhook, degrada graciosamente).
 app.get('/v1/notifications', wrap(async (_q, res) => res.json({ data: notifySvc.recentNotifications() })));
+
+// ---------------------------------------------------------------------------
+// CRUD de domínio (products/orders/carts/inventory/reorders/users/audit-logs).
+// Rotas FINAS: delegam ao repo CRUD; nenhum SQL aqui (bloco camadas-rigidas).
+// O repo é indexado por rota; os handlers genéricos recebem a entidade certa.
+// As rotas abaixo são declaradas com STRINGS LITERAIS (não interpoladas) para o
+// validate:openapi enxergá-las e casar com o openapi.yaml sem drift.
+// ---------------------------------------------------------------------------
+const repos = Object.fromEntries(ENTITIES.map((e) => [e.route, makeRepo(e)]));
+const crudList = (route) => wrap(async (req, res) => {
+  const { page, pageSize, sort, dir } = req.query;
+  res.json(await repos[route].list(req.tenantId, { page, pageSize, sort, dir }));
+});
+const crudGet = (route) => wrap(async (req, res) => {
+  const r = await repos[route].get(req.tenantId, req.params.id);
+  if (!r) return res.status(404).json({ error: { message: 'não encontrado' } });
+  res.json(r);
+});
+const crudCreate = (route) => wrap(async (req, res) => {
+  const body = req.body || {};
+  const missing = repos[route].validate(body);
+  if (missing.length) return res.status(400).json({ error: { message: 'campos obrigatórios: ' + missing.join(', ') } });
+  res.status(201).json(await repos[route].create(req.tenantId, body));
+});
+const crudUpdate = (route) => wrap(async (req, res) => {
+  const r = await repos[route].update(req.tenantId, req.params.id, req.body || {});
+  if (!r) return res.status(404).json({ error: { message: 'não encontrado' } });
+  res.json(r);
+});
+const crudDelete = (route) => wrap(async (req, res) => {
+  const okDel = await repos[route].remove(req.tenantId, req.params.id);
+  if (!okDel) return res.status(404).json({ error: { message: 'não encontrado' } });
+  res.status(204).end();
+});
+
+app.get('/v1/products', crudList('products'));
+app.get('/v1/products/:id', crudGet('products'));
+app.post('/v1/products', crudCreate('products'));
+app.put('/v1/products/:id', crudUpdate('products'));
+app.delete('/v1/products/:id', crudDelete('products'));
+
+app.get('/v1/orders', crudList('orders'));
+app.get('/v1/orders/:id', crudGet('orders'));
+app.post('/v1/orders', crudCreate('orders'));
+app.put('/v1/orders/:id', crudUpdate('orders'));
+app.delete('/v1/orders/:id', crudDelete('orders'));
+
+app.get('/v1/carts', crudList('carts'));
+app.get('/v1/carts/:id', crudGet('carts'));
+app.post('/v1/carts', crudCreate('carts'));
+app.put('/v1/carts/:id', crudUpdate('carts'));
+app.delete('/v1/carts/:id', crudDelete('carts'));
+
+app.get('/v1/inventory', crudList('inventory'));
+app.get('/v1/inventory/:id', crudGet('inventory'));
+app.post('/v1/inventory', crudCreate('inventory'));
+app.put('/v1/inventory/:id', crudUpdate('inventory'));
+app.delete('/v1/inventory/:id', crudDelete('inventory'));
+
+app.get('/v1/reorders', crudList('reorders'));
+app.get('/v1/reorders/:id', crudGet('reorders'));
+app.post('/v1/reorders', crudCreate('reorders'));
+app.put('/v1/reorders/:id', crudUpdate('reorders'));
+app.delete('/v1/reorders/:id', crudDelete('reorders'));
+
+app.get('/v1/users', crudList('users'));
+app.get('/v1/users/:id', crudGet('users'));
+app.post('/v1/users', crudCreate('users'));
+app.put('/v1/users/:id', crudUpdate('users'));
+app.delete('/v1/users/:id', crudDelete('users'));
+
+app.get('/v1/audit-logs', crudList('audit-logs'));
+app.get('/v1/audit-logs/:id', crudGet('audit-logs'));
+app.post('/v1/audit-logs', crudCreate('audit-logs'));
+app.put('/v1/audit-logs/:id', crudUpdate('audit-logs'));
+app.delete('/v1/audit-logs/:id', crudDelete('audit-logs'));
 async function depth() { try { const c = await jobsRepo.counts(); for (const s of ['queued','running','done','dlq']) M.queueDepth.set({ status: s }, c[s] || 0); } catch {} }
 const PORT = Number(process.env.PORT) || 8080;
 (async () => {

@@ -2,279 +2,76 @@
   "metamodel_version": "1.1.0",
   "has_previous": true,
   "from": {
-    "commit": "19f67b874ca7",
-    "baseline_hash": "bf55c6b85f051bb79f641cfb4d57afb6752f6421a6eb3f58cce2b65250bdfb51"
+    "commit": "068fd2c11bee",
+    "baseline_hash": "6bf16f0b66d8a61eb936bcf0a5bc2b5480ba28b6c888324c5bd1f2aa943f5a11"
   },
   "to": {
-    "commit": "working-tree",
-    "baseline_hash": "ae017f52cb124304084f547cebc320660b202ae3dea102df4096ebe5b9a1f9ca"
+    "commit": "a0cc631a3c83",
+    "baseline_hash": "b40ddfbf09f13258fd0968c5b19bfe638ccac9caf7bdc25627ac75789170652b"
   },
   "counts": {
-    "added": 0,
-    "removed": 37,
+    "added": 8,
+    "removed": 0,
     "changed": 0
   },
-  "added": [],
-  "removed": [
+  "added": [
     {
-      "id": "REQ-ANARA-0001",
-      "title": "Renderizar página inicial com apresentação pessoal e hero",
-      "product": "anarabottini",
+      "id": "REQ-SHOPDESK-0001",
+      "title": "Fundação: Arquitetura em camadas + Observabilidade por padrão",
+      "product": "shopdesk",
       "type": "functional",
       "impact_band": "medium"
     },
     {
-      "id": "REQ-ANARA-0002",
-      "title": "Exibir catálogo de 6 palestras com filtro por categoria",
-      "product": "anarabottini",
+      "id": "REQ-SHOPDESK-0002",
+      "title": "Isolamento multi-tenant + RBAC + Login SSO",
+      "product": "shopdesk",
       "type": "functional",
       "impact_band": "medium"
     },
     {
-      "id": "REQ-ANARA-0003",
-      "title": "Renderizar galeria de vídeos com lightbox YouTube",
-      "product": "anarabottini",
-      "type": "functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-ANARA-0004",
-      "title": "Ofertar materiais educativos (e-books, guias, checklists)",
-      "product": "anarabottini",
-      "type": "functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-ANARA-0005",
-      "title": "Exibir FAQ educativa sobre NR-1 em acordeão",
-      "product": "anarabottini",
-      "type": "functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-ANARA-0006",
-      "title": "Renderizar seção 'Como trabalho' (timeline do método) e 'Abordagem' (valores)",
-      "product": "anarabottini",
-      "type": "functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-ANARA-0007",
-      "title": "Formulário de proposta com integração WhatsApp/e-mail",
-      "product": "anarabottini",
-      "type": "functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-ANARA-0008",
-      "title": "Exibir depoimentos e logos de marcas (opt-in)",
-      "product": "anarabottini",
-      "type": "functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-ANARA-0009",
-      "title": "Oferecer roteamento subpath /anarabottini sem strip",
-      "product": "anarabottini",
+      "id": "REQ-SHOPDESK-0003",
+      "title": "Carrinho, checkout e pagamento idempotente com webhook",
+      "product": "shopdesk",
       "type": "functional",
       "impact_band": "medium"
     },
     {
-      "id": "REQ-ANARA-0010",
-      "title": "Renderizar header com navegação e theme toggle",
-      "product": "anarabottini",
-      "type": "functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-ANARA-0011",
-      "title": "Suportar dark mode com paleta quente & humanista",
-      "product": "anarabottini",
-      "type": "functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-ANARA-0012",
-      "title": "Implementar FAB WhatsApp e botão 'voltar ao topo'",
-      "product": "anarabottini",
-      "type": "functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-ANARA-0013",
-      "title": "Substituir placeholders de contato/mídia por dados reais",
-      "product": "anarabottini",
-      "type": "functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-ANARA-NFR-001",
-      "title": "SEO otimizado para saúde mental corporativa + NR-1",
-      "product": "anarabottini",
-      "type": "non-functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-ANARA-NFR-002",
-      "title": "Acessibilidade WCAG 2.1 AA para públicos corporativos",
-      "product": "anarabottini",
-      "type": "non-functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-ANARA-NFR-003",
-      "title": "Performance: FCP <2.5s, LCP <4.0s em mobile 4G",
-      "product": "anarabottini",
-      "type": "non-functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-ANARA-NFR-004",
-      "title": "Tema escuro automático baseado em preferência OS + persistência",
-      "product": "anarabottini",
-      "type": "non-functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-ANARA-NFR-005",
-      "title": "Responsividade mobile-first para landscape/portrait",
-      "product": "anarabottini",
-      "type": "non-functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-ANARA-NFR-006",
-      "title": "Conteúdo degrada gracefully quando placeholders vazios",
-      "product": "anarabottini",
-      "type": "non-functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-RMAMB-0001",
-      "title": "Renderizar página inicial com hero, posicionamento e call-to-action",
-      "product": "rmambiental",
+      "id": "REQ-SHOPDESK-0004",
+      "title": "Emissão de NF-e assíncrona e resiliente pós-pagamento",
+      "product": "shopdesk",
       "type": "functional",
       "impact_band": "medium"
     },
     {
-      "id": "REQ-RMAMB-0002",
-      "title": "Exibir 4 frentes de solução em página Soluções",
-      "product": "rmambiental",
+      "id": "REQ-SHOPDESK-0005",
+      "title": "Painel web de vendas, pedidos e estoque com design system",
+      "product": "shopdesk",
       "type": "functional",
       "impact_band": "medium"
     },
     {
-      "id": "REQ-RMAMB-0003",
-      "title": "Exibir setores atendidos com ícones e descrições",
-      "product": "rmambiental",
-      "type": "functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-RMAMB-0004",
-      "title": "Renderizar galeria de projetos com casos de uso",
-      "product": "rmambiental",
-      "type": "functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-RMAMB-0005",
-      "title": "Exibir seção ESG e números de autoridade",
-      "product": "rmambiental",
-      "type": "functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-RMAMB-0006",
-      "title": "Implementar página de Contato com formulário e canais",
-      "product": "rmambiental",
-      "type": "functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-RMAMB-0007",
-      "title": "Renderizar header fixo com navegação principal e theme toggle",
-      "product": "rmambiental",
-      "type": "functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-RMAMB-0008",
-      "title": "Oferecer roteamento subpath /rmambiental sem strip",
-      "product": "rmambiental",
+      "id": "REQ-SHOPDESK-0006",
+      "title": "Assistente de IA para lojista (sugestão de preço/descrição e Q&A sobre pedidos)",
+      "product": "shopdesk",
       "type": "functional",
       "impact_band": "medium"
     },
     {
-      "id": "REQ-RMAMB-0009",
-      "title": "Suportar dark mode com cores corporativas ajustadas",
-      "product": "rmambiental",
+      "id": "REQ-SHOPDESK-0007",
+      "title": "Notificações multi-canal (e-mail e SMS) para eventos de pedido",
+      "product": "shopdesk",
       "type": "functional",
-      "impact_band": "low"
+      "impact_band": "medium"
     },
     {
-      "id": "REQ-RMAMB-0010",
-      "title": "Exibir footer com links, redes sociais e política de privacidade",
-      "product": "rmambiental",
-      "type": "functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-RMAMB-0011",
-      "title": "Implementar FAB WhatsApp condicionado a configuração",
-      "product": "rmambiental",
-      "type": "functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-RMAMB-0012",
-      "title": "Substituir placeholders de conteúdo por dados reais",
-      "product": "rmambiental",
-      "type": "functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-RMAMB-NFR-001",
-      "title": "SEO otimizado com metadados e Open Graph",
-      "product": "rmambiental",
+      "id": "REQ-SHOPDESK-0008",
+      "title": "Contract-first OpenAPI para API pública integrável",
+      "product": "shopdesk",
       "type": "non-functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-RMAMB-NFR-002",
-      "title": "Acessibilidade WCAG 2.1 AA em toda a aplicação",
-      "product": "rmambiental",
-      "type": "non-functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-RMAMB-NFR-003",
-      "title": "Performance: First Contentful Paint <2.5s, LCP <4.0s mobile",
-      "product": "rmambiental",
-      "type": "non-functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-RMAMB-NFR-004",
-      "title": "Tema escuro e claro respeitam preferência do sistema + persistência",
-      "product": "rmambiental",
-      "type": "non-functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-RMAMB-NFR-005",
-      "title": "Responsividade mobile-first com breakpoints Tailwind",
-      "product": "rmambiental",
-      "type": "non-functional",
-      "impact_band": "low"
-    },
-    {
-      "id": "REQ-RMAMB-NFR-006",
-      "title": "Build reproduzível com package-lock.json versionado",
-      "product": "rmambiental",
-      "type": "non-functional",
-      "impact_band": "low"
+      "impact_band": "medium"
     }
   ],
+  "removed": [],
   "changed": []
 }

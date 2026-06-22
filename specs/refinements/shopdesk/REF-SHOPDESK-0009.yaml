@@ -1,0 +1,50 @@
+id: REF-SHOPDESK-0009
+slug: ref-shopdesk-0009
+title: "Editar pedido"
+kind: screen
+status: approved
+
+scope:
+  product_scope: shopdesk
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-SHOPDESK-0005
+    relation: implements
+
+surface:
+  route: "/orders/:id/edit"
+  name: "Editar pedido"
+  roles:
+    - user
+
+behavior:
+  states:
+    - name: normal
+    - name: loading
+    - name: empty
+    - name: error
+  data:
+    - field: "record"
+      source: "api:/orders/:id"
+      editable: false
+      format: "objeto do dominio"
+    - field: "form"
+      source: "estado-local (rascunho a partir do record)"
+      editable: true
+  interactions:
+    - trigger: "abrir /orders/:id/edit"
+      action: "carrega o registro de orders para edicao"
+      result: "preenche o formulario"
+    - trigger: "clicar em Salvar"
+      action: "envia PUT/PATCH para api:/orders/:id"
+      result: "persiste e retorna ao detalhe"
+
+source:
+  source_paths:
+    - specs/products/shopdesk/product.json
+    - apps/shopdesk/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

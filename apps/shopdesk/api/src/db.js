@@ -1,9 +1,14 @@
 // db.js — pool + migrations versionadas (advisory-lock no boot) + seed. Gerado pela Forge.
 import pg from 'pg';
+import { ENTITIES, ddlFor, seedInsertFor } from './repositories/entities.js';
 export const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+// migração 4: tabelas de domínio (products/orders/carts/inventory/reorders/users/audit_logs)
+// derivadas declarativamente de repositories/entities.js (uma DDL por entidade).
+const DOMAIN_DDL = ENTITIES.map((e) => ddlFor(e)).join('\n');
 const MIGRATIONS = [`CREATE TABLE IF NOT EXISTS records (id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, title TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open', payload JSONB NOT NULL DEFAULT '{}'::jsonb, external_ref TEXT, created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now());`,
   `CREATE TABLE IF NOT EXISTS jobs (id BIGSERIAL PRIMARY KEY, type TEXT NOT NULL, payload JSONB NOT NULL DEFAULT '{}'::jsonb, status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','running','done','dlq')), attempts INTEGER NOT NULL DEFAULT 0, max_attempts INTEGER NOT NULL DEFAULT 4, run_after TIMESTAMPTZ NOT NULL DEFAULT now(), locked_at TIMESTAMPTZ, locked_by TEXT, last_error TEXT, job_key TEXT UNIQUE, created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now()); CREATE INDEX IF NOT EXISTS jobs_claim_idx ON jobs (status, run_after) WHERE status='queued';`,
-  `CREATE TABLE IF NOT EXISTS idempotency_keys (key TEXT PRIMARY KEY, response JSONB NOT NULL, created_at TIMESTAMPTZ DEFAULT now());`];
+  `CREATE TABLE IF NOT EXISTS idempotency_keys (key TEXT PRIMARY KEY, response JSONB NOT NULL, created_at TIMESTAMPTZ DEFAULT now());`,
+  DOMAIN_DDL];
 export async function migrate() {
   const c = await pool.connect();
   try {
@@ -20,7 +25,22 @@ export async function migrate() {
 }
 export async function seed() {
   const { rows } = await pool.query('SELECT count(*)::int AS n FROM records');
-  if (rows[0].n > 0) return;
-  await pool.query(`INSERT INTO records(title) VALUES ('Registro de exemplo')`);
-  console.log('[seed] ok');
+  if (rows[0].n === 0) {
+    await pool.query(`INSERT INTO records(title) VALUES ('Registro de exemplo')`);
+    console.log('[seed] ok');
+  }
+  await seedDomain();
+}
+
+// Seed das entidades de domínio — idempotente por tabela (só popula a que está vazia).
+export async function seedDomain() {
+  for (const e of ENTITIES) {
+    const { rows } = await pool.query(`SELECT count(*)::int AS n FROM ${e.table}`);
+    if (rows[0].n > 0) continue;
+    for (const row of e.seed) {
+      const { sql, params } = seedInsertFor(e, row);
+      await pool.query(sql, params);
+    }
+    console.log('[seed] ' + e.table + ' (' + e.seed.length + ' linhas)');
+  }
 }
