@@ -1,20 +1,23 @@
 // =============================================================================
-// scaffold-frontend.mjs — gera um FRONTEND Vue REAL (SPA) para um app gerado pela Forja,
-// quando o produto pede interface web (product.interfaces inclui "web"). ADITIVO: emite
-// apps/<app>/frontend/** + apps/<app>/k8s/<app>-frontend.yaml + anexa o service frontend ao
-// devops.yaml — sem tocar no gerador de backend (baixo risco). Mais rico que o painel único
-// do StockPilot: vue-router + views (Dashboard/Lista/Detalhe) + componentes reutilizáveis +
-// client de API + design-tokens + estados loading/empty/error + a11y. Recurso genérico `records`.
+// scaffold-frontend.mjs — gera a BASE de um FRONTEND Vue RICO para um app da Forja, quando o
+// produto pede interface web (product.interfaces inclui "web"). A base já nasce bonita e
+// utilizável: casca própria (topbar + sidebar, marca própria), dashboard com métricas, e um
+// MÓDULO DE RECURSO completo (lista + criar + detalhe + 404) usando o KIT @flavioneto11/ui-vue.
+// O MOTOR multiagente (generate-ui.workflow.mjs) depois preenche as telas de domínio sobre esta
+// base. ADITIVO ao backend: emite apps/<app>/frontend/** + k8s/<app>-frontend.yaml + service no
+// devops.yaml + specs/products/<app>/brand.json (marca) + tokens.generated.css inicial.
 //
-// Roteamento (regra de ouro): frontend stripPrefix:false, priority 10, base /<app>/; a API
-// (priority 40 + strip) continua vencendo /<app>/api. Código gerado por concatenação + tokens
-// @@APP@@/@@TITLE@@/@@BASE@@ (Vue usa {{ }}, não ${}; api.js usa concatenação).
+// Roteamento (regra de ouro): frontend stripPrefix:false priority 10 base /<app>/; a API
+// (priority 40 + strip) vence /<app>/api. Geração por concatenação + tokens @@APP@@/@@TITLE@@/@@BASE@@.
+// O KIT (src/ui/**) e os tokens (tokens.generated.css) entram por codegen-sync:
+//   node packages/ui-vue/build.mjs  &&  node packages/design-tokens/build.mjs
 //
 // Uso: node scaffold-frontend.mjs --product <name> [--force]
 // =============================================================================
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { deriveForgeTokensCss, DEFAULT_BRAND } from '../../packages/design-tokens/forge-brand.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SPECS_DIR = path.resolve(__dirname, '..');
@@ -37,6 +40,7 @@ const APPDIR = path.join(REPO_ROOT, 'apps', APP);
 const files = {};
 const add = (rel, content) => { files[rel] = content; };
 
+// ---- toolchain (vite + vue + vue-router) -----------------------------------
 add('frontend/package.json', JSON.stringify({
   name: '@@APP@@-frontend', version: '1.0.0', private: true, type: 'module',
   scripts: { dev: 'vite', build: 'vite build', preview: 'vite preview' },
@@ -83,28 +87,63 @@ add('frontend/index.html', [
   '</head>', '<body>', '  <div id="app"></div>', '  <script type="module" src="/src/main.js"></script>', '</body>', '</html>', '',
 ].join('\n'));
 
+// ---- bootstrap -------------------------------------------------------------
 add('frontend/src/main.js', [
   "import { createApp } from 'vue';",
   "import { createRouter, createWebHistory } from 'vue-router';",
   "import App from './App.vue';",
   "import { routes } from './router.js';",
   "import './tokens.generated.css';",
+  "import './ui/ui.css';",
   "import './styles.css';",
   "const router = createRouter({ history: createWebHistory('@@BASE@@/'), routes });",
-  'createApp(App).use(router).mount(\'#app\');', '',
+  "createApp(App).use(router).mount('#app');", '',
+].join('\n'));
+
+add('frontend/src/App.vue', [
+  '<template>',
+  '  <UiAppShell :title="title" :nav="nav" me-url="@@BASE@@/api/me">',
+  '    <RouterView />',
+  '  </UiAppShell>',
+  '  <UiToast />',
+  '  <UiConfirmDialog />',
+  '</template>',
+  '<script setup>',
+  "import { RouterView } from 'vue-router';",
+  "import { UiAppShell, UiToast, UiConfirmDialog } from './ui/index.js';",
+  "import { nav } from './nav.js';",
+  "const title = '@@TITLE@@';",
+  '</script>', '',
+].join('\n'));
+
+// nav model — o motor anexa grupos de domínio aqui.
+add('frontend/src/nav.js', [
+  '// Navegação da sidebar. O motor (generate-ui) anexa grupos de domínio.',
+  'export const nav = [',
+  "  { group: '', items: [",
+  "    { label: 'Painel', to: '/', icon: '◧' },",
+  "    { label: 'Registros', to: '/records', icon: '▤' },",
+  '  ] },',
+  '];', '',
 ].join('\n'));
 
 add('frontend/src/router.js', [
   "import DashboardView from './views/DashboardView.vue';",
-  "import RecordListView from './views/RecordListView.vue';",
-  "import RecordDetailView from './views/RecordDetailView.vue';",
+  "import ResourceListView from './views/ResourceListView.vue';",
+  "import ResourceFormView from './views/ResourceFormView.vue';",
+  "import ResourceDetailView from './views/ResourceDetailView.vue';",
+  "import NotFoundView from './views/NotFoundView.vue';",
   'export const routes = [',
   "  { path: '/', name: 'dashboard', component: DashboardView },",
-  "  { path: '/records', name: 'records', component: RecordListView },",
-  "  { path: '/records/:id', name: 'record', component: RecordDetailView, props: true },",
+  "  { path: '/records', name: 'records', component: ResourceListView },",
+  "  { path: '/records/new', name: 'record-new', component: ResourceFormView },",
+  "  { path: '/records/:id', name: 'record', component: ResourceDetailView, props: true },",
+  "  { path: '/records/:id/edit', name: 'record-edit', component: ResourceFormView, props: true },",
+  "  { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundView },",
   '];', '',
 ].join('\n'));
 
+// ---- client de API: fábrica de recurso (list/get/create/update/remove) ------
 add('frontend/src/api.js', [
   '// Client da API (base absoluta sob o subpath). Sem ${} — concatenação. Gerado pela Forge.',
   "const BASE = import.meta.env.VITE_API_BASE_URL || '@@BASE@@/api';",
@@ -114,170 +153,187 @@ add('frontend/src/api.js', [
   "  if (!res.ok) { const e = new Error((data && data.error && data.error.message) || ('HTTP ' + res.status)); e.status = res.status; throw e; }",
   '  return data;',
   '}',
+  'function qs(params) {',
+  '  const p = new URLSearchParams();',
+  "  for (const k in (params || {})) { const v = params[k]; if (v !== '' && v !== null && v !== undefined) p.append(k, v); }",
+  "  const s = p.toString(); return s ? ('?' + s) : '';",
+  '}',
+  '// fábrica de recurso REST: o backend expõe /v1/<name>. list aceita page/pageSize/sort/dir/filtros.',
+  'export function resourceFactory(name) {',
+  '  const root = "/v1/" + name;',
+  '  return {',
+  '    list: (params) => request("GET", root + qs(params)).then((d) => (d && d.data !== undefined ? d : { data: d || [], total: (d || []).length })),',
+  '    get: (id) => request("GET", root + "/" + id),',
+  '    create: (body) => request("POST", root, body),',
+  '    update: (id, body) => request("PUT", root + "/" + id, body),',
+  '    remove: (id) => request("DELETE", root + "/" + id),',
+  '  };',
+  '}',
   'export const health = () => request("GET", "/health");',
-  '// recurso genérico `records` (o gerador de backend expõe /v1/records).',
-  'export const records = {',
-  '  list: () => request("GET", "/v1/records").then((d) => d.data || d),',
-  '  get: (id) => request("GET", "/v1/records/" + id),',
-  '  create: (rec) => request("POST", "/v1/records", rec),',
-  '  submit: (id) => request("POST", "/v1/records/" + id + "/submit", {}),',
-  '};', '',
+  "export const records = resourceFactory('records');", '',
 ].join('\n'));
 
-// ---- componentes reutilizáveis -------------------------------------------------
-add('frontend/src/components/StateBlock.vue', [
-  '<template>',
-  '  <div v-if="loading" class="state" role="status" aria-live="polite">Carregando…</div>',
-  '  <div v-else-if="error" class="state state-error" role="alert">{{ error }}</div>',
-  '  <div v-else-if="empty" class="state state-empty">{{ emptyText || \'Nada por aqui ainda.\' }}</div>',
-  '  <slot v-else />',
-  '</template>',
-  '<script setup>',
-  'defineProps({ loading: Boolean, error: String, empty: Boolean, emptyText: String });',
-  '</script>', '',
-].join('\n'));
-
-add('frontend/src/components/DataTable.vue', [
-  '<template>',
-  '  <table class="dt">',
-  '    <thead><tr><th v-for="c in columns" :key="c.key" scope="col">{{ c.label }}</th></tr></thead>',
-  '    <tbody>',
-  '      <tr v-for="row in rows" :key="row.id">',
-  '        <td v-for="c in columns" :key="c.key">{{ row[c.key] }}</td>',
-  '      </tr>',
-  '    </tbody>',
-  '  </table>',
-  '</template>',
-  '<script setup>',
-  'defineProps({ columns: { type: Array, required: true }, rows: { type: Array, default: () => [] } });',
-  '</script>', '',
-].join('\n'));
-
-add('frontend/src/components/AppShell.vue', [
-  '<template>',
-  '  <div class="shell">',
-  '    <header class="topbar">',
-  '      <span class="brand">@@TITLE@@</span>',
-  '      <nav aria-label="Navegação principal">',
-  '        <RouterLink to="/">Painel</RouterLink>',
-  '        <RouterLink to="/records">Registros</RouterLink>',
-  '      </nav>',
-  '    </header>',
-  '    <main class="content"><slot /></main>',
-  '  </div>',
-  '</template>',
-  '<script setup>',
-  "import { RouterLink } from 'vue-router';",
-  '</script>', '',
-].join('\n'));
-
-add('frontend/src/App.vue', [
-  '<template>',
-  '  <AppShell><RouterView /></AppShell>',
-  '</template>',
-  '<script setup>',
-  "import { RouterView } from 'vue-router';",
-  "import AppShell from './components/AppShell.vue';",
-  '</script>', '',
-].join('\n'));
-
-// ---- views -------------------------------------------------------------------
+// ---- views (sobre o kit) ---------------------------------------------------
 add('frontend/src/views/DashboardView.vue', [
   '<template>',
-  '  <section>',
-  '    <h1>Painel</h1>',
-  '    <StateBlock :loading="loading" :error="error">',
-  '      <div class="cards">',
-  '        <div class="card"><span class="big">{{ total }}</span><span>registros</span></div>',
-  '        <div class="card"><span class="big">{{ live ? \'no ar\' : \'—\' }}</span><span>API</span></div>',
-  '      </div>',
-  '      <RouterLink class="btn" to="/records">Ver registros →</RouterLink>',
-  '    </StateBlock>',
-  '  </section>',
+  '  <UiPageLayout title="Painel" eyebrow="@@TITLE@@" subtitle="Visão geral do sistema." :loading="loading" :error="error" @retry="load">',
+  '    <template #actions><UiButton to="/records/new">Novo registro</UiButton></template>',
+  '    <div class="dash-metrics">',
+  '      <UiMetricCard label="Registros" :value="total" tone="primary" />',
+  "      <UiMetricCard label=\"API\" :value=\"live ? 'No ar' : 'Fora'\" :tone=\"live ? 'success' : 'error'\" />",
+  '      <UiMetricCard label="Recentes" :value="recent.length" tone="neutral" hint="últimos carregados" />',
+  '    </div>',
+  '    <UiCard title="Registros recentes">',
+  '      <UiDataTable :columns="columns" :rows="recent" :empty="{ title: \'Sem registros\', description: \'Crie o primeiro registro.\' }" clickable-rows @row-click="open" />',
+  '    </UiCard>',
+  '  </UiPageLayout>',
   '</template>',
   '<script setup>',
   "import { ref, onMounted } from 'vue';",
-  "import { RouterLink } from 'vue-router';",
-  "import StateBlock from '../components/StateBlock.vue';",
+  "import { useRouter } from 'vue-router';",
+  "import { UiPageLayout, UiCard, UiMetricCard, UiDataTable, UiButton } from '../ui/index.js';",
   "import { records, health } from '../api.js';",
-  'const loading = ref(true), error = ref(""), total = ref(0), live = ref(false);',
-  'onMounted(async () => {',
-  '  try { await health(); live.value = true; const rs = await records.list(); total.value = (rs || []).length; }',
-  '  catch (e) { error.value = e.message; } finally { loading.value = false; }',
-  '});',
-  '</script>', '',
-].join('\n'));
-
-add('frontend/src/views/RecordListView.vue', [
-  '<template>',
-  '  <section>',
-  '    <h1>Registros</h1>',
-  '    <form class="new" @submit.prevent="create">',
-  '      <label for="t">Novo registro</label>',
-  '      <input id="t" v-model="title" placeholder="título" required />',
-  '      <button class="btn" type="submit">Criar</button>',
-  '    </form>',
-  '    <StateBlock :loading="loading" :error="error" :empty="!rows.length" empty-text="Nenhum registro ainda.">',
-  '      <DataTable :columns="columns" :rows="rows" />',
-  '    </StateBlock>',
-  '  </section>',
-  '</template>',
-  '<script setup>',
-  "import { ref, onMounted } from 'vue';",
-  "import StateBlock from '../components/StateBlock.vue';",
-  "import DataTable from '../components/DataTable.vue';",
-  "import { records } from '../api.js';",
-  "const columns = [{ key: 'id', label: 'ID' }, { key: 'title', label: 'Título' }, { key: 'status', label: 'Status' }];",
-  'const loading = ref(true), error = ref(""), rows = ref([]), title = ref("");',
-  'async function load() { loading.value = true; try { rows.value = await records.list(); } catch (e) { error.value = e.message; } finally { loading.value = false; } }',
-  'async function create() { if (!title.value) return; try { await records.create({ title: title.value }); title.value = ""; await load(); } catch (e) { error.value = e.message; } }',
+  'const router = useRouter();',
+  "const columns = [{ key: 'id', label: 'ID' }, { key: 'title', label: 'Título' }, { key: 'status', label: 'Status', format: 'badge' }];",
+  'const loading = ref(true), error = ref(null), total = ref(0), live = ref(false), recent = ref([]);',
+  'async function load() {',
+  '  loading.value = true; error.value = null;',
+  '  try {',
+  '    try { await health(); live.value = true; } catch { live.value = false; }',
+  '    const r = await records.list({ pageSize: 5 });',
+  '    recent.value = r.data || []; total.value = r.total ?? recent.value.length;',
+  '  } catch (e) { error.value = e; } finally { loading.value = false; }',
+  '}',
+  "const open = (row) => router.push('/records/' + row.id);",
   'onMounted(load);',
+  '</script>',
+  '<style scoped>',
+  '.dash-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--ui-space-4); }',
+  '</style>', '',
+].join('\n'));
+
+add('frontend/src/views/ResourceListView.vue', [
+  '<template>',
+  '  <UiPageLayout title="Registros" subtitle="Todos os registros do sistema." :error="r.error.value" @retry="r.load">',
+  '    <template #actions><UiButton to="/records/new">Novo registro</UiButton></template>',
+  '    <UiDataTable :columns="columns" :rows="r.items.value" :loading="r.loading.value" row-key="id" clickable-rows',
+  "      :empty=\"{ title: 'Nenhum registro', description: 'Comece criando um novo registro.' }\" @row-click=\"open\">",
+  '      <template #empty-action><UiButton to="/records/new">Criar registro</UiButton></template>',
+  '    </UiDataTable>',
+  '  </UiPageLayout>',
+  '</template>',
+  '<script setup>',
+  "import { onMounted } from 'vue';",
+  "import { useRouter } from 'vue-router';",
+  "import { UiPageLayout, UiDataTable, UiButton, useResource } from '../ui/index.js';",
+  "import { records } from '../api.js';",
+  'const router = useRouter();',
+  "const columns = [{ key: 'id', label: 'ID' }, { key: 'title', label: 'Título', sortable: true }, { key: 'status', label: 'Status', format: 'badge' }];",
+  'const r = useResource(records);',
+  "const open = (row) => router.push('/records/' + row.id);",
+  'onMounted(r.load);',
   '</script>', '',
 ].join('\n'));
 
-add('frontend/src/views/RecordDetailView.vue', [
+add('frontend/src/views/ResourceFormView.vue', [
   '<template>',
-  '  <section>',
-  '    <RouterLink to="/records">← Registros</RouterLink>',
-  '    <StateBlock :loading="loading" :error="error">',
-  '      <h1>Registro #{{ rec.id }}</h1>',
-  '      <dl class="kv"><dt>Título</dt><dd>{{ rec.title }}</dd><dt>Status</dt><dd>{{ rec.status }}</dd></dl>',
-  '    </StateBlock>',
-  '  </section>',
+  '  <UiPageLayout :title="isEdit ? \'Editar registro\' : \'Novo registro\'" width="narrow">',
+  '    <UiCard>',
+  '      <form @submit.prevent="submit">',
+  '        <UiFormSection title="Dados do registro" :columns="1">',
+  '          <UiFormField label="Título" :required="true" :error="f.errors.title">',
+  '            <template #default="{ id, describedBy }">',
+  '              <input :id="id" :aria-describedby="describedBy" :value="f.values.title" @input="f.setField(\'title\', $event.target.value)" placeholder="Ex.: Meu registro" />',
+  '            </template>',
+  '          </UiFormField>',
+  '        </UiFormSection>',
+  '        <div class="form-actions">',
+  '          <UiButton variant="ghost" type="button" @click="cancel">Cancelar</UiButton>',
+  '          <UiButton type="submit" :loading="f.submitting.value">{{ isEdit ? \'Salvar\' : \'Criar\' }}</UiButton>',
+  '        </div>',
+  '      </form>',
+  '    </UiCard>',
+  '  </UiPageLayout>',
+  '</template>',
+  '<script setup>',
+  "import { computed, onMounted } from 'vue';",
+  "import { useRouter } from 'vue-router';",
+  "import { UiPageLayout, UiCard, UiFormSection, UiFormField, UiButton, useForm, useToast } from '../ui/index.js';",
+  "import { validators } from '../ui/index.js';",
+  "import { records } from '../api.js';",
+  'const props = defineProps({ id: { type: String, default: null } });',
+  'const router = useRouter();',
+  'const toast = useToast();',
+  'const isEdit = computed(() => !!props.id);',
+  "const f = useForm({ initial: { title: '' }, rules: { title: [validators.required(), validators.minLen(2)] } });",
+  'onMounted(async () => { if (props.id) { try { const rec = await records.get(props.id); f.values.title = rec.title || \'\'; } catch (e) { toast.error(e.message); } } });',
+  'function submit() {',
+  '  f.handleSubmit(async (vals) => {',
+  '    try {',
+  '      if (isEdit.value) await records.update(props.id, vals); else await records.create(vals);',
+  "      toast.success(isEdit.value ? 'Registro salvo' : 'Registro criado');",
+  "      router.push('/records');",
+  '    } catch (e) { toast.error(e.message); }',
+  '  });',
+  '}',
+  "const cancel = () => router.push('/records');",
+  '</script>',
+  '<style scoped>',
+  '.form-actions { display: flex; justify-content: flex-end; gap: var(--ui-space-2); margin-top: var(--ui-space-3); }',
+  '</style>', '',
+].join('\n'));
+
+add('frontend/src/views/ResourceDetailView.vue', [
+  '<template>',
+  '  <UiPageLayout :title="\'Registro #\' + id" width="narrow" :loading="loading" :error="error" @retry="load">',
+  '    <template #actions>',
+  '      <UiButton variant="ghost" to="/records">Voltar</UiButton>',
+  '      <UiButton :to="\'/records/\' + id + \'/edit\'">Editar</UiButton>',
+  '    </template>',
+  '    <UiCard>',
+  '      <dl class="kv">',
+  '        <div><dt>Título</dt><dd>{{ rec.title }}</dd></div>',
+  '        <div><dt>Status</dt><dd><UiStatusBadge :status="rec.status" /></dd></div>',
+  '      </dl>',
+  '    </UiCard>',
+  '  </UiPageLayout>',
   '</template>',
   '<script setup>',
   "import { ref, onMounted } from 'vue';",
-  "import { RouterLink } from 'vue-router';",
-  "import StateBlock from '../components/StateBlock.vue';",
+  "import { UiPageLayout, UiCard, UiButton, UiStatusBadge } from '../ui/index.js';",
   "import { records } from '../api.js';",
-  'const props = defineProps({ id: String });',
-  'const loading = ref(true), error = ref(""), rec = ref({});',
-  'onMounted(async () => { try { rec.value = await records.get(props.id); } catch (e) { error.value = e.message; } finally { loading.value = false; } });',
+  'const props = defineProps({ id: { type: String, required: true } });',
+  'const loading = ref(true), error = ref(null), rec = ref({});',
+  'async function load() { loading.value = true; error.value = null; try { rec.value = await records.get(props.id); } catch (e) { error.value = e; } finally { loading.value = false; } }',
+  'onMounted(load);',
+  '</script>',
+  '<style scoped>',
+  '.kv { display: grid; gap: var(--ui-space-3); margin: 0; }',
+  '.kv dt { color: rgb(var(--ui-muted)); font-size: var(--ui-text-sm); }',
+  '.kv dd { margin: 2px 0 0; }',
+  '</style>', '',
+].join('\n'));
+
+add('frontend/src/views/NotFoundView.vue', [
+  '<template>',
+  '  <UiPageLayout width="narrow">',
+  "    <UiEmptyState title=\"Página não encontrada\" description=\"O endereço que você abriu não existe.\" icon=\"⚲\">",
+  '      <template #action><UiButton to="/">Ir para o início</UiButton></template>',
+  '    </UiEmptyState>',
+  '  </UiPageLayout>',
+  '</template>',
+  '<script setup>',
+  "import { UiPageLayout, UiEmptyState, UiButton } from '../ui/index.js';",
   '</script>', '',
 ].join('\n'));
 
-// tokens placeholder (design-tokens codegen-sync sobrescreve; mínimo p/ build standalone)
-add('frontend/src/tokens.generated.css', [
-  '/* GERADO (placeholder) — design-tokens codegen-sync sobrescreve. NÃO EDITAR à mão. */',
-  ':root{--p-bg:#0b0d12;--p-surface:#11151d;--p-line:#232a36;--p-text:#e6e9ef;--p-muted:#94a3b8;--p-accent:#4f46e5;--p-ok:#4ade80;--p-radius:12px}', '',
-].join('\n'));
-
+// base mínima (a maior parte vem de ui.css + tokens.generated.css + scoped styles)
 add('frontend/src/styles.css', [
-  '*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:var(--p-bg);color:var(--p-text)}',
-  '.shell{min-height:100vh}.topbar{display:flex;align-items:center;gap:1.5rem;padding:1rem 1.5rem;border-bottom:1px solid var(--p-line)}',
-  '.brand{font-weight:700}.topbar nav{display:flex;gap:1rem}.topbar a{color:var(--p-muted);text-decoration:none}.topbar a.router-link-active{color:var(--p-text)}',
-  '.content{padding:1.5rem;max-width:980px;margin:0 auto}h1{margin:.2rem 0 1rem}',
-  '.btn{display:inline-block;background:var(--p-accent);color:#fff;border:none;border-radius:8px;padding:.55rem 1rem;text-decoration:none;cursor:pointer;font-size:.95rem}',
-  '.state{padding:1.2rem;color:var(--p-muted)}.state-error{color:#fca5a5}.state-empty{color:var(--p-muted)}',
-  '.cards{display:flex;gap:1rem;margin-bottom:1.2rem}.card{background:var(--p-surface);border:1px solid var(--p-line);border-radius:var(--p-radius);padding:1.2rem;display:flex;flex-direction:column;gap:.2rem;min-width:140px}.card .big{font-size:1.8rem;font-weight:700}',
-  '.dt{width:100%;border-collapse:collapse;background:var(--p-surface);border:1px solid var(--p-line);border-radius:var(--p-radius);overflow:hidden}.dt th,.dt td{text-align:left;padding:.6rem .8rem;border-bottom:1px solid var(--p-line)}.dt th{color:var(--p-muted);font-size:.85rem}',
-  '.new{display:flex;gap:.5rem;align-items:end;margin-bottom:1rem;flex-wrap:wrap}.new label{display:block;font-size:.85rem;color:var(--p-muted)}.new input{background:var(--p-surface);border:1px solid var(--p-line);color:var(--p-text);border-radius:8px;padding:.5rem .7rem}',
-  '.kv{display:grid;grid-template-columns:auto 1fr;gap:.4rem 1rem}.kv dt{color:var(--p-muted)}',
-  '@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}',
-  'a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--p-accent);outline-offset:2px}', '',
+  '/* base do app — a identidade vem de tokens.generated.css (--ui-*) + ui.css do kit. */',
+  '#app { min-height: 100vh; }', '',
 ].join('\n'));
 
-// ---- k8s do frontend (aditivo, arquivo separado) -----------------------------
+// ---- k8s do frontend (aditivo) ---------------------------------------------
 add('k8s/@@APP@@-frontend.yaml', [
   '# @@TITLE@@ — frontend (Vue SPA) gerado pela Forge. Aditivo ao k8s do backend.',
   '---', 'apiVersion: apps/v1', 'kind: Deployment',
@@ -306,6 +362,19 @@ for (const [rel, content] of Object.entries(files)) {
   written++;
 }
 
+// ---- marca própria (brand.json) + tokens.generated.css inicial --------------
+const brandPath = path.join(SPECS_DIR, 'products', APP, 'brand.json');
+let brand = { ...DEFAULT_BRAND, name: TITLE };
+if (fs.existsSync(brandPath)) { try { brand = { ...brand, ...JSON.parse(fs.readFileSync(brandPath, 'utf8')) }; } catch {} }
+else { fs.writeFileSync(brandPath, JSON.stringify(brand, null, 2) + '\n'); console.log('[scaffold-frontend] brand.json criado (marca default — ajuste accent/neutralBase).'); }
+// tokens iniciais p/ build standalone (design-tokens build.mjs depois reescreve idempotente)
+const tokPath = path.join(APPDIR, 'frontend', 'src', 'tokens.generated.css');
+fs.mkdirSync(path.dirname(tokPath), { recursive: true });
+fs.writeFileSync(tokPath, deriveForgeTokensCss(brand));
+
+// ---- kit ui-vue: sincroniza p/ src/ui/ (codegen-sync; o build.mjs cobre todos os apps) ------
+// Aqui só garantimos que o app já tenha o kit p/ build local; o build.mjs do pacote é a fonte.
+
 // anexa o service frontend ao devops.yaml (aditivo, se ainda não houver)
 const devopsPath = path.join(APPDIR, 'devops.yaml');
 if (fs.existsSync(devopsPath)) {
@@ -319,5 +388,6 @@ if (fs.existsSync(devopsPath)) {
   }
 }
 
-console.log('[scaffold-frontend] ' + APP + ': ' + written + ' arquivos (Vue SPA + k8s frontend). Rota ' + BASE + ' priority 10.');
+console.log('[scaffold-frontend] ' + APP + ': ' + written + ' arquivos (base Vue rica + k8s). Marca: ' + brand.accent + '/' + brand.neutralBase + '.');
+console.log('  sincronize o kit + tokens: node packages/ui-vue/build.mjs && node packages/design-tokens/build.mjs');
 console.log('  build: cd apps/' + APP + '/frontend && npm i && npm run build  |  docker build -t ' + APP + '-frontend:local .');

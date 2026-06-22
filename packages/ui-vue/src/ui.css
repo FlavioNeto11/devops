@@ -1,0 +1,69 @@
+/* =============================================================================
+   ui.css — base GLOBAL do kit @flavioneto11/ui-vue (sincronizado p/ apps/<app>/frontend/src/ui).
+   Consome SÓ tokens --ui-* (derivados por marca em tokens.generated.css). CSP-safe:
+   classes/atributos, sem style= inline. Os componentes trazem o resto em <style scoped>.
+   NÃO editar a cópia dentro do app; edite packages/ui-vue/src/ui.css e rode `node build.mjs`.
+   ============================================================================= */
+*, *::before, *::after { box-sizing: border-box; }
+html, body, #app { height: 100%; }
+body {
+  margin: 0;
+  font-family: var(--ui-font-sans);
+  font-size: var(--ui-text-md);
+  line-height: 1.5;
+  background: rgb(var(--ui-bg));
+  color: rgb(var(--ui-fg));
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4 { font-family: var(--ui-font-display); font-weight: 700; line-height: 1.2; margin: 0; }
+a { color: rgb(var(--ui-accent-strong)); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* foco visível consistente (a11y) */
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible,
+textarea:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid rgb(var(--ui-accent));
+  outline-offset: 2px;
+  border-radius: var(--ui-radius-sm);
+}
+
+/* ---- sistema de botões (compartilhado; variantes por data-variant) -------------- */
+.ui-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--ui-space-2);
+  font: inherit; font-weight: 600; font-size: var(--ui-text-sm);
+  padding: 8px 14px; border-radius: var(--ui-radius-md);
+  border: 1px solid transparent; cursor: pointer; text-decoration: none;
+  transition: filter .15s ease, background .15s ease, border-color .15s ease;
+  white-space: nowrap; user-select: none;
+}
+.ui-btn:disabled, .ui-btn[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
+.ui-btn[data-variant="primary"] { background: rgb(var(--ui-accent)); color: rgb(var(--ui-accent-fg)); }
+.ui-btn[data-variant="primary"]:not(:disabled):hover { filter: brightness(1.07); }
+.ui-btn[data-variant="ghost"] { background: transparent; color: rgb(var(--ui-fg)); border-color: rgb(var(--ui-border-strong)); }
+.ui-btn[data-variant="ghost"]:not(:disabled):hover { background: rgb(var(--ui-surface-2)); }
+.ui-btn[data-variant="subtle"] { background: rgb(var(--ui-accent) / 0.12); color: rgb(var(--ui-accent-strong)); }
+.ui-btn[data-variant="subtle"]:not(:disabled):hover { background: rgb(var(--ui-accent) / 0.20); }
+.ui-btn[data-variant="danger"] { background: rgb(var(--ui-danger)); color: #fff; }
+.ui-btn[data-variant="danger"]:not(:disabled):hover { filter: brightness(1.06); }
+.ui-btn[data-size="sm"] { padding: 5px 10px; font-size: var(--ui-text-xs); }
+.ui-btn[data-size="lg"] { padding: 11px 18px; font-size: var(--ui-text-md); }
+.ui-btn[data-block="true"] { width: 100%; }
+
+/* spinner CSS-only reutilizável */
+.ui-spin { width: 1em; height: 1em; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; display: inline-block; animation: ui-spin .6s linear infinite; }
+@keyframes ui-spin { to { transform: rotate(360deg); } }
+
+/* utilitários mínimos */
+.ui-row { display: flex; align-items: center; gap: var(--ui-space-3); }
+.ui-row-wrap { flex-wrap: wrap; }
+.ui-spacer { flex: 1 1 auto; }
+.ui-stack { display: flex; flex-direction: column; gap: var(--ui-space-4); }
+.ui-muted { color: rgb(var(--ui-muted)); }
+.ui-mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+/* trava de rolagem quando um modal está aberto (UiModal alterna esta classe no body) */
+body.ui-modal-lock { overflow: hidden; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}

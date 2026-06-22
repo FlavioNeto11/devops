@@ -1,0 +1,12 @@
+{
+  "name": "@flavioneto11/ui-vue",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Kit de componentes Vue 3 da plataforma NovaIT (bespoke, brand-agnostic via tokens --ui-*, CSP-safe). Sincronizado para dentro de cada app web gerado pela Forja (codegen-sync, igual a design-tokens/platform-shell).",
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node build.mjs --check",
+    "test": "node --test"
+  }
+}

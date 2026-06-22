@@ -68,6 +68,13 @@ if ($hasStack -and $hasBlocks -and -not $WhatIfOnly) {
       $feGen = Join-Path $SpecsDir 'forge\scaffold-frontend.mjs'
       if ($Force) { & node $feGen --product $Name --force } else { & node $feGen --product $Name }
       if ($LASTEXITCODE -ne 0) { throw "scaffold-frontend falhou (exit $LASTEXITCODE)." }
+      # codegen-sync: kit ui-vue + tokens por marca p/ dentro do app (app builda em contexto Docker isolado).
+      Write-Host "== FORGE 2.0: sincronizando kit ui-vue + tokens da marca ==" -ForegroundColor Cyan
+      $RepoRoot = Split-Path $SpecsDir -Parent
+      & node (Join-Path $RepoRoot 'packages\ui-vue\build.mjs')
+      if ($LASTEXITCODE -ne 0) { throw "ui-vue build.mjs falhou (exit $LASTEXITCODE)." }
+      & node (Join-Path $RepoRoot 'packages\design-tokens\build.mjs')
+      if ($LASTEXITCODE -ne 0) { throw "design-tokens build.mjs falhou (exit $LASTEXITCODE)." }
     }
     # Suíte de testes LOCKED na concepção (a partir dos requisitos na baseline). Humano-run.
     Write-Host "== FORGE 2.0: gerando suíte de testes LOCKED (make-test-suite.mjs) ==" -ForegroundColor Cyan
