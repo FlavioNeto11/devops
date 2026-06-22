@@ -22,6 +22,21 @@ export async function create(productId, tenant, db = pool) {
   return rows[0];
 }
 
+// REQ-STOCKPILOT-0008 — histórico recente de pedidos de UM produto (grounding do assistente de IA).
+// RAG-lite sobre o banco: o assistente só raciocina sobre dados REAIS do tenant. Sempre escopado por
+// tenant_id (nunca cruza tenant). `days` limita a janela; LIMIT protege o tamanho do contexto.
+export async function listRecentByProduct(productId, tenant, days = 90, db = pool) {
+  const { rows } = await db.query(
+    `SELECT id, status, external_ref, last_error, created_at, last_attempt_at
+       FROM product_orders
+      WHERE product_id=$1 AND tenant_id=$2 AND created_at >= now() - ($3 * interval '1 day')
+      ORDER BY created_at DESC
+      LIMIT 50`,
+    [productId, tenant, Number(days)]
+  );
+  return rows;
+}
+
 // REQ-STOCKPILOT-0003 — reposição assíncrona. Pedido "aberto" = pending|processing (impede duplicar).
 export async function findOpenByProduct(productId, tenant, db = pool) {
   const { rows } = await db.query(
