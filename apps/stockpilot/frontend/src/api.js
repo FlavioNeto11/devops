@@ -17,6 +17,12 @@ export const api = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       }),
+    // assistente de IA (REQ-STOCKPILOT-0008): sugere quantidade de reposição (grounded, dry-run).
+    suggestReorder: (id) =>
+      request(`/v1/products/${id}/suggest-reorder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      }),
   },
   orders: {
     list: () => request('/v1/orders').then((r) => r.data),

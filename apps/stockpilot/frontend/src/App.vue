@@ -51,6 +51,22 @@ async function createOrder(product) {
   }
 }
 
+// Assistente de IA (REQ-STOCKPILOT-0008): sugere quantidade de reposição (dry-run, não cria pedido).
+const suggestingId = ref(null);
+const suggestions = ref({});
+async function suggestReorder(product) {
+  suggestingId.value = product.id;
+  try {
+    const r = await api.products.suggestReorder(product.id);
+    suggestions.value = { ...suggestions.value, [product.id]: r.suggestion || r };
+  } catch (e) {
+    if (e.status === 503) alert('Assistente de IA indisponível (sem chave configurada).');
+    else alert('Erro na sugestão de IA: ' + e.message);
+  } finally {
+    suggestingId.value = null;
+  }
+}
+
 function toggleSort(field) {
   if (sortBy.value === field) {
     sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc';
@@ -187,6 +203,17 @@ function fmtDate(d) {
                   >
                     Criar pedido
                   </button>
+                  <button
+                    class="sp-btn sp-btn--sm sp-btn--ghost"
+                    :disabled="suggestingId === p.id"
+                    title="Sugerir quantidade de reposição com IA (dry-run)"
+                    @click="suggestReorder(p)"
+                  >
+                    {{ suggestingId === p.id ? '…' : 'Sugerir (IA)' }}
+                  </button>
+                  <span v-if="suggestions[p.id]" class="sp-suggest" :title="suggestions[p.id].rationale">
+                    IA: repor {{ suggestions[p.id].suggested_quantity }} un ({{ suggestions[p.id].confidence }})
+                  </span>
                 </td>
               </tr>
             </tbody>
@@ -404,6 +431,8 @@ body {
 .sp-btn:disabled { opacity: .45; cursor: not-allowed; }
 .sp-btn:focus-visible { outline: 2px solid rgb(var(--p-neon)); outline-offset: 2px; }
 .sp-btn--sm { padding: 4px 10px; font-size: 12px; }
+.sp-btn--ghost { background: transparent; border: 1px solid var(--p-accent, #6366f1); margin-left: 6px; }
+.sp-suggest { display: inline-block; margin-left: 8px; font-size: 12px; color: var(--p-ok, #16a34a); }
 
 /* Estados de carga / vazio */
 .sp-state { padding: var(--p-space-5); text-align: center; color: rgb(var(--p-muted)); }
