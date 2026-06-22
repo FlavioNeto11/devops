@@ -36,7 +36,13 @@
       "blueprint": "node-api-vue-spa",
       "vision": "Plataforma de gestão de ordens de serviço de campo (field-service ops): empresas registram ativos e técnicos, abrem ordens de serviço e as SUBMETEM de forma ASSÍNCRONA a uma central externa (gateway) com retentativa, com um assistente de IA que triagem/prioriza chamados. Gerado pela Forge como PROVA de que a esteira gera sistemas robustos (worker+fila transacional, gateway externo, IA, observabilidade), não só CRUD.",
       "app_type": "product_software",
-      "requirement_ids": [],
+      "requirement_ids": [
+        "REQ-FIELDSERVE-0001",
+        "REQ-FIELDSERVE-0002",
+        "REQ-FIELDSERVE-0003",
+        "REQ-FIELDSERVE-0004",
+        "REQ-FIELDSERVE-0005"
+      ],
       "phases": {
         "requirements": {
           "status": "approved"
@@ -45,10 +51,10 @@
           "status": "approved"
         },
         "scaffold": {
-          "status": "not_started"
+          "status": "done"
         },
         "build": {
-          "status": "not_started"
+          "status": "done"
         }
       }
     },
@@ -59,7 +65,10 @@
       "blueprint": "node-api-vue-spa",
       "vision": "Painel de operações gerado pela Forge para provar o GERADOR de scaffold SICAT-style: fundação + observabilidade + fila transacional + gateway externo + idempotência, deployável sem implementação manual.",
       "app_type": "product_software",
-      "requirement_ids": [],
+      "requirement_ids": [
+        "REQ-OPSBOARD-0001",
+        "REQ-OPSBOARD-0002"
+      ],
       "phases": {
         "requirements": {
           "status": "approved"
@@ -68,10 +77,10 @@
           "status": "approved"
         },
         "scaffold": {
-          "status": "not_started"
+          "status": "done"
         },
         "build": {
-          "status": "not_started"
+          "status": "done"
         }
       }
     },
@@ -82,7 +91,11 @@
       "blueprint": "gymops-style",
       "vision": "App de operação de equipes gerado pela Forge para provar o GERADOR da 2ª stack (gymops-style): Fastify + Postgres + Redis/BullMQ + RBAC multi-tenant + gateway externo + observabilidade, deployável sem implementação manual.",
       "app_type": "product_software",
-      "requirement_ids": [],
+      "requirement_ids": [
+        "REQ-TEAMFLOW-0001",
+        "REQ-TEAMFLOW-0002",
+        "REQ-TEAMFLOW-0003"
+      ],
       "phases": {
         "requirements": {
           "status": "approved"
@@ -91,10 +104,10 @@
           "status": "approved"
         },
         "scaffold": {
-          "status": "not_started"
+          "status": "done"
         },
         "build": {
-          "status": "not_started"
+          "status": "done"
         }
       }
     }

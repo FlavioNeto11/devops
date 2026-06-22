@@ -21,12 +21,12 @@
   "vision": "Plataforma de gestão de ordens de serviço de campo (field-service ops): empresas registram ativos e técnicos, abrem ordens de serviço e as SUBMETEM de forma ASSÍNCRONA a uma central externa (gateway) com retentativa, com um assistente de IA que triagem/prioriza chamados. Gerado pela Forge como PROVA de que a esteira gera sistemas robustos (worker+fila transacional, gateway externo, IA, observabilidade), não só CRUD.",
   "persona": ["operador da central", "técnico de campo", "gestor da empresa"],
   "scope_summary": "Multi-empresa (tenant_id), CRUD de ativos/técnicos/ordens, submissão assíncrona via fila transacional Postgres ao gateway da central externa (retry/DLQ), idempotência, assistente de IA (priorização), e observabilidade por padrão (health + métricas Prometheus + ServiceMonitor + SLO).",
-  "requirement_ids": [],
+  "requirement_ids": ["REQ-FIELDSERVE-0001", "REQ-FIELDSERVE-0002", "REQ-FIELDSERVE-0003", "REQ-FIELDSERVE-0004", "REQ-FIELDSERVE-0005"],
   "phases": {
     "requirements": { "status": "approved" },
     "architecture": { "status": "approved" },
-    "scaffold": { "status": "not_started" },
-    "build": { "status": "not_started" }
+    "scaffold": { "status": "done" },
+    "build": { "status": "done" }
   },
   "version": { "revision": 1, "change_reason": "FieldServe — prova da Forge 2.0 (sistema robusto, não CRUD)" }
 }

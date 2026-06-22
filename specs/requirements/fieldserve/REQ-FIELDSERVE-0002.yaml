@@ -1,0 +1,25 @@
+id: REQ-FIELDSERVE-0002
+title: "CRUD multi-tenant de ativos, técnicos e ordens de serviço"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: fieldserve
+  blueprint: node-api-vue-spa
+statement: "O FieldServe deve permitir que cada empresa (tenant) gerencie seus ativos, técnicos e ordens de serviço via API em camadas (route→service→repository), com isolamento estrito por tenant_id — uma empresa nunca vê dados de outra."
+business_rationale: "É o núcleo operacional do produto; o isolamento por tenant é requisito de segurança multi-empresa."
+source:
+  origin: "FORGE — brief do produto fieldserve"
+  source_paths: ["specs/products/fieldserve/product.json"]
+priority: high
+criticality: high
+architectural_significance: false
+capability_blocks: ["camadas-rigidas"]
+acceptance_criteria:
+  - "CRUD de ordens responde (criar 201, ler, listar) com SQL isolado no repository (camadas rígidas)."
+  - "Acesso cross-tenant a um recurso de outro tenant retorna 404 (isolamento por tenant_id)."
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

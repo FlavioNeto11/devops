@@ -1,0 +1,25 @@
+id: REQ-TEAMFLOW-0003
+title: "SSO de borda (OIDC) reusando o oauth2-proxy/Keycloak da plataforma"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: teamflow
+  blueprint: gymops-style
+statement: "O TeamFlow deve exigir sessão SSO na borda (ForwardAuth do oauth2-proxy/Keycloak realm nvit) — sem criar client novo — e usar a identidade (X-Auth-Request-Email/Groups) para o RBAC; XHR sem sessão recebe 401."
+business_rationale: "Reusar o SSO único do domínio evita gerir credenciais por app e centraliza a identidade; a borda protege a API sem acoplar login ao app."
+source:
+  origin: "FORGE — gerador gymops-style (bloco oidc-sessao)"
+  source_paths: ["specs/products/teamflow/product.json"]
+priority: high
+criticality: high
+architectural_significance: true
+capability_blocks: ["oidc-sessao"]
+acceptance_criteria:
+  - "Requisição sem sessão à rota pública /teamflow/api recebe 401 (gate console-auth-401 ativo)."
+  - "Com sessão, a identidade chega via X-Auth-Request-* e alimenta o papel do RBAC."
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

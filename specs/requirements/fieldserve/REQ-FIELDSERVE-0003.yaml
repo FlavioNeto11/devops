@@ -1,0 +1,25 @@
+id: REQ-FIELDSERVE-0003
+title: "Submissão assíncrona de ordens via fila transacional (worker)"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: fieldserve
+  blueprint: node-api-vue-spa
+statement: "Submeter uma ordem de serviço deve ser ASSÍNCRONO: o POST /orders/:id/submit enfileira um job numa fila transacional Postgres (FOR UPDATE SKIP LOCKED) e um worker processa em segundo plano, com retry/backoff em falhas transitórias e atualização de status do registro."
+business_rationale: "A submissão depende de um sistema externo lento/instável; fazer síncrono travaria a UI e perderia trabalho em falhas. A fila transacional garante entrega exatamente-uma-vez por job."
+source:
+  origin: "FORGE — brief do produto fieldserve"
+  source_paths: ["specs/products/fieldserve/product.json"]
+priority: high
+criticality: high
+architectural_significance: true
+capability_blocks: ["worker-queue-transacional"]
+acceptance_criteria:
+  - "POST /orders/:id/submit responde 202 e o registro fica 'submitting'; o worker o leva a 'submitted'."
+  - "Em falha transitória, o job é retentado (attempts > 1) com backoff antes de concluir."
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

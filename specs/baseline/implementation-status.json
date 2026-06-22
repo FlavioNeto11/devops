@@ -1,10 +1,10 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "fb60dc23320f6ede5a595801767475db0dfa8945f10034853f993f634a12685a",
+  "baseline_hash": "fcdd3b3035f16d682b7541a669d02f093f51867b010235ef7be1a38368f1859b",
   "counts": {
-    "total": 341,
+    "total": 349,
     "by_status": {
-      "deployed": 289,
+      "deployed": 297,
       "done": 52
     },
     "refinements": {
@@ -678,6 +678,31 @@
       "branch": "@{id=REQ-CRM-0005; branch=req/REQ-CRM-0005/r1; restricted=false; title=feat(crm): implementa REQ-CRM-0005 — Funil de negócios (deals) + painel}.branch",
       "commit": "3ebdbb590e10492e3539c86c39b520e5fd551663",
       "run_id": "27730381580"
+    },
+    "REQ-FIELDSERVE-0001": {
+      "status": "deployed",
+      "req_revision": 1,
+      "run_id": "backfill-deployed"
+    },
+    "REQ-FIELDSERVE-0002": {
+      "status": "deployed",
+      "req_revision": 1,
+      "run_id": "backfill-deployed"
+    },
+    "REQ-FIELDSERVE-0003": {
+      "status": "deployed",
+      "req_revision": 1,
+      "run_id": "backfill-deployed"
+    },
+    "REQ-FIELDSERVE-0004": {
+      "status": "deployed",
+      "req_revision": 1,
+      "run_id": "backfill-deployed"
+    },
+    "REQ-FIELDSERVE-0005": {
+      "status": "deployed",
+      "req_revision": 1,
+      "run_id": "backfill-deployed"
     },
     "REQ-GYMOPS-0001": {
       "status": "deployed",
@@ -1920,6 +1945,21 @@
       "req_revision": 1,
       "deployed_at": "2026-06-15",
       "notes": "plataforma de requisitos — reqhub no cluster + baseline/tooling/CI ativos"
+    },
+    "REQ-TEAMFLOW-0001": {
+      "status": "deployed",
+      "req_revision": 1,
+      "run_id": "backfill-deployed"
+    },
+    "REQ-TEAMFLOW-0002": {
+      "status": "deployed",
+      "req_revision": 1,
+      "run_id": "backfill-deployed"
+    },
+    "REQ-TEAMFLOW-0003": {
+      "status": "deployed",
+      "req_revision": 1,
+      "run_id": "backfill-deployed"
     },
     "REQ-TRAEFIK-0001": {
       "status": "deployed",

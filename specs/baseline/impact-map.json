@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "fb60dc23320f6ede5a595801767475db0dfa8945f10034853f993f634a12685a",
+  "baseline_hash": "fcdd3b3035f16d682b7541a669d02f093f51867b010235ef7be1a38368f1859b",
   "nodes": [
     {
       "id": "infra-argocd",
@@ -1235,6 +1235,56 @@
       "product": "crm",
       "asr": false,
       "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-FIELDSERVE-0001",
+      "kind": "requirement",
+      "title": "Fundação + observabilidade por padrão (health, métricas, ServiceMonitor, SLO)",
+      "type": "functional",
+      "product": "fieldserve",
+      "asr": true,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-FIELDSERVE-0002",
+      "kind": "requirement",
+      "title": "CRUD multi-tenant de ativos, técnicos e ordens de serviço",
+      "type": "functional",
+      "product": "fieldserve",
+      "asr": false,
+      "impact_score": 48,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-FIELDSERVE-0003",
+      "kind": "requirement",
+      "title": "Submissão assíncrona de ordens via fila transacional (worker)",
+      "type": "functional",
+      "product": "fieldserve",
+      "asr": true,
+      "impact_score": 68,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-FIELDSERVE-0004",
+      "kind": "requirement",
+      "title": "Gateway externo resiliente (retry/DLQ) + idempotência na submissão",
+      "type": "functional",
+      "product": "fieldserve",
+      "asr": true,
+      "impact_score": 68,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-FIELDSERVE-0005",
+      "kind": "requirement",
+      "title": "Assistente de IA para triagem/priorização de ordens (dry-run)",
+      "type": "functional",
+      "product": "fieldserve",
+      "asr": false,
+      "impact_score": 40,
       "impact_band": "low"
     },
     {
@@ -3366,6 +3416,36 @@
       "asr": false,
       "impact_score": 38,
       "impact_band": "low"
+    },
+    {
+      "id": "REQ-TEAMFLOW-0001",
+      "kind": "requirement",
+      "title": "Fundação Fastify + RBAC multi-tenant + observabilidade",
+      "type": "functional",
+      "product": "teamflow",
+      "asr": true,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-TEAMFLOW-0002",
+      "kind": "requirement",
+      "title": "Processamento assíncrono via Redis/BullMQ (submit → worker)",
+      "type": "functional",
+      "product": "teamflow",
+      "asr": true,
+      "impact_score": 68,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-TEAMFLOW-0003",
+      "kind": "requirement",
+      "title": "SSO de borda (OIDC) reusando o oauth2-proxy/Keycloak da plataforma",
+      "type": "functional",
+      "product": "teamflow",
+      "asr": true,
+      "impact_score": 68,
+      "impact_band": "medium"
     },
     {
       "id": "REQ-TRAEFIK-0001",

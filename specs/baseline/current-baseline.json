@@ -1,10 +1,10 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "fb60dc23320f6ede5a595801767475db0dfa8945f10034853f993f634a12685a",
+  "baseline_hash": "fcdd3b3035f16d682b7541a669d02f093f51867b010235ef7be1a38368f1859b",
   "refinements_hash": "8c2404f1df38762f23de2d95606729971e0b22061bc4df82fddd1431e42222b0",
   "schema": "specs/schema/requirement.schema.json",
   "counts": {
-    "total": 341,
+    "total": 349,
     "by_product": {
       "ai": 18,
       "argocd": 15,
@@ -12,6 +12,7 @@
       "cms": 22,
       "console": 35,
       "crm": 5,
+      "fieldserve": 5,
       "gymops": 23,
       "keycloak": 18,
       "observability": 17,
@@ -24,13 +25,14 @@
       "reqhub": 20,
       "sicat": 24,
       "specs": 18,
+      "teamflow": 3,
       "traefik": 16
     },
     "by_status": {
-      "approved": 341
+      "approved": 349
     },
     "by_type": {
-      "functional": 239,
+      "functional": 247,
       "non-functional": 102
     },
     "refinements": {
@@ -4285,6 +4287,211 @@
       "impact_score": 38,
       "impact_band": "low",
       "file": "requirements/crm/REQ-CRM-0005.yaml"
+    },
+    {
+      "id": "REQ-FIELDSERVE-0001",
+      "title": "Fundação + observabilidade por padrão (health, métricas, ServiceMonitor, SLO)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "product-foundation",
+        "product_scope": "fieldserve",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O FieldServe deve existir como app no padrão da plataforma (API Node/Express em /fieldserve/api com strip, Postgres, worker), com health estruturado e observabilidade por padrão: métricas Prometheus na :9464 (fieldserve_*), ServiceMonitor e PrometheusRule (SLO de API up + saturação de fila).",
+      "business_rationale": "Sem fundação e observabilidade nenhuma capacidade de negócio é operável nem monitorável. A esteira gera isto por padrão (não é opcional).",
+      "source": {
+        "origin": "FORGE — brief do produto fieldserve",
+        "source_paths": [
+          "specs/products/fieldserve/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "camadas-rigidas",
+        "migrations-versionadas",
+        "observabilidade"
+      ],
+      "acceptance_criteria": [
+        "GET /fieldserve/api/health responde 200 {status:ok, db:connected}.",
+        "Métricas fieldserve_* expostas na :9464 e raspadas pelo Prometheus (ServiceMonitor UP).",
+        "PrometheusRule com SLO carregada (kubectl get prometheusrule -n apps)."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 65,
+      "impact_band": "medium",
+      "file": "requirements/fieldserve/REQ-FIELDSERVE-0001.yaml"
+    },
+    {
+      "id": "REQ-FIELDSERVE-0002",
+      "title": "CRUD multi-tenant de ativos, técnicos e ordens de serviço",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "fieldserve",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O FieldServe deve permitir que cada empresa (tenant) gerencie seus ativos, técnicos e ordens de serviço via API em camadas (route→service→repository), com isolamento estrito por tenant_id — uma empresa nunca vê dados de outra.",
+      "business_rationale": "É o núcleo operacional do produto; o isolamento por tenant é requisito de segurança multi-empresa.",
+      "source": {
+        "origin": "FORGE — brief do produto fieldserve",
+        "source_paths": [
+          "specs/products/fieldserve/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": false,
+      "capability_blocks": [
+        "camadas-rigidas"
+      ],
+      "acceptance_criteria": [
+        "CRUD de ordens responde (criar 201, ler, listar) com SQL isolado no repository (camadas rígidas).",
+        "Acesso cross-tenant a um recurso de outro tenant retorna 404 (isolamento por tenant_id)."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 48,
+      "impact_band": "medium",
+      "file": "requirements/fieldserve/REQ-FIELDSERVE-0002.yaml"
+    },
+    {
+      "id": "REQ-FIELDSERVE-0003",
+      "title": "Submissão assíncrona de ordens via fila transacional (worker)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "fieldserve",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "Submeter uma ordem de serviço deve ser ASSÍNCRONO: o POST /orders/:id/submit enfileira um job numa fila transacional Postgres (FOR UPDATE SKIP LOCKED) e um worker processa em segundo plano, com retry/backoff em falhas transitórias e atualização de status do registro.",
+      "business_rationale": "A submissão depende de um sistema externo lento/instável; fazer síncrono travaria a UI e perderia trabalho em falhas. A fila transacional garante entrega exatamente-uma-vez por job.",
+      "source": {
+        "origin": "FORGE — brief do produto fieldserve",
+        "source_paths": [
+          "specs/products/fieldserve/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "worker-queue-transacional"
+      ],
+      "acceptance_criteria": [
+        "POST /orders/:id/submit responde 202 e o registro fica 'submitting'; o worker o leva a 'submitted'.",
+        "Em falha transitória, o job é retentado (attempts > 1) com backoff antes de concluir."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 68,
+      "impact_band": "medium",
+      "file": "requirements/fieldserve/REQ-FIELDSERVE-0003.yaml"
+    },
+    {
+      "id": "REQ-FIELDSERVE-0004",
+      "title": "Gateway externo resiliente (retry/DLQ) + idempotência na submissão",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "fieldserve",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "A submissão à central externa deve passar por um ÚNICO gateway resiliente (timeout + retry com backoff); ao esgotar as tentativas, o job vai para uma dead-letter (DLQ) e o registro fica 'failed'. A submissão é idempotente: a mesma Idempotency-Key (ou job_key) nunca cria submissão duplicada.",
+      "business_rationale": "Integração com sistema externo instável exige resiliência (retry/DLQ) e idempotência para não duplicar efeitos colaterais em reprocessamentos/redeliveries.",
+      "source": {
+        "origin": "FORGE — brief do produto fieldserve",
+        "source_paths": [
+          "specs/products/fieldserve/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "gateway-externo",
+        "idempotencia"
+      ],
+      "acceptance_criteria": [
+        "Falha persistente do gateway esgota as tentativas e move o job para DLQ; o registro fica 'failed'.",
+        "Reenviar com a mesma Idempotency-Key não cria submissão duplicada (mesmo recurso/efeito)."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 68,
+      "impact_band": "medium",
+      "file": "requirements/fieldserve/REQ-FIELDSERVE-0004.yaml"
+    },
+    {
+      "id": "REQ-FIELDSERVE-0005",
+      "title": "Assistente de IA para triagem/priorização de ordens (dry-run)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "fieldserve",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "O FieldServe deve oferecer um assistente de IA (POST /v1/ai/triage/:id) que sugere a prioridade de uma ordem com uma justificativa, em saída estruturada, sem efeito colateral (dry-run) — a decisão final é do operador.",
+      "business_rationale": "Triagem manual de muitas ordens é lenta e inconsistente; a IA acelera priorização mantendo o humano no controle (a sugestão não altera o estado sozinha).",
+      "source": {
+        "origin": "FORGE — brief do produto fieldserve",
+        "source_paths": [
+          "specs/products/fieldserve/product.json"
+        ]
+      },
+      "priority": "medium",
+      "criticality": "medium",
+      "architectural_significance": false,
+      "capability_blocks": [
+        "structured-outputs",
+        "ia-grafo"
+      ],
+      "acceptance_criteria": [
+        "POST /v1/ai/triage/:id retorna saída estruturada { priority, reason } sem persistir nada (dry-run).",
+        "Sem chave de IA configurada, o endpoint degrada com erro claro (fail-closed), sem quebrar o resto do app."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 40,
+      "impact_band": "low",
+      "file": "requirements/fieldserve/REQ-FIELDSERVE-0005.yaml"
     },
     {
       "id": "REQ-GYMOPS-0001",
@@ -12309,6 +12516,130 @@
       "file": "requirements/specs/REQ-SPECS-NFR-006.yaml"
     },
     {
+      "id": "REQ-TEAMFLOW-0001",
+      "title": "Fundação Fastify + RBAC multi-tenant + observabilidade",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "product-foundation",
+        "product_scope": "teamflow",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O TeamFlow deve existir como app gymops-style (Fastify + Postgres + worker) com RBAC multi-tenant (papéis em cascata admin>manager>member, deny por padrão; isolamento por tenant_id) e observabilidade por padrão (métricas :9464 + ServiceMonitor + SLO).",
+      "business_rationale": "Base do produto: sem fundação, RBAC e isolamento por tenant nenhuma operação multiequipe é segura; observabilidade é padrão da esteira.",
+      "source": {
+        "origin": "FORGE — gerador gymops-style (prova da 2ª stack)",
+        "source_paths": [
+          "specs/products/teamflow/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "camadas-rigidas",
+        "migrations-versionadas",
+        "rbac-multitenant",
+        "observabilidade"
+      ],
+      "acceptance_criteria": [
+        "GET /teamflow/api/health responde 200 (Fastify + db).",
+        "RBAC: member não pode deletar (403); admin pode (200). Cross-tenant não vê o recurso (404).",
+        "Métricas teamflow_* na :9464 raspadas (ServiceMonitor UP)."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 65,
+      "impact_band": "medium",
+      "file": "requirements/teamflow/REQ-TEAMFLOW-0001.yaml"
+    },
+    {
+      "id": "REQ-TEAMFLOW-0002",
+      "title": "Processamento assíncrono via Redis/BullMQ (submit → worker)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "teamflow",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O TeamFlow deve processar trabalho assíncrono via fila Redis/BullMQ: POST /v1/records/:id/submit enfileira um job e um worker BullMQ o processa em segundo plano, atualizando o status do registro, com degradação graciosa quando não há Redis.",
+      "business_rationale": "Operação de equipes gera trabalho em lote/assíncrono; a fila Redis/BullMQ é o padrão da stack gymops para isso (distinta da fila transacional do SICAT).",
+      "source": {
+        "origin": "FORGE — gerador gymops-style (prova da 2ª stack)",
+        "source_paths": [
+          "specs/products/teamflow/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "redis-bullmq"
+      ],
+      "acceptance_criteria": [
+        "POST /v1/records/:id/submit enfileira (enqueued=true) e o worker BullMQ leva o registro a 'submitted'.",
+        "GET /v1/health/queue reporta a conexão com o Redis e as contagens da fila."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 68,
+      "impact_band": "medium",
+      "file": "requirements/teamflow/REQ-TEAMFLOW-0002.yaml"
+    },
+    {
+      "id": "REQ-TEAMFLOW-0003",
+      "title": "SSO de borda (OIDC) reusando o oauth2-proxy/Keycloak da plataforma",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "teamflow",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O TeamFlow deve exigir sessão SSO na borda (ForwardAuth do oauth2-proxy/Keycloak realm nvit) — sem criar client novo — e usar a identidade (X-Auth-Request-Email/Groups) para o RBAC; XHR sem sessão recebe 401.",
+      "business_rationale": "Reusar o SSO único do domínio evita gerir credenciais por app e centraliza a identidade; a borda protege a API sem acoplar login ao app.",
+      "source": {
+        "origin": "FORGE — gerador gymops-style (bloco oidc-sessao)",
+        "source_paths": [
+          "specs/products/teamflow/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "oidc-sessao"
+      ],
+      "acceptance_criteria": [
+        "Requisição sem sessão à rota pública /teamflow/api recebe 401 (gate console-auth-401 ativo).",
+        "Com sessão, a identidade chega via X-Auth-Request-* e alimenta o papel do RBAC."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 68,
+      "impact_band": "medium",
+      "file": "requirements/teamflow/REQ-TEAMFLOW-0003.yaml"
+    },
+    {
       "id": "REQ-TRAEFIK-0001",
       "slug": "req-traefik-0001",
       "title": "Ingress controller via Helm (chart traefik/traefik)",
@@ -14919,6 +15250,42 @@
       ]
     },
     {
+      "id": "REQ-FIELDSERVE-0003",
+      "title": "Submissão assíncrona de ordens via fila transacional (worker)",
+      "product": "fieldserve",
+      "impact_score": 68,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-FIELDSERVE-0004",
+      "title": "Gateway externo resiliente (retry/DLQ) + idempotência na submissão",
+      "product": "fieldserve",
+      "impact_score": 68,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-TEAMFLOW-0002",
+      "title": "Processamento assíncrono via Redis/BullMQ (submit → worker)",
+      "product": "teamflow",
+      "impact_score": 68,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-TEAMFLOW-0003",
+      "title": "SSO de borda (OIDC) reusando o oauth2-proxy/Keycloak da plataforma",
+      "product": "teamflow",
+      "impact_score": 68,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
       "id": "REQ-CMS-0002",
       "title": "Visual editor with live preview and click-to-edit interface",
       "product": "cms",
@@ -14958,6 +15325,15 @@
       "id": "REQ-CRM-0001",
       "title": "Fundação do app CRM-lite (scaffold, layout, health, auth básica)",
       "product": "crm",
+      "impact_score": 65,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-FIELDSERVE-0001",
+      "title": "Fundação + observabilidade por padrão (health, métricas, ServiceMonitor, SLO)",
+      "product": "fieldserve",
       "impact_score": 65,
       "reasons": [
         "sem evidência de verificação"
@@ -15051,6 +15427,15 @@
       "impact_score": 65,
       "reasons": [
         "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-TEAMFLOW-0001",
+      "title": "Fundação Fastify + RBAC multi-tenant + observabilidade",
+      "product": "teamflow",
+      "impact_score": 65,
+      "reasons": [
+        "sem evidência de verificação"
       ]
     },
     {
@@ -15222,6 +15607,15 @@
       "impact_score": 55,
       "reasons": [
         "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-FIELDSERVE-0002",
+      "title": "CRUD multi-tenant de ativos, técnicos e ordens de serviço",
+      "product": "fieldserve",
+      "impact_score": 48,
+      "reasons": [
+        "sem evidência de verificação"
       ]
     },
     {
@@ -15807,6 +16201,15 @@
       "impact_score": 45,
       "reasons": [
         "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-FIELDSERVE-0005",
+      "title": "Assistente de IA para triagem/priorização de ordens (dry-run)",
+      "product": "fieldserve",
+      "impact_score": 40,
+      "reasons": [
+        "sem evidência de verificação"
       ]
     },
     {

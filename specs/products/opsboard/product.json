@@ -9,7 +9,7 @@
   "stack": "sicat",
   "capability_blocks": ["camadas-rigidas", "migrations-versionadas", "observabilidade", "worker-queue-transacional", "gateway-externo", "idempotencia"],
   "vision": "Painel de operações gerado pela Forge para provar o GERADOR de scaffold SICAT-style: fundação + observabilidade + fila transacional + gateway externo + idempotência, deployável sem implementação manual.",
-  "requirement_ids": [],
-  "phases": { "requirements": { "status": "approved" }, "architecture": { "status": "approved" }, "scaffold": { "status": "not_started" }, "build": { "status": "not_started" } },
+  "requirement_ids": ["REQ-OPSBOARD-0001", "REQ-OPSBOARD-0002"],
+  "phases": { "requirements": { "status": "approved" }, "architecture": { "status": "approved" }, "scaffold": { "status": "done" }, "build": { "status": "done" } },
   "version": { "revision": 1, "change_reason": "prova do gerador scaffold-sicat" }
 }

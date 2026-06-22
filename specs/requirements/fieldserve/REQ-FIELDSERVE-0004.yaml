@@ -1,0 +1,25 @@
+id: REQ-FIELDSERVE-0004
+title: "Gateway externo resiliente (retry/DLQ) + idempotência na submissão"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: fieldserve
+  blueprint: node-api-vue-spa
+statement: "A submissão à central externa deve passar por um ÚNICO gateway resiliente (timeout + retry com backoff); ao esgotar as tentativas, o job vai para uma dead-letter (DLQ) e o registro fica 'failed'. A submissão é idempotente: a mesma Idempotency-Key (ou job_key) nunca cria submissão duplicada."
+business_rationale: "Integração com sistema externo instável exige resiliência (retry/DLQ) e idempotência para não duplicar efeitos colaterais em reprocessamentos/redeliveries."
+source:
+  origin: "FORGE — brief do produto fieldserve"
+  source_paths: ["specs/products/fieldserve/product.json"]
+priority: high
+criticality: high
+architectural_significance: true
+capability_blocks: ["gateway-externo", "idempotencia"]
+acceptance_criteria:
+  - "Falha persistente do gateway esgota as tentativas e move o job para DLQ; o registro fica 'failed'."
+  - "Reenviar com a mesma Idempotency-Key não cria submissão duplicada (mesmo recurso/efeito)."
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1
