@@ -6,7 +6,8 @@
     "by_status": {
       "deployed": 298,
       "done": 52,
-      "not_started": 7
+      "not_started": 6,
+      "pr_open": 1
     },
     "refinements": {
       "total": 13,
@@ -1965,8 +1966,10 @@
       "req_revision": 1
     },
     "REQ-STOCKPILOT-0005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "branch": "@{id=REQ-STOCKPILOT-0005; branch=req/REQ-STOCKPILOT-0005/r1; restricted=false; title=feat(stockpilot): implementa REQ-STOCKPILOT-0005 — Painel de estoque, pedidos e alertas co}.branch",
+      "run_id": "27928034305"
     },
     "REQ-STOCKPILOT-0006": {
       "status": "not_started",
