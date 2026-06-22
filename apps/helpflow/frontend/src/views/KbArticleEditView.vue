@@ -1037,7 +1037,7 @@ onMounted(load);
   min-height: 280px;
   resize: vertical;
   line-height: 1.6;
-  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: var(--ui-font-mono);
   font-size: var(--ui-text-md);
 }
 .kb-textarea:focus-visible {
@@ -1369,7 +1369,7 @@ onMounted(load);
   text-align: right;
 }
 .kb-mono {
-  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: var(--ui-font-mono);
 }
 
 /* ---- SubmitBar ---- */

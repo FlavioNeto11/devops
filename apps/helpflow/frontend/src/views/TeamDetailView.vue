@@ -814,7 +814,7 @@ onUnmounted(() => {
   color: rgb(var(--ui-muted));
 }
 .td-mono {
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--ui-font-mono);
   font-size: var(--ui-text-sm);
   color: rgb(var(--ui-muted));
 }
@@ -966,7 +966,7 @@ onUnmounted(() => {
 }
 .td-subject-ref {
   font-size: var(--ui-text-xs);
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--ui-font-mono);
   color: rgb(var(--ui-accent-strong));
 }
 .td-person {

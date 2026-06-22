@@ -934,7 +934,7 @@ onMounted(load);
 .article-block[data-kind="code"] {
   margin: 0; padding: var(--ui-space-4); border-radius: var(--ui-radius-md);
   background: rgb(var(--ui-surface-2)); border: 1px solid rgb(var(--ui-border));
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: var(--ui-text-sm);
+  font-family: var(--ui-font-mono); font-size: var(--ui-text-sm);
   line-height: 1.6; white-space: pre-wrap; word-break: break-word; overflow-x: auto;
 }
 .article-list { margin: 0; padding-left: var(--ui-space-5); display: flex; flex-direction: column; gap: 4px; }
@@ -944,7 +944,7 @@ onMounted(load);
 .seg-span[data-style="strong"] { font-weight: 700; }
 .seg-span[data-style="em"] { font-style: italic; }
 .seg-span[data-style="code"] {
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.9em;
+  font-family: var(--ui-font-mono); font-size: 0.9em;
   background: rgb(var(--ui-surface-2)); border: 1px solid rgb(var(--ui-border));
   border-radius: var(--ui-radius-sm); padding: 1px 5px;
 }
@@ -964,7 +964,7 @@ onMounted(load);
 .raw {
   margin: 0; padding: var(--ui-space-4); border-radius: var(--ui-radius-md);
   background: rgb(var(--ui-surface-2)); border: 1px solid rgb(var(--ui-border));
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: var(--ui-text-sm);
+  font-family: var(--ui-font-mono); font-size: var(--ui-text-sm);
   line-height: 1.6; white-space: pre-wrap; word-break: break-word; overflow-x: auto;
 }
 .article-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-3); flex-wrap: wrap; }

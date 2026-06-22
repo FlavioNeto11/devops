@@ -665,7 +665,7 @@ onMounted(r.load);
   color: rgb(var(--ui-muted));
 }
 .kb-ref {
-  font-family: var(--ui-font-mono, ui-monospace, "SF Mono", Menlo, Consolas, monospace);
+  font-family: var(--ui-font-mono);
   color: rgb(var(--ui-accent-strong));
 }
 .kb-category {

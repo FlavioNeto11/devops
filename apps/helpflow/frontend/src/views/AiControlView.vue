@@ -1015,7 +1015,7 @@ onMounted(load);
   font-variant-numeric: tabular-nums;
 }
 .ai-code {
-  font-family: var(--ui-font-mono, ui-monospace, monospace);
+  font-family: var(--ui-font-mono);
   font-size: 0.85em;
   background: rgb(var(--ui-surface-2));
   border: 1px solid rgb(var(--ui-border));
@@ -1497,7 +1497,7 @@ onMounted(load);
   color: rgb(var(--ui-fg));
 }
 .ai-mono {
-  font-family: var(--ui-font-mono, ui-monospace, "SF Mono", Menlo, Consolas, monospace);
+  font-family: var(--ui-font-mono);
   font-size: var(--ui-text-sm);
 }
 .ai-temp {

@@ -798,7 +798,7 @@ const cancel = () => router.push('/agents');
 .hf-tips { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--ui-space-3); }
 .hf-tip { display: flex; align-items: flex-start; gap: var(--ui-space-3); font-size: var(--ui-text-sm); color: rgb(var(--ui-muted)); }
 .hf-kbd {
-  flex-shrink: 0; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  flex-shrink: 0; font-family: var(--ui-font-mono);
   font-size: var(--ui-text-xs); font-weight: 700; color: rgb(var(--ui-fg));
   background: rgb(var(--ui-faint) / 0.5); border: 1px solid rgb(var(--ui-border));
   border-radius: var(--ui-radius-sm); padding: 1px 7px; white-space: nowrap;

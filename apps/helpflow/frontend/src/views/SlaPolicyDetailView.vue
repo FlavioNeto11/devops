@@ -838,7 +838,7 @@ onMounted(bootstrap);
 .sp-summary strong { color: rgb(var(--ui-accent-strong)); }
 
 /* ===================== utilidades ===================== */
-.sp-mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: var(--ui-text-sm); }
+.sp-mono { font-family: var(--ui-font-mono); font-size: var(--ui-text-sm); }
 .sp-dash { color: rgb(var(--ui-muted)); font-style: italic; }
 
 /* ===================== responsivo ===================== */

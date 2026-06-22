@@ -1098,7 +1098,7 @@ onMounted(async () => {
   color: rgb(var(--ui-fg));
 }
 .hf-tk-ref {
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--ui-font-mono);
   font-size: var(--ui-text-xs);
   color: rgb(var(--ui-accent-strong));
 }

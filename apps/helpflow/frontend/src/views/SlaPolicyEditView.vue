@@ -1017,7 +1017,7 @@ onMounted(reload);
   text-align: right;
 }
 .sla-mono {
-  font-family: var(--ui-font-mono, ui-monospace, 'SF Mono', Menlo, Consolas, monospace);
+  font-family: var(--ui-font-mono);
 }
 
 /* ---- SubmitBar ----------------------------------------------------------- */
@@ -1071,7 +1071,7 @@ onMounted(reload);
   color: rgb(var(--ui-faint));
 }
 .sla-shortcut-hint kbd {
-  font-family: var(--ui-font-mono, ui-monospace, Menlo, Consolas, monospace);
+  font-family: var(--ui-font-mono);
   font-size: var(--ui-text-xs);
   padding: 1px var(--ui-space-1);
   border-radius: var(--ui-radius-sm);

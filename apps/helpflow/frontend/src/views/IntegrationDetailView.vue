@@ -934,7 +934,7 @@ onMounted(async () => {
 
 /* ===================== tabela de auditoria (células) ===================== */
 .hf-method {
-  display: inline-block; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  display: inline-block; font-family: var(--ui-font-mono);
   font-size: var(--ui-text-xs); font-weight: 700; letter-spacing: .02em;
   padding: 2px 7px; border-radius: var(--ui-radius-sm);
   background: rgb(var(--ui-muted) / 0.14); color: rgb(var(--ui-muted));
@@ -970,7 +970,7 @@ onMounted(async () => {
 .hf-pre:focus-visible { outline: 2px solid rgb(var(--ui-accent)); outline-offset: 2px; }
 
 /* ===================== utilidades ===================== */
-.hf-mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: var(--ui-text-sm); }
+.hf-mono { font-family: var(--ui-font-mono); font-size: var(--ui-text-sm); }
 .hf-ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hf-dash { color: rgb(var(--ui-muted)); font-style: italic; }
 
