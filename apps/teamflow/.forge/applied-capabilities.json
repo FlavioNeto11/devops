@@ -1,0 +1,13 @@
+{
+  "app": "teamflow",
+  "stack": "gymops",
+  "blocks": [
+    "observabilidade",
+    "camadas-rigidas",
+    "migrations-versionadas",
+    "redis-bullmq",
+    "rbac-multitenant",
+    "oidc-sessao"
+  ],
+  "generatedBy": "scaffold-gymops.mjs"
+}

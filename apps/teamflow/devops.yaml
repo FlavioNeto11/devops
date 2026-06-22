@@ -1,0 +1,7 @@
+app: { name: teamflow, namespace: apps, host: nvit.localhost, basePath: /teamflow }
+# Gerado pela FORGE (gymops-style: Fastify + Redis/BullMQ + RBAC). Blocos: observabilidade, camadas-rigidas, migrations-versionadas, redis-bullmq, rbac-multitenant, oidc-sessao
+services:
+  api: { type: api, path: /api, port: 8080, expose: true, stripPrefix: true, priority: 40, health: { path: /health } }
+  worker: { type: worker, port: 9464, expose: false, command: ["npm", "run", "worker"] }
+dependencies: { redis: { image: "redis:7-alpine" } }
+observability: { metricsPort: 9464, serviceMonitor: true, prometheusRule: true }

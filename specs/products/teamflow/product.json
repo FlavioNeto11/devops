@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.2.0",
+  "name": "teamflow",
+  "display_name": "TeamFlow — Operação de Equipes",
+  "base_path": "/teamflow",
+  "namespace": "apps",
+  "app_type": "product_software",
+  "blueprint": "gymops-style",
+  "stack": "gymops",
+  "capability_blocks": ["camadas-rigidas", "migrations-versionadas", "observabilidade", "redis-bullmq", "rbac-multitenant", "gateway-externo", "oidc-sessao"],
+  "vision": "App de operação de equipes gerado pela Forge para provar o GERADOR da 2ª stack (gymops-style): Fastify + Postgres + Redis/BullMQ + RBAC multi-tenant + gateway externo + observabilidade, deployável sem implementação manual.",
+  "requirement_ids": [],
+  "phases": { "requirements": { "status": "approved" }, "architecture": { "status": "approved" }, "scaffold": { "status": "not_started" }, "build": { "status": "not_started" } },
+  "version": { "revision": 1, "change_reason": "prova do gerador scaffold-gymops" }
+}
