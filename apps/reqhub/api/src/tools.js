@@ -20,6 +20,18 @@ const stacksSummary = (input) => (Array.isArray(input.blueprints) ? input.bluepr
 const schema = (validate) => ({ parse: (v) => { validate(v || {}); return v; } });
 const need = (cond, msg) => { if (!cond) throw new Error(msg); };
 
+// Claude (via adapter ai-core, mesmo com jsonMode) as vezes embrulha o JSON em ```json ... ```.
+// Tolera o fence e extrai o objeto externo; retorna null se nao houver JSON parseavel.
+function parseJsonLoose(text) {
+  const t = String(text || '').trim();
+  const fenced = t.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const body = (fenced && fenced[1] ? fenced[1] : t).trim();
+  try { return JSON.parse(body); } catch { /* tenta extrair o objeto externo */ }
+  const s = body.indexOf('{'); const e = body.lastIndexOf('}');
+  if (s >= 0 && e > s) { try { return JSON.parse(body.slice(s, e + 1)); } catch { /* desiste */ } }
+  return null;
+}
+
 // reasoningEffort 'minimal' (tarefas de EXTRAÇÃO estruturada, não raciocínio profundo) +
 // orçamento amplo: no gpt-5 o max_completion_tokens INCLUI os tokens de raciocínio, então
 // valores baixos faziam o conteúdo sair vazio/truncado -> LLM_INVALID_JSON.
@@ -41,6 +53,9 @@ async function llmJson(llm, { system, user, reasoningEffort = 'minimal', maxToke
   try {
     parsed = JSON.parse(text);
   } catch {
+    parsed = parseJsonLoose(text); // Claude as vezes fenca o JSON
+  }
+  if (parsed == null || typeof parsed !== 'object') {
     throw new AiToolError('LLM_INVALID_JSON', 'o modelo nao retornou JSON valido', { sample: text.slice(0, 200) });
   }
   return { parsed, usage: (res && res.usage) || null };
