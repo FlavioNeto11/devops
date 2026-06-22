@@ -92,6 +92,11 @@ spec:
             - { name: METRICS_PORT, value: "9464" }
             - { name: AUTO_MIGRATE, value: "true" }
             - { name: AUTO_SEED, value: "true" }
+            # lab: a borda (console-auth-401/redirect) faz o SSO; a API não re-exige no pod (smoke/teste)
+            - { name: AUTH_REQUIRED, value: "false" }
+            # IA (REQ-0008): reusa a chave da plataforma; ausente -> /suggest-reorder = 503 (fail-closed)
+            - name: ANTHROPIC_API_KEY
+              valueFrom: { secretKeyRef: { name: reqhub-api-config, key: ANTHROPIC_API_KEY, optional: true } }
           ports:
             - { name: http, containerPort: 8080 }
             - { name: metrics, containerPort: 9464 }

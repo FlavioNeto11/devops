@@ -4,9 +4,8 @@
   "counts": {
     "total": 357,
     "by_status": {
-      "deployed": 299,
-      "done": 52,
-      "not_started": 6
+      "deployed": 305,
+      "done": 52
     },
     "refinements": {
       "total": 13,
@@ -1950,37 +1949,43 @@
     "REQ-STOCKPILOT-0001": {
       "status": "deployed",
       "req_revision": 1,
-      "run_id": "forge-scaffold"
+      "run_id": "stockpilot-e2e"
     },
     "REQ-STOCKPILOT-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "run_id": "stockpilot-e2e"
     },
     "REQ-STOCKPILOT-0003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "run_id": "stockpilot-e2e"
     },
     "REQ-STOCKPILOT-0004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "run_id": "stockpilot-e2e"
     },
     "REQ-STOCKPILOT-0005": {
       "status": "deployed",
       "req_revision": 1,
       "branch": "@{id=REQ-STOCKPILOT-0005; branch=req/REQ-STOCKPILOT-0005/r1; restricted=false; title=feat(stockpilot): implementa REQ-STOCKPILOT-0005 — Painel de estoque, pedidos e alertas co}.branch",
-      "run_id": "esteira-stockpilot"
+      "run_id": "stockpilot-e2e"
     },
     "REQ-STOCKPILOT-0006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "run_id": "stockpilot-e2e"
     },
     "REQ-STOCKPILOT-0007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "run_id": "stockpilot-e2e"
     },
     "REQ-STOCKPILOT-0008": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "run_id": "stockpilot-e2e"
     },
     "REQ-TEAMFLOW-0001": {
       "status": "deployed",
