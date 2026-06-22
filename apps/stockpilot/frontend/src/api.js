@@ -24,6 +24,13 @@ export function resourceFactory(name) {
 }
 export const health = () => request("GET", "/health");
 
+// dashboard.summary() → GET /v1/dashboard/summary (REF-STOCKPILOT-0001)
+// Retorna { ok, alerta, ruptura, total, open_orders, active_alerts } — uma chamada
+// em vez de baixar a lista completa de produtos só para contar status.
+export const dashboard = {
+  summary: () => request('GET', '/v1/dashboard/summary'),
+};
+
 // Recursos de DOMÍNIO do StockPilot — mapeiam para as rotas REST reais sob /v1/<name>.
 // Cada um expõe list/get/create/update/remove; ex.: products.get(id) -> GET /v1/products/{id}.
 // products também expõe as ações de domínio (rotas reais em server.js), para que as telas chamem SÓ

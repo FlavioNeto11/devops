@@ -86,6 +86,32 @@ export async function listBelowMinimumAllTenants(db = pool) {
   return rows;
 }
 
+// Contagens agregadas de status para o painel (dashboard/summary). Implementa a mesma
+// regra de computeStatus sem baixar todas as linhas — O(1) em vez de O(n) no cliente.
+export async function countsByStatus(tenant, db = pool) {
+  const { rows } = await db.query(`
+    SELECT
+      COUNT(*) FILTER (WHERE current_stock < min_stock AND NOT has_open_order) AS ruptura,
+      COUNT(*) FILTER (WHERE current_stock < min_stock * 1.5 AND has_open_order) AS alerta,
+      COUNT(*) AS total
+    FROM (
+      SELECT
+        p.current_stock, p.min_stock,
+        EXISTS(
+          SELECT 1 FROM product_orders po
+          WHERE po.product_id = p.id AND po.tenant_id = p.tenant_id
+            AND po.status IN ('pending','processing')
+        ) AS has_open_order
+      FROM products p WHERE p.tenant_id = $1
+    ) sub
+  `, [tenant]);
+  const r = rows[0] || {};
+  const alerta = Number(r.alerta) || 0;
+  const ruptura = Number(r.ruptura) || 0;
+  const total = Number(r.total) || 0;
+  return { ok: total - alerta - ruptura, alerta, ruptura, total };
+}
+
 export async function listAlerts(tenant, db = pool) {
   const { rows } = await db.query(`
     SELECT DISTINCT ON (p.id)

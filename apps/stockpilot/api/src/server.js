@@ -33,6 +33,18 @@ app.post('/v1/records/:id/submit', wrap(async (req, res) => { const id = Number(
 
 // Painel de estoque — rotas protegidas por sessão (requireAuth → 401 sem sessão) e escopadas
 // por tenant derivado da borda SSO (req.tenant). Cross-tenant retorna 404, nunca vaza dados.
+
+// Resumo agregado para o painel (REF-STOCKPILOT-0001): uma chamada em vez de baixar a lista
+// completa de produtos só para contar. Retorna { ok, alerta, ruptura, total, open_orders, active_alerts }.
+app.get('/v1/dashboard/summary', requireAuth, wrap(async (req, res) => {
+  const [counts, openOrders, alerts] = await Promise.all([
+    productsRepo.countsByStatus(req.tenant),
+    ordersRepo.countOpen(req.tenant),
+    productsRepo.listAlerts(req.tenant),
+  ]);
+  res.json({ ...counts, open_orders: openOrders, active_alerts: alerts.length });
+}));
+
 // Produtos com status derivado (OK/ALERTA/RUPTURA)
 app.get('/v1/products', requireAuth, wrap(async (req, res) => res.json({ data: await productsRepo.listWithStatus(req.tenant) })));
 

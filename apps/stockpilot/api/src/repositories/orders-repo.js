@@ -2,6 +2,15 @@
 // Escopo obrigatório por tenant_id (REQ-STOCKPILOT-0002). `db` injetável p/ testes.
 import { pool } from '../db.js';
 
+// Contagem de pedidos abertos (pending/processing) para o painel (dashboard/summary).
+export async function countOpen(tenant, db = pool) {
+  const { rows } = await db.query(
+    `SELECT COUNT(*) AS count FROM product_orders WHERE tenant_id=$1 AND status IN ('pending','processing')`,
+    [tenant]
+  );
+  return Number(rows[0]?.count) || 0;
+}
+
 export async function listOpen(tenant, db = pool) {
   const { rows } = await db.query(`
     SELECT po.id, po.product_id, po.status, po.external_ref, po.created_at,

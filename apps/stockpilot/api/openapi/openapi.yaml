@@ -270,6 +270,37 @@ paths:
               example:
                 error:
                   message: não encontrado
+  /v1/dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags:
+        - Products
+        - Orders
+        - Alerts
+      summary: Resumo agregado do painel (KPIs)
+      description: >-
+        Contagens agregadas de estoque por status (OK/ALERTA/RUPTURA), pedidos
+        abertos e alertas ativos do tenant. Uma chamada em vez de múltiplas
+        consultas de lista — projetado para o painel de controle (REF-STOCKPILOT-0001).
+        Escopado por tenant (requireAuth → 401 sem sessão).
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200':
+          description: Resumo do estoque do tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardSummary'
+              example:
+                ok: 12
+                alerta: 3
+                ruptura: 1
+                total: 16
+                open_orders: 4
+                active_alerts: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /v1/products:
     get:
       operationId: listProducts
@@ -1109,6 +1140,37 @@ components:
             error:
               message: não autenticado
   schemas:
+    DashboardSummary:
+      type: object
+      description: >-
+        Resumo agregado do painel — contagens de status de estoque, pedidos e alertas.
+        Projetado para o painel de controle: uma chamada em vez de múltiplas consultas.
+      required:
+        - ok
+        - alerta
+        - ruptura
+        - total
+        - open_orders
+        - active_alerts
+      properties:
+        ok:
+          type: integer
+          description: Produtos com estoque saudável (sem ruptura e sem alerta).
+        alerta:
+          type: integer
+          description: Produtos em ALERTA (perto do mínimo, com pedido aberto).
+        ruptura:
+          type: integer
+          description: Produtos em RUPTURA (abaixo do mínimo, sem pedido aberto).
+        total:
+          type: integer
+          description: Total de produtos no catálogo do tenant.
+        open_orders:
+          type: integer
+          description: Pedidos de reposição abertos (pending/processing).
+        active_alerts:
+          type: integer
+          description: Alertas ativos (RUPTURA + falhas de envio ao fornecedor).
     Error:
       type: object
       description: Envelope de erro padrão da API.

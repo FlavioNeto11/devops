@@ -16,12 +16,12 @@
 
   Contrato de UI: usa SÓ o kit ui-vue, SÓ tokens --ui-*; sem style inline / :style / v-html;
   renderiza TODOS os estados (loading/empty/error/normal); chama SÓ endpoints REAIS via ../api.js:
-    products.list  -> GET /v1/products      (status derivado OK/ALERTA/RUPTURA)
-    orders.list    -> GET /v1/orders        (pedidos abertos pending/processing)
-    alerts.list    -> GET /v1/alerts        (RUPTURA + falhas de envio ao fornecedor)
-    jobs.list      -> GET /v1/health/jobs   (profundidade da fila por status)
-    health()       -> GET /health           (readiness da API/worker)
-    products.reorder -> POST /v1/products/:id/reorder  (reposição assíncrona idempotente)
+    dashboard.summary -> GET /v1/dashboard/summary (REF-STOCKPILOT-0001: KPIs + donut em uma chamada)
+    orders.list       -> GET /v1/orders            (pedidos abertos pending/processing)
+    alerts.list       -> GET /v1/alerts            (RUPTURA + falhas de envio ao fornecedor)
+    jobs.list         -> GET /v1/health/jobs       (profundidade da fila por status)
+    health()          -> GET /health               (readiness da API/worker)
+    products.reorder  -> POST /v1/products/:id/reorder  (reposição assíncrona idempotente)
   Ação efetiva (repor produto em ruptura) via useConfirm + toast (sucesso/erro).
 
   Cada fonte é carregada isolada: a falha de uma não derruba o painel inteiro (degradação graciosa).
@@ -73,35 +73,35 @@
       <UiMetricCard
         label="Produtos no catálogo"
         :value="kpi.total"
-        :loading="productsLoading"
+        :loading="summaryLoading"
         tone="primary"
         clickable
-        :hint="productsError ? 'Catálogo indisponível' : 'Ver catálogo completo'"
+        :hint="summaryError ? 'Catálogo indisponível' : 'Ver catálogo completo'"
         @click="go('/products')"
       />
       <UiMetricCard
         label="Estoque saudável (OK)"
         :value="kpi.ok"
-        :loading="productsLoading"
+        :loading="summaryLoading"
         :tone="okCount > 0 ? 'success' : 'neutral'"
-        :hint="productsError ? '—' : okPctLabel"
+        :hint="summaryError ? '—' : okPctLabel"
       />
       <UiMetricCard
         label="Em alerta"
         :value="kpi.alerta"
-        :loading="productsLoading"
+        :loading="summaryLoading"
         :tone="alertaCount > 0 ? 'warning' : 'neutral'"
         clickable
-        :hint="productsError ? '—' : 'Perto do mínimo · com pedido aberto'"
+        :hint="summaryError ? '—' : 'Perto do mínimo · com pedido aberto'"
         @click="go('/products')"
       />
       <UiMetricCard
         label="Em ruptura"
         :value="kpi.ruptura"
-        :loading="productsLoading"
+        :loading="summaryLoading"
         :tone="ruptureCount > 0 ? 'error' : 'neutral'"
         clickable
-        :hint="productsError ? '—' : 'Abaixo do mínimo · repor agora'"
+        :hint="summaryError ? '—' : 'Abaixo do mínimo · repor agora'"
         @click="go('/alerts')"
       />
       <UiMetricCard
@@ -130,14 +130,14 @@
       <UiCard title="Status do estoque" subtitle="Distribuição dos produtos por status derivado (OK / ALERTA / RUPTURA)">
         <template #actions>
           <UiStatusBadge
-            v-if="!productsLoading && !productsError && productsTotal > 0"
+            v-if="!summaryLoading && !summaryError && productsTotal > 0"
             :tone="stockTone"
             :label="stockHealthLabel"
           />
         </template>
 
-        <UiLoadingState v-if="productsLoading" variant="skeleton" :skeleton-lines="4" />
-        <UiErrorState v-else-if="productsError" :message="productsError" retryable @retry="loadProducts" />
+        <UiLoadingState v-if="summaryLoading" variant="skeleton" :skeleton-lines="4" />
+        <UiErrorState v-else-if="summaryError" :message="summaryError" retryable @retry="loadSummary" />
         <UiEmptyState
           v-else-if="productsTotal === 0"
           icon="box"
@@ -376,7 +376,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useRouter, RouterLink } from 'vue-router';
-import { products, orders, alerts, resourceFactory, health } from '../api.js';
+import { products, orders, alerts, dashboard, resourceFactory, health } from '../api.js';
 // products.reorder(id) → POST /v1/products/:id/reorder (ação de domínio em api.js, não URL ad-hoc)
 import {
   UiPageLayout,
@@ -398,12 +398,12 @@ const toast = useToast();
 const askConfirm = useConfirm();
 
 // --- Recursos de DOMÍNIO (rotas REAIS sob /v1) -------------------------------
-// products → GET /v1/products      (status derivado OK/ALERTA/RUPTURA)
-// orders   → GET /v1/orders        (pedidos abertos)
-// alerts   → GET /v1/alerts        (RUPTURA + falhas de envio)
-// jobs     → GET /v1/health/jobs   (profundidade da fila por status)
-// health   → GET /health           (readiness da API/worker)
-// reorder  → POST /v1/products/:id/reorder (reposição assíncrona idempotente)
+// dashboard.summary → GET /v1/dashboard/summary (KPIs: ok/alerta/ruptura/total/open_orders/active_alerts)
+// orders            → GET /v1/orders            (pedidos abertos pending/processing)
+// alerts            → GET /v1/alerts            (RUPTURA + falhas de envio)
+// jobs              → GET /v1/health/jobs       (profundidade da fila por status)
+// health            → GET /health               (readiness da API/worker)
+// products.reorder  → POST /v1/products/:id/reorder (reposição assíncrona idempotente)
 const jobsResource = resourceFactory('health/jobs');
 
 const MAX_ROWS = 6;
@@ -421,9 +421,11 @@ const refreshing = ref(false);
 const fatalError = ref(null);
 const lastUpdated = ref(null);
 
-const productsList = ref([]);
-const productsLoading = ref(false);
-const productsError = ref(null);
+// summary → GET /v1/dashboard/summary (REF-STOCKPILOT-0001): contagens agregadas.
+// Substitui o antigo products.list() para KPIs e donut — sem baixar a lista completa.
+const summaryData = ref({ ok: 0, alerta: 0, ruptura: 0, total: 0, open_orders: 0, active_alerts: 0 });
+const summaryLoading = ref(false);
+const summaryError = ref(null);
 
 const ordersList = ref([]);
 const ordersLoading = ref(false);
@@ -442,11 +444,11 @@ const apiOnline = ref(false);
 const reorderingId = ref(null);
 
 // --- Carregadores -----------------------------------------------------------
-async function loadProducts() {
-  productsLoading.value = true; productsError.value = null;
-  try { productsList.value = rowsOf(await products.list()); }
-  catch (e) { productsError.value = e.message || 'Falha ao carregar os produtos.'; productsList.value = []; }
-  finally { productsLoading.value = false; }
+async function loadSummary() {
+  summaryLoading.value = true; summaryError.value = null;
+  try { summaryData.value = await dashboard.summary(); }
+  catch (e) { summaryError.value = e.message || 'Falha ao carregar o resumo.'; summaryData.value = { ok: 0, alerta: 0, ruptura: 0, total: 0, open_orders: 0, active_alerts: 0 }; }
+  finally { summaryLoading.value = false; }
 }
 async function loadOrders() {
   ordersLoading.value = true; ordersError.value = null;
@@ -475,10 +477,10 @@ async function loadAll(isRefresh = false) {
   if (isRefresh) refreshing.value = true;
   fatalError.value = null;
   try {
-    await Promise.allSettled([loadProducts(), loadOrders(), loadAlerts(), loadJobs(), loadHealth()]);
+    await Promise.allSettled([loadSummary(), loadOrders(), loadAlerts(), loadJobs(), loadHealth()]);
     lastUpdated.value = new Date();
     // Fatal só quando NADA carregou — falha visível em vez de painel "tudo zero".
-    if (productsError.value && ordersError.value && alertsError.value && jobsError.value) {
+    if (summaryError.value && ordersError.value && alertsError.value && jobsError.value) {
       fatalError.value = 'Não foi possível carregar o painel. Verifique a conexão com a API.';
     }
     if (isRefresh && !fatalError.value) toast.success('Painel atualizado.');
@@ -491,12 +493,11 @@ async function loadAll(isRefresh = false) {
   }
 }
 
-// --- Derivações: produtos por status (StatusDonut + KpiCard) -----------------
-const productsTotal = computed(() => productsList.value.length);
-const statusOf = (p) => String(p && p.status ? p.status : '').toUpperCase();
-const okCount = computed(() => productsList.value.filter((p) => statusOf(p) === 'OK').length);
-const alertaCount = computed(() => productsList.value.filter((p) => statusOf(p) === 'ALERTA').length);
-const ruptureCount = computed(() => productsList.value.filter((p) => statusOf(p) === 'RUPTURA').length);
+// --- Derivações: produtos por status (StatusDonut + KpiCard) — de summary, não da lista completa.
+const productsTotal = computed(() => Number(summaryData.value.total) || 0);
+const okCount = computed(() => Number(summaryData.value.ok) || 0);
+const alertaCount = computed(() => Number(summaryData.value.alerta) || 0);
+const ruptureCount = computed(() => Number(summaryData.value.ruptura) || 0);
 
 const okPctLabel = computed(() => {
   if (productsTotal.value === 0) return 'Sem produtos';
@@ -673,8 +674,8 @@ async function reorder(a) {
     } else {
       toast.success('Reposição de "' + label + '" enfileirada com sucesso.');
     }
-    // Recarrega o que muda com a reposição: produtos, pedidos, alertas e a fila.
-    await Promise.allSettled([loadProducts(), loadOrders(), loadAlerts(), loadJobs()]);
+    // Recarrega o que muda com a reposição: summary (KPIs), pedidos, alertas e a fila.
+    await Promise.allSettled([loadSummary(), loadOrders(), loadAlerts(), loadJobs()]);
     lastUpdated.value = new Date();
   } catch (e) {
     toast.error(e.message || 'Falha ao disparar a reposição.');
