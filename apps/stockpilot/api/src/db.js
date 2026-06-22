@@ -59,6 +59,11 @@ const MIGRATIONS = [`CREATE TABLE IF NOT EXISTS records (id SERIAL PRIMARY KEY, 
      created_at TIMESTAMPTZ DEFAULT now(),
      updated_at TIMESTAMPTZ DEFAULT now()
    ); CREATE INDEX IF NOT EXISTS idx_suppliers_tenant ON suppliers(tenant_id, id);`,
+  // REF-STOCKPILOT-0016 — liga pedidos de reposição ao fornecedor que os processa (supplier_id).
+  // Nullable: pedidos históricos (sem supplier_id) continuam visíveis no tenant mas não aparecem
+  // na ficha do fornecedor. ON DELETE SET NULL preserva o pedido se o fornecedor for removido.
+  `ALTER TABLE product_orders ADD COLUMN IF NOT EXISTS supplier_id INTEGER REFERENCES suppliers(id) ON DELETE SET NULL;
+   CREATE INDEX IF NOT EXISTS idx_product_orders_supplier ON product_orders(supplier_id) WHERE supplier_id IS NOT NULL;`,
   // REQ-STOCKPILOT-0007 — CRUD de canais de notificação (assinaturas de webhook). Complementa o
   // fan-out multi-canal (notifications) com a CONFIGURAÇÃO persistida por canal: tipo, webhook,
   // eventos assinados, habilitado e o último desfecho da entrega. Escopado por tenant_id.

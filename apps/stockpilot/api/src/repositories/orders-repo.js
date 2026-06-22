@@ -53,6 +53,22 @@ export async function listRecentByProduct(productId, tenant, days = 90, db = poo
   return rows;
 }
 
+// REF-STOCKPILOT-0016 — pedidos vinculados a um fornecedor (GET /v1/suppliers/:id/orders).
+// Escopado por tenant_id. Sem supplier_id na tabela → retorna vazio (pedidos históricos não têm vínculo).
+export async function listBySupplier(supplierId, tenant, db = pool) {
+  const { rows } = await db.query(`
+    SELECT po.id, po.product_id, po.tenant_id, po.status, po.external_ref,
+           po.last_error, po.last_attempt_at, po.created_at, po.updated_at,
+           p.name AS product_name
+    FROM product_orders po
+    LEFT JOIN products p ON p.id = po.product_id AND p.tenant_id = po.tenant_id
+    WHERE po.supplier_id = $1 AND po.tenant_id = $2
+    ORDER BY po.created_at DESC
+    LIMIT 100
+  `, [supplierId, tenant]);
+  return rows;
+}
+
 // REQ-STOCKPILOT-0003 — reposição assíncrona. Pedido "aberto" = pending|processing (impede duplicar).
 export async function findOpenByProduct(productId, tenant, db = pool) {
   const { rows } = await db.query(

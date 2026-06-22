@@ -134,6 +134,14 @@ app.delete('/v1/suppliers/:id', requireAuth, wrap(async (req, res) => {
   res.status(204).end();
 }));
 
+// REF-STOCKPILOT-0016 — pedidos de reposição vinculados a um fornecedor. Escopado por tenant.
+// Fornecedor inexistente ou de outro tenant → 404 (nunca vaza cross-tenant).
+app.get('/v1/suppliers/:id/orders', requireAuth, wrap(async (req, res) => {
+  const supplier = await suppliersRepo.findById(Number(req.params.id), req.tenant);
+  if (!supplier) return res.status(404).json({ error: { message: 'fornecedor não encontrado' } });
+  res.json({ data: await ordersRepo.listBySupplier(Number(req.params.id), req.tenant) });
+}));
+
 // CRUD de Canais de notificação (REQ-STOCKPILOT-0007): assinaturas de webhook (tipo + eventos +
 // habilitado + último desfecho). Rotas finas → channels-repo; escopado por tenant (cross-tenant → 404).
 app.get('/v1/channels', requireAuth, wrap(async (req, res) => res.json(await channelsRepo.list(req.tenant, req.query))));

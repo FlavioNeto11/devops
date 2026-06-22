@@ -49,5 +49,8 @@ export const alerts = resourceFactory('alerts');
 // da linha já carregado pela listagem.
 export const notifications = resourceFactory('notifications');
 export const channels = resourceFactory('channels');
-export const suppliers = resourceFactory('suppliers');
+export const suppliers = {
+  ...resourceFactory('suppliers'),
+  orders: (id) => request('GET', '/v1/suppliers/' + id + '/orders'),
+};
 export const audit = resourceFactory('audit');

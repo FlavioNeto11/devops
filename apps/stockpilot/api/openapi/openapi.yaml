@@ -901,6 +901,50 @@ paths:
               example:
                 error:
                   message: fornecedor não encontrado
+  /v1/suppliers/{id}/orders:
+    get:
+      operationId: listSupplierOrders
+      tags:
+        - Suppliers
+        - Orders
+      summary: Lista pedidos de reposição vinculados a um fornecedor
+      description: >-
+        Pedidos de reposição cujo supplier_id aponta para este fornecedor, escopados por tenant.
+        Fornecedor inexistente ou de outro tenant retorna 404 (nunca vaza dados cross-tenant).
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200':
+          description: Pedidos vinculados ao fornecedor (máx. 100)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+              example:
+                data:
+                  - id: 11
+                    product_id: 1
+                    product_name: Álcool 70%
+                    tenant_id: default
+                    status: pending
+                    external_ref: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Fornecedor não encontrado (inexistente ou de outro tenant)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  message: fornecedor não encontrado
   /v1/channels:
     get:
       operationId: listChannels

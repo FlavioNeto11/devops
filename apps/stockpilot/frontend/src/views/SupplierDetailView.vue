@@ -197,6 +197,49 @@
         </div>
       </div>
 
+      <!-- OrdersTable — pedidos de reposição vinculados a este fornecedor -->
+      <UiCard
+        title="Pedidos de reposição"
+        :subtitle="ordersSubtitle"
+      >
+        <template #actions>
+          <UiButton variant="ghost" size="sm" :loading="ordersLoading" @click="loadOrders">
+            Recarregar
+          </UiButton>
+        </template>
+        <UiDataTable
+          :columns="ordersColumns"
+          :rows="orderRows"
+          row-key="id"
+          density="compact"
+          :loading="ordersLoading"
+          :error="ordersErrorMessage"
+          :sort="ordersSort"
+          :empty="ordersEmpty"
+          @retry="loadOrders"
+          @update:sort="(s) => (ordersSort = s)"
+        >
+          <template #cell-status="{ value }">
+            <UiStatusBadge :status="value" :tone="orderStatusTone(value)" :label="orderStatusLabel(value)" />
+          </template>
+          <template #cell-product_name="{ row, value }">
+            <router-link :to="'/products/' + row.product_id" class="sd-link">{{ value || '#' + row.product_id }}</router-link>
+          </template>
+          <template #cell-external_ref="{ value }">
+            <span v-if="value" class="ui-mono sd-ext-ref">{{ value }}</span>
+            <span v-else class="ui-muted">—</span>
+          </template>
+          <template #cell-last_error="{ value }">
+            <span v-if="value" class="sd-audit-err ui-mono">{{ value }}</span>
+            <span v-else class="ui-muted">—</span>
+          </template>
+          <template #cell-created_at="{ value }">{{ fmtDateTime(value) }}</template>
+          <template #empty-action>
+            <UiButton variant="subtle" to="/orders">Ver todos os pedidos</UiButton>
+          </template>
+        </UiDataTable>
+      </UiCard>
+
       <!-- AuditTrailTable — trilha de auditoria das trocas do gateway (tenant) -->
       <UiCard
         title="Trilha de auditoria do gateway"
@@ -297,6 +340,12 @@ const loadError = ref(null);
 const notFound = ref(false);
 const refreshing = ref(false);
 
+// ---- estado: pedidos vinculados ao fornecedor ----
+const orderRows = ref([]);
+const ordersLoading = ref(true);
+const ordersError = ref(null);
+const ordersSort = ref({ key: 'created_at', dir: 'desc' });
+
 // ---- estado: auditoria (trilha do gateway, escopo do tenant) ----
 const auditRows = ref([]);
 const auditLoading = ref(true);
@@ -325,6 +374,20 @@ async function loadSupplier() {
   }
 }
 
+async function loadOrders() {
+  ordersLoading.value = true;
+  ordersError.value = null;
+  try {
+    const res = await api.suppliers.orders(props.id);
+    const list = Array.isArray(res) ? res : res && res.data ? res.data : [];
+    orderRows.value = list;
+  } catch (e) {
+    ordersError.value = e;
+  } finally {
+    ordersLoading.value = false;
+  }
+}
+
 // Carrega a trilha REAL do tenant (GET /v1/audit). O backend ainda IGNORA query params e não
 // expõe supplier_id, então NÃO enviamos filtros decorativos que o servidor descartaria — a
 // filtragem por desfecho/operação é client-side e está claramente sinalizada como tal na tela.
@@ -345,10 +408,10 @@ async function loadAudit() {
 async function refreshAll() {
   refreshing.value = true;
   try {
-    await Promise.all([loadSupplier(), loadAudit()]);
+    await Promise.all([loadSupplier(), loadOrders(), loadAudit()]);
     if (notFound.value) {
       toast.warning('Fornecedor não encontrado.');
-    } else if (!loadError.value && !auditError.value) {
+    } else if (!loadError.value && !ordersError.value && !auditError.value) {
       toast.success('Fornecedor atualizado.');
     } else {
       toast.error('Não foi possível atualizar tudo.');
@@ -501,6 +564,33 @@ const postureMessage = computed(() => {
   return 'Sem timeout nem novas tentativas: qualquer instabilidade do fornecedor falha a troca de imediato.';
 });
 
+// ---- derivações: pedidos vinculados ao fornecedor ----
+const ordersErrorMessage = computed(() =>
+  ordersError.value ? errMessage(ordersError.value, 'Falha ao carregar pedidos.') : null,
+);
+const ordersSubtitle = computed(() => {
+  if (ordersError.value) return 'Pedidos de reposição atribuídos a este fornecedor.';
+  const n = orderRows.value.length;
+  if (!n) return 'Pedidos de reposição atribuídos a este fornecedor.';
+  return formatNumber(n) + ' pedido(s) vinculado(s).';
+});
+const ordersColumns = [
+  { key: 'created_at', label: 'Criado em', sortable: true },
+  { key: 'product_name', label: 'Produto' },
+  { key: 'status', label: 'Status' },
+  { key: 'external_ref', label: 'Ref. externa' },
+  { key: 'last_error', label: 'Último erro' },
+];
+const ordersEmpty = computed(() => ({
+  title: 'Nenhum pedido vinculado',
+  description: 'Nenhum pedido de reposição foi atribuído a este fornecedor ainda.',
+  icon: 'package',
+}));
+const ORDER_STATUS_TONE = { pending: 'warning', processing: 'info', delivered: 'success', failed: 'error' };
+const ORDER_STATUS_LABEL = { pending: 'Pendente', processing: 'Processando', delivered: 'Entregue', failed: 'Falha' };
+const orderStatusTone = (v) => ORDER_STATUS_TONE[v] || 'neutral';
+const orderStatusLabel = (v) => ORDER_STATUS_LABEL[v] || humanize(v);
+
 // ---- derivações: trilha de auditoria do gateway (tenant) ----
 // NOTA: o backend NÃO atribui trocas a um fornecedor (não há supplier_id em gateway_audit). A trilha
 // é, portanto, a do gateway de todo o tenant — exibida com aviso honesto na tela. Não filtramos por
@@ -604,6 +694,7 @@ const auditEmpty = computed(() => {
 
 onMounted(() => {
   loadSupplier();
+  loadOrders();
   loadAudit();
 });
 </script>
@@ -827,6 +918,19 @@ onMounted(() => {
 .sd-secret-msg {
   margin: 4px 0 0;
   font-size: var(--ui-text-xs);
+}
+
+/* ---- Links inline ---- */
+.sd-link {
+  color: rgb(var(--ui-accent-strong));
+  text-decoration: none;
+}
+.sd-link:hover {
+  text-decoration: underline;
+}
+.sd-ext-ref {
+  font-size: var(--ui-text-xs);
+  word-break: break-all;
 }
 
 /* ---- Auditoria ---- */
