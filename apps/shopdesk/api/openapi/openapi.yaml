@@ -216,6 +216,30 @@ paths:
         - { $ref: "#/components/parameters/TenantId" }
       responses:
         "200": { description: ok }
+  /v1/checkout/webhook:
+    post:
+      operationId: checkoutWebhook
+      summary: Webhook do PSP — verifica assinatura HMAC e deduplica por chave de evento.
+      parameters:
+        - name: X-PSP-Signature
+          in: header
+          required: true
+          description: Assinatura HMAC-SHA256 do body em hex (verifica autenticidade do PSP).
+          schema: { type: string }
+        - name: X-PSP-Event-Id
+          in: header
+          required: true
+          description: Chave única do evento do PSP para deduplicação.
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200": { description: "Evento aceito ou já processado (deduplicated)." }
+        "400": { description: "X-PSP-Event-Id obrigatório." }
+        "401": { description: "Assinatura inválida." }
   /v1/invoices:
     post:
       operationId: emitInvoice

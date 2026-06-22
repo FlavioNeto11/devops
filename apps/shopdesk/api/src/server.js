@@ -35,6 +35,13 @@ app.post('/v1/records/:id/submit', wrap(async (req, res) => { const id = Number(
 // bloco pagamentos-gateway: checkout com cobrança idempotente via @flavioneto11/payments-kit (sandbox por default).
 app.post('/v1/checkout', wrap(async (req, res) => { const b = req.body || {}; if (!b.orderId || !b.amount) return res.status(400).json({ error: { message: 'orderId e amount obrigatórios' } }); const r = await checkoutSvc.checkout({ tenantId: req.tenantId, orderId: String(b.orderId), amount: Number(b.amount), paymentMethodToken: b.paymentMethodToken }); notifySvc.notify('order.paid', { orderId: r.orderId, status: r.status }).catch(() => {}); res.status(201).json(r); }));
 app.get('/v1/checkout/audit', wrap(async (_q, res) => res.json({ data: checkoutSvc.recentAudit() })));
+// AC4: Webhook do PSP — body bruto (express.raw) para HMAC; assinatura em X-PSP-Signature; dedup por X-PSP-Event-Id.
+app.post('/v1/checkout/webhook', express.raw({ type: 'application/json' }), wrap(async (req, res) => {
+  const eventKey = req.header('X-PSP-Event-Id') || '';
+  if (!eventKey) return res.status(400).json({ error: { message: 'X-PSP-Event-Id obrigatório' } });
+  const r = checkoutSvc.handleWebhook({ signature: req.header('X-PSP-Signature') || '', rawBody: req.body, eventKey });
+  res.status(200).json(r);
+}));
 // bloco nota-fiscal-emissao: emite NF-e (sandbox por default) — na app plena roda no worker pós-pagamento.
 app.post('/v1/invoices', wrap(async (req, res) => { const b = req.body || {}; if (!b.orderId) return res.status(400).json({ error: { message: 'orderId obrigatório' } }); res.status(201).json(fiscalSvc.emitInvoice({ orderId: b.orderId, total: b.total, cnpj: b.cnpj, items: b.items })); }));
 // bloco control-ai-por-app: assistente de IA do lojista (fail-closed sem chave).
