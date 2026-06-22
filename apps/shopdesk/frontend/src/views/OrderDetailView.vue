@@ -18,6 +18,7 @@
     <!-- AÇÕES (DetailHeader) -->
     <template #actions>
       <UiButton variant="ghost" to="/orders">Voltar aos pedidos</UiButton>
+      <UiButton variant="primary" :disabled="!order || loading" @click="router.push(editPath)">Editar</UiButton>
       <UiButton
         variant="ghost"
         :disabled="!canTrack"
@@ -314,7 +315,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import {
   UiPageLayout,
   UiCard,
@@ -335,6 +336,7 @@ import {
 import * as api from '../api.js';
 
 const route = useRoute();
+const router = useRouter();
 const toast = useToast();
 const confirm = useConfirm();
 
@@ -376,6 +378,7 @@ const aiError = computed(() => {
 const trackingOpen = ref(false);
 
 const orderId = computed(() => route.params.id);
+const editPath = computed(() => '/orders/' + orderId.value + '/edit');
 
 // ---- API com degradação graciosa (resourceFactory pode existir ou não) ----
 // orders: o integrador expõe api.orders (resourceFactory) depois. Hoje api.js só traz
