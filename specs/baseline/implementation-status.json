@@ -11,9 +11,9 @@
     "refinements": {
       "total": 65,
       "by_status": {
-        "pr_open": 1,
+        "pr_open": 2,
         "deployed": 12,
-        "not_started": 52
+        "not_started": 51
       }
     }
   },
@@ -2368,8 +2368,10 @@
       "req_revision": 1
     },
     "REF-STOCKPILOT-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "branch": "@{id=REF-STOCKPILOT-0002; branch=ref/REF-STOCKPILOT-0002/r1; restricted=false; title=feat(stockpilot): implementa REF-STOCKPILOT-0002 — Produtos}.branch",
+      "run_id": "27977659748"
     },
     "REF-STOCKPILOT-0003": {
       "status": "not_started",
