@@ -13,6 +13,9 @@
     "express": "^4.19.2",
     "pg": "^8.11.5",
     "prom-client": "^15.1.2",
-    "@flavioneto11/payments-kit": "file:vendor/flavioneto11-payments-kit-0.1.0.tgz"
+    "@anthropic-ai/sdk": "^0.32.1",
+    "@flavioneto11/payments-kit": "file:vendor/flavioneto11-payments-kit-0.1.0.tgz",
+    "@flavioneto11/fiscal-kit": "file:vendor/flavioneto11-fiscal-kit-0.1.0.tgz",
+    "@flavioneto11/control-ai-kit": "file:vendor/flavioneto11-control-ai-kit-0.1.0.tgz"
   }
 }

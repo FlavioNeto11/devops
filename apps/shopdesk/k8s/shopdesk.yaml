@@ -67,6 +67,11 @@ spec:
             - { name: METRICS_PORT, value: "9464" }
             - { name: AUTO_MIGRATE, value: "true" }
             - { name: AUTO_SEED, value: "true" }
+            - { name: PAYMENT_PROVIDER, value: "sandbox" }
+            - { name: FISCAL_MODE, value: "sandbox" }
+            # assistente de IA (bloco control-ai-por-app): reusa a chave da plataforma; ausente -> 503 (fail-closed)
+            - name: ANTHROPIC_API_KEY
+              valueFrom: { secretKeyRef: { name: reqhub-api-config, key: ANTHROPIC_API_KEY, optional: true } }
           ports:
             - { name: http, containerPort: 8080 }
             - { name: metrics, containerPort: 9464 }
