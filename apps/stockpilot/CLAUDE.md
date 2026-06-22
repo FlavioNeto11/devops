@@ -42,3 +42,27 @@ raiz, como o app as vê após o StripPrefix do Traefik). Schemas principais: `Pr
 - **Regra de ouro**: NUNCA crie/altere uma rota sem atualizar o `openapi.yaml` no MESMO PR.
 - Teste sem Postgres: `api/test/openapi-contract.test.mjs` (contrato real sincronizado + falha em drift
   nos dois sentidos).
+
+## Notificações multi-canal (REQ-STOCKPILOT-0007)
+
+Notifica operadores por **múltiplos canais** (e-mail, push web, WhatsApp) quando um produto **entra em
+RUPTURA** (`stock.rupture`) ou quando a **submissão do pedido ao fornecedor falha/DLQ**
+(`reorder.failed`), com **degradação graciosa**: canal sem configuração é **PULADO** (`skipped`) sem
+derrubar os outros, e a operação de negócio **nunca** espera/falha pelo envio.
+
+- **Reusa a MESMA fila transacional** (`jobs`, retry/backoff/DLQ) com um novo `job.type` **`notify`**.
+  O domínio EMITE um evento → `notification-service.emitEvent` enfileira (idempotente pela `job_key`
+  `notify:<tipo>:<tenant>:<ref>`); o **worker** consome e faz o **fan-out** pelos canais.
+- **Adapters de canal** (`lib/notify/channels.js`, padrão GymOps `lib/{mailer,push,whatsapp}`): cada um
+  declara `isConfigured()` (env presente) e `deliver()` — entrega **estruturada via webhook**
+  (`NOTIFY_{EMAIL,PUSH,WHATSAPP}_WEBHOOK_URL`), **sem dependências externas pesadas**. Conteúdo por
+  tipo em `lib/notify/templates.js` (nome do produto, estoque, ação recomendada, link "Ver painel").
+- **Status agregado**: `sent` (≥1 canal entregou), `failed` (nenhum entregou e algum falhou → o worker
+  reenfileira/DLQ) ou `skipped` (todos pulados — degradação graciosa, não reprocessa).
+- **Ganchos de evento** (apenas ADIÇÃO, sem reescrever reorder/gateway): `autoReorderScan` emite
+  `ruptura` por produto abaixo do mínimo (fail-soft); o worker emite `falha_pedido` no DLQ do job de
+  reposição.
+- **Persistência**: tabela `notifications` (`tipo`, `referencia_id`, `canais` com desfecho por canal,
+  `status`, `tentativas`), escopada por tenant. Listagem: `GET /v1/notifications`.
+- Testes sem Postgres: `api/test/notifications.test.mjs` (fan-out, degradação de canal sem config,
+  isolamento de canal que falha, emissão nos eventos, processamento do job).

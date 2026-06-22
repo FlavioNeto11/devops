@@ -10,6 +10,8 @@ export const M = {
   gatewayCalls: new client.Counter({ name: 'stockpilot_gateway_calls_total', help: 'chamadas ao gateway', labelNames: ['outcome'], registers: [registry] }),
   queueDepth: new client.Gauge({ name: 'stockpilot_queue_depth', help: 'jobs na fila', labelNames: ['status'], registers: [registry] }),
   httpErrors: new client.Counter({ name: 'stockpilot_http_errors_total', help: 'erros HTTP', registers: [registry] }),
+  // REQ-STOCKPILOT-0007 — entregas de notificação por canal e desfecho (sent/failed/skipped).
+  notifications: new client.Counter({ name: 'stockpilot_notifications_total', help: 'notificações por canal/desfecho', labelNames: ['channel', 'status'], registers: [registry] }),
 };
 export function startMetricsServer(port = Number(process.env.METRICS_PORT) || 9464) {
   const srv = http.createServer(async (req, res) => {
