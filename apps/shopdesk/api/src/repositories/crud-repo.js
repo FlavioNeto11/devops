@@ -3,11 +3,10 @@
 // Cada entidade declara sua tabela + colunas gravaveis; aqui ficam list/get/create/update/remove.
 import { pool } from '../db.js';
 import { colName } from './entities.js';
+import { buildFilters } from './filters.js';
 
-// Colunas de ordenação seguras por tabela são derivadas das colunas gravaveis + id/created_at/updated_at.
-// (allowlist evita SQL injection no ?sort sem precisar de query builder externo.)
-// As rotas/repos aceitam o nome do campo em camelCase (do contrato) E em snake_case (coluna física):
-// internamente tudo vira snake_case via colName().
+export { buildFilters };
+
 export function makeRepo({ table, columns }) {
   // writable: [{ field: 'customerName', col: 'customer_name' }, ...]
   const writable = columns.map((c) => ({ field: c.name, col: colName(c.name) }));
@@ -22,16 +21,21 @@ export function makeRepo({ table, columns }) {
       .map((r) => r.field);
   }
 
-  async function list(tenantId, { page = 1, pageSize = 20, sort = 'id', dir = 'desc' } = {}) {
+  async function list(tenantId, { page = 1, pageSize = 20, sort = 'id', dir = 'desc', q = '', status = '' } = {}) {
     const col = sortable.has(sort) ? sort : 'id';
     const order = String(dir).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
     const ps = Math.min(Math.max(Number(pageSize) || 20, 1), 200);
     const pg = Math.max(Number(page) || 1, 1);
     const offset = (pg - 1) * ps;
-    const totalRes = await pool.query(`SELECT count(*)::int AS n FROM ${table} WHERE tenant_id=$1`, [tenantId]);
+
+    const { clauses, params: fp } = buildFilters(columns, writable, q, status);
+    const where = clauses.join(' AND ');
+    const allFp = [tenantId, ...fp];
+
+    const totalRes = await pool.query(`SELECT count(*)::int AS n FROM ${table} WHERE ${where}`, allFp);
     const rowsRes = await pool.query(
-      `SELECT * FROM ${table} WHERE tenant_id=$1 ORDER BY ${col} ${order} LIMIT $2 OFFSET $3`,
-      [tenantId, ps, offset],
+      `SELECT * FROM ${table} WHERE ${where} ORDER BY ${col} ${order} LIMIT $${allFp.length + 1} OFFSET $${allFp.length + 2}`,
+      [...allFp, ps, offset],
     );
     return { data: rowsRes.rows, total: totalRes.rows[0].n, page: pg, pageSize: ps };
   }
