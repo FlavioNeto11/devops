@@ -1,17 +1,15 @@
 <!--
-  InvoiceListView — Lista de NF-e (situação SEFAZ).
+  InvoiceListView — Lista de NF-e (REF-SHOPDESK-0019 / REQ-SHOPDESK-0004).
   Acompanha emissão: enfileiradas / processando / autorizadas / rejeitadas / DLQ.
   Tudo sobre o kit ui-vue (tokens --ui-*), CSP-safe (sem estilo inline, sem binding de estilo,
-  sem HTML cru), todos os estados (loading / empty / error / normal / degradado), a11y.
+  sem HTML cru), todos os estados (loading / empty / error / normal), a11y.
 
   CONTRATO REAL (apps/shopdesk/api/openapi/openapi.yaml + server.js):
-    POST /v1/invoices        → emite/reemite a NF-e (api.store.emitInvoice).
-  NÃO existe (ainda) GET /v1/invoices (lista) nem GET /v1/invoices/:id no backend —
-  `invoices` não é uma entidade CRUD (ver repositories/entities.js). Por isso esta tela:
-    1) consome o recurso de LISTA de forma DEFENSIVA (igual InvoiceDetailView/InvoiceEmitView):
-       só usa api.invoices.list se ele existir; senão entra num estado DEGRADADO honesto
-       ("recurso de lista ainda não exposto") em vez de quebrar contra o client real;
-    2) NÃO inventa rota — quando a esteira expuser GET /v1/invoices, a tela funciona sem mudar.
+    GET  /v1/invoices        → lista paginada (auditoria de submissões).
+    GET  /v1/invoices/:id    → detalhe de uma submissão.
+    POST /v1/invoices        → emite/reemite a NF-e.
+  Clicar em uma linha navega diretamente para /invoices/:id (REF-SHOPDESK-0019 interaction[2]).
+  O botão "Ver" na coluna de ações abre o modal de pré-visualização rápida.
 -->
 <template>
   <UiPageLayout
@@ -141,7 +139,7 @@
           :total="r.total.value"
           paginated
           :empty="emptyState"
-          @row-click="openDetail"
+          @row-click="openDetailPage"
           @update:sort="r.setSort"
           @update:page="r.setPage"
           @update:page-size="onPageSize"
@@ -335,9 +333,8 @@ const invoicesApi =
   api.invoices && typeof api.invoices.list === 'function' ? api.invoices : null;
 const listAvailable = computed(() => invoicesApi !== null);
 const unavailableReason =
-  'O recurso de consulta de notas (GET /v1/invoices) ainda não está exposto por esta API — ' +
-  'apenas a emissão (POST /v1/invoices) está disponível. Assim que a esteira publicar o endpoint ' +
-  'de listagem, esta tela passa a exibir as notas automaticamente.';
+  'O recurso de consulta de notas (GET /v1/invoices) não está acessível nesta configuração. ' +
+  'Verifique se o servidor da API está rodando e se a migração do banco foi aplicada.';
 
 // useResource só é instanciado quando há recurso real; nunca passamos `undefined`.
 const r = invoicesApi

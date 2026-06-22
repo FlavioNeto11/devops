@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 import { pool, migrate, seed } from './db.js';
 import { M, startMetricsServer } from './metrics.js';
 import * as jobsRepo from './repositories/jobs-repo.js';
+import * as fiscalRepo from './repositories/fiscal-repo.js';
 import { makeRepo } from './repositories/crud-repo.js';
 import { ENTITIES } from './repositories/entities.js';
 import * as checkoutSvc from './services/checkout-service.js';
@@ -35,8 +36,10 @@ app.post('/v1/records/:id/submit', wrap(async (req, res) => { const id = Number(
 // bloco pagamentos-gateway: checkout com cobrança idempotente via @flavioneto11/payments-kit (sandbox por default).
 app.post('/v1/checkout', wrap(async (req, res) => { const b = req.body || {}; if (!b.orderId || !b.amount) return res.status(400).json({ error: { message: 'orderId e amount obrigatórios' } }); const r = await checkoutSvc.checkout({ tenantId: req.tenantId, orderId: String(b.orderId), amount: Number(b.amount), paymentMethodToken: b.paymentMethodToken }); notifySvc.notify('order.paid', { orderId: r.orderId, status: r.status }).catch(() => {}); res.status(201).json(r); }));
 app.get('/v1/checkout/audit', wrap(async (_q, res) => res.json({ data: checkoutSvc.recentAudit() })));
-// bloco nota-fiscal-emissao: emite NF-e (sandbox por default) — na app plena roda no worker pós-pagamento.
-app.post('/v1/invoices', wrap(async (req, res) => { const b = req.body || {}; if (!b.orderId) return res.status(400).json({ error: { message: 'orderId obrigatório' } }); res.status(201).json(fiscalSvc.emitInvoice({ orderId: b.orderId, total: b.total, cnpj: b.cnpj, items: b.items })); }));
+// bloco nota-fiscal-emissao: emite NF-e (sandbox por default) + persiste auditoria (REQ-SHOPDESK-0004 AC6).
+app.get('/v1/invoices', wrap(async (req, res) => { const { page, pageSize, sort, dir, q, status } = req.query; res.json(await fiscalRepo.list(req.tenantId, { page, pageSize, sort, dir, q, status })); }));
+app.get('/v1/invoices/:id', wrap(async (req, res) => { const r = await fiscalRepo.get(req.tenantId, req.params.id); if (!r) return res.status(404).json({ error: { message: 'não encontrado' } }); res.json(r); }));
+app.post('/v1/invoices', wrap(async (req, res) => { const b = req.body || {}; if (!b.orderId) return res.status(400).json({ error: { message: 'orderId obrigatório' } }); const emitted = fiscalSvc.emitInvoice({ orderId: b.orderId, total: b.total, cnpj: b.cnpj, items: b.items }); const saved = await fiscalRepo.create(req.tenantId, emitted).catch(() => null); res.status(201).json(saved || emitted); }));
 // bloco control-ai-por-app: assistente de IA do lojista (fail-closed sem chave).
 app.post('/v1/assistant', wrap(async (req, res) => { const b = req.body || {}; res.json(await assistantSvc.assist(b.message || b.input)); }));
 app.get('/v1/assistant/health', (_q, res) => res.json({ ai: assistantSvc.aiEnabled }));

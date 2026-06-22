@@ -217,6 +217,27 @@ paths:
       responses:
         "200": { description: ok }
   /v1/invoices:
+    get:
+      operationId: listInvoices
+      summary: Listar submissões de NF-e (auditoria, paginada).
+      parameters:
+        - { $ref: "#/components/parameters/TenantId" }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/PageSize" }
+        - { $ref: "#/components/parameters/Sort" }
+        - { $ref: "#/components/parameters/Dir" }
+        - name: q
+          in: query
+          required: false
+          description: Busca por número, pedido ou protocolo.
+          schema: { type: string }
+        - name: status
+          in: query
+          required: false
+          description: Filtrar por situação (enfileirada/processando/autorizada/rejeitada/dlq).
+          schema: { type: string }
+      responses:
+        "200": { description: ok }
     post:
       operationId: emitInvoice
       summary: Emitir NF-e (sandbox por default).
@@ -230,6 +251,16 @@ paths:
       responses:
         "201": { description: created }
         "400": { description: "orderId obrigatório." }
+  /v1/invoices/{id}:
+    get:
+      operationId: getInvoice
+      summary: Obter detalhe de uma submissão de NF-e por identificador.
+      parameters:
+        - { $ref: "#/components/parameters/TenantId" }
+        - { $ref: "#/components/parameters/PathId" }
+      responses:
+        "200": { description: ok }
+        "404": { description: "não encontrado." }
   /v1/assistant:
     post:
       operationId: assistant

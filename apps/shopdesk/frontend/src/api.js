@@ -109,17 +109,15 @@ export const users = {
 // serializa {page,pageSize,sort,dir,q,action,actor,...} na querystring. A chave da rota tem hífen,
 // então a view importa `auditLogs` (camelCase) diretamente — não há lookup por colchete.
 export const auditLogs = resource("audit-logs");
-// recurso de NF-e (fiscal). CONTRATO REAL do backend (apps/shopdesk/api/src/server.js):
-//   POST /v1/invoices  → emite/reemite a nota (fiscal-service.emitInvoice).
-// NÃO existem (ainda) GET /v1/invoices (lista) nem GET /v1/invoices/:id (detalhe): `invoices`
-// não é entidade CRUD (ver repositories/entities.js). Por isso só expomos o que é REAL —
-// `emit`/`reprocess` apontam para POST /v1/invoices. As views de detalhe/lista consomem o
-// recurso de leitura DEFENSIVAMENTE (só se existir): quando a esteira publicar GET /v1/invoices
-// e GET /v1/invoices/:id, basta adicionar `list`/`get` aqui e as telas passam a lê-los sem mudar.
+// recurso de NF-e (fiscal). Contrato real do backend (apps/shopdesk/api/src/server.js):
+//   GET  /v1/invoices         → lista paginada de submissões (auditoria).
+//   GET  /v1/invoices/:id     → detalhe de uma submissão.
+//   POST /v1/invoices         → emite/reemite a nota (fiscal-service.emitInvoice + persiste auditoria).
+// list() devolve o ENVELOPE { data, total, page, pageSize } (server-mode do useResource).
 export const invoices = {
-  // emissão/reemissão (rota REAL e idempotente por pedido no backend).
+  list: (params) => request("GET", "/v1/invoices" + qs(params)),
+  get: (id) => request("GET", "/v1/invoices/" + id),
   emit: (orderId, total) => request("POST", "/v1/invoices", { orderId: orderId, total: Number(total) }),
-  // reprocessar = reenfileirar a emissão do mesmo pedido (mesma rota POST /v1/invoices).
   reprocess: (orderId, total) => request("POST", "/v1/invoices", { orderId: orderId, total: Number(total) }),
 };
 // domínio da loja: pagamento (payments-kit), nota fiscal (fiscal-kit), assistente IA (control-ai-kit).
