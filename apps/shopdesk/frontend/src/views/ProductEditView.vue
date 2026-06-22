@@ -454,6 +454,7 @@ async function onSubmit() {
     const saved = res && res.data ? res.data : (res || payload);
     hydrate({ ...product.value, ...saved });
     toast.success('Produto atualizado com sucesso.');
+    router.push('/products/' + productId.value);
   } catch (e) {
     toast.error('Não foi possível salvar.', { detail: e && e.message ? e.message : '', code: e && e.status ? 'HTTP ' + e.status : '' });
   } finally {
