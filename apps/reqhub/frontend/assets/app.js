@@ -3008,7 +3008,7 @@ const VIEW_META = {
   dev: { title: 'Desenvolvimento', sub: 'Status de entrega por requisito (REQ → PR → deploy)' },
   editor: { title: 'Editor', sub: 'Autoria assistida por IA → PR no git' },
   forge: { title: 'Forge', sub: 'Construir um produto completo a partir de requisitos' },
-  aiusage: { title: 'Uso da IA', sub: 'Custo, tokens e limites — Claude (Anthropic) e OpenAI' },
+  aiusage: { title: 'Uso da IA', sub: 'Custo/tokens/limites — Claude (Anthropic) e OpenAI + assinatura Claude Code (5h/semana)' },
 };
 
 const RENDER = { overview: renderOverview, explorer: renderExplorer, workspace: renderWorkspace, versions: renderVersions, impact: renderImpact, coverage: renderCoverage, usability: renderUsability, reprocess: renderReprocess, dev: renderDev, editor: renderEditor, forge: renderForge, aiusage: renderAiUsage };
@@ -3657,6 +3657,34 @@ function aiModelTable(p) {
   tbl.append(tb); wrap.append(tbl); return wrap;
 }
 
+// ── Assinatura Claude Code (Opus/Sonnet) — janelas 5h/semana (sem API pública; agregado local) ──
+function aiSubscriptionSection(sub) {
+  const wrap = h('div', { class: 'aiu-tbl-wrap' });
+  wrap.append(h('h3', { class: 'aiu-tbl-h' }, secIc('◔'), 'Assinatura Claude Code (Opus/Sonnet) — janelas 5h / semana'));
+  if (!sub || sub.source !== 'live') {
+    wrap.append(h('p', { class: 'muted', text: (sub && sub.note) || 'Sem dados da assinatura — rode scripts/sync-reqhub-claude-usage.ps1 (agrega os transcripts locais e envia para cá).' }));
+    return wrap;
+  }
+  const wins = sub.windows || ['5h', '24h', '7d'];
+  const winLbl = { '5h': 'Janela 5h', '24h': '24h', '7d': '7 dias' };
+  const tbl = h('table', { class: 'aiu-tbl' });
+  const head = h('tr', {}, h('th', { text: 'Modelo' }));
+  for (const w of wins) head.append(h('th', { class: 'num', text: winLbl[w] || w }));
+  tbl.append(h('thead', {}, head));
+  const tb = h('tbody');
+  for (const model of Object.keys(sub.byModel || {}).sort()) {
+    const tr = h('tr', {}, h('td', {}, h('code', { text: model })));
+    for (const w of wins) { const d = (sub.byModel[model] || {})[w] || {}; tr.append(h('td', { class: 'num', text: fmtTokens(d.billable || 0) + ' tok' })); }
+    tb.append(tr);
+  }
+  const tot = h('tr', {}, h('td', {}, h('b', { text: 'TOTAL (billable)' })));
+  for (const w of wins) { const t = (sub.totals || {})[w] || {}; tot.append(h('td', { class: 'num' }, h('b', { text: fmtTokens(t.billable || 0) + ' tok' }))); }
+  tb.append(tot);
+  tbl.append(tb); wrap.append(tbl);
+  wrap.append(h('p', { class: 'muted', text: 'Consumo REAL agregado dos transcripts locais do Claude Code (a assinatura, janelas 5h/semana, não tem API pública de limites). billable = input+output+cache-write (cache-read descontado). Atualizado: ' + (sub.ingestedAt || '—') }));
+  return wrap;
+}
+
 // ── Visão por PRODUTO → MODELO → CUSTO (o que o operador quer ver claro) ──
 // Agrega providers[].modules[].models[] num mapa produto -> modelos (cross-provider).
 function aiUnifiedProductRows(bd) {
@@ -3813,7 +3841,8 @@ async function renderAiUsage() {
   body.replaceChildren(aiUsageToolbar(), aiUsageSkeleton());
   const win = state.aiUsage.window;
   let res; let alertsRes;
-  try { [res, alertsRes] = await Promise.all([AI.get('/v1/ai-usage/breakdown?window=' + win), AI.get('/v1/ai-usage/alerts?window=' + win)]); } catch { res = { ok: false }; }
+  let subRes;
+  try { [res, alertsRes, subRes] = await Promise.all([AI.get('/v1/ai-usage/breakdown?window=' + win), AI.get('/v1/ai-usage/alerts?window=' + win), AI.get('/v1/ai-usage/subscription')]); } catch { res = { ok: false }; }
   body.removeAttribute('aria-busy');
   if (!res || !res.ok) {
     body.replaceChildren(aiUsageToolbar(), emptyState({ title: 'Uso da IA indisponível', text: 'Não foi possível agregar o consumo (status ' + ((res && res.status) || 'rede') + ').', ctaLabel: 'Tentar de novo', ctaOnClick: renderAiUsage }));
@@ -3824,6 +3853,7 @@ async function renderAiUsage() {
   const frag = document.createDocumentFragment();
   frag.append(aiUsageToolbar());
   frag.append(aiSourcesBanner(bd.sourcesHealth));
+  frag.append(aiSubscriptionSection(subRes && subRes.ok ? subRes.data : null));
   frag.append(aiUnifiedSection(bd));
   for (const p of (bd.providers || [])) frag.append(providerSection(p));
   body.replaceChildren(frag);

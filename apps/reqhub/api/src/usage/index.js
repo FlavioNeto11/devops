@@ -11,6 +11,7 @@ import { createOpenAiAdminClient } from './providers/openai-admin.js';
 import { createAnthropicAdminClient } from './providers/anthropic-admin.js';
 import { windowToRange, buildInternalByProvider, assembleBreakdown, summaryFromBreakdown, PROVIDERS } from './model.js';
 import { computeBudget, deriveAlerts } from './budgets.js';
+import { ingestSubscription, getSubscription } from './subscription.js';
 
 // Middleware: exige admin-SSO (platform-admins) OU Bearer token. Espelha requireAuthoringAuth,
 // mas é leitura pura (não depende de OPENAI_API_KEY/getLlm).
@@ -201,6 +202,14 @@ export function buildUsageRouter({ config, cache, context, liveHub } = {}) {
     } catch (err) {
       res.json({ alerts: [] });
     }
+  });
+
+  // Uso da ASSINATURA Claude Code (Opus/Sonnet) por janela 5h/24h/7d — agregado dos transcripts
+  // locais (não há API pública). GET serve ao painel; POST (sync host) ingere o agregado.
+  router.get('/subscription', (_req, res) => res.json(getSubscription()));
+  router.post('/subscription', (req, res) => {
+    try { res.json(ingestSubscription(req.body)); }
+    catch (e) { res.status(400).json({ error: { code: 'BAD_PAYLOAD', message: e.message } }); }
   });
 
   // SSE — taxas ao vivo (custo/min, tokens/min, requests/min, headroom de rate-limit, budget).
