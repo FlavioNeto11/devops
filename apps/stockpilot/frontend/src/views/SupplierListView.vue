@@ -17,6 +17,10 @@
         <template #icon-left><span class="sup-ic" aria-hidden="true">↗</span></template>
         Pedidos de reposição
       </UiButton>
+      <UiButton to="/suppliers/new">
+        <template #icon-left><span class="sup-ic" aria-hidden="true">+</span></template>
+        Novo fornecedor
+      </UiButton>
     </template>
 
     <!-- KPIs derivados da carteira de fornecedores -->
@@ -127,7 +131,7 @@
         @update:sort="onSort"
         @update:page="onPage"
         @update:page-size="onPageSize"
-        @row-click="openAudit"
+        @row-click="openDetail"
       >
         <!-- Nome + URL do gateway -->
         <template #cell-name="{ row }">
@@ -197,7 +201,7 @@
                 <button class="sup-menu-item" role="menuitem" type="button" @click="openAudit(row)">
                   <span class="sup-menu-ic" aria-hidden="true">▤</span> Ver auditoria
                 </button>
-                <button class="sup-menu-item" role="menuitem" type="button" @click="openDetail(row)">
+                <button class="sup-menu-item" role="menuitem" type="button" @click="openQuickDetail(row)">
                   <span class="sup-menu-ic" aria-hidden="true">→</span> Ver detalhe
                 </button>
                 <button class="sup-menu-item" role="menuitem" type="button" @click="openEdit(row)">
@@ -291,7 +295,7 @@
         >
           {{ selected && selected.active ? 'Pausar' : 'Reativar' }}
         </UiButton>
-        <UiButton v-if="selected" @click="openAudit(selected)">Ver auditoria</UiButton>
+        <UiButton v-if="selected" @click="openDetail(selected)">Ver detalhe</UiButton>
       </template>
     </UiModal>
   </UiPageLayout>
@@ -580,21 +584,25 @@ function onEsc(e) {
 }
 
 // ---- navegação / auditoria -------------------------------------------------
-// A trilha de auditoria do gateway vive em GET /v1/audit (AuditListView), NÃO em /orders
-// (que lista só pedidos ABERTOS e não filtra por fornecedor). O modelo de dados da auditoria
-// (gateway_audit) é escopado por tenant e vinculado a produto/pedido — NÃO há coluna supplier_id —,
-// então não forjamos um filtro "por fornecedor" que o backend não honra: roteamos para a
-// superfície REAL de auditoria do tenant (só rotas reais — sem placeholders do scaffold).
+// Row-click navega para /suppliers/:id (detalhe completo do fornecedor).
+function openDetail(row) {
+  if (!row) return;
+  closeMenu();
+  detailOpen.value = false;
+  router.push('/suppliers/' + row.id);
+}
+// Abre o painel rápido de detalhe (modal inline) via item de menu.
+function openQuickDetail(row) {
+  closeMenu();
+  selected.value = row;
+  detailOpen.value = true;
+}
+// A trilha de auditoria do gateway vive em GET /v1/audit (AuditListView).
 function openAudit(row) {
   if (!row) return;
   closeMenu();
   detailOpen.value = false;
   router.push('/audit');
-}
-function openDetail(row) {
-  closeMenu();
-  selected.value = row;
-  detailOpen.value = true;
 }
 // Editar o fornecedor (URL/auth/timeout/retry/notes) → SupplierEditView (PUT /v1/suppliers/:id).
 function openEdit(row) {
