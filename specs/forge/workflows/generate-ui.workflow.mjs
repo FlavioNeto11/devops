@@ -110,6 +110,7 @@ const VERIFY_SCHEMA = {
     backendTests: { enum: ['pass', 'fail', 'skip'] },
     tokensDrift: { enum: ['pass', 'fail', 'skip'] },
     openapiDrift: { enum: ['pass', 'fail', 'skip'] },
+    recordsClean: { type: 'boolean', description: 'true = nenhuma ocorrência de /records em frontend/src' },
     repairs: { type: 'number' },
     summary: { type: 'string' },
     routesWired: { type: 'array', items: { type: 'string' } },
@@ -190,7 +191,8 @@ const results = await pipeline(
     'CONTRATO DE UI (siga à risca — kit, tokens --ui-*, CSP, estados, a11y):',
     CONTRACT,
     '',
-    'REGRAS DURAS: use SÓ componentes do kit (import de "../ui/index.js"); SÓ tokens --ui-* em CSS; PROIBIDO style= inline / :style / v-html; renderize TODOS os estados (loading/empty/error/normal); chame só endpoints reais via "../api.js" (resourceFactory("' + (s.entity || 'records') + '") já deve existir ou será criado pelo integrador — use api.' + (s.entity || 'records') + '). Ações destrutivas via useConfirm. Toast em sucesso/erro. Responsivo + a11y.',
+    'REGRAS DURAS: use SÓ componentes do kit (import de "../ui/index.js"); SÓ tokens --ui-* em CSS; PROIBIDO style= inline / :style / v-html; renderize TODOS os estados (loading/empty/error/normal); chame só endpoints reais via "../api.js"' + (s.entity ? (' (use api.' + s.entity + ', criado/garantido pelo integrador)') : ' (use os recursos de DOMÍNIO do api.js, ex.: api.products/api.orders)') + '. Ações destrutivas via useConfirm. Toast em sucesso/erro. Responsivo + a11y.',
+    'PROIBIDO linkar/rotear para /records (é um recurso PLACEHOLDER do scaffold, não do domínio). TODO link (back/cancelar/ver/empty-action/quick-card) e TODA rota apontam para uma rota de DOMÍNIO do inventário (ex.: /products, /orders, /inventory) — NUNCA /records. Dashboard: cards/links vão para as listas de domínio.',
     'Leia 1-2 componentes em ' + APPDIR + '/frontend/src/ui/components/ se tiver dúvida de props. Veja o exemplar no contrato.',
     'Devolva o BuildResult.',
   ].join('\n'), { schema: BUILD_SCHEMA, label: 'build:' + s.slug, phase: 'Telas' }),
@@ -199,7 +201,7 @@ const results = await pipeline(
     ? built
     : agent([
         'Crítico de design ADVERSARIAL. Avalie a tela ' + APPDIR + '/frontend/src/views/' + pascal(s.slug) + 'View.vue contra a régua SICAT/GymOps. Leia o arquivo.',
-        'Checklist (cada item é blocker se falhar): (1) usa SÓ o kit + tokens --ui-* (zero CSS ad-hoc/hex, zero style= inline/:style/v-html); (2) renderiza loading/empty/error/normal de verdade; (3) validação em todo input (create/edit) via useForm; (4) a11y (labels, foco, aria); (5) responsivo; (6) NÃO é feio/pobre (hierarquia, espaçamento, densidade, ações claras); (7) bate com o propósito da tela: ' + (s.purpose || s.title) + '; (8) chama só endpoints plausíveis (api.' + (s.entity || 'records') + ' / api.js).',
+        'Checklist (cada item é blocker se falhar): (1) usa SÓ o kit + tokens --ui-* (zero CSS ad-hoc/hex, zero style= inline/:style/v-html); (2) renderiza loading/empty/error/normal de verdade; (3) validação em todo input (create/edit) via useForm; (4) a11y (labels, foco, aria); (5) responsivo; (6) NÃO é feio/pobre (hierarquia, espaçamento, densidade, ações claras); (7) bate com o propósito da tela: ' + (s.purpose || s.title) + '; (8) chama só endpoints plausíveis de DOMÍNIO (api.js); (9) NENHUM link/rota para /records (placeholder do scaffold) — só rotas de domínio.',
         'Pontue 0..1. pass=true só se score>=0.8 e zero blocker. Liste findings com fix concreto.',
         'Devolva o Critique.',
       ].join('\n'), { schema: CRITIQUE_SCHEMA, label: 'critica:' + s.slug, phase: 'Telas' }).then((c) => ({ built, critique: c })),
@@ -227,11 +229,14 @@ const verify = await agent([
   'Você INTEGRA e VERIFICA o frontend de ' + APP + '. Edite os arquivos COMPARTILHADOS do frontend para amarrar todas as telas construídas, depois valide.',
   '1) ' + APPDIR + '/frontend/src/router.js: importe TODAS as views construídas e registre as rotas (mantendo o catch-all 404 por último). Telas: ' + JSON.stringify(builtOk.map((r) => ({ comp: r.built.component || (pascal(r.built.screen) + 'View'), file: r.built.file, route: r.built.route }))),
   '2) ' + APPDIR + '/frontend/src/nav.js: monte a sidebar a partir dos grupos: ' + JSON.stringify(navGroups) + ' (use os títulos/rotas das telas; ícones unicode simples).',
-  '3) ' + APPDIR + '/frontend/src/api.js: garanta um export resourceFactory para cada entidade usada: ' + JSON.stringify(entities.map((e) => e.name)) + ' (ex.: export const products = resourceFactory("products");). Mantenha health() e records.',
-  '4) Rode na pasta do frontend: npm install (se preciso) && npm run build (vite). CORRIJA erros de compilação (imports, nomes) até passar — até 2 rodadas. NÃO desabilite regras nem use style inline.',
-  '5) Rode na raiz C:\\\\devops: node packages/ui-vue/build.mjs --check ; node packages/design-tokens/build.mjs --check. Se acusar drift do app, rode sem --check e confira.',
-  '6) Se houver ' + APPDIR + '/api/openapi/validate.mjs, rode "npm run validate:openapi" em apps/' + APP + '/api e corrija drift.',
-  'NÃO toque em ' + APPDIR + '/tests/locked/**. Devolva o VerifyReport (viteBuild pass/fail é o gate principal).',
+  '3) ' + APPDIR + '/frontend/src/api.js: garanta um export resourceFactory para cada entidade usada: ' + JSON.stringify(entities.map((e) => e.name)) + ' (ex.: export const products = resourceFactory("products");). Mantenha health().',
+  '4) REMOVA o demo genérico "records" (placeholder do scaffold): em api.js apague o export `records`; em router.js apague as rotas /records*; em nav.js qualquer item de records; apague/desreferencie ResourceListView/ResourceFormView/ResourceDetailView (use git rm/Write conforme o caso) — o router referencia SÓ as views de domínio + dashboard + 404. NENHUM arquivo em frontend/src pode conter "/records".',
+  '5) BACKEND — rota de identidade: garanta GET /me em ' + APPDIR + '/api/src/server.js devolvendo a identidade da borda SSO: { email: req.header("X-Auth-Request-Email")||null, name: req.header("X-Auth-Request-Preferred-Username")||req.header("X-Auth-Request-User")||null, role: req.header("X-Auth-Request-Groups")||null }. Sem header (dev) -> {email:null} (NÃO 500). A casca chama @@BASE@@/api/me — assim mostra o usuário logado, não "Entrar". (Se o app tiver openapi, documente /me e rode validate:openapi.)',
+  '6) Rode na pasta do frontend: npm install (se preciso) && npm run build (vite). CORRIJA erros de compilação (imports, nomes) até passar — até 2 rodadas. NÃO desabilite regras nem use style inline.',
+  '7) Rode na raiz C:\\\\devops: node packages/ui-vue/build.mjs --check ; node packages/design-tokens/build.mjs --check. Se acusar drift do app, rode sem --check e confira.',
+  '8) Se houver ' + APPDIR + '/api/openapi/validate.mjs, rode "npm run validate:openapi" em apps/' + APP + '/api e corrija drift.',
+  '9) GUARDA OBRIGATÓRIA (a Forja se autocorrige): rode `grep -rn "/records" ' + APPDIR + '/frontend/src` — se houver QUALQUER ocorrência (link, rota, import, comentário de código vivo), CORRIJA até ZERO e rode de novo. Só conclua com 0 ocorrências. Reporte recordsClean=true.',
+  'NÃO toque em ' + APPDIR + '/tests/locked/**. Devolva o VerifyReport (viteBuild pass/fail é o gate principal; recordsClean DEVE ser true).',
 ].join('\n'), { schema: VERIFY_SCHEMA, label: 'integrar-verificar', phase: 'Integração' });
 
 const report = {

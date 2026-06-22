@@ -51,7 +51,7 @@ add('api/package.json', JSON.stringify({
 // bloco contract-openapi: contrato canônico + validador anti-drift (zero-dep, determinístico).
 if (F.contract) {
   add('api/openapi/validate.mjs', fs.readFileSync(path.join(__dirname, 'templates', 'contract', 'validate.mjs'), 'utf8'));
-  const routes = [['get', '/', 'root'], ['get', '/health', 'health']]
+  const routes = [['get', '/', 'root'], ['get', '/health', 'health'], ['get', '/me', 'me']]
     .concat(F.worker ? [['get', '/v1/health/jobs', 'healthJobs']] : [])
     .concat([['get', '/v1/records', 'listRecords'], ['get', '/v1/records/{id}', 'getRecord'], ['post', '/v1/records', 'createRecord']])
     .concat(F.worker ? [['post', '/v1/records/{id}/submit', 'submitRecord']] : []);
@@ -226,6 +226,8 @@ add('api/src/server.js', [
   'const wrap = (fn) => (req, res) => Promise.resolve(fn(req, res)).catch((e) => { M.httpErrors.inc(); res.status(e.status || 500).json({ error: { message: e.message || \'erro\' } }); });',
   "app.get('/', (_q, res) => res.json({ app: '@@APP@@', service: 'api', ok: true }));",
   "app.get('/health', wrap(async (_q, res) => { await pool.query('SELECT 1'); res.json({ status: 'ok', db: 'connected' }); }));",
+  "// identidade da borda SSO (oauth2-proxy injeta X-Auth-Request-*): a casca usa /me p/ mostrar o usuário.",
+  "app.get('/me', (req, res) => res.json({ email: req.header('X-Auth-Request-Email') || null, name: req.header('X-Auth-Request-Preferred-Username') || req.header('X-Auth-Request-User') || null, role: req.header('X-Auth-Request-Groups') || null }));",
   (F.worker ? "app.get('/v1/health/jobs', wrap(async (_q, res) => res.json({ status: 'ok', jobs: await jobsRepo.counts() })));" : ''),
   "app.get('/v1/records', wrap(async (req, res) => res.json({ data: (await pool.query('SELECT * FROM records WHERE tenant_id=$1 ORDER BY id DESC LIMIT 200', [req.tenantId])).rows })));",
   "app.get('/v1/records/:id', wrap(async (req, res) => { const r = (await pool.query('SELECT * FROM records WHERE tenant_id=$1 AND id=$2', [req.tenantId, Number(req.params.id)])).rows[0]; if (!r) return res.status(404).json({ error: { message: 'não encontrado' } }); res.json(r); }));",
