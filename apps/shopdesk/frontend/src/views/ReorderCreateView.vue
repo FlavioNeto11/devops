@@ -277,6 +277,7 @@
             type="submit"
             size="lg"
             :loading="form.submitting.value"
+            :disabled="!canSave || form.submitting.value"
           >
             {{ form.submitting.value ? 'Criando ordem…' : 'Criar ordem de reposição' }}
           </UiButton>
@@ -401,6 +402,7 @@
 
 <script setup>
 import { ref, reactive, computed } from 'vue';
+import { useRouter } from 'vue-router';
 import {
   UiPageLayout,
   UiCard,
@@ -421,6 +423,7 @@ import {
 } from '../ui/index.js';
 import * as api from '../api.js';
 
+const router = useRouter();
 const toast = useToast();
 const confirm = useConfirm();
 
@@ -667,6 +670,12 @@ function stepQuantity(delta) {
   form.setField('quantity', String(next));
 }
 
+const canSave = computed(() =>
+  !!(form.values.sku || '').trim() &&
+  numericQuantity.value >= 1 &&
+  !!(form.values.status || '').trim(),
+);
+
 const isDirty = computed(() =>
   Object.keys(INITIAL).some((k) => String(form.values[k] ?? '') !== String(INITIAL[k] ?? '')),
 );
@@ -692,9 +701,14 @@ async function submit() {
         status: values.status,
       };
       const res = await createReorder(payload);
-      created.value = normalizeReorder(res || payload);
-      createdOpen.value = true;
+      const saved = normalizeReorder(res || payload);
+      created.value = saved;
       toast.success('Ordem de reposição criada para ' + payload.sku + '.');
+      if (saved.id) {
+        router.push('/reorders/' + saved.id);
+      } else {
+        createdOpen.value = true;
+      }
     } catch (e) {
       toast.error('Não foi possível criar a ordem: ' + (e.message || 'erro desconhecido'));
     }
