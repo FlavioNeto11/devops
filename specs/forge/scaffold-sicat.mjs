@@ -30,7 +30,7 @@ if ((product.stack || 'sicat') !== 'sicat') { console.error(`scaffold-sicat só 
 const byId = loadCatalog();
 const blocks = resolveBlocks(product.capability_blocks || [], 'sicat', byId);
 const has = (id) => blocks.includes(id);
-const F = { worker: has('worker-queue-transacional'), gateway: has('gateway-externo'), idem: has('idempotencia') };
+const F = { worker: has('worker-queue-transacional'), gateway: has('gateway-externo'), idem: has('idempotencia'), contract: has('contract-openapi') };
 
 const APP = product.name;
 const TITLE = product.display_name || APP;
@@ -44,9 +44,31 @@ const add = (rel, content) => { files[rel] = content; };
 add('api/package.json', JSON.stringify({
   name: '@@APP@@-api', version: '1.0.0', private: true, type: 'module',
   description: '@@TITLE@@ — gerado pela Forge (SICAT-style robusto).',
-  scripts: { start: 'node src/server.js', worker: 'node src/worker.js', test: 'node --test test' },
+  scripts: Object.assign({ start: 'node src/server.js', worker: 'node src/worker.js', test: 'node --test test' }, F.contract ? { 'validate:openapi': 'node openapi/validate.mjs' } : {}),
   dependencies: Object.assign({ express: '^4.19.2', pg: '^8.11.5', 'prom-client': '^15.1.2' }),
 }, null, 2) + '\n');
+
+// bloco contract-openapi: contrato canônico + validador anti-drift (zero-dep, determinístico).
+if (F.contract) {
+  add('api/openapi/validate.mjs', fs.readFileSync(path.join(__dirname, 'templates', 'contract', 'validate.mjs'), 'utf8'));
+  const routes = [['get', '/', 'root'], ['get', '/health', 'health']]
+    .concat(F.worker ? [['get', '/v1/health/jobs', 'healthJobs']] : [])
+    .concat([['get', '/v1/records', 'listRecords'], ['get', '/v1/records/{id}', 'getRecord'], ['post', '/v1/records', 'createRecord']])
+    .concat(F.worker ? [['post', '/v1/records/{id}/submit', 'submitRecord']] : []);
+  // agrupa métodos por path (um bloco por path; GET+POST no MESMO /v1/records) — senão o YAML perde uma rota.
+  const byPath = {};
+  for (const [method, p, opId] of routes) { (byPath[p] = byPath[p] || []).push([method, opId]); }
+  const oapi = ['openapi: 3.1.0', 'info: { title: "@@TITLE@@ API", version: "1.0.0" }', 'paths:'];
+  for (const [p, methods] of Object.entries(byPath)) {
+    oapi.push('  ' + p + ':');
+    for (const [method, opId] of methods) {
+      oapi.push('    ' + method + ':');
+      oapi.push('      operationId: ' + opId);
+      oapi.push('      responses: { "200": { description: ok } }');
+    }
+  }
+  add('api/openapi/openapi.yaml', oapi.join('\n') + '\n');
+}
 
 add('api/Dockerfile', [
   '# @@TITLE@@ API' + (F.worker ? ' + worker (mesma imagem)' : '') + ' — gerado pela Forge.',
