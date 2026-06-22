@@ -28,3 +28,17 @@ Quando um produto cai **abaixo do estoque mínimo** (sem pedido aberto), o siste
   (`reorder:<tenant>:<produto>:<pedido>`) — reenfileirar é no-op (`ON CONFLICT DO NOTHING`).
 - Tudo escopado por `tenant_id` (REQ-STOCKPILOT-0002): nunca cruza tenant.
 - Testes sem Postgres: `api/test/reorder.test.mjs` (decisão + chave + dedup + processamento do job).
+
+## Contrato contract-first (REQ-STOCKPILOT-0006)
+
+A superfície HTTP é definida num **OpenAPI 3.1 canônico** em `api/openapi/openapi.yaml` (paths na
+raiz, como o app as vê após o StripPrefix do Traefik). Schemas principais: `Product` (status derivado
+`OK`/`ALERTA`/`RUPTURA`), `Order`, `Alert`, `AuditEntry`, `Error`.
+
+- **Validação sem dependências novas**: `npm run validate:openapi` (`api/openapi/validate.mjs`) faz
+  parse do YAML (parser de subconjunto próprio, zero deps) e checa **drift bidirecional** — toda rota
+  `app.get/post(...)` do `server.js` precisa estar documentada e vice-versa. Reprova (exit 1) em
+  qualquer divergência.
+- **Regra de ouro**: NUNCA crie/altere uma rota sem atualizar o `openapi.yaml` no MESMO PR.
+- Teste sem Postgres: `api/test/openapi-contract.test.mjs` (contrato real sincronizado + falha em drift
+  nos dois sentidos).
