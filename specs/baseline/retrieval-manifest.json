@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "ae017f52cb124304084f547cebc320660b202ae3dea102df4096ebe5b9a1f9ca",
+  "baseline_hash": "ab23d4cdd1f33bf1a2abfe1a15af12902c99a18f0fd02012f86494d9b6219b39",
   "items": [
     {
       "id": "REQ-AI-0001",
@@ -2069,6 +2069,17 @@
       "asr": false,
       "impact_band": "low",
       "file": "requirements/oidc/REQ-OIDC-NFR-006.yaml"
+    },
+    {
+      "id": "REQ-OPSBOARD-0001",
+      "title": "Endpoint de estatísticas de registros (GET /v1/records/stats)",
+      "type": "functional",
+      "status": "approved",
+      "product": "opsboard",
+      "capability": null,
+      "asr": false,
+      "impact_band": "low",
+      "file": "requirements/opsboard/REQ-OPSBOARD-0001.yaml"
     },
     {
       "id": "REQ-PCONTRACT-0001",
