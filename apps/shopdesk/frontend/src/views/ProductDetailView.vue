@@ -15,7 +15,7 @@
         <template #icon-left><span class="pd-ico" aria-hidden="true">←</span></template>
         Voltar
       </UiButton>
-      <UiButton variant="ghost" @click="openEdit">Editar</UiButton>
+      <UiButton variant="ghost" :to="editRoute">Editar</UiButton>
       <UiButton
         v-if="!isArchived"
         variant="danger"
@@ -220,76 +220,6 @@
       </aside>
     </div>
 
-    <!-- ===== Modal: editar produto ===== -->
-    <UiModal v-model:open="editOpen" title="Editar produto" width="lg">
-      <form class="pd-form" @submit.prevent="submitEdit">
-        <div class="pd-form-grid">
-          <UiFormField label="SKU" required :error="form.errors.sku">
-            <template #default="{ id, describedBy }">
-              <input :id="id" :aria-describedby="describedBy" :value="form.values.sku"
-                     @input="form.setField('sku', $event.target.value)" />
-            </template>
-          </UiFormField>
-          <UiFormField label="Nome" required :error="form.errors.name">
-            <template #default="{ id, describedBy }">
-              <input :id="id" :aria-describedby="describedBy" :value="form.values.name"
-                     @input="form.setField('name', $event.target.value)" />
-            </template>
-          </UiFormField>
-          <UiFormField label="Categoria">
-            <template #default="{ id }">
-              <input :id="id" :value="form.values.category"
-                     @input="form.setField('category', $event.target.value)" />
-            </template>
-          </UiFormField>
-          <UiFormField label="Situação">
-            <template #default="{ id }">
-              <select :id="id" :value="form.values.status" @change="form.setField('status', $event.target.value)">
-                <option v-for="opt in statusOptions" :key="opt" :value="opt">{{ humanize(opt) }}</option>
-              </select>
-            </template>
-          </UiFormField>
-          <UiFormField label="Preço (R$)" required :error="form.errors.price">
-            <template #default="{ id, describedBy }">
-              <input :id="id" :aria-describedby="describedBy" type="number" step="0.01" min="0"
-                     :value="form.values.price" @input="form.setField('price', $event.target.value)" />
-            </template>
-          </UiFormField>
-          <UiFormField label="Custo (R$)" :error="form.errors.cost">
-            <template #default="{ id, describedBy }">
-              <input :id="id" :aria-describedby="describedBy" type="number" step="0.01" min="0"
-                     :value="form.values.cost" @input="form.setField('cost', $event.target.value)" />
-            </template>
-          </UiFormField>
-          <UiFormField label="Estoque" required :error="form.errors.stockQty">
-            <template #default="{ id, describedBy }">
-              <input :id="id" :aria-describedby="describedBy" type="number" step="1" min="0"
-                     :value="form.values.stockQty" @input="form.setField('stockQty', $event.target.value)" />
-            </template>
-          </UiFormField>
-          <UiFormField label="Ativo">
-            <template #default="{ id }">
-              <label class="pd-check">
-                <input :id="id" type="checkbox" :checked="form.values.active"
-                       @change="form.setField('active', $event.target.checked)" />
-                <span>Produto disponível para venda</span>
-              </label>
-            </template>
-          </UiFormField>
-          <UiFormField label="Descrição" full-width>
-            <template #default="{ id }">
-              <textarea :id="id" :value="form.values.description"
-                        @input="form.setField('description', $event.target.value)"></textarea>
-            </template>
-          </UiFormField>
-        </div>
-      </form>
-      <template #footer>
-        <UiButton variant="ghost" @click="editOpen = false">Cancelar</UiButton>
-        <UiButton variant="primary" :loading="form.submitting.value" @click="submitEdit">Salvar alterações</UiButton>
-      </template>
-    </UiModal>
-
     <!-- ===== Modal: repor estoque ===== -->
     <UiModal v-model:open="reorderOpen" title="Repor estoque" width="sm">
       <form class="pd-reorder" @submit.prevent="submitReorder">
@@ -329,9 +259,6 @@ const route = useRoute();
 const toast = useToast();
 const confirm = useConfirm();
 
-const STATUS_OPTIONS = ['rascunho', 'publicado', 'arquivado'];
-const statusOptions = STATUS_OPTIONS;
-
 // ---- formatadores (kit) ----------------------------------------------------
 const fmtCurrency = (v) => format.formatCurrency(v);
 const fmtNumber = (v) => format.formatNumber(v);
@@ -342,6 +269,7 @@ const valueOrNum = (v) => (v === null || v === undefined || v === '' ? '—' : f
 
 // ---- estado: produto -------------------------------------------------------
 const productId = computed(() => route.params.id);
+const editRoute = computed(() => '/products/' + productId.value + '/edit');
 const product = reactive({});
 const loading = ref(true);
 const error = ref('');
@@ -566,59 +494,7 @@ async function restore() {
   }
 }
 
-// ---- edição ----------------------------------------------------------------
-const editOpen = ref(false);
-const form = useForm({
-  initial: { sku: '', name: '', category: '', status: 'rascunho', price: '', cost: '', stockQty: '', active: true, description: '' },
-  rules: {
-    sku: [validators.required('Informe o SKU.')],
-    name: [validators.required('Informe o nome.')],
-    price: [validators.required('Informe o preço.'), validators.numeric('Preço inválido.'), validators.min(0, 'Preço não pode ser negativo.')],
-    cost: [validators.numeric('Custo inválido.'), validators.min(0, 'Custo não pode ser negativo.')],
-    stockQty: [validators.required('Informe o estoque.'), validators.numeric('Estoque inválido.'), validators.min(0, 'Estoque não pode ser negativo.')],
-  },
-});
-
-function openEdit() {
-  form.reset();
-  form.setField('sku', product.sku || '');
-  form.setField('name', product.name || '');
-  form.setField('category', product.category || '');
-  form.setField('status', product.status || 'rascunho');
-  form.setField('price', product.price != null ? product.price : '');
-  form.setField('cost', product.cost != null ? product.cost : '');
-  form.setField('stockQty', (product.stock_qty != null ? product.stock_qty : product.stockQty) ?? '');
-  form.setField('active', isActive.value);
-  form.setField('description', product.description || '');
-  editOpen.value = true;
-}
-
-async function submitEdit() {
-  await form.handleSubmit(async (vals) => {
-    try {
-      const payload = {
-        sku: vals.sku,
-        name: vals.name,
-        category: vals.category || null,
-        status: vals.status,
-        price: Number(vals.price),
-        cost: vals.cost === '' || vals.cost === null ? null : Number(vals.cost),
-        stockQty: Number(vals.stockQty),
-        active: !!vals.active,
-        description: vals.description || null,
-      };
-      const updated = await products.update(productId.value, payload);
-      setProduct(updated);
-      editOpen.value = false;
-      toast.success('Produto atualizado.');
-      await loadInventory();
-    } catch (e) {
-      toast.error('Não foi possível salvar.', { detail: e && e.message });
-    }
-  });
-}
-
-// ---- reposição de estoque (mesmo contrato useForm do modal de edição) ------
+// ---- reposição de estoque --------------------------------------------------
 const reorderOpen = ref(false);
 const reorderForm = useForm({
   initial: { qty: '' },
