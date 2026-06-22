@@ -225,7 +225,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import {
   UiPageLayout,
   UiDataTable,
@@ -245,6 +245,7 @@ import * as api from '../api.js';
 const tickets = api.tickets || api.resourceFactory('tickets');
 
 const router = useRouter();
+const route = useRoute();
 const toast = useToast();
 const confirm = useConfirm();
 const formatDateTime = format.formatDateTime;
@@ -583,7 +584,20 @@ function labelForKey(key) {
   return c ? c.label.toLowerCase() : key;
 }
 
-onMounted(r.load);
+onMounted(() => {
+  // Lê filtros iniciais da query string — permite navegação do dashboard com filtro pré-aplicado.
+  const q = route.query;
+  if (q.status || q.priority) {
+    if (q.status) filters.value.status = String(q.status);
+    if (q.priority) filters.value.priority = String(q.priority);
+    applyFilters();
+  } else if (q.sort) {
+    r.sort.value = { key: String(q.sort), dir: String(q.dir || 'desc') };
+    r.load();
+  } else {
+    r.load();
+  }
+});
 </script>
 
 <style scoped>

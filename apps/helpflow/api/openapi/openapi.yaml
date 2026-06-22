@@ -188,3 +188,7 @@ paths:
     delete:
       operationId: deleteTicket
       responses: { "204": { description: deleted } }
+  /v1/dashboard/summary:
+    get:
+      operationId: dashboardSummary
+      responses: { "200": { description: "KPIs agregados do service desk (open, in_sla, sla_violated, resolved)" } }

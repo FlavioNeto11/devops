@@ -24,6 +24,22 @@ app.get('/v1/records', wrap(async (req, res) => res.json({ data: (await pool.que
 app.get('/v1/records/:id', wrap(async (req, res) => { const r = (await pool.query('SELECT * FROM records WHERE tenant_id=$1 AND id=$2', [req.tenantId, Number(req.params.id)])).rows[0]; if (!r) return res.status(404).json({ error: { message: 'não encontrado' } }); res.json(r); }));
 app.post('/v1/records', wrap(async (req, res) => { if (!req.body || !req.body.title) { return res.status(400).json({ error: { message: 'title obrigatório' } }); } const r = (await pool.query('INSERT INTO records(tenant_id,title) VALUES ($1,$2) RETURNING *', [req.tenantId, req.body.title])).rows[0]; M.recordsTotal.inc({ outcome: 'created' }); res.status(201).json(r); }));
 app.post('/v1/records/:id/submit', wrap(async (req, res) => { const id = Number(req.params.id); const r = (await pool.query('SELECT id FROM records WHERE id=$1', [id])).rows[0]; if (!r) return res.status(404).json({ error: { message: 'não encontrado' } }); await pool.query(`UPDATE records SET status='submitting', updated_at=now() WHERE id=$1`, [id]); const jid = await jobsRepo.enqueue('record.submit', { recordId: id }, 'submit:' + id); res.status(202).json({ id, status: 'submitting', enqueued: jid != null }); }));
+// ---- Painel do Service Desk (REF-HELPFLOW-0001) ----
+// KPIs agregados server-side: open, in_sla, sla_violated, resolved.
+// Mais eficiente que carregar 200 tickets no cliente para computar os mesmos números.
+app.get('/v1/dashboard/summary', wrap(async (req, res) => {
+  const { rows } = await pool.query(
+    `SELECT
+      COUNT(*) FILTER (WHERE status NOT IN ('resolved','closed'))::int AS open,
+      COUNT(*) FILTER (WHERE status NOT IN ('resolved','closed') AND (sla_due_at IS NULL OR sla_due_at > now()))::int AS in_sla,
+      COUNT(*) FILTER (WHERE status NOT IN ('resolved','closed') AND sla_due_at IS NOT NULL AND sla_due_at <= now())::int AS sla_violated,
+      COUNT(*) FILTER (WHERE status IN ('resolved','closed'))::int AS resolved
+    FROM tickets WHERE tenant_id = $1`,
+    [req.tenantId]
+  );
+  const r = rows[0];
+  res.json({ open: Number(r.open || 0), in_sla: Number(r.in_sla || 0), sla_violated: Number(r.sla_violated || 0), resolved: Number(r.resolved || 0) });
+}));
 // ---- CRUD de domínio (rotas finas → repositories/domain-repos.js) ----
 // Handlers genéricos: validam o mínimo (required) e delegam ao repo. As rotas
 // abaixo são registradas com paths literais (um por entidade) para que o
@@ -73,7 +89,27 @@ app.post('/v1/agents', crudCreate('agents'));
 app.put('/v1/agents/:id', crudUpdate('agents'));
 app.delete('/v1/agents/:id', crudDelete('agents'));
 
-app.get('/v1/teams', crudList('teams'));
+// GET /v1/teams — suporta ?withQueue=true: inclui contagens de chamados abertos e SLA violado por time.
+app.get('/v1/teams', wrap(async (req, res) => {
+  if (req.query.withQueue !== 'true') {
+    const { repo } = repos.teams;
+    const { page, pageSize, sort, dir, q } = req.query;
+    const r = await repo.list(req.tenantId, { page, pageSize, sort, dir, q });
+    return res.json({ data: r.data, total: r.total, page: r.page, pageSize: r.pageSize });
+  }
+  const { rows } = await pool.query(
+    `SELECT t.*,
+      COALESCE(COUNT(tk.id) FILTER (WHERE tk.status NOT IN ('resolved','closed')), 0)::int AS open_tickets,
+      COALESCE(COUNT(tk.id) FILTER (WHERE tk.status NOT IN ('resolved','closed') AND tk.sla_due_at IS NOT NULL AND tk.sla_due_at <= now()), 0)::int AS sla_violated
+     FROM teams t
+     LEFT JOIN tickets tk ON tk.team_id = t.id AND tk.tenant_id = t.tenant_id
+     WHERE t.tenant_id = $1
+     GROUP BY t.id
+     ORDER BY open_tickets DESC, t.name`,
+    [req.tenantId]
+  );
+  res.json({ data: rows, total: rows.length });
+}));
 app.get('/v1/teams/:id', crudGet('teams'));
 app.post('/v1/teams', crudCreate('teams'));
 app.put('/v1/teams/:id', crudUpdate('teams'));
@@ -184,7 +220,20 @@ function sanitizeTicketBody(body) {
   return clean;
 }
 
-app.get('/v1/tickets', crudList('tickets'));
+// GET /v1/tickets — suporta ?recent=true: retorna os últimos 10 chamados movimentados (updated_at DESC).
+app.get('/v1/tickets', wrap(async (req, res) => {
+  if (req.query.recent !== 'true') {
+    const { repo } = repos.tickets;
+    const { page, pageSize, sort, dir, q } = req.query;
+    const r = await repo.list(req.tenantId, { page, pageSize, sort, dir, q });
+    return res.json({ data: r.data, total: r.total, page: r.page, pageSize: r.pageSize });
+  }
+  const { rows } = await pool.query(
+    `SELECT * FROM tickets WHERE tenant_id = $1 ORDER BY updated_at DESC LIMIT 10`,
+    [req.tenantId]
+  );
+  res.json({ data: rows, total: rows.length });
+}));
 app.get('/v1/tickets/:id', crudGet('tickets'));
 app.post('/v1/tickets', wrap(async (req, res) => {
   const { repo, required } = repos.tickets;

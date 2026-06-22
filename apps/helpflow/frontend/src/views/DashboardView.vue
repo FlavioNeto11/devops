@@ -25,39 +25,39 @@
       </div>
     </template>
 
-    <!-- KPIs principais — chamados primeiro, depois saúde da plataforma -->
+    <!-- KPIs principais — 4 cards do summary server-side + DLQ + gateways -->
     <section class="hf-kpis" aria-label="Indicadores do service desk">
       <UiMetricCard
         label="Chamados abertos"
-        :value="ticketsError ? '—' : openTickets"
-        :tone="openTickets > 0 ? 'primary' : 'success'"
+        :value="summaryError ? (ticketsError ? '—' : openTickets) : summary.open"
+        :tone="(summaryError ? openTickets : summary.open) > 0 ? 'primary' : 'success'"
         hint="aguardando ou em andamento"
         clickable
         @click="goTo('/tickets')"
       />
       <UiMetricCard
-        label="Em andamento"
-        :value="ticketsError ? '—' : statusCounts.in_progress"
-        tone="running"
-        hint="sendo tratados agora"
+        label="Em SLA"
+        :value="summaryError ? '—' : summary.in_sla"
+        tone="success"
+        hint="dentro do prazo de atendimento"
         clickable
         @click="goTo('/tickets')"
       />
       <UiMetricCard
-        label="Urgentes"
-        :value="ticketsError ? '—' : priorityCounts.urgent"
-        :tone="priorityCounts.urgent > 0 ? 'error' : 'success'"
-        hint="prioridade máxima na fila"
+        label="SLA violado"
+        :value="summaryError ? (ticketsError ? '—' : slaBreaching) : summary.sla_violated"
+        :tone="(summaryError ? slaBreaching : summary.sla_violated) > 0 ? 'error' : 'success'"
+        hint="prazo de atendimento vencido"
         clickable
-        @click="goTo('/tickets')"
+        @click="goToSlaSort()"
       />
       <UiMetricCard
-        label="SLA estourando"
-        :value="ticketsError ? '—' : slaBreaching"
-        :tone="slaBreaching > 0 ? 'warning' : 'success'"
-        hint="vencidos ou a vencer em 2h"
+        label="Resolvidos"
+        :value="summaryError ? '—' : summary.resolved"
+        :tone="summaryError ? 'neutral' : 'muted'"
+        hint="encerrados ou resolvidos"
         clickable
-        @click="goTo('/tickets')"
+        @click="goToFiltered({ status: 'resolved' })"
       />
       <UiMetricCard
         label="Falhas (DLQ)"
@@ -76,6 +76,47 @@
         @click="goTo('/integrations')"
       />
     </section>
+
+    <!-- Saúde das filas por time (REF-HELPFLOW-0001: queue_health de /teams?withQueue=true) -->
+    <UiCard title="Saúde das filas" subtitle="Chamados abertos e SLA violado por time de atendimento.">
+      <template #actions>
+        <UiButton size="sm" variant="ghost" to="/teams">Ver times</UiButton>
+      </template>
+      <div v-if="teamsWithQueueError" class="hf-inline-error" role="alert">
+        <p class="hf-inline-error-text">Não foi possível carregar a saúde das filas.</p>
+        <UiButton size="sm" variant="ghost" @click="load">Tentar de novo</UiButton>
+      </div>
+      <UiEmptyState
+        v-else-if="!teamsWithQueue.length && !loading"
+        compact
+        icon="team"
+        title="Nenhum time cadastrado"
+        description="Configure times de atendimento para ver a saúde das filas aqui."
+      >
+        <template #action><UiButton size="sm" to="/teams/new">Criar time</UiButton></template>
+      </UiEmptyState>
+      <UiDataTable
+        v-else
+        :columns="queueHealthColumns"
+        :rows="teamsWithQueue"
+        :loading="loading"
+        row-key="id"
+        density="compact"
+        clickable-rows
+        :empty="{ title: 'Nenhuma fila', icon: 'team' }"
+        @row-click="(row) => router.push('/teams/' + row.id)"
+      >
+        <template #cell-open_tickets="{ value }">
+          <UiStatusBadge :tone="Number(value) > 0 ? 'running' : 'success'" :label="String(value)" />
+        </template>
+        <template #cell-sla_violated="{ value }">
+          <UiStatusBadge :tone="Number(value) > 0 ? 'error' : 'success'" :label="String(value)" />
+        </template>
+        <template #cell-status="{ value }">
+          <UiStatusBadge :status="value" />
+        </template>
+      </UiDataTable>
+    </UiCard>
 
     <!-- Tendência da semana (série temporal real) -->
     <UiCard
@@ -352,6 +393,49 @@
       </UiCard>
     </section>
 
+    <!-- Chamados recentes (REF-HELPFLOW-0001: recent_tickets de /tickets?recent=true) -->
+    <UiCard title="Chamados recentes" subtitle="Últimas movimentações na fila de atendimento.">
+      <template #actions>
+        <UiButton size="sm" variant="ghost" to="/tickets">Ver todos</UiButton>
+      </template>
+      <UiEmptyState
+        v-if="!recentTickets.length && !loading"
+        compact
+        icon="inbox"
+        title="Nenhum chamado ainda"
+        description="Quando o primeiro chamado for aberto, ele aparece aqui. Bom trabalho!"
+      >
+        <template #action><UiButton size="sm" to="/tickets/new">Abrir chamado</UiButton></template>
+      </UiEmptyState>
+      <UiDataTable
+        v-else
+        :columns="recentTicketColumns"
+        :rows="recentTickets"
+        :loading="loading"
+        row-key="id"
+        density="compact"
+        clickable-rows
+        :empty="{ title: 'Nenhum chamado recente', icon: 'inbox' }"
+        @row-click="openTicket"
+      >
+        <template #cell-subject="{ row }">
+          <span class="hf-tk-subject">
+            <span class="hf-tk-subject-main">{{ row.subject || 'Sem assunto' }}</span>
+            <span class="hf-tk-ref">#{{ row.id }}</span>
+          </span>
+        </template>
+        <template #cell-status="{ value }">
+          <UiStatusBadge :status="value" :label="statusLabel(value)" />
+        </template>
+        <template #cell-priority="{ value }">
+          <UiStatusBadge :status="value" :tone="priorityTone(value)" :label="priorityLabel(value)" with-dot />
+        </template>
+        <template #cell-updated_at="{ value }">
+          <span class="hf-dim">{{ format.formatDateTime(value) }}</span>
+        </template>
+      </UiDataTable>
+    </UiCard>
+
     <!-- Atalhos rápidos -->
     <UiCard title="Atalhos" subtitle="Acesso rápido às áreas de atendimento.">
       <nav class="hf-quick" aria-label="Atalhos do service desk">
@@ -392,7 +476,7 @@ import {
   format,
   resolveGlyph,
 } from '../ui/index.js';
-import { resourceFactory } from '../api.js';
+import { resourceFactory, dashboardSummary as fetchDashboardSummary } from '../api.js';
 import { me, loadMe } from '../session.js';
 
 const router = useRouter();
@@ -405,6 +489,7 @@ const glyph = (name) => resolveGlyph(name);
 const ticketsApi = resourceFactory('tickets');
 const slaApi = resourceFactory('sla-policies');
 const integrationsApi = resourceFactory('integrations');
+const teamsApi = resourceFactory('teams');
 // /v1/health/jobs devolve { status, jobs:{queued,running,done,dlq} }.
 const jobsHealthApi = resourceFactory('health/jobs');
 
@@ -413,6 +498,8 @@ const refreshing = ref(false);
 const errorMsg = ref(null);
 const ticketsError = ref(false);
 const jobsError = ref(false);
+const summaryError = ref(false);
+const teamsWithQueueError = ref(false);
 const updatedAt = ref(null);
 
 const tickets = ref([]);
@@ -420,6 +507,9 @@ const slaPolicies = ref([]);
 const integrations = ref([]);
 const jobs = ref({ queued: 0, running: 0, done: 0, dlq: 0 });
 const jobsHealthStatus = ref('');
+const summary = ref({ open: 0, in_sla: 0, sla_violated: 0, resolved: 0 });
+const teamsWithQueue = ref([]);
+const recentTickets = ref([]);
 
 // Identidade da borda (GET /me, fail-soft): saudação personalizada + escopo "atribuídos a mim".
 // `me` pode ser nulo (sem SSO/dev local) — a tela degrada para a fila completa.
@@ -447,6 +537,8 @@ async function load() {
   errorMsg.value = null;
   ticketsError.value = false;
   jobsError.value = false;
+  summaryError.value = false;
+  teamsWithQueueError.value = false;
   try {
     // SLAs e gateways são essenciais ao painel → erro real propaga.
     const [sla, integ] = await Promise.all([
@@ -456,31 +548,40 @@ async function load() {
     slaPolicies.value = sla.data || [];
     integrations.value = integ.data || [];
 
-    // Chamados — degrada graciosamente: o resto do painel ainda funciona.
-    try {
-      const tk = await ticketsApi.list({ pageSize: 200, sort: 'sla_due_at', dir: 'asc' });
-      tickets.value = tk.data || [];
-    } catch {
-      ticketsError.value = true;
-      tickets.value = [];
-    }
+    // Cargas que degradam graciosamente (cada uma tem seu próprio error state).
+    await Promise.all([
+      // Chamados (para trend/breakdown/fila): degrada graciosamente.
+      ticketsApi.list({ pageSize: 200, sort: 'sla_due_at', dir: 'asc' })
+        .then((tk) => { tickets.value = tk.data || []; })
+        .catch(() => { ticketsError.value = true; tickets.value = []; }),
 
-    // Saúde da fila do worker — degrada graciosamente se indisponível.
-    try {
-      const h = await jobsHealthApi.list();
-      const payload = h && h.data && h.data.jobs ? h.data : h;
-      const j = (payload && payload.jobs) || {};
-      jobs.value = {
-        queued: j.queued || 0,
-        running: j.running || 0,
-        done: j.done || 0,
-        dlq: j.dlq || 0,
-      };
-      jobsHealthStatus.value = (payload && payload.status) || 'ok';
-    } catch {
-      jobsError.value = true;
-      jobsHealthStatus.value = 'error';
-    }
+      // Saúde da fila do worker.
+      jobsHealthApi.list()
+        .then((h) => {
+          const payload = h && h.data && h.data.jobs ? h.data : h;
+          const j = (payload && payload.jobs) || {};
+          jobs.value = { queued: j.queued || 0, running: j.running || 0, done: j.done || 0, dlq: j.dlq || 0 };
+          jobsHealthStatus.value = (payload && payload.status) || 'ok';
+        })
+        .catch(() => { jobsError.value = true; jobsHealthStatus.value = 'error'; }),
+
+      // KPIs agregados server-side (REF-HELPFLOW-0001): mais precisos que contagem client-side.
+      fetchDashboardSummary()
+        .then((s) => {
+          summary.value = { open: Number(s.open || 0), in_sla: Number(s.in_sla || 0), sla_violated: Number(s.sla_violated || 0), resolved: Number(s.resolved || 0) };
+        })
+        .catch(() => { summaryError.value = true; }),
+
+      // Saúde das filas por time (withQueue=true → contagens SQL server-side).
+      teamsApi.list({ withQueue: true, pageSize: 50 })
+        .then((r) => { teamsWithQueue.value = r.data || []; })
+        .catch(() => { teamsWithQueueError.value = true; }),
+
+      // Chamados recentes: últimos 10 movimentados (updated_at DESC).
+      ticketsApi.list({ recent: true, pageSize: 10 })
+        .then((r) => { recentTickets.value = r.data || []; })
+        .catch(() => { recentTickets.value = []; }),
+    ]);
 
     updatedAt.value = new Date();
     if (!first) toast.success('Painel atualizado');
@@ -806,8 +907,24 @@ const quickActions = [
 ];
 
 const goTo = (to) => router.push(to);
+const goToFiltered = (query) => router.push({ path: '/tickets', query });
+const goToSlaSort = () => router.push({ path: '/tickets', query: { sort: 'sla_due_at', dir: 'asc' } });
 const openTicket = (row) => router.push('/tickets/' + row.id);
 const openIntegration = (row) => router.push('/integrations/' + row.id);
+
+// ---- Colunas das seções novas (REF-HELPFLOW-0001) ----
+const queueHealthColumns = [
+  { key: 'name', label: 'Time' },
+  { key: 'status', label: 'Status' },
+  { key: 'open_tickets', label: 'Em aberto' },
+  { key: 'sla_violated', label: 'SLA violado' },
+];
+const recentTicketColumns = [
+  { key: 'subject', label: 'Chamado' },
+  { key: 'status', label: 'Status' },
+  { key: 'priority', label: 'Prioridade' },
+  { key: 'updated_at', label: 'Atualizado' },
+];
 
 onMounted(async () => {
   // Identidade primeiro (fail-soft): define a saudação e o escopo padrão da "minha fila".

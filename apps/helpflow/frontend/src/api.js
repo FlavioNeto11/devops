@@ -96,3 +96,7 @@ export const jobs = {
 // como alias para compatibilidade com chamadas já existentes (ex.: TicketDetailView).
 export const jobsHealth = () => request('GET', '/v1/health/jobs');
 export const healthJobs = jobsHealth;
+
+// KPIs agregados do painel (REF-HELPFLOW-0001): server-side → sem carregar lista completa de tickets.
+// GET /v1/dashboard/summary → { open, in_sla, sla_violated, resolved }
+export const dashboardSummary = () => request('GET', '/v1/dashboard/summary');
