@@ -5,6 +5,7 @@ import { M, startMetricsServer } from './metrics.js';
 import * as jobsRepo from './repositories/jobs-repo.js';
 import * as productsRepo from './repositories/products-repo.js';
 import * as ordersRepo from './repositories/orders-repo.js';
+import * as gatewayAuditRepo from './repositories/gateway-audit-repo.js';
 import { requestReorder } from './services/reorder-service.js';
 import { requireAuth } from './lib/auth-context.js';
 const app = express(); app.use(express.json());
@@ -45,6 +46,10 @@ app.get('/v1/orders', requireAuth, wrap(async (req, res) => res.json({ data: awa
 
 // Alertas: RUPTURA e falhas de envio ao fornecedor
 app.get('/v1/alerts', requireAuth, wrap(async (req, res) => res.json({ data: await productsRepo.listAlerts(req.tenant) })));
+
+// Trilha de auditoria das trocas com o fornecedor externo (REQ-STOCKPILOT-0004), escopada por tenant.
+// Segredos já vêm redigidos da gravação (gateway-audit-repo) — nunca vaza token/api key.
+app.get('/v1/audit', requireAuth, wrap(async (req, res) => res.json({ data: await gatewayAuditRepo.listByTenant(req.tenant) })));
 async function depth() { try { const c = await jobsRepo.counts(); for (const s of ['queued','running','done','dlq']) M.queueDepth.set({ status: s }, c[s] || 0); } catch {} }
 const PORT = Number(process.env.PORT) || 8080;
 (async () => {
