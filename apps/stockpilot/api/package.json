@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node src/server.js",
     "worker": "node src/worker.js",
+    "validate:openapi": "node openapi/validate.mjs",
     "test": "node --test \"test/**/*.test.mjs\""
   },
   "dependencies": {

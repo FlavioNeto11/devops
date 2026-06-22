@@ -1,0 +1,697 @@
+openapi: 3.1.0
+info:
+  title: StockPilot — API de Reposição de Estoque
+  version: 1.0.0
+  summary: Contrato canônico (contract-first) da superfície HTTP do StockPilot.
+  description: >-
+    OpenAPI canônico do StockPilot. Descreve as rotas REAIS servidas pela API
+    (api/src/server.js), que após o StripPrefix do Traefik aparecem na raiz.
+    Toda mudança de rota DEVE atualizar este arquivo no mesmo PR — o validador
+    api/openapi/validate.mjs reprova drift entre este contrato e o server.js.
+servers:
+  - url: http://localhost:8080
+    description: Servidor da API (rotas na raiz, como o app as vê após o StripPrefix)
+  - url: http://nvit.localhost/stockpilot/api
+    description: Superfície pública (Traefik remove o prefixo /stockpilot/api antes de chegar no app)
+tags:
+  - name: Health
+    description: Readiness e profundidade da fila (observabilidade interna do pod).
+  - name: Records
+    description: Registros genéricos com submissão assíncrona (esteira base da Forge).
+  - name: Products
+    description: Produtos de estoque com status derivado (OK/ALERTA/RUPTURA) e criação de pedidos.
+  - name: Orders
+    description: Pedidos de reposição abertos (pending/processing).
+  - name: Alerts
+    description: Produtos em RUPTURA ou com falha de envio ao fornecedor.
+  - name: Audit
+    description: Trilha sanitizada das trocas com o fornecedor externo (segredos redigidos).
+paths:
+  /:
+    get:
+      operationId: getRoot
+      tags:
+        - Health
+      summary: Identidade do serviço
+      description: Ping leve que identifica o app/serviço. Não toca o banco.
+      responses:
+        '200':
+          description: Serviço no ar
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  app:
+                    type: string
+                  service:
+                    type: string
+                  ok:
+                    type: boolean
+              example:
+                app: stockpilot
+                service: api
+                ok: true
+  /health:
+    get:
+      operationId: getHealth
+      tags:
+        - Health
+      summary: Readiness do pod
+      description: Verifica conectividade com o Postgres (SELECT 1). Rota interna, fora da borda SSO.
+      responses:
+        '200':
+          description: Banco conectado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+              example:
+                status: ok
+                db: connected
+        '500':
+          description: Falha ao consultar o banco
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  message: erro
+  /v1/health/jobs:
+    get:
+      operationId: getHealthJobs
+      tags:
+        - Health
+      summary: Profundidade da fila por status
+      description: Contagem de jobs agrupada por status (queued/running/done/dlq).
+      responses:
+        '200':
+          description: Contagens da fila
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  jobs:
+                    type: object
+                    additionalProperties:
+                      type: integer
+              example:
+                status: ok
+                jobs:
+                  queued: 2
+                  running: 0
+                  done: 17
+                  dlq: 0
+  /v1/records:
+    get:
+      operationId: listRecords
+      tags:
+        - Records
+      summary: Lista registros do tenant
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200':
+          description: Lista de registros (máx. 200)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Record'
+              example:
+                data:
+                  - id: 1
+                    tenant_id: 1
+                    title: Registro de exemplo
+                    status: open
+    post:
+      operationId: createRecord
+      tags:
+        - Records
+      summary: Cria um registro
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+              properties:
+                title:
+                  type: string
+            example:
+              title: Novo registro
+      responses:
+        '201':
+          description: Registro criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Record'
+              example:
+                id: 2
+                tenant_id: 1
+                title: Novo registro
+                status: open
+        '400':
+          description: title obrigatório
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  message: title obrigatório
+  /v1/records/{id}:
+    get:
+      operationId: getRecord
+      tags:
+        - Records
+      summary: Busca um registro por id
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200':
+          description: Registro encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Record'
+        '404':
+          description: Não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  message: não encontrado
+  /v1/records/{id}/submit:
+    post:
+      operationId: submitRecord
+      tags:
+        - Records
+      summary: Submete um registro (enfileira job assíncrono)
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '202':
+          description: Submissão enfileirada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  status:
+                    type: string
+                    example: submitting
+                  enqueued:
+                    type: boolean
+              example:
+                id: 1
+                status: submitting
+                enqueued: true
+        '404':
+          description: Não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  message: não encontrado
+  /v1/products:
+    get:
+      operationId: listProducts
+      tags:
+        - Products
+      summary: Lista produtos com status derivado
+      description: >-
+        Produtos do tenant com status calculado: RUPTURA (abaixo do mínimo e sem
+        pedido aberto), ALERTA (perto do mínimo com pedido aberto) ou OK.
+        Protegida por sessão (requireAuth → 401 sem sessão).
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200':
+          description: Lista de produtos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+              example:
+                data:
+                  - id: 1
+                    name: Álcool 70%
+                    current_stock: 5
+                    min_stock: 50
+                    has_open_order: false
+                    last_order_date: null
+                    status: RUPTURA
+                  - id: 3
+                    name: Máscaras N95
+                    current_stock: 200
+                    min_stock: 50
+                    has_open_order: false
+                    last_order_date: null
+                    status: OK
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /v1/products/{id}/order:
+    post:
+      operationId: createProductOrder
+      tags:
+        - Products
+        - Orders
+      summary: Cria um pedido manual para um produto
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '201':
+          description: Pedido criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+              example:
+                id: 10
+                product_id: 1
+                tenant_id: default
+                status: pending
+                external_ref: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Produto não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  message: produto não encontrado
+  /v1/products/{id}/reorder:
+    post:
+      operationId: reorderProduct
+      tags:
+        - Products
+        - Orders
+      summary: Reposição assíncrona idempotente
+      description: >-
+        Cria um pedido pending e enfileira um job idempotente. Repetir com um
+        pedido aberto devolve o MESMO recurso (200, deduped) sem criar outro;
+        a primeira reposição cria (201).
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '201':
+          description: Reposição criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReorderResult'
+              example:
+                order:
+                  id: 11
+                  product_id: 1
+                  tenant_id: default
+                  status: pending
+                deduped: false
+                enqueued: true
+        '200':
+          description: Reposição já existente (idempotente)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReorderResult'
+              example:
+                order:
+                  id: 11
+                  product_id: 1
+                  tenant_id: default
+                  status: pending
+                deduped: true
+                enqueued: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Produto não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  message: produto não encontrado
+  /v1/orders:
+    get:
+      operationId: listOpenOrders
+      tags:
+        - Orders
+      summary: Lista pedidos abertos (pending/processing)
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200':
+          description: Pedidos abertos do tenant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+              example:
+                data:
+                  - id: 11
+                    product_id: 1
+                    product_name: Álcool 70%
+                    tenant_id: default
+                    status: pending
+                    external_ref: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /v1/alerts:
+    get:
+      operationId: listAlerts
+      tags:
+        - Alerts
+      summary: Lista alertas (RUPTURA e falhas de envio)
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200':
+          description: Alertas do tenant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Alert'
+              example:
+                data:
+                  - id: 1
+                    name: Álcool 70%
+                    current_stock: 5
+                    min_stock: 50
+                    has_open_order: false
+                    alert_type: RUPTURA
+                    status: RUPTURA
+                    last_error: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /v1/audit:
+    get:
+      operationId: listAudit
+      tags:
+        - Audit
+      summary: Trilha de auditoria das trocas com o fornecedor
+      description: >-
+        Cada troca (tentativa) gera um registro com payloads sanitizados e erro
+        redigido — segredos NUNCA são vazados. Escopado por tenant.
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200':
+          description: Registros de auditoria do tenant (máx. 200)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditEntry'
+              example:
+                data:
+                  - id: 42
+                    tenant_id: default
+                    operation: submeter_pedido
+                    product_id: 1
+                    order_id: 11
+                    outcome: success
+                    status_code: 200
+                    attempt: 1
+                    error_redacted: null
+                    duration_ms: 134
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+components:
+  parameters:
+    PathId:
+      name: id
+      in: path
+      required: true
+      description: Identificador do recurso
+      schema:
+        type: integer
+        minimum: 1
+    TenantHeader:
+      name: X-Tenant-Id
+      in: header
+      required: false
+      description: >-
+        Tenant explícito para uso local/testes (AUTH_REQUIRED=false). Em produção
+        o tenant é derivado dos headers de borda X-Auth-Request-* e este header é ignorado.
+      schema:
+        type: string
+  responses:
+    Unauthorized:
+      description: Sem sessão de borda (deny-by-default)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              message: não autenticado
+  schemas:
+    Error:
+      type: object
+      description: Envelope de erro padrão da API.
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - message
+          properties:
+            message:
+              type: string
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        db:
+          type: string
+          example: connected
+    Record:
+      type: object
+      description: Registro genérico (esteira base).
+      properties:
+        id:
+          type: integer
+        tenant_id:
+          type: integer
+        title:
+          type: string
+        status:
+          type: string
+        external_ref:
+          type:
+            - string
+            - 'null'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Product:
+      type: object
+      description: Produto de estoque com status derivado.
+      required:
+        - id
+        - name
+        - current_stock
+        - min_stock
+        - status
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        current_stock:
+          type: integer
+        min_stock:
+          type: integer
+        has_open_order:
+          type: boolean
+        last_order_date:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        status:
+          type: string
+          description: RUPTURA (abaixo do mínimo, sem pedido), ALERTA (perto do mínimo, com pedido) ou OK.
+          enum:
+            - OK
+            - ALERTA
+            - RUPTURA
+    Order:
+      type: object
+      description: Pedido de reposição de um produto.
+      required:
+        - id
+        - product_id
+        - status
+      properties:
+        id:
+          type: integer
+        product_id:
+          type: integer
+        product_name:
+          type: string
+        tenant_id:
+          type: string
+        status:
+          type: string
+          enum:
+            - pending
+            - processing
+            - delivered
+            - failed
+        external_ref:
+          type:
+            - string
+            - 'null'
+        last_error:
+          type:
+            - string
+            - 'null'
+        created_at:
+          type: string
+          format: date-time
+    ReorderResult:
+      type: object
+      description: Resultado de uma reposição (cria ou devolve o pedido aberto existente).
+      properties:
+        order:
+          $ref: '#/components/schemas/Order'
+        deduped:
+          type: boolean
+          description: true quando devolveu um pedido aberto já existente (idempotência).
+        enqueued:
+          type: boolean
+    Alert:
+      type: object
+      description: Produto em RUPTURA ou com falha de envio ao fornecedor.
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        current_stock:
+          type: integer
+        min_stock:
+          type: integer
+        has_open_order:
+          type: boolean
+        alert_type:
+          type: string
+          enum:
+            - RUPTURA
+            - ERROR
+        status:
+          type: string
+          enum:
+            - OK
+            - ALERTA
+            - RUPTURA
+        last_error:
+          type:
+            - string
+            - 'null'
+        last_attempt_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+    AuditEntry:
+      type: object
+      description: Registro sanitizado de uma troca com o fornecedor externo.
+      required:
+        - id
+        - outcome
+      properties:
+        id:
+          type: integer
+        tenant_id:
+          type: string
+        operation:
+          type: string
+        product_id:
+          type:
+            - integer
+            - 'null'
+        order_id:
+          type:
+            - integer
+            - 'null'
+        outcome:
+          type: string
+          enum:
+            - success
+            - failure
+        status_code:
+          type:
+            - integer
+            - 'null'
+        attempt:
+          type:
+            - integer
+            - 'null'
+        error_redacted:
+          type:
+            - string
+            - 'null'
+        duration_ms:
+          type:
+            - integer
+            - 'null'
+        created_at:
+          type: string
+          format: date-time
