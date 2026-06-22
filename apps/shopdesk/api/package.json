@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node src/server.js",
     "worker": "node src/worker.js",
-    "test": "node --test test"
+    "test": "node --test test",
+    "validate:openapi": "node openapi/validate.mjs"
   },
   "dependencies": {
     "express": "^4.19.2",

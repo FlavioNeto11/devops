@@ -14,3 +14,10 @@ export const records = {
   create: (rec) => request("POST", "/v1/records", rec),
   submit: (id) => request("POST", "/v1/records/" + id + "/submit", {}),
 };
+// domínio da loja: pagamento (payments-kit), nota fiscal (fiscal-kit), assistente IA (control-ai-kit).
+export const store = {
+  checkout: (orderId, amount) => request("POST", "/v1/checkout", { orderId: orderId, amount: Number(amount), paymentMethodToken: "tok_ok" }),
+  emitInvoice: (orderId, total) => request("POST", "/v1/invoices", { orderId: orderId, total: Number(total) }),
+  assistant: (message) => request("POST", "/v1/assistant", { message: message }),
+  notifications: () => request("GET", "/v1/notifications").then((d) => d.data || []),
+};

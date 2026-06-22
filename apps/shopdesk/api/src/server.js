@@ -6,8 +6,10 @@ import * as jobsRepo from './repositories/jobs-repo.js';
 import * as checkoutSvc from './services/checkout-service.js';
 import * as fiscalSvc from './services/fiscal-service.js';
 import * as assistantSvc from './services/assistant-service.js';
+import * as notifySvc from './services/notification-service.js';
+import { authContext } from './lib/auth-context.js';
 const app = express(); app.use(express.json());
-app.use((req, _res, next) => { req.tenantId = Number(req.header('X-Tenant-Id')) || 1; next(); });
+app.use((req, _res, next) => { req.tenantId = Number(req.header('X-Tenant-Id')) || 1; req.auth = authContext(req); next(); });
 const wrap = (fn) => (req, res) => Promise.resolve(fn(req, res)).catch((e) => { M.httpErrors.inc(); res.status(e.status || 500).json({ error: { message: e.message || 'erro' } }); });
 app.get('/', (_q, res) => res.json({ app: 'shopdesk', service: 'api', ok: true }));
 app.get('/health', wrap(async (_q, res) => { await pool.query('SELECT 1'); res.json({ status: 'ok', db: 'connected' }); }));
@@ -17,13 +19,15 @@ app.get('/v1/records/:id', wrap(async (req, res) => { const r = (await pool.quer
 app.post('/v1/records', wrap(async (req, res) => { if (!req.body || !req.body.title) { return res.status(400).json({ error: { message: 'title obrigatório' } }); } const r = (await pool.query('INSERT INTO records(tenant_id,title) VALUES ($1,$2) RETURNING *', [req.tenantId, req.body.title])).rows[0]; M.recordsTotal.inc({ outcome: 'created' }); res.status(201).json(r); }));
 app.post('/v1/records/:id/submit', wrap(async (req, res) => { const id = Number(req.params.id); const r = (await pool.query('SELECT id FROM records WHERE id=$1', [id])).rows[0]; if (!r) return res.status(404).json({ error: { message: 'não encontrado' } }); await pool.query(`UPDATE records SET status='submitting', updated_at=now() WHERE id=$1`, [id]); const jid = await jobsRepo.enqueue('record.submit', { recordId: id }, 'submit:' + id); res.status(202).json({ id, status: 'submitting', enqueued: jid != null }); }));
 // bloco pagamentos-gateway: checkout com cobrança idempotente via @flavioneto11/payments-kit (sandbox por default).
-app.post('/v1/checkout', wrap(async (req, res) => { const b = req.body || {}; if (!b.orderId || !b.amount) return res.status(400).json({ error: { message: 'orderId e amount obrigatórios' } }); res.status(201).json(await checkoutSvc.checkout({ tenantId: req.tenantId, orderId: String(b.orderId), amount: Number(b.amount), paymentMethodToken: b.paymentMethodToken })); }));
+app.post('/v1/checkout', wrap(async (req, res) => { const b = req.body || {}; if (!b.orderId || !b.amount) return res.status(400).json({ error: { message: 'orderId e amount obrigatórios' } }); const r = await checkoutSvc.checkout({ tenantId: req.tenantId, orderId: String(b.orderId), amount: Number(b.amount), paymentMethodToken: b.paymentMethodToken }); notifySvc.notify('order.paid', { orderId: r.orderId, status: r.status }).catch(() => {}); res.status(201).json(r); }));
 app.get('/v1/checkout/audit', wrap(async (_q, res) => res.json({ data: checkoutSvc.recentAudit() })));
 // bloco nota-fiscal-emissao: emite NF-e (sandbox por default) — na app plena roda no worker pós-pagamento.
 app.post('/v1/invoices', wrap(async (req, res) => { const b = req.body || {}; if (!b.orderId) return res.status(400).json({ error: { message: 'orderId obrigatório' } }); res.status(201).json(fiscalSvc.emitInvoice({ orderId: b.orderId, total: b.total, cnpj: b.cnpj, items: b.items })); }));
 // bloco control-ai-por-app: assistente de IA do lojista (fail-closed sem chave).
 app.post('/v1/assistant', wrap(async (req, res) => { const b = req.body || {}; res.json(await assistantSvc.assist(b.message || b.input)); }));
 app.get('/v1/assistant/health', (_q, res) => res.json({ ai: assistantSvc.aiEnabled }));
+// bloco notificacoes-multicanal: histórico de notificações (e-mail/push/whatsapp por webhook, degrada graciosamente).
+app.get('/v1/notifications', wrap(async (_q, res) => res.json({ data: notifySvc.recentNotifications() })));
 async function depth() { try { const c = await jobsRepo.counts(); for (const s of ['queued','running','done','dlq']) M.queueDepth.set({ status: s }, c[s] || 0); } catch {} }
 const PORT = Number(process.env.PORT) || 8080;
 (async () => {

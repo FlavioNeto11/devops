@@ -4,9 +4,8 @@
   "counts": {
     "total": 365,
     "by_status": {
-      "deployed": 309,
-      "done": 52,
-      "not_started": 4
+      "deployed": 313,
+      "done": 52
     },
     "refinements": {
       "total": 13,
@@ -1701,8 +1700,9 @@
       "run_id": "flagship"
     },
     "REQ-SHOPDESK-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "run_id": "flagship-complete"
     },
     "REQ-SHOPDESK-0003": {
       "status": "deployed",
@@ -1715,8 +1715,9 @@
       "run_id": "flagship-nf"
     },
     "REQ-SHOPDESK-0005": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "run_id": "flagship-complete"
     },
     "REQ-SHOPDESK-0006": {
       "status": "deployed",
@@ -1724,12 +1725,14 @@
       "run_id": "flagship-ai"
     },
     "REQ-SHOPDESK-0007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "run_id": "flagship-complete"
     },
     "REQ-SHOPDESK-0008": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "deployed",
+      "req_revision": 1,
+      "run_id": "flagship-complete"
     },
     "REQ-SICAT-0001": {
       "status": "deployed",

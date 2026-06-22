@@ -127,7 +127,8 @@ spec:
       kind: Rule
       priority: 40
       services: [ { name: shopdesk-api, port: 8080 } ]
-      middlewares: [ { name: shopdesk-api-strip } ]
+      # bloco oidc-sessao: SSO de borda (reusa oauth2-proxy/Keycloak) — XHR sem sessão = 401; depois strip.
+      middlewares: [ { name: console-auth-401, namespace: devops-system }, { name: shopdesk-api-strip } ]
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor

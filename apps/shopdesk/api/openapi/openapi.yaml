@@ -1,0 +1,54 @@
+openapi: 3.1.0
+info: { title: "ShopDesk API", version: "1.0.0" }
+paths:
+  /:
+    get:
+      operationId: root
+      responses: { "200": { description: ok } }
+  /health:
+    get:
+      operationId: health
+      responses: { "200": { description: ok } }
+  /v1/health/jobs:
+    get:
+      operationId: healthJobs
+      responses: { "200": { description: ok } }
+  /v1/records:
+    get:
+      operationId: listRecords
+      responses: { "200": { description: ok } }
+    post:
+      operationId: createRecord
+      responses: { "201": { description: created } }
+  /v1/records/{id}:
+    get:
+      operationId: getRecord
+      responses: { "200": { description: ok } }
+  /v1/records/{id}/submit:
+    post:
+      operationId: submitRecord
+      responses: { "202": { description: accepted } }
+  /v1/checkout:
+    post:
+      operationId: checkout
+      responses: { "201": { description: created } }
+  /v1/checkout/audit:
+    get:
+      operationId: checkoutAudit
+      responses: { "200": { description: ok } }
+  /v1/invoices:
+    post:
+      operationId: emitInvoice
+      responses: { "201": { description: created } }
+  /v1/assistant:
+    post:
+      operationId: assistant
+      responses: { "200": { description: ok } }
+  /v1/assistant/health:
+    get:
+      operationId: assistantHealth
+      responses: { "200": { description: ok } }
+  /v1/notifications:
+    get:
+      operationId: listNotifications
+      responses: { "200": { description: ok } }

@@ -26,3 +26,5 @@ spec:
       kind: Rule
       priority: 10
       services: [ { name: shopdesk-frontend, port: 80 } ]
+      # bloco oidc-sessao: navegação sem sessão -> 302 login (Keycloak); volta autenticado.
+      middlewares: [ { name: console-auth-redirect, namespace: devops-system } ]

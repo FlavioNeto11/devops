@@ -4,6 +4,7 @@
       <span class="brand">ShopDesk — Loja + Checkout + NF</span>
       <nav aria-label="Navegação principal">
         <RouterLink to="/">Painel</RouterLink>
+        <RouterLink to="/loja">Loja</RouterLink>
         <RouterLink to="/records">Registros</RouterLink>
       </nav>
     </header>
