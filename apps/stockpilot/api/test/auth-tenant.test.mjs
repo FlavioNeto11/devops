@@ -96,6 +96,13 @@ test('orders.listOpen filtra por tenant_id=$1', async () => {
   assert.deepEqual(db.calls[0].params, ['acme']);
 });
 
+test('orders.listAll filtra por tenant_id=$1 (todos os status)', async () => {
+  const db = fakeDb([]);
+  await ordersRepo.listAll('acme', db);
+  assert.ok(hasTenantFilter(db.calls[0].sql));
+  assert.deepEqual(db.calls[0].params, ['acme']);
+});
+
 test('orders.create grava tenant_id do auth-context', async () => {
   const db = fakeDb([{ id: 1, tenant_id: 'acme' }]);
   await ordersRepo.create(5, 'acme', db);

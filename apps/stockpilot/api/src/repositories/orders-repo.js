@@ -14,6 +14,24 @@ export async function listOpen(tenant, db = pool) {
   return rows;
 }
 
+// Lista TODOS os pedidos do tenant (todos os status: pending/processing/delivered/failed),
+// incluindo last_attempt_at e last_error — necessário para a tela /orders mostrar o DLQ
+// spotlight, os KPIs de entregues/falhas e filtrar por qualquer status. Limite de 200 para
+// proteger o contexto; a tela pagina no cliente. Sempre escopado por tenant (REQ-0002).
+export async function listAll(tenant, db = pool) {
+  const { rows } = await db.query(`
+    SELECT po.id, po.product_id, po.status, po.external_ref,
+           po.last_error, po.last_attempt_at, po.created_at,
+           p.name AS product_name
+    FROM product_orders po
+    LEFT JOIN products p ON p.id = po.product_id AND p.tenant_id = po.tenant_id
+    WHERE po.tenant_id = $1
+    ORDER BY po.created_at DESC
+    LIMIT 200
+  `, [tenant]);
+  return rows;
+}
+
 // Detalhe canônico de UM pedido (REQ-STOCKPILOT-0003): cobre TODOS os estados (incl. delivered/failed),
 // ao contrário de listOpen que só enxerga pending/processing. Escopado por tenant_id — cross-tenant → null
 // (a rota traduz para 404, nunca vaza). Inclui product_name, last_attempt_at, last_error e external_ref:

@@ -76,8 +76,10 @@ app.post('/v1/products/:id/suggest-reorder', requireAuth, wrap(async (req, res) 
   res.json(result);
 }));
 
-// Pedidos abertos (pending/processing)
-app.get('/v1/orders', requireAuth, wrap(async (req, res) => res.json({ data: await ordersRepo.listOpen(req.tenant) })));
+// Todos os pedidos do tenant (pending/processing/delivered/failed) — lista completa para
+// o painel /orders exibir KPIs de entregues/falhas e o DLQ spotlight (REF-STOCKPILOT-0006).
+// A tela pagina e filtra no cliente; o limite de 200 protege o payload.
+app.get('/v1/orders', requireAuth, wrap(async (req, res) => res.json({ data: await ordersRepo.listAll(req.tenant) })));
 
 // Detalhe canônico de UM pedido (REQ-STOCKPILOT-0003), escopado por tenant. Cobre TODOS os estados
 // (incl. delivered/failed) — não só os abertos da lista. Cross-tenant / inexistente → 404 (nunca vaza).
