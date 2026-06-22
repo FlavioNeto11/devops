@@ -36,6 +36,22 @@ app.post('/v1/records/:id/submit', wrap(async (req, res) => { const id = Number(
 // Produtos com status derivado (OK/ALERTA/RUPTURA)
 app.get('/v1/products', requireAuth, wrap(async (req, res) => res.json({ data: await productsRepo.listWithStatus(req.tenant) })));
 
+// Criação de produto (REF-STOCKPILOT-0003): cadastra um novo item do inventário com SKU opcional,
+// estoque atual e ponto de reposição. Escopado por tenant; dispara reposição se já entrar abaixo do mínimo.
+app.post('/v1/products', requireAuth, wrap(async (req, res) => {
+  const { name, sku, current_stock, min_stock } = req.body || {};
+  const errs = [];
+  if (!name || typeof name !== 'string' || !name.trim()) errs.push('name obrigatório');
+  if (current_stock === undefined || current_stock === null || isNaN(Number(current_stock)) || Number(current_stock) < 0) errs.push('current_stock deve ser inteiro >= 0');
+  if (min_stock === undefined || min_stock === null || isNaN(Number(min_stock)) || Number(min_stock) < 0) errs.push('min_stock deve ser inteiro >= 0');
+  if (errs.length) return res.status(400).json({ error: { message: errs.join('; ') } });
+  const created = await productsRepo.create(
+    { name: String(name).trim(), sku: sku ? String(sku).trim() : null, current_stock: Number(current_stock), min_stock: Number(min_stock) },
+    req.tenant,
+  );
+  res.status(201).json(created);
+}));
+
 // Detalhe canônico de UM produto (REQ-STOCKPILOT-0002/0003): produto (com status derivado,
 // has_open_order e last_order_date) + histórico recente de pedidos + alertas ativos do produto.
 // Escopado por tenant: inexistente ou de outro tenant → 404 deny-by-default (nunca vaza cross-tenant).

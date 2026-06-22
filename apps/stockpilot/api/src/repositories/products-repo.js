@@ -12,7 +12,7 @@ function computeStatus({ current_stock, min_stock, has_open_order }) {
 export async function listWithStatus(tenant, db = pool) {
   const { rows } = await db.query(`
     SELECT
-      p.id, p.name, p.current_stock, p.min_stock,
+      p.id, p.name, p.sku, p.current_stock, p.min_stock,
       (SELECT MAX(po.created_at) FROM product_orders po WHERE po.product_id = p.id AND po.tenant_id = p.tenant_id) AS last_order_date,
       EXISTS(
         SELECT 1 FROM product_orders po WHERE po.product_id = p.id AND po.tenant_id = p.tenant_id AND po.status IN ('pending','processing')
@@ -29,6 +29,14 @@ export async function findById(id, tenant, db = pool) {
   return rows[0] || null;
 }
 
+export async function create({ name, sku, current_stock, min_stock }, tenant, db = pool) {
+  const { rows } = await db.query(
+    'INSERT INTO products(name, sku, current_stock, min_stock, tenant_id) VALUES ($1,$2,$3,$4,$5) RETURNING id, name, sku, current_stock, min_stock, tenant_id, created_at, updated_at',
+    [name, sku || null, Number(current_stock), Number(min_stock), tenant],
+  );
+  return { ...rows[0], status: computeStatus({ current_stock: rows[0].current_stock, min_stock: rows[0].min_stock, has_open_order: false }) };
+}
+
 // Detalhe canônico de UM produto (tela de detalhe): mesmos campos derivados da lista
 // (status OK/ALERTA/RUPTURA, has_open_order, last_order_date) + os timestamps do registro.
 // Escopado por tenant_id (REQ-STOCKPILOT-0002): produto inexistente ou de outro tenant → null
@@ -36,7 +44,7 @@ export async function findById(id, tenant, db = pool) {
 export async function getDetail(id, tenant, db = pool) {
   const { rows } = await db.query(`
     SELECT
-      p.id, p.name, p.current_stock, p.min_stock, p.created_at, p.updated_at,
+      p.id, p.name, p.sku, p.current_stock, p.min_stock, p.created_at, p.updated_at,
       (SELECT MAX(po.created_at) FROM product_orders po WHERE po.product_id = p.id AND po.tenant_id = p.tenant_id) AS last_order_date,
       EXISTS(
         SELECT 1 FROM product_orders po WHERE po.product_id = p.id AND po.tenant_id = p.tenant_id AND po.status IN ('pending','processing')

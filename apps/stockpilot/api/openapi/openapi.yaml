@@ -298,6 +298,7 @@ paths:
                 data:
                   - id: 1
                     name: Álcool 70%
+                    sku: ALC-70
                     current_stock: 5
                     min_stock: 50
                     has_open_order: false
@@ -305,11 +306,62 @@ paths:
                     status: RUPTURA
                   - id: 3
                     name: Máscaras N95
+                    sku: null
                     current_stock: 200
                     min_stock: 50
                     has_open_order: false
                     last_order_date: null
                     status: OK
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createProduct
+      tags:
+        - Products
+      summary: Cria um produto no inventário
+      description: >-
+        Cadastra um novo item do inventário com SKU opcional, estoque atual e ponto de
+        reposição (estoque mínimo). Retorna o produto criado com status derivado.
+        Se o produto entrar imediatamente abaixo do mínimo, o status refletirá RUPTURA.
+        Protegida por sessão (requireAuth → 401 sem sessão).
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+            example:
+              name: Álcool 70%
+              sku: ALC-70
+              current_stock: 100
+              min_stock: 50
+      responses:
+        '201':
+          description: Produto criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+              example:
+                id: 5
+                name: Álcool 70%
+                sku: ALC-70
+                current_stock: 100
+                min_stock: 50
+                has_open_order: false
+                last_order_date: null
+                status: OK
+        '400':
+          description: Campos obrigatórios ausentes ou inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  message: name obrigatório
         '401':
           $ref: '#/components/responses/Unauthorized'
   /v1/products/{id}:
@@ -1239,6 +1291,28 @@ components:
         updated_at:
           type: string
           format: date-time
+    ProductInput:
+      type: object
+      description: Corpo para criar um produto (name, current_stock e min_stock obrigatórios; sku opcional).
+      required:
+        - name
+        - current_stock
+        - min_stock
+      properties:
+        name:
+          type: string
+          description: Nome comercial do produto.
+        sku:
+          type: string
+          description: Código interno ou de fornecedor (opcional, convertido para maiúsculas).
+        current_stock:
+          type: integer
+          minimum: 0
+          description: Unidades em mãos no momento do cadastro.
+        min_stock:
+          type: integer
+          minimum: 0
+          description: Ponto de reposição automática — ao cair abaixo deste valor, dispara a fila.
     Product:
       type: object
       description: Produto de estoque com status derivado.
@@ -1253,6 +1327,11 @@ components:
           type: integer
         name:
           type: string
+        sku:
+          type:
+            - string
+            - 'null'
+          description: Código interno ou de fornecedor (opcional).
         current_stock:
           type: integer
         min_stock:
