@@ -72,7 +72,15 @@ const MIGRATIONS = [`CREATE TABLE IF NOT EXISTS records (id SERIAL PRIMARY KEY, 
      last_status TEXT CHECK (last_status IS NULL OR last_status IN ('sent','failed','skipped')),
      created_at TIMESTAMPTZ DEFAULT now(),
      updated_at TIMESTAMPTZ DEFAULT now()
-   ); CREATE INDEX IF NOT EXISTS idx_channels_tenant ON channels(tenant_id, id);`];
+   ); CREATE INDEX IF NOT EXISTS idx_channels_tenant ON channels(tenant_id, id);`,
+  // REF-STOCKPILOT-0007 — tela de detalhe do pedido: supplier_id vincula o pedido ao fornecedor
+  // que processará a reposição; reorder_qty armazena a quantidade solicitada (calculada no momento
+  // da criação — max(0, min_stock - current_stock)). Ambos nullable para compatibilidade com dados
+  // existentes (pedidos criados antes desta migração não têm fornecedor nem qty explícita).
+  `ALTER TABLE product_orders
+     ADD COLUMN IF NOT EXISTS supplier_id INTEGER,
+     ADD COLUMN IF NOT EXISTS reorder_qty INTEGER;
+   CREATE INDEX IF NOT EXISTS idx_product_orders_supplier ON product_orders(supplier_id);`];
 export async function migrate() {
   const c = await pool.connect();
   try {
@@ -119,11 +127,15 @@ export async function seed() {
       ('Máscaras N95', 200, 50),
       ('Avental descartável', 8, 30)
     RETURNING id, current_stock, min_stock`);
+  const { rows: supRows } = await pool.query('SELECT id FROM suppliers ORDER BY id LIMIT 1');
+  const defaultSupplierId = supRows[0]?.id || null;
   // produto 2 (luvas): stock=42 < 1.5*40=60 → ALERTA com pedido aberto
   const luvas = ins.rows[1];
-  await pool.query(`INSERT INTO product_orders(product_id, status) VALUES ($1, 'pending')`, [luvas.id]);
+  const luvasQty = Math.max(0, Number(luvas.min_stock) - Number(luvas.current_stock));
+  await pool.query(`INSERT INTO product_orders(product_id, status, supplier_id, reorder_qty) VALUES ($1, 'pending', $2, $3)`, [luvas.id, defaultSupplierId, luvasQty || null]);
   // produto 4 (avental): stock=8 < min=30 com pedido pendente + erro → ALERTA + ERROR no alertas
   const avental = ins.rows[3];
-  await pool.query(`INSERT INTO product_orders(product_id, status, last_error, last_attempt_at) VALUES ($1, 'pending', 'Timeout ao contatar fornecedor', now() - interval '2 hours')`, [avental.id]);
+  const aventalQty = Math.max(0, Number(avental.min_stock) - Number(avental.current_stock));
+  await pool.query(`INSERT INTO product_orders(product_id, status, last_error, last_attempt_at, supplier_id, reorder_qty) VALUES ($1, 'pending', 'Timeout ao contatar fornecedor', now() - interval '2 hours', $2, $3)`, [avental.id, defaultSupplierId, aventalQty || null]);
   console.log('[seed] produtos ok');
 }

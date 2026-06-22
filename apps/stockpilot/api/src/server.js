@@ -79,12 +79,24 @@ app.post('/v1/products/:id/suggest-reorder', requireAuth, wrap(async (req, res) 
 // Pedidos abertos (pending/processing)
 app.get('/v1/orders', requireAuth, wrap(async (req, res) => res.json({ data: await ordersRepo.listOpen(req.tenant) })));
 
-// Detalhe canônico de UM pedido (REQ-STOCKPILOT-0003), escopado por tenant. Cobre TODOS os estados
-// (incl. delivered/failed) — não só os abertos da lista. Cross-tenant / inexistente → 404 (nunca vaza).
+// Detalhe canônico de UM pedido (REQ-STOCKPILOT-0003 + REF-STOCKPILOT-0007), escopado por tenant.
+// Cobre TODOS os estados (incl. delivered/failed). Inclui `lines` (itens do pedido com quantidades)
+// e `supplier_id`/`supplier_name` para a tela de detalhe exibir fornecedor e itens. Cross-tenant → 404.
 app.get('/v1/orders/:id', requireAuth, wrap(async (req, res) => {
   const order = await ordersRepo.getById(Number(req.params.id), req.tenant);
   if (!order) return res.status(404).json({ error: { message: 'pedido não encontrado' } });
-  res.json(order);
+  const reorderQty = order.reorder_qty != null
+    ? Number(order.reorder_qty)
+    : Math.max(0, (Number(order.min_stock) || 0) - (Number(order.current_stock) || 0));
+  const lines = [{
+    product_id: order.product_id,
+    product_name: order.product_name || null,
+    reorder_qty: reorderQty,
+    current_stock: order.current_stock != null ? Number(order.current_stock) : null,
+    min_stock: order.min_stock != null ? Number(order.min_stock) : null,
+  }];
+  const { current_stock: _cs, min_stock: _ms, supplier_active: _sa, ...orderFields } = order;
+  res.json({ ...orderFields, lines });
 }));
 
 // Trilha de auditoria das trocas com o fornecedor PARA ESTE PEDIDO (REQ-STOCKPILOT-0004), escopada por

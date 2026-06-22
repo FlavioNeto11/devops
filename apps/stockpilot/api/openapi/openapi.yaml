@@ -1291,6 +1291,31 @@ components:
           description: Alertas ativos do produto (RUPTURA / falha de envio).
           items:
             $ref: '#/components/schemas/Alert'
+    OrderLine:
+      type: object
+      description: Item de um pedido de reposição (produto + quantidade).
+      required:
+        - product_id
+        - reorder_qty
+      properties:
+        product_id:
+          type: integer
+        product_name:
+          type:
+            - string
+            - 'null'
+        reorder_qty:
+          type: integer
+          minimum: 0
+          description: Quantidade de reposição calculada (max(0, min_stock - current_stock)).
+        current_stock:
+          type:
+            - integer
+            - 'null'
+        min_stock:
+          type:
+            - integer
+            - 'null'
     Order:
       type: object
       description: Pedido de reposição de um produto.
@@ -1333,6 +1358,21 @@ components:
         updated_at:
           type: string
           format: date-time
+        supplier_id:
+          type:
+            - integer
+            - 'null'
+          description: ID do fornecedor vinculado ao pedido (REF-STOCKPILOT-0007).
+        supplier_name:
+          type:
+            - string
+            - 'null'
+          description: Nome do fornecedor (denormalizado para exibição rápida na tela de detalhe).
+        lines:
+          type: array
+          description: Itens do pedido com quantidades (presente no detalhe canônico GET /v1/orders/:id).
+          items:
+            $ref: '#/components/schemas/OrderLine'
     ReorderSuggestion:
       type: object
       description: >-

@@ -14,17 +14,19 @@ export async function listOpen(tenant, db = pool) {
   return rows;
 }
 
-// Detalhe canônico de UM pedido (REQ-STOCKPILOT-0003): cobre TODOS os estados (incl. delivered/failed),
-// ao contrário de listOpen que só enxerga pending/processing. Escopado por tenant_id — cross-tenant → null
-// (a rota traduz para 404, nunca vaza). Inclui product_name, last_attempt_at, last_error e external_ref:
-// os campos autoritativos que a tela de detalhe (linha do tempo / último erro / KPIs) precisa.
+// Detalhe canônico de UM pedido (REQ-STOCKPILOT-0003 + REF-STOCKPILOT-0007): cobre TODOS os estados
+// (incl. delivered/failed). Inclui supplier_id/supplier_name (fornecedor vinculado), reorder_qty e
+// dados do produto (current_stock/min_stock) para construir as linhas do pedido na tela de detalhe.
 export async function getById(orderId, tenant, db = pool) {
   const { rows } = await db.query(`
     SELECT po.id, po.product_id, po.tenant_id, po.status, po.external_ref, po.last_error,
            po.last_attempt_at, po.created_at, po.updated_at,
-           p.name AS product_name
+           po.supplier_id, po.reorder_qty,
+           p.name AS product_name, p.current_stock, p.min_stock,
+           s.name AS supplier_name, s.active AS supplier_active
     FROM product_orders po
     LEFT JOIN products p ON p.id = po.product_id AND p.tenant_id = po.tenant_id
+    LEFT JOIN suppliers s ON s.id = po.supplier_id AND s.tenant_id = po.tenant_id
     WHERE po.id = $1 AND po.tenant_id = $2
   `, [orderId, tenant]);
   return rows[0] || null;

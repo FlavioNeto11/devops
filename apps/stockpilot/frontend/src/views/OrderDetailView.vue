@@ -54,6 +54,14 @@
           <div class="od-hero-aside">
             <UiStatusBadge :status="order.status" :label="statusLabelText" size="lg" />
             <dl class="od-hero-facts">
+              <div v-if="order.supplier_id" class="od-fact">
+                <dt>Fornecedor</dt>
+                <dd>
+                  <RouterLink :to="'/suppliers/' + order.supplier_id" class="od-supplier-link">
+                    {{ order.supplier_name || ('Fornecedor #' + order.supplier_id) }}
+                  </RouterLink>
+                </dd>
+              </div>
               <div class="od-fact">
                 <dt>Ref. do fornecedor</dt>
                 <dd>
@@ -77,6 +85,89 @@
             </dl>
           </div>
         </div>
+      </UiCard>
+
+      <!-- Itens do pedido (lines) -->
+      <UiCard title="Itens do pedido" subtitle="Produtos e quantidades desta reposição.">
+        <UiDataTable
+          :columns="linesColumns"
+          :rows="orderLines"
+          row-key="product_id"
+          density="compact"
+          :empty="linesEmpty"
+        >
+          <template #cell-product_name="{ row }">
+            <RouterLink v-if="row.product_id != null" :to="'/products/' + row.product_id">
+              {{ row.product_name || ('Produto #' + row.product_id) }}
+            </RouterLink>
+            <span v-else class="ui-muted">—</span>
+          </template>
+          <template #cell-current_stock="{ value }">
+            <span v-if="value != null">{{ value }}</span>
+            <span v-else class="ui-muted">—</span>
+          </template>
+          <template #cell-min_stock="{ value }">
+            <span v-if="value != null">{{ value }}</span>
+            <span v-else class="ui-muted">—</span>
+          </template>
+          <template #cell-reorder_qty="{ value }">
+            <strong>{{ value }}</strong>
+          </template>
+        </UiDataTable>
+      </UiCard>
+
+      <!-- Fornecedor vinculado -->
+      <UiCard title="Fornecedor vinculado" subtitle="Fornecedor responsável pelo processamento desta reposição.">
+        <div v-if="supplierLoading" class="od-supplier-loading">
+          <span class="ui-muted">Carregando fornecedor…</span>
+        </div>
+        <div v-else-if="supplierError" class="od-callout od-callout-warn" role="alert">
+          <span class="od-callout-icon" aria-hidden="true">⚠</span>
+          <div class="od-callout-body">
+            <p class="od-callout-title">Não foi possível carregar o fornecedor</p>
+            <UiButton variant="ghost" size="sm" @click="loadSupplier">Tentar novamente</UiButton>
+          </div>
+        </div>
+        <template v-else-if="supplier">
+          <dl class="od-kv">
+            <div class="od-kv-row">
+              <dt>Nome</dt>
+              <dd>
+                <RouterLink :to="'/suppliers/' + order.supplier_id">{{ supplier.name }}</RouterLink>
+              </dd>
+            </div>
+            <div class="od-kv-row">
+              <dt>Status</dt>
+              <dd>
+                <UiStatusBadge
+                  :status="supplier.active ? 'active' : 'inactive'"
+                  :tone="supplier.active ? 'success' : 'neutral'"
+                  :label="supplier.active ? 'Ativo' : 'Inativo'"
+                />
+              </dd>
+            </div>
+            <div v-if="supplier.gateway_url" class="od-kv-row">
+              <dt>Gateway</dt>
+              <dd class="ui-mono od-truncate">{{ supplier.gateway_url }}</dd>
+            </div>
+            <div v-if="supplier.auth_type" class="od-kv-row">
+              <dt>Autenticação</dt>
+              <dd>{{ supplier.auth_type }}</dd>
+            </div>
+          </dl>
+          <div class="od-supplier-action">
+            <UiButton variant="ghost" size="sm" :to="'/suppliers/' + order.supplier_id">
+              Ver fornecedor completo →
+            </UiButton>
+          </div>
+        </template>
+        <template v-else>
+          <UiEmptyState
+            icon="supplier"
+            title="Sem fornecedor vinculado"
+            description="Este pedido não tem um fornecedor específico atribuído."
+          />
+        </template>
       </UiCard>
 
       <!-- ErrorCallout: último erro reportado -->
@@ -312,7 +403,7 @@ import {
   useToast,
   format,
 } from '../ui/index.js';
-import { orders } from '../api.js';
+import { orders, suppliers } from '../api.js';
 
 const props = defineProps({ id: { type: [String, Number], required: true } });
 const toast = useToast();
@@ -333,6 +424,11 @@ const auditLoading = ref(true);
 const auditError = ref(null);
 const auditSort = ref({ key: 'created_at', dir: 'desc' });
 
+// ---- estado: fornecedor vinculado -------------------------------------------
+const supplier = ref(null);
+const supplierLoading = ref(false);
+const supplierError = ref(null);
+
 // ---- estado: modal de inspeção ----------------------------------------------
 const entryOpen = ref(false);
 const activeEntry = ref(null);
@@ -340,6 +436,20 @@ const activeEntry = ref(null);
 function unwrap(res) {
   if (res && typeof res === 'object' && res.data !== undefined) return res.data;
   return res;
+}
+
+async function loadSupplier() {
+  if (!order.value?.supplier_id) { supplier.value = null; return; }
+  supplierLoading.value = true;
+  supplierError.value = null;
+  try {
+    const res = await suppliers.get(order.value.supplier_id);
+    supplier.value = unwrap(res);
+  } catch (e) {
+    supplierError.value = e;
+  } finally {
+    supplierLoading.value = false;
+  }
 }
 
 async function loadOrder() {
@@ -352,6 +462,7 @@ async function loadOrder() {
     const data = unwrap(await orders.get(props.id));
     order.value = data && data.id !== undefined ? data : data || null;
     loaded.value = true;
+    if (order.value?.supplier_id) loadSupplier();
   } catch (e) {
     if (e && e.status === 404) {
       order.value = null;
@@ -624,6 +735,25 @@ const timeline = computed(() => {
   }
   return steps;
 });
+
+// ---- Itens do pedido (lines) -------------------------------------------------
+const linesColumns = [
+  { key: 'product_name', label: 'Produto' },
+  { key: 'current_stock', label: 'Estoque atual', align: 'right' },
+  { key: 'min_stock', label: 'Estoque mínimo', align: 'right' },
+  { key: 'reorder_qty', label: 'Qtd. reposição', align: 'right' },
+];
+
+const orderLines = computed(() => {
+  if (!order.value) return [];
+  return Array.isArray(order.value.lines) ? order.value.lines : [];
+});
+
+const linesEmpty = computed(() => ({
+  title: 'Sem itens',
+  description: 'Nenhum item de reposição registrado para este pedido.',
+  icon: 'order',
+}));
 
 // ---- AuditTrailTable ---------------------------------------------------------
 const auditColumns = [
@@ -973,6 +1103,42 @@ onMounted(reload);
   word-break: break-word;
 }
 
+/* ---- Fornecedor vinculado ---- */
+.od-supplier-link {
+  color: rgb(var(--ui-accent-strong));
+  text-decoration: none;
+  font-weight: 500;
+}
+.od-supplier-link:hover {
+  text-decoration: underline;
+}
+.od-supplier-loading {
+  padding: var(--ui-space-4) 0;
+}
+.od-supplier-action {
+  margin-top: var(--ui-space-4);
+  padding-top: var(--ui-space-3);
+  border-top: 1px solid rgb(var(--ui-border));
+}
+.od-callout-warn {
+  border-color: rgb(var(--ui-warn) / 0.35);
+  background: rgb(var(--ui-warn) / 0.07);
+}
+.od-callout-warn .od-callout-icon {
+  color: rgb(var(--ui-warn));
+}
+.od-callout-warn .od-callout-title {
+  color: rgb(var(--ui-warn));
+}
+.od-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 300px;
+  display: inline-block;
+  vertical-align: bottom;
+}
+
 /* ---- Responsivo ---- */
 @media (max-width: 860px) {
   .od-grid {
@@ -993,6 +1159,9 @@ onMounted(reload);
   }
   .od-payloads {
     grid-template-columns: 1fr;
+  }
+  .od-truncate {
+    max-width: 180px;
   }
 }
 </style>
