@@ -198,65 +198,12 @@
       <span>Anexado ao requisito REQ-SHOPDESK-0005.</span>
     </template>
 
-    <!-- Modal: detalhe da ordem -->
-    <UiModal v-model:open="detailOpen" :title="detailTitle" width="md">
-      <UiLoadingState v-if="detailLoading" variant="spinner" />
-      <UiErrorState
-        v-else-if="detailError"
-        :message="detailError"
-        @retry="reloadDetail"
-      />
-      <dl v-else-if="detail" class="rl-detail">
-        <div class="rl-detail-row">
-          <dt>SKU</dt>
-          <dd class="rl-mono">{{ detail.sku || '—' }}</dd>
-        </div>
-        <div class="rl-detail-row">
-          <dt>Produto</dt>
-          <dd>{{ detail.productName || '—' }}</dd>
-        </div>
-        <div class="rl-detail-row">
-          <dt>Quantidade solicitada</dt>
-          <dd class="rl-qty">{{ detail.quantity != null ? format.formatNumber(detail.quantity) : '—' }}</dd>
-        </div>
-        <div class="rl-detail-row">
-          <dt>Fornecedor</dt>
-          <dd>{{ detail.supplier || '—' }}</dd>
-        </div>
-        <div class="rl-detail-row">
-          <dt>Situação</dt>
-          <dd><UiStatusBadge :status="detail.status" :label="labelFor(detail.status)" /></dd>
-        </div>
-        <div class="rl-detail-row">
-          <dt>Criada em</dt>
-          <dd>{{ format.formatDateTime(detail.createdAt) }}</dd>
-        </div>
-      </dl>
-      <template #footer>
-        <UiButton
-          v-if="detail && canCancel(detail)"
-          variant="danger"
-          :loading="busyId === detail.id && busyAction === 'cancel'"
-          @click="cancelOrder(detail)"
-        >
-          Cancelar ordem
-        </UiButton>
-        <UiButton
-          v-if="detail && canReceive(detail)"
-          variant="primary"
-          :loading="busyId === detail.id && busyAction === 'receive'"
-          @click="markReceived(detail)"
-        >
-          Marcar como recebida
-        </UiButton>
-        <UiButton variant="ghost" @click="detailOpen = false">Fechar</UiButton>
-      </template>
-    </UiModal>
   </UiPageLayout>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import {
   UiPageLayout,
   UiCard,
@@ -265,9 +212,6 @@ import {
   UiFiltersPanel,
   UiStatusBadge,
   UiButton,
-  UiModal,
-  UiLoadingState,
-  UiErrorState,
   useResource,
   useToast,
   useConfirm,
@@ -291,6 +235,7 @@ const r = useResource(reorders || { list: async () => ({ data: [], total: 0 }) }
   sort: { key: 'createdAt', dir: 'desc' },
   filters: { q: '', status: '', supplier: '' },
 });
+const router = useRouter();
 const toast = useToast();
 const confirm = useConfirm();
 
@@ -422,34 +367,10 @@ const orderName = (row) =>
   (row.sku ? row.sku + ' — ' : '') + (row.productName || ('ordem ' + (row.id ?? '')));
 
 // ---------------------------------------------------------------------------
-// Detalhe (GET /v1/reorders/:id) num modal.
+// Navega para o detalhe da ordem (/reorders/:id) — interação principal da tela.
 // ---------------------------------------------------------------------------
-const detailOpen = ref(false);
-const detail = ref(null);
-const detailLoading = ref(false);
-const detailError = ref('');
-let lastDetailId = null;
-const detailTitle = computed(() =>
-  detail.value ? 'Ordem ' + (detail.value.sku || detail.value.id) : 'Ordem de reposição',
-);
-
-async function openDetail(row) {
-  detailOpen.value = true;
-  lastDetailId = row.id;
-  detail.value = row; // mostra o que já temos, então refina com o get
-  detailError.value = '';
-  if (!reorders || typeof reorders.get !== 'function') return;
-  detailLoading.value = true;
-  try {
-    detail.value = await reorders.get(row.id);
-  } catch (e) {
-    detailError.value = (e && e.message) || 'Não foi possível carregar a ordem.';
-  } finally {
-    detailLoading.value = false;
-  }
-}
-function reloadDetail() {
-  if (lastDetailId != null) openDetail({ id: lastDetailId });
+function openDetail(row) {
+  router.push({ name: 'reorder', params: { id: row.id } });
 }
 
 // ---------------------------------------------------------------------------
@@ -465,9 +386,6 @@ async function markReceived(row) {
   try {
     await reorders.update(row.id, { status: 'recebida' });
     toast.success('Ordem ' + orderName(row) + ' marcada como recebida.');
-    if (detail.value && detail.value.id === row.id) {
-      detail.value = { ...detail.value, status: 'recebida' };
-    }
     await r.refresh();
   } catch (e) {
     toast.error('Não foi possível marcar como recebida.', {
@@ -498,9 +416,6 @@ async function cancelOrder(row) {
   try {
     await reorders.update(row.id, { status: 'cancelada' });
     toast.success('Ordem ' + orderName(row) + ' cancelada.');
-    if (detail.value && detail.value.id === row.id) {
-      detail.value = { ...detail.value, status: 'cancelada' };
-    }
     await r.refresh();
   } catch (e) {
     toast.error('Não foi possível cancelar a ordem.', {
