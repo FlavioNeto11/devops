@@ -53,6 +53,27 @@ if (prodOk) {
 const r404 = (await post('/v1/products/999999/order')).s;
 ok(r404 === 404, 'POST /v1/products/999999/order → 404');
 
+// --- reposição assíncrona (REQ-STOCKPILOT-0003) ---
+// dispara reposição manual num produto em RUPTURA (estoque < mínimo, sem pedido aberto)
+const semPedido = (await get('/v1/products')).j.data.find((x) => x.current_stock < x.min_stock && !x.has_open_order);
+if (semPedido) {
+  const re = await post('/v1/products/' + semPedido.id + '/reorder');
+  ok(re.s === 201 && re.j.order && re.j.order.status === 'pending', 'POST /reorder cria pedido pending');
+  ok(re.j.enqueued === true, 'reposição enfileira job idempotente');
+
+  // idempotência: repetir com pedido aberto NÃO cria outro recurso (mesmo order id, deduped)
+  const re2 = await post('/v1/products/' + semPedido.id + '/reorder');
+  ok(re2.s === 200 && re2.j.deduped === true, 'POST /reorder repetido → deduped (200)');
+  ok(re2.j.order.id === re.j.order.id, 'reposição idempotente devolve o MESMO pedido');
+
+  // worker processa via gateway: pedido sai de pending → delivered (ou failed se DLQ)
+  let fin = null;
+  for (let i = 0; i < 12; i++) { await sleep(3000); const o = (await get('/v1/orders')).j.data.find((x) => x.id === re.j.order.id); if (!o) { fin = 'delivered'; break; } if (o.status === 'failed') { fin = 'failed'; break; } }
+  ok(fin === 'delivered', 'worker processa reposição via gateway → delivered');
+}
+const re404 = (await post('/v1/products/999999/reorder')).s;
+ok(re404 === 404, 'POST /v1/products/999999/reorder → 404');
+
 // --- pedidos abertos ---
 const ords = (await get('/v1/orders')).j;
 ok(Array.isArray(ords.data), 'GET /v1/orders retorna array');

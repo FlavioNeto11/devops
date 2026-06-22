@@ -7,7 +7,9 @@ const MIGRATIONS = [`CREATE TABLE IF NOT EXISTS records (id SERIAL PRIMARY KEY, 
   `CREATE TABLE IF NOT EXISTS products (id SERIAL PRIMARY KEY, name TEXT NOT NULL, current_stock INTEGER NOT NULL DEFAULT 0, min_stock INTEGER NOT NULL DEFAULT 0, created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now());`,
   `CREATE TABLE IF NOT EXISTS product_orders (id SERIAL PRIMARY KEY, product_id INTEGER NOT NULL REFERENCES products(id), status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','processing','delivered')), external_ref TEXT, last_error TEXT, last_attempt_at TIMESTAMPTZ, created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now()); CREATE INDEX IF NOT EXISTS idx_product_orders_product ON product_orders(product_id); CREATE INDEX IF NOT EXISTS idx_product_orders_status ON product_orders(status);`,
   // REQ-STOCKPILOT-0002 — isolamento multi-tenant: coluna tenant_id + índice (tenant_id, id) em toda tabela de negócio.
-  `ALTER TABLE products ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'default'; ALTER TABLE product_orders ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'default'; CREATE INDEX IF NOT EXISTS idx_products_tenant ON products(tenant_id, id); CREATE INDEX IF NOT EXISTS idx_product_orders_tenant ON product_orders(tenant_id, id);`];
+  `ALTER TABLE products ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'default'; ALTER TABLE product_orders ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'default'; CREATE INDEX IF NOT EXISTS idx_products_tenant ON products(tenant_id, id); CREATE INDEX IF NOT EXISTS idx_product_orders_tenant ON product_orders(tenant_id, id);`,
+  // REQ-STOCKPILOT-0003 — reposição assíncrona: o pedido pode terminar em 'failed' (DLQ do job).
+  `ALTER TABLE product_orders DROP CONSTRAINT IF EXISTS product_orders_status_check; ALTER TABLE product_orders ADD CONSTRAINT product_orders_status_check CHECK (status IN ('pending','processing','delivered','failed'));`];
 export async function migrate() {
   const c = await pool.connect();
   try {

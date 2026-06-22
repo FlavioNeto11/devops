@@ -21,3 +21,37 @@ export async function create(productId, tenant, db = pool) {
   );
   return rows[0];
 }
+
+// REQ-STOCKPILOT-0003 — reposição assíncrona. Pedido "aberto" = pending|processing (impede duplicar).
+export async function findOpenByProduct(productId, tenant, db = pool) {
+  const { rows } = await db.query(
+    `SELECT * FROM product_orders WHERE product_id=$1 AND tenant_id=$2 AND status IN ('pending','processing') ORDER BY created_at DESC LIMIT 1`,
+    [productId, tenant]
+  );
+  return rows[0] || null;
+}
+
+// Transições do ciclo de vida do pedido (sempre escopadas por tenant_id — nunca cruza tenant).
+export async function markProcessing(orderId, tenant, db = pool) {
+  const { rows } = await db.query(
+    `UPDATE product_orders SET status='processing', last_attempt_at=now(), updated_at=now() WHERE id=$1 AND tenant_id=$2 RETURNING *`,
+    [orderId, tenant]
+  );
+  return rows[0] || null;
+}
+
+export async function markDelivered(orderId, tenant, externalRef, db = pool) {
+  const { rows } = await db.query(
+    `UPDATE product_orders SET status='delivered', external_ref=$3, last_error=NULL, updated_at=now() WHERE id=$1 AND tenant_id=$2 RETURNING *`,
+    [orderId, tenant, externalRef]
+  );
+  return rows[0] || null;
+}
+
+export async function markFailed(orderId, tenant, errMsg, db = pool) {
+  const { rows } = await db.query(
+    `UPDATE product_orders SET status='failed', last_error=$3, last_attempt_at=now(), updated_at=now() WHERE id=$1 AND tenant_id=$2 RETURNING *`,
+    [orderId, tenant, errMsg]
+  );
+  return rows[0] || null;
+}
