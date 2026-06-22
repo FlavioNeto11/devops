@@ -49,6 +49,24 @@ $bpPath = Join-Path $SpecsDir "blueprints\$($prod.blueprint)\blueprint.json"
 if (-not (Test-Path $bpPath)) { throw "Blueprint não encontrado: $bpPath (referenciado por product.json)." }
 $bp = Read-Json $bpPath
 
+# --- FORGE 2.0: se o produto declara stack + capability_blocks, usa o GERADOR por stack -------
+# (specs/forge/scaffold-sicat.mjs | scaffold-gymops.mjs) que emite o app ROBUSTO direto dos blocos
+# resolvidos. Senão, cai no scaffold golden-path legado abaixo (retrocompat).
+$hasStack = ($prod.PSObject.Properties.Name -contains 'stack') -and $prod.stack
+$hasBlocks = ($prod.PSObject.Properties.Name -contains 'capability_blocks') -and (@($prod.capability_blocks).Count -gt 0)
+if ($hasStack -and $hasBlocks -and -not $WhatIfOnly) {
+  $gen = switch ($prod.stack) { 'sicat' { 'scaffold-sicat.mjs' } 'gymops' { 'scaffold-gymops.mjs' } default { $null } }
+  if ($gen) {
+    Write-Host "== FORGE 2.0: gerando '$Name' pela stack '$($prod.stack)' ($gen) ==" -ForegroundColor Cyan
+    $genPath = Join-Path $SpecsDir "forge\$gen"
+    if ($Force) { & node $genPath --product $Name --force } else { & node $genPath --product $Name }
+    if ($LASTEXITCODE -ne 0) { throw "gerador $gen falhou (exit $LASTEXITCODE)." }
+    Write-Host "OK — app gerado em apps\$Name. Próximo: docker build das imagens :local + Secret '$Name-db' + kubectl apply -f apps\$Name\k8s\." -ForegroundColor Green
+    return
+  }
+  Write-Host "[forge] stack '$($prod.stack)' sem gerador dedicado — usando o scaffold golden-path legado." -ForegroundColor Yellow
+}
+
 $root = Join-Path $OutDir $Name
 $basePath = $prod.base_path
 $services = @($bp.services)
