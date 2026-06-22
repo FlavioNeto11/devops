@@ -15,6 +15,7 @@ import OrderEditView from './views/OrderEditView.vue';
 import CheckoutView from './views/CheckoutView.vue';
 import CartListView from './views/CartListView.vue';
 import CartDetailView from './views/CartDetailView.vue';
+import CartEditView from './views/CartEditView.vue';
 import InventoryListView from './views/InventoryListView.vue';
 import InventoryDetailView from './views/InventoryDetailView.vue';
 import InventoryAdjustView from './views/InventoryAdjustView.vue';
@@ -56,9 +57,12 @@ export const routes = [
   { path: '/orders/:id/edit', name: 'order-edit', component: OrderEditView, props: true },
   // checkout tokenizado/idempotente de um carrinho — :cartId é lido por CheckoutView.
   { path: '/checkout/:cartId', name: 'checkout', component: CheckoutView, props: true },
-  // carrinhos — lista (/carts) e detalhe (/carrinhos/:id; CartDetailView lê route.params.id).
+  // carrinhos — lista, detalhe e edição (REF-SHOPDESK-0012).
+  // /carts/:id é a rota canônica do refinamento; /carrinhos/:id é alias legado.
   { path: '/carts', name: 'carts', component: CartListView },
-  { path: '/carrinhos/:id', name: 'cart', component: CartDetailView, props: true },
+  { path: '/carts/:id', name: 'cart', component: CartDetailView, props: true },
+  { path: '/carts/:id/edit', name: 'cart-edit', component: CartEditView, props: true },
+  { path: '/carrinhos/:id', name: 'cart-legacy', component: CartDetailView, props: true },
   // domínio de estoque (inventory) — recurso real api.inventory (/v1/inventory).
   { path: '/inventory', name: 'inventory', component: InventoryListView },
   { path: '/inventory/:id', name: 'inventory-item', component: InventoryDetailView, props: true },
