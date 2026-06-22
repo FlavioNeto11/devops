@@ -35,3 +35,12 @@ export async function listByTenant(tenant, db = pool, limit = 200) {
   );
   return rows;
 }
+
+export async function getById(id, tenant, db = pool) {
+  const { rows } = await db.query(
+    `SELECT id, tenant_id, usuario_id, tipo, referencia_id, canais, status, tentativas, created_at, updated_at
+     FROM notifications WHERE id=$1 AND tenant_id=$2`,
+    [id, tenant]
+  );
+  return rows[0] || null;
+}

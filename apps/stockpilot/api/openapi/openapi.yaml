@@ -759,6 +759,59 @@ paths:
                     tentativas: 1
         '401':
           $ref: '#/components/responses/Unauthorized'
+  /v1/notifications/{id}:
+    get:
+      operationId: getNotification
+      tags:
+        - Notifications
+      summary: Detalhe de uma notificação multi-canal
+      description: >-
+        Retorna a notificação completa com conteúdo do evento (tipo, referência),
+        desfecho por canal (sent/failed/skipped — degradação graciosa) e status
+        agregado. Escopado por tenant: notificação inexistente ou de outro tenant
+        retorna 404 (deny-by-default, nunca vaza dados cross-tenant).
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200':
+          description: Notificação encontrada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Notification'
+              example:
+                data:
+                  id: 7
+                  tenant_id: default
+                  usuario_id: null
+                  tipo: ruptura
+                  referencia_id: 1
+                  canais:
+                    - channel: email
+                      status: sent
+                    - channel: push
+                      status: skipped
+                      reason: unconfigured
+                    - channel: whatsapp
+                      status: skipped
+                      reason: unconfigured
+                  status: sent
+                  tentativas: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Notificação não encontrada (inexistente ou de outro tenant)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  message: notificação não encontrada
   /v1/suppliers:
     get:
       operationId: listSuppliers

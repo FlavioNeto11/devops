@@ -524,8 +524,7 @@ const selected = ref(null);
 const detailTitle = computed(() => (selected.value ? eventLabel(selected.value.tipo) + ' · #' + selected.value.id : 'Notificação'));
 
 function openDetail(row) {
-  selected.value = row;
-  detailOpen.value = true;
+  router.push('/notifications/' + row.id);
 }
 
 // Navega para a entidade de DOMÍNIO referenciada (produto/pedido) — só rotas reais.
