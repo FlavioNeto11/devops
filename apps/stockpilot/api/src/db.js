@@ -9,7 +9,24 @@ const MIGRATIONS = [`CREATE TABLE IF NOT EXISTS records (id SERIAL PRIMARY KEY, 
   // REQ-STOCKPILOT-0002 — isolamento multi-tenant: coluna tenant_id + índice (tenant_id, id) em toda tabela de negócio.
   `ALTER TABLE products ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'default'; ALTER TABLE product_orders ADD COLUMN IF NOT EXISTS tenant_id TEXT NOT NULL DEFAULT 'default'; CREATE INDEX IF NOT EXISTS idx_products_tenant ON products(tenant_id, id); CREATE INDEX IF NOT EXISTS idx_product_orders_tenant ON product_orders(tenant_id, id);`,
   // REQ-STOCKPILOT-0003 — reposição assíncrona: o pedido pode terminar em 'failed' (DLQ do job).
-  `ALTER TABLE product_orders DROP CONSTRAINT IF EXISTS product_orders_status_check; ALTER TABLE product_orders ADD CONSTRAINT product_orders_status_check CHECK (status IN ('pending','processing','delivered','failed'));`];
+  `ALTER TABLE product_orders DROP CONSTRAINT IF EXISTS product_orders_status_check; ALTER TABLE product_orders ADD CONSTRAINT product_orders_status_check CHECK (status IN ('pending','processing','delivered','failed'));`,
+  // REQ-STOCKPILOT-0004 — trilha de auditoria das trocas com o fornecedor externo (uma linha por troca/tentativa).
+  // Payloads SANITIZADOS e erro REDIGIDO (segredos nunca persistidos); escopado por tenant_id.
+  `CREATE TABLE IF NOT EXISTS gateway_audit (
+     id BIGSERIAL PRIMARY KEY,
+     tenant_id TEXT NOT NULL DEFAULT 'default',
+     operation TEXT NOT NULL DEFAULT 'submeter_pedido',
+     product_id INTEGER,
+     order_id INTEGER,
+     outcome TEXT NOT NULL CHECK (outcome IN ('success','failure')),
+     status_code INTEGER,
+     attempt INTEGER,
+     request_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+     response_payload JSONB,
+     error_redacted TEXT,
+     duration_ms INTEGER,
+     created_at TIMESTAMPTZ DEFAULT now()
+   ); CREATE INDEX IF NOT EXISTS idx_gateway_audit_tenant ON gateway_audit(tenant_id, id DESC);`];
 export async function migrate() {
   const c = await pool.connect();
   try {

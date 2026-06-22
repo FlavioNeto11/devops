@@ -65,7 +65,8 @@ export async function processReorderJob(payload, deps) {
   const { dispatch, db = pool, lookupProduct = defaultLookupProduct } = deps;
   await ordersRepo.markProcessing(orderId, tenant, db);
   const product = await lookupProduct(productId, tenant, db);
-  const res = await dispatch({ id: product.id, title: product.name });
+  // Contexto de auditoria (REQ-STOCKPILOT-0004): a troca com o fornecedor é registrada por tenant/produto/pedido.
+  const res = await dispatch({ id: product.id, title: product.name }, { audit: { tenant, productId, orderId }, operation: 'submeter_pedido' });
   await ordersRepo.markDelivered(orderId, tenant, res.externalRef, db);
   return res;
 }
