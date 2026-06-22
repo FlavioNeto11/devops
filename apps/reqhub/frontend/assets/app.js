@@ -2227,7 +2227,42 @@ function codeBlock(text, cls, label) {
   return wrap;
 }
 
+// --- Estado VIVO da Forja (tempo real): polling do endpoint /v1/forge/state; re-renderiza quando
+// o progresso de algum produto muda. Fail-soft: endpoint fora -> mantém os dados baked (data/*.json). ---
+let _forgeStateSig = '';
+let _forgeStateInflight = false;
+let _forgePollTimer = null;
+function applyForgeState(payload) {
+  if (!payload || payload.source === 'empty' || !Array.isArray(payload.products) || !payload.products.length) return false;
+  DATA.products = { products: payload.products.map((p) => ({
+    name: p.name, display_name: p.display_name, base_path: p.base_path, blueprint: p.blueprint,
+    stack: p.stack, app_type: p.app_type, vision: p.vision, phases: p.phases,
+    capability_blocks: p.capability_blocks, requirement_ids: p.requirement_ids,
+  })) };
+  const items = {};
+  for (const p of payload.products) for (const r of (p.reqs || [])) items[r.id] = { status: r.status };
+  DATA.implStatus = { items };
+  return true;
+}
+async function refreshForgeState(forceRender) {
+  if (_forgeStateInflight) return;
+  _forgeStateInflight = true;
+  try {
+    const r = await AI.get('/v1/forge/state');
+    if (r.ok && r.data && applyForgeState(r.data)) {
+      const sig = JSON.stringify((r.data.products || []).map((p) => [p.name, p.reqCount, p.progress && p.progress.done, p.progress && p.progress.pct]));
+      if (forceRender || sig !== _forgeStateSig) { _forgeStateSig = sig; if (String(location.hash || '').indexOf('forge') >= 0) renderForge(); }
+    }
+  } catch { /* fail-soft: mantém o baked */ } finally { _forgeStateInflight = false; }
+}
+function ensureForgePolling() {
+  if (_forgePollTimer) return;
+  _forgePollTimer = setInterval(() => { if (String(location.hash || '').indexOf('forge') >= 0) refreshForgeState(false); }, 15000);
+}
+
 function renderForge() {
+  ensureForgePolling();
+  void refreshForgeState(false);
   const body = document.getElementById('forge-body');
   body.replaceChildren();
   if (!DATA.products || !((DATA.products.products) || []).length) {

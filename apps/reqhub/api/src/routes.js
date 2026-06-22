@@ -19,6 +19,7 @@ import { requireAuthoringAuth, ssoIdentity } from './auth.js';
 import { aiEnabled, getLlm } from './llm.js';
 import { runAuthoringChatTurn } from './ai/graph.js';
 import { buildUsageRouter } from './usage/index.js';
+import { forgeState } from './forge-state.js';
 
 // Mapeia erros tipados do contrato AiTool -> HTTP.
 function statusForError(err) {
@@ -47,6 +48,14 @@ export function buildRouter({ registry, llm, memory } = {}) {
   router.get('/v1/me', (req, res) => {
     const sso = ssoIdentity(req.headers);
     res.json(sso || { email: null, user: null, groups: [], isAdmin: false });
+  });
+
+  // Estado VIVO da Forja (tempo real): produtos + progresso recalculado da baseline montada
+  // (ConfigMap reqhub-forge-state). Read-only, sem auth (atrás do gate SSO de borda). O frontend
+  // faz polling deste endpoint e cai no baked (data/*.json) se ele estiver fora.
+  router.get('/v1/forge/state', (_req, res) => {
+    try { res.json(forgeState()); }
+    catch (err) { res.status(200).json({ source: 'error', products: [], error: String(err && err.message) }); }
   });
 
   const run = (toolName) => async (req, res, next) => {

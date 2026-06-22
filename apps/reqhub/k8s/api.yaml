@@ -109,6 +109,10 @@ spec:
               value: "9464"
             - name: AI_USAGE_PROBE_ENABLED  # probe gasta 1 token/janela — desligado por padrão
               value: "false"
+            # Estado VIVO da Forja (tempo real): diretório montado do ConfigMap reqhub-forge-state
+            # (products.json + implementation-status.json da baseline atual). GET /v1/forge/state lê daqui.
+            - name: FORGE_DATA_DIR
+              value: "/forge-data"
           # Orçamentos (não-secretos) p/ os alertas do painel — ConfigMap reqhub-usage-config.
           envFrom:
             - configMapRef:
@@ -144,6 +148,18 @@ spec:
             limits:
               cpu: "300m"
               memory: "320Mi"   # +pg pool + grafo/memoria + cache do painel de uso/SSE
+          volumeMounts:
+            - name: forge-state
+              mountPath: /forge-data
+              readOnly: true
+      volumes:
+        # Estado VIVO da Forja: products.json + implementation-status.json da baseline ATUAL.
+        # optional -> o pod sobe mesmo sem o ConfigMap (GET /v1/forge/state cai p/ source:'empty').
+        # Atualizado por scripts/sync-reqhub-forge-state.ps1 (sem reassar a imagem).
+        - name: forge-state
+          configMap:
+            name: reqhub-forge-state
+            optional: true
 ---
 apiVersion: v1
 kind: Service
