@@ -143,15 +143,18 @@ metadata: { name: stockpilot, namespace: apps, labels: { app.kubernetes.io/part-
 spec:
   entryPoints: [web]
   routes:
+    # API (XHR): gate SSO de borda — 401 sem sessão (oauth2-proxy/Keycloak realm nvit), depois strip.
     - match: PathPrefix(`/stockpilot/api`)
       kind: Rule
       priority: 40
       services: [ { name: stockpilot-api, port: 8080 } ]
-      middlewares: [ { name: stockpilot-api-strip } ]
+      middlewares: [ { name: console-auth-401, namespace: devops-system }, { name: stockpilot-api-strip } ]
+    # Painel (navegação): gate SSO de borda — 302 p/ login no Keycloak quando sem sessão.
     - match: PathPrefix(`/stockpilot`)
       kind: Rule
       priority: 10
       services: [ { name: stockpilot-frontend, port: 80 } ]
+      middlewares: [ { name: console-auth-redirect, namespace: devops-system } ]
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
