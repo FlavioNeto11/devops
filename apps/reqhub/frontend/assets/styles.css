@@ -287,6 +287,9 @@ td .rid { font-family: var(--mono); color: var(--fg-1); }
 /* recentes (últimos REQs abertos) */
 .recents { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 .workspace > .recents { grid-column: 1 / -1; margin-bottom: 0; }
+/* cabeçalho de detalhe ocupa a LINHA inteira (full-width) — senão cai numa coluna do grid e,
+   sendo flex+align-items:center, estica e centraliza o título no meio do vão (layout quebrado). */
+.workspace > .usa-detail-head { grid-column: 1 / -1; align-self: start; }
 .recents-l { color: var(--muted); font-size: 12px; margin-right: 2px; }
 .chip-btn { font-family: var(--mono); cursor: pointer; }
 .chip-btn:hover { border-color: var(--accent); color: var(--accent); }
