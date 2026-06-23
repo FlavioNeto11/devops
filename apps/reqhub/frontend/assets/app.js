@@ -57,6 +57,26 @@ const AI = {
     const data = await r.json().catch(() => ({}));
     return { ok: r.ok, status: r.status, data };
   },
+  // Variante MULTIPART para quando há ARQUIVOS junto do texto (IA multimodal). Monta um
+  // FormData: campos de texto (objeto `fields`) viram strings; cada File entra no campo `files`.
+  // NÃO definimos Content-Type — o browser põe o boundary do multipart. Mesma lógica de auth e
+  // de tratamento de erro do post() JSON. Use só quando houver arquivos; caso contrário, post().
+  async postMultipart(path, { fields = {}, files = [] } = {}) {
+    const tok = this.getToken();
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields || {})) {
+      if (v == null) continue;
+      fd.append(k, typeof v === 'string' ? v : JSON.stringify(v));
+    }
+    for (const file of (files || [])) { if (file) fd.append('files', file, file.name); }
+    const r = await fetch(this.BASE + path, {
+      method: 'POST',
+      headers: { ...(tok ? { Authorization: 'Bearer ' + tok } : {}) }, // sem Content-Type: o browser define o boundary
+      body: fd,
+    });
+    const data = await r.json().catch(() => ({}));
+    return { ok: r.ok, status: r.status, data };
+  },
   async get(path) {
     const tok = this.getToken();
     const r = await fetch(this.BASE + path, { headers: { Accept: 'application/json', ...(tok ? { Authorization: 'Bearer ' + tok } : {}) } });
@@ -94,6 +114,47 @@ const RECENTS = {
 function prioCls(p) { return p === 'critical' ? 'b-crit' : p === 'high' ? 'b-high' : p === 'low' ? 'b-low' : 'b-med'; }
 function bandCls(b) { return b === 'high' ? 'b-high' : b === 'medium' ? 'b-med' : 'b-low'; }
 function setStatus(msg, err) { const s = document.getElementById('status'); s.textContent = msg || ''; s.hidden = !msg; s.className = 'status' + (err ? ' error' : ''); }
+
+/* ---------- seletor de ARQUIVOS (IA multimodal) ----------
+   A IA da plataforma aceita arquivos além de texto (file-ingest-kit no backend). Aqui só a UI:
+   um <input type=file multiple> NATIVO + a lista dos escolhidos, tudo CSP-safe (createElement +
+   addEventListener; sem onclick/onchange inline e sem style inline). Retorna { el, files(), clear,
+   hasFiles }. O chamador decide o transporte: havendo arquivos, usa AI.postMultipart; senão, mantém
+   o caminho JSON (retrocompat). Os tipos aceitos espelham o que o kit extrai (doc/planilha/pdf/zip/imagem). */
+const FILE_ACCEPT = '.md,.txt,.csv,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,image/*';
+function humanBytes(n) { if (!n && n !== 0) return ''; if (n < 1024) return n + ' B'; if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB'; return (n / (1024 * 1024)).toFixed(1) + ' MB'; }
+function filePicker(opts) {
+  const o = opts || {};
+  let files = [];
+  const wrap = h('div', { class: 'file-picker' });
+  const input = h('input', { type: 'file', multiple: 'multiple', accept: FILE_ACCEPT, class: 'file-picker-input', 'aria-label': o.label || 'Anexar arquivos para a IA' });
+  const trigger = h('button', { class: 'btn file-picker-btn', type: 'button' }, '📎 ', o.buttonLabel || 'Anexar arquivos');
+  const list = h('ul', { class: 'file-picker-list', 'aria-label': 'Arquivos selecionados' });
+  function repaint() {
+    list.replaceChildren();
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      const idx = i;
+      const rm = h('button', { class: 'btn-link file-picker-rm', type: 'button', 'aria-label': 'Remover ' + f.name, text: '✕' });
+      rm.addEventListener('click', () => { files.splice(idx, 1); repaint(); });
+      list.append(h('li', { class: 'file-picker-item' },
+        h('span', { class: 'file-picker-name', text: f.name }),
+        h('span', { class: 'file-picker-size muted', text: humanBytes(f.size) }), rm));
+    }
+    list.hidden = files.length === 0;
+  }
+  trigger.addEventListener('click', () => input.click());
+  input.addEventListener('change', () => {
+    // acumula (não substitui) para o usuário poder anexar em várias etapas; depois zera o input
+    // para permitir re-selecionar o MESMO arquivo se ele o removeu.
+    for (const f of Array.from(input.files || [])) files.push(f);
+    input.value = '';
+    repaint();
+  });
+  repaint();
+  wrap.append(input, trigger, list);
+  return { el: wrap, files: () => files.slice(), clear() { files = []; repaint(); }, hasFiles: () => files.length > 0 };
+}
 
 /* ---------- helpers de UI compartilhados (consistência entre telas) ---------- */
 // ícone de seção (glifo): mesma marca visual em todos os h3 de card detalhado.
@@ -1304,6 +1365,8 @@ function renderChatStage(body) {
   const actions = h('div', { class: 'chat-actions' });
   const ta = h('textarea', { class: 'chat-input', rows: '2', 'aria-label': 'Sua mensagem', placeholder: 'Pergunte sobre o sistema ou descreva a mudança que você precisa… (Ctrl+Enter envia)' });
   const sendBtn = h('button', { class: 'btn primary', type: 'button', text: 'Enviar' });
+  // anexos da conversa (IA multimodal): a mensagem pode vir acompanhada de arquivos
+  const chatFiles = filePicker({ label: 'Anexar arquivos à mensagem', buttonLabel: 'Anexar' });
   const { g } = buildSystemGraph(product, false);
   state.editor.graph = g;
   const right = h('aside', { class: 'chat-rail' }, h('h3', { text: 'Mapa do sistema' }), g.el);
@@ -1334,15 +1397,23 @@ function renderChatStage(body) {
   }
   async function send(text) {
     text = String(text || '').trim();
-    if (!text || pending) return;
-    state.editor.messages.push({ role: 'user', content: text });
+    const files = chatFiles.hasFiles() ? chatFiles.files() : [];
+    if ((!text && !files.length) || pending) return;
+    // mostra na bolha do usuário a mensagem + os nomes dos anexos (nunca os bytes)
+    const attachNote = files.length ? (text ? '\n\n' : '') + '📎 ' + files.map((f) => f.name).join(', ') : '';
+    state.editor.messages.push({ role: 'user', content: text + attachNote });
     pending = true; sendBtn.disabled = true; ta.value = ''; repaint();
     try {
-      const r = await AI.chat({
+      const chatFields = {
         product, target_req_id: state.editor.target_req_id || undefined, message: text,
         history: state.editor.messages.slice(0, -1).filter((m) => !m.error).map((m) => ({ role: m.role, content: m.content })),
         grounding: productGrounding(DATA.baseline.requirements, product),
-      });
+      };
+      // Com anexos → multipart na MESMA rota /v1/authoring/chat; sem anexos → AI.chat (JSON, retrocompat).
+      const r = files.length
+        ? await AI.postMultipart('/v1/authoring/chat', { fields: chatFields, files })
+        : await AI.chat(chatFields);
+      if (files.length) chatFiles.clear();
       pending = false; sendBtn.disabled = false;
       if (!r.ok) {
         const code = r.data && r.data.error ? r.data.error.code : 'HTTP ' + r.status;
@@ -1369,7 +1440,7 @@ function renderChatStage(body) {
 
   // saudação inicial (uma bolha) + indicador de digitando sempre por último no log
   log.append(chatBubble({ role: 'assistant', content: greetingText(), grounded: true }), typingEl);
-  left.append(banner, log, actions, h('div', { class: 'chat-inputrow' }, ta, sendBtn));
+  left.append(banner, log, actions, chatFiles.el, h('div', { class: 'chat-inputrow' }, ta, sendBtn));
   wrap.append(left, right);
   body.append(wrap);
   repaint();
@@ -1617,6 +1688,8 @@ function renderReviewForm(body) {
   const tok = h('input', { type: 'password', value: AI.getToken(), placeholder: 'Bearer token (operador)' });
   const sketch = h('textarea', { class: 'ai-sketch', rows: '4', placeholder: 'Descreva a feature/regra em linguagem natural — ex.: "o operador deve submeter o manifesto MTR de forma assíncrona, com retomada em falha"…' });
   sketch.addEventListener('input', scheduleValidation);
+  // anexos do esboço (IA multimodal): a IA pode rascunhar a partir de um documento/planilha/imagem
+  const sketchFiles = filePicker({ label: 'Anexar arquivos ao esboço', buttonLabel: 'Anexar arquivos (opcional)' });
   const aiOut = h('div', { class: 'ai-out' });
 
   function showErr(r) {
@@ -1630,7 +1703,11 @@ function renderReviewForm(body) {
   }
   function doDraft() {
     guard(async () => {
-      const r = await AI.post('/v1/authoring/draft', { sketch: (sketch.value || '').trim(), scope: productScope() });
+      const draftFields = { sketch: (sketch.value || '').trim(), scope: productScope() };
+      const draftFiles = sketchFiles.hasFiles() ? sketchFiles.files() : []; // arquivos opcionais → multipart
+      const r = draftFiles.length
+        ? await AI.postMultipart('/v1/authoring/draft', { fields: draftFields, files: draftFiles })
+        : await AI.post('/v1/authoring/draft', draftFields);
       if (!r.ok) return showErr(r);
       applyDraftToForm(r.data.draft || {});
       runValidation();
@@ -1736,6 +1813,7 @@ function renderReviewForm(body) {
     h('div', { class: 'asst-head' }, h('span', { class: 'asst-spark', 'aria-hidden': 'true', text: '✨' }), h('h3', { text: 'Assistente de IA' })),
     status,
     h('label', { class: 'fld' }, h('span', { class: 'fld-l', text: 'Descreva o requisito (esboço)' }), sketch),
+    h('div', { class: 'fld' }, h('span', { class: 'fld-l', text: 'Anexos (opcional)' }), h('p', { class: 'ed-hint', text: 'Anexe um documento, planilha ou imagem — a IA considera o conteúdo ao rascunhar.' }), sketchFiles.el),
     h('div', { class: 'asst-actions' },
       h('button', { class: 'btn primary', type: 'button', text: '✨ Rascunhar com IA', onclick: doDraft }),
       (refineBtn = h('button', { class: 'btn', type: 'button', text: '✨ Analisar & refinar', onclick: doRefine })),
@@ -2675,6 +2753,13 @@ function fwStageIdea(host, w, { blueprints }) {
   brief.value = w.brief;
   brief.addEventListener('input', () => { w.brief = brief.value; });
   card.append(h('label', { class: 'fw-fld' }, h('span', { class: 'fw-fld-l', text: 'Descreva sua ideia' }), brief));
+  // Anexos (opcional): documentos/planilhas/imagens que descrevem a ideia. A IA lê o conteúdo
+  // (multimodal); o picker persiste no estado do wizard para sobreviver às re-renderizações da etapa 1.
+  if (!w._filePicker) w._filePicker = filePicker({ label: 'Anexar arquivos sobre a ideia', buttonLabel: 'Anexar arquivos (opcional)' });
+  card.append(h('div', { class: 'fw-fld' },
+    h('span', { class: 'fw-fld-l', text: 'Anexos (opcional)' }),
+    h('p', { class: 'fw-hint', text: 'Tem um documento, planilha ou imagem que descreve a ideia? Anexe — a IA vai considerar o conteúdo.' }),
+    w._filePicker.el));
   if (w.mode === 'guided') {
     const ex = [
       ['Central de chamados', 'Um sistema para abrir e acompanhar chamados de suporte, atribuir a técnicos e avisar quando algo atrasa.'],
@@ -2710,8 +2795,13 @@ async function fwGenerate(w, status, btn) {
   status.replaceChildren(h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' A IA está desenhando o sistema — requisitos e arquitetura…');
   const catalog = (DATA.capabilities && DATA.capabilities.capabilities) || [];
   const blueprints = (DATA.blueprints && DATA.blueprints.blueprints) || [];
+  // Se o usuário anexou arquivos, envia multipart (a IA lê o conteúdo); senão, mantém o JSON de sempre.
+  const files = (w._filePicker && w._filePicker.hasFiles()) ? w._filePicker.files() : [];
+  const reqFields = { product: slug, blueprint: w.blueprint, brief: w.brief.trim(), capabilities: catalog, blueprints };
   try {
-    const r = await AI.post('/v1/forge/propose-requirements', { product: slug, blueprint: w.blueprint, brief: w.brief.trim(), capabilities: catalog, blueprints });
+    const r = files.length
+      ? await AI.postMultipart('/v1/forge/propose-requirements', { fields: reqFields, files })
+      : await AI.post('/v1/forge/propose-requirements', reqFields);
     if (!r.ok) throw new Error((r.data && r.data.error && r.data.error.message) || ('IA ' + r.status));
     const reqs = (r.data && r.data.requirements) || [];
     if (!reqs.length) throw new Error('A IA não retornou requisitos. Tente descrever de outra forma.');
@@ -2808,6 +2898,7 @@ function renderForgeNew(body) {
   for (const b of (DATA.blueprints && DATA.blueprints.blueprints) || []) bpsel.append(h('option', { value: b.id, text: b.name }));
   if (!bpsel.children.length) bpsel.append(h('option', { value: '', text: '(sem blueprints)' }));
   const brief = h('textarea', { class: 'ai-sketch', rows: '7', 'aria-label': 'Brief', placeholder: 'Ex.: um helpdesk simples — abrir chamados, atribuir a agentes, acompanhar status num quadro, e um painel com SLAs. Sem complexidade.' });
+  const fp = filePicker({ label: 'Anexar arquivos do brief', buttonLabel: 'Anexar arquivos (opcional)' });
   const tok = h('input', { type: 'password', value: AI.getToken(), placeholder: 'Bearer token (operador)' });
   const aiStatus = h('p', { class: 'muted ai-status' }, h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), 'Verificando IA…');
   const btn = h('button', { class: 'btn primary', type: 'button', text: '✨ Propor requisitos (IA)' });
@@ -2815,6 +2906,7 @@ function renderForgeNew(body) {
     h('label', { class: 'fld' }, h('span', { class: 'fld-l', text: 'Produto (slug)' }), name),
     h('label', { class: 'fld' }, h('span', { class: 'fld-l', text: 'Blueprint' }), bpsel),
     h('label', { class: 'fld' }, h('span', { class: 'fld-l', text: 'Brief' }), brief),
+    h('div', { class: 'fld' }, h('span', { class: 'fld-l', text: 'Anexos (opcional)' }), h('p', { class: 'fw-hint', text: 'Documentos, planilhas ou imagens que descrevem o produto — a IA lê o conteúdo.' }), fp.el),
     aiStatus, h('div', { class: 'ws-actions' }, btn),
     h('details', { class: 'asst-token' }, h('summary', { text: 'Token do operador' }), tok));
   grid.append(left);
@@ -2875,7 +2967,11 @@ function renderForgeNew(body) {
     try {
       const forgeCatalog = (DATA.capabilities && DATA.capabilities.capabilities) || [];
       const forgeBlueprints = (DATA.blueprints && DATA.blueprints.blueprints) || [];
-      const r = await AI.post('/v1/forge/propose-requirements', { product: pname, blueprint: bpsel.value, brief: (brief.value || '').trim(), capabilities: forgeCatalog, blueprints: forgeBlueprints });
+      const proposeFields = { product: pname, blueprint: bpsel.value, brief: (brief.value || '').trim(), capabilities: forgeCatalog, blueprints: forgeBlueprints };
+      const proposeFiles = fp.hasFiles() ? fp.files() : []; // arquivos opcionais → multipart; senão JSON (retrocompat)
+      const r = proposeFiles.length
+        ? await AI.postMultipart('/v1/forge/propose-requirements', { fields: proposeFields, files: proposeFiles })
+        : await AI.post('/v1/forge/propose-requirements', proposeFields);
       if (!r.ok) { const code = r.data && r.data.error ? r.data.error.code : 'HTTP ' + r.status; errCard('IA: ' + code, r.data && r.data.error ? r.data.error.message : ''); return; }
       const reqs = (r.data && r.data.requirements) || [];
       if (!reqs.length) { mapStatus.textContent = 'A IA não retornou requisitos.'; return; }

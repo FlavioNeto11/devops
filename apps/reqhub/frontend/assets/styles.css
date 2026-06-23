@@ -1082,3 +1082,16 @@ body.cmdk-on { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .aiu-live-dot, .aiu-skel-card::after { animation: none; }
 }
+
+/* ---------- seletor de arquivos (IA multimodal) ---------- */
+.file-picker { display: flex; flex-direction: column; gap: 8px; }
+/* input nativo escondido: disparamos via o botão (.file-picker-btn) sem style inline */
+.file-picker-input { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.file-picker-btn { align-self: flex-start; font-size: 13px; }
+.file-picker-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.file-picker-list[hidden] { display: none; }
+.file-picker-item { display: flex; align-items: center; gap: 8px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; padding: 5px 9px; font-size: 12.5px; }
+.file-picker-name { color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 22ch; }
+.file-picker-size { font-size: 11.5px; margin-left: auto; }
+.file-picker-rm { color: var(--muted); font-size: 13px; line-height: 1; padding: 2px 4px; }
+.file-picker-rm:hover { color: var(--fg); }
