@@ -119,6 +119,12 @@
         <UiStatusBadge :status="value" :tone="roleTone(value)" :label="roleLabel(value)" />
       </template>
 
+      <!-- Carga: chamados abertos atribuídos ao agente (workload server-side) -->
+      <template #cell-workload="{ value }">
+        <span v-if="value > 0" class="hf-workload" :data-level="workloadLevel(value)">{{ value }}</span>
+        <span v-else class="hf-dash" aria-label="Sem chamados abertos">—</span>
+      </template>
+
       <!-- Time (linka para a tela do time no domínio) -->
       <template #cell-team_id="{ value }">
         <RouterLink v-if="value != null && value !== ''" class="hf-team" :to="'/teams/' + value" @click.stop>
@@ -214,6 +220,13 @@ const roleKey = (role) => String(role || '').toLowerCase();
 const roleTone = (role) => (ROLE_MAP[roleKey(role)] || {}).tone || 'neutral';
 const roleLabel = (role) => (ROLE_MAP[roleKey(role)] || {}).label || format.humanize(role);
 
+// ------- carga (workload) -------
+function workloadLevel(n) {
+  if (n <= 3) return 'low';
+  if (n <= 7) return 'medium';
+  return 'high';
+}
+
 // ------- situação -------
 const STATUS = [
   { value: 'active', label: 'Ativo' },
@@ -227,8 +240,9 @@ const columns = [
   { key: 'name', label: 'Agente', sortable: true },
   { key: 'role', label: 'Papel' },
   { key: 'team_id', label: 'Time', sortable: true },
+  { key: 'workload', label: 'Carga', align: 'center', sortable: true },
   { key: 'tenant_id', label: 'Tenant', align: 'center' },
-  { key: 'status', label: 'Situação' },
+  { key: 'status', label: 'Disponibilidade' },
   { key: 'last_login_at', label: 'Último acesso', sortable: true },
   { key: 'actions', label: '', align: 'right' },
 ];
@@ -485,6 +499,30 @@ onMounted(() => {
 .hf-agent-id { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
 .hf-agent-name { font-weight: 600; color: rgb(var(--ui-fg)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hf-agent-mail { font-size: var(--ui-text-xs); color: rgb(var(--ui-muted)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* badge de carga (workload): verde-neutro → amarelo → vermelho */
+.hf-workload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 var(--ui-space-2);
+  border-radius: var(--ui-radius-pill);
+  font-size: var(--ui-text-xs);
+  font-weight: 700;
+  font-family: var(--ui-font-mono);
+  background: rgb(var(--ui-accent) / 0.12);
+  color: rgb(var(--ui-accent-strong));
+}
+.hf-workload[data-level="medium"] {
+  background: rgb(var(--ui-warn) / 0.14);
+  color: rgb(var(--ui-warn));
+}
+.hf-workload[data-level="high"] {
+  background: rgb(var(--ui-danger) / 0.14);
+  color: rgb(var(--ui-danger));
+}
 
 .hf-team { color: rgb(var(--ui-accent-strong)); text-decoration: none; font-weight: 500; }
 .hf-team:hover { text-decoration: underline; }

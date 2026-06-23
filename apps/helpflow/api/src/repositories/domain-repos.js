@@ -3,6 +3,7 @@
 // espelham os fields da concepção (tenant_id/created_at/updated_at ficam fora — o
 // repo/migração os gerenciam). O mapa `repos` é indexado pelo segmento de rota.
 import { makeCrudRepo } from './crud-repo.js';
+import { pool } from '../db.js';
 
 export const customers = makeCrudRepo({
   table: 'customers',
@@ -12,11 +13,62 @@ export const customers = makeCrudRepo({
   searchable: ['name', 'email', 'organization'],
 });
 
-export const agents = makeCrudRepo({
+const _agentsBase = makeCrudRepo({
   table: 'agents',
   columns: ['name', 'email', 'role', 'team_id', 'status', 'last_login_at'],
   sortable: ['name', 'email', 'role', 'team_id', 'status', 'last_login_at'],
 });
+
+// Agents: list enriquecida com `workload` (chamados abertos/pendentes atribuídos ao
+// agente) e filtros servidor por role/team_id/status além do ?q= textual.
+// Os demais métodos (get/create/update/remove) vêm do base via spread.
+const AGENTS_SORTABLE = new Set(['name', 'email', 'role', 'team_id', 'status', 'last_login_at', 'id', 'created_at', 'updated_at', 'workload']);
+const WORKLOAD_EXPR = `(SELECT COALESCE(count(*)::int,0) FROM tickets t WHERE t.assignee_id=a.id AND t.tenant_id=a.tenant_id AND t.status NOT IN ('closed','resolved'))`;
+
+export const agents = {
+  ..._agentsBase,
+  async list(tenantId, { page = 1, pageSize = 20, sort = 'id', dir = 'desc', q, role, team_id, status } = {}) {
+    const p = Math.max(1, Number(page) || 1);
+    const ps = Math.min(200, Math.max(1, Number(pageSize) || 20));
+    const sortCol = AGENTS_SORTABLE.has(sort) ? sort : 'id';
+    const sortDir = String(dir).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+    const offset = (p - 1) * ps;
+
+    const conditions = ['a.tenant_id=$1'];
+    const params = [tenantId];
+
+    if (q && String(q).trim()) {
+      params.push('%' + String(q).trim() + '%');
+      conditions.push(`(a.name ILIKE $${params.length} OR a.email ILIKE $${params.length})`);
+    }
+    if (role && String(role).trim()) {
+      params.push(String(role).trim().toLowerCase());
+      conditions.push(`a.role=$${params.length}`);
+    }
+    if (team_id && String(team_id).trim()) {
+      const tid = Number(team_id);
+      if (!isNaN(tid) && tid > 0) { params.push(tid); conditions.push(`a.team_id=$${params.length}`); }
+    }
+    if (status && String(status).trim()) {
+      params.push(String(status).trim().toLowerCase());
+      conditions.push(`a.status=$${params.length}`);
+    }
+
+    const where = conditions.join(' AND ');
+    const orderExpr = sortCol === 'workload'
+      ? `${WORKLOAD_EXPR} ${sortDir}`
+      : `a.${sortCol} ${sortDir}`;
+
+    const [totalRes, dataRes] = await Promise.all([
+      pool.query(`SELECT count(*)::int AS n FROM agents a WHERE ${where}`, params),
+      pool.query(
+        `SELECT a.*, ${WORKLOAD_EXPR} AS workload FROM agents a WHERE ${where} ORDER BY ${orderExpr} LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+        [...params, ps, offset]
+      ),
+    ]);
+    return { data: dataRes.rows, total: totalRes.rows[0].n, page: p, pageSize: ps };
+  },
+};
 
 export const teams = makeCrudRepo({
   table: 'teams',

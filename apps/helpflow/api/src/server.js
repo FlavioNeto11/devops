@@ -30,11 +30,10 @@ app.post('/v1/records/:id/submit', wrap(async (req, res) => { const id = Number(
 // validador anti-drift de OpenAPI as detecte e exija documentação no contrato.
 const crudList = (key) => wrap(async (req, res) => {
   const { repo } = repos[key];
-  // `q` é busca textual (ILIKE) restrita à allowlist `searchable` de cada repo;
-  // entidades sem allowlist o ignoram. Sustenta o autocomplete de solicitante e a
-  // sugestão de artigos do TicketCreateView, que chamam list({ q, pageSize }).
-  const { page, pageSize, sort, dir, q } = req.query;
-  const r = await repo.list(req.tenantId, { page, pageSize, sort, dir, q });
+  // Repassa toda a query string ao repo; cada repo usa apenas o que conhece
+  // (sort/dir/page/pageSize/q) e ignora o restante de forma segura — os repos
+  // especializados (ex.: agents) também consomem role/team_id/status via allowlist.
+  const r = await repo.list(req.tenantId, req.query || {});
   res.json({ data: r.data, total: r.total, page: r.page, pageSize: r.pageSize });
 });
 const crudGet = (key) => wrap(async (req, res) => {
