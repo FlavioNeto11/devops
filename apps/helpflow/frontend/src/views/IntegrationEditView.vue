@@ -209,6 +209,52 @@
               </UiFormField>
             </UiFormSection>
 
+            <!-- Mapeamento: roteamento padrão para time e prioridade -->
+            <UiFormSection
+              title="Mapeamento"
+              description="Define como os chamados originados por esta integração são roteados — time responsável e prioridade inicial."
+              :columns="2"
+            >
+              <UiFormField
+                label="Time padrão"
+                hint="Quando um chamado chega por esta integração, é atribuído a este time."
+              >
+                <template #default="{ id, describedBy }">
+                  <select
+                    :id="id"
+                    :aria-describedby="describedBy"
+                    :value="f.values.mapping_team_id"
+                    :disabled="teamsLoading"
+                    @change="f.setField('mapping_team_id', $event.target.value)"
+                  >
+                    <option value="">Sem time padrão</option>
+                    <option v-for="team in teams" :key="team.id" :value="String(team.id)">
+                      {{ team.name }}
+                    </option>
+                  </select>
+                </template>
+              </UiFormField>
+
+              <UiFormField
+                label="Prioridade padrão"
+                hint="Prioridade inicial dos chamados abertos por esta integração."
+              >
+                <template #default="{ id, describedBy }">
+                  <select
+                    :id="id"
+                    :aria-describedby="describedBy"
+                    :value="f.values.mapping_default_priority"
+                    @change="f.setField('mapping_default_priority', $event.target.value)"
+                  >
+                    <option value="">Sem prioridade padrão</option>
+                    <option v-for="opt in PRIORITY_OPTIONS" :key="opt.value" :value="opt.value">
+                      {{ opt.label }}
+                    </option>
+                  </select>
+                </template>
+              </UiFormField>
+            </UiFormSection>
+
             <!-- Metadados read-only (não editáveis nesta tela) -->
             <dl class="ie-meta">
               <div class="ie-meta-row">
@@ -406,6 +452,7 @@ import * as api from '../api.js';
 const integrations = api.integrations || api.resourceFactory('integrations');
 const integrationTest = api.integrationTest;
 const integrationAudit = api.integrationAudit;
+const teamsApi = api.teams || api.resourceFactory('teams');
 
 const props = defineProps({ id: { type: String, default: null } });
 
@@ -440,8 +487,19 @@ const STATUS_OPTIONS = [
 ];
 const STATUS_MAP = STATUS_OPTIONS.reduce((acc, o) => { acc[o.value] = o; return acc; }, {});
 
+const PRIORITY_OPTIONS = [
+  { value: 'urgent', label: 'Urgente' },
+  { value: 'high', label: 'Alto' },
+  { value: 'medium', label: 'Médio' },
+  { value: 'low', label: 'Baixo' },
+];
+
+// estado do mapeamento: times disponíveis para roteamento
+const teams = ref([]);
+const teamsLoading = ref(false);
+
 const f = useForm({
-  initial: { base_url: '', timeout_ms: '', retries: '', status: 'active' },
+  initial: { base_url: '', timeout_ms: '', retries: '', status: 'active', mapping_team_id: '', mapping_default_priority: '' },
   rules: {
     status: [validators.required('Selecione a situação')],
     base_url: [validators.maxLen(2048, 'URL muito longa (máx. 2048 caracteres)')],
@@ -459,7 +517,7 @@ const f = useForm({
 });
 
 // snapshot do estado original p/ detectar alterações (dirty) e comparar situação.
-const baseline = reactive({ base_url: '', timeout_ms: '', retries: '', status: 'active' });
+const baseline = reactive({ base_url: '', timeout_ms: '', retries: '', status: 'active', mapping_team_id: '', mapping_default_priority: '' });
 
 // --- estado das ações de domínio (teste + auditoria) ---
 const testing = ref(false);
@@ -557,11 +615,14 @@ function formatWhen(value) {
 }
 
 function hydrate(rec) {
+  const mapping = rec.mapping && typeof rec.mapping === 'object' ? rec.mapping : {};
   const next = {
     base_url: rec.base_url != null ? String(rec.base_url) : '',
     timeout_ms: rec.timeout_ms != null && rec.timeout_ms !== '' ? String(rec.timeout_ms) : '',
     retries: rec.retries != null && rec.retries !== '' ? String(rec.retries) : '',
     status: rec.status || 'active',
+    mapping_team_id: mapping.team_id != null ? String(mapping.team_id) : '',
+    mapping_default_priority: mapping.default_priority || '',
   };
   for (const k of Object.keys(next)) {
     f.values[k] = next[k];
@@ -609,6 +670,14 @@ function buildPatch(vals) {
   }
   if (normalize(vals.status) !== normalize(baseline.status)) {
     patch.status = vals.status;
+  }
+  const mapTeamChanged = normalize(vals.mapping_team_id) !== normalize(baseline.mapping_team_id);
+  const mapPriorityChanged = normalize(vals.mapping_default_priority) !== normalize(baseline.mapping_default_priority);
+  if (mapTeamChanged || mapPriorityChanged) {
+    const m = {};
+    if (vals.mapping_team_id) m.team_id = Number(vals.mapping_team_id);
+    if (vals.mapping_default_priority) m.default_priority = vals.mapping_default_priority;
+    patch.mapping = m;
   }
   return patch;
 }
@@ -712,7 +781,21 @@ async function loadAudit() {
   }
 }
 
-onMounted(reload);
+// Carrega os times para o seletor de mapeamento (fail-closed: a tela não quebra sem dados).
+async function loadTeams() {
+  teamsLoading.value = true;
+  try {
+    const res = await teamsApi.list({ pageSize: 100 });
+    const rows = (res && res.data) || [];
+    teams.value = Array.isArray(rows) ? rows.filter((t) => t && t.status !== 'inactive') : [];
+  } catch {
+    teams.value = [];
+  } finally {
+    teamsLoading.value = false;
+  }
+}
+
+onMounted(() => { reload(); loadTeams(); });
 </script>
 
 <style scoped>

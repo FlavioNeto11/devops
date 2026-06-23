@@ -50,7 +50,7 @@ export const kbArticles = makeCrudRepo({
 
 export const integrations = makeCrudRepo({
   table: 'integrations',
-  columns: ['name', 'kind', 'base_url', 'timeout_ms', 'retries', 'status', 'last_check_at'],
+  columns: ['name', 'kind', 'base_url', 'timeout_ms', 'retries', 'status', 'last_check_at', 'mapping'],
   sortable: ['name', 'kind', 'status', 'last_check_at'],
 });
 
