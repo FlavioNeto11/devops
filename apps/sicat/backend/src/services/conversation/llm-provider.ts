@@ -54,6 +54,13 @@ export type LlmPlanningInput = {
   messageText: string;
   context: ConversationContextLike;
   history?: Array<{ role: string; text: string }>;
+  /**
+   * Multimodal (opcional, aditivo): conteúdo no formato do provedor (texto + blocos nativos de
+   * imagem/PDF) quando vieram arquivos e o modelo suporta visão/PDF. Ausente/null no caminho legado.
+   * O TEXTO extraído já vem dobrado em `messageText` (cobertura universal); `userContent` habilita os
+   * blocos NATIVOS para modelos com visão (Claude) sem alterar o contrato textual.
+   */
+  userContent?: Array<Record<string, unknown>> | null;
 };
 
 export type LlmProvider = {
@@ -1562,11 +1569,17 @@ async function respondConversationally(input: {
   fallback: string;
   workingMemoryBlock?: string | null;
   history?: Array<{ role: string; text: string }>;
+  userContent?: Array<Record<string, unknown>> | null;
 }): Promise<string> {
   try {
     const historyMessages = sanitizeHistory(input.history).slice(-12).map((turn) =>
       turn.role === 'user' ? new HumanMessage(turn.text) : new AIMessage(turn.text)
     );
+    // Multimodal aditivo: se há blocos nativos (imagem/PDF) e o modelo suporta, a mensagem do
+    // usuário vira um content ARRAY (texto + blocos). Sem blocos, mantém a string (intocado).
+    const userMessage = Array.isArray(input.userContent) && input.userContent.length > 0
+      ? new HumanMessage({ content: input.userContent as never })
+      : new HumanMessage(input.messageText);
     const response = await input.llm.invoke([
       new SystemMessage(
         'Voce e o assistente conversacional do SICAT (plataforma MTR/CETESB de residuos). ' +
@@ -1579,7 +1592,7 @@ async function respondConversationally(input: {
       ),
       ...(input.workingMemoryBlock ? [new SystemMessage(input.workingMemoryBlock)] : []),
       ...historyMessages,
-      new HumanMessage(input.messageText)
+      userMessage
     ]);
     const content = typeof response.content === 'string' ? response.content.trim() : '';
     return content || input.fallback;
@@ -2128,6 +2141,7 @@ export function createLlmProvider(): LlmProvider {
           messageText: text,
           history: input.history,
           workingMemoryBlock: input.context.workingMemoryBlock,
+          userContent: input.userContent ?? null,
           fallback:
             classification.clarifyingQuestion
             || 'Pode me dar mais detalhes para eu identificar exatamente qual operacao voce deseja?'

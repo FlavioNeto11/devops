@@ -8,6 +8,7 @@ import {
 } from '../services/conversation/conversation-persistence-service.js';
 import { createConversationService, listConversationTools } from '../services/conversation/conversation-service.js';
 import { recordConversationFeedback } from '../services/conversation/conversation-feedback-service.js';
+import { conversationIngestMiddleware, buildIngestedTurn } from '../services/conversation/conversation-ingest.js';
 import { aiMetrics } from '../lib/ai-metrics.js';
 
 type RequestWithContext = express.Request & {
@@ -102,15 +103,32 @@ export function createConversationRouter() {
     res.status(201).json({ data: record });
   }));
 
-  router.post('/v1/conversations/turns', asyncHandler(async (req, res) => {
+  // Multimodal: attachIngest é NO-OP em application/json (contrato textual intacto). Em multipart,
+  // o multer popula req.body com os campos de TEXTO e req.ingested com o resultado da ingestão (fail-soft).
+  router.post('/v1/conversations/turns', conversationIngestMiddleware(), asyncHandler(async (req, res) => {
     // Instrumentação F0 (latência/outcome do turno) — só telemetria.
     const startedAt = Date.now();
+
+    // Quando vieram arquivos (multipart): dobra o TEXTO extraído na mensagem e carrega os blocos
+    // nativos (imagem/PDF) p/ o LLM via userContent. Sem arquivos (JSON), `ingestedTurn` é null e o
+    // turno segue 100% no caminho legado — RETROCOMPAT total. Fail-soft: nunca derruba a rota.
+    const body = (req.body || {}) as Record<string, unknown>;
+    const userText = typeof body.message === 'string' ? body.message : '';
+    const ingestedTurn = buildIngestedTurn(req, userText);
+    const turnBody = ingestedTurn
+      ? { ...body, message: ingestedTurn.mergedMessage }
+      : body;
+
     try {
       const response = await conversationService.processTurn({
-        body: req.body || {},
+        body: turnBody,
         correlationId: getCorrelationId(req),
         headers: toHeaderMap(req.headers || {}),
-        idempotencyKey: toSingleString(req.headers['idempotency-key'])
+        idempotencyKey: toSingleString(req.headers['idempotency-key']),
+        userContent: ingestedTurn?.userContent ?? null,
+        ingestManifest: ingestedTurn
+          ? { files: ingestedTurn.safeManifest, notes: ingestedTurn.notes, nativeBlockCount: ingestedTurn.nativeBlockCount, error: ingestedTurn.ingestError }
+          : null
       });
 
       aiMetrics.observeTurn('turn', response?.status === 'failed' ? 'error' : 'ok', (Date.now() - startedAt) / 1000);

@@ -70,11 +70,24 @@ type ConversationTurnBody = {
   toolRequest?: unknown;
 };
 
+// Resumo SEGURO da ingestão de arquivos (E3/multimodal): SÓ manifesto + notas, NUNCA bytes/base64
+// (lição de OOM). Anexado ao payload estruturado da mensagem do usuário para rastreabilidade.
+type IngestManifestSummary = {
+  files: Array<{ path: string; type: string; bytes: number; chars: number; status: string }>;
+  notes: string[];
+  nativeBlockCount: number;
+  error: string | null;
+};
+
 type ProcessTurnInput = {
   body: ConversationTurnBody;
   correlationId: string | null;
   headers: Record<string, string | undefined>;
   idempotencyKey?: string;
+  // Multimodal (opcional, aditivo): conteúdo no formato do provedor (texto + blocos nativos de
+  // imagem/PDF) quando vieram arquivos e o modelo suporta visão/PDF. Ausente/null no caminho legado.
+  userContent?: Array<Record<string, unknown>> | null;
+  ingestManifest?: IngestManifestSummary | null;
 };
 
 type ProcessTurnOutput = {
@@ -2347,6 +2360,7 @@ async function resolveLlmPlanForTurn(input: {
   messageText: string;
   context: ReturnType<typeof buildConversationContext>;
   planningState: ConversationPlanningState;
+  userContent?: Array<Record<string, unknown>> | null;
 }): Promise<LlmPlan | ProcessTurnOutput> {
   const config = getAiConfig();
 
@@ -2374,7 +2388,8 @@ async function resolveLlmPlanForTurn(input: {
         askedManifestIds: input.planningState.askedManifestIds,
         workingMemoryBlock: input.planningState.workingMemoryBlock
       },
-      history: input.planningState.history
+      history: input.planningState.history,
+      userContent: input.userContent ?? null
     });
 
     const normalizedProvider = normalizeLlmProviderName(llmPlan.provider);
@@ -2476,7 +2491,9 @@ export function createConversationService(dependencies?: {
           messageText: toSafeText(messageText),
           structuredPayload: sanitizeStructuredPayload({
             metadata: sanitizedRequestMetadata,
-            context: sanitizedRawContextMetadata
+            context: sanitizedRawContextMetadata,
+            // Multimodal: rastro SEGURO da ingestão de arquivos — SÓ manifesto + notas, NUNCA bytes/base64.
+            ...(input.ingestManifest ? { ingest: input.ingestManifest } : {})
           }),
           correlationId: context.correlationId,
           integrationAccountId: context.integrationAccountId,
@@ -2493,7 +2510,8 @@ export function createConversationService(dependencies?: {
         explicitTool,
         messageText,
         context,
-        planningState
+        planningState,
+        userContent: input.userContent ?? null
       });
 
       if ('status' in planningResult) {
