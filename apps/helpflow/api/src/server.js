@@ -214,6 +214,58 @@ app.put('/v1/tickets/:id', wrap(async (req, res) => {
 }));
 app.delete('/v1/tickets/:id', crudDelete('tickets'));
 
+// GET /observability/health — saúde estruturada dos serviços (api/worker/db)
+app.get('/observability/health', wrap(async (_q, res) => {
+  let dbOk = false;
+  try { await pool.query('SELECT 1'); dbOk = true; } catch {}
+  let workerOk = true;
+  try { await jobsRepo.counts(); } catch { workerOk = false; }
+  const overall = dbOk && workerOk ? 'ok' : 'degraded';
+  res.json({
+    status: overall,
+    services: {
+      api: { status: 'ok' },
+      worker: { status: workerOk ? 'ok' : 'error' },
+      db: { status: dbOk ? 'connected' : 'error' },
+    },
+  });
+}));
+
+// GET /observability/metrics — throughput, taxa de erro e latência média por período
+// Parâmetros opcionais: from/to (ISO8601). Padrão: última 1h.
+app.get('/observability/metrics', wrap(async (req, res) => {
+  const now = new Date();
+  const rawTo = req.query.to ? new Date(req.query.to) : now;
+  const rawFrom = req.query.from ? new Date(req.query.from) : new Date(now.getTime() - 3600000);
+  const to = isNaN(rawTo.getTime()) ? now : rawTo;
+  const from = isNaN(rawFrom.getTime()) ? new Date(now.getTime() - 3600000) : rawFrom;
+  const { rows } = await pool.query(
+    `SELECT status, count(*)::int AS n FROM jobs WHERE updated_at >= $1 AND updated_at <= $2 GROUP BY status`,
+    [from.toISOString(), to.toISOString()]
+  );
+  const c = Object.fromEntries(rows.map((r) => [r.status, r.n]));
+  const done = c.done || 0;
+  const dlq = c.dlq || 0;
+  const total = done + dlq;
+  let avg_duration_ms = null;
+  if (total > 0) {
+    const { rows: latRows } = await pool.query(
+      `SELECT AVG(EXTRACT(EPOCH FROM (updated_at - created_at)) * 1000)::int AS avg_ms FROM jobs WHERE status IN ('done','dlq') AND updated_at >= $1 AND updated_at <= $2`,
+      [from.toISOString(), to.toISOString()]
+    );
+    avg_duration_ms = (latRows[0] && latRows[0].avg_ms !== null) ? Number(latRows[0].avg_ms) : null;
+  }
+  res.json({
+    period: { from: from.toISOString(), to: to.toISOString() },
+    has_data: total > 0,
+    throughput: done,
+    error_rate: total > 0 ? dlq / total : 0,
+    error_count: dlq,
+    total_count: total,
+    avg_duration_ms,
+  });
+}));
+
 async function depth() { try { const c = await jobsRepo.counts(); for (const s of ['queued','running','done','dlq']) M.queueDepth.set({ status: s }, c[s] || 0); } catch {} }
 const PORT = Number(process.env.PORT) || 8080;
 (async () => {

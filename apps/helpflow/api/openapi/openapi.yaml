@@ -188,3 +188,11 @@ paths:
     delete:
       operationId: deleteTicket
       responses: { "204": { description: deleted } }
+  /observability/health:
+    get:
+      operationId: observabilityHealth
+      responses: { "200": { description: "saúde estruturada dos serviços (api/worker/db)" } }
+  /observability/metrics:
+    get:
+      operationId: observabilityMetrics
+      responses: { "200": { description: "throughput, taxa de erro e latência média por período" } }

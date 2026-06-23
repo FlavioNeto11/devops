@@ -96,3 +96,7 @@ export const jobs = {
 // como alias para compatibilidade com chamadas já existentes (ex.: TicketDetailView).
 export const jobsHealth = () => request('GET', '/v1/health/jobs');
 export const healthJobs = jobsHealth;
+
+// Observabilidade dedicada (REF-HELPFLOW-0035)
+export const observabilityHealth = () => request('GET', '/observability/health');
+export const observabilityMetrics = (params) => request('GET', '/observability/metrics' + qs(params));

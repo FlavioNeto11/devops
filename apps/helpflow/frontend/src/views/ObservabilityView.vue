@@ -10,6 +10,18 @@
   >
     <!-- Ações do cabeçalho -->
     <template #actions>
+      <!-- Seletor de intervalo de tempo -->
+      <div class="hf-range-sel" role="group" aria-label="Intervalo de métricas">
+        <button
+          v-for="opt in rangeOptions"
+          :key="opt.value"
+          type="button"
+          class="hf-range-btn"
+          :data-active="timeRange === opt.value ? 'true' : 'false'"
+          :aria-pressed="timeRange === opt.value ? 'true' : 'false'"
+          @click="setTimeRange(opt.value)"
+        >{{ opt.label }}</button>
+      </div>
       <span class="hf-clock" aria-live="polite">{{ autoLabel }}</span>
       <button
         type="button"
@@ -250,6 +262,44 @@
       </template>
     </UiCard>
 
+    <!-- ============ MÉTRICAS DO PERÍODO ============ -->
+    <UiCard
+      title="Métricas do período"
+      :subtitle="periodSubtitle"
+    >
+      <div v-if="periodMetricsError" class="hf-inline-error" role="alert">
+        <p class="hf-inline-error-text">Não foi possível carregar as métricas do período selecionado.</p>
+        <UiButton size="sm" variant="ghost" @click="reloadMetrics">Tentar de novo</UiButton>
+      </div>
+      <div v-else-if="!periodMetrics.has_data" class="hf-soft-empty">
+        <span class="hf-soft-empty-icon" aria-hidden="true">📈</span>
+        <p class="hf-soft-empty-text">
+          Sem atividade no intervalo selecionado. Tente ampliar o período.
+        </p>
+      </div>
+      <div v-else class="hf-period-grid">
+        <UiMetricCard
+          label="Throughput"
+          :value="format.formatNumber(periodMetrics.throughput)"
+          tone="primary"
+          hint="jobs concluídos no período"
+        />
+        <UiMetricCard
+          label="Taxa de erro"
+          :value="periodErrorRateLabel"
+          :tone="periodErrorRateTone"
+          hint="DLQ sobre total processado"
+        />
+        <UiMetricCard
+          v-if="periodMetrics.avg_duration_ms !== null"
+          label="Duração média"
+          :value="periodMetrics.avg_duration_ms + ' ms'"
+          tone="neutral"
+          hint="tempo médio de processamento"
+        />
+      </div>
+    </UiCard>
+
     <!-- ============ LINKS EXTERNOS (Prometheus / métricas) ============ -->
     <UiCard
       title="Métricas e observabilidade externa"
@@ -293,7 +343,7 @@ import {
   useToast,
   format,
 } from '../ui/index.js';
-import { health as healthProbe, jobsHealth } from '../api.js';
+import { observabilityHealth, observabilityMetrics, jobsHealth } from '../api.js';
 
 const router = useRouter();
 const toast = useToast();
@@ -311,10 +361,15 @@ const HISTORY_MAX = 24;
 const AUTO_MS = 15000;
 
 // ---- Estados crus dos componentes monitorados ----
-const svc = reactive({ status: '', db: '' }); // GET /health → { status, db }
+const svc = reactive({ status: '', db: '', worker: '' }); // GET /observability/health
 const probe = reactive({ ok: false, latencyMs: null }); // medição da sonda
 const me = reactive({ email: null, name: null, role: null, ok: false }); // GET /me
 const jobs = reactive({ queued: 0, running: 0, done: 0, dlq: 0 }); // GET /v1/health/jobs
+
+// ---- Métricas do período (GET /observability/metrics) ----
+const timeRange = ref('1h'); // preset selecionado pelo usuário
+const periodMetrics = reactive({ has_data: false, throughput: 0, error_rate: 0, error_count: 0, total_count: 0, avg_duration_ms: null });
+const periodMetricsError = ref(false);
 
 // ---- Históricos (séries temporais em memória) ----
 const errorHistory = ref([]); // [{ rate }]
@@ -328,22 +383,57 @@ function nowMs() {
   return typeof performance !== 'undefined' ? performance.now() : Date.now();
 }
 
-// GET /health → primário; sua falha derruba a tela inteira (erro + retry).
-async function probeHealth() {
+// GET /observability/health → primário; sua falha derruba a tela inteira (erro + retry).
+async function probeObservabilityHealth() {
   const t0 = nowMs();
   try {
-    const h = await healthProbe();
+    const h = await observabilityHealth();
     probe.ok = true;
     probe.latencyMs = Math.max(0, Math.round(nowMs() - t0));
     svc.status = (h && h.status) || 'ok';
-    svc.db = (h && h.db) || '';
+    const svcs = (h && h.services) || {};
+    svc.db = (svcs.db && svcs.db.status) || '';
+    svc.worker = (svcs.worker && svcs.worker.status) || '';
   } catch (e) {
     probe.ok = false;
     probe.latencyMs = null;
     svc.status = 'error';
     svc.db = '';
+    svc.worker = '';
     throw e;
   }
+}
+
+// GET /observability/metrics → métricas por período; degrada graciosamente (não derruba a tela).
+function getTimeRangeDates() {
+  const now = new Date();
+  const MS = { '1h': 3600000, '6h': 21600000, '24h': 86400000, '7d': 604800000 };
+  const ms = MS[timeRange.value] || 3600000;
+  return { from: new Date(now.getTime() - ms).toISOString(), to: now.toISOString() };
+}
+
+async function probeObservabilityMetrics() {
+  try {
+    const m = await observabilityMetrics(getTimeRangeDates());
+    periodMetrics.has_data = !!m.has_data;
+    periodMetrics.throughput = Number(m.throughput) || 0;
+    periodMetrics.error_rate = Number(m.error_rate) || 0;
+    periodMetrics.error_count = Number(m.error_count) || 0;
+    periodMetrics.total_count = Number(m.total_count) || 0;
+    periodMetrics.avg_duration_ms = m.avg_duration_ms !== undefined && m.avg_duration_ms !== null ? Number(m.avg_duration_ms) : null;
+    periodMetricsError.value = false;
+  } catch {
+    periodMetricsError.value = true;
+  }
+}
+
+async function reloadMetrics() {
+  await probeObservabilityMetrics();
+}
+
+async function setTimeRange(range) {
+  timeRange.value = range;
+  await reloadMetrics();
 }
 
 // GET /me → identidade da borda SSO; degrada graciosamente (não derruba a tela).
@@ -395,13 +485,13 @@ async function load() {
   if (!first) refreshing.value = true;
   errorMsg.value = null;
   try {
-    await probeHealth(); // sinal primário
-    await Promise.all([probeJobs(), probeIdentity()]); // sondas secundárias (fail-soft)
+    await probeObservabilityHealth(); // sinal primário (GET /observability/health)
+    await Promise.all([probeJobs(), probeIdentity(), probeObservabilityMetrics()]); // sondas secundárias (fail-soft)
     pushHistory();
     updatedAt.value = new Date();
     if (!first) toast.success('Painel de observabilidade atualizado');
   } catch (e) {
-    errorMsg.value = e && e.message ? e.message : 'Serviço indisponível (GET /health falhou)';
+    errorMsg.value = e && e.message ? e.message : 'Serviço indisponível (GET /observability/health falhou)';
     if (!first) toast.error('Não foi possível atualizar o painel');
   } finally {
     loading.value = false;
@@ -497,7 +587,7 @@ const healthCards = computed(() => [
       ? 'A API respondeu à sonda de saúde normalmente.'
       : 'A API não respondeu à última sonda de saúde.',
     meta: [
-      { k: 'Endpoint', v: 'GET /health', code: true },
+      { k: 'Endpoint', v: 'GET /observability/health', code: true },
       { k: 'Resposta', v: probe.latencyMs !== null ? probe.latencyMs + ' ms' : '—' },
     ],
   },
@@ -675,6 +765,30 @@ const autoLabel = computed(() => {
   void tick.value; // depende de tick para reavaliar
   if (!updatedAt.value) return 'Coletando…';
   return 'Última leitura: ' + format.formatDateTime(updatedAt.value);
+});
+
+// ===================== Intervalo de tempo e métricas do período =====================
+const rangeOptions = [
+  { value: '1h', label: '1h' },
+  { value: '6h', label: '6h' },
+  { value: '24h', label: '24h' },
+  { value: '7d', label: '7d' },
+];
+
+const RANGE_LABELS = { '1h': 'última hora', '6h': 'últimas 6 horas', '24h': 'últimas 24 horas', '7d': 'últimos 7 dias' };
+const periodSubtitle = computed(
+  () => 'Throughput, taxa de erro e latência — ' + (RANGE_LABELS[timeRange.value] || timeRange.value) + '.',
+);
+
+const periodErrorRateTone = computed(() => {
+  if (periodMetricsError.value) return 'neutral';
+  if (periodMetrics.error_rate >= 0.1) return 'error';
+  if (periodMetrics.error_rate > 0) return 'warning';
+  return 'success';
+});
+const periodErrorRateLabel = computed(() => {
+  if (!periodMetrics.has_data) return '0%';
+  return (periodMetrics.error_rate * 100).toFixed(1) + '%';
 });
 
 // ===================== Links externos (ExternalLinkCard) =====================
@@ -1178,6 +1292,43 @@ onBeforeUnmount(stopAuto);
   margin: var(--ui-space-4) 0 0;
   font-size: var(--ui-text-xs);
   color: rgb(var(--ui-muted));
+}
+
+/* ===================== SELETOR DE INTERVALO ===================== */
+.hf-range-sel {
+  display: inline-flex;
+  border: 1px solid rgb(var(--ui-border-strong));
+  border-radius: var(--ui-radius-pill);
+  overflow: hidden;
+}
+.hf-range-btn {
+  font: inherit;
+  font-size: var(--ui-text-xs);
+  font-weight: 600;
+  padding: 5px 11px;
+  border: none;
+  background: transparent;
+  color: rgb(var(--ui-muted));
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.hf-range-btn:not(:last-child) {
+  border-right: 1px solid rgb(var(--ui-border));
+}
+.hf-range-btn[data-active="true"] {
+  background: rgb(var(--ui-accent));
+  color: rgb(var(--ui-accent-fg, 255 255 255));
+}
+.hf-range-btn:hover:not([data-active="true"]) {
+  background: rgb(var(--ui-surface-2));
+  color: rgb(var(--ui-fg));
+}
+
+/* ===================== PERÍODO DE MÉTRICAS ===================== */
+.hf-period-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: var(--ui-space-4);
 }
 
 @media (max-width: 860px) {
