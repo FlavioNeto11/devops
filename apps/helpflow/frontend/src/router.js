@@ -92,7 +92,8 @@ export const routes = [
 
   { path: '/kb-articles', name: 'kb-articles', component: KbArticleListView },
   { path: '/kb-articles/new', name: 'kb-article-new', component: KbArticleCreateView },
-  { path: '/kb-articles/search', name: 'kb-search', component: KbSearchView },
+  { path: '/kb-search', name: 'kb-search', component: KbSearchView },
+  { path: '/kb-articles/search', redirect: '/kb-search' },
   { path: '/kb-articles/:id', name: 'kb-article', component: KbArticleDetailView, props: true },
   { path: '/kb-articles/:id/edit', name: 'kb-article-edit', component: KbArticleEditView, props: true },
 

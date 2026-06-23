@@ -90,6 +90,11 @@ export const jobs = {
   requeue: (id) => request('POST', '/v1/jobs/' + id + '/requeue'),
 };
 
+// kbSearch — busca grounded na base de conhecimento
+// POST /v1/kb/search: { query } → { answer, citations, grounded }
+// Fail-closed: se nenhum artigo relevante, answer = recusa, citations = [].
+export const kbSearch = (query) => request('POST', '/v1/kb/search', { query });
+
 // Saúde da fila transacional (worker): contadores por status (queued/running/done/dlq).
 // Caminho canônico do backend: GET /v1/health/jobs → { status, jobs: {...} }.
 // `jobsHealth` é o acessor consumido pelo JobsMonitorView; `healthJobs` é mantido

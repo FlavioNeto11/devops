@@ -3,13 +3,13 @@
     width="wide"
     eyebrow="HelpFlow · Base de Conhecimento"
     title="Busca grounded na base de conhecimento"
-    subtitle="Faça uma pergunta em linguagem natural. A recuperação é fundamentada (RAG/pgvector) nos artigos reais da sua base: cada resposta vem com o trecho mais relevante, a similaridade e a citação do artigo-fonte — nada é inventado."
+    subtitle="Faça uma pergunta em linguagem natural. A resposta é fundamentada nos artigos reais publicados e indexados — cada citação aponta para a fonte, nunca fabrica conteúdo."
     :loading="initialLoading"
     loading-message="Carregando a base de conhecimento…"
     :error="corpusErrorMessage"
     @retry="loadCorpus"
   >
-    <!-- atalhos de domínio (somente rotas reais do service desk) -->
+    <!-- atalhos de domínio -->
     <template #actions>
       <UiButton variant="ghost" to="/kb-articles">
         <template #icon-left><span class="kb-ico" aria-hidden="true">▤</span></template>
@@ -21,31 +21,19 @@
       </UiButton>
     </template>
 
-    <!-- como a recuperação funciona (transparência do método grounded) -->
+    <!-- banner informativo do método grounded -->
     <template #banner>
       <div class="kb-banner" role="note">
         <span class="kb-banner-ico" aria-hidden="true">🔎</span>
         <p class="kb-banner-text">
           A busca é <strong>grounded</strong>: só recupera de artigos <strong>publicados e indexados</strong>
-          ({{ formatNumber(corpusStats.searchable) }} de {{ formatNumber(corpusStats.total) }} na base). Os
-          resultados são <strong>rankeados por similaridade textual (local)</strong> e cada um
-          <strong>cita</strong> o artigo de onde veio — abra a fonte para conferir. A recuperação vetorial
-          (pgvector) entra assim que o endpoint do backend estiver disponível.
-        </p>
-      </div>
-      <!-- aviso honesto: o corpus excede o teto carregado; parte da base fica fora do ranking local -->
-      <div v-if="corpusCapped" class="kb-banner kb-banner-warn" role="note">
-        <span class="kb-banner-ico" aria-hidden="true">⚠</span>
-        <p class="kb-banner-text">
-          A base tem <strong>{{ formatNumber(serverTotal) }}</strong> artigos, mas o ranking local
-          considera apenas os <strong>{{ formatNumber(corpusStats.total) }}</strong> mais recentes
-          (teto de {{ formatNumber(CORPUS_PAGE_LIMIT) }}). Artigos mais antigos não entram nesta busca
-          até a recuperação vetorial (pgvector) cobrir toda a base.
+          ({{ formatNumber(corpusStats.searchable) }} de {{ formatNumber(corpusStats.total) }} na base).
+          Cada resposta <strong>cita</strong> a fonte — abra o artigo para conferir o conteúdo completo.
         </p>
       </div>
     </template>
 
-    <!-- ============================ CAMPO DE BUSCA (SearchInput) ============================ -->
+    <!-- ============================ CAMPO DE BUSCA ============================ -->
     <UiCard class="kb-search-card">
       <form class="kb-search" role="search" aria-label="Buscar na base de conhecimento" @submit.prevent="runSearch">
         <UiFormField
@@ -100,7 +88,7 @@
         </div>
       </form>
 
-      <!-- sugestões de exemplo (apenas antes da 1ª busca, se houver corpus) -->
+      <!-- sugestões de exemplo derivadas das categorias reais do corpus -->
       <div
         v-if="!hasSearched && exampleQueries.length"
         class="kb-suggest"
@@ -119,14 +107,14 @@
       </div>
     </UiCard>
 
-    <!-- ============================ ESTADOS ABAIXO DO CAMPO ============================ -->
+    <!-- ============================ ESTADOS ============================ -->
 
-    <!-- corpus vazio: não há o que pesquisar (CTA p/ escrever artigo) -->
+    <!-- corpus vazio: não há artigos na base -->
     <UiCard v-if="!corpusLoading && !corpusError && corpusStats.total === 0">
       <UiEmptyState
         icon="doc"
         title="A base de conhecimento está vazia"
-        description="Escreva e publique o primeiro artigo. Depois de indexado no pgvector, ele passa a ser recuperável aqui pela busca semântica."
+        description="Escreva e publique o primeiro artigo. Depois de indexado, ele passa a ser recuperável aqui pela busca grounded."
       >
         <template #action>
           <UiButton variant="primary" to="/kb-articles/new">Escrever primeiro artigo</UiButton>
@@ -134,7 +122,7 @@
       </UiEmptyState>
     </UiCard>
 
-    <!-- corpus existe mas nada está indexado: busca não retorna até indexar -->
+    <!-- corpus existe mas nenhum artigo indexado -->
     <UiCard v-else-if="!corpusLoading && !corpusError && corpusStats.total > 0 && corpusStats.searchable === 0">
       <UiEmptyState
         icon="clock"
@@ -147,16 +135,30 @@
       </UiEmptyState>
     </UiCard>
 
-    <!-- buscando: skeleton dos resultados -->
-    <UiCard v-else-if="searching" title="Recuperando passagens relevantes…">
-      <UiLoadingState variant="skeleton" :skeleton-lines="6" />
+    <!-- buscando: indicador de processamento -->
+    <UiCard v-else-if="searching" title="Recuperando resposta grounded…">
+      <UiLoadingState variant="skeleton" :skeleton-lines="5" />
     </UiCard>
 
-    <!-- busca feita, sem resultados (acima do limiar) -->
-    <UiCard v-else-if="hasSearched && !results.length">
+    <!-- erro na busca: fail-closed, sem resposta fabricada -->
+    <UiCard v-else-if="hasSearched && searchError">
+      <UiErrorState
+        :message="searchErrorMessage"
+        :code="searchError.status"
+        :retryable="true"
+        @retry="retrySearch"
+      >
+        <template #action>
+          <UiButton variant="ghost" size="sm" @click="resetSearch">Nova busca</UiButton>
+        </template>
+      </UiErrorState>
+    </UiCard>
+
+    <!-- sem artigos relevantes: estado vazio convidando a refinar -->
+    <UiCard v-else-if="hasSearched && !searching && !searchError && !citations.length">
       <UiEmptyState
         icon="search"
-        title="Nada suficientemente relevante"
+        title="Nenhum artigo relevante encontrado"
         :description="noResultsDescription"
       >
         <template #action>
@@ -165,97 +167,59 @@
       </UiEmptyState>
     </UiCard>
 
-    <!-- resultados rankeados (SemanticResultList) -->
+    <!-- resultados: resposta grounded + citações verificáveis -->
     <section
-      v-else-if="hasSearched && results.length"
+      v-else-if="hasSearched && !searching && !searchError && citations.length"
       class="kb-results"
-      aria-label="Resultados da busca semântica"
+      aria-label="Resposta grounded da base de conhecimento"
     >
-      <header class="kb-results-head">
-        <h2 class="kb-results-title">
-          {{ results.length }} {{ results.length === 1 ? 'passagem' : 'passagens' }} para
-          <span class="kb-results-q">“{{ lastQuery }}”</span>
-        </h2>
-        <p class="kb-results-sub">Ordenadas pela maior similaridade com a sua pergunta.</p>
-      </header>
+      <UiCard class="kb-answer-card">
+        <header class="kb-answer-head">
+          <h2 class="kb-results-title">
+            Resposta para <span class="kb-results-q">"{{ lastQuery }}"</span>
+          </h2>
+          <p class="kb-results-sub">Fundamentada em {{ citations.length }} artigo(s) publicado(s) e indexado(s).</p>
+        </header>
 
-      <article
-        v-for="(res, i) in results"
-        :key="res.id"
-        class="kb-result"
-        :data-rank="i + 1"
-      >
-        <!-- cabeçalho: rank + título + similaridade (SimilarityScore) -->
-        <div class="kb-result-top">
-          <div class="kb-result-id">
-            <span class="kb-result-rank" aria-hidden="true">{{ i + 1 }}</span>
-            <div class="kb-result-titles">
-              <h3 class="kb-result-title">{{ res.title }}</h3>
-              <p class="kb-result-meta">
-                <span class="kb-result-ref ui-mono">#{{ res.id }}</span>
-                <span v-if="res.category" class="kb-result-cat">{{ res.category }}</span>
-                <UiStatusBadge
-                  :tone="publishTone(res.status)"
-                  :label="publishLabel(res.status)"
-                  :status="res.status"
-                  size="sm"
-                />
-              </p>
-            </div>
-          </div>
+        <blockquote class="kb-answer-text">{{ answer }}</blockquote>
 
-          <!-- SimilarityScore: barra + percentual + rótulo de força -->
-          <div
-            class="kb-score"
-            :data-level="res.scoreLevel"
-            role="img"
-            :aria-label="'Similaridade ' + res.scorePct + ' por cento — ' + scoreLevelLabel(res.scoreLevel)"
-          >
-            <span class="kb-score-pct">{{ res.scorePct }}%</span>
-            <span class="kb-score-track" aria-hidden="true">
-              <span class="kb-score-fill" :data-pct="res.scoreBucket"></span>
-            </span>
-            <span class="kb-score-label">{{ scoreLevelLabel(res.scoreLevel) }}</span>
+        <!-- citações verificáveis: link direto para o artigo-fonte -->
+        <div class="kb-citations-section">
+          <p class="kb-citations-header">
+            <span aria-hidden="true">◆</span>
+            Fontes citadas — clique para abrir o artigo completo
+          </p>
+          <div class="kb-citations-list">
+            <RouterLink
+              v-for="c in citations"
+              :key="c.id"
+              :to="'/kb-articles/' + c.id"
+              class="kb-citation-card"
+            >
+              <div class="kb-citation-top">
+                <span class="kb-chip-glyph" aria-hidden="true">📄</span>
+                <span class="kb-citation-title">{{ c.title }}</span>
+                <span class="kb-citation-ref ui-mono">#{{ c.id }}</span>
+                <span v-if="c.category" class="kb-citation-cat">{{ c.category }}</span>
+              </div>
+              <p v-if="c.snippet" class="kb-citation-snippet">{{ c.snippet }}</p>
+              <div v-if="c.tags && c.tags.length" class="kb-citation-tags">
+                <span v-for="t in c.tags" :key="t" class="kb-chip kb-chip-tag">
+                  <span class="kb-chip-glyph" aria-hidden="true">#</span>{{ t }}
+                </span>
+              </div>
+            </RouterLink>
           </div>
         </div>
-
-        <!-- trecho recuperado (snippet) com os termos da pergunta destacados (sem v-html) -->
-        <blockquote class="kb-snippet">
-          <span
-            v-for="(seg, si) in res.snippet"
-            :key="si"
-            :class="seg.hit ? 'kb-hl' : null"
-          >{{ seg.text }}</span>
-        </blockquote>
-
-        <!-- rodapé: citação do artigo-fonte (CitationChip) + ações -->
-        <footer class="kb-result-foot">
-          <div class="kb-citations" aria-label="Artigo-fonte citado">
-            <span class="kb-citations-label">Fonte:</span>
-            <RouterLink class="kb-chip" :to="'/kb-articles/' + res.id">
-              <span class="kb-chip-glyph" aria-hidden="true">📄</span>
-              <span class="kb-chip-text">{{ res.title }}</span>
-              <span class="kb-chip-ref ui-mono">#{{ res.id }}</span>
-            </RouterLink>
-            <span v-for="t in res.tags" :key="t" class="kb-chip kb-chip-tag">
-              <span class="kb-chip-glyph" aria-hidden="true">#</span>{{ t }}
-            </span>
-          </div>
-          <div class="kb-result-actions">
-            <UiButton size="sm" variant="subtle" :to="'/kb-articles/' + res.id">Abrir artigo</UiButton>
-          </div>
-        </footer>
-      </article>
+      </UiCard>
 
       <p class="kb-grounding-note" role="note">
         <span aria-hidden="true">◆</span>
-        Recuperação fundamentada em {{ formatNumber(corpusStats.searchable) }} artigo(s) indexado(s). A
-        similaridade reflete a sobreposição semântica com a sua pergunta — confira sempre a fonte antes de
-        responder ao cliente.
+        Resposta fundamentada em artigos publicados e indexados. Confira as fontes antes de responder ao cliente.
       </p>
     </section>
 
-    <!-- idle: corpus pronto, nenhuma busca feita ainda -->
+    <!-- idle: corpus pronto, aguardando pergunta -->
     <UiCard v-else-if="!hasSearched && corpusStats.searchable > 0">
       <UiEmptyState
         icon="search"
@@ -278,37 +242,22 @@ import {
   UiCard,
   UiButton,
   UiFormField,
-  UiStatusBadge,
   UiEmptyState,
+  UiErrorState,
   UiLoadingState,
   useToast,
   format,
 } from '../ui/index.js';
-// `kbArticles` é o recurso REAL garantido pelo integrador (mapeia /v1/kb-articles).
-// É a fonte da recuperação grounded: só recuperamos de artigos REAIS da base — nunca
-// fabricamos conteúdo. A régua RAG/pgvector (REQ-HELPFLOW-0006) só torna recuperável o
-// que está PUBLICADO e INDEXADO; respeitamos isso ao montar o corpus pesquisável.
-import { kbArticles } from '../api.js';
+import { kbArticles, kbSearch } from '../api.js';
 
 const toast = useToast();
 const formatNumber = format.formatNumber;
 
-// --------------------------- rótulos/tons de publicação ---------------------------
-const STATUS_LABEL = { draft: 'Rascunho', published: 'Publicado', archived: 'Arquivado' };
-const STATUS_TONE = { draft: 'warning', published: 'success', archived: 'neutral' };
-const publishLabel = (v) => STATUS_LABEL[String(v || '').toLowerCase()] || format.humanize(v);
-const publishTone = (v) => STATUS_TONE[String(v || '').toLowerCase()] || 'neutral';
-
-// teto de página do backend (crud-repo). Acima disso a recuperação local não vê o resto.
-const CORPUS_PAGE_LIMIT = 200;
-
-// ------------------------------- estado do corpus -------------------------------
-const corpus = ref([]); // artigos reais carregados (todos os status; filtramos a busca)
+// ---- corpus: carregado apenas para estatísticas do banner e sugestões ----
+const corpus = ref([]);
 const corpusLoading = ref(false);
 const corpusLoaded = ref(false);
 const corpusError = ref(null);
-const serverTotal = ref(0); // total REAL informado pelo backend (pode exceder o carregado)
-const corpusCapped = ref(false); // true quando o backend tem mais artigos do que o teto carregado
 
 const initialLoading = computed(() => corpusLoading.value && !corpusLoaded.value);
 const corpusErrorMessage = computed(() => {
@@ -317,32 +266,25 @@ const corpusErrorMessage = computed(() => {
   return (corpusError.value.message || 'Não foi possível carregar a base de conhecimento.') + code;
 });
 
-// só é RECUPERÁVEL o que está publicado E indexado (semântica do RAG/pgvector).
 function isSearchable(a) {
   return (
     String(a.status || '').toLowerCase() === 'published' &&
     String(a.embedding_status || '').toLowerCase() === 'indexed'
   );
 }
-const searchableCorpus = computed(() => corpus.value.filter(isSearchable));
 
-const corpusStats = computed(() => {
-  const total = corpus.value.length;
-  const searchable = searchableCorpus.value.length;
-  const published = corpus.value.filter((a) => String(a.status || '').toLowerCase() === 'published').length;
-  const indexed = corpus.value.filter((a) => String(a.embedding_status || '').toLowerCase() === 'indexed').length;
-  return { total, searchable, published, indexed };
-});
+const corpusStats = computed(() => ({
+  total: corpus.value.length,
+  searchable: corpus.value.filter(isSearchable).length,
+  published: corpus.value.filter((a) => String(a.status || '').toLowerCase() === 'published').length,
+}));
 
 const notIndexedDescription = computed(() => {
   const pub = corpusStats.value.published;
-  if (pub === 0) {
-    return 'Há artigos na base, mas nenhum está publicado. Publique um artigo e aguarde a indexação vetorial (pgvector) para que ele possa ser recuperado aqui.';
-  }
+  if (!pub) return 'Há artigos na base, mas nenhum está publicado. Publique um artigo para que ele possa ser recuperado.';
   return (
-    'Há ' +
-    formatNumber(pub) +
-    ' artigo(s) publicado(s), mas a indexação vetorial (pgvector) ainda não concluiu. Assim que o embedding ficar pronto, eles aparecem na busca.'
+    'Há ' + formatNumber(pub) +
+    ' artigo(s) publicado(s), mas a indexação ainda não concluiu. Aguarde a conclusão para buscar.'
   );
 });
 
@@ -350,34 +292,26 @@ async function loadCorpus() {
   corpusLoading.value = true;
   corpusError.value = null;
   try {
-    // pageSize máximo do backend é 200 (crud-repo). Suficiente para um corpus de busca local;
-    // a recuperação REAL (pgvector) acontece no backend quando o endpoint /v1/kb/search existir
-    // (ver api.js · `kbSearch` ainda não exposto). Até lá, o ranking abaixo é TEXTUAL/local
-    // sobre dados REAIS dos artigos — honesto, determinístico e sempre rastreável à fonte.
-    const res = await kbArticles.list({ pageSize: CORPUS_PAGE_LIMIT, sort: 'updated_at', dir: 'desc' });
+    const res = await kbArticles.list({ pageSize: 200, sort: 'updated_at', dir: 'desc' });
     const list = Array.isArray(res) ? res : (res && (res.data || res.items)) || [];
     corpus.value = list;
-    // o backend informa o total real quando pagina; se exceder o que carregamos, avisamos.
-    const reported = res && typeof res.total === 'number' ? res.total : list.length;
-    serverTotal.value = Math.max(reported, list.length);
-    corpusCapped.value = list.length >= CORPUS_PAGE_LIMIT && serverTotal.value > list.length;
     corpusLoaded.value = true;
   } catch (e) {
     corpusError.value = e;
     corpus.value = [];
-    serverTotal.value = 0;
-    corpusCapped.value = false;
   } finally {
     corpusLoading.value = false;
   }
 }
 
-// ------------------------------- busca (estado) -------------------------------
+// ---- estado de busca ----
 const queryInput = ref('');
 const lastQuery = ref('');
 const searching = ref(false);
 const hasSearched = ref(false);
-const results = ref([]);
+const searchError = ref(null);
+const answer = ref('');
+const citations = ref([]);
 const searchInput = ref(null);
 
 const searchDisabled = computed(
@@ -390,23 +324,30 @@ const searchHint = computed(() => {
   return 'Escreva uma pergunta completa — quanto mais específica, melhor a recuperação.';
 });
 
+const searchErrorMessage = computed(() => {
+  if (!searchError.value) return 'A busca não está disponível no momento. Nenhuma resposta foi gerada.';
+  return (searchError.value.message || 'Erro desconhecido') +
+    (searchError.value.status ? ' (HTTP ' + searchError.value.status + ')' : '');
+});
+
 const idleDescription = computed(
   () =>
     'A busca consulta ' +
     formatNumber(corpusStats.value.searchable) +
-    ' artigo(s) indexado(s). Descreva o problema do cliente em uma frase e veja as passagens mais relevantes, com a fonte citada.',
-);
-const noResultsDescription = computed(
-  () =>
-    'Nenhuma passagem de “' +
-    lastQuery.value +
-    '” passou do limiar de similaridade. Tente reformular com outras palavras ou termos mais específicos do domínio.',
+    ' artigo(s) indexado(s). Descreva o problema em linguagem natural e veja a resposta com a fonte citada.',
 );
 
-// exemplos derivados das CATEGORIAS reais do corpus (sem inventar perguntas fora da base).
+const noResultsDescription = computed(
+  () =>
+    'Nenhum artigo relevante encontrado para "' +
+    lastQuery.value +
+    '". Tente reformular com outras palavras ou termos mais específicos do domínio.',
+);
+
+// sugestões derivadas das categorias reais do corpus (não inventa perguntas fora da base)
 const exampleQueries = computed(() => {
   const cats = [];
-  for (const a of searchableCorpus.value) {
+  for (const a of corpus.value.filter(isSearchable)) {
     const c = String(a.category || '').trim();
     if (c && !cats.includes(c)) cats.push(c);
     if (cats.length >= 3) break;
@@ -414,172 +355,8 @@ const exampleQueries = computed(() => {
   return cats.map((c) => 'O que fazer sobre ' + c.toLowerCase() + '?');
 });
 
-// ------------------------- tokenização + similaridade (transparente) -------------------------
-// Ranking client-side honesto sobre o corpus REAL: sobreposição de termos ponderada por
-// raridade (TF-IDF simplificado), com bônus para correspondência no título. Determinístico,
-// sem dependências, e sempre rastreável à fonte. A "similaridade" é normalizada em 0..1.
-const STOPWORDS = new Set(
-  ('a o e de da do das dos um uma uns umas para por com sem que se na no nas nos em ao aos as os ' +
-    'como qual quais quando onde quem porque pra pro the of and to in on for is are how what why ' +
-    'sobre meu minha seu sua nosso nossa este esta esse essa isso ele ela eles elas mais menos ' +
-    'fazer sobre qual')
-    .split(/\s+/)
-    .filter(Boolean),
-);
-
-function tokenize(text) {
-  return String(text || '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '') // remove acentos p/ casar "senha"/"sénha"
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .split(/\s+/)
-    .filter((t) => t.length >= 3 && !STOPWORDS.has(t));
-}
-
-function articleText(a) {
-  return [a.title, a.category, a.tags, a.body].filter(Boolean).join(' \n ');
-}
-
-// document frequency p/ ponderar termos raros (calculado sobre o corpus pesquisável)
-const docFrequency = computed(() => {
-  const df = new Map();
-  for (const a of searchableCorpus.value) {
-    const seen = new Set(tokenize(articleText(a)));
-    for (const t of seen) df.set(t, (df.get(t) || 0) + 1);
-  }
-  return df;
-});
-
-function idf(term) {
-  const n = searchableCorpus.value.length || 1;
-  const df = docFrequency.value.get(term) || 0;
-  return Math.log((n + 1) / (df + 1)) + 1; // suavizado, sempre > 0
-}
-
-const tagList = (tags) =>
-  String(tags || '')
-    .split(/[,;]/)
-    .map((t) => t.trim())
-    .filter(Boolean)
-    .slice(0, 4);
-
-// monta um snippet com o melhor trecho do corpo + termos da pergunta destacados (segmentos,
-// sem v-html). Procura a primeira ocorrência de um termo no corpo e abre uma janela ao redor.
-function buildSnippet(body, queryTokens) {
-  const text = String(body || '').replace(/\s+/g, ' ').trim();
-  if (!text) return [{ text: 'Sem prévia disponível para este artigo.', hit: false }];
-  const lower = text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '');
-  // acha a posição do primeiro termo presente
-  let pos = -1;
-  for (const t of queryTokens) {
-    const idx = lower.indexOf(t);
-    if (idx >= 0 && (pos < 0 || idx < pos)) pos = idx;
-  }
-  const WINDOW = 240;
-  let start = pos < 0 ? 0 : Math.max(0, pos - 60);
-  // alinha o início numa fronteira de palavra
-  if (start > 0) {
-    const sp = text.indexOf(' ', start);
-    if (sp >= 0 && sp - start < 20) start = sp + 1;
-  }
-  let slice = text.slice(start, start + WINDOW);
-  const prefix = start > 0 ? '… ' : '';
-  const suffix = start + WINDOW < text.length ? ' …' : '';
-  slice = prefix + slice + suffix;
-
-  // segmenta destacando ocorrências (case-insensitive, acento-insensível) dos termos
-  const segs = [];
-  const sliceLower = slice
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '');
-  let cursor = 0;
-  while (cursor < slice.length) {
-    let best = -1;
-    let bestLen = 0;
-    for (const t of queryTokens) {
-      const idx = sliceLower.indexOf(t, cursor);
-      if (idx >= 0 && (best < 0 || idx < best)) {
-        best = idx;
-        bestLen = t.length;
-      }
-    }
-    if (best < 0) {
-      segs.push({ text: slice.slice(cursor), hit: false });
-      break;
-    }
-    if (best > cursor) segs.push({ text: slice.slice(cursor, best), hit: false });
-    segs.push({ text: slice.slice(best, best + bestLen), hit: true });
-    cursor = best + bestLen;
-  }
-  return segs.length ? segs : [{ text: slice, hit: false }];
-}
-
-function scoreLevel(score) {
-  if (score >= 0.66) return 'high';
-  if (score >= 0.33) return 'medium';
-  return 'low';
-}
-function scoreLevelLabel(level) {
-  return { high: 'Alta', medium: 'Média', low: 'Baixa' }[level] || 'Baixa';
-}
-
-function rankCorpus(rawQuery) {
-  const qTokensAll = tokenize(rawQuery);
-  const qTokens = Array.from(new Set(qTokensAll));
-  if (!qTokens.length) return [];
-
-  // peso total da consulta (soma dos idf dos termos) p/ normalizar o score em 0..1
-  let queryWeight = 0;
-  for (const t of qTokens) queryWeight += idf(t);
-  if (queryWeight <= 0) return [];
-
-  const scored = [];
-  for (const a of searchableCorpus.value) {
-    const titleTokens = new Set(tokenize([a.title, a.category, a.tags].filter(Boolean).join(' ')));
-    const bodyTokens = new Set(tokenize(a.body));
-    let matched = 0;
-    let hits = 0;
-    for (const t of qTokens) {
-      const inTitle = titleTokens.has(t);
-      const inBody = bodyTokens.has(t);
-      if (inTitle || inBody) {
-        hits += 1;
-        // título vale mais (proxy de relevância de tópico)
-        matched += idf(t) * (inTitle ? 1 : 0.78);
-      }
-    }
-    if (hits === 0) continue;
-    // cobertura: fração dos termos da pergunta efetivamente encontrados (evita ranquear
-    // alto um artigo que casa só 1 de 6 termos por causa de um termo raro)
-    const coverage = hits / qTokens.length;
-    const raw = (matched / queryWeight) * (0.55 + 0.45 * coverage);
-    const score = Math.max(0, Math.min(1, raw));
-    if (score < 0.08) continue; // limiar mínimo de relevância
-    const level = scoreLevel(score);
-    scored.push({
-      id: a.id,
-      title: a.title || 'Sem título',
-      category: a.category || '',
-      status: a.status || '',
-      tags: tagList(a.tags),
-      snippet: buildSnippet(a.body, qTokens),
-      score,
-      scorePct: Math.round(score * 100),
-      scoreBucket: Math.max(4, Math.round(score * 20) * 5), // 0..100 em passos de 5 (p/ CSS data-attr)
-      scoreLevel: level,
-    });
-  }
-  scored.sort((x, y) => y.score - x.score);
-  return scored.slice(0, 8);
-}
-
-// ------------------------------- ações da busca -------------------------------
-function runSearch() {
+// ---- ações da busca ----
+async function runSearch() {
   const q = queryInput.value.trim();
   if (searchDisabled.value) return;
   if (q.length < 2) {
@@ -589,38 +366,53 @@ function runSearch() {
   searching.value = true;
   hasSearched.value = true;
   lastQuery.value = q;
-  // microtarefa p/ permitir o skeleton pintar antes do ranking síncrono
-  nextTick(() => {
-    try {
-      const ranked = rankCorpus(q);
-      results.value = ranked;
-      if (ranked.length) {
-        toast.success(ranked.length + ' passagem(ns) recuperada(s) e citada(s) da base.');
-      }
-    } catch (e) {
-      results.value = [];
-      toast.error('Falha ao recuperar passagens.', { detail: e && e.message });
-    } finally {
-      searching.value = false;
+  searchError.value = null;
+  answer.value = '';
+  citations.value = [];
+  try {
+    const result = await kbSearch(q);
+    answer.value = result.answer || '';
+    citations.value = Array.isArray(result.citations) ? result.citations : [];
+    if (citations.value.length) {
+      toast.success(citations.value.length + ' fonte(s) citada(s) na resposta.');
     }
-  });
+  } catch (e) {
+    searchError.value = e;
+    answer.value = '';
+    citations.value = [];
+    toast.error('Falha na busca grounded.', { detail: e && e.message });
+  } finally {
+    searching.value = false;
+  }
+}
+
+function retrySearch() {
+  if (lastQuery.value) {
+    queryInput.value = lastQuery.value;
+    runSearch();
+  }
 }
 
 function clearQuery() {
   queryInput.value = '';
   focusSearch();
 }
+
 function resetSearch() {
   queryInput.value = '';
   lastQuery.value = '';
-  results.value = [];
+  answer.value = '';
+  citations.value = [];
   hasSearched.value = false;
+  searchError.value = null;
   focusSearch();
 }
+
 function useExample(ex) {
   queryInput.value = ex;
   runSearch();
 }
+
 function focusSearch() {
   nextTick(() => {
     if (searchInput.value && typeof searchInput.value.focus === 'function') searchInput.value.focus();
@@ -660,16 +452,6 @@ onMounted(loadCorpus);
   color: rgb(var(--ui-accent-strong));
 }
 
-/* variante de aviso (corpus acima do teto carregado) — usa o token de alerta do kit */
-.kb-banner-warn {
-  margin-top: var(--ui-space-2);
-  border-color: rgb(var(--ui-warn) / 0.4);
-  background: rgb(var(--ui-warn) / 0.08);
-}
-.kb-banner-warn .kb-banner-text strong {
-  color: rgb(var(--ui-warn));
-}
-
 /* -------------------------------- campo de busca -------------------------------- */
 .kb-search-card :deep(.ui-card-body) {
   display: flex;
@@ -697,10 +479,6 @@ onMounted(loadCorpus);
   pointer-events: none;
   opacity: 0.7;
 }
-/* O kit estiliza o input via `.ui-field :deep(input)` (especificidade alta por causa
-   do atributo de escopo). Em vez de `!important`, casamos a MESMA forma de seletor
-   (.ui-field + input.classe) a partir desta view para vencer por especificidade de
-   forma limpa — só ajustamos padding/altura p/ caber a lupa e o botão de limpar. */
 .kb-search :deep(.ui-field input.kb-search-input) {
   padding-left: 38px;
   padding-right: 36px;
@@ -769,16 +547,19 @@ onMounted(loadCorpus);
   cursor: not-allowed;
 }
 
-/* -------------------------------- lista de resultados -------------------------------- */
+/* -------------------------------- resultados -------------------------------- */
 .kb-results {
   display: flex;
   flex-direction: column;
   gap: var(--ui-space-4);
 }
-.kb-results-head {
+
+/* cabeçalho dos resultados */
+.kb-answer-head {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  margin-bottom: var(--ui-space-3);
 }
 .kb-results-title {
   font-size: var(--ui-text-xl);
@@ -792,253 +573,121 @@ onMounted(loadCorpus);
   color: rgb(var(--ui-muted));
 }
 
-.kb-result {
+/* resposta grounded */
+.kb-answer-text {
+  margin: 0 0 var(--ui-space-4);
+  font-size: var(--ui-text-md);
+  line-height: 1.65;
+  color: rgb(var(--ui-fg));
+  padding: var(--ui-space-4);
+  background: rgb(var(--ui-surface-2));
+  border-left: 4px solid rgb(var(--ui-accent));
+  border-radius: 0 var(--ui-radius-md) var(--ui-radius-md) 0;
+}
+
+/* seção de citações */
+.kb-citations-section {
   display: flex;
   flex-direction: column;
   gap: var(--ui-space-3);
-  padding: var(--ui-space-4) var(--ui-space-5);
-  border: 1px solid rgb(var(--ui-border));
-  border-left: 4px solid rgb(var(--ui-accent) / 0.35);
-  border-radius: var(--ui-radius-lg);
-  background: rgb(var(--ui-surface));
-  box-shadow: var(--ui-shadow-sm);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
-.kb-result:hover {
-  border-left-color: rgb(var(--ui-accent));
-  box-shadow: var(--ui-shadow-md);
+.kb-citations-header {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+  font-size: var(--ui-text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgb(var(--ui-muted));
 }
-.kb-result[data-rank="1"] {
-  border-left-color: rgb(var(--ui-accent));
-  background: rgb(var(--ui-accent) / 0.04);
+.kb-citations-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-3);
 }
 
-.kb-result-top {
+/* card de citação — clicável, navega para /kb-articles/:id */
+.kb-citation-card {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--ui-space-4);
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: var(--ui-space-2);
+  padding: var(--ui-space-3) var(--ui-space-4);
+  border: 1px solid rgb(var(--ui-accent) / 0.35);
+  border-left: 4px solid rgb(var(--ui-accent) / 0.5);
+  border-radius: var(--ui-radius-lg);
+  background: rgb(var(--ui-surface));
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.kb-result-id {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--ui-space-3);
-  min-width: 0;
-  flex: 1 1 260px;
+.kb-citation-card:hover {
+  border-left-color: rgb(var(--ui-accent));
+  box-shadow: var(--ui-shadow-sm);
+  text-decoration: none;
 }
-.kb-result-rank {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  font-family: var(--ui-font-display);
-  font-weight: 700;
-  font-size: var(--ui-text-sm);
-  background: rgb(var(--ui-accent) / 0.14);
-  color: rgb(var(--ui-accent-strong));
-}
-.kb-result-titles {
-  min-width: 0;
-}
-.kb-result-title {
-  font-size: var(--ui-text-lg);
-  line-height: 1.3;
-}
-.kb-result-meta {
+.kb-citation-top {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  margin: 5px 0 0;
-  font-size: var(--ui-text-xs);
-  color: rgb(var(--ui-muted));
-}
-.kb-result-ref {
-  color: rgb(var(--ui-accent-strong));
-}
-.kb-result-cat {
-  border: 1px solid rgb(var(--ui-border-strong));
-  border-radius: var(--ui-radius-pill);
-  padding: 0 8px;
-  line-height: 1.6;
-}
-
-/* SimilarityScore */
-.kb-score {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  grid-template-areas:
-    'pct track'
-    'label track';
-  align-items: center;
-  gap: 2px var(--ui-space-2);
-  min-width: 150px;
-  flex-shrink: 0;
-}
-.kb-score-pct {
-  grid-area: pct;
-  font-family: var(--ui-font-display);
-  font-weight: 700;
-  font-size: var(--ui-text-lg);
-  line-height: 1;
-}
-.kb-score-label {
-  grid-area: label;
-  font-size: var(--ui-text-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-.kb-score-track {
-  grid-area: track;
-  position: relative;
-  height: 8px;
-  border-radius: var(--ui-radius-pill);
-  background: rgb(var(--ui-muted) / 0.18);
-  overflow: hidden;
-}
-.kb-score-fill {
-  position: absolute;
-  inset: 0 auto 0 0;
-  border-radius: var(--ui-radius-pill);
-  background: currentColor;
-  /* largura por bucket (passos de 5%) — sem style inline; CSP-safe via data-attr */
-  width: 4%;
-}
-.kb-score[data-level="high"] {
-  color: rgb(var(--ui-ok));
-}
-.kb-score[data-level="medium"] {
-  color: rgb(var(--ui-warn));
-}
-.kb-score[data-level="low"] {
-  color: rgb(var(--ui-muted));
-}
-.kb-score-pct,
-.kb-score-label {
-  color: rgb(var(--ui-fg));
-}
-.kb-score[data-level="high"] .kb-score-label {
-  color: rgb(var(--ui-ok));
-}
-.kb-score[data-level="medium"] .kb-score-label {
-  color: rgb(var(--ui-warn));
-}
-
-/* larguras da barra por bucket (0..100 em passos de 5) — data-attr → CSP-safe */
-.kb-score-fill[data-pct="4"] { width: 4%; }
-.kb-score-fill[data-pct="5"] { width: 5%; }
-.kb-score-fill[data-pct="10"] { width: 10%; }
-.kb-score-fill[data-pct="15"] { width: 15%; }
-.kb-score-fill[data-pct="20"] { width: 20%; }
-.kb-score-fill[data-pct="25"] { width: 25%; }
-.kb-score-fill[data-pct="30"] { width: 30%; }
-.kb-score-fill[data-pct="35"] { width: 35%; }
-.kb-score-fill[data-pct="40"] { width: 40%; }
-.kb-score-fill[data-pct="45"] { width: 45%; }
-.kb-score-fill[data-pct="50"] { width: 50%; }
-.kb-score-fill[data-pct="55"] { width: 55%; }
-.kb-score-fill[data-pct="60"] { width: 60%; }
-.kb-score-fill[data-pct="65"] { width: 65%; }
-.kb-score-fill[data-pct="70"] { width: 70%; }
-.kb-score-fill[data-pct="75"] { width: 75%; }
-.kb-score-fill[data-pct="80"] { width: 80%; }
-.kb-score-fill[data-pct="85"] { width: 85%; }
-.kb-score-fill[data-pct="90"] { width: 90%; }
-.kb-score-fill[data-pct="95"] { width: 95%; }
-.kb-score-fill[data-pct="100"] { width: 100%; }
-
-/* snippet recuperado */
-.kb-snippet {
-  margin: 0;
-  font-size: var(--ui-text-md);
-  line-height: 1.6;
-  color: rgb(var(--ui-fg));
-  padding: var(--ui-space-3) var(--ui-space-4);
-  background: rgb(var(--ui-surface-2));
-  border-radius: var(--ui-radius-md);
-}
-.kb-hl {
-  background: rgb(var(--ui-accent) / 0.22);
-  color: rgb(var(--ui-accent-strong));
-  font-weight: 700;
-  border-radius: 3px;
-  padding: 0 2px;
-}
-
-/* rodapé: citações + ações */
-.kb-result-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--ui-space-3);
-  flex-wrap: wrap;
-}
-.kb-citations {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--ui-space-2);
-  min-width: 0;
-}
-.kb-citations-label {
-  font-size: var(--ui-text-xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: rgb(var(--ui-muted));
-}
-
-/* CitationChip */
-.kb-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  max-width: 320px;
-  padding: 4px 10px;
-  border-radius: var(--ui-radius-pill);
-  border: 1px solid rgb(var(--ui-accent) / 0.4);
-  background: rgb(var(--ui-accent) / 0.1);
-  color: rgb(var(--ui-accent-strong));
-  font-size: var(--ui-text-xs);
-  font-weight: 600;
-  text-decoration: none;
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-a.kb-chip:hover {
-  background: rgb(var(--ui-accent) / 0.18);
-  border-color: rgb(var(--ui-accent));
-  text-decoration: none;
 }
 .kb-chip-glyph {
   flex-shrink: 0;
 }
-.kb-chip-text {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.kb-citation-title {
+  font-weight: 600;
+  font-size: var(--ui-text-md);
+  color: rgb(var(--ui-accent-strong));
 }
-.kb-chip-ref {
-  flex-shrink: 0;
+.kb-citation-ref {
+  font-size: var(--ui-text-xs);
+  color: rgb(var(--ui-muted));
   opacity: 0.8;
 }
+.kb-citation-cat {
+  font-size: var(--ui-text-xs);
+  border: 1px solid rgb(var(--ui-border-strong));
+  border-radius: var(--ui-radius-pill);
+  padding: 0 8px;
+  line-height: 1.6;
+  color: rgb(var(--ui-muted));
+}
+.kb-citation-snippet {
+  margin: 0;
+  font-size: var(--ui-text-sm);
+  line-height: 1.55;
+  color: rgb(var(--ui-fg));
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.kb-citation-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-space-1);
+}
+
+/* chips de tag */
+.kb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--ui-radius-pill);
+  font-size: var(--ui-text-xs);
+  font-weight: 600;
+  text-decoration: none;
+}
 .kb-chip-tag {
-  border-style: dashed;
-  border-color: rgb(var(--ui-border-strong));
+  border: 1px dashed rgb(var(--ui-border-strong));
   background: rgb(var(--ui-surface-2));
   color: rgb(var(--ui-muted));
 }
-.kb-result-actions {
-  display: flex;
-  gap: var(--ui-space-2);
-  flex-shrink: 0;
-}
 
-/* nota de grounding final */
+/* nota de grounding no rodapé dos resultados */
 .kb-grounding-note {
   display: flex;
   align-items: flex-start;
@@ -1067,13 +716,7 @@ a.kb-chip:hover {
   .kb-search-actions :deep(.ui-btn) {
     flex: 1 1 auto;
   }
-  .kb-result-top {
-    flex-direction: column;
-  }
-  .kb-score {
-    width: 100%;
-  }
-  .kb-result-foot {
+  .kb-citation-top {
     flex-direction: column;
     align-items: flex-start;
   }

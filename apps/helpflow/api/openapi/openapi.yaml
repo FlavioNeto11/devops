@@ -188,3 +188,11 @@ paths:
     delete:
       operationId: deleteTicket
       responses: { "204": { description: deleted } }
+  /v1/kb/search:
+    post:
+      operationId: kbSearch
+      responses: { "200": { description: "resposta grounded com citacoes (fail-closed)" } }
+  /v1/kb-articles/{id}/reindex:
+    post:
+      operationId: reindexKbArticle
+      responses: { "202": { description: "reindexacao enfileirada" } }

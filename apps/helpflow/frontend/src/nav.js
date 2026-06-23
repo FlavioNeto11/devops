@@ -13,7 +13,7 @@ export const nav = [
   ] },
   { group: 'Conhecimento e IA', items: [
     { label: 'Base de conhecimento', to: '/kb-articles', icon: '▦' },
-    { label: 'Buscar na base', to: '/kb-articles/search', icon: '⌕' },
+    { label: 'Buscar na base', to: '/kb-search', icon: '⌕' },
     { label: 'Assistente IA', to: '/assistant', icon: '◇' },
   ] },
   { group: 'Operação', items: [

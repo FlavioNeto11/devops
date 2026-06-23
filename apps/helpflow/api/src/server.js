@@ -214,6 +214,57 @@ app.put('/v1/tickets/:id', wrap(async (req, res) => {
 }));
 app.delete('/v1/tickets/:id', crudDelete('tickets'));
 
+// ---- kb/search — busca grounded na base de conhecimento ----
+// POST /v1/kb/search: { query } → { answer, citations, grounded }
+// Fail-closed: recusa com mensagem explícita quando nenhum artigo é relevante.
+// Implementação textual (ILIKE + rank por coluna) até pgvector estar provisionado.
+app.post('/v1/kb/search', wrap(async (req, res) => {
+  const { query } = req.body || {};
+  if (!query || typeof query !== 'string' || query.trim().length < 2) {
+    return res.status(400).json({ error: { message: 'query obrigatório (mínimo 2 caracteres)' } });
+  }
+  const q = query.trim();
+  const pattern = '%' + q + '%';
+  const { rows } = await pool.query(
+    `SELECT id, title, body, category, tags,
+       (CASE WHEN title ILIKE $2 THEN 4 ELSE 0 END +
+        CASE WHEN body ILIKE $2 THEN 2 ELSE 0 END +
+        CASE WHEN category ILIKE $2 THEN 1 ELSE 0 END +
+        CASE WHEN tags ILIKE $2 THEN 1 ELSE 0 END) AS relevance
+     FROM kb_articles
+     WHERE tenant_id = $1 AND status = 'published' AND embedding_status = 'indexed'
+       AND (title ILIKE $2 OR body ILIKE $2 OR category ILIKE $2 OR tags ILIKE $2)
+     ORDER BY relevance DESC, updated_at DESC
+     LIMIT 3`,
+    [req.tenantId, pattern],
+  );
+  if (!rows.length) {
+    return res.json({ answer: 'Não encontrei artigo relevante na base de conhecimento.', citations: [], grounded: true });
+  }
+  const citeList = rows.map((a) => `[Artigo: ${a.title}]`).join(', ');
+  const top = rows[0];
+  const topSnippet = String(top.body || '').slice(0, 350).replace(/\s+/g, ' ').trim();
+  const answer = `De acordo com ${citeList}: ${topSnippet}${topSnippet.length >= 350 ? '…' : ''}`;
+  const citations = rows.map((a) => ({
+    id: a.id,
+    title: a.title,
+    category: a.category || null,
+    snippet: String(a.body || '').slice(0, 280).replace(/\s+/g, ' ').trim(),
+    tags: String(a.tags || '').split(/[,;]/).map((t) => t.trim()).filter(Boolean).slice(0, 4),
+  }));
+  res.json({ answer, citations, grounded: true });
+}));
+
+// ---- kb-articles/:id/reindex — reindexação sob demanda ----
+// Marca o artigo como 'pending' e enfileira o job de re-embedding.
+app.post('/v1/kb-articles/:id/reindex', wrap(async (req, res) => {
+  const article = await repos['kb-articles'].repo.get(req.tenantId, req.params.id);
+  if (!article) return res.status(404).json({ error: { message: 'não encontrado' } });
+  await repos['kb-articles'].repo.update(req.tenantId, req.params.id, { embedding_status: 'pending' });
+  const jid = await jobsRepo.enqueue('kb-article.reindex', { articleId: Number(req.params.id), tenantId: req.tenantId }, 'reindex:' + req.params.id);
+  res.status(202).json({ id: Number(req.params.id), embedding_status: 'pending', enqueued: jid != null });
+}));
+
 async function depth() { try { const c = await jobsRepo.counts(); for (const s of ['queued','running','done','dlq']) M.queueDepth.set({ status: s }, c[s] || 0); } catch {} }
 const PORT = Number(process.env.PORT) || 8080;
 (async () => {
