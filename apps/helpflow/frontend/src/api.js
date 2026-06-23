@@ -30,6 +30,9 @@ export const health = () => request("GET", "/health");
 export const customers = resourceFactory('customers');
 export const agents = resourceFactory('agents');
 export const teams = resourceFactory('teams');
+// Sub-recursos do time: agentes membros e fila de chamados (filtragem server-side).
+export const teamAgents = (teamId) => request('GET', '/v1/teams/' + teamId + '/agents');
+export const teamTickets = (teamId) => request('GET', '/v1/teams/' + teamId + '/tickets');
 export const slaPolicies = resourceFactory('sla-policies');
 export const comments = resourceFactory('comments');
 

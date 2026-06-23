@@ -79,6 +79,30 @@ app.post('/v1/teams', crudCreate('teams'));
 app.put('/v1/teams/:id', crudUpdate('teams'));
 app.delete('/v1/teams/:id', crudDelete('teams'));
 
+// Sub-recursos do time (filtragem server-side pelo team_id).
+// Usados pelo TeamDetailView para carregar membros e fila sem carregar
+// toda a tabela no cliente.
+app.get('/v1/teams/:id/agents', wrap(async (req, res) => {
+  const teamId = Number(req.params.id);
+  const team = await repos.teams.repo.get(req.tenantId, teamId);
+  if (!team) return res.status(404).json({ error: { message: 'time não encontrado' } });
+  const { rows } = await pool.query(
+    `SELECT * FROM agents WHERE tenant_id=$1 AND team_id=$2 ORDER BY name ASC`,
+    [req.tenantId, teamId],
+  );
+  res.json({ data: rows, total: rows.length });
+}));
+app.get('/v1/teams/:id/tickets', wrap(async (req, res) => {
+  const teamId = Number(req.params.id);
+  const team = await repos.teams.repo.get(req.tenantId, teamId);
+  if (!team) return res.status(404).json({ error: { message: 'time não encontrado' } });
+  const { rows } = await pool.query(
+    `SELECT * FROM tickets WHERE tenant_id=$1 AND team_id=$2 ORDER BY updated_at DESC`,
+    [req.tenantId, teamId],
+  );
+  res.json({ data: rows, total: rows.length });
+}));
+
 app.get('/v1/comments', crudList('comments'));
 app.get('/v1/comments/:id', crudGet('comments'));
 app.post('/v1/comments', crudCreate('comments'));

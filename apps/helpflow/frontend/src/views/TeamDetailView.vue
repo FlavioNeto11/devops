@@ -311,7 +311,7 @@ import {
   useConfirm,
   format,
 } from '../ui/index.js';
-import { resourceFactory, tickets as ticketsResource } from '../api.js';
+import { resourceFactory, teamAgents, teamTickets } from '../api.js';
 
 const route = useRoute();
 const router = useRouter();
@@ -321,12 +321,7 @@ const formatDateTime = format.formatDateTime;
 
 // Recursos de DOMÍNIO reais (backend expõe /v1/<name>).
 const teamsApi = resourceFactory('teams');
-const agentsApi = resourceFactory('agents');
 const slaApi = resourceFactory('sla-policies');
-// Fila de chamados: recurso CANÔNICO do service desk em /v1/tickets (a mesma
-// fonte da TicketListView). O fallback defensivo espelha as telas irmãs e evita
-// white-screen caso o símbolo `tickets` suma do api.js.
-const ticketsApi = ticketsResource || resourceFactory('tickets');
 
 const teamId = computed(() => route.params.id);
 
@@ -584,10 +579,9 @@ async function loadMembers() {
   membersLoading.value = true;
   membersError.value = false;
   try {
-    const res = await agentsApi.list({ team_id: teamId.value, pageSize: 200, sort: 'name', dir: 'asc' });
+    const res = await teamAgents(teamId.value);
     const rows = res && res.data ? res.data : Array.isArray(res) ? res : [];
-    // Garante o vínculo ao time mesmo se o backend não filtrar pelo parâmetro.
-    members.value = rows.filter((a) => String(a.team_id) === String(teamId.value));
+    members.value = rows;
   } catch {
     membersError.value = true;
     members.value = [];
@@ -600,10 +594,9 @@ async function loadQueue() {
   queueLoading.value = true;
   queueError.value = null;
   try {
-    const res = await ticketsApi.list({ team_id: teamId.value, pageSize: 200, sort: 'updated_at', dir: 'desc' });
+    const res = await teamTickets(teamId.value);
     const rows = res && res.data ? res.data : Array.isArray(res) ? res : [];
-    // Garante o vínculo ao time mesmo se o backend não filtrar pelo parâmetro.
-    queue.value = rows.filter((t) => String(t.team_id) === String(teamId.value));
+    queue.value = rows;
   } catch (e) {
     queueError.value = e && e.message ? e.message : 'Falha ao carregar a fila';
     queue.value = [];

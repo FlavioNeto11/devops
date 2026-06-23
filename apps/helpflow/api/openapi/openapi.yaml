@@ -95,6 +95,14 @@ paths:
     delete:
       operationId: deleteTeam
       responses: { "200": { description: ok } }
+  /v1/teams/{id}/agents:
+    get:
+      operationId: listTeamAgents
+      responses: { "200": { description: "agentes membros do time" } }
+  /v1/teams/{id}/tickets:
+    get:
+      operationId: listTeamTickets
+      responses: { "200": { description: "chamados na fila do time" } }
   /v1/comments:
     get:
       operationId: listComments
