@@ -11,8 +11,8 @@
     "refinements": {
       "total": 101,
       "by_status": {
-        "pr_open": 1,
-        "not_started": 88,
+        "pr_open": 2,
+        "not_started": 87,
         "deployed": 12
       }
     }
@@ -2180,8 +2180,10 @@
       "notes": "PR #26 (esteira)"
     },
     "REF-HELPFLOW-0001": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "branch": "@{id=REF-HELPFLOW-0001; branch=ref/REF-HELPFLOW-0001/r1; restricted=false; title=feat(helpflow): implementa REF-HELPFLOW-0001 — Painel do Service Desk}.branch",
+      "run_id": "27991134389"
     },
     "REF-HELPFLOW-0002": {
       "status": "not_started",
