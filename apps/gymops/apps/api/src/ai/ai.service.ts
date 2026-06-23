@@ -36,6 +36,15 @@ export function getClient(): AiClient | null {
 // Compat: o grafo/IA antigos importam getOpenAI(); agora devolve o cliente do provider ativo.
 export const getOpenAI = getClient;
 
+/** Provider de IA ativo ('openai' | 'anthropic'). Rotas usam p/ montar content multimodal. */
+export function activeProvider(): 'openai' | 'anthropic' {
+  return AI_PROVIDER() === 'anthropic' ? 'anthropic' : 'openai';
+}
+/** Modelo default do provider ativo (rotas usam p/ decidir visão/PDF via file-ingest-kit). */
+export function activeModel(): string {
+  return defaultModel();
+}
+
 const SYNC_TIMEOUT_MS = 20_000;
 const ASYNC_TIMEOUT_MS = 60_000;
 // Modelo default por provider (env: ANTHROPIC_MODEL / OPENAI_MODEL).
@@ -120,6 +129,24 @@ export async function chatText(
 ): Promise<string> {
   const llm = createLlm({ provider: AI_PROVIDER(), client, defaultModel: model });
   const out = await llm.complete({ model, messages });
+  recordUsage(out.usage, model);
+  return out.text;
+}
+
+/**
+ * Chat MULTIMODAL — idêntico a chatText, mas o `content` de cada mensagem pode ser
+ * STRING (texto) ou um ARRAY de blocos já no formato do provedor ativo (produzido por
+ * toMessageContent do file-ingest-kit). O adapter OpenAI repassa o array direto ao SDK
+ * (que aceita blocos text/image_url nativamente); para provedores sem visão, a rota deve
+ * passar apenas string (o texto extraído cobre). Retrocompatível: sem arquivos, a rota
+ * continua chamando chatText. */
+export async function chatMultimodal(
+  client: AiClient,
+  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string | unknown[] }>,
+  model: string = defaultModel(),
+): Promise<string> {
+  const llm = createLlm({ provider: AI_PROVIDER(), client, defaultModel: model });
+  const out = await llm.complete({ model, messages: messages as Array<Record<string, unknown>> });
   recordUsage(out.usage, model);
   return out.text;
 }

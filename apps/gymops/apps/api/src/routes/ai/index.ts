@@ -2,7 +2,9 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { db } from '../../lib/prisma.js';
 import { hasOrgRole, resolveActivityPermission } from '../../lib/rbac.js';
-import { callAI, chatJSON, chatText } from '../../ai/ai.service.js';
+import { callAI, chatJSON, chatMultimodal, activeProvider, activeModel } from '../../ai/ai.service.js';
+import { parseMultipartIngest } from '../../ai/ingest.js';
+import { toMessageContent, supportsVision, supportsPdf, type IngestResult } from '@flavioneto11/file-ingest-kit';
 import { ActivityDraftSchema } from '../../ai/schemas/activity-draft.schema.js';
 import { ChecklistSuggestionSchema } from '../../ai/schemas/checklist.schema.js';
 import { ChecklistRevisionSchema } from '../../ai/schemas/checklist-revision.schema.js';
@@ -44,6 +46,35 @@ function findPendingPreview(r: GraphResult): { toolName: string; arguments: Reco
   return null;
 }
 
+/**
+ * Renderiza o conteúdo TEXTUAL extraído dos arquivos (textParts + manifest) em um
+ * bloco que pode ser concatenado a um prompt de texto (draft/checklist). Não inclui
+ * blocos de imagem/PDF — isso é só para os caminhos text-only (chatJSON). Vazio quando
+ * não houve ingestão. */
+function renderIngestForPrompt(ingested: IngestResult | null): string {
+  if (!ingested) return '';
+  const parts: string[] = [];
+  if (ingested.manifest.length) {
+    parts.push('ARQUIVOS ENVIADOS PELO USUÁRIO:\n' + ingested.manifest.map((m) => `- ${m.path} (${m.type}, ${m.status})`).join('\n'));
+  }
+  for (const tp of ingested.textParts) {
+    parts.push(`### ${tp.name}${tp.truncated ? ' (truncado)' : ''}\n${tp.text}`);
+  }
+  if (ingested.notes.length) parts.push('Notas de ingestão: ' + ingested.notes.join(' '));
+  return parts.join('\n\n');
+}
+
+/** No multipart, `history` chega como string JSON. Parse tolerante: inválido → undefined
+ * (deixa o Zod validar/ignorar; nunca lança). */
+function parseHistoryField(value: string | undefined): unknown {
+  if (value == null || value === '') return undefined;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return undefined;
+  }
+}
+
 export const aiRoutes: FastifyPluginAsync = async (app) => {
   const AI_RATE_LIMIT = { max: 10, timeWindow: '1 minute' };
 
@@ -53,10 +84,15 @@ export const aiRoutes: FastifyPluginAsync = async (app) => {
     config: { rateLimit: AI_RATE_LIMIT },
   }, async (request, reply) => {
     const userId = request.user.sub;
+
+    // Multipart → coleta arquivos + campos de texto; JSON segue idêntico (no-op).
+    const { fields, ingested } = await parseMultipartIngest(request);
+    const rawBody = ingested || Object.keys(fields).length ? fields : (request.body as Record<string, unknown>);
+
     const body = z.object({
       text: z.string().min(3).max(1000),
       organizationId: z.string().uuid(),
-    }).safeParse(request.body);
+    }).safeParse(rawBody);
     if (!body.success) return reply.status(422).send({ error: { code: 'VALIDATION_ERROR', message: 'Invalid input' } });
 
     // RBAC — any member may use draft
@@ -79,8 +115,13 @@ export const aiRoutes: FastifyPluginAsync = async (app) => {
       include: { area: { select: { key: true } } },
     });
 
+    // Funde o conteúdo textual dos arquivos no texto do usuário (fail-soft: vazio se
+    // não houve ingestão). O draft é estruturado/JSON → caminho text-only.
+    const ingestText = renderIngestForPrompt(ingested);
+    const userText = ingestText ? `${body.data.text}\n\n${ingestText}` : body.data.text;
+
     const prompt = buildActivityDraftPrompt({
-      userText: body.data.text,
+      userText,
       organizationName: org?.name ?? 'Organização',
       availableAreas: areas,
       availableTemplates: templates.map((t) => ({
@@ -343,6 +384,14 @@ export const aiRoutes: FastifyPluginAsync = async (app) => {
     config: { rateLimit: AI_RATE_LIMIT },
   }, async (request, reply) => {
     const userId = request.user.sub;
+
+    // Multipart → coleta arquivos + campos de texto; JSON segue idêntico (no-op).
+    // No multipart, `history` chega como string JSON (campo de texto do form).
+    const { fields, ingested } = await parseMultipartIngest(request);
+    const rawBody = ingested || Object.keys(fields).length
+      ? { ...fields, history: parseHistoryField(fields.history) }
+      : (request.body as Record<string, unknown>);
+
     const body = z.object({
       message: z.string().min(1).max(2000),
       organizationId: z.string().uuid(),
@@ -350,7 +399,7 @@ export const aiRoutes: FastifyPluginAsync = async (app) => {
         .array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().max(4000) }))
         .max(12)
         .optional(),
-    }).safeParse(request.body);
+    }).safeParse(rawBody);
     if (!body.success) return reply.status(422).send({ error: { code: 'VALIDATION_ERROR', message: 'Invalid input' } });
 
     const isMember = await db.membership.findFirst({
@@ -398,10 +447,29 @@ Regras:
 CONTEXTO ATUAL:
 ${context}`;
 
+    // ── Arquivos (multipart) → texto extraído + (se houver visão) blocos nativos ──
+    // Texto fundido na mensagem: cobre TODOS os caminhos (grafo + legado + provedores
+    // sem visão). Blocos multimodais: só no caminho legado e quando o provedor/modelo
+    // suporta visão (imagens) / PDF nativo (Claude).
+    const ingestText = renderIngestForPrompt(ingested);
+    const messageWithFiles = ingestText ? `${body.data.message}\n\n${ingestText}` : body.data.message;
+
+    const provider = activeProvider();
+    const model = activeModel();
+    const hasImages = !!ingested?.blocks.some((b) => b.type === 'image');
+    const hasNativeBlocks = !!ingested?.blocks.length;
+    const visionOk = hasImages && supportsVision(model);
+    const pdfOk = provider === 'anthropic' && supportsPdf(model);
+    // content multimodal SÓ quando há bloco utilizável pelo modelo ativo.
+    const useMultimodal = !!ingested && hasNativeBlocks && (visionOk || pdfOk);
+    const userContent: string | unknown[] = useMultimodal
+      ? toMessageContent(ingested as IngestResult, { provider, supportsVision: visionOk, supportsPdf: pdfOk, userText: messageWithFiles })
+      : messageWithFiles;
+
     const messages = [
       { role: 'system' as const, content: system },
       ...(body.data.history ?? []).map((h) => ({ role: h.role, content: h.content })),
-      { role: 'user' as const, content: body.data.message },
+      { role: 'user' as const, content: userContent },
     ];
 
     const fallback =
@@ -413,7 +481,7 @@ ${context}`;
     if (AI_GRAPH_ENABLED()) {
       try {
         const r = await runGraphChatTurn({
-          message: body.data.message,
+          message: messageWithFiles,
           history: body.data.history ?? [],
           systemContext: system,
           identity: { sub: userId },
@@ -451,7 +519,9 @@ ${context}`;
       }
     }
 
-    const replyText = await callAI((client) => chatText(client, messages), fallback, { stage: 'chat' });
+    // chatMultimodal aceita content string OU array de blocos (multimodal). Sem
+    // arquivos, `messages` é 100% texto — comportamento idêntico ao chatText legado.
+    const replyText = await callAI((client) => chatMultimodal(client, messages), fallback, { stage: 'chat' });
 
     return reply.send({ data: { reply: replyText } });
   });

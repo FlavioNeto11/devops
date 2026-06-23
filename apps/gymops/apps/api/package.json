@@ -23,6 +23,7 @@
     "@fastify/rate-limit": "^9.1.0",
     "@flavioneto11/ai-core": "file:../../vendor/flavioneto11-ai-core-0.6.2.tgz",
     "@flavioneto11/ai-kit": "file:../../vendor/flavioneto11-ai-kit-0.1.0.tgz",
+    "@flavioneto11/file-ingest-kit": "file:../../vendor/flavioneto11-file-ingest-kit-0.1.0.tgz",
     "@flavioneto11/oidc-kit": "file:../../vendor/flavioneto11-oidc-kit-0.1.0.tgz",
     "@gymops/db": "workspace:*",
     "@gymops/shared": "workspace:*",
@@ -32,10 +33,14 @@
     "fastify": "^4.27.0",
     "googleapis": "^140.0.0",
     "ioredis": "^5.10.1",
+    "jszip": "^3.10.1",
+    "mammoth": "^1.8.0",
     "nodemailer": "^8.0.7",
     "openai": "^6.37.0",
+    "pdf-parse": "^1.1.1",
     "prom-client": "^15.1.3",
     "web-push": "^3.6.7",
+    "xlsx": "^0.18.5",
     "zod": "^3.23.0"
   },
   "devDependencies": {
