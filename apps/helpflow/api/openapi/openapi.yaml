@@ -136,6 +136,10 @@ paths:
     post:
       operationId: createKbArticle
       responses: { "200": { description: ok } }
+  /v1/kb-articles/search:
+    get:
+      operationId: searchKbArticles
+      responses: { "200": { description: ok } }
   /v1/kb-articles/{id}:
     get:
       operationId: getKbArticle
@@ -146,6 +150,10 @@ paths:
     delete:
       operationId: deleteKbArticle
       responses: { "200": { description: ok } }
+  /v1/kb-articles/{id}/reindex:
+    post:
+      operationId: reindexKbArticle
+      responses: { "202": { description: "reindexação enfileirada" } }
   /v1/integrations:
     get:
       operationId: listIntegrations

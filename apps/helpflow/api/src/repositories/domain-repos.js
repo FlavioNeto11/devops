@@ -41,10 +41,8 @@ export const kbArticles = makeCrudRepo({
   columns: ['title', 'body', 'category', 'tags', 'status', 'embedding_status', 'author_id'],
   sortable: ['title', 'category', 'status', 'embedding_status', 'author_id'],
   // ?q= na sugestão de artigos do TicketCreateView: busca textual (ILIKE) sobre
-  // título, corpo, categoria e tags. NÃO é busca vetorial — o app provisiona o
-  // flag embedding_status mas não há coluna pgvector na migração; expor uma rota
-  // "semântica" seria fabricar endpoint. A tela usa isto como feed de sugestão
-  // com degradação graciosa (loading/empty/error), cumprindo a UX prometida.
+  // título, corpo, categoria e tags. Busca vetorial (cosine similarity pgvector)
+  // disponível em GET /v1/kb-articles/search (REF-HELPFLOW-0022 / migração 7).
   searchable: ['title', 'body', 'category', 'tags'],
 });
 

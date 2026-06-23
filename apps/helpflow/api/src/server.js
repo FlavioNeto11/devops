@@ -91,11 +91,90 @@ app.post('/v1/sla-policies', crudCreate('sla-policies'));
 app.put('/v1/sla-policies/:id', crudUpdate('sla-policies'));
 app.delete('/v1/sla-policies/:id', crudDelete('sla-policies'));
 
+// ---- RAG/pgvector: utilitários de chunking, embedding e disponibilidade ----
+// chunkText: fatiador por caracteres (~1800 chars, overlap 200 — ~450 tokens est.).
+// generateEmbeddings: text-embedding-3-small via openai (import dinâmico; null sem key).
+// pgVectorAvailable: cached; checa se kb_chunks.embedding existe (= extensão ativa).
+function chunkText(text, maxChars, overlap) {
+  maxChars = maxChars || 1800; overlap = overlap || 200;
+  if (!text || text.length <= maxChars) return text ? [text.trim()] : [];
+  const out = []; let start = 0;
+  while (start < text.length) {
+    const end = Math.min(start + maxChars, text.length);
+    const c = text.slice(start, end).trim();
+    if (c) out.push(c);
+    if (end >= text.length) break;
+    start = end - overlap;
+  }
+  return out;
+}
+async function generateEmbeddings(texts) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey || !texts || !texts.length) return null;
+  try {
+    const { default: OpenAI } = await import('openai');
+    const client = new OpenAI({ apiKey });
+    const res = await client.embeddings.create({ model: 'text-embedding-3-small', input: texts });
+    return res.data.map((d) => d.embedding);
+  } catch { return null; }
+}
+let _pgVecAvail = null;
+async function pgVectorAvailable() {
+  if (_pgVecAvail !== null) return _pgVecAvail;
+  try {
+    const { rows } = await pool.query("SELECT 1 FROM information_schema.columns WHERE table_name='kb_chunks' AND column_name='embedding'");
+    _pgVecAvail = rows.length > 0;
+  } catch { _pgVecAvail = false; }
+  return _pgVecAvail;
+}
+
 app.get('/v1/kb-articles', crudList('kb-articles'));
+// Busca semântica (grounded RAG): registrada ANTES de /:id para não capturar 'search' como id.
+// Com pgvector + OPENAI_API_KEY → cosine similarity nos embeddings dos chunks (mode:vector).
+// Sem pgvector ou sem chave → busca textual ILIKE como fallback declarado (mode:text).
+app.get('/v1/kb-articles/search', wrap(async (req, res) => {
+  const q = String(req.query.q || '').trim();
+  if (!q) return res.status(400).json({ error: { message: 'q é obrigatório' } });
+  const tid = req.tenantId;
+  if ((await pgVectorAvailable()) && process.env.OPENAI_API_KEY) {
+    const embs = await generateEmbeddings([q]);
+    if (embs) {
+      const { rows } = await pool.query(`
+        SELECT DISTINCT ON (a.id) a.id, a.title, a.category, a.status, a.embedding_status,
+               a.updated_at, c.content AS chunk_content,
+               1 - (c.embedding <=> $2::vector) AS similarity
+        FROM kb_chunks c
+        JOIN kb_articles a ON a.id = c.article_id
+        WHERE a.tenant_id = $1 AND a.status = 'published'
+          AND c.embedding IS NOT NULL AND 1 - (c.embedding <=> $2::vector) > 0.18
+        ORDER BY a.id, similarity DESC LIMIT 10
+      `, [tid, JSON.stringify(embs[0])]);
+      return res.json({ data: rows, mode: 'vector', total: rows.length });
+    }
+  }
+  const { rows } = await pool.query(`
+    SELECT id, title, category, status, embedding_status, updated_at
+    FROM kb_articles WHERE tenant_id = $1 AND status = 'published'
+      AND (title ILIKE $2 OR body ILIKE $2 OR category ILIKE $2 OR tags ILIKE $2)
+    ORDER BY updated_at DESC LIMIT 10
+  `, [tid, '%' + q + '%']);
+  res.json({ data: rows, mode: 'text', total: rows.length });
+}));
 app.get('/v1/kb-articles/:id', crudGet('kb-articles'));
 app.post('/v1/kb-articles', crudCreate('kb-articles'));
 app.put('/v1/kb-articles/:id', crudUpdate('kb-articles'));
 app.delete('/v1/kb-articles/:id', crudDelete('kb-articles'));
+// Reindexação de um artigo: refatia + re-embeda no pgvector via job transacional.
+// Sem OPENAI_API_KEY ou sem pgvector, o worker indexa somente os chunks (busca textual).
+// Idempotente por job_key ('reindex:<id>').
+app.post('/v1/kb-articles/:id/reindex', wrap(async (req, res) => {
+  const article = await repos['kb-articles'].repo.get(req.tenantId, req.params.id);
+  if (!article) return res.status(404).json({ error: { message: 'não encontrado' } });
+  await pool.query("UPDATE kb_articles SET embedding_status='pending', updated_at=now() WHERE id=$1", [article.id]);
+  const jid = await jobsRepo.enqueue('kb-article.reindex', { articleId: article.id }, 'reindex:' + article.id);
+  M.recordsTotal.inc({ outcome: 'reindex_queued' });
+  res.status(202).json({ id: article.id, embedding_status: 'pending', enqueued: jid != null });
+}));
 
 app.get('/v1/integrations', crudList('integrations'));
 app.get('/v1/integrations/:id', crudGet('integrations'));

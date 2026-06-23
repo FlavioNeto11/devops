@@ -30,7 +30,27 @@ const MIGRATIONS = [`CREATE TABLE IF NOT EXISTS records (id SERIAL PRIMARY KEY, 
   // latência) + o corpo da resposta JÁ REDIGIDO (a redação é server-side, fonte
   // da verdade — ver gateways/gateway.js). A tela /integrations/:id lê esta trilha.
   `CREATE TABLE IF NOT EXISTS integration_audit (id BIGSERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, integration_id INTEGER NOT NULL, method TEXT NOT NULL DEFAULT 'GET', path TEXT NOT NULL DEFAULT '', status_code INTEGER, latency_ms INTEGER, ok BOOLEAN, redacted BOOLEAN NOT NULL DEFAULT true, response JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ DEFAULT now());
-   CREATE INDEX IF NOT EXISTS integration_audit_idx ON integration_audit (tenant_id, integration_id, created_at DESC);`];
+   CREATE INDEX IF NOT EXISTS integration_audit_idx ON integration_audit (tenant_id, integration_id, created_at DESC);`,
+  // ---- pgvector: extensão vector + tabela de chunks para busca semântica (RAG) — migração 7 ----
+  // CREATE EXTENSION é envolvido em DO-block que absorve a exceção caso o binário do
+  // pgvector não esteja na imagem Postgres (upgrade postgres:16 → pgvector/pgvector:pg16
+  // resolve). kb_chunks é criada SEM coluna de embedding; o segundo DO-block adiciona
+  // embedding vector(1536) + índice HNSW somente quando a extensão estiver presente.
+  // Assim o app NUNCA falha no boot por falta do pgvector e degrada para busca textual.
+  `DO $$ BEGIN CREATE EXTENSION IF NOT EXISTS vector; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+   CREATE TABLE IF NOT EXISTS kb_chunks (
+     id BIGSERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1,
+     article_id INTEGER NOT NULL REFERENCES kb_articles(id) ON DELETE CASCADE,
+     chunk_index INTEGER NOT NULL, content TEXT NOT NULL,
+     created_at TIMESTAMPTZ DEFAULT now()
+   );
+   CREATE INDEX IF NOT EXISTS kb_chunks_article_idx ON kb_chunks (tenant_id, article_id);
+   DO $$ BEGIN
+     IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') THEN
+       EXECUTE 'ALTER TABLE kb_chunks ADD COLUMN IF NOT EXISTS embedding vector(1536)';
+       EXECUTE 'CREATE INDEX IF NOT EXISTS kb_chunks_embedding_idx ON kb_chunks USING hnsw (embedding vector_cosine_ops) WHERE embedding IS NOT NULL';
+     END IF;
+   END $$;`];
 export async function migrate() {
   const c = await pool.connect();
   try {
