@@ -1,0 +1,5 @@
+{
+  "req_id": "REF-HELPFLOW-0027",
+  "status": "done",
+  "summary": "Implementado o backend do Assistente de IA: 5 endpoints (/v1/ai/control GET+PUT, /v1/ai/usage GET, /v1/ai/chat POST, /v1/ai/assist POST) adicionados ao server.js e documentados no openapi.yaml. Frontend (AiAssistantView.vue, AiControlView.vue, router, nav) já estava completo. Fail-closed por padrão: endpoints de chat/assist retornam 503 quando assistente desabilitado, e a tela degrada para o fallback grounded local (citações de fontes reais sem redação fabricada). Drift check contract-openapi: 57 rotas implementadas = 57 documentadas, sem drift."
+}

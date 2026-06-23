@@ -214,6 +214,77 @@ app.put('/v1/tickets/:id', wrap(async (req, res) => {
 }));
 app.delete('/v1/tickets/:id', crudDelete('tickets'));
 
+// ---- Assistente de IA (grafo: router → ReAct → tools → judge) ----
+// Control plane em memória (fail-closed por padrão: assistente desligado).
+// Reinicializações retornam ao default fail-closed; para persistência entre
+// deploys, configurar via variável de ambiente ou migrar para a DB.
+let _aiControl = {
+  enabled: false,
+  modes: { assist: false, chat: false },
+  budgetUsd: 0, tokenBudget: 0,
+  model: 'claude-sonnet-4-6',
+  promptVersion: 'v1',
+  temperature: 0.4,
+  dryRun: true,
+  grounding: { useKb: true, useSimilarTickets: true },
+};
+
+// GET /v1/ai/control → estado/config do control plane (consumido por AiControlView).
+app.get('/v1/ai/control', wrap(async (_q, res) => res.json({ data: _aiControl })));
+
+// PUT /v1/ai/control → persiste patch na config em memória (AiControlView.persist).
+app.put('/v1/ai/control', wrap(async (req, res) => {
+  const p = req.body || {};
+  if (p.enabled !== undefined) _aiControl.enabled = !!p.enabled;
+  if (p.modes && typeof p.modes === 'object') _aiControl.modes = { ..._aiControl.modes, ...p.modes };
+  if (p.budgetUsd !== undefined) _aiControl.budgetUsd = Math.max(0, Number(p.budgetUsd) || 0);
+  if (p.tokenBudget !== undefined) _aiControl.tokenBudget = Math.max(0, Number(p.tokenBudget) || 0);
+  if (typeof p.model === 'string' && p.model.trim()) _aiControl.model = p.model.trim();
+  if (p.promptVersion !== undefined) _aiControl.promptVersion = String(p.promptVersion || '');
+  if (p.temperature !== undefined) _aiControl.temperature = Math.min(1, Math.max(0, Number(p.temperature) || 0));
+  if (p.dryRun !== undefined) _aiControl.dryRun = !!p.dryRun;
+  if (p.grounding && typeof p.grounding === 'object') _aiControl.grounding = { ..._aiControl.grounding, ...p.grounding };
+  res.json({ data: _aiControl });
+}));
+
+// GET /v1/ai/usage → telemetria do período (consumido por AiControlView).
+// Retorna zeros enquanto o motor real não está integrado.
+app.get('/v1/ai/usage', wrap(async (_q, res) => res.json({
+  data: {
+    tokens: 0, tokensIn: 0, tokensOut: 0,
+    costUsd: 0, requests: 0, latencyP95Ms: 0,
+    thumbsUp: 0, thumbsDown: 0,
+    periodLabel: 'histórico', feedback: [],
+  },
+})));
+
+// POST /v1/ai/chat → resposta grounded (consumido por AiAssistantView).
+// Retorna 503 fail-closed quando assistente desabilitado ou motor não configurado;
+// a tela degrada para o fallback grounded local (fontes reais, sem fabricar resposta).
+app.post('/v1/ai/chat', wrap(async (req, res) => {
+  if (!_aiControl.enabled || !_aiControl.modes.chat) {
+    return res.status(503).json({ error: { message: 'assistente desabilitado no control plane (fail-closed)' } });
+  }
+  const { message } = req.body || {};
+  if (!message || typeof message !== 'string' || !message.trim()) {
+    return res.status(400).json({ error: { message: 'message obrigatório' } });
+  }
+  return res.status(503).json({ error: { message: 'motor de IA não configurado neste ambiente (fail-closed)' } });
+}));
+
+// POST /v1/ai/assist → triagem/rascunho estruturado (consumido por AiAssistantView).
+// Mesmo padrão fail-closed: 503 quando motor não disponível.
+app.post('/v1/ai/assist', wrap(async (req, res) => {
+  if (!_aiControl.enabled || !_aiControl.modes.assist) {
+    return res.status(503).json({ error: { message: 'assistente desabilitado no control plane (fail-closed)' } });
+  }
+  const { message } = req.body || {};
+  if (!message || typeof message !== 'string' || !message.trim()) {
+    return res.status(400).json({ error: { message: 'message obrigatório' } });
+  }
+  return res.status(503).json({ error: { message: 'motor de IA não configurado neste ambiente (fail-closed)' } });
+}));
+
 async function depth() { try { const c = await jobsRepo.counts(); for (const s of ['queued','running','done','dlq']) M.queueDepth.set({ status: s }, c[s] || 0); } catch {} }
 const PORT = Number(process.env.PORT) || 8080;
 (async () => {

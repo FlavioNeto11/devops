@@ -188,3 +188,22 @@ paths:
     delete:
       operationId: deleteTicket
       responses: { "204": { description: deleted } }
+  /v1/ai/control:
+    get:
+      operationId: getAiControl
+      responses: { "200": { description: "estado/config do control plane da IA" } }
+    put:
+      operationId: updateAiControl
+      responses: { "200": { description: "config do control plane atualizada (patch)" } }
+  /v1/ai/usage:
+    get:
+      operationId: getAiUsage
+      responses: { "200": { description: "telemetria do período (tokens, custo, latência, feedback)" } }
+  /v1/ai/chat:
+    post:
+      operationId: aiChat
+      responses: { "200": { description: "resposta grounded do assistente (router→ReAct→judge)" } }
+  /v1/ai/assist:
+    post:
+      operationId: aiAssist
+      responses: { "200": { description: "triagem/rascunho estruturado (saída validada contra schema)" } }
