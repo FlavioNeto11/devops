@@ -101,6 +101,34 @@
               </UiFormField>
             </UiFormSection>
 
+            <!-- FormSection: Roteamento -->
+            <UiFormSection
+              title="Roteamento"
+              description="Critério que define quando chamados são encaminhados automaticamente para esta fila."
+              :columns="1"
+            >
+              <UiFormField
+                label="Regra de roteamento"
+                :error="f.errors.routing_rule"
+                full-width
+                :hint="routingRuleHint"
+              >
+                <template #default="{ id, describedBy, hasError }">
+                  <input
+                    :id="id"
+                    type="text"
+                    autocomplete="off"
+                    maxlength="500"
+                    :aria-describedby="describedBy"
+                    :aria-invalid="hasError ? 'true' : null"
+                    :value="f.values.routing_rule"
+                    placeholder="Ex.: ticket.category = 'financeiro', prioridade alta"
+                    @input="f.setField('routing_rule', $event.target.value)"
+                  />
+                </template>
+              </UiFormField>
+            </UiFormSection>
+
             <!-- FormSection: Atendimento -->
             <UiFormSection
               title="Atendimento"
@@ -215,6 +243,10 @@
                   <dt>SLA padrão</dt>
                   <dd>{{ slaDisplay }}</dd>
                 </div>
+                <div class="team-preview-fact">
+                  <dt>Roteamento</dt>
+                  <dd>{{ routingRuleDisplay }}</dd>
+                </div>
               </dl>
             </div>
           </UiCard>
@@ -323,12 +355,13 @@ function statusLabelFor(value) {
 }
 
 const f = useForm({
-  initial: { name: '', description: '', lead_agent_id: '', default_sla_policy_id: '', status: 'active' },
+  initial: { name: '', description: '', lead_agent_id: '', default_sla_policy_id: '', routing_rule: '', status: 'active' },
   rules: {
     name: [validators.required('Informe o nome do time'), validators.minLen(2), validators.maxLen(120)],
     description: [validators.maxLen(2000)],
     lead_agent_id: [validators.numeric('ID de agente inválido'), validators.min(1, 'ID inválido')],
     default_sla_policy_id: [validators.numeric('ID de SLA inválido'), validators.min(1, 'ID inválido')],
+    routing_rule: [validators.maxLen(500)],
   },
 });
 
@@ -418,6 +451,17 @@ const slaHint = computed(() => {
     return 'A política atual não está na lista disponível. Selecione outra ou mantenha a atual.';
   }
   return 'Política de SLA aplicada por padrão aos chamados desta fila.';
+});
+
+// --- regra de roteamento --------------------------------------------------------
+const routingRuleHint = computed(() => {
+  const len = String(f.values.routing_rule || '').length;
+  if (len === 0) return 'Opcional. Critério para roteamento automático de chamados para este time.';
+  return len + ' de 500 caracteres.';
+});
+const routingRuleDisplay = computed(() => {
+  const r = String(f.values.routing_rule || '').trim();
+  return r || 'Sem regra definida';
 });
 
 // --- descrição ------------------------------------------------------------------
@@ -532,6 +576,7 @@ function hydrate(rec) {
       rec.default_sla_policy_id === null || rec.default_sla_policy_id === undefined
         ? ''
         : String(rec.default_sla_policy_id),
+    routing_rule: rec.routing_rule || '',
     status: rec.status || 'active',
   };
   for (const k of Object.keys(next)) {
@@ -614,6 +659,7 @@ function buildPayload(vals) {
     description: vals.description ? vals.description.trim() : '',
     lead_agent_id: toNumberOrNull(vals.lead_agent_id),
     default_sla_policy_id: toNumberOrNull(vals.default_sla_policy_id),
+    routing_rule: vals.routing_rule ? vals.routing_rule.trim() : '',
     status: vals.status,
   };
 }

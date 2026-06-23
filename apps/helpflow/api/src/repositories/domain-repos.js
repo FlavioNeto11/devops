@@ -20,7 +20,7 @@ export const agents = makeCrudRepo({
 
 export const teams = makeCrudRepo({
   table: 'teams',
-  columns: ['name', 'description', 'lead_agent_id', 'default_sla_policy_id', 'status'],
+  columns: ['name', 'description', 'lead_agent_id', 'default_sla_policy_id', 'routing_rule', 'status'],
   sortable: ['name', 'status'],
 });
 
