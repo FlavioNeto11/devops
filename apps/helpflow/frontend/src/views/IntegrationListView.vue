@@ -87,10 +87,10 @@
           </div>
         </template>
 
-        <!-- Situação: HealthDot + StatusBadge (cor nunca é o único sinal) -->
+        <!-- Situação: HealthDot (reflete último teste do gateway) + StatusBadge configurado -->
         <template #cell-status="{ row }">
           <span class="ifl-status">
-            <span class="ifl-dot" :data-tone="statusTone(row.status)" aria-hidden="true" />
+            <span class="ifl-dot" :data-tone="healthDotTone(row)" aria-hidden="true" />
             <UiStatusBadge
               :status="row.status"
               :tone="statusTone(row.status)"
@@ -116,9 +116,16 @@
           </span>
         </template>
 
-        <!-- Última verificação -->
-        <template #cell-last_check_at="{ value }">
-          <span :class="value ? 'ifl-check' : 'ifl-faint'">{{ formatLastCheck(value) }}</span>
+        <!-- Última sincronização: timestamp da auditoria (quando disponível) + latência -->
+        <template #cell-last_check_at="{ row, value }">
+          <span class="ifl-sync-cell">
+            <span :class="(row.connection_health?.checked_at || value) ? 'ifl-check' : 'ifl-faint'">
+              {{ formatLastSync(row) }}
+            </span>
+            <span v-if="row.connection_health?.latency_ms != null" class="ifl-latency">
+              {{ row.connection_health.latency_ms }}&nbsp;ms
+            </span>
+          </span>
         </template>
 
         <!-- Ação por linha: afordância FOCÁVEL para abrir o detalhe (a linha clicável
@@ -140,7 +147,7 @@
     <UiModal v-model="detailsOpen" :title="selected ? selected.name : 'Integração'" width="lg">
       <div v-if="selected" class="ifl-detail">
         <div class="ifl-detail-head">
-          <span class="ifl-dot ifl-dot-lg" :data-tone="statusTone(selected.status)" aria-hidden="true" />
+          <span class="ifl-dot ifl-dot-lg" :data-tone="healthDotTone(selected)" aria-hidden="true" />
           <UiStatusBadge
             :status="selected.status"
             :tone="statusTone(selected.status)"
@@ -175,8 +182,23 @@
             <dd>{{ formatRetries(selected.retries) }}</dd>
           </div>
           <div class="ifl-dl-row">
-            <dt>Última verificação</dt>
-            <dd>{{ formatLastCheck(selected.last_check_at) }}</dd>
+            <dt>Última sincronização</dt>
+            <dd>{{ formatLastSync(selected) }}</dd>
+          </div>
+          <div v-if="selected.connection_health" class="ifl-dl-row">
+            <dt>Saúde da conexão</dt>
+            <dd>
+              <span class="ifl-status">
+                <span class="ifl-dot" :data-tone="selected.connection_health.ok ? 'success' : 'error'" aria-hidden="true" />
+                <span>{{ selected.connection_health.ok ? 'Conexão OK' : 'Conexão falhou' }}</span>
+                <span v-if="selected.connection_health.latency_ms != null" class="ifl-resil-pill ifl-resil-sep-gap">
+                  {{ selected.connection_health.latency_ms }}&nbsp;ms
+                </span>
+                <span v-if="selected.connection_health.status_code" class="ifl-resil-pill">
+                  HTTP {{ selected.connection_health.status_code }}
+                </span>
+              </span>
+            </dd>
           </div>
         </dl>
       </div>
@@ -203,13 +225,15 @@ import {
   useToast,
   format,
 } from '../ui/index.js';
-import { resourceFactory } from '../api.js';
+import { integrations as integrationsApi } from '../api.js';
 
-// O api.js NÃO exporta um símbolo `integrations` consumível direto aqui — a fábrica
-// REST monta o recurso /v1/integrations (padrão das views irmãs: DashboardView,
-// IntegrationCreateView, IntegrationDetailView). Construímos o recurso localmente
-// para evitar `useResource(undefined)` → white-screen no primeiro load().
-const integrations = resourceFactory('integrations');
+// Wraps the list call to include ?withStatus=true, returning each integration enriched
+// with connection_health (latest gateway audit result: ok, status_code, latency_ms,
+// checked_at). Parâmetro transparente para o useResource (sobrevive a filter clears).
+const integrations = {
+  ...integrationsApi,
+  list: (params) => integrationsApi.list({ ...params, withStatus: 'true' }),
+};
 
 const toast = useToast();
 const r = useResource(integrations, { pageSize: 25, sort: { key: 'name', dir: 'asc' } });
@@ -230,13 +254,20 @@ const STATUS_TONES = { active: 'success', degraded: 'warning', inactive: 'error'
 const statusTone = (s) => STATUS_TONES[s] || 'neutral';
 const statusText = (s) => STATUS_LABELS[s] || format.humanize(s) || '—';
 
+// Tom do ponto de saúde: prioriza o último resultado do gateway (connection_health.ok)
+// quando disponível; cai no status armazenado quando não há auditoria ainda.
+const healthDotTone = (row) => {
+  if (row.connection_health) return row.connection_health.ok ? 'success' : 'error';
+  return statusTone(row.status);
+};
+
 // --- Colunas ---
 const columns = [
   { key: 'name', label: 'Integração', sortable: true },
   { key: 'base_url', label: 'URL base' },
   { key: 'resilience', label: 'Resiliência' },
   { key: 'status', label: 'Situação', sortable: true },
-  { key: 'last_check_at', label: 'Última verificação', sortable: true, align: 'right' },
+  { key: 'last_check_at', label: 'Última sincronização', sortable: true, align: 'right' },
   { key: 'actions', label: '', align: 'right' },
 ];
 
@@ -276,7 +307,12 @@ const onClear = () => {
 };
 
 // --- Formatadores de valor ---
-const formatLastCheck = (v) => (v ? format.formatDateTime(v) : 'Nunca verificada');
+// Usa o timestamp do último resultado de auditoria (connection_health) quando disponível;
+// cai no last_check_at armazenado quando ainda não há auditoria.
+const formatLastSync = (row) => {
+  const ts = row?.connection_health?.checked_at || row?.last_check_at;
+  return ts ? format.formatDateTime(ts) : 'Nunca sincronizada';
+};
 const formatTimeout = (v) =>
   v === null || v === undefined || v === '' ? 'timeout —' : format.formatNumber(v) + ' ms';
 const formatRetries = (v) =>
@@ -440,6 +476,22 @@ onMounted(r.load);
 .ifl-check {
   font-variant-numeric: tabular-nums;
   color: rgb(var(--ui-fg));
+}
+
+/* Célula de sincronização: timestamp + latência (gateway health) */
+.ifl-sync-cell {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-end;
+}
+.ifl-latency {
+  font-size: var(--ui-text-xs);
+  color: rgb(var(--ui-muted));
+  font-variant-numeric: tabular-nums;
+}
+.ifl-resil-sep-gap {
+  margin-left: var(--ui-space-2);
 }
 
 /* Ações por linha (afordância de teclado p/ abrir o detalhe) */

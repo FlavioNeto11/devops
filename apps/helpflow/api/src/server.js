@@ -97,7 +97,24 @@ app.post('/v1/kb-articles', crudCreate('kb-articles'));
 app.put('/v1/kb-articles/:id', crudUpdate('kb-articles'));
 app.delete('/v1/kb-articles/:id', crudDelete('kb-articles'));
 
-app.get('/v1/integrations', crudList('integrations'));
+// ?withStatus=true enriquece cada integração com o último resultado de auditoria do gateway
+// (last ping: ok, status_code, latency_ms, checked_at). Sem withStatus: idêntico ao crudList.
+app.get('/v1/integrations', wrap(async (req, res) => {
+  const { page, pageSize, sort, dir, q, withStatus } = req.query;
+  const r = await repos.integrations.repo.list(req.tenantId, { page, pageSize, sort, dir, q });
+  if (withStatus === 'true' && r.data.length > 0) {
+    const ids = r.data.map((i) => i.id);
+    const { rows: health } = await pool.query(
+      `SELECT DISTINCT ON (integration_id) integration_id, ok, status_code, latency_ms, created_at AS checked_at
+       FROM integration_audit WHERE tenant_id=$1 AND integration_id = ANY($2)
+       ORDER BY integration_id, created_at DESC`,
+      [req.tenantId, ids]
+    );
+    const byId = Object.fromEntries(health.map((h) => [h.integration_id, h]));
+    r.data = r.data.map((i) => ({ ...i, connection_health: byId[i.id] ?? null }));
+  }
+  res.json({ data: r.data, total: r.total, page: r.page, pageSize: r.pageSize });
+}));
 app.get('/v1/integrations/:id', crudGet('integrations'));
 app.post('/v1/integrations', crudCreate('integrations'));
 app.put('/v1/integrations/:id', crudUpdate('integrations'));
