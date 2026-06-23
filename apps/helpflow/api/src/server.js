@@ -66,6 +66,23 @@ app.get('/v1/customers/:id', crudGet('customers'));
 app.post('/v1/customers', crudCreate('customers'));
 app.put('/v1/customers/:id', crudUpdate('customers'));
 app.delete('/v1/customers/:id', crudDelete('customers'));
+// Sub-recurso: chamados de um solicitante. Filtra tickets por customer_id server-side,
+// respeitando isolamento de tenant. 404 quando o solicitante não existe.
+app.get('/v1/customers/:id/tickets', wrap(async (req, res) => {
+  const cust = await repos.customers.repo.get(req.tenantId, req.params.id);
+  if (!cust) return res.status(404).json({ error: { message: 'solicitante não encontrado' } });
+  const ps = Math.min(200, Math.max(1, Number(req.query.pageSize) || 50));
+  const p = Math.max(1, Number(req.query.page) || 1);
+  const ticketSortable = new Set(['subject', 'priority', 'status', 'created_at', 'updated_at', 'sla_due_at']);
+  const sortCol = ticketSortable.has(req.query.sort) ? req.query.sort : 'created_at';
+  const sortDir = String(req.query.dir || '').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+  const offset = (p - 1) * ps;
+  const [totRes, dataRes] = await Promise.all([
+    pool.query('SELECT count(*)::int AS n FROM tickets WHERE tenant_id=$1 AND customer_id=$2', [req.tenantId, Number(req.params.id)]),
+    pool.query(`SELECT * FROM tickets WHERE tenant_id=$1 AND customer_id=$2 ORDER BY ${sortCol} ${sortDir} LIMIT $3 OFFSET $4`, [req.tenantId, Number(req.params.id), ps, offset]),
+  ]);
+  res.json({ data: dataRes.rows, total: totRes.rows[0].n, page: p, pageSize: ps });
+}));
 
 app.get('/v1/agents', crudList('agents'));
 app.get('/v1/agents/:id', crudGet('agents'));

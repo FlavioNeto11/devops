@@ -63,6 +63,11 @@ export const kbArticles = {
 // (ES2022) para que o bundler resolva o acesso sem aviso de "export inexistente".
 export { kbArticles as 'kb-articles' };
 
+// Sub-recurso de chamados por solicitante: GET /v1/customers/:id/tickets
+// Filtra server-side por customer_id; retorna { data, total, page, pageSize }.
+export const customerTickets = (customerId, params) =>
+  request('GET', '/v1/customers/' + customerId + '/tickets' + qs(params));
+
 // tickets — entidade central do service desk. CRUD real em /v1/tickets
 // (apps/helpflow/api/src/server.js) + ações de domínio:
 //  · submit(id)      → POST /v1/tickets/{id}/submit   (dispara o job de integração externa)

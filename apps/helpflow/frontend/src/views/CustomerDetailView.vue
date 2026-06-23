@@ -305,12 +305,11 @@ import {
   format,
   resolveTone,
 } from '../ui/index.js';
-// Recursos REST de DOMÍNIO (resourceFactory → /v1/<recurso>):
-//  - customers → GET/PUT /v1/customers/:id (carregar, inativar, reativar)
-//  - tickets   → GET /v1/tickets + POST /v1/tickets (histórico e abertura)
-// Não consumimos placeholders de scaffold (/records). Se o backend ainda não
-// montar /v1/tickets, a tela degrada graciosamente (erro+retry / toast).
-import { customers as customersApi, tickets as ticketsApi } from '../api.js';
+// Recursos REST de DOMÍNIO:
+//  - customers        → GET/PUT /v1/customers/:id (carregar, inativar, reativar)
+//  - customerTickets  → GET /v1/customers/:id/tickets (histórico do solicitante)
+//  - tickets          → POST /v1/tickets (abertura rápida de chamado)
+import { customers as customersApi, tickets as ticketsApi, customerTickets as customerTicketsApi } from '../api.js';
 
 const route = useRoute();
 const router = useRouter();
@@ -420,11 +419,11 @@ const ticketsEmpty = {
   icon: 'inbox',
 };
 
-// Chave canônica do contrato: `requester_id` (a mesma usada ao abrir o chamado).
-// O filtro é server-side; este guard reafirma o escopo no cliente — se o backend
-// divergir da chave, a lista vem vazia e EXPÕE a divergência em vez de mascará-la.
+// Guard client-side: reafirma o escopo pelo campo canônico `customer_id`.
+// Se o backend devolver um registro fora do escopo, a lista fica vazia em vez de
+// exibir dados de outro solicitante.
 function belongsToCustomer(t) {
-  return String(t.requester_id ?? '') === customerId.value;
+  return String(t.customer_id ?? '') === customerId.value;
 }
 
 async function loadTickets() {
@@ -432,7 +431,7 @@ async function loadTickets() {
   ticketsLoading.value = true;
   ticketsError.value = null;
   try {
-    const res = await ticketsApi.list({ requester_id: customerId.value, pageSize: 100, sort: 'created_at', dir: 'desc' });
+    const res = await customerTicketsApi(customerId.value, { pageSize: 100, sort: 'created_at', dir: 'desc' });
     const rows = Array.isArray(res) ? res : (res && res.data ? res.data : []);
     tickets.value = rows.filter(belongsToCustomer);
   } catch (e) {
@@ -566,7 +565,7 @@ async function submitQuickTicket() {
         subject: values.subject.trim(),
         priority: values.priority,
         description: (values.description || '').trim(),
-        requester_id: customerId.value,
+        customer_id: customerId.value,
       });
       const newId = (created && (created.id ?? (created.data && created.data.id))) || null;
       toast.success('Chamado aberto em nome de ' + displayName.value + '.');
