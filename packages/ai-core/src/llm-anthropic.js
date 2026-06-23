@@ -15,6 +15,22 @@ function safeJsonParse(s) {
   try { return JSON.parse(s); } catch { return {}; }
 }
 
+// content de usuário pode ser STRING ou ARRAY de blocos (multimodal). Converte para blocos da
+// Anthropic, aceitando blocos nativos ({type:'image',source}/{type:'document',source}/{type:'text'})
+// E o shape OpenAI ({type:'image_url', image_url:{url:'data:...;base64,...'}}). Retrocompatível.
+function toAnthropicUserBlocks(content) {
+  if (!Array.isArray(content)) return [{ type: 'text', text: String(content == null ? '' : content) }];
+  const dataUrl = (u) => { const m = /^data:([^;]+);base64,(.*)$/.exec(String(u || '')); return m ? { type: 'base64', media_type: m[1], data: m[2] } : null; };
+  return content.map((b) => {
+    if (!b || typeof b !== 'object') return { type: 'text', text: String(b == null ? '' : b) };
+    if (b.type === 'text') return { type: 'text', text: String(b.text == null ? '' : b.text) };
+    if (b.type === 'image') return { type: 'image', source: b.source || dataUrl(b.image_url && b.image_url.url) || { type: 'base64', media_type: b.mediaType, data: b.dataBase64 } };
+    if (b.type === 'image_url') { const s = dataUrl(b.image_url && b.image_url.url); return s ? { type: 'image', source: s } : { type: 'text', text: '' }; }
+    if (b.type === 'document') return { type: 'document', source: b.source || { type: 'base64', media_type: b.mediaType || 'application/pdf', data: b.dataBase64 || b.data } };
+    return { type: 'text', text: '' };
+  });
+}
+
 /** AiTool (parameters JSON Schema) → tool da Anthropic. */
 export function toAnthropicTool(tool) {
   return {
@@ -54,8 +70,8 @@ export function toAnthropicMessages(messages = []) {
       raw.push({ role: 'assistant', blocks: blocks.length ? blocks : [{ type: 'text', text: '' }] });
       continue;
     }
-    // user (ou qualquer outro) → texto
-    raw.push({ role: 'user', blocks: [{ type: 'text', text: String(msg.content == null ? '' : msg.content) }] });
+    // user (ou qualquer outro) → texto OU blocos multimodais (imagem/document)
+    raw.push({ role: 'user', blocks: toAnthropicUserBlocks(msg.content) });
   }
   // funde mensagens consecutivas do MESMO papel
   const merged = [];
@@ -83,6 +99,7 @@ export function createAnthropicLlm(client, { defaultModel = 'claude-sonnet-4-6',
   if (!client) throw new Error('createAnthropicLlm: client obrigatorio');
   return {
     provider: 'anthropic',
+    model: defaultModel,
     async complete({ model, messages, tools, toolChoice, jsonMode, maxTokens } = {}) {
       const m = model || defaultModel;
       const { system, messages: amsgs } = toAnthropicMessages(messages);

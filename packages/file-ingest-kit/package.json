@@ -1,0 +1,24 @@
+{
+  "name": "@flavioneto11/file-ingest-kit",
+  "version": "0.1.0",
+  "description": "Ingestão de ARQUIVOS para entrada de IA na plataforma NovaIT: extrai texto + blocos multimodais (imagem/PDF nativos) de .md/.txt/.csv/.pdf/.docx/.xls(x)/.pptx/.zip/imagens, com manifesto, limites (zip-bomb/tokens) e fail-soft por arquivo. Deps de extração OPCIONAIS (lazy) — sem a lib, o formato degrada para name-only. Provider-agnóstico (toMessageContent monta o content por provedor).",
+  "type": "module",
+  "main": "src/index.js",
+  "types": "index.d.ts",
+  "exports": { ".": "./src/index.js" },
+  "files": ["src", "index.d.ts", "README.md"],
+  "scripts": { "test": "node --test" },
+  "peerDependencies": {
+    "pdf-parse": "*",
+    "mammoth": "*",
+    "xlsx": "*",
+    "jszip": "*"
+  },
+  "peerDependenciesMeta": {
+    "pdf-parse": { "optional": true },
+    "mammoth": { "optional": true },
+    "xlsx": { "optional": true },
+    "jszip": { "optional": true }
+  },
+  "license": "UNLICENSED"
+}

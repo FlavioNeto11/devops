@@ -280,7 +280,7 @@ export function createAiGraph({
         messages: [
           ...(turn.systemContext ? [{ role: 'system', content: turn.systemContext }] : []),
           ...(turn.history || []),
-          { role: 'user', content: turn.message },
+          { role: 'user', content: turn.userContent || turn.message },
         ],
       });
       track(r.usage, M.synth, usage);
@@ -309,7 +309,7 @@ export function createAiGraph({
         ].filter(Boolean).join('\n\n'),
       },
       ...(turn.history || []),
-      { role: 'user', content: turn.message },
+      { role: 'user', content: turn.userContent || turn.message },
     ];
     const executed = [];
     const evidence = [];

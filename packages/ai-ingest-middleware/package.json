@@ -1,0 +1,16 @@
+{
+  "name": "@flavioneto11/ai-ingest-middleware",
+  "version": "0.1.0",
+  "description": "Middleware Express que recebe upload multipart, ingere via @flavioneto11/file-ingest-kit e anexa req.ingested (texto + blocos + manifesto). No-op em application/json; fail-soft (erro de ingest NÃO 500). + feedBlocks() para montar o content multimodal da mensagem por provedor/modelo.",
+  "type": "module",
+  "main": "src/index.js",
+  "types": "index.d.ts",
+  "exports": { ".": "./src/index.js" },
+  "files": ["src", "index.d.ts", "README.md"],
+  "scripts": { "test": "node --test" },
+  "peerDependencies": {
+    "@flavioneto11/file-ingest-kit": ">=0.1",
+    "multer": ">=1.4"
+  },
+  "license": "UNLICENSED"
+}

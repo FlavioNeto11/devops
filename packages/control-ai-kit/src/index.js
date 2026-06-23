@@ -77,15 +77,14 @@ export function createControlAi({
     return graphPromise;
   }
 
-  /** Chama o llm diretamente quando o ai-core nao esta disponivel (path de teste). */
-  async function callLlmDirect({ system, input }) {
+  /** Chama o llm diretamente quando o ai-core nao esta disponivel (path de teste).
+   * userContent (multimodal: string|array de blocos) tem prioridade sobre input. */
+  async function callLlmDirect({ system, input, userContent }) {
     if (typeof llm.complete === 'function') {
-      const out = await llm.complete({
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: typeof input === 'string' ? input : JSON.stringify(input ?? '') },
-        ],
-      });
+      const userMsg = userContent != null
+        ? { role: 'user', content: userContent }
+        : { role: 'user', content: typeof input === 'string' ? input : JSON.stringify(input ?? '') };
+      const out = await llm.complete({ messages: [{ role: 'system', content: system }, userMsg] });
       // tolera string crua ou { content } / { text }.
       if (typeof out === 'string') return out;
       return out?.content ?? out?.text ?? out;
@@ -107,21 +106,35 @@ export function createControlAi({
    * @param {string} args.prompt   nome logico do prompt (resolvido pelo promptSource).
    * @param {any} [args.input]     entrada do usuario / contexto do turno.
    */
-  async function ask({ prompt, input } = {}) {
+  async function ask({ prompt, input, files } = {}) {
     const system = await promptSource.resolve(prompt);
+
+    // ARQUIVOS (multimodal): ingere via @flavioneto11/file-ingest-kit (lazy) -> userContent
+    // (texto extraído + blocos nativos imagem/PDF conforme o modelo). Degrada fail-soft p/ texto.
+    let userContent = null;
+    let effInput = input;
+    if (Array.isArray(files) && files.length) {
+      try {
+        const fik = await import('@flavioneto11/file-ingest-kit');
+        const result = await fik.ingest(files);
+        const provider = (llm && llm.provider) === 'anthropic' ? 'anthropic' : 'openai';
+        const model = (llm && llm.model) || '';
+        const userText = typeof input === 'string' ? input : JSON.stringify(input ?? '');
+        userContent = fik.toMessageContent(result, { provider, supportsVision: fik.supportsVision(model), supportsPdf: fik.supportsPdf(model), userText });
+      } catch {
+        effInput = (typeof input === 'string' ? input : JSON.stringify(input ?? '')) + '\n\n(arquivos anexados, mas a ingestão não está disponível neste ambiente)';
+      }
+    }
+    const msg = typeof effInput === 'string' ? effInput : JSON.stringify(effInput ?? '');
 
     // Caminho de PRODUCAO: motor do ai-core.
     const graph = await getGraph();
     if (graph && typeof graph.runTurn === 'function') {
-      const result = await graph.runTurn({
-        message: typeof input === 'string' ? input : JSON.stringify(input ?? ''),
-        systemContext: system,
-      });
-      return result;
+      return graph.runTurn({ message: msg, userContent, systemContext: system });
     }
 
     // Caminho de TESTE/degradacao: llm direto com o prompt como system.
-    return callLlmDirect({ system, input });
+    return callLlmDirect({ system, input: effInput, userContent });
   }
 
   return { appName, promptSource, ask };
