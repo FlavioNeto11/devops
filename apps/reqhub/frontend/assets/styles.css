@@ -1024,6 +1024,21 @@ body.cmdk-on { overflow: hidden; }
 .aiu-kpi-band.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
 .aiu-kpi-band.warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 16%, transparent); }
 .aiu-kpi-band.danger { color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, transparent); }
+/* Plano Claude (assinatura): cards de % + formulário admin */
+.aiu-kpi .mini-bar { margin-top: 9px; height: 8px; display: block; width: 100%; }
+.aiu-k-sub { font-size: 11px; margin-top: 6px; }
+.aiu-plan-form { margin-top: 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-1); padding: 0 14px; }
+.aiu-plan-form > summary { cursor: pointer; padding: 12px 0; font-size: 12.5px; font-weight: 600; color: var(--fg); list-style: none; }
+.aiu-plan-form > summary::-webkit-details-marker { display: none; }
+.aiu-plan-form[open] > summary { border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+.aiu-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; padding-bottom: 12px; }
+.aiu-field { display: flex; flex-direction: column; gap: 5px; }
+.aiu-field > span { font-size: 11.5px; }
+.aiu-input { background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; color: var(--fg); font: inherit; font-size: 13px; }
+.aiu-input:focus { outline: 2px solid var(--accent-2); outline-offset: 1px; }
+.aiu-form-actions { display: flex; align-items: center; gap: 12px; padding: 0 0 14px; }
+.aiu-btn { background: var(--accent-2); color: #fff; border: 0; border-radius: 8px; padding: 8px 18px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.aiu-btn:disabled { opacity: 0.6; cursor: default; }
 
 .aiu-live-rates { display: flex; flex-wrap: wrap; gap: 18px; margin: 0 0 16px; font-size: 12.5px; color: var(--muted); }
 .aiu-live-rates b { color: inherit; font-variant-numeric: tabular-nums; }

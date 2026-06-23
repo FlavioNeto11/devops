@@ -204,11 +204,15 @@ export function buildUsageRouter({ config, cache, context, liveHub } = {}) {
     }
   });
 
-  // Uso da ASSINATURA Claude Code (Opus/Sonnet) por janela 5h/24h/7d — agregado dos transcripts
-  // locais (não há API pública). GET serve ao painel; POST (sync host) ingere o agregado.
-  router.get('/subscription', (_req, res) => res.json(getSubscription()));
-  router.post('/subscription', (req, res) => {
-    try { res.json(ingestSubscription(req.body)); }
+  // LIMITES DO PLANO Claude (assinatura) que o admin vê no app desktop (sessão/semanal/Sonnet/créditos).
+  // Sem API pública + cache do desktop efêmero → o admin informa pelo formulário do painel (POST).
+  // Persistido em Postgres (fail-soft). GET serve ao painel.
+  router.get('/subscription', async (_req, res) => {
+    try { res.json(await getSubscription()); }
+    catch { res.json({ source: 'empty' }); }
+  });
+  router.post('/subscription', async (req, res) => {
+    try { res.json(await ingestSubscription(req.body, req.identity)); }
     catch (e) { res.status(400).json({ error: { code: 'BAD_PAYLOAD', message: e.message } }); }
   });
 

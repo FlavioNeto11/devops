@@ -3754,31 +3754,82 @@ function aiModelTable(p) {
 }
 
 // ── Assinatura Claude Code (Opus/Sonnet) — janelas 5h/semana (sem API pública; agregado local) ──
+// Plano Claude (ASSINATURA) — espelha a tela "Uso" do app desktop (Configurações → Uso):
+// plano, sessão atual %, limites semanais (todos os modelos / só Sonnet) e créditos. Sem API pública
+// + cache do desktop efêmero → o admin informa pelo formulário; o painel espelha. Distinto da CHAVE
+// DE API Anthropic (custo real dos apps), que aparece nos cards de provedor abaixo.
+function aiPlanCard(label, pctv, subline) {
+  const c = h('div', { class: 'aiu-kpi' }, h('div', { class: 'k-l', text: label }), h('div', { class: 'k-v', text: (pctv == null ? '—' : pctv + '%') }));
+  if (pctv != null) c.append(miniBar(pctv, 'accent'));
+  if (subline) c.append(h('div', { class: 'muted aiu-k-sub', text: subline }));
+  return c;
+}
 function aiSubscriptionSection(sub) {
   const wrap = h('div', { class: 'aiu-tbl-wrap' });
-  wrap.append(h('h3', { class: 'aiu-tbl-h' }, secIc('◔'), 'Assinatura Claude Code (Opus/Sonnet) — janelas 5h / semana'));
-  if (!sub || sub.source !== 'live') {
-    wrap.append(h('p', { class: 'muted', text: (sub && sub.note) || 'Sem dados da assinatura — rode scripts/sync-reqhub-claude-usage.ps1 (agrega os transcripts locais e envia para cá).' }));
-    return wrap;
+  wrap.append(h('h3', { class: 'aiu-tbl-h' }, secIc('◔'), 'Plano Claude (assinatura) — limites de uso'));
+  const has = sub && sub.source === 'manual';
+  if (has) {
+    wrap.append(h('p', { class: 'muted' }, h('b', { text: 'Plano: ' + (sub.plan || '—') }), h('span', { text: '   ·   espelha o app desktop (Configurações → Uso)' })));
+    const grid = h('div', { class: 'aiu-kpis' });
+    const seg = sub.session || {}; const wa = sub.weeklyAll || {}; const ws = sub.weeklySonnet || {}; const cr = sub.credits || {};
+    grid.append(aiPlanCard('Sessão atual', seg.pct, seg.note || 'janela de 5h'));
+    grid.append(aiPlanCard('Semanal — todos os modelos', wa.pct, wa.resetsLabel ? 'reinicia ' + wa.resetsLabel : null));
+    grid.append(aiPlanCard('Semanal — só Sonnet', ws.pct, ws.resetsLabel ? 'reinicia ' + ws.resetsLabel : null));
+    const credVal = (cr.spent == null) ? '—' : (cr.currency || 'BRL') + ' ' + Number(cr.spent).toFixed(2);
+    const credCard = h('div', { class: 'aiu-kpi' }, h('div', { class: 'k-l', text: 'Créditos de uso' }), h('div', { class: 'k-v', text: credVal }));
+    if (cr.pct != null) credCard.append(miniBar(cr.pct, 'accent'));
+    const credSub = (cr.pct != null ? cr.pct + '% usado' : '') + (cr.resetsLabel ? (cr.pct != null ? ' · ' : '') + 'reinicia ' + cr.resetsLabel : '');
+    if (credSub) credCard.append(h('div', { class: 'muted aiu-k-sub', text: credSub }));
+    grid.append(credCard);
+    wrap.append(grid);
+    let when = '—'; try { when = sub.updatedAt ? new Date(sub.updatedAt).toLocaleString('pt-BR') : '—'; } catch { when = sub.updatedAt || '—'; }
+    wrap.append(h('p', { class: 'muted', text: 'Atualizado: ' + when + (sub.updatedBy ? ' por ' + sub.updatedBy : '') + '. Informado manualmente — o plano Claude não tem API pública; o app desktop é a fonte oficial.' }));
+  } else {
+    wrap.append(h('p', { class: 'muted', text: (sub && sub.note) || 'Sem dados do plano — preencha abaixo os números que você vê em Configurações → Uso do app Claude.' }));
   }
-  const wins = sub.windows || ['5h', '24h', '7d'];
-  const winLbl = { '5h': 'Janela 5h', '24h': '24h', '7d': '7 dias' };
-  const tbl = h('table', { class: 'aiu-tbl' });
-  const head = h('tr', {}, h('th', { text: 'Modelo' }));
-  for (const w of wins) head.append(h('th', { class: 'num', text: winLbl[w] || w }));
-  tbl.append(h('thead', {}, head));
-  const tb = h('tbody');
-  for (const model of Object.keys(sub.byModel || {}).sort()) {
-    const tr = h('tr', {}, h('td', {}, h('code', { text: model })));
-    for (const w of wins) { const d = (sub.byModel[model] || {})[w] || {}; tr.append(h('td', { class: 'num', text: fmtTokens(d.billable || 0) + ' tok' })); }
-    tb.append(tr);
-  }
-  const tot = h('tr', {}, h('td', {}, h('b', { text: 'TOTAL (billable)' })));
-  for (const w of wins) { const t = (sub.totals || {})[w] || {}; tot.append(h('td', { class: 'num' }, h('b', { text: fmtTokens(t.billable || 0) + ' tok' }))); }
-  tb.append(tot);
-  tbl.append(tb); wrap.append(tbl);
-  wrap.append(h('p', { class: 'muted', text: 'Consumo REAL agregado dos transcripts locais do Claude Code (a assinatura, janelas 5h/semana, não tem API pública de limites). billable = input+output+cache-write (cache-read descontado). Atualizado: ' + (sub.ingestedAt || '—') }));
+  wrap.append(aiPlanForm(has ? sub : null));
   return wrap;
+}
+function aiPlanForm(cur) {
+  cur = cur || {};
+  const seg = cur.session || {}; const wa = cur.weeklyAll || {}; const ws = cur.weeklySonnet || {}; const cr = cur.credits || {};
+  const details = h('details', { class: 'aiu-plan-form' });
+  details.append(h('summary', { text: 'Atualizar números do plano (admin)' }));
+  const grid = h('div', { class: 'aiu-form-grid' });
+  const field = (label, key, val, ph, type) => h('label', { class: 'aiu-field' },
+    h('span', { class: 'muted', text: label }),
+    h('input', { id: 'plan-' + key, class: 'aiu-input', type: type || 'number', step: 'any', value: (val == null ? '' : String(val)), placeholder: ph || '' }));
+  grid.append(field('Plano', 'plan', cur.plan || 'Max (20x)', 'Max (20x)', 'text'));
+  grid.append(field('Sessão atual (%)', 'sessionPct', seg.pct, '0'));
+  grid.append(field('Semanal — todos os modelos (%)', 'weeklyAllPct', wa.pct, '49'));
+  grid.append(field('Reinício semanal', 'weeklyReset', wa.resetsLabel || 'seg., 07:00', 'seg., 07:00', 'text'));
+  grid.append(field('Semanal — só Sonnet (%)', 'weeklySonnetPct', ws.pct, '16'));
+  grid.append(field('Créditos gastos', 'creditsSpent', cr.spent, '0'));
+  grid.append(field('Moeda', 'creditsCurrency', cr.currency || 'BRL', 'BRL', 'text'));
+  grid.append(field('Créditos usados (%)', 'creditsPct', cr.pct, '0'));
+  grid.append(field('Reinício créditos', 'creditsReset', cr.resetsLabel || '', 'Jul 1', 'text'));
+  details.append(grid);
+  const msg = h('span', { class: 'muted', id: 'plan-form-msg' });
+  const save = h('button', { class: 'aiu-btn', type: 'button', text: 'Salvar' });
+  save.addEventListener('click', async () => {
+    const v = (k) => { const el = document.getElementById('plan-' + k); return el ? el.value : ''; };
+    const nv = (k) => { const s = String(v(k)).trim(); return s === '' ? null : Number(s); };
+    const payload = {
+      plan: v('plan'),
+      session: { pct: nv('sessionPct') },
+      weeklyAll: { pct: nv('weeklyAllPct'), resetsLabel: v('weeklyReset') },
+      weeklySonnet: { pct: nv('weeklySonnetPct'), resetsLabel: v('weeklyReset') },
+      credits: { spent: nv('creditsSpent'), currency: v('creditsCurrency'), pct: nv('creditsPct'), resetsLabel: v('creditsReset') },
+    };
+    save.disabled = true; msg.textContent = 'Salvando…';
+    try {
+      const r = await AI.post('/v1/ai-usage/subscription', payload);
+      if (r && r.ok) { msg.textContent = 'Salvo.'; renderAiUsage(); }
+      else { msg.textContent = 'Falha: ' + ((r && r.data && r.data.error && r.data.error.message) || (r && r.status) || 'erro'); save.disabled = false; }
+    } catch (e) { msg.textContent = 'Erro: ' + e.message; save.disabled = false; }
+  });
+  details.append(h('div', { class: 'aiu-form-actions' }, save, msg));
+  return details;
 }
 
 // ── Visão por PRODUTO → MODELO → CUSTO (o que o operador quer ver claro) ──
