@@ -214,6 +214,60 @@ app.put('/v1/tickets/:id', wrap(async (req, res) => {
 }));
 app.delete('/v1/tickets/:id', crudDelete('tickets'));
 
+// ---- Configurações do tenant (/v1/settings/*) ----
+// GET  /v1/settings/tenant         → perfil do tenant (nome, domínio); is_default=true se nunca customizado
+// PUT  /v1/settings/tenant         → atualiza nome e domínio do tenant (upsert por tenant_id)
+// GET  /v1/settings/preferences    → preferências operacionais (fuso, idioma, notificações, page_size)
+// PUT  /v1/settings/preferences    → salva preferências (upsert por tenant_id)
+// GET  /v1/settings/roles          → papéis e capacidades do RBAC (dados estáticos + estrutura canônica)
+app.get('/v1/settings/tenant', wrap(async (req, res) => {
+  const r = (await pool.query('SELECT * FROM tenant_settings WHERE tenant_id=$1', [req.tenantId])).rows[0];
+  if (!r) return res.json({ tenant_id: req.tenantId, name: 'Tenant #' + req.tenantId, domain: null, is_default: true });
+  res.json(r);
+}));
+app.put('/v1/settings/tenant', wrap(async (req, res) => {
+  const { name, domain } = req.body || {};
+  if (!name || !String(name).trim()) return res.status(400).json({ error: { message: 'name é obrigatório', fields: { name: 'Nome do workspace é obrigatório' } } });
+  const r = (await pool.query(
+    `INSERT INTO tenant_settings(tenant_id,name,domain,updated_at) VALUES($1,$2,$3,now()) ON CONFLICT(tenant_id) DO UPDATE SET name=$2,domain=$3,updated_at=now() RETURNING *`,
+    [req.tenantId, String(name).trim(), domain ? String(domain).trim() : null]
+  )).rows[0];
+  res.json(r);
+}));
+app.get('/v1/settings/preferences', wrap(async (req, res) => {
+  const r = (await pool.query('SELECT * FROM tenant_preferences WHERE tenant_id=$1', [req.tenantId])).rows[0];
+  if (!r) return res.json({ tenant_id: req.tenantId, timezone: 'America/Sao_Paulo', language: 'pt-BR', notify_new_tickets: true, notify_sla: true, page_size: 25, is_default: true });
+  res.json(r);
+}));
+app.put('/v1/settings/preferences', wrap(async (req, res) => {
+  const { timezone, language, notify_new_tickets, notify_sla, page_size } = req.body || {};
+  const ps = Number(page_size);
+  if (!Number.isFinite(ps) || ps < 5 || ps > 100) return res.status(400).json({ error: { message: 'page_size deve ser entre 5 e 100', fields: { page_size: 'Valor entre 5 e 100' } } });
+  const r = (await pool.query(
+    `INSERT INTO tenant_preferences(tenant_id,timezone,language,notify_new_tickets,notify_sla,page_size,updated_at) VALUES($1,$2,$3,$4,$5,$6,now()) ON CONFLICT(tenant_id) DO UPDATE SET timezone=$2,language=$3,notify_new_tickets=$4,notify_sla=$5,page_size=$6,updated_at=now() RETURNING *`,
+    [req.tenantId, timezone || 'America/Sao_Paulo', language || 'pt-BR', notify_new_tickets !== false, notify_sla !== false, ps]
+  )).rows[0];
+  res.json(r);
+}));
+app.get('/v1/settings/roles', wrap(async (_q, res) => {
+  res.json({
+    roles: [
+      { value: 'admin', label: 'Admin', description: 'Acesso total ao workspace' },
+      { value: 'supervisor', label: 'Supervisor', description: 'Gestão de times, SLA e base de conhecimento' },
+      { value: 'agent', label: 'Agente', description: 'Atendimento, atribuição e comentários' },
+      { value: 'viewer', label: 'Leitor', description: 'Somente leitura dos chamados' },
+    ],
+    capabilities: [
+      { key: 'view', label: 'Ver chamados', description: 'Acessar a fila e o histórico de atendimentos.', roles: ['admin', 'supervisor', 'agent', 'viewer'] },
+      { key: 'comment', label: 'Comentar e responder', description: 'Interagir com clientes e notas internas.', roles: ['admin', 'supervisor', 'agent'] },
+      { key: 'assign', label: 'Atribuir e priorizar', description: 'Encaminhar chamados e ajustar prioridade.', roles: ['admin', 'supervisor', 'agent'] },
+      { key: 'team', label: 'Gerir times e SLA', description: 'Configurar times, políticas de SLA e escalonamento.', roles: ['admin', 'supervisor'] },
+      { key: 'kb', label: 'Publicar base de conhecimento', description: 'Criar e revisar artigos da base.', roles: ['admin', 'supervisor'] },
+      { key: 'admin', label: 'Administrar workspace', description: 'Agentes, integrações e configurações do tenant.', roles: ['admin'] },
+    ],
+  });
+}));
+
 async function depth() { try { const c = await jobsRepo.counts(); for (const s of ['queued','running','done','dlq']) M.queueDepth.set({ status: s }, c[s] || 0); } catch {} }
 const PORT = Number(process.env.PORT) || 8080;
 (async () => {

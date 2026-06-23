@@ -188,3 +188,21 @@ paths:
     delete:
       operationId: deleteTicket
       responses: { "204": { description: deleted } }
+  /v1/settings/tenant:
+    get:
+      operationId: getSettingsTenant
+      responses: { "200": { description: "identidade do tenant (nome, dominio); is_default=true se nunca customizado" } }
+    put:
+      operationId: updateSettingsTenant
+      responses: { "200": { description: "identidade do tenant atualizada" } }
+  /v1/settings/preferences:
+    get:
+      operationId: getSettingsPreferences
+      responses: { "200": { description: "preferencias operacionais do tenant" } }
+    put:
+      operationId: updateSettingsPreferences
+      responses: { "200": { description: "preferencias salvas" } }
+  /v1/settings/roles:
+    get:
+      operationId: getSettingsRoles
+      responses: { "200": { description: "papeis e capacidades do RBAC" } }

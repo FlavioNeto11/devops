@@ -96,3 +96,18 @@ export const jobs = {
 // como alias para compatibilidade com chamadas já existentes (ex.: TicketDetailView).
 export const jobsHealth = () => request('GET', '/v1/health/jobs');
 export const healthJobs = jobsHealth;
+
+// Configurações do tenant (identidade, preferências e papéis).
+// Fontes canônicas: GET/PUT /v1/settings/tenant, GET/PUT /v1/settings/preferences, GET /v1/settings/roles.
+// is_default=true indica que o tenant ainda usa valores padrão (nunca customizou).
+export const settingsTenant = {
+  get: () => request('GET', '/v1/settings/tenant'),
+  update: (body) => request('PUT', '/v1/settings/tenant', body),
+};
+export const settingsPreferences = {
+  get: () => request('GET', '/v1/settings/preferences'),
+  update: (body) => request('PUT', '/v1/settings/preferences', body),
+};
+export const settingsRoles = {
+  get: () => request('GET', '/v1/settings/roles'),
+};

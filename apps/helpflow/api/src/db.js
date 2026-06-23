@@ -30,7 +30,10 @@ const MIGRATIONS = [`CREATE TABLE IF NOT EXISTS records (id SERIAL PRIMARY KEY, 
   // latência) + o corpo da resposta JÁ REDIGIDO (a redação é server-side, fonte
   // da verdade — ver gateways/gateway.js). A tela /integrations/:id lê esta trilha.
   `CREATE TABLE IF NOT EXISTS integration_audit (id BIGSERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, integration_id INTEGER NOT NULL, method TEXT NOT NULL DEFAULT 'GET', path TEXT NOT NULL DEFAULT '', status_code INTEGER, latency_ms INTEGER, ok BOOLEAN, redacted BOOLEAN NOT NULL DEFAULT true, response JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ DEFAULT now());
-   CREATE INDEX IF NOT EXISTS integration_audit_idx ON integration_audit (tenant_id, integration_id, created_at DESC);`];
+   CREATE INDEX IF NOT EXISTS integration_audit_idx ON integration_audit (tenant_id, integration_id, created_at DESC);`,
+  // ---- configurações do tenant (identidade + preferências) — migração 7 ----
+  `CREATE TABLE IF NOT EXISTS tenant_settings (id SERIAL PRIMARY KEY, tenant_id INTEGER UNIQUE NOT NULL DEFAULT 1, name TEXT NOT NULL DEFAULT 'Workspace', domain TEXT, updated_at TIMESTAMPTZ DEFAULT now());
+   CREATE TABLE IF NOT EXISTS tenant_preferences (id SERIAL PRIMARY KEY, tenant_id INTEGER UNIQUE NOT NULL DEFAULT 1, timezone TEXT NOT NULL DEFAULT 'America/Sao_Paulo', language TEXT NOT NULL DEFAULT 'pt-BR', notify_new_tickets BOOLEAN NOT NULL DEFAULT true, notify_sla BOOLEAN NOT NULL DEFAULT true, page_size INTEGER NOT NULL DEFAULT 25, updated_at TIMESTAMPTZ DEFAULT now());`];
 export async function migrate() {
   const c = await pool.connect();
   try {
