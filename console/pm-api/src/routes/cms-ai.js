@@ -12,6 +12,7 @@ import { query, withTx } from '../db/pool.js';
 import { asyncH, invalid, notFound } from './_util.js';
 import { assertProjectAccess, resolveProjectIdForSection } from '../auth.js';
 import { aiEnabled, generatePortalDraft, aiEditSection, aiEditSite } from '../ai/generate.js';
+import { ingest } from '@flavioneto11/file-ingest-kit';
 
 const r = Router();
 
@@ -61,6 +62,73 @@ async function logGeneration(projectId, kind, prompt, context, status, result, e
      VALUES ($1, $2, $3, $4, $5::cms_generation_status, $6, $7, $8)`,
     [projectId, kind, prompt, context || {}, status, result ? JSON.stringify(result) : null, error || null, email || null],
   );
+}
+
+// Materializa o draft gerado (páginas/seções/identidade). Criador ADMIN → PUBLICADO;
+// member → rascunho. Páginas existentes (mesmo slug) recebem as seções no fim; hero abre a página.
+// O GERADO preenche lacunas da identidade mas NUNCA sobrescreve o que o usuário já configurou.
+// Compartilhado por /generate e /generate-from-files.
+async function persistGeneratedDraft({ projectId, genId, draft, publish }) {
+  const created = { pages: 0, sections: 0 };
+  await withTx(async (client) => {
+    for (const page of draft.pages) {
+      const existing = await client.query(
+        'SELECT id FROM cms_pages WHERE project_id = $1 AND slug = $2', [projectId, page.slug],
+      );
+      let pageId = existing.rows[0]?.id;
+      if (!pageId) {
+        const pos = await client.query(
+          'SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM cms_pages WHERE project_id = $1', [projectId],
+        );
+        const ins = await client.query(
+          `INSERT INTO cms_pages (project_id, slug, title, position, status)
+           VALUES ($1, $2, $3, $4, $5::cms_status) RETURNING id`,
+          [projectId, page.slug, page.title, pos.rows[0].pos, publish],
+        );
+        pageId = ins.rows[0].id;
+        created.pages += 1;
+      } else if (publish === 'published') {
+        await client.query(
+          `UPDATE cms_pages SET status = 'published', updated_at = now() WHERE id = $1`, [pageId],
+        );
+      }
+      for (const s of page.sections) {
+        let position;
+        if (s.kind === 'hero') {
+          const min = await client.query('SELECT COALESCE(MIN(position), 1) - 1 AS pos FROM cms_sections WHERE page_id = $1', [pageId]);
+          position = min.rows[0].pos;
+        } else {
+          const max = await client.query('SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM cms_sections WHERE page_id = $1', [pageId]);
+          position = max.rows[0].pos;
+        }
+        await client.query(
+          `INSERT INTO cms_sections (page_id, kind, position, data, status, visible, generated_by, generation_id)
+           VALUES ($1, $2, $3, $4, $5::cms_status, true, 'ai', $6)`,
+          [pageId, s.kind, position, s.data, publish, genId],
+        );
+        created.sections += 1;
+      }
+    }
+    const siteFields = { ...(draft.site || {}) };
+    if (draft.palette && (draft.palette.primary || draft.palette.accent)) {
+      siteFields.palette = draft.palette;
+      siteFields.aiPalette = draft.palette; // rastreio do que veio da IA
+    }
+    Object.keys(siteFields).forEach((k) => siteFields[k] === undefined && delete siteFields[k]);
+    if (Object.keys(siteFields).length) {
+      await client.query(
+        `INSERT INTO cms_site (project_id, data) VALUES ($1, $2::jsonb)
+         ON CONFLICT (project_id) DO UPDATE
+           SET data = ($2::jsonb || cms_site.data), updated_at = now()`,
+        [projectId, JSON.stringify(siteFields)],
+      );
+    }
+    await client.query(
+      `UPDATE cms_generation_requests SET status = 'done', result = $2, updated_at = now() WHERE id = $1`,
+      [genId, JSON.stringify(draft)],
+    );
+  });
+  return created;
 }
 
 // Lista pedidos de geração do projeto (auditoria/rastreabilidade).
@@ -120,71 +188,74 @@ r.post('/projects/:projectId/cms/generate', asyncH(async (req, res) => {
   // aprovação do dono). Páginas existentes (mesmo slug) recebem as seções
   // geradas no fim; o hero gerado entra como PRIMEIRA seção da página.
   const publish = req.auth?.isAdmin ? 'published' : 'draft';
-  const created = { pages: 0, sections: 0 };
-  await withTx(async (client) => {
-    for (const page of draft.pages) {
-      const existing = await client.query(
-        'SELECT id FROM cms_pages WHERE project_id = $1 AND slug = $2', [req.params.projectId, page.slug],
-      );
-      let pageId = existing.rows[0]?.id;
-      if (!pageId) {
-        const pos = await client.query(
-          'SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM cms_pages WHERE project_id = $1', [req.params.projectId],
-        );
-        const ins = await client.query(
-          `INSERT INTO cms_pages (project_id, slug, title, position, status)
-           VALUES ($1, $2, $3, $4, $5::cms_status) RETURNING id`,
-          [req.params.projectId, page.slug, page.title, pos.rows[0].pos, publish],
-        );
-        pageId = ins.rows[0].id;
-        created.pages += 1;
-      } else if (publish === 'published') {
-        await client.query(
-          `UPDATE cms_pages SET status = 'published', updated_at = now() WHERE id = $1`, [pageId],
-        );
-      }
-      for (const s of page.sections) {
-        // hero abre a página (position -1 reordena via posição mínima atual)
-        let position;
-        if (s.kind === 'hero') {
-          const min = await client.query('SELECT COALESCE(MIN(position), 1) - 1 AS pos FROM cms_sections WHERE page_id = $1', [pageId]);
-          position = min.rows[0].pos;
-        } else {
-          const max = await client.query('SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM cms_sections WHERE page_id = $1', [pageId]);
-          position = max.rows[0].pos;
-        }
-        await client.query(
-          `INSERT INTO cms_sections (page_id, kind, position, data, status, visible, generated_by, generation_id)
-           VALUES ($1, $2, $3, $4, $5::cms_status, true, 'ai', $6)`,
-          [pageId, s.kind, position, s.data, publish, genId],
-        );
-        created.sections += 1;
-      }
-    }
-    // Identidade do site (nome/tagline/descrição) + paleta: o GERADO preenche
-    // lacunas, mas NUNCA sobrescreve o que o usuário já configurou (existente
-    // vence no merge jsonb: generated || data).
-    const siteFields = { ...(draft.site || {}) };
-    if (draft.palette && (draft.palette.primary || draft.palette.accent)) {
-      siteFields.palette = draft.palette;
-      siteFields.aiPalette = draft.palette; // rastreio do que veio da IA
-    }
-    Object.keys(siteFields).forEach((k) => siteFields[k] === undefined && delete siteFields[k]);
-    if (Object.keys(siteFields).length) {
-      await client.query(
-        `INSERT INTO cms_site (project_id, data) VALUES ($1, $2::jsonb)
-         ON CONFLICT (project_id) DO UPDATE
-           SET data = ($2::jsonb || cms_site.data), updated_at = now()`,
-        [req.params.projectId, JSON.stringify(siteFields)],
-      );
-    }
-    await client.query(
-      `UPDATE cms_generation_requests SET status = 'done', result = $2, updated_at = now() WHERE id = $1`,
-      [genId, JSON.stringify(draft)],
-    );
-  });
-
+  const created = await persistGeneratedDraft({ projectId: req.params.projectId, genId, draft, publish });
   res.status(201).json({ data: { generationId: genId, status: 'done', published: publish === 'published', created } });
+}));
+
+// Gera o portal a partir de ARQUIVOS já enviados (reusa cms_files). Body JSON:
+// { fileIds:[...], prompt?, template?, context? }. A ingestão extrai TEXTO + blocos
+// (imagem/PDF); o prompt do dono é OPCIONAL — os arquivos são a entrada principal.
+// Mesma materialização/saída de /generate (helper compartilhado). Sem chave → 503.
+r.post('/projects/:projectId/cms/generate-from-files', asyncH(async (req, res) => {
+  if (!(await assertProjectAccess(req, res, req.params.projectId))) return;
+  const b = req.body || {};
+  const fileIds = Array.isArray(b.fileIds) ? b.fileIds.filter((x) => typeof x === 'string' && x).slice(0, 20) : [];
+  const userPrompt = typeof b.prompt === 'string' ? b.prompt.trim() : '';
+  if (!fileIds.length) return invalid(res, 'fileIds (array) e obrigatorio');
+
+  // Carrega os bytes dos arquivos do projeto (ou biblioteca global) e ingere.
+  const { rows: files } = await query(
+    `SELECT filename, mime, bytes FROM cms_files
+      WHERE id = ANY($1::uuid[]) AND (project_id = $2 OR scope = 'global')`,
+    [fileIds, req.params.projectId],
+  );
+  if (!files.length) return invalid(res, 'nenhum arquivo encontrado para os fileIds informados');
+  const ingested = await ingest(files.map((f) => ({ filename: f.filename, mime: f.mime, bytes: f.bytes })));
+
+  // prompt = pedido do dono (se houver) + conteúdo extraído dos arquivos.
+  const promptParts = [];
+  if (userPrompt) promptParts.push(userPrompt);
+  promptParts.push('Construa o portal a partir do CONTEÚDO dos arquivos enviados (use estrutura, textos e dados como base do site):');
+  for (const tp of ingested.textParts) promptParts.push(`### ${tp.name}${tp.truncated ? ' (truncado)' : ''}\n${tp.text}`);
+  if (ingested.notes.length) promptParts.push(`Notas de ingestão: ${ingested.notes.join(' ')}`);
+  const prompt = promptParts.join('\n\n').slice(0, 60000);
+
+  // manifesto (NUNCA os bytes) no context p/ rastreabilidade/auditoria.
+  const ctx = { ...(b.context || {}), ingest: { manifest: ingested.manifest, notes: ingested.notes, images: ingested.blocks.filter((x) => x.type === 'image').length } };
+
+  const insert = await query(
+    `INSERT INTO cms_generation_requests (project_id, kind, prompt, template, context, status, created_by)
+     VALUES ($1, 'portal', $2, $3, $4::jsonb, $5::cms_generation_status, $6) RETURNING id`,
+    [req.params.projectId, prompt, b.template || null, JSON.stringify(ctx), aiEnabled() ? 'queued' : 'unavailable', req.auth?.email || null],
+  );
+  const genId = insert.rows[0].id;
+
+  if (!aiEnabled()) {
+    return res.status(503).json({
+      error: { code: 'AI_UNAVAILABLE', message: 'IA nao configurada (defina OPENAI_API_KEY no Secret do pm-api). O pedido foi registrado.' },
+      data: { generationId: genId, status: 'unavailable' },
+    });
+  }
+  await query(`UPDATE cms_generation_requests SET status = 'generating', updated_at = now() WHERE id = $1`, [genId]);
+
+  let draft;
+  try {
+    const proj = await query('SELECT name FROM projects WHERE id = $1', [req.params.projectId]);
+    draft = await generatePortalDraft({
+      prompt,
+      siteName: proj.rows[0]?.name,
+      template: b.template || null,
+      context: b.context || {},
+      blocks: ingested.blocks,
+    });
+  } catch (e) {
+    await query(`UPDATE cms_generation_requests SET status = 'failed', error = $2, updated_at = now() WHERE id = $1`, [genId, String(e.message || e).slice(0, 500)]);
+    return res.status(502).json({ error: { code: 'AI_FAILED', message: `geracao falhou: ${e.message}` }, data: { generationId: genId, status: 'failed' } });
+  }
+
+  const publish = req.auth?.isAdmin ? 'published' : 'draft';
+  const created = await persistGeneratedDraft({ projectId: req.params.projectId, genId, draft, publish });
+  res.status(201).json({ data: { generationId: genId, status: 'done', published: publish === 'published', created, manifest: ingested.manifest } });
 }));
 
 // ---------------------------------------------------------------------------

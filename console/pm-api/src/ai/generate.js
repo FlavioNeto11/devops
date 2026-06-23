@@ -11,8 +11,12 @@
 // Segredo: OPENAI_API_KEY vem de Secret do k8s (nunca em git/plaintext).
 // =============================================================================
 
+import { supportsVision } from '@flavioneto11/file-ingest-kit';
+
 const OPENAI_URL = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1/chat/completions';
 const MODEL = process.env.CMS_AI_MODEL || 'gpt-5-nano';
+// Modelo p/ entrada com IMAGENS (gpt-5-nano não tem visão). Mesmo contrato gpt-5 (reasoning_effort).
+const VISION_MODEL = process.env.CMS_AI_VISION_MODEL || 'gpt-5';
 const TIMEOUT_MS = Number(process.env.CMS_AI_TIMEOUT_MS || 30_000);
 
 // Kinds que a IA pode emitir: os genéricos + hero (todos renderizáveis pelo
@@ -55,7 +59,10 @@ Gere conteúdo honesto e genérico (sem inventar números, clientes ou certifica
 Máximo de 3 páginas e 8 seções por página.`;
 
 /** Chamada JSON única ao modelo (timeout curto; lança em qualquer falha). */
-async function callJSON(messages) {
+async function callJSON(messages, modelOverride) {
+  const model = modelOverride || MODEL;
+  // reasoning_effort só existe na família gpt-5/o-series; em gpt-4o etc. seria rejeitado.
+  const isReasoning = /gpt-5|^o\d/.test(model);
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
@@ -67,8 +74,8 @@ async function callJSON(messages) {
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: MODEL,
-        reasoning_effort: process.env.OPENAI_REASONING_EFFORT || 'low',
+        model,
+        ...(isReasoning ? { reasoning_effort: process.env.OPENAI_REASONING_EFFORT || 'low' } : {}),
         response_format: { type: 'json_object' },
         messages,
       }),
@@ -93,19 +100,31 @@ async function callJSON(messages) {
  * Lança erro em qualquer falha (timeout/HTTP/JSON inválido) — quem chama marca
  * a request como failed e segue sem IA.
  */
-export async function generatePortalDraft({ prompt, siteName, template, context }) {
+export async function generatePortalDraft({ prompt, siteName, template, context, blocks }) {
+  const userText = [
+    `Nome do portal: ${siteName || '(sem nome)'}`,
+    template ? `Template base escolhido: ${template}` : null,
+    context && Object.keys(context).length ? `Contexto adicional: ${JSON.stringify(context)}` : null,
+    `Descrição do dono do portal: ${prompt}`,
+  ].filter(Boolean).join('\n');
+
+  // Imagens enviadas → modelo com VISÃO + content multimodal (image_url). PDFs já vieram
+  // como texto extraído no prompt (OpenAI não tem PDF nativo). Sem imagens → modelo de texto (barato).
+  const images = (Array.isArray(blocks) ? blocks : []).filter((b) => b && b.type === 'image');
+  let userContent = userText;
+  let model;
+  if (images.length && supportsVision(VISION_MODEL)) {
+    model = VISION_MODEL;
+    userContent = [
+      { type: 'text', text: userText },
+      ...images.slice(0, 8).map((b) => ({ type: 'image_url', image_url: { url: `data:${b.mediaType};base64,${b.dataBase64}` } })),
+    ];
+  }
+
   const parsed = await callJSON([
     { role: 'system', content: SYSTEM_PROMPT },
-    {
-      role: 'user',
-      content: [
-        `Nome do portal: ${siteName || '(sem nome)'}`,
-        template ? `Template base escolhido: ${template}` : null,
-        context && Object.keys(context).length ? `Contexto adicional: ${JSON.stringify(context)}` : null,
-        `Descrição do dono do portal: ${prompt}`,
-      ].filter(Boolean).join('\n'),
-    },
-  ]);
+    { role: 'user', content: userContent },
+  ], model);
   return sanitizeDraft(parsed);
 }
 

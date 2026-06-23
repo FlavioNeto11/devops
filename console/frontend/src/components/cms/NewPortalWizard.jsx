@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Modal from '../Modal.jsx';
 import Icon from '../Icon.jsx';
 import { useToast } from '../ToastProvider.jsx';
-import { pmProjects, pmCreateProject, pmCmsCreatePage, pmCmsCreateSection, pmCmsGenerate } from '../../api.js';
+import { pmProjects, pmCreateProject, pmCmsCreatePage, pmCmsCreateSection, pmCmsGenerate, pmCmsUpload, pmCmsGenerateFromFiles } from '../../api.js';
 import { isPortal } from '../../lib/appTypes.js';
 
 /**
@@ -41,6 +41,7 @@ export default function NewPortalWizard({ isAdmin, onClose, onCreated }) {
   const [relatedId, setRelatedId] = useState('');
   const [products, setProducts] = useState([]);
   const [aiPrompt, setAiPrompt] = useState('');
+  const [files, setFiles] = useState([]); // arquivos p/ a IA entender o conteúdo do portal
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -72,16 +73,23 @@ export default function NewPortalWizard({ isAdmin, onClose, onCreated }) {
         // eslint-disable-next-line no-await-in-loop
         await pmCmsCreateSection(page.id, { kind: s.kind, data: s.data, status: 'published', visible: true });
       }
-      // Geração assistida (opcional): adiciona seções de RASCUNHO marcadas como
-      // geradas por IA. Falha da IA não bloqueia a criação do portal.
-      if (aiPrompt.trim()) {
+      // Geração assistida (opcional): por ARQUIVOS enviados (a IA entende o conteúdo)
+      // e/ou por TEXTO. Falha da IA não bloqueia a criação do portal.
+      if (files.length || aiPrompt.trim()) {
         try {
-          const g = await pmCmsGenerate(project.id, {
-            prompt: aiPrompt.trim(),
-            kind: 'portal',
-            template,
-            context: linkMode === 'linked' && relatedId ? { relatedProjectId: relatedId } : {},
-          });
+          const ctx = linkMode === 'linked' && relatedId ? { relatedProjectId: relatedId } : {};
+          let g;
+          if (files.length) {
+            const fileIds = [];
+            for (const f of files) {
+              // eslint-disable-next-line no-await-in-loop
+              const up = await pmCmsUpload(project.id, f);
+              fileIds.push(up.id);
+            }
+            g = await pmCmsGenerateFromFiles(project.id, { prompt: aiPrompt.trim(), fileIds, template, context: ctx });
+          } else {
+            g = await pmCmsGenerate(project.id, { prompt: aiPrompt.trim(), kind: 'portal', template, context: ctx });
+          }
           toast.ok(g?.published
             ? `IA montou o portal (${g?.created?.sections ?? 0} seções) — já visível em /sites/${k}.`
             : `IA gerou ${g?.created?.sections ?? 0} seção(ões) em rascunho — revise no editor.`);
@@ -160,6 +168,18 @@ export default function NewPortalWizard({ isAdmin, onClose, onCreated }) {
           A IA monta o site completo (identidade, paleta, hero e seções) a partir da descrição.
           Criado por <strong>administrador</strong>, o portal já nasce <strong>publicado e visível</strong> em /sites/&lt;chave&gt;;
           criado por membro, entra como rascunho até a aprovação. Tudo fica marcado como “gerado por IA” e é editável.
+        </span>
+      </label>
+
+      <label className="field" style={{ marginBottom: 10 }}>
+        <span className="field__label">Ou envie arquivos para a IA usar como base (opcional)</span>
+        <input className="input" type="file" multiple
+          accept=".md,.txt,.csv,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,image/*"
+          onChange={(e) => setFiles(Array.from(e.target.files || []))} />
+        <span className="muted" style={{ fontSize: '.78rem' }}>
+          Aceita .md, .txt, .csv, .pdf, .docx, .xlsx, .pptx, .zip e imagens (documentos .doc/.ppt antigos entram só pelo nome).
+          A IA lê o conteúdo (textos, planilhas, slides, imagens) e monta o portal a partir dele — você pode combinar com a descrição acima.
+          {files.length > 0 && <><br /><strong>{files.length}</strong> arquivo(s): {files.map((f) => f.name).join(', ')}</>}
         </span>
       </label>
 

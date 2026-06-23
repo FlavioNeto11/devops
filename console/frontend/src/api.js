@@ -244,6 +244,8 @@ export const pmCmsDeleteSection = (sectionId) => pmFetch(`/cms/sections/${sectio
 export const pmCmsReorderSections = (pageId, order) => pmFetch(`/cms/pages/${pageId}/sections/reorder`, { method: 'PUT', body: { order } });
 // Geração assistida por IA (degrada graciosamente sem OPENAI_API_KEY no pm-api).
 export const pmCmsGenerate = (projectId, body) => pmFetch(`/projects/${projectId}/cms/generate`, { method: 'POST', body });
+// Geração a partir de ARQUIVOS já enviados (cms_files) — { fileIds:[...], prompt?, template?, context? }.
+export const pmCmsGenerateFromFiles = (projectId, body) => pmFetch(`/projects/${projectId}/cms/generate-from-files`, { method: 'POST', body });
 export const pmCmsGenerations = (projectId) => pmFetch(`/projects/${projectId}/cms/generations`);
 // ✨ edição assistida: reescreve UMA seção / o site conforme a instrução (contexto = site inteiro + briefing original)
 export const pmCmsAiSection = (sectionId, instruction) => pmFetch(`/cms/sections/${sectionId}/ai`, { method: 'POST', body: { instruction } });
