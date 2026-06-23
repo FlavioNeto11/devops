@@ -27,8 +27,21 @@ const NAME = arg('name');
 const DISPLAY = arg('display', NAME);
 const BASE_PATH = arg('base-path', '/' + NAME);
 const BLUEPRINT = arg('blueprint', 'node-api-vue-spa');
-const BRIEF = arg('brief');
-if (!NAME || !BRIEF) { console.error('uso: --name <slug> --brief "<brief>" [--display .. --base-path .. --blueprint ..]'); process.exit(2); }
+// --brief: texto direto. --brief-file <path>: a Forja CONCEBE a partir de um DOCUMENTO
+// (.md/.txt/.csv/.pdf/.docx/.xlsx/.pptx/.zip/imagens) ingerido localmente (file-ingest-kit).
+// Pode combinar os dois (texto + arquivo). Formatos binários degradam p/ name-only sem as libs no repo.
+let BRIEF = arg('brief');
+const BRIEF_FILE = arg('brief-file');
+if (BRIEF_FILE) {
+  const { ingest } = await import('../../packages/file-ingest-kit/src/index.js');
+  const buf = fs.readFileSync(BRIEF_FILE);
+  const res = await ingest([{ filename: path.basename(BRIEF_FILE), bytes: buf }]);
+  const fileText = res.textParts.map((t) => `### ${t.name}\n${t.text}`).join('\n\n');
+  BRIEF = [BRIEF, fileText].filter(Boolean).join('\n\n');
+  if (res.notes.length) console.error('[forge] ingestão:', res.notes.join(' '));
+  console.error(`[forge] brief de ${BRIEF_FILE}: ${BRIEF.length} chars · arquivos: ${res.manifest.map((m) => `${m.path}(${m.status})`).join(', ')}`);
+}
+if (!NAME || !BRIEF) { console.error('uso: --name <slug> (--brief "<brief>" | --brief-file <path>) [--display .. --base-path .. --blueprint ..]'); process.exit(2); }
 
 const capabilities = JSON.parse(fs.readFileSync(path.join(SPECS, 'baseline/capabilities.json'), 'utf8')).capabilities || [];
 const blueprints = JSON.parse(fs.readFileSync(path.join(SPECS, 'baseline/blueprints.json'), 'utf8')).blueprints || [];
