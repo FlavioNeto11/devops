@@ -174,49 +174,29 @@
           <!-- 3. Lotação -->
           <UiFormSection
             title="Lotação"
-            description="Onde a pessoa atua. O tenant isola os dados por organização; o time é opcional."
-            :columns="2"
+            description="Time ao qual o agente será atribuído (opcional — pode ser ajustado depois)."
+            :columns="1"
           >
             <UiFormField
               label="Time"
               :error="f.errors.team_id"
-              hint="Identificador numérico do time (opcional)."
+              hint="Selecione o time ou fila de atendimento deste agente."
             >
               <template #default="{ id, describedBy }">
-                <input
-                  :id="id"
-                  type="number"
-                  inputmode="numeric"
-                  min="1"
-                  step="1"
-                  :aria-describedby="describedBy"
-                  :value="f.values.team_id"
-                  placeholder="Ex.: 12"
-                  @input="f.setField('team_id', $event.target.value)"
-                  @blur="f.validateField('team_id')"
-                />
-              </template>
-            </UiFormField>
-
-            <UiFormField
-              label="Tenant"
-              :required="true"
-              :error="f.errors.tenant_id"
-              hint="Organização à qual o agente pertence. Obrigatório."
-            >
-              <template #default="{ id, describedBy }">
-                <input
-                  :id="id"
-                  type="number"
-                  inputmode="numeric"
-                  min="1"
-                  step="1"
-                  :aria-describedby="describedBy"
-                  :value="f.values.tenant_id"
-                  placeholder="Ex.: 1"
-                  @input="f.setField('tenant_id', $event.target.value)"
-                  @blur="f.validateField('tenant_id')"
-                />
+                <div class="hf-select-wrap">
+                  <select
+                    :id="id"
+                    :aria-describedby="describedBy"
+                    :disabled="teamsLoading"
+                    :value="f.values.team_id"
+                    @change="f.setField('team_id', $event.target.value)"
+                    @blur="f.validateField('team_id')"
+                  >
+                    <option value="">Sem time (sem atribuição)</option>
+                    <option v-for="t in teamOptions" :key="t.value" :value="t.value">{{ t.label }}</option>
+                  </select>
+                  <span v-if="teamsLoading" class="hf-select-loading" aria-hidden="true"><span class="ui-spin" /></span>
+                </div>
               </template>
             </UiFormField>
           </UiFormSection>
@@ -288,11 +268,7 @@
               </div>
               <div class="hf-dl-row">
                 <dt>Time</dt>
-                <dd>{{ f.values.team_id ? ('Time ' + f.values.team_id) : 'Sem time' }}</dd>
-              </div>
-              <div class="hf-dl-row">
-                <dt>Tenant</dt>
-                <dd class="ui-mono">{{ f.values.tenant_id ? ('#' + f.values.tenant_id) : '—' }}</dd>
+                <dd>{{ f.values.team_id ? teamLabel(f.values.team_id) : 'Sem time' }}</dd>
               </div>
             </dl>
           </div>
@@ -343,7 +319,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import {
   UiPageLayout,
@@ -357,7 +333,7 @@ import {
   useConfirm,
   validators,
 } from '../ui/index.js';
-import { agents } from '../api.js';
+import { agents, teams as teamsApi } from '../api.js';
 
 const router = useRouter();
 const toast = useToast();
@@ -387,24 +363,16 @@ const ROLES = [
     description: 'Atende e resolve os chamados sob sua responsabilidade.',
     perms: ['Atender', 'Responder', 'Resolver'],
   },
-  {
-    value: 'viewer',
-    label: 'Leitor',
-    tone: 'neutral',
-    description: 'Apenas leitura: consulta chamados e relatórios, sem alterar nada.',
-    perms: ['Visualizar', 'Exportar'],
-  },
 ];
 const ROLE_MAP = ROLES.reduce((acc, r) => { acc[r.value] = r; return acc; }, {});
 
 const f = useForm({
-  initial: { name: '', email: '', role: 'agent', team_id: '', tenant_id: '', status: 'active' },
+  initial: { name: '', email: '', role: 'agent', team_id: '', status: 'active' },
   rules: {
     name: [validators.required('Informe o nome do agente'), validators.minLen(2)],
     email: [validators.required('Informe o e-mail corporativo'), validators.email()],
     role: [validators.required('Escolha um papel de acesso')],
-    team_id: [validators.numeric('Time deve ser um número'), validators.min(1, 'Time inválido')],
-    tenant_id: [validators.required('Informe o tenant'), validators.numeric('Tenant deve ser um número'), validators.min(1, 'Tenant inválido')],
+    team_id: [],
   },
 });
 
@@ -442,7 +410,7 @@ function stepState(key) {
     return done ? 'done' : (isFilled(f.values.name) || isFilled(f.values.email) ? 'active' : 'todo');
   }
   if (key === 'role') return isFilled(f.values.role) ? 'done' : 'todo';
-  if (key === 'tenancy') return isFilled(f.values.tenant_id) && !f.errors.tenant_id ? 'done' : (isFilled(f.values.tenant_id) ? 'active' : 'todo');
+  if (key === 'tenancy') return isFilled(f.values.team_id) ? 'done' : 'todo';
   return 'todo';
 }
 
@@ -482,6 +450,30 @@ function onRoleKey(ev, idx) {
 function toggleStatus() {
   f.setField('status', isActive.value ? 'inactive' : 'active');
 }
+
+// ---- Times (carregados da API para o select de Lotação) ----------------------
+const teamsLoading = ref(false);
+const teamList = ref([]);
+const teamOptions = computed(() =>
+  teamList.value.map((t) => ({ value: String(t.id), label: t.name || ('Time #' + t.id) })),
+);
+function teamLabel(id) {
+  const t = teamList.value.find((t) => String(t.id) === String(id));
+  return t ? (t.name || ('Time #' + t.id)) : ('Time #' + id);
+}
+async function loadTeams() {
+  teamsLoading.value = true;
+  try {
+    const res = await teamsApi.list({ pageSize: 200, sort: 'name', dir: 'asc' });
+    const rows = Array.isArray(res) ? res : res.data || res.items || [];
+    teamList.value = rows.filter((t) => t && t.id != null);
+  } catch {
+    teamList.value = [];
+  } finally {
+    teamsLoading.value = false;
+  }
+}
+onMounted(loadTeams);
 
 // ---- Verificação de duplicidade por e-mail (fail-soft) ----------------------
 // dupState: idle | checking | found | clean | error
@@ -538,7 +530,6 @@ function buildPayload(vals) {
     email: String(vals.email || '').trim().toLowerCase(),
     role: vals.role,
     team_id: vals.team_id === '' || vals.team_id === null ? null : Number(vals.team_id),
-    tenant_id: Number(vals.tenant_id),
     status: vals.status || 'active',
   };
 }
@@ -821,6 +812,13 @@ const cancel = () => router.push('/agents');
 .hf-submit-hint { margin: 0; font-size: var(--ui-text-sm); }
 .hf-warn { color: rgb(var(--ui-warn)); font-weight: 600; }
 .hf-submit-actions { display: flex; gap: var(--ui-space-2); margin-left: auto; }
+
+/* ---- Select de time (lotação) ---- */
+.hf-select-wrap { position: relative; display: flex; align-items: center; }
+.hf-select-loading {
+  position: absolute; right: 28px; top: 50%; transform: translateY(-50%);
+  color: rgb(var(--ui-accent-strong)); pointer-events: none; display: inline-flex;
+}
 
 /* ---- Responsivo ---- */
 @media (max-width: 980px) {
