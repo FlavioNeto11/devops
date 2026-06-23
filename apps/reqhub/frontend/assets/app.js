@@ -3767,12 +3767,15 @@ function aiPlanCard(label, pctv, subline) {
 function aiSubscriptionSection(sub) {
   const wrap = h('div', { class: 'aiu-tbl-wrap' });
   wrap.append(h('h3', { class: 'aiu-tbl-h' }, secIc('◔'), 'Plano Claude (assinatura) — limites de uso'));
-  const has = sub && sub.source === 'manual';
+  const has = sub && (sub.source === 'manual' || sub.source === 'auto');
+  const auto = sub && sub.source === 'auto';
   if (has) {
-    wrap.append(h('p', { class: 'muted' }, h('b', { text: 'Plano: ' + (sub.plan || '—') }), h('span', { text: '   ·   espelha o app desktop (Configurações → Uso)' })));
+    const tail = auto ? '   ·   ao vivo (probe automático da assinatura)' : '   ·   espelha o app desktop (Configurações → Uso)';
+    wrap.append(h('p', { class: 'muted' }, h('b', { text: 'Plano: ' + (sub.plan || '—') }), h('span', { text: tail })));
     const grid = h('div', { class: 'aiu-kpis' });
     const seg = sub.session || {}; const wa = sub.weeklyAll || {}; const ws = sub.weeklySonnet || {}; const cr = sub.credits || {};
-    grid.append(aiPlanCard('Sessão atual', seg.pct, seg.note || 'janela de 5h'));
+    const segSub = seg.resetsLabel ? 'reinicia ' + seg.resetsLabel : (seg.note || 'janela de 5h');
+    grid.append(aiPlanCard('Sessão atual', seg.pct, segSub));
     grid.append(aiPlanCard('Semanal — todos os modelos', wa.pct, wa.resetsLabel ? 'reinicia ' + wa.resetsLabel : null));
     grid.append(aiPlanCard('Semanal — só Sonnet', ws.pct, ws.resetsLabel ? 'reinicia ' + ws.resetsLabel : null));
     const credVal = (cr.spent == null) ? '—' : (cr.currency || 'BRL') + ' ' + Number(cr.spent).toFixed(2);
@@ -3783,9 +3786,12 @@ function aiSubscriptionSection(sub) {
     grid.append(credCard);
     wrap.append(grid);
     let when = '—'; try { when = sub.updatedAt ? new Date(sub.updatedAt).toLocaleString('pt-BR') : '—'; } catch { when = sub.updatedAt || '—'; }
-    wrap.append(h('p', { class: 'muted', text: 'Atualizado: ' + when + (sub.updatedBy ? ' por ' + sub.updatedBy : '') + '. Informado manualmente — o plano Claude não tem API pública; o app desktop é a fonte oficial.' }));
+    const src = auto
+      ? 'Atualizado automaticamente (probe da assinatura): ' + when + '. Lê os limites direto da Anthropic via headers de rate-limit.'
+      : 'Atualizado: ' + when + (sub.updatedBy ? ' por ' + sub.updatedBy : '') + '. Informado manualmente — o app desktop é a fonte oficial.';
+    wrap.append(h('p', { class: 'muted', text: src }));
   } else {
-    wrap.append(h('p', { class: 'muted', text: (sub && sub.note) || 'Sem dados do plano — preencha abaixo os números que você vê em Configurações → Uso do app Claude.' }));
+    wrap.append(h('p', { class: 'muted', text: (sub && sub.note) || 'Sem dados do plano — o probe automático ainda não rodou. Configure scripts/sync-claude-plan-usage.ps1 (token dedicado), ou preencha manualmente abaixo.' }));
   }
   wrap.append(aiPlanForm(has ? sub : null));
   return wrap;

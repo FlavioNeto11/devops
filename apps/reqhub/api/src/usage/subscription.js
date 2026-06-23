@@ -23,7 +23,7 @@ async function getPool() {
   return pool;
 }
 
-const num = (v) => { const n = Number(v); return Number.isFinite(n) ? Math.max(0, n) : null; };
+const num = (v) => { if (v === null || v === undefined || v === '') return null; const n = Number(v); return Number.isFinite(n) ? Math.max(0, n) : null; };
 const pct = (v) => { const n = num(v); return n == null ? null : Math.min(100, n); };
 const str = (v, max = 80) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null);
 
@@ -35,9 +35,9 @@ function normalize(payload) {
   const ws = p.weeklySonnet || {};
   const cr = p.credits || {};
   const out = {
-    source: 'manual',
+    source: p.source === 'auto' ? 'auto' : 'manual',
     plan: str(p.plan, 40) || 'Max',
-    session: { pct: pct(seg.pct) ?? 0, note: str(seg.note, 80) },
+    session: { pct: pct(seg.pct) ?? 0, note: str(seg.note, 80), resetsLabel: str(seg.resetsLabel, 40) },
     weeklyAll: { pct: pct(wa.pct), resetsLabel: str(wa.resetsLabel, 40) },
     weeklySonnet: { pct: pct(ws.pct), resetsLabel: str(ws.resetsLabel, 40) },
     credits: { spent: num(cr.spent), currency: str(cr.currency, 8) || 'BRL', pct: pct(cr.pct), resetsLabel: str(cr.resetsLabel, 40) },
