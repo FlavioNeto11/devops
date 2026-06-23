@@ -3,6 +3,7 @@
 // espelham os fields da concepção (tenant_id/created_at/updated_at ficam fora — o
 // repo/migração os gerenciam). O mapa `repos` é indexado pelo segmento de rota.
 import { makeCrudRepo } from './crud-repo.js';
+import { pool } from '../db.js';
 
 export const customers = makeCrudRepo({
   table: 'customers',
@@ -18,11 +19,21 @@ export const agents = makeCrudRepo({
   sortable: ['name', 'email', 'role', 'team_id', 'status', 'last_login_at'],
 });
 
-export const teams = makeCrudRepo({
+const _teamsBase = makeCrudRepo({
   table: 'teams',
   columns: ['name', 'description', 'lead_agent_id', 'default_sla_policy_id', 'status'],
   sortable: ['name', 'status'],
 });
+export const teams = {
+  ..._teamsBase,
+  async listByPolicyId(tenantId, policyId) {
+    const { rows } = await pool.query(
+      'SELECT * FROM teams WHERE tenant_id=$1 AND default_sla_policy_id=$2 ORDER BY name',
+      [tenantId, Number(policyId)]
+    );
+    return rows;
+  },
+};
 
 export const comments = makeCrudRepo({
   table: 'comments',

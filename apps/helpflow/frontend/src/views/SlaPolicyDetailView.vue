@@ -311,6 +311,36 @@
             </dl>
           </UiCard>
 
+          <!-- CalendarCard — cobertura de atendimento (REF-HELPFLOW-0020) -->
+          <UiCard title="Cobertura de atendimento" subtitle="Janela em que o SLA é contabilizado.">
+            <div class="sp-cal" role="group" aria-label="Calendário de cobertura da política de SLA">
+              <div
+                v-for="day in calendarDays"
+                :key="day.key"
+                class="sp-cal-day"
+                :data-inactive="String(!day.active)"
+                :aria-label="day.label + ': ' + day.timeText"
+              >
+                <span class="sp-cal-abbr" aria-hidden="true">{{ day.abbr }}</span>
+                <div class="sp-cal-track" aria-hidden="true">
+                  <template v-if="!policy.business_hours_only">
+                    <div class="sp-cal-seg sp-cal-seg-all" :data-tone="day.active ? 'primary' : 'neutral'" />
+                  </template>
+                  <template v-else>
+                    <div class="sp-cal-seg sp-cal-seg-pre" data-tone="neutral" />
+                    <div class="sp-cal-seg sp-cal-seg-mid" :data-tone="day.active ? 'primary' : 'neutral'" />
+                    <div class="sp-cal-seg sp-cal-seg-post" data-tone="neutral" />
+                  </template>
+                </div>
+                <span class="sp-cal-time">{{ day.timeText }}</span>
+              </div>
+            </div>
+            <p class="sp-cal-legend">
+              <span class="sp-cal-dot" data-tone="primary" aria-hidden="true" />
+              {{ policy.business_hours_only ? 'Horário comercial (Seg–Sex, 9h–17h)' : 'Cobertura ininterrupta (24h / 7 dias)' }}
+            </p>
+          </UiCard>
+
           <!-- Resumo do alvo (texto humano, ancorado nos parâmetros) -->
           <UiCard title="Resumo do alvo" subtitle="Como esta política se compromete.">
             <p class="sp-summary">
@@ -363,7 +393,7 @@ import {
 // canônicos do api.js (slaPolicies → /v1/sla-policies, teams → /v1/teams,
 // tickets → /v1/tickets) com fallback defensivo via fábrica caso algum símbolo
 // suma do barrel — espelha o padrão das telas irmãs e evita white-screen.
-import { resourceFactory, slaPolicies, teams as teamsResource, tickets as ticketsResource } from '../api.js';
+import { resourceFactory, slaPolicies, tickets as ticketsResource } from '../api.js';
 
 const props = defineProps({ id: { type: [String, Number], default: null } });
 const route = useRoute();
@@ -377,7 +407,6 @@ const editLink = computed(() => '/sla-policies/' + policyId.value + '/edit');
 
 // ---- recursos REAIS (com fallback defensivo pela fábrica) ----
 const slaApi = slaPolicies || resourceFactory('sla-policies');
-const teamsApi = teamsResource || resourceFactory('teams');
 const ticketsApi = ticketsResource || resourceFactory('tickets');
 const hasFn = (obj, name) => obj && typeof obj[name] === 'function';
 const unwrap = (r) => (r && r.data !== undefined ? r.data : r);
@@ -463,10 +492,10 @@ const teamsEmpty = {
 
 async function loadTeams() {
   teamsError.value = null;
-  if (!hasFn(teamsApi, 'list')) { teamRows.value = []; return; }
+  if (!hasFn(slaApi, 'teams')) { teamRows.value = []; return; }
   teamsLoading.value = true;
   try {
-    const res = await teamsApi.list({ pageSize: 200 });
+    const res = await slaApi.teams(policyId.value);
     teamRows.value = listOf(res);
   } catch (e) {
     teamsError.value = e;
@@ -476,11 +505,8 @@ async function loadTeams() {
   }
 }
 
-const relatedTeams = computed(() => {
-  const pid = policyId.value;
-  if (pid == null) return [];
-  return teamRows.value.filter((t) => String(t.default_sla_policy_id) === String(pid));
-});
+// Endpoint dedicado já retorna apenas os times vinculados — sem filtro client-side.
+const relatedTeams = computed(() => teamRows.value);
 
 // ===================== compliance (ComplianceWidget) =====================
 // Calculada sobre os chamados REAIS que adotam esta política (ticket.sla_policy_id).
@@ -598,6 +624,23 @@ function pctBucket(part, total) {
   const p = total ? (Number(part) / Number(total)) * 100 : 0;
   return Math.max(0, Math.min(100, Math.round(p / 5) * 5));
 }
+
+// ===================== calendário de cobertura =====================
+const calendarDays = computed(() => {
+  const bho = policy.value && policy.value.business_hours_only;
+  const ALL = '0h–24h';
+  const BH = '9h–17h';
+  const OFF = '—';
+  return [
+    { key: 'mon', abbr: 'Seg', label: 'Segunda-feira', active: true, timeText: bho ? BH : ALL },
+    { key: 'tue', abbr: 'Ter', label: 'Terça-feira', active: true, timeText: bho ? BH : ALL },
+    { key: 'wed', abbr: 'Qua', label: 'Quarta-feira', active: true, timeText: bho ? BH : ALL },
+    { key: 'thu', abbr: 'Qui', label: 'Quinta-feira', active: true, timeText: bho ? BH : ALL },
+    { key: 'fri', abbr: 'Sex', label: 'Sexta-feira', active: true, timeText: bho ? BH : ALL },
+    { key: 'sat', abbr: 'Sáb', label: 'Sábado', active: !bho, timeText: bho ? OFF : ALL },
+    { key: 'sun', abbr: 'Dom', label: 'Domingo', active: !bho, timeText: bho ? OFF : ALL },
+  ];
+});
 
 // ===================== rodapé =====================
 const footerSummary = computed(() => {
@@ -836,6 +879,25 @@ onMounted(bootstrap);
 
 .sp-summary { margin: 0; line-height: 1.6; color: rgb(var(--ui-fg)); }
 .sp-summary strong { color: rgb(var(--ui-accent-strong)); }
+
+/* ===================== CalendarCard — cobertura de atendimento ===================== */
+.sp-cal { display: flex; gap: var(--ui-space-2); }
+.sp-cal-day { display: flex; flex-direction: column; align-items: center; gap: var(--ui-space-1); flex: 1 1 0; min-width: 0; }
+.sp-cal-day[data-inactive="true"] .sp-cal-abbr,
+.sp-cal-day[data-inactive="true"] .sp-cal-time { opacity: 0.35; }
+.sp-cal-abbr { font-size: var(--ui-text-xs); font-weight: 700; color: rgb(var(--ui-muted)); text-transform: uppercase; letter-spacing: .05em; }
+.sp-cal-track { width: 100%; height: 72px; border-radius: var(--ui-radius-sm); overflow: hidden; display: flex; flex-direction: column; background: rgb(var(--ui-faint) / 0.3); }
+.sp-cal-seg { width: 100%; }
+.sp-cal-seg-all { flex: 1 1 auto; }
+.sp-cal-seg-pre { height: 37.5%; }
+.sp-cal-seg-mid { height: 33.34%; }
+.sp-cal-seg-post { flex: 1 1 auto; }
+.sp-cal-seg[data-tone="primary"] { background: rgb(var(--ui-accent) / 0.82); }
+.sp-cal-seg[data-tone="neutral"] { background: rgb(var(--ui-faint) / 0.5); }
+.sp-cal-time { font-size: 9px; color: rgb(var(--ui-muted)); text-align: center; line-height: 1.2; }
+.sp-cal-legend { display: flex; align-items: center; gap: var(--ui-space-2); margin: var(--ui-space-4) 0 0; font-size: var(--ui-text-sm); color: rgb(var(--ui-muted)); border-top: 1px solid rgb(var(--ui-border)); padding-top: var(--ui-space-3); }
+.sp-cal-dot { width: 10px; height: 10px; border-radius: var(--ui-radius-sm); flex-shrink: 0; background: rgb(var(--ui-faint)); }
+.sp-cal-dot[data-tone="primary"] { background: rgb(var(--ui-accent) / 0.82); }
 
 /* ===================== utilidades ===================== */
 .sp-mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: var(--ui-text-sm); }

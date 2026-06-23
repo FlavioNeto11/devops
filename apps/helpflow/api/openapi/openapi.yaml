@@ -129,6 +129,10 @@ paths:
     delete:
       operationId: deleteSlaPolicy
       responses: { "200": { description: ok } }
+  /v1/sla-policies/{id}/teams:
+    get:
+      operationId: getSlaPolicyTeams
+      responses: { "200": { description: ok } }
   /v1/kb-articles:
     get:
       operationId: listKbArticles

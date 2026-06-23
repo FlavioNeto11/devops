@@ -90,6 +90,14 @@ app.get('/v1/sla-policies/:id', crudGet('sla-policies'));
 app.post('/v1/sla-policies', crudCreate('sla-policies'));
 app.put('/v1/sla-policies/:id', crudUpdate('sla-policies'));
 app.delete('/v1/sla-policies/:id', crudDelete('sla-policies'));
+// Times vinculados a uma política (linked_teams — REF-HELPFLOW-0020).
+// Delega ao repo para manter o SQL em repositories/ (camadas-rigidas).
+app.get('/v1/sla-policies/:id/teams', wrap(async (req, res) => {
+  const policy = await repos['sla-policies'].repo.get(req.tenantId, req.params.id);
+  if (!policy) return res.status(404).json({ error: { message: 'não encontrado' } });
+  const rows = await repos.teams.repo.listByPolicyId(req.tenantId, req.params.id);
+  res.json({ data: rows, total: rows.length });
+}));
 
 app.get('/v1/kb-articles', crudList('kb-articles'));
 app.get('/v1/kb-articles/:id', crudGet('kb-articles'));

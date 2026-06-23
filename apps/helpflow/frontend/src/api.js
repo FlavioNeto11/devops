@@ -30,7 +30,11 @@ export const health = () => request("GET", "/health");
 export const customers = resourceFactory('customers');
 export const agents = resourceFactory('agents');
 export const teams = resourceFactory('teams');
-export const slaPolicies = resourceFactory('sla-policies');
+export const slaPolicies = {
+  ...resourceFactory('sla-policies'),
+  // GET /v1/sla-policies/:id/teams — times que adotam esta política como SLA padrão.
+  teams: (id) => request('GET', '/v1/sla-policies/' + id + '/teams'),
+};
 export const comments = resourceFactory('comments');
 
 // integrations — CRUD real em /v1/integrations + ações de domínio do gateway externo
