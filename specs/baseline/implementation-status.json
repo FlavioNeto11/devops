@@ -11,8 +11,8 @@
     "refinements": {
       "total": 101,
       "by_status": {
-        "pr_open": 1,
-        "not_started": 88,
+        "pr_open": 2,
+        "not_started": 87,
         "deployed": 12
       }
     }
@@ -2264,8 +2264,10 @@
       "req_revision": 1
     },
     "REF-HELPFLOW-0022": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "branch": "@{id=REF-HELPFLOW-0022; branch=ref/REF-HELPFLOW-0022/r1; restricted=false; title=feat(helpflow): implementa REF-HELPFLOW-0022 — Base de Conhecimento}.branch",
+      "run_id": "27991134389"
     },
     "REF-HELPFLOW-0023": {
       "status": "not_started",
