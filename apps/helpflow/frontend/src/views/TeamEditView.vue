@@ -101,6 +101,53 @@
               </UiFormField>
             </UiFormSection>
 
+            <!-- FormSection: Roteamento -->
+            <UiFormSection
+              title="Roteamento"
+              description="Como os chamados são distribuídos entre os agentes desta fila."
+              :columns="1"
+            >
+              <UiFormField
+                label="Regra de roteamento"
+                :required="true"
+                :error="f.errors.routing_rule"
+                full-width
+                hint="Define o algoritmo de distribuição de chamados para os agentes."
+              >
+                <template #default="{ id, describedBy }">
+                  <div
+                    :id="id"
+                    class="team-routing"
+                    role="radiogroup"
+                    :aria-describedby="describedBy"
+                    aria-label="Regra de roteamento"
+                  >
+                    <label
+                      v-for="opt in routingOptions"
+                      :key="opt.value"
+                      class="team-routing-opt"
+                      :data-active="f.values.routing_rule === opt.value ? 'true' : 'false'"
+                      :data-tone="opt.tone"
+                    >
+                      <input
+                        type="radio"
+                        name="team-routing-rule"
+                        class="team-routing-input"
+                        :value="opt.value"
+                        :checked="f.values.routing_rule === opt.value"
+                        @change="f.setField('routing_rule', opt.value)"
+                      />
+                      <span class="team-routing-mark" aria-hidden="true" />
+                      <span class="team-routing-text">
+                        <span class="team-routing-title">{{ opt.label }}</span>
+                        <span class="team-routing-desc">{{ opt.description }}</span>
+                      </span>
+                    </label>
+                  </div>
+                </template>
+              </UiFormField>
+            </UiFormSection>
+
             <!-- FormSection: Atendimento -->
             <UiFormSection
               title="Atendimento"
@@ -312,6 +359,13 @@ const slaReady = ref(false);
 // estado do "recarregar listas" auxiliares no banner de degradação
 const reloadingAux = ref(false);
 
+const routingOptions = [
+  { value: 'round_robin', label: 'Rodízio', tone: 'accent', description: 'Distribui chamados em sequência entre os agentes ativos.' },
+  { value: 'least_busy', label: 'Menos ocupado', tone: 'success', description: 'Atribui ao agente com menos chamados abertos.' },
+  { value: 'skill_based', label: 'Por habilidade', tone: 'warning', description: 'Encaminha ao agente com a habilidade mais adequada.' },
+  { value: 'manual', label: 'Manual', tone: 'neutral', description: 'O supervisor atribui manualmente cada chamado.' },
+];
+
 const statusOptions = [
   { value: 'active', label: 'Ativo', tone: 'success', description: 'Recebe novos chamados normalmente.' },
   { value: 'inactive', label: 'Inativo', tone: 'error', description: 'Não recebe novos chamados; histórico preservado.' },
@@ -323,14 +377,19 @@ function statusLabelFor(value) {
 }
 
 const f = useForm({
-  initial: { name: '', description: '', lead_agent_id: '', default_sla_policy_id: '', status: 'active' },
+  initial: { name: '', description: '', lead_agent_id: '', default_sla_policy_id: '', routing_rule: 'round_robin', status: 'active' },
   rules: {
     name: [validators.required('Informe o nome do time'), validators.minLen(2), validators.maxLen(120)],
     description: [validators.maxLen(2000)],
     lead_agent_id: [validators.numeric('ID de agente inválido'), validators.min(1, 'ID inválido')],
     default_sla_policy_id: [validators.numeric('ID de SLA inválido'), validators.min(1, 'ID inválido')],
+    routing_rule: [validators.required('Escolha a regra de roteamento')],
   },
 });
+
+const activeRoutingOption = computed(
+  () => routingOptions.find((o) => o.value === f.values.routing_rule) || routingOptions[0],
+);
 
 // snapshot do estado original p/ detectar alterações (dirty)
 const baseline = reactive({});
@@ -532,6 +591,7 @@ function hydrate(rec) {
       rec.default_sla_policy_id === null || rec.default_sla_policy_id === undefined
         ? ''
         : String(rec.default_sla_policy_id),
+    routing_rule: rec.routing_rule || 'round_robin',
     status: rec.status || 'active',
   };
   for (const k of Object.keys(next)) {
@@ -614,6 +674,7 @@ function buildPayload(vals) {
     description: vals.description ? vals.description.trim() : '',
     lead_agent_id: toNumberOrNull(vals.lead_agent_id),
     default_sla_policy_id: toNumberOrNull(vals.default_sla_policy_id),
+    routing_rule: vals.routing_rule || 'round_robin',
     status: vals.status,
   };
 }
@@ -779,6 +840,77 @@ onMounted(reload);
   color: rgb(var(--ui-fg));
 }
 .team-status-desc {
+  font-size: var(--ui-text-xs);
+  color: rgb(var(--ui-muted));
+  line-height: 1.4;
+}
+
+/* ---- Roteamento — radio-cards, mesmo padrão dos status-cards ------------------- */
+.team-routing {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--ui-space-3);
+}
+.team-routing-opt {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ui-space-3);
+  padding: var(--ui-space-3) var(--ui-space-4);
+  border: 1px solid rgb(var(--ui-border-strong));
+  border-radius: var(--ui-radius-md);
+  background: rgb(var(--ui-bg));
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.team-routing-opt:hover {
+  border-color: rgb(var(--ui-accent));
+}
+.team-routing-opt[data-active='true'] {
+  border-color: rgb(var(--ui-accent));
+  background: rgb(var(--ui-accent) / 0.08);
+}
+.team-routing-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.team-routing-mark {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  border-radius: 50%;
+  border: 2px solid rgb(var(--ui-border-strong));
+  background: rgb(var(--ui-surface));
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.team-routing-opt[data-active='true'] .team-routing-mark {
+  border-color: rgb(var(--ui-accent));
+  box-shadow: inset 0 0 0 4px rgb(var(--ui-accent));
+}
+.team-routing-input:focus-visible + .team-routing-mark {
+  outline: 2px solid rgb(var(--ui-accent));
+  outline-offset: 2px;
+}
+.team-routing-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.team-routing-title {
+  font-size: var(--ui-text-sm);
+  font-weight: 600;
+  color: rgb(var(--ui-fg));
+}
+.team-routing-desc {
   font-size: var(--ui-text-xs);
   color: rgb(var(--ui-muted));
   line-height: 1.4;

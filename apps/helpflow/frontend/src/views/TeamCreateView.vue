@@ -147,9 +147,42 @@
           <!-- Roteamento & SLA -->
           <UiFormSection
             title="Roteamento & SLA"
-            description="A política de SLA padrão define os prazos dos chamados que caem nesta fila sem SLA próprio."
+            description="A regra de roteamento define como os chamados são distribuídos entre os agentes. A política de SLA define os prazos automáticos."
             :columns="1"
           >
+            <UiFormField
+              label="Regra de roteamento"
+              :required="true"
+              :error="f.errors.routing_rule"
+              :full-width="true"
+              hint="Como os chamados são distribuídos entre os agentes desta fila."
+            >
+              <template #default="{ id, describedBy }">
+                <div
+                  :id="id"
+                  class="hf-segmented"
+                  role="radiogroup"
+                  :aria-describedby="describedBy"
+                  aria-label="Regra de roteamento de chamados"
+                >
+                  <button
+                    v-for="opt in routingOptions"
+                    :key="opt.value"
+                    type="button"
+                    class="hf-segmented-opt"
+                    role="radio"
+                    :aria-checked="String(f.values.routing_rule === opt.value)"
+                    :data-active="f.values.routing_rule === opt.value ? 'true' : 'false'"
+                    @click="f.setField('routing_rule', opt.value)"
+                  >
+                    <span class="hf-segmented-dot" :data-tone="opt.tone" aria-hidden="true" />
+                    {{ opt.label }}
+                  </button>
+                </div>
+                <p class="hf-routing-desc">{{ activeRoutingOption.desc }}</p>
+              </template>
+            </UiFormField>
+
             <UiFormField
               label="SLA padrão"
               :error="f.errors.default_sla_policy_id"
@@ -289,6 +322,10 @@
                 </dd>
               </div>
               <div class="hf-dl-row">
+                <dt>Roteamento</dt>
+                <dd>{{ activeRoutingOption.label }}</dd>
+              </div>
+              <div class="hf-dl-row">
                 <dt>Líder</dt>
                 <dd>{{ leadSummary }}</dd>
               </div>
@@ -360,6 +397,13 @@ const router = useRouter();
 const toast = useToast();
 const confirm = useConfirm();
 
+const routingOptions = [
+  { value: 'round_robin', label: 'Rodízio', tone: 'accent', desc: 'Distribui chamados em sequência entre todos os agentes ativos da fila.' },
+  { value: 'least_busy', label: 'Menos ocupado', tone: 'ok', desc: 'Atribui o próximo chamado ao agente com menos chamados abertos.' },
+  { value: 'skill_based', label: 'Por habilidade', tone: 'warn', desc: 'Encaminha chamados ao agente com a habilidade mais adequada ao ticket.' },
+  { value: 'manual', label: 'Manual', tone: 'muted', desc: 'O supervisor atribui manualmente cada chamado ao agente responsável.' },
+];
+
 const statusOptions = [
   { value: 'active', label: 'Ativa', tone: 'ok' },
   { value: 'inactive', label: 'Inativa', tone: 'muted' },
@@ -372,6 +416,7 @@ const f = useForm({
     description: '',
     lead_agent_id: '',
     default_sla_policy_id: '',
+    routing_rule: 'round_robin',
     status: 'active',
   },
   rules: {
@@ -379,8 +424,13 @@ const f = useForm({
     description: [validators.maxLen(500)],
     lead_agent_id: [validators.numeric('Líder deve ser um agente válido'), validators.min(1, 'Líder inválido')],
     default_sla_policy_id: [validators.numeric('SLA deve ser uma política válida'), validators.min(1, 'SLA inválido')],
+    routing_rule: [validators.required('Escolha a regra de roteamento')],
   },
 });
+
+const activeRoutingOption = computed(
+  () => routingOptions.find((o) => o.value === f.values.routing_rule) || routingOptions[0],
+);
 
 const isActive = computed(() => f.values.status === 'active');
 
@@ -535,6 +585,7 @@ function buildPayload(vals) {
     description: String(vals.description || '').trim() || null,
     lead_agent_id: toId(vals.lead_agent_id),
     default_sla_policy_id: toId(vals.default_sla_policy_id),
+    routing_rule: vals.routing_rule || 'round_robin',
     status: vals.status || 'active',
   };
 }
@@ -656,6 +707,14 @@ onMounted(() => {
 .hf-sla-metric dd {
   margin: 4px 0 0; font-family: var(--ui-font-display);
   font-size: var(--ui-text-lg); font-weight: 700; color: rgb(var(--ui-fg));
+}
+
+/* ---- Descrição contextual da regra de roteamento ---- */
+.hf-routing-desc {
+  margin: var(--ui-space-2) 0 0;
+  font-size: var(--ui-text-sm);
+  color: rgb(var(--ui-muted));
+  line-height: 1.4;
 }
 
 /* ---- Situação (segmented control acessível, CSP-safe) ---- */
