@@ -11,6 +11,7 @@
 // =============================================================================
 import fs from 'node:fs';
 import path from 'node:path';
+import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadCatalog, resolveBlocks } from './apply-capabilities.mjs';
 
@@ -30,7 +31,31 @@ if ((product.stack || 'sicat') !== 'sicat') { console.error(`scaffold-sicat só 
 const byId = loadCatalog();
 const blocks = resolveBlocks(product.capability_blocks || [], 'sicat', byId);
 const has = (id) => blocks.includes(id);
-const F = { worker: has('worker-queue-transacional'), gateway: has('gateway-externo'), idem: has('idempotencia'), contract: has('contract-openapi') };
+// `ai`: assistente de IA de controle do app (bloco control-ai-por-app). Quando presente, o app NASCE
+// com assistant-service + rota /v1/assistant que ACEITA ARQUIVOS (multimodal, fail-soft) + view (se web).
+const F = { worker: has('worker-queue-transacional'), gateway: has('gateway-externo'), idem: has('idempotencia'), contract: has('contract-openapi'), ai: has('control-ai-por-app') };
+
+// Vendoring (apps buildam em contexto Docker isolado e não alcançam packages/): os .tgz são copiados
+// p/ apps/<app>/api/vendor/ ANTES do npm install (o Dockerfile COPY vendor). Fontes (em ordem de
+// preferência): .vendor-cache/ (file-ingest-kit + ai-ingest-middleware) e packages/<kit>/<kit>.tgz
+// (control-ai-kit). Determinístico: nomes fixos versionados.
+const VENDOR_SOURCES = {
+  'flavioneto11-file-ingest-kit-0.1.0.tgz': [path.join(REPO_ROOT, '.vendor-cache', 'flavioneto11-file-ingest-kit-0.1.0.tgz')],
+  'flavioneto11-ai-ingest-middleware-0.1.0.tgz': [path.join(REPO_ROOT, '.vendor-cache', 'flavioneto11-ai-ingest-middleware-0.1.0.tgz')],
+  'flavioneto11-control-ai-kit-0.1.0.tgz': [
+    path.join(REPO_ROOT, '.vendor-cache', 'flavioneto11-control-ai-kit-0.1.0.tgz'),
+    path.join(REPO_ROOT, 'packages', 'control-ai-kit', 'flavioneto11-control-ai-kit-0.1.0.tgz'),
+    path.join(REPO_ROOT, 'apps', 'shopdesk', 'api', 'vendor', 'flavioneto11-control-ai-kit-0.1.0.tgz'),
+  ],
+};
+// kits @flavioneto11/* que o bloco de IA vendora no app gerado (dep file:vendor/*).
+const AI_VENDOR_TGZ = ['flavioneto11-file-ingest-kit-0.1.0.tgz', 'flavioneto11-ai-ingest-middleware-0.1.0.tgz', 'flavioneto11-control-ai-kit-0.1.0.tgz'];
+// Auto-heal: se um .tgz não estiver em nenhuma origem, empacota do packages/ (npm pack -> .vendor-cache).
+const PACK_FROM = {
+  'flavioneto11-file-ingest-kit-0.1.0.tgz': 'packages/file-ingest-kit',
+  'flavioneto11-ai-ingest-middleware-0.1.0.tgz': 'packages/ai-ingest-middleware',
+  'flavioneto11-control-ai-kit-0.1.0.tgz': 'packages/control-ai-kit',
+};
 
 const APP = product.name;
 const TITLE = product.display_name || APP;
@@ -45,7 +70,22 @@ add('api/package.json', JSON.stringify({
   name: '@@APP@@-api', version: '1.0.0', private: true, type: 'module',
   description: '@@TITLE@@ — gerado pela Forge (SICAT-style robusto).',
   scripts: Object.assign({ start: 'node src/server.js', worker: 'node src/worker.js', test: 'node --test "test/**/*.test.mjs"' }, F.contract ? { 'validate:openapi': 'node openapi/validate.mjs' } : {}),
-  dependencies: Object.assign({ express: '^4.19.2', pg: '^8.11.5', 'prom-client': '^15.1.2' }),
+  dependencies: Object.assign(
+    { express: '^4.19.2', pg: '^8.11.5', 'prom-client': '^15.1.2' },
+    // bloco control-ai-por-app: IA de controle do app + ingestão de ARQUIVOS (multimodal). SDK Anthropic
+    // (Claude) + kits vendorizados (file:vendor/*) + multer (upload) + extratores opcionais (pdf/docx/xls/zip).
+    F.ai ? {
+      '@anthropic-ai/sdk': '^0.32.1',
+      '@flavioneto11/control-ai-kit': 'file:vendor/flavioneto11-control-ai-kit-0.1.0.tgz',
+      '@flavioneto11/file-ingest-kit': 'file:vendor/flavioneto11-file-ingest-kit-0.1.0.tgz',
+      '@flavioneto11/ai-ingest-middleware': 'file:vendor/flavioneto11-ai-ingest-middleware-0.1.0.tgz',
+      multer: '^2.0.1',
+      'pdf-parse': '^1.1.1',
+      mammoth: '^1.8.0',
+      xlsx: '^0.18.5',
+      jszip: '^3.10.1',
+    } : {},
+  ),
 }, null, 2) + '\n');
 
 // bloco contract-openapi: contrato canônico + validador anti-drift (zero-dep, determinístico).
@@ -54,7 +94,9 @@ if (F.contract) {
   const routes = [['get', '/', 'root'], ['get', '/health', 'health'], ['get', '/me', 'me']]
     .concat(F.worker ? [['get', '/v1/health/jobs', 'healthJobs']] : [])
     .concat([['get', '/v1/records', 'listRecords'], ['get', '/v1/records/{id}', 'getRecord'], ['post', '/v1/records', 'createRecord']])
-    .concat(F.worker ? [['post', '/v1/records/{id}/submit', 'submitRecord']] : []);
+    .concat(F.worker ? [['post', '/v1/records/{id}/submit', 'submitRecord']] : [])
+    // bloco control-ai-por-app: o assistente entra no contrato canônico (anti-drift bidirecional).
+    .concat(F.ai ? [['post', '/v1/assistant', 'assistant'], ['get', '/v1/assistant/health', 'assistantHealth']] : []);
   // agrupa métodos por path (um bloco por path; GET+POST no MESMO /v1/records) — senão o YAML perde uma rota.
   const byPath = {};
   for (const [method, p, opId] of routes) { (byPath[p] = byPath[p] || []).push([method, opId]); }
@@ -74,6 +116,8 @@ add('api/Dockerfile', [
   '# @@TITLE@@ API' + (F.worker ? ' + worker (mesma imagem)' : '') + ' — gerado pela Forge.',
   'FROM node:20-alpine', 'WORKDIR /app', 'ENV NODE_ENV=production',
   'COPY package*.json ./',
+  // vendor/ (kits @flavioneto11/* .tgz) ANTES do install p/ resolver as deps file:vendor/* (bloco de IA).
+  ...(F.ai ? ['COPY vendor ./vendor'] : []),
   'RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi',
   'COPY src ./src', 'EXPOSE 8080 9464', 'USER node', 'CMD ["npm", "start"]', '',
 ].join('\n'));
@@ -125,6 +169,8 @@ add('api/src/metrics.js', [
   (F.worker ? "  jobDuration: new client.Histogram({ name: '@@APP@@_job_duration_seconds', help: 'duração do job', buckets: [0.05,0.1,0.3,1,3,10], registers: [registry] })," : ''),
   (F.gateway ? "  gatewayCalls: new client.Counter({ name: '@@APP@@_gateway_calls_total', help: 'chamadas ao gateway', labelNames: ['outcome'], registers: [registry] })," : ''),
   (F.worker ? "  queueDepth: new client.Gauge({ name: '@@APP@@_queue_depth', help: 'jobs na fila', labelNames: ['status'], registers: [registry] })," : ''),
+  (F.ai ? "  assistantTurns: new client.Counter({ name: '@@APP@@_assistant_turns_total', help: 'turns do assistente por desfecho', labelNames: ['outcome'], registers: [registry] })," : ''),
+  (F.ai ? "  assistantFiles: new client.Counter({ name: '@@APP@@_assistant_files_total', help: 'arquivos ingeridos pelo assistente por desfecho', labelNames: ['outcome'], registers: [registry] })," : ''),
   "  httpErrors: new client.Counter({ name: '@@APP@@_http_errors_total', help: 'erros HTTP', registers: [registry] }),",
   '};',
   'export function startMetricsServer(port = Number(process.env.METRICS_PORT) || 9464) {',
@@ -156,6 +202,107 @@ if (F.gateway) add('api/src/gateways/gateway.js', [
   '  }',
   '  throw last;',
   '}', '',
+].join('\n'));
+
+// ── bloco control-ai-por-app: assistente de IA do app que ACEITA ARQUIVOS (multimodal) ──────────────
+// O app NASCE com o assistente: IA de controle via @flavioneto11/control-ai-kit (prompt governado +
+// fail-closed sem chave) + LLM Anthropic (Claude). A INGESTÃO DE ARQUIVOS acontece na rota/serviço via
+// @flavioneto11/file-ingest-kit (NÃO depende da versão do control-ai-kit): o handler usa attachIngest
+// p/ obter req.ingested e o serviço monta o content multimodal (toMessageContent) que vai ao LLM.
+// RETROCOMPAT: requisição application/json (só texto) segue o contrato anterior (o middleware é no-op).
+// FAIL-SOFT: arquivo ilegível NÃO derruba a rota. FAIL-CLOSED: sem ANTHROPIC_API_KEY -> 503.
+// LIÇÃO DE OOM: NUNCA serialize bytes/blobs em log/auditoria — só o manifest (path/type/bytes/chars/status).
+if (F.ai) add('api/src/services/assistant-service.js', [
+  '// services/assistant-service.js — IA de controle do app via @flavioneto11/control-ai-kit',
+  '// (bloco control-ai-por-app), com INGESTÃO DE ARQUIVOS (multimodal) via @flavioneto11/file-ingest-kit.',
+  '// Prompts versionados do ai-control-plane com cache+timeout+FALLBACK local; LLM = @anthropic-ai/sdk',
+  '// (Claude). FAIL-CLOSED: sem ANTHROPIC_API_KEY -> 503. FAIL-SOFT: arquivo ilegível degrada p/ texto,',
+  '// nunca derruba a rota. NUNCA logar bytes — só o manifest. Gerado pela Forge.',
+  "import { createControlAi } from '@flavioneto11/control-ai-kit';",
+  '',
+  'const KEY = process.env.ANTHROPIC_API_KEY;',
+  "const MODEL = process.env.ASSISTANT_MODEL || 'claude-haiku-4-5-20251001';",
+  '',
+  '// adapter estrutural mínimo da plataforma ({ complete({messages}) }) sobre o SDK Anthropic. Aceita',
+  '// content de usuário como STRING (texto) ou ARRAY de blocos (multimodal: texto + imagem/PDF nativos).',
+  'const llm = KEY',
+  '  ? {',
+  "      provider: 'anthropic',",
+  '      model: MODEL,',
+  '      async complete({ messages }) {',
+  "        const { default: Anthropic } = await import('@anthropic-ai/sdk');",
+  '        const client = new Anthropic({ apiKey: KEY });',
+  "        const system = (messages.find((m) => m.role === 'system') || {}).content || '';",
+  "        const userMsg = messages.find((m) => m.role === 'user') || {};",
+  '        const r = await client.messages.create({ model: MODEL, max_tokens: 700, system, messages: [{ role: \'user\', content: userMsg.content }] });',
+  "        return (r.content || []).map((b) => b.text || '').join('').trim();",
+  '      },',
+  '    }',
+  '  : null;',
+  '',
+  'let ai = null;',
+  'function getAi() {',
+  '  if (ai) return ai;',
+  "  if (!llm) { const e = new Error('assistente de IA indisponível — ANTHROPIC_API_KEY ausente (fail-closed)'); e.status = 503; throw e; }",
+  '  ai = createControlAi({',
+  "    appName: '@@APP@@',",
+  '    llm,',
+  "    prompts: { assist: 'Você é o assistente do @@TITLE@@. Ajude de forma concisa, em pt-BR, citando os dados e os arquivos informados. Quando o usuário anexar arquivos, raciocine sobre o conteúdo extraído.' },",
+  '    controlPlaneUrl: process.env.AI_CONTROL_PLANE_URL,',
+  '  });',
+  '  return ai;',
+  '}',
+  '',
+  '// Monta o content multimodal a partir do resultado de ingestão (req.ingested do attachIngest).',
+  '// Lazy import do file-ingest-kit (só quando há arquivo) — o app sobe e testa sem a dep instalada.',
+  '// FAIL-SOFT: qualquer erro aqui degrada p/ texto-only (devolve null -> o caminho de texto assume).',
+  'async function buildUserContent(message, ingested) {',
+  '  if (!ingested || (!((ingested.textParts || []).length) && !((ingested.blocks || []).length))) return null;',
+  '  try {',
+  "    const fik = await import('@flavioneto11/file-ingest-kit');",
+  "    const model = (llm && llm.model) || '';",
+  '    return fik.toMessageContent(ingested, {',
+  "      provider: 'anthropic',",
+  '      supportsVision: fik.supportsVision(model),',
+  '      supportsPdf: fik.supportsPdf(model),',
+  '      userText: String(message || \'\'),',
+  '    });',
+  '  } catch {',
+  '    return null; // sem o kit/extração -> texto-only (fail-soft)',
+  '  }',
+  '}',
+  '',
+  '// assist(message, opts) — responde uma pergunta, opcionalmente sobre ARQUIVOS.',
+  '// opts.ingested = req.ingested (IngestResult do attachIngest) | undefined.',
+  '//',
+  '// DUAS VIAS coerentes (documentadas):',
+  '//  (1) SEM arquivos -> caminho de TEXTO PURO, IDÊNTICO ao contrato anterior: control-ai-kit ask({prompt,input}).',
+  '//  (2) COM arquivos -> resolve o MESMO prompt governado via promptSource.resolve() e chama o LLM',
+  '//      DIRETO com o content multimodal. Isso mantém a governança de prompt da control-ai-kit e é',
+  '//      INDEPENDENTE da versão vendorizada do kit (a ingestão mora aqui, via file-ingest-kit).',
+  'export async function assist(message, opts = {}) {',
+  '  const a = getAi();',
+  '  const ingested = opts.ingested || null;',
+  '  const userContent = await buildUserContent(message, ingested);',
+  '  let text;',
+  '  if (userContent != null) {',
+  '    // via (2): prompt governado + LLM direto com blocos multimodais.',
+  "    const system = await a.promptSource.resolve('assist');",
+  '    const out = await llm.complete({ messages: [{ role: \'system\', content: system }, { role: \'user\', content: userContent }] });',
+  "    text = typeof out === 'string' ? out : (out && (out.content || out.text)) || '';",
+  '  } else {',
+  '    // via (1): texto puro — contrato retrocompatível.',
+  "    const answer = await a.ask({ prompt: 'assist', input: String(message || '') });",
+  "    text = typeof answer === 'string' ? answer : (answer && (answer.text || answer.answer)) || '';",
+  '  }',
+  '  // manifest = visão SEGURA dos arquivos (sem bytes) p/ telemetria/UI. NUNCA exponha bytes.',
+  '  const files = ingested && Array.isArray(ingested.manifest)',
+  '    ? ingested.manifest.map((m) => ({ path: m.path, type: m.type, bytes: m.bytes, chars: m.chars, status: m.status }))',
+  '    : [];',
+  '  const notes = (ingested && Array.isArray(ingested.notes)) ? ingested.notes : [];',
+  '  return { answer: text, model: MODEL, files, notes };',
+  '}',
+  'export const aiEnabled = !!KEY;', '',
 ].join('\n'));
 
 // jobs-repo + worker (se worker-queue)
@@ -221,6 +368,8 @@ add('api/src/server.js', [
   "import { pool, migrate, seed } from './db.js';",
   "import { M, startMetricsServer } from './metrics.js';",
   (F.worker ? "import * as jobsRepo from './repositories/jobs-repo.js';" : ''),
+  (F.ai ? "import { attachIngest } from '@flavioneto11/ai-ingest-middleware';" : ''),
+  (F.ai ? "import * as assistantSvc from './services/assistant-service.js';" : ''),
   'const app = express(); app.use(express.json());',
   "app.use((req, _res, next) => { req.tenantId = Number(req.header('X-Tenant-Id')) || 1; next(); });",
   'const wrap = (fn) => (req, res) => Promise.resolve(fn(req, res)).catch((e) => { M.httpErrors.inc(); res.status(e.status || 500).json({ error: { message: e.message || \'erro\' } }); });',
@@ -233,6 +382,13 @@ add('api/src/server.js', [
   "app.get('/v1/records/:id', wrap(async (req, res) => { const r = (await pool.query('SELECT * FROM records WHERE tenant_id=$1 AND id=$2', [req.tenantId, Number(req.params.id)])).rows[0]; if (!r) return res.status(404).json({ error: { message: 'não encontrado' } }); res.json(r); }));",
   "app.post('/v1/records', wrap(async (req, res) => { if (!req.body || !req.body.title) { return res.status(400).json({ error: { message: 'title obrigatório' } }); } const r = (await pool.query('INSERT INTO records(tenant_id,title) VALUES ($1,$2) RETURNING *', [req.tenantId, req.body.title])).rows[0]; M.recordsTotal.inc({ outcome: 'created' }); res.status(201).json(r); }));",
   submitRoute,
+  // bloco control-ai-por-app: assistente de IA que ACEITA ARQUIVOS (multimodal).
+  // attachIngest({field:'files'}): NO-OP em application/json (texto segue o contrato anterior, retrocompat);
+  // em multipart/form-data, ingere (file-ingest-kit) -> req.ingested E popula req.body com os campos de
+  // TEXTO do multipart (ex.: message). FAIL-SOFT: erro de ingestão NÃO vira 500. NUNCA logamos bytes —
+  // o serviço devolve só o manifest (path/type/bytes/chars/status). FAIL-CLOSED: sem chave -> 503 (no serviço).
+  (F.ai ? "app.post('/v1/assistant', attachIngest({ field: 'files', maxFiles: 10 }), wrap(async (req, res) => { const b = req.body || {}; const message = b.message != null ? b.message : b.input; const ingested = req.ingested || null; const out = await assistantSvc.assist(message, { ingested }); const filed = ingested && (ingested.manifest || []).length > 0; M.assistantTurns.inc({ outcome: 'ok' }); if (filed) M.assistantFiles.inc({ outcome: 'ingested' }); res.json(out); }));" : ''),
+  (F.ai ? "app.get('/v1/assistant/health', (_q, res) => res.json({ ai: assistantSvc.aiEnabled, model: process.env.ASSISTANT_MODEL || 'claude-haiku-4-5-20251001' }));" : ''),
   (F.worker ? "async function depth() { try { const c = await jobsRepo.counts(); for (const s of ['queued','running','done','dlq']) M.queueDepth.set({ status: s }, c[s] || 0); } catch {} }" : ''),
   'const PORT = Number(process.env.PORT) || 8080;',
   '(async () => {',
@@ -266,12 +422,17 @@ if (F.gateway) {
   add('mock-central/Dockerfile', 'FROM node:20-alpine\nWORKDIR /app\nCOPY server.js ./\nEXPOSE 8090\nUSER node\nCMD ["node", "server.js"]\n');
 }
 
-// devops.yaml
+// devops.yaml — service api (+ env de IA quando o bloco control-ai-por-app está presente: o assistente é
+// fail-closed sem ANTHROPIC_API_KEY; a chave entra como Secret/Sealed Secret, NUNCA em git).
+const apiSvc = F.ai
+  ? '  api: { type: api, path: /api, port: 8080, expose: true, stripPrefix: true, priority: 40, health: { path: /health }, env: { ASSISTANT_MODEL: claude-haiku-4-5-20251001 } }'
+  : '  api: { type: api, path: /api, port: 8080, expose: true, stripPrefix: true, priority: 40, health: { path: /health } }';
 add('devops.yaml', [
   'app: { name: @@APP@@, namespace: apps, host: nvit.localhost, basePath: @@BASE@@ }',
   '# Gerado pela FORGE (SICAT-style). Blocos: ' + blocks.join(', '),
+  (F.ai ? '# IA: assistente em POST @@BASE@@/api/v1/assistant (aceita ARQUIVOS, multimodal). Requer Secret com ANTHROPIC_API_KEY (fail-closed sem ela).' : ''),
   'services:',
-  '  api: { type: api, path: /api, port: 8080, expose: true, stripPrefix: true, priority: 40, health: { path: /health } }',
+  apiSvc,
   (F.worker ? '  worker: { type: worker, port: 9464, expose: false, command: ["npm", "run", "worker"] }' : ''),
   'capabilities: [' + blocks.map((b) => b).join(', ') + ']',
   'observability: { metricsPort: 9464, serviceMonitor: true, prometheusRule: true }', '',
@@ -298,6 +459,15 @@ function buildTest() {
     "await post('/v1/records/' + r1.id + '/submit', {});",
     "let a = {}; for (let i = 0; i < 12; i++) { await sleep(3000); a = (await get('/v1/records/' + r1.id)).j; if (a.status === 'submitted' || a.status === 'failed') break; }",
     "ok(a.status === 'submitted', 'fila+gateway: record submetido (retry no transitório)');");
+  if (F.ai) lines.push(
+    "// IA: health sempre responde (200, { ai }); o caminho de texto (application/json) é retrocompatível.",
+    "const ah = await get('/v1/assistant/health'); ok(ah.s === 200 && typeof ah.j.ai === 'boolean', 'assistant/health responde { ai }');",
+    "const ar = await post('/v1/assistant', { message: 'olá' });",
+    "ok(ar.s === 200 || ar.s === 503, 'assistant texto: 200 (chave) ou 503 fail-closed (sem chave) — nunca 500');",
+    "// IA + ARQUIVOS: multipart com 1 arquivo de texto — fail-soft (nunca 500; 200 com chave ou 503 sem).",
+    "const fd = new FormData(); fd.append('message', 'resuma o anexo'); fd.append('files', new Blob(['linha 1\\nlinha 2'], { type: 'text/plain' }), 'nota.txt');",
+    "const fr = await fetch(API + '/v1/assistant', { method: 'POST', body: fd }).then(async (r) => ({ s: r.status, j: await r.json().catch(() => ({})) }));",
+    "ok(fr.s === 200 || fr.s === 503, 'assistant multipart (arquivo): aceito sem 500 (fail-soft)');");
   lines.push("console.log(process.exitCode ? 'FALHOU' : 'OK — robusto');", '');
   return lines.join('\n');
 }
@@ -394,6 +564,38 @@ for (const [rel, content] of Object.entries(files)) {
   fs.writeFileSync(dest, replace(content));
   written++;
 }
+// ── vendoring dos kits @flavioneto11/* (bloco de IA): copia os .tgz p/ apps/<app>/api/vendor/ ──────
+// O app builda em contexto Docker isolado (não alcança packages/), por isso o Dockerfile faz COPY vendor
+// ANTES do npm install p/ resolver as deps file:vendor/*. Determinístico/idempotente: nomes versionados
+// fixos; só copia se a origem existir (primeira que existir vence) e o destino não existir (salvo --force).
+let vendored = 0;
+if (F.ai) {
+  const vendorDir = path.join(APPDIR, 'api', 'vendor');
+  fs.mkdirSync(vendorDir, { recursive: true });
+  for (const tgz of AI_VENDOR_TGZ) {
+    const dest = path.join(vendorDir, tgz);
+    if (fs.existsSync(dest) && !args.force) { console.log('[skip vendor existe] ' + path.relative(REPO_ROOT, dest)); continue; }
+    let src = (VENDOR_SOURCES[tgz] || []).find((p) => fs.existsSync(p));
+    // Auto-heal: nenhuma origem existe -> npm pack do packages/<kit> p/ o .vendor-cache.
+    if (!src && PACK_FROM[tgz]) {
+      const pkgDir = path.join(REPO_ROOT, PACK_FROM[tgz]);
+      const cacheDir = path.join(REPO_ROOT, '.vendor-cache');
+      if (fs.existsSync(pkgDir)) {
+        fs.mkdirSync(cacheDir, { recursive: true });
+        try { execSync(`npm pack --pack-destination "${cacheDir}"`, { cwd: pkgDir, stdio: 'ignore' }); } catch { /* segue p/ o erro abaixo */ }
+        const packed = path.join(cacheDir, tgz);
+        if (fs.existsSync(packed)) { src = packed; console.log('[vendor auto-pack] ' + path.relative(REPO_ROOT, pkgDir) + ' -> ' + tgz); }
+      }
+    }
+    if (!src) {
+      console.error(`[scaffold-sicat] ERRO: vendor .tgz não encontrado: ${tgz}. Origens tentadas:\n  ` + (VENDOR_SOURCES[tgz] || []).map((p) => path.relative(REPO_ROOT, p)).join('\n  '));
+      process.exit(3);
+    }
+    fs.copyFileSync(src, dest);
+    vendored++;
+  }
+}
+
 // manifesto de capacidades
 const forgeDir = path.join(APPDIR, '.forge');
 fs.mkdirSync(forgeDir, { recursive: true });
@@ -401,4 +603,5 @@ fs.writeFileSync(path.join(forgeDir, 'applied-capabilities.json'), JSON.stringif
 
 console.log(`[scaffold-sicat] ${APP} (${blocks.length} blocos) — ${written} arquivos gerados em apps/${APP}/`);
 console.log(`  blocos: ${blocks.join(', ')}`);
-console.log(`  worker=${F.worker} gateway=${F.gateway} idempotencia=${F.idem}`);
+console.log(`  worker=${F.worker} gateway=${F.gateway} idempotencia=${F.idem} ai=${F.ai}` + (F.ai ? ` (${vendored} kit(s) vendorizado(s) em api/vendor/)` : ''));
+if (F.ai) console.log('  IA: POST @@BASE@@/api/v1/assistant aceita ARQUIVOS (multimodal). Requer ANTHROPIC_API_KEY (Secret) — fail-closed sem ela.'.replace('@@BASE@@', BASE));

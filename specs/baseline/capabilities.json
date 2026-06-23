@@ -84,8 +84,8 @@
     },
     {
       "id": "control-ai-por-app",
-      "title": "IA de controle do app (grafo próprio + prompts versionados)",
-      "description": "Uma IA de controle PRÓPRIA do app: seu grafo de IA (ai-core) com especialistas e tools de domínio, puxando prompts versionados do control plane da plataforma com timeout + cache + fallback offline para um prompt versionado no repo, fail-closed sem chave de IA. Use quando o app precisa de IA própria/governada além da da plataforma, resiliente ao control plane estar fora.",
+      "title": "IA de controle do app (grafo próprio + prompts versionados + ARQUIVOS)",
+      "description": "Uma IA de controle PRÓPRIA do app: seu grafo de IA (ai-core) com especialistas e tools de domínio, puxando prompts versionados do control plane da plataforma com timeout + cache + fallback offline para um prompt versionado no repo, fail-closed sem chave de IA. ACEITA ARQUIVOS (multimodal): a rota /v1/assistant ingere texto+imagens+PDF via @flavioneto11/file-ingest-kit (fail-soft) além de texto. Use quando o app precisa de IA própria/governada além da da plataforma, resiliente ao control plane estar fora.",
       "category": "ai",
       "requires": [
         "ia-grafo"
@@ -97,7 +97,9 @@
       ],
       "reuses": [
         "packages/control-ai-kit",
-        "packages/ai-core"
+        "packages/ai-core",
+        "packages/file-ingest-kit",
+        "packages/ai-ingest-middleware"
       ],
       "reference": [
         {
@@ -109,6 +111,16 @@
           "stack": "platform",
           "path": "apps/ai-control-plane/README.md",
           "note": "contrato /v1/prompts/:name/active + regra FORA do caminho crítico (cache+fallback)."
+        },
+        {
+          "stack": "platform",
+          "path": "packages/file-ingest-kit/src/index.js",
+          "note": "ingest(files)->{textParts,blocks,manifest}; toMessageContent(result,{provider,supportsVision,supportsPdf,userText}); deps de extração lazy+opcionais (degrada name-only)."
+        },
+        {
+          "stack": "platform",
+          "path": "packages/ai-ingest-middleware/src/index.js",
+          "note": "attachIngest({field}) Express -> req.ingested (no-op em JSON, fail-soft, sem 503/500 por arquivo); feedBlocks(messages, ingested, {provider, model})."
         }
       ],
       "scaffold_overlay": {
@@ -116,27 +128,34 @@
           "AI_PROVIDER",
           "ANTHROPIC_API_KEY",
           "OPENAI_API_KEY",
-          "AI_CONTROL_PLANE_URL"
+          "AI_CONTROL_PLANE_URL",
+          "ASSISTANT_MODEL"
         ],
         "adds_reuses": [
           "packages/control-ai-kit",
-          "packages/ai-core"
+          "packages/ai-core",
+          "packages/file-ingest-kit",
+          "packages/ai-ingest-middleware"
         ],
-        "notes": "Cria ai/control/{graph,tools,prompts} + rota de chat; prompts do control-plane com fallback local; 503 sem chave."
+        "notes": "O scaffold (scaffold-sicat.mjs) emite por padrão: api/src/services/assistant-service.js (control-ai-kit + LLM Anthropic, prompts com fallback local, 503 sem chave) + rota app.post('/v1/assistant', attachIngest({field:'files'}), handler) que ACEITA ARQUIVOS (multimodal, fail-soft) + GET /v1/assistant/health; vendora file-ingest-kit + ai-ingest-middleware + control-ai-kit (.tgz) + multer + pdf-parse/mammoth/xlsx/jszip; e (se interfaces:web) a AiAssistantView.vue com UiFileDrop enviando multipart. Caminho JSON/texto IDÊNTICO (retrocompat)."
       },
-      "work_order_guidance": "Use packages/control-ai-kit sobre @flavioneto11/ai-core: createControlAi({ appName, llm, prompts, controlPlaneUrl }). Os prompts vêm do ai-control-plane (timeout 2s + cache) com FALLBACK para o prompt versionado no repo (control-plane fora NÃO quebra). Tools de domínio R1 (read-first, dry-run em mutações). Fail-closed: sem chave de IA -> 503.",
+      "work_order_guidance": "O assistente JÁ NASCE pronto pelo scaffold (assistant-service.js + rota /v1/assistant com attachIngest + view AiAssistantView). Estenda-o: use packages/control-ai-kit sobre @flavioneto11/ai-core: createControlAi({ appName, llm, prompts, controlPlaneUrl }). Prompts do ai-control-plane (timeout 2s + cache) com FALLBACK local (control-plane fora NÃO quebra). ARQUIVOS: a rota usa attachIngest({field:'files'}) -> req.ingested (file-ingest-kit, fail-soft); o handler monta o content multimodal (toMessageContent) e o passa ao LLM — NUNCA serialize bytes em log/auditoria (só o manifest). Tools de domínio R1 (read-first, dry-run em mutações). Fail-closed: sem chave de IA -> 503.",
       "verification": [
         {
           "method": "test-integration",
           "assertion": "control-plane indisponível -> usa o prompt local versionado (sem quebrar); sem chave de IA -> 503"
         },
         {
+          "method": "test-integration",
+          "assertion": "POST /v1/assistant application/json (só texto) responde igual ao contrato anterior; POST multipart com arquivo é aceito (fail-soft: arquivo ilegível NÃO derruba a rota)"
+        },
+        {
           "method": "demo",
-          "assertion": "uma tool de domínio é chamada e a IA cita a evidência"
+          "assertion": "uma tool de domínio é chamada e a IA cita a evidência; o operador anexa um PDF/imagem e a IA raciocina sobre ele"
         }
       ],
       "default_adrs": [
-        "IA de controle por app via packages/control-ai-kit sobre @flavioneto11/ai-core; prompts versionados do ai-control-plane com cache+fallback local; fail-closed sem chave"
+        "IA de controle por app via packages/control-ai-kit sobre @flavioneto11/ai-core; prompts versionados do ai-control-plane com cache+fallback local; fail-closed sem chave; assistente ACEITA ARQUIVOS (multimodal) via @flavioneto11/file-ingest-kit + ai-ingest-middleware, fail-soft (arquivo nunca derruba a rota), sem bytes em log/auditoria"
       ]
     },
     {

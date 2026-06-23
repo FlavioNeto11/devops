@@ -59,6 +59,38 @@
       }
     },
     {
+      "name": "helpflow",
+      "display_name": "HelpFlow - Service Desk",
+      "base_path": "/helpflow",
+      "blueprint": "node-api-vue-spa",
+      "vision": "Sistema de service desk (central de chamados) multi-empresa. Solicitantes abrem chamados (tickets) com categoria, prioridade e descricao; agentes atendem, comentam e mudam o status (aberto, em_andamento, aguardando, resolvido, fechado) respeitando SLA por prioridade. Base de conhecimento (artigos) para autoatendimento. Painel com filas, SLA em risco e volume por categoria/agente. Assistente de IA sugere categoria/prioridade e rascunho de resposta a partir do historico. Operadores autenticam por SSO; multi-tenant; observabilidade por padrao; API contract-first (OpenAPI).",
+      "app_type": "product_software",
+      "requirement_ids": [
+        "REQ-HELPFLOW-0001",
+        "REQ-HELPFLOW-0002",
+        "REQ-HELPFLOW-0003",
+        "REQ-HELPFLOW-0004",
+        "REQ-HELPFLOW-0005",
+        "REQ-HELPFLOW-0006",
+        "REQ-HELPFLOW-0007",
+        "REQ-HELPFLOW-0008"
+      ],
+      "phases": {
+        "requirements": {
+          "status": "approved"
+        },
+        "architecture": {
+          "status": "approved"
+        },
+        "scaffold": {
+          "status": "not_started"
+        },
+        "build": {
+          "status": "not_started"
+        }
+      }
+    },
+    {
       "name": "opsboard",
       "display_name": "OpsBoard — Painel de Operações",
       "base_path": "/opsboard",
