@@ -514,10 +514,12 @@ const ask = useConfirm();
 
 // ---- recursos de domínio reais (sem fallback a placeholders de scaffold) ----
 const tickets = api.tickets;        // recurso REAL do chamado (/v1/tickets)
-const commentsApi = api.comments;   // thread de interações (/v1/comments)
+const commentsApi = api.comments;   // fallback CRUD de comentários (/v1/comments)
 const jobsApi = api.jobs;           // fila transacional (/v1/jobs)
-// IA do chamado: ação de domínio do próprio recurso (tickets.assist →
-// POST /v1/tickets/{id}/assist). Não há namespace de IA dedicado no client.
+// Endpoints dedicados do chamado (REF-HELPFLOW-0004):
+//  · tickets.messages(id) → GET /v1/tickets/{id}/messages (thread de interações)
+//  · tickets.sla(id)      → GET /v1/tickets/{id}/sla      (estado do SLA)
+//  · tickets.assist(id)   → POST /v1/tickets/{id}/assist  (sugestão de IA)
 
 function hasFn(obj, name) { return obj && typeof obj[name] === 'function'; }
 
@@ -659,6 +661,12 @@ async function load() {
     loaded.value = true;
     syncProps();
     if (!cf.values.author_id && agents.value.length) cf.values.author_id = agents.value[0].id;
+    // enriquece sla_due_at com o estado autoritativo do endpoint dedicado (REF-HELPFLOW-0004)
+    if (hasFn(tickets, 'sla')) {
+      tickets.sla(props.id).then((s) => {
+        if (s && s.sla_due_at && !ticket.value.sla_due_at) ticket.value = { ...ticket.value, sla_due_at: s.sla_due_at };
+      }).catch(() => {});
+    }
   } catch (e) {
     error.value = e;
   } finally {
@@ -727,6 +735,17 @@ const commentBreakdown = computed(() =>
 async function loadComments() {
   commentsLoading.value = true; commentsError.value = null;
   try {
+    // usa o endpoint dedicado /tickets/:id/messages (REF-HELPFLOW-0004);
+    // degrada para /comments?ticket_id se o endpoint retornar 404/501
+    if (hasFn(tickets, 'messages')) {
+      try {
+        const r = await tickets.messages(props.id);
+        comments.value = (r && r.data) || (Array.isArray(r) ? r : []);
+        return;
+      } catch (e) {
+        if (e.status !== 404 && e.status !== 501) throw e;
+      }
+    }
     if (!hasFn(commentsApi, 'list')) { comments.value = []; return; }
     const r = await commentsApi.list({ ticket_id: props.id, pageSize: 200, sort: 'created_at', dir: 'asc' });
     comments.value = (r && r.data) || (Array.isArray(r) ? r : []);

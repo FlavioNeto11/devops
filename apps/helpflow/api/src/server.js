@@ -186,6 +186,75 @@ function sanitizeTicketBody(body) {
 
 app.get('/v1/tickets', crudList('tickets'));
 app.get('/v1/tickets/:id', crudGet('tickets'));
+
+// ---- ações de domínio do chamado (REF-HELPFLOW-0004) ----
+// GET /v1/tickets/:id/messages — thread de interações (comentários) do chamado
+app.get('/v1/tickets/:id/messages', wrap(async (req, res) => {
+  const ticket = await repos.tickets.repo.get(req.tenantId, req.params.id);
+  if (!ticket) return res.status(404).json({ error: { message: 'não encontrado' } });
+  const { rows } = await pool.query(
+    'SELECT * FROM comments WHERE tenant_id=$1 AND ticket_id=$2 ORDER BY created_at ASC',
+    [req.tenantId, Number(req.params.id)],
+  );
+  res.json({ data: rows, total: rows.length });
+}));
+
+// GET /v1/tickets/:id/sla — estado atual do SLA (tempo restante, breach, deadline)
+app.get('/v1/tickets/:id/sla', wrap(async (req, res) => {
+  const ticket = await repos.tickets.repo.get(req.tenantId, req.params.id);
+  if (!ticket) return res.status(404).json({ error: { message: 'não encontrado' } });
+  const dueAt = ticket.sla_due_at ? new Date(ticket.sla_due_at) : null;
+  const msRemaining = dueAt ? dueAt.getTime() - Date.now() : null;
+  const closed = ['resolved', 'closed'].includes(ticket.status);
+  res.json({
+    ticket_id: ticket.id,
+    sla_due_at: ticket.sla_due_at || null,
+    sla_policy_id: ticket.sla_policy_id || null,
+    status: ticket.status,
+    breached: msRemaining !== null && msRemaining <= 0 && !closed,
+    closed,
+    ms_remaining: closed ? null : msRemaining,
+  });
+}));
+
+// POST /v1/tickets/:id/submit — dispara job de integração externa (transacional)
+app.post('/v1/tickets/:id/submit', wrap(async (req, res) => {
+  const ticket = await repos.tickets.repo.get(req.tenantId, req.params.id);
+  if (!ticket) return res.status(404).json({ error: { message: 'não encontrado' } });
+  const jid = await jobsRepo.enqueue('ticket.submit', { ticketId: Number(req.params.id), tenantId: req.tenantId }, 'submit:ticket:' + req.params.id);
+  M.recordsTotal.inc({ outcome: 'ticket_submitted' });
+  res.status(202).json({ ticket_id: Number(req.params.id), type: 'ticket.submit', status: 'queued', enqueued: jid != null });
+}));
+
+// POST /v1/tickets/:id/assist — assistente de IA grounded no chamado (fail-closed)
+// Sem AI_ENDPOINT configurado → 503 (fail-closed); a tela degrada graciosamente.
+app.post('/v1/tickets/:id/assist', wrap(async (req, res) => {
+  const ticket = await repos.tickets.repo.get(req.tenantId, req.params.id);
+  if (!ticket) return res.status(404).json({ error: { message: 'não encontrado' } });
+  const aiEndpoint = process.env.AI_ENDPOINT || '';
+  if (!aiEndpoint) {
+    const e = new Error('assistente indisponível: AI_ENDPOINT não configurado (fail-closed)');
+    e.status = 503; throw e;
+  }
+  // delega ao motor de grafo (ai-grafo) via gateway centralizado
+  const body = req.body || {};
+  const mode = body.mode || 'summary';
+  try {
+    const r = await fetch(aiEndpoint + '/assist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(process.env.AI_API_KEY ? { Authorization: 'Bearer ' + process.env.AI_API_KEY } : {}) },
+      body: JSON.stringify({ ticketId: ticket.id, mode, prompt: body.prompt || '' }),
+      signal: AbortSignal.timeout(Number(process.env.AI_TIMEOUT_MS) || 15000),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) { const e = new Error(data.error || ('AI ' + r.status)); e.status = r.status >= 500 ? 503 : r.status; throw e; }
+    res.json({ answer: data.answer || data.text || '', citations: data.citations || [], mode });
+  } catch (e) {
+    if (e.status) throw e;
+    const err = new Error('assistente indisponível: ' + (e.message || 'timeout')); err.status = 503; throw err;
+  }
+}));
+
 app.post('/v1/tickets', wrap(async (req, res) => {
   const { repo, required } = repos.tickets;
   const body = sanitizeTicketBody(req.body);

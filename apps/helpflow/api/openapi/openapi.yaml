@@ -188,3 +188,19 @@ paths:
     delete:
       operationId: deleteTicket
       responses: { "204": { description: deleted } }
+  /v1/tickets/{id}/messages:
+    get:
+      operationId: getTicketMessages
+      responses: { "200": { description: ok } }
+  /v1/tickets/{id}/sla:
+    get:
+      operationId: getTicketSla
+      responses: { "200": { description: ok } }
+  /v1/tickets/{id}/submit:
+    post:
+      operationId: submitTicket
+      responses: { "202": { description: ok } }
+  /v1/tickets/{id}/assist:
+    post:
+      operationId: assistTicket
+      responses: { "200": { description: ok } }

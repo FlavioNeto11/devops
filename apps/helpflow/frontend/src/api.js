@@ -65,13 +65,14 @@ export { kbArticles as 'kb-articles' };
 
 // tickets — entidade central do service desk. CRUD real em /v1/tickets
 // (apps/helpflow/api/src/server.js) + ações de domínio:
-//  · submit(id)      → POST /v1/tickets/{id}/submit   (dispara o job de integração externa)
-//  · assist(id,body) → POST /v1/tickets/{id}/assist    (assistente de IA grounded no chamado)
-// As ações submit/assist seguem o padrão da plataforma; enquanto o backend não as
-// montar, a chamada devolve 404/501/503 e a tela degrada graciosamente (fail-closed),
-// nunca fabricando dados.
+//  · messages(id,p) → GET  /v1/tickets/{id}/messages  (thread de interações do chamado)
+//  · sla(id)        → GET  /v1/tickets/{id}/sla        (estado atual do SLA: tempo, breach)
+//  · submit(id)     → POST /v1/tickets/{id}/submit     (dispara o job de integração externa)
+//  · assist(id,b)   → POST /v1/tickets/{id}/assist     (assistente de IA grounded no chamado)
 export const tickets = {
   ...resourceFactory('tickets'),
+  messages: (id, params) => request('GET', '/v1/tickets/' + id + '/messages' + qs(params)),
+  sla: (id) => request('GET', '/v1/tickets/' + id + '/sla'),
   submit: (id) => request('POST', '/v1/tickets/' + id + '/submit'),
   assist: (id, body) => request('POST', '/v1/tickets/' + id + '/assist', body),
 };

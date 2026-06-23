@@ -1,0 +1,12 @@
+{
+  "req_id": "REF-HELPFLOW-0004",
+  "revision": 1,
+  "status": "done",
+  "summary": "Implementados 4 endpoints de domínio do chamado (messages, sla, submit, assist) no backend e OpenAPI; frontend atualizado para consumir endpoints dedicados com fallback gracioso.",
+  "files_changed": [
+    "apps/helpflow/api/src/server.js",
+    "apps/helpflow/api/openapi/openapi.yaml",
+    "apps/helpflow/frontend/src/api.js",
+    "apps/helpflow/frontend/src/views/TicketDetailView.vue"
+  ]
+}
