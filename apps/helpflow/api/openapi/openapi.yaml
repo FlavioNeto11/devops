@@ -171,6 +171,21 @@ paths:
     get:
       operationId: auditIntegration
       responses: { "200": { description: "trilha de auditoria do gateway (redigida)" } }
+  /v1/ai/control:
+    get:
+      operationId: getAiControl
+      responses: { "200": { description: "configuração atual do control-plane da IA (fail-closed)" } }
+    put:
+      operationId: updateAiControl
+      responses: { "200": { description: "patch persistido e configuração atualizada" } }
+  /v1/ai/usage:
+    get:
+      operationId: getAiUsage
+      responses: { "200": { description: "telemetria agregada da IA (tokens, custo, latência, chamadas)" } }
+  /v1/ai/audit:
+    get:
+      operationId: listAiAudit
+      responses: { "200": { description: "trilha de auditoria das ações da IA" } }
   /v1/tickets:
     get:
       operationId: listTickets

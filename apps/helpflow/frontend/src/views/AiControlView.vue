@@ -316,41 +316,44 @@
         </UiCard>
       </div>
 
-      <!-- ============ 5. FEEDBACK (FeedbackList) ============ -->
-      <UiCard title="Feedback recente (thumbs)" subtitle="O que os agentes acharam das sugestões da IA. Use para calibrar prompts e modos.">
+      <!-- ============ 5. TRILHA DE AUDITORIA (AuditTrail) ============ -->
+      <UiCard title="Trilha de auditoria" subtitle="Registro das ações da IA — quando foi chamada, o que gerou e com que resultado.">
         <template #actions>
-          <span v-if="!feedbackError && feedbackRows.length" class="ai-fb-summary">
-            <span class="ai-vote" data-vote="up" aria-hidden="true">👍</span> {{ usage.thumbsUp }}
-            <span class="ai-fb-sep" aria-hidden="true">·</span>
-            <span class="ai-vote" data-vote="down" aria-hidden="true">👎</span> {{ usage.thumbsDown }}
-          </span>
-          <UiButton size="sm" variant="ghost" :loading="feedbackLoading" @click="loadFeedback">Recarregar</UiButton>
+          <UiButton size="sm" variant="ghost" :loading="auditLoading" @click="loadAudit">Recarregar</UiButton>
         </template>
 
         <UiDataTable
-          :columns="feedbackColumns"
-          :rows="feedbackRows"
+          :columns="auditColumns"
+          :rows="auditRows"
           row-key="id"
-          :loading="feedbackLoading"
-          :error="feedbackError"
+          :loading="auditLoading"
+          :error="auditError"
           density="compact"
           :empty="{
-            title: 'Sem feedback ainda',
-            description: 'Quando os agentes avaliarem as sugestões do assistente, os votos aparecem aqui.',
+            title: 'Sem registros ainda',
+            description: 'Quando o assistente agir (classificar, rascunhar, usar tools), as ações aparecem aqui.',
             icon: 'inbox',
           }"
-          @retry="loadFeedback"
+          @retry="loadAudit"
         >
-          <template #cell-vote="{ value }">
-            <span class="ai-vote" :data-vote="value" :aria-label="value === 'up' ? 'Positivo' : 'Negativo'">
-              {{ value === 'up' ? '👍' : '👎' }}
-            </span>
+          <template #cell-action="{ value }">
+            <UiStatusBadge :status="value" tone="neutral" :label="actionLabel(value)" :with-dot="false" />
           </template>
-          <template #cell-kind="{ value }">
-            <UiStatusBadge :status="value" tone="neutral" :label="kindLabel(value)" :with-dot="false" />
+          <template #cell-mode="{ value }">
+            <span class="ai-audit-mode">{{ modeName(value) }}</span>
           </template>
-          <template #cell-summary="{ value }">
-            <span class="ai-fb-text">{{ value }}</span>
+          <template #cell-ticket_id="{ value }">
+            <RouterLink v-if="value" :to="'/tickets/' + value" class="ai-link">#{{ value }}</RouterLink>
+            <span v-else class="ai-audit-mode">—</span>
+          </template>
+          <template #cell-tokens="{ value }">
+            <span class="ai-mono">{{ format.formatNumber(value) }}</span>
+          </template>
+          <template #cell-latency_ms="{ value }">
+            <span class="ai-mono">{{ formatLatency(value) }}</span>
+          </template>
+          <template #cell-outcome="{ value, row }">
+            <UiStatusBadge :status="outcomeStatus(value)" :label="outcomeLabel(value, row.dry_run)" />
           </template>
           <template #cell-created_at="{ value }">{{ format.formatDateTime(value) }}</template>
           <template #empty-action>
@@ -560,8 +563,10 @@ const ask = useConfirm();
 //   GET  /v1/ai/control       -> estado/config      (.list())
 //   PATCH/PUT /v1/ai/control  -> persistência       (.update())
 //   GET  /v1/ai/usage         -> telemetria do período (.list())
+//   GET  /v1/ai/audit         -> trilha de auditoria das ações da IA (.list())
 const aiControlApi = resourceFactory('ai/control');
 const aiUsageApi = resourceFactory('ai/usage');
+const aiAuditApi = resourceFactory('ai/audit');
 
 // ---------- estado base ----------
 const firstLoad = ref(true);
@@ -570,8 +575,8 @@ const fatalError = ref(null); // só vira fatal se NADA carregar (página em bra
 const configError = ref(null);
 const usageError = ref(false);
 const usageLoading = ref(true);
-const feedbackError = ref(null);
-const feedbackLoading = ref(true);
+const auditError = ref(null);
+const auditLoading = ref(true);
 const togglingMaster = ref(false);
 const savingModes = ref(false);
 const updatedAt = ref(null);
@@ -600,7 +605,7 @@ const usage = reactive({
   thumbsDown: 0,
   periodLabel: '',
 });
-const feedbackRows = ref([]);
+const auditRows = ref([]);
 
 // ---------- catálogos estáticos da tela ----------
 const modeList = [
@@ -609,11 +614,13 @@ const modeList = [
 ];
 const modelOptions = ['claude-opus-4-8', 'claude-sonnet-4-5', 'claude-haiku-4-5'];
 
-const feedbackColumns = [
-  { key: 'vote', label: 'Voto', align: 'center' },
-  { key: 'kind', label: 'Tipo' },
-  { key: 'summary', label: 'Resumo' },
-  { key: 'agent', label: 'Agente' },
+const auditColumns = [
+  { key: 'action', label: 'Ação' },
+  { key: 'mode', label: 'Modo' },
+  { key: 'ticket_id', label: 'Chamado' },
+  { key: 'tokens', label: 'Tokens', align: 'right' },
+  { key: 'latency_ms', label: 'Latência', align: 'right' },
+  { key: 'outcome', label: 'Resultado' },
   { key: 'created_at', label: 'Quando', align: 'right' },
 ];
 
@@ -675,12 +682,6 @@ async function loadUsage() {
       usage.tokensIn = usage.tokens;
       usage.tokensOut = 0;
     }
-    // feedback pode vir embutido na telemetria.
-    const fb = u.feedback || u.thumbs || [];
-    if (Array.isArray(fb)) {
-      feedbackRows.value = fb.map(normalizeFeedback);
-      feedbackError.value = null;
-    }
   } catch (e) {
     usageError.value = true;
   } finally {
@@ -688,38 +689,38 @@ async function loadUsage() {
   }
 }
 
-function normalizeFeedback(f, i) {
+function normalizeAudit(a, i) {
   return {
-    id: f.id ?? 'fb-' + i,
-    vote: (f.vote || f.thumb || '').toString().toLowerCase() === 'down' || f.vote === false ? 'down' : 'up',
-    kind: f.kind || f.mode || 'assist',
-    summary: f.summary || f.comment || f.text || '—',
-    agent: f.agent || f.user || '—',
-    created_at: f.created_at || f.createdAt || null,
+    id: a.id ?? 'audit-' + i,
+    action: a.action || 'assist',
+    mode: a.mode || 'assist',
+    ticket_id: a.ticket_id || null,
+    tokens: (Number(a.input_tokens) || 0) + (Number(a.output_tokens) || 0),
+    latency_ms: Number(a.latency_ms) || 0,
+    outcome: a.outcome || 'success',
+    dry_run: !!a.dry_run,
+    summary: a.summary || '',
+    created_at: a.created_at || null,
   };
 }
 
-async function loadFeedback() {
-  feedbackLoading.value = true;
-  feedbackError.value = null;
+async function loadAudit() {
+  auditLoading.value = true;
+  auditError.value = null;
   try {
-    // O feedback vive na telemetria do assistente (mesmo endpoint real /v1/ai/usage).
-    const u = unwrap(await aiUsageApi.list({ include: 'feedback' }));
-    const fb = u.feedback || u.thumbs || [];
-    feedbackRows.value = Array.isArray(fb) ? fb.map(normalizeFeedback) : [];
+    const res = unwrap(await aiAuditApi.list({ pageSize: 20 }));
+    auditRows.value = (res.items || []).map(normalizeAudit);
   } catch (e) {
-    feedbackError.value = e && e.message ? e.message : 'Não foi possível carregar o feedback.';
+    auditError.value = e && e.message ? e.message : 'Não foi possível carregar a trilha de auditoria.';
   } finally {
-    feedbackLoading.value = false;
+    auditLoading.value = false;
   }
 }
 
 async function load() {
   loading.value = true;
   fatalError.value = null;
-  feedbackLoading.value = true;
-  const [okControl] = await Promise.all([loadControl(), loadUsage()]);
-  feedbackLoading.value = false;
+  const [okControl] = await Promise.all([loadControl(), loadUsage(), loadAudit()]);
   // Página em branco proibida: só é fatal se o controle E a telemetria falharem juntos.
   if (!okControl && usageError.value) {
     fatalError.value = configError.value || 'Não foi possível carregar o controle da IA.';
@@ -993,11 +994,38 @@ const safeBannerText = computed(() => {
   return 'Nenhum modo está ativo. Ligue o assistente para sugerir classificações e rascunhos.';
 });
 
-function kindLabel(kind) {
-  const k = String(kind).toLowerCase();
-  if (k === 'assist' || k === 'classification') return 'Classificação';
-  if (k === 'chat' || k === 'draft' || k === 'reply') return 'Rascunho';
-  return format.humanize(kind);
+function actionLabel(action) {
+  const a = String(action || '').toLowerCase();
+  if (a === 'classify' || a === 'classification') return 'Classificação';
+  if (a === 'draft') return 'Rascunho';
+  if (a === 'react_step') return 'Passo ReAct';
+  if (a === 'assist') return 'Assistência';
+  return format.humanize(action);
+}
+function modeName(mode) {
+  const m = String(mode || '').toLowerCase();
+  if (m === 'assist') return 'Assistência';
+  if (m === 'chat') return 'Chat';
+  return format.humanize(mode);
+}
+function outcomeStatus(outcome) {
+  const o = String(outcome || '').toLowerCase();
+  if (o === 'success') return 'active';
+  if (o === 'dry_run') return 'pending';
+  if (o === 'error') return 'error';
+  return 'inactive';
+}
+function outcomeLabel(outcome, dryRun) {
+  const o = String(outcome || '').toLowerCase();
+  if (o === 'success' && dryRun) return 'Rascunho';
+  if (o === 'success') return 'Aplicado';
+  if (o === 'dry_run') return 'Dry-run';
+  if (o === 'error') return 'Erro';
+  return format.humanize(outcome);
+}
+function formatLatency(ms) {
+  if (!ms) return '—';
+  return ms >= 1000 ? (ms / 1000).toFixed(2) + ' s' : Math.round(ms) + ' ms';
 }
 
 onMounted(load);
@@ -1540,30 +1568,10 @@ onMounted(load);
   font-weight: 600;
 }
 
-/* ---------- votos (feedback) ---------- */
-.ai-vote {
-  font-size: 1.1rem;
-  line-height: 1;
-}
-.ai-fb-summary {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+/* ---------- trilha de auditoria ---------- */
+.ai-audit-mode {
   font-size: var(--ui-text-sm);
-  font-weight: 600;
-  color: rgb(var(--ui-fg));
-  font-variant-numeric: tabular-nums;
-}
-.ai-fb-sep {
-  color: rgb(var(--ui-faint));
-}
-.ai-fb-text {
-  display: inline-block;
-  max-width: 42ch;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  vertical-align: bottom;
+  color: rgb(var(--ui-muted));
 }
 
 /* ---------- formulários (modais) ---------- */

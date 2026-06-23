@@ -125,6 +125,55 @@ app.get('/v1/integrations/:id/audit', wrap(async (req, res) => {
   res.json({ items, total });
 }));
 
+// ---- controle da IA: settings, telemetria e trilha de auditoria ----
+// Controle fail-closed: quando a tabela está vazia os defaults desligam tudo (enabled=false, dryRun=true).
+//  · GET  /v1/ai/control → configuração atual (defaults fail-closed se vazio)
+//  · PUT  /v1/ai/control → persiste patch de configuração (upsert por tenant)
+//  · GET  /v1/ai/usage   → agrega tokens/custo/latência/chamadas (últimos 30 dias)
+//  · GET  /v1/ai/audit   → trilha de auditoria das ações da IA
+const AI_DEFAULTS = { enabled: false, modes: { assist: false, chat: false }, budgetUsd: 0, tokenBudget: 0, model: 'claude-haiku-4-5', promptVersion: 'v1', temperature: 0, dryRun: true, grounding: { useKb: true, useSimilarTickets: true } };
+function rowToAiControl(c) {
+  return { enabled: !!c.enabled, modes: c.modes || AI_DEFAULTS.modes, budgetUsd: parseFloat(c.budget_usd) || 0, tokenBudget: Number(c.token_budget) || 0, model: c.model || AI_DEFAULTS.model, promptVersion: c.prompt_version || 'v1', temperature: parseFloat(c.temperature) || 0, dryRun: c.dry_run !== false, grounding: c.grounding || AI_DEFAULTS.grounding };
+}
+app.get('/v1/ai/control', wrap(async (req, res) => {
+  const { rows } = await pool.query('SELECT * FROM ai_control WHERE tenant_id=$1 LIMIT 1', [req.tenantId]);
+  res.json(rows[0] ? rowToAiControl(rows[0]) : AI_DEFAULTS);
+}));
+app.put('/v1/ai/control', wrap(async (req, res) => {
+  const b = req.body || {};
+  const { rows } = await pool.query('SELECT id FROM ai_control WHERE tenant_id=$1 LIMIT 1', [req.tenantId]);
+  if (!rows[0]) {
+    await pool.query('INSERT INTO ai_control(tenant_id,enabled,modes,budget_usd,token_budget,model,prompt_version,temperature,dry_run,grounding,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now())', [req.tenantId, b.enabled ?? false, JSON.stringify(b.modes ?? AI_DEFAULTS.modes), b.budgetUsd ?? 0, b.tokenBudget ?? 0, b.model ?? AI_DEFAULTS.model, b.promptVersion ?? 'v1', b.temperature ?? 0, b.dryRun !== false, JSON.stringify(b.grounding ?? AI_DEFAULTS.grounding)]);
+  } else {
+    const sets = ['updated_at=now()']; const vals = [req.tenantId];
+    if (b.enabled !== undefined) sets.push('enabled=$' + vals.push(!!b.enabled));
+    if (b.modes) sets.push('modes=$' + vals.push(JSON.stringify(b.modes)));
+    if (b.budgetUsd !== undefined) sets.push('budget_usd=$' + vals.push(Number(b.budgetUsd) || 0));
+    if (b.tokenBudget !== undefined) sets.push('token_budget=$' + vals.push(Number(b.tokenBudget) || 0));
+    if (b.model) sets.push('model=$' + vals.push(b.model));
+    if (b.promptVersion !== undefined) sets.push('prompt_version=$' + vals.push(b.promptVersion || 'v1'));
+    if (b.temperature !== undefined) sets.push('temperature=$' + vals.push(Number(b.temperature) || 0));
+    if (b.dryRun !== undefined) sets.push('dry_run=$' + vals.push(!!b.dryRun));
+    if (b.grounding) sets.push('grounding=$' + vals.push(JSON.stringify(b.grounding)));
+    await pool.query('UPDATE ai_control SET ' + sets.join(',') + ' WHERE tenant_id=$1', vals);
+  }
+  const { rows: r2 } = await pool.query('SELECT * FROM ai_control WHERE tenant_id=$1 LIMIT 1', [req.tenantId]);
+  res.json(r2[0] ? rowToAiControl(r2[0]) : AI_DEFAULTS);
+}));
+app.get('/v1/ai/usage', wrap(async (req, res) => {
+  const { rows } = await pool.query(
+    `SELECT COALESCE(SUM(input_tokens+output_tokens),0)::int AS tokens, COALESCE(SUM(input_tokens),0)::int AS tokens_in, COALESCE(SUM(output_tokens),0)::int AS tokens_out, COALESCE(SUM(cost_usd),0)::float AS cost_usd, COUNT(*)::int AS requests, COALESCE(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency_ms),0)::int AS latency_p95_ms FROM ai_audit WHERE tenant_id=$1 AND created_at>now()-interval '30 days'`,
+    [req.tenantId]);
+  const u = rows[0] || {};
+  res.json({ tokens: u.tokens || 0, tokensIn: u.tokens_in || 0, tokensOut: u.tokens_out || 0, costUsd: parseFloat(u.cost_usd) || 0, requests: u.requests || 0, latencyP95Ms: u.latency_p95_ms || 0, thumbsUp: 0, thumbsDown: 0, periodLabel: 'últimos 30 dias' });
+}));
+app.get('/v1/ai/audit', wrap(async (req, res) => {
+  const lim = Math.min(Number(req.query.pageSize) || 20, 100);
+  const { rows } = await pool.query('SELECT id,action,mode,ticket_id,input_tokens,output_tokens,cost_usd,latency_ms,outcome,dry_run,summary,created_at FROM ai_audit WHERE tenant_id=$1 ORDER BY created_at DESC LIMIT $2', [req.tenantId, lim]);
+  const { rows: cnt } = await pool.query('SELECT count(*)::int AS n FROM ai_audit WHERE tenant_id=$1', [req.tenantId]);
+  res.json({ items: rows, total: cnt[0].n });
+}));
+
 // ---- tickets — entidade central. O prazo de SLA (sla_due_at) é SEMPRE derivado
 // server-side da política aplicada (sla_policies.resolution_mins / business_hours_only),
 // nunca do cliente. Assim o prazo persistido é a fonte da verdade que a tela relê. ----

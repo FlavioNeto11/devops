@@ -30,7 +30,14 @@ const MIGRATIONS = [`CREATE TABLE IF NOT EXISTS records (id SERIAL PRIMARY KEY, 
   // latência) + o corpo da resposta JÁ REDIGIDO (a redação é server-side, fonte
   // da verdade — ver gateways/gateway.js). A tela /integrations/:id lê esta trilha.
   `CREATE TABLE IF NOT EXISTS integration_audit (id BIGSERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, integration_id INTEGER NOT NULL, method TEXT NOT NULL DEFAULT 'GET', path TEXT NOT NULL DEFAULT '', status_code INTEGER, latency_ms INTEGER, ok BOOLEAN, redacted BOOLEAN NOT NULL DEFAULT true, response JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ DEFAULT now());
-   CREATE INDEX IF NOT EXISTS integration_audit_idx ON integration_audit (tenant_id, integration_id, created_at DESC);`];
+   CREATE INDEX IF NOT EXISTS integration_audit_idx ON integration_audit (tenant_id, integration_id, created_at DESC);`,
+  // ---- controle da IA (ai_control) + trilha de auditoria da IA (ai_audit) — migração 7 ----
+  // ai_control: uma linha por tenant; configuração fail-closed (enabled=false por padrão).
+  // ai_audit: registro imutável de cada invocação do assistente (ação, tokens, latência, resultado).
+  `CREATE TABLE IF NOT EXISTS ai_control (id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, enabled BOOLEAN NOT NULL DEFAULT false, modes JSONB NOT NULL DEFAULT '{"assist":false,"chat":false}'::jsonb, budget_usd NUMERIC(12,4) NOT NULL DEFAULT 0, token_budget INTEGER NOT NULL DEFAULT 0, model TEXT NOT NULL DEFAULT 'claude-haiku-4-5', prompt_version TEXT NOT NULL DEFAULT 'v1', temperature NUMERIC(3,2) NOT NULL DEFAULT 0, dry_run BOOLEAN NOT NULL DEFAULT true, grounding JSONB NOT NULL DEFAULT '{"useKb":true,"useSimilarTickets":true}'::jsonb, updated_at TIMESTAMPTZ DEFAULT now());
+   CREATE UNIQUE INDEX IF NOT EXISTS ai_control_tenant_idx ON ai_control (tenant_id);
+   CREATE TABLE IF NOT EXISTS ai_audit (id BIGSERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, action TEXT NOT NULL DEFAULT 'assist', mode TEXT NOT NULL DEFAULT 'assist', ticket_id INTEGER, input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0, cost_usd NUMERIC(12,6) NOT NULL DEFAULT 0, latency_ms INTEGER NOT NULL DEFAULT 0, outcome TEXT NOT NULL DEFAULT 'success', dry_run BOOLEAN NOT NULL DEFAULT true, summary TEXT, created_at TIMESTAMPTZ DEFAULT now());
+   CREATE INDEX IF NOT EXISTS ai_audit_tenant_idx ON ai_audit (tenant_id, created_at DESC);`];
 export async function migrate() {
   const c = await pool.connect();
   try {
@@ -99,6 +106,15 @@ async function seedDomain() {
       ('E-mail SMTP','email','smtp://mail.helpflow.local:587',5000,3,'active',now()),
       ('Central Externa','external_central','https://central.example.com/api',8000,2,'degraded',now()),
       ('Webhook Eventos','webhook','https://hooks.helpflow.local/in',3000,4,'active',NULL)`);
+  }
+  if (await empty('ai_control')) {
+    await pool.query(`INSERT INTO ai_control(tenant_id,enabled,modes,model,prompt_version,temperature,dry_run,grounding) VALUES (1,false,'{"assist":false,"chat":false}','claude-haiku-4-5','v1',0,true,'{"useKb":true,"useSimilarTickets":true}')`);
+  }
+  if (await empty('ai_audit')) {
+    await pool.query(`INSERT INTO ai_audit(tenant_id,action,mode,ticket_id,input_tokens,output_tokens,cost_usd,latency_ms,outcome,dry_run,summary) VALUES
+      (1,'classify','assist',1,512,128,0.000060,842,'success',true,'Categoria: Acesso · Prioridade: urgente · Confiança: 0.91'),
+      (1,'draft','chat',2,1024,256,0.000180,1240,'success',true,'Rascunho gerado com 2 artigos citados'),
+      (1,'react_step','chat',1,768,192,0.000130,620,'success',true,'Tool buscar_tickets_similares: 3 resultados')`);
   }
   if (await empty('tickets')) {
     // sla_due_at é o prazo aplicado; aqui apenas valores de exemplo coerentes
