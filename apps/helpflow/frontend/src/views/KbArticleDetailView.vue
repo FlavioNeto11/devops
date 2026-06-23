@@ -219,6 +219,55 @@
             </template>
           </UiCard>
 
+          <!-- Artigos relacionados -->
+          <UiCard
+            title="Artigos relacionados"
+            subtitle="Artigos publicados na mesma categoria."
+          >
+            <template #actions>
+              <UiButton variant="ghost" size="sm" :loading="relatedArticlesLoading" @click="loadRelatedArticles">
+                Atualizar
+              </UiButton>
+            </template>
+
+            <UiDataTable
+              :columns="relatedArticleColumns"
+              :rows="relatedArticles"
+              :loading="relatedArticlesLoading"
+              :error="relatedArticlesError"
+              row-key="id"
+              density="compact"
+              clickable-rows
+              :empty="{
+                icon: 'doc',
+                title: 'Nenhum artigo relacionado',
+                description: 'Não há artigos publicados na mesma categoria.',
+              }"
+              @retry="loadRelatedArticles"
+              @row-click="openRelatedArticle"
+            >
+              <template #cell-title="{ row }">
+                <span class="art-title">{{ row.title || ('Artigo #' + row.id) }}</span>
+              </template>
+              <template #cell-category="{ value }">
+                <UiStatusBadge
+                  v-if="value"
+                  tone="running"
+                  :label="value"
+                  :with-dot="false"
+                  size="sm"
+                />
+                <span v-else class="ui-muted">—</span>
+              </template>
+              <template #cell-status="{ value }">
+                <UiStatusBadge :status="value" :tone="statusTone(value)" :label="statusLabel(value)" size="sm" />
+              </template>
+              <template #empty-action>
+                <UiButton variant="subtle" to="/kb-articles">Ver todos os artigos</UiButton>
+              </template>
+            </UiDataTable>
+          </UiCard>
+
           <!-- RelatedTicketsList -->
           <UiCard
             ref="relatedCard"
@@ -740,8 +789,34 @@ async function load() {
   } finally {
     loading.value = false;
   }
-  if (!notFound.value && !error.value) loadRelated();
+  if (!notFound.value && !error.value) { loadRelated(); loadRelatedArticles(); }
 }
+
+// ============================ Artigos relacionados ============================
+const relatedArticles = ref([]);
+const relatedArticlesLoading = ref(false);
+const relatedArticlesError = ref(null);
+const relatedArticleColumns = [
+  { key: 'id', label: '#', align: 'right' },
+  { key: 'title', label: 'Artigo' },
+  { key: 'category', label: 'Categoria' },
+  { key: 'status', label: 'Status' },
+];
+
+async function loadRelatedArticles() {
+  relatedArticlesLoading.value = true; relatedArticlesError.value = null;
+  try {
+    if (!hasFn(kb, 'related')) { relatedArticles.value = []; return; }
+    const r = await kb.related(props.id);
+    relatedArticles.value = (r && r.data) || (Array.isArray(r) ? r : []);
+  } catch (e) {
+    relatedArticlesError.value = e;
+  } finally {
+    relatedArticlesLoading.value = false;
+  }
+}
+
+const openRelatedArticle = (row) => { if (row && row.id != null) router.push('/kb-articles/' + row.id); };
 
 // ============================ RelatedTicketsList ============================
 const relatedLoading = ref(true);
@@ -970,6 +1045,9 @@ onMounted(load);
 .article-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-3); flex-wrap: wrap; }
 .tags { display: flex; gap: var(--ui-space-2); flex-wrap: wrap; }
 .article-foot-meta { color: rgb(var(--ui-muted)); font-size: var(--ui-text-xs); }
+
+/* ---------- artigos relacionados ---------- */
+.art-title { font-weight: 600; }
 
 /* ---------- chamados relacionados ---------- */
 .rel-summary { display: flex; gap: var(--ui-space-2); flex-wrap: wrap; margin-bottom: var(--ui-space-3); }

@@ -57,6 +57,7 @@ export const integrationAudit = (id, params) => request('GET', '/v1/integrations
 export const kbArticles = {
   ...resourceFactory('kb-articles'),
   reindex: (id) => request('POST', '/v1/kb-articles/' + id + '/reindex'),
+  related: (id) => request('GET', '/v1/kb-articles/' + id + '/related'),
 };
 // Alias de namespace com chave kebab-case: algumas telas acessam o recurso por
 // `api['kb-articles']` (espelhando o segmento REST). Export com nome em string

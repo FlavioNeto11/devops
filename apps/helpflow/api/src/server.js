@@ -214,6 +214,24 @@ app.put('/v1/tickets/:id', wrap(async (req, res) => {
 }));
 app.delete('/v1/tickets/:id', crudDelete('tickets'));
 
+// GET /v1/kb-articles/:id/related — artigos relacionados por categoria e recência.
+// Sem pgvector disponível no ambiente base: degrada para similaridade por categoria.
+app.get('/v1/kb-articles/:id/related', wrap(async (req, res) => {
+  const article = await repos['kb-articles'].repo.get(req.tenantId, req.params.id);
+  if (!article) return res.status(404).json({ error: { message: 'não encontrado' } });
+  const { rows } = await pool.query(
+    `SELECT id, title, category, tags, status, embedding_status, updated_at
+     FROM kb_articles
+     WHERE tenant_id = $1 AND id != $2 AND status = 'published'
+     ORDER BY
+       (CASE WHEN category IS NOT NULL AND category = $3 THEN 1 ELSE 0 END) DESC,
+       updated_at DESC
+     LIMIT 5`,
+    [req.tenantId, req.params.id, article.category]
+  );
+  res.json({ data: rows, total: rows.length });
+}));
+
 async function depth() { try { const c = await jobsRepo.counts(); for (const s of ['queued','running','done','dlq']) M.queueDepth.set({ status: s }, c[s] || 0); } catch {} }
 const PORT = Number(process.env.PORT) || 8080;
 (async () => {
