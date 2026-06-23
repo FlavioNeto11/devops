@@ -25,7 +25,7 @@
       </div>
     </template>
 
-    <form class="kb-form" novalidate @submit.prevent="onPrimarySubmit">
+    <form class="kb-form" novalidate :aria-busy="categoriesLoading" @submit.prevent="onPrimarySubmit">
       <div class="kb-grid">
         <!-- ============================== COLUNA PRINCIPAL ============================== -->
         <div class="kb-main">
@@ -47,6 +47,7 @@
                     placeholder="Ex.: Como emitir a segunda via do boleto"
                     :aria-describedby="describedBy"
                     :aria-invalid="hasError ? 'true' : null"
+                    :disabled="categoriesLoading"
                     :value="f.values.title"
                     @input="f.setField('title', $event.target.value)"
                     @blur="f.validateField('title')"
@@ -80,6 +81,7 @@
                         class="kb-tool"
                         :title="tool.title"
                         :aria-label="tool.title"
+                        :disabled="categoriesLoading"
                         @click="applyTool(tool)"
                       >
                         <span class="kb-tool-glyph" aria-hidden="true">{{ tool.glyph }}</span>
@@ -110,6 +112,7 @@
                       placeholder="Descreva a solução em passos. Você pode usar # para títulos, **negrito**, *itálico*, `código`, listas com - e citações com >."
                       :aria-describedby="describedBy"
                       :aria-invalid="hasError ? 'true' : null"
+                      :disabled="categoriesLoading"
                       :value="f.values.body"
                       @input="f.setField('body', $event.target.value)"
                       @focus="bodyFocused = true"
@@ -142,11 +145,15 @@
 
           <!-- ---- Classificação (categoria + TagInput) ---- -->
           <UiCard title="Classificação" subtitle="Organiza a base e melhora as sugestões automáticas dos chamados.">
+            <div v-if="categoriesLoading" class="kb-cat-loading" role="status" aria-live="polite">
+              <span class="kb-cat-spin" aria-hidden="true" />
+              <span>Carregando opções de categoria…</span>
+            </div>
             <UiFormSection title="Categoria e tags" :columns="1">
               <UiFormField
                 label="Categoria"
                 :error="f.errors.category"
-                hint="Agrupe artigos por tema. Selecione uma sugestão ou digite a sua."
+                :hint="categoriesLoading ? 'Carregando opções…' : 'Agrupe artigos por tema. Selecione uma sugestão ou digite a sua.'"
               >
                 <template #default="{ id, describedBy }">
                   <input
@@ -157,6 +164,7 @@
                     autocomplete="off"
                     placeholder="Ex.: Faturamento, Acesso e login, Integrações…"
                     :aria-describedby="describedBy"
+                    :disabled="categoriesLoading"
                     :value="f.values.category"
                     @input="f.setField('category', $event.target.value)"
                   />
@@ -197,6 +205,7 @@
                       maxlength="32"
                       placeholder="Adicionar tag…"
                       :aria-describedby="describedBy"
+                      :disabled="categoriesLoading"
                       :value="tagDraft"
                       @input="tagDraft = $event.target.value"
                       @keydown="onTagKeydown"
@@ -246,6 +255,7 @@
                       name="kb-status"
                       :value="opt.value"
                       :checked="f.values.status === opt.value"
+                      :disabled="categoriesLoading"
                       @change="f.setField('status', opt.value)"
                     />
                     <span class="kb-status-mark" aria-hidden="true" />
@@ -378,7 +388,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick } from 'vue';
+import { ref, computed, nextTick, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import {
   UiPageLayout,
@@ -433,7 +443,7 @@ const statusOptions = [
 ];
 const statusLabel = (v) => (statusOptions.find((o) => o.value === v) || {}).label || '—';
 
-const categorySuggestions = [
+const FALLBACK_CATEGORIES = [
   'Acesso e login',
   'Faturamento',
   'Integrações',
@@ -441,6 +451,26 @@ const categorySuggestions = [
   'Erros comuns',
   'Primeiros passos',
 ];
+const categoriesLoading = ref(true);
+const dynamicCategories = ref([]);
+const categorySuggestions = computed(() =>
+  dynamicCategories.value.length ? dynamicCategories.value : FALLBACK_CATEGORIES,
+);
+
+onMounted(async () => {
+  try {
+    if (kbArticles) {
+      const res = await kbArticles.list({ pageSize: 200 });
+      const items = (res && res.data) || [];
+      const cats = [...new Set(items.map((a) => a.category).filter(Boolean))].sort();
+      if (cats.length) dynamicCategories.value = cats;
+    }
+  } catch {
+    // fall back to FALLBACK_CATEGORIES
+  } finally {
+    categoriesLoading.value = false;
+  }
+});
 
 const TAG_SUGGESTIONS = ['senha', 'login', 'boleto', 'integração', 'erro', 'configuração', 'primeiro acesso'];
 
@@ -1097,6 +1127,28 @@ function goBack() {
 .kb-submitbar-hint[data-state="warn"] { color: rgb(var(--ui-danger)); font-weight: 600; }
 .kb-submitbar-hint[data-state="publish"] strong { color: rgb(var(--ui-accent-strong)); }
 .kb-submitbar-actions { display: flex; gap: var(--ui-space-2); flex-shrink: 0; flex-wrap: wrap; }
+
+/* ---------------------------- loading de categorias ---------------------------- */
+.kb-cat-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+  padding: var(--ui-space-2) 0 var(--ui-space-3);
+  color: rgb(var(--ui-muted));
+  font-size: var(--ui-text-sm);
+}
+.kb-cat-spin {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgb(var(--ui-border-strong));
+  border-top-color: rgb(var(--ui-accent));
+  animation: kb-spin 0.6s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes kb-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .kb-cat-spin { animation: none; } }
 
 /* ---------------------------- responsivo ---------------------------- */
 @media (max-width: 980px) {
