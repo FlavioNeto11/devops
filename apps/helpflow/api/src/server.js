@@ -73,7 +73,46 @@ app.post('/v1/agents', crudCreate('agents'));
 app.put('/v1/agents/:id', crudUpdate('agents'));
 app.delete('/v1/agents/:id', crudDelete('agents'));
 
-app.get('/v1/teams', crudList('teams'));
+// GET /v1/teams?withMetrics=true — enriquece cada time com queue_count (chamados abertos)
+// e avg_sla_mins (SLA médio restante); fallback gracioso se tickets estiver vazia.
+app.get('/v1/teams', wrap(async (req, res) => {
+  if (req.query.withMetrics === 'true') {
+    const tenantId = req.tenantId;
+    const ps = Math.min(500, Math.max(1, Number(req.query.pageSize) || 500));
+    const p = Math.max(1, Number(req.query.page) || 1);
+    const offset = (p - 1) * ps;
+    const SORT_ALLOW = new Set(['name', 'status', 'id', 'created_at', 'updated_at']);
+    const sortCol = SORT_ALLOW.has(req.query.sort) ? req.query.sort : 'name';
+    const sortDir = req.query.dir === 'asc' ? 'ASC' : 'DESC';
+    const [totRes, dataRes] = await Promise.all([
+      pool.query('SELECT COUNT(*)::int AS n FROM teams WHERE tenant_id=$1', [tenantId]),
+      pool.query(
+        `SELECT t.*,
+                COALESCE(m.queue_count,0)::int AS queue_count,
+                m.avg_sla_mins
+         FROM teams t
+         LEFT JOIN (
+           SELECT team_id,
+                  COUNT(*)::int AS queue_count,
+                  AVG(EXTRACT(EPOCH FROM (sla_due_at - now()))/60.0) AS avg_sla_mins
+           FROM tickets
+           WHERE tenant_id=$1
+             AND status IN ('open','new','pending','waiting','queued')
+           GROUP BY team_id
+         ) m ON t.id = m.team_id
+         WHERE t.tenant_id=$1
+         ORDER BY t.${sortCol} ${sortDir}
+         LIMIT $2 OFFSET $3`,
+        [tenantId, ps, offset]
+      ),
+    ]);
+    return res.json({ data: dataRes.rows, total: totRes.rows[0].n, page: p, pageSize: ps });
+  }
+  const { repo } = repos.teams;
+  const { page, pageSize, sort, dir, q } = req.query;
+  const r = await repo.list(req.tenantId, { page, pageSize, sort, dir, q });
+  res.json({ data: r.data, total: r.total, page: r.page, pageSize: r.pageSize });
+}));
 app.get('/v1/teams/:id', crudGet('teams'));
 app.post('/v1/teams', crudCreate('teams'));
 app.put('/v1/teams/:id', crudUpdate('teams'));

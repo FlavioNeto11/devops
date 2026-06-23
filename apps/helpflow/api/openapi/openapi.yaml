@@ -81,6 +81,11 @@ paths:
   /v1/teams:
     get:
       operationId: listTeams
+      parameters:
+        - name: withMetrics
+          in: query
+          schema: { type: boolean }
+          description: "Enriquece cada time com queue_count (chamados abertos) e avg_sla_mins (SLA médio restante)"
       responses: { "200": { description: ok } }
     post:
       operationId: createTeam

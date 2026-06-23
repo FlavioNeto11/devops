@@ -137,14 +137,17 @@
         </span>
       </template>
 
-      <!-- Chamados na fila: número + barra de carga (largura por classe, CSP-safe) -->
+      <!-- Chamados na fila: barra de carga + contagem + SLA médio (via withMetrics, fail-soft) -->
       <template #cell-queued="{ row }">
         <span v-if="enriching && !countsReady" class="tm-na" aria-hidden="true">…</span>
         <span v-else class="tm-queue" :data-load="queueLevel(row)" :title="queueTitle(row)">
           <span class="tm-queue-bar" aria-hidden="true">
             <span class="tm-queue-fill" :data-fill="queueFill(row)" />
           </span>
-          <span class="tm-queue-num">{{ queuedCount(row) }}</span>
+          <span class="tm-queue-info">
+            <span class="tm-queue-num">{{ queuedCount(row) }}</span>
+            <span v-if="avgSla(row) != null && queuedCount(row) > 0" class="tm-queue-sla" :data-overdue="avgSla(row) < 0 ? 'true' : null">{{ slaTag(row) }}</span>
+          </span>
         </span>
       </template>
 
@@ -200,7 +203,7 @@ import {
   useConfirm,
   format,
 } from '../ui/index.js';
-import { teams, agents, slaPolicies, tickets } from '../api.js';
+import { teams, agents, slaPolicies } from '../api.js';
 import { loadMe, canMutate } from '../session.js';
 
 const router = useRouter();
@@ -253,6 +256,7 @@ const agentMap = ref({}); // id -> { name, email }
 const slaMap = ref({}); // id -> name
 const agentCounts = ref({}); // teamId -> nº agentes
 const queueCounts = ref({}); // teamId -> nº chamados na fila
+const avgSlaMap = ref({}); // teamId -> avg_sla_mins (null = sem tickets abertos)
 const enriching = ref(false);
 const countsReady = ref(false);
 
@@ -290,7 +294,29 @@ function queueFill(row) {
   return '15';
 }
 const agentsTitle = (row) => agentCount(row) + ' agente(s) alocado(s) a esta fila';
-const queueTitle = (row) => queuedCount(row) + ' chamado(s) aguardando atendimento';
+
+// SLA médio: avg_sla_mins vem de withMetrics=true (null quando sem tickets abertos)
+const avgSla = (row) => {
+  const v = avgSlaMap.value[String(row.id)];
+  return v != null ? Number(v) : null;
+};
+function formatMins(mins) {
+  const abs = Math.abs(mins);
+  const h = Math.floor(abs / 60);
+  const m = Math.round(abs % 60);
+  return h > 0 ? (h + 'h' + (m > 0 ? ' ' + m + 'min' : '')) : (m + 'min');
+}
+function slaTag(row) {
+  const v = avgSla(row);
+  if (v == null) return '';
+  return v < 0 ? ('−' + formatMins(v)) : formatMins(v);
+}
+const queueTitle = (row) => {
+  const n = queuedCount(row);
+  const v = avgSla(row);
+  const base = n + ' chamado(s) aguardando atendimento';
+  return v != null ? (base + ' · SLA médio: ' + (v < 0 ? '−' : '') + formatMins(v) + (v < 0 ? ' (atrasado)' : ' restante')) : base;
+};
 
 // ------- helpers de apresentação -------
 function shortDesc(desc) {
@@ -406,32 +432,30 @@ async function loadSlaRef() {
   }
 }
 
-// Chamados na fila por time: contamos os chamados em estados "abertos/aguardando"
-// agrupados por team_id. Pedimos um recorte amplo e contamos no cliente — se o
-// backend não expor o campo, a coluna mostra 0 sem quebrar (fail-soft).
-const OPEN_STATES = ['open', 'new', 'pending', 'waiting', 'queued', 'aberto', 'pendente', 'aguardando', 'em_fila'];
-async function loadQueueCounts() {
+// Métricas de fila por time: usa GET /v1/teams?withMetrics=true que devolve
+// queue_count (chamados abertos) e avg_sla_mins (SLA médio restante) por time.
+async function loadTeamMetrics() {
   try {
-    const res = await tickets.list({ pageSize: 500, sort: 'created_at', dir: 'desc' });
+    const res = await teams.list({ withMetrics: true, pageSize: 500 });
     const counts = {};
+    const slas = {};
     for (const t of rowsOf(res)) {
-      if (!t) continue;
-      const tid = t.team_id;
-      if (tid == null || tid === '') continue;
-      const st = String(t.status || '').toLowerCase();
-      const isOpen = !st || OPEN_STATES.some((w) => st === w || st.includes(w));
-      if (isOpen) counts[String(tid)] = (counts[String(tid)] || 0) + 1;
+      if (!t || t.id == null) continue;
+      counts[String(t.id)] = Number(t.queue_count) || 0;
+      if (t.avg_sla_mins != null) slas[String(t.id)] = Number(t.avg_sla_mins);
     }
     queueCounts.value = counts;
+    avgSlaMap.value = slas;
   } catch {
     queueCounts.value = {};
+    avgSlaMap.value = {};
   }
 }
 
 async function enrich() {
   enriching.value = true;
   try {
-    await Promise.allSettled([loadAgentsRef(), loadSlaRef(), loadQueueCounts()]);
+    await Promise.allSettled([loadAgentsRef(), loadSlaRef(), loadTeamMetrics()]);
     countsReady.value = true;
   } finally {
     enriching.value = false;
@@ -673,6 +697,12 @@ onMounted(() => {
 .tm-queue[data-load="ok"] .tm-queue-fill { background: rgb(var(--ui-ok)); }
 .tm-queue[data-load="soon"] .tm-queue-fill { background: rgb(var(--ui-warn)); }
 .tm-queue[data-load="high"] .tm-queue-fill { background: rgb(var(--ui-danger)); }
+.tm-queue-info {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.2;
+}
 .tm-queue-num {
   font-family: var(--ui-font-display);
   font-weight: 700;
@@ -680,6 +710,15 @@ onMounted(() => {
   color: rgb(var(--ui-fg));
   min-width: 18px;
   text-align: right;
+}
+.tm-queue-sla {
+  font-size: var(--ui-text-xs);
+  color: rgb(var(--ui-muted));
+  white-space: nowrap;
+  text-align: right;
+}
+.tm-queue-sla[data-overdue="true"] {
+  color: rgb(var(--ui-danger));
 }
 .tm-queue[data-load="empty"] .tm-queue-num {
   color: rgb(var(--ui-muted));
