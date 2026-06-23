@@ -71,6 +71,24 @@ function csvToMarkdown(text, maxRows) {
   return lines.join('\n');
 }
 
+// pdf -> texto, robusto a pdf-parse v1 (default callable) E v2 (classe PDFParse({data}).getText()).
+// Retorna null = lib ausente; '' = lib presente mas sem texto (PDF escaneado); string = texto extraído.
+async function extractPdfText(buf) {
+  let mod;
+  try { mod = await import('pdf-parse'); } catch { return null; }
+  const m = mod && mod.default ? mod.default : mod;
+  // v1: módulo é a própria função
+  if (typeof m === 'function') { const r = await m(buf); return String((r && r.text) || ''); }
+  // v2: classe PDFParse({ data }).getText() -> { text }; sempre destroy()
+  const PDFParse = (m && m.PDFParse) || (mod && mod.PDFParse);
+  if (typeof PDFParse === 'function') {
+    const parser = new PDFParse({ data: buf });
+    try { const r = await parser.getText(); return String((r && r.text) || ''); }
+    finally { if (parser && typeof parser.destroy === 'function') { try { await parser.destroy(); } catch { /* noop */ } } }
+  }
+  return '';
+}
+
 // pptx -> texto dos slides (sem lib extra além do jszip)
 async function pptxText(buf) {
   const JSZip = await lazy('jszip');
@@ -104,9 +122,11 @@ async function extractOne(name, buf, type, opts, depthInfo) {
       }
       case 'pdf': {
         out.blocks.push({ type: 'document', name, mediaType: 'application/pdf', dataBase64: buf.toString('base64') });
-        const pdfParse = await lazy('pdf-parse');
-        if (pdfParse) { try { const r = await pdfParse(buf); pushText(r.text || '', 'pdf'); } catch (e) { out.notes.push(`${name}: PDF texto não extraído (${e.message}); bloco nativo disponível p/ Claude.`); } }
-        else out.notes.push(`${name}: pdf-parse ausente — sem texto (bloco nativo só p/ Claude).`);
+        let pdfText = null; // null = lib ausente; '' = sem texto (escaneado); string = texto
+        try { pdfText = await extractPdfText(buf); } catch (e) { out.notes.push(`${name}: PDF texto não extraído (${e.message}); bloco nativo disponível p/ Claude.`); pdfText = ''; }
+        if (pdfText == null) out.notes.push(`${name}: pdf-parse ausente — sem texto (bloco nativo só p/ Claude).`);
+        else if (pdfText === '') out.notes.push(`${name}: PDF sem texto extraível (escaneado?); bloco nativo p/ Claude.`);
+        else pushText(pdfText, 'pdf');
         break;
       }
       case 'docx': {
