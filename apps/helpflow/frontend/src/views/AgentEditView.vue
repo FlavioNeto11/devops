@@ -33,7 +33,7 @@
         <div class="ag-identity">
           <span class="ag-avatar" aria-hidden="true">{{ initials }}</span>
           <div class="ag-identity-id">
-            <p class="ag-identity-name">{{ record.name || 'Agente sem nome' }}</p>
+            <p class="ag-identity-name">{{ f.values.name || 'Agente sem nome' }}</p>
             <p class="ag-identity-mail">{{ record.email || 'Sem e-mail cadastrado' }}</p>
           </div>
           <div class="ag-identity-badges">
@@ -57,6 +57,34 @@
 
       <UiCard title="Acesso e permissões" subtitle="Defina o papel RBAC, o time e a situação do agente.">
         <form class="ag-form" novalidate @submit.prevent="save">
+          <!-- Identidade: nome editável (e-mail fica na camada OIDC) -->
+          <UiFormSection
+            title="Identidade"
+            description="Nome de exibição do agente. O e-mail é gerenciado pelo OIDC e não pode ser alterado aqui."
+            :columns="1"
+          >
+            <UiFormField
+              label="Nome"
+              :error="f.errors.name"
+              :required="true"
+              hint="Como o agente aparece nos chamados e atribuições."
+            >
+              <template #default="{ id, describedBy }">
+                <input
+                  :id="id"
+                  type="text"
+                  autocomplete="name"
+                  maxlength="120"
+                  :aria-describedby="describedBy"
+                  :value="f.values.name"
+                  placeholder="Ex.: Ana Ribeiro"
+                  @input="f.setField('name', $event.target.value)"
+                  @blur="f.validateField('name')"
+                />
+              </template>
+            </UiFormField>
+          </UiFormSection>
+
           <!-- RolePicker: papel RBAC como cartões de rádio acessíveis -->
           <UiFormSection
             title="Papel (RBAC)"
@@ -226,8 +254,9 @@ const STATUS_OPTIONS = [
 ];
 
 const f = useForm({
-  initial: { role: '', team_id: '', status: 'active' },
+  initial: { name: '', role: '', team_id: '', status: 'active' },
   rules: {
+    name: [validators.required('Informe o nome do agente'), validators.minLen(2)],
     role: [validators.required('Selecione o papel do agente')],
     status: [validators.required('Selecione a situação')],
     team_id: [validators.numeric('Time inválido')],
@@ -235,16 +264,16 @@ const f = useForm({
 });
 
 // snapshot do estado original p/ detectar alterações (dirty) e comparar o papel.
-const baseline = reactive({ role: '', team_id: '', status: 'active' });
+const baseline = reactive({ name: '', role: '', team_id: '', status: 'active' });
 
 const headerSubtitle = computed(() => {
   if (loadError.value || !record.value) return 'Edição de papel, time e situação do agente.';
-  const who = record.value.name || record.value.email;
+  const who = f.values.name || record.value.email;
   return who ? 'Editando o acesso de ' + who + '.' : 'Edição de papel, time e situação do agente.';
 });
 
 const initials = computed(() => {
-  const name = record.value && record.value.name;
+  const name = f.values.name || (record.value && record.value.name);
   if (!name) return '–';
   const parts = String(name).trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return '–';
@@ -349,6 +378,7 @@ function unwrap(res) {
 
 function hydrate(rec) {
   const next = {
+    name: rec.name || '',
     role: rec.role || '',
     team_id: rec.team_id != null && rec.team_id !== '' ? String(rec.team_id) : '',
     status: rec.status || 'active',
@@ -399,6 +429,7 @@ async function reload() {
 
 function buildPayload(vals) {
   return {
+    name: String(vals.name || '').trim(),
     role: vals.role,
     // team_id é numérico na entidade; envia número ou null quando "sem time".
     team_id: vals.team_id === '' || vals.team_id === null || vals.team_id === undefined ? null : Number(vals.team_id),
