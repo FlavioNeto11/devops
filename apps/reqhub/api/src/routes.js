@@ -14,6 +14,7 @@
 // contrato (authorize -> execute -> validar saida) e os erros sao tipados.
 import express from 'express';
 import { createToolRegistry, dispatchTool } from '@flavioneto11/ai-core';
+import { attachIngest } from '@flavioneto11/ai-ingest-middleware';
 import { buildAuthoringTools, buildForgeTools } from './tools.js';
 import { requireAuthoringAuth, ssoIdentity } from './auth.js';
 import { aiEnabled, getLlm } from './llm.js';
@@ -32,6 +33,37 @@ function statusForError(err) {
     case 'TOOL_INVALID_OUTPUT': return 502;
     default: return 500;
   }
+}
+
+// MULTIMODAL (ingestao de arquivos): liga o caminho multipart/form-data SEM tocar no caminho
+// JSON existente. withIngest(mergeField) retorna [attachIngest, merge] — dois middlewares que rodam
+// DEPOIS do requireAuthoringAuth e ANTES do handler (run()/chat), que continuam lendo req.body.
+//   - attachIngest({field:'files'}): em JSON e NO-OP (req.ingested=null, contrato intacto); em
+//     multipart usa multer.array -> popula req.body com os campos de TEXTO (product/message/sketch/
+//     brief) E anexa req.ingested (IngestResult + .text bundle), fail-soft (erro NAO vira 500).
+//   - merge: funde o texto extraido dos arquivos no campo de entrada do usuario (mergeField) e
+//     anexa req.body._ingest = { manifest } — NUNCA os bytes/blobs (licao de OOM: so o manifesto).
+function withIngest(mergeField) {
+  const ingestMw = attachIngest({ field: 'files', maxFiles: 20 });
+  const mergeMw = (req, _res, next) => {
+    const ing = req.ingested;
+    if (ing) {
+      // multipart: multer entrega TODO campo de texto como STRING. Reidrata os que o contrato dos
+      // tools espera como JSON (array/objeto) — em JSON puro (ing=null) nada disso roda e o corpo é intacto.
+      req.body = req.body || {};
+      for (const k of ['grounding', 'history', 'capabilities', 'blueprints', 'scope', 'context']) {
+        if (typeof req.body[k] === 'string' && req.body[k].trim()) {
+          try { req.body[k] = JSON.parse(req.body[k]); } catch { /* não-JSON: mantém string */ }
+        }
+      }
+      if (typeof ing.text === 'string' && ing.text.trim()) {
+        req.body[mergeField] = [req.body[mergeField], ing.text].filter(Boolean).join('\n\n');
+        req.body._ingest = { manifest: Array.isArray(ing.manifest) ? ing.manifest : [] };
+      }
+    }
+    next();
+  };
+  return [ingestMw, mergeMw];
 }
 
 export function buildRouter({ registry, llm, memory } = {}) {
@@ -72,11 +104,13 @@ export function buildRouter({ registry, llm, memory } = {}) {
     }
   };
 
-  router.post('/v1/authoring/draft', requireAuthoringAuth, run('req.authoring.draft'));
+  // draft: entrada do usuario = 'sketch' (esboco em linguagem natural -> campos do requisito).
+  router.post('/v1/authoring/draft', requireAuthoringAuth, ...withIngest('sketch'), run('req.authoring.draft'));
   router.post('/v1/authoring/analyze', requireAuthoringAuth, run('req.authoring.analyze'));
   router.post('/v1/authoring/suggest-links', requireAuthoringAuth, run('req.authoring.suggest_links'));
   router.post('/v1/authoring/revise', requireAuthoringAuth, run('req.authoring.revise'));
-  router.post('/v1/authoring/assist', requireAuthoringAuth, run('req.authoring.assist'));
+  // assist: entrada do usuario = 'message' (conversa grounded sobre o produto).
+  router.post('/v1/authoring/assist', requireAuthoringAuth, ...withIngest('message'), run('req.authoring.assist'));
 
   // Camada de REFINAMENTO (REF-*): classificar nivel da mudanca + autorar refinamento de tela.
   router.post('/v1/authoring/classify', requireAuthoringAuth, run('req.authoring.classify_change'));
@@ -87,7 +121,7 @@ export function buildRouter({ registry, llm, memory } = {}) {
   // Chat de autoria pelo MOTOR DE GRAFO (router -> deep ReAct com tools R1 -> judge).
   // memory (F3) injetada via buildRouter({memory}); ausente -> grafo usa turn.history.
   // Gate de rollback: REQHUB_AI_CHAT=assist usa o single-shot (mesmo contrato) SEM redeploy do front.
-  router.post('/v1/authoring/chat', requireAuthoringAuth, async (req, res, next) => {
+  router.post('/v1/authoring/chat', requireAuthoringAuth, ...withIngest('message'), async (req, res, next) => {
     try {
       if ((process.env.REQHUB_AI_CHAT || 'graph').toLowerCase() === 'assist') {
         const theLlm = llm || (await getLlm());
@@ -106,7 +140,8 @@ export function buildRouter({ registry, llm, memory } = {}) {
   });
 
   // Forge (greenfield): propor requisitos/arquitetura — geram conteudo, nao escrevem git.
-  router.post('/v1/forge/propose-requirements', requireAuthoringAuth, run('forge.propose_requirements'));
+  // propose-requirements: entrada do usuario = 'brief' (descricao do produto novo).
+  router.post('/v1/forge/propose-requirements', requireAuthoringAuth, ...withIngest('brief'), run('forge.propose_requirements'));
   router.post('/v1/forge/propose-architecture', requireAuthoringAuth, run('forge.propose_architecture'));
 
   // Painel "Uso da IA" (/v1/ai-usage/*): leitura admin-only de custo/uso/limites (Claude+OpenAI),

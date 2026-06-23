@@ -18,7 +18,11 @@ COPY package*.json ./
 COPY vendor ./vendor
 
 # 2) Instalacao limpa/reprodutivel com lockfile (npm ci); fallback npm install.
-RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi
+#    O "|| npm install" cobre DRIFT do lockfile: ao adicionar deps novas (file-ingest-kit,
+#    ai-ingest-middleware, multer, pdf-parse/mammoth/xlsx/jszip) sem regenerar o lock no host,
+#    o npm ci falharia por estar fora de sync -> caimos no npm install (que reescreve o lock
+#    DENTRO da imagem). Idealmente o operador roda `npm install` no host e commita o lock.
+RUN if [ -f package-lock.json ]; then npm ci --omit=dev || npm install --omit=dev; else npm install --omit=dev; fi
 
 # 3) Codigo-fonte.
 COPY src ./src
