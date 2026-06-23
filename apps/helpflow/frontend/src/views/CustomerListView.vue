@@ -13,7 +13,7 @@
         <template #icon-left><span class="cust-ico" aria-hidden="true">↻</span></template>
         Atualizar
       </UiButton>
-      <UiButton @click="openCreate">
+      <UiButton to="/customers/new">
         <template #icon-left><span class="cust-ico" aria-hidden="true">＋</span></template>
         Novo solicitante
       </UiButton>
@@ -199,7 +199,7 @@
         <!-- Estado vazio: CTA para o cadastro (rota de domínio) -->
         <template #empty-action>
           <UiButton v-if="hasActiveFilters" variant="ghost" @click="clearAll">Limpar filtros</UiButton>
-          <UiButton v-else @click="openCreate">Cadastrar solicitante</UiButton>
+          <UiButton v-else to="/customers/new">Cadastrar solicitante</UiButton>
         </template>
       </UiDataTable>
     </UiCard>
