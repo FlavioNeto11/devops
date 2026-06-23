@@ -104,12 +104,19 @@ app.put('/v1/integrations/:id', crudUpdate('integrations'));
 app.delete('/v1/integrations/:id', crudDelete('integrations'));
 
 // ---- Ações de domínio da integração (gateway-externo) ----
-//  · POST /v1/integrations/:id/test  → ping via gateway (resposta REDIGIDA server-side),
+//  · POST /v1/integrations/ping       → pré-voo sem ID: testa conectividade com a config
+//    inline ({ base_url, timeout_ms, retries }). Rota fixa ANTES de /:id para evitar
+//    captura pelo param. Resposta REDIGIDA; não persiste trilha (sem integração salva).
+//  · POST /v1/integrations/:id/test   → ping via gateway (resposta REDIGIDA server-side),
 //    atualiza last_check_at e registra a chamada na trilha de auditoria.
-//  · GET  /v1/integrations/:id/audit → trilha redigida { items: [{ id, method, path,
-//    status_code, latency_ms, ok, redacted, response, created_at }], total }.
+//  · GET  /v1/integrations/:id/audit  → trilha redigida { items: [...], total }.
 // O ping NUNCA sai do navegador: passa exclusivamente pelo gateway (única porta de
 // saída) e a redação de segredos é autoritativa no gateway/repo, nunca no cliente.
+app.post('/v1/integrations/ping', wrap(async (req, res) => {
+  const { base_url, timeout_ms, retries } = req.body || {};
+  const result = await gatewayPing({ base_url, timeout_ms, retries });
+  res.json(result);
+}));
 app.post('/v1/integrations/:id/test', wrap(async (req, res) => {
   const integ = await repos.integrations.repo.get(req.tenantId, req.params.id);
   if (!integ) return res.status(404).json({ error: { message: 'não encontrado' } });

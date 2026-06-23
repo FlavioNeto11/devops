@@ -7,12 +7,13 @@ import { pool } from '../db.js';
 // Cria um repositório CRUD para uma tabela. `columns` são as colunas graváveis
 // (sem id/tenant_id/created_at/updated_at, que o repo gerencia). `sortable` é a
 // allowlist de colunas para ORDER BY (defesa contra injeção via ?sort).
-export function makeCrudRepo({ table, columns, sortable, searchable }) {
+export function makeCrudRepo({ table, columns, sortable, searchable, transform }) {
   const writable = columns;
   const sortCols = new Set([...(sortable || columns), 'id', 'created_at', 'updated_at']);
   // Allowlist de colunas para busca textual (?q=). Vazio = entidade sem busca.
   // Só colunas TEXT da própria tabela entram aqui (defesa contra injeção via nome).
   const searchCols = (searchable || []).filter((c) => columns.includes(c));
+  const tr = (row) => (transform && row ? transform(row) : row);
 
   function pickBody(body) {
     const data = {};
@@ -49,12 +50,12 @@ export function makeCrudRepo({ table, columns, sortable, searchable }) {
         `SELECT * FROM ${table} WHERE tenant_id=$1${search.clause} ORDER BY ${sortCol} ${sortDir} LIMIT $${2 + search.params.length} OFFSET $${3 + search.params.length}`,
         [tenantId, ...search.params, ps, offset]
       );
-      return { data: dataRes.rows, total: totalRes.rows[0].n, page: p, pageSize: ps };
+      return { data: dataRes.rows.map(tr), total: totalRes.rows[0].n, page: p, pageSize: ps };
     },
 
     async get(tenantId, id) {
       const { rows } = await pool.query(`SELECT * FROM ${table} WHERE tenant_id=$1 AND id=$2`, [tenantId, Number(id)]);
-      return rows[0] || null;
+      return tr(rows[0] || null);
     },
 
     async create(tenantId, body) {
@@ -67,7 +68,7 @@ export function makeCrudRepo({ table, columns, sortable, searchable }) {
         `INSERT INTO ${table} (${allCols.join(',')}) VALUES (${placeholders.join(',')}) RETURNING *`,
         [tenantId, ...vals]
       );
-      return rows[0];
+      return tr(rows[0]);
     },
 
     async update(tenantId, id, body) {
@@ -80,7 +81,7 @@ export function makeCrudRepo({ table, columns, sortable, searchable }) {
         `UPDATE ${table} SET ${sets.join(',')} WHERE tenant_id=$1 AND id=$2 RETURNING *`,
         [tenantId, Number(id), ...Object.values(data)]
       );
-      return rows[0] || null;
+      return tr(rows[0] || null);
     },
 
     async remove(tenantId, id) {

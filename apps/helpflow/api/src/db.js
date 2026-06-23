@@ -30,7 +30,12 @@ const MIGRATIONS = [`CREATE TABLE IF NOT EXISTS records (id SERIAL PRIMARY KEY, 
   // latência) + o corpo da resposta JÁ REDIGIDO (a redação é server-side, fonte
   // da verdade — ver gateways/gateway.js). A tela /integrations/:id lê esta trilha.
   `CREATE TABLE IF NOT EXISTS integration_audit (id BIGSERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, integration_id INTEGER NOT NULL, method TEXT NOT NULL DEFAULT 'GET', path TEXT NOT NULL DEFAULT '', status_code INTEGER, latency_ms INTEGER, ok BOOLEAN, redacted BOOLEAN NOT NULL DEFAULT true, response JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ DEFAULT now());
-   CREATE INDEX IF NOT EXISTS integration_audit_idx ON integration_audit (tenant_id, integration_id, created_at DESC);`];
+   CREATE INDEX IF NOT EXISTS integration_audit_idx ON integration_audit (tenant_id, integration_id, created_at DESC);`,
+  // ---- credenciais e mapeamento da integração — migração 7 ----
+  // credentials: chaves de autenticação (JSONB, gravadas redigidas nos logs).
+  // mapping:     roteamento padrão para fila/time (JSONB, ex.: { team_id: 1 }).
+  `ALTER TABLE integrations ADD COLUMN IF NOT EXISTS credentials JSONB NOT NULL DEFAULT '{}'::jsonb;
+   ALTER TABLE integrations ADD COLUMN IF NOT EXISTS mapping JSONB NOT NULL DEFAULT '{}'::jsonb;`];
 export async function migrate() {
   const c = await pool.connect();
   try {

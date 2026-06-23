@@ -163,6 +163,10 @@ paths:
     delete:
       operationId: deleteIntegration
       responses: { "200": { description: ok } }
+  /v1/integrations/ping:
+    post:
+      operationId: pingIntegration
+      responses: { "200": { description: "pré-voo: testa conectividade inline sem ID (resposta redigida)" } }
   /v1/integrations/{id}/test:
     post:
       operationId: testIntegration

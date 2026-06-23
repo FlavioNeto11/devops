@@ -278,6 +278,102 @@
           </UiFormField>
         </UiFormSection>
 
+        <!-- Credenciais -------------------------------------------------->
+        <UiFormSection
+          title="Credenciais"
+          :description="credentialsDescription"
+          :columns="1"
+        >
+          <UiFormField
+            :label="credentialLabel"
+            :full-width="true"
+            hint="Armazenada de forma segura. Não aparece em logs — apenas ••• redigido ••• na trilha de auditoria."
+          >
+            <template #default="{ id, describedBy }">
+              <input
+                :id="id"
+                type="password"
+                autocomplete="new-password"
+                spellcheck="false"
+                :aria-describedby="describedBy"
+                :value="f.values.cred_api_key"
+                :placeholder="credentialPlaceholder"
+                @input="f.setField('cred_api_key', $event.target.value)"
+              />
+            </template>
+          </UiFormField>
+        </UiFormSection>
+
+        <!-- Mapeamento -------------------------------------------------->
+        <UiFormSection
+          title="Mapeamento"
+          description="Define para qual equipe o tráfego recebido por esta integração é roteado por padrão. Pode ser alterado por regras de automação ou políticas de SLA."
+          :columns="1"
+        >
+          <UiFormField
+            label="Equipe padrão"
+            :full-width="true"
+            hint="Chamados e notificações recebidos via esta integração serão atribuídos a esta equipe."
+          >
+            <template #default="{ id, describedBy }">
+              <div class="hf-select-wrap">
+                <select
+                  :id="id"
+                  :aria-describedby="describedBy"
+                  :disabled="teamsLoading"
+                  :value="f.values.map_team_id"
+                  @change="f.setField('map_team_id', $event.target.value)"
+                >
+                  <option value="">Sem equipe padrão (roteamento manual)</option>
+                  <option
+                    v-for="team in teams"
+                    :key="team.id"
+                    :value="String(team.id)"
+                  >{{ team.name }}</option>
+                </select>
+                <span v-if="teamsLoading" class="hf-select-spin" aria-hidden="true">
+                  <span class="ui-spin" />
+                </span>
+              </div>
+            </template>
+          </UiFormField>
+        </UiFormSection>
+
+        <!-- Teste de conexão (pré-voo) ----------------------------------->
+        <div v-if="canPing" class="hf-ping" aria-live="polite">
+          <div class="hf-ping-head">
+            <div class="hf-ping-meta">
+              <span class="hf-ping-eyebrow">Teste de conectividade</span>
+              <p class="hf-ping-desc">
+                Dispara um ping pelo gateway resiliente antes de salvar para verificar se o endpoint responde. Segredos nunca saem do servidor.
+              </p>
+            </div>
+            <UiButton
+              type="button"
+              variant="subtle"
+              size="sm"
+              :loading="pinging"
+              @click="testPing"
+            >
+              {{ pinging ? 'Testando…' : 'Testar conexão' }}
+            </UiButton>
+          </div>
+
+          <div v-if="pingResult || pingError" class="hf-ping-result">
+            <span class="hf-ping-dot" :data-tone="pingError ? 'error' : (pingResult && pingResult.ok ? 'success' : 'error')" aria-hidden="true" />
+            <div class="hf-ping-body">
+              <p class="hf-ping-verdict" :data-tone="pingError ? 'error' : (pingResult && pingResult.ok ? 'success' : 'error')">
+                {{ pingError ? 'Falha na conexão' : (pingResult && pingResult.ok ? 'Gateway respondeu com sucesso' : 'O endpoint não respondeu como esperado') }}
+              </p>
+              <p class="hf-ping-detail">
+                {{ pingError || (pingResult && pingResult.message) || '' }}
+                <span v-if="pingResult && pingResult.latency_ms != null"> · {{ pingResult.latency_ms }} ms</span>
+                <span v-if="pingResult && pingResult.redacted"> · segredos redigidos</span>
+              </p>
+            </div>
+          </div>
+        </div>
+
         <!-- Pré-visualização viva da integração ----------------------------->
         <div class="hf-preview" aria-live="polite">
           <div class="hf-preview-head">
@@ -325,7 +421,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import {
   UiPageLayout,
@@ -342,7 +438,7 @@ import {
 // Endpoint REAL: POST /v1/integrations. `api.integrations` é o recurso de domínio
 // exportado/garantido pelo integrador em ../api.js (resourceFactory('integrations')),
 // que também usamos para a checagem auxiliar de duplicidade (GET /v1/integrations?q=).
-import { integrations } from '../api.js';
+import { integrations, integrationPing, teams as teamsApi } from '../api.js';
 
 const router = useRouter();
 const toast = useToast();
@@ -383,6 +479,8 @@ const f = useForm({
     timeout_ms: '5000',
     retries: '3',
     status: 'active',
+    cred_api_key: '',   // credentials.api_key — opcional
+    map_team_id: '',    // mapping.team_id — opcional
   },
   rules: {
     name: [validators.required('Informe o nome da integração'), validators.minLen(2), validators.maxLen(80)],
@@ -600,6 +698,84 @@ const previewSentence = computed(() => {
   );
 });
 
+// ---- Credenciais — labels e placeholders por tipo ---------------------------
+const credentialLabel = computed(() => {
+  switch (f.values.kind) {
+    case 'email': return 'Senha / Token de app (opcional)';
+    case 'telephony': return 'Auth Token';
+    case 'webhook': return 'Chave de API / Bearer Token (opcional)';
+    case 'external_central': return 'Chave de API / Token de acesso (opcional)';
+    case 'chat': return 'Token de acesso à página (opcional)';
+    default: return 'Chave de API / Token (opcional)';
+  }
+});
+
+const credentialPlaceholder = computed(() => {
+  switch (f.values.kind) {
+    case 'email': return 'Senha do app ou token SMTP';
+    case 'telephony': return 'Token de autenticação (ex.: Twilio Auth Token)';
+    case 'webhook': return 'Bearer eyJ... ou chave de API';
+    case 'external_central': return 'api_key_...';
+    case 'chat': return 'EAAxxxx... (token do WhatsApp/Meta)';
+    default: return 'Token ou chave de API';
+  }
+});
+
+const credentialsDescription = computed(() => {
+  if (f.values.kind === 'email') {
+    return 'Credencial de autenticação SMTP (senha de app ou token). Armazenada de forma segura e redigida em toda trilha de auditoria. Deixe em branco se o SMTP não requer autenticação.';
+  }
+  return 'Chave de API ou token de acesso ao endpoint externo. Armazenada de forma segura e nunca exposta em logs — apenas ••• redigido ••• na trilha de auditoria.';
+});
+
+// ---- Equipes para o mapeamento ----------------------------------------------
+const teams = ref([]);
+const teamsLoading = ref(false);
+
+async function loadTeams() {
+  teamsLoading.value = true;
+  try {
+    const res = await teamsApi.list({ pageSize: 100 });
+    teams.value = (res && res.data) || [];
+  } catch {
+    teams.value = [];
+  } finally {
+    teamsLoading.value = false;
+  }
+}
+
+onMounted(loadTeams);
+
+// ---- Teste de conexão pré-voo (ping sem salvar) -----------------------------
+const pinging = ref(false);
+const pingResult = ref(null);
+const pingError = ref('');
+
+const canPing = computed(() => {
+  const hasUrl = String(f.values.base_url || '').trim().length > 0;
+  const hasCred = String(f.values.cred_api_key || '').trim().length > 0;
+  return hasUrl || hasCred;
+});
+
+async function testPing() {
+  pinging.value = true;
+  pingResult.value = null;
+  pingError.value = '';
+  try {
+    const config = {
+      base_url: String(f.values.base_url || '').trim() || undefined,
+      timeout_ms: isPositive(f.values.timeout_ms) ? Number(f.values.timeout_ms) : undefined,
+      retries: isNonNegative(f.values.retries) ? Number(f.values.retries) : undefined,
+    };
+    const res = await integrationPing(config);
+    pingResult.value = res && res.data !== undefined ? res.data : res;
+  } catch (e) {
+    pingError.value = e && e.message ? e.message : 'Falha no teste de conectividade.';
+  } finally {
+    pinging.value = false;
+  }
+}
+
 // ---- Helpers -----------------------------------------------------------------
 function isPositive(v) {
   const n = Number(v);
@@ -638,6 +814,8 @@ const submitError = ref('');
 
 function buildPayload(vals) {
   const url = String(vals.base_url || '').trim();
+  const apiKey = String(vals.cred_api_key || '').trim();
+  const teamId = vals.map_team_id ? Number(vals.map_team_id) : null;
   return {
     name: vals.name.trim(),
     kind: vals.kind,
@@ -645,6 +823,8 @@ function buildPayload(vals) {
     timeout_ms: Number(vals.timeout_ms),
     retries: Number(vals.retries),
     status: vals.status || 'active',
+    credentials: apiKey ? { api_key: apiKey } : {},
+    mapping: teamId ? { team_id: teamId } : {},
   };
 }
 
@@ -1228,5 +1408,122 @@ const cancel = () => router.push('/integrations');
   .hf-submit-actions :deep(.ui-btn) {
     flex: 1 1 auto;
   }
+}
+
+/* ---- Select com indicador de carregamento (mapeamento / equipes) ---- */
+.hf-select-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.hf-select-wrap select {
+  width: 100%;
+  appearance: none;
+  font: inherit;
+  font-size: var(--ui-text-sm);
+  color: rgb(var(--ui-fg));
+  background: rgb(var(--ui-surface));
+  border: 1px solid rgb(var(--ui-border-strong));
+  border-radius: var(--ui-radius-md);
+  padding: 9px 36px 9px 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+.hf-select-wrap select:focus-visible {
+  outline: 2px solid rgb(var(--ui-accent));
+  outline-offset: 2px;
+  border-color: rgb(var(--ui-accent));
+}
+.hf-select-wrap select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.hf-select-spin {
+  position: absolute;
+  right: 30px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgb(var(--ui-accent-strong));
+  pointer-events: none;
+  display: inline-flex;
+}
+
+/* ---- Painel de teste de conexão pré-voo ---- */
+.hf-ping {
+  margin: 0 0 var(--ui-space-5);
+  border: 1px solid rgb(var(--ui-border-strong));
+  background: rgb(var(--ui-surface-2));
+  border-radius: var(--ui-radius-lg);
+  padding: var(--ui-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-3);
+}
+.hf-ping-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ui-space-3);
+  flex-wrap: wrap;
+}
+.hf-ping-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-1);
+  min-width: 0;
+}
+.hf-ping-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-size: var(--ui-text-xs);
+  font-weight: 700;
+  color: rgb(var(--ui-accent-strong));
+}
+.hf-ping-desc {
+  margin: 0;
+  font-size: var(--ui-text-sm);
+  color: rgb(var(--ui-muted));
+  max-width: 52ch;
+}
+.hf-ping-result {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ui-space-3);
+  padding: var(--ui-space-3);
+  background: rgb(var(--ui-surface));
+  border: 1px solid rgb(var(--ui-border));
+  border-radius: var(--ui-radius-md);
+}
+.hf-ping-dot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 4px;
+  background: rgb(var(--ui-faint));
+}
+.hf-ping-dot[data-tone="success"] { background: rgb(var(--ui-ok)); }
+.hf-ping-dot[data-tone="error"] { background: rgb(var(--ui-danger)); }
+.hf-ping-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.hf-ping-verdict {
+  margin: 0;
+  font-weight: 600;
+  font-size: var(--ui-text-sm);
+  color: rgb(var(--ui-fg));
+}
+.hf-ping-verdict[data-tone="success"] { color: rgb(var(--ui-ok)); }
+.hf-ping-verdict[data-tone="error"] { color: rgb(var(--ui-danger)); }
+.hf-ping-detail {
+  margin: 0;
+  font-size: var(--ui-text-xs);
+  color: rgb(var(--ui-muted));
 }
 </style>

@@ -4,6 +4,18 @@
 // repo/migração os gerenciam). O mapa `repos` é indexado pelo segmento de rota.
 import { makeCrudRepo } from './crud-repo.js';
 
+// Redação das credenciais na leitura: valores substituídos por ••• redigido •••,
+// chaves preservadas. Defesa no backend: segredos nunca chegam ao cliente em plaintext.
+function redactIntegration(row) {
+  if (!row) return null;
+  const creds = row.credentials;
+  const redacted =
+    creds && typeof creds === 'object' && Object.keys(creds).length > 0
+      ? Object.fromEntries(Object.keys(creds).map((k) => [k, '••• redigido •••']))
+      : creds;
+  return { ...row, credentials: redacted };
+}
+
 export const customers = makeCrudRepo({
   table: 'customers',
   columns: ['name', 'email', 'phone', 'organization', 'vip', 'status', 'notes'],
@@ -50,8 +62,9 @@ export const kbArticles = makeCrudRepo({
 
 export const integrations = makeCrudRepo({
   table: 'integrations',
-  columns: ['name', 'kind', 'base_url', 'timeout_ms', 'retries', 'status', 'last_check_at'],
+  columns: ['name', 'kind', 'base_url', 'timeout_ms', 'retries', 'credentials', 'mapping', 'status', 'last_check_at'],
   sortable: ['name', 'kind', 'status', 'last_check_at'],
+  transform: redactIntegration,
 });
 
 // tickets — entidade central do service desk. sla_due_at NÃO é gravável pelo

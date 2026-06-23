@@ -46,6 +46,8 @@ export const comments = resourceFactory('comments');
 export const integrations = resourceFactory('integrations');
 export const integrationTest = (id) => request('POST', '/v1/integrations/' + id + '/test');
 export const integrationAudit = (id, params) => request('GET', '/v1/integrations/' + id + '/audit' + qs(params));
+// Pré-voo sem ID: testa conectividade antes de salvar. Aceita { base_url, timeout_ms, retries }.
+export const integrationPing = (config) => request('POST', '/v1/integrations/ping', config);
 
 // kb-articles — base de conhecimento. CRUD real em /v1/kb-articles
 // (apps/helpflow/api/src/server.js) + ação de domínio:
