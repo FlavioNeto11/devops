@@ -2878,7 +2878,7 @@ function fwStageReview(host, w, { catalog }) {
   } else {
     const out = h('div', { class: 'forge-section' });
     host.append(out);
-    renderProposedList(out, w.slug, w.blueprint, w.proposed, w.reqMeta || {}, null);
+    renderProposedList(out, w.slug, w.blueprint, w.proposed, w.reqMeta || {}, null, { brief: w.brief || '', displayName: w.name || w.slug, getArch: () => w.arch });
     if (w.arch) renderArchAdrs(out, w.arch);
   }
   host.append(fwNav(3, null, null));
@@ -2925,7 +2925,7 @@ function renderForgeNew(body) {
     mapLegend.hidden = false;
   };
   const graphHost = h('div', {});
-  let proposed = []; let graph = null;
+  let proposed = []; let graph = null; let curProduct = ''; let lastArch = null;
   const byProp = (id) => proposed.find((p) => p.id === id);
   function ensureGraph() {
     if (graph) return graph;
@@ -2934,7 +2934,8 @@ function renderForgeNew(body) {
       nodeClass: (n) => 'wv-' + ((n.wave || 0) % 6),
       detailOf: (n, id) => {
         const p = byProp(id); if (!p) return { title: id };
-        const sims = findSimilarReqs({ id, title: p.req.title || '', statement: p.req.statement || '' }, (DATA.baseline && DATA.baseline.requirements) || [], 1);
+        const sameProduct = ((DATA.baseline && DATA.baseline.requirements) || []).filter((r) => r.scope && r.scope.product_scope === curProduct);
+        const sims = findSimilarReqs({ id, title: p.req.title || '', statement: p.req.statement || '' }, sameProduct, 1);
         const dup = sims[0] && sims[0].score >= 0.45 ? sims[0] : null;
         return { title: p.req.title || '(sem título)', sub: p.req.statement ? truncateLabel(p.req.statement, 140) : '', badges: [badge(typeLabel(p.req.type), 'b-fn'), dup ? badge('possível duplicata: ' + dup.id, 'b-crit') : null].filter(Boolean) };
       },
@@ -2961,6 +2962,7 @@ function renderForgeNew(body) {
   btn.addEventListener('click', async () => {
     AI.setToken(tok.value.trim());
     const pname = (name.value || '').trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+    curProduct = pname; // escopo da detecção de duplicata (grafo) ao produto atual
     if (!pname) { errCard('Informe o slug do produto.'); name.focus(); return; }
     if ((brief.value || '').trim().length < 10) { errCard('Descreva o produto no brief (mínimo ~10 caracteres).'); brief.focus(); return; }
     btn.disabled = true; out.replaceChildren(); spinTxt('Propondo requisitos…');
@@ -2980,10 +2982,11 @@ function renderForgeNew(body) {
       const nodes = proposed.map((p) => ({ id: p.id, title: p.req.title || '' }));
       showWaveLegend(0);                                                        // ainda sem waves
       ensureGraph().setData(dagFromWaves(nodes, []).nodes, []);                 // fase 1: nós surgem
-      renderProposedList(out, pname, bpsel.value, proposed, r.data, graph);
+      renderProposedList(out, pname, bpsel.value, proposed, r.data, graph, { brief: (brief.value || '').trim(), displayName: pname, getArch: () => lastArch });
       spinTxt('Analisando dependências…');
       try {                                                                     // fase 2: dependências formam o mapa
         const a = await AI.post('/v1/forge/propose-architecture', { product: pname, blueprint: bpsel.value, requirements: proposed.map((p) => ({ id: p.id, title: p.req.title, type: p.req.type, statement: p.req.statement, capability_blocks: p.req.capability_blocks || [] })), capabilities: forgeCatalog, blueprints: forgeBlueprints });
+        if (a.ok && a.data) lastArch = a.data; // arquitetura p/ o launch (botões "Criar PR"/"Liberar tudo")
         if (a.ok && a.data && Array.isArray(a.data.waves) && a.data.waves.length) {
           const dag = dagFromWaves(nodes, a.data.waves);
           graph.setData(dag.nodes, dag.edges);
@@ -2997,14 +3000,18 @@ function renderForgeNew(body) {
   });
 }
 
-// Lista dos requisitos propostos (clique realça o nó no mapa) + export recolhido (YAML + PR).
-function renderProposedList(out, pname, blueprint, proposed, data, graph) {
+// Lista dos requisitos propostos (clique realça o nó no mapa) + AÇÕES (a UI cria no git) + export fallback.
+// launchCtx = { brief, displayName, getArch } habilita os botões "Criar PR" / "Liberar tudo".
+function renderProposedList(out, pname, blueprint, proposed, data, graph, launchCtx) {
   out.replaceChildren();
   const head = h('h3', { tabindex: '-1', text: `Requisitos propostos — ${proposed.length} (${data.prompt_version || 'ia'})` });
   out.append(head);
   const ul = h('ul', { class: 'forge-reqlist' });
   for (const { id, req } of proposed) {
-    const sims = findSimilarReqs({ id, title: req.title || '', statement: req.statement || '' }, (DATA.baseline && DATA.baseline.requirements) || [], 1);
+    // Duplicata só faz sentido DENTRO do mesmo produto — fundação/auth/observabilidade são quase
+    // idênticas entre sistemas, então comparar cross-product gerava falso "possível duplicata".
+    const sameProduct = ((DATA.baseline && DATA.baseline.requirements) || []).filter((r) => r.scope && r.scope.product_scope === pname);
+    const sims = findSimilarReqs({ id, title: req.title || '', statement: req.statement || '' }, sameProduct, 1);
     const dup = sims[0] && sims[0].score >= 0.45 ? sims[0] : null;
     ul.append(h('li', { class: 'forge-reqitem forge-proposed', tabindex: '0', role: 'button', 'aria-label': 'Realçar ' + id + ' no mapa', onclick: () => graph && graph.focus(id), onkeydown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); graph && graph.focus(id); } } },
       h('span', { class: 'rid', text: id }),
@@ -3015,11 +3022,61 @@ function renderProposedList(out, pname, blueprint, proposed, data, graph) {
   }
   out.append(ul);
   if (data.notes) out.append(h('p', { class: 'muted small', text: data.notes }));
+  // A UI CRIA no git (dispara a esteira). O export YAML/comando vira fallback manual recolhido.
+  if (launchCtx) out.append(forgeLaunchControls(pname, blueprint, proposed, launchCtx));
   const yamlText = proposed.map(({ id, req }) => toYaml(forgeReqObject(id, pname, blueprint, req))).join('\n---\n');
-  out.append(h('details', { class: 'forge-export' }, h('summary', { text: 'Exportar (YAML + comando de PR)' }),
-    h('p', { class: 'muted small' }, 'salve cada requisito em ', h('code', { text: 'specs/requirements/' + pname + '/<ID>.yaml' }), ' e abra o PR. A UI não escreve no git.'),
+  out.append(h('details', { class: 'forge-export' }, h('summary', { text: 'Exportar manualmente (YAML + comando de PR)' }),
+    h('p', { class: 'muted small' }, 'alternativa manual — salve cada requisito em ', h('code', { text: 'specs/requirements/' + pname + '/<ID>.yaml' }), ' e abra o PR.'),
     codeBlock(yamlText, 'yaml', 'YAML'), codeBlock(proposeHint(pname, proposed.length), 'forge-cmd', 'comando')));
   head.focus();
+}
+
+// Botões "Criar PR" / "Liberar tudo" — a UI cria os requisitos no git via POST /v1/forge/launch
+// (o reqhub-api dispara a esteira; o runner escreve YAMLs + baseline + PR). CSP-safe.
+function forgeLaunchControls(pname, blueprint, proposed, launchCtx) {
+  const wrap = h('div', { class: 'forge-launch' });
+  wrap.append(h('p', { class: 'muted small', text: 'Criar no git pela plataforma — a UI dispara a esteira; nada é mesclado sem a sua revisão do PR (no "Liberar tudo", o PR de requisitos é auto-mesclado e a construção é iniciada; os PRs de implementação ainda passam pela sua validação).' }));
+  const status = h('span', { class: 'muted small forge-launch-st', role: 'status', 'aria-live': 'polite' });
+  const bPr = h('button', { class: 'btn primary', type: 'button', text: '🚀 Criar PR de requisitos' });
+  const bRel = h('button', { class: 'btn', type: 'button', text: '⚡ Liberar tudo' });
+  const btns = [bPr, bRel];
+  const ctx = { pname, blueprint, proposed, launchCtx, status, btns };
+  bPr.addEventListener('click', () => forgeLaunch('pr', ctx));
+  bRel.addEventListener('click', () => { if (window.confirm('Liberar tudo: cria os requisitos, AUTO-MESCLA o PR de requisitos e dispara a esteira de construção. Os PRs de implementação ainda passam pela sua validação. Continuar?')) forgeLaunch('release', ctx); });
+  wrap.append(h('div', { class: 'ws-actions' }, bPr, bRel, status));
+  return wrap;
+}
+
+async function forgeLaunch(mode, ctx) {
+  const { pname, blueprint, proposed, launchCtx, status, btns } = ctx;
+  const arch = (launchCtx.getArch && launchCtx.getArch()) || {};
+  const requirements = proposed.map(({ id, req }) => {
+    const o = forgeReqObject(id, pname, blueprint, req);
+    o.capability_blocks = Array.isArray(req.capability_blocks) ? req.capability_blocks : []; // preserva os blocos p/ o YAML
+    return o;
+  });
+  const body = {
+    product: pname, displayName: launchCtx.displayName || pname, blueprint, brief: launchCtx.brief || '', mode, requirements,
+    architecture: { stack: arch.stack, selected_blocks: arch.selected_blocks || [], adrs: arch.adrs || [], waves: arch.waves || [] },
+  };
+  btns.forEach((b) => { b.disabled = true; });
+  status.textContent = mode === 'release' ? 'Lançando (auto-merge + build)…' : 'Criando os requisitos no git…';
+  try {
+    const r = await AI.post('/v1/forge/launch', body);
+    if (r.ok) {
+      const d = r.data || {};
+      status.replaceChildren(
+        document.createTextNode((mode === 'release' ? 'Lançado (release). ' : 'PR de requisitos disparado. ') + 'Acompanhe: '),
+        h('a', { href: d.actions_url || '#', target: '_blank', rel: 'noopener', text: 'esteira ↗' }),
+        document.createTextNode(' · '),
+        h('a', { href: d.pulls_url || '#', target: '_blank', rel: 'noopener', text: 'PR ↗' }));
+    } else {
+      const code = r.data && r.data.error ? r.data.error.code : 'HTTP ' + r.status;
+      const msg = r.data && r.data.error ? r.data.error.message : '';
+      status.textContent = (code === 'DISPATCH_DISABLED' ? 'Criação automática desligada — falta GITHUB_DISPATCH_TOKEN no servidor.' : 'Falha (' + code + ')' + (msg ? ': ' + msg : ''));
+      btns.forEach((b) => { b.disabled = false; });
+    }
+  } catch (e) { status.textContent = 'Erro de rede: ' + (e && e.message ? e.message : e); btns.forEach((b) => { b.disabled = false; }); }
 }
 
 // ADRs sugeridas pela arquitetura (inseridas antes do export).

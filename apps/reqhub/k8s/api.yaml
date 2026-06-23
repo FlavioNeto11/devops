@@ -81,6 +81,12 @@ spec:
                   name: reqhub-api-config
                   key: token
                   optional: true   # ausente -> autoria = 503 (fail-closed)
+            # Forge LAUNCH (UI cria no git): token p/ DISPARAR a esteira (repository_dispatch).
+            # PAT fine-grained, actions:write SÓ neste repo. Ausente -> /v1/forge/launch = 503 (fail-closed).
+            - name: GITHUB_DISPATCH_TOKEN
+              valueFrom: { secretKeyRef: { name: reqhub-api-config, key: GITHUB_DISPATCH_TOKEN, optional: true } }
+            - name: GITHUB_DISPATCH_REPO
+              value: "FlavioNeto11/devops"
             # MEMORIA DURAVEL do chat (F3): Postgres+pgvector. OPCIONAL e FAIL-SOFT —
             # ausente/DB fora -> o chat usa a memoria da conversa (history) e nao cai.
             - name: DATABASE_URL

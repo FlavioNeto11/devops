@@ -854,6 +854,10 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 .forge-mapstatus { margin: 0 0 9px; min-height: 18px; }
 .forge-export { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; }
 .forge-export > summary { cursor: pointer; font-size: 13px; color: var(--fg-1); }
+/* Ações da Forja: a UI cria no git (botões Criar PR / Liberar tudo) */
+.forge-launch { margin: 16px 0 4px; padding: 12px 0 0; border-top: 1px solid var(--line); }
+.forge-launch .ws-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+.forge-launch-st { margin-left: 2px; }
 .forge-reqitem[role="button"] { cursor: pointer; }
 .forge-reqitem[role="button"]:hover { border-color: var(--accent); }
 

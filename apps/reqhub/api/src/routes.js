@@ -17,6 +17,7 @@ import { createToolRegistry, dispatchTool } from '@flavioneto11/ai-core';
 import { attachIngest } from '@flavioneto11/ai-ingest-middleware';
 import { buildAuthoringTools, buildForgeTools } from './tools.js';
 import { requireAuthoringAuth, ssoIdentity } from './auth.js';
+import { validateLaunchInput, buildClientPayload, dispatchForgeLaunch } from './forge-launch.js';
 import { aiEnabled, getLlm } from './llm.js';
 import { runAuthoringChatTurn } from './ai/graph.js';
 import { buildUsageRouter } from './usage/index.js';
@@ -143,6 +144,30 @@ export function buildRouter({ registry, llm, memory } = {}) {
   // propose-requirements: entrada do usuario = 'brief' (descricao do produto novo).
   router.post('/v1/forge/propose-requirements', requireAuthoringAuth, ...withIngest('brief'), run('forge.propose_requirements'));
   router.post('/v1/forge/propose-architecture', requireAuthoringAuth, run('forge.propose_architecture'));
+
+  // Forge LAUNCH: a UI "cria no git" disparando a esteira (repository_dispatch -> greenfield-launch.yml).
+  // O reqhub-api NÃO escreve git; só dispara. Fail-closed sem GITHUB_DISPATCH_TOKEN. Admin-only (auth).
+  router.post('/v1/forge/launch', requireAuthoringAuth, async (req, res) => {
+    const token = process.env.GITHUB_DISPATCH_TOKEN;
+    if (!token) return res.status(503).json({ error: { code: 'DISPATCH_DISABLED', message: 'criação automática desligada — defina GITHUB_DISPATCH_TOKEN no Secret reqhub-api-config (PAT fine-grained, actions:write).' } });
+    const v = validateLaunchInput(req.body);
+    if (!v.ok) return res.status(400).json({ error: { code: v.code, message: v.message } });
+    const built = buildClientPayload(v.value, req.identity);
+    if (!built.ok) return res.status(413).json({ error: { code: built.code, message: built.message } });
+    const repo = process.env.GITHUB_DISPATCH_REPO || 'FlavioNeto11/devops';
+    try {
+      const d = await dispatchForgeLaunch({ token, repo, payload: built.payload });
+      if (!d.ok) return res.status(502).json({ error: { code: 'DISPATCH_FAILED', message: `GitHub ${d.status}: ${d.detail || 'falha ao disparar o workflow'}` } });
+      const branch = `forge/${v.value.product}/requisitos`;
+      return res.status(202).json({
+        status: 'dispatched', mode: v.value.mode, product: v.value.product, expected_branch: branch,
+        actions_url: `https://github.com/${repo}/actions/workflows/greenfield-launch.yml`,
+        pulls_url: `https://github.com/${repo}/pulls?q=is%3Apr+head%3A${encodeURIComponent(branch)}`,
+      });
+    } catch (e) {
+      return res.status(502).json({ error: { code: 'DISPATCH_ERROR', message: String((e && e.message) || e) } });
+    }
+  });
 
   // Painel "Uso da IA" (/v1/ai-usage/*): leitura admin-only de custo/uso/limites (Claude+OpenAI),
   // agregando telemetria interna (Prometheus/Langfuse) + contas. Fail-soft; mantém o reqhub no ar.

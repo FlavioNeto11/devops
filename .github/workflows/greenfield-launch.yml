@@ -1,0 +1,99 @@
+# =============================================================================
+# greenfield-launch — a UI da Forja "cria no git" sem o reqhub-api escrever git.
+# Disparado por repository_dispatch (event_type: forge-launch) com client_payload contendo o
+# produto + os requisitos REVISADOS na UI + a arquitetura. O runner (que tem git, gh, node) escreve
+# os YAMLs VERBATIM (forge-write-reqs.mjs — sem re-chamar a IA), regenera a baseline e abre o PR de
+# requisitos. mode='pr' para aí (humano revisa/mergeia = GATE G2). mode='release' tenta auto-merge
+# (best-effort) e dispara a fase de plano da esteira; os PRs de IMPLEMENTAÇÃO continuam passando pela
+# validação (gpt-approved, anti-spoofing) — deploy 100% sem humano NÃO é feito aqui (por segurança).
+# =============================================================================
+name: greenfield-launch
+
+on:
+  repository_dispatch:
+    types: [forge-launch]
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write   # mode=release dispara greenfield-plan
+
+jobs:
+  launch:
+    name: Criar requisitos no git (UI da Forja)
+    runs-on: [self-hosted, windows, docker-desktop, local-k8s, flavio-devops]
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false   # escrita dos arquivos sem credencial git
+
+      # PASSO 1 — escreve os requisitos revisados (verbatim) + regenera a baseline. Sem GH_TOKEN.
+      - name: Escrever requisitos + regenerar baseline
+        env:
+          PAYLOAD: ${{ toJson(github.event.client_payload) }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $env:PAYLOAD | Set-Content -Encoding utf8 launch-payload.json
+          $p = Get-Content launch-payload.json -Raw | ConvertFrom-Json
+          $prod = "$($p.product)"
+          if ($prod -notmatch '^[a-z][a-z0-9-]{1,30}$') { Write-Host "::error::product inválido: '$prod'"; exit 1 }
+          $mode = if ("$($p.mode)" -eq 'release') { 'release' } else { 'pr' }
+          "PRODUCT=$prod"  | Out-File -FilePath $env:GITHUB_ENV -Append
+          "MODE=$mode"     | Out-File -FilePath $env:GITHUB_ENV -Append
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          Set-Content -Encoding ascii .git/info/exclude "launch-payload.json"
+          Push-Location specs/tools; npm ci --no-audit --no-fund | Out-Null; Pop-Location
+          node specs/tools/forge-write-reqs.mjs --payload launch-payload.json
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::forge-write-reqs falhou"; exit 1 }
+          # regenera baseline (build-baseline + history + impl-status + coverage + products) p/ specs-governance passar
+          & ./scripts/specs-baseline-check.ps1 -Fix
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::regeneração da baseline (-Fix) falhou"; exit 1 }
+
+      # PASSO 2 — publica o PR de requisitos (único ponto com GH_TOKEN).
+      - name: Abrir PR de requisitos
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $prod = $env:PRODUCT
+          $branch = "forge/$prod/requisitos"
+          gh auth setup-git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          gh label create requirement --color 1d76db --description "Requisito (FORGE/autoria)" 2>$null
+          gh label create forge       --color 0e8a16 --description "FORGE (geração greenfield)" 2>$null
+          git checkout -B $branch 2>$null
+          git add specs/requirements specs/products specs/baseline apps/reqhub/frontend/data/products 2>$null
+          git commit -m "feat($prod): requisitos criados pela Forja (launch, run_id=$env:GITHUB_RUN_ID)" 2>$null | Out-Null
+          git push -u origin $branch --force-with-lease
+          $url = gh pr create --base main --head $branch --label requirement --label forge `
+            --title "feat($prod): requisitos da Forja" `
+            --body "Requisitos criados pela UI da Forja (run_id=$env:GITHUB_RUN_ID), mode=$env:MODE.`n`n**GATE G2:** revise e mergeie para destravar a construção — a esteira implementa cada requisito em PR validado."
+          "pr_url=$url" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "PR de requisitos: $url"
+
+      # PASSO 3 — (release) auto-merge best-effort + dispara a fase de plano da esteira.
+      # Os PRs de implementação seguem exigindo gpt-approved (anti-spoofing) — sem deploy sem humano aqui.
+      - name: (release) auto-merge + disparar build
+        if: env.MODE == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ steps.pr.outputs.pr_url }}
+        run: |
+          $ErrorActionPreference = "Continue"
+          $prod = $env:PRODUCT
+          Write-Host "release: auto-merge do PR de requisitos ($env:PR_URL)…"
+          gh pr merge $env:PR_URL --squash --delete-branch --admin
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::warning::auto-merge bloqueado (proteção de branch?) — PR aberto p/ merge manual; release degradou para 'pr'."
+            exit 0
+          }
+          Write-Host "release: requisitos na main — disparando greenfield-plan ($prod)…"
+          gh workflow run greenfield-plan.yml -f product=$prod
+          Write-Host "::notice::release: esteira iniciada. As próximas etapas (plano/G2, scaffold, orchestrate e a validação gpt-approved dos PRs de implementação) seguem os gates da plataforma."
