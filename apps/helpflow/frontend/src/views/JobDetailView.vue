@@ -17,13 +17,13 @@
         :disabled="loading || notFound"
         @click="refresh"
       >Atualizar</UiButton>
-      <!-- RequeueButton: só para jobs na DLQ -->
+      <!-- ReprocessButton: só para jobs na DLQ -->
       <UiButton
         v-if="isDlq"
         variant="primary"
         :loading="requeueing"
         @click="onRequeue"
-      >Reenfileirar da DLQ</UiButton>
+      >Reprocessar</UiButton>
     </template>
 
     <!-- Banner operacional de alta visibilidade: job parado na DLQ -->
@@ -42,7 +42,7 @@
           variant="primary"
           :loading="requeueing"
           @click="onRequeue"
-        >Reenfileirar</UiButton>
+        >Reprocessar</UiButton>
       </div>
     </template>
 
@@ -221,6 +221,26 @@
               </li>
             </ol>
           </UiCard>
+
+          <!-- Log de execução: saída do worker na tentativa mais recente -->
+          <UiCard
+            title="Log de execução"
+            subtitle="Saída registrada pelo worker na tentativa mais recente."
+          >
+            <UiEmptyState
+              v-if="!executionLog"
+              icon="doc"
+              title="Sem log de execução"
+              description="O worker ainda não registrou saída para este job."
+              compact
+            />
+            <pre
+              v-else
+              class="execlog ui-mono"
+              tabindex="0"
+              aria-label="Log de execução do job"
+            >{{ executionLog }}</pre>
+          </UiCard>
         </div>
 
         <!-- coluna lateral -->
@@ -239,7 +259,7 @@
                 block
                 :loading="requeueing"
                 @click="onRequeue"
-              >Reenfileirar da DLQ</UiButton>
+              >Reprocessar</UiButton>
               <p v-if="isDlq" class="ops-hint">
                 Recoloca o job na fila com as tentativas zeradas. A idempotência impede duplicidade.
               </p>
@@ -310,6 +330,8 @@ const notFound = ref(false);
 const refreshing = ref(false);
 const requeueing = ref(false);
 const job = ref({});
+const attemptsData = ref([]);
+const attemptsError = ref(null);
 
 // UiPageLayout espera string em :error — extraímos a mensagem do erro capturado.
 const loadErrorMessage = computed(() => {
@@ -460,8 +482,9 @@ const sourceLabel = computed(() => {
   return '';
 });
 
-// ---- AttemptTimeline (reconstrói eventos a partir do estado do job) ----
-const timeline = computed(() => {
+// ---- AttemptTimeline ----
+// Versão sintética: reconstrói eventos a partir do estado do job (fallback).
+const syntheticTimeline = computed(() => {
   const j = job.value;
   if (!j || (j.created_at == null && j.status == null)) return [];
   const items = [];
@@ -517,6 +540,52 @@ const timeline = computed(() => {
   }
   return items;
 });
+
+// Versão real: construída a partir de GET /v1/jobs/:id/attempts (preferida).
+const attemptsTimeline = computed(() => {
+  const items = attemptsData.value;
+  if (!Array.isArray(items) || items.length === 0) return null;
+  const j = job.value;
+  const result = [];
+  result.push({
+    title: 'Enfileirado',
+    detail: 'Job criado e adicionado à fila' + (j.job_key ? ' (chave ' + j.job_key + ').' : '.'),
+    at: j.created_at,
+    tone: 'neutral',
+    badge: 'queued',
+  });
+  for (const a of items) {
+    const num = a.attempt ?? a.attempt_number ?? result.length;
+    const st = String(a.status || a.state || '');
+    const isOk = st === 'success' || st === 'done' || st === 'ok';
+    const isFail = st === 'failed' || st === 'error' || st === 'dlq';
+    const detail = a.error || (isOk ? 'Processado com sucesso pelo worker.' : null) ||
+      (a.worker_id ? 'Worker: ' + a.worker_id : null) || null;
+    result.push({
+      title: 'Tentativa ' + num,
+      detail,
+      at: a.started_at || a.created_at,
+      tone: isOk ? 'ok' : isFail ? 'breach' : 'warn',
+      badge: isOk ? 'done' : isFail ? 'dlq' : 'running',
+    });
+  }
+  return result;
+});
+
+// Timeline exposta ao template: usa dados reais quando disponíveis, sintético como fallback.
+const timeline = computed(() => attemptsTimeline.value || syntheticTimeline.value);
+
+// Log de execução: saída do worker na tentativa mais recente que registrou log.
+const executionLog = computed(() => {
+  const items = attemptsData.value;
+  if (!Array.isArray(items) || items.length === 0) return null;
+  for (let i = items.length - 1; i >= 0; i--) {
+    const a = items[i];
+    const log = a.log || a.execution_log || a.output || null;
+    if (log && String(log).trim()) return String(log);
+  }
+  return null;
+});
 const timelineSubtitle = computed(() => {
   const a = Number(job.value.attempts ?? 0);
   if (!timeline.value.length) return 'Nenhum evento ainda.';
@@ -536,15 +605,33 @@ const requeueUnavailableHint = computed(() => {
 });
 
 // ---- carregamento ----
+async function loadAttempts() {
+  if (!hasFn(jobsApi, 'attempts')) return;
+  try {
+    const res = await jobsApi.attempts(props.id);
+    attemptsData.value = Array.isArray(res) ? res : (res && Array.isArray(res.data) ? res.data : []);
+    attemptsError.value = null;
+  } catch (e) {
+    attemptsError.value = e;
+  }
+}
+
 async function load() {
   loading.value = true;
   loadError.value = null;
   notFound.value = false;
+  attemptsData.value = [];
+  attemptsError.value = null;
   try {
     if (!hasFn(jobsApi, 'get')) {
       throw new Error('Recurso de jobs indisponível neste ambiente.');
     }
-    const data = await jobsApi.get(props.id);
+    const [jobRes, _attemptsRes] = await Promise.allSettled([
+      jobsApi.get(props.id),
+      loadAttempts(),
+    ]);
+    if (jobRes.status === 'rejected') throw jobRes.reason;
+    const data = jobRes.value;
     job.value = data || {};
     if (!job.value || (job.value.id == null && job.value.status == null)) {
       notFound.value = true;
@@ -564,8 +651,11 @@ async function refresh() {
   refreshing.value = true;
   try {
     if (!hasFn(jobsApi, 'get')) { toast.error('Recurso de jobs indisponível.'); return; }
-    const data = await jobsApi.get(props.id);
-    job.value = data || job.value;
+    const [jobRes] = await Promise.allSettled([
+      jobsApi.get(props.id),
+      loadAttempts(),
+    ]);
+    if (jobRes.status === 'fulfilled') job.value = jobRes.value || job.value;
     toast.info('Job atualizado');
   } catch (e) {
     if (e && e.status === 404) { notFound.value = true; }
@@ -578,9 +668,9 @@ async function refresh() {
 // ---- reenfileirar da DLQ (ação destrutiva → useConfirm + toast) ----
 async function onRequeue() {
   const ok = await ask({
-    title: 'Reenfileirar job da DLQ',
+    title: 'Reprocessar job',
     message: 'Recolocar o job #' + props.id + ' na fila? As tentativas serão reiniciadas e o worker tentará processá-lo novamente.',
-    confirmLabel: 'Reenfileirar',
+    confirmLabel: 'Reprocessar',
   });
   if (!ok) return;
 
@@ -735,6 +825,15 @@ onMounted(load);
 .origin-meta { display: flex; flex-direction: column; gap: var(--ui-space-3); margin: 0; }
 .origin-meta dt { color: rgb(var(--ui-muted)); font-size: var(--ui-text-xs); text-transform: uppercase; letter-spacing: .05em; }
 .origin-meta dd { margin: 2px 0 0; font-weight: 600; word-break: break-word; }
+
+/* ---------- Log de execução ---------- */
+.execlog {
+  margin: 0; white-space: pre-wrap; overflow: auto; max-height: 360px; line-height: 1.55;
+  font-size: var(--ui-text-sm); color: rgb(var(--ui-fg));
+  background: rgb(var(--ui-surface-2)); border: 1px solid rgb(var(--ui-border));
+  border-radius: var(--ui-radius-md); padding: var(--ui-space-4); word-break: break-word;
+}
+.execlog:focus-visible { outline: 2px solid rgb(var(--ui-accent)); outline-offset: 2px; }
 
 /* ---------- responsivo ---------- */
 @media (max-width: 980px) {

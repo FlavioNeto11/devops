@@ -88,6 +88,7 @@ export const tickets = {
 export const jobs = {
   ...resourceFactory('jobs'),
   requeue: (id) => request('POST', '/v1/jobs/' + id + '/requeue'),
+  attempts: (id) => request('GET', '/v1/jobs/' + id + '/attempts'),
 };
 
 // Saúde da fila transacional (worker): contadores por status (queued/running/done/dlq).
