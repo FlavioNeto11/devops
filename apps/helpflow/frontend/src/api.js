@@ -29,6 +29,9 @@ export const health = () => request("GET", "/health");
 // kebab-case onde há mais de uma palavra (kb-articles, sla-policies).
 export const customers = resourceFactory('customers');
 export const agents = resourceFactory('agents');
+// chamados atribuídos a um agente — GET /v1/agents/:id/tickets (REF-HELPFLOW-0012).
+// Substitui a filtragem client-side sobre /v1/tickets.
+export const agentTickets = (agentId, params) => request('GET', '/v1/agents/' + agentId + '/tickets' + qs(params));
 export const teams = resourceFactory('teams');
 export const slaPolicies = resourceFactory('sla-policies');
 export const comments = resourceFactory('comments');

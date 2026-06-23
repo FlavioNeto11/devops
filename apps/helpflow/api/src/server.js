@@ -69,6 +69,25 @@ app.delete('/v1/customers/:id', crudDelete('customers'));
 
 app.get('/v1/agents', crudList('agents'));
 app.get('/v1/agents/:id', crudGet('agents'));
+// chamados atribuídos a um agente — sub-recurso de domínio (REF-HELPFLOW-0012).
+// Filtro server-side por assignee_id: elimina a necessidade de o cliente puxar
+// todos os tickets e filtrar localmente (correto para tenants com muitos tickets).
+app.get('/v1/agents/:id/tickets', wrap(async (req, res) => {
+  const agentRow = await repos.agents.repo.get(req.tenantId, req.params.id);
+  if (!agentRow) return res.status(404).json({ error: { message: 'agente não encontrado' } });
+  const { page, pageSize, sort, dir } = req.query;
+  const ps = Math.min(200, Math.max(1, Number(pageSize) || 50));
+  const p = Math.max(1, Number(page) || 1);
+  const SORTABLE = new Set(['id', 'created_at', 'updated_at', 'priority', 'status', 'sla_due_at']);
+  const sortCol = SORTABLE.has(sort) ? sort : 'updated_at';
+  const sortDir = String(dir || '').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+  const offset = (p - 1) * ps;
+  const [countRes, dataRes] = await Promise.all([
+    pool.query('SELECT count(*)::int AS n FROM tickets WHERE tenant_id=$1 AND assignee_id=$2', [req.tenantId, Number(req.params.id)]),
+    pool.query(`SELECT * FROM tickets WHERE tenant_id=$1 AND assignee_id=$2 ORDER BY ${sortCol} ${sortDir} LIMIT $3 OFFSET $4`, [req.tenantId, Number(req.params.id), ps, offset]),
+  ]);
+  res.json({ data: dataRes.rows, total: countRes.rows[0].n, page: p, pageSize: ps });
+}));
 app.post('/v1/agents', crudCreate('agents'));
 app.put('/v1/agents/:id', crudUpdate('agents'));
 app.delete('/v1/agents/:id', crudDelete('agents'));

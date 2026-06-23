@@ -78,6 +78,12 @@ paths:
     delete:
       operationId: deleteAgent
       responses: { "200": { description: ok } }
+  /v1/agents/{id}/tickets:
+    get:
+      operationId: listAgentTickets
+      responses:
+        "200": { description: "chamados atribuídos ao agente ({ data, total, page, pageSize })" }
+        "404": { description: "agente não encontrado" }
   /v1/teams:
     get:
       operationId: listTeams

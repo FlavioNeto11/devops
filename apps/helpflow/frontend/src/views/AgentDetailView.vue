@@ -313,7 +313,7 @@ import {
 //  - tickets → GET /v1/tickets        (chamados atribuídos; filtramos por assignee_id
 //              no cliente, pois o crudList genérico só honra page/pageSize/sort/dir —
 //              ver crud-repo.js). NUNCA consumimos o placeholder /v1/records.
-import { agents, teams as teamsApi, tickets as ticketsApi } from '../api.js';
+import { agents, teams as teamsApi, agentTickets } from '../api.js';
 
 const route = useRoute();
 const router = useRouter();
@@ -619,12 +619,10 @@ async function loadTickets() {
   ticketsLoading.value = true;
   ticketsError.value = null;
   try {
-    // Endpoint REAL de domínio GET /v1/tickets. O list genérico ignora filtros
-    // arbitrários (só page/pageSize/sort/dir), então puxamos a página ordenada
-    // e filtramos por assignee_id no cliente — mesma rede de segurança das telas irmãs.
-    const res = await ticketsApi.list({ pageSize: 200, sort: 'updated_at', dir: 'desc' });
-    const rows = Array.isArray(res) ? res : res && res.data ? res.data : [];
-    tickets.value = rows.filter((t) => String(t.assignee_id) === String(agentId.value));
+    // Endpoint dedicado GET /v1/agents/:id/tickets (REF-HELPFLOW-0012).
+    // O filtro por assignee_id é feito server-side — correto para tenants com muitos tickets.
+    const res = await agentTickets(agentId.value, { pageSize: 200, sort: 'updated_at', dir: 'desc' });
+    tickets.value = Array.isArray(res) ? res : res && res.data ? res.data : [];
   } catch (e) {
     ticketsError.value = e;
     tickets.value = [];
