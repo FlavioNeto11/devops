@@ -34,6 +34,7 @@ export const slaPolicies = makeCrudRepo({
   table: 'sla_policies',
   columns: ['name', 'priority', 'first_response_mins', 'resolution_mins', 'business_hours_only', 'status'],
   sortable: ['name', 'priority', 'first_response_mins', 'resolution_mins', 'status'],
+  searchable: ['name'],
 });
 
 export const kbArticles = makeCrudRepo({
