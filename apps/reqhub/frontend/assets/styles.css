@@ -878,6 +878,11 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 .fw-adjust { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); }
 .fw-adjust-row { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
 .fw-adjust-row .fw-input { flex: 1 1 280px; min-width: 0; }
+/* Zona de risco: apagar projeto da Forja */
+.btn.danger { border-color: color-mix(in srgb, var(--danger, #dc2626) 60%, var(--line)); color: var(--danger, #dc2626); }
+.btn.danger:hover { background: color-mix(in srgb, var(--danger, #dc2626) 12%, transparent); border-color: var(--danger, #dc2626); }
+.forge-danger { margin-top: 28px; padding: 16px; border: 1px solid color-mix(in srgb, var(--danger, #dc2626) 35%, var(--line)); border-radius: 10px; background: color-mix(in srgb, var(--danger, #dc2626) 5%, transparent); }
+.forge-danger h4 { margin: 0 0 6px; color: var(--danger, #dc2626); }
 .forge-reqitem[role="button"] { cursor: pointer; }
 .forge-reqitem[role="button"]:hover { border-color: var(--accent); }
 

@@ -75,4 +75,39 @@ export async function dispatchForgeLaunch({ token, repo, payload, fetchImpl }) {
   return { ok: false, status: res.status, detail };
 }
 
-export const _internals = { PRODUCT_RE, MAX_PAYLOAD_BYTES, MAX_REQS };
+// Produtos PROTEGIDOS — nunca apagáveis pela Forja (produtos reais + componentes de plataforma).
+const PROTECTED = new Set([
+  'sicat', 'gymops', 'rmambiental', 'anarabottini',
+  'reqhub', 'console', 'devops-console', 'portal', 'portal-recorder',
+  'keycloak', 'langfuse', 'ai-control-plane', 'devops-platform',
+]);
+
+/** Valida o corpo do POST /v1/forge/delete. -> { ok, value } | { ok:false, code, message }. */
+export function validateDeleteInput(body) {
+  const product = String((body || {}).product || '').trim().toLowerCase();
+  if (!PRODUCT_RE.test(product)) return { ok: false, code: 'INVALID_PRODUCT', message: 'product inválido (slug minúsculo 2-31 chars)' };
+  if (PROTECTED.has(product)) return { ok: false, code: 'PROTECTED', message: `'${product}' é protegido (produto real ou componente de plataforma) e não pode ser apagado pela Forja` };
+  return { ok: true, value: { product } };
+}
+
+/** Dispara o repository_dispatch 'forge-delete' (apaga um produto da Forja). GitHub responde 204. */
+export async function dispatchForgeDelete({ token, repo, product, identity, fetchImpl }) {
+  const f = fetchImpl || fetch;
+  const res = await f(`https://api.github.com/repos/${repo}/dispatches`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'Content-Type': 'application/json',
+      'User-Agent': 'reqhub-forge-delete',
+    },
+    body: JSON.stringify({ event_type: 'forge-delete', client_payload: { product, requested_by: str(identity, 120) || 'reqhub' } }),
+  });
+  if (res.status === 204) return { ok: true };
+  let detail = '';
+  try { detail = (await res.text()).slice(0, 300); } catch { /* noop */ }
+  return { ok: false, status: res.status, detail };
+}
+
+export const _internals = { PRODUCT_RE, MAX_PAYLOAD_BYTES, MAX_REQS, PROTECTED };

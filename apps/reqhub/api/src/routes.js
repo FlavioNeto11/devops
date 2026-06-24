@@ -17,7 +17,7 @@ import { createToolRegistry, dispatchTool } from '@flavioneto11/ai-core';
 import { attachIngest } from '@flavioneto11/ai-ingest-middleware';
 import { buildAuthoringTools, buildForgeTools } from './tools.js';
 import { requireAuthoringAuth, ssoIdentity } from './auth.js';
-import { validateLaunchInput, buildClientPayload, dispatchForgeLaunch } from './forge-launch.js';
+import { validateLaunchInput, buildClientPayload, dispatchForgeLaunch, validateDeleteInput, dispatchForgeDelete } from './forge-launch.js';
 import { buildLaunchStatus } from './forge-status.js';
 import { aiEnabled, getLlm } from './llm.js';
 import { runAuthoringChatTurn } from './ai/graph.js';
@@ -180,6 +180,27 @@ export function buildRouter({ registry, llm, memory } = {}) {
     const out = await buildLaunchStatus({ token, repo, product });
     if (!out.ok) return res.status(400).json({ error: { code: out.code || 'STATUS_ERROR', message: out.message || 'falha' } });
     return res.json(out);
+  });
+
+  // Forge DELETE: apaga um produto da Forja e tudo que depende dele (apps, Argo, specs, baseline +
+  // recursos do cluster). O reqhub-api só DISPARA (repository_dispatch -> forge-delete.yml); admin-only,
+  // fail-closed sem token, e PROTEGE produtos reais/plataforma (validateDeleteInput).
+  router.post('/v1/forge/delete', requireAuthoringAuth, async (req, res) => {
+    const token = process.env.GITHUB_DISPATCH_TOKEN;
+    if (!token) return res.status(503).json({ error: { code: 'DISPATCH_DISABLED', message: 'exclusão automática desligada — sem GITHUB_DISPATCH_TOKEN' } });
+    const v = validateDeleteInput(req.body);
+    if (!v.ok) return res.status(v.code === 'PROTECTED' ? 403 : 400).json({ error: { code: v.code, message: v.message } });
+    const repo = process.env.GITHUB_DISPATCH_REPO || 'FlavioNeto11/devops';
+    try {
+      const d = await dispatchForgeDelete({ token, repo, product: v.value.product, identity: req.identity });
+      if (!d.ok) return res.status(502).json({ error: { code: 'DISPATCH_FAILED', message: `GitHub ${d.status}: ${d.detail || 'falha ao disparar a exclusão'}` } });
+      return res.status(202).json({
+        status: 'deleting', product: v.value.product,
+        actions_url: `https://github.com/${repo}/actions/workflows/forge-delete.yml`,
+      });
+    } catch (e) {
+      return res.status(502).json({ error: { code: 'DISPATCH_ERROR', message: String((e && e.message) || e) } });
+    }
   });
 
   // Painel "Uso da IA" (/v1/ai-usage/*): leitura admin-only de custo/uso/limites (Claude+OpenAI),

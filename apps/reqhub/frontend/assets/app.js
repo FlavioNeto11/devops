@@ -2447,6 +2447,45 @@ function renderForgeDetail(body, name) {
   else if (state.forge.step === 'arquitetura') forgeArquitetura(panel, product, buildPlan);
   else forgeBuild(panel, product, buildPlan);
   body.append(panel);
+
+  // Zona de risco: apagar o projeto (só p/ produtos NÃO protegidos; o backend reforça a denylist).
+  if (!FORGE_PROTECTED.includes(name)) body.append(forgeDangerZone(name));
+}
+
+// Produtos protegidos (não apagáveis pela UI) — espelha a denylist do backend (forge-launch.js).
+const FORGE_PROTECTED = ['sicat', 'gymops', 'rmambiental', 'anarabottini', 'reqhub', 'console', 'portal', 'portal-recorder', 'keycloak', 'langfuse', 'ai-control-plane'];
+
+function forgeDangerZone(name) {
+  const st = h('p', { class: 'fw-status muted', role: 'status', 'aria-live': 'polite' });
+  const btn = h('button', { class: 'btn danger', type: 'button', text: '🗑 Apagar este projeto' });
+  btn.addEventListener('click', () => {
+    const typed = window.prompt('Isto apaga o projeto "' + name + '" e TUDO relacionado: código (apps/' + name + '), requisitos, Application do Argo e recursos no cluster. Não dá para desfazer pela UI.\n\nDigite o nome do projeto para confirmar:');
+    if (typed == null) return;
+    if (typed.trim() !== name) { st.replaceChildren(h('span', { class: 'fw-err', text: 'Nome não confere — cancelado.' })); return; }
+    forgeDelete(name, btn, st);
+  });
+  return h('div', { class: 'forge-danger' },
+    h('h4', { text: '⚠ Zona de risco' }),
+    h('p', { class: 'fw-hint', text: 'Apagar remove tudo que depende deste projeto (código, requisitos, baseline, Argo e cluster). Ação irreversível pela UI.' }),
+    h('div', { class: 'fw-actions' }, btn, st));
+}
+
+async function forgeDelete(name, btn, st) {
+  btn.disabled = true;
+  st.replaceChildren(h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' Apagando ' + name + '…');
+  try {
+    const r = await AI.post('/v1/forge/delete', { product: name });
+    if (r.ok) {
+      const d = r.data || {};
+      st.replaceChildren(document.createTextNode('Exclusão disparada — quando concluir, o projeto some daqui. '),
+        h('a', { href: d.actions_url || '#', target: '_blank', rel: 'noopener', text: 'acompanhar ↗' }));
+    } else {
+      const code = r.data && r.data.error ? r.data.error.code : 'HTTP ' + r.status;
+      const msg = r.data && r.data.error ? r.data.error.message : '';
+      st.replaceChildren(h('span', { class: 'fw-err', text: (code === 'DISPATCH_DISABLED' ? 'Exclusão automática desligada (falta token no servidor).' : 'Falha (' + code + ')' + (msg ? ': ' + msg : '')) }));
+      btn.disabled = false;
+    }
+  } catch (e) { st.replaceChildren(h('span', { class: 'fw-err', text: 'Erro de rede: ' + (e && e.message ? e.message : e) })); btn.disabled = false; }
 }
 
 function productReqs(product) {

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateLaunchInput, buildClientPayload, dispatchForgeLaunch } from './forge-launch.js';
+import { validateLaunchInput, buildClientPayload, dispatchForgeLaunch, validateDeleteInput, dispatchForgeDelete } from './forge-launch.js';
 
 test('validate: product slug', () => {
   assert.equal(validateLaunchInput({ product: 'Bad Slug', mode: 'pr', requirements: [{ title: 'x' }] }).ok, false);
@@ -50,4 +50,24 @@ test('dispatch: não-204 -> ok:false com status', async () => {
   assert.equal(r.ok, false);
   assert.equal(r.status, 403);
   assert.match(r.detail, /not accessible/);
+});
+
+test('delete: valida slug + PROTEGE produtos reais/plataforma', () => {
+  assert.equal(validateDeleteInput({ product: 'Bad Slug' }).code, 'INVALID_PRODUCT');
+  assert.equal(validateDeleteInput({ product: 'sicat' }).code, 'PROTECTED');
+  assert.equal(validateDeleteInput({ product: 'reqhub' }).code, 'PROTECTED');
+  const ok = validateDeleteInput({ product: 'crm' });
+  assert.equal(ok.ok, true);
+  assert.equal(ok.value.product, 'crm');
+});
+
+test('delete dispatch: 204 com event_type forge-delete', async () => {
+  let captured;
+  const fetchImpl = async (url, opts) => { captured = { url, opts }; return { status: 204 }; };
+  const r = await dispatchForgeDelete({ token: 't', repo: 'o/r', product: 'crm', identity: 'admin@x', fetchImpl });
+  assert.equal(r.ok, true);
+  const body = JSON.parse(captured.opts.body);
+  assert.equal(body.event_type, 'forge-delete');
+  assert.equal(body.client_payload.product, 'crm');
+  assert.equal(body.client_payload.requested_by, 'admin@x');
 });

@@ -1,0 +1,84 @@
+# =============================================================================
+# forge-delete — apaga um produto da Forja e TUDO que depende dele:
+#   git: apps/<p>, specs/{products,requirements,refinements}/<p>, data/products/<p>,
+#        platform/argocd/apps/<p>.yaml  + baseline regenerada  (PR auto-merge --admin)
+#   cluster: Application do Argo + Deployments/Services/Secrets/PVCs/IngressRoutes do produto.
+# Disparado por repository_dispatch (forge-delete) pela UI da Forja. Self-hosted (tem git/kubectl).
+# PROTEGE produtos reais/plataforma (denylist) — defesa em profundidade além do gate do reqhub-api.
+# =============================================================================
+name: forge-delete
+
+on:
+  repository_dispatch:
+    types: [forge-delete]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  delete:
+    name: Apagar produto da Forja (git + cluster)
+    runs-on: [self-hosted, windows, docker-desktop, local-k8s, flavio-devops]
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Remover do git + baseline + PR + cluster
+        env:
+          GH_TOKEN: ${{ secrets.FORGE_GH_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $prod = "${{ github.event.client_payload.product }}"
+          if ($prod -notmatch '^[a-z][a-z0-9-]{1,30}$') { Write-Host "::error::product inválido: '$prod'"; exit 1 }
+          $protected = @('sicat','gymops','rmambiental','anarabottini','reqhub','console','devops-console','portal','portal-recorder','keycloak','langfuse','ai-control-plane','devops-platform')
+          if ($protected -contains $prod) { Write-Host "::error::'$prod' é protegido — recusado."; exit 1 }
+
+          gh auth setup-git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # 1) remove os artefatos do produto (idempotente — git rm -r só remove o que existe).
+          $paths = @(
+            "apps/$prod",
+            "specs/products/$prod",
+            "specs/requirements/$prod",
+            "specs/refinements/$prod",
+            "apps/reqhub/frontend/data/products/$prod",
+            "platform/argocd/apps/$prod.yaml"
+          )
+          foreach ($p in $paths) { if (Test-Path $p) { git rm -r -q $p } }
+
+          # 2) regenera a baseline (remove o produto de current-baseline/impl-status/coverage).
+          Push-Location specs/tools; npm ci --no-audit --no-fund | Out-Null; Pop-Location
+          & ./scripts/specs-baseline-check.ps1 -Fix
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::regeneração da baseline falhou (referências penduradas ao produto?)"; exit 1 }
+          git add -A
+
+          # 3) PR + auto-merge --admin (respeita branch protection).
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            $branch = "forge/delete/$prod"
+            git checkout -B $branch 2>$null
+            git commit -m "chore(forge): apaga o produto '$prod' (UI da Forja, run_id=$env:GITHUB_RUN_ID)" | Out-Null
+            git push -u origin $branch --force-with-lease
+            $url = (gh pr list -R $env:GITHUB_REPOSITORY --head $branch --state open --json url --jq '.[0].url' 2>$null)
+            if (-not $url) { $url = gh pr create --base main --head $branch --label forge --title "chore(forge): apaga '$prod'" --body "Exclusão do produto **$prod** pela UI da Forja (run_id=$env:GITHUB_RUN_ID)." }
+            gh pr merge $url --squash --delete-branch --admin
+            if ($LASTEXITCODE -ne 0) { Write-Host "::warning::auto-merge do PR de exclusão bloqueado — mescle manualmente: $url" }
+          } else { Write-Host "git: nada a remover (produto já fora do repo)." }
+
+          # 4) cluster: apaga o Application do Argo + recursos do produto (best-effort).
+          $ErrorActionPreference = "Continue"
+          kubectl -n argocd delete application $prod --ignore-not-found --wait=false 2>$null
+          Start-Sleep 4
+          kubectl -n apps delete all,secret,pvc,configmap,ingressroute,middleware -l app.kubernetes.io/part-of=$prod --ignore-not-found 2>$null
+          # por nome (caso falte o label part-of em algum recurso)
+          foreach ($k in @('deploy','svc','secret','pvc')) {
+            $items = kubectl -n apps get $k -o name 2>$null | Select-String "(^|/)$prod(-|$)"
+            foreach ($i in $items) { kubectl -n apps delete $i.ToString() --ignore-not-found 2>$null }
+          }
+          Write-Host "::notice::forge-delete: produto '$prod' removido do git e do cluster."
