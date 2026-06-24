@@ -1,0 +1,21 @@
+{
+  "product": "valdemo",
+  "blueprint": "node-api-vue-spa",
+  "baseline_hash": "2375d069a02d7b7e649395de806e44fd9db09d79b765ef5551bb49b4fb887400",
+  "generated_by": "forge.build-plan@1",
+  "status": "proposed",
+  "scaffold_req": "REQ-VALDEMO-0001",
+  "modules": [],
+  "waves": [
+    {
+      "id": "w0-foundation",
+      "gate": "auto",
+      "work_orders": [
+        "REQ-VALDEMO-0001"
+      ]
+    }
+  ],
+  "order": [
+    "REQ-VALDEMO-0001"
+  ]
+}
