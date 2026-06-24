@@ -158,6 +158,15 @@ jobs:
           New-Item -ItemType Directory -Force platform/argocd/apps | Out-Null
           $argo | Set-Content -Encoding utf8 "platform/argocd/apps/$prod.yaml"
 
+          # 3b) marca o requisito de SCAFFOLD como merged (a fase C "manual" fazia isso) — destrava o
+          #     orchestrate, que gateia em plan.scaffold_req estar done antes de disparar os demais.
+          $plan = Get-Content "specs/products/$prod/build-plan.json" -Raw | ConvertFrom-Json
+          if ($plan.scaffold_req) {
+            Write-Host "marcando scaffold_req $($plan.scaffold_req) = merged"
+            node specs/tools/impl-status.mjs --set $plan.scaffold_req status=merged
+            if ($LASTEXITCODE -ne 0) { Write-Host "::warning::impl-status do scaffold_req falhou (segue)" }
+          }
+
           # 4) BOOTSTRAP: branch + PR + auto-merge admin (respeita branch protection via --admin).
           $bb = "forge/bootstrap/$prod"
           git checkout -B $bb 2>$null
