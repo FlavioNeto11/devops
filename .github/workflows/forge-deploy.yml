@@ -77,4 +77,10 @@ jobs:
           kubectl apply -f (Join-Path $appDir 'k8s') 2>$null
           kubectl -n apps rollout restart deployment -l app.kubernetes.io/part-of=$prod
           kubectl -n apps rollout status deployment -l app.kubernetes.io/part-of=$prod --timeout=180s
-          Write-Host "::notice::forge-deploy: $prod buildado + publicado. Acesse /$prod."
+
+          # 4) ressincroniza o estado VIVO da Forja (ConfigMap) a partir da baseline ATUAL — a tela Build
+          #    reflete o progresso real (reqs mesclados) sem reassar a imagem. (reconcile commita o
+          #    impl-status no git; aqui, self-hosted, propagamos pro cluster.)
+          git pull --rebase origin main 2>$null
+          & ./scripts/sync-reqhub-forge-state.ps1
+          Write-Host "::notice::forge-deploy: $prod buildado + publicado + Forge atualizada. Acesse /$prod."
