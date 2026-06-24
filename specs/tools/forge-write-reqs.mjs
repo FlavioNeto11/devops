@@ -30,6 +30,15 @@ export function writeFromPayload(payload, { specsDir = SPECS, repoRoot = REPO_RO
     specsDir, repoRoot, name, display: payload.display_name || name, basePath: '/' + name,
     blueprint, stack, blocks, interfaces: ['api', 'web'], brief: payload.brief || '', ids, arch,
   });
+  // Marca de produto AUTÔNOMO (somente mode=release): habilita o auto-merge dos PRs de implementação
+  // SEM gpt-approved — mas só quando a variável de repo FORGE_AUTONOMOUS=true (duplo gate). O marcador
+  // é versionado no git (auditável) e mantém intactas as barreiras técnicas (CI verde + guard-worktree).
+  if (String(payload.mode) === 'release') {
+    const pdir = path.join(specsDir, 'products', name);
+    fs.mkdirSync(pdir, { recursive: true });
+    fs.writeFileSync(path.join(pdir, 'autonomous.json'),
+      JSON.stringify({ autonomous: true, created_by: 'forge-launch', mode: 'release' }, null, 2) + '\n');
+  }
   return { name, ids, stack };
 }
 

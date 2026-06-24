@@ -105,6 +105,64 @@ jobs:
             gh pr merge "$n" --repo "$REPO" --squash --delete-branch
           done
 
+  # ---------------------------------------------------------------------------
+  # CAMINHO AUTONOMO DA FORJA (opt-in): mescla PRs de implementacao de produtos
+  # gerados pela Forja em modo release SEM o gpt-approved humano — porem SO quando a
+  # variavel de repo FORGE_AUTONOMOUS=true (duplo gate: var + marcador autonomous.json
+  # versionado). As barreiras TECNICAS continuam: CI verde + guard-worktree (blast-radius)
+  # + mergeable. Job ADITIVO — nao toca no caminho gpt-approved acima.
+  # ---------------------------------------------------------------------------
+  forge-autonomous-merge:
+    name: Auto-merge autonomo (Forja — FORGE_AUTONOMOUS)
+    if: github.event.action != 'closed' && vars.FORGE_AUTONOMOUS == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Mesclar PRs autonomos da Forja (sem gpt-approved; mantem CI+guard)
+        env:
+          GH_TOKEN: ${{ secrets.FORGE_GH_PAT || secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # Candidatos: PRs da esteira (claude-generated) SEM gpt-approved.
+          nums=$(gh pr list --repo "$REPO" --state open --label claude-generated --json number,labels --jq '.[] | select([.labels[].name] | index("gpt-approved") | not) | .number')
+          for n in $nums; do
+            info=$(gh pr view "$n" --repo "$REPO" --json mergeable,isDraft,statusCheckRollup,headRefName,body)
+            draft=$(echo "$info" | jq -r '.isDraft')
+            mergeable=$(echo "$info" | jq -r '.mergeable')
+            SELF="Auto-merge autonomo (Forja — FORGE_AUTONOMOUS)"
+            failed=$(echo "$info" | jq -r --arg self "$SELF" '[.statusCheckRollup[]? | select(((.name // .context) // "") != $self) | ((.conclusion // .state) // "") | select(. == "FAILURE" or . == "ERROR" or . == "CANCELLED" or . == "TIMED_OUT")] | length')
+            pending=$(echo "$info" | jq -r --arg self "$SELF" '[.statusCheckRollup[]? | select(((.name // .context) // "") != $self) | ((.conclusion // .state) // "PENDING") | select(. == "PENDING" or . == "EXPECTED" or . == "")] | length')
+            if [ "$draft" = "true" ]; then echo "PR #$n: rascunho - skip"; continue; fi
+            if [ "$failed" != "0" ]; then echo "PR #$n: $failed check(s) falho(s) - skip"; continue; fi
+            if [ "$pending" != "0" ]; then echo "PR #$n: $pending check(s) pendente(s) - aguarda"; continue; fi
+            if [ "$mergeable" != "MERGEABLE" ]; then echo "PR #$n: mergeable=$mergeable - skip"; continue; fi
+            # REQ-ID -> produto -> marcado como autonomo da Forja?
+            reqid=$(echo "$info" | jq -r '.body' | sed -n 's/.*Closes-Req:[[:space:]]*\(REQ-[A-Z0-9-]*\).*/\1/p' | head -1)
+            if [ -z "$reqid" ]; then reqid=$(echo "$info" | jq -r '.headRefName' | sed -n 's#req/\(REQ-[A-Z0-9-]*\)/.*#\1#p' | head -1); fi
+            if [ -z "$reqid" ]; then echo "PR #$n: sem REQ-ID - skip"; continue; fi
+            product=""
+            for d in specs/requirements/*/; do if [ -f "${d}${reqid}.yaml" ]; then product=$(basename "$d"); break; fi; done
+            if [ -z "$product" ] || [ ! -f "specs/products/$product/autonomous.json" ]; then
+              echo "PR #$n: REQ $reqid nao pertence a produto autonomo da Forja - skip"; continue; fi
+            # GUARD do diff (mesma barreira tecnica do caminho normal — defesa em profundidade).
+            if ! node specs/tools/make-work-order.mjs "$reqid" --out wo.json >/dev/null 2>&1; then
+              echo "PR #$n: REQ $reqid sem ordem de trabalho - skip"; continue; fi
+            gh pr view "$n" --repo "$REPO" --json files --jq '.files[].path' > changed.txt
+            if ! node specs/tools/guard-worktree.mjs --work-order wo.json --changed-file changed.txt; then
+              echo "PR #$n: guard-worktree REPROVOU (fora do blast-radius) - skip"
+              gh pr comment "$n" --repo "$REPO" --body "Auto-merge autonomo bloqueado: guard-worktree detectou arquivo fora do blast-radius para $reqid." || true
+              continue; fi
+            echo "PR #$n: AUTONOMO ($product) - CI verde + guard OK - MERGE (sem gpt-approved, via FORGE_AUTONOMOUS)"
+            gh pr merge "$n" --repo "$REPO" --squash --delete-branch
+          done
+
   reconcile-merged:
     name: Reconciliar status (merged)
     if: github.event.action == 'closed' && github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'claude-generated')
