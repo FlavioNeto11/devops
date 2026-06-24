@@ -1,0 +1,27 @@
+{
+  "app": "forjademo",
+  "generatedBy": "make-test-suite.mjs",
+  "minCount": 5,
+  "files": [
+    {
+      "path": "apps/forjademo/tests/locked/_lib.mjs",
+      "sha256": "7ad1a9e7abecdc045769fb8c72adf08d5df011b199b814bc4bedf6846ae955f9"
+    },
+    {
+      "path": "apps/forjademo/tests/locked/capability/camadas-rigidas.test.mjs",
+      "sha256": "47f2ed9e16c4ef0b701e588bbf3a10ab372e25bbc780333dffea8e0d4bf5a733"
+    },
+    {
+      "path": "apps/forjademo/tests/locked/capability/observabilidade.test.mjs",
+      "sha256": "8c732800c092a77201f6f36a84346c555e15e10150db2ef9896551f621bb0914"
+    },
+    {
+      "path": "apps/forjademo/tests/locked/functional/REQ-FORJADEMO-0001.ac1.test.mjs",
+      "sha256": "8cca2a9eb9b6655c78226de361834a913354b0dcdfb9065f5aab203022ece7d9"
+    },
+    {
+      "path": "apps/forjademo/tests/locked/functional/REQ-FORJADEMO-0001.ac2.test.mjs",
+      "sha256": "1bdbe946b42b079423dce59cae8b0e469a5aa01e3a79224720277ab9c9ad14ba"
+    }
+  ]
+}

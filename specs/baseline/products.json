@@ -59,6 +59,31 @@
       }
     },
     {
+      "name": "forjademo",
+      "display_name": "Forja Demo",
+      "base_path": "/forjademo",
+      "blueprint": "node-api-vue-spa",
+      "vision": "Sistema descartavel para validar a cadeia autonoma da Forja (concept->app no ar).",
+      "app_type": "product_software",
+      "requirement_ids": [
+        "REQ-FORJADEMO-0001"
+      ],
+      "phases": {
+        "requirements": {
+          "status": "approved"
+        },
+        "architecture": {
+          "status": "approved"
+        },
+        "scaffold": {
+          "status": "not_started"
+        },
+        "build": {
+          "status": "not_started"
+        }
+      }
+    },
+    {
       "name": "helpflow",
       "display_name": "HelpFlow - Service Desk",
       "base_path": "/helpflow",
