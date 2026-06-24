@@ -18,6 +18,7 @@ import { attachIngest } from '@flavioneto11/ai-ingest-middleware';
 import { buildAuthoringTools, buildForgeTools } from './tools.js';
 import { requireAuthoringAuth, ssoIdentity } from './auth.js';
 import { validateLaunchInput, buildClientPayload, dispatchForgeLaunch } from './forge-launch.js';
+import { buildLaunchStatus } from './forge-status.js';
 import { aiEnabled, getLlm } from './llm.js';
 import { runAuthoringChatTurn } from './ai/graph.js';
 import { buildUsageRouter } from './usage/index.js';
@@ -167,6 +168,18 @@ export function buildRouter({ registry, llm, memory } = {}) {
     } catch (e) {
       return res.status(502).json({ error: { code: 'DISPATCH_ERROR', message: String((e && e.message) || e) } });
     }
+  });
+
+  // Forge LAUNCH STATUS: estado VIVO da cadeia (requisitos→plano→construção) lido do GitHub com o PAT.
+  // A UI faz polling p/ mostrar o progresso na própria tela. Admin-only; fail-closed sem token.
+  router.get('/v1/forge/launch-status', requireAuthoringAuth, async (req, res) => {
+    const token = process.env.GITHUB_DISPATCH_TOKEN;
+    if (!token) return res.status(503).json({ error: { code: 'DISPATCH_DISABLED', message: 'status indisponível — sem GITHUB_DISPATCH_TOKEN' } });
+    const repo = process.env.GITHUB_DISPATCH_REPO || 'FlavioNeto11/devops';
+    const product = String(req.query.product || '').trim();
+    const out = await buildLaunchStatus({ token, repo, product });
+    if (!out.ok) return res.status(400).json({ error: { code: out.code || 'STATUS_ERROR', message: out.message || 'falha' } });
+    return res.json(out);
   });
 
   // Painel "Uso da IA" (/v1/ai-usage/*): leitura admin-only de custo/uso/limites (Claude+OpenAI),

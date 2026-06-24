@@ -2728,25 +2728,62 @@ function fwLaunch(w, mode, statusEl, btns) {
   return forgeLaunch(mode, ctx);
 }
 
-// Tela TRAVADA após o launch — impede voltar e re-gerar/re-disparar o mesmo pedido.
+// Tela TRAVADA após o launch — impede voltar e re-gerar/re-disparar; mostra o PROGRESSO AO VIVO
+// (polling do status do GitHub + sonda da URL do app) e revela o link de acesso quando publica.
 function renderForgeWizardLaunched(body, w) {
-  body.append(forgeCrumbs([{ label: 'Produtos', onclick: () => { state.forge.wizard = null; backToHub(); } }, { label: 'Criar um sistema' }]));
+  body.append(forgeCrumbs([{ label: 'Produtos', onclick: () => { fwStopPolling(w); state.forge.wizard = null; backToHub(); } }, { label: 'Criar um sistema' }]));
   const d = w.launchInfo || {};
   const rel = w.launchMode === 'release';
   const card = h('div', { class: 'fw-card fw-launched' });
-  card.append(h('h2', { text: (rel ? '🚀 ' : '📦 ') + (rel ? 'Sistema em construção' : 'Requisitos criados') }));
-  card.append(h('p', { class: 'fw-lead' },
-    'O ', h('strong', { text: w.name || w.slug }),
-    rel ? ' foi enviado para a esteira construir e publicar. Quando concluir, ficará disponível em '
-        : ' teve os requisitos criados no git. Mescle o PR para a esteira construir; depois ficará em ',
-    h('code', { text: '/' + (w.slug || '') }), '.'));
-  const links = h('div', { class: 'ws-actions' });
-  if (d.actions_url) links.append(h('a', { class: 'btn', href: d.actions_url, target: '_blank', rel: 'noopener', text: 'Acompanhar a esteira ↗' }));
-  if (d.pulls_url) links.append(h('a', { class: 'btn', href: d.pulls_url, target: '_blank', rel: 'noopener', text: 'Ver o PR ↗' }));
-  card.append(links);
-  card.append(h('p', { class: 'fw-hint', text: 'Esta tela ficou travada para não reenviar o mesmo pedido.' }));
-  card.append(h('div', { class: 'fw-actions' }, h('button', { class: 'btn primary', type: 'button', text: '+ Criar outro sistema', onclick: () => { state.forge.wizard = null; backToHub(); } })));
+  const head = h('h2', { text: (rel ? '🚀 ' : '📦 ') + (rel ? 'Construindo o ' : 'Requisitos criados — ') + (w.name || w.slug) });
+  const lead = h('p', { class: 'fw-lead', text: rel
+    ? 'Acompanhe aqui — quando ficar pronto, o link de acesso aparece abaixo.'
+    : 'Os requisitos foram criados no git. Mescle o PR para a esteira construir e publicar.' });
+  const steps = h('ol', { class: 'fw-launch-steps', 'aria-live': 'polite' });
+  const liveBox = h('div', { class: 'fw-live' });
+  const foot = h('div', { class: 'fw-actions' });
+  if (d.actions_url) foot.append(h('a', { class: 'btn', href: d.actions_url, target: '_blank', rel: 'noopener', text: 'Ver no GitHub ↗' }));
+  if (!rel && d.pulls_url) foot.append(h('a', { class: 'btn', href: d.pulls_url, target: '_blank', rel: 'noopener', text: 'Ver o PR ↗' }));
+  foot.append(h('button', { class: 'btn', type: 'button', text: '+ Criar outro sistema', onclick: () => { fwStopPolling(w); state.forge.wizard = null; backToHub(); } }));
+  card.append(head, lead, steps, liveBox, foot);
   body.append(card);
+  fwStartLaunchPolling(w, { steps, liveBox, lead });
+}
+
+function fwStopPolling(w) { if (w && w._statusTimer) { clearTimeout(w._statusTimer); w._statusTimer = null; } }
+
+// Polling do estado da cadeia + sonda de liveness do app (HEAD same-origin /<slug>/). Idempotente:
+// re-render chama fwStopPolling antes; para sozinho ao publicar ou ao sair do wizard.
+function fwStartLaunchPolling(w, els) {
+  fwStopPolling(w);
+  const slug = w.slug;
+  const appUrl = location.origin + '/' + slug + '/';
+  const icon = (st) => (st === 'done' ? '✓' : st === 'active' ? '●' : st === 'error' ? '✕' : '○');
+  const renderStages = (stages, live) => {
+    const all = (stages || []).slice();
+    all.push({ key: 'publicado', label: 'Publicado', status: live ? 'done' : 'pending', detail: live ? 'no ar' : 'aguardando subir' });
+    els.steps.replaceChildren(...all.map((s) => h('li', { class: 'fw-ls fw-ls-' + s.status },
+      h('span', { class: 'fw-ls-ic', 'aria-hidden': 'true', text: icon(s.status) }),
+      h('span', { class: 'fw-ls-tx' }, h('strong', { text: s.label }), s.detail ? h('span', { class: 'fw-ls-d', text: ' — ' + s.detail }) : null))));
+  };
+  const probeLive = async () => { try { const r = await fetch(appUrl, { method: 'HEAD', cache: 'no-store' }); return r.ok; } catch { return false; } };
+  const tick = async () => {
+    if (state.forge.wizard !== w) { fwStopPolling(w); return; } // navegou para fora
+    let stages = [];
+    try { const r = await AI.get('/v1/forge/launch-status?product=' + encodeURIComponent(slug)); if (r.ok && r.data && Array.isArray(r.data.stages)) stages = r.data.stages; } catch { /* fail-soft */ }
+    const live = await probeLive();
+    renderStages(stages, live);
+    if (live) {
+      els.lead.textContent = 'Pronto! O ' + (w.name || slug) + ' foi construído e publicado.';
+      els.liveBox.replaceChildren(
+        h('p', { class: 'fw-live-t', text: '🎉 Seu sistema está no ar!' }),
+        h('a', { class: 'btn primary fw-cta', href: appUrl, target: '_blank', rel: 'noopener', text: 'Acessar ' + (w.name || slug) + ' ↗' }));
+      fwStopPolling(w);
+      return;
+    }
+    w._statusTimer = setTimeout(tick, 6000);
+  };
+  tick();
 }
 
 function renderForgeWizard(body) {
