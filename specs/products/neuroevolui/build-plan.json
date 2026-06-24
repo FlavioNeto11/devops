@@ -1,0 +1,46 @@
+{
+  "product": "neuroevolui",
+  "blueprint": "gymops-style",
+  "baseline_hash": "c673fba7368673eeb123e0671af3b6e8d8fd855c2c79bf90786e87dd1743d7f9",
+  "generated_by": "forge.build-plan@1",
+  "status": "proposed",
+  "scaffold_req": "REQ-NEUROEVOLUI-0001",
+  "modules": [],
+  "waves": [
+    {
+      "id": "w0-foundation",
+      "gate": "auto",
+      "work_orders": [
+        "REQ-NEUROEVOLUI-0001"
+      ]
+    },
+    {
+      "id": "w1",
+      "gate": "auto",
+      "work_orders": [
+        "REQ-NEUROEVOLUI-0002",
+        "REQ-NEUROEVOLUI-0003",
+        "REQ-NEUROEVOLUI-0004",
+        "REQ-NEUROEVOLUI-0005",
+        "REQ-NEUROEVOLUI-0006",
+        "REQ-NEUROEVOLUI-0007",
+        "REQ-NEUROEVOLUI-0008",
+        "REQ-NEUROEVOLUI-0009"
+      ],
+      "depends_on": [
+        "w0"
+      ]
+    }
+  ],
+  "order": [
+    "REQ-NEUROEVOLUI-0001",
+    "REQ-NEUROEVOLUI-0002",
+    "REQ-NEUROEVOLUI-0003",
+    "REQ-NEUROEVOLUI-0004",
+    "REQ-NEUROEVOLUI-0005",
+    "REQ-NEUROEVOLUI-0006",
+    "REQ-NEUROEVOLUI-0007",
+    "REQ-NEUROEVOLUI-0008",
+    "REQ-NEUROEVOLUI-0009"
+  ]
+}

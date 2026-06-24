@@ -1,0 +1,21 @@
+{
+  "app": "neuroevolui",
+  "stack": "gymops",
+  "blocks": [
+    "observabilidade",
+    "camadas-rigidas",
+    "migrations-versionadas",
+    "oidc-sessao",
+    "rbac-multitenant",
+    "redis-bullmq",
+    "idempotencia",
+    "pagamentos-gateway",
+    "ia-grafo",
+    "rag-pgvector",
+    "control-ai-por-app",
+    "structured-outputs",
+    "notificacoes-multicanal",
+    "design-system"
+  ],
+  "generatedBy": "scaffold-gymops.mjs"
+}
