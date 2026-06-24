@@ -189,4 +189,7 @@ jobs:
           #    cada merge redispara forge-deploy p/ as features subirem).
           Write-Host "release: disparando greenfield-orchestrate ($prod)…"
           gh workflow run greenfield-orchestrate.yml -f product=$prod -f max=20
-          Write-Host "::notice::FORGE autônomo: scaffold+Argo na main, esqueleto publicado e orchestrate disparado. Os PRs de implementação auto-mesclam e redeployam — o app fica em /$prod."
+
+          # 7) ressincroniza o estado VIVO da Forja (ConfigMap) — o novo produto aparece na tela Forge.
+          & ./scripts/sync-reqhub-forge-state.ps1
+          Write-Host "::notice::FORGE autônomo: scaffold+Argo na main, esqueleto publicado, orchestrate disparado e Forge atualizada — o app fica em /$prod."

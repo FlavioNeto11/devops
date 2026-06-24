@@ -81,4 +81,8 @@ jobs:
             $items = kubectl -n apps get $k -o name 2>$null | Select-String "(^|/)$prod(-|$)"
             foreach ($i in $items) { kubectl -n apps delete $i.ToString() --ignore-not-found 2>$null }
           }
-          Write-Host "::notice::forge-delete: produto '$prod' removido do git e do cluster."
+
+          # 5) ressincroniza o estado VIVO da Forja (ConfigMap reqhub-forge-state) — a tela Forge
+          #    passa a NÃO listar mais o produto apagado.
+          & ./scripts/sync-reqhub-forge-state.ps1
+          Write-Host "::notice::forge-delete: produto '$prod' removido do git, do cluster e do estado vivo da Forja."
