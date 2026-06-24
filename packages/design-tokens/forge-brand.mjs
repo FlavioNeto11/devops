@@ -138,6 +138,7 @@ export function deriveForgeTokensCss(brandIn) {
   const structural = [
     `  --ui-font-sans: Inter, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;`,
     `  --ui-font-display: ${brand.displayFont}, var(--ui-font-sans);`,
+    `  --ui-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;`,
     `  --ui-text-xs: 11.5px;`,
     `  --ui-text-sm: 13px;`,
     `  --ui-text-md: 14px;`,
