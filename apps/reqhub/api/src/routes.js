@@ -18,7 +18,7 @@ import { attachIngest } from '@flavioneto11/ai-ingest-middleware';
 import { buildAuthoringTools, buildForgeTools } from './tools.js';
 import { requireAuthoringAuth, ssoIdentity } from './auth.js';
 import { validateLaunchInput, buildClientPayload, dispatchForgeLaunch, validateDeleteInput, dispatchForgeDelete } from './forge-launch.js';
-import { buildLaunchStatus } from './forge-status.js';
+import { buildLaunchStatus, buildProductStatus } from './forge-status.js';
 import { aiEnabled, getLlm } from './llm.js';
 import { runAuthoringChatTurn } from './ai/graph.js';
 import { buildUsageRouter } from './usage/index.js';
@@ -178,6 +178,17 @@ export function buildRouter({ registry, llm, memory } = {}) {
     const repo = process.env.GITHUB_DISPATCH_REPO || 'FlavioNeto11/devops';
     const product = String(req.query.product || '').trim();
     const out = await buildLaunchStatus({ token, repo, product });
+    if (!out.ok) return res.status(400).json({ error: { code: out.code || 'STATUS_ERROR', message: out.message || 'falha' } });
+    return res.json(out);
+  });
+
+  // Forge BUILD STATUS: estado VIVO do build (req-implement rodando + PRs de implementação abertos com
+  // resumo de CI). Alimenta o indicador "processando/bloqueado" na tela Build. Admin-only; fail-closed.
+  router.get('/v1/forge/build-status', requireAuthoringAuth, async (req, res) => {
+    const token = process.env.GITHUB_DISPATCH_TOKEN;
+    if (!token) return res.status(503).json({ error: { code: 'DISPATCH_DISABLED', message: 'status indisponível — sem GITHUB_DISPATCH_TOKEN' } });
+    const repo = process.env.GITHUB_DISPATCH_REPO || 'FlavioNeto11/devops';
+    const out = await buildProductStatus({ token, repo, product: String(req.query.product || '').trim() });
     if (!out.ok) return res.status(400).json({ error: { code: out.code || 'STATUS_ERROR', message: out.message || 'falha' } });
     return res.json(out);
   });

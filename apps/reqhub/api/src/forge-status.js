@@ -70,4 +70,46 @@ export async function buildLaunchStatus({ token, repo, product, fetchImpl = fetc
   return { ok: true, product, stages };
 }
 
+/** Estado VIVO do BUILD de um produto: req-implement rodando + PRs de implementação abertos (com CI).
+ *  Alimenta o indicador "processando/bloqueado" na tela Build. Fail-soft. */
+export async function buildProductStatus({ token, repo, product, fetchImpl = fetch }) {
+  if (!/^[a-z][a-z0-9-]{1,30}$/.test(String(product || ''))) {
+    return { ok: false, code: 'INVALID_PRODUCT', message: 'product inválido' };
+  }
+  const headers = { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'User-Agent': 'reqhub-forge', 'X-GitHub-Api-Version': '2022-11-28' };
+  const out = { ok: true, product, running: 0, prs: [] };
+  try {
+    // req-implement em execução/fila (sinal de "construindo agora"). Não é por-produto, mas no lab
+    // só há um build ativo por vez — suficiente para o indicador.
+    for (const st of ['in_progress', 'queued']) {
+      const r = await fetchImpl(`${GH}/repos/${repo}/actions/workflows/req-implement.yml/runs?status=${st}&per_page=30`, { headers });
+      if (r.ok) { const j = await r.json().catch(() => ({})); out.running += (j.total_count || (j.workflow_runs || []).length || 0); }
+    }
+    // PRs de implementação abertos deste produto (branch req/REQ-<PRODUTO>...), com resumo de CI.
+    const prefix = ('req/' + slugToReqPrefix(product)).toLowerCase();
+    const open = await fetchImpl(`${GH}/repos/${repo}/pulls?state=open&per_page=100`, { headers })
+      .then((r) => (r.ok ? r.json() : [])).catch(() => []);
+    for (const pr of (Array.isArray(open) ? open : [])) {
+      const ref = String(pr.head && pr.head.ref || '').toLowerCase();
+      if (!ref.startsWith(prefix)) continue;
+      const reqId = (String(pr.head.ref).match(/req\/(REQ-[A-Z0-9-]+?)\//i) || [])[1] || '';
+      // resumo de checks do PR (status + check-runs do head sha)
+      let failed = 0, pending = 0, passed = 0;
+      try {
+        const sha = pr.head.sha;
+        const cr = await fetchImpl(`${GH}/repos/${repo}/commits/${sha}/check-runs?per_page=100`, { headers }).then((x) => x.ok ? x.json() : { check_runs: [] }).catch(() => ({ check_runs: [] }));
+        for (const c of (cr.check_runs || [])) {
+          if (/auto-merge/i.test(c.name || '')) continue; // ignora o próprio job de merge
+          if (c.status !== 'completed') pending++;
+          else if (c.conclusion === 'success' || c.conclusion === 'neutral' || c.conclusion === 'skipped') passed++;
+          else failed++;
+        }
+      } catch { /* fail-soft */ }
+      const state = failed > 0 ? 'blocked' : (pending > 0 ? 'checking' : 'ready');
+      out.prs.push({ req: reqId, number: pr.number, url: pr.html_url, state, failed, pending, passed });
+    }
+  } catch (e) { out.error = String((e && e.message) || e); }
+  return out;
+}
+
 export { slugToReqPrefix };

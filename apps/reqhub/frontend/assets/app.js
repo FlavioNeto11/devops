@@ -2554,7 +2554,9 @@ function forgeBuild(panel, product, buildPlan) {
   const prog = (function () { let d = 0; for (const id of reqIds) { const it = DATA.implStatus && DATA.implStatus.items && DATA.implStatus.items[id]; if (it && DONE_ST.includes(it.status)) d++; } return { d, t: reqIds.length, pct: reqIds.length ? Math.round((d / reqIds.length) * 100) : 0 }; })();
   // esquerda: waves + tabela de requisitos
   const left = h('div', { class: 'forge-section' });
-  left.append(h('h3', { text: `Progresso — ${prog.d}/${prog.t} no ar` }), progressBar(prog.pct));
+  const buildStatusEl = h('div', { class: 'forge-build-status', role: 'status', 'aria-live': 'polite' });
+  left.append(h('h3', { text: `Progresso — ${prog.d}/${prog.t} no ar` }), progressBar(prog.pct), buildStatusEl);
+  forgePollBuildStatus(product.name, buildStatusEl); // indicador VIVO: req-implement rodando + PRs/CI
   if (buildPlan) {
     const waves = waveProgress(buildPlan, DATA.implStatus);
     const stateLabel = { done: 'concluída', active: 'em andamento', ready: 'pronta', blocked: 'bloqueada' };
@@ -2588,6 +2590,48 @@ function forgeBuild(panel, product, buildPlan) {
   }
   const gw = h('div', { class: 'grid-wrap' }); t.append(tb); gw.append(t); right.append(gw);
   panel.append(right);
+}
+
+// Indicador VIVO do build (tela Build): faz polling de /v1/forge/build-status e mostra se há
+// req-implement rodando + PRs de implementação abertos (e se estão bloqueados por CI). Para sozinho
+// ao sair da aba Build. fail-soft (sem token/IA fora -> "status indisponível", não quebra a tela).
+let _forgeBuildTimer = null;
+function fwStopBuildPoll() { if (_forgeBuildTimer) { clearTimeout(_forgeBuildTimer); _forgeBuildTimer = null; } }
+function renderBuildStatus(el, data) {
+  el.replaceChildren();
+  if (!data || data.ok === false) { el.append(h('p', { class: 'muted', text: 'Status do build indisponível agora.' })); return; }
+  const running = data.running || 0; const prs = data.prs || [];
+  if (!running && !prs.length) {
+    el.append(h('div', { class: 'fbuild-idle' }, h('span', { class: 'fbuild-dot' }), ' Sem processamento ativo no momento (nenhum req-implement rodando nem PR aberto).'));
+    return;
+  }
+  el.append(h('div', { class: 'fbuild-head' }, h('span', { class: 'forge-spin', 'aria-hidden': 'true' }),
+    ' Processando — ', h('strong', { text: String(running) }), ' implementação(ões) rodando · ', h('strong', { text: String(prs.length) }), ' PR(s) aberto(s)'));
+  if (prs.length) {
+    const ul = h('ul', { class: 'fbuild-prs' });
+    for (const p of prs) {
+      const label = p.state === 'blocked' ? ('bloqueado — CI vermelho' + (p.failed ? ` (${p.failed} check${p.failed > 1 ? 's' : ''} falho${p.failed > 1 ? 's' : ''})` : ''))
+        : p.state === 'checking' ? 'verificando CI…' : 'pronto p/ mesclar';
+      ul.append(h('li', { class: 'fbuild-pr s-' + p.state },
+        h('span', { class: 'fbuild-pr-ic', 'aria-hidden': 'true', text: p.state === 'blocked' ? '✕' : p.state === 'checking' ? '●' : '✓' }),
+        h('span', { class: 'fbuild-pr-req', text: p.req || ('PR #' + p.number) }),
+        h('a', { class: 'btn-link', href: p.url, target: '_blank', rel: 'noopener', text: '#' + p.number }),
+        h('span', { class: 'fbuild-pr-st', text: ' — ' + label })));
+    }
+    el.append(ul);
+  }
+}
+function forgePollBuildStatus(name, el) {
+  fwStopBuildPoll();
+  const tick = async () => {
+    if (!(state.view === 'forge' && state.forge.product === name && state.forge.step === 'build')) { fwStopBuildPoll(); return; }
+    let data = null;
+    try { const r = await AI.get('/v1/forge/build-status?product=' + encodeURIComponent(name)); data = r.ok ? r.data : { ok: false }; } catch { data = { ok: false }; }
+    if (!(state.view === 'forge' && state.forge.product === name && state.forge.step === 'build')) { fwStopBuildPoll(); return; }
+    renderBuildStatus(el, data);
+    _forgeBuildTimer = setTimeout(tick, 8000);
+  };
+  tick();
 }
 
 // Zoom (wheel) + pan (drag) local, sem acoplamento ao Mapa de impacto. onBg = clique no fundo.

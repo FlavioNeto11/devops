@@ -883,6 +883,20 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 .btn.danger:hover { background: color-mix(in srgb, var(--danger, #dc2626) 12%, transparent); border-color: var(--danger, #dc2626); }
 .forge-danger { margin-top: 28px; padding: 16px; border: 1px solid color-mix(in srgb, var(--danger, #dc2626) 35%, var(--line)); border-radius: 10px; background: color-mix(in srgb, var(--danger, #dc2626) 5%, transparent); }
 .forge-danger h4 { margin: 0 0 6px; color: var(--danger, #dc2626); }
+/* Indicador VIVO do build (tela Build) */
+.forge-build-status { margin: 10px 0 6px; }
+.fbuild-head { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--fg-1); padding: 9px 12px; border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--line)); border-radius: 8px; background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.fbuild-idle { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; }
+.fbuild-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; }
+.fbuild-prs { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.fbuild-pr { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.fbuild-pr-ic { flex: 0 0 18px; width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; }
+.fbuild-pr.s-blocked .fbuild-pr-ic { background: var(--danger, #dc2626); }
+.fbuild-pr.s-checking .fbuild-pr-ic { background: var(--warn, #d97706); animation: fwPulse 1.4s ease-in-out infinite; }
+.fbuild-pr.s-ready .fbuild-pr-ic { background: var(--ok, #16a34a); }
+.fbuild-pr-req { font-family: var(--mono); font-size: 12px; }
+.fbuild-pr-st { color: var(--muted); }
+.fbuild-pr.s-blocked .fbuild-pr-st { color: var(--danger, #dc2626); }
 .forge-reqitem[role="button"] { cursor: pointer; }
 .forge-reqitem[role="button"]:hover { border-color: var(--accent); }
 
