@@ -180,6 +180,11 @@ jobs:
 
             # captura as mudancas do working tree (a Claude editou sobre a main)
             git add -A 2>$null
+            # NUNCA contar/commitar os artefatos EFEMEROS do proprio pipeline. O .git/info/exclude
+            # escrito com CRLF no Windows nao casa os padroes (trailing \r), entao o work-order.json
+            # vazava p/ o `git add -A` e o guard REPROVAVA todo requisito (fora de allowed_paths).
+            # Desfazemos o staging deles explicitamente — fix robusto, independente do exclude.
+            git reset -q -- work-order.json changed.txt approved.json plan-wo.json 2>$null
             $changed = @(git diff --cached --name-only)
             if (-not $changed -or $changed.Count -eq 0) {
               Write-Host "::warning::$id : a Claude nao produziu mudancas — pulando."
