@@ -1,19 +1,80 @@
 // server.js — API Fastify (gymops-style). Servida em /neuroevolui/api (stripPrefix). Gerado pela Forge.
 import Fastify from 'fastify';
-import { pool, migrate, seed } from './db.js';
+import { pool, migrate, seed, idempotencyGet, idempotencySave } from './db.js';
 import { M, startMetricsServer } from './metrics.js';
 import { authContext, requireRole } from './rbac.js';
-import { enqueueSubmit, queueCounts } from './queue.js';
+import { enqueueSubmit, enqueueJob, queueCounts } from './queue.js';
+
+const VALID_QUEUES = ['consultation-notes', 'patient-imports', 'notifications', 'summaries-ai'];
+
 const app = Fastify({ logger: false });
 app.addHook('onRequest', async (req) => { const ctx = authContext(req); req.tenantId = ctx.tenantId; req.role = ctx.role; });
 app.get('/', async () => ({ app: 'neuroevolui', service: 'api', ok: true }));
 app.get('/health', async () => { await pool.query('SELECT 1'); return { status: 'ok', db: 'connected' }; });
 app.get('/v1/health/queue', async () => ({ status: 'ok', queue: await queueCounts() }));
-app.get('/v1/records', async (req) => ({ data: (await pool.query('SELECT * FROM records WHERE tenant_id=$1 ORDER BY id DESC LIMIT 200', [req.tenantId])).rows }));
-app.post('/v1/records', async (req, reply) => { const b = req.body || {}; if (!b.title) { reply.code(400); return { error: { message: 'title obrigatório' } }; } const r = (await pool.query('INSERT INTO records(tenant_id,title) VALUES ($1,$2) RETURNING *', [req.tenantId, b.title])).rows[0]; M.recordsTotal.inc({ outcome: 'created' }); reply.code(201); return r; });
-app.get('/v1/records/:id', async (req, reply) => { const r = (await pool.query('SELECT * FROM records WHERE tenant_id=$1 AND id=$2', [req.tenantId, Number(req.params.id)])).rows[0]; if (!r) { reply.code(404); return { error: { message: 'não encontrado' } }; } return r; });
-app.delete('/v1/records/:id', { preHandler: requireRole('admin') }, async (req) => { await pool.query('DELETE FROM records WHERE tenant_id=$1 AND id=$2', [req.tenantId, Number(req.params.id)]); return { deleted: true }; });
-app.post('/v1/records/:id/submit', async (req, reply) => { const id = Number(req.params.id); const r = (await pool.query('SELECT id FROM records WHERE tenant_id=$1 AND id=$2', [req.tenantId, id])).rows[0]; if (!r) { reply.code(404); return { error: { message: 'não encontrado' } }; } await pool.query("UPDATE records SET status='submitting', updated_at=now() WHERE id=$1", [id]); const e = await enqueueSubmit(id); reply.code(202); return { id, status: 'submitting', enqueued: !e.inline }; });
+
+app.get('/v1/records', async (req) => ({
+  data: (await pool.query('SELECT * FROM records WHERE tenant_id=$1 ORDER BY id DESC LIMIT 200', [req.tenantId])).rows,
+}));
+
+app.post('/v1/records', async (req, reply) => {
+  const b = req.body || {};
+  if (!b.title) { reply.code(400); return { error: { message: 'title obrigatório' } }; }
+
+  const idempotencyKey = req.headers['idempotency-key'];
+  if (idempotencyKey) {
+    const cached = await idempotencyGet('create_record', idempotencyKey);
+    if (cached) { reply.code(200); return cached; }
+  }
+
+  const r = (await pool.query('INSERT INTO records(tenant_id,title) VALUES ($1,$2) RETURNING *', [req.tenantId, b.title])).rows[0];
+  M.recordsTotal.inc({ outcome: 'created' });
+  if (idempotencyKey) await idempotencySave('create_record', idempotencyKey, 'record', String(r.id), r);
+  reply.code(201);
+  return r;
+});
+
+app.get('/v1/records/:id', async (req, reply) => {
+  const r = (await pool.query('SELECT * FROM records WHERE tenant_id=$1 AND id=$2', [req.tenantId, Number(req.params.id)])).rows[0];
+  if (!r) { reply.code(404); return { error: { message: 'não encontrado' } }; }
+  return r;
+});
+
+app.delete('/v1/records/:id', { preHandler: requireRole('admin') }, async (req) => {
+  await pool.query('DELETE FROM records WHERE tenant_id=$1 AND id=$2', [req.tenantId, Number(req.params.id)]);
+  return { deleted: true };
+});
+
+app.post('/v1/records/:id/submit', async (req, reply) => {
+  const id = Number(req.params.id);
+  const r = (await pool.query('SELECT id FROM records WHERE tenant_id=$1 AND id=$2', [req.tenantId, id])).rows[0];
+  if (!r) { reply.code(404); return { error: { message: 'não encontrado' } }; }
+  await pool.query("UPDATE records SET status='submitting', updated_at=now() WHERE id=$1", [id]);
+  const e = await enqueueSubmit(id);
+  if (e.inline) {
+    // degradação graciosa: sem Redis processa inline com timeout
+    setImmediate(async () => {
+      try { await pool.query("UPDATE records SET status='submitted', updated_at=now() WHERE id=$1", [id]); }
+      catch { await pool.query("UPDATE records SET status='failed', updated_at=now() WHERE id=$1", [id]).catch(() => {}); }
+    });
+  }
+  reply.code(202);
+  return { id, job_id: e.job_id, status: 'submitting', enqueued: !e.inline };
+});
+
+// Enfileirar jobs nas 4 filas nomeadas de domínio
+app.post('/v1/queue/:queueName/enqueue', async (req, reply) => {
+  const { queueName } = req.params;
+  if (!VALID_QUEUES.includes(queueName)) {
+    reply.code(400); return { error: { message: 'fila inválida. Filas: ' + VALID_QUEUES.join(', ') } };
+  }
+  const b = req.body || {};
+  const jobKey = b.job_key;
+  const e = await enqueueJob(queueName, b.type || 'process', b.data || {}, jobKey);
+  reply.code(202);
+  return { job_id: e.job_id, queue: queueName, enqueued: !e.inline };
+});
+
 const PORT = Number(process.env.PORT) || 8080;
 (async () => {
   if ((process.env.AUTO_MIGRATE || 'true') === 'true') await migrate();
