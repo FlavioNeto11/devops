@@ -58,7 +58,7 @@ jobs:
       - name: Abrir PR de requisitos
         id: pr
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.FORGE_GH_PAT || secrets.GITHUB_TOKEN }}
         run: |
           $ErrorActionPreference = "Stop"
           $prod = $env:PRODUCT
@@ -91,7 +91,7 @@ jobs:
       - name: (release) auto-merge + disparar build
         if: env.MODE == 'release'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.FORGE_GH_PAT || secrets.GITHUB_TOKEN }}
           PR_URL: ${{ steps.pr.outputs.pr_url }}
         run: |
           $ErrorActionPreference = "Continue"

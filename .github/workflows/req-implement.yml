@@ -210,7 +210,7 @@ jobs:
       # token, atualiza implementation-status (pr_open) e abre o PR rastreavel.
       - name: Publicar PRs validados (push + PR)
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.FORGE_GH_PAT || secrets.GITHUB_TOKEN }}
           RUN_ID: ${{ github.run_id }}
         run: |
           $ErrorActionPreference = "Stop"

@@ -53,7 +53,7 @@ jobs:
 
       - name: Disparar requisitos prontos (esteira req-implement)
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.FORGE_GH_PAT || secrets.GITHUB_TOKEN }}
         run: node specs/tools/orchestrate-build.mjs "${{ github.event.inputs.product }}" --dispatch --max "${{ github.event.inputs.max }}"
 
       - name: Resumo

@@ -47,7 +47,7 @@ jobs:
           node-version: "22"
       - name: Mesclar PRs validados
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.FORGE_GH_PAT || secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           # Aprovadores confiaveis do label gpt-approved (default: dono do repo). Pode
           # ser ampliado via variavel de repo TRUSTED_APPROVERS (logins separados por espaco).

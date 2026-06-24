@@ -87,7 +87,7 @@ jobs:
       # PASSO 2 — publica o PR de planejamento (único ponto com GH_TOKEN). Humano = G2.
       - name: Abrir PR de planejamento (G2)
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.FORGE_GH_PAT || secrets.GITHUB_TOKEN }}
           PRODUCT: ${{ github.event.inputs.product }}
           RUN_ID: ${{ github.run_id }}
         run: |
