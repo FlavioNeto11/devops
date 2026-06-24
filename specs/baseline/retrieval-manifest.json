@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "781dadc2ef8a3fdd48f47f60f6bd380fc784e97c54bd358a261314c62e78755a",
+  "baseline_hash": "48f22071a5fb73edcd84cf3b85d85c44cb1acb1c5ba10add3decd8e5f4a284c6",
   "items": [
     {
       "id": "REQ-AI-0001",
@@ -1288,6 +1288,17 @@
       "asr": false,
       "impact_band": "low",
       "file": "requirements/fieldserve/REQ-FIELDSERVE-0005.yaml"
+    },
+    {
+      "id": "REQ-FORJASELFTEST-0001",
+      "title": "Fundacao: teste da esteira de launch",
+      "type": "functional",
+      "status": "approved",
+      "product": "forja-selftest",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/forja-selftest/REQ-FORJASELFTEST-0001.yaml"
     },
     {
       "id": "REQ-GYMOPS-0001",

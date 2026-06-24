@@ -1,0 +1,24 @@
+id: REQ-FORJASELFTEST-0001
+title: "Fundacao: teste da esteira de launch"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: product-foundation
+  product_scope: forja-selftest
+  blueprint: node-api-vue-spa
+statement: "Requisito descartavel para validar o disparo end-to-end da esteira pela UI da Forja."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/forja-selftest/product.json"]
+priority: critical
+criticality: critical
+architectural_significance: true
+capability_blocks: ["camadas-rigidas"]
+acceptance_criteria:
+  - "O workflow greenfield-launch escreve este YAML, regenera a baseline e abre o PR."
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1
