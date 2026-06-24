@@ -1,0 +1,146 @@
+# NeuroEvolui — k8s gerado pela Forge (gymops-style). Imagens :local.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: neuroevolui-postgres, namespace: apps, labels: { app.kubernetes.io/part-of: neuroevolui } }
+spec: { accessModes: [ReadWriteOnce], resources: { requests: { storage: 1Gi } } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: neuroevolui-postgres, namespace: apps, labels: { app.kubernetes.io/name: neuroevolui-postgres, app.kubernetes.io/part-of: neuroevolui } }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app.kubernetes.io/name: neuroevolui-postgres } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: neuroevolui-postgres, app.kubernetes.io/part-of: neuroevolui } }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          envFrom: [ { secretRef: { name: neuroevolui-db } } ]
+          ports: [ { containerPort: 5432 } ]
+          volumeMounts: [ { name: data, mountPath: /var/lib/postgresql/data, subPath: pgdata } ]
+      volumes: [ { name: data, persistentVolumeClaim: { claimName: neuroevolui-postgres } } ]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: neuroevolui-postgres, namespace: apps, labels: { app.kubernetes.io/part-of: neuroevolui } }
+spec: { selector: { app.kubernetes.io/name: neuroevolui-postgres }, ports: [ { port: 5432, targetPort: 5432 } ] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: neuroevolui-redis, namespace: apps, labels: { app.kubernetes.io/name: neuroevolui-redis, app.kubernetes.io/part-of: neuroevolui } }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: neuroevolui-redis } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: neuroevolui-redis, app.kubernetes.io/part-of: neuroevolui } }
+    spec: { containers: [ { name: redis, image: redis:7-alpine, ports: [ { containerPort: 6379 } ] } ] }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: neuroevolui-redis, namespace: apps, labels: { app.kubernetes.io/part-of: neuroevolui } }
+spec: { selector: { app.kubernetes.io/name: neuroevolui-redis }, ports: [ { port: 6379, targetPort: 6379 } ] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: neuroevolui-api
+  namespace: apps
+  labels: { app.kubernetes.io/name: neuroevolui-api, app.kubernetes.io/component: api, app.kubernetes.io/part-of: neuroevolui, devops.flavioneto/app-type: product_software }
+  annotations: { devops.flavioneto/app: neuroevolui, devops.flavioneto/metrics-port: "9464" }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: neuroevolui-api } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: neuroevolui-api, app.kubernetes.io/component: api, app.kubernetes.io/part-of: neuroevolui } }
+    spec:
+      containers:
+        - name: api
+          image: neuroevolui-api:local
+          imagePullPolicy: IfNotPresent
+          command: ["npm", "start"]
+          envFrom: [ { secretRef: { name: neuroevolui-db } } ]
+          env:
+            - { name: REDIS_URL, value: "redis://neuroevolui-redis:6379" }
+            - { name: METRICS_PORT, value: "9464" }
+            - { name: AUTO_MIGRATE, value: "true" }
+            - { name: AUTO_SEED, value: "true" }
+          ports:
+            - { name: http, containerPort: 8080 }
+            - { name: metrics, containerPort: 9464 }
+          readinessProbe: { httpGet: { path: /health, port: 8080 }, initialDelaySeconds: 8, periodSeconds: 10 }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: neuroevolui-api, namespace: apps, labels: { app.kubernetes.io/name: neuroevolui-api, app.kubernetes.io/part-of: neuroevolui } }
+spec: { selector: { app.kubernetes.io/name: neuroevolui-api }, ports: [ { name: http, port: 8080, targetPort: 8080 }, { name: metrics, port: 9464, targetPort: 9464 } ] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: neuroevolui-worker
+  namespace: apps
+  labels: { app.kubernetes.io/name: neuroevolui-worker, app.kubernetes.io/component: worker, app.kubernetes.io/part-of: neuroevolui }
+  annotations: { devops.flavioneto/app: neuroevolui, devops.flavioneto/metrics-port: "9464" }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: neuroevolui-worker } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: neuroevolui-worker, app.kubernetes.io/component: worker, app.kubernetes.io/part-of: neuroevolui } }
+    spec:
+      containers:
+        - name: worker
+          image: neuroevolui-api:local
+          imagePullPolicy: IfNotPresent
+          command: ["npm", "run", "worker"]
+          envFrom: [ { secretRef: { name: neuroevolui-db } } ]
+          env:
+            - { name: REDIS_URL, value: "redis://neuroevolui-redis:6379" }
+            - { name: METRICS_PORT, value: "9464" }
+            - { name: AUTO_MIGRATE, value: "false" }
+          ports: [ { name: metrics, containerPort: 9464 } ]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: neuroevolui-worker, namespace: apps, labels: { app.kubernetes.io/name: neuroevolui-worker, app.kubernetes.io/part-of: neuroevolui } }
+spec: { selector: { app.kubernetes.io/name: neuroevolui-worker }, ports: [ { name: metrics, port: 9464, targetPort: 9464 } ] }
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata: { name: neuroevolui-api-strip, namespace: apps }
+spec: { stripPrefix: { prefixes: ["/neuroevolui/api"] } }
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata: { name: neuroevolui, namespace: apps, labels: { app.kubernetes.io/part-of: neuroevolui } }
+spec:
+  entryPoints: [web]
+  routes:
+    - match: PathPrefix(`/neuroevolui/api`)
+      kind: Rule
+      priority: 40
+      services: [ { name: neuroevolui-api, port: 8080 } ]
+      middlewares: [ { name: console-auth-401, namespace: devops-system }, { name: neuroevolui-api-strip } ]
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata: { name: neuroevolui, namespace: apps, labels: { app.kubernetes.io/part-of: neuroevolui, release: kube-prometheus-stack } }
+spec:
+  selector: { matchLabels: { app.kubernetes.io/part-of: neuroevolui } }
+  namespaceSelector: { matchNames: [apps] }
+  endpoints: [ { port: metrics, path: /metrics, interval: 15s } ]
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata: { name: neuroevolui-slo, namespace: apps, labels: { app.kubernetes.io/part-of: neuroevolui, release: kube-prometheus-stack } }
+spec:
+  groups:
+    - name: neuroevolui.slo
+      rules:
+        - alert: neuroevoluiApiDown
+          expr: absent(up{job=~".*neuroevolui-api.*"} == 1)
+          for: 3m
+          labels: { severity: critical, app: neuroevolui }
+          annotations: { summary: "neuroevolui: API sem target UP" }
