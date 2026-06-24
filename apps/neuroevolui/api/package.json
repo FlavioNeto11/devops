@@ -7,13 +7,17 @@
   "scripts": {
     "start": "node src/server.js",
     "worker": "node src/worker.js",
-    "test": "node --test \"test/**/*.test.mjs\""
+    "test": "node --test \"test/**/*.test.mjs\"",
+    "gen:operations": "node scripts/generate-operations.js && node scripts/sync-operations-ts.mjs",
+    "validate:openapi": "node scripts/validate-openapi.js"
   },
   "dependencies": {
     "fastify": "^4.28.1",
     "pg": "^8.11.5",
     "prom-client": "^15.1.2",
     "bullmq": "^5.12.0",
-    "ioredis": "^5.4.1"
+    "ioredis": "^5.4.1",
+    "yaml": "^2.4.5",
+    "@apidevtools/swagger-parser": "^10.1.0"
   }
 }

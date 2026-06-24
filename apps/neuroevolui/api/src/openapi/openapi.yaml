@@ -1,0 +1,431 @@
+openapi: 3.1.0
+info:
+  title: NeuroEvolui API
+  description: |
+    API interna do NeuroEvolui — gestão de registros multi-tenant com
+    processamento assíncrono via BullMQ.
+
+    Autenticação via headers de contexto: `X-Tenant-Id` (tenant) e
+    `X-Role` (permissão; stand-in da sessão OIDC enquanto Keycloak não está
+    integrado localmente).
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Dev local
+  - url: /neuroevolui/api
+    description: Produção (Traefik stripPrefix /neuroevolui/api)
+
+tags:
+  - name: Health
+    description: Verificações de saúde da API e infraestrutura
+  - name: Records
+    description: Gerenciamento de registros multi-tenant
+
+paths:
+  /:
+    get:
+      tags: [Health]
+      operationId: getRoot
+      summary: Identificação da API
+      responses:
+        '200':
+          description: Informações básicas da API
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppInfo'
+              example:
+                app: neuroevolui
+                service: api
+                ok: true
+
+  /health:
+    get:
+      tags: [Health]
+      operationId: getHealth
+      summary: Verificação de saúde com banco de dados
+      responses:
+        '200':
+          description: API e banco funcionando
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+              example:
+                status: ok
+                db: connected
+        '503':
+          description: Banco indisponível
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                error:
+                  message: banco indisponível
+
+  /v1/health/queue:
+    get:
+      tags: [Health]
+      operationId: getQueueHealth
+      summary: Status da fila de processamento assíncrono
+      responses:
+        '200':
+          description: Status da fila BullMQ/Redis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueStatus'
+              example:
+                status: ok
+                queue:
+                  waiting: 0
+                  active: 0
+                  completed: 3
+                  failed: 0
+
+  /v1/records:
+    get:
+      tags: [Records]
+      operationId: listRecords
+      summary: Lista registros do tenant (até 200, ordem decrescente)
+      parameters:
+        - name: X-Tenant-Id
+          in: header
+          required: true
+          schema:
+            type: string
+          description: Identificador do tenant
+          example: tenant-default
+      responses:
+        '200':
+          description: Lista de registros do tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordList'
+              example:
+                data:
+                  - id: 1
+                    tenant_id: tenant-default
+                    title: Exemplo de registro
+                    status: pending
+                    external_ref: null
+                    created_at: '2024-01-01T00:00:00.000Z'
+                    updated_at: '2024-01-01T00:00:00.000Z'
+
+    post:
+      tags: [Records]
+      operationId: createRecord
+      summary: Cria um novo registro
+      parameters:
+        - name: X-Tenant-Id
+          in: header
+          required: true
+          schema:
+            type: string
+          example: tenant-default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRecordRequest'
+            example:
+              title: Meu novo registro
+      responses:
+        '201':
+          description: Registro criado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Record'
+              example:
+                id: 1
+                tenant_id: tenant-default
+                title: Meu novo registro
+                status: pending
+                external_ref: null
+                created_at: '2024-01-01T00:00:00.000Z'
+                updated_at: '2024-01-01T00:00:00.000Z'
+        '400':
+          description: Parâmetro obrigatório ausente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                error:
+                  message: title obrigatório
+
+  /v1/records/{id}:
+    get:
+      tags: [Records]
+      operationId: getRecord
+      summary: Retorna um registro pelo ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+        - name: X-Tenant-Id
+          in: header
+          required: true
+          schema:
+            type: string
+          example: tenant-default
+      responses:
+        '200':
+          description: Registro encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Record'
+              example:
+                id: 1
+                tenant_id: tenant-default
+                title: Exemplo de registro
+                status: pending
+                external_ref: null
+                created_at: '2024-01-01T00:00:00.000Z'
+                updated_at: '2024-01-01T00:00:00.000Z'
+        '404':
+          description: Registro não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                error:
+                  message: não encontrado
+
+    delete:
+      tags: [Records]
+      operationId: deleteRecord
+      summary: Remove um registro (requer role admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+        - name: X-Tenant-Id
+          in: header
+          required: true
+          schema:
+            type: string
+          example: tenant-default
+        - name: X-Role
+          in: header
+          required: true
+          schema:
+            type: string
+            enum: [admin]
+          example: admin
+      responses:
+        '200':
+          description: Registro removido com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteResult'
+              example:
+                deleted: true
+        '403':
+          description: Permissão insuficiente (requer X-Role: admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                error:
+                  message: forbidden
+        '404':
+          description: Registro não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                error:
+                  message: não encontrado
+
+  /v1/records/{id}/submit:
+    post:
+      tags: [Records]
+      operationId: submitRecord
+      summary: Enfileira o registro para processamento assíncrono (BullMQ)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+        - name: X-Tenant-Id
+          in: header
+          required: true
+          schema:
+            type: string
+          example: tenant-default
+      responses:
+        '202':
+          description: Processamento aceito e enfileirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmitAccepted'
+              example:
+                id: 1
+                status: submitting
+                enqueued: true
+        '404':
+          description: Registro não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                error:
+                  message: não encontrado
+
+components:
+  schemas:
+    AppInfo:
+      type: object
+      properties:
+        app:
+          type: string
+          example: neuroevolui
+        service:
+          type: string
+          example: api
+        ok:
+          type: boolean
+          example: true
+      required: [app, service, ok]
+
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok]
+          example: ok
+        db:
+          type: string
+          enum: [connected]
+          example: connected
+      required: [status, db]
+
+    QueueStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+          example: ok
+        queue:
+          type: object
+          properties:
+            waiting:
+              type: integer
+              example: 0
+            active:
+              type: integer
+              example: 0
+            completed:
+              type: integer
+              example: 3
+            failed:
+              type: integer
+              example: 0
+      required: [status]
+
+    Record:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        tenant_id:
+          type: string
+          example: tenant-default
+        title:
+          type: string
+          example: Exemplo de registro
+        status:
+          type: string
+          enum: [pending, submitting, submitted, failed]
+          example: pending
+        external_ref:
+          type: [string, "null"]
+          example: null
+        created_at:
+          type: string
+          format: date-time
+          example: '2024-01-01T00:00:00.000Z'
+        updated_at:
+          type: string
+          format: date-time
+          example: '2024-01-01T00:00:00.000Z'
+      required: [id, tenant_id, title, status, created_at, updated_at]
+
+    RecordList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Record'
+      required: [data]
+
+    CreateRecordRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          example: Meu novo registro
+      required: [title]
+
+    SubmitAccepted:
+      type: object
+      description: Resposta de comando assíncrono enfileirado com sucesso
+      properties:
+        id:
+          type: integer
+          example: 1
+        status:
+          type: string
+          enum: [submitting]
+          example: submitting
+        enqueued:
+          type: boolean
+          example: true
+      required: [id, status, enqueued]
+
+    DeleteResult:
+      type: object
+      properties:
+        deleted:
+          type: boolean
+          example: true
+      required: [deleted]
+
+    Problem:
+      type: object
+      description: Resposta de erro padronizada
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+              example: erro inesperado
+          required: [message]
+      required: [error]
