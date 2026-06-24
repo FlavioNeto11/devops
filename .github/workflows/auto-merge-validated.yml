@@ -136,6 +136,14 @@ jobs:
             info=$(gh pr view "$n" --repo "$REPO" --json mergeable,isDraft,statusCheckRollup,headRefName,body)
             draft=$(echo "$info" | jq -r '.isDraft')
             mergeable=$(echo "$info" | jq -r '.mergeable')
+            # mergeable e computado async pelo GitHub — se UNKNOWN, aguarda resolver (evita skip
+            # prematuro que deixava o PR parado ate o proximo evento / toque manual de label).
+            for k in 1 2 3 4 5 6; do
+              [ "$mergeable" = "MERGEABLE" ] && break
+              [ "$mergeable" = "CONFLICTING" ] && break
+              sleep 5
+              mergeable=$(gh pr view "$n" --repo "$REPO" --json mergeable --jq '.mergeable')
+            done
             SELF="Auto-merge autonomo (Forja — FORGE_AUTONOMOUS)"
             failed=$(echo "$info" | jq -r --arg self "$SELF" '[.statusCheckRollup[]? | select(((.name // .context) // "") != $self) | ((.conclusion // .state) // "") | select(. == "FAILURE" or . == "ERROR" or . == "CANCELLED" or . == "TIMED_OUT")] | length')
             pending=$(echo "$info" | jq -r --arg self "$SELF" '[.statusCheckRollup[]? | select(((.name // .context) // "") != $self) | ((.conclusion // .state) // "PENDING") | select(. == "PENDING" or . == "EXPECTED" or . == "")] | length')
