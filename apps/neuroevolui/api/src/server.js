@@ -3,7 +3,8 @@ import Fastify from 'fastify';
 import { pool, migrate, seed } from './db.js';
 import { M, startMetricsServer } from './metrics.js';
 import { authContext, requireRole } from './rbac.js';
-import { enqueueSubmit, queueCounts } from './queue.js';
+import { enqueueSubmit, queueCounts, enqueue } from './queue.js';
+import { findAsyncJob, upsertAsyncJob } from './repositories/async-jobs-repo.js';
 import { listRecords, createRecord, findRecord, deleteRecord, updateRecordStatus } from './repositories/records-repo.js';
 import { findIdempotency, saveIdempotency } from './repositories/idempotency-repo.js';
 import { listConsultations } from './repositories/consultations-repo.js';
@@ -129,6 +130,37 @@ app.get('/v1/dashboard/revenue', { preHandler: requireRole('clinic_manager') }, 
     page: Number(q.page) || 1,
     limit: Math.min(Number(q.limit) || 50, 200),
   });
+});
+
+// Async queue endpoints — enfileiram jobs com dedup por job_key, retornam 202 + job_id.
+async function enqueueAsync(req, reply, queueName) {
+  const b = req.body || {};
+  const jobKey = b.job_key || `${queueName}-${req.tenantId}-${Date.now()}`;
+  const ikey = req.headers['idempotency-key'];
+  if (ikey) {
+    const cached = await findIdempotency(`enqueue_${queueName}`, ikey);
+    if (cached) { reply.code(202); return cached; }
+  }
+  const existing = await findAsyncJob(queueName, jobKey);
+  if (existing) {
+    const resp = { job_id: existing.job_id, queue: queueName, status: existing.status, deduplicated: true };
+    reply.code(202); return resp;
+  }
+  const { job_id, inline } = await enqueue(queueName, jobKey, { ...b, tenantId: req.tenantId });
+  await upsertAsyncJob({ tenantId: req.tenantId, queueName, jobKey, jobId: job_id, status: 'queued', payload: b, createdBy: req.actor }).catch(() => {});
+  const resp = { job_id, queue: queueName, status: 'queued', inline };
+  if (ikey) await saveIdempotency({ operation: `enqueue_${queueName}`, idempotencyKey: ikey, entityType: 'async_job', entityId: job_id, response: resp }).catch(() => {});
+  reply.code(202); return resp;
+}
+
+app.post('/v1/consultation-notes', { preHandler: requireRole('professional') }, async (req, reply) => enqueueAsync(req, reply, 'consultation-notes'));
+app.post('/v1/patient-imports',    { preHandler: requireRole('clinic_manager') }, async (req, reply) => enqueueAsync(req, reply, 'patient-imports'));
+app.post('/v1/notifications',      async (req, reply) => enqueueAsync(req, reply, 'notifications'));
+app.post('/v1/summaries-ai',       { preHandler: requireRole('professional') }, async (req, reply) => enqueueAsync(req, reply, 'summaries-ai'));
+app.get('/v1/jobs/:queueName/:jobKey', async (req, reply) => {
+  const job = await findAsyncJob(req.params.queueName, req.params.jobKey);
+  if (!job) { reply.code(404); return { error: { message: 'job não encontrado' } }; }
+  return job;
 });
 
 // Audit trail

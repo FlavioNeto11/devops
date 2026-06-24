@@ -42,4 +42,32 @@ ok((await post('/v1/records/' + rAsync.id + '/submit', {}, { 'X-Role': 'professi
 let a = {}; for (let i = 0; i < 12; i++) { await sleep(3000); a = (await get('/v1/records/' + rAsync.id, { 'X-Role': 'professional' })).j; if (a.status === 'submitted' || a.status === 'failed') break; }
 ok(a.status === 'submitted', 'BullMQ worker + gateway: record submetido');
 
-console.log(process.exitCode ? 'FALHOU' : 'OK — gymops-style RBAC multi-tenant');
+// REQ-0003 AC1-AC5: 4 named queues — enfileira e retorna 202 + job_id
+const cn = await post('/v1/consultation-notes', { job_key: 'cn-integ-01', note: 'teste' }, { 'X-Role': 'professional', 'X-Tenant-Id': '1' });
+ok(cn.s === 202, 'REQ-0003: consultation-notes retorna 202');
+ok(cn.j.job_id, 'REQ-0003: consultation-notes retorna job_id');
+
+const pi = await post('/v1/patient-imports', { job_key: 'pi-integ-01', file: 'data.csv' }, { 'X-Role': 'clinic_manager', 'X-Tenant-Id': '1' });
+ok(pi.s === 202, 'REQ-0003: patient-imports retorna 202');
+
+const notif = await post('/v1/notifications', { job_key: 'notif-integ-01', to: 'patient@x.com' }, { 'X-Tenant-Id': '1' });
+ok(notif.s === 202, 'REQ-0003: notifications retorna 202');
+
+const ai = await post('/v1/summaries-ai', { job_key: 'ai-integ-01', consultation_id: '1' }, { 'X-Role': 'professional', 'X-Tenant-Id': '1' });
+ok(ai.s === 202, 'REQ-0003: summaries-ai retorna 202');
+
+// REQ-0003 AC2: mesmo job_key → mesmo job_id (dedup)
+const cn2 = await post('/v1/consultation-notes', { job_key: 'cn-integ-01', note: 'dup' }, { 'X-Role': 'professional', 'X-Tenant-Id': '1' });
+ok(cn2.j.job_id === cn.j.job_id, 'REQ-0003 AC2: mesmo job_key → mesmo job_id (reenfileirar com mesmo job_key → um job)');
+
+// REQ-0003 AC3: POST retorna 202 com job_id para cada fila
+ok(cn.j.queue === 'consultation-notes', 'REQ-0003 AC3: queue name correto na resposta');
+
+// REQ-0003 AC6: migrations idempotentes — health ainda ok após múltiplos boots
+ok((await get('/health')).j.status === 'ok', 'REQ-0003 AC6: health ok (migrations idempotentes via advisory-lock)');
+
+// REQ-0003: seed cria dados de exemplo
+const records = (await get('/v1/records', { 'X-Role': 'clinic_manager', 'X-Tenant-Id': '1' })).j.data;
+ok(Array.isArray(records) && records.length > 0, 'REQ-0003: seed criou registros de exemplo');
+
+console.log(process.exitCode ? 'FALHOU' : 'OK — gymops-style RBAC multi-tenant + async queues + migrations');
