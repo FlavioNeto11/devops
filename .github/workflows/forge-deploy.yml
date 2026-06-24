@@ -37,8 +37,6 @@ jobs:
           $ErrorActionPreference = "Stop"
           $prod = "${{ github.event.inputs.product }}"
           if ($prod -notmatch '^[a-z][a-z0-9-]{1,30}$') { Write-Host "::error::product inválido: '$prod'"; exit 1 }
-          $appDir = Join-Path $env:GITHUB_WORKSPACE "apps/$prod"
-          if (-not (Test-Path $appDir)) { Write-Host "::error::apps/$prod não existe na main"; exit 1 }
 
           # 0) preflight: o runner-serviço precisa de acesso ao Docker p/ buildar imagens :local.
           docker info *> $null
@@ -46,6 +44,10 @@ jobs:
             Write-Host "::error::Runner sem acesso ao Docker daemon. Adicione o usuário do serviço do runner ao grupo 'docker-users' (Windows) e reinicie o runner, OU rode o deploy localmente: scripts/forge-deploy-local.ps1 -Name $prod"
             exit 1
           }
+          Write-Host "preflight Docker OK."
+
+          $appDir = Join-Path $env:GITHUB_WORKSPACE "apps/$prod"
+          if (-not (Test-Path $appDir)) { Write-Host "::error::apps/$prod não existe na main"; exit 1 }
 
           # 1) imagens :local — uma por serviço com Dockerfile (context = a pasta do serviço).
           $svcDirs = Get-ChildItem -Path $appDir -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'Dockerfile') }
