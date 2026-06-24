@@ -15,6 +15,7 @@ export async function findScheduleConflict(professionalId, scheduledAt, schedule
     `SELECT id FROM consultations
      WHERE professional_id=$1
        AND status != 'cancelled'
+       AND deleted_at IS NULL
        AND scheduled_at < $3
        AND scheduled_end_at > $2
      LIMIT 1`,
@@ -24,12 +25,12 @@ export async function findScheduleConflict(professionalId, scheduledAt, schedule
 }
 
 export async function findConsultation(tenantId, id) {
-  const r = await pool.query('SELECT * FROM consultations WHERE tenant_id=$1 AND id=$2', [tenantId, Number(id)]);
+  const r = await pool.query('SELECT * FROM consultations WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL', [tenantId, Number(id)]);
   return r.rows[0] ?? null;
 }
 
 export async function listConsultations(tenantId) {
-  const r = await pool.query('SELECT * FROM consultations WHERE tenant_id=$1 ORDER BY scheduled_at DESC LIMIT 200', [tenantId]);
+  const r = await pool.query('SELECT * FROM consultations WHERE tenant_id=$1 AND deleted_at IS NULL ORDER BY scheduled_at DESC LIMIT 200', [tenantId]);
   return r.rows;
 }
 

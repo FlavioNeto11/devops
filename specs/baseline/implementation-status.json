@@ -7,7 +7,8 @@
       "deployed": 282,
       "done": 52,
       "merged": 2,
-      "not_started": 7
+      "pr_open": 1,
+      "not_started": 6
     },
     "refinements": {
       "total": 13,
@@ -894,8 +895,10 @@
       "req_revision": 1
     },
     "REQ-NEUROEVOLUI-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "branch": "@{id=REQ-NEUROEVOLUI-0002; branch=req/REQ-NEUROEVOLUI-0002/r1; restricted=false; title=feat(neuroevolui): implementa REQ-NEUROEVOLUI-0002 — Multi-tenant + RBAC: Isolamento por c}.branch",
+      "run_id": "28131631587"
     },
     "REQ-NEUROEVOLUI-0003": {
       "status": "not_started",

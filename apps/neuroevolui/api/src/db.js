@@ -8,6 +8,9 @@ const MIGRATIONS = [
   `CREATE TABLE IF NOT EXISTS payment_transactions (id BIGSERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, consultation_id BIGINT, idempotency_key TEXT NOT NULL, gateway_transaction_id TEXT NOT NULL, gateway_provider TEXT NOT NULL DEFAULT 'sandbox', amount_cents INTEGER NOT NULL, currency TEXT NOT NULL DEFAULT 'BRL', status TEXT NOT NULL, metadata JSONB, created_by TEXT NOT NULL DEFAULT 'system', created_at TIMESTAMPTZ DEFAULT now());`,
   `CREATE TABLE IF NOT EXISTS audit_logs (id BIGSERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, entity_type TEXT NOT NULL, entity_id TEXT, action TEXT NOT NULL, actor TEXT, amount_cents INTEGER, payment_status TEXT, gateway TEXT, metadata JSONB, created_at TIMESTAMPTZ DEFAULT now());`,
   `CREATE TABLE IF NOT EXISTS webhook_events (id BIGSERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, event_id TEXT NOT NULL UNIQUE, gateway_provider TEXT NOT NULL DEFAULT 'sandbox', event_type TEXT NOT NULL, payload JSONB NOT NULL, processed_at TIMESTAMPTZ, created_at TIMESTAMPTZ DEFAULT now());`,
+  `ALTER TABLE records ADD COLUMN IF NOT EXISTS created_by TEXT NOT NULL DEFAULT 'system'`,
+  `ALTER TABLE records ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
+  `ALTER TABLE consultations ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
 ];
 export async function migrate() {
   const c = await pool.connect();
