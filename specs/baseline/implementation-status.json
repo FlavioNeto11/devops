@@ -6,9 +6,8 @@
     "by_status": {
       "deployed": 282,
       "done": 52,
-      "merged": 1,
-      "not_started": 7,
-      "pr_open": 1
+      "merged": 2,
+      "not_started": 7
     },
     "refinements": {
       "total": 13,
@@ -907,7 +906,7 @@
       "req_revision": 1
     },
     "REQ-NEUROEVOLUI-0005": {
-      "status": "pr_open",
+      "status": "merged",
       "req_revision": 1,
       "branch": "@{id=REQ-NEUROEVOLUI-0005; branch=req/REQ-NEUROEVOLUI-0005/r1; restricted=false; title=feat(neuroevolui): implementa REQ-NEUROEVOLUI-0005 — Controle financeiro: Agendamentos + P}.branch",
       "run_id": "28127034333"
