@@ -2878,19 +2878,69 @@ async function fwGenerate(w, status, btn) {
     if (!r.ok) throw new Error((r.data && r.data.error && r.data.error.message) || ('IA ' + r.status));
     const reqs = (r.data && r.data.requirements) || [];
     if (!reqs.length) throw new Error('A IA não retornou requisitos. Tente descrever de outra forma.');
-    const existing = ((DATA.baseline && DATA.baseline.requirements) || []).map((x) => x.id);
-    w.proposed = []; for (const req of reqs) { const id = req.id || nextReqId(slug, existing.concat(w.proposed.map((p) => p.id))); w.proposed.push({ id, req }); }
-    w.reqMeta = r.data; w.arch = null; w.archLoading = true;
+    fwApplyProposed(w, r.data);
     w.stage = 2; fwRerender(); // mostra a tela 2 já com os requisitos (não espera a arquitetura)
-    // arquitetura (ordem das waves) em SEGUNDO PLANO — carrega enquanto o usuário lê a tela 2.
-    AI.post('/v1/forge/propose-architecture', { product: slug, blueprint: w.blueprint, requirements: w.proposed.map((p) => ({ id: p.id, title: p.req.title, type: p.req.type, statement: p.req.statement, capability_blocks: p.req.capability_blocks || [] })), capabilities: catalog, blueprints })
-      .then((a) => { w.arch = (a && a.ok) ? a.data : null; })
-      .catch(() => { w.arch = null; })
-      .finally(() => { w.archLoading = false; if (state.forge.wizard === w && w.stage >= 3) fwRerender(); });
+    fwKickArch(w);             // arquitetura (waves) em SEGUNDO PLANO
   } catch (e) {
     w.error = String(e.message || e); btn.disabled = false;
     status.replaceChildren(h('span', { class: 'fw-err', text: 'Não consegui gerar: ' + w.error }));
   }
+}
+
+// Aplica a resposta da IA (requisitos propostos) ao estado do wizard (IDs estáveis vs baseline).
+function fwApplyProposed(w, data) {
+  const reqs = (data && data.requirements) || [];
+  const existing = ((DATA.baseline && DATA.baseline.requirements) || []).map((x) => x.id);
+  w.proposed = [];
+  for (const req of reqs) { const id = req.id || nextReqId(w.slug, existing.concat(w.proposed.map((p) => p.id))); w.proposed.push({ id, req }); }
+  w.reqMeta = data;
+}
+
+// Dispara a proposta de arquitetura (ordem das waves) em segundo plano.
+function fwKickArch(w) {
+  const catalog = (DATA.capabilities && DATA.capabilities.capabilities) || [];
+  const blueprints = (DATA.blueprints && DATA.blueprints.blueprints) || [];
+  w.arch = null; w.archLoading = true;
+  AI.post('/v1/forge/propose-architecture', { product: w.slug, blueprint: w.blueprint, requirements: w.proposed.map((p) => ({ id: p.id, title: p.req.title, type: p.req.type, statement: p.req.statement, capability_blocks: p.req.capability_blocks || [] })), capabilities: catalog, blueprints })
+    .then((a) => { w.arch = (a && a.ok) ? a.data : null; })
+    .catch(() => { w.arch = null; })
+    .finally(() => { w.archLoading = false; if (state.forge.wizard === w && w.stage >= 3) fwRerender(); });
+}
+
+// Ajuste por IA (stages 2 e 3): re-propõe capacidades/requisitos a partir do brief + a instrução do
+// usuário + os requisitos ATUAIS (refinamento iterativo), depois recalcula o plano. Atualiza a tela.
+async function fwAdjust(w, instruction, statusEl) {
+  const instr = (instruction || '').trim();
+  if (!instr) { statusEl.replaceChildren(h('span', { class: 'fw-err', text: 'Escreva o que quer ajustar.' })); return; }
+  statusEl.replaceChildren(h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' Ajustando com a IA…');
+  const catalog = (DATA.capabilities && DATA.capabilities.capabilities) || [];
+  const blueprints = (DATA.blueprints && DATA.blueprints.blueprints) || [];
+  const current = (w.proposed || []).map((p) => '- ' + (p.req.title || '') + ': ' + (p.req.statement || '')).join('\n');
+  const augmented = (w.brief || '') + '\n\n--- AJUSTE PEDIDO PELO USUÁRIO ---\n' + instr
+    + '\n\nRequisitos atuais (revise conforme o ajuste — mantenha os que ainda fazem sentido; edite/adicione/remova o que o ajuste pedir):\n' + current;
+  try {
+    const r = await AI.post('/v1/forge/propose-requirements', { product: w.slug, blueprint: w.blueprint, brief: augmented, capabilities: catalog, blueprints });
+    if (!r.ok) throw new Error((r.data && r.data.error && r.data.error.message) || ('IA ' + r.status));
+    const reqs = (r.data && r.data.requirements) || [];
+    if (!reqs.length) throw new Error('A IA não retornou requisitos.');
+    fwApplyProposed(w, r.data);
+    fwKickArch(w);
+    fwRerender();
+  } catch (e) { statusEl.replaceChildren(h('span', { class: 'fw-err', text: 'Não consegui ajustar: ' + String(e.message || e) })); }
+}
+
+// Caixa "Ajustar com a IA" reutilizada nos stages 2 e 3.
+function fwAdjustBox(w) {
+  const adjStatus = h('p', { class: 'fw-status muted', role: 'status', 'aria-live': 'polite' });
+  const adjInput = h('input', { class: 'fw-input', type: 'text', placeholder: 'Ex.: adicione exportação para Excel; remova o cadastro de fornecedores', 'aria-label': 'Ajustar com a IA' });
+  const adjBtn = h('button', { class: 'btn', type: 'button', text: '✨ Ajustar com a IA' });
+  const doAdj = () => fwAdjust(w, adjInput.value, adjStatus);
+  adjBtn.addEventListener('click', doAdj);
+  adjInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doAdj(); } });
+  return h('div', { class: 'fw-adjust' },
+    h('h4', { class: 'fw-sec', text: 'Ajustar com a IA' }),
+    h('p', { class: 'fw-hint', text: 'Quer mudar algo? Descreva em linguagem natural — a IA refaz as capacidades, os requisitos e o plano.' }),
+    h('div', { class: 'fw-adjust-row' }, adjInput, adjBtn), adjStatus);
 }
 
 function fwStageWhat(host, w, { catalog }) {
@@ -2907,6 +2957,7 @@ function fwStageWhat(host, w, { catalog }) {
     h('div', { class: 'fw-screen-tx' }, h('strong', { text: p.req.title || ('Tela ' + (i + 1)) }), h('p', { class: 'fw-screen-d', text: p.req.statement || '' }),
       w.mode === 'advanced' ? h('div', { class: 'fw-screen-meta' }, badge(typeLabel(p.req.type), 'b-fn'), ...((p.req.capability_blocks || []).map((b) => h('code', { class: 'fw-cap-id', text: b })))) : null))));
   host.append(h('h4', { class: 'fw-sec', text: w.mode === 'guided' ? 'Telas e funções que serão criadas' : 'Requisitos propostos (telas/funções)' }), screens);
+  host.append(fwAdjustBox(w)); // IA: ajustar capacidades/requisitos por instrução
   host.append(fwNav(1, 3, 'Ver o plano de construção'));
   host.querySelector('.fw-q').focus();
 }
@@ -2935,6 +2986,7 @@ function fwStagePlan(host, w) {
     const adrs = (w.arch && Array.isArray(w.arch.adrs)) ? w.arch.adrs : [];
     if (adrs.length) { const ul = h('ul', { class: 'linklist' }); for (const a of adrs) ul.append(h('li', {}, h('span', { class: 'lt', text: 'ADR' }), typeof a === 'string' ? a : (a.title || a.decision || ''))); host.append(h('h4', { class: 'fw-sec', text: 'Decisões de arquitetura' }), ul); }
   }
+  if (!w.archLoading) host.append(fwAdjustBox(w)); // IA: ajustar requisitos/plano por instrução
   host.append(fwNav(2, 4, 'Revisar e criar'));
   host.querySelector('.fw-q').focus();
 }

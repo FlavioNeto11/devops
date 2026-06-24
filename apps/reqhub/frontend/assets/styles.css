@@ -872,6 +872,10 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 @media (prefers-reduced-motion: reduce) { .fw-ls-active .fw-ls-ic { animation: none; } }
 .fw-live { margin-top: 18px; }
 .fw-live-t { font-size: 16px; font-weight: 600; margin: 0 0 8px; }
+/* IA: ajustar capacidades/requisitos/plano por instrução (stages 2 e 3) */
+.fw-adjust { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); }
+.fw-adjust-row { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+.fw-adjust-row .fw-input { flex: 1 1 280px; min-width: 0; }
 .forge-reqitem[role="button"] { cursor: pointer; }
 .forge-reqitem[role="button"]:hover { border-color: var(--accent); }
 
