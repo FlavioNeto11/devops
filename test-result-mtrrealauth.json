@@ -1,0 +1,36 @@
+{
+  "testType": "offline-simulation",
+  "status": "success",
+  "timestamp": "2026-06-13T14:56:39.901Z",
+  "credentials": {
+    "user": "Flavio Padilha Neto",
+    "email": "flavio_padilha_neto@msn.com",
+    "organization": "Nova IT",
+    "cnpj": "31913781000139",
+    "partnerCode": "176163"
+  },
+  "mtr": {
+    "id": "mani-1781362594663",
+    "status": "submitted",
+    "sessionId": "sess-1781362593859",
+    "commandId": "cmd-1781362595469",
+    "createdAt": "2026-06-13T14:56:39.901Z",
+    "generator": {
+      "code": 176163,
+      "name": "Nova IT",
+      "cnpj": "31913781000139",
+      "responsibleCpf": "37088641828"
+    },
+    "residues": [
+      {
+        "code": "010201",
+        "quantity": 100,
+        "unit": "KG"
+      }
+    ],
+    "cetesb": {
+      "status": "submitted",
+      "submittedAt": "2026-06-13T14:56:39.901Z"
+    }
+  }
+}

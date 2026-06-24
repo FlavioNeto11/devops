@@ -1,0 +1,107 @@
+{
+  "count": 1,
+  "orders": [
+    {
+      "req_id": "REQ-STOCKPILOT-0008",
+      "revision": 1,
+      "product_scope": "stockpilot",
+      "blueprint": "node-api-vue-spa",
+      "stack": "sicat",
+      "restricted": false,
+      "requirement": {
+        "title": "Assistente de IA para sugestão de quantidade de reposição com RAG",
+        "type": "functional",
+        "statement": "O sistema PODE incluir assistente de IA conversacional (opcional, fase 2) que sugere quantidade de reposição baseada em histórico de vendas e manuais de fornecedores (RAG com pgvector), com confirmação do usuário antes de criar pedido.",
+        "acceptance_criteria": [
+          "Tabela ai_documentos: id, tenant_id, fonte (manual_fornecedor, historico_vendas), titulo, conteudo_fatiado (chunks), embedding (vector pgvector), criado_em",
+          "Extensão pgvector ativa no Postgres (CREATE EXTENSION IF NOT EXISTS vector)",
+          "Rota POST /api/v1/assistente/sugerir-reposicao com input: { produto_id, historico_dias }",
+          "Assistente (via motor @flavioneto11/ai-core) consulta pgvector com semantic search, recupera top-3 chunks de histórico/manuais",
+          "Saída estruturada: { quantidade_sugerida, confianca, fontes_citadas, rascunho_pedido }",
+          "Saída validada contra schema (JSON mode); inválida retorna AppError"
+        ],
+        "verification_method": [
+          "test-integration"
+        ],
+        "quality_scenarios": [],
+        "priority": "medium",
+        "criticality": "medium",
+        "architectural_significance": true,
+        "capability_blocks": [
+          "ia-grafo",
+          "rag-pgvector",
+          "structured-outputs"
+        ],
+        "file": "requirements/stockpilot/REQ-STOCKPILOT-0008.yaml"
+      },
+      "capability_guidance": [
+        {
+          "id": "ia-grafo",
+          "exemplars": [
+            "apps/reqhub/api/src/ai/graph.js",
+            "apps/reqhub/api/src/ai/tools.js",
+            "packages/ai-core/index.d.ts"
+          ],
+          "work_order_guidance": "Implemente o assistente SEGUINDO o grafo do reqhub: createAiGraph com router→especialista deep (loop ReAct com tools R1 que LEEM o domínio)→judge; tools no contrato AiTool de ai-core com authorize por identidade; mutações em dry-run→preview→confirmação; reply/draft/citations saem em canais separados (texto vs evidence). Sem chave de IA → 503 (fail-closed). Decisão via reasoning, nunca mapa de sinônimos no código.",
+          "verification": [
+            "turn é roteado; tool R1 é chamada; judge ≥ threshold; sem chave → 503",
+            "mutação proposta pela IA exige confirmação (dry-run) antes de efetivar"
+          ]
+        },
+        {
+          "id": "rag-pgvector",
+          "exemplars": [
+            "packages/ai-core/src/rag.js",
+            "apps/sicat/backend/src/services/conversation/memory"
+          ],
+          "work_order_guidance": "Implemente o RAG REUSANDO packages/ai-core: CREATE EXTENSION vector na migration, tabelas de sources/chunks com coluna vector + índice ivfflat; ingest fatia+embeda+upserta; a consulta recupera top-K por similaridade e o assistente CITA os trechos (citations[]). Sem fonte relevante, recuse em vez de inventar. Embeddings ficam em OpenAI (Anthropic não expõe /embeddings).",
+          "verification": [
+            "ingest gera chunks/embeddings; consulta retorna top-K por score; resposta inclui citations dos trechos reais"
+          ]
+        },
+        {
+          "id": "structured-outputs",
+          "exemplars": [
+            "apps/gymops/apps/api/src/ai/schemas",
+            "apps/gymops/apps/api/src/ai/prompts",
+            "apps/reqhub/api/src/tools.js"
+          ],
+          "work_order_guidance": "Implemente saída estruturada SEGUINDO o padrão do reqhub/GymOps: schema declarado por feature, jsonMode na chamada, parse estrito; saída que não casa o schema → erro estruturado (AiToolError), NUNCA fallback silencioso nem heurística chumbada. Rascunho gerado pela IA não é salvo direto — devolve para o usuário confirmar.",
+          "verification": [
+            "saída fora do schema → erro estruturado; rascunho exige confirmação antes de persistir"
+          ]
+        }
+      ],
+      "impact": {
+        "outgoing": [],
+        "incoming": [],
+        "allocation": {}
+      },
+      "reprocess_reasons": [
+        "sem evidência de verificação"
+      ],
+      "allowed_paths": [
+        "apps/stockpilot/**"
+      ],
+      "gates_expected": [
+        "Validar requisitos e baseline",
+        "Reqhub gate",
+        "ci-apps",
+        "turn é roteado; tool R1 é chamada; judge ≥ threshold; sem chave → 503",
+        "mutação proposta pela IA exige confirmação (dry-run) antes de efetivar",
+        "ingest gera chunks/embeddings; consulta retorna top-K por score; resposta inclui citations dos trechos reais",
+        "saída fora do schema → erro estruturado; rascunho exige confirmação antes de persistir"
+      ],
+      "pr_template": {
+        "title": "feat(stockpilot): implementa REQ-STOCKPILOT-0008 — Assistente de IA para sugestão de quant",
+        "trailer": "Closes-Req: REQ-STOCKPILOT-0008",
+        "labels": [
+          "requirement",
+          "claude-generated"
+        ],
+        "base": "main",
+        "head": "req/REQ-STOCKPILOT-0008/r1"
+      }
+    }
+  ]
+}

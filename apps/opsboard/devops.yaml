@@ -1,7 +1,0 @@
-app: { name: opsboard, namespace: apps, host: nvit.localhost, basePath: /opsboard }
-# Gerado pela FORGE (SICAT-style). Blocos: observabilidade, camadas-rigidas, migrations-versionadas, worker-queue-transacional, gateway-externo, idempotencia
-services:
-  api: { type: api, path: /api, port: 8080, expose: true, stripPrefix: true, priority: 40, health: { path: /health } }
-  worker: { type: worker, port: 9464, expose: false, command: ["npm", "run", "worker"] }
-capabilities: [observabilidade, camadas-rigidas, migrations-versionadas, worker-queue-transacional, gateway-externo, idempotencia]
-observability: { metricsPort: 9464, serviceMonitor: true, prometheusRule: true }

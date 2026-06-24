@@ -1,0 +1,7 @@
+apps/stockpilot/api/openapi/openapi.yaml
+apps/stockpilot/api/package-lock.json
+apps/stockpilot/api/package.json
+apps/stockpilot/api/src/repositories/orders-repo.js
+apps/stockpilot/api/src/server.js
+apps/stockpilot/api/src/services/ai-suggest-service.js
+apps/stockpilot/api/test/ai-suggest.test.mjs

@@ -1,0 +1,5 @@
+INÍCIO DO TESTE: 2026-06-13T14:56:37.200Z
+1️⃣ Navegando para login
+❌ ERRO: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:5174/auth/login
+Call log:
+[2m  - navigating to "http://127.0.0.1:5174/auth/login", waiting until "networkidle"[22m

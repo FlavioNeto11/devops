@@ -1,8 +1,0 @@
-app: { name: shopdesk, namespace: apps, host: nvit.localhost, basePath: /shopdesk }
-# Gerado pela FORGE (SICAT-style). Blocos: observabilidade, camadas-rigidas, migrations-versionadas, oidc-sessao, pagamentos-gateway, idempotencia, gateway-externo, nota-fiscal-emissao, worker-queue-transacional, design-system, ia-grafo, rag-pgvector, structured-outputs, contract-openapi
-services:
-  frontend: { type: frontend, path: /, port: 80, expose: true, stripPrefix: false, priority: 10 }
-  api: { type: api, path: /api, port: 8080, expose: true, stripPrefix: true, priority: 40, health: { path: /health } }
-  worker: { type: worker, port: 9464, expose: false, command: ["npm", "run", "worker"] }
-capabilities: [observabilidade, camadas-rigidas, migrations-versionadas, oidc-sessao, pagamentos-gateway, idempotencia, gateway-externo, nota-fiscal-emissao, worker-queue-transacional, design-system, ia-grafo, rag-pgvector, structured-outputs, contract-openapi]
-observability: { metricsPort: 9464, serviceMonitor: true, prometheusRule: true }

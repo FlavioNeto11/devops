@@ -38,6 +38,18 @@
       "port": 5192
     },
     {
+      "name": "shopdesk-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "apps/shopdesk/frontend", "--", "--port", "5193", "--strictPort"],
+      "port": 5193
+    },
+    {
+      "name": "helpflow-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "apps/helpflow/frontend", "--", "--port", "5194", "--strictPort"],
+      "port": 5194
+    },
+    {
       "name": "gymops-web-dev",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--dir", "apps/gymops", "--filter", "@gymops/web", "dev"],

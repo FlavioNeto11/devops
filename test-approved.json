@@ -1,0 +1,8 @@
+[
+  {
+    "id": "REQ-TEST-0001",
+    "branch": "../../../etc/passwd",
+    "restricted": "False",
+    "title": "Teste"
+  }
+]

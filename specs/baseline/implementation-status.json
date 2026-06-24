@@ -1,18 +1,16 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "781dadc2ef8a3fdd48f47f60f6bd380fc784e97c54bd358a261314c62e78755a",
+  "baseline_hash": "dc8116ae59b8955d86a3868008e327698fb216c6ebaab9ca40e1416d42465175",
   "counts": {
-    "total": 373,
+    "total": 334,
     "by_status": {
-      "deployed": 313,
-      "done": 52,
-      "not_started": 8
+      "deployed": 282,
+      "done": 52
     },
     "refinements": {
-      "total": 101,
+      "total": 13,
       "by_status": {
         "pr_open": 1,
-        "not_started": 88,
         "deployed": 12
       }
     }
@@ -643,69 +641,6 @@
       "deployed_at": "2026-06-15",
       "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
-    "REQ-CRM-0001": {
-      "status": "deployed",
-      "req_revision": 1,
-      "commit": "3ebdbb590e10492e3539c86c39b520e5fd551663",
-      "notes": "scaffold (fase C) via scaffold-product.ps1"
-    },
-    "REQ-CRM-0002": {
-      "status": "deployed",
-      "req_revision": 1,
-      "pr": "https://github.com/FlavioNeto11/devops/pull/22",
-      "branch": "@{id=REQ-CRM-0002; branch=req/REQ-CRM-0002/r1; restricted=false; title=feat(crm): implementa REQ-CRM-0002 — Modelo de dados e persistência (empresas, contatos, n}.branch",
-      "commit": "3ebdbb590e10492e3539c86c39b520e5fd551663",
-      "run_id": "27726301174"
-    },
-    "REQ-CRM-0003": {
-      "status": "deployed",
-      "req_revision": 1,
-      "pr": "https://github.com/FlavioNeto11/devops/pull/24",
-      "branch": "@{id=REQ-CRM-0003; branch=req/REQ-CRM-0003/r1; restricted=false; title=feat(crm): implementa REQ-CRM-0003 — CRUD de contatos (API + tela)}.branch",
-      "commit": "3ebdbb590e10492e3539c86c39b520e5fd551663",
-      "run_id": "27730078023"
-    },
-    "REQ-CRM-0004": {
-      "status": "deployed",
-      "req_revision": 1,
-      "pr": "https://github.com/FlavioNeto11/devops/pull/23",
-      "branch": "@{id=REQ-CRM-0004; branch=req/REQ-CRM-0004/r1; restricted=false; title=feat(crm): implementa REQ-CRM-0004 — CRUD de empresas (API + tela) com vínculo de contatos}.branch",
-      "commit": "3ebdbb590e10492e3539c86c39b520e5fd551663",
-      "run_id": "27729105257"
-    },
-    "REQ-CRM-0005": {
-      "status": "deployed",
-      "req_revision": 1,
-      "pr": "https://github.com/FlavioNeto11/devops/pull/25",
-      "branch": "@{id=REQ-CRM-0005; branch=req/REQ-CRM-0005/r1; restricted=false; title=feat(crm): implementa REQ-CRM-0005 — Funil de negócios (deals) + painel}.branch",
-      "commit": "3ebdbb590e10492e3539c86c39b520e5fd551663",
-      "run_id": "27730381580"
-    },
-    "REQ-FIELDSERVE-0001": {
-      "status": "deployed",
-      "req_revision": 1,
-      "run_id": "backfill-deployed"
-    },
-    "REQ-FIELDSERVE-0002": {
-      "status": "deployed",
-      "req_revision": 1,
-      "run_id": "backfill-deployed"
-    },
-    "REQ-FIELDSERVE-0003": {
-      "status": "deployed",
-      "req_revision": 1,
-      "run_id": "backfill-deployed"
-    },
-    "REQ-FIELDSERVE-0004": {
-      "status": "deployed",
-      "req_revision": 1,
-      "run_id": "backfill-deployed"
-    },
-    "REQ-FIELDSERVE-0005": {
-      "status": "deployed",
-      "req_revision": 1,
-      "run_id": "backfill-deployed"
-    },
     "REQ-GYMOPS-0001": {
       "status": "deployed",
       "req_revision": 1,
@@ -843,38 +778,6 @@
       "req_revision": 1,
       "deployed_at": "2026-06-15",
       "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
-    },
-    "REQ-HELPFLOW-0001": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REQ-HELPFLOW-0002": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REQ-HELPFLOW-0003": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REQ-HELPFLOW-0004": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REQ-HELPFLOW-0005": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REQ-HELPFLOW-0006": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REQ-HELPFLOW-0007": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REQ-HELPFLOW-0008": {
-      "status": "not_started",
-      "req_revision": 1
     },
     "REQ-KEYCLOAK-0001": {
       "status": "deployed",
@@ -1175,17 +1078,6 @@
       "status": "done",
       "req_revision": 1,
       "notes": "packages/oidc-kit — biblioteca OIDC consumida pelas apps deployadas"
-    },
-    "REQ-OPSBOARD-0001": {
-      "status": "deployed",
-      "req_revision": 1,
-      "run_id": "local-drive"
-    },
-    "REQ-OPSBOARD-0002": {
-      "status": "deployed",
-      "req_revision": 1,
-      "branch": "@{id=REQ-OPSBOARD-0002; branch=req/REQ-OPSBOARD-0002/r1; restricted=false; title=feat(opsboard): implementa REQ-OPSBOARD-0002 — Filtro por status na listagem de registros }.branch",
-      "run_id": "esteira-auto"
     },
     "REQ-PCONTRACT-0001": {
       "status": "done",
@@ -1728,46 +1620,6 @@
       "deployed_at": "2026-06-15",
       "notes": "apps/reqhub — workbench + reqhub-api no cluster (ns apps)"
     },
-    "REQ-SHOPDESK-0001": {
-      "status": "deployed",
-      "req_revision": 1,
-      "run_id": "flagship"
-    },
-    "REQ-SHOPDESK-0002": {
-      "status": "deployed",
-      "req_revision": 1,
-      "run_id": "flagship-complete"
-    },
-    "REQ-SHOPDESK-0003": {
-      "status": "deployed",
-      "req_revision": 1,
-      "run_id": "flagship-payment"
-    },
-    "REQ-SHOPDESK-0004": {
-      "status": "deployed",
-      "req_revision": 1,
-      "run_id": "flagship-nf"
-    },
-    "REQ-SHOPDESK-0005": {
-      "status": "deployed",
-      "req_revision": 1,
-      "run_id": "flagship-complete"
-    },
-    "REQ-SHOPDESK-0006": {
-      "status": "deployed",
-      "req_revision": 1,
-      "run_id": "flagship-ai"
-    },
-    "REQ-SHOPDESK-0007": {
-      "status": "deployed",
-      "req_revision": 1,
-      "run_id": "flagship-complete"
-    },
-    "REQ-SHOPDESK-0008": {
-      "status": "deployed",
-      "req_revision": 1,
-      "run_id": "flagship-complete"
-    },
     "REQ-SICAT-0001": {
       "status": "deployed",
       "req_revision": 1,
@@ -2020,62 +1872,6 @@
       "deployed_at": "2026-06-15",
       "notes": "plataforma de requisitos — reqhub no cluster + baseline/tooling/CI ativos"
     },
-    "REQ-STOCKPILOT-0001": {
-      "status": "deployed",
-      "req_revision": 1,
-      "run_id": "stockpilot-e2e"
-    },
-    "REQ-STOCKPILOT-0002": {
-      "status": "deployed",
-      "req_revision": 1,
-      "run_id": "stockpilot-e2e"
-    },
-    "REQ-STOCKPILOT-0003": {
-      "status": "deployed",
-      "req_revision": 1,
-      "run_id": "stockpilot-e2e"
-    },
-    "REQ-STOCKPILOT-0004": {
-      "status": "deployed",
-      "req_revision": 1,
-      "run_id": "stockpilot-e2e"
-    },
-    "REQ-STOCKPILOT-0005": {
-      "status": "deployed",
-      "req_revision": 1,
-      "branch": "@{id=REQ-STOCKPILOT-0005; branch=req/REQ-STOCKPILOT-0005/r1; restricted=false; title=feat(stockpilot): implementa REQ-STOCKPILOT-0005 — Painel de estoque, pedidos e alertas co}.branch",
-      "run_id": "stockpilot-e2e"
-    },
-    "REQ-STOCKPILOT-0006": {
-      "status": "deployed",
-      "req_revision": 1,
-      "run_id": "stockpilot-e2e"
-    },
-    "REQ-STOCKPILOT-0007": {
-      "status": "deployed",
-      "req_revision": 1,
-      "run_id": "stockpilot-e2e"
-    },
-    "REQ-STOCKPILOT-0008": {
-      "status": "deployed",
-      "req_revision": 1,
-      "run_id": "stockpilot-e2e"
-    },
-    "REQ-TEAMFLOW-0001": {
-      "status": "deployed",
-      "req_revision": 1,
-      "run_id": "backfill-deployed"
-    },
-    "REQ-TEAMFLOW-0002": {
-      "status": "deployed",
-      "req_revision": 1,
-      "run_id": "backfill-deployed"
-    },
-    "REQ-TEAMFLOW-0003": {
-      "status": "deployed",
-      "req_revision": 1,
-      "run_id": "backfill-deployed"
-    },
     "REQ-TRAEFIK-0001": {
       "status": "deployed",
       "req_revision": 1,
@@ -2179,150 +1975,6 @@
       "req_revision": 1,
       "notes": "PR #26 (esteira)"
     },
-    "REF-HELPFLOW-0001": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0002": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0003": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0004": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0005": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0006": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0007": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0008": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0009": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0010": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0011": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0012": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0013": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0014": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0015": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0016": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0017": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0018": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0019": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0020": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0021": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0022": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0023": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0024": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0025": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0026": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0027": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0028": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0029": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0030": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0031": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0032": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0033": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0034": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0035": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-HELPFLOW-0036": {
-      "status": "not_started",
-      "req_revision": 1
-    },
     "REF-PORTAL-0001": {
       "status": "deployed",
       "req_revision": 1,
@@ -2382,214 +2034,6 @@
       "status": "deployed",
       "req_revision": 1,
       "notes": "documenta o portal já no ar"
-    },
-    "REF-SHOPDESK-0001": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0002": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0003": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0004": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0005": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0006": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0007": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0008": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0009": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0010": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0011": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0012": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0013": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0014": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0015": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0016": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0017": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0018": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0019": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0020": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0021": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0022": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0023": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0024": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0025": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0026": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0027": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0028": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0029": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0030": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-SHOPDESK-0031": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-STOCKPILOT-0001": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-STOCKPILOT-0002": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-STOCKPILOT-0003": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-STOCKPILOT-0004": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-STOCKPILOT-0005": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-STOCKPILOT-0006": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-STOCKPILOT-0007": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-STOCKPILOT-0008": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-STOCKPILOT-0009": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-STOCKPILOT-0010": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-STOCKPILOT-0011": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-STOCKPILOT-0012": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-STOCKPILOT-0013": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-STOCKPILOT-0014": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-STOCKPILOT-0015": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-STOCKPILOT-0016": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-STOCKPILOT-0017": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-STOCKPILOT-0018": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-STOCKPILOT-0019": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-STOCKPILOT-0020": {
-      "status": "not_started",
-      "req_revision": 1
-    },
-    "REF-STOCKPILOT-0021": {
-      "status": "not_started",
-      "req_revision": 1
     }
   }
 }
