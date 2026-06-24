@@ -82,7 +82,7 @@ spec:
                   key: token
                   optional: true   # ausente -> autoria = 503 (fail-closed)
             # Forge LAUNCH (UI cria no git): token p/ DISPARAR a esteira (repository_dispatch).
-            # PAT fine-grained, actions:write SÓ neste repo. Ausente -> /v1/forge/launch = 503 (fail-closed).
+            # PAT fine-grained, Contents:Read+Write (repository_dispatch) SÓ neste repo. Ausente -> /v1/forge/launch = 503.
             - name: GITHUB_DISPATCH_TOKEN
               valueFrom: { secretKeyRef: { name: reqhub-api-config, key: GITHUB_DISPATCH_TOKEN, optional: true } }
             - name: GITHUB_DISPATCH_REPO

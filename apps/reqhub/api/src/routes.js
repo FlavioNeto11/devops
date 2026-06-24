@@ -149,7 +149,7 @@ export function buildRouter({ registry, llm, memory } = {}) {
   // O reqhub-api NÃO escreve git; só dispara. Fail-closed sem GITHUB_DISPATCH_TOKEN. Admin-only (auth).
   router.post('/v1/forge/launch', requireAuthoringAuth, async (req, res) => {
     const token = process.env.GITHUB_DISPATCH_TOKEN;
-    if (!token) return res.status(503).json({ error: { code: 'DISPATCH_DISABLED', message: 'criação automática desligada — defina GITHUB_DISPATCH_TOKEN no Secret reqhub-api-config (PAT fine-grained, actions:write).' } });
+    if (!token) return res.status(503).json({ error: { code: 'DISPATCH_DISABLED', message: 'criação automática desligada — defina GITHUB_DISPATCH_TOKEN no Secret reqhub-api-config (PAT fine-grained, Contents: Read and write).' } });
     const v = validateLaunchInput(req.body);
     if (!v.ok) return res.status(400).json({ error: { code: v.code, message: v.message } });
     const built = buildClientPayload(v.value, req.identity);
