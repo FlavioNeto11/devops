@@ -69,8 +69,8 @@ jobs:
             # contaria como "pendente" -> deadlock auto-referencial (nunca mescla). Filtrar pelo
             # nome do job resolve sem afrouxar nenhuma barreira (os checks reais seguem exigidos).
             SELF="Auto-merge (gpt-approved + CI verde)"
-            failed=$(echo "$info" | jq -r --arg self "$SELF" '[.statusCheckRollup[]? | select(((.name // .context) // "") != $self) | ((.conclusion // .state) // "") | select(. == "FAILURE" or . == "ERROR" or . == "CANCELLED" or . == "TIMED_OUT")] | length')
-            pending=$(echo "$info" | jq -r --arg self "$SELF" '[.statusCheckRollup[]? | select(((.name // .context) // "") != $self) | ((.conclusion // .state) // "PENDING") | select(. == "PENDING" or . == "EXPECTED" or . == "")] | length')
+            failed=$(echo "$info" | jq -r --arg self "$SELF" '[.statusCheckRollup[]? | select((((.name // .context) // "") | test("^Auto-merge")) | not) | ((.conclusion // .state) // "") | select(. == "FAILURE" or . == "ERROR" or . == "CANCELLED" or . == "TIMED_OUT")] | length')
+            pending=$(echo "$info" | jq -r --arg self "$SELF" '[.statusCheckRollup[]? | select((((.name // .context) // "") | test("^Auto-merge")) | not) | ((.conclusion // .state) // "PENDING") | select(. == "PENDING" or . == "EXPECTED" or . == "")] | length')
             if [ "$draft" = "true" ]; then echo "PR #$n: rascunho — skip"; continue; fi
             if [ "$failed" != "0" ]; then echo "PR #$n: $failed check(s) falho(s) — skip"; continue; fi
             if [ "$pending" != "0" ]; then echo "PR #$n: $pending check(s) pendente(s) — aguarda proximo evento"; continue; fi
@@ -145,8 +145,8 @@ jobs:
               mergeable=$(gh pr view "$n" --repo "$REPO" --json mergeable --jq '.mergeable')
             done
             SELF="Auto-merge autonomo (Forja — FORGE_AUTONOMOUS)"
-            failed=$(echo "$info" | jq -r --arg self "$SELF" '[.statusCheckRollup[]? | select(((.name // .context) // "") != $self) | ((.conclusion // .state) // "") | select(. == "FAILURE" or . == "ERROR" or . == "CANCELLED" or . == "TIMED_OUT")] | length')
-            pending=$(echo "$info" | jq -r --arg self "$SELF" '[.statusCheckRollup[]? | select(((.name // .context) // "") != $self) | ((.conclusion // .state) // "PENDING") | select(. == "PENDING" or . == "EXPECTED" or . == "")] | length')
+            failed=$(echo "$info" | jq -r --arg self "$SELF" '[.statusCheckRollup[]? | select((((.name // .context) // "") | test("^Auto-merge")) | not) | ((.conclusion // .state) // "") | select(. == "FAILURE" or . == "ERROR" or . == "CANCELLED" or . == "TIMED_OUT")] | length')
+            pending=$(echo "$info" | jq -r --arg self "$SELF" '[.statusCheckRollup[]? | select((((.name // .context) // "") | test("^Auto-merge")) | not) | ((.conclusion // .state) // "PENDING") | select(. == "PENDING" or . == "EXPECTED" or . == "")] | length')
             if [ "$draft" = "true" ]; then echo "PR #$n: rascunho - skip"; continue; fi
             if [ "$failed" != "0" ]; then echo "PR #$n: $failed check(s) falho(s) - skip"; continue; fi
             if [ "$pending" != "0" ]; then echo "PR #$n: $pending check(s) pendente(s) - aguarda"; continue; fi
