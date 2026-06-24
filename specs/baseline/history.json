@@ -2,19 +2,20 @@
   "metamodel_version": "1.1.0",
   "has_previous": true,
   "from": {
-    "commit": "0a2374352f8a",
-    "baseline_hash": "dc8116ae59b8955d86a3868008e327698fb216c6ebaab9ca40e1416d42465175"
+    "commit": "945e6caf0653",
+    "baseline_hash": "2375d069a02d7b7e649395de806e44fd9db09d79b765ef5551bb49b4fb887400"
   },
   "to": {
     "commit": "working-tree",
-    "baseline_hash": "2375d069a02d7b7e649395de806e44fd9db09d79b765ef5551bb49b4fb887400"
+    "baseline_hash": "dc8116ae59b8955d86a3868008e327698fb216c6ebaab9ca40e1416d42465175"
   },
   "counts": {
-    "added": 1,
-    "removed": 0,
+    "added": 0,
+    "removed": 1,
     "changed": 0
   },
-  "added": [
+  "added": [],
+  "removed": [
     {
       "id": "REQ-VALDEMO-0001",
       "title": "Fundacao: arquitetura em camadas",
@@ -23,6 +24,5 @@
       "impact_band": "medium"
     }
   ],
-  "removed": [],
   "changed": []
 }
