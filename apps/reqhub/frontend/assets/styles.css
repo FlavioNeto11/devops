@@ -558,6 +558,8 @@ pre.yaml { background: var(--bg-2); border: 1px solid var(--line); border-radius
 .forge-dnode.s-done .chip { fill: color-mix(in srgb, var(--ok) 26%, var(--bg-2)); stroke: var(--ok); }
 .forge-dnode.s-active .chip { fill: color-mix(in srgb, var(--warn) 24%, var(--bg-2)); stroke: var(--warn); }
 .forge-dnode.s-blocked .chip { stroke: var(--danger); stroke-dasharray: 3 2; }
+/* Nó EXTERNO da plataforma (IA, SSO, observabilidade) — tracejado + tom de destaque */
+.forge-dnode.ext .chip { fill: color-mix(in srgb, var(--accent) 14%, var(--bg-2)); stroke: var(--accent); stroke-width: 1.4; stroke-dasharray: 4 3; }
 .forge-dnode.s-todo .chip { stroke: var(--line-2); }
 .forge-dnode .dlbl { font-family: var(--mono); font-size: 10px; fill: var(--fg-1); pointer-events: none; }
 .forge-dedge { fill: none; stroke: var(--line-2); stroke-width: 1.4; opacity: 0.6; }

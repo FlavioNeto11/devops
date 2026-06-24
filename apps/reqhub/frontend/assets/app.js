@@ -2980,9 +2980,31 @@ function fwStagePlan(host, w) {
     host.append(tl);
   } else {
     if (w.arch && w.arch.stack) host.append(h('p', { class: 'fw-lead' }, 'Stack escolhida: ', badge(w.arch.stack, 'b-fn'), w.arch.blueprint ? h('code', { class: 'fw-cap-id', text: w.arch.blueprint }) : null));
+    // Nós EXTERNOS da plataforma, derivados da CATEGORIA dos blocos (declarativa, sem heurística):
+    // um requisito que usa um bloco categoria 'ai'/'auth'/'observability'/'integration' liga ao
+    // componente compartilhado correspondente (Plataforma de IA, Keycloak, Observabilidade…).
+    const catalog = (DATA.capabilities && DATA.capabilities.capabilities) || [];
+    const catOf = {}; for (const c of catalog) catOf[c.id] = c.category;
+    const PLAT = {
+      ai: { id: 'ext:ai', title: 'Plataforma de IA (compartilhada)', label: 'IA' },
+      auth: { id: 'ext:auth', title: 'Keycloak — SSO/OIDC', label: 'SSO' },
+      observability: { id: 'ext:obs', title: 'Observabilidade (Prometheus/Grafana)', label: 'Métricas' },
+      integration: { id: 'ext:integ', title: 'Integrações externas', label: 'Integrações' },
+    };
+    const platOf = (id) => Object.values(PLAT).find((p) => p.id === id) || { title: id };
+    const extNodes = []; const extEdges = []; const seen = new Set();
+    for (const p of (w.proposed || [])) {
+      const linked = new Set();
+      for (const b of (p.req.capability_blocks || [])) { const plat = PLAT[catOf[b]]; if (plat) linked.add(plat.id); }
+      for (const pid of linked) {
+        if (!seen.has(pid)) { seen.add(pid); const pl = platOf(pid); extNodes.push({ id: pid, title: pl.title, label: pl.label, external: true }); }
+        extEdges.push({ from: p.id, to: pid });
+      }
+    }
     const nodes = w.proposed.map((p) => ({ id: p.id, title: p.req.title || '' }));
-    const g = interactiveGraph({ tall: true, label: 'Mapa de dependências', nodeClass: (n) => 'wv-' + ((n.wave || 0) % 6), detailOf: (n, id) => { const p = w.proposed.find((x) => x.id === id); return p ? { title: p.req.title || id, sub: p.req.statement ? truncateLabel(p.req.statement, 140) : '' } : { title: id }; } });
-    host.append(g.el); const dag = dagFromWaves(nodes, waves || []); g.setData(dag.nodes, dag.edges);
+    const g = interactiveGraph({ tall: true, label: 'Mapa de dependências e integrações', nodeClass: (n) => n.external ? 'ext' : 'wv-' + ((n.wave || 0) % 6), detailOf: (n, id) => { if (String(id).startsWith('ext:')) return { title: platOf(id).title, sub: 'Componente externo da plataforma (compartilhado entre apps)' }; const p = w.proposed.find((x) => x.id === id); return p ? { title: p.req.title || id, sub: p.req.statement ? truncateLabel(p.req.statement, 140) : '' } : { title: id }; } });
+    host.append(g.el); const dag = dagFromWaves(nodes, waves || []); g.setData(dag.nodes.concat(extNodes), dag.edges.concat(extEdges));
+    if (extNodes.length) host.append(h('p', { class: 'fw-hint', text: 'Nós tracejados = componentes externos da plataforma (IA, login, observabilidade) que o sistema vai reusar — não são código novo.' }));
     const adrs = (w.arch && Array.isArray(w.arch.adrs)) ? w.arch.adrs : [];
     if (adrs.length) { const ul = h('ul', { class: 'linklist' }); for (const a of adrs) ul.append(h('li', {}, h('span', { class: 'lt', text: 'ADR' }), typeof a === 'string' ? a : (a.title || a.decision || ''))); host.append(h('h4', { class: 'fw-sec', text: 'Decisões de arquitetura' }), ul); }
   }
