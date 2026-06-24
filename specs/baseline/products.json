@@ -1,29 +1,3 @@
 {
-  "products": [
-    {
-      "name": "valdemo",
-      "display_name": "Val Demo",
-      "base_path": "/valdemo",
-      "blueprint": "node-api-vue-spa",
-      "vision": "Produto descartavel para validar o ciclo criar->apagar da Forja.",
-      "app_type": "product_software",
-      "requirement_ids": [
-        "REQ-VALDEMO-0001"
-      ],
-      "phases": {
-        "requirements": {
-          "status": "approved"
-        },
-        "architecture": {
-          "status": "approved"
-        },
-        "scaffold": {
-          "status": "not_started"
-        },
-        "build": {
-          "status": "not_started"
-        }
-      }
-    }
-  ]
+  "products": []
 }

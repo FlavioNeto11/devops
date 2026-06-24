@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "2375d069a02d7b7e649395de806e44fd9db09d79b765ef5551bb49b4fb887400",
+  "baseline_hash": "dc8116ae59b8955d86a3868008e327698fb216c6ebaab9ca40e1416d42465175",
   "items": [
     {
       "id": "REQ-AI-0001",
@@ -3675,17 +3675,6 @@
       "asr": false,
       "impact_band": "low",
       "file": "requirements/traefik/REQ-TRAEFIK-NFR-004.yaml"
-    },
-    {
-      "id": "REQ-VALDEMO-0001",
-      "title": "Fundacao: arquitetura em camadas",
-      "type": "functional",
-      "status": "approved",
-      "product": "valdemo",
-      "capability": null,
-      "asr": true,
-      "impact_band": "medium",
-      "file": "requirements/valdemo/REQ-VALDEMO-0001.yaml"
     }
   ],
   "refinements": [
