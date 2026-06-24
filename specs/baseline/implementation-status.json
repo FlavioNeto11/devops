@@ -6,8 +6,7 @@
     "by_status": {
       "deployed": 282,
       "done": 52,
-      "merged": 2,
-      "pr_open": 1,
+      "merged": 3,
       "not_started": 6
     },
     "refinements": {
@@ -895,9 +894,11 @@
       "req_revision": 1
     },
     "REQ-NEUROEVOLUI-0002": {
-      "status": "pr_open",
+      "status": "merged",
       "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/126",
       "branch": "@{id=REQ-NEUROEVOLUI-0002; branch=req/REQ-NEUROEVOLUI-0002/r1; restricted=false; title=feat(neuroevolui): implementa REQ-NEUROEVOLUI-0002 — Multi-tenant + RBAC: Isolamento por c}.branch",
+      "commit": "105164251711ea8def324a7c562b75298f82bf28",
       "run_id": "28131631587"
     },
     "REQ-NEUROEVOLUI-0003": {
