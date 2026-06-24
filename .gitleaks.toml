@@ -20,6 +20,9 @@ paths = [
   '''.*\.example\.ya?ml$''',
   '''.*secret\.example\.ya?ml$''',
   # Fixtures e payloads de teste/exemplo (tokens fake ou JWT expirados).
+  # Diretórios de teste de QUALQUER app (inclui produtos gerados pela Forja — make-test-suite
+  # emite fixtures com tokens fake como 'tok-live-...'; histórico de produtos removidos também).
+  '''apps/.*/tests?/.*''',
   '''apps/sicat/tests/.*''',
   '''apps/sicat/examples/.*''',
   '''apps/sicat/openapi/.*''',
