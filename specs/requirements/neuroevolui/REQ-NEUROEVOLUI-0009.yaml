@@ -1,0 +1,36 @@
+id: REQ-NEUROEVOLUI-0009
+title: "Frontend: Design system unificado + Componentes reusáveis"
+type: non-functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: neuroevolui
+  blueprint: gymops-style
+statement: "O sistema DEVE utilizar design system centralizado (tokens + componentes da plataforma) para oferecer interface consistente, acessível e themeable (claro/escuro), sem reinventar CSS ou componentes."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/neuroevolui/product.json"]
+priority: medium
+criticality: medium
+architectural_significance: true
+capability_blocks: ["design-system"]
+acceptance_criteria:
+  - "Projeto frontend importa packages/design-tokens (nunca edita .generated.css)"
+  - "Projeto frontend herda packages/platform-shell (navegação, contexto, tema)"
+  - "Tokens de design únicos: cores, tipografia, espaçamento, breakpoints"
+  - "Componentes reusáveis: Button, Input, Modal, Card, Table com acessibilidade (WCAG AA)"
+  - "Tema claro/escuro sincronizado com preferência de SO e session do usuário"
+  - "Codegen-sync automático: atualizar design-tokens, aplicações rebuild sem intervenção"
+quality_scenarios:
+  - source: "operador/sistema"
+    stimulus: "O sistema DEVE utilizar design system centralizado (tokens + componentes da plataforma) para oferecer interface consistente, acessível e the"
+    environment: "produção"
+    artifact: "neuroevolui"
+    response: "atende o atributo de qualidade especificado"
+    response_measure: "Projeto frontend importa packages/design-tokens (nunca edita .generated.css)"
+verification_method: [test-integration, monitoring]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

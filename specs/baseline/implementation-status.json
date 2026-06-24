@@ -1,11 +1,12 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "dc8116ae59b8955d86a3868008e327698fb216c6ebaab9ca40e1416d42465175",
+  "baseline_hash": "c673fba7368673eeb123e0671af3b6e8d8fd855c2c79bf90786e87dd1743d7f9",
   "counts": {
-    "total": 334,
+    "total": 343,
     "by_status": {
       "deployed": 282,
-      "done": 52
+      "done": 52,
+      "not_started": 9
     },
     "refinements": {
       "total": 13,
@@ -886,6 +887,42 @@
       "req_revision": 1,
       "deployed_at": "2026-06-15",
       "notes": "platform/keycloak — SSO/OIDC no cluster (ns identity), sob Argo"
+    },
+    "REQ-NEUROEVOLUI-0001": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-NEUROEVOLUI-0002": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-NEUROEVOLUI-0003": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-NEUROEVOLUI-0004": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-NEUROEVOLUI-0005": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-NEUROEVOLUI-0006": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-NEUROEVOLUI-0007": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-NEUROEVOLUI-0008": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-NEUROEVOLUI-0009": {
+      "status": "not_started",
+      "req_revision": 1
     },
     "REQ-OBS-0001": {
       "status": "deployed",

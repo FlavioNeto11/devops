@@ -1,0 +1,29 @@
+id: REQ-NEUROEVOLUI-0007
+title: "Notificações: E-mail, push e WhatsApp para lembretes e alertas"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: neuroevolui
+  blueprint: gymops-style
+statement: "O sistema DEVE notificar paciente e profissional por múltiplos canais (e-mail, push web, WhatsApp) para lembretes de consulta, evolução clínica, e avisos urgentes, com degradação graciosa (canal ausente não derruba fluxo)."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/neuroevolui/product.json"]
+priority: medium
+criticality: medium
+architectural_significance: true
+capability_blocks: ["notificacoes-multicanal", "redis-bullmq"]
+acceptance_criteria:
+  - "Eventos de domínio disparam notificações: consultation.scheduled, note.added, payment.failed"
+  - "E-mail via SMTP (Nodemailer), contendo template de marca"
+  - "Push web via VAPID/web-push para navegador do paciente/profissional"
+  - "WhatsApp via Twilio para celular registrado"
+  - "Notificações enfileiradas (jobs na fila 'notifications', retry em caso de falha transitória)"
+  - "Preferências do usuário: qual canal desabilitar (ex.: paciente desativa WhatsApp)"
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

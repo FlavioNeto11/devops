@@ -1,0 +1,29 @@
+id: REQ-NEUROEVOLUI-0001
+title: "Fundação: Arquitetura em camadas + Observabilidade + OIDC"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: product-foundation
+  product_scope: neuroevolui
+  blueprint: gymops-style
+statement: "O sistema DEVE implementar uma arquitetura em camadas rígidas (route → service → repository → worker → gateway) com observabilidade por padrão (health, métricas Prometheus, ServiceMonitor, SLO) e autenticação federada via Keycloak (OIDC) com sessão própria do app."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/neuroevolui/product.json"]
+priority: critical
+criticality: critical
+architectural_significance: true
+capability_blocks: ["camadas-rigidas", "observabilidade", "oidc-sessao", "migrations-versionadas"]
+acceptance_criteria:
+  - "Routes validam entrada e mapeiam apenas HTTP, sem lógica de negócio ou acesso a banco"
+  - "Toda regra de negócio reside em services"
+  - "Todo SQL reside em repositories"
+  - "Trabalho assíncrono delegado a workers"
+  - "Toda chamada HTTP externa passa por gateway"
+  - "Endpoints /health/{system,workers,jobs} estruturados e respondendo"
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

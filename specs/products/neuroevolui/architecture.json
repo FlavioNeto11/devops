@@ -1,0 +1,253 @@
+{
+  "stack_rationale": "",
+  "adrs": [
+    {
+      "blocks": [
+        "camadas-rigidas",
+        "migrations-versionadas",
+        "observabilidade",
+        "oidc-sessao",
+        "rbac-multitenant",
+        "redis-bullmq",
+        "ia-grafo",
+        "rag-pgvector",
+        "notificacoes-multicanal"
+      ],
+      "cites": [
+        "GymOps default: camadas-rigidas, migrations-versionadas, redis-bullmq, rbac-multitenant, oidc-sessao, structured-outputs, observabilidade",
+        "GymOps compatible: ia-grafo, rag-pgvector, notificacoes-multicanal, idempotencia, design-system, pagamentos-gateway, control-ai-por-app"
+      ],
+      "decision": "Usar gymops-style (monorepo Next.js + Fastify + Prisma) em vez de sicat (Node + Vue).",
+      "rationale": "NeuroEvoluI é multi-tenant (múltiplas clínicas), requer RBAC em cascata, filas assíncronas com BullMQ, assistente IA próprio (grafo) com RAG, e notificações multi-canal. GymOps oferece nativamente rbac-multitenant, redis-bullmq, ia-grafo, rag-pgvector e notificacoes-multicanal. SICAT não oferece RBAC multi-tenant ou filas nomeadas por padrão.",
+      "title": "ADR-001: Stack GymOps para Multi-Tenant + IA + Notificações"
+    },
+    {
+      "blocks": [
+        "redis-bullmq",
+        "observabilidade"
+      ],
+      "cites": [
+        "redis-bullmq: Processamento assíncrono baseado em Redis/BullMQ com filas nomeadas (recorrência, importação, notificação, sumário-IA), retry/backoff por fila, degradação graciosa",
+        "observabilidade: métricas Prometheus de saturação de fila, alertas de SLO para jobs"
+      ],
+      "decision": "Implementar Redis/BullMQ com filas nomeadas: 'evolucao', 'importacao', 'notificacao', 'sumario-ia'.",
+      "rationale": "Registro de evolução, importação de dados, notificações e geração de sumários com IA são operações longas que podem falhar. BullMQ oferece retry/backoff, recorrência, e degradação graciosa (inline sem Redis). Cada fila tem SLO próprio (p95 latência, taxa erro).",
+      "title": "ADR-002: Filas BullMQ para Evolução, Importação, Notificação e Sumário-IA"
+    },
+    {
+      "blocks": [
+        "rbac-multitenant",
+        "camadas-rigidas"
+      ],
+      "cites": [
+        "rbac-multitenant: Multi-tenant + RBAC fino (escopo por tenant/unidade e papéis em cascata). Isolamento por tenant (toda tabela carrega tenant_id e toda query é escopada) e controle de acesso em camadas de papéis (ex.: owner > org_manager > unit_manager > area_leader > assignee), com deny por padrão fora do escopo e soft-delete."
+      ],
+      "decision": "Implementar roles em cascata com isolamento por tenant (clínica). Toda query escopada por tenant_id e validação de papel.",
+      "rationale": "Cada clínica é um tenant isolado. Dentro de cada tenant, papéis em cascata: proprietário (acesso total), gestor (visão de receita/operacional), profissional (seus pacientes e evolução), paciente (seu próprio atendimento). Deny por padrão fora do escopo; soft-delete para auditoria.",
+      "title": "ADR-003: RBAC em Cascata (Proprietário > Gestor > Profissional > Paciente)"
+    },
+    {
+      "blocks": [
+        "idempotencia",
+        "pagamentos-gateway",
+        "redis-bullmq"
+      ],
+      "cites": [
+        "idempotencia: Operações que criam efeito (POSTs, submissões à fila, importações) são idempotentes. Uma chave idempotente (Idempotency-Key no request, job_key na fila) garante que repetir a mesma operação produz UM único efeito.",
+        "pagamentos-gateway: Integração de pagamento por um gateway único e resiliente: cobranças idempotentes (um efeito por chave)"
+      ],
+      "decision": "Usar Idempotency-Key em POSTs de cobrança e criar evolução; job_key em jobs BullMQ.",
+      "rationale": "Cobrança pode ser retentada pelo cliente ou gateway; evolução pode ser retry de notificação. Um único efeito por chave idempotente garante que duplicar a operação não cria duplicata de transação ou registro.",
+      "title": "ADR-004: Idempotência em Cobrança e Submissão de Jobs"
+    },
+    {
+      "blocks": [
+        "ia-grafo",
+        "rag-pgvector",
+        "control-ai-por-app",
+        "structured-outputs"
+      ],
+      "cites": [
+        "ia-grafo: Assistente conversacional/assistivo construído sobre o motor de grafo (@flavioneto11/ai-core). Assistente conversacional/assistivo construído sobre o motor de grafo da plataforma (createAiGraph: router → especialista deep com loop ReAct e tools R1 → judge/verify)",
+        "rag-pgvector: Base de conhecimento vetorial no Postgres (extensão pgvector): documentos são fatiados, embeddados e indexados; consultas recuperam os top-K trechos por similaridade para fundamentar (ground) as respostas da IA com citações.",
+        "control-ai-por-app: Uma IA de controle PRÓPRIA do app: seu grafo de IA (ai-core) com especialistas e tools de domínio, puxando prompts versionados do control plane da plataforma com timeout + cache + fallback offline para um prompt versionado no repo, fail-closed sem chave de IA. ACEITA ARQUIVOS (multimodal): a rota /v1/assistant ingere texto+imagens+PDF via @flavioneto11/file-ingest-kit (fail-soft)",
+        "structured-outputs: Toda chamada de IA que produz dados retorna JSON validado contra um schema declarado (jsonMode + parse estrito); saída inválida vira erro estruturado"
+      ],
+      "decision": "Implementar ai-core (grafo) com especialistas de domínio, RAG em pgvector para base de conhecimento, e control-ai-por-app para prompts versionados + fallback offline.",
+      "rationale": "Profissional e paciente precisam de assistente que responda dúvidas citando fonte (protocolo, manual), propõe rascunho (plano de intervenção) com confirmação, e aceita multimodal (texto, imagem, PDF). Grafo permite raciocínio com tools (buscar paciente, citar protocolo); RAG fundamenta com citações; control-ai-por-app oferece prompts versionados e fallback offline sem keycloak externo.",
+      "title": "ADR-005: Assistente IA com Grafo Próprio + RAG + Controle de Plataforma"
+    },
+    {
+      "blocks": [
+        "notificacoes-multicanal",
+        "redis-bullmq"
+      ],
+      "cites": [
+        "notificacoes-multicanal: Notificações multi-canal (e-mail, push, WhatsApp). Envio de notificações por múltiplos canais — e-mail (SMTP/Nodemailer), push web (VAPIR/web-push) e WhatsApp (Twilio) — disparado por eventos do domínio, com degradação graciosa (canal ausente não derruba o fluxo) e enfileiramento (a notificação é um job)."
+      ],
+      "decision": "Implementar notificacoes-multicanal (e-mail, push, WhatsApp) enfileiradas como jobs BullMQ. Canal ausente não derruba fluxo.",
+      "rationale": "Lembretes de agendamento, avisos de evolução, alertas urgentes precisam chegar por múltiplos canais. BullMQ garante entrega com retry; degradação graciosa (e-mail fora do ar não cancela push/WhatsApp). Configurável por clínica/usuário.",
+      "title": "ADR-006: Notificações Multi-Canal com Degradação Graciosa"
+    },
+    {
+      "blocks": [
+        "design-system"
+      ],
+      "cites": [
+        "design-system: Design system unificado (design-tokens + componentes). Frontend consistente com a plataforma: tokens de design únicos (packages/design-tokens, codegen-sync para dentro de cada app — nunca editar o .generated.css) + componentes reusáveis e casca compartilhada (packages/platform-shell)."
+      ],
+      "decision": "Usar packages/design-tokens + codegen-sync + platform-shell compartilhada.",
+      "rationale": "Frontend consistente com identidade de plataforma, tema claro/escuro, acessibilidade. Tokens gerados, componentes reusáveis, casca compartilhada. Sem reinventar CSS ou componentes.",
+      "title": "ADR-007: Design System Centralizado para Frontend Consistente"
+    },
+    {
+      "blocks": [],
+      "cites": [
+        "contract-openapi (sicat only): Contract-first OpenAPI (tipos gerados + validação no CI). A superfície HTTP é definida primeiro num OpenAPI canônico"
+      ],
+      "decision": "Desconsiderar contract-openapi (bloco de SICAT). GymOps não o oferece como default e REQ-NEUROEVOLUI-0008 é não-funcional/secundário.",
+      "rationale": "contract-openapi é compatível apenas com SICAT. Para GymOps, estabilidade de API é garantida por testes de integração e versionamento semântico. REQ-NEUROEVOLUI-0008 pode ser implementado posteriormente com ferramentas de OpenAPI sem precisar do bloco de SICAT.",
+      "title": "ADR-008: Não Implementar contract-openapi (Não-Requisito para GymOps)"
+    }
+  ],
+  "waves": [
+    {
+      "depends_on": [],
+      "id": "w0-foundation",
+      "work_orders": [
+        "Setup monorepo Next.js + Fastify + Prisma",
+        "Camadas rígidas: route → service → repository → worker → gateway",
+        "Migrations Prisma com advisory-lock",
+        "Health endpoints + métricas Prometheus (:9464)",
+        "OIDC: Keycloak (realm nvit) + sessão JWT do app",
+        "RBAC: tenants table, roles table, policy engine (scopeQuery, checkScopes)",
+        "Redis + BullMQ setup com filas nomeadas"
+      ]
+    },
+    {
+      "depends_on": [
+        "w0-foundation"
+      ],
+      "id": "w1",
+      "work_orders": [
+        "Design tokens + platform-shell (design-system)",
+        "Tabelas de domínio: paciente, evolucao, agendamento, transacao, attachment",
+        "Services: PacienteService, EvolucaoService, AgendamentoService, TransacaoService",
+        "Repositories com escopo por tenant_id",
+        "Soft-delete em evolucao, agendamento (auditoria)",
+        "Seed: clínicas, profissionais, pacientes de teste"
+      ]
+    },
+    {
+      "depends_on": [
+        "w1"
+      ],
+      "id": "w2",
+      "work_orders": [
+        "Pagamentos-gateway: integração com Stripe/PagSeguro (sandbox)",
+        "Idempotência: Idempotency-Key em POST /agendamentos, POST /transacoes",
+        "Job para cobrança assíncrona (fila 'pagamento')",
+        "Webhook de confirmação de pagamento com validação de assinatura"
+      ]
+    },
+    {
+      "depends_on": [
+        "w1"
+      ],
+      "id": "w3",
+      "work_orders": [
+        "Filas BullMQ: 'evolucao', 'importacao', 'notificacao'",
+        "Worker para processa jobs de evolução (versioning, attachments)",
+        "Worker para importação de dados (CSV/JSON) com retry",
+        "ServiceMonitor + alertas de SLO para filas (p95, taxa erro, saturação)"
+      ]
+    },
+    {
+      "depends_on": [
+        "w3"
+      ],
+      "id": "w4",
+      "work_orders": [
+        "Notificações multi-canal: SMTP (e-mail), Twilio (WhatsApp), VAPID (push web)",
+        "Fila 'notificacao' + worker",
+        "Templates de notificação (agendamento, evolução, alerta)",
+        "Degradação graciosa (canal ausente não derruba fluxo)"
+      ]
+    },
+    {
+      "depends_on": [
+        "w1"
+      ],
+      "id": "w5",
+      "work_orders": [
+        "pgvector + seed base de conhecimento (protocolos, manuais, artigos)",
+        "AI-Core setup: createAiGraph com especialistas de domínio",
+        "Tools de domínio: buscar-paciente, citar-protocolo, gerar-plano-intervencao",
+        "Rota /v1/assistant: input multimodal (texto+imagem+PDF via file-ingest-kit)"
+      ]
+    },
+    {
+      "depends_on": [
+        "w5"
+      ],
+      "id": "w6",
+      "work_orders": [
+        "RAG: createPgVectorStore, createEmbedder, createReranker",
+        "Integração RAG com assistente (top-K retrieval + citações)",
+        "Structured-outputs: schemas para rascunho-evolucao, plano-intervencao",
+        "Dry-run + confirmação do usuário antes de persistir rascunho"
+      ]
+    },
+    {
+      "depends_on": [
+        "w5"
+      ],
+      "id": "w7",
+      "work_orders": [
+        "Control-AI-por-app: prompts versionados no control plane",
+        "Fallback offline (prompt versionado no repo)",
+        "Timeout + cache para chamadas de IA",
+        "Fail-closed sem chave de IA"
+      ]
+    },
+    {
+      "depends_on": [
+        "w6",
+        "w3"
+      ],
+      "id": "w8",
+      "work_orders": [
+        "Fila 'sumario-ia' para geração assíncrona de relatórios",
+        "Worker: consolidação de evolução + análise com IA",
+        "Relatório estruturado (evolution timeline, métricas, insights)",
+        "Download de relatório como PDF/Excel"
+      ]
+    },
+    {
+      "depends_on": [
+        "w2",
+        "w4",
+        "w6"
+      ],
+      "id": "w9",
+      "work_orders": [
+        "Testes de integração: workflow agendamento → cobrança → notificação",
+        "Testes de RBAC: isolamento por tenant, negação fora do escopo",
+        "Testes de idempotência: retry de cobrança não duplica transação",
+        "Smoke tests em sandbox (pagamento, IA, notificações)"
+      ]
+    },
+    {
+      "depends_on": [
+        "w0-foundation"
+      ],
+      "id": "w10",
+      "work_orders": [
+        "Dashboard Grafana: latência, taxa erro, saturação fila, throughput de IA",
+        "PrometheusRule: alertas de SLO (p95 < 2s rota, p99 < 5s fila, <5% erro)",
+        "Anotações devops.flavioneto/* para DevOps Console",
+        "Documentação de runbooks (alertas, escalação)"
+      ]
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "dc8116ae59b8955d86a3868008e327698fb216c6ebaab9ca40e1416d42465175",
+  "baseline_hash": "c673fba7368673eeb123e0671af3b6e8d8fd855c2c79bf90786e87dd1743d7f9",
   "dimensions": [
     "links",
     "allocation",
@@ -10,21 +10,21 @@
     "refinement"
   ],
   "totals": {
-    "total": 334,
-    "without_links": 277,
-    "without_allocation": 307,
+    "total": 343,
+    "without_links": 286,
+    "without_allocation": 316,
     "without_source_paths": 0,
-    "without_evidence": 334,
+    "without_evidence": 343,
     "without_verification_method": 334,
-    "without_refinement": 313,
-    "scopes": 17,
+    "without_refinement": 322,
+    "scopes": 18,
     "coverage_pct": {
-      "links": 17.1,
-      "allocation": 8.1,
+      "links": 16.6,
+      "allocation": 7.9,
       "source_paths": 100,
       "evidence": 0,
-      "verification_method": 0,
-      "refinement": 6.3
+      "verification_method": 2.6,
+      "refinement": 6.1
     }
   },
   "by_scope": {
@@ -144,6 +144,23 @@
         "source_paths": 100,
         "evidence": 0,
         "verification_method": 0,
+        "refinement": 0
+      }
+    },
+    "neuroevolui": {
+      "total": 9,
+      "without_links": 9,
+      "without_allocation": 9,
+      "without_source_paths": 0,
+      "without_evidence": 9,
+      "without_verification_method": 0,
+      "without_refinement": 9,
+      "coverage_pct": {
+        "links": 0,
+        "allocation": 0,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 100,
         "refinement": 0
       }
     },

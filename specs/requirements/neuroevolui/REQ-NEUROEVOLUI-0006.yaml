@@ -1,0 +1,29 @@
+id: REQ-NEUROEVOLUI-0006
+title: "IA: Assistente de controle para profissional e paciente com RAG"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: neuroevolui
+  blueprint: gymops-style
+statement: "O sistema DEVE oferecer um assistente de IA (grafo próprio com especialistas) que responde dúvidas de profissional e paciente, cita fontes (base de conhecimento via RAG), propõe rascunhos (ex.: plano de intervenção) com confirmação, e aceita arquivos (texto, imagem, PDF)."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/neuroevolui/product.json"]
+priority: high
+criticality: medium
+architectural_significance: true
+capability_blocks: ["ia-grafo", "rag-pgvector", "control-ai-por-app", "structured-outputs"]
+acceptance_criteria:
+  - "POST /v1/assistant com { question, context_type: 'professional'|'patient', files?: [] } retorna resposta estruturada"
+  - "IA fundamenta resposta em conhecimento (citações de manuais, protocolos, documentação)"
+  - "RAG: embeddings armazenados em pgvector, retrieval busca top-K trechos similares"
+  - "Saída estruturada: JSON com { answer, sources, confidence, actions?: [rascunho] }"
+  - "Rascunhos (ex.: plano de intervenção, carta de recomendação) exigem confirmação antes de persistir"
+  - "Multimodal: aceita texto, imagem (JPEG/PNG), PDF via @flavioneto11/file-ingest-kit"
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

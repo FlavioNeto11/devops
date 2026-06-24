@@ -1,0 +1,29 @@
+id: REQ-NEUROEVOLUI-0003
+title: "Dados: Filas assíncronas + Idempotência + Migrations"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: neuroevolui
+  blueprint: gymops-style
+statement: "O sistema DEVE processar operações assíncronas de longa duração (registros de evolução, importação de dados, notificações) via Redis/BullMQ com idempotência garantida (Idempotency-Key), e evoluir o schema de forma segura via migrations versionadas."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/neuroevolui/product.json"]
+priority: critical
+criticality: medium
+architectural_significance: true
+capability_blocks: ["redis-bullmq", "idempotencia", "migrations-versionadas"]
+acceptance_criteria:
+  - "Filas nomeadas: consultation-notes, patient-imports, notifications, summaries-ai"
+  - "Cada job possui job_key para dedupe (mesmo key = mesmo resultado, não duplicação)"
+  - "Operação POST retorna 202 Accepted com job_id quando enfileirada"
+  - "Retry com backoff exponencial configurável por fila"
+  - "Degradação graciosa: se Redis indisponível, job executado inline com timeout"
+  - "Migrations versionadas rodadas no boot com advisory-lock"
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

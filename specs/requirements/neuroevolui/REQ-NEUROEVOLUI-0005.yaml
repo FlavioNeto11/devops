@@ -1,0 +1,29 @@
+id: REQ-NEUROEVOLUI-0005
+title: "Controle financeiro: Agendamentos + Pagamentos + Auditoria"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: neuroevolui
+  blueprint: gymops-style
+statement: "O sistema DEVE gerenciar agendamentos de consultas, cobrança idempotente via gateway de pagamento (Stripe/PagSeguro), registrar transações com auditoria completa e oferecer visibilidade de receita/despesa por clínica."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/neuroevolui/product.json"]
+priority: high
+criticality: medium
+architectural_significance: true
+capability_blocks: ["pagamentos-gateway", "idempotencia", "camadas-rigidas"]
+acceptance_criteria:
+  - "POST /consultations/schedule cria agendamento com paciente, profissional, data/hora, valor"
+  - "Verificação de conflito de horário (profissional não pode ter 2 consultas simultâneas)"
+  - "Cobrança via gateway com idempotência (Idempotency-Key)"
+  - "Webhook de confirmação de pagamento atualiza status de consulta"
+  - "Transações auditadas: quem criou, quando, valor, status de pagamento, gateway"
+  - "Dashboard de receita: filtro por período, profissional, paciente"
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1
