@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "13beafa813eb8714b6e1065859aa61f46309740d8ce5201a5dda60339cabcaf9",
+  "baseline_hash": "781dadc2ef8a3fdd48f47f60f6bd380fc784e97c54bd358a261314c62e78755a",
   "nodes": [
     {
       "id": "infra-argocd",
@@ -1902,16 +1902,6 @@
       "asr": false,
       "impact_score": 40,
       "impact_band": "low"
-    },
-    {
-      "id": "REQ-FORJADEMO-0001",
-      "kind": "requirement",
-      "title": "Fundacao: arquitetura em camadas",
-      "type": "functional",
-      "product": "forjademo",
-      "asr": true,
-      "impact_score": 65,
-      "impact_band": "medium"
     },
     {
       "id": "REQ-GYMOPS-0001",

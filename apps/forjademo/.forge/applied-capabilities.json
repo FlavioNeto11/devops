@@ -1,9 +1,0 @@
-{
-  "app": "forjademo",
-  "stack": "sicat",
-  "blocks": [
-    "observabilidade",
-    "camadas-rigidas"
-  ],
-  "generatedBy": "scaffold-sicat.mjs"
-}

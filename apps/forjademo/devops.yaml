@@ -1,7 +1,0 @@
-app: { name: forjademo, namespace: apps, host: nvit.localhost, basePath: /forjademo }
-# Gerado pela FORGE (SICAT-style). Blocos: observabilidade, camadas-rigidas
-services:
-  frontend: { type: frontend, path: /, port: 80, expose: true, stripPrefix: false, priority: 10 }
-  api: { type: api, path: /api, port: 8080, expose: true, stripPrefix: true, priority: 40, health: { path: /health } }
-capabilities: [observabilidade, camadas-rigidas]
-observability: { metricsPort: 9464, serviceMonitor: true, prometheusRule: true }

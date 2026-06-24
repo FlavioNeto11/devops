@@ -2,19 +2,20 @@
   "metamodel_version": "1.1.0",
   "has_previous": true,
   "from": {
-    "commit": "4fd5b76cdf63",
-    "baseline_hash": "781dadc2ef8a3fdd48f47f60f6bd380fc784e97c54bd358a261314c62e78755a"
+    "commit": "6c11fd21670d",
+    "baseline_hash": "13beafa813eb8714b6e1065859aa61f46309740d8ce5201a5dda60339cabcaf9"
   },
   "to": {
     "commit": "working-tree",
-    "baseline_hash": "13beafa813eb8714b6e1065859aa61f46309740d8ce5201a5dda60339cabcaf9"
+    "baseline_hash": "781dadc2ef8a3fdd48f47f60f6bd380fc784e97c54bd358a261314c62e78755a"
   },
   "counts": {
-    "added": 1,
-    "removed": 0,
+    "added": 0,
+    "removed": 1,
     "changed": 0
   },
-  "added": [
+  "added": [],
+  "removed": [
     {
       "id": "REQ-FORJADEMO-0001",
       "title": "Fundacao: arquitetura em camadas",
@@ -23,6 +24,5 @@
       "impact_band": "medium"
     }
   ],
-  "removed": [],
   "changed": []
 }
