@@ -1,19 +1,54 @@
 // server.js — API Fastify (gymops-style). Servida em /neuroevolui/api (stripPrefix). Gerado pela Forge.
+// SQL concentrado em repositories/; rotas de pacientes/evolução em routes/patients.routes.js.
 import Fastify from 'fastify';
 import { pool, migrate, seed } from './db.js';
 import { M, startMetricsServer } from './metrics.js';
 import { authContext, requireRole } from './rbac.js';
 import { enqueueSubmit, queueCounts } from './queue.js';
+import * as recordsRepo from './repositories/records.repository.js';
+import { patientsPlugin } from './routes/patients.routes.js';
+
 const app = Fastify({ logger: false });
-app.addHook('onRequest', async (req) => { const ctx = authContext(req); req.tenantId = ctx.tenantId; req.role = ctx.role; });
+
+app.addHook('onRequest', async (req) => {
+  const ctx = authContext(req);
+  req.tenantId = ctx.tenantId;
+  req.role = ctx.role;
+  req.user = ctx.user;
+});
+
 app.get('/', async () => ({ app: 'neuroevolui', service: 'api', ok: true }));
 app.get('/health', async () => { await pool.query('SELECT 1'); return { status: 'ok', db: 'connected' }; });
 app.get('/v1/health/queue', async () => ({ status: 'ok', queue: await queueCounts() }));
-app.get('/v1/records', async (req) => ({ data: (await pool.query('SELECT * FROM records WHERE tenant_id=$1 ORDER BY id DESC LIMIT 200', [req.tenantId])).rows }));
-app.post('/v1/records', async (req, reply) => { const b = req.body || {}; if (!b.title) { reply.code(400); return { error: { message: 'title obrigatório' } }; } const r = (await pool.query('INSERT INTO records(tenant_id,title) VALUES ($1,$2) RETURNING *', [req.tenantId, b.title])).rows[0]; M.recordsTotal.inc({ outcome: 'created' }); reply.code(201); return r; });
-app.get('/v1/records/:id', async (req, reply) => { const r = (await pool.query('SELECT * FROM records WHERE tenant_id=$1 AND id=$2', [req.tenantId, Number(req.params.id)])).rows[0]; if (!r) { reply.code(404); return { error: { message: 'não encontrado' } }; } return r; });
-app.delete('/v1/records/:id', { preHandler: requireRole('admin') }, async (req) => { await pool.query('DELETE FROM records WHERE tenant_id=$1 AND id=$2', [req.tenantId, Number(req.params.id)]); return { deleted: true }; });
-app.post('/v1/records/:id/submit', async (req, reply) => { const id = Number(req.params.id); const r = (await pool.query('SELECT id FROM records WHERE tenant_id=$1 AND id=$2', [req.tenantId, id])).rows[0]; if (!r) { reply.code(404); return { error: { message: 'não encontrado' } }; } await pool.query("UPDATE records SET status='submitting', updated_at=now() WHERE id=$1", [id]); const e = await enqueueSubmit(id); reply.code(202); return { id, status: 'submitting', enqueued: !e.inline }; });
+
+app.get('/v1/records', async (req) => ({ data: await recordsRepo.listRecords(req.tenantId) }));
+app.post('/v1/records', async (req, reply) => {
+  const b = req.body || {};
+  if (!b.title) { reply.code(400); return { error: { message: 'title obrigatório' } }; }
+  const r = await recordsRepo.createRecord(req.tenantId, b.title);
+  M.recordsTotal.inc({ outcome: 'created' });
+  reply.code(201); return r;
+});
+app.get('/v1/records/:id', async (req, reply) => {
+  const r = await recordsRepo.getRecord(req.tenantId, Number(req.params.id));
+  if (!r) { reply.code(404); return { error: { message: 'não encontrado' } }; }
+  return r;
+});
+app.delete('/v1/records/:id', { preHandler: requireRole('admin') }, async (req) => {
+  await recordsRepo.deleteRecord(req.tenantId, Number(req.params.id));
+  return { deleted: true };
+});
+app.post('/v1/records/:id/submit', async (req, reply) => {
+  const id = Number(req.params.id);
+  const r = await recordsRepo.getRecord(req.tenantId, id);
+  if (!r) { reply.code(404); return { error: { message: 'não encontrado' } }; }
+  await recordsRepo.setRecordStatus(id, 'submitting');
+  const e = await enqueueSubmit(id);
+  reply.code(202); return { id, status: 'submitting', enqueued: !e.inline };
+});
+
+app.register(patientsPlugin);
+
 const PORT = Number(process.env.PORT) || 8080;
 (async () => {
   if ((process.env.AUTO_MIGRATE || 'true') === 'true') await migrate();
