@@ -188,8 +188,8 @@ jobs:
 
           # 6) ORCHESTRATE: dispara req-implement por requisito (impl PRs auto-mesclam via FORGE_AUTONOMOUS;
           #    cada merge redispara forge-deploy p/ as features subirem).
-          Write-Host "release: disparando greenfield-orchestrate ($prod)…"
-          gh workflow run greenfield-orchestrate.yml -f product=$prod -f max=20
+          Write-Host "release: disparando greenfield-orchestrate ($prod)… (serial, max 1 — reconcile encadeia o próximo)"
+          gh workflow run greenfield-orchestrate.yml -f product=$prod -f max=1
 
           # 7) ressincroniza o estado VIVO da Forja (ConfigMap) — o novo produto aparece na tela Forge.
           & ./scripts/sync-reqhub-forge-state.ps1

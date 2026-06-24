@@ -173,24 +173,27 @@ jobs:
       - uses: actions/checkout@v5
         with:
           ref: main
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.FORGE_GH_PAT || secrets.GITHUB_TOKEN }}
       - uses: actions/setup-node@v5
         with:
           node-version: "22"
-      - name: Marcar requisito(s) como merged
+      - name: Marcar merged + encadear o próximo req (serial)
         env:
           BODY: ${{ github.event.pull_request.body }}
           PRNUM: ${{ github.event.pull_request.number }}
           SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          GH_TOKEN: ${{ secrets.FORGE_GH_PAT || secrets.GITHUB_TOKEN }}
+          AUTONOMOUS: ${{ vars.FORGE_AUTONOMOUS }}
         run: |
           set -euo pipefail
           # Extrai REQ-IDs do trailer "Closes-Req: REQ-..." (um ou mais).
           ids=$(printf '%s\n' "$BODY" | sed -n 's/.*Closes-Req:[[:space:]]*\(REQ-[A-Z0-9-]*\).*/\1/p' | sort -u)
           if [ -z "$ids" ]; then echo "Sem trailer Closes-Req — nada a reconciliar."; exit 0; fi
-          changed=0
+          changed=0; prod=""
           for id in $ids; do
             node specs/tools/impl-status.mjs --set "$id" status=merged pr="https://github.com/${{ github.repository }}/pull/${PRNUM}" commit="${SHA}" >/dev/null && changed=1
             echo "  $id -> merged"
+            if [ -z "$prod" ]; then for d in specs/requirements/*/; do [ -f "${d}${id}.yaml" ] && prod=$(basename "$d") && break; done; fi
           done
           node specs/tools/impl-status.mjs --check || true
           if [ "$changed" = "1" ] && ! git diff --quiet -- specs/baseline/implementation-status.json; then
@@ -198,5 +201,12 @@ jobs:
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add specs/baseline/implementation-status.json
             git commit -m "chore(specs): status merged via PR #${PRNUM} [skip ci]"
-            git push origin main || echo "::warning::push do status falhou (branch protection p/ bot?). Atualize implementation-status localmente via /sync-spec."
+            git push origin main || echo "::warning::push do status falhou (proteção de branch?)."
+          fi
+          # ENCADEAMENTO SERIAL: se o produto é AUTÔNOMO da Forja, dispara o PRÓXIMO requisito (1 por vez).
+          # Evita PRs paralelos que CONFLITAM (todos editam db.js/server.js do mesmo app) — cada req é
+          # implementado sobre a main JÁ com o anterior mesclado.
+          if [ -n "$prod" ] && [ "${AUTONOMOUS:-}" = "true" ] && [ -f "specs/products/$prod/autonomous.json" ]; then
+            echo "encadeando: próximo requisito de '$prod' (serial, max 1)…"
+            gh workflow run greenfield-orchestrate.yml -f product="$prod" -f max=1 || echo "::warning::re-dispatch do orchestrate falhou."
           fi
