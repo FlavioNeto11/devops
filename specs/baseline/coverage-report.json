@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "781dadc2ef8a3fdd48f47f60f6bd380fc784e97c54bd358a261314c62e78755a",
+  "baseline_hash": "acc9a10e010b2b42ba79a7eab0ebeebf4bc64dafd02808355d34b275d3ac9f53",
   "dimensions": [
     "links",
     "allocation",
@@ -10,21 +10,21 @@
     "refinement"
   ],
   "totals": {
-    "total": 373,
-    "without_links": 312,
-    "without_allocation": 346,
+    "total": 374,
+    "without_links": 313,
+    "without_allocation": 347,
     "without_source_paths": 0,
-    "without_evidence": 373,
+    "without_evidence": 374,
     "without_verification_method": 334,
-    "without_refinement": 331,
-    "scopes": 24,
+    "without_refinement": 332,
+    "scopes": 25,
     "coverage_pct": {
-      "links": 16.4,
+      "links": 16.3,
       "allocation": 7.2,
       "source_paths": 100,
       "evidence": 0,
-      "verification_method": 10.5,
-      "refinement": 11.3
+      "verification_method": 10.7,
+      "refinement": 11.2
     }
   },
   "by_scope": {
@@ -138,6 +138,23 @@
       "without_evidence": 5,
       "without_verification_method": 0,
       "without_refinement": 5,
+      "coverage_pct": {
+        "links": 0,
+        "allocation": 0,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 100,
+        "refinement": 0
+      }
+    },
+    "forja-gate-test": {
+      "total": 1,
+      "without_links": 1,
+      "without_allocation": 1,
+      "without_source_paths": 0,
+      "without_evidence": 1,
+      "without_verification_method": 0,
+      "without_refinement": 1,
       "coverage_pct": {
         "links": 0,
         "allocation": 0,

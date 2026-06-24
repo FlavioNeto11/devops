@@ -1,10 +1,10 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "781dadc2ef8a3fdd48f47f60f6bd380fc784e97c54bd358a261314c62e78755a",
+  "baseline_hash": "acc9a10e010b2b42ba79a7eab0ebeebf4bc64dafd02808355d34b275d3ac9f53",
   "refinements_hash": "749c9e90fa209e7ebf5196d0549a3b3236d4747760d3855c27066be87b434749",
   "schema": "specs/schema/requirement.schema.json",
   "counts": {
-    "total": 373,
+    "total": 374,
     "by_product": {
       "ai": 18,
       "argocd": 15,
@@ -13,6 +13,7 @@
       "console": 35,
       "crm": 5,
       "fieldserve": 5,
+      "forja-gate-test": 1,
       "gymops": 23,
       "helpflow": 8,
       "keycloak": 18,
@@ -32,10 +33,10 @@
       "traefik": 16
     },
     "by_status": {
-      "approved": 373
+      "approved": 374
     },
     "by_type": {
-      "functional": 269,
+      "functional": 270,
       "non-functional": 104
     },
     "refinements": {
@@ -4498,6 +4499,45 @@
       "impact_score": 40,
       "impact_band": "low",
       "file": "requirements/fieldserve/REQ-FIELDSERVE-0005.yaml"
+    },
+    {
+      "id": "REQ-FORJAGATETEST-0001",
+      "title": "Fundacao: validar gate destravado",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "product-foundation",
+        "product_scope": "forja-gate-test",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "Requisito descartavel para validar o gate de aprovacao destravado pelo FORGE_GH_PAT.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/forja-gate-test/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "camadas-rigidas"
+      ],
+      "acceptance_criteria": [
+        "Os workflows do PR rodam sem action_required."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 65,
+      "impact_band": "medium",
+      "file": "requirements/forja-gate-test/REQ-FORJAGATETEST-0001.yaml"
     },
     {
       "id": "REQ-GYMOPS-0001",
@@ -23915,6 +23955,15 @@
       "id": "REQ-FIELDSERVE-0001",
       "title": "Fundação + observabilidade por padrão (health, métricas, ServiceMonitor, SLO)",
       "product": "fieldserve",
+      "impact_score": 65,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-FORJAGATETEST-0001",
+      "title": "Fundacao: validar gate destravado",
+      "product": "forja-gate-test",
       "impact_score": 65,
       "reasons": [
         "sem evidência de verificação"

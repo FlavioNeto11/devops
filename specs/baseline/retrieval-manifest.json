@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "781dadc2ef8a3fdd48f47f60f6bd380fc784e97c54bd358a261314c62e78755a",
+  "baseline_hash": "acc9a10e010b2b42ba79a7eab0ebeebf4bc64dafd02808355d34b275d3ac9f53",
   "items": [
     {
       "id": "REQ-AI-0001",
@@ -1288,6 +1288,17 @@
       "asr": false,
       "impact_band": "low",
       "file": "requirements/fieldserve/REQ-FIELDSERVE-0005.yaml"
+    },
+    {
+      "id": "REQ-FORJAGATETEST-0001",
+      "title": "Fundacao: validar gate destravado",
+      "type": "functional",
+      "status": "approved",
+      "product": "forja-gate-test",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/forja-gate-test/REQ-FORJAGATETEST-0001.yaml"
     },
     {
       "id": "REQ-GYMOPS-0001",
