@@ -164,19 +164,33 @@ jobs:
             $restricted = node -e "process.stdout.write(String(require('./work-order.json').orders[0].restricted))"
             $title      = node -e "process.stdout.write(require('./work-order.json').orders[0].pr_template.title)"
 
-            # A Claude APENAS edita arquivos + roda test/build — NENHUM git no allowlist (e sem
-            # GH_TOKEN/credencial). A esteira cria branch, commita, valida com o guard e abre o PR.
-            # Assim a Claude nao toca o repo git nem o remoto: blast-radius so pelos arquivos
-            # editados, que o guard valida vs allowed_paths/denylist.
-            claude -p "/implement-req $id (run_id=$env:RUN_ID). APENAS edite arquivos no escopo do requisito e rode testes; NAO use git — a esteira cria o branch, commita, valida (guard) e abre o PR." `
-              --append-system-prompt $wo `
-              --permission-mode acceptEdits `
-              --allowedTools "Edit" "Write" "Read" "Grep" "Glob" `
-                "Bash(npm ci:*)" "Bash(npm install:*)" "Bash(npm test:*)" "Bash(npm run lint:*)" "Bash(npm run test:*)" "Bash(npm run build:*)" "Bash(npm run typecheck:*)" `
-                "Bash(pnpm install:*)" "Bash(pnpm test:*)" "Bash(pnpm run lint:*)" "Bash(pnpm run test:*)" "Bash(pnpm run build:*)" "Bash(pnpm run typecheck:*)" `
-                "Bash(node --test:*)" `
-              --output-format json
-            if ($LASTEXITCODE -ne 0) { Write-Host "::warning::Claude retornou exit $LASTEXITCODE para $id." }
+            # produto do requisito (p/ rodar a suite LOCKED de auto-verificacao do greenfield)
+            $prod = (node -e "try{const b=require('./specs/baseline/current-baseline.json');const r=(b.requirements||[]).find(x=>x.id===process.argv[1]);process.stdout.write((r&&r.scope&&r.scope.product_scope)||'')}catch(e){}" "$id")
+            $lockedDir = if ($prod) { "apps/$prod/tests/locked" } else { "" }
+
+            # A Claude APENAS edita arquivos — NENHUM git no allowlist (e sem GH_TOKEN). A esteira cria
+            # branch, commita, valida com o guard e abre o PR. LOOP de AUTO-VERIFICACAO: roda os testes
+            # LOCKED (arch/unit; integration faz SKIP sem infra) e, se falharem, RE-ACIONA a Claude com
+            # as falhas (ate 2x) p/ ela CORRIGIR O CODIGO antes do guard/PR — sem editar os testes.
+            $prompt = "/implement-req $id (run_id=$env:RUN_ID). APENAS edite arquivos no escopo do requisito e rode testes; NAO use git — a esteira cria o branch, commita, valida (guard) e abre o PR."
+            for ($try = 1; $try -le 2; $try++) {
+              claude -p $prompt `
+                --append-system-prompt $wo `
+                --permission-mode acceptEdits `
+                --allowedTools "Edit" "Write" "Read" "Grep" "Glob" `
+                  "Bash(npm ci:*)" "Bash(npm install:*)" "Bash(npm test:*)" "Bash(npm run lint:*)" "Bash(npm run test:*)" "Bash(npm run build:*)" "Bash(npm run typecheck:*)" `
+                  "Bash(pnpm install:*)" "Bash(pnpm test:*)" "Bash(pnpm run lint:*)" "Bash(pnpm run test:*)" "Bash(pnpm run build:*)" "Bash(pnpm run typecheck:*)" `
+                  "Bash(node --test:*)" `
+                --output-format json
+              if ($LASTEXITCODE -ne 0) { Write-Host "::warning::Claude exit $LASTEXITCODE ($id, tentativa $try)." }
+              if (-not $lockedDir -or -not (Test-Path $lockedDir)) { break }
+              $testOut = (node --test "$lockedDir/**/*.test.mjs" 2>&1 | Out-String)
+              if ($LASTEXITCODE -eq 0) { Write-Host "$id: testes LOCKED OK (tentativa $try)."; break }
+              if ($try -ge 2) { Write-Host "::warning::$id: testes LOCKED ainda falham apos 2 tentativas — guard/PR seguem (CI barra se preciso)."; break }
+              Write-Host "$id: testes LOCKED falharam — re-acionando a Claude p/ corrigir o codigo."
+              $tail = $testOut.Substring([Math]::Max(0, $testOut.Length - 3500))
+              $prompt = "A implementacao de $id NAO passou nos testes LOCKED. Corrija o CODIGO da implementacao (NUNCA edite arquivos em tests/locked/ — sao imutaveis). Mantenha o escopo/blast-radius do requisito. Saida dos testes:`n$tail"
+            }
 
             # captura as mudancas do working tree (a Claude editou sobre a main)
             git add -A 2>$null
