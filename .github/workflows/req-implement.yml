@@ -137,6 +137,7 @@ jobs:
           RUN_ID: ${{ github.run_id }}
         run: |
           $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $false  # node --test/claude saem !=0 sem LANÇAR (checamos $LASTEXITCODE)
           # CLAUDE_BIN_DIR (opcional, no .env do runner): diretorio do CLI 'claude' acessivel
           # a conta do runner. Necessario quando o runner roda como NETWORK SERVICE e o CLI
           # esta no npm global de outro usuario (fora do PATH/ACL do runner). Ver runbook.
@@ -185,9 +186,10 @@ jobs:
               if ($LASTEXITCODE -ne 0) { Write-Host "::warning::Claude exit $LASTEXITCODE ($id, tentativa $try)." }
               if (-not $lockedDir -or -not (Test-Path $lockedDir)) { break }
               $testOut = (node --test "$lockedDir/**/*.test.mjs" 2>&1 | Out-String)
-              if ($LASTEXITCODE -eq 0) { Write-Host "$id: testes LOCKED OK (tentativa $try)."; break }
-              if ($try -ge 2) { Write-Host "::warning::$id: testes LOCKED ainda falham apos 2 tentativas — guard/PR seguem (CI barra se preciso)."; break }
-              Write-Host "$id: testes LOCKED falharam — re-acionando a Claude p/ corrigir o codigo."
+              if ($LASTEXITCODE -eq 0) { Write-Host "${id}: testes LOCKED OK (tentativa $try)."; break }
+              if ($try -ge 2) { Write-Host "::warning::${id}: testes LOCKED ainda falham apos 2 tentativas — guard/PR seguem (CI barra se preciso)."; break }
+              Write-Host "${id}: testes LOCKED falharam — re-acionando a Claude p/ corrigir o codigo."
+              if (-not $testOut) { $testOut = '' }
               $tail = $testOut.Substring([Math]::Max(0, $testOut.Length - 3500))
               $prompt = "A implementacao de $id NAO passou nos testes LOCKED. Corrija o CODIGO da implementacao (NUNCA edite arquivos em tests/locked/ — sao imutaveis). Mantenha o escopo/blast-radius do requisito. Saida dos testes:`n$tail"
             }
