@@ -1,7 +1,14 @@
 // db.js — pool Postgres + migrations multi-tenant. Gerado pela Forge (gymops-style).
 import pg from 'pg';
 export const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-const MIGRATIONS = [`CREATE TABLE IF NOT EXISTS records (id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, title TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open', external_ref TEXT, created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now());`];
+const MIGRATIONS = [
+  `CREATE TABLE IF NOT EXISTS records (id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, title TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open', external_ref TEXT, created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now());`,
+  `CREATE TABLE IF NOT EXISTS idempotency_registry (idempotency_key TEXT NOT NULL, operation TEXT NOT NULL, entity_type TEXT, entity_id TEXT, response_json JSONB NOT NULL, created_at TIMESTAMPTZ DEFAULT now(), PRIMARY KEY(idempotency_key, operation));`,
+  `CREATE TABLE IF NOT EXISTS consultations (id BIGSERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, patient_id TEXT NOT NULL, professional_id TEXT NOT NULL, scheduled_at TIMESTAMPTZ NOT NULL, scheduled_end_at TIMESTAMPTZ NOT NULL, amount_cents INTEGER NOT NULL, currency TEXT NOT NULL DEFAULT 'BRL', status TEXT NOT NULL DEFAULT 'scheduled', payment_status TEXT NOT NULL DEFAULT 'pending', payment_transaction_id TEXT, created_by TEXT NOT NULL DEFAULT 'system', created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now());`,
+  `CREATE TABLE IF NOT EXISTS payment_transactions (id BIGSERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, consultation_id BIGINT, idempotency_key TEXT NOT NULL, gateway_transaction_id TEXT NOT NULL, gateway_provider TEXT NOT NULL DEFAULT 'sandbox', amount_cents INTEGER NOT NULL, currency TEXT NOT NULL DEFAULT 'BRL', status TEXT NOT NULL, metadata JSONB, created_by TEXT NOT NULL DEFAULT 'system', created_at TIMESTAMPTZ DEFAULT now());`,
+  `CREATE TABLE IF NOT EXISTS audit_logs (id BIGSERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, entity_type TEXT NOT NULL, entity_id TEXT, action TEXT NOT NULL, actor TEXT, amount_cents INTEGER, payment_status TEXT, gateway TEXT, metadata JSONB, created_at TIMESTAMPTZ DEFAULT now());`,
+  `CREATE TABLE IF NOT EXISTS webhook_events (id BIGSERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, event_id TEXT NOT NULL UNIQUE, gateway_provider TEXT NOT NULL DEFAULT 'sandbox', event_type TEXT NOT NULL, payload JSONB NOT NULL, processed_at TIMESTAMPTZ, created_at TIMESTAMPTZ DEFAULT now());`,
+];
 export async function migrate() {
   const c = await pool.connect();
   try { await c.query('SELECT pg_advisory_lock(66021)');
