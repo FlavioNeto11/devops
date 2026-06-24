@@ -1,0 +1,23 @@
+{
+  "app": "valdemo",
+  "generatedBy": "make-test-suite.mjs",
+  "minCount": 4,
+  "files": [
+    {
+      "path": "apps/valdemo/tests/locked/_lib.mjs",
+      "sha256": "eee40adfc25386abfd16effb2a3301c5238c06e849213931469f7a8d4d1333e2"
+    },
+    {
+      "path": "apps/valdemo/tests/locked/capability/camadas-rigidas.test.mjs",
+      "sha256": "1ae01f771c567cd4cc60ac4d083544ffd8037f51c6fd97155afd76b797a3a8ca"
+    },
+    {
+      "path": "apps/valdemo/tests/locked/capability/observabilidade.test.mjs",
+      "sha256": "8c732800c092a77201f6f36a84346c555e15e10150db2ef9896551f621bb0914"
+    },
+    {
+      "path": "apps/valdemo/tests/locked/functional/REQ-VALDEMO-0001.ac1.test.mjs",
+      "sha256": "bdbe53f1c6b3e4d3cf7afba46e81d62f6d5847105d4b9e2272a2d5be860784cf"
+    }
+  ]
+}

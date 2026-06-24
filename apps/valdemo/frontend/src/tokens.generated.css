@@ -1,0 +1,93 @@
+/* GERADO por packages/design-tokens/build.mjs (forge-brand) — marca: Val Demo (accent #4f46e5, slate).
+   NÃO EDITAR À MÃO: edite specs/products/<app>/brand.json e rode `node build.mjs`. CI valida com `--check`. */
+:root {
+  color-scheme: light;
+  --ui-bg: 248 250 252;
+  --ui-surface: 255 255 255;
+  --ui-surface-2: 241 245 249;
+  --ui-fg: 15 23 42;
+  --ui-muted: 100 116 139;
+  --ui-faint: 148 163 184;
+  --ui-border: 226 232 240;
+  --ui-border-strong: 203 213 225;
+  --ui-accent: 79 70 229;
+  --ui-accent-fg: 255 255 255;
+  --ui-accent-strong: 79 70 229;
+  --ui-ok: 21 128 61;
+  --ui-warn: 180 83 9;
+  --ui-danger: 185 28 28;
+  --ui-info: 79 70 229;
+  --ui-font-sans: Inter, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --ui-font-display: Sora, var(--ui-font-sans);
+  --ui-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --ui-text-xs: 11.5px;
+  --ui-text-sm: 13px;
+  --ui-text-md: 14px;
+  --ui-text-lg: 16px;
+  --ui-text-xl: 20px;
+  --ui-space-1: 4px;
+  --ui-space-2: 8px;
+  --ui-space-3: 12px;
+  --ui-space-4: 16px;
+  --ui-space-5: 24px;
+  --ui-space-6: 32px;
+  --ui-radius-sm: 7px;
+  --ui-radius-md: 10px;
+  --ui-radius-lg: 14px;
+  --ui-radius-pill: 999px;
+  --ui-z-bar: 50;
+  --ui-z-modal: 80;
+  --ui-shadow-sm: 0 1px 2px rgb(2 6 23 / 0.06), 0 1px 3px rgb(2 6 23 / 0.10);
+  --ui-shadow-md: 0 6px 16px -8px rgb(2 6 23 / 0.18), 0 16px 44px -20px rgb(2 6 23 / 0.20);
+  --ui-shadow-lg: 0 24px 70px -24px rgb(2 6 23 / 0.42);
+}
+[data-theme="dark"], .dark {
+  color-scheme: dark;
+  --ui-bg: 15 19 28;
+  --ui-surface: 24 30 42;
+  --ui-surface-2: 33 41 56;
+  --ui-fg: 226 232 240;
+  --ui-muted: 148 163 184;
+  --ui-faint: 100 116 139;
+  --ui-border: 42 51 67;
+  --ui-border-strong: 58 70 90;
+  --ui-accent: 111 103 234;
+  --ui-accent-fg: 255 255 255;
+  --ui-accent-strong: 141 135 238;
+  --ui-ok: 74 222 128;
+  --ui-warn: 251 191 36;
+  --ui-danger: 248 113 113;
+  --ui-info: 141 135 238;
+  --ui-shadow-sm: 0 1px 3px rgb(0 0 0 / 0.45);
+  --ui-shadow-md: 0 8px 24px -6px rgb(0 0 0 / 0.5);
+  --ui-shadow-lg: 0 28px 80px -24px rgb(0 0 0 / 0.62);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ui-bg: 15 19 28;
+    --ui-surface: 24 30 42;
+    --ui-surface-2: 33 41 56;
+    --ui-fg: 226 232 240;
+    --ui-muted: 148 163 184;
+    --ui-faint: 100 116 139;
+    --ui-border: 42 51 67;
+    --ui-border-strong: 58 70 90;
+    --ui-accent: 111 103 234;
+    --ui-accent-fg: 255 255 255;
+    --ui-accent-strong: 141 135 238;
+    --ui-ok: 74 222 128;
+    --ui-warn: 251 191 36;
+    --ui-danger: 248 113 113;
+    --ui-info: 141 135 238;
+    --ui-shadow-sm: 0 1px 3px rgb(0 0 0 / 0.45);
+    --ui-shadow-md: 0 8px 24px -6px rgb(0 0 0 / 0.5);
+    --ui-shadow-lg: 0 28px 80px -24px rgb(0 0 0 / 0.62);
+  }
+}
+html { scroll-behavior: smooth; }
+::selection { background: rgb(var(--ui-accent) / 0.22); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: rgb(var(--ui-bg)); }
+::-webkit-scrollbar-thumb { background: rgb(var(--ui-faint) / 0.6); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--ui-muted) / 0.8); }

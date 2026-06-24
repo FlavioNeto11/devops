@@ -6,7 +6,7 @@
     "by_status": {
       "deployed": 282,
       "done": 52,
-      "not_started": 1
+      "merged": 1
     },
     "refinements": {
       "total": 13,
@@ -1970,7 +1970,7 @@
       "notes": "platform/traefik — ingress + middlewares no cluster (ns traefik)"
     },
     "REQ-VALDEMO-0001": {
-      "status": "not_started",
+      "status": "merged",
       "req_revision": 1
     }
   },
