@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "781dadc2ef8a3fdd48f47f60f6bd380fc784e97c54bd358a261314c62e78755a",
+  "baseline_hash": "13beafa813eb8714b6e1065859aa61f46309740d8ce5201a5dda60339cabcaf9",
   "items": [
     {
       "id": "REQ-AI-0001",
@@ -1288,6 +1288,17 @@
       "asr": false,
       "impact_band": "low",
       "file": "requirements/fieldserve/REQ-FIELDSERVE-0005.yaml"
+    },
+    {
+      "id": "REQ-FORJADEMO-0001",
+      "title": "Fundacao: arquitetura em camadas",
+      "type": "functional",
+      "status": "approved",
+      "product": "forjademo",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/forjademo/REQ-FORJADEMO-0001.yaml"
     },
     {
       "id": "REQ-GYMOPS-0001",
