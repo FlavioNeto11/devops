@@ -28,7 +28,7 @@ app.get('/v1/health/queue', async () => ({ status: 'ok', queue: await queueCount
 // Records
 app.get('/v1/records', async (req) => ({ data: await listRecords(req.tenantId) }));
 
-app.post('/v1/records', async (req, reply) => {
+app.post('/v1/records', { preHandler: requireRole('professional') }, async (req, reply) => {
   const b = req.body || {};
   if (!b.title) { reply.code(400); return { error: { message: 'title obrigatório' } }; }
   const ikey = req.headers['idempotency-key'];
@@ -36,7 +36,7 @@ app.post('/v1/records', async (req, reply) => {
     const cached = await findIdempotency('create_record', ikey);
     if (cached) return cached;
   }
-  const r = await createRecord(req.tenantId, b.title);
+  const r = await createRecord(req.tenantId, b.title, req.actor);
   M.recordsTotal.inc({ outcome: 'created' });
   if (ikey) await saveIdempotency({ operation: 'create_record', idempotencyKey: ikey, entityType: 'record', entityId: String(r.id), response: r }).catch(() => {});
   reply.code(201);
@@ -49,7 +49,7 @@ app.get('/v1/records/:id', async (req, reply) => {
   return r;
 });
 
-app.delete('/v1/records/:id', { preHandler: requireRole('admin') }, async (req) => {
+app.delete('/v1/records/:id', { preHandler: requireRole('clinic_manager') }, async (req) => {
   await deleteRecord(req.tenantId, req.params.id);
   return { deleted: true };
 });
@@ -65,7 +65,7 @@ app.post('/v1/records/:id/submit', async (req, reply) => {
 });
 
 // Consultations
-app.post('/v1/consultations/schedule', async (req, reply) => {
+app.post('/v1/consultations/schedule', { preHandler: requireRole('professional') }, async (req, reply) => {
   const b = req.body || {};
   for (const f of ['patient_id', 'professional_id', 'scheduled_at', 'amount_cents']) {
     if (!b[f]) { reply.code(400); return { error: { message: `${f} obrigatório` } }; }
@@ -118,7 +118,7 @@ app.post('/v1/payments/webhook', async (req, reply) => {
 });
 
 // Dashboard
-app.get('/v1/dashboard/revenue', async (req) => {
+app.get('/v1/dashboard/revenue', { preHandler: requireRole('clinic_manager') }, async (req) => {
   const q = req.query || {};
   return getRevenueDashboard({
     tenantId: req.tenantId,
@@ -132,7 +132,7 @@ app.get('/v1/dashboard/revenue', async (req) => {
 });
 
 // Audit trail
-app.get('/v1/audit', async (req) => {
+app.get('/v1/audit', { preHandler: requireRole('clinic_manager') }, async (req) => {
   const q = req.query || {};
   return { data: await getAuditTrail(req.tenantId, { entityId: q.entity_id, entityType: q.entity_type, limit: Number(q.limit) || 200 }) };
 });
