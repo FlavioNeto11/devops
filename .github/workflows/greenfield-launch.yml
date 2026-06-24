@@ -86,22 +86,93 @@ jobs:
           "pr_url=$url" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           Write-Host "PR de requisitos: $url"
 
-      # PASSO 3 — (release) auto-merge best-effort + dispara a fase de plano da esteira.
-      # Os PRs de implementação seguem exigindo gpt-approved (anti-spoofing) — sem deploy sem humano aqui.
-      - name: (release) auto-merge + disparar build
+      # PASSO 3 — (release) auto-merge dos requisitos + CADEIA AUTÔNOMA (gated por FORGE_AUTONOMOUS).
+      #   FORGE_AUTONOMOUS!=true  -> só dispara greenfield-plan (G2 humano) — comportamento com gates.
+      #   FORGE_AUTONOMOUS==true  -> plano + scaffold + Application do Argo + orchestrate, tudo inline:
+      #     os PRs de implementação auto-mesclam pelo job forge-autonomous-merge (CI verde + guard),
+      #     o ci-apps builda as imagens :local e o Argo publica. "Liberar tudo" vira concept->app no ar.
+      - name: (release) auto-merge + cadeia autônoma
         if: env.MODE == 'release'
         env:
           GH_TOKEN: ${{ secrets.FORGE_GH_PAT || secrets.GITHUB_TOKEN }}
           PR_URL: ${{ steps.pr.outputs.pr_url }}
+          AUTONOMOUS: ${{ vars.FORGE_AUTONOMOUS }}
         run: |
-          $ErrorActionPreference = "Continue"
+          $ErrorActionPreference = "Stop"
           $prod = $env:PRODUCT
+          gh auth setup-git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
           Write-Host "release: auto-merge do PR de requisitos ($env:PR_URL)…"
           gh pr merge $env:PR_URL --squash --delete-branch --admin
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "::warning::auto-merge bloqueado (proteção de branch?) — PR aberto p/ merge manual; release degradou para 'pr'."
+          if ($LASTEXITCODE -ne 0) { Write-Host "::warning::auto-merge do PR de requisitos bloqueado (proteção de branch?) — merge manual; release degradou."; exit 0 }
+
+          if ("$env:AUTONOMOUS" -ne "true") {
+            Write-Host "release: FORGE_AUTONOMOUS off — disparando greenfield-plan (G2 humano)."
+            gh workflow run greenfield-plan.yml -f product=$prod
+            Write-Host "::notice::release iniciado (modo com gates). Defina a variável de repo FORGE_AUTONOMOUS=true para a cadeia 100% autônoma."
             exit 0
           }
-          Write-Host "release: requisitos na main — disparando greenfield-plan ($prod)…"
-          gh workflow run greenfield-plan.yml -f product=$prod
-          Write-Host "::notice::release: esteira iniciada. As próximas etapas (plano/G2, scaffold, orchestrate e a validação gpt-approved dos PRs de implementação) seguem os gates da plataforma."
+
+          Write-Host "== FORGE AUTÔNOMO: plano + scaffold + Argo + orchestrate (produto '$prod') =="
+          git fetch origin main --quiet
+          git checkout main 2>$null; git reset --hard origin/main
+          $ws = $env:GITHUB_WORKSPACE
+          Push-Location specs/tools; npm ci --no-audit --no-fund | Out-Null; Pop-Location
+
+          # 1) plano DETERMINÍSTICO (sem Claude, p/ confiabilidade) + índices.
+          node specs/tools/build-plan.mjs $prod
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::build-plan falhou"; exit 1 }
+          node specs/tools/build-products.mjs
+
+          # 2) SCAFFOLD determinístico (gera apps/$prod + k8s + Dockerfiles + testes). Paths do checkout do CI.
+          & ./scripts/scaffold-product.ps1 -Name $prod -SpecsDir "$ws\specs" -OutDir "$ws\apps" -ArgoAppsDir "$ws\platform\argocd\apps"
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::scaffold falhou"; exit 1 }
+
+          # 3) APPLICATION DO ARGO (o gerador FORGE-2.0 não emite — preenche o gap; aponta apps/$prod/k8s).
+          #    Array de linhas (evita here-string, que não fecha dentro de bloco YAML indentado).
+          $argo = @(
+            'apiVersion: argoproj.io/v1alpha1',
+            'kind: Application',
+            'metadata:',
+            "  name: $prod",
+            '  namespace: argocd',
+            '  labels:',
+            '    devops.flavioneto/app-type: product_software',
+            '  finalizers:',
+            '    - resources-finalizer.argocd.argoproj.io',
+            'spec:',
+            '  project: default',
+            '  source:',
+            '    repoURL: https://github.com/FlavioNeto11/devops',
+            "    path: apps/$prod/k8s",
+            '    targetRevision: main',
+            '  destination:',
+            '    server: https://kubernetes.default.svc',
+            '    namespace: apps',
+            '  syncPolicy:',
+            '    automated: { prune: true, selfHeal: true }',
+            '    syncOptions: [ CreateNamespace=true ]'
+          ) -join "`n"
+          New-Item -ItemType Directory -Force platform/argocd/apps | Out-Null
+          $argo | Set-Content -Encoding utf8 "platform/argocd/apps/$prod.yaml"
+
+          # 4) BOOTSTRAP: branch + PR + auto-merge admin (respeita branch protection via --admin).
+          $bb = "forge/bootstrap/$prod"
+          git checkout -B $bb 2>$null
+          git add -A
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git commit -m "bootstrap($prod): plano + scaffold + Argo (FORGE autônomo, run_id=$env:GITHUB_RUN_ID)" | Out-Null
+            git push -u origin $bb --force-with-lease
+            $burl = (gh pr list -R $env:GITHUB_REPOSITORY --head $bb --state open --json url --jq '.[0].url' 2>$null)
+            if (-not $burl) { $burl = gh pr create --base main --head $bb --label forge --title "bootstrap($prod): scaffold (FORGE autônomo)" --body "Scaffold + plano + Application do Argo gerados automaticamente (FORGE autônomo, run_id=$env:GITHUB_RUN_ID)." }
+            gh pr merge $burl --squash --delete-branch --admin
+            if ($LASTEXITCODE -ne 0) { Write-Host "::error::auto-merge do bootstrap bloqueado"; exit 1 }
+          } else { Write-Host "bootstrap: nada novo (scaffold já na main?)" }
+
+          # 5) ORCHESTRATE: dispara req-implement por requisito (impl PRs auto-mesclam via FORGE_AUTONOMOUS).
+          Write-Host "release: disparando greenfield-orchestrate ($prod)…"
+          gh workflow run greenfield-orchestrate.yml -f product=$prod -f max=20
+          Write-Host "::notice::FORGE autônomo: scaffold+Argo na main, orchestrate disparado. Os PRs de implementação auto-mesclam e o app publica em /$prod."
