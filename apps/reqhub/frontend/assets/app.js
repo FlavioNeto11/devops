@@ -2714,8 +2714,44 @@ function fwNav(back, next, nextLabel) {
   return row;
 }
 
+// Dispara o launch a partir do estado do wizard e TRAVA a navegação no sucesso (onLaunched).
+function fwLaunch(w, mode, statusEl, btns) {
+  const ctx = {
+    pname: w.slug, blueprint: w.blueprint, proposed: w.proposed || [],
+    launchCtx: {
+      brief: w.brief || '', displayName: w.name || w.slug,
+      getArch: () => w.arch,
+      onLaunched: (d, m) => { w.launched = true; w.launchInfo = d; w.launchMode = m; fwRerender(); },
+    },
+    status: statusEl, btns,
+  };
+  return forgeLaunch(mode, ctx);
+}
+
+// Tela TRAVADA após o launch — impede voltar e re-gerar/re-disparar o mesmo pedido.
+function renderForgeWizardLaunched(body, w) {
+  body.append(forgeCrumbs([{ label: 'Produtos', onclick: () => { state.forge.wizard = null; backToHub(); } }, { label: 'Criar um sistema' }]));
+  const d = w.launchInfo || {};
+  const rel = w.launchMode === 'release';
+  const card = h('div', { class: 'fw-card fw-launched' });
+  card.append(h('h2', { text: (rel ? '🚀 ' : '📦 ') + (rel ? 'Sistema em construção' : 'Requisitos criados') }));
+  card.append(h('p', { class: 'fw-lead' },
+    'O ', h('strong', { text: w.name || w.slug }),
+    rel ? ' foi enviado para a esteira construir e publicar. Quando concluir, ficará disponível em '
+        : ' teve os requisitos criados no git. Mescle o PR para a esteira construir; depois ficará em ',
+    h('code', { text: '/' + (w.slug || '') }), '.'));
+  const links = h('div', { class: 'ws-actions' });
+  if (d.actions_url) links.append(h('a', { class: 'btn', href: d.actions_url, target: '_blank', rel: 'noopener', text: 'Acompanhar a esteira ↗' }));
+  if (d.pulls_url) links.append(h('a', { class: 'btn', href: d.pulls_url, target: '_blank', rel: 'noopener', text: 'Ver o PR ↗' }));
+  card.append(links);
+  card.append(h('p', { class: 'fw-hint', text: 'Esta tela ficou travada para não reenviar o mesmo pedido.' }));
+  card.append(h('div', { class: 'fw-actions' }, h('button', { class: 'btn primary', type: 'button', text: '+ Criar outro sistema', onclick: () => { state.forge.wizard = null; backToHub(); } })));
+  body.append(card);
+}
+
 function renderForgeWizard(body) {
   const w = forgeWizardState();
+  if (w.launched) { renderForgeWizardLaunched(body, w); return; } // travado após "Criar/Liberar" — não re-disparar
   const blueprints = (DATA.blueprints && DATA.blueprints.blueprints) || [];
   const catalog = (DATA.capabilities && DATA.capabilities.capabilities) || [];
   body.append(forgeCrumbs([{ label: 'Produtos', onclick: () => { state.forge.wizard = null; backToHub(); } }, { label: 'Criar um sistema' }]));
@@ -2844,9 +2880,15 @@ function fwStagePlan(host, w) {
   const waves = (w.arch && Array.isArray(w.arch.waves) && w.arch.waves.length) ? w.arch.waves : null;
   const titleOf = (woId) => { const p = w.proposed.find((x) => x.id === woId || x.req.title === woId); return p ? (p.req.title || p.id) : woId; };
   if (w.mode === 'guided') {
-    host.append(h('p', { class: 'fw-lead', text: waves ? `Será construído em ${waves.length} etapas, na ordem certa (uma parte depende da outra):` : 'Será construído de forma incremental, na ordem das dependências.' }));
+    host.append(h('p', { class: 'fw-lead', text: waves ? `Será construído em ${waves.length} etapas, na ordem certa (uma parte depende da outra):` : 'Será construído na ordem abaixo:' }));
     const tl = h('ol', { class: 'fw-timeline' });
-    (waves || []).forEach((wv, i) => tl.append(h('li', { class: 'fw-tl-item' }, h('span', { class: 'fw-tl-n', text: 'Etapa ' + (i + 1) }), h('div', { class: 'fw-tl-tx' }, ...(wv.work_orders || []).map((wo) => h('p', { class: 'fw-tl-t', text: '• ' + titleOf(wo) }))))));
+    if (waves) {
+      waves.forEach((wv, i) => tl.append(h('li', { class: 'fw-tl-item' }, h('span', { class: 'fw-tl-n', text: 'Etapa ' + (i + 1) }), h('div', { class: 'fw-tl-tx' }, ...(wv.work_orders || []).map((wo) => h('p', { class: 'fw-tl-t', text: '• ' + titleOf(wo) }))))));
+    } else {
+      // Sem waves (arquitetura ainda não veio ou sem dependências): mostra os requisitos como as partes,
+      // para o Guiado NUNCA ficar vazio.
+      (w.proposed || []).forEach((p, i) => tl.append(h('li', { class: 'fw-tl-item' }, h('span', { class: 'fw-tl-n', text: 'Parte ' + (i + 1) }), h('div', { class: 'fw-tl-tx' }, h('p', { class: 'fw-tl-t', text: '• ' + (p.req.title || p.id) })))));
+    }
     host.append(tl);
   } else {
     if (w.arch && w.arch.stack) host.append(h('p', { class: 'fw-lead' }, 'Stack escolhida: ', badge(w.arch.stack, 'b-fn'), w.arch.blueprint ? h('code', { class: 'fw-cap-id', text: w.arch.blueprint }) : null));
@@ -2864,6 +2906,10 @@ function fwStageReview(host, w, { catalog }) {
   const sum = planSummary(w.proposed.map((p) => p.req), w.arch, catalog);
   host.append(h('h3', { class: 'fw-q', tabindex: '-1', text: 'Revisar e criar' }));
   if (w.mode === 'guided') {
+    // Guiado vai DIRETO à construção (como o "Liberar tudo"): o botão lança e trava a tela.
+    const status = h('p', { class: 'fw-status muted', role: 'status', 'aria-live': 'polite' });
+    const btn = h('button', { class: 'btn primary fw-cta', type: 'button', text: '🚀 Criar meu sistema' });
+    btn.addEventListener('click', () => fwLaunch(w, 'release', status, [btn]));
     host.append(h('div', { class: 'fw-card' },
       h('p', { class: 'fw-lead' }, 'Tudo pronto para criar o ', h('strong', { text: w.name || w.slug }), '.'),
       h('ul', { class: 'fw-review' },
@@ -2871,14 +2917,14 @@ function fwStageReview(host, w, { catalog }) {
         h('li', {}, '✅ ', h('strong', { text: String(sum.counts.screens) }), ' telas/funções'),
         h('li', {}, '✅ ', h('strong', { text: String(sum.counts.waves || 1) }), ' etapas de construção')),
       h('div', { class: 'fw-next' }, h('h4', { text: 'O que acontece quando você confirmar' }),
-        h('ol', {}, h('li', { text: 'A documentação e os requisitos são preparados (em specs/requirements/' + w.slug + '/).' }),
-          h('li', { text: 'Você abre o pedido (PR) — nada é escrito sem a sua revisão.' }),
-          h('li', { text: 'A esteira constrói cada parte, na ordem do plano, e publica.' }))),
-      h('div', { class: 'fw-actions' }, h('button', { class: 'btn primary fw-cta', type: 'button', text: '📦 Gerar a documentação e o pedido', onclick: () => { w.mode = 'advanced'; fwRerender(); } }))));
+        h('ol', {}, h('li', { text: 'Os requisitos do sistema são criados no git (automático).' }),
+          h('li', { text: 'A esteira constrói cada parte, na ordem do plano.' }),
+          h('li', { text: 'O sistema é publicado e fica disponível em /' + w.slug + '.' }))),
+      h('div', { class: 'fw-actions' }, btn, status)));
   } else {
     const out = h('div', { class: 'forge-section' });
     host.append(out);
-    renderProposedList(out, w.slug, w.blueprint, w.proposed, w.reqMeta || {}, null, { brief: w.brief || '', displayName: w.name || w.slug, getArch: () => w.arch });
+    renderProposedList(out, w.slug, w.blueprint, w.proposed, w.reqMeta || {}, null, { brief: w.brief || '', displayName: w.name || w.slug, getArch: () => w.arch, onLaunched: (d, m) => { w.launched = true; w.launchInfo = d; w.launchMode = m; fwRerender(); } });
     if (w.arch) renderArchAdrs(out, w.arch);
   }
   host.append(fwNav(3, null, null));
@@ -3070,6 +3116,7 @@ async function forgeLaunch(mode, ctx) {
         h('a', { href: d.actions_url || '#', target: '_blank', rel: 'noopener', text: 'esteira ↗' }),
         document.createTextNode(' · '),
         h('a', { href: d.pulls_url || '#', target: '_blank', rel: 'noopener', text: 'PR ↗' }));
+      if (launchCtx.onLaunched) launchCtx.onLaunched(d, mode); // trava a navegação do wizard (evita re-disparo)
     } else {
       const code = r.data && r.data.error ? r.data.error.code : 'HTTP ' + r.status;
       const msg = r.data && r.data.error ? r.data.error.message : '';

@@ -70,11 +70,19 @@ jobs:
           gh label create forge       --color 0e8a16 --description "FORGE (geração greenfield)" 2>$null
           git checkout -B $branch 2>$null
           git add specs/requirements specs/products specs/baseline apps/reqhub/frontend/data/products 2>$null
-          git commit -m "feat($prod): requisitos criados pela Forja (launch, run_id=$env:GITHUB_RUN_ID)" 2>$null | Out-Null
+          # commit só se houver algo novo (re-disparo com mesmo conteúdo não falha)
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git commit -m "feat($prod): requisitos criados pela Forja (launch, run_id=$env:GITHUB_RUN_ID)" | Out-Null
+          } else { Write-Host "nada novo a commitar (re-disparo idempotente)" }
           git push -u origin $branch --force-with-lease
-          $url = gh pr create --base main --head $branch --label requirement --label forge `
-            --title "feat($prod): requisitos da Forja" `
-            --body "Requisitos criados pela UI da Forja (run_id=$env:GITHUB_RUN_ID), mode=$env:MODE.`n`n**GATE G2:** revise e mergeie para destravar a construção — a esteira implementa cada requisito em PR validado."
+          # PR IDEMPOTENTE: reusa o PR aberto se já existir; senão cria. (Evita o exit 1 de 'já existe'.)
+          $url = (gh pr list -R $env:GITHUB_REPOSITORY --head $branch --state open --json url --jq '.[0].url' 2>$null)
+          if (-not $url) {
+            $url = gh pr create --base main --head $branch --label requirement --label forge `
+              --title "feat($prod): requisitos da Forja" `
+              --body "Requisitos criados pela UI da Forja (run_id=$env:GITHUB_RUN_ID), mode=$env:MODE.`n`n**GATE G2:** revise e mergeie para destravar a construção — a esteira implementa cada requisito em PR validado."
+          } else { Write-Host "PR já existe, reusando: $url" }
           "pr_url=$url" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           Write-Host "PR de requisitos: $url"
 
