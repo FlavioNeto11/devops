@@ -97,6 +97,7 @@ jobs:
           GH_TOKEN: ${{ secrets.FORGE_GH_PAT || secrets.GITHUB_TOKEN }}
           PR_URL: ${{ steps.pr.outputs.pr_url }}
           AUTONOMOUS: ${{ vars.FORGE_AUTONOMOUS }}
+          KUBECONFIG: C:\ProgramData\forge-kube\config   # runner-serviço usa este kubeconfig p/ a sync do ConfigMap
         run: |
           $ErrorActionPreference = "Stop"
           $prod = $env:PRODUCT

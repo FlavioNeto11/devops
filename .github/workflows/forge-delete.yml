@@ -30,6 +30,7 @@ jobs:
       - name: Remover do git + baseline + PR + cluster
         env:
           GH_TOKEN: ${{ secrets.FORGE_GH_PAT || secrets.GITHUB_TOKEN }}
+          KUBECONFIG: C:\ProgramData\forge-kube\config   # runner-serviço (NETWORK SERVICE) usa este kubeconfig
         run: |
           $ErrorActionPreference = "Stop"
           $prod = "${{ github.event.client_payload.product }}"
