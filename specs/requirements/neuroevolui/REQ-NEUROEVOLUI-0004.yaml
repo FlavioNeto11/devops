@@ -1,0 +1,29 @@
+id: REQ-NEUROEVOLUI-0004
+title: "Dados: Registro de evolução + Gestão de pacientes com relatórios"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: neuroevolui
+  blueprint: gymops-style
+statement: "O sistema DEVE permitir registrar e acessar registros de evolução de pacientes (notas clínicas, resultados de testes, planos de intervenção) de forma estruturada, com suporte a anexos, versioning de documentos e geração de relatórios consolidados."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/neuroevolui/product.json"]
+priority: high
+criticality: medium
+architectural_significance: true
+capability_blocks: ["camadas-rigidas", "redis-bullmq"]
+acceptance_criteria:
+  - "POST /patients/{id}/evolution-notes cria nota com metadata (data, profissional, tipo)"
+  - "Notas armazenam: texto, anexos (PDF, imagem), campos estruturados (teste, resultado, recomendação)"
+  - "Versioning: histórico de edições com quem editou e quando"
+  - "GET /patients/{id}/reports gera PDF consolidado com evolução temporal"
+  - "Relatórios filtráveis por período, tipo de consulta, profissional"
+  - "Soft-delete em notas, com view para histórico completo (admin/profissional)"
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

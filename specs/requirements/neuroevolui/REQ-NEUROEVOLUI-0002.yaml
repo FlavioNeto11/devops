@@ -1,0 +1,29 @@
+id: REQ-NEUROEVOLUI-0002
+title: "Multi-tenant + RBAC: Isolamento por clínica + Controle de acesso por papel"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: neuroevolui
+  blueprint: gymops-style
+statement: "O sistema DEVE implementar isolamento multi-tenant (uma clínica = um tenant) e controle de acesso em cascata (proprietário > gestor > profissional > paciente), com escopo automático de queries e deny por padrão fora do escopo."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/neuroevolui/product.json"]
+priority: critical
+criticality: medium
+architectural_significance: true
+capability_blocks: ["rbac-multitenant"]
+acceptance_criteria:
+  - "Toda tabela de domínio carrega tenant_id e created_by para auditoria"
+  - "Toda query é escopada por tenant_id na sessão do usuário"
+  - "Acesso negado (HTTP 403) quando usuário tenta acessar recurso de tenant diferente"
+  - "Papéis em cascata: owner > clinic_manager > professional > patient"
+  - "Permissões verificadas antes de qualquer operação (read, write, delete)"
+  - "Soft-delete ativo para compliance"
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

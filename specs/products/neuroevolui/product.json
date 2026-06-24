@@ -1,0 +1,60 @@
+{
+  "schema_version": "1.2.0",
+  "name": "neuroevolui",
+  "display_name": "NeuroEvolui",
+  "base_path": "/neuroevolui",
+  "namespace": "apps",
+  "app_type": "product_software",
+  "blueprint": "gymops-style",
+  "stack": "gymops",
+  "interfaces": [
+    "api",
+    "web"
+  ],
+  "capability_blocks": [
+    "camadas-rigidas",
+    "migrations-versionadas",
+    "observabilidade",
+    "oidc-sessao",
+    "rbac-multitenant",
+    "redis-bullmq",
+    "idempotencia",
+    "pagamentos-gateway",
+    "ia-grafo",
+    "rag-pgvector",
+    "control-ai-por-app",
+    "structured-outputs",
+    "notificacoes-multicanal",
+    "design-system"
+  ],
+  "vision": "O NeuroEvolui é um sistema completo para clínicas e profissionais de neuropsicopedagogia, desenvolvido para centralizar a gestão de pacientes, registros de evolução, agendamento de consultas, controle financeiro e pagamentos em uma única plataforma. O sistema conta com uma área exclusiva para o profissional, facilitando o acompanhamento clínico e administrativo, e também uma área própria para o paciente, onde ele pode acessar informações, consultas, orientações e interagir com uma inteligência artificial preparada para apoiar dúvidas, orientar processos e auxiliar tanto o operador quanto o pac",
+  "requirement_ids": [
+    "REQ-NEUROEVOLUI-0001",
+    "REQ-NEUROEVOLUI-0002",
+    "REQ-NEUROEVOLUI-0003",
+    "REQ-NEUROEVOLUI-0004",
+    "REQ-NEUROEVOLUI-0005",
+    "REQ-NEUROEVOLUI-0006",
+    "REQ-NEUROEVOLUI-0007",
+    "REQ-NEUROEVOLUI-0008",
+    "REQ-NEUROEVOLUI-0009"
+  ],
+  "phases": {
+    "requirements": {
+      "status": "approved"
+    },
+    "architecture": {
+      "status": "approved"
+    },
+    "scaffold": {
+      "status": "not_started"
+    },
+    "build": {
+      "status": "not_started"
+    }
+  },
+  "version": {
+    "revision": 1,
+    "change_reason": "FORGE greenfield — concepção+arquitetura pela IA"
+  }
+}

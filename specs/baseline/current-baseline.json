@@ -1,10 +1,10 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "dc8116ae59b8955d86a3868008e327698fb216c6ebaab9ca40e1416d42465175",
+  "baseline_hash": "c673fba7368673eeb123e0671af3b6e8d8fd855c2c79bf90786e87dd1743d7f9",
   "refinements_hash": "8c2404f1df38762f23de2d95606729971e0b22061bc4df82fddd1431e42222b0",
   "schema": "specs/schema/requirement.schema.json",
   "counts": {
-    "total": 334,
+    "total": 343,
     "by_product": {
       "ai": 18,
       "argocd": 15,
@@ -13,6 +13,7 @@
       "console": 35,
       "gymops": 23,
       "keycloak": 18,
+      "neuroevolui": 9,
       "observability": 17,
       "oidc": 18,
       "portal-contracts": 17,
@@ -25,11 +26,11 @@
       "traefik": 16
     },
     "by_status": {
-      "approved": 334
+      "approved": 343
     },
     "by_type": {
-      "functional": 232,
-      "non-functional": 102
+      "functional": 239,
+      "non-functional": 104
     },
     "refinements": {
       "total": 13,
@@ -5685,6 +5686,436 @@
       "impact_score": 38,
       "impact_band": "low",
       "file": "requirements/keycloak/REQ-KEYCLOAK-NFR-006.yaml"
+    },
+    {
+      "id": "REQ-NEUROEVOLUI-0001",
+      "title": "Fundação: Arquitetura em camadas + Observabilidade + OIDC",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "product-foundation",
+        "product_scope": "neuroevolui",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE implementar uma arquitetura em camadas rígidas (route → service → repository → worker → gateway) com observabilidade por padrão (health, métricas Prometheus, ServiceMonitor, SLO) e autenticação federada via Keycloak (OIDC) com sessão própria do app.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/neuroevolui/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "camadas-rigidas",
+        "observabilidade",
+        "oidc-sessao",
+        "migrations-versionadas"
+      ],
+      "acceptance_criteria": [
+        "Routes validam entrada e mapeiam apenas HTTP, sem lógica de negócio ou acesso a banco",
+        "Toda regra de negócio reside em services",
+        "Todo SQL reside em repositories",
+        "Trabalho assíncrono delegado a workers",
+        "Toda chamada HTTP externa passa por gateway",
+        "Endpoints /health/{system,workers,jobs} estruturados e respondendo"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 65,
+      "impact_band": "medium",
+      "file": "requirements/neuroevolui/REQ-NEUROEVOLUI-0001.yaml"
+    },
+    {
+      "id": "REQ-NEUROEVOLUI-0002",
+      "title": "Multi-tenant + RBAC: Isolamento por clínica + Controle de acesso por papel",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "neuroevolui",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE implementar isolamento multi-tenant (uma clínica = um tenant) e controle de acesso em cascata (proprietário > gestor > profissional > paciente), com escopo automático de queries e deny por padrão fora do escopo.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/neuroevolui/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "rbac-multitenant"
+      ],
+      "acceptance_criteria": [
+        "Toda tabela de domínio carrega tenant_id e created_by para auditoria",
+        "Toda query é escopada por tenant_id na sessão do usuário",
+        "Acesso negado (HTTP 403) quando usuário tenta acessar recurso de tenant diferente",
+        "Papéis em cascata: owner > clinic_manager > professional > patient",
+        "Permissões verificadas antes de qualquer operação (read, write, delete)",
+        "Soft-delete ativo para compliance"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/neuroevolui/REQ-NEUROEVOLUI-0002.yaml"
+    },
+    {
+      "id": "REQ-NEUROEVOLUI-0003",
+      "title": "Dados: Filas assíncronas + Idempotência + Migrations",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "neuroevolui",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE processar operações assíncronas de longa duração (registros de evolução, importação de dados, notificações) via Redis/BullMQ com idempotência garantida (Idempotency-Key), e evoluir o schema de forma segura via migrations versionadas.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/neuroevolui/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "redis-bullmq",
+        "idempotencia",
+        "migrations-versionadas"
+      ],
+      "acceptance_criteria": [
+        "Filas nomeadas: consultation-notes, patient-imports, notifications, summaries-ai",
+        "Cada job possui job_key para dedupe (mesmo key = mesmo resultado, não duplicação)",
+        "Operação POST retorna 202 Accepted com job_id quando enfileirada",
+        "Retry com backoff exponencial configurável por fila",
+        "Degradação graciosa: se Redis indisponível, job executado inline com timeout",
+        "Migrations versionadas rodadas no boot com advisory-lock"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/neuroevolui/REQ-NEUROEVOLUI-0003.yaml"
+    },
+    {
+      "id": "REQ-NEUROEVOLUI-0004",
+      "title": "Dados: Registro de evolução + Gestão de pacientes com relatórios",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "neuroevolui",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE permitir registrar e acessar registros de evolução de pacientes (notas clínicas, resultados de testes, planos de intervenção) de forma estruturada, com suporte a anexos, versioning de documentos e geração de relatórios consolidados.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/neuroevolui/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "camadas-rigidas",
+        "redis-bullmq"
+      ],
+      "acceptance_criteria": [
+        "POST /patients/{id}/evolution-notes cria nota com metadata (data, profissional, tipo)",
+        "Notas armazenam: texto, anexos (PDF, imagem), campos estruturados (teste, resultado, recomendação)",
+        "Versioning: histórico de edições com quem editou e quando",
+        "GET /patients/{id}/reports gera PDF consolidado com evolução temporal",
+        "Relatórios filtráveis por período, tipo de consulta, profissional",
+        "Soft-delete em notas, com view para histórico completo (admin/profissional)"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/neuroevolui/REQ-NEUROEVOLUI-0004.yaml"
+    },
+    {
+      "id": "REQ-NEUROEVOLUI-0005",
+      "title": "Controle financeiro: Agendamentos + Pagamentos + Auditoria",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "neuroevolui",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE gerenciar agendamentos de consultas, cobrança idempotente via gateway de pagamento (Stripe/PagSeguro), registrar transações com auditoria completa e oferecer visibilidade de receita/despesa por clínica.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/neuroevolui/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "pagamentos-gateway",
+        "idempotencia",
+        "camadas-rigidas"
+      ],
+      "acceptance_criteria": [
+        "POST /consultations/schedule cria agendamento com paciente, profissional, data/hora, valor",
+        "Verificação de conflito de horário (profissional não pode ter 2 consultas simultâneas)",
+        "Cobrança via gateway com idempotência (Idempotency-Key)",
+        "Webhook de confirmação de pagamento atualiza status de consulta",
+        "Transações auditadas: quem criou, quando, valor, status de pagamento, gateway",
+        "Dashboard de receita: filtro por período, profissional, paciente"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/neuroevolui/REQ-NEUROEVOLUI-0005.yaml"
+    },
+    {
+      "id": "REQ-NEUROEVOLUI-0006",
+      "title": "IA: Assistente de controle para profissional e paciente com RAG",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "neuroevolui",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE oferecer um assistente de IA (grafo próprio com especialistas) que responde dúvidas de profissional e paciente, cita fontes (base de conhecimento via RAG), propõe rascunhos (ex.: plano de intervenção) com confirmação, e aceita arquivos (texto, imagem, PDF).",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/neuroevolui/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "ia-grafo",
+        "rag-pgvector",
+        "control-ai-por-app",
+        "structured-outputs"
+      ],
+      "acceptance_criteria": [
+        "POST /v1/assistant com { question, context_type: 'professional'|'patient', files?: [] } retorna resposta estruturada",
+        "IA fundamenta resposta em conhecimento (citações de manuais, protocolos, documentação)",
+        "RAG: embeddings armazenados em pgvector, retrieval busca top-K trechos similares",
+        "Saída estruturada: JSON com { answer, sources, confidence, actions?: [rascunho] }",
+        "Rascunhos (ex.: plano de intervenção, carta de recomendação) exigem confirmação antes de persistir",
+        "Multimodal: aceita texto, imagem (JPEG/PNG), PDF via @flavioneto11/file-ingest-kit"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/neuroevolui/REQ-NEUROEVOLUI-0006.yaml"
+    },
+    {
+      "id": "REQ-NEUROEVOLUI-0007",
+      "title": "Notificações: E-mail, push e WhatsApp para lembretes e alertas",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "neuroevolui",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE notificar paciente e profissional por múltiplos canais (e-mail, push web, WhatsApp) para lembretes de consulta, evolução clínica, e avisos urgentes, com degradação graciosa (canal ausente não derruba fluxo).",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/neuroevolui/product.json"
+        ]
+      },
+      "priority": "medium",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "notificacoes-multicanal",
+        "redis-bullmq"
+      ],
+      "acceptance_criteria": [
+        "Eventos de domínio disparam notificações: consultation.scheduled, note.added, payment.failed",
+        "E-mail via SMTP (Nodemailer), contendo template de marca",
+        "Push web via VAPID/web-push para navegador do paciente/profissional",
+        "WhatsApp via Twilio para celular registrado",
+        "Notificações enfileiradas (jobs na fila 'notifications', retry em caso de falha transitória)",
+        "Preferências do usuário: qual canal desabilitar (ex.: paciente desativa WhatsApp)"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/neuroevolui/REQ-NEUROEVOLUI-0007.yaml"
+    },
+    {
+      "id": "REQ-NEUROEVOLUI-0008",
+      "title": "API estável: Contract-first OpenAPI + Validação no CI",
+      "type": "non-functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "neuroevolui",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE documentar sua API de forma canônica em OpenAPI, gerar tipos e operações a partir dele, e validar contrato no CI, garantindo que mudanças de rota sejam deliberadas e auditáveis.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/neuroevolui/product.json"
+        ]
+      },
+      "priority": "medium",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "contract-openapi"
+      ],
+      "acceptance_criteria": [
+        "Arquivo OpenAPI canônico (openapi.yaml) em src/openapi/",
+        "Tipos TypeScript gerados automaticamente (gen:operations)",
+        "Validação no CI: PR bloqueia se OpenAPI diverge de implementação",
+        "Exemplos de requisição/resposta em lockstep com OpenAPI",
+        "Histórico de breaking changes documentado (CHANGELOG.md)",
+        "Documentação automática em /api/docs servindo Swagger/ReDoc"
+      ],
+      "quality_scenarios": [
+        {
+          "source": "operador/sistema",
+          "stimulus": "O sistema DEVE documentar sua API de forma canônica em OpenAPI, gerar tipos e operações a partir dele, e validar contrato no CI, garantindo ",
+          "environment": "produção",
+          "artifact": "neuroevolui",
+          "response": "atende o atributo de qualidade especificado",
+          "response_measure": "Arquivo OpenAPI canônico (openapi.yaml) em src/openapi/"
+        }
+      ],
+      "verification_method": [
+        "test-integration",
+        "monitoring"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/neuroevolui/REQ-NEUROEVOLUI-0008.yaml"
+    },
+    {
+      "id": "REQ-NEUROEVOLUI-0009",
+      "title": "Frontend: Design system unificado + Componentes reusáveis",
+      "type": "non-functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "neuroevolui",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE utilizar design system centralizado (tokens + componentes da plataforma) para oferecer interface consistente, acessível e themeable (claro/escuro), sem reinventar CSS ou componentes.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/neuroevolui/product.json"
+        ]
+      },
+      "priority": "medium",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "design-system"
+      ],
+      "acceptance_criteria": [
+        "Projeto frontend importa packages/design-tokens (nunca edita .generated.css)",
+        "Projeto frontend herda packages/platform-shell (navegação, contexto, tema)",
+        "Tokens de design únicos: cores, tipografia, espaçamento, breakpoints",
+        "Componentes reusáveis: Button, Input, Modal, Card, Table com acessibilidade (WCAG AA)",
+        "Tema claro/escuro sincronizado com preferência de SO e session do usuário",
+        "Codegen-sync automático: atualizar design-tokens, aplicações rebuild sem intervenção"
+      ],
+      "quality_scenarios": [
+        {
+          "source": "operador/sistema",
+          "stimulus": "O sistema DEVE utilizar design system centralizado (tokens + componentes da plataforma) para oferecer interface consistente, acessível e the",
+          "environment": "produção",
+          "artifact": "neuroevolui",
+          "response": "atende o atributo de qualidade especificado",
+          "response_measure": "Projeto frontend importa packages/design-tokens (nunca edita .generated.css)"
+        }
+      ],
+      "verification_method": [
+        "test-integration",
+        "monitoring"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/neuroevolui/REQ-NEUROEVOLUI-0009.yaml"
     },
     {
       "id": "REQ-OBS-0001",
@@ -14659,6 +15090,15 @@
       ]
     },
     {
+      "id": "REQ-NEUROEVOLUI-0001",
+      "title": "Fundação: Arquitetura em camadas + Observabilidade + OIDC",
+      "product": "neuroevolui",
+      "impact_score": 65,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
       "id": "REQ-OIDC-0001",
       "title": "Validação de token via /userinfo",
       "product": "oidc",
@@ -14728,6 +15168,78 @@
       "impact_score": 65,
       "reasons": [
         "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-NEUROEVOLUI-0002",
+      "title": "Multi-tenant + RBAC: Isolamento por clínica + Controle de acesso por papel",
+      "product": "neuroevolui",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-NEUROEVOLUI-0003",
+      "title": "Dados: Filas assíncronas + Idempotência + Migrations",
+      "product": "neuroevolui",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-NEUROEVOLUI-0004",
+      "title": "Dados: Registro de evolução + Gestão de pacientes com relatórios",
+      "product": "neuroevolui",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-NEUROEVOLUI-0005",
+      "title": "Controle financeiro: Agendamentos + Pagamentos + Auditoria",
+      "product": "neuroevolui",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-NEUROEVOLUI-0006",
+      "title": "IA: Assistente de controle para profissional e paciente com RAG",
+      "product": "neuroevolui",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-NEUROEVOLUI-0007",
+      "title": "Notificações: E-mail, push e WhatsApp para lembretes e alertas",
+      "product": "neuroevolui",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-NEUROEVOLUI-0008",
+      "title": "API estável: Contract-first OpenAPI + Validação no CI",
+      "product": "neuroevolui",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-NEUROEVOLUI-0009",
+      "title": "Frontend: Design system unificado + Componentes reusáveis",
+      "product": "neuroevolui",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
       ]
     },
     {

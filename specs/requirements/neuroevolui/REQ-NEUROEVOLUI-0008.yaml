@@ -1,0 +1,36 @@
+id: REQ-NEUROEVOLUI-0008
+title: "API estável: Contract-first OpenAPI + Validação no CI"
+type: non-functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: neuroevolui
+  blueprint: gymops-style
+statement: "O sistema DEVE documentar sua API de forma canônica em OpenAPI, gerar tipos e operações a partir dele, e validar contrato no CI, garantindo que mudanças de rota sejam deliberadas e auditáveis."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/neuroevolui/product.json"]
+priority: medium
+criticality: medium
+architectural_significance: true
+capability_blocks: ["contract-openapi"]
+acceptance_criteria:
+  - "Arquivo OpenAPI canônico (openapi.yaml) em src/openapi/"
+  - "Tipos TypeScript gerados automaticamente (gen:operations)"
+  - "Validação no CI: PR bloqueia se OpenAPI diverge de implementação"
+  - "Exemplos de requisição/resposta em lockstep com OpenAPI"
+  - "Histórico de breaking changes documentado (CHANGELOG.md)"
+  - "Documentação automática em /api/docs servindo Swagger/ReDoc"
+quality_scenarios:
+  - source: "operador/sistema"
+    stimulus: "O sistema DEVE documentar sua API de forma canônica em OpenAPI, gerar tipos e operações a partir dele, e validar contrato no CI, garantindo "
+    environment: "produção"
+    artifact: "neuroevolui"
+    response: "atende o atributo de qualidade especificado"
+    response_measure: "Arquivo OpenAPI canônico (openapi.yaml) em src/openapi/"
+verification_method: [test-integration, monitoring]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

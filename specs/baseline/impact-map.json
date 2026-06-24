@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "dc8116ae59b8955d86a3868008e327698fb216c6ebaab9ca40e1416d42465175",
+  "baseline_hash": "c673fba7368673eeb123e0671af3b6e8d8fd855c2c79bf90786e87dd1743d7f9",
   "nodes": [
     {
       "id": "infra-argocd",
@@ -1596,6 +1596,96 @@
       "asr": false,
       "impact_score": 38,
       "impact_band": "low"
+    },
+    {
+      "id": "REQ-NEUROEVOLUI-0001",
+      "kind": "requirement",
+      "title": "Fundação: Arquitetura em camadas + Observabilidade + OIDC",
+      "type": "functional",
+      "product": "neuroevolui",
+      "asr": true,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-NEUROEVOLUI-0002",
+      "kind": "requirement",
+      "title": "Multi-tenant + RBAC: Isolamento por clínica + Controle de acesso por papel",
+      "type": "functional",
+      "product": "neuroevolui",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-NEUROEVOLUI-0003",
+      "kind": "requirement",
+      "title": "Dados: Filas assíncronas + Idempotência + Migrations",
+      "type": "functional",
+      "product": "neuroevolui",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-NEUROEVOLUI-0004",
+      "kind": "requirement",
+      "title": "Dados: Registro de evolução + Gestão de pacientes com relatórios",
+      "type": "functional",
+      "product": "neuroevolui",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-NEUROEVOLUI-0005",
+      "kind": "requirement",
+      "title": "Controle financeiro: Agendamentos + Pagamentos + Auditoria",
+      "type": "functional",
+      "product": "neuroevolui",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-NEUROEVOLUI-0006",
+      "kind": "requirement",
+      "title": "IA: Assistente de controle para profissional e paciente com RAG",
+      "type": "functional",
+      "product": "neuroevolui",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-NEUROEVOLUI-0007",
+      "kind": "requirement",
+      "title": "Notificações: E-mail, push e WhatsApp para lembretes e alertas",
+      "type": "functional",
+      "product": "neuroevolui",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-NEUROEVOLUI-0008",
+      "kind": "requirement",
+      "title": "API estável: Contract-first OpenAPI + Validação no CI",
+      "type": "non-functional",
+      "product": "neuroevolui",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-NEUROEVOLUI-0009",
+      "kind": "requirement",
+      "title": "Frontend: Design system unificado + Componentes reusáveis",
+      "type": "non-functional",
+      "product": "neuroevolui",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
     },
     {
       "id": "REQ-OBS-0001",
