@@ -2459,9 +2459,8 @@ function forgeDangerZone(name) {
   const st = h('p', { class: 'fw-status muted', role: 'status', 'aria-live': 'polite' });
   const btn = h('button', { class: 'btn danger', type: 'button', text: '🗑 Apagar este projeto' });
   btn.addEventListener('click', () => {
-    const typed = window.prompt('Isto apaga o projeto "' + name + '" e TUDO relacionado: código (apps/' + name + '), requisitos, Application do Argo e recursos no cluster. Não dá para desfazer pela UI.\n\nDigite o nome do projeto para confirmar:');
-    if (typed == null) return;
-    if (typed.trim() !== name) { st.replaceChildren(h('span', { class: 'fw-err', text: 'Nome não confere — cancelado.' })); return; }
+    const ok = window.confirm('Apagar o projeto "' + name + '"?\n\nIsto remove TUDO relacionado: código (apps/' + name + '), requisitos, baseline, Application do Argo e recursos no cluster. Ação irreversível pela UI.');
+    if (!ok) return;
     forgeDelete(name, btn, st);
   });
   return h('div', { class: 'forge-danger' },
