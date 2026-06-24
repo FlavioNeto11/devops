@@ -1,7 +1,14 @@
 // db.js — pool Postgres + migrations multi-tenant. Gerado pela Forge (gymops-style).
 import pg from 'pg';
 export const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-const MIGRATIONS = [`CREATE TABLE IF NOT EXISTS records (id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, title TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open', external_ref TEXT, created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now());`];
+const MIGRATIONS = [
+  // v1: tabela base
+  `CREATE TABLE IF NOT EXISTS records (id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, title TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open', external_ref TEXT, created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now());`,
+  // v2: created_by para auditoria (AC1 REQ-NEUROEVOLUI-0002)
+  `ALTER TABLE records ADD COLUMN IF NOT EXISTS created_by TEXT NOT NULL DEFAULT 'system';`,
+  // v3: soft-delete para compliance (AC6 REQ-NEUROEVOLUI-0002)
+  `ALTER TABLE records ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;`,
+];
 export async function migrate() {
   const c = await pool.connect();
   try { await c.query('SELECT pg_advisory_lock(66021)');
@@ -12,4 +19,4 @@ export async function migrate() {
       console.log('[migrate] ' + v); }
   } finally { await c.query('SELECT pg_advisory_unlock(66021)').catch(() => {}); c.release(); }
 }
-export async function seed() { const { rows } = await pool.query('SELECT count(*)::int n FROM records'); if (rows[0].n === 0) await pool.query(`INSERT INTO records(title) VALUES ('Exemplo')`); }
+export async function seed() { const { rows } = await pool.query("SELECT count(*)::int n FROM records WHERE deleted_at IS NULL"); if (rows[0].n === 0) await pool.query(`INSERT INTO records(title, created_by) VALUES ('Exemplo', 'seed')`); }

@@ -7,8 +7,8 @@ const ok = (c, m) => { if (!c) { console.error('FAIL:', m); process.exitCode = 1
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 ok((await get('/health')).j.status === 'ok', 'health + db (Fastify)');
 const r1 = (await post('/v1/records', { title: 'Teste' })).j; ok(r1.id, 'CRUD cria record');
-ok(await del('/v1/records/' + r1.id, { 'X-Role': 'member' }) === 403, 'RBAC: member não pode deletar (403)');
-ok(await del('/v1/records/999999', { 'X-Role': 'admin' }) === 200, 'RBAC: admin pode deletar (200)');
+ok(await del('/v1/records/' + r1.id, { 'X-Role': 'patient' }) === 403, 'RBAC: patient não pode deletar (403)');
+ok(await del('/v1/records/999999', { 'X-Role': 'owner' }) === 200, 'RBAC: owner pode deletar (200)');
 ok((await get('/v1/records/' + r1.id, { 'X-Tenant-Id': '2' })).s === 404, 'multi-tenant: outro tenant não vê (404)');
 const r2 = (await post('/v1/records', { title: 'Async' })).j;
 ok((await post('/v1/records/' + r2.id + '/submit', {})).j.enqueued === true, 'Redis/BullMQ: submit enfileirado');
