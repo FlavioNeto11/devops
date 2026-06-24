@@ -1,0 +1,12 @@
+{
+  "stack_rationale": "",
+  "adrs": [],
+  "waves": [
+    {
+      "id": "w0",
+      "work_orders": [
+        "REQ-FORJADEMO-0001"
+      ]
+    }
+  ]
+}

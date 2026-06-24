@@ -1,12 +1,12 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "781dadc2ef8a3fdd48f47f60f6bd380fc784e97c54bd358a261314c62e78755a",
+  "baseline_hash": "13beafa813eb8714b6e1065859aa61f46309740d8ce5201a5dda60339cabcaf9",
   "counts": {
-    "total": 373,
+    "total": 374,
     "by_status": {
       "deployed": 313,
       "done": 52,
-      "not_started": 8
+      "not_started": 9
     },
     "refinements": {
       "total": 101,
@@ -705,6 +705,10 @@
       "status": "deployed",
       "req_revision": 1,
       "run_id": "backfill-deployed"
+    },
+    "REQ-FORJADEMO-0001": {
+      "status": "not_started",
+      "req_revision": 1
     },
     "REQ-GYMOPS-0001": {
       "status": "deployed",

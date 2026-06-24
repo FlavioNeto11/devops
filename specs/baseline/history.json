@@ -2,73 +2,24 @@
   "metamodel_version": "1.1.0",
   "has_previous": true,
   "from": {
-    "commit": "1d6ade86b1bc",
-    "baseline_hash": "b40ddfbf09f13258fd0968c5b19bfe638ccac9caf7bdc25627ac75789170652b"
-  },
-  "to": {
-    "commit": "33a52b0c68a1",
+    "commit": "4fd5b76cdf63",
     "baseline_hash": "781dadc2ef8a3fdd48f47f60f6bd380fc784e97c54bd358a261314c62e78755a"
   },
+  "to": {
+    "commit": "working-tree",
+    "baseline_hash": "13beafa813eb8714b6e1065859aa61f46309740d8ce5201a5dda60339cabcaf9"
+  },
   "counts": {
-    "added": 8,
+    "added": 1,
     "removed": 0,
     "changed": 0
   },
   "added": [
     {
-      "id": "REQ-HELPFLOW-0001",
-      "title": "Fundação de Arquitetura e Observabilidade",
-      "product": "helpflow",
+      "id": "REQ-FORJADEMO-0001",
+      "title": "Fundacao: arquitetura em camadas",
+      "product": "forjademo",
       "type": "functional",
-      "impact_band": "medium"
-    },
-    {
-      "id": "REQ-HELPFLOW-0002",
-      "title": "Autenticação OIDC, Autorização RBAC Multi-Tenant e Persistência de Sessão",
-      "product": "helpflow",
-      "type": "functional",
-      "impact_band": "medium"
-    },
-    {
-      "id": "REQ-HELPFLOW-0003",
-      "title": "API Contract-First (OpenAPI) e Modelos de Domínio",
-      "product": "helpflow",
-      "type": "functional",
-      "impact_band": "medium"
-    },
-    {
-      "id": "REQ-HELPFLOW-0004",
-      "title": "Processamento Assíncrono Idempotente de Longa Duração (Worker + Fila Transacional)",
-      "product": "helpflow",
-      "type": "functional",
-      "impact_band": "medium"
-    },
-    {
-      "id": "REQ-HELPFLOW-0005",
-      "title": "Integração com Sistemas Externos via Gateway Centralizado",
-      "product": "helpflow",
-      "type": "functional",
-      "impact_band": "medium"
-    },
-    {
-      "id": "REQ-HELPFLOW-0006",
-      "title": "Base de Conhecimento Vetorial (RAG com pgvector) e Recuperação Grounded",
-      "product": "helpflow",
-      "type": "functional",
-      "impact_band": "medium"
-    },
-    {
-      "id": "REQ-HELPFLOW-0007",
-      "title": "Assistente de IA com Grafo, Tools e Controle Próprio",
-      "product": "helpflow",
-      "type": "functional",
-      "impact_band": "medium"
-    },
-    {
-      "id": "REQ-HELPFLOW-0008",
-      "title": "Design System Unificado no Frontend (Vue SPA)",
-      "product": "helpflow",
-      "type": "non-functional",
       "impact_band": "medium"
     }
   ],
