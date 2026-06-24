@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.2.0",
+  "name": "valdemo",
+  "display_name": "Val Demo",
+  "base_path": "/valdemo",
+  "namespace": "apps",
+  "app_type": "product_software",
+  "blueprint": "node-api-vue-spa",
+  "stack": "sicat",
+  "interfaces": [
+    "api",
+    "web"
+  ],
+  "capability_blocks": [
+    "camadas-rigidas"
+  ],
+  "vision": "Produto descartavel para validar o ciclo criar->apagar da Forja.",
+  "requirement_ids": [
+    "REQ-VALDEMO-0001"
+  ],
+  "phases": {
+    "requirements": {
+      "status": "approved"
+    },
+    "architecture": {
+      "status": "approved"
+    },
+    "scaffold": {
+      "status": "not_started"
+    },
+    "build": {
+      "status": "not_started"
+    }
+  },
+  "version": {
+    "revision": 1,
+    "change_reason": "FORGE greenfield — concepção+arquitetura pela IA"
+  }
+}

@@ -1,10 +1,10 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "dc8116ae59b8955d86a3868008e327698fb216c6ebaab9ca40e1416d42465175",
+  "baseline_hash": "2375d069a02d7b7e649395de806e44fd9db09d79b765ef5551bb49b4fb887400",
   "refinements_hash": "8c2404f1df38762f23de2d95606729971e0b22061bc4df82fddd1431e42222b0",
   "schema": "specs/schema/requirement.schema.json",
   "counts": {
-    "total": 334,
+    "total": 335,
     "by_product": {
       "ai": 18,
       "argocd": 15,
@@ -22,13 +22,14 @@
       "reqhub": 20,
       "sicat": 24,
       "specs": 18,
-      "traefik": 16
+      "traefik": 16,
+      "valdemo": 1
     },
     "by_status": {
-      "approved": 334
+      "approved": 335
     },
     "by_type": {
-      "functional": 232,
+      "functional": 233,
       "non-functional": 102
     },
     "refinements": {
@@ -12551,6 +12552,45 @@
       "impact_score": 38,
       "impact_band": "low",
       "file": "requirements/traefik/REQ-TRAEFIK-NFR-004.yaml"
+    },
+    {
+      "id": "REQ-VALDEMO-0001",
+      "title": "Fundacao: arquitetura em camadas",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "product-foundation",
+        "product_scope": "valdemo",
+        "blueprint": "node-api-vue-spa"
+      },
+      "statement": "Fundacao em camadas (route->service->repository) com health.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/valdemo/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "camadas-rigidas"
+      ],
+      "acceptance_criteria": [
+        "/health responde ok"
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 65,
+      "impact_band": "medium",
+      "file": "requirements/valdemo/REQ-VALDEMO-0001.yaml"
     }
   ],
   "refinements": [
@@ -14728,6 +14768,15 @@
       "impact_score": 65,
       "reasons": [
         "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-VALDEMO-0001",
+      "title": "Fundacao: arquitetura em camadas",
+      "product": "valdemo",
+      "impact_score": 65,
+      "reasons": [
+        "sem evidência de verificação"
       ]
     },
     {
