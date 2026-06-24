@@ -1,0 +1,68 @@
+# =============================================================================
+# forge-deploy — last-mile do lab p/ um produto da Forja: builda as imagens :local
+# (no runner self-hosted = a máquina do cluster), garante o Secret <prod>-db (Postgres),
+# e religa os Deployments para o Argo/k8s publicar. Idempotente:
+#   - o Secret só é criado se faltar (não rotaciona a senha do PVC já inicializado);
+#   - imagens :local + IfNotPresent => rebuild + rollout restart pega a nova imagem.
+# Disparado pela cadeia autônoma (greenfield-launch após o scaffold; e por
+# forge-autonomous-merge após mesclar PRs de implementação, p/ as features subirem).
+# =============================================================================
+name: forge-deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      product:
+        description: "Produto da Forja (slug) — apps/<product> já na main"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Build :local + deploy (lab)
+    runs-on: [self-hosted, windows, docker-desktop, local-k8s, flavio-devops]
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Build imagens :local + secret + rollout
+        run: |
+          $ErrorActionPreference = "Stop"
+          $prod = "${{ github.event.inputs.product }}"
+          if ($prod -notmatch '^[a-z][a-z0-9-]{1,30}$') { Write-Host "::error::product inválido: '$prod'"; exit 1 }
+          $appDir = Join-Path $env:GITHUB_WORKSPACE "apps/$prod"
+          if (-not (Test-Path $appDir)) { Write-Host "::error::apps/$prod não existe na main"; exit 1 }
+
+          # 1) imagens :local — uma por serviço com Dockerfile (context = a pasta do serviço).
+          $svcDirs = Get-ChildItem -Path $appDir -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'Dockerfile') }
+          foreach ($d in $svcDirs) {
+            $svc = $d.Name
+            Write-Host "== docker build $prod-$svc:local =="
+            docker build -t "$prod-$svc`:local" $d.FullName
+            if ($LASTEXITCODE -ne 0) { Write-Host "::error::build de $prod-$svc falhou"; exit 1 }
+          }
+
+          # 2) Secret <prod>-db (só se o app tiver Postgres E o secret faltar — não rotaciona senha do PVC).
+          $needsDb = Select-String -Path (Join-Path $appDir 'k8s/*.yaml') -Pattern "$prod-postgres" -Quiet
+          if ($needsDb) {
+            $exists = (kubectl -n apps get secret "$prod-db" --ignore-not-found -o name 2>$null)
+            if (-not $exists) {
+              $pw = -join ((48..57)+(97..122) | Get-Random -Count 24 | ForEach-Object {[char]$_})
+              $durl = "postgresql://$prod`:$pw@$prod-postgres:5432/$prod"
+              kubectl -n apps create secret generic "$prod-db" --from-literal=POSTGRES_USER=$prod --from-literal=POSTGRES_PASSWORD=$pw --from-literal=POSTGRES_DB=$prod --from-literal=DATABASE_URL=$durl
+              Write-Host "secret $prod-db criado."
+            } else { Write-Host "secret $prod-db já existe — mantido." }
+          }
+
+          # 3) aplica os manifests (caso o Argo ainda não tenha) + religa p/ pegar a :local nova.
+          kubectl apply -f (Join-Path $appDir 'k8s') 2>$null
+          kubectl -n apps rollout restart deployment -l app.kubernetes.io/part-of=$prod
+          kubectl -n apps rollout status deployment -l app.kubernetes.io/part-of=$prod --timeout=180s
+          Write-Host "::notice::forge-deploy: $prod buildado + publicado. Acesse /$prod."

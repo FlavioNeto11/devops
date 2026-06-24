@@ -161,6 +161,8 @@ jobs:
               continue; fi
             echo "PR #$n: AUTONOMO ($product) - CI verde + guard OK - MERGE (sem gpt-approved, via FORGE_AUTONOMOUS)"
             gh pr merge "$n" --repo "$REPO" --squash --delete-branch
+            # redeploy: builda :local + republica o produto (self-hosted) p/ a feature subir.
+            gh workflow run forge-deploy.yml --repo "$REPO" -f product="$product" || true
           done
 
   reconcile-merged:
