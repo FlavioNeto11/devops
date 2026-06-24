@@ -1,0 +1,21 @@
+{
+  "product": "forjademo",
+  "blueprint": "node-api-vue-spa",
+  "baseline_hash": "13beafa813eb8714b6e1065859aa61f46309740d8ce5201a5dda60339cabcaf9",
+  "generated_by": "forge.build-plan@1",
+  "status": "proposed",
+  "scaffold_req": "REQ-FORJADEMO-0001",
+  "modules": [],
+  "waves": [
+    {
+      "id": "w0-foundation",
+      "gate": "auto",
+      "work_orders": [
+        "REQ-FORJADEMO-0001"
+      ]
+    }
+  ],
+  "order": [
+    "REQ-FORJADEMO-0001"
+  ]
+}
