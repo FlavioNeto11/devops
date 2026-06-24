@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "dc8116ae59b8955d86a3868008e327698fb216c6ebaab9ca40e1416d42465175",
+  "baseline_hash": "2375d069a02d7b7e649395de806e44fd9db09d79b765ef5551bb49b4fb887400",
   "nodes": [
     {
       "id": "infra-argocd",
@@ -3456,6 +3456,16 @@
       "asr": false,
       "impact_score": 38,
       "impact_band": "low"
+    },
+    {
+      "id": "REQ-VALDEMO-0001",
+      "kind": "requirement",
+      "title": "Fundacao: arquitetura em camadas",
+      "type": "functional",
+      "product": "valdemo",
+      "asr": true,
+      "impact_score": 65,
+      "impact_band": "medium"
     },
     {
       "id": "slo-availability-99",

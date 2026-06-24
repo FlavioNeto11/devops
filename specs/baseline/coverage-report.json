@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "dc8116ae59b8955d86a3868008e327698fb216c6ebaab9ca40e1416d42465175",
+  "baseline_hash": "2375d069a02d7b7e649395de806e44fd9db09d79b765ef5551bb49b4fb887400",
   "dimensions": [
     "links",
     "allocation",
@@ -10,20 +10,20 @@
     "refinement"
   ],
   "totals": {
-    "total": 334,
-    "without_links": 277,
-    "without_allocation": 307,
+    "total": 335,
+    "without_links": 278,
+    "without_allocation": 308,
     "without_source_paths": 0,
-    "without_evidence": 334,
+    "without_evidence": 335,
     "without_verification_method": 334,
-    "without_refinement": 313,
-    "scopes": 17,
+    "without_refinement": 314,
+    "scopes": 18,
     "coverage_pct": {
-      "links": 17.1,
+      "links": 17,
       "allocation": 8.1,
       "source_paths": 100,
       "evidence": 0,
-      "verification_method": 0,
+      "verification_method": 0.3,
       "refinement": 6.3
     }
   },
@@ -314,6 +314,23 @@
         "source_paths": 100,
         "evidence": 0,
         "verification_method": 0,
+        "refinement": 0
+      }
+    },
+    "valdemo": {
+      "total": 1,
+      "without_links": 1,
+      "without_allocation": 1,
+      "without_source_paths": 0,
+      "without_evidence": 1,
+      "without_verification_method": 0,
+      "without_refinement": 1,
+      "coverage_pct": {
+        "links": 0,
+        "allocation": 0,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 100,
         "refinement": 0
       }
     }

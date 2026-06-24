@@ -1,11 +1,12 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "dc8116ae59b8955d86a3868008e327698fb216c6ebaab9ca40e1416d42465175",
+  "baseline_hash": "2375d069a02d7b7e649395de806e44fd9db09d79b765ef5551bb49b4fb887400",
   "counts": {
-    "total": 334,
+    "total": 335,
     "by_status": {
       "deployed": 282,
-      "done": 52
+      "done": 52,
+      "not_started": 1
     },
     "refinements": {
       "total": 13,
@@ -1967,6 +1968,10 @@
       "req_revision": 1,
       "deployed_at": "2026-06-15",
       "notes": "platform/traefik — ingress + middlewares no cluster (ns traefik)"
+    },
+    "REQ-VALDEMO-0001": {
+      "status": "not_started",
+      "req_revision": 1
     }
   },
   "refinement_items": {
