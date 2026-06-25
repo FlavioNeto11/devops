@@ -2353,10 +2353,14 @@ let _forgeStateInflight = false;
 let _forgePollTimer = null;
 function applyForgeState(payload) {
   if (!payload || payload.source === 'empty' || !Array.isArray(payload.products) || !payload.products.length) return false;
+  // preserva o architecture_summary do baked se o estado vivo (ConfigMap) ainda não tiver o campo (stale)
+  // — assim o polling nunca regride a ancoragem de stack do chat.
+  const prevArch = {};
+  for (const p of ((DATA.products && DATA.products.products) || [])) if (p && p.name) prevArch[p.name] = p.architecture_summary;
   DATA.products = { products: payload.products.map((p) => ({
     name: p.name, display_name: p.display_name, base_path: p.base_path, blueprint: p.blueprint,
     stack: p.stack, app_type: p.app_type, vision: p.vision, phases: p.phases,
-    architecture_summary: p.architecture_summary, // preserva o resumo de stack no estado vivo (chat conhece a stack)
+    architecture_summary: p.architecture_summary || prevArch[p.name] || '', // não regride a ancoragem de stack
     capability_blocks: p.capability_blocks, requirement_ids: p.requirement_ids,
   })) };
   const items = {};

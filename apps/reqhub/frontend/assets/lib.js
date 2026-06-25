@@ -504,7 +504,10 @@ export function sanitizeHref(url) {
 function parseInline(text) {
   const tokens = [];
   let s = String(text == null ? '' : text);
-  const re = /(`[^`]+`)|(\*\*[^*]+\*\*|__[^_]+__)|(\*[^*]+\*|_[^_]+_)|(\[[^\]]+\]\([^)\s]+\))/;
+  // Defesa contra backtracking (ReDoS): linha muito longa não vira markdown rico — só texto.
+  // Sem isto, um trecho com milhares de '[' sem fechar trava a main thread (O(n²)).
+  if (s.length > 4000) return [{ t: 'text', v: s }];
+  const re = /(`[^`]+`)|(\*\*[^*]+\*\*|__[^_]+__)|(\*[^*]+\*|_[^_]+_)|(\[[^\]\n]{1,200}\]\([^)\s]{1,2000}\))/;
   while (s.length) {
     const m = re.exec(s);
     if (!m) { tokens.push({ t: 'text', v: s }); break; }
@@ -514,7 +517,7 @@ function parseInline(text) {
     else if (m[2]) tokens.push({ t: 'strong', v: tok.replace(/^(\*\*|__)|(\*\*|__)$/g, '') });
     else if (m[3]) tokens.push({ t: 'em', v: tok.replace(/^[*_]|[*_]$/g, '') });
     else {
-      const lm = /^\[([^\]]+)\]\(([^)\s]+)\)$/.exec(tok);
+      const lm = /^\[([^\]\n]{1,200})\]\(([^)\s]{1,2000})\)$/.exec(tok);
       const href = lm ? sanitizeHref(lm[2]) : null;
       if (href) tokens.push({ t: 'link', v: lm[1], href });
       else tokens.push({ t: 'text', v: lm ? lm[1] : tok });

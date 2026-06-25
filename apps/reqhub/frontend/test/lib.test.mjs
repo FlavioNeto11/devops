@@ -368,6 +368,14 @@ test('parseMarkdown: fenced code é texto puro (sem parse inline)', () => {
   assert.equal(c.text, 'const a = **nao** negrito');
 });
 
+test('parseMarkdown: entrada patológica (50k "[" sem fechar) termina rápido (anti-ReDoS)', () => {
+  const t0 = process.hrtime.bigint();
+  const blocks = parseMarkdown('['.repeat(50000));
+  const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+  assert.ok(blocks.length >= 1);
+  assert.ok(ms < 100, `parseMarkdown demorou ${ms.toFixed(0)}ms (esperado < 100ms — backtracking quadrático)`);
+});
+
 test('systemContext: extrai architecture_summary do produto (wrapper ou array)', () => {
   const products = { products: [{ name: 'neuroevolui', architecture_summary: 'Stack: Fastify+Postgres' }] };
   assert.equal(systemContext(products, 'neuroevolui'), 'Stack: Fastify+Postgres');

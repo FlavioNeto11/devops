@@ -84,8 +84,11 @@ export function extractChatResult(result, { product, target_req_id, grounding } 
 // turno caia no fast-path) + ARQUITETURA/STACK + RESUMO dos requisitos. É o que faltava para o chat
 // CONHECER a stack (e parar de perguntar "qual framework") e situar os requisitos por contexto.
 function buildChatSystemContext({ product, target_req_id, grounding, arch_summary } = {}) {
+  // Cadência CURTA como rede de segurança p/ o fast-path (rollback REQHUB_AI_FORCE_AUTHORING=off).
+  // A persona COMPLETA já vai no specialist.systemPrompt do deep-path — NÃO repetir aqui (evita duplicar
+  // ~280 tokens por turno, já que runDeep concatena specialist.systemPrompt + systemContext).
   const parts = [
-    PROMPTS.authoringChat.system,
+    'Responda CURTO (2-3 frases), em pt-BR, SEM markdown; UMA pergunta por vez; proponha um rascunho cedo via tool quando tiver titulo + capacidade testavel.',
     `PRODUTO: ${product || '(nao informado)'}` + (target_req_id ? `\nREFINANDO O REQUISITO: ${target_req_id}` : ''),
   ];
   const archTxt = String(arch_summary || '').trim();
