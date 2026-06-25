@@ -4,9 +4,8 @@
   "counts": {
     "total": 352,
     "by_status": {
-      "deployed": 296,
-      "done": 52,
-      "merged": 4
+      "deployed": 300,
+      "done": 52
     },
     "refinements": {
       "total": 63,
@@ -680,13 +679,13 @@
       "run_id": "28200879377"
     },
     "REQ-CONTAVIVA360-0006": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "pr": "https://github.com/FlavioNeto11/devops/pull/163",
       "commit": "be5ae5cf8e644eba84c92c87d22440080e04eae4"
     },
     "REQ-CONTAVIVA360-0007": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "pr": "https://github.com/FlavioNeto11/devops/pull/164",
       "branch": "@{id=REQ-CONTAVIVA360-0007; branch=req/REQ-CONTAVIVA360-0007/r1; restricted=false; title=feat(contaviva-360): implementa REQ-CONTAVIVA360-0007 — Assistente de IA Contábil: Consult}.branch",
@@ -694,7 +693,7 @@
       "run_id": "28204232452"
     },
     "REQ-CONTAVIVA360-0008": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "pr": "https://github.com/FlavioNeto11/devops/pull/165",
       "branch": "@{id=REQ-CONTAVIVA360-0008; branch=req/REQ-CONTAVIVA360-0008/r1; restricted=false; title=feat(contaviva-360): implementa REQ-CONTAVIVA360-0008 — Painel Personalizado por Role: Das}.branch",
@@ -702,7 +701,7 @@
       "run_id": "28205517010"
     },
     "REQ-CONTAVIVA360-0009": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "pr": "https://github.com/FlavioNeto11/devops/pull/166",
       "branch": "@{id=REQ-CONTAVIVA360-0009; branch=req/REQ-CONTAVIVA360-0009/r1; restricted=false; title=feat(contaviva-360): implementa REQ-CONTAVIVA360-0009 — Emissão e Processamento de Documen}.branch",
