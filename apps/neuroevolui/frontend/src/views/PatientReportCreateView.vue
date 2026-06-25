@@ -18,7 +18,7 @@
     width="narrow"
   >
     <template #actions>
-      <UiButton variant="ghost" to="/patients">Voltar aos pacientes</UiButton>
+      <UiButton variant="ghost" to="/patient-reports">Voltar aos relatórios</UiButton>
     </template>
 
     <!-- ── BANNER: acompanhamento do job BullMQ em tempo real ── -->
@@ -247,6 +247,29 @@
 
         </UiFormSection>
 
+        <!-- Observações -->
+        <UiFormSection :columns="1">
+          <UiFormField
+            label="Observações"
+            :error="f.errors.notes"
+            hint="Anotações ou instruções adicionais para a geração do relatório (opcional)."
+          >
+            <template #default="{ id, describedBy, hasError }">
+              <textarea
+                :id="id"
+                class="prc-textarea"
+                :aria-describedby="describedBy || undefined"
+                :aria-invalid="hasError ? 'true' : undefined"
+                :value="f.values.notes"
+                :disabled="formLocked"
+                rows="3"
+                placeholder="Ex.: incluir apenas consultas individuais; excluir avaliações de triagem…"
+                @input="f.setField('notes', $event.target.value)"
+              />
+            </template>
+          </UiFormField>
+        </UiFormSection>
+
         <!-- Linha de resumo dos filtros aplicados -->
         <p class="prc-filter-summary" role="note" aria-live="polite">{{ filterSummary }}</p>
       </UiCard>
@@ -466,6 +489,7 @@ const f = useForm({
     date_to: '',
     type: '',
     professional_id: '',
+    notes: '',
   },
   rules: {
     patient_id: [validators.required('Selecione o paciente.')],
@@ -649,8 +673,9 @@ function buildPayload(vals) {
   const payload = { patient_id: String(vals.patient_id).trim() };
   if (vals.date_from) payload.date_from = vals.date_from;
   if (vals.date_to) payload.date_to = vals.date_to;
-  if (vals.type) payload.type = vals.type;
+  if (vals.type) payload.report_type = vals.type;
   if (vals.professional_id) payload.professional_id = String(vals.professional_id).trim();
+  if (vals.notes && vals.notes.trim()) payload.notes = vals.notes.trim();
   return payload;
 }
 
@@ -697,7 +722,7 @@ async function retryJob() {
 
 function isDirty() {
   const v = f.values;
-  return Boolean(v.patient_id || v.date_from || v.date_to || v.type || v.professional_id);
+  return Boolean(v.patient_id || v.date_from || v.date_to || v.type || v.professional_id || v.notes);
 }
 
 async function cancel() {
@@ -719,7 +744,7 @@ async function cancel() {
     });
     if (!ok) return;
   }
-  router.push('/patients');
+  router.push('/patient-reports');
 }
 
 // ── Histórico recente do paciente ──────────────────────────────────────────────
@@ -823,6 +848,34 @@ onBeforeUnmount(() => {
   cursor: not-allowed;
 }
 .prc-select[aria-invalid="true"] {
+  border-color: rgb(var(--ui-danger));
+}
+
+/* ── Textarea de observações ─────────────────────────────────────────────── */
+.prc-textarea {
+  background: rgb(var(--ui-bg));
+  color: rgb(var(--ui-fg));
+  border: 1px solid rgb(var(--ui-border-strong));
+  border-radius: var(--ui-radius-sm);
+  padding: 8px 11px;
+  font: inherit;
+  font-size: var(--ui-text-md);
+  width: 100%;
+  resize: vertical;
+  min-height: 72px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.prc-textarea:focus {
+  outline: none;
+  border-color: rgb(var(--ui-accent));
+  box-shadow: 0 0 0 3px rgb(var(--ui-accent) / 0.15);
+}
+.prc-textarea:disabled {
+  background: rgb(var(--ui-surface-2));
+  color: rgb(var(--ui-muted));
+  cursor: not-allowed;
+}
+.prc-textarea[aria-invalid="true"] {
   border-color: rgb(var(--ui-danger));
 }
 
