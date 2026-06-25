@@ -7,7 +7,8 @@
       "deployed": 282,
       "done": 52,
       "merged": 5,
-      "not_started": 4
+      "pr_open": 1,
+      "not_started": 3
     },
     "refinements": {
       "total": 13,
@@ -924,8 +925,10 @@
       "run_id": "28127034333"
     },
     "REQ-NEUROEVOLUI-0006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "branch": "@{id=REQ-NEUROEVOLUI-0006; branch=req/REQ-NEUROEVOLUI-0006/r1; restricted=false; title=feat(neuroevolui): implementa REQ-NEUROEVOLUI-0006 — IA: Assistente de controle para profi}.branch",
+      "run_id": "28139437545"
     },
     "REQ-NEUROEVOLUI-0007": {
       "status": "not_started",
