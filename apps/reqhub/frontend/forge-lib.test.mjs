@@ -5,6 +5,7 @@ import {
   progressOf, productSummaries, phaseModel, buildDag, waveProgress, reqRow,
   validateReqId, nextReqId, forgeStatusCls, hubSummary, blueprintById, DONE_STATUSES,
   typeLabel, asList, dagFromWaves, businessProductScopes, NON_PRODUCT_SCOPES,
+  weightedProgress, wavesFromProgress, STAGE_WEIGHT,
 } from './assets/forge-lib.js';
 
 const implStatus = {
@@ -205,4 +206,52 @@ test('blueprintById', () => {
   const bp = { blueprints: [{ id: 'node-api-vue-spa', name: 'X' }] };
   assert.equal(blueprintById(bp, 'node-api-vue-spa').name, 'X');
   assert.equal(blueprintById(bp, 'nope'), null);
+});
+
+test('weightedProgress: merged NÃO é 100% (deploy/verificação pendente)', () => {
+  const is = { items: { a: { status: 'merged' }, b: { status: 'merged' } } };
+  const p = weightedProgress(['a', 'b'], is);
+  assert.equal(p.pct, 90, 'dois merged = 90% (peso 0.9), não 100%');
+  assert.equal(p.delivered, 2);
+  assert.equal(p.live, 0);
+});
+
+test('weightedProgress: live=true faz merged contar como no ar (100%)', () => {
+  const is = { items: { a: { status: 'merged' }, b: { status: 'merged' } } };
+  const p = weightedProgress(['a', 'b'], is, { live: true });
+  assert.equal(p.pct, 100);
+  assert.equal(p.live, 2);
+});
+
+test('weightedProgress: granular por estágio + breakdown', () => {
+  const is = { items: { a: { status: 'not_started' }, b: { status: 'in_progress' }, c: { status: 'pr_open' }, d: { status: 'deployed' } } };
+  const p = weightedProgress(['a', 'b', 'c', 'd'], is);
+  // (0 + 0.4 + 0.7 + 1) / 4 = 0.525 -> 53
+  assert.equal(p.pct, 53);
+  assert.equal(p.by.in_progress, 1);
+  assert.equal(p.by.pr_open, 1);
+  assert.equal(p.by.deployed, 1);
+  assert.equal(p.live, 1); // só o deployed
+});
+
+test('weightedProgress: vazio = 0% (sem NaN)', () => {
+  const p = weightedProgress([], { items: {} });
+  assert.equal(p.pct, 0); assert.equal(p.total, 0);
+});
+
+test('STAGE_WEIGHT: ordem monotônica not_started<in_progress<pr_open<merged<=deployed', () => {
+  assert.ok(STAGE_WEIGHT.not_started < STAGE_WEIGHT.in_progress);
+  assert.ok(STAGE_WEIGHT.in_progress < STAGE_WEIGHT.pr_open);
+  assert.ok(STAGE_WEIGHT.pr_open < STAGE_WEIGHT.merged);
+  assert.ok(STAGE_WEIGHT.merged < STAGE_WEIGHT.deployed);
+  assert.equal(STAGE_WEIGHT.deployed, 1);
+});
+
+test('wavesFromProgress: preenche em ordem conforme o pct (coerente, sem 0/N falso)', () => {
+  const bp = { waves: [{ id: 'w0', work_orders: ['t1', 't2'] }, { id: 'w1', work_orders: ['t3'] }, { id: 'w2', work_orders: ['t4'] }] };
+  assert.deepEqual(wavesFromProgress(bp, 0).map((w) => w.state), ['todo', 'todo', 'todo']);
+  assert.deepEqual(wavesFromProgress(bp, 100).map((w) => w.state), ['done', 'done', 'done']);
+  const mid = wavesFromProgress(bp, 50).map((w) => w.state); // filled=1.5 -> w0 done, w1 active, w2 todo
+  assert.deepEqual(mid, ['done', 'active', 'todo']);
+  assert.deepEqual(wavesFromProgress(bp, 50)[0].tasks, ['t1', 't2']);
 });

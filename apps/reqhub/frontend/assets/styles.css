@@ -583,6 +583,14 @@ pre.yaml { background: var(--bg-2); border: 1px solid var(--line); border-radius
 .forge-wave-id { font-family: var(--mono); font-size: 12px; color: var(--fg-1); flex: none; min-width: 92px; }
 .forge-wave-reqs { display: flex; flex-wrap: wrap; gap: 5px; flex: 1; }
 .forge-wave-n { color: var(--muted); font-size: 12px; flex: none; font-variant-numeric: tabular-nums; }
+.forge-wave-task { font-size: 11px; color: var(--muted); background: var(--bg-2); border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; }
+.forge-wave.s-todo { opacity: 0.6; }
+/* Progresso ponderado + breakdown por estágio (tela Build honesta) */
+.forge-prog { display: flex; flex-direction: column; gap: 10px; }
+.forge-prog-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.forge-prog-head h3 { margin: 0; }
+.forge-breakdown { display: flex; flex-wrap: wrap; gap: 6px; }
+.forge-bd { font-size: 11px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); font-weight: 600; }
 
 /* aviso/info de fluxo (a UI não escreve git) */
 .forge-note { border: 1px dashed var(--line-2); border-radius: 8px; padding: 11px 13px; background: var(--bg-2); font-size: 12.5px; color: var(--fg-1); margin-top: 12px; }

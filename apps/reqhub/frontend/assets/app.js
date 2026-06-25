@@ -1,7 +1,7 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
 import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId } from './lib.js?v=41';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes, capabilityPlain, planSummary, CAPABILITY_PLAIN } from './forge-lib.js?v=51';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, weightedProgress, wavesFromProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes, capabilityPlain, planSummary, CAPABILITY_PLAIN } from './forge-lib.js?v=52';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -2272,7 +2272,14 @@ async function loadBuildPlan(name) {
   return DATA.buildPlans[name];
 }
 function openForgeProduct(name) {
-  state.forge.product = name; state.forge.newMode = false; state.forge.step = 'definir';
+  state.forge.product = name; state.forge.newMode = false;
+  // Abre na fase mais RELEVANTE: Build se o produto já está em construção/no ar (algum requisito
+  // além de not_started, ou já há build-plan carregado); senão Definir (produto novo/sem nada).
+  const product = findProduct(DATA.products, name);
+  const reqIds = (product && product.requirement_ids) || [];
+  const items = (DATA.implStatus && DATA.implStatus.items) || {};
+  const started = reqIds.some((id) => items[id] && items[id].status && items[id].status !== 'not_started');
+  state.forge.step = (started || DATA.buildPlans[name]) ? 'build' : 'definir';
   switchView('forge'); document.getElementById('tab-forge').focus();
   if (name && DATA.buildPlans[name] === undefined) loadBuildPlan(name).then(() => { if (state.view === 'forge' && state.forge.product === name) renderForge(); });
 }
@@ -2549,29 +2556,62 @@ function forgeArquitetura(panel, product, buildPlan) {
   panel.append(right);
 }
 
+// Rótulos pt-BR por estágio (breakdown) e estado de wave.
+const FORGE_STAGE_LABELS = { not_started: 'não iniciado', in_progress: 'em progresso', pr_open: 'em PR', merged: 'mesclado', deployed: 'no ar', done: 'verificado', blocked: 'bloqueado' };
+const FORGE_WAVE_STATE = { done: 'concluída', active: 'em andamento', todo: 'aguardando' };
+
 function forgeBuild(panel, product, buildPlan) {
   const reqIds = product.requirement_ids || [];
-  const prog = (function () { let d = 0; for (const id of reqIds) { const it = DATA.implStatus && DATA.implStatus.items && DATA.implStatus.items[id]; if (it && DONE_ST.includes(it.status)) d++; } return { d, t: reqIds.length, pct: reqIds.length ? Math.round((d / reqIds.length) * 100) : 0 }; })();
-  // esquerda: waves + tabela de requisitos
   const left = h('div', { class: 'forge-section' });
+  const progBox = h('div', { class: 'forge-prog' });   // cabeçalho + barra + breakdown (re-render p/ liveness)
+  const wavesBox = h('div');                            // waves (preenchem com o progresso)
   const buildStatusEl = h('div', { class: 'forge-build-status', role: 'status', 'aria-live': 'polite' });
-  left.append(h('h3', { text: `Progresso — ${prog.d}/${prog.t} no ar` }), progressBar(prog.pct), buildStatusEl);
-  forgePollBuildStatus(product.name, buildStatusEl); // indicador VIVO: req-implement rodando + PRs/CI
-  if (buildPlan) {
-    const waves = waveProgress(buildPlan, DATA.implStatus);
-    const stateLabel = { done: 'concluída', active: 'em andamento', ready: 'pronta', blocked: 'bloqueada' };
-    const list = h('div', { class: 'forge-waves', role: 'list', 'aria-label': `Ondas de construção (${waves.length})` });
-    for (const w of waves) {
-      const row = h('div', { class: 'forge-wave s-' + w.state, role: 'listitem', 'aria-label': `Wave ${w.id}: ${stateLabel[w.state] || w.state} — ${w.done} de ${w.total} no ar` },
-        h('span', { class: 'forge-wave-dot', 'aria-hidden': 'true' }),
-        h('span', { class: 'forge-wave-id', text: w.id }),
-        h('span', { class: 'forge-wave-reqs' }, ...w.reqs.map((r) => badge(r.id.replace('REQ-' + product.name.toUpperCase() + '-', '#'), forgeStatusCls(r.status)))),
-        h('span', { class: 'forge-wave-n', 'aria-hidden': 'true', text: `${w.done}/${w.total}` }));
-      list.append(row);
+
+  // Renderiza o progresso PONDERADO (honesto): merged != 100%; só no ar (deployed/done OU app vivo) = 100%.
+  // SEMPRE mostra o breakdown por estágio → há o que acompanhar mesmo sem build ativo.
+  const renderProg = (live) => {
+    const prog = weightedProgress(reqIds, DATA.implStatus, { live });
+    progBox.replaceChildren();
+    progBox.append(h('div', { class: 'forge-prog-head' },
+      h('h3', { text: 'Progresso' }),
+      live ? badge('app no ar ✓', 'b-ok')
+        : (prog.delivered === prog.total && prog.total ? badge('deploy/verificação pendente', 'b-high') : null)));
+    progBox.append(progressBar(prog.pct));
+    const chips = h('div', { class: 'forge-breakdown', 'aria-label': 'Distribuição dos requisitos por estágio' });
+    let any = false;
+    for (const st of ['done', 'deployed', 'merged', 'pr_open', 'in_progress', 'blocked', 'not_started']) {
+      const n = prog.by[st] || 0; if (!n) continue; any = true;
+      chips.append(h('span', { class: 'forge-bd ' + forgeStatusCls(st), text: `${n} ${FORGE_STAGE_LABELS[st] || st}` }));
     }
-    left.append(h('h3', { text: 'Waves' }), list);
-    left.append(h('h3', { text: 'Mapa do build' }), forgeDagLegend(), buildPlanGraph(buildPlan, false).el);
-  }
+    if (any) progBox.append(chips);
+    progBox.append(h('p', { class: 'muted small', text: `${prog.delivered}/${prog.total} requisito(s) com código no main` + (prog.live ? ` · ${prog.live} no ar` : (prog.delivered ? ' · deploy/verificação pendente' : '')) }));
+    // Waves COERENTES com o progresso (work_orders são tarefas finas, não reqs rastreados → preenche por %).
+    wavesBox.replaceChildren();
+    if (buildPlan) {
+      const waves = wavesFromProgress(buildPlan, prog.pct);
+      const list = h('div', { class: 'forge-waves', role: 'list', 'aria-label': `Ondas de construção (${waves.length})` });
+      for (const w of waves) {
+        list.append(h('div', { class: 'forge-wave s-' + w.state, role: 'listitem', 'aria-label': `Wave ${w.id}: ${FORGE_WAVE_STATE[w.state] || w.state}` },
+          h('span', { class: 'forge-wave-dot', 'aria-hidden': 'true' }),
+          h('span', { class: 'forge-wave-id', text: w.id }),
+          h('span', { class: 'forge-wave-reqs' }, ...w.tasks.map((tk) => h('span', { class: 'forge-wave-task', text: truncateLabel(tk, 46) }))),
+          h('span', { class: 'forge-wave-n', text: FORGE_WAVE_STATE[w.state] || w.state })));
+      }
+      wavesBox.append(h('h3', { text: 'Waves' }), list);
+    }
+  };
+  renderProg(false);
+  left.append(progBox, buildStatusEl, wavesBox);
+  if (buildPlan) left.append(h('h3', { text: 'Mapa do build' }), forgeDagLegend(), buildPlanGraph(buildPlan, false).el);
+  forgePollBuildStatus(product.name, buildStatusEl); // indicador VIVO: req-implement rodando + PRs/CI
+  // sonda de liveness same-origin (HEAD /<base_path>/) — 100% só quando o app RESPONDE no ar.
+  (async () => {
+    try {
+      const url = (product.base_path || ('/' + product.name)).replace(/\/$/, '') + '/';
+      const r = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+      if (r.ok && state.view === 'forge' && state.forge.product === product.name && state.forge.step === 'build') renderProg(true);
+    } catch { /* app fora -> mantém "deploy pendente" */ }
+  })();
   panel.append(left);
 
   // direita: tabela requisito → status → PR → deploy

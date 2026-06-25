@@ -30,6 +30,48 @@ export function progressOf(reqIds, implStatus) {
   return { by, done, total, pct: total ? Math.round((done / total) * 100) : 0 };
 }
 
+// Pesos por estágio para um progresso GRANULAR e HONESTO. "merged" (código no main) NÃO é 100% —
+// falta deploy/verificação; só deployed/done (ou merged com o app COMPROVADAMENTE no ar) chega a 1.
+// Assim a barra reflete o quanto falta e SEMPRE tem o que acompanhar (não pula de 0 a 100).
+export const STAGE_WEIGHT = { not_started: 0, blocked: 0, in_progress: 0.4, pr_open: 0.7, merged: 0.9, deployed: 1, done: 1 };
+
+/** Progresso PONDERADO por estágio (+ breakdown por status). opts.live=true (app no ar comprovado)
+ *  faz "merged" contar como 1 (entregue e no ar). Puro. */
+export function weightedProgress(reqIds, implStatus, opts = {}) {
+  const ids = Array.isArray(reqIds) ? reqIds : [];
+  const live = !!opts.live;
+  const by = {};
+  for (const s of STATUS_ORDER) by[s] = 0;
+  let score = 0;
+  for (const id of ids) {
+    const st = reqStatus(implStatus, id);
+    by[st] = (by[st] || 0) + 1;
+    let w = STAGE_WEIGHT[st] != null ? STAGE_WEIGHT[st] : 0;
+    if (live && st === 'merged') w = 1;
+    score += w;
+  }
+  const total = ids.length;
+  const delivered = (by.merged || 0) + (by.deployed || 0) + (by.done || 0); // código no main
+  const liveCount = (by.deployed || 0) + (by.done || 0) + (live ? (by.merged || 0) : 0); // no ar de fato
+  return { by, total, delivered, live: liveCount, pct: total ? Math.round((score / total) * 100) : 0 };
+}
+
+/** Estado das waves COERENTE com o progresso geral. Os work_orders do build-plan são TAREFAS finas
+ *  (não requisitos rastreados) — não dá p/ contar "done" por tarefa sem mentir. Então derivamos o
+ *  preenchimento das waves do progresso ponderado (pct 0..100), cumulativo e em ordem. Puro. */
+export function wavesFromProgress(buildPlan, pct) {
+  const waves = (buildPlan && buildPlan.waves) || [];
+  const n = waves.length;
+  const filled = Math.max(0, Math.min(1, (Number(pct) || 0) / 100)) * n;
+  return waves.map((w, i) => {
+    let state;
+    if (i + 1 <= filled) state = 'done';      // wave inteiramente coberta pelo progresso
+    else if (i < filled) state = 'active';     // o progresso cai dentro desta wave
+    else state = 'todo';                       // ainda não alcançada
+    return { id: w.id || ('w' + i), gate: w.gate || 'auto', tasks: (w.work_orders || []).map(String), state, index: i, total: n };
+  });
+}
+
 /** Lista de produtos com progresso vivo, ordenada por display_name. */
 export function productSummaries(products, implStatus) {
   const list = (products && products.products) || [];
