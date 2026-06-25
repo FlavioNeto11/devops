@@ -1,0 +1,25 @@
+{
+  "name": "contaviva-360-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ContaViva 360 — gerado pela Forge (gymops-style: Fastify + Redis/BullMQ + RBAC).",
+  "scripts": {
+    "start": "node src/server.js",
+    "worker": "node src/worker.js",
+    "test": "node --test \"test/**/*.test.mjs\""
+  },
+  "dependencies": {
+    "fastify": "^4.28.1",
+    "pg": "^8.11.5",
+    "prom-client": "^15.1.2",
+    "@flavioneto11/ai-kit": "file:vendor/flavioneto11-ai-kit-0.1.0.tgz",
+    "@flavioneto11/ai-core": "file:vendor/flavioneto11-ai-core-0.6.3.tgz",
+    "@flavioneto11/oidc-kit": "file:vendor/flavioneto11-oidc-kit-0.1.0.tgz",
+    "@flavioneto11/control-ai-kit": "file:vendor/flavioneto11-control-ai-kit-0.1.0.tgz",
+    "@flavioneto11/file-ingest-kit": "file:vendor/flavioneto11-file-ingest-kit-0.1.0.tgz",
+    "@flavioneto11/ai-ingest-middleware": "file:vendor/flavioneto11-ai-ingest-middleware-0.1.0.tgz",
+    "bullmq": "^5.12.0",
+    "ioredis": "^5.4.1"
+  }
+}

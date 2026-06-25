@@ -6,8 +6,8 @@
     "by_status": {
       "deployed": 282,
       "done": 52,
-      "not_started": 9,
-      "merged": 9
+      "merged": 10,
+      "not_started": 8
     },
     "refinements": {
       "total": 63,
@@ -645,7 +645,7 @@
       "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONTAVIVA360-0001": {
-      "status": "not_started",
+      "status": "merged",
       "req_revision": 1
     },
     "REQ-CONTAVIVA360-0002": {
