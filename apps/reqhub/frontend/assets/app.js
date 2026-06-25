@@ -2608,12 +2608,12 @@ function forgeBuild(panel, product, buildPlan) {
 
   // Renderiza o progresso PONDERADO (honesto): merged != 100%; só no ar (deployed/done OU app vivo) = 100%.
   // SEMPRE mostra o breakdown por estágio → há o que acompanhar mesmo sem build ativo.
-  const renderProg = (live) => {
-    const prog = weightedProgress(reqIds, DATA.implStatus, { live });
+  const renderProg = () => {
+    const prog = weightedProgress(reqIds, DATA.implStatus);
     progBox.replaceChildren();
     progBox.append(h('div', { class: 'forge-prog-head' },
       h('h3', { text: 'Progresso' }),
-      live ? badge('app no ar ✓', 'b-ok')
+      prog.pct === 100 ? badge('no ar ✓', 'b-ok')
         : (prog.delivered === prog.total && prog.total ? badge('deploy/verificação pendente', 'b-high') : null)));
     progBox.append(progressBar(prog.pct));
     const chips = h('div', { class: 'forge-breakdown', 'aria-label': 'Distribuição dos requisitos por estágio' });
@@ -2639,18 +2639,18 @@ function forgeBuild(panel, product, buildPlan) {
       wavesBox.append(h('h3', { text: 'Waves' }), list);
     }
   };
-  renderProg(false);
-  left.append(progBox, buildStatusEl, wavesBox);
+  renderProg();
+  // Pipeline da esteira AO VIVO (persistente): a MESMA visão da tela "Construindo", agora sempre
+  // acessível ao reabrir o produto — fases ordenadas (requisitos→arquitetura→construção→publicado).
+  const pipeBox = h('div', { class: 'fw-pipeline' });
+  const pipeSteps = h('ol', { class: 'fw-launch-steps', 'aria-live': 'polite' });
+  const pipeNow = h('div', { class: 'fw-pipe-now' });
+  const pipeUpdated = h('span', { class: 'fw-updated muted small', text: 'conectando…' });
+  pipeBox.append(h('div', { class: 'forge-prog-head' }, h('h3', { text: 'Esteira (ao vivo)' }), pipeUpdated), pipeSteps, pipeNow);
+  left.append(pipeBox, progBox, buildStatusEl, wavesBox);
   if (buildPlan) left.append(h('h3', { text: 'Mapa do build' }), forgeDagLegend(), buildPlanGraph(buildPlan, false).el);
   forgePollBuildStatus(product.name, buildStatusEl); // indicador VIVO: req-implement rodando + PRs/CI
-  // sonda de liveness same-origin (HEAD /<base_path>/) — 100% só quando o app RESPONDE no ar.
-  (async () => {
-    try {
-      const url = (product.base_path || ('/' + product.name)).replace(/\/$/, '') + '/';
-      const r = await fetch(url, { method: 'HEAD', cache: 'no-store' });
-      if (r.ok && state.view === 'forge' && state.forge.product === product.name && state.forge.step === 'build') renderProg(true);
-    } catch { /* app fora -> mantém "deploy pendente" */ }
-  })();
+  forgePollPipeline(product.name, { steps: pipeSteps, now: pipeNow, updated: pipeUpdated }); // fases ordenadas ao vivo
   panel.append(left);
 
   // direita: tabela requisito → status → PR → deploy
@@ -2709,6 +2709,45 @@ function forgePollBuildStatus(name, el) {
     if (!(state.view === 'forge' && state.forge.product === name && state.forge.step === 'build')) { fwStopBuildPoll(); return; }
     renderBuildStatus(el, data);
     _forgeBuildTimer = setTimeout(tick, 8000);
+  };
+  tick();
+}
+
+// ---- Pipeline da esteira AO VIVO (compartilhado pela tela "Construindo" e pela aba Build) ----
+const FW_PHASE_ICON = { done: '✓', active: '●', error: '✕', pending: '○' };
+function forgePhaseNodes(phases) {
+  return phases.map((s) => h('li', { class: 'fw-ls fw-ls-' + s.status },
+    h('span', { class: 'fw-ls-ic' + (s.status === 'active' ? ' fw-spin' : ''), 'aria-hidden': 'true', text: FW_PHASE_ICON[s.status] || '○' }),
+    h('span', { class: 'fw-ls-tx' },
+      h('strong', { text: s.label }),
+      s.detail ? h('span', { class: 'fw-ls-d', text: ' — ' + s.detail }) : null,
+      s.url ? h('a', { class: 'fw-ls-link', href: s.url, target: '_blank', rel: 'noopener', 'aria-label': 'abrir no GitHub', text: ' ↗' }) : null)));
+}
+function forgeNowNode(phases) {
+  const active = phases.find((p) => p.status === 'active') || phases.find((p) => p.status !== 'done');
+  return h('p', { class: 'fw-now' },
+    h('span', { class: 'fw-now-dot fw-spin', 'aria-hidden': 'true' }),
+    h('span', {}, 'Agora: ', h('strong', { text: active ? active.label : 'tudo concluído' }), active && active.detail ? ' — ' + active.detail : ''));
+}
+
+// Poller do pipeline na aba Build (persistente). launch-status (PRs) + DATA viva (impl-status,
+// atualizada pelo poll global de /v1/forge/state) → launchPhases ordenado. Mirror de forgePollBuildStatus.
+let _forgePipeTimer = null;
+function fwStopPipePoll() { if (_forgePipeTimer) { clearTimeout(_forgePipeTimer); _forgePipeTimer = null; } }
+function forgePollPipeline(name, els) {
+  fwStopPipePoll();
+  const alive = () => state.view === 'forge' && state.forge.product === name && state.forge.step === 'build';
+  const tick = async () => {
+    if (!alive()) { fwStopPipePoll(); return; }
+    let stages = [];
+    try { const r = await AI.get('/v1/forge/launch-status?product=' + encodeURIComponent(name)); if (r.ok && r.data && Array.isArray(r.data.stages)) stages = r.data.stages; } catch { /* fail-soft */ }
+    if (!alive()) { fwStopPipePoll(); return; }
+    const product = findProduct(DATA.products, name) || { requirement_ids: [], phases: {} };
+    const phases = launchPhases(stages, product, DATA.implStatus, DATA.buildPlans[name] || null);
+    els.steps.replaceChildren(...forgePhaseNodes(phases));
+    els.now.replaceChildren(forgeNowNode(phases));
+    els.updated.textContent = 'atualizado às ' + new Date().toLocaleTimeString('pt-BR');
+    _forgePipeTimer = setTimeout(tick, 8000);
   };
   tick();
 }
@@ -2924,16 +2963,7 @@ function fwStartLaunchPolling(w, els) {
   fwStopPolling(w);
   const slug = w.slug;
   const appUrl = location.origin + '/' + slug + '/';
-  const ICON = { done: '✓', active: '●', error: '✕', pending: '○' };
-
-  const renderPhases = (phases) => {
-    els.steps.replaceChildren(...phases.map((s) => h('li', { class: 'fw-ls fw-ls-' + s.status },
-      h('span', { class: 'fw-ls-ic' + (s.status === 'active' ? ' fw-spin' : ''), 'aria-hidden': 'true', text: ICON[s.status] || '○' }),
-      h('span', { class: 'fw-ls-tx' },
-        h('strong', { text: s.label }),
-        s.detail ? h('span', { class: 'fw-ls-d', text: ' — ' + s.detail }) : null,
-        s.url ? h('a', { class: 'fw-ls-link', href: s.url, target: '_blank', rel: 'noopener', 'aria-label': 'abrir no GitHub', text: ' ↗' }) : null))));
-  };
+  const renderPhases = (phases) => { els.steps.replaceChildren(...forgePhaseNodes(phases)); };
 
   const renderProgress = (reqIds, implLocal, buildPlan) => {
     els.progBox.replaceChildren();
@@ -3013,11 +3043,8 @@ function fwStartLaunchPolling(w, els) {
       fwStopPolling(w);
       return;
     }
-    // ainda construindo: destaca a fase ATUAL (1ª não concluída) como "agora"
-    const active = phases.find((p) => p.status === 'active') || phases.find((p) => p.status !== 'done');
-    els.liveBox.replaceChildren(h('p', { class: 'fw-now' },
-      h('span', { class: 'fw-now-dot fw-spin', 'aria-hidden': 'true' }),
-      h('span', {}, 'Agora: ', h('strong', { text: active ? active.label : 'aguardando' }), active && active.detail ? ' — ' + active.detail : '')));
+    // ainda construindo: destaca a fase ATUAL como "agora"
+    els.liveBox.replaceChildren(forgeNowNode(phases));
     w._statusTimer = setTimeout(tick, 6000);
   };
   tick();

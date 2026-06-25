@@ -894,6 +894,9 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 .fw-now { display: flex; align-items: center; gap: 8px; margin: 0; padding: 10px 12px; font-size: 13.5px; color: var(--fg); border: 1px solid var(--line); border-radius: 10px; background: var(--accent-soft, rgba(99,102,241,.08)); }
 .fw-now-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: aiu-pulse 1.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .fw-spin, .fw-now-dot { animation: none; } }
+/* pipeline da esteira ao vivo na aba Build (persistente) */
+.fw-pipeline { margin-bottom: 18px; }
+.fw-pipe-now { margin-top: 12px; }
 /* IA: ajustar capacidades/requisitos/plano por instrução (stages 2 e 3) */
 .fw-adjust { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); }
 .fw-adjust-row { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
