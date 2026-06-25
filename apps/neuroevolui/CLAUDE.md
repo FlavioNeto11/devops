@@ -1,3 +1,11 @@
+---
+title: "NeuroEvolui — Manual para Claude Code"
+status: canonical
+applies_to: [neuroevolui]
+updated: 2026-06-25
+language: pt-BR
+---
+
 # NeuroEvolui — gerado pela Forge (gymops-style)
 
 Fastify + Postgres + Redis/BullMQ + RBAC multi-tenant. Blocos: observabilidade, camadas-rigidas, migrations-versionadas, oidc-sessao, rbac-multitenant, redis-bullmq, idempotencia, pagamentos-gateway, ia-grafo, rag-pgvector, control-ai-por-app, structured-outputs, notificacoes-multicanal, design-system.
