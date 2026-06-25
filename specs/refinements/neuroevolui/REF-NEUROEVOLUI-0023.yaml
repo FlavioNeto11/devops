@@ -1,0 +1,42 @@
+id: "REF-NEUROEVOLUI-0023"
+slug: "ref-neuroevolui-0023"
+title: "Editar registro"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0003"
+    relation: "implements"
+surface:
+  route: "/records/:id/edit"
+  name: "Editar registro"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+    - name: "loading"
+    - name: "empty"
+    - name: "error"
+  data:
+    - field: "registro.id"
+      source: "route param :id"
+      editable: false
+    - field: "registro.form"
+      source: "api:/api/records/:id"
+      editable: true
+  interactions:
+    - trigger: "abrir a tela"
+      action: "carrega o registro por :id"
+      result: "preenche o formulário com os valores atuais"
+    - trigger: "salvar alterações"
+      action: "valida e envia PUT /api/records/:id"
+      result: "atualiza o registro e retorna ao detalhe"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

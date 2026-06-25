@@ -1,0 +1,42 @@
+id: "REF-NEUROEVOLUI-0009"
+slug: "ref-neuroevolui-0009"
+title: "Editar profissional"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0002"
+    relation: "implements"
+surface:
+  route: "/professionals/:id/edit"
+  name: "Editar profissional"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+    - name: "loading"
+    - name: "empty"
+    - name: "error"
+  data:
+    - field: "profissional.id"
+      source: "route param :id"
+      editable: false
+    - field: "profissional.form"
+      source: "api:/api/professionals/:id"
+      editable: true
+  interactions:
+    - trigger: "abrir a tela"
+      action: "carrega o profissional por :id"
+      result: "preenche o formulário com os valores atuais"
+    - trigger: "salvar alterações"
+      action: "valida e envia PUT /api/professionals/:id"
+      result: "atualiza o profissional e retorna ao detalhe"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

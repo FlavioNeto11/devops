@@ -1,0 +1,43 @@
+id: "REF-NEUROEVOLUI-0026"
+slug: "ref-neuroevolui-0026"
+title: "Receita"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0005"
+    relation: "implements"
+surface:
+  route: "/revenue"
+  name: "Receita"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+    - name: "loading"
+    - name: "empty"
+    - name: "error"
+  data:
+    - field: "revenue.byPeriod"
+      source: "api:/api/revenue"
+      format: "série temporal (moeda BRL)"
+      editable: false
+    - field: "revenue.byProfessional"
+      source: "api:/api/revenue/by-professional"
+      editable: false
+  interactions:
+    - trigger: "abrir a tela"
+      action: "carrega a receita por período e por profissional"
+      result: "renderiza gráficos e totais de receita"
+    - trigger: "alterar o período"
+      action: "recarrega a série temporal"
+      result: "atualiza os gráficos exibidos"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

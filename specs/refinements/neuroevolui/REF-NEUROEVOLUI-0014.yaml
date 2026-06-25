@@ -1,0 +1,39 @@
+id: "REF-NEUROEVOLUI-0014"
+slug: "ref-neuroevolui-0014"
+title: "Nova evolução"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0004"
+    relation: "implements"
+surface:
+  route: "/evolution-notes/new"
+  name: "Nova evolução"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+    - name: "loading"
+    - name: "empty"
+    - name: "error"
+  data:
+    - field: "evolução.form"
+      source: "estado local (formulário)"
+      editable: true
+  interactions:
+    - trigger: "preencher e enviar o formulário"
+      action: "valida e envia POST /api/evolution-notes"
+      result: "cria o evolução e navega para o detalhe"
+    - trigger: "clicar em cancelar"
+      action: "descarta o formulário"
+      result: "retorna à lista de evoluçãos"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

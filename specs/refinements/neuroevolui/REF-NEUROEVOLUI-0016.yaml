@@ -1,0 +1,42 @@
+id: "REF-NEUROEVOLUI-0016"
+slug: "ref-neuroevolui-0016"
+title: "Editar evolução"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0004"
+    relation: "implements"
+surface:
+  route: "/evolution-notes/:id/edit"
+  name: "Editar evolução"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+    - name: "loading"
+    - name: "empty"
+    - name: "error"
+  data:
+    - field: "evolução.id"
+      source: "route param :id"
+      editable: false
+    - field: "evolução.form"
+      source: "api:/api/evolution-notes/:id"
+      editable: true
+  interactions:
+    - trigger: "abrir a tela"
+      action: "carrega o evolução por :id"
+      result: "preenche o formulário com os valores atuais"
+    - trigger: "salvar alterações"
+      action: "valida e envia PUT /api/evolution-notes/:id"
+      result: "atualiza o evolução e retorna ao detalhe"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

@@ -34,6 +34,244 @@
       "product": "gymops"
     },
     {
+      "id": "REF-NEUROEVOLUI-0001",
+      "kind": "refinement",
+      "title": "Painel",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0002",
+      "kind": "refinement",
+      "title": "Pacientes",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0003",
+      "kind": "refinement",
+      "title": "Novo paciente",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0004",
+      "kind": "refinement",
+      "title": "Detalhe do paciente",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0005",
+      "kind": "refinement",
+      "title": "Editar paciente",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0006",
+      "kind": "refinement",
+      "title": "Profissionais",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0007",
+      "kind": "refinement",
+      "title": "Convidar profissional",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0008",
+      "kind": "refinement",
+      "title": "Detalhe do profissional",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0009",
+      "kind": "refinement",
+      "title": "Editar profissional",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0010",
+      "kind": "refinement",
+      "title": "Agendamentos",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0011",
+      "kind": "refinement",
+      "title": "Novo agendamento",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0012",
+      "kind": "refinement",
+      "title": "Detalhe do agendamento",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0013",
+      "kind": "refinement",
+      "title": "Evoluções",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0014",
+      "kind": "refinement",
+      "title": "Nova evolução",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0015",
+      "kind": "refinement",
+      "title": "Detalhe da evolução",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0016",
+      "kind": "refinement",
+      "title": "Editar evolução",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0017",
+      "kind": "refinement",
+      "title": "Relatórios",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0018",
+      "kind": "refinement",
+      "title": "Gerar relatório",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0019",
+      "kind": "refinement",
+      "title": "Detalhe do relatório",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0020",
+      "kind": "refinement",
+      "title": "Registros",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0021",
+      "kind": "refinement",
+      "title": "Novo registro",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0022",
+      "kind": "refinement",
+      "title": "Detalhe do registro",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0023",
+      "kind": "refinement",
+      "title": "Editar registro",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0024",
+      "kind": "refinement",
+      "title": "Transações",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0025",
+      "kind": "refinement",
+      "title": "Detalhe da transação",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0026",
+      "kind": "refinement",
+      "title": "Receita",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0027",
+      "kind": "refinement",
+      "title": "Assistente",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0028",
+      "kind": "refinement",
+      "title": "Base de conhecimento",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0029",
+      "kind": "refinement",
+      "title": "Adicionar fonte",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0030",
+      "kind": "refinement",
+      "title": "Notificações",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0031",
+      "kind": "refinement",
+      "title": "Filas e jobs",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0032",
+      "kind": "refinement",
+      "title": "Auditoria",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0033",
+      "kind": "refinement",
+      "title": "Saúde do sistema",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0034",
+      "kind": "refinement",
+      "title": "Documentação da API",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
       "id": "REF-PORTAL-0001",
       "kind": "refinement",
       "title": "Landing pública NovaIT (página inicial)",
@@ -3607,6 +3845,210 @@
       "from": "REF-GYMOPS-0001",
       "to": "REQ-GYMOPS-0010",
       "type": "refines",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0001",
+      "to": "REQ-NEUROEVOLUI-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0002",
+      "to": "REQ-NEUROEVOLUI-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0003",
+      "to": "REQ-NEUROEVOLUI-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0004",
+      "to": "REQ-NEUROEVOLUI-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0005",
+      "to": "REQ-NEUROEVOLUI-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0006",
+      "to": "REQ-NEUROEVOLUI-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0007",
+      "to": "REQ-NEUROEVOLUI-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0008",
+      "to": "REQ-NEUROEVOLUI-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0009",
+      "to": "REQ-NEUROEVOLUI-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0010",
+      "to": "REQ-NEUROEVOLUI-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0011",
+      "to": "REQ-NEUROEVOLUI-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0012",
+      "to": "REQ-NEUROEVOLUI-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0013",
+      "to": "REQ-NEUROEVOLUI-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0014",
+      "to": "REQ-NEUROEVOLUI-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0015",
+      "to": "REQ-NEUROEVOLUI-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0016",
+      "to": "REQ-NEUROEVOLUI-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0017",
+      "to": "REQ-NEUROEVOLUI-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0018",
+      "to": "REQ-NEUROEVOLUI-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0019",
+      "to": "REQ-NEUROEVOLUI-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0020",
+      "to": "REQ-NEUROEVOLUI-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0021",
+      "to": "REQ-NEUROEVOLUI-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0022",
+      "to": "REQ-NEUROEVOLUI-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0023",
+      "to": "REQ-NEUROEVOLUI-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0024",
+      "to": "REQ-NEUROEVOLUI-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0025",
+      "to": "REQ-NEUROEVOLUI-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0026",
+      "to": "REQ-NEUROEVOLUI-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0027",
+      "to": "REQ-NEUROEVOLUI-0006",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0028",
+      "to": "REQ-NEUROEVOLUI-0006",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0029",
+      "to": "REQ-NEUROEVOLUI-0006",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0030",
+      "to": "REQ-NEUROEVOLUI-0007",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0031",
+      "to": "REQ-NEUROEVOLUI-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0032",
+      "to": "REQ-NEUROEVOLUI-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0033",
+      "to": "REQ-NEUROEVOLUI-0001",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0034",
+      "to": "REQ-NEUROEVOLUI-0008",
+      "type": "implements",
       "refinement": true
     },
     {

@@ -1,0 +1,42 @@
+id: "REF-NEUROEVOLUI-0012"
+slug: "ref-neuroevolui-0012"
+title: "Detalhe do agendamento"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0005"
+    relation: "implements"
+surface:
+  route: "/consultations/:id"
+  name: "Detalhe do agendamento"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+    - name: "loading"
+    - name: "empty"
+    - name: "error"
+  data:
+    - field: "agendamento.id"
+      source: "route param :id"
+      editable: false
+    - field: "agendamento.fields"
+      source: "api:/api/consultations/:id"
+      editable: false
+  interactions:
+    - trigger: "abrir a tela"
+      action: "carrega o agendamento por :id"
+      result: "renderiza os campos do registro"
+    - trigger: "clicar em Editar"
+      action: "navega para /consultations/:id/edit"
+      result: "abre o formulário de edição"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

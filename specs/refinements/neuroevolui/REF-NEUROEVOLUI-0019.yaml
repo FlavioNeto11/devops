@@ -1,0 +1,42 @@
+id: "REF-NEUROEVOLUI-0019"
+slug: "ref-neuroevolui-0019"
+title: "Detalhe do relatório"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0004"
+    relation: "implements"
+surface:
+  route: "/reports/:id"
+  name: "Detalhe do relatório"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+    - name: "loading"
+    - name: "empty"
+    - name: "error"
+  data:
+    - field: "relatório.id"
+      source: "route param :id"
+      editable: false
+    - field: "relatório.fields"
+      source: "api:/api/patient-reports/:id"
+      editable: false
+  interactions:
+    - trigger: "abrir a tela"
+      action: "carrega o relatório por :id"
+      result: "renderiza os campos do registro"
+    - trigger: "clicar em Editar"
+      action: "navega para /reports/:id/edit"
+      result: "abre o formulário de edição"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

@@ -131,6 +131,42 @@ const MIGRATIONS = [
     created_at TIMESTAMPTZ DEFAULT now(),
     UNIQUE(endpoint)
   )`,
+  // REQ-NEUROEVOLUI-0002/0004: cadastro de profissionais (equipe da clínica) — entidade central
+  `CREATE TABLE IF NOT EXISTS professionals (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    full_name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    specialty TEXT,
+    council_number TEXT,
+    role TEXT NOT NULL DEFAULT 'professional',
+    status TEXT NOT NULL DEFAULT 'active',
+    phone TEXT,
+    deleted_at TIMESTAMPTZ,
+    created_by TEXT NOT NULL DEFAULT 'system',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+  )`,
+  // REQ-NEUROEVOLUI-0006: título legível para a base de conhecimento (RAG)
+  `ALTER TABLE knowledge_sources ADD COLUMN IF NOT EXISTS title TEXT`,
+  // REQ-NEUROEVOLUI-0004/0002: prontuário de pacientes — entidade central do domínio
+  `CREATE TABLE IF NOT EXISTS patients (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    full_name TEXT NOT NULL,
+    birth_date DATE,
+    document TEXT,
+    email TEXT,
+    phone TEXT,
+    guardian_name TEXT,
+    assigned_professional_id TEXT,
+    status TEXT NOT NULL DEFAULT 'active',
+    notes TEXT,
+    deleted_at TIMESTAMPTZ,
+    created_by TEXT NOT NULL DEFAULT 'system',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+  )`,
 ];
 export async function migrate() {
   const c = await pool.connect();
@@ -142,4 +178,27 @@ export async function migrate() {
       console.log('[migrate] ' + v); }
   } finally { await c.query('SELECT pg_advisory_unlock(66021)').catch(() => {}); c.release(); }
 }
-export async function seed() { const { rows } = await pool.query('SELECT count(*)::int n FROM records'); if (rows[0].n === 0) await pool.query(`INSERT INTO records(title) VALUES ('Exemplo')`); }
+export async function seed() {
+  const { rows } = await pool.query('SELECT count(*)::int n FROM records');
+  if (rows[0].n === 0) await pool.query(`INSERT INTO records(title) VALUES ('Exemplo')`);
+
+  const { rows: prof } = await pool.query('SELECT count(*)::int n FROM professionals');
+  if (prof[0].n === 0) {
+    await pool.query(
+      `INSERT INTO professionals(full_name, email, specialty, council_number, role, status, phone) VALUES
+        ('Dra. Helena Martins', 'helena@neuroevolui.local', 'Neuropsicologia', 'CRP 06/12345', 'professional', 'active', '+55 11 90000-0001'),
+        ('Dr. Rafael Souza', 'rafael@neuroevolui.local', 'Fonoaudiologia', 'CRFa 2-9876', 'clinic_manager', 'active', '+55 11 90000-0002'),
+        ('Ana Lima', 'ana@neuroevolui.local', 'Terapia Ocupacional', 'CREFITO 3/54321', 'professional', 'invited', '+55 11 90000-0003')`
+    );
+  }
+
+  const { rows: pat } = await pool.query('SELECT count(*)::int n FROM patients');
+  if (pat[0].n === 0) {
+    await pool.query(
+      `INSERT INTO patients(full_name, birth_date, document, email, phone, guardian_name, assigned_professional_id, status, notes) VALUES
+        ('Lucas Andrade', '2016-03-12', '111.222.333-44', 'familia.lucas@example.com', '+55 11 98888-0001', 'Mariana Andrade', '1', 'active', 'Acompanhamento de TEA — sessões semanais.'),
+        ('Beatriz Nunes', '2014-07-25', '222.333.444-55', 'familia.bia@example.com', '+55 11 98888-0002', 'Carlos Nunes', '1', 'active', 'Avaliação de TDAH em andamento.'),
+        ('Pedro Carvalho', '2018-11-02', '333.444.555-66', 'familia.pedro@example.com', '+55 11 98888-0003', 'Juliana Carvalho', '3', 'on_hold', 'Aguardando retorno do responsável.')`
+    );
+  }
+}

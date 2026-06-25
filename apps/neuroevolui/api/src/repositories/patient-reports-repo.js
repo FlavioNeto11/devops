@@ -47,3 +47,43 @@ export async function markPatientReportFailed(reportId, errorMessage) {
     [Number(reportId), errorMessage]
   );
 }
+
+// Coleção paginada (todos os pacientes do tenant) para a rota REST genérica
+// GET /v1/patient-reports → { data, total }. Filtro opcional por patient_id.
+const PR_SORTABLE = new Set(['id', 'status', 'created_at', 'completed_at', 'patient_id']);
+// Status canônicos do relatório (o domínio/UI chama 'failed' de 'erro').
+export const PR_STATUSES = ['queued', 'processing', 'completed', 'failed'];
+export async function listPatientReportsPaged(tenantId, { page = 1, pageSize = 50, sort = 'id', dir = 'desc', patientId, status } = {}) {
+  const col = PR_SORTABLE.has(sort) ? sort : 'id';
+  const order = String(dir).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+  const limit = Math.min(Math.max(Number(pageSize) || 50, 1), 200);
+  const offset = (Math.max(Number(page) || 1, 1) - 1) * limit;
+  // base (tenant [+ paciente]) — usada nas CONTAGENS agregadas: os KPIs refletem todo o tenant,
+  // independentes do filtro de status e da página atual.
+  const baseCond = ['tenant_id=$1'];
+  const baseParams = [tenantId];
+  let bi = 2;
+  if (patientId) { baseCond.push(`patient_id=$${bi++}`); baseParams.push(String(patientId)); }
+  // condição da LISTAGEM = base + filtro de status server-side (só valores canônicos).
+  const cond = [...baseCond];
+  const params = [...baseParams];
+  let i = bi;
+  const st = PR_STATUSES.includes(status) ? status : undefined;
+  if (st) { cond.push(`status=$${i++}`); params.push(st); }
+  const totalRes = await pool.query(`SELECT count(*)::int n FROM patient_reports WHERE ${cond.join(' AND ')}`, params);
+  const r = await pool.query(
+    `SELECT id, tenant_id, patient_id, status, filters, error_message, created_by, created_at, completed_at
+     FROM patient_reports WHERE ${cond.join(' AND ')} ORDER BY ${col} ${order} LIMIT $${i} OFFSET $${i + 1}`,
+    [...params, limit, offset]
+  );
+  // summary por status sobre a BASE (não sobre o filtro/página) → KPIs do tenant inteiro.
+  const sumRes = await pool.query(`SELECT status, count(*)::int n FROM patient_reports WHERE ${baseCond.join(' AND ')} GROUP BY status`, baseParams);
+  const summary = { queued: 0, processing: 0, completed: 0, failed: 0, total: 0 };
+  for (const row of sumRes.rows) { if (summary[row.status] !== undefined) summary[row.status] = row.n; summary.total += row.n; }
+  return { data: r.rows, total: totalRes.rows[0].n, summary };
+}
+
+export async function deletePatientReport(tenantId, id) {
+  const r = await pool.query('DELETE FROM patient_reports WHERE tenant_id=$1 AND id=$2 RETURNING id', [tenantId, Number(id)]);
+  return r.rowCount > 0;
+}

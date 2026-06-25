@@ -1,0 +1,51 @@
+id: "REF-NEUROEVOLUI-0032"
+slug: "ref-neuroevolui-0032"
+title: "Auditoria"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0005"
+    relation: "implements"
+surface:
+  route: "/audit"
+  name: "Auditoria"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+    - name: "loading"
+    - name: "empty"
+    - name: "error"
+  data:
+    - field: "audit-logs.items"
+      source: "api:/api/audit-logs"
+      editable: false
+    - field: "pagination"
+      source: "api:/api/audit-logs?page=&size="
+      editable: false
+    - field: "query.search"
+      source: "estado local (filtro de busca)"
+      editable: true
+  interactions:
+    - trigger: "abrir a tela"
+      action: "carrega a lista de registro de auditorias paginada"
+      result: "renderiza a tabela com os itens"
+    - trigger: "digitar na busca"
+      action: "filtra a lista pelo termo"
+      result: "atualiza os resultados exibidos"
+    - trigger: "clicar em Novo"
+      action: "navega para /audit/new"
+      result: "abre o formulário de criação de registro de auditoria"
+    - trigger: "clicar em uma linha"
+      action: "navega para o detalhe do registro de auditoria"
+      result: "abre a tela de detalhe"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

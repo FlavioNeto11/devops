@@ -1,0 +1,42 @@
+id: "REF-NEUROEVOLUI-0005"
+slug: "ref-neuroevolui-0005"
+title: "Editar paciente"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0004"
+    relation: "implements"
+surface:
+  route: "/patients/:id/edit"
+  name: "Editar paciente"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+    - name: "loading"
+    - name: "empty"
+    - name: "error"
+  data:
+    - field: "paciente.id"
+      source: "route param :id"
+      editable: false
+    - field: "paciente.form"
+      source: "api:/api/patients/:id"
+      editable: true
+  interactions:
+    - trigger: "abrir a tela"
+      action: "carrega o paciente por :id"
+      result: "preenche o formulário com os valores atuais"
+    - trigger: "salvar alterações"
+      action: "valida e envia PUT /api/patients/:id"
+      result: "atualiza o paciente e retorna ao detalhe"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

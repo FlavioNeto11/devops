@@ -1,11 +1,17 @@
 // services/evolution-notes-service.js — regra de negócio para notas de evolução (camadas-rigidas).
 import {
   createEvolutionNote, findEvolutionNote, updateEvolutionNote, softDeleteEvolutionNote,
-  listEvolutionNotes, listEvolutionNotesHistory,
+  listEvolutionNotes, listEvolutionNotesHistory, listEvolutionNotesPaged as _listEvolutionNotesPaged,
   createNoteVersion, maxNoteVersion, listNoteVersions,
   createNoteAttachment, listNoteAttachments,
 } from '../repositories/evolution-notes-repo.js';
 import { enqueue } from '../queue.js';
+
+// Lista paginada da coleção de topo (/v1/evolution-notes) — exposta pelo SERVICE para que o server.js
+// não importe o repositório direto (camadas-rigidas: route -> service -> repository).
+export function listEvolutionNotesPaged(tenantId, opts) {
+  return _listEvolutionNotesPaged(tenantId, opts);
+}
 
 export async function addEvolutionNote({ tenantId, patientId, type, noteDate, professionalId, text, structuredFields, attachments, createdBy }) {
   const note = await createEvolutionNote({ tenantId, patientId, type, noteDate, professionalId, text, structuredFields, createdBy });

@@ -1,7 +1,7 @@
 // test/rbac-unit.test.mjs — verifica hierarquia de papéis e authContext sem servidor.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { authContext, requireRole } from '../api/src/rbac.js';
+import { authContext, requireRole, canGrantRole, RANK } from '../api/src/rbac.js';
 
 const mockReply = () => {
   const r = { _code: null, _sent: false };
@@ -78,4 +78,47 @@ test('requireRole: patient pode ler (patient guard)', async () => {
   const reply = mockReply();
   await requireRole('patient')({ headers: { 'x-role': 'patient' } }, reply);
   assert.equal(reply._sent, false);
+});
+
+// ── canGrantRole: cap de CONCESSÃO de papel (anti-escalonamento) — enforce nos handlers
+//    POST/PUT /v1/professionals do server.js. Espelha a régua que a UI já aplica. ──────────
+test('RANK: hierarquia owner > clinic_manager > professional > patient', () => {
+  assert.ok(RANK.owner > RANK.clinic_manager, 'owner > clinic_manager');
+  assert.ok(RANK.clinic_manager > RANK.professional, 'clinic_manager > professional');
+  assert.ok(RANK.professional > RANK.patient, 'professional > patient');
+});
+
+test('canGrantRole: clinic_manager NÃO pode conceder owner (bloqueia escalonamento)', () => {
+  assert.equal(canGrantRole('clinic_manager', 'owner'), false);
+});
+
+test('canGrantRole: só owner concede owner', () => {
+  assert.equal(canGrantRole('owner', 'owner'), true);
+  assert.equal(canGrantRole('clinic_manager', 'owner'), false);
+  assert.equal(canGrantRole('professional', 'owner'), false);
+});
+
+test('canGrantRole: concede papel de rank MENOR OU IGUAL ao seu', () => {
+  assert.equal(canGrantRole('clinic_manager', 'clinic_manager'), true, 'peer permitido');
+  assert.equal(canGrantRole('clinic_manager', 'professional'), true);
+  assert.equal(canGrantRole('clinic_manager', 'patient'), true);
+  assert.equal(canGrantRole('owner', 'clinic_manager'), true);
+  assert.equal(canGrantRole('owner', 'professional'), true);
+});
+
+test('canGrantRole: professional não concede acima de professional', () => {
+  assert.equal(canGrantRole('professional', 'clinic_manager'), false);
+  assert.equal(canGrantRole('professional', 'professional'), true);
+  assert.equal(canGrantRole('professional', 'patient'), true);
+});
+
+test('canGrantRole: papel-alvo desconhecido/vazio => false (não concede papel inválido)', () => {
+  assert.equal(canGrantRole('owner', 'superadmin'), false);
+  assert.equal(canGrantRole('owner', ''), false);
+  assert.equal(canGrantRole('owner', undefined), false);
+});
+
+test('canGrantRole: solicitante sem papel conhecido não concede nada', () => {
+  assert.equal(canGrantRole('', 'patient'), false);
+  assert.equal(canGrantRole(undefined, 'professional'), false);
 });

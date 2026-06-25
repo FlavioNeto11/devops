@@ -17,6 +17,12 @@ servers:
 tags:
   - name: Health
     description: Saúde e status do serviço.
+  - name: Patients
+    description: Cadastro e prontuário de pacientes.
+  - name: Professionals
+    description: Equipe clínica (profissionais).
+  - name: KnowledgeSources
+    description: Fontes da base de conhecimento (RAG).
   - name: Records
     description: Registros clínicos dos pacientes.
   - name: Consultations
@@ -83,7 +89,14 @@ components:
           type: string
         status:
           type: string
-          enum: [draft, submitting, processing, done, failed]
+          # Valores REALMENTE emitidos pelo backend: 'open' (default da tabela),
+          # 'submitting' (POST /submit), 'submitted' (worker concluiu) e 'failed'
+          # (worker falhou). 'done' é mantido como sinônimo de conclusão para
+          # compatibilidade. Não use 'error'/'draft' (o código nunca os escreve).
+          enum: [open, submitting, submitted, failed, done]
+        external_ref:
+          type: string
+          nullable: true
         created_by:
           type: string
         created_at:
@@ -385,6 +398,42 @@ paths:
                 status: ok
                 db: connected
 
+  /me:
+    get:
+      summary: Identidade do usuário corrente (borda SSO)
+      description: >
+        Identidade lida dos headers da borda SSO (oauth2-proxy → X-Auth-Request-*).
+        A casca do frontend usa email/name para exibir o usuário logado. Sem header de
+        borda (dev/local), email é null e a casca apenas não mostra usuário (nunca 500).
+      tags: [Health]
+      responses:
+        '200':
+          description: Identidade resolvida (campos null fora do SSO)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  email:
+                    type: string
+                    nullable: true
+                  name:
+                    type: string
+                    nullable: true
+                  role:
+                    type: string
+                    nullable: true
+                  tenantId:
+                    type: integer
+                  user:
+                    type: string
+              example:
+                email: maria@clinica.com.br
+                name: maria.silva
+                role: professionals
+                tenantId: 1
+                user: maria@clinica.com.br
+
   /v1/health/queue:
     get:
       summary: Health check das filas BullMQ
@@ -509,6 +558,76 @@ paths:
                 status: done
                 created_by: prof-1
                 created_at: '2026-01-10T10:00:00Z'
+        '404':
+          description: Registro não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  message: não encontrado
+
+    put:
+      summary: Editar registro (título e referência externa)
+      description: >
+        Atualiza os campos editáveis do registro (title / external_ref) e grava a
+        alteração em audit_logs (edição auditável). Campos omitidos são preservados.
+      tags: [Records]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: X-Role
+          in: header
+          required: false
+          schema:
+            type: string
+            enum: [professional]
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                title:
+                  type: string
+                external_ref:
+                  type: string
+                  nullable: true
+            example:
+              title: Avaliação neurológica (revisada)
+              external_ref: PRONT-2026-0042
+      responses:
+        '200':
+          description: Registro atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Record'
+              example:
+                id: 42
+                tenant_id: clinica-abc
+                title: Avaliação neurológica (revisada)
+                status: open
+                external_ref: PRONT-2026-0042
+                created_by: prof-1
+                created_at: '2026-01-10T10:00:00Z'
+                updated_at: '2026-01-11T08:30:00Z'
+        '400':
+          description: Dados inválidos (nenhum campo editável ou título vazio)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  message: informe title e/ou external_ref
         '404':
           description: Registro não encontrado
           content:
@@ -693,6 +812,48 @@ paths:
                     professional_id: prof-001
                     scheduled_at: '2026-02-15T14:00:00Z'
                     status: scheduled
+
+  /v1/consultations/{id}:
+    get:
+      summary: Obter consulta por ID
+      description: Alimenta o card "Consulta vinculada" da tela de transação. Exige clinic_manager.
+      tags: [Consultations]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: X-Role
+          in: header
+          required: false
+          schema:
+            type: string
+            enum: [clinic_manager]
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Consulta encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consultation'
+              example:
+                id: 10
+                tenant_id: clinica-abc
+                patient_id: pac-001
+                professional_id: prof-001
+                scheduled_at: '2026-02-15T14:00:00Z'
+                status: scheduled
+        '404':
+          description: Consulta não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  message: consulta não encontrada
 
   /v1/payments/webhook:
     post:
@@ -880,6 +1041,35 @@ paths:
                 status: queued
 
   /v1/notifications:
+    get:
+      summary: Histórico de notificações enfileiradas (queue_name=notifications)
+      description: >
+        Lista REAL das notificações/lembretes enfileirados (async_jobs com queue_name=notifications).
+        Filtro opcional consultation_id alimenta o card de lembretes da consulta. Exige professional.
+      tags: [Jobs]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: X-Role
+          in: header
+          required: false
+          schema:
+            type: string
+            enum: [professional]
+        - { name: consultation_id, in: query, required: false, schema: { type: string } }
+        - { name: page, in: query, required: false, schema: { type: integer } }
+        - { name: pageSize, in: query, required: false, schema: { type: integer } }
+        - { name: sort, in: query, required: false, schema: { type: string } }
+        - { name: dir, in: query, required: false, schema: { type: string, enum: [asc, desc] } }
+      responses:
+        '200':
+          description: Lista paginada de notificações enfileiradas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { type: object } }
+                  total: { type: integer }
     post:
       summary: Enfileirar envio de notificação (async)
       tags: [Jobs]
@@ -1697,3 +1887,798 @@ paths:
             text/plain:
               schema:
                 type: string
+
+  # ── CRUD REST de domínio (entidades centrais + coleções de topo) ──────────────
+  /v1/patients:
+    get:
+      summary: Listar pacientes (paginado)
+      tags: [Patients]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/Role'
+        - { name: page, in: query, required: false, schema: { type: integer } }
+        - { name: pageSize, in: query, required: false, schema: { type: integer } }
+        - { name: sort, in: query, required: false, schema: { type: string } }
+        - { name: dir, in: query, required: false, schema: { type: string, enum: [asc, desc] } }
+      responses:
+        '200':
+          description: Lista paginada de pacientes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { type: object } }
+                  total: { type: integer }
+    post:
+      summary: Cadastrar paciente
+      tags: [Patients]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [full_name]
+              properties:
+                full_name: { type: string }
+                birth_date: { type: string }
+                document: { type: string }
+                email: { type: string }
+                phone: { type: string }
+                guardian_name: { type: string }
+                assigned_professional_id: { type: string }
+                status: { type: string, enum: [active, on_hold, discharged, archived] }
+                notes: { type: string }
+      responses:
+        '201':
+          description: Paciente criado
+          content:
+            application/json:
+              schema: { type: object }
+        '400':
+          description: Validação
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /v1/patients/{id}:
+    get:
+      summary: Obter paciente por id
+      tags: [Patients]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Paciente
+          content:
+            application/json:
+              schema: { type: object }
+        '404':
+          description: Não encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    put:
+      summary: Atualizar paciente
+      tags: [Patients]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '200':
+          description: Paciente atualizado
+          content:
+            application/json:
+              schema: { type: object }
+        '404':
+          description: Não encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    delete:
+      summary: Remover paciente (soft delete)
+      tags: [Patients]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Removido
+          content:
+            application/json:
+              schema: { type: object, properties: { deleted: { type: boolean } } }
+        '404':
+          description: Não encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /v1/professionals:
+    get:
+      summary: Listar profissionais (paginado)
+      tags: [Professionals]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - { name: page, in: query, required: false, schema: { type: integer } }
+        - { name: pageSize, in: query, required: false, schema: { type: integer } }
+        - { name: sort, in: query, required: false, schema: { type: string } }
+        - { name: dir, in: query, required: false, schema: { type: string, enum: [asc, desc] } }
+      responses:
+        '200':
+          description: Lista paginada de profissionais
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { type: object } }
+                  total: { type: integer }
+    post:
+      summary: Cadastrar profissional
+      tags: [Professionals]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [full_name, email, role]
+              properties:
+                full_name: { type: string }
+                email: { type: string }
+                specialty: { type: string }
+                council_number: { type: string }
+                role: { type: string, enum: [owner, clinic_manager, professional] }
+                status: { type: string, enum: [active, invited, suspended] }
+                phone: { type: string }
+      responses:
+        '201':
+          description: Profissional criado
+          content:
+            application/json:
+              schema: { type: object }
+        '400':
+          description: Validação
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /v1/professionals/{id}:
+    get:
+      summary: Obter profissional por id
+      tags: [Professionals]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Profissional
+          content:
+            application/json:
+              schema: { type: object }
+        '404':
+          description: Não encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    put:
+      summary: Atualizar profissional
+      tags: [Professionals]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '200':
+          description: Profissional atualizado
+          content:
+            application/json:
+              schema: { type: object }
+        '404':
+          description: Não encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    delete:
+      summary: Remover profissional (soft delete)
+      tags: [Professionals]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Removido
+          content:
+            application/json:
+              schema: { type: object, properties: { deleted: { type: boolean } } }
+        '404':
+          description: Não encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /v1/evolution-notes:
+    get:
+      summary: Listar evoluções do tenant (paginado; filtro patient_id/type)
+      tags: [EvolutionNotes]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - { name: patient_id, in: query, required: false, schema: { type: string } }
+        - { name: type, in: query, required: false, schema: { type: string } }
+        - { name: page, in: query, required: false, schema: { type: integer } }
+        - { name: pageSize, in: query, required: false, schema: { type: integer } }
+        - { name: sort, in: query, required: false, schema: { type: string } }
+        - { name: dir, in: query, required: false, schema: { type: string, enum: [asc, desc] } }
+      responses:
+        '200':
+          description: Lista paginada de evoluções
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { type: object } }
+                  total: { type: integer }
+    post:
+      summary: Criar evolução (informe patient_id no corpo)
+      tags: [EvolutionNotes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [patient_id]
+              properties:
+                patient_id: { type: string }
+                type: { type: string, enum: [session, test_result, intervention_plan, observation] }
+                note_date: { type: string }
+                professional_id: { type: string }
+                text: { type: string }
+                structured_fields: { type: object }
+      responses:
+        '201':
+          description: Evolução criada
+          content:
+            application/json:
+              schema: { type: object }
+        '400':
+          description: Validação
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /v1/evolution-notes/{id}:
+    get:
+      summary: Obter evolução por id
+      tags: [EvolutionNotes]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Evolução
+          content:
+            application/json:
+              schema: { type: object }
+        '404':
+          description: Não encontrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    put:
+      summary: Editar evolução (versiona)
+      tags: [EvolutionNotes]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '200':
+          description: Evolução editada
+          content:
+            application/json:
+              schema: { type: object }
+        '404':
+          description: Não encontrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '410':
+          description: Evolução removida
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    delete:
+      summary: Remover evolução (soft delete)
+      tags: [EvolutionNotes]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Removida
+          content:
+            application/json:
+              schema: { type: object, properties: { deleted: { type: boolean } } }
+        '404':
+          description: Não encontrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /v1/patient-reports:
+    get:
+      summary: Listar relatórios do tenant (paginado; filtros patient_id e status)
+      tags: [PatientReports]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - { name: patient_id, in: query, required: false, schema: { type: string } }
+        - { name: status, in: query, required: false, schema: { type: string, enum: [queued, processing, completed, failed] } }
+        - { name: page, in: query, required: false, schema: { type: integer } }
+        - { name: pageSize, in: query, required: false, schema: { type: integer } }
+        - { name: sort, in: query, required: false, schema: { type: string } }
+        - { name: dir, in: query, required: false, schema: { type: string, enum: [asc, desc] } }
+      responses:
+        '200':
+          description: Lista paginada de relatórios (com summary agregado por status do tenant)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { type: object } }
+                  total: { type: integer }
+                  summary:
+                    type: object
+                    properties:
+                      queued: { type: integer }
+                      processing: { type: integer }
+                      completed: { type: integer }
+                      failed: { type: integer }
+                      total: { type: integer }
+        '400':
+          description: status inválido (use queued, processing, completed ou failed)
+    post:
+      summary: Solicitar relatório (assíncrono; informe patient_id)
+      tags: [PatientReports]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [patient_id]
+              properties:
+                patient_id: { type: string }
+                date_from: { type: string }
+                date_to: { type: string }
+                type: { type: string }
+                professional_id: { type: string }
+      responses:
+        '202':
+          description: Relatório enfileirado
+          content:
+            application/json:
+              schema: { type: object }
+        '400':
+          description: Validação
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /v1/patient-reports/{id}:
+    get:
+      summary: Obter relatório por id
+      tags: [PatientReports]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Relatório
+          content:
+            application/json:
+              schema: { type: object }
+        '404':
+          description: Não encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    delete:
+      summary: Remover relatório
+      tags: [PatientReports]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Removido
+          content:
+            application/json:
+              schema: { type: object, properties: { deleted: { type: boolean } } }
+        '404':
+          description: Não encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /v1/payment-transactions:
+    get:
+      summary: Listar transações de pagamento (paginado)
+      tags: [Payments]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - { name: page, in: query, required: false, schema: { type: integer } }
+        - { name: pageSize, in: query, required: false, schema: { type: integer } }
+        - { name: sort, in: query, required: false, schema: { type: string } }
+        - { name: dir, in: query, required: false, schema: { type: string, enum: [asc, desc] } }
+      responses:
+        '200':
+          description: Lista paginada de transações
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { type: object } }
+                  total: { type: integer }
+
+  /v1/payment-transactions/{id}:
+    get:
+      summary: Obter transação por id
+      tags: [Payments]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Transação
+          content:
+            application/json:
+              schema: { type: object }
+        '404':
+          description: Não encontrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /v1/knowledge-sources:
+    get:
+      summary: Listar fontes da base de conhecimento (paginado)
+      tags: [KnowledgeSources]
+      parameters:
+        - { name: page, in: query, required: false, schema: { type: integer } }
+        - { name: pageSize, in: query, required: false, schema: { type: integer } }
+        - { name: sort, in: query, required: false, schema: { type: string } }
+        - { name: dir, in: query, required: false, schema: { type: string, enum: [asc, desc] } }
+      responses:
+        '200':
+          description: Lista paginada de fontes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { type: object } }
+                  total: { type: integer }
+    post:
+      summary: Ingerir fonte de conhecimento (conteúdo real -> chunking + embedding)
+      description: >
+        Ingere o CONTEÚDO da fonte: chunking + embedding no servidor. JSON com `content`
+        (texto colado) OU multipart/form-data com arquivos (campo `files`; o texto é extraído
+        de PDF/txt/csv/docx etc.). `content_hash` e `chunk_count` são derivados do conteúdo
+        REAL no servidor — NÃO são campos de entrada. Embedding é fail-soft (sem índice
+        vetorial os chunks são gravados sem vetor e reprocessados depois).
+      tags: [KnowledgeSources]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, content]
+              properties:
+                source_id: { type: string }
+                title: { type: string }
+                content: { type: string, description: Texto a indexar (modo texto colado) }
+                embedding_model: { type: string }
+          multipart/form-data:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                source_id: { type: string }
+                title: { type: string }
+                embedding_model: { type: string }
+                files:
+                  type: array
+                  items: { type: string, format: binary }
+                  description: Arquivos da fonte (texto extraído no servidor)
+      responses:
+        '201':
+          description: Fonte ingerida (content_hash e chunk_count computados no servidor)
+          content:
+            application/json:
+              schema: { type: object }
+        '400':
+          description: Validação (sem título ou sem conteúdo extraível)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /v1/knowledge-sources/stats:
+    get:
+      summary: Agregados REAIS de toda a coleção (métricas de cabeçalho)
+      description: Estatísticas de toda a base (não da página) — total de fontes, chunks, etc.
+      tags: [KnowledgeSources]
+      responses:
+        '200':
+          description: Estatísticas agregadas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_sources: { type: integer }
+                  total_chunks: { type: integer }
+              example:
+                total_sources: 12
+                total_chunks: 480
+
+  /v1/knowledge-sources/{id}/reindex:
+    post:
+      summary: Reindexar uma fonte (reprocessa agora; ingested_at = now())
+      description: Reprocessa a fonte; o timestamp "Indexado em" avança. Exige clinic_manager.
+      tags: [KnowledgeSources]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Fonte reindexada
+          content:
+            application/json:
+              schema: { type: object }
+        '404':
+          description: Fonte não encontrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /v1/knowledge-sources/{id}:
+    get:
+      summary: Obter fonte por source_id
+      tags: [KnowledgeSources]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Fonte
+          content:
+            application/json:
+              schema: { type: object }
+        '404':
+          description: Não encontrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    put:
+      summary: Atualizar fonte
+      tags: [KnowledgeSources]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '200':
+          description: Fonte atualizada
+          content:
+            application/json:
+              schema: { type: object }
+        '404':
+          description: Não encontrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    delete:
+      summary: Remover fonte (cascade nos chunks)
+      tags: [KnowledgeSources]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Removida
+          content:
+            application/json:
+              schema: { type: object, properties: { deleted: { type: boolean } } }
+        '404':
+          description: Não encontrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /v1/notification-preferences:
+    get:
+      summary: Listar preferências de notificação do tenant (paginado)
+      tags: [Notifications]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - { name: page, in: query, required: false, schema: { type: integer } }
+        - { name: pageSize, in: query, required: false, schema: { type: integer } }
+        - { name: sort, in: query, required: false, schema: { type: string } }
+        - { name: dir, in: query, required: false, schema: { type: string, enum: [asc, desc] } }
+      responses:
+        '200':
+          description: Lista paginada de preferências
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { type: object } }
+                  total: { type: integer }
+    post:
+      summary: Criar preferência de notificação
+      tags: [Notifications]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [channel]
+              properties:
+                user_id: { type: string }
+                channel: { type: string, enum: [email, push, whatsapp] }
+                enabled: { type: boolean }
+                contact_value: { type: string }
+      responses:
+        '201':
+          description: Preferência criada
+          content:
+            application/json:
+              schema: { type: object }
+        '400':
+          description: Validação
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /v1/notification-preferences/{id}:
+    get:
+      summary: Obter preferência por id
+      tags: [Notifications]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Preferência
+          content:
+            application/json:
+              schema: { type: object }
+        '404':
+          description: Não encontrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    put:
+      summary: Atualizar preferência
+      tags: [Notifications]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '200':
+          description: Preferência atualizada
+          content:
+            application/json:
+              schema: { type: object }
+        '404':
+          description: Não encontrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    delete:
+      summary: Remover preferência
+      tags: [Notifications]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Removida
+          content:
+            application/json:
+              schema: { type: object, properties: { deleted: { type: boolean } } }
+        '404':
+          description: Não encontrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /v1/audit-logs:
+    get:
+      summary: Listar trilha de auditoria (paginado)
+      tags: [Audit]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - { name: page, in: query, required: false, schema: { type: integer } }
+        - { name: pageSize, in: query, required: false, schema: { type: integer } }
+        - { name: sort, in: query, required: false, schema: { type: string } }
+        - { name: dir, in: query, required: false, schema: { type: string, enum: [asc, desc] } }
+      responses:
+        '200':
+          description: Lista paginada de logs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { type: object } }
+                  total: { type: integer }
+
+  /v1/audit-logs/{id}:
+    get:
+      summary: Obter log de auditoria por id
+      tags: [Audit]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Log
+          content:
+            application/json:
+              schema: { type: object }
+        '404':
+          description: Não encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /v1/async-jobs:
+    get:
+      summary: Listar jobs assíncronos (paginado)
+      tags: [Jobs]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - { name: page, in: query, required: false, schema: { type: integer } }
+        - { name: pageSize, in: query, required: false, schema: { type: integer } }
+        - { name: sort, in: query, required: false, schema: { type: string } }
+        - { name: dir, in: query, required: false, schema: { type: string, enum: [asc, desc] } }
+      responses:
+        '200':
+          description: Lista paginada de jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { type: object } }
+                  total: { type: integer }
+
+  /v1/async-jobs/{id}:
+    get:
+      summary: Obter job assíncrono por id
+      tags: [Jobs]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Job
+          content:
+            application/json:
+              schema: { type: object }
+        '404':
+          description: Não encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }

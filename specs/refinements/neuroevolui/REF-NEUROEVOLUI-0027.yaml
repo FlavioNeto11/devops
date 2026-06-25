@@ -1,0 +1,42 @@
+id: "REF-NEUROEVOLUI-0027"
+slug: "ref-neuroevolui-0027"
+title: "Assistente"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0006"
+    relation: "implements"
+surface:
+  route: "/assistant"
+  name: "Assistente"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+    - name: "loading"
+    - name: "empty"
+    - name: "error"
+  data:
+    - field: "conversation.messages"
+      source: "api:/api/assistant/messages"
+      editable: false
+    - field: "composer.input"
+      source: "estado local (composer)"
+      editable: true
+  interactions:
+    - trigger: "enviar uma mensagem"
+      action: "envia o prompt ao assistente de IA (grafo)"
+      result: "exibe a resposta do assistente em stream"
+    - trigger: "anexar um arquivo"
+      action: "ingere o arquivo no contexto da conversa"
+      result: "o assistente passa a considerar o conteúdo do arquivo"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

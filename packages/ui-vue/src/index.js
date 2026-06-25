@@ -18,6 +18,7 @@ export { default as UiConfirmDialog } from './components/UiConfirmDialog.vue';
 export { default as UiToast } from './components/UiToast.vue';
 export { default as UiAppShell } from './components/UiAppShell.vue';
 export { default as UiFileDrop } from './components/UiFileDrop.vue';
+export { default as UiInput } from './components/UiInput.vue';
 
 export { useToast } from './composables/useToast.js';
 export { useConfirm } from './composables/useConfirm.js';

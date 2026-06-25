@@ -1,0 +1,39 @@
+id: "REF-NEUROEVOLUI-0030"
+slug: "ref-neuroevolui-0030"
+title: "Notificações"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0007"
+    relation: "implements"
+surface:
+  route: "/notifications"
+  name: "Notificações"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+    - name: "loading"
+    - name: "empty"
+    - name: "error"
+  data:
+    - field: "preferences.channels"
+      source: "api:/api/notification-preferences"
+      editable: true
+  interactions:
+    - trigger: "alternar um canal"
+      action: "atualiza a preferência local"
+      result: "marca o canal como ativo/inativo"
+    - trigger: "salvar preferências"
+      action: "envia PUT /api/notification-preferences"
+      result: "persiste as preferências do usuário"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

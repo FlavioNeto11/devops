@@ -3791,6 +3791,414 @@
       "file": "refinements/gymops/REF-GYMOPS-0001.yaml"
     },
     {
+      "id": "REF-NEUROEVOLUI-0001",
+      "title": "Painel",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0005"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0001.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0002",
+      "title": "Pacientes",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/patients",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0004"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0002.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0003",
+      "title": "Novo paciente",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/patients/new",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0004"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0003.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0004",
+      "title": "Detalhe do paciente",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/patients/:id",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0004"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0004.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0005",
+      "title": "Editar paciente",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/patients/:id/edit",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0004"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0005.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0006",
+      "title": "Profissionais",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/professionals",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0002"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0006.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0007",
+      "title": "Convidar profissional",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/professionals/new",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0002"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0007.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0008",
+      "title": "Detalhe do profissional",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/professionals/:id",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0002"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0008.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0009",
+      "title": "Editar profissional",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/professionals/:id/edit",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0002"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0009.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0010",
+      "title": "Agendamentos",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/consultations",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0005"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0010.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0011",
+      "title": "Novo agendamento",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/consultations/new",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0005"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0011.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0012",
+      "title": "Detalhe do agendamento",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/consultations/:id",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0005"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0012.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0013",
+      "title": "Evoluções",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/evolution-notes",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0004"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0013.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0014",
+      "title": "Nova evolução",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/evolution-notes/new",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0004"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0014.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0015",
+      "title": "Detalhe da evolução",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/evolution-notes/:id",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0004"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0015.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0016",
+      "title": "Editar evolução",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/evolution-notes/:id/edit",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0004"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0016.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0017",
+      "title": "Relatórios",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/reports",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0004"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0017.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0018",
+      "title": "Gerar relatório",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/reports/new",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0004"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0018.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0019",
+      "title": "Detalhe do relatório",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/reports/:id",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0004"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0019.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0020",
+      "title": "Registros",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/records",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0003"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0020.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0021",
+      "title": "Novo registro",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/records/new",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0003"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0021.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0022",
+      "title": "Detalhe do registro",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/records/:id",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0003"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0022.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0023",
+      "title": "Editar registro",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/records/:id/edit",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0003"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0023.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0024",
+      "title": "Transações",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/transactions",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0005"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0024.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0025",
+      "title": "Detalhe da transação",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/transactions/:id",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0005"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0025.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0026",
+      "title": "Receita",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/revenue",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0005"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0026.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0027",
+      "title": "Assistente",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/assistant",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0006"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0027.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0028",
+      "title": "Base de conhecimento",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/knowledge-sources",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0006"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0028.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0029",
+      "title": "Adicionar fonte",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/knowledge-sources/new",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0006"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0029.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0030",
+      "title": "Notificações",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/notifications",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0007"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0030.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0031",
+      "title": "Filas e jobs",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/jobs",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0003"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0031.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0032",
+      "title": "Auditoria",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/audit",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0005"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0032.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0033",
+      "title": "Saúde do sistema",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/health",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0001"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0033.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0034",
+      "title": "Documentação da API",
+      "kind": "screen",
+      "status": "approved",
+      "product": "neuroevolui",
+      "route": "/api-docs",
+      "anchors": [
+        "REQ-NEUROEVOLUI-0008"
+      ],
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0034.yaml"
+    },
+    {
       "id": "REF-PORTAL-0001",
       "title": "Landing pública NovaIT (página inicial)",
       "kind": "screen",

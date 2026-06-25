@@ -1,0 +1,39 @@
+id: "REF-NEUROEVOLUI-0033"
+slug: "ref-neuroevolui-0033"
+title: "Saúde do sistema"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0001"
+    relation: "implements"
+surface:
+  route: "/health"
+  name: "Saúde do sistema"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+    - name: "loading"
+    - name: "empty"
+    - name: "error"
+  data:
+    - field: "health.checks"
+      source: "api:/api/health"
+      editable: false
+    - field: "health.version"
+      source: "api:/api/health"
+      editable: false
+  interactions:
+    - trigger: "abrir a tela"
+      action: "consulta os checks de saúde do sistema"
+      result: "renderiza o status de cada dependência"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

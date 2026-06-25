@@ -9,6 +9,10 @@
     :disabled="disabled"
     :readonly="readonly"
     :autocomplete="autocomplete"
+    :inputmode="inputmode || undefined"
+    :min="min !== undefined && min !== null && min !== '' ? min : undefined"
+    :max="max !== undefined && max !== null && max !== '' ? max : undefined"
+    :step="step !== undefined && step !== null && step !== '' ? step : undefined"
     :aria-invalid="error ? 'true' : undefined"
     :aria-describedby="describedBy || undefined"
     :aria-required="required ? 'true' : undefined"
@@ -26,6 +30,12 @@ defineProps({
   readonly: Boolean,
   required: Boolean,
   autocomplete: { type: String, default: undefined },
+  // Native input constraints/hints — bound to the DOM so date/number fields
+  // actually enforce limits and trigger the right mobile keyboard.
+  inputmode: { type: String, default: undefined },
+  min: { type: [String, Number], default: undefined },
+  max: { type: [String, Number], default: undefined },
+  step: { type: [String, Number], default: undefined },
   error: { type: [String, Boolean], default: false },
   describedBy: { type: String, default: undefined },
 });

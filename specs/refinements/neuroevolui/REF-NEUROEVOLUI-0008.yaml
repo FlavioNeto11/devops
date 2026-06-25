@@ -1,0 +1,42 @@
+id: "REF-NEUROEVOLUI-0008"
+slug: "ref-neuroevolui-0008"
+title: "Detalhe do profissional"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0002"
+    relation: "implements"
+surface:
+  route: "/professionals/:id"
+  name: "Detalhe do profissional"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+    - name: "loading"
+    - name: "empty"
+    - name: "error"
+  data:
+    - field: "profissional.id"
+      source: "route param :id"
+      editable: false
+    - field: "profissional.fields"
+      source: "api:/api/professionals/:id"
+      editable: false
+  interactions:
+    - trigger: "abrir a tela"
+      action: "carrega o profissional por :id"
+      result: "renderiza os campos do registro"
+    - trigger: "clicar em Editar"
+      action: "navega para /professionals/:id/edit"
+      result: "abre o formulário de edição"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

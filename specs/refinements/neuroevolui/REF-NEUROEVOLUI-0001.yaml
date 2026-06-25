@@ -1,0 +1,49 @@
+id: "REF-NEUROEVOLUI-0001"
+slug: "ref-neuroevolui-0001"
+title: "Painel"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0005"
+    relation: "implements"
+surface:
+  route: "/"
+  name: "Painel"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+    - name: "loading"
+    - name: "empty"
+    - name: "error"
+  data:
+    - field: "summary.activePatients"
+      source: "api:/api/patients/summary"
+      editable: false
+    - field: "summary.upcomingConsultations"
+      source: "api:/api/consultations/summary"
+      editable: false
+    - field: "summary.monthRevenue"
+      source: "api:/api/revenue/summary"
+      format: "moeda BRL"
+      editable: false
+    - field: "recentEvolutionNotes"
+      source: "api:/api/evolution-notes?recent=1"
+      editable: false
+  interactions:
+    - trigger: "abrir a tela"
+      action: "carrega os indicadores e atividades recentes"
+      result: "renderiza os cartões-resumo do painel"
+    - trigger: "clicar em um cartão-resumo"
+      action: "navega para a tela detalhada correspondente"
+      result: "abre a lista/detalhe relacionado"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

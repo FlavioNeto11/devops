@@ -1,0 +1,51 @@
+id: "REF-NEUROEVOLUI-0006"
+slug: "ref-neuroevolui-0006"
+title: "Profissionais"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0002"
+    relation: "implements"
+surface:
+  route: "/professionals"
+  name: "Profissionais"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+    - name: "loading"
+    - name: "empty"
+    - name: "error"
+  data:
+    - field: "professionals.items"
+      source: "api:/api/professionals"
+      editable: false
+    - field: "pagination"
+      source: "api:/api/professionals?page=&size="
+      editable: false
+    - field: "query.search"
+      source: "estado local (filtro de busca)"
+      editable: true
+  interactions:
+    - trigger: "abrir a tela"
+      action: "carrega a lista de profissionals paginada"
+      result: "renderiza a tabela com os itens"
+    - trigger: "digitar na busca"
+      action: "filtra a lista pelo termo"
+      result: "atualiza os resultados exibidos"
+    - trigger: "clicar em Novo"
+      action: "navega para /professionals/new"
+      result: "abre o formulário de criação de profissional"
+    - trigger: "clicar em uma linha"
+      action: "navega para o detalhe do profissional"
+      result: "abre a tela de detalhe"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

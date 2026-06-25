@@ -25,6 +25,27 @@ export async function listEvolutionNotes(tenantId, patientId, { dateFrom, dateTo
   return r.rows;
 }
 
+// Coleção paginada (todos os pacientes do tenant) para a rota REST genérica
+// GET /v1/evolution-notes → { data, total }. Filtros opcionais por patient_id/type.
+const EN_SORTABLE = new Set(['id', 'note_date', 'type', 'status', 'patient_id', 'created_at']);
+export async function listEvolutionNotesPaged(tenantId, { page = 1, pageSize = 50, sort = 'id', dir = 'desc', patientId, type } = {}) {
+  const col = EN_SORTABLE.has(sort) ? sort : 'id';
+  const order = String(dir).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+  const limit = Math.min(Math.max(Number(pageSize) || 50, 1), 200);
+  const offset = (Math.max(Number(page) || 1, 1) - 1) * limit;
+  const cond = ['tenant_id=$1', 'deleted_at IS NULL'];
+  const params = [tenantId];
+  let i = 2;
+  if (patientId) { cond.push(`patient_id=$${i++}`); params.push(String(patientId)); }
+  if (type)      { cond.push(`type=$${i++}`); params.push(type); }
+  const totalRes = await pool.query(`SELECT count(*)::int n FROM evolution_notes WHERE ${cond.join(' AND ')}`, params);
+  const r = await pool.query(
+    `SELECT * FROM evolution_notes WHERE ${cond.join(' AND ')} ORDER BY ${col} ${order} LIMIT $${i} OFFSET $${i + 1}`,
+    [...params, limit, offset]
+  );
+  return { data: r.rows, total: totalRes.rows[0].n };
+}
+
 export async function listEvolutionNotesHistory(tenantId, patientId) {
   const r = await pool.query(
     `SELECT * FROM evolution_notes WHERE tenant_id=$1 AND patient_id=$2 ORDER BY note_date DESC LIMIT 500`,

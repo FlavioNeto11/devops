@@ -1,0 +1,39 @@
+id: "REF-NEUROEVOLUI-0029"
+slug: "ref-neuroevolui-0029"
+title: "Adicionar fonte"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0006"
+    relation: "implements"
+surface:
+  route: "/knowledge-sources/new"
+  name: "Adicionar fonte"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+    - name: "loading"
+    - name: "empty"
+    - name: "error"
+  data:
+    - field: "fonte de conhecimento.form"
+      source: "estado local (formulário)"
+      editable: true
+  interactions:
+    - trigger: "preencher e enviar o formulário"
+      action: "valida e envia POST /api/knowledge-sources"
+      result: "cria o fonte de conhecimento e navega para o detalhe"
+    - trigger: "clicar em cancelar"
+      action: "descarta o formulário"
+      result: "retorna à lista de fonte de conhecimentos"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

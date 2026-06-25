@@ -1,0 +1,39 @@
+id: "REF-NEUROEVOLUI-0011"
+slug: "ref-neuroevolui-0011"
+title: "Novo agendamento"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0005"
+    relation: "implements"
+surface:
+  route: "/consultations/new"
+  name: "Novo agendamento"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+    - name: "loading"
+    - name: "empty"
+    - name: "error"
+  data:
+    - field: "agendamento.form"
+      source: "estado local (formulário)"
+      editable: true
+  interactions:
+    - trigger: "preencher e enviar o formulário"
+      action: "valida e envia POST /api/consultations"
+      result: "cria o agendamento e navega para o detalhe"
+    - trigger: "clicar em cancelar"
+      action: "descarta o formulário"
+      result: "retorna à lista de agendamentos"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

@@ -28,3 +28,20 @@ export async function countRecords() {
 export async function updateRecordStatus(id, status) {
   await pool.query("UPDATE records SET status=$1, updated_at=now() WHERE id=$2", [status, Number(id)]);
 }
+
+// Edição dos campos do registro (title / external_ref). COALESCE preserva o valor
+// atual quando o campo não é enviado, então a tela pode salvar parcialmente. Escopo
+// por tenant + não-excluído (deleted_at IS NULL). Retorna a linha atualizada ou null
+// se o registro não existir / estiver fora do tenant / excluído.
+export async function updateRecord(tenantId, id, { title, external_ref } = {}) {
+  const r = await pool.query(
+    `UPDATE records
+        SET title = COALESCE($3, title),
+            external_ref = COALESCE($4, external_ref),
+            updated_at = now()
+      WHERE tenant_id = $1 AND id = $2 AND deleted_at IS NULL
+      RETURNING *`,
+    [tenantId, Number(id), title ?? null, external_ref ?? null]
+  );
+  return r.rows[0] ?? null;
+}

@@ -27,3 +27,47 @@ export async function updateAsyncJobStatus(queueName, jobKey, status, result) {
     [queueName, jobKey, status, result !== undefined ? JSON.stringify(result) : null]
   );
 }
+
+// Coleção paginada para a rota REST genérica GET /v1/async-jobs → { data, total }.
+const JOBS_SORTABLE = new Set(['id', 'queue_name', 'status', 'created_at', 'updated_at']);
+export async function listAsyncJobsPaged(tenantId, { page = 1, pageSize = 50, sort = 'id', dir = 'desc' } = {}) {
+  const col = JOBS_SORTABLE.has(sort) ? sort : 'id';
+  const order = String(dir).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+  const limit = Math.min(Math.max(Number(pageSize) || 50, 1), 200);
+  const offset = (Math.max(Number(page) || 1, 1) - 1) * limit;
+  const totalRes = await pool.query('SELECT count(*)::int n FROM async_jobs WHERE tenant_id=$1', [tenantId]);
+  const r = await pool.query(
+    `SELECT * FROM async_jobs WHERE tenant_id=$1 ORDER BY ${col} ${order} LIMIT $2 OFFSET $3`,
+    [tenantId, limit, offset]
+  );
+  return { data: r.rows, total: totalRes.rows[0].n };
+}
+
+export async function findAsyncJobById(tenantId, id) {
+  const r = await pool.query('SELECT * FROM async_jobs WHERE tenant_id=$1 AND id=$2', [tenantId, Number(id)]);
+  return r.rows[0] ?? null;
+}
+
+// Lista paginada de jobs de uma fila específica (ex.: queue_name='notifications' p/ o
+// histórico de lembretes/notificações enfileiradas). Dado REAL: as notificações são
+// enfileiradas em async_jobs via enqueueAsync(..., 'notifications'). Filtro opcional por
+// consultation_id (lido do payload JSONB) p/ o card de lembretes da consulta.
+export async function listAsyncJobsByQueue(tenantId, queueName, { page = 1, pageSize = 50, sort = 'id', dir = 'desc', consultationId } = {}) {
+  const col = JOBS_SORTABLE.has(sort) ? sort : 'id';
+  const order = String(dir).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+  const limit = Math.min(Math.max(Number(pageSize) || 50, 1), 200);
+  const offset = (Math.max(Number(page) || 1, 1) - 1) * limit;
+  const where = ['tenant_id=$1', 'queue_name=$2'];
+  const params = [tenantId, queueName];
+  if (consultationId !== undefined && consultationId !== null && consultationId !== '') {
+    params.push(String(consultationId));
+    where.push(`(payload->>'consultation_id') = $${params.length}`);
+  }
+  const whereSql = where.join(' AND ');
+  const totalRes = await pool.query(`SELECT count(*)::int n FROM async_jobs WHERE ${whereSql}`, params);
+  const r = await pool.query(
+    `SELECT * FROM async_jobs WHERE ${whereSql} ORDER BY ${col} ${order} LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+    [...params, limit, offset]
+  );
+  return { data: r.rows, total: totalRes.rows[0].n };
+}

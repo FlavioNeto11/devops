@@ -3,38 +3,13 @@
 // Especialista: clinical-assistant.
 import { createToolRegistry } from '@flavioneto11/ai-core';
 import { pool } from '../db.js';
-
-// Embedder lazy — usa OpenAI para embeddings (Anthropic não expõe /embeddings).
-// Retorna null se OPENAI_API_KEY ausente; o search degrada para vazio (fail-soft).
-let _embedFn = null;
-async function getEmbedFn() {
-  if (_embedFn !== undefined) return _embedFn;
-  const apiKey = (process.env.OPENAI_API_KEY || '').trim();
-  if (!apiKey) { _embedFn = null; return null; }
-  try {
-    const { default: OpenAI } = await import('openai');
-    const client = new OpenAI({ apiKey });
-    _embedFn = async (texts) => {
-      const r = await client.embeddings.create({ model: 'text-embedding-3-small', input: texts });
-      return r.data.map((d) => d.embedding);
-    };
-    return _embedFn;
-  } catch {
-    _embedFn = null;
-    return null;
-  }
-}
-
-function toVectorLiteral(embedding) {
-  return `[${embedding.map((n) => (Number.isFinite(n) ? n : 0)).join(',')}]`;
-}
+import { embedQuery, toVectorLiteral } from './embedder.js';
 
 // Busca por similaridade cosine no pgvector; retorna [] se não disponível.
 async function searchKnowledge(queryText, { k = 6 } = {}) {
   try {
-    const embedFn = await getEmbedFn();
-    if (!embedFn) return [];
-    const [embedding] = await embedFn([queryText]);
+    const embedding = await embedQuery(queryText);
+    if (!embedding) return [];
     const r = await pool.query(
       `select id, source_id, title, content, 1 - (embedding <=> $1::vector) as score
          from knowledge_chunks
@@ -132,4 +107,4 @@ export function buildAssistantTools() {
   ]);
 }
 
-export function __resetEmbedderForTest() { _embedFn = undefined; }
+export { __resetEmbedderForTest } from './embedder.js';

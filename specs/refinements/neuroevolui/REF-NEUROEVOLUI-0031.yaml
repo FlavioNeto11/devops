@@ -1,0 +1,42 @@
+id: "REF-NEUROEVOLUI-0031"
+slug: "ref-neuroevolui-0031"
+title: "Filas e jobs"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0003"
+    relation: "implements"
+surface:
+  route: "/jobs"
+  name: "Filas e jobs"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+    - name: "loading"
+    - name: "empty"
+    - name: "error"
+  data:
+    - field: "jobs.queues"
+      source: "api:/api/jobs/queues"
+      editable: false
+    - field: "jobs.items"
+      source: "api:/api/jobs"
+      editable: false
+  interactions:
+    - trigger: "abrir a tela"
+      action: "carrega o estado das filas e dos jobs"
+      result: "renderiza as filas e seus jobs"
+    - trigger: "clicar em reprocessar"
+      action: "reenfileira o job selecionado"
+      result: "o job volta para a fila de processamento"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

@@ -1,0 +1,36 @@
+id: "REF-NEUROEVOLUI-0034"
+slug: "ref-neuroevolui-0034"
+title: "Documentação da API"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0008"
+    relation: "implements"
+surface:
+  route: "/api-docs"
+  name: "Documentação da API"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+    - name: "loading"
+    - name: "empty"
+    - name: "error"
+  data:
+    - field: "openapi.spec"
+      source: "api:/api/openapi.json"
+      editable: false
+  interactions:
+    - trigger: "abrir a tela"
+      action: "carrega a especificação OpenAPI"
+      result: "renderiza a documentação navegável da API"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

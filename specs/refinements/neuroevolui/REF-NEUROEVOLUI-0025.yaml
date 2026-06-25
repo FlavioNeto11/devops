@@ -1,0 +1,42 @@
+id: "REF-NEUROEVOLUI-0025"
+slug: "ref-neuroevolui-0025"
+title: "Detalhe da transação"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0005"
+    relation: "implements"
+surface:
+  route: "/transactions/:id"
+  name: "Detalhe da transação"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+    - name: "loading"
+    - name: "empty"
+    - name: "error"
+  data:
+    - field: "transação.id"
+      source: "route param :id"
+      editable: false
+    - field: "transação.fields"
+      source: "api:/api/payment-transactions/:id"
+      editable: false
+  interactions:
+    - trigger: "abrir a tela"
+      action: "carrega o transação por :id"
+      result: "renderiza os campos do registro"
+    - trigger: "clicar em Editar"
+      action: "navega para /transactions/:id/edit"
+      result: "abre o formulário de edição"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

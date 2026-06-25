@@ -1,0 +1,51 @@
+id: "REF-NEUROEVOLUI-0013"
+slug: "ref-neuroevolui-0013"
+title: "Evoluções"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0004"
+    relation: "implements"
+surface:
+  route: "/evolution-notes"
+  name: "Evoluções"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+    - name: "loading"
+    - name: "empty"
+    - name: "error"
+  data:
+    - field: "evolution-notes.items"
+      source: "api:/api/evolution-notes"
+      editable: false
+    - field: "pagination"
+      source: "api:/api/evolution-notes?page=&size="
+      editable: false
+    - field: "query.search"
+      source: "estado local (filtro de busca)"
+      editable: true
+  interactions:
+    - trigger: "abrir a tela"
+      action: "carrega a lista de evoluçãos paginada"
+      result: "renderiza a tabela com os itens"
+    - trigger: "digitar na busca"
+      action: "filtra a lista pelo termo"
+      result: "atualiza os resultados exibidos"
+    - trigger: "clicar em Novo"
+      action: "navega para /evolution-notes/new"
+      result: "abre o formulário de criação de evolução"
+    - trigger: "clicar em uma linha"
+      action: "navega para o detalhe do evolução"
+      result: "abre a tela de detalhe"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

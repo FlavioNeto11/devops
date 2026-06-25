@@ -1,7 +1,7 @@
 {
   "metamodel_version": "1.1.0",
   "baseline_hash": "c673fba7368673eeb123e0671af3b6e8d8fd855c2c79bf90786e87dd1743d7f9",
-  "refinements_hash": "8c2404f1df38762f23de2d95606729971e0b22061bc4df82fddd1431e42222b0",
+  "refinements_hash": "7b226ded4013550a030c8f673d4c89f4a80259e97e3204dbab779438bfcde7c6",
   "schema": "specs/schema/requirement.schema.json",
   "counts": {
     "total": 343,
@@ -33,13 +33,14 @@
       "non-functional": 104
     },
     "refinements": {
-      "total": 13,
+      "total": 47,
       "by_product": {
         "gymops": 1,
+        "neuroevolui": 34,
         "portal": 12
       },
       "by_kind": {
-        "screen": 3,
+        "screen": 37,
         "component": 8,
         "interaction": 2
       }
@@ -13097,6 +13098,2614 @@
         "change_reason": "novo refinamento — exibir endereço do empreendimento na tela de perfil"
       },
       "file": "refinements/gymops/REF-GYMOPS-0001.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0001",
+      "slug": "ref-neuroevolui-0001",
+      "title": "Painel",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0005",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/",
+        "name": "Painel",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "summary.activePatients",
+            "source": "api:/api/patients/summary",
+            "editable": false
+          },
+          {
+            "field": "summary.upcomingConsultations",
+            "source": "api:/api/consultations/summary",
+            "editable": false
+          },
+          {
+            "field": "summary.monthRevenue",
+            "source": "api:/api/revenue/summary",
+            "format": "moeda BRL",
+            "editable": false
+          },
+          {
+            "field": "recentEvolutionNotes",
+            "source": "api:/api/evolution-notes?recent=1",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir a tela",
+            "action": "carrega os indicadores e atividades recentes",
+            "result": "renderiza os cartões-resumo do painel"
+          },
+          {
+            "trigger": "clicar em um cartão-resumo",
+            "action": "navega para a tela detalhada correspondente",
+            "result": "abre a lista/detalhe relacionado"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0001.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0002",
+      "slug": "ref-neuroevolui-0002",
+      "title": "Pacientes",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0004",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/patients",
+        "name": "Pacientes",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "patients.items",
+            "source": "api:/api/patients",
+            "editable": false
+          },
+          {
+            "field": "pagination",
+            "source": "api:/api/patients?page=&size=",
+            "editable": false
+          },
+          {
+            "field": "query.search",
+            "source": "estado local (filtro de busca)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir a tela",
+            "action": "carrega a lista de pacientes paginada",
+            "result": "renderiza a tabela com os itens"
+          },
+          {
+            "trigger": "digitar na busca",
+            "action": "filtra a lista pelo termo",
+            "result": "atualiza os resultados exibidos"
+          },
+          {
+            "trigger": "clicar em Novo",
+            "action": "navega para /patients/new",
+            "result": "abre o formulário de criação de paciente"
+          },
+          {
+            "trigger": "clicar em uma linha",
+            "action": "navega para o detalhe do paciente",
+            "result": "abre a tela de detalhe"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0002.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0003",
+      "slug": "ref-neuroevolui-0003",
+      "title": "Novo paciente",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0004",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/patients/new",
+        "name": "Novo paciente",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "paciente.form",
+            "source": "estado local (formulário)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "preencher e enviar o formulário",
+            "action": "valida e envia POST /api/patients",
+            "result": "cria o paciente e navega para o detalhe"
+          },
+          {
+            "trigger": "clicar em cancelar",
+            "action": "descarta o formulário",
+            "result": "retorna à lista de pacientes"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0003.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0004",
+      "slug": "ref-neuroevolui-0004",
+      "title": "Detalhe do paciente",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0004",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/patients/:id",
+        "name": "Detalhe do paciente",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "paciente.id",
+            "source": "route param :id",
+            "editable": false
+          },
+          {
+            "field": "paciente.fields",
+            "source": "api:/api/patients/:id",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir a tela",
+            "action": "carrega o paciente por :id",
+            "result": "renderiza os campos do registro"
+          },
+          {
+            "trigger": "clicar em Editar",
+            "action": "navega para /patients/:id/edit",
+            "result": "abre o formulário de edição"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0004.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0005",
+      "slug": "ref-neuroevolui-0005",
+      "title": "Editar paciente",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0004",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/patients/:id/edit",
+        "name": "Editar paciente",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "paciente.id",
+            "source": "route param :id",
+            "editable": false
+          },
+          {
+            "field": "paciente.form",
+            "source": "api:/api/patients/:id",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir a tela",
+            "action": "carrega o paciente por :id",
+            "result": "preenche o formulário com os valores atuais"
+          },
+          {
+            "trigger": "salvar alterações",
+            "action": "valida e envia PUT /api/patients/:id",
+            "result": "atualiza o paciente e retorna ao detalhe"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0005.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0006",
+      "slug": "ref-neuroevolui-0006",
+      "title": "Profissionais",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0002",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/professionals",
+        "name": "Profissionais",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "professionals.items",
+            "source": "api:/api/professionals",
+            "editable": false
+          },
+          {
+            "field": "pagination",
+            "source": "api:/api/professionals?page=&size=",
+            "editable": false
+          },
+          {
+            "field": "query.search",
+            "source": "estado local (filtro de busca)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir a tela",
+            "action": "carrega a lista de profissionals paginada",
+            "result": "renderiza a tabela com os itens"
+          },
+          {
+            "trigger": "digitar na busca",
+            "action": "filtra a lista pelo termo",
+            "result": "atualiza os resultados exibidos"
+          },
+          {
+            "trigger": "clicar em Novo",
+            "action": "navega para /professionals/new",
+            "result": "abre o formulário de criação de profissional"
+          },
+          {
+            "trigger": "clicar em uma linha",
+            "action": "navega para o detalhe do profissional",
+            "result": "abre a tela de detalhe"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0006.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0007",
+      "slug": "ref-neuroevolui-0007",
+      "title": "Convidar profissional",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0002",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/professionals/new",
+        "name": "Convidar profissional",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "profissional.form",
+            "source": "estado local (formulário)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "preencher e enviar o formulário",
+            "action": "valida e envia POST /api/professionals",
+            "result": "cria o profissional e navega para o detalhe"
+          },
+          {
+            "trigger": "clicar em cancelar",
+            "action": "descarta o formulário",
+            "result": "retorna à lista de profissionals"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0007.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0008",
+      "slug": "ref-neuroevolui-0008",
+      "title": "Detalhe do profissional",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0002",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/professionals/:id",
+        "name": "Detalhe do profissional",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "profissional.id",
+            "source": "route param :id",
+            "editable": false
+          },
+          {
+            "field": "profissional.fields",
+            "source": "api:/api/professionals/:id",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir a tela",
+            "action": "carrega o profissional por :id",
+            "result": "renderiza os campos do registro"
+          },
+          {
+            "trigger": "clicar em Editar",
+            "action": "navega para /professionals/:id/edit",
+            "result": "abre o formulário de edição"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0008.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0009",
+      "slug": "ref-neuroevolui-0009",
+      "title": "Editar profissional",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0002",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/professionals/:id/edit",
+        "name": "Editar profissional",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "profissional.id",
+            "source": "route param :id",
+            "editable": false
+          },
+          {
+            "field": "profissional.form",
+            "source": "api:/api/professionals/:id",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir a tela",
+            "action": "carrega o profissional por :id",
+            "result": "preenche o formulário com os valores atuais"
+          },
+          {
+            "trigger": "salvar alterações",
+            "action": "valida e envia PUT /api/professionals/:id",
+            "result": "atualiza o profissional e retorna ao detalhe"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0009.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0010",
+      "slug": "ref-neuroevolui-0010",
+      "title": "Agendamentos",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0005",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/consultations",
+        "name": "Agendamentos",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "consultations.items",
+            "source": "api:/api/consultations",
+            "editable": false
+          },
+          {
+            "field": "pagination",
+            "source": "api:/api/consultations?page=&size=",
+            "editable": false
+          },
+          {
+            "field": "query.search",
+            "source": "estado local (filtro de busca)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir a tela",
+            "action": "carrega a lista de agendamentos paginada",
+            "result": "renderiza a tabela com os itens"
+          },
+          {
+            "trigger": "digitar na busca",
+            "action": "filtra a lista pelo termo",
+            "result": "atualiza os resultados exibidos"
+          },
+          {
+            "trigger": "clicar em Novo",
+            "action": "navega para /consultations/new",
+            "result": "abre o formulário de criação de agendamento"
+          },
+          {
+            "trigger": "clicar em uma linha",
+            "action": "navega para o detalhe do agendamento",
+            "result": "abre a tela de detalhe"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0010.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0011",
+      "slug": "ref-neuroevolui-0011",
+      "title": "Novo agendamento",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0005",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/consultations/new",
+        "name": "Novo agendamento",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "agendamento.form",
+            "source": "estado local (formulário)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "preencher e enviar o formulário",
+            "action": "valida e envia POST /api/consultations",
+            "result": "cria o agendamento e navega para o detalhe"
+          },
+          {
+            "trigger": "clicar em cancelar",
+            "action": "descarta o formulário",
+            "result": "retorna à lista de agendamentos"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0011.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0012",
+      "slug": "ref-neuroevolui-0012",
+      "title": "Detalhe do agendamento",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0005",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/consultations/:id",
+        "name": "Detalhe do agendamento",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "agendamento.id",
+            "source": "route param :id",
+            "editable": false
+          },
+          {
+            "field": "agendamento.fields",
+            "source": "api:/api/consultations/:id",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir a tela",
+            "action": "carrega o agendamento por :id",
+            "result": "renderiza os campos do registro"
+          },
+          {
+            "trigger": "clicar em Editar",
+            "action": "navega para /consultations/:id/edit",
+            "result": "abre o formulário de edição"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0012.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0013",
+      "slug": "ref-neuroevolui-0013",
+      "title": "Evoluções",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0004",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/evolution-notes",
+        "name": "Evoluções",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "evolution-notes.items",
+            "source": "api:/api/evolution-notes",
+            "editable": false
+          },
+          {
+            "field": "pagination",
+            "source": "api:/api/evolution-notes?page=&size=",
+            "editable": false
+          },
+          {
+            "field": "query.search",
+            "source": "estado local (filtro de busca)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir a tela",
+            "action": "carrega a lista de evoluçãos paginada",
+            "result": "renderiza a tabela com os itens"
+          },
+          {
+            "trigger": "digitar na busca",
+            "action": "filtra a lista pelo termo",
+            "result": "atualiza os resultados exibidos"
+          },
+          {
+            "trigger": "clicar em Novo",
+            "action": "navega para /evolution-notes/new",
+            "result": "abre o formulário de criação de evolução"
+          },
+          {
+            "trigger": "clicar em uma linha",
+            "action": "navega para o detalhe do evolução",
+            "result": "abre a tela de detalhe"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0013.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0014",
+      "slug": "ref-neuroevolui-0014",
+      "title": "Nova evolução",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0004",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/evolution-notes/new",
+        "name": "Nova evolução",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "evolução.form",
+            "source": "estado local (formulário)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "preencher e enviar o formulário",
+            "action": "valida e envia POST /api/evolution-notes",
+            "result": "cria o evolução e navega para o detalhe"
+          },
+          {
+            "trigger": "clicar em cancelar",
+            "action": "descarta o formulário",
+            "result": "retorna à lista de evoluçãos"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0014.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0015",
+      "slug": "ref-neuroevolui-0015",
+      "title": "Detalhe da evolução",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0004",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/evolution-notes/:id",
+        "name": "Detalhe da evolução",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "evolução.id",
+            "source": "route param :id",
+            "editable": false
+          },
+          {
+            "field": "evolução.fields",
+            "source": "api:/api/evolution-notes/:id",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir a tela",
+            "action": "carrega o evolução por :id",
+            "result": "renderiza os campos do registro"
+          },
+          {
+            "trigger": "clicar em Editar",
+            "action": "navega para /evolution-notes/:id/edit",
+            "result": "abre o formulário de edição"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0015.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0016",
+      "slug": "ref-neuroevolui-0016",
+      "title": "Editar evolução",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0004",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/evolution-notes/:id/edit",
+        "name": "Editar evolução",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "evolução.id",
+            "source": "route param :id",
+            "editable": false
+          },
+          {
+            "field": "evolução.form",
+            "source": "api:/api/evolution-notes/:id",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir a tela",
+            "action": "carrega o evolução por :id",
+            "result": "preenche o formulário com os valores atuais"
+          },
+          {
+            "trigger": "salvar alterações",
+            "action": "valida e envia PUT /api/evolution-notes/:id",
+            "result": "atualiza o evolução e retorna ao detalhe"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0016.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0017",
+      "slug": "ref-neuroevolui-0017",
+      "title": "Relatórios",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0004",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/reports",
+        "name": "Relatórios",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "patient-reports.items",
+            "source": "api:/api/patient-reports",
+            "editable": false
+          },
+          {
+            "field": "pagination",
+            "source": "api:/api/patient-reports?page=&size=",
+            "editable": false
+          },
+          {
+            "field": "query.search",
+            "source": "estado local (filtro de busca)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir a tela",
+            "action": "carrega a lista de relatórios paginada",
+            "result": "renderiza a tabela com os itens"
+          },
+          {
+            "trigger": "digitar na busca",
+            "action": "filtra a lista pelo termo",
+            "result": "atualiza os resultados exibidos"
+          },
+          {
+            "trigger": "clicar em Novo",
+            "action": "navega para /reports/new",
+            "result": "abre o formulário de criação de relatório"
+          },
+          {
+            "trigger": "clicar em uma linha",
+            "action": "navega para o detalhe do relatório",
+            "result": "abre a tela de detalhe"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0017.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0018",
+      "slug": "ref-neuroevolui-0018",
+      "title": "Gerar relatório",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0004",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/reports/new",
+        "name": "Gerar relatório",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "relatório.form",
+            "source": "estado local (formulário)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "preencher e enviar o formulário",
+            "action": "valida e envia POST /api/patient-reports",
+            "result": "cria o relatório e navega para o detalhe"
+          },
+          {
+            "trigger": "clicar em cancelar",
+            "action": "descarta o formulário",
+            "result": "retorna à lista de relatórios"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0018.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0019",
+      "slug": "ref-neuroevolui-0019",
+      "title": "Detalhe do relatório",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0004",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/reports/:id",
+        "name": "Detalhe do relatório",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "relatório.id",
+            "source": "route param :id",
+            "editable": false
+          },
+          {
+            "field": "relatório.fields",
+            "source": "api:/api/patient-reports/:id",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir a tela",
+            "action": "carrega o relatório por :id",
+            "result": "renderiza os campos do registro"
+          },
+          {
+            "trigger": "clicar em Editar",
+            "action": "navega para /reports/:id/edit",
+            "result": "abre o formulário de edição"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0019.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0020",
+      "slug": "ref-neuroevolui-0020",
+      "title": "Registros",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0003",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/records",
+        "name": "Registros",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "records.items",
+            "source": "api:/api/records",
+            "editable": false
+          },
+          {
+            "field": "pagination",
+            "source": "api:/api/records?page=&size=",
+            "editable": false
+          },
+          {
+            "field": "query.search",
+            "source": "estado local (filtro de busca)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir a tela",
+            "action": "carrega a lista de registros paginada",
+            "result": "renderiza a tabela com os itens"
+          },
+          {
+            "trigger": "digitar na busca",
+            "action": "filtra a lista pelo termo",
+            "result": "atualiza os resultados exibidos"
+          },
+          {
+            "trigger": "clicar em Novo",
+            "action": "navega para /records/new",
+            "result": "abre o formulário de criação de registro"
+          },
+          {
+            "trigger": "clicar em uma linha",
+            "action": "navega para o detalhe do registro",
+            "result": "abre a tela de detalhe"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0020.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0021",
+      "slug": "ref-neuroevolui-0021",
+      "title": "Novo registro",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0003",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/records/new",
+        "name": "Novo registro",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "registro.form",
+            "source": "estado local (formulário)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "preencher e enviar o formulário",
+            "action": "valida e envia POST /api/records",
+            "result": "cria o registro e navega para o detalhe"
+          },
+          {
+            "trigger": "clicar em cancelar",
+            "action": "descarta o formulário",
+            "result": "retorna à lista de registros"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0021.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0022",
+      "slug": "ref-neuroevolui-0022",
+      "title": "Detalhe do registro",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0003",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/records/:id",
+        "name": "Detalhe do registro",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "registro.id",
+            "source": "route param :id",
+            "editable": false
+          },
+          {
+            "field": "registro.fields",
+            "source": "api:/api/records/:id",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir a tela",
+            "action": "carrega o registro por :id",
+            "result": "renderiza os campos do registro"
+          },
+          {
+            "trigger": "clicar em Editar",
+            "action": "navega para /records/:id/edit",
+            "result": "abre o formulário de edição"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0022.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0023",
+      "slug": "ref-neuroevolui-0023",
+      "title": "Editar registro",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0003",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/records/:id/edit",
+        "name": "Editar registro",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "registro.id",
+            "source": "route param :id",
+            "editable": false
+          },
+          {
+            "field": "registro.form",
+            "source": "api:/api/records/:id",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir a tela",
+            "action": "carrega o registro por :id",
+            "result": "preenche o formulário com os valores atuais"
+          },
+          {
+            "trigger": "salvar alterações",
+            "action": "valida e envia PUT /api/records/:id",
+            "result": "atualiza o registro e retorna ao detalhe"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0023.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0024",
+      "slug": "ref-neuroevolui-0024",
+      "title": "Transações",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0005",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/transactions",
+        "name": "Transações",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "payment-transactions.items",
+            "source": "api:/api/payment-transactions",
+            "editable": false
+          },
+          {
+            "field": "pagination",
+            "source": "api:/api/payment-transactions?page=&size=",
+            "editable": false
+          },
+          {
+            "field": "query.search",
+            "source": "estado local (filtro de busca)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir a tela",
+            "action": "carrega a lista de transaçãos paginada",
+            "result": "renderiza a tabela com os itens"
+          },
+          {
+            "trigger": "digitar na busca",
+            "action": "filtra a lista pelo termo",
+            "result": "atualiza os resultados exibidos"
+          },
+          {
+            "trigger": "clicar em Novo",
+            "action": "navega para /transactions/new",
+            "result": "abre o formulário de criação de transação"
+          },
+          {
+            "trigger": "clicar em uma linha",
+            "action": "navega para o detalhe do transação",
+            "result": "abre a tela de detalhe"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0024.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0025",
+      "slug": "ref-neuroevolui-0025",
+      "title": "Detalhe da transação",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0005",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/transactions/:id",
+        "name": "Detalhe da transação",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "transação.id",
+            "source": "route param :id",
+            "editable": false
+          },
+          {
+            "field": "transação.fields",
+            "source": "api:/api/payment-transactions/:id",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir a tela",
+            "action": "carrega o transação por :id",
+            "result": "renderiza os campos do registro"
+          },
+          {
+            "trigger": "clicar em Editar",
+            "action": "navega para /transactions/:id/edit",
+            "result": "abre o formulário de edição"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0025.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0026",
+      "slug": "ref-neuroevolui-0026",
+      "title": "Receita",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0005",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/revenue",
+        "name": "Receita",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "revenue.byPeriod",
+            "source": "api:/api/revenue",
+            "format": "série temporal (moeda BRL)",
+            "editable": false
+          },
+          {
+            "field": "revenue.byProfessional",
+            "source": "api:/api/revenue/by-professional",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir a tela",
+            "action": "carrega a receita por período e por profissional",
+            "result": "renderiza gráficos e totais de receita"
+          },
+          {
+            "trigger": "alterar o período",
+            "action": "recarrega a série temporal",
+            "result": "atualiza os gráficos exibidos"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0026.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0027",
+      "slug": "ref-neuroevolui-0027",
+      "title": "Assistente",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0006",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/assistant",
+        "name": "Assistente",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "conversation.messages",
+            "source": "api:/api/assistant/messages",
+            "editable": false
+          },
+          {
+            "field": "composer.input",
+            "source": "estado local (composer)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "enviar uma mensagem",
+            "action": "envia o prompt ao assistente de IA (grafo)",
+            "result": "exibe a resposta do assistente em stream"
+          },
+          {
+            "trigger": "anexar um arquivo",
+            "action": "ingere o arquivo no contexto da conversa",
+            "result": "o assistente passa a considerar o conteúdo do arquivo"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0027.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0028",
+      "slug": "ref-neuroevolui-0028",
+      "title": "Base de conhecimento",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0006",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/knowledge-sources",
+        "name": "Base de conhecimento",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "knowledge-sources.items",
+            "source": "api:/api/knowledge-sources",
+            "editable": false
+          },
+          {
+            "field": "pagination",
+            "source": "api:/api/knowledge-sources?page=&size=",
+            "editable": false
+          },
+          {
+            "field": "query.search",
+            "source": "estado local (filtro de busca)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir a tela",
+            "action": "carrega a lista de fonte de conhecimentos paginada",
+            "result": "renderiza a tabela com os itens"
+          },
+          {
+            "trigger": "digitar na busca",
+            "action": "filtra a lista pelo termo",
+            "result": "atualiza os resultados exibidos"
+          },
+          {
+            "trigger": "clicar em Novo",
+            "action": "navega para /knowledge-sources/new",
+            "result": "abre o formulário de criação de fonte de conhecimento"
+          },
+          {
+            "trigger": "clicar em uma linha",
+            "action": "navega para o detalhe do fonte de conhecimento",
+            "result": "abre a tela de detalhe"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0028.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0029",
+      "slug": "ref-neuroevolui-0029",
+      "title": "Adicionar fonte",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0006",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/knowledge-sources/new",
+        "name": "Adicionar fonte",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "fonte de conhecimento.form",
+            "source": "estado local (formulário)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "preencher e enviar o formulário",
+            "action": "valida e envia POST /api/knowledge-sources",
+            "result": "cria o fonte de conhecimento e navega para o detalhe"
+          },
+          {
+            "trigger": "clicar em cancelar",
+            "action": "descarta o formulário",
+            "result": "retorna à lista de fonte de conhecimentos"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0029.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0030",
+      "slug": "ref-neuroevolui-0030",
+      "title": "Notificações",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0007",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/notifications",
+        "name": "Notificações",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "preferences.channels",
+            "source": "api:/api/notification-preferences",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "alternar um canal",
+            "action": "atualiza a preferência local",
+            "result": "marca o canal como ativo/inativo"
+          },
+          {
+            "trigger": "salvar preferências",
+            "action": "envia PUT /api/notification-preferences",
+            "result": "persiste as preferências do usuário"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0030.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0031",
+      "slug": "ref-neuroevolui-0031",
+      "title": "Filas e jobs",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0003",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/jobs",
+        "name": "Filas e jobs",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "jobs.queues",
+            "source": "api:/api/jobs/queues",
+            "editable": false
+          },
+          {
+            "field": "jobs.items",
+            "source": "api:/api/jobs",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir a tela",
+            "action": "carrega o estado das filas e dos jobs",
+            "result": "renderiza as filas e seus jobs"
+          },
+          {
+            "trigger": "clicar em reprocessar",
+            "action": "reenfileira o job selecionado",
+            "result": "o job volta para a fila de processamento"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0031.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0032",
+      "slug": "ref-neuroevolui-0032",
+      "title": "Auditoria",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0005",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/audit",
+        "name": "Auditoria",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "audit-logs.items",
+            "source": "api:/api/audit-logs",
+            "editable": false
+          },
+          {
+            "field": "pagination",
+            "source": "api:/api/audit-logs?page=&size=",
+            "editable": false
+          },
+          {
+            "field": "query.search",
+            "source": "estado local (filtro de busca)",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir a tela",
+            "action": "carrega a lista de registro de auditorias paginada",
+            "result": "renderiza a tabela com os itens"
+          },
+          {
+            "trigger": "digitar na busca",
+            "action": "filtra a lista pelo termo",
+            "result": "atualiza os resultados exibidos"
+          },
+          {
+            "trigger": "clicar em Novo",
+            "action": "navega para /audit/new",
+            "result": "abre o formulário de criação de registro de auditoria"
+          },
+          {
+            "trigger": "clicar em uma linha",
+            "action": "navega para o detalhe do registro de auditoria",
+            "result": "abre a tela de detalhe"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0032.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0033",
+      "slug": "ref-neuroevolui-0033",
+      "title": "Saúde do sistema",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0001",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/health",
+        "name": "Saúde do sistema",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "health.checks",
+            "source": "api:/api/health",
+            "editable": false
+          },
+          {
+            "field": "health.version",
+            "source": "api:/api/health",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir a tela",
+            "action": "consulta os checks de saúde do sistema",
+            "result": "renderiza o status de cada dependência"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0033.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0034",
+      "slug": "ref-neuroevolui-0034",
+      "title": "Documentação da API",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0008",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/api-docs",
+        "name": "Documentação da API",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "loading"
+          },
+          {
+            "name": "empty"
+          },
+          {
+            "name": "error"
+          }
+        ],
+        "data": [
+          {
+            "field": "openapi.spec",
+            "source": "api:/api/openapi.json",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "abrir a tela",
+            "action": "carrega a especificação OpenAPI",
+            "result": "renderiza a documentação navegável da API"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0034.yaml"
     },
     {
       "id": "REF-PORTAL-0001",

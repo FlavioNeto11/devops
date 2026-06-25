@@ -2,6 +2,17 @@
 // Hierarquia: owner > clinic_manager > professional > patient
 // Identidade via header (X-Tenant-Id/X-Role) como stand-in da sessão OIDC (login real = client no Keycloak).
 const RANK = { owner: 4, clinic_manager: 3, professional: 2, patient: 1 };
+export { RANK };
+
+// Cap de CONCESSÃO de papel (anti-escalonamento): quem cria/promove só pode atribuir um papel de
+// rank MENOR OU IGUAL ao seu. Ex.: clinic_manager (3) NÃO concede owner (4); só owner concede owner.
+// Papel-alvo desconhecido => false (não concede papel inválido). Espelha a régua que a UI já aplica.
+export function canGrantRole(callerRole, targetRole) {
+  const caller = RANK[callerRole] || 0;
+  const target = RANK[targetRole];
+  if (!target) return false;
+  return target <= caller;
+}
 
 // Identidade: pela borda OIDC (oauth2-proxy -> X-Auth-Request-*) quando atrás do SSO;
 // senão pelos headers X-Role/X-Tenant-Id (teste local/direto). Sem login direto no app.

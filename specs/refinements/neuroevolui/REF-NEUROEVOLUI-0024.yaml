@@ -1,0 +1,51 @@
+id: "REF-NEUROEVOLUI-0024"
+slug: "ref-neuroevolui-0024"
+title: "Transações"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0005"
+    relation: "implements"
+surface:
+  route: "/transactions"
+  name: "Transações"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+    - name: "loading"
+    - name: "empty"
+    - name: "error"
+  data:
+    - field: "payment-transactions.items"
+      source: "api:/api/payment-transactions"
+      editable: false
+    - field: "pagination"
+      source: "api:/api/payment-transactions?page=&size="
+      editable: false
+    - field: "query.search"
+      source: "estado local (filtro de busca)"
+      editable: true
+  interactions:
+    - trigger: "abrir a tela"
+      action: "carrega a lista de transaçãos paginada"
+      result: "renderiza a tabela com os itens"
+    - trigger: "digitar na busca"
+      action: "filtra a lista pelo termo"
+      result: "atualiza os resultados exibidos"
+    - trigger: "clicar em Novo"
+      action: "navega para /transactions/new"
+      result: "abre o formulário de criação de transação"
+    - trigger: "clicar em uma linha"
+      action: "navega para o detalhe do transação"
+      result: "abre a tela de detalhe"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1
