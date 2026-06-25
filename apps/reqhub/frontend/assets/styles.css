@@ -963,8 +963,16 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 .chat-msg.is-user { align-self: flex-end; background: var(--accent-soft); border-color: var(--accent); }
 .chat-msg.is-ai { align-self: flex-start; background: var(--bg-1); }
 .chat-msg.is-err { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--bg-1)); }
-.chat-par { margin: 0 0 7px; }
+.chat-par { margin: 0 0 7px; white-space: pre-wrap; }
 .chat-par:last-child { margin-bottom: 0; }
+/* markdown renderizado nas bolhas do assistente (CSP-safe — ver renderMarkdown/parseMarkdown) */
+.chat-msg.is-ai > :first-child { margin-top: 0; }
+.chat-h { margin: 9px 0 4px; font-size: 13.5px; font-weight: 700; }
+.chat-list { margin: 4px 0 7px; padding-left: 18px; }
+.chat-list li { margin: 2px 0; }
+.chat-code { margin: 6px 0; padding: 8px 10px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; font: 12px/1.5 var(--mono); }
+.chat-ic { font: 12px var(--mono); background: var(--bg-2); padding: 1px 4px; border-radius: 4px; }
+.chat-link { color: var(--accent); }
 .chat-nobase { margin-bottom: 6px; }
 .chat-cites { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; padding-top: 7px; border-top: 1px solid var(--line); }
 .chat-cites-l { font-size: 11px; color: var(--muted); }

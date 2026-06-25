@@ -135,6 +135,7 @@ export function buildRouter({ registry, llm, memory } = {}) {
       const out = await runAuthoringChatTurn({
         product: b.product, message: b.message, history: b.history,
         target_req_id: b.target_req_id, grounding: b.grounding,
+        arch_summary: b.arch_summary, // resumo de arquitetura/stack do sistema (o chat passa a conhecer a stack)
         identity: { sub: String(req.identity || 'operator') },
       }, memory);
       res.json({ status: 'ok', ...out });

@@ -30,6 +30,9 @@ export async function getChatGraph(memory = {}) {
     verify: (process.env.REQHUB_AI_VERIFY || 'on').toLowerCase() !== 'off',
     judgeThreshold: 0.6,
     routerContext: PROMPTS.authoringChat.routerContext,
+    // Garante o caminho DEEP do especialista (prompt + tools + grounding) em TODO turno não-trivial,
+    // sem depender do acerto do router barato (que sub-roteava autoria p/ fast). Rollback: REQHUB_AI_FORCE_AUTHORING=off.
+    forceSpecialist: (process.env.REQHUB_AI_FORCE_AUTHORING || 'on').toLowerCase() !== 'off' ? 'authoring' : null,
   });
   return _graph;
 }
@@ -77,12 +80,30 @@ export function extractChatResult(result, { product, target_req_id, grounding } 
 }
 
 // Executa um turno do chat de autoria pelo grafo. memory (F3) e opcional.
-export async function runAuthoringChatTurn({ product, message, history, target_req_id, grounding, identity } = {}, memory) {
+// Monta o systemContext do chat: PERSONA/cadência (mesma do specialist, como rede de segurança caso o
+// turno caia no fast-path) + ARQUITETURA/STACK + RESUMO dos requisitos. É o que faltava para o chat
+// CONHECER a stack (e parar de perguntar "qual framework") e situar os requisitos por contexto.
+function buildChatSystemContext({ product, target_req_id, grounding, arch_summary } = {}) {
+  const parts = [
+    PROMPTS.authoringChat.system,
+    `PRODUTO: ${product || '(nao informado)'}` + (target_req_id ? `\nREFINANDO O REQUISITO: ${target_req_id}` : ''),
+  ];
+  const archTxt = String(arch_summary || '').trim();
+  if (archTxt) parts.push(`ARQUITETURA/STACK DO SISTEMA (responda sobre tecnologia com base nisto; NAO pergunte o que ja esta aqui):\n${archTxt.slice(0, 1500)}`);
+  const reqs = arr(grounding).filter((r) => r && r.id).slice(0, 40);
+  if (reqs.length) {
+    const lines = reqs
+      .map((r) => `- ${r.id} | ${String(r.title || '').slice(0, 80)} | ${String(r.statement || '').slice(0, 240)}`)
+      .join('\n');
+    parts.push(`REQUISITOS EXISTENTES DO PRODUTO (${reqs.length}; para detalhe/confirmacao use as tools search_requirements/get_requirement):\n${lines}`);
+  }
+  return parts.join('\n\n');
+}
+
+export async function runAuthoringChatTurn({ product, message, history, target_req_id, grounding, arch_summary, identity } = {}, memory) {
   const graph = await getChatGraph(memory);
   if (!graph) throw new AiToolError('AI_DISABLED', 'OPENAI_API_KEY nao configurado; chat de IA desabilitado');
-  const sys =
-    `produto: ${product || '(nao informado)'}` +
-    (target_req_id ? `\nrefinando o requisito: ${target_req_id}` : '');
+  const sys = buildChatSystemContext({ product, target_req_id, grounding, arch_summary });
   const result = await graph.runTurn({
     message: String(message || ''),
     history: arr(history).filter((m) => m && !m.error).map((m) => ({ role: m.role, content: String(m.content || '') })),

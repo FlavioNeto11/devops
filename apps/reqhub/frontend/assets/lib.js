@@ -481,6 +481,90 @@ export function filterCitations(citations, reqs) {
   return out;
 }
 
+/* ---------- contexto de arquitetura p/ o chat (o chat passa a CONHECER a stack) ---------- */
+/* Extrai o architecture_summary de UM produto do índice products.json (DATA.products).
+   Aceita o wrapper {products:[...]} ou o array direto. PURO. '' quando não houver. */
+export function systemContext(products, product, max = 1500) {
+  if (!product) return '';
+  const list = (products && Array.isArray(products.products)) ? products.products : (Array.isArray(products) ? products : []);
+  const p = list.find((x) => x && x.name === product);
+  const s = String((p && p.architecture_summary) || '').trim();
+  return s ? s.slice(0, max) : '';
+}
+
+/* ---------- markdown mínimo, CSP-safe (render no chat) ---------- */
+/* sanitizeHref: só aceita http/https (bloqueia javascript:/data:/vbscript: etc.). PURO. */
+export function sanitizeHref(url) {
+  const s = String(url == null ? '' : url).trim();
+  return /^https?:\/\//i.test(s) ? s : null;
+}
+
+/* parseInline: quebra um trecho em tokens {t:'text'|'strong'|'em'|'code'|'link', v, href?}.
+   Conservador: na dúvida, vira texto. Link com href inseguro degrada para texto (anti-XSS). */
+function parseInline(text) {
+  const tokens = [];
+  let s = String(text == null ? '' : text);
+  const re = /(`[^`]+`)|(\*\*[^*]+\*\*|__[^_]+__)|(\*[^*]+\*|_[^_]+_)|(\[[^\]]+\]\([^)\s]+\))/;
+  while (s.length) {
+    const m = re.exec(s);
+    if (!m) { tokens.push({ t: 'text', v: s }); break; }
+    if (m.index > 0) tokens.push({ t: 'text', v: s.slice(0, m.index) });
+    const tok = m[0];
+    if (m[1]) tokens.push({ t: 'code', v: tok.slice(1, -1) });
+    else if (m[2]) tokens.push({ t: 'strong', v: tok.replace(/^(\*\*|__)|(\*\*|__)$/g, '') });
+    else if (m[3]) tokens.push({ t: 'em', v: tok.replace(/^[*_]|[*_]$/g, '') });
+    else {
+      const lm = /^\[([^\]]+)\]\(([^)\s]+)\)$/.exec(tok);
+      const href = lm ? sanitizeHref(lm[2]) : null;
+      if (href) tokens.push({ t: 'link', v: lm[1], href });
+      else tokens.push({ t: 'text', v: lm ? lm[1] : tok });
+    }
+    s = s.slice(m.index + tok.length);
+  }
+  return tokens.length ? tokens : [{ t: 'text', v: '' }];
+}
+
+/* parseMarkdown: árvore de blocos simples (objetos, NÃO DOM/HTML) p/ o app.js materializar com
+   createElement/textContent (nunca innerHTML → CSP intacta). Blocos: heading | ul | ol | code | p.
+   Parágrafos separam por linha em branco; quebra simples vira nova linha dentro do parágrafo. PURO. */
+export function parseMarkdown(src) {
+  const lines = String(src == null ? '' : src).replace(/\r\n?/g, '\n').split('\n');
+  const isList = (l) => /^\s*([-*+]|\d+\.)\s+\S/.test(l);
+  const isHeading = (l) => /^#{1,6}\s+/.test(l);
+  const isFence = (l) => /^```/.test(l.trim());
+  const blocks = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (isFence(line)) {
+      const buf = []; i++;
+      while (i < lines.length && !isFence(lines[i])) { buf.push(lines[i]); i++; }
+      i++; // fecha a cerca
+      blocks.push({ type: 'code', text: buf.join('\n') });
+      continue;
+    }
+    if (!line.trim()) { i++; continue; }
+    const hm = /^#{1,6}\s+(.+?)\s*#*\s*$/.exec(line);
+    if (hm) { blocks.push({ type: 'heading', inline: parseInline(hm[1]) }); i++; continue; }
+    if (isList(line)) {
+      const ordered = /^\s*\d+\.\s/.test(line);
+      const items = [];
+      while (i < lines.length && isList(lines[i])) {
+        const im = /^\s*(?:[-*+]|\d+\.)\s+(.+)$/.exec(lines[i]);
+        items.push(parseInline(im[1])); i++;
+      }
+      blocks.push({ type: ordered ? 'ol' : 'ul', items });
+      continue;
+    }
+    const plines = [];
+    while (i < lines.length && lines[i].trim() && !isFence(lines[i]) && !isHeading(lines[i]) && !isList(lines[i])) {
+      plines.push(parseInline(lines[i].trim())); i++;
+    }
+    if (plines.length) blocks.push({ type: 'p', lines: plines });
+  }
+  return blocks;
+}
+
 /* ---------- emissor YAML mínimo (edição assistida) ---------- */
 export function scalarYaml(v) {
   if (v === null || v === undefined) return 'null';

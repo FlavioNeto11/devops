@@ -53,6 +53,7 @@ export function forgeState() {
         stack: p.stack || null,
         app_type: p.app_type || 'product_software',
         vision: p.vision || '',
+        architecture_summary: p.architecture_summary || '', // resumo de stack p/ o chat de autoria conhecer a tecnologia
         phases: p.phases || {},
         capability_blocks: p.capability_blocks || [],
         requirement_ids: p.requirement_ids || [],
