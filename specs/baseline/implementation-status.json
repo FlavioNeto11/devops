@@ -11,8 +11,8 @@
     "refinements": {
       "total": 63,
       "by_status": {
-        "pr_open": 1,
-        "not_started": 50,
+        "pr_open": 2,
+        "not_started": 49,
         "deployed": 12
       }
     }
@@ -2180,8 +2180,10 @@
       "req_revision": 1
     },
     "REF-NEUROEVOLUI-0035": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "branch": "@{id=REF-NEUROEVOLUI-0035; branch=ref/REF-NEUROEVOLUI-0035/r1; restricted=false; title=feat(neuroevolui): implementa REF-NEUROEVOLUI-0035 — Relatórios de Pacientes}.branch",
+      "run_id": "28175217291"
     },
     "REF-NEUROEVOLUI-0036": {
       "status": "not_started",
