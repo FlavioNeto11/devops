@@ -46,7 +46,14 @@ export const patients = resourceFactory('patients');
 export const professionals = resourceFactory('professionals');
 export const evolutionNotes = resourceFactory('evolution-notes');
 export const patientReports = resourceFactory('patient-reports');
-export const paymentTransactions = resourceFactory('payment-transactions');
+export const paymentTransactions = Object.assign(resourceFactory('payment-transactions'), {
+  exportUrl: (params) => {
+    const p = new URLSearchParams();
+    for (const k in (params || {})) { const v = params[k]; if (v !== '' && v !== null && v !== undefined) p.append(k, v); }
+    const s = p.toString();
+    return (import.meta.env.VITE_API_BASE_URL || '/neuroevolui/api') + '/v1/payment-transactions/export' + (s ? '?' + s : '');
+  },
+});
 export const notificationPreferences = resourceFactory('notification-preferences');
 export const auditLogs = resourceFactory('audit-logs');
 export const asyncJobs = resourceFactory('async-jobs');
