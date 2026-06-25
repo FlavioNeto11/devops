@@ -45,7 +45,23 @@ export const me = () => request("GET", "/me");
 export const patients = resourceFactory('patients');
 export const professionals = resourceFactory('professionals');
 export const evolutionNotes = resourceFactory('evolution-notes');
-export const patientReports = resourceFactory('patient-reports');
+export const patientReports = Object.assign(resourceFactory('patient-reports'), {
+  downloadPdf: async (id) => {
+    const res = await fetch(BASE + '/v1/patient-reports/' + id + '/pdf', { method: 'GET', headers: {} });
+    if (!res.ok) { const d = await res.json().catch(() => ({})); const e = new Error((d && d.error && d.error.message) || ('HTTP ' + res.status)); e.status = res.status; throw e; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const disp = res.headers.get('content-disposition') || '';
+    const match = disp.match(/filename="([^"]+)"/);
+    a.download = (match && match[1]) || ('relatorio-' + id + '.html');
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
+});
 export const paymentTransactions = resourceFactory('payment-transactions');
 export const notificationPreferences = resourceFactory('notification-preferences');
 export const auditLogs = resourceFactory('audit-logs');
