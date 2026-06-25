@@ -1,6 +1,6 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId } from './lib.js?v=41';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId, parseMarkdown, systemContext } from './lib.js?v=42';
 import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, weightedProgress, wavesFromProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes, capabilityPlain, planSummary, CAPABILITY_PLAIN } from './forge-lib.js?v=52';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -92,7 +92,7 @@ const AI = {
   // Pergunta à base no contexto de UM produto (grounding ≤60). Degrada fail-closed.
   async ask({ question, product, history }) {
     const reqs = (DATA.baseline && DATA.baseline.requirements) || [];
-    const r = await this.chat({ product: product || null, message: question, history: history || [], grounding: productGrounding(reqs, product) });
+    const r = await this.chat({ product: product || null, message: question, history: history || [], grounding: productGrounding(reqs, product), arch_summary: systemContext(DATA.products, product) || undefined });
     const d = r.ok ? (r.data || {}) : {};
     return { ok: r.ok, status: r.status, reply: d.reply || '', citations: filterCitations(d.citations || [], reqs), grounded: d.grounded !== false, intent: d.intent, draft: d.draft || null, next_question: d.next_question || '', error: r.ok ? null : (r.data && r.data.error) };
   },
@@ -1317,14 +1317,47 @@ const INTENT_CHIPS = [
   { label: '⚠ Reportar uma lacuna', msg: 'Acho que falta algo no sistema. Me ajude a identificar e a estruturar.' },
 ];
 
-/* bolha de chat CSP-safe (só nós via h(), sem innerHTML; parágrafos por \n\n). */
+/* materializa tokens inline do parseMarkdown em nós DOM (via h()/createTextNode — nunca innerHTML). */
+function renderInline(tokens) {
+  return (tokens || []).map((t) => {
+    if (t.t === 'strong') return h('strong', { text: t.v });
+    if (t.t === 'em') return h('em', { text: t.v });
+    if (t.t === 'code') return h('code', { class: 'chat-ic', text: t.v });
+    if (t.t === 'link') return h('a', { class: 'chat-link', href: t.href, target: '_blank', rel: 'noopener noreferrer nofollow', text: t.v });
+    return document.createTextNode(t.v == null ? '' : String(t.v));
+  });
+}
+/* renderiza markdown (headings/listas/negrito/código) como nós DOM CSP-safe. */
+function renderMarkdown(text) {
+  const out = [];
+  for (const blk of parseMarkdown(text)) {
+    if (blk.type === 'heading') out.push(h('p', { class: 'chat-h' }, ...renderInline(blk.inline)));
+    else if (blk.type === 'ul' || blk.type === 'ol') out.push(h(blk.type, { class: 'chat-list' }, ...blk.items.map((it) => h('li', {}, ...renderInline(it)))));
+    else if (blk.type === 'code') out.push(h('pre', { class: 'chat-code' }, h('code', { text: blk.text })));
+    else { const kids = []; blk.lines.forEach((ln, idx) => { if (idx) kids.push(h('br')); kids.push(...renderInline(ln)); }); out.push(h('p', { class: 'chat-par' }, ...kids)); }
+  }
+  return out;
+}
+
+/* bolha de chat CSP-safe (só nós via h(), sem innerHTML; assistente=markdown, usuário=texto puro). */
 function chatBubble(turn, opts) {
   const onCite = (opts && opts.onCite) || ((id) => { if (state.editor && state.editor.graph) state.editor.graph.focus(id); });
   const who = turn.role === 'user' ? 'is-user' : 'is-ai';
   const b = h('div', { class: 'chat-msg ' + who + (turn.error ? ' is-err' : '') });
-  // "não consta" só faz sentido numa PERGUNTA sobre o sistema (não em criar/refinar/clarify)
-  if (turn.role === 'assistant' && turn.intent === 'question' && turn.grounded === false) b.append(h('div', { class: 'chat-nobase' }, badge('não consta na base', 'b-low')));
-  String(turn.content || '').split(/\n{2,}/).map((p) => p.trim()).filter(Boolean).forEach((p) => b.append(h('p', { class: 'chat-par', text: p })));
+  // "fora da base" só quando é uma AFIRMAÇÃO sobre o sistema sem ancoragem (não em pergunta de volta,
+  // rascunho proposto ou quando houve citações) — evita o selo aparecer em quase toda resposta.
+  if (turn.role === 'assistant' && turn.intent === 'question' && turn.grounded === false && !turn.draft && !turn.next_question && !(turn.citations && turn.citations.length)) {
+    b.append(h('div', { class: 'chat-nobase' }, badge('fora da base de requisitos', 'b-low')));
+  }
+  // Assistente: markdown renderizado (CSP-safe), com fallback p/ texto puro; usuário/erro: texto puro.
+  if (turn.role === 'assistant' && !turn.error) {
+    let nodes = [];
+    try { nodes = renderMarkdown(turn.content || ''); } catch { nodes = []; }
+    if (nodes.length) nodes.forEach((n) => b.append(n));
+    else String(turn.content || '').split(/\n{2,}/).map((p) => p.trim()).filter(Boolean).forEach((p) => b.append(h('p', { class: 'chat-par', text: p })));
+  } else {
+    String(turn.content || '').split(/\n{2,}/).map((p) => p.trim()).filter(Boolean).forEach((p) => b.append(h('p', { class: 'chat-par', text: p })));
+  }
   if (turn.citations && turn.citations.length) {
     const c = h('div', { class: 'chat-cites' }, h('span', { class: 'chat-cites-l', text: 'Requisitos citados:' }));
     for (const id of turn.citations) c.append(h('button', { class: 'btn-link chat-cite', type: 'button', onclick: () => onCite(id), text: id }));
@@ -1408,6 +1441,7 @@ function renderChatStage(body) {
         product, target_req_id: state.editor.target_req_id || undefined, message: text,
         history: state.editor.messages.slice(0, -1).filter((m) => !m.error).map((m) => ({ role: m.role, content: m.content })),
         grounding: productGrounding(DATA.baseline.requirements, product),
+        arch_summary: systemContext(DATA.products, product) || undefined, // o chat passa a CONHECER a stack
       };
       // Com anexos → multipart na MESMA rota /v1/authoring/chat; sem anexos → AI.chat (JSON, retrocompat).
       const r = files.length
@@ -2319,9 +2353,14 @@ let _forgeStateInflight = false;
 let _forgePollTimer = null;
 function applyForgeState(payload) {
   if (!payload || payload.source === 'empty' || !Array.isArray(payload.products) || !payload.products.length) return false;
+  // preserva o architecture_summary do baked se o estado vivo (ConfigMap) ainda não tiver o campo (stale)
+  // — assim o polling nunca regride a ancoragem de stack do chat.
+  const prevArch = {};
+  for (const p of ((DATA.products && DATA.products.products) || [])) if (p && p.name) prevArch[p.name] = p.architecture_summary;
   DATA.products = { products: payload.products.map((p) => ({
     name: p.name, display_name: p.display_name, base_path: p.base_path, blueprint: p.blueprint,
     stack: p.stack, app_type: p.app_type, vision: p.vision, phases: p.phases,
+    architecture_summary: p.architecture_summary || prevArch[p.name] || '', // não regride a ancoragem de stack
     capability_blocks: p.capability_blocks, requirement_ids: p.requirement_ids,
   })) };
   const items = {};

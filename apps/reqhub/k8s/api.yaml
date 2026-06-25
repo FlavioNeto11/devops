@@ -18,7 +18,7 @@ metadata:
     devops.flavioneto/commitSha: "local"
     devops.flavioneto/branch: "main"
     devops.flavioneto/imageTag: "local"
-    devops.flavioneto/deployedAt: "2026-06-14T00:00:00Z"
+    devops.flavioneto/deployedAt: "2026-06-25T16:30:00Z"
     devops.flavioneto/runId: "manual-publish-reqhub-api"
     devops.flavioneto/image: "reqhub-api:local"
   labels:
@@ -59,6 +59,11 @@ spec:
               value: "anthropic"
             # sonnet-4-6: liberado pela API key dedicada (limite próprio, sem o 429 da assinatura).
             - name: REQHUB_AI_MODEL
+              value: "claude-sonnet-4-6"
+            # Router num modelo capaz (não o haiku barato): o haiku sub-roteava turnos de AUTORIA
+            # para o fast-path (genérico, sem grounding). Com forceSpecialist ligado isto é defesa
+            # extra; mantém o roteamento de complexidade confiável.
+            - name: REQHUB_AI_ROUTER_MODEL
               value: "claude-sonnet-4-6"
             - name: ANTHROPIC_API_KEY
               valueFrom: { secretKeyRef: { name: reqhub-api-config, key: ANTHROPIC_API_KEY, optional: true } }

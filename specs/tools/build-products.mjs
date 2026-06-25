@@ -115,6 +115,26 @@ function loadProducts(blueprintIds) {
   return products;
 }
 
+// --- resumo de arquitetura/stack por produto ----------------------------------
+// Deriva um texto COMPACTO e DETERMINÍSTICO de specs/products/<name>/architecture.json
+// (stack base + blocos de capacidade + títulos das ADRs). É o que o chat de autoria passa
+// a conhecer para responder sobre tecnologia SEM perguntar "qual framework". Opcional/fail-soft.
+function architectureSummary(name) {
+  const ap = path.join(PRODUCTS_DIR, name, 'architecture.json');
+  if (!fs.existsSync(ap)) return '';
+  let arch;
+  try { arch = readJson(ap); } catch (e) { fail(`JSON inválido em specs/products/${name}/architecture.json: ${e.message}`); return ''; }
+  const adrs = Array.isArray(arch.adrs) ? arch.adrs : [];
+  const lines = [];
+  const lead = String(arch.stack_rationale || '').trim() || String((adrs[0] && adrs[0].decision) || '').trim();
+  if (lead) lines.push(`Stack/decisão base: ${lead}`);
+  const blocks = [...new Set(adrs.flatMap((a) => (Array.isArray(a.blocks) ? a.blocks : [])))].sort();
+  if (blocks.length) lines.push(`Blocos de capacidade: ${blocks.join(', ')}.`);
+  const titles = adrs.map((a) => String(a.title || '').trim()).filter(Boolean);
+  if (titles.length) lines.push(`Decisões (ADRs): ${titles.join('; ')}.`);
+  return lines.join('\n').slice(0, 1500);
+}
+
 // --- montar índices (determinísticos) -----------------------------------------
 function build() {
   const blueprints = loadBlueprints().sort((a, b) => a.id.localeCompare(b.id));
@@ -146,6 +166,7 @@ function build() {
     products: products.map((p) => ({
       name: p.name, display_name: p.display_name, base_path: p.base_path, blueprint: p.blueprint,
       vision: p.vision, app_type: p.app_type || 'product_software',
+      architecture_summary: architectureSummary(p.name),
       requirement_ids: p.requirement_ids || [], phases: p.phases,
     })),
   };
