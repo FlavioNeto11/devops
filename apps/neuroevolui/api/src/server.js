@@ -1,5 +1,8 @@
 // server.js — API Fastify (gymops-style). Servida em /neuroevolui/api (stripPrefix). Gerado pela Forge.
 import Fastify from 'fastify';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { pool, migrate, seed } from './db.js';
 import { M, startMetricsServer } from './metrics.js';
 import { authContext, requireRole } from './rbac.js';
@@ -433,6 +436,43 @@ app.put('/v1/notifications/preferences', async (req, reply) => {
     contactValue: contact_value || '',
   });
   return { updated: true };
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Documentação da API — REQ-NEUROEVOLUI-0008
+// GET /docs        → ReDoc interativo (HTML)
+// GET /docs/openapi.yaml → especificação canônica (YAML)
+// ──────────────────────────────────────────────────────────────────────────────
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const openApiYamlPath = path.join(__dirname, 'openapi', 'openapi.yaml');
+
+app.get('/docs/openapi.yaml', async (req, reply) => {
+  reply.header('Content-Type', 'text/plain; charset=utf-8');
+  try {
+    return reply.send(fs.readFileSync(openApiYamlPath, 'utf-8'));
+  } catch {
+    reply.code(404); return { error: { message: 'openapi.yaml não encontrado' } };
+  }
+});
+
+app.get('/docs', async (req, reply) => {
+  reply.header('Content-Type', 'text/html; charset=utf-8');
+  // Determina a URL base da spec: usa X-Forwarded-Prefix ou fallback para /docs/openapi.yaml
+  const prefix = req.headers['x-forwarded-prefix'] || '';
+  const specUrl = `${prefix}/docs/openapi.yaml`;
+  return reply.send(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NeuroEvolui API Docs</title>
+  <style>body{margin:0;padding:0;}</style>
+</head>
+<body>
+  <redoc spec-url='${specUrl}'></redoc>
+  <script src="https://cdn.jsdelivr.net/npm/redoc@latest/bundles/redoc.standalone.js"></script>
+</body>
+</html>`);
 });
 
 const PORT = Number(process.env.PORT) || 8080;
