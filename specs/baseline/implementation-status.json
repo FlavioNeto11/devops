@@ -7,7 +7,7 @@
       "deployed": 296,
       "done": 52,
       "merged": 3,
-      "not_started": 1
+      "pr_open": 1
     },
     "refinements": {
       "total": 63,
@@ -703,8 +703,10 @@
       "run_id": "28205517010"
     },
     "REQ-CONTAVIVA360-0009": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "branch": "@{id=REQ-CONTAVIVA360-0009; branch=req/REQ-CONTAVIVA360-0009/r1; restricted=false; title=feat(contaviva-360): implementa REQ-CONTAVIVA360-0009 — Emissão e Processamento de Documen}.branch",
+      "run_id": "28206429142"
     },
     "REQ-GYMOPS-0001": {
       "status": "deployed",
