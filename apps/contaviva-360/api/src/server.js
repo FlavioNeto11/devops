@@ -20,6 +20,7 @@ import { registerFinancialDashboardRoutes } from './routes/financial-dashboard.j
 import { registerNfClientRoutes } from './routes/nf-clients.js';
 import { registerNfProductRoutes } from './routes/nf-products.js';
 import { registerNfRoutes } from './routes/nf.js';
+import { registerAssistantRoutes } from './routes/assistant.js';
 
 const app = Fastify({ logger: false });
 app.addHook('onRequest', async (req) => { const ctx = authContext(req); req.tenantId = ctx.tenantId; req.role = ctx.role; req.user = ctx.user; });
@@ -67,6 +68,9 @@ registerFinancialDashboardRoutes(app);
 registerNfClientRoutes(app);
 registerNfProductRoutes(app);
 registerNfRoutes(app);
+
+// Assistente de IA contábil (REQ-CONTAVIVA360-0007)
+registerAssistantRoutes(app);
 
 const PORT = Number(process.env.PORT) || 8080;
 (async () => {
