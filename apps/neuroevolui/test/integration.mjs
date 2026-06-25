@@ -70,4 +70,68 @@ ok((await get('/health')).j.status === 'ok', 'REQ-0003 AC6: health ok (migration
 const records = (await get('/v1/records', { 'X-Role': 'clinic_manager', 'X-Tenant-Id': '1' })).j.data;
 ok(Array.isArray(records) && records.length > 0, 'REQ-0003: seed criou registros de exemplo');
 
+// REQ-0004: Evolution Notes + Patient Reports
+const patientId = 'patient-integ-01';
+const profHeaders = { 'X-Role': 'professional', 'X-Tenant-Id': '1' };
+
+// AC1: criar nota com metadata
+const noteResp = await post(`/v1/patients/${patientId}/evolution-notes`, {
+  type: 'assessment',
+  note_date: new Date().toISOString(),
+  professional_id: 'prof-01',
+  text: 'Paciente apresenta melhora na cognição',
+  structured_fields: { test: 'MMSE', result: '28/30', recommendation: 'Continuar terapia' },
+}, profHeaders);
+ok(noteResp.s === 201, 'REQ-0004 AC1: POST /patients/{id}/evolution-notes retorna 201');
+ok(noteResp.j.id, 'REQ-0004 AC1: nota criada com id');
+ok(noteResp.j.type === 'assessment', 'REQ-0004 AC1: type salvo corretamente');
+ok(noteResp.j.professional_id === 'prof-01', 'REQ-0004 AC1: professional_id na metadata');
+const noteId = noteResp.j.id;
+
+// AC2: campos estruturados armazenados
+ok(noteResp.j.structured_fields?.test === 'MMSE', 'REQ-0004 AC2: structured_fields.test armazenado');
+ok(noteResp.j.text === 'Paciente apresenta melhora na cognição', 'REQ-0004 AC2: text armazenado');
+
+// AC3: versioning — PUT cria versão
+const putResp = await (fetch(`${API}/v1/patients/${patientId}/evolution-notes/${noteId}`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json', ...profHeaders },
+  body: JSON.stringify({ text: 'Texto revisado', structured_fields: { test: 'MMSE', result: '29/30', recommendation: 'Alta em breve' } }),
+}).then(async (r) => ({ s: r.status, j: await r.json().catch(() => ({})) })));
+ok(putResp.s === 200, 'REQ-0004 AC3: PUT retorna 200');
+
+const getNote = (await get(`/v1/patients/${patientId}/evolution-notes/${noteId}`, profHeaders)).j;
+ok(Array.isArray(getNote.versions) && getNote.versions.length >= 1, 'REQ-0004 AC3: versão anterior no histórico');
+ok(getNote.versions[0].snapshot?.text === 'Paciente apresenta melhora na cognição', 'REQ-0004 AC3: snapshot captura texto anterior');
+
+// AC4/AC5: relatório consolidado via BullMQ (async)
+const reportResp = await post(`/v1/patients/${patientId}/reports`, { date_from: '2020-01-01', type: 'assessment' }, profHeaders);
+ok(reportResp.s === 202, 'REQ-0004 AC4: POST /patients/{id}/reports retorna 202');
+ok(reportResp.j.report_id, 'REQ-0004 AC4: report_id retornado');
+const reportId = reportResp.j.report_id;
+
+// aguarda processamento (inline sem Redis → deve completar imediatamente via fallback)
+let rep = {};
+for (let i = 0; i < 5; i++) {
+  await sleep(500);
+  rep = (await get(`/v1/patients/${patientId}/reports/${reportId}`, profHeaders)).j;
+  if (rep.status === 'completed' || rep.status === 'failed') break;
+}
+ok(rep.status === 'completed', 'REQ-0004 AC4: relatório concluído (via worker/inline)');
+ok(rep.report_data?.patient_id === patientId, 'REQ-0004 AC4: relatório contém patient_id');
+
+// AC5: listar relatórios
+const repList = (await get(`/v1/patients/${patientId}/reports`, profHeaders)).j;
+ok(Array.isArray(repList.data) && repList.data.length >= 1, 'REQ-0004 AC5: lista de relatórios retorna array');
+
+// AC6: soft-delete e histórico
+const delNote = await del(`/v1/patients/${patientId}/evolution-notes/${noteId}`, profHeaders);
+ok(delNote === 200, 'REQ-0004 AC6: DELETE retorna 200 (soft-delete)');
+
+const listAfterDel = (await get(`/v1/patients/${patientId}/evolution-notes`, profHeaders)).j;
+ok(!listAfterDel.data?.find((n) => n.id === noteId), 'REQ-0004 AC6: nota deletada não aparece na listagem ativa');
+
+const history = (await get(`/v1/patients/${patientId}/evolution-notes/history`, profHeaders)).j;
+ok(history.data?.find((n) => n.id === noteId), 'REQ-0004 AC6: nota deletada aparece no histórico completo');
+
 console.log(process.exitCode ? 'FALHOU' : 'OK — gymops-style RBAC multi-tenant + async queues + migrations');

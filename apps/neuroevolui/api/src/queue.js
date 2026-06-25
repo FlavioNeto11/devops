@@ -14,6 +14,7 @@ const QUEUE_CONFIGS = {
   'patient-imports':    { attempts: 3, backoff: { type: 'exponential', delay: 2000 } },
   'notifications':      { attempts: 8, backoff: { type: 'exponential', delay: 500  } },
   'summaries-ai':       { attempts: 3, backoff: { type: 'exponential', delay: 3000 } },
+  'patient-reports':    { attempts: 3, backoff: { type: 'exponential', delay: 2000 } },
 };
 
 const _queues = {};

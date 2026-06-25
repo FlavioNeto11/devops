@@ -1,7 +1,8 @@
-// worker.js — workers BullMQ: records-submit (legado) + 4 named queues. Degradação sem Redis.
+// worker.js — workers BullMQ: records-submit (legado) + named queues. Degradação sem Redis.
 import { Worker } from 'bullmq';
 import { pool, migrate } from './db.js';
 import { M, startMetricsServer } from './metrics.js';
+import { processPatientReport } from './services/patient-reports-service.js';
 
 const url = process.env.REDIS_URL || '';
 function conn() { const u = new URL(url); return { host: u.hostname, port: Number(u.port) || 6379 }; }
@@ -18,7 +19,12 @@ async function handleNamedQueue(queueName, job) {
     `UPDATE async_jobs SET status='processing', updated_at=now() WHERE queue_name=$1 AND job_key=$2`,
     [queueName, jobKey]
   ).catch(() => {});
-  // Processamento domain-specific por fila (extensível por cada REQ)
+  if (queueName === 'patient-reports') {
+    const { reportId, tenantId, patientId, filters } = job.data;
+    if (reportId) {
+      await processPatientReport({ reportId, tenantId, patientId, filters });
+    }
+  }
   await pool.query(
     `UPDATE async_jobs SET status='completed', updated_at=now() WHERE queue_name=$1 AND job_key=$2`,
     [queueName, jobKey]
@@ -48,8 +54,8 @@ async function handleNamedQueue(queueName, job) {
     console.warn('[records-submit] job falhou: ' + (err && err.message));
   });
 
-  // 4 named queues
-  for (const queueName of ['consultation-notes', 'patient-imports', 'notifications', 'summaries-ai']) {
+  // named queues
+  for (const queueName of ['consultation-notes', 'patient-imports', 'notifications', 'summaries-ai', 'patient-reports']) {
     const w = new Worker(queueName, async (job) => {
       await handleNamedQueue(queueName, job);
       M.jobsTotal.inc({ status: 'done' });
