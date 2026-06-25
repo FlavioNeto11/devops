@@ -6,8 +6,7 @@
     "by_status": {
       "deployed": 282,
       "done": 52,
-      "merged": 12,
-      "pr_open": 1,
+      "merged": 13,
       "not_started": 5
     },
     "refinements": {
@@ -666,9 +665,11 @@
       "run_id": "28198916792"
     },
     "REQ-CONTAVIVA360-0004": {
-      "status": "pr_open",
+      "status": "merged",
       "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/160",
       "branch": "@{id=REQ-CONTAVIVA360-0004; branch=req/REQ-CONTAVIVA360-0004/r1; restricted=false; title=feat(contaviva-360): implementa REQ-CONTAVIVA360-0004 — Controle de Tarefas e Colaboração:}.branch",
+      "commit": "ef72810017fd04de016a3ed6982ebaf815727214",
       "run_id": "28200137469"
     },
     "REQ-CONTAVIVA360-0005": {
