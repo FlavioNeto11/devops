@@ -68,3 +68,28 @@ export async function assistant(message, files) {
   return data;
 }
 export const assistantHealth = () => request('GET', '/v1/assistant/health');
+
+// Identidade do usuário (REQ-CONTAVIVA360-0008)
+export const me = () => request('GET', '/me');
+
+// Dashboards por role (REQ-CONTAVIVA360-0008)
+export const dashboardRolePf = () => request('GET', '/v1/dashboard/role/pf');
+export const dashboardRolePj = () => request('GET', '/v1/dashboard/role/pj');
+export const dashboardRoleContador = () => request('GET', '/v1/dashboard/role/contador');
+export const dashboardRoleAdmin = () => request('GET', '/v1/dashboard/role/admin');
+export const concludeObligation = (id) => request('PATCH', '/v1/fiscal-obligations/' + id + '/concluir');
+
+// SSE para real-time updates (AC6). Retorna função de cleanup.
+export function dashboardEvents(onEvent) {
+  if (typeof EventSource === 'undefined') return () => {};
+  let es = null;
+  let dead = false;
+  function connect() {
+    if (dead) return;
+    es = new EventSource(BASE + '/v1/events/dashboard');
+    es.onmessage = (e) => { try { onEvent(JSON.parse(e.data)); } catch {} };
+    es.onerror = () => { if (!dead) { if (es) { es.close(); es = null; } setTimeout(connect, 5000); } };
+  }
+  connect();
+  return () => { dead = true; if (es) { es.close(); es = null; } };
+}
