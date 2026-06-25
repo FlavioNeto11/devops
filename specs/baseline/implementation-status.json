@@ -6,8 +6,7 @@
     "by_status": {
       "deployed": 296,
       "done": 52,
-      "merged": 3,
-      "pr_open": 1
+      "merged": 4
     },
     "refinements": {
       "total": 63,
@@ -703,9 +702,11 @@
       "run_id": "28205517010"
     },
     "REQ-CONTAVIVA360-0009": {
-      "status": "pr_open",
+      "status": "merged",
       "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/166",
       "branch": "@{id=REQ-CONTAVIVA360-0009; branch=req/REQ-CONTAVIVA360-0009/r1; restricted=false; title=feat(contaviva-360): implementa REQ-CONTAVIVA360-0009 — Emissão e Processamento de Documen}.branch",
+      "commit": "96a2da878480ea95e9a80b9d734aef3a5c8fa582",
       "run_id": "28206429142"
     },
     "REQ-GYMOPS-0001": {
