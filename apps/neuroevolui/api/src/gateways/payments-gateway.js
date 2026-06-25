@@ -1,5 +1,5 @@
 // gateways/payments-gateway.js — wrapper do payments-kit. HTTP externo só por aqui.
-import { createPaymentGateway, verifyWebhookSignature as _verify } from '../../../../../packages/payments-kit/src/index.js';
+import { createPaymentGateway, verifyWebhookSignature as _verify } from '../vendor/payments-kit/index.js';
 
 export const gateway = createPaymentGateway({
   provider: process.env.PAYMENT_PROVIDER || 'sandbox',
