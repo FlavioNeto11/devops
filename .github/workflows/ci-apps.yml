@@ -1,14 +1,16 @@
 # =============================================================================
 # ci-apps — gate estatico por app (lint / typecheck / build)
 # -----------------------------------------------------------------------------
-# Roda em PR e push para main quando muda apps/**. Matrix por app, com o
-# gerenciador de pacote correto (sicat=npm workspaces, gymops=pnpm, rmambiental=npm).
+# Roda em PR e push para main quando muda apps/**. ESCOPADO: um job `detect`
+# descobre QUAIS apps mudaram (git diff) e a matrix roda SÓ esses — em vez de
+# rodar os 8 apps a cada mudanca em qualquer app (o que inflava a fila hosted do
+# GitHub e ajudava a estourar o throttle). Mudanca no proprio workflow OU
+# workflow_dispatch => roda TODOS (conservador). Verificacoes ESTATICAS de cada
+# app dependem so do codigo do proprio app (deps sao vendoradas), entao escopar
+# por pasta do app e seguro (nao ha under-trigger).
 #
-# Escopo: verificacoes ESTATICAS que NAO precisam de infra. Testes de integracao
-# (gymops/sicat) exigem Postgres/Redis e rodam no pipeline proprio de cada app /
-# localmente — ficam fora deste gate. Cada app declara seus 'checks' explicitos
-# (e um 'prep' opcional de codegen, ex.: prisma generate). run_if pula um check
-# se o script nao existir no package.json.
+# NB: os jobs por-app NAO sao required na main (so "Validar requisitos e baseline"
+# e "Reqhub gate" sao) — pular apps nao alterados nao bloqueia o merge.
 #
 # Runner: ubuntu-latest (igual aos demais workflows de build/lint do repo).
 # =============================================================================
@@ -35,55 +37,76 @@ permissions:
   contents: read
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # detect — calcula a matrix (lista de apps a verificar) a partir do git diff.
+  # Saida `include` = JSON com as entradas da matrix dos apps cujo apps/<path>/
+  # mudou. Vazio ([]) => o job `apps` e pulado.
+  # ---------------------------------------------------------------------------
+  detect:
+    name: detectar apps alterados
+    runs-on: ubuntu-latest
+    outputs:
+      include: ${{ steps.f.outputs.include }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: f
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          # Tabela canonica dos apps (path = subpasta de apps/ com o package.json).
+          cat > "$RUNNER_TEMP/apps.json" <<'JSON'
+          [
+            {"app":"sicat","path":"sicat","pm":"npm","prep":"","checks":"lint build:frontend"},
+            {"app":"gymops","path":"gymops","pm":"pnpm","prep":"pnpm --filter @gymops/db run generate && pnpm --filter \"./packages/*\" run build","checks":"lint typecheck"},
+            {"app":"rmambiental","path":"rmambiental","pm":"npm","prep":"","checks":"build"},
+            {"app":"anarabottini","path":"anarabottini","pm":"npm","prep":"","checks":"typecheck build"},
+            {"app":"portal-recorder-api","path":"portal-recorder/api","pm":"npm","prep":"","checks":"test"},
+            {"app":"portal-recorder-frontend","path":"portal-recorder/frontend","pm":"npm","prep":"","checks":"build"},
+            {"app":"ai-control-plane-api","path":"ai-control-plane/api","pm":"npm","prep":"","checks":"test"},
+            {"app":"reqhub-api","path":"reqhub/api","pm":"npm","prep":"","checks":"test"}
+          ]
+          JSON
+
+          run_all=0
+          [ "$EVENT" = "workflow_dispatch" ] && run_all=1
+          if [ "$EVENT" = "pull_request" ]; then base="${BASE_SHA:-}"; else base="${BEFORE_SHA:-}"; fi
+          if [ -z "$base" ] || ! git rev-parse -q --verify "$base^{commit}" >/dev/null 2>&1; then
+            run_all=1
+          fi
+
+          changed=""
+          if [ "$run_all" = "0" ]; then
+            changed="$(git diff --name-only "$base" HEAD || true)"
+            # mudanca no proprio workflow => roda todos (conservador)
+            if printf '%s\n' "$changed" | grep -qx '.github/workflows/ci-apps.yml'; then run_all=1; fi
+          fi
+
+          if [ "$run_all" = "1" ]; then
+            inc="$(jq -c . "$RUNNER_TEMP/apps.json")"
+          else
+            inc="$(jq -c --arg ch "$changed" '
+              ($ch | split("\n") | map(select(length > 0))) as $files
+              | [ .[] | . as $e | select($files | any(startswith("apps/" + $e.path + "/"))) ]
+            ' "$RUNNER_TEMP/apps.json")"
+          fi
+          echo "apps selecionados: $inc"
+          echo "include=$inc" >> "$GITHUB_OUTPUT"
+
   apps:
     name: ${{ matrix.app }}
+    needs: detect
+    if: needs.detect.outputs.include != '' && needs.detect.outputs.include != '[]'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        # `path` = subpasta de apps/ onde está o package.json (default = app). Apps
-        # multi-serviço (portal-recorder, ai-control-plane) têm o pkg em api/frontend.
-        include:
-          - app: sicat
-            path: sicat
-            pm: npm
-            prep: ""
-            checks: "lint build:frontend"
-          - app: gymops
-            path: gymops
-            pm: pnpm
-            prep: 'pnpm --filter @gymops/db run generate && pnpm --filter "./packages/*" run build'
-            checks: "lint typecheck"
-          - app: rmambiental
-            path: rmambiental
-            pm: npm
-            prep: ""
-            checks: "build"
-          - app: anarabottini
-            path: anarabottini
-            pm: npm
-            prep: ""
-            checks: "typecheck build"
-          - app: portal-recorder-api
-            path: portal-recorder/api
-            pm: npm
-            prep: ""
-            checks: "test"
-          - app: portal-recorder-frontend
-            path: portal-recorder/frontend
-            pm: npm
-            prep: ""
-            checks: "build"
-          - app: ai-control-plane-api
-            path: ai-control-plane/api
-            pm: npm
-            prep: ""
-            checks: "test"
-          - app: reqhub-api
-            path: reqhub/api
-            pm: npm
-            prep: ""
-            checks: "test"
+        include: ${{ fromJSON(needs.detect.outputs.include) }}
     defaults:
       run:
         working-directory: apps/${{ matrix.path }}
