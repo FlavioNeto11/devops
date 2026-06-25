@@ -18,7 +18,7 @@ on:
         required: true
 
 permissions:
-  contents: read
+  contents: write   # marca os requisitos MERGED como 'deployed' após o rollout (commit best-effort na main)
 
 jobs:
   deploy:
@@ -77,6 +77,22 @@ jobs:
           kubectl apply -f (Join-Path $appDir 'k8s') 2>$null
           kubectl -n apps rollout restart deployment -l app.kubernetes.io/part-of=$prod
           kubectl -n apps rollout status deployment -l app.kubernetes.io/part-of=$prod --timeout=180s
+
+          # 3b) marca 'deployed' os requisitos MERGED deste produto — o rollout subiu a imagem com o
+          #     código deles. Sem isto a esteira parava em 'merged' e o app NO AR aparecia "0 no ar"
+          #     na Forge (no ar = deployed+done). Best-effort: se o push falhar, o passo 4 ainda
+          #     propaga o estado local pro ConfigMap (Forge reflete a verdade até o próximo rebuild).
+          $pidu = ($prod -replace '[^a-zA-Z0-9]', '').ToUpper()
+          $st = Get-Content "specs/baseline/implementation-status.json" -Raw | ConvertFrom-Json
+          $merged = @($st.items.PSObject.Properties | Where-Object { $_.Name -match "^REQ-$pidu-" -and $_.Value.status -eq 'merged' } | ForEach-Object { $_.Name })
+          if ($merged.Count -gt 0) {
+            foreach ($id in $merged) { node specs/tools/impl-status.mjs --set $id status=deployed | Out-Null; Write-Host "  $id -> deployed" }
+            git config user.name "forge-bot"; git config user.email "forge-bot@users.noreply.github.com"
+            git add specs/baseline/implementation-status.json
+            git commit -m "chore(specs): status deployed ($prod) [skip ci]" | Out-Null
+            git pull --rebase origin main 2>$null
+            git push origin main 2>$null; if ($LASTEXITCODE -ne 0) { Write-Host "::warning::push do status deployed falhou (proteção de branch?) — ConfigMap ainda será atualizado." }
+          }
 
           # 4) ressincroniza o estado VIVO da Forja (ConfigMap) a partir da baseline ATUAL — a tela Build
           #    reflete o progresso real (reqs mesclados) sem reassar a imagem. (reconcile commita o
