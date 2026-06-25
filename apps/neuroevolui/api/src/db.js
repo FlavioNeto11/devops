@@ -174,6 +174,8 @@ const MIGRATIONS = [
   `ALTER TABLE payment_transactions ADD COLUMN IF NOT EXISTS patient_id TEXT`,
   `ALTER TABLE payment_transactions ADD COLUMN IF NOT EXISTS event_type TEXT`,
   `ALTER TABLE payment_transactions ADD COLUMN IF NOT EXISTS external_id TEXT`,
+  // REF-NEUROEVOLUI-0046: ip_address para rastreabilidade de acesso na trilha de auditoria
+  `ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS ip_address TEXT`,
 ];
 export async function migrate() {
   const c = await pool.connect();

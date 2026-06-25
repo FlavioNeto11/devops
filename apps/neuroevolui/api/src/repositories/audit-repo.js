@@ -1,11 +1,11 @@
 // repositories/audit-repo.js — trilha de auditoria (quem, quando, valor, status, gateway).
 import { pool } from '../db.js';
 
-export async function insertAuditLog({ tenantId, entityType, entityId, action, actor, amountCents, paymentStatus, gateway, metadata }) {
+export async function insertAuditLog({ tenantId, entityType, entityId, action, actor, amountCents, paymentStatus, gateway, metadata, ipAddress }) {
   await pool.query(
-    `INSERT INTO audit_logs(tenant_id, entity_type, entity_id, action, actor, amount_cents, payment_status, gateway, metadata)
-     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb)`,
-    [tenantId || 1, entityType, entityId ?? null, action, actor ?? null, amountCents ?? null, paymentStatus ?? null, gateway ?? null, JSON.stringify(metadata || {})]
+    `INSERT INTO audit_logs(tenant_id, entity_type, entity_id, action, actor, amount_cents, payment_status, gateway, metadata, ip_address)
+     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10)`,
+    [tenantId || 1, entityType, entityId ?? null, action, actor ?? null, amountCents ?? null, paymentStatus ?? null, gateway ?? null, JSON.stringify(metadata || {}), ipAddress ?? null]
   );
 }
 
@@ -48,4 +48,33 @@ export async function deleteAuditLog(tenantId, id) {
     [tenantId, Number(id)]
   );
   return r.rowCount > 0;
+}
+
+// Exporta logs como CSV (UTF-8 com BOM para compatibilidade com Excel pt-BR).
+export async function exportAuditLogsCsv(tenantId, { sort = 'created_at', dir = 'desc' } = {}) {
+  const AUDIT_SORTABLE = new Set(['id', 'entity_type', 'action', 'created_at']);
+  const col = AUDIT_SORTABLE.has(sort) ? sort : 'created_at';
+  const order = String(dir).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+  const r = await pool.query(
+    `SELECT id, actor, action, entity_type, entity_id, payment_status, amount_cents, gateway, ip_address, created_at
+       FROM audit_logs WHERE tenant_id=$1 ORDER BY ${col} ${order} LIMIT 10000`,
+    [tenantId]
+  );
+  const header = 'id,usuario,acao,entidade,id_entidade,pagamento,valor_cents,gateway,ip_address,quando\n';
+  const rows = r.rows.map((row) => {
+    const cols = [
+      row.id,
+      row.actor ?? '',
+      row.action ?? '',
+      row.entity_type ?? '',
+      row.entity_id ?? '',
+      row.payment_status ?? '',
+      row.amount_cents ?? '',
+      row.gateway ?? '',
+      row.ip_address ?? '',
+      row.created_at ? new Date(row.created_at).toISOString() : '',
+    ];
+    return cols.map((c) => '"' + String(c).replace(/"/g, '""') + '"').join(',');
+  });
+  return '﻿' + header + rows.join('\n');
 }

@@ -1,16 +1,16 @@
 <!--
-  Auditoria — trilha de auditoria do tenant (REQ-NEUROEVOLUI-0005, REQ-NEUROEVOLUI-0002).
+  Auditoria — trilha de auditoria do tenant (REF-NEUROEVOLUI-0046, REQ-NEUROEVOLUI-0005, REQ-NEUROEVOLUI-0002).
   Somente leitura. Restrita a clinic_manager+ no backend (401/403 = sem acesso, não erro fatal).
 
-  Endpoint REAL:
-    · GET /v1/audit-logs  (auditLogs de api.js; coleção paginada server-side → { data, total })
-      params suportados: page, pageSize, sort (id|entity_type|action|created_at), dir (asc|desc)
-  Filtros por entidade/tipo/ação/status de pagamento/período são aplicados no cliente sobre a página
-  carregada (o contrato da coleção não expõe filtros server-side — não inventamos rota).
+  Endpoints REAIS:
+    · GET  /v1/audit-logs         (paginada server-side → { data, total })
+    · GET  /v1/audit-logs/export  (CSV download)
+    · GET  /v1/audit-logs/:id     (detalhe — view separada AuditLogDetailView)
+  Filtros por usuário/ação/entidade/status/período são aplicados no cliente sobre a página carregada.
+  Filtros ativos são sincronizados em query params (shareabilidade de URL).
 
-  Estados: loading (skeleton via UiDataTable) · empty (com CTA p/ rotas de domínio) ·
-           error (com retry) · normal. CSP-safe: zero style inline / :style / v-html —
-           todo estado visual por class + data-* no <style scoped>.
+  Estados: loading (skeleton via UiDataTable) · empty · error (com retry) · normal.
+  CSP-safe: zero style inline / :style / v-html.
 -->
 <template>
   <UiPageLayout
@@ -23,7 +23,7 @@
   >
     <template #actions>
       <UiButton variant="ghost" :loading="loading" @click="reload">Atualizar</UiButton>
-      <UiButton variant="subtle" to="/transactions">Ver transações</UiButton>
+      <UiButton variant="subtle" :loading="exporting" @click="doExport">Exportar CSV</UiButton>
     </template>
 
     <!-- KPIs — sempre visíveis; placeholders enquanto carrega -->
@@ -128,10 +128,16 @@
         </div>
       </template>
 
-      <!-- Autor -->
+      <!-- Usuário (actor / user_name) -->
       <template #cell-actor="{ value }">
         <span v-if="value" class="au-actor">{{ value }}</span>
         <span v-else class="au-muted">sistema</span>
+      </template>
+
+      <!-- IP de origem -->
+      <template #cell-ip_address="{ value }">
+        <span v-if="value" class="au-mono au-text-xs">{{ value }}</span>
+        <span v-else class="au-muted">—</span>
       </template>
 
       <!-- Status de pagamento (só quando há) -->
@@ -150,102 +156,43 @@
       <template #empty-action>
         <div class="au-empty-actions">
           <UiButton v-if="hasActiveFilters" variant="ghost" @click="onClear">Limpar filtros</UiButton>
-          <UiButton variant="primary" to="/transactions">Ver transações</UiButton>
         </div>
       </template>
     </UiDataTable>
 
     <template #footer>
       <span>
-        Fonte: trilha de auditoria do tenant (somente leitura). Clique numa linha para ver os detalhes do evento.
+        Trilha de auditoria do tenant (somente leitura). Clique numa linha para ver os detalhes do evento.
       </span>
     </template>
-
-    <!-- Detalhe do evento (read-only) -->
-    <UiModal v-model:open="detailOpen" :title="detailTitle" width="md" aria-describedby="au-detail-desc">
-      <dl v-if="selected" id="au-detail-desc" class="au-detail">
-        <div class="au-detail-row">
-          <dt>Ação</dt>
-          <dd class="au-detail-strong">{{ actionLabel(selected.action) }}</dd>
-        </div>
-        <div class="au-detail-row">
-          <dt>Entidade</dt>
-          <dd>{{ entityLabel(selected.entity_type) }}</dd>
-        </div>
-        <div class="au-detail-row">
-          <dt>ID da entidade</dt>
-          <dd class="au-detail-mono">{{ selected.entity_id || '—' }}</dd>
-        </div>
-        <div class="au-detail-row">
-          <dt>Autor</dt>
-          <dd>{{ selected.actor || 'Sistema' }}</dd>
-        </div>
-        <div class="au-detail-row">
-          <dt>Status de pagamento</dt>
-          <dd>
-            <UiStatusBadge
-              v-if="selected.payment_status"
-              :status="selected.payment_status"
-              :tone="statusTone(selected.payment_status)"
-              :label="statusText(selected.payment_status)"
-              with-dot
-            />
-            <span v-else class="au-muted">não aplicável</span>
-          </dd>
-        </div>
-        <div v-if="selected.amount_cents != null" class="au-detail-row">
-          <dt>Valor</dt>
-          <dd class="au-detail-amount">{{ amountLabel(selected) }}</dd>
-        </div>
-        <div v-if="selected.gateway" class="au-detail-row">
-          <dt>Gateway</dt>
-          <dd>{{ format.humanize(selected.gateway) }}</dd>
-        </div>
-        <div class="au-detail-row">
-          <dt>Quando</dt>
-          <dd>{{ format.formatDateTime(selected.created_at) }}</dd>
-        </div>
-        <div v-if="metadataText" class="au-detail-row au-detail-row--block">
-          <dt>Detalhes</dt>
-          <dd class="au-detail-meta">{{ metadataText }}</dd>
-        </div>
-      </dl>
-      <template #footer>
-        <UiButton variant="ghost" @click="detailOpen = false">Fechar</UiButton>
-        <UiButton
-          v-if="detailLink"
-          variant="primary"
-          :to="detailLink"
-        >
-          {{ detailLinkLabel }}
-        </UiButton>
-      </template>
-    </UiModal>
   </UiPageLayout>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import {
   UiPageLayout,
   UiDataTable,
   UiFiltersPanel,
   UiStatusBadge,
   UiMetricCard,
-  UiModal,
   UiButton,
   useToast,
   format,
 } from '../ui/index.js';
-import { auditLogs as auditApi } from '../api.js';
+import { auditLogs as auditApi, exportAuditLogs } from '../api.js';
 
 const toast = useToast();
+const router = useRouter();
+const route = useRoute();
 
 // ── Estado de dados ──────────────────────────────────────────────────────────────
 const rows = ref([]);
 const total = ref(0);
 const loading = ref(false);
 const error = ref(null);
+const exporting = ref(false);
 
 // server-mode: o backend só ordena por id|entity_type|action|created_at.
 const SERVER_SORTABLE = new Set(['id', 'entity_type', 'action', 'created_at']);
@@ -253,11 +200,20 @@ const sort = ref({ key: 'created_at', dir: 'desc' });
 const page = ref(1);
 const pageSize = ref(25);
 
-const filters = ref({ q: '', entity_type: '', action: '', payment_status: '', date_from: '', date_to: '' });
-
-// Detalhe
-const detailOpen = ref(false);
-const selected = ref(null);
+// Lê filtros iniciais dos query params (shareabilidade de URL).
+function readFiltersFromRoute() {
+  const q = route.query;
+  return {
+    q: q.q || '',
+    user_name: q.user_name || '',
+    entity_type: q.entity_type || '',
+    action: q.action || '',
+    payment_status: q.payment_status || '',
+    date_from: q.date_from || '',
+    date_to: q.date_to || '',
+  };
+}
+const filters = ref(readFiltersFromRoute());
 
 // ── Rótulos (a cor NUNCA é o único sinal — sempre há texto) ───────────────────────
 const PAYMENT_LABELS = {
@@ -320,18 +276,13 @@ const statusTone = (v) => {
 const entityLabel = (v) => ENTITY_LABELS[norm(v)] || (v ? format.humanize(v) : '—');
 const actionLabel = (v) => ACTION_LABELS[norm(v)] || (v ? format.humanize(v) : '—');
 
-function amountLabel(row) {
-  const n = Number(row && row.amount_cents);
-  if (!isFinite(n)) return '—';
-  return format.formatCurrency(n / 100);
-}
-
 // ── Colunas ───────────────────────────────────────────────────────────────────────
 const columns = [
   { key: 'created_at', label: 'Quando', sortable: true },
   { key: 'action', label: 'Ação', sortable: true },
-  { key: 'entity_type', label: 'Entidade', sortable: true },
-  { key: 'actor', label: 'Autor' },
+  { key: 'entity_type', label: 'Recurso', sortable: true },
+  { key: 'actor', label: 'Usuário' },
+  { key: 'ip_address', label: 'IP' },
   { key: 'payment_status', label: 'Pagamento' },
 ];
 
@@ -348,8 +299,9 @@ function distinctOptions(field, labeller) {
 }
 
 const filterFields = computed(() => [
-  { key: 'q', label: 'Buscar', type: 'text', placeholder: 'Autor, ação, ID da entidade…' },
-  { key: 'entity_type', label: 'Entidade', type: 'select', options: distinctOptions('entity_type', entityLabel) },
+  { key: 'q', label: 'Buscar', type: 'text', placeholder: 'Usuário, ação, ID da entidade…' },
+  { key: 'user_name', label: 'Usuário', type: 'select', options: distinctOptions('actor', (v) => v || 'sistema') },
+  { key: 'entity_type', label: 'Recurso', type: 'select', options: distinctOptions('entity_type', entityLabel) },
   { key: 'action', label: 'Ação', type: 'select', options: distinctOptions('action', actionLabel) },
   { key: 'payment_status', label: 'Pagamento', type: 'select', options: distinctOptions('payment_status', statusText) },
   { key: 'date_from', label: 'De', type: 'date' },
@@ -371,7 +323,8 @@ const filteredRows = computed(() => {
   const f = filters.value;
   if (!hasActiveFilters.value) return rows.value;
   return rows.value.filter((r) => {
-    if (!matchesText(f.q, r.actor, r.action, r.entity_type, r.entity_id, r.id)) return false;
+    if (!matchesText(f.q, r.actor, r.action, r.entity_type, r.entity_id, r.id, r.ip_address)) return false;
+    if (f.user_name && norm(r.actor) !== norm(f.user_name)) return false;
     if (f.entity_type && norm(r.entity_type) !== norm(f.entity_type)) return false;
     if (f.action && norm(r.action) !== norm(f.action)) return false;
     if (f.payment_status && norm(r.payment_status) !== norm(f.payment_status)) return false;
@@ -379,7 +332,6 @@ const filteredRows = computed(() => {
       if (new Date(r.created_at) < new Date(f.date_from)) return false;
     }
     if (f.date_to && r.created_at) {
-      // include the full day of date_to
       const until = new Date(f.date_to);
       until.setHours(23, 59, 59, 999);
       if (new Date(r.created_at) > until) return false;
@@ -442,60 +394,11 @@ const emptyState = computed(() => {
   };
 });
 
-// ── Detalhe ────────────────────────────────────────────────────────────────────────
-const detailTitle = computed(() => {
-  if (!selected.value) return 'Evento de auditoria';
-  return actionLabel(selected.value.action) + ' · ' + entityLabel(selected.value.entity_type);
-});
-
-const metadataText = computed(() => {
-  const m = selected.value && selected.value.metadata;
-  if (!m) return '';
-  if (typeof m === 'string') return m.trim();
-  try {
-    const keys = Object.keys(m);
-    if (!keys.length) return '';
-    return JSON.stringify(m, null, 2);
-  } catch {
-    return '';
-  }
-});
-
-// Link de domínio p/ a entidade afetada — só rotas reais do domínio clínico.
-const ENTITY_ROUTES = {
-  patient: '/patients/',
-  patients: '/patients/',
-  consultation: '/consultations/',
-  consultations: '/consultations/',
-  professional: '/professionals/',
-  professionals: '/professionals/',
-  'evolution-note': '/evolution-notes/',
-  evolution_note: '/evolution-notes/',
-  report: '/reports/',
-  reports: '/reports/',
-  'patient-report': '/reports/',
-  'payment-transaction': '/transactions/',
-  transaction: '/transactions/',
-};
-const detailLink = computed(() => {
-  const s = selected.value;
-  if (!s || !s.entity_id) return null;
-  const base = ENTITY_ROUTES[norm(s.entity_type)];
-  return base ? base + s.entity_id : null;
-});
-const detailLinkLabel = computed(() => {
-  const s = selected.value;
-  if (!s) return 'Abrir';
-  return 'Abrir ' + entityLabel(s.entity_type).toLowerCase();
-});
-
 // ── Ações ────────────────────────────────────────────────────────────────────────
 function openDetail(row) {
-  selected.value = row;
-  detailOpen.value = true;
+  router.push('/audit-logs/' + row.id);
 }
 function onSort(s) {
-  // Server-mode só ordena pelas colunas suportadas; ignora as demais.
   if (!s || !SERVER_SORTABLE.has(s.key)) return;
   sort.value = s;
   page.value = 1;
@@ -510,11 +413,42 @@ function onPageSize(size) {
   page.value = 1;
   load();
 }
+
+// Sincroniza filtros ativos em query params (shareabilidade e recarregamento).
+function syncQueryParams() {
+  const f = filters.value;
+  const q = {};
+  for (const k of Object.keys(f)) { if (f[k]) q[k] = f[k]; }
+  router.replace({ query: q });
+}
+
 function onApply() {
-  // Filtros são client-side sobre a página atual; nada a recarregar.
+  syncQueryParams();
 }
 function onClear() {
-  filters.value = { q: '', entity_type: '', action: '', payment_status: '', date_from: '', date_to: '' };
+  filters.value = { q: '', user_name: '', entity_type: '', action: '', payment_status: '', date_from: '', date_to: '' };
+  router.replace({ query: {} });
+}
+
+async function doExport() {
+  if (exporting.value) return;
+  exporting.value = true;
+  try {
+    const blob = await exportAuditLogs({ sort: sort.value.key, dir: sort.value.dir });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'audit-logs.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('Exportação concluída.', { detail: 'Arquivo CSV pronto para download.' });
+  } catch (e) {
+    toast.error('Falha ao exportar.', { detail: e.message });
+  } finally {
+    exporting.value = false;
+  }
 }
 
 // ── Carga ────────────────────────────────────────────────────────────────────────
@@ -629,82 +563,18 @@ onMounted(load);
   justify-content: center;
 }
 
-/* Detalhe (modal) */
-.au-detail {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ui-space-1);
-  margin: 0;
-}
-
-.au-detail-row {
-  display: grid;
-  grid-template-columns: var(--au-detail-label-col, 10.625rem) 1fr;
-  gap: var(--ui-space-3);
-  align-items: center;
-  padding: var(--ui-space-2) 0;
-  border-bottom: 1px solid rgb(var(--ui-border));
-}
-
-.au-detail-row:last-child {
-  border-bottom: none;
-}
-
-.au-detail-row--block {
-  align-items: start;
-}
-
-.au-detail dt {
-  color: rgb(var(--ui-muted));
-  font-size: var(--ui-text-sm);
-  font-weight: 600;
-}
-
-.au-detail dd {
-  margin: 0;
-  color: rgb(var(--ui-fg));
-  font-size: var(--ui-text-sm);
-}
-
-.au-detail-strong {
-  font-weight: 700;
-}
-
-.au-detail-amount {
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  font-size: var(--ui-text-md);
-}
-
-.au-detail-mono {
+.au-mono {
   font-family: var(--ui-font-mono, monospace);
-  word-break: break-all;
 }
 
-.au-detail-meta {
-  font-family: var(--ui-font-mono, monospace);
+.au-text-xs {
   font-size: var(--ui-text-xs);
-  color: rgb(var(--ui-muted));
-  white-space: pre-wrap;
-  word-break: break-word;
-  background: rgb(var(--ui-surface-2));
-  border: 1px solid rgb(var(--ui-border));
-  border-radius: var(--ui-radius-sm);
-  padding: var(--ui-space-2) var(--ui-space-3);
-  max-height: var(--au-meta-max-h, 13.75rem);
-  overflow: auto;
 }
 
 @media (max-width: var(--ui-breakpoint-md, 53.75rem)) {
   .au-metrics {
     grid-template-columns: repeat(auto-fit, minmax(var(--ui-metric-card-min-sm, 9.375rem), 1fr));
     gap: var(--ui-space-3);
-  }
-
-  .au-detail-row {
-    grid-template-columns: 1fr;
-    gap: var(--ui-space-0-5, 0.125rem);
-    align-items: start;
   }
 }
 </style>
