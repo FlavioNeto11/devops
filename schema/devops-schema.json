@@ -51,6 +51,16 @@
       "description": "Dependências de infraestrutura por nome (ex.: postgres, redis). Provisionadas separadamente do build da app.",
       "additionalProperties": { "$ref": "#/definitions/dependency" }
     },
+    "observability": {
+      "type": "object",
+      "description": "Observabilidade declarada pela app (emitida pela Forge no estilo gymops). A porta de métricas Prometheus e se a plataforma deve criar ServiceMonitor/PrometheusRule. Os manifests reais ficam em k8s/.",
+      "additionalProperties": false,
+      "properties": {
+        "metricsPort": { "type": "integer", "description": "Porta HTTP onde a app expõe /metrics (Prometheus)." },
+        "serviceMonitor": { "type": "boolean", "description": "Se a plataforma deve criar um ServiceMonitor para coletar as métricas." },
+        "prometheusRule": { "type": "boolean", "description": "Se a plataforma deve criar PrometheusRule (alertas de SLO)." }
+      }
+    },
     "secrets": {
       "type": "array",
       "description": "Nomes de Secrets Kubernetes consumidos pela app. Criados fora do git (a partir do .env) ou via Sealed Secrets; NUNCA versionados em plaintext. Ver docs/standards/hard-constraints.md.",

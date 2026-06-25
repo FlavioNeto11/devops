@@ -23,6 +23,9 @@ paths = [
   # Diretórios de teste de QUALQUER app (inclui produtos gerados pela Forja — make-test-suite
   # emite fixtures com tokens fake como 'tok-live-...'; histórico de produtos removidos também).
   '''apps/.*/tests?/.*''',
+  # Specs OpenAPI de QUALQUER app (inclui produtos da Forja): contract-first com VALORES DE EXEMPLO
+  # fake (ex.: 'auth: <base64>') que o gitleaks confunde com generic-api-key. São contratos, nao segredos.
+  '''apps/.*/openapi/.*''',
   '''apps/sicat/tests/.*''',
   '''apps/sicat/examples/.*''',
   '''apps/sicat/openapi/.*''',
