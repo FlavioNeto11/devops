@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "c673fba7368673eeb123e0671af3b6e8d8fd855c2c79bf90786e87dd1743d7f9",
+  "baseline_hash": "97cfd95ed331afee927f8c5c715a7a76051e123057f9fa47727ae07a5623ea96",
   "nodes": [
     {
       "id": "infra-argocd",
@@ -1536,6 +1536,96 @@
       "asr": false,
       "impact_score": 38,
       "impact_band": "low"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0001",
+      "kind": "requirement",
+      "title": "Fundação: Arquitetura em camadas + Observabilidade + Multi-tenant + OIDC",
+      "type": "functional",
+      "product": "contaviva-360",
+      "asr": true,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0002",
+      "kind": "requirement",
+      "title": "Gestão de Dados Contábeis e Fiscais: Entidades de Pessoa Física, Pessoa Jurídica e Documentos",
+      "type": "functional",
+      "product": "contaviva-360",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0003",
+      "kind": "requirement",
+      "title": "Obrigações Fiscais e Alertas: Rastreamento de Vencimentos, Impostos e Pendências",
+      "type": "functional",
+      "product": "contaviva-360",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0004",
+      "kind": "requirement",
+      "title": "Controle de Tarefas e Colaboração: Tasks entre Contador e Cliente com Comentários e Anexos",
+      "type": "functional",
+      "product": "contaviva-360",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0005",
+      "kind": "requirement",
+      "title": "Controle Financeiro: Contas a Pagar, Contas a Receber e Fluxo de Caixa",
+      "type": "functional",
+      "product": "contaviva-360",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0006",
+      "kind": "requirement",
+      "title": "Gestão de Notas Fiscais (PJ): Cadastro, Emissão, Rastreamento e Integração com Obrigações",
+      "type": "functional",
+      "product": "contaviva-360",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0007",
+      "kind": "requirement",
+      "title": "Assistente de IA Contábil: Consultas, Rascunhos e Recomendações Baseadas em Dados do Usuário",
+      "type": "functional",
+      "product": "contaviva-360",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0008",
+      "kind": "requirement",
+      "title": "Painel Personalizado por Role: Dashboards com Widgets de Pendências, Vencimentos, Alertas e KPIs Contábeis",
+      "type": "functional",
+      "product": "contaviva-360",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0009",
+      "kind": "requirement",
+      "title": "Emissão e Processamento de Documentos Fiscais (SEFAZ, RFB, Governo): Gateway Centralizado e Auditoria",
+      "type": "functional",
+      "product": "contaviva-360",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
     },
     {
       "id": "REQ-GYMOPS-0001",

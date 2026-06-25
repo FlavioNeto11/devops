@@ -1,16 +1,17 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "c673fba7368673eeb123e0671af3b6e8d8fd855c2c79bf90786e87dd1743d7f9",
+  "baseline_hash": "97cfd95ed331afee927f8c5c715a7a76051e123057f9fa47727ae07a5623ea96",
   "refinements_hash": "a25683b324c8fed749c9f15916c2978512bf771659f9bf088a473f038db4825c",
   "schema": "specs/schema/requirement.schema.json",
   "counts": {
-    "total": 343,
+    "total": 352,
     "by_product": {
       "ai": 18,
       "argocd": 15,
       "cicd": 17,
       "cms": 22,
       "console": 35,
+      "contaviva-360": 9,
       "gymops": 23,
       "keycloak": 18,
       "neuroevolui": 9,
@@ -26,10 +27,10 @@
       "traefik": 16
     },
     "by_status": {
-      "approved": 343
+      "approved": 352
     },
     "by_type": {
-      "functional": 239,
+      "functional": 248,
       "non-functional": 104
     },
     "refinements": {
@@ -4056,6 +4057,416 @@
       "impact_score": 38,
       "impact_band": "low",
       "file": "requirements/console/REQ-CONSOLE-NFR-008.yaml"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0001",
+      "title": "Fundação: Arquitetura em camadas + Observabilidade + Multi-tenant + OIDC",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "product-foundation",
+        "product_scope": "contaviva-360",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE estabelecer a arquitetura de camadas rígidas (route → service → repository → worker → gateway), inicializar com observabilidade completa (health, métricas Prometheus, ServiceMonitor, SLO), suportar isolamento por tenant com RBAC em cascata (Admin > Contador > Auxiliar > Cliente) e autenticar usuários via OIDC (Keycloak realm nvit) com sessão própria do app.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/contaviva-360/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "camadas-rigidas",
+        "observabilidade",
+        "oidc-sessao",
+        "rbac-multitenant",
+        "migrations-versionadas"
+      ],
+      "acceptance_criteria": [
+        "Toda rota mapeia apenas HTTP e validação; nenhuma acessa banco ou rede externa diretamente.",
+        "Endpoints /health e /v1/health/{system,workers,jobs} retornam estrutura semântica (status, uptime, componentes).",
+        "Métricas Prometheus exportadas em porta :9464; ServiceMonitor criado e raspa corretamente.",
+        "Dashboard Grafana gerado automaticamente com p95 latência, taxa de erro, saturação de fila.",
+        "Login OIDC via Keycloak dispara fluxo PKCE; backend valida token e emite JWT curto do app.",
+        "Toda query carrega tenant_id; deny por padrão fora do escopo; soft-delete implementado."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 65,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0001.yaml"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0002",
+      "title": "Gestão de Dados Contábeis e Fiscais: Entidades de Pessoa Física, Pessoa Jurídica e Documentos",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "contaviva-360",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE permitir o cadastro completo e isolado por tenant de Pessoa Física (CPF, patrimônio, investimentos, bens, dívidas, contratos, receitas, despesas, categorização, comprovantes) e Pessoa Jurídica (razão social, CNPJ, inscrição estadual/municipal, regime tributário, CNAE, sócios, certificado digital, dados bancários, fornecedores, clientes, contas a pagar/receber), com gestão documental centralizada (upload, classificação por tipo/mês/ano/status, rastreabilidade de versões e aprovações).",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/contaviva-360/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "redis-bullmq",
+        "worker-queue-transacional",
+        "idempotencia"
+      ],
+      "acceptance_criteria": [
+        "Cadastro de PF: CPF, nome, data de nascimento, endereço, patrimônio inicial, bens (carro, imóvel, aplicações), dívidas (financiamento, cartão), contratos (aluguel, pensão), documentos pessoais (RG, CNH, certidão).",
+        "Cadastro de PJ: razão social, CNPJ, IE, IM, regime tributário (Simples/Lucro Presumido/Lucro Real), CNAE, sócios (nome, CPF, participação %), certificado digital (upload seguro), dados bancários (conta, agência, banco).",
+        "Receitas e Despesas de PF: classificação por categoria (aluguel, educação, saúde, investimento, etc.), anexação de comprovante, data, valor, periódico ou avulso.",
+        "Receitas e Despesas de PJ: fornecedor/cliente, descrição, valor, categoria, centro de custo, recorrência, anexo, status (pendente, pago, cancelado).",
+        "Gestão Documental: upload de arquivo (NF, recibo, extrato, contrato, holerite), classificação (tipo, mês, ano, cliente/empresa, status), versioning simples (novo upload cria versão), visualização de histórico de quem fez upload e quando.",
+        "Dashboard por PF: evolução patrimonial (gráfico de patrimônio ao longo do tempo), receitas vs despesas (período selecionado), categorização de despesas (pizza/barra), saldo acumulado."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0002.yaml"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0003",
+      "title": "Obrigações Fiscais e Alertas: Rastreamento de Vencimentos, Impostos e Pendências",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "contaviva-360",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE rastrear obrigações fiscais (impostos, declarações, guias, pagamentos, documentos pendentes, prazos) por tenant/entidade, calcular datas de vencimento, emitir alertas personalizados por role (cliente vê pendências, contador vê aprovações necessárias), permitir marcar como concluído/aprovado/atrasado e gerar relatório de compliance fiscal.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/contaviva-360/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "notificacoes-multicanal",
+        "redis-bullmq"
+      ],
+      "acceptance_criteria": [
+        "Cadastro de obrigação: tipo (IRPF, IRPJ, ICMS, ISS, DARF, ECF, ECD, e-Social, CAGED, Simples DAS, PER, DIRF, RRA, etc.), data de vencimento, periodicidade (mensal, anual), entidade (PF ou PJ), status (pendente, pago, cancelado, atrasado, aprovação pendente).",
+        "Alertas automáticos: 30 dias antes do vencimento (amarelo), 7 dias antes (laranja), dia do vencimento (vermelho), após vencimento (crítico). Alertas entregues por e-mail/push/dashboard.",
+        "Dashboard de Obrigações: filtro por status (pendente, pago, atrasado), período, tipo; contador vê botão 'Aprovar' para marcar como concluído; cliente vê apenas informativo com prazos.",
+        "Relatório de Compliance: qual obrigação está em dia, qual está atrasada, qual está para vencer; export para PDF.",
+        "Integração com PJ: obrigações são calculadas com base no regime tributário (Simples paga DAS mensal; Lucro Real paga IRPJ + CSLL trimestral; Lucro Presumido paga IRPJ + CSLL mensal)."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0003.yaml"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0004",
+      "title": "Controle de Tarefas e Colaboração: Tasks entre Contador e Cliente com Comentários e Anexos",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "contaviva-360",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE permitir criar, atribuir, comentar, anexar documentos e rastrear tarefas entre contador e cliente, com campos de responsável, prazo, prioridade (baixa, média, alta, crítica), status (aberta, em progresso, aguardando cliente, aguardando contador, concluída, cancelada), notificação de atribuição e notificação de vencimento.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/contaviva-360/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "notificacoes-multicanal",
+        "redis-bullmq"
+      ],
+      "acceptance_criteria": [
+        "Criar tarefa: título, descrição, responsável (contador ou cliente), prazo, prioridade, vinculação opcional a entidade (PF/PJ) ou obrigação.",
+        "Comentários em thread: usuário adiciona comentário com timestamp, edita próprio comentário, contador marca como 'resposta esperada do cliente' ou 'info fornecida'.",
+        "Anexos na tarefa: upload de arquivo (comprovante, declaração, formulário), versioning, quem fez upload.",
+        "Notificação de atribuição: quando tarefa é atribuída ao usuário, notificação por e-mail/push é enfileirada.",
+        "Alertas de prazo: 3 dias antes do prazo (amarelo), 1 dia (laranja), dia (vermelho), após (crítico).",
+        "Transição de status: usuário marca 'aguardando cliente' (cliente é notificado), cliente marca 'respondido' ou 'documento enviado' (contador é notificado)."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0004.yaml"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0005",
+      "title": "Controle Financeiro: Contas a Pagar, Contas a Receber e Fluxo de Caixa",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "contaviva-360",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE permitir o cadastro e acompanhamento de contas a pagar (despesas futuras, fornecedores, vencimentos, centros de custo, recorrências, formas de pagamento) e contas a receber (receitas futuras, clientes, vencimentos), visualizar fluxo de caixa (saldo previsto vs realizado), despesas por categoria/centro de custo, receitas por origem, e exportar relatórios financeiros por período.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/contaviva-360/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "redis-bullmq",
+        "worker-queue-transacional"
+      ],
+      "acceptance_criteria": [
+        "Conta a Pagar: fornecedor, descrição, valor, data de vencimento, categoria (aluguel, folha, energia, etc.), centro de custo, forma de pagamento (cheque, TED, cartão, boleto, dinheiro), recorrência (mensal, anual), anexo, status (pendente, pago, vencido, cancelado), data de pagamento realizado.",
+        "Conta a Receber: cliente, descrição, valor, data de vencimento, forma de recebimento, anexo (nota fiscal, contrato), status (pendente, recebido, vencido, cancelado).",
+        "Fluxo de Caixa: view que agrega contas (previsão 30/60/90 dias), calcula saldo dia a dia, mostra saldo em caixa hoje, saldo previsto no final do período.",
+        "Relatório Financeiro: por período (mês, trimestre, ano), por categoria (despesa), por centro de custo; export para PDF/XLSX.",
+        "Dashboard Financeiro: total a receber, total a pagar, saldo líquido, gráfico de fluxo ao longo do período, top 5 fornecedores/clientes por valor."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0005.yaml"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0006",
+      "title": "Gestão de Notas Fiscais (PJ): Cadastro, Emissão, Rastreamento e Integração com Obrigações",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "contaviva-360",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE permitir o cadastro de clientes, produtos/serviços, e emissão de notas fiscais (NF-e/NFCe) com cálculo de impostos, integração com obrigações fiscais (ICMS, ISS, PIS, COFINS), rastreamento de status (rascunho, emitida, cancelada), integração com SEFAZ (em sandbox por padrão, real via config), armazenamento de XML/PDF, e relatório de notas por período.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/contaviva-360/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "gateway-externo",
+        "worker-queue-transacional",
+        "idempotencia"
+      ],
+      "acceptance_criteria": [
+        "Cadastro de Cliente PJ: razão social, CNPJ, inscrição estadual, endereço, contato, tipo de cliente (empresa, consumidor final, órgão público).",
+        "Cadastro de Produto/Serviço: descrição, código, valor unitário, ICMS alíquota, ISS, PIS, COFINS, CFOP, NCM/NBS.",
+        "Emissão de NF: seleção de cliente, adição de itens (produto/serviço, quantidade, valor), cálculo automático de impostos, observações, gerar XML, assinar digitalmente (certificado da empresa), submeter à SEFAZ, armazenar chave de acesso, status 'emitida', PDF para download.",
+        "SEFAZ Sandbox: determinístico, não requer certificado real, sempre aprova. SEFAZ Real: detrás de SEFAZ_PROVIDER env, falha segura (não emite se certificado inválido).",
+        "Rastreamento: GET /v1/nf/{nf_id} retorna XML, PDF, chave, status, data emissão, data autorização SEFAZ.",
+        "Relatório de NFs: por período, por cliente, por série, total emitido, total impostos, export PDF."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0006.yaml"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0007",
+      "title": "Assistente de IA Contábil: Consultas, Rascunhos e Recomendações Baseadas em Dados do Usuário",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "contaviva-360",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE prover um assistente de IA (grafo com especialistas e tools) que consulta dados contábeis do usuário (receitas, despesas, patrimônio, obrigações, notas, tarefas) e responde em linguagem natural: 'qual é meu saldo de caixa hoje?', 'que impostos estou devendo?', 'gere um rascunho de declaração IRPF', permitindo confirmação antes de persistir rascunhos, com cache de contexto, fallback offline e auditoria de consultas.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/contaviva-360/product.json"
+        ]
+      },
+      "priority": "medium",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "ia-grafo",
+        "control-ai-por-app",
+        "rag-pgvector",
+        "structured-outputs"
+      ],
+      "acceptance_criteria": [
+        "Interface de chat: POST /v1/assistant/message com texto, opcionalmente arquivo (PDF, imagem de nota fiscal, recibo). Suporta conversa em thread (conversation_id).",
+        "Especialistas de tools: 'consulta_dados' (PF/PJ, receitas, despesas, patrimônio, obrigações), 'calcula_impostos' (IRPF, IRPJ, ICMS, ISS), 'gera_rascunho' (declaração, guia de pagamento, analise contábil), 'cita_fonte' (documento ou seção de base de conhecimento).",
+        "Respostas grounded: IA cita a fonte (ex.: 'segundo sua NF de 01/12, receita foi de R$10k', 'seu patrimônio cresceu 5% em relação a julho').",
+        "Rascunhos com confirmação: se IA propõe um rascunho (ex.: 'declare IRPF com rendimento tributável de R$50k'), usuário confirma antes de salvar como rascunho_irpf_2024.",
+        "Fallback offline: se controle plane ou API de IA estiver fora, IA usa prompt versionado no repo, fail-closed sem chave (responde com aviso: 'offline, consulte seu contador').",
+        "Auditoria: toda consulta registra pergunta, resposta, tempo, tools usados, confirmações do usuário."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0007.yaml"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0008",
+      "title": "Painel Personalizado por Role: Dashboards com Widgets de Pendências, Vencimentos, Alertas e KPIs Contábeis",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "contaviva-360",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE renderizar dashboards personalizados por role (Cliente PF, Cliente PJ, Contador, Auxiliar, Admin) que exibem widgets de pendências fiscais, documentos aguardando, impostos próximos, receitas/despesas, fluxo de caixa, obrigações mensais, tarefas em aberto, mensagens recentes, alertas contábeis, status geral da saúde financeira/fiscal, com real-time updates via WebSocket e refresh automático.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/contaviva-360/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "design-system"
+      ],
+      "acceptance_criteria": [
+        "Dashboard Cliente PF: patrimônio (evolução), receitas/despesas (últimos 12 meses), imposto de renda (progresso declaração), documentos pendentes para contador, tarefas em aberto, alertas de vencimento, saldo de investimentos.",
+        "Dashboard Cliente PJ: receitas/despesas, fluxo de caixa (próximos 90 dias), contas a pagar/receber, impostos (estimado vs realizado), notas fiscais (emitidas este mês), folha de pagamento (resumo), obrigações vencidas/próximas, tarefas para contador.",
+        "Dashboard Contador: clientes sob responsabilidade (card com nome, entidade, status fiscal), tarefas atribuídas, documentos pendentes de clientes (por cliente), obrigações atrasadas de clientes, alertas críticos (impostos vencidos, declarações pendentes).",
+        "Dashboard Admin: total de usuários, total de clientes (PF/PJ), total de receitas/despesas (todas as entidades), alertas do sistema, jobs falhando, saúde de componentes.",
+        "Widgets interativos: clicar em 'Documentos Pendentes' abre modal com lista; clicar em 'Obrigação Vencida' abre detalhe + opção de marcar concluído.",
+        "Real-time: WebSocket broadcasts quando tarefa é atribuída, obrigação vence, documento é enviado, contador aprova algo. Dashboard atualiza sem refresh manual."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0008.yaml"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0009",
+      "title": "Emissão e Processamento de Documentos Fiscais (SEFAZ, RFB, Governo): Gateway Centralizado e Auditoria",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "contaviva-360",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE centralizar toda integração com sistemas externos (SEFAZ, RFB, e-Social, Prefeitura, Governo Federal) em uma camada gateway única com timeout, retry com backoff exponencial, redação de segredos no log, trilha de auditoria de todas as trocas HTTP (request/response sanitizado), erros tipados (AppError), e degradação graciosa (falha graceful sem certificado/credencial durante desenvolvimento).",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/contaviva-360/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "gateway-externo",
+        "worker-queue-transacional",
+        "observabilidade"
+      ],
+      "acceptance_criteria": [
+        "Gateway para SEFAZ: envio de NF-e, consulta de autorização, cancelamento, inutilização, com certificado digital (arquivo .pfx), assinatura XML, conversão SOAP.",
+        "Gateway para RFB (e-CAC): consulta de dados cadastrais, submissão de documentos, recuperação de downloads (Malha Fina, etc.), com login CNJ.",
+        "Gateway para e-Social: envio de eventos (S-1000 - informações da empresa, S-2000 - folha de pagamento, S-2200 - remuneração, etc.), com certificado ou código de acesso.",
+        "Configuração por environment: DEV = sandbox determinístico (sem certificado, sempre aprova), STAGING = sandbox, PROD = real (credenciais vêm de vault).",
+        "Auditoria de chamadas: toda requisição HTTP a sistema externo registra timestamp, método, endpoint, payload sanitizado (sem senha/certificado), resposta status, tempo, retries, e quem a solicitou (user_id).",
+        "Erros tipados: falha em SEFAZ retorna {error: 'gateway_sefaz_timeout', code: 'EXT_TIMEOUT', retry_after: 30} para o cliente, não expõe SOAP fault."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0009.yaml"
     },
     {
       "id": "REQ-GYMOPS-0001",
@@ -19319,6 +19730,15 @@
       ]
     },
     {
+      "id": "REQ-CONTAVIVA360-0001",
+      "title": "Fundação: Arquitetura em camadas + Observabilidade + Multi-tenant + OIDC",
+      "product": "contaviva-360",
+      "impact_score": 65,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
       "id": "REQ-GYMOPS-0002",
       "title": "Modelo hierárquico de escopo (Organização → Unidade → Área → Atividade)",
       "product": "gymops",
@@ -19415,6 +19835,78 @@
       "impact_score": 65,
       "reasons": [
         "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0002",
+      "title": "Gestão de Dados Contábeis e Fiscais: Entidades de Pessoa Física, Pessoa Jurídica e Documentos",
+      "product": "contaviva-360",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0003",
+      "title": "Obrigações Fiscais e Alertas: Rastreamento de Vencimentos, Impostos e Pendências",
+      "product": "contaviva-360",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0004",
+      "title": "Controle de Tarefas e Colaboração: Tasks entre Contador e Cliente com Comentários e Anexos",
+      "product": "contaviva-360",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0005",
+      "title": "Controle Financeiro: Contas a Pagar, Contas a Receber e Fluxo de Caixa",
+      "product": "contaviva-360",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0006",
+      "title": "Gestão de Notas Fiscais (PJ): Cadastro, Emissão, Rastreamento e Integração com Obrigações",
+      "product": "contaviva-360",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0007",
+      "title": "Assistente de IA Contábil: Consultas, Rascunhos e Recomendações Baseadas em Dados do Usuário",
+      "product": "contaviva-360",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0008",
+      "title": "Painel Personalizado por Role: Dashboards com Widgets de Pendências, Vencimentos, Alertas e KPIs Contábeis",
+      "product": "contaviva-360",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0009",
+      "title": "Emissão e Processamento de Documentos Fiscais (SEFAZ, RFB, Governo): Gateway Centralizado e Auditoria",
+      "product": "contaviva-360",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
       ]
     },
     {

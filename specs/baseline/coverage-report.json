@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "c673fba7368673eeb123e0671af3b6e8d8fd855c2c79bf90786e87dd1743d7f9",
+  "baseline_hash": "97cfd95ed331afee927f8c5c715a7a76051e123057f9fa47727ae07a5623ea96",
   "dimensions": [
     "links",
     "allocation",
@@ -10,21 +10,21 @@
     "refinement"
   ],
   "totals": {
-    "total": 343,
-    "without_links": 286,
-    "without_allocation": 316,
+    "total": 352,
+    "without_links": 295,
+    "without_allocation": 325,
     "without_source_paths": 0,
-    "without_evidence": 343,
+    "without_evidence": 352,
     "without_verification_method": 334,
-    "without_refinement": 314,
-    "scopes": 18,
+    "without_refinement": 323,
+    "scopes": 19,
     "coverage_pct": {
-      "links": 16.6,
-      "allocation": 7.9,
+      "links": 16.2,
+      "allocation": 7.7,
       "source_paths": 100,
       "evidence": 0,
-      "verification_method": 2.6,
-      "refinement": 8.5
+      "verification_method": 5.1,
+      "refinement": 8.2
     }
   },
   "by_scope": {
@@ -110,6 +110,23 @@
         "source_paths": 100,
         "evidence": 0,
         "verification_method": 0,
+        "refinement": 0
+      }
+    },
+    "contaviva-360": {
+      "total": 9,
+      "without_links": 9,
+      "without_allocation": 9,
+      "without_source_paths": 0,
+      "without_evidence": 9,
+      "without_verification_method": 0,
+      "without_refinement": 9,
+      "coverage_pct": {
+        "links": 0,
+        "allocation": 0,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 100,
         "refinement": 0
       }
     },

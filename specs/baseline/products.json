@@ -1,6 +1,40 @@
 {
   "products": [
     {
+      "name": "contaviva-360",
+      "display_name": "ContaViva 360",
+      "base_path": "/contaviva-360",
+      "blueprint": "gymops-style",
+      "vision": "Crie um sistema chamado ContaViva 360, uma plataforma completa de gerenciamento contábil para pessoa física e pessoa jurídica, pensada para organizar, controlar e centralizar toda a vida financeira, fiscal, documental e contábil do usuário em um único ambiente.\n\nO sistema deve permitir o cadastro de diferentes tipos de usuários, como administrador geral, contador, auxiliar contábil, cliente pessoa física, cliente pessoa jurídica, gestor financeiro e usuário convidado com permissões limitadas. Cada perfil deve ter acessos específicos conforme sua função, permitindo controlar quem pode visualiza",
+      "app_type": "product_software",
+      "architecture_summary": "Stack/decisão base: Escolher gymops-style como blueprint arquitetural padrão.\nBlocos de capacidade: camadas-rigidas, control-ai-por-app, design-system, gateway-externo, ia-grafo, idempotencia, migrations-versionadas, notificacoes-multicanal, observabilidade, oidc-sessao, rag-pgvector, rbac-multitenant, redis-bullmq, structured-outputs, worker-queue-transacional.\nDecisões (ADRs): ADR-001: Stack GymOps (Monorepo Next.js + Fastify + Prisma) para ContaViva-360; ADR-002: Filas de Domínio em BullMQ + Worker Transacional para Operações Críticas; ADR-003: Gateway Único para SEFAZ, RFB, e-Social e Governo; ADR-004: Assistente de IA Contábil com Grafo + RAG + Fallback Offline; ADR-005: RBAC em Cascata (Org → Unit → Area) com Soft-Delete; ADR-006: Notificações Multi-Canal (E-mail, Push, WhatsApp) com Degradação Graciosa; ADR-007: Idempotência Obrigatória em Operações Fiscais e Financeiras; ADR-008: Design System Único para Dashboards Personalizados por Role.",
+      "requirement_ids": [
+        "REQ-CONTAVIVA360-0001",
+        "REQ-CONTAVIVA360-0002",
+        "REQ-CONTAVIVA360-0003",
+        "REQ-CONTAVIVA360-0004",
+        "REQ-CONTAVIVA360-0005",
+        "REQ-CONTAVIVA360-0006",
+        "REQ-CONTAVIVA360-0007",
+        "REQ-CONTAVIVA360-0008",
+        "REQ-CONTAVIVA360-0009"
+      ],
+      "phases": {
+        "requirements": {
+          "status": "approved"
+        },
+        "architecture": {
+          "status": "approved"
+        },
+        "scaffold": {
+          "status": "not_started"
+        },
+        "build": {
+          "status": "not_started"
+        }
+      }
+    },
+    {
       "name": "neuroevolui",
       "display_name": "NeuroEvolui",
       "base_path": "/neuroevolui",

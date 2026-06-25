@@ -1,0 +1,29 @@
+id: REQ-CONTAVIVA360-0008
+title: "Painel Personalizado por Role: Dashboards com Widgets de Pendências, Vencimentos, Alertas e KPIs Contábeis"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: contaviva-360
+  blueprint: gymops-style
+statement: "O sistema DEVE renderizar dashboards personalizados por role (Cliente PF, Cliente PJ, Contador, Auxiliar, Admin) que exibem widgets de pendências fiscais, documentos aguardando, impostos próximos, receitas/despesas, fluxo de caixa, obrigações mensais, tarefas em aberto, mensagens recentes, alertas contábeis, status geral da saúde financeira/fiscal, com real-time updates via WebSocket e refresh automático."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/contaviva-360/product.json"]
+priority: high
+criticality: medium
+architectural_significance: true
+capability_blocks: ["design-system"]
+acceptance_criteria:
+  - "Dashboard Cliente PF: patrimônio (evolução), receitas/despesas (últimos 12 meses), imposto de renda (progresso declaração), documentos pendentes para contador, tarefas em aberto, alertas de vencimento, saldo de investimentos."
+  - "Dashboard Cliente PJ: receitas/despesas, fluxo de caixa (próximos 90 dias), contas a pagar/receber, impostos (estimado vs realizado), notas fiscais (emitidas este mês), folha de pagamento (resumo), obrigações vencidas/próximas, tarefas para contador."
+  - "Dashboard Contador: clientes sob responsabilidade (card com nome, entidade, status fiscal), tarefas atribuídas, documentos pendentes de clientes (por cliente), obrigações atrasadas de clientes, alertas críticos (impostos vencidos, declarações pendentes)."
+  - "Dashboard Admin: total de usuários, total de clientes (PF/PJ), total de receitas/despesas (todas as entidades), alertas do sistema, jobs falhando, saúde de componentes."
+  - "Widgets interativos: clicar em 'Documentos Pendentes' abre modal com lista; clicar em 'Obrigação Vencida' abre detalhe + opção de marcar concluído."
+  - "Real-time: WebSocket broadcasts quando tarefa é atribuída, obrigação vence, documento é enviado, contador aprova algo. Dashboard atualiza sem refresh manual."
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

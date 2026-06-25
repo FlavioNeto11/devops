@@ -2,19 +2,83 @@
   "metamodel_version": "1.1.0",
   "has_previous": true,
   "from": {
-    "commit": "f4d2d8e7a393",
+    "commit": "480400a4efdf",
     "baseline_hash": "c673fba7368673eeb123e0671af3b6e8d8fd855c2c79bf90786e87dd1743d7f9"
   },
   "to": {
-    "commit": "dfb5d398f1a0",
-    "baseline_hash": "c673fba7368673eeb123e0671af3b6e8d8fd855c2c79bf90786e87dd1743d7f9"
+    "commit": "working-tree",
+    "baseline_hash": "97cfd95ed331afee927f8c5c715a7a76051e123057f9fa47727ae07a5623ea96"
   },
   "counts": {
-    "added": 0,
+    "added": 9,
     "removed": 0,
     "changed": 0
   },
-  "added": [],
+  "added": [
+    {
+      "id": "REQ-CONTAVIVA360-0001",
+      "title": "Fundação: Arquitetura em camadas + Observabilidade + Multi-tenant + OIDC",
+      "product": "contaviva-360",
+      "type": "functional",
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0002",
+      "title": "Gestão de Dados Contábeis e Fiscais: Entidades de Pessoa Física, Pessoa Jurídica e Documentos",
+      "product": "contaviva-360",
+      "type": "functional",
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0003",
+      "title": "Obrigações Fiscais e Alertas: Rastreamento de Vencimentos, Impostos e Pendências",
+      "product": "contaviva-360",
+      "type": "functional",
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0004",
+      "title": "Controle de Tarefas e Colaboração: Tasks entre Contador e Cliente com Comentários e Anexos",
+      "product": "contaviva-360",
+      "type": "functional",
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0005",
+      "title": "Controle Financeiro: Contas a Pagar, Contas a Receber e Fluxo de Caixa",
+      "product": "contaviva-360",
+      "type": "functional",
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0006",
+      "title": "Gestão de Notas Fiscais (PJ): Cadastro, Emissão, Rastreamento e Integração com Obrigações",
+      "product": "contaviva-360",
+      "type": "functional",
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0007",
+      "title": "Assistente de IA Contábil: Consultas, Rascunhos e Recomendações Baseadas em Dados do Usuário",
+      "product": "contaviva-360",
+      "type": "functional",
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0008",
+      "title": "Painel Personalizado por Role: Dashboards com Widgets de Pendências, Vencimentos, Alertas e KPIs Contábeis",
+      "product": "contaviva-360",
+      "type": "functional",
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0009",
+      "title": "Emissão e Processamento de Documentos Fiscais (SEFAZ, RFB, Governo): Gateway Centralizado e Auditoria",
+      "product": "contaviva-360",
+      "type": "functional",
+      "impact_band": "medium"
+    }
+  ],
   "removed": [],
   "changed": []
 }
