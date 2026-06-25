@@ -22,6 +22,15 @@ async function configure() {
 
 export function getVapidPublicKey() { return process.env.VAPID_PUBLIC_KEY || null; }
 
+export async function sendTaskPush(subscription, { taskTitle, eventType, nivel }) {
+  const wp = await configure();
+  if (!wp) return null; // canal sem credencial: pulado
+  const title = nivel ? `ContaViva 360: ${nivel.toUpperCase()}` : 'ContaViva 360';
+  const body = nivel ? `${taskTitle} — prazo ${nivel}` : `Tarefa: ${taskTitle}`;
+  const payload = JSON.stringify({ title, body, eventType });
+  try { return await wp.sendNotification(subscription, payload); } catch { return null; }
+}
+
 export async function sendPushAlert(subscription, { tipo, nivel, dataVencimento }) {
   const wp = await configure();
   if (!wp) return null; // canal sem credencial: pulado
