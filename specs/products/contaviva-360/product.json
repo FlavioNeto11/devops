@@ -1,0 +1,59 @@
+{
+  "schema_version": "1.2.0",
+  "name": "contaviva-360",
+  "display_name": "ContaViva 360",
+  "base_path": "/contaviva-360",
+  "namespace": "apps",
+  "app_type": "product_software",
+  "blueprint": "gymops-style",
+  "stack": "gymops",
+  "interfaces": [
+    "api",
+    "web"
+  ],
+  "capability_blocks": [
+    "camadas-rigidas",
+    "observabilidade",
+    "oidc-sessao",
+    "rbac-multitenant",
+    "migrations-versionadas",
+    "redis-bullmq",
+    "idempotencia",
+    "notificacoes-multicanal",
+    "ia-grafo",
+    "control-ai-por-app",
+    "rag-pgvector",
+    "structured-outputs",
+    "design-system"
+  ],
+  "vision": "Crie um sistema chamado ContaViva 360, uma plataforma completa de gerenciamento contábil para pessoa física e pessoa jurídica, pensada para organizar, controlar e centralizar toda a vida financeira, fiscal, documental e contábil do usuário em um único ambiente.\n\nO sistema deve permitir o cadastro de diferentes tipos de usuários, como administrador geral, contador, auxiliar contábil, cliente pessoa física, cliente pessoa jurídica, gestor financeiro e usuário convidado com permissões limitadas. Cada perfil deve ter acessos específicos conforme sua função, permitindo controlar quem pode visualiza",
+  "requirement_ids": [
+    "REQ-CONTAVIVA360-0001",
+    "REQ-CONTAVIVA360-0002",
+    "REQ-CONTAVIVA360-0003",
+    "REQ-CONTAVIVA360-0004",
+    "REQ-CONTAVIVA360-0005",
+    "REQ-CONTAVIVA360-0006",
+    "REQ-CONTAVIVA360-0007",
+    "REQ-CONTAVIVA360-0008",
+    "REQ-CONTAVIVA360-0009"
+  ],
+  "phases": {
+    "requirements": {
+      "status": "approved"
+    },
+    "architecture": {
+      "status": "approved"
+    },
+    "scaffold": {
+      "status": "not_started"
+    },
+    "build": {
+      "status": "not_started"
+    }
+  },
+  "version": {
+    "revision": 1,
+    "change_reason": "FORGE greenfield — concepção+arquitetura pela IA"
+  }
+}

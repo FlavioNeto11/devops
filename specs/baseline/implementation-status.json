@@ -1,11 +1,12 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "c673fba7368673eeb123e0671af3b6e8d8fd855c2c79bf90786e87dd1743d7f9",
+  "baseline_hash": "97cfd95ed331afee927f8c5c715a7a76051e123057f9fa47727ae07a5623ea96",
   "counts": {
-    "total": 343,
+    "total": 352,
     "by_status": {
       "deployed": 282,
       "done": 52,
+      "not_started": 9,
       "merged": 9
     },
     "refinements": {
@@ -642,6 +643,42 @@
       "req_revision": 1,
       "deployed_at": "2026-06-15",
       "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
+    },
+    "REQ-CONTAVIVA360-0001": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-CONTAVIVA360-0002": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-CONTAVIVA360-0003": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-CONTAVIVA360-0004": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-CONTAVIVA360-0005": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-CONTAVIVA360-0006": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-CONTAVIVA360-0007": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-CONTAVIVA360-0008": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-CONTAVIVA360-0009": {
+      "status": "not_started",
+      "req_revision": 1
     },
     "REQ-GYMOPS-0001": {
       "status": "deployed",

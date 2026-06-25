@@ -1,0 +1,230 @@
+{
+  "stack_rationale": "",
+  "adrs": [
+    {
+      "blocks": [
+        "camadas-rigidas",
+        "observabilidade",
+        "rbac-multitenant",
+        "oidc-sessao",
+        "migrations-versionadas",
+        "redis-bullmq"
+      ],
+      "cites": [
+        "gymops-style blueprint",
+        "packages/oidc-kit",
+        "packages/ai-core"
+      ],
+      "decision": "Escolher gymops-style como blueprint arquitetural padrão.",
+      "rationale": "ContaViva-360 é multi-tenant com RBAC em cascata, requer múltiplas filas de domínio (obrigações, tarefas, emissão fiscal), notificações multi-canal (alertas, atribuições) e IA conversacional com raciocínio estruturado. GymOps fornece natively: Redis/BullMQ para filas, RBAC multitenant, notificações, observabilidade integrada e suporte a IA com grafo. Alternativa SICAT seria mais overhead para worker transacional quando BullMQ é mais natural.",
+      "title": "ADR-001: Stack GymOps (Monorepo Next.js + Fastify + Prisma) para ContaViva-360"
+    },
+    {
+      "blocks": [
+        "redis-bullmq",
+        "worker-queue-transacional",
+        "idempotencia"
+      ],
+      "cites": [
+        "redis-bullmq: jobs nomeados, retry/backoff, degradação graciosa inline",
+        "worker-queue-transacional: FOR UPDATE SKIP LOCKED, DLQ, heartbeat"
+      ],
+      "decision": "Usar redis-bullmq para notificações, alertas, relatórios leves; worker-queue-transacional (Postgres) para emissão SEFAZ, sincronização de obrigações e importações.",
+      "rationale": "BullMQ é ideal para ciclos de vida curtos (notificações, alertas periódicos, exportação de relat); worker-queue-transacional é obrigatório para operações que falham frequentemente e exigem auditoria (SEFAZ timeout/retry, emissão NF-e, sincronização com RFB). Separação clara: BullMQ para fire-and-forget com degradação graciosa, Postgres para operações de negócio críticas.",
+      "title": "ADR-002: Filas de Domínio em BullMQ + Worker Transacional para Operações Críticas"
+    },
+    {
+      "blocks": [
+        "gateway-externo",
+        "observabilidade",
+        "camadas-rigidas"
+      ],
+      "cites": [
+        "gateway-externo: timeout, retry backoff, redação de segredos, AppError tipado, trilha auditoria"
+      ],
+      "decision": "Centralizar todas as integrações HTTP externas em uma camada gateway com timeout, retry, auditoria e fail-closed.",
+      "rationale": "ContaViva-360 integra com múltiplos sistemas de governo (SEFAZ, RFB, e-Social, Prefeitura). Um gateway centralizado garante: redação de segredos no log, trilha de auditoria, retry com backoff, fail-closed em ambiente de dev (sem certificado/credencial real), e um ponto único de manutenção do contrato externo. Routes/services nunca chamam SEFAZ/RFB direto.",
+      "title": "ADR-003: Gateway Único para SEFAZ, RFB, e-Social e Governo"
+    },
+    {
+      "blocks": [
+        "ia-grafo",
+        "control-ai-por-app",
+        "rag-pgvector",
+        "structured-outputs"
+      ],
+      "cites": [
+        "ia-grafo: createAiGraph, router, especialistas deep, loop ReAct, tools com leitura",
+        "control-ai-por-app: grafo ai-core, prompts versionados, timeout, cache, fallback offline",
+        "rag-pgvector: pgvector no Postgres, retrieval grounded com citações",
+        "structured-outputs: jsonMode, parse estrito, rascunhos exigem confirmação"
+      ],
+      "decision": "Implementar assistente próprio do app (control-ai-por-app) baseado em ia-grafo com tools de domínio, rag-pgvector para citar fontes e fallback offline via prompts versionados.",
+      "rationale": "O assistente não é um chatbot genérico, mas um especialista contábil que raciocina com dados do usuário (receitas, despesas, patrimônio, obrigações): 'qual meu saldo?', 'que impostos devo?', 'draft IRPF'. ia-grafo fornece loop ReAct + tools; control-ai-por-app governa prompts do control plane com cache/timeout; rag-pgvector cita manuais/normas/dados próprios. Fail-closed sem chave de IA—resiliente ao control plane estar fora.",
+      "title": "ADR-004: Assistente de IA Contábil com Grafo + RAG + Fallback Offline"
+    },
+    {
+      "blocks": [
+        "rbac-multitenant",
+        "oidc-sessao",
+        "observabilidade"
+      ],
+      "cites": [
+        "rbac-multitenant: tenant_id em toda tabela, papéis em cascata, deny por padrão, soft-delete",
+        "oidc-sessao: identidade federada valida papel no Keycloak"
+      ],
+      "decision": "Implementar rbac-multitenant com isolamento de tenant_id em toda tabela, controle de papéis em cascata (Admin > Contador > Auxiliar > Cliente) e soft-delete.",
+      "rationale": "ContaViva-360 serve múltiplos clientes (tenants/orgs). Cada cliente tem contadores, auxiliares e clientes finais com diferentes permissões: Admin vê tudo; Contador aprova, Auxiliar executa, Cliente vê o seu. Toda query é escopada por tenant_id e papel. Soft-delete permite auditoria sem perder histórico.",
+      "title": "ADR-005: RBAC em Cascata (Org → Unit → Area) com Soft-Delete"
+    },
+    {
+      "blocks": [
+        "notificacoes-multicanal",
+        "redis-bullmq"
+      ],
+      "cites": [
+        "notificacoes-multicanal: SMTP/Nodemailer, VAPIR/web-push, Twilio WhatsApp, degradação graciosa, enfileiramento"
+      ],
+      "decision": "Implementar notificacoes-multicanal para alertas de vencimentos, atribuições de tarefas e aprovações, com graceful degradation se um canal estiver ausente.",
+      "rationale": "Usuários precisam de avisos fora da sessão. E-mail é padrão, push web para web, WhatsApp para mobile. Cada canal é opcionalmente configurável; falha em um não derruba o fluxo. Jobs enfileirados em BullMQ com retry.",
+      "title": "ADR-006: Notificações Multi-Canal (E-mail, Push, WhatsApp) com Degradação Graciosa"
+    },
+    {
+      "blocks": [
+        "idempotencia",
+        "worker-queue-transacional",
+        "gateway-externo"
+      ],
+      "cites": [
+        "idempotencia: Idempotency-Key em request, job_key em fila, dedupe de jobs"
+      ],
+      "decision": "Exigir Idempotency-Key em POSTs que criam efeito (emissão NF-e, criação de obrigação, importação) e job_key em fila.",
+      "rationale": "Duplicar uma emissão fiscal ou criação de obrigação é inaceitável. Idempotência garante que retry (cliente, esteira, fila) resulta em UM único efeito. Cliente gera UUID, envia em Idempotency-Key, backend valida e deduplica.",
+      "title": "ADR-007: Idempotência Obrigatória em Operações Fiscais e Financeiras"
+    },
+    {
+      "blocks": [
+        "design-system",
+        "rbac-multitenant"
+      ],
+      "cites": [
+        "design-system: design-tokens, codegen-sync, componentes reusáveis, packages/platform-shell"
+      ],
+      "decision": "Usar design-system (tokens + componentes) para dashboards consistentes com a plataforma, nunca CSS customizado.",
+      "rationale": "Cada role (Cliente PF, Cliente PJ, Contador, Auxiliar, Admin) vê widgets diferentes mas com identidade visual única (tema, paleta, acessibilidade). Herdar packages/design-tokens e packages/platform-shell reduz duplicação e garante theme claro/escuro.",
+      "title": "ADR-008: Design System Único para Dashboards Personalizados por Role"
+    }
+  ],
+  "waves": [
+    {
+      "depends_on": [],
+      "id": "w0-foundation",
+      "work_orders": [
+        "Monorepo Next.js + Fastify + Prisma setup (packages/api, packages/web, packages/shared)",
+        "Prisma schema base: Tenant, User, Role, OIDC session, migrations-versionadas com advisory-lock",
+        "Camadas rígidas: route → service → repository → worker → gateway",
+        "Observabilidade: /health, Prometheus :9464, ServiceMonitor, PrometheusRule, dashboard Grafana",
+        "OIDC + Keycloak: packages/oidc-kit integration, JWT session, validateKeycloakToken middleware",
+        "RBAC: tenant_id scoping, role cascade (Admin > Contador > Auxiliar > Cliente), soft-delete",
+        "Redis + BullMQ setup (bullmq package, queues enum, baseline workers)"
+      ]
+    },
+    {
+      "depends_on": [
+        "w0-foundation"
+      ],
+      "id": "w1-domain-entities",
+      "work_orders": [
+        "Pessoa Física schema: CPF, patrimônio, investimentos, bens, dívidas, contratos, receitas, despesas, comprovantes",
+        "Pessoa Jurídica schema: CNPJ, inscrição estadual/municipal, regime tributário, CNAE, sócios, certificado digital, dados bancários, fornecedores, clientes",
+        "Documentos: upload, classificação (tipo/mês/ano/status), rastreabilidade, versioning, aprovações",
+        "Obrigações Fiscais: entidade, tipo (imposto, declaração, guia), data vencimento, status, pendências, alertas",
+        "CRUD endpoints route → service → repository para cada entidade com tenant scoping",
+        "Migrations & seed data para PF, PJ, documentos, obrigações"
+      ]
+    },
+    {
+      "depends_on": [
+        "w0-foundation"
+      ],
+      "id": "w2-queues-and-workers",
+      "work_orders": [
+        "Worker-queue-transacional setup (jobs table, worker polling loop, FOR UPDATE SKIP LOCKED, DLQ)",
+        "BullMQ queues: tarefas-notificacao, obrigacoes-alerta, relatorio-exportacao, financeiro-fluxocaixa, importacao-documentos",
+        "Notificacoes-multicanal: SMTP (Nodemailer), push web (web-push VAPID), WhatsApp (Twilio) workers",
+        "Tarefas: create, assign, comment, attach, notify workers (atribuição, vencimento)",
+        "Obrigações: calcular vencimentos, emitir alertas por role, marcar concluído/aprovado/atrasado",
+        "Idempotencia: Idempotency-Key middleware, dedupe em repositories, job_key em fila"
+      ]
+    },
+    {
+      "depends_on": [
+        "w0-foundation",
+        "w2-queues-and-workers"
+      ],
+      "id": "w3-financial-and-nfe",
+      "work_orders": [
+        "Contas a Pagar/Receber: cadastro, vencimentos, centros de custo, recorrências, formas pagamento",
+        "Fluxo de Caixa: saldo previsto vs realizado, despesas por categoria, receitas por origem, exportação",
+        "Gateway-externo setup: timeout, retry backoff, redação segredos log, AppError tipado, auditoria",
+        "NF-e/NFCe schema: cliente, produto/serviço, impostos (ICMS, ISS, PIS, COFINS), status",
+        "Emissão NF-e worker (nota-fiscal-emissao: monta XML, assina, submete SEFAZ sandbox ou real via config)",
+        "SEFAZ integration: gateway wrapper com retry, fail-closed sem certificado",
+        "Idempotencia em emissão: Idempotency-Key + job_key garante um único XML por operação"
+      ]
+    },
+    {
+      "depends_on": [
+        "w0-foundation",
+        "w1-domain-entities",
+        "w3-financial-and-nfe"
+      ],
+      "id": "w4-ai-assistant",
+      "work_orders": [
+        "ia-grafo setup: createAiGraph, router, especialistas deep, loop ReAct, tools de domínio",
+        "control-ai-por-app: IA própria do app, prompts versionados do control plane, timeout/cache/fallback offline",
+        "Tools contábeis: saldo-caixa (read receitas+despesas), impostos-devidos (read obrigacoes), draft-irpf, draft-checklist",
+        "rag-pgvector: pgvector extension, indexação de manuais fiscais/normas/dados próprios, retrieval por similaridade",
+        "structured-outputs: jsonMode + schema validation, fail-closed, rascunhos exigem confirmação",
+        "/v1/assistant endpoint: ingere texto+imagens+PDF via file-ingest-kit (fail-soft)",
+        "Autorização por identidade, dry-run/confirmação em mutações (criar obrigação, gerar IRPF)"
+      ]
+    },
+    {
+      "depends_on": [
+        "w1-domain-entities",
+        "w2-queues-and-workers",
+        "w3-financial-and-nfe",
+        "w4-ai-assistant"
+      ],
+      "id": "w5-dashboards",
+      "work_orders": [
+        "design-system: packages/design-tokens (codegen-sync), packages/platform-shell (casca compartilhada)",
+        "Dashboard base (Next.js): layout responsivo, tema claro/escuro, acessibilidade",
+        "Widgets por role:",
+        "  - Cliente PF: saldo caixa, patrimônio, impostos próximos, tarefas atribuídas, alertas pendências",
+        "  - Cliente PJ: saldo caixa, NF-e emitidas, contas a pagar/receber, impostos, obrigações",
+        "  - Contador: pendências por cliente, aprovações necessárias, obrigações por vencer, sumário de tarefas",
+        "  - Auxiliar: tarefas atribuídas, documentos pendentes, checklist de obrigações",
+        "  - Admin: saúde geral, uso de recursos, alertas críticos, auditoria",
+        "Real-time updates via WebSocket (BullMQ event emitter ou pub/sub Redis)",
+        "Refresh automático a cada 5 minutos"
+      ]
+    },
+    {
+      "depends_on": [
+        "w3-financial-and-nfe",
+        "w4-ai-assistant"
+      ],
+      "id": "w6-integration-and-audit",
+      "work_orders": [
+        "Gateway-externo: wrapper SEFAZ, RFB, e-Social, Prefeitura com timeout/retry/auditoria",
+        "Sync workers: sincronização de obrigações com RFB, e-Social, atualização de status SEFAZ",
+        "Auditoria: log de todas trocas HTTP (request/response sanitizado), jobs com timestamps, soft-delete com who/when",
+        "Fail-closed em dev: sem certificado/credencial real, sandbox determinístico por padrão, config PAYMENT_PROVIDER/SEFAZ_REAL via env",
+        "Health endpoints: /v1/health/system (db, redis, SEFAZ), /v1/health/workers (fila status), /v1/health/jobs (pending/failed count)",
+        "End-to-end tests: fluxo criação PJ → emissão NF-e → cálculo impostos → sincronização SEFAZ → alerta contador"
+      ]
+    }
+  ]
+}

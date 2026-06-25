@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "c673fba7368673eeb123e0671af3b6e8d8fd855c2c79bf90786e87dd1743d7f9",
+  "baseline_hash": "97cfd95ed331afee927f8c5c715a7a76051e123057f9fa47727ae07a5623ea96",
   "items": [
     {
       "id": "REQ-AI-0001",
@@ -1178,6 +1178,105 @@
       "asr": false,
       "impact_band": "low",
       "file": "requirements/console/REQ-CONSOLE-NFR-008.yaml"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0001",
+      "title": "Fundação: Arquitetura em camadas + Observabilidade + Multi-tenant + OIDC",
+      "type": "functional",
+      "status": "approved",
+      "product": "contaviva-360",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0001.yaml"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0002",
+      "title": "Gestão de Dados Contábeis e Fiscais: Entidades de Pessoa Física, Pessoa Jurídica e Documentos",
+      "type": "functional",
+      "status": "approved",
+      "product": "contaviva-360",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0002.yaml"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0003",
+      "title": "Obrigações Fiscais e Alertas: Rastreamento de Vencimentos, Impostos e Pendências",
+      "type": "functional",
+      "status": "approved",
+      "product": "contaviva-360",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0003.yaml"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0004",
+      "title": "Controle de Tarefas e Colaboração: Tasks entre Contador e Cliente com Comentários e Anexos",
+      "type": "functional",
+      "status": "approved",
+      "product": "contaviva-360",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0004.yaml"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0005",
+      "title": "Controle Financeiro: Contas a Pagar, Contas a Receber e Fluxo de Caixa",
+      "type": "functional",
+      "status": "approved",
+      "product": "contaviva-360",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0005.yaml"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0006",
+      "title": "Gestão de Notas Fiscais (PJ): Cadastro, Emissão, Rastreamento e Integração com Obrigações",
+      "type": "functional",
+      "status": "approved",
+      "product": "contaviva-360",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0006.yaml"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0007",
+      "title": "Assistente de IA Contábil: Consultas, Rascunhos e Recomendações Baseadas em Dados do Usuário",
+      "type": "functional",
+      "status": "approved",
+      "product": "contaviva-360",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0007.yaml"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0008",
+      "title": "Painel Personalizado por Role: Dashboards com Widgets de Pendências, Vencimentos, Alertas e KPIs Contábeis",
+      "type": "functional",
+      "status": "approved",
+      "product": "contaviva-360",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0008.yaml"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0009",
+      "title": "Emissão e Processamento de Documentos Fiscais (SEFAZ, RFB, Governo): Gateway Centralizado e Auditoria",
+      "type": "functional",
+      "status": "approved",
+      "product": "contaviva-360",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0009.yaml"
     },
     {
       "id": "REQ-GYMOPS-0001",
