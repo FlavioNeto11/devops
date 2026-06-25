@@ -11,6 +11,20 @@ const MIGRATIONS = [
   `ALTER TABLE records ADD COLUMN IF NOT EXISTS created_by TEXT NOT NULL DEFAULT 'system'`,
   `ALTER TABLE records ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
   `ALTER TABLE consultations ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
+  `CREATE TABLE IF NOT EXISTS async_jobs (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    queue_name TEXT NOT NULL,
+    job_key TEXT NOT NULL,
+    job_id TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'queued',
+    payload JSONB,
+    result JSONB,
+    created_by TEXT NOT NULL DEFAULT 'system',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(queue_name, job_key)
+  )`,
 ];
 export async function migrate() {
   const c = await pool.connect();

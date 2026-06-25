@@ -7,7 +7,8 @@
       "deployed": 282,
       "done": 52,
       "merged": 3,
-      "not_started": 6
+      "pr_open": 1,
+      "not_started": 5
     },
     "refinements": {
       "total": 13,
@@ -902,8 +903,10 @@
       "run_id": "28131631587"
     },
     "REQ-NEUROEVOLUI-0003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "branch": "@{id=REQ-NEUROEVOLUI-0003; branch=req/REQ-NEUROEVOLUI-0003/r1; restricted=false; title=feat(neuroevolui): implementa REQ-NEUROEVOLUI-0003 — Dados: Filas assíncronas + Idempotênc}.branch",
+      "run_id": "28133635910"
     },
     "REQ-NEUROEVOLUI-0004": {
       "status": "not_started",
