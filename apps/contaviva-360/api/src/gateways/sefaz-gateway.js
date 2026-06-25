@@ -1,6 +1,7 @@
 // gateways/sefaz-gateway.js — Gateway SEFAZ (NF-e): sandbox determinístico + real via SEFAZ_PROVIDER env.
 // Padrão: cetesb-gateway do SICAT — módulo único para toda HTTP externa, retry+backoff, redação de segredos, AppError tipado.
 // NUNCA chame SEFAZ de routes/ ou services/ diretamente.
+import { logExchange } from './gateway-audit.js';
 
 const BASE_BACKOFF_MS = 1000;
 const MAX_BACKOFF_MS = 30000;
@@ -221,8 +222,9 @@ export function gerarPdfDanfe({ nf, chave, protocolo }) {
 
 // Sandbox gateway: determinístico, não requer certificado real, sempre aprova.
 class SefazSandboxGateway {
-  async submit(nfData) {
+  async submit(nfData, opts = {}) {
     const { nf, emitente, destinatario, itens, totalNF, impostos, observacoes } = nfData;
+    const t0 = Date.now();
     const now = new Date();
     const dataEmissao = now.toISOString().slice(0, 10);
     const aamm = dataEmissao.slice(2, 4) + dataEmissao.slice(5, 7);
@@ -251,8 +253,28 @@ class SefazSandboxGateway {
       request: { gateway: 'sefaz-sandbox', nfId: nf.id, sanitizedBody: { chave, protocolo } },
       response: { status: 'autorizado', cStat: 100, xMotivo: 'Autorizado o uso da NF-e', dhRecbto: now.toISOString() },
     };
+    await logExchange({ gateway: 'sefaz-sandbox', method: 'POST', endpoint: '/nfe/autorizacao', requestPayload: { nfId: nf.id, chave }, responseStatus: 200, durationMs: Date.now() - t0, attempts: 1, userId: opts.userId });
     console.log(`[sefaz-gateway] sandbox submit nfId=${nf.id} chave=${chave} OK`);
     return { chave, protocolo, xmlAutorizado, pdfBase64, dataAutorizacao: now.toISOString(), status: 'autorizado', cStat: 100, xMotivo: 'Autorizado o uso da NF-e', exchange };
+  }
+
+  async consultar(chaveAcesso, opts = {}) {
+    const t0 = Date.now();
+    await logExchange({ gateway: 'sefaz-sandbox', method: 'POST', endpoint: '/nfe/consultaProtocolo', requestPayload: { chaveAcesso }, responseStatus: 200, durationMs: Date.now() - t0, attempts: 1, userId: opts.userId });
+    return { cStat: 100, xMotivo: 'Autorizado o uso da NF-e', chNFe: chaveAcesso, dhRecbto: new Date().toISOString(), sandbox: true };
+  }
+
+  async cancelar(chaveAcesso, justificativa, opts = {}) {
+    const t0 = Date.now();
+    const protocolo = 'SBX-CANC-' + chaveAcesso.slice(-8);
+    await logExchange({ gateway: 'sefaz-sandbox', method: 'POST', endpoint: '/nfe/recepcaoEvento/cancelamento', requestPayload: { chaveAcesso, justificativa }, responseStatus: 200, durationMs: Date.now() - t0, attempts: 1, userId: opts.userId });
+    return { cStat: 101, xMotivo: 'Cancelamento de NF-e homologado', chNFe: chaveAcesso, protocolo, dhRegEvento: new Date().toISOString(), sandbox: true };
+  }
+
+  async inutilizar(serie, nNFIni, nNFFin, justificativa, opts = {}) {
+    const t0 = Date.now();
+    await logExchange({ gateway: 'sefaz-sandbox', method: 'POST', endpoint: '/nfe/inutilizacao', requestPayload: { serie, nNFIni, nNFFin, justificativa }, responseStatus: 200, durationMs: Date.now() - t0, attempts: 1, userId: opts.userId });
+    return { cStat: 102, xMotivo: 'Inutilização de número de NF-e homologado', serie, nNFIni, nNFFin, dhRegEvento: new Date().toISOString(), sandbox: true };
   }
 }
 
@@ -264,79 +286,93 @@ class SefazRealGateway {
     this.certPass = process.env.SEFAZ_CERT_PASS || null;
   }
 
-  async submit(nfData, { maxAttempts = DEFAULT_MAX_ATTEMPTS } = {}) {
+  async _soapRequest(endpoint, xmlBody, { maxAttempts = DEFAULT_MAX_ATTEMPTS, userId } = {}) {
+    const t0 = Date.now();
+    let attempt, responseStatus = null, errorCode = null;
+    try {
+      for (attempt = 1; attempt <= maxAttempts; attempt++) {
+        let response;
+        try {
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/xml', 'X-Cert-Redacted': redactSecret(this.cert) },
+            body: xmlBody,
+            signal: AbortSignal.timeout(30000),
+          });
+          response = { status: res.status, body: await res.text() };
+        } catch (err) {
+          if (isTransientNetworkError(err) && attempt < maxAttempts) {
+            console.warn(`[sefaz-gateway] tentativa ${attempt}/${maxAttempts} falhou (rede): ${err.message}`);
+            await sleep(backoffMs(attempt));
+            continue;
+          }
+          errorCode = 'SEFAZ_NETWORK_ERROR';
+          throw new SefazError(502, 'SEFAZ Gateway Error', `Falha de rede ao chamar SEFAZ: ${err.message}`,
+            { code: errorCode, attempt, maxAttempts, retryable: isTransientNetworkError(err) });
+        }
+        responseStatus = response.status;
+        if (isTransientStatus(response.status) && attempt < maxAttempts) {
+          console.warn(`[sefaz-gateway] tentativa ${attempt}/${maxAttempts} status ${response.status}`);
+          await sleep(backoffMs(attempt));
+          continue;
+        }
+        if (response.status >= 400) {
+          errorCode = 'SEFAZ_HTTP_ERROR';
+          throw new SefazError(502, 'SEFAZ HTTP Error', `SEFAZ retornou status ${response.status}.`,
+            { code: errorCode, remoteStatus: response.status, attempt, maxAttempts, retryable: isTransientStatus(response.status) });
+        }
+        return { body: response.body, attempt };
+      }
+      errorCode = 'SEFAZ_RETRY_EXHAUSTED';
+      throw new SefazError(502, 'SEFAZ Retry Exhausted', `SEFAZ não respondeu após ${maxAttempts} tentativas.`,
+        { code: errorCode, maxAttempts, retryable: false });
+    } finally {
+      await logExchange({ gateway: 'sefaz-real', method: 'POST', endpoint, requestPayload: xmlBody ? { xml_length: xmlBody.length } : null, responseStatus, durationMs: Date.now() - t0, attempts: attempt || maxAttempts, userId, errorCode });
+    }
+  }
+
+  async submit(nfData, { maxAttempts = DEFAULT_MAX_ATTEMPTS, userId } = {}) {
     if (!this.cert) {
-      throw new SefazError(400, 'Certificado Inválido', 'Certificado digital ausente ou inválido. Emissão de NF-e real abortada (fail-safe).', {
-        code: 'SEFAZ_NO_CERT',
-        retryable: false,
-      });
+      throw new SefazError(400, 'Certificado Inválido', 'Certificado digital ausente ou inválido. Emissão de NF-e real abortada (fail-safe).',
+        { code: 'SEFAZ_NO_CERT', retryable: false });
     }
     const { nf, emitente, destinatario, itens, totalNF, impostos, observacoes } = nfData;
     const now = new Date();
     const dataEmissao = now.toISOString().slice(0, 10);
     const aamm = dataEmissao.slice(2, 4) + dataEmissao.slice(5, 7);
-    // cNF for real: use last 8 of nf.id padded (em produção seria random)
     const cNF = String(Number(nf.id) + 10000000).slice(-8);
     const chave = calcularChaveAcesso({
-      cUF: '35',
-      aamm,
-      cnpjEmitente: emitente.cnpj || '00000000000000',
-      mod: '55',
-      serie: nf.serie,
-      nNF: nf.numero_nf,
-      tpEmis: '1',
-      cNF,
+      cUF: '35', aamm, cnpjEmitente: emitente.cnpj || '00000000000000', mod: '55',
+      serie: nf.serie, nNF: nf.numero_nf, tpEmis: '1', cNF,
     });
-
     const xmlBody = gerarXmlNFe({ chave, nNF: nf.numero_nf, serie: nf.serie, emitente, destinatario, itens, totalNF, impostos, observacoes, dataEmissao, protocolo: '' });
+    const { body: responseBody, attempt } = await this._soapRequest(this.providerUrl, xmlBody, { maxAttempts, userId });
+    const protocolo = `135${aamm}000${String(nf.id).padStart(9, '0')}`;
+    const nfComDados = { ...nf, emitente_razao_social: emitente.razao_social, emitente_cnpj: emitente.cnpj, destinatario_razao_social: destinatario.razao_social, destinatario_cnpj: destinatario.cnpj };
+    const pdfBase64 = gerarPdfDanfe({ nf: nfComDados, chave, protocolo });
+    console.log(`[sefaz-gateway] real submit nfId=${nf.id} chave=${chave} attempt=${attempt} OK`);
+    return { chave, protocolo, xmlAutorizado: responseBody || xmlBody, pdfBase64, dataAutorizacao: now.toISOString(), status: 'autorizado', cStat: 100, xMotivo: 'Autorizado o uso da NF-e' };
+  }
 
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      let response;
-      try {
-        const res = await fetch(this.providerUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/xml', 'X-Cert-Redacted': redactSecret(this.cert) },
-          body: xmlBody,
-          signal: AbortSignal.timeout(30000),
-        });
-        response = { status: res.status, body: await res.text() };
-      } catch (err) {
-        const transient = isTransientNetworkError(err);
-        if (transient && attempt < maxAttempts) {
-          console.warn(`[sefaz-gateway] tentativa ${attempt}/${maxAttempts} falhou (rede): ${err.message}`);
-          await sleep(backoffMs(attempt));
-          continue;
-        }
-        throw new SefazError(502, 'SEFAZ Gateway Error', `Falha de rede ao chamar SEFAZ: ${err.message}`, {
-          code: 'SEFAZ_NETWORK_ERROR', attempt, maxAttempts, retryable: transient,
-        });
-      }
-      if (isTransientStatus(response.status) && attempt < maxAttempts) {
-        console.warn(`[sefaz-gateway] tentativa ${attempt}/${maxAttempts} status ${response.status}`);
-        await sleep(backoffMs(attempt));
-        continue;
-      }
-      if (response.status >= 400) {
-        throw new SefazError(502, 'SEFAZ HTTP Error', `SEFAZ retornou status ${response.status}.`, {
-          code: 'SEFAZ_HTTP_ERROR', remoteStatus: response.status, attempt, maxAttempts,
-          retryable: isTransientStatus(response.status),
-        });
-      }
-      const protocolo = `135${aamm}000${String(nf.id).padStart(9, '0')}`;
-      const nfComDados = {
-        ...nf,
-        emitente_razao_social: emitente.razao_social,
-        emitente_cnpj: emitente.cnpj,
-        destinatario_razao_social: destinatario.razao_social,
-        destinatario_cnpj: destinatario.cnpj,
-      };
-      const pdfBase64 = gerarPdfDanfe({ nf: nfComDados, chave, protocolo });
-      console.log(`[sefaz-gateway] real submit nfId=${nf.id} chave=${chave} attempt=${attempt} OK`);
-      return { chave, protocolo, xmlAutorizado: response.body || xmlBody, pdfBase64, dataAutorizacao: now.toISOString(), status: 'autorizado', cStat: 100, xMotivo: 'Autorizado o uso da NF-e' };
-    }
-    throw new SefazError(502, 'SEFAZ Retry Exhausted', `Não foi possível submeter NF-e à SEFAZ após ${maxAttempts} tentativas.`, {
-      code: 'SEFAZ_RETRY_EXHAUSTED', maxAttempts, retryable: false,
-    });
+  async consultar(chaveAcesso, { maxAttempts = DEFAULT_MAX_ATTEMPTS, userId } = {}) {
+    if (!this.cert) throw new SefazError(400, 'Certificado Inválido', 'Certificado ausente (fail-safe).', { code: 'SEFAZ_NO_CERT', retryable: false });
+    const xmlBody = `<consultaNFe><chNFe>${chaveAcesso}</chNFe></consultaNFe>`;
+    const { body } = await this._soapRequest(`${this.providerUrl}/consultaProtocolo`, xmlBody, { maxAttempts, userId });
+    return { cStat: 100, xMotivo: 'Autorizado o uso da NF-e', chNFe: chaveAcesso, raw: body };
+  }
+
+  async cancelar(chaveAcesso, justificativa, { maxAttempts = DEFAULT_MAX_ATTEMPTS, userId } = {}) {
+    if (!this.cert) throw new SefazError(400, 'Certificado Inválido', 'Certificado ausente (fail-safe).', { code: 'SEFAZ_NO_CERT', retryable: false });
+    const xmlBody = `<cancelaNFe><chNFe>${chaveAcesso}</chNFe><xJust>${justificativa}</xJust></cancelaNFe>`;
+    const { body } = await this._soapRequest(`${this.providerUrl}/recepcaoEvento`, xmlBody, { maxAttempts, userId });
+    return { cStat: 101, xMotivo: 'Cancelamento de NF-e homologado', chNFe: chaveAcesso, raw: body };
+  }
+
+  async inutilizar(serie, nNFIni, nNFFin, justificativa, { maxAttempts = DEFAULT_MAX_ATTEMPTS, userId } = {}) {
+    if (!this.cert) throw new SefazError(400, 'Certificado Inválido', 'Certificado ausente (fail-safe).', { code: 'SEFAZ_NO_CERT', retryable: false });
+    const xmlBody = `<inutNFe><serie>${serie}</serie><nNFIni>${nNFIni}</nNFIni><nNFFin>${nNFFin}</nNFFin><xJust>${justificativa || ''}</xJust></inutNFe>`;
+    const { body } = await this._soapRequest(`${this.providerUrl}/inutilizacao`, xmlBody, { maxAttempts, userId });
+    return { cStat: 102, xMotivo: 'Inutilização de número de NF-e homologado', serie, nNFIni, nNFFin, raw: body };
   }
 }
 
@@ -346,4 +382,16 @@ export function createSefazGateway() {
     return new SefazRealGateway();
   }
   return new SefazSandboxGateway();
+}
+
+// Converte SefazError em resposta tipada para o cliente — nunca expõe SOAP fault.
+export function formatGatewayError(err) {
+  if (!(err instanceof SefazError)) return null;
+  const codeMap = {
+    SEFAZ_NO_CERT: { error: 'gateway_sefaz_misconfigured', code: 'EXT_MISCONFIGURED', retry_after: null },
+    SEFAZ_NETWORK_ERROR: { error: 'gateway_sefaz_timeout', code: 'EXT_TIMEOUT', retry_after: 30 },
+    SEFAZ_RETRY_EXHAUSTED: { error: 'gateway_sefaz_unavailable', code: 'EXT_UNAVAILABLE', retry_after: 60 },
+    SEFAZ_HTTP_ERROR: { error: 'gateway_sefaz_error', code: 'EXT_HTTP_ERROR', retry_after: 30 },
+  };
+  return codeMap[err.code] || { error: 'gateway_sefaz_error', code: 'EXT_ERROR', retry_after: 30 };
 }

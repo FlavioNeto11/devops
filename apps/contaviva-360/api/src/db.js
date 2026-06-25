@@ -37,6 +37,8 @@ const MIGRATIONS = [
   `CREATE TABLE IF NOT EXISTS assistant_audit_log (id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, conversation_id TEXT, question TEXT, answer TEXT, tools_used JSONB DEFAULT '[]', files_manifest JSONB DEFAULT '[]', confirmations JSONB DEFAULT '[]', duration_ms INTEGER, created_at TIMESTAMPTZ DEFAULT now())`,
   `CREATE TABLE IF NOT EXISTS assistant_drafts (id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, draft_id TEXT NOT NULL, draft_type TEXT NOT NULL, draft_data JSONB NOT NULL DEFAULT '{}', conversation_id TEXT, status TEXT NOT NULL DEFAULT 'pendente_confirmacao', created_at TIMESTAMPTZ DEFAULT now(), confirmed_at TIMESTAMPTZ)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS assistant_drafts_draft_id_idx ON assistant_drafts(tenant_id, draft_id)`,
+  // REQ-CONTAVIVA360-0009: auditoria de chamadas a sistemas externos (SEFAZ, RFB, e-Social)
+  `CREATE TABLE IF NOT EXISTS gateway_audit_log (id SERIAL PRIMARY KEY, gateway TEXT NOT NULL, method TEXT NOT NULL, endpoint TEXT NOT NULL, request_payload_sanitized TEXT, response_status INTEGER, response_snippet TEXT, duration_ms INTEGER, attempts INTEGER NOT NULL DEFAULT 1, user_id TEXT, error_code TEXT, logged_at TIMESTAMPTZ DEFAULT now())`,
 ];
 export async function migrate() {
   const c = await pool.connect();

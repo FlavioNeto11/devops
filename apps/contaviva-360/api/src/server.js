@@ -22,6 +22,7 @@ import { registerNfProductRoutes } from './routes/nf-products.js';
 import { registerNfRoutes } from './routes/nf.js';
 import { registerAssistantRoutes } from './routes/assistant.js';
 import { registerRoleDashboardRoutes } from './routes/role-dashboards.js';
+import { registerGatewayRoutes } from './routes/gateway-routes.js';
 import { broadcast } from './events.js';
 
 const app = Fastify({ logger: false });
@@ -96,6 +97,9 @@ registerAssistantRoutes(app);
 
 // Dashboards por role + real-time SSE (REQ-CONTAVIVA360-0008)
 registerRoleDashboardRoutes(app);
+
+// Gateway centralizado SEFAZ/RFB/e-Social + auditoria (REQ-CONTAVIVA360-0009)
+registerGatewayRoutes(app);
 
 const PORT = Number(process.env.PORT) || 8080;
 (async () => {
