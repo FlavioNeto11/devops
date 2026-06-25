@@ -1,8 +1,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { launchPhases } from '../assets/forge-lib.js';
+import { launchPhases, phaseModel, productSummaries } from '../assets/forge-lib.js';
 
 const impl = (m) => ({ items: Object.fromEntries(Object.entries(m).map(([id, status]) => [id, { status }])) });
+
+test('consistência "no ar": phaseModel e hub usam deployed+done (merged NÃO é no ar)', () => {
+  const product = { name: 'x', display_name: 'X', requirement_ids: ['a', 'b', 'c'], phases: { requirements: { status: 'approved' }, architecture: { status: 'approved' } } };
+  const implStatus = impl({ a: 'merged', b: 'deployed', c: 'not_started' });
+  const build = phaseModel(product, { waves: [{ id: 'w0' }], status: 'approved' }, implStatus).find((s) => s.key === 'build');
+  assert.match(build.detail, /1\/3 no ar/); // só 'b' (deployed) está no ar; 'a' (merged) NÃO
+  assert.notEqual(build.status, 'done');     // não 100% enquanto houver merged/não-deployed
+  const p = productSummaries({ products: [product] }, implStatus)[0];
+  assert.equal(p.progress.live, 1);          // mesma contagem do build/pipeline
+  assert.equal(p.progress.delivered, 2);     // merged+deployed = "código no main"
+});
 
 test('launchPhases: cenário ContaViva 360 — requisitos done, plano/build pendentes => Publicado PENDING (não done)', () => {
   const stages = [
