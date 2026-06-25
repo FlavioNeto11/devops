@@ -7,7 +7,12 @@
   "scripts": {
     "start": "node src/server.js",
     "worker": "node src/worker.js",
-    "test": "node --test \"test/**/*.test.mjs\""
+    "test": "node --test \"test/**/*.test.mjs\"",
+    "validate:openapi": "node scripts/validate-openapi.mjs",
+    "gen:operations": "node scripts/gen-operations.mjs"
+  },
+  "devDependencies": {
+    "yaml": "^2.9.0"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",

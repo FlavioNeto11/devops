@@ -15,7 +15,8 @@
     "control-ai-por-app",
     "structured-outputs",
     "notificacoes-multicanal",
-    "design-system"
+    "design-system",
+    "contract-openapi"
   ],
   "generatedBy": "scaffold-gymops.mjs"
 }

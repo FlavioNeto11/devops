@@ -1,0 +1,1699 @@
+openapi: 3.1.0
+info:
+  title: NeuroEvolui API
+  version: 1.0.0
+  summary: API de gestão clínica neuroevolutiva — contract-first (gymops-style).
+  description: |
+    API interna do NeuroEvolui. Documentação canônica gerada via Forge contract-first.
+    Auth: headers `X-Tenant-Id` (tenant) e `X-Role` (professional | clinic_manager | patient).
+    Roteamento: `/neuroevolui/api` (Traefik stripPrefix — o processo enxerga `/v1/*`).
+
+servers:
+  - url: http://nvit.localhost/neuroevolui/api
+    description: Cluster local (Traefik)
+  - url: http://localhost:8080
+    description: Desenvolvimento local direto
+
+tags:
+  - name: Health
+    description: Saúde e status do serviço.
+  - name: Records
+    description: Registros clínicos dos pacientes.
+  - name: Consultations
+    description: Agendamento e listagem de consultas.
+  - name: Payments
+    description: Webhooks de pagamento.
+  - name: Dashboard
+    description: Métricas e relatórios gerenciais.
+  - name: Jobs
+    description: Acompanhamento de jobs assíncronos (BullMQ).
+  - name: Audit
+    description: Trilha de auditoria.
+  - name: EvolutionNotes
+    description: Notas evolutivas dos pacientes.
+  - name: PatientReports
+    description: Relatórios de pacientes (geração assíncrona).
+  - name: Assistant
+    description: Assistente IA para profissionais e pacientes.
+  - name: Notifications
+    description: Preferências e subscrições de notificação push/e-mail/WhatsApp.
+  - name: Docs
+    description: Documentação da API (auto-servida).
+
+components:
+  parameters:
+    TenantId:
+      name: X-Tenant-Id
+      in: header
+      required: false
+      schema:
+        type: string
+      description: Identificador do tenant (clínica). Obrigatório em rotas multi-tenant.
+    Role:
+      name: X-Role
+      in: header
+      required: false
+      schema:
+        type: string
+        enum: [professional, clinic_manager, patient]
+      description: Papel do usuário autenticado.
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [message]
+          properties:
+            message:
+              type: string
+            code:
+              type: string
+
+    Record:
+      type: object
+      properties:
+        id:
+          type: integer
+        tenant_id:
+          type: string
+        title:
+          type: string
+        status:
+          type: string
+          enum: [draft, submitting, processing, done, failed]
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    RecordList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Record'
+
+    AsyncJobResponse:
+      type: object
+      required: [job_id, queue, status]
+      properties:
+        job_id:
+          type: string
+        queue:
+          type: string
+        status:
+          type: string
+          enum: [queued, running, retry_wait, succeeded, failed, dlq]
+        inline:
+          type: boolean
+        deduplicated:
+          type: boolean
+
+    JobResource:
+      type: object
+      properties:
+        job_id:
+          type: string
+        queue_name:
+          type: string
+        job_key:
+          type: string
+        status:
+          type: string
+          enum: [queued, running, retry_wait, succeeded, failed, dlq]
+        payload:
+          type: object
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Consultation:
+      type: object
+      properties:
+        id:
+          type: integer
+        tenant_id:
+          type: string
+        patient_id:
+          type: string
+        professional_id:
+          type: string
+        scheduled_at:
+          type: string
+          format: date-time
+        scheduled_end_at:
+          type: string
+          format: date-time
+        amount_cents:
+          type: integer
+        currency:
+          type: string
+        status:
+          type: string
+
+    ConsultationList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Consultation'
+
+    RevenueReport:
+      type: object
+      properties:
+        total_revenue_cents:
+          type: integer
+        period_from:
+          type: string
+          format: date
+        period_to:
+          type: string
+          format: date
+        by_professional:
+          type: array
+          items:
+            type: object
+            properties:
+              professional_id:
+                type: string
+              total_cents:
+                type: integer
+              count:
+                type: integer
+        data:
+          type: array
+          items:
+            type: object
+
+    AuditEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        entity_id:
+          type: string
+        entity_type:
+          type: string
+        action:
+          type: string
+        actor:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+
+    EvolutionNote:
+      type: object
+      properties:
+        id:
+          type: integer
+        tenant_id:
+          type: string
+        patient_id:
+          type: string
+        professional_id:
+          type: string
+        type:
+          type: string
+        note_date:
+          type: string
+          format: date
+        text:
+          type: string
+        structured_fields:
+          type: object
+        attachments:
+          type: array
+          items:
+            type: object
+        version:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    EvolutionNoteList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvolutionNote'
+
+    PatientReport:
+      type: object
+      properties:
+        id:
+          type: integer
+        tenant_id:
+          type: string
+        patient_id:
+          type: string
+        status:
+          type: string
+          enum: [queued, processing, done, failed]
+        filters:
+          type: object
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    PatientReportList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PatientReport'
+
+    AssistantRequest:
+      type: object
+      required: [question]
+      properties:
+        question:
+          type: string
+          description: Pergunta ou instrução para o assistente.
+        context_type:
+          type: string
+          enum: [professional, patient]
+          default: professional
+        files:
+          type: array
+          items:
+            type: object
+            required: [filename, mime, data]
+            properties:
+              filename:
+                type: string
+              mime:
+                type: string
+              data:
+                type: string
+                description: Conteúdo do arquivo em base64.
+
+    AssistantResponse:
+      type: object
+      required: [answer]
+      properties:
+        answer:
+          type: string
+        sources:
+          type: array
+          items:
+            type: object
+        confidence:
+          type: number
+          format: float
+        actions:
+          type: array
+          items:
+            type: object
+
+    NotificationPreference:
+      type: object
+      properties:
+        channel:
+          type: string
+          enum: [email, push, whatsapp]
+        enabled:
+          type: boolean
+        contact_value:
+          type: string
+
+paths:
+  /:
+    get:
+      summary: Informações do serviço
+      tags: [Health]
+      responses:
+        '200':
+          description: App info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  app:
+                    type: string
+                  service:
+                    type: string
+                  ok:
+                    type: boolean
+              example:
+                app: neuroevolui
+                service: api
+                ok: true
+
+  /health:
+    get:
+      summary: Health check (banco de dados)
+      tags: [Health]
+      responses:
+        '200':
+          description: Serviço saudável
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  db:
+                    type: string
+              example:
+                status: ok
+                db: connected
+
+  /v1/health/queue:
+    get:
+      summary: Health check das filas BullMQ
+      tags: [Health]
+      responses:
+        '200':
+          description: Status das filas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  queue:
+                    type: object
+              example:
+                status: ok
+                queue:
+                  waiting: 0
+                  active: 0
+                  failed: 0
+
+  /v1/records:
+    get:
+      summary: Listar registros clínicos do tenant
+      tags: [Records]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/Role'
+      responses:
+        '200':
+          description: Lista de registros
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordList'
+              example:
+                data:
+                  - id: 1
+                    tenant_id: clinica-abc
+                    title: Consulta inicial
+                    status: done
+                    created_by: prof-1
+                    created_at: '2026-01-10T09:00:00Z'
+
+    post:
+      summary: Criar registro clínico
+      tags: [Records]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: X-Role
+          in: header
+          required: false
+          schema:
+            type: string
+            enum: [professional]
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Chave de idempotência para criar apenas uma vez.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+            example:
+              title: Avaliação neurológica
+      responses:
+        '201':
+          description: Registro criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Record'
+              example:
+                id: 42
+                tenant_id: clinica-abc
+                title: Avaliação neurológica
+                status: draft
+                created_by: prof-1
+                created_at: '2026-01-10T10:00:00Z'
+        '400':
+          description: Dados inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  message: title obrigatório
+
+  /v1/records/{id}:
+    get:
+      summary: Obter registro clínico por ID
+      tags: [Records]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Registro encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Record'
+              example:
+                id: 42
+                tenant_id: clinica-abc
+                title: Avaliação neurológica
+                status: done
+                created_by: prof-1
+                created_at: '2026-01-10T10:00:00Z'
+        '404':
+          description: Registro não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  message: não encontrado
+
+    delete:
+      summary: Remover registro clínico
+      tags: [Records]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: X-Role
+          in: header
+          required: false
+          schema:
+            type: string
+            enum: [clinic_manager]
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Registro removido
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: boolean
+              example:
+                deleted: true
+
+  /v1/records/{id}/submit:
+    post:
+      summary: Submeter registro para processamento assíncrono
+      tags: [Records]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '202':
+          description: Registro enfileirado para processamento
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  status:
+                    type: string
+                  enqueued:
+                    type: boolean
+              example:
+                id: 42
+                status: submitting
+                enqueued: true
+        '404':
+          description: Registro não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/consultations/schedule:
+    post:
+      summary: Agendar consulta
+      tags: [Consultations]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: X-Role
+          in: header
+          required: false
+          schema:
+            type: string
+            enum: [professional]
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [patient_id, professional_id, scheduled_at, amount_cents]
+              properties:
+                patient_id:
+                  type: string
+                professional_id:
+                  type: string
+                scheduled_at:
+                  type: string
+                  format: date-time
+                duration_minutes:
+                  type: integer
+                  default: 60
+                amount_cents:
+                  type: integer
+                currency:
+                  type: string
+                  default: BRL
+                payment_method_token:
+                  type: string
+            example:
+              patient_id: pac-001
+              professional_id: prof-001
+              scheduled_at: '2026-02-15T14:00:00Z'
+              duration_minutes: 50
+              amount_cents: 25000
+              currency: BRL
+      responses:
+        '201':
+          description: Consulta agendada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consultation'
+              example:
+                id: 10
+                tenant_id: clinica-abc
+                patient_id: pac-001
+                professional_id: prof-001
+                scheduled_at: '2026-02-15T14:00:00Z'
+                amount_cents: 25000
+                status: scheduled
+        '200':
+          description: Consulta já agendada (idempotência)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consultation'
+        '400':
+          description: Dados inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflito de horário
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  message: Horário já ocupado para este profissional
+                  code: SCHEDULE_CONFLICT
+
+  /v1/consultations:
+    get:
+      summary: Listar consultas do tenant
+      tags: [Consultations]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/Role'
+      responses:
+        '200':
+          description: Lista de consultas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultationList'
+              example:
+                data:
+                  - id: 10
+                    tenant_id: clinica-abc
+                    patient_id: pac-001
+                    professional_id: prof-001
+                    scheduled_at: '2026-02-15T14:00:00Z'
+                    status: scheduled
+
+  /v1/payments/webhook:
+    post:
+      summary: Receber webhook de pagamento
+      tags: [Payments]
+      parameters:
+        - name: X-Signature
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: X-Event-Id
+          in: header
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                event_id:
+                  type: string
+                event_type:
+                  type: string
+                payload:
+                  type: object
+            example:
+              event_id: evt_001
+              event_type: payment.confirmed
+              payload:
+                transaction_id: txn-123
+                amount_cents: 25000
+      responses:
+        '200':
+          description: Webhook processado
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Assinatura inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/dashboard/revenue:
+    get:
+      summary: Dashboard de receita (clinic_manager)
+      tags: [Dashboard]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: X-Role
+          in: header
+          required: false
+          schema:
+            type: string
+            enum: [clinic_manager]
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: professional_id
+          in: query
+          schema:
+            type: string
+        - name: patient_id
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+      responses:
+        '200':
+          description: Relatório de receita
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevenueReport'
+              example:
+                total_revenue_cents: 500000
+                period_from: '2026-01-01'
+                period_to: '2026-01-31'
+                by_professional:
+                  - professional_id: prof-001
+                    total_cents: 300000
+                    count: 12
+                data: []
+
+  /v1/consultation-notes:
+    post:
+      summary: Enfileirar geração de notas de consulta (async)
+      tags: [Jobs]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: X-Role
+          in: header
+          required: false
+          schema:
+            type: string
+            enum: [professional]
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                job_key:
+                  type: string
+            example:
+              job_key: notes-clinica-abc-20260115
+      responses:
+        '202':
+          description: Job enfileirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncJobResponse'
+              example:
+                job_id: bull-001
+                queue: consultation-notes
+                status: queued
+                inline: false
+
+  /v1/patient-imports:
+    post:
+      summary: Enfileirar importação de pacientes (async)
+      tags: [Jobs]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: X-Role
+          in: header
+          required: false
+          schema:
+            type: string
+            enum: [clinic_manager]
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                job_key:
+                  type: string
+      responses:
+        '202':
+          description: Importação enfileirada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncJobResponse'
+              example:
+                job_id: bull-002
+                queue: patient-imports
+                status: queued
+
+  /v1/notifications:
+    post:
+      summary: Enfileirar envio de notificação (async)
+      tags: [Jobs]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                job_key:
+                  type: string
+      responses:
+        '202':
+          description: Notificação enfileirada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncJobResponse'
+              example:
+                job_id: bull-003
+                queue: notifications
+                status: queued
+
+  /v1/summaries-ai:
+    post:
+      summary: Enfileirar geração de sumário IA (async)
+      tags: [Jobs]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: X-Role
+          in: header
+          required: false
+          schema:
+            type: string
+            enum: [professional]
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                job_key:
+                  type: string
+      responses:
+        '202':
+          description: Job enfileirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncJobResponse'
+              example:
+                job_id: bull-004
+                queue: summaries-ai
+                status: queued
+
+  /v1/jobs/{queueName}/{jobKey}:
+    get:
+      summary: Consultar status de job assíncrono
+      tags: [Jobs]
+      parameters:
+        - name: queueName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: jobKey
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Status do job
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResource'
+              example:
+                job_id: bull-001
+                queue_name: consultation-notes
+                job_key: notes-clinica-abc-20260115
+                status: succeeded
+        '404':
+          description: Job não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  message: job não encontrado
+
+  /v1/audit:
+    get:
+      summary: Trilha de auditoria (clinic_manager)
+      tags: [Audit]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: X-Role
+          in: header
+          required: false
+          schema:
+            type: string
+            enum: [clinic_manager]
+        - name: entity_id
+          in: query
+          schema:
+            type: string
+        - name: entity_type
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 200
+      responses:
+        '200':
+          description: Entradas de auditoria
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditEntry'
+              example:
+                data:
+                  - id: 1
+                    entity_id: '42'
+                    entity_type: record
+                    action: create
+                    actor: prof-1
+                    created_at: '2026-01-10T10:00:00Z'
+
+  /v1/patients/{patientId}/evolution-notes:
+    post:
+      summary: Criar nota evolutiva
+      tags: [EvolutionNotes]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: X-Role
+          in: header
+          required: false
+          schema:
+            type: string
+            enum: [professional]
+        - name: patientId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                note_date:
+                  type: string
+                  format: date
+                professional_id:
+                  type: string
+                text:
+                  type: string
+                structured_fields:
+                  type: object
+                attachments:
+                  type: array
+                  items:
+                    type: object
+            example:
+              type: evolucao
+              note_date: '2026-01-10'
+              professional_id: prof-001
+              text: Paciente apresentou melhora significativa na coordenação motora.
+      responses:
+        '201':
+          description: Nota criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvolutionNote'
+              example:
+                id: 5
+                tenant_id: clinica-abc
+                patient_id: pac-001
+                professional_id: prof-001
+                type: evolucao
+                note_date: '2026-01-10'
+                text: Paciente apresentou melhora significativa na coordenação motora.
+                version: 1
+        '400':
+          description: Dados inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    get:
+      summary: Listar notas evolutivas do paciente
+      tags: [EvolutionNotes]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: X-Role
+          in: header
+          required: false
+          schema:
+            type: string
+            enum: [professional]
+        - name: patientId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: professional_id
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de notas evolutivas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvolutionNoteList'
+              example:
+                data:
+                  - id: 5
+                    patient_id: pac-001
+                    type: evolucao
+                    note_date: '2026-01-10'
+                    text: Paciente apresentou melhora.
+
+  /v1/patients/{patientId}/evolution-notes/history:
+    get:
+      summary: Histórico de versões das notas evolutivas
+      tags: [EvolutionNotes]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: X-Role
+          in: header
+          required: false
+          schema:
+            type: string
+            enum: [professional]
+        - name: patientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Histórico de notas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvolutionNoteList'
+              example:
+                data:
+                  - id: 5
+                    patient_id: pac-001
+                    version: 2
+                    text: Versão revisada.
+
+  /v1/patients/{patientId}/evolution-notes/{noteId}:
+    get:
+      summary: Obter nota evolutiva por ID
+      tags: [EvolutionNotes]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: X-Role
+          in: header
+          required: false
+          schema:
+            type: string
+            enum: [professional]
+        - name: patientId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: noteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Nota encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvolutionNote'
+        '404':
+          description: Nota não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      summary: Editar nota evolutiva
+      tags: [EvolutionNotes]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: X-Role
+          in: header
+          required: false
+          schema:
+            type: string
+            enum: [professional]
+        - name: patientId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: noteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                text:
+                  type: string
+                structured_fields:
+                  type: object
+            example:
+              text: Texto atualizado da nota evolutiva.
+      responses:
+        '200':
+          description: Nota editada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvolutionNote'
+        '404':
+          description: Nota não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '410':
+          description: Nota excluída (não editável)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Excluir nota evolutiva
+      tags: [EvolutionNotes]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: X-Role
+          in: header
+          required: false
+          schema:
+            type: string
+            enum: [professional]
+        - name: patientId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: noteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Nota excluída
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: boolean
+              example:
+                deleted: true
+        '404':
+          description: Nota não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/patients/{patientId}/reports:
+    post:
+      summary: Solicitar geração de relatório do paciente (async)
+      tags: [PatientReports]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: X-Role
+          in: header
+          required: false
+          schema:
+            type: string
+            enum: [professional]
+        - name: patientId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                date_from:
+                  type: string
+                  format: date
+                date_to:
+                  type: string
+                  format: date
+                type:
+                  type: string
+                professional_id:
+                  type: string
+            example:
+              date_from: '2026-01-01'
+              date_to: '2026-01-31'
+              type: evolucao
+      responses:
+        '202':
+          description: Relatório enfileirado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report_id:
+                    type: integer
+                  status:
+                    type: string
+                  job_id:
+                    type: string
+              example:
+                report_id: 7
+                status: queued
+                job_id: bull-010
+
+    get:
+      summary: Listar relatórios do paciente
+      tags: [PatientReports]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: X-Role
+          in: header
+          required: false
+          schema:
+            type: string
+            enum: [professional]
+        - name: patientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de relatórios
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientReportList'
+              example:
+                data:
+                  - id: 7
+                    patient_id: pac-001
+                    status: done
+                    created_at: '2026-01-15T08:00:00Z'
+
+  /v1/patients/{patientId}/reports/{reportId}:
+    get:
+      summary: Obter relatório do paciente por ID
+      tags: [PatientReports]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: X-Role
+          in: header
+          required: false
+          schema:
+            type: string
+            enum: [professional]
+        - name: patientId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: reportId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Relatório encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientReport'
+        '404':
+          description: Relatório não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/assistant:
+    post:
+      summary: Assistente IA (chat + upload de arquivos)
+      tags: [Assistant]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/Role'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssistantRequest'
+            example:
+              question: Quais são os marcos de desenvolvimento típicos para crianças de 3 anos?
+              context_type: professional
+          multipart/form-data:
+            schema:
+              type: object
+              required: [question]
+              properties:
+                question:
+                  type: string
+                context_type:
+                  type: string
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+      responses:
+        '200':
+          description: Resposta do assistente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistantResponse'
+              example:
+                answer: "Os marcos de desenvolvimento para crianças de 3 anos incluem: vocabulário de 1000+ palavras, frases completas de 3-4 palavras, pular com os dois pés e se vestir com pouca ajuda."
+                sources: []
+                confidence: 0.92
+                actions: []
+        '400':
+          description: Pergunta ausente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: IA não configurada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  code: AI_DISABLED
+                  message: Chave de IA não configurada; assistente indisponível.
+
+  /v1/notifications/vapid-public-key:
+    get:
+      summary: Obter chave pública VAPID para push notifications
+      tags: [Notifications]
+      responses:
+        '200':
+          description: Chave pública VAPID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  vapid_public_key:
+                    type: string
+              example:
+                vapid_public_key: BNcRdreALRFXTkOOUHK1EtK2wtjd...
+
+  /v1/notifications/subscriptions:
+    post:
+      summary: Registrar subscrição de push notification
+      tags: [Notifications]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/Role'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [endpoint, keys]
+              properties:
+                endpoint:
+                  type: string
+                  format: uri
+                keys:
+                  type: object
+                  required: [p256dh, auth]
+                  properties:
+                    p256dh:
+                      type: string
+                    auth:
+                      type: string
+            example:
+              endpoint: https://fcm.googleapis.com/fcm/send/abc123
+              keys:
+                p256dh: BNcRdreALRFXTkOOUHK1EtK2wtjd...
+                auth: tBHItJI5svbpez7KI4CCXg==
+      responses:
+        '201':
+          description: Subscrição registrada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  subscribed:
+                    type: boolean
+              example:
+                subscribed: true
+        '400':
+          description: Dados inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Remover subscrição de push notification
+      tags: [Notifications]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/Role'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [endpoint]
+              properties:
+                endpoint:
+                  type: string
+                  format: uri
+            example:
+              endpoint: https://fcm.googleapis.com/fcm/send/abc123
+      responses:
+        '200':
+          description: Subscrição removida
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  unsubscribed:
+                    type: boolean
+              example:
+                unsubscribed: true
+        '400':
+          description: Endpoint ausente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/notifications/preferences:
+    get:
+      summary: Listar preferências de notificação do usuário
+      tags: [Notifications]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/Role'
+      responses:
+        '200':
+          description: Preferências de notificação
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NotificationPreference'
+              example:
+                data:
+                  - channel: email
+                    enabled: true
+                    contact_value: user@clinica.com
+                  - channel: push
+                    enabled: true
+                    contact_value: ''
+                  - channel: whatsapp
+                    enabled: false
+                    contact_value: ''
+
+    put:
+      summary: Atualizar preferência de notificação
+      tags: [Notifications]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/Role'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [channel]
+              properties:
+                channel:
+                  type: string
+                  enum: [email, push, whatsapp]
+                enabled:
+                  type: boolean
+                  default: true
+                contact_value:
+                  type: string
+            example:
+              channel: email
+              enabled: true
+              contact_value: prof@clinica.com
+      responses:
+        '200':
+          description: Preferência atualizada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  updated:
+                    type: boolean
+              example:
+                updated: true
+        '400':
+          description: Canal inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /docs:
+    get:
+      summary: Documentação interativa da API (ReDoc)
+      tags: [Docs]
+      responses:
+        '200':
+          description: Página ReDoc em HTML
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /docs/openapi.yaml:
+    get:
+      summary: Especificação OpenAPI canônica
+      tags: [Docs]
+      responses:
+        '200':
+          description: OpenAPI YAML
+          content:
+            text/plain:
+              schema:
+                type: string
