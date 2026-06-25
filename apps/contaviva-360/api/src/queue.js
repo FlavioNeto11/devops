@@ -1,5 +1,7 @@
 // queue.js — filas Redis/BullMQ (bloco redis-bullmq) com degradação graciosa sem Redis.
+// enqueueNfSubmit usa fila transacional (jobs.js — worker-queue-transacional) em vez de BullMQ.
 import { Queue } from 'bullmq';
+import { enqueueJob } from './jobs.js';
 const url = process.env.REDIS_URL || '';
 let _submitQ = null;
 let _documentQ = null;
@@ -93,6 +95,13 @@ export async function enqueueFinancialReport(jobKey, params) {
     removeOnFail: 100,
   });
   return { inline: false };
+}
+
+// NF submit usa a fila transacional (jobs table + SKIP LOCKED) para garantia de exatamente-uma-vez.
+// jobKey garante idempotência: mesmo nfId não cria jobs duplicados.
+export async function enqueueNfSubmit(nfId, tenantId, nfData = {}) {
+  const jobKey = `nf-submit-${nfId}`;
+  return enqueueJob('nf_submit', { nfId, tenantId, nfData }, { maxAttempts: 5, jobKey });
 }
 
 export async function queueCounts() {
