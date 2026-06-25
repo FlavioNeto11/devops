@@ -152,8 +152,21 @@ jobs:
             failed=$(echo "$info" | jq -r --arg self "$SELF" '[.statusCheckRollup[]? | select((((.name // .context) // "") | test("^Auto-merge")) | not) | ((.conclusion // .state) // "") | select(. == "FAILURE" or . == "ERROR" or . == "CANCELLED" or . == "TIMED_OUT")] | length')
             pending=$(echo "$info" | jq -r --arg self "$SELF" '[.statusCheckRollup[]? | select((((.name // .context) // "") | test("^Auto-merge")) | not) | ((.conclusion // .state) // "PENDING") | select(. == "PENDING" or . == "EXPECTED" or . == "")] | length')
             if [ "$draft" = "true" ]; then echo "PR #$n: rascunho - skip"; continue; fi
+            # ESPERA o CI assentar AQUI MESMO: o check_suite/status nao re-dispara este workflow de
+            # forma confiavel (na pratica, zero runs desses eventos) e o cron atrasa — entao um PR
+            # verde ficaria parado. Poll ate ~9min na propria run do PR-open; assim mescla sozinho.
+            for w in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18; do
+              [ "$pending" = "0" ] && break
+              [ "$failed" != "0" ] && break
+              echo "PR #$n: $pending check(s) pendente(s) — aguardando CI assentar ($w/18)"
+              sleep 30
+              info=$(gh pr view "$n" --repo "$REPO" --json mergeable,isDraft,statusCheckRollup,headRefName,body)
+              failed=$(echo "$info" | jq -r '[.statusCheckRollup[]? | select((((.name // .context) // "") | test("^Auto-merge")) | not) | ((.conclusion // .state) // "") | select(. == "FAILURE" or . == "ERROR" or . == "CANCELLED" or . == "TIMED_OUT")] | length')
+              pending=$(echo "$info" | jq -r '[.statusCheckRollup[]? | select((((.name // .context) // "") | test("^Auto-merge")) | not) | ((.conclusion // .state) // "PENDING") | select(. == "PENDING" or . == "EXPECTED" or . == "")] | length')
+            done
+            mergeable=$(echo "$info" | jq -r '.mergeable')
             if [ "$failed" != "0" ]; then echo "PR #$n: $failed check(s) falho(s) - skip"; continue; fi
-            if [ "$pending" != "0" ]; then echo "PR #$n: $pending check(s) pendente(s) - aguarda"; continue; fi
+            if [ "$pending" != "0" ]; then echo "PR #$n: ainda pendente apos espera - proximo ciclo"; continue; fi
             if [ "$mergeable" != "MERGEABLE" ]; then echo "PR #$n: mergeable=$mergeable - skip"; continue; fi
             # REQ-ID -> produto -> marcado como autonomo da Forja?
             reqid=$(echo "$info" | jq -r '.body' | sed -n 's/.*Closes-Req:[[:space:]]*\(REQ-[A-Z0-9-]*\).*/\1/p' | head -1)
