@@ -2,83 +2,19 @@
   "metamodel_version": "1.1.0",
   "has_previous": true,
   "from": {
-    "commit": "5052f8625458",
-    "baseline_hash": "dc8116ae59b8955d86a3868008e327698fb216c6ebaab9ca40e1416d42465175"
+    "commit": "f4d2d8e7a393",
+    "baseline_hash": "c673fba7368673eeb123e0671af3b6e8d8fd855c2c79bf90786e87dd1743d7f9"
   },
   "to": {
-    "commit": "working-tree",
+    "commit": "dfb5d398f1a0",
     "baseline_hash": "c673fba7368673eeb123e0671af3b6e8d8fd855c2c79bf90786e87dd1743d7f9"
   },
   "counts": {
-    "added": 9,
+    "added": 0,
     "removed": 0,
     "changed": 0
   },
-  "added": [
-    {
-      "id": "REQ-NEUROEVOLUI-0001",
-      "title": "Fundação: Arquitetura em camadas + Observabilidade + OIDC",
-      "product": "neuroevolui",
-      "type": "functional",
-      "impact_band": "medium"
-    },
-    {
-      "id": "REQ-NEUROEVOLUI-0002",
-      "title": "Multi-tenant + RBAC: Isolamento por clínica + Controle de acesso por papel",
-      "product": "neuroevolui",
-      "type": "functional",
-      "impact_band": "medium"
-    },
-    {
-      "id": "REQ-NEUROEVOLUI-0003",
-      "title": "Dados: Filas assíncronas + Idempotência + Migrations",
-      "product": "neuroevolui",
-      "type": "functional",
-      "impact_band": "medium"
-    },
-    {
-      "id": "REQ-NEUROEVOLUI-0004",
-      "title": "Dados: Registro de evolução + Gestão de pacientes com relatórios",
-      "product": "neuroevolui",
-      "type": "functional",
-      "impact_band": "medium"
-    },
-    {
-      "id": "REQ-NEUROEVOLUI-0005",
-      "title": "Controle financeiro: Agendamentos + Pagamentos + Auditoria",
-      "product": "neuroevolui",
-      "type": "functional",
-      "impact_band": "medium"
-    },
-    {
-      "id": "REQ-NEUROEVOLUI-0006",
-      "title": "IA: Assistente de controle para profissional e paciente com RAG",
-      "product": "neuroevolui",
-      "type": "functional",
-      "impact_band": "medium"
-    },
-    {
-      "id": "REQ-NEUROEVOLUI-0007",
-      "title": "Notificações: E-mail, push e WhatsApp para lembretes e alertas",
-      "product": "neuroevolui",
-      "type": "functional",
-      "impact_band": "medium"
-    },
-    {
-      "id": "REQ-NEUROEVOLUI-0008",
-      "title": "API estável: Contract-first OpenAPI + Validação no CI",
-      "product": "neuroevolui",
-      "type": "non-functional",
-      "impact_band": "medium"
-    },
-    {
-      "id": "REQ-NEUROEVOLUI-0009",
-      "title": "Frontend: Design system unificado + Componentes reusáveis",
-      "product": "neuroevolui",
-      "type": "non-functional",
-      "impact_band": "medium"
-    }
-  ],
+  "added": [],
   "removed": [],
   "changed": []
 }

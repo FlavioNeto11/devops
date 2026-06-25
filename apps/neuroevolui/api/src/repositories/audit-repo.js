@@ -41,3 +41,11 @@ export async function findAuditLog(tenantId, id) {
   const r = await pool.query('SELECT * FROM audit_logs WHERE tenant_id=$1 AND id=$2', [tenantId, Number(id)]);
   return r.rows[0] ?? null;
 }
+
+export async function deleteAuditLog(tenantId, id) {
+  const r = await pool.query(
+    'DELETE FROM audit_logs WHERE tenant_id=$1 AND id=$2 RETURNING id',
+    [tenantId, Number(id)]
+  );
+  return r.rowCount > 0;
+}

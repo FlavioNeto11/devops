@@ -1,4 +1,4 @@
-/* GERADO por packages/design-tokens/build.mjs (forge-brand) — marca: NeuroEvolui (accent #5b8def, slate).
+/* GERADO por packages/design-tokens/build.mjs (forge-brand) — marca: NeuroEvolui (accent #6366f1, slate).
    NÃO EDITAR À MÃO: edite specs/products/<app>/brand.json e rode `node build.mjs`. CI valida com `--check`. */
 :root {
   color-scheme: light;
@@ -10,15 +10,15 @@
   --ui-faint: 148 163 184;
   --ui-border: 226 232 240;
   --ui-border-strong: 203 213 225;
-  --ui-accent: 91 141 239;
-  --ui-accent-fg: 15 23 42;
-  --ui-accent-strong: 73 113 191;
+  --ui-accent: 99 102 241;
+  --ui-accent-fg: 255 255 255;
+  --ui-accent-strong: 94 97 229;
   --ui-ok: 21 128 61;
   --ui-warn: 180 83 9;
   --ui-danger: 185 28 28;
-  --ui-info: 73 113 191;
+  --ui-info: 94 97 229;
   --ui-font-sans: Inter, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --ui-font-display: Sora, var(--ui-font-sans);
+  --ui-font-display: Inter, var(--ui-font-sans);
   --ui-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --ui-text-xs: 11.5px;
   --ui-text-sm: 13px;
@@ -51,13 +51,13 @@
   --ui-faint: 100 116 139;
   --ui-border: 42 51 67;
   --ui-border-strong: 58 70 90;
-  --ui-accent: 121 162 242;
-  --ui-accent-fg: 15 23 42;
-  --ui-accent-strong: 148 181 245;
+  --ui-accent: 127 130 244;
+  --ui-accent-fg: 255 255 255;
+  --ui-accent-strong: 154 156 246;
   --ui-ok: 74 222 128;
   --ui-warn: 251 191 36;
   --ui-danger: 248 113 113;
-  --ui-info: 148 181 245;
+  --ui-info: 154 156 246;
   --ui-shadow-sm: 0 1px 3px rgb(0 0 0 / 0.45);
   --ui-shadow-md: 0 8px 24px -6px rgb(0 0 0 / 0.5);
   --ui-shadow-lg: 0 28px 80px -24px rgb(0 0 0 / 0.62);
@@ -73,13 +73,13 @@
     --ui-faint: 100 116 139;
     --ui-border: 42 51 67;
     --ui-border-strong: 58 70 90;
-    --ui-accent: 121 162 242;
-    --ui-accent-fg: 15 23 42;
-    --ui-accent-strong: 148 181 245;
+    --ui-accent: 127 130 244;
+    --ui-accent-fg: 255 255 255;
+    --ui-accent-strong: 154 156 246;
     --ui-ok: 74 222 128;
     --ui-warn: 251 191 36;
     --ui-danger: 248 113 113;
-    --ui-info: 148 181 245;
+    --ui-info: 154 156 246;
     --ui-shadow-sm: 0 1px 3px rgb(0 0 0 / 0.45);
     --ui-shadow-md: 0 8px 24px -6px rgb(0 0 0 / 0.5);
     --ui-shadow-lg: 0 28px 80px -24px rgb(0 0 0 / 0.62);

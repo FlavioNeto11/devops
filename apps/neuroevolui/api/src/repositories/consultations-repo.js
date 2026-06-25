@@ -47,3 +47,43 @@ export async function updatePaymentStatusByTransactionId(transactionId, paymentS
     [paymentStatus, transactionId]
   );
 }
+
+// Coleção paginada para a rota REST genérica GET /v1/consultations → { data, total }.
+const CONSULT_SORTABLE = new Set(['id', 'scheduled_at', 'status', 'amount_cents', 'created_at']);
+export async function listConsultationsPaged(tenantId, { page = 1, pageSize = 50, sort = 'id', dir = 'desc' } = {}) {
+  const col = CONSULT_SORTABLE.has(sort) ? sort : 'id';
+  const order = String(dir).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+  const limit = Math.min(Math.max(Number(pageSize) || 50, 1), 200);
+  const offset = (Math.max(Number(page) || 1, 1) - 1) * limit;
+  const totalRes = await pool.query('SELECT count(*)::int n FROM consultations WHERE tenant_id=$1 AND deleted_at IS NULL', [tenantId]);
+  const r = await pool.query(
+    `SELECT * FROM consultations WHERE tenant_id=$1 AND deleted_at IS NULL ORDER BY ${col} ${order} LIMIT $2 OFFSET $3`,
+    [tenantId, limit, offset]
+  );
+  return { data: r.rows, total: totalRes.rows[0].n };
+}
+
+export async function updateConsultation(tenantId, id, body) {
+  const fields = ['patient_id', 'professional_id', 'scheduled_at', 'scheduled_end_at', 'duration_minutes', 'amount_cents', 'currency', 'status', 'payment_status', 'notes'];
+  const sets = [];
+  const params = [tenantId, Number(id)];
+  let i = 3;
+  for (const f of fields) {
+    if (body[f] !== undefined) { sets.push(`${f}=$${i++}`); params.push(body[f] === '' ? null : body[f]); }
+  }
+  if (sets.length === 0) return findConsultation(tenantId, id);
+  sets.push('updated_at=now()');
+  const r = await pool.query(
+    `UPDATE consultations SET ${sets.join(', ')} WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL RETURNING *`,
+    params
+  );
+  return r.rows[0] ?? null;
+}
+
+export async function deleteConsultation(tenantId, id) {
+  const r = await pool.query(
+    'UPDATE consultations SET deleted_at=now(), updated_at=now() WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL RETURNING id',
+    [tenantId, Number(id)]
+  );
+  return r.rowCount > 0;
+}

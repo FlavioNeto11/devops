@@ -1,0 +1,62 @@
+id: "REF-NEUROEVOLUI-0037"
+slug: "ref-neuroevolui-0037"
+title: "Relatório Gerado"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0004"
+    relation: "implements"
+surface:
+  route: "/patient-reports/:id"
+  name: "Relatório Gerado"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+      ui: "Visualização completa do relatório gerado com opções de download e impressão"
+    - name: "loading"
+      ui: "Skeleton do conteúdo do relatório enquanto carrega"
+    - name: "empty"
+      ui: "Mensagem 'Relatório ainda em processamento' com indicador de progresso"
+    - name: "error"
+      ui: "Banner de erro indicando falha na geração, com opção de reprocessar"
+  data:
+    - field: "id"
+      source: "api:/api/patient-reports/:id"
+      editable: false
+    - field: "patient_name"
+      source: "api:/api/patient-reports/:id"
+      editable: false
+    - field: "report_type"
+      source: "api:/api/patient-reports/:id"
+      editable: false
+    - field: "content"
+      source: "api:/api/patient-reports/:id"
+      editable: false
+    - field: "status"
+      source: "api:/api/patient-reports/:id"
+      editable: false
+    - field: "created_at"
+      source: "api:/api/patient-reports/:id"
+      format: "dd/MM/yyyy HH:mm"
+      editable: false
+  interactions:
+    - trigger: "clique em 'Download PDF'"
+      action: "GET /api/patient-reports/:id/pdf"
+      result: "download do relatório em PDF"
+    - trigger: "clique em 'Imprimir'"
+      action: "abre diálogo de impressão do navegador"
+      result: "impressão do relatório"
+    - trigger: "clique em 'Voltar'"
+      action: "navega para /patient-reports"
+      result: "retorna à lista de relatórios"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

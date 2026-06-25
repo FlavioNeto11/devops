@@ -2,14 +2,14 @@
   <UiPageLayout
     eyebrow="Pacientes"
     :title="pageTitle"
-    subtitle="Edite os dados cadastrais, ajuste a situação clínica e reatribua o profissional responsável. Toda alteração é registrada para auditoria."
+    subtitle="Edite os dados cadastrais, ajuste a situação clínica e reatribua o profissional responsável. Toda alteração fica registrada para auditoria."
     width="wide"
     :loading="loading"
-    loading-message="Carregando paciente…"
+    loading-message="Carregando dados do paciente…"
     :error="loadError"
     @retry="load"
   >
-    <!-- AÇÕES DO TOPO -->
+    <!-- AÇÕES DO CABEÇALHO -->
     <template #actions>
       <UiButton variant="ghost" :to="backTo">Voltar</UiButton>
       <UiButton v-if="patient.id" variant="subtle" :to="detailTo">Ver perfil</UiButton>
@@ -17,13 +17,16 @@
 
     <!-- BANNER DE AUDITORIA -->
     <template #banner>
-      <div class="audit-note" role="note">
-        <span class="audit-icon" aria-hidden="true">⚖</span>
-        <span class="audit-text">Edição auditável — alterações de dados, situação e responsável ficam registradas.</span>
+      <div class="audit-banner" role="note" aria-label="Aviso de auditoria">
+        <span class="audit-banner-icon" aria-hidden="true">⚖</span>
+        <span class="audit-banner-text">
+          Edição auditável — todas as alterações de dados, situação e responsável ficam
+          registradas com data, hora e usuário.
+        </span>
       </div>
     </template>
 
-    <!-- ESTADO VAZIO: paciente não encontrado (após carregar, sem erro, sem id) -->
+    <!-- ESTADO VAZIO: 404 ou registro nulo pós-carregamento -->
     <UiEmptyState
       v-if="notFound"
       title="Paciente não encontrado"
@@ -31,22 +34,36 @@
       icon="search"
     >
       <template #action>
-        <UiButton :to="backTo">Voltar para pacientes</UiButton>
+        <UiButton :to="backTo">Voltar para a lista de pacientes</UiButton>
       </template>
     </UiEmptyState>
 
-    <!-- CONTEÚDO NORMAL -->
-    <div v-else class="edit-grid">
-      <!-- COLUNA PRINCIPAL: FORMULÁRIO CADASTRAL -->
+    <!-- ESTADO NORMAL: layout em duas colunas (formulário principal + painel lateral) -->
+    <div v-else class="edit-layout">
+
+      <!-- ── COLUNA PRINCIPAL ─────────────────────────────────────────────── -->
       <div class="edit-main">
-        <UiCard title="Dados cadastrais" subtitle="Informações de identificação e contato do paciente.">
+
+        <!-- CARD: IDENTIFICAÇÃO -->
+        <UiCard title="Identificação" subtitle="Nome, CPF, data de nascimento e gênero.">
           <template #actions>
-            <UiStatusBadge :status="patient.status" :label="statusLabelText(patient.status)" size="lg" />
+            <UiStatusBadge
+              :status="patient.status"
+              :label="statusLabel(patient.status)"
+              size="lg"
+            />
           </template>
 
-          <form novalidate @submit.prevent="saveProfile">
-            <UiFormSection title="Identificação" description="Nome e dados pessoais." :columns="2">
-              <UiFormField label="Nome completo" :required="true" :error="f.errors.full_name" full-width>
+          <form id="form-profile" novalidate @submit.prevent="saveProfile">
+            <UiFormSection title="Dados pessoais" description="Informações básicas de identificação." :columns="2">
+
+              <UiFormField
+                label="Nome completo"
+                :required="true"
+                :error="f.errors.full_name"
+                hint="Como o paciente é registrado no prontuário."
+                full-width
+              >
                 <template #default="{ id, describedBy }">
                   <UiInput
                     :id="id"
@@ -61,7 +78,11 @@
                 </template>
               </UiFormField>
 
-              <UiFormField label="Data de nascimento" :error="f.errors.birth_date" hint="Usada para calcular a idade.">
+              <UiFormField
+                label="Data de nascimento"
+                :error="f.errors.birth_date"
+                :hint="birthDateHint"
+              >
                 <template #default="{ id, describedBy }">
                   <UiInput
                     :id="id"
@@ -69,12 +90,17 @@
                     type="date"
                     :model-value="f.values.birth_date"
                     :error="!!f.errors.birth_date"
+                    autocomplete="bday"
                     @update:model-value="f.setField('birth_date', $event)"
                   />
                 </template>
               </UiFormField>
 
-              <UiFormField label="Documento (CPF)" :error="f.errors.document" hint="Somente números ou no formato 000.000.000-00.">
+              <UiFormField
+                label="CPF"
+                :error="f.errors.document"
+                hint="Somente números ou no formato 000.000.000-00."
+              >
                 <template #default="{ id, describedBy }">
                   <UiInput
                     :id="id"
@@ -82,14 +108,37 @@
                     :model-value="f.values.document"
                     :error="!!f.errors.document"
                     inputmode="numeric"
+                    autocomplete="off"
                     placeholder="000.000.000-00"
                     @update:model-value="f.setField('document', $event)"
                   />
                 </template>
               </UiFormField>
+
+              <UiFormField label="Gênero" :error="f.errors.gender" hint="Opcional — conforme declaração do paciente.">
+                <template #default="{ id, describedBy }">
+                  <select
+                    :id="id"
+                    class="edit-select"
+                    :aria-describedby="describedBy || undefined"
+                    :aria-invalid="f.errors.gender ? 'true' : undefined"
+                    :value="f.values.gender"
+                    @change="f.setField('gender', $event.target.value)"
+                  >
+                    <option value="">Não informado</option>
+                    <option value="masculino">Masculino</option>
+                    <option value="feminino">Feminino</option>
+                    <option value="outro">Outro</option>
+                    <option value="nao_informado">Prefere não informar</option>
+                  </select>
+                </template>
+              </UiFormField>
+
             </UiFormSection>
 
-            <UiFormSection title="Contato" description="Como falar com o paciente ou responsável." :columns="2">
+            <!-- CONTATO -->
+            <UiFormSection title="Contato" description="Por onde falar com o paciente." :columns="2">
+
               <UiFormField label="E-mail" :error="f.errors.email">
                 <template #default="{ id, describedBy }">
                   <UiInput
@@ -105,7 +154,7 @@
                 </template>
               </UiFormField>
 
-              <UiFormField label="Telefone / WhatsApp" :error="f.errors.phone">
+              <UiFormField label="Telefone / WhatsApp" :error="f.errors.phone" hint="Com DDD.">
                 <template #default="{ id, describedBy }">
                   <UiInput
                     :id="id"
@@ -120,7 +169,12 @@
                 </template>
               </UiFormField>
 
-              <UiFormField label="Responsável" :error="f.errors.guardian_name" hint="Preencha para menores de idade ou pacientes assistidos." full-width>
+              <UiFormField
+                label="Responsável legal"
+                :error="f.errors.guardian_name"
+                :hint="guardianHint"
+                full-width
+              >
                 <template #default="{ id, describedBy }">
                   <UiInput
                     :id="id"
@@ -132,44 +186,94 @@
                   />
                 </template>
               </UiFormField>
+
             </UiFormSection>
 
-            <UiFormSection title="Observações" description="Anotações gerais não-clínicas sobre o paciente." :columns="1">
-              <UiFormField label="Observações gerais" :error="f.errors.notes">
+            <!-- OBSERVAÇÕES E REFERÊNCIA -->
+            <UiFormSection title="Observações e referência" description="Anotações gerais e código externo." :columns="2">
+
+              <UiFormField
+                label="Observações gerais"
+                :error="f.errors.notes"
+                hint="Informações administrativas, preferências, alertas não-clínicos."
+                full-width
+              >
                 <template #default="{ id, describedBy }">
-                  <!-- bare <textarea>: base (borda/fundo/padding) vem do kit via UiFormField :deep(textarea);
-                       o kit não tem UiTextarea, então só ajustamos altura/foco com tokens --ui-* -->
                   <textarea
                     :id="id"
                     class="edit-textarea"
                     :aria-describedby="describedBy || undefined"
                     :aria-invalid="f.errors.notes ? 'true' : undefined"
                     :value="f.values.notes"
-                    rows="5"
-                    placeholder="Preferências de contato, particularidades de agenda, observações administrativas…"
+                    rows="4"
+                    placeholder="Histórico relevante, preferências de contato, alertas administrativos…"
                     @input="f.setField('notes', $event.target.value)"
                   ></textarea>
                 </template>
               </UiFormField>
+
+              <UiFormField
+                label="Referência externa"
+                :error="f.errors.external_ref"
+                hint="Código ou ID em sistema externo (opcional)."
+              >
+                <template #default="{ id, describedBy }">
+                  <UiInput
+                    :id="id"
+                    :described-by="describedBy"
+                    :model-value="f.values.external_ref"
+                    :error="!!f.errors.external_ref"
+                    placeholder="Ex.: MRN-00042"
+                    autocomplete="off"
+                    @update:model-value="f.setField('external_ref', $event)"
+                  />
+                </template>
+              </UiFormField>
+
             </UiFormSection>
 
+            <!-- ALERTA DE CONFLITO (409) -->
+            <div v-if="conflictError" class="conflict-alert" role="alert">
+              <span class="conflict-icon" aria-hidden="true">!</span>
+              <div class="conflict-body">
+                <p class="conflict-title">Conflito ao salvar</p>
+                <p class="conflict-desc">{{ conflictError }}</p>
+              </div>
+            </div>
+
             <div class="form-actions">
-              <UiButton variant="ghost" type="button" :to="backTo">Cancelar</UiButton>
-              <UiButton type="submit" :loading="f.submitting.value" :disabled="!dirty">Salvar alterações</UiButton>
+              <div class="form-actions-hint">
+                <span class="req-mark" aria-hidden="true">*</span>
+                <span>campos obrigatórios</span>
+              </div>
+              <div class="form-buttons">
+                <UiButton variant="ghost" type="button" :disabled="f.submitting.value" @click="cancel">
+                  Cancelar
+                </UiButton>
+                <UiButton
+                  type="submit"
+                  variant="primary"
+                  :loading="f.submitting.value"
+                  :disabled="!dirty"
+                >
+                  Salvar alterações
+                </UiButton>
+              </div>
             </div>
           </form>
         </UiCard>
       </div>
 
-      <!-- COLUNA LATERAL: SITUAÇÃO, RESPONSÁVEL, AUDITORIA -->
+      <!-- ── COLUNA LATERAL ──────────────────────────────────────────────── -->
       <aside class="edit-side">
+
         <!-- SITUAÇÃO CLÍNICA -->
-        <UiCard title="Situação" subtitle="Alta, espera ou arquivamento.">
-          <p class="side-current">
-            Situação atual:
-            <UiStatusBadge :status="patient.status" :label="statusLabelText(patient.status)" />
-          </p>
-          <div class="status-actions">
+        <UiCard title="Situação clínica" subtitle="Mude o estado de acompanhamento do paciente.">
+          <div class="status-current">
+            <span class="status-label-text">Situação atual:</span>
+            <UiStatusBadge :status="patient.status" :label="statusLabel(patient.status)" />
+          </div>
+          <div class="status-transitions">
             <UiButton
               v-for="t in availableTransitions"
               :key="t.value"
@@ -182,15 +286,14 @@
             >
               {{ t.action }}
             </UiButton>
-            <p v-if="availableTransitions.length === 0" class="side-hint">
-              Nenhuma mudança de situação disponível para este estado.
+            <p v-if="!availableTransitions.length" class="side-hint">
+              Nenhuma transição disponível para esta situação.
             </p>
           </div>
         </UiCard>
 
         <!-- PROFISSIONAL RESPONSÁVEL -->
         <UiCard title="Profissional responsável" subtitle="Quem conduz o acompanhamento.">
-          <!-- Carregando a lista de profissionais -->
           <UiLoadingState
             v-if="profState === 'loading'"
             variant="skeleton"
@@ -198,7 +301,6 @@
             title="Carregando equipe…"
           />
 
-          <!-- Falha ao carregar a lista: cai num fallback de texto livre, com retry -->
           <template v-else-if="profState === 'error'">
             <UiErrorState
               message="Não foi possível carregar a lista de profissionais."
@@ -207,9 +309,9 @@
             />
             <form novalidate @submit.prevent="saveProfessional">
               <UiFormField
-                label="Profissional responsável (id)"
+                label="ID do profissional"
                 :error="profForm.errors.assigned_professional_id"
-                hint="Lista indisponível — informe o identificador. Deixe vazio para liberar o paciente."
+                hint="Lista indisponível — informe o ID diretamente. Deixe vazio para remover o responsável."
               >
                 <template #default="{ id, describedBy }">
                   <UiInput
@@ -222,7 +324,7 @@
                   />
                 </template>
               </UiFormField>
-              <div class="form-actions">
+              <div class="side-action">
                 <UiButton
                   type="submit"
                   variant="subtle"
@@ -237,17 +339,16 @@
             </form>
           </template>
 
-          <!-- Caminho normal: select populado por GET /v1/professionals -->
           <form v-else novalidate @submit.prevent="saveProfessional">
             <UiFormField
               label="Profissional responsável"
               :error="profForm.errors.assigned_professional_id"
-              hint="Escolha o profissional ou deixe sem responsável para liberar o paciente."
+              hint="Escolha o profissional ou deixe sem responsável."
             >
               <template #default="{ id, describedBy }">
                 <select
                   :id="id"
-                  class="prof-select"
+                  class="edit-select"
                   :class="{ 'is-changed': profDirty }"
                   :aria-describedby="describedBy || undefined"
                   :aria-invalid="profForm.errors.assigned_professional_id ? 'true' : undefined"
@@ -261,7 +362,7 @@
                 </select>
               </template>
             </UiFormField>
-            <div class="form-actions">
+            <div class="side-action">
               <UiButton
                 type="submit"
                 variant="subtle"
@@ -276,23 +377,38 @@
           </form>
         </UiCard>
 
-        <!-- METADADOS / AUDITORIA -->
-        <UiCard title="Registro" subtitle="Dados de auditoria.">
+        <!-- METADADOS DE AUDITORIA -->
+        <UiCard title="Registro" subtitle="Dados de auditoria do cadastro.">
           <dl class="meta-kv">
-            <div>
+            <div class="meta-kv-row">
               <dt>Identificador</dt>
               <dd class="meta-mono">{{ patient.id || '—' }}</dd>
             </div>
-            <div>
+            <div class="meta-kv-row">
+              <dt>Situação</dt>
+              <dd>
+                <UiStatusBadge
+                  :status="patient.status"
+                  :label="statusLabel(patient.status)"
+                  size="sm"
+                />
+              </dd>
+            </div>
+            <div class="meta-kv-row">
               <dt>Cadastrado em</dt>
               <dd>{{ format.formatDateTime(patient.created_at) }}</dd>
             </div>
-            <div>
-              <dt>Situação</dt>
-              <dd><UiStatusBadge :status="patient.status" :label="statusLabelText(patient.status)" size="sm" /></dd>
+            <div v-if="patient.gender" class="meta-kv-row">
+              <dt>Gênero</dt>
+              <dd>{{ genderLabel(patient.gender) }}</dd>
+            </div>
+            <div v-if="patient.external_ref" class="meta-kv-row">
+              <dt>Ref. externa</dt>
+              <dd class="meta-mono">{{ patient.external_ref }}</dd>
             </div>
           </dl>
         </UiCard>
+
       </aside>
     </div>
   </UiPageLayout>
@@ -302,9 +418,21 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import {
-  UiPageLayout, UiCard, UiFormSection, UiFormField, UiInput, UiButton,
-  UiStatusBadge, UiEmptyState, UiLoadingState, UiErrorState,
-  useForm, useToast, useConfirm, validators, format,
+  UiPageLayout,
+  UiCard,
+  UiFormSection,
+  UiFormField,
+  UiInput,
+  UiButton,
+  UiStatusBadge,
+  UiEmptyState,
+  UiLoadingState,
+  UiErrorState,
+  useForm,
+  useToast,
+  useConfirm,
+  validators,
+  format,
 } from '../ui/index.js';
 import { patients, professionals } from '../api.js';
 
@@ -314,177 +442,340 @@ const router = useRouter();
 const toast = useToast();
 const confirm = useConfirm();
 
-// ---- rotas reais de DOMÍNIO ----
+// ── Rota de domínio de retorno ────────────────────────────────────────────────
 const backTo = '/patients';
 const detailTo = computed(() => '/patients/' + props.id);
 
-// ---- estado de tela ----
+// ── Estado de carregamento ────────────────────────────────────────────────────
 const loading = ref(true);
 const loadError = ref(null);
 const patient = reactive({});
-
 const notFound = computed(() => !loading.value && !loadError.value && !patient.id);
+const pageTitle = computed(() =>
+  patient.full_name ? 'Editar — ' + patient.full_name : 'Editar paciente'
+);
 
-const pageTitle = computed(() => (patient.full_name ? 'Editar — ' + patient.full_name : 'Editar paciente'));
-
-// ---- rótulos de situação (enum do domínio) ----
+// ── Rótulos de status (enum do backend) ──────────────────────────────────────
 const STATUS_LABELS = {
   active: 'Em acompanhamento',
   on_hold: 'Em espera',
   discharged: 'Alta',
   archived: 'Arquivado',
+  // aliases em português (caso o backend devolva)
+  ativo: 'Ativo',
+  inativo: 'Inativo',
+  alta: 'Alta',
 };
-function statusLabelText(value) {
-  return STATUS_LABELS[value] || format.humanize(value);
+function statusLabel(value) {
+  return STATUS_LABELS[value] || format.humanize(String(value || ''));
 }
 
-// ---- formulário cadastral ----
+// ── Rótulos de gênero ────────────────────────────────────────────────────────
+const GENDER_LABELS = {
+  masculino: 'Masculino',
+  feminino: 'Feminino',
+  outro: 'Outro',
+  nao_informado: 'Prefere não informar',
+};
+function genderLabel(value) {
+  return GENDER_LABELS[value] || value;
+}
+
+// ── Formulário cadastral ─────────────────────────────────────────────────────
+const cpfPattern = /^(\d{11}|\d{3}\.\d{3}\.\d{3}-\d{2})$/;
+const phonePattern = /^[\d\s()+\-]{8,20}$/;
+
 const f = useForm({
   initial: {
-    full_name: '', birth_date: '', document: '', email: '',
-    phone: '', guardian_name: '', notes: '',
+    full_name: '',
+    birth_date: '',
+    document: '',
+    gender: '',
+    email: '',
+    phone: '',
+    guardian_name: '',
+    notes: '',
+    external_ref: '',
   },
   rules: {
     full_name: [validators.required('Informe o nome completo.'), validators.minLen(2)],
+    document: [validators.pattern(cpfPattern, 'CPF inválido — use 11 dígitos ou 000.000.000-00.')],
     email: [validators.email()],
-    document: [validators.pattern(/^[\d.\-\s]*$/, 'Use apenas números, pontos e traço.')],
+    phone: [validators.pattern(phonePattern, 'Telefone inválido — inclua o DDD.')],
   },
 });
 
-// snapshot para detectar alterações não salvas
+// Snapshot para detectar dirty (evita salvar sem mudança)
 const snapshot = ref('');
 function currentSnapshot() {
   return JSON.stringify({
-    full_name: f.values.full_name, birth_date: f.values.birth_date,
-    document: f.values.document, email: f.values.email,
-    phone: f.values.phone, guardian_name: f.values.guardian_name, notes: f.values.notes,
+    full_name: f.values.full_name,
+    birth_date: f.values.birth_date,
+    document: f.values.document,
+    gender: f.values.gender,
+    email: f.values.email,
+    phone: f.values.phone,
+    guardian_name: f.values.guardian_name,
+    notes: f.values.notes,
+    external_ref: f.values.external_ref,
   });
 }
 const dirty = computed(() => snapshot.value !== currentSnapshot());
 
-// ---- profissional responsável (gerido em separado, validado via useForm) ----
-// O campo vira um select populado por GET /v1/professionals (recurso REAL); se a lista
-// falhar, a UI cai num fallback de texto livre com a MESMA validação de formato.
-const PROF_ID_RX = /^[A-Za-z0-9_-]*$/; // vazio é válido (= liberar paciente)
+// Alerta de conflito 409 (separado do erro de carregamento)
+const conflictError = ref('');
+
+// Dicas contextuais derivadas do formulário
+const ageInYears = computed(() => {
+  const raw = f.values.birth_date;
+  if (!raw) return null;
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  if (
+    now.getMonth() < d.getMonth() ||
+    (now.getMonth() === d.getMonth() && now.getDate() < d.getDate())
+  ) {
+    age -= 1;
+  }
+  return age >= 0 && age < 150 ? age : null;
+});
+const isMinor = computed(() => ageInYears.value !== null && ageInYears.value < 18);
+const birthDateHint = computed(() =>
+  ageInYears.value !== null ? ageInYears.value + ' anos' : 'Usada para calcular a idade.'
+);
+const guardianHint = computed(() =>
+  isMinor.value
+    ? 'Paciente menor de idade — responsável legal recomendado.'
+    : 'Opcional para pacientes adultos.'
+);
+
+// ── Profissional responsável (formulário separado + select populado) ──────────
+const PROF_ID_RX = /^[A-Za-z0-9_-]*$/;
 const profForm = useForm({
   initial: { assigned_professional_id: '' },
   rules: {
-    assigned_professional_id: [validators.pattern(PROF_ID_RX, 'Identificador inválido (letras, números, hífen e _).')],
+    assigned_professional_id: [
+      validators.pattern(PROF_ID_RX, 'Identificador inválido (letras, números, hífen e _).'),
+    ],
   },
 });
 const profSaving = ref(false);
-
-// lista de profissionais para o select
 const professionalList = ref([]);
 const profState = ref('loading'); // loading | ready | error
 const professionalOptions = computed(() =>
   professionalList.value.map((p) => ({
     value: String(p.id),
-    label: p.full_name ? p.full_name + (p.specialty ? ' — ' + p.specialty : '') : 'Profissional ' + p.id,
+    label: p.full_name
+      ? p.full_name + (p.specialty ? ' — ' + p.specialty : '')
+      : 'Profissional ' + p.id,
   }))
 );
-
-// dirty = valor escolhido difere do responsável atual do paciente
 const profDirty = computed(
-  () => profForm.values.assigned_professional_id !== (patient.assigned_professional_id || '')
+  () =>
+    profForm.values.assigned_professional_id !==
+    (patient.assigned_professional_id != null ? String(patient.assigned_professional_id) : '')
 );
 
-async function loadProfessionals() {
-  profState.value = 'loading';
-  try {
-    const res = await professionals.list({ pageSize: 200, sort: 'full_name', dir: 'asc' });
-    professionalList.value = Array.isArray(res) ? res : (res && res.data) || [];
-    profState.value = 'ready';
-  } catch {
-    // fail-soft: a tela de edição não depende da lista para gravar (fallback de texto)
-    professionalList.value = [];
-    profState.value = 'error';
-  }
+function professionalName(id) {
+  const opt = professionalOptions.value.find((o) => o.value === String(id));
+  return opt ? opt.label : String(id);
 }
 
-// ---- situação ----
-const statusSaving = ref('');
-
-// transições possíveis a partir do estado atual (com confirmação onde for sensível)
+// ── Transições de situação ───────────────────────────────────────────────────
 const TRANSITIONS = {
   active: [
-    { value: 'on_hold', action: 'Colocar em espera', variant: 'ghost', confirm: { title: 'Colocar em espera', message: 'O acompanhamento ficará pausado até a reativação. Confirma colocar este paciente em espera?', danger: false } },
-    { value: 'discharged', action: 'Dar alta', variant: 'primary', confirm: { title: 'Dar alta', message: 'Registrar a alta encerra o acompanhamento ativo. Esta ação fica registrada para auditoria. Confirma a alta?', danger: false } },
-    { value: 'archived', action: 'Arquivar', variant: 'danger', confirm: { title: 'Arquivar paciente', message: 'Arquivar remove o paciente das listas ativas. A ação é auditável e pode ser revertida por um administrador. Deseja arquivar?', danger: true } },
+    {
+      value: 'on_hold',
+      action: 'Colocar em espera',
+      variant: 'ghost',
+      confirm: {
+        title: 'Colocar em espera',
+        message:
+          'O acompanhamento ficará pausado até a reativação. Confirma colocar este paciente em espera?',
+        danger: false,
+      },
+    },
+    {
+      value: 'discharged',
+      action: 'Dar alta',
+      variant: 'primary',
+      confirm: {
+        title: 'Dar alta',
+        message:
+          'Registrar a alta encerra o acompanhamento ativo. Esta ação fica registrada para auditoria. Confirma a alta?',
+        danger: false,
+      },
+    },
+    {
+      value: 'archived',
+      action: 'Arquivar paciente',
+      variant: 'danger',
+      confirm: {
+        title: 'Arquivar paciente',
+        message:
+          'Arquivar remove o paciente das listas ativas. A ação é auditável e pode ser revertida por um administrador. Deseja arquivar?',
+        danger: true,
+      },
+    },
   ],
   on_hold: [
-    { value: 'active', action: 'Reativar acompanhamento', variant: 'primary', confirm: null },
-    { value: 'discharged', action: 'Dar alta', variant: 'subtle', confirm: { title: 'Dar alta', message: 'Registrar a alta encerra o acompanhamento. Confirma a alta?', danger: false } },
-    { value: 'archived', action: 'Arquivar', variant: 'danger', confirm: { title: 'Arquivar paciente', message: 'Arquivar remove o paciente das listas ativas. Deseja arquivar?', danger: true } },
+    {
+      value: 'active',
+      action: 'Reativar acompanhamento',
+      variant: 'primary',
+      confirm: null,
+    },
+    {
+      value: 'discharged',
+      action: 'Dar alta',
+      variant: 'subtle',
+      confirm: {
+        title: 'Dar alta',
+        message: 'Registrar a alta encerra o acompanhamento. Confirma a alta?',
+        danger: false,
+      },
+    },
+    {
+      value: 'archived',
+      action: 'Arquivar',
+      variant: 'danger',
+      confirm: {
+        title: 'Arquivar paciente',
+        message: 'Arquivar remove o paciente das listas ativas. Deseja arquivar?',
+        danger: true,
+      },
+    },
   ],
   discharged: [
-    { value: 'active', action: 'Reabrir acompanhamento', variant: 'primary', confirm: { title: 'Reabrir acompanhamento', message: 'O paciente voltará às listas ativas. Confirma reabrir?', danger: false } },
-    { value: 'archived', action: 'Arquivar', variant: 'danger', confirm: { title: 'Arquivar paciente', message: 'Arquivar remove o paciente das listas ativas. Deseja arquivar?', danger: true } },
+    {
+      value: 'active',
+      action: 'Reabrir acompanhamento',
+      variant: 'primary',
+      confirm: {
+        title: 'Reabrir acompanhamento',
+        message: 'O paciente voltará às listas ativas. Confirma reabrir?',
+        danger: false,
+      },
+    },
+    {
+      value: 'archived',
+      action: 'Arquivar',
+      variant: 'danger',
+      confirm: {
+        title: 'Arquivar paciente',
+        message: 'Arquivar remove o paciente das listas ativas. Deseja arquivar?',
+        danger: true,
+      },
+    },
   ],
   archived: [
-    { value: 'active', action: 'Desarquivar', variant: 'primary', confirm: { title: 'Desarquivar paciente', message: 'O paciente voltará para acompanhamento ativo. Confirma desarquivar?', danger: false } },
+    {
+      value: 'active',
+      action: 'Desarquivar',
+      variant: 'primary',
+      confirm: {
+        title: 'Desarquivar paciente',
+        message: 'O paciente voltará para acompanhamento ativo. Confirma desarquivar?',
+        danger: false,
+      },
+    },
   ],
 };
 const availableTransitions = computed(() => TRANSITIONS[patient.status] || []);
+const statusSaving = ref('');
 
-// ---- carregamento ----
+// ── Hidratar formulário com dados do registro ─────────────────────────────────
 function hydrate(rec) {
   Object.keys(patient).forEach((k) => delete patient[k]);
   Object.assign(patient, rec || {});
   f.values.full_name = rec.full_name || '';
   f.values.birth_date = (rec.birth_date || '').slice(0, 10);
-  f.values.document = rec.document || '';
+  f.values.document = rec.document || rec.cpf || '';
+  f.values.gender = rec.gender || '';
   f.values.email = rec.email || '';
   f.values.phone = rec.phone || '';
   f.values.guardian_name = rec.guardian_name || '';
   f.values.notes = rec.notes || '';
-  profForm.values.assigned_professional_id = rec.assigned_professional_id != null ? String(rec.assigned_professional_id) : '';
+  f.values.external_ref = rec.external_ref || '';
+  profForm.values.assigned_professional_id =
+    rec.assigned_professional_id != null ? String(rec.assigned_professional_id) : '';
   profForm.errors.assigned_professional_id = '';
+  conflictError.value = '';
   snapshot.value = currentSnapshot();
 }
 
+// ── Carregamento inicial ──────────────────────────────────────────────────────
 async function load() {
   loading.value = true;
   loadError.value = null;
   try {
     const rec = await patients.get(props.id);
-    if (rec && rec.id) hydrate(rec);
-    else Object.keys(patient).forEach((k) => delete patient[k]); // dispara notFound
+    if (rec && rec.id) {
+      hydrate(rec);
+    } else {
+      Object.keys(patient).forEach((k) => delete patient[k]);
+    }
   } catch (e) {
     if (e && e.status === 404) {
       Object.keys(patient).forEach((k) => delete patient[k]);
     } else {
-      // mensagem amigável (a prop :error vira UiErrorState; objeto Error de rede pode não ter .message útil)
-      loadError.value = (e && e.message) || 'Não foi possível carregar o paciente. Tente novamente.';
+      loadError.value =
+        (e && e.message) || 'Não foi possível carregar o paciente. Tente novamente.';
     }
   } finally {
     loading.value = false;
   }
 }
 
-// ---- salvar dados cadastrais ----
+// ── Salvar dados cadastrais ────────────────────────────────────────────────────
 function saveProfile() {
+  conflictError.value = '';
   f.handleSubmit(async (vals) => {
     try {
       const payload = {
         full_name: vals.full_name.trim(),
         birth_date: vals.birth_date || null,
-        document: vals.document.trim(),
-        email: vals.email.trim(),
-        phone: vals.phone.trim(),
-        guardian_name: vals.guardian_name.trim(),
-        notes: vals.notes,
+        document: vals.document ? vals.document.trim() : null,
+        gender: vals.gender || null,
+        email: vals.email ? vals.email.trim() : null,
+        phone: vals.phone ? vals.phone.trim() : null,
+        guardian_name: vals.guardian_name ? vals.guardian_name.trim() : null,
+        notes: vals.notes ? vals.notes.trim() : null,
+        external_ref: vals.external_ref ? vals.external_ref.trim() : null,
       };
       const updated = await patients.update(props.id, payload);
       hydrate({ ...patient, ...payload, ...(updated && updated.id ? updated : {}) });
-      toast.success('Dados do paciente atualizados.');
+      toast.success('Dados do paciente atualizados com sucesso.');
     } catch (e) {
-      toast.error(e.message || 'Não foi possível salvar os dados.');
+      if (e && e.status === 409) {
+        // Conflito (CPF/e-mail duplicado) — feedback inline + toast
+        conflictError.value =
+          (e && e.message) || 'Já existe um registro com esses dados. Verifique CPF ou e-mail.';
+        toast.error(conflictError.value);
+        return;
+      }
+      toast.error((e && e.message) || 'Não foi possível salvar os dados.');
     }
   });
 }
 
-// ---- mudar situação ----
+// ── Cancelar edição com confirmação de dados não salvos ────────────────────────
+async function cancel() {
+  if (dirty.value) {
+    const ok = await confirm({
+      title: 'Descartar alterações?',
+      message: 'As informações editadas não foram salvas e serão perdidas.',
+      confirmLabel: 'Descartar',
+      danger: true,
+    });
+    if (!ok) return;
+  }
+  router.push(backTo);
+}
+
+// ── Mudar situação clínica ─────────────────────────────────────────────────────
 async function changeStatus(transition) {
   if (statusSaving.value) return;
   if (transition.confirm) {
@@ -500,42 +791,43 @@ async function changeStatus(transition) {
   try {
     await patients.update(props.id, { status: transition.value });
     patient.status = transition.value;
-    toast.success('Situação alterada para "' + statusLabelText(transition.value) + '".');
+    toast.success('Situação alterada para "' + statusLabel(transition.value) + '".');
   } catch (e) {
-    toast.error(e.message || 'Não foi possível alterar a situação.');
+    toast.error((e && e.message) || 'Não foi possível alterar a situação.');
   } finally {
     statusSaving.value = '';
   }
 }
 
-// rótulo legível de um id de profissional (cai no id cru se a lista não tiver o nome)
-function professionalLabel(id) {
-  const opt = professionalOptions.value.find((o) => o.value === String(id));
-  return opt ? opt.label : String(id);
-}
-
-// ---- reatribuir profissional (validação via useForm + confirmação auditável) ----
+// ── Reatribuir profissional ────────────────────────────────────────────────────
 function saveProfessional() {
   if (profSaving.value) return;
   profForm.handleSubmit(async (vals) => {
     const next = (vals.assigned_professional_id || '').trim();
-    if (next === (patient.assigned_professional_id || '')) return; // nada a fazer
+    const current = patient.assigned_professional_id != null
+      ? String(patient.assigned_professional_id)
+      : '';
+    if (next === current) return;
     const releasing = next === '';
     const ok = await confirm({
-      title: releasing ? 'Liberar paciente' : 'Reatribuir profissional',
+      title: releasing ? 'Remover profissional responsável' : 'Reatribuir profissional',
       message: releasing
-        ? 'O paciente ficará sem profissional responsável. Confirma a liberação?'
-        : 'Transferir o acompanhamento para "' + professionalLabel(next) + '"? A troca fica registrada para auditoria.',
-      confirmLabel: releasing ? 'Liberar' : 'Reatribuir',
+        ? 'O paciente ficará sem profissional responsável. Confirma a remoção?'
+        : 'Transferir o acompanhamento para "' + professionalName(next) + '"? A troca fica registrada para auditoria.',
+      confirmLabel: releasing ? 'Remover' : 'Reatribuir',
       danger: releasing,
     });
     if (!ok) return;
     profSaving.value = true;
     try {
       await patients.update(props.id, { assigned_professional_id: next || null });
-      patient.assigned_professional_id = next;
+      patient.assigned_professional_id = next || null;
       profForm.values.assigned_professional_id = next;
-      toast.success(releasing ? 'Paciente liberado do profissional anterior.' : 'Profissional responsável atualizado.');
+      toast.success(
+        releasing
+          ? 'Paciente liberado do profissional anterior.'
+          : 'Profissional responsável atualizado.'
+      );
     } catch (e) {
       profForm.errors.assigned_professional_id = (e && e.message) || 'Falha ao reatribuir.';
       toast.error((e && e.message) || 'Não foi possível reatribuir o profissional.');
@@ -545,6 +837,19 @@ function saveProfessional() {
   });
 }
 
+// ── Carregar lista de profissionais ────────────────────────────────────────────
+async function loadProfessionals() {
+  profState.value = 'loading';
+  try {
+    const res = await professionals.list({ pageSize: 200, sort: 'full_name', dir: 'asc' });
+    professionalList.value = Array.isArray(res) ? res : (res && res.data) || [];
+    profState.value = 'ready';
+  } catch {
+    professionalList.value = [];
+    profState.value = 'error';
+  }
+}
+
 onMounted(() => {
   load();
   loadProfessionals();
@@ -552,23 +857,29 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.audit-note {
+/* ── Banner de auditoria ─────────────────────────────────────────────────────── */
+.audit-banner {
   display: flex;
   align-items: center;
   gap: var(--ui-space-2);
   padding: var(--ui-space-2) var(--ui-space-4);
-  background: rgb(var(--ui-info) / 0.1);
-  border: 1px solid rgb(var(--ui-info) / 0.3);
+  background: rgb(var(--ui-info) / 0.08);
+  border: 1px solid rgb(var(--ui-info) / 0.25);
   border-radius: var(--ui-radius-md);
-  color: rgb(var(--ui-fg));
   font-size: var(--ui-text-sm);
+  color: rgb(var(--ui-fg));
 }
-.audit-icon { color: rgb(var(--ui-info)); font-size: 1.05rem; }
-.audit-text { line-height: 1.4; }
+.audit-banner-icon {
+  color: rgb(var(--ui-info));
+  font-size: 1.05rem;
+  flex-shrink: 0;
+}
+.audit-banner-text { line-height: 1.45; }
 
-.edit-grid {
+/* ── Layout de duas colunas ──────────────────────────────────────────────────── */
+.edit-layout {
   display: grid;
-  grid-template-columns: minmax(0, 2.2fr) minmax(280px, 1fr);
+  grid-template-columns: minmax(0, 2.2fr) minmax(260px, 1fr);
   gap: var(--ui-space-5);
   align-items: start;
 }
@@ -579,85 +890,171 @@ onMounted(() => {
   gap: var(--ui-space-4);
 }
 
-/* base (borda/fundo/padding/resize) herdada do kit: UiFormField :deep(textarea).
-   Aqui só altura confortável p/ 5 linhas + anel de foco consistente com os demais controles. */
+/* ── Select nativo (base via UiFormField :deep(select); aqui: foco + affordance) ─ */
+.edit-select {
+  appearance: none;
+  cursor: pointer;
+  width: 100%;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.edit-select:focus {
+  outline: none;
+  border-color: rgb(var(--ui-accent));
+  box-shadow: 0 0 0 3px rgb(var(--ui-accent) / 0.15);
+}
+.edit-select[aria-invalid='true'] {
+  border-color: rgb(var(--ui-danger));
+}
+.edit-select.is-changed {
+  border-color: rgb(var(--ui-accent));
+  box-shadow: 0 0 0 3px rgb(var(--ui-accent) / 0.1);
+}
+
+/* ── Textarea (base via UiFormField :deep(textarea); aqui: altura + foco) ───── */
 .edit-textarea {
-  min-height: 110px;
-  transition: border-color .15s ease, box-shadow .15s ease;
+  min-height: 100px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .edit-textarea:focus {
   outline: none;
   border-color: rgb(var(--ui-accent));
   box-shadow: 0 0 0 3px rgb(var(--ui-accent) / 0.15);
 }
+.edit-textarea[aria-invalid='true'] {
+  border-color: rgb(var(--ui-danger));
+}
+.edit-textarea::placeholder {
+  color: rgb(var(--ui-faint));
+}
 
+/* ── Alerta de conflito 409 ──────────────────────────────────────────────────── */
+.conflict-alert {
+  display: flex;
+  gap: var(--ui-space-3);
+  align-items: flex-start;
+  padding: var(--ui-space-3) var(--ui-space-4);
+  background: rgb(var(--ui-danger) / 0.07);
+  border: 1px solid rgb(var(--ui-danger) / 0.3);
+  border-radius: var(--ui-radius-md);
+  margin-top: var(--ui-space-4);
+}
+.conflict-icon {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: rgb(var(--ui-danger));
+  flex-shrink: 0;
+  line-height: 1;
+}
+.conflict-body { min-width: 0; }
+.conflict-title {
+  margin: 0 0 2px;
+  font-size: var(--ui-text-sm);
+  font-weight: 600;
+  color: rgb(var(--ui-danger));
+}
+.conflict-desc {
+  margin: 0;
+  font-size: var(--ui-text-sm);
+  color: rgb(var(--ui-fg));
+}
+
+/* ── Ações do formulário ─────────────────────────────────────────────────────── */
 .form-actions {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-4);
+  flex-wrap: wrap;
+  margin-top: var(--ui-space-4);
+  padding-top: var(--ui-space-3);
+  border-top: 1px solid rgb(var(--ui-border));
+}
+.form-actions-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--ui-text-xs);
+  color: rgb(var(--ui-muted));
+}
+.req-mark {
+  color: rgb(var(--ui-danger));
+  font-weight: 700;
+}
+.form-buttons {
+  display: flex;
   gap: var(--ui-space-2);
-  margin-top: var(--ui-space-3);
 }
 
-/* Select de profissional (UiFormField :deep estiliza a base; aqui só estado/affordance) */
-.prof-select {
-  appearance: none;
-  cursor: pointer;
-  width: 100%;
-}
-.prof-select.is-changed {
-  border-color: rgb(var(--ui-accent));
-  box-shadow: 0 0 0 3px rgb(var(--ui-accent) / 0.12);
-}
-.prof-select:focus {
-  outline: none;
-  border-color: rgb(var(--ui-accent));
-  box-shadow: 0 0 0 3px rgb(var(--ui-accent) / 0.15);
-}
-
-.side-current {
+/* ── Situação (lateral) ──────────────────────────────────────────────────────── */
+.status-current {
   display: flex;
   align-items: center;
   gap: var(--ui-space-2);
   flex-wrap: wrap;
-  margin: 0 0 var(--ui-space-3);
-  color: rgb(var(--ui-muted));
-  font-size: var(--ui-text-sm);
+  margin-bottom: var(--ui-space-3);
 }
-.status-actions {
+.status-label-text {
+  font-size: var(--ui-text-sm);
+  color: rgb(var(--ui-muted));
+}
+.status-transitions {
   display: flex;
   flex-direction: column;
   gap: var(--ui-space-2);
 }
 .side-hint {
   margin: 0;
-  color: rgb(var(--ui-muted));
   font-size: var(--ui-text-sm);
+  color: rgb(var(--ui-muted));
 }
 
+/* ── Ação do painel lateral ──────────────────────────────────────────────────── */
+.side-action {
+  margin-top: var(--ui-space-3);
+}
+
+/* ── Metadados de auditoria (key-value) ──────────────────────────────────────── */
 .meta-kv {
   display: grid;
   gap: var(--ui-space-3);
   margin: 0;
 }
+.meta-kv-row {}
 .meta-kv dt {
-  color: rgb(var(--ui-muted));
   font-size: var(--ui-text-xs);
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
+  color: rgb(var(--ui-muted));
 }
 .meta-kv dd {
-  margin: 2px 0 0;
-  color: rgb(var(--ui-fg));
+  margin: 3px 0 0;
   font-size: var(--ui-text-sm);
+  color: rgb(var(--ui-fg));
 }
 .meta-mono {
   font-family: var(--ui-font-mono);
   word-break: break-all;
+  font-size: var(--ui-text-xs);
 }
 
+/* ── Responsivo ≤860px ──────────────────────────────────────────────────────── */
 @media (max-width: 860px) {
-  .edit-grid {
+  .edit-layout {
     grid-template-columns: 1fr;
+  }
+  .edit-side {
+    order: -1; /* painel de situação sobe no mobile */
+  }
+  .form-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .form-buttons {
+    width: 100%;
+  }
+  .form-buttons :deep(.ui-btn) {
+    flex: 1 1 auto;
   }
 }
 </style>

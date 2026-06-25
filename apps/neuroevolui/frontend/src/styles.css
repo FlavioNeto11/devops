@@ -1,2 +1,19 @@
 /* base do app — a identidade vem de tokens.generated.css (--ui-*) + ui.css do kit. */
 #app { min-height: 100vh; }
+
+/* ── Tokens semânticos de gateway de pagamento ──────────────────────────────
+   Declarados aqui (não no gerado tokens.generated.css) pois são extensões
+   de domínio da NeuroEvolui, não do design system base.
+   Formato: valores RGB separados por espaço (compatível com rgb(var(--ui-*))).  */
+:root {
+  --ui-gateway-stripe:     99 91 255;   /* violeta Stripe */
+  --ui-gateway-pagseguro:  0 167 86;    /* verde PagSeguro */
+}
+[data-theme="dark"] { --ui-gateway-stripe: 130 122 255; --ui-gateway-pagseguro: 52 211 113; }
+.dark              { --ui-gateway-stripe: 130 122 255; --ui-gateway-pagseguro: 52 211 113; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ui-gateway-stripe:     130 122 255; /* violeta Stripe — clareado para dark */
+    --ui-gateway-pagseguro:  52 211 113;  /* verde PagSeguro — clareado para dark */
+  }
+}

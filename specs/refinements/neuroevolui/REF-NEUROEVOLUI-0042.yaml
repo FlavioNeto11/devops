@@ -1,0 +1,65 @@
+id: "REF-NEUROEVOLUI-0042"
+slug: "ref-neuroevolui-0042"
+title: "Detalhes da Fonte"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0006"
+    relation: "implements"
+surface:
+  route: "/knowledge-sources/:id"
+  name: "Detalhes da Fonte"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+      ui: "Detalhes da fonte de conhecimento: nome, tipo, URL, status e documentos indexados"
+    - name: "loading"
+      ui: "Skeleton dos campos de detalhe enquanto carrega"
+    - name: "empty"
+      ui: "Fonte sem documentos: mensagem orientando a reindexação"
+    - name: "error"
+      ui: "Mensagem de erro 404 se fonte não encontrada, com link para voltar à lista"
+  data:
+    - field: "name"
+      source: "api:/api/knowledge-sources/:id"
+      editable: false
+    - field: "description"
+      source: "api:/api/knowledge-sources/:id"
+      editable: false
+    - field: "source_type"
+      source: "api:/api/knowledge-sources/:id"
+      editable: false
+    - field: "url"
+      source: "api:/api/knowledge-sources/:id"
+      editable: false
+    - field: "active"
+      source: "api:/api/knowledge-sources/:id"
+      editable: false
+    - field: "indexed_at"
+      source: "api:/api/knowledge-sources/:id"
+      format: "dd/MM/yyyy HH:mm"
+      editable: false
+    - field: "document_count"
+      source: "api:/api/knowledge-sources/:id"
+      editable: false
+  interactions:
+    - trigger: "clique em 'Editar'"
+      action: "navega para /knowledge-sources/:id/edit"
+      result: "abre formulário de edição"
+    - trigger: "clique em 'Reindexar'"
+      action: "POST /api/knowledge-sources/:id/reindex"
+      result: "reindexação enfileirada, feedback de confirmação"
+    - trigger: "clique em 'Voltar'"
+      action: "navega para /knowledge-sources"
+      result: "retorna à lista de fontes"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

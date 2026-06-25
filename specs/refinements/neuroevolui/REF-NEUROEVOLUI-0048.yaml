@@ -1,0 +1,64 @@
+id: "REF-NEUROEVOLUI-0048"
+slug: "ref-neuroevolui-0048"
+title: "Filas de Jobs"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0003"
+    relation: "implements"
+surface:
+  route: "/async-jobs"
+  name: "Filas de Jobs"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+      ui: "Tabela paginada de jobs assíncronos com status, tipo, progresso e timestamps"
+    - name: "loading"
+      ui: "Skeleton de tabela enquanto carrega a lista de jobs"
+    - name: "empty"
+      ui: "Mensagem 'Nenhum job em execução' com link para verificar jobs concluídos"
+    - name: "error"
+      ui: "Banner de erro com opção de recarregar"
+  data:
+    - field: "id"
+      source: "api:/api/async-jobs"
+      editable: false
+    - field: "type"
+      source: "api:/api/async-jobs"
+      editable: false
+    - field: "status"
+      source: "api:/api/async-jobs"
+      editable: false
+    - field: "progress"
+      source: "api:/api/async-jobs"
+      format: "percent"
+      editable: false
+    - field: "created_at"
+      source: "api:/api/async-jobs"
+      format: "dd/MM/yyyy HH:mm"
+      editable: false
+    - field: "completed_at"
+      source: "api:/api/async-jobs"
+      format: "dd/MM/yyyy HH:mm"
+      editable: false
+  interactions:
+    - trigger: "clique em linha da tabela"
+      action: "navega para /async-jobs/:id"
+      result: "abre detalhes do job"
+    - trigger: "filtro por status"
+      action: "atualiza query params e recarrega lista"
+      result: "lista filtrada pelo status selecionado"
+    - trigger: "clique em 'Cancelar job'"
+      action: "DELETE /api/async-jobs/:id"
+      result: "job cancelado, lista atualizada"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

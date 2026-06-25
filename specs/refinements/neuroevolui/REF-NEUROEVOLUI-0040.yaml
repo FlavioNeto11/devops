@@ -1,0 +1,63 @@
+id: "REF-NEUROEVOLUI-0040"
+slug: "ref-neuroevolui-0040"
+title: "Detalhe da Transação"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0005"
+    relation: "implements"
+surface:
+  route: "/payment-transactions/:id"
+  name: "Detalhe da Transação"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+      ui: "Detalhes completos da transação: valor, status, paciente, método de pagamento e histórico"
+    - name: "loading"
+      ui: "Skeleton dos campos de detalhe enquanto carrega"
+    - name: "empty"
+      ui: "Estado não aplicável — transação sempre existe ao acessar por ID válido"
+    - name: "error"
+      ui: "Mensagem de erro 404 se transação não encontrada, com link para voltar à lista"
+  data:
+    - field: "id"
+      source: "api:/api/payment-transactions/:id"
+      editable: false
+    - field: "patient_name"
+      source: "api:/api/payment-transactions/:id"
+      editable: false
+    - field: "amount"
+      source: "api:/api/payment-transactions/:id"
+      format: "BRL"
+      editable: false
+    - field: "status"
+      source: "api:/api/payment-transactions/:id"
+      editable: false
+    - field: "payment_method"
+      source: "api:/api/payment-transactions/:id"
+      editable: false
+    - field: "date"
+      source: "api:/api/payment-transactions/:id"
+      format: "dd/MM/yyyy HH:mm"
+      editable: false
+    - field: "notes"
+      source: "api:/api/payment-transactions/:id"
+      editable: false
+  interactions:
+    - trigger: "clique em 'Voltar'"
+      action: "navega para /payment-transactions"
+      result: "retorna à lista de transações"
+    - trigger: "clique em 'Marcar como Pago'"
+      action: "PATCH /api/payment-transactions/:id com status=paid"
+      result: "status atualizado, confirmação exibida"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

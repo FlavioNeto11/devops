@@ -71,10 +71,12 @@
     >
       <!-- Título da fonte + id técnico -->
       <template #cell-title="{ row }">
-        <div class="ks-title">
-          <span class="ks-title-main">{{ row.title || 'Sem título' }}</span>
-          <span class="ks-title-id">{{ row.source_id }}</span>
-        </div>
+        <RouterLink :to="'/knowledge-sources/' + row.source_id" class="ks-title-link">
+          <div class="ks-title">
+            <span class="ks-title-main">{{ row.title || 'Sem título' }}</span>
+            <span class="ks-title-id">{{ row.source_id }}</span>
+          </div>
+        </RouterLink>
       </template>
 
       <!-- Trechos indexados (numérico, alinhado) -->
@@ -125,6 +127,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { RouterLink } from 'vue-router';
 import {
   UiPageLayout,
   UiDataTable,
@@ -263,6 +266,15 @@ onMounted(reload);
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: var(--ui-space-4);
+}
+
+.ks-title-link {
+  text-decoration: none;
+  color: inherit;
+}
+.ks-title-link:hover .ks-title-main {
+  color: rgb(var(--ui-primary));
+  text-decoration: underline;
 }
 
 .ks-title {

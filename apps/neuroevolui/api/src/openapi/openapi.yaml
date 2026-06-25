@@ -854,6 +854,57 @@ paths:
               example:
                 error:
                   message: consulta não encontrada
+    put:
+      summary: Atualizar consulta (status, notas, horário)
+      tags: [Consultations]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string, enum: [agendado, confirmado, realizado, cancelado, no_show] }
+                payment_status: { type: string, enum: [pendente, pago, estornado, falhou] }
+                notes: { type: string }
+                amount_cents: { type: integer }
+                scheduled_at: { type: string, format: date-time }
+                scheduled_end_at: { type: string, format: date-time }
+                duration_minutes: { type: integer }
+      responses:
+        '200':
+          description: Consulta atualizada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Consultation' }
+        '404':
+          description: Consulta não encontrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    delete:
+      summary: Cancelar/remover consulta (soft-delete)
+      tags: [Consultations]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Consulta removida
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted: { type: boolean }
+        '404':
+          description: Consulta não encontrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
 
   /v1/payments/webhook:
     post:
@@ -2345,6 +2396,53 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
+    put:
+      summary: Atualizar transação (status, metadados)
+      tags: [Payments]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string, enum: [pending, confirmed, refunded, failed] }
+                event_type: { type: string }
+                metadata: { type: object }
+      responses:
+        '200':
+          description: Transação atualizada
+          content:
+            application/json:
+              schema: { type: object }
+        '404':
+          description: Não encontrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    delete:
+      summary: Remover transação
+      tags: [Payments]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Removida
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted: { type: boolean }
+        '404':
+          description: Não encontrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
 
   /v1/knowledge-sources:
     get:
@@ -2625,6 +2723,32 @@ paths:
                 properties:
                   data: { type: array, items: { type: object } }
                   total: { type: integer }
+    post:
+      summary: Registrar evento de auditoria manual (integrações externas)
+      tags: [Audit]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                entity_type: { type: string }
+                entity_id: { type: string }
+                action: { type: string, enum: [create, update, delete, submit, payment, login] }
+                actor: { type: string }
+                metadata: { type: object }
+      responses:
+        '201':
+          description: Log criado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  created: { type: boolean }
 
   /v1/audit-logs/{id}:
     get:
@@ -2638,6 +2762,26 @@ paths:
           content:
             application/json:
               schema: { type: object }
+        '404':
+          description: Não encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    delete:
+      summary: Remover log de auditoria (correção de dados)
+      tags: [Audit]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Removido
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted: { type: boolean }
         '404':
           description: Não encontrado
           content:
@@ -2664,6 +2808,33 @@ paths:
                 properties:
                   data: { type: array, items: { type: object } }
                   total: { type: integer }
+    post:
+      summary: Enfileirar job genérico (gateway REST da coleção de topo)
+      tags: [Jobs]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [queue_name]
+              properties:
+                queue_name: { type: string, enum: [consultation-notes, patient-imports, notifications, summaries-ai, patient-reports] }
+                job_key: { type: string }
+                payload: { type: object }
+      responses:
+        '202':
+          description: Job enfileirado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AsyncJobResponse' }
+        '400':
+          description: queue_name ausente
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
 
   /v1/async-jobs/{id}:
     get:
@@ -2677,6 +2848,52 @@ paths:
           content:
             application/json:
               schema: { type: object }
+        '404':
+          description: Não encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    put:
+      summary: Atualizar status/resultado de job
+      tags: [Jobs]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string, enum: [queued, processing, done, failed] }
+                result: { type: object }
+      responses:
+        '200':
+          description: Job atualizado
+          content:
+            application/json:
+              schema: { type: object }
+        '404':
+          description: Não encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    delete:
+      summary: Remover job da coleção
+      tags: [Jobs]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Removido
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted: { type: boolean }
         '404':
           description: Não encontrado
           content:

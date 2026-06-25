@@ -1,0 +1,55 @@
+id: "REF-NEUROEVOLUI-0043"
+slug: "ref-neuroevolui-0043"
+title: "Preferências de Notificação"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0007"
+    relation: "implements"
+surface:
+  route: "/notification-preferences"
+  name: "Preferências de Notificação"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+      ui: "Lista de preferências de notificação configuradas pelo usuário com toggles de ativação"
+    - name: "loading"
+      ui: "Skeleton da lista enquanto carrega as preferências"
+    - name: "empty"
+      ui: "Mensagem 'Nenhuma preferência configurada' com botão para criar nova"
+    - name: "error"
+      ui: "Banner de erro com opção de recarregar"
+  data:
+    - field: "id"
+      source: "api:/api/notification-preferences"
+      editable: false
+    - field: "event_type"
+      source: "api:/api/notification-preferences"
+      editable: false
+    - field: "channel"
+      source: "api:/api/notification-preferences"
+      editable: false
+    - field: "active"
+      source: "api:/api/notification-preferences"
+      editable: true
+  interactions:
+    - trigger: "clique em 'Nova Preferência'"
+      action: "navega para /notification-preferences/new"
+      result: "abre formulário de criação de preferência"
+    - trigger: "toggle de ativação"
+      action: "PATCH /api/notification-preferences/:id com active atualizado"
+      result: "estado da preferência atualizado em tempo real"
+    - trigger: "clique em ícone de edição"
+      action: "navega para /notification-preferences/:id/edit"
+      result: "abre formulário de edição da preferência"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

@@ -1,7 +1,7 @@
 {
   "metamodel_version": "1.1.0",
   "baseline_hash": "c673fba7368673eeb123e0671af3b6e8d8fd855c2c79bf90786e87dd1743d7f9",
-  "refinements_hash": "7b226ded4013550a030c8f673d4c89f4a80259e97e3204dbab779438bfcde7c6",
+  "refinements_hash": "a25683b324c8fed749c9f15916c2978512bf771659f9bf088a473f038db4825c",
   "schema": "specs/schema/requirement.schema.json",
   "counts": {
     "total": 343,
@@ -33,14 +33,14 @@
       "non-functional": 104
     },
     "refinements": {
-      "total": 47,
+      "total": 63,
       "by_product": {
         "gymops": 1,
-        "neuroevolui": 34,
+        "neuroevolui": 50,
         "portal": 12
       },
       "by_kind": {
-        "screen": 37,
+        "screen": 53,
         "component": 8,
         "interaction": 2
       }
@@ -15706,6 +15706,1644 @@
         "item_revision": 1
       },
       "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0034.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0035",
+      "slug": "ref-neuroevolui-0035",
+      "title": "Relatórios de Pacientes",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0004",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0003",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/patient-reports",
+        "name": "Relatórios de Pacientes",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "ui": "Tabela paginada de relatórios de pacientes com filtros por data e status"
+          },
+          {
+            "name": "loading",
+            "ui": "Skeleton de tabela enquanto carrega a lista"
+          },
+          {
+            "name": "empty",
+            "ui": "Mensagem 'Nenhum relatório gerado' com botão para solicitar novo relatório"
+          },
+          {
+            "name": "error",
+            "ui": "Banner de erro com opção de tentar novamente"
+          }
+        ],
+        "data": [
+          {
+            "field": "id",
+            "source": "api:/api/patient-reports",
+            "editable": false
+          },
+          {
+            "field": "patient_name",
+            "source": "api:/api/patient-reports",
+            "editable": false
+          },
+          {
+            "field": "report_type",
+            "source": "api:/api/patient-reports",
+            "editable": false
+          },
+          {
+            "field": "status",
+            "source": "api:/api/patient-reports",
+            "editable": false
+          },
+          {
+            "field": "created_at",
+            "source": "api:/api/patient-reports",
+            "format": "dd/MM/yyyy HH:mm",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clique em 'Solicitar Relatório'",
+            "action": "navega para /patient-reports/new",
+            "result": "abre formulário de criação de relatório"
+          },
+          {
+            "trigger": "clique em linha da tabela",
+            "action": "navega para /patient-reports/:id",
+            "result": "abre detalhes do relatório"
+          },
+          {
+            "trigger": "filtro por data",
+            "action": "atualiza query params e recarrega lista",
+            "result": "lista filtrada pelo período selecionado"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0035.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0036",
+      "slug": "ref-neuroevolui-0036",
+      "title": "Solicitar Relatório",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0004",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0003",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/patient-reports/new",
+        "name": "Solicitar Relatório",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "ui": "Formulário de solicitação de relatório com seleção de paciente e tipo de relatório"
+          },
+          {
+            "name": "loading",
+            "ui": "Spinner no botão de envio enquanto processa"
+          },
+          {
+            "name": "empty",
+            "ui": "Estado inicial com campos em branco aguardando preenchimento"
+          },
+          {
+            "name": "error",
+            "ui": "Mensagens de validação em linha vermelha abaixo dos campos inválidos"
+          }
+        ],
+        "data": [
+          {
+            "field": "patient_id",
+            "source": "api:/api/patients",
+            "editable": true
+          },
+          {
+            "field": "report_type",
+            "source": "svc-reports",
+            "editable": true
+          },
+          {
+            "field": "date_range_start",
+            "source": "user-input",
+            "format": "dd/MM/yyyy",
+            "editable": true
+          },
+          {
+            "field": "date_range_end",
+            "source": "user-input",
+            "format": "dd/MM/yyyy",
+            "editable": true
+          },
+          {
+            "field": "notes",
+            "source": "user-input",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clique em 'Solicitar'",
+            "action": "POST /api/patient-reports",
+            "result": "relatório enfileirado para geração, redireciona para /patient-reports"
+          },
+          {
+            "trigger": "clique em 'Cancelar'",
+            "action": "navega de volta para /patient-reports",
+            "result": "formulário descartado"
+          },
+          {
+            "trigger": "seleção de paciente",
+            "action": "busca dados do paciente via autocomplete",
+            "result": "preenche nome e dados do paciente selecionado"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0036.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0037",
+      "slug": "ref-neuroevolui-0037",
+      "title": "Relatório Gerado",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0004",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/patient-reports/:id",
+        "name": "Relatório Gerado",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "ui": "Visualização completa do relatório gerado com opções de download e impressão"
+          },
+          {
+            "name": "loading",
+            "ui": "Skeleton do conteúdo do relatório enquanto carrega"
+          },
+          {
+            "name": "empty",
+            "ui": "Mensagem 'Relatório ainda em processamento' com indicador de progresso"
+          },
+          {
+            "name": "error",
+            "ui": "Banner de erro indicando falha na geração, com opção de reprocessar"
+          }
+        ],
+        "data": [
+          {
+            "field": "id",
+            "source": "api:/api/patient-reports/:id",
+            "editable": false
+          },
+          {
+            "field": "patient_name",
+            "source": "api:/api/patient-reports/:id",
+            "editable": false
+          },
+          {
+            "field": "report_type",
+            "source": "api:/api/patient-reports/:id",
+            "editable": false
+          },
+          {
+            "field": "content",
+            "source": "api:/api/patient-reports/:id",
+            "editable": false
+          },
+          {
+            "field": "status",
+            "source": "api:/api/patient-reports/:id",
+            "editable": false
+          },
+          {
+            "field": "created_at",
+            "source": "api:/api/patient-reports/:id",
+            "format": "dd/MM/yyyy HH:mm",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clique em 'Download PDF'",
+            "action": "GET /api/patient-reports/:id/pdf",
+            "result": "download do relatório em PDF"
+          },
+          {
+            "trigger": "clique em 'Imprimir'",
+            "action": "abre diálogo de impressão do navegador",
+            "result": "impressão do relatório"
+          },
+          {
+            "trigger": "clique em 'Voltar'",
+            "action": "navega para /patient-reports",
+            "result": "retorna à lista de relatórios"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0037.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0038",
+      "slug": "ref-neuroevolui-0038",
+      "title": "Financeiro",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0005",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/financial",
+        "name": "Financeiro",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "ui": "Dashboard financeiro com KPIs de receita, cards de resumo e gráfico de evolução mensal"
+          },
+          {
+            "name": "loading",
+            "ui": "Skeleton de cards e gráfico enquanto carrega os dados financeiros"
+          },
+          {
+            "name": "empty",
+            "ui": "Mensagem 'Nenhuma transação registrada' com link para registrar primeira transação"
+          },
+          {
+            "name": "error",
+            "ui": "Banner de erro com opção de recarregar os dados financeiros"
+          }
+        ],
+        "data": [
+          {
+            "field": "total_revenue",
+            "source": "api:/api/financial/summary",
+            "format": "BRL",
+            "editable": false
+          },
+          {
+            "field": "total_pending",
+            "source": "api:/api/financial/summary",
+            "format": "BRL",
+            "editable": false
+          },
+          {
+            "field": "total_paid",
+            "source": "api:/api/financial/summary",
+            "format": "BRL",
+            "editable": false
+          },
+          {
+            "field": "monthly_chart",
+            "source": "api:/api/financial/monthly",
+            "editable": false
+          },
+          {
+            "field": "recent_transactions",
+            "source": "api:/api/payment-transactions",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clique em 'Ver Transações'",
+            "action": "navega para /payment-transactions",
+            "result": "abre lista completa de transações"
+          },
+          {
+            "trigger": "seleção de período",
+            "action": "atualiza query params e recarrega dados",
+            "result": "dashboard atualizado para o período selecionado"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0038.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0039",
+      "slug": "ref-neuroevolui-0039",
+      "title": "Transações",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0005",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/payment-transactions",
+        "name": "Transações",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "ui": "Tabela paginada de transações financeiras com filtros por status, data e paciente"
+          },
+          {
+            "name": "loading",
+            "ui": "Skeleton de tabela enquanto carrega a lista de transações"
+          },
+          {
+            "name": "empty",
+            "ui": "Mensagem 'Nenhuma transação encontrada' com filtros ativos exibidos"
+          },
+          {
+            "name": "error",
+            "ui": "Banner de erro com opção de tentar novamente"
+          }
+        ],
+        "data": [
+          {
+            "field": "id",
+            "source": "api:/api/payment-transactions",
+            "editable": false
+          },
+          {
+            "field": "patient_name",
+            "source": "api:/api/payment-transactions",
+            "editable": false
+          },
+          {
+            "field": "amount",
+            "source": "api:/api/payment-transactions",
+            "format": "BRL",
+            "editable": false
+          },
+          {
+            "field": "status",
+            "source": "api:/api/payment-transactions",
+            "editable": false
+          },
+          {
+            "field": "payment_method",
+            "source": "api:/api/payment-transactions",
+            "editable": false
+          },
+          {
+            "field": "date",
+            "source": "api:/api/payment-transactions",
+            "format": "dd/MM/yyyy",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clique em linha da tabela",
+            "action": "navega para /payment-transactions/:id",
+            "result": "abre detalhes da transação"
+          },
+          {
+            "trigger": "filtro por status",
+            "action": "atualiza query params e recarrega lista",
+            "result": "lista filtrada pelo status selecionado"
+          },
+          {
+            "trigger": "clique em 'Exportar'",
+            "action": "GET /api/payment-transactions/export",
+            "result": "download do relatório CSV"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0039.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0040",
+      "slug": "ref-neuroevolui-0040",
+      "title": "Detalhe da Transação",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0005",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/payment-transactions/:id",
+        "name": "Detalhe da Transação",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "ui": "Detalhes completos da transação: valor, status, paciente, método de pagamento e histórico"
+          },
+          {
+            "name": "loading",
+            "ui": "Skeleton dos campos de detalhe enquanto carrega"
+          },
+          {
+            "name": "empty",
+            "ui": "Estado não aplicável — transação sempre existe ao acessar por ID válido"
+          },
+          {
+            "name": "error",
+            "ui": "Mensagem de erro 404 se transação não encontrada, com link para voltar à lista"
+          }
+        ],
+        "data": [
+          {
+            "field": "id",
+            "source": "api:/api/payment-transactions/:id",
+            "editable": false
+          },
+          {
+            "field": "patient_name",
+            "source": "api:/api/payment-transactions/:id",
+            "editable": false
+          },
+          {
+            "field": "amount",
+            "source": "api:/api/payment-transactions/:id",
+            "format": "BRL",
+            "editable": false
+          },
+          {
+            "field": "status",
+            "source": "api:/api/payment-transactions/:id",
+            "editable": false
+          },
+          {
+            "field": "payment_method",
+            "source": "api:/api/payment-transactions/:id",
+            "editable": false
+          },
+          {
+            "field": "date",
+            "source": "api:/api/payment-transactions/:id",
+            "format": "dd/MM/yyyy HH:mm",
+            "editable": false
+          },
+          {
+            "field": "notes",
+            "source": "api:/api/payment-transactions/:id",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clique em 'Voltar'",
+            "action": "navega para /payment-transactions",
+            "result": "retorna à lista de transações"
+          },
+          {
+            "trigger": "clique em 'Marcar como Pago'",
+            "action": "PATCH /api/payment-transactions/:id com status=paid",
+            "result": "status atualizado, confirmação exibida"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0040.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0041",
+      "slug": "ref-neuroevolui-0041",
+      "title": "Editar Fonte de Conhecimento",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0006",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/knowledge-sources/:id/edit",
+        "name": "Editar Fonte de Conhecimento",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "ui": "Formulário preenchido com dados atuais da fonte de conhecimento para edição"
+          },
+          {
+            "name": "loading",
+            "ui": "Skeleton do formulário enquanto carrega os dados da fonte"
+          },
+          {
+            "name": "empty",
+            "ui": "Estado não aplicável — formulário sempre carrega com dados existentes"
+          },
+          {
+            "name": "error",
+            "ui": "Mensagens de validação em linha vermelha; banner se falha ao carregar ou salvar"
+          }
+        ],
+        "data": [
+          {
+            "field": "name",
+            "source": "api:/api/knowledge-sources/:id",
+            "editable": true
+          },
+          {
+            "field": "description",
+            "source": "api:/api/knowledge-sources/:id",
+            "editable": true
+          },
+          {
+            "field": "source_type",
+            "source": "api:/api/knowledge-sources/:id",
+            "editable": true
+          },
+          {
+            "field": "url",
+            "source": "api:/api/knowledge-sources/:id",
+            "editable": true
+          },
+          {
+            "field": "active",
+            "source": "api:/api/knowledge-sources/:id",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clique em 'Salvar'",
+            "action": "PUT /api/knowledge-sources/:id com dados do formulário",
+            "result": "fonte atualizada, redireciona para /knowledge-sources/:id"
+          },
+          {
+            "trigger": "clique em 'Cancelar'",
+            "action": "navega para /knowledge-sources/:id",
+            "result": "alterações descartadas"
+          },
+          {
+            "trigger": "toggle 'Ativo'",
+            "action": "atualiza campo active no formulário",
+            "result": "estado de ativação refletido no formulário"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0041.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0042",
+      "slug": "ref-neuroevolui-0042",
+      "title": "Detalhes da Fonte",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0006",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/knowledge-sources/:id",
+        "name": "Detalhes da Fonte",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "ui": "Detalhes da fonte de conhecimento: nome, tipo, URL, status e documentos indexados"
+          },
+          {
+            "name": "loading",
+            "ui": "Skeleton dos campos de detalhe enquanto carrega"
+          },
+          {
+            "name": "empty",
+            "ui": "Fonte sem documentos: mensagem orientando a reindexação"
+          },
+          {
+            "name": "error",
+            "ui": "Mensagem de erro 404 se fonte não encontrada, com link para voltar à lista"
+          }
+        ],
+        "data": [
+          {
+            "field": "name",
+            "source": "api:/api/knowledge-sources/:id",
+            "editable": false
+          },
+          {
+            "field": "description",
+            "source": "api:/api/knowledge-sources/:id",
+            "editable": false
+          },
+          {
+            "field": "source_type",
+            "source": "api:/api/knowledge-sources/:id",
+            "editable": false
+          },
+          {
+            "field": "url",
+            "source": "api:/api/knowledge-sources/:id",
+            "editable": false
+          },
+          {
+            "field": "active",
+            "source": "api:/api/knowledge-sources/:id",
+            "editable": false
+          },
+          {
+            "field": "indexed_at",
+            "source": "api:/api/knowledge-sources/:id",
+            "format": "dd/MM/yyyy HH:mm",
+            "editable": false
+          },
+          {
+            "field": "document_count",
+            "source": "api:/api/knowledge-sources/:id",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clique em 'Editar'",
+            "action": "navega para /knowledge-sources/:id/edit",
+            "result": "abre formulário de edição"
+          },
+          {
+            "trigger": "clique em 'Reindexar'",
+            "action": "POST /api/knowledge-sources/:id/reindex",
+            "result": "reindexação enfileirada, feedback de confirmação"
+          },
+          {
+            "trigger": "clique em 'Voltar'",
+            "action": "navega para /knowledge-sources",
+            "result": "retorna à lista de fontes"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0042.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0043",
+      "slug": "ref-neuroevolui-0043",
+      "title": "Preferências de Notificação",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0007",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/notification-preferences",
+        "name": "Preferências de Notificação",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "ui": "Lista de preferências de notificação configuradas pelo usuário com toggles de ativação"
+          },
+          {
+            "name": "loading",
+            "ui": "Skeleton da lista enquanto carrega as preferências"
+          },
+          {
+            "name": "empty",
+            "ui": "Mensagem 'Nenhuma preferência configurada' com botão para criar nova"
+          },
+          {
+            "name": "error",
+            "ui": "Banner de erro com opção de recarregar"
+          }
+        ],
+        "data": [
+          {
+            "field": "id",
+            "source": "api:/api/notification-preferences",
+            "editable": false
+          },
+          {
+            "field": "event_type",
+            "source": "api:/api/notification-preferences",
+            "editable": false
+          },
+          {
+            "field": "channel",
+            "source": "api:/api/notification-preferences",
+            "editable": false
+          },
+          {
+            "field": "active",
+            "source": "api:/api/notification-preferences",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clique em 'Nova Preferência'",
+            "action": "navega para /notification-preferences/new",
+            "result": "abre formulário de criação de preferência"
+          },
+          {
+            "trigger": "toggle de ativação",
+            "action": "PATCH /api/notification-preferences/:id com active atualizado",
+            "result": "estado da preferência atualizado em tempo real"
+          },
+          {
+            "trigger": "clique em ícone de edição",
+            "action": "navega para /notification-preferences/:id/edit",
+            "result": "abre formulário de edição da preferência"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0043.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0044",
+      "slug": "ref-neuroevolui-0044",
+      "title": "Nova Preferência de Notificação",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0007",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/notification-preferences/new",
+        "name": "Nova Preferência de Notificação",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "ui": "Formulário para criar nova preferência: tipo de evento, canal e opções de agendamento"
+          },
+          {
+            "name": "loading",
+            "ui": "Spinner no botão de salvar enquanto processa"
+          },
+          {
+            "name": "empty",
+            "ui": "Estado inicial com campos em branco aguardando preenchimento"
+          },
+          {
+            "name": "error",
+            "ui": "Mensagens de validação em linha vermelha abaixo dos campos inválidos"
+          }
+        ],
+        "data": [
+          {
+            "field": "event_type",
+            "source": "svc-notifications",
+            "editable": true
+          },
+          {
+            "field": "channel",
+            "source": "svc-notifications",
+            "editable": true
+          },
+          {
+            "field": "active",
+            "source": "user-input",
+            "editable": true
+          },
+          {
+            "field": "schedule",
+            "source": "user-input",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clique em 'Salvar'",
+            "action": "POST /api/notification-preferences",
+            "result": "preferência criada, redireciona para /notification-preferences"
+          },
+          {
+            "trigger": "clique em 'Cancelar'",
+            "action": "navega para /notification-preferences",
+            "result": "formulário descartado"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0044.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0045",
+      "slug": "ref-neuroevolui-0045",
+      "title": "Editar Preferência de Notificação",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0007",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/notification-preferences/:id/edit",
+        "name": "Editar Preferência de Notificação",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "ui": "Formulário preenchido com dados atuais da preferência de notificação para edição"
+          },
+          {
+            "name": "loading",
+            "ui": "Skeleton do formulário enquanto carrega os dados da preferência"
+          },
+          {
+            "name": "empty",
+            "ui": "Estado não aplicável — formulário sempre carrega com dados existentes"
+          },
+          {
+            "name": "error",
+            "ui": "Mensagens de validação em linha vermelha; banner se falha ao carregar ou salvar"
+          }
+        ],
+        "data": [
+          {
+            "field": "event_type",
+            "source": "api:/api/notification-preferences/:id",
+            "editable": true
+          },
+          {
+            "field": "channel",
+            "source": "api:/api/notification-preferences/:id",
+            "editable": true
+          },
+          {
+            "field": "active",
+            "source": "api:/api/notification-preferences/:id",
+            "editable": true
+          },
+          {
+            "field": "schedule",
+            "source": "api:/api/notification-preferences/:id",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clique em 'Salvar'",
+            "action": "PUT /api/notification-preferences/:id com dados do formulário",
+            "result": "preferência atualizada, redireciona para /notification-preferences"
+          },
+          {
+            "trigger": "clique em 'Cancelar'",
+            "action": "navega para /notification-preferences",
+            "result": "alterações descartadas"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0045.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0046",
+      "slug": "ref-neuroevolui-0046",
+      "title": "Auditoria",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0005",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0002",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/audit-logs",
+        "name": "Auditoria",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "ui": "Tabela paginada de eventos de auditoria com filtros por usuário, ação e data"
+          },
+          {
+            "name": "loading",
+            "ui": "Skeleton de tabela enquanto carrega os logs de auditoria"
+          },
+          {
+            "name": "empty",
+            "ui": "Mensagem 'Nenhum evento registrado' para o período filtrado"
+          },
+          {
+            "name": "error",
+            "ui": "Banner de erro com opção de recarregar"
+          }
+        ],
+        "data": [
+          {
+            "field": "id",
+            "source": "api:/api/audit-logs",
+            "editable": false
+          },
+          {
+            "field": "user_name",
+            "source": "api:/api/audit-logs",
+            "editable": false
+          },
+          {
+            "field": "action",
+            "source": "api:/api/audit-logs",
+            "editable": false
+          },
+          {
+            "field": "resource",
+            "source": "api:/api/audit-logs",
+            "editable": false
+          },
+          {
+            "field": "timestamp",
+            "source": "api:/api/audit-logs",
+            "format": "dd/MM/yyyy HH:mm:ss",
+            "editable": false
+          },
+          {
+            "field": "ip_address",
+            "source": "api:/api/audit-logs",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clique em linha da tabela",
+            "action": "navega para /audit-logs/:id",
+            "result": "abre detalhes do evento de auditoria"
+          },
+          {
+            "trigger": "filtro por usuário",
+            "action": "atualiza query params e recarrega lista",
+            "result": "lista filtrada pelo usuário selecionado"
+          },
+          {
+            "trigger": "exportar logs",
+            "action": "GET /api/audit-logs/export",
+            "result": "download do arquivo CSV com logs filtrados"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0046.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0047",
+      "slug": "ref-neuroevolui-0047",
+      "title": "Evento de Auditoria",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0005",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/audit-logs/:id",
+        "name": "Evento de Auditoria",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "ui": "Detalhes completos do evento: usuário, ação, recurso afetado, IP, timestamp e payload"
+          },
+          {
+            "name": "loading",
+            "ui": "Skeleton dos campos de detalhe enquanto carrega"
+          },
+          {
+            "name": "empty",
+            "ui": "Estado não aplicável — evento sempre existe ao acessar por ID válido"
+          },
+          {
+            "name": "error",
+            "ui": "Mensagem de erro 404 se evento não encontrado, com link para voltar à lista"
+          }
+        ],
+        "data": [
+          {
+            "field": "id",
+            "source": "api:/api/audit-logs/:id",
+            "editable": false
+          },
+          {
+            "field": "user_name",
+            "source": "api:/api/audit-logs/:id",
+            "editable": false
+          },
+          {
+            "field": "action",
+            "source": "api:/api/audit-logs/:id",
+            "editable": false
+          },
+          {
+            "field": "resource",
+            "source": "api:/api/audit-logs/:id",
+            "editable": false
+          },
+          {
+            "field": "timestamp",
+            "source": "api:/api/audit-logs/:id",
+            "format": "dd/MM/yyyy HH:mm:ss",
+            "editable": false
+          },
+          {
+            "field": "ip_address",
+            "source": "api:/api/audit-logs/:id",
+            "editable": false
+          },
+          {
+            "field": "payload",
+            "source": "api:/api/audit-logs/:id",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clique em 'Voltar'",
+            "action": "navega para /audit-logs",
+            "result": "retorna à lista de eventos de auditoria"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0047.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0048",
+      "slug": "ref-neuroevolui-0048",
+      "title": "Filas de Jobs",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0003",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/async-jobs",
+        "name": "Filas de Jobs",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "ui": "Tabela paginada de jobs assíncronos com status, tipo, progresso e timestamps"
+          },
+          {
+            "name": "loading",
+            "ui": "Skeleton de tabela enquanto carrega a lista de jobs"
+          },
+          {
+            "name": "empty",
+            "ui": "Mensagem 'Nenhum job em execução' com link para verificar jobs concluídos"
+          },
+          {
+            "name": "error",
+            "ui": "Banner de erro com opção de recarregar"
+          }
+        ],
+        "data": [
+          {
+            "field": "id",
+            "source": "api:/api/async-jobs",
+            "editable": false
+          },
+          {
+            "field": "type",
+            "source": "api:/api/async-jobs",
+            "editable": false
+          },
+          {
+            "field": "status",
+            "source": "api:/api/async-jobs",
+            "editable": false
+          },
+          {
+            "field": "progress",
+            "source": "api:/api/async-jobs",
+            "format": "percent",
+            "editable": false
+          },
+          {
+            "field": "created_at",
+            "source": "api:/api/async-jobs",
+            "format": "dd/MM/yyyy HH:mm",
+            "editable": false
+          },
+          {
+            "field": "completed_at",
+            "source": "api:/api/async-jobs",
+            "format": "dd/MM/yyyy HH:mm",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clique em linha da tabela",
+            "action": "navega para /async-jobs/:id",
+            "result": "abre detalhes do job"
+          },
+          {
+            "trigger": "filtro por status",
+            "action": "atualiza query params e recarrega lista",
+            "result": "lista filtrada pelo status selecionado"
+          },
+          {
+            "trigger": "clique em 'Cancelar job'",
+            "action": "DELETE /api/async-jobs/:id",
+            "result": "job cancelado, lista atualizada"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0048.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0049",
+      "slug": "ref-neuroevolui-0049",
+      "title": "Detalhes do Job",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0003",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/async-jobs/:id",
+        "name": "Detalhes do Job",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "ui": "Detalhes completos do job: tipo, status, progresso, logs de execução e timestamps"
+          },
+          {
+            "name": "loading",
+            "ui": "Skeleton dos campos de detalhe enquanto carrega"
+          },
+          {
+            "name": "empty",
+            "ui": "Estado não aplicável — job sempre existe ao acessar por ID válido"
+          },
+          {
+            "name": "error",
+            "ui": "Mensagem de erro 404 se job não encontrado, com link para voltar à lista"
+          }
+        ],
+        "data": [
+          {
+            "field": "id",
+            "source": "api:/api/async-jobs/:id",
+            "editable": false
+          },
+          {
+            "field": "type",
+            "source": "api:/api/async-jobs/:id",
+            "editable": false
+          },
+          {
+            "field": "status",
+            "source": "api:/api/async-jobs/:id",
+            "editable": false
+          },
+          {
+            "field": "progress",
+            "source": "api:/api/async-jobs/:id",
+            "format": "percent",
+            "editable": false
+          },
+          {
+            "field": "logs",
+            "source": "api:/api/async-jobs/:id",
+            "editable": false
+          },
+          {
+            "field": "created_at",
+            "source": "api:/api/async-jobs/:id",
+            "format": "dd/MM/yyyy HH:mm:ss",
+            "editable": false
+          },
+          {
+            "field": "completed_at",
+            "source": "api:/api/async-jobs/:id",
+            "format": "dd/MM/yyyy HH:mm:ss",
+            "editable": false
+          },
+          {
+            "field": "error_message",
+            "source": "api:/api/async-jobs/:id",
+            "editable": false
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clique em 'Cancelar job'",
+            "action": "DELETE /api/async-jobs/:id",
+            "result": "job cancelado, confirmação exibida"
+          },
+          {
+            "trigger": "clique em 'Reintentar'",
+            "action": "POST /api/async-jobs/:id/retry",
+            "result": "job reenfileirado, status atualizado"
+          },
+          {
+            "trigger": "clique em 'Voltar'",
+            "action": "navega para /async-jobs",
+            "result": "retorna à lista de jobs"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0049.yaml"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0050",
+      "slug": "ref-neuroevolui-0050",
+      "title": "Configurações da Clínica",
+      "kind": "screen",
+      "status": "approved",
+      "scope": {
+        "product_scope": "neuroevolui"
+      },
+      "anchors": [
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0002",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0007",
+          "relation": "implements"
+        },
+        {
+          "requirement_id": "REQ-NEUROEVOLUI-0001",
+          "relation": "implements"
+        }
+      ],
+      "surface": {
+        "route": "/settings",
+        "name": "Configurações da Clínica",
+        "roles": [
+          "user"
+        ]
+      },
+      "behavior": {
+        "states": [
+          {
+            "name": "normal",
+            "ui": "Seções de configuração: dados da clínica, notificações, integrações e preferências gerais"
+          },
+          {
+            "name": "loading",
+            "ui": "Skeleton das seções de configuração enquanto carrega"
+          },
+          {
+            "name": "empty",
+            "ui": "Estado não aplicável — página de configurações sempre tem conteúdo"
+          },
+          {
+            "name": "error",
+            "ui": "Banner de erro se falha ao carregar ou salvar configurações"
+          }
+        ],
+        "data": [
+          {
+            "field": "clinic_name",
+            "source": "api:/api/settings",
+            "editable": true
+          },
+          {
+            "field": "clinic_address",
+            "source": "api:/api/settings",
+            "editable": true
+          },
+          {
+            "field": "clinic_phone",
+            "source": "api:/api/settings",
+            "editable": true
+          },
+          {
+            "field": "clinic_email",
+            "source": "api:/api/settings",
+            "editable": true
+          },
+          {
+            "field": "timezone",
+            "source": "api:/api/settings",
+            "editable": true
+          },
+          {
+            "field": "locale",
+            "source": "api:/api/settings",
+            "editable": true
+          },
+          {
+            "field": "notification_defaults",
+            "source": "api:/api/settings",
+            "editable": true
+          }
+        ],
+        "interactions": [
+          {
+            "trigger": "clique em 'Salvar'",
+            "action": "PUT /api/settings com dados do formulário",
+            "result": "configurações salvas, confirmação exibida"
+          },
+          {
+            "trigger": "clique em 'Restaurar Padrões'",
+            "action": "confirmação modal seguida de DELETE /api/settings/overrides",
+            "result": "configurações restauradas para valores padrão"
+          },
+          {
+            "trigger": "clique em link 'Preferências de Notificação'",
+            "action": "navega para /notification-preferences",
+            "result": "abre gerenciamento de preferências de notificação"
+          }
+        ]
+      },
+      "source": {
+        "source_paths": [
+          "specs/products/neuroevolui/product.json",
+          "apps/neuroevolui/frontend/src/views"
+        ]
+      },
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "file": "refinements/neuroevolui/REF-NEUROEVOLUI-0050.yaml"
     },
     {
       "id": "REF-PORTAL-0001",

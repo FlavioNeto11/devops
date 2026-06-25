@@ -66,8 +66,6 @@ export {
 export const consultations = Object.assign(resourceFactory('consultations'), {
   schedule: (body, opts) => resourceFactory('consultations/schedule').create(body, opts),
 });
-export const notifications = resourceFactory('notifications');
-
 // Notificações multicanal (bloco notificacoes-multicanal). Estes 5 caminhos são bespoke
 // (corpo fixo, fora do shape REST puro do resourceFactory), então ficam num cliente de
 // DOMÍNIO próprio — mas sempre sobre a MESMA base `request()` (contrato único: nenhuma

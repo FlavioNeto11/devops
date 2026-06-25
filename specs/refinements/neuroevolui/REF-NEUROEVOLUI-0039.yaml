@@ -1,0 +1,63 @@
+id: "REF-NEUROEVOLUI-0039"
+slug: "ref-neuroevolui-0039"
+title: "Transações"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0005"
+    relation: "implements"
+surface:
+  route: "/payment-transactions"
+  name: "Transações"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+      ui: "Tabela paginada de transações financeiras com filtros por status, data e paciente"
+    - name: "loading"
+      ui: "Skeleton de tabela enquanto carrega a lista de transações"
+    - name: "empty"
+      ui: "Mensagem 'Nenhuma transação encontrada' com filtros ativos exibidos"
+    - name: "error"
+      ui: "Banner de erro com opção de tentar novamente"
+  data:
+    - field: "id"
+      source: "api:/api/payment-transactions"
+      editable: false
+    - field: "patient_name"
+      source: "api:/api/payment-transactions"
+      editable: false
+    - field: "amount"
+      source: "api:/api/payment-transactions"
+      format: "BRL"
+      editable: false
+    - field: "status"
+      source: "api:/api/payment-transactions"
+      editable: false
+    - field: "payment_method"
+      source: "api:/api/payment-transactions"
+      editable: false
+    - field: "date"
+      source: "api:/api/payment-transactions"
+      format: "dd/MM/yyyy"
+      editable: false
+  interactions:
+    - trigger: "clique em linha da tabela"
+      action: "navega para /payment-transactions/:id"
+      result: "abre detalhes da transação"
+    - trigger: "filtro por status"
+      action: "atualiza query params e recarrega lista"
+      result: "lista filtrada pelo status selecionado"
+    - trigger: "clique em 'Exportar'"
+      action: "GET /api/payment-transactions/export"
+      result: "download do relatório CSV"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

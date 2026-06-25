@@ -1,0 +1,62 @@
+id: "REF-NEUROEVOLUI-0036"
+slug: "ref-neuroevolui-0036"
+title: "Solicitar Relatório"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0004"
+    relation: "implements"
+  - requirement_id: "REQ-NEUROEVOLUI-0003"
+    relation: "implements"
+surface:
+  route: "/patient-reports/new"
+  name: "Solicitar Relatório"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+      ui: "Formulário de solicitação de relatório com seleção de paciente e tipo de relatório"
+    - name: "loading"
+      ui: "Spinner no botão de envio enquanto processa"
+    - name: "empty"
+      ui: "Estado inicial com campos em branco aguardando preenchimento"
+    - name: "error"
+      ui: "Mensagens de validação em linha vermelha abaixo dos campos inválidos"
+  data:
+    - field: "patient_id"
+      source: "api:/api/patients"
+      editable: true
+    - field: "report_type"
+      source: "svc-reports"
+      editable: true
+    - field: "date_range_start"
+      source: "user-input"
+      format: "dd/MM/yyyy"
+      editable: true
+    - field: "date_range_end"
+      source: "user-input"
+      format: "dd/MM/yyyy"
+      editable: true
+    - field: "notes"
+      source: "user-input"
+      editable: true
+  interactions:
+    - trigger: "clique em 'Solicitar'"
+      action: "POST /api/patient-reports"
+      result: "relatório enfileirado para geração, redireciona para /patient-reports"
+    - trigger: "clique em 'Cancelar'"
+      action: "navega de volta para /patient-reports"
+      result: "formulário descartado"
+    - trigger: "seleção de paciente"
+      action: "busca dados do paciente via autocomplete"
+      result: "preenche nome e dados do paciente selecionado"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

@@ -272,6 +272,118 @@
       "product": "neuroevolui"
     },
     {
+      "id": "REF-NEUROEVOLUI-0035",
+      "kind": "refinement",
+      "title": "Relatórios de Pacientes",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0036",
+      "kind": "refinement",
+      "title": "Solicitar Relatório",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0037",
+      "kind": "refinement",
+      "title": "Relatório Gerado",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0038",
+      "kind": "refinement",
+      "title": "Financeiro",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0039",
+      "kind": "refinement",
+      "title": "Transações",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0040",
+      "kind": "refinement",
+      "title": "Detalhe da Transação",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0041",
+      "kind": "refinement",
+      "title": "Editar Fonte de Conhecimento",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0042",
+      "kind": "refinement",
+      "title": "Detalhes da Fonte",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0043",
+      "kind": "refinement",
+      "title": "Preferências de Notificação",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0044",
+      "kind": "refinement",
+      "title": "Nova Preferência de Notificação",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0045",
+      "kind": "refinement",
+      "title": "Editar Preferência de Notificação",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0046",
+      "kind": "refinement",
+      "title": "Auditoria",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0047",
+      "kind": "refinement",
+      "title": "Evento de Auditoria",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0048",
+      "kind": "refinement",
+      "title": "Filas de Jobs",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0049",
+      "kind": "refinement",
+      "title": "Detalhes do Job",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
+      "id": "REF-NEUROEVOLUI-0050",
+      "kind": "refinement",
+      "title": "Configurações da Clínica",
+      "refinement_kind": "screen",
+      "product": "neuroevolui"
+    },
+    {
       "id": "REF-PORTAL-0001",
       "kind": "refinement",
       "title": "Landing pública NovaIT (página inicial)",
@@ -4048,6 +4160,132 @@
     {
       "from": "REF-NEUROEVOLUI-0034",
       "to": "REQ-NEUROEVOLUI-0008",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0035",
+      "to": "REQ-NEUROEVOLUI-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0035",
+      "to": "REQ-NEUROEVOLUI-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0036",
+      "to": "REQ-NEUROEVOLUI-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0036",
+      "to": "REQ-NEUROEVOLUI-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0037",
+      "to": "REQ-NEUROEVOLUI-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0038",
+      "to": "REQ-NEUROEVOLUI-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0039",
+      "to": "REQ-NEUROEVOLUI-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0040",
+      "to": "REQ-NEUROEVOLUI-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0041",
+      "to": "REQ-NEUROEVOLUI-0006",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0042",
+      "to": "REQ-NEUROEVOLUI-0006",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0043",
+      "to": "REQ-NEUROEVOLUI-0007",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0044",
+      "to": "REQ-NEUROEVOLUI-0007",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0045",
+      "to": "REQ-NEUROEVOLUI-0007",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0046",
+      "to": "REQ-NEUROEVOLUI-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0046",
+      "to": "REQ-NEUROEVOLUI-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0047",
+      "to": "REQ-NEUROEVOLUI-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0048",
+      "to": "REQ-NEUROEVOLUI-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0049",
+      "to": "REQ-NEUROEVOLUI-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0050",
+      "to": "REQ-NEUROEVOLUI-0001",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0050",
+      "to": "REQ-NEUROEVOLUI-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-NEUROEVOLUI-0050",
+      "to": "REQ-NEUROEVOLUI-0007",
       "type": "implements",
       "refinement": true
     },

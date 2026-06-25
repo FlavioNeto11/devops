@@ -167,6 +167,13 @@ const MIGRATIONS = [
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
   )`,
+  // REQ-NEUROEVOLUI-0005: campos de domínio ausentes em consultations
+  `ALTER TABLE consultations ADD COLUMN IF NOT EXISTS notes TEXT`,
+  `ALTER TABLE consultations ADD COLUMN IF NOT EXISTS duration_minutes INTEGER`,
+  // REQ-NEUROEVOLUI-0005: campos de domínio ausentes em payment_transactions
+  `ALTER TABLE payment_transactions ADD COLUMN IF NOT EXISTS patient_id TEXT`,
+  `ALTER TABLE payment_transactions ADD COLUMN IF NOT EXISTS event_type TEXT`,
+  `ALTER TABLE payment_transactions ADD COLUMN IF NOT EXISTS external_id TEXT`,
 ];
 export async function migrate() {
   const c = await pool.connect();
@@ -199,6 +206,46 @@ export async function seed() {
         ('Lucas Andrade', '2016-03-12', '111.222.333-44', 'familia.lucas@example.com', '+55 11 98888-0001', 'Mariana Andrade', '1', 'active', 'Acompanhamento de TEA — sessões semanais.'),
         ('Beatriz Nunes', '2014-07-25', '222.333.444-55', 'familia.bia@example.com', '+55 11 98888-0002', 'Carlos Nunes', '1', 'active', 'Avaliação de TDAH em andamento.'),
         ('Pedro Carvalho', '2018-11-02', '333.444.555-66', 'familia.pedro@example.com', '+55 11 98888-0003', 'Juliana Carvalho', '3', 'on_hold', 'Aguardando retorno do responsável.')`
+    );
+  }
+
+  const { rows: consult } = await pool.query('SELECT count(*)::int n FROM consultations');
+  if (consult[0].n === 0) {
+    await pool.query(
+      `INSERT INTO consultations(tenant_id, patient_id, professional_id, scheduled_at, scheduled_end_at, duration_minutes, amount_cents, currency, status, payment_status, notes, created_by) VALUES
+        (1, '1', '1', now() + interval '2 days', now() + interval '2 days' + interval '60 minutes', 60, 25000, 'BRL', 'agendado', 'pendente', 'Sessão de neuropsicologia inicial.', 'system'),
+        (1, '2', '1', now() + interval '5 days', now() + interval '5 days' + interval '50 minutes', 50, 22000, 'BRL', 'confirmado', 'pago', 'Avaliação de TDAH — 2ª sessão.', 'system'),
+        (1, '3', '3', now() - interval '7 days', now() - interval '7 days' + interval '60 minutes', 60, 20000, 'BRL', 'realizado', 'pago', 'Terapia Ocupacional — alta prevista próxima consulta.', 'system')`
+    );
+  }
+
+  const { rows: pt } = await pool.query('SELECT count(*)::int n FROM payment_transactions');
+  if (pt[0].n === 0) {
+    await pool.query(
+      `INSERT INTO payment_transactions(tenant_id, consultation_id, patient_id, idempotency_key, gateway_transaction_id, gateway_provider, amount_cents, currency, status, event_type, external_id, created_by) VALUES
+        (1, NULL, '2', 'seed-ikey-001', 'txn-seed-001', 'sandbox', 22000, 'BRL', 'confirmed', 'payment.confirmed', 'ext-001', 'system'),
+        (1, NULL, '3', 'seed-ikey-002', 'txn-seed-002', 'sandbox', 20000, 'BRL', 'confirmed', 'payment.confirmed', 'ext-002', 'system'),
+        (1, NULL, '1', 'seed-ikey-003', 'txn-seed-003', 'sandbox', 25000, 'BRL', 'pending', 'payment.created', 'ext-003', 'system')`
+    );
+  }
+
+  const { rows: al } = await pool.query('SELECT count(*)::int n FROM audit_logs');
+  if (al[0].n === 0) {
+    await pool.query(
+      `INSERT INTO audit_logs(tenant_id, entity_type, entity_id, action, actor, metadata) VALUES
+        (1, 'patient', '1', 'create', 'system', '{"note":"seed"}'),
+        (1, 'consultation', '1', 'create', 'system', '{"note":"seed"}'),
+        (1, 'patient', '2', 'create', 'system', '{"note":"seed"}')`
+    );
+  }
+
+  const { rows: aj } = await pool.query('SELECT count(*)::int n FROM async_jobs');
+  if (aj[0].n === 0) {
+    await pool.query(
+      `INSERT INTO async_jobs(tenant_id, queue_name, job_key, job_id, status, payload, created_by) VALUES
+        (1, 'summaries-ai', 'seed-key-001', 'seed-job-001', 'done', '{"patientId":"1"}', 'system'),
+        (1, 'notifications', 'seed-key-002', 'seed-job-002', 'done', '{"channel":"email","userId":"1"}', 'system'),
+        (1, 'patient-reports', 'seed-key-003', 'seed-job-003', 'queued', '{"patientId":"3","reportId":"1"}', 'system')`
     );
   }
 }

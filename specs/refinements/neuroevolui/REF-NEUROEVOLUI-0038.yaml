@@ -1,0 +1,58 @@
+id: "REF-NEUROEVOLUI-0038"
+slug: "ref-neuroevolui-0038"
+title: "Financeiro"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0005"
+    relation: "implements"
+surface:
+  route: "/financial"
+  name: "Financeiro"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+      ui: "Dashboard financeiro com KPIs de receita, cards de resumo e gráfico de evolução mensal"
+    - name: "loading"
+      ui: "Skeleton de cards e gráfico enquanto carrega os dados financeiros"
+    - name: "empty"
+      ui: "Mensagem 'Nenhuma transação registrada' com link para registrar primeira transação"
+    - name: "error"
+      ui: "Banner de erro com opção de recarregar os dados financeiros"
+  data:
+    - field: "total_revenue"
+      source: "api:/api/financial/summary"
+      format: "BRL"
+      editable: false
+    - field: "total_pending"
+      source: "api:/api/financial/summary"
+      format: "BRL"
+      editable: false
+    - field: "total_paid"
+      source: "api:/api/financial/summary"
+      format: "BRL"
+      editable: false
+    - field: "monthly_chart"
+      source: "api:/api/financial/monthly"
+      editable: false
+    - field: "recent_transactions"
+      source: "api:/api/payment-transactions"
+      editable: false
+  interactions:
+    - trigger: "clique em 'Ver Transações'"
+      action: "navega para /payment-transactions"
+      result: "abre lista completa de transações"
+    - trigger: "seleção de período"
+      action: "atualiza query params e recarrega dados"
+      result: "dashboard atualizado para o período selecionado"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

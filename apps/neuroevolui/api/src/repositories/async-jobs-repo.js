@@ -52,6 +52,14 @@ export async function findAsyncJobById(tenantId, id) {
 // histórico de lembretes/notificações enfileiradas). Dado REAL: as notificações são
 // enfileiradas em async_jobs via enqueueAsync(..., 'notifications'). Filtro opcional por
 // consultation_id (lido do payload JSONB) p/ o card de lembretes da consulta.
+export async function deleteAsyncJob(tenantId, id) {
+  const r = await pool.query(
+    'DELETE FROM async_jobs WHERE tenant_id=$1 AND id=$2 RETURNING id',
+    [tenantId, Number(id)]
+  );
+  return r.rowCount > 0;
+}
+
 export async function listAsyncJobsByQueue(tenantId, queueName, { page = 1, pageSize = 50, sort = 'id', dir = 'desc', consultationId } = {}) {
   const col = JOBS_SORTABLE.has(sort) ? sort : 'id';
   const order = String(dir).toLowerCase() === 'asc' ? 'ASC' : 'DESC';

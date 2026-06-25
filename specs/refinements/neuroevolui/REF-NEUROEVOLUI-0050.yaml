@@ -1,0 +1,68 @@
+id: "REF-NEUROEVOLUI-0050"
+slug: "ref-neuroevolui-0050"
+title: "Configurações da Clínica"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0002"
+    relation: "implements"
+  - requirement_id: "REQ-NEUROEVOLUI-0007"
+    relation: "implements"
+  - requirement_id: "REQ-NEUROEVOLUI-0001"
+    relation: "implements"
+surface:
+  route: "/settings"
+  name: "Configurações da Clínica"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+      ui: "Seções de configuração: dados da clínica, notificações, integrações e preferências gerais"
+    - name: "loading"
+      ui: "Skeleton das seções de configuração enquanto carrega"
+    - name: "empty"
+      ui: "Estado não aplicável — página de configurações sempre tem conteúdo"
+    - name: "error"
+      ui: "Banner de erro se falha ao carregar ou salvar configurações"
+  data:
+    - field: "clinic_name"
+      source: "api:/api/settings"
+      editable: true
+    - field: "clinic_address"
+      source: "api:/api/settings"
+      editable: true
+    - field: "clinic_phone"
+      source: "api:/api/settings"
+      editable: true
+    - field: "clinic_email"
+      source: "api:/api/settings"
+      editable: true
+    - field: "timezone"
+      source: "api:/api/settings"
+      editable: true
+    - field: "locale"
+      source: "api:/api/settings"
+      editable: true
+    - field: "notification_defaults"
+      source: "api:/api/settings"
+      editable: true
+  interactions:
+    - trigger: "clique em 'Salvar'"
+      action: "PUT /api/settings com dados do formulário"
+      result: "configurações salvas, confirmação exibida"
+    - trigger: "clique em 'Restaurar Padrões'"
+      action: "confirmação modal seguida de DELETE /api/settings/overrides"
+      result: "configurações restauradas para valores padrão"
+    - trigger: "clique em link 'Preferências de Notificação'"
+      action: "navega para /notification-preferences"
+      result: "abre gerenciamento de preferências de notificação"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

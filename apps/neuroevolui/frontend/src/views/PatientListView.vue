@@ -111,6 +111,24 @@
         <span class="pl-sub">{{ formatDate(value) }}</span>
       </template>
 
+      <!-- Ações inline: editar e desativar/reativar o paciente -->
+      <template #cell-actions="{ row }">
+        <div class="pl-row-actions" @click.stop>
+          <UiButton
+            variant="ghost"
+            size="sm"
+            :to="'/patients/' + row.id + '/edit'"
+            :aria-label="'Editar ' + (row.full_name || 'paciente')"
+          >Editar</UiButton>
+          <UiButton
+            variant="ghost"
+            size="sm"
+            :aria-label="(row.status === 'archived' ? 'Reativar' : 'Desativar') + ' ' + (row.full_name || 'paciente')"
+            @click="toggleStatus(row)"
+          >{{ row.status === 'archived' ? 'Reativar' : 'Desativar' }}</UiButton>
+        </div>
+      </template>
+
       <template #empty-action>
         <UiButton to="/patients/new" variant="primary">Cadastrar primeiro paciente</UiButton>
       </template>
@@ -130,12 +148,14 @@ import {
   UiButton,
   useResource,
   useToast,
+  useConfirm,
   format,
 } from '../ui/index.js';
 import { patients, professionals as professionalsApi } from '../api.js';
 
 const router = useRouter();
 const toast = useToast();
+const confirm = useConfirm();
 const { formatNumber, formatDate, humanize } = format;
 
 // Rótulos canônicos das situações do paciente (domínio neuroevolui).
@@ -161,6 +181,7 @@ const columns = [
   { key: 'assigned_professional_id', label: 'Profissional' },
   { key: 'status', label: 'Situação', sortable: true },
   { key: 'created_at', label: 'Cadastrado em', sortable: true, align: 'right' },
+  { key: 'actions', label: '', sortable: false, align: 'right' },
 ];
 
 // Catálogo de profissionais para o filtro (select) e para resolver id→nome na tabela.
@@ -297,6 +318,33 @@ async function reload() {
   if (!r.error.value) toast.success('Lista atualizada.');
 }
 
+// Desativa (arquiva) ou reativa (active) um paciente com confirmação.
+// Ação destrutiva (desativar) exige confirmação via useConfirm; reativação também confirma por segurança.
+async function toggleStatus(row) {
+  const isArchived = row.status === 'archived';
+  const targetStatus = isArchived ? 'active' : 'archived';
+  const actionLabel = isArchived ? 'Reativar' : 'Desativar';
+  const confirmed = await confirm.ask({
+    title: actionLabel + ' paciente',
+    message: isArchived
+      ? `Deseja reativar "${row.full_name || 'este paciente'}"? O status voltará para "Em acompanhamento".`
+      : `Deseja desativar "${row.full_name || 'este paciente'}"? O registro ficará arquivado e inativo.`,
+    danger: !isArchived,
+  });
+  if (!confirmed) return;
+  try {
+    await patients.update(row.id, { status: targetStatus });
+    toast.success(
+      isArchived
+        ? `"${row.full_name || 'Paciente'}" reativado com sucesso.`
+        : `"${row.full_name || 'Paciente'}" desativado com sucesso.`
+    );
+    await r.load();
+  } catch (e) {
+    toast.error((e && e.message) || `Não foi possível ${actionLabel.toLowerCase()} o paciente.`);
+  }
+}
+
 // Avisa por toast quando uma carga falha (além do estado de erro na tabela).
 watch(
   () => r.error.value,
@@ -357,7 +405,14 @@ onMounted(() => {
 .pl-contact {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--ui-space-1);
+}
+
+.pl-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--ui-space-1);
 }
 
 .pl-contact-main {

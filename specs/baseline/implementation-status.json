@@ -9,9 +9,10 @@
       "merged": 9
     },
     "refinements": {
-      "total": 13,
+      "total": 63,
       "by_status": {
         "pr_open": 1,
+        "not_started": 50,
         "deployed": 12
       }
     }
@@ -2041,6 +2042,206 @@
       "status": "pr_open",
       "req_revision": 1,
       "notes": "PR #26 (esteira)"
+    },
+    "REF-NEUROEVOLUI-0001": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0002": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0003": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0004": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0005": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0006": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0007": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0008": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0009": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0010": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0011": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0012": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0013": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0014": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0015": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0016": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0017": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0018": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0019": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0020": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0021": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0022": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0023": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0024": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0025": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0026": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0027": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0028": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0029": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0030": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0031": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0032": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0033": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0034": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0035": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0036": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0037": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0038": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0039": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0040": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0041": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0042": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0043": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0044": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0045": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0046": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0047": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0048": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0049": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REF-NEUROEVOLUI-0050": {
+      "status": "not_started",
+      "req_revision": 1
     },
     "REF-PORTAL-0001": {
       "status": "deployed",

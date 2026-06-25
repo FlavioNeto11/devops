@@ -1,0 +1,58 @@
+id: "REF-NEUROEVOLUI-0041"
+slug: "ref-neuroevolui-0041"
+title: "Editar Fonte de Conhecimento"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0006"
+    relation: "implements"
+surface:
+  route: "/knowledge-sources/:id/edit"
+  name: "Editar Fonte de Conhecimento"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+      ui: "Formulário preenchido com dados atuais da fonte de conhecimento para edição"
+    - name: "loading"
+      ui: "Skeleton do formulário enquanto carrega os dados da fonte"
+    - name: "empty"
+      ui: "Estado não aplicável — formulário sempre carrega com dados existentes"
+    - name: "error"
+      ui: "Mensagens de validação em linha vermelha; banner se falha ao carregar ou salvar"
+  data:
+    - field: "name"
+      source: "api:/api/knowledge-sources/:id"
+      editable: true
+    - field: "description"
+      source: "api:/api/knowledge-sources/:id"
+      editable: true
+    - field: "source_type"
+      source: "api:/api/knowledge-sources/:id"
+      editable: true
+    - field: "url"
+      source: "api:/api/knowledge-sources/:id"
+      editable: true
+    - field: "active"
+      source: "api:/api/knowledge-sources/:id"
+      editable: true
+  interactions:
+    - trigger: "clique em 'Salvar'"
+      action: "PUT /api/knowledge-sources/:id com dados do formulário"
+      result: "fonte atualizada, redireciona para /knowledge-sources/:id"
+    - trigger: "clique em 'Cancelar'"
+      action: "navega para /knowledge-sources/:id"
+      result: "alterações descartadas"
+    - trigger: "toggle 'Ativo'"
+      action: "atualiza campo active no formulário"
+      result: "estado de ativação refletido no formulário"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

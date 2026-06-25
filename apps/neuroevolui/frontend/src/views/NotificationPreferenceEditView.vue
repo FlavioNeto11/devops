@@ -16,7 +16,7 @@
   Responsivo ≤ 860px.
 
   Rota: /notification-preferences/:id/edit
-  Back/Cancelar → /notification-preferences (lista de domínio — nunca /records)
+  Back/Cancelar → /notification-preferences (lista de domínio)
 -->
 <template>
   <UiPageLayout
@@ -321,7 +321,7 @@ const npResource =
   api['notification-preferences'] ||
   (api.resourceFactory ? api.resourceFactory('notification-preferences') : null);
 
-// ── Rota de domínio de retorno (NUNCA /records) ───────────────────────────────
+// ── Rota de domínio de retorno ───────────────────────────────────────────────
 const backTo = '/notification-preferences';
 
 // ── Estado de tela ────────────────────────────────────────────────────────────

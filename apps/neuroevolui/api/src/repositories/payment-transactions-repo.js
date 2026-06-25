@@ -29,3 +29,30 @@ export async function findPaymentTransaction(tenantId, id) {
   const r = await pool.query('SELECT * FROM payment_transactions WHERE tenant_id=$1 AND id=$2', [tenantId, Number(id)]);
   return r.rows[0] ?? null;
 }
+
+export async function updatePaymentTransaction(tenantId, id, body) {
+  const fields = ['consultation_id', 'patient_id', 'amount_cents', 'currency', 'status', 'event_type', 'gateway_provider', 'gateway_transaction_id', 'metadata'];
+  const sets = [];
+  const params = [tenantId, Number(id)];
+  let i = 3;
+  for (const f of fields) {
+    if (body[f] !== undefined) {
+      if (f === 'metadata') { sets.push(`${f}=$${i++}::jsonb`); params.push(JSON.stringify(body[f])); }
+      else { sets.push(`${f}=$${i++}`); params.push(body[f] === '' ? null : body[f]); }
+    }
+  }
+  if (sets.length === 0) return findPaymentTransaction(tenantId, id);
+  const r = await pool.query(
+    `UPDATE payment_transactions SET ${sets.join(', ')} WHERE tenant_id=$1 AND id=$2 RETURNING *`,
+    params
+  );
+  return r.rows[0] ?? null;
+}
+
+export async function deletePaymentTransaction(tenantId, id) {
+  const r = await pool.query(
+    'DELETE FROM payment_transactions WHERE tenant_id=$1 AND id=$2 RETURNING id',
+    [tenantId, Number(id)]
+  );
+  return r.rowCount > 0;
+}

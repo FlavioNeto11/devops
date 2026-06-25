@@ -2,7 +2,7 @@
   <UiPageLayout
     eyebrow="Agenda"
     title="Novo agendamento"
-    subtitle="Selecione paciente, profissional, data/hora, duração e valor. A cobrança é processada pelo gateway de forma idempotente."
+    subtitle="Selecione paciente, profissional, data/hora, duração e valor. Conflitos de horário são detectados automaticamente."
     width="narrow"
   >
     <template #actions>
@@ -13,14 +13,14 @@
     <UiLoadingState
       v-if="bootState === 'loading'"
       variant="skeleton"
-      :skeleton-lines="7"
+      :skeleton-lines="8"
       title="Preparando o agendamento…"
     />
 
     <!-- ESTADO: erro no preparo (com retry) -->
     <UiErrorState
       v-else-if="bootState === 'error'"
-      message="Não foi possível preparar a tela de agendamento."
+      message="Não foi possível preparar a tela de agendamento. Verifique a conexão e tente novamente."
       :retryable="true"
       @retry="bootstrap"
     />
@@ -36,6 +36,7 @@
 
     <!-- ESTADO: normal — formulário de agendamento -->
     <form v-else class="cc-form" novalidate @submit.prevent="submit">
+
       <!-- Resumo ao vivo (KPIs derivados do que está sendo preenchido) -->
       <section class="cc-metrics" aria-label="Resumo do agendamento">
         <UiMetricCard
@@ -54,9 +55,24 @@
           label="Valor"
           :value="amountSummary"
           tone="success"
-          :hint="chargeNow ? 'Será cobrado agora' : 'Cobrança pendente'"
+          hint="Valor da sessão"
         />
       </section>
+
+      <!-- Alerta de conflito de horário (HTTP 409) -->
+      <div v-if="conflictAlert" class="cc-conflict-banner" role="alert" aria-live="assertive">
+        <span class="cc-conflict-icon" aria-hidden="true">⚠</span>
+        <div class="cc-conflict-body">
+          <p class="cc-conflict-title">Conflito de horário detectado</p>
+          <p class="cc-conflict-desc">{{ conflictAlert }}</p>
+        </div>
+        <button
+          type="button"
+          class="cc-conflict-dismiss"
+          aria-label="Fechar alerta de conflito"
+          @click="conflictAlert = ''"
+        >✕</button>
+      </div>
 
       <!-- Participantes -->
       <UiCard title="Participantes" subtitle="Quem será atendido e por quem.">
@@ -151,7 +167,7 @@
                 :error="!!f.errors.scheduled_at"
                 :required="true"
                 :min="minDateTime"
-                @update:model-value="f.setField('scheduled_at', $event)"
+                @update:model-value="onScheduledAtChange($event)"
               />
             </template>
           </UiFormField>
@@ -181,16 +197,13 @@
         </UiFormSection>
 
         <!-- Aviso (não destrutivo) sobre horário no passado -->
-        <p v-if="startInPast" class="cc-inline-warn" role="status">
-          O horário escolhido está no passado. Confirme antes de agendar.
+        <p v-if="startInPast" class="cc-inline-warn" role="status" aria-live="polite">
+          ⚠ O horário escolhido está no passado. Confirme antes de agendar.
         </p>
       </UiCard>
 
       <!-- Cobrança -->
-      <UiCard
-        title="Cobrança"
-        subtitle="Valor da consulta e processamento do pagamento pelo gateway."
-      >
+      <UiCard title="Cobrança" subtitle="Valor da consulta e moeda de faturamento.">
         <UiFormSection :columns="2">
           <UiFormField
             label="Valor"
@@ -233,52 +246,90 @@
           </UiFormField>
         </UiFormSection>
 
-        <!-- Toggle: cobrar agora -->
-        <div class="cc-charge-toggle">
-          <label class="cc-check">
-            <input
-              type="checkbox"
-              class="cc-checkbox"
-              :checked="chargeNow"
-              @change="onToggleCharge($event.target.checked)"
-            />
-            <span class="cc-check-text">
-              <span class="cc-check-title">Cobrar agora pelo gateway</span>
-              <span class="cc-check-hint">
-                Quando ativado, é necessário o token de pagamento gerado no checkout do paciente.
-              </span>
-            </span>
-          </label>
-        </div>
-
-        <UiFormSection v-if="chargeNow" :columns="1">
-          <UiFormField
-            label="Token de pagamento"
-            :required="true"
-            :error="f.errors.payment_token"
-            hint="Token retornado pelo gateway (cartão/Pix) que autoriza a cobrança desta consulta."
-          >
-            <template #default="{ id, describedBy }">
-              <UiInput
-                :id="id"
-                :described-by="describedBy"
-                :model-value="f.values.payment_token"
-                :error="!!f.errors.payment_token"
-                :required="chargeNow"
-                autocomplete="off"
-                placeholder="tok_..."
-                @update:model-value="f.setField('payment_token', $event)"
-              />
-            </template>
-          </UiFormField>
-        </UiFormSection>
-
-        <!-- Selo de idempotência (transparência da garantia de cobrança única) -->
+        <!-- Selo de idempotência -->
         <p class="cc-idem" role="note">
           <span class="cc-idem-dot" aria-hidden="true">●</span>
           Cobrança protegida por chave de idempotência — reenvios da mesma tentativa não geram
           cobrança em dobro.
         </p>
+      </UiCard>
+
+      <!-- Lembretes — REQ-NEUROEVOLUI-0007 -->
+      <UiCard
+        title="Lembretes"
+        subtitle="Dispare um lembrete automático para o paciente antes da consulta."
+      >
+        <div class="cc-reminder-grid">
+          <!-- Toggle principal: enviar lembrete -->
+          <div class="cc-toggle-row">
+            <label class="cc-check" for="cc-reminder-toggle">
+              <input
+                id="cc-reminder-toggle"
+                type="checkbox"
+                class="cc-checkbox"
+                :checked="sendReminder"
+                @change="onToggleReminder($event.target.checked)"
+              />
+              <span class="cc-check-text">
+                <span class="cc-check-title">Enviar lembrete de consulta</span>
+                <span class="cc-check-hint">
+                  Notifica o paciente antecipadamente. O canal depende das preferências cadastradas.
+                </span>
+              </span>
+            </label>
+          </div>
+
+          <!-- Opções de antecedência (só visíveis quando toggle ativo) -->
+          <div v-if="sendReminder" class="cc-reminder-options" aria-live="polite">
+            <UiFormSection :columns="2">
+              <UiFormField
+                label="Antecedência do lembrete"
+                hint="Com quantas horas de antecedência avisar o paciente."
+                :error="f.errors.reminder_hours"
+              >
+                <template #default="{ id, describedBy }">
+                  <select
+                    :id="id"
+                    class="cc-select"
+                    :aria-describedby="describedBy || undefined"
+                    :value="String(f.values.reminder_hours)"
+                    @change="f.setField('reminder_hours', $event.target.value)"
+                  >
+                    <option v-for="opt in reminderHoursOptions" :key="opt.value" :value="String(opt.value)">
+                      {{ opt.label }}
+                    </option>
+                  </select>
+                </template>
+              </UiFormField>
+
+              <UiFormField
+                label="Canal preferencial"
+                hint="Canal de envio do lembrete (quando disponível)."
+              >
+                <template #default="{ id, describedBy }">
+                  <select
+                    :id="id"
+                    class="cc-select"
+                    :aria-describedby="describedBy || undefined"
+                    :value="f.values.reminder_channel"
+                    @change="f.setField('reminder_channel', $event.target.value)"
+                  >
+                    <option v-for="opt in reminderChannelOptions" :key="opt.value" :value="opt.value">
+                      {{ opt.label }}
+                    </option>
+                  </select>
+                </template>
+              </UiFormField>
+            </UiFormSection>
+
+            <!-- Informativo sobre o canal -->
+            <p class="cc-reminder-info" role="note">
+              <span class="cc-idem-dot" aria-hidden="true">●</span>
+              O lembrete será agendado automaticamente após o agendamento ser confirmado.
+              Canais indisponíveis são ignorados sem bloquear a criação da consulta.
+            </p>
+          </div>
+        </div>
       </UiCard>
 
       <!-- Observações -->
@@ -310,7 +361,7 @@
             Cancelar
           </UiButton>
           <UiButton variant="primary" type="submit" :loading="f.submitting.value">
-            {{ chargeNow ? 'Agendar e cobrar' : 'Agendar consulta' }}
+            {{ sendReminder ? 'Agendar e enviar lembrete' : 'Agendar consulta' }}
           </UiButton>
         </div>
       </div>
@@ -338,23 +389,13 @@ import {
   validators,
   format,
 } from '../ui/index.js';
-import { resourceFactory } from '../api.js';
+import { consultations, patients, professionals } from '../api.js';
 
 const router = useRouter();
 const toast = useToast();
 const askConfirm = useConfirm();
 
-// Clientes REST de domínio (mesmo padrão do DashboardView): cada um aponta para
-// /v1/<name> com list/get/create. `consultations` é o recurso principal; patients/
-// professionals são best-effort (catálogos) — se a lista falhar, caímos em texto livre.
-const consultationsApi = resourceFactory('consultations');
-const patientsApi = resourceFactory('patients');
-const professionalsApi = resourceFactory('professionals');
-
 // ---- Estado de preparo da tela ---------------------------------------------
-// `bootState` é o ÚNICO dono dos estados de boot (loading/ok/denied/error). O
-// UiPageLayout NÃO recebe :error — os ramos internos (UiLoadingState/UiErrorState/
-// UiEmptyState) renderizam dentro do slot, com retry próprio via @retry="bootstrap".
 const bootState = ref('loading'); // loading | ok | denied | error
 const deniedMessage = ref(
   'Você não tem permissão para criar agendamentos. Fale com um administrador.',
@@ -384,12 +425,42 @@ const durationOptions = [
   { value: 90, label: '1 hora e 30 min' },
   { value: 120, label: '2 horas' },
 ];
+
 const currencyOptions = [
   { value: 'BRL', label: 'Real (BRL)' },
   { value: 'USD', label: 'Dólar (USD)' },
-  { value: 'EUR', label: 'Euro (EUR)' },
 ];
-const CURRENCY_SYMBOLS = { BRL: 'R$', USD: 'US$', EUR: '€' };
+
+const CURRENCY_SYMBOLS = { BRL: 'R$', USD: 'US$' };
+
+// Lembretes — REQ-NEUROEVOLUI-0007
+const reminderHoursOptions = [
+  { value: 1,  label: '1 hora antes' },
+  { value: 2,  label: '2 horas antes' },
+  { value: 6,  label: '6 horas antes' },
+  { value: 12, label: '12 horas antes' },
+  { value: 24, label: '24 horas antes (1 dia)' },
+  { value: 48, label: '48 horas antes (2 dias)' },
+];
+
+const reminderChannelOptions = [
+  { value: 'whatsapp', label: 'WhatsApp' },
+  { value: 'sms',      label: 'SMS' },
+  { value: 'email',    label: 'E-mail' },
+  { value: 'push',     label: 'Notificação push' },
+];
+
+const sendReminder = ref(false);
+function onToggleReminder(checked) {
+  sendReminder.value = !!checked;
+  if (!sendReminder.value) {
+    f.setField('reminder_hours', 24);
+    f.setField('reminder_channel', 'whatsapp');
+  }
+}
+
+// ---- Alerta de conflito (HTTP 409) ------------------------------------------
+const conflictAlert = ref('');
 
 // ---- Formulário -------------------------------------------------------------
 const f = useForm({
@@ -400,7 +471,8 @@ const f = useForm({
     duration_minutes: 50,
     amount: '',
     currency: 'BRL',
-    payment_token: '',
+    reminder_hours: 24,
+    reminder_channel: 'whatsapp',
     notes: '',
   },
   rules: {
@@ -416,24 +488,14 @@ const f = useForm({
       validators.numeric('Valor inválido.'),
       validators.min(0, 'O valor não pode ser negativo.'),
     ],
-    // payment_token tem regra condicional (ver registerPaymentRule).
+    currency: [validators.required('Selecione a moeda.')],
   },
 });
 
-// Cobrança agora (exige token). Registra/retira a regra do token dinamicamente.
-const chargeNow = ref(false);
-function onToggleCharge(checked) {
-  chargeNow.value = !!checked;
-  registerPaymentRule();
-  if (!chargeNow.value) {
-    f.setField('payment_token', '');
-    delete f.errors.payment_token;
-  }
-}
-function registerPaymentRule() {
-  f.rules.payment_token = chargeNow.value
-    ? [validators.required('Informe o token de pagamento para cobrar agora.')]
-    : [];
+// Limpa conflito ao mudar horário ou profissional (o usuário está corrigindo)
+function onScheduledAtChange(val) {
+  f.setField('scheduled_at', val);
+  if (conflictAlert.value) conflictAlert.value = '';
 }
 
 // ---- Derivados de exibição --------------------------------------------------
@@ -445,6 +507,7 @@ const startDate = computed(() => {
   const d = new Date(raw);
   return Number.isNaN(d.getTime()) ? null : d;
 });
+
 const endDate = computed(() => {
   if (!startDate.value) return null;
   const mins = Number(f.values.duration_minutes);
@@ -468,6 +531,7 @@ const amountCents = computed(() => {
   if (!isFinite(n) || n < 0) return null;
   return Math.round(n * 100);
 });
+
 const amountSummary = computed(() => {
   if (amountCents.value === null) return '—';
   return format.formatCurrency(amountCents.value / 100, f.values.currency);
@@ -514,7 +578,6 @@ function isDirty() {
       v.professional_id ||
       v.scheduled_at ||
       v.amount ||
-      v.payment_token ||
       v.notes ||
       Number(v.duration_minutes) !== 50 ||
       v.currency !== 'BRL',
@@ -531,30 +594,41 @@ async function submit() {
       return;
     }
 
+    // Calcula scheduled_end_at a partir do início + duração
+    const endDt = endDate.value;
+
     const payload = {
       patient_id: vals.patient_id,
       professional_id: vals.professional_id,
       scheduled_at: startDate.value ? startDate.value.toISOString() : vals.scheduled_at,
+      scheduled_end_at: endDt ? endDt.toISOString() : null,
       duration_minutes: Number(vals.duration_minutes),
       amount_cents: cents,
       currency: vals.currency || 'BRL',
       notes: vals.notes ? vals.notes.trim() : null,
     };
-    if (chargeNow.value && vals.payment_token) {
-      payload.payment_token = vals.payment_token.trim();
+
+    // Lembrete (REQ-NEUROEVOLUI-0007): inclui no payload se toggle ativo
+    if (sendReminder.value) {
+      payload.reminder = {
+        send: true,
+        hours_before: Number(vals.reminder_hours),
+        channel: vals.reminder_channel,
+      };
     }
 
     try {
-      // create(body, { idempotencyKey }) → api.js injeta o header Idempotency-Key
-      // (cobrança/criação única; a MESMA chave é reusada em retries, renovada só no 409).
-      const created = await consultationsApi.create(payload, {
+      // consultations.schedule() → POST /v1/consultations/schedule (valida conflito de horário)
+      // Idempotência: api.js injeta o header Idempotency-Key; mesma chave p/ retries.
+      const created = await consultations.schedule(payload, {
         idempotencyKey: idempotencyKey.value,
       });
-      toast.success(
-        chargeNow.value
-          ? 'Consulta agendada e cobrança enviada ao gateway.'
-          : 'Consulta agendada com sucesso.',
-      );
+
+      const reminderMsg = sendReminder.value
+        ? ' Lembrete agendado para ' + vals.reminder_hours + 'h antes.'
+        : '';
+      toast.success('Consulta agendada com sucesso.' + reminderMsg);
+
       const id = created && (created.id || (created.data && created.data.id));
       router.push(id ? '/consultations/' + id : '/consultations');
     } catch (e) {
@@ -565,28 +639,31 @@ async function submit() {
 
 function handleSubmitError(e) {
   const status = e && e.status;
+
   if (status === 401 || status === 403) {
     bootState.value = 'denied';
     deniedMessage.value = (e && e.message) || deniedMessage.value;
     toast.error('Sem permissão para agendar.');
     return;
   }
+
+  // HTTP 409 — conflito de horário na agenda do profissional (REQ-NEUROEVOLUI-0005)
   if (status === 409) {
-    // Conflito de horário (ou idempotência) — renova a chave para a próxima tentativa.
-    idempotencyKey.value = newIdempotencyKey();
+    idempotencyKey.value = newIdempotencyKey(); // renova para próxima tentativa
     f.errors.scheduled_at = 'Horário indisponível para este profissional.';
-    toast.error(
+    conflictAlert.value =
       (e && e.message) ||
-        'Conflito de horário: o profissional já tem uma consulta nesse intervalo. Escolha outro horário.',
-    );
+      'O profissional já possui uma consulta nesse intervalo. Escolha outro horário ou profissional.';
+    toast.error('Conflito de horário detectado. Escolha outro horário.');
     return;
   }
-  if (status === 402 || status === 422) {
-    // Falha de pagamento informada pelo gateway.
-    toast.error((e && e.message) || 'Não foi possível processar o pagamento. Verifique o token.');
+
+  if (status === 422) {
+    toast.error((e && e.message) || 'Dados inválidos. Revise o formulário.');
     return;
   }
-  toast.error((e && e.message) || 'Não foi possível agendar a consulta.');
+
+  toast.error((e && e.message) || 'Não foi possível agendar a consulta. Tente novamente.');
 }
 
 // ---- Cancelar (destrutivo se houver dados) ----------------------------------
@@ -620,27 +697,20 @@ async function loadOptions(resource, target) {
     target.value = [];
     return;
   }
-  try {
-    const res = await resource.list({ pageSize: 200 });
-    const data = Array.isArray(res) ? res : res && res.data ? res.data : [];
-    target.value = data
-      .map((row) => ({ value: row.id, label: nameOf(row) }))
-      .filter((o) => o.value !== undefined && o.value !== null && o.value !== '');
-  } catch (_e) {
-    // Sem catálogo → texto livre (não é erro fatal da tela).
-    target.value = [];
-  }
+  // Deixa o erro propagar para bootstrap() setar bootState='error'.
+  const res = await resource.list({ pageSize: 200 });
+  const data = Array.isArray(res) ? res : res && res.data ? res.data : [];
+  target.value = data
+    .map((row) => ({ value: row.id, label: nameOf(row) }))
+    .filter((o) => o.value !== undefined && o.value !== null && o.value !== '');
 }
 
 async function bootstrap() {
   bootState.value = 'loading';
   try {
-    registerPaymentRule();
-    // Catálogos são best-effort (loadOptions engole falhas → texto livre). O boot só
-    // entra em 'error' se algo realmente inesperado quebrar aqui.
     await Promise.all([
-      loadOptions(patientsApi, patientOptions),
-      loadOptions(professionalsApi, professionalOptions),
+      loadOptions(patients, patientOptions),
+      loadOptions(professionals, professionalOptions),
     ]);
     bootState.value = 'ok';
   } catch (_e) {
@@ -658,18 +728,71 @@ onMounted(bootstrap);
   gap: var(--ui-space-5);
 }
 
+/* Resumo ao vivo */
 .cc-metrics {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: var(--ui-space-4);
 }
 
+/* Alerta de conflito de horário (HTTP 409) — REQ-NEUROEVOLUI-0005 */
+.cc-conflict-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ui-space-3);
+  padding: var(--ui-space-3) var(--ui-space-4);
+  border-radius: var(--ui-radius-md);
+  background: rgb(var(--ui-danger) / 0.08);
+  border: 1px solid rgb(var(--ui-danger) / 0.3);
+}
+.cc-conflict-icon {
+  flex: 0 0 auto;
+  font-size: var(--ui-text-lg);
+  color: rgb(var(--ui-danger));
+  margin-top: var(--ui-space-1);
+}
+.cc-conflict-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.cc-conflict-title {
+  margin: 0 0 var(--ui-space-1);
+  font-size: var(--ui-text-sm);
+  font-weight: 700;
+  color: rgb(var(--ui-danger));
+}
+.cc-conflict-desc {
+  margin: 0;
+  font-size: var(--ui-text-sm);
+  color: rgb(var(--ui-fg));
+}
+.cc-conflict-dismiss {
+  flex: 0 0 auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: rgb(var(--ui-muted));
+  font-size: var(--ui-text-sm);
+  padding: 0;
+  line-height: 1;
+  transition: color 0.15s ease;
+}
+.cc-conflict-dismiss:hover {
+  color: rgb(var(--ui-danger));
+}
+.cc-conflict-dismiss:focus-visible {
+  outline: 2px solid rgb(var(--ui-accent));
+  outline-offset: 2px;
+  border-radius: var(--ui-radius-sm);
+}
+
+/* Select compartilhado — estilizado exclusivamente com tokens --ui-* */
 .cc-select {
   background: rgb(var(--ui-bg));
   color: rgb(var(--ui-fg));
   border: 1px solid rgb(var(--ui-border-strong));
   border-radius: var(--ui-radius-sm);
-  padding: 8px 11px;
+  padding: var(--ui-space-2) var(--ui-space-3);
   font: inherit;
   font-size: var(--ui-text-md);
   width: 100%;
@@ -680,20 +803,28 @@ onMounted(bootstrap);
   border-color: rgb(var(--ui-accent));
   box-shadow: 0 0 0 3px rgb(var(--ui-accent) / 0.15);
 }
+.cc-select:focus-visible {
+  outline: 2px solid rgb(var(--ui-accent));
+  outline-offset: 2px;
+}
 .cc-select[aria-invalid='true'] {
   border-color: rgb(var(--ui-danger));
 }
+.cc-select[aria-invalid='true']:focus {
+  box-shadow: 0 0 0 3px rgb(var(--ui-danger) / 0.15);
+}
 
+/* Textarea — estilizada exclusivamente com tokens --ui-* */
 .cc-textarea {
   background: rgb(var(--ui-bg));
   color: rgb(var(--ui-fg));
   border: 1px solid rgb(var(--ui-border-strong));
   border-radius: var(--ui-radius-sm);
-  padding: 8px 11px;
+  padding: var(--ui-space-2) var(--ui-space-3);
   font: inherit;
   font-size: var(--ui-text-md);
   width: 100%;
-  min-height: 84px;
+  min-height: calc(var(--ui-space-5) * 3);
   resize: vertical;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -702,10 +833,21 @@ onMounted(bootstrap);
   border-color: rgb(var(--ui-accent));
   box-shadow: 0 0 0 3px rgb(var(--ui-accent) / 0.15);
 }
+.cc-textarea:focus-visible {
+  outline: 2px solid rgb(var(--ui-accent));
+  outline-offset: 2px;
+}
+.cc-textarea[aria-invalid='true'] {
+  border-color: rgb(var(--ui-danger));
+}
+.cc-textarea[aria-invalid='true']:focus {
+  box-shadow: 0 0 0 3px rgb(var(--ui-danger) / 0.15);
+}
 .cc-textarea::placeholder {
   color: rgb(var(--ui-faint));
 }
 
+/* Valor monetário */
 .cc-money {
   display: flex;
   align-items: center;
@@ -722,6 +864,7 @@ onMounted(bootstrap);
   font-variant-numeric: tabular-nums;
 }
 
+/* Aviso inline de horário no passado */
 .cc-inline-warn {
   margin: var(--ui-space-3) 0 0;
   padding: var(--ui-space-2) var(--ui-space-3);
@@ -732,8 +875,17 @@ onMounted(bootstrap);
   font-size: var(--ui-text-sm);
 }
 
-.cc-charge-toggle {
-  margin-top: var(--ui-space-4);
+/* Seção de lembretes — REQ-NEUROEVOLUI-0007 */
+.cc-reminder-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-4);
+}
+.cc-toggle-row {
+  padding: var(--ui-space-3) var(--ui-space-4);
+  border-radius: var(--ui-radius-md);
+  border: 1px solid rgb(var(--ui-border));
+  background: rgb(var(--ui-surface));
 }
 .cc-check {
   display: flex;
@@ -743,16 +895,16 @@ onMounted(bootstrap);
 }
 .cc-checkbox {
   flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
-  margin-top: 2px;
+  width: var(--ui-space-4);
+  height: var(--ui-space-4);
+  margin-top: var(--ui-space-1);
   accent-color: rgb(var(--ui-accent));
   cursor: pointer;
 }
 .cc-check-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--ui-space-1);
 }
 .cc-check-title {
   font-size: var(--ui-text-md);
@@ -763,7 +915,25 @@ onMounted(bootstrap);
   font-size: var(--ui-text-xs);
   color: rgb(var(--ui-muted));
 }
+.cc-reminder-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-3);
+}
+.cc-reminder-info {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ui-space-2);
+  margin: 0;
+  padding: var(--ui-space-2) var(--ui-space-3);
+  border-radius: var(--ui-radius-sm);
+  background: rgb(var(--ui-accent) / 0.06);
+  border: 1px solid rgb(var(--ui-accent) / 0.18);
+  font-size: var(--ui-text-xs);
+  color: rgb(var(--ui-muted));
+}
 
+/* Idempotência */
 .cc-idem {
   display: flex;
   align-items: center;
@@ -774,9 +944,10 @@ onMounted(bootstrap);
 }
 .cc-idem-dot {
   color: rgb(var(--ui-success));
-  font-size: 0.7em;
+  font-size: var(--ui-text-xs);
 }
 
+/* Ações do formulário */
 .cc-actions {
   display: flex;
   align-items: center;
@@ -799,6 +970,7 @@ onMounted(bootstrap);
   gap: var(--ui-space-2);
 }
 
+/* Responsividade */
 @media (max-width: 860px) {
   .cc-metrics {
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -807,6 +979,9 @@ onMounted(bootstrap);
 }
 
 @media (max-width: 640px) {
+  .cc-conflict-banner {
+    flex-wrap: wrap;
+  }
   .cc-actions {
     align-items: stretch;
   }

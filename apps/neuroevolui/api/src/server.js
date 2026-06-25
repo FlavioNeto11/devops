@@ -10,7 +10,7 @@ import { enqueueSubmit, queueCounts, enqueue } from './queue.js';
 import { findAsyncJob, upsertAsyncJob } from './repositories/async-jobs-repo.js';
 import { listRecords, createRecord, findRecord, deleteRecord, updateRecordStatus, updateRecord } from './repositories/records-repo.js';
 import { findIdempotency, saveIdempotency } from './repositories/idempotency-repo.js';
-import { listConsultations, findConsultation } from './repositories/consultations-repo.js';
+import { listConsultations, findConsultation, listConsultationsPaged, updateConsultation, deleteConsultation } from './repositories/consultations-repo.js';
 import { scheduleConsultation } from './services/consultations-service.js';
 import { processWebhook } from './services/payments-service.js';
 import { getRevenueDashboard } from './services/dashboard-service.js';
@@ -26,10 +26,10 @@ import { upsertPushSubscription, deletePushSubscription, getNotificationPreferen
 import { listPatients, findPatient, createPatient, updatePatient, deletePatient } from './repositories/patients-repo.js';
 import { listProfessionals, findProfessional, createProfessional, updateProfessional, deleteProfessional } from './repositories/professionals-repo.js';
 import { listPatientReportsPaged, findPatientReport, deletePatientReport, PR_STATUSES } from './repositories/patient-reports-repo.js';
-import { listPaymentTransactions, findPaymentTransaction } from './repositories/payment-transactions-repo.js';
+import { listPaymentTransactions, findPaymentTransaction, updatePaymentTransaction, deletePaymentTransaction } from './repositories/payment-transactions-repo.js';
 import { listKnowledgeSources, findKnowledgeSource, createKnowledgeSource, updateKnowledgeSource, deleteKnowledgeSource, reindexKnowledgeSource, knowledgeSourceStats } from './repositories/knowledge-sources-repo.js';
-import { listAuditLogsPaged, findAuditLog } from './repositories/audit-repo.js';
-import { listAsyncJobsPaged, findAsyncJobById, listAsyncJobsByQueue } from './repositories/async-jobs-repo.js';
+import { listAuditLogsPaged, findAuditLog, deleteAuditLog } from './repositories/audit-repo.js';
+import { listAsyncJobsPaged, findAsyncJobById, listAsyncJobsByQueue, deleteAsyncJob, updateAsyncJobStatus } from './repositories/async-jobs-repo.js';
 
 const app = Fastify({ logger: false });
 
@@ -165,7 +165,7 @@ app.post('/v1/consultations/schedule', { preHandler: requireRole('professional')
   }
 });
 
-app.get('/v1/consultations', async (req) => ({ data: await listConsultations(req.tenantId) }));
+app.get('/v1/consultations', async (req) => listConsultationsPaged(req.tenantId, listParams(req)));
 
 // Consulta por id — alimenta o card "Consulta vinculada" da tela de transação (REQ-NEUROEVOLUI-0005).
 // Usa o helper findConsultation (já existente no repo). Mesmo gate de leitura da transação (clinic_manager).
@@ -173,6 +173,18 @@ app.get('/v1/consultations/:id', { preHandler: requireRole('clinic_manager') }, 
   const c = await findConsultation(req.tenantId, req.params.id);
   if (!c) { reply.code(404); return { error: { message: 'consulta não encontrada' } }; }
   return c;
+});
+
+app.put('/v1/consultations/:id', { preHandler: requireRole('professional') }, async (req, reply) => {
+  const r = await updateConsultation(req.tenantId, req.params.id, req.body || {});
+  if (!r) { reply.code(404); return { error: { message: 'consulta não encontrada' } }; }
+  return r;
+});
+
+app.delete('/v1/consultations/:id', { preHandler: requireRole('clinic_manager') }, async (req, reply) => {
+  const ok = await deleteConsultation(req.tenantId, req.params.id);
+  if (!ok) { reply.code(404); return { error: { message: 'consulta não encontrada' } }; }
+  return { deleted: true };
 });
 
 // Webhook
@@ -706,7 +718,7 @@ app.delete('/v1/patient-reports/:id', { preHandler: requireRole('clinic_manager'
   return { deleted: true };
 });
 
-// ── Payment Transactions (coleção de topo, leitura — escrita via webhook/serviço) ─
+// ── Payment Transactions (coleção de topo) ────────────────────────────────────
 app.get('/v1/payment-transactions', { preHandler: requireRole('clinic_manager') }, async (req) =>
   listPaymentTransactions(req.tenantId, listParams(req)));
 
@@ -714,6 +726,18 @@ app.get('/v1/payment-transactions/:id', { preHandler: requireRole('clinic_manage
   const r = await findPaymentTransaction(req.tenantId, req.params.id);
   if (!r) { reply.code(404); return { error: { message: 'transação não encontrada' } }; }
   return r;
+});
+
+app.put('/v1/payment-transactions/:id', { preHandler: requireRole('clinic_manager') }, async (req, reply) => {
+  const r = await updatePaymentTransaction(req.tenantId, req.params.id, req.body || {});
+  if (!r) { reply.code(404); return { error: { message: 'transação não encontrada' } }; }
+  return r;
+});
+
+app.delete('/v1/payment-transactions/:id', { preHandler: requireRole('clinic_manager') }, async (req, reply) => {
+  const ok = await deletePaymentTransaction(req.tenantId, req.params.id);
+  if (!ok) { reply.code(404); return { error: { message: 'transação não encontrada' } }; }
+  return { deleted: true };
 });
 
 // ── Knowledge Sources (base de conhecimento RAG) ───────────────────────────────
@@ -836,7 +860,7 @@ app.delete('/v1/notification-preferences/:id', { preHandler: requireRole('clinic
   return { deleted: true };
 });
 
-// ── Audit Logs (coleção de topo, leitura — escrita é interna via auditoria) ─────
+// ── Audit Logs (coleção de topo) ──────────────────────────────────────────────
 app.get('/v1/audit-logs', { preHandler: requireRole('clinic_manager') }, async (req) =>
   listAuditLogsPaged(req.tenantId, listParams(req)));
 
@@ -846,7 +870,33 @@ app.get('/v1/audit-logs/:id', { preHandler: requireRole('clinic_manager') }, asy
   return r;
 });
 
-// ── Async Jobs (coleção de topo, leitura — escrita via enqueue) ────────────────
+// POST /v1/audit-logs — registro manual de evento de auditoria (integrações externas).
+// A maioria das entradas é gerada internamente; este endpoint expõe a escrita para
+// integrações (ex.: event ingestion de sistemas externos). Exige clinic_manager.
+app.post('/v1/audit-logs', { preHandler: requireRole('clinic_manager') }, async (req, reply) => {
+  const b = req.body || {};
+  await insertAuditLog({
+    tenantId: req.tenantId,
+    entityType: b.entity_type || 'manual',
+    entityId: b.entity_id || null,
+    action: b.action || 'create',
+    actor: b.actor || req.actor,
+    amountCents: b.amount_cents || null,
+    paymentStatus: b.payment_status || null,
+    gateway: b.gateway || null,
+    metadata: b.metadata || {},
+  });
+  reply.code(201); return { created: true };
+});
+
+// DELETE /v1/audit-logs/:id — remoção de log (ex.: correção de dados errados). owner/clinic_manager.
+app.delete('/v1/audit-logs/:id', { preHandler: requireRole('clinic_manager') }, async (req, reply) => {
+  const ok = await deleteAuditLog(req.tenantId, req.params.id);
+  if (!ok) { reply.code(404); return { error: { message: 'log não encontrado' } }; }
+  return { deleted: true };
+});
+
+// ── Async Jobs (coleção de topo) ──────────────────────────────────────────────
 app.get('/v1/async-jobs', { preHandler: requireRole('professional') }, async (req) =>
   listAsyncJobsPaged(req.tenantId, listParams(req)));
 
@@ -854,6 +904,35 @@ app.get('/v1/async-jobs/:id', { preHandler: requireRole('professional') }, async
   const r = await findAsyncJobById(req.tenantId, req.params.id);
   if (!r) { reply.code(404); return { error: { message: 'job não encontrado' } }; }
   return r;
+});
+
+// POST /v1/async-jobs — enfileira um job genérico via REST (mesma semântica de enqueueAsync).
+// Para filas dedicadas use /v1/consultation-notes, /v1/notifications etc.; este endpoint
+// é o gateway genérico da coleção de topo (inventário REST completo).
+app.post('/v1/async-jobs', { preHandler: requireRole('professional') }, async (req, reply) => {
+  const b = req.body || {};
+  if (!b.queue_name) { reply.code(400); return { error: { message: 'queue_name obrigatório' } }; }
+  return enqueueAsync(req, reply, b.queue_name);
+});
+
+// PUT /v1/async-jobs/:id — atualiza status/resultado de um job (ex.: worker reporta conclusão).
+app.put('/v1/async-jobs/:id', { preHandler: requireRole('clinic_manager') }, async (req, reply) => {
+  const b = req.body || {};
+  const job = await findAsyncJobById(req.tenantId, req.params.id);
+  if (!job) { reply.code(404); return { error: { message: 'job não encontrado' } }; }
+  const validStatuses = ['queued', 'processing', 'done', 'failed'];
+  if (b.status !== undefined && !validStatuses.includes(b.status)) {
+    reply.code(400); return { error: { message: `status inválido (use: ${validStatuses.join(', ')})` } };
+  }
+  await updateAsyncJobStatus(job.queue_name, job.job_key, b.status || job.status, b.result ?? undefined);
+  return findAsyncJobById(req.tenantId, req.params.id);
+});
+
+// DELETE /v1/async-jobs/:id — remove um job da coleção (limpeza de jobs antigos).
+app.delete('/v1/async-jobs/:id', { preHandler: requireRole('clinic_manager') }, async (req, reply) => {
+  const ok = await deleteAsyncJob(req.tenantId, req.params.id);
+  if (!ok) { reply.code(404); return { error: { message: 'job não encontrado' } }; }
+  return { deleted: true };
 });
 
 const PORT = Number(process.env.PORT) || 8080;

@@ -1,41 +1,43 @@
 <template>
   <UiPageLayout
     eyebrow="Prontuário"
-    title="Evoluções"
-    subtitle="Linha do tempo das evoluções clínicas. Filtre por paciente, tipo, profissional e período; clique para abrir o detalhe."
+    title="Notas de Evolução"
+    subtitle="Visão agregada de todas as notas clínicas do tenant. Filtre por paciente, tipo, profissional e período."
     width="wide"
+    :error="r.error.value"
+    @retry="reload"
   >
     <template #actions>
       <UiButton variant="ghost" :loading="r.loading.value" @click="reload">Atualizar</UiButton>
-      <UiButton to="/evolution-notes/new" variant="primary">Nova evolução</UiButton>
+      <UiButton to="/evolution-notes/new" variant="primary">Nova nota</UiButton>
     </template>
 
-    <!-- Resumo (KPIs) — sempre visível; placeholders enquanto carrega -->
-    <section class="en-metrics" aria-label="Resumo de evoluções">
+    <!-- KPIs da produção clínica (página atual) -->
+    <section class="en-metrics" aria-label="Resumo da produção clínica">
       <UiMetricCard
-        label="Evoluções"
+        label="Total (filtro)"
         :value="r.loading.value ? null : format.formatNumber(r.total.value)"
         :loading="r.loading.value"
         tone="primary"
-        hint="No filtro de servidor"
+        hint="Registros no servidor"
       />
       <UiMetricCard
-        label="Sessões"
-        :value="r.loading.value ? null : format.formatNumber(typeCounts.session)"
+        label="Notas clínicas"
+        :value="r.loading.value ? null : format.formatNumber(typeCounts.nota_clinica)"
         :loading="r.loading.value"
         tone="running"
         hint="Nesta página"
       />
       <UiMetricCard
         label="Resultados de teste"
-        :value="r.loading.value ? null : format.formatNumber(typeCounts.test_result)"
+        :value="r.loading.value ? null : format.formatNumber(typeCounts.resultado_teste)"
         :loading="r.loading.value"
         tone="success"
         hint="Nesta página"
       />
       <UiMetricCard
         label="Planos de intervenção"
-        :value="r.loading.value ? null : format.formatNumber(typeCounts.intervention_plan)"
+        :value="r.loading.value ? null : format.formatNumber(typeCounts.plano_intervencao)"
         :loading="r.loading.value"
         tone="warning"
         hint="Nesta página"
@@ -52,20 +54,20 @@
       />
     </template>
 
-    <!-- Banner de filtro / alternador de visualização -->
+    <!-- Banner: filtros ativos + alternador de visualização -->
     <template #banner>
-      <div class="en-toolbar" role="region" aria-label="Visualização e filtros ativos">
+      <div class="en-toolbar" role="region" aria-label="Controles de visualização">
         <div v-if="hasLocalFilters && !r.error.value" class="en-active" role="status">
           <span class="en-active-text">
-            Exibindo {{ format.formatNumber(visibleRows.length) }} de
-            {{ format.formatNumber(r.items.value.length) }} evoluções desta página.
+            {{ format.formatNumber(visibleRows.length) }} de
+            {{ format.formatNumber(r.items.value.length) }} nesta página.
           </span>
           <span v-if="hasMorePages" class="en-active-more">
-            Há mais páginas — vá para a próxima para ver outras correspondências.
+            Há mais páginas — navegue para ver outras correspondências.
           </span>
           <UiButton variant="subtle" size="sm" @click="onClear">Limpar filtros</UiButton>
         </div>
-        <span v-else class="en-hint">Linha do tempo das evoluções do tenant, da mais recente para a mais antiga.</span>
+        <span v-else class="en-hint">Da nota mais recente para a mais antiga, em tempo real.</span>
 
         <div class="en-views" role="tablist" aria-label="Modo de visualização">
           <button
@@ -92,7 +94,7 @@
       </div>
     </template>
 
-    <!-- ESTADO: erro (vale para os dois modos) -->
+    <!-- Estado: erro -->
     <UiErrorState
       v-if="r.error.value"
       :message="errorMessage"
@@ -100,28 +102,36 @@
       @retry="reload"
     />
 
-    <!-- ESTADO: carregando — esqueleto da linha do tempo -->
+    <!-- Estado: carregando (skeleton — cobre ambos os modos) -->
     <UiLoadingState
-      v-else-if="r.loading.value && view === 'timeline'"
+      v-else-if="r.loading.value"
       variant="skeleton"
-      :skeleton-lines="6"
+      :skeleton-lines="8"
     />
 
-    <!-- ESTADO: vazio — CTA -->
+    <!-- Estado: vazio -->
     <UiEmptyState
       v-else-if="!r.loading.value && !visibleRows.length"
       v-bind="emptyState"
     >
       <template #action>
         <div class="en-empty-actions">
-          <UiButton v-if="hasLocalFilters || hasServerFilters" variant="ghost" @click="onClear">Limpar filtros</UiButton>
-          <UiButton to="/evolution-notes/new" variant="primary">Registrar primeira evolução</UiButton>
+          <UiButton
+            v-if="hasLocalFilters || hasServerFilters"
+            variant="ghost"
+            @click="onClear"
+          >Limpar filtros</UiButton>
+          <UiButton to="/evolution-notes/new" variant="primary">Registrar primeira nota</UiButton>
         </div>
       </template>
     </UiEmptyState>
 
-    <!-- ESTADO: normal — LINHA DO TEMPO -->
-    <ol v-else-if="view === 'timeline'" class="en-timeline" aria-label="Linha do tempo de evoluções">
+    <!-- Estado: normal — LINHA DO TEMPO -->
+    <ol
+      v-else-if="view === 'timeline'"
+      class="en-timeline"
+      aria-label="Linha do tempo de notas de evolução"
+    >
       <li
         v-for="(group, gi) in groupedRows"
         :key="group.key"
@@ -134,6 +144,7 @@
             :key="row.id"
             class="en-item"
             :data-type="typeKey(row.type)"
+            :data-status="statusKey(row.status)"
           >
             <button
               class="en-card"
@@ -145,15 +156,19 @@
               <span class="en-body">
                 <span class="en-head">
                   <UiStatusBadge
-                    :status="row.type"
+                    :status="row.type || 'outro'"
                     :tone="typeTone(row.type)"
                     :label="typeLabel(row.type)"
-                    size="sm"
                   />
-                  <span v-if="isDeleted(row)" class="en-deleted">
-                    <UiStatusBadge status="deleted" tone="error" label="Excluída" size="sm" />
-                  </span>
-                  <time class="en-time">{{ format.formatDateTime(row.note_date || row.created_at) }}</time>
+                  <UiStatusBadge
+                    v-if="!isAtivo(row)"
+                    :status="row.status"
+                    :tone="statusTone(row.status)"
+                    :label="noteStatusLabel(row.status)"
+                  />
+                  <time class="en-time" :datetime="row.note_date || row.created_at">
+                    {{ format.formatDateTime(row.note_date || row.created_at) }}
+                  </time>
                 </span>
                 <span class="en-summary">{{ summary(row) }}</span>
                 <span class="en-meta">
@@ -165,11 +180,11 @@
             </button>
           </li>
         </ul>
-        <span v-if="gi < groupedRows.length - 1" class="en-day-rule" aria-hidden="true" />
+        <hr v-if="gi < groupedRows.length - 1" class="en-day-rule" aria-hidden="true" />
       </li>
     </ol>
 
-    <!-- ESTADO: normal — TABELA (alternativa estruturada; trata seus próprios estados) -->
+    <!-- Estado: normal — TABELA -->
     <UiDataTable
       v-else
       :columns="columns"
@@ -185,10 +200,13 @@
       @update:sort="r.setSort"
     >
       <template #cell-note_date="{ row }">
-        <span class="en-cell-when">{{ format.formatDateTime(row.note_date || row.created_at) }}</span>
+        <time
+          class="en-cell-when"
+          :datetime="row.note_date || row.created_at"
+        >{{ format.formatDateTime(row.note_date || row.created_at) }}</time>
       </template>
       <template #cell-type="{ value }">
-        <UiStatusBadge :status="value" :tone="typeTone(value)" :label="typeLabel(value)" />
+        <UiStatusBadge :status="value || 'outro'" :tone="typeTone(value)" :label="typeLabel(value)" />
       </template>
       <template #cell-patient_id="{ row }">
         <span class="en-cell-id">{{ patientLabel(row) }}</span>
@@ -200,12 +218,18 @@
         <span class="en-cell-summary">{{ summary(row) }}</span>
       </template>
       <template #cell-status="{ value }">
-        <UiStatusBadge :status="value || 'active'" :tone="statusTone(value)" :label="statusLabel(value)" />
+        <UiStatusBadge
+          :status="value || 'ativo'"
+          :tone="statusTone(value)"
+          :label="noteStatusLabel(value)"
+        />
+      </template>
+      <template #empty-action>
+        <UiButton to="/evolution-notes/new">Registrar nota</UiButton>
       </template>
     </UiDataTable>
 
-    <!-- Paginação do servidor (vale para os dois modos; permanece visível mesmo com -->
-    <!-- filtro local, pois há correspondências em outras páginas que o recorte não alcança). -->
+    <!-- Paginação servidor (ambos os modos) -->
     <UiPagination
       v-if="!r.loading.value && !r.error.value && r.total.value > r.pageSize.value"
       :page="r.page.value"
@@ -216,7 +240,7 @@
     />
 
     <template #footer>
-      <span>Fonte: evoluções do tenant em tempo real. Paciente e tipo filtram no servidor; profissional e período recortam a página atual.</span>
+      <span>Fonte: notas de evolução do tenant em tempo real. Paciente e tipo filtram no servidor; profissional e período recortam a página atual.</span>
     </template>
   </UiPageLayout>
 </template>
@@ -244,102 +268,94 @@ import * as api from '../api.js';
 const router = useRouter();
 const toast = useToast();
 
-// --- Resolução defensiva de recursos REST ----------------------------------
-// O integrador anexa nomes camelCase a api.js (ex.: `patients`, `consultations`).
-// Para evolution-notes usamos o nome convencional se existir e, em qualquer caso,
-// caímos para o factory que aponta para o endpoint REAL /v1/evolution-notes.
+// Resolução defensiva: camelCase → alias com hífen → factory (fallback).
 function resource(name) {
   const camel = name.replace(/[-_](\w)/g, (_, c) => c.toUpperCase());
   const candidate = api[camel] || api[name];
   if (candidate && typeof candidate.list === 'function') return candidate;
   return api.resourceFactory(name);
 }
-const evolutionNotes = resource('evolution-notes');
+const evolutionNotesApi = resource('evolution-notes');
 const patientsApi = resource('patients');
 
-// --- Catálogo de tipos (enum do contrato) ----------------------------------
-const TYPE_LABELS = {
-  session: 'Sessão',
-  test_result: 'Resultado de teste',
-  intervention_plan: 'Plano de intervenção',
-  observation: 'Observação',
+// ── Catálogo de tipos (enum da entidade) ─────────────────────────────────────
+const TYPE_META = {
+  nota_clinica:        { label: 'Nota clínica',         tone: 'running',  glyph: '📋' },
+  resultado_teste:     { label: 'Resultado de teste',    tone: 'success',  glyph: '📊' },
+  plano_intervencao:   { label: 'Plano de intervenção',  tone: 'warning',  glyph: '🧭' },
+  anamnese:            { label: 'Anamnese',              tone: 'primary',  glyph: '📝' },
+  outro:               { label: 'Outro',                 tone: 'neutral',  glyph: '•'  },
 };
-const TYPE_TONES = {
-  session: 'running',
-  test_result: 'success',
-  intervention_plan: 'warning',
-  observation: 'neutral',
-};
-const TYPE_GLYPHS = {
-  session: '🗣',
-  test_result: '📊',
-  intervention_plan: '🧭',
-  observation: '📝',
-};
-const typeKey = (t) => String(t || '').toLowerCase();
-const typeLabel = (t) => TYPE_LABELS[typeKey(t)] || format.humanize(t) || 'Evolução';
-const typeTone = (t) => TYPE_TONES[typeKey(t)] || 'neutral';
-const typeGlyph = (t) => TYPE_GLYPHS[typeKey(t)] || '•';
+const typeKey    = (t) => String(t || '').toLowerCase();
+const typeMeta   = (t) => TYPE_META[typeKey(t)] || TYPE_META.outro;
+const typeLabel  = (t) => typeMeta(t).label;
+const typeTone   = (t) => typeMeta(t).tone;
+const typeGlyph  = (t) => typeMeta(t).glyph;
 
-const STATUS_LABELS = { active: 'Ativa', deleted: 'Excluída' };
-const statusLabel = (s) => STATUS_LABELS[String(s || 'active').toLowerCase()] || format.humanize(s);
-const statusTone = (s) => (String(s || '').toLowerCase() === 'deleted' ? 'error' : 'success');
-const isDeleted = (row) =>
-  String(row.status || '').toLowerCase() === 'deleted' || !!row.deleted_at;
+// ── Catálogo de status (enum da entidade) ────────────────────────────────────
+const STATUS_META = {
+  ativo:    { label: 'Ativa',    tone: 'success' },
+  editado:  { label: 'Editada',  tone: 'warning' },
+  excluido: { label: 'Excluída', tone: 'error'   },
+};
+const statusKey      = (s) => String(s || 'ativo').toLowerCase();
+const statusMeta     = (s) => STATUS_META[statusKey(s)] || STATUS_META.ativo;
+const noteStatusLabel = (s) => statusMeta(s).label;
+const statusTone     = (s) => statusMeta(s).tone;
+const isAtivo        = (row) => statusKey(row.status) === 'ativo' || !row.status;
 
-// --- Colunas da tabela ------------------------------------------------------
+// ── Colunas da tabela ────────────────────────────────────────────────────────
 const columns = [
-  { key: 'note_date', label: 'Data', sortable: true },
-  { key: 'type', label: 'Tipo', sortable: true },
-  { key: 'patient_id', label: 'Paciente', sortable: true },
-  { key: 'professional_id', label: 'Profissional' },
-  { key: 'summary', label: 'Resumo' },
-  { key: 'status', label: 'Status', sortable: true },
+  { key: 'note_date',       label: 'Data',          sortable: true  },
+  { key: 'type',            label: 'Tipo',           sortable: true  },
+  { key: 'patient_id',      label: 'Paciente',       sortable: true  },
+  { key: 'professional_id', label: 'Profissional'                    },
+  { key: 'summary',         label: 'Resumo'                          },
+  { key: 'status',          label: 'Status',         sortable: true  },
 ];
 
-// --- Filtros ----------------------------------------------------------------
-// `ref` (não reactive) para o v-model do UiFiltersPanel escrever de volta sem warning.
+// ── Filtros ──────────────────────────────────────────────────────────────────
 const filters = ref({ patient: '', type: '', professional: '', from: '', to: '' });
 
-const patientMap = ref({}); // id -> nome
-const patientOptions = ref([]); // [{ value, label }]
+const patientMap     = ref({});
+const patientOptions = ref([]);
 
 const filterFields = computed(() => [
   {
-    key: 'patient',
-    label: 'Paciente',
-    type: patientOptions.value.length ? 'select' : 'text',
-    options: patientOptions.value,
-    placeholder: 'Id do paciente…',
+    key:         'patient',
+    label:       'Paciente',
+    type:        patientOptions.value.length ? 'select' : 'text',
+    options:     patientOptions.value,
+    placeholder: 'Id ou nome do paciente…',
   },
   {
-    key: 'type',
-    label: 'Tipo',
-    type: 'select',
+    key:     'type',
+    label:   'Tipo',
+    type:    'select',
     options: [
-      { value: 'session', label: 'Sessão' },
-      { value: 'test_result', label: 'Resultado de teste' },
-      { value: 'intervention_plan', label: 'Plano de intervenção' },
-      { value: 'observation', label: 'Observação' },
+      { value: 'nota_clinica',      label: 'Nota clínica'         },
+      { value: 'resultado_teste',   label: 'Resultado de teste'   },
+      { value: 'plano_intervencao', label: 'Plano de intervenção' },
+      { value: 'anamnese',          label: 'Anamnese'             },
+      { value: 'outro',             label: 'Outro'                },
     ],
   },
-  { key: 'professional', label: 'Profissional', type: 'text', placeholder: 'Id do profissional…' },
-  { key: 'from', label: 'De', type: 'date' },
-  { key: 'to', label: 'Até', type: 'date' },
+  { key: 'professional', label: 'Profissional', type: 'text',  placeholder: 'Id do profissional…' },
+  { key: 'from',         label: 'De',           type: 'date'                                       },
+  { key: 'to',           label: 'Até',          type: 'date'                                       },
 ]);
 
-// --- Recurso (server-mode): paginação/ordenação + filtros de servidor -------
-// O backend /v1/evolution-notes filtra por patient_id e type; profissional e
-// período são recortados no cliente sobre a página carregada.
-const r = useResource(evolutionNotes, {
+// ── Recurso (server-mode) ────────────────────────────────────────────────────
+const r = useResource(evolutionNotesApi, {
   pageSize: 25,
-  sort: { key: 'note_date', dir: 'desc' },
+  sort:    { key: 'note_date', dir: 'desc' },
   filters: { patient_id: '', type: '' },
 });
 
-// --- Rótulos de exibição ----------------------------------------------------
+// ── Rótulos de exibição ──────────────────────────────────────────────────────
 const patientLabel = (row) =>
   row.patient_name || patientMap.value[String(row.patient_id)] || row.patient_id || '—';
+
 const professionalLabel = (row) =>
   row.professional_name || row.professional_id || 'Não informado';
 
@@ -349,13 +365,12 @@ function summary(row) {
   return raw.length > 160 ? raw.slice(0, 159) + '…' : raw;
 }
 
-// --- Filtragem local (profissional + período) -------------------------------
+// ── Filtragem local (profissional + período) ─────────────────────────────────
+// O backend filtra patient_id e type; profissional e período recortam a página.
 const hasServerFilters = computed(() => !!(filters.value.patient || filters.value.type));
-const hasLocalFilters = computed(
+const hasLocalFilters  = computed(
   () => !!(filters.value.professional || filters.value.from || filters.value.to)
 );
-// Há registros do filtro de servidor além da página atual? Com filtro local ativo,
-// outras correspondências podem estar nessas páginas — guiamos o usuário a paginar.
 const hasMorePages = computed(() => r.total.value > r.pageSize.value);
 
 function inRange(value, from, to) {
@@ -387,7 +402,7 @@ const visibleRows = computed(() =>
   })
 );
 
-// --- Agrupamento por dia (linha do tempo) -----------------------------------
+// ── Agrupamento por dia (linha do tempo) ─────────────────────────────────────
 function dayKey(value) {
   const d = value ? new Date(value) : null;
   if (!d || isNaN(d.getTime())) return 'sem-data';
@@ -401,46 +416,47 @@ const groupedRows = computed(() => {
   const map = new Map();
   for (const row of visibleRows.value) {
     const when = row.note_date || row.created_at;
-    const key = dayKey(when);
+    const key  = dayKey(when);
     if (!map.has(key)) map.set(key, { key, label: dayLabel(key, when), items: [] });
     map.get(key).items.push(row);
   }
   return [...map.values()];
 });
 
-// --- Métricas (página atual) ------------------------------------------------
+// ── Métricas de tipo (página atual) ─────────────────────────────────────────
 const typeCounts = computed(() => {
-  const acc = { session: 0, test_result: 0, intervention_plan: 0, observation: 0 };
+  const acc = { nota_clinica: 0, resultado_teste: 0, plano_intervencao: 0, anamnese: 0, outro: 0 };
   for (const row of visibleRows.value) {
     const k = typeKey(row.type);
     if (k in acc) acc[k] += 1;
+    else acc.outro += 1;
   }
   return acc;
 });
 
-// --- Estados ----------------------------------------------------------------
+// ── Estados ──────────────────────────────────────────────────────────────────
 const errorMessage = computed(() => {
   const e = r.error.value;
   if (!e) return null;
-  return (e && e.message) || 'Não foi possível carregar as evoluções.';
+  return (e && e.message) || 'Não foi possível carregar as notas de evolução.';
 });
 
 const emptyState = computed(() => {
   const filtering = hasServerFilters.value || hasLocalFilters.value;
   return filtering
     ? {
-        title: 'Nenhuma evolução encontrada',
-        description: 'Nenhum registro corresponde aos filtros atuais. Ajuste os critérios ou limpe os filtros.',
-        icon: '◎',
+        title:       'Nenhuma nota encontrada',
+        description: 'Nenhum registro corresponde aos filtros. Ajuste os critérios ou limpe.',
+        icon:        '◎',
       }
     : {
-        title: 'Nenhuma evolução registrada',
-        description: 'Comece registrando a primeira evolução clínica para montar a linha do tempo do paciente.',
-        icon: '＋',
+        title:       'Nenhuma nota registrada',
+        description: 'Comece registrando a primeira nota de evolução clínica para montar a linha do tempo.',
+        icon:        '＋',
       };
 });
 
-// --- a11y dos cartões -------------------------------------------------------
+// ── a11y dos cartões ─────────────────────────────────────────────────────────
 const cardAria = (row) =>
   typeLabel(row.type) +
   ' de ' +
@@ -449,10 +465,10 @@ const cardAria = (row) =>
   format.formatDateTime(row.note_date || row.created_at) +
   '. Abrir detalhe.';
 
-// --- Visualização -----------------------------------------------------------
+// ── Visualização ─────────────────────────────────────────────────────────────
 const view = ref('timeline');
 
-// --- Ações ------------------------------------------------------------------
+// ── Ações ─────────────────────────────────────────────────────────────────────
 function open(row) {
   router.push('/evolution-notes/' + row.id);
 }
@@ -472,38 +488,35 @@ function onPageSize(size) {
 
 async function reload() {
   await r.load();
-  if (!r.error.value) toast.success('Evoluções atualizadas.');
+  if (!r.error.value) toast.success('Notas atualizadas.');
   else toast.error('Falha ao atualizar.', { detail: errorMessage.value });
 }
 
-// Carrega pacientes para resolver nomes e popular o filtro (fail-soft: sem
-// pacientes, o filtro vira campo de texto e os ids aparecem crus).
+// Carrega pacientes para resolver nomes e popular o filtro (fail-soft).
 async function loadPatients() {
   try {
-    const res = await patientsApi.list({ pageSize: 200, sort: 'full_name', dir: 'asc' });
+    const res  = await patientsApi.list({ pageSize: 200, sort: 'full_name', dir: 'asc' });
     const list = Array.isArray(res) ? res : res && res.data ? res.data : [];
-    const map = {};
+    const map  = {};
     const opts = [];
     for (const p of list) {
-      const id = String(p.id);
+      const id   = String(p.id);
       const name = p.full_name || p.name || id;
       map[id] = name;
       opts.push({ value: id, label: name });
     }
-    patientMap.value = map;
+    patientMap.value     = map;
     patientOptions.value = opts;
   } catch {
-    patientMap.value = {};
+    patientMap.value     = {};
     patientOptions.value = [];
   }
 }
 
-// Toast quando uma carga falha (além do estado de erro na tela).
+// Toast ao falhar a carga automática.
 watch(
   () => r.error.value,
-  (e) => {
-    if (e) toast.error(errorMessage.value);
-  }
+  (e) => { if (e) toast.error(errorMessage.value); }
 );
 
 onMounted(() => {
@@ -513,13 +526,14 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* KPIs */
 .en-metrics {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: var(--ui-space-4);
 }
 
-/* Toolbar do banner: filtros ativos + alternador de visão */
+/* Toolbar do banner */
 .en-toolbar {
   display: flex;
   align-items: center;
@@ -546,10 +560,12 @@ onMounted(() => {
   color: rgb(var(--ui-muted));
   font-size: var(--ui-text-sm);
 }
+
+/* Alternador de visualização */
 .en-views {
   display: inline-flex;
-  gap: 2px;
-  padding: 3px;
+  gap: var(--ui-space-1);
+  padding: var(--ui-space-1);
   background: rgb(var(--ui-surface-2));
   border: 1px solid rgb(var(--ui-border));
   border-radius: var(--ui-radius-pill);
@@ -561,9 +577,10 @@ onMounted(() => {
   color: rgb(var(--ui-muted));
   background: transparent;
   border: none;
-  padding: 5px 14px;
+  padding: var(--ui-space-1) var(--ui-space-3);
   border-radius: var(--ui-radius-pill);
   cursor: pointer;
+  transition: color var(--ui-duration-fast, 0.12s);
 }
 .en-view-btn:hover {
   color: rgb(var(--ui-fg));
@@ -585,7 +602,7 @@ onMounted(() => {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--ui-space-5);
+  gap: var(--ui-space-6);
 }
 .en-day {
   display: flex;
@@ -597,7 +614,7 @@ onMounted(() => {
   font-size: var(--ui-text-xs);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--ui-tracking-wide, 0.07em);
   color: rgb(var(--ui-muted));
 }
 .en-day-items {
@@ -612,6 +629,7 @@ onMounted(() => {
   position: relative;
 }
 
+/* Cartão de nota */
 .en-card {
   display: flex;
   align-items: flex-start;
@@ -626,31 +644,40 @@ onMounted(() => {
   padding: var(--ui-space-4);
   cursor: pointer;
   box-shadow: var(--ui-shadow-sm);
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition: border-color var(--ui-duration-fast, 0.15s), box-shadow var(--ui-duration-fast, 0.15s), transform var(--ui-duration-fast, 0.15s);
 }
 .en-card:hover {
   border-color: rgb(var(--ui-border-strong));
+  box-shadow: var(--ui-shadow-md);
   transform: translateY(-1px);
 }
 .en-card:focus-visible {
   outline: 2px solid rgb(var(--ui-accent));
   outline-offset: 2px;
 }
-.en-item[data-type='session'] .en-card { border-left-color: rgb(var(--ui-accent)); }
-.en-item[data-type='test_result'] .en-card { border-left-color: rgb(var(--ui-ok)); }
-.en-item[data-type='intervention_plan'] .en-card { border-left-color: rgb(var(--ui-warn)); }
-.en-item[data-type='observation'] .en-card { border-left-color: rgb(var(--ui-muted)); }
+
+/* Borda lateral colorida por tipo */
+.en-item[data-type='nota_clinica'] .en-card      { border-left-color: rgb(var(--ui-accent)); }
+.en-item[data-type='resultado_teste'] .en-card   { border-left-color: rgb(var(--ui-ok)); }
+.en-item[data-type='plano_intervencao'] .en-card { border-left-color: rgb(var(--ui-warn)); }
+.en-item[data-type='anamnese'] .en-card          { border-left-color: rgb(var(--ui-info, var(--ui-accent))); }
+.en-item[data-type='outro'] .en-card             { border-left-color: rgb(var(--ui-muted)); }
+
+/* Opacidade para notas excluídas */
+.en-item[data-status='excluido'] .en-card {
+  opacity: 0.62;
+}
 
 .en-marker {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: calc(var(--ui-space-5) + var(--ui-space-4));
+  height: calc(var(--ui-space-5) + var(--ui-space-4));
   border-radius: var(--ui-radius-md);
   background: rgb(var(--ui-surface-2));
-  font-size: 1.05rem;
+  font-size: var(--ui-text-lg);
   line-height: 1;
 }
 .en-body {
@@ -671,11 +698,12 @@ onMounted(() => {
   font-size: var(--ui-text-xs);
   font-variant-numeric: tabular-nums;
   margin-left: auto;
+  white-space: nowrap;
 }
 .en-summary {
   color: rgb(var(--ui-fg));
   font-size: var(--ui-text-sm);
-  line-height: 1.5;
+  line-height: var(--ui-leading-normal, 1.55);
   overflow-wrap: anywhere;
 }
 .en-meta {
@@ -687,23 +715,21 @@ onMounted(() => {
   font-size: var(--ui-text-xs);
   color: rgb(var(--ui-muted));
   background: rgb(var(--ui-surface-2));
+  border: 1px solid rgb(var(--ui-border));
   border-radius: var(--ui-radius-pill);
-  padding: 2px 10px;
-}
-.en-deleted {
-  display: inline-flex;
+  padding: var(--ui-space-1) var(--ui-space-2);
 }
 .en-go {
   flex: 0 0 auto;
   align-self: center;
   color: rgb(var(--ui-muted));
-  font-size: 1.4rem;
+  font-size: var(--ui-text-xl);
   line-height: 1;
 }
 .en-day-rule {
-  height: 1px;
-  background: rgb(var(--ui-border));
-  margin-top: var(--ui-space-2);
+  border: none;
+  border-top: 1px solid rgb(var(--ui-border));
+  margin: var(--ui-space-2) 0 0;
 }
 
 /* Células da tabela */
@@ -719,6 +745,7 @@ onMounted(() => {
   font-size: var(--ui-text-sm);
 }
 
+/* CTA vazio */
 .en-empty-actions {
   display: flex;
   gap: var(--ui-space-2);
@@ -726,6 +753,7 @@ onMounted(() => {
   justify-content: center;
 }
 
+/* Responsivo */
 @media (max-width: 860px) {
   .en-metrics {
     grid-template-columns: repeat(2, 1fr);

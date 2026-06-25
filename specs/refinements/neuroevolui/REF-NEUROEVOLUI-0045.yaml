@@ -1,0 +1,52 @@
+id: "REF-NEUROEVOLUI-0045"
+slug: "ref-neuroevolui-0045"
+title: "Editar Preferência de Notificação"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0007"
+    relation: "implements"
+surface:
+  route: "/notification-preferences/:id/edit"
+  name: "Editar Preferência de Notificação"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+      ui: "Formulário preenchido com dados atuais da preferência de notificação para edição"
+    - name: "loading"
+      ui: "Skeleton do formulário enquanto carrega os dados da preferência"
+    - name: "empty"
+      ui: "Estado não aplicável — formulário sempre carrega com dados existentes"
+    - name: "error"
+      ui: "Mensagens de validação em linha vermelha; banner se falha ao carregar ou salvar"
+  data:
+    - field: "event_type"
+      source: "api:/api/notification-preferences/:id"
+      editable: true
+    - field: "channel"
+      source: "api:/api/notification-preferences/:id"
+      editable: true
+    - field: "active"
+      source: "api:/api/notification-preferences/:id"
+      editable: true
+    - field: "schedule"
+      source: "api:/api/notification-preferences/:id"
+      editable: true
+  interactions:
+    - trigger: "clique em 'Salvar'"
+      action: "PUT /api/notification-preferences/:id com dados do formulário"
+      result: "preferência atualizada, redireciona para /notification-preferences"
+    - trigger: "clique em 'Cancelar'"
+      action: "navega para /notification-preferences"
+      result: "alterações descartadas"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

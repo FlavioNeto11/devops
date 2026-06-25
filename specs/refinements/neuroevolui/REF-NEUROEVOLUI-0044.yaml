@@ -1,0 +1,52 @@
+id: "REF-NEUROEVOLUI-0044"
+slug: "ref-neuroevolui-0044"
+title: "Nova Preferência de Notificação"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0007"
+    relation: "implements"
+surface:
+  route: "/notification-preferences/new"
+  name: "Nova Preferência de Notificação"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+      ui: "Formulário para criar nova preferência: tipo de evento, canal e opções de agendamento"
+    - name: "loading"
+      ui: "Spinner no botão de salvar enquanto processa"
+    - name: "empty"
+      ui: "Estado inicial com campos em branco aguardando preenchimento"
+    - name: "error"
+      ui: "Mensagens de validação em linha vermelha abaixo dos campos inválidos"
+  data:
+    - field: "event_type"
+      source: "svc-notifications"
+      editable: true
+    - field: "channel"
+      source: "svc-notifications"
+      editable: true
+    - field: "active"
+      source: "user-input"
+      editable: true
+    - field: "schedule"
+      source: "user-input"
+      editable: true
+  interactions:
+    - trigger: "clique em 'Salvar'"
+      action: "POST /api/notification-preferences"
+      result: "preferência criada, redireciona para /notification-preferences"
+    - trigger: "clique em 'Cancelar'"
+      action: "navega para /notification-preferences"
+      result: "formulário descartado"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

@@ -3,9 +3,9 @@
   Somente leitura. Restrita a clinic_manager+ no backend (401/403 = sem acesso, não erro fatal).
 
   Endpoint REAL:
-    · GET /v1/audit-logs  (resourceFactory; coleção paginada server-side → { data, total })
+    · GET /v1/audit-logs  (auditLogs de api.js; coleção paginada server-side → { data, total })
       params suportados: page, pageSize, sort (id|entity_type|action|created_at), dir (asc|desc)
-  Filtros por entidade/tipo/ação/status de pagamento são aplicados no cliente sobre a página
+  Filtros por entidade/tipo/ação/status de pagamento/período são aplicados no cliente sobre a página
   carregada (o contrato da coleção não expõe filtros server-side — não inventamos rota).
 
   Estados: loading (skeleton via UiDataTable) · empty (com CTA p/ rotas de domínio) ·
@@ -162,8 +162,8 @@
     </template>
 
     <!-- Detalhe do evento (read-only) -->
-    <UiModal v-model:open="detailOpen" :title="detailTitle" width="md">
-      <dl v-if="selected" class="au-detail">
+    <UiModal v-model:open="detailOpen" :title="detailTitle" width="md" aria-describedby="au-detail-desc">
+      <dl v-if="selected" id="au-detail-desc" class="au-detail">
         <div class="au-detail-row">
           <dt>Ação</dt>
           <dd class="au-detail-strong">{{ actionLabel(selected.action) }}</dd>
@@ -237,13 +237,9 @@ import {
   useToast,
   format,
 } from '../ui/index.js';
-import { resourceFactory } from '../api.js';
+import { auditLogs as auditApi } from '../api.js';
 
 const toast = useToast();
-
-// Recurso REAL: a coleção de topo vive em /v1/audit-logs (nome com hífen → instanciamos
-// pela fábrica diretamente; o integrador garante este endpoint).
-const auditApi = resourceFactory('audit-logs');
 
 // ── Estado de dados ──────────────────────────────────────────────────────────────
 const rows = ref([]);
@@ -257,7 +253,7 @@ const sort = ref({ key: 'created_at', dir: 'desc' });
 const page = ref(1);
 const pageSize = ref(25);
 
-const filters = ref({ q: '', entity_type: '', action: '', payment_status: '' });
+const filters = ref({ q: '', entity_type: '', action: '', payment_status: '', date_from: '', date_to: '' });
 
 // Detalhe
 const detailOpen = ref(false);
@@ -356,6 +352,8 @@ const filterFields = computed(() => [
   { key: 'entity_type', label: 'Entidade', type: 'select', options: distinctOptions('entity_type', entityLabel) },
   { key: 'action', label: 'Ação', type: 'select', options: distinctOptions('action', actionLabel) },
   { key: 'payment_status', label: 'Pagamento', type: 'select', options: distinctOptions('payment_status', statusText) },
+  { key: 'date_from', label: 'De', type: 'date' },
+  { key: 'date_to', label: 'Até', type: 'date' },
 ]);
 
 // ── Filtragem (client-side sobre a página carregada) ──────────────────────────────
@@ -377,6 +375,15 @@ const filteredRows = computed(() => {
     if (f.entity_type && norm(r.entity_type) !== norm(f.entity_type)) return false;
     if (f.action && norm(r.action) !== norm(f.action)) return false;
     if (f.payment_status && norm(r.payment_status) !== norm(f.payment_status)) return false;
+    if (f.date_from && r.created_at) {
+      if (new Date(r.created_at) < new Date(f.date_from)) return false;
+    }
+    if (f.date_to && r.created_at) {
+      // include the full day of date_to
+      const until = new Date(f.date_to);
+      until.setHours(23, 59, 59, 999);
+      if (new Date(r.created_at) > until) return false;
+    }
     return true;
   });
 });
@@ -410,7 +417,8 @@ const errorMessage = computed(() => {
   return error.value.message || 'Não foi possível carregar a trilha de auditoria.';
 });
 // Acesso negado vira banner + empty informativo (não erro de tabela).
-const tableError = computed(() => null);
+// Erros de rede/servidor chegam ao UiDataTable para que o estado de erro inline (com retry) funcione.
+const tableError = computed(() => (error.value && !accessDenied.value ? errorMessage.value : null));
 
 const emptyState = computed(() => {
   if (accessDenied.value) {
@@ -506,7 +514,7 @@ function onApply() {
   // Filtros são client-side sobre a página atual; nada a recarregar.
 }
 function onClear() {
-  filters.value = { q: '', entity_type: '', action: '', payment_status: '' };
+  filters.value = { q: '', entity_type: '', action: '', payment_status: '', date_from: '', date_to: '' };
 }
 
 // ── Carga ────────────────────────────────────────────────────────────────────────
@@ -549,7 +557,7 @@ onMounted(load);
 <style scoped>
 .au-metrics {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(var(--ui-metric-card-min, 11.875rem), 1fr));
   gap: var(--ui-space-4);
 }
 
@@ -588,7 +596,7 @@ onMounted(load);
 .au-entity {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--ui-space-0-5, 0.125rem);
   min-width: 0;
 }
 
@@ -603,7 +611,7 @@ onMounted(load);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 220px;
+  max-width: var(--au-entity-id-max, 13.75rem);
 }
 
 .au-actor {
@@ -631,7 +639,7 @@ onMounted(load);
 
 .au-detail-row {
   display: grid;
-  grid-template-columns: 170px 1fr;
+  grid-template-columns: var(--au-detail-label-col, 10.625rem) 1fr;
   gap: var(--ui-space-3);
   align-items: center;
   padding: var(--ui-space-2) 0;
@@ -683,19 +691,19 @@ onMounted(load);
   border: 1px solid rgb(var(--ui-border));
   border-radius: var(--ui-radius-sm);
   padding: var(--ui-space-2) var(--ui-space-3);
-  max-height: 220px;
+  max-height: var(--au-meta-max-h, 13.75rem);
   overflow: auto;
 }
 
-@media (max-width: 860px) {
+@media (max-width: var(--ui-breakpoint-md, 53.75rem)) {
   .au-metrics {
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(var(--ui-metric-card-min-sm, 9.375rem), 1fr));
     gap: var(--ui-space-3);
   }
 
   .au-detail-row {
     grid-template-columns: 1fr;
-    gap: 2px;
+    gap: var(--ui-space-0-5, 0.125rem);
     align-items: start;
   }
 }

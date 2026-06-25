@@ -1,0 +1,61 @@
+id: "REF-NEUROEVOLUI-0035"
+slug: "ref-neuroevolui-0035"
+title: "Relatórios de Pacientes"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0004"
+    relation: "implements"
+  - requirement_id: "REQ-NEUROEVOLUI-0003"
+    relation: "implements"
+surface:
+  route: "/patient-reports"
+  name: "Relatórios de Pacientes"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+      ui: "Tabela paginada de relatórios de pacientes com filtros por data e status"
+    - name: "loading"
+      ui: "Skeleton de tabela enquanto carrega a lista"
+    - name: "empty"
+      ui: "Mensagem 'Nenhum relatório gerado' com botão para solicitar novo relatório"
+    - name: "error"
+      ui: "Banner de erro com opção de tentar novamente"
+  data:
+    - field: "id"
+      source: "api:/api/patient-reports"
+      editable: false
+    - field: "patient_name"
+      source: "api:/api/patient-reports"
+      editable: false
+    - field: "report_type"
+      source: "api:/api/patient-reports"
+      editable: false
+    - field: "status"
+      source: "api:/api/patient-reports"
+      editable: false
+    - field: "created_at"
+      source: "api:/api/patient-reports"
+      format: "dd/MM/yyyy HH:mm"
+      editable: false
+  interactions:
+    - trigger: "clique em 'Solicitar Relatório'"
+      action: "navega para /patient-reports/new"
+      result: "abre formulário de criação de relatório"
+    - trigger: "clique em linha da tabela"
+      action: "navega para /patient-reports/:id"
+      result: "abre detalhes do relatório"
+    - trigger: "filtro por data"
+      action: "atualiza query params e recarrega lista"
+      result: "lista filtrada pelo período selecionado"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

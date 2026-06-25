@@ -1,0 +1,64 @@
+id: "REF-NEUROEVOLUI-0046"
+slug: "ref-neuroevolui-0046"
+title: "Auditoria"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0005"
+    relation: "implements"
+  - requirement_id: "REQ-NEUROEVOLUI-0002"
+    relation: "implements"
+surface:
+  route: "/audit-logs"
+  name: "Auditoria"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+      ui: "Tabela paginada de eventos de auditoria com filtros por usuário, ação e data"
+    - name: "loading"
+      ui: "Skeleton de tabela enquanto carrega os logs de auditoria"
+    - name: "empty"
+      ui: "Mensagem 'Nenhum evento registrado' para o período filtrado"
+    - name: "error"
+      ui: "Banner de erro com opção de recarregar"
+  data:
+    - field: "id"
+      source: "api:/api/audit-logs"
+      editable: false
+    - field: "user_name"
+      source: "api:/api/audit-logs"
+      editable: false
+    - field: "action"
+      source: "api:/api/audit-logs"
+      editable: false
+    - field: "resource"
+      source: "api:/api/audit-logs"
+      editable: false
+    - field: "timestamp"
+      source: "api:/api/audit-logs"
+      format: "dd/MM/yyyy HH:mm:ss"
+      editable: false
+    - field: "ip_address"
+      source: "api:/api/audit-logs"
+      editable: false
+  interactions:
+    - trigger: "clique em linha da tabela"
+      action: "navega para /audit-logs/:id"
+      result: "abre detalhes do evento de auditoria"
+    - trigger: "filtro por usuário"
+      action: "atualiza query params e recarrega lista"
+      result: "lista filtrada pelo usuário selecionado"
+    - trigger: "exportar logs"
+      action: "GET /api/audit-logs/export"
+      result: "download do arquivo CSV com logs filtrados"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

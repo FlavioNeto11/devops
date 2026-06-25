@@ -1,0 +1,59 @@
+id: "REF-NEUROEVOLUI-0047"
+slug: "ref-neuroevolui-0047"
+title: "Evento de Auditoria"
+kind: "screen"
+status: "approved"
+scope:
+  product_scope: "neuroevolui"
+anchors:
+  - requirement_id: "REQ-NEUROEVOLUI-0005"
+    relation: "implements"
+surface:
+  route: "/audit-logs/:id"
+  name: "Evento de Auditoria"
+  roles:
+    - "user"
+behavior:
+  states:
+    - name: "normal"
+      ui: "Detalhes completos do evento: usuário, ação, recurso afetado, IP, timestamp e payload"
+    - name: "loading"
+      ui: "Skeleton dos campos de detalhe enquanto carrega"
+    - name: "empty"
+      ui: "Estado não aplicável — evento sempre existe ao acessar por ID válido"
+    - name: "error"
+      ui: "Mensagem de erro 404 se evento não encontrado, com link para voltar à lista"
+  data:
+    - field: "id"
+      source: "api:/api/audit-logs/:id"
+      editable: false
+    - field: "user_name"
+      source: "api:/api/audit-logs/:id"
+      editable: false
+    - field: "action"
+      source: "api:/api/audit-logs/:id"
+      editable: false
+    - field: "resource"
+      source: "api:/api/audit-logs/:id"
+      editable: false
+    - field: "timestamp"
+      source: "api:/api/audit-logs/:id"
+      format: "dd/MM/yyyy HH:mm:ss"
+      editable: false
+    - field: "ip_address"
+      source: "api:/api/audit-logs/:id"
+      editable: false
+    - field: "payload"
+      source: "api:/api/audit-logs/:id"
+      editable: false
+  interactions:
+    - trigger: "clique em 'Voltar'"
+      action: "navega para /audit-logs"
+      result: "retorna à lista de eventos de auditoria"
+source:
+  source_paths:
+    - "specs/products/neuroevolui/product.json"
+    - "apps/neuroevolui/frontend/src/views"
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1
