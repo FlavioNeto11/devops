@@ -1,0 +1,20 @@
+{
+  "app": "contaviva-360",
+  "stack": "gymops",
+  "blocks": [
+    "observabilidade",
+    "camadas-rigidas",
+    "oidc-sessao",
+    "rbac-multitenant",
+    "migrations-versionadas",
+    "redis-bullmq",
+    "idempotencia",
+    "notificacoes-multicanal",
+    "ia-grafo",
+    "control-ai-por-app",
+    "rag-pgvector",
+    "structured-outputs",
+    "design-system"
+  ],
+  "generatedBy": "scaffold-gymops.mjs"
+}
