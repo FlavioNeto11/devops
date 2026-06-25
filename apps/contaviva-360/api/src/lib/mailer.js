@@ -31,6 +31,37 @@ export async function sendMail({ to, subject, html }) {
   try { return await transport.sendMail({ from: process.env.SMTP_FROM || 'noreply@contaviva360', to, subject, html }); } catch { return null; }
 }
 
+export async function sendTaskAssigned({ to, taskTitle, assignee, dueAt }) {
+  const due = dueAt ? new Date(dueAt).toLocaleDateString('pt-BR') : 'sem prazo';
+  return sendMail({
+    to,
+    subject: `[ContaViva 360] Nova tarefa atribuída: ${taskTitle}`,
+    html: baseLayout(
+      `<div style="border-left:4px solid #1a56db;padding:12px 16px;background:#fafafa;margin-bottom:16px">` +
+      `<h3 style="margin:0">Nova tarefa: ${taskTitle}</h3>` +
+      (assignee ? `<p>Responsável: <strong>${assignee}</strong></p>` : '') +
+      `<p>Prazo: <strong>${due}</strong></p>` +
+      `</div><p>Acesse o ContaViva 360 para ver os detalhes da tarefa.</p>`
+    ),
+  });
+}
+
+export async function sendTaskDueAlert({ to, taskTitle, dueAt, nivel }) {
+  const cores = { amarelo: '#f59e0b', laranja: '#f97316', vermelho: '#ef4444', critico: '#7f1d1d' };
+  const cor = cores[nivel] || '#6b7280';
+  const due = dueAt ? new Date(dueAt).toLocaleDateString('pt-BR') : '';
+  return sendMail({
+    to,
+    subject: `[ContaViva 360] Prazo ${nivel.toUpperCase()}: ${taskTitle}`,
+    html: baseLayout(
+      `<div style="border-left:4px solid ${cor};padding:12px 16px;background:#fafafa;margin-bottom:16px">` +
+      `<h3 style="margin:0;color:${cor}">${nivel.toUpperCase()}: ${taskTitle}</h3>` +
+      (due ? `<p>Prazo: <strong>${due}</strong></p>` : '') +
+      `</div><p>Acesse o ContaViva 360 para ver os detalhes da tarefa.</p>`
+    ),
+  });
+}
+
 export async function sendObrigacaoAlerta({ to, tipo, dataVencimento, nivel, entidade }) {
   const cores = { amarelo: '#f59e0b', laranja: '#f97316', vermelho: '#ef4444', critico: '#7f1d1d' };
   const cor = cores[nivel] || '#6b7280';

@@ -54,6 +54,26 @@ export async function enqueueObligationAlert(obligationId, nivel) {
   return { inline: false };
 }
 
+let _taskQ = null;
+
+export function taskNotificationQueue() {
+  if (!url) return null;
+  if (!_taskQ) _taskQ = new Queue('tasks-notification', { connection: conn() });
+  return _taskQ;
+}
+
+export async function enqueueTaskNotification(taskId, eventType, payload) {
+  const q = taskNotificationQueue();
+  if (!q) return { inline: true }; // sem Redis -> degradação graciosa
+  await q.add('task-notification', { taskId, eventType, ...payload }, {
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 2000 },
+    removeOnComplete: 100,
+    removeOnFail: 200,
+  });
+  return { inline: false };
+}
+
 export async function queueCounts() {
   const q = queue();
   if (!q) return { redis: false };

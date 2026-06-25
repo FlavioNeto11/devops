@@ -2,8 +2,8 @@
 import { Worker } from 'bullmq';
 import { pool, migrate } from './db.js';
 import { M, startMetricsServer } from './metrics.js';
-import { sendObrigacaoAlerta } from './lib/mailer.js';
-import { sendPushAlert } from './lib/push.js';
+import { sendObrigacaoAlerta, sendTaskAssigned, sendTaskDueAlert } from './lib/mailer.js';
+import { sendPushAlert, sendTaskPush } from './lib/push.js';
 const url = process.env.REDIS_URL || '';
 function conn() { const u = new URL(url); return { host: u.hostname, port: Number(u.port) || 6379 }; }
 
@@ -37,6 +37,23 @@ async function handleObligationAlert(job) {
   await pool.query(
     'INSERT INTO obligation_alerts(tenant_id,obligation_id,nivel,canais) VALUES ($1,$2,$3,$4)',
     [ob.tenant_id, obligationId, nivel, canaisSent]
+  ).catch(() => {});
+}
+
+async function handleTaskNotification(job) {
+  const { taskId, eventType, assignee, title, dueAt, nivel, tenantId } = job.data;
+  const canaisSent = ['dashboard'];
+  const to = assignee || `tenant-${tenantId || 1}@contaviva360`;
+  // Email: degrada graciosamente sem SMTP_HOST
+  const mailFn = eventType === 'deadline_alert' ? sendTaskDueAlert : sendTaskAssigned;
+  const mailResult = await mailFn({ to, taskTitle: title, assignee, dueAt, nivel }).catch(() => null);
+  if (mailResult) canaisSent.push('email');
+  // Push: degrada graciosamente sem VAPID keys
+  const pushResult = await sendTaskPush(null, { taskTitle: title, eventType, nivel }).catch(() => null);
+  if (pushResult) canaisSent.push('push');
+  await pool.query(
+    'INSERT INTO task_notifications(tenant_id,task_id,event_type,canais) VALUES ($1,$2,$3,$4)',
+    [tenantId || 1, taskId, eventType, canaisSent]
   ).catch(() => {});
 }
 
@@ -81,9 +98,20 @@ async function handleObligationAlert(job) {
     console.warn('[worker] obligations-alert falhou: ' + (err && err.message));
   });
 
-  console.log('[contaviva-360-worker] BullMQ iniciado (queues: records-submit, document-process, obligations-alert)');
+  const taskWorker = new Worker('tasks-notification', async (job) => {
+    await handleTaskNotification(job);
+    M.jobsTotal.inc({ status: 'done' });
+    console.log('[worker] tasks-notification job ' + job.id + ' OK');
+  }, { connection: conn() });
+
+  taskWorker.on('failed', (job, err) => {
+    M.jobsTotal.inc({ status: 'failed' });
+    console.warn('[worker] tasks-notification falhou: ' + (err && err.message));
+  });
+
+  console.log('[contaviva-360-worker] BullMQ iniciado (queues: records-submit, document-process, obligations-alert, tasks-notification)');
   process.on('SIGTERM', async () => {
-    await Promise.all([submitWorker.close(), docWorker.close(), obligationWorker.close()]);
+    await Promise.all([submitWorker.close(), docWorker.close(), obligationWorker.close(), taskWorker.close()]);
     process.exit(0);
   });
 })();
