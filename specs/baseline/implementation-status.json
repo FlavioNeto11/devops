@@ -6,8 +6,7 @@
     "by_status": {
       "deployed": 282,
       "done": 52,
-      "merged": 3,
-      "pr_open": 1,
+      "merged": 4,
       "not_started": 5
     },
     "refinements": {
@@ -903,9 +902,11 @@
       "run_id": "28131631587"
     },
     "REQ-NEUROEVOLUI-0003": {
-      "status": "pr_open",
+      "status": "merged",
       "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/127",
       "branch": "@{id=REQ-NEUROEVOLUI-0003; branch=req/REQ-NEUROEVOLUI-0003/r1; restricted=false; title=feat(neuroevolui): implementa REQ-NEUROEVOLUI-0003 — Dados: Filas assíncronas + Idempotênc}.branch",
+      "commit": "ad73daed5d808904fae4a09f8e0eebdd452a2e98",
       "run_id": "28133635910"
     },
     "REQ-NEUROEVOLUI-0004": {
