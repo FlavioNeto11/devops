@@ -6,8 +6,7 @@
     "by_status": {
       "deployed": 282,
       "done": 52,
-      "merged": 10,
-      "pr_open": 1,
+      "merged": 11,
       "not_started": 7
     },
     "refinements": {
@@ -650,9 +649,11 @@
       "req_revision": 1
     },
     "REQ-CONTAVIVA360-0002": {
-      "status": "pr_open",
+      "status": "merged",
       "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/156",
       "branch": "@{id=REQ-CONTAVIVA360-0002; branch=req/REQ-CONTAVIVA360-0002/r1; restricted=false; title=feat(contaviva-360): implementa REQ-CONTAVIVA360-0002 — Gestão de Dados Contábeis e Fiscai}.branch",
+      "commit": "3aacdf8e266a3b4809d2526721fa87f77e2752d5",
       "run_id": "28197566032"
     },
     "REQ-CONTAVIVA360-0003": {
