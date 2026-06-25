@@ -13,6 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadCatalog, resolveBlocks } from './apply-capabilities.mjs';
+import { kitDeps, packKits } from './vendor-kits.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SPECS_DIR = path.resolve(__dirname, '..');
@@ -39,7 +40,10 @@ const APPDIR = path.join(REPO_ROOT, 'apps', APP);
 const files = {};
 const add = (rel, content) => { files[rel] = content; };
 
-const deps = { fastify: '^4.28.1', pg: '^8.11.5', 'prom-client': '^15.1.2' };
+// Kits @flavioneto11 que os BLOCOS do produto declaram reusar (campo `reuses` do catálogo) — vão
+// VENDORADOS como .tgz em api/vendor (cadeia transitiva resolvida pelo helper; frontend-only filtrados).
+const kitRefs = [...new Set(blocks.flatMap((b) => (byId.get(b) && byId.get(b).reuses) || []))];
+const deps = { fastify: '^4.28.1', pg: '^8.11.5', 'prom-client': '^15.1.2', ...kitDeps(kitRefs) };
 if (F.redis) { deps.bullmq = '^5.12.0'; deps.ioredis = '^5.4.1'; }
 add('api/package.json', JSON.stringify({
   name: '@@APP@@-api', version: '1.0.0', private: true, type: 'module',
@@ -52,9 +56,12 @@ add('api/Dockerfile', [
   '# @@TITLE@@ API' + (F.redis ? ' + worker BullMQ' : '') + ' (Fastify) — gerado pela Forge.',
   'FROM node:20-alpine', 'WORKDIR /app', 'ENV NODE_ENV=production',
   'COPY package*.json ./',
+  'COPY vendor ./vendor',
   'RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi',
   'COPY src ./src', 'EXPOSE 8080 9464', 'USER node', 'CMD ["npm", "start"]', '',
 ].join('\n'));
+// vendor/ sempre existe (mesmo sem kits) p/ o COPY vendor nunca falhar; os .tgz são empacotados no fim.
+add('api/vendor/.gitkeep', '');
 
 // db.js (pg + migrations multi-tenant)
 add('api/src/db.js', [
@@ -218,14 +225,14 @@ add('devops.yaml', [
   'app: { name: @@APP@@, namespace: apps, host: nvit.localhost, basePath: @@BASE@@ }',
   '# Gerado pela FORGE (gymops-style: Fastify + Redis/BullMQ + RBAC). Blocos: ' + blocks.join(', '),
   'services:',
-  '  api: { type: api, path: /api, port: 8080, expose: true, stripPrefix: true, priority: 40, health: { path: /health } }',
-  (F.redis ? '  worker: { type: worker, port: 9464, expose: false, command: ["npm", "run", "worker"] }' : ''),
+  '  api: { type: api, image: @@APP@@-api, path: /api, port: 8080, expose: true, stripPrefix: true, priority: 40, health: { path: /health } }',
+  (F.redis ? '  worker: { type: worker, image: @@APP@@-api, port: 9464, expose: false, command: ["npm", "run", "worker"] }' : ''),
   (F.redis ? 'dependencies: { redis: { image: "redis:7-alpine" } }' : ''),
   'observability: { metricsPort: 9464, serviceMonitor: true, prometheusRule: true }', '',
 ].filter((l) => l !== '').join('\n'));
 
 add('k8s/@@APP@@.yaml', buildK8s());
-add('CLAUDE.md', '# @@TITLE@@ — gerado pela Forge (gymops-style)\n\nFastify + Postgres' + (F.redis ? ' + Redis/BullMQ' : '') + (F.rbac ? ' + RBAC multi-tenant' : '') + '. Blocos: ' + blocks.join(', ') + '.\n\n' + (F.rbac ? '> RBAC por header X-Tenant-Id/X-Role (stand-in da sessão OIDC; login real = client no Keycloak realm nvit).\n\n' : '') + 'Verificar: `BASE_URL=http://nvit.localhost@@BASE@@/api node apps/@@APP@@/test/integration.mjs`\n');
+add('CLAUDE.md', '---\ntitle: "@@TITLE@@ — Manual para Claude Code"\nstatus: canonical\napplies_to: [@@APP@@]\nupdated: ' + new Date().toISOString().slice(0, 10) + '\nlanguage: pt-BR\n---\n\n# @@TITLE@@ — gerado pela Forge (gymops-style)\n\nFastify + Postgres' + (F.redis ? ' + Redis/BullMQ' : '') + (F.rbac ? ' + RBAC multi-tenant' : '') + '. Blocos: ' + blocks.join(', ') + '.\n\n' + (F.rbac ? '> RBAC por header X-Tenant-Id/X-Role (stand-in da sessão OIDC; login real = client no Keycloak realm nvit).\n\n' : '') + 'Verificar: `BASE_URL=http://nvit.localhost@@BASE@@/api node apps/@@APP@@/test/integration.mjs`\n');
 add('test/integration.mjs', buildTest());
 
 function buildTest() {
@@ -331,6 +338,12 @@ for (const [rel, content] of Object.entries(files)) {
 }
 fs.mkdirSync(path.join(APPDIR, '.forge'), { recursive: true });
 fs.writeFileSync(path.join(APPDIR, '.forge', 'applied-capabilities.json'), JSON.stringify({ app: APP, stack: 'gymops', blocks, generatedBy: 'scaffold-gymops.mjs' }, null, 2) + '\n');
+// Vendora os kits @flavioneto11 que os blocos reusam (.tgz no api/vendor) — para a imagem da api
+// BUILDAR e RODAR (kits não ficam no contexto do build sem isto). Cadeia transitiva resolvida pelo helper.
+if (kitRefs.length) {
+  try { const packed = packKits(path.join(APPDIR, 'api'), kitRefs); console.log(`[scaffold-gymops] kits vendorados (api/vendor): ${packed.join(', ') || '(nenhum)'}`); }
+  catch (e) { console.error(`[scaffold-gymops] AVISO: falha ao vendorar kits (${e && e.message}). Rode: node specs/forge/vendor-kits.mjs apps/${APP}/api ${kitRefs.join(' ')}`); }
+}
 console.log(`[scaffold-gymops] ${APP} (${blocks.length} blocos) — ${written} arquivos`);
 console.log(`  blocos: ${blocks.join(', ')}`);
 console.log(`  redis=${F.redis} gateway=${F.gateway} rbac=${F.rbac}`);

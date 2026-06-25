@@ -425,15 +425,15 @@ if (F.gateway) {
 // devops.yaml — service api (+ env de IA quando o bloco control-ai-por-app está presente: o assistente é
 // fail-closed sem ANTHROPIC_API_KEY; a chave entra como Secret/Sealed Secret, NUNCA em git).
 const apiSvc = F.ai
-  ? '  api: { type: api, path: /api, port: 8080, expose: true, stripPrefix: true, priority: 40, health: { path: /health }, env: { ASSISTANT_MODEL: claude-haiku-4-5-20251001 } }'
-  : '  api: { type: api, path: /api, port: 8080, expose: true, stripPrefix: true, priority: 40, health: { path: /health } }';
+  ? '  api: { type: api, image: @@APP@@-api, path: /api, port: 8080, expose: true, stripPrefix: true, priority: 40, health: { path: /health }, env: { ASSISTANT_MODEL: claude-haiku-4-5-20251001 } }'
+  : '  api: { type: api, image: @@APP@@-api, path: /api, port: 8080, expose: true, stripPrefix: true, priority: 40, health: { path: /health } }';
 add('devops.yaml', [
   'app: { name: @@APP@@, namespace: apps, host: nvit.localhost, basePath: @@BASE@@ }',
   '# Gerado pela FORGE (SICAT-style). Blocos: ' + blocks.join(', '),
   (F.ai ? '# IA: assistente em POST @@BASE@@/api/v1/assistant (aceita ARQUIVOS, multimodal). Requer Secret com ANTHROPIC_API_KEY (fail-closed sem ela).' : ''),
   'services:',
   apiSvc,
-  (F.worker ? '  worker: { type: worker, port: 9464, expose: false, command: ["npm", "run", "worker"] }' : ''),
+  (F.worker ? '  worker: { type: worker, image: @@APP@@-api, port: 9464, expose: false, command: ["npm", "run", "worker"] }' : ''),
   'capabilities: [' + blocks.map((b) => b).join(', ') + ']',
   'observability: { metricsPort: 9464, serviceMonitor: true, prometheusRule: true }', '',
 ].filter((l) => l !== '').join('\n'));
@@ -442,7 +442,7 @@ add('devops.yaml', [
 add('k8s/@@APP@@.yaml', buildK8s());
 
 // docs + test + .forge manifest
-add('CLAUDE.md', '# @@TITLE@@ — gerado pela Forge\n\nApp SICAT-style com blocos: ' + blocks.join(', ') + '.\nVer apps/@@APP@@/.forge/applied-capabilities.json.\n\nVerificar: `BASE_URL=http://nvit.localhost@@BASE@@/api node apps/@@APP@@/test/integration.mjs`\n');
+add('CLAUDE.md', '---\ntitle: "@@TITLE@@ — Manual para Claude Code"\nstatus: canonical\napplies_to: [@@APP@@]\nupdated: ' + new Date().toISOString().slice(0, 10) + '\nlanguage: pt-BR\n---\n\n# @@TITLE@@ — gerado pela Forge\n\nApp SICAT-style com blocos: ' + blocks.join(', ') + '.\nVer apps/@@APP@@/.forge/applied-capabilities.json.\n\nVerificar: `BASE_URL=http://nvit.localhost@@BASE@@/api node apps/@@APP@@/test/integration.mjs`\n');
 add('test/integration.mjs', buildTest());
 
 function buildTest() {

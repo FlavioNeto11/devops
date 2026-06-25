@@ -578,7 +578,7 @@ const devopsPath = path.join(APPDIR, 'devops.yaml');
 if (fs.existsSync(devopsPath)) {
   let dy = fs.readFileSync(devopsPath, 'utf8');
   if (!/frontend:\s*\{?\s*type:\s*frontend/.test(dy)) {
-    const line = '  frontend: { type: frontend, path: /, port: 80, expose: true, stripPrefix: false, priority: 10 }\n';
+    const line = '  frontend: { type: frontend, image: ' + APP + '-frontend, path: /, port: 80, expose: true, stripPrefix: false, priority: 10 }\n';
     if (/^services:/m.test(dy)) dy = dy.replace(/^services:\s*\n/m, 'services:\n' + line);
     else dy += '\nservices:\n' + line;
     fs.writeFileSync(devopsPath, dy);
