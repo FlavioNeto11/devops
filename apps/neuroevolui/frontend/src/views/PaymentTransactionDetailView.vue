@@ -12,10 +12,28 @@
       <UiButton variant="ghost" to="/payment-transactions">
         ← Voltar às transações
       </UiButton>
+      <UiButton
+        v-if="tx && tx.status !== 'paid'"
+        :loading="markingPaid"
+        :disabled="markingPaid"
+        @click="markAsPaid"
+      >
+        Marcar como Pago
+      </UiButton>
+    </template>
+
+    <!-- ─── Estado 404: transação não encontrada ─── -->
+    <template v-if="notFound">
+      <div class="not-found-state" role="alert">
+        <p class="not-found-code" aria-hidden="true">404</p>
+        <p class="not-found-title">Transação não encontrada</p>
+        <p class="not-found-desc">O ID informado não corresponde a nenhuma transação registrada.</p>
+        <UiButton variant="ghost" to="/payment-transactions">← Voltar à lista de transações</UiButton>
+      </div>
     </template>
 
     <!-- ─── Corpo principal ─── -->
-    <template v-if="tx">
+    <template v-else-if="tx">
       <!-- ── Cabeçalho da transação ── -->
       <UiCard title="Resumo da Transação">
         <template #actions>
@@ -29,6 +47,16 @@
             <dd class="detail-value detail-value--amount">{{ formatAmount(tx.amount_cents, tx.currency) }}</dd>
           </div>
 
+          <!-- Paciente -->
+          <div v-if="tx.patient_id || tx.patient_name" class="detail-item">
+            <dt class="detail-label">Paciente</dt>
+            <dd class="detail-value">
+              <span v-if="loadingPatient" class="patient-loading" aria-busy="true">Carregando…</span>
+              <span v-else-if="displayPatientName">{{ displayPatientName }}</span>
+              <span v-else class="detail-value--mono">{{ tx.patient_id }}</span>
+            </dd>
+          </div>
+
           <!-- Moeda -->
           <div class="detail-item">
             <dt class="detail-label">Moeda</dt>
@@ -37,13 +65,19 @@
             </dd>
           </div>
 
+          <!-- Método de pagamento -->
+          <div class="detail-item">
+            <dt class="detail-label">Método de Pagamento</dt>
+            <dd class="detail-value">{{ paymentMethodLabel(tx.payment_method, tx.gateway_provider || tx.gateway) }}</dd>
+          </div>
+
           <!-- Gateway -->
           <div class="detail-item">
             <dt class="detail-label">Gateway de Pagamento</dt>
             <dd class="detail-value">
-              <span class="gateway-badge" :data-gateway="tx.gateway">
+              <span class="gateway-badge" :data-gateway="tx.gateway_provider || tx.gateway">
                 <span class="gateway-dot" aria-hidden="true"></span>
-                {{ gatewayLabel(tx.gateway) }}
+                {{ gatewayLabel(tx.gateway_provider || tx.gateway) }}
               </span>
             </dd>
           </div>
@@ -96,10 +130,10 @@
             <dd class="detail-value">{{ formatDatetime(tx.created_at) }}</dd>
           </div>
 
-          <!-- Paciente ID -->
-          <div v-if="tx.patient_id" class="detail-item">
-            <dt class="detail-label">Paciente (ID)</dt>
-            <dd class="detail-value detail-value--mono">{{ tx.patient_id }}</dd>
+          <!-- Observações -->
+          <div v-if="txNotes" class="detail-item detail-item--full">
+            <dt class="detail-label">Observações</dt>
+            <dd class="detail-value detail-value--notes">{{ txNotes }}</dd>
           </div>
         </dl>
       </UiCard>
@@ -200,8 +234,8 @@
       </UiCard>
     </template>
 
-    <!-- ─── Estado vazio: tx não encontrada após carregamento sem erro ─── -->
-    <template v-else-if="!loadingTx && !errorTx">
+    <!-- ─── Estado vazio fallback ─── -->
+    <template v-else-if="!loadingTx && !errorTx && !notFound">
       <UiEmptyState
         title="Transação não encontrada"
         description="O ID informado não corresponde a nenhuma transação registrada."
@@ -221,7 +255,7 @@ import {
   UiEmptyState,
   useToast,
 } from '../ui/index.js';
-import { paymentTransactions, consultations } from '../api.js';
+import { paymentTransactions, patients, consultations } from '../api.js';
 
 const route = useRoute();
 const toast = useToast();
@@ -230,6 +264,12 @@ const toast = useToast();
 const tx = ref(null);
 const loadingTx = ref(false);
 const errorTx = ref(null);
+const notFound = ref(false);
+
+// ── Estado do paciente (lazy) ──
+const patientData = ref(null);
+const loadingPatient = ref(false);
+const errorPatient = ref(false);
 
 // ── Estado da consulta vinculada ──
 const consultation = ref(null);
@@ -238,12 +278,24 @@ const errorConsultation = ref(null);
 
 // ── UI state ──
 const copiedField = ref(null);
+const markingPaid = ref(false);
 
 const pageTitle = computed(() => {
   if (!tx.value) return 'Detalhe da Transação';
   const id = tx.value.id || route.params.id;
   const short = String(id).slice(0, 8);
   return 'Transação #' + short;
+});
+
+const displayPatientName = computed(() => {
+  if (tx.value && tx.value.patient_name) return tx.value.patient_name;
+  if (patientData.value) return patientData.value.full_name || patientData.value.name || null;
+  return null;
+});
+
+const txNotes = computed(() => {
+  if (!tx.value) return null;
+  return tx.value.notes || (tx.value.metadata && tx.value.metadata.notes) || null;
 });
 
 // ── Formatters ──
@@ -264,7 +316,7 @@ function formatDatetime(raw) {
   try {
     return new Intl.DateTimeFormat('pt-BR', {
       year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour: '2-digit', minute: '2-digit',
       timeZone: 'America/Sao_Paulo',
     }).format(new Date(raw));
   } catch {
@@ -272,8 +324,21 @@ function formatDatetime(raw) {
   }
 }
 
+function paymentMethodLabel(method, gateway) {
+  const map = {
+    credit_card: 'Cartão de Crédito',
+    debit_card: 'Cartão de Débito',
+    pix: 'Pix',
+    boleto: 'Boleto',
+    bank_transfer: 'Transferência Bancária',
+    cash: 'Dinheiro',
+    manual: 'Manual',
+  };
+  return map[method] || method || gatewayLabel(gateway) || '—';
+}
+
 function gatewayLabel(gw) {
-  const map = { stripe: 'Stripe', pagseguro: 'PagSeguro' };
+  const map = { stripe: 'Stripe', pagseguro: 'PagSeguro', pagarme: 'Pagar.me', mercadopago: 'Mercado Pago', sandbox: 'Sandbox', manual: 'Manual' };
   return map[gw] || gw || '—';
 }
 
@@ -297,20 +362,60 @@ function copyToClipboard(text, field) {
   });
 }
 
+// ── Marcar como Pago ──
+async function markAsPaid() {
+  if (!tx.value || tx.value.status === 'paid') return;
+  markingPaid.value = true;
+  try {
+    const updated = await paymentTransactions.update(route.params.id, { status: 'paid' });
+    const data = updated && updated.data ? updated.data : updated;
+    tx.value.status = (data && data.status) || 'paid';
+    toast.success('Transação marcada como paga.');
+  } catch (err) {
+    toast.error((err && err.message) || 'Erro ao atualizar o status.');
+  } finally {
+    markingPaid.value = false;
+  }
+}
+
 // ── Carregamento ──
+async function loadPatient(id) {
+  if (!id) return;
+  loadingPatient.value = true;
+  errorPatient.value = false;
+  try {
+    const data = await patients.get(id);
+    patientData.value = data && data.data ? data.data : data;
+  } catch {
+    errorPatient.value = true;
+  } finally {
+    loadingPatient.value = false;
+  }
+}
+
 async function loadTransaction(id) {
   loadingTx.value = true;
   errorTx.value = null;
+  notFound.value = false;
+  tx.value = null;
   try {
     const data = await paymentTransactions.get(id);
     tx.value = data && data.data ? data.data : data;
-    // Carrega a consulta vinculada se existir
+    // Carrega paciente se nome não vier na resposta
+    if (tx.value && tx.value.patient_id && !tx.value.patient_name) {
+      loadPatient(tx.value.patient_id);
+    }
+    // Carrega consulta vinculada se existir
     if (tx.value && tx.value.consultation_id) {
       loadConsultation(tx.value.consultation_id);
     }
   } catch (err) {
-    errorTx.value = (err && err.message) || 'Erro ao carregar a transação.';
-    toast.error(errorTx.value);
+    if (err && err.status === 404) {
+      notFound.value = true;
+    } else {
+      errorTx.value = (err && err.message) || 'Erro ao carregar a transação.';
+      toast.error(errorTx.value);
+    }
   } finally {
     loadingTx.value = false;
   }
@@ -409,6 +514,11 @@ onMounted(loadAll);
   gap: var(--ui-space-2);
 }
 
+.detail-value--notes {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* ── Botão copiar ── */
 .copy-btn {
   flex-shrink: 0;
@@ -474,6 +584,13 @@ onMounted(loadAll);
 
 .gateway-badge[data-gateway="pagseguro"] .gateway-dot {
   background: rgb(var(--ui-gateway-pagseguro));
+}
+
+/* ── Loading do paciente ── */
+.patient-loading {
+  font-size: var(--ui-text-sm);
+  color: rgb(var(--ui-muted));
+  font-style: italic;
 }
 
 /* ── Metadados ── */
@@ -621,6 +738,39 @@ onMounted(loadAll);
   word-break: normal;
   margin: 0;
   line-height: 1.55;
+}
+
+/* ── Estado 404 ── */
+.not-found-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ui-space-3);
+  padding: var(--ui-space-12) var(--ui-space-6);
+  text-align: center;
+}
+
+.not-found-code {
+  font-size: 4rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: rgb(var(--ui-border));
+  line-height: 1;
+  margin: 0;
+}
+
+.not-found-title {
+  font-size: var(--ui-text-lg);
+  font-weight: 600;
+  color: rgb(var(--ui-fg));
+  margin: 0;
+}
+
+.not-found-desc {
+  font-size: var(--ui-text-sm);
+  color: rgb(var(--ui-muted));
+  margin: 0;
+  max-width: 380px;
 }
 
 /* ── Responsivo ≤860px ── */
