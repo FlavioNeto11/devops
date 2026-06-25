@@ -30,7 +30,7 @@ if (product.stack !== 'gymops') { console.error(`scaffold-gymops só gera stack 
 const byId = loadCatalog();
 const blocks = resolveBlocks(product.capability_blocks || [], 'gymops', byId);
 const has = (id) => blocks.includes(id);
-const F = { redis: has('redis-bullmq'), gateway: has('gateway-externo'), rbac: has('rbac-multitenant'), idem: has('idempotencia'), oidc: has('oidc-sessao') };
+const F = { redis: has('redis-bullmq'), gateway: has('gateway-externo'), rbac: has('rbac-multitenant'), idem: has('idempotencia'), oidc: has('oidc-sessao'), pgvector: has('rag-pgvector') };
 
 const APP = product.name;
 const TITLE = product.display_name || APP;
@@ -279,7 +279,7 @@ function buildK8s() {
     'metadata: { name: @@APP@@-postgres, namespace: apps, labels: { app.kubernetes.io/name: @@APP@@-postgres, app.kubernetes.io/part-of: @@APP@@ } }',
     'spec:', '  replicas: 1', '  strategy: { type: Recreate }', '  selector: { matchLabels: { app.kubernetes.io/name: @@APP@@-postgres } }',
     '  template:', '    metadata: { labels: { app.kubernetes.io/name: @@APP@@-postgres, app.kubernetes.io/part-of: @@APP@@ } }',
-    '    spec:', '      containers:', '        - name: postgres', '          image: postgres:16-alpine',
+    '    spec:', '      containers:', '        - name: postgres', '          image: ' + (F.pgvector ? 'pgvector/pgvector:pg16' : 'postgres:16-alpine'),
     '          envFrom: [ { secretRef: { name: @@APP@@-db } } ]', '          ports: [ { containerPort: 5432 } ]',
     '          volumeMounts: [ { name: data, mountPath: /var/lib/postgresql/data, subPath: pgdata } ]',
     '      volumes: [ { name: data, persistentVolumeClaim: { claimName: @@APP@@-postgres } } ]');

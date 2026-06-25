@@ -33,7 +33,7 @@ const blocks = resolveBlocks(product.capability_blocks || [], 'sicat', byId);
 const has = (id) => blocks.includes(id);
 // `ai`: assistente de IA de controle do app (bloco control-ai-por-app). Quando presente, o app NASCE
 // com assistant-service + rota /v1/assistant que ACEITA ARQUIVOS (multimodal, fail-soft) + view (se web).
-const F = { worker: has('worker-queue-transacional'), gateway: has('gateway-externo'), idem: has('idempotencia'), contract: has('contract-openapi'), ai: has('control-ai-por-app') };
+const F = { worker: has('worker-queue-transacional'), gateway: has('gateway-externo'), idem: has('idempotencia'), contract: has('contract-openapi'), ai: has('control-ai-por-app'), pgvector: has('rag-pgvector') };
 
 // Vendoring (apps buildam em contexto Docker isolado e não alcançam packages/): os .tgz são copiados
 // p/ apps/<app>/api/vendor/ ANTES do npm install (o Dockerfile COPY vendor). Fontes (em ordem de
@@ -483,7 +483,7 @@ function buildK8s() {
     'metadata: { name: @@APP@@-postgres, namespace: apps, labels: { app.kubernetes.io/name: @@APP@@-postgres, app.kubernetes.io/part-of: @@APP@@ } }',
     'spec:', '  replicas: 1', '  strategy: { type: Recreate }', '  selector: { matchLabels: { app.kubernetes.io/name: @@APP@@-postgres } }',
     '  template:', '    metadata: { labels: { app.kubernetes.io/name: @@APP@@-postgres, app.kubernetes.io/part-of: @@APP@@ } }',
-    '    spec:', '      containers:', '        - name: postgres', '          image: postgres:16-alpine',
+    '    spec:', '      containers:', '        - name: postgres', '          image: ' + (F.pgvector ? 'pgvector/pgvector:pg16' : 'postgres:16-alpine'),
     '          envFrom: [ { secretRef: { name: @@APP@@-db } } ]', '          ports: [ { containerPort: 5432 } ]',
     '          volumeMounts: [ { name: data, mountPath: /var/lib/postgresql/data, subPath: pgdata } ]',
     '      volumes: [ { name: data, persistentVolumeClaim: { claimName: @@APP@@-postgres } } ]');
