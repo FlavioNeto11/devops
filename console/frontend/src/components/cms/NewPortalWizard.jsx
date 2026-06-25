@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Modal from '../Modal.jsx';
 import Icon from '../Icon.jsx';
 import { useToast } from '../ToastProvider.jsx';
-import { pmProjects, pmCreateProject, pmCmsCreatePage, pmCmsCreateSection, pmCmsUpload, pmCmsGenerateStream } from '../../api.js';
+import { pmProjects, pmCreateProject, pmCmsCreatePage, pmCmsCreateSection, pmCmsUpload, pmCmsGenerateStream, pmCmsPages, pmCmsSections } from '../../api.js';
 import { isPortal } from '../../lib/appTypes.js';
 
 /**
@@ -99,7 +99,13 @@ export default function NewPortalWizard({ isAdmin, onClose, onCreated }) {
 
   useEffect(() => {
     pmProjects().then((p) => setProducts((p || []).filter((x) => !isPortal(x)))).catch(() => setProducts([]));
-    return () => { if (aiTimer.current) clearInterval(aiTimer.current); };
+    // Desmonte por QUALQUER motivo (troca de aba/rota, re-render do pai) durante 'running': aborta o
+    // stream/IA e marca cancelamento (evita stream pendurado, custo de IA e setState em desmontado).
+    return () => {
+      cancelled.current = true;
+      if (aiTimer.current) clearInterval(aiTimer.current);
+      if (abortRef.current) abortRef.current.abort();
+    };
   }, []);
 
   const effectiveKey = useMemo(() => (keyTouched ? key : slugify(name)), [key, keyTouched, name]);
@@ -169,7 +175,7 @@ export default function NewPortalWizard({ isAdmin, onClose, onCreated }) {
     setPhase('running');
 
     try {
-      // projeto/página/template: só na 1ª vez (em "tentar de novo" já existem)
+      // projeto: cria na 1ª vez; em "tentar de novo" reusa o já criado (evita conflito de chave).
       let project = createdRef.current?.project;
       if (!project) {
         setStage('project', 'active');
@@ -178,22 +184,34 @@ export default function NewPortalWizard({ isAdmin, onClose, onCreated }) {
           route: `/sites/${k}`, stack: 'Portal CMS',
           related_project_id: linkMode === 'linked' && relatedId ? relatedId : null,
         });
-        createdRef.current = { project, fileIds: [] };
+        createdRef.current = { project, fileIds: [], pageReady: false };
         setStage('project', 'done', `/sites/${k}`); addLog(`Projeto "${name.trim()}" criado em /sites/${k}.`);
+      } else {
+        setStage('project', 'done', `/sites/${k}`);
+      }
 
+      // página Home + template: IDEMPOTENTE (reusa a home por slug e só adiciona o template se a página
+      // estiver vazia) — assim "tentar de novo" após falha aqui não duplica nem deixa o portal sem home.
+      if (!createdRef.current.pageReady) {
         setStage('page', 'active');
-        const page = await pmCmsCreatePage(project.id, { slug: 'home', title: 'Home', status: isAdmin ? 'published' : 'draft' });
+        const existingPages = await pmCmsPages(project.id).catch(() => []);
+        let page = (existingPages || []).find((p) => p.slug === 'home');
+        if (!page) page = await pmCmsCreatePage(project.id, { slug: 'home', title: 'Home', status: isAdmin ? 'published' : 'draft' });
         setStage('page', 'done');
 
         const tplSections = TEMPLATES[template]?.sections || [];
         setStage('template', 'active');
-        for (const s of tplSections) {
-          // eslint-disable-next-line no-await-in-loop
-          await pmCmsCreateSection(page.id, { kind: s.kind, data: s.data, status: 'published', visible: true });
+        const existingSections = await pmCmsSections(page.id).catch(() => []);
+        if (!(existingSections || []).length) {
+          for (const s of tplSections) {
+            // eslint-disable-next-line no-await-in-loop
+            await pmCmsCreateSection(page.id, { kind: s.kind, data: s.data, status: 'published', visible: true });
+          }
         }
         setStage('template', 'done', tplSections.length ? `${tplSections.length} seção(ões) base` : 'em branco');
+        createdRef.current.pageReady = true;
       } else {
-        setStage('project', 'done', `/sites/${k}`); setStage('page', 'done'); setStage('template', 'done');
+        setStage('page', 'done'); setStage('template', 'done');
       }
 
       // upload dos arquivos (se houver e ainda não enviados)
@@ -202,10 +220,11 @@ export default function NewPortalWizard({ isAdmin, onClose, onCreated }) {
         setStage('upload', 'active', `0/${files.length}`);
         fileIds = [];
         for (let i = 0; i < files.length; i++) {
+          if (cancelled.current) return;   // honra o Cancelar/desmonte entre os uploads
           setStage('upload', 'active', `${i + 1}/${files.length} — ${files[i].name}`);
           addLog(`Enviando ${files[i].name} (${fmtSize(files[i].size)})…`);
           // eslint-disable-next-line no-await-in-loop
-          const up = await pmCmsUpload(project.id, files[i]);
+          const up = await pmCmsUpload(project.id, files[i], 'project', { signal: abortRef.current.signal });
           fileIds.push(up.id);
         }
         createdRef.current.fileIds = fileIds;
@@ -347,7 +366,7 @@ export default function NewPortalWizard({ isAdmin, onClose, onCreated }) {
           )}
         </>
       ) : (
-        <div className="gp">
+        <div className="gp" role="status" aria-live="polite" aria-busy={phase === 'running'}>
           <p className="muted" style={{ fontSize: '.82rem', marginTop: 0 }}>
             {phase === 'done' ? 'Portal criado.' : phase === 'error' ? 'A criação parou numa etapa.' : 'Criando o portal ao vivo…'}
             {' '}<strong>{name.trim()}</strong> → <code>/sites/{slugify(effectiveKey)}</code>
@@ -377,7 +396,7 @@ export default function NewPortalWizard({ isAdmin, onClose, onCreated }) {
           )}
 
           {phase === 'error' && err && (
-            <p style={{ color: 'var(--err)', fontSize: '.84rem', marginTop: 10, display: 'flex', gap: 6, alignItems: 'baseline' }}>
+            <p role="alert" style={{ color: 'var(--err)', fontSize: '.84rem', marginTop: 10, display: 'flex', gap: 6, alignItems: 'baseline' }}>
               <Icon name="x" size={14} /> <span>{err}</span>
             </p>
           )}

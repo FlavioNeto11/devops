@@ -271,6 +271,9 @@ r.post('/projects/:projectId/cms/generate-stream', asyncH(async (req, res) => {
   const userPrompt = typeof b.prompt === 'string' ? b.prompt.trim() : '';
   const fileIds = Array.isArray(b.fileIds) ? b.fileIds.filter((x) => typeof x === 'string' && x).slice(0, 20) : [];
   if (!userPrompt && !fileIds.length) return invalid(res, 'prompt ou fileIds e obrigatorio');
+  // fileIds vão para `id = ANY($1::uuid[])`; um id não-UUID faria o Postgres lançar erro cru DEPOIS
+  // do SSE aberto. Valida o formato aqui e responde 400 normal (antes de virar stream).
+  if (fileIds.some((x) => !/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(x))) return invalid(res, 'fileIds invalidos (esperado UUID)');
   if (!aiEnabled()) return aiUnavailable(res);                                    // 503 JSON normal ANTES do SSE
 
   setSseHeaders(res);
@@ -278,7 +281,9 @@ r.post('/projects/:projectId/cms/generate-stream', asyncH(async (req, res) => {
   const ctrl = new AbortController();
   let done = false;
   let genId = null;
-  const markFailed = (msg) => { if (genId) query(`UPDATE cms_generation_requests SET status='failed', error=$2, updated_at=now() WHERE id=$1`, [genId, String(msg).slice(0, 500)]).catch(() => {}); };
+  // NUNCA rebaixar uma geração já concluída: o `AND status <> 'done'` evita o split-brain quando o
+  // cliente desconecta DURANTE a persistência (a transação pode commitar 'done' enquanto isto corre).
+  const markFailed = (msg) => { if (genId) query(`UPDATE cms_generation_requests SET status='failed', error=$2, updated_at=now() WHERE id=$1 AND status <> 'done'`, [genId, String(msg).slice(0, 500)]).catch(() => {}); };
   const cleanup = () => { clearInterval(keepAlive); if (!done) { done = true; ctrl.abort(); markFailed('cliente desconectou'); } };
   req.on('close', cleanup); req.on('aborted', cleanup); res.on('error', cleanup);
 

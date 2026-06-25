@@ -154,8 +154,12 @@ function homeHasHero(draft) {
 /** Reforço de estrutura: garante home com um hero e ao menos 2 seções (o "valide toda a estrutura").
  *  Se a IA não entregou hero, sintetiza um a partir da identidade/nome — portal nunca nasce sem cara. */
 export function ensureMinimumHome(draft, siteName) {
-  let home = (draft.pages || []).find((p) => p.slug === 'home');
+  if (!Array.isArray(draft.pages)) draft.pages = [];
+  // Mesma heurística do homeHasHero: a inicial é a 'home' OU a primeira página — assim não criamos
+  // uma 'home' redundante quando a IA nomeou a inicial com outro slug (ex.: 'inicio').
+  let home = draft.pages.find((p) => p.slug === 'home') || draft.pages[0];
   if (!home) { home = { slug: 'home', title: 'Home', sections: [] }; draft.pages.unshift(home); }
+  if (!Array.isArray(home.sections)) home.sections = [];
   if (!home.sections.some((s) => s.kind === 'hero')) {
     const name = (draft.site && draft.site.name) || siteName || 'Bem-vindo';
     const intro = (draft.site && (draft.site.tagline || draft.site.description)) || 'Edite este conteúdo no editor visual.';

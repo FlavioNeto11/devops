@@ -298,6 +298,9 @@ export async function pmCmsGenerateStream(projectId, body, { onEvent, signal } =
     }
   }
   if (failed) throw Object.assign(new Error(failed.message || 'geração falhou'), { stage: failed.stage, code: failed.code });
+  // Stream encerrou SEM frame `done` nem `error` (idle-timeout de proxy, restart do pod, queda de rede):
+  // a geração NÃO concluiu — tratar como erro em vez de devolver null (que viraria falso "sucesso").
+  if (!result) throw new Error('A geração foi interrompida antes de concluir (conexão encerrada sem confirmação). Tente de novo.');
   return result;
 }
 export const pmCmsGenerations = (projectId) => pmFetch(`/projects/${projectId}/cms/generations`);
@@ -311,11 +314,11 @@ export const pmCmsDeleteFile = (fileId) => pmFetch(`/cms/files/${fileId}`, { met
 
 /** Upload de arquivo (multipart) — bypassa o pmFetch JSON. Retorna { id, url, filename, mime, size }.
  *  scope 'global' publica na biblioteca pública da plataforma (somente admin). */
-export async function pmCmsUpload(projectId, file, scope = 'project') {
+export async function pmCmsUpload(projectId, file, scope = 'project', { signal } = {}) {
   const fd = new FormData();
   if (scope === 'global') fd.append('scope', 'global'); // antes do file: multer lê os fields na ordem
   fd.append('file', file);
-  const res = await fetch(`${PM_BASE}/projects/${projectId}/cms/files`, { method: 'POST', body: fd });
+  const res = await fetch(`${PM_BASE}/projects/${projectId}/cms/files`, { method: 'POST', body: fd, signal });
   if (res.status === 401) { handleAuthExpired(); throw new Error('Sessão expirada — redirecionando para o login…'); }
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error((json && json.error && json.error.message) || `Erro ${res.status} no upload`);
