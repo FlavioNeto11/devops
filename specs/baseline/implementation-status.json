@@ -6,8 +6,7 @@
     "by_status": {
       "deployed": 282,
       "done": 52,
-      "merged": 5,
-      "pr_open": 1,
+      "merged": 6,
       "not_started": 3
     },
     "refinements": {
@@ -925,9 +924,11 @@
       "run_id": "28127034333"
     },
     "REQ-NEUROEVOLUI-0006": {
-      "status": "pr_open",
+      "status": "merged",
       "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/129",
       "branch": "@{id=REQ-NEUROEVOLUI-0006; branch=req/REQ-NEUROEVOLUI-0006/r1; restricted=false; title=feat(neuroevolui): implementa REQ-NEUROEVOLUI-0006 — IA: Assistente de controle para profi}.branch",
+      "commit": "d864fd230f8b1d494dc50c8ffb759d9e55270484",
       "run_id": "28139437545"
     },
     "REQ-NEUROEVOLUI-0007": {
