@@ -17,6 +17,9 @@ import { registerFinancialControlRoutes } from './routes/financial-control.js';
 import { registerCashFlowRoutes } from './routes/cash-flow.js';
 import { registerFinancialReportRoutes } from './routes/financial-reports.js';
 import { registerFinancialDashboardRoutes } from './routes/financial-dashboard.js';
+import { registerNfClientRoutes } from './routes/nf-clients.js';
+import { registerNfProductRoutes } from './routes/nf-products.js';
+import { registerNfRoutes } from './routes/nf.js';
 
 const app = Fastify({ logger: false });
 app.addHook('onRequest', async (req) => { const ctx = authContext(req); req.tenantId = ctx.tenantId; req.role = ctx.role; req.user = ctx.user; });
@@ -59,6 +62,11 @@ registerFinancialControlRoutes(app);
 registerCashFlowRoutes(app);
 registerFinancialReportRoutes(app);
 registerFinancialDashboardRoutes(app);
+
+// Gestão de Notas Fiscais PJ: clientes NF, produtos, emissão, rastreamento, relatório (REQ-CONTAVIVA360-0006)
+registerNfClientRoutes(app);
+registerNfProductRoutes(app);
+registerNfRoutes(app);
 
 const PORT = Number(process.env.PORT) || 8080;
 (async () => {
