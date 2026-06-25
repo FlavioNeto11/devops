@@ -1,7 +1,7 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
 import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId, parseMarkdown, systemContext } from './lib.js?v=42';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, weightedProgress, wavesFromProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes, capabilityPlain, planSummary, CAPABILITY_PLAIN } from './forge-lib.js?v=52';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, weightedProgress, wavesFromProgress, launchPhases, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes, capabilityPlain, planSummary, CAPABILITY_PLAIN } from './forge-lib.js?v=53';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -2896,45 +2896,116 @@ function renderForgeWizardLaunched(body, w) {
   const d = w.launchInfo || {};
   const rel = w.launchMode === 'release';
   const card = h('div', { class: 'fw-card fw-launched' });
-  const head = h('h2', { text: (rel ? '🚀 ' : '📦 ') + (rel ? 'Construindo o ' : 'Requisitos criados — ') + (w.name || w.slug) });
+  const head = h('h2', { class: 'fw-launch-h', text: (rel ? '🚀 Construindo o ' : '📦 Requisitos criados — ') + (w.name || w.slug) });
   const lead = h('p', { class: 'fw-lead', text: rel
-    ? 'Acompanhe aqui — quando ficar pronto, o link de acesso aparece abaixo.'
+    ? 'Acompanhe ao vivo cada fase da esteira — quando o sistema ficar no ar, o link de acesso aparece abaixo.'
     : 'Os requisitos foram criados no git. Mescle o PR para a esteira construir e publicar.' });
+  const updated = h('span', { class: 'fw-updated muted small', text: 'conectando…' });
   const steps = h('ol', { class: 'fw-launch-steps', 'aria-live': 'polite' });
-  const liveBox = h('div', { class: 'fw-live' });
+  const progBox = h('div', { class: 'fw-progress' });
+  const reqsBox = h('div', { class: 'fw-reqs' });
+  const liveBox = h('div', { class: 'fw-live', 'aria-live': 'polite' });
   const foot = h('div', { class: 'fw-actions' });
   if (d.actions_url) foot.append(h('a', { class: 'btn', href: d.actions_url, target: '_blank', rel: 'noopener', text: 'Ver no GitHub ↗' }));
   if (!rel && d.pulls_url) foot.append(h('a', { class: 'btn', href: d.pulls_url, target: '_blank', rel: 'noopener', text: 'Ver o PR ↗' }));
   foot.append(h('button', { class: 'btn', type: 'button', text: '+ Criar outro sistema', onclick: () => { fwStopPolling(w); state.forge.wizard = null; backToHub(); } }));
-  card.append(head, lead, steps, liveBox, foot);
+  card.append(head, lead, h('div', { class: 'fw-meta' }, updated), steps, liveBox, progBox, reqsBox, foot);
   body.append(card);
-  fwStartLaunchPolling(w, { steps, liveBox, lead });
+  fwStartLaunchPolling(w, { steps, progBox, reqsBox, liveBox, lead, updated });
 }
 
 function fwStopPolling(w) { if (w && w._statusTimer) { clearTimeout(w._statusTimer); w._statusTimer = null; } }
 
-// Polling do estado da cadeia + sonda de liveness do app (HEAD same-origin /<slug>/). Idempotente:
-// re-render chama fwStopPolling antes; para sozinho ao publicar ou ao sair do wizard.
+// Polling AO VIVO da esteira: fases ORDENADAS derivadas do estado REAL — requisitos/plano do
+// launch-status (PRs) + construção/publicado do impl-status (progresso por requisito). "Publicado"
+// NÃO vem mais de uma sonda HEAD (que dava falso-positivo via catch-all do portal): vem do
+// launchPhases (com clamp monotônico). Idempotente; para sozinho ao publicar ou ao sair do wizard.
 function fwStartLaunchPolling(w, els) {
   fwStopPolling(w);
   const slug = w.slug;
   const appUrl = location.origin + '/' + slug + '/';
-  const icon = (st) => (st === 'done' ? '✓' : st === 'active' ? '●' : st === 'error' ? '✕' : '○');
-  const renderStages = (stages, live) => {
-    const all = (stages || []).slice();
-    all.push({ key: 'publicado', label: 'Publicado', status: live ? 'done' : 'pending', detail: live ? 'no ar' : 'aguardando subir' });
-    els.steps.replaceChildren(...all.map((s) => h('li', { class: 'fw-ls fw-ls-' + s.status },
-      h('span', { class: 'fw-ls-ic', 'aria-hidden': 'true', text: icon(s.status) }),
-      h('span', { class: 'fw-ls-tx' }, h('strong', { text: s.label }), s.detail ? h('span', { class: 'fw-ls-d', text: ' — ' + s.detail }) : null))));
+  const ICON = { done: '✓', active: '●', error: '✕', pending: '○' };
+
+  const renderPhases = (phases) => {
+    els.steps.replaceChildren(...phases.map((s) => h('li', { class: 'fw-ls fw-ls-' + s.status },
+      h('span', { class: 'fw-ls-ic' + (s.status === 'active' ? ' fw-spin' : ''), 'aria-hidden': 'true', text: ICON[s.status] || '○' }),
+      h('span', { class: 'fw-ls-tx' },
+        h('strong', { text: s.label }),
+        s.detail ? h('span', { class: 'fw-ls-d', text: ' — ' + s.detail }) : null,
+        s.url ? h('a', { class: 'fw-ls-link', href: s.url, target: '_blank', rel: 'noopener', 'aria-label': 'abrir no GitHub', text: ' ↗' }) : null))));
   };
-  const probeLive = async () => { try { const r = await fetch(appUrl, { method: 'HEAD', cache: 'no-store' }); return r.ok; } catch { return false; } };
+
+  const renderProgress = (reqIds, implLocal, buildPlan) => {
+    els.progBox.replaceChildren();
+    if (!reqIds.length) return;
+    const prog = weightedProgress(reqIds, implLocal);
+    els.progBox.append(h('div', { class: 'forge-prog-head' }, h('h3', { text: 'Progresso da construção' }),
+      prog.pct === 100 ? badge('no ar ✓', 'b-ok') : (prog.delivered ? badge('deploy/verificação pendente', 'b-high') : null)));
+    els.progBox.append(progressBar(prog.pct));
+    const chips = h('div', { class: 'forge-breakdown', 'aria-label': 'Requisitos por estágio' });
+    let any = false;
+    for (const st of ['done', 'deployed', 'merged', 'pr_open', 'in_progress', 'blocked', 'not_started']) {
+      const n = prog.by[st] || 0; if (!n) continue; any = true;
+      chips.append(h('span', { class: 'forge-bd ' + forgeStatusCls(st), text: `${n} ${FORGE_STAGE_LABELS[st] || st}` }));
+    }
+    if (any) els.progBox.append(chips);
+    els.progBox.append(h('p', { class: 'muted small', text: `${prog.live}/${prog.total} no ar · ${prog.delivered}/${prog.total} com código no main` }));
+    if (buildPlan && buildPlan.waves && buildPlan.waves.length) {
+      const list = h('div', { class: 'forge-waves', role: 'list' });
+      for (const wv of wavesFromProgress(buildPlan, prog.pct)) {
+        list.append(h('div', { class: 'forge-wave s-' + wv.state, role: 'listitem' },
+          h('span', { class: 'forge-wave-dot', 'aria-hidden': 'true' }),
+          h('span', { class: 'forge-wave-id', text: wv.id }),
+          h('span', { class: 'forge-wave-n', text: FORGE_WAVE_STATE[wv.state] || wv.state })));
+      }
+      els.progBox.append(h('h4', { class: 'fw-sub', text: 'Waves' }), list);
+    }
+  };
+
+  const renderReqs = (reqIds, implLocal) => {
+    els.reqsBox.replaceChildren();
+    if (!reqIds.length) return;
+    els.reqsBox.append(h('h3', { class: 'fw-sub', text: `Requisitos → código (${reqIds.length})` }));
+    const t = h('table');
+    t.append(h('thead', {}, h('tr', {}, h('th', { text: 'ID' }), h('th', { text: 'Título' }), h('th', { text: 'Status' }), h('th', { text: 'PR' }))));
+    const tb = h('tbody');
+    for (const id of reqIds) {
+      const row = reqRow(id, DATA.baseline, implLocal);
+      tb.append(h('tr', {},
+        h('td', {}, h('span', { class: 'rid', text: id })),
+        h('td', { text: truncateLabel(row.title || id, 56) }),
+        h('td', {}, badge(row.status, forgeStatusCls(row.status))),
+        h('td', {}, row.pr ? h('a', { class: 'btn-link', href: row.pr, target: '_blank', rel: 'noopener', text: 'PR' }) : h('span', { class: 'empty', text: '—' }))));
+    }
+    const gw = h('div', { class: 'grid-wrap' }); t.append(tb); gw.append(t); els.reqsBox.append(gw);
+  };
+
   const tick = async () => {
     if (state.forge.wizard !== w) { fwStopPolling(w); return; } // navegou para fora
+    // 1) fases da esteira (PRs no git): requisitos + plano + build
     let stages = [];
     try { const r = await AI.get('/v1/forge/launch-status?product=' + encodeURIComponent(slug)); if (r.ok && r.data && Array.isArray(r.data.stages)) stages = r.data.stages; } catch { /* fail-soft */ }
-    const live = await probeLive();
-    renderStages(stages, live);
-    if (live) {
+    // 2) estado VIVO (progresso REAL por requisito) — autoritativo p/ construção/publicado
+    let product = null; let implLocal = { items: {} }; let buildPlan;
+    try {
+      const s = await AI.get('/v1/forge/state');
+      const p = s.ok && s.data && (s.data.products || []).find((x) => x.name === slug);
+      if (p) {
+        product = { requirement_ids: p.requirement_ids || [], phases: p.phases || {} };
+        implLocal = { items: Object.fromEntries((p.reqs || []).map((r) => [r.id, { status: r.status }])) };
+        buildPlan = p.buildPlan;
+      }
+    } catch { /* fail-soft: usa só as stages */ }
+
+    const phases = launchPhases(stages, product, implLocal, buildPlan);
+    renderPhases(phases);
+    const reqIds = (product && product.requirement_ids) || [];
+    renderProgress(reqIds, implLocal, buildPlan);
+    renderReqs(reqIds, implLocal);
+    els.updated.textContent = 'atualizado às ' + new Date().toLocaleTimeString('pt-BR');
+
+    const pub = phases.find((p) => p.key === 'publicado');
+    if (pub && pub.status === 'done') {
       els.lead.textContent = 'Pronto! O ' + (w.name || slug) + ' foi construído e publicado.';
       els.liveBox.replaceChildren(
         h('p', { class: 'fw-live-t', text: '🎉 Seu sistema está no ar!' }),
@@ -2942,6 +3013,11 @@ function fwStartLaunchPolling(w, els) {
       fwStopPolling(w);
       return;
     }
+    // ainda construindo: destaca a fase ATUAL (1ª não concluída) como "agora"
+    const active = phases.find((p) => p.status === 'active') || phases.find((p) => p.status !== 'done');
+    els.liveBox.replaceChildren(h('p', { class: 'fw-now' },
+      h('span', { class: 'fw-now-dot fw-spin', 'aria-hidden': 'true' }),
+      h('span', {}, 'Agora: ', h('strong', { text: active ? active.label : 'aguardando' }), active && active.detail ? ' — ' + active.detail : '')));
     w._statusTimer = setTimeout(tick, 6000);
   };
   tick();

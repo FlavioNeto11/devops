@@ -882,6 +882,18 @@ pre.forge-cmd { background: var(--bg); border: 1px solid var(--line); border-rad
 @media (prefers-reduced-motion: reduce) { .fw-ls-active .fw-ls-ic { animation: none; } }
 .fw-live { margin-top: 18px; }
 .fw-live-t { font-size: 16px; font-weight: 600; margin: 0 0 8px; }
+/* tela "Construindo o <X>" enriquecida: progresso + tabela + feed ao vivo */
+.fw-card.fw-launched { max-width: 920px; }
+.fw-meta { margin: 6px 0 0; }
+.fw-updated::before { content: '↻ '; }
+.fw-ls-link { text-decoration: none; color: var(--accent); font-weight: 700; }
+.fw-spin { display: inline-flex; animation: forge-spin .9s linear infinite; }
+.fw-progress { margin-top: 18px; }
+.fw-reqs { margin-top: 18px; }
+.fw-sub { margin: 14px 0 8px; font-size: 14px; }
+.fw-now { display: flex; align-items: center; gap: 8px; margin: 0; padding: 10px 12px; font-size: 13.5px; color: var(--fg); border: 1px solid var(--line); border-radius: 10px; background: var(--accent-soft, rgba(99,102,241,.08)); }
+.fw-now-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: aiu-pulse 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .fw-spin, .fw-now-dot { animation: none; } }
 /* IA: ajustar capacidades/requisitos/plano por instrução (stages 2 e 3) */
 .fw-adjust { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); }
 .fw-adjust-row { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
