@@ -2,6 +2,7 @@
 // @flavioneto11/ui-vue — barrel. Importe componentes + composables + libs de um lugar:
 //   import { UiPageLayout, UiDataTable, useToast, useForm } from './ui/index.js';
 export { default as UiButton } from './components/UiButton.vue';
+export { default as UiInput } from './components/UiInput.vue';
 export { default as UiCard } from './components/UiCard.vue';
 export { default as UiMetricCard } from './components/UiMetricCard.vue';
 export { default as UiStatusBadge } from './components/UiStatusBadge.vue';
