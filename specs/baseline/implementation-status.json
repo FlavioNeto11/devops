@@ -6,8 +6,8 @@
     "by_status": {
       "deployed": 282,
       "done": 52,
-      "merged": 10,
-      "not_started": 8
+      "merged": 12,
+      "not_started": 6
     },
     "refinements": {
       "total": 63,
@@ -649,12 +649,20 @@
       "req_revision": 1
     },
     "REQ-CONTAVIVA360-0002": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "merged",
+      "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/156",
+      "branch": "@{id=REQ-CONTAVIVA360-0002; branch=req/REQ-CONTAVIVA360-0002/r1; restricted=false; title=feat(contaviva-360): implementa REQ-CONTAVIVA360-0002 — Gestão de Dados Contábeis e Fiscai}.branch",
+      "commit": "3aacdf8e266a3b4809d2526721fa87f77e2752d5",
+      "run_id": "28197566032"
     },
     "REQ-CONTAVIVA360-0003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "merged",
+      "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/158",
+      "branch": "@{id=REQ-CONTAVIVA360-0003; branch=req/REQ-CONTAVIVA360-0003/r1; restricted=false; title=feat(contaviva-360): implementa REQ-CONTAVIVA360-0003 — Obrigações Fiscais e Alertas: Rast}.branch",
+      "commit": "eb1f543b2c17910ea0a71eaf7c2ad66bab054eb0",
+      "run_id": "28198916792"
     },
     "REQ-CONTAVIVA360-0004": {
       "status": "not_started",
