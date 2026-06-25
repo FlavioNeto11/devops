@@ -7,7 +7,8 @@
       "deployed": 282,
       "done": 52,
       "merged": 11,
-      "not_started": 7
+      "pr_open": 1,
+      "not_started": 6
     },
     "refinements": {
       "total": 63,
@@ -657,8 +658,10 @@
       "run_id": "28197566032"
     },
     "REQ-CONTAVIVA360-0003": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "branch": "@{id=REQ-CONTAVIVA360-0003; branch=req/REQ-CONTAVIVA360-0003/r1; restricted=false; title=feat(contaviva-360): implementa REQ-CONTAVIVA360-0003 — Obrigações Fiscais e Alertas: Rast}.branch",
+      "run_id": "28198916792"
     },
     "REQ-CONTAVIVA360-0004": {
       "status": "not_started",
