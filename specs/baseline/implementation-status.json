@@ -7,7 +7,8 @@
       "deployed": 282,
       "done": 52,
       "merged": 14,
-      "not_started": 4
+      "pr_open": 1,
+      "not_started": 3
     },
     "refinements": {
       "total": 63,
@@ -681,8 +682,10 @@
       "run_id": "28200879377"
     },
     "REQ-CONTAVIVA360-0006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "branch": "@{id=REQ-CONTAVIVA360-0006; branch=req/REQ-CONTAVIVA360-0006/r1; restricted=false; title=feat(contaviva-360): implementa REQ-CONTAVIVA360-0006 — Gestão de Notas Fiscais (PJ): Cada}.branch",
+      "run_id": "28201950454"
     },
     "REQ-CONTAVIVA360-0007": {
       "status": "not_started",
