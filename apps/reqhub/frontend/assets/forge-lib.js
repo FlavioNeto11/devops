@@ -72,6 +72,64 @@ export function wavesFromProgress(buildPlan, pct) {
   });
 }
 
+/** Modelo ORDENADO das 4 fases da tela "Construindo o <X>", derivado de dados REAIS:
+ *  - requisitos / plano: do launch-status (PRs no git).
+ *  - construção / publicado: do impl-status (progresso REAL dos requisitos), NÃO de uma sonda HEAD
+ *    (que dá falso-positivo quando o catch-all do portal responde 200 em /<slug>/).
+ *  Clamp MONOTÔNICO: nenhuma fase pode estar done/active à frente de uma anterior incompleta — assim
+ *  "Publicado" NUNCA aparece concluído antes de Arquitetura/Construção. PURO/testável.
+ *  `stages` = array do /v1/forge/launch-status; `product` pode ser null (ainda não no estado vivo). */
+export function launchPhases(stages, product, implStatus, buildPlan) {
+  const by = {};
+  for (const s of (Array.isArray(stages) ? stages : [])) if (s && s.key) by[s.key] = s;
+  const reqIds = (product && product.requirement_ids) || [];
+  const prog = weightedProgress(reqIds, implStatus);
+  const phases = (product && product.phases) || {};
+  const nWaves = ((buildPlan && buildPlan.waves) || []).length;
+  const archApproved = !!(phases.architecture && phases.architecture.status === 'approved');
+
+  const r = by.requisitos || {};
+  const requisitos = {
+    key: 'requisitos', label: 'Requisitos no git', url: r.url || '',
+    status: r.status || (reqIds.length ? 'done' : 'pending'),
+    detail: r.detail || (reqIds.length ? `${reqIds.length} requisito(s)` : 'aguardando o disparo…'),
+  };
+
+  const pl = by.plano || {};
+  const planoDone = pl.status === 'done' || archApproved || (nWaves > 0 && buildPlan && buildPlan.status === 'approved');
+  const plano = {
+    key: 'plano', label: 'Arquitetura & plano', url: pl.url || '',
+    status: planoDone ? 'done' : (pl.status || (nWaves > 0 ? 'active' : 'pending')),
+    detail: nWaves > 0 ? `${nWaves} wave(s) · plano ${(buildPlan && buildPlan.status) || 'proposto'}`
+      : (pl.detail || (archApproved ? 'arquitetura aprovada' : 'aguardando os requisitos…')),
+  };
+
+  const b = by.build || {};
+  const buildDone = prog.total > 0 && prog.pct === 100;
+  const buildActive = (prog.total > 0 && prog.pct > 0 && !buildDone) || b.status === 'active';
+  const build = {
+    key: 'build', label: 'Construção (implementação)', url: b.url || '',
+    status: buildDone ? 'done' : (buildActive ? 'active' : 'pending'),
+    detail: prog.total ? `${prog.live}/${prog.total} requisito(s) no ar · ${prog.pct}%`
+      : (b.detail || 'aguardando o plano…'),
+  };
+
+  const publicado = {
+    key: 'publicado', label: 'Publicado', url: '',
+    status: buildDone ? 'done' : 'pending',
+    detail: buildDone ? 'no ar' : 'aguardando a construção…',
+  };
+
+  const out = [requisitos, plano, build, publicado];
+  // Clamp MONOTÔNICO: depois da 1ª fase não-concluída, todas as seguintes voltam a 'pending'.
+  let seenIncomplete = false;
+  for (const ph of out) {
+    if (seenIncomplete && ph.status !== 'pending') ph.status = 'pending';
+    if (ph.status !== 'done') seenIncomplete = true;
+  }
+  return out;
+}
+
 /** Lista de produtos com progresso vivo, ordenada por display_name. */
 export function productSummaries(products, implStatus) {
   const list = (products && products.products) || [];
