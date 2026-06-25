@@ -7,7 +7,8 @@
       "deployed": 282,
       "done": 52,
       "merged": 4,
-      "not_started": 5
+      "pr_open": 1,
+      "not_started": 4
     },
     "refinements": {
       "total": 13,
@@ -910,8 +911,10 @@
       "run_id": "28133635910"
     },
     "REQ-NEUROEVOLUI-0004": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "branch": "@{id=REQ-NEUROEVOLUI-0004; branch=req/REQ-NEUROEVOLUI-0004/r1; restricted=false; title=feat(neuroevolui): implementa REQ-NEUROEVOLUI-0004 — Dados: Registro de evolução + Gestão }.branch",
+      "run_id": "28137731682"
     },
     "REQ-NEUROEVOLUI-0005": {
       "status": "merged",
