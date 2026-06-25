@@ -134,11 +134,11 @@ add('api/src/metrics.js', [
   "import http from 'node:http';",
   "import client from 'prom-client';",
   'const registry = new client.Registry();',
-  "client.collectDefaultMetrics({ register: registry, prefix: '@@APP@@_' });",
-  "export const M = { recordsTotal: new client.Counter({ name: '@@APP@@_records_total', help: 'records', labelNames: ['outcome'], registers: [registry] }),",
-  (F.redis ? "  jobsTotal: new client.Counter({ name: '@@APP@@_jobs_total', help: 'jobs', labelNames: ['status'], registers: [registry] })," : ''),
-  (F.gateway ? "  gatewayCalls: new client.Counter({ name: '@@APP@@_gateway_calls_total', help: 'gateway', labelNames: ['outcome'], registers: [registry] })," : ''),
-  "  httpErrors: new client.Counter({ name: '@@APP@@_http_errors_total', help: 'erros', registers: [registry] }) };",
+  "client.collectDefaultMetrics({ register: registry, prefix: '@@METRIC@@_' });",
+  "export const M = { recordsTotal: new client.Counter({ name: '@@METRIC@@_records_total', help: 'records', labelNames: ['outcome'], registers: [registry] }),",
+  (F.redis ? "  jobsTotal: new client.Counter({ name: '@@METRIC@@_jobs_total', help: 'jobs', labelNames: ['status'], registers: [registry] })," : ''),
+  (F.gateway ? "  gatewayCalls: new client.Counter({ name: '@@METRIC@@_gateway_calls_total', help: 'gateway', labelNames: ['outcome'], registers: [registry] })," : ''),
+  "  httpErrors: new client.Counter({ name: '@@METRIC@@_http_errors_total', help: 'erros', registers: [registry] }) };",
   "export function startMetricsServer(port = Number(process.env.METRICS_PORT) || 9464) {",
   "  const srv = http.createServer(async (req, res) => { if (req.url === '/metrics') { res.setHeader('Content-Type', registry.contentType); res.end(await registry.metrics()); } else { res.statusCode = 404; res.end('nf'); } });",
   "  srv.listen(port, () => console.log('[metrics] :' + port)); return srv; }", '',
@@ -327,7 +327,8 @@ function buildK8s() {
   return L.join('\n') + '\n';
 }
 
-const replace = (s) => s.replace(/@@APP@@/g, APP).replace(/@@TITLE@@/g, TITLE).replace(/@@BASE@@/g, BASE);
+const METRIC = APP.replace(/[^a-zA-Z0-9_:]/g, '_'); // Prometheus exige [a-zA-Z_:][a-zA-Z0-9_:]* — slug com '-' quebra o prom-client no boot
+const replace = (s) => s.replace(/@@APP@@/g, APP).replace(/@@METRIC@@/g, METRIC).replace(/@@TITLE@@/g, TITLE).replace(/@@BASE@@/g, BASE);
 let written = 0;
 for (const [rel, content] of Object.entries(files)) {
   const dest = path.join(APPDIR, replace(rel));

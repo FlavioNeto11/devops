@@ -162,16 +162,16 @@ add('api/src/metrics.js', [
   "import http from 'node:http';",
   "import client from 'prom-client';",
   'const registry = new client.Registry();',
-  "client.collectDefaultMetrics({ register: registry, prefix: '@@APP@@_' });",
+  "client.collectDefaultMetrics({ register: registry, prefix: '@@METRIC@@_' });",
   'export const M = {',
-  "  recordsTotal: new client.Counter({ name: '@@APP@@_records_total', help: 'records por desfecho', labelNames: ['outcome'], registers: [registry] }),",
-  (F.worker ? "  jobsTotal: new client.Counter({ name: '@@APP@@_jobs_total', help: 'jobs por status', labelNames: ['status'], registers: [registry] })," : ''),
-  (F.worker ? "  jobDuration: new client.Histogram({ name: '@@APP@@_job_duration_seconds', help: 'duração do job', buckets: [0.05,0.1,0.3,1,3,10], registers: [registry] })," : ''),
-  (F.gateway ? "  gatewayCalls: new client.Counter({ name: '@@APP@@_gateway_calls_total', help: 'chamadas ao gateway', labelNames: ['outcome'], registers: [registry] })," : ''),
-  (F.worker ? "  queueDepth: new client.Gauge({ name: '@@APP@@_queue_depth', help: 'jobs na fila', labelNames: ['status'], registers: [registry] })," : ''),
-  (F.ai ? "  assistantTurns: new client.Counter({ name: '@@APP@@_assistant_turns_total', help: 'turns do assistente por desfecho', labelNames: ['outcome'], registers: [registry] })," : ''),
-  (F.ai ? "  assistantFiles: new client.Counter({ name: '@@APP@@_assistant_files_total', help: 'arquivos ingeridos pelo assistente por desfecho', labelNames: ['outcome'], registers: [registry] })," : ''),
-  "  httpErrors: new client.Counter({ name: '@@APP@@_http_errors_total', help: 'erros HTTP', registers: [registry] }),",
+  "  recordsTotal: new client.Counter({ name: '@@METRIC@@_records_total', help: 'records por desfecho', labelNames: ['outcome'], registers: [registry] }),",
+  (F.worker ? "  jobsTotal: new client.Counter({ name: '@@METRIC@@_jobs_total', help: 'jobs por status', labelNames: ['status'], registers: [registry] })," : ''),
+  (F.worker ? "  jobDuration: new client.Histogram({ name: '@@METRIC@@_job_duration_seconds', help: 'duração do job', buckets: [0.05,0.1,0.3,1,3,10], registers: [registry] })," : ''),
+  (F.gateway ? "  gatewayCalls: new client.Counter({ name: '@@METRIC@@_gateway_calls_total', help: 'chamadas ao gateway', labelNames: ['outcome'], registers: [registry] })," : ''),
+  (F.worker ? "  queueDepth: new client.Gauge({ name: '@@METRIC@@_queue_depth', help: 'jobs na fila', labelNames: ['status'], registers: [registry] })," : ''),
+  (F.ai ? "  assistantTurns: new client.Counter({ name: '@@METRIC@@_assistant_turns_total', help: 'turns do assistente por desfecho', labelNames: ['outcome'], registers: [registry] })," : ''),
+  (F.ai ? "  assistantFiles: new client.Counter({ name: '@@METRIC@@_assistant_files_total', help: 'arquivos ingeridos pelo assistente por desfecho', labelNames: ['outcome'], registers: [registry] })," : ''),
+  "  httpErrors: new client.Counter({ name: '@@METRIC@@_http_errors_total', help: 'erros HTTP', registers: [registry] }),",
   '};',
   'export function startMetricsServer(port = Number(process.env.METRICS_PORT) || 9464) {',
   '  const srv = http.createServer(async (req, res) => {',
@@ -549,13 +549,14 @@ function buildK8s() {
     'spec:', '  groups:', '    - name: @@APP@@.slo', '      rules:',
     '        - alert: @@APP@@ApiDown', '          expr: absent(up{job=~".*@@APP@@-api.*"} == 1)', '          for: 3m',
     '          labels: { severity: critical, app: @@APP@@ }', '          annotations: { summary: "@@APP@@: API sem target UP" }');
-  if (F.worker) L.push('        - alert: @@APP@@QueueDlq', '          expr: max(@@APP@@_queue_depth{status="dlq"}) > 3', '          for: 2m',
+  if (F.worker) L.push('        - alert: @@APP@@QueueDlq', '          expr: max(@@METRIC@@_queue_depth{status="dlq"}) > 3', '          for: 2m',
     '          labels: { severity: warning, app: @@APP@@ }', '          annotations: { summary: "@@APP@@: DLQ acumulando" }');
   return L.join('\n') + '\n';
 }
 
 // ── escrever ──
-const replace = (s) => s.replace(/@@APP@@/g, APP).replace(/@@TITLE@@/g, TITLE).replace(/@@BASE@@/g, BASE);
+const METRIC = APP.replace(/[^a-zA-Z0-9_:]/g, '_'); // Prometheus exige [a-zA-Z_:][a-zA-Z0-9_:]* — slug com '-' quebra o prom-client no boot
+const replace = (s) => s.replace(/@@APP@@/g, APP).replace(/@@METRIC@@/g, METRIC).replace(/@@TITLE@@/g, TITLE).replace(/@@BASE@@/g, BASE);
 let written = 0;
 for (const [rel, content] of Object.entries(files)) {
   const dest = path.join(APPDIR, replace(rel));
