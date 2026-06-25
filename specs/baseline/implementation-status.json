@@ -4,9 +4,8 @@
   "counts": {
     "total": 352,
     "by_status": {
-      "deployed": 282,
+      "deployed": 296,
       "done": 52,
-      "merged": 14,
       "not_started": 4
     },
     "refinements": {
@@ -645,11 +644,11 @@
       "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
     "REQ-CONTAVIVA360-0001": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1
     },
     "REQ-CONTAVIVA360-0002": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "pr": "https://github.com/FlavioNeto11/devops/pull/156",
       "branch": "@{id=REQ-CONTAVIVA360-0002; branch=req/REQ-CONTAVIVA360-0002/r1; restricted=false; title=feat(contaviva-360): implementa REQ-CONTAVIVA360-0002 — Gestão de Dados Contábeis e Fiscai}.branch",
@@ -657,7 +656,7 @@
       "run_id": "28197566032"
     },
     "REQ-CONTAVIVA360-0003": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "pr": "https://github.com/FlavioNeto11/devops/pull/158",
       "branch": "@{id=REQ-CONTAVIVA360-0003; branch=req/REQ-CONTAVIVA360-0003/r1; restricted=false; title=feat(contaviva-360): implementa REQ-CONTAVIVA360-0003 — Obrigações Fiscais e Alertas: Rast}.branch",
@@ -665,7 +664,7 @@
       "run_id": "28198916792"
     },
     "REQ-CONTAVIVA360-0004": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "pr": "https://github.com/FlavioNeto11/devops/pull/160",
       "branch": "@{id=REQ-CONTAVIVA360-0004; branch=req/REQ-CONTAVIVA360-0004/r1; restricted=false; title=feat(contaviva-360): implementa REQ-CONTAVIVA360-0004 — Controle de Tarefas e Colaboração:}.branch",
@@ -673,7 +672,7 @@
       "run_id": "28200137469"
     },
     "REQ-CONTAVIVA360-0005": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "pr": "https://github.com/FlavioNeto11/devops/pull/161",
       "branch": "@{id=REQ-CONTAVIVA360-0005; branch=req/REQ-CONTAVIVA360-0005/r1; restricted=false; title=feat(contaviva-360): implementa REQ-CONTAVIVA360-0005 — Controle Financeiro: Contas a Paga}.branch",
@@ -943,11 +942,11 @@
       "notes": "platform/keycloak — SSO/OIDC no cluster (ns identity), sob Argo"
     },
     "REQ-NEUROEVOLUI-0001": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1
     },
     "REQ-NEUROEVOLUI-0002": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "pr": "https://github.com/FlavioNeto11/devops/pull/126",
       "branch": "@{id=REQ-NEUROEVOLUI-0002; branch=req/REQ-NEUROEVOLUI-0002/r1; restricted=false; title=feat(neuroevolui): implementa REQ-NEUROEVOLUI-0002 — Multi-tenant + RBAC: Isolamento por c}.branch",
@@ -955,7 +954,7 @@
       "run_id": "28131631587"
     },
     "REQ-NEUROEVOLUI-0003": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "pr": "https://github.com/FlavioNeto11/devops/pull/127",
       "branch": "@{id=REQ-NEUROEVOLUI-0003; branch=req/REQ-NEUROEVOLUI-0003/r1; restricted=false; title=feat(neuroevolui): implementa REQ-NEUROEVOLUI-0003 — Dados: Filas assíncronas + Idempotênc}.branch",
@@ -963,7 +962,7 @@
       "run_id": "28133635910"
     },
     "REQ-NEUROEVOLUI-0004": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "pr": "https://github.com/FlavioNeto11/devops/pull/128",
       "branch": "@{id=REQ-NEUROEVOLUI-0004; branch=req/REQ-NEUROEVOLUI-0004/r1; restricted=false; title=feat(neuroevolui): implementa REQ-NEUROEVOLUI-0004 — Dados: Registro de evolução + Gestão }.branch",
@@ -971,13 +970,13 @@
       "run_id": "28137731682"
     },
     "REQ-NEUROEVOLUI-0005": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "branch": "@{id=REQ-NEUROEVOLUI-0005; branch=req/REQ-NEUROEVOLUI-0005/r1; restricted=false; title=feat(neuroevolui): implementa REQ-NEUROEVOLUI-0005 — Controle financeiro: Agendamentos + P}.branch",
       "run_id": "28127034333"
     },
     "REQ-NEUROEVOLUI-0006": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "pr": "https://github.com/FlavioNeto11/devops/pull/129",
       "branch": "@{id=REQ-NEUROEVOLUI-0006; branch=req/REQ-NEUROEVOLUI-0006/r1; restricted=false; title=feat(neuroevolui): implementa REQ-NEUROEVOLUI-0006 — IA: Assistente de controle para profi}.branch",
@@ -985,7 +984,7 @@
       "run_id": "28139437545"
     },
     "REQ-NEUROEVOLUI-0007": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "pr": "https://github.com/FlavioNeto11/devops/pull/130",
       "branch": "@{id=REQ-NEUROEVOLUI-0007; branch=req/REQ-NEUROEVOLUI-0007/r1; restricted=false; title=feat(neuroevolui): implementa REQ-NEUROEVOLUI-0007 — Notificações: E-mail, push e WhatsApp}.branch",
@@ -993,7 +992,7 @@
       "run_id": "28141146215"
     },
     "REQ-NEUROEVOLUI-0008": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "pr": "https://github.com/FlavioNeto11/devops/pull/131",
       "branch": "@{id=REQ-NEUROEVOLUI-0008; branch=req/REQ-NEUROEVOLUI-0008/r1; restricted=false; title=feat(neuroevolui): implementa REQ-NEUROEVOLUI-0008 — API estável: Contract-first OpenAPI +}.branch",
@@ -1001,7 +1000,7 @@
       "run_id": "28141678291"
     },
     "REQ-NEUROEVOLUI-0009": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "pr": "https://github.com/FlavioNeto11/devops/pull/132",
       "branch": "@{id=REQ-NEUROEVOLUI-0009; branch=req/REQ-NEUROEVOLUI-0009/r1; restricted=false; title=feat(neuroevolui): implementa REQ-NEUROEVOLUI-0009 — Frontend: Design system unificado + C}.branch",
