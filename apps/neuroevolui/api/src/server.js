@@ -16,6 +16,8 @@ import { addEvolutionNote, getEvolutionNotes, getEvolutionNotesHistory, getEvolu
 import { requestPatientReport, getPatientReport, getPatientReports } from './services/patient-reports-service.js';
 import { runAssistantTurn } from './ai/graph.js';
 import { aiEnabled } from './llm.js';
+import { getVapidPublicKey } from './lib/push.js';
+import { upsertPushSubscription, deletePushSubscription, getNotificationPreferences, upsertNotificationPreference } from './repositories/notification-preferences-repo.js';
 
 const app = Fastify({ logger: false });
 
@@ -378,6 +380,59 @@ app.post('/v1/assistant', async (req, reply) => {
     }
     throw err;
   }
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Notificações: preferências e push subscriptions — REQ-NEUROEVOLUI-0007
+// ──────────────────────────────────────────────────────────────────────────────
+
+app.get('/v1/notifications/vapid-public-key', async () => {
+  return { vapid_public_key: getVapidPublicKey() };
+});
+
+app.post('/v1/notifications/subscriptions', async (req, reply) => {
+  const b = req.body || {};
+  const { endpoint, keys } = b;
+  if (!endpoint || !keys?.p256dh || !keys?.auth) {
+    reply.code(400); return { error: { message: 'endpoint, keys.p256dh e keys.auth obrigatórios' } };
+  }
+  await upsertPushSubscription({
+    tenantId: req.tenantId,
+    userId: req.actor || 'anon',
+    endpoint,
+    p256dh: keys.p256dh,
+    auth: keys.auth,
+    userAgent: req.headers['user-agent'] || null,
+  });
+  reply.code(201); return { subscribed: true };
+});
+
+app.delete('/v1/notifications/subscriptions', async (req, reply) => {
+  const b = req.body || {};
+  if (!b.endpoint) { reply.code(400); return { error: { message: 'endpoint obrigatório' } }; }
+  await deletePushSubscription(req.tenantId, req.actor || 'anon', b.endpoint);
+  return { unsubscribed: true };
+});
+
+app.get('/v1/notifications/preferences', async (req) => {
+  const prefs = await getNotificationPreferences(req.tenantId, req.actor || 'anon').catch(() => []);
+  return { data: prefs };
+});
+
+app.put('/v1/notifications/preferences', async (req, reply) => {
+  const b = req.body || {};
+  const { channel, enabled, contact_value } = b;
+  if (!channel || !['email', 'push', 'whatsapp'].includes(channel)) {
+    reply.code(400); return { error: { message: 'channel inválido (email | push | whatsapp)' } };
+  }
+  await upsertNotificationPreference({
+    tenantId: req.tenantId,
+    userId: req.actor || 'anon',
+    channel,
+    enabled: enabled !== false,
+    contactValue: contact_value || '',
+  });
+  return { updated: true };
 });
 
 const PORT = Number(process.env.PORT) || 8080;

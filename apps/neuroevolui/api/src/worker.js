@@ -3,6 +3,7 @@ import { Worker } from 'bullmq';
 import { pool, migrate } from './db.js';
 import { M, startMetricsServer } from './metrics.js';
 import { processPatientReport } from './services/patient-reports-service.js';
+import { dispatchNotification } from './services/notifications-service.js';
 
 const url = process.env.REDIS_URL || '';
 function conn() { const u = new URL(url); return { host: u.hostname, port: Number(u.port) || 6379 }; }
@@ -23,6 +24,12 @@ async function handleNamedQueue(queueName, job) {
     const { reportId, tenantId, patientId, filters } = job.data;
     if (reportId) {
       await processPatientReport({ reportId, tenantId, patientId, filters });
+    }
+  }
+  if (queueName === 'notifications') {
+    const { eventType } = job.data;
+    if (eventType) {
+      await dispatchNotification(job.data);
     }
   }
   await pool.query(

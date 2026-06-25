@@ -5,6 +5,7 @@ import {
   createNoteVersion, maxNoteVersion, listNoteVersions,
   createNoteAttachment, listNoteAttachments,
 } from '../repositories/evolution-notes-repo.js';
+import { enqueue } from '../queue.js';
 
 export async function addEvolutionNote({ tenantId, patientId, type, noteDate, professionalId, text, structuredFields, attachments, createdBy }) {
   const note = await createEvolutionNote({ tenantId, patientId, type, noteDate, professionalId, text, structuredFields, createdBy });
@@ -21,6 +22,16 @@ export async function addEvolutionNote({ tenantId, patientId, type, noteDate, pr
       savedAttachments.push(saved);
     }
   }
+
+  // Dispara notificação note.added (fire-and-forget, nunca bloqueia)
+  enqueue('notifications', `notif-note.added-${note.id}`, {
+    eventType: 'note.added',
+    tenantId,
+    recipientId: patientId,
+    patientId,
+    professionalId,
+  }).catch(() => {});
+
   return { ...note, attachments: savedAttachments };
 }
 
