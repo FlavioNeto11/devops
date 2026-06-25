@@ -1,0 +1,98 @@
+# =============================================================================
+# greenfield-ui — gera/eleva o FRONTEND DE DOMÍNIO de um produto da Forja rodando o motor
+# multiagente `generate-ui` (skill forge-build-ui) via `claude` headless no runner self-hosted.
+# Fecha o gap: a esteira constrói o BACKEND por requisito, mas o frontend ficava genérico. Este
+# workflow constrói as telas reais (CRUD por entidade + dashboard + assistente) sobre o kit ui-vue,
+# ancoradas aos requisitos, e faz deploy.
+#
+# DISPATCH MANUAL (decisão do dono): o operador dispara por produto — o motor é caro (~1h, milhões
+# de tokens), então NÃO roda automático em todo build. Para o concept→app COMPLETO: rode a esteira
+# (greenfield-launch) p/ o backend e DEPOIS este workflow p/ o frontend.
+#
+# CREDENCIAL (constraint READ-ONLY do token OAuth): prefere ANTHROPIC_API_KEY (sessão longa NÃO
+# arrisca refresh do token de assinatura → sem logout). Sem ela, cai no CLAUDE_CODE_OAUTH_TOKEN do
+# runner com AVISO (uma sessão de ~1h pode dar refresh). Ambos vêm do AMBIENTE do runner (não do
+# GitHub cloud), como no req-implement.
+# =============================================================================
+name: greenfield-ui
+
+on:
+  workflow_dispatch:
+    inputs:
+      product:
+        description: "Produto da Forja (slug) — apps/<product> já na main, com requisitos em specs/requirements/<product>"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-ui:
+    name: Motor generate-ui (frontend de domínio) + deploy
+    runs-on: [self-hosted, windows, docker-desktop, local-k8s, flavio-devops]
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      KUBECONFIG: C:\ProgramData\forge-kube\config
+      PRODUCT: ${{ github.event.inputs.product }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false   # a Claude/motor só EDITA; o git (commit/push) é passo separado.
+
+      - name: Rodar o motor generate-ui (forge-build-ui) headless
+        run: |
+          $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $false  # claude sai !=0 sem LANÇAR (checamos $LASTEXITCODE)
+          $prod = "$env:PRODUCT"
+          if ($prod -notmatch '^[a-z][a-z0-9-]{1,30}$') { Write-Host "::error::product inválido: '$prod'"; exit 1 }
+          if (-not (Test-Path "apps/$prod") -or -not (Test-Path "specs/requirements/$prod")) {
+            Write-Host "::error::produto '$prod' não encontrado (apps/$prod + specs/requirements/$prod). Rode a esteira primeiro."; exit 1
+          }
+          if ($env:CLAUDE_BIN_DIR -and (Test-Path $env:CLAUDE_BIN_DIR)) { $env:PATH = "$env:CLAUDE_BIN_DIR;$env:PATH" }
+          if (-not (Get-Command claude -ErrorAction SilentlyContinue)) { Write-Host "::error::CLI 'claude' não encontrada no runner."; exit 1 }
+          # Credencial: ANTHROPIC_API_KEY (preferida; sem risco de refresh do OAuth) ou OAuth (assinatura, com aviso).
+          if ($env:ANTHROPIC_API_KEY) {
+            Write-Host "Credencial: ANTHROPIC_API_KEY (sessão longa sem risco de refresh do token de assinatura)."
+          } elseif ($env:CLAUDE_CODE_OAUTH_TOKEN) {
+            Write-Host "::warning::Credencial: CLAUDE_CODE_OAUTH_TOKEN (assinatura). Uma sessão longa do motor (~1h) PODE dar refresh no token e deslogar. Prefira definir ANTHROPIC_API_KEY no runner."
+          } else {
+            Write-Host "::error::Sem credencial Claude no runner (defina ANTHROPIC_API_KEY ou CLAUDE_CODE_OAUTH_TOKEN)."; exit 1
+          }
+          # O motor é um Workflow Claude multiagente — precisa rodar com permissões amplas (o operador
+          # disparou intencionalmente; o blast-radius é apps/<prod>/** + specs/{products,refinements}/<prod>).
+          $prompt = "Use a skill forge-build-ui para gerar/elevar o FRONTEND DE DOMÍNIO do produto '$prod'. Leia os requisitos em specs/requirements/$prod/ e o contrato specs/forge/ui-kit-contract.md, então rode o Workflow specs/forge/workflows/generate-ui.workflow.mjs com args { product: '$prod', appDir: 'apps/$prod', requirements: [{id,title,statement}] reais lidos dos YAMLs, contract: <texto do ui-kit-contract.md> }. O motor LÊ o backend existente (apps/$prod/api/src/server.js) e liga as telas às rotas reais; remove o /records placeholder. NÃO use git — este workflow cuida do commit/deploy. Ao final, reporte as telas construídas e lacunas."
+          claude -p $prompt --dangerously-skip-permissions --output-format json
+          if ($LASTEXITCODE -ne 0) { Write-Host "::warning::claude saiu com $LASTEXITCODE — o motor pode ter concluído parcialmente; o passo de commit publica o que mudou." }
+
+      - name: Baseline + commit + push (main)
+        env:
+          GH_TOKEN: ${{ secrets.FORGE_GH_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $false
+          $prod = "$env:PRODUCT"
+          # o motor escreve REFs/brand → regenera a baseline p/ o specs-governance não acusar drift.
+          if (Test-Path scripts/specs-baseline-check.ps1) { pwsh -File scripts/specs-baseline-check.ps1 -Fix 2>$null }
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "apps/$prod" "specs/products/$prod" "specs/refinements/$prod" specs/baseline packages/ui-vue packages/design-tokens 2>$null
+          $changed = @(git diff --cached --name-only)
+          if (-not $changed -or $changed.Count -eq 0) { Write-Host "::warning::motor não produziu mudanças — nada a publicar."; exit 0 }
+          Write-Host "Publicando $($changed.Count) arquivo(s)."
+          git commit -m "feat($prod): frontend de domínio gerado pelo motor generate-ui (forge-build-ui)" -m "Telas Vue ricas (CRUD por entidade + dashboard + assistente) sobre o kit ui-vue, ancoradas aos requisitos, sobre o backend existente. Gerado via greenfield-ui (dispatch manual)."
+          git pull --rebase "https://x-access-token:$env:GH_TOKEN@github.com/${{ github.repository }}.git" main 2>$null
+          git push "https://x-access-token:$env:GH_TOKEN@github.com/${{ github.repository }}.git" HEAD:main
+          Write-Host "::notice::greenfield-ui: frontend de '$prod' publicado na main."
+
+      - name: Deploy (forge-deploy)
+        env:
+          GH_TOKEN: ${{ secrets.FORGE_GH_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          $prod = "$env:PRODUCT"
+          gh workflow run forge-deploy.yml --repo "${{ github.repository }}" -f product="$prod"
+          Write-Host "::notice::forge-deploy disparado p/ '$prod' — frontend + api sobem com as telas novas."
