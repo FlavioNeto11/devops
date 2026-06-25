@@ -4,6 +4,7 @@ import { createPaymentTransaction } from '../repositories/payment-transactions-r
 import { updatePaymentStatusById, updatePaymentStatusByTransactionId } from '../repositories/consultations-repo.js';
 import { insertAuditLog } from '../repositories/audit-repo.js';
 import { findWebhookEvent, upsertWebhookEvent, markWebhookProcessed } from '../repositories/webhook-repo.js';
+import { enqueue } from '../queue.js';
 
 export async function chargeConsultation({ tenantId, consultationId, amountCents, currency, paymentMethodToken, idempotencyKey, actor }) {
   const result = await gateway.charge({
@@ -75,6 +76,18 @@ export async function processWebhook({ tenantId, eventId, eventType, payload, ra
       await updatePaymentStatusByTransactionId(transactionId, 'failed').catch(() => {});
     }
     await markWebhookProcessed(eventId).catch(() => {});
+  }
+
+  // Dispara notificação payment.failed (fire-and-forget, nunca bloqueia)
+  if (eventType === 'payment.failed') {
+    enqueue('notifications', `notif-payment.failed-${eventId}`, {
+      eventType: 'payment.failed',
+      tenantId: tenantId || 1,
+      recipientId: payload?.patientId || payload?.customer_id || '',
+      recipientEmail: payload?.email || '',
+      recipientPhone: payload?.phone || '',
+      amountCents: payload?.amount || payload?.amount_cents || 0,
+    }).catch(() => {});
   }
 
   await insertAuditLog({

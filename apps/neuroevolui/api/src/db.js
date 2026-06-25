@@ -107,6 +107,30 @@ const MIGRATIONS = [
        END;
      END IF;
    END $$`,
+  // REQ-NEUROEVOLUI-0007: preferências de canal por usuário (email/push/whatsapp)
+  `CREATE TABLE IF NOT EXISTS notification_preferences (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    user_id TEXT NOT NULL,
+    channel TEXT NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT true,
+    contact_value TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(tenant_id, user_id, channel)
+  )`,
+  // REQ-NEUROEVOLUI-0007: endpoints de push subscription por usuário
+  `CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    user_id TEXT NOT NULL,
+    endpoint TEXT NOT NULL,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    user_agent TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(endpoint)
+  )`,
 ];
 export async function migrate() {
   const c = await pool.connect();

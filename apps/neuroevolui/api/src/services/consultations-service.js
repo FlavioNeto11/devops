@@ -3,6 +3,7 @@ import { createConsultation, findScheduleConflict } from '../repositories/consul
 import { findIdempotency, saveIdempotency } from '../repositories/idempotency-repo.js';
 import { insertAuditLog } from '../repositories/audit-repo.js';
 import { chargeConsultation } from './payments-service.js';
+import { enqueue } from '../queue.js';
 
 export async function scheduleConsultation({ tenantId, patientId, professionalId, scheduledAt, scheduledEndAt, amountCents, currency, idempotencyKey, actor, paymentMethodToken }) {
   if (idempotencyKey) {
@@ -46,6 +47,16 @@ export async function scheduleConsultation({ tenantId, patientId, professionalId
     paymentStatus: payment?.status ?? 'pending',
     gateway: payment?.provider ?? null,
     metadata: { patientId, professionalId, scheduledAt },
+  }).catch(() => {});
+
+  // Dispara notificação consultation.scheduled (fire-and-forget, nunca bloqueia)
+  enqueue('notifications', `notif-consultation.scheduled-${consultation.id}`, {
+    eventType: 'consultation.scheduled',
+    tenantId,
+    recipientId: patientId,
+    patientId,
+    professionalId,
+    scheduledAt,
   }).catch(() => {});
 
   const result = { ...consultation, payment };
