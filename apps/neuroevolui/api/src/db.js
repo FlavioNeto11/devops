@@ -25,6 +25,50 @@ const MIGRATIONS = [
     updated_at TIMESTAMPTZ DEFAULT now(),
     UNIQUE(queue_name, job_key)
   )`,
+  `CREATE TABLE IF NOT EXISTS evolution_notes (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    patient_id TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'session',
+    note_date TIMESTAMPTZ NOT NULL DEFAULT now(),
+    professional_id TEXT NOT NULL DEFAULT 'system',
+    text TEXT NOT NULL DEFAULT '',
+    structured_fields JSONB NOT NULL DEFAULT '{}',
+    status TEXT NOT NULL DEFAULT 'active',
+    deleted_at TIMESTAMPTZ,
+    created_by TEXT NOT NULL DEFAULT 'system',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+  )`,
+  `CREATE TABLE IF NOT EXISTS evolution_note_attachments (
+    id BIGSERIAL PRIMARY KEY,
+    note_id BIGINT NOT NULL REFERENCES evolution_notes(id),
+    filename TEXT NOT NULL,
+    mime_type TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL DEFAULT 0,
+    content_base64 TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
+  )`,
+  `CREATE TABLE IF NOT EXISTS evolution_note_versions (
+    id BIGSERIAL PRIMARY KEY,
+    note_id BIGINT NOT NULL REFERENCES evolution_notes(id),
+    version_number INTEGER NOT NULL,
+    edited_by TEXT NOT NULL DEFAULT 'system',
+    edited_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    snapshot JSONB NOT NULL DEFAULT '{}'
+  )`,
+  `CREATE TABLE IF NOT EXISTS patient_reports (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    patient_id TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'queued',
+    filters JSONB NOT NULL DEFAULT '{}',
+    report_data JSONB,
+    error_message TEXT,
+    created_by TEXT NOT NULL DEFAULT 'system',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    completed_at TIMESTAMPTZ
+  )`,
 ];
 export async function migrate() {
   const c = await pool.connect();

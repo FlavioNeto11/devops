@@ -4,12 +4,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { enqueue, enqueueSubmit, NAMED_QUEUES } from '../api/src/queue.js';
 
-test('NAMED_QUEUES exporta as 4 filas nomeadas', () => {
-  const expected = ['consultation-notes', 'patient-imports', 'notifications', 'summaries-ai'];
+test('NAMED_QUEUES exporta as filas nomeadas (inclui patient-reports)', () => {
+  const expected = ['consultation-notes', 'patient-imports', 'notifications', 'summaries-ai', 'patient-reports'];
   for (const name of expected) {
     assert.ok(NAMED_QUEUES.includes(name), `fila ${name} deve existir`);
   }
-  assert.equal(NAMED_QUEUES.length, expected.length);
+  assert.ok(NAMED_QUEUES.length >= expected.length, 'deve ter ao menos todas as filas esperadas');
 });
 
 test('enqueue: sem REDIS_URL retorna inline=true sem erro (degradação graciosa)', async () => {

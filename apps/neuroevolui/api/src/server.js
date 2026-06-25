@@ -12,6 +12,8 @@ import { scheduleConsultation } from './services/consultations-service.js';
 import { processWebhook } from './services/payments-service.js';
 import { getRevenueDashboard } from './services/dashboard-service.js';
 import { getAuditTrail } from './services/audit-service.js';
+import { addEvolutionNote, getEvolutionNotes, getEvolutionNotesHistory, getEvolutionNote, editEvolutionNote, removeEvolutionNote } from './services/evolution-notes-service.js';
+import { requestPatientReport, getPatientReport, getPatientReports } from './services/patient-reports-service.js';
 
 const app = Fastify({ logger: false });
 
@@ -167,6 +169,103 @@ app.get('/v1/jobs/:queueName/:jobKey', async (req, reply) => {
 app.get('/v1/audit', { preHandler: requireRole('clinic_manager') }, async (req) => {
   const q = req.query || {};
   return { data: await getAuditTrail(req.tenantId, { entityId: q.entity_id, entityType: q.entity_type, limit: Number(q.limit) || 200 }) };
+});
+
+// Evolution Notes — REQ-NEUROEVOLUI-0004
+app.post('/v1/patients/:patientId/evolution-notes', { preHandler: requireRole('professional') }, async (req, reply) => {
+  const b = req.body || {};
+  if (!b.text && !b.type) { reply.code(400); return { error: { message: 'text ou type obrigatório' } }; }
+  const note = await addEvolutionNote({
+    tenantId: req.tenantId,
+    patientId: req.params.patientId,
+    type: b.type,
+    noteDate: b.note_date,
+    professionalId: b.professional_id || req.actor,
+    text: b.text,
+    structuredFields: b.structured_fields,
+    attachments: b.attachments,
+    createdBy: req.actor,
+  });
+  reply.code(201);
+  return note;
+});
+
+app.get('/v1/patients/:patientId/evolution-notes', { preHandler: requireRole('professional') }, async (req) => {
+  const q = req.query || {};
+  const notes = await getEvolutionNotes(req.tenantId, req.params.patientId, {
+    dateFrom: q.date_from,
+    dateTo: q.date_to,
+    type: q.type,
+    professionalId: q.professional_id,
+  });
+  return { data: notes };
+});
+
+app.get('/v1/patients/:patientId/evolution-notes/history', { preHandler: requireRole('professional') }, async (req) => {
+  const notes = await getEvolutionNotesHistory(req.tenantId, req.params.patientId);
+  return { data: notes };
+});
+
+app.get('/v1/patients/:patientId/evolution-notes/:noteId', { preHandler: requireRole('professional') }, async (req, reply) => {
+  const note = await getEvolutionNote(req.tenantId, req.params.noteId);
+  if (!note) { reply.code(404); return { error: { message: 'nota não encontrada' } }; }
+  return note;
+});
+
+app.put('/v1/patients/:patientId/evolution-notes/:noteId', { preHandler: requireRole('professional') }, async (req, reply) => {
+  const b = req.body || {};
+  try {
+    const note = await editEvolutionNote(req.tenantId, req.params.noteId, {
+      type: b.type,
+      text: b.text,
+      structuredFields: b.structured_fields,
+      editedBy: req.actor,
+    });
+    if (!note) { reply.code(404); return { error: { message: 'nota não encontrada' } }; }
+    return note;
+  } catch (e) {
+    if (e.statusCode === 410) { reply.code(410); return { error: { message: e.message } }; }
+    throw e;
+  }
+});
+
+app.delete('/v1/patients/:patientId/evolution-notes/:noteId', { preHandler: requireRole('professional') }, async (req, reply) => {
+  const removed = await removeEvolutionNote(req.tenantId, req.params.noteId);
+  if (!removed) { reply.code(404); return { error: { message: 'nota não encontrada' } }; }
+  return { deleted: true };
+});
+
+// Patient Reports — geração assíncrona via BullMQ (REQ-NEUROEVOLUI-0004)
+app.post('/v1/patients/:patientId/reports', { preHandler: requireRole('professional') }, async (req, reply) => {
+  const b = req.body || {};
+  const filters = { dateFrom: b.date_from, dateTo: b.date_to, type: b.type, professionalId: b.professional_id };
+  const report = await requestPatientReport({
+    tenantId: req.tenantId,
+    patientId: req.params.patientId,
+    filters,
+    createdBy: req.actor,
+  });
+  const jobKey = `patient-reports-${req.tenantId}-${req.params.patientId}-${report.id}`;
+  const { job_id, inline } = await enqueue('patient-reports', jobKey, {
+    reportId: report.id,
+    tenantId: req.tenantId,
+    patientId: req.params.patientId,
+    filters,
+  });
+  await upsertAsyncJob({ tenantId: req.tenantId, queueName: 'patient-reports', jobKey, jobId: job_id, status: 'queued', payload: { reportId: report.id }, createdBy: req.actor }).catch(() => {});
+  reply.code(202);
+  return { report_id: report.id, status: 'queued', job_id, inline };
+});
+
+app.get('/v1/patients/:patientId/reports', { preHandler: requireRole('professional') }, async (req) => {
+  const reports = await getPatientReports(req.tenantId, req.params.patientId);
+  return { data: reports };
+});
+
+app.get('/v1/patients/:patientId/reports/:reportId', { preHandler: requireRole('professional') }, async (req, reply) => {
+  const report = await getPatientReport(req.tenantId, req.params.reportId);
+  if (!report) { reply.code(404); return { error: { message: 'relatório não encontrado' } }; }
+  return report;
 });
 
 const PORT = Number(process.env.PORT) || 8080;
