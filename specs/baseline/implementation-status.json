@@ -7,7 +7,8 @@
       "deployed": 296,
       "done": 52,
       "merged": 1,
-      "not_started": 3
+      "pr_open": 1,
+      "not_started": 2
     },
     "refinements": {
       "total": 63,
@@ -687,8 +688,10 @@
       "commit": "be5ae5cf8e644eba84c92c87d22440080e04eae4"
     },
     "REQ-CONTAVIVA360-0007": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "branch": "@{id=REQ-CONTAVIVA360-0007; branch=req/REQ-CONTAVIVA360-0007/r1; restricted=false; title=feat(contaviva-360): implementa REQ-CONTAVIVA360-0007 — Assistente de IA Contábil: Consult}.branch",
+      "run_id": "28204232452"
     },
     "REQ-CONTAVIVA360-0008": {
       "status": "not_started",
