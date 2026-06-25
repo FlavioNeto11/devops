@@ -9,10 +9,12 @@
 # de tokens), então NÃO roda automático em todo build. Para o concept→app COMPLETO: rode a esteira
 # (greenfield-launch) p/ o backend e DEPOIS este workflow p/ o frontend.
 #
-# CREDENCIAL (constraint READ-ONLY do token OAuth): prefere ANTHROPIC_API_KEY (sessão longa NÃO
-# arrisca refresh do token de assinatura → sem logout). Sem ela, cai no CLAUDE_CODE_OAUTH_TOKEN do
-# runner com AVISO (uma sessão de ~1h pode dar refresh). Ambos vêm do AMBIENTE do runner (não do
-# GitHub cloud), como no req-implement.
+# CREDENCIAL: por PADRÃO usa a CONTA Claude do runner (CLAUDE_CODE_OAUTH_TOKEN — um setup-token
+# headless, SEPARADO do login interativo, NÃO desloga ninguém), exatamente como o req-implement faz
+# no backend. ANTHROPIC_API_KEY é OPCIONAL (pay-per-use): só p/ não consumir a assinatura ou evitar
+# rate limit em runs grandes/paralelos. Ambos vêm do AMBIENTE do runner (não do GitHub cloud).
+# Aviso honesto: o run do motor é GRANDE (~1h, milhões de tokens) — pode bater o rate limit da
+# assinatura e parar no meio (basta re-disparar, ou usar a API key).
 # =============================================================================
 name: greenfield-ui
 
@@ -55,13 +57,15 @@ jobs:
           }
           if ($env:CLAUDE_BIN_DIR -and (Test-Path $env:CLAUDE_BIN_DIR)) { $env:PATH = "$env:CLAUDE_BIN_DIR;$env:PATH" }
           if (-not (Get-Command claude -ErrorAction SilentlyContinue)) { Write-Host "::error::CLI 'claude' não encontrada no runner."; exit 1 }
-          # Credencial: ANTHROPIC_API_KEY (preferida; sem risco de refresh do OAuth) ou OAuth (assinatura, com aviso).
+          # Credencial: a CONTA Claude do runner (setup-token headless) é o PADRÃO e cobre backend+frontend.
+          # ANTHROPIC_API_KEY é opcional (pay-per-use). Se ambos existirem, a CLI usa a API key.
           if ($env:ANTHROPIC_API_KEY) {
-            Write-Host "Credencial: ANTHROPIC_API_KEY (sessão longa sem risco de refresh do token de assinatura)."
+            Write-Host "Credencial: ANTHROPIC_API_KEY (pay-per-use; não consome a assinatura)."
           } elseif ($env:CLAUDE_CODE_OAUTH_TOKEN) {
-            Write-Host "::warning::Credencial: CLAUDE_CODE_OAUTH_TOKEN (assinatura). Uma sessão longa do motor (~1h) PODE dar refresh no token e deslogar. Prefira definir ANTHROPIC_API_KEY no runner."
+            Write-Host "Credencial: conta Claude do runner (assinatura, setup-token headless — não desloga o login interativo)."
+            Write-Host "::warning::Este run do motor é GRANDE (~1h, milhões de tokens) — pode bater o rate limit da assinatura e parar no meio. Se ocorrer, re-dispare este workflow OU defina ANTHROPIC_API_KEY no runner."
           } else {
-            Write-Host "::error::Sem credencial Claude no runner (defina ANTHROPIC_API_KEY ou CLAUDE_CODE_OAUTH_TOKEN)."; exit 1
+            Write-Host "::error::Sem credencial Claude no runner (defina CLAUDE_CODE_OAUTH_TOKEN via 'claude setup-token', ou ANTHROPIC_API_KEY)."; exit 1
           }
           # O motor é um Workflow Claude multiagente — precisa rodar com permissões amplas (o operador
           # disparou intencionalmente; o blast-radius é apps/<prod>/** + specs/{products,refinements}/<prod>).
