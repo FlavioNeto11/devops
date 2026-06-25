@@ -143,7 +143,8 @@ export function productSummaries(products, implStatus) {
       app_type: p.app_type || 'product_software',
       reqIds: p.requirement_ids || [],
       reqCount: (p.requirement_ids || []).length,
-      progress: progressOf(p.requirement_ids || [], implStatus),
+      // weightedProgress: "no ar"=deployed+done (.live), "código no main"=.delivered, pct ponderado.
+      progress: weightedProgress(p.requirement_ids || [], implStatus),
       phases: p.phases || {},
     }))
     .sort((a, b) => String(a.display_name).localeCompare(String(b.display_name), 'pt-BR'));
@@ -167,7 +168,9 @@ export function blueprintById(blueprints, id) {
 export function phaseModel(product, buildPlan, implStatus) {
   const phases = (product && product.phases) || {};
   const reqIds = (product && product.requirement_ids) || [];
-  const prog = progressOf(reqIds, implStatus);
+  // weightedProgress (mesma fonte do hub/build): "no ar" = deployed+done (merged NÃO é no ar);
+  // pct ponderado. Garante números CONSISTENTES entre stepper, hub e pipeline.
+  const prog = weightedProgress(reqIds, implStatus);
   const nWaves = ((buildPlan && buildPlan.waves) || []).length;
   const archApproved = (phases.architecture && phases.architecture.status) === 'approved';
   const done = {
@@ -182,7 +185,7 @@ export function phaseModel(product, buildPlan, implStatus) {
   const meta = {
     definir: { label: 'Definir', detail: reqIds.length ? `${reqIds.length} requisito(s)` : 'sem requisitos' },
     arquitetura: { label: 'Arquitetura', detail: archDetail },
-    build: { label: 'Build', detail: `${prog.done}/${prog.total} no ar · ${prog.pct}%` },
+    build: { label: 'Build', detail: `${prog.live}/${prog.total} no ar · ${prog.pct}%` },
   };
   let currentAssigned = false;
   return PHASE_KEYS.map((k) => {
@@ -385,9 +388,10 @@ export function businessProductScopes(reqs, products) {
 export function hubSummary(products, implStatus) {
   const summ = productSummaries(products, implStatus);
   const totalReqs = summ.reduce((a, p) => a + p.reqCount, 0);
-  const totalDone = summ.reduce((a, p) => a + p.progress.done, 0);
+  const totalDone = summ.reduce((a, p) => a + (p.progress.live || 0), 0); // "no ar" = deployed+done
   const live = summ.filter((p) => p.progress.total > 0 && p.progress.pct === 100).length;
-  return { products: summ.length, totalReqs, totalDone, live, pct: totalReqs ? Math.round((totalDone / totalReqs) * 100) : 0 };
+  const weighted = summ.reduce((a, p) => a + (p.progress.pct || 0) * (p.reqCount || 0), 0); // % ponderado agregado
+  return { products: summ.length, totalReqs, totalDone, live, pct: totalReqs ? Math.round(weighted / totalReqs) : 0 };
 }
 
 // ─── Camada de LINGUAGEM COMUM (trilha guiada) ──────────────────────────────

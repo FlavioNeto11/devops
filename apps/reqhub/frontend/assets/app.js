@@ -1,7 +1,7 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
 import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId, parseMarkdown, systemContext } from './lib.js?v=42';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, weightedProgress, wavesFromProgress, launchPhases, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes, capabilityPlain, planSummary, CAPABILITY_PLAIN } from './forge-lib.js?v=53';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, weightedProgress, wavesFromProgress, launchPhases, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes, capabilityPlain, planSummary, CAPABILITY_PLAIN } from './forge-lib.js?v=54';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
@@ -2417,7 +2417,7 @@ function renderForgeHub(body) {
   body.append(head);
 
   const all = productSummaries(DATA.products, DATA.implStatus);
-  const cat = (p) => (p.progress.total > 0 && p.progress.pct === 100) ? 'live' : (p.progress.done > 0 || (p.progress.total - (p.progress.by.not_started || 0)) > 0) ? 'building' : 'new';
+  const cat = (p) => (p.progress.total > 0 && p.progress.pct === 100) ? 'live' : (p.progress.live > 0 || (p.progress.total - (p.progress.by.not_started || 0)) > 0) ? 'building' : 'new';
   // filtro por status (segmentado) — facilita "navegar tudo que está sendo criado"
   const filters = [['all', 'Todos'], ['building', 'Em construção'], ['live', 'No ar'], ['new', 'Não iniciados']];
   const bar = h('div', { class: 'forge-filter', role: 'group', 'aria-label': 'Filtrar produtos por status' });
@@ -2432,11 +2432,11 @@ function renderForgeHub(body) {
   const cards = h('div', { class: 'forge-cards' });
   for (const p of shown) {
     const live = p.progress.pct === 100 && p.progress.total > 0;
-    const card = h('button', { class: 'forge-card', type: 'button', 'aria-label': `${p.display_name}: ${p.progress.done} de ${p.reqCount} requisitos no ar (${p.progress.pct}%)`, onclick: () => openForgeProduct(p.name) },
+    const card = h('button', { class: 'forge-card', type: 'button', 'aria-label': `${p.display_name}: ${p.progress.live} de ${p.reqCount} requisitos no ar (${p.progress.pct}%)`, onclick: () => openForgeProduct(p.name) },
       h('div', { class: 'forge-card-top' }, h('span', { class: 'forge-card-name', text: p.display_name }), h('span', { class: 'forge-card-path', text: p.base_path })),
       p.blueprint ? h('span', { class: 'forge-card-bp', text: p.blueprint }) : null,
       h('p', { class: 'forge-card-vision', text: p.vision || 'Sem descrição.' }),
-      h('div', { class: 'forge-card-foot' }, h('span', { class: 'muted', text: `${p.progress.done}/${p.reqCount} no ar` }), badge(live ? 'no ar' : (cat(p) === 'new' ? 'não iniciado' : 'em construção'), live ? 'b-ok' : (cat(p) === 'new' ? 'b-low' : 'b-high'))),
+      h('div', { class: 'forge-card-foot' }, h('span', { class: 'muted', text: `${p.progress.live}/${p.reqCount} no ar` }), badge(live ? 'no ar' : (cat(p) === 'new' ? 'não iniciado' : 'em construção'), live ? 'b-ok' : (cat(p) === 'new' ? 'b-low' : 'b-high'))),
       progressBar(p.progress.pct));
     cards.append(card);
   }
@@ -2675,7 +2675,8 @@ function forgeBuild(panel, product, buildPlan) {
 // req-implement rodando + PRs de implementação abertos (e se estão bloqueados por CI). Para sozinho
 // ao sair da aba Build. fail-soft (sem token/IA fora -> "status indisponível", não quebra a tela).
 let _forgeBuildTimer = null;
-function fwStopBuildPoll() { if (_forgeBuildTimer) { clearTimeout(_forgeBuildTimer); _forgeBuildTimer = null; } }
+let _forgeBuildGen = 0; // invalida ticks async em voo de renders antigos (clearTimeout não alcança um tick suspenso no await)
+function fwStopBuildPoll() { _forgeBuildGen++; if (_forgeBuildTimer) { clearTimeout(_forgeBuildTimer); _forgeBuildTimer = null; } }
 function renderBuildStatus(el, data) {
   el.replaceChildren();
   if (!data || data.ok === false) { el.append(h('p', { class: 'muted', text: 'Status do build indisponível agora.' })); return; }
@@ -2702,11 +2703,13 @@ function renderBuildStatus(el, data) {
 }
 function forgePollBuildStatus(name, el) {
   fwStopBuildPoll();
+  const myGen = _forgeBuildGen;
+  const alive = () => myGen === _forgeBuildGen && state.view === 'forge' && state.forge.product === name && state.forge.step === 'build';
   const tick = async () => {
-    if (!(state.view === 'forge' && state.forge.product === name && state.forge.step === 'build')) { fwStopBuildPoll(); return; }
+    if (!alive()) return;
     let data = null;
     try { const r = await AI.get('/v1/forge/build-status?product=' + encodeURIComponent(name)); data = r.ok ? r.data : { ok: false }; } catch { data = { ok: false }; }
-    if (!(state.view === 'forge' && state.forge.product === name && state.forge.step === 'build')) { fwStopBuildPoll(); return; }
+    if (!alive()) return; // saiu da aba OU re-render iniciou novo poller (gen mudou) → aborta sem reagendar
     renderBuildStatus(el, data);
     _forgeBuildTimer = setTimeout(tick, 8000);
   };
@@ -2733,15 +2736,17 @@ function forgeNowNode(phases) {
 // Poller do pipeline na aba Build (persistente). launch-status (PRs) + DATA viva (impl-status,
 // atualizada pelo poll global de /v1/forge/state) → launchPhases ordenado. Mirror de forgePollBuildStatus.
 let _forgePipeTimer = null;
-function fwStopPipePoll() { if (_forgePipeTimer) { clearTimeout(_forgePipeTimer); _forgePipeTimer = null; } }
+let _forgePipeGen = 0; // invalida ticks async em voo de renders antigos (a race do re-render de 15s)
+function fwStopPipePoll() { _forgePipeGen++; if (_forgePipeTimer) { clearTimeout(_forgePipeTimer); _forgePipeTimer = null; } }
 function forgePollPipeline(name, els) {
   fwStopPipePoll();
-  const alive = () => state.view === 'forge' && state.forge.product === name && state.forge.step === 'build';
+  const myGen = _forgePipeGen;
+  const alive = () => myGen === _forgePipeGen && state.view === 'forge' && state.forge.product === name && state.forge.step === 'build';
   const tick = async () => {
-    if (!alive()) { fwStopPipePoll(); return; }
+    if (!alive()) return;
     let stages = [];
     try { const r = await AI.get('/v1/forge/launch-status?product=' + encodeURIComponent(name)); if (r.ok && r.data && Array.isArray(r.data.stages)) stages = r.data.stages; } catch { /* fail-soft */ }
-    if (!alive()) { fwStopPipePoll(); return; }
+    if (!alive()) return; // saiu da aba OU re-render iniciou novo poller (gen mudou) → aborta sem reagendar nem escrever em nó destacado
     const product = findProduct(DATA.products, name) || { requirement_ids: [], phases: {} };
     const phases = launchPhases(stages, product, DATA.implStatus, DATA.buildPlans[name] || null);
     els.steps.replaceChildren(...forgePhaseNodes(phases));
@@ -3800,7 +3805,7 @@ function overviewBriefing(reqs, prods) {
   const qcrit = ((DATA.baseline && DATA.baseline.reprocess_queue) || []).filter((it) => it.impact_score >= 70);
   if (qcrit.length) list.append(row('is-warn', `${qcrit.length} requisito(s) de alto impacto a reprocessar`, () => switchView('reprocess')));
   // 3. produtos sem nada no ar ainda
-  const stalled = (prods || []).filter((p) => p.progress && p.progress.done === 0 && p.reqCount > 0);
+  const stalled = (prods || []).filter((p) => p.progress && (p.progress.live || 0) === 0 && p.reqCount > 0);
   if (stalled.length) list.append(row('is-info', `${stalled.length} produto(s) ainda sem nada no ar`, () => switchView('forge')));
   // 4. dimensão de cobertura mais fraca da base
   if (DATA.coverage && DATA.coverage.totals && DATA.coverage.totals.coverage_pct) {
@@ -3848,8 +3853,8 @@ function renderOverview() {
   if (!prods.length) left.append(h('p', { class: 'empty', text: 'Nenhum produto registrado ainda.' }));
   else {
     const pl = h('div', { class: 'ov-prodlist' });
-    for (const p of prods) pl.append(h('button', { class: 'ov-prodrow', type: 'button', 'aria-label': `${p.display_name}: ${p.progress.done} de ${p.reqCount} no ar`, onclick: () => openForgeProduct(p.name) },
-      h('span', { class: 'pn', text: p.display_name }), miniBar(p.progress.pct, p.progress.pct === 100 ? 'ok' : ''), h('span', { class: 'pp', text: `${p.progress.done}/${p.reqCount}` })));
+    for (const p of prods) pl.append(h('button', { class: 'ov-prodrow', type: 'button', 'aria-label': `${p.display_name}: ${p.progress.live} de ${p.reqCount} no ar`, onclick: () => openForgeProduct(p.name) },
+      h('span', { class: 'pn', text: p.display_name }), miniBar(p.progress.pct, p.progress.pct === 100 ? 'ok' : ''), h('span', { class: 'pp', text: `${p.progress.live}/${p.reqCount}` })));
     left.append(pl);
   }
 
