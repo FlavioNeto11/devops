@@ -14,12 +14,20 @@ import { getRevenueDashboard } from './services/dashboard-service.js';
 import { getAuditTrail } from './services/audit-service.js';
 import { addEvolutionNote, getEvolutionNotes, getEvolutionNotesHistory, getEvolutionNote, editEvolutionNote, removeEvolutionNote } from './services/evolution-notes-service.js';
 import { requestPatientReport, getPatientReport, getPatientReports } from './services/patient-reports-service.js';
+import { runAssistantTurn } from './ai/graph.js';
+import { aiEnabled } from './llm.js';
 
 const app = Fastify({ logger: false });
 
 app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
   _req.rawBody = body;
   try { done(null, JSON.parse(body || '{}')); } catch (e) { done(e); }
+});
+
+// Aceita multipart/form-data (fail-soft: arquivos inválidos não derrubam a rota).
+// O buffer raw é armazenado para extração inline no handler /v1/assistant.
+app.addContentTypeParser('multipart/form-data', { parseAs: 'buffer' }, (_req, body, done) => {
+  done(null, { __multipart: true, raw: body, boundary: (_req.headers['content-type'] || '').match(/boundary=([^\s;]+)/)?.[1] || '' });
 });
 
 app.addHook('onRequest', async (req) => { const ctx = authContext(req); req.tenantId = ctx.tenantId; req.role = ctx.role; req.actor = ctx.user; });
@@ -266,6 +274,110 @@ app.get('/v1/patients/:patientId/reports/:reportId', { preHandler: requireRole('
   const report = await getPatientReport(req.tenantId, req.params.reportId);
   if (!report) { reply.code(404); return { error: { message: 'relatório não encontrado' } }; }
   return report;
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Assistente IA — REQ-NEUROEVOLUI-0006
+// POST /v1/assistant
+//   JSON body: { question, context_type: 'professional'|'patient', files?: [{filename, mime, data}] }
+//   Multipart: question + context_type como campos; files como uploads (fail-soft se inválido)
+// Resposta: { answer, sources, confidence, actions?: [rascunho] }
+// Fail-closed: sem chave de IA → 503. Falha de arquivo → responde sem contexto de arquivo.
+// ──────────────────────────────────────────────────────────────────────────────
+
+// Extrai campos text + files de um body multipart (parser mínimo inline, fail-soft).
+function extractMultipart(boundary, raw) {
+  try {
+    if (!boundary || !raw || !raw.length) return { fields: {}, files: [] };
+    const body = raw.toString('binary');
+    const sep = `--${boundary}`;
+    const parts = body.split(sep).slice(1);
+    const fields = {};
+    const files = [];
+    for (const part of parts) {
+      if (part.trim() === '--' || !part.trim()) continue;
+      const [headerBlock, ...rest] = part.split('\r\n\r\n');
+      const content = rest.join('\r\n\r\n').replace(/\r\n--$/, '').replace(/--\r?\n?$/, '');
+      const nameMatch = /name="([^"]+)"/.exec(headerBlock);
+      const filenameMatch = /filename="([^"]*)"/.exec(headerBlock);
+      const ctMatch = /Content-Type: ([^\r\n]+)/i.exec(headerBlock);
+      if (!nameMatch) continue;
+      if (filenameMatch) {
+        // é um arquivo
+        const mime = ctMatch ? ctMatch[1].trim() : 'application/octet-stream';
+        files.push({ filename: filenameMatch[1] || 'file', mime, bytes: Buffer.from(content, 'binary') });
+      } else {
+        fields[nameMatch[1]] = content.replace(/\r\n$/, '');
+      }
+    }
+    return { fields, files };
+  } catch {
+    return { fields: {}, files: [] };
+  }
+}
+
+app.post('/v1/assistant', async (req, reply) => {
+  // Fail-closed: sem chave de IA → 503
+  if (!aiEnabled()) {
+    reply.code(503);
+    return { error: { code: 'AI_DISABLED', message: 'Chave de IA não configurada; assistente indisponível.' } };
+  }
+
+  let question, context_type, ingestFiles = [];
+
+  const body = req.body || {};
+
+  if (body.__multipart) {
+    // multipart/form-data: extrai campos e arquivos (fail-soft)
+    const { fields, files } = extractMultipart(body.boundary, body.raw);
+    question = fields.question || '';
+    context_type = fields.context_type || 'professional';
+    // Converte arquivos do multipart para o formato do file-ingest-kit
+    ingestFiles = files;
+  } else {
+    // application/json
+    question = body.question;
+    context_type = body.context_type;
+    // Arquivos opcionais como [{ filename, mime, data: base64 }]
+    const rawFiles = Array.isArray(body.files) ? body.files : [];
+    ingestFiles = rawFiles
+      .filter((f) => f && (f.data || f.bytes))
+      .map((f) => ({
+        filename: f.filename || 'file',
+        mime: f.mime || 'application/octet-stream',
+        bytes: f.bytes instanceof Uint8Array ? f.bytes : Buffer.from(f.data || '', 'base64'),
+      }));
+  }
+
+  if (!question || typeof question !== 'string' || !question.trim()) {
+    reply.code(400);
+    return { error: { code: 'VALIDATION_ERROR', message: 'question obrigatório' } };
+  }
+
+  if (!['professional', 'patient'].includes(context_type)) {
+    context_type = 'professional';
+  }
+
+  try {
+    const result = await runAssistantTurn({
+      question: question.trim(),
+      context_type,
+      files: ingestFiles.length > 0 ? ingestFiles : undefined,
+      identity: { sub: req.actor || 'anon', role: req.role },
+    });
+    return result;
+  } catch (err) {
+    if (err && err.statusCode === 503) {
+      reply.code(503);
+      return { error: { code: 'AI_DISABLED', message: err.message } };
+    }
+    // Erros estruturados da IA: schema inválido, tool error, etc.
+    if (err && err.code && err.code.startsWith('AI_')) {
+      reply.code(422);
+      return { error: { code: err.code, message: err.message } };
+    }
+    throw err;
+  }
 });
 
 const PORT = Number(process.env.PORT) || 8080;

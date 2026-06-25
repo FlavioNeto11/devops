@@ -69,6 +69,44 @@ const MIGRATIONS = [
     created_at TIMESTAMPTZ DEFAULT now(),
     completed_at TIMESTAMPTZ
   )`,
+  // RAG: tenta habilitar pgvector (fail-soft se não instalado)
+  `DO $ext$ BEGIN CREATE EXTENSION IF NOT EXISTS vector; EXCEPTION WHEN OTHERS THEN NULL; END $ext$`,
+  // RAG: tabela de fontes de conhecimento (always-succeeds)
+  `CREATE TABLE IF NOT EXISTS knowledge_sources (
+    source_id TEXT PRIMARY KEY,
+    content_hash TEXT NOT NULL,
+    chunk_count INTEGER NOT NULL DEFAULT 0,
+    embedding_model TEXT,
+    ingested_at TIMESTAMPTZ DEFAULT now()
+  )`,
+  // RAG: tabela de chunks sem coluna vector (always-succeeds)
+  `CREATE TABLE IF NOT EXISTS knowledge_chunks (
+    id TEXT PRIMARY KEY,
+    source_id TEXT NOT NULL REFERENCES knowledge_sources(source_id) ON DELETE CASCADE,
+    chunk_index INTEGER NOT NULL DEFAULT 0,
+    title TEXT,
+    content TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ DEFAULT now()
+  )`,
+  // RAG: adiciona coluna vector se pgvector disponível (fail-soft via DO block)
+  `DO $$ BEGIN
+     IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') THEN
+       BEGIN ALTER TABLE knowledge_chunks ADD COLUMN IF NOT EXISTS embedding vector(1536); EXCEPTION WHEN OTHERS THEN NULL; END;
+     END IF;
+   END $$`,
+  // RAG: cria índice HNSW se a coluna vector existe (fail-soft via DO block)
+  `DO $$ BEGIN
+     IF EXISTS (
+       SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'knowledge_chunks' AND column_name = 'embedding'
+     ) THEN
+       BEGIN
+         CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_embedding
+           ON knowledge_chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+       EXCEPTION WHEN OTHERS THEN NULL;
+       END;
+     END IF;
+   END $$`,
 ];
 export async function migrate() {
   const c = await pool.connect();
