@@ -174,6 +174,21 @@ const MIGRATIONS = [
   `ALTER TABLE payment_transactions ADD COLUMN IF NOT EXISTS patient_id TEXT`,
   `ALTER TABLE payment_transactions ADD COLUMN IF NOT EXISTS event_type TEXT`,
   `ALTER TABLE payment_transactions ADD COLUMN IF NOT EXISTS external_id TEXT`,
+  // REF-NEUROEVOLUI-0050: configurações editáveis da clínica (por tenant)
+  `CREATE TABLE IF NOT EXISTS clinic_settings (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    clinic_name TEXT NOT NULL DEFAULT '',
+    clinic_address TEXT NOT NULL DEFAULT '',
+    clinic_phone TEXT NOT NULL DEFAULT '',
+    clinic_email TEXT NOT NULL DEFAULT '',
+    timezone TEXT NOT NULL DEFAULT 'America/Sao_Paulo',
+    locale TEXT NOT NULL DEFAULT 'pt-BR',
+    notification_defaults JSONB NOT NULL DEFAULT '{}',
+    updated_by TEXT NOT NULL DEFAULT 'system',
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(tenant_id)
+  )`,
 ];
 export async function migrate() {
   const c = await pool.connect();

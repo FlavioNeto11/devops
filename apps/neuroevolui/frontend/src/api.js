@@ -85,6 +85,16 @@ export const notificationPrefs = {
   unsubscribe: (endpoint) => request('DELETE', '/v1/notifications/subscriptions', { endpoint }),
 };
 
+// Configurações da clínica (REF-NEUROEVOLUI-0050).
+//   GET    /v1/settings              → { clinic_name, clinic_address, clinic_phone, clinic_email, timezone, locale, notification_defaults }
+//   PUT    /v1/settings              { ...campos } → configurações salvas
+//   DELETE /v1/settings/overrides    → restaura valores padrão
+export const clinicSettings = {
+  get: () => request('GET', '/v1/settings'),
+  put: (body) => request('PUT', '/v1/settings', body),
+  deleteOverrides: () => request('DELETE', '/v1/settings/overrides'),
+};
+
 // Base de conhecimento (RAG). Recurso REST padrão + métodos dedicados:
 //  - reindex(id): POST /v1/knowledge-sources/:id/reindex (reprocessa; ingested_at=now()).
 //  - stats():     GET  /v1/knowledge-sources/stats (agregados REAIS de toda a coleção).
