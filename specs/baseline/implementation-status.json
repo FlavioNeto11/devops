@@ -6,8 +6,7 @@
     "by_status": {
       "deployed": 296,
       "done": 52,
-      "merged": 2,
-      "pr_open": 1,
+      "merged": 3,
       "not_started": 1
     },
     "refinements": {
@@ -696,9 +695,11 @@
       "run_id": "28204232452"
     },
     "REQ-CONTAVIVA360-0008": {
-      "status": "pr_open",
+      "status": "merged",
       "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/165",
       "branch": "@{id=REQ-CONTAVIVA360-0008; branch=req/REQ-CONTAVIVA360-0008/r1; restricted=false; title=feat(contaviva-360): implementa REQ-CONTAVIVA360-0008 — Painel Personalizado por Role: Das}.branch",
+      "commit": "7ed5a38450d8be2184f832e5522c812bdddd0641",
       "run_id": "28205517010"
     },
     "REQ-CONTAVIVA360-0009": {
