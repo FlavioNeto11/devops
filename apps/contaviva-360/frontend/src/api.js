@@ -25,6 +25,30 @@ export function resourceFactory(name) {
 export const health = () => request("GET", "/health");
 export const records = resourceFactory('records');
 
+// Controle Financeiro (REQ-CONTAVIVA360-0005)
+export const accountsPayable = resourceFactory('accounts-payable');
+export const accountsReceivable = resourceFactory('accounts-receivable');
+
+export function cashFlow(horizon) {
+  return request("GET", "/v1/cash-flow" + qs({ horizon }));
+}
+
+export function financialDashboard(params) {
+  return request("GET", "/v1/dashboard/financial" + qs(params));
+}
+
+export function financialReport(params) {
+  return request("GET", "/v1/reports/financial" + qs({ ...params, format: 'json' }));
+}
+
+export function financialReportExport(params) {
+  const { format, ...rest } = params;
+  const p = new URLSearchParams();
+  for (const k in (rest || {})) { const v = rest[k]; if (v !== '' && v !== null && v !== undefined) p.append(k, v); }
+  p.append('format', format || 'csv');
+  return BASE + '/v1/reports/financial?' + p.toString();
+}
+
 // Assistente de IA (bloco control-ai-por-app). Aceita ARQUIVOS (multimodal): envia multipart/form-data
 // quando há File[] (campo 'files'); senão JSON (retrocompat). NUNCA setamos Content-Type no multipart
 // (o browser põe o boundary). Erros estruturados (status + message) sobem p/ a view.

@@ -1,4 +1,4 @@
-// worker.js — consumidor BullMQ (bloco redis-bullmq). Processa submit, document-process e obligations-alert.
+// worker.js — consumidor BullMQ (bloco redis-bullmq). Processa submit, document-process, obligations-alert, tasks-notification, financial-report.
 import { Worker } from 'bullmq';
 import { pool, migrate } from './db.js';
 import { M, startMetricsServer } from './metrics.js';
@@ -38,6 +38,22 @@ async function handleObligationAlert(job) {
     'INSERT INTO obligation_alerts(tenant_id,obligation_id,nivel,canais) VALUES ($1,$2,$3,$4)',
     [ob.tenant_id, obligationId, nivel, canaisSent]
   ).catch(() => {});
+}
+
+async function handleFinancialReport(job) {
+  const { tenantId, start, end, format } = job.data;
+  const { rows } = await pool.query(
+    `SELECT tipo, categoria, centro_custo, status, SUM(valor) AS total, COUNT(*) AS count
+     FROM income_expenses WHERE tenant_id=$1 AND data >= $2 AND data <= $3
+     GROUP BY tipo, categoria, centro_custo, status ORDER BY tipo, categoria`,
+    [tenantId || 1, start, end]
+  );
+  let totalReceitas = 0, totalDespesas = 0;
+  for (const r of rows) {
+    if (r.tipo === 'receita') totalReceitas += Number(r.total);
+    else totalDespesas += Number(r.total);
+  }
+  console.log(`[worker] financial-report gerado: tenant=${tenantId} periodo=${start}/${end} receitas=${totalReceitas} despesas=${totalDespesas}`);
 }
 
 async function handleTaskNotification(job) {
@@ -109,9 +125,20 @@ async function handleTaskNotification(job) {
     console.warn('[worker] tasks-notification falhou: ' + (err && err.message));
   });
 
-  console.log('[contaviva-360-worker] BullMQ iniciado (queues: records-submit, document-process, obligations-alert, tasks-notification)');
+  const reportWorker = new Worker('financial-report', async (job) => {
+    await handleFinancialReport(job);
+    M.jobsTotal.inc({ status: 'done' });
+    console.log('[worker] financial-report job ' + job.id + ' OK');
+  }, { connection: conn() });
+
+  reportWorker.on('failed', (job, err) => {
+    M.jobsTotal.inc({ status: 'failed' });
+    console.warn('[worker] financial-report falhou: ' + (err && err.message));
+  });
+
+  console.log('[contaviva-360-worker] BullMQ iniciado (queues: records-submit, document-process, obligations-alert, tasks-notification, financial-report)');
   process.on('SIGTERM', async () => {
-    await Promise.all([submitWorker.close(), docWorker.close(), obligationWorker.close(), taskWorker.close()]);
+    await Promise.all([submitWorker.close(), docWorker.close(), obligationWorker.close(), taskWorker.close(), reportWorker.close()]);
     process.exit(0);
   });
 })();

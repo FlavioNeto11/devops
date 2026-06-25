@@ -20,6 +20,10 @@ const MIGRATIONS = [
   `CREATE TABLE IF NOT EXISTS task_comments (id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, task_id INTEGER NOT NULL, author TEXT NOT NULL DEFAULT 'local', content TEXT NOT NULL, metadata JSONB DEFAULT '{}', edited_at TIMESTAMPTZ, created_at TIMESTAMPTZ DEFAULT now())`,
   `CREATE TABLE IF NOT EXISTS task_attachments (id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, task_id INTEGER NOT NULL, version INTEGER NOT NULL DEFAULT 1, filename TEXT NOT NULL, content_type TEXT, file_size INTEGER, uploaded_by TEXT NOT NULL DEFAULT 'local', created_at TIMESTAMPTZ DEFAULT now())`,
   `CREATE TABLE IF NOT EXISTS task_notifications (id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, task_id INTEGER NOT NULL, event_type TEXT NOT NULL, canais TEXT[] DEFAULT '{}', created_at TIMESTAMPTZ DEFAULT now())`,
+  `ALTER TABLE income_expenses ADD COLUMN IF NOT EXISTS forma_pagamento TEXT`,
+  `ALTER TABLE income_expenses ADD COLUMN IF NOT EXISTS forma_recebimento TEXT`,
+  `ALTER TABLE income_expenses ADD COLUMN IF NOT EXISTS data_pagamento_realizado DATE`,
+  `ALTER TABLE income_expenses ADD COLUMN IF NOT EXISTS recorrencia_tipo TEXT`,
 ];
 export async function migrate() {
   const c = await pool.connect();

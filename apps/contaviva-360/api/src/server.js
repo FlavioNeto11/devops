@@ -13,6 +13,10 @@ import { registerDocumentRoutes } from './routes/documents.js';
 import { registerDashboardRoutes } from './routes/dashboard.js';
 import { registerFiscalObligationRoutes } from './routes/fiscal-obligations.js';
 import { registerTaskRoutes } from './routes/tasks.js';
+import { registerFinancialControlRoutes } from './routes/financial-control.js';
+import { registerCashFlowRoutes } from './routes/cash-flow.js';
+import { registerFinancialReportRoutes } from './routes/financial-reports.js';
+import { registerFinancialDashboardRoutes } from './routes/financial-dashboard.js';
 
 const app = Fastify({ logger: false });
 app.addHook('onRequest', async (req) => { const ctx = authContext(req); req.tenantId = ctx.tenantId; req.role = ctx.role; req.user = ctx.user; });
@@ -49,6 +53,12 @@ registerFiscalObligationRoutes(app);
 
 // Tarefas e colaboração (REQ-CONTAVIVA360-0004)
 registerTaskRoutes(app);
+
+// Controle financeiro: AP/AR, fluxo de caixa, relatórios, dashboard (REQ-CONTAVIVA360-0005)
+registerFinancialControlRoutes(app);
+registerCashFlowRoutes(app);
+registerFinancialReportRoutes(app);
+registerFinancialDashboardRoutes(app);
 
 const PORT = Number(process.env.PORT) || 8080;
 (async () => {
