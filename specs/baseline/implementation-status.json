@@ -6,8 +6,7 @@
     "by_status": {
       "deployed": 282,
       "done": 52,
-      "merged": 6,
-      "pr_open": 1,
+      "merged": 7,
       "not_started": 2
     },
     "refinements": {
@@ -933,9 +932,11 @@
       "run_id": "28139437545"
     },
     "REQ-NEUROEVOLUI-0007": {
-      "status": "pr_open",
+      "status": "merged",
       "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/130",
       "branch": "@{id=REQ-NEUROEVOLUI-0007; branch=req/REQ-NEUROEVOLUI-0007/r1; restricted=false; title=feat(neuroevolui): implementa REQ-NEUROEVOLUI-0007 — Notificações: E-mail, push e WhatsApp}.branch",
+      "commit": "9aa7b85532a407daf5fda7d398352d4d2eaa8b3b",
       "run_id": "28141146215"
     },
     "REQ-NEUROEVOLUI-0008": {
