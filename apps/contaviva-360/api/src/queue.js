@@ -74,6 +74,27 @@ export async function enqueueTaskNotification(taskId, eventType, payload) {
   return { inline: false };
 }
 
+let _reportQ = null;
+
+export function financialReportQueue() {
+  if (!url) return null;
+  if (!_reportQ) _reportQ = new Queue('financial-report', { connection: conn() });
+  return _reportQ;
+}
+
+export async function enqueueFinancialReport(jobKey, params) {
+  const q = financialReportQueue();
+  if (!q) return { inline: true }; // sem Redis -> degradação graciosa
+  await q.add('generate', params, {
+    jobId: jobKey,
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 2000 },
+    removeOnComplete: 50,
+    removeOnFail: 100,
+  });
+  return { inline: false };
+}
+
 export async function queueCounts() {
   const q = queue();
   if (!q) return { redis: false };
