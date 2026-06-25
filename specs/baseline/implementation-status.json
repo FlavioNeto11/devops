@@ -7,7 +7,8 @@
       "deployed": 282,
       "done": 52,
       "merged": 7,
-      "not_started": 2
+      "pr_open": 1,
+      "not_started": 1
     },
     "refinements": {
       "total": 13,
@@ -940,8 +941,10 @@
       "run_id": "28141146215"
     },
     "REQ-NEUROEVOLUI-0008": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "branch": "@{id=REQ-NEUROEVOLUI-0008; branch=req/REQ-NEUROEVOLUI-0008/r1; restricted=false; title=feat(neuroevolui): implementa REQ-NEUROEVOLUI-0008 — API estável: Contract-first OpenAPI +}.branch",
+      "run_id": "28141678291"
     },
     "REQ-NEUROEVOLUI-0009": {
       "status": "not_started",
