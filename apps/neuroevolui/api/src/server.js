@@ -26,7 +26,7 @@ import { upsertPushSubscription, deletePushSubscription, getNotificationPreferen
 import { listPatients, findPatient, createPatient, updatePatient, deletePatient } from './repositories/patients-repo.js';
 import { listProfessionals, findProfessional, createProfessional, updateProfessional, deleteProfessional } from './repositories/professionals-repo.js';
 import { listPatientReportsPaged, findPatientReport, deletePatientReport, PR_STATUSES } from './repositories/patient-reports-repo.js';
-import { listPaymentTransactions, findPaymentTransaction, updatePaymentTransaction, deletePaymentTransaction } from './repositories/payment-transactions-repo.js';
+import { listPaymentTransactions, findPaymentTransaction, updatePaymentTransaction, deletePaymentTransaction, getFinancialSummary, getFinancialMonthly } from './repositories/payment-transactions-repo.js';
 import { listKnowledgeSources, findKnowledgeSource, createKnowledgeSource, updateKnowledgeSource, deleteKnowledgeSource, reindexKnowledgeSource, knowledgeSourceStats } from './repositories/knowledge-sources-repo.js';
 import { listAuditLogsPaged, findAuditLog, deleteAuditLog } from './repositories/audit-repo.js';
 import { listAsyncJobsPaged, findAsyncJobById, listAsyncJobsByQueue, deleteAsyncJob, updateAsyncJobStatus } from './repositories/async-jobs-repo.js';
@@ -716,6 +716,18 @@ app.delete('/v1/patient-reports/:id', { preHandler: requireRole('clinic_manager'
   const ok = await deletePatientReport(req.tenantId, req.params.id);
   if (!ok) { reply.code(404); return { error: { message: 'relatório não encontrado' } }; }
   return { deleted: true };
+});
+
+// ── Financial dashboard endpoints (REF-NEUROEVOLUI-0038) ─────────────────────
+app.get('/v1/financial/summary', { preHandler: requireRole('clinic_manager') }, async (req) => {
+  const q = req.query || {};
+  const data = await getFinancialSummary(req.tenantId, { dateFrom: q.date_from, dateTo: q.date_to });
+  return { data };
+});
+
+app.get('/v1/financial/monthly', { preHandler: requireRole('clinic_manager') }, async (req) => {
+  const q = req.query || {};
+  return getFinancialMonthly(req.tenantId, { dateFrom: q.date_from, dateTo: q.date_to });
 });
 
 // ── Payment Transactions (coleção de topo) ────────────────────────────────────

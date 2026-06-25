@@ -1,13 +1,14 @@
 <!--
-  FinancialOverviewView — Dashboard Financeiro (REQ-NEUROEVOLUI-0005 / rota /financial).
-  KPIs: receita bruta, transações confirmadas, transações falhas, ticket médio.
-  Gráfico de receita por período (barras horizontais CSS-safe, buckets 5..100).
-  Filtro por período e profissional.
-  Tabela paginada de payment-transactions com status e link para a consulta.
+  FinancialOverviewView — Dashboard Financeiro (REF-NEUROEVOLUI-0038 / REQ-NEUROEVOLUI-0005 / rota /financial).
+  KPIs: total_revenue, total_paid, total_pending (summary), falhas e ticket médio (derivados de transações).
+  Gráfico de evolução mensal (barras horizontais CSS-safe, buckets 5..100).
+  Filtro por período e profissional — sincronizado com query params da URL.
+  Tabela paginada de payment-transactions recentes com status e link para a consulta.
   Endpoints REAIS:
-    · GET /v1/payment-transactions  → lista paginada de transações
-    · GET /v1/dashboard/revenue     → meta { revenue_cents, total, ... }
-    · GET /v1/professionals         → catálogo para o filtro de profissional (fail-soft)
+    · GET /v1/financial/summary  → { data: { total_revenue, total_pending, total_paid } }
+    · GET /v1/financial/monthly  → { data: [{ month, revenue, pending, paid, count }] }
+    · GET /v1/payment-transactions → lista paginada de transações
+    · GET /v1/professionals        → catálogo para o filtro de profissional (fail-soft)
   CSP-safe: zero style= inline / :style / v-html — estado visual por class + data-* no <style scoped>.
   Estados: loading (skeleton), empty (com CTA), error (com retry), normal — todos cobertos.
 -->
@@ -22,7 +23,7 @@
   >
     <template #actions>
       <UiButton variant="subtle" :loading="loadingTx" @click="reload">Atualizar</UiButton>
-      <UiButton to="/transactions">Ver todas as transações</UiButton>
+      <UiButton to="/payment-transactions">Ver Transações</UiButton>
     </template>
 
     <!-- Filtros: período + profissional -->
@@ -59,29 +60,25 @@
     <!-- KPIs -->
     <section class="fo-metrics" aria-label="Indicadores financeiros">
       <UiMetricCard
-        label="Receita bruta"
-        :value="loadingRevenue ? null : revenueDisplay"
-        :loading="loadingRevenue"
+        label="Receita total"
+        :value="loadingSummary ? null : totalRevenueDisplay"
+        :loading="loadingSummary"
         tone="success"
-        :hint="revenueHint"
+        hint="total faturado no período"
       />
       <UiMetricCard
-        label="Confirmadas"
-        :value="loadingTx ? null : format.formatNumber(kpis.confirmed)"
-        :loading="loadingTx"
+        label="Total pago"
+        :value="loadingSummary ? null : totalPaidDisplay"
+        :loading="loadingSummary"
         tone="primary"
-        :hint="formatCents(kpis.confirmedCents)"
-        clickable
-        @click="setStatusFilter('confirmed')"
+        hint="transações confirmadas"
       />
       <UiMetricCard
-        label="Pendentes"
-        :value="loadingTx ? null : format.formatNumber(kpis.pending)"
-        :loading="loadingTx"
+        label="Total pendente"
+        :value="loadingSummary ? null : totalPendingDisplay"
+        :loading="loadingSummary"
         tone="warning"
-        :hint="formatCents(kpis.pendingCents)"
-        clickable
-        @click="setStatusFilter('pending')"
+        hint="aguardando confirmação"
       />
       <UiMetricCard
         label="Falhas"
@@ -103,33 +100,33 @@
 
     <!-- Gráfico de receita por período + distribuição por gateway -->
     <div class="fo-grid">
-      <!-- Receita por dia -->
-      <UiCard title="Receita por dia" :subtitle="seriesSubtitle">
+      <!-- Evolução mensal -->
+      <UiCard title="Evolução mensal" :subtitle="monthlySubtitle">
         <template #actions>
-          <UiButton variant="ghost" size="sm" to="/revenue">Painel de receita</UiButton>
+          <UiButton variant="ghost" size="sm" to="/payment-transactions">Ver transações</UiButton>
         </template>
-        <UiLoadingState v-if="loadingTx" variant="skeleton" :skeleton-lines="6" />
+        <UiLoadingState v-if="loadingMonthly" variant="skeleton" :skeleton-lines="6" />
         <UiErrorState
-          v-else-if="errorTx && !accessDenied"
-          :message="errorTx.message || 'Falha ao carregar transações.'"
-          :code="errorTx.status ? String(errorTx.status) : null"
+          v-else-if="errorMonthly && !accessDenied"
+          :message="errorMonthly.message || 'Falha ao carregar dados mensais.'"
+          :code="errorMonthly.status ? String(errorMonthly.status) : null"
           retryable
-          @retry="loadTransactions"
+          @retry="loadMonthly"
         />
         <UiEmptyState
-          v-else-if="!dailySeries.length"
-          title="Sem dados no período"
-          description="Nenhuma transação confirmada nos filtros atuais. Ajuste o período ou verifique os agendamentos."
+          v-else-if="!monthlySeries.length"
+          title="Nenhuma transação registrada"
+          description="Ainda não há movimentação financeira no período. Registre agendamentos para começar."
           icon="chart"
         >
           <template #action>
-            <UiButton to="/consultations">Ver agendamentos</UiButton>
+            <UiButton to="/consultations">Registrar agendamento</UiButton>
           </template>
         </UiEmptyState>
-        <ul v-else class="fo-bars" role="list" aria-label="Receita por dia">
+        <ul v-else class="fo-bars" role="list" aria-label="Evolução mensal de receita">
           <li
-            v-for="b in dailySeries"
-            :key="b.day"
+            v-for="b in monthlySeries"
+            :key="b.month"
             class="fo-bar-row"
             :aria-label="`${b.label}: ${b.display}`"
           >
@@ -148,7 +145,7 @@
         subtitle="Transações agrupadas por provedor de pagamento."
       >
         <template #actions>
-          <UiButton variant="ghost" size="sm" to="/transactions">Transações</UiButton>
+          <UiButton variant="ghost" size="sm" to="/payment-transactions">Transações</UiButton>
         </template>
         <UiLoadingState v-if="loadingTx" variant="skeleton" :skeleton-lines="4" />
         <UiErrorState v-else-if="errorTx && !accessDenied" :message="errorMsg" @retry="loadTransactions" />
@@ -174,7 +171,7 @@
     <!-- Tabela de transações paginada -->
     <UiCard title="Transações" :subtitle="tableSubtitle">
       <template #actions>
-        <UiButton variant="ghost" size="sm" to="/transactions">Abrir lista completa</UiButton>
+        <UiButton variant="ghost" size="sm" to="/payment-transactions">Abrir lista completa</UiButton>
       </template>
 
       <UiDataTable
@@ -308,7 +305,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import {
   UiPageLayout,
   UiCard,
@@ -328,11 +325,13 @@ import {
 import { resourceFactory } from '../api.js';
 
 const router = useRouter();
+const route = useRoute();
 const toast = useToast();
 
 // Recursos REAIS de domínio.
 const transactionsApi = resourceFactory('payment-transactions');
-const revenueApi = resourceFactory('dashboard/revenue');
+const summaryApi = resourceFactory('financial/summary');
+const monthlyApi = resourceFactory('financial/monthly');
 const professionalsApi = resourceFactory('professionals');
 
 // ── Estado ────────────────────────────────────────────────────────────────────
@@ -340,9 +339,13 @@ const rows = ref([]);
 const loadingTx = ref(false);
 const errorTx = ref(null);
 
-const loadingRevenue = ref(false);
-const errorRevenue = ref(null);
-const revenueMeta = ref(null); // { revenue_cents, total, ... }
+const summary = ref(null); // { total_revenue, total_pending, total_paid }
+const loadingSummary = ref(false);
+const errorSummary = ref(null);
+
+const monthlyData = ref([]); // [{ month, revenue, pending, paid, count }]
+const loadingMonthly = ref(false);
+const errorMonthly = ref(null);
 
 const professionals = ref([]); // [{ id, full_name }]
 
@@ -351,7 +354,12 @@ const page = ref(1);
 const pageSize = ref(25);
 const lastUpdated = ref(null);
 
-const filters = reactive({ date_from: '', date_to: '', status: '', professional_id: '' });
+const filters = reactive({
+  date_from: String(route.query.date_from || ''),
+  date_to: String(route.query.date_to || ''),
+  status: String(route.query.status || ''),
+  professional_id: String(route.query.professional_id || ''),
+});
 
 // Modal de detalhe rápido
 const detailOpen = ref(false);
@@ -482,47 +490,27 @@ const ticketDisplay = computed(() => {
   return formatCents(kpis.value.confirmedCents / kpis.value.confirmed);
 });
 
-// ── KPI receita (via dashboard/revenue) ──────────────────────────────────────
-const revenueDisplay = computed(() => {
-  if (!revenueMeta.value) return '—';
-  return formatCents(revenueMeta.value.revenue_cents);
-});
-const revenueHint = computed(() => {
-  if (loadingRevenue.value) return 'apurando…';
-  if (isDenied(errorRevenue.value)) return 'requer perfil de gestão';
-  if (errorRevenue.value) return 'falha ao apurar';
-  const total = revenueMeta.value && revenueMeta.value.total != null ? revenueMeta.value.total : 0;
-  return total ? `de ${format.formatNumber(total)} cobrança(s)` : 'nenhuma cobrança ainda';
-});
+// ── KPIs de summary (/financial/summary) ─────────────────────────────────────
+const totalRevenueDisplay = computed(() => summary.value ? formatCents(Number(summary.value.total_revenue)) : '—');
+const totalPaidDisplay = computed(() => summary.value ? formatCents(Number(summary.value.total_paid)) : '—');
+const totalPendingDisplay = computed(() => summary.value ? formatCents(Number(summary.value.total_pending)) : '—');
 
-// ── Série diária (barras) ─────────────────────────────────────────────────────
-const confirmedRows = computed(() =>
-  filteredRows.value.filter((r) => norm(r.status) === 'confirmed'),
-);
-const dailySeries = computed(() => {
-  const map = new Map();
-  for (const r of confirmedRows.value) {
-    const d = new Date(r.created_at);
-    if (isNaN(d.getTime())) continue;
-    const key = d.toISOString().slice(0, 10);
-    map.set(key, (map.get(key) || 0) + (Number(r.amount_cents) || 0));
-  }
-  const entries = [...map.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1));
-  const max = entries.reduce((m, [, v]) => Math.max(m, v), 0) || 1;
-  return entries.slice(-14).map(([day, cents]) => ({
-    day,
-    label: format.formatDate(day),
-    cents,
-    display: formatCents(cents),
-    bucket: Math.max(1, Math.round((cents / max) * 20)) * 5,
+// ── Série mensal (/financial/monthly) ────────────────────────────────────────
+const monthlySeries = computed(() => {
+  const rows = monthlyData.value;
+  const max = rows.reduce((m, r) => Math.max(m, Number(r.revenue) || 0), 0) || 1;
+  return rows.map((r) => ({
+    month: r.month,
+    label: r.month,
+    revenue: Number(r.revenue) || 0,
+    display: formatCents(Number(r.revenue) || 0),
+    bucket: Math.max(1, Math.round(((Number(r.revenue) || 0) / max) * 20)) * 5,
   }));
 });
-const seriesSubtitle = computed(() => {
-  if (loadingTx.value) return 'Carregando…';
-  const n = dailySeries.value.length;
-  return n
-    ? `${n} dia(s) com receita confirmada — últimas 2 semanas da amostra`
-    : 'Sem transações confirmadas no período';
+const monthlySubtitle = computed(() => {
+  if (loadingMonthly.value) return 'Carregando…';
+  const n = monthlySeries.value.length;
+  return n ? `${n} mês(es) com movimentação financeira` : 'Sem movimentação no período';
 });
 
 // ── Distribuição por gateway ──────────────────────────────────────────────────
@@ -646,25 +634,37 @@ async function loadTransactions() {
   }
 }
 
-async function loadRevenue() {
-  loadingRevenue.value = true;
-  errorRevenue.value = null;
+async function loadSummary() {
+  loadingSummary.value = true;
+  errorSummary.value = null;
   try {
-    const res = await revenueApi.list();
-    const env = res || {};
-    // Contrato: { data: [...], meta: { total, revenue_cents, ... } }
-    if (env.meta && !Array.isArray(env.meta)) {
-      revenueMeta.value = env.meta;
-    } else if (env.data && !Array.isArray(env.data)) {
-      revenueMeta.value = env.data;
-    } else {
-      revenueMeta.value = env;
-    }
+    const q = {};
+    if (filters.date_from) q.date_from = filters.date_from;
+    if (filters.date_to) q.date_to = filters.date_to;
+    const res = await summaryApi.list(q);
+    summary.value = (res && res.data !== undefined) ? res.data : res;
   } catch (e) {
-    errorRevenue.value = e;
-    revenueMeta.value = null;
+    errorSummary.value = e;
+    summary.value = null;
   } finally {
-    loadingRevenue.value = false;
+    loadingSummary.value = false;
+  }
+}
+
+async function loadMonthly() {
+  loadingMonthly.value = true;
+  errorMonthly.value = null;
+  try {
+    const q = {};
+    if (filters.date_from) q.date_from = filters.date_from;
+    if (filters.date_to) q.date_to = filters.date_to;
+    const res = await monthlyApi.list(q);
+    monthlyData.value = Array.isArray(res && res.data) ? res.data : [];
+  } catch (e) {
+    errorMonthly.value = e;
+    monthlyData.value = [];
+  } finally {
+    loadingMonthly.value = false;
   }
 }
 
@@ -678,13 +678,20 @@ async function loadProfessionals() {
 }
 
 async function load() {
-  await Promise.allSettled([loadTransactions(), loadRevenue(), loadProfessionals()]);
+  await Promise.allSettled([loadTransactions(), loadSummary(), loadMonthly(), loadProfessionals()]);
   lastUpdated.value = new Date().toISOString();
 }
 
 // ── Ações / interações ────────────────────────────────────────────────────────
 function onApply() {
   page.value = 1;
+  const q = {};
+  if (filters.date_from) q.date_from = filters.date_from;
+  if (filters.date_to) q.date_to = filters.date_to;
+  if (filters.status) q.status = filters.status;
+  if (filters.professional_id) q.professional_id = filters.professional_id;
+  router.replace({ query: q });
+  Promise.allSettled([loadSummary(), loadMonthly()]);
   toast.success('Filtros aplicados');
 }
 function onClear() {
@@ -693,6 +700,8 @@ function onClear() {
   filters.status = '';
   filters.professional_id = '';
   page.value = 1;
+  router.replace({ query: {} });
+  Promise.allSettled([loadSummary(), loadMonthly()]);
 }
 function onSort(s) {
   sort.value = s;
