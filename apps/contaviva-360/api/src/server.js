@@ -21,12 +21,34 @@ import { registerNfClientRoutes } from './routes/nf-clients.js';
 import { registerNfProductRoutes } from './routes/nf-products.js';
 import { registerNfRoutes } from './routes/nf.js';
 import { registerAssistantRoutes } from './routes/assistant.js';
+import { registerRoleDashboardRoutes } from './routes/role-dashboards.js';
+import { broadcast } from './events.js';
 
 const app = Fastify({ logger: false });
 app.addHook('onRequest', async (req) => { const ctx = authContext(req); req.tenantId = ctx.tenantId; req.role = ctx.role; req.user = ctx.user; });
 app.get('/', async () => ({ app: 'contaviva-360', service: 'api', ok: true }));
 app.get('/health', async () => { await pool.query('SELECT 1'); return { status: 'ok', db: 'connected' }; });
+app.get('/me', async (req) => ({ role: req.role, user: req.user, tenantId: req.tenantId }));
 app.get('/v1/health/queue', async () => ({ status: 'ok', queue: await queueCounts() }));
+
+// Hook de broadcast para real-time (REQ-CONTAVIVA360-0008 AC6)
+app.addHook('onSend', async (req, reply, payload) => {
+  if (reply.statusCode < 200 || reply.statusCode >= 300 || req.method === 'GET') return payload;
+  try {
+    const path = req.routerPath || req.url || '';
+    const data = JSON.parse(payload);
+    if (path === '/v1/tasks' && req.method === 'POST' && data?.assignee) {
+      broadcast(req.tenantId, { type: 'task_assigned', task: { id: data.id, title: data.title, assignee: data.assignee } });
+    } else if (path.startsWith('/v1/documents') && req.method === 'POST') {
+      broadcast(req.tenantId, { type: 'document_sent' });
+    } else if (path.startsWith('/v1/fiscal-obligations') && (req.method === 'POST' || req.method === 'PATCH')) {
+      broadcast(req.tenantId, { type: 'obligation_update', id: data?.id });
+    } else if (path.startsWith('/v1/tasks') && req.method === 'PATCH' && data?.status === 'concluida') {
+      broadcast(req.tenantId, { type: 'approval', task: { id: data.id } });
+    }
+  } catch {}
+  return payload;
+});
 
 // Records (base) com idempotência em criação
 app.get('/v1/records', async (req) => ({ data: await listRecords(req.tenantId) }));
@@ -71,6 +93,9 @@ registerNfRoutes(app);
 
 // Assistente de IA contábil (REQ-CONTAVIVA360-0007)
 registerAssistantRoutes(app);
+
+// Dashboards por role + real-time SSE (REQ-CONTAVIVA360-0008)
+registerRoleDashboardRoutes(app);
 
 const PORT = Number(process.env.PORT) || 8080;
 (async () => {
