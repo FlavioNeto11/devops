@@ -27,6 +27,10 @@ on:
   check_suite:
     types: [completed]
   status: {}
+  # rede de segurança: re-avalia PRs verdes a cada 10min — o check_suite/status nem sempre re-dispara
+  # após o CI assentar, deixando PRs MERGEABLE+verdes parados. O cron pega esses casos (idempotente).
+  schedule:
+    - cron: '*/10 * * * *'
 
 permissions:
   contents: write
