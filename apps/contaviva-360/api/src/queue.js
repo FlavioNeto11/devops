@@ -33,6 +33,27 @@ export async function enqueueDocumentProcess(documentId, jobKey = null) {
   return { inline: false };
 }
 
+let _obligationQ = null;
+
+export function obligationQueue() {
+  if (!url) return null;
+  if (!_obligationQ) _obligationQ = new Queue('obligations-alert', { connection: conn() });
+  return _obligationQ;
+}
+
+export async function enqueueObligationAlert(obligationId, nivel) {
+  const q = obligationQueue();
+  if (!q) return { inline: true }; // sem Redis -> degradação graciosa
+  await q.add('obligation-alert', { obligationId, nivel }, {
+    jobId: `obligation-alert-${obligationId}-${nivel}`,
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 2000 },
+    removeOnComplete: 100,
+    removeOnFail: 200,
+  });
+  return { inline: false };
+}
+
 export async function queueCounts() {
   const q = queue();
   if (!q) return { redis: false };
