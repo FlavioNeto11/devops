@@ -6,7 +6,8 @@
     "by_status": {
       "deployed": 296,
       "done": 52,
-      "not_started": 4
+      "merged": 1,
+      "not_started": 3
     },
     "refinements": {
       "total": 63,
@@ -680,8 +681,10 @@
       "run_id": "28200879377"
     },
     "REQ-CONTAVIVA360-0006": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "merged",
+      "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/163",
+      "commit": "be5ae5cf8e644eba84c92c87d22440080e04eae4"
     },
     "REQ-CONTAVIVA360-0007": {
       "status": "not_started",
