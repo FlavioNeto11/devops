@@ -11,6 +11,7 @@ import { registerPjRoutes } from './routes/pj.js';
 import { registerIncomeExpenseRoutes } from './routes/income-expense.js';
 import { registerDocumentRoutes } from './routes/documents.js';
 import { registerDashboardRoutes } from './routes/dashboard.js';
+import { registerFiscalObligationRoutes } from './routes/fiscal-obligations.js';
 
 const app = Fastify({ logger: false });
 app.addHook('onRequest', async (req) => { const ctx = authContext(req); req.tenantId = ctx.tenantId; req.role = ctx.role; req.user = ctx.user; });
@@ -41,6 +42,9 @@ registerPjRoutes(app);
 registerIncomeExpenseRoutes(app);
 registerDocumentRoutes(app);
 registerDashboardRoutes(app);
+
+// Obrigações fiscais e alertas (REQ-CONTAVIVA360-0003)
+registerFiscalObligationRoutes(app);
 
 const PORT = Number(process.env.PORT) || 8080;
 (async () => {
