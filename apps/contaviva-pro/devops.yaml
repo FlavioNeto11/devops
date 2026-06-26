@@ -1,0 +1,8 @@
+app: { name: contaviva-pro, namespace: apps, host: nvit.localhost, basePath: /contaviva-pro }
+# Gerado pela FORGE (gymops-style: Fastify + Redis/BullMQ + RBAC). Blocos: observabilidade, contas-acesso, migrations-versionadas, redis-bullmq, control-ai-por-app, design-system, ia-grafo, structured-outputs
+services:
+  frontend: { type: frontend, image: contaviva-pro-frontend, path: /, port: 80, expose: true, stripPrefix: false, priority: 10 }
+  api: { type: api, image: contaviva-pro-api, path: /api, port: 8080, expose: true, stripPrefix: true, priority: 40, health: { path: /health } }
+  worker: { type: worker, image: contaviva-pro-api, port: 9464, expose: false, command: ["npm", "run", "worker"] }
+dependencies: { redis: { image: "redis:7-alpine" } }
+observability: { metricsPort: 9464, serviceMonitor: true, prometheusRule: true }
