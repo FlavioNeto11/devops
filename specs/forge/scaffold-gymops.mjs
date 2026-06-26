@@ -296,7 +296,7 @@ function buildK8s() {
     'spec:', '  replicas: 1', '  selector: { matchLabels: { app.kubernetes.io/name: @@APP@@-api } }',
     '  template:', '    metadata: { labels: { app.kubernetes.io/name: @@APP@@-api, app.kubernetes.io/component: api, app.kubernetes.io/part-of: @@APP@@ } }',
     '    spec:', '      containers:', '        - name: api', '          image: @@APP@@-api:local', '          imagePullPolicy: IfNotPresent',
-    '          command: ["npm", "start"]', '          envFrom: [ { secretRef: { name: @@APP@@-db } } ]', '          env:', ...apiEnv,
+    '          command: ["npm", "start"]', '          envFrom: [ { secretRef: { name: @@APP@@-db } }, { secretRef: { name: @@APP@@-ai, optional: true } } ]', '          env:', ...apiEnv,
     '          ports:', '            - { name: http, containerPort: 8080 }', '            - { name: metrics, containerPort: 9464 }',
     '          readinessProbe: { httpGet: { path: /health, port: 8080 }, initialDelaySeconds: 8, periodSeconds: 10 }');
   L.push('---', 'apiVersion: v1', 'kind: Service', 'metadata: { name: @@APP@@-api, namespace: apps, labels: { app.kubernetes.io/name: @@APP@@-api, app.kubernetes.io/part-of: @@APP@@ } }', 'spec: { selector: { app.kubernetes.io/name: @@APP@@-api }, ports: [ { name: http, port: 8080, targetPort: 8080 }, { name: metrics, port: 9464, targetPort: 9464 } ] }');

@@ -73,6 +73,17 @@ jobs:
             } else { Write-Host "secret $prod-db já existe — mantido." }
           }
 
+          # 2b) Secret <prod>-ai com ANTHROPIC_API_KEY (RUNTIME do assistente do app). O assistente é
+          #     fail-closed: sem a chave responde 503 (era por isso que "o assistente nunca funciona"
+          #     quando deployado — o secret nunca era criado). A chave vem do AMBIENTE do runner (o dono
+          #     a fornece — NUNCA commitamos segredo). Idempotente; só (re)aplica se a env existir.
+          if ($env:ANTHROPIC_API_KEY) {
+            kubectl -n apps create secret generic "$prod-ai" --from-literal=ANTHROPIC_API_KEY="$env:ANTHROPIC_API_KEY" --dry-run=client -o yaml | kubectl apply -f - | Out-Null
+            Write-Host "secret $prod-ai aplicado (assistente IA com chave de runtime)."
+          } else {
+            Write-Host "::warning::ANTHROPIC_API_KEY ausente no runner — o assistente de $prod responderá 503. Defina a env no runner p/ ativar (o smoke abaixo vai sinalizar)."
+          }
+
           # 3) aplica os manifests (caso o Argo ainda não tenha) + religa p/ pegar a :local nova.
           kubectl apply -f (Join-Path $appDir 'k8s') 2>$null
           kubectl -n apps rollout restart deployment -l app.kubernetes.io/part-of=$prod
@@ -99,4 +110,25 @@ jobs:
           #    impl-status no git; aqui, self-hosted, propagamos pro cluster.)
           git pull --rebase origin main 2>$null
           & ./scripts/sync-reqhub-forge-state.ps1
-          Write-Host "::notice::forge-deploy: $prod buildado + publicado + Forge atualizada. Acesse /$prod."
+
+          # 5) SMOKE pós-deploy — prova que as rotas RESPONDEM (não confia só no readiness probe). Via
+          #    port-forward porque o ingress tem gate OIDC (-> 401). Crítico (/health) falha = ::error::;
+          #    o assistente é reportado explicitamente (nunca "ok" falso quando está 503).
+          $hasApi = (kubectl -n apps get svc "$prod-api" --ignore-not-found -o name 2>$null)
+          if ($hasApi) {
+            $job = Start-Job {
+              $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+              $env:KUBECONFIG = $using:env:KUBECONFIG
+              kubectl port-forward -n apps "svc/$using:prod-api" 18090:8080
+            }
+            Start-Sleep -Seconds 6
+            try { $h = (Invoke-WebRequest "http://localhost:18090/health" -TimeoutSec 8 -SkipHttpStatusCheck).StatusCode } catch { $h = -1 }
+            if ($h -ne 200) { Write-Host "::error::smoke ${prod}: /health = $h (esperado 200) — deploy com problema." }
+            else { Write-Host "smoke ${prod}: /health OK (200)." }
+            try { $a = (Invoke-WebRequest "http://localhost:18090/v1/assistant/health" -TimeoutSec 8 -SkipHttpStatusCheck).StatusCode } catch { $a = -1 }
+            if ($a -eq 200) { Write-Host "smoke ${prod}: assistente OK (200)." }
+            elseif ($a -eq 404) { Write-Host "smoke ${prod}: app sem assistente (404) — ok se não tem o bloco IA." }
+            else { Write-Host "::warning::smoke ${prod}: /v1/assistant/health = $a — assistente provavelmente sem ANTHROPIC_API_KEY (503)." }
+            Stop-Job $job -EA SilentlyContinue; Remove-Job $job -EA SilentlyContinue
+          }
+          Write-Host "::notice::forge-deploy: $prod buildado + publicado + Forge atualizada + smoke. Acesse /$prod."

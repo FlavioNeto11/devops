@@ -141,10 +141,19 @@ function functionalTest(reqId, idx, criterion, methods) {
   if (isInteg) {
     body = [
       "test('" + reqId + " AC" + (idx + 1) + ": " + desc + "', { skip: LIVE ? false : 'sem BASE_URL (forge-tests)' }, async () => {",
-      "  // contrato de aceite (LOCKED): o app deve estar saudável e o recurso base operável.",
-      "  assert.equal((await get('/health')).s, 200);",
-      "  const r = await post('/v1/records', { title: 'ac' });",
-      "  assert.ok(r.s < 500, 'recurso base responde');",
+      "  // contrato de aceite (LOCKED): ciclo CRUD ÍNTEGRO (cria -> lê de volta -> consta na lista).",
+      "  // Dentes reais: pega regressão de persistência/serialização — não só 'app responde'.",
+      "  assert.equal((await get('/health')).s, 200, 'app saudável');",
+      "  const created = await post('/v1/records', { title: 'ac-" + (idx + 1) + "-' + Date.now() });",
+      "  assert.ok(created.s >= 200 && created.s < 300, 'POST cria recurso (2xx), veio ' + created.s + ' ' + JSON.stringify(created.j));",
+      "  const id = created.j && (created.j.id != null ? created.j.id : (created.j.data && created.j.data.id));",
+      "  assert.ok(id != null, 'recurso criado retorna id');",
+      "  const back = await get('/v1/records/' + id);",
+      "  assert.equal(back.s, 200, 'GET por id lê o recurso de volta');",
+      "  const got = back.j && (back.j.id != null ? back.j : back.j.data); assert.ok(got && String(got.id) === String(id), 'mesmo id persistido');",
+      "  const list = await get('/v1/records');",
+      "  const rows = Array.isArray(list.j) ? list.j : (list.j.items || list.j.data || []);",
+      "  assert.ok(rows.some((x) => String(x.id) === String(id)), 'recurso criado aparece na listagem');",
       '});',
     ];
   } else {
