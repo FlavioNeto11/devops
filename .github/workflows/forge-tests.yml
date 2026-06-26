@@ -1,13 +1,13 @@
 # =============================================================================
-# forge-tests — gate REAL dos apps gerados pela Forja. Em todo PR que toca apps/**,
-# para cada app com tests/.test-locks.json:
-#   (1) verify-test-locks.mjs — integridade (existe + sha256 + minCount + anti-sneak); BLOQUEIA adulteração.
-#   (2) FRONTEND build — `npm ci && npm run build` (vite): pega import/sintaxe quebrada (bug de JS) ANTES do merge.
-#   (3) BACKEND LIVE — sobe Postgres (pgvector) + Redis, sobe o app (AUTO_MIGRATE/SEED), espera /health e
-#       roda os testes LOCKED com BASE_URL setado => os testes de integração/aceite RODAM DE VERDADE
-#       (antes skipavam por falta de BASE_URL e o gate "passava" sem testar nada).
-# Junto com a DENYLIST do guard (impede o headless de editar locked/), fecha a garantia: a IA implementa
-# CÓDIGO que PASSA nos testes locked vivos e não pode enfraquecê-los.
+# forge-tests — gate REAL dos apps gerados pela Forja. Roda só para os apps cujo CÓDIGO
+# (api/frontend/tests) mudou no PR — gateia O TRABALHO do PR (ex.: cada PR de requisito da
+# esteira), não retroativamente todos os apps. Para cada app alvo com tests/.test-locks.json:
+#   (1) verify-test-locks.mjs — integridade (existe + sha256 + minCount + anti-sneak).
+#   (2) FRONTEND build — `npm ci && npm run build` (vite): pega import/sintaxe quebrada (bug de JS).
+#   (3) BACKEND LIVE — sobe Postgres (pgvector) + Redis, sobe o app (AUTO_MIGRATE/SEED), espera /health
+#       e roda os testes LOCKED com BASE_URL setado e SERIAL (--test-concurrency=1, pois compartilham
+#       uma instância) => os testes de integração/aceite RODAM DE VERDADE (antes skipavam sem BASE_URL
+#       e o gate "passava" sem testar nada).
 # =============================================================================
 name: forge-tests
 
@@ -42,23 +42,27 @@ jobs:
           --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 20
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # precisa do histórico p/ diff dos apps mudados no PR
       - uses: actions/setup-node@v5
         with:
           node-version: "22"
-      - name: Integridade + build frontend + testes LOCKED LIVE
+      - name: Integridade + build frontend + testes LOCKED LIVE (apps mudados)
         shell: bash
         env:
           DATABASE_URL: postgresql://forge:forge@localhost:5432/forge
           REDIS_URL: redis://localhost:6379
+          BASE_REF: ${{ github.base_ref }}
         run: |
           set -uo pipefail
-          fail=0; found=0
-          # instalação tolerante (apps podem não ter lockfile — igual ao Dockerfile gerado)
+          # apps cujo CÓDIGO (api/frontend/tests) mudou neste PR — gateia o trabalho do PR.
+          CHANGED="$(git diff --name-only "origin/${BASE_REF}...HEAD" 2>/dev/null | grep -oE '^apps/[^/]+/(api|frontend|tests)/' | cut -d/ -f2 | sort -u || true)"
+          if [ -z "$CHANGED" ]; then echo "Nenhum app com mudança de código (api/frontend/tests) neste PR — nada a gatear."; exit 0; fi
+          echo "Apps alvo: $CHANGED"
+          fail=0
           npmget() { if [ -f package-lock.json ]; then npm ci --no-audit --no-fund || npm install --no-audit --no-fund; else npm install --no-audit --no-fund; fi; }
-          for app in apps/*/; do
-            name="$(basename "$app")"
-            [ -f "${app}tests/.test-locks.json" ] || continue
-            found=1
+          for name in $CHANGED; do
+            [ -f "apps/$name/tests/.test-locks.json" ] || { echo "$name: sem suíte locked — pulando."; continue; }
             echo "::group::$name — verify-test-locks"
             node specs/tools/verify-test-locks.mjs --app "apps/$name" || { echo "::error::$name: verify-test-locks falhou"; fail=1; }
             echo "::endgroup::"
@@ -70,11 +74,10 @@ jobs:
               echo "::endgroup::"
             fi
 
-            # (3) BACKEND LIVE — sobe o app e roda os testes LOCKED de verdade
+            # (3) BACKEND LIVE — sobe o app e roda os testes LOCKED de verdade (serial)
             if [ -f "apps/$name/api/src/server.js" ]; then
-              echo "::group::$name — backend LIVE (sobe app + testes LOCKED)"
+              echo "::group::$name — backend LIVE (sobe app + testes LOCKED, serial)"
               ( cd "apps/$name/api" && npmget ) || { echo "::error::$name: install do api falhou"; fail=1; echo "::endgroup::"; continue; }
-              # banco limpo por app (evita colisão entre apps na mesma instância)
               PGPASSWORD=forge psql -h localhost -U forge -d forge -v ON_ERROR_STOP=0 -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" >/dev/null 2>&1 || true
               ( cd "apps/$name/api" && AUTO_MIGRATE=true AUTO_SEED=true PORT=8080 METRICS_PORT=9464 \
                   DATABASE_URL="$DATABASE_URL" REDIS_URL="$REDIS_URL" node src/server.js >/tmp/$name-app.log 2>&1 & echo $! > /tmp/$name-app.pid )
@@ -88,12 +91,11 @@ jobs:
               else
                 mapfile -t TFILES < <(find "apps/$name/tests/locked" -name '*.test.mjs' -type f)
                 if [ "${#TFILES[@]}" -eq 0 ]; then echo "::error::$name: nenhum teste LOCKED"; fail=1; fi
-                BASE_URL="http://localhost:8080" node --test "${TFILES[@]}" || { echo "::error::$name: testes LOCKED LIVE FALHARAM"; fail=1; }
+                BASE_URL="http://localhost:8080" node --test --test-concurrency=1 "${TFILES[@]}" || { echo "::error::$name: testes LOCKED LIVE FALHARAM"; fail=1; }
               fi
               kill "$(cat /tmp/$name-app.pid 2>/dev/null)" >/dev/null 2>&1 || true
               echo "::endgroup::"
             fi
           done
-          if [ "$found" = "0" ]; then echo "Nenhum app com suíte locked — nada a verificar."; fi
           if [ "$fail" != "0" ]; then echo "::error::forge-tests REPROVOU — há build/teste quebrado."; exit 1; fi
           echo "forge-tests OK."
