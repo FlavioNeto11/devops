@@ -35,6 +35,30 @@
       }
     },
     {
+      "name": "contaviva-pro",
+      "display_name": "ContaViva Pro",
+      "base_path": "/contaviva-pro",
+      "blueprint": "gymops-style",
+      "vision": "ERP contábil robusto com autenticação própria, criação de usuários, perfis e controle de acesso: o ContaViva Pro centraliza a gestão contábil e fiscal em um único ambiente, permitindo que administradores criem contas, definam perfis (admin, contador, membro) e controlem quem pode ver e operar cada parte do sistema, com sessão segura emitida pela própria aplicação.",
+      "app_type": "product_software",
+      "architecture_summary": "",
+      "requirement_ids": [],
+      "phases": {
+        "requirements": {
+          "status": "approved"
+        },
+        "architecture": {
+          "status": "approved"
+        },
+        "scaffold": {
+          "status": "not_started"
+        },
+        "build": {
+          "status": "not_started"
+        }
+      }
+    },
+    {
       "name": "neuroevolui",
       "display_name": "NeuroEvolui",
       "base_path": "/neuroevolui",
