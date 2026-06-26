@@ -31,6 +31,8 @@ export function validateLaunchInput(body) {
       brief: str(b.brief, 8000),
       requirements,
       architecture,
+      // opt-out do gate de preview (F3): só p/ fluxos legados que não usam preview. Default: gate ativo.
+      skipPreviewGate: b.skipPreviewGate === true,
     },
   };
 }

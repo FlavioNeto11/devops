@@ -86,6 +86,55 @@ const AI = {
   // SSE same-origin (CSP connect-src 'self' permite). EventSource não manda Authorization:
   // o /stream autentica pelo SSO de borda (X-Auth-Request-*), igual a /v1/me.
   stream(path) { return new EventSource(this.BASE + path); },
+  // SSE sobre POST (EventSource não faz POST nem envia corpo/Authorization): fetch-reader que
+  // chama onEvent(event, data) por frame e resolve com o payload de `done`. Mesma técnica do CMS
+  // (console pmCmsGenerateStream): split por '\n\n', parse de event:/data:, guarda de stream
+  // truncado (encerrou sem `done`/`error` => erro, nunca falso-sucesso). `signal` cancela.
+  async stream2(path, body, { onEvent, signal } = {}) {
+    const tok = this.getToken();
+    let res;
+    try {
+      res = await fetch(this.BASE + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', ...(tok ? { Authorization: 'Bearer ' + tok } : {}) },
+        body: JSON.stringify(body || {}),
+        signal,
+      });
+    } catch (e) { throw new Error('Falha de rede: ' + (e && e.message ? e.message : e)); }
+    const ct = res.headers.get('content-type') || '';
+    if (!res.ok || !res.body || !ct.includes('text/event-stream')) {
+      const j = await res.json().catch(() => ({}));
+      throw Object.assign(new Error((j && j.error && j.error.message) || ('Erro ' + res.status + ' ao iniciar')), { code: j && j.error ? j.error.code : ('HTTP ' + res.status) });
+    }
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = ''; let result = null; let failed = null;
+    for (;;) {
+      // eslint-disable-next-line no-await-in-loop
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf('\n\n')) >= 0) {
+        const frame = buf.slice(0, idx); buf = buf.slice(idx + 2);
+        let event = 'message'; const dataLines = [];
+        for (const line of frame.split('\n')) {
+          if (!line || line.startsWith(':')) continue;          // keep-alive/comentário
+          if (line.startsWith('event:')) event = line.slice(6).trim();
+          else if (line.startsWith('data:')) dataLines.push(line.slice(5).replace(/^ /, ''));
+        }
+        if (!dataLines.length) continue;
+        let data = {}; try { data = JSON.parse(dataLines.join('\n')); } catch { /* frame não-JSON */ }
+        try { onEvent && onEvent(event, data); } catch { /* handler do consumidor não derruba o stream */ }
+        if (event === 'done') result = data;
+        else if (event === 'error') failed = data;
+      }
+    }
+    if (failed) throw Object.assign(new Error(failed.message || 'falhou'), { stage: failed.stage, code: failed.code });
+    // encerrou SEM `done`/`error` (idle-timeout/queda): NÃO concluiu — erro, não falso-sucesso.
+    if (!result) throw new Error('A geração foi interrompida antes de concluir (conexão encerrada sem confirmação). Tente de novo.');
+    return result;
+  },
   assist(body) { return this.post('/v1/authoring/assist', body); },
   chat(body) { return this.post('/v1/authoring/chat', body); },
   // Primitiva grounded reutilizável fora do funil do Editor (copiloto, Workspace, etc.).
@@ -123,6 +172,13 @@ function setStatus(msg, err) { const s = document.getElementById('status'); s.te
    o caminho JSON (retrocompat). Os tipos aceitos espelham o que o kit extrai (doc/planilha/pdf/zip/imagem). */
 const FILE_ACCEPT = '.md,.txt,.csv,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,image/*';
 function humanBytes(n) { if (!n && n !== 0) return ''; if (n < 1024) return n + ' B'; if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB'; return (n / (1024 * 1024)).toFixed(1) + ' MB'; }
+// Resolve uma URL contra a origem atual e só a aceita se for same-origin (http/https). Usada para o
+// src do iframe de preview e o href "abrir em nova aba" — nunca aponta para fora da plataforma.
+function sameOriginUrl(u) {
+  if (!u || typeof u !== 'string') return '';
+  try { const url = new URL(u, location.origin + '/reqs/'); return (url.origin === location.origin && /^https?:$/.test(url.protocol)) ? url.href : ''; }
+  catch { return ''; }
+}
 function filePicker(opts) {
   const o = opts || {};
   let files = [];
@@ -2900,18 +2956,26 @@ function forgeDagLegend() {
 // capacidades (em linguagem comum), as telas/funções e a documentação. Nada é escrito sem revisão.
 function forgeWizardState() {
   const blueprints = (DATA.blueprints && DATA.blueprints.blueprints) || [];
-  if (!state.forge.wizard) state.forge.wizard = { stage: 1, mode: 'guided', name: '', brief: '', slug: '', blueprint: (blueprints[0] && blueprints[0].id) || '', proposed: [], arch: null, reqMeta: null, error: '' };
+  // preview: estado da etapa "Preview" (telas ui-vue reais + dados fake), persistido no wizard.
+  // status: 'idle'|'building'|'ready'|'error'; approved=true libera o launch (gate "Aprovar e construir").
+  if (!state.forge.wizard) state.forge.wizard = { stage: 1, mode: 'guided', name: '', brief: '', slug: '', blueprint: (blueprints[0] && blueprints[0].id) || '', proposed: [], arch: null, reqMeta: null, error: '', preview: null };
   return state.forge.wizard;
 }
+// Estado inicial do preview (recriado a cada nova proposta de requisitos — ver fwApplyProposed).
+// inventory = inventário de telas/entidades/brand devolvido pelo backend (usado p/ regerar e refinar).
+function fwInitPreview() { return { status: 'idle', url: '', screens: [], inventory: null, approved: false, error: '', steps: [] }; }
 const FW_STEPS = [
   { n: 1, label: 'Ideia', sub: 'descreva o que quer' },
   { n: 2, label: 'O que será criado', sub: 'capacidades e telas' },
   { n: 3, label: 'Plano de construção', sub: 'ordem das etapas' },
-  { n: 4, label: 'Revisar e criar', sub: 'documentação + pedido' },
+  { n: 4, label: 'Preview', sub: 'veja e refine as telas' },
+  { n: 5, label: 'Revisar e criar', sub: 'documentação + pedido' },
 ];
 function fwRerender() { renderForge(); }
-function fwMaxStage(w) { return (w.proposed && w.proposed.length) ? 4 : 1; }
+function fwMaxStage(w) { return (w.proposed && w.proposed.length) ? FW_STEPS.length : 1; }
 function fwGoto(n) { const w = forgeWizardState(); if (n >= 1 && n <= fwMaxStage(w)) { w.stage = n; fwRerender(); } }
+// Gate: o launch (criar/construir) só é liberado depois que o preview foi APROVADO pelo dono.
+function fwPreviewApproved(w) { return !!(w.preview && w.preview.approved); }
 function fwNav(back, next, nextLabel) {
   const row = h('div', { class: 'fw-nav' });
   if (back) row.append(h('button', { class: 'btn', type: 'button', text: '← Voltar', onclick: () => fwGoto(back) }));
@@ -2921,6 +2985,12 @@ function fwNav(back, next, nextLabel) {
 
 // Dispara o launch a partir do estado do wizard e TRAVA a navegação no sucesso (onLaunched).
 function fwLaunch(w, mode, statusEl, btns) {
+  // Gate de segurança: nunca constrói sem o preview aprovado (a UI já desabilita o botão; isto é
+  // defesa em profundidade caso algum caminho chame fwLaunch diretamente).
+  if (!fwPreviewApproved(w)) {
+    if (statusEl) statusEl.replaceChildren(h('span', { class: 'fw-err', text: 'Aprove o preview das telas antes de construir.' }));
+    return Promise.resolve();
+  }
   const ctx = {
     pname: w.slug, blueprint: w.blueprint, proposed: w.proposed || [],
     launchCtx: {
@@ -3082,6 +3152,7 @@ function renderForgeWizard(body) {
   if (w.stage === 1) fwStageIdea(stage, w, { blueprints });
   else if (w.stage === 2) fwStageWhat(stage, w, { catalog });
   else if (w.stage === 3) fwStagePlan(stage, w);
+  else if (w.stage === 4) fwStagePreview(stage, w);
   else fwStageReview(stage, w, { catalog });
 }
 
@@ -3163,6 +3234,9 @@ function fwApplyProposed(w, data) {
   w.proposed = [];
   for (const req of reqs) { const id = req.id || nextReqId(w.slug, existing.concat(w.proposed.map((p) => p.id))); w.proposed.push({ id, req }); }
   w.reqMeta = data;
+  // Mudaram os requisitos → o preview anterior está obsoleto: zera (exige re-gerar e re-aprovar
+  // antes de construir). Mantém o gate honesto: não dá p/ aprovar telas que não existem mais.
+  w.preview = fwInitPreview();
 }
 
 // Dispara a proposta de arquitetura (ordem das waves) em segundo plano.
@@ -3278,24 +3352,270 @@ function fwStagePlan(host, w) {
     if (adrs.length) { const ul = h('ul', { class: 'linklist' }); for (const a of adrs) ul.append(h('li', {}, h('span', { class: 'lt', text: 'ADR' }), typeof a === 'string' ? a : (a.title || a.decision || ''))); host.append(h('h4', { class: 'fw-sec', text: 'Decisões de arquitetura' }), ul); }
   }
   if (!w.archLoading) host.append(fwAdjustBox(w)); // IA: ajustar requisitos/plano por instrução
-  host.append(fwNav(2, 4, 'Revisar e criar'));
+  host.append(fwNav(2, 4, 'Ver o preview das telas'));
   host.querySelector('.fw-q').focus();
+}
+
+/* ─── Etapa PREVIEW: telas ui-vue REAIS + dados fake, iteração por IA, gate de aprovação ───────
+ * Mostra um <iframe> com o preview do produto (SPA Vue autocontida construída pela esteira), a
+ * lista das telas propostas e, por tela, um botão "Refinar com IA" (campo de feedback → endpoint
+ * de refino, que re-propõe a tela e regenera o preview). Um gate "Aprovar e construir" persiste
+ * w.preview.approved=true — só então o launch (etapa Revisar) é liberado. Tudo via h() (CSP). */
+function fwStagePreview(host, w) {
+  if (!w.preview) w.preview = fwInitPreview();
+  const pv = w.preview;
+  // Se um render anterior ficou em 'building' (ex.: navegou para fora e voltou), o stream que o
+  // alimentava já se foi — destrava para o usuário poder gerar de novo (sem ficar preso no spinner).
+  if (pv.status === 'building') { pv.status = pv.url ? 'ready' : 'idle'; }
+  host.append(h('h3', { class: 'fw-q', tabindex: '-1', text: 'Preview das telas' }));
+  host.append(h('p', { class: 'fw-lead' }, 'Antes de construir, veja as telas do ', h('strong', { text: w.name || w.slug }),
+    ' com componentes reais e dados de exemplo. Refine o que quiser — quando estiver bom, aprove para a esteira construir.'));
+
+  const status = h('p', { class: 'fw-status muted', role: 'status', 'aria-live': 'polite' });
+  const stepsBox = h('ol', { class: 'fw-prev-steps', 'aria-live': 'polite' });
+  const stage = h('div', { class: 'fw-prev-stage' }); // iframe + lista de telas (preenche ao ficar pronto)
+
+  const renderSteps = () => {
+    stepsBox.replaceChildren();
+    for (const s of (pv.steps || [])) {
+      stepsBox.append(h('li', { class: 'fw-prev-step is-' + (s.state || 'todo') },
+        h('span', { class: 'fw-prev-dot', 'aria-hidden': 'true' }),
+        h('span', { class: 'fw-prev-tx', text: s.label })));
+    }
+  };
+
+  // Botão principal: gera/regenera o preview (SSE de progresso). Desabilita enquanto constrói.
+  const genLabel = () => pv.url ? '↻ Regenerar preview' : '✨ Gerar preview das telas';
+  const genBtn = h('button', { class: 'btn primary fw-cta', type: 'button', text: genLabel() });
+  genBtn.addEventListener('click', () => fwPreviewGenerate(w, { status, stepsBox, stage, genBtn, renderSteps }));
+
+  if (pv.error) status.replaceChildren(h('span', { class: 'fw-err', text: pv.error }));
+  renderSteps();
+
+  host.append(h('div', { class: 'fw-actions' }, genBtn), status, stepsBox, stage);
+
+  // Já existe um preview pronto? Renderiza iframe + telas + gate (sobrevive às re-renderizações).
+  if (pv.status === 'ready' && pv.url) fwPreviewRenderReady(w, stage);
+
+  host.querySelector('.fw-q').focus();
+}
+
+// Rótulos pt-BR das etapas do build do preview (eventos SSE do reqhub-api).
+const FW_PREV_STEP_LABELS = {
+  start: 'Preparando a geração…', propose: 'A IA está desenhando as telas…',
+  inventory: 'Telas e dados definidos', dispatch: 'Construção disparada no runner',
+  building: 'Construindo a SPA (vite build)…', ready: 'Preview pronto',
+};
+
+// Dispara a geração/regeneração do preview via SSE e renderiza o resultado quando pronto.
+// Contrato do reqhub-api (POST /v1/forge/preview/generate): SSE com eventos start/propose/inventory/
+// dispatch/building/ready/done|error. `ready` traz { url, screens, jobId }; `done` é só {ok:true}.
+// Para REGERAR após um refino, enviamos { inventory } (a IA não re-propõe; só reconstrói a SPA).
+async function fwPreviewGenerate(w, els) {
+  const pv = w.preview;
+  pv.status = 'building'; pv.error = ''; pv.steps = []; pv.approved = false; // regenerar invalida a aprovação
+  els.genBtn.disabled = true;
+  els.stage.replaceChildren();
+  els.status.replaceChildren(h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' Construindo o preview das telas…');
+  const upStep = (key, label, state) => {
+    const cur = pv.steps.find((s) => s.key === key);
+    if (cur) { cur.state = state; if (label) cur.label = label; }
+    else pv.steps.push({ key, label: label || FW_PREV_STEP_LABELS[key] || key, state });
+    els.renderSteps();
+  };
+  // payload: na 1ª geração, manda requisitos + arquitetura (a IA propõe as telas); ao regerar com um
+  // inventory já refinado, manda { inventory } (reconstrói sem re-propor).
+  const body = pv.inventory && typeof pv.inventory === 'object'
+    ? { product: w.slug, inventory: pv.inventory }
+    : {
+        product: w.slug, displayName: w.name || w.slug, blueprint: w.blueprint, brief: w.brief || '',
+        requirements: (w.proposed || []).map((p) => ({ id: p.id, title: p.req.title, type: p.req.type, statement: p.req.statement, capability_blocks: p.req.capability_blocks || [], acceptance_criteria: p.req.acceptance_criteria || [] })),
+        architecture: w.arch ? { stack: w.arch.stack, selected_blocks: w.arch.selected_blocks || [], waves: w.arch.waves || [] } : null,
+      };
+  // marca as etapas anteriores como concluídas conforme o build avança (visual de progresso).
+  const ORDER = ['start', 'propose', 'inventory', 'dispatch', 'building', 'ready'];
+  const advance = (key) => { const i = ORDER.indexOf(key); for (let j = 0; j < i; j++) upStep(ORDER[j], null, 'done'); upStep(key, null, 'active'); };
+  try {
+    await AI.stream2('/v1/forge/preview/generate', body, {
+      onEvent: (event, data) => {
+        if (event === 'start') advance('start');
+        else if (event === 'propose') advance('propose');
+        else if (event === 'inventory') { advance('inventory'); pv.inventory = data; if (Array.isArray(data.screens)) pv.screens = data.screens; }
+        else if (event === 'dispatch') advance('dispatch');
+        else if (event === 'building') advance('building');
+        else if (event === 'ready') {
+          advance('ready'); upStep('ready', null, 'done');
+          pv.url = sameOriginUrl((data && data.url) || '') || pv.url || '';
+          if (Array.isArray(data && data.screens)) pv.screens = data.screens;
+        }
+      },
+    });
+    if (!pv.url) throw new Error('O preview não retornou um endereço para exibir.');
+    pv.status = 'ready';
+    for (const s of pv.steps) s.state = 'done'; els.renderSteps();
+    els.status.replaceChildren(document.createTextNode('Preview pronto — revise cada tela abaixo.'));
+    els.genBtn.disabled = false; els.genBtn.textContent = '↻ Regenerar preview';
+    fwPreviewRenderReady(w, els.stage);
+  } catch (e) {
+    pv.status = 'error'; pv.error = 'Não consegui gerar o preview: ' + String((e && e.message) || e);
+    els.status.replaceChildren(h('span', { class: 'fw-err', text: pv.error }));
+    els.genBtn.disabled = false; els.genBtn.textContent = '↻ Tentar de novo';
+  }
+}
+
+// Renderiza o iframe + lista de telas (com refino por tela) + gate "Aprovar e construir".
+function fwPreviewRenderReady(w, stage) {
+  const pv = w.preview;
+  stage.replaceChildren();
+  if (!pv.url) return;
+  // 1) iframe do preview (mesma origem /reqs — CSP default-src 'self' cobre frame-src; o backend
+  // serve a SPA em /reqs/api/v1/forge/preview/<product>/, então a URL é same-origin).
+  const frameWrap = h('div', { class: 'fw-prev-frame' });
+  // sandbox="allow-scripts" (SEM allow-same-origin): a SPA do preview roda em origem opaca, isolada
+  // da origem do Reqhub (não acessa cookies/localStorage/DOM do pai). Os assets do SPA são URLs
+  // ABSOLUTAS no mesmo servidor (base = /reqs/api/v1/forge/preview/<product>/), então carregam normalmente.
+  frameWrap.append(h('iframe', { src: pv.url, title: 'Preview de ' + (w.name || w.slug), loading: 'lazy', class: 'fw-prev-iframe', sandbox: 'allow-scripts' }));
+  stage.append(h('div', { class: 'fw-prev-toolbar' },
+    h('span', { class: 'muted small', text: 'Preview com dados de exemplo — nada é salvo.' }),
+    h('a', { class: 'btn-link', href: pv.url, target: '_blank', rel: 'noopener', text: 'Abrir em nova aba ↗' })), frameWrap);
+
+  // 2) lista das telas + refino por tela (se o backend reportou as telas).
+  const screens = Array.isArray(pv.screens) ? pv.screens : [];
+  if (screens.length) {
+    stage.append(h('h4', { class: 'fw-sec', text: 'Telas do preview — refine o que quiser' }));
+    const list = h('div', { class: 'fw-prev-screens' });
+    for (const sc of screens) list.append(fwPreviewScreenCard(w, sc));
+    stage.append(list);
+  } else {
+    stage.append(h('p', { class: 'fw-hint', text: 'O preview está no iframe acima. Para refinar uma tela específica, regenere após ajustar os requisitos na etapa anterior.' }));
+  }
+
+  // 3) gate "Aprovar e construir".
+  stage.append(fwPreviewGate(w));
+}
+
+// Card de uma tela do preview: título + botão "Refinar com IA" que abre um campo de feedback.
+function fwPreviewScreenCard(w, sc) {
+  const slug = sc.slug || sc.route || sc.title || '';
+  const card = h('div', { class: 'fw-prev-screen' });
+  const head = h('div', { class: 'fw-prev-screen-head' },
+    h('div', { class: 'fw-prev-screen-tx' },
+      h('strong', { text: sc.title || slug || 'Tela' }),
+      sc.kind ? h('span', { class: 'fw-cap-id', text: sc.kind }) : null,
+      sc.route ? h('code', { class: 'fw-prev-route', text: sc.route }) : null));
+  const refineBtn = h('button', { class: 'btn', type: 'button', text: '✨ Refinar com IA', 'aria-expanded': 'false' });
+  head.append(refineBtn);
+  const panel = h('div', { class: 'fw-prev-refine', hidden: 'hidden' });
+  const fb = h('textarea', { class: 'fw-textarea', rows: '3', 'aria-label': 'Como melhorar esta tela', placeholder: 'Ex.: mostre um gráfico de evolução no topo; adicione filtro por período; destaque os itens vencidos.' });
+  const st = h('p', { class: 'fw-status muted', role: 'status', 'aria-live': 'polite' });
+  const send = h('button', { class: 'btn primary', type: 'button', text: 'Aplicar refino' });
+  send.addEventListener('click', () => fwPreviewRefine(w, slug, fb.value, { st, send }));
+  fb.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send.click(); } });
+  panel.append(h('label', { class: 'fw-fld' }, h('span', { class: 'fw-fld-l', text: 'O que melhorar nesta tela?' }), fb), h('div', { class: 'fw-actions' }, send), st);
+  refineBtn.addEventListener('click', () => {
+    const open = panel.hidden;
+    panel.hidden = !open; refineBtn.setAttribute('aria-expanded', String(open));
+    if (open) fb.focus();
+  });
+  card.append(head, panel);
+  return card;
+}
+
+// Refina UMA tela: chama POST /v1/forge/preview/refine — a IA re-propõe a tela a partir do feedback
+// e devolve { screen, inventory } (o inventário com a tela trocada). Guardamos o inventory atualizado
+// e regeramos o preview com ele (sem re-propor tudo). Em sucesso, exige re-aprovação.
+async function fwPreviewRefine(w, screenSlug, feedback, els) {
+  const fb = (feedback || '').trim();
+  if (!fb) { els.st.replaceChildren(h('span', { class: 'fw-err', text: 'Escreva o que melhorar nesta tela.' })); return; }
+  els.send.disabled = true;
+  els.st.replaceChildren(h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' Refinando a tela com a IA…');
+  try {
+    const r = await AI.post('/v1/forge/preview/refine', {
+      product: w.slug, screenSlug, feedback: fb,
+      inventory: w.preview.inventory || undefined, // p/ o backend mesclar a tela revisada e devolver o inventário
+      requirements: (w.proposed || []).map((p) => ({ id: p.id, title: p.req.title, statement: p.req.statement })), // grounding
+    });
+    if (!r.ok) { const code = r.data && r.data.error ? r.data.error.code : 'HTTP ' + r.status; const msg = r.data && r.data.error ? r.data.error.message : ''; throw Object.assign(new Error(msg || code), { code }); }
+    // refinou → o preview mudou: re-aprovação obrigatória; regenera para refletir a tela nova.
+    w.preview.approved = false;
+    // o backend devolve o inventário com a tela trocada — guarda p/ regerar a SPA a partir dele.
+    if (r.data && r.data.inventory && typeof r.data.inventory === 'object') {
+      w.preview.inventory = r.data.inventory;
+      if (Array.isArray(r.data.inventory.screens)) w.preview.screens = r.data.inventory.screens;
+    }
+    els.st.replaceChildren(document.createTextNode('Tela refinada — regenerando o preview…'));
+    // Reusa o caminho de geração (SSE) p/ reconstruir a SPA com a tela atualizada.
+    fwTriggerPreviewRebuild(w);
+  } catch (e) {
+    els.send.disabled = false;
+    els.st.replaceChildren(h('span', { class: 'fw-err', text: 'Não consegui refinar: ' + String((e && e.message) || e) }));
+  }
+}
+
+// Reconstrói o preview após um refino: re-renderiza a etapa e dispara a geração apontando para os
+// elementos recém-criados (o card de refino que chamou isto deixou de existir no re-render).
+function fwTriggerPreviewRebuild(w) {
+  fwRerender();
+  const host = document.getElementById('forge-body');
+  const stage = host && host.querySelector('.fw-prev-stage');
+  const genBtn = host && host.querySelector('.fw-prev-stage') ? host.querySelector('.fw-actions .fw-cta') : null;
+  const status = host && host.querySelector('.fw-status');
+  const stepsBox = host && host.querySelector('.fw-prev-steps');
+  if (!stage || !genBtn || !status || !stepsBox) return;
+  const renderSteps = () => {
+    stepsBox.replaceChildren();
+    for (const s of (w.preview.steps || [])) stepsBox.append(h('li', { class: 'fw-prev-step is-' + (s.state || 'todo') }, h('span', { class: 'fw-prev-dot', 'aria-hidden': 'true' }), h('span', { class: 'fw-prev-tx', text: s.label })));
+  };
+  fwPreviewGenerate(w, { status, stepsBox, stage, genBtn, renderSteps });
+}
+
+// Gate "Aprovar e construir": persiste w.preview.approved; quando aprovado, mostra o CTA p/ a etapa
+// de criar. Re-aprovar exige tocar o botão de novo (qualquer mudança no preview zera a flag).
+function fwPreviewGate(w) {
+  const pv = w.preview;
+  const wrap = h('div', { class: 'fw-prev-gate' });
+  if (pv.approved) {
+    wrap.append(
+      h('p', { class: 'fw-prev-ok' }, h('span', { 'aria-hidden': 'true', text: '✅ ' }), 'Preview aprovado — pode construir.'),
+      h('div', { class: 'fw-actions' },
+        h('button', { class: 'btn', type: 'button', text: 'Revisar a aprovação', onclick: () => { pv.approved = false; fwRerender(); } }),
+        h('button', { class: 'btn primary fw-cta', type: 'button', text: 'Ir para criar →', onclick: () => fwGoto(5) })));
+    return wrap;
+  }
+  const st = h('p', { class: 'fw-status muted', role: 'status', 'aria-live': 'polite' });
+  const btn = h('button', { class: 'btn primary fw-cta', type: 'button', text: '✅ Aprovar e construir' });
+  btn.addEventListener('click', () => { pv.approved = true; st.replaceChildren(document.createTextNode('Aprovado!')); fwRerender(); });
+  wrap.append(
+    h('h4', { class: 'fw-sec', text: 'Aprovar e construir' }),
+    h('p', { class: 'fw-hint', text: 'Quando as telas estiverem como você quer, aprove. Só depois disso a esteira começa a construir o sistema de verdade.' }),
+    h('div', { class: 'fw-actions' }, btn), st);
+  return wrap;
 }
 
 function fwStageReview(host, w, { catalog }) {
   const sum = planSummary(w.proposed.map((p) => p.req), w.arch, catalog);
   host.append(h('h3', { class: 'fw-q', tabindex: '-1', text: 'Revisar e criar' }));
+  const approved = fwPreviewApproved(w);
+  // Gate: enquanto o preview não estiver aprovado, o launch fica bloqueado com um aviso claro
+  // que leva de volta à etapa Preview. (Aditivo: só afeta o caminho do wizard.)
+  if (!approved) {
+    host.append(h('div', { class: 'fw-gatebar', role: 'status' },
+      h('p', { class: 'fw-gatebar-t' }, h('span', { 'aria-hidden': 'true', text: '🔒 ' }), 'Aprove o preview das telas antes de construir.'),
+      h('p', { class: 'fw-hint', text: 'Gere o preview, refine o que quiser e clique em "Aprovar e construir". Só então a criação é liberada.' }),
+      h('div', { class: 'fw-actions' }, h('button', { class: 'btn primary', type: 'button', text: '← Ver o preview', onclick: () => fwGoto(4) }))));
+  }
   if (w.mode === 'guided') {
     // Guiado vai DIRETO à construção (como o "Liberar tudo"): o botão lança e trava a tela.
     const status = h('p', { class: 'fw-status muted', role: 'status', 'aria-live': 'polite' });
-    const btn = h('button', { class: 'btn primary fw-cta', type: 'button', text: '🚀 Criar meu sistema' });
-    btn.addEventListener('click', () => fwLaunch(w, 'release', status, [btn]));
+    const btn = h('button', { class: 'btn primary fw-cta', type: 'button', text: '🚀 Criar meu sistema', disabled: approved ? null : 'disabled', title: approved ? null : 'Aprove o preview das telas primeiro' });
+    btn.addEventListener('click', () => { if (!fwPreviewApproved(w)) return; fwLaunch(w, 'release', status, [btn]); });
     host.append(h('div', { class: 'fw-card' },
       h('p', { class: 'fw-lead' }, 'Tudo pronto para criar o ', h('strong', { text: w.name || w.slug }), '.'),
       h('ul', { class: 'fw-review' },
         h('li', {}, '✅ ', h('strong', { text: String(sum.counts.capabilities) }), ' capacidades'),
         h('li', {}, '✅ ', h('strong', { text: String(sum.counts.screens) }), ' telas/funções'),
-        h('li', {}, '✅ ', h('strong', { text: String(sum.counts.waves || 1) }), ' etapas de construção')),
+        h('li', {}, '✅ ', h('strong', { text: String(sum.counts.waves || 1) }), ' etapas de construção'),
+        h('li', {}, (approved ? '✅ ' : '⏳ '), h('strong', { text: 'Preview' }), approved ? ' aprovado' : ' pendente de aprovação')),
       h('div', { class: 'fw-next' }, h('h4', { text: 'O que acontece quando você confirmar' }),
         h('ol', {}, h('li', { text: 'Os requisitos do sistema são criados no git (automático).' }),
           h('li', { text: 'A esteira constrói cada parte, na ordem do plano.' }),
@@ -3304,10 +3624,11 @@ function fwStageReview(host, w, { catalog }) {
   } else {
     const out = h('div', { class: 'forge-section' });
     host.append(out);
-    renderProposedList(out, w.slug, w.blueprint, w.proposed, w.reqMeta || {}, null, { brief: w.brief || '', displayName: w.name || w.slug, getArch: () => w.arch, onLaunched: (d, m) => { w.launched = true; w.launchInfo = d; w.launchMode = m; fwRerender(); } });
+    // launchGate=false bloqueia os botões "Criar PR"/"Liberar tudo" até o preview ser aprovado.
+    renderProposedList(out, w.slug, w.blueprint, w.proposed, w.reqMeta || {}, null, { brief: w.brief || '', displayName: w.name || w.slug, getArch: () => w.arch, launchGate: approved, onLaunched: (d, m) => { w.launched = true; w.launchInfo = d; w.launchMode = m; fwRerender(); } });
     if (w.arch) renderArchAdrs(out, w.arch);
   }
-  host.append(fwNav(3, null, null));
+  host.append(fwNav(4, null, null));
   host.querySelector('.fw-q').focus();
 }
 
@@ -3459,16 +3780,20 @@ function renderProposedList(out, pname, blueprint, proposed, data, graph, launch
 
 // Botões "Criar PR" / "Liberar tudo" — a UI cria os requisitos no git via POST /v1/forge/launch
 // (o reqhub-api dispara a esteira; o runner escreve YAMLs + baseline + PR). CSP-safe.
+// Gate: launchCtx.launchGate === false bloqueia os botões até o preview ser aprovado (caminho do
+// wizard). Quando launchGate é undefined (caminho legado renderForgeNew), NÃO há gate (retrocompat).
 function forgeLaunchControls(pname, blueprint, proposed, launchCtx) {
+  const gated = launchCtx && launchCtx.launchGate === false; // explicitamente bloqueado e não-aprovado
   const wrap = h('div', { class: 'forge-launch' });
   wrap.append(h('p', { class: 'muted small', text: 'Criar no git pela plataforma — a UI dispara a esteira; nada é mesclado sem a sua revisão do PR (no "Liberar tudo", o PR de requisitos é auto-mesclado e a construção é iniciada; os PRs de implementação ainda passam pela sua validação).' }));
   const status = h('span', { class: 'muted small forge-launch-st', role: 'status', 'aria-live': 'polite' });
-  const bPr = h('button', { class: 'btn primary', type: 'button', text: '🚀 Criar PR de requisitos' });
-  const bRel = h('button', { class: 'btn', type: 'button', text: '⚡ Liberar tudo' });
+  const bPr = h('button', { class: 'btn primary', type: 'button', text: '🚀 Criar PR de requisitos', disabled: gated ? 'disabled' : null, title: gated ? 'Aprove o preview das telas primeiro' : null });
+  const bRel = h('button', { class: 'btn', type: 'button', text: '⚡ Liberar tudo', disabled: gated ? 'disabled' : null, title: gated ? 'Aprove o preview das telas primeiro' : null });
   const btns = [bPr, bRel];
   const ctx = { pname, blueprint, proposed, launchCtx, status, btns };
-  bPr.addEventListener('click', () => forgeLaunch('pr', ctx));
-  bRel.addEventListener('click', () => { if (window.confirm('Liberar tudo: cria os requisitos, AUTO-MESCLA o PR de requisitos e dispara a esteira de construção. Os PRs de implementação ainda passam pela sua validação. Continuar?')) forgeLaunch('release', ctx); });
+  bPr.addEventListener('click', () => { if (gated) return; forgeLaunch('pr', ctx); });
+  bRel.addEventListener('click', () => { if (gated) return; if (window.confirm('Liberar tudo: cria os requisitos, AUTO-MESCLA o PR de requisitos e dispara a esteira de construção. Os PRs de implementação ainda passam pela sua validação. Continuar?')) forgeLaunch('release', ctx); });
+  if (gated) wrap.append(h('p', { class: 'fw-hint', text: '🔒 Aprove o preview das telas (etapa Preview) para liberar a criação.' }));
   wrap.append(h('div', { class: 'ws-actions' }, bPr, bRel, status));
   return wrap;
 }

@@ -1,0 +1,155 @@
+# =============================================================================
+# forge-preview — BUILDA o PREVIEW iterativo da Forja (F3) e o publica no PVC reqhub-preview.
+#
+# Disparado por repository_dispatch (event_type: forge-preview) com client_payload:
+#   { payload_version, requested_by, job_id, product, inventory:{ brand, entities, screens } }
+#
+# O reqhub-api (pod non-root, sem toolchain) NÃO builda: ele gera o inventário (IA), DISPARA este
+# workflow e SERVE os bytes do PVC. Aqui, no runner self-hosted (tem node/npm/kubectl):
+#   1) escreve manifest.json{status:'building'} no PVC (o api já mostra "building");
+#   2) gera a SPA Vue+Vite autocontida (node specs/forge/preview-ui.mjs) a partir do inventário;
+#   3) npm ci && vite build -> dist/ estático (base = /reqs/api/v1/forge/preview/<product>/);
+#   4) publica dist/ + manifest.json{status:'ready'} no PVC reqhub-preview sob <product>/.
+# Em qualquer falha, escreve manifest.json{status:'error'} (o api mostra o erro, não trava).
+#
+# PUBLICAÇÃO NO PVC: via POD EFÊMERO que monta o PVC em RW + `kubectl cp` (independe de onde o hostPath
+# do PVC vive — funciona em qualquer provisioner). NÃO mexe no pod do reqhub-api (que monta read-only).
+#
+# NOTA: este workflow NÃO escreve no git (preview é efêmero) e NÃO dispara deploy. É só build->PVC.
+# =============================================================================
+name: forge-preview
+
+on:
+  repository_dispatch:
+    types: [forge-preview]
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    name: Buildar preview da Forja + publicar no PVC
+    runs-on: [self-hosted, windows, docker-desktop, local-k8s, flavio-devops]
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      KUBECONFIG: C:\ProgramData\forge-kube\config
+      NS: apps
+      PVC: reqhub-preview
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          persist-credentials: false   # só build; sem git
+
+      - name: Preparar inventário + slug
+        env:
+          PAYLOAD: ${{ toJson(github.event.client_payload) }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $env:PAYLOAD | Set-Content -Encoding utf8 preview-payload.json
+          $p = Get-Content preview-payload.json -Raw | ConvertFrom-Json
+          $prod = "$($p.product)"
+          if ($prod -notmatch '^[a-z][a-z0-9-]{1,30}$') { Write-Host "::error::product inválido: '$prod'"; exit 1 }
+          $job = "$($p.job_id)"; if (-not $job) { $job = "$prod-$($env:GITHUB_RUN_ID)" }
+          "PRODUCT=$prod" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "JOBID=$job"    | Out-File -FilePath $env:GITHUB_ENV -Append
+          # inventário só (o gerador lê este arquivo)
+          ($p.inventory | ConvertTo-Json -Depth 30) | Set-Content -Encoding utf8 preview-inventory.json
+          Write-Host "preview de '$prod' (job=$job): $($p.inventory.screens.Count) tela(s)."
+
+      # helper PS: cria/garante o pod efêmero que monta o PVC RW e dá um destino p/ kubectl cp.
+      # Reusa um único writer p/ todos os passos (building/ready/error) do run.
+      - name: Subir writer (monta o PVC em RW)
+        run: |
+          $ErrorActionPreference = "Stop"
+          $writer = "preview-writer-$($env:GITHUB_RUN_ID)"
+          "WRITER=$writer" | Out-File -FilePath $env:GITHUB_ENV -Append
+          $manifest = @"
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: $writer
+            namespace: $env:NS
+            labels: { app.kubernetes.io/part-of: reqhub, app.kubernetes.io/component: preview-writer }
+          spec:
+            restartPolicy: Never
+            securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000, fsGroup: 1000 }
+            containers:
+              - name: writer
+                image: busybox:1.36
+                command: ["sh","-c","sleep 1800"]
+                securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: ["ALL"] } }
+                volumeMounts: [ { name: pv, mountPath: /preview-data } ]
+            volumes:
+              - name: pv
+                persistentVolumeClaim: { claimName: $env:PVC }
+          "@
+          $manifest | Set-Content -Encoding utf8 preview-writer.yaml
+          kubectl apply -f preview-writer.yaml
+          kubectl wait --for=condition=Ready "pod/$writer" -n $env:NS --timeout=120s
+          # garante o diretório do produto
+          kubectl exec -n $env:NS $writer -- sh -c "mkdir -p /preview-data/$env:PRODUCT/dist"
+
+      - name: Marcar building
+        run: |
+          $ErrorActionPreference = "Stop"
+          $m = @{ product=$env:PRODUCT; jobId=$env:JOBID; status="building"; generatedAt=(Get-Date).ToUniversalTime().ToString("o") } | ConvertTo-Json -Compress
+          $m | Set-Content -Encoding utf8 manifest.json
+          kubectl cp manifest.json "$($env:NS)/$($env:WRITER):/preview-data/$($env:PRODUCT)/manifest.json"
+
+      - name: Gerar SPA + vite build
+        id: build
+        run: |
+          $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $false
+          if ($env:CLAUDE_BIN_DIR -and (Test-Path $env:CLAUDE_BIN_DIR)) { $env:PATH = "$env:CLAUDE_BIN_DIR;$env:PATH" }
+          $out = "preview-build/$($env:PRODUCT)"
+          New-Item -ItemType Directory -Force $out | Out-Null
+          # 1) gera a SPA autocontida a partir do inventário (importa o kit @flavioneto11/ui-vue + tokens da marca)
+          node specs/forge/preview-ui.mjs --inventory preview-inventory.json --product "$env:PRODUCT" --out "$out"
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::preview-ui.mjs falhou"; "ok=false" | Out-File $env:GITHUB_OUTPUT -Append; exit 0 }
+          # 2) build
+          Push-Location $out
+          npm ci --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { npm install --no-audit --no-fund }
+          npx vite build
+          $code = $LASTEXITCODE
+          Pop-Location
+          if ($code -ne 0 -or -not (Test-Path "$out/dist/index.html")) {
+            Write-Host "::error::vite build falhou (sem dist/index.html)"; "ok=false" | Out-File $env:GITHUB_OUTPUT -Append; exit 0
+          }
+          "ok=true" | Out-File $env:GITHUB_OUTPUT -Append
+          "OUTDIR=$out" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Publicar dist + manifest ready
+        if: steps.build.outputs.ok == 'true'
+        run: |
+          $ErrorActionPreference = "Stop"
+          # substitui o dist/ antigo (limpa antes p/ não acumular assets órfãos entre iterações)
+          kubectl exec -n $env:NS $env:WRITER -- sh -c "rm -rf /preview-data/$env:PRODUCT/dist && mkdir -p /preview-data/$env:PRODUCT/dist"
+          # kubectl cp do diretório dist/ inteiro
+          kubectl cp "$env:OUTDIR/dist" "$($env:NS)/$($env:WRITER):/preview-data/$($env:PRODUCT)/dist" 2>$null
+          # lista de telas p/ o manifest (do inventário)
+          $inv = Get-Content preview-inventory.json -Raw | ConvertFrom-Json
+          $screens = @($inv.screens | ForEach-Object { @{ slug=$_.slug; title=$_.title; route=$_.route; kind=$_.kind } })
+          $m = @{ product=$env:PRODUCT; jobId=$env:JOBID; status="ready"; generatedAt=(Get-Date).ToUniversalTime().ToString("o"); baseHref="/reqs/api/v1/forge/preview/$env:PRODUCT/"; screens=$screens } | ConvertTo-Json -Depth 10 -Compress
+          $m | Set-Content -Encoding utf8 manifest.json
+          # manifest POR ÚLTIMO (o api só vira 'ready' quando manifest E dist/index.html existem)
+          kubectl cp manifest.json "$($env:NS)/$($env:WRITER):/preview-data/$($env:PRODUCT)/manifest.json"
+          Write-Host "::notice::preview de '$env:PRODUCT' publicado em /reqs/api/v1/forge/preview/$env:PRODUCT/"
+
+      - name: Marcar error (se o build falhou)
+        if: steps.build.outputs.ok != 'true'
+        run: |
+          $ErrorActionPreference = "Stop"
+          $m = @{ product=$env:PRODUCT; jobId=$env:JOBID; status="error"; generatedAt=(Get-Date).ToUniversalTime().ToString("o"); error="geração/build do preview falhou (veja os logs do run $env:GITHUB_RUN_ID)" } | ConvertTo-Json -Compress
+          $m | Set-Content -Encoding utf8 manifest.json
+          kubectl cp manifest.json "$($env:NS)/$($env:WRITER):/preview-data/$($env:PRODUCT)/manifest.json"
+
+      - name: Limpar writer
+        if: always()
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          if ($env:WRITER) { kubectl delete pod $env:WRITER -n $env:NS --ignore-not-found --wait=false 2>$null }
