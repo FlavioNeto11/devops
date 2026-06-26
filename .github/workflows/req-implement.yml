@@ -185,8 +185,19 @@ jobs:
                 --output-format json
               if ($LASTEXITCODE -ne 0) { Write-Host "::warning::Claude exit $LASTEXITCODE ($id, tentativa $try)." }
               if (-not $lockedDir -or -not (Test-Path $lockedDir)) { break }
-              $testOut = (node --test "$lockedDir/**/*.test.mjs" 2>&1 | Out-String)
-              if ($LASTEXITCODE -eq 0) { Write-Host "${id}: testes LOCKED OK (tentativa $try)."; break }
+              # PowerShell NAO expande o glob "**" — passar a string literal ao `node --test` fazia
+              # NENHUM teste rodar e o gate "passar" em silencio (bugs vazavam). Expandimos os arquivos
+              # nos mesmos e tratamos "0 testes" como FALHA (a concepcao DEVE travar testes do requisito).
+              $testFiles = @(Get-ChildItem -Path $lockedDir -Recurse -Filter *.test.mjs -File -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
+              if ($testFiles.Count -eq 0) {
+                Write-Host "::error::${id}: nenhum teste LOCKED em $lockedDir — tratando como FALHA (a concepcao precisa gerar testes)."
+                $testOk = $false; $testOut = "nenhum arquivo *.test.mjs encontrado em $lockedDir"
+              } else {
+                $testOut = (node --test @testFiles 2>&1 | Out-String)
+                $testOk = ($LASTEXITCODE -eq 0)
+                Write-Host "${id}: rodou $($testFiles.Count) arquivo(s) de teste LOCKED (exit=$LASTEXITCODE)."
+              }
+              if ($testOk) { Write-Host "${id}: testes LOCKED OK (tentativa $try)."; break }
               if ($try -ge 2) { Write-Host "::warning::${id}: testes LOCKED ainda falham apos 2 tentativas — guard/PR seguem (CI barra se preciso)."; break }
               Write-Host "${id}: testes LOCKED falharam — re-acionando a Claude p/ corrigir o codigo."
               if (-not $testOut) { $testOut = '' }

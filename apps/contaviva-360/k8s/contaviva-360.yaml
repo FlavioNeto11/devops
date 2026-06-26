@@ -61,7 +61,7 @@ spec:
           image: contaviva-360-api:local
           imagePullPolicy: IfNotPresent
           command: ["npm", "start"]
-          envFrom: [ { secretRef: { name: contaviva-360-db } } ]
+          envFrom: [ { secretRef: { name: contaviva-360-db } }, { secretRef: { name: contaviva-360-ai, optional: true } } ]
           env:
             - { name: REDIS_URL, value: "redis://contaviva-360-redis:6379" }
             - { name: METRICS_PORT, value: "9464" }

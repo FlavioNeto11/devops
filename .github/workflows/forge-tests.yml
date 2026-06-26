@@ -1,11 +1,13 @@
 # =============================================================================
-# forge-tests — gate dos TESTES LOCKED dos apps gerados pela Forja.
-# Em todo PR que toca apps/**, para cada app com tests/.test-locks.json:
+# forge-tests — gate REAL dos apps gerados pela Forja. Em todo PR que toca apps/**,
+# para cada app com tests/.test-locks.json:
 #   (1) verify-test-locks.mjs — integridade (existe + sha256 + minCount + anti-sneak); BLOQUEIA adulteração.
-#   (2) node --test dos testes locked — arch/unit rodam aqui; integration é LIVE-gated (skip sem BASE_URL)
-#       e roda contra o ambiente vivo no deploy/validação (não exige compose no CI).
-# Junto com a DENYLIST do guard (que impede o headless de editar locked/), fecha a garantia:
-# a IA implementa CÓDIGO que PASSA nos testes locked e não pode enfraquecê-los.
+#   (2) FRONTEND build — `npm ci && npm run build` (vite): pega import/sintaxe quebrada (bug de JS) ANTES do merge.
+#   (3) BACKEND LIVE — sobe Postgres (pgvector) + Redis, sobe o app (AUTO_MIGRATE/SEED), espera /health e
+#       roda os testes LOCKED com BASE_URL setado => os testes de integração/aceite RODAM DE VERDADE
+#       (antes skipavam por falta de BASE_URL e o gate "passava" sem testar nada).
+# Junto com a DENYLIST do guard (impede o headless de editar locked/), fecha a garantia: a IA implementa
+# CÓDIGO que PASSA nos testes locked vivos e não pode enfraquecê-los.
 # =============================================================================
 name: forge-tests
 
@@ -14,34 +16,84 @@ on:
     paths:
       - "apps/**"
       - "specs/tools/verify-test-locks.mjs"
+      - ".github/workflows/forge-tests.yml"
 
 permissions:
   contents: read
 
 jobs:
   locked-tests:
-    name: Testes LOCKED (integridade + execução)
+    name: Testes LOCKED (integridade + build + LIVE)
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16   # superset do postgres:16 — cobre apps com bloco rag-pgvector (CREATE EXTENSION vector)
+        env:
+          POSTGRES_USER: forge
+          POSTGRES_PASSWORD: forge
+          POSTGRES_DB: forge
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U forge" --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 20
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
           node-version: "22"
-      - name: Verificar integridade + rodar os testes locked
+      - name: Integridade + build frontend + testes LOCKED LIVE
         shell: bash
+        env:
+          DATABASE_URL: postgresql://forge:forge@localhost:5432/forge
+          REDIS_URL: redis://localhost:6379
         run: |
-          set -euo pipefail
-          found=0
+          set -uo pipefail
+          fail=0; found=0
+          # instalação tolerante (apps podem não ter lockfile — igual ao Dockerfile gerado)
+          npmget() { if [ -f package-lock.json ]; then npm ci --no-audit --no-fund || npm install --no-audit --no-fund; else npm install --no-audit --no-fund; fi; }
           for app in apps/*/; do
             name="$(basename "$app")"
-            if [ -f "${app}tests/.test-locks.json" ]; then
-              found=1
-              echo "::group::$name — verify-test-locks"
-              node specs/tools/verify-test-locks.mjs --app "apps/$name"
+            [ -f "${app}tests/.test-locks.json" ] || continue
+            found=1
+            echo "::group::$name — verify-test-locks"
+            node specs/tools/verify-test-locks.mjs --app "apps/$name" || { echo "::error::$name: verify-test-locks falhou"; fail=1; }
+            echo "::endgroup::"
+
+            # (2) FRONTEND build — pega bug de JS (import/sintaxe) antes do merge
+            if [ -f "apps/$name/frontend/package.json" ]; then
+              echo "::group::$name — frontend build (vite)"
+              ( cd "apps/$name/frontend" && npmget && npm run build ) || { echo "::error::$name: build do frontend FALHOU (bug de JS?)"; fail=1; }
               echo "::endgroup::"
-              echo "::group::$name — node --test (locked; integration skip sem BASE_URL)"
-              node --test "apps/$name/tests/locked/**/*.test.mjs"
+            fi
+
+            # (3) BACKEND LIVE — sobe o app e roda os testes LOCKED de verdade
+            if [ -f "apps/$name/api/src/server.js" ]; then
+              echo "::group::$name — backend LIVE (sobe app + testes LOCKED)"
+              ( cd "apps/$name/api" && npmget ) || { echo "::error::$name: install do api falhou"; fail=1; echo "::endgroup::"; continue; }
+              # banco limpo por app (evita colisão entre apps na mesma instância)
+              PGPASSWORD=forge psql -h localhost -U forge -d forge -v ON_ERROR_STOP=0 -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" >/dev/null 2>&1 || true
+              ( cd "apps/$name/api" && AUTO_MIGRATE=true AUTO_SEED=true PORT=8080 METRICS_PORT=9464 \
+                  DATABASE_URL="$DATABASE_URL" REDIS_URL="$REDIS_URL" node src/server.js >/tmp/$name-app.log 2>&1 & echo $! > /tmp/$name-app.pid )
+              ok=0
+              for i in $(seq 1 40); do
+                if curl -sf http://localhost:8080/health >/dev/null 2>&1; then ok=1; break; fi
+                sleep 1
+              done
+              if [ "$ok" != "1" ]; then
+                echo "::error::$name: app NÃO subiu (/health não respondeu) — log:"; tail -n 40 /tmp/$name-app.log || true; fail=1
+              else
+                mapfile -t TFILES < <(find "apps/$name/tests/locked" -name '*.test.mjs' -type f)
+                if [ "${#TFILES[@]}" -eq 0 ]; then echo "::error::$name: nenhum teste LOCKED"; fail=1; fi
+                BASE_URL="http://localhost:8080" node --test "${TFILES[@]}" || { echo "::error::$name: testes LOCKED LIVE FALHARAM"; fail=1; }
+              fi
+              kill "$(cat /tmp/$name-app.pid 2>/dev/null)" >/dev/null 2>&1 || true
               echo "::endgroup::"
             fi
           done
           if [ "$found" = "0" ]; then echo "Nenhum app com suíte locked — nada a verificar."; fi
+          if [ "$fail" != "0" ]; then echo "::error::forge-tests REPROVOU — há build/teste quebrado."; exit 1; fi
+          echo "forge-tests OK."
