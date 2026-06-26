@@ -47,4 +47,9 @@ regexes = [
   '''jdbc:postgresql://[^@"'\s]+''',
   # Referencia de servico Postgres interno host:porta/db (sem credencial), ex.: keycloak-postgres:5432/keycloak.
   '''[a-z0-9-]+-postgres:\d{2,5}/[a-z0-9_]+''',
+  # Credenciais de TESTE da Forja: fixtures DETERMINISTICOS no gerador (specs/tools/make-test-suite.mjs)
+  # e no harness de CI (.github/workflows/forge-tests.yml). NAO sao segredos reais — o app em producao
+  # usa JWT_SECRET/admin aleatorios via Secret <prod>-auth. O scanner confunde com generic-api-key.
+  '''forge-pass-\d+''',
+  '''forge-test-(admin|secret)''',
 ]
