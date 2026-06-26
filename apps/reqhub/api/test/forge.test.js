@@ -12,7 +12,7 @@ const ctx = (llm, extra = {}) => ({ llm, authenticated: true, identity: 'operato
 
 test('forge tools sao R1 (sem mutacao) e registradas', () => {
   for (const t of reg.list()) { assert.equal(t.risk, 'R1'); assert.ok(!t.mutates); }
-  assert.deepEqual(reg.list().map((t) => t.name).sort(), ['forge.propose_architecture', 'forge.propose_requirements']);
+  assert.deepEqual(reg.list().map((t) => t.name).sort(), ['forge.propose_architecture', 'forge.propose_requirements', 'forge.propose_screens', 'forge.refine_screen']);
 });
 
 test('propose_requirements: gera conjunto a partir do brief', async () => {
@@ -66,7 +66,7 @@ test('JSON invalido do modelo -> LLM_INVALID_JSON (sem fallback)', async () => {
 test('registry de producao expõe autoria + forge juntos', () => {
   const full = createToolRegistry([...buildAuthoringTools(), ...buildForgeTools()]);
   assert.deepEqual(full.list().map((t) => t.name).sort(), [
-    'forge.propose_architecture', 'forge.propose_requirements',
+    'forge.propose_architecture', 'forge.propose_requirements', 'forge.propose_screens', 'forge.refine_screen',
     'req.authoring.analyze', 'req.authoring.analyze_refinement', 'req.authoring.assist', 'req.authoring.classify_change',
     'req.authoring.draft', 'req.authoring.draft_refinement', 'req.authoring.revise', 'req.authoring.revise_refinement', 'req.authoring.suggest_links',
   ]);

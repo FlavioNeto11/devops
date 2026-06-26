@@ -549,6 +549,37 @@ pre.yaml { background: var(--bg-2); border: 1px solid var(--line); border-radius
 .forge-dup { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; flex: none; }
 .forge-dup .btn-link { font-family: var(--mono); font-size: 11.5px; }
 
+/* ── Etapa PREVIEW do wizard (telas ui-vue reais + dados fake; iteração por IA; gate) ───────────── */
+/* progresso da geração (steps) */
+.fw-prev-steps { list-style: none; margin: 14px 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.fw-prev-step { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--fg-1); }
+.fw-prev-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--line-2); }
+.fw-prev-step.is-active .fw-prev-dot { background: var(--warn); }
+.fw-prev-step.is-done .fw-prev-dot { background: var(--ok); }
+.fw-prev-step.is-done { color: var(--muted); }
+/* iframe do preview */
+.fw-prev-stage { margin-top: 16px; }
+.fw-prev-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.fw-prev-frame { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--bg-1); box-shadow: var(--shadow, 0 1px 3px rgba(0,0,0,0.08)); }
+.fw-prev-iframe { display: block; width: 100%; height: 70vh; min-height: 460px; border: 0; background: var(--bg); }
+/* lista de telas + refino */
+.fw-prev-screens { display: flex; flex-direction: column; gap: 8px; }
+.fw-prev-screen { border: 1px solid var(--line); border-radius: 12px; background: var(--bg-1); overflow: hidden; }
+.fw-prev-screen-head { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.fw-prev-screen-tx { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; flex: 1; }
+.fw-prev-screen-tx strong { font-size: 14px; color: var(--fg); }
+.fw-prev-route { font-family: var(--mono); font-size: 11px; color: var(--muted); background: var(--bg-2); border-radius: 5px; padding: 1px 6px; }
+.fw-prev-screen-head .btn { flex: none; }
+.fw-prev-refine { padding: 0 14px 14px; border-top: 1px solid var(--line); }
+.fw-prev-refine .fw-fld { margin-top: 12px; }
+/* gate "aprovar e construir" */
+.fw-prev-gate { margin-top: 22px; border-top: 1px dashed var(--line-2); padding-top: 18px; }
+.fw-prev-ok { font-size: 15px; color: var(--ok); font-weight: 600; margin: 0 0 10px; }
+/* barra de bloqueio na etapa Revisar (preview não aprovado) */
+.fw-gatebar { border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--line)); background: color-mix(in srgb, var(--warn) 8%, var(--bg-1)); border-radius: 12px; padding: 14px 16px; margin: 0 0 18px; }
+.fw-gatebar-t { font-size: 14.5px; font-weight: 600; color: var(--fg); margin: 0 0 4px; }
+@media (max-width: 720px) { .fw-prev-iframe { height: 56vh; min-height: 360px; } }
+
 /* DAG do build (force-directed, contido) */
 .forge-dag { position: relative; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-1);
   background-image: radial-gradient(var(--line) 0.6px, transparent 0.6px); background-size: 20px 20px; overflow: hidden; }

@@ -20,6 +20,15 @@ test('validate: requirements não-vazio e limite', () => {
   assert.equal(validateLaunchInput({ product: 'meuapp', mode: 'pr', requirements: many }).code, 'TOO_MANY');
 });
 
+test('validate: skipPreviewGate (gate de preview) default false; só true se explícito', () => {
+  // default: gate ATIVO (skipPreviewGate=false) — o caminho greenfield exige preview ready.
+  assert.equal(validateLaunchInput({ product: 'meuapp', mode: 'pr', requirements: [{ title: 'x' }] }).value.skipPreviewGate, false);
+  // só desliga com a flag booleana explícita (fluxos legados sem preview).
+  assert.equal(validateLaunchInput({ product: 'meuapp', mode: 'pr', requirements: [{ title: 'x' }], skipPreviewGate: true }).value.skipPreviewGate, true);
+  // valores truthy não-booleanos NÃO desligam o gate (evita bypass acidental).
+  assert.equal(validateLaunchInput({ product: 'meuapp', mode: 'pr', requirements: [{ title: 'x' }], skipPreviewGate: 'yes' }).value.skipPreviewGate, false);
+});
+
 test('buildClientPayload: ok + cap', () => {
   const v = validateLaunchInput({ product: 'meuapp', mode: 'pr', displayName: 'P', requirements: [{ id: 'REQ-P-0001', title: 'a', statement: 'b' }] }).value;
   const r = buildClientPayload(v, 'admin@x');
