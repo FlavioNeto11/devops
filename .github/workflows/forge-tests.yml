@@ -79,7 +79,11 @@ jobs:
               echo "::group::$name — backend LIVE (sobe app + testes LOCKED, serial)"
               ( cd "apps/$name/api" && npmget ) || { echo "::error::$name: install do api falhou"; fail=1; echo "::endgroup::"; continue; }
               PGPASSWORD=forge psql -h localhost -U forge -d forge -v ON_ERROR_STOP=0 -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" >/dev/null 2>&1 || true
+              # envs de auth (bloco contas-acesso): seed cria o admin de bootstrap CONHECIDO p/ os
+              # testes locked logarem (admin@local / forge-test-admin); JWT fixo de teste. Apps sem o
+              # bloco ignoram (não há auth.js); não rotaciona nada de produção (é o runner do PR).
               ( cd "apps/$name/api" && AUTO_MIGRATE=true AUTO_SEED=true PORT=8080 METRICS_PORT=9464 \
+                  JWT_SECRET=forge-test-secret BOOTSTRAP_ADMIN_EMAIL=admin@local BOOTSTRAP_ADMIN_PASSWORD=forge-test-admin \
                   DATABASE_URL="$DATABASE_URL" REDIS_URL="$REDIS_URL" node src/server.js >/tmp/$name-app.log 2>&1 & echo $! > /tmp/$name-app.pid )
               ok=0
               for i in $(seq 1 40); do

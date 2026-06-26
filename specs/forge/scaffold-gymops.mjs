@@ -30,7 +30,7 @@ if (product.stack !== 'gymops') { console.error(`scaffold-gymops só gera stack 
 const byId = loadCatalog();
 const blocks = resolveBlocks(product.capability_blocks || [], 'gymops', byId);
 const has = (id) => blocks.includes(id);
-const F = { redis: has('redis-bullmq'), gateway: has('gateway-externo'), rbac: has('rbac-multitenant'), idem: has('idempotencia'), oidc: has('oidc-sessao'), pgvector: has('rag-pgvector') };
+const F = { redis: has('redis-bullmq'), gateway: has('gateway-externo'), rbac: has('rbac-multitenant'), idem: has('idempotencia'), oidc: has('oidc-sessao'), pgvector: has('rag-pgvector'), contas: has('contas-acesso') };
 
 const APP = product.name;
 const TITLE = product.display_name || APP;
@@ -45,6 +45,7 @@ const add = (rel, content) => { files[rel] = content; };
 const kitRefs = [...new Set(blocks.flatMap((b) => (byId.get(b) && byId.get(b).reuses) || []))];
 const deps = { fastify: '^4.28.1', pg: '^8.11.5', 'prom-client': '^15.1.2', ...kitDeps(kitRefs) };
 if (F.redis) { deps.bullmq = '^5.12.0'; deps.ioredis = '^5.4.1'; }
+if (F.contas) { deps.bcryptjs = '^2.4.3'; deps.jsonwebtoken = '^9.0.2'; deps['@fastify/rate-limit'] = '^9.1.0'; } // bloco contas-acesso: auth própria (puro JS, alpine-friendly) + rate-limit nas rotas de auth
 add('api/package.json', JSON.stringify({
   name: '@@APP@@-api', version: '1.0.0', private: true, type: 'module',
   description: '@@TITLE@@ — gerado pela Forge (gymops-style: Fastify + Redis/BullMQ + RBAC).',
@@ -64,11 +65,25 @@ add('api/Dockerfile', [
 add('api/vendor/.gitkeep', '');
 
 // db.js (pg + migrations multi-tenant)
-add('api/src/db.js', [
+const migrationsLines = [
+  "  `CREATE TABLE IF NOT EXISTS records (id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, title TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open', external_ref TEXT, created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now());`,",
+];
+// bloco contas-acesso: tabelas de identidade/sessão/auditoria (appendadas — versões estáveis).
+if (F.contas) migrationsLines.push(
+  "  `CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, email TEXT UNIQUE NOT NULL, name TEXT, password_hash TEXT, role TEXT NOT NULL DEFAULT 'member', is_active BOOLEAN NOT NULL DEFAULT true, created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now());`,",
+  "  `CREATE TABLE IF NOT EXISTS sessions (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, refresh_hash TEXT NOT NULL, expires_at TIMESTAMPTZ NOT NULL, revoked_at TIMESTAMPTZ, created_at TIMESTAMPTZ DEFAULT now());`,",
+  "  `CREATE TABLE IF NOT EXISTS audit_logs (id SERIAL PRIMARY KEY, tenant_id INTEGER, actor TEXT, action TEXT, entity TEXT, entity_id TEXT, created_at TIMESTAMPTZ DEFAULT now());`,",
+);
+const dbLines = [
   '// db.js — pool Postgres + migrations multi-tenant. Gerado pela Forge (gymops-style).',
   "import pg from 'pg';",
+];
+if (F.contas) dbLines.push("import { hashPassword } from './auth.js';"); // seed do admin de bootstrap usa o hasher do auth.js
+dbLines.push(
   'export const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });',
-  "const MIGRATIONS = [`CREATE TABLE IF NOT EXISTS records (id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL DEFAULT 1, title TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open', external_ref TEXT, created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now());`];",
+  'const MIGRATIONS = [',
+  ...migrationsLines,
+  '];',
   'export async function migrate() {',
   '  const c = await pool.connect();',
   "  try { await c.query('SELECT pg_advisory_lock(66021)');",
@@ -79,7 +94,124 @@ add('api/src/db.js', [
   "      console.log('[migrate] ' + v); }",
   "  } finally { await c.query('SELECT pg_advisory_unlock(66021)').catch(() => {}); c.release(); }",
   '}',
-  "export async function seed() { const { rows } = await pool.query('SELECT count(*)::int n FROM records'); if (rows[0].n === 0) await pool.query(`INSERT INTO records(title) VALUES ('Exemplo')`); }", '',
+);
+const seedLines = [
+  'export async function seed() {',
+  "  const { rows } = await pool.query('SELECT count(*)::int n FROM records'); if (rows[0].n === 0) await pool.query(`INSERT INTO records(title) VALUES ('Exemplo')`);",
+];
+// bloco contas-acesso: admin de bootstrap SÓ se BOOTSTRAP_ADMIN_EMAIL **e** _PASSWORD vierem do
+// ambiente (sem senha default — nada de admin12345). Sem ambos: NÃO cria admin (aviso no log).
+if (F.contas) seedLines.push(
+  "  const bootEmail = process.env.BOOTSTRAP_ADMIN_EMAIL;",
+  "  const bootPass = process.env.BOOTSTRAP_ADMIN_PASSWORD;",
+  '  if (!bootEmail || !bootPass) {',
+  "    console.warn('[seed] sem BOOTSTRAP_ADMIN_EMAIL/BOOTSTRAP_ADMIN_PASSWORD — admin de bootstrap NÃO criado (sem senha default).');",
+  '  } else {',
+  "    const email = String(bootEmail).toLowerCase();",
+  "    const hash = await hashPassword(String(bootPass));",
+  "    await pool.query('INSERT INTO users(tenant_id,email,name,password_hash,role) VALUES (1,$1,$2,$3,$4) ON CONFLICT (email) DO NOTHING', [email, 'Administrador', hash, 'admin']);",
+  "    console.log('[seed] admin de bootstrap: ' + email);",
+  '  }',
+);
+seedLines.push('}', '');
+add('api/src/db.js', dbLines.concat(seedLines).join('\n'));
+
+// auth.js (bloco contas-acesso) — autenticação própria self-contained: bcrypt + JWT + sessões
+// (refresh guardado como hash sha256) + SSO Keycloak ADITIVO/OPCIONAL (userinfo). Sem deps nativas.
+if (F.contas) add('api/src/auth.js', [
+  '// auth.js — fundação de autenticação própria (bloco contas-acesso). Gerado pela Forge (gymops-style).',
+  '// Hash de senha: bcryptjs (puro JS). Tokens: jsonwebtoken. Refresh: guardado como hash sha256.',
+  '// SSO Keycloak ADITIVO e OPCIONAL: só ativa se OIDC_ISSUER estiver setado; nunca quebra o boot.',
+  "import bcrypt from 'bcryptjs';",
+  "import jwt from 'jsonwebtoken';",
+  "import crypto from 'node:crypto';",
+  "import { pool } from './db.js';",
+  '',
+  '// JWT_SECRET é FAIL-CLOSED em produção: sem ele o boot quebra (não cai num literal previsível).',
+  "const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? (() => { throw new Error('JWT_SECRET obrigatório em produção') })() : 'dev-secret-change-me');",
+  "const ACCESS_TTL = process.env.ACCESS_TTL || '15m';",
+  'const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 dias',
+  'const RANK = { admin: 3, manager: 2, member: 1 };',
+  '',
+  '// --- hashing de senha (nunca plaintext, nunca logado) ---',
+  'export async function hashPassword(plain) { return bcrypt.hash(String(plain), 10); }',
+  'export async function verifyPassword(plain, hash) { if (!hash) return false; try { return await bcrypt.compare(String(plain), hash); } catch { return false; } }',
+  '',
+  '// --- JWT de acesso (curto) ---',
+  "export function signAccess(user) { return jwt.sign({ sub: String(user.id), email: user.email, role: user.role, tenantId: user.tenant_id || 1 }, JWT_SECRET, { algorithm: 'HS256', expiresIn: ACCESS_TTL }); }",
+  "export function verifyAccess(token) { try { return jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }); } catch { return null; } }",
+  '',
+  '// --- sessões / refresh (token cru ao cliente; HASH sha256 no banco) ---',
+  "function sha256(s) { return crypto.createHash('sha256').update(String(s)).digest('hex'); }",
+  'export async function issueSession(userId) {',
+  "  const refresh = crypto.randomBytes(32).toString('hex');",
+  '  const expires = new Date(Date.now() + REFRESH_TTL_MS);',
+  "  await pool.query('INSERT INTO sessions(user_id,refresh_hash,expires_at) VALUES ($1,$2,$3)', [userId, sha256(refresh), expires]);",
+  '  return refresh;',
+  '}',
+  '// rotaciona: valida o refresh, revoga o usado e emite um novo (retorna { user, refresh } ou null).',
+  'export async function rotateSession(refresh) {',
+  '  if (!refresh) return null;',
+  "  const { rows } = await pool.query('SELECT s.id, s.user_id, s.expires_at, s.revoked_at FROM sessions s WHERE s.refresh_hash=$1', [sha256(refresh)]);",
+  '  const s = rows[0];',
+  '  if (!s || s.revoked_at || new Date(s.expires_at).getTime() < Date.now()) return null;',
+  "  await pool.query('UPDATE sessions SET revoked_at=now() WHERE id=$1', [s.id]);",
+  "  const u = (await pool.query('SELECT id,tenant_id,email,name,role,is_active FROM users WHERE id=$1', [s.user_id])).rows[0];",
+  '  if (!u || !u.is_active) return null;',
+  '  const next = await issueSession(u.id);',
+  '  return { user: u, refresh: next };',
+  '}',
+  'export async function revokeSession(refresh) { if (!refresh) return; await pool.query(\'UPDATE sessions SET revoked_at=now() WHERE refresh_hash=$1 AND revoked_at IS NULL\', [sha256(refresh)]); }',
+  '',
+  '// --- preHandlers Fastify ---',
+  'export async function requireAuth(req, reply) {',
+  "  const h = req.headers['authorization'] || '';",
+  "  const token = h.startsWith('Bearer ') ? h.slice(7) : '';",
+  '  const claims = verifyAccess(token);',
+  "  if (!claims) { reply.code(401).send({ error: { message: 'não autenticado' } }); return reply; }",
+  '  req.authUser = { id: Number(claims.sub), email: claims.email, role: claims.role, tenantId: Number(claims.tenantId) || 1 };',
+  '}',
+  'export function requireRole(role) {',
+  '  return async (req, reply) => {',
+  '    const r = req.authUser && req.authUser.role;',
+  "    if ((RANK[r] || 0) < (RANK[role] || 99)) { reply.code(403).send({ error: { message: 'acesso negado (precisa de ' + role + ')' } }); return reply; }",
+  '  };',
+  '}',
+  '',
+  '// --- auditoria best-effort (nunca quebra o fluxo) ---',
+  'export async function audit(tenantId, actor, action, entity, entityId) {',
+  "  try { await pool.query('INSERT INTO audit_logs(tenant_id,actor,action,entity,entity_id) VALUES ($1,$2,$3,$4,$5)', [tenantId || 1, actor || null, action, entity || null, entityId != null ? String(entityId) : null]); } catch {}",
+  '}',
+  '',
+  '// --- helpers de usuário ---',
+  "export function publicUser(u) { return { id: u.id, email: u.email, name: u.name, role: u.role }; }",
+  'export async function findUserByEmail(email) { return (await pool.query(\'SELECT * FROM users WHERE email=$1\', [String(email || \'\').toLowerCase()])).rows[0] || null; }',
+  '',
+  '// --- SSO Keycloak ADITIVO/OPCIONAL ---',
+  'export function ssoConfig() {',
+  '  const issuer = process.env.OIDC_ISSUER || \'\';',
+  '  return { enabled: !!issuer, issuer: issuer || undefined, clientId: process.env.OIDC_CLIENT_ID || undefined };',
+  '}',
+  '// valida o accessToken do IdP no endpoint userinfo do issuer; retorna o perfil (email/name) ou null.',
+  'export async function ssoUserinfo(accessToken) {',
+  '  const issuer = process.env.OIDC_ISSUER || \'\';',
+  '  if (!issuer || !accessToken) return null;',
+  "  const url = issuer.replace(/\\/$/, '') + '/protocol/openid-connect/userinfo';",
+  '  try {',
+  "    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken }, signal: AbortSignal.timeout(5000) });",
+  '    if (!r.ok) return null;',
+  '    const j = await r.json();',
+  '    // exige email VERIFICADO como chave de identidade — NUNCA preferred_username (spoofável).',
+  '    if (!j.email || j.email_verified !== true) return null;',
+  '    return { email: String(j.email).toLowerCase(), name: j.name || j.preferred_username || j.email };',
+  '  } catch { return null; }',
+  '}',
+  '// upsert (provisioning) do usuário SSO por email; 1o login => role member.',
+  'export async function ssoUpsertUser(profile) {',
+  '  const existing = await findUserByEmail(profile.email);',
+  '  if (existing) { if (!existing.is_active) return null; return existing; }',
+  "  return (await pool.query('INSERT INTO users(tenant_id,email,name,role) VALUES (1,$1,$2,$3) RETURNING *', [profile.email, profile.name, 'member'])).rows[0];",
+  '}', '',
 ].join('\n'));
 
 // rbac.js (multi-tenant RBAC, se bloco)
@@ -153,8 +285,29 @@ const serverLines = [
 ];
 if (F.rbac) serverLines.push("import { authContext, requireRole } from './rbac.js';");
 if (F.redis) serverLines.push("import { enqueueSubmit, queueCounts } from './queue.js';");
+// bloco contas-acesso: auth própria. Alias do requireRole p/ não colidir com o do rbac.js.
+if (F.contas) serverLines.push("import { requireAuth, requireRole as requireAuthRole, hashPassword, verifyPassword, signAccess, issueSession, rotateSession, revokeSession, audit, publicUser, findUserByEmail, ssoConfig, ssoUserinfo, ssoUpsertUser } from './auth.js';");
 serverLines.push(
   'const app = Fastify({ logger: false });',
+);
+// bloco contas-acesso: rate-limit nas rotas de auth (login/register/refresh) — degrada sem quebrar
+// se o plugin faltar (try/catch). Registrado ANTES das rotas p/ o config.rateLimit por rota valer.
+// Top-level await (ESM): a app é módulo; a registração resolve antes das declarações de rota abaixo.
+if (F.contas) serverLines.push(
+  '// rate-limit (bloco contas-acesso): global:false -> só vale onde a rota declara config.rateLimit.',
+  'const AUTH_RATE = { max: Number(process.env.AUTH_RATE_MAX) || 10, timeWindow: process.env.AUTH_RATE_WINDOW || \'1 minute\' };',
+  'let authRateLimitOn = false;',
+  'try {',
+  "  const rl = (await import('@fastify/rate-limit')).default;",
+  '  await app.register(rl, { global: false });',
+  '  authRateLimitOn = true;',
+  '} catch (e) {',
+  "  console.warn('[auth] @fastify/rate-limit indisponível — seguindo sem limite de taxa: ' + (e && e.message));",
+  '}',
+  '// helper: opções da rota com rate-limit SÓ se o plugin carregou (senão objeto vazio = sem limite).',
+  'const authLimited = (opts) => authRateLimitOn ? { ...opts, config: { ...(opts && opts.config), rateLimit: AUTH_RATE } } : (opts || {});',
+);
+serverLines.push(
   F.rbac
     ? "app.addHook('onRequest', async (req) => { const ctx = authContext(req); req.tenantId = ctx.tenantId; req.role = ctx.role; });"
     : "app.addHook('onRequest', async (req) => { req.tenantId = Number(req.headers['x-tenant-id']) || 1; });",
@@ -167,6 +320,107 @@ serverLines.push(
 );
 if (F.rbac) serverLines.push("app.delete('/v1/records/:id', { preHandler: requireRole('admin') }, async (req) => { await pool.query('DELETE FROM records WHERE tenant_id=$1 AND id=$2', [req.tenantId, Number(req.params.id)]); return { deleted: true }; });");
 if (F.redis) serverLines.push("app.post('/v1/records/:id/submit', async (req, reply) => { const id = Number(req.params.id); const r = (await pool.query('SELECT id FROM records WHERE tenant_id=$1 AND id=$2', [req.tenantId, id])).rows[0]; if (!r) { reply.code(404); return { error: { message: 'não encontrado' } }; } await pool.query(\"UPDATE records SET status='submitting', updated_at=now() WHERE id=$1\", [id]); const e = await enqueueSubmit(id); reply.code(202); return { id, status: 'submitting', enqueued: !e.inline }; });");
+// bloco contas-acesso: rotas de autenticação/perfil/gerência de usuários + SSO (contrato da Forge).
+if (F.contas) serverLines.push(
+  "// --- auth: registro/login/refresh/logout (rate-limited p/ mitigar brute-force/abuso) ---",
+  "app.post('/auth/register', authLimited(), async (req, reply) => {",
+  "  const b = req.body || {}; const email = String(b.email || '').toLowerCase().trim(); const password = String(b.password || '');",
+  "  if (!email || !b.name) { reply.code(400); return { error: { message: 'name e email obrigatórios' } }; }",
+  "  if (password.length < 8) { reply.code(400); return { error: { message: 'senha deve ter ao menos 8 caracteres' } }; }",
+  "  if (await findUserByEmail(email)) { reply.code(409); return { error: { message: 'email já cadastrado' } }; }",
+  "  // registro público SEMPRE cria 'member' — admin vem só do seed de bootstrap (sem escalonamento via /auth/register).",
+  "  const hash = await hashPassword(password);",
+  "  const u = (await pool.query('INSERT INTO users(tenant_id,email,name,password_hash,role) VALUES (1,$1,$2,$3,$4) RETURNING *', [email, b.name, hash, 'member'])).rows[0];",
+  "  const accessToken = signAccess(u); const refreshToken = await issueSession(u.id);",
+  "  await audit(u.tenant_id, email, 'register', 'user', u.id);",
+  "  reply.code(201); return { accessToken, refreshToken, user: publicUser(u) };",
+  "});",
+  "app.post('/auth/login', authLimited(), async (req, reply) => {",
+  "  const b = req.body || {}; const email = String(b.email || '').toLowerCase().trim();",
+  "  const u = await findUserByEmail(email);",
+  "  if (!u || !u.is_active || !(await verifyPassword(String(b.password || ''), u.password_hash))) { reply.code(401); return { error: { message: 'credenciais inválidas' } }; }",
+  "  const accessToken = signAccess(u); const refreshToken = await issueSession(u.id);",
+  "  await audit(u.tenant_id, email, 'login', 'user', u.id);",
+  "  return { accessToken, refreshToken, user: publicUser(u) };",
+  "});",
+  "app.post('/auth/refresh', authLimited(), async (req, reply) => {",
+  "  const rot = await rotateSession((req.body || {}).refreshToken);",
+  "  if (!rot) { reply.code(401); return { error: { message: 'refresh inválido' } }; }",
+  "  return { accessToken: signAccess(rot.user), refreshToken: rot.refresh };",
+  "});",
+  "app.post('/auth/logout', async (req) => { await revokeSession((req.body || {}).refreshToken); return { ok: true }; });",
+  "// --- perfil (sessão própria) ---",
+  "app.get('/me', { preHandler: requireAuth }, async (req, reply) => {",
+  "  const u = (await pool.query('SELECT id,email,name,role FROM users WHERE id=$1', [req.authUser.id])).rows[0];",
+  "  if (!u) { reply.code(401); return { error: { message: 'não autenticado' } }; } return u;",
+  "});",
+  "app.patch('/me', { preHandler: requireAuth }, async (req, reply) => {",
+  "  const b = req.body || {}; const sets = []; const vals = []; let i = 1; let pwChanged = false;",
+  "  if (b.name != null) { sets.push('name=$' + i++); vals.push(String(b.name)); }",
+  "  if (b.password != null) {",
+  "    if (String(b.password).length < 8) { reply.code(400); return { error: { message: 'senha deve ter ao menos 8 caracteres' } }; }",
+  "    // troca de senha exige a senha ATUAL (verifyPassword) — não basta o Bearer.",
+  "    const cur = (await pool.query('SELECT password_hash FROM users WHERE id=$1', [req.authUser.id])).rows[0];",
+  "    if (!cur || !(await verifyPassword(String(b.currentPassword || ''), cur.password_hash))) { reply.code(403); return { error: { message: 'senha atual inválida' } }; }",
+  "    sets.push('password_hash=$' + i++); vals.push(await hashPassword(String(b.password))); pwChanged = true;",
+  "  }",
+  "  if (!sets.length) { reply.code(400); return { error: { message: 'nada para atualizar' } }; }",
+  "  vals.push(req.authUser.id);",
+  "  const u = (await pool.query('UPDATE users SET ' + sets.join(',') + ', updated_at=now() WHERE id=$' + i + ' RETURNING *', vals)).rows[0];",
+  "  // ao trocar a senha, revoga TODAS as sessões ativas do usuário (refresh tokens deixam de valer).",
+  "  if (pwChanged) { await pool.query('UPDATE sessions SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL', [req.authUser.id]); await audit(req.authUser.tenantId, req.authUser.email, 'password.change', 'user', req.authUser.id); }",
+  "  return { user: publicUser(u) };",
+  "});",
+  "// --- gerência de usuários (somente admin) — ESCOPADA ao tenant do admin (isolamento) ---",
+  "app.get('/v1/users', { preHandler: [requireAuth, requireAuthRole('admin')] }, async (req) => ({ data: (await pool.query('SELECT id,email,name,role,is_active,created_at FROM users WHERE tenant_id=$1 ORDER BY id ASC', [req.authUser.tenantId])).rows }));",
+  "app.post('/v1/users', { preHandler: [requireAuth, requireAuthRole('admin')] }, async (req, reply) => {",
+  "  const b = req.body || {}; const email = String(b.email || '').toLowerCase().trim(); const password = String(b.password || '');",
+  "  if (!email || !b.name) { reply.code(400); return { error: { message: 'name e email obrigatórios' } }; }",
+  "  if (password.length < 8) { reply.code(400); return { error: { message: 'senha deve ter ao menos 8 caracteres' } }; }",
+  "  if (await findUserByEmail(email)) { reply.code(409); return { error: { message: 'email já cadastrado' } }; }",
+  "  const role = ['admin', 'manager', 'member'].includes(b.role) ? b.role : 'member';",
+  "  const hash = await hashPassword(password);",
+  "  // criado no MESMO tenant do admin (não fixo 1).",
+  "  const u = (await pool.query('INSERT INTO users(tenant_id,email,name,password_hash,role) VALUES ($1,$2,$3,$4,$5) RETURNING *', [req.authUser.tenantId, email, b.name, hash, role])).rows[0];",
+  "  await audit(req.authUser.tenantId, req.authUser.email, 'user.create', 'user', u.id);",
+  "  reply.code(201); return { user: publicUser(u) };",
+  "});",
+  "app.patch('/v1/users/:id', { preHandler: [requireAuth, requireAuthRole('admin')] }, async (req, reply) => {",
+  "  const b = req.body || {}; const id = Number(req.params.id); const sets = []; const vals = []; let i = 1; let revoke = false;",
+  "  if (b.role != null) { if (!['admin', 'manager', 'member'].includes(b.role)) { reply.code(400); return { error: { message: 'role inválido' } }; } sets.push('role=$' + i++); vals.push(b.role); revoke = true; }",
+  "  if (b.is_active != null) { sets.push('is_active=$' + i++); vals.push(!!b.is_active); if (!b.is_active) revoke = true; }",
+  "  if (!sets.length) { reply.code(400); return { error: { message: 'nada para atualizar' } }; }",
+  "  vals.push(id); vals.push(req.authUser.tenantId);",
+  "  // UPDATE escopado ao tenant do admin (não vaza/edita usuário de outro tenant).",
+  "  const u = (await pool.query('UPDATE users SET ' + sets.join(',') + ', updated_at=now() WHERE id=$' + i + ' AND tenant_id=$' + (i + 1) + ' RETURNING *', vals)).rows[0];",
+  "  if (!u) { reply.code(404); return { error: { message: 'não encontrado' } }; }",
+  "  // rebaixar papel OU desativar revoga as sessões ativas do usuário-alvo (acesso some imediatamente).",
+  "  if (revoke) { await pool.query('UPDATE sessions SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL', [id]); await audit(req.authUser.tenantId, req.authUser.email, 'user.update', 'user', id); }",
+  "  return { user: publicUser(u) };",
+  "});",
+  "app.delete('/v1/users/:id', { preHandler: [requireAuth, requireAuthRole('admin')] }, async (req, reply) => {",
+  "  const id = Number(req.params.id);",
+  "  if (id === req.authUser.id) { reply.code(400); return { error: { message: 'não pode desativar a si mesmo' } }; }",
+  "  // desativação escopada ao tenant do admin.",
+  "  const u = (await pool.query('UPDATE users SET is_active=false, updated_at=now() WHERE id=$1 AND tenant_id=$2 RETURNING id', [id, req.authUser.tenantId])).rows[0];",
+  "  if (!u) { reply.code(404); return { error: { message: 'não encontrado' } }; }",
+  "  // desativar revoga todas as sessões ativas do alvo.",
+  "  await pool.query('UPDATE sessions SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL', [id]);",
+  "  await audit(req.authUser.tenantId, req.authUser.email, 'user.deactivate', 'user', id);",
+  "  return { ok: true };",
+  "});",
+  "// --- SSO Keycloak ADITIVO/OPCIONAL ---",
+  "app.get('/auth/sso/config', async () => ssoConfig());",
+  "app.post('/auth/sso/exchange', async (req, reply) => {",
+  "  const profile = await ssoUserinfo((req.body || {}).accessToken);",
+  "  if (!profile) { reply.code(401); return { error: { message: 'SSO indisponível ou token inválido' } }; }",
+  "  const u = await ssoUpsertUser(profile);",
+  "  if (!u) { reply.code(403); return { error: { message: 'usuário inativo' } }; }",
+  "  const accessToken = signAccess(u); const refreshToken = await issueSession(u.id);",
+  "  await audit(u.tenant_id, profile.email, 'login.sso', 'user', u.id);",
+  "  return { accessToken, refreshToken, user: publicUser(u) };",
+  "});",
+);
 serverLines.push(
   'const PORT = Number(process.env.PORT) || 8080;',
   '(async () => {',
@@ -175,7 +429,7 @@ serverLines.push(
   '  startMetricsServer();',
   "  await app.listen({ port: PORT, host: '0.0.0.0' });",
   "  console.log('[@@APP@@-api] :' + PORT);",
-  "})().catch((e) => { console.error('boot falhou', e); process.exit(1); });", '',
+  "})().catch((e) => { console.error('boot falhou:', e && e.message ? e.message : e); process.exit(1); });", '',
 );
 add('api/src/server.js', serverLines.filter((l) => l !== '').join('\n'));
 
@@ -232,7 +486,7 @@ add('devops.yaml', [
 ].filter((l) => l !== '').join('\n'));
 
 add('k8s/@@APP@@.yaml', buildK8s());
-add('CLAUDE.md', '---\ntitle: "@@TITLE@@ — Manual para Claude Code"\nstatus: canonical\napplies_to: [@@APP@@]\nupdated: ' + new Date().toISOString().slice(0, 10) + '\nlanguage: pt-BR\n---\n\n# @@TITLE@@ — gerado pela Forge (gymops-style)\n\nFastify + Postgres' + (F.redis ? ' + Redis/BullMQ' : '') + (F.rbac ? ' + RBAC multi-tenant' : '') + '. Blocos: ' + blocks.join(', ') + '.\n\n' + (F.rbac ? '> RBAC por header X-Tenant-Id/X-Role (stand-in da sessão OIDC; login real = client no Keycloak realm nvit).\n\n' : '') + 'Verificar: `BASE_URL=http://nvit.localhost@@BASE@@/api node apps/@@APP@@/test/integration.mjs`\n');
+add('CLAUDE.md', '---\ntitle: "@@TITLE@@ — Manual para Claude Code"\nstatus: canonical\napplies_to: [@@APP@@]\nupdated: ' + new Date().toISOString().slice(0, 10) + '\nlanguage: pt-BR\n---\n\n# @@TITLE@@ — gerado pela Forge (gymops-style)\n\nFastify + Postgres' + (F.redis ? ' + Redis/BullMQ' : '') + (F.rbac ? ' + RBAC multi-tenant' : '') + (F.contas ? ' + Auth própria (contas-acesso)' : '') + '. Blocos: ' + blocks.join(', ') + '.\n\n' + (F.rbac ? '> RBAC por header X-Tenant-Id/X-Role (stand-in da sessão OIDC; login real = client no Keycloak realm nvit).\n\n' : '') + (F.contas ? '> Auth própria (bloco contas-acesso): POST /auth/register|login|refresh|logout, GET/PATCH /me, /v1/users/* (admin), /auth/sso/* (Keycloak ADITIVO/opcional via OIDC_ISSUER). Senha bcrypt; refresh hash sha256; JWT HS256 (JWT_SECRET — FAIL-CLOSED em produção). Registro público SEMPRE cria member; o admin vem só do seed de bootstrap (BOOTSTRAP_ADMIN_EMAIL/PASSWORD obrigatórios — sem senha default). Troca de senha exige currentPassword e revoga sessões; desativar/rebaixar usuário revoga as sessões dele; gerência escopada ao tenant do admin. Rotas de auth com rate-limit. SSO exige email_verified.\n\n' : '') + 'Verificar: `BASE_URL=http://nvit.localhost@@BASE@@/api node apps/@@APP@@/test/integration.mjs`\n');
 add('test/integration.mjs', buildTest());
 
 function buildTest() {
@@ -256,6 +510,21 @@ function buildTest() {
     "ok((await post('/v1/records/' + r2.id + '/submit', {})).j.enqueued === true, 'Redis/BullMQ: submit enfileirado');",
     "let a = {}; for (let i = 0; i < 12; i++) { await sleep(3000); a = (await get('/v1/records/' + r2.id)).j; if (a.status === 'submitted' || a.status === 'failed') break; }",
     "ok(a.status === 'submitted', 'BullMQ worker + gateway: record submetido');");
+  if (F.contas) L.push(
+    "// --- bloco contas-acesso: auth própria ---",
+    "ok((await get('/me')).s === 401, 'auth: /me sem token -> 401');",
+    "const email = 'u' + Date.now() + '@local'; const reg = await post('/auth/register', { name: 'Teste', email, password: 'senha12345' });",
+    "ok(reg.s === 201 && reg.j.accessToken && reg.j.user.id, 'auth: registro emite tokens');",
+    "const tok = reg.j.accessToken; const refresh = reg.j.refreshToken; const auth = { Authorization: 'Bearer ' + tok };",
+    "ok((await get('/me', auth)).j.email === email, 'auth: /me com token retorna o usuário');",
+    "ok((await post('/auth/register', { name: 'Dup', email, password: 'senha12345' })).s === 409, 'auth: email duplicado -> 409');",
+    "ok((await post('/auth/register', { name: 'Curta', email: 'x' + Date.now() + '@local', password: 'curta' })).s === 400, 'auth: senha curta -> 400');",
+    "ok((await post('/auth/login', { email, password: 'errada' })).s === 401, 'auth: senha errada -> 401');",
+    "ok((await post('/auth/login', { email, password: 'senha12345' })).s === 200, 'auth: login ok -> 200');",
+    "const rf = await post('/auth/refresh', { refreshToken: refresh }); ok(rf.s === 200 && rf.j.accessToken, 'auth: refresh rotaciona');",
+    "ok((await post('/auth/refresh', { refreshToken: refresh })).s === 401, 'auth: refresh usado é revogado -> 401');",
+    "ok((await get('/v1/users', auth)).s === 403, 'auth: member não lista usuários (403)');",
+    "const cfg = await get('/auth/sso/config'); ok(typeof cfg.j.enabled === 'boolean', 'auth: /auth/sso/config público');");
   L.push("console.log(process.exitCode ? 'FALHOU' : 'OK — gymops-style robusto');", '');
   return L.join('\n');
 }
@@ -296,7 +565,7 @@ function buildK8s() {
     'spec:', '  replicas: 1', '  selector: { matchLabels: { app.kubernetes.io/name: @@APP@@-api } }',
     '  template:', '    metadata: { labels: { app.kubernetes.io/name: @@APP@@-api, app.kubernetes.io/component: api, app.kubernetes.io/part-of: @@APP@@ } }',
     '    spec:', '      containers:', '        - name: api', '          image: @@APP@@-api:local', '          imagePullPolicy: IfNotPresent',
-    '          command: ["npm", "start"]', '          envFrom: [ { secretRef: { name: @@APP@@-db } }, { secretRef: { name: @@APP@@-ai, optional: true } } ]', '          env:', ...apiEnv,
+    '          command: ["npm", "start"]', '          envFrom: [ { secretRef: { name: @@APP@@-db } }, { secretRef: { name: @@APP@@-ai, optional: true } }' + (F.contas ? ', { secretRef: { name: @@APP@@-auth, optional: true } }' : '') + ' ]', '          env:', ...apiEnv,
     '          ports:', '            - { name: http, containerPort: 8080 }', '            - { name: metrics, containerPort: 9464 }',
     '          readinessProbe: { httpGet: { path: /health, port: 8080 }, initialDelaySeconds: 8, periodSeconds: 10 }');
   L.push('---', 'apiVersion: v1', 'kind: Service', 'metadata: { name: @@APP@@-api, namespace: apps, labels: { app.kubernetes.io/name: @@APP@@-api, app.kubernetes.io/part-of: @@APP@@ } }', 'spec: { selector: { app.kubernetes.io/name: @@APP@@-api }, ports: [ { name: http, port: 8080, targetPort: 8080 }, { name: metrics, port: 9464, targetPort: 9464 } ] }');
@@ -347,4 +616,4 @@ if (kitRefs.length) {
 }
 console.log(`[scaffold-gymops] ${APP} (${blocks.length} blocos) — ${written} arquivos`);
 console.log(`  blocos: ${blocks.join(', ')}`);
-console.log(`  redis=${F.redis} gateway=${F.gateway} rbac=${F.rbac}`);
+console.log(`  redis=${F.redis} gateway=${F.gateway} rbac=${F.rbac} contas=${F.contas}`);

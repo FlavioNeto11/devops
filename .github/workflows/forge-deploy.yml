@@ -84,6 +84,23 @@ jobs:
             Write-Host "::warning::ANTHROPIC_API_KEY ausente no runner — o assistente de $prod responderá 503. Defina a env no runner p/ ativar (o smoke abaixo vai sinalizar)."
           }
 
+          # 2c) Secret <prod>-auth (bloco contas-acesso): JWT_SECRET aleatório + admin de bootstrap aleatório.
+          #     Só se o app tiver auth própria (gera apps/<prod>/api/src/auth.js) E o secret faltar — NÃO
+          #     rotaciona (rotacionar invalidaria todas as sessões + trocaria a senha do admin já criado).
+          #     NUNCA logamos os valores: o admin é recuperável via `kubectl get secret <prod>-auth`.
+          $hasAuth = Test-Path (Join-Path $appDir 'api/src/auth.js')
+          if ($hasAuth) {
+            $authExists = (kubectl -n apps get secret "$prod-auth" --ignore-not-found -o name 2>$null)
+            if (-not $authExists) {
+              $jwt = -join ((48..57)+(65..90)+(97..122) | Get-Random -Count 48 | ForEach-Object {[char]$_})
+              $adminPw = -join ((48..57)+(65..90)+(97..122) | Get-Random -Count 24 | ForEach-Object {[char]$_})
+              $adminEmail = "admin@$prod.local"
+              kubectl -n apps create secret generic "$prod-auth" --from-literal=JWT_SECRET=$jwt --from-literal=BOOTSTRAP_ADMIN_EMAIL=$adminEmail --from-literal=BOOTSTRAP_ADMIN_PASSWORD=$adminPw | Out-Null
+              Write-Host "secret $prod-auth criado (JWT + admin de bootstrap)."
+              Write-Host "::notice::admin de bootstrap de $prod no Secret $prod-auth (email: $adminEmail). Recupere a senha com: kubectl -n apps get secret $prod-auth -o jsonpath='{.data.BOOTSTRAP_ADMIN_PASSWORD}' | base64 -d"
+            } else { Write-Host "secret $prod-auth já existe — mantido (não rotaciona JWT/admin)." }
+          }
+
           # 3) aplica os manifests (caso o Argo ainda não tenha) + religa p/ pegar a :local nova.
           kubectl apply -f (Join-Path $appDir 'k8s') 2>$null
           kubectl -n apps rollout restart deployment -l app.kubernetes.io/part-of=$prod

@@ -26,12 +26,17 @@ export function loadCatalog(specsDir = SPECS_DIR) {
   return new Map((j.capabilities || []).filter((c) => c && c.id).map((c) => [c.id, c]));
 }
 
-// RESOLVE o conjunto final de blocos (puro/testável): força observabilidade, fecha `requires`,
+// Blocos SEMPRE incluídos num produto novo (todo app nasce observável + com contas/acesso).
+// Só são adicionados se existirem no catálogo E forem compatíveis com a stack — um produto
+// cuja stack não suporta o bloco gera idêntico a antes (resolução fail-soft, sem quebrar).
+export const DEFAULT_BLOCKS = ['observabilidade', 'contas-acesso'];
+
+// RESOLVE o conjunto final de blocos (puro/testável): força os DEFAULT_BLOCKS, fecha `requires`,
 // dropa incompatível-com-stack e conflitos (mantém o primeiro pela ordem do catálogo).
 export function resolveBlocks(selected, stack, byId) {
   const compatible = (id) => { const b = byId.get(id); return b && (!stack || b.compatible_stacks.includes(stack)); };
   const chosen = new Set();
-  if (byId.has('observabilidade') && compatible('observabilidade')) chosen.add('observabilidade'); // DEFAULT
+  for (const id of DEFAULT_BLOCKS) if (byId.has(id) && compatible(id)) chosen.add(id); // DEFAULT (sempre)
   for (const id of (selected || [])) if (byId.has(id) && compatible(id)) chosen.add(id);
   let changed = true;
   while (changed) {
