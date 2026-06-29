@@ -140,9 +140,7 @@ const LOCK_KEY = 0x7a61_7062;
 
 let _migrated = false;
 
-/** Cria extensão + tabelas (idempotente). Fail-soft: sem AI_DATABASE_URL, no-op. */
-export async function runAiMigrations(): Promise<void> {
-  if (!aiDbEnabled() || _migrated) return;
+async function migrateOnce(): Promise<void> {
   const pool = getPool();
   if (!pool) return;
   const client = await pool.connect();
@@ -158,5 +156,27 @@ export async function runAiMigrations(): Promise<void> {
       /* ignore */
     }
     client.release();
+  }
+}
+
+/**
+ * Cria extensão + tabelas (idempotente). Fail-soft: sem AI_DATABASE_URL, no-op.
+ * Com retry/backoff: o server (Recreate) costuma bootar ANTES de o Postgres ficar
+ * pronto — sem retry as tabelas nunca seriam criadas (a função roda uma vez no boot).
+ */
+export async function runAiMigrations(): Promise<void> {
+  if (!aiDbEnabled() || _migrated) return;
+  const maxAttempts = 12; // ~2min total (postgres initdb + pull da imagem na 1ª subida)
+  for (let attempt = 1; attempt <= maxAttempts && !_migrated; attempt++) {
+    try {
+      await migrateOnce();
+      return;
+    } catch (e) {
+      if (attempt === maxAttempts) {
+        console.warn('[ai/pg] migrations falharam após', maxAttempts, 'tentativas:', (e as Error).message);
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 10_000));
+    }
   }
 }
