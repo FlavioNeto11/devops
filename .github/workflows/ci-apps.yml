@@ -69,7 +69,8 @@ jobs:
             {"app":"portal-recorder-api","path":"portal-recorder/api","pm":"npm","prep":"","checks":"test"},
             {"app":"portal-recorder-frontend","path":"portal-recorder/frontend","pm":"npm","prep":"","checks":"build"},
             {"app":"ai-control-plane-api","path":"ai-control-plane/api","pm":"npm","prep":"","checks":"test"},
-            {"app":"reqhub-api","path":"reqhub/api","pm":"npm","prep":"","checks":"test"}
+            {"app":"reqhub-api","path":"reqhub/api","pm":"npm","prep":"","checks":"test"},
+            {"app":"zapbridge-server","path":"zapbridge/server","pm":"npm","prep":"npx prisma generate","checks":"build"}
           ]
           JSON
 

@@ -1,0 +1,152 @@
+// ZapBridge - schema Prisma (SQLite no MVP).
+// Para PostgreSQL: troque provider para "postgresql" e ajuste DATABASE_URL.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  displayName  String
+  pushToken    String?  // Expo push token para notificações
+  createdAt    DateTime @default(now())
+
+  session  WhatsAppSession?
+  setting  AppSetting?
+}
+
+model WhatsAppSession {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status          String    @default("disconnected") // disconnected | connecting | qr | connected
+  phoneNumber     String?
+  authFolderPath  String
+  lastConnectedAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  contacts          Contact[]
+  chats             Chat[]
+  groups            Group[]
+  deviceConnections DeviceConnection[]
+}
+
+model Contact {
+  id        String  @id @default(cuid())
+  sessionId String
+  session   WhatsAppSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  jid       String
+  name      String?
+  pushName  String?
+  avatarUrl String?
+
+  @@unique([sessionId, jid])
+  @@index([sessionId])
+}
+
+model Chat {
+  id            String   @id @default(cuid())
+  sessionId     String
+  session       WhatsAppSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  jid           String
+  name          String?
+  avatarUrl     String?
+  isGroup       Boolean  @default(false)
+  unreadCount   Int      @default(0)
+  lastMessageId String?
+  lastMessageAt DateTime @default(now())
+  archived      Boolean  @default(false)
+  locked        Boolean  @default(false)
+
+  messages Message[]
+
+  @@unique([sessionId, jid])
+  @@index([sessionId, lastMessageAt])
+}
+
+model Message {
+  id              String   @id @default(cuid())
+  chatId          String
+  chat            Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  waMessageId     String?
+  fromMe          Boolean  @default(false)
+  senderJid       String
+  type            String   @default("text") // text | image | video | audio | document
+  text            String?
+  quotedMessageId String?
+  status          String   @default("pending") // pending | sent | delivered | read | error
+  reactions       String?  // JSON: [{ jid, emoji }] — reações à mensagem
+  timestamp       DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  media Media?
+
+  @@unique([chatId, waMessageId])
+  @@index([chatId, timestamp])
+}
+
+model Media {
+  id         String  @id @default(cuid())
+  messageId  String  @unique
+  message    Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  type       String  // image | video | audio | document
+  mimeType   String?
+  fileName   String?
+  localPath  String?
+  size       Int?
+  downloaded Boolean @default(false)
+  expired    Boolean @default(false)
+  // Chaves para download sob demanda (Baileys downloadContentFromMessage).
+  mediaKey    String? // base64
+  directPath  String?
+  url         String?
+}
+
+model Group {
+  id          String  @id @default(cuid())
+  sessionId   String
+  session     WhatsAppSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  jid         String
+  subject     String?
+  description String?
+  ownerJid    String?
+
+  participants GroupParticipant[]
+
+  @@unique([sessionId, jid])
+}
+
+model GroupParticipant {
+  id      String  @id @default(cuid())
+  groupId String
+  group   Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  jid     String
+  isAdmin Boolean @default(false)
+
+  @@unique([groupId, jid])
+}
+
+model DeviceConnection {
+  id          String   @id @default(cuid())
+  sessionId   String
+  session     WhatsAppSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  lastEventAt DateTime @default(now())
+  socketState String   @default("closed")
+}
+
+model AppSetting {
+  id                   String  @id @default(cuid())
+  userId               String  @unique
+  user                 User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  theme                String  @default("system") // system | light | dark
+  notificationsEnabled Boolean @default(true)
+  lockSecret           String? // código que revela as conversas trancadas (tranca local)
+}

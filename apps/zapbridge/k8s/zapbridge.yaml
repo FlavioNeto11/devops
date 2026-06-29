@@ -1,0 +1,190 @@
+# =============================================================================
+# ZapBridge backend (REST + Socket.IO + Baileys) — namespace `apps`.
+# Exposto sob dev.nvit.com.br/zapbridge (e nvit.localhost/zapbridge) reusando o
+# Traefik + Cloudflare Tunnel existentes. NÃO altera nenhum outro app.
+#
+# Rotas (regra de ouro da plataforma):
+#   /zapbridge/socket.io  -> WebSocket, priority 40, SEM strip (Socket.IO path
+#                            casa exatamente), upgrade nativo do Traefik.
+#   /zapbridge/api        -> REST, priority 30, strip /zapbridge/api.
+#
+# Persistência: PVC RWO com SQLite + credenciais Baileys + mídia. Deployment
+# `Recreate` (estado em memória dos sockets + volume RWO: nunca 2 réplicas).
+#
+# Imagem local: zapbridge-server:local
+#   docker build -t zapbridge-server:local apps/zapbridge/server
+#
+# Pré-requisito: Secret `zapbridge-config` (JWT_SECRET) criado FORA do git (ver
+# secret.example.yaml, padrão da plataforma — NÃO entra no kustomization.yaml, o
+# Argo não o gerencia/pruna):
+#   kubectl create secret generic zapbridge-config -n apps \
+#     --from-literal=JWT_SECRET=<valor-forte>
+# =============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: zapbridge-data
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: zapbridge
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zapbridge-server
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: zapbridge-server
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: zapbridge
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zapbridge-server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: zapbridge-server
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: zapbridge
+    spec:
+      containers:
+        - name: server
+          image: zapbridge-server:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            - name: DATABASE_URL
+              value: "file:/data/zapbridge.db"
+            - name: AUTH_DIR
+              value: "/data/auth"
+            - name: MEDIA_DIR
+              value: "/data/media"
+            - name: SOCKET_IO_PATH
+              value: "/zapbridge/socket.io"
+            - name: CORS_ORIGIN
+              value: "https://dev.nvit.com.br"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: zapbridge-config
+                  key: JWT_SECRET
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 6
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "192Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: zapbridge-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zapbridge-server
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: zapbridge
+spec:
+  selector:
+    app.kubernetes.io/name: zapbridge-server
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: zapbridge-api-strip
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: zapbridge
+spec:
+  stripPrefix:
+    prefixes:
+      - /zapbridge/api
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: zapbridge
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: zapbridge
+spec:
+  entryPoints:
+    - web
+  routes:
+    # WebSocket (Socket.IO) — mais específico, priority MAIOR, SEM strip.
+    # Traefik faz o upgrade WS nativamente; sem compress/secure-headers.
+    - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/zapbridge/socket.io`)
+      kind: Rule
+      priority: 40
+      services:
+        - name: zapbridge-server
+          port: 3000
+    # REST — strip /zapbridge/api (backend vê as rotas na raiz), priority 30.
+    - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/zapbridge/api`)
+      kind: Rule
+      priority: 30
+      services:
+        - name: zapbridge-server
+          port: 3000
+      middlewares:
+        - name: zapbridge-api-strip
+        - name: compress
+          namespace: traefik
+        - name: secure-headers
+          namespace: traefik
+    # Frontend (app web + landing, SPA base /zapbridge) — SEM strip, priority MENOR.
+    - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/zapbridge`)
+      kind: Rule
+      priority: 10
+      services:
+        - name: zapbridge-web
+          port: 80
+      middlewares:
+        - name: compress
+          namespace: traefik
+        - name: secure-headers
+          namespace: traefik

@@ -1,0 +1,30 @@
+# Dependências
+node_modules/
+**/node_modules/
+
+# Builds
+dist/
+**/dist/
+.expo/
+**/.expo/
+web-build/
+
+# Ambiente / segredos
+.env
+**/.env
+!**/.env.example
+
+# Banco SQLite local
+**/prisma/dev.db
+**/prisma/dev.db-journal
+
+# Credenciais Baileys e mídia (NUNCA versionar)
+server/storage/auth/*
+!server/storage/auth/.gitkeep
+server/storage/media/*
+!server/storage/media/.gitkeep
+
+# Logs e SO
+*.log
+.DS_Store
+Thumbs.db
