@@ -44,9 +44,13 @@ async function buildGraph(): Promise<{ runTurn(turn: GraphTurn): Promise<GraphRe
   }
 
   const registry = await getToolRegistry();
-  graph = core.createAiGraph({
+  // forceSpecialist NÃO está no .d.ts (mantido à mão), mas é suportado no runtime
+  // (graph.js: todo turno NÃO-trivial vai SEMPRE pro deep-path com tools) — é o que
+  // garante que o assistente USE as tools em vez de responder genérico. Cast consciente.
+  const graphOpts: Record<string, unknown> = {
     llm,
     registry,
+    forceSpecialist: 'assistant',
     specialists: [
       {
         id: 'assistant',
@@ -75,7 +79,8 @@ async function buildGraph(): Promise<{ runTurn(turn: GraphTurn): Promise<GraphRe
       'Use "trivial" só para saudação/agradecimento/social puro. Você TEM acesso ao histórico via tools — ' +
       'NUNCA responda que "não tem acesso às conversas".',
     verify: (process.env.AI_GRAPH_VERIFY ?? 'on').trim().toLowerCase() !== 'off',
-  });
+  };
+  graph = core.createAiGraph(graphOpts as never);
   return graph;
 }
 

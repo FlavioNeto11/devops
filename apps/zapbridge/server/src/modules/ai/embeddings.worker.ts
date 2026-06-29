@@ -103,21 +103,37 @@ export async function backfillUserEmbeddings(
 ): Promise<void> {
   if (!aiDbEnabled() || _backfilling.has(userId)) return;
   _backfilling.add(userId);
-  const batch = Math.min(opts.batch ?? 256, 512);
+  // Lote menor (o SQLite é contendido pela sessão Baileys ao vivo; leituras grandes
+  // dão "Operations timed out"). Retry por página torna o backfill resiliente.
+  const batch = Math.min(opts.batch ?? 100, 256);
   const max = opts.max ?? 50_000;
   _progress.set(userId, { running: true, done: 0, indexed: 0 });
   let indexed = 0;
   let done = 0;
+
+  const readPage = async (cursor?: string) => {
+    for (let attempt = 1; attempt <= 4; attempt++) {
+      try {
+        return await prisma.message.findMany({
+          where: { text: { not: null }, chat: { sessionId } },
+          orderBy: { timestamp: 'desc' },
+          take: batch,
+          ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+          select: { id: true, text: true, fromMe: true, timestamp: true, chat: { select: { jid: true } } },
+        });
+      } catch {
+        if (attempt === 4) return null; // desiste desta sessão; reindex retoma do zero (idempotente)
+        await new Promise((r) => setTimeout(r, 1500 * attempt)); // SQLite ocupado → recua e tenta de novo
+      }
+    }
+    return null;
+  };
+
   try {
     let cursor: string | undefined;
     while (done < max) {
-      const rows = await prisma.message.findMany({
-        where: { text: { not: null }, chat: { sessionId } },
-        orderBy: { timestamp: 'desc' },
-        take: batch,
-        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-        select: { id: true, text: true, fromMe: true, timestamp: true, chat: { select: { jid: true } } },
-      });
+      const rows = await readPage(cursor);
+      if (rows === null) break; // timeout persistente → para (retomável)
       if (!rows.length) break;
       cursor = rows[rows.length - 1]!.id;
       done += rows.length;
