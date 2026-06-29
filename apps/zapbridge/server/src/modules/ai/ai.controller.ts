@@ -136,7 +136,15 @@ export async function postAssistant(req: AuthedRequest, res: Response): Promise<
     res.status(400).json({ error: 'message obrigatório' });
     return;
   }
-  const result = await runReasoning({ message, userId, sessionId });
+  const requestId = String(req.body?.requestId ?? '');
+  const result = await runReasoning(
+    { message, userId, sessionId },
+    {
+      onProgress: (phase, detail) => emitToUser(userId, 'ai.assistant.progress', { requestId, phase, detail }),
+      onDelta: (chunk) => emitToUser(userId, 'ai.assistant.delta', { requestId, chunk }),
+    },
+  );
+  emitToUser(userId, 'ai.assistant.done', { requestId });
   res.json({
     text: result.text,
     route: result.route,
@@ -145,6 +153,7 @@ export async function postAssistant(req: AuthedRequest, res: Response): Promise<
     citations: result.citations,
     proposals: result.proposals,
     meta: result.meta,
+    requestId,
   });
 }
 

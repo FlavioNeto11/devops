@@ -155,6 +155,48 @@ export async function chatMultimodal(
   return out.text;
 }
 
+/**
+ * Chat de texto com STREAMING (resposta token a token). Anthropic via SDK nativo
+ * (messages.stream); outros providers caem para não-stream (emite tudo de uma vez).
+ * onDelta recebe cada pedaço de texto. Retorna o texto completo.
+ */
+export async function streamText(
+  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
+  model: string = defaultModel(),
+  onDelta: (chunk: string) => void = () => {},
+): Promise<string> {
+  const client = getClient();
+  if (!client) return '';
+  if (activeProvider() !== 'anthropic') {
+    const text = await chatText(client, messages, model);
+    if (text) onDelta(text);
+    return text;
+  }
+  const system = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
+  const msgs = messages.filter((m) => m.role !== 'system').map((m) => ({ role: m.role, content: m.content }));
+  let full = '';
+  try {
+    const anthropic = client as any;
+    const stream = anthropic.messages.stream({ model, max_tokens: 3000, system, messages: msgs });
+    stream.on('text', (t: string) => {
+      full += t;
+      try {
+        onDelta(t);
+      } catch {
+        /* ignore */
+      }
+    });
+    const fm = await stream.finalMessage();
+    if (!full && fm?.content) full = fm.content.filter((b: any) => b?.type === 'text').map((b: any) => b.text).join('');
+    void recordUsage(fm?.usage, model);
+    return full;
+  } catch {
+    const text = await chatText(client, messages, model).catch(() => '');
+    if (text && !full) onDelta(text);
+    return full || text;
+  }
+}
+
 // ---------------------------------------------------------------- embeddings
 // Cliente OpenAI dedicado a embeddings (independe do provider de reasoning).
 let _embedClient: OpenAI | null = null;

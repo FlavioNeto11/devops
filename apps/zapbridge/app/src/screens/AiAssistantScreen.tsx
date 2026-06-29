@@ -6,6 +6,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { aiApi, AssistantResult } from '../api/ai';
 import { errorMessage } from '../api/client';
+import { getSocket } from '../realtime/socket';
 import { Markdown } from '../components/Markdown';
 import { spacing, radius, Palette } from '../theme/theme';
 import { useTheme } from '../theme/ThemeContext';
@@ -15,6 +16,8 @@ type Props = NativeStackScreenProps<RootStackParamList, 'AiAssistant'>;
 interface Turn {
   role: 'user' | 'assistant';
   text: string;
+  status?: string;       // status progressivo enquanto streama ("Lendo Cognição…")
+  streaming?: boolean;
   proposals?: AssistantResult['proposals'];
   done?: Record<number, 'ok' | 'fail'>;
   error?: boolean;
@@ -24,11 +27,15 @@ const STARTERS = [
   'Com quem eu falei ultimamente?',
   'Resuma minhas conversas não lidas',
   'O que combinei com a última pessoa?',
-  'Onde falaram sobre pagamento?',
+  'Tem algo urgente que precise da minha atenção?',
 ];
 
 const GREETING =
   'Pergunte sobre suas conversas — ex.: "onde combinei o pagamento com o João?" ou "resuma e proponha uma resposta para o último cliente".';
+
+function genId(): string {
+  return `req-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+}
 
 function TypingDots({ color }: { color: string }) {
   const a = [useRef(new Animated.Value(0.3)).current, useRef(new Animated.Value(0.3)).current, useRef(new Animated.Value(0.3)).current];
@@ -46,7 +53,7 @@ function TypingDots({ color }: { color: string }) {
     return () => loops.forEach((l) => l.stop());
   }, []);
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
       {a.map((v, i) => (
         <Animated.View key={i} style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: color, opacity: v }} />
       ))}
@@ -68,6 +75,8 @@ export function AiAssistantScreen({ navigation }: Props) {
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState<number | null>(null);
   const scrollRef = useRef<ScrollView>(null);
+  const reqIdRef = useRef<string>('');
+  const streamIdxRef = useRef<number>(-1);
 
   const clear = () => { setTurns([]); setValue(''); };
 
@@ -83,23 +92,60 @@ export function AiAssistantScreen({ navigation }: Props) {
   }, [navigation, turns.length, colors]);
 
   useEffect(() => {
-    const t = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
+    const t = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60);
     return () => clearTimeout(t);
   }, [turns, busy]);
+
+  // Eventos progressivos do servidor (status por fase + streaming da resposta).
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    const patchStream = (fn: (t: Turn) => Turn) =>
+      setTurns((prev) => prev.map((t, i) => (i === streamIdxRef.current ? fn(t) : t)));
+    const onProgress = (p: { requestId: string; detail: string }) => {
+      if (p.requestId !== reqIdRef.current || streamIdxRef.current < 0) return;
+      patchStream((t) => (t.text ? t : { ...t, status: p.detail }));
+    };
+    const onDelta = (p: { requestId: string; chunk: string }) => {
+      if (p.requestId !== reqIdRef.current || streamIdxRef.current < 0) return;
+      patchStream((t) => ({ ...t, text: t.text + p.chunk, status: '' }));
+    };
+    const onDone = (p: { requestId: string }) => {
+      if (p.requestId !== reqIdRef.current || streamIdxRef.current < 0) return;
+      patchStream((t) => ({ ...t, status: '' }));
+    };
+    socket.on('ai.assistant.progress', onProgress);
+    socket.on('ai.assistant.delta', onDelta);
+    socket.on('ai.assistant.done', onDone);
+    return () => {
+      socket.off('ai.assistant.progress', onProgress);
+      socket.off('ai.assistant.delta', onDelta);
+      socket.off('ai.assistant.done', onDone);
+    };
+  }, []);
 
   const send = async (msgArg?: string) => {
     const msg = (msgArg ?? value).trim();
     if (!msg || busy) return;
     setValue('');
-    setTurns((p) => [...p, { role: 'user', text: msg }]);
+    const reqId = genId();
+    reqIdRef.current = reqId;
     setBusy(true);
+    let idx = 0;
+    setTurns((p) => {
+      const next = [...p, { role: 'user' as const, text: msg }, { role: 'assistant' as const, text: '', status: '', streaming: true, done: {} }];
+      idx = next.length - 1;
+      streamIdxRef.current = idx;
+      return next;
+    });
     try {
-      const r = await aiApi.assistant(msg);
-      setTurns((p) => [...p, { role: 'assistant', text: r.text || '(sem resposta)', proposals: r.proposals, done: {} }]);
+      const r = await aiApi.assistant(msg, reqId);
+      setTurns((prev) => prev.map((t, i) => (i === streamIdxRef.current ? { ...t, text: r.text || t.text || '(sem resposta)', proposals: r.proposals, streaming: false, status: '' } : t)));
     } catch (e) {
-      setTurns((p) => [...p, { role: 'assistant', text: errorMessage(e), error: true }]);
+      setTurns((prev) => prev.map((t, i) => (i === streamIdxRef.current ? { ...t, text: errorMessage(e), error: true, streaming: false, status: '' } : t)));
     } finally {
       setBusy(false);
+      streamIdxRef.current = -1;
     }
   };
 
@@ -157,9 +203,16 @@ export function AiAssistantScreen({ navigation }: Props) {
               <View style={styles.assistantBubble}>
                 {t.error ? (
                   <Text style={styles.errText}>{t.text}</Text>
-                ) : (
+                ) : t.text ? (
                   <Markdown text={t.text} />
+                ) : (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 2 }}>
+                    <TypingDots color={colors.textMuted} />
+                    {!!t.status && <Text style={styles.status}>{t.status}</Text>}
+                  </View>
                 )}
+                {/* cursor de digitação enquanto streama */}
+                {t.streaming && !!t.text && <Text style={styles.status}>▍</Text>}
                 {t.proposals?.map((pr, j) => {
                   const state = t.done?.[j];
                   return (
@@ -177,7 +230,7 @@ export function AiAssistantScreen({ navigation }: Props) {
                     </View>
                   );
                 })}
-                {!t.error && (
+                {!t.error && !t.streaming && !!t.text && (
                   <TouchableOpacity style={styles.copyBtn} onPress={() => doCopy(i, t.text)}>
                     <Text style={styles.copyText}>{copied === i ? '✓ copiado' : '⧉ copiar'}</Text>
                   </TouchableOpacity>
@@ -185,15 +238,6 @@ export function AiAssistantScreen({ navigation }: Props) {
               </View>
             </View>
           ),
-        )}
-
-        {busy && (
-          <View style={styles.assistantRow}>
-            <View style={styles.avatar}><Text style={styles.avatarText}>✨</Text></View>
-            <View style={[styles.assistantBubble, { paddingVertical: spacing.md }]}>
-              <TypingDots color={colors.textMuted} />
-            </View>
-          </View>
         )}
       </ScrollView>
 
@@ -242,6 +286,7 @@ const makeStyles = (colors: Palette) =>
     avatarText: { fontSize: 15 },
     assistantBubble: { flex: 1, backgroundColor: colors.surface, borderRadius: radius.md, borderTopLeftRadius: 4, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
     errText: { color: colors.danger, fontSize: 14 },
+    status: { color: colors.textMuted, fontSize: 13, fontStyle: 'italic' },
 
     proposal: { marginTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingTop: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
     proposalText: { color: colors.text, fontSize: 13, flex: 1 },

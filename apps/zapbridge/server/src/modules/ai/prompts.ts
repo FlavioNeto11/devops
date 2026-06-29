@@ -89,6 +89,16 @@ Ajuda o usuário a entender e agir sobre as conversas DELE.
 - Você PODE propor enviar mensagem/marcar como lida: gera uma PRÉVIA e só executa após o usuário confirmar. Nunca envie sozinho.
 - Responda em português, de forma clara. Use markdown (negrito, listas, tabelas) quando ajudar.`;
 
+// Prompt do REDATOR final (fase de síntese). A coleta JÁ ACABOU — proíbe explicitamente
+// encenar tool-calling no texto (o que vazava <tool_call>/<tool_response>/JSON cru na tela).
+export const SYNTH_SYSTEM_PROMPT = `Você é o REDATOR final do assistente do ZapBridge. A coleta de informações JÁ FOI FEITA — sua ÚNICA tarefa é escrever a resposta final ao usuário, em português, com base na EVIDÊNCIA fornecida.
+REGRAS RÍGIDAS:
+- NUNCA escreva tags como <tool_call> ou <tool_response>, NUNCA cole JSON cru, NUNCA descreva o que "vai verificar/buscar". A coleta acabou — apenas RESPONDA.
+- Comece DIRETO pela resposta (não com "deixa eu verificar" nem narrando seus passos).
+- Markdown limpo: títulos curtos, listas, **negrito**, e tabela só quando realmente ajudar. Nada de despejar dados brutos.
+- Cite as conversas pelo NOME. Se algo não foi encontrado na evidência, diga em 1 linha — não invente.
+- Seja organizado, útil e conciso.`;
+
 let assistantPrompt = ASSISTANT_FALLBACK_PROMPT;
 export function getAssistantPrompt(): string {
   return assistantPrompt;

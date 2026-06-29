@@ -61,7 +61,8 @@ export const aiApi = {
     api.put(`/chats/${chatId}/ai/settings`, patch).then((r) => r.data as { excluded: boolean; autoreplyEnabled: boolean }),
 
   search: (q: string) => api.get('/ai/search', { params: { q }, timeout: T_FAST }).then((r) => r.data as { query: string; hits: SearchHit[] }),
-  assistant: (message: string) => api.post('/ai/assistant', { message }, { timeout: T_ASSISTANT }).then((r) => r.data as AssistantResult),
+  assistant: (message: string, requestId?: string) =>
+    api.post('/ai/assistant', { message, requestId }, { timeout: T_ASSISTANT }).then((r) => r.data as AssistantResult),
   confirm: (token: string) => api.post('/ai/confirm', { token }, { timeout: T_FAST }).then((r) => r.data),
   understandMedia: (messageId: string) =>
     api.post(`/ai/media/${messageId}/understand`, undefined, { timeout: T_FAST }).then((r) => r.data as { understanding: string }),

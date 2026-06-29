@@ -22,12 +22,27 @@
 import type { LlmAdapter } from '@flavioneto11/ai-core';
 import { env } from '../../config/env';
 import { query } from './pg';
-import { callAI, chatJSON, chatText, getClient, activeProvider, getEmbedder } from './ai.service';
+import { callAI, chatJSON, chatText, streamText, getClient, activeProvider, getEmbedder } from './ai.service';
 import { getAiMetrics } from './ai-metrics';
 import { loadAiCore } from './ai-core-loader';
 import { ALL_TOOLS, TOOL_BY_NAME } from './tools';
 import { signPendingAction } from './pending-actions';
-import { getAssistantPrompt } from './prompts';
+import { SYNTH_SYSTEM_PROMPT } from './prompts';
+
+export interface ReasoningCallbacks {
+  onProgress?: (phase: string, detail: string) => void;
+  onDelta?: (chunk: string) => void;
+}
+
+// Rótulo amigável do que a coleta está fazendo (feedback progressivo).
+function progressLabelFor(tool: string, args: any): string {
+  if (tool === 'list_chats') return 'Listando suas conversas…';
+  if (tool === 'get_recent_messages') return `Lendo ${args?.chat ?? args?.chatId ?? 'a conversa'}…`;
+  if (tool === 'search_history_semantic') return 'Buscando no seu histórico…';
+  if (tool === 'search_knowledge') return 'Consultando a base de conhecimento…';
+  if (tool === 'send_message') return `Preparando uma mensagem para ${args?.chat ?? 'a conversa'}…`;
+  return `Executando ${tool}…`;
+}
 
 // ---- modelos por papel ------------------------------------------------------
 const isAnthropic = () => activeProvider() === 'anthropic';
@@ -89,9 +104,20 @@ function budgetFor(complexity: string): { gather: number; reflect: number } {
 }
 
 // =============================================================================
-export async function runReasoning(turn: { message: string; userId: string; sessionId: string }): Promise<ReasoningResult> {
+export async function runReasoning(
+  turn: { message: string; userId: string; sessionId: string },
+  cb: ReasoningCallbacks = {},
+): Promise<ReasoningResult> {
   const { message, userId, sessionId } = turn;
   if (!getClient()) throw Object.assign(new Error('Assistente de IA indisponível (sem chave)'), { status: 503 });
+  const progress = (phase: string, detail: string) => {
+    try {
+      cb.onProgress?.(phase, detail);
+    } catch {
+      /* ignore */
+    }
+  };
+  progress('contexto', 'Lembrando do contexto…');
   await ensureMemory();
   const metrics = getAiMetrics();
   const toolCtx = { identity: { sub: userId }, userId, sessionId, channel: 'whatsapp' } as Record<string, unknown>;
@@ -111,6 +137,7 @@ export async function runReasoning(turn: { message: string; userId: string; sess
   const memoryBlock = [summary && `Resumo do que já conversamos: ${summary}`, historyBlock, factsBlock].filter(Boolean).join('\n\n');
 
   // 1. TRIAGEM --------------------------------------------------------------
+  progress('triagem', 'Entendendo o pedido…');
   const triagePrompt = [
     'Classifique o PEDIDO do usuário para um assistente que age sobre o WhatsApp DELE.',
     'complexity: "trivial" (saudação/social, ou já respondível pelo histórico) | "simple" (1 fato/1 conversa) | "complex" (várias conversas, análise, "tem algo urgente em tudo", planejar/comparar).',
@@ -124,23 +151,25 @@ export async function runReasoning(turn: { message: string; userId: string; sess
   const needsTools = triage?.needs_tools !== false && complexity !== 'trivial';
   const budget = budgetFor(complexity);
 
-  // Caminho curto: sem tools → responde direto do contexto/memória.
+  // Caminho curto: sem tools → responde direto do contexto/memória (com streaming).
   if (!needsTools) {
-    const text = await callAI(
-      (c) => chatText(c, [
-        { role: 'system', content: `${getAssistantPrompt()}\n\n${memoryBlock}` },
+    progress('sintese', 'Respondendo…');
+    const text = await streamText(
+      [
+        { role: 'system', content: `${SYNTH_SYSTEM_PROMPT}\n\n${memoryBlock}` },
         { role: 'user', content: message },
-      ], mainModel()),
-      'Desculpe, não consegui responder agora.',
-      { stage: 'reason.direct' },
+      ],
+      mainModel(),
+      cb.onDelta,
     );
-    await persist(threadId, message, text);
-    return { text, route: 'direct', complexity, proposed: false, proposals: [], citations: [], meta: { toolCalls: 0, reflectCycles: 0, budget: 0 } };
+    await persist(threadId, message, text || 'Desculpe, não consegui responder agora.');
+    return { text: text || 'Desculpe, não consegui responder agora.', route: 'direct', complexity, proposed: false, proposals: [], citations: [], meta: { toolCalls: 0, reflectCycles: 0, budget: 0 } };
   }
 
   // 2. PLANO (complexo) -----------------------------------------------------
   let plan = '';
   if (complexity === 'complex') {
+    progress('plano', 'Planejando o que consultar…');
     const planPrompt = [
       'Você é o PLANEJADOR. Para o pedido abaixo, liste de 2 a 4 passos objetivos de COLETA usando as tools — quais conversas/buscas consultar e por quê. Não responda ao usuário ainda.',
       `Tools:\n${toolsDoc()}`,
@@ -180,6 +209,7 @@ export async function runReasoning(turn: { message: string; userId: string; sess
       // modelo acha que basta → REFLEXÃO
       if (reflectLeft <= 0) break;
       reflectLeft--;
+      progress('reflexao', 'Verificando se falta algo…');
       const reflectPrompt = [
         'Você é o CRÍTICO. A evidência abaixo é suficiente para responder BEM e ANCORADO ao pedido? Se faltar algo essencial, aponte.',
         evidence.length ? evidence.map((e, i) => `[${i}] ${e.tool} -> ${clip(e.output, 600)}`).join('\n') : '(sem evidência)',
@@ -197,6 +227,7 @@ export async function runReasoning(turn: { message: string; userId: string; sess
       if (gatherLeft <= 0) break;
       const tool = TOOL_BY_NAME.get(String(call?.tool));
       if (!tool) { evidence.push({ tool: String(call?.tool), args: call?.args ?? {}, status: 'unknown', output: { error: 'tool desconhecida' } }); continue; }
+      progress('coleta', progressLabelFor(tool.name, call?.args));
       try {
         const out = await dispatchTool(tool, call?.args ?? {}, toolCtx as never);
         evidence.push({ tool: tool.name, args: call?.args ?? {}, status: out.status, output: out.output });
@@ -214,30 +245,32 @@ export async function runReasoning(turn: { message: string; userId: string; sess
     gaps = '';
   }
 
-  // 5. SÍNTESE --------------------------------------------------------------
-  const synthPrompt = [
-    getAssistantPrompt(),
+  // 5. SÍNTESE (redator puro + STREAMING) -----------------------------------
+  progress('sintese', 'Escrevendo a resposta…');
+  const synthSystem = [
+    SYNTH_SYSTEM_PROMPT,
     memoryBlock,
-    plan,
-    evidence.length ? `Evidência coletada (use SÓ isto como fonte de fatos; cite as conversas):\n${evidence.map((e, i) => `[${i}] ${e.tool}(${clip(e.args, 120)}) -> ${clip(e.output, 1200)}`).join('\n')}` : 'Não foi possível coletar evidência das conversas.',
-    proposals.length ? `Você PROPÔS ${proposals.length} ação(ões) que aguardam confirmação — mencione-as ao usuário.` : '',
-    'Responda ao usuário de forma clara e ORGANIZADA (markdown: títulos, listas, tabela quando útil), em português, ancorado na evidência. Se algo não foi encontrado, diga honestamente — não invente.',
+    evidence.length
+      ? `EVIDÊNCIA COLETADA (use SÓ isto como fonte de fatos; cite as conversas pelo nome):\n${evidence.map((e, i) => `[${i}] ${e.tool}(${clip(e.args, 120)}) -> ${clip(e.output, 1200)}`).join('\n')}`
+      : 'Não foi possível coletar evidência das conversas — explique isso ao usuário em 1 linha.',
+    proposals.length ? `Você PROPÔS ${proposals.length} ação(ões) que aguardam confirmação do usuário — mencione-as no fim.` : '',
   ].filter(Boolean).join('\n\n');
-  const text = await callAI(
-    (c) => chatText(c, [
-      { role: 'system', content: synthPrompt },
+  const text = await streamText(
+    [
+      { role: 'system', content: synthSystem },
       ...historyMsgs.map((m) => ({ role: m.role as 'user' | 'assistant', content: clip(m.content, 400) })),
       { role: 'user', content: message },
-    ], mainModel()),
-    'Não consegui montar a resposta agora — tente novamente.',
-    { stage: 'reason.synth', timeoutMs: 90_000 },
+    ],
+    mainModel(),
+    cb.onDelta,
   );
 
+  const finalText = text || 'Não consegui montar a resposta agora — tente novamente.';
   // 6. MEMÓRIA --------------------------------------------------------------
-  await persist(threadId, message, text);
+  await persist(threadId, message, finalText);
 
   return {
-    text,
+    text: finalText,
     route: complexity === 'complex' ? 'deep' : 'reason',
     complexity,
     proposed: proposals.length > 0,
