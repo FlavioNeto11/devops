@@ -12,12 +12,12 @@ import {
 } from './consent';
 import { generateSuggestion, rewriteDraft, summarizeChat, triageChat } from './smart-reply';
 import { searchHistorySemantic } from './rag';
-import { runAssistantTurn } from './graph';
-import { signPendingAction, verifyPendingAction } from './pending-actions';
+import { runReasoning } from './reasoning';
+import { verifyPendingAction } from './pending-actions';
 import { TOOL_BY_NAME } from './tools';
 import { ingestText, ingestFiles, listSources, removeSource } from './kb';
 import { purgeAiData } from './hooks';
-import { learnStyleFrom } from './graph';
+import { learnStyleFrom } from './reasoning';
 import { backfillUserEmbeddings, backfillStatus } from './embeddings.worker';
 import { aiDbEnabled, query } from './pg';
 import { loadAiCore } from './ai-core-loader';
@@ -136,25 +136,15 @@ export async function postAssistant(req: AuthedRequest, res: Response): Promise<
     res.status(400).json({ error: 'message obrigatório' });
     return;
   }
-  const result = await runAssistantTurn({ message, userId, sessionId });
-  // Ações mutantes voltam como dry-run 'preview' (dispatchTool); assina tokens p/ confirmação.
-  const proposals = (result.toolCalls ?? [])
-    .filter((tc) => tc.status === 'preview')
-    .map((tc) => {
-      const args = (tc.arguments ?? {}) as Record<string, unknown>;
-      return {
-        token: signPendingAction({ toolName: tc.name, arguments: args, userId, chatJid: String(args.chatId ?? '') }),
-        name: tc.name,
-        arguments: args,
-      };
-    });
+  const result = await runReasoning({ message, userId, sessionId });
   res.json({
     text: result.text,
     route: result.route,
+    complexity: result.complexity,
     proposed: result.proposed,
-    citations: (result.evidence ?? []).slice(0, 6),
-    proposals,
-    usage: result.usage,
+    citations: result.citations,
+    proposals: result.proposals,
+    meta: result.meta,
   });
 }
 

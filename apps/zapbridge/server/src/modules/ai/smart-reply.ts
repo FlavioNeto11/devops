@@ -6,7 +6,7 @@
 import { listMessages } from '../chats/chats.service';
 import { callAI, chatJSON } from './ai.service';
 import { getSettings } from './consent';
-import { recallUserStyle } from './graph';
+import { recallUserStyle } from './reasoning';
 import { suggestionPrompt, rewritePrompt, summaryPrompt, triagePrompt, styleBlock } from './prompts';
 
 /** Transcrição "remetente: texto" das últimas mensagens (mais antiga → mais nova). */
