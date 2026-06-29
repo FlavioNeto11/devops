@@ -21,6 +21,7 @@ interface IncomingCtx {
   chatId: string;
   chatJid: string;
   isGroup: boolean;
+  isLocked: boolean;
   messageId: string;
   text: string | null;
   fromMe: boolean;
@@ -31,6 +32,8 @@ interface IncomingCtx {
 /** Pós-recebimento: indexa + (se aplicável) sugere resposta / auto-responde. */
 export async function onIncomingMessage(ctx: IncomingCtx): Promise<void> {
   if (!aiDbEnabled()) return;
+  // Conversa TRANCADA: a IA não toca (não indexa, não sugere, não auto-responde).
+  if (ctx.isLocked) return;
   // 1) indexa a mensagem (ambas as direções) para busca semântica.
   enqueueMessageEmbedding({
     messageId: ctx.messageId,
@@ -136,7 +139,7 @@ async function tryAutoReply(ctx: IncomingCtx, settings: { autoreply: Record<stri
   return true;
 }
 
-/** Histórico (backfill): só indexa, sem sugerir. */
+/** Histórico (backfill): só indexa, sem sugerir. Pula conversas trancadas. */
 export function onHistoryMessage(job: {
   userId: string;
   chatJid: string;
@@ -144,8 +147,9 @@ export function onHistoryMessage(job: {
   text: string | null;
   fromMe: boolean;
   ts: Date;
+  isLocked?: boolean;
 }): void {
-  if (!aiDbEnabled()) return;
+  if (!aiDbEnabled() || job.isLocked) return;
   enqueueMessageEmbedding(job);
 }
 

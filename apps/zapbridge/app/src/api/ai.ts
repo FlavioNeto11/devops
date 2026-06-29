@@ -22,6 +22,7 @@ export interface AssistantResult {
   proposed: boolean;
   citations: Array<{ tool: string; output: unknown }>;
   proposals: Array<{ token: string; name: string; arguments: Record<string, unknown> }>;
+  unlocked?: boolean;
 }
 
 export interface SearchHit {

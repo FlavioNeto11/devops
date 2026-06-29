@@ -18,6 +18,7 @@ import { TOOL_BY_NAME } from './tools';
 import { ingestText, ingestFiles, listSources, removeSource } from './kb';
 import { purgeAiData } from './hooks';
 import { learnStyleFrom } from './reasoning';
+import { isAiUnlocked } from './lock';
 import { backfillUserEmbeddings, backfillStatus } from './embeddings.worker';
 import { aiDbEnabled, query } from './pg';
 import { loadAiCore } from './ai-core-loader';
@@ -79,16 +80,29 @@ export async function putChatAi(req: AuthedRequest, res: Response): Promise<void
 
 // ---- Fase A: suggest / rewrite / summary / triage ---------------------------
 export async function postSuggest(req: AuthedRequest, res: Response): Promise<void> {
-  await getSessionIdOrThrow(uid(req));
-  res.json(await generateSuggestion(uid(req), req.params.id));
+  const userId = uid(req);
+  const sessionId = await getSessionIdOrThrow(userId);
+  // Conversa trancada: sem IA, a menos que a IA esteja desbloqueada (código de tranca).
+  const chat = await getChat(sessionId, req.params.id).catch(() => null);
+  if (chat && (chat as any).locked && !isAiUnlocked(userId)) {
+    res.json({ suggestions: [], styleApplied: false });
+    return;
+  }
+  res.json(await generateSuggestion(userId, req.params.id));
 }
 export async function postRewrite(req: AuthedRequest, res: Response): Promise<void> {
   const variants = await rewriteDraft(uid(req), String(req.body?.text ?? ''), String(req.body?.mode ?? 'melhorar'));
   res.json({ variants });
 }
 export async function getSummary(req: AuthedRequest, res: Response): Promise<void> {
-  await getSessionIdOrThrow(uid(req));
-  res.json(await summarizeChat(uid(req), req.params.id));
+  const userId = uid(req);
+  const sessionId = await getSessionIdOrThrow(userId);
+  const chat = await getChat(sessionId, req.params.id).catch(() => null);
+  if (chat && (chat as any).locked && !isAiUnlocked(userId)) {
+    res.json({ bullets: [], count: 0 });
+    return;
+  }
+  res.json(await summarizeChat(userId, req.params.id));
 }
 export async function getTriage(req: AuthedRequest, res: Response): Promise<void> {
   await getSessionIdOrThrow(uid(req));
@@ -153,6 +167,7 @@ export async function postAssistant(req: AuthedRequest, res: Response): Promise<
     citations: result.citations,
     proposals: result.proposals,
     meta: result.meta,
+    unlocked: result.unlocked ?? false,
     requestId,
   });
 }

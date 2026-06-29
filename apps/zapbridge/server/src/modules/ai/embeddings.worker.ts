@@ -79,6 +79,12 @@ export async function purgeUserEmbeddings(userId: string): Promise<void> {
   await query(`delete from message_embeddings where user_id = $1`, [userId]).catch(() => undefined);
 }
 
+/** Remove os embeddings de UMA conversa (ao trancá-la, some da busca semântica). */
+export async function purgeChatEmbeddings(userId: string, chatJid: string): Promise<void> {
+  if (!aiDbEnabled()) return;
+  await query(`delete from message_embeddings where user_id = $1 and chat_jid = $2`, [userId, chatJid]).catch(() => undefined);
+}
+
 const _backfilling = new Set<string>();
 
 export interface BackfillProgress {
@@ -115,7 +121,7 @@ export async function backfillUserEmbeddings(
     for (let attempt = 1; attempt <= 4; attempt++) {
       try {
         return await prisma.message.findMany({
-          where: { text: { not: null }, chat: { sessionId } },
+          where: { text: { not: null }, chat: { sessionId, locked: false } }, // nunca indexa trancadas
           orderBy: { timestamp: 'desc' },
           take: batch,
           ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),

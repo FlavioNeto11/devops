@@ -74,6 +74,7 @@ export function AiAssistantScreen({ navigation }: Props) {
   const [value, setValue] = useState('');
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState<number | null>(null);
+  const [unlocked, setUnlocked] = useState(false); // 🔓 discreto quando a IA está desbloqueada
   const scrollRef = useRef<ScrollView>(null);
   const reqIdRef = useRef<string>('');
   const streamIdxRef = useRef<number>(-1);
@@ -82,14 +83,18 @@ export function AiAssistantScreen({ navigation }: Props) {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerRight: () =>
-        turns.length ? (
-          <TouchableOpacity onPress={clear} style={{ paddingHorizontal: 8 }}>
-            <Text style={{ color: colors.primary, fontWeight: '600', fontSize: 14 }}>＋ Nova</Text>
-          </TouchableOpacity>
-        ) : null,
+      headerRight: () => (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          {unlocked && <Text style={{ fontSize: 14, opacity: 0.7 }}>🔓</Text>}
+          {turns.length ? (
+            <TouchableOpacity onPress={clear} style={{ paddingHorizontal: 4 }}>
+              <Text style={{ color: colors.primary, fontWeight: '600', fontSize: 14 }}>＋ Nova</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      ),
     });
-  }, [navigation, turns.length, colors]);
+  }, [navigation, turns.length, colors, unlocked]);
 
   useEffect(() => {
     const t = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60);
@@ -140,6 +145,7 @@ export function AiAssistantScreen({ navigation }: Props) {
     });
     try {
       const r = await aiApi.assistant(msg, reqId);
+      if (r.unlocked) setUnlocked(true);
       setTurns((prev) => prev.map((t, i) => (i === streamIdxRef.current ? { ...t, text: r.text || t.text || '(sem resposta)', proposals: r.proposals, streaming: false, status: '' } : t)));
     } catch (e) {
       setTurns((prev) => prev.map((t, i) => (i === streamIdxRef.current ? { ...t, text: errorMessage(e), error: true, streaming: false, status: '' } : t)));

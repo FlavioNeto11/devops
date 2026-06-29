@@ -27,6 +27,7 @@ import { getAiMetrics } from './ai-metrics';
 import { loadAiCore } from './ai-core-loader';
 import { ALL_TOOLS, TOOL_BY_NAME } from './tools';
 import { signPendingAction } from './pending-actions';
+import { isAiUnlocked, tryUnlock } from './lock';
 import { SYNTH_SYSTEM_PROMPT } from './prompts';
 
 export interface ReasoningCallbacks {
@@ -94,6 +95,7 @@ export interface ReasoningResult {
   proposals: Array<{ token: string; name: string; arguments: Record<string, unknown> }>;
   citations: EvidenceItem[];
   meta: { toolCalls: number; reflectCycles: number; budget: number };
+  unlocked?: boolean; // true quando este turno desbloqueou a IA com o código de tranca
 }
 
 // ---- orçamento por complexidade --------------------------------------------
@@ -110,6 +112,15 @@ export async function runReasoning(
 ): Promise<ReasoningResult> {
   const { message, userId, sessionId } = turn;
   if (!getClient()) throw Object.assign(new Error('Assistente de IA indisponível (sem chave)'), { status: 503 });
+
+  // Desbloqueio DISCRETO: se a mensagem é exatamente o código de tranca, desbloqueia a IA
+  // para esta sessão e responde de forma neutra — sem enviar o código ao LLM, sem gravar na
+  // thread, sem expor que existem conversas trancadas.
+  const trimmed = message.trim();
+  if (trimmed && trimmed.length <= 64 && (await tryUnlock(userId, trimmed))) {
+    return { text: '🔓 Pronto.', route: 'unlock', complexity: 'trivial', proposed: false, proposals: [], citations: [], meta: { toolCalls: 0, reflectCycles: 0, budget: 0 }, unlocked: true };
+  }
+
   const progress = (phase: string, detail: string) => {
     try {
       cb.onProgress?.(phase, detail);
@@ -120,7 +131,7 @@ export async function runReasoning(
   progress('contexto', 'Lembrando do contexto…');
   await ensureMemory();
   const metrics = getAiMetrics();
-  const toolCtx = { identity: { sub: userId }, userId, sessionId, channel: 'whatsapp' } as Record<string, unknown>;
+  const toolCtx = { identity: { sub: userId }, userId, sessionId, channel: 'whatsapp', aiUnlocked: isAiUnlocked(userId) } as Record<string, unknown>;
   const threadId = `chat:${userId}`;
 
   // 0. CONTEXTO -------------------------------------------------------------

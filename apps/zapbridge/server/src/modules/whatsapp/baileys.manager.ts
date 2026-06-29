@@ -1080,6 +1080,7 @@ async function handleIncomingMessage(
     chatId: chat.id,
     chatJid: chat.jid,
     isGroup: isGroupJid(remoteJid),
+    isLocked: !!updatedChat.locked,
     messageId: message.id,
     text: message.text,
     fromMe,
@@ -1182,8 +1183,8 @@ async function persistHistoryMessage(
   if (type !== 'text') {
     await upsertMediaRow(created.id, type, m.message);
   }
-  // IA (backfill): só indexa o histórico (sem sugerir).
-  onHistoryMessage({ userId, chatJid: chat.jid, messageId: created.id, text: created.text, fromMe, ts });
+  // IA (backfill): só indexa o histórico (sem sugerir). Pula conversas trancadas.
+  onHistoryMessage({ userId, chatJid: chat.jid, messageId: created.id, text: created.text, fromMe, ts, isLocked: !!(chat as any).locked });
   return { chatId: chat.id, ts };
 }
 

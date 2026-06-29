@@ -14,7 +14,13 @@ import { callAI, chatJSON } from './ai.service';
 import { emitToUser } from '../../realtime/io';
 import { loadAiCore } from './ai-core-loader';
 
-type Ctx = AiToolContext & { userId?: string; sessionId?: string };
+type Ctx = AiToolContext & { userId?: string; sessionId?: string; aiUnlocked?: boolean };
+
+// Escopo de conversas para a IA: por padrão EXCLUI as trancadas (locked:false);
+// só inclui se a sessão de IA estiver desbloqueada com o código de tranca.
+function chatScope(c: Ctx): { sessionId: string; locked?: boolean } {
+  return c.aiUnlocked ? { sessionId: c.sessionId! } : { sessionId: c.sessionId!, locked: false };
+}
 
 function ownerOk(ctx: Ctx): { allowed: boolean; reason?: string } {
   const sub = ctx.identity?.sub;
@@ -29,14 +35,16 @@ function ownerOk(ctx: Ctx): { allowed: boolean; reason?: string } {
 async function resolveChat(
   sessionId: string,
   ref: string,
+  unlocked = false,
 ): Promise<{ id: string; jid: string; name: string | null } | null> {
   if (!ref) return null;
+  const lockFilter = unlocked ? {} : { locked: false };
   const byIdOrJid = await prisma.chat.findFirst({
-    where: { sessionId, OR: [{ id: ref }, { jid: ref }] },
+    where: { sessionId, ...lockFilter, OR: [{ id: ref }, { jid: ref }] },
     select: { id: true, jid: true, name: true },
   });
   if (byIdOrJid) return byIdOrJid;
-  const matches = await listChats(sessionId, ref).catch(() => []);
+  const matches = await listChats(sessionId, ref, false, unlocked ? undefined : false).catch(() => []);
   const first = matches[0];
   return first ? { id: first.id, jid: first.jid, name: first.name } : null;
 }
@@ -80,7 +88,7 @@ const list_chats: AiTool = {
   authorize: (ctx) => Promise.resolve(ownerOk(ctx as Ctx)),
   execute: async (input: { search?: string; limit?: number }, ctx) => {
     const c = ctx as Ctx;
-    const chats = await listChats(c.sessionId!, input.search);
+    const chats = await listChats(c.sessionId!, input.search, false, c.aiUnlocked ? undefined : false);
     return {
       total: chats.length,
       chats: chats.slice(0, Math.min(input.limit ?? 15, 30)).map((x) => ({
@@ -105,7 +113,7 @@ const get_recent_messages: AiTool = {
   execute: async (input: { chat?: string; chatId?: string; limit?: number }, ctx) => {
     const c = ctx as Ctx;
     const ref = input.chat ?? input.chatId ?? '';
-    const chat = await resolveChat(c.sessionId!, ref);
+    const chat = await resolveChat(c.sessionId!, ref, c.aiUnlocked);
     if (!chat) return { error: 'chat_not_found', hint: 'chame list_chats para ver as conversas disponíveis' };
     const { messages } = await listMessages(chat.id, undefined, Math.min(input.limit ?? 15, 40));
     return {
@@ -135,7 +143,7 @@ const search_history: AiTool = {
     let chatJid: string | null = null;
     const ref = input.chat ?? input.chatId;
     if (ref) {
-      const chat = await resolveChat(c.sessionId!, ref);
+      const chat = await resolveChat(c.sessionId!, ref, c.aiUnlocked);
       chatJid = chat?.jid ?? null;
     }
     const hits = await searchHistorySemantic(c.userId!, chatJid, input.query, Math.min(input.k ?? 8, 20));
@@ -174,7 +182,7 @@ const send_message: AiTool = {
   authorize: (ctx) => Promise.resolve(ownerOk(ctx as Ctx)),
   execute: async (input: { chat?: string; chatId?: string; text: string }, ctx) => {
     const c = ctx as Ctx;
-    const chat = await resolveChat(c.sessionId!, input.chat ?? input.chatId ?? '');
+    const chat = await resolveChat(c.sessionId!, input.chat ?? input.chatId ?? '', c.aiUnlocked);
     if (!chat) return { error: 'chat_not_found' };
     if (c.dryRun === true) return { preview: true, to: chat.name, chatId: chat.id, text: input.text };
     const msg = await prisma.message.create({
@@ -202,7 +210,7 @@ const react: AiTool = {
   execute: async (input: { chat?: string; chatId?: string; messageId: string; emoji: string }, ctx) => {
     const c = ctx as Ctx;
     if (c.dryRun === true) return { preview: true, emoji: input.emoji, messageId: input.messageId };
-    const chat = await resolveChat(c.sessionId!, input.chat ?? input.chatId ?? '');
+    const chat = await resolveChat(c.sessionId!, input.chat ?? input.chatId ?? '', c.aiUnlocked);
     if (!chat) return { error: 'chat_not_found' };
     await sendReaction(c.userId!, chat.id, input.messageId, input.emoji);
     return { reacted: true };
@@ -220,7 +228,7 @@ const mark_read: AiTool = {
   authorize: (ctx) => Promise.resolve(ownerOk(ctx as Ctx)),
   execute: async (input: { chat?: string; chatId?: string }, ctx) => {
     const c = ctx as Ctx;
-    const chat = await resolveChat(c.sessionId!, input.chat ?? input.chatId ?? '');
+    const chat = await resolveChat(c.sessionId!, input.chat ?? input.chatId ?? '', c.aiUnlocked);
     if (!chat) return { error: 'chat_not_found' };
     if (c.dryRun === true) return { preview: true, chat: chat.name };
     await markChatRead(c.userId!, chat.jid);
@@ -253,10 +261,10 @@ const get_messages_by_time: AiTool = {
     const c = ctx as Ctx;
     const { start, end } = resolveTimeWindow(input.period, input.from, input.to);
     let chatId: string | undefined;
-    if (input.chat) chatId = (await resolveChat(c.sessionId!, input.chat))?.id;
+    if (input.chat) chatId = (await resolveChat(c.sessionId!, input.chat, c.aiUnlocked))?.id;
     const rows = await prisma.message.findMany({
       where: {
-        chat: { sessionId: c.sessionId! },
+        chat: chatScope(c),
         timestamp: { gte: start, lte: end },
         ...(chatId ? { chatId } : {}),
         ...(typeof input.fromMe === 'boolean' ? { fromMe: input.fromMe } : {}),
@@ -293,7 +301,7 @@ const list_unread: AiTool = {
   authorize: (ctx) => Promise.resolve(ownerOk(ctx as Ctx)),
   execute: async (_input, ctx) => {
     const c = ctx as Ctx;
-    const chats = (await listChats(c.sessionId!)).filter((x: any) => x.unreadCount > 0);
+    const chats = (await listChats(c.sessionId!, undefined, false, c.aiUnlocked ? undefined : false)).filter((x: any) => x.unreadCount > 0);
     return {
       totalUnreadChats: chats.length,
       chats: chats.slice(0, 30).map((x: any) => ({ id: x.id, name: x.name, isGroup: x.isGroup, unread: x.unreadCount, last: x.lastMessage?.text ?? `[${x.lastMessage?.type ?? ''}]` })),
@@ -316,9 +324,9 @@ const search_messages: AiTool = {
   execute: async (input: { query: string; chat?: string; fromMe?: boolean; limit?: number }, ctx) => {
     const c = ctx as Ctx;
     let chatId: string | undefined;
-    if (input.chat) chatId = (await resolveChat(c.sessionId!, input.chat))?.id;
+    if (input.chat) chatId = (await resolveChat(c.sessionId!, input.chat, c.aiUnlocked))?.id;
     const rows = await prisma.message.findMany({
-      where: { chat: { sessionId: c.sessionId! }, text: { contains: input.query }, ...(chatId ? { chatId } : {}), ...(typeof input.fromMe === 'boolean' ? { fromMe: input.fromMe } : {}) },
+      where: { chat: chatScope(c), text: { contains: input.query }, ...(chatId ? { chatId } : {}), ...(typeof input.fromMe === 'boolean' ? { fromMe: input.fromMe } : {}) },
       orderBy: { timestamp: 'desc' },
       take: Math.min(input.limit ?? 20, 50),
       include: { chat: { select: { name: true, jid: true } } },
@@ -356,13 +364,13 @@ const inbox_overview: AiTool = {
   execute: async (_input, ctx) => {
     const c = ctx as Ctx;
     const today = localDay(0);
-    const sid = c.sessionId!;
+    const scope = chatScope(c); // exclui trancadas (a menos que desbloqueado)
     const [totalChats, unread, recvToday, sentToday, activeRaw] = await Promise.all([
-      prisma.chat.count({ where: { sessionId: sid, messages: { some: {} } } }),
-      prisma.chat.aggregate({ where: { sessionId: sid, unreadCount: { gt: 0 } }, _sum: { unreadCount: true }, _count: true }),
-      prisma.message.count({ where: { chat: { sessionId: sid }, fromMe: false, timestamp: { gte: today.start, lte: today.end } } }),
-      prisma.message.count({ where: { chat: { sessionId: sid }, fromMe: true, timestamp: { gte: today.start, lte: today.end } } }),
-      prisma.message.groupBy({ by: ['chatId'], where: { chat: { sessionId: sid }, timestamp: { gte: today.start, lte: today.end } }, _count: { _all: true }, orderBy: { _count: { chatId: 'desc' } }, take: 5 }),
+      prisma.chat.count({ where: { ...scope, messages: { some: {} } } }),
+      prisma.chat.aggregate({ where: { ...scope, unreadCount: { gt: 0 } }, _sum: { unreadCount: true }, _count: true }),
+      prisma.message.count({ where: { chat: scope, fromMe: false, timestamp: { gte: today.start, lte: today.end } } }),
+      prisma.message.count({ where: { chat: scope, fromMe: true, timestamp: { gte: today.start, lte: today.end } } }),
+      prisma.message.groupBy({ by: ['chatId'], where: { chat: scope, timestamp: { gte: today.start, lte: today.end } }, _count: { _all: true }, orderBy: { _count: { chatId: 'desc' } }, take: 5 }),
     ]);
     const ids = activeRaw.map((a) => a.chatId);
     const activeChats = ids.length ? await prisma.chat.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, jid: true } }) : [];
@@ -389,9 +397,9 @@ const list_media: AiTool = {
   execute: async (input: { chat?: string; type?: string; limit?: number }, ctx) => {
     const c = ctx as Ctx;
     let chatId: string | undefined;
-    if (input.chat) chatId = (await resolveChat(c.sessionId!, input.chat))?.id;
+    if (input.chat) chatId = (await resolveChat(c.sessionId!, input.chat, c.aiUnlocked))?.id;
     const rows = await prisma.message.findMany({
-      where: { chat: { sessionId: c.sessionId! }, type: input.type ? input.type : { not: 'text' }, ...(chatId ? { chatId } : {}) },
+      where: { chat: chatScope(c), type: input.type ? input.type : { not: 'text' }, ...(chatId ? { chatId } : {}) },
       orderBy: { timestamp: 'desc' },
       take: Math.min(input.limit ?? 20, 40),
       include: { chat: { select: { name: true, jid: true } }, media: { select: { fileName: true, mimeType: true } } },
@@ -412,7 +420,7 @@ const forward_message: AiTool = {
   authorize: (ctx) => Promise.resolve(ownerOk(ctx as Ctx)),
   execute: async (input: { messageId: string; toChat: string }, ctx) => {
     const c = ctx as Ctx;
-    const dest = await resolveChat(c.sessionId!, input.toChat);
+    const dest = await resolveChat(c.sessionId!, input.toChat, c.aiUnlocked);
     if (!dest) return { error: 'chat_not_found' };
     if (c.dryRun === true) return { preview: true, to: dest.name, messageId: input.messageId };
     await forwardMessage(c.userId!, input.messageId, dest.id);
@@ -451,7 +459,7 @@ const who_awaits_reply: AiTool = {
   authorize: (ctx) => Promise.resolve(ownerOk(ctx as Ctx)),
   execute: async (input: { includeGroups?: boolean; limit?: number }, ctx) => {
     const c = ctx as Ctx;
-    const chats = await listChats(c.sessionId!);
+    const chats = await listChats(c.sessionId!, undefined, false, c.aiUnlocked ? undefined : false);
     const waiting = chats
       .filter((x: any) => x.lastMessage && !x.lastMessage.fromMe && (input.includeGroups ? true : !x.isGroup))
       .slice(0, Math.min(input.limit ?? 20, 40))
@@ -473,7 +481,7 @@ const top_contacts: AiTool = {
     const { start, end } = resolveTimeWindow(input.period ?? 'semana');
     const grouped = await prisma.message.groupBy({
       by: ['chatId', 'fromMe'],
-      where: { chat: { sessionId: c.sessionId! }, timestamp: { gte: start, lte: end } },
+      where: { chat: chatScope(c), timestamp: { gte: start, lte: end } },
       _count: { _all: true },
     });
     const byChat = new Map<string, { recv: number; sent: number }>();
@@ -502,7 +510,7 @@ const activity_stats: AiTool = {
   execute: async (input: { period?: string }, ctx) => {
     const c = ctx as Ctx;
     const { start, end } = resolveTimeWindow(input.period ?? 'semana');
-    const rows = await prisma.message.findMany({ where: { chat: { sessionId: c.sessionId! }, timestamp: { gte: start, lte: end } }, select: { fromMe: true, timestamp: true }, take: 8000 });
+    const rows = await prisma.message.findMany({ where: { chat: chatScope(c), timestamp: { gte: start, lte: end } }, select: { fromMe: true, timestamp: true }, take: 8000 });
     const byDay = new Map<string, number>();
     const byHour = new Array(24).fill(0);
     let recv = 0, sent = 0;
@@ -531,10 +539,10 @@ const extract_commitments: AiTool = {
   execute: async (input: { period?: string; chat?: string }, ctx) => {
     const c = ctx as Ctx;
     let chatId: string | undefined;
-    if (input.chat) chatId = (await resolveChat(c.sessionId!, input.chat))?.id;
+    if (input.chat) chatId = (await resolveChat(c.sessionId!, input.chat, c.aiUnlocked))?.id;
     const { start, end } = resolveTimeWindow(input.period ?? 'semana');
     const rows = await prisma.message.findMany({
-      where: { chat: { sessionId: c.sessionId! }, timestamp: { gte: start, lte: end }, text: { not: null }, ...(chatId ? { chatId } : {}) },
+      where: { chat: chatScope(c), timestamp: { gte: start, lte: end }, text: { not: null }, ...(chatId ? { chatId } : {}) },
       orderBy: { timestamp: 'desc' },
       take: 120,
       include: { chat: { select: { name: true, jid: true } } },
@@ -567,10 +575,10 @@ const find_shared: AiTool = {
   execute: async (input: { kind: string; period?: string; chat?: string; limit?: number }, ctx) => {
     const c = ctx as Ctx;
     let chatId: string | undefined;
-    if (input.chat) chatId = (await resolveChat(c.sessionId!, input.chat))?.id;
+    if (input.chat) chatId = (await resolveChat(c.sessionId!, input.chat, c.aiUnlocked))?.id;
     const { start, end } = resolveTimeWindow(input.period ?? 'mes');
     const rows = await prisma.message.findMany({
-      where: { chat: { sessionId: c.sessionId! }, timestamp: { gte: start, lte: end }, text: { not: null }, ...(chatId ? { chatId } : {}) },
+      where: { chat: chatScope(c), timestamp: { gte: start, lte: end }, text: { not: null }, ...(chatId ? { chatId } : {}) },
       orderBy: { timestamp: 'desc' },
       take: 1500,
       include: { chat: { select: { name: true, jid: true } } },
@@ -602,7 +610,7 @@ const group_info: AiTool = {
   authorize: (ctx) => Promise.resolve(ownerOk(ctx as Ctx)),
   execute: async (input: { group: string }, ctx) => {
     const c = ctx as Ctx;
-    const chat = await resolveChat(c.sessionId!, input.group);
+    const chat = await resolveChat(c.sessionId!, input.group, c.aiUnlocked);
     if (!chat) return { error: 'group_not_found' };
     const group = await prisma.group.findUnique({ where: { sessionId_jid: { sessionId: c.sessionId!, jid: chat.jid } }, include: { participants: true } });
     if (!group) return { error: 'not_a_group_or_not_synced', chat: chat.name };

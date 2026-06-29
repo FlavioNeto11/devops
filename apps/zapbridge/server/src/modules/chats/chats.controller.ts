@@ -121,6 +121,11 @@ export async function postLock(req: AuthedRequest, res: Response) {
   const chat = await getChat(sessionId, req.params.id);
   const locked = !!req.body?.locked;
   await prisma.chat.update({ where: { id: chat.id }, data: { locked } });
+  // Ao TRANCAR: remove os embeddings desta conversa (some da busca semântica da IA).
+  if (locked) {
+    const { purgeChatEmbeddings } = await import('../ai/embeddings.worker');
+    purgeChatEmbeddings(req.user!.userId, chat.jid).catch(() => undefined);
+  }
   return res.json({ locked });
 }
 
