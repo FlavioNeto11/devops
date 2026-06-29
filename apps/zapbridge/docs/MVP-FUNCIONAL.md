@@ -672,17 +672,47 @@ Usuário em Configurações → `POST /whatsapp/session/disconnect` → `logout(
 - [ ] App mantém sessão (login) após fechar e reabrir.
 - [ ] App comunica erros de conexão de forma clara e acionável.
 
-## 19. Fase futura (opcional — Fase 2)
+## 19. IA (Fase 2 — IMPLEMENTADA, opt-in)
 
-- **IA:** respostas sugeridas, detecção do estilo de escrita do usuário, resumo de conversa,
-  templates inteligentes — usando os modelos Claude mais recentes (ex.: `claude-opus-4-8`/
-  `claude-sonnet-4-6`) via Anthropic API.
-- **Busca semântica** (embeddings) sobre o histórico.
-- **Organização automática** de conversas (categorias/labels).
-- **Multi-sessão** por usuário e **backup** de dados.
-- **Painel web** administrativo.
-- (Infra) Onboarding na esteira DevOps local (`devops.yaml`, Traefik, GHCR, Argo CD) quando fizer
-  sentido publicar o backend.
+Camada de IA conectada ao stack canônico da plataforma (`@flavioneto11/ai-core`): reasoning Claude
+(`claude-sonnet-4-6`) + embeddings OpenAI (`text-embedding-3-small`). **Tudo opt-in e fail-soft**:
+sem consentimento/chaves a IA fica desligada e o app funciona 100%. Banco dedicado
+`zapbridge-postgres` (pgvector) — o SQLite do WhatsApp nunca ganha um 2º writer.
+
+### Requisitos funcionais (RF046–RF060)
+- **RF046 — Consentimento (opt-in):** sem `ai_consent` válido, nenhuma rota `/ai/*` processa; as
+  affordances de IA não aparecem. Aceite versionado; tela explica o que é enviado, para onde, e o que
+  não acontece (sem treino; IA não envia sem confirmar).
+- **RF047 — Sugestões de resposta (smart replies):** ao receber mensagem, 1–3 respostas curtas no
+  estilo do usuário (chips acima do campo; tap preenche, não envia).
+- **RF048 — Reescrita inline (✨):** melhorar/encurtar/formalizar/traduzir o rascunho; troca só após o
+  usuário escolher.
+- **RF049 — Resumo de conversa:** "o que rolou" em marcadores; efêmero (não vira mensagem).
+- **RF050 — Memória de estilo/fatos:** aprende do que o usuário envia (pgvector, TTL 180d); revisável/apagável.
+- **RF051 — Busca semântica:** localizar mensagens por significado no histórico indexado/não-excluído.
+- **RF052 — Assistente "Pergunte ao seu WhatsApp" (RAG):** responde ancorado no histórico com tools.
+- **RF053 — Base de conhecimento (PME):** ingerir catálogo/FAQ/preços (texto/PDF/docx via file-ingest).
+- **RF054 — Agente com ações (proposta→confirmação):** send_message/react/mark_read com dry-run; nada
+  altera o WhatsApp sem o usuário tocar "Confirmar".
+- **RF055 — Auto-resposta inteligente (opt-in por-chat):** FAQ-grounded, judge-gate + horário + limite
+  + handoff humano; marcada "🤖"; nunca em grupos.
+- **RF056 — Compreensão de mídia (multimodal):** descrever imagem/OCR/resumir PDF sob ação explícita.
+- **RF057 — Priority inbox / triagem:** classificar conversas (urgente/responder/fyi).
+- **RF058 — Modelo local/self-hosted (privacidade):** 🔵 planejado (endpoint OpenAI-compatível).
+- **RF059 — Redação de PII:** 🔵 planejado (mascarar identificadores antes do envio à nuvem).
+- **RF060 — Retenção/expurgo:** `disconnectSession` apaga todos os dados de IA; botão "Apagar dados de IA".
+
+### Regras de negócio (RN11–RN16)
+- **RN11:** IA é opt-in (default OFF); sem `ai_consent` válido, `/ai/*` não processa.
+- **RN12:** grupos são excluídos da IA por padrão; auto-resposta nunca opera em grupos.
+- **RN13:** a IA nunca envia mensagem ao WhatsApp sem confirmação (RF054) ou opt-in de auto-resposta
+  por-chat com judge-gate (RF055).
+- **RN14:** conversa trancada (`locked`) é automaticamente excluída da IA.
+- **RN15:** `disconnectSession` apaga todos os dados de IA do usuário (embeddings, memória, KB, logs).
+- **RN16:** auto-resposta respeita horário, limite por chat e handoff; toda mensagem automática é marcada.
+
+### Fase futura (ainda fora de escopo)
+- Organização automática (labels), multi-sessão, backup, painel web administrativo.
 
 ## 20. Resultado esperado / entregáveis
 

@@ -95,7 +95,7 @@ spec:
             - name: AI_EMBEDDING_MODEL
               value: "text-embedding-3-small"
             - name: AI_GRAPH
-              value: "off"
+              value: "on"
             - name: AI_SUGGEST
               value: "on"
             - name: AI_DATABASE_URL

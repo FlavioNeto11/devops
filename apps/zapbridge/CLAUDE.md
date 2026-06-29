@@ -83,6 +83,14 @@ Um único `IngressRoute` (`k8s/zapbridge.yaml`) com 3 rotas, prioridade do mais 
    RollingUpdate (duas instâncias gravando = corrupção).
 6. **Migrations** → `prisma migrate deploy` roda no **start** do container (não no build). Novas
    migrations: `npx prisma migrate dev` local, commitar `prisma/migrations/**`.
+7. **Camada de IA (`server/src/modules/ai/`, opt-in)** → conecta ao stack `@flavioneto11/ai-core`
+   (reasoning Claude + embeddings OpenAI). **Banco SEPARADO** `zapbridge-postgres` (pgvector) só p/ IA
+   (threads/memória/embeddings/KB) — o SQLite do app NUNCA ganha 2º writer. **Gotcha CJS×ESM:** este
+   server é CommonJS, mas os kits `@flavioneto11/*` são ESM-only → carregados via
+   `ai-core-loader.ts` (import dinâmico). Tudo fail-soft: sem `AI_DATABASE_URL`/chaves a IA fica off.
+   `send_message` nunca silencioso (proposeTools→`/ai/confirm` HMAC). Métricas `:9464`. Tabelas geridas
+   pelo ai-core (`ai_chat_threads`/`ai_user_memory`/`knowledge_*`) têm colunas EXATAS conforme
+   `packages/ai-core/src/{memory,rag}.js`. Expurgo total no `disconnectSession`.
 
 ## Variáveis de ambiente chave
 
