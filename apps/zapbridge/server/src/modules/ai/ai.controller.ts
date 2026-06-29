@@ -137,9 +137,9 @@ export async function postAssistant(req: AuthedRequest, res: Response): Promise<
     return;
   }
   const result = await runAssistantTurn({ message, userId, sessionId });
-  // Ações propostas (proposeTools) → assina tokens para o fluxo de confirmação.
+  // Ações mutantes voltam como dry-run 'preview' (dispatchTool); assina tokens p/ confirmação.
   const proposals = (result.toolCalls ?? [])
-    .filter((tc) => tc.status === 'proposed')
+    .filter((tc) => tc.status === 'preview')
     .map((tc) => {
       const args = (tc.arguments ?? {}) as Record<string, unknown>;
       return {

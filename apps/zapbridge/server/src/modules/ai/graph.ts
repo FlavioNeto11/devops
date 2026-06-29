@@ -67,7 +67,11 @@ async function buildGraph(): Promise<{ runTurn(turn: GraphTurn): Promise<GraphRe
     metrics: getAiMetrics() as never,
     tracer: core.createAiTracer({ metrics: getAiMetrics() as never, app: 'zapbridge' }),
     memory: { threadStore, summarizer, userMemory: (userMemory as never) ?? undefined },
-    proposeTools: true,
+    // proposeTools=false: tools de LEITURA (R1) EXECUTAM inline (o assistente obtém os dados
+    // e responde grounded); as MUTANTES (R3, supportsDryRun) o dispatchTool roda em dry-run →
+    // status 'preview' (nunca enviam sem confirmação). proposeTools=true proporia ATÉ as de
+    // leitura, e o assistente pararia sem os dados.
+    proposeTools: false,
     maxToolRounds: 4, // permite list_chats → get_recent_messages → responder
     // Empurra o ROUTER para o deep-path (com tools) sempre que a resposta dependa
     // das conversas reais do usuário — senão o fast-path responde genérico "não tenho acesso".
