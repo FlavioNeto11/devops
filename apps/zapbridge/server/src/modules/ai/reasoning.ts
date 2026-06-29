@@ -98,7 +98,7 @@ export interface ReasoningResult {
 
 // ---- orçamento por complexidade --------------------------------------------
 function budgetFor(complexity: string): { gather: number; reflect: number } {
-  if (complexity === 'complex') return { gather: 6, reflect: 1 };
+  if (complexity === 'complex') return { gather: 8, reflect: 2 };
   if (complexity === 'simple') return { gather: 3, reflect: 1 };
   return { gather: 0, reflect: 0 }; // trivial
 }

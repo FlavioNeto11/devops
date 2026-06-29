@@ -10,6 +10,7 @@ import { prisma } from '../../lib/prisma';
 import { listChats, listMessages } from '../chats/chats.service';
 import { sendText, sendReaction, markChatRead, forwardMessage, setArchived } from '../whatsapp/baileys.manager';
 import { searchHistorySemantic, retrieveKnowledge } from './rag';
+import { callAI, chatJSON } from './ai.service';
 import { emitToUser } from '../../realtime/io';
 import { loadAiCore } from './ai-core-loader';
 
@@ -439,9 +440,192 @@ const archive_chat: AiTool = {
   },
 };
 
+// ── ANÁLISE / RELACIONAMENTO / TEMPO (R1) ────────────────────────────────────
+const who_awaits_reply: AiTool = {
+  name: 'who_awaits_reply',
+  description: 'Conversas em que a ÚLTIMA mensagem é da OUTRA pessoa (ou seja, esperam resposta SUA). Use para "quem está esperando resposta?", "o que preciso responder?". Por padrão só 1:1; includeGroups=true inclui grupos.',
+  specialist: 'assistant',
+  risk: 'R1',
+  mutates: false,
+  parameters: { type: 'object', properties: { includeGroups: { type: 'boolean' }, limit: { type: 'number' } } },
+  authorize: (ctx) => Promise.resolve(ownerOk(ctx as Ctx)),
+  execute: async (input: { includeGroups?: boolean; limit?: number }, ctx) => {
+    const c = ctx as Ctx;
+    const chats = await listChats(c.sessionId!);
+    const waiting = chats
+      .filter((x: any) => x.lastMessage && !x.lastMessage.fromMe && (input.includeGroups ? true : !x.isGroup))
+      .slice(0, Math.min(input.limit ?? 20, 40))
+      .map((x: any) => ({ id: x.id, name: x.name, isGroup: x.isGroup, unread: x.unreadCount, lastFrom: x.lastMessage.senderName ?? 'contato', last: x.lastMessage.text ?? `[${x.lastMessage.type}]`, at: x.lastMessageAt }));
+    return { count: waiting.length, waiting };
+  },
+};
+
+const top_contacts: AiTool = {
+  name: 'top_contacts',
+  description: 'Ranking de conversas por volume num período (hoje/ontem/semana/mes). mode "active"=mais ativas; "neglected"=recebo muito e respondo pouco (estou ignorando). Use para "com quem falo mais?", "quem estou ignorando?".',
+  specialist: 'assistant',
+  risk: 'R1',
+  mutates: false,
+  parameters: { type: 'object', properties: { period: { type: 'string' }, mode: { type: 'string', description: 'active|neglected' }, limit: { type: 'number' } } },
+  authorize: (ctx) => Promise.resolve(ownerOk(ctx as Ctx)),
+  execute: async (input: { period?: string; mode?: string; limit?: number }, ctx) => {
+    const c = ctx as Ctx;
+    const { start, end } = resolveTimeWindow(input.period ?? 'semana');
+    const grouped = await prisma.message.groupBy({
+      by: ['chatId', 'fromMe'],
+      where: { chat: { sessionId: c.sessionId! }, timestamp: { gte: start, lte: end } },
+      _count: { _all: true },
+    });
+    const byChat = new Map<string, { recv: number; sent: number }>();
+    for (const g of grouped) {
+      const e = byChat.get(g.chatId) ?? { recv: 0, sent: 0 };
+      if (g.fromMe) e.sent += g._count._all; else e.recv += g._count._all;
+      byChat.set(g.chatId, e);
+    }
+    const ids = [...byChat.keys()];
+    const chats = ids.length ? await prisma.chat.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, jid: true, isGroup: true } }) : [];
+    const nameById = new Map(chats.map((x) => [x.id, x.name ?? x.jid.split('@')[0]]));
+    let list = ids.map((id) => { const e = byChat.get(id)!; return { chat: nameById.get(id), received: e.recv, sent: e.sent, total: e.recv + e.sent, gap: e.recv - e.sent }; });
+    list = input.mode === 'neglected' ? list.filter((x) => x.gap > 0).sort((a, b) => b.gap - a.gap) : list.sort((a, b) => b.total - a.total);
+    return { period: input.period ?? 'semana', mode: input.mode ?? 'active', contacts: list.slice(0, Math.min(input.limit ?? 10, 25)) };
+  },
+};
+
+const activity_stats: AiTool = {
+  name: 'activity_stats',
+  description: 'Estatísticas de atividade num período: mensagens por DIA, dia/horário mais movimentado, total recebidas vs enviadas. Use para "minha atividade essa semana", "que dia/horário falo mais?".',
+  specialist: 'assistant',
+  risk: 'R1',
+  mutates: false,
+  parameters: { type: 'object', properties: { period: { type: 'string' } } },
+  authorize: (ctx) => Promise.resolve(ownerOk(ctx as Ctx)),
+  execute: async (input: { period?: string }, ctx) => {
+    const c = ctx as Ctx;
+    const { start, end } = resolveTimeWindow(input.period ?? 'semana');
+    const rows = await prisma.message.findMany({ where: { chat: { sessionId: c.sessionId! }, timestamp: { gte: start, lte: end } }, select: { fromMe: true, timestamp: true }, take: 8000 });
+    const byDay = new Map<string, number>();
+    const byHour = new Array(24).fill(0);
+    let recv = 0, sent = 0;
+    for (const m of rows) {
+      const local = new Date(m.timestamp.getTime() - SP_OFFSET_MS);
+      const day = local.toISOString().slice(0, 10);
+      byDay.set(day, (byDay.get(day) ?? 0) + 1);
+      byHour[local.getUTCHours()]++;
+      if (m.fromMe) sent++; else recv++;
+    }
+    const days = [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([d, n]) => ({ day: d, messages: n }));
+    const busiestDay = days.slice().sort((a, b) => b.messages - a.messages)[0] ?? null;
+    const busiestHour = byHour.indexOf(Math.max(...byHour));
+    return { period: input.period ?? 'semana', total: rows.length, received: recv, sent, perDay: days, busiestDay, busiestHour: `${busiestHour}h` };
+  },
+};
+
+const extract_commitments: AiTool = {
+  name: 'extract_commitments',
+  description: 'Lê as mensagens recentes (período ou de uma conversa) e EXTRAI compromissos que VOCÊ assumiu, coisas aguardando ação sua e prazos/datas mencionados. Use para "o que eu prometi?", "tenho algum prazo?", "o que ficou pendente?".',
+  specialist: 'assistant',
+  risk: 'R1',
+  mutates: false,
+  parameters: { type: 'object', properties: { period: { type: 'string' }, chat: { type: 'string' } } },
+  authorize: (ctx) => Promise.resolve(ownerOk(ctx as Ctx)),
+  execute: async (input: { period?: string; chat?: string }, ctx) => {
+    const c = ctx as Ctx;
+    let chatId: string | undefined;
+    if (input.chat) chatId = (await resolveChat(c.sessionId!, input.chat))?.id;
+    const { start, end } = resolveTimeWindow(input.period ?? 'semana');
+    const rows = await prisma.message.findMany({
+      where: { chat: { sessionId: c.sessionId! }, timestamp: { gte: start, lte: end }, text: { not: null }, ...(chatId ? { chatId } : {}) },
+      orderBy: { timestamp: 'desc' },
+      take: 120,
+      include: { chat: { select: { name: true, jid: true } } },
+    });
+    if (!rows.length) return { commitments: [], awaiting: [], deadlines: [] };
+    const transcript = rows.reverse().map((m) => `[${m.chat.name ?? m.chat.jid.split('@')[0]}] ${m.fromMe ? 'você' : 'contato'}: ${m.text}`).join('\n').slice(0, 8000);
+    const prompt = [
+      'Analise estas mensagens de WhatsApp e EXTRAIA, do ponto de vista do USUÁRIO ("você"):',
+      '1) commitments: compromissos que VOCÊ assumiu (o que você prometeu/combinou fazer).',
+      '2) awaiting: coisas que esperam uma AÇÃO/RESPOSTA sua.',
+      '3) deadlines: prazos/datas mencionados (com a data).',
+      'Cada item com {what, chat, when?}. Não invente — só o que está nas mensagens.',
+      'Responda APENAS JSON: {"commitments":[],"awaiting":[],"deadlines":[]}',
+      '',
+      transcript,
+    ].join('\n');
+    const out = await callAI((cl) => chatJSON(cl, prompt), { commitments: [], awaiting: [], deadlines: [] }, { stage: 'tool.commitments' });
+    return out;
+  },
+};
+
+const find_shared: AiTool = {
+  name: 'find_shared',
+  description: 'Encontra conteúdo COMPARTILHADO nas mensagens: links (url), telefones (phone), e-mails (email), ou menções de pagamento/Pix (pix). Período e/ou conversa opcionais. Use para "que link me mandaram?", "o número que passaram", "onde falaram de Pix/pagamento".',
+  specialist: 'assistant',
+  risk: 'R1',
+  mutates: false,
+  parameters: { type: 'object', properties: { kind: { type: 'string', description: 'url|phone|email|pix' }, period: { type: 'string' }, chat: { type: 'string' }, limit: { type: 'number' } }, required: ['kind'] },
+  authorize: (ctx) => Promise.resolve(ownerOk(ctx as Ctx)),
+  execute: async (input: { kind: string; period?: string; chat?: string; limit?: number }, ctx) => {
+    const c = ctx as Ctx;
+    let chatId: string | undefined;
+    if (input.chat) chatId = (await resolveChat(c.sessionId!, input.chat))?.id;
+    const { start, end } = resolveTimeWindow(input.period ?? 'mes');
+    const rows = await prisma.message.findMany({
+      where: { chat: { sessionId: c.sessionId! }, timestamp: { gte: start, lte: end }, text: { not: null }, ...(chatId ? { chatId } : {}) },
+      orderBy: { timestamp: 'desc' },
+      take: 1500,
+      include: { chat: { select: { name: true, jid: true } } },
+    });
+    const re: RegExp =
+      input.kind === 'url' ? /https?:\/\/[^\s]+/gi
+      : input.kind === 'email' ? /[\w.+-]+@[\w-]+\.[\w.-]+/gi
+      : input.kind === 'phone' ? /(?:\+?55\s?)?(?:\(?\d{2}\)?\s?)?\d{4,5}-?\d{4}/g
+      : /\bpix\b|chave pix|qr\s?code|pagamento|transferência|transferencia/gi;
+    const hits: Array<{ chat: string; from: string; match: string; text: string; at: Date }> = [];
+    for (const m of rows) {
+      const found = (m.text ?? '').match(re);
+      if (found && found.length) {
+        hits.push({ chat: m.chat.name ?? m.chat.jid.split('@')[0], from: m.fromMe ? 'você' : 'contato', match: [...new Set(found)].slice(0, 3).join(' , '), text: (m.text ?? '').slice(0, 200), at: m.timestamp });
+        if (hits.length >= Math.min(input.limit ?? 20, 40)) break;
+      }
+    }
+    return { kind: input.kind, count: hits.length, hits };
+  },
+};
+
+const group_info: AiTool = {
+  name: 'group_info',
+  description: 'Detalhes de um GRUPO (por nome): assunto, descrição, participantes, administradores e atividade recente. Use para "quem está no grupo X?", "quem são os admins?".',
+  specialist: 'assistant',
+  risk: 'R1',
+  mutates: false,
+  parameters: { type: 'object', properties: { group: { type: 'string' } }, required: ['group'] },
+  authorize: (ctx) => Promise.resolve(ownerOk(ctx as Ctx)),
+  execute: async (input: { group: string }, ctx) => {
+    const c = ctx as Ctx;
+    const chat = await resolveChat(c.sessionId!, input.group);
+    if (!chat) return { error: 'group_not_found' };
+    const group = await prisma.group.findUnique({ where: { sessionId_jid: { sessionId: c.sessionId!, jid: chat.jid } }, include: { participants: true } });
+    if (!group) return { error: 'not_a_group_or_not_synced', chat: chat.name };
+    const jids = group.participants.map((p) => p.jid);
+    const contacts = jids.length ? await prisma.contact.findMany({ where: { sessionId: c.sessionId!, jid: { in: jids } }, select: { jid: true, name: true, pushName: true } }) : [];
+    const nameByJid = new Map(contacts.map((x) => [x.jid, x.name ?? x.pushName]));
+    const week = resolveTimeWindow('semana');
+    const recentMsgs = await prisma.message.count({ where: { chatId: chat.id, timestamp: { gte: week.start, lte: week.end } } });
+    return {
+      name: group.subject ?? chat.name,
+      description: group.description ?? null,
+      participantCount: group.participants.length,
+      admins: group.participants.filter((p) => p.isAdmin).map((p) => nameByJid.get(p.jid) ?? p.jid.split('@')[0]),
+      participants: group.participants.slice(0, 60).map((p) => ({ name: nameByJid.get(p.jid) ?? p.jid.split('@')[0].split(':')[0], admin: p.isAdmin })),
+      messagesLast7d: recentMsgs,
+    };
+  },
+};
+
 export const ALL_TOOLS: AiTool[] = [
   list_chats, get_recent_messages, get_messages_by_time, list_unread, search_history, search_messages,
   search_knowledge, find_contact, inbox_overview, list_media,
+  who_awaits_reply, top_contacts, activity_stats, extract_commitments, find_shared, group_info,
   send_message, react, mark_read, forward_message, archive_chat,
 ];
 export const TOOL_BY_NAME = new Map(ALL_TOOLS.map((t) => [t.name, t]));
