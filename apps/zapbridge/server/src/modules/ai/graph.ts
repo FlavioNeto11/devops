@@ -82,7 +82,9 @@ async function buildGraph(): Promise<{ runTurn(turn: GraphTurn): Promise<GraphRe
       'com X", "resuma a conversa com Y", "onde está Z no histórico", "responda o cliente W", quem/quando/quanto. ' +
       'Use "trivial" só para saudação/agradecimento/social puro. Você TEM acesso ao histórico via tools — ' +
       'NUNCA responda que "não tem acesso às conversas".',
-    verify: (process.env.AI_GRAPH_VERIFY ?? 'on').trim().toLowerCase() !== 'off',
+    // judge OFF por padrão no assistente: o grounding é inerente (ele lê mensagens reais do
+    // usuário) e o judge adiciona uma chamada ao LLM por turno (latência). Religável via env.
+    verify: (process.env.AI_GRAPH_VERIFY ?? 'off').trim().toLowerCase() === 'on',
   };
   graph = core.createAiGraph(graphOpts as never);
   return graph;

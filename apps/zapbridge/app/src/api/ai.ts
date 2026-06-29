@@ -1,5 +1,10 @@
 // Cliente das rotas de IA do ZapBridge (reusa o axios `api` com o JWT injetado).
+// Endpoints de IA são mais lentos que o default (15s) — o assistente faz várias rodadas
+// de tool + chamadas ao LLM. Timeouts por-requisição maiores evitam "timeout exceeded".
 import { api } from './client';
+
+const T_FAST = 45_000; // sugestão/reescrita/resumo/busca (1 chamada ao LLM)
+const T_ASSISTANT = 120_000; // assistente (router→ReAct multi-rodada→resposta)
 
 export interface AiSettings {
   consented: boolean;
@@ -44,10 +49,10 @@ export const aiApi = {
   purge: () => api.post('/ai/data/purge').then((r) => r.data),
 
   suggest: (chatId: string) =>
-    api.post(`/chats/${chatId}/ai/suggest`).then((r) => r.data as { suggestions: string[]; styleApplied: boolean }),
-  rewrite: (text: string, mode: string) => api.post('/ai/rewrite', { text, mode }).then((r) => r.data.variants as string[]),
-  summary: (chatId: string) => api.get(`/chats/${chatId}/ai/summary`).then((r) => r.data as { bullets: string[]; count: number }),
-  triage: (chatId: string) => api.get(`/chats/${chatId}/ai/triage`).then((r) => r.data as { priority: string; reason: string }),
+    api.post(`/chats/${chatId}/ai/suggest`, undefined, { timeout: T_FAST }).then((r) => r.data as { suggestions: string[]; styleApplied: boolean }),
+  rewrite: (text: string, mode: string) => api.post('/ai/rewrite', { text, mode }, { timeout: T_FAST }).then((r) => r.data.variants as string[]),
+  summary: (chatId: string) => api.get(`/chats/${chatId}/ai/summary`, { timeout: T_FAST }).then((r) => r.data as { bullets: string[]; count: number }),
+  triage: (chatId: string) => api.get(`/chats/${chatId}/ai/triage`, { timeout: T_FAST }).then((r) => r.data as { priority: string; reason: string }),
   learnStyle: (chatId: string) => api.post(`/chats/${chatId}/ai/learn-style`).then((r) => r.data),
 
   chatSettings: (chatId: string) =>
@@ -55,11 +60,11 @@ export const aiApi = {
   setChatSettings: (chatId: string, patch: { excluded?: boolean; autoreplyEnabled?: boolean }) =>
     api.put(`/chats/${chatId}/ai/settings`, patch).then((r) => r.data as { excluded: boolean; autoreplyEnabled: boolean }),
 
-  search: (q: string) => api.get('/ai/search', { params: { q } }).then((r) => r.data as { query: string; hits: SearchHit[] }),
-  assistant: (message: string) => api.post('/ai/assistant', { message }).then((r) => r.data as AssistantResult),
-  confirm: (token: string) => api.post('/ai/confirm', { token }).then((r) => r.data),
+  search: (q: string) => api.get('/ai/search', { params: { q }, timeout: T_FAST }).then((r) => r.data as { query: string; hits: SearchHit[] }),
+  assistant: (message: string) => api.post('/ai/assistant', { message }, { timeout: T_ASSISTANT }).then((r) => r.data as AssistantResult),
+  confirm: (token: string) => api.post('/ai/confirm', { token }, { timeout: T_FAST }).then((r) => r.data),
   understandMedia: (messageId: string) =>
-    api.post(`/ai/media/${messageId}/understand`).then((r) => r.data as { understanding: string }),
+    api.post(`/ai/media/${messageId}/understand`, undefined, { timeout: T_FAST }).then((r) => r.data as { understanding: string }),
 
   kbList: () => api.get('/ai/kb').then((r) => r.data.sources as KbSource[]),
   kbAddText: (name: string, text: string) => api.post('/ai/kb', { name, text }).then((r) => r.data),
