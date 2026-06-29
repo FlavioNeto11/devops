@@ -10,8 +10,11 @@ WORKDIR /app
 
 # Instala dependências (mantém o CLI do Prisma p/ `migrate deploy` no start).
 # patches/ precisa estar presente para o postinstall (patch-package) rodar.
-COPY package*.json ./
+# vendor/ tem os kits @flavioneto11/* (deps file:) — precisa existir ANTES do npm ci.
+# .npmrc traz legacy-peer-deps (peer multer do ai-ingest-middleware) — necessário no npm ci.
+COPY package*.json .npmrc ./
 COPY patches ./patches
+COPY vendor ./vendor
 RUN npm ci
 
 # Gera o Prisma Client.

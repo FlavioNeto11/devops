@@ -8,3 +8,5 @@ kind: Kustomization
 resources:
   - zapbridge.yaml
   - zapbridge-web.yaml
+  - zapbridge-postgres.yaml
+  - servicemonitor.yaml

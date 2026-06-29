@@ -63,6 +63,8 @@ spec:
           ports:
             - name: http
               containerPort: 3000
+            - name: metrics
+              containerPort: 9464
           env:
             - name: PORT
               value: "3000"
@@ -81,6 +83,45 @@ spec:
                 secretKeyRef:
                   name: zapbridge-config
                   key: JWT_SECRET
+            # --- IA (opt-in). Config não-secreta inline; segredos via Secret com
+            # optional:true → o pod sobe mesmo antes de o operador preencher as chaves.
+            # Sem AI_DATABASE_URL a IA fica off (fail-soft). AI_GRAPH=off até a Fase A.
+            - name: METRICS_PORT
+              value: "9464"
+            - name: AI_PROVIDER
+              value: "anthropic"
+            - name: ANTHROPIC_MODEL
+              value: "claude-sonnet-4-6"
+            - name: AI_EMBEDDING_MODEL
+              value: "text-embedding-3-small"
+            - name: AI_GRAPH
+              value: "off"
+            - name: AI_SUGGEST
+              value: "on"
+            - name: AI_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: zapbridge-db
+                  key: AI_DATABASE_URL
+                  optional: true
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: zapbridge-config
+                  key: ANTHROPIC_API_KEY
+                  optional: true
+            - name: ANTHROPIC_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: zapbridge-config
+                  key: ANTHROPIC_AUTH_TOKEN
+                  optional: true
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: zapbridge-config
+                  key: OPENAI_API_KEY
+                  optional: true
           startupProbe:
             httpGet:
               path: /health
@@ -131,6 +172,9 @@ spec:
     - name: http
       port: 3000
       targetPort: http
+    - name: metrics
+      port: 9464
+      targetPort: metrics
 ---
 apiVersion: traefik.io/v1alpha1
 kind: Middleware

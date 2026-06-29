@@ -16,6 +16,8 @@ import groupsRoutes from './modules/groups/groups.routes';
 import mediaRoutes from './modules/media/media.routes';
 import pushRoutes from './modules/push/push.routes';
 import settingsRoutes from './modules/settings/settings.routes';
+import { runAiMigrations, aiDbEnabled } from './modules/ai/pg';
+import { startAiMetricsServer } from './modules/ai/ai-metrics';
 
 const app = express();
 app.use(cors({ origin: env.corsOrigin }));
@@ -47,4 +49,11 @@ server.listen(env.port, () => {
   console.log(`zapbridge-server ouvindo em http://0.0.0.0:${env.port}`);
   // Tenta reconectar sessões previamente ativas.
   restoreSessions().catch((e) => console.error('[restoreSessions]', e));
+
+  // Camada de IA (opt-in, fail-soft): migrations do Postgres dedicado + /metrics.
+  // Sem AI_DATABASE_URL / sem chaves, tudo é no-op e o app segue normal.
+  startAiMetricsServer().catch((e) => console.warn('[ai] métricas:', e?.message ?? e));
+  if (aiDbEnabled()) {
+    runAiMigrations().catch((e) => console.warn('[ai] migrations:', e?.message ?? e));
+  }
 });
