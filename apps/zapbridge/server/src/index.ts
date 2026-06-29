@@ -3,6 +3,7 @@ import http from 'http';
 import cors from 'cors';
 import { env } from './config/env';
 import { initIO } from './realtime/io';
+import { initSqlitePragmas } from './lib/prisma';
 import { restoreSessions } from './modules/whatsapp/baileys.manager';
 
 import { authGuard } from './middleware/auth';
@@ -49,6 +50,8 @@ initIO(server);
 
 server.listen(env.port, () => {
   console.log(`zapbridge-server ouvindo em http://0.0.0.0:${env.port}`);
+  // WAL no SQLite ANTES de reconectar/indexar (evita contenção leitor×escritor).
+  void initSqlitePragmas();
   // Tenta reconectar sessões previamente ativas.
   restoreSessions().catch((e) => console.error('[restoreSessions]', e));
 

@@ -103,9 +103,9 @@ export async function backfillUserEmbeddings(
 ): Promise<void> {
   if (!aiDbEnabled() || _backfilling.has(userId)) return;
   _backfilling.add(userId);
-  // Lote menor (o SQLite é contendido pela sessão Baileys ao vivo; leituras grandes
-  // dão "Operations timed out"). Retry por página torna o backfill resiliente.
-  const batch = Math.min(opts.batch ?? 100, 256);
+  // Lote pequeno + throttle generoso: com WAL o SQLite suporta leitura concorrente, mas
+  // o backfill deve ceder espaço às leituras do assistente (não monopolizar o I/O).
+  const batch = Math.min(opts.batch ?? 80, 256);
   const max = opts.max ?? 50_000;
   _progress.set(userId, { running: true, done: 0, indexed: 0 });
   let indexed = 0;
@@ -162,7 +162,7 @@ export async function backfillUserEmbeddings(
         }
       }
       _progress.set(userId, { running: true, done, indexed });
-      await new Promise((res) => setTimeout(res, 250)); // throttle (rate-limit OpenAI / CPU)
+      await new Promise((res) => setTimeout(res, 700)); // throttle: cede I/O do SQLite ao assistente
     }
   } finally {
     _backfilling.delete(userId);
