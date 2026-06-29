@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { api } from '../api/client';
+import { aiApi } from '../api/ai';
 import { confirmAction } from '../utils/confirm';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/RootNavigator';
@@ -34,13 +35,21 @@ export function SettingsScreen({ navigation }: Props) {
   const [lockError, setLockError] = useState<string | null>(null);
   const [reconnecting, setReconnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [aiConsented, setAiConsented] = useState(false);
 
   useEffect(() => {
     api
       .get('/settings')
       .then(({ data }) => setLockEnabled(!!data.lockEnabled))
       .catch(() => undefined);
+    aiApi.getConsent().then((r) => setAiConsented(r.settings.consented)).catch(() => undefined);
   }, []);
+
+  const purgeAi = async () => {
+    const ok = await confirmAction('Apagar dados de IA', 'Remove embeddings, memória, base de conhecimento e histórico de ações da IA. A IA continua disponível.');
+    if (!ok) return;
+    await aiApi.purge().catch(() => undefined);
+  };
 
   const saveLockSecret = async () => {
     setLockError(null);
@@ -174,6 +183,29 @@ export function SettingsScreen({ navigation }: Props) {
             <Text style={styles.primaryText}>{lockSaved ? 'Salvo ✓' : 'Salvar'}</Text>
           </TouchableOpacity>
         </View>
+      </Section>
+
+      <Section title="Inteligência (IA)">
+        <Row label="Status" value={aiConsented ? 'Ativada' : 'Desativada'} />
+        <TouchableOpacity style={styles.secondaryBtn} onPress={() => navigation.navigate('AiConsent')}>
+          <Text style={styles.secondaryText}>{aiConsented ? 'Consentimento e preferências' : '✨ Ativar IA'}</Text>
+        </TouchableOpacity>
+        {aiConsented && (
+          <>
+            <TouchableOpacity style={styles.secondaryBtn} onPress={() => navigation.navigate('AiAssistant')}>
+              <Text style={styles.secondaryText}>Assistente — pergunte ao seu WhatsApp</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.secondaryBtn} onPress={() => navigation.navigate('KnowledgeBase')}>
+              <Text style={styles.secondaryText}>Base de conhecimento (atendimento)</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.secondaryBtn} onPress={() => navigation.navigate('AutoReplyConfig')}>
+              <Text style={styles.secondaryText}>Auto-resposta (configuração)</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.dangerBtn} onPress={purgeAi}>
+              <Text style={styles.dangerText}>Apagar dados de IA agora</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </Section>
 
       <Section title="Sobre">

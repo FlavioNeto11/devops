@@ -15,6 +15,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { api, errorMessage, getToken } from '../api/client';
+import { aiApi } from '../api/ai';
 import { getSocket } from '../realtime/socket';
 import { Message } from '../types';
 import { MessageBubble } from '../components/MessageBubble';
@@ -102,6 +103,11 @@ export function ChatScreen({ navigation, route }: Props) {
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [forwardMsg, setForwardMsg] = useState<Message | null>(null);
   const [atBottom, setAtBottom] = useState(true);
+  // IA (opt-in): sugestões de resposta + resumo da conversa.
+  const [aiOn, setAiOn] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [summary, setSummary] = useState<{ bullets: string[]; count: number } | null>(null);
+  const [summaryBusy, setSummaryBusy] = useState(false);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listRef = useRef<FlatList<ListItem>>(null);
 
@@ -183,6 +189,9 @@ export function ChatScreen({ navigation, route }: Props) {
         setPresence({ typing: p.typing, recording: p.recording, online: p.online, lastSeen: p.lastSeen });
       }
     };
+    const onAiSuggestion = (p: { chatId: string; suggestions: string[] }) => {
+      if (p.chatId === chatId && p.suggestions?.length) setSuggestions(p.suggestions);
+    };
     const fillGap = async () => {
       try {
         const { data } = await api.get(`/chats/${chatId}/messages`, { params: { limit: 20 } });
@@ -199,6 +208,7 @@ export function ChatScreen({ navigation, route }: Props) {
     socket.on('message.status.updated', onStatus);
     socket.on('message.reaction.updated', onReaction);
     socket.on('presence.updated', onPresence);
+    socket.on('ai.suggestion.generated', onAiSuggestion);
     socket.on('connect', fillGap);
     socket.on('session.connected', fillGap);
     return () => {
@@ -207,10 +217,31 @@ export function ChatScreen({ navigation, route }: Props) {
       socket.off('message.status.updated', onStatus);
       socket.off('message.reaction.updated', onReaction);
       socket.off('presence.updated', onPresence);
+      socket.off('ai.suggestion.generated', onAiSuggestion);
       socket.off('connect', fillGap);
       socket.off('session.connected', fillGap);
     };
   }, [chatId]);
+
+  // IA: checa consentimento (1x) para habilitar chips/✨/resumo nesta conversa.
+  useEffect(() => {
+    aiApi
+      .getConsent()
+      .then((r) => setAiOn(r.settings.consented && r.settings.suggestionsEnabled))
+      .catch(() => setAiOn(false));
+  }, []);
+
+  const loadSummary = async () => {
+    setSummaryBusy(true);
+    try {
+      const s = await aiApi.summary(chatId);
+      setSummary(s);
+    } catch {
+      setSummary({ bullets: [], count: 0 });
+    } finally {
+      setSummaryBusy(false);
+    }
+  };
 
   // Reage (emoji) a uma mensagem. emoji vazio remove. Otimista + confirma no servidor.
   const reactToMessage = async (m: Message, emoji: string) => {
@@ -444,6 +475,31 @@ export function ChatScreen({ navigation, route }: Props) {
       keyboardVerticalOffset={90}
     >
       <ConnectionBanner />
+      {aiOn && (
+        <View style={styles.aiBar}>
+          {summary ? (
+            <View style={{ flex: 1 }}>
+              <View style={styles.aiBarTop}>
+                <Text style={styles.aiBarTitle}>✨ Resumo ({summary.count} msgs)</Text>
+                <TouchableOpacity onPress={() => setSummary(null)}>
+                  <Text style={styles.aiBarClose}>×</Text>
+                </TouchableOpacity>
+              </View>
+              {summary.bullets.length ? (
+                summary.bullets.map((b, i) => (
+                  <Text key={i} style={styles.aiBullet}>• {b}</Text>
+                ))
+              ) : (
+                <Text style={styles.aiBullet}>Nada para resumir aqui.</Text>
+              )}
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.aiSummaryBtn} onPress={loadSummary} disabled={summaryBusy}>
+              {summaryBusy ? <ActivityIndicator color={colors.primary} /> : <Text style={styles.aiSummaryText}>✨ Resumir conversa</Text>}
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.primary} />
@@ -510,6 +566,10 @@ export function ChatScreen({ navigation, route }: Props) {
         onAttach={() => setShowAttach((v) => !v)}
         onTyping={notifyTyping}
         onSendAudio={(f) => sendFile(f, 'audio')}
+        aiEnabled={aiOn}
+        suggestions={suggestions}
+        onClearSuggestions={() => setSuggestions([])}
+        onRewrite={(text, mode) => aiApi.rewrite(text, mode)}
       />
 
       <ForwardSheet
@@ -544,4 +604,11 @@ const makeStyles = (colors: Palette) =>
   loadOld: { alignItems: 'center', paddingVertical: 12 },
   loadOldText: { color: colors.primary, fontWeight: '600', fontSize: 13 },
   typingBar: { color: colors.primary, fontSize: 12, paddingHorizontal: 16, paddingVertical: 4 },
+  aiBar: { backgroundColor: colors.surfaceAlt, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, paddingHorizontal: 14, paddingVertical: 8 },
+  aiSummaryBtn: { alignItems: 'center', paddingVertical: 4 },
+  aiSummaryText: { color: colors.primary, fontWeight: '600', fontSize: 13 },
+  aiBarTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  aiBarTitle: { color: colors.primary, fontWeight: '700', fontSize: 13 },
+  aiBarClose: { color: colors.textMuted, fontSize: 18 },
+  aiBullet: { color: colors.text, fontSize: 13, lineHeight: 19 },
 });

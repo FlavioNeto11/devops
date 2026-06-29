@@ -16,6 +16,10 @@ import { GroupsScreen } from '../screens/GroupsScreen';
 import { GroupDetailsScreen } from '../screens/GroupDetailsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { MediaViewerScreen } from '../screens/MediaViewerScreen';
+import { AiConsentScreen } from '../screens/AiConsentScreen';
+import { AiAssistantScreen } from '../screens/AiAssistantScreen';
+import { KnowledgeBaseScreen } from '../screens/KnowledgeBaseScreen';
+import { AutoReplyConfigScreen } from '../screens/AutoReplyConfigScreen';
 
 export type RootStackParamList = {
   Landing: undefined;
@@ -29,6 +33,10 @@ export type RootStackParamList = {
   GroupDetails: { chatId: string; name: string | null };
   Settings: undefined;
   MediaViewer: { mediaId: string; type: string };
+  AiConsent: undefined;
+  AiAssistant: undefined;
+  KnowledgeBase: undefined;
+  AutoReplyConfig: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -81,6 +89,10 @@ export function RootNavigator() {
           />
           <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Configurações' }} />
           <Stack.Screen name="MediaViewer" component={MediaViewerScreen} options={{ title: 'Mídia' }} />
+          <Stack.Screen name="AiConsent" component={AiConsentScreen} options={{ title: 'Inteligência (IA)' }} />
+          <Stack.Screen name="AiAssistant" component={AiAssistantScreen} options={{ title: 'Assistente' }} />
+          <Stack.Screen name="KnowledgeBase" component={KnowledgeBaseScreen} options={{ title: 'Base de conhecimento' }} />
+          <Stack.Screen name="AutoReplyConfig" component={AutoReplyConfigScreen} options={{ title: 'Auto-resposta' }} />
         </>
       )}
     </Stack.Navigator>
