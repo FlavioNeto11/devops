@@ -231,6 +231,19 @@ export function ChatScreen({ navigation, route }: Props) {
       .catch(() => setAiOn(false));
   }, []);
 
+  // IA: sugestão PROATIVA ao abrir um chat cuja última mensagem foi RECEBIDA
+  // (sem isso, os chips só apareceriam quando chegasse uma mensagem nova).
+  useEffect(() => {
+    if (!aiOn || loading || !messages.length) return;
+    if (messages[0]?.fromMe) return; // última foi enviada por mim → nada a sugerir
+    if (suggestions.length) return;
+    aiApi
+      .suggest(chatId)
+      .then((r) => { if (r.suggestions?.length) setSuggestions(r.suggestions); })
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiOn, loading, chatId]);
+
   const loadSummary = async () => {
     setSummaryBusy(true);
     try {

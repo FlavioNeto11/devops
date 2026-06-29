@@ -18,6 +18,7 @@ import { TOOL_BY_NAME } from './tools';
 import { ingestText, ingestFiles, listSources, removeSource } from './kb';
 import { purgeAiData } from './hooks';
 import { learnStyleFrom } from './graph';
+import { backfillUserEmbeddings, backfillStatus } from './embeddings.worker';
 import { aiDbEnabled, query } from './pg';
 import { loadAiCore } from './ai-core-loader';
 import { emitToUser } from '../../realtime/io';
@@ -34,7 +35,22 @@ export async function getConsent(req: AuthedRequest, res: Response): Promise<voi
 }
 export async function postConsent(req: AuthedRequest, res: Response): Promise<void> {
   const settings = await acceptConsent(uid(req), req.body ?? {});
+  // Dispara o backfill do histórico em background (uma vez), p/ a busca semântica/assistente
+  // já conhecerem as conversas existentes. Fail-soft.
+  getSessionIdOrThrow(uid(req))
+    .then((sessionId) => void backfillUserEmbeddings(uid(req), sessionId))
+    .catch(() => undefined);
   res.json({ ok: true, settings });
+}
+
+export async function postReindex(req: AuthedRequest, res: Response): Promise<void> {
+  const userId = uid(req);
+  const sessionId = await getSessionIdOrThrow(userId);
+  void backfillUserEmbeddings(userId, sessionId);
+  res.json({ started: true, status: backfillStatus(userId) });
+}
+export async function getReindex(req: AuthedRequest, res: Response): Promise<void> {
+  res.json(backfillStatus(uid(req)));
 }
 export async function postRevoke(req: AuthedRequest, res: Response): Promise<void> {
   await revokeConsent(uid(req));

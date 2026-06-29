@@ -64,6 +64,16 @@ async function buildGraph(): Promise<{ runTurn(turn: GraphTurn): Promise<GraphRe
     tracer: core.createAiTracer({ metrics: getAiMetrics() as never, app: 'zapbridge' }),
     memory: { threadStore, summarizer, userMemory: (userMemory as never) ?? undefined },
     proposeTools: true,
+    maxToolRounds: 4, // permite list_chats → get_recent_messages → responder
+    // Empurra o ROUTER para o deep-path (com tools) sempre que a resposta dependa
+    // das conversas reais do usuário — senão o fast-path responde genérico "não tenho acesso".
+    routerContext:
+      'CONTEXTO ZAPBRIDGE (WhatsApp do PRÓPRIO usuário): QUALQUER pergunta cuja resposta dependa das ' +
+      'CONVERSAS, MENSAGENS, CONTATOS ou HISTÓRICO reais do usuário é SEMPRE "complex" — exige tools ' +
+      '(list_chats, get_recent_messages, search_history_semantic, search_knowledge). Inclui: "o que falo/combinei ' +
+      'com X", "resuma a conversa com Y", "onde está Z no histórico", "responda o cliente W", quem/quando/quanto. ' +
+      'Use "trivial" só para saudação/agradecimento/social puro. Você TEM acesso ao histórico via tools — ' +
+      'NUNCA responda que "não tem acesso às conversas".',
     verify: (process.env.AI_GRAPH_VERIFY ?? 'on').trim().toLowerCase() !== 'off',
   });
   return graph;

@@ -36,6 +36,8 @@ router.post('/consent/revoke', asyncHandler(c.postRevoke));
 router.get('/settings', asyncHandler(c.getConsent));
 router.put('/settings', asyncHandler(c.putSettings));
 router.post('/data/purge', asyncHandler(c.postPurge)); // apagar dados de IA (sempre permitido)
+router.post('/reindex', requireConsent(), asyncHandler(c.postReindex)); // backfill do histórico
+router.get('/reindex', requireConsent(), asyncHandler(c.getReindex));
 
 // processamento de conteúdo (exige consentimento)
 router.post('/rewrite', requireConsent(), asyncHandler(c.postRewrite));

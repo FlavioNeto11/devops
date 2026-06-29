@@ -8,6 +8,7 @@
 import { aiDbEnabled, query } from './pg';
 import { embedTexts } from './ai.service';
 import { getAiMetrics } from './ai-metrics';
+import { prisma } from '../../lib/prisma';
 
 interface Job {
   messageId: string;
@@ -76,4 +77,80 @@ export function enqueueMessageEmbedding(job: {
 export async function purgeUserEmbeddings(userId: string): Promise<void> {
   if (!aiDbEnabled()) return;
   await query(`delete from message_embeddings where user_id = $1`, [userId]).catch(() => undefined);
+}
+
+const _backfilling = new Set<string>();
+
+export interface BackfillProgress {
+  running: boolean;
+  done: number;
+  indexed: number;
+}
+const _progress = new Map<string, BackfillProgress>();
+export function backfillStatus(userId: string): BackfillProgress {
+  return _progress.get(userId) ?? { running: false, done: 0, indexed: 0 };
+}
+
+/**
+ * Backfill: indexa o histórico EXISTENTE (que nunca passou pelos hooks). Lê do SQLite em
+ * páginas, embeda em LOTE (1 chamada OpenAI por lote) e insere ON CONFLICT DO NOTHING.
+ * Throttle entre lotes. Em background, fail-soft, idempotente. Cap p/ limitar custo/tempo.
+ */
+export async function backfillUserEmbeddings(
+  userId: string,
+  sessionId: string,
+  opts: { batch?: number; max?: number } = {},
+): Promise<void> {
+  if (!aiDbEnabled() || _backfilling.has(userId)) return;
+  _backfilling.add(userId);
+  const batch = Math.min(opts.batch ?? 256, 512);
+  const max = opts.max ?? 50_000;
+  _progress.set(userId, { running: true, done: 0, indexed: 0 });
+  let indexed = 0;
+  let done = 0;
+  try {
+    let cursor: string | undefined;
+    while (done < max) {
+      const rows = await prisma.message.findMany({
+        where: { text: { not: null }, chat: { sessionId } },
+        orderBy: { timestamp: 'desc' },
+        take: batch,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        select: { id: true, text: true, fromMe: true, timestamp: true, chat: { select: { jid: true } } },
+      });
+      if (!rows.length) break;
+      cursor = rows[rows.length - 1]!.id;
+      done += rows.length;
+
+      // Pula os já indexados neste lote.
+      const ids = rows.map((r) => r.id);
+      const existing = await query<{ message_id: string }>(
+        `select message_id from message_embeddings where message_id = any($1::text[])`,
+        [ids],
+      ).catch(() => ({ rows: [] as { message_id: string }[] }));
+      const have = new Set(existing.rows.map((r) => r.message_id));
+      const todo = rows.filter((r) => !have.has(r.id) && (r.text ?? '').trim());
+
+      if (todo.length) {
+        const vecs = await embedTexts(todo.map((r) => (r.text ?? '').slice(0, 4000))).catch(() => [] as number[][]);
+        for (let i = 0; i < todo.length; i++) {
+          const v = vecs[i];
+          if (!v?.length) continue;
+          const r = todo[i]!;
+          await query(
+            `insert into message_embeddings (message_id, user_id, chat_jid, from_me, text, ts, embedding)
+               values ($1,$2,$3,$4,$5,$6,$7::vector) on conflict (message_id) do nothing`,
+            [r.id, userId, r.chat.jid, r.fromMe, (r.text ?? '').slice(0, 4000), r.timestamp.toISOString(), vectorLiteral(v)],
+          ).catch(() => undefined);
+          indexed++;
+        }
+      }
+      _progress.set(userId, { running: true, done, indexed });
+      await new Promise((res) => setTimeout(res, 250)); // throttle (rate-limit OpenAI / CPU)
+    }
+  } finally {
+    _backfilling.delete(userId);
+    _progress.set(userId, { running: false, done, indexed });
+    console.log(`[ai/embed] backfill concluído: ${indexed} indexados (${done} varridos) p/ ${userId}`);
+  }
 }
