@@ -7,7 +7,7 @@
 // =============================================================================
 import type { AiTool, AiToolContext, AiToolRegistry } from '@flavioneto11/ai-core';
 import { prisma } from '../../lib/prisma';
-import { listChats, getChat, listMessages } from '../chats/chats.service';
+import { listChats, listMessages } from '../chats/chats.service';
 import { sendText, sendReaction, markChatRead } from '../whatsapp/baileys.manager';
 import { searchHistorySemantic, retrieveKnowledge } from './rag';
 import { emitToUser } from '../../realtime/io';
@@ -21,6 +21,23 @@ function ownerOk(ctx: Ctx): { allowed: boolean; reason?: string } {
     return { allowed: false, reason: 'identidade/sessão ausente' };
   }
   return { allowed: true };
+}
+
+// Resolve uma conversa por chatId, jid OU NOME (o LLM costuma referir por nome, ex.: "Cognição").
+// Sem isso, o assistente passava ids inválidos entre turnos e tudo "retornava vazio".
+async function resolveChat(
+  sessionId: string,
+  ref: string,
+): Promise<{ id: string; jid: string; name: string | null } | null> {
+  if (!ref) return null;
+  const byIdOrJid = await prisma.chat.findFirst({
+    where: { sessionId, OR: [{ id: ref }, { jid: ref }] },
+    select: { id: true, jid: true, name: true },
+  });
+  if (byIdOrJid) return byIdOrJid;
+  const matches = await listChats(sessionId, ref).catch(() => []);
+  const first = matches[0];
+  return first ? { id: first.id, jid: first.jid, name: first.name } : null;
 }
 
 const list_chats: AiTool = {
@@ -45,19 +62,24 @@ const list_chats: AiTool = {
 
 const get_recent_messages: AiTool = {
   name: 'get_recent_messages',
-  description: 'Lê as últimas mensagens de uma conversa (por chatId). Use para entender o contexto antes de responder ou resumir.',
+  description: 'Lê as últimas mensagens de uma conversa, identificada por NOME (ex.: "Cognição", "Kauane") ou pelo id do list_chats. Use para entender o contexto antes de responder ou resumir.',
   specialist: 'assistant',
   risk: 'R1',
   mutates: false,
   parameters: {
     type: 'object',
-    properties: { chatId: { type: 'string' }, limit: { type: 'number' } },
-    required: ['chatId'],
+    properties: { chat: { type: 'string', description: 'nome ou id da conversa' }, limit: { type: 'number' } },
+    required: ['chat'],
   },
   authorize: (ctx) => Promise.resolve(ownerOk(ctx as Ctx)),
-  execute: async (input: { chatId: string; limit?: number }, _ctx) => {
-    const { messages } = await listMessages(input.chatId, undefined, Math.min(input.limit ?? 15, 40));
+  execute: async (input: { chat?: string; chatId?: string; limit?: number }, ctx) => {
+    const c = ctx as Ctx;
+    const ref = input.chat ?? input.chatId ?? '';
+    const chat = await resolveChat(c.sessionId!, ref);
+    if (!chat) return { error: 'chat_not_found', hint: 'chame list_chats para ver as conversas disponíveis' };
+    const { messages } = await listMessages(chat.id, undefined, Math.min(input.limit ?? 15, 40));
     return {
+      chat: chat.name,
       messages: messages
         .slice()
         .reverse()
@@ -78,11 +100,12 @@ const search_history: AiTool = {
     required: ['query'],
   },
   authorize: (ctx) => Promise.resolve(ownerOk(ctx as Ctx)),
-  execute: async (input: { query: string; chatId?: string; k?: number }, ctx) => {
+  execute: async (input: { query: string; chat?: string; chatId?: string; k?: number }, ctx) => {
     const c = ctx as Ctx;
     let chatJid: string | null = null;
-    if (input.chatId) {
-      const chat = await getChat(c.sessionId!, input.chatId).catch(() => null);
+    const ref = input.chat ?? input.chatId;
+    if (ref) {
+      const chat = await resolveChat(c.sessionId!, ref);
       chatJid = chat?.jid ?? null;
     }
     const hits = await searchHistorySemantic(c.userId!, chatJid, input.query, Math.min(input.k ?? 8, 20));
@@ -108,26 +131,26 @@ const search_knowledge: AiTool = {
 // ── Mutantes (R3, dry-run + confirmação) ─────────────────────────────────────
 const send_message: AiTool = {
   name: 'send_message',
-  description: 'Envia uma mensagem de texto numa conversa (por chatId). Gera uma PRÉVIA; só envia de verdade após o usuário confirmar.',
+  description: 'Envia uma mensagem de texto numa conversa (por NOME ou id). Gera uma PRÉVIA; só envia de verdade após o usuário confirmar.',
   specialist: 'assistant',
   risk: 'R3',
   mutates: true,
   supportsDryRun: true,
   parameters: {
     type: 'object',
-    properties: { chatId: { type: 'string' }, text: { type: 'string' } },
-    required: ['chatId', 'text'],
+    properties: { chat: { type: 'string', description: 'nome ou id da conversa' }, text: { type: 'string' } },
+    required: ['chat', 'text'],
   },
   authorize: (ctx) => Promise.resolve(ownerOk(ctx as Ctx)),
-  execute: async (input: { chatId: string; text: string }, ctx) => {
+  execute: async (input: { chat?: string; chatId?: string; text: string }, ctx) => {
     const c = ctx as Ctx;
-    const chat = await getChat(c.sessionId!, input.chatId).catch(() => null);
+    const chat = await resolveChat(c.sessionId!, input.chat ?? input.chatId ?? '');
     if (!chat) return { error: 'chat_not_found' };
-    if (c.dryRun === true) return { preview: true, to: chat.name, chatId: input.chatId, text: input.text };
+    if (c.dryRun === true) return { preview: true, to: chat.name, chatId: chat.id, text: input.text };
     const msg = await prisma.message.create({
-      data: { chatId: input.chatId, fromMe: true, senderJid: chat.jid, type: 'text', text: input.text, status: 'pending', timestamp: new Date() },
+      data: { chatId: chat.id, fromMe: true, senderJid: chat.jid, type: 'text', text: input.text, status: 'pending', timestamp: new Date() },
     });
-    await prisma.chat.update({ where: { id: input.chatId }, data: { lastMessageId: msg.id, lastMessageAt: new Date() } }).catch(() => undefined);
+    await prisma.chat.update({ where: { id: chat.id }, data: { lastMessageId: msg.id, lastMessageAt: new Date() } }).catch(() => undefined);
     await sendText(c.userId!, chat.jid, input.text, msg.id);
     return { sent: true, messageId: msg.id, to: chat.name };
   },
@@ -142,34 +165,36 @@ const react: AiTool = {
   supportsDryRun: true,
   parameters: {
     type: 'object',
-    properties: { chatId: { type: 'string' }, messageId: { type: 'string' }, emoji: { type: 'string' } },
-    required: ['chatId', 'messageId', 'emoji'],
+    properties: { chat: { type: 'string', description: 'nome ou id' }, messageId: { type: 'string' }, emoji: { type: 'string' } },
+    required: ['chat', 'messageId', 'emoji'],
   },
   authorize: (ctx) => Promise.resolve(ownerOk(ctx as Ctx)),
-  execute: async (input: { chatId: string; messageId: string; emoji: string }, ctx) => {
+  execute: async (input: { chat?: string; chatId?: string; messageId: string; emoji: string }, ctx) => {
     const c = ctx as Ctx;
     if (c.dryRun === true) return { preview: true, emoji: input.emoji, messageId: input.messageId };
-    await sendReaction(c.userId!, input.chatId, input.messageId, input.emoji);
+    const chat = await resolveChat(c.sessionId!, input.chat ?? input.chatId ?? '');
+    if (!chat) return { error: 'chat_not_found' };
+    await sendReaction(c.userId!, chat.id, input.messageId, input.emoji);
     return { reacted: true };
   },
 };
 
 const mark_read: AiTool = {
   name: 'mark_read',
-  description: 'Marca uma conversa como lida (por chatId). Gera prévia; só marca após confirmação.',
+  description: 'Marca uma conversa como lida (por NOME ou id). Gera prévia; só marca após confirmação.',
   specialist: 'assistant',
   risk: 'R3',
   mutates: true,
   supportsDryRun: true,
-  parameters: { type: 'object', properties: { chatId: { type: 'string' } }, required: ['chatId'] },
+  parameters: { type: 'object', properties: { chat: { type: 'string', description: 'nome ou id' } }, required: ['chat'] },
   authorize: (ctx) => Promise.resolve(ownerOk(ctx as Ctx)),
-  execute: async (input: { chatId: string }, ctx) => {
+  execute: async (input: { chat?: string; chatId?: string }, ctx) => {
     const c = ctx as Ctx;
-    const chat = await getChat(c.sessionId!, input.chatId).catch(() => null);
+    const chat = await resolveChat(c.sessionId!, input.chat ?? input.chatId ?? '');
     if (!chat) return { error: 'chat_not_found' };
     if (c.dryRun === true) return { preview: true, chat: chat.name };
     await markChatRead(c.userId!, chat.jid);
-    emitToUser(c.userId!, 'chat.updated', { chat: { id: input.chatId, unreadCount: 0 } });
+    emitToUser(c.userId!, 'chat.updated', { chat: { id: chat.id, unreadCount: 0 } });
     return { marked: true };
   },
 };

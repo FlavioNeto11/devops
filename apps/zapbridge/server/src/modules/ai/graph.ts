@@ -72,7 +72,7 @@ async function buildGraph(): Promise<{ runTurn(turn: GraphTurn): Promise<GraphRe
     // status 'preview' (nunca enviam sem confirmação). proposeTools=true proporia ATÉ as de
     // leitura, e o assistente pararia sem os dados.
     proposeTools: false,
-    maxToolRounds: 4, // permite list_chats → get_recent_messages → responder
+    maxToolRounds: 6, // varreduras multi-chat: list_chats → vários get_recent_messages → responder
     // Empurra o ROUTER para o deep-path (com tools) sempre que a resposta dependa
     // das conversas reais do usuário — senão o fast-path responde genérico "não tenho acesso".
     routerContext:
