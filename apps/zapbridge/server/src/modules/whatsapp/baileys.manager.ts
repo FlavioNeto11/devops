@@ -17,6 +17,8 @@ import { emitToUser } from '../../realtime/io';
 import { sendPush } from '../push/push.service';
 import { isGroupJid, isStatusBroadcast, jidToPhone } from '../../utils/jid';
 import { MessageType } from '../../types';
+// Camada de IA (opt-in, fail-soft). Import em runtime → ciclo CJS resolve no call-time.
+import { onIncomingMessage, onHistoryMessage, purgeAiData } from '../ai/hooks';
 
 // Um socket Baileys por usuário do app. MVP: 1 sessão por usuário.
 interface ManagedSession {
@@ -1070,6 +1072,20 @@ async function handleIncomingMessage(
     );
   }
   emitToUser(userId, 'chat.updated', { chat: updatedChat });
+
+  // IA (opt-in, fail-soft): indexa + sugere resposta / auto-responde se aplicável.
+  onIncomingMessage({
+    userId,
+    sessionId,
+    chatId: chat.id,
+    chatJid: chat.jid,
+    isGroup: isGroupJid(remoteJid),
+    messageId: message.id,
+    text: message.text,
+    fromMe,
+    ts,
+    notify: upsertType === 'notify',
+  }).catch(() => undefined);
 }
 
 function previewFor(type: MessageType, text?: string): string {
@@ -1166,6 +1182,8 @@ async function persistHistoryMessage(
   if (type !== 'text') {
     await upsertMediaRow(created.id, type, m.message);
   }
+  // IA (backfill): só indexa o histórico (sem sugerir).
+  onHistoryMessage({ userId, chatJid: chat.jid, messageId: created.id, text: created.text, fromMe, ts });
   return { chatId: chat.id, ts };
 }
 
@@ -1535,6 +1553,8 @@ export async function disconnectSession(userId: string) {
   }
 
   await fs.rm(authPathFor(userId), { recursive: true, force: true }).catch(() => undefined);
+  // IA: expurga TODOS os dados de IA do usuário (embeddings, memória, KB, logs) — RN15.
+  await purgeAiData(userId).catch(() => undefined);
   emitToUser(userId, 'session.disconnected', { reason: 'manual', canReconnect: true });
 }
 

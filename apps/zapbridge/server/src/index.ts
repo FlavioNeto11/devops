@@ -18,6 +18,7 @@ import pushRoutes from './modules/push/push.routes';
 import settingsRoutes from './modules/settings/settings.routes';
 import { runAiMigrations, aiDbEnabled } from './modules/ai/pg';
 import { startAiMetricsServer } from './modules/ai/ai-metrics';
+import aiRoutes from './modules/ai/ai.routes';
 
 const app = express();
 app.use(cors({ origin: env.corsOrigin }));
@@ -34,6 +35,7 @@ app.use('/groups', groupsRoutes);
 app.use('/media', mediaRoutes);
 app.use('/push', pushRoutes);
 app.use('/settings', settingsRoutes);
+app.use('/ai', aiRoutes);
 
 // Handler de erro central: respeita `err.status` quando presente.
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

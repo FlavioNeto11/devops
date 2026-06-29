@@ -115,6 +115,29 @@ const DDL: string[] = [
      accepted_at timestamptz not null default now()
    )`,
 
+  // Preferências de IA do usuário (consent flag + tom/grupos/sugestões/auto-resposta).
+  `create table if not exists ai_settings (
+     user_id text primary key,
+     consented boolean not null default false,
+     consent_version text,
+     tone text not null default 'neutro',
+     language text not null default 'pt-BR',
+     include_groups boolean not null default false,
+     suggestions_enabled boolean not null default true,
+     autoreply jsonb not null default '{}'::jsonb,
+     updated_at timestamptz not null default now()
+   )`,
+
+  // Opt-out / auto-resposta por chat (chat_jid = Chat.jid do SQLite, por valor).
+  `create table if not exists ai_chat_settings (
+     user_id text not null,
+     chat_jid text not null,
+     excluded boolean not null default false,
+     autoreply_enabled boolean not null default false,
+     updated_at timestamptz not null default now(),
+     primary key (user_id, chat_jid)
+   )`,
+
   `create table if not exists ai_action_log (
      id uuid primary key default gen_random_uuid(),
      user_id text not null,

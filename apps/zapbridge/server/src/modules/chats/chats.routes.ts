@@ -16,6 +16,7 @@ import {
   postArchive,
   postLock,
 } from './chats.controller';
+import { aiChatRouter } from '../ai/ai.routes';
 
 // Upload em memória (MVP); limite de 32MB.
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 32 * 1024 * 1024 } });
@@ -35,5 +36,8 @@ router.post('/:id/messages', asyncHandler(postMessage));
 router.post('/:id/messages/:msgId/react', asyncHandler(postReaction));
 router.post('/:id/messages/:msgId/forward', asyncHandler(postForward));
 router.post('/:id/media', upload.single('file'), asyncHandler(postMedia));
+
+// Endpoints de IA escopados ao chat: /chats/:id/ai/{suggest,summary,triage,settings}.
+router.use('/:id/ai', aiChatRouter);
 
 export default router;
