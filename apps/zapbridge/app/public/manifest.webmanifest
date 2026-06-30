@@ -7,8 +7,8 @@
   "scope": "/zapbridge/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0b141a",
-  "theme_color": "#00a884",
+  "background_color": "#0b0b0b",
+  "theme_color": "#0b0b0b",
   "lang": "pt-BR",
   "categories": ["productivity", "social"],
   "icons": [

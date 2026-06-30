@@ -3,7 +3,7 @@
    demais GET no escopo são network-first com fallback ao cache (offline básico). Nunca
    cacheia API nem WebSocket. skipWaiting + clients.claim para atualizar sem espera.
    Bump CACHE a cada release que precise furar o cache do iOS instalado. */
-const CACHE = 'zapbridge-v8';
+const CACHE = 'zapbridge-v9';
 const SHELL = '/zapbridge/';
 
 self.addEventListener('install', (event) => {
