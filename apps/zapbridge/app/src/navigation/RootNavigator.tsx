@@ -20,6 +20,9 @@ import { AiConsentScreen } from '../screens/AiConsentScreen';
 import { AiAssistantScreen } from '../screens/AiAssistantScreen';
 import { KnowledgeBaseScreen } from '../screens/KnowledgeBaseScreen';
 import { AutoReplyConfigScreen } from '../screens/AutoReplyConfigScreen';
+import { ComingSoonScreen } from '../screens/ComingSoonScreen';
+import { ArchivedChatsScreen } from '../screens/ArchivedChatsScreen';
+import { TabKey } from '../components/WhatsAppTabBar';
 
 export type RootStackParamList = {
   Landing: undefined;
@@ -37,6 +40,8 @@ export type RootStackParamList = {
   AiAssistant: undefined;
   KnowledgeBase: undefined;
   AutoReplyConfig: undefined;
+  ComingSoon: { tab: TabKey; title: string };
+  ArchivedChats: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -45,9 +50,10 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 function ChatListRoute(props: NativeStackScreenProps<RootStackParamList, 'ChatList'>) {
   const { width } = useWindowDimensions();
   const wide = Platform.OS === 'web' && width >= 900;
+  // Lista mobile e WebHome têm cabeçalho próprio → esconde o header nativo do stack.
   useLayoutEffect(() => {
-    props.navigation.setOptions({ headerShown: !wide });
-  }, [wide, props.navigation]);
+    props.navigation.setOptions({ headerShown: false });
+  }, [props.navigation]);
   return wide ? <WebHome {...props} /> : <ChatListScreen {...props} />;
 }
 
@@ -93,6 +99,8 @@ export function RootNavigator() {
           <Stack.Screen name="AiAssistant" component={AiAssistantScreen} options={{ title: 'Assistente' }} />
           <Stack.Screen name="KnowledgeBase" component={KnowledgeBaseScreen} options={{ title: 'Base de conhecimento' }} />
           <Stack.Screen name="AutoReplyConfig" component={AutoReplyConfigScreen} options={{ title: 'Auto-resposta' }} />
+          <Stack.Screen name="ComingSoon" component={ComingSoonScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="ArchivedChats" component={ArchivedChatsScreen} options={{ title: 'Arquivadas' }} />
         </>
       )}
     </Stack.Navigator>

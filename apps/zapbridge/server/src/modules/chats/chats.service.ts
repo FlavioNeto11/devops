@@ -65,6 +65,7 @@ export async function listChats(
           text: c.messages[0].text,
           type: c.messages[0].type,
           fromMe: c.messages[0].fromMe,
+          status: c.messages[0].status,
           senderName: c.isGroup && !c.messages[0].fromMe
             ? (nameByJid.get(c.messages[0].senderJid) ?? c.messages[0].senderJid.split('@')[0].split(':')[0])
             : null,

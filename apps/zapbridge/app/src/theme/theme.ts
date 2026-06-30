@@ -22,25 +22,26 @@ export interface Palette {
   chatPattern: string; // fundo da área de mensagens
 }
 
+// Paleta fiel ao app do WhatsApp no iOS (dark): fundo quase preto + verde vivo.
 export const darkColors: Palette = {
-  bg: '#0b141a',
-  surface: '#111b21',
-  surfaceAlt: '#202c33',
-  header: '#202c33',
-  primary: '#00a884',
-  primaryDark: '#017561',
+  bg: '#0b0b0b',
+  surface: '#1c1c1e',
+  surfaceAlt: '#2c2c2e',
+  header: '#0b0b0b',
+  primary: '#25d366',
+  primaryDark: '#1da851',
   bubbleOut: '#005c4b',
-  bubbleIn: '#202c33',
+  bubbleIn: '#1f2c34',
   bubbleOutText: '#e9edef',
   bubbleInText: '#e9edef',
-  text: '#e9edef',
-  textMuted: '#8696a0',
-  danger: '#f15c6d',
-  warning: '#e0a23b',
-  border: '#2f3b43',
-  badge: '#00a884',
-  link: '#53bdeb',
-  chatPattern: '#0b141a',
+  text: '#ffffff',
+  textMuted: '#8d8d93',
+  danger: '#ff453a',
+  warning: '#ffd60a',
+  border: '#2a2a2c',
+  badge: '#25d366',
+  link: '#34b7f1',
+  chatPattern: '#0b0b0b',
 };
 
 export const lightColors: Palette = {

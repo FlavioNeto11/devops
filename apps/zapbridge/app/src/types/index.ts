@@ -19,7 +19,13 @@ export interface ChatListItem {
   locked?: boolean;
   unreadCount: number;
   lastMessageAt: string;
-  lastMessage: { text: string | null; type: MessageType; fromMe: boolean; senderName?: string | null } | null;
+  lastMessage: {
+    text: string | null;
+    type: MessageType;
+    fromMe: boolean;
+    senderName?: string | null;
+    status?: MessageStatus;
+  } | null;
 }
 
 export interface QuotedMessage {

@@ -86,7 +86,7 @@ export const useChatsStore = create<ChatsState>((set, get) => ({
     const idx = chats.findIndex((c) => c.id === chatId);
     if (idx >= 0) {
       const chat = { ...chats[idx] };
-      chat.lastMessage = { text: message.text, type: message.type, fromMe: message.fromMe };
+      chat.lastMessage = { text: message.text, type: message.type, fromMe: message.fromMe, status: message.status };
       chat.lastMessageAt = message.timestamp;
       if (!message.fromMe) chat.unreadCount += 1;
       chats.splice(idx, 1);

@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   FlatList,
@@ -6,13 +6,14 @@ import {
   TouchableOpacity,
   Text,
   RefreshControl,
+  ScrollView,
   StyleSheet,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { api } from '../api/client';
 import { RootStackParamList } from '../navigation/RootNavigator';
-import { ChatKind } from '../types';
 import { useChatsStore } from '../store/chats.store';
 import { useSessionStore } from '../store/session.store';
 import { ChatListItemRow } from '../components/ChatListItem';
@@ -20,36 +21,43 @@ import { ConnectionBanner } from '../components/ConnectionBanner';
 import { InstallBanner } from '../components/InstallBanner';
 import { EmptyState } from '../components/EmptyState';
 import { SkeletonList } from '../components/SkeletonList';
+import { WhatsAppTabBar } from '../components/WhatsAppTabBar';
+import { routeTab } from '../navigation/tabs';
+import { IconSearch, IconPlus, IconDots, IconArchive, IconChevronRight } from '../components/icons';
 import { spacing, radius, Palette } from '../theme/theme';
 import { useTheme } from '../theme/ThemeContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ChatList'>;
+type Filter = 'all' | 'unread' | 'favorites' | 'groups';
 
 export function ChatListScreen({ navigation }: Props) {
-  const { chats, loading, error, search, setSearch, fetchChats } = useChatsStore();
+  const { chats, loading, search, setSearch, fetchChats } = useChatsStore();
   const status = useSessionStore((s) => s.status);
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState<'all' | ChatKind>('all');
+  const [filter, setFilter] = useState<Filter>('all');
+  const [archivedCount, setArchivedCount] = useState(0);
   const colors = useTheme();
   const styles = makeStyles(colors);
   const insets = useSafeAreaInsets();
 
-  const visibleChats = filter === 'all' ? chats : chats.filter((c) => c.kind === filter);
+  const unreadChats = chats.filter((c) => c.unreadCount > 0).length;
+  const groupCount = chats.filter((c) => c.kind === 'group').length;
 
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={{ marginRight: 12 }}>
-          <Text style={{ color: colors.text, fontSize: 20 }}>⚙︎</Text>
-        </TouchableOpacity>
-      ),
-    });
-  }, [navigation]);
+  const visibleChats = chats.filter((c) => {
+    if (filter === 'unread') return c.unreadCount > 0;
+    if (filter === 'groups') return c.kind === 'group';
+    if (filter === 'favorites') return false; // ZapBridge ainda não tem favoritos
+    return true;
+  });
 
-  // Recarrega conversas ao focar.
+  // Recarrega conversas + contagem de arquivadas ao focar.
   useFocusEffect(
     React.useCallback(() => {
       fetchChats();
+      api
+        .get('/chats', { params: { archived: true } })
+        .then((r) => setArchivedCount((r.data.chats ?? []).length))
+        .catch(() => undefined);
     }, []),
   );
 
@@ -67,8 +75,44 @@ export function ChatListScreen({ navigation }: Props) {
 
   const disconnected = status !== 'connected';
 
+  const CHIPS: { key: Filter; label: string; count?: number }[] = [
+    { key: 'all', label: 'Todas' },
+    { key: 'unread', label: 'Não lidas', count: unreadChats },
+    { key: 'favorites', label: 'Favoritos' },
+    { key: 'groups', label: 'Grupos', count: groupCount },
+  ];
+
+  const ListHeader =
+    archivedCount > 0 && filter === 'all' ? (
+      <TouchableOpacity style={styles.archivedRow} onPress={() => navigation.navigate('ArchivedChats')}>
+        <View style={styles.archivedIcon}>
+          <IconArchive size={20} color={colors.textMuted} />
+        </View>
+        <Text style={styles.archivedText}>Arquivadas</Text>
+        <Text style={styles.archivedCount}>{archivedCount}</Text>
+        <IconChevronRight size={16} color={colors.textMuted} />
+      </TouchableOpacity>
+    ) : null;
+
   return (
     <View style={styles.container}>
+      {/* Cabeçalho estilo iOS: ações no topo + título grande "Conversas". */}
+      <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
+        <View style={styles.topRow}>
+          <TouchableOpacity onPress={() => navigation.navigate('Settings')} hitSlop={10}>
+            <IconDots size={20} color={colors.text} />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }} />
+          <TouchableOpacity onPress={() => navigation.navigate('AiAssistant')} hitSlop={10} style={styles.aiBtn}>
+            <Text style={styles.aiSparkle}>✨</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Contacts')} style={styles.plusBtn} activeOpacity={0.85}>
+            <IconPlus size={22} color="#0b0b0b" />
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.bigTitle}>Conversas</Text>
+      </View>
+
       <ConnectionBanner />
       <InstallBanner />
 
@@ -78,31 +122,40 @@ export function ChatListScreen({ navigation }: Props) {
         </TouchableOpacity>
       )}
 
+      {/* Busca com lupa interna. */}
       <View style={styles.searchWrap}>
-        <TextInput
-          style={styles.search}
-          placeholder="Pesquisar conversas"
-          placeholderTextColor={colors.textMuted}
-          value={search}
-          onChangeText={setSearch}
-        />
+        <View style={styles.searchField}>
+          <IconSearch size={17} color={colors.textMuted} />
+          <TextInput
+            style={styles.search}
+            placeholder="Pergunte à IA ou pesquise"
+            placeholderTextColor={colors.textMuted}
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
       </View>
 
-      <View style={styles.tabs}>
-        {([
-          ['all', 'Tudo'],
-          ['chat', 'Conversas'],
-          ['group', 'Grupos'],
-          ['channel', 'Canais'],
-        ] as const).map(([key, label]) => (
-          <TouchableOpacity
-            key={key}
-            style={[styles.tab, filter === key && styles.tabActive]}
-            onPress={() => setFilter(key)}
-          >
-            <Text style={[styles.tabText, filter === key && styles.tabTextActive]}>{label}</Text>
-          </TouchableOpacity>
-        ))}
+      {/* Chips de filtro com contadores. */}
+      <View style={styles.tabsWrap}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
+          {CHIPS.map((c) => {
+            const active = filter === c.key;
+            return (
+              <TouchableOpacity
+                key={c.key}
+                style={[styles.tab, active && styles.tabActive]}
+                onPress={() => setFilter(c.key)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.tabText, active && styles.tabTextActive]}>
+                  {c.label}
+                  {c.count ? ` ${c.count}` : ''}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {loading && chats.length === 0 ? (
@@ -111,6 +164,7 @@ export function ChatListScreen({ navigation }: Props) {
         <FlatList
           data={visibleChats}
           keyExtractor={(item) => item.id}
+          ListHeaderComponent={ListHeader}
           renderItem={({ item }) => (
             <ChatListItemRow
               chat={item}
@@ -119,73 +173,78 @@ export function ChatListScreen({ navigation }: Props) {
               }
             />
           )}
-          contentContainerStyle={{ paddingBottom: insets.bottom + 88 }}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
           }
           ListEmptyComponent={
-            error ? (
-              <EmptyState title="Não foi possível carregar conversas" subtitle={error} />
-            ) : (
-              <EmptyState
-                title="Nenhuma conversa ainda"
-                subtitle="Conecte sua conta e suas conversas aparecerão aqui."
-              />
-            )
+            <EmptyState
+              title={filter === 'favorites' ? 'Nenhum favorito ainda' : 'Nenhuma conversa'}
+              subtitle={
+                filter === 'favorites'
+                  ? 'Conversas marcadas como favoritas aparecerão aqui.'
+                  : 'Conecte sua conta e suas conversas aparecerão aqui.'
+              }
+            />
           }
         />
       )}
 
-      {/* FAB nova conversa (estilo WhatsApp). bottom respeita a safe-area (home indicator). */}
-      <TouchableOpacity
-        style={[styles.fab, { bottom: insets.bottom + spacing.lg }]}
-        onPress={() => navigation.navigate('Contacts')}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.fabIcon}>💬</Text>
-      </TouchableOpacity>
+      {/* Barra de abas inferior (estilo WhatsApp). */}
+      <WhatsAppTabBar active="chats" unread={unreadChats} onTab={(k) => routeTab(navigation, k)} />
     </View>
   );
 }
 
 const makeStyles = (colors: Palette) =>
   StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  connectCta: { backgroundColor: colors.primaryDark, padding: spacing.md, alignItems: 'center' },
-  connectText: { color: '#fff', fontWeight: '700' },
-  searchWrap: { padding: spacing.sm, paddingBottom: 0 },
-  search: {
-    backgroundColor: colors.surface,
-    color: colors.text,
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  tabs: { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.sm },
-  tab: {
-    paddingVertical: 6,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-  },
-  tabActive: { backgroundColor: colors.primaryDark },
-  tabText: { color: colors.textMuted, fontSize: 13, fontWeight: '600' },
-  tabTextActive: { color: '#fff' },
-  fab: {
-    position: 'absolute',
-    right: spacing.lg,
-    bottom: spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 6,
-  },
-  fabIcon: { fontSize: 24 },
-});
+    container: { flex: 1, backgroundColor: colors.bg },
+    header: { paddingHorizontal: spacing.lg, paddingBottom: 2 },
+    topRow: { flexDirection: 'row', alignItems: 'center', height: 36, gap: spacing.md },
+    aiBtn: { paddingHorizontal: 2 },
+    aiSparkle: { fontSize: 19 },
+    plusBtn: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    bigTitle: { color: colors.text, fontSize: 30, fontWeight: '800', marginTop: 2 },
+    connectCta: { backgroundColor: colors.primaryDark, padding: spacing.md, alignItems: 'center' },
+    connectText: { color: '#fff', fontWeight: '700' },
+    searchWrap: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
+    searchField: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      paddingHorizontal: spacing.md,
+      height: 38,
+    },
+    search: { flex: 1, color: colors.text, fontSize: 16, padding: 0 },
+    tabsWrap: { paddingVertical: spacing.sm },
+    tabs: { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.md },
+    tab: {
+      paddingVertical: 6,
+      paddingHorizontal: 14,
+      borderRadius: radius.lg,
+      backgroundColor: colors.surface,
+    },
+    tabActive: { backgroundColor: 'rgba(37,211,102,0.22)' },
+    tabText: { color: colors.textMuted, fontSize: 13.5, fontWeight: '600' },
+    tabTextActive: { color: colors.primary },
+    archivedRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingVertical: 12,
+      paddingHorizontal: spacing.md,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    archivedIcon: { width: 24, alignItems: 'center' },
+    archivedText: { color: colors.text, fontSize: 16, flex: 1 },
+    archivedCount: { color: colors.textMuted, fontSize: 13 },
+  });
