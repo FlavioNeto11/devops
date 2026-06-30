@@ -41,25 +41,18 @@ const headTags = `
     <link rel="icon" type="image/png" href="/zapbridge/icons/icon-192.png" />
     <meta name="color-scheme" content="dark" />
     <style>
-      /* Fundo escuro no documento — evita as faixas brancas do iOS (overscroll,
-         gap acima do teclado, áreas fora do #root). */
-      html, body { background-color: #0b141a; overscroll-behavior: none; }
-      /* Altura dinâmica da viewport: acompanha a barra do Safari e o teclado no
-         iOS (com fallback para navegadores sem dvh). */
+      /* Fundo escuro EDGE-TO-EDGE no documento E no #root — o app preenche até a
+         borda inferior (sem faixa preta). A safe-area (home indicator) é respeitada
+         pelo CONTEÚDO (FAB/input/listas) via react-native-safe-area-context, não por
+         padding no #root (que criava a faixa). */
+      html, body, #root { background-color: #0b141a; overscroll-behavior: none; }
+      /* Altura dinâmica da viewport: acompanha a barra do Safari (com fallback). O
+         teclado é tratado pelo script visualViewport abaixo. */
       html, body, #root { height: 100vh; height: 100dvh; }
       /* iOS Safari dá zoom ao focar inputs com fonte < 16px (e ignora
          user-scalable=no). Força 16px no mobile para impedir o zoom. */
       @media screen and (max-width: 900px) {
         input, textarea, select { font-size: 16px !important; }
-      }
-      /* Instalado em tela cheia (standalone): só a barra inferior (home indicator).
-         O topo (notch/status bar) já é tratado pelo header de navegação do app —
-         aplicar aqui também empilharia o inset em dobro (header gigante). */
-      @media (display-mode: standalone) {
-        #root {
-          box-sizing: border-box;
-          padding-bottom: env(safe-area-inset-bottom);
-        }
       }
     </style>
   `;

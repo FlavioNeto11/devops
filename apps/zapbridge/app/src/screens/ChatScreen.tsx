@@ -13,6 +13,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { api, errorMessage, getToken } from '../api/client';
 import { aiApi } from '../api/ai';
@@ -93,6 +94,7 @@ export function ChatScreen({ navigation, route }: Props) {
   const isGroup = jid?.endsWith('@g.us');
   const colors = useTheme();
   const styles = makeStyles(colors);
+  const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -574,16 +576,18 @@ export function ChatScreen({ navigation, route }: Props) {
         </View>
       )}
       {replyTo && <ReplyPreviewBar message={replyTo} onCancel={() => setReplyTo(null)} />}
-      <MessageInput
-        onSend={sendText}
-        onAttach={() => setShowAttach((v) => !v)}
-        onTyping={notifyTyping}
-        onSendAudio={(f) => sendFile(f, 'audio')}
-        aiEnabled={aiOn}
-        suggestions={suggestions}
-        onClearSuggestions={() => setSuggestions([])}
-        onRewrite={(text, mode) => aiApi.rewrite(text, mode)}
-      />
+      <View style={{ backgroundColor: colors.header, paddingBottom: insets.bottom }}>
+        <MessageInput
+          onSend={sendText}
+          onAttach={() => setShowAttach((v) => !v)}
+          onTyping={notifyTyping}
+          onSendAudio={(f) => sendFile(f, 'audio')}
+          aiEnabled={aiOn}
+          suggestions={suggestions}
+          onClearSuggestions={() => setSuggestions([])}
+          onRewrite={(text, mode) => aiApi.rewrite(text, mode)}
+        />
+      </View>
 
       <ForwardSheet
         visible={!!forwardMsg}

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { ChatKind } from '../types';
 import { useChatsStore } from '../store/chats.store';
@@ -31,6 +32,7 @@ export function ChatListScreen({ navigation }: Props) {
   const [filter, setFilter] = useState<'all' | ChatKind>('all');
   const colors = useTheme();
   const styles = makeStyles(colors);
+  const insets = useSafeAreaInsets();
 
   const visibleChats = filter === 'all' ? chats : chats.filter((c) => c.kind === filter);
 
@@ -117,6 +119,7 @@ export function ChatListScreen({ navigation }: Props) {
               }
             />
           )}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 88 }}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
           }
@@ -133,9 +136,9 @@ export function ChatListScreen({ navigation }: Props) {
         />
       )}
 
-      {/* FAB nova conversa (estilo WhatsApp). */}
+      {/* FAB nova conversa (estilo WhatsApp). bottom respeita a safe-area (home indicator). */}
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, { bottom: insets.bottom + spacing.lg }]}
         onPress={() => navigation.navigate('Contacts')}
         activeOpacity={0.85}
       >
