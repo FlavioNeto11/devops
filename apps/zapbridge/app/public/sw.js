@@ -1,7 +1,9 @@
 /* ZapBridge — service worker mínimo para instalabilidade (PWA) + cache do app shell.
-   Estratégia: network-first com fallback para cache (offline básico). Nunca cacheia
-   API nem WebSocket. O bundle do Expo é hash-imutável, então o cache não "gruda" versão. */
-const CACHE = 'zapbridge-v1';
+   Estratégia: navegação (index.html) é SEMPRE network (sem grudar versão no iOS standalone);
+   demais GET no escopo são network-first com fallback ao cache (offline básico). Nunca
+   cacheia API nem WebSocket. skipWaiting + clients.claim para atualizar sem espera.
+   Bump CACHE a cada release que precise furar o cache do iOS instalado. */
+const CACHE = 'zapbridge-v3';
 const SHELL = '/zapbridge/';
 
 self.addEventListener('install', (event) => {
@@ -28,6 +30,21 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.includes('/api') || url.pathname.includes('/socket.io')) return;
   // Só dentro do escopo do app.
   if (!url.pathname.startsWith('/zapbridge/')) return;
+
+  // NAVEGAÇÃO (carregar o app / index.html): SEMPRE rede — assim nunca serve o shell
+  // antigo no iOS instalado. Cai pro cache só se estiver realmente offline.
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(SHELL, copy)).catch(() => {});
+          return res;
+        })
+        .catch(async () => (await caches.match(SHELL)) || caches.match(req)),
+    );
+    return;
+  }
 
   event.respondWith(
     fetch(req)

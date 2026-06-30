@@ -101,8 +101,28 @@ const swScript = `
       setTimeout(apply, 300); // após o React montar
     })();
     if ('serviceWorker' in navigator) {
+      // Auto-update: ao detectar um SW novo assumindo o controle, recarrega 1x
+      // (essencial no iOS instalado, que não tem "hard refresh").
+      var __reloading = false;
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (__reloading) return;
+        __reloading = true;
+        window.location.reload();
+      });
       window.addEventListener('load', function () {
-        navigator.serviceWorker.register('/zapbridge/sw.js', { scope: '/zapbridge/' }).catch(function () {});
+        navigator.serviceWorker
+          .register('/zapbridge/sw.js', { scope: '/zapbridge/' })
+          .then(function (reg) {
+            reg.update();
+            setInterval(function () { reg.update(); }, 30 * 60 * 1000);
+          })
+          .catch(function () {});
+      });
+      // Ao voltar o foco ao app (reabrir o ícone no iOS), checa atualização.
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible' && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.getRegistration().then(function (reg) { if (reg) reg.update(); }).catch(function () {});
+        }
       });
     }
     // Captura o prompt de instalação (Android/desktop Chrome/Edge) cedo, antes do
