@@ -70,8 +70,9 @@ const swScript = `
     // navegador e o TECLADO virtual com precisão no mobile, eliminando o espaço
     // vazio embaixo (o 100dvh do CSS não encolhe com o teclado na maioria dos browsers).
     (function () {
+      var root = null;
       function apply() {
-        var root = document.getElementById('root');
+        root = root || document.getElementById('root');
         if (!root) return;
         var vv = window.visualViewport;
         var h = vv ? vv.height : window.innerHeight;
@@ -81,17 +82,23 @@ const swScript = `
         root.style.right = '0';
         root.style.top = top + 'px';
         root.style.height = h + 'px';
+        // iOS rola o LAYOUT viewport ao abrir/fechar o teclado e deixa um resíduo
+        // (a tarja preta). Forçar o topo a 0 corrige.
+        if (window.pageYOffset !== 0) window.scrollTo(0, 0);
       }
+      // Re-aplica em rajada: o iOS estabiliza a viewport com atraso após o teclado.
+      function burst() { apply(); [50, 150, 300, 500, 800].forEach(function (d) { setTimeout(apply, d); }); }
       if (window.visualViewport) {
         window.visualViewport.addEventListener('resize', apply);
         window.visualViewport.addEventListener('scroll', apply);
       }
       window.addEventListener('resize', apply);
-      window.addEventListener('orientationchange', function () { setTimeout(apply, 200); });
-      window.addEventListener('focusin', function () { setTimeout(apply, 100); });
-      window.addEventListener('focusout', function () { setTimeout(apply, 150); });
-      apply();
-      setTimeout(apply, 300); // após o React montar
+      window.addEventListener('scroll', function () { if (window.pageYOffset !== 0) apply(); }, { passive: true });
+      window.addEventListener('orientationchange', burst);
+      window.addEventListener('focusin', burst);   // teclado abriu
+      window.addEventListener('focusout', burst);  // teclado fechou (re-mede com atraso)
+      window.addEventListener('pageshow', burst);
+      burst();
     })();
     if ('serviceWorker' in navigator) {
       // Auto-update: ao detectar um SW novo assumindo o controle, recarrega 1x
