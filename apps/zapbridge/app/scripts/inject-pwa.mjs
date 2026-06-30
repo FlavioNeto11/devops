@@ -32,7 +32,7 @@ if (html.includes('rel="manifest"')) {
 
 const headTags = `
     <link rel="manifest" href="/zapbridge/manifest.webmanifest" />
-    <meta name="theme-color" content="#00a884" />
+    <meta name="theme-color" content="#0b0b0b" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -45,9 +45,9 @@ const headTags = `
          borda inferior (sem faixa preta). A safe-area (home indicator) é respeitada
          pelo CONTEÚDO (FAB/input/listas) via react-native-safe-area-context, não por
          padding no #root (que criava a faixa). */
-      html, body, #root { background-color: #0b141a; overscroll-behavior: none; }
-      /* Altura dinâmica da viewport: acompanha a barra do Safari (com fallback). O
-         teclado é tratado pelo script visualViewport abaixo. */
+      html, body, #root { background-color: #0b0b0b; overscroll-behavior: none; }
+      /* Cobertura da tela: 100dvh = tela cheia no app instalado (standalone). Em
+         repouso o #root segue ESTE CSS; o script só intervém com o teclado aberto. */
       html, body, #root { height: 100vh; height: 100dvh; }
       /* iOS Safari dá zoom ao focar inputs com fonte < 16px (e ignora
          user-scalable=no). Força 16px no mobile para impedir o zoom. */
@@ -66,37 +66,44 @@ html = html.replace(
 
 const swScript = `
   <script>
-    // Fixa o app na VIEWPORT VISÍVEL (visualViewport): acompanha a barra do
-    // navegador e o TECLADO virtual com precisão no mobile, eliminando o espaço
-    // vazio embaixo (o 100dvh do CSS não encolhe com o teclado na maioria dos browsers).
+    // Cobertura da tela + teclado, à prova de iOS standalone:
+    //  • REPOUSO → limpa qualquer estilo inline e deixa o CSS 100dvh mandar (tela
+    //    cheia garantida, sem depender de medição JS que trava num valor curto).
+    //  • TECLADO ABERTO → encolhe o #root para a viewport visível (input acima do teclado).
+    //  • TECLADO FECHA → volta ao 100dvh (não fica preso numa altura errada = sem tarja).
     (function () {
-      var root = null;
       function apply() {
-        root = root || document.getElementById('root');
+        var root = document.getElementById('root');
         if (!root) return;
         var vv = window.visualViewport;
-        var h = vv ? vv.height : window.innerHeight;
-        var top = vv ? vv.offsetTop : 0;
+        var winH = window.innerHeight;
+        var visH = vv ? vv.height : winH;
         root.style.position = 'fixed';
         root.style.left = '0';
         root.style.right = '0';
-        root.style.top = top + 'px';
-        root.style.height = h + 'px';
-        // iOS rola o LAYOUT viewport ao abrir/fechar o teclado e deixa um resíduo
-        // (a tarja preta). Forçar o topo a 0 corrige.
-        if (window.pageYOffset !== 0) window.scrollTo(0, 0);
+        if (winH - visH > 120) {
+          // teclado aberto → encolhe para a viewport visível (input acima do teclado)
+          root.style.top = (vv && vv.offsetTop ? vv.offsetTop : 0) + 'px';
+          root.style.bottom = 'auto';
+          root.style.height = visH + 'px';
+        } else {
+          // repouso → inset:0 (o browser calcula a altura = TELA CHEIA, sem medir)
+          root.style.top = '0';
+          root.style.bottom = '0';
+          root.style.height = 'auto';
+          if (window.pageYOffset !== 0) window.scrollTo(0, 0);
+        }
       }
       // Re-aplica em rajada: o iOS estabiliza a viewport com atraso após o teclado.
-      function burst() { apply(); [50, 150, 300, 500, 800].forEach(function (d) { setTimeout(apply, d); }); }
+      function burst() { apply(); [60, 180, 360, 600].forEach(function (d) { setTimeout(apply, d); }); }
       if (window.visualViewport) {
         window.visualViewport.addEventListener('resize', apply);
         window.visualViewport.addEventListener('scroll', apply);
       }
       window.addEventListener('resize', apply);
-      window.addEventListener('scroll', function () { if (window.pageYOffset !== 0) apply(); }, { passive: true });
       window.addEventListener('orientationchange', burst);
       window.addEventListener('focusin', burst);   // teclado abriu
-      window.addEventListener('focusout', burst);  // teclado fechou (re-mede com atraso)
+      window.addEventListener('focusout', burst);  // teclado fechou
       window.addEventListener('pageshow', burst);
       burst();
     })();
