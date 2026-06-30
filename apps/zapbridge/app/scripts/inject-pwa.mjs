@@ -46,9 +46,13 @@ const headTags = `
          pelo CONTEÚDO (FAB/input/listas) via react-native-safe-area-context, não por
          padding no #root (que criava a faixa). */
       html, body, #root { background-color: #0b0b0b; overscroll-behavior: none; }
-      /* Cobertura da tela: 100dvh = tela cheia no app instalado (standalone). Em
-         repouso o #root segue ESTE CSS; o script só intervém com o teclado aberto. */
-      html, body, #root { height: 100vh; height: 100dvh; }
+      html, body { height: 100%; margin: 0; }
+      body { overflow: hidden; }
+      /* react-native-web: o app SÓ preenche o #root se ele for um flex column de
+         altura plena (este build do Expo NÃO injeta o reset padrão do #root → sem
+         isto o container do app não estica e sobra área embaixo). 100dvh = tela
+         cheia no app instalado; o script ancora em inset:0 com o teclado fechado. */
+      #root { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
       /* iOS Safari dá zoom ao focar inputs com fonte < 16px (e ignora
          user-scalable=no). Força 16px no mobile para impedir o zoom. */
       @media screen and (max-width: 900px) {
