@@ -73,6 +73,33 @@ html = html.replace(
 
 const swScript = `
   <script>
+    // Fixa o app na VIEWPORT VISÍVEL (visualViewport): acompanha a barra do
+    // navegador e o TECLADO virtual com precisão no mobile, eliminando o espaço
+    // vazio embaixo (o 100dvh do CSS não encolhe com o teclado na maioria dos browsers).
+    (function () {
+      function apply() {
+        var root = document.getElementById('root');
+        if (!root) return;
+        var vv = window.visualViewport;
+        var h = vv ? vv.height : window.innerHeight;
+        var top = vv ? vv.offsetTop : 0;
+        root.style.position = 'fixed';
+        root.style.left = '0';
+        root.style.right = '0';
+        root.style.top = top + 'px';
+        root.style.height = h + 'px';
+      }
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', apply);
+        window.visualViewport.addEventListener('scroll', apply);
+      }
+      window.addEventListener('resize', apply);
+      window.addEventListener('orientationchange', function () { setTimeout(apply, 200); });
+      window.addEventListener('focusin', function () { setTimeout(apply, 100); });
+      window.addEventListener('focusout', function () { setTimeout(apply, 150); });
+      apply();
+      setTimeout(apply, 300); // após o React montar
+    })();
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
         navigator.serviceWorker.register('/zapbridge/sw.js', { scope: '/zapbridge/' }).catch(function () {});
