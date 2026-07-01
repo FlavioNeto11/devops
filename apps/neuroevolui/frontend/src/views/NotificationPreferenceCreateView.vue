@@ -27,6 +27,7 @@
         title="Canal de notificação"
         subtitle="Escolha por onde deseja receber os avisos do NeuroEvolui."
       >
+
         <!-- Seletor de canal: radio group acessível -->
         <div
           class="npc-channels"
@@ -64,7 +65,78 @@
         >{{ f.errors.channel }}</p>
       </UiCard>
 
-      <!-- SEÇÃO 2: Endereço de contato + ativação -->
+      <!-- SEÇÃO 2: Eventos que ativam esta preferência -->
+      <UiCard
+        title="Eventos que ativam esta preferência"
+        subtitle="Escolha quando você deseja ser notificado. Pelo menos um evento é obrigatório."
+      >
+        <div
+          class="npc-events"
+          role="group"
+          aria-label="Eventos que ativam notificações"
+        >
+          <label
+            v-for="ev in eventOptions"
+            :key="ev.value"
+            class="npc-event-item"
+            :data-checked="f.values.event_type.includes(ev.value) ? 'true' : 'false'"
+          >
+            <input
+              class="npc-event-input"
+              type="checkbox"
+              :value="ev.value"
+              :checked="f.values.event_type.includes(ev.value)"
+              @change="toggleEvent(ev.value)"
+            />
+            <span class="npc-event-icon" aria-hidden="true">{{ ev.icon }}</span>
+            <span class="npc-event-body">
+              <span class="npc-event-title">{{ ev.label }}</span>
+              <span class="npc-event-sub">{{ ev.hint }}</span>
+            </span>
+            <span class="npc-event-check" aria-hidden="true">✓</span>
+          </label>
+        </div>
+        <p
+          v-if="f.errors.event_type && f.touched.event_type"
+          class="npc-event-error"
+          role="alert"
+        >{{ f.errors.event_type }}</p>
+      </UiCard>
+
+      <!-- SEÇÃO 3: Agendamento de entrega -->
+      <UiCard
+        title="Agendamento"
+        subtitle="Defina quando as notificações deste canal podem ser entregues."
+      >
+        <div
+          class="npc-schedule"
+          role="radiogroup"
+          aria-label="Agendamento das notificações"
+        >
+          <label
+            v-for="sch in scheduleOptions"
+            :key="sch.value"
+            class="npc-schedule-item"
+            :data-selected="f.values.schedule === sch.value ? 'true' : 'false'"
+          >
+            <input
+              class="npc-schedule-input"
+              type="radio"
+              name="npc-schedule"
+              :value="sch.value"
+              :checked="f.values.schedule === sch.value"
+              @change="f.setField('schedule', sch.value)"
+            />
+            <span class="npc-schedule-icon" aria-hidden="true">{{ sch.icon }}</span>
+            <span class="npc-schedule-body">
+              <span class="npc-schedule-title">{{ sch.label }}</span>
+              <span class="npc-schedule-sub">{{ sch.hint }}</span>
+            </span>
+          </label>
+        </div>
+      </UiCard>
+
+      <!-- SEÇÃO 4: Endereço de contato + ativação -->
       <UiCard
         title="Configuração do canal"
         :subtitle="contactCardSubtitle"
@@ -151,6 +223,14 @@
             <span class="npc-summary-label">{{ contactLabel }}</span>
             <span class="npc-summary-value">{{ f.values.contact_value }}</span>
           </div>
+          <div v-if="f.values.event_type && f.values.event_type.length" class="npc-summary-row">
+            <span class="npc-summary-label">Eventos</span>
+            <span class="npc-summary-value">{{ selectedEventLabels }}</span>
+          </div>
+          <div class="npc-summary-row">
+            <span class="npc-summary-label">Agendamento</span>
+            <span class="npc-summary-value">{{ selectedScheduleLabel }}</span>
+          </div>
           <div class="npc-summary-row">
             <span class="npc-summary-label">Estado inicial</span>
             <UiStatusBadge
@@ -210,6 +290,7 @@ const toggleLabelId = 'npc-toggle-label';
 
 // Opções de canal disponíveis (enum do backend: email | push | whatsapp)
 const channelOptions = [
+
   {
     value: 'email',
     label: 'E-mail',
@@ -269,15 +350,60 @@ const contactFormatRule = (v, all) => {
   return '';
 };
 
+// Eventos de domínio que podem acionar notificações (fonte: svc-notifications / REQ-0007 AC1)
+const eventOptions = [
+  {
+    value: 'consultation.scheduled',
+    label: 'Consulta agendada',
+    hint: 'Quando uma consulta é marcada ou remarcada.',
+    icon: '◈',
+  },
+  {
+    value: 'note.added',
+    label: 'Evolução clínica adicionada',
+    hint: 'Quando um profissional registra uma nova evolução.',
+    icon: '◎',
+  },
+  {
+    value: 'payment.failed',
+    label: 'Falha no pagamento',
+    hint: 'Quando uma cobrança não é processada com sucesso.',
+    icon: '◔',
+  },
+];
+
+// Opções de agendamento de entrega (fonte: user-input)
+const scheduleOptions = [
+  {
+    value: 'immediate',
+    label: 'Imediato',
+    hint: 'Notificações enviadas assim que o evento ocorre, a qualquer hora.',
+    icon: '◉',
+  },
+  {
+    value: 'business_hours',
+    label: 'Horário comercial (08h–18h)',
+    hint: 'Entregas somente em dias úteis dentro do horário comercial.',
+    icon: '◌',
+  },
+];
+
 const f = useForm({
   initial: {
     channel: 'email',
     contact_value: '',
     enabled: true,
+    event_type: ['consultation.scheduled', 'note.added', 'payment.failed'],
+    schedule: 'immediate',
   },
   rules: {
     channel: [validators.required('Selecione um canal de notificação.')],
     contact_value: [contactRequiredRule, contactFormatRule],
+    event_type: [
+      (v) => (!Array.isArray(v) || v.length === 0
+        ? 'Selecione ao menos um evento para ativar esta preferência.'
+        : ''),
+    ],
   },
 });
 
@@ -318,6 +444,18 @@ const hasSummary = computed(() => {
   return true; // push não precisa de contato
 });
 
+const selectedEventLabels = computed(() => {
+  if (!Array.isArray(f.values.event_type) || !f.values.event_type.length) return '—';
+  return f.values.event_type
+    .map((v) => (eventOptions.find((e) => e.value === v) || {}).label || v)
+    .join(', ');
+});
+
+const selectedScheduleLabel = computed(() => {
+  const opt = scheduleOptions.find((s) => s.value === f.values.schedule);
+  return opt ? opt.label : (f.values.schedule || '—');
+});
+
 // ── Handlers ─────────────────────────────────────────────────────────────────
 
 function selectChannel(value) {
@@ -328,8 +466,19 @@ function selectChannel(value) {
   if (f.errors.contact_value) delete f.errors.contact_value;
 }
 
+function toggleEvent(value) {
+  const current = Array.isArray(f.values.event_type) ? [...f.values.event_type] : [];
+  const idx = current.indexOf(value);
+  if (idx >= 0) {
+    current.splice(idx, 1);
+  } else {
+    current.push(value);
+  }
+  f.setField('event_type', current);
+}
+
 function cancel() {
-  router.push('/notifications');
+  router.push('/notification-preferences');
 }
 
 // ── Submit ───────────────────────────────────────────────────────────────────
@@ -338,6 +487,8 @@ async function submit() {
     const body = {
       channel: vals.channel,
       enabled: !!vals.enabled,
+      event_type: Array.isArray(vals.event_type) ? vals.event_type : [],
+      schedule: vals.schedule || 'immediate',
     };
     // contact_value só vai no payload quando o canal exige contato e há valor preenchido
     if (vals.channel !== 'push') {
@@ -347,7 +498,7 @@ async function submit() {
     try {
       await notificationPreferences.create(body);
       toast.success('Preferência de notificação cadastrada com sucesso.');
-      router.push('/notifications');
+      router.push('/notification-preferences');
     } catch (e) {
       toast.error(
         e && e.message ? e.message : 'Não foi possível cadastrar a preferência.',
@@ -620,9 +771,155 @@ async function submit() {
   flex-wrap: wrap;
 }
 
+/* Seletor de eventos (checkboxes) */
+.npc-events {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-3);
+}
+.npc-event-item {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-3);
+  padding: var(--ui-space-3) var(--ui-space-4);
+  border: 1.5px solid rgb(var(--ui-border-strong));
+  border-radius: var(--ui-radius-md);
+  background: rgb(var(--ui-surface));
+  cursor: pointer;
+  position: relative;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.npc-event-item:hover {
+  border-color: rgb(var(--ui-accent));
+  background: rgb(var(--ui-accent) / 0.04);
+}
+.npc-event-item[data-checked='true'] {
+  border-color: rgb(var(--ui-accent));
+  background: rgb(var(--ui-accent) / 0.06);
+}
+.npc-event-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.npc-event-input:focus-visible ~ .npc-event-icon {
+  outline: 2px solid rgb(var(--ui-accent));
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.npc-event-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+  color: rgb(var(--ui-accent-strong));
+  flex-shrink: 0;
+}
+.npc-event-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.npc-event-title {
+  font-weight: 600;
+  font-size: var(--ui-text-sm);
+  color: rgb(var(--ui-fg));
+}
+.npc-event-sub {
+  font-size: var(--ui-text-xs);
+  color: rgb(var(--ui-muted));
+  line-height: 1.4;
+}
+.npc-event-check {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1.5px solid rgb(var(--ui-border-strong));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: rgb(var(--ui-bg));
+  background: transparent;
+  flex-shrink: 0;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.npc-event-item[data-checked='true'] .npc-event-check {
+  background: rgb(var(--ui-accent));
+  border-color: rgb(var(--ui-accent));
+}
+.npc-event-error {
+  margin: var(--ui-space-2) 0 0;
+  font-size: var(--ui-text-xs);
+  color: rgb(var(--ui-danger));
+}
+
+/* Seletor de agendamento (radio) */
+.npc-schedule {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--ui-space-3);
+}
+.npc-schedule-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ui-space-3);
+  padding: var(--ui-space-4);
+  border: 1.5px solid rgb(var(--ui-border-strong));
+  border-radius: var(--ui-radius-md);
+  background: rgb(var(--ui-surface));
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+.npc-schedule-item:hover {
+  border-color: rgb(var(--ui-accent));
+  background: rgb(var(--ui-accent) / 0.04);
+}
+.npc-schedule-item[data-selected='true'] {
+  border-color: rgb(var(--ui-accent));
+  background: rgb(var(--ui-accent) / 0.08);
+  box-shadow: inset 0 0 0 1px rgb(var(--ui-accent) / 0.35);
+}
+.npc-schedule-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.npc-schedule-icon {
+  font-size: 1.3rem;
+  line-height: 1;
+  color: rgb(var(--ui-accent-strong));
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.npc-schedule-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.npc-schedule-title {
+  font-weight: 700;
+  font-size: var(--ui-text-sm);
+  color: rgb(var(--ui-fg));
+}
+.npc-schedule-sub {
+  font-size: var(--ui-text-xs);
+  color: rgb(var(--ui-muted));
+  line-height: 1.4;
+}
+
 /* Responsivo */
 @media (max-width: 860px) {
   .npc-channels {
+    grid-template-columns: 1fr;
+  }
+  .npc-schedule {
     grid-template-columns: 1fr;
   }
 }
@@ -637,7 +934,10 @@ async function submit() {
   .npc-switch,
   .npc-switch-knob,
   .npc-channel,
-  .npc-channel-check {
+  .npc-channel-check,
+  .npc-event-item,
+  .npc-event-check,
+  .npc-schedule-item {
     transition: none;
   }
 }
