@@ -26,7 +26,7 @@ import { upsertPushSubscription, deletePushSubscription, getNotificationPreferen
 import { listPatients, findPatient, createPatient, updatePatient, deletePatient } from './repositories/patients-repo.js';
 import { listProfessionals, findProfessional, createProfessional, updateProfessional, deleteProfessional } from './repositories/professionals-repo.js';
 import { listPatientReportsPaged, findPatientReport, deletePatientReport, PR_STATUSES } from './repositories/patient-reports-repo.js';
-import { listPaymentTransactions, findPaymentTransaction, updatePaymentTransaction, deletePaymentTransaction } from './repositories/payment-transactions-repo.js';
+import { listPaymentTransactions, findPaymentTransaction, updatePaymentTransaction, deletePaymentTransaction, exportPaymentTransactions } from './repositories/payment-transactions-repo.js';
 import { listKnowledgeSources, findKnowledgeSource, createKnowledgeSource, updateKnowledgeSource, deleteKnowledgeSource, reindexKnowledgeSource, knowledgeSourceStats } from './repositories/knowledge-sources-repo.js';
 import { listAuditLogsPaged, findAuditLog, deleteAuditLog } from './repositories/audit-repo.js';
 import { listAsyncJobsPaged, findAsyncJobById, listAsyncJobsByQueue, deleteAsyncJob, updateAsyncJobStatus } from './repositories/async-jobs-repo.js';
@@ -719,8 +719,34 @@ app.delete('/v1/patient-reports/:id', { preHandler: requireRole('clinic_manager'
 });
 
 // ── Payment Transactions (coleção de topo) ────────────────────────────────────
-app.get('/v1/payment-transactions', { preHandler: requireRole('clinic_manager') }, async (req) =>
-  listPaymentTransactions(req.tenantId, listParams(req)));
+app.get('/v1/payment-transactions', { preHandler: requireRole('clinic_manager') }, async (req) => {
+  const q = req.query || {};
+  return listPaymentTransactions(req.tenantId, { ...listParams(req), status: q.status || '' });
+});
+
+// Export CSV — deve vir ANTES da rota :id para não ser capturada pelo parâmetro dinâmico.
+app.get('/v1/payment-transactions/export', { preHandler: requireRole('clinic_manager') }, async (req, reply) => {
+  const q = req.query || {};
+  const rows = await exportPaymentTransactions(req.tenantId, { status: q.status || '' });
+  const headers = ['id', 'data', 'paciente', 'valor_brl', 'status', 'forma_pagamento', 'id_externo'];
+  const escape = (v) => String(v === null || v === undefined ? '' : v).replace(/"/g, '""');
+  const csvRows = [
+    headers.map((h) => `"${h}"`).join(';'),
+    ...rows.map((r) => [
+      r.id,
+      r.created_at ? new Date(r.created_at).toLocaleDateString('pt-BR') : '',
+      escape(r.patient_name || r.patient_id || ''),
+      r.amount_cents != null ? (Number(r.amount_cents) / 100).toFixed(2).replace('.', ',') : '0,00',
+      escape(r.status || ''),
+      escape(r.payment_method || ''),
+      escape(r.external_id || ''),
+    ].join(';')),
+  ];
+  reply
+    .header('Content-Type', 'text/csv; charset=utf-8')
+    .header('Content-Disposition', 'attachment; filename="transacoes.csv"')
+    .send('﻿' + csvRows.join('\r\n'));
+});
 
 app.get('/v1/payment-transactions/:id', { preHandler: requireRole('clinic_manager') }, async (req, reply) => {
   const r = await findPaymentTransaction(req.tenantId, req.params.id);
