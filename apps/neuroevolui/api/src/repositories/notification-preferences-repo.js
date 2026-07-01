@@ -58,6 +58,8 @@ export async function updateNotificationPreferenceById(tenantId, id, body) {
   if (body.channel !== undefined) { sets.push(`channel=$${i++}`); params.push(body.channel); }
   if (body.enabled !== undefined) { sets.push(`enabled=$${i++}`); params.push(body.enabled !== false); }
   if (body.contact_value !== undefined) { sets.push(`contact_value=$${i++}`); params.push(body.contact_value || ''); }
+  if (body.event_type !== undefined) { sets.push(`event_type=$${i++}`); params.push(body.event_type || 'all'); }
+  if (body.schedule !== undefined) { sets.push(`schedule=$${i++}`); params.push(body.schedule || 'immediate'); }
   if (sets.length === 0) return findNotificationPreference(tenantId, id);
   sets.push('updated_at=now()');
   const r = await pool.query(

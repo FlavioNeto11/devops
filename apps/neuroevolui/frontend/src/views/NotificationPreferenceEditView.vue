@@ -1,19 +1,12 @@
 <!--
   NotificationPreferenceEditView — Editar Preferência de Notificação
   ──────────────────────────────────────────────────────────────────────────────
-  Edição de canal, endereço/contato e estado ativo/inativo de uma preferência
-  específica (GET /v1/notification-preferences/:id + PUT /v1/notification-preferences/:id).
+  Edição de canal, tipo de evento, agenda e estado ativo/inativo de uma
+  preferência específica (GET + PUT /v1/notification-preferences/:id).
+  Redireciona para /notification-preferences após salvar com sucesso.
 
   Estados: loading (skeleton) · error (retry) · notFound (404/empty) · normal.
-
-  ChannelSelector: cards visuais (email / push / whatsapp) com ícone + rótulo.
-  ToggleSwitch: interruptor acessível com role=switch.
-  TextInput: endereço/contato com validação cruzada (ativo exige contato válido).
-
-  CSP-safe: sem style= inline, sem :style, sem v-html.
-  Estado visual por class + data-* attributes.
-  a11y: labels vinculados, role=switch, aria-* onde necessário, foco visível.
-  Responsivo ≤ 860px.
+  CSP-safe · a11y · responsivo ≤ 860px.
 
   Rota: /notification-preferences/:id/edit
   Back/Cancelar → /notification-preferences (lista de domínio)
@@ -155,6 +148,66 @@
                     <span v-if="f.values.channel === opt.value" class="npe-channel-check" aria-hidden="true">✓</span>
                   </label>
                 </div>
+              </template>
+            </UiFormField>
+          </UiFormSection>
+
+          <!-- Tipo de evento ──────────────────────────────────────────── -->
+          <UiFormSection
+            title="Tipo de evento"
+            description="Qual evento dispara esta notificação."
+            :columns="1"
+          >
+            <UiFormField
+              label="Evento"
+              :required="true"
+              :error="f.errors.event_type"
+              hint="Selecione o evento de domínio que aciona o envio."
+              full-width
+            >
+              <template #default="{ id, describedBy, hasError }">
+                <select
+                  :id="id"
+                  class="npe-select"
+                  :aria-describedby="describedBy || undefined"
+                  :aria-invalid="hasError ? 'true' : undefined"
+                  :value="f.values.event_type"
+                  @change="f.setField('event_type', $event.target.value)"
+                >
+                  <option v-for="opt in EVENT_TYPE_OPTIONS" :key="opt.value" :value="opt.value">
+                    {{ opt.label }}
+                  </option>
+                </select>
+              </template>
+            </UiFormField>
+          </UiFormSection>
+
+          <!-- Agenda de envio ──────────────────────────────────────────── -->
+          <UiFormSection
+            title="Agenda de envio"
+            description="Com qual frequência as notificações são enviadas."
+            :columns="1"
+          >
+            <UiFormField
+              label="Frequência"
+              :required="true"
+              :error="f.errors.schedule"
+              hint="Define quando as notificações são disparadas."
+              full-width
+            >
+              <template #default="{ id, describedBy, hasError }">
+                <select
+                  :id="id"
+                  class="npe-select"
+                  :aria-describedby="describedBy || undefined"
+                  :aria-invalid="hasError ? 'true' : undefined"
+                  :value="f.values.schedule"
+                  @change="f.setField('schedule', $event.target.value)"
+                >
+                  <option v-for="opt in SCHEDULE_OPTIONS" :key="opt.value" :value="opt.value">
+                    {{ opt.label }}
+                  </option>
+                </select>
               </template>
             </UiFormField>
           </UiFormSection>
@@ -373,11 +426,28 @@ function channelTone(value) {
   return opt ? opt.tone : 'neutral';
 }
 
-// ── Formulário (canal + contato + enabled) ────────────────────────────────────
+// ── Opções de tipo de evento ───────────────────────────────────────────────────
+const EVENT_TYPE_OPTIONS = [
+  { value: 'all', label: 'Todos os eventos' },
+  { value: 'consultation.scheduled', label: 'Consulta agendada' },
+  { value: 'note.added', label: 'Evolução clínica adicionada' },
+  { value: 'payment.failed', label: 'Falha no pagamento' },
+];
+
+// ── Opções de agenda de envio ─────────────────────────────────────────────────
+const SCHEDULE_OPTIONS = [
+  { value: 'immediate', label: 'Imediato' },
+  { value: 'daily', label: 'Resumo diário' },
+  { value: 'weekly', label: 'Resumo semanal' },
+];
+
+// ── Formulário (canal + event_type + schedule + contato + enabled) ────────────
 const f = useForm({
-  initial: { channel: '', contact_value: '', enabled: false },
+  initial: { channel: '', event_type: 'all', schedule: 'immediate', contact_value: '', enabled: false },
   rules: {
     channel: [validators.required('Selecione um canal de notificação.')],
+    event_type: [validators.required('Selecione o tipo de evento.')],
+    schedule: [validators.required('Selecione a frequência de envio.')],
     contact_value: [
       (v, all) => {
         if (all.channel === 'push') return ''; // push não exige contato textual
@@ -406,6 +476,8 @@ const snapshot = ref('');
 function currentSnapshot() {
   return JSON.stringify({
     channel: f.values.channel,
+    event_type: f.values.event_type,
+    schedule: f.values.schedule,
     contact_value: f.values.contact_value,
     enabled: f.values.enabled,
   });
@@ -469,6 +541,8 @@ function hydrate(rec) {
   Object.keys(pref).forEach((k) => delete pref[k]);
   Object.assign(pref, rec || {});
   f.values.channel = rec.channel || '';
+  f.values.event_type = rec.event_type || 'all';
+  f.values.schedule = rec.schedule || 'immediate';
   f.values.contact_value = rec.contact_value || '';
   f.values.enabled = !!rec.enabled;
   snapshot.value = currentSnapshot();
@@ -537,12 +611,13 @@ function save() {
     try {
       await npResource.update(props.id, {
         channel: vals.channel,
+        event_type: vals.event_type || 'all',
+        schedule: vals.schedule || 'immediate',
         contact_value: vals.channel === 'push' ? '' : (vals.contact_value || '').trim(),
         enabled: !!vals.enabled,
       });
-      // Atualiza snapshot após salvar (dirty → false)
-      hydrate({ ...pref, ...vals });
       toast.success('Preferência de notificação salva com sucesso.');
+      router.push(backTo);
     } catch (e) {
       if (e && e.status === 404) {
         toast.error('Esta preferência não foi encontrada. Ela pode ter sido removida.');
@@ -674,6 +749,30 @@ onMounted(load);
   font-size: var(--ui-text-sm);
   color: rgb(var(--ui-fg));
   word-break: break-all;
+}
+
+/* ── Select nativo (event_type / schedule) ───────────────────────────────── */
+.npe-select {
+  width: 100%;
+  padding: var(--ui-space-2) var(--ui-space-3);
+  border: 1px solid rgb(var(--ui-border));
+  border-radius: var(--ui-radius-md);
+  background: rgb(var(--ui-surface));
+  color: rgb(var(--ui-fg));
+  font-size: var(--ui-text-sm);
+  font-family: inherit;
+  line-height: var(--ui-leading-normal, 1.5);
+  appearance: auto;
+  cursor: pointer;
+  transition: border-color var(--_duration) ease, box-shadow var(--_duration) ease;
+}
+.npe-select:focus-visible {
+  outline: none;
+  border-color: rgb(var(--ui-accent));
+  box-shadow: 0 0 0 3px rgb(var(--ui-accent) / 0.2);
+}
+.npe-select[aria-invalid="true"] {
+  border-color: rgb(var(--ui-danger));
 }
 
 /* ── ChannelSelector ─────────────────────────────────────────────────────── */
