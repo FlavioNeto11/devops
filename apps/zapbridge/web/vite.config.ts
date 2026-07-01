@@ -8,9 +8,11 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    // Proxy do dev para o backend REAL via Traefik (nvit.localhost). Assim o preview/dev
+    // usa dados e auth reais; o Traefik faz o strip de /zapbridge/api.
     proxy: {
-      '/zapbridge/api': { target: 'http://localhost:3000', changeOrigin: true, rewrite: (p) => p.replace(/^\/zapbridge\/api/, '') },
-      '/zapbridge/socket.io': { target: 'http://localhost:3000', ws: true, changeOrigin: true },
+      '/zapbridge/api': { target: 'http://nvit.localhost', changeOrigin: true },
+      '/zapbridge/socket.io': { target: 'http://nvit.localhost', ws: true, changeOrigin: true },
     },
   },
   build: {
