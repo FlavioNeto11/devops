@@ -51,15 +51,15 @@ export function ChatListPanel({ selectedChatId }: { selectedChatId?: string }) {
       {/* Cabeçalho iOS */}
       <div className="px-4 pt-3 shrink-0" style={{ paddingTop: 'max(env(safe-area-inset-top), 12px)' }}>
         <div className="flex items-center gap-4 h-9">
-          <button onClick={() => nav('/soon')} className="text-white" title="Menu">
+          <button onClick={() => nav('/settings')} className="text-white" title="Configurações">
             <IconDots size={20} />
           </button>
           <div className="flex-1" />
-          <button onClick={() => nav('/soon')} title="Assistente IA" className="text-xl leading-none">
+          <button onClick={() => nav('/assistant')} title="Assistente IA" className="text-xl leading-none">
             ✨
           </button>
           <button
-            onClick={() => nav('/soon')}
+            onClick={() => nav('/contacts')}
             className="w-[34px] h-[34px] rounded-full bg-primary text-bg grid place-items-center"
             title="Nova conversa"
           >
@@ -71,7 +71,7 @@ export function ChatListPanel({ selectedChatId }: { selectedChatId?: string }) {
 
       {status !== 'connected' && (
         <button
-          onClick={() => nav('/soon')}
+          onClick={() => nav('/connect')}
           className="mx-3 mb-1 rounded-lg bg-primaryDark text-white font-semibold py-2 text-sm shrink-0"
         >
           Conectar WhatsApp →

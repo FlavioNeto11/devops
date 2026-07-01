@@ -7,6 +7,10 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { Home } from './pages/Home';
 import { ComingSoonPage } from './pages/ComingSoonPage';
+import { ConnectPage } from './pages/ConnectPage';
+import { ContactsPage } from './pages/ContactsPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { AssistantPage } from './pages/AssistantPage';
 import { Spinner } from './components/Spinner';
 import { isDevPreview } from './dev/devPreview';
 
@@ -48,6 +52,10 @@ export default function App() {
         <>
           <Route path="/" element={<Home />} />
           <Route path="/chat/:chatId" element={<Home />} />
+          <Route path="/connect" element={<ConnectPage />} />
+          <Route path="/contacts" element={<ContactsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/assistant" element={<AssistantPage />} />
           <Route path="/mais/:tab" element={<ComingSoonPage />} />
           <Route path="/soon" element={<ComingSoonPage />} />
           <Route path="/login" element={<Navigate to="/" replace />} />

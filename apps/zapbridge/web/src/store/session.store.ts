@@ -11,6 +11,9 @@ interface SessionState {
   phoneNumber: string | null;
   error: string | null;
   setStatus: (s: SessionStatus) => void;
+  setQr: (qr: string | null) => void;
+  setPairingCode: (c: string | null) => void;
+  setError: (e: string | null) => void;
   fetchStatus: () => Promise<void>;
   start: () => Promise<void>;
   startPairing: (phoneNumber: string) => Promise<void>;
@@ -27,6 +30,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   error: null,
 
   setStatus: (status) => set({ status }),
+  setQr: (qr) => set({ qr }),
+  setPairingCode: (pairingCode) => set({ pairingCode }),
+  setError: (error) => set({ error }),
 
   fetchStatus: async () => {
     try {

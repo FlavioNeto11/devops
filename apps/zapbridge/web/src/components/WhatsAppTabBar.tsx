@@ -29,7 +29,7 @@ function TabIcon({ tab, active }: { tab: TabKey; active: boolean }) {
 
 export function WhatsAppTabBar({ active, unread = 0 }: { active: TabKey; unread?: number }) {
   const nav = useNavigate();
-  const go = (k: TabKey) => (k === 'chats' ? nav('/') : nav('/mais/' + k));
+  const go = (k: TabKey) => (k === 'chats' ? nav('/') : k === 'you' ? nav('/settings') : nav('/mais/' + k));
 
   return (
     <nav
