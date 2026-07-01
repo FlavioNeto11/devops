@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import {
   StatusBadge, RiskBadge, Progress, Field, EnumSelect, Banner, Loading,
-  ConfirmButton, formatMoney, useLabel, useMeta,
+  ConfirmButton, formatMoney, useLabel, useMeta, HelpCallout,
 } from '../ui.jsx';
 
 // input que salva no blur (evita chamada por tecla)
@@ -183,6 +183,11 @@ function ProcessosTab({ c, id, patch }) {
   };
   return (
     <div className="stack">
+      <HelpCallout title="Processo judicial de origem">
+        Cadastre o processo que dá origem ao direito, se houver. O <strong>número no padrão CNJ</strong> tem
+        20 dígitos. Ex.: <em>0001234-56.2010.8.24.0023</em>. Marque a fase (inicial / com sentença / trânsito
+        em julgado) — casos com trânsito em julgado tendem a ter risco menor.
+      </HelpCallout>
       <div className="between"><span className="section-title">Processos judiciais ({(c.lawsuits || []).length})</span>{!editing && <button className="btn sm primary" onClick={openNew}>+ Adicionar processo</button>}</div>
 
       {editing && (
@@ -241,7 +246,12 @@ function DocumentosTab({ c, id, patch }) {
   const REQ = { required: 'Obrigatório', conditional: 'Condicional', optional: 'Opcional' };
   return (
     <div className="stack">
-      <Banner kind="info">Documentação {c.derived.docPct}% concluída (validados / aplicáveis). Marque o status de cada documento conforme recebido e validado.</Banner>
+      <HelpCallout title={`Documentação ${c.derived.docPct}% concluída (validados ÷ aplicáveis)`}>
+        Avance o status conforme o andamento: <strong>Pendente → Recebido → Em análise → Validado</strong>.
+        Só <em>Validado</em> conta no percentual. Alguns documentos são condicionais (ex.: certidão de óbito e
+        formal de partilha só para espólio/herdeiros). Use o campo “Fonte/origem” para anotar de onde veio cada um
+        (ex.: “autos do processo, fls. 45”).
+      </HelpCallout>
       {Object.keys(cats).map((cat) => groups[cat] && (
         <div className="card" key={cat}>
           <div className="card-head"><h3>{cats[cat]}</h3></div>
@@ -284,7 +294,12 @@ function JuridicoTab({ c, id, patch }) {
   const groups = groupBy(c.legal, 'category');
   return (
     <div className="stack">
-      <Banner kind="warn">Checklist jurídico — respostas de levantamento. Todos os itens <strong>requerem validação jurídica</strong> por profissional habilitado; o sistema não conclui mérito.</Banner>
+      <HelpCallout title="Perguntas de levantamento (requerem validação jurídica)">
+        Responda o que já se sabe: <strong>Sim / Não / Parcial / Não avaliado / Não se aplica</strong>. Deixar
+        “Não avaliado” é honesto e vira pendência para lembrar de resolver. Ex.: em “Pode ser cedido?”, se ainda
+        não há confirmação, deixe <em>Não avaliado</em> e anote nas observações “aguardando parecer”. O sistema
+        não conclui mérito jurídico.
+      </HelpCallout>
       {Object.keys(cats).map((cat) => groups[cat] && (
         <div className="card" key={cat}>
           <div className="card-head"><h3>{cats[cat]}</h3></div>
@@ -311,7 +326,13 @@ function TokenizacaoTab({ c, id, patch }) {
   const groups = groupBy(c.tokenization, 'category');
   return (
     <div className="stack">
-      <Banner kind="info">Checklist técnico de tokenização + regulatório (levantamento). O sistema não executa tokenização; itens regulatórios <strong>requerem validação</strong>.</Banner>
+      <HelpCallout title="O que seria tokenizado + enquadramento (levantamento)">
+        Descreva <strong>o que</strong> o token representaria e o <strong>lastro</strong>; responda as escolhas
+        técnicas (fracionamento, blockchain, whitelist, KYC…). No campo de definição, escreva o conteúdo — ex.:
+        em “O que será tokenizado”: <em>“direito creditório reconhecido na sentença do processo nº … — parcela de
+        X ações ON”</em>. Itens <span className="pill legal">requer validação</span> são regulatórios (CVM/BCB/LGPD).
+        O sistema não executa tokenização.
+      </HelpCallout>
       {Object.keys(cats).map((cat) => groups[cat] && (
         <div className="card" key={cat}>
           <div className="card-head"><h3>{cats[cat]}</h3></div>
@@ -346,7 +367,13 @@ function CaucaoTab({ c, id, patch }) {
   })();
   return (
     <div className="card"><div className="card-body">
-      <Banner kind="warn">Avaliação de uso do direito como caução/garantia em processos de terceiros. Levantamento — a aceitação depende de decisão judicial (requer validação jurídica).</Banner>
+      <HelpCallout title="Oferecer o direito como garantia em outro processo">
+        Ative se pretende usar o direito como <strong>caução/garantia</strong> (execução fiscal, trabalhista,
+        cível, substituição de penhora…). Ex.: dívida de execução fiscal de <em>R$ 200.000</em> → “valor
+        necessário de garantia” R$ 200.000; a cobertura % é calculada. Direitos ilíquidos/litigiosos costumam
+        ser recusados — laudo, trânsito em julgado e parecer reduzem o risco. A aceitação é decisão do juízo
+        (requer validação jurídica).
+      </HelpCallout>
       <label className="row" style={{ gap: 8, marginBottom: 14 }}><input type="checkbox" style={{ width: 'auto' }} checked={!!form.active} onChange={set('active')} /> <strong>Ativar avaliação de caução para este caso</strong></label>
       <div className="form-grid">
         <Field label="Tipo de processo de destino"><EnumSelect enumName="collateral_process_type" value={form.process_type} onChange={set('process_type')} allowEmpty /></Field>

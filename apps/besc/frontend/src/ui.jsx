@@ -57,13 +57,47 @@ export function Progress({ pct }) {
 }
 
 // ---- form controls ----
-export function Field({ label, hint, children }) {
+export function Field({ label, hint, help, example, children }) {
+  const [open, setOpen] = useState(false);
+  const hasHelp = !!(help || example);
   return (
     <label className="field">
-      {label && <span className="lbl">{label}</span>}
+      {label && (
+        <span className="lbl">
+          {label}
+          {hasHelp && (
+            <button
+              type="button"
+              className="help-toggle"
+              aria-label="Ajuda sobre este campo"
+              title="Ajuda"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((o) => !o); }}
+            >?</button>
+          )}
+        </span>
+      )}
       {children}
+      {open && hasHelp && (
+        <span className="help-pop">
+          {help}
+          {example && <>{help ? <br /> : null}<strong>Exemplo:</strong> {example}</>}
+        </span>
+      )}
       {hint && <span className="hint">{hint}</span>}
     </label>
+  );
+}
+
+// Bloco de ajuda contextual (topo de aba/tela): explica a etapa e dá exemplos.
+export function HelpCallout({ title, children }) {
+  return (
+    <div className="help-callout">
+      <div className="hc-icon" aria-hidden="true">💡</div>
+      <div>
+        {title && <strong>{title}</strong>}
+        <div className="hc-body">{children}</div>
+      </div>
+    </div>
   );
 }
 

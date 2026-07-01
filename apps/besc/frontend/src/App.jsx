@@ -4,6 +4,7 @@ import { useMeta } from './ui.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import CaseForm from './pages/CaseForm.jsx';
 import CaseDetail from './pages/CaseDetail.jsx';
+import Ajuda from './pages/Ajuda.jsx';
 
 export default function App() {
   const { error } = useMeta();
@@ -15,7 +16,7 @@ export default function App() {
           <small>Plataforma de Levantamento</small>
         </div>
         <div className="spacer" />
-        <nav><NavLink to="/" end>Casos</NavLink></nav>
+        <nav><NavLink to="/" end>Casos</NavLink><NavLink to="/ajuda">Ajuda</NavLink></nav>
       </header>
       <div className="legal-strip">
         Ferramenta de levantamento e organização documental — <strong>não</strong> executa tokenização nem presta aconselhamento jurídico.
@@ -24,6 +25,7 @@ export default function App() {
         {error && <div className="banner err">Falha ao carregar metadados da API: {error}</div>}
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/ajuda" element={<Ajuda />} />
           <Route path="/cases/new" element={<CaseForm />} />
           <Route path="/cases/:id" element={<CaseDetail />} />
           <Route path="/cases/:id/edit" element={<CaseForm />} />

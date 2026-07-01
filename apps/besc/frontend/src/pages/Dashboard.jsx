@@ -61,8 +61,11 @@ export default function Dashboard() {
       {cases && cases.length === 0 && (
         <div className="card"><div className="empty">
           <h3>Nenhum caso cadastrado</h3>
-          <p className="muted">Comece cadastrando um caso ligado às ações do antigo BESC.</p>
-          <Link className="btn primary" to="/cases/new" style={{ marginTop: 8 }}>+ Cadastrar primeiro caso</Link>
+          <p className="muted">Comece cadastrando um caso ligado às ações do antigo BESC. Primeira vez aqui? Veja como o sistema funciona.</p>
+          <div className="row" style={{ marginTop: 8, justifyContent: 'center' }}>
+            <Link className="btn primary" to="/cases/new">+ Cadastrar primeiro caso</Link>
+            <Link className="btn" to="/ajuda">Como funciona?</Link>
+          </div>
         </div></div>
       )}
 
