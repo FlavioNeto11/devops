@@ -62,34 +62,34 @@ export const IconCheck = ({ size = 16, color = '#8d8d93', double = true }: P & {
   </Svg>
 );
 
-// ——— Ícones da barra inferior (tab bar) ———
+// ——— Ícones da barra inferior (tab bar) — estilo CONTORNO (iOS/WhatsApp) ———
 
 export const IconUpdates = ({ size = 26, color = '#8d8d93' }: P) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">
-    <Circle cx="12" cy="12" r="3.2" fill={color} />
-    <Path
-      fill={color}
-      d="M12 3a9 9 0 100 18 9 9 0 000-18zm0 1.6a7.4 7.4 0 110 14.8 7.4 7.4 0 010-14.8z"
-      opacity={0.5}
-    />
+    <Circle cx="12" cy="12" r="8.4" fill="none" stroke={color} strokeWidth={1.6} />
+    <Circle cx="12" cy="12" r="2.5" fill={color} />
   </Svg>
 );
 
 export const IconCalls = ({ size = 24, color = '#8d8d93' }: P) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">
     <Path
-      fill={color}
-      d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"
+      fill="none"
+      stroke={color}
+      strokeWidth={1.7}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M6.6 10.8c1.44 2.83 3.76 5.14 6.6 6.6l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1H8c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.19 2.19z"
     />
   </Svg>
 );
 
 export const IconCommunities = ({ size = 26, color = '#8d8d93' }: P) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24">
-    <Path
-      fill={color}
-      d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"
-    />
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+    <Circle cx="9" cy="8.6" r="2.7" />
+    <Path d="M3.8 18.4c0-2.7 2.3-4.4 5.2-4.4s5.2 1.7 5.2 4.4" />
+    <Circle cx="16.8" cy="8" r="2.1" />
+    <Path d="M15.6 14.2c2.4.15 4.6 1.6 4.6 4.2" />
   </Svg>
 );
 
@@ -104,18 +104,20 @@ export const IconChats = ({ size = 25, color = '#8d8d93', filled = false }: P & 
   ) : (
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <Path
-        fill={color}
-        d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"
+        fill="none"
+        stroke={color}
+        strokeWidth={1.7}
+        strokeLinejoin="round"
+        d="M20 3H4c-1.1 0-2 .9-2 2v13.5l3.6-3.5H20c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"
       />
     </Svg>
   );
 
 export const IconPerson = ({ size = 26, color = '#8d8d93' }: P) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24">
-    <Path
-      fill={color}
-      d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"
-    />
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+    <Circle cx="12" cy="12" r="9" />
+    <Circle cx="12" cy="10" r="3" />
+    <Path d="M6.6 18.2c1-2 3-3.1 5.4-3.1s4.4 1.1 5.4 3.1" />
   </Svg>
 );
 

@@ -158,10 +158,12 @@ export function ChatListScreen({ navigation }: Props) {
         </ScrollView>
       </View>
 
+      <View style={styles.listWrap}>
       {loading && chats.length === 0 ? (
         <SkeletonList />
       ) : (
         <FlatList
+          style={styles.list}
           data={visibleChats}
           keyExtractor={(item) => item.id}
           ListHeaderComponent={ListHeader}
@@ -188,6 +190,7 @@ export function ChatListScreen({ navigation }: Props) {
           }
         />
       )}
+      </View>
 
       {/* Barra de abas inferior (estilo WhatsApp). */}
       <WhatsAppTabBar active="chats" unread={unreadChats} onTab={(k) => routeTab(navigation, k)} />
@@ -198,6 +201,8 @@ export function ChatListScreen({ navigation }: Props) {
 const makeStyles = (colors: Palette) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
+    listWrap: { flex: 1, minHeight: 0 },
+    list: { flex: 1 },
     header: { paddingHorizontal: spacing.lg, paddingBottom: 2 },
     topRow: { flexDirection: 'row', alignItems: 'center', height: 36, gap: spacing.md },
     aiBtn: { paddingHorizontal: 2 },
