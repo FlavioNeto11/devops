@@ -12,6 +12,8 @@ const NAMES = [
 ];
 
 export function isDevPreview(): boolean {
+  // NUNCA ativa em build de produção — só no dev server (vite dev).
+  if (!import.meta.env.DEV) return false;
   try {
     return new URLSearchParams(window.location.search).has('devpreview');
   } catch {

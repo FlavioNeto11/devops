@@ -32,6 +32,12 @@ export default function App() {
     useChatsStore.getState().bindRealtime();
   }, [user]);
 
+  // Título dinâmico da aba (contador de conversas não lidas).
+  const unreadCount = useChatsStore((s) => s.chats.filter((c) => c.unreadCount > 0).length);
+  useEffect(() => {
+    document.title = unreadCount > 0 ? `(${unreadCount}) ZapBridge` : 'ZapBridge';
+  }, [unreadCount]);
+
   if (bootstrapping) {
     return (
       <div className="flex-1 grid place-items-center bg-bg">

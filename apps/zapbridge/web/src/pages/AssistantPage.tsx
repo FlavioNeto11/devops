@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { aiApi } from '../api/ai';
 import { connectSocket } from '../realtime/socket';
 import { isDevPreview } from '../dev/devPreview';
+import { useAiConsent } from '../hooks/useAiConsent';
 import { IconBack } from '../components/icons';
 import { Markdown } from '../components/Markdown';
 
@@ -26,6 +27,7 @@ export function AssistantPage() {
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
+  const { aiOn, loading: consentLoading, accept } = useAiConsent();
   const scrollRef = useRef<HTMLDivElement>(null);
   const reqIdRef = useRef<string>('');
   const idxRef = useRef<number>(-1);
@@ -100,7 +102,18 @@ export function AssistantPage() {
       </div>
 
       <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
-        {messages.length === 0 ? (
+        {!consentLoading && !aiOn ? (
+          <div className="flex flex-col items-center justify-center h-full text-center gap-4 px-6">
+            <div className="text-3xl">✨</div>
+            <div className="text-white font-semibold">Ativar o assistente de IA</div>
+            <div className="text-muted max-w-sm text-sm">
+              A IA lê suas conversas para responder (enviado à Anthropic/OpenAI). Você pode desativar quando quiser.
+            </div>
+            <button onClick={accept} className="bg-primary text-bg font-bold rounded-xl px-5 py-2.5">
+              Ativar assistente
+            </button>
+          </div>
+        ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center gap-4">
             <div className="text-3xl">✨</div>
             <div className="text-muted max-w-sm">Pergunte sobre suas conversas — quem esperou resposta, resumos, o que rolou hoje.</div>
