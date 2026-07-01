@@ -56,3 +56,45 @@ export async function deletePaymentTransaction(tenantId, id) {
   );
   return r.rowCount > 0;
 }
+
+// Financial summary: aggregates total_revenue, total_pending, total_paid for the /financial/summary endpoint.
+export async function getFinancialSummary(tenantId, { dateFrom, dateTo } = {}) {
+  const conditions = ['tenant_id=$1'];
+  const params = [tenantId];
+  let i = 2;
+  if (dateFrom) { conditions.push(`created_at::date >= $${i++}::date`); params.push(dateFrom); }
+  if (dateTo) { conditions.push(`created_at::date <= $${i++}::date`); params.push(dateTo); }
+  const where = conditions.join(' AND ');
+  const r = await pool.query(
+    `SELECT
+      COALESCE(SUM(amount_cents), 0)::bigint AS total_revenue,
+      COALESCE(SUM(CASE WHEN status='pending'   THEN amount_cents ELSE 0 END), 0)::bigint AS total_pending,
+      COALESCE(SUM(CASE WHEN status='confirmed' THEN amount_cents ELSE 0 END), 0)::bigint AS total_paid
+    FROM payment_transactions WHERE ${where}`,
+    params
+  );
+  return r.rows[0] || { total_revenue: 0, total_pending: 0, total_paid: 0 };
+}
+
+// Monthly breakdown for the /financial/monthly chart endpoint.
+export async function getFinancialMonthly(tenantId, { dateFrom, dateTo } = {}) {
+  const conditions = ['tenant_id=$1'];
+  const params = [tenantId];
+  let i = 2;
+  if (dateFrom) { conditions.push(`created_at::date >= $${i++}::date`); params.push(dateFrom); }
+  if (dateTo) { conditions.push(`created_at::date <= $${i++}::date`); params.push(dateTo); }
+  const where = conditions.join(' AND ');
+  const r = await pool.query(
+    `SELECT
+      to_char(date_trunc('month', created_at), 'YYYY-MM') AS month,
+      COALESCE(SUM(amount_cents), 0)::bigint AS revenue,
+      COALESCE(SUM(CASE WHEN status='pending'   THEN amount_cents ELSE 0 END), 0)::bigint AS pending,
+      COALESCE(SUM(CASE WHEN status='confirmed' THEN amount_cents ELSE 0 END), 0)::bigint AS paid,
+      COUNT(*)::int AS count
+    FROM payment_transactions WHERE ${where}
+    GROUP BY date_trunc('month', created_at)
+    ORDER BY date_trunc('month', created_at) ASC`,
+    params
+  );
+  return { data: r.rows };
+}
