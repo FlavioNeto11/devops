@@ -33,7 +33,7 @@ async function handleNamedQueue(queueName, job) {
     }
   }
   await pool.query(
-    `UPDATE async_jobs SET status='completed', updated_at=now() WHERE queue_name=$1 AND job_key=$2`,
+    `UPDATE async_jobs SET status='completed', progress=100, completed_at=now(), updated_at=now() WHERE queue_name=$1 AND job_key=$2`,
     [queueName, jobKey]
   ).catch(() => {});
 }

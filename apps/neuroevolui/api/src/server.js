@@ -897,8 +897,10 @@ app.delete('/v1/audit-logs/:id', { preHandler: requireRole('clinic_manager') }, 
 });
 
 // ── Async Jobs (coleção de topo) ──────────────────────────────────────────────
-app.get('/v1/async-jobs', { preHandler: requireRole('professional') }, async (req) =>
-  listAsyncJobsPaged(req.tenantId, listParams(req)));
+app.get('/v1/async-jobs', { preHandler: requireRole('professional') }, async (req) => {
+  const q = req.query || {};
+  return listAsyncJobsPaged(req.tenantId, { ...listParams(req), status: q.status, queue_name: q.queue_name });
+});
 
 app.get('/v1/async-jobs/:id', { preHandler: requireRole('professional') }, async (req, reply) => {
   const r = await findAsyncJobById(req.tenantId, req.params.id);

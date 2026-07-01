@@ -29,16 +29,28 @@ export async function updateAsyncJobStatus(queueName, jobKey, status, result) {
 }
 
 // Coleção paginada para a rota REST genérica GET /v1/async-jobs → { data, total }.
-const JOBS_SORTABLE = new Set(['id', 'queue_name', 'status', 'created_at', 'updated_at']);
-export async function listAsyncJobsPaged(tenantId, { page = 1, pageSize = 50, sort = 'id', dir = 'desc' } = {}) {
+// Aceita filtros opcionais: status, queue_name.
+const JOBS_SORTABLE = new Set(['id', 'queue_name', 'status', 'created_at', 'updated_at', 'completed_at']);
+export async function listAsyncJobsPaged(tenantId, { page = 1, pageSize = 50, sort = 'id', dir = 'desc', status, queue_name } = {}) {
   const col = JOBS_SORTABLE.has(sort) ? sort : 'id';
   const order = String(dir).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
   const limit = Math.min(Math.max(Number(pageSize) || 50, 1), 200);
   const offset = (Math.max(Number(page) || 1, 1) - 1) * limit;
-  const totalRes = await pool.query('SELECT count(*)::int n FROM async_jobs WHERE tenant_id=$1', [tenantId]);
+  const where = ['tenant_id=$1'];
+  const params = [tenantId];
+  if (status && status !== '') {
+    params.push(String(status));
+    where.push(`status = $${params.length}`);
+  }
+  if (queue_name && queue_name !== '') {
+    params.push(String(queue_name));
+    where.push(`queue_name = $${params.length}`);
+  }
+  const whereSql = where.join(' AND ');
+  const totalRes = await pool.query(`SELECT count(*)::int n FROM async_jobs WHERE ${whereSql}`, params);
   const r = await pool.query(
-    `SELECT * FROM async_jobs WHERE tenant_id=$1 ORDER BY ${col} ${order} LIMIT $2 OFFSET $3`,
-    [tenantId, limit, offset]
+    `SELECT * FROM async_jobs WHERE ${whereSql} ORDER BY ${col} ${order} LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+    [...params, limit, offset]
   );
   return { data: r.rows, total: totalRes.rows[0].n };
 }
