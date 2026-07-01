@@ -23,6 +23,7 @@
   >
     <template #actions>
       <UiButton variant="ghost" :loading="loading" @click="reload">Atualizar</UiButton>
+      <UiButton variant="primary" to="/notification-preferences/new">Nova Preferência</UiButton>
     </template>
 
     <!-- KPIs por canal -->
@@ -145,6 +146,12 @@
       @update:page-size="onPageSize"
       @retry="reload"
     >
+      <!-- Tipo de evento -->
+      <template #cell-event_type="{ value }">
+        <span v-if="value" class="np-event-type">{{ eventTypeLabel(value) }}</span>
+        <span v-else class="np-muted">—</span>
+      </template>
+
       <!-- Canal com badge colorido -->
       <template #cell-channel="{ value }">
         <span class="np-channel-cell">
@@ -193,11 +200,21 @@
         <span class="np-when">{{ format.formatDateTime(value) }}</span>
       </template>
 
+      <!-- Ações por linha: editar -->
+      <template #cell-actions="{ row }">
+        <UiButton
+          variant="ghost"
+          size="sm"
+          :to="'/notification-preferences/' + row.id + '/edit'"
+          aria-label="Editar preferência"
+        >✎</UiButton>
+      </template>
+
       <!-- CTA vazio -->
       <template #empty-action>
         <div class="np-empty-actions">
           <UiButton v-if="hasActiveFilters" variant="ghost" @click="clearFilters">Limpar filtros</UiButton>
-          <UiButton variant="primary" to="/notifications">Configurar notificações</UiButton>
+          <UiButton variant="primary" to="/notification-preferences/new">Nova Preferência</UiButton>
         </div>
       </template>
     </UiDataTable>
@@ -250,6 +267,16 @@ const CHANNEL_LABELS = {
   whatsapp: 'WhatsApp',
 };
 
+const EVENT_TYPE_LABELS = {
+  'consultation.scheduled': 'Consulta agendada',
+  'note.added': 'Evolução adicionada',
+  'payment.failed': 'Pagamento falhou',
+};
+
+function eventTypeLabel(et) {
+  return EVENT_TYPE_LABELS[String(et || '')] || (et ? String(et) : '—');
+}
+
 const CHANNEL_TONES = {
   email: 'running',
   push: 'warning',
@@ -271,10 +298,12 @@ function formatNumber(v) {
 // ── Colunas ────────────────────────────────────────────────────────────────
 const columns = [
   { key: 'user_id', label: 'Usuário', sortable: true },
+  { key: 'event_type', label: 'Evento', sortable: true },
   { key: 'channel', label: 'Canal', sortable: true },
   { key: 'enabled', label: 'Ativo', align: 'center' },
   { key: 'contact_value', label: 'Endereço / Contato' },
   { key: 'created_at', label: 'Criado em', sortable: true },
+  { key: 'actions', label: '', align: 'right' },
 ];
 
 // ── Campos de filtro ────────────────────────────────────────────────────────
@@ -611,6 +640,13 @@ onMounted(load);
   display: flex;
   gap: var(--ui-space-2);
   flex-wrap: wrap;
+}
+
+/* Tipo de evento */
+.np-event-type {
+  font-size: var(--ui-text-sm);
+  color: rgb(var(--ui-fg));
+  white-space: nowrap;
 }
 
 /* Célula canal */
