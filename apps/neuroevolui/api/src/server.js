@@ -30,6 +30,7 @@ import { listPaymentTransactions, findPaymentTransaction, updatePaymentTransacti
 import { listKnowledgeSources, findKnowledgeSource, createKnowledgeSource, updateKnowledgeSource, deleteKnowledgeSource, reindexKnowledgeSource, knowledgeSourceStats } from './repositories/knowledge-sources-repo.js';
 import { listAuditLogsPaged, findAuditLog, deleteAuditLog } from './repositories/audit-repo.js';
 import { listAsyncJobsPaged, findAsyncJobById, listAsyncJobsByQueue, deleteAsyncJob, updateAsyncJobStatus } from './repositories/async-jobs-repo.js';
+import { getSettings, upsertSettings, resetSettings } from './repositories/settings-repo.js';
 
 const app = Fastify({ logger: false });
 
@@ -933,6 +934,20 @@ app.delete('/v1/async-jobs/:id', { preHandler: requireRole('clinic_manager') }, 
   const ok = await deleteAsyncJob(req.tenantId, req.params.id);
   if (!ok) { reply.code(404); return { error: { message: 'job não encontrado' } }; }
   return { deleted: true };
+});
+
+// ── Clinic Settings (REF-NEUROEVOLUI-0050) ────────────────────────────────────
+app.get('/v1/settings', { preHandler: requireRole('professional') }, async (req) =>
+  getSettings(req.tenantId));
+
+app.put('/v1/settings', { preHandler: requireRole('clinic_manager') }, async (req) => {
+  const b = req.body || {};
+  return upsertSettings(req.tenantId, b, req.actor);
+});
+
+app.delete('/v1/settings/overrides', { preHandler: requireRole('clinic_manager') }, async (req) => {
+  await resetSettings(req.tenantId);
+  return { reset: true };
 });
 
 const PORT = Number(process.env.PORT) || 8080;
