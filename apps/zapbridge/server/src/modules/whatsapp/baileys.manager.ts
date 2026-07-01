@@ -121,8 +121,12 @@ export async function startSession(
     auth: state,
     printQRInTerminal: false,
     markOnlineOnConnect: false,
-    // Pede o histórico do aparelho (contatos, chats e mensagens) ao parear/reconectar.
-    syncFullHistory: true,
+    // NÃO pede o histórico COMPLETO: o full-sync faz o iPhone exibir "A sincronização
+    // de mensagens foi interrompida" em LOOP (transfer grande que o WhatsApp interrompe/
+    // reenvia). Com false, o dispositivo recebe o histórico RECENTE que o WhatsApp manda
+    // a todo aparelho vinculado (rápido, sem loop); o histórico antigo é sob demanda
+    // (fetchOlderHistory / botão "carregar mais" no chat).
+    syncFullHistory: false,
     // Necessário para o WhatsApp conseguir fazer retry de mensagens. Sem isso o
     // app oficial exibe "Aguardando mensagem. Essa ação pode levar alguns instantes."
     getMessage: async (key) => {
