@@ -701,6 +701,72 @@ app.get('/v1/patient-reports/:id', { preHandler: requireRole('professional') }, 
   return r;
 });
 
+app.get('/v1/patient-reports/:id/pdf', { preHandler: requireRole('professional') }, async (req, reply) => {
+  const r = await findPatientReport(req.tenantId, req.params.id);
+  if (!r) { reply.code(404); return { error: { message: 'relatório não encontrado' } }; }
+  const READY = ['completed', 'ready'];
+  if (!READY.includes(r.status)) {
+    reply.code(422); return { error: { message: 'relatório ainda não está pronto para download' } };
+  }
+  const rd = r.report_data || {};
+  const timeline = Array.isArray(rd.timeline) ? rd.timeline : [];
+  const fmt = (iso) => {
+    if (!iso) return '—';
+    try { return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }); } catch { return String(iso); }
+  };
+  const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const typeLabels = { session: 'Sessão', assessment: 'Avaliação', follow_up: 'Acompanhamento', discharge_note: 'Nota de alta', evolution: 'Evolução', prescription: 'Prescrição', referral: 'Encaminhamento' };
+  const tlRows = timeline.map((n) =>
+    `<tr><td>${esc(fmt(n.note_date))}</td><td>${esc(typeLabels[n.type] || n.type || '—')}</td><td>${esc(n.text || '—')}</td><td>${esc(n.professional_id || '—')}</td></tr>`
+  ).join('\n');
+  const summary = esc(rd.summary || rd.executive_summary || '');
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Relatório #${r.id}</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 12pt; color: #111; margin: 2cm; }
+  h1 { font-size: 18pt; margin-bottom: 4px; }
+  .subtitle { color: #555; font-size: 10pt; margin-bottom: 24px; }
+  .meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 24px; margin-bottom: 24px; border: 1px solid #ddd; padding: 14px; border-radius: 6px; }
+  .meta-item dt { font-size: 9pt; text-transform: uppercase; color: #888; font-weight: 700; }
+  .meta-item dd { margin: 0; font-size: 11pt; }
+  .summary { background: #f5f7ff; border-left: 4px solid #4f46e5; padding: 12px 16px; margin-bottom: 24px; border-radius: 2px; font-size: 11pt; line-height: 1.6; white-space: pre-wrap; }
+  table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+  th { background: #f3f4f6; font-weight: 700; text-align: left; padding: 8px 10px; border: 1px solid #e0e0e0; }
+  td { padding: 7px 10px; border: 1px solid #e8e8e8; vertical-align: top; }
+  tr:nth-child(even) td { background: #fafafa; }
+  .empty { color: #888; font-style: italic; padding: 16px; }
+  footer { margin-top: 32px; border-top: 1px solid #ddd; padding-top: 10px; font-size: 9pt; color: #888; }
+  @media print { body { margin: 1cm; } }
+</style>
+</head>
+<body>
+<h1>Relatório de Evolução do Paciente</h1>
+<p class="subtitle">NeuroEvolui — gerado em ${esc(fmt(new Date().toISOString()))}</p>
+<div class="meta">
+  <dl class="meta-item"><dt>Relatório</dt><dd>#${r.id}</dd></dl>
+  <dl class="meta-item"><dt>Paciente</dt><dd>${esc(String(r.patient_id || '—'))}</dd></dl>
+  <dl class="meta-item"><dt>Situação</dt><dd>${esc(r.status || '—')}</dd></dl>
+  <dl class="meta-item"><dt>Solicitado em</dt><dd>${esc(fmt(r.created_at))}</dd></dl>
+  <dl class="meta-item"><dt>Concluído em</dt><dd>${esc(fmt(r.completed_at))}</dd></dl>
+  <dl class="meta-item"><dt>Total de notas</dt><dd>${timeline.length}</dd></dl>
+</div>
+${summary ? `<div class="summary">${summary}</div>` : ''}
+<table>
+<thead><tr><th>Data</th><th>Tipo</th><th>Texto</th><th>Profissional</th></tr></thead>
+<tbody>${tlRows || `<tr><td colspan="4" class="empty">Nenhuma evolução registrada no período.</td></tr>`}</tbody>
+</table>
+<footer>NeuroEvolui · Relatório #${r.id} · ${esc(fmt(new Date().toISOString()))}</footer>
+</body>
+</html>`;
+  reply
+    .header('Content-Type', 'text/html; charset=utf-8')
+    .header('Content-Disposition', `attachment; filename="relatorio-${r.id}.html"`)
+    .send(html);
+});
+
 app.post('/v1/patient-reports', { preHandler: requireRole('professional') }, async (req, reply) => {
   const b = req.body || {};
   if (!b.patient_id) { reply.code(400); return { error: { message: 'patient_id obrigatório' } }; }
