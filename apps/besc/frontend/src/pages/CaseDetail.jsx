@@ -61,6 +61,12 @@ export default function CaseDetail() {
         <div className="spacer" style={{ flex: 1 }} />
         <Link className="btn sm" to={`/cases/${id}/edit`}>Editar dados</Link>
         <a className="btn sm" href={api.reportHtmlUrl(id, 'full_case_report')} target="_blank" rel="noreferrer">Relatório completo</a>
+        <ConfirmButton
+          className="btn danger sm"
+          label="Excluir caso"
+          confirmLabel="Confirmar exclusão?"
+          onConfirm={async () => { setError(null); try { await api.remove(id); navigate('/'); } catch (e) { setError(e.message); } }}
+        />
       </div>
 
       <Banner kind="err">{error}</Banner>
