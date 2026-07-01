@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { Field, EnumSelect, Banner, Loading, HelpCallout } from '../ui.jsx';
+import { Icon } from '../icons.jsx';
 
 const EMPTY = {
   holder_name: '', holder_tax_id: '', contact: '', holder_type: 'pessoa_fisica',
@@ -58,7 +59,7 @@ export default function CaseForm() {
           </HelpCallout>
         )}
         <fieldset>
-          <legend>Titular</legend>
+          <legend><Icon name="user" size={14} /> Titular</legend>
           <div className="form-grid">
             <Field label="Nome do titular" help="Quem é o dono das ações/direitos." example="“João da Silva” ou “Espólio de João da Silva”.">
               <input value={form.holder_name} onChange={set('holder_name')} placeholder="Nome completo / razão social" />
@@ -76,7 +77,7 @@ export default function CaseForm() {
         </fieldset>
 
         <fieldset>
-          <legend>Ações / direitos</legend>
+          <legend><Icon name="coins" size={14} /> Ações / direitos</legend>
           <div className="form-grid">
             <Field label="Origem das ações/direitos" help="De onde vieram as ações/direitos." example="“Herança do meu pai”, “compra em 1998”, “cessão de terceiro”.">
               <input value={form.origin} onChange={set('origin')} placeholder="Herança, aquisição, cessão…" />
@@ -109,7 +110,7 @@ export default function CaseForm() {
         </fieldset>
 
         <fieldset>
-          <legend>Descrição</legend>
+          <legend><Icon name="file" size={14} /> Descrição</legend>
           <Field label="Resumo do caso" help="Conte a história em poucas linhas." example="“Herdeiros de titular de 1.200 ações ON do BESC; ação judicial discute a relação de troca na incorporação pelo BB.”">
             <textarea value={form.summary} onChange={set('summary')} rows={3} />
           </Field>

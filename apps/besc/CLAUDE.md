@@ -20,7 +20,7 @@ O escopo funcional completo (10 seções: telas, campos, checklists, status, rel
 |---|---|
 | Frontend | React 18 + Vite 5 + react-router-dom, nginx (`besc-frontend`), base path `/besc/`, sem strip, priority 10 |
 | API | Node 20 + Express (`besc-api`), rotas na raiz (Traefik faz strip de `/besc/api`), priority 40 |
-| Persistência | **store em arquivo JSON** (`/data/besc.json`) num **PVC** — sem Postgres/Redis (baixo volume, operador único) |
+| Persistência | **store em arquivo JSON** (`/data/besc.json`) num **PVC** — sem Postgres/Redis (baixo volume, operador único). **Anexos** de documentos (upload via `multer`) gravados em `/data/uploads/<caseId>/` no mesmo PVC (limite 15 MB/arquivo). |
 | Auth | nenhuma (sem login por definição) |
 | Deploy | `apps/besc/k8s` (Argo CD auto-sync) · imagens `:local` no laboratório |
 

@@ -31,4 +31,16 @@ export const api = {
   setStatus: (id, status) => req('POST', `/cases/${id}/status`, { status }),
   report: (id, type) => req('GET', `/cases/${id}/report?type=${encodeURIComponent(type)}`),
   reportHtmlUrl: (id, type) => `${BASE}/cases/${id}/report.html?type=${encodeURIComponent(type)}`,
+
+  // anexos de documentos
+  uploadAttachment: async (id, key, file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch(`${BASE}/cases/${id}/documents/${key}/attachments`, { method: 'POST', body: fd });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error((data && data.error) || `Erro ${res.status}`);
+    return data;
+  },
+  deleteAttachment: (id, key, attId) => req('DELETE', `/cases/${id}/documents/${key}/attachments/${attId}`),
+  attachmentDownloadUrl: (id, key, attId) => `${BASE}/cases/${id}/documents/${key}/attachments/${attId}/download`,
 };

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { StatusBadge, RiskBadge, Progress, Loading, Banner, formatMoney, useLabel } from '../ui.jsx';
+import { Icon } from '../icons.jsx';
 
 export default function Dashboard() {
   const [cases, setCases] = useState(null);
@@ -42,17 +43,17 @@ export default function Dashboard() {
     <>
       <div className="pgtitle between">
         <h1>Casos</h1>
-        <Link className="btn primary" to="/cases/new">+ Novo caso</Link>
+        <Link className="btn primary" to="/cases/new"><Icon name="plus" /> Novo caso</Link>
       </div>
 
       <Banner kind="err">{error}</Banner>
 
       {cases && cases.length > 0 && (
         <div className="grid2" style={{ marginBottom: 18 }}>
-          <div className="card"><div className="card-body stat"><span className="k">Casos cadastrados</span><span className="v">{stats.total}</span></div></div>
-          <div className="card"><div className="card-body stat"><span className="k">Aptos (com/sem ressalvas)</span><span className="v">{stats.ready}</span></div></div>
-          <div className="card"><div className="card-body stat"><span className="k">Pendências abertas</span><span className="v">{stats.pend}</span></div></div>
-          <div className="card"><div className="card-body stat"><span className="k">Pendências bloqueantes</span><span className="v" style={{ color: stats.blockers ? 'var(--red)' : 'var(--green)' }}>{stats.blockers}</span></div></div>
+          <div className="card"><div className="card-body stat"><span className="k"><Icon name="cases" size={14} /> Casos cadastrados</span><span className="v">{stats.total}</span></div></div>
+          <div className="card"><div className="card-body stat"><span className="k"><Icon name="check" size={14} /> Aptos (com/sem ressalvas)</span><span className="v">{stats.ready}</span></div></div>
+          <div className="card"><div className="card-body stat"><span className="k"><Icon name="alert" size={14} /> Pendências abertas</span><span className="v">{stats.pend}</span></div></div>
+          <div className="card"><div className="card-body stat"><span className="k"><Icon name="shield" size={14} /> Pendências bloqueantes</span><span className="v" style={{ color: stats.blockers ? 'var(--red)' : 'var(--green)' }}>{stats.blockers}</span></div></div>
         </div>
       )}
 

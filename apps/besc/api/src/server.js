@@ -1,6 +1,9 @@
 // API da Plataforma de Levantamento BESC Tokenizacao.
 // Rotas na RAIZ (o Traefik faz strip de /besc/api). Sem login.
 import express from 'express';
+import multer from 'multer';
+import path from 'node:path';
+import { mkdirSync, createReadStream } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import * as store from './store.js';
 import {
@@ -31,6 +34,25 @@ app.use((req, res, next) => {
 });
 
 const now = () => new Date().toISOString();
+
+// Upload de anexos: grava no PVC (/data/uploads/<caseId>/<attId><ext>), 15 MB/arquivo.
+const uploadStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    try {
+      const dir = store.caseUploadDir(req.params.id);
+      mkdirSync(dir, { recursive: true });
+      cb(null, dir);
+    } catch (e) { cb(e); }
+  },
+  filename: (req, file, cb) => {
+    const id = randomUUID();
+    const ext = (path.extname(file.originalname || '') || '').slice(0, 12);
+    req._attId = id;
+    req._attExt = ext;
+    cb(null, `${id}${ext}`);
+  },
+});
+const uploadAttachment = multer({ storage: uploadStorage, limits: { fileSize: 15 * 1024 * 1024, files: 1 } }).single('file');
 
 const CASE_FIELDS = [
   'holder_name', 'holder_tax_id', 'contact', 'holder_type', 'summary', 'origin',
@@ -194,6 +216,60 @@ app.put('/cases/:id/documents/:key', async (req, res) => {
   if (body.notes !== undefined) d.notes = String(body.notes);
   if (body.source !== undefined) d.source = String(body.source);
   d.updatedAt = now();
+  res.json(await saveAndEnrich(c));
+});
+
+// --- anexos de documentos ---
+app.post('/cases/:id/documents/:key/attachments', (req, res) => {
+  const c = store.getCase(req.params.id);
+  if (!c) return res.status(404).json({ error: 'caso não encontrado' });
+  const doc = (c.documents || []).find((x) => x.key === req.params.key);
+  if (!doc) return res.status(404).json({ error: 'documento não encontrado' });
+  uploadAttachment(req, res, async (err) => {
+    if (err) {
+      const msg = err.code === 'LIMIT_FILE_SIZE' ? 'arquivo excede o limite de 15 MB' : 'falha no upload do arquivo';
+      return res.status(400).json({ error: msg });
+    }
+    if (!req.file) return res.status(400).json({ error: 'nenhum arquivo enviado (campo "file")' });
+    const att = {
+      id: req._attId,
+      filename: req.file.originalname || 'arquivo',
+      size: req.file.size,
+      mime: req.file.mimetype || 'application/octet-stream',
+      ext: req._attExt || '',
+      uploadedAt: now(),
+    };
+    doc.attachments = doc.attachments || [];
+    doc.attachments.push(att);
+    if (doc.status === 'pending') doc.status = 'received';
+    doc.updatedAt = now();
+    res.status(201).json(await saveAndEnrich(c));
+  });
+});
+
+app.get('/cases/:id/documents/:key/attachments/:attId/download', (req, res) => {
+  const c = store.getCase(req.params.id);
+  const doc = c && (c.documents || []).find((x) => x.key === req.params.key);
+  const att = doc && (doc.attachments || []).find((a) => a.id === req.params.attId);
+  if (!att) return res.status(404).json({ error: 'anexo não encontrado' });
+  res.setHeader('Content-Type', att.mime || 'application/octet-stream');
+  res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(att.filename || 'arquivo')}`);
+  createReadStream(store.attachmentPath(req.params.id, att.id, att.ext))
+    .on('error', () => { if (!res.headersSent) res.status(404).end(); })
+    .pipe(res);
+});
+
+app.delete('/cases/:id/documents/:key/attachments/:attId', async (req, res) => {
+  const c = loadCase(req, res);
+  if (!c) return;
+  const doc = (c.documents || []).find((x) => x.key === req.params.key);
+  if (!doc) return res.status(404).json({ error: 'documento não encontrado' });
+  const idx = (doc.attachments || []).findIndex((a) => a.id === req.params.attId);
+  if (idx < 0) return res.status(404).json({ error: 'anexo não encontrado' });
+  const att = doc.attachments[idx];
+  await store.removeAttachmentFile(req.params.id, att.id, att.ext);
+  doc.attachments.splice(idx, 1);
+  doc.updatedAt = now();
   res.json(await saveAndEnrich(c));
 });
 

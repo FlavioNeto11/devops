@@ -3,8 +3,9 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
+export const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
 const DATA_FILE = path.join(DATA_DIR, 'besc.json');
+export const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
 
 let state = { cases: {} };
 let writeChain = Promise.resolve();
@@ -53,5 +54,29 @@ export async function deleteCase(id) {
   const existed = !!state.cases[id];
   delete state.cases[id];
   await save();
+  await removeCaseUploads(id);
   return existed;
+}
+
+// --- anexos (arquivos no PVC) ---
+export function caseUploadDir(caseId) {
+  return path.join(UPLOADS_DIR, caseId);
+}
+
+export function attachmentPath(caseId, attId, ext) {
+  return path.join(UPLOADS_DIR, caseId, `${attId}${ext || ''}`);
+}
+
+export async function ensureCaseUploadDir(caseId) {
+  const dir = caseUploadDir(caseId);
+  await fs.mkdir(dir, { recursive: true });
+  return dir;
+}
+
+export async function removeAttachmentFile(caseId, attId, ext) {
+  try { await fs.unlink(attachmentPath(caseId, attId, ext)); } catch { /* já removido */ }
+}
+
+export async function removeCaseUploads(caseId) {
+  try { await fs.rm(caseUploadDir(caseId), { recursive: true, force: true }); } catch { /* nada a remover */ }
 }

@@ -145,7 +145,8 @@ export default function Ajuda() {
           </table>
           <p>Alguns documentos são <strong>condicionais</strong> — só aparecem como obrigatórios quando fazem sentido. Ex.: <em>certidão de óbito</em> e <em>formal de partilha</em> só entram na conta se o titular for <strong>espólio</strong> ou <strong>herdeiro</strong>; <em>contrato de cessão</em> só para <strong>cessionário</strong>.</p>
           <p>O <strong>percentual de documentação</strong> é: documentos validados ÷ documentos aplicáveis.</p>
-          <Ex>Marque no campo “Fonte/origem” de onde veio cada documento (ex.: “cartório 2º ofício”, “autos do processo, fls. 45”).</Ex>
+          <p><strong>Anexar arquivos:</strong> em cada documento há o botão <strong>Anexar</strong> para subir o arquivo em si (PDF, imagem, etc., até 15 MB por arquivo). Ao anexar, o status vira “Recebido” automaticamente. Depois você pode <strong>baixar/abrir</strong> ou <strong>remover</strong> o anexo. Vários arquivos podem ser anexados ao mesmo documento.</p>
+          <Ex>Marque no campo “Fonte/origem” de onde veio cada documento (ex.: “cartório 2º ofício”, “autos do processo, fls. 45”) e anexe o PDF correspondente.</Ex>
         </Section>
 
         <Section id="juridico" title="5. Checklist jurídico">

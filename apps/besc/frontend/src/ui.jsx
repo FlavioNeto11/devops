@@ -120,6 +120,13 @@ export function formatMoney(n) {
   return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+export function formatBytes(n) {
+  if (n === null || n === undefined) return '';
+  if (n < 1024) return `${n} B`;
+  if (n < 1048576) return `${Math.round(n / 1024)} KB`;
+  return `${(n / 1048576).toFixed(1)} MB`;
+}
+
 export function Banner({ kind = 'err', children }) {
   if (!children) return null;
   return <div className={`banner ${kind}`}>{children}</div>;

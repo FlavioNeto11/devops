@@ -1,6 +1,7 @@
 import React from 'react';
 import { Routes, Route, Link, NavLink } from 'react-router-dom';
 import { useMeta } from './ui.jsx';
+import { Icon, BrandMark } from './icons.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import CaseForm from './pages/CaseForm.jsx';
 import CaseDetail from './pages/CaseDetail.jsx';
@@ -11,12 +12,22 @@ export default function App() {
   return (
     <>
       <header className="topbar">
-        <div className="brand">
-          <Link to="/">BESC&nbsp;Tokenização</Link>
-          <small>Plataforma de Levantamento</small>
+        <div className="topbar-inner">
+          <div className="brand">
+            <Link to="/">
+              <span className="brand-mark"><BrandMark /></span>
+              <span className="brand-text">
+                <b>BESC Tokenização</b>
+                <small>Plataforma de Levantamento</small>
+              </span>
+            </Link>
+          </div>
+          <div className="spacer" />
+          <nav>
+            <NavLink to="/" end><Icon name="cases" /> Casos</NavLink>
+            <NavLink to="/ajuda"><Icon name="help" /> Ajuda</NavLink>
+          </nav>
         </div>
-        <div className="spacer" />
-        <nav><NavLink to="/" end>Casos</NavLink><NavLink to="/ajuda">Ajuda</NavLink></nav>
       </header>
       <div className="legal-strip">
         Ferramenta de levantamento e organização documental — <strong>não</strong> executa tokenização nem presta aconselhamento jurídico.
@@ -32,6 +43,14 @@ export default function App() {
           <Route path="*" element={<div className="empty"><h3>Página não encontrada</h3><Link to="/">Voltar aos casos</Link></div>} />
         </Routes>
       </main>
+      <footer className="app-footer">
+        <div className="foot-inner">
+          <span><strong>Plataforma de Levantamento BESC Tokenização</strong> — organização documental, checklists e relatórios.</span>
+          <span className="spacer" />
+          <span className="muted">Não é aconselhamento jurídico · sem login</span>
+          <Link to="/ajuda">Ajuda</Link>
+        </div>
+      </footer>
     </>
   );
 }

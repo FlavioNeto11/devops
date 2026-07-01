@@ -64,10 +64,10 @@ function blockProcesses(c) {
 }
 
 function blockDocuments(c) {
-  const rows = (c.documents || []).map((d) => [d.label, ENUMS.document_status[d.status], d.requirement, isDocApplicable(d, c) ? 'Sim' : 'Não']);
+  const rows = (c.documents || []).map((d) => [d.label, ENUMS.document_status[d.status], d.requirement, isDocApplicable(d, c) ? 'Sim' : 'Não', String((d.attachments || []).length)]);
   return {
     heading: `Situação documental (${c.derived.docPct}% concluída)`,
-    table: { columns: ['Documento', 'Status', 'Exigência', 'Aplicável'], rows },
+    table: { columns: ['Documento', 'Status', 'Exigência', 'Aplicável', 'Anexos'], rows },
   };
 }
 

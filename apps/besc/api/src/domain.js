@@ -192,6 +192,7 @@ export function instantiateDocuments() {
     status: 'pending',
     source: '',
     notes: '',
+    attachments: [],
     updatedAt: null,
   }));
 }

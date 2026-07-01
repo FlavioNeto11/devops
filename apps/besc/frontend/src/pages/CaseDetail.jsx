@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import {
   StatusBadge, RiskBadge, Progress, Field, EnumSelect, Banner, Loading,
-  ConfirmButton, formatMoney, useLabel, useMeta, HelpCallout,
+  ConfirmButton, formatMoney, formatBytes, useLabel, useMeta, HelpCallout,
 } from '../ui.jsx';
+import { Icon } from '../icons.jsx';
 
 // input que salva no blur (evita chamada por tecla)
 function BlurInput({ value, onSave, textarea, ...rest }) {
@@ -24,6 +25,7 @@ export default function CaseDetail() {
   const [c, setC] = useState(null);
   const [error, setError] = useState(null);
   const [tab, setTab] = useState('resumo');
+  const label = useLabel();
 
   const load = () => api.get(id).then(setC).catch((e) => setError(e.message));
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
@@ -36,59 +38,75 @@ export default function CaseDetail() {
   if (!c) return error ? <Banner>{error}</Banner> : <Loading />;
 
   const d = c.derived;
-  const pendApplicableDocs = (c.documents || []).length;
   const tabs = [
-    { k: 'resumo', label: 'Resumo' },
-    { k: 'dados', label: 'Dados' },
-    { k: 'processos', label: 'Processos', count: (c.lawsuits || []).length },
-    { k: 'documentos', label: 'Documentos', count: `${d.docPct}%` },
-    { k: 'juridico', label: 'Jurídico' },
-    { k: 'tokenizacao', label: 'Tokenização' },
-    { k: 'caucao', label: 'Caução' },
-    { k: 'pendencias', label: 'Pendências', count: d.pendencyCount, warn: d.blockerCount > 0 },
-    { k: 'relatorios', label: 'Relatórios' },
+    { k: 'resumo', label: 'Resumo', icon: 'gauge' },
+    { k: 'dados', label: 'Dados', icon: 'user' },
+    { k: 'processos', label: 'Processos', icon: 'briefcase', count: (c.lawsuits || []).length },
+    { k: 'documentos', label: 'Documentos', icon: 'file', count: `${d.docPct}%` },
+    { k: 'juridico', label: 'Jurídico', icon: 'landmark' },
+    { k: 'tokenizacao', label: 'Tokenização', icon: 'coins' },
+    { k: 'caucao', label: 'Caução', icon: 'shield' },
+    { k: 'pendencias', label: 'Pendências', icon: 'alert', count: d.pendencyCount, warn: d.blockerCount > 0 },
+    { k: 'relatorios', label: 'Relatórios', icon: 'report' },
   ];
 
   const goResolve = (resolve) => setTab(TAB_FOR_RESOLVE[resolve] || 'resumo');
+  const name = c.holder_name || '(sem titular)';
 
   return (
     <>
-      <div className="crumbs"><Link to="/">Casos</Link> / {c.holder_name || '(sem titular)'}</div>
-      <div className="pgtitle">
-        <h1>{c.holder_name || '(sem titular)'}</h1>
-        <StatusBadge status={c.status} />
-        <RiskBadge level={d.risk.level} />
-        <div className="spacer" style={{ flex: 1 }} />
-        <Link className="btn sm" to={`/cases/${id}/edit`}>Editar dados</Link>
-        <a className="btn sm" href={api.reportHtmlUrl(id, 'full_case_report')} target="_blank" rel="noreferrer">Relatório completo</a>
-        <ConfirmButton
-          className="btn danger sm"
-          label="Excluir caso"
-          confirmLabel="Confirmar exclusão?"
-          onConfirm={async () => { setError(null); try { await api.remove(id); navigate('/'); } catch (e) { setError(e.message); } }}
-        />
+      <div className="crumbs"><Link to="/">Casos</Link> / {name}</div>
+
+      <div className="case-summary">
+        <div className="cs-top">
+          <div className="cs-title">
+            <h1>{name}</h1>
+            <span className="cs-sub">{c.holder_tax_id || 'sem CPF/CNPJ'} · {label('holder_type', c.holder_type)}{c.origin ? ` · ${c.origin}` : ''}</span>
+          </div>
+          <div className="cs-actions">
+            <Link className="btn sm" to={`/cases/${id}/edit`}><Icon name="edit" /> Editar</Link>
+            <a className="btn sm" href={api.reportHtmlUrl(id, 'full_case_report')} target="_blank" rel="noreferrer"><Icon name="report" /> Relatório</a>
+            <ConfirmButton
+              className="btn danger sm"
+              label={<><Icon name="trash" /> Excluir</>}
+              confirmLabel="Confirmar exclusão?"
+              onConfirm={async () => { setError(null); try { await api.remove(id); navigate('/'); } catch (e) { setError(e.message); } }}
+            />
+          </div>
+        </div>
+        <div className="cs-metrics">
+          <div className="cs-metric"><span className="m-k">Status</span><span className="m-v"><StatusBadge status={c.status} /></span></div>
+          <div className="cs-metric"><span className="m-k">Risco jurídico</span><span className="m-v"><RiskBadge level={d.risk.level} /></span></div>
+          <div className="cs-metric"><span className="m-k">Documentação</span><span className="m-v"><Progress pct={d.docPct} /></span></div>
+          <div className="cs-metric"><span className="m-k">Pendências</span><span className="m-v">{d.pendencyCount}{d.blockerCount ? ` · ${d.blockerCount} bloq.` : ''}</span></div>
+          <div className="cs-metric"><span className="m-k">Valor estimado</span><span className="m-v">{formatMoney(d.estimatedValue)}</span></div>
+        </div>
       </div>
 
       <Banner kind="err">{error}</Banner>
 
-      <div className="tabs" style={{ marginBottom: 18 }}>
-        {tabs.map((t) => (
-          <button key={t.k} className={tab === t.k ? 'active' : ''} onClick={() => setTab(t.k)}>
-            {t.label}
-            {t.count !== undefined && t.count !== 0 && <span className={`tab-count ${t.warn ? 'warn' : ''}`}>{t.count}</span>}
-          </button>
-        ))}
+      <div className="detail-layout">
+        <nav className="tab-rail">
+          {tabs.map((t) => (
+            <button key={t.k} className={tab === t.k ? 'active' : ''} onClick={() => setTab(t.k)}>
+              <Icon name={t.icon} />
+              <span>{t.label}</span>
+              {t.count !== undefined && t.count !== 0 && <span className={`tab-count ${t.warn ? 'warn' : ''}`}>{t.count}</span>}
+            </button>
+          ))}
+        </nav>
+        <div className="detail-content">
+          {tab === 'resumo' && <ResumoTab c={c} patch={patch} id={id} goResolve={goResolve} />}
+          {tab === 'dados' && <DadosTab c={c} />}
+          {tab === 'processos' && <ProcessosTab c={c} id={id} patch={patch} />}
+          {tab === 'documentos' && <DocumentosTab c={c} id={id} patch={patch} />}
+          {tab === 'juridico' && <JuridicoTab c={c} id={id} patch={patch} />}
+          {tab === 'tokenizacao' && <TokenizacaoTab c={c} id={id} patch={patch} />}
+          {tab === 'caucao' && <CaucaoTab c={c} id={id} patch={patch} />}
+          {tab === 'pendencias' && <PendenciasTab c={c} goResolve={goResolve} />}
+          {tab === 'relatorios' && <RelatoriosTab c={c} id={id} />}
+        </div>
       </div>
-
-      {tab === 'resumo' && <ResumoTab c={c} patch={patch} id={id} goResolve={goResolve} />}
-      {tab === 'dados' && <DadosTab c={c} />}
-      {tab === 'processos' && <ProcessosTab c={c} id={id} patch={patch} />}
-      {tab === 'documentos' && <DocumentosTab c={c} id={id} patch={patch} />}
-      {tab === 'juridico' && <JuridicoTab c={c} id={id} patch={patch} />}
-      {tab === 'tokenizacao' && <TokenizacaoTab c={c} id={id} patch={patch} />}
-      {tab === 'caucao' && <CaucaoTab c={c} id={id} patch={patch} />}
-      {tab === 'pendencias' && <PendenciasTab c={c} goResolve={goResolve} />}
-      {tab === 'relatorios' && <RelatoriosTab c={c} id={id} />}
     </>
   );
 }
@@ -239,38 +257,74 @@ function groupBy(items, key) {
   return g;
 }
 
+function DocItem({ c, id, doc, patch, statusOptions, REQ }) {
+  const fileRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const onFile = async (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    setUploading(true);
+    await patch(api.uploadAttachment(id, doc.key, f));
+    setUploading(false);
+    if (fileRef.current) fileRef.current.value = '';
+  };
+  const atts = doc.attachments || [];
+  return (
+    <div className="checklist-item">
+      <div className="ci-head">
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 600 }}>{doc.label} <span className="pill">{REQ[doc.requirement]}</span></div>
+          <BlurInput className="small" style={{ marginTop: 6 }} placeholder="Fonte / origem do documento (opcional)" value={doc.source} onSave={(v) => patch(api.updateDocument(id, doc.key, { source: v }))} />
+        </div>
+        <div className="ci-controls">
+          <button type="button" className="btn sm" onClick={() => fileRef.current && fileRef.current.click()} disabled={uploading}>
+            {uploading ? <span className="spinner" /> : <Icon name="upload" size={14} />} Anexar
+          </button>
+          <input ref={fileRef} type="file" className="file-input" onChange={onFile} />
+          <select className="inline-select" value={doc.status} onChange={(e) => patch(api.updateDocument(id, doc.key, { status: e.target.value }))}>
+            {statusOptions.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </div>
+      </div>
+      {atts.length > 0 && (
+        <div className="attach-list">
+          {atts.map((a) => (
+            <div className="attach-item" key={a.id}>
+              <span className="att-ic"><Icon name="paperclip" size={14} /></span>
+              <a className="att-name" href={api.attachmentDownloadUrl(id, doc.key, a.id)} target="_blank" rel="noreferrer">{a.filename}</a>
+              <span className="att-meta">{formatBytes(a.size)}</span>
+              <span className="att-sp" />
+              <a className="btn ghost sm" href={api.attachmentDownloadUrl(id, doc.key, a.id)} target="_blank" rel="noreferrer" title="Baixar / abrir"><Icon name="download" size={14} /></a>
+              <ConfirmButton className="btn danger sm" label={<Icon name="trash" size={14} />} confirmLabel="Remover?" onConfirm={() => patch(api.deleteAttachment(id, doc.key, a.id))} />
+            </div>
+          ))}
+        </div>
+      )}
+      <BlurInput textarea className="small" style={{ marginTop: 8 }} rows={1} placeholder="Observações…" value={doc.notes} onSave={(v) => patch(api.updateDocument(id, doc.key, { notes: v }))} />
+    </div>
+  );
+}
+
 function DocumentosTab({ c, id, patch }) {
   const { meta } = useMeta();
   const cats = (meta && meta.catalogs.docCategories) || {};
   const groups = groupBy(c.documents, 'category');
   const REQ = { required: 'Obrigatório', conditional: 'Condicional', optional: 'Opcional' };
+  const statusOptions = Object.entries((meta && meta.enums.document_status) || {});
   return (
     <div className="stack">
       <HelpCallout title={`Documentação ${c.derived.docPct}% concluída (validados ÷ aplicáveis)`}>
         Avance o status conforme o andamento: <strong>Pendente → Recebido → Em análise → Validado</strong>.
-        Só <em>Validado</em> conta no percentual. Alguns documentos são condicionais (ex.: certidão de óbito e
-        formal de partilha só para espólio/herdeiros). Use o campo “Fonte/origem” para anotar de onde veio cada um
-        (ex.: “autos do processo, fls. 45”).
+        Anexe o arquivo (PDF, imagem, etc.) em cada documento com o botão <strong>Anexar</strong> — ao anexar, o
+        status vira “Recebido” automaticamente. Alguns documentos são condicionais (ex.: certidão de óbito e formal
+        de partilha só para espólio/herdeiros).
       </HelpCallout>
       {Object.keys(cats).map((cat) => groups[cat] && (
         <div className="card" key={cat}>
           <div className="card-head"><h3>{cats[cat]}</h3></div>
           <div className="card-body">
             {groups[cat].map((doc) => (
-              <div className="checklist-item" key={doc.key}>
-                <div className="ci-head">
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{doc.label} <span className="pill">{REQ[doc.requirement]}</span></div>
-                    <BlurInput className="small" style={{ marginTop: 6 }} placeholder="Fonte / origem do documento (opcional)" value={doc.source} onSave={(v) => patch(api.updateDocument(id, doc.key, { source: v }))} />
-                  </div>
-                  <div className="ci-controls">
-                    <select className="inline-select" value={doc.status} onChange={(e) => patch(api.updateDocument(id, doc.key, { status: e.target.value }))}>
-                      {Object.entries(meta.enums.document_status).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <BlurInput textarea className="small" style={{ marginTop: 8 }} rows={1} placeholder="Observações…" value={doc.notes} onSave={(v) => patch(api.updateDocument(id, doc.key, { notes: v }))} />
-              </div>
+              <DocItem key={doc.key} c={c} id={id} doc={doc} patch={patch} statusOptions={statusOptions} REQ={REQ} />
             ))}
           </div>
         </div>
