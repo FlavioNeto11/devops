@@ -49,6 +49,14 @@ export const patientReports = resourceFactory('patient-reports');
 export const paymentTransactions = resourceFactory('payment-transactions');
 export const notificationPreferences = resourceFactory('notification-preferences');
 export const auditLogs = resourceFactory('audit-logs');
+export async function exportAuditLogs(params) {
+  const p = new URLSearchParams();
+  for (const k in (params || {})) { const v = params[k]; if (v !== '' && v !== null && v !== undefined) p.append(k, v); }
+  const query = p.toString() ? '?' + p.toString() : '';
+  const res = await fetch(BASE + '/v1/audit-logs/export' + query);
+  if (!res.ok) { const d = await res.json().catch(() => ({})); const e = new Error((d && d.error && d.error.message) || 'HTTP ' + res.status); e.status = res.status; throw e; }
+  return res.blob();
+}
 export const asyncJobs = resourceFactory('async-jobs');
 // Aliases de nome-de-export com hífen (ES2022 string export names) — as views acessam o
 // recurso por `api['evolution-notes']` / `api['patient-reports']` (espelho do nome da rota

@@ -28,7 +28,7 @@ import { listProfessionals, findProfessional, createProfessional, updateProfessi
 import { listPatientReportsPaged, findPatientReport, deletePatientReport, PR_STATUSES } from './repositories/patient-reports-repo.js';
 import { listPaymentTransactions, findPaymentTransaction, updatePaymentTransaction, deletePaymentTransaction } from './repositories/payment-transactions-repo.js';
 import { listKnowledgeSources, findKnowledgeSource, createKnowledgeSource, updateKnowledgeSource, deleteKnowledgeSource, reindexKnowledgeSource, knowledgeSourceStats } from './repositories/knowledge-sources-repo.js';
-import { listAuditLogsPaged, findAuditLog, deleteAuditLog } from './repositories/audit-repo.js';
+import { listAuditLogsPaged, findAuditLog, deleteAuditLog, exportAuditLogsCsv } from './repositories/audit-repo.js';
 import { listAsyncJobsPaged, findAsyncJobById, listAsyncJobsByQueue, deleteAsyncJob, updateAsyncJobStatus } from './repositories/async-jobs-repo.js';
 
 const app = Fastify({ logger: false });
@@ -863,6 +863,14 @@ app.delete('/v1/notification-preferences/:id', { preHandler: requireRole('clinic
 // ── Audit Logs (coleção de topo) ──────────────────────────────────────────────
 app.get('/v1/audit-logs', { preHandler: requireRole('clinic_manager') }, async (req) =>
   listAuditLogsPaged(req.tenantId, listParams(req)));
+
+// Export CSV — deve vir ANTES de /:id para não ser capturado como id='export'.
+app.get('/v1/audit-logs/export', { preHandler: requireRole('clinic_manager') }, async (req, reply) => {
+  const csv = await exportAuditLogsCsv(req.tenantId, listParams(req));
+  reply.header('Content-Type', 'text/csv; charset=utf-8');
+  reply.header('Content-Disposition', 'attachment; filename="audit-logs.csv"');
+  return reply.send(csv);
+});
 
 app.get('/v1/audit-logs/:id', { preHandler: requireRole('clinic_manager') }, async (req, reply) => {
   const r = await findAuditLog(req.tenantId, req.params.id);
