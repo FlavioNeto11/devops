@@ -885,6 +885,7 @@ app.post('/v1/audit-logs', { preHandler: requireRole('clinic_manager') }, async 
     paymentStatus: b.payment_status || null,
     gateway: b.gateway || null,
     metadata: b.metadata || {},
+    ipAddress: b.ip_address || req.ip || null,
   });
   reply.code(201); return { created: true };
 });
