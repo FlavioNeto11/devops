@@ -64,7 +64,9 @@ export function RootNavigator() {
   const screenOptions = {
     headerStyle: { backgroundColor: colors.header },
     headerTintColor: colors.text,
-    contentStyle: { backgroundColor: colors.bg },
+    // flex:1 garante que TODA tela preencha a altura do navigator na web (sem isso,
+    // o native-stack no react-native-web não dá altura cheia → barra/rodapé "flutua").
+    contentStyle: { flex: 1, backgroundColor: colors.bg },
   };
 
   return (

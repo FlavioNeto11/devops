@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { RootNavigator } from './navigation/RootNavigator';
 import { useAuthStore } from './store/auth.store';
@@ -52,7 +52,7 @@ function AppInner() {
   }
 
   return (
-    <SafeAreaProvider>
+    <SafeAreaProvider initialMetrics={initialWindowMetrics} style={styles.fill}>
       <StatusBar style={resolved === 'light' ? 'dark' : 'light'} />
       <NavigationContainer theme={navTheme}>
         <RootNavigator />
@@ -70,5 +70,6 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  fill: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });
