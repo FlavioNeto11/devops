@@ -5,25 +5,27 @@ import { useSessionStore } from './store/session.store';
 import { useChatsStore } from './store/chats.store';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
-import { HomePage } from './pages/HomePage';
+import { Home } from './pages/Home';
+import { ComingSoonPage } from './pages/ComingSoonPage';
 import { Spinner } from './components/Spinner';
+import { isDevPreview } from './dev/devPreview';
 
 export default function App() {
   const bootstrapping = useAuthStore((s) => s.bootstrapping);
   const user = useAuthStore((s) => s.user);
   const bootstrap = useAuthStore((s) => s.bootstrap);
 
-  // Revalida o token salvo ao abrir.
+  // Revalida o token salvo ao abrir (seed de dev já rodou no main.tsx).
   useEffect(() => {
+    if (isDevPreview()) return;
     bootstrap();
   }, []);
 
   // Ao autenticar, liga os listeners de tempo real (sessão + chats).
   useEffect(() => {
-    if (user) {
-      useSessionStore.getState().bindRealtime();
-      useChatsStore.getState().bindRealtime();
-    }
+    if (!user || isDevPreview()) return;
+    useSessionStore.getState().bindRealtime();
+    useChatsStore.getState().bindRealtime();
   }, [user]);
 
   if (bootstrapping) {
@@ -44,7 +46,10 @@ export default function App() {
         </>
       ) : (
         <>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<Home />} />
+          <Route path="/chat/:chatId" element={<Home />} />
+          <Route path="/mais/:tab" element={<ComingSoonPage />} />
+          <Route path="/soon" element={<ComingSoonPage />} />
           <Route path="/login" element={<Navigate to="/" replace />} />
           <Route path="/register" element={<Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
