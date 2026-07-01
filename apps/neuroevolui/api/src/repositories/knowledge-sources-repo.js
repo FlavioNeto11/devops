@@ -48,7 +48,7 @@ export async function listKnowledgeSources({ page = 1, pageSize = 50, sort = 'in
   const likeParam = term ? ['%' + term + '%'] : [];
   const totalRes = await pool.query(`SELECT count(*)::int n FROM knowledge_sources ${where}`, likeParam);
   const r = await pool.query(
-    `SELECT source_id, title, content_hash, chunk_count, embedding_model, ingested_at
+    `SELECT source_id, title, description, source_type, url, active, content_hash, chunk_count, embedding_model, ingested_at
      FROM knowledge_sources ${where} ORDER BY ${col} ${order} LIMIT $${likeParam.length + 1} OFFSET $${likeParam.length + 2}`,
     [...likeParam, limit, offset]
   );
@@ -81,7 +81,7 @@ export async function knowledgeSourceStats() {
 
 export async function findKnowledgeSource(sourceId) {
   const r = await pool.query(
-    'SELECT source_id, title, content_hash, chunk_count, embedding_model, ingested_at FROM knowledge_sources WHERE source_id=$1',
+    'SELECT source_id, title, description, source_type, url, active, content_hash, chunk_count, embedding_model, ingested_at FROM knowledge_sources WHERE source_id=$1',
     [String(sourceId)]
   );
   return r.rows[0] ?? null;
@@ -166,17 +166,24 @@ export async function createKnowledgeSource(body) {
 }
 
 export async function updateKnowledgeSource(sourceId, body) {
-  const fields = { title: 'title', content_hash: 'content_hash', chunk_count: 'chunk_count', embedding_model: 'embedding_model' };
   const sets = [];
   const params = [String(sourceId)];
   let i = 2;
-  for (const [key, col] of Object.entries(fields)) {
-    if (body[key] !== undefined) { sets.push(`${col}=$${i++}`); params.push(key === 'chunk_count' ? Number(body[key]) || 0 : (body[key] === '' ? null : body[key])); }
+
+  // Text / nullable columns
+  const textCols = { title: 'title', description: 'description', source_type: 'source_type', url: 'url', content_hash: 'content_hash', embedding_model: 'embedding_model' };
+  for (const [key, col] of Object.entries(textCols)) {
+    if (body[key] !== undefined) { sets.push(`${col}=$${i++}`); params.push(body[key] === '' ? null : body[key]); }
   }
+  // Integer column
+  if (body.chunk_count !== undefined) { sets.push(`chunk_count=$${i++}`); params.push(Number(body.chunk_count) || 0); }
+  // Boolean column
+  if (body.active !== undefined) { sets.push(`active=$${i++}`); params.push(body.active === true || body.active === 'true'); }
+
   if (sets.length === 0) return findKnowledgeSource(sourceId);
   const r = await pool.query(
     `UPDATE knowledge_sources SET ${sets.join(', ')} WHERE source_id=$1
-     RETURNING source_id, title, content_hash, chunk_count, embedding_model, ingested_at`,
+     RETURNING source_id, title, description, source_type, url, active, content_hash, chunk_count, embedding_model, ingested_at`,
     params
   );
   return r.rows[0] ?? null;
@@ -195,7 +202,7 @@ export async function deleteKnowledgeSource(sourceId) {
 export async function reindexKnowledgeSource(sourceId) {
   const r = await pool.query(
     `UPDATE knowledge_sources SET ingested_at=now() WHERE source_id=$1
-     RETURNING source_id, title, content_hash, chunk_count, embedding_model, ingested_at`,
+     RETURNING source_id, title, description, source_type, url, active, content_hash, chunk_count, embedding_model, ingested_at`,
     [String(sourceId)]
   );
   return r.rows[0] ?? null;

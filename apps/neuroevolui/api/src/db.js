@@ -174,6 +174,11 @@ const MIGRATIONS = [
   `ALTER TABLE payment_transactions ADD COLUMN IF NOT EXISTS patient_id TEXT`,
   `ALTER TABLE payment_transactions ADD COLUMN IF NOT EXISTS event_type TEXT`,
   `ALTER TABLE payment_transactions ADD COLUMN IF NOT EXISTS external_id TEXT`,
+  // REF-NEUROEVOLUI-0041: campos de metadados da fonte de conhecimento (tela de edição)
+  `ALTER TABLE knowledge_sources ADD COLUMN IF NOT EXISTS description TEXT`,
+  `ALTER TABLE knowledge_sources ADD COLUMN IF NOT EXISTS source_type TEXT NOT NULL DEFAULT 'text'`,
+  `ALTER TABLE knowledge_sources ADD COLUMN IF NOT EXISTS url TEXT`,
+  `ALTER TABLE knowledge_sources ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE`,
 ];
 export async function migrate() {
   const c = await pool.connect();

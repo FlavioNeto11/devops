@@ -2,237 +2,236 @@
   <UiPageLayout
     eyebrow="RAG · Base de conhecimento"
     :title="pageTitle"
-    subtitle="Edite o título, o identificador de origem e o conteúdo da fonte. Após salvar, use o botão Reindexar para aplicar as mudanças no índice vetorial."
+    subtitle="Edite o nome, descrição, tipo e estado desta fonte de conhecimento."
     width="narrow"
-    :loading="loadingSource"
+    :loading="loading"
+    loading-message="Carregando fonte…"
     :error="loadError"
-    @retry="loadSource"
+    @retry="load"
   >
     <template #actions>
-      <UiButton variant="ghost" to="/knowledge-sources">Voltar</UiButton>
+      <UiButton variant="ghost" @click="cancel">Voltar</UiButton>
     </template>
 
-    <!-- Banner de estado de indexação: mostra quando a fonte está desatualizada após edição -->
-    <template v-if="needsReindex" #banner>
-      <div class="kse-banner" role="alert">
-        <span class="kse-banner-icon" aria-hidden="true">△</span>
+    <!-- Banner: fonte inativa -->
+    <template #banner>
+      <div
+        v-if="!loading && !loadError && !notFound && !f.values.active"
+        class="kse-banner"
+        role="status"
+        aria-label="Fonte inativa"
+      >
+        <span class="kse-banner-icon" aria-hidden="true">◔</span>
         <p class="kse-banner-text">
-          O conteúdo foi alterado. Clique em <strong>Reindexar</strong> para aplicar as mudanças no índice vetorial — enquanto não reindexar, o assistente usará os trechos da versão anterior.
+          Esta fonte está <strong>inativa</strong> e não é consultada pelo assistente nas respostas.
         </p>
-        <UiButton
-          variant="subtle"
-          size="sm"
-          :loading="reindexing"
-          @click="doReindex"
-        >Reindexar agora</UiButton>
       </div>
     </template>
 
-    <!-- Esqueleto de carregamento enquanto busca GET /v1/knowledge-sources/:id -->
-    <div v-if="loadingSource" class="kse-skeleton" aria-busy="true" aria-label="Carregando fonte">
-      <UiCard>
-        <UiLoadingState variant="skeleton" :skeleton-lines="5" />
-      </UiCard>
-      <UiCard>
-        <UiLoadingState variant="skeleton" :skeleton-lines="3" />
-      </UiCard>
-    </div>
+    <!-- Estado: não encontrada -->
+    <UiEmptyState
+      v-if="!loading && !loadError && notFound"
+      title="Fonte não encontrada"
+      description="Esta fonte pode ter sido removida ou o endereço está incorreto."
+      icon="database"
+    >
+      <template #action>
+        <UiButton to="/knowledge-sources">Voltar à lista</UiButton>
+      </template>
+    </UiEmptyState>
 
-    <!-- Formulário de edição — só renderiza após carregar a fonte -->
-    <form v-else-if="source" class="kse-form" novalidate @submit.prevent="submit">
-      <!-- Metadados editáveis -->
+    <!-- Formulário de edição -->
+    <form
+      v-else-if="!loading && !loadError && !notFound"
+      class="kse-form"
+      novalidate
+      @submit.prevent="save"
+    >
+
+      <!-- Métricas de contexto -->
+      <div class="kse-metrics" aria-label="Resumo da fonte">
+        <UiMetricCard
+          label="Estado"
+          :value="f.values.active ? 'Ativa' : 'Inativa'"
+          :tone="f.values.active ? 'success' : 'neutral'"
+          hint="Se esta fonte é consultada pelo assistente"
+        />
+        <UiMetricCard
+          label="Tipo"
+          :value="activeSourceTypeLabel"
+          tone="neutral"
+          hint="Como o conteúdo foi ingerido"
+        />
+        <UiMetricCard
+          label="Trechos"
+          :value="chunkCountDisplay"
+          :tone="chunkCount > 0 ? 'success' : 'warning'"
+          hint="Fragmentos vetorizados no índice RAG"
+        />
+      </div>
+
+      <!-- Identificação -->
       <UiCard
-        title="Identificação da fonte"
-        subtitle="Informações que identificam e nomeiam esta fonte nas citações do assistente."
+        title="Identificação"
+        subtitle="Como esta fonte aparece nas citações e na lista da base de conhecimento."
       >
-        <UiFormSection :columns="2">
+        <UiFormSection :columns="1">
+
           <UiFormField
-            label="Título"
+            label="Nome da fonte"
             :required="true"
             :error="f.errors.title"
             hint="Nome legível exibido nas citações do assistente."
             full-width
           >
             <template #default="{ id, describedBy }">
-              <input
+              <UiInput
                 :id="id"
-                type="text"
-                class="kse-input"
-                :aria-describedby="describedBy"
-                :aria-invalid="f.errors.title ? 'true' : undefined"
-                aria-required="true"
-                :value="f.values.title"
-                placeholder="Ex.: Manual de procedimentos clínicos"
-                @input="f.setField('title', $event.target.value)"
+                :described-by="describedBy"
+                :model-value="f.values.title"
+                :error="!!f.errors.title"
+                :required="true"
+                placeholder="Ex.: Manual de procedimentos clínicos v2"
+                autocomplete="off"
+                @update:model-value="f.setField('title', $event)"
               />
             </template>
           </UiFormField>
 
           <UiFormField
-            label="ID de origem"
-            :error="f.errors.source_id"
-            hint="Identificador técnico estável desta fonte. Use letras, números, hífen ou ponto."
+            label="Descrição"
+            :error="f.errors.description"
+            hint="Resumo do conteúdo desta fonte. Auxilia no reconhecimento dentro da base."
+            full-width
           >
             <template #default="{ id, describedBy }">
-              <input
+              <textarea
                 :id="id"
-                type="text"
-                class="kse-input"
-                :aria-describedby="describedBy"
-                :aria-invalid="f.errors.source_id ? 'true' : undefined"
-                :value="f.values.source_id"
-                placeholder="ex.: manual-clinico-v2"
-                @input="f.setField('source_id', $event.target.value)"
-              />
+                class="kse-textarea"
+                :aria-describedby="describedBy || undefined"
+                :aria-invalid="f.errors.description ? 'true' : undefined"
+                :value="f.values.description"
+                placeholder="Ex.: Manual oficial com diretrizes de atendimento neuropsicológico."
+                rows="3"
+                @input="f.setField('description', $event.target.value)"
+              ></textarea>
             </template>
           </UiFormField>
 
+        </UiFormSection>
+      </UiCard>
+
+      <!-- Origem -->
+      <UiCard
+        title="Origem do conteúdo"
+        subtitle="Tipo de ingestão e URL de referência para a fonte original."
+      >
+        <UiFormSection :columns="2">
+
           <UiFormField
-            label="Modelo de embedding"
-            hint="Modelo que vetoriza os trechos. Alterar aqui não reprocessa automaticamente — reindexe após salvar."
+            label="Tipo de fonte"
+            :required="true"
+            :error="f.errors.source_type"
+            hint="Como o conteúdo desta fonte foi ingerido na base."
           >
             <template #default="{ id, describedBy }">
               <select
                 :id="id"
                 class="kse-select"
-                :aria-describedby="describedBy"
-                :value="f.values.embedding_model"
-                @change="f.setField('embedding_model', $event.target.value)"
+                :aria-describedby="describedBy || undefined"
+                :aria-invalid="f.errors.source_type ? 'true' : undefined"
+                :value="f.values.source_type"
+                @change="f.setField('source_type', $event.target.value)"
               >
-                <option v-for="m in embeddingModels" :key="m.value" :value="m.value">
-                  {{ m.label }}
-                </option>
+                <option v-for="t in SOURCE_TYPES" :key="t.value" :value="t.value">{{ t.label }}</option>
               </select>
             </template>
           </UiFormField>
+
+          <UiFormField
+            label="URL da fonte"
+            :error="f.errors.url"
+            :hint="f.values.source_type === 'url' ? 'Endereço da página cujo conteúdo foi indexado.' : 'Referência opcional para a origem do conteúdo.'"
+          >
+            <template #default="{ id, describedBy }">
+              <UiInput
+                :id="id"
+                type="url"
+                :described-by="describedBy"
+                :model-value="f.values.url"
+                :error="!!f.errors.url"
+                placeholder="https://..."
+                autocomplete="off"
+                @update:model-value="f.setField('url', $event)"
+              />
+            </template>
+          </UiFormField>
+
         </UiFormSection>
       </UiCard>
 
-      <!-- Conteúdo indexado -->
+      <!-- Estado (toggle ativo) -->
       <UiCard
-        title="Conteúdo indexado"
-        subtitle="Texto que é segmentado (chunks) e vetorizado no índice RAG. Editar e salvar não reindexará automaticamente — use o botão Reindexar após salvar."
+        title="Estado"
+        subtitle="Quando inativa, esta fonte não é consultada pelo assistente nas respostas."
       >
-        <UiFormField
-          label="Conteúdo / texto indexado"
-          :required="true"
-          :error="f.errors.content"
-          :hint="contentHint"
-        >
-          <template #default="{ id, describedBy }">
-            <textarea
-              :id="id"
-              class="kse-textarea"
-              :aria-describedby="describedBy"
-              :aria-invalid="f.errors.content ? 'true' : undefined"
-              aria-required="true"
-              :value="f.values.content"
-              placeholder="Cole aqui o texto completo da fonte (manual, política, FAQ, transcrição…)"
-              rows="14"
-              @input="f.setField('content', $event.target.value)"
-            ></textarea>
-          </template>
-        </UiFormField>
-
-        <!-- Indicadores de tamanho do conteúdo -->
-        <div v-if="f.values.content && f.values.content.trim().length > 0" class="kse-content-stats" aria-label="Estatísticas do conteúdo">
-          <div class="kse-stat">
-            <span class="kse-stat-value">{{ format.formatNumber(charCount) }}</span>
-            <span class="kse-stat-label">caracteres</span>
+        <div class="kse-toggle-row" role="group" aria-labelledby="kse-active-label">
+          <div class="kse-toggle-copy" id="kse-active-label">
+            <p class="kse-toggle-title">{{ f.values.active ? 'Fonte ativa' : 'Fonte inativa' }}</p>
+            <p class="kse-toggle-desc">
+              {{ f.values.active
+                ? 'Esta fonte é consultada pelo assistente nas respostas e citações.'
+                : 'Esta fonte está excluída das consultas do assistente.' }}
+            </p>
           </div>
-          <div class="kse-stat">
-            <span class="kse-stat-value">~{{ format.formatNumber(estChunks) }}</span>
-            <span class="kse-stat-label">trechos estimados</span>
-          </div>
-          <div class="kse-stat">
-            <span class="kse-stat-value">{{ approxBytes }}</span>
-            <span class="kse-stat-label">tamanho</span>
-          </div>
+          <button
+            type="button"
+            class="kse-switch"
+            role="switch"
+            :aria-checked="f.values.active ? 'true' : 'false'"
+            aria-label="Ativar ou desativar esta fonte de conhecimento"
+            :data-on="f.values.active ? 'true' : null"
+            @click="toggleActive"
+          >
+            <span class="kse-switch-knob" aria-hidden="true"></span>
+          </button>
         </div>
-      </UiCard>
-
-      <!-- Resumo de indexação atual -->
-      <UiCard title="Estado atual da indexação" subtitle="Informações da última ingestão registrada no servidor.">
-        <dl class="kse-meta">
-          <div class="kse-meta-row">
-            <dt class="kse-meta-label">Trechos indexados</dt>
-            <dd class="kse-meta-value">
-              <span class="kse-chunks">{{ format.formatNumber(source.chunk_count || 0) }}</span>
-              <UiStatusBadge
-                :status="source.chunk_count > 0 ? 'active' : 'pending'"
-                :label="source.chunk_count > 0 ? 'Indexada' : 'Vazia'"
-                with-dot
-              />
-            </dd>
-          </div>
-          <div class="kse-meta-row">
-            <dt class="kse-meta-label">Hash do conteúdo</dt>
-            <dd class="kse-meta-value">
-              <code v-if="source.content_hash" class="kse-code">{{ source.content_hash }}</code>
-              <span v-else class="kse-muted">não disponível</span>
-            </dd>
-          </div>
-          <div class="kse-meta-row">
-            <dt class="kse-meta-label">Indexado em</dt>
-            <dd class="kse-meta-value">
-              <span v-if="source.ingested_at">{{ format.formatDateTime(source.ingested_at) }}</span>
-              <span v-else class="kse-muted">nunca indexado</span>
-            </dd>
-          </div>
-          <div class="kse-meta-row">
-            <dt class="kse-meta-label">Criado em</dt>
-            <dd class="kse-meta-value">
-              <span v-if="source.created_at">{{ format.formatDateTime(source.created_at) }}</span>
-              <span v-else class="kse-muted">—</span>
-            </dd>
-          </div>
-        </dl>
       </UiCard>
 
       <!-- Ações -->
       <div class="kse-actions">
-        <UiButton
-          variant="danger"
-          type="button"
-          :disabled="f.submitting.value || reindexing"
-          @click="doDelete"
-        >Remover fonte</UiButton>
-
-        <div class="kse-actions-right">
+        <p v-if="!dirty" class="kse-no-changes" role="status">Nenhuma alteração pendente.</p>
+        <div class="kse-btns">
           <UiButton
             variant="ghost"
             type="button"
-            :disabled="f.submitting.value || reindexing"
+            :disabled="f.submitting.value"
             @click="cancel"
           >Cancelar</UiButton>
           <UiButton
-            variant="subtle"
-            type="button"
-            :disabled="f.submitting.value"
-            :loading="reindexing"
-            @click="doReindex"
-          >Reindexar</UiButton>
-          <UiButton
             type="submit"
+            variant="primary"
             :loading="f.submitting.value"
-            :disabled="reindexing"
+            :disabled="!dirty || f.submitting.value"
           >Salvar alterações</UiButton>
         </div>
       </div>
+
     </form>
   </UiPageLayout>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { ref, reactive, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import {
   UiPageLayout,
   UiCard,
+  UiMetricCard,
   UiFormSection,
   UiFormField,
-  UiLoadingState,
-  UiStatusBadge,
+  UiInput,
+  UiEmptyState,
   UiButton,
   useForm,
   useToast,
@@ -242,307 +241,305 @@ import {
 } from '../ui/index.js';
 import { knowledgeSources } from '../api.js';
 
-// Aproximação do chunking do pipeline: trechos de ~1000 caracteres.
-const CHUNK_SIZE = 1000;
+const props = defineProps({ id: { type: [String, Number], required: true } });
 
-const embeddingModels = [
-  { value: 'text-embedding-3-small', label: 'text-embedding-3-small (padrão)' },
-  { value: 'text-embedding-3-large', label: 'text-embedding-3-large (maior contexto)' },
-  { value: 'voyage-3', label: 'voyage-3' },
-];
-
-const route = useRoute();
 const router = useRouter();
 const toast = useToast();
-const confirmAsk = useConfirm();
+const confirm = useConfirm();
 
-// Estado de carregamento e da fonte carregada
-const source = ref(null);
-const loadingSource = ref(true);
-const loadError = ref('');
-const reindexing = ref(false);
-// Marca que o conteúdo foi salvo e precisa ser reindexado
-const needsReindex = ref(false);
+const SOURCE_TYPES = [
+  { value: 'text', label: 'Texto (conteúdo colado)' },
+  { value: 'url', label: 'URL (página web)' },
+  { value: 'file', label: 'Arquivo (PDF, TXT, CSV)' },
+];
 
-// Formulário de edição — campos editáveis pelo usuário
+// ── Estado de carregamento ───────────────────────────────────────────────────
+const loading = ref(true);
+const loadError = ref(null);
+const source = reactive({});
+
+const notFound = computed(() => !loading.value && !loadError.value && !source.source_id);
+
+const pageTitle = computed(() =>
+  source.title ? 'Editar: ' + source.title : 'Editar fonte de conhecimento'
+);
+
+const chunkCount = computed(() => Number(source.chunk_count) || 0);
+const chunkCountDisplay = computed(() =>
+  source.chunk_count != null ? format.formatNumber(chunkCount.value) : '—'
+);
+
+const activeSourceTypeLabel = computed(() => {
+  const t = SOURCE_TYPES.find((s) => s.value === f.values.source_type);
+  return t ? t.label.split(' ')[0] : (f.values.source_type || '—');
+});
+
+// ── Formulário ────────────────────────────────────────────────────────────────
 const f = useForm({
-  initial: { title: '', source_id: '', content: '', embedding_model: embeddingModels[0].value },
+  initial: {
+    title: '',
+    description: '',
+    source_type: 'text',
+    url: '',
+    active: true,
+  },
   rules: {
-    title: [validators.required('Informe um título para a fonte'), validators.minLen(2)],
-    source_id: [validators.pattern(/^[a-z0-9][a-z0-9._-]*$/i, 'Use letras, números, ponto, hífen ou _')],
-    content: [validators.required('O conteúdo indexado não pode ficar em branco')],
+    title: [
+      validators.required('Informe um nome para a fonte.'),
+      validators.minLen(2, 'O nome deve ter ao menos 2 caracteres.'),
+      validators.maxLen(200, 'O nome deve ter no máximo 200 caracteres.'),
+    ],
+    description: [
+      validators.maxLen(1000, 'A descrição deve ter no máximo 1 000 caracteres.'),
+    ],
+    source_type: [
+      validators.required('Selecione o tipo da fonte.'),
+    ],
+    url: [
+      (v) => {
+        if (!v || !String(v).trim()) return '';
+        try { new URL(v); return ''; } catch { return 'URL inválida. Use o formato https://…'; }
+      },
+      (v, all) => {
+        if (all.source_type !== 'url') return '';
+        return validators.required('URL obrigatória para fontes do tipo URL.')(v);
+      },
+    ],
   },
 });
 
-// ── Dados derivados do conteúdo ──────────────────────────────────────────────
-const charCount = computed(() => (f.values.content || '').trim().length);
+// ── Snapshot para detectar alterações ────────────────────────────────────────
+const snapshot = ref('');
+function currentSnapshot() {
+  return JSON.stringify({
+    title: f.values.title,
+    description: f.values.description,
+    source_type: f.values.source_type,
+    url: f.values.url,
+    active: f.values.active,
+  });
+}
+const dirty = computed(() => snapshot.value !== currentSnapshot());
 
-const estChunks = computed(() =>
-  charCount.value > 0 ? Math.max(1, Math.ceil(charCount.value / CHUNK_SIZE)) : 0
-);
+// ── Hidratação ────────────────────────────────────────────────────────────────
+function hydrate(rec) {
+  Object.keys(source).forEach((k) => delete source[k]);
+  Object.assign(source, rec || {});
+  f.values.title = rec.title || '';
+  f.values.description = rec.description || '';
+  f.values.source_type = SOURCE_TYPES.some((t) => t.value === rec.source_type) ? rec.source_type : 'text';
+  f.values.url = rec.url || '';
+  f.values.active = rec.active !== false;
+  snapshot.value = currentSnapshot();
+}
 
-const approxBytes = computed(() => {
-  const n = new Blob([f.values.content || '']).size;
-  if (n < 1024) return n + ' B';
-  if (n < 1048576) return (n / 1024).toFixed(0) + ' KB';
-  return (n / 1048576).toFixed(1) + ' MB';
-});
-
-const contentHint = computed(() => {
-  const n = charCount.value;
-  if (!n) return 'Cole o texto completo que deve ser indexado pelo pipeline RAG.';
-  return format.formatNumber(n) + ' caracteres · ~' + estChunks.value + ' trecho(s) estimados';
-});
-
-const pageTitle = computed(() =>
-  source.value ? ('Editar: ' + (source.value.title || source.value.source_id || 'Fonte')) : 'Editar fonte'
-);
-
-// ── Carregar GET /v1/knowledge-sources/:id ────────────────────────────────────
-async function loadSource() {
-  loadingSource.value = true;
-  loadError.value = '';
+// ── Carga inicial ─────────────────────────────────────────────────────────────
+async function load() {
+  loading.value = true;
+  loadError.value = null;
   try {
-    const id = route.params.id;
-    const data = await knowledgeSources.get(id);
-    source.value = data;
-    // Popula o formulário com os valores atuais da fonte
-    f.values.title = data.title || '';
-    f.values.source_id = data.source_id || '';
-    f.values.content = data.content || '';
-    f.values.embedding_model =
-      embeddingModels.find((m) => m.value === data.embedding_model)
-        ? data.embedding_model
-        : embeddingModels[0].value;
-    needsReindex.value = false;
+    const res = await knowledgeSources.get(props.id);
+    const rec = res && res.data && typeof res.data === 'object' && !Array.isArray(res.data) ? res.data : res;
+    if (rec && rec.source_id) hydrate(rec);
   } catch (e) {
-    loadError.value = e && e.message ? e.message : 'Não foi possível carregar a fonte.';
+    if (e && e.status !== 404) {
+      loadError.value = e && e.message ? e.message : 'Não foi possível carregar a fonte.';
+    }
   } finally {
-    loadingSource.value = false;
+    loading.value = false;
   }
 }
 
-// ── Salvar PUT /v1/knowledge-sources/:id ─────────────────────────────────────
-async function submit() {
-  await f.handleSubmit(async (vals) => {
-    const id = route.params.id;
-    const payload = {
-      title: vals.title.trim(),
-      content: vals.content,
-      embedding_model: vals.embedding_model || embeddingModels[0].value,
-    };
-    const sid = (vals.source_id || '').trim();
-    if (sid) payload.source_id = sid;
+// ── Toggle ativação ───────────────────────────────────────────────────────────
+function toggleActive() {
+  f.setField('active', !f.values.active);
+}
 
+// ── Salvar ────────────────────────────────────────────────────────────────────
+async function save() {
+  await f.handleSubmit(async (vals) => {
     try {
-      const updated = await knowledgeSources.update(id, payload);
-      // Atualiza a referência local para refletir novos valores (hash, etc.)
-      source.value = { ...source.value, ...updated };
-      needsReindex.value = true;
-      toast.success('Fonte atualizada. Reindexe para aplicar no índice vetorial.');
+      await knowledgeSources.update(props.id, {
+        title: vals.title.trim(),
+        description: (vals.description || '').trim() || null,
+        source_type: vals.source_type,
+        url: (vals.url || '').trim() || null,
+        active: !!vals.active,
+      });
+      hydrate({ ...source, ...vals, title: vals.title.trim() });
+      toast.success('Fonte atualizada com sucesso.');
+      router.push('/knowledge-sources/' + props.id);
     } catch (e) {
+      if (e && e.status === 404) {
+        toast.error('Esta fonte não foi encontrada. Ela pode ter sido removida.');
+        return;
+      }
       toast.error(e && e.message ? e.message : 'Falha ao salvar a fonte.');
     }
   });
 }
 
-// ── Reindexar POST /v1/knowledge-sources/:id/reindex ─────────────────────────
-async function doReindex() {
-  if (reindexing.value) return;
-  const id = route.params.id;
-  reindexing.value = true;
-  try {
-    await knowledgeSources.reindex(id);
-    needsReindex.value = false;
-    // Recarrega para obter chunk_count e ingested_at atualizados
-    await loadSource();
-    toast.success('Fonte reindexada com sucesso. O assistente já usa a versão mais recente.');
-  } catch (e) {
-    toast.error('Falha ao reindexar: ' + (e && e.message ? e.message : 'erro desconhecido'));
-  } finally {
-    reindexing.value = false;
+// ── Cancelar ─────────────────────────────────────────────────────────────────
+async function cancel() {
+  if (dirty.value) {
+    const ok = await confirm({
+      title: 'Descartar alterações?',
+      message: 'As alterações ainda não foram salvas. Descartar e voltar?',
+      confirmLabel: 'Descartar',
+      danger: true,
+    });
+    if (!ok) return;
   }
+  router.push('/knowledge-sources/' + props.id);
 }
 
-// ── Remover (ação destrutiva — confirmação obrigatória) ───────────────────────
-async function doDelete() {
-  if (!source.value) return;
-  const ok = await confirmAsk({
-    title: 'Remover fonte da base?',
-    message:
-      'A fonte "' +
-      (source.value.title || source.value.source_id) +
-      '" e seus ' +
-      format.formatNumber(source.value.chunk_count || 0) +
-      ' trecho(s) indexado(s) serão apagados permanentemente. O assistente deixará de citá-la. Esta ação não pode ser desfeita.',
-    danger: true,
-  });
-  if (!ok) return;
-  try {
-    await knowledgeSources.remove(route.params.id);
-    toast.success('Fonte removida da base de conhecimento.');
-    router.push('/knowledge-sources');
-  } catch (e) {
-    toast.error('Falha ao remover: ' + (e && e.message ? e.message : 'erro desconhecido'));
-  }
-}
-
-function cancel() {
-  router.push('/knowledge-sources');
-}
-
-onMounted(loadSource);
+onMounted(load);
 </script>
 
 <style scoped>
+/* Dimensões do toggle switch (mesmas do kit padrão) */
+.kse-form,
+.kse-toggle-row,
+.kse-switch {
+  --_track-w: calc(var(--ui-space-5) + var(--ui-space-4));
+  --_track-h: calc(var(--ui-space-4) + var(--ui-space-1) * 2.75);
+  --_knob-size: calc(var(--_track-h) - var(--ui-space-1) * 2);
+  --_duration: var(--ui-duration-fast, 0.15s);
+}
+
+/* Layout do formulário */
 .kse-form {
   display: flex;
   flex-direction: column;
   gap: var(--ui-space-4);
 }
 
-/* Esqueleto */
-.kse-skeleton {
-  display: flex;
-  flex-direction: column;
+/* Métricas de contexto */
+.kse-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--ui-space-4);
 }
 
-/* Banner de reindexação pendente */
+/* Banner de fonte inativa */
 .kse-banner {
   display: flex;
   align-items: center;
   gap: var(--ui-space-3);
   padding: var(--ui-space-3) var(--ui-space-4);
-  border: 1px solid rgb(var(--ui-border));
-  border-left: 3px solid rgb(var(--ui-warning, 217 119 6));
   border-radius: var(--ui-radius-md);
-  background: rgb(var(--ui-warning, 217 119 6) / 0.06);
-  flex-wrap: wrap;
+  border: 1px solid rgb(var(--ui-warn) / 0.5);
+  background: rgb(var(--ui-warn) / 0.08);
 }
 .kse-banner-icon {
-  font-size: 1.1rem;
-  line-height: 1.4;
-  color: rgb(var(--ui-warning, 217 119 6));
+  font-size: var(--ui-text-xl);
+  line-height: 1;
+  color: rgb(var(--ui-warn));
   flex-shrink: 0;
 }
 .kse-banner-text {
-  flex: 1;
   margin: 0;
   font-size: var(--ui-text-sm);
   color: rgb(var(--ui-fg));
-  min-width: 0;
 }
 
-/* Controles de formulário — aparência base vem do UiFormField via :deep().
-   Aqui só o que o kit não cobre: altura do textarea, foco, erro, placeholder. */
+/* Textarea de descrição */
 .kse-textarea {
-  min-height: 280px;
-  line-height: 1.6;
-  font-family: var(--ui-font-mono, monospace);
-  font-size: var(--ui-text-sm);
+  min-height: 80px;
+  line-height: 1.5;
+  resize: vertical;
+  font-family: inherit;
+  font-size: var(--ui-text-md);
 }
-.kse-input:focus,
-.kse-textarea:focus,
+.kse-textarea:focus {
+  outline: none;
+  border-color: rgb(var(--ui-accent));
+  box-shadow: 0 0 0 3px rgb(var(--ui-accent) / 0.15);
+}
+.kse-textarea[aria-invalid='true'] {
+  border-color: rgb(var(--ui-danger));
+}
+.kse-textarea::placeholder {
+  color: rgb(var(--ui-faint));
+}
+
+/* Select de tipo */
 .kse-select:focus {
   outline: none;
   border-color: rgb(var(--ui-accent));
   box-shadow: 0 0 0 3px rgb(var(--ui-accent) / 0.15);
 }
-.kse-input[aria-invalid='true'],
-.kse-textarea[aria-invalid='true'] {
+.kse-select[aria-invalid='true'] {
   border-color: rgb(var(--ui-danger));
 }
-.kse-input::placeholder,
-.kse-textarea::placeholder {
-  color: rgb(var(--ui-faint));
-}
 
-/* Estatísticas do conteúdo (abaixo do textarea) */
-.kse-content-stats {
+/* Toggle row */
+.kse-toggle-row {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--ui-space-4);
-  margin-top: var(--ui-space-3);
-  padding: var(--ui-space-3) var(--ui-space-4);
+  padding: var(--ui-space-4);
   border: 1px solid rgb(var(--ui-border));
   border-radius: var(--ui-radius-md);
   background: rgb(var(--ui-surface-2));
 }
-.kse-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.kse-toggle-copy {
   min-width: 0;
+  flex: 1 1 auto;
 }
-.kse-stat-value {
-  font-family: var(--ui-font-display);
-  font-size: var(--ui-text-md);
-  font-weight: 700;
+.kse-toggle-title {
+  margin: 0;
+  font-weight: 600;
+  font-size: var(--ui-text-sm);
   color: rgb(var(--ui-fg));
-  font-variant-numeric: tabular-nums;
 }
-.kse-stat-label {
+.kse-toggle-desc {
+  margin: var(--ui-space-1) 0 0;
   font-size: var(--ui-text-xs);
   color: rgb(var(--ui-muted));
+  line-height: 1.45;
 }
 
-/* Metadados de indexação (dl) */
-.kse-meta {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--ui-space-3);
-  margin: 0;
-}
-.kse-meta-row {
-  display: flex;
-  align-items: baseline;
-  gap: var(--ui-space-3);
-  padding: var(--ui-space-2) 0;
-  border-bottom: 1px solid rgb(var(--ui-border));
-}
-.kse-meta-row:last-child {
-  border-bottom: none;
-}
-.kse-meta-label {
+/* Switch acessível (role=switch) */
+.kse-switch {
+  position: relative;
   flex-shrink: 0;
-  width: 160px;
-  font-size: var(--ui-text-sm);
-  font-weight: 600;
-  color: rgb(var(--ui-muted));
-}
-.kse-meta-value {
-  display: flex;
-  align-items: center;
-  gap: var(--ui-space-2);
-  flex: 1;
-  min-width: 0;
-  font-size: var(--ui-text-sm);
-  color: rgb(var(--ui-fg));
-  word-break: break-word;
-}
-.kse-chunks {
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  font-size: var(--ui-text-md);
-  color: rgb(var(--ui-fg));
-}
-.kse-code {
-  font-family: var(--ui-font-mono, monospace);
-  font-size: var(--ui-text-xs);
-  padding: 2px var(--ui-space-2);
-  border-radius: var(--ui-radius-sm);
+  width: var(--_track-w);
+  height: var(--_track-h);
+  border-radius: var(--ui-radius-pill);
+  border: 1px solid rgb(var(--ui-border-strong));
   background: rgb(var(--ui-surface-2));
-  border: 1px solid rgb(var(--ui-border));
-  color: rgb(var(--ui-fg));
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 280px;
+  cursor: pointer;
+  padding: 0;
+  transition: background var(--_duration) ease, border-color var(--_duration) ease;
 }
-.kse-muted {
-  color: rgb(var(--ui-muted));
-  font-size: var(--ui-text-xs);
-  font-style: italic;
+.kse-switch[data-on='true'] {
+  background: rgb(var(--ui-accent));
+  border-color: rgb(var(--ui-accent));
+}
+.kse-switch:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(var(--ui-accent) / 0.28);
+}
+.kse-switch-knob {
+  position: absolute;
+  top: var(--ui-space-1);
+  left: var(--ui-space-1);
+  width: var(--_knob-size);
+  height: var(--_knob-size);
+  border-radius: 50%;
+  background: rgb(var(--ui-bg));
+  box-shadow: var(--ui-shadow-sm);
+  transition: transform var(--_duration) ease;
+}
+.kse-switch[data-on='true'] .kse-switch-knob {
+  transform: translateX(calc(var(--_track-w) - var(--_knob-size) - var(--ui-space-1) * 2));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kse-switch,
+  .kse-switch-knob { transition: none; }
 }
 
 /* Ações */
@@ -552,45 +549,42 @@ onMounted(loadSource);
   justify-content: space-between;
   gap: var(--ui-space-3);
   flex-wrap: wrap;
+  padding-top: var(--ui-space-2);
 }
-.kse-actions-right {
+.kse-no-changes {
+  margin: 0;
+  font-size: var(--ui-text-xs);
+  color: rgb(var(--ui-muted));
+  font-style: italic;
+}
+.kse-btns {
   display: flex;
-  align-items: center;
   gap: var(--ui-space-2);
-  flex-wrap: wrap;
+  margin-left: auto;
 }
 
+/* Responsivo */
 @media (max-width: 860px) {
-  .kse-content-stats {
-    flex-wrap: wrap;
-    gap: var(--ui-space-3);
-  }
-  .kse-meta-label {
-    width: 120px;
-  }
-  .kse-banner {
-    flex-direction: column;
-    align-items: flex-start;
+  .kse-metrics {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
-@media (max-width: 480px) {
+@media (max-width: 560px) {
+  .kse-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
   .kse-actions {
     flex-direction: column;
     align-items: stretch;
   }
-  .kse-actions-right {
-    flex-direction: column;
-    align-items: stretch;
+  .kse-btns {
+    width: 100%;
+    margin-left: 0;
   }
-  .kse-meta-row {
-    flex-direction: column;
-    gap: var(--ui-space-1);
-  }
-  .kse-meta-label {
-    width: auto;
-  }
-  .kse-code {
-    max-width: 100%;
+}
+@media (max-width: 360px) {
+  .kse-metrics {
+    grid-template-columns: 1fr;
   }
 }
 </style>
