@@ -1,0 +1,12 @@
+# Estado e artefatos locais do OpenTofu — NUNCA commitar (podem conter segredos).
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+crash.log
+crash.*.log
+*.tfplan
+plan.txt
+
+# NOTA: o lock de providers (.terraform.lock.hcl) DEVE ser commitado — ele e
+# gerado no primeiro `tofu init` (nao esta ignorado de proposito).

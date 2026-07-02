@@ -27,7 +27,8 @@ language: pt-BR
 | **Keycloak** | `identity` | IdP/SSO OIDC (realm `nvit`) + Postgres dedicado; servido em `/auth` | [`keycloak/README.md`](./keycloak/README.md) |
 | **Observability** | `observability` | kube-prometheus-stack (Prometheus + Grafana) + Loki/Promtail; Grafana em `/grafana` | [`observability/README.md`](./observability/README.md) |
 | **Registry (GHCR)** | — (externo) | Convenção e fluxo de imagens `ghcr.io/flavioneto11/<app>/<service>` | [`registry/ghcr-guide.md`](./registry/ghcr-guide.md) |
-| **Namespaces** | (cluster) | Cria os 7 namespaces gerenciados (`apps`, `apps-dev`, `apps-prod-local`, etc.) com labels canônicos | [`namespaces/namespaces.yaml`](./namespaces/namespaces.yaml) |
+| **Namespaces** | (cluster) | Cria os 8 namespaces gerenciados (`apps`, `apps-dev`, `apps-prod-local`, `devops-iac`, etc.) com labels canônicos | [`namespaces/namespaces.yaml`](./namespaces/namespaces.yaml) |
+| **IaC externo (OpenTofu)** | `devops-iac` (só o estado) | Superfície **externa** (Cloudflare DNS/tunnel + GitHub repo settings) — fora do Argo; o in-cluster continua Helm+Argo (**ADR 0003**). Apply é operação com aprovação | [`iac/README.md`](./iac/README.md), [`dns/domains.yaml`](./dns/domains.yaml) |
 
 ## Argo Applications (app-of-apps)
 
