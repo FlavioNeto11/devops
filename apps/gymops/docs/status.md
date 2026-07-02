@@ -17,9 +17,14 @@
 > heading do import ancorado. **Camada 3 (reportada, não mascarada):** botão
 > "Nova atividade" só existe em `/units/[id]` (**BUG-015**) e rate-limit flaky do
 > `/auth/login` (**BUG-016**) — exigem alinhamento (reescrita de navegação/infra).
-> Resultado atual: **38 passed / ~7 failed** (todos os failed diagnosticados e
-> bucketizados; nenhum é bug do app não-endereçado). Gate segue vermelho até
-> BUG-013 (integration) + BUG-015/016 (e2e) — fail-closed por design.
+> Resultado real confirmado no CI (run 28613473731): **38 passed / 6 failed /
+> 3 flaky / 3 skipped** (50 testes). Todas as falhas são bucketizadas e nenhuma é
+> bug do app não-endereçado: **BUG-015** = 5 falhas determinísticas do botão de
+> criar (`activity:12`, `owner:15`, `executor:22`, `area-leader:23`,
+> `unit-manager:28`); **BUG-016** = 4 testes flaky por rate-limit (`rbac:49`,
+> `area-leader:11`, `owner:20`, `viewer:11` — 3 recuperam no retry, 1 falha dura).
+> O gate segue vermelho até BUG-013 (integration) + BUG-015/016 (e2e) — fail-closed
+> por design.
 
 > **2026-06-12 — Onboarding novo (full-stack, sem migration):** `/setup`
 > redesenhado como wizard split-screen (painel grafite com trilha de passos;
