@@ -469,7 +469,7 @@ pre.yaml { background: var(--bg-2); border: 1px solid var(--line); border-radius
 .forge-proposed { border-left: 3px solid var(--asr); }
 .forge-proposed .rid { color: var(--asr); }
 
-/* ─── WIZARD de criação (2 trilhas: guiada + avançada) ─────────────────────── */
+/* ─── WIZARD de criação — UM wizard, TRÊS PROJEÇÕES (C2: simples/guiado/profissional) ── */
 .fw-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; flex-wrap: wrap; margin: 4px 0 14px; }
 .fw-head-t h2 { margin: 0 0 4px; font-size: 22px; }
 .fw-head-t p { margin: 0; max-width: 60ch; }
@@ -479,6 +479,21 @@ pre.yaml { background: var(--bg-2); border: 1px solid var(--line); border-radius
 .fw-mode-sub { font-size: 10.5px; }
 .fw-mode.is-on { background: var(--bg-2); color: var(--fg); box-shadow: inset 0 0 0 1px var(--accent); }
 .fw-mode:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* (C2) seletor de MODO na entrada do Studio (hub): discreto, mesmo componente do wizard */
+.forge-mode-sel { margin: 2px 0 12px; }
+.forge-mode-sel .fw-mode { padding: 6px 11px; }
+/* (C2) cartão SIMPLES: ✔ aceitar / ✎ ajustar; aceito ganha realce ok */
+.fw-card-actions { margin-top: 10px; align-items: center; }
+.fw-accept[aria-pressed="true"] { border-color: var(--ok); color: var(--ok); }
+.fw-screen.is-accepted { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
+.fw-screen.is-accepted .fw-screen-n { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
+.fw-screen .fw-textarea { margin-top: 8px; }
+.fw-screen .fw-textarea + .btn { margin-top: 8px; }
+/* (C2) disclosure "ver detalhe técnico" do modo GUIADO */
+.fw-reveal { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 10px; }
+.fw-reveal-dl { margin: 0 0 8px; }
+.fw-reveal-ac { margin: 0; padding-left: 18px; font-size: 12.5px; color: var(--fg-1); line-height: 1.5; }
+.fw-screen-rid { display: block; font-size: 11px; margin-bottom: 3px; }
 
 .fw-steps { display: flex; gap: 8px; list-style: none; margin: 0 0 22px; padding: 0; flex-wrap: wrap; counter-reset: fw; }
 .fw-step { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-1); flex: 1 1 180px; min-width: 160px; }
