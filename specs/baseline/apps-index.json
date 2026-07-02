@@ -1,0 +1,82 @@
+{
+  "apps": [
+    {
+      "name": "ai-control-plane",
+      "base_path": "/ai-control",
+      "app_type": "platform_tool",
+      "has_product": false
+    },
+    {
+      "name": "anarabottini",
+      "base_path": "/anarabottini",
+      "app_type": "cms_portal",
+      "has_product": false
+    },
+    {
+      "name": "besc",
+      "base_path": "/besc",
+      "app_type": "product_software",
+      "has_product": false
+    },
+    {
+      "name": "contaviva-360",
+      "base_path": "/contaviva-360",
+      "app_type": "product_software",
+      "has_product": true
+    },
+    {
+      "name": "contaviva-pro",
+      "base_path": "/contaviva-pro",
+      "app_type": "product_software",
+      "has_product": true
+    },
+    {
+      "name": "gymops",
+      "base_path": "/gymops",
+      "app_type": "product_software",
+      "has_product": true
+    },
+    {
+      "name": "imobia",
+      "base_path": "/imobia",
+      "app_type": "product_software",
+      "has_product": false
+    },
+    {
+      "name": "neuroevolui",
+      "base_path": "/neuroevolui",
+      "app_type": "product_software",
+      "has_product": true
+    },
+    {
+      "name": "portal-recorder",
+      "base_path": "/portal-rec",
+      "app_type": "platform_tool",
+      "has_product": false
+    },
+    {
+      "name": "reqhub",
+      "base_path": "/reqs",
+      "app_type": "platform_tool",
+      "has_product": false
+    },
+    {
+      "name": "rmambiental",
+      "base_path": "/rmambiental",
+      "app_type": "cms_portal",
+      "has_product": false
+    },
+    {
+      "name": "sicat",
+      "base_path": "/sicat",
+      "app_type": "product_software",
+      "has_product": true
+    },
+    {
+      "name": "zapbridge",
+      "base_path": "/zapbridge",
+      "app_type": "product_software",
+      "has_product": false
+    }
+  ]
+}

@@ -10,10 +10,10 @@ import { findSimilarReqs, forceLayout, toYaml, truncateLabel } from './lib.js?v=
 import {
   productSummaries, findProduct, blueprintById, studioPhaseModel, buildDag, dagFromWaves, wavesFromProgress,
   weightedProgress, launchPhases, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint,
-  typeLabel, asList, planSummary,
+  typeLabel, asList, planSummary, mergeLiveProducts, mergeImplItems, forgeStateSig,
   FORGE_MODES, FORGE_MODE_KEY, FORGE_MODE_LABELS, normalizeForgeMode, modeCopy,
   projectRequirementCard, forgeReqObject, buildLaunchBody,
-} from './forge-lib.js?v=55';
+} from './forge-lib.js?v=56';
 
 // Navegação do app.js via registry (late-binding) — mesmos nomes do código extraído.
 const switchView = (...a) => nav.switchView(...a);
@@ -118,32 +118,31 @@ function codeBlock(text, cls, label) {
 let _forgeStateSig = '';
 let _forgeStateInflight = false;
 let _forgePollTimer = null;
+// (D1, Forja 4.1) merge VIVO×BAKED via funções puras de forge-lib: presença = vivo fresco (união
+// ressuscitaria produto apagado — imagem :local não rebakeia sozinha); baked preenche CAMPOS que o
+// vivo não transporta (origin/vision/phases…); implStatus = UNIÃO por id (o replace antigo zerava
+// os ~350 REQs de escopos de plataforma que o payload vivo não carrega, apagando Explorador/cards).
 function applyForgeState(payload) {
-  if (!payload || payload.source === 'empty' || !Array.isArray(payload.products) || !payload.products.length) return false;
-  // preserva o architecture_summary do baked se o estado vivo (ConfigMap) ainda não tiver o campo (stale)
-  // — assim o polling nunca regride a ancoragem de stack do chat.
+  if (!payload || payload.source === 'empty' || !Array.isArray(payload.products) || !payload.products.length) return null;
   const prevArch = {};
   for (const p of ((DATA.products && DATA.products.products) || [])) if (p && p.name) prevArch[p.name] = p.architecture_summary;
-  DATA.products = { products: payload.products.map((p) => ({
-    name: p.name, display_name: p.display_name, base_path: p.base_path, blueprint: p.blueprint,
-    stack: p.stack, app_type: p.app_type, vision: p.vision, phases: p.phases,
-    architecture_summary: p.architecture_summary || prevArch[p.name] || '', // não regride a ancoragem de stack
-    capability_blocks: p.capability_blocks, requirement_ids: p.requirement_ids,
-  })) };
-  const items = {};
-  for (const p of payload.products) for (const r of (p.reqs || [])) items[r.id] = { status: r.status };
-  DATA.implStatus = { items };
+  const bakedProducts = (DATA.baked && DATA.baked.products && DATA.baked.products.products) || [];
+  const bakedItems = (DATA.baked && DATA.baked.implStatus && DATA.baked.implStatus.items) || {};
+  const merged = mergeLiveProducts(bakedProducts, payload.products, prevArch);
+  DATA.products = { products: merged };
+  DATA.implStatus = { items: mergeImplItems(bakedItems, payload.products) };
   // plano de build vivo (waves) -> alimenta o stepper "Arquitetura" (fim do "sem plano de build")
   for (const p of payload.products) if (p.buildPlan !== undefined) DATA.buildPlans[p.name] = p.buildPlan;
-  return true;
+  return merged;
 }
 async function refreshForgeState(forceRender) {
   if (_forgeStateInflight) return;
   _forgeStateInflight = true;
   try {
     const r = await AI.get('/v1/forge/state');
-    if (r.ok && r.data && applyForgeState(r.data)) {
-      const sig = JSON.stringify((r.data.products || []).map((p) => [p.name, p.reqCount, p.progress && p.progress.done, p.progress && p.progress.pct]));
+    const merged = (r.ok && r.data) ? applyForgeState(r.data) : null;
+    if (merged) {
+      const sig = forgeStateSig(merged); // assinatura sobre o MESCLADO (mudança vinda do baked também re-renderiza)
       if (forceRender || sig !== _forgeStateSig) { _forgeStateSig = sig; if (String(location.hash || '').indexOf('forge') >= 0) renderForge(); }
     }
   } catch { /* fail-soft: mantém o baked */ } finally { _forgeStateInflight = false; }
@@ -162,8 +161,9 @@ function ensureForgePolling() {
     es.addEventListener('state', (ev) => {
       let data = null;
       try { data = JSON.parse(ev.data); } catch { return; }
-      if (applyForgeState(data)) {
-        const sig = JSON.stringify((data.products || []).map((p) => [p.name, p.reqCount, p.progress && p.progress.done, p.progress && p.progress.pct]));
+      const merged = applyForgeState(data);
+      if (merged) {
+        const sig = forgeStateSig(merged);
         if (sig !== _forgeStateSig) { _forgeStateSig = sig; if (String(location.hash || '').indexOf('forge') >= 0) renderForge(); }
       }
     });
@@ -240,6 +240,27 @@ function renderForgeHub(body) {
   cards.append(h('button', { class: 'forge-card forge-new', type: 'button', 'aria-label': 'Criar novo produto a partir de um brief', onclick: () => openForgeNew() },
     h('span', { class: 'plus', 'aria-hidden': 'true', text: '+' }), h('strong', { text: 'Novo produto' }), h('span', { class: 'muted', text: 'brief → requisitos (IA) → PR' })));
   body.append(cards);
+
+  // (D3, Forja 4.1) Apps FORA da Forja: implantáveis do monorepo (apps-index.json, gerado pelo
+  // build-products) sem product.json — visibilidade + CTA de adoção, SEM fabricar requisitos.
+  // Plataforma/ferramentas ficam de fora (o Console é o painel canônico delas).
+  const PLATFORM_APPS = new Set(['reqhub', 'ai-control-plane', 'portal-recorder']);
+  const outside = (((DATA.appsIndex || {}).apps) || []).filter((a) => a && !a.has_product && !PLATFORM_APPS.has(a.name));
+  if (outside.length) {
+    body.append(h('h3', { class: 'forge-outside-title', text: `Apps fora da Forja (${outside.length})` }),
+      h('p', { class: 'muted small', text: 'Apps vivos do monorepo ainda sem contrato de produto (requisitos + product.json). Adote pelo padrão sicat/gymops: extração de requisitos do que o app JÁ faz → PR de adoção → o app entra no trilho.' }));
+    const oc = h('div', { class: 'forge-cards forge-outside' });
+    for (const a of outside) {
+      const url = sameOriginUrl(a.base_path ? a.base_path + '/' : '');
+      oc.append(h('div', { class: 'forge-card forge-card-outside' },
+        h('div', { class: 'forge-card-top' }, h('span', { class: 'forge-card-name', text: a.name }), h('span', { class: 'forge-card-path', text: a.base_path })),
+        h('p', { class: 'forge-card-vision muted', text: a.app_type === 'cms_portal' ? 'Portal/SPA de conteúdo — vira produto t1 quando tiver conteúdo real.' : 'App de negócio sem requisitos na base — candidato a adoção.' }),
+        h('div', { class: 'forge-card-foot' },
+          url ? h('a', { class: 'btn-link', href: url, target: '_blank', rel: 'noopener', text: 'abrir ↗' }) : h('span', {}),
+          badge('fora da Forja', 'b-high'))));
+    }
+    body.append(oc);
+  }
 }
 
 /* ---------- (A4) fork de criação: portal de conteúdo (CMS) × sistema (greenfield) ----------
@@ -571,7 +592,8 @@ function forgePublicado(panel, product) {
 }
 
 // Produtos protegidos (não apagáveis pela UI) — espelha a denylist do backend (forge-launch.js).
-const FORGE_PROTECTED = ['sicat', 'gymops', 'rmambiental', 'anarabottini', 'reqhub', 'console', 'portal', 'portal-recorder', 'keycloak', 'langfuse', 'ai-control-plane'];
+// (D2, Forja 4.1) imobia/besc/zapbridge: apps VIVOS com dados que não estavam em nenhuma denylist.
+const FORGE_PROTECTED = ['sicat', 'gymops', 'rmambiental', 'anarabottini', 'imobia', 'besc', 'zapbridge', 'reqhub', 'console', 'portal', 'portal-recorder', 'keycloak', 'langfuse', 'ai-control-plane'];
 
 function forgeDangerZone(name) {
   const st = h('p', { class: 'fw-status muted', role: 'status', 'aria-live': 'polite' });
@@ -1966,4 +1988,5 @@ function renderArchAdrs(out, archData) {
 /* ===================== Ícones (SVG inline, stroke, CSP-safe) ===================== */
 
 export { renderForge, openForgeProduct, openForgeNew, interactiveGraph };
+
 

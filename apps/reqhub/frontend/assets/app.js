@@ -1,9 +1,9 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
 import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId, parseMarkdown, systemContext } from './lib.js?v=42';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, weightedProgress, wavesFromProgress, launchPhases, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes, capabilityPlain, planSummary, CAPABILITY_PLAIN } from './forge-lib.js?v=55';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, weightedProgress, wavesFromProgress, launchPhases, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes, capabilityPlain, planSummary, CAPABILITY_PLAIN } from './forge-lib.js?v=56';
 import { SVGNS, state, DATA, h, svg, byId, badge, AI, dd, dt, filePicker, sameOriginUrl, humanBytes, FILE_ACCEPT, applyTransform, nav } from './core.js?v=2';
-import { renderForge, openForgeNew, interactiveGraph } from './studio.js?v=5';
+import { renderForge, openForgeNew, interactiveGraph } from './studio.js?v=6';
 
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
 
@@ -3094,7 +3094,10 @@ async function init() {
     DATA.baseline = b; DATA.impact = im; DATA.retrieval = rt;
     // opcionais (toleram ausência): diff de baseline, registry de artefatos, embeddings.
     const opt = (u) => fetch(u).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-    [DATA.history, DATA.registry, DATA.embeddings, DATA.implStatus, DATA.coverage, DATA.products, DATA.blueprints, DATA.capabilities] = await Promise.all([opt('data/history.json'), opt('data/registry.json'), opt('data/embeddings.json'), opt('data/implementation-status.json'), opt('data/coverage-report.json'), opt('data/products.json'), opt('data/blueprints.json'), opt('data/capabilities.json')]);
+    [DATA.history, DATA.registry, DATA.embeddings, DATA.implStatus, DATA.coverage, DATA.products, DATA.blueprints, DATA.capabilities, DATA.appsIndex] = await Promise.all([opt('data/history.json'), opt('data/registry.json'), opt('data/embeddings.json'), opt('data/implementation-status.json'), opt('data/coverage-report.json'), opt('data/products.json'), opt('data/blueprints.json'), opt('data/capabilities.json'), opt('data/apps-index.json')]);
+    // (D1, Forja 4.1) snapshot IMUTÁVEL do baked ANTES de qualquer estado vivo: o merge do Studio
+    // preenche campos/implStatus a partir daqui (o replace antigo destruía a referência no 1º apply).
+    DATA.baked = { products: DATA.products, implStatus: DATA.implStatus };
   } catch (err) {
     setStatus('Falha ao carregar a base de requisitos: ' + err.message, true);
     return;
@@ -3109,6 +3112,7 @@ async function init() {
   window.addEventListener('hashchange', () => applyHashRoute()); // deep-link em aba já aberta (idempotente)
 }
 init();
+
 
 
 

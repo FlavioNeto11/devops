@@ -52,6 +52,7 @@ export function forgeState() {
         blueprint: p.blueprint || null,
         stack: p.stack || null,
         app_type: p.app_type || 'product_software',
+        origin: p.origin || 'greenfield', // adotado × greenfield — o frontend gateia UI (badge/zona de risco)
         vision: p.vision || '',
         architecture_summary: p.architecture_summary || '', // resumo de stack p/ o chat de autoria conhecer a tecnologia
         phases: p.phases || {},

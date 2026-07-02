@@ -12,6 +12,7 @@ const MAX_REQS = 12;
 // apagar. Espelha a denylist dos workflows greenfield-launch.yml / forge-delete.yml (defesa em camadas).
 const PROTECTED = new Set([
   'sicat', 'gymops', 'rmambiental', 'anarabottini',
+  'imobia', 'besc', 'zapbridge', // (D2, Forja 4.1) apps vivos com dados que estavam fora de TODAS as denylists
   'reqhub', 'console', 'devops-console', 'portal', 'portal-recorder',
   'keycloak', 'langfuse', 'ai-control-plane', 'devops-platform',
 ]);
