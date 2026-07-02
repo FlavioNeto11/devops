@@ -116,6 +116,52 @@
       }
     },
     {
+      "name": "imobia",
+      "display_name": "Imobia",
+      "base_path": "/imobia",
+      "blueprint": "node-api-vue-spa",
+      "origin": "adopted",
+      "vision": "Ecossistema imobiliário + fintech onde o WhatsApp é o eixo central e múltiplas IAs atuam como funcionários especializados: Cortex faz a triagem/roteamento barato, GPT executa lógica/function-calling, Claude redação/análise e Gemini documentos/visão — tudo fail-soft (sem chaves, cada módulo opera manualmente e as IAs ficam dormentes). SPA Vue 3 + Vite sobre API Node 20/Fastify (TypeScript) com Prisma sobre Postgres 16/pgvector, Redis/BullMQ para filas e worker na mesma imagem da API. Módulos: Captação/Imóveis (busca semântica), Clientes/Leads (scoring + realimentação do funil), Financeiro PJ/PF, Agenda NL, WhatsApp multi-instância, ACM, PTAM (ABNT NBR 14653), Corbam/COBAN, Vistoria/Laudos e Documentos por etapa com trilha de auditoria de qual IA produziu cada passo. Stack real mais próxima do blueprint node-api-vue-spa (SPA Vue + API Node + worker + Postgres; difere em Fastify/Prisma/Redis) — aqui adotado como produto da Forja por contrato, sem regeneração de código.",
+      "app_type": "product_software",
+      "architecture_summary": "Stack/decisão base: Stack real adotada (não escolhida pela Forja): SPA Vue 3 + Pinia + Vue Router (Vite → nginx, base /imobia/) + API Node 20/Fastify em TypeScript (runtime tsx, ESM) + worker na MESMA imagem (npm run worker) + Postgres 16/pgvector via Prisma (29 tabelas, 7 migrações versionadas) + Redis/BullMQ para filas + PVC imobia-files para uploads/PDFs. Aproximação do blueprint node-api-vue-spa (SPA Vue + API Node + worker + Postgres), diferindo em Fastify/Prisma/Redis.\nDecisões (ADRs): ADR-001: Orquestração 4-modelos — Cortex roteia, GPT/Claude/Gemini executam por vocação; ADR-002: Fail-soft em todas as integrações externas (IA dormente, filas no-op, provedores dormentes); ADR-003: Postgres 16 + pgvector via Prisma com migrações versionadas; ADR-004: Trabalho pesado em Redis/BullMQ; worker = mesma imagem da API; ADR-005: Auth local (JWT stateless via oidc-kit) + SSO Keycloak aditivo, multi-tenant por Membership; ADR-006: Arquivos em PVC com storageKey saneado (uploads e PDFs gerados); ADR-007: Trilha do tempo polimórfica registrando qual IA produziu cada etapa; ADR-008: SSE de IA como IngressRoute dedicada sem compress (não api2).",
+      "requirement_ids": [
+        "REQ-IMOBIA-0001",
+        "REQ-IMOBIA-0002",
+        "REQ-IMOBIA-0003",
+        "REQ-IMOBIA-0004",
+        "REQ-IMOBIA-0005",
+        "REQ-IMOBIA-0006",
+        "REQ-IMOBIA-0007",
+        "REQ-IMOBIA-0008",
+        "REQ-IMOBIA-0009",
+        "REQ-IMOBIA-0010",
+        "REQ-IMOBIA-0011",
+        "REQ-IMOBIA-0012",
+        "REQ-IMOBIA-NFR-0001",
+        "REQ-IMOBIA-NFR-0002",
+        "REQ-IMOBIA-NFR-0003",
+        "REQ-IMOBIA-NFR-0004"
+      ],
+      "phases": {
+        "requirements": {
+          "status": "adopted",
+          "note": "requisitos reais em specs/requirements/imobia/ — backfill D5 (Forja 4.1) extraído de apps/imobia/CLAUDE.md, docs/CONCEPCAO.md e devops.yaml"
+        },
+        "architecture": {
+          "status": "adopted",
+          "note": "ADRs extraídos das decisões reais do app (apps/imobia/CLAUDE.md + docs/CONCEPCAO.md) — ver architecture.json"
+        },
+        "scaffold": {
+          "status": "adopted",
+          "note": "app real pré-existente em apps/imobia — não scaffoldado pela Forja"
+        },
+        "build": {
+          "status": "deployed",
+          "note": "derivado do implementation-status: todos os REQ-IMOBIA-* estão deployed (cluster ns apps, imagens :local, F0–F8 entregues)"
+        }
+      }
+    },
+    {
       "name": "neuroevolui",
       "display_name": "NeuroEvolui",
       "base_path": "/neuroevolui",
