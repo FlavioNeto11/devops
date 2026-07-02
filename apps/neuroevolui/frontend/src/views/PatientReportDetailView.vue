@@ -38,12 +38,16 @@
         :to="patientHref"
       >Ver paciente</UiButton>
       <UiButton
-        v-if="isReady && downloadHref"
+        v-if="isReady"
+        variant="subtle"
+        @click="handlePrint"
+      >Imprimir</UiButton>
+      <UiButton
+        v-if="isReady"
         variant="primary"
-        :href="downloadHref"
-        target="_blank"
-        rel="noopener noreferrer"
-      >Baixar relatório</UiButton>
+        :loading="downloading"
+        @click="handleDownloadPdf"
+      >Download PDF</UiButton>
     </template>
 
     <!-- ── BANNER DE SITUAÇÃO ─────────────────────────────────────────────── -->
@@ -309,13 +313,12 @@
         <template #footer>
           <div class="prd-foot-actions">
             <UiButton
-              v-if="downloadHref"
               variant="primary"
               size="sm"
-              :href="downloadHref"
-              target="_blank"
-              rel="noopener noreferrer"
-            >Baixar relatório</UiButton>
+              :loading="downloading"
+              @click="handleDownloadPdf"
+            >Download PDF</UiButton>
+            <UiButton variant="subtle" size="sm" @click="handlePrint">Imprimir</UiButton>
             <UiButton v-if="patientHref" variant="ghost" size="sm" :to="patientHref">
               Ficha do paciente
             </UiButton>
@@ -473,7 +476,7 @@ import {
   useToast,
   format as fmt,
 } from '../ui/index.js';
-import { resourceFactory } from '../api.js';
+import { patientReports as reportsApi, resourceFactory } from '../api.js';
 
 const props = defineProps({ id: { type: [String, Number], required: true } });
 
@@ -481,7 +484,6 @@ const router = useRouter();
 const toast = useToast();
 
 // ── Clientes de recurso (só endpoints REAIS) ──────────────────────────────────
-const reportsApi = resourceFactory('patient-reports');
 const patientsApi = resourceFactory('patients');
 
 // ── Estado ────────────────────────────────────────────────────────────────────
@@ -730,6 +732,24 @@ const typeBreakdown = computed(() => {
     .map(([type, count]) => ({ type, count, share: Math.round((count / total) * 100) }))
     .sort((a, b) => b.count - a.count);
 });
+
+// ── Download PDF e Impressão ──────────────────────────────────────────────────
+const downloading = ref(false);
+async function handleDownloadPdf() {
+  if (downloading.value) return;
+  downloading.value = true;
+  try {
+    await reportsApi.downloadPdf(props.id);
+  } catch (e) {
+    toast.error(e.message || 'Erro ao baixar o relatório.');
+  } finally {
+    downloading.value = false;
+  }
+}
+
+function handlePrint() {
+  window.print();
+}
 
 // ── Carregamento ──────────────────────────────────────────────────────────────
 async function loadReport() {
