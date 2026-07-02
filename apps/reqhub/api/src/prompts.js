@@ -119,8 +119,12 @@ export const PROMPTS = {
   },
 
   // draftRefinement: produz um refinamento RICO de tela a partir de esboco + ancoras.
+  // @2: GROUNDING DE CONTRATO — quando o chamador fornece o openapi REAL do app, rotas/campos
+  // citados em behavior.data[] DEVEM existir nele; o que nao existir vem marcado contract:"proposed"
+  // (endpoint novo a criar, EXPLICITO). Validacao estrutural determinística:
+  // specs/tools/validate-refinement-contract.mjs (rejeita com erro estruturado; nao conserta em silencio).
   draftRefinement: {
-    version: 'draft-refinement@1',
+    version: 'draft-refinement@2',
     system:
       'Voce e um engenheiro de requisitos/UX. A partir de um esboco de mudanca de TELA/usabilidade e dos ' +
       'requisitos-ANCORA, produza UM refinamento RICO no metamodelo. Responda SOMENTE com JSON valido (sem ' +
@@ -129,7 +133,9 @@ export const PROMPTS = {
       '"surface": { "route": string, "name": string, "roles": string[] }, ' +
       '"behavior": { "states": [{ "name": string (use normal/loading/error/empty quando fizer sentido), ' +
       '"when": string, "ui": string }], "data": [{ "field": string, "source": string, "format": string, ' +
-      '"editable": boolean }], "interactions": [{ "trigger": string, "action": string, "result": string }], ' +
+      '"editable": boolean, "contract": "existing"|"proposed" (opcional; default existing) }], ' +
+      '"interactions": [{ "trigger": string, "action": string, "result": string, ' +
+      '"contract": "existing"|"proposed" (opcional) }], ' +
       '"flows": [string[]] }, "acceptance_criteria": string[] (verificaveis), ' +
       `"verification_method": string[] (cada um de ${JSON.stringify(VERIFICATION_METHODS)}), ` +
       '"source": { "source_paths": string[] } }, "warnings": string[] }. ' +
@@ -137,8 +143,12 @@ export const PROMPTS = {
       'nem anchors — quem fecha e a UI (o operador ja escolheu as ancoras). Use o GROUNDING (requisitos do ' +
       'produto) para herdar convencoes coerentes — rota/papeis/nomes de estados alinhados aos requisitos que ' +
       'este refino DETALHA; nao contradiga os requisitos ancora. Sobre source: proponha ao menos um caminho-fonte ' +
-      'plausivel sob "apps/<produto>/..." (ponto de partida; nunca finja um caminho exato).',
-    user: ({ product, sketch, anchors, grounding } = {}) => {
+      'plausivel sob "apps/<produto>/..." (ponto de partida; nunca finja um caminho exato). ' +
+      'CONTRATO REAL DA API: se o contexto trouxer o contrato (openapi), rotas citadas em data[].source ' +
+      '(formato api:/...) e campos em data[].field DEVEM existir nele; endpoint/campo que NAO existe DEVE vir ' +
+      'com contract:"proposed" (endpoint novo a criar, EXPLICITO) — NUNCA finja que existe, NUNCA invente enum. ' +
+      'Sem contrato no contexto, marque contract:"proposed" em todo item cuja existencia voce nao pode afirmar.',
+    user: ({ product, sketch, anchors, grounding, contract } = {}) => {
       const g = (Array.isArray(grounding) ? grounding : [])
         .map((r) => `${r.id} | ${r.title} | ${String(r.statement || '').slice(0, 240)}`)
         .join('\n')
@@ -147,6 +157,7 @@ export const PROMPTS = {
         `produto: ${product || '(nao informado)'}\n` +
         `ancoras (requisitos que o refino detalha):\n${JSON.stringify(anchors || [], null, 2).slice(0, 2000)}\n\n` +
         (g ? `REQUISITOS DO PRODUTO (grounding — herde convencoes):\n${g}\n\n` : '') +
+        (contract ? `CONTRATO REAL DA API (openapi — fonte da verdade de rotas/campos/enums):\n${String(contract).slice(0, 8000)}\n\n` : '') +
         `esboco da mudanca:\n${String(sketch || '').slice(0, 3000)}`
       );
     },
@@ -167,8 +178,9 @@ export const PROMPTS = {
   },
 
   // reviseRefinement: corrige um refinamento a partir das lacunas (mesmo shape do draft de refino).
+  // @2: mesmo GROUNDING DE CONTRATO do draftRefinement@2 (rotas/campos reais ou contract:"proposed").
   reviseRefinement: {
-    version: 'revise-refinement@1',
+    version: 'revise-refinement@2',
     system:
       'Voce e um engenheiro de requisitos/UX. Recebe UM refinamento (JSON) + LACUNAS apontadas. Devolva a ' +
       'VERSAO CORRIGIDA que ENDERECA cada lacuna SEM inventar fatos nem mudar a intencao. Responda SOMENTE com ' +
@@ -176,16 +188,21 @@ export const PROMPTS = {
       `"kind": one of ${JSON.stringify(REF_KINDS)}, ` +
       '"surface": { "route": string, "name": string, "roles": string[] }, ' +
       '"behavior": { "states": [{ "name": string, "when": string, "ui": string }], ' +
-      '"data": [{ "field": string, "source": string, "format": string, "editable": boolean }], ' +
-      '"interactions": [{ "trigger": string, "action": string, "result": string }], "flows": [string[]] }, ' +
+      '"data": [{ "field": string, "source": string, "format": string, "editable": boolean, ' +
+      '"contract": "existing"|"proposed" (opcional; default existing) }], ' +
+      '"interactions": [{ "trigger": string, "action": string, "result": string, "contract": "existing"|"proposed" (opcional) }], "flows": [string[]] }, ' +
       '"acceptance_criteria": string[], ' +
       `"verification_method": string[] (cada um de ${JSON.stringify(VERIFICATION_METHODS)}), ` +
       '"source": { "source_paths": string[] } }, "notes": string (1-2 frases: o que mudou) }. ' +
       'PRESERVE id, scope, anchors e version do refinamento recebido (NAO os inclua no draft — a UI os mantem). ' +
       'Sobre source: se ja houver source.source_paths nao-vazio PRESERVE; se vazio (e a lacuna apontar), ' +
-      'proponha ao menos um caminho plausivel sob "apps/<produto>/..." (nunca finja um caminho exato).',
-    user: ({ refinement, gaps } = {}) =>
+      'proponha ao menos um caminho plausivel sob "apps/<produto>/..." (nunca finja um caminho exato). ' +
+      'CONTRATO REAL DA API: se o contexto trouxer o contrato (openapi), rotas/campos citados em behavior.data[] ' +
+      'e interactions DEVEM existir nele; o que NAO existir DEVE vir com contract:"proposed" (endpoint novo a ' +
+      'criar, EXPLICITO) — NUNCA finja que existe, NUNCA invente enum.',
+    user: ({ refinement, gaps, contract } = {}) =>
       `refinamento atual:\n${JSON.stringify(refinement || {}, null, 2).slice(0, 5000)}\n\n` +
+      (contract ? `CONTRATO REAL DA API (openapi — fonte da verdade de rotas/campos/enums):\n${String(contract).slice(0, 8000)}\n\n` : '') +
       `lacunas a corrigir:\n${JSON.stringify(gaps || [], null, 2).slice(0, 3000)}`,
   },
 

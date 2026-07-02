@@ -76,6 +76,10 @@ const authorizeOperator = (ctx) => ({
 // Saneia o draft de REFINAMENTO na FRONTEIRA da API (defesa em profundidade; o gate real e o
 // schema no build). Falha-rapido em kind fora do enum (igual ao `level` de classify_change) e
 // filtra verification_method ao ENUM — sem fallback silencioso, sem heuristica chumbada.
+// O marcador contract (existing|proposed — ancoragem no openapi REAL, ver
+// specs/tools/validate-refinement-contract.mjs) tambem e fail-fast: valor fora do enum e erro
+// estruturado, nunca corrigido em silencio.
+const REF_CONTRACT_MARKS = ['existing', 'proposed'];
 function sanitizeRefDraft(draft) {
   if (!draft || typeof draft !== 'object') return null;
   if (draft.kind != null && !VOCAB.REF_KINDS.includes(draft.kind)) {
@@ -83,6 +87,15 @@ function sanitizeRefDraft(draft) {
   }
   if (Array.isArray(draft.verification_method)) {
     draft.verification_method = draft.verification_method.filter((m) => VOCAB.VERIFICATION_METHODS.includes(m));
+  }
+  const behavior = draft.behavior && typeof draft.behavior === 'object' ? draft.behavior : {};
+  for (const key of ['data', 'interactions']) {
+    if (!Array.isArray(behavior[key])) continue;
+    for (const item of behavior[key]) {
+      if (item && item.contract != null && !REF_CONTRACT_MARKS.includes(item.contract)) {
+        throw new AiToolError('LLM_INVALID_JSON', `contract de behavior.${key}[] fora do enum (existing|proposed)`, { contract: item.contract });
+      }
+    }
   }
   return draft;
 }
