@@ -1,6 +1,6 @@
 # GymOps — Backlog Priorizado (P0 / P1 / P2)
 
-**Última atualização**: 2026-05-18 (auditoria pós-commit c7c19a4)
+**Última atualização**: 2026-07-02 (BUG-014 resolvido + BUG-015/016 abertos pela 1ª execução real da suite E2E — PR #197)
 **Origem**: análise estática do repositório (2026-05-17) + auditoria de código (2026-05-18) + reconciliação com [`docs/status.md`](status.md).
 
 > **Como usar**: cada item tem ID estável (`BUG-xxx`, `FEAT-xxx`), severidade, esforço, arquivos afetados, critério de aceite e testes a adicionar. O agente que executar a tarefa **deve atualizar este documento** marcando o status (✅/🚧/⛔) e linkando o PR.
@@ -235,10 +235,66 @@
 - **Esforço**: s
 - **Critério de aceite**:
   - `import.spec.ts` sem `import.meta` (em CJS transpilado o `__dirname` global já existe) ou pacote migrado
-    a ESM de forma consciente.
-  - Job `e2e` do `ci-gymops-e2e.yml` (raiz) executa a suite (os resultados dos testes em si são outra história).
+    a ESM de forma consciente. ✅
+  - Job `e2e` do `ci-gymops-e2e.yml` (raiz) executa a suite (os resultados dos testes em si são outra história). ✅
 - **Testes**: o próprio job de CI.
-- **Status**: 🔴 Aberto — bloqueia o gate E2E em PR.
+- **Status**: ✅ Concluído (PR #197). O `__dirname` derivado nem era usado (o fixture Trello é montado em
+  memória com `Buffer.from`), então as linhas 3–5 eram código morto e foram removidas. **A coleta voltou a
+  executar** (`playwright test --list`: de `Total: 0 tests` → **50 testes em 12 arquivos**), atendendo o
+  critério de aceite mínimo (a suite executa). A **primeira execução real** da suite (que nunca havia rodado
+  neste monorepo) então expôs asserts defasados vs a UI atual, corrigidos/reportados em camadas no mesmo PR:
+  - **Camada 1 (corrigida)** — seletor do botão de login ambíguo: `getByRole('button', {name:/entrar/i})`
+    resolvia 2 elementos (o botão "Entrar com Google" do OAuth da Sprint 7). Ancorado em `/^entrar$/i`
+    (padrão que o `tutorial.spec.ts` já usava). Resultado: **14 → 38 passed**.
+  - **Camada 2 (corrigida)** — landing por papel + heading do import (ver commit `test(gymops): alinha asserts`):
+    `resolveRedirect` ([login/page.tsx:25-32](../apps/web/src/app/(auth)/login/page.tsx)) manda
+    `unit_manager`/`area_leader`→`/units/<id>` e `executor`/`viewer`→`/me` — os smoke exigiam `/dashboard`
+    universal. Alinhados à landing real. Seletor de texto do import ancorado no `<h1>Importar do Trello</h1>`.
+  - **Camada 3 (reportada, aguarda alinhamento)** — ver **BUG-015** (botão "Nova atividade") e **BUG-016**
+    (rate-limit do login). São asserts que exigem reescrita semântica/infra e **não** foram mascarados no spec.
+
+### BUG-015 — E2E smoke: botão "Nova atividade" procurado na rota errada (`/activities`)
+- **Arquivos**: [`apps/web/e2e/smoke/owner.smoke.spec.ts`](../apps/web/e2e/smoke/owner.smoke.spec.ts) (`:15`),
+  [`executor.smoke.spec.ts`](../apps/web/e2e/smoke/executor.smoke.spec.ts) (`:21`),
+  [`area-leader.smoke.spec.ts`](../apps/web/e2e/smoke/area-leader.smoke.spec.ts) (`:21`),
+  [`unit-manager.smoke.spec.ts`](../apps/web/e2e/smoke/unit-manager.smoke.spec.ts) (`:26`),
+  [`activity.spec.ts`](../apps/web/e2e/activity.spec.ts) (`:12`).
+- **Descrição**: os specs fazem `page.goto('/activities')` e procuram `getByRole('button', {name:/nova atividade/i})`,
+  mas esse botão **nunca existiu** em `/activities`. A "Central de Atividades" é um agregador **global read-only**
+  por design (header só com Views/Salvar view/Atualizar/Exportar CSV — [activities/page.tsx:340-376](../apps/web/src/app/(app)/activities/page.tsx));
+  o empty-state instrui "Crie uma atividade numa unidade". O único botão "Nova atividade" está em
+  [units/[id]/page.tsx:186-189](../apps/web/src/app/(app)/units/[id]/page.tsx), gated por `canCreate()`
+  ([store/auth.ts:82-85](../apps/web/src/store/auth.ts)) — que **inclui executor** (BUG-006 está correto). Owner
+  também falha ⇒ **não é RBAC**, é rota errada no assert. **Não é bug do app.**
+- **Esforço**: s
+- **Critério de aceite**:
+  - Specs navegam à página de uma unidade (`/units/[id]`) antes de procurar o botão — de preferência clicando
+    um link de unidade a partir do `/dashboard` (não acoplar a um `unitId` de seed) ou expondo um id determinístico no seed.
+  - **Antes de assumir que o botão renderiza para `executor`/`area_leader`**: confirmar que a página de unidade
+    é acessível a esses papéis (têm só membership de área) — senão o teste desses papéis precisa navegar à unidade da sua área.
+  - `viewer` permanece **sem** asserção de botão (corretamente excluído por `canCreate()`).
+- **Testes**: o próprio job de CI.
+- **Status**: 🟡 Reportado — aguarda alinhamento (reescrita de navegação + verificação de acesso por papel).
+  **Não** foi alterado no PR #197 para não mascarar/adivinhar semântica de RBAC.
+
+### BUG-016 — E2E: rate-limit do `/auth/login` derruba testes em execução serial
+- **Arquivos**: [`apps/web/e2e/rbac.spec.ts`](../apps/web/e2e/rbac.spec.ts) (`:40`),
+  [`apps/web/e2e/smoke/owner.smoke.spec.ts`](../apps/web/e2e/smoke/owner.smoke.spec.ts) (`:20`),
+  [`apps/api/src/routes/auth/index.ts`](../apps/api/src/routes/auth/index.ts) (`:59`),
+  [`.github/workflows/ci-gymops-e2e.yml`](../../../.github/workflows/ci-gymops-e2e.yml) (`:199`).
+- **Descrição**: `rbac.spec.ts:40` e `owner.smoke.spec.ts:20` falham por **ficar em `/login`** / timeout de login,
+  **não** por rota errada (owner vai legitimamente a `/dashboard`). Causa: a API sobe com `NODE_ENV=production`
+  no job (para testar o build de produção) ⇒ rate-limit de auth **ativo** (`max: 10 / 1 minute`, keyed por IP);
+  `admin@skyfit.com` loga ~12× na suite, tudo do mesmo IP/worker (`workers:1`, `fullyParallel:false`) com
+  `retries:2` multiplicando tentativas. Um `429` só mostra toast e **não navega** ([login/page.tsx:75-76](../apps/web/src/app/(auth)/login/page.tsx)),
+  deixando a página em `/login`. É **flaky/infra**, não assert defasado.
+- **Esforço**: s
+- **Critério de aceite** (escolher UMA trilha, sem enfraquecer produção):
+  - Reaproveitar login entre specs via Playwright `storageState`/`global-setup` (reduz de ~12 para ~1 login), **ou**
+  - Tornar o rate-limit de auth configurável por env e afrouxá-lo **apenas** no ambiente E2E, **ou**
+  - Isentar o limiter quando um marcador de teste explícito estiver presente (sem carve-out silencioso em produção).
+- **Testes**: o próprio job de CI (verificar estabilidade em N reruns).
+- **Status**: 🟡 Reportado — aguarda alinhamento (fix de infra de teste). **Não** mascarado no spec.
 
 ### FEAT-005 — Integrações: health/reconnect/boards/WhatsApp na UI
 - **Arquivos**: [`apps/web/src/app/(app)/settings/integrations/page.tsx`](../apps/web/src/app/(app)/settings/integrations/page.tsx), [`apps/web/src/lib/admin-api.ts`](../apps/web/src/lib/admin-api.ts) (`integrationsExtApi`)

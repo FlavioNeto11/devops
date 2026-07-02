@@ -1,6 +1,25 @@
 # GymOps — Status Real do Projeto
 
-**Última atualização**: 2026-06-12 (onboarding novo: wizard split-screen com configuração inicial por IA para qualquer segmento)
+**Última atualização**: 2026-07-02 (BUG-014: coleta E2E volta a executar; 1ª execução real da suite — 38/50 verde)
+
+> **2026-07-02 — Gate E2E (BUG-014) desbloqueado; suite roda pela 1ª vez neste
+> monorepo (PR #197).** O `import.spec.ts` derivava `__dirname` via
+> `fileURLToPath(import.meta.url)` (código morto — o fixture usa `Buffer.from`),
+> o que abortava a **coleta inteira** do Playwright sob `@gymops/web` CJS
+> (`ReferenceError: require is not defined in ES module scope`): **zero** testes
+> rodavam. Removido → coleta volta (`--list`: 0 → **50 testes/12 arquivos**),
+> atendendo o critério mínimo (a suite executa). A 1ª execução real então expôs
+> asserts defasados vs a UI atual (a suite nunca havia rodado aqui): **camada 1**
+> — seletor do login `/entrar/i` era ambíguo (botão "Entrar com Google" do OAuth)
+> → ancorado em `/^entrar$/i` (**14 → 38 passed**); **camada 2** — landing
+> pós-login é **por papel** (`resolveRedirect`: `unit_manager`/`area_leader`→
+> `/units/<id>`, `executor`→`/me`), asserts de `/dashboard` universal alinhados +
+> heading do import ancorado. **Camada 3 (reportada, não mascarada):** botão
+> "Nova atividade" só existe em `/units/[id]` (**BUG-015**) e rate-limit flaky do
+> `/auth/login` (**BUG-016**) — exigem alinhamento (reescrita de navegação/infra).
+> Resultado atual: **38 passed / ~7 failed** (todos os failed diagnosticados e
+> bucketizados; nenhum é bug do app não-endereçado). Gate segue vermelho até
+> BUG-013 (integration) + BUG-015/016 (e2e) — fail-closed por design.
 
 > **2026-06-12 — Onboarding novo (full-stack, sem migration):** `/setup`
 > redesenhado como wizard split-screen (painel grafite com trilha de passos;
@@ -136,6 +155,10 @@
 | **BUG-010** | P1 | ⚠️ Parcial | `ALLOWED_ORIGINS` via env funciona. `localhost:3000`/`7480` ainda hardcoded (aceitável para dev). |
 | **BUG-011 (OPS-001)** | P1 | 🟡 | Gate real em PR via workflow **raiz** `ci-gymops-e2e.yml` (Forja 4.1 F5, 2026-07-02) — o e2e.yml aninhado nunca executou no monorepo (morto, histórico). 1ª execução expôs BUG-013 (vitest × prom-client) e BUG-014 (import.spec.ts ESM×CJS): gate vermelho até corrigi-los. |
 | **BUG-012 (OPS-002)** | P1 | ✅ | `build-gymops` job no CI. |
+| **BUG-013** | P1 | 🔴 | Job `integration` do gate raiz vermelho: `prom-client` re-registra métrica sob `pool: forks` do vitest. Fora do escopo do PR #197. |
+| **BUG-014** | P1 | ✅ | E2E: removido `import.meta` do `import.spec.ts` (era código morto) — **coleta voltou a executar** (0 → 50 testes). PR #197. A 1ª execução real da suite (nunca rodou neste monorepo) expôs asserts defasados vs a UI atual: **camadas 1–2 corrigidas** (seletor do botão de login `/^entrar$/i`: 14→38 passed; landing por papel `resolveRedirect`; heading do import); **camada 3 reportada** (BUG-015, BUG-016) sem mascarar no spec. |
+| **BUG-015** | P1 | 🟡 | E2E smoke: botão "Nova atividade" só existe em `/units/[id]` (não em `/activities`, que é read-only por design); 5 asserts apontam a rota errada. Reportado (aguarda reescrita de navegação + verificação de acesso por papel). Não é bug do app. |
+| **BUG-016** | P1 | 🟡 | E2E: `rbac:40`/`owner.smoke:20` flaky por rate-limit do `/auth/login` (10/min, API em `production`, ~12 logins de admin em série + retries). Reportado (fix de infra de teste: `storageState`/global-setup ou limiter por env). Não mascarado no spec. |
 
 ---
 
