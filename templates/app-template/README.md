@@ -97,6 +97,21 @@ O chart **NUNCA renderiza Secret** para dependencias — apenas referencia
 `secretName` (Secret criado fora do git; ver `docs/standards/hard-constraints.md` §3).
 Engines `mongodb`/`nats` sao reservadas no schema, sem template ainda.
 
+### Multi-env (`app.hosts` + `app.environment` — opt-in, Forja 4.0 B2)
+
+Dois values opcionais suportam o compile de um ambiente efemero
+(`devops-compile --env <nome>`; guia: `docs/multi-env.md`):
+
+- **`app.hosts`** (lista): quando setado, a clausula `Host(...)` das
+  IngressRoutes usa EXATAMENTE esses hosts — sem anexar `dev.nvit.com.br`
+  (host de producao, nunca reatribuido a um env). Sem `app.hosts`, vale o
+  comportamento historico (`app.host` + `dev.nvit.com.br`).
+- **`app.environment`** (string): quando setado, TODO recurso ganha o label
+  `devops.flavioneto/environment: <nome>` (e o ConfigMap `-meta` ganha
+  `app.environment`). NAO entra nos selectors (estaveis entre upgrades).
+
+Sem esses values o render e byte-identico ao anterior (retrocompat total).
+
 ```yaml
 dependencies:
   postgres:

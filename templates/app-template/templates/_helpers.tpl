@@ -72,6 +72,12 @@ devops.flavioneto/app: {{ .root.Values.app.name | quote }}
 {{- with .root.Values.app.appType }}
 devops.flavioneto/app-type: {{ . | quote }}
 {{- end }}
+{{- /* Multi-env opt-in (Forja 4.0 B2): quando app.environment esta setado
+       (compile com --env), TODO recurso leva o label de ambiente. NAO entra
+       nos selectorLabels (selectors devem ser estaveis entre upgrades). */}}
+{{- with .root.Values.app.environment }}
+devops.flavioneto/environment: {{ . | quote }}
+{{- end }}
 {{- end -}}
 
 {{/*

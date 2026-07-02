@@ -51,7 +51,7 @@
         },
         "environments": {
           "type": "object",
-          "description": "Mapa de ambiente lógico -> destino físico (namespace + hosts). Pré-requisito de multi-env: o compilador renderiza hoje o ambiente default (nvit.localhost + dev.nvit.com.br, mesmo comportamento do v1).",
+          "description": "Mapa de ambiente lógico -> destino físico (namespace + hosts). Sem --env, o compilador renderiza o default (nvit.localhost + dev.nvit.com.br, mesmo comportamento do v1); com `devops-compile --env <nome>` renderiza o ambiente declarado em apps/<app>/k8s-<nome>/ (namespace + hosts do env, MESMO basePath, label devops.flavioneto/environment). Multi-env é OPT-IN e EFÊMERO por produto (docs/multi-env.md). HARD (imposto pelo compilador): o namespace do env difere do default e os hosts do env NUNCA incluem dev.nvit.com.br/app.host (produção).",
           "minProperties": 1,
           "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
           "additionalProperties": { "$ref": "#/definitions/environment" }
@@ -352,17 +352,17 @@
     },
     "environment": {
       "type": "object",
-      "description": "Destino físico de um ambiente lógico (v2).",
+      "description": "Destino físico de um ambiente lógico (v2). Um env compilável com --env exige namespace PRÓPRIO (diferente do app.namespace — os nomes dos recursos são idênticos entre envs; o namespace é o isolamento) e hosts NOVOS (nunca dev.nvit.com.br/app.host — hosts de produção não são reatribuídos). Ver docs/multi-env.md.",
       "additionalProperties": false,
       "required": ["namespace", "hosts"],
       "properties": {
         "namespace": {
           "type": "string",
-          "description": "Namespace Kubernetes do ambiente (ex.: apps, apps-dev, apps-prod-local)."
+          "description": "Namespace Kubernetes do ambiente (ex.: apps para o default; apps-dev para o env efêmero dev)."
         },
         "hosts": {
           "type": "array",
-          "description": "Hosts do Traefik atendidos neste ambiente (viram a cláusula Host(...) das IngressRoutes).",
+          "description": "Hosts do Traefik atendidos neste ambiente (viram a cláusula Host(...) das IngressRoutes). Env efêmero usa host próprio (ex.: dev-lab.nvit.localhost).",
           "minItems": 1,
           "items": { "type": "string" }
         }
