@@ -1230,3 +1230,7 @@ body.cmdk-on { overflow: hidden; }
 .forge-doc-reqs { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
 .forge-doc-reqs > li { border-left: 2px solid var(--line-2); padding-left: 10px; }
 .forge-doc-reqs p { margin: 2px 0 0; }
+/* refino de tela fora do wizard (A2) */
+.forge-telas-item { flex-wrap: wrap; }
+.forge-refine-ta { width: 100%; margin-top: 6px; font: inherit; background: var(--bg-1); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+.fw-skip-gate { display: inline-flex; align-items: center; gap: 6px; margin: 6px 0; }

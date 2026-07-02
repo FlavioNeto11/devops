@@ -5,7 +5,7 @@
 // import circular. Lógica pura continua em forge-lib.js/lib.js (testáveis com node:test).
 import {
   state, DATA, h, svg, badge, byId, AI, dd, dt, filePicker, sameOriginUrl, applyTransform, nav,
-} from './core.js?v=1';
+} from './core.js?v=2';
 import { findSimilarReqs, forceLayout, toYaml, truncateLabel } from './lib.js?v=42';
 import {
   productSummaries, findProduct, blueprintById, studioPhaseModel, buildDag, dagFromWaves, wavesFromProgress,
@@ -297,10 +297,62 @@ function forgeBrief(panel, product) {
   panel.append(sec);
 }
 
-/* ---------- fase TELAS: preview F3 persistente (status + navegação; refino chega na A2) ---------- */
+/* ---------- fase TELAS: preview F3 PERSISTENTE — gerar e refinar FORA do wizard (A2) ----------
+   Mesmo contrato do wizard: POST /generate (SSE start/propose/inventory/dispatch/building/ready/done)
+   e POST /refine (JSON; devolve o inventory com a tela trocada). O inventário PERSISTIDO no PVC
+   (GET /v1/forge/preview/inventory) permite refinar um preview gerado em outra sessão. */
+const _telasBusy = {}; // name -> true enquanto um generate SSE está em voo (evita duplo disparo)
+function telasRequirements(product) {
+  return productReqs(product).slice(0, 12).map((r) => ({
+    id: r.id, title: r.title || '', type: r.type || '', statement: r.statement || '',
+    acceptance_criteria: Array.isArray(r.acceptance_criteria) ? r.acceptance_criteria : [],
+  }));
+}
+async function telasGenerate(product, statusEl, { inventory } = {}) {
+  const name = product.name;
+  if (_telasBusy[name]) return;
+  _telasBusy[name] = true;
+  const say = (...kids) => { if (statusEl.isConnected) statusEl.replaceChildren(...kids); };
+  say(h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' Iniciando a geração…');
+  const body = inventory
+    ? { product: name, inventory }
+    : { product: name, displayName: product.display_name || name, blueprint: product.blueprint || '', brief: product.vision || '', requirements: telasRequirements(product) };
+  const LBL = { start: 'começando', propose: 'IA propondo as telas', inventory: 'inventário pronto', dispatch: 'build disparado no runner', building: 'construindo a SPA', ready: 'pronto' };
+  try {
+    await AI.stream2('/v1/forge/preview/generate', body, {
+      onEvent: (event) => { if (LBL[event]) say(h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' ' + LBL[event] + '…'); },
+    });
+    say(document.createTextNode('Preview pronto ✓'));
+  } catch (e) {
+    say(h('span', { class: 'fw-err', text: 'Falhou: ' + String((e && e.message) || e) }));
+  } finally {
+    _telasBusy[name] = false;
+    forgeInvalidatePreview(name);
+    if (state.view === 'forge' && state.forge.product === name) renderForge();
+  }
+}
+async function telasRefine(product, screen, feedback, statusEl) {
+  const name = product.name;
+  const say = (...kids) => { if (statusEl.isConnected) statusEl.replaceChildren(...kids); };
+  say(h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' Refinando a tela com a IA…');
+  // inventário persistido (PVC) — sem ele o refine ainda funciona mandando só a tela, mas perde contexto
+  let inventory = null;
+  try { const r = await AI.get('/v1/forge/preview/inventory?product=' + encodeURIComponent(name)); if (r.ok && r.data) inventory = r.data.inventory; } catch { /* fail-soft */ }
+  const r = await AI.post('/v1/forge/preview/refine', {
+    product: name, screenSlug: screen.slug, feedback,
+    ...(inventory ? { inventory } : { screen }),
+    requirements: telasRequirements(product),
+  });
+  if (!r.ok) { say(h('span', { class: 'fw-err', text: 'Refino falhou (' + ((r.data && r.data.error && r.data.error.code) || r.status) + ').' })); return; }
+  const inv = r.data && r.data.inventory;
+  if (!inv) { say(h('span', { class: 'fw-err', text: 'O refino não devolveu um inventário — regenere o preview.' })); return; }
+  say(document.createTextNode('Tela revisada — reconstruindo o preview…'));
+  await telasGenerate(product, statusEl, { inventory: inv });
+}
 function forgeTelas(panel, product) {
   const sec = h('div', { class: 'forge-section' });
   const pv = _previewCache[product.name];
+  const statusEl = h('p', { class: 'muted', role: 'status', 'aria-live': 'polite' });
   sec.append(h('h3', { text: 'Preview das telas (dados fake, componentes reais)' }));
   if (pv === null || pv === undefined) {
     sec.append(h('p', { class: 'muted' }, h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' Consultando o preview…'));
@@ -309,25 +361,43 @@ function forgeTelas(panel, product) {
     if (url) {
       sec.append(h('div', { class: 'fw-actions' },
         h('a', { class: 'btn primary', href: url, target: '_blank', rel: 'noopener', text: 'Abrir preview em nova aba ↗' }),
+        h('button', { class: 'btn', type: 'button', text: '↻ Regenerar (IA re-propõe)', onclick: () => telasGenerate(product, statusEl) }),
         h('button', { class: 'btn', type: 'button', text: 'Reconsultar', onclick: () => { forgeInvalidatePreview(product.name); renderForge(); } })));
-      const frame = h('iframe', { class: 'forge-preview-frame', src: url, title: 'Preview das telas de ' + (product.display_name || product.name), loading: 'lazy' });
-      sec.append(frame);
+      sec.append(statusEl);
+      sec.append(h('iframe', { class: 'forge-preview-frame', src: url, title: 'Preview das telas de ' + (product.display_name || product.name), loading: 'lazy' }));
     }
     const screens = Array.isArray(pv.screens) ? pv.screens : [];
     if (screens.length) {
-      sec.append(h('h3', { text: `Telas (${screens.length})` }));
+      sec.append(h('h3', { text: `Telas (${screens.length}) — refine qualquer uma com a IA` }));
       const ul = h('ul', { class: 'forge-reqlist' });
-      for (const s of screens) ul.append(h('li', { class: 'forge-reqitem' }, h('code', { text: s.route || s.slug }), h('span', { class: 'rt', text: s.title || s.slug }), badge(s.kind || 'tela', 'b-low')));
+      for (const s of screens) {
+        const li = h('li', { class: 'forge-reqitem forge-telas-item' },
+          h('code', { text: s.route || s.slug }), h('span', { class: 'rt', text: s.title || s.slug }), badge(s.kind || 'tela', 'b-low'));
+        const ta = h('textarea', { class: 'forge-refine-ta', rows: '2', placeholder: 'O que mudar nesta tela? (ex.: adicionar filtro por status, trocar cards por tabela…)', 'aria-label': 'Feedback de refino para ' + (s.title || s.slug), hidden: 'hidden' });
+        const send = h('button', { class: 'btn primary', type: 'button', text: 'Refinar', hidden: 'hidden' });
+        const toggle = h('button', { class: 'btn-link', type: 'button', text: '✎ refinar', 'aria-expanded': 'false' });
+        toggle.addEventListener('click', () => {
+          const open = !ta.hidden;
+          ta.hidden = open; send.hidden = open;
+          toggle.setAttribute('aria-expanded', open ? 'false' : 'true');
+          if (!open) ta.focus();
+        });
+        send.addEventListener('click', () => { const fb = ta.value.trim(); if (!fb) { ta.focus(); return; } send.disabled = true; telasRefine(product, s, fb, statusEl).finally(() => { send.disabled = false; }); });
+        li.append(toggle, ta, send);
+        ul.append(li);
+      }
       sec.append(ul);
     }
-    sec.append(h('p', { class: 'muted small', text: 'Refino tela-a-tela por IA fora do wizard chega na próxima fase (A2) — por ora, o refino vive no wizard de criação.' }));
   } else if (pv.status === 'building') {
     sec.append(h('p', { class: 'muted' }, h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' O preview está sendo construído no runner… ',
       h('button', { class: 'btn-link', type: 'button', text: 'atualizar', onclick: () => { forgeInvalidatePreview(product.name); renderForge(); } })));
   } else {
-    sec.append(h('p', { class: 'empty', text: pv.status === 'error' ? 'O último build do preview falhou.' : 'Este produto ainda não tem preview de telas.' }),
-      h('p', { class: 'muted small', text: 'O preview é gerado no wizard de criação (etapa Telas). Para produtos existentes, a geração direta daqui chega na A2.' }),
-      h('div', { class: 'fw-actions' }, h('button', { class: 'btn', type: 'button', text: 'Reconsultar', onclick: () => { forgeInvalidatePreview(product.name); renderForge(); } })));
+    sec.append(h('p', { class: 'empty', text: pv.status === 'error' ? 'O último build do preview falhou.' : 'Este produto ainda não tem preview de telas.' }));
+    sec.append(statusEl);
+    sec.append(h('div', { class: 'fw-actions' },
+      h('button', { class: 'btn primary', type: 'button', text: '✦ Gerar preview (IA propõe as telas)', onclick: () => telasGenerate(product, statusEl) }),
+      h('button', { class: 'btn', type: 'button', text: 'Reconsultar', onclick: () => { forgeInvalidatePreview(product.name); renderForge(); } })));
+    sec.append(h('p', { class: 'muted small', text: 'A IA propõe o inventário a partir dos requisitos do produto e o runner constrói uma SPA navegável com componentes ui-vue reais e dados fake.' }));
   }
   panel.append(sec);
 }
@@ -1638,6 +1708,14 @@ function forgeLaunchControls(pname, blueprint, proposed, launchCtx) {
   const bRel = h('button', { class: 'btn', type: 'button', text: '⚡ Liberar tudo', disabled: gated ? 'disabled' : null, title: gated ? 'Aprove o preview das telas primeiro' : null });
   const btns = [bPr, bRel];
   const ctx = { pname, blueprint, proposed, launchCtx, status, btns };
+  // (A2) skipPreviewGate exposto na UI para o caminho SEM wizard (relançamentos/fluxos legados):
+  // sem isto, o backend responde 409 PREVIEW_REQUIRED e o operador fica travado sem saber por quê.
+  if (launchCtx && launchCtx.launchGate === undefined) {
+    const cb = h('input', { type: 'checkbox', id: 'fw-skip-gate' });
+    cb.addEventListener('change', () => { ctx.skipPreviewGate = cb.checked; });
+    wrap.append(h('label', { class: 'muted small fw-skip-gate', for: 'fw-skip-gate' }, cb,
+      ' Pular o gate de preview (relançamento sem mudança de telas — o backend exige preview aprovado por padrão)'));
+  }
   bPr.addEventListener('click', () => { if (gated) return; forgeLaunch('pr', ctx); });
   bRel.addEventListener('click', () => { if (gated) return; if (window.confirm('Liberar tudo: cria os requisitos, AUTO-MESCLA o PR de requisitos e dispara a esteira de construção. Os PRs de implementação ainda passam pela sua validação. Continuar?')) forgeLaunch('release', ctx); });
   if (gated) wrap.append(h('p', { class: 'fw-hint', text: '🔒 Aprove o preview das telas (etapa Preview) para liberar a criação.' }));
@@ -1656,6 +1734,7 @@ async function forgeLaunch(mode, ctx) {
   const body = {
     product: pname, displayName: launchCtx.displayName || pname, blueprint, brief: launchCtx.brief || '', mode, requirements,
     architecture: { stack: arch.stack, selected_blocks: arch.selected_blocks || [], adrs: arch.adrs || [], waves: arch.waves || [] },
+    ...(ctx.skipPreviewGate ? { skipPreviewGate: true } : {}),
   };
   btns.forEach((b) => { b.disabled = true; });
   status.textContent = mode === 'release' ? 'Lançando (auto-merge + build)…' : 'Criando os requisitos no git…';
@@ -1710,3 +1789,4 @@ function forgeReqObject(id, pname, blueprint, req) {
 /* ===================== Ícones (SVG inline, stroke, CSP-safe) ===================== */
 
 export { renderForge, openForgeProduct, openForgeNew, interactiveGraph };
+

@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   validateProduct, validateInventory, sanitizeScreen, mergeScreen, buildPreviewPayload,
-  dispatchForgePreview, previewStatus, previewBaseUrl, resolveAsset, _internals,
+  dispatchForgePreview, previewStatus, previewInventory, previewBaseUrl, resolveAsset, _internals,
 } from './forge-preview.js';
 
 const SCREEN = { slug: 'product-list', title: 'Produtos', kind: 'list', route: '/products', entity: 'products', anchors: ['REQ-X-0001'], purpose: 'listar' };
@@ -230,5 +230,24 @@ test('resolveAsset: serve index.html + bloqueia traversal', () => {
     assert.ok(['FORBIDDEN', 'NOT_FOUND'].includes(t.code));
     // produto inválido
     assert.equal(resolveAsset('Bad Slug', 'x').code, 'INVALID_PRODUCT');
+  });
+});
+
+
+// --- inventário persistido (A2, Forja 4.0): o refino fora do wizard lê daqui ---
+test('previewInventory: NOT_FOUND sem inventory.json; ok e SANEADO quando existe', () => {
+  withTmpDir((dir) => {
+    assert.equal(previewInventory('shopdesk').ok, false);
+    assert.equal(previewInventory('shopdesk').code, 'NOT_FOUND');
+    fs.mkdirSync(path.join(dir, 'shopdesk'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'shopdesk', 'inventory.json'), JSON.stringify(INV));
+    const r = previewInventory('shopdesk');
+    assert.equal(r.ok, true);
+    assert.equal(r.inventory.screens[0].slug, 'product-list');
+    // fronteira: inventário inválido no volume -> INVALID_INVENTORY (nunca lança)
+    fs.writeFileSync(path.join(dir, 'shopdesk', 'inventory.json'), JSON.stringify({ screens: [] }));
+    assert.equal(previewInventory('shopdesk').code, 'INVALID_INVENTORY');
+    // slug inválido -> INVALID_PRODUCT
+    assert.equal(previewInventory('Bad Slug').code, 'INVALID_PRODUCT');
   });
 });

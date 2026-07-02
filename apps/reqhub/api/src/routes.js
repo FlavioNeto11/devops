@@ -67,7 +67,7 @@ import { buildUsageRouter } from './usage/index.js';
 import { forgeState } from './forge-state.js';
 import {
   validateProduct, validateInventory, mergeScreen, buildPreviewPayload, dispatchForgePreview,
-  previewStatus, previewBaseUrl, resolveAsset,
+  previewStatus, previewInventory, previewBaseUrl, resolveAsset,
 } from './forge-preview.js';
 import fs from 'node:fs';
 
@@ -415,6 +415,18 @@ export function buildRouter({ registry, llm, memory } = {}) {
     if (!vp.ok) return res.status(400).json({ error: { code: vp.code, message: vp.message } });
     try { return res.json(previewStatus(vp.product)); }
     catch { return res.json({ product: vp.product, status: 'absent', url: null, screens: [] }); }
+  });
+
+  // (3b) INVENTÁRIO persistido do preview (A2): o runner grava inventory.json junto do manifest;
+  // o Studio lê daqui para REFINAR telas fora do wizard (o preview deixou de ser descartável).
+  router.get('/v1/forge/preview/inventory', requireAuthoringAuth, (req, res) => {
+    const vp = validateProduct(req.query.product);
+    if (!vp.ok) return res.status(400).json({ error: { code: vp.code, message: vp.message } });
+    try {
+      const r = previewInventory(vp.product);
+      if (!r.ok) return res.status(r.code === 'NOT_FOUND' ? 404 : 422).json({ error: { code: r.code, message: r.code === 'NOT_FOUND' ? 'este produto ainda não tem inventário persistido (gere o preview primeiro)' : 'inventário persistido inválido — regenere o preview' } });
+      return res.json({ product: vp.product, inventory: r.inventory });
+    } catch { return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'inventário indisponível' } }); }
   });
 
   // (4) SERVIR a SPA estática do preview do volume. PÚBLICO (atrás do gate SSO de borda) — o conteúdo é
