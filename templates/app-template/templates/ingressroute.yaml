@@ -48,7 +48,9 @@ spec:
     {{- $prefix := include "app-template.fullPrefix" (dict "root" $root "svc" $svc) }}
     - kind: Rule
       match: Host({{ $hostClause }}) && PathPrefix(`{{ $prefix }}`)
-      priority: 100
+      {{- /* priority por service (regra de ouro: api2 > api > frontend, ex.: 40 > 30 > 10).
+             Sem override mantem 100 (comportamento historico do chart). */}}
+      priority: {{ $svc.priority | default 100 }}
       services:
         - name: {{ include "app-template.fullname" (dict "root" $root "name" $name) }}
           port: {{ $svc.port }}
@@ -63,7 +65,7 @@ spec:
     {{- if and $svc.expose (eq $svc.type "frontend") }}
     - kind: Rule
       match: Host({{ $hostClause }}) && PathPrefix(`{{ $root.Values.app.basePath }}`)
-      priority: 10
+      priority: {{ $svc.priority | default 10 }}
       services:
         - name: {{ include "app-template.fullname" (dict "root" $root "name" $name) }}
           port: {{ $svc.port }}

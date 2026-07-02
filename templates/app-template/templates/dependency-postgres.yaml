@@ -1,0 +1,126 @@
+{{- /*
+=============================================================================
+dependency-postgres.yaml — Provisiona dependencias com engine "postgres".
+-----------------------------------------------------------------------------
+Gera, para cada entrada de .Values.dependencies com engine=postgres:
+  * PersistentVolumeClaim <app>-<dep>-data (dados persistem entre restarts)
+  * Deployment <app>-<dep> com strategy Recreate (PVC RWO nao aceita dois pods)
+  * Service ClusterIP <app>-<dep> na porta 5432
+Padrao generalizado dos manifests provados de sicat (k8s/postgres.yaml) e
+gymops (k8s/gymops.yaml).
+
+Imagem:
+  * flavor "pgvector" -> pgvector/pgvector:pg<version>  (extensao vector)
+  * sem flavor        -> postgres:<version>-alpine       (default version 16)
+
+Segredos (hard-constraints §3): o chart NUNCA renderiza Secret. As credenciais
+(POSTGRES_USER/PASSWORD/DB) vem do Secret referenciado em dep.secretName
+(OBRIGATORIO para postgres), criado imperativamente fora do git — ex.: passo
+"create secret generic <app>-db" do forge-deploy.yml.
+
+Resources (hard-constraints §6): DEFAULT obrigatorio requests 128Mi/50m e
+limits 1Gi/1000m — licao do incidente OOM do sicat (512Mi OOMKillava o
+Postgres e corrompeu o WAL; 1Gi da folga). Override via dep.resources.
+=============================================================================
+*/ -}}
+{{- range $name, $dep := .Values.dependencies }}
+{{- if eq (default "" $dep.engine) "postgres" }}
+{{- $fullname := include "app-template.fullname" (dict "root" $ "name" $name) }}
+{{- $version := $dep.version | default "16" | toString }}
+{{- $image := "" }}
+{{- if eq (default "" $dep.flavor) "pgvector" }}
+{{- $image = printf "pgvector/pgvector:pg%s" $version }}
+{{- else }}
+{{- $image = printf "postgres:%s-alpine" $version }}
+{{- end }}
+{{- $secretName := required (printf "dependencies.%s.secretName é obrigatório para engine postgres (Secret criado fora do git — hard-constraints §3)" $name) $dep.secretName }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $fullname }}-data
+  namespace: {{ $.Values.app.namespace }}
+  labels:
+    {{- include "app-template.commonLabels" (dict "root" $ "name" $name "component" "db") | nindent 4 }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ $dep.storage | default "2Gi" }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}
+  namespace: {{ $.Values.app.namespace }}
+  labels:
+    {{- include "app-template.commonLabels" (dict "root" $ "name" $name "component" "db") | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "app-template.selectorLabels" (dict "root" $ "name" $name) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "app-template.commonLabels" (dict "root" $ "name" $name "component" "db") | nindent 8 }}
+    spec:
+      containers:
+        - name: postgres
+          image: {{ $image }}
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: {{ $secretName }}
+          ports:
+            - name: postgres
+              containerPort: 5432
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+              subPath: pgdata
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            {{- if $dep.resources }}
+            {{- toYaml $dep.resources | nindent 12 }}
+            {{- else }}
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+            {{- end }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ $fullname }}-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}
+  namespace: {{ $.Values.app.namespace }}
+  labels:
+    {{- include "app-template.commonLabels" (dict "root" $ "name" $name "component" "db") | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "app-template.selectorLabels" (dict "root" $ "name" $name) | nindent 4 }}
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+{{- end }}
+{{- end }}
