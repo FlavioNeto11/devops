@@ -1,25 +1,28 @@
 <!--
-  Transações Financeiras — lista paginada de payment-transactions (REQ-NEUROEVOLUI-0005).
-  Rota: /payment-transactions
-  Endpoints REAIS:
-    · GET /v1/payment-transactions  (resourceFactory → paymentTransactions)
-  Somente leitura — escrita é via webhook no backend.
-  Linha clicável abre modal de detalhe (read-only).
-  Estados: loading (skeleton) · empty (com CTA) · error (com retry) · normal.
+  Transações Financeiras — lista paginada (REF-NEUROEVOLUI-0039 / REQ-NEUROEVOLUI-0005).
+  Rota: /payment-transactions  Roles: user
+  Endpoint: GET /v1/payment-transactions?status=&page=&pageSize=
+  Export:   GET /v1/payment-transactions/export (CSV, BOM UTF-8)
+  Colunas:  data (dd/MM/yyyy) · paciente · valor BRL · status · forma de pagamento · ID
+  Interações:
+    - linha clicável → navega para /payment-transactions/:id
+    - filtro por status → atualiza query params + recarrega da API
+    - botão Exportar → download CSV via âncora
+  Estados: loading (skeleton) · empty (filtros ativos) · error (banner + retry) · normal.
   CSP-safe: zero style inline / :style / v-html — estado visual por class + data-* no <style scoped>.
 -->
 <template>
   <UiPageLayout
     eyebrow="Financeiro"
     title="Transações"
-    subtitle="Histórico completo de transações financeiras por gateway, valor, moeda e status."
+    subtitle="Histórico completo de transações financeiras por paciente, valor e status."
     width="wide"
     :error="fatalError"
     @retry="reload"
   >
     <template #actions>
       <UiButton variant="ghost" :loading="loading" @click="reload">Atualizar</UiButton>
-      <UiButton variant="subtle" to="/consultations">Ver agendamentos</UiButton>
+      <UiButton variant="subtle" @click="onExport">Exportar</UiButton>
     </template>
 
     <!-- KPIs derivados dos dados filtrados -->
@@ -29,7 +32,7 @@
         :value="loading ? null : format.formatNumber(metrics.total)"
         :loading="loading"
         tone="primary"
-        :hint="hasActiveFilters ? 'no filtro ativo' : 'no período'"
+        :hint="hasActiveFilters ? 'no filtro ativo' : 'todas as transações'"
       />
       <UiMetricCard
         label="Confirmadas"
@@ -61,7 +64,7 @@
       />
     </section>
 
-    <!-- Filtros: status, gateway, período e busca livre -->
+    <!-- Filtros: status, data e paciente -->
     <template #filters>
       <UiFiltersPanel
         v-model="filters"
@@ -94,34 +97,21 @@
       :sort="sort"
       :paginated="false"
       :empty="emptyState"
-      @row-click="openDetail"
+      @row-click="onRowClick"
       @update:sort="onSort"
       @retry="reload"
     >
-      <!-- Data/hora -->
+      <!-- Data no formato dd/MM/yyyy -->
       <template #cell-created_at="{ value }">
-        <span class="pt-datetime">{{ format.formatDateTime(value) }}</span>
-      </template>
-
-      <!-- Gateway + ID externo -->
-      <template #cell-gateway="{ row }">
-        <div class="pt-gw">
-          <span class="pt-gw-name">{{ gatewayLabel(row.gateway) }}</span>
-          <span v-if="row.external_id" class="pt-gw-id">{{ row.external_id }}</span>
-        </div>
-      </template>
-
-      <!-- Agendamento vinculado -->
-      <template #cell-consultation_id="{ value }">
-        <span class="pt-mono">{{ value || '—' }}</span>
+        <span class="pt-datetime">{{ format.formatDate(value) }}</span>
       </template>
 
       <!-- Paciente -->
-      <template #cell-patient_id="{ value }">
-        <span class="pt-mono">{{ value || '—' }}</span>
+      <template #cell-patient_name="{ value }">
+        <span class="pt-patient">{{ value || '—' }}</span>
       </template>
 
-      <!-- Valor formatado (centavos → moeda) -->
+      <!-- Valor formatado (centavos → BRL) -->
       <template #cell-amount_cents="{ row }">
         <span class="pt-amount">{{ amountLabel(row) }}</span>
       </template>
@@ -136,9 +126,14 @@
         />
       </template>
 
-      <!-- Tipo de evento -->
-      <template #cell-event_type="{ value }">
-        <span class="pt-event">{{ value || '—' }}</span>
+      <!-- Forma de pagamento (gateway) -->
+      <template #cell-gateway_provider="{ value }">
+        <span class="pt-gateway">{{ gatewayLabel(value) }}</span>
+      </template>
+
+      <!-- ID da transação -->
+      <template #cell-id="{ value }">
+        <span class="pt-mono">{{ value }}</span>
       </template>
 
       <!-- CTA dentro do empty da tabela -->
@@ -166,87 +161,15 @@
 
     <template #footer>
       <span>
-        Somente leitura — transações são criadas automaticamente por webhooks dos gateways.
-        Clique numa linha para ver o detalhe completo.
+        Clique em uma linha para ver o detalhe completo da transação.
       </span>
     </template>
-
-    <!-- Modal de detalhe da transação (read-only) -->
-    <UiModal
-      v-model:open="detailOpen"
-      :title="detailTitle"
-      width="md"
-    >
-      <dl v-if="selected" class="pt-detail">
-        <div class="pt-detail-row">
-          <dt>Status</dt>
-          <dd>
-            <UiStatusBadge
-              :status="selected.status"
-              :tone="statusTone(selected.status)"
-              :label="statusText(selected.status)"
-              with-dot
-            />
-          </dd>
-        </div>
-        <div class="pt-detail-row">
-          <dt>Valor</dt>
-          <dd class="pt-detail-amount">{{ amountLabel(selected) }}</dd>
-        </div>
-        <div class="pt-detail-row">
-          <dt>Moeda</dt>
-          <dd>{{ currencyLabel(selected.currency) }}</dd>
-        </div>
-        <div class="pt-detail-row">
-          <dt>Gateway</dt>
-          <dd>{{ gatewayLabel(selected.gateway) }}</dd>
-        </div>
-        <div class="pt-detail-row">
-          <dt>ID externo</dt>
-          <dd class="pt-detail-mono">{{ selected.external_id || '—' }}</dd>
-        </div>
-        <div class="pt-detail-row">
-          <dt>Tipo de evento</dt>
-          <dd>{{ selected.event_type || '—' }}</dd>
-        </div>
-        <div class="pt-detail-row">
-          <dt>Agendamento</dt>
-          <dd class="pt-detail-mono">{{ selected.consultation_id || '—' }}</dd>
-        </div>
-        <div class="pt-detail-row">
-          <dt>Paciente</dt>
-          <dd class="pt-detail-mono">{{ selected.patient_id || '—' }}</dd>
-        </div>
-        <div class="pt-detail-row">
-          <dt>Registrado em</dt>
-          <dd>{{ format.formatDateTime(selected.created_at) }}</dd>
-        </div>
-      </dl>
-
-      <template #footer>
-        <UiButton variant="ghost" @click="detailOpen = false">Fechar</UiButton>
-        <UiButton
-          v-if="selected && selected.consultation_id"
-          variant="primary"
-          :to="'/consultations/' + selected.consultation_id"
-        >
-          Abrir agendamento
-        </UiButton>
-        <UiButton
-          v-if="selected && selected.patient_id"
-          variant="subtle"
-          :to="'/patients/' + selected.patient_id"
-        >
-          Ver paciente
-        </UiButton>
-      </template>
-    </UiModal>
   </UiPageLayout>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import {
   UiPageLayout,
   UiDataTable,
@@ -254,7 +177,6 @@ import {
   UiFiltersPanel,
   UiStatusBadge,
   UiMetricCard,
-  UiModal,
   UiButton,
   useToast,
   format,
@@ -262,6 +184,7 @@ import {
 import { paymentTransactions } from '../api.js';
 
 const router = useRouter();
+const route = useRoute();
 const toast = useToast();
 
 // ── Estado de dados ────────────────────────────────────────────────────────────
@@ -273,11 +196,7 @@ const sort = ref({ key: 'created_at', dir: 'desc' });
 const page = ref(1);
 const pageSize = ref(25);
 
-const filters = ref({ q: '', from: '', to: '', status: '', gateway: '', currency: '' });
-
-// Detalhe
-const detailOpen = ref(false);
-const selected = ref(null);
+const filters = ref({ q: '', from: '', to: '', status: '' });
 
 // ── Enums ──────────────────────────────────────────────────────────────────────
 const STATUS_LABELS = {
@@ -295,10 +214,7 @@ const STATUS_TONES = {
 const GATEWAY_LABELS = {
   stripe: 'Stripe',
   pagseguro: 'PagSeguro',
-};
-const CURRENCY_LABELS = {
-  BRL: 'BRL — Real',
-  USD: 'USD — Dólar',
+  sandbox: 'Sandbox',
 };
 
 function norm(v) {
@@ -308,22 +224,20 @@ function norm(v) {
 const statusText = (v) => STATUS_LABELS[norm(v)] || format.humanize(v);
 const statusTone = (v) => STATUS_TONES[norm(v)] || 'neutral';
 const gatewayLabel = (v) => GATEWAY_LABELS[norm(v)] || (v ? format.humanize(v) : '—');
-const currencyLabel = (v) => CURRENCY_LABELS[String(v || '').toUpperCase()] || String(v || 'BRL').toUpperCase();
 
 // ── Colunas da tabela ─────────────────────────────────────────────────────────
 const columns = [
-  { key: 'created_at', label: 'Registrado em', sortable: true },
-  { key: 'gateway', label: 'Gateway', sortable: true },
-  { key: 'external_id', label: 'ID externo' },
-  { key: 'consultation_id', label: 'Agendamento' },
+  { key: 'created_at', label: 'Data', sortable: true },
+  { key: 'patient_name', label: 'Paciente' },
   { key: 'amount_cents', label: 'Valor', align: 'right', sortable: true },
   { key: 'status', label: 'Status', sortable: true },
-  { key: 'event_type', label: 'Evento' },
+  { key: 'gateway_provider', label: 'Forma de Pagamento' },
+  { key: 'id', label: 'ID', sortable: true },
 ];
 
 // ── Campos de filtro ───────────────────────────────────────────────────────────
 const filterFields = computed(() => [
-  { key: 'q', label: 'Buscar', type: 'text', placeholder: 'ID externo, agendamento, paciente…' },
+  { key: 'q', label: 'Buscar paciente', type: 'text', placeholder: 'Nome do paciente…' },
   { key: 'from', label: 'De', type: 'date' },
   { key: 'to', label: 'Até', type: 'date' },
   {
@@ -335,24 +249,6 @@ const filterFields = computed(() => [
       { value: 'confirmed', label: 'Confirmada' },
       { value: 'refunded', label: 'Reembolsada' },
       { value: 'failed', label: 'Falhou' },
-    ],
-  },
-  {
-    key: 'gateway',
-    label: 'Gateway',
-    type: 'select',
-    options: [
-      { value: 'stripe', label: 'Stripe' },
-      { value: 'pagseguro', label: 'PagSeguro' },
-    ],
-  },
-  {
-    key: 'currency',
-    label: 'Moeda',
-    type: 'select',
-    options: [
-      { value: 'BRL', label: 'BRL' },
-      { value: 'USD', label: 'USD' },
     ],
   },
 ]);
@@ -371,7 +267,7 @@ function amountLabel(row) {
   return format.formatCurrency(n / 100, cur);
 }
 
-// ── Filtragem (client-side) ────────────────────────────────────────────────────
+// ── Filtragem (client-side: status é também server-side via query param) ───────
 function matchesText(needle, ...haystack) {
   const q = norm(needle);
   if (!q) return true;
@@ -401,11 +297,10 @@ const hasActiveFilters = computed(() =>
 const filteredRows = computed(() => {
   const f = filters.value;
   return rows.value.filter((r) => {
-    if (!matchesText(f.q, r.external_id, r.consultation_id, r.patient_id, r.id)) return false;
+    if (!matchesText(f.q, r.patient_name, r.id)) return false;
     if (!inDateRange(r.created_at, f.from, f.to)) return false;
+    // status já é filtrado no servidor; filtragem local garante consistência após onClear parcial
     if (f.status && norm(r.status) !== norm(f.status)) return false;
-    if (f.gateway && norm(r.gateway) !== norm(f.gateway)) return false;
-    if (f.currency && String(r.currency || '').toUpperCase() !== f.currency.toUpperCase()) return false;
     return true;
   });
 });
@@ -421,7 +316,7 @@ const sortedRows = computed(() => {
     if (s.key === 'created_at') {
       x = x ? new Date(x).getTime() : 0;
       y = y ? new Date(y).getTime() : 0;
-    } else if (s.key === 'amount_cents') {
+    } else if (s.key === 'amount_cents' || s.key === 'id') {
       x = Number(x) || 0;
       y = Number(y) || 0;
     } else {
@@ -441,12 +336,7 @@ const pagedRows = computed(() => {
 
 // ── Métricas derivadas ─────────────────────────────────────────────────────────
 const metrics = computed(() => {
-  let confirmed = 0;
-  let pending = 0;
-  let failed = 0;
-  let refunded = 0;
-  let confirmedCents = 0;
-  let pendingCents = 0;
+  let confirmed = 0, pending = 0, failed = 0, refunded = 0, confirmedCents = 0, pendingCents = 0;
   for (const r of filteredRows.value) {
     const st = norm(r.status);
     const cents = Number(r.amount_cents) || 0;
@@ -459,7 +349,6 @@ const metrics = computed(() => {
 });
 
 // ── Estados / mensagens ────────────────────────────────────────────────────────
-// Erro fatal (401/403) → erro no UiPageLayout (não na tabela)
 const fatalError = computed(() => {
   if (!loadError.value) return null;
   const s = loadError.value.status;
@@ -467,11 +356,10 @@ const fatalError = computed(() => {
   return loadError.value.message || 'Não foi possível carregar as transações.';
 });
 
-// Erro da tabela (não-fatal, permite retry)
 const tableError = computed(() => {
   if (!loadError.value) return null;
   const s = loadError.value.status;
-  if (s === 401 || s === 403) return null; // vira erro de página
+  if (s === 401 || s === 403) return null;
   return loadError.value.message || 'Erro ao carregar as transações.';
 });
 
@@ -490,15 +378,9 @@ const emptyState = computed(() => {
   };
 });
 
-const detailTitle = computed(() => {
-  if (!selected.value) return 'Transação';
-  return 'Transação · ' + amountLabel(selected.value);
-});
-
 // ── Ações ──────────────────────────────────────────────────────────────────────
-function openDetail(row) {
-  selected.value = row;
-  detailOpen.value = true;
+function onRowClick(row) {
+  router.push('/payment-transactions/' + row.id);
 }
 
 function onSort(s) {
@@ -508,11 +390,18 @@ function onSort(s) {
 
 function onApply() {
   page.value = 1;
+  // Sincroniza status com query params e recarrega da API com filtro server-side
+  const query = {};
+  if (filters.value.status) query.status = filters.value.status;
+  router.replace({ query });
+  load();
 }
 
 function onClear() {
-  filters.value = { q: '', from: '', to: '', status: '', gateway: '', currency: '' };
+  filters.value = { q: '', from: '', to: '', status: '' };
   page.value = 1;
+  router.replace({ query: {} });
+  load();
 }
 
 function onPageSize(size) {
@@ -520,12 +409,24 @@ function onPageSize(size) {
   page.value = 1;
 }
 
+function onExport() {
+  const url = paymentTransactions.exportUrl({ status: filters.value.status });
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'transacoes.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
 // ── Carga ──────────────────────────────────────────────────────────────────────
 async function load() {
   loading.value = true;
   loadError.value = null;
   try {
-    const res = await paymentTransactions.list();
+    const params = {};
+    if (filters.value.status) params.status = filters.value.status;
+    const res = await paymentTransactions.list(params);
     rows.value = Array.isArray(res) ? res : (res && res.data ? res.data : []);
   } catch (e) {
     loadError.value = e;
@@ -549,7 +450,12 @@ async function reload() {
   }
 }
 
-onMounted(load);
+onMounted(() => {
+  // Restaura filtro de status da URL (ex.: navegação de volta com ?status=pending)
+  const q = route.query;
+  if (q.status) filters.value.status = q.status;
+  load();
+});
 </script>
 
 <style scoped>
@@ -585,32 +491,9 @@ onMounted(load);
   white-space: nowrap;
 }
 
-.pt-gw {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ui-space-1);
-  min-width: 0;
-}
-
-.pt-gw-name {
-  font-weight: 600;
+.pt-patient {
+  font-weight: 500;
   color: rgb(var(--ui-fg));
-}
-
-.pt-gw-id {
-  font-family: var(--ui-font-mono, monospace);
-  font-size: var(--ui-text-xs);
-  color: rgb(var(--ui-muted));
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 220px;
-}
-
-.pt-mono {
-  font-family: var(--ui-font-mono, monospace);
-  font-size: var(--ui-text-sm);
-  color: rgb(var(--ui-muted));
 }
 
 .pt-amount {
@@ -620,7 +503,13 @@ onMounted(load);
   color: rgb(var(--ui-fg));
 }
 
-.pt-event {
+.pt-gateway {
+  font-size: var(--ui-text-sm);
+  color: rgb(var(--ui-muted));
+}
+
+.pt-mono {
+  font-family: var(--ui-font-mono, monospace);
   font-size: var(--ui-text-sm);
   color: rgb(var(--ui-muted));
 }
@@ -633,66 +522,11 @@ onMounted(load);
   justify-content: center;
 }
 
-/* ── Modal de detalhe ───────────────────────────────────────────────────────── */
-.pt-detail {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  margin: 0;
-}
-
-.pt-detail-row {
-  display: grid;
-  grid-template-columns: 160px 1fr;
-  gap: var(--ui-space-3);
-  align-items: center;
-  padding: var(--ui-space-2) 0;
-  border-bottom: 1px solid rgb(var(--ui-border));
-}
-
-.pt-detail-row:last-child {
-  border-bottom: none;
-}
-
-.pt-detail dt {
-  color: rgb(var(--ui-muted));
-  font-size: var(--ui-text-sm);
-  font-weight: 600;
-}
-
-.pt-detail dd {
-  margin: 0;
-  color: rgb(var(--ui-fg));
-  font-size: var(--ui-text-sm);
-}
-
-.pt-detail-amount {
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  font-size: var(--ui-text-md, 1rem);
-}
-
-.pt-detail-mono {
-  font-family: var(--ui-font-mono, monospace);
-  font-size: var(--ui-text-sm);
-  word-break: break-all;
-}
-
 /* ── Responsivo ─────────────────────────────────────────────────────────────── */
 @media (max-width: 860px) {
   .pt-metrics {
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: var(--ui-space-3);
-  }
-
-  .pt-detail-row {
-    grid-template-columns: 1fr;
-    gap: var(--ui-space-1);
-    align-items: flex-start;
-  }
-
-  .pt-gw-id {
-    max-width: 100%;
   }
 }
 </style>

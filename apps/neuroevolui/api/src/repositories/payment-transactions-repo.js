@@ -11,23 +11,61 @@ export async function createPaymentTransaction({ tenantId, consultationId, idemp
 }
 
 // Coleção paginada para a rota REST genérica GET /v1/payment-transactions → { data, total }.
+// Inclui patient_name via LEFT JOIN para exibição na tabela (REF-NEUROEVOLUI-0039).
 const PT_SORTABLE = new Set(['id', 'status', 'amount_cents', 'created_at']);
-export async function listPaymentTransactions(tenantId, { page = 1, pageSize = 50, sort = 'id', dir = 'desc' } = {}) {
-  const col = PT_SORTABLE.has(sort) ? sort : 'id';
+export async function listPaymentTransactions(tenantId, { page = 1, pageSize = 50, sort = 'id', dir = 'desc', status = '' } = {}) {
+  const col = PT_SORTABLE.has(sort) ? `pt.${sort}` : 'pt.id';
   const order = String(dir).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
   const limit = Math.min(Math.max(Number(pageSize) || 50, 1), 200);
   const offset = (Math.max(Number(page) || 1, 1) - 1) * limit;
-  const totalRes = await pool.query('SELECT count(*)::int n FROM payment_transactions WHERE tenant_id=$1', [tenantId]);
+  const baseParams = [tenantId];
+  const conditions = ['pt.tenant_id=$1'];
+  if (status) { baseParams.push(status); conditions.push(`pt.status=$${baseParams.length}`); }
+  const where = conditions.join(' AND ');
+  const totalRes = await pool.query(
+    `SELECT count(*)::int n FROM payment_transactions pt WHERE ${where}`,
+    baseParams
+  );
+  const n = baseParams.length;
   const r = await pool.query(
-    `SELECT * FROM payment_transactions WHERE tenant_id=$1 ORDER BY ${col} ${order} LIMIT $2 OFFSET $3`,
-    [tenantId, limit, offset]
+    `SELECT pt.*, p.full_name AS patient_name
+     FROM payment_transactions pt
+     LEFT JOIN patients p ON pt.patient_id IS NOT NULL AND p.tenant_id=pt.tenant_id AND p.id=pt.patient_id::bigint
+     WHERE ${where}
+     ORDER BY ${col} ${order} LIMIT $${n + 1} OFFSET $${n + 2}`,
+    [...baseParams, limit, offset]
   );
   return { data: r.rows, total: totalRes.rows[0].n };
 }
 
 export async function findPaymentTransaction(tenantId, id) {
-  const r = await pool.query('SELECT * FROM payment_transactions WHERE tenant_id=$1 AND id=$2', [tenantId, Number(id)]);
+  const r = await pool.query(
+    `SELECT pt.*, p.full_name AS patient_name
+     FROM payment_transactions pt
+     LEFT JOIN patients p ON pt.patient_id IS NOT NULL AND p.tenant_id=pt.tenant_id AND p.id=pt.patient_id::bigint
+     WHERE pt.tenant_id=$1 AND pt.id=$2`,
+    [tenantId, Number(id)]
+  );
   return r.rows[0] ?? null;
+}
+
+// Exportação CSV: todos os registros (sem paginação) com filtro opcional por status.
+export async function exportPaymentTransactions(tenantId, { status = '' } = {}) {
+  const baseParams = [tenantId];
+  const conditions = ['pt.tenant_id=$1'];
+  if (status) { baseParams.push(status); conditions.push(`pt.status=$${baseParams.length}`); }
+  const where = conditions.join(' AND ');
+  const r = await pool.query(
+    `SELECT pt.id, pt.created_at, pt.patient_id, p.full_name AS patient_name,
+            pt.amount_cents, pt.currency, pt.status, pt.gateway_provider AS payment_method,
+            pt.external_id, pt.event_type, pt.consultation_id
+     FROM payment_transactions pt
+     LEFT JOIN patients p ON pt.patient_id IS NOT NULL AND p.tenant_id=pt.tenant_id AND p.id=pt.patient_id::bigint
+     WHERE ${where}
+     ORDER BY pt.created_at DESC`,
+    baseParams
+  );
+  return r.rows;
 }
 
 export async function updatePaymentTransaction(tenantId, id, body) {
