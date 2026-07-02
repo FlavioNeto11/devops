@@ -449,6 +449,11 @@ export function buildRouter({ registry, llm, memory } = {}) {
     }
     res.setHeader('Content-Type', r.contentType);
     res.setHeader('Cache-Control', 'no-store'); // preview é efêmero/iterado — nunca cachear
+    // (E0, Forja 4.1) o middleware secure-headers do Traefik põe X-Frame-Options: DENY em TODAS as
+    // rotas do api — o que bloqueava o IFRAME same-origin do Studio (fase Telas). CSP3 frame-ancestors
+    // OBSOLETA o XFO no browser: com este header presente, o DENY do Traefik é ignorado e o framing
+    // continua restrito à MESMA origem (anti-clickjacking preservado).
+    res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
     return fs.createReadStream(r.file).on('error', () => { try { res.status(404).end(); } catch { /* noop */ } }).pipe(res);
   });
   // sem o sufixo: redireciona p/ a barra final (assets relativos da SPA resolvem corretamente).
