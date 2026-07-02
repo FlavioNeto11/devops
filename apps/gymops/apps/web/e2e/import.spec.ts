@@ -1,8 +1,4 @@
 import { test, expect } from '@playwright/test';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Minimal Trello board fixture for E2E
 const TRELLO_BOARD = {

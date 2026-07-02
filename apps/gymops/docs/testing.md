@@ -176,7 +176,7 @@ pnpm --filter @gymops/web exec playwright test e2e/auth.spec.ts
 
 ### Gaps (Sprint 21)
 
-- **OPS-001**: 🟡 gate implantado (2026-07-02) — E2E + integração de API rodam em `pull_request` pelo workflow **raiz do monorepo** `.github/workflows/ci-gymops-e2e.yml`. Os workflows aninhados deste app (`ci.yml`/`e2e.yml`) são mortos no monorepo (o GitHub só executa workflows da raiz) e ficam como histórico. A 1ª execução real expôs BUG-013 (vitest × prom-client, **corrigido 2026-07-02** — job `integration` verde) e BUG-014 (`import.spec.ts` ESM×CJS, aberto) — o job `e2e` segue vermelho até corrigir o BUG-014 (ver `docs/backlog.md`).
+- **OPS-001**: 🟢 gate implantado (2026-07-02) — E2E + integração de API rodam em `pull_request` pelo workflow **raiz do monorepo** `.github/workflows/ci-gymops-e2e.yml`. Os workflows aninhados deste app (`ci.yml`/`e2e.yml`) são mortos no monorepo (o GitHub só executa workflows da raiz) e ficam como histórico. A 1ª execução real expôs BUG-013 (vitest × prom-client) e BUG-014 (`import.spec.ts` ESM×CJS), **ambos corrigidos em 2026-07-02** — job `integration` verde e coleta do job `e2e` restaurada (50 testes/12 arquivos; ver `docs/backlog.md`).
 - **OPS-002**: ci.yml não compila variante `/gymops` — deploy público pode quebrar sem CI detectar.
 
 ### Estado alvo

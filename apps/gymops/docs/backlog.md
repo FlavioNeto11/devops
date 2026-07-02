@@ -239,10 +239,15 @@
 - **Esforço**: s
 - **Critério de aceite**:
   - `import.spec.ts` sem `import.meta` (em CJS transpilado o `__dirname` global já existe) ou pacote migrado
-    a ESM de forma consciente.
-  - Job `e2e` do `ci-gymops-e2e.yml` (raiz) executa a suite (os resultados dos testes em si são outra história).
+    a ESM de forma consciente. ✅
+  - Job `e2e` do `ci-gymops-e2e.yml` (raiz) executa a suite (os resultados dos testes em si são outra história). ✅
 - **Testes**: o próprio job de CI.
-- **Status**: 🔴 Aberto — bloqueia o gate E2E em PR.
+- **Status**: ✅ Corrigido (2026-07-02) — as linhas `import path` / `import { fileURLToPath }` e o
+  `const __dirname = ...` eram **código morto** (o fixture do board é inline e o upload usa `Buffer.from`;
+  `__dirname`/`path`/`fileURLToPath` nunca eram referenciados). A mera presença de `import.meta` fazia o
+  transpiler do Playwright tratar o arquivo como ESM e emitir `require` num escopo ESM. Removidas as 4
+  linhas mortas. Validado local: `playwright test --list` coleta **50 testes em 12 arquivos** (antes
+  abortava no load). O pass/fail das asserções é provado pelo job `e2e` do CI (ubuntu).
 
 ### FEAT-005 — Integrações: health/reconnect/boards/WhatsApp na UI
 - **Arquivos**: [`apps/web/src/app/(app)/settings/integrations/page.tsx`](../apps/web/src/app/(app)/settings/integrations/page.tsx), [`apps/web/src/lib/admin-api.ts`](../apps/web/src/lib/admin-api.ts) (`integrationsExtApi`)
