@@ -1,3 +1,11 @@
+---
+title: "imobia — Manual para Claude Code"
+status: canonical
+applies_to: [imobia]
+updated: 2026-07-02
+language: pt-BR
+---
+
 # imobia — Ecossistema Imobiliário + IA (Manual para Claude Code)
 
 > Contexto da plataforma: [`../../CLAUDE.md`](../../CLAUDE.md) · fronteiras: [`../../AGENTS.md`](../../AGENTS.md)

@@ -1,3 +1,11 @@
+---
+title: "BESC — Manual para Claude Code"
+status: canonical
+applies_to: [besc]
+updated: 2026-07-02
+language: pt-BR
+---
+
 # BESC — Plataforma de Levantamento BESC Tokenização
 
 > Contexto da plataforma: [`../../CLAUDE.md`](../../CLAUDE.md) · fronteiras: [`../../AGENTS.md`](../../AGENTS.md)
