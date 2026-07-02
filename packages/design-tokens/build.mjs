@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { deriveForgeTokensCss, DEFAULT_BRAND } from './forge-brand.mjs';
+import { renderSicatCss, renderSicatVuetifyTheme } from './renderers/sicat.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(__dirname, '..', '..');
@@ -97,9 +98,24 @@ function render(brandKey) {
   return out.join('\n') + '\n';
 }
 
-// alvos: marcas hand-authored (tokens.json) + apps web gerados (brand.json -> --ui-*)
+// ---- marcas de apps ADOTADOS (brownfield) — OPT-IN explícito por marca ----------------------
+// discoverForgeApps() PULA produtos `origin: adopted` de propósito (frontend pré-Forja com
+// tokens artesanais); a adoção acontece AQUI, com renderer próprio por marca que TRANSCREVE a
+// paleta atual do app (zero mudança visual). Fonte dos valores: tokens.json (brands.<app>).
+function adoptedJobs() {
+  const out = [];
+  if (tokens.brands.sicat) {
+    out.push({ label: 'adopted:sicat (css)', rel: 'apps/sicat/frontend/src/styles/tokens.generated.css', content: renderSicatCss(tokens.brands.sicat) });
+    out.push({ label: 'adopted:sicat (vuetify)', rel: 'apps/sicat/frontend/src/plugins/vuetify-theme.generated.js', content: renderSicatVuetifyTheme(tokens.brands.sicat) });
+  }
+  return out;
+}
+
+// alvos: marcas hand-authored (tokens.json) + marcas adotadas (renderers/) + apps web gerados
+// (brand.json -> --ui-*)
 const jobs = [
   ...Object.entries(TARGETS).map(([brandKey, rel]) => ({ label: brandKey, rel, content: render(brandKey) })),
+  ...adoptedJobs(),
   ...discoverForgeApps().map(({ app, brand, rel }) => ({ label: 'forge:' + app, rel, content: deriveForgeTokensCss(brand) })),
 ];
 
