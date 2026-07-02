@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "97cfd95ed331afee927f8c5c715a7a76051e123057f9fa47727ae07a5623ea96",
+  "baseline_hash": "d5f267861fb22cdf005bf4fee3e85b4ec3dddd1caf1eb85d7e771fe4ac016e00",
   "dimensions": [
     "links",
     "allocation",
@@ -10,21 +10,21 @@
     "refinement"
   ],
   "totals": {
-    "total": 352,
-    "without_links": 295,
+    "total": 368,
+    "without_links": 302,
     "without_allocation": 325,
     "without_source_paths": 0,
-    "without_evidence": 352,
-    "without_verification_method": 334,
-    "without_refinement": 323,
-    "scopes": 19,
+    "without_evidence": 368,
+    "without_verification_method": 350,
+    "without_refinement": 339,
+    "scopes": 20,
     "coverage_pct": {
-      "links": 16.2,
-      "allocation": 7.7,
+      "links": 17.9,
+      "allocation": 11.7,
       "source_paths": 100,
       "evidence": 0,
-      "verification_method": 5.1,
-      "refinement": 8.2
+      "verification_method": 4.9,
+      "refinement": 7.9
     }
   },
   "by_scope": {
@@ -145,6 +145,23 @@
         "evidence": 0,
         "verification_method": 0,
         "refinement": 8.7
+      }
+    },
+    "imobia": {
+      "total": 16,
+      "without_links": 7,
+      "without_allocation": 0,
+      "without_source_paths": 0,
+      "without_evidence": 16,
+      "without_verification_method": 16,
+      "without_refinement": 16,
+      "coverage_pct": {
+        "links": 56.3,
+        "allocation": 100,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 0,
+        "refinement": 0
       }
     },
     "keycloak": {

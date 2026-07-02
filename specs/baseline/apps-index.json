@@ -40,7 +40,7 @@
       "name": "imobia",
       "base_path": "/imobia",
       "app_type": "product_software",
-      "has_product": false
+      "has_product": true
     },
     {
       "name": "neuroevolui",

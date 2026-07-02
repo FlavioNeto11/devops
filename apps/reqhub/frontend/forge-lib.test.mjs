@@ -10,6 +10,7 @@ import {
   mergeLiveProducts, mergeImplItems, forgeStateSig,
   FORGE_MODES, FORGE_MODE_LABELS, normalizeForgeMode, modeCopy,
   projectRequirementCard, forgeReqObject, buildLaunchBody,
+  briefFromPortalContract, externalContractRef, suggestIntegrationBlock, CAPTURE_BRIEF_MAX_ENDPOINTS,
 } from './assets/forge-lib.js';
 
 const implStatus = {
@@ -459,3 +460,115 @@ test('forgeStateSig: determinística e sensível a origem/progresso', () => {
   assert.equal(a, forgeStateSig([{ name: 'x', reqCount: 2, progress: { done: 1, pct: 50 }, origin: 'greenfield' }]));
 });
 
+
+// ---------- (E2, Forja 4.1) captura de portal como entrada da Forja ----------
+// Export canônico de exemplo (formato do portal-recorder: manifest + endpoints, SEM samples).
+const CAPTURE_EXPORT = {
+  manifest: {
+    portal: 'cetesb-mtr', base_url: 'https://mtr.cetesb.sp.gov.br', version: '2026-07-01',
+    endpoint_count: 4, content_hash: 'sha256:abc123', redaction_policy: 'business-sensitive-v1',
+  },
+  endpoints: [
+    { id: 'e1', group: 'manifesto', method: 'GET', path_template: '/api/manifesto/{id}', auth: { required: true }, requires_captcha: false },
+    { id: 'e2', group: 'manifesto', method: 'POST', path_template: '/api/manifesto', auth: { required: true }, requires_captcha: false },
+    { id: 'e3', group: 'auth', method: 'POST', path_template: '/api/login', auth: { required: false }, requires_captcha: true },
+    { id: 'e4', group: 'parceiro', method: 'GET', path_template: '/api/parceiro', auth: { required: true }, requires_captcha: false },
+  ],
+};
+
+test('briefFromPortalContract: deriva brief com portal, entidades, fluxos e endpoints', () => {
+  const brief = briefFromPortalContract(CAPTURE_EXPORT);
+  assert.match(brief, /"cetesb-mtr"/, 'nome do portal');
+  assert.match(brief, /https:\/\/mtr\.cetesb\.sp\.gov\.br/, 'base_url');
+  assert.match(brief, /4 endpoint\(s\)/, 'contagem de endpoints');
+  assert.match(brief, /Entidades\/áreas observadas \(3\): auth, manifesto, parceiro\./, 'grupos = entidades, ordenados');
+  assert.match(brief, /Fluxos: 2 consulta\(s\) e 2 operação\(ões\) de escrita\./, 'leitura × escrita');
+  assert.match(brief, /3 endpoint\(s\) exigem autenticação\./, 'auth agregado');
+  assert.match(brief, /1 exigem captcha\./, 'captcha agregado');
+  assert.match(brief, /GET \/api\/manifesto\{id\}|GET \/api\/manifesto\/\{id\}/, 'endpoint listado');
+  assert.match(brief, /POST \/api\/login\s.*\[captcha\]/, 'flag [captcha] no endpoint');
+  assert.match(brief, /GET \/api\/parceiro \[auth\]/, 'flag [auth] no endpoint');
+  assert.doesNotMatch(brief, /sample|payload de exemplo anexado/i, 'nunca menciona samples como conteúdo');
+});
+
+test('briefFromPortalContract: sugere o bloco de integração quando informado (opts.integrationBlock)', () => {
+  const withBlock = briefFromPortalContract(CAPTURE_EXPORT, { integrationBlock: 'gateway-externo' });
+  assert.match(withBlock, /Capacidade sugerida: inclua o bloco "gateway-externo"/);
+  const without = briefFromPortalContract(CAPTURE_EXPORT);
+  assert.doesNotMatch(without, /Capacidade sugerida/);
+});
+
+test('briefFromPortalContract: trunca a lista no teto e aponta o restante para o anexo', () => {
+  const many = {
+    manifest: { portal: 'p', version: 'v', content_hash: 'sha256:x' },
+    endpoints: Array.from({ length: CAPTURE_BRIEF_MAX_ENDPOINTS + 7 }, (_, i) => ({
+      id: 'e' + i, group: 'g', method: 'GET', path_template: '/api/x/' + i, auth: { required: false },
+    })),
+  };
+  const brief = briefFromPortalContract(many);
+  const listed = (brief.match(/^ {2}- GET /gm) || []).length;
+  assert.equal(listed, CAPTURE_BRIEF_MAX_ENDPOINTS, 'lista exatamente o teto');
+  assert.match(brief, /… e mais 7 endpoint\(s\) no contrato anexo\./);
+});
+
+test('briefFromPortalContract: fail-soft — export inutilizável vira string vazia', () => {
+  assert.equal(briefFromPortalContract(null), '');
+  assert.equal(briefFromPortalContract({}), '');
+  assert.equal(briefFromPortalContract({ manifest: { portal: 'p' }, endpoints: [] }), '', 'sem endpoints');
+  assert.equal(briefFromPortalContract({ manifest: {}, endpoints: [{ method: 'GET' }] }), '', 'sem portal');
+  assert.equal(briefFromPortalContract('string'), '');
+});
+
+test('externalContractRef: referência {portal, contract_version, content_hash} do manifest', () => {
+  assert.deepEqual(externalContractRef(CAPTURE_EXPORT),
+    { portal: 'cetesb-mtr', contract_version: '2026-07-01', content_hash: 'sha256:abc123' });
+  assert.equal(externalContractRef(null), null);
+  assert.equal(externalContractRef({ manifest: { portal: 'p' } }), null, 'sem content_hash -> null');
+  assert.equal(externalContractRef({ manifest: { content_hash: 'sha256:x' } }), null, 'sem portal -> null');
+  // version ausente degrada para '' (não quebra o carimbo)
+  assert.deepEqual(externalContractRef({ manifest: { portal: 'p', content_hash: 'sha256:x' } }),
+    { portal: 'p', contract_version: '', content_hash: 'sha256:x' });
+});
+
+test('suggestIntegrationBlock: prefere gateway-externo; fallback categoria integration; null sem opção', () => {
+  const catalog = [
+    { id: 'camadas-rigidas', category: 'foundation' },
+    { id: 'gateway-externo', category: 'integration' },
+    { id: 'outro-integ', category: 'integration' },
+  ];
+  assert.equal(suggestIntegrationBlock(catalog), 'gateway-externo');
+  assert.equal(suggestIntegrationBlock([{ id: 'outro-integ', category: 'integration' }]), 'outro-integ', 'fallback declarativo por categoria');
+  assert.equal(suggestIntegrationBlock([{ id: 'camadas-rigidas', category: 'foundation' }]), null);
+  assert.equal(suggestIntegrationBlock([]), null);
+  assert.equal(suggestIntegrationBlock(undefined), null);
+});
+
+test('buildLaunchBody: externalContract carimba architecture.external_contract (retrocompat sem ele)', () => {
+  const base = {
+    product: 'meu-mtr', displayName: 'Meu MTR', blueprint: 'node-api-vue-spa', brief: 'b', mode: 'pr',
+    requirements: [{ title: 'T', statement: 'S' }],
+    architecture: { stack: 'sicat', selected_blocks: [{ id: 'gateway-externo' }], adrs: [], waves: [] },
+  };
+  const withEc = buildLaunchBody({ ...base, externalContract: externalContractRef(CAPTURE_EXPORT) });
+  assert.deepEqual(withEc.architecture.external_contract,
+    { portal: 'cetesb-mtr', contract_version: '2026-07-01', content_hash: 'sha256:abc123' });
+  // sem externalContract o payload NEM tem o campo (idêntico ao pré-E2, byte a byte)
+  const withoutEc = buildLaunchBody(base);
+  assert.ok(!('external_contract' in withoutEc.architecture));
+  // externalContract inválido (sem portal) é ignorado — nunca carimba lixo
+  const junk = buildLaunchBody({ ...base, externalContract: { content_hash: 'x' } });
+  assert.ok(!('external_contract' in junk.architecture));
+  // e o resto do payload permanece igual nos três casos
+  const strip = (b) => { const { architecture, ...rest } = b; return rest; };
+  assert.deepEqual(strip(withEc), strip(withoutEc));
+});
+
+test('modeCopy: cartão de captura projeta pelos 3 modos (copy distinta por modo)', () => {
+  const titles = FORGE_MODES.map((m) => modeCopy(m, 'fork.capture.title'));
+  assert.equal(new Set(titles).size, 3, 'títulos distintos por modo');
+  assert.match(modeCopy('simples', 'fork.capture.title'), /sistema que você já usa/i);
+  assert.match(modeCopy('guiado', 'fork.capture.title'), /portal capturado/i);
+  assert.match(modeCopy('profissional', 'fork.capture.foot'), /\/portal-rec\/api\/v1\/contracts/);
+  // modo desconhecido cai no guiado (regra geral do MODE_COPY)
+  assert.equal(modeCopy('???', 'fork.capture.desc'), modeCopy('guiado', 'fork.capture.desc'));
+});

@@ -1,10 +1,10 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "97cfd95ed331afee927f8c5c715a7a76051e123057f9fa47727ae07a5623ea96",
+  "baseline_hash": "d5f267861fb22cdf005bf4fee3e85b4ec3dddd1caf1eb85d7e771fe4ac016e00",
   "counts": {
-    "total": 352,
+    "total": 368,
     "by_status": {
-      "deployed": 300,
+      "deployed": 316,
       "done": 52
     },
     "refinements": {
@@ -845,6 +845,102 @@
       "req_revision": 1,
       "deployed_at": "2026-06-15",
       "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-0001": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-0002": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-0003": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-0004": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-0005": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-0006": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-0007": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-0008": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-0009": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-0010": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-0011": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-0012": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-NFR-0001": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-NFR-0002": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-NFR-0003": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-NFR-0004": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
     },
     "REQ-KEYCLOAK-0001": {
       "status": "deployed",
