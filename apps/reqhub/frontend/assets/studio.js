@@ -14,7 +14,8 @@ import {
   FORGE_MODES, FORGE_MODE_KEY, FORGE_MODE_LABELS, normalizeForgeMode, modeCopy,
   projectRequirementCard, forgeReqObject, buildLaunchBody,
   briefFromPortalContract, externalContractRef, suggestIntegrationBlock,
-} from './forge-lib.js?v=57';
+  isT1Product, embedConsoleUrl, publishedSiteUrl, parseEmbedMessage,
+} from './forge-lib.js?v=58';
 // (E1, Forja 4.1) deep-links canônicos da casca global (mesma cópia codegen-synced que o
 // index.html carrega — manter o ?v= IGUAL ao do <script> para não duplicar o módulo).
 import { surfaceLink } from './platform-shell.js?v=45';
@@ -206,6 +207,7 @@ function ensureForgePolling() {
 function renderForge() {
   ensureForgePolling();
   void refreshForgeState(false);
+  conteudoCleanup(); // (E4) listener/timer da fase Conteúdo não sobrevive a um re-render
   const body = document.getElementById('forge-body');
   body.replaceChildren();
   // (E1) reflete o contexto de produto na casca em TODOS os caminhos de entrada — inclusive o
@@ -266,12 +268,16 @@ function renderForgeHub(body) {
   const cards = h('div', { class: 'forge-cards' });
   for (const p of shown) {
     const live = p.progress.pct === 100 && p.progress.total > 0;
-    const card = h('button', { class: 'forge-card', type: 'button', 'aria-label': `${p.display_name}: ${p.progress.live} de ${p.reqCount} requisitos no ar (${p.progress.pct}%)`, onclick: () => openForgeProduct(p.name) },
+    // (E4) produto t1 (portal de conteúdo): sem requisitos/esteira — contadores de REQ mentiriam.
+    const t1 = p.app_type === 'cms_portal';
+    const card = h('button', { class: 'forge-card', type: 'button', 'aria-label': t1 ? `${p.display_name}: portal de conteúdo (CMS)` : `${p.display_name}: ${p.progress.live} de ${p.reqCount} requisitos no ar (${p.progress.pct}%)`, onclick: () => openForgeProduct(p.name) },
       h('div', { class: 'forge-card-top' }, h('span', { class: 'forge-card-name', text: p.display_name }), h('span', { class: 'forge-card-path', text: p.base_path })),
       p.blueprint ? h('span', { class: 'forge-card-bp', text: p.blueprint }) : null,
       h('p', { class: 'forge-card-vision', text: p.vision || 'Sem descrição.' }),
-      h('div', { class: 'forge-card-foot' }, h('span', { class: 'muted', text: `${p.progress.live}/${p.reqCount} no ar` }), badge(live ? 'no ar' : (cat(p) === 'new' ? 'não iniciado' : 'em construção'), live ? 'b-ok' : (cat(p) === 'new' ? 'b-low' : 'b-high'))),
-      progressBar(p.progress.pct));
+      t1
+        ? h('div', { class: 'forge-card-foot' }, h('span', { class: 'muted', text: 'conteúdo no CMS' }), badge('portal de conteúdo', 'b-nfr'))
+        : h('div', { class: 'forge-card-foot' }, h('span', { class: 'muted', text: `${p.progress.live}/${p.reqCount} no ar` }), badge(live ? 'no ar' : (cat(p) === 'new' ? 'não iniciado' : 'em construção'), live ? 'b-ok' : (cat(p) === 'new' ? 'b-low' : 'b-high'))),
+      t1 ? null : progressBar(p.progress.pct));
     cards.append(card);
   }
   if (!shown.length) cards.append(h('p', { class: 'empty', text: 'Nenhum produto neste filtro.' }));
@@ -463,7 +469,7 @@ function renderForgePortalTrail(body) {
       h('li', {}, h('span', { class: 'lt', text: '3' }), 'Edite visualmente (clique-para-editar, arrastar seções, mídia) e publique — o portal fica em /sites/<chave>.')),
     h('div', { class: 'fw-actions' },
       h('a', { class: 'btn primary', href: '/devops/#conteudo?novo=1', target: '_blank', rel: 'noopener', text: '✦ Criar portal no editor visual ↗' })),
-    h('p', { class: 'muted small', text: 'Registro do portal como produto (tier onepage) na base de requisitos chega com o catálogo v2 — aí ele aparece neste hub como os demais.' }));
+    h('p', { class: 'muted small', text: 'Portal registrado como produto t1 (specs/products/<chave>, blueprint cms-portal) aparece neste hub com o trilho reduzido Brief → Conteúdo → Publicação — a fase Conteúdo embute este mesmo editor.' }));
   body.append(sec);
 }
 
@@ -483,7 +489,8 @@ function renderForgeDetail(body, name) {
   const buildPlan = DATA.buildPlans[name] || null;
   // TRILHO de 7 fases (A1b): sinais assíncronos (preview/sonda) vêm do cache fail-soft — a primeira
   // renderização usa o que há; quando o fetch resolve, re-renderiza com o dado real.
-  const pv = forgePreviewCached(name);
+  // (E4) produto t1 não tem preview de telas (o executor é o CMS) — pula a consulta.
+  const pv = isT1Product(product) ? null : forgePreviewCached(name);
   const live = forgeLiveCached(product);
   const steps = studioPhaseModel(product, buildPlan, DATA.implStatus, {
     previewStatus: pv ? pv.status : null,
@@ -533,6 +540,7 @@ function renderForgeDetail(body, name) {
   else if (state.forge.step === 'requisitos') forgeDefinir(panel, product);
   else if (state.forge.step === 'arquitetura') forgeArquitetura(panel, product, buildPlan);
   else if (state.forge.step === 'telas') forgeTelas(panel, product);
+  else if (state.forge.step === 'conteudo') forgeConteudo(panel, product); // (E4) só no trilho t1
   else if (state.forge.step === 'docs') forgeDocs(panel, product, buildPlan);
   else if (state.forge.step === 'publicado') forgePublicado(panel, product);
   else forgeBuild(panel, product, buildPlan);
@@ -691,6 +699,102 @@ function forgeTelas(panel, product) {
       h('button', { class: 'btn', type: 'button', text: 'Reconsultar', onclick: () => { forgeInvalidatePreview(product.name); renderForge(); } })));
     sec.append(h('p', { class: 'muted small', text: 'A IA propõe o inventário a partir dos requisitos do produto e o runner constrói uma SPA navegável com componentes ui-vue reais e dados fake.' }));
   }
+  panel.append(sec);
+}
+
+/* ---------- (E4, Forja 4.1) fase CONTEÚDO do trilho t1: o editor do CMS EMBUTIDO ----------
+   Dois iframes alternáveis (tabs): "Editar" = Console em modo embed (/devops/?embed=1#conteudo
+   ?projeto=<key>, mesma origem — o nginx do Console responde `frame-ancestors 'self'` SÓ no
+   documento do embed, anulando o X-Frame-Options: DENY do Traefik, padrão provado no E0) e
+   "Ver no ar" = o site publicado (/sites/<chave>, rota que por design não tem frameDeny).
+   O embed anuncia embed:ready/embed:navigate por postMessage (payload validado por
+   parseEmbedMessage + ORIGEM checada aqui) — vira estado de loading/erro FAIL-SOFT: sem
+   resposta em 15s, degrada com o deep-link do Console (o caminho A4 continua existindo). */
+let _conteudoMsg = null;   // listener de message ativo (um por render; removido em conteudoCleanup)
+let _conteudoTimer = null; // timeout do fail-soft de carregamento do embed
+function conteudoCleanup() {
+  if (_conteudoMsg) { window.removeEventListener('message', _conteudoMsg); _conteudoMsg = null; }
+  if (_conteudoTimer) { clearTimeout(_conteudoTimer); _conteudoTimer = null; }
+}
+function forgeConteudo(panel, product) {
+  conteudoCleanup();
+  const key = product.name;
+  const editUrl = sameOriginUrl(embedConsoleUrl(key));
+  const liveUrl = sameOriginUrl(publishedSiteUrl(product));
+  const consoleDeepLink = '/devops/#conteudo?projeto=' + encodeURIComponent(key);
+  const sec = h('div', { class: 'forge-section' });
+  sec.append(h('h3', { text: 'Conteúdo do portal' }),
+    h('p', { class: 'muted', text: 'Páginas e seções são editadas no CMS da plataforma — aqui mesmo, sem sair do Studio. A aba "Ver no ar" mostra o site publicado como o público vê.' }));
+
+  const status = h('p', { class: 'muted small', role: 'status', 'aria-live': 'polite' });
+  const editFrame = h('iframe', { class: 'forge-embed-frame', title: 'Editor de conteúdo (CMS) de ' + (product.display_name || key) });
+  const liveFrame = h('iframe', { class: 'forge-embed-frame', title: 'Site publicado de ' + (product.display_name || key), loading: 'lazy', hidden: 'hidden' });
+
+  // fail-soft do embed: pronto = mensagem embed:ready do Console; sem ela em 15s, degrada
+  let ready = false;
+  const showLoading = () => status.replaceChildren(h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' Carregando o editor embutido…');
+  const showFallback = () => status.replaceChildren(
+    badge('editor embutido sem resposta', 'b-crit'),
+    ' O Console pode estar fora do ar ou pedindo login. ',
+    h('a', { class: 'btn-link', href: consoleDeepLink, target: '_blank', rel: 'noopener', text: 'abrir no Console ↗' }), ' · ',
+    h('button', { class: 'btn-link', type: 'button', text: '↻ tentar de novo', onclick: () => { ready = false; showLoading(); armTimeout(); editFrame.setAttribute('src', editUrl); } }));
+  const armTimeout = () => {
+    if (_conteudoTimer) clearTimeout(_conteudoTimer);
+    _conteudoTimer = setTimeout(() => { if (!ready && status.isConnected) showFallback(); }, 15000);
+  };
+  _conteudoMsg = (ev) => {
+    if (ev.origin !== location.origin) return; // só a MESMA origem (embed same-origin)
+    const m = parseEmbedMessage(ev.data);
+    if (!m || !status.isConnected) return;
+    if (m.type === 'embed:ready') {
+      ready = true;
+      if (_conteudoTimer) { clearTimeout(_conteudoTimer); _conteudoTimer = null; }
+      status.replaceChildren('Editor pronto ✓ — as mudanças publicadas aparecem na aba "Ver no ar".');
+    } else if (m.type === 'embed:navigate' && m.projeto) {
+      status.replaceChildren('Editando: ', h('code', { text: m.projeto }),
+        m.projeto === key ? '' : ' — atenção: este é OUTRO portal (o deste produto é ' + key + ').');
+    }
+  };
+  window.addEventListener('message', _conteudoMsg);
+
+  // tabs "Editar" × "Ver no ar" (mesmo padrão de radiogroup/roving-tabindex do seletor de modos)
+  const TABS = [
+    { id: 'editar', label: 'Editar', frame: editFrame, url: editUrl },
+    { id: 'no-ar', label: 'Ver no ar', frame: liveFrame, url: liveUrl },
+  ];
+  let active = 'editar';
+  const tabs = h('div', { class: 'forge-embed-tabs', role: 'tablist', 'aria-label': 'Conteúdo do portal' });
+  const paint = () => {
+    for (const t of TABS) {
+      const on = t.id === active;
+      t.btn.classList.toggle('is-on', on);
+      t.btn.setAttribute('aria-selected', on ? 'true' : 'false');
+      t.btn.tabIndex = on ? 0 : -1;
+      if (on && t.url && !t.frame.getAttribute('src')) t.frame.setAttribute('src', t.url); // lazy: só carrega ao abrir
+      t.frame.hidden = !on;
+    }
+  };
+  TABS.forEach((t, i) => {
+    t.btn = h('button', {
+      class: 'forge-embed-tab', type: 'button', role: 'tab', 'aria-selected': 'false',
+      onclick: () => { active = t.id; paint(); },
+      onkeydown: (ev) => {
+        let j = null;
+        if (ev.key === 'ArrowRight' || ev.key === 'ArrowDown') j = (i + 1) % TABS.length;
+        else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowUp') j = (i - 1 + TABS.length) % TABS.length;
+        if (j != null) { ev.preventDefault(); active = TABS[j].id; paint(); TABS[j].btn.focus(); }
+      },
+    }, t.label);
+    tabs.append(t.btn);
+  });
+  const actions = h('div', { class: 'fw-actions forge-embed-actions' }, tabs,
+    liveUrl ? h('a', { class: 'btn-link', href: liveUrl, target: '_blank', rel: 'noopener', text: 'abrir o site em nova aba ↗' }) : null,
+    h('a', { class: 'btn-link', href: consoleDeepLink, target: '_blank', rel: 'noopener', text: 'abrir no Console ↗' }));
+
+  sec.append(actions, status);
+  if (editUrl) { showLoading(); armTimeout(); } else showFallback();
+  sec.append(editFrame, liveFrame);
+  paint();
   panel.append(sec);
 }
 

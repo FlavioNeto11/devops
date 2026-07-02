@@ -10,7 +10,7 @@
       "name": "anarabottini",
       "base_path": "/anarabottini",
       "app_type": "cms_portal",
-      "has_product": false
+      "has_product": true
     },
     {
       "name": "besc",
