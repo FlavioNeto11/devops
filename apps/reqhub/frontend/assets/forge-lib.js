@@ -198,6 +198,63 @@ export function phaseModel(product, buildPlan, implStatus) {
 }
 
 /**
+ * TRILHO do Product Studio (A1b, Forja 4.0) — 7 fases do produto:
+ * Brief → Requisitos → Arquitetura → Telas → Documentação → Pipeline → Publicação.
+ * Puro e determinístico; sinais assíncronos entram por `extra` (fail-soft):
+ *   extra.previewStatus: 'ready'|'building'|'error'|'absent'|null (null = desconhecido)
+ *   extra.previewScreens: nº de telas do preview (quando ready)
+ *   extra.liveUrlOk: boolean|null — sonda da URL final (null = não sondada; só REBAIXA quando false)
+ * Mesma regra do phaseModel: exatamente uma fase 'current' (a primeira não concluída).
+ */
+export const STUDIO_PHASE_KEYS = ['brief', 'requisitos', 'arquitetura', 'telas', 'docs', 'pipeline', 'publicado'];
+export function studioPhaseModel(product, buildPlan, implStatus, extra) {
+  const x = extra || {};
+  const phases = (product && product.phases) || {};
+  const reqIds = (product && product.requirement_ids) || [];
+  const prog = weightedProgress(reqIds, implStatus);
+  const nWaves = ((buildPlan && buildPlan.waves) || []).length;
+  const archApproved = (phases.architecture && phases.architecture.status) === 'approved';
+  const hasBrief = !!String((product && (product.vision || product.brief)) || '').trim();
+  const preview = x.previewStatus || null;
+  // docs renderizáveis = há o que documentar (visão + requisitos ou arquitetura) — a fase Docs
+  // compõe o que JÁ existe (product/build-plan/baseline); não depende de artefato novo.
+  const docsReady = hasBrief && (reqIds.length > 0 || archApproved || nWaves > 0);
+  const pipelineDone = prog.total > 0 && prog.pct === 100;
+  const done = {
+    brief: hasBrief,
+    requisitos: ((phases.requirements && phases.requirements.status) === 'approved') && reqIds.length > 0,
+    arquitetura: archApproved,
+    telas: preview === 'ready',
+    docs: docsReady,
+    pipeline: pipelineDone,
+    publicado: pipelineDone && x.liveUrlOk !== false,
+  };
+  const archDetail = (buildPlan && nWaves) ? `${nWaves} wave(s) · plano ${buildPlan.status || 'proposed'}`
+    : (archApproved ? 'arquitetura aprovada' : 'sem plano de build');
+  const telasDetail = preview === 'ready' ? (x.previewScreens ? `${x.previewScreens} tela(s) navegáveis` : 'preview pronto')
+    : preview === 'building' ? 'gerando preview…'
+      : preview === 'error' ? 'preview com erro'
+        : preview === 'absent' ? 'sem preview' : 'preview não consultado';
+  const meta = {
+    brief: { label: 'Brief', detail: hasBrief ? 'visão registrada' : 'sem visão/brief' },
+    requisitos: { label: 'Requisitos', detail: reqIds.length ? `${reqIds.length} requisito(s)` : 'sem requisitos' },
+    arquitetura: { label: 'Arquitetura', detail: archDetail },
+    telas: { label: 'Telas', detail: telasDetail },
+    docs: { label: 'Documentação', detail: docsReady ? 'gerada do produto' : 'aguardando visão/requisitos' },
+    pipeline: { label: 'Pipeline', detail: `${prog.live}/${prog.total} no ar · ${prog.pct}%` },
+    publicado: { label: 'Publicação', detail: pipelineDone ? (x.liveUrlOk === false ? 'URL fora do ar!' : 'no ar') : 'aguardando o pipeline…' },
+  };
+  let currentAssigned = false;
+  return STUDIO_PHASE_KEYS.map((k) => {
+    let status;
+    if (done[k]) status = 'done';
+    else if (!currentAssigned) { status = 'current'; currentAssigned = true; }
+    else status = 'todo';
+    return { key: k, label: meta[k].label, detail: meta[k].detail, status };
+  });
+}
+
+/**
  * DAG de build a partir das waves: nós = requisitos (com wave e status), arestas
  * conectam cada requisito aos da wave imediatamente anterior (ordem do build-plan,
  * que já é topologicamente ordenada). Determinístico e puro.

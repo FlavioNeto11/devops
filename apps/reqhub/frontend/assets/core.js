@@ -5,7 +5,7 @@
 import { productGrounding, systemContext, filterCitations } from './lib.js?v=42';
 
 export const SVGNS = 'http://www.w3.org/2000/svg';
-export const state = { view: 'explorer', filters: {}, q: '', selectedId: null, impactFilter: { type: '', product: '', focus: false }, editId: null, editor: null, devFilter: { status: '', product: '' }, reproFilter: { reason: '' }, forge: { product: null, step: 'definir', filter: 'all' }, me: null, aiUsage: { window: '30d', es: null, liveState: 'off', reconnectMs: 1000, reconnectTimer: null, lastBreakdown: null } };
+export const state = { view: 'explorer', filters: {}, q: '', selectedId: null, impactFilter: { type: '', product: '', focus: false }, editId: null, editor: null, devFilter: { status: '', product: '' }, reproFilter: { reason: '' }, forge: { product: null, step: null, filter: 'all' }, me: null, aiUsage: { window: '30d', es: null, liveState: 'off', reconnectMs: 1000, reconnectTimer: null, lastBreakdown: null } };
 export const DATA = { baseline: null, impact: null, retrieval: null, history: null, registry: null, embeddings: null, implStatus: null, coverage: null, products: null, blueprints: null, buildPlans: {} };
 
 // Registry de NAVEGAÇÃO (late-binding): app.js faz Object.assign(nav, {...}) em init(), antes do

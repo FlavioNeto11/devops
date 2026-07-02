@@ -8,7 +8,7 @@ import {
 } from './core.js?v=1';
 import { findSimilarReqs, forceLayout, toYaml, truncateLabel } from './lib.js?v=42';
 import {
-  productSummaries, findProduct, blueprintById, phaseModel, buildDag, dagFromWaves, wavesFromProgress,
+  productSummaries, findProduct, blueprintById, studioPhaseModel, buildDag, dagFromWaves, wavesFromProgress,
   weightedProgress, launchPhases, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint,
   typeLabel, asList, planSummary,
 } from './forge-lib.js?v=54';
@@ -38,7 +38,9 @@ function openForgeProduct(name) {
   const reqIds = (product && product.requirement_ids) || [];
   const items = (DATA.implStatus && DATA.implStatus.items) || {};
   const started = reqIds.some((id) => items[id] && items[id].status && items[id].status !== 'not_started');
-  state.forge.step = (started || DATA.buildPlans[name]) ? 'build' : 'definir';
+  // Fase inicial do TRILHO: produto em construção/no ar abre no Pipeline; novo abre na primeira
+  // fase pendente (null = resolvido pelo renderForgeDetail via studioPhaseModel).
+  state.forge.step = (started || DATA.buildPlans[name]) ? 'pipeline' : null;
   switchView('forge'); document.getElementById('tab-forge').focus();
   if (name && DATA.buildPlans[name] === undefined) loadBuildPlan(name).then(() => { if (state.view === 'forge' && state.forge.product === name) renderForge(); });
 }
@@ -190,15 +192,30 @@ function renderForgeDetail(body, name) {
   const product = findProduct(DATA.products, name);
   if (!product) { body.append(forgeCrumbs([{ label: 'Produtos', onclick: backToHub }, { label: name }]), h('p', { class: 'empty', text: 'Produto não encontrado.' })); return; }
   const buildPlan = DATA.buildPlans[name] || null;
-  const steps = phaseModel(product, buildPlan, DATA.implStatus);
+  // TRILHO de 7 fases (A1b): sinais assíncronos (preview/sonda) vêm do cache fail-soft — a primeira
+  // renderização usa o que há; quando o fetch resolve, re-renderiza com o dado real.
+  const pv = forgePreviewCached(name);
+  const live = forgeLiveCached(product);
+  const steps = studioPhaseModel(product, buildPlan, DATA.implStatus, {
+    previewStatus: pv ? pv.status : null,
+    previewScreens: pv && Array.isArray(pv.screens) ? pv.screens.length : 0,
+    liveUrlOk: live,
+  });
+  // migração de chaves antigas (estado transitório de sessões/execuções anteriores)
+  const LEGACY_STEP = { definir: 'requisitos', build: 'pipeline' };
+  if (LEGACY_STEP[state.forge.step]) state.forge.step = LEGACY_STEP[state.forge.step];
+  // sem fase escolhida -> abre na fase 'current' (a primeira pendente)
+  if (!steps.some((s) => s.key === state.forge.step)) state.forge.step = (steps.find((s) => s.status === 'current') || steps[0]).key;
   const cur = steps.find((s) => s.key === state.forge.step) || steps[0];
-  const labels = { definir: 'Definir', arquitetura: 'Arquitetura', build: 'Build' };
-  body.append(forgeCrumbs([{ label: 'Produtos', onclick: backToHub }, { label: product.display_name || name, onclick: null }, { label: labels[state.forge.step] }]));
+  body.append(forgeCrumbs([{ label: 'Produtos', onclick: backToHub }, { label: product.display_name || name, onclick: null }, { label: cur.label }]));
+  const liveUrl = sameOriginUrl(product.base_path ? product.base_path + '/' : '');
   body.append(h('div', { class: 'forge-detail-head' }, h('h2', { text: product.display_name || name }),
-    product.blueprint ? badge(product.blueprint, 'b-nfr') : null, badge(product.base_path, 'b-low')));
+    product.blueprint ? badge(product.blueprint, 'b-nfr') : null,
+    liveUrl && live === true ? h('a', { class: 'btn-link', href: liveUrl, target: '_blank', rel: 'noopener', text: product.base_path + ' ↗' }) : badge(product.base_path, 'b-low'),
+    product.origin === 'adopted' ? badge('adotado', 'b-nfr') : null));
 
-  // stepper de fases (clicável, com estados reais)
-  const stepper = h('div', { class: 'forge-stepper', role: 'tablist', 'aria-label': 'Fases do Forge' });
+  // stepper/trilho de fases (clicável, com estados reais)
+  const stepper = h('div', { class: 'forge-stepper', role: 'tablist', 'aria-label': 'Fases do produto no Studio' });
   const keys = steps.map((s) => s.key);
   steps.forEach((s, i) => {
     if (i) stepper.append(h('span', { class: 'forge-step-conn', 'aria-hidden': 'true' }));
@@ -218,14 +235,170 @@ function renderForgeDetail(body, name) {
   });
   body.append(stepper);
 
-  const panel = h('div', { class: 'forge-panel' + (state.forge.step !== 'definir' ? ' two' : '') });
-  if (state.forge.step === 'definir') forgeDefinir(panel, product);
+  const TWO_COL = ['arquitetura', 'pipeline'];
+  const panel = h('div', { class: 'forge-panel' + (TWO_COL.includes(state.forge.step) ? ' two' : '') });
+  if (state.forge.step === 'brief') forgeBrief(panel, product);
+  else if (state.forge.step === 'requisitos') forgeDefinir(panel, product);
   else if (state.forge.step === 'arquitetura') forgeArquitetura(panel, product, buildPlan);
+  else if (state.forge.step === 'telas') forgeTelas(panel, product);
+  else if (state.forge.step === 'docs') forgeDocs(panel, product, buildPlan);
+  else if (state.forge.step === 'publicado') forgePublicado(panel, product);
   else forgeBuild(panel, product, buildPlan);
   body.append(panel);
 
-  // Zona de risco: apagar o projeto (só p/ produtos NÃO protegidos; o backend reforça a denylist).
-  if (!FORGE_PROTECTED.includes(name)) body.append(forgeDangerZone(name));
+  // Zona de risco: apagar o projeto (só p/ produtos NÃO protegidos/adotados; o backend reforça a denylist).
+  if (!FORGE_PROTECTED.includes(name) && product.origin !== 'adopted') body.append(forgeDangerZone(name));
+}
+
+/* ---------- sinais assíncronos do trilho (cache fail-soft por produto) ---------- */
+// Preview F3: consulta 1x por produto por sessão (re-consulta explícita via botão na fase Telas).
+const _previewCache = {};
+function forgePreviewCached(name) {
+  const c = _previewCache[name];
+  if (c !== undefined) return c; // null = consulta em voo/erro; objeto = status real
+  _previewCache[name] = null;
+  AI.get('/v1/forge/preview/status?product=' + encodeURIComponent(name)).then((r) => {
+    _previewCache[name] = r.ok ? (r.data || { status: 'absent' }) : { status: 'absent' };
+    if (state.view === 'forge' && state.forge.product === name) renderForge();
+  }).catch(() => { _previewCache[name] = { status: 'absent' }; });
+  return null;
+}
+function forgeInvalidatePreview(name) { delete _previewCache[name]; }
+// Sonda da URL final (fail-soft): true/false/null(desconhecido). GET same-origin sem cache.
+const _liveCache = {};
+function forgeLiveCached(product) {
+  const name = product.name;
+  const url = sameOriginUrl(product.base_path ? product.base_path + '/' : '');
+  if (!url) return null;
+  const c = _liveCache[name];
+  if (c !== undefined) return c;
+  _liveCache[name] = null;
+  fetch(url, { cache: 'no-store', redirect: 'follow' }).then((r) => {
+    _liveCache[name] = !!r.ok;
+    if (state.view === 'forge' && state.forge.product === name) renderForge();
+  }).catch(() => { _liveCache[name] = false; });
+  return null;
+}
+
+/* ---------- fase BRIEF: a intenção do produto (visão, blueprint, origem) ---------- */
+function forgeBrief(panel, product) {
+  const sec = h('div', { class: 'forge-section' });
+  sec.append(h('h3', { text: 'Visão do produto' }), h('p', { class: 'forge-vision', text: product.vision || 'Sem visão registrada — o brief nasce no wizard (Novo produto) ou em specs/products/' + product.name + '/product.json.' }));
+  if (product.brief && product.brief !== product.vision) sec.append(h('h3', { text: 'Brief original' }), h('p', { class: 'muted', text: product.brief }));
+  const dl = h('dl', { class: 'forge-bp-stack' });
+  dl.append(dt('Slug'), dd(h('code', { text: product.name })));
+  if (product.blueprint) dl.append(dt('Blueprint'), dd(h('code', { text: product.blueprint })));
+  dl.append(dt('Rota'), dd(h('code', { text: product.base_path || '/' + product.name })));
+  if (product.origin) dl.append(dt('Origem'), dd(product.origin === 'adopted' ? 'adotado (app existente que virou produto da Forja)' : product.origin));
+  const ph = product.phases || {};
+  const phLabel = { requirements: 'Requisitos', architecture: 'Arquitetura', scaffold: 'Scaffold', build: 'Build' };
+  for (const [k, v] of Object.entries(ph)) if (v && v.status) dl.append(dt(phLabel[k] || k), dd(badge(v.status, v.status === 'approved' || v.status === 'done' ? 'b-ok' : 'b-med')));
+  sec.append(h('h3', { text: 'Identidade' }), dl);
+  panel.append(sec);
+}
+
+/* ---------- fase TELAS: preview F3 persistente (status + navegação; refino chega na A2) ---------- */
+function forgeTelas(panel, product) {
+  const sec = h('div', { class: 'forge-section' });
+  const pv = _previewCache[product.name];
+  sec.append(h('h3', { text: 'Preview das telas (dados fake, componentes reais)' }));
+  if (pv === null || pv === undefined) {
+    sec.append(h('p', { class: 'muted' }, h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' Consultando o preview…'));
+  } else if (pv.status === 'ready') {
+    const url = sameOriginUrl(pv.url || ('/reqs/api/v1/forge/preview/' + product.name + '/'));
+    if (url) {
+      sec.append(h('div', { class: 'fw-actions' },
+        h('a', { class: 'btn primary', href: url, target: '_blank', rel: 'noopener', text: 'Abrir preview em nova aba ↗' }),
+        h('button', { class: 'btn', type: 'button', text: 'Reconsultar', onclick: () => { forgeInvalidatePreview(product.name); renderForge(); } })));
+      const frame = h('iframe', { class: 'forge-preview-frame', src: url, title: 'Preview das telas de ' + (product.display_name || product.name), loading: 'lazy' });
+      sec.append(frame);
+    }
+    const screens = Array.isArray(pv.screens) ? pv.screens : [];
+    if (screens.length) {
+      sec.append(h('h3', { text: `Telas (${screens.length})` }));
+      const ul = h('ul', { class: 'forge-reqlist' });
+      for (const s of screens) ul.append(h('li', { class: 'forge-reqitem' }, h('code', { text: s.route || s.slug }), h('span', { class: 'rt', text: s.title || s.slug }), badge(s.kind || 'tela', 'b-low')));
+      sec.append(ul);
+    }
+    sec.append(h('p', { class: 'muted small', text: 'Refino tela-a-tela por IA fora do wizard chega na próxima fase (A2) — por ora, o refino vive no wizard de criação.' }));
+  } else if (pv.status === 'building') {
+    sec.append(h('p', { class: 'muted' }, h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' O preview está sendo construído no runner… ',
+      h('button', { class: 'btn-link', type: 'button', text: 'atualizar', onclick: () => { forgeInvalidatePreview(product.name); renderForge(); } })));
+  } else {
+    sec.append(h('p', { class: 'empty', text: pv.status === 'error' ? 'O último build do preview falhou.' : 'Este produto ainda não tem preview de telas.' }),
+      h('p', { class: 'muted small', text: 'O preview é gerado no wizard de criação (etapa Telas). Para produtos existentes, a geração direta daqui chega na A2.' }),
+      h('div', { class: 'fw-actions' }, h('button', { class: 'btn', type: 'button', text: 'Reconsultar', onclick: () => { forgeInvalidatePreview(product.name); renderForge(); } })));
+  }
+  panel.append(sec);
+}
+
+/* ---------- fase DOCUMENTAÇÃO: a documentação viva do produto, composta do que JÁ existe ---------- */
+function forgeDocs(panel, product, buildPlan) {
+  const sec = h('div', { class: 'forge-section forge-docs' });
+  sec.append(h('h3', { text: 'Documentação do produto' }),
+    h('p', { class: 'muted small', text: 'Composta ao vivo de specs/products + build-plan + baseline — sempre atual, sem artefato paralelo.' }));
+  // 1. Visão
+  sec.append(h('h4', { text: '1. Visão' }), h('p', { text: product.vision || '—' }));
+  // 2. Fases / status
+  const ph = product.phases || {};
+  if (Object.keys(ph).length) {
+    sec.append(h('h4', { text: '2. Fases' }));
+    const ul = h('ul', { class: 'linklist' });
+    for (const [k, v] of Object.entries(ph)) ul.append(h('li', {}, h('span', { class: 'lt', text: k }), (v && v.status) || '—'));
+    sec.append(ul);
+  }
+  // 3. Requisitos (com enunciado)
+  const reqs = productReqs(product);
+  sec.append(h('h4', { text: `3. Requisitos (${reqs.length})` }));
+  if (!reqs.length) sec.append(h('p', { class: 'empty', text: '—' }));
+  else {
+    const ul = h('ul', { class: 'forge-doc-reqs' });
+    for (const r of reqs) ul.append(h('li', {},
+      h('button', { class: 'btn-link rid', type: 'button', onclick: () => openReq(r.id), text: r.id }),
+      h('strong', { text: ' ' + (r.title || '') }),
+      r.statement ? h('p', { class: 'muted small', text: r.statement }) : null));
+    sec.append(ul);
+  }
+  // 4. Arquitetura (ADRs + stack do blueprint)
+  const bp = blueprintById(DATA.blueprints, product.blueprint);
+  const adrs = (buildPlan && buildPlan.adrs) || (bp && bp.default_adrs) || [];
+  sec.append(h('h4', { text: '4. Arquitetura' }));
+  if (bp) sec.append(h('p', { class: 'muted small', text: 'Blueprint ' + bp.name + (bp.summary ? ' — ' + bp.summary : '') }));
+  if (adrs.length) {
+    const ul = h('ul', { class: 'linklist' });
+    for (const a of adrs) ul.append(h('li', {}, h('span', { class: 'lt', text: 'ADR' }), typeof a === 'string' ? a : (a.title || a.decision || JSON.stringify(a))));
+    sec.append(ul);
+  } else sec.append(h('p', { class: 'empty', text: 'Sem ADRs registradas.' }));
+  // 5. Telas (do preview, quando houver)
+  const pv = _previewCache[product.name];
+  const screens = pv && Array.isArray(pv.screens) ? pv.screens : [];
+  if (screens.length) {
+    sec.append(h('h4', { text: `5. Guia de telas (${screens.length})` }));
+    const ul = h('ul', { class: 'linklist' });
+    for (const s of screens) ul.append(h('li', {}, h('span', { class: 'lt', text: s.kind || 'tela' }), (s.title || s.slug) + (s.route ? ' · ' + s.route : '')));
+    sec.append(ul);
+  }
+  panel.append(sec);
+}
+
+/* ---------- fase PUBLICAÇÃO: a URL viva + onde acompanhar ---------- */
+function forgePublicado(panel, product) {
+  const sec = h('div', { class: 'forge-section' });
+  const live = _liveCache[product.name];
+  const url = sameOriginUrl(product.base_path ? product.base_path + '/' : '');
+  sec.append(h('h3', { text: 'Publicação' }));
+  if (url) {
+    const stLine = h('p', {},
+      live === true ? badge('no ar ✓', 'b-ok') : live === false ? badge('sem resposta', 'b-crit') : h('span', { class: 'forge-spin', 'aria-hidden': 'true' }),
+      ' ', h('a', { class: 'btn-link', href: url, target: '_blank', rel: 'noopener', text: url }));
+    sec.append(stLine);
+    if (live === false) sec.append(h('p', { class: 'muted small', text: 'A sonda é feita deste navegador (same-origin). Fora do host da plataforma (ex.: preview local), "sem resposta" é esperado — confira no Console.' }));
+  } else sec.append(h('p', { class: 'empty', text: 'Produto sem base_path — nada para publicar.' }));
+  sec.append(h('h3', { text: 'Acompanhar' }));
+  sec.append(h('ul', { class: 'linklist' },
+    h('li', {}, h('span', { class: 'lt', text: 'Console' }), h('a', { class: 'btn-link', href: '/devops/', target: '_blank', rel: 'noopener', text: 'apps · publicações · health · logs ↗' })),
+    h('li', {}, h('span', { class: 'lt', text: 'CI' }), h('a', { class: 'btn-link', href: 'https://github.com/FlavioNeto11/devops/actions', target: '_blank', rel: 'noopener', text: 'GitHub Actions ↗' }))));
+  panel.append(sec);
 }
 
 // Produtos protegidos (não apagáveis pela UI) — espelha a denylist do backend (forge-launch.js).
@@ -271,7 +444,7 @@ function productReqs(product) {
 
 function forgeDefinir(panel, product) {
   const left = h('div', { class: 'forge-section' });
-  left.append(h('h3', { text: 'Visão do produto' }), h('p', { class: 'forge-vision', text: product.vision || 'Sem descrição.' }));
+  // (A1b) a visão vive na fase Brief; aqui é a espinha dorsal: os REQUISITOS do produto.
   const reqs = productReqs(product);
   left.append(h('h3', { text: `Requisitos (${reqs.length})` }));
   if (!reqs.length) left.append(h('p', { class: 'empty', text: 'Nenhum requisito ainda — use "Propor requisitos (IA)" para começar.' }));
@@ -434,7 +607,7 @@ function renderBuildStatus(el, data) {
 function forgePollBuildStatus(name, el) {
   fwStopBuildPoll();
   const myGen = _forgeBuildGen;
-  const alive = () => myGen === _forgeBuildGen && state.view === 'forge' && state.forge.product === name && state.forge.step === 'build';
+  const alive = () => myGen === _forgeBuildGen && state.view === 'forge' && state.forge.product === name && state.forge.step === 'pipeline';
   const tick = async () => {
     if (!alive()) return;
     let data = null;
@@ -471,7 +644,7 @@ function fwStopPipePoll() { _forgePipeGen++; if (_forgePipeTimer) { clearTimeout
 function forgePollPipeline(name, els) {
   fwStopPipePoll();
   const myGen = _forgePipeGen;
-  const alive = () => myGen === _forgePipeGen && state.view === 'forge' && state.forge.product === name && state.forge.step === 'build';
+  const alive = () => myGen === _forgePipeGen && state.view === 'forge' && state.forge.product === name && state.forge.step === 'pipeline';
   const tick = async () => {
     if (!alive()) return;
     let stages = [];
