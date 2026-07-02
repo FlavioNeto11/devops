@@ -23,12 +23,14 @@ import { useToast } from './ToastProvider.jsx';
  *    }
  *  ]
  */
-export default function Publications() {
+export default function Publications({ initialApp = null }) {
   const toast = useToast();
   const [rows, setRows] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('');
+  // (E1, Forja 4.1) contexto de produto por deep-link (/devops/#publications?app=<p>):
+  // pré-popula o filtro EXISTENTE — o usuário edita/limpa no próprio input.
+  const [filter, setFilter] = useState(initialApp || '');
   // Tipo da app (cadastro do pm-api) para diferenciar portal CMS de produto na tabela.
   const [types, setTypes] = useState({});
   useEffect(() => {

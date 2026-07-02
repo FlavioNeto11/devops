@@ -14,11 +14,25 @@ import {
   FORGE_MODES, FORGE_MODE_KEY, FORGE_MODE_LABELS, normalizeForgeMode, modeCopy,
   projectRequirementCard, forgeReqObject, buildLaunchBody,
 } from './forge-lib.js?v=56';
+// (E1, Forja 4.1) deep-links canônicos da casca global (mesma cópia codegen-synced que o
+// index.html carrega — manter o ?v= IGUAL ao do <script> para não duplicar o módulo).
+import { surfaceLink } from './platform-shell.js?v=45';
 
 // Navegação do app.js via registry (late-binding) — mesmos nomes do código extraído.
 const switchView = (...a) => nav.switchView(...a);
 const openReq = (...a) => nav.openReq(...a);
 const overviewBriefing = (...a) => nav.overviewBriefing(...a);
+
+// (E1, Forja 4.1) CONTEXTO DE PRODUTO na casca global: o Studio anuncia o produto aberto via
+// atributos reativos da <platform-shell> (chip "em <produto>" + launcher "Neste produto").
+// O contexto viaja por URL (#/forge?product=…, ver writeHash/applyHashRoute) — aqui só
+// refletimos o estado atual no componente. CSP-safe (setAttribute, zero inline).
+function syncShellProduct(name, label) {
+  const sh = document.querySelector('platform-shell');
+  if (!sh) return;
+  if (name) { sh.setAttribute('product', name); sh.setAttribute('product-label', label || name); }
+  else { sh.removeAttribute('product'); sh.removeAttribute('product-label'); }
+}
 const DONE_ST = ['deployed', 'done', 'merged'];
 function dStateCls(status) {
   if (DONE_ST.includes(status)) return 'done';
@@ -43,11 +57,14 @@ function openForgeProduct(name) {
   // Fase inicial do TRILHO: produto em construção/no ar abre no Pipeline; novo abre na primeira
   // fase pendente (null = resolvido pelo renderForgeDetail via studioPhaseModel).
   state.forge.step = (started || DATA.buildPlans[name]) ? 'pipeline' : null;
+  syncShellProduct(name, product && product.display_name);
   switchView('forge'); document.getElementById('tab-forge').focus();
   if (name && DATA.buildPlans[name] === undefined) loadBuildPlan(name).then(() => { if (state.view === 'forge' && state.forge.product === name) renderForge(); });
 }
 function openForgeNew() { state.forge.product = null; state.forge.newMode = true; state.forge.newKind = null; switchView('forge'); }
-function backToHub() { state.forge.product = null; state.forge.newMode = false; state.forge.newKind = null; renderForge(); }
+// backToHub navega por switchView (e não renderForge direto) para o writeHash tirar o
+// ?product= da URL — o contexto de produto viaja por URL e precisa sumir junto com o chip.
+function backToHub() { state.forge.product = null; state.forge.newMode = false; state.forge.newKind = null; syncShellProduct(null); switchView('forge'); }
 function forgeStep(step) { state.forge.step = step; renderForge(); }
 
 /* ─── (C2) MODOS DE USUÁRIO: estado do FRONTEND (localStorage), projeções em forge-lib ───
@@ -177,6 +194,11 @@ function renderForge() {
   void refreshForgeState(false);
   const body = document.getElementById('forge-body');
   body.replaceChildren();
+  // (E1) reflete o contexto de produto na casca em TODOS os caminhos de entrada — inclusive o
+  // deep-link #/forge?product= (applyHashRoute seta o state sem passar por openForgeProduct).
+  const ctxProduct = (!state.forge.newMode && state.forge.product) ? state.forge.product : null;
+  const ctxP = ctxProduct ? findProduct(DATA.products, ctxProduct) : null;
+  syncShellProduct(ctxProduct, ctxP && ctxP.display_name);
   if (!DATA.products || !((DATA.products.products) || []).length) {
     body.append(forgeIntroHead());
     body.append(h('p', { class: 'empty', text: 'Nenhum produto registrado ainda — gere um com o Forge (brief → requisitos → PR) ou rode build-products.mjs.' }));
@@ -332,7 +354,10 @@ function renderForgeDetail(body, name) {
   body.append(h('div', { class: 'forge-detail-head' }, h('h2', { text: product.display_name || name }),
     product.blueprint ? badge(product.blueprint, 'b-nfr') : null,
     liveUrl && live === true ? h('a', { class: 'btn-link', href: liveUrl, target: '_blank', rel: 'noopener', text: product.base_path + ' ↗' }) : badge(product.base_path, 'b-low'),
-    product.origin === 'adopted' ? badge('adotado', 'b-nfr') : null));
+    product.origin === 'adopted' ? badge('adotado', 'b-nfr') : null,
+    // (E1) atalhos contextuais cross-superfície — deep-links canônicos da casca (contexto por URL)
+    h('a', { class: 'btn-link', href: surfaceLink('console', 'logs', { product: name }), target: '_blank', rel: 'noopener', text: 'Logs ↗' }),
+    h('a', { class: 'btn-link', href: surfaceLink('console', 'pubs', { product: name }), target: '_blank', rel: 'noopener', text: 'Publicações ↗' })));
 
   // stepper/trilho de fases (clicável, com estados reais)
   const stepper = h('div', { class: 'forge-stepper', role: 'tablist', 'aria-label': 'Fases do produto no Studio' });

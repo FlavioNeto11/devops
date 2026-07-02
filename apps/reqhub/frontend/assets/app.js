@@ -3,7 +3,7 @@
 import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId, parseMarkdown, systemContext } from './lib.js?v=42';
 import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, weightedProgress, wavesFromProgress, launchPhases, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes, capabilityPlain, planSummary, CAPABILITY_PLAIN } from './forge-lib.js?v=56';
 import { SVGNS, state, DATA, h, svg, byId, badge, AI, dd, dt, filePicker, sameOriginUrl, humanBytes, FILE_ACCEPT, applyTransform, nav } from './core.js?v=2';
-import { renderForge, openForgeNew, interactiveGraph } from './studio.js?v=6';
+import { renderForge, openForgeNew, interactiveGraph } from './studio.js?v=7';
 
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
 
@@ -2258,6 +2258,9 @@ function writeHash() {
     const qp = [];
     if (state.view === 'workspace' && state.selectedId) qp.push('id=' + encodeURIComponent(state.selectedId));
     if (state.filters && state.filters.product && ['explorer', 'coverage'].includes(state.view)) qp.push('product=' + encodeURIComponent(state.filters.product));
+    // (E1, Forja 4.1) detalhe do produto no Studio é linkável: #/forge?product=<slug> —
+    // mesmo formato que a casca global emite (surfaceLink) e que applyHashRoute lê.
+    if (state.view === 'forge' && state.forge && state.forge.product && !state.forge.newMode) qp.push('product=' + encodeURIComponent(state.forge.product));
     if (qp.length) h += '?' + qp.join('&');
     if (location.hash !== h) history.replaceState(null, '', h);
   } catch { /* ignore */ }
@@ -2270,7 +2273,13 @@ function applyHashRoute() {
   const view = LEGACY_HASH[m[1]] || m[1];
   if (!RENDER[view]) return false;
   const params = new URLSearchParams(m[2] || '');
-  if (params.get('product')) state.filters.product = params.get('product');
+  // (E1, Forja 4.1) na Forja, product= é o CONTEXTO DE PRODUTO (abre o detalhe por state);
+  // nos demais views mantém o comportamento antigo (filtro de produto do Explorador/Cobertura).
+  if (view === 'forge') {
+    const p = params.get('product');
+    state.forge.product = p || null;
+    if (p) { state.forge.newMode = false; state.forge.newKind = null; }
+  } else if (params.get('product')) state.filters.product = params.get('product');
   if (params.get('id') && byId(params.get('id'))) state.selectedId = params.get('id');
   if (view === 'workspace' && !state.selectedId) return false; // sem REQ → cai no default
   switchView(view);
