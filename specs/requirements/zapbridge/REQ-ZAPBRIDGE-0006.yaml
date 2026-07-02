@@ -1,0 +1,33 @@
+id: REQ-ZAPBRIDGE-0006
+slug: req-zapbridge-0006
+title: Contatos e grupos (listagem, abrir conversa, participantes)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: zapbridge
+  applies_to: product
+statement: O sistema deve listar os contatos conhecidos da sessão (nome/pushName/avatar quando disponíveis), permitir iniciar/abrir conversa a partir de um contato, listar grupos com metadados (assunto, descrição) e exibir participantes de grupo com indicação de admin quando disponíveis via groupMetadata.
+business_rationale: Contatos e grupos são o índice humano das conversas — sem eles a lista vira só JIDs.
+source:
+  stakeholder: zapbridge
+  origin: codebase apps/zapbridge + docs/MVP-FUNCIONAL.md RF036–RF038 (adoção Forja 4.1 D5)
+  source_paths:
+    - apps/zapbridge/server/src/modules/contacts
+    - apps/zapbridge/server/src/modules/groups
+    - apps/zapbridge/docs/MVP-FUNCIONAL.md
+priority: medium
+criticality: medium
+architectural_significance: false
+links:
+  - type: depends_on
+    target: REQ-ZAPBRIDGE-0003
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: adoção Forja 4.1 D5 — backfill extraído do app real
+allocation:
+  service_refs:
+    - svc-zapbridge-server
+    - svc-zapbridge-web

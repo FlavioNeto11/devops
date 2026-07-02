@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "d5f267861fb22cdf005bf4fee3e85b4ec3dddd1caf1eb85d7e771fe4ac016e00",
+  "baseline_hash": "f1d3f82808d016dd57a1d810f851ea9ffccdf38ff80f6131476d23022868249a",
   "dimensions": [
     "links",
     "allocation",
@@ -10,21 +10,21 @@
     "refinement"
   ],
   "totals": {
-    "total": 368,
-    "without_links": 302,
+    "total": 381,
+    "without_links": 305,
     "without_allocation": 325,
     "without_source_paths": 0,
-    "without_evidence": 368,
-    "without_verification_method": 350,
-    "without_refinement": 339,
-    "scopes": 20,
+    "without_evidence": 381,
+    "without_verification_method": 363,
+    "without_refinement": 352,
+    "scopes": 21,
     "coverage_pct": {
-      "links": 17.9,
-      "allocation": 11.7,
+      "links": 19.9,
+      "allocation": 14.7,
       "source_paths": 100,
       "evidence": 0,
-      "verification_method": 4.9,
-      "refinement": 7.9
+      "verification_method": 4.7,
+      "refinement": 7.6
     }
   },
   "by_scope": {
@@ -362,6 +362,23 @@
       "coverage_pct": {
         "links": 0,
         "allocation": 6.3,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 0,
+        "refinement": 0
+      }
+    },
+    "zapbridge": {
+      "total": 13,
+      "without_links": 3,
+      "without_allocation": 0,
+      "without_source_paths": 0,
+      "without_evidence": 13,
+      "without_verification_method": 13,
+      "without_refinement": 13,
+      "coverage_pct": {
+        "links": 76.9,
+        "allocation": 100,
         "source_paths": 100,
         "evidence": 0,
         "verification_method": 0,
