@@ -1,0 +1,85 @@
+// imobia — schema Prisma. Multi-tenant (Organization = imobiliaria). Cada row de dominio
+// carrega organizationId (isolamento imposto em cada repo + authorize()). pgvector entra em
+// F2 (colunas embedding vector(1536) + CREATE EXTENSION na migracao). Dominio em F3+.
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Papeis de acesso (ancora de autorizacao — resolvido em authorize()/rbac).
+enum MembershipRole {
+  admin
+  corretor
+  financeiro
+  vistoriador
+}
+
+/// Imobiliaria (tenant raiz). Toda entidade de dominio referencia organizationId.
+model Organization {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  cnpj        String?
+  plan        String       @default("free")
+  settings    Json         @default("{}")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  memberships Membership[]
+
+  @@map("organizations")
+}
+
+/// Identidade global. Acesso a uma org e' via Membership (um user pode estar em varias).
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  passwordHash String?      @map("password_hash")
+  keycloakSub  String?      @unique @map("keycloak_sub")
+  name         String
+  avatarUrl    String?      @map("avatar_url")
+  active       Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  memberships  Membership[]
+  sessions     Session[]
+
+  @@map("users")
+}
+
+/// Vinculo User <-> Organization com papel (RBAC).
+model Membership {
+  id             String         @id @default(cuid())
+  userId         String         @map("user_id")
+  organizationId String         @map("organization_id")
+  role           MembershipRole @default(corretor)
+  active         Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+  @@map("memberships")
+}
+
+/// Sessao (refresh token store). Access tokens sao stateless (oidc-kit createAccessToken).
+model Session {
+  id             String    @id @default(cuid())
+  userId         String    @map("user_id")
+  organizationId String?   @map("organization_id")
+  tokenHash      String    @map("token_hash")
+  userAgent      String?   @map("user_agent")
+  ip             String?
+  expiresAt      DateTime  @map("expires_at")
+  revokedAt      DateTime? @map("revoked_at")
+  createdAt      DateTime  @default(now())
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}

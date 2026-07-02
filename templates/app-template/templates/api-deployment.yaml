@@ -5,7 +5,8 @@ basePath+path), entao o processo enxerga rotas a partir da raiz.
 Probes (liveness/readiness) usam health.path quando definido.
 */ -}}
 {{- range $name, $svc := .Values.services }}
-{{- if or (eq $svc.type "api") (eq $svc.type "api2") }}
+{{- /* $svc pode ser null (compilador apaga services por null explícito) */ -}}
+{{- if and $svc (or (eq $svc.type "api") (eq $svc.type "api2")) }}
 ---
 apiVersion: apps/v1
 kind: Deployment

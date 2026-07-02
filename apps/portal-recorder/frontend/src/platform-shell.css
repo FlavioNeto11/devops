@@ -55,6 +55,10 @@
 /* chip do surface ativo */
 .pshell-here { display: inline-flex; align-items: center; gap: 7px; margin-left: 6px; padding: 4px 10px; border-radius: 999px; background: rgb(var(--p-bg, 248 250 252)); border: 1px solid rgb(var(--p-border, 226 232 240)); color: rgb(var(--p-muted, 100 116 139)); font-size: 12px; }
 .pshell-here-g { color: rgb(var(--p-neon, 79 70 229)); }
+/* chip de CONTEXTO DE PRODUTO ("em <produto>") — reativo via atributos product/product-label */
+.pshell-ctx { display: inline-flex; align-items: center; }
+.pshell-here-prod { border-color: rgb(var(--p-neon, 79 70 229) / 0.45); color: rgb(var(--p-fg, 15 23 42)); max-width: 260px; }
+.pshell-here-prod > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* right cluster */
 .pshell-right { display: inline-flex; align-items: center; gap: 8px; }

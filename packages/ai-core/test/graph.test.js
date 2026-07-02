@@ -210,3 +210,33 @@ test('deepFilter aprovando segue para a proposta normalmente', async () => {
   assert.equal(r.proposed, true);
   assert.equal(r.toolCalls[0].name, 'query_overdue');
 });
+
+// ── forceSpecialist (opt-in): garante deep para turnos não-triviais ──────────
+
+test('forceSpecialist: turno NÃO-trivial vai pro deep do especialista mesmo o router dizendo simple', async () => {
+  const executed = [];
+  const llm = scriptedLlm([
+    { text: '{"complexity":"simple","specialist":null,"reason":"parece simples"}' }, // router subestima
+    { toolCalls: [{ id: 'tc1', name: 'query_overdue', arguments: {} }] },            // deep usa a tool
+    { text: 'Há 1 atrasada: Ar-condicionado.' },
+    { text: '{"score":0.9,"reason":"ancorado"}' },
+  ]);
+  const graph = createAiGraph({ llm, registry: opsRegistry(executed), specialists: SPECIALISTS, forceSpecialist: 'ops' });
+  const r = await graph.runTurn({ message: 'o que falta fazer?', identity: { sub: 'u1' } });
+  assert.equal(r.route, 'deep');
+  assert.equal(r.specialist, 'ops');
+  assert.equal(executed.length, 1);
+  assert.match(r.text, /Ar-condicionado/);
+});
+
+test('forceSpecialist: turno trivial (social) continua no fast-path (não força deep)', async () => {
+  const llm = scriptedLlm([
+    { text: '{"complexity":"trivial","specialist":null,"reason":"saudacao"}' },
+    { text: 'Olá! Como posso ajudar?' },
+    { text: '{"score":0.95,"reason":"ok"}' },
+  ]);
+  const graph = createAiGraph({ llm, registry: opsRegistry(), specialists: SPECIALISTS, forceSpecialist: 'ops' });
+  const r = await graph.runTurn({ message: 'oi!', identity: { sub: 'u1' } });
+  assert.equal(r.route, 'fast');
+  assert.equal(r.toolCalls.length, 0);
+});

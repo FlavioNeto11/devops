@@ -47,14 +47,16 @@
       "status": "approved"
     },
     "scaffold": {
-      "status": "not_started"
+      "status": "merged",
+      "note": "scaffold mesclado na main — app real em apps/neuroevolui (base dos 9 REQs implementados)"
     },
     "build": {
-      "status": "not_started"
+      "status": "deployed",
+      "note": "derivado do implementation-status: todos os 9 REQ-NEUROEVOLUI-* estão deployed (PRs #126-#132)"
     }
   },
   "version": {
-    "revision": 1,
-    "change_reason": "FORGE greenfield — concepção+arquitetura pela IA"
+    "revision": 2,
+    "change_reason": "Forja 4.1 D4 — saneamento: fases scaffold/build reconciliadas com a realidade (scaffold na main; 9/9 REQs deployed)"
   }
 }

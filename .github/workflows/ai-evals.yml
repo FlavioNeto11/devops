@@ -14,6 +14,14 @@
 #
 # Job noturno (LLM real, gpt-5-nano + amostra): roda só no schedule/dispatch e
 # quando OPENAI_API_KEY estiver configurada como secret do repo.
+#
+# Forja 4.0 — B4 (MLOps da esteira):
+#   - forge-evals: eval DETERMINÍSTICO dos geradores da Forja (golden briefs em
+#     specs/forge/evals/golden/) — bloqueante em PR que toca specs/forge/** ou
+#     apps/reqhub/api/src/prompts.js. Sem LLM.
+#   - forge-budget: nightly no runner self-hosted — consulta o Prometheus da
+#     plataforma (ai_cost_usd_total por app) e compara com specs/forge/budgets.json;
+#     estouro cria/atualiza ISSUE (nunca derruba app); sem métrica => warning honesto.
 # =============================================================================
 name: ai-evals
 
@@ -39,6 +47,8 @@ on:
       - "docs/portal-contracts/**"
       - "apps/sicat/backend/docs/portal-contracts/**"
       - "scripts/portal-contracts/**"
+      - "specs/forge/**"
+      - "apps/reqhub/api/src/prompts.js"
       - ".github/workflows/ai-evals.yml"
   push:
     branches: [main]
@@ -51,6 +61,8 @@ on:
       - "docs/portal-contracts/**"
       - "apps/sicat/backend/docs/portal-contracts/**"
       - "scripts/portal-contracts/**"
+      - "specs/forge/**"
+      - "apps/reqhub/api/src/prompts.js"
       - ".github/workflows/ai-evals.yml"
   schedule:
     - cron: "0 3 * * *"   # nightly: full set + amostra com LLM real (se houver chave)
@@ -134,6 +146,35 @@ jobs:
           name: portal-drift-report
           path: artifacts/portal-contracts/
 
+  # Forja 4.0 — B4: eval DETERMINÍSTICO dos geradores da Forja (sem LLM, bloqueante).
+  # Golden briefs sintéticos em specs/forge/evals/golden/*.json são passados pelos MESMOS
+  # geradores do greenfield-launch (forge-write-reqs + apply-capabilities) num tmpdir e a
+  # ESTRUTURA emitida é validada (YAML schema-válido via requirement.schema.json, product
+  # files, resolução de blocos, manifesto + provenance). Também roda os testes unitários de
+  # specs/forge/*.test.mjs (que antes não rodavam em nenhum workflow).
+  forge-evals:
+    name: forja (golden briefs determinísticos)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Instalar deps de validação (specs/tools — yaml + ajv)
+        working-directory: specs/tools
+        run: npm ci --no-audit --no-fund
+      - name: Testes unitários dos geradores (specs/forge)
+        run: node --test "specs/forge/**/*.test.mjs"
+      - name: Eval determinístico (golden briefs, schema-válido, bloqueante)
+        env:
+          FORGE_EVALS_STRICT: "1"   # sem yaml/ajv aqui é ERRO (nunca gate silenciosamente fraco)
+        run: node specs/forge/evals/run-evals.mjs
+      # TODO(B4): eval NIGHTLY com LLM REAL dos prompts da Forja (forge-propose-requirements@N /
+      # forge-propose-architecture@N de apps/reqhub/api/src/prompts.js). O padrão nightly deste
+      # workflow (job nightly-real) usa o harness do gymops; a Forja ainda NÃO tem harness de LLM
+      # próprio fora do reqhub-api — e mexer em apps/reqhub/** é outra trilha. Quando o harness
+      # existir, seguir o padrão do nightly-real (só schedule/dispatch + skip sem OPENAI_API_KEY).
+
   nightly-real:
     name: nightly (LLM real, amostra)
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -161,3 +202,68 @@ jobs:
             exit 0
           fi
           node scripts/ai-eval.mjs --real --sample 8 --enforce-kpis
+
+  # Forja 4.0 — B4: BUDGET nightly de custo de IA por app. Roda no runner self-hosted (o
+  # Prometheus da plataforma só é alcançável da máquina do cluster, via port-forward — padrão
+  # do forge-deploy). Compara ai_cost_usd_total{app} (janela 30d) com specs/forge/budgets.json:
+  # estouro cria/atualiza uma ISSUE (label ai-budget) — NUNCA derruba app. Sem métrica por-app
+  # ou Prometheus fora => o script degrada com ::warning:: honesto (exit 0).
+  forge-budget:
+    name: nightly (budget de IA por app)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: [self-hosted, windows, docker-desktop, local-k8s, flavio-devops]
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write   # cria/atualiza a issue de alerta de budget
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Consultar Prometheus + comparar com budgets.json
+        id: budget
+        env:
+          KUBECONFIG: C:\ProgramData\forge-kube\config
+        run: |
+          $ErrorActionPreference = "Stop"
+          # port-forward temporário p/ o Prometheus (mesmo padrão do smoke do forge-deploy).
+          $pf = Start-Job {
+            $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+            $env:KUBECONFIG = 'C:\ProgramData\forge-kube\config'
+            kubectl port-forward -n observability svc/prometheus-operated 19090:9090
+          }
+          Start-Sleep -Seconds 6
+          $env:PROMETHEUS_URL = "http://localhost:19090"
+          node specs/forge/evals/check-budgets.mjs --out budget-report.md
+          $rc = $LASTEXITCODE
+          Stop-Job $pf -EA SilentlyContinue; Remove-Job $pf -EA SilentlyContinue
+          if ($rc -ne 0) { exit $rc }
+          if (Test-Path budget-report.md) { Get-Content budget-report.md -Raw | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append }
+      - name: Issue de alerta (cria/atualiza no estouro; fecha na recuperação)
+        if: steps.budget.outputs.degraded != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXCEEDED: ${{ steps.budget.outputs.exceeded }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $label = "ai-budget"
+          gh label create $label --color d93f0b --description "Alerta de budget de IA (nightly forge-budget)" 2>$null
+          $issue = gh issue list --label $label --state open --json number --jq '.[0].number' 2>$null
+          if ("$env:EXCEEDED" -eq "true") {
+            if ($issue) {
+              gh issue edit $issue --body-file budget-report.md
+              gh issue comment $issue --body "Atualizado pelo nightly forge-budget (run $env:GITHUB_RUN_ID)."
+              Write-Host "issue #$issue atualizada com o relatório da noite."
+            } else {
+              gh issue create --title "Budget de IA estourado (nightly forge-budget)" --label $label --body-file budget-report.md
+            }
+          } elseif ($issue) {
+            gh issue comment $issue --body "Budget voltou ao normal no nightly forge-budget (run $env:GITHUB_RUN_ID) — fechando."
+            gh issue close $issue
+          } else {
+            Write-Host "dentro do budget e sem issue aberta — nada a fazer."
+          }

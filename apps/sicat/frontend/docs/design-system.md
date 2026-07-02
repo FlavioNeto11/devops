@@ -1,6 +1,6 @@
 # SICAT — Design System (Sicat\*)
 
-Referência dos componentes base do design system SICAT (prefixo `Sicat*`). Todos vivem em [`frontend/src/components/sicat/`](../src/components/sicat) e consomem os tokens em [`frontend/src/styles/tokens.css`](../src/styles/tokens.css) e o tema Vuetify configurado em [`frontend/src/plugins/vuetify.js`](../src/plugins/vuetify.js).
+Referência dos componentes base do design system SICAT (prefixo `Sicat*`). Todos vivem em [`frontend/src/components/sicat/`](../src/components/sicat) e consomem os tokens em [`frontend/src/styles/tokens.generated.css`](../src/styles/tokens.generated.css) e o tema Vuetify configurado em [`frontend/src/plugins/vuetify.js`](../src/plugins/vuetify.js). Os dois são **gerados** de `packages/design-tokens` (marca `sicat`): edite `tokens.json` lá e rode `node build.mjs` — nunca os arquivos `*.generated.*`.
 
 > **Playground visual**: rode o app autenticado e abra `/dev/components` para ver cada componente com todas as variantes em ação.
 
@@ -9,7 +9,7 @@ Referência dos componentes base do design system SICAT (prefixo `Sicat*`). Todo
 ## Princípios
 
 1. **Vuetify primeiro**: componentes Sicat\* são wrappers/composições sobre Vuetify, não substitutos. Inputs continuam sendo `v-text-field`, `v-select`, `v-data-table` etc. — Sicat só adiciona o que falta (estados, status, layout consistente).
-2. **Tokens como fonte única**: cores, raios, sombras, espaçamento e tipografia vêm sempre de `tokens.css` (claro e escuro) ou do tema Vuetify (`primary`, `success`, `warning`, `error`, `info`). Nunca hardcode hex.
+2. **Tokens como fonte única**: cores, raios, sombras, espaçamento e tipografia vêm sempre de `tokens.generated.css` (claro e escuro) ou do tema Vuetify (`primary`, `success`, `warning`, `error`, `info`). Nunca hardcode hex. A fonte da paleta é `packages/design-tokens/tokens.json` (marca `sicat`).
 3. **Status sempre via `SicatStatusBadge`**: pinte status (manifesto, job, CDF, DMR, conta CETESB) pelo componente. Helpers locais (`statusClass`, `normalizeManifestStatusClass`, etc.) estão deprecated.
 4. **Estados de UI sempre via componentes Sicat**: `SicatLoadingState`, `SicatEmptyState`, `SicatErrorState` substituem `v-alert` + `v-progress-circular` inline em listas.
 5. **Feedback global via `useNotification`**: snackbars/toasts ficam centralizados; nunca crie `v-snackbar` próprio em uma view.
@@ -50,7 +50,7 @@ Referência dos componentes base do design system SICAT (prefixo `Sicat*`). Todo
 
 ## Tokens (resumo)
 
-Tokens em [`tokens.css`](../src/styles/tokens.css) (light + dark):
+Tokens em [`tokens.generated.css`](../src/styles/tokens.generated.css) (light + dark; gerado de `packages/design-tokens`):
 
 - **Cores**: `--color-primary`, `--color-success`, `--color-warning`, `--color-error`, `--color-info`, surfaces (`--color-surface`, `--color-surface-raised`, `--color-surface-subtle`), texto (`--color-text`, `--color-text-muted`), bordas (`--color-border`, `--color-border-strong`).
 - **Status**: `--color-status-{neutral|running|success|error|warning}-{bg|fg}`.
@@ -61,7 +61,7 @@ Tokens em [`tokens.css`](../src/styles/tokens.css) (light + dark):
 - **Breakpoints**: `--breakpoint-tablet` (768), `--breakpoint-desktop` (1200), `--app-max-width` (1440).
 - **Gradients**: `--gradient-primary`, `--gradient-hero`.
 
-Tema Vuetify (`plugins/vuetify.js`): `primary #0F9D72` (light) / `#34C993` (dark) e variantes em sincronia com tokens. **Sempre use o tema Vuetify dentro de componentes Vuetify**; use tokens.css em componentes/CSS custom.
+Tema Vuetify (`plugins/vuetify-theme.generated.js`, importado por `plugins/vuetify.js`): `primary #0e6e5c` (light) / `#35b493` (dark) e variantes em sincronia com os tokens — gerados da mesma fonte. **Sempre use o tema Vuetify dentro de componentes Vuetify**; use tokens.generated.css em componentes/CSS custom.
 
 ---
 

@@ -1,0 +1,41 @@
+id: REQ-IMOBIA-NFR-0004
+slug: req-imobia-nfr-0004
+title: 'Segurança: chaves de IA só no backend via Sealed Secrets'
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: imobia
+statement: 'O sistema deve atender ao atributo de qualidade "segurança de segredos": as chaves de provider de IA (OPENAI/ANTHROPIC/GOOGLE) e demais credenciais vivem exclusivamente no backend via Secret imobia-config (Sealed Secrets, versionado criptografado), nunca em git plaintext nem expostas ao frontend; o repositório versiona apenas secret.example.yaml com placeholders.'
+source:
+  stakeholder: imobia
+  origin: codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)
+  source_paths:
+    - apps/imobia/k8s/secret.example.yaml
+    - apps/imobia/CLAUDE.md
+priority: critical
+criticality: critical
+architectural_significance: false
+risk_tags:
+  - seguranca
+quality_scenarios:
+  - source: Operador configurando credenciais de IA/integrações do app
+    stimulus: Provisiona ou rotaciona OPENAI_API_KEY / ANTHROPIC_API_KEY / GOOGLE_API_KEY
+    environment: Cluster ns apps sob GitOps (Argo CD) com controller de Sealed Secrets
+    artifact: Secret imobia-config consumido pela API e worker
+    response: Chave entra selada (kubeseal) e versionada criptografada; API/worker leem por env; nenhum bundle de frontend ou resposta HTTP contém a chave
+    response_measure: Zero segredos plaintext no git (gate de gitleaks); chaves ausentes do bundle do frontend; rotação sem mudança de código
+links:
+  - type: constrains
+    target: REQ-IMOBIA-0002
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: adoção Forja 4.1 D5 — backfill extraído do app real
+allocation:
+  service_refs:
+    - svc-imobia-api
+  infra_refs:
+    - infra-sealed-secrets

@@ -2,8 +2,12 @@
 =============================================================================
 ingressroute.yaml — Rotas do Traefik para a aplicacao (entryPoint web/HTTP).
 -----------------------------------------------------------------------------
-Gera UMA IngressRoute com uma route por service exposto (expose=true), mais
-um Middleware StripPrefix por service com stripPrefix=true.
+Convencao VIVA (a mesma dos produtos no ar; ver docs/new-project-contract.md
+§11.5 — a IngressRoute do frontend NAO pode ser consolidada/podada):
+  * IngressRoute "<app>"          -> rotas de api/api2 (expose=true)
+  * IngressRoute "<app>-frontend" -> rotas de frontend (expose=true)
+  * Middleware   "<app>-<svc>-strip" -> StripPrefix por service stripPrefix=true
+Cada IngressRoute so e emitida quando ha service exposto daquele grupo.
 
 Convencao de roteamento (critica):
   * frontend (SPA): match Host(app.host) && PathPrefix(app.basePath), SEM
@@ -12,9 +16,14 @@ Convencao de roteamento (critica):
     Middleware StripPrefix (remove o prefixo COMPLETO), com priority MAIOR para
     vencer o frontend no mesmo host (o prefixo mais especifico ganha).
 
-Hosts: incluimos app.host E dev.nvit.com.br (quando diferentes) usando a forma
-Host(`a`, `b`) do Traefik, para que o mesmo layout de paths funcione no host
-local e no dominio real.
+Hosts: por padrao incluimos app.host E dev.nvit.com.br (quando diferentes)
+usando a forma Host(`a`, `b`) do Traefik, para que o mesmo layout de paths
+funcione no host local e no dominio real.
+
+Multi-env opt-in (Forja 4.0 B2): quando .Values.app.hosts (lista) esta setado
+(compile com --env), a clausula Host(...) usa EXATAMENTE esses hosts — sem
+anexar dev.nvit.com.br, que e host de PRODUCAO e nunca e reatribuido a um
+ambiente efemero (ver docs/multi-env.md).
 
 HTTPS/websecure: pendente (certificado self-signed). Por enquanto so web.
 =============================================================================
@@ -24,13 +33,24 @@ HTTPS/websecure: pendente (certificado self-signed). Por enquanto so web.
 {{- $realHost := "dev.nvit.com.br" -}}
 {{- /* Monta a lista de hosts (sem duplicar) para a clausula Host(...) */ -}}
 {{- $hosts := list $appHost -}}
-{{- if ne $appHost $realHost -}}
+{{- if .Values.app.hosts -}}
+{{- $hosts = .Values.app.hosts -}}
+{{- else if ne $appHost $realHost -}}
 {{- $hosts = append $hosts $realHost -}}
 {{- end -}}
 {{- $hostClause := "" -}}
 {{- range $i, $h := $hosts -}}
 {{- if $i -}}{{- $hostClause = printf "%s, `%s`" $hostClause $h -}}{{- else -}}{{- $hostClause = printf "`%s`" $h -}}{{- end -}}
 {{- end -}}
+{{- /* Ha api/api2 e/ou frontend expostos? (cada grupo tem a SUA IngressRoute).
+       $svc pode ser null (compilador apaga services por null explícito). */ -}}
+{{- $hasApi := false -}}
+{{- $hasFrontend := false -}}
+{{- range $name, $svc := .Values.services }}
+{{- if and $svc $svc.expose (or (eq $svc.type "api") (eq $svc.type "api2")) }}{{- $hasApi = true -}}{{- end }}
+{{- if and $svc $svc.expose (eq $svc.type "frontend") }}{{- $hasFrontend = true -}}{{- end }}
+{{- end }}
+{{- if $hasApi }}
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
@@ -42,42 +62,60 @@ spec:
   entryPoints:
     - web
   routes:
-    {{- /* Primeiro as rotas de api/api2 (prioridade MAIOR, prefixo mais longo) */ -}}
+    {{- /* Rotas de api/api2 (prioridade MAIOR, prefixo mais longo) */ -}}
     {{- range $name, $svc := .Values.services }}
-    {{- if and $svc.expose (or (eq $svc.type "api") (eq $svc.type "api2")) }}
+    {{- if and $svc $svc.expose (or (eq $svc.type "api") (eq $svc.type "api2")) }}
     {{- $prefix := include "app-template.fullPrefix" (dict "root" $root "svc" $svc) }}
     - kind: Rule
       match: Host({{ $hostClause }}) && PathPrefix(`{{ $prefix }}`)
-      priority: 100
+      {{- /* priority por service (regra de ouro: api2 > api > frontend, ex.: 40 > 30 > 10).
+             Sem override mantem 100 (comportamento historico do chart). */}}
+      priority: {{ $svc.priority | default 100 }}
       services:
         - name: {{ include "app-template.fullname" (dict "root" $root "name" $name) }}
           port: {{ $svc.port }}
       {{- if $svc.stripPrefix }}
       middlewares:
-        - name: {{ include "app-template.fullname" (dict "root" $root "name" $name) }}-stripprefix
+        - name: {{ include "app-template.fullname" (dict "root" $root "name" $name) }}-strip
       {{- end }}
     {{- end }}
     {{- end }}
-    {{- /* Depois as rotas de frontend (prioridade MENOR), SEM strip */ -}}
+{{- end }}
+{{- if $hasFrontend }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ include "app-template.appName" . }}-frontend
+  namespace: {{ .Values.app.namespace }}
+  labels:
+    {{- include "app-template.commonLabels" (dict "root" . "name" "" "component" "ingress") | nindent 4 }}
+spec:
+  entryPoints:
+    - web
+  routes:
+    {{- /* Rotas de frontend (prioridade MENOR), SEM strip */ -}}
     {{- range $name, $svc := .Values.services }}
-    {{- if and $svc.expose (eq $svc.type "frontend") }}
+    {{- if and $svc $svc.expose (eq $svc.type "frontend") }}
     - kind: Rule
       match: Host({{ $hostClause }}) && PathPrefix(`{{ $root.Values.app.basePath }}`)
-      priority: 10
+      priority: {{ $svc.priority | default 10 }}
       services:
         - name: {{ include "app-template.fullname" (dict "root" $root "name" $name) }}
           port: {{ $svc.port }}
     {{- end }}
     {{- end }}
-{{- /* Middlewares StripPrefix: um por service com stripPrefix=true */ -}}
+{{- end }}
+{{- /* Middlewares StripPrefix: um por service com stripPrefix=true.
+       Nome "<app>-<svc>-strip" — convencao VIVA (buildK8s), imutavel p/ convergencia. */ -}}
 {{- range $name, $svc := .Values.services }}
-{{- if and $svc.expose $svc.stripPrefix }}
+{{- if and $svc $svc.expose $svc.stripPrefix }}
 {{- $prefix := include "app-template.fullPrefix" (dict "root" $root "svc" $svc) }}
 ---
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
-  name: {{ include "app-template.fullname" (dict "root" $root "name" $name) }}-stripprefix
+  name: {{ include "app-template.fullname" (dict "root" $root "name" $name) }}-strip
   namespace: {{ $root.Values.app.namespace }}
   labels:
     {{- include "app-template.commonLabels" (dict "root" $root "name" $name "component" $svc.type) | nindent 4 }}

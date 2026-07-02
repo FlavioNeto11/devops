@@ -1,0 +1,70 @@
+{
+  "status": "adopted",
+  "note": "Arquitetura ADOTADA (brownfield): descreve o que o app apps/sicat TEM hoje — ADRs extraídos de apps/sicat/CLAUDE.md e apps/sicat/backend/AGENTS.md. Sem waves/work_orders: nada aqui é plano de geração.",
+  "stack_rationale": "Stack real adotada (não escolhida pela Forja): SPA Vue 3 + Vuetify (Vite → nginx, base /sicat/) + API Node 20/Express em TypeScript (runtime tsx; tsc só para dist/ em prod) + worker na MESMA imagem (npm run worker) + Postgres 16 como fonte transacional única e fila. Corresponde ao blueprint node-api-vue-spa (base_stack sicat) — o SICAT é o exemplar que origina esse blueprint.",
+  "adrs": [
+    {
+      "title": "ADR-001: Contract-first — OpenAPI interno como fonte da superfície HTTP",
+      "decision": "A superfície HTTP nasce em openapi/mtr_automacao_openapi_interna.yaml e gera src/generated/operations.ts (não editar à mão); mudança de superfície vai em lockstep OpenAPI → examples → generated → routes → testes de contrato, no mesmo PR.",
+      "rationale": "Superfície tipada e auditável; npm run validate:openapi + gen:operations no gate. Decisão real do app (apps/sicat/CLAUDE.md, 'Contrato HTTP').",
+      "blocks": ["contract-openapi"],
+      "cites": ["apps/sicat/backend/openapi/mtr_automacao_openapi_interna.yaml", "apps/sicat/backend/src/generated/operations.ts"]
+    },
+    {
+      "title": "ADR-002 (DL-022): Fila transacional no Postgres — sem broker externo",
+      "decision": "Trabalho assíncrono (manifest.submit/print/cancel/receive, cdf.*, catalog.sync, cadastro.submit) roda como jobs na tabela `jobs` do Postgres com FOR UPDATE SKIP LOCKED, retry/backoff, DLQ e heartbeat — sem Kafka/Redis na fila.",
+      "rationale": "Postgres é a fonte transacional única: enfileirar na mesma transação do estado de negócio elimina dual-write. Decisão DL-022 do app.",
+      "blocks": ["worker-queue-transacional"],
+      "cites": ["apps/sicat/backend/src/workers/job-runner.ts", "apps/sicat/backend/src/repositories/job-repo.ts"]
+    },
+    {
+      "title": "ADR-003 (DL-093): Gateway CETESB único, mantido em JS",
+      "decision": "Toda HTTP à CETESB passa por src/gateways/cetesb-gateway.js (timeout, retry/backoff, redação de segredos, AppError, auditoria da troca) — única exceção JS em src/, via ESM interop; proibido converter para .ts e proibido chamar CETESB de routes/services/workers.",
+      "rationale": "Porta de saída única para o externo preserva a fronteira de camadas e concentra resiliência/auditoria. Decisão DL-093 do app.",
+      "blocks": ["gateway-externo", "camadas-rigidas"],
+      "cites": ["apps/sicat/backend/src/gateways/cetesb-gateway.js", "docs/portal-contracts/cetesb/"]
+    },
+    {
+      "title": "ADR-004: Camadas rígidas route → service → repository → job → worker → gateway",
+      "decision": "Rotas finas chamam services (regra + idempotência + enqueue); repositories concentram o SQL tipado; worker consome jobs; HTTP externo só pelo gateway. Nunca SQL ou fetch externo em routes/.",
+      "rationale": "Fronteira de camadas inegociável do app (AGENTS.md §8) — é o exemplar do bloco camadas-rigidas do catálogo.",
+      "blocks": ["camadas-rigidas"],
+      "cites": ["apps/sicat/backend/src/services", "apps/sicat/backend/src/repositories"]
+    },
+    {
+      "title": "ADR-005: Sessão própria do app sobre login CETESB real + SSO Keycloak aditivo",
+      "decision": "Auth com sessão própria (JWT curto + refresh rotacionado guardado como hash) emitida pelo app; login CETESB real obrigatório (CETESB_GATEWAY_MODE=real); SSO Keycloak é ADITIVO (valida no userinfo do realm nvit e emite a sessão do app) sem tocar outras auths.",
+      "rationale": "O app precisa de identidade própria auditável sobre o portal real; o padrão SICAT de SSO aditivo virou a referência do bloco contas-acesso.",
+      "blocks": ["contas-acesso"],
+      "cites": ["apps/sicat/backend/src/services/sicat-auth-service.ts", "apps/sicat/backend/src/middlewares/sicat-auth.ts", "apps/sicat/backend/src/repositories/sicat-user-repo.ts"]
+    },
+    {
+      "title": "ADR-006: Idempotência honrando Idempotency-Key",
+      "decision": "Operações com efeito (submissões CETESB) honram Idempotency-Key: mesma chave → mesmo resultado, um único efeito; chave + resultado persistidos para dedupe.",
+      "rationale": "Retry (cliente, fila, esteira) não pode duplicar submissão real na CETESB.",
+      "blocks": ["idempotencia"],
+      "cites": ["apps/sicat/backend/src/services/idempotency-service.ts", "apps/sicat/backend/src/repositories/idempotency-repo.ts"]
+    },
+    {
+      "title": "ADR-007: Migrations versionadas idempotentes no boot",
+      "decision": "Migrations SQL versionadas rodam no boot com advisory-lock (AUTO_MIGRATE=true, idempotente) + seed opcional (AUTO_SEED).",
+      "rationale": "Schema versionado no git e aplicado de forma segura com múltiplas réplicas — exemplar do bloco migrations-versionadas.",
+      "blocks": ["migrations-versionadas"],
+      "cites": ["apps/sicat/backend/src/db/migrate.ts"]
+    },
+    {
+      "title": "ADR-008: Observabilidade estruturada (health por subsistema + Prometheus)",
+      "decision": "Health estruturado em /v1/health/{system,workers,jobs/active,jobs/dlq} + métricas Prometheus na :9464 com ServiceMonitor (selector part-of) e dashboards na stack de observabilidade da plataforma.",
+      "rationale": "Operação de fila e gateway real exige visão por subsistema, não um /health binário.",
+      "blocks": ["observabilidade"],
+      "cites": ["apps/sicat/backend/src/routes/health-routes.ts", "apps/sicat/k8s/servicemonitor.yaml"]
+    },
+    {
+      "title": "ADR-009: IA assistiva com memória/retrieval vetorial no engine de conversa",
+      "decision": "Chat operacional (LangChain/LangGraph + OpenAI, AI Control Center) com memória/retrieval vetorial no engine de conversa; chaves de IA só no backend; tools conversacionais devolvem amostras enxutas (nunca listas brutas grandes).",
+      "rationale": "IA grounded nos dados operacionais do app sem estourar heap nem vazar chave — o engine de conversa do SICAT é a referência do bloco rag-pgvector.",
+      "blocks": ["rag-pgvector"],
+      "cites": ["apps/sicat/backend/src/services/conversation/memory"]
+    }
+  ]
+}

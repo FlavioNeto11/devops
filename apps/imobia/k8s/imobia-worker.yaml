@@ -1,0 +1,69 @@
+# imobia worker — MESMA imagem da api, comando `npm run worker`. F1: conecta ao BullMQ
+# (fail-soft) + /health,/metrics. Compartilha o PVC imobia-files com a api. NAO roda migrate
+# (a api aplica). fsGroup:1000 para escrever o PVC.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: imobia-worker
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: imobia-worker
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/part-of: imobia
+    app.kubernetes.io/managed-by: devops-platform
+  annotations:
+    devops.flavioneto/app: imobia
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: imobia-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: imobia-worker
+        app.kubernetes.io/component: worker
+        app.kubernetes.io/part-of: imobia
+    spec:
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: worker
+          image: imobia-api:local
+          imagePullPolicy: IfNotPresent
+          command: ["npm", "run", "worker"]
+          envFrom:
+            - secretRef:
+                name: imobia-config
+          env:
+            - { name: NODE_ENV, value: production }
+            - { name: WORKER_PORT, value: "8081" }
+            - { name: REDIS_URL, value: "redis://imobia-redis:6379" }
+            - { name: STORAGE_DIR, value: "/data/files" }
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: imobia-db
+                  key: DATABASE_URL
+          ports:
+            - { name: metrics, containerPort: 8081 }
+          readinessProbe:
+            httpGet: { path: /health, port: metrics }
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          livenessProbe:
+            httpGet: { path: /metrics, port: metrics }
+            initialDelaySeconds: 20
+            periodSeconds: 30
+          volumeMounts:
+            - name: files
+              mountPath: /data/files
+          resources:
+            requests: { cpu: "25m", memory: "128Mi" }
+            limits: { cpu: "500m", memory: "512Mi" }
+      volumes:
+        - name: files
+          persistentVolumeClaim:
+            claimName: imobia-files

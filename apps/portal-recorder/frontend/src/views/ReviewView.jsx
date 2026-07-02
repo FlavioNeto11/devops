@@ -3,6 +3,9 @@ import {
   getTimeline,
   normalizeSession,
   getContract,
+  getSession,
+  listContracts,
+  promoteContract,
   screenshotBlobUrl,
 } from '../api.js';
 
@@ -44,6 +47,30 @@ export default function ReviewView({ sessionId }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Sessao ja normalizada: recarrega o contrato existente (ultimo desta sessao)
+  // para a revisao — e o botao "Promover" — funcionarem sem re-normalizar.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const session = await getSession(sessionId);
+        if (cancelled || !session || session.status !== 'normalized' || !session.portal_id) return;
+        const list = await listContracts(session.portal_id);
+        const mine = (list || [])
+          .filter((c) => c.session_id === sessionId)
+          .sort((a, b) => (b.version ?? 0) - (a.version ?? 0))[0];
+        if (!mine || cancelled) return;
+        const full = await getContract(mine.id);
+        if (!cancelled) setContract((prev) => prev || full);
+      } catch {
+        /* fail-soft: revisao continua sem o contrato pre-carregado */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
 
   // Lista mesclada e ordenada por offset temporal.
   const items = useMemo(() => {
@@ -90,10 +117,11 @@ export default function ReviewView({ sessionId }) {
     setNormalizeErr(null);
     try {
       const result = await normalizeSession(sessionId);
-      // normalize pode retornar o contrato direto ou { id }. Buscamos por id quando preciso.
+      // normalize retorna { contract_id, version, endpoint_count } — busca o contrato completo.
       let c = result;
-      if (result && result.id && !result.endpoints) {
-        c = await getContract(result.id);
+      const id = result && (result.contract_id || result.id);
+      if (id && !result.endpoints) {
+        c = await getContract(id);
       }
       setContract(c);
     } catch (e) {
@@ -269,14 +297,56 @@ function ScreenshotRow({ shot, sessionId }) {
 
 function ContractTable({ contract }) {
   const endpoints = Array.isArray(contract.endpoints) ? contract.endpoints : [];
+
+  // Promocao para o git (padrao forge-launch): a API dispara o workflow
+  // portal-contract-promote; o runner escreve docs/portal-contracts/ e abre o PR.
+  const [promoting, setPromoting] = useState(false);
+  const [promoted, setPromoted] = useState(null);
+  const [promoteErr, setPromoteErr] = useState(null);
+
+  const runPromote = async () => {
+    setPromoting(true);
+    setPromoteErr(null);
+    try {
+      setPromoted(await promoteContract(contract.id));
+    } catch (e) {
+      setPromoteErr(e.message || String(e));
+    } finally {
+      setPromoting(false);
+    }
+  };
+
   return (
     <div className="card contract-card">
       <div className="view__head">
         <h3 className="view__title">
           Contrato {contract.version != null && <span className="chip">v{contract.version}</span>}
         </h3>
-        <span className="muted small">{endpoints.length} endpoints</span>
+        <div className="review__toolbar">
+          <span className="muted small">{endpoints.length} endpoints</span>
+          {contract.id && (
+            <button
+              className="btn btn-primary"
+              onClick={runPromote}
+              disabled={promoting || Boolean(promoted)}
+              title="Dispara a esteira que escreve docs/portal-contracts/ e abre um PR (sem merge automatico)"
+            >
+              {promoting ? 'Promovendo…' : promoted ? 'Promovido ✓' : 'Promover para o repositório'}
+            </button>
+          )}
+        </div>
       </div>
+      {promoteErr && <div className="alert alert-err" role="alert">{promoteErr}</div>}
+      {promoted && (
+        <div className="alert alert-ok" role="status">
+          Promoção disparada ({promoted.endpoint_count} endpoints, versão {promoted.version}).
+          A esteira escreve <code>docs/portal-contracts/{promoted.portal_slug}/</code> e abre um PR
+          na branch <code>{promoted.expected_branch}</code> — revisão humana antes do merge.{' '}
+          <a href={promoted.pulls_url} target="_blank" rel="noreferrer">Ver PR</a>
+          {' · '}
+          <a href={promoted.actions_url} target="_blank" rel="noreferrer">Ver execução</a>
+        </div>
+      )}
       {endpoints.length === 0 ? (
         <div className="empty empty--sm">Sem endpoints no contrato.</div>
       ) : (

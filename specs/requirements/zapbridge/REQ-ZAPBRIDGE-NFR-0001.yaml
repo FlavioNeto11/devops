@@ -1,0 +1,42 @@
+id: REQ-ZAPBRIDGE-NFR-0001
+slug: req-zapbridge-nfr-0001
+title: IA fail-soft — sem banco/chaves, a mensageria funciona 100% (dormência)
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: zapbridge
+  applies_to: product
+statement: 'O sistema deve atender ao atributo de qualidade "disponibilidade com IA dormente": sem AI_DATABASE_URL e/ou sem ANTHROPIC_API_KEY/OPENAI_API_KEY, os hooks de IA viram no-op, as rotas /ai/* respondem fallback estruturado sem 5xx, o boot não falha (migrations/métricas fail-soft) e toda a mensageria (sessão, chats, mídia, tempo real) permanece 100% funcional com o pod Ready. É o estado ATUAL do cluster: a camada de IA está deployada porém dormente até o operador configurar as chaves no Secret zapbridge-config.'
+source:
+  stakeholder: zapbridge
+  origin: codebase apps/zapbridge + CLAUDE.md (adoção Forja 4.1 D5)
+  source_paths:
+    - apps/zapbridge/server/src/modules/ai/pg.ts
+    - apps/zapbridge/server/src/modules/ai/hooks.ts
+    - apps/zapbridge/CLAUDE.md
+priority: critical
+criticality: critical
+architectural_significance: false
+quality_scenarios:
+  - source: Operador sem chaves de IA configuradas no Secret zapbridge-config
+    stimulus: Usuário usa a mensageria normalmente e o cliente chama rotas /ai/* com o motor dormente
+    environment: Cluster ns apps (Docker Desktop), Secret zapbridge-config sem ANTHROPIC_API_KEY/OPENAI_API_KEY (estado atual)
+    artifact: zapbridge-server (hooks de IA + rotas /ai/*)
+    response: Mensageria opera sem degradação; hooks de IA são no-op; /ai/* devolve fallback estruturado indicando indisponibilidade; health continua OK e o pod Ready
+    response_measure: Zero respostas 5xx causadas por ausência de chave/banco de IA; readiness probe passa; nenhum payload é enviado a provedor externo
+links:
+  - type: constrains
+    target: REQ-ZAPBRIDGE-0008
+  - type: constrains
+    target: REQ-ZAPBRIDGE-0009
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: adoção Forja 4.1 D5 — backfill extraído do app real
+allocation:
+  service_refs:
+    - svc-zapbridge-server
+  slo_refs:
+    - slo-availability-99

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { norm, matchesQuery, filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, bandRank, cosineSim, topSimilar, toYaml, scalarYaml, validateDraft, coverageSummary, recentList, hashStr, degreeMap, hslToHex, relLuminance, contrastRatio, textColorFor, productPalette, nodeColor, highlightSet, visibleGraph, truncateLabel, forceLayout, textTokens, textSimilarity, findSimilarReqs, productGrounding, filterCitations, actionableGaps, refineDecision, validateRefinement, nextRefId } from '../assets/lib.js';
+import { norm, matchesQuery, filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, bandRank, cosineSim, topSimilar, toYaml, scalarYaml, validateDraft, coverageSummary, recentList, hashStr, degreeMap, hslToHex, relLuminance, contrastRatio, textColorFor, productPalette, nodeColor, highlightSet, visibleGraph, truncateLabel, forceLayout, textTokens, textSimilarity, findSimilarReqs, productGrounding, filterCitations, actionableGaps, refineDecision, validateRefinement, nextRefId, parseMarkdown, sanitizeHref, systemContext } from '../assets/lib.js';
 
 const reqs = [
   { id: 'REQ-SICAT-0002', title: 'Submissão MTR', statement: 'O sistema deve submeter', type: 'functional', status: 'approved', priority: 'critical', architectural_significance: true, impact_band: 'high', impact_score: 80, scope: { product_scope: 'sicat', applies_to: 'product' }, acceptance_criteria: ['x'], verification_method: ['test-integration'], version: { item_revision: 1 }, allocation: { adr_refs: ['ADR-0002'] } },
@@ -316,6 +316,72 @@ test('filterCitations: só IDs que existem na baseline, sem duplicatas', () => {
   assert.deepEqual(filterCitations(['REQ-FAKE-1'], reqs), []); // alucinação descartada
   assert.deepEqual(filterCitations(null, reqs), []);
   assert.deepEqual(filterCitations(['REQ-SICAT-0002'], []), []);
+});
+
+/* ============================ MARKDOWN CSP-safe + systemContext ============================ */
+test('sanitizeHref: só http/https; bloqueia esquemas perigosos', () => {
+  assert.equal(sanitizeHref('https://nvit.com.br'), 'https://nvit.com.br');
+  assert.equal(sanitizeHref('http://x.dev/y'), 'http://x.dev/y');
+  assert.equal(sanitizeHref('  https://trim.me '), 'https://trim.me');
+  assert.equal(sanitizeHref('javascript:alert(1)'), null);
+  assert.equal(sanitizeHref('data:text/html,x'), null);
+  assert.equal(sanitizeHref('vbscript:x'), null);
+  assert.equal(sanitizeHref(''), null);
+  assert.equal(sanitizeHref(null), null);
+});
+
+test('parseMarkdown: heading, negrito/itálico/código inline', () => {
+  const [h] = parseMarkdown('### Título');
+  assert.equal(h.type, 'heading');
+  assert.deepEqual(h.inline, [{ t: 'text', v: 'Título' }]);
+  const [p] = parseMarkdown('um **forte** e *leve* com `cod`');
+  assert.equal(p.type, 'p');
+  const toks = p.lines[0];
+  assert.deepEqual(toks.find((t) => t.t === 'strong'), { t: 'strong', v: 'forte' });
+  assert.deepEqual(toks.find((t) => t.t === 'em'), { t: 'em', v: 'leve' });
+  assert.deepEqual(toks.find((t) => t.t === 'code'), { t: 'code', v: 'cod' });
+});
+
+test('parseMarkdown: listas ul/ol e parágrafos por linha em branco', () => {
+  const ul = parseMarkdown('- a\n- b\n- c');
+  assert.equal(ul.length, 1);
+  assert.equal(ul[0].type, 'ul');
+  assert.equal(ul[0].items.length, 3);
+  const ol = parseMarkdown('1. um\n2. dois');
+  assert.equal(ol[0].type, 'ol');
+  const ps = parseMarkdown('linha1\nlinha2\n\nsegundo');
+  assert.equal(ps.length, 2);            // 2 parágrafos (linha em branco separa)
+  assert.equal(ps[0].lines.length, 2);   // quebra simples preservada como 2 linhas
+});
+
+test('parseMarkdown: link seguro vira token link; inseguro degrada para texto (anti-XSS)', () => {
+  const safe = parseMarkdown('veja [aqui](https://nvit.com.br)')[0].lines[0];
+  assert.deepEqual(safe.find((t) => t.t === 'link'), { t: 'link', v: 'aqui', href: 'https://nvit.com.br' });
+  const bad = parseMarkdown('[x](javascript:alert(1))')[0].lines[0];
+  assert.ok(!bad.some((t) => t.t === 'link'), 'href perigoso não vira link');
+  assert.ok(bad.some((t) => t.t === 'text' && t.v === 'x'), 'vira texto');
+});
+
+test('parseMarkdown: fenced code é texto puro (sem parse inline)', () => {
+  const [c] = parseMarkdown('```\nconst a = **nao** negrito\n```');
+  assert.equal(c.type, 'code');
+  assert.equal(c.text, 'const a = **nao** negrito');
+});
+
+test('parseMarkdown: entrada patológica (50k "[" sem fechar) termina rápido (anti-ReDoS)', () => {
+  const t0 = process.hrtime.bigint();
+  const blocks = parseMarkdown('['.repeat(50000));
+  const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+  assert.ok(blocks.length >= 1);
+  assert.ok(ms < 100, `parseMarkdown demorou ${ms.toFixed(0)}ms (esperado < 100ms — backtracking quadrático)`);
+});
+
+test('systemContext: extrai architecture_summary do produto (wrapper ou array)', () => {
+  const products = { products: [{ name: 'neuroevolui', architecture_summary: 'Stack: Fastify+Postgres' }] };
+  assert.equal(systemContext(products, 'neuroevolui'), 'Stack: Fastify+Postgres');
+  assert.equal(systemContext(products.products, 'neuroevolui'), 'Stack: Fastify+Postgres');
+  assert.equal(systemContext(products, 'inexistente'), '');
+  assert.equal(systemContext(products, ''), '');
 });
 
 /* ============================ VALIDAÇÃO / DUPLICATA (Editor) ============================ */

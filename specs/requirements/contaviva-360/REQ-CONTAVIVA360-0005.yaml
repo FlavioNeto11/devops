@@ -1,0 +1,28 @@
+id: REQ-CONTAVIVA360-0005
+title: "Controle Financeiro: Contas a Pagar, Contas a Receber e Fluxo de Caixa"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: contaviva-360
+  blueprint: gymops-style
+statement: "O sistema DEVE permitir o cadastro e acompanhamento de contas a pagar (despesas futuras, fornecedores, vencimentos, centros de custo, recorrências, formas de pagamento) e contas a receber (receitas futuras, clientes, vencimentos), visualizar fluxo de caixa (saldo previsto vs realizado), despesas por categoria/centro de custo, receitas por origem, e exportar relatórios financeiros por período."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/contaviva-360/product.json"]
+priority: high
+criticality: medium
+architectural_significance: true
+capability_blocks: ["redis-bullmq", "worker-queue-transacional"]
+acceptance_criteria:
+  - "Conta a Pagar: fornecedor, descrição, valor, data de vencimento, categoria (aluguel, folha, energia, etc.), centro de custo, forma de pagamento (cheque, TED, cartão, boleto, dinheiro), recorrência (mensal, anual), anexo, status (pendente, pago, vencido, cancelado), data de pagamento realizado."
+  - "Conta a Receber: cliente, descrição, valor, data de vencimento, forma de recebimento, anexo (nota fiscal, contrato), status (pendente, recebido, vencido, cancelado)."
+  - "Fluxo de Caixa: view que agrega contas (previsão 30/60/90 dias), calcula saldo dia a dia, mostra saldo em caixa hoje, saldo previsto no final do período."
+  - "Relatório Financeiro: por período (mês, trimestre, ano), por categoria (despesa), por centro de custo; export para PDF/XLSX."
+  - "Dashboard Financeiro: total a receber, total a pagar, saldo líquido, gráfico de fluxo ao longo do período, top 5 fornecedores/clientes por valor."
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

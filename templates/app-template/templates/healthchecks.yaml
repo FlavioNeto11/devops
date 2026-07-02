@@ -1,12 +1,16 @@
 {{- /*
-ConfigMap 'app-healthchecks' — mapeia serviceName -> health.path.
-A tela Health do DevOps Console le este ConfigMap para saber em qual caminho
-checar a saude de cada service. So inclui services que definem health.path.
+ConfigMap '<app>-healthchecks' — mapeia serviceName -> health.path.
+Insumo para a tela Health do DevOps Console (descoberta por labels part-of).
+So inclui services que definem health.path.
+Nome POR APP: o antigo nome fixo 'app-healthchecks' era compartilhado entre
+todos os apps do namespace — o segundo produto compilado sob Argo brigaria
+pelo mesmo recurso (nada consome o nome antigo; renomeado na janela barata
+da Forja 4.0, antes do primeiro produto vivo no chart).
 */ -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: app-healthchecks
+  name: {{ include "app-template.appName" . }}-healthchecks
   namespace: {{ .Values.app.namespace }}
   labels:
     {{- include "app-template.commonLabels" (dict "root" . "name" "" "component" "healthchecks") | nindent 4 }}
@@ -14,9 +18,12 @@ metadata:
     devops.flavioneto/app: {{ .Values.app.name | quote }}
 data:
   {{- range $name, $svc := .Values.services }}
+  {{- /* $svc pode ser null (compilador apaga services por null explícito) */ -}}
+  {{- if $svc }}
   {{- with $svc.health }}
   {{- if .path }}
   {{ $name }}: {{ .path | quote }}
+  {{- end }}
   {{- end }}
   {{- end }}
   {{- end }}

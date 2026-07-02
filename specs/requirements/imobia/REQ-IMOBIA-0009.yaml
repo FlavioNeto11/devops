@@ -1,0 +1,36 @@
+id: REQ-IMOBIA-0009
+slug: req-imobia-0009
+title: PTAM — parecer técnico de avaliação (ABNT NBR 14653) em PDF
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: imobia
+  applies_to: product
+statement: O sistema deve gerar o PTAM (Parecer Técnico de Avaliação Mercadológica) conforme ABNT NBR 14653, com fundamentação técnica/jurídica redigida pela IA de redação (Claude), renderização assíncrona em PDF com papel timbrado (fila ptam-render) e ressalva explícita de que o laudo deve ser assinado por profissional habilitado (CRECI/CNAI) — o sistema não presta aconselhamento jurídico.
+source:
+  stakeholder: imobia
+  origin: codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)
+  source_paths:
+    - apps/imobia/api/src/modules/ptam/routes.ts
+    - apps/imobia/docs/CONCEPCAO.md
+priority: high
+criticality: high
+architectural_significance: false
+risk_tags:
+  - regulatorio
+links:
+  - type: relates_to
+    target: REQ-IMOBIA-0008
+    note: a ACM fornece os comparáveis/média do m² que fundamentam a avaliação
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: adoção Forja 4.1 D5 — backfill extraído do app real
+allocation:
+  service_refs:
+    - svc-imobia-api
+    - svc-imobia-worker
+  infra_refs:
+    - infra-postgres

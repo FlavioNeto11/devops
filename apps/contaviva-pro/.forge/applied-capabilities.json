@@ -1,0 +1,15 @@
+{
+  "app": "contaviva-pro",
+  "stack": "gymops",
+  "blocks": [
+    "observabilidade",
+    "contas-acesso",
+    "migrations-versionadas",
+    "redis-bullmq",
+    "control-ai-por-app",
+    "design-system",
+    "ia-grafo",
+    "structured-outputs"
+  ],
+  "generatedBy": "scaffold-gymops.mjs"
+}

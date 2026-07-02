@@ -1,0 +1,30 @@
+# =============================================================================
+# Argo CD Application: zapbridge (backend Express/Socket.IO/Baileys + app web Expo)
+# sob /zapbridge. Descoberta pelo app-of-apps "devops-platform". Aplica
+# apps/zapbridge/k8s via kustomize (que NAO inclui secret.example.yaml: o Secret
+# real zapbridge-config, com o JWT_SECRET, e criado no cluster fora do git e nao e
+# gerenciado/prunado pelo Argo). Imagens zapbridge-server:local / zapbridge-web:local
+# sao construidas no no (docker build, IfNotPresent) ou via CI/GHCR (follow-up).
+# =============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: zapbridge
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/FlavioNeto11/devops
+    path: apps/zapbridge/k8s
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: apps
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,63 @@
+{
+  "status": "adopted",
+  "note": "Arquitetura ADOTADA (brownfield): descreve o que o app apps/gymops TEM hoje — ADRs extraídos de apps/gymops/CLAUDE.md e apps/gymops/docs/. Sem waves/work_orders: nada aqui é plano de geração.",
+  "stack_rationale": "Stack real adotada (não escolhida pela Forja): monorepo pnpm com web Next.js 14 App Router + React 18 + Tailwind (PWA; basePath /gymops nativo) + API Fastify 4 em TypeScript strict (Zod em todo endpoint) + worker BullMQ na MESMA imagem da api + Prisma schema-first sobre Postgres 16 com pgvector + Redis 7. Corresponde ao blueprint gymops-style (base_stack gymops) — o GymOps é o exemplar que origina esse blueprint.",
+  "adrs": [
+    {
+      "title": "ADR-001: Prisma schema-first com migrations versionadas em packages/db",
+      "decision": "O modelo de dados nasce em packages/db/prisma/schema.prisma; migrations versionadas + seed vivem no pacote db e são aplicadas via prisma migrate deploy (contrato em devops.yaml `migrations: tool: prisma`).",
+      "rationale": "Schema tipado único compartilhado entre api e worker; nomenclatura snake_case e soft-delete padronizados. Exemplar do bloco migrations-versionadas (variante gymops).",
+      "blocks": ["migrations-versionadas"],
+      "cites": ["apps/gymops/packages/db/prisma/schema.prisma"]
+    },
+    {
+      "title": "ADR-002: Filas Redis/BullMQ com degradação graciosa",
+      "decision": "Jobs assíncronos (recurrence-jobs, import-jobs, notification-jobs, ai-summary-jobs, delay-scan-jobs) rodam em BullMQ sobre Redis, com enqueue tipado e fallback via setImmediate quando REDIS_URL está ausente — nunca lançar erro por Redis ausente.",
+      "rationale": "Filas nomeadas por domínio com retry/backoff e progresso; o app continua funcional sem Redis (degradação graciosa). Exemplar do bloco redis-bullmq.",
+      "blocks": ["redis-bullmq"],
+      "cites": ["apps/gymops/apps/api/src/lib/queues.ts", "apps/gymops/apps/api/src/lib/redis.ts", "apps/gymops/apps/api/src/workers/import-worker.ts"]
+    },
+    {
+      "title": "ADR-003: RBAC multi-tenant em cascata Org → Unit → Area",
+      "decision": "Permissões seguem precedência estrita owner/org_manager > unit_manager > area_leader > visibility restricted (quebra herança, exige activity_permissions explícita) > assignee/watcher; toda query é escopada por tenant e a permissão é SEMPRE validada no backend, nunca no frontend.",
+      "rationale": "Modelo próprio Organização → Unidade → Área → Atividade com papéis em cascata e soft-delete — exemplar do bloco rbac-multitenant.",
+      "blocks": ["rbac-multitenant"],
+      "cites": ["apps/gymops/apps/api/src/lib/rbac.ts", "apps/gymops/apps/api/src/lib/auth-context.ts", "apps/gymops/docs/rbac-matrix.md"]
+    },
+    {
+      "title": "ADR-004: Autenticação própria (JWT + refresh) com SSO Keycloak aditivo",
+      "decision": "Auth email/senha própria do app (bcrypt; JWT access curto de 15min + refresh 7d; rate-limit nas rotas de auth) + Google OAuth; SSO Keycloak (realm nvit) é ADITIVO e opcional, ligado por NEXT_PUBLIC_ENABLE_SSO no web e KEYCLOAK_* no secret gymops-config, sem substituir o login local.",
+      "rationale": "Identidade resolvida por request (papel + tenant) via auth-context — referência gymops do bloco contas-acesso; SSO aditivo segue o padrão da plataforma.",
+      "blocks": ["contas-acesso"],
+      "cites": ["apps/gymops/apps/api/src/lib/auth-context.ts", "apps/gymops/devops.yaml"]
+    },
+    {
+      "title": "ADR-005: IA estruturada assistiva — rascunho + confirmação, nunca autônoma",
+      "decision": "Respostas de IA sempre em JSON Schema validado (structured outputs); a IA nunca salva diretamente (retorna rascunho para confirmação); fallback gracioso via callAI(fn, fallback, timeoutMs); conteúdo de atividades restricted nunca vai ao LLM; detecção de atraso é SQL determinístico, não LLM.",
+      "rationale": "Schemas Zod por feature + prompts versionados — exemplar do bloco structured-outputs.",
+      "blocks": ["structured-outputs"],
+      "cites": ["apps/gymops/apps/api/src/ai/schemas", "apps/gymops/apps/api/src/ai/prompts"]
+    },
+    {
+      "title": "ADR-006: Notificações multicanal com degradação graciosa",
+      "decision": "Avisos fora da sessão por e-mail (SMTP/Nodemailer), push web (VAPID/web-push — não FCM) e WhatsApp (Twilio), enfileirados em notification-jobs; cada canal é opcional e a falha de um não derruba o fluxo.",
+      "rationale": "Exemplar do bloco notificacoes-multicanal — os três canais reais vivem em lib/ da api.",
+      "blocks": ["notificacoes-multicanal"],
+      "cites": ["apps/gymops/apps/api/src/lib/mailer.ts", "apps/gymops/apps/api/src/lib/push.ts", "apps/gymops/apps/api/src/lib/whatsapp.ts"]
+    },
+    {
+      "title": "ADR-007: API em plugins Fastify por domínio com envelope canônico",
+      "decision": "REST puro com plugins Fastify por domínio (/auth, /units, /activities, ...), rotas finas com lógica em services/lib, validação Zod em todo endpoint, envelope { data, meta?, error? }, paginação por cursor e status codes semânticos.",
+      "rationale": "Fronteira de camadas da variante gymops — referência do bloco camadas-rigidas.",
+      "blocks": ["camadas-rigidas"],
+      "cites": ["apps/gymops/apps/api/src/routes"]
+    },
+    {
+      "title": "ADR-008: Observabilidade com métricas Prometheus e health",
+      "decision": "Métricas Prometheus expostas na :9464 via prom-client (createAiMetrics + startMetricsServer) com ServiceMonitor/labels part-of no k8s e health checks (/health na api; health do web via rota /gymops/login).",
+      "rationale": "Padrão de observabilidade da plataforma aplicado ao app — referência gymops do bloco observabilidade.",
+      "blocks": ["observabilidade"],
+      "cites": ["apps/gymops/apps/api/src/ai/ai-metrics.ts", "apps/gymops/devops.yaml"]
+    }
+  ]
+}

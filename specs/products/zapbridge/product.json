@@ -1,0 +1,53 @@
+{
+  "schema_version": "1.2.0",
+  "name": "zapbridge",
+  "display_name": "ZapBridge",
+  "base_path": "/zapbridge",
+  "namespace": "apps",
+  "app_type": "product_software",
+  "blueprint": "app-simples",
+  "origin": "adopted",
+  "interfaces": [
+    "api",
+    "web"
+  ],
+  "capability_blocks": [],
+  "vision": "Cliente de mensageria que conecta à conta de WhatsApp do PRÓPRIO usuário via Baileys (QR/pairing, multi-dispositivo — uso legítimo apenas: sem Business API, sem scraping, sem envio em massa). Backend Node 20/Express (TypeScript, CommonJS) mantém a sessão Baileys viva, persiste conversas/contatos/grupos/mídia em SQLite (Prisma) num PVC RWO e entrega tudo em tempo real por Socket.IO (rota dedicada /zapbridge/socket.io); frontend web React 18 + Vite + Tailwind servido por nginx sob /zapbridge (reescrita que aposentou o app Expo — SW kill-switch migra instalações antigas). Camada de IA opt-in e fail-soft sobre @flavioneto11/ai-core (reasoning Claude + embeddings OpenAI) com banco SEPARADO Postgres 16/pgvector: smart replies, reescrita, resumo, busca semântica, assistente RAG, KB PME, agente proposeTools→confirmação HMAC e auto-resposta com guardrails — DORMENTE sem chaves no Secret zapbridge-config (o app funciona 100% sem IA). Stack real mais próxima do blueprint app-simples (SPA + API Node, sem worker/fila), diferindo em React (não Vue), Express CJS e SQLite como store primário (Postgres/pgvector só para a IA) — adotado como produto da Forja por contrato, sem regeneração de código.",
+  "requirement_ids": [
+    "REQ-ZAPBRIDGE-0001",
+    "REQ-ZAPBRIDGE-0002",
+    "REQ-ZAPBRIDGE-0003",
+    "REQ-ZAPBRIDGE-0004",
+    "REQ-ZAPBRIDGE-0005",
+    "REQ-ZAPBRIDGE-0006",
+    "REQ-ZAPBRIDGE-0007",
+    "REQ-ZAPBRIDGE-0008",
+    "REQ-ZAPBRIDGE-0009",
+    "REQ-ZAPBRIDGE-0010",
+    "REQ-ZAPBRIDGE-NFR-0001",
+    "REQ-ZAPBRIDGE-NFR-0002",
+    "REQ-ZAPBRIDGE-NFR-0003"
+  ],
+  "phases": {
+    "requirements": {
+      "status": "adopted",
+      "note": "requisitos reais em specs/requirements/zapbridge/ — backfill D5 (Forja 4.1) extraído de apps/zapbridge/docs/MVP-FUNCIONAL.md (45 RFs + RF046–RF060 da IA, agrupados por capacidade), apps/zapbridge/CLAUDE.md, devops.yaml e do código (server/src/modules, web/)"
+    },
+    "architecture": {
+      "status": "adopted",
+      "note": "ADRs extraídos das decisões reais do app (apps/zapbridge/CLAUDE.md + código + k8s/) — ver architecture.json"
+    },
+    "scaffold": {
+      "status": "adopted",
+      "note": "app real pré-existente em apps/zapbridge — não scaffoldado pela Forja"
+    },
+    "build": {
+      "status": "deployed",
+      "note": "derivado do implementation-status: todos os REQ-ZAPBRIDGE-* estão deployed (cluster ns apps, imagens :local; camada de IA deployada porém DORMENTE sem chaves no Secret zapbridge-config)"
+    }
+  },
+  "version": {
+    "revision": 1,
+    "change_reason": "Forja 4.1 D5 — adoção brownfield por contrato (app real apps/zapbridge vira produto da Forja sem tocar código/k8s)"
+  }
+}

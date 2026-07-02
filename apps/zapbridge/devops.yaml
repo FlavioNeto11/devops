@@ -1,0 +1,69 @@
+# Contrato da esteira DevOps para o ZapBridge (cliente de mensageria via Baileys).
+# Ver C:\devops\docs\new-project-contract.md e docs/standards/hard-constraints.md (regra de ouro).
+# basePath /zapbridge ; frontend (app web Expo) SEM strip ; api (backend) COM strip.
+# Rota extra de WebSocket /zapbridge/socket.io (priority 40, SEM strip) aponta para o MESMO
+# backend `api` — declarada diretamente na IngressRoute (k8s/zapbridge.yaml), pois o contrato
+# so modela frontend/api/api2/worker. Persistencia: PVC RWO (SQLite + auth Baileys + midia),
+# Deployment Recreate (estado em memoria dos sockets + volume RWO => nunca 2 replicas).
+app:
+  name: zapbridge
+  namespace: apps
+  host: dev.nvit.com.br        # + nvit.localhost no dev local
+  basePath: /zapbridge
+  appType: product_software             # taxonomia: cms_portal | product_software | platform_tool
+services:
+  web:
+    type: frontend
+    path: /
+    image: zapbridge-web:local          # lab :local (IfNotPresent); GHCR e follow-up (ver CLAUDE.md)
+    port: 80
+    expose: true
+    stripPrefix: false
+    priority: 10
+    build:
+      context: app
+      dockerfile: Dockerfile.web        # exige `npm run build:web` antes (gera app/dist)
+    health:
+      path: /healthz
+  server:
+    type: api
+    path: /api
+    image: zapbridge-server:local       # lab :local (IfNotPresent); GHCR e follow-up
+    port: 3000
+    expose: true
+    stripPrefix: true
+    priority: 30
+    build:
+      context: server
+    health:
+      path: /health
+    env:
+      # Segredos NUNCA aqui (JWT_SECRET + chaves de IA vem dos Secrets). Apenas config nao-secreta:
+      PORT: "3000"
+      DATABASE_URL: "file:/data/zapbridge.db"   # SQLite no PVC (dados transacionais do WhatsApp)
+      AUTH_DIR: /data/auth                       # credenciais Baileys (persistidas no PVC)
+      MEDIA_DIR: /data/media
+      SOCKET_IO_PATH: /zapbridge/socket.io       # path do Socket.IO atras do subpath
+      CORS_ORIGIN: https://dev.nvit.com.br
+      # IA (opt-in): reasoning Claude + embeddings OpenAI. Chaves via Secret (optional).
+      AI_PROVIDER: anthropic
+      ANTHROPIC_MODEL: claude-sonnet-4-6
+      AI_EMBEDDING_MODEL: text-embedding-3-small
+      AI_GRAPH: "on"           # assistente com tools (router→ReAct→judge)
+      AI_SUGGEST: "on"
+      METRICS_PORT: "9464"     # /metrics (Prometheus), porta dedicada fora do Traefik
+dependencies:
+  postgres:
+    image: pgvector/pgvector:pg16   # extensao vector p/ threads/memoria/embeddings/RAG da IA
+    db: zapbridge_ai
+    service: zapbridge-postgres
+    port: 5432
+observability:
+  metricsPort: 9464
+  serviceMonitor: true
+secrets:
+  # Criados no cluster fora do git (ver k8s/secret.example.yaml). NAO entram no kustomization.yaml.
+  - zapbridge-config   # JWT_SECRET + ANTHROPIC_API_KEY/OPENAI_API_KEY (IA, opt-in)
+  - zapbridge-db       # POSTGRES_* + AI_DATABASE_URL (Postgres pgvector da IA)
+migrations:
+  tool: prisma   # `prisma migrate deploy` (SQLite) no start; o Postgres da IA migra idempotente no boot (modules/ai/pg.ts)

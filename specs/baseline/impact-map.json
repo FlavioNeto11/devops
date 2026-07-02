@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "c673fba7368673eeb123e0671af3b6e8d8fd855c2c79bf90786e87dd1743d7f9",
+  "baseline_hash": "f1d3f82808d016dd57a1d810f851ea9ffccdf38ff80f6131476d23022868249a",
   "nodes": [
     {
       "id": "infra-argocd",
@@ -15,11 +15,19 @@
       "kind": "infra"
     },
     {
+      "id": "infra-pgvector",
+      "kind": "infra"
+    },
+    {
       "id": "infra-postgres",
       "kind": "infra"
     },
     {
       "id": "infra-redis",
+      "kind": "infra"
+    },
+    {
+      "id": "infra-sealed-secrets",
       "kind": "infra"
     },
     {
@@ -1538,6 +1546,96 @@
       "impact_band": "low"
     },
     {
+      "id": "REQ-CONTAVIVA360-0001",
+      "kind": "requirement",
+      "title": "Fundação: Arquitetura em camadas + Observabilidade + Multi-tenant + OIDC",
+      "type": "functional",
+      "product": "contaviva-360",
+      "asr": true,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0002",
+      "kind": "requirement",
+      "title": "Gestão de Dados Contábeis e Fiscais: Entidades de Pessoa Física, Pessoa Jurídica e Documentos",
+      "type": "functional",
+      "product": "contaviva-360",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0003",
+      "kind": "requirement",
+      "title": "Obrigações Fiscais e Alertas: Rastreamento de Vencimentos, Impostos e Pendências",
+      "type": "functional",
+      "product": "contaviva-360",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0004",
+      "kind": "requirement",
+      "title": "Controle de Tarefas e Colaboração: Tasks entre Contador e Cliente com Comentários e Anexos",
+      "type": "functional",
+      "product": "contaviva-360",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0005",
+      "kind": "requirement",
+      "title": "Controle Financeiro: Contas a Pagar, Contas a Receber e Fluxo de Caixa",
+      "type": "functional",
+      "product": "contaviva-360",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0006",
+      "kind": "requirement",
+      "title": "Gestão de Notas Fiscais (PJ): Cadastro, Emissão, Rastreamento e Integração com Obrigações",
+      "type": "functional",
+      "product": "contaviva-360",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0007",
+      "kind": "requirement",
+      "title": "Assistente de IA Contábil: Consultas, Rascunhos e Recomendações Baseadas em Dados do Usuário",
+      "type": "functional",
+      "product": "contaviva-360",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0008",
+      "kind": "requirement",
+      "title": "Painel Personalizado por Role: Dashboards com Widgets de Pendências, Vencimentos, Alertas e KPIs Contábeis",
+      "type": "functional",
+      "product": "contaviva-360",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0009",
+      "kind": "requirement",
+      "title": "Emissão e Processamento de Documentos Fiscais (SEFAZ, RFB, Governo): Gateway Centralizado e Auditoria",
+      "type": "functional",
+      "product": "contaviva-360",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
       "id": "REQ-GYMOPS-0001",
       "kind": "requirement",
       "title": "Autenticação multicanal (email/senha + refresh token + OAuth Google)",
@@ -1766,6 +1864,166 @@
       "asr": false,
       "impact_score": 38,
       "impact_band": "low"
+    },
+    {
+      "id": "REQ-IMOBIA-0001",
+      "kind": "requirement",
+      "title": "Contas e acesso multi-tenant (login local + SSO Keycloak aditivo)",
+      "type": "functional",
+      "product": "imobia",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-IMOBIA-0002",
+      "kind": "requirement",
+      "title": "Orquestração multi-modelo de IA (Cortex roteia; GPT/Claude/Gemini executam)",
+      "type": "functional",
+      "product": "imobia",
+      "asr": true,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-IMOBIA-0003",
+      "kind": "requirement",
+      "title": "Captação de imóveis (venda/locação) com busca semântica",
+      "type": "functional",
+      "product": "imobia",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-IMOBIA-0004",
+      "kind": "requirement",
+      "title": "Clientes/Leads com lead scoring e realimentação do funil",
+      "type": "functional",
+      "product": "imobia",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-IMOBIA-0005",
+      "kind": "requirement",
+      "title": "Financeiro PJ/PF com categorização automática e fluxo de caixa",
+      "type": "functional",
+      "product": "imobia",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-IMOBIA-0006",
+      "kind": "requirement",
+      "title": "Agenda e eventos a partir de linguagem natural",
+      "type": "functional",
+      "product": "imobia",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-IMOBIA-0007",
+      "kind": "requirement",
+      "title": "WhatsApp multi-instância como eixo central com triagem por IA",
+      "type": "functional",
+      "product": "imobia",
+      "asr": true,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-IMOBIA-0008",
+      "kind": "requirement",
+      "title": "ACM — análise de mercado comparativa por varredura de portais",
+      "type": "functional",
+      "product": "imobia",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-IMOBIA-0009",
+      "kind": "requirement",
+      "title": "PTAM — parecer técnico de avaliação (ABNT NBR 14653) em PDF",
+      "type": "functional",
+      "product": "imobia",
+      "asr": false,
+      "impact_score": 53,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-IMOBIA-0010",
+      "kind": "requirement",
+      "title": "Corbam/COBAN — recuperação de crédito (limpa nome, score, rating)",
+      "type": "functional",
+      "product": "imobia",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-IMOBIA-0011",
+      "kind": "requirement",
+      "title": "Vistoria de imóveis com análise de fotos por IA e laudo oficial",
+      "type": "functional",
+      "product": "imobia",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-IMOBIA-0012",
+      "kind": "requirement",
+      "title": "Documentos por etapa com validação por IA de visão",
+      "type": "functional",
+      "product": "imobia",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-IMOBIA-NFR-0001",
+      "kind": "requirement",
+      "title": "IA fail-soft — sem chaves, tudo funciona manualmente (dormência)",
+      "type": "non-functional",
+      "product": "imobia",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-IMOBIA-NFR-0002",
+      "kind": "requirement",
+      "title": "Confiabilidade do processamento assíncrono (filas BullMQ fail-soft)",
+      "type": "non-functional",
+      "product": "imobia",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-IMOBIA-NFR-0003",
+      "kind": "requirement",
+      "title": "Auditabilidade — trilha do tempo registra qual IA produziu cada etapa",
+      "type": "non-functional",
+      "product": "imobia",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-IMOBIA-NFR-0004",
+      "kind": "requirement",
+      "title": "Segurança: chaves de IA só no backend via Sealed Secrets",
+      "type": "non-functional",
+      "product": "imobia",
+      "asr": false,
+      "impact_score": 60,
+      "impact_band": "medium"
     },
     {
       "id": "REQ-KEYCLOAK-0001",
@@ -3898,6 +4156,136 @@
       "impact_band": "low"
     },
     {
+      "id": "REQ-ZAPBRIDGE-0001",
+      "kind": "requirement",
+      "title": "Contas e autenticação do app (registro + login JWT local)",
+      "type": "functional",
+      "product": "zapbridge",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0002",
+      "kind": "requirement",
+      "title": "Conexão WhatsApp multi-dispositivo via Baileys (QR/pairing, reconexão, restore)",
+      "type": "functional",
+      "product": "zapbridge",
+      "asr": true,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0003",
+      "kind": "requirement",
+      "title": "Sincronização e persistência local de conversas (SQLite/Prisma, persist-before-emit)",
+      "type": "functional",
+      "product": "zapbridge",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0004",
+      "kind": "requirement",
+      "title": "Mensageria completa em tempo real (Socket.IO, envio otimista, recibos, reações)",
+      "type": "functional",
+      "product": "zapbridge",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0005",
+      "kind": "requirement",
+      "title": "Mídia ponta a ponta (envio, download, entrega via API, expiração)",
+      "type": "functional",
+      "product": "zapbridge",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0006",
+      "kind": "requirement",
+      "title": "Contatos e grupos (listagem, abrir conversa, participantes)",
+      "type": "functional",
+      "product": "zapbridge",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0007",
+      "kind": "requirement",
+      "title": "Frontend web React/Vite servido em /zapbridge (responsivo, SW kill-switch)",
+      "type": "functional",
+      "product": "zapbridge",
+      "asr": false,
+      "impact_score": 38,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0008",
+      "kind": "requirement",
+      "title": "IA assistiva opt-in (consentimento, smart replies, reescrita, resumo, busca, memória)",
+      "type": "functional",
+      "product": "zapbridge",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0009",
+      "kind": "requirement",
+      "title": "Assistente RAG + KB PME + agente com confirmação + auto-resposta com guardrails",
+      "type": "functional",
+      "product": "zapbridge",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0010",
+      "kind": "requirement",
+      "title": "Saúde e observabilidade (health endpoints + métricas Prometheus da IA)",
+      "type": "functional",
+      "product": "zapbridge",
+      "asr": false,
+      "impact_score": 30,
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-NFR-0001",
+      "kind": "requirement",
+      "title": "IA fail-soft — sem banco/chaves, a mensageria funciona 100% (dormência)",
+      "type": "non-functional",
+      "product": "zapbridge",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-NFR-0002",
+      "kind": "requirement",
+      "title": "Single-writer — 1 réplica Recreate sobre SQLite/PVC RWO (nunca escalar horizontal)",
+      "type": "non-functional",
+      "product": "zapbridge",
+      "asr": true,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-NFR-0003",
+      "kind": "requirement",
+      "title": "Privacidade, segurança e uso legítimo (credenciais só no backend; IA nunca envia sozinha)",
+      "type": "non-functional",
+      "product": "zapbridge",
+      "asr": false,
+      "impact_score": 45,
+      "impact_band": "medium"
+    },
+    {
       "id": "slo-availability-99",
       "kind": "slo"
     },
@@ -3926,6 +4314,18 @@
       "kind": "service"
     },
     {
+      "id": "svc-imobia-api",
+      "kind": "service"
+    },
+    {
+      "id": "svc-imobia-frontend",
+      "kind": "service"
+    },
+    {
+      "id": "svc-imobia-worker",
+      "kind": "service"
+    },
+    {
       "id": "svc-pm-api",
       "kind": "service"
     },
@@ -3943,6 +4343,14 @@
     },
     {
       "id": "svc-site-renderer",
+      "kind": "service"
+    },
+    {
+      "id": "svc-zapbridge-server",
+      "kind": "service"
+    },
+    {
+      "id": "svc-zapbridge-web",
       "kind": "service"
     }
   ],
@@ -4854,6 +5262,312 @@
       "type": "constrains"
     },
     {
+      "from": "REQ-IMOBIA-0001",
+      "to": "infra-keycloak",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0001",
+      "to": "REQ-KEYCLOAK-0005",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-IMOBIA-0001",
+      "to": "REQ-OIDC-0001",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-IMOBIA-0001",
+      "to": "svc-imobia-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0002",
+      "to": "infra-pgvector",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0002",
+      "to": "REQ-AI-0003",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-IMOBIA-0002",
+      "to": "svc-imobia-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0003",
+      "to": "infra-pgvector",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0003",
+      "to": "infra-postgres",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0003",
+      "to": "svc-imobia-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0003",
+      "to": "svc-imobia-frontend",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0004",
+      "to": "infra-postgres",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0004",
+      "to": "REQ-IMOBIA-0010",
+      "type": "relates_to"
+    },
+    {
+      "from": "REQ-IMOBIA-0004",
+      "to": "svc-imobia-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0004",
+      "to": "svc-imobia-frontend",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0005",
+      "to": "infra-postgres",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0005",
+      "to": "svc-imobia-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0006",
+      "to": "infra-postgres",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0006",
+      "to": "svc-imobia-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0007",
+      "to": "infra-redis",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0007",
+      "to": "REQ-IMOBIA-0002",
+      "type": "relates_to"
+    },
+    {
+      "from": "REQ-IMOBIA-0007",
+      "to": "svc-imobia-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0007",
+      "to": "svc-imobia-worker",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0008",
+      "to": "infra-postgres",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0008",
+      "to": "infra-redis",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0008",
+      "to": "svc-imobia-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0008",
+      "to": "svc-imobia-worker",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0009",
+      "to": "infra-postgres",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0009",
+      "to": "REQ-IMOBIA-0008",
+      "type": "relates_to"
+    },
+    {
+      "from": "REQ-IMOBIA-0009",
+      "to": "svc-imobia-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0009",
+      "to": "svc-imobia-worker",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0010",
+      "to": "infra-postgres",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0010",
+      "to": "svc-imobia-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0011",
+      "to": "infra-postgres",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0011",
+      "to": "svc-imobia-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0011",
+      "to": "svc-imobia-worker",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0012",
+      "to": "infra-postgres",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0012",
+      "to": "svc-imobia-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-0012",
+      "to": "svc-imobia-worker",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-NFR-0001",
+      "to": "REQ-IMOBIA-0002",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-IMOBIA-NFR-0001",
+      "to": "slo-availability-99",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-NFR-0001",
+      "to": "svc-imobia-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-NFR-0002",
+      "to": "infra-redis",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-NFR-0002",
+      "to": "REQ-IMOBIA-0007",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-IMOBIA-NFR-0002",
+      "to": "REQ-IMOBIA-0008",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-IMOBIA-NFR-0002",
+      "to": "svc-imobia-worker",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-NFR-0003",
+      "to": "infra-postgres",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-NFR-0003",
+      "to": "REQ-IMOBIA-0002",
+      "type": "relates_to"
+    },
+    {
+      "from": "REQ-IMOBIA-NFR-0003",
+      "to": "REQ-IMOBIA-0012",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-IMOBIA-NFR-0003",
+      "to": "svc-imobia-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-NFR-0004",
+      "to": "infra-sealed-secrets",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-IMOBIA-NFR-0004",
+      "to": "REQ-IMOBIA-0002",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-IMOBIA-NFR-0004",
+      "to": "svc-imobia-api",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
       "from": "REQ-KEYCLOAK-0001",
       "to": "infra-keycloak",
       "type": "allocates_to",
@@ -5205,6 +5919,209 @@
     {
       "from": "REQ-TRAEFIK-0001",
       "to": "infra-traefik",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-0001",
+      "to": "svc-zapbridge-server",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-0002",
+      "to": "svc-zapbridge-server",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-0003",
+      "to": "REQ-ZAPBRIDGE-0002",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-0003",
+      "to": "svc-zapbridge-server",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-0004",
+      "to": "infra-traefik",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-0004",
+      "to": "REQ-ZAPBRIDGE-0003",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-0004",
+      "to": "svc-zapbridge-server",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-0004",
+      "to": "svc-zapbridge-web",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-0005",
+      "to": "REQ-ZAPBRIDGE-0004",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-0005",
+      "to": "svc-zapbridge-server",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-0006",
+      "to": "REQ-ZAPBRIDGE-0003",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-0006",
+      "to": "svc-zapbridge-server",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-0006",
+      "to": "svc-zapbridge-web",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-0007",
+      "to": "infra-traefik",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-0007",
+      "to": "REQ-ZAPBRIDGE-0001",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-0007",
+      "to": "svc-zapbridge-web",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-0008",
+      "to": "infra-pgvector",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-0008",
+      "to": "REQ-ZAPBRIDGE-0004",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-0008",
+      "to": "svc-zapbridge-server",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-0009",
+      "to": "infra-pgvector",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-0009",
+      "to": "REQ-ZAPBRIDGE-0008",
+      "type": "depends_on"
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-0009",
+      "to": "svc-zapbridge-server",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-0010",
+      "to": "infra-observability",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-0010",
+      "to": "svc-zapbridge-server",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-0010",
+      "to": "svc-zapbridge-web",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-NFR-0001",
+      "to": "REQ-ZAPBRIDGE-0008",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-NFR-0001",
+      "to": "REQ-ZAPBRIDGE-0009",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-NFR-0001",
+      "to": "slo-availability-99",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-NFR-0001",
+      "to": "svc-zapbridge-server",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-NFR-0002",
+      "to": "REQ-ZAPBRIDGE-0002",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-NFR-0002",
+      "to": "REQ-ZAPBRIDGE-0003",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-NFR-0002",
+      "to": "svc-zapbridge-server",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-NFR-0003",
+      "to": "infra-sealed-secrets",
+      "type": "allocates_to",
+      "allocation": true
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-NFR-0003",
+      "to": "REQ-ZAPBRIDGE-0002",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-NFR-0003",
+      "to": "REQ-ZAPBRIDGE-0009",
+      "type": "constrains"
+    },
+    {
+      "from": "REQ-ZAPBRIDGE-NFR-0003",
+      "to": "svc-zapbridge-server",
       "type": "allocates_to",
       "allocation": true
     }

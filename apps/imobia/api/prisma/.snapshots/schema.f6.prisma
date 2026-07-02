@@ -1,0 +1,678 @@
+// imobia — schema Prisma. Multi-tenant (Organization = imobiliaria). Cada row de dominio
+// carrega organizationId (isolamento imposto em cada repo + authorize()). pgvector entra em
+// F2 (colunas embedding vector(1536) + CREATE EXTENSION na migracao). Dominio em F3+.
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Papeis de acesso (ancora de autorizacao — resolvido em authorize()/rbac).
+enum MembershipRole {
+  admin
+  corretor
+  financeiro
+  vistoriador
+}
+
+/// Imobiliaria (tenant raiz). Toda entidade de dominio referencia organizationId.
+model Organization {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  cnpj        String?
+  plan        String       @default("free")
+  settings    Json         @default("{}")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  memberships Membership[]
+
+  @@map("organizations")
+}
+
+/// Identidade global. Acesso a uma org e' via Membership (um user pode estar em varias).
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  passwordHash String?      @map("password_hash")
+  keycloakSub  String?      @unique @map("keycloak_sub")
+  name         String
+  avatarUrl    String?      @map("avatar_url")
+  active       Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  memberships  Membership[]
+  sessions     Session[]
+
+  @@map("users")
+}
+
+/// Vinculo User <-> Organization com papel (RBAC).
+model Membership {
+  id             String         @id @default(cuid())
+  userId         String         @map("user_id")
+  organizationId String         @map("organization_id")
+  role           MembershipRole @default(corretor)
+  active         Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+  @@map("memberships")
+}
+
+/// Sessao (refresh token store). Access tokens sao stateless (oidc-kit createAccessToken).
+model Session {
+  id             String    @id @default(cuid())
+  userId         String    @map("user_id")
+  organizationId String?   @map("organization_id")
+  tokenHash      String    @map("token_hash")
+  userAgent      String?   @map("user_agent")
+  ip             String?
+  expiresAt      DateTime  @map("expires_at")
+  revokedAt      DateTime? @map("revoked_at")
+  createdAt      DateTime  @default(now())
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+// ==========================================================================
+// F2 — Camada de IA (orquestracao multi-modelo) + trilha de auditoria.
+// ==========================================================================
+
+/// Qual "funcionario" (IA/humano) produziu um passo — chave da rastreabilidade.
+enum AiActor {
+  cortex
+  gpt
+  claude
+  gemini
+  system
+  human
+}
+
+/// Tipo de evento na linha do tempo ("documentar cada etapa").
+enum TimelineKind {
+  note
+  status_change
+  ai_output
+  document_event
+  financial
+  appointment
+  inspection
+  acm
+  ptam
+  corbam
+  message
+}
+
+/// Thread de conversa (shape EXATO exigido pelo ai-core createThreadStore).
+model AiChatThread {
+  id             String   @id
+  organizationId String?  @map("organization_id")
+  messages       Json     @default("[]")
+  rollingSummary String?  @map("rolling_summary")
+  turnCount      Int      @default(0) @map("turn_count")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("ai_chat_threads")
+}
+
+/// Memoria duravel do usuario (pgvector — busca por cosseno via SQL cru no ai-core).
+model AiUserMemory {
+  id        String                      @id @default(dbgenerated("(gen_random_uuid())::text"))
+  userId    String                      @map("user_id")
+  kind      String                      @default("fact")
+  content   String
+  embedding Unsupported("vector(1536)")
+  expiresAt DateTime?                   @map("expires_at")
+  createdAt DateTime                    @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("ai_user_memory")
+}
+
+/// Telemetria por turno da IA (modelo, tokens, custo, rota, especialista).
+model AiRun {
+  id             String   @id @default(cuid())
+  organizationId String?  @map("organization_id")
+  userId         String?  @map("user_id")
+  threadId       String?  @map("thread_id")
+  channel        String?
+  route          String?
+  specialist     String?
+  model          String?
+  provider       String?
+  inputTokens    Int      @default(0) @map("input_tokens")
+  outputTokens   Int      @default(0) @map("output_tokens")
+  costUsd        Decimal  @default(0) @map("cost_usd") @db.Decimal(12, 6)
+  latencyMs      Int      @default(0) @map("latency_ms")
+  escalated      Boolean  @default(false)
+  toolCalls      Json     @default("[]") @map("tool_calls")
+  correlationId  String?  @map("correlation_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([organizationId, createdAt])
+  @@map("ai_runs")
+}
+
+/// Linha do tempo polimorfica ("documentar cada etapa") — anexa a qualquer entidade,
+/// registra qual IA produziu o passo (actorType).
+model TimelineEntry {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  entityType     String       @map("entity_type")
+  entityId       String       @map("entity_id")
+  kind           TimelineKind @default(note)
+  actorType      AiActor      @default(system) @map("actor_type")
+  actorUserId    String?      @map("actor_user_id")
+  title          String
+  summary        String?
+  payload        Json         @default("{}")
+  correlationId  String?      @map("correlation_id")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@index([organizationId, entityType, entityId, createdAt])
+  @@map("timeline_entries")
+}
+
+// ==========================================================================
+// F3 — Captacao/Imoveis + Clientes/Leads.
+// ==========================================================================
+
+enum PropertyPurpose {
+  venda
+  locacao
+  ambos
+}
+
+enum PropertyStatus {
+  captacao
+  disponivel
+  reservado
+  vendido
+  locado
+  inativo
+}
+
+enum PropertyType {
+  apartamento
+  casa
+  terreno
+  comercial
+  rural
+  sala
+  galpao
+}
+
+enum LeadInterest {
+  compra
+  locacao
+  ambos
+}
+
+enum LeadStage {
+  novo
+  qualificando
+  qualificado
+  negociando
+  fechado
+  perdido
+}
+
+/// Proprietario do imovel (distinto de Lead comprador).
+model Owner {
+  id             String     @id @default(cuid())
+  organizationId String     @map("organization_id")
+  name           String
+  cpfCnpj        String?    @map("cpf_cnpj")
+  phone          String?
+  email          String?
+  notes          String?
+  createdAt      DateTime   @default(now()) @map("created_at")
+  properties     Property[]
+
+  @@index([organizationId])
+  @@map("owners")
+}
+
+model Address {
+  id         String    @id @default(cuid())
+  street     String?
+  number     String?
+  complement String?
+  district   String?
+  city       String?
+  state      String?
+  zip        String?
+  lat        Float?
+  lng        Float?
+  property   Property?
+
+  @@map("addresses")
+}
+
+model Property {
+  id             String                 @id @default(cuid())
+  organizationId String                 @map("organization_id")
+  code           String
+  purpose        PropertyPurpose        @default(venda)
+  type           PropertyType           @default(apartamento)
+  status         PropertyStatus         @default(captacao)
+  title          String
+  description    String?
+  priceSale      Decimal?               @map("price_sale") @db.Decimal(14, 2)
+  priceRent      Decimal?               @map("price_rent") @db.Decimal(14, 2)
+  condoFee       Decimal?               @map("condo_fee") @db.Decimal(12, 2)
+  iptu           Decimal?               @db.Decimal(12, 2)
+  areaTotal      Float?                 @map("area_total")
+  areaUsable     Float?                 @map("area_usable")
+  bedrooms       Int                    @default(0)
+  bathrooms      Int                    @default(0)
+  parking        Int                    @default(0)
+  ownerId        String?                @map("owner_id")
+  owner          Owner?                 @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  addressId      String?                @unique @map("address_id")
+  address        Address?               @relation(fields: [addressId], references: [id], onDelete: SetNull)
+  embedding      Unsupported("vector(1536)")?
+  photos         PropertyPhoto[]
+  interests      LeadPropertyInterest[]
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+
+  @@index([organizationId, status])
+  @@map("properties")
+}
+
+model PropertyPhoto {
+  id         String   @id @default(cuid())
+  propertyId String   @map("property_id")
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  url        String
+  caption    String?
+  order      Int      @default(0)
+
+  @@index([propertyId])
+  @@map("property_photos")
+}
+
+model Lead {
+  id                 String                 @id @default(cuid())
+  organizationId     String                 @map("organization_id")
+  name               String
+  cpfCnpj            String?                @map("cpf_cnpj")
+  phone              String?
+  email              String?
+  interest           LeadInterest           @default(compra)
+  stage              LeadStage              @default(novo)
+  score              Int                    @default(0)
+  scoreReason        String?                @map("score_reason")
+  budgetMin          Decimal?               @map("budget_min") @db.Decimal(14, 2)
+  budgetMax          Decimal?               @map("budget_max") @db.Decimal(14, 2)
+  financialProfile   Json?                  @map("financial_profile")
+  sourceChannel      String?                @map("source_channel")
+  notes              String?
+  assignedCorretorId String?                @map("assigned_corretor_id")
+  interests          LeadPropertyInterest[]
+  createdAt          DateTime               @default(now()) @map("created_at")
+  updatedAt          DateTime               @updatedAt @map("updated_at")
+
+  @@index([organizationId, stage])
+  @@map("leads")
+}
+
+model LeadPropertyInterest {
+  id         String   @id @default(cuid())
+  leadId     String   @map("lead_id")
+  lead       Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  propertyId String   @map("property_id")
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  matchScore Int      @default(0) @map("match_score")
+  note       String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([leadId, propertyId])
+  @@map("lead_property_interests")
+}
+
+// ==========================================================================
+// F4 — Agenda/Eventos + Documentos + Vistoria/Laudos.
+// ==========================================================================
+
+enum AppointmentKind {
+  visita
+  vistoria
+  renovacao
+  reuniao
+  assinatura
+}
+
+enum AppointmentStatus {
+  agendado
+  confirmado
+  concluido
+  cancelado
+}
+
+enum InspectionKind {
+  entrada
+  saida
+  periodica
+}
+
+enum InspectionStatus {
+  agendada
+  em_campo
+  analisando
+  laudo_gerado
+  concluida
+}
+
+enum DocumentType {
+  rg
+  cnh
+  holerite
+  comprovante_renda
+  certidao
+  contrato
+  serasa
+  boa_vista
+  extrato_bancario
+  matricula
+  foto
+  outro
+}
+
+enum DocumentValidation {
+  pendente
+  valido
+  invalido
+  ilegivel
+  expirado
+}
+
+model Appointment {
+  id             String            @id @default(cuid())
+  organizationId String            @map("organization_id")
+  kind           AppointmentKind   @default(visita)
+  status         AppointmentStatus @default(agendado)
+  title          String
+  startAt        DateTime          @map("start_at")
+  endAt          DateTime?         @map("end_at")
+  propertyId     String?           @map("property_id")
+  leadId         String?           @map("lead_id")
+  corretorId     String?           @map("corretor_id")
+  location       String?
+  notes          String?
+  createdByAi    Boolean           @default(false) @map("created_by_ai")
+  createdAt      DateTime          @default(now()) @map("created_at")
+
+  @@index([organizationId, startAt])
+  @@map("appointments")
+}
+
+model Document {
+  id               String             @id @default(cuid())
+  organizationId   String             @map("organization_id")
+  type             DocumentType       @default(outro)
+  validation       DocumentValidation @default(pendente)
+  entityType       String?            @map("entity_type")
+  entityId         String?            @map("entity_id")
+  propertyId       String?            @map("property_id")
+  leadId           String?            @map("lead_id")
+  inspectionId     String?            @map("inspection_id")
+  corbamCaseId     String?            @map("corbam_case_id")
+  filename         String
+  storageKey       String             @map("storage_key")
+  mimeType         String?            @map("mime_type")
+  sizeBytes        Int?               @map("size_bytes")
+  validationReason String?            @map("validation_reason")
+  extractedFields  Json?              @map("extracted_fields")
+  validatedByModel String?            @map("validated_by_model")
+  validatedAt      DateTime?          @map("validated_at")
+  uploadedBy       String?            @map("uploaded_by")
+  createdAt        DateTime           @default(now()) @map("created_at")
+
+  @@index([organizationId, entityType, entityId])
+  @@map("documents")
+}
+
+model Inspection {
+  id             String            @id @default(cuid())
+  organizationId String            @map("organization_id")
+  propertyId     String?           @map("property_id")
+  kind           InspectionKind    @default(entrada)
+  status         InspectionStatus  @default(agendada)
+  scheduledAt    DateTime?         @map("scheduled_at")
+  vistoriadorId  String?           @map("vistoriador_id")
+  laudoText      String?           @map("laudo_text")
+  laudoPdfKey    String?           @map("laudo_pdf_key")
+  summary        String?
+  photos         InspectionPhoto[]
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  @@index([organizationId, status])
+  @@map("inspections")
+}
+
+model InspectionPhoto {
+  id              String     @id @default(cuid())
+  inspectionId    String     @map("inspection_id")
+  inspection      Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  storageKey      String     @map("storage_key")
+  room            String?
+  aiDescription   String?    @map("ai_description")
+  aiFindings      Json?      @map("ai_findings")
+  analyzedByModel String?    @map("analyzed_by_model")
+  createdAt       DateTime   @default(now()) @map("created_at")
+
+  @@index([inspectionId])
+  @@map("inspection_photos")
+}
+
+// ==========================================================================
+// F5 — Financeiro PJ/PF + Corbam/COBAN (recuperacao de credito).
+// ==========================================================================
+
+enum FinanceScope {
+  pj
+  pf
+}
+
+enum FinanceKind {
+  receita
+  despesa
+}
+
+enum CorbamGoal {
+  limpa_nome
+  score
+  rating
+}
+
+enum CorbamCaseStatus {
+  aberto
+  analisando
+  proposta
+  acordo
+  concluido
+  arquivado
+}
+
+model FinanceTransaction {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  scope          FinanceScope @default(pj)
+  kind           FinanceKind  @default(despesa)
+  category       String       @default("outros")
+  amount         Decimal      @db.Decimal(14, 2)
+  date           DateTime     @default(now())
+  description    String
+  counterparty   String?
+  aiCategorized  Boolean      @default(false) @map("ai_categorized")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@index([organizationId, scope, date])
+  @@map("finance_transactions")
+}
+
+model CorbamCase {
+  id             String              @id @default(cuid())
+  organizationId String              @map("organization_id")
+  leadId         String?             @map("lead_id")
+  personName     String              @map("person_name")
+  cpf            String?
+  goal           CorbamGoal          @default(limpa_nome)
+  status         CorbamCaseStatus    @default(aberto)
+  currentScore   Int?                @map("current_score")
+  targetScore    Int?                @map("target_score")
+  rating         String?
+  assignedTo     String?             @map("assigned_to")
+  restrictions   CorbamRestriction[]
+  simulations    CorbamSimulation[]
+  letters        CorbamLetter[]
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  @@index([organizationId, status])
+  @@map("corbam_cases")
+}
+
+model CorbamRestriction {
+  id         String     @id @default(cuid())
+  caseId     String     @map("case_id")
+  case       CorbamCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  bureau     String     @default("serasa")
+  creditor   String
+  amount     Decimal    @db.Decimal(14, 2)
+  type       String?
+  status     String     @default("ativa")
+  createdAt  DateTime   @default(now()) @map("created_at")
+
+  @@index([caseId])
+  @@map("corbam_restrictions")
+}
+
+model CorbamSimulation {
+  id              String     @id @default(cuid())
+  caseId          String     @map("case_id")
+  case            CorbamCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  principal       Decimal    @db.Decimal(14, 2)
+  installments    Int
+  interestRate    Float      @map("interest_rate")
+  installmentValue Decimal   @map("installment_value") @db.Decimal(14, 2)
+  totalValue      Decimal    @map("total_value") @db.Decimal(14, 2)
+  scenarioLabel   String?    @map("scenario_label")
+  generatedByAi   Boolean    @default(false) @map("generated_by_ai")
+  createdAt       DateTime   @default(now()) @map("created_at")
+
+  @@index([caseId])
+  @@map("corbam_simulations")
+}
+
+model CorbamLetter {
+  id        String     @id @default(cuid())
+  caseId    String     @map("case_id")
+  case      CorbamCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  kind      String     @default("contestacao")
+  bodyText  String     @map("body_text")
+  status    String     @default("rascunho")
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  @@index([caseId])
+  @@map("corbam_letters")
+}
+
+// ==========================================================================
+// F6 — WhatsApp multi-instancia + ACM (Analise de Mercado Comparativa).
+// ==========================================================================
+
+enum ChannelSegment {
+  captacao
+  vendas
+  financas
+  geral
+}
+
+enum MessageDirection {
+  inbound
+  outbound
+}
+
+model Channel {
+  id             String         @id @default(cuid())
+  organizationId String         @map("organization_id")
+  phoneNumber    String         @map("phone_number")
+  instanceId     String         @map("instance_id")
+  segment        ChannelSegment @default(geral)
+  status         String         @default("disconnected")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  messages       WaMessage[]
+
+  @@index([organizationId])
+  @@map("channels")
+}
+
+model WaMessage {
+  id             String           @id @default(cuid())
+  organizationId String           @map("organization_id")
+  channelId      String           @map("channel_id")
+  channel        Channel          @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  contactName    String?          @map("contact_name")
+  waJid          String?          @map("wa_jid")
+  direction      MessageDirection @default(inbound)
+  type           String           @default("text")
+  text           String?
+  aiTriaged      Boolean          @default(false) @map("ai_triaged")
+  aiIntent       String?          @map("ai_intent")
+  aiActor        AiActor?         @map("ai_actor")
+  leadId         String?          @map("lead_id")
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  @@index([channelId, createdAt])
+  @@map("wa_messages")
+}
+
+model AcmRun {
+  id                String          @id @default(cuid())
+  organizationId    String          @map("organization_id")
+  propertyId        String?         @map("property_id")
+  status            String          @default("aberto")
+  radiusKm          Float?          @map("radius_km")
+  avgPricePerM2     Float?          @map("avg_price_per_m2")
+  medianPricePerM2  Float?          @map("median_price_per_m2")
+  sampleSize        Int             @default(0) @map("sample_size")
+  summary           String?
+  sourcePortals     String[]        @map("source_portals")
+  comparables       AcmComparable[]
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  @@index([organizationId])
+  @@map("acm_runs")
+}
+
+model AcmComparable {
+  id          String   @id @default(cuid())
+  acmRunId    String   @map("acm_run_id")
+  run         AcmRun   @relation(fields: [acmRunId], references: [id], onDelete: Cascade)
+  portal      String   @default("manual")
+  externalUrl String?  @map("external_url")
+  price       Decimal  @db.Decimal(14, 2)
+  areaM2      Float    @map("area_m2")
+  pricePerM2  Float    @map("price_per_m2")
+  type        String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([acmRunId])
+  @@map("acm_comparables")
+}
