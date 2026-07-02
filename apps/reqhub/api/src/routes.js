@@ -65,9 +65,10 @@ import { aiEnabled, getLlm } from './llm.js';
 import { runAuthoringChatTurn } from './ai/graph.js';
 import { buildUsageRouter } from './usage/index.js';
 import { forgeState } from './forge-state.js';
+import { createForgeEventsHub } from './forge-events.js';
 import {
   validateProduct, validateInventory, mergeScreen, buildPreviewPayload, dispatchForgePreview,
-  previewStatus, previewBaseUrl, resolveAsset,
+  previewStatus, previewInventory, previewBaseUrl, resolveAsset,
 } from './forge-preview.js';
 import fs from 'node:fs';
 
@@ -137,6 +138,15 @@ export function buildRouter({ registry, llm, memory } = {}) {
   router.get('/v1/forge/state', (_req, res) => {
     try { res.json(forgeState()); }
     catch (err) { res.status(200).json({ source: 'error', products: [], error: String(err && err.message) }); }
+  });
+
+  // SSE do estado vivo (A6): empurra o forgeState quando a assinatura muda — o polling do frontend
+  // vira fallback. Auth pelo SSO de borda (EventSource não envia Authorization), igual ai-usage/stream.
+  // IngressRoute dedicada SEM `compress` em k8s/api.yaml (armadilha conhecida: compress bufferiza SSE).
+  const forgeEvents = createForgeEventsHub();
+  router.get('/v1/forge/events', (req, res) => {
+    try { forgeEvents.addClient(req, res); }
+    catch (err) { console.error('[reqhub-api] forge/events:', err); if (!res.headersSent) res.status(500).end(); }
   });
 
   const run = (toolName) => async (req, res, next) => {
@@ -415,6 +425,18 @@ export function buildRouter({ registry, llm, memory } = {}) {
     if (!vp.ok) return res.status(400).json({ error: { code: vp.code, message: vp.message } });
     try { return res.json(previewStatus(vp.product)); }
     catch { return res.json({ product: vp.product, status: 'absent', url: null, screens: [] }); }
+  });
+
+  // (3b) INVENTÁRIO persistido do preview (A2): o runner grava inventory.json junto do manifest;
+  // o Studio lê daqui para REFINAR telas fora do wizard (o preview deixou de ser descartável).
+  router.get('/v1/forge/preview/inventory', requireAuthoringAuth, (req, res) => {
+    const vp = validateProduct(req.query.product);
+    if (!vp.ok) return res.status(400).json({ error: { code: vp.code, message: vp.message } });
+    try {
+      const r = previewInventory(vp.product);
+      if (!r.ok) return res.status(r.code === 'NOT_FOUND' ? 404 : 422).json({ error: { code: r.code, message: r.code === 'NOT_FOUND' ? 'este produto ainda não tem inventário persistido (gere o preview primeiro)' : 'inventário persistido inválido — regenere o preview' } });
+      return res.json({ product: vp.product, inventory: r.inventory });
+    } catch { return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'inventário indisponível' } }); }
   });
 
   // (4) SERVIR a SPA estática do preview do volume. PÚBLICO (atrás do gate SSO de borda) — o conteúdo é

@@ -6,6 +6,7 @@ import {
   validateReqId, nextReqId, forgeStatusCls, hubSummary, blueprintById, DONE_STATUSES,
   typeLabel, asList, dagFromWaves, businessProductScopes, NON_PRODUCT_SCOPES,
   weightedProgress, wavesFromProgress, STAGE_WEIGHT,
+  studioPhaseModel, STUDIO_PHASE_KEYS,
 } from './assets/forge-lib.js';
 
 const implStatus = {
@@ -255,3 +256,44 @@ test('wavesFromProgress: preenche em ordem conforme o pct (coerente, sem 0/N fal
   assert.deepEqual(mid, ['done', 'active', 'todo']);
   assert.deepEqual(wavesFromProgress(bp, 50)[0].tasks, ['t1', 't2']);
 });
+
+// ---------- studioPhaseModel (trilho de 7 fases do Product Studio, A1b) ----------
+test('studioPhaseModel: 7 fases, produto completo fica done até publicado', () => {
+  const prod = { name: 'crm', vision: 'CRM enxuto', requirement_ids: ['REQ-CRM-0001', 'REQ-CRM-0002', 'REQ-CRM-0003', 'REQ-CRM-0004', 'REQ-CRM-0005'], phases: { requirements: { status: 'approved' }, architecture: { status: 'approved' } } };
+  const plan = { status: 'approved', waves: [{ id: 'w1', work_orders: ['a'] }] };
+  const steps = studioPhaseModel(prod, plan, implStatus, { previewStatus: 'ready', previewScreens: 4 });
+  assert.deepEqual(steps.map((s) => s.key), STUDIO_PHASE_KEYS);
+  assert.deepEqual(steps.map((s) => s.status), ['done', 'done', 'done', 'done', 'done', 'done', 'done']);
+  assert.match(steps.find((s) => s.key === 'telas').detail, /4 tela/);
+});
+
+test('studioPhaseModel: exatamente uma fase current (a primeira não concluída)', () => {
+  const prod = { name: 'novo', vision: 'algo', requirement_ids: [], phases: {} };
+  const steps = studioPhaseModel(prod, null, { items: {} }, {});
+  assert.equal(steps.filter((s) => s.status === 'current').length, 1);
+  assert.equal(steps.find((s) => s.status === 'current').key, 'requisitos'); // brief done (tem visão)
+});
+
+test('studioPhaseModel: sem visão -> brief é a fase current; docs aguardando', () => {
+  const steps = studioPhaseModel({ name: 'x', requirement_ids: [] }, null, { items: {} }, {});
+  assert.equal(steps[0].key, 'brief');
+  assert.equal(steps[0].status, 'current');
+  assert.equal(steps.find((s) => s.key === 'docs').status, 'todo');
+});
+
+test('studioPhaseModel: preview building/error/null aparecem no detail de telas (fail-soft)', () => {
+  const prod = { name: 'p', vision: 'v', requirement_ids: ['REQ-CRM-0001'], phases: { requirements: { status: 'approved' } } };
+  assert.match(studioPhaseModel(prod, null, implStatus, { previewStatus: 'building' }).find((s) => s.key === 'telas').detail, /gerando/);
+  assert.match(studioPhaseModel(prod, null, implStatus, { previewStatus: 'error' }).find((s) => s.key === 'telas').detail, /erro/);
+  assert.match(studioPhaseModel(prod, null, implStatus, {}).find((s) => s.key === 'telas').detail, /não consultado/);
+});
+
+test('studioPhaseModel: sonda liveUrlOk=false rebaixa publicado mesmo com pipeline 100%', () => {
+  const prod = { name: 'crm', vision: 'v', requirement_ids: Object.keys(implStatus.items), phases: { requirements: { status: 'approved' }, architecture: { status: 'approved' } } };
+  const steps = studioPhaseModel(prod, null, implStatus, { previewStatus: 'ready', liveUrlOk: false });
+  assert.equal(steps.find((s) => s.key === 'pipeline').status, 'done');
+  const pub = steps.find((s) => s.key === 'publicado');
+  assert.notEqual(pub.status, 'done');
+  assert.match(pub.detail, /fora do ar/);
+});
+

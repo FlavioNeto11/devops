@@ -196,6 +196,19 @@ function safeProductDir(product) {
   return dir;
 }
 
+/** Lê o INVENTÁRIO persistido do preview (A2, Forja 4.0). O runner grava inventory.json ao lado do
+    manifest — com isto o refino por IA funciona FORA do wizard (o preview deixa de ser descartável).
+    Passa pela MESMA fronteira de saneamento do /generate (validateInventory). Nunca lança. */
+export function previewInventory(product) {
+  const dir = safeProductDir(product);
+  if (!dir) return { ok: false, code: 'INVALID_PRODUCT' };
+  let raw = null;
+  try { raw = JSON.parse(fs.readFileSync(path.join(dir, 'inventory.json'), 'utf8')); } catch { return { ok: false, code: 'NOT_FOUND' }; }
+  const v = validateInventory(raw);
+  if (!v.ok) return { ok: false, code: 'INVALID_INVENTORY' };
+  return { ok: true, inventory: v.value };
+}
+
 /** Lê o estado do preview de um produto do volume. Nunca lança. */
 export function previewStatus(product) {
   const dir = safeProductDir(product);

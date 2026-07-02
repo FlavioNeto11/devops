@@ -131,6 +131,9 @@ jobs:
           kubectl exec -n $env:NS $env:WRITER -- sh -c "rm -rf /preview-data/$env:PRODUCT/dist && mkdir -p /preview-data/$env:PRODUCT/dist"
           # kubectl cp do diretório dist/ inteiro
           kubectl cp "$env:OUTDIR/dist" "$($env:NS)/$($env:WRITER):/preview-data/$($env:PRODUCT)/dist" 2>$null
+          # PERSISTE o inventário no PVC (A2, Forja 4.0): o refino por IA fora do wizard lê este
+          # arquivo via GET /v1/forge/preview/inventory — o preview deixa de ser descartável.
+          kubectl cp preview-inventory.json "$($env:NS)/$($env:WRITER):/preview-data/$($env:PRODUCT)/inventory.json"
           # lista de telas p/ o manifest (do inventário)
           $inv = Get-Content preview-inventory.json -Raw | ConvertFrom-Json
           $screens = @($inv.screens | ForEach-Object { @{ slug=$_.slug; title=$_.title; route=$_.route; kind=$_.kind } })

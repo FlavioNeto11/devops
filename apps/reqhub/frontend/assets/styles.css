@@ -1220,3 +1220,17 @@ body.cmdk-on { overflow: hidden; }
 .file-picker-size { font-size: 11.5px; margin-left: auto; }
 .file-picker-rm { color: var(--muted); font-size: 13px; line-height: 1; padding: 2px 4px; }
 .file-picker-rm:hover { color: var(--fg); }
+
+/* ===== Product Studio — trilho de 7 fases (A1b, Forja 4.0) ===== */
+/* preview embutido na fase Telas (mesma origem; o site-renderer/preview omite frame-ancestors) */
+.forge-preview-frame { width: 100%; height: 520px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-1); margin-top: 10px; }
+@media (max-width: 640px) { .forge-preview-frame { height: 380px; } }
+/* documentação viva do produto */
+.forge-docs h4 { margin: 18px 0 6px; font-size: 13px; letter-spacing: 0.02em; color: var(--fg-1); }
+.forge-doc-reqs { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.forge-doc-reqs > li { border-left: 2px solid var(--line-2); padding-left: 10px; }
+.forge-doc-reqs p { margin: 2px 0 0; }
+/* refino de tela fora do wizard (A2) */
+.forge-telas-item { flex-wrap: wrap; }
+.forge-refine-ta { width: 100%; margin-top: 6px; font: inherit; background: var(--bg-1); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+.fw-skip-gate { display: inline-flex; align-items: center; gap: 6px; margin: 6px 0; }
