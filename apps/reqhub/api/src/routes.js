@@ -65,6 +65,7 @@ import { aiEnabled, getLlm } from './llm.js';
 import { runAuthoringChatTurn } from './ai/graph.js';
 import { buildUsageRouter } from './usage/index.js';
 import { forgeState } from './forge-state.js';
+import { createForgeEventsHub } from './forge-events.js';
 import {
   validateProduct, validateInventory, mergeScreen, buildPreviewPayload, dispatchForgePreview,
   previewStatus, previewInventory, previewBaseUrl, resolveAsset,
@@ -137,6 +138,15 @@ export function buildRouter({ registry, llm, memory } = {}) {
   router.get('/v1/forge/state', (_req, res) => {
     try { res.json(forgeState()); }
     catch (err) { res.status(200).json({ source: 'error', products: [], error: String(err && err.message) }); }
+  });
+
+  // SSE do estado vivo (A6): empurra o forgeState quando a assinatura muda — o polling do frontend
+  // vira fallback. Auth pelo SSO de borda (EventSource não envia Authorization), igual ai-usage/stream.
+  // IngressRoute dedicada SEM `compress` em k8s/api.yaml (armadilha conhecida: compress bufferiza SSE).
+  const forgeEvents = createForgeEventsHub();
+  router.get('/v1/forge/events', (req, res) => {
+    try { forgeEvents.addClient(req, res); }
+    catch (err) { console.error('[reqhub-api] forge/events:', err); if (!res.headersSent) res.status(500).end(); }
   });
 
   const run = (toolName) => async (req, res, next) => {

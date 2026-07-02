@@ -260,6 +260,20 @@ spec:
         - name: reqhub-api-strip
         - name: secure-headers
           namespace: traefik
+    # SSE do ESTADO VIVO da Forja (A6): o Studio troca o polling de 15s por push -> SEM `compress`
+    # (mesma armadilha). priority 40. Mesma cadeia de auth/strip das demais rotas SSE.
+    - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/reqs/api/v1/forge/events`)
+      kind: Rule
+      priority: 40
+      services:
+        - name: reqhub-api
+          port: 8080
+      middlewares:
+        - name: console-auth-401
+          namespace: devops-system
+        - name: reqhub-api-strip
+        - name: secure-headers
+          namespace: traefik
     # API -> strip /reqs/api, priority 30 (vence o frontend /reqs priority 10).
     - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/reqs/api`)
       kind: Rule

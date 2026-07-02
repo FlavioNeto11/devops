@@ -108,9 +108,28 @@ async function refreshForgeState(forceRender) {
     }
   } catch { /* fail-soft: mantém o baked */ } finally { _forgeStateInflight = false; }
 }
-function ensureForgePolling() {
+// (A6) estado vivo por SSE (push quando a assinatura muda no servidor); o polling de 15s vira
+// FALLBACK automático se o stream cair/não existir (ambiente local sem backend, proxy antigo etc.).
+let _forgeEs = null;
+function startForgeStatePollingFallback() {
   if (_forgePollTimer) return;
   _forgePollTimer = setInterval(() => { if (String(location.hash || '').indexOf('forge') >= 0) refreshForgeState(false); }, 15000);
+}
+function ensureForgePolling() {
+  if (_forgeEs || _forgePollTimer) return;
+  try {
+    const es = AI.stream('/v1/forge/events');
+    es.addEventListener('state', (ev) => {
+      let data = null;
+      try { data = JSON.parse(ev.data); } catch { return; }
+      if (applyForgeState(data)) {
+        const sig = JSON.stringify((data.products || []).map((p) => [p.name, p.reqCount, p.progress && p.progress.done, p.progress && p.progress.pct]));
+        if (sig !== _forgeStateSig) { _forgeStateSig = sig; if (String(location.hash || '').indexOf('forge') >= 0) renderForge(); }
+      }
+    });
+    es.onerror = () => { try { es.close(); } catch { /* noop */ } _forgeEs = null; startForgeStatePollingFallback(); };
+    _forgeEs = es;
+  } catch { startForgeStatePollingFallback(); }
 }
 
 function renderForge() {
