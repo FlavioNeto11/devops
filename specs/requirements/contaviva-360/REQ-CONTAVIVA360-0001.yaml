@@ -1,0 +1,29 @@
+id: REQ-CONTAVIVA360-0001
+title: "Fundação: Arquitetura em camadas + Observabilidade + Multi-tenant + OIDC"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: product-foundation
+  product_scope: contaviva-360
+  blueprint: gymops-style
+statement: "O sistema DEVE estabelecer a arquitetura de camadas rígidas (route → service → repository → worker → gateway), inicializar com observabilidade completa (health, métricas Prometheus, ServiceMonitor, SLO), suportar isolamento por tenant com RBAC em cascata (Admin > Contador > Auxiliar > Cliente) e autenticar usuários via OIDC (Keycloak realm nvit) com sessão própria do app."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/contaviva-360/product.json"]
+priority: critical
+criticality: critical
+architectural_significance: true
+capability_blocks: ["camadas-rigidas", "observabilidade", "oidc-sessao", "rbac-multitenant", "migrations-versionadas"]
+acceptance_criteria:
+  - "Toda rota mapeia apenas HTTP e validação; nenhuma acessa banco ou rede externa diretamente."
+  - "Endpoints /health e /v1/health/{system,workers,jobs} retornam estrutura semântica (status, uptime, componentes)."
+  - "Métricas Prometheus exportadas em porta :9464; ServiceMonitor criado e raspa corretamente."
+  - "Dashboard Grafana gerado automaticamente com p95 latência, taxa de erro, saturação de fila."
+  - "Login OIDC via Keycloak dispara fluxo PKCE; backend valida token e emite JWT curto do app."
+  - "Toda query carrega tenant_id; deny por padrão fora do escopo; soft-delete implementado."
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

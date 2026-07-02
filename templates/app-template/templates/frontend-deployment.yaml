@@ -5,7 +5,8 @@ e buildada com o base path correto (ex.: VITE_BASE_PATH=/aplicacao1/), portanto
 NAO ha strip de prefixo no Ingress.
 */ -}}
 {{- range $name, $svc := .Values.services }}
-{{- if eq $svc.type "frontend" }}
+{{- /* $svc pode ser null (compilador apaga services por null explícito) */ -}}
+{{- if and $svc (eq $svc.type "frontend") }}
 ---
 apiVersion: apps/v1
 kind: Deployment

@@ -57,11 +57,17 @@ Uso: {{ include "app-template.image" (dict "root" $ "name" $name "svc" $svc) }}
 app-template.commonLabels
 Labels comuns aplicados a TODOS os recursos do chart.
 Espera um dict: { "root": $, "name": <serviceName|""> , "component": <tipo|""> }
+Convencao VIVA (hard-constraints §1): app.kubernetes.io/name = "<app>-<service>"
+(recursos do app inteiro, sem service, usam so "<app>").
 Uso (em metadata.labels, ja indentado pelo chamador):
   {{- include "app-template.commonLabels" (dict "root" $ "name" $name "component" $svc.type) | nindent 4 }}
 */}}
 {{- define "app-template.commonLabels" -}}
-app.kubernetes.io/name: {{ default .root.Values.app.name .name | quote }}
+{{- $nameLabel := .root.Values.app.name -}}
+{{- if .name -}}
+{{- $nameLabel = include "app-template.fullname" (dict "root" .root "name" .name) -}}
+{{- end -}}
+app.kubernetes.io/name: {{ $nameLabel | quote }}
 app.kubernetes.io/part-of: {{ .root.Values.app.name | quote }}
 {{- with .component }}
 app.kubernetes.io/component: {{ . | quote }}
@@ -72,17 +78,27 @@ devops.flavioneto/app: {{ .root.Values.app.name | quote }}
 {{- with .root.Values.app.appType }}
 devops.flavioneto/app-type: {{ . | quote }}
 {{- end }}
+{{- /* Multi-env opt-in (Forja 4.0 B2): quando app.environment esta setado
+       (compile com --env), TODO recurso leva o label de ambiente. NAO entra
+       nos selectorLabels (selectors devem ser estaveis entre upgrades). */}}
+{{- with .root.Values.app.environment }}
+devops.flavioneto/environment: {{ . | quote }}
+{{- end }}
 {{- end -}}
 
 {{/*
 app-template.selectorLabels
-Labels usados em selectors (devem ser estaveis entre upgrades).
+Labels usados em selectors. spec.selector de Deployment e IMUTAVEL no apiserver:
+o chart adota EXATAMENTE a convencao dos produtos VIVOS (antigo buildK8s) —
+{ app.kubernetes.io/name: "<app>-<svc>" } e NADA alem disso (adicionar uma chave,
+p.ex. part-of, tambem e mutacao de campo imutavel e bloquearia a convergencia
+v1 -> v2; ver docs/new-project-contract.md §11.5). part-of continua em TODOS os
+labels dos recursos/pods (hard-constraints §1) — so nao entra no selector.
 Espera um dict: { "root": $, "name": <serviceName> }
 Uso: {{- include "app-template.selectorLabels" (dict "root" $ "name" $name) | nindent 6 }}
 */}}
 {{- define "app-template.selectorLabels" -}}
-app.kubernetes.io/name: {{ .name | quote }}
-app.kubernetes.io/part-of: {{ .root.Values.app.name | quote }}
+app.kubernetes.io/name: {{ include "app-template.fullname" (dict "root" .root "name" .name) | quote }}
 {{- end -}}
 
 {{/*

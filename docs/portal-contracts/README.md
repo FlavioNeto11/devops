@@ -56,9 +56,14 @@ ou recaptcha (mascarados como `***`; um `sha256` correlaciona sem expor). Polít
 ## Como gerar / regenerar
 
 1. **Captura real** no `portal-recorder` (browser remoto) → normalização → exporta `endpoints.jsonl`.
-2. **Seed manual** (bootstrap, sem captura): escrever os endpoints conhecidos à mão a partir do
+2. **Promoção pela UI (E3, Forja 4.1)** — botão **"Promover para o repositório"** na revisão do
+   `portal-recorder`: `POST /v1/contracts/:id/promote` dispara o workflow
+   `portal-contract-promote` (repository_dispatch, padrão forge-launch — a API não escreve git),
+   que valida o export canônico (**sem** `sample_request`/`sample_response`), escreve
+   `docs/portal-contracts/<slug>/<yyyy-mm-dd>/` + `LATEST` e abre um **PR** (sem merge automático).
+3. **Seed manual** (bootstrap, sem captura): escrever os endpoints conhecidos à mão a partir do
    gateway. O contrato `cetesb/2026-06-11` nasceu assim (`observability.source = "seed-from-gateway"`).
-3. **Carimbar o hash**: `node scripts/portal-contracts/validate-portal-contract.mjs --write-hash`
+4. **Carimbar o hash**: `node scripts/portal-contracts/validate-portal-contract.mjs --write-hash`
    recomputa o `content_hash` de cada `endpoints.jsonl` e atualiza o `manifest.json`.
 
 ## Como a Claude consome

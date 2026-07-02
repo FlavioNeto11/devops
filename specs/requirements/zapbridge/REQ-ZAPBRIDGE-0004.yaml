@@ -1,0 +1,35 @@
+id: REQ-ZAPBRIDGE-0004
+slug: req-zapbridge-0004
+title: Mensageria completa em tempo real (Socket.IO, envio otimista, recibos, reações)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: zapbridge
+  applies_to: product
+statement: O sistema deve oferecer a experiência completa de mensageria — lista de conversas ordenada por última atividade com prévia, badge de não lidas e busca; conversa com histórico paginado, envio otimista (pending→sent→delivered/read pelo ack, com erro visível e reenvio), resposta citada (quoted), reações, indicador de digitação, arquivar/trancar conversa e marcar como lida — com atualização em tempo real via Socket.IO autenticado por JWT (room user:<id>, eventos message.received/message.sent/message.status.updated/chat.updated etc.) atrás do subpath /zapbridge/socket.io.
+business_rationale: O valor do produto é uma experiência fluida e estável de leitura/resposta em tempo real, equivalente ao WhatsApp Web.
+source:
+  stakeholder: zapbridge
+  origin: codebase apps/zapbridge + docs/MVP-FUNCIONAL.md RF019–RF033/§11 (adoção Forja 4.1 D5)
+  source_paths:
+    - apps/zapbridge/server/src/modules/chats
+    - apps/zapbridge/server/src/realtime/io.ts
+    - apps/zapbridge/docs/MVP-FUNCIONAL.md
+priority: critical
+criticality: critical
+architectural_significance: false
+links:
+  - type: depends_on
+    target: REQ-ZAPBRIDGE-0003
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: adoção Forja 4.1 D5 — backfill extraído do app real
+allocation:
+  service_refs:
+    - svc-zapbridge-server
+    - svc-zapbridge-web
+  infra_refs:
+    - infra-traefik

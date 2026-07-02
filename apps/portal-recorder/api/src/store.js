@@ -276,3 +276,19 @@ export async function getContract(pool, contractId) {
   const eps = await pool.query('SELECT * FROM portal_endpoints WHERE contract_id = $1 ORDER BY host, path_template', [contractId]);
   return { ...c.rows[0], endpoints: eps.rows };
 }
+
+// Listagem leve de contratos (E3): id/version/created_at/session_id/endpoint_count.
+// portalId opcional (null = todos). O corpo pesado (endpoints) fica no getContract.
+export async function listContracts(pool, { portalId } = {}) {
+  const params = [];
+  let where = '';
+  if (portalId) { params.push(portalId); where = 'WHERE c.portal_id = $1'; }
+  const { rows } = await pool.query(
+    `SELECT c.id, c.portal_id, c.session_id, c.version, c.created_at,
+            (SELECT COUNT(*)::int FROM portal_endpoints e WHERE e.contract_id = c.id) AS endpoint_count
+       FROM portal_contracts c ${where}
+      ORDER BY c.created_at DESC`,
+    params
+  );
+  return rows;
+}

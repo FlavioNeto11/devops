@@ -1,0 +1,29 @@
+id: REQ-IMOBIA-0010
+slug: req-imobia-0010
+title: Corbam/COBAN — recuperação de crédito (limpa nome, score, rating)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: imobia
+  applies_to: product
+statement: 'O sistema deve operar a esteira de correspondente bancário (Corbam/COBAN) para recuperação de crédito: casos de limpa nome, aumento de score e rating comercial, com leitura de Serasa/Boa Vista e extratos (Gemini), simulação de parcelas (GPT) e cartas de contestação/acordo redigidas (Claude); recebe leads reprovados na análise de crédito, mantendo-os no funil do ecossistema.'
+source:
+  stakeholder: imobia
+  origin: codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)
+  source_paths:
+    - apps/imobia/api/src/modules/corbam/routes.ts
+    - apps/imobia/docs/CONCEPCAO.md
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: adoção Forja 4.1 D5 — backfill extraído do app real
+allocation:
+  service_refs:
+    - svc-imobia-api
+  infra_refs:
+    - infra-postgres

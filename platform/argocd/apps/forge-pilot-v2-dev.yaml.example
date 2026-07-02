@@ -1,0 +1,47 @@
+# =============================================================================
+# EXEMPLO de Application de ambiente DEV (multi-env OPT-IN e EFÊMERO — Forja 4.0 B2)
+# -----------------------------------------------------------------------------
+# Este arquivo NÃO é uma Application viva: a extensão .example é ignorada pelo
+# app-of-apps (directory.recurse só aplica *.yaml/*.yml/*.json). Criar um env
+# dev é uma DECISÃO POR PRODUTO — nunca padrão. Ciclo completo (capacidade do
+# nó único, hosts, promoção, destruição): docs/multi-env.md.
+#
+# Ciclo de vida (tudo por git — NUNCA kubectl apply manual; Argo selfHeal):
+#   1. CRIAR    copie para <produto>-dev.yaml (sem .example), ajuste name/path,
+#               commite na main → o app-of-apps aplica (namespace apps-dev).
+#               Pré-requisito: apps/<produto>/k8s-dev/ commitado (gerado por
+#               `node specs/tools/devops-compile.mjs apps/<p>/devops.yaml --env dev`)
+#               + Secrets do env criados imperativamente EM apps-dev.
+#   2. USAR     http://dev-lab.nvit.localhost/<produto> (host do env; hosts file).
+#   3. DESTRUIR remova o <produto>-dev.yaml por git (commit) → prune do
+#               app-of-apps + finalizer apagam Application e recursos (incl.
+#               PVCs → dados do env são descartáveis). Sobram só os Secrets
+#               imperativos: `kubectl -n apps-dev delete secret <p>-db ...`.
+#
+# HARD: o destino é SEMPRE apps-dev e os hosts do env NUNCA incluem
+# dev.nvit.com.br / nvit.localhost (hosts de produção). O nome da Application
+# leva o sufixo -dev (Applications vivem todas no namespace argocd; sem o
+# sufixo colidiria com a Application de produção).
+# =============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: forge-pilot-v2-dev
+  namespace: argocd
+  labels:
+    devops.flavioneto/app-type: product_software
+    devops.flavioneto/environment: dev
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/FlavioNeto11/devops
+    path: apps/forge-pilot-v2/k8s-dev
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: apps-dev
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [ CreateNamespace=true ]

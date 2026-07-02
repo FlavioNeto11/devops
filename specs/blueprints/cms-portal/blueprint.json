@@ -1,0 +1,28 @@
+{
+  "id": "cms-portal",
+  "version": "1.0.0",
+  "name": "Portal de conteúdo (CMS da plataforma, sem código)",
+  "summary": "Preset t1: portal/site de conteúdo SEM scaffold de código — o EXECUTOR é o CMS da plataforma. Páginas e seções (19 kinds: hero, rich-text, card-grid, timeline, lead-form, ...) vivem no pm-api do Console (console/pm-api/src/routes/cms.js) e o preview/entrega publicada é o site-renderer em /sites/<chave> (console/site-renderer). Existem DOIS modelos de portal na plataforma: (1) portal do CMS servido pelo site-renderer em /sites/<chave> — este blueprint, zero código no repo do produto; (2) SPA estática PRÓPRIA estilo rmambiental (apps/rmambiental: Vite/React + nginx servida em /<app>) — quando o portal precisa de código próprio, use um blueprint com código (t2+), não este. Produto deste blueprint não recebe blocos de capacidade (bloco é código) nem DEFAULT_BLOCKS — observabilidade/contas do conteúdo são do próprio CMS/Console.",
+  "tier": "t1",
+  "profile": {
+    "executor": "console/pm-api (CMS) + console/site-renderer (entrega)",
+    "delivery_path": "/sites/<chave>",
+    "alternative_model": "SPA estática própria (rmambiental-style) — exige blueprint t2+ com código"
+  },
+  "stack": {
+    "content": "CMS do Console (pm-api, seções por kind validadas server-side)",
+    "delivery": "site-renderer (React, /sites/<chave>, árvore publicada)"
+  },
+  "services": [],
+  "db": null,
+  "reuses": ["console/pm-api", "console/site-renderer", "infra-traefik"],
+  "structure": [],
+  "default_adrs": [
+    "Conteúdo gerenciado no CMS do Console (pm-api): páginas/seções em cms_sections (data jsonb, kind validado); nada de código no repo do produto",
+    "Entrega publicada pelo site-renderer em /sites/<chave>; edição visual via ?cmsEdit=1 (iframe mesma origem)"
+  ],
+  "seed_nfrs": [],
+  "base_stack": "none",
+  "default_blocks": [],
+  "compatible_blocks": []
+}

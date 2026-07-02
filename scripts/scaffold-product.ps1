@@ -57,6 +57,16 @@ $hasBlocks = ($prod.PSObject.Properties.Name -contains 'capability_blocks') -and
 if ($hasStack -and $hasBlocks -and -not $WhatIfOnly) {
   $gen = switch ($prod.stack) { 'sicat' { 'scaffold-sicat.mjs' } 'gymops' { 'scaffold-gymops.mjs' } default { $null } }
   if ($gen) {
+    # Forja 4.0 (B6): o scaffold emite devops.yaml v2 e COMPILA o k8s via
+    # specs/tools/devops-compile.mjs (chart app-template) — exige helm no PATH e as
+    # deps do tooling (ajv/yaml) instaladas em specs/tools.
+    $toolsDir = Join-Path $SpecsDir 'tools'
+    if (-not (Test-Path (Join-Path $toolsDir 'node_modules'))) {
+      Write-Host "== FORGE: instalando deps do tooling (specs/tools: ajv/yaml p/ o compilador) ==" -ForegroundColor Cyan
+      Push-Location $toolsDir
+      try { npm ci --no-audit --no-fund } finally { Pop-Location }
+      if ($LASTEXITCODE -ne 0) { throw "npm ci em specs/tools falhou (exit $LASTEXITCODE) — o compilador devops-compile.mjs precisa de ajv/yaml." }
+    }
     Write-Host "== FORGE 2.0: gerando '$Name' pela stack '$($prod.stack)' ($gen) ==" -ForegroundColor Cyan
     $genPath = Join-Path $SpecsDir "forge\$gen"
     if ($Force) { & node $genPath --product $Name --force } else { & node $genPath --product $Name }
@@ -80,7 +90,9 @@ if ($hasStack -and $hasBlocks -and -not $WhatIfOnly) {
     Write-Host "== FORGE 2.0: gerando suíte de testes LOCKED (make-test-suite.mjs) ==" -ForegroundColor Cyan
     & node (Join-Path $SpecsDir 'tools\make-test-suite.mjs') --product $Name
     if ($LASTEXITCODE -ne 0) { Write-Host "[forge] aviso: make-test-suite saiu $LASTEXITCODE (requisitos podem não estar na baseline ainda)." -ForegroundColor Yellow }
-    Write-Host "OK — app gerado em apps\$Name (api$(if ($ifaces -contains 'web') {' + frontend'}) + testes locked). Próximo: docker build :local + Secret '$Name-db' + kubectl apply -f apps\$Name\k8s\." -ForegroundColor Green
+    Write-Host "OK — app gerado em apps\$Name (api$(if ($ifaces -contains 'web') {' + frontend'}) + testes locked)." -ForegroundColor Green
+    Write-Host "     k8s COMPILADO do devops.yaml v2 (specs/tools/devops-compile.mjs) — recompile após editar o contrato; NÃO edite apps\$Name\k8s\$Name.yaml à mão." -ForegroundColor Green
+    Write-Host "     Próximo: docker build :local + Secret '$Name-db' + kubectl apply -f apps\$Name\k8s\." -ForegroundColor Green
     return
   }
   Write-Host "[forge] stack '$($prod.stack)' sem gerador dedicado — usando o scaffold golden-path legado." -ForegroundColor Yellow

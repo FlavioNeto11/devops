@@ -7,6 +7,7 @@ import { AiToolError } from '@flavioneto11/ai-core';
 import { PROMPTS, VOCAB } from './prompts.js';
 import { summarizeForPrompt, catalogIndex, filterKnownBlocks, validateSelection } from './capabilities.js';
 import { aiProvider } from './llm.js';
+import { validateInventory, sanitizeScreen } from './forge-preview.js';
 
 // Modelo RÁPIDO para as tools do FORGE (proposta de requisitos/arquitetura): o wizard precisa ser
 // ágil (UX) e a tarefa é extração estruturada — haiku responde em segundos vs ~2min do sonnet.
@@ -295,9 +296,12 @@ export function buildForgeTools() {
       execute: async (input, ctx) => {
         const { defaultBlocks, compatibleBlocks } = blueprintBlocks(input, input.blueprint);
         const catalog = summarizeForPrompt(input.capabilities, { defaultBlocks, compatibleBlocks });
+        // (C2) variante de TOM: tone:'simples' => title/statement em linguagem de negocio clara.
+        // MESMO schema de saida e MESMA validacao fail-closed; default 'tecnico' (retrocompat).
+        const prompt = input.tone === 'simples' ? PROMPTS.proposeRequirementsSimples : PROMPTS.proposeRequirements;
         const { parsed, usage } = await llmJson(ctx.llm, {
-          system: PROMPTS.proposeRequirements.system,
-          user: PROMPTS.proposeRequirements.user({ ...input, catalog }),
+          system: prompt.system,
+          user: prompt.user({ ...input, catalog }),
           maxTokens: 12000,
           model: FAST_MODEL(),
         });
@@ -308,7 +312,7 @@ export function buildForgeTools() {
           if (known.size) r.capability_blocks = filterKnownBlocks(r.capability_blocks, known).kept;
           return r;
         });
-        return { prompt_version: PROMPTS.proposeRequirements.version, requirements, notes: parsed.notes || '', usage };
+        return { prompt_version: prompt.version, requirements, notes: parsed.notes || '', usage };
       },
     },
     {
@@ -350,6 +354,80 @@ export function buildForgeTools() {
           adrs: Array.isArray(parsed.adrs) ? parsed.adrs : [],
           waves: Array.isArray(parsed.waves) ? parsed.waves : [],
           notes: parsed.notes || '',
+          usage,
+        };
+      },
+    },
+    // --- Forge PREVIEW (F3): projetar o INVENTARIO de telas e refinar UMA tela -------------
+    // Geram o { brand, entities, screens } que o preview renderiza com componentes ui-vue REAIS +
+    // dados FAKE ANTES de construir. R1: geram CONTEUDO, nao buildam (o build vai no runner via dispatch).
+    {
+      name: 'forge.propose_screens',
+      description: 'Projeta o INVENTARIO COMPLETO de telas (brand + entities + screens) de um produto novo a partir dos requisitos propostos + arquitetura, p/ o preview iterativo (componentes ui-vue reais + dados fake). Telas ancoram a requisitos REAIS (anti-fabricacao).',
+      risk: 'R1',
+      inputSchema: schema((v) => need(Array.isArray(v.requirements) && v.requirements.length > 0, 'requirements (array nao-vazio) obrigatorio')),
+      authorize: authorizeOperator,
+      execute: async (input, ctx) => {
+        const { parsed, usage } = await llmJson(ctx.llm, {
+          system: PROMPTS.proposeScreens.system,
+          user: PROMPTS.proposeScreens.user(input),
+          maxTokens: 12000,
+          model: FAST_MODEL(),
+        });
+        // anti-fabricacao SERVER-SIDE: telas/entidades so com ancoras que existem nos requisitos passados.
+        const known = new Set((Array.isArray(input.requirements) ? input.requirements : []).map((r) => r && r.id).filter(Boolean));
+        const validAnchors = (a) => (Array.isArray(a) ? a.filter((id) => known.has(id)) : []);
+        const screensRaw = (Array.isArray(parsed.screens) ? parsed.screens : [])
+          .map((s) => (s && typeof s === 'object' ? { ...s, anchors: validAnchors(s.anchors) } : s))
+          // se ha requisitos conhecidos, toda tela precisa de >=1 ancora real (igual ao gerador)
+          .filter((s) => known.size === 0 || (s && Array.isArray(s.anchors) && s.anchors.length > 0));
+        const entitiesRaw = (Array.isArray(parsed.entities) ? parsed.entities : [])
+          .map((e) => (e && typeof e === 'object' ? { ...e, anchors: validAnchors(e.anchors) } : e));
+        // saneamento estrutural canonico (mesmo do forge-preview) -> contrato auto-suficiente.
+        const inv = validateInventory({ brand: parsed.brand, entities: entitiesRaw, screens: screensRaw });
+        if (!inv.ok) throw new AiToolError('LLM_INVALID_JSON', `inventario invalido: ${inv.message}`, { code: inv.code });
+        return {
+          prompt_version: PROMPTS.proposeScreens.version,
+          brand: inv.value.brand,
+          entities: inv.value.entities,
+          screens: inv.value.screens,
+          navGroups: Array.isArray(parsed.navGroups) ? parsed.navGroups : [],
+          gaps: Array.isArray(parsed.gaps) ? parsed.gaps : [],
+          usage,
+        };
+      },
+    },
+    {
+      name: 'forge.refine_screen',
+      description: 'Re-propoe UMA tela do inventario de preview a partir do feedback do dono (mantem o slug, nao toca outras telas). Saida = 1 SCREEN revisada. Ancoras filtradas aos requisitos REAIS.',
+      risk: 'R1',
+      inputSchema: schema((v) => {
+        need(v.screen && typeof v.screen === 'object', 'screen (objeto) obrigatorio');
+        need(typeof v.feedback === 'string' && v.feedback.trim().length >= 2, 'feedback obrigatorio (>=2 chars)');
+      }),
+      authorize: authorizeOperator,
+      execute: async (input, ctx) => {
+        const { parsed, usage } = await llmJson(ctx.llm, {
+          system: PROMPTS.refineScreen.system,
+          user: PROMPTS.refineScreen.user(input),
+          maxTokens: 6000,
+          model: FAST_MODEL(),
+        });
+        const known = new Set((Array.isArray(input.grounding) ? input.grounding : []).map((r) => r && r.id).filter(Boolean));
+        const raw = parsed && typeof parsed.screen === 'object' && parsed.screen ? parsed.screen : null;
+        if (!raw) throw new AiToolError('LLM_INVALID_JSON', 'o modelo nao retornou uma tela (screen)');
+        // preserva o slug ORIGINAL (o refino nunca renomeia a tela) + filtra ancoras inventadas.
+        raw.slug = (input.screen && input.screen.slug) || raw.slug;
+        raw.anchors = Array.isArray(raw.anchors) ? raw.anchors.filter((id) => !known.size || known.has(id)) : [];
+        if (known.size && raw.anchors.length === 0 && Array.isArray(input.screen && input.screen.anchors)) {
+          raw.anchors = input.screen.anchors.filter((id) => known.has(id)); // mantem as ancoras anteriores validas
+        }
+        const screen = sanitizeScreen(raw);
+        if (!screen) throw new AiToolError('TOOL_INVALID_OUTPUT', 'a tela refinada nao passou no saneamento estrutural');
+        return {
+          prompt_version: PROMPTS.refineScreen.version,
+          screen,
+          notes: typeof parsed.notes === 'string' ? parsed.notes : '',
           usage,
         };
       },

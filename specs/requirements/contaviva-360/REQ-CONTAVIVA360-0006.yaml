@@ -1,0 +1,29 @@
+id: REQ-CONTAVIVA360-0006
+title: "Gestão de Notas Fiscais (PJ): Cadastro, Emissão, Rastreamento e Integração com Obrigações"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: contaviva-360
+  blueprint: gymops-style
+statement: "O sistema DEVE permitir o cadastro de clientes, produtos/serviços, e emissão de notas fiscais (NF-e/NFCe) com cálculo de impostos, integração com obrigações fiscais (ICMS, ISS, PIS, COFINS), rastreamento de status (rascunho, emitida, cancelada), integração com SEFAZ (em sandbox por padrão, real via config), armazenamento de XML/PDF, e relatório de notas por período."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/contaviva-360/product.json"]
+priority: high
+criticality: medium
+architectural_significance: true
+capability_blocks: ["gateway-externo", "worker-queue-transacional", "idempotencia"]
+acceptance_criteria:
+  - "Cadastro de Cliente PJ: razão social, CNPJ, inscrição estadual, endereço, contato, tipo de cliente (empresa, consumidor final, órgão público)."
+  - "Cadastro de Produto/Serviço: descrição, código, valor unitário, ICMS alíquota, ISS, PIS, COFINS, CFOP, NCM/NBS."
+  - "Emissão de NF: seleção de cliente, adição de itens (produto/serviço, quantidade, valor), cálculo automático de impostos, observações, gerar XML, assinar digitalmente (certificado da empresa), submeter à SEFAZ, armazenar chave de acesso, status 'emitida', PDF para download."
+  - "SEFAZ Sandbox: determinístico, não requer certificado real, sempre aprova. SEFAZ Real: detrás de SEFAZ_PROVIDER env, falha segura (não emite se certificado inválido)."
+  - "Rastreamento: GET /v1/nf/{nf_id} retorna XML, PDF, chave, status, data emissão, data autorização SEFAZ."
+  - "Relatório de NFs: por período, por cliente, por série, total emitido, total impostos, export PDF."
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

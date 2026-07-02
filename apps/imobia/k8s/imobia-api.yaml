@@ -1,0 +1,100 @@
+# imobia API (Fastify) — F1: DB (Prisma migrate deploy no boot) + Redis + auth.
+# fsGroup:1000 para o usuario node escrever o PVC imobia-files. Chaves de IA/Keycloak vem
+# do Secret imobia-config (envFrom); ausentes => fail-soft. DATABASE_URL do Secret imobia-db.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: imobia-files
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: imobia
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: imobia-api
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: imobia-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: imobia
+    app.kubernetes.io/managed-by: devops-platform
+  annotations:
+    devops.flavioneto/app: imobia
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: imobia-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: imobia-api
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: imobia
+    spec:
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: api
+          image: imobia-api:local
+          imagePullPolicy: IfNotPresent
+          command: ["npm", "start"]
+          envFrom:
+            - secretRef:
+                name: imobia-config
+          env:
+            - { name: NODE_ENV, value: production }
+            - { name: PORT, value: "8080" }
+            - { name: REDIS_URL, value: "redis://imobia-redis:6379" }
+            - { name: STORAGE_DIR, value: "/data/files" }
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: imobia-db
+                  key: DATABASE_URL
+          ports:
+            - { name: http, containerPort: 8080 }
+          # migrate deploy no boot pode demorar; startupProbe cobre ~180s antes de liveness.
+          startupProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          volumeMounts:
+            - name: files
+              mountPath: /data/files
+          resources:
+            requests: { cpu: "50m", memory: "256Mi" }
+            limits: { cpu: "1", memory: "768Mi" }
+      volumes:
+        - name: files
+          persistentVolumeClaim:
+            claimName: imobia-files
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: imobia-api
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: imobia
+spec:
+  selector:
+    app.kubernetes.io/name: imobia-api
+  ports:
+    - { name: http, port: 8080, targetPort: http }

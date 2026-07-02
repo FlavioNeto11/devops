@@ -1,0 +1,185 @@
+// imobia — schema Prisma. Multi-tenant (Organization = imobiliaria). Cada row de dominio
+// carrega organizationId (isolamento imposto em cada repo + authorize()). pgvector entra em
+// F2 (colunas embedding vector(1536) + CREATE EXTENSION na migracao). Dominio em F3+.
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Papeis de acesso (ancora de autorizacao — resolvido em authorize()/rbac).
+enum MembershipRole {
+  admin
+  corretor
+  financeiro
+  vistoriador
+}
+
+/// Imobiliaria (tenant raiz). Toda entidade de dominio referencia organizationId.
+model Organization {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  cnpj        String?
+  plan        String       @default("free")
+  settings    Json         @default("{}")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  memberships Membership[]
+
+  @@map("organizations")
+}
+
+/// Identidade global. Acesso a uma org e' via Membership (um user pode estar em varias).
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  passwordHash String?      @map("password_hash")
+  keycloakSub  String?      @unique @map("keycloak_sub")
+  name         String
+  avatarUrl    String?      @map("avatar_url")
+  active       Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  memberships  Membership[]
+  sessions     Session[]
+
+  @@map("users")
+}
+
+/// Vinculo User <-> Organization com papel (RBAC).
+model Membership {
+  id             String         @id @default(cuid())
+  userId         String         @map("user_id")
+  organizationId String         @map("organization_id")
+  role           MembershipRole @default(corretor)
+  active         Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+  @@map("memberships")
+}
+
+/// Sessao (refresh token store). Access tokens sao stateless (oidc-kit createAccessToken).
+model Session {
+  id             String    @id @default(cuid())
+  userId         String    @map("user_id")
+  organizationId String?   @map("organization_id")
+  tokenHash      String    @map("token_hash")
+  userAgent      String?   @map("user_agent")
+  ip             String?
+  expiresAt      DateTime  @map("expires_at")
+  revokedAt      DateTime? @map("revoked_at")
+  createdAt      DateTime  @default(now())
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+// ==========================================================================
+// F2 — Camada de IA (orquestracao multi-modelo) + trilha de auditoria.
+// ==========================================================================
+
+/// Qual "funcionario" (IA/humano) produziu um passo — chave da rastreabilidade.
+enum AiActor {
+  cortex
+  gpt
+  claude
+  gemini
+  system
+  human
+}
+
+/// Tipo de evento na linha do tempo ("documentar cada etapa").
+enum TimelineKind {
+  note
+  status_change
+  ai_output
+  document_event
+  financial
+  appointment
+  inspection
+  acm
+  ptam
+  corbam
+  message
+}
+
+/// Thread de conversa (shape EXATO exigido pelo ai-core createThreadStore).
+model AiChatThread {
+  id             String   @id
+  organizationId String?  @map("organization_id")
+  messages       Json     @default("[]")
+  rollingSummary String?  @map("rolling_summary")
+  turnCount      Int      @default(0) @map("turn_count")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("ai_chat_threads")
+}
+
+/// Memoria duravel do usuario (pgvector — busca por cosseno via SQL cru no ai-core).
+model AiUserMemory {
+  id        String                      @id @default(dbgenerated("(gen_random_uuid())::text"))
+  userId    String                      @map("user_id")
+  kind      String                      @default("fact")
+  content   String
+  embedding Unsupported("vector(1536)")
+  expiresAt DateTime?                   @map("expires_at")
+  createdAt DateTime                    @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("ai_user_memory")
+}
+
+/// Telemetria por turno da IA (modelo, tokens, custo, rota, especialista).
+model AiRun {
+  id             String   @id @default(cuid())
+  organizationId String?  @map("organization_id")
+  userId         String?  @map("user_id")
+  threadId       String?  @map("thread_id")
+  channel        String?
+  route          String?
+  specialist     String?
+  model          String?
+  provider       String?
+  inputTokens    Int      @default(0) @map("input_tokens")
+  outputTokens   Int      @default(0) @map("output_tokens")
+  costUsd        Decimal  @default(0) @map("cost_usd") @db.Decimal(12, 6)
+  latencyMs      Int      @default(0) @map("latency_ms")
+  escalated      Boolean  @default(false)
+  toolCalls      Json     @default("[]") @map("tool_calls")
+  correlationId  String?  @map("correlation_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([organizationId, createdAt])
+  @@map("ai_runs")
+}
+
+/// Linha do tempo polimorfica ("documentar cada etapa") — anexa a qualquer entidade,
+/// registra qual IA produziu o passo (actorType).
+model TimelineEntry {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  entityType     String       @map("entity_type")
+  entityId       String       @map("entity_id")
+  kind           TimelineKind @default(note)
+  actorType      AiActor      @default(system) @map("actor_type")
+  actorUserId    String?      @map("actor_user_id")
+  title          String
+  summary        String?
+  payload        Json         @default("{}")
+  correlationId  String?      @map("correlation_id")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@index([organizationId, entityType, entityId, createdAt])
+  @@map("timeline_entries")
+}

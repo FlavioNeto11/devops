@@ -1,0 +1,30 @@
+id: REQ-IMOBIA-0011
+slug: req-imobia-0011
+title: Vistoria de imóveis com análise de fotos por IA e laudo oficial
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: imobia
+  applies_to: product
+statement: O sistema deve registrar vistorias de imóveis com upload de fotos pelo vistoriador (armazenadas no PVC imobia-files), descrição do estado físico por visão computacional — fissuras, manchas, conservação — (Gemini, fila vistoria-vision) e laudo oficial redigido pela IA (Claude), anexável ao contrato.
+source:
+  stakeholder: imobia
+  origin: codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)
+  source_paths:
+    - apps/imobia/api/src/modules/vistoria/routes.ts
+    - apps/imobia/api/src/lib/storage.ts
+priority: high
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: adoção Forja 4.1 D5 — backfill extraído do app real
+allocation:
+  service_refs:
+    - svc-imobia-api
+    - svc-imobia-worker
+  infra_refs:
+    - infra-postgres

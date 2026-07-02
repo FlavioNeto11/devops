@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "ZapBridge",
+    "slug": "zapbridge",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "zapbridge",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#0B141A",
+      "resizeMode": "contain"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "experiments": {
+      "baseUrl": "/zapbridge"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.zapbridge.app"
+    },
+    "android": {
+      "package": "com.zapbridge.app"
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O ZapBridge usa suas fotos para anexar mídia às conversas.",
+          "cameraPermission": "O ZapBridge usa a câmera para tirar fotos e gravar vídeos nas conversas.",
+          "microphonePermission": "O ZapBridge usa o microfone para gravar áudios e vídeos nas conversas."
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "O ZapBridge usa o microfone para gravar mensagens de voz."
+        }
+      ],
+      "expo-asset"
+    ],
+    "extra": {
+      "apiUrl": "https://dev.nvit.com.br/zapbridge/api",
+      "socketUrl": "https://dev.nvit.com.br",
+      "socketPath": "/zapbridge/socket.io"
+    }
+  }
+}

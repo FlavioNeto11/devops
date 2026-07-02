@@ -1,0 +1,35 @@
+{
+  "id": "contas-acesso",
+  "title": "Contas & acesso — autenticação própria + usuários + perfil + gerência de acesso (DEFAULT)",
+  "description": "Fundação de identidade que todo app nasce com: autenticação PRÓPRIA do app (registro/login local com senha bcrypt + sessão própria via JWT curto HS256 + refresh rotacionado guardado como hash), criação e gestão de usuários, perfil do próprio usuário e gerência de acesso por papel (admin/member). Substitui o stand-in inseguro (header X-Role) por contas reais. O registro público SEMPRE cria 'member' (nunca concede admin); o primeiro admin vem do SEED de bootstrap (BOOTSTRAP_ADMIN_EMAIL + BOOTSTRAP_ADMIN_PASSWORD obrigatórios — sem senha default); admin gerencia os demais (criar/promover/desativar — soft-delete via is_active), escopado ao seu tenant. JWT_SECRET é fail-closed em produção. Troca de senha exige a senha atual e revoga sessões; desativar/rebaixar usuário revoga as sessões dele; rotas de auth têm rate-limit. SSO Keycloak é ADITIVO e OPCIONAL (se OIDC_ISSUER setado, valida o token no userinfo do issuer EXIGINDO email_verified e provisiona o usuário por email; senão fica desabilitado, sem nunca quebrar o boot). É bloco DEFAULT — sempre incluído num produto novo. Siga o padrão SICAT/GymOps (login local + SSO aditivo + sessão própria). Não reescreva criptografia/JWT do zero quando puder reusar packages/oidc-kit.",
+  "category": "auth",
+  "requires": ["migrations-versionadas"],
+  "conflicts_with": [],
+  "compatible_stacks": ["sicat", "gymops"],
+  "reference": [
+    { "stack": "sicat", "path": "apps/sicat/backend/src/services/sicat-auth-service.ts", "note": "login/registro local + refresh rotacionado + SSO Keycloak ADITIVO (loginSicatViaKeycloak valida no userinfo) emitindo a sessão própria do app — o padrão a seguir." },
+    { "stack": "sicat", "path": "apps/sicat/backend/src/middlewares/sicat-auth.ts", "note": "requireAuth: decodifica o JWT, valida e popula req.authUser={id,email,role}; base do requireRole('admin') → 403." },
+    { "stack": "sicat", "path": "apps/sicat/backend/src/repositories/sicat-user-repo.ts", "note": "persistência de usuários (email único, password_hash bcrypt, role, is_active) com SQL parametrizado." },
+    { "stack": "sicat", "path": "apps/sicat/backend/src/repositories/sicat-session-repo.ts", "note": "sessões/refresh guardados como HASH (nunca cru), expiração + revogação na rotação." },
+    { "stack": "gymops", "path": "apps/gymops/apps/api/src/lib/auth-context.ts", "note": "contexto de identidade resolvido por request (papel + tenant) — base do guard de papel admin/member." },
+    { "stack": "platform", "path": "packages/oidc-kit", "note": "createAccessToken/verify, validateKeycloakToken (userinfo), requireSession — reusar para o caminho SSO aditivo, não reescrever JWT/validação." }
+  ],
+  "reuses": ["packages/oidc-kit"],
+  "scaffold_overlay": {
+    "adds_env": ["JWT_SECRET", "OIDC_ISSUER", "OIDC_CLIENT_ID", "BOOTSTRAP_ADMIN_EMAIL", "BOOTSTRAP_ADMIN_PASSWORD"],
+    "adds_reuses": ["packages/oidc-kit"],
+    "notes": "Adiciona migrations de users/sessions/audit_logs, seed do admin de bootstrap, rotas /auth/* e /v1/users + GET|PATCH /me, middleware requireAuth/requireRole('admin') e o caminho SSO ADITIVO opcional (/auth/sso/*). Tudo GATED pelo bloco — apps sem ele geram idêntico. Frontend (quando o produto tem o bloco): useAuth + AuthView/ProfileView/AdminUsuariosView + guards de rota sobre o kit @flavioneto11/ui-vue."
+  },
+  "work_order_guidance": "Implemente a fundação de auth SEGUINDO o SICAT (login local + SSO aditivo + sessão própria) e o auth-context do GymOps — NÃO reescreva criptografia/JWT do zero (reuse packages/oidc-kit). Backend, tudo na raiz (o app serve pós-strip): POST /auth/register (SEMPRE cria 'member' — registro público nunca concede admin; email único→409; senha ≥8→400), /auth/login (401 inválido), /auth/refresh (rotaciona: revoga o usado, emite novo), /auth/logout; rotas de auth com RATE-LIMIT (@fastify/rate-limit, degrade sem quebrar se faltar). GET|PATCH /me (requireAuth; trocar senha EXIGE currentPassword via verifyPassword e revoga as sessões do usuário). /v1/users CRUD (requireAuth+admin; member NUNCA cria admin; queries ESCOPADAS ao tenant do admin; rebaixar papel/desativar/excluir revoga as sessões do alvo). /auth/sso/config (público) + /auth/sso/exchange (valida no userinfo EXIGINDO email_verified===true, upsert por email — nunca preferred_username como identidade, role member no 1º login). SEGURANÇA OBRIGATÓRIA: senha sempre bcrypt (nunca plaintext/log); refresh guardado como HASH sha256 (nunca cru); SQL sempre parametrizado; JWT HS256 com algoritmo fixo, verificado em TODA rota protegida; JWT_SECRET fail-closed em produção; cap de papel respeitado; erros e logs não vazam stack/segredo/connection string. Migrations users/sessions/audit_logs idempotentes (CREATE TABLE IF NOT EXISTS) + seed do admin de bootstrap SÓ se BOOTSTRAP_ADMIN_EMAIL **e** BOOTSTRAP_ADMIN_PASSWORD estiverem setados (sem senha default). Audite login/criação de usuário (best-effort). O caminho SSO é aditivo e opcional: sem OIDC_ISSUER, /auth/sso/config responde { enabled:false } e o boot nunca quebra.",
+  "verification": [
+    { "method": "test-integration", "assertion": "registro retorna 2xx + accessToken e vira role 'member' (registro público nunca concede admin); email duplicado → 409; senha <8 → 400" },
+    { "method": "test-integration", "assertion": "login válido → 200 + accessToken; GET /me com Bearer → 200 e email confere; sem/append token inválido → 401; trocar senha sem currentPassword → recusado" },
+    { "method": "test-integration", "assertion": "admin de bootstrap (seed via BOOTSTRAP_ADMIN_*) lista GET /v1/users → 200 { data:[...] }; token de member (ou ausente) → 403; refresh rotaciona (token usado é revogado)" },
+    { "method": "test-integration", "assertion": "GET /auth/sso/config responde { enabled } sem segredos; sem OIDC_ISSUER o boot sobe e SSO fica desabilitado" }
+  ],
+  "default_adrs": [
+    "Contas & acesso: autenticação PRÓPRIA do app (registro/login local, senha bcrypt, sessão JWT HS256 curta + refresh rotacionado como hash; JWT_SECRET fail-closed em produção) — substitui o stand-in X-Role",
+    "SSO Keycloak ADITIVO e OPCIONAL (valida no userinfo do issuer exigindo email_verified, provisiona por email) reusando packages/oidc-kit — não quebra o boot sem OIDC_ISSUER",
+    "Gerência de acesso por papel (admin/member) escopada ao tenant; registro público sempre member e admin via seed de bootstrap; soft-delete (is_active) + revogação de sessões ao rebaixar/desativar/trocar senha"
+  ]
+}

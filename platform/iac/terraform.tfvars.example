@@ -1,0 +1,11 @@
+# Copie para terraform.tfvars (git-ignored pelo .gitignore local) e preencha.
+#
+# SEGREDO: o API token da Cloudflare NUNCA entra em tfvars/git — exporte a env
+# CLOUDFLARE_API_TOKEN (ou TF_VAR_cloudflare_api_token) na sessao. O token do
+# GitHub tambem e so por env: $env:GITHUB_TOKEN = (gh auth token)
+
+cloudflare_account_id = "00000000000000000000000000000000" # 32 hex (dash da Cloudflare -> Overview); NAO e segredo
+cloudflare_zone       = "nvit.com.br"
+github_owner          = "FlavioNeto11"
+github_repository     = "devops"
+tunnel_id             = "c0c5cfc2-6c20-42ed-9d53-e67e2f6bcc51" # tunnel 'nvit-local' EXISTENTE — nunca recriar

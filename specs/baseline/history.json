@@ -2,19 +2,111 @@
   "metamodel_version": "1.1.0",
   "has_previous": true,
   "from": {
-    "commit": "f4d2d8e7a393",
-    "baseline_hash": "c673fba7368673eeb123e0671af3b6e8d8fd855c2c79bf90786e87dd1743d7f9"
+    "commit": "5d5527532cab",
+    "baseline_hash": "d5f267861fb22cdf005bf4fee3e85b4ec3dddd1caf1eb85d7e771fe4ac016e00"
   },
   "to": {
-    "commit": "dfb5d398f1a0",
-    "baseline_hash": "c673fba7368673eeb123e0671af3b6e8d8fd855c2c79bf90786e87dd1743d7f9"
+    "commit": "working-tree",
+    "baseline_hash": "f1d3f82808d016dd57a1d810f851ea9ffccdf38ff80f6131476d23022868249a"
   },
   "counts": {
-    "added": 0,
+    "added": 13,
     "removed": 0,
     "changed": 0
   },
-  "added": [],
+  "added": [
+    {
+      "id": "REQ-ZAPBRIDGE-0001",
+      "title": "Contas e autenticação do app (registro + login JWT local)",
+      "product": "zapbridge",
+      "type": "functional",
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0002",
+      "title": "Conexão WhatsApp multi-dispositivo via Baileys (QR/pairing, reconexão, restore)",
+      "product": "zapbridge",
+      "type": "functional",
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0003",
+      "title": "Sincronização e persistência local de conversas (SQLite/Prisma, persist-before-emit)",
+      "product": "zapbridge",
+      "type": "functional",
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0004",
+      "title": "Mensageria completa em tempo real (Socket.IO, envio otimista, recibos, reações)",
+      "product": "zapbridge",
+      "type": "functional",
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0005",
+      "title": "Mídia ponta a ponta (envio, download, entrega via API, expiração)",
+      "product": "zapbridge",
+      "type": "functional",
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0006",
+      "title": "Contatos e grupos (listagem, abrir conversa, participantes)",
+      "product": "zapbridge",
+      "type": "functional",
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0007",
+      "title": "Frontend web React/Vite servido em /zapbridge (responsivo, SW kill-switch)",
+      "product": "zapbridge",
+      "type": "functional",
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0008",
+      "title": "IA assistiva opt-in (consentimento, smart replies, reescrita, resumo, busca, memória)",
+      "product": "zapbridge",
+      "type": "functional",
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0009",
+      "title": "Assistente RAG + KB PME + agente com confirmação + auto-resposta com guardrails",
+      "product": "zapbridge",
+      "type": "functional",
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0010",
+      "title": "Saúde e observabilidade (health endpoints + métricas Prometheus da IA)",
+      "product": "zapbridge",
+      "type": "functional",
+      "impact_band": "low"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-NFR-0001",
+      "title": "IA fail-soft — sem banco/chaves, a mensageria funciona 100% (dormência)",
+      "product": "zapbridge",
+      "type": "non-functional",
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-NFR-0002",
+      "title": "Single-writer — 1 réplica Recreate sobre SQLite/PVC RWO (nunca escalar horizontal)",
+      "product": "zapbridge",
+      "type": "non-functional",
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-NFR-0003",
+      "title": "Privacidade, segurança e uso legítimo (credenciais só no backend; IA nunca envia sozinha)",
+      "product": "zapbridge",
+      "type": "non-functional",
+      "impact_band": "medium"
+    }
+  ],
   "removed": [],
   "changed": []
 }

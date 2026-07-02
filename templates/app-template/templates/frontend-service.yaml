@@ -2,7 +2,8 @@
 Gera um Service ClusterIP para cada service com type == "frontend".
 */ -}}
 {{- range $name, $svc := .Values.services }}
-{{- if eq $svc.type "frontend" }}
+{{- /* $svc pode ser null (compilador apaga services por null explícito) */ -}}
+{{- if and $svc (eq $svc.type "frontend") }}
 ---
 apiVersion: v1
 kind: Service

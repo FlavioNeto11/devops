@@ -95,7 +95,7 @@ No script da view:
 ## Convencoes para proximos componentes
 
 1. Nome sempre com prefixo `Sicat` para base compartilhada.
-2. Usar tokens de design existentes (`frontend/src/styles/tokens.css`).
+2. Usar tokens de design existentes (`frontend/src/styles/tokens.generated.css`, gerado de `packages/design-tokens` — marca `sicat`).
 3. Expor API minima (props/emits) e evitar acoplamento com stores.
 4. Priorizar acessibilidade (`aria-*`, foco, escape, click outside).
 5. Publicar componente em `shared/<categoria>` e remover duplicacao nas views.

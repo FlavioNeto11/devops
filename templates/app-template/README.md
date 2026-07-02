@@ -68,19 +68,69 @@ valores do chart (`values.local.yaml` / `values.dev.yaml`). A partir dos
 
 | `service.type`     | Deployment | Service ClusterIP | Rota no Ingress (se `expose`) |
 | ------------------ | :--------: | :---------------: | :---------------------------- |
-| `frontend`         |    sim     |        sim        | `PathPrefix(basePath)` **sem strip**, priority menor |
-| `api` / `api2`     |    sim     |        sim        | `PathPrefix(basePath+path)` **com StripPrefix**, priority maior |
+| `frontend`         |    sim     |        sim        | `PathPrefix(basePath)` **sem strip**, priority menor — na IngressRoute PROPRIA `<app>-frontend` |
+| `api` / `api2`     |    sim     |        sim        | `PathPrefix(basePath+path)` **com StripPrefix**, priority maior — na IngressRoute `<app>` |
 | `worker`           |    sim     |       nao         | nao (nao e exposto) |
+
+> **Convencao VIVA (imutavel — ver `docs/new-project-contract.md` §11.5):** todo
+> Deployment/Service usa selector **exatamente** `{ app.kubernetes.io/name: <app>-<svc> }`
+> (sem `part-of` no selector — `spec.selector` e imutavel no apiserver); o Middleware de
+> strip chama `<app>-<svc>-strip`; e a rota do frontend vive na IngressRoute separada
+> `<app>-frontend` (identico aos produtos vivos gerados pelo antigo `buildK8s()` — e o que
+> permite a convergencia v1 -> v2 sem recriar recursos).
 
 Alem disso, sempre sao gerados:
 
 - **ConfigMap `<app.name>-meta`** — metadados (`name`, `namespace`, `host`,
   `basePath`) e dados de publicacao (`commitSha`, `branch`, `imageTag`,
   `deployedAt`, `runId`). O DevOps Console le este ConfigMap.
-- **ConfigMap `app-healthchecks`** — mapa `serviceName -> health.path` para a
-  tela Health do Console.
+- **ConfigMap `<app.name>-healthchecks`** — mapa `serviceName -> health.path`
+  (insumo para a tela Health do Console; nome POR APP — o antigo nome fixo
+  `app-healthchecks` colidia entre apps no mesmo namespace).
 - **`secret.example.yaml`** — modelo de Secret (NAO aplicar; copiar para
   `secret.yaml`, que e gitignored, e preencher).
+
+### Dependencias (`dependencies` — contrato v2)
+
+Quando os values trazem `dependencies` (derivados de um `devops.yaml` `version: 2`
+pelo compilador `specs/tools/devops-compile.mjs`), o chart provisiona a
+infraestrutura da app por engine:
+
+| `engine` | Template | Gera | Resources default |
+|---|---|---|---|
+| `postgres` | `dependency-postgres.yaml` | PVC `<app>-<dep>` (sem sufixo `-data` — convencao viva) + Deployment `<app>-<dep>` (strategy **Recreate**) + Service 5432 + probes `pg_isready`. `flavor: pgvector` -> `pgvector/pgvector:pg<version>`; sem flavor -> `postgres:<version>-alpine` (default 16). `secretName` OBRIGATORIO (`envFrom`) | requests 128Mi/50m · limits 1Gi/1000m |
+| `redis` | `dependency-redis.yaml` | PVC `<app>-<dep>` (AOF) + Deployment (**Recreate**) + Service 6379 + probes `redis-cli ping`. `redis:<version>-alpine` (default 7) | requests 32Mi/25m · limits 256Mi/250m |
+
+O chart **NUNCA renderiza Secret** para dependencias — apenas referencia
+`secretName` (Secret criado fora do git; ver `docs/standards/hard-constraints.md` §3).
+Engines `mongodb`/`nats` sao reservadas no schema, sem template ainda.
+
+### Multi-env (`app.hosts` + `app.environment` — opt-in, Forja 4.0 B2)
+
+Dois values opcionais suportam o compile de um ambiente efemero
+(`devops-compile --env <nome>`; guia: `docs/multi-env.md`):
+
+- **`app.hosts`** (lista): quando setado, a clausula `Host(...)` das
+  IngressRoutes usa EXATAMENTE esses hosts — sem anexar `dev.nvit.com.br`
+  (host de producao, nunca reatribuido a um env). Sem `app.hosts`, vale o
+  comportamento historico (`app.host` + `dev.nvit.com.br`).
+- **`app.environment`** (string): quando setado, TODO recurso ganha o label
+  `devops.flavioneto/environment: <nome>` (e o ConfigMap `-meta` ganha
+  `app.environment`). NAO entra nos selectors (estaveis entre upgrades).
+
+Sem esses values o render e byte-identico ao anterior (retrocompat total).
+
+```yaml
+dependencies:
+  postgres:
+    engine: postgres
+    flavor: pgvector       # opcional
+    version: "16"
+    storage: 2Gi
+    secretName: meuapp-db  # POSTGRES_USER/PASSWORD/DB — criado fora do git
+  redis:
+    engine: redis
+```
 
 ### Imagem efetiva
 
@@ -139,6 +189,11 @@ vencer. O Traefik ja prioriza pelo tamanho da regra, mas o chart define
 (menor). Assim `/aplicacao1/api/health` sempre vai para a API, e qualquer
 outra rota sob `/aplicacao1` vai para o frontend.
 
+A `priority` e **sobrescrevivel por service** (`services.<svc>.priority`). O
+compilador do contrato (`specs/tools/devops-compile.mjs`) aplica a regra de
+ouro da plataforma: frontend 10, api 30, api2 40 (`api2 > api > frontend`).
+Sem override, valem os defaults historicos do chart (100/10).
+
 ---
 
 ## Como adicionar uma `api2` ou um `worker`
@@ -164,7 +219,7 @@ services:
 ```
 
 Resultado: um Deployment, um Service ClusterIP, uma route com `priority: 100`
-e um Middleware `aplicacao1-api2-stripprefix` com `prefixes: [/aplicacao1/api2]`.
+e um Middleware `aplicacao1-api2-strip` com `prefixes: [/aplicacao1/api2]`.
 
 ### Adicionar um worker — sem ingress
 
