@@ -13,7 +13,8 @@ import {
   typeLabel, asList, planSummary, mergeLiveProducts, mergeImplItems, forgeStateSig,
   FORGE_MODES, FORGE_MODE_KEY, FORGE_MODE_LABELS, normalizeForgeMode, modeCopy,
   projectRequirementCard, forgeReqObject, buildLaunchBody,
-} from './forge-lib.js?v=56';
+  briefFromPortalContract, externalContractRef, suggestIntegrationBlock,
+} from './forge-lib.js?v=57';
 // (E1, Forja 4.1) deep-links canônicos da casca global (mesma cópia codegen-synced que o
 // index.html carrega — manter o ?v= IGUAL ao do <script> para não duplicar o módulo).
 import { surfaceLink } from './platform-shell.js?v=45';
@@ -33,6 +34,19 @@ function syncShellProduct(name, label) {
   if (name) { sh.setAttribute('product', name); sh.setAttribute('product-label', label || name); }
   else { sh.removeAttribute('product'); sh.removeAttribute('product-label'); }
 }
+/* ─── (E2, Forja 4.1) cliente do portal-recorder (mesma origem, CSP connect-src 'self') ───
+   As rotas de LEITURA do portal-rec-api são abertas atrás do SSO de borda — fetch direto,
+   SEM Authorization (o token do AI é do reqhub-api; o promote com token NÃO é escopo daqui).
+   Fail-soft: qualquer erro (rede/5xx) vira { ok:false } — o chamador degrada com mensagem. */
+const PORTAL_REC_BASE = '/portal-rec/api';
+async function portalRecGet(path) {
+  try {
+    const r = await fetch(PORTAL_REC_BASE + path, { headers: { Accept: 'application/json' } });
+    const data = await r.json().catch(() => ({}));
+    return { ok: r.ok, status: r.status, data };
+  } catch (e) { return { ok: false, status: 0, data: { error: { message: String((e && e.message) || e) } } }; }
+}
+
 const DONE_ST = ['deployed', 'done', 'merged'];
 function dStateCls(status) {
   if (DONE_ST.includes(status)) return 'done';
@@ -204,9 +218,11 @@ function renderForge() {
     body.append(h('p', { class: 'empty', text: 'Nenhum produto registrado ainda — gere um com o Forge (brief → requisitos → PR) ou rode build-products.mjs.' }));
     return;
   }
-  // (A4) PONTO ÚNICO de criação: fork na entrada — portal de conteúdo (CMS) ou sistema (greenfield).
+  // (A4) PONTO ÚNICO de criação: fork na entrada — portal de conteúdo (CMS), sistema (greenfield)
+  // ou (E2) sistema a partir de um PORTAL CAPTURADO (contrato do portal-recorder como insumo).
   if (state.forge.newMode && !state.forge.newKind) { setForgeTitle('Criar'); renderForgeKindFork(body); return; }
   if (state.forge.newMode && state.forge.newKind === 'portal') { setForgeTitle('Criar um portal'); renderForgePortalTrail(body); return; }
+  if (state.forge.newMode && state.forge.newKind === 'captura') { setForgeTitle('Criar de um portal capturado'); renderForgeCaptureTrail(body); return; }
   if (state.forge.newMode) { setForgeTitle('Criar um sistema'); renderForgeWizard(body); }
   else if (state.forge.product) { const p = findProduct(DATA.products, state.forge.product); setForgeTitle(p ? p.display_name : state.forge.product); renderForgeDetail(body, state.forge.product); }
   else { setForgeTitle('Produtos'); renderForgeHub(body); }
@@ -303,7 +319,138 @@ function renderForgeKindFork(body) {
   cards.append(
     card('Portal / onepage de conteúdo', 'Site institucional, landing page ou portal de conteúdo — páginas e seções montadas no editor visual (CMS), com IA para gerar o conteúdo. No ar em minutos, sem código.', 'executor: CMS · sem esteira de código', () => { state.forge.newKind = 'portal'; renderForge(); }),
     card('Sistema / produto de software', 'Aplicação completa a partir de requisitos: a IA propõe requisitos e arquitetura, você refina o preview das telas e a esteira constrói (frontend + API + banco + k8s + CI).', 'executor: esteira greenfield · requisitos → código', () => { state.forge.newKind = 'sistema'; renderForge(); }));
+  // (E2) 3º cartão: portal CAPTURADO como insumo — copy projetada pelo MODO (modeCopy), mesma
+  // engine por baixo. Fail-soft: sonda o /health do portal-rec e DEGRADA o rodapé (badge) se
+  // estiver fora — o cartão continua clicável (a trilha explica e oferece "tentar de novo").
+  const mode = forgeMode();
+  const capFoot = h('span', { class: 'muted', text: modeCopy(mode, 'fork.capture.foot') });
+  const capCard = h('button', { class: 'forge-card', type: 'button', onclick: () => { state.forge.newKind = 'captura'; renderForge(); } },
+    h('div', { class: 'forge-card-top' }, h('span', { class: 'forge-card-name', text: modeCopy(mode, 'fork.capture.title') })),
+    h('p', { class: 'forge-card-vision', text: modeCopy(mode, 'fork.capture.desc') }),
+    h('div', { class: 'forge-card-foot' }, capFoot));
+  cards.append(capCard);
+  portalRecGet('/health').then((r) => {
+    if (!r.ok && capFoot.isConnected) {
+      capFoot.textContent = '';
+      capFoot.append(badge('portal-recorder fora do ar', 'b-crit'), ' — dá para entrar e tentar de novo');
+    }
+  });
   body.append(cards);
+}
+
+/* ---------- (E2, Forja 4.1) trilha "a partir de um portal capturado" ----------
+   Lista os contratos normalizados do portal-recorder (GET /v1/contracts + /v1/portals p/ nomear)
+   e, ao escolher um, busca o EXPORT canônico (sem samples), deriva o brief CLIENT-SIDE
+   (briefFromPortalContract) e pré-carrega o wizard greenfield com o insumo (w.capture):
+   o export vira anexo do propose-requirements e a referência vira architecture.external_contract
+   no launch. Fail-soft de ponta a ponta — portal-rec fora nunca quebra o fork. */
+function renderForgeCaptureTrail(body) {
+  body.append(forgeCrumbs([
+    { label: 'Produtos', onclick: backToHub },
+    { label: 'Criar', onclick: () => { state.forge.newKind = null; renderForge(); } },
+    { label: 'Portal capturado' }]));
+  const mode = forgeMode();
+  const sec = h('div', { class: 'forge-section' });
+  sec.append(h('h3', { text: modeCopy(mode, 'fork.capture.title') }),
+    h('p', { class: 'muted', text: modeCopy(mode, 'capture.lead') }));
+  const status = h('p', { class: 'muted', role: 'status', 'aria-live': 'polite' });
+  const listBox = h('div', {});
+  sec.append(status, listBox);
+  body.append(sec);
+  captureLoadContracts(status, listBox);
+}
+
+async function captureLoadContracts(status, listBox) {
+  status.replaceChildren(h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' Consultando os contratos capturados…');
+  listBox.replaceChildren();
+  const [cr, pr] = await Promise.all([portalRecGet('/v1/contracts'), portalRecGet('/v1/portals')]);
+  if (!cr.ok) {
+    status.textContent = '';
+    listBox.append(h('div', { class: 'card' },
+      h('h4', {}, badge('portal-recorder indisponível', 'b-crit')),
+      h('p', { class: 'muted', text: 'Não consegui listar os contratos capturados (o portal-recorder está fora do ar ou sem resposta). Os outros caminhos de criação continuam funcionando normalmente.' }),
+      h('div', { class: 'fw-actions' },
+        h('button', { class: 'btn', type: 'button', text: '↻ Tentar de novo', onclick: () => captureLoadContracts(status, listBox) }),
+        h('a', { class: 'btn-link', href: '/portal-rec/', target: '_blank', rel: 'noopener', text: 'abrir o portal-recorder ↗' }))));
+    return;
+  }
+  const contracts = (cr.data && Array.isArray(cr.data.data)) ? cr.data.data : [];
+  // portais só para NOMEAR os grupos (fail-soft: sem eles, agrupa pelo portal_id).
+  const portals = new Map();
+  if (pr.ok && pr.data && Array.isArray(pr.data.data)) for (const p of pr.data.data) if (p && p.id) portals.set(p.id, p);
+  if (!contracts.length) {
+    status.textContent = '';
+    listBox.append(h('p', { class: 'empty', text: 'Nenhum contrato capturado ainda.' }),
+      h('p', { class: 'muted small', text: 'Capture um portal no portal-recorder (sessão de captura → normalizar) e ele aparece aqui como insumo de criação.' }),
+      h('div', { class: 'fw-actions' }, h('a', { class: 'btn primary', href: '/portal-rec/', target: '_blank', rel: 'noopener', text: 'Capturar um portal ↗' })));
+    return;
+  }
+  status.textContent = `${contracts.length} contrato(s) capturado(s).`;
+  const byPortal = new Map();
+  for (const c of contracts) { const k = c.portal_id || '?'; if (!byPortal.has(k)) byPortal.set(k, []); byPortal.get(k).push(c); }
+  const fmtDate = (v) => { try { return new Date(v).toLocaleDateString('pt-BR'); } catch { return String(v || ''); } };
+  for (const [pid, list] of byPortal) {
+    const portal = portals.get(pid) || { slug: pid, name: pid };
+    listBox.append(h('h4', { class: 'fw-sec' }, (portal.name || portal.slug) + ' ', h('code', { class: 'fw-cap-id', text: portal.slug })));
+    const ul = h('ul', { class: 'forge-reqlist' });
+    for (const c of list) {
+      const st = h('span', { class: 'muted small', role: 'status', 'aria-live': 'polite' });
+      const use = h('button', { class: 'btn primary', type: 'button', text: 'Usar como insumo' });
+      use.addEventListener('click', () => captureSelectContract(c, portal, use, st));
+      ul.append(h('li', { class: 'forge-reqitem forge-capture-item' },
+        h('code', { text: c.id }),
+        h('span', { class: 'rt', text: `v${c.version} · ${fmtDate(c.created_at)} · ${c.endpoint_count} endpoint(s)` }),
+        use, st));
+    }
+    listBox.append(ul);
+  }
+  listBox.append(h('p', { class: 'muted small', text: 'O export usado é o canônico SEM payloads de exemplo (samples nunca saem do portal-recorder). Ele vira o brief + o contexto da IA, e o launch carimba a referência do contrato na arquitetura.' }));
+}
+
+async function captureSelectContract(contract, portal, btn, st) {
+  btn.disabled = true;
+  st.replaceChildren(h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' Baixando o export…');
+  const r = await portalRecGet('/v1/contracts/' + encodeURIComponent(contract.id) + '/export');
+  const exportJson = r.ok && r.data ? r.data.data : null;
+  if (!exportJson) {
+    const msg = (r.data && r.data.error && r.data.error.message) || ('HTTP ' + r.status);
+    st.replaceChildren(h('span', { class: 'fw-err', text: 'Export falhou: ' + msg }));
+    btn.disabled = false;
+    return;
+  }
+  const catalog = (DATA.capabilities && DATA.capabilities.capabilities) || [];
+  const blk = suggestIntegrationBlock(catalog);
+  const brief = briefFromPortalContract(exportJson, { integrationBlock: blk });
+  if (!brief) {
+    st.replaceChildren(h('span', { class: 'fw-err', text: 'O export veio sem endpoints utilizáveis — normalize a sessão de novo no portal-recorder.' }));
+    btn.disabled = false;
+    return;
+  }
+  // Pré-carrega um wizard NOVO com o insumo. O nome fica em branco de propósito: o produto é um
+  // sistema NOVO derivado do portal (nome próprio), não o portal em si (evita slug protegido).
+  state.forge.wizard = null;
+  state.forge.newKind = 'sistema';
+  const w = forgeWizardState();
+  w.brief = brief;
+  w.capture = {
+    portal: portal.slug || String(contract.portal_id || ''),
+    contract_id: contract.id,
+    ref: externalContractRef(exportJson),           // -> architecture.external_contract no launch
+    export: exportJson,                              // -> anexo multipart do propose-requirements
+    suggestedBlock: blk || null,
+  };
+  renderForge();
+}
+
+// Arquivo do export p/ o multipart do propose-requirements (o file-ingest do backend extrai o
+// texto de .json e o funde ao brief — o contrato vira contexto da IA sem endpoint novo). null =
+// sem insumo de captura no wizard.
+function fwCaptureFile(w) {
+  if (!w || !w.capture || !w.capture.export) return null;
+  try {
+    return new File([JSON.stringify(w.capture.export)],
+      'portal-contract-' + (w.capture.portal || 'portal') + '.json', { type: 'application/json' });
+  } catch { return null; }
 }
 function renderForgePortalTrail(body) {
   body.append(forgeCrumbs([{ label: 'Produtos', onclick: backToHub }, { label: 'Criar', onclick: () => { state.forge.newKind = null; renderForge(); } }, { label: 'Portal de conteúdo' }]));
@@ -1061,6 +1208,7 @@ function fwLaunch(w, mode, statusEl, btns) {
     launchCtx: {
       brief: w.brief || '', displayName: w.name || w.slug,
       getArch: () => w.arch,
+      externalContract: (w.capture && w.capture.ref) || null, // (E2) -> architecture.external_contract
       onLaunched: (d, m) => { w.launched = true; w.launchInfo = d; w.launchMode = m; fwRerender(); },
     },
     status: statusEl, btns,
@@ -1234,6 +1382,19 @@ function fwStageIdea(host, w, { blueprints }) {
   brief.value = w.brief;
   brief.addEventListener('input', () => { w.brief = brief.value; });
   card.append(h('label', { class: 'fw-fld' }, h('span', { class: 'fw-fld-l', text: modeCopy(w.mode, 'idea.brief') }), brief));
+  // (E2) insumo de CAPTURA: o wizard veio da trilha "portal capturado" — o brief acima foi
+  // derivado do contrato e o export (sem samples) irá como anexo da IA + referência no launch.
+  if (w.capture) {
+    const rm = h('button', { class: 'btn-link', type: 'button', text: 'remover insumo' });
+    rm.addEventListener('click', () => { w.capture = null; fwRerender(); });
+    card.append(h('div', { class: 'fw-fld fw-capture-note' },
+      h('span', { class: 'fw-fld-l', text: 'Insumo de captura' }),
+      h('p', { class: 'fw-hint' }, '📡 Contrato do portal ', h('code', { text: w.capture.portal }),
+        w.capture.ref && w.capture.ref.contract_version ? ' (versão ' + w.capture.ref.contract_version + ')' : '',
+        ' — o export (sem samples) será anexado à IA e a referência carimbada na arquitetura do launch.',
+        w.capture.suggestedBlock ? h('span', {}, ' Bloco sugerido: ', h('code', { class: 'fw-cap-id', text: w.capture.suggestedBlock }), '.') : '',
+        ' ', rm)));
+  }
   // Anexos (opcional): documentos/planilhas/imagens que descrevem a ideia. A IA lê o conteúdo
   // (multimodal); o picker persiste no estado do wizard para sobreviver às re-renderizações da etapa 1.
   if (!w._filePicker) w._filePicker = filePicker({ label: 'Anexar arquivos sobre a ideia', buttonLabel: 'Anexar arquivos (opcional)' });
@@ -1278,7 +1439,10 @@ async function fwGenerate(w, status, btn) {
   const catalog = (DATA.capabilities && DATA.capabilities.capabilities) || [];
   const blueprints = (DATA.blueprints && DATA.blueprints.blueprints) || [];
   // Se o usuário anexou arquivos, envia multipart (a IA lê o conteúdo); senão, mantém o JSON de sempre.
+  // (E2) origem = captura: o export do contrato (sem samples) entra como anexo — contexto da IA.
   const files = (w._filePicker && w._filePicker.hasFiles()) ? w._filePicker.files() : [];
+  const capFile = fwCaptureFile(w);
+  if (capFile) files.push(capFile);
   // (C2) tone: no modo simples a IA escreve title/statement em linguagem de negócio clara —
   // MESMO schema de saída/validação; nos demais modos, o prompt técnico de sempre (retrocompat).
   const reqFields = { product: slug, blueprint: w.blueprint, brief: w.brief.trim(), capabilities: catalog, blueprints, tone: w.mode === 'simples' ? 'simples' : 'tecnico' };
@@ -1333,7 +1497,13 @@ async function fwAdjust(w, instruction, statusEl) {
   const augmented = (w.brief || '') + '\n\n--- AJUSTE PEDIDO PELO USUÁRIO ---\n' + instr
     + '\n\nRequisitos atuais (revise conforme o ajuste — mantenha os que ainda fazem sentido; edite/adicione/remova o que o ajuste pedir):\n' + current;
   try {
-    const r = await AI.post('/v1/forge/propose-requirements', { product: w.slug, blueprint: w.blueprint, brief: augmented, capabilities: catalog, blueprints, tone: w.mode === 'simples' ? 'simples' : 'tecnico' });
+    const adjFields = { product: w.slug, blueprint: w.blueprint, brief: augmented, capabilities: catalog, blueprints, tone: w.mode === 'simples' ? 'simples' : 'tecnico' };
+    // (E2) mantém o contrato capturado como contexto TAMBÉM no ajuste (senão o refinamento
+    // re-propõe sem conhecer o portal original). Sem captura: caminho JSON de sempre.
+    const adjCapFile = fwCaptureFile(w);
+    const r = adjCapFile
+      ? await AI.postMultipart('/v1/forge/propose-requirements', { fields: adjFields, files: [adjCapFile] })
+      : await AI.post('/v1/forge/propose-requirements', adjFields);
     if (!r.ok) throw new Error((r.data && r.data.error && r.data.error.message) || ('IA ' + r.status));
     const reqs = (r.data && r.data.requirements) || [];
     if (!reqs.length) throw new Error('A IA não retornou requisitos.');
@@ -1779,7 +1949,7 @@ function fwStageReview(host, w, { catalog }) {
     const out = h('div', { class: 'forge-section' });
     host.append(out);
     // launchGate=false bloqueia os botões "Criar PR"/"Liberar tudo" até o preview ser aprovado.
-    renderProposedList(out, w.slug, w.blueprint, w.proposed, w.reqMeta || {}, null, { brief: w.brief || '', displayName: w.name || w.slug, getArch: () => w.arch, launchGate: approved, onLaunched: (d, m) => { w.launched = true; w.launchInfo = d; w.launchMode = m; fwRerender(); } });
+    renderProposedList(out, w.slug, w.blueprint, w.proposed, w.reqMeta || {}, null, { brief: w.brief || '', displayName: w.name || w.slug, getArch: () => w.arch, externalContract: (w.capture && w.capture.ref) || null, launchGate: approved, onLaunched: (d, m) => { w.launched = true; w.launchInfo = d; w.launchMode = m; fwRerender(); } });
     if (w.arch) renderArchAdrs(out, w.arch);
   }
   host.append(fwNav(4, null, null));
@@ -1970,10 +2140,13 @@ async function forgeLaunch(mode, ctx) {
   });
   // (C2) buildLaunchBody é PURO (forge-lib): o payload é IDÊNTICO nos 3 modos, exceto o
   // campo informativo creation_mode (rastreabilidade de UX no client_payload/PR).
+  // (E2) origem = captura: externalContract (referência, nunca o export) vira
+  // architecture.external_contract — o forge-launch faz passthrough do objeto architecture.
   const body = buildLaunchBody({
     product: pname, displayName: launchCtx.displayName || pname, blueprint, brief: launchCtx.brief || '',
     mode, requirements, architecture: arch,
     creationMode: forgeMode(), skipPreviewGate: !!ctx.skipPreviewGate,
+    externalContract: launchCtx.externalContract || null,
   });
   btns.forEach((b) => { b.disabled = true; });
   status.textContent = mode === 'release' ? 'Lançando (auto-merge + build)…' : 'Criando os requisitos no git…';
