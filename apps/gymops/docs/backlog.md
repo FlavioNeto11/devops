@@ -244,6 +244,23 @@
   inline via `Buffer`, sem acesso a filesystem) — removido junto com os imports de `path`/`url`. Coleta
   verificada local: `playwright test --list` → 50 testes em 12 arquivos (antes: aborto, 0 testes).
 
+### BUG-015 — E2E: locator de login ambíguo (strict mode) derrubava 35/50 testes
+- **Arquivos**: `apps/web/e2e/{auth,rbac,dashboard,activity,import}.spec.ts`, [`apps/web/e2e/smoke/fixtures.ts`](../apps/web/e2e/smoke/fixtures.ts)
+- **Descrição**: descoberto na primeira execução da suite E2E completa em CI (gate raiz `ci-gymops-e2e.yml`,
+  PR #195, destravada pelo BUG-014). O clique de login usava `getByRole('button', { name: /entrar/i })` —
+  na tela de login real o regex casa com 2+ botões (`Entrar` submit + `Entrar com Google` / `Entrar com
+  SSO (Keycloak)`) e o strict mode do Playwright aborta o clique antes do `toHaveURL(/\/dashboard/)`.
+  As 35 falhas do run tinham essa ÚNICA causa raiz; os 14 testes que passaram (`tutorial.spec.ts`) já
+  usavam o regex ancorado `/^entrar$/i` — prova de que o login em si funciona.
+- **Esforço**: s
+- **Critério de aceite**:
+  - Locator de login strict-safe em todos os specs/fixtures (convenção `/^entrar$/i`, a mesma do
+    `tutorial.spec.ts`), sem alterar a página de login. ✅
+  - Job `e2e` do `ci-gymops-e2e.yml` (raiz) sem strict mode violation no login. ✅
+- **Testes**: o próprio job de CI.
+- **Status**: ✅ Resolvido — [PR #195](https://github.com/FlavioNeto11/devops/pull/195). `/entrar/i` → `/^entrar$/i` nos
+  6 arquivos (11 ocorrências). Coleta local íntegra pós-fix (50 testes em 12 arquivos).
+
 ### FEAT-005 — Integrações: health/reconnect/boards/WhatsApp na UI
 - **Arquivos**: [`apps/web/src/app/(app)/settings/integrations/page.tsx`](../apps/web/src/app/(app)/settings/integrations/page.tsx), [`apps/web/src/lib/admin-api.ts`](../apps/web/src/lib/admin-api.ts) (`integrationsExtApi`)
 - **Esforço**: m
