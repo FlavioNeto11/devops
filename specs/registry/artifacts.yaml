@@ -18,6 +18,8 @@ services:
   - { id: svc-imobia-api, name: imobia API (Fastify + Prisma), product: imobia }
   - { id: svc-imobia-worker, name: imobia worker (filas BullMQ, mesma imagem da api), product: imobia }
   - { id: svc-imobia-frontend, name: imobia frontend (Vue 3), product: imobia }
+  - { id: svc-zapbridge-server, name: ZapBridge server (Express + Baileys + Socket.IO), product: zapbridge }
+  - { id: svc-zapbridge-web, name: ZapBridge web (React/Vite SPA), product: zapbridge }
   - { id: svc-pm-api, name: DevOps Console pm-api (read-only k8s + CMS), product: cms }
   - { id: svc-site-renderer, name: Site-renderer (serve /sites/<key>), product: cms }
   - { id: svc-console-frontend, name: DevOps Console frontend, product: cms }

@@ -251,6 +251,49 @@
           "note": "derivado do implementation-status: todos os REQ-SICAT-* estão deployed (cluster ns apps)"
         }
       }
+    },
+    {
+      "name": "zapbridge",
+      "display_name": "ZapBridge",
+      "base_path": "/zapbridge",
+      "blueprint": "app-simples",
+      "origin": "adopted",
+      "vision": "Cliente de mensageria que conecta à conta de WhatsApp do PRÓPRIO usuário via Baileys (QR/pairing, multi-dispositivo — uso legítimo apenas: sem Business API, sem scraping, sem envio em massa). Backend Node 20/Express (TypeScript, CommonJS) mantém a sessão Baileys viva, persiste conversas/contatos/grupos/mídia em SQLite (Prisma) num PVC RWO e entrega tudo em tempo real por Socket.IO (rota dedicada /zapbridge/socket.io); frontend web React 18 + Vite + Tailwind servido por nginx sob /zapbridge (reescrita que aposentou o app Expo — SW kill-switch migra instalações antigas). Camada de IA opt-in e fail-soft sobre @flavioneto11/ai-core (reasoning Claude + embeddings OpenAI) com banco SEPARADO Postgres 16/pgvector: smart replies, reescrita, resumo, busca semântica, assistente RAG, KB PME, agente proposeTools→confirmação HMAC e auto-resposta com guardrails — DORMENTE sem chaves no Secret zapbridge-config (o app funciona 100% sem IA). Stack real mais próxima do blueprint app-simples (SPA + API Node, sem worker/fila), diferindo em React (não Vue), Express CJS e SQLite como store primário (Postgres/pgvector só para a IA) — adotado como produto da Forja por contrato, sem regeneração de código.",
+      "app_type": "product_software",
+      "architecture_summary": "Stack/decisão base: Stack real adotada (não escolhida pela Forja): frontend React 18 + Vite + Tailwind + React Router (nginx, base /zapbridge — reescrita que aposentou o app Expo/react-native-web, mantido em apps/zapbridge/app) + backend Node 20/Express em TypeScript CommonJS com Socket.IO no mesmo processo + Baileys 6 (patch-package) para a sessão WhatsApp + Prisma/SQLite em PVC RWO (1 réplica, Recreate) + Postgres 16/pgvector dedicado SÓ para a camada de IA opt-in (@flavioneto11/ai-core). Aproximação do blueprint app-simples (SPA + API Node, sem worker/fila), diferindo em React (não Vue), Express CJS e SQLite como store primário.\nDecisões (ADRs): ADR-001: Baileys 6 (multi-dispositivo via QR/pairing) como integração WhatsApp — uso legítimo apenas; ADR-002: Prisma + SQLite single-writer em PVC RWO — 1 réplica com strategy Recreate; ADR-003: Socket.IO no mesmo processo HTTP com rota IngressRoute dedicada (priority 40, sem strip/compress); ADR-004: Frontend web reescrito em React 18 + Vite puro; app Expo aposentado com SW kill-switch; ADR-005: IA opt-in fail-soft sobre ai-core com banco SEPARADO Postgres 16/pgvector; ADR-006: Server CommonJS × kits ESM-only — carregamento por import() dinâmico (ai-core-loader); ADR-007: Mutações da IA nunca silenciosas — dry-run + token HMAC + confirmação humana; auto-resposta com judge-gate; ADR-008: Métricas Prometheus em porta dedicada 9464 fora do Traefik + ServiceMonitor.",
+      "requirement_ids": [
+        "REQ-ZAPBRIDGE-0001",
+        "REQ-ZAPBRIDGE-0002",
+        "REQ-ZAPBRIDGE-0003",
+        "REQ-ZAPBRIDGE-0004",
+        "REQ-ZAPBRIDGE-0005",
+        "REQ-ZAPBRIDGE-0006",
+        "REQ-ZAPBRIDGE-0007",
+        "REQ-ZAPBRIDGE-0008",
+        "REQ-ZAPBRIDGE-0009",
+        "REQ-ZAPBRIDGE-0010",
+        "REQ-ZAPBRIDGE-NFR-0001",
+        "REQ-ZAPBRIDGE-NFR-0002",
+        "REQ-ZAPBRIDGE-NFR-0003"
+      ],
+      "phases": {
+        "requirements": {
+          "status": "adopted",
+          "note": "requisitos reais em specs/requirements/zapbridge/ — backfill D5 (Forja 4.1) extraído de apps/zapbridge/docs/MVP-FUNCIONAL.md (45 RFs + RF046–RF060 da IA, agrupados por capacidade), apps/zapbridge/CLAUDE.md, devops.yaml e do código (server/src/modules, web/)"
+        },
+        "architecture": {
+          "status": "adopted",
+          "note": "ADRs extraídos das decisões reais do app (apps/zapbridge/CLAUDE.md + código + k8s/) — ver architecture.json"
+        },
+        "scaffold": {
+          "status": "adopted",
+          "note": "app real pré-existente em apps/zapbridge — não scaffoldado pela Forja"
+        },
+        "build": {
+          "status": "deployed",
+          "note": "derivado do implementation-status: todos os REQ-ZAPBRIDGE-* estão deployed (cluster ns apps, imagens :local; camada de IA deployada porém DORMENTE sem chaves no Secret zapbridge-config)"
+        }
+      }
     }
   ]
 }

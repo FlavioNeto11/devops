@@ -1,10 +1,10 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "d5f267861fb22cdf005bf4fee3e85b4ec3dddd1caf1eb85d7e771fe4ac016e00",
+  "baseline_hash": "f1d3f82808d016dd57a1d810f851ea9ffccdf38ff80f6131476d23022868249a",
   "refinements_hash": "a25683b324c8fed749c9f15916c2978512bf771659f9bf088a473f038db4825c",
   "schema": "specs/schema/requirement.schema.json",
   "counts": {
-    "total": 368,
+    "total": 381,
     "by_product": {
       "ai": 18,
       "argocd": 15,
@@ -25,14 +25,15 @@
       "reqhub": 20,
       "sicat": 24,
       "specs": 18,
-      "traefik": 16
+      "traefik": 16,
+      "zapbridge": 13
     },
     "by_status": {
-      "approved": 368
+      "approved": 381
     },
     "by_type": {
-      "functional": 260,
-      "non-functional": 108
+      "functional": 270,
+      "non-functional": 111
     },
     "refinements": {
       "total": 63,
@@ -14185,6 +14186,650 @@
       "impact_score": 38,
       "impact_band": "low",
       "file": "requirements/traefik/REQ-TRAEFIK-NFR-004.yaml"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0001",
+      "slug": "req-zapbridge-0001",
+      "title": "Contas e autenticação do app (registro + login JWT local)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "zapbridge",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve permitir criar conta no app com e-mail único + senha (hash bcrypt) + nome de exibição e autenticar por login que emite JWT stateless; o token dá acesso às rotas protegidas (authGuard) e a /me revalida a sessão persistida no cliente entre aberturas. Não há SSO nem multiusuário avançado — cada usuário enxerga apenas a própria sessão WhatsApp e seus próprios dados.",
+      "business_rationale": "Porta de entrada do app — a sessão do usuário do ZapBridge é local e independente da sessão WhatsApp conectada.",
+      "source": {
+        "stakeholder": "zapbridge",
+        "origin": "codebase apps/zapbridge + docs/MVP-FUNCIONAL.md RF001–RF005 (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/zapbridge/server/src/modules/auth",
+          "apps/zapbridge/docs/MVP-FUNCIONAL.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": false,
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-zapbridge-server"
+        ]
+      },
+      "impact_score": 38,
+      "impact_band": "low",
+      "file": "requirements/zapbridge/REQ-ZAPBRIDGE-0001.yaml"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0002",
+      "slug": "req-zapbridge-0002",
+      "title": "Conexão WhatsApp multi-dispositivo via Baileys (QR/pairing, reconexão, restore)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "zapbridge",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve conectar a conta de WhatsApp do PRÓPRIO usuário via Baileys (máximo 1 sessão ativa por usuário) — iniciar sessão emitindo QR Code (dataURL via evento session.qr.updated) com alternativa de pairing code, detectar conectado/desconectado (session.connected/session.disconnected), reconectar automaticamente sem novo QR em queda recuperável (loggedOut exige novo QR), restaurar sessões previamente conectadas no boot do servidor e encerrar a sessão a pedido (logout + remoção das credenciais). As credenciais Baileys persistem por usuário em AUTH_DIR (PVC), nunca trafegam ao cliente, e a conexão SEMPRE exige o pareamento explícito do dono da conta (uso legítimo — sem Business API, sem scraping, sem envio em massa).",
+      "business_rationale": "É a capacidade-núcleo do produto — \"a ponte entre você e suas conversas\" só existe com a sessão Baileys viva e legítima.",
+      "source": {
+        "stakeholder": "zapbridge",
+        "origin": "codebase apps/zapbridge + docs/MVP-FUNCIONAL.md RF006–RF014/RF045 (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/zapbridge/server/src/modules/whatsapp",
+          "apps/zapbridge/docs/MVP-FUNCIONAL.md",
+          "apps/zapbridge/CLAUDE.md"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": true,
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-zapbridge-server"
+        ]
+      },
+      "impact_score": 65,
+      "impact_band": "medium",
+      "file": "requirements/zapbridge/REQ-ZAPBRIDGE-0002.yaml"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0003",
+      "slug": "req-zapbridge-0003",
+      "title": "Sincronização e persistência local de conversas (SQLite/Prisma, persist-before-emit)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "zapbridge",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve sincronizar contatos, chats, grupos e mensagens a partir dos eventos Baileys (contacts.upsert, chats.set/upsert, messages.upsert) com upsert no SQLite via Prisma (PVC), persistindo toda mensagem ANTES de qualquer emissão ao cliente; o backend continua recebendo e persistindo com o app fechado, e ao reabrir o cliente busca deltas via REST e religa o tempo real. Inclui paginação do histórico por cursor, carga de mensagens antigas sob demanda e rotinas de reparo (timestamps/duplicatas).",
+      "business_rationale": "A verdade das conversas vive no backend — o cliente pode cair, fechar ou trocar de aparelho sem perder histórico.",
+      "source": {
+        "stakeholder": "zapbridge",
+        "origin": "codebase apps/zapbridge + docs/MVP-FUNCIONAL.md RF015–RF018 e RN03 (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/zapbridge/server/src/modules/whatsapp",
+          "apps/zapbridge/server/src/modules/chats",
+          "apps/zapbridge/server/prisma/schema.prisma"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": false,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-ZAPBRIDGE-0002"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-zapbridge-server"
+        ]
+      },
+      "impact_score": 45,
+      "impact_band": "medium",
+      "file": "requirements/zapbridge/REQ-ZAPBRIDGE-0003.yaml"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0004",
+      "slug": "req-zapbridge-0004",
+      "title": "Mensageria completa em tempo real (Socket.IO, envio otimista, recibos, reações)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "zapbridge",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve oferecer a experiência completa de mensageria — lista de conversas ordenada por última atividade com prévia, badge de não lidas e busca; conversa com histórico paginado, envio otimista (pending→sent→delivered/read pelo ack, com erro visível e reenvio), resposta citada (quoted), reações, indicador de digitação, arquivar/trancar conversa e marcar como lida — com atualização em tempo real via Socket.IO autenticado por JWT (room user:<id>, eventos message.received/message.sent/message.status.updated/chat.updated etc.) atrás do subpath /zapbridge/socket.io.",
+      "business_rationale": "O valor do produto é uma experiência fluida e estável de leitura/resposta em tempo real, equivalente ao WhatsApp Web.",
+      "source": {
+        "stakeholder": "zapbridge",
+        "origin": "codebase apps/zapbridge + docs/MVP-FUNCIONAL.md RF019–RF033/§11 (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/zapbridge/server/src/modules/chats",
+          "apps/zapbridge/server/src/realtime/io.ts",
+          "apps/zapbridge/docs/MVP-FUNCIONAL.md"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": false,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-ZAPBRIDGE-0003"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-zapbridge-server",
+          "svc-zapbridge-web"
+        ],
+        "infra_refs": [
+          "infra-traefik"
+        ]
+      },
+      "impact_score": 45,
+      "impact_band": "medium",
+      "file": "requirements/zapbridge/REQ-ZAPBRIDGE-0004.yaml"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0005",
+      "slug": "req-zapbridge-0005",
+      "title": "Mídia ponta a ponta (envio, download, entrega via API, expiração)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "zapbridge",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve enviar mídia (imagem, vídeo, áudio, documento) por upload do cliente e receber mídia das conversas baixando-a do WhatsApp (downloadMediaMessage) para MEDIA_DIR (PVC), servindo os arquivos ao cliente por rota autenticada de mídia; a UI exibe preview de imagem, player de vídeo/áudio e abertura de documento, e mídia indisponível/expirada é marcada expired e comunicada claramente.",
+      "business_rationale": "Conversa real inclui mídia — sem download/entrega confiável a experiência quebra.",
+      "source": {
+        "stakeholder": "zapbridge",
+        "origin": "codebase apps/zapbridge + docs/MVP-FUNCIONAL.md RF026–RF028/RF034–RF035 (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/zapbridge/server/src/modules/media",
+          "apps/zapbridge/docs/MVP-FUNCIONAL.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": false,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-ZAPBRIDGE-0004"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-zapbridge-server"
+        ]
+      },
+      "impact_score": 38,
+      "impact_band": "low",
+      "file": "requirements/zapbridge/REQ-ZAPBRIDGE-0005.yaml"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0006",
+      "slug": "req-zapbridge-0006",
+      "title": "Contatos e grupos (listagem, abrir conversa, participantes)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "zapbridge",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve listar os contatos conhecidos da sessão (nome/pushName/avatar quando disponíveis), permitir iniciar/abrir conversa a partir de um contato, listar grupos com metadados (assunto, descrição) e exibir participantes de grupo com indicação de admin quando disponíveis via groupMetadata.",
+      "business_rationale": "Contatos e grupos são o índice humano das conversas — sem eles a lista vira só JIDs.",
+      "source": {
+        "stakeholder": "zapbridge",
+        "origin": "codebase apps/zapbridge + docs/MVP-FUNCIONAL.md RF036–RF038 (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/zapbridge/server/src/modules/contacts",
+          "apps/zapbridge/server/src/modules/groups",
+          "apps/zapbridge/docs/MVP-FUNCIONAL.md"
+        ]
+      },
+      "priority": "medium",
+      "criticality": "medium",
+      "architectural_significance": false,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-ZAPBRIDGE-0003"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-zapbridge-server",
+          "svc-zapbridge-web"
+        ]
+      },
+      "impact_score": 30,
+      "impact_band": "low",
+      "file": "requirements/zapbridge/REQ-ZAPBRIDGE-0006.yaml"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0007",
+      "slug": "req-zapbridge-0007",
+      "title": "Frontend web React/Vite servido em /zapbridge (responsivo, SW kill-switch)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "zapbridge",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve servir em /zapbridge uma SPA web React 18 + Vite + Tailwind + React Router (base /zapbridge, nginx) com shell responsivo — 1 coluna no mobile e 2 colunas estilo WhatsApp Web no desktop — cobrindo login/registro, conectar (QR/pairing), lista de conversas + painel de chat, contatos, assistente de IA e configurações (tema sistema/claro/escuro, desconectar WhatsApp, apagar dados); um service worker kill-switch (public/sw.js) desregistra o SW do app Expo antigo e limpa caches para migrar instalações/PWAs existentes ao app novo. O app Expo legado permanece no repo (apps/zapbridge/app) porém aposentado do deploy.",
+      "business_rationale": "A reescrita web pura substituiu o app Expo no ar sem quebrar quem já tinha o PWA antigo instalado.",
+      "source": {
+        "stakeholder": "zapbridge",
+        "origin": "codebase apps/zapbridge/web (reescrita React/Vite) + k8s/zapbridge-web.yaml (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/zapbridge/web",
+          "apps/zapbridge/web/public/sw.js",
+          "apps/zapbridge/k8s/zapbridge-web.yaml"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": false,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-ZAPBRIDGE-0001"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-zapbridge-web"
+        ],
+        "infra_refs": [
+          "infra-traefik"
+        ]
+      },
+      "impact_score": 38,
+      "impact_band": "low",
+      "file": "requirements/zapbridge/REQ-ZAPBRIDGE-0007.yaml"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0008",
+      "slug": "req-zapbridge-0008",
+      "title": "IA assistiva opt-in (consentimento, smart replies, reescrita, resumo, busca, memória)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "zapbridge",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve oferecer uma camada de IA estritamente opt-in com consentimento versionado (sem ai_consent nenhuma rota /ai/* processa e nada é enviado a LLM/embeddings): sugestões de resposta (1–3 chips que preenchem sem enviar), reescrita inline do rascunho (melhorar/encurtar/formalizar/traduzir — troca só após escolha do usuário), resumo efêmero de conversa, busca semântica no histórico indexado e memória de estilo/fatos com TTL, revisável e apagável. A indexação usa embeddings em Postgres/pgvector dedicado (zapbridge-postgres), com reindex/backfill sob demanda; grupos ficam fora por padrão e conversa trancada (locked) é excluída da IA.",
+      "business_rationale": "IA como assistente do dono da conta — acelera resposta e busca sem jamais agir sozinha nem vazar dados sem consentimento.",
+      "source": {
+        "stakeholder": "zapbridge",
+        "origin": "codebase apps/zapbridge + docs/MVP-FUNCIONAL.md §19 RF046–RF051 (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/zapbridge/server/src/modules/ai",
+          "apps/zapbridge/docs/MVP-FUNCIONAL.md",
+          "apps/zapbridge/devops.yaml"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": false,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-ZAPBRIDGE-0004"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-zapbridge-server"
+        ],
+        "infra_refs": [
+          "infra-pgvector"
+        ]
+      },
+      "impact_score": 30,
+      "impact_band": "low",
+      "file": "requirements/zapbridge/REQ-ZAPBRIDGE-0008.yaml"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0009",
+      "slug": "req-zapbridge-0009",
+      "title": "Assistente RAG + KB PME + agente com confirmação + auto-resposta com guardrails",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "zapbridge",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve oferecer, sob o mesmo consentimento de IA: (a) assistente \"pergunte ao seu WhatsApp\" ancorado no histórico via grafo do ai-core (router→ReAct→judge) com tools de leitura (list_chats, get_recent_messages, search_history_semantic, search_knowledge, get_messages_by_time); (b) base de conhecimento PME com ingestão de catálogo/FAQ/preços (texto/PDF/docx via file-ingest) e remoção por fonte; (c) agente com ações mutantes (send_message, react, mark_read) que rodam em dry-run e SÓ executam após confirmação humana via token HMAC (POST /ai/confirm) — nada altera o WhatsApp sem o usuário tocar Confirmar; (d) auto-resposta inteligente opt-in POR CHAT, FAQ-grounded, com judge-gate, janela de horário, limite por chat e handoff humano — nunca em grupos e sempre marcada como automática; (e) compreensão de mídia (descrever imagem/OCR/resumir PDF) apenas sob ação explícita; (f) expurgo total dos dados de IA no disconnect da sessão e via /ai/data/purge.",
+      "business_rationale": "Eleva a IA de assistente passivo a agente útil para PME sem abrir mão do controle humano — o clique É o envio.",
+      "source": {
+        "stakeholder": "zapbridge",
+        "origin": "codebase apps/zapbridge + docs/MVP-FUNCIONAL.md §19 RF052–RF057/RF060 (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/zapbridge/server/src/modules/ai/tools.ts",
+          "apps/zapbridge/server/src/modules/ai/pending-actions.ts",
+          "apps/zapbridge/server/src/modules/ai/hooks.ts",
+          "apps/zapbridge/server/src/modules/ai/kb.ts"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": false,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-ZAPBRIDGE-0008"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-zapbridge-server"
+        ],
+        "infra_refs": [
+          "infra-pgvector"
+        ]
+      },
+      "impact_score": 30,
+      "impact_band": "low",
+      "file": "requirements/zapbridge/REQ-ZAPBRIDGE-0009.yaml"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0010",
+      "slug": "req-zapbridge-0010",
+      "title": "Saúde e observabilidade (health endpoints + métricas Prometheus da IA)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "zapbridge",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve expor /health no backend e /healthz no frontend (probes de readiness/liveness do Kubernetes) e publicar métricas ai_* em formato Prometheus numa porta dedicada (9464, fora do Traefik), coletadas pelo kube-prometheus-stack via ServiceMonitor selecionando part-of zapbridge; logs seguem o padrão da plataforma (kubectl/Loki).",
+      "business_rationale": "O app entra na esteira da plataforma — saúde visível no Console e métricas de IA no Prometheus/Grafana.",
+      "source": {
+        "stakeholder": "zapbridge",
+        "origin": "codebase apps/zapbridge + devops.yaml observability (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/zapbridge/server/src/index.ts",
+          "apps/zapbridge/server/src/modules/ai/ai-metrics.ts",
+          "apps/zapbridge/k8s/servicemonitor.yaml",
+          "apps/zapbridge/devops.yaml"
+        ]
+      },
+      "priority": "medium",
+      "criticality": "medium",
+      "architectural_significance": false,
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-zapbridge-server",
+          "svc-zapbridge-web"
+        ],
+        "infra_refs": [
+          "infra-observability"
+        ]
+      },
+      "impact_score": 30,
+      "impact_band": "low",
+      "file": "requirements/zapbridge/REQ-ZAPBRIDGE-0010.yaml"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-NFR-0001",
+      "slug": "req-zapbridge-nfr-0001",
+      "title": "IA fail-soft — sem banco/chaves, a mensageria funciona 100% (dormência)",
+      "type": "non-functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "zapbridge",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve atender ao atributo de qualidade \"disponibilidade com IA dormente\": sem AI_DATABASE_URL e/ou sem ANTHROPIC_API_KEY/OPENAI_API_KEY, os hooks de IA viram no-op, as rotas /ai/* respondem fallback estruturado sem 5xx, o boot não falha (migrations/métricas fail-soft) e toda a mensageria (sessão, chats, mídia, tempo real) permanece 100% funcional com o pod Ready. É o estado ATUAL do cluster: a camada de IA está deployada porém dormente até o operador configurar as chaves no Secret zapbridge-config.",
+      "source": {
+        "stakeholder": "zapbridge",
+        "origin": "codebase apps/zapbridge + CLAUDE.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/zapbridge/server/src/modules/ai/pg.ts",
+          "apps/zapbridge/server/src/modules/ai/hooks.ts",
+          "apps/zapbridge/CLAUDE.md"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": false,
+      "quality_scenarios": [
+        {
+          "source": "Operador sem chaves de IA configuradas no Secret zapbridge-config",
+          "stimulus": "Usuário usa a mensageria normalmente e o cliente chama rotas /ai/* com o motor dormente",
+          "environment": "Cluster ns apps (Docker Desktop), Secret zapbridge-config sem ANTHROPIC_API_KEY/OPENAI_API_KEY (estado atual)",
+          "artifact": "zapbridge-server (hooks de IA + rotas /ai/*)",
+          "response": "Mensageria opera sem degradação; hooks de IA são no-op; /ai/* devolve fallback estruturado indicando indisponibilidade; health continua OK e o pod Ready",
+          "response_measure": "Zero respostas 5xx causadas por ausência de chave/banco de IA; readiness probe passa; nenhum payload é enviado a provedor externo"
+        }
+      ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-ZAPBRIDGE-0008"
+        },
+        {
+          "type": "constrains",
+          "target": "REQ-ZAPBRIDGE-0009"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-zapbridge-server"
+        ],
+        "slo_refs": [
+          "slo-availability-99"
+        ]
+      },
+      "impact_score": 45,
+      "impact_band": "medium",
+      "file": "requirements/zapbridge/REQ-ZAPBRIDGE-NFR-0001.yaml"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-NFR-0002",
+      "slug": "req-zapbridge-nfr-0002",
+      "title": "Single-writer — 1 réplica Recreate sobre SQLite/PVC RWO (nunca escalar horizontal)",
+      "type": "non-functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "zapbridge",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve preservar a integridade do estado single-writer: o zapbridge-server roda com EXATAMENTE 1 réplica e strategy Recreate — o socket Baileys mantém estado em memória, o PVC é RWO e o SQLite é single-writer (duas instâncias gravando = corrupção). Dados transacionais (SQLite), credenciais Baileys (AUTH_DIR) e mídia (MEDIA_DIR) sobrevivem a restart/rollout via PVC; a janela breve de indisponibilidade do Recreate é uma limitação ACEITA do desenho (operador único). Escalabilidade horizontal está explicitamente fora do escopo.",
+      "source": {
+        "stakeholder": "zapbridge",
+        "origin": "codebase apps/zapbridge + k8s/zapbridge.yaml + CLAUDE.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/zapbridge/k8s/zapbridge.yaml",
+          "apps/zapbridge/devops.yaml",
+          "apps/zapbridge/CLAUDE.md"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": true,
+      "quality_scenarios": [
+        {
+          "source": "Rollout de nova imagem ou restart do pod zapbridge-server",
+          "stimulus": "O Deployment recria o pod (strategy Recreate) durante operação normal",
+          "environment": "Cluster ns apps (Docker Desktop), PVC RWO montado em /data (SQLite + auth Baileys + mídia)",
+          "artifact": "Deployment zapbridge-server + PVC de dados",
+          "response": "Nunca existem 2 pods gravando ao mesmo tempo; o pod novo religa as sessões Baileys e reabre o SQLite (WAL) sem corrupção; conversas/credenciais/mídia preservadas",
+          "response_measure": "replicas=1 e strategy=Recreate nos manifests; zero corrupção de banco pós-rollout; sessão WhatsApp restaurada sem novo QR quando as credenciais seguem válidas"
+        }
+      ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-ZAPBRIDGE-0002"
+        },
+        {
+          "type": "constrains",
+          "target": "REQ-ZAPBRIDGE-0003"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-zapbridge-server"
+        ]
+      },
+      "impact_score": 65,
+      "impact_band": "medium",
+      "file": "requirements/zapbridge/REQ-ZAPBRIDGE-NFR-0002.yaml"
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-NFR-0003",
+      "slug": "req-zapbridge-nfr-0003",
+      "title": "Privacidade, segurança e uso legítimo (credenciais só no backend; IA nunca envia sozinha)",
+      "type": "non-functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "zapbridge",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve garantir privacidade e uso legítimo: credenciais Baileys nunca trafegam ao cliente (vivem apenas em AUTH_DIR no backend); segredos (JWT_SECRET, chaves de IA) só via Secret zapbridge-config — nunca em env/ConfigMap/git; não existe endpoint de broadcast/envio em massa e as rotas de IA têm rate-limit; a IA nunca envia mensagem ao WhatsApp sem confirmação humana (token HMAC) ou opt-in por chat com judge-gate; conversa trancada fica fora da IA; desconectar a sessão expurga todos os dados de IA do usuário (embeddings, memória, KB, logs).",
+      "source": {
+        "stakeholder": "zapbridge",
+        "origin": "codebase apps/zapbridge + docs/MVP-FUNCIONAL.md RN06–RN08/RN11–RN16 (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/zapbridge/server/src/modules/ai/pending-actions.ts",
+          "apps/zapbridge/server/src/modules/ai/consent.ts",
+          "apps/zapbridge/devops.yaml",
+          "apps/zapbridge/docs/MVP-FUNCIONAL.md"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": false,
+      "quality_scenarios": [
+        {
+          "source": "Usuário dono da conta de WhatsApp conectada (ou agente de IA agindo em seu nome)",
+          "stimulus": "Tentativa de qualquer envio automatizado (tool mutante do agente, auto-resposta) ou de acesso às credenciais da sessão",
+          "environment": "Cluster ns apps, sessão Baileys ativa, IA habilitada com consentimento",
+          "artifact": "zapbridge-server (Baileys manager + camada de IA + rotas REST)",
+          "response": "Credenciais permanecem exclusivamente no backend; tools mutantes retornam dry-run e só executam com token HMAC confirmado pelo usuário; auto-resposta só dispara em chat com opt-in explícito, dentro de horário/limite e nunca em grupos; disconnect expurga os dados de IA",
+          "response_measure": "Nenhuma rota expõe o auth state Baileys; zero mensagens enviadas sem confirmação ou opt-in por chat; segredos ausentes do git (gitleaks limpo); expurgo verificado no disconnectSession"
+        }
+      ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-ZAPBRIDGE-0002"
+        },
+        {
+          "type": "constrains",
+          "target": "REQ-ZAPBRIDGE-0009"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-zapbridge-server"
+        ],
+        "infra_refs": [
+          "infra-sealed-secrets"
+        ]
+      },
+      "impact_score": 45,
+      "impact_band": "medium",
+      "file": "requirements/zapbridge/REQ-ZAPBRIDGE-NFR-0003.yaml"
     }
   ],
   "refinements": [
@@ -20647,6 +21292,24 @@
       ]
     },
     {
+      "id": "REQ-ZAPBRIDGE-0002",
+      "title": "Conexão WhatsApp multi-dispositivo via Baileys (QR/pairing, reconexão, restore)",
+      "product": "zapbridge",
+      "impact_score": 65,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-NFR-0002",
+      "title": "Single-writer — 1 réplica Recreate sobre SQLite/PVC RWO (nunca escalar horizontal)",
+      "product": "zapbridge",
+      "impact_score": 65,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
       "id": "REQ-CONTAVIVA360-0002",
       "title": "Gestão de Dados Contábeis e Fiscais: Entidades de Pessoa Física, Pessoa Jurídica e Documentos",
       "product": "contaviva-360",
@@ -21568,6 +22231,42 @@
       "id": "REQ-TRAEFIK-0004",
       "title": "Roteamento por path-prefix com priority",
       "product": "traefik",
+      "impact_score": 45,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0003",
+      "title": "Sincronização e persistência local de conversas (SQLite/Prisma, persist-before-emit)",
+      "product": "zapbridge",
+      "impact_score": 45,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0004",
+      "title": "Mensageria completa em tempo real (Socket.IO, envio otimista, recibos, reações)",
+      "product": "zapbridge",
+      "impact_score": 45,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-NFR-0001",
+      "title": "IA fail-soft — sem banco/chaves, a mensageria funciona 100% (dormência)",
+      "product": "zapbridge",
+      "impact_score": 45,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-NFR-0003",
+      "title": "Privacidade, segurança e uso legítimo (credenciais só no backend; IA nunca envia sozinha)",
+      "product": "zapbridge",
       "impact_score": 45,
       "reasons": [
         "sem método de verificação"
@@ -23383,6 +24082,33 @@
       ]
     },
     {
+      "id": "REQ-ZAPBRIDGE-0001",
+      "title": "Contas e autenticação do app (registro + login JWT local)",
+      "product": "zapbridge",
+      "impact_score": 38,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0005",
+      "title": "Mídia ponta a ponta (envio, download, entrega via API, expiração)",
+      "product": "zapbridge",
+      "impact_score": 38,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0007",
+      "title": "Frontend web React/Vite servido em /zapbridge (responsivo, SW kill-switch)",
+      "product": "zapbridge",
+      "impact_score": 38,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
       "id": "REQ-AI-0011",
       "title": "Feedback rollup (thumbs) cross-app",
       "product": "ai",
@@ -23728,6 +24454,42 @@
       "id": "REQ-TRAEFIK-0011",
       "title": "IngressClass padrão do cluster",
       "product": "traefik",
+      "impact_score": 30,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0006",
+      "title": "Contatos e grupos (listagem, abrir conversa, participantes)",
+      "product": "zapbridge",
+      "impact_score": 30,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0008",
+      "title": "IA assistiva opt-in (consentimento, smart replies, reescrita, resumo, busca, memória)",
+      "product": "zapbridge",
+      "impact_score": 30,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0009",
+      "title": "Assistente RAG + KB PME + agente com confirmação + auto-resposta com guardrails",
+      "product": "zapbridge",
+      "impact_score": 30,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-ZAPBRIDGE-0010",
+      "title": "Saúde e observabilidade (health endpoints + métricas Prometheus da IA)",
+      "product": "zapbridge",
       "impact_score": 30,
       "reasons": [
         "sem método de verificação"

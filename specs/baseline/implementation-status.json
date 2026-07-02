@@ -1,10 +1,10 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "d5f267861fb22cdf005bf4fee3e85b4ec3dddd1caf1eb85d7e771fe4ac016e00",
+  "baseline_hash": "f1d3f82808d016dd57a1d810f851ea9ffccdf38ff80f6131476d23022868249a",
   "counts": {
-    "total": 368,
+    "total": 381,
     "by_status": {
-      "deployed": 316,
+      "deployed": 329,
       "done": 52
     },
     "refinements": {
@@ -2196,6 +2196,84 @@
       "req_revision": 1,
       "deployed_at": "2026-06-15",
       "notes": "platform/traefik — ingress + middlewares no cluster (ns traefik)"
+    },
+    "REQ-ZAPBRIDGE-0001": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/zapbridge — React/Vite + Express/Baileys + SQLite (PVC) no cluster (ns apps, imagens :local)"
+    },
+    "REQ-ZAPBRIDGE-0002": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/zapbridge — React/Vite + Express/Baileys + SQLite (PVC) no cluster (ns apps, imagens :local)"
+    },
+    "REQ-ZAPBRIDGE-0003": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/zapbridge — React/Vite + Express/Baileys + SQLite (PVC) no cluster (ns apps, imagens :local)"
+    },
+    "REQ-ZAPBRIDGE-0004": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/zapbridge — React/Vite + Express/Baileys + SQLite (PVC) no cluster (ns apps, imagens :local)"
+    },
+    "REQ-ZAPBRIDGE-0005": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/zapbridge — React/Vite + Express/Baileys + SQLite (PVC) no cluster (ns apps, imagens :local)"
+    },
+    "REQ-ZAPBRIDGE-0006": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/zapbridge — React/Vite + Express/Baileys + SQLite (PVC) no cluster (ns apps, imagens :local)"
+    },
+    "REQ-ZAPBRIDGE-0007": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/zapbridge — React/Vite + Express/Baileys + SQLite (PVC) no cluster (ns apps, imagens :local)"
+    },
+    "REQ-ZAPBRIDGE-0008": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/zapbridge — camada de IA deployada porém DORMENTE: sem ANTHROPIC_API_KEY/OPENAI_API_KEY no Secret zapbridge-config (fail-soft; acende quando o operador configurar as chaves)"
+    },
+    "REQ-ZAPBRIDGE-0009": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/zapbridge — camada de IA deployada porém DORMENTE: sem ANTHROPIC_API_KEY/OPENAI_API_KEY no Secret zapbridge-config (fail-soft; acende quando o operador configurar as chaves)"
+    },
+    "REQ-ZAPBRIDGE-0010": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/zapbridge — React/Vite + Express/Baileys + SQLite (PVC) no cluster (ns apps, imagens :local)"
+    },
+    "REQ-ZAPBRIDGE-NFR-0001": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/zapbridge — camada de IA deployada porém DORMENTE: sem ANTHROPIC_API_KEY/OPENAI_API_KEY no Secret zapbridge-config (fail-soft; acende quando o operador configurar as chaves)"
+    },
+    "REQ-ZAPBRIDGE-NFR-0002": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/zapbridge — React/Vite + Express/Baileys + SQLite (PVC) no cluster (ns apps, imagens :local)"
+    },
+    "REQ-ZAPBRIDGE-NFR-0003": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/zapbridge — React/Vite + Express/Baileys + SQLite (PVC) no cluster (ns apps, imagens :local)"
     }
   },
   "refinement_items": {

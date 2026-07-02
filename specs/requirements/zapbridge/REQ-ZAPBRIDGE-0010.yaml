@@ -1,0 +1,33 @@
+id: REQ-ZAPBRIDGE-0010
+slug: req-zapbridge-0010
+title: Saúde e observabilidade (health endpoints + métricas Prometheus da IA)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: zapbridge
+  applies_to: product
+statement: O sistema deve expor /health no backend e /healthz no frontend (probes de readiness/liveness do Kubernetes) e publicar métricas ai_* em formato Prometheus numa porta dedicada (9464, fora do Traefik), coletadas pelo kube-prometheus-stack via ServiceMonitor selecionando part-of zapbridge; logs seguem o padrão da plataforma (kubectl/Loki).
+business_rationale: O app entra na esteira da plataforma — saúde visível no Console e métricas de IA no Prometheus/Grafana.
+source:
+  stakeholder: zapbridge
+  origin: codebase apps/zapbridge + devops.yaml observability (adoção Forja 4.1 D5)
+  source_paths:
+    - apps/zapbridge/server/src/index.ts
+    - apps/zapbridge/server/src/modules/ai/ai-metrics.ts
+    - apps/zapbridge/k8s/servicemonitor.yaml
+    - apps/zapbridge/devops.yaml
+priority: medium
+criticality: medium
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: adoção Forja 4.1 D5 — backfill extraído do app real
+allocation:
+  service_refs:
+    - svc-zapbridge-server
+    - svc-zapbridge-web
+  infra_refs:
+    - infra-observability

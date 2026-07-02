@@ -43,6 +43,16 @@
       "product": "imobia"
     },
     {
+      "id": "svc-zapbridge-server",
+      "name": "ZapBridge server (Express + Baileys + Socket.IO)",
+      "product": "zapbridge"
+    },
+    {
+      "id": "svc-zapbridge-web",
+      "name": "ZapBridge web (React/Vite SPA)",
+      "product": "zapbridge"
+    },
+    {
       "id": "svc-pm-api",
       "name": "DevOps Console pm-api (read-only k8s + CMS)",
       "product": "cms"

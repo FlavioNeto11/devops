@@ -1,0 +1,32 @@
+id: REQ-ZAPBRIDGE-0003
+slug: req-zapbridge-0003
+title: Sincronização e persistência local de conversas (SQLite/Prisma, persist-before-emit)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: zapbridge
+  applies_to: product
+statement: O sistema deve sincronizar contatos, chats, grupos e mensagens a partir dos eventos Baileys (contacts.upsert, chats.set/upsert, messages.upsert) com upsert no SQLite via Prisma (PVC), persistindo toda mensagem ANTES de qualquer emissão ao cliente; o backend continua recebendo e persistindo com o app fechado, e ao reabrir o cliente busca deltas via REST e religa o tempo real. Inclui paginação do histórico por cursor, carga de mensagens antigas sob demanda e rotinas de reparo (timestamps/duplicatas).
+business_rationale: A verdade das conversas vive no backend — o cliente pode cair, fechar ou trocar de aparelho sem perder histórico.
+source:
+  stakeholder: zapbridge
+  origin: codebase apps/zapbridge + docs/MVP-FUNCIONAL.md RF015–RF018 e RN03 (adoção Forja 4.1 D5)
+  source_paths:
+    - apps/zapbridge/server/src/modules/whatsapp
+    - apps/zapbridge/server/src/modules/chats
+    - apps/zapbridge/server/prisma/schema.prisma
+priority: critical
+criticality: critical
+architectural_significance: false
+links:
+  - type: depends_on
+    target: REQ-ZAPBRIDGE-0002
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: adoção Forja 4.1 D5 — backfill extraído do app real
+allocation:
+  service_refs:
+    - svc-zapbridge-server

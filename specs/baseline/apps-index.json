@@ -76,7 +76,7 @@
       "name": "zapbridge",
       "base_path": "/zapbridge",
       "app_type": "product_software",
-      "has_product": false
+      "has_product": true
     }
   ]
 }
