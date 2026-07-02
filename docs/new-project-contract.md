@@ -2,7 +2,7 @@
 title: "Contrato da Nova Aplicacao — Referencia completa do devops.yaml"
 status: canonical
 applies_to: [platform]
-updated: 2026-06-09
+updated: 2026-07-02
 language: pt-BR
 ---
 
@@ -463,3 +463,127 @@ services:
 - Exemplos no repo: [`templates/app-template/app.yaml`](../templates/app-template/app.yaml)
   (exemplo canonico) e [`apps/sicat/devops.yaml`](../apps/sicat/devops.yaml) (app real, com
   `priority`, `build`, `command`, `dependencies`, `secrets`, `configmaps`).
+
+---
+
+## 11. Contrato v2 (`version: 2`) — ambientes, dependencias tipadas e MLOps
+
+> **Aditivo e retrocompativel.** O schema ([`../schema/devops-schema.json`](../schema/devops-schema.json))
+> aceita, via `oneOf`, o **v1** (tudo acima — INALTERADO, todo `devops.yaml` existente continua
+> valido) OU o **v2**, marcado por `version: 2` explicito. O v2 e um superset do v1 que torna o
+> contrato a fonte real de provisionamento de dependencias (Forja 4.0, fase B1).
+
+### 11.1 O que o v2 adiciona
+
+| Campo | Onde | O que declara |
+|---|---|---|
+| `version: 2` | raiz | opt-in explicito no contrato v2 (ausente = v1) |
+| `environments` | raiz | mapa ambiente logico -> `{ namespace, hosts[] }`. Pre-requisito de multi-env; o compilador renderiza hoje o default (`nvit.localhost` + `dev.nvit.com.br`, mesmo comportamento do v1) |
+| `dependencies` | raiz | mapa nome -> dependencia **TIPADA** `{ engine, flavor, version, storage, database, secretName, resources }` — provisionamento REAL pelo chart (ver 11.3) |
+| `mlops` | raiz | `{ langfuse, budget.monthlyUsd, evals.goldenSet }` — postura de MLOps (declarativo; consumido pela esteira/telemetria, nao gera recurso k8s) |
+| `envFrom` | service | lista de **nomes** de Secrets injetados em massa no container (`envFrom`/`secretRef`). So a referencia — o Secret e criado FORA do git |
+
+### 11.2 Fluxo de compilacao (manifests renderizados no git)
+
+O contrato v2 NAO vai direto pro Argo. O compilador
+[`specs/tools/devops-compile.mjs`](../specs/tools/devops-compile.mjs) valida o `devops.yaml`
+contra o schema, deriva os values do chart [`templates/app-template`](../templates/app-template/),
+roda `helm template`, **remove qualquer Secret** do render e escreve os **manifests renderizados e
+COMMITADOS** em `apps/<app>/k8s/<app>.yaml` — que sao o artefato **primario** do GitOps (decisao:
+nada de multi-source `$values` no Argo). O compilador tambem verifica os invariantes HARD: labels
+`part-of` em tudo, `resources` em todo container, `Host()` + `PathPrefix()` combinados nas rotas,
+priorities `api2 > api > frontend` (40 > 30 > 10) e StripPrefix do prefixo COMPLETO.
+
+```powershell
+node specs/tools/devops-compile.mjs apps/<app>/devops.yaml          # compila -> apps/<app>/k8s/
+node specs/tools/devops-compile.mjs apps/<app>/devops.yaml --check  # acusa drift (CI-friendly)
+```
+
+### 11.3 Matriz de provisionamento das `dependencies`
+
+| `engine` | Template do chart | Provisiona | Resources DEFAULT (obrigatorios) |
+|---|---|---|---|
+| `postgres` | `dependency-postgres.yaml` | PVC `<app>-<dep>-data` + Deployment `<app>-<dep>` (**strategy Recreate**) + Service (5432) + probes `pg_isready` (readiness+liveness). `flavor: pgvector` troca a imagem para `pgvector/pgvector:pg<version>`; sem flavor: `postgres:<version>-alpine` (default 16). `secretName` **obrigatorio** (POSTGRES_USER/PASSWORD/DB via `envFrom`) | requests `128Mi`/`50m`, limits **`1Gi`**/`1000m` — licao do incidente OOM do sicat (512Mi corrompeu o WAL) |
+| `redis` | `dependency-redis.yaml` | PVC `<app>-<dep>-data` (AOF `--appendonly yes`) + Deployment (**Recreate**) + Service (6379) + probes `redis-cli ping`. Imagem `redis:<version>-alpine` (default 7) | requests `32Mi`/`25m`, limits `256Mi`/`250m` |
+| `mongodb` / `nats` | — **RESERVADO** | sem template ainda; adicionar quando houver consumidor real (o schema aceita, o compilador falha com erro claro) | — |
+
+Regras herdadas (HARD, ver [`standards/hard-constraints.md`](./standards/hard-constraints.md)):
+o chart **NUNCA renderiza Secret** — `secretName` e so referencia; o Secret real e criado
+imperativamente fora do git (ex.: passo `kubectl create secret generic <app>-db` do
+`forge-deploy.yml`). **Nao ha migration Job**: `AUTO_MIGRATE` no boot permanece o padrao (hook
+PreSync nao dispara no fluxo `:local` + rollout restart desta plataforma). Override de
+`resources` por dependencia e opcional.
+
+### 11.4 Exemplo completo v2 (fixture real do repo)
+
+O app-exemplo [`apps/forge-pilot-v2/`](../apps/forge-pilot-v2/) e a fixture versionada deste
+contrato (sem codigo/deploy — valida o pipeline schema -> compile -> manifests):
+
+```yaml
+version: 2
+
+app:
+  name: forge-pilot-v2
+  namespace: apps
+  host: nvit.localhost
+  basePath: /forge-pilot-v2
+  appType: product_software
+
+environments:
+  local:
+    namespace: apps
+    hosts: [nvit.localhost, dev.nvit.com.br]
+
+services:
+  frontend:
+    type: frontend
+    path: /
+    image: forge-pilot-v2-frontend
+    port: 80
+    expose: true
+    stripPrefix: false          # HARD: frontend NUNCA faz strip
+    priority: 10
+    env: { VITE_BASE_PATH: /forge-pilot-v2/ }
+    health: { path: / }
+  api:
+    type: api
+    path: /api
+    image: forge-pilot-v2-api
+    port: 8080
+    expose: true
+    stripPrefix: true           # HARD: strip do prefixo COMPLETO /forge-pilot-v2/api
+    priority: 30
+    envFrom: [forge-pilot-v2-db, forge-pilot-v2-config]   # Secrets criados fora do git
+    env: { AUTO_MIGRATE: "true", REDIS_URL: redis://forge-pilot-v2-redis:6379 }
+    health: { path: /health }
+  worker:
+    type: worker
+    image: forge-pilot-v2-api   # reusa a imagem da api
+    port: 8081
+    expose: false
+    command: ["npm", "run", "worker"]
+    envFrom: [forge-pilot-v2-db]
+    env: { AUTO_MIGRATE: "false", REDIS_URL: redis://forge-pilot-v2-redis:6379 }
+    health: { path: /health }
+
+dependencies:
+  postgres:
+    engine: postgres
+    flavor: pgvector            # -> pgvector/pgvector:pg16
+    version: "16"
+    storage: 2Gi
+    database: forge_pilot_v2
+    secretName: forge-pilot-v2-db
+  redis:
+    engine: redis
+    version: "7"
+    storage: 1Gi
+    resources:                  # override opcional dos defaults
+      requests: { cpu: 25m, memory: 32Mi }
+      limits: { cpu: 250m, memory: 256Mi }
+
+mlops:
+  langfuse: true
+  budget: { monthlyUsd: 25 }
+  evals: { goldenSet: evals/golden-set.jsonl }
+```
