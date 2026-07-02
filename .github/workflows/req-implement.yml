@@ -280,7 +280,9 @@ jobs:
             # qualquer adulteracao que a Claude possa ter feito no arquivo (status de OUTROS
             # requisitos); so a esteira escreve o pr_open do requisito corrente, via impl-status.
             git checkout main -- specs/baseline/implementation-status.json 2>$null
-            node specs/tools/impl-status.mjs --set $a.id status=pr_open branch=$a.branch run_id=$env:RUN_ID | Out-Null
+            # NB: token composto ("branch=...") e string expandivel — membro exige $(...);
+            # sem isso sai "@{id=...}.branch" (bug corrigido; dados saneados no D4/#190).
+            node specs/tools/impl-status.mjs --set $a.id status=pr_open branch=$($a.branch) run_id=$env:RUN_ID | Out-Null
             git add specs/baseline/implementation-status.json
             git commit -m "chore(specs): status $($a.id) pr_open" 2>$null
             git push -u origin $a.branch --force-with-lease
