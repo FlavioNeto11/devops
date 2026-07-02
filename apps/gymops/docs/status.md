@@ -1,6 +1,6 @@
 # GymOps — Status Real do Projeto
 
-**Última atualização**: 2026-06-12 (onboarding novo: wizard split-screen com configuração inicial por IA para qualquer segmento)
+**Última atualização**: 2026-07-02 (BUG-013 corrigido: `ai-metrics.ts` idempotente sob re-avaliação do vitest — job `integration` do gate raiz `ci-gymops-e2e.yml` verde; BUG-014 segue bloqueando o job `e2e`)
 
 > **2026-06-12 — Onboarding novo (full-stack, sem migration):** `/setup`
 > redesenhado como wizard split-screen (painel grafite com trilha de passos;
@@ -134,8 +134,10 @@
 | **BUG-008** | P1 | ✅ | `refreshTokenHash` no schema. Migration aplicada. Lookup e revogação por hash. |
 | **BUG-009** | P1 | ✅ | `docker-compose.public.yml` com healthchecks e `condition: service_healthy`. |
 | **BUG-010** | P1 | ⚠️ Parcial | `ALLOWED_ORIGINS` via env funciona. `localhost:3000`/`7480` ainda hardcoded (aceitável para dev). |
-| **BUG-011 (OPS-001)** | P1 | 🟡 | Gate real em PR via workflow **raiz** `ci-gymops-e2e.yml` (Forja 4.1 F5, 2026-07-02) — o e2e.yml aninhado nunca executou no monorepo (morto, histórico). 1ª execução expôs BUG-013 (vitest × prom-client) e BUG-014 (import.spec.ts ESM×CJS): gate vermelho até corrigi-los. |
+| **BUG-011 (OPS-001)** | P1 | 🟡 | Gate real em PR via workflow **raiz** `ci-gymops-e2e.yml` (Forja 4.1 F5, 2026-07-02) — o e2e.yml aninhado nunca executou no monorepo (morto, histórico). 1ª execução expôs BUG-013 (corrigido — job `integration` verde) e BUG-014 (import.spec.ts ESM×CJS, aberto): job `e2e` vermelho até corrigi-lo. |
 | **BUG-012 (OPS-002)** | P1 | ✅ | `build-gymops` job no CI. |
+| **BUG-013** | P1 | ✅ | `ai-metrics.ts` idempotente sob re-avaliação do vitest (guard em `collectDefaultMetrics` + remove-then-recreate das `ai_*` via `AI_METRIC_NAMES`; no-op em produção). Corrigido 2026-07-02; `pnpm -r test` 72/72 local + job `integration` verde. |
+| **BUG-014** | P1 | 🔴 | `import.spec.ts` usa `import.meta` em pacote CJS → coleta do Playwright aborta e zero E2E rodam. Bloqueia o job `e2e` do gate raiz. |
 
 ---
 

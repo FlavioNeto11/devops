@@ -220,10 +220,14 @@
 - **Esforço**: s
 - **Critério de aceite**:
   - `ai-metrics.ts` idempotente sob re-avaliação (guard `register.getSingleMetric(...)` ou registry próprio),
-    sem mudar o comportamento em produção.
-  - Job `integration` do `ci-gymops-e2e.yml` (raiz) verde.
+    sem mudar o comportamento em produção. ✅
+  - Job `integration` do `ci-gymops-e2e.yml` (raiz) verde. ✅ (provado no PR da correção)
 - **Testes**: `pnpm -r test` com Postgres+Redis reais (o próprio job de CI).
-- **Status**: 🔴 Aberto — bloqueia o gate de integração em PR.
+- **Status**: ✅ Corrigido (2026-07-02) — guard `register.getSingleMetric('process_cpu_user_seconds_total')`
+  antes do `collectDefaultMetrics()` + desregistro (`removeSingleMetric`) das `ai_*` de avaliação anterior
+  antes do `createAiMetrics()` (as instâncias vivem em closures do ai-core, então o get-or-create vira
+  remove-then-recreate iterando `AI_METRIC_NAMES`). Em produção o módulo é avaliado uma única vez e os
+  guards são no-ops. Validado local: `pnpm -r test` 72/72 contra Postgres pgvector + Redis reais.
 
 ### BUG-014 — E2E: `import.spec.ts` quebra a coleta do Playwright (ESM × CJS)
 - **Arquivos**: [`apps/web/e2e/import.spec.ts`](../apps/web/e2e/import.spec.ts) (linhas 3–5)
