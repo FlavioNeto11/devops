@@ -496,15 +496,15 @@ function buildTest() {
 
 // Suplemento de OBSERVABILIDADE (o chart app-template ainda não renderiza ServiceMonitor/
 // PrometheusRule nem porta de métricas nos Services — gap p/ B2). Services *-metrics apontam
-// para a porta 9464 dos pods via o selector do CHART ({ name: <svc>, part-of: <app> });
+// para a porta 9464 dos pods via o selector VIVO do chart ({ app.kubernetes.io/name: <app>-<svc> });
 // o ServiceMonitor seleciona por part-of e só gera targets onde existe porta chamada `metrics`.
 function buildObservability() {
   const L = ['# @@TITLE@@ — observabilidade (SUPLEMENTO ao k8s/@@APP@@.yaml compilado).',
     '# O chart templates/app-template ainda NÃO renderiza estes recursos (gap documentado em',
     '# docs/new-project-contract.md §11.5 p/ a fase B2) — quando ganhar, este arquivo morre.'];
   const metricsSvc = (svc) => ['---', 'apiVersion: v1', 'kind: Service',
-    `metadata: { name: @@APP@@-${svc}-metrics, namespace: apps, labels: { app.kubernetes.io/name: "${svc}", app.kubernetes.io/part-of: @@APP@@, app.kubernetes.io/component: metrics } }`,
-    `spec: { selector: { app.kubernetes.io/name: "${svc}", app.kubernetes.io/part-of: @@APP@@ }, ports: [ { name: metrics, port: 9464, targetPort: 9464 } ] }`].join('\n');
+    `metadata: { name: @@APP@@-${svc}-metrics, namespace: apps, labels: { app.kubernetes.io/name: @@APP@@-${svc}-metrics, app.kubernetes.io/part-of: @@APP@@, app.kubernetes.io/component: metrics } }`,
+    `spec: { selector: { app.kubernetes.io/name: @@APP@@-${svc} }, ports: [ { name: metrics, port: 9464, targetPort: 9464 } ] }`].join('\n');
   L.push(metricsSvc('api'));
   if (F.worker) L.push(metricsSvc('worker'));
   L.push('---', 'apiVersion: monitoring.coreos.com/v1', 'kind: ServiceMonitor',

@@ -1,26 +1,28 @@
 // =============================================================================
 // scaffold-compile.test.mjs — GATE SEMÂNTICO da convergência scaffold -> compilador
-// (Forja 4.0 — B6). Scaffolda produtos de TESTE em diretório temporário e verifica
-// que os manifests COMPILADOS (devops.yaml v2 -> devops-compile.mjs -> chart
-// app-template) preservam os INVARIANTES que o buildK8s()/dep() aposentado garantia:
-//   * nomes de recurso <app>-<svc> (Deployments/Services/PVC-data/IngressRoute)
+// (Forja 4.0 — B6/convergência). Scaffolda produtos de TESTE em diretório temporário
+// e verifica que os manifests COMPILADOS (devops.yaml v2 -> devops-compile.mjs ->
+// chart app-template) preservam os INVARIANTES que o buildK8s()/dep() aposentado garantia:
+//   * nomes de recurso <app>-<svc> (Deployments/Services/PVC/IngressRoute)
 //   * label app.kubernetes.io/part-of em TODO recurso (contrato do Console)
-//   * selectors internamente CONSISTENTES (Deployment seleciona seus pods;
-//     Service seleciona os pods do Deployment homônimo)
+//   * selectors na CONVENÇÃO VIVA: matchLabels EXATAMENTE
+//     { app.kubernetes.io/name: <app>-<svc> } (spec.selector é IMUTÁVEL no
+//     apiserver — o chart adota a convenção dos produtos vivos, §11.5)
+//   * PVC de dependência <app>-<dep> (SEM -data) e Middleware <app>-<svc>-strip
+//     — idênticos aos vivos (rename de PVC = perda de dados via prune)
+//   * IngressRoutes na convenção viva: api/api2 em "<app>", frontend em
+//     "<app>-frontend" (a rota -frontend NUNCA é consolidada/podada)
 //   * portas, envFrom (com Secrets opcionais -ai/-auth), env, command, Recreate
 //   * roteamento: PathPrefix(<base>/api) priority 40 + StripPrefix COMPLETO
 //   * suplementos: observabilidade (ServiceMonitor/PrometheusRule/*-metrics) e
 //     SSO de borda (rota sombra priority 41, bloco oidc-sessao)
 //
 // DELTAS DELIBERADOS vs o buildK8s antigo (documentados em
-// docs/new-project-contract.md §11.5 — aceitáveis p/ produto RECÉM-scaffoldado,
-// mas BLOQUEIAM conversão brownfield de produto vivo):
-//   * selector do chart = { app.kubernetes.io/name: <svc>, part-of: <app> }
-//     (o antigo era { app.kubernetes.io/name: <app>-<svc> }) — campo IMUTÁVEL
-//   * PVC da dependência = <app>-<dep>-data (antigo: <app>-postgres)
-//   * Middleware = <app>-<svc>-stripprefix (antigo: <app>-api-strip)
+// docs/new-project-contract.md §11.5 — aceitáveis, NÃO tocam recurso stateful
+// nem selector: a convergência v1 -> v2 de produto vivo fica DESBLOQUEADA):
 //   * worker não ganha Service próprio (métricas via <app>-worker-metrics)
 //   * resources/probes ADICIONADOS em tudo; Host() na match das rotas
+//   * ConfigMaps novos <app>-meta e <app>-healthchecks
 //
 // Requer helm no PATH (pulado sem ele — mesmo padrão do devops-compile.test.mjs).
 // =============================================================================
@@ -81,6 +83,10 @@ function assertSelectorsConsistent(docs, appName) {
   for (const dep of byKind(docs, 'Deployment')) {
     const sel = dep.spec.selector.matchLabels;
     const podLabels = dep.spec.template.metadata.labels;
+    // Convenção VIVA (campo imutável): selector EXATAMENTE { name: <app>-<svc> } —
+    // sem part-of no selector (adicionar chave também é mutação de campo imutável).
+    assert.deepEqual(sel, { 'app.kubernetes.io/name': dep.metadata.name },
+      `Deployment/${dep.metadata.name}: selector fora da convenção viva`);
     assert.ok(selects(sel, podLabels), `Deployment/${dep.metadata.name}: selector não casa os próprios pods`);
     assert.equal(podLabels['app.kubernetes.io/part-of'], appName, `Deployment/${dep.metadata.name}: pods sem part-of`);
     const svc = named(docs, 'Service', dep.metadata.name);
@@ -145,22 +151,26 @@ test('scaffold-gymops: devops.yaml v2 + k8s compilado preservam os invariantes d
   assert.deepEqual(worker.command, ['npm', 'run', 'worker']);
   assert.equal(Object.fromEntries(worker.env.map((e) => [e.name, e.value])).AUTO_MIGRATE, 'false');
 
-  // dependências: Recreate + PVC <app>-<dep>-data (DELTA de nome deliberado; dado NOVO)
+  // dependências: Recreate + PVC <app>-<dep> (MESMO nome do vivo — sem -data)
   const pg = named(docs, 'Deployment', `${name}-postgres`);
   assert.equal(pg.spec.strategy.type, 'Recreate');
   assert.equal(pg.spec.template.spec.containers[0].image, 'postgres:16-alpine');
-  assert.ok(named(docs, 'PersistentVolumeClaim', `${name}-postgres-data`), 'PVC do postgres ausente');
+  assert.ok(named(docs, 'PersistentVolumeClaim', `${name}-postgres`), 'PVC do postgres ausente');
+  assert.equal(named(docs, 'PersistentVolumeClaim', `${name}-postgres-data`), undefined, 'PVC não pode ter sufixo -data (convenção viva)');
   assert.equal(named(docs, 'Deployment', `${name}-redis`).spec.template.spec.containers[0].image, 'redis:7-alpine');
 
-  // roteamento: api priority 40 com strip COMPLETO; frontend priority 10 sem strip
+  // roteamento (convenção viva): api priority 40 com strip COMPLETO na IngressRoute
+  // "<app>"; frontend priority 10 sem strip na IngressRoute PRÓPRIA "<app>-frontend"
   const ir = named(docs, 'IngressRoute', name);
   const apiRoute = ir.spec.routes.find((r) => r.match.includes(`PathPrefix(\`/${name}/api\`)`));
   assert.equal(apiRoute.priority, 40);
-  assert.deepEqual(apiRoute.middlewares, [{ name: `${name}-api-stripprefix` }]);
-  const feRoute = ir.spec.routes.find((r) => r.match.endsWith(`PathPrefix(\`/${name}\`)`));
+  assert.deepEqual(apiRoute.middlewares, [{ name: `${name}-api-strip` }]);
+  const irFe = named(docs, 'IngressRoute', `${name}-frontend`);
+  assert.ok(irFe, `IngressRoute/${name}-frontend ausente (rota do frontend é PRÓPRIA — não pode ser consolidada)`);
+  const feRoute = irFe.spec.routes.find((r) => r.match.endsWith(`PathPrefix(\`/${name}\`)`));
   assert.equal(feRoute.priority, 10);
   assert.equal(feRoute.middlewares, undefined);
-  assert.deepEqual(named(docs, 'Middleware', `${name}-api-stripprefix`).spec.stripPrefix.prefixes, [`/${name}/api`]);
+  assert.deepEqual(named(docs, 'Middleware', `${name}-api-strip`).spec.stripPrefix.prefixes, [`/${name}/api`]);
 
   // NENHUM Secret no artefato commitado (hard-constraints §3)
   assert.equal(byKind(docs, 'Secret').length, 0);
@@ -187,7 +197,7 @@ test('scaffold-gymops: devops.yaml v2 + k8s compilado preservam os invariantes d
   assert.ok(ssoRoute.match.includes(`PathPrefix(\`/${name}/api\`)`));
   assert.deepEqual(ssoRoute.middlewares, [
     { name: 'console-auth-401', namespace: 'devops-system' },
-    { name: `${name}-api-stripprefix` },
+    { name: `${name}-api-strip` },
   ]);
 
   // o k8s aditivo LEGADO do frontend NÃO existe no contrato v2 (frontend entra compilado)
@@ -225,6 +235,7 @@ test('scaffold-sicat: devops.yaml v2 + k8s compilado preservam os invariantes do
   assert.equal(mockSvc.spec.ports[0].port, 8090);
   const ir = named(docs, 'IngressRoute', name);
   assert.equal(ir.spec.routes.length, 1, 'só a api é exposta (mock-central e worker são internos)');
+  assert.equal(named(docs, 'IngressRoute', `${name}-frontend`), undefined, 'sem frontend exposto não há IngressRoute -frontend');
   const api = named(docs, 'Deployment', `${name}-api`).spec.template.spec.containers[0];
   assert.equal(Object.fromEntries(api.env.map((e) => [e.name, e.value])).EXTERNAL_BASE_URL, `http://${name}-mock-central:8090`);
   assert.deepEqual(api.envFrom, [

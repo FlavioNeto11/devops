@@ -14,10 +14,11 @@ Fastify + Postgres + Redis/BullMQ + Auth própria (contas-acesso). Blocos: obser
 
 Verificar: `BASE_URL=http://nvit.localhost/contaviva-pro/api node apps/contaviva-pro/test/integration.mjs`
 
-> ⚠️ **Convergência v1→v2 BLOQUEADA (Forja 4.0 B6, 2026-07):** este app está VIVO sob Argo
-> (prune+selfHeal) com as convenções do antigo `buildK8s()` (selector
-> `{app.kubernetes.io/name: contaviva-pro-<svc>}`, PVC `contaviva-pro-postgres` com dados). O
-> diff-gate contra o cluster reprovou a conversão para manifests compilados
-> (`spec.selector: field is immutable` em TODOS os Deployments + rename do PVC = perda de dados).
-> **Não converta o devops.yaml para v2 nem recompile o k8s/ deste app** até o chart ganhar os knobs
-> de compatibilidade — checklist e detalhes em `docs/new-project-contract.md` §11.5.
+> ✅ **CONVERTIDO ao contrato v2 (Forja 4.0 — convergência, 2026-07):** o chart
+> `templates/app-template` adotou a convenção viva (selector
+> `{app.kubernetes.io/name: contaviva-pro-<svc>}`, PVC `contaviva-pro-postgres` sem sufixo,
+> Middleware `contaviva-pro-api-strip`, IngressRoutes `contaviva-pro` + `contaviva-pro-frontend`)
+> e o diff-gate passou (nenhum immutable/rename/replace). Fonte declarativa: `devops.yaml` v2;
+> `k8s/contaviva-pro.yaml` é COMPILADO (`node specs/tools/devops-compile.mjs
+> apps/contaviva-pro/devops.yaml` — não edite à mão); `k8s/contaviva-pro-observability.yaml` é
+> suplemento (gap do chart, §11.5). Checklist da conversão: `docs/new-project-contract.md` §11.5.

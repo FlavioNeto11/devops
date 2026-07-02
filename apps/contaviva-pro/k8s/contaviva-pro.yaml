@@ -1,146 +1,633 @@
-# ContaViva Pro — k8s gerado pela Forge (gymops-style). Imagens :local.
+# =============================================================================
+# GERADO por specs/tools/devops-compile.mjs a partir de apps/contaviva-pro/devops.yaml — NÃO EDITE À MÃO.
+# Recompilar:  node specs/tools/devops-compile.mjs apps/contaviva-pro/devops.yaml
+# Artefato PRIMÁRIO do GitOps (contrato v2): estes manifests commitados.
+# Chart: templates/app-template. Segredos: criados FORA do git (hard-constraints §3).
+# =============================================================================
 ---
+# Source: app-template/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: contaviva-pro-meta
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: "contaviva-pro"
+    app.kubernetes.io/part-of: "contaviva-pro"
+    app.kubernetes.io/component: "metadata"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "contaviva-pro"
+    devops.flavioneto/app-type: "product_software"
+  annotations:
+    devops.flavioneto/commit-sha: "local"
+    devops.flavioneto/branch: "local"
+    devops.flavioneto/image-tag: "local"
+    devops.flavioneto/deployed-at: ""
+    devops.flavioneto/run-id: ""
+data:
+  # Metadados da aplicacao
+  app.name: "contaviva-pro"
+  app.namespace: "apps"
+  app.host: "nvit.localhost"
+  app.basePath: "/contaviva-pro"
+  # Informacoes de publicacao (CI/CD)
+  publish.commitSha: "local"
+  publish.branch: "local"
+  publish.imageTag: "local"
+  publish.deployedAt: ""
+  publish.runId: ""
+---
+# Source: app-template/templates/healthchecks.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: contaviva-pro-healthchecks
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: "contaviva-pro"
+    app.kubernetes.io/part-of: "contaviva-pro"
+    app.kubernetes.io/component: "healthchecks"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "contaviva-pro"
+    devops.flavioneto/app-type: "product_software"
+  annotations:
+    devops.flavioneto/app: "contaviva-pro"
+data:
+  api: "/health"
+---
+# Source: app-template/templates/dependency-postgres.yaml
 apiVersion: v1
 kind: PersistentVolumeClaim
-metadata: { name: contaviva-pro-postgres, namespace: apps, labels: { app.kubernetes.io/part-of: contaviva-pro } }
-spec: { accessModes: [ReadWriteOnce], resources: { requests: { storage: 1Gi } } }
----
-apiVersion: apps/v1
-kind: Deployment
-metadata: { name: contaviva-pro-postgres, namespace: apps, labels: { app.kubernetes.io/name: contaviva-pro-postgres, app.kubernetes.io/part-of: contaviva-pro } }
+metadata:
+  name: contaviva-pro-postgres
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: "contaviva-pro-postgres"
+    app.kubernetes.io/part-of: "contaviva-pro"
+    app.kubernetes.io/component: "db"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "contaviva-pro"
+    devops.flavioneto/app-type: "product_software"
 spec:
-  replicas: 1
-  strategy: { type: Recreate }
-  selector: { matchLabels: { app.kubernetes.io/name: contaviva-pro-postgres } }
-  template:
-    metadata: { labels: { app.kubernetes.io/name: contaviva-pro-postgres, app.kubernetes.io/part-of: contaviva-pro } }
-    spec:
-      containers:
-        - name: postgres
-          image: postgres:16-alpine
-          envFrom: [ { secretRef: { name: contaviva-pro-db } } ]
-          ports: [ { containerPort: 5432 } ]
-          volumeMounts: [ { name: data, mountPath: /var/lib/postgresql/data, subPath: pgdata } ]
-      volumes: [ { name: data, persistentVolumeClaim: { claimName: contaviva-pro-postgres } } ]
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
 ---
+# Source: app-template/templates/dependency-redis.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: contaviva-pro-redis
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: "contaviva-pro-redis"
+    app.kubernetes.io/part-of: "contaviva-pro"
+    app.kubernetes.io/component: "cache"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "contaviva-pro"
+    devops.flavioneto/app-type: "product_software"
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+# Source: app-template/templates/api-service.yaml
 apiVersion: v1
 kind: Service
-metadata: { name: contaviva-pro-postgres, namespace: apps, labels: { app.kubernetes.io/part-of: contaviva-pro } }
-spec: { selector: { app.kubernetes.io/name: contaviva-pro-postgres }, ports: [ { port: 5432, targetPort: 5432 } ] }
----
-apiVersion: apps/v1
-kind: Deployment
-metadata: { name: contaviva-pro-redis, namespace: apps, labels: { app.kubernetes.io/name: contaviva-pro-redis, app.kubernetes.io/part-of: contaviva-pro } }
+metadata:
+  name: contaviva-pro-api
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: "contaviva-pro-api"
+    app.kubernetes.io/part-of: "contaviva-pro"
+    app.kubernetes.io/component: "api"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "contaviva-pro"
+    devops.flavioneto/app-type: "product_software"
 spec:
-  replicas: 1
-  selector: { matchLabels: { app.kubernetes.io/name: contaviva-pro-redis } }
-  template:
-    metadata: { labels: { app.kubernetes.io/name: contaviva-pro-redis, app.kubernetes.io/part-of: contaviva-pro } }
-    spec: { containers: [ { name: redis, image: redis:7-alpine, ports: [ { containerPort: 6379 } ] } ] }
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: "contaviva-pro-api"
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
 ---
+# Source: app-template/templates/dependency-postgres.yaml
 apiVersion: v1
 kind: Service
-metadata: { name: contaviva-pro-redis, namespace: apps, labels: { app.kubernetes.io/part-of: contaviva-pro } }
-spec: { selector: { app.kubernetes.io/name: contaviva-pro-redis }, ports: [ { port: 6379, targetPort: 6379 } ] }
+metadata:
+  name: contaviva-pro-postgres
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: "contaviva-pro-postgres"
+    app.kubernetes.io/part-of: "contaviva-pro"
+    app.kubernetes.io/component: "db"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "contaviva-pro"
+    devops.flavioneto/app-type: "product_software"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: "contaviva-pro-postgres"
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
 ---
+# Source: app-template/templates/dependency-redis.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: contaviva-pro-redis
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: "contaviva-pro-redis"
+    app.kubernetes.io/part-of: "contaviva-pro"
+    app.kubernetes.io/component: "cache"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "contaviva-pro"
+    devops.flavioneto/app-type: "product_software"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: "contaviva-pro-redis"
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+---
+# Source: app-template/templates/frontend-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: contaviva-pro-frontend
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: "contaviva-pro-frontend"
+    app.kubernetes.io/part-of: "contaviva-pro"
+    app.kubernetes.io/component: "frontend"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "contaviva-pro"
+    devops.flavioneto/app-type: "product_software"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: "contaviva-pro-frontend"
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP
+---
+# Source: app-template/templates/api-deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: contaviva-pro-api
   namespace: apps
-  labels: { app.kubernetes.io/name: contaviva-pro-api, app.kubernetes.io/component: api, app.kubernetes.io/part-of: contaviva-pro, devops.flavioneto/app-type: product_software }
-  annotations: { devops.flavioneto/app: contaviva-pro, devops.flavioneto/metrics-port: "9464" }
+  labels:
+    app.kubernetes.io/name: "contaviva-pro-api"
+    app.kubernetes.io/part-of: "contaviva-pro"
+    app.kubernetes.io/component: "api"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "contaviva-pro"
+    devops.flavioneto/app-type: "product_software"
+  annotations:
+    devops.flavioneto/commit-sha: "local"
+    devops.flavioneto/branch: "local"
+    devops.flavioneto/image-tag: "local"
+    devops.flavioneto/deployed-at: ""
+    devops.flavioneto/run-id: ""
 spec:
   replicas: 1
-  selector: { matchLabels: { app.kubernetes.io/name: contaviva-pro-api } }
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "contaviva-pro-api"
   template:
-    metadata: { labels: { app.kubernetes.io/name: contaviva-pro-api, app.kubernetes.io/component: api, app.kubernetes.io/part-of: contaviva-pro } }
+    metadata:
+      labels:
+        app.kubernetes.io/name: "contaviva-pro-api"
+        app.kubernetes.io/part-of: "contaviva-pro"
+        app.kubernetes.io/component: "api"
+        app.kubernetes.io/managed-by: devops-platform
+        helm.sh/chart: "app-template-0.1.0"
+        devops.flavioneto/app: "contaviva-pro"
+        devops.flavioneto/app-type: "product_software"
+      annotations:
+        devops.flavioneto/commit-sha: "local"
+        devops.flavioneto/branch: "local"
+        devops.flavioneto/image-tag: "local"
+        devops.flavioneto/deployed-at: ""
+        devops.flavioneto/run-id: ""
     spec:
       containers:
         - name: api
           image: contaviva-pro-api:local
           imagePullPolicy: IfNotPresent
-          command: ["npm", "start"]
-          envFrom: [ { secretRef: { name: contaviva-pro-db } }, { secretRef: { name: contaviva-pro-ai, optional: true } }, { secretRef: { name: contaviva-pro-auth, optional: true } } ]
-          env:
-            - { name: REDIS_URL, value: "redis://contaviva-pro-redis:6379" }
-            - { name: METRICS_PORT, value: "9464" }
-            - { name: AUTO_MIGRATE, value: "true" }
-            - { name: AUTO_SEED, value: "true" }
+          command:
+            - npm
+            - start
           ports:
-            - { name: http, containerPort: 8080 }
-            - { name: metrics, containerPort: 9464 }
-          readinessProbe: { httpGet: { path: /health, port: 8080 }, initialDelaySeconds: 8, periodSeconds: 10 }
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: AUTO_MIGRATE
+              value: "true"
+            - name: AUTO_SEED
+              value: "true"
+            - name: LANGFUSE_BASE_URL
+              value: "http://langfuse.observability.svc.cluster.local:3000"
+            - name: LANGFUSE_ENABLED
+              value: "true"
+            - name: METRICS_PORT
+              value: "9464"
+            - name: REDIS_URL
+              value: "redis://contaviva-pro-redis:6379"
+          envFrom:
+            - secretRef:
+                name: contaviva-pro-db
+            - secretRef:
+                name: contaviva-pro-ai
+                optional: true
+            - secretRef:
+                name: contaviva-pro-auth
+                optional: true
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 2
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            limits:
+              cpu: 250m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
 ---
-apiVersion: v1
-kind: Service
-metadata: { name: contaviva-pro-api, namespace: apps, labels: { app.kubernetes.io/name: contaviva-pro-api, app.kubernetes.io/part-of: contaviva-pro } }
-spec: { selector: { app.kubernetes.io/name: contaviva-pro-api }, ports: [ { name: http, port: 8080, targetPort: 8080 }, { name: metrics, port: 9464, targetPort: 9464 } ] }
+# Source: app-template/templates/dependency-postgres.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: contaviva-pro-postgres
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: "contaviva-pro-postgres"
+    app.kubernetes.io/part-of: "contaviva-pro"
+    app.kubernetes.io/component: "db"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "contaviva-pro"
+    devops.flavioneto/app-type: "product_software"
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "contaviva-pro-postgres"
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "contaviva-pro-postgres"
+        app.kubernetes.io/part-of: "contaviva-pro"
+        app.kubernetes.io/component: "db"
+        app.kubernetes.io/managed-by: devops-platform
+        helm.sh/chart: "app-template-0.1.0"
+        devops.flavioneto/app: "contaviva-pro"
+        devops.flavioneto/app-type: "product_software"
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: contaviva-pro-db
+          ports:
+            - name: postgres
+              containerPort: 5432
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+              subPath: pgdata
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: contaviva-pro-postgres
 ---
+# Source: app-template/templates/dependency-redis.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: contaviva-pro-redis
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: "contaviva-pro-redis"
+    app.kubernetes.io/part-of: "contaviva-pro"
+    app.kubernetes.io/component: "cache"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "contaviva-pro"
+    devops.flavioneto/app-type: "product_software"
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "contaviva-pro-redis"
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "contaviva-pro-redis"
+        app.kubernetes.io/part-of: "contaviva-pro"
+        app.kubernetes.io/component: "cache"
+        app.kubernetes.io/managed-by: devops-platform
+        helm.sh/chart: "app-template-0.1.0"
+        devops.flavioneto/app: "contaviva-pro"
+        devops.flavioneto/app-type: "product_software"
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          imagePullPolicy: IfNotPresent
+          args: ["--appendonly", "yes"]
+          ports:
+            - name: redis
+              containerPort: 6379
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: contaviva-pro-redis
+---
+# Source: app-template/templates/frontend-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: contaviva-pro-frontend
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: "contaviva-pro-frontend"
+    app.kubernetes.io/part-of: "contaviva-pro"
+    app.kubernetes.io/component: "frontend"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "contaviva-pro"
+    devops.flavioneto/app-type: "product_software"
+  annotations:
+    devops.flavioneto/commit-sha: "local"
+    devops.flavioneto/branch: "local"
+    devops.flavioneto/image-tag: "local"
+    devops.flavioneto/deployed-at: ""
+    devops.flavioneto/run-id: ""
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "contaviva-pro-frontend"
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "contaviva-pro-frontend"
+        app.kubernetes.io/part-of: "contaviva-pro"
+        app.kubernetes.io/component: "frontend"
+        app.kubernetes.io/managed-by: devops-platform
+        helm.sh/chart: "app-template-0.1.0"
+        devops.flavioneto/app: "contaviva-pro"
+        devops.flavioneto/app-type: "product_software"
+      annotations:
+        devops.flavioneto/commit-sha: "local"
+        devops.flavioneto/branch: "local"
+        devops.flavioneto/image-tag: "local"
+        devops.flavioneto/deployed-at: ""
+        devops.flavioneto/run-id: ""
+    spec:
+      containers:
+        - name: frontend
+          image: contaviva-pro-frontend:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            limits:
+              cpu: 250m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
+---
+# Source: app-template/templates/worker-deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: contaviva-pro-worker
   namespace: apps
-  labels: { app.kubernetes.io/name: contaviva-pro-worker, app.kubernetes.io/component: worker, app.kubernetes.io/part-of: contaviva-pro }
-  annotations: { devops.flavioneto/app: contaviva-pro, devops.flavioneto/metrics-port: "9464" }
+  labels:
+    app.kubernetes.io/name: "contaviva-pro-worker"
+    app.kubernetes.io/part-of: "contaviva-pro"
+    app.kubernetes.io/component: "worker"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "contaviva-pro"
+    devops.flavioneto/app-type: "product_software"
+  annotations:
+    devops.flavioneto/commit-sha: "local"
+    devops.flavioneto/branch: "local"
+    devops.flavioneto/image-tag: "local"
+    devops.flavioneto/deployed-at: ""
+    devops.flavioneto/run-id: ""
 spec:
   replicas: 1
-  selector: { matchLabels: { app.kubernetes.io/name: contaviva-pro-worker } }
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "contaviva-pro-worker"
   template:
-    metadata: { labels: { app.kubernetes.io/name: contaviva-pro-worker, app.kubernetes.io/component: worker, app.kubernetes.io/part-of: contaviva-pro } }
+    metadata:
+      labels:
+        app.kubernetes.io/name: "contaviva-pro-worker"
+        app.kubernetes.io/part-of: "contaviva-pro"
+        app.kubernetes.io/component: "worker"
+        app.kubernetes.io/managed-by: devops-platform
+        helm.sh/chart: "app-template-0.1.0"
+        devops.flavioneto/app: "contaviva-pro"
+        devops.flavioneto/app-type: "product_software"
+      annotations:
+        devops.flavioneto/commit-sha: "local"
+        devops.flavioneto/branch: "local"
+        devops.flavioneto/image-tag: "local"
+        devops.flavioneto/deployed-at: ""
+        devops.flavioneto/run-id: ""
     spec:
       containers:
         - name: worker
           image: contaviva-pro-api:local
           imagePullPolicy: IfNotPresent
-          command: ["npm", "run", "worker"]
-          envFrom: [ { secretRef: { name: contaviva-pro-db } } ]
+          command:
+            - npm
+            - run
+            - worker
+          ports:
+            - name: http
+              containerPort: 9464
+              protocol: TCP
           env:
-            - { name: REDIS_URL, value: "redis://contaviva-pro-redis:6379" }
-            - { name: METRICS_PORT, value: "9464" }
-            - { name: AUTO_MIGRATE, value: "false" }
-          ports: [ { name: metrics, containerPort: 9464 } ]
+            - name: AUTO_MIGRATE
+              value: "false"
+            - name: METRICS_PORT
+              value: "9464"
+            - name: REDIS_URL
+              value: "redis://contaviva-pro-redis:6379"
+          envFrom:
+            - secretRef:
+                name: contaviva-pro-db
+          resources:
+            limits:
+              cpu: 250m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
 ---
-apiVersion: v1
-kind: Service
-metadata: { name: contaviva-pro-worker, namespace: apps, labels: { app.kubernetes.io/name: contaviva-pro-worker, app.kubernetes.io/part-of: contaviva-pro } }
-spec: { selector: { app.kubernetes.io/name: contaviva-pro-worker }, ports: [ { name: metrics, port: 9464, targetPort: 9464 } ] }
----
-apiVersion: traefik.io/v1alpha1
-kind: Middleware
-metadata: { name: contaviva-pro-api-strip, namespace: apps }
-spec: { stripPrefix: { prefixes: ["/contaviva-pro/api"] } }
----
+# Source: app-template/templates/ingressroute.yaml
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
-metadata: { name: contaviva-pro, namespace: apps, labels: { app.kubernetes.io/part-of: contaviva-pro } }
+metadata:
+  name: contaviva-pro
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: "contaviva-pro"
+    app.kubernetes.io/part-of: "contaviva-pro"
+    app.kubernetes.io/component: "ingress"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "contaviva-pro"
+    devops.flavioneto/app-type: "product_software"
 spec:
-  entryPoints: [web]
+  entryPoints:
+    - web
   routes:
-    - match: PathPrefix(`/contaviva-pro/api`)
-      kind: Rule
+    - kind: Rule
+      match: Host(`nvit.localhost`, `dev.nvit.com.br`) && PathPrefix(`/contaviva-pro/api`)
       priority: 40
-      services: [ { name: contaviva-pro-api, port: 8080 } ]
-      middlewares: [ { name: contaviva-pro-api-strip } ]
+      services:
+        - name: contaviva-pro-api
+          port: 8080
+      middlewares:
+        - name: contaviva-pro-api-strip
 ---
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata: { name: contaviva-pro, namespace: apps, labels: { app.kubernetes.io/part-of: contaviva-pro, release: kube-prometheus-stack } }
+# Source: app-template/templates/ingressroute.yaml
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: contaviva-pro-frontend
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: "contaviva-pro"
+    app.kubernetes.io/part-of: "contaviva-pro"
+    app.kubernetes.io/component: "ingress"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "contaviva-pro"
+    devops.flavioneto/app-type: "product_software"
 spec:
-  selector: { matchLabels: { app.kubernetes.io/part-of: contaviva-pro } }
-  namespaceSelector: { matchNames: [apps] }
-  endpoints: [ { port: metrics, path: /metrics, interval: 15s } ]
+  entryPoints:
+    - web
+  routes:
+    - kind: Rule
+      match: Host(`nvit.localhost`, `dev.nvit.com.br`) && PathPrefix(`/contaviva-pro`)
+      priority: 10
+      services:
+        - name: contaviva-pro-frontend
+          port: 80
 ---
-apiVersion: monitoring.coreos.com/v1
-kind: PrometheusRule
-metadata: { name: contaviva-pro-slo, namespace: apps, labels: { app.kubernetes.io/part-of: contaviva-pro, release: kube-prometheus-stack } }
+# Source: app-template/templates/ingressroute.yaml
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: contaviva-pro-api-strip
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: "contaviva-pro-api"
+    app.kubernetes.io/part-of: "contaviva-pro"
+    app.kubernetes.io/component: "api"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "contaviva-pro"
+    devops.flavioneto/app-type: "product_software"
 spec:
-  groups:
-    - name: contaviva-pro.slo
-      rules:
-        - alert: contaviva-proApiDown
-          expr: absent(up{job=~".*contaviva-pro-api.*"} == 1)
-          for: 3m
-          labels: { severity: critical, app: contaviva-pro }
-          annotations: { summary: "contaviva-pro: API sem target UP" }
+  stripPrefix:
+    prefixes:
+      - "/contaviva-pro/api"

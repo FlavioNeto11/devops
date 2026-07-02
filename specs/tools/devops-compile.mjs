@@ -201,20 +201,28 @@ export function deriveValues(contract, opts = {}) {
   };
 
   for (const [name, svc] of Object.entries(contract.services || {})) {
+    // Campos opcionais SEMPRE presentes (null explícito quando o contrato não
+    // declara): o helm faz DEEP MERGE por CAMPO dos values — se algum default
+    // do chart declarar um service homônimo, o campo não setado aqui HERDARIA
+    // o valor de exemplo (regressão real pega na convergência do contaviva-pro:
+    // frontend herdou env VITE_BASE_PATH: /aplicacao1/ e worker herdou health
+    // do exemplo do values.yaml). null APAGA a chave no merge do helm. O
+    // values.yaml do chart também ficou sem services de exemplo — dupla barreira.
     const out = {
       type: svc.type,
       image: localImageName(app.name, svc.image),
       tag: opts.imageTag ?? 'local',
       expose: Boolean(svc.expose),
       stripPrefix: Boolean(svc.stripPrefix),
+      path: svc.path || null,
+      port: svc.port || null,
+      priority: svc.expose ? servicePriority(svc) : null,
+      command: svc.command || null,
+      env: svc.env && Object.keys(svc.env).length ? svc.env : null,
+      health: svc.health && svc.health.path ? { path: svc.health.path } : null,
+      resources: svc.resources || null,
+      envFrom: null,
     };
-    if (svc.path) out.path = svc.path;
-    if (svc.port) out.port = svc.port;
-    if (svc.expose) out.priority = servicePriority(svc);
-    if (svc.command) out.command = svc.command;
-    if (svc.env && Object.keys(svc.env).length) out.env = svc.env;
-    if (svc.health && svc.health.path) out.health = { path: svc.health.path };
-    if (svc.resources) out.resources = svc.resources;
     // v2: envFrom é lista de secretNames no contrato -> secretRef no chart.
     // Item string = Secret obrigatório; item { name, optional: true } = secretRef
     // optional (o pod sobe sem o Secret — padrão dos <app>-ai/<app>-auth da Forja).
@@ -227,10 +235,11 @@ export function deriveValues(contract, opts = {}) {
     values.services[name] = out;
   }
 
-  // O values.yaml DEFAULT do chart declara services de EXEMPLO (frontend/api/worker
-  // da aplicacao1) e o helm faz DEEP MERGE dos values — um contrato que não declara
-  // um desses nomes herdaria um service FANTASMA (ex.: frontend "aplicacao1-frontend"
-  // roteando o basePath do app). null explícito APAGA a chave no merge do helm.
+  // Um contrato que não declara os nomes de exemplo históricos (frontend/api/
+  // worker) NUNCA pode herdá-los de um default do chart — service FANTASMA
+  // (ex.: frontend "aplicacao1-frontend" roteando o basePath do app). O
+  // values.yaml do chart não traz mais exemplos, mas o null explícito continua
+  // como barreira caso um default volte a declará-los.
   for (const k of ['frontend', 'api', 'worker']) {
     if (!(k in values.services)) values.services[k] = null;
   }
@@ -374,6 +383,33 @@ export function checkRendered(rendered, contract, opts = {}) {
     }
   }
 
+  // 3b) Convenção VIVA de selector (spec.selector é IMUTÁVEL no apiserver —
+  // qualquer desvio bloqueia a convergência v1→v2; contrato §11.5): matchLabels
+  // EXATAMENTE { app.kubernetes.io/name: <nome do Deployment> } (sem part-of —
+  // adicionar chave também é mutação de campo imutável). Services seguem o
+  // mesmo par para selecionar os pods do Deployment homônimo.
+  const NAME_LABEL = 'app.kubernetes.io/name';
+  for (const d of byKind('Deployment')) {
+    const name = d.metadata.name;
+    const sel = d.spec?.selector?.matchLabels || {};
+    const keys = Object.keys(sel);
+    if (!(keys.length === 1 && sel[NAME_LABEL] === name)) {
+      issues.push(`Deployment/${name}: selector ${JSON.stringify(sel)} != { "${NAME_LABEL}": "${name}" } (convenção viva; campo imutável).`);
+    }
+    const podLabels = d.spec?.template?.metadata?.labels || {};
+    if (podLabels[NAME_LABEL] !== name) {
+      issues.push(`Deployment/${name}: pods com label ${NAME_LABEL}="${podLabels[NAME_LABEL]}" (esperado "${name}").`);
+    }
+  }
+  for (const s of byKind('Service')) {
+    const sel = s.spec?.selector;
+    if (!sel) continue;
+    const keys = Object.keys(sel);
+    if (!(keys.length === 1 && sel[NAME_LABEL] === s.metadata.name)) {
+      issues.push(`Service/${s.metadata.name}: selector ${JSON.stringify(sel)} != { "${NAME_LABEL}": "${s.metadata.name}" } (convenção viva).`);
+    }
+  }
+
   // 4) Um Deployment por service do contrato
   for (const svcName of Object.keys(contract.services || {})) {
     if (!named('Deployment', `${appName}-${svcName}`)) {
@@ -400,7 +436,8 @@ export function checkRendered(rendered, contract, opts = {}) {
       const deploy = named('Deployment', full);
       if (!deploy) issues.push(`Deployment/${full} ausente para a dependência "${depName}" (${dep.engine}).`);
       else if (deploy.spec?.strategy?.type !== 'Recreate') issues.push(`Deployment/${full}: strategy != Recreate.`);
-      if (!named('PersistentVolumeClaim', `${full}-data`)) issues.push(`PVC/${full}-data ausente.`);
+      // PVC "<app>-<dep>" SEM sufixo -data: convenção viva (rename = perda de dados via prune).
+      if (!named('PersistentVolumeClaim', full)) issues.push(`PVC/${full} ausente.`);
       if (!named('Service', full)) issues.push(`Service/${full} ausente.`);
       if (dep.engine === 'postgres' && dep.secretName && deploy) {
         const envFrom = deploy.spec.template.spec.containers[0]?.envFrom || [];
@@ -411,17 +448,18 @@ export function checkRendered(rendered, contract, opts = {}) {
     }
   }
 
-  // 6) Roteamento (hard-constraints §2): Host()+PathPrefix, priorities, strip
+  // 6) Roteamento (hard-constraints §2): Host()+PathPrefix, priorities, strip.
+  // Convenção VIVA de IngressRoutes (contrato §11.5): api/api2 na IngressRoute
+  // "<app>"; frontend na IngressRoute "<app>-frontend" (NUNCA consolidada — a
+  // rota -frontend dos produtos vivos não pode ser podada pelo Argo).
   const exposed = Object.entries(contract.services || {}).filter(([, s]) => s.expose);
   if (exposed.length) {
-    const ir = named('IngressRoute', appName);
-    if (!ir) {
-      issues.push(`IngressRoute/${appName} ausente.`);
-    } else {
-      const routes = ir.spec?.routes || [];
-      for (const r of routes) {
+    // Checks por rota valem para TODAS as IngressRoutes renderizadas.
+    for (const ir of byKind('IngressRoute')) {
+      const irName = ir.metadata?.name;
+      for (const r of ir.spec?.routes || []) {
         if (!/Host\(/.test(r.match) || !/PathPrefix\(/.test(r.match)) {
-          issues.push(`IngressRoute/${appName}: rota sem Host()+PathPrefix combinados: "${r.match}".`);
+          issues.push(`IngressRoute/${irName}: rota sem Host()+PathPrefix combinados: "${r.match}".`);
         }
         if (environment) {
           // Multi-env: a cláusula Host(...) usa EXATAMENTE os hosts do env —
@@ -432,50 +470,61 @@ export function checkRendered(rendered, contract, opts = {}) {
           const extra = got.filter((h) => !want.includes(h));
           if (missing.length || extra.length) {
             issues.push(
-              `IngressRoute/${appName}: rota "${r.match}" com hosts [${got.join(', ')}] != hosts do env ${environment.name} [${want.join(', ')}].`
+              `IngressRoute/${irName}: rota "${r.match}" com hosts [${got.join(', ')}] != hosts do env ${environment.name} [${want.join(', ')}].`
             );
           }
         }
       }
-      const routeFor = (prefix) => routes.find((r) => r.match.includes(`PathPrefix(\`${prefix}\`)`));
-      const priorities = {};
-      for (const [svcName, svc] of exposed) {
-        const prefix = svc.type === 'frontend' ? basePath : fullPrefix(basePath, svc.path);
-        const route = routeFor(prefix);
-        if (!route) {
-          issues.push(`IngressRoute/${appName}: sem rota PathPrefix(${prefix}) para "${svcName}".`);
-          continue;
-        }
-        priorities[svcName] = { type: svc.type, priority: route.priority };
-        const expected = servicePriority(svc);
-        if (route.priority !== expected) {
-          issues.push(`IngressRoute/${appName}: rota de "${svcName}" com priority ${route.priority} (esperado ${expected}).`);
-        }
-        const mwName = `${appName}-${svcName}-stripprefix`;
-        const hasMw = (route.middlewares || []).some((m) => m.name === mwName);
-        if (svc.stripPrefix && !hasMw) issues.push(`IngressRoute/${appName}: rota de "${svcName}" sem middleware ${mwName}.`);
-        if (!svc.stripPrefix && hasMw) issues.push(`IngressRoute/${appName}: rota de "${svcName}" (sem strip) com middleware de strip.`);
-        if (svc.stripPrefix) {
-          const mw = named('Middleware', mwName);
-          if (!mw) issues.push(`Middleware/${mwName} ausente.`);
-          else {
-            const prefixes = mw.spec?.stripPrefix?.prefixes || [];
-            if (!(prefixes.length === 1 && prefixes[0] === prefix)) {
-              issues.push(`Middleware/${mwName}: prefixes ${JSON.stringify(prefixes)} != ["${prefix}"] (strip do prefixo COMPLETO).`);
-            }
+    }
+    const apiExposed = exposed.filter(([, s]) => s.type === 'api' || s.type === 'api2');
+    const feExposed = exposed.filter(([, s]) => s.type === 'frontend');
+    const irApi = named('IngressRoute', appName);
+    const irFe = named('IngressRoute', `${appName}-frontend`);
+    if (apiExposed.length && !irApi) issues.push(`IngressRoute/${appName} ausente (rotas de api/api2).`);
+    if (feExposed.length && !irFe) issues.push(`IngressRoute/${appName}-frontend ausente (rota do frontend tem IngressRoute PRÓPRIA — convenção viva).`);
+    const routeFor = (ir, prefix) => (ir?.spec?.routes || []).find((r) => r.match.includes(`PathPrefix(\`${prefix}\`)`));
+    const priorities = {};
+    for (const [svcName, svc] of exposed) {
+      const isFrontend = svc.type === 'frontend';
+      const ir = isFrontend ? irFe : irApi;
+      const irName = isFrontend ? `${appName}-frontend` : appName;
+      if (!ir) continue; // ausência já reportada acima
+      const prefix = isFrontend ? basePath : fullPrefix(basePath, svc.path);
+      const route = routeFor(ir, prefix);
+      if (!route) {
+        issues.push(`IngressRoute/${irName}: sem rota PathPrefix(${prefix}) para "${svcName}".`);
+        continue;
+      }
+      priorities[svcName] = { type: svc.type, priority: route.priority };
+      const expected = servicePriority(svc);
+      if (route.priority !== expected) {
+        issues.push(`IngressRoute/${irName}: rota de "${svcName}" com priority ${route.priority} (esperado ${expected}).`);
+      }
+      // Middleware "<app>-<svc>-strip" — convenção viva (antigo chart usava -stripprefix).
+      const mwName = `${appName}-${svcName}-strip`;
+      const hasMw = (route.middlewares || []).some((m) => m.name === mwName);
+      if (svc.stripPrefix && !hasMw) issues.push(`IngressRoute/${irName}: rota de "${svcName}" sem middleware ${mwName}.`);
+      if (!svc.stripPrefix && hasMw) issues.push(`IngressRoute/${irName}: rota de "${svcName}" (sem strip) com middleware de strip.`);
+      if (svc.stripPrefix) {
+        const mw = named('Middleware', mwName);
+        if (!mw) issues.push(`Middleware/${mwName} ausente.`);
+        else {
+          const prefixes = mw.spec?.stripPrefix?.prefixes || [];
+          if (!(prefixes.length === 1 && prefixes[0] === prefix)) {
+            issues.push(`Middleware/${mwName}: prefixes ${JSON.stringify(prefixes)} != ["${prefix}"] (strip do prefixo COMPLETO).`);
           }
         }
       }
-      // api2 > api > frontend
-      const p = (t) => Object.values(priorities).filter((x) => x.type === t).map((x) => x.priority);
-      const maxOr = (arr, v) => (arr.length ? Math.max(...arr) : v);
-      const minOr = (arr, v) => (arr.length ? Math.min(...arr) : v);
-      if (p('api').length && p('frontend').length && minOr(p('api'), 0) <= maxOr(p('frontend'), 0)) {
-        issues.push('priorities: api deve ser MAIOR que frontend.');
-      }
-      if (p('api2').length && p('api').length && minOr(p('api2'), 0) <= maxOr(p('api'), 0)) {
-        issues.push('priorities: api2 deve ser MAIOR que api.');
-      }
+    }
+    // api2 > api > frontend
+    const p = (t) => Object.values(priorities).filter((x) => x.type === t).map((x) => x.priority);
+    const maxOr = (arr, v) => (arr.length ? Math.max(...arr) : v);
+    const minOr = (arr, v) => (arr.length ? Math.min(...arr) : v);
+    if (p('api').length && p('frontend').length && minOr(p('api'), 0) <= maxOr(p('frontend'), 0)) {
+      issues.push('priorities: api deve ser MAIOR que frontend.');
+    }
+    if (p('api2').length && p('api').length && minOr(p('api2'), 0) <= maxOr(p('api'), 0)) {
+      issues.push('priorities: api2 deve ser MAIOR que api.');
     }
   }
 

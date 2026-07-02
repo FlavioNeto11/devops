@@ -1,8 +1,14 @@
-app: { name: contaviva-pro, namespace: apps, host: nvit.localhost, basePath: /contaviva-pro }
+# ContaViva Pro — contrato v2 (convergência v1→v2, Forja 4.0).
 # Gerado pela FORGE (gymops-style: Fastify + Redis/BullMQ + RBAC). Blocos: observabilidade, contas-acesso, migrations-versionadas, redis-bullmq, control-ai-por-app, design-system, ia-grafo, structured-outputs
+# Contrato v2: manifests COMPILADOS em k8s/contaviva-pro.yaml por specs/tools/devops-compile.mjs — NÃO edite o k8s à mão.
+# Recompilar após editar este arquivo:  node specs/tools/devops-compile.mjs apps/contaviva-pro/devops.yaml
+version: 2
+app: { name: contaviva-pro, namespace: apps, host: nvit.localhost, basePath: /contaviva-pro, appType: product_software }
 services:
-  frontend: { type: frontend, image: contaviva-pro-frontend, path: /, port: 80, expose: true, stripPrefix: false, priority: 10 }
-  api: { type: api, image: contaviva-pro-api, path: /api, port: 8080, expose: true, stripPrefix: true, priority: 40, health: { path: /health } }
-  worker: { type: worker, image: contaviva-pro-api, port: 9464, expose: false, command: ["npm", "run", "worker"] }
-dependencies: { redis: { image: "redis:7-alpine" } }
+  frontend: { type: frontend, path: /, image: contaviva-pro-frontend, port: 80, expose: true, stripPrefix: false, priority: 10 }
+  api: { type: api, path: /api, image: contaviva-pro-api, port: 8080, expose: true, stripPrefix: true, priority: 40, health: { path: /health }, command: ["npm", "start"], envFrom: [contaviva-pro-db, { name: contaviva-pro-ai, optional: true }, { name: contaviva-pro-auth, optional: true }], env: { REDIS_URL: redis://contaviva-pro-redis:6379, METRICS_PORT: "9464", AUTO_MIGRATE: "true", AUTO_SEED: "true", LANGFUSE_ENABLED: "true", LANGFUSE_BASE_URL: http://langfuse.observability.svc.cluster.local:3000 } }
+  worker: { type: worker, image: contaviva-pro-api, port: 9464, expose: false, command: ["npm", "run", "worker"], envFrom: [contaviva-pro-db], env: { REDIS_URL: redis://contaviva-pro-redis:6379, METRICS_PORT: "9464", AUTO_MIGRATE: "false" } }
+dependencies:
+  postgres: { engine: postgres, version: "16", storage: 1Gi, secretName: contaviva-pro-db }
+  redis: { engine: redis, version: "7" }
 observability: { metricsPort: 9464, serviceMonitor: true, prometheusRule: true }

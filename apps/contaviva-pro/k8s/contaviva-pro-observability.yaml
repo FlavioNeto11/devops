@@ -1,0 +1,36 @@
+# ContaViva Pro — observabilidade (SUPLEMENTO ao k8s/contaviva-pro.yaml compilado).
+# O chart templates/app-template ainda NÃO renderiza estes recursos (gap documentado em
+# docs/new-project-contract.md §11.5 p/ a fase B2) — quando ganhar, este arquivo morre.
+# ServiceMonitor/PrometheusRule idênticos aos VIVOS; Services *-metrics expõem a porta
+# 9464 dos pods (o Service compilado da api só tem a porta http; o do worker não existe).
+---
+apiVersion: v1
+kind: Service
+metadata: { name: contaviva-pro-api-metrics, namespace: apps, labels: { app.kubernetes.io/name: contaviva-pro-api-metrics, app.kubernetes.io/part-of: contaviva-pro, app.kubernetes.io/component: metrics } }
+spec: { selector: { app.kubernetes.io/name: contaviva-pro-api }, ports: [ { name: metrics, port: 9464, targetPort: 9464 } ] }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: contaviva-pro-worker-metrics, namespace: apps, labels: { app.kubernetes.io/name: contaviva-pro-worker-metrics, app.kubernetes.io/part-of: contaviva-pro, app.kubernetes.io/component: metrics } }
+spec: { selector: { app.kubernetes.io/name: contaviva-pro-worker }, ports: [ { name: metrics, port: 9464, targetPort: 9464 } ] }
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata: { name: contaviva-pro, namespace: apps, labels: { app.kubernetes.io/part-of: contaviva-pro, release: kube-prometheus-stack } }
+spec:
+  selector: { matchLabels: { app.kubernetes.io/part-of: contaviva-pro } }
+  namespaceSelector: { matchNames: [apps] }
+  endpoints: [ { port: metrics, path: /metrics, interval: 15s } ]
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata: { name: contaviva-pro-slo, namespace: apps, labels: { app.kubernetes.io/part-of: contaviva-pro, release: kube-prometheus-stack } }
+spec:
+  groups:
+    - name: contaviva-pro.slo
+      rules:
+        - alert: contaviva-proApiDown
+          expr: absent(up{job=~".*contaviva-pro-api.*"} == 1)
+          for: 3m
+          labels: { severity: critical, app: contaviva-pro }
+          annotations: { summary: "contaviva-pro: API sem target UP" }
