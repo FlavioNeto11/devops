@@ -127,6 +127,24 @@ test('deriveValues: envFrom (v2) vira secretRef; sem vazamento de segredo', () =
   ]);
 });
 
+test('envFrom v2: forma { name, optional } é válida no schema e vira secretRef optional', () => {
+  const c = v2Contract();
+  c.services.api.envFrom = ['demo-db', { name: 'demo-ai', optional: true }, { name: 'demo-auth' }];
+  assert.equal(validateContract(c).valid, true, 'schema deveria aceitar item objeto { name, optional }');
+  const values = deriveValues(c);
+  assert.deepEqual(values.services.api.envFrom, [
+    { secretRef: { name: 'demo-db' } },
+    { secretRef: { name: 'demo-ai', optional: true } }, // pod sobe sem o Secret (padrão <app>-ai/-auth da Forja)
+    { secretRef: { name: 'demo-auth' } },               // sem optional => obrigatório
+  ]);
+});
+
+test('envFrom v2: item objeto sem name é INVÁLIDO no schema', () => {
+  const c = v2Contract();
+  c.services.api.envFrom = [{ optional: true }];
+  assert.equal(validateContract(c).valid, false);
+});
+
 test('deriveValues: dependência postgres exige secretName (hard-constraints §3)', () => {
   const c = v2Contract({ dependencies: { postgres: { engine: 'postgres' } } });
   assert.throws(() => deriveValues(c), /secretName/);
@@ -361,6 +379,35 @@ test('helm: chart renderiza contrato v2 com dependências sem erro', { skip: !ha
   const contract = loadYaml(FIXTURE);
   const rendered = stripSecrets(renderWithHelm(deriveValues(contract), contract.app.name));
   assert.deepEqual(checkRendered(rendered, contract), []);
+});
+
+test('helm: contrato SEM frontend/worker não herda services FANTASMA dos defaults do chart', { skip: !hasHelm && 'helm indisponível no PATH' }, () => {
+  // Regressão (achada na B6): o values.yaml default do chart declara frontend/api/worker
+  // de EXEMPLO (aplicacao1) e o helm faz deep merge — sem o null explícito, um contrato
+  // só-API renderizava um frontend fantasma roteando o basePath para aplicacao1-frontend.
+  const contract = v2Contract();
+  delete contract.services.frontend;
+  delete contract.services.api2;
+  const rendered = stripSecrets(renderWithHelm(deriveValues(contract), contract.app.name));
+  const docs = parseDocs(rendered).map((d) => d.obj);
+  const deployments = docs.filter((d) => d.kind === 'Deployment').map((d) => d.metadata.name);
+  assert.deepEqual(deployments, ['demo-api'], `services fantasma: ${deployments.join(', ')}`);
+  assert.ok(!rendered.includes('aplicacao1'), 'nada do app de exemplo do chart pode vazar');
+  assert.deepEqual(checkRendered(rendered, contract), []);
+});
+
+test('checkRendered: acusa Deployment fantasma fora do contrato', () => {
+  const contract = v2Contract();
+  delete contract.services.frontend;
+  delete contract.services.api2;
+  const ghost = [
+    '---',
+    'kind: Deployment\nmetadata: { name: demo-api, namespace: apps, labels: { app.kubernetes.io/part-of: demo } }\nspec: { template: { spec: { containers: [ { name: a, resources: { requests: {}, limits: {} } } ] } } }',
+    '---',
+    'kind: Deployment\nmetadata: { name: demo-frontend, namespace: apps, labels: { app.kubernetes.io/part-of: demo } }\nspec: { template: { spec: { containers: [ { name: f, resources: { requests: {}, limits: {} } } ] } } }',
+  ].join('\n');
+  const issues = checkRendered(ghost, contract);
+  assert.ok(issues.some((i) => /demo-frontend.*não corresponde/.test(i)), issues.join('\n'));
 });
 
 test('helm: contrato v1 (exemplo canônico) continua renderizando', { skip: !hasHelm && 'helm indisponível no PATH' }, () => {

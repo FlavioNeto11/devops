@@ -12,22 +12,28 @@
 // O KIT (src/ui/**) e os tokens (tokens.generated.css) entram por codegen-sync:
 //   node packages/ui-vue/build.mjs  &&  node packages/design-tokens/build.mjs
 //
-// Uso: node scaffold-frontend.mjs --product <name> [--force]
+// Manifests k8s (Forja 4.0 — B6): quando o devops.yaml do app é contrato v2 (padrão dos scaffolds
+// atuais), o service frontend é APENDADO ao contrato e o k8s/<app>.yaml é RECOMPILADO pelo
+// specs/tools/devops-compile.mjs — o k8s/<app>-frontend.yaml aditivo só é emitido no legado v1.
+//
+// Uso: node scaffold-frontend.mjs --product <name> [--force] [--products-dir <dir>] [--dest <dir>]
 // =============================================================================
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { deriveForgeTokensCss, DEFAULT_BRAND } from '../../packages/design-tokens/forge-brand.mjs';
 import { loadCatalog, resolveBlocks } from './apply-capabilities.mjs';
+import { compileForScaffold } from './scaffold-compile.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SPECS_DIR = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(SPECS_DIR, '..');
 
-function parseArgs(argv) { const a = {}; for (let i = 0; i < argv.length; i++) { if (argv[i] === '--product') a.product = argv[++i]; else if (argv[i] === '--force') a.force = true; } return a; }
+function parseArgs(argv) { const a = {}; for (let i = 0; i < argv.length; i++) { if (argv[i] === '--product') a.product = argv[++i]; else if (argv[i] === '--force') a.force = true; else if (argv[i] === '--products-dir') a.productsDir = argv[++i]; else if (argv[i] === '--dest') a.dest = argv[++i]; } return a; }
 const args = parseArgs(process.argv.slice(2));
-if (!args.product) { console.error('uso: node scaffold-frontend.mjs --product <name> [--force]'); process.exit(2); }
-const pp = path.join(SPECS_DIR, 'products', args.product, 'product.json');
+if (!args.product) { console.error('uso: node scaffold-frontend.mjs --product <name> [--force] [--products-dir <dir>] [--dest <dir>]'); process.exit(2); }
+const PRODUCTS_DIR = args.productsDir ? path.resolve(args.productsDir) : path.join(SPECS_DIR, 'products');
+const pp = path.join(PRODUCTS_DIR, args.product, 'product.json');
 if (!fs.existsSync(pp)) { console.error('produto não encontrado: ' + pp); process.exit(1); }
 const product = JSON.parse(fs.readFileSync(pp, 'utf8'));
 const interfaces = Array.isArray(product.interfaces) ? product.interfaces : ['api'];
@@ -46,7 +52,12 @@ const HAS_CONTAS = resolvedBlocks.includes('contas-acesso');
 const APP = product.name;
 const TITLE = product.display_name || APP;
 const BASE = product.base_path || ('/' + APP);
-const APPDIR = path.join(REPO_ROOT, 'apps', APP);
+const APPDIR = path.join(args.dest ? path.resolve(args.dest) : path.join(REPO_ROOT, 'apps'), APP);
+
+// Contrato v2 no disco? (padrão dos scaffolds atuais) => frontend entra pelo COMPILADOR;
+// v1 legado => mantém o k8s/<app>-frontend.yaml aditivo de antes (retrocompat total).
+const devopsPathEarly = path.join(APPDIR, 'devops.yaml');
+const CONTRACT_V2 = fs.existsSync(devopsPathEarly) && /^version:\s*2\s*$/m.test(fs.readFileSync(devopsPathEarly, 'utf8'));
 
 const files = {};
 const add = (rel, content) => { files[rel] = content; };
@@ -1095,9 +1106,13 @@ add('frontend/src/styles.css', [
   '#app { min-height: 100vh; }', '',
 ].join('\n'));
 
-// ---- k8s do frontend (aditivo) ---------------------------------------------
-add('k8s/@@APP@@-frontend.yaml', [
-  '# @@TITLE@@ — frontend (Vue SPA) gerado pela Forge. Aditivo ao k8s do backend.',
+// ---- k8s do frontend --------------------------------------------------------
+// Contrato v2: NADA a emitir aqui — o frontend entra no devops.yaml e o k8s/<app>.yaml é
+// recompilado pelo devops-compile.mjs (ver o bloco de append + recompile no fim).
+// Legado v1: mantém o arquivo aditivo de antes.
+if (!CONTRACT_V2) add('k8s/@@APP@@-frontend.yaml', [
+  '# @@TITLE@@ — frontend (Vue SPA) gerado pela Forge. Aditivo ao k8s do backend (LEGADO v1;',
+  '# contrato v2 compila o frontend junto no k8s/@@APP@@.yaml via devops-compile.mjs).',
   '---', 'apiVersion: apps/v1', 'kind: Deployment',
   'metadata: { name: @@APP@@-frontend, namespace: apps, labels: { app.kubernetes.io/name: @@APP@@-frontend, app.kubernetes.io/component: frontend, app.kubernetes.io/part-of: @@APP@@ } }',
   'spec:', '  replicas: 1', '  selector: { matchLabels: { app.kubernetes.io/name: @@APP@@-frontend } }',
@@ -1125,7 +1140,7 @@ for (const [rel, content] of Object.entries(files)) {
 }
 
 // ---- marca própria (brand.json) + tokens.generated.css inicial --------------
-const brandPath = path.join(SPECS_DIR, 'products', APP, 'brand.json');
+const brandPath = path.join(PRODUCTS_DIR, APP, 'brand.json');
 let brand = { ...DEFAULT_BRAND, name: TITLE };
 if (fs.existsSync(brandPath)) { try { brand = { ...brand, ...JSON.parse(fs.readFileSync(brandPath, 'utf8')) }; } catch {} }
 else { fs.writeFileSync(brandPath, JSON.stringify(brand, null, 2) + '\n'); console.log('[scaffold-frontend] brand.json criado (marca default — ajuste accent/neutralBase).'); }
@@ -1137,17 +1152,19 @@ fs.writeFileSync(tokPath, deriveForgeTokensCss(brand));
 // ---- kit ui-vue: sincroniza p/ src/ui/ (codegen-sync; o build.mjs cobre todos os apps) ------
 // Aqui só garantimos que o app já tenha o kit p/ build local; o build.mjs do pacote é a fonte.
 
-// anexa o service frontend ao devops.yaml (aditivo, se ainda não houver)
+// anexa o service frontend ao devops.yaml (aditivo, se ainda não houver) e, no contrato v2,
+// RECOMPILA o k8s/<app>.yaml pelo renderizador único (o frontend entra no manifest compilado).
 const devopsPath = path.join(APPDIR, 'devops.yaml');
 if (fs.existsSync(devopsPath)) {
   let dy = fs.readFileSync(devopsPath, 'utf8');
   if (!/frontend:\s*\{?\s*type:\s*frontend/.test(dy)) {
-    const line = '  frontend: { type: frontend, image: ' + APP + '-frontend, path: /, port: 80, expose: true, stripPrefix: false, priority: 10 }\n';
+    const line = '  frontend: { type: frontend, path: /, image: ' + APP + '-frontend, port: 80, expose: true, stripPrefix: false, priority: 10 }\n';
     if (/^services:/m.test(dy)) dy = dy.replace(/^services:\s*\n/m, 'services:\n' + line);
     else dy += '\nservices:\n' + line;
     fs.writeFileSync(devopsPath, dy);
     console.log('[scaffold-frontend] devops.yaml: service frontend anexado.');
   }
+  if (CONTRACT_V2) await compileForScaffold({ appDir: APPDIR, app: APP, tag: '[scaffold-frontend]' });
 }
 
 console.log('[scaffold-frontend] ' + APP + ': ' + written + ' arquivos (base Vue rica + k8s). Marca: ' + brand.accent + '/' + brand.neutralBase + '.');

@@ -216,10 +216,23 @@ export function deriveValues(contract, opts = {}) {
     if (svc.health && svc.health.path) out.health = { path: svc.health.path };
     if (svc.resources) out.resources = svc.resources;
     // v2: envFrom é lista de secretNames no contrato -> secretRef no chart.
+    // Item string = Secret obrigatório; item { name, optional: true } = secretRef
+    // optional (o pod sobe sem o Secret — padrão dos <app>-ai/<app>-auth da Forja).
     if (version === 2 && Array.isArray(svc.envFrom) && svc.envFrom.length) {
-      out.envFrom = svc.envFrom.map((n) => ({ secretRef: { name: n } }));
+      out.envFrom = svc.envFrom.map((e) => {
+        if (typeof e === 'string') return { secretRef: { name: e } };
+        return { secretRef: { name: e.name, ...(e.optional === true ? { optional: true } : {}) } };
+      });
     }
     values.services[name] = out;
+  }
+
+  // O values.yaml DEFAULT do chart declara services de EXEMPLO (frontend/api/worker
+  // da aplicacao1) e o helm faz DEEP MERGE dos values — um contrato que não declara
+  // um desses nomes herdaria um service FANTASMA (ex.: frontend "aplicacao1-frontend"
+  // roteando o basePath do app). null explícito APAGA a chave no merge do helm.
+  for (const k of ['frontend', 'api', 'worker']) {
+    if (!(k in values.services)) values.services[k] = null;
   }
 
   if (version === 2 && contract.dependencies) {
@@ -365,6 +378,17 @@ export function checkRendered(rendered, contract, opts = {}) {
   for (const svcName of Object.keys(contract.services || {})) {
     if (!named('Deployment', `${appName}-${svcName}`)) {
       issues.push(`Deployment/${appName}-${svcName} ausente para o service "${svcName}".`);
+    }
+  }
+
+  // 4b) Nenhum Deployment FANTASMA: todo Deployment renderizado corresponde a um
+  // service ou dependency do contrato (pega vazamento dos defaults de exemplo do chart).
+  const knownNames = new Set(
+    [...Object.keys(contract.services || {}), ...Object.keys(contract.dependencies || {})].map((n) => `${appName}-${n}`)
+  );
+  for (const d of byKind('Deployment')) {
+    if (!knownNames.has(d.metadata?.name)) {
+      issues.push(`Deployment/${d.metadata?.name}: não corresponde a nenhum service/dependency do contrato (vazamento dos defaults do chart?).`);
     }
   }
 
