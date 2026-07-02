@@ -1,0 +1,35 @@
+id: REQ-ZAPBRIDGE-0009
+slug: req-zapbridge-0009
+title: Assistente RAG + KB PME + agente com confirmação + auto-resposta com guardrails
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: zapbridge
+  applies_to: product
+statement: 'O sistema deve oferecer, sob o mesmo consentimento de IA: (a) assistente "pergunte ao seu WhatsApp" ancorado no histórico via grafo do ai-core (router→ReAct→judge) com tools de leitura (list_chats, get_recent_messages, search_history_semantic, search_knowledge, get_messages_by_time); (b) base de conhecimento PME com ingestão de catálogo/FAQ/preços (texto/PDF/docx via file-ingest) e remoção por fonte; (c) agente com ações mutantes (send_message, react, mark_read) que rodam em dry-run e SÓ executam após confirmação humana via token HMAC (POST /ai/confirm) — nada altera o WhatsApp sem o usuário tocar Confirmar; (d) auto-resposta inteligente opt-in POR CHAT, FAQ-grounded, com judge-gate, janela de horário, limite por chat e handoff humano — nunca em grupos e sempre marcada como automática; (e) compreensão de mídia (descrever imagem/OCR/resumir PDF) apenas sob ação explícita; (f) expurgo total dos dados de IA no disconnect da sessão e via /ai/data/purge.'
+business_rationale: Eleva a IA de assistente passivo a agente útil para PME sem abrir mão do controle humano — o clique É o envio.
+source:
+  stakeholder: zapbridge
+  origin: codebase apps/zapbridge + docs/MVP-FUNCIONAL.md §19 RF052–RF057/RF060 (adoção Forja 4.1 D5)
+  source_paths:
+    - apps/zapbridge/server/src/modules/ai/tools.ts
+    - apps/zapbridge/server/src/modules/ai/pending-actions.ts
+    - apps/zapbridge/server/src/modules/ai/hooks.ts
+    - apps/zapbridge/server/src/modules/ai/kb.ts
+priority: high
+criticality: medium
+architectural_significance: false
+links:
+  - type: depends_on
+    target: REQ-ZAPBRIDGE-0008
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: adoção Forja 4.1 D5 — backfill extraído do app real
+allocation:
+  service_refs:
+    - svc-zapbridge-server
+  infra_refs:
+    - infra-pgvector

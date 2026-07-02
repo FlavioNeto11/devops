@@ -1,0 +1,40 @@
+id: REQ-ZAPBRIDGE-NFR-0002
+slug: req-zapbridge-nfr-0002
+title: Single-writer — 1 réplica Recreate sobre SQLite/PVC RWO (nunca escalar horizontal)
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: zapbridge
+  applies_to: product
+statement: 'O sistema deve preservar a integridade do estado single-writer: o zapbridge-server roda com EXATAMENTE 1 réplica e strategy Recreate — o socket Baileys mantém estado em memória, o PVC é RWO e o SQLite é single-writer (duas instâncias gravando = corrupção). Dados transacionais (SQLite), credenciais Baileys (AUTH_DIR) e mídia (MEDIA_DIR) sobrevivem a restart/rollout via PVC; a janela breve de indisponibilidade do Recreate é uma limitação ACEITA do desenho (operador único). Escalabilidade horizontal está explicitamente fora do escopo.'
+source:
+  stakeholder: zapbridge
+  origin: codebase apps/zapbridge + k8s/zapbridge.yaml + CLAUDE.md (adoção Forja 4.1 D5)
+  source_paths:
+    - apps/zapbridge/k8s/zapbridge.yaml
+    - apps/zapbridge/devops.yaml
+    - apps/zapbridge/CLAUDE.md
+priority: critical
+criticality: critical
+architectural_significance: true
+quality_scenarios:
+  - source: Rollout de nova imagem ou restart do pod zapbridge-server
+    stimulus: O Deployment recria o pod (strategy Recreate) durante operação normal
+    environment: Cluster ns apps (Docker Desktop), PVC RWO montado em /data (SQLite + auth Baileys + mídia)
+    artifact: Deployment zapbridge-server + PVC de dados
+    response: Nunca existem 2 pods gravando ao mesmo tempo; o pod novo religa as sessões Baileys e reabre o SQLite (WAL) sem corrupção; conversas/credenciais/mídia preservadas
+    response_measure: replicas=1 e strategy=Recreate nos manifests; zero corrupção de banco pós-rollout; sessão WhatsApp restaurada sem novo QR quando as credenciais seguem válidas
+links:
+  - type: constrains
+    target: REQ-ZAPBRIDGE-0002
+  - type: constrains
+    target: REQ-ZAPBRIDGE-0003
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: adoção Forja 4.1 D5 — backfill extraído do app real
+allocation:
+  service_refs:
+    - svc-zapbridge-server

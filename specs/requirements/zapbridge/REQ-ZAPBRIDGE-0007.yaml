@@ -1,0 +1,34 @@
+id: REQ-ZAPBRIDGE-0007
+slug: req-zapbridge-0007
+title: Frontend web React/Vite servido em /zapbridge (responsivo, SW kill-switch)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: zapbridge
+  applies_to: product
+statement: O sistema deve servir em /zapbridge uma SPA web React 18 + Vite + Tailwind + React Router (base /zapbridge, nginx) com shell responsivo — 1 coluna no mobile e 2 colunas estilo WhatsApp Web no desktop — cobrindo login/registro, conectar (QR/pairing), lista de conversas + painel de chat, contatos, assistente de IA e configurações (tema sistema/claro/escuro, desconectar WhatsApp, apagar dados); um service worker kill-switch (public/sw.js) desregistra o SW do app Expo antigo e limpa caches para migrar instalações/PWAs existentes ao app novo. O app Expo legado permanece no repo (apps/zapbridge/app) porém aposentado do deploy.
+business_rationale: A reescrita web pura substituiu o app Expo no ar sem quebrar quem já tinha o PWA antigo instalado.
+source:
+  stakeholder: zapbridge
+  origin: codebase apps/zapbridge/web (reescrita React/Vite) + k8s/zapbridge-web.yaml (adoção Forja 4.1 D5)
+  source_paths:
+    - apps/zapbridge/web
+    - apps/zapbridge/web/public/sw.js
+    - apps/zapbridge/k8s/zapbridge-web.yaml
+priority: high
+criticality: high
+architectural_significance: false
+links:
+  - type: depends_on
+    target: REQ-ZAPBRIDGE-0001
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: adoção Forja 4.1 D5 — backfill extraído do app real
+allocation:
+  service_refs:
+    - svc-zapbridge-web
+  infra_refs:
+    - infra-traefik

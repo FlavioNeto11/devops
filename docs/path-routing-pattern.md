@@ -206,7 +206,7 @@ spec:
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
-  name: aplicacao1-api-stripprefix
+  name: aplicacao1-api-strip
   namespace: apps
   labels:
     app.kubernetes.io/part-of: aplicacao1
@@ -237,7 +237,7 @@ spec:
         - name: aplicacao1-api
           port: 8080
       middlewares:
-        - name: aplicacao1-api-stripprefix  # remove /aplicacao1/api (namespace apps)
+        - name: aplicacao1-api-strip  # remove /aplicacao1/api (namespace apps)
         - name: compress
           namespace: traefik
         - name: secure-headers
@@ -251,7 +251,7 @@ spec:
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
-  name: aplicacao1-worker-stripprefix
+  name: aplicacao1-worker-strip
   namespace: apps
 spec:
   stripPrefix:
@@ -274,7 +274,7 @@ spec:
         - name: aplicacao1-worker
           port: 8081
       middlewares:
-        - name: aplicacao1-worker-stripprefix
+        - name: aplicacao1-worker-strip
         - name: compress
           namespace: traefik
 ```
@@ -355,7 +355,7 @@ spec:
         - name: aplicacao1-api
           port: 8080
       middlewares:
-        - name: aplicacao1-api-stripprefix   # MESMO strip do local
+        - name: aplicacao1-api-strip   # MESMO strip do local
         - name: compress
           namespace: traefik
         - name: secure-headers

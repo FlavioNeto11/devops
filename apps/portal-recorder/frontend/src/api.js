@@ -177,6 +177,22 @@ export const normalizeSession = (id) =>
 
 export const getContract = (id) => apiFetch(`/v1/contracts/${encodeURIComponent(id)}`);
 
+/** Lista LEVE de contratos de um portal (id, version, created_at, session_id, endpoint_count). */
+export const listContracts = (portal) =>
+  apiFetch(`/v1/contracts?portal=${encodeURIComponent(portal)}`);
+
+/** Export canônico (docs/portal-contracts): manifest + endpoints SEM samples. */
+export const exportContract = (id) =>
+  apiFetch(`/v1/contracts/${encodeURIComponent(id)}/export`);
+
+/**
+ * PROMOVE o contrato para o repositório git (padrão forge-launch): a API dispara o
+ * workflow portal-contract-promote (repository_dispatch), que escreve
+ * docs/portal-contracts/<slug>/<data>/ e abre o PR. Write: exige o Bearer token.
+ */
+export const promoteContract = (id) =>
+  apiFetch(`/v1/contracts/${encodeURIComponent(id)}/promote`, { method: 'POST', auth: true });
+
 /**
  * URL direta do blob PNG de um screenshot (usavel em <img src>). Nao passa pelo
  * apiFetch porque o navegador busca a imagem diretamente.

@@ -39,9 +39,15 @@ spec:
             exec: { command: [pg_isready, -U, langfuse, -d, langfuse] }
             initialDelaySeconds: 5
             periodSeconds: 10
+          # Dimensionado p/ ALWAYS-ON (Forja 4.0 B4): todo app novo nasce com LANGFUSE_ENABLED=true,
+          # então este Postgres passa a receber ingestão contínua de traces de TODOS os produtos.
+          # - 96Mi de request era de uso pontual (debug); o postgres:16 sozinho tem shared_buffers
+          #   default de 128MB — sob ingestão o limit antigo de 256Mi flertava com OOMKill.
+          # - requests 256Mi = ~1,8% dos 14GB do nó WSL2 (ver memória wsl-memory-tuning) — cabe sem
+          #   apertar o cluster; limits 768Mi dá folga p/ picos de ingestão sem exagerar (RAM contada).
           resources:
-            requests: { cpu: 25m, memory: 96Mi }
-            limits: { cpu: 500m, memory: 256Mi }
+            requests: { cpu: 25m, memory: 256Mi }
+            limits: { cpu: 500m, memory: 768Mi }
       volumes:
         - name: data
           persistentVolumeClaim: { claimName: langfuse-db }

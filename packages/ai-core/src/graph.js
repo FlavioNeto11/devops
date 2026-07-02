@@ -74,6 +74,9 @@ Responda APENAS JSON: {"score": <0..1>, "reason": "<1 frase>"}`;
  *                   `delegated: true` (sem gastar a rodada do especialista nem
  *                   o judge): o app resolve pelo pipeline próprio (rollout
  *                   specialist-a-specialist do SICAT).
+ *   forceSpecialist <id> — opt-in: turnos NÃO-triviais vão SEMPRE pro deep-path
+ *                   deste especialista (ignora a hesitação do router; social/
+ *                   saudação segue fast). default null = comportamento inalterado.
  */
 export function createAiGraph({
   llm,
@@ -89,6 +92,7 @@ export function createAiGraph({
   proposeTools = false,
   routerContext = '',
   deepFilter = null,
+  forceSpecialist = null,
 } = {}) {
   if (!llm || typeof llm.complete !== 'function') throw new Error('createAiGraph: llm.complete obrigatorio');
   const M = { ...DEFAULT_MODELS, ...models };
@@ -186,6 +190,13 @@ export function createAiGraph({
         const specialist = specialists.find((s) => s.id === parsed.specialist) || null;
         return { complexity, specialist, reason: parsed.reason || '' };
       });
+
+      // forceSpecialist (opt-in): garante o caminho DEEP do especialista para todo turno NÃO-trivial
+      // (saudação/social segue fast — barato). Default null mantém o roteamento original do router.
+      if (forceSpecialist && route.complexity !== 'trivial') {
+        const forced = specialists.find((s) => s.id === forceSpecialist);
+        if (forced) { route.complexity = 'complex'; route.specialist = forced; }
+      }
 
       const deep = route.complexity === 'complex' && route.specialist && registry;
 

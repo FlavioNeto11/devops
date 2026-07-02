@@ -1,0 +1,14 @@
+# imobia — recursos sincronizados pelo Argo (path apps/imobia/k8s).
+# Os Secrets reais (imobia-db, imobia-config) NAO entram aqui: sao criados fora do git
+# (kubeseal OU kubectl create secret) para o prune do Argo nunca os deletar. Ver secret.example.yaml.
+# F2 adiciona a rota SSE em imobia-ingress.yaml; F8 adiciona servicemonitor.yaml.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: apps
+resources:
+  - imobia-postgres.yaml
+  - imobia-redis.yaml
+  - imobia-api.yaml
+  - imobia-worker.yaml
+  - imobia-frontend.yaml
+  - imobia-ingress.yaml

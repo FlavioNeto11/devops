@@ -1,0 +1,29 @@
+id: REQ-IMOBIA-0005
+slug: req-imobia-0005
+title: Financeiro PJ/PF com categorização automática e fluxo de caixa
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: imobia
+  applies_to: product
+statement: O sistema deve registrar lançamentos financeiros separando gasto empresarial (PJ) de pessoal (PF), com categorização automática por IA a partir de extratos/PIX/recibos (GPT via function-calling) e relatório com conselhos de fluxo de caixa redigido pela IA de análise (Claude).
+source:
+  stakeholder: imobia
+  origin: codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)
+  source_paths:
+    - apps/imobia/api/src/modules/financeiro/routes.ts
+    - apps/imobia/docs/CONCEPCAO.md
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: adoção Forja 4.1 D5 — backfill extraído do app real
+allocation:
+  service_refs:
+    - svc-imobia-api
+  infra_refs:
+    - infra-postgres

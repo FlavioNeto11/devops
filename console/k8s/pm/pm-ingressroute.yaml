@@ -29,3 +29,26 @@ spec:
         - { name: pm-api-strip, namespace: devops-system }
         - { name: compress, namespace: traefik }
         - { name: secure-headers, namespace: traefik }
+---
+# Rota SSE dedicada do pm-api: requisicoes com Accept: text/event-stream (ex.: a geracao AO VIVO de
+# portal CMS em /cms/generate-stream) NAO passam pelo middleware `compress` — compress bufferiza/quebra
+# o stream e o usuario veria tudo de uma vez no fim. priority 40 > 30 (mais especifica que a rota geral).
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: pm-api-sse
+  namespace: devops-system
+  labels: { app.kubernetes.io/name: pm-api, app.kubernetes.io/part-of: devops-console }
+spec:
+  entryPoints: [web]
+  routes:
+    - match: (Host(`nvit.localhost`) || Host(`dev.nvit.com.br`)) && PathPrefix(`/devops/api/pm`) && Headers(`Accept`, `text/event-stream`)
+      kind: Rule
+      priority: 40
+      services:
+        - name: pm-api
+          port: 3002
+      middlewares:
+        - { name: console-auth-401, namespace: devops-system }
+        - { name: pm-api-strip, namespace: devops-system }
+        - { name: secure-headers, namespace: traefik }

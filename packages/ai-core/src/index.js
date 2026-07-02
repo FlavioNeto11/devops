@@ -21,6 +21,7 @@ export {
 export { createAiMetrics, createAiTracer, AI_METRIC_NAMES } from './observability.js';
 export { createOpenAiLlm, toOpenAiToolDef, createLlm } from './llm.js';
 export { createAnthropicLlm, toAnthropicTool, toAnthropicMessages, toAnthropicToolChoice } from './llm-anthropic.js';
+export { createGeminiLlm, toGeminiTool, toGeminiContents, toGeminiToolConfig } from './llm-gemini.js';
 export { createAiGraph } from './graph.js';
 export {
   hashContent, splitWithOverlap, chunkMarkdownSections,

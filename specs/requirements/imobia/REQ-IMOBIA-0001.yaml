@@ -1,0 +1,35 @@
+id: REQ-IMOBIA-0001
+slug: req-imobia-0001
+title: Contas e acesso multi-tenant (login local + SSO Keycloak aditivo)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: imobia
+  applies_to: product
+statement: O sistema deve permitir registro com bootstrap de organização + usuário admin e login local (email + senha com hash, access token stateless via oidc-kit), além de login SSO Keycloak (realm nvit) de forma ADITIVA e fail-soft, com multi-tenancy por Membership — todo dado de negócio escopado pela organização do principal.
+source:
+  stakeholder: imobia
+  origin: codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)
+  source_paths:
+    - apps/imobia/api/src/modules/auth
+    - apps/imobia/api/src/lib/auth.ts
+    - apps/imobia/CLAUDE.md
+priority: critical
+criticality: critical
+architectural_significance: false
+links:
+  - type: depends_on
+    target: REQ-OIDC-0001
+  - type: depends_on
+    target: REQ-KEYCLOAK-0005
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: adoção Forja 4.1 D5 — backfill extraído do app real
+allocation:
+  service_refs:
+    - svc-imobia-api
+  infra_refs:
+    - infra-keycloak

@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0.0",
+  "name": "anarabottini",
+  "display_name": "Ana Rabottini",
+  "base_path": "/sites/anarabottini",
+  "namespace": "apps",
+  "app_type": "cms_portal",
+  "blueprint": "cms-portal",
+  "origin": "adopted",
+  "capability_blocks": [],
+  "vision": "Portal de palestrante corporativa — saúde mental, neurodiversidade e adequação à NR-1. Primeiro portal t1 REAL da plataforma registrado como produto da Forja: o conteúdo (páginas e seções por kind) vive no CMS do Console (pm-api, projeto 'anarabottini') e a entrega publicada é servida pelo site-renderer em /sites/anarabottini — zero código de produto neste repo para o conteúdo. O app dedicado apps/anarabottini (SPA React/Vite servida em /anarabottini) continua existindo como frontend próprio do mesmo portal e fala o protocolo cmsEdit do editor visual.",
+  "requirement_ids": [],
+  "phases": {
+    "requirements": {
+      "status": "adopted",
+      "note": "portal de conteúdo (tier t1) — o artefato é o CONTEÚDO no CMS, não requisitos de código; nada em specs/requirements/ por design (blueprint cms-portal)"
+    },
+    "architecture": {
+      "status": "adopted",
+      "note": "blueprint cms-portal (t1): executor = CMS do Console (pm-api) + site-renderer; decisões nas default_adrs do blueprint"
+    },
+    "scaffold": {
+      "status": "adopted",
+      "note": "sem scaffold de código de produto (t1); o frontend dedicado pré-existente em apps/anarabottini é anterior à Forja"
+    },
+    "build": {
+      "status": "deployed",
+      "note": "conteúdo publicado NO AR: site-renderer responde 200 em /sites/anarabottini (e o frontend dedicado em /anarabottini); projeto approved/active no pm-api"
+    }
+  },
+  "version": {
+    "revision": 1,
+    "change_reason": "Forja 4.1 E4 — registro do portal CMS real como produto t1: aparece no hub do Studio com o trilho reduzido Brief → Conteúdo (editor embutido) → Publicação"
+  }
+}

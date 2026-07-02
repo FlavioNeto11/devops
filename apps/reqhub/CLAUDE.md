@@ -2,7 +2,7 @@
 title: "Reqhub — Manual para Claude Code"
 status: canonical
 applies_to: [reqhub]
-updated: 2026-06-14
+updated: 2026-07-02
 language: pt-BR
 ---
 
@@ -15,12 +15,16 @@ language: pt-BR
 
 ## O que é o Reqhub
 
-**Workbench** (Fase 2 da plataforma de requisitos, ver
-[`../../docs/decisions/0002-requirements-as-source-of-truth.md`](../../docs/decisions/0002-requirements-as-source-of-truth.md))
-da base de requisitos. **Somente-frontend estático** (nginx) que **LÊ** a baseline gerada
-(`specs/baseline/*.json`, assada na imagem) e renderiza 6 telas: **Explorador**, **Workspace do
-requisito**, **Versões & mudanças**, **Mapa de impacto** (grafo REQ→REQ), **Cobertura** (matriz
-requisito × evidência/alocação) e **Fila de reprocessamento**. Servido sob `/reqs`
+**Workbench + Product Studio** da base de requisitos (ver
+[`../../docs/decisions/0002-requirements-as-source-of-truth.md`](../../docs/decisions/0002-requirements-as-source-of-truth.md)).
+Frontend estático (nginx) que **LÊ** a baseline gerada (`specs/baseline/*.json`, assada na imagem).
+Desde a A1a da **Forja 4.0**, a porta de entrada (view default) é a **Forja** — hub de todos os
+produtos com KPIs, briefing e progresso vivo — cercada por: **Explorador**, **Workspace**,
+**Editor** (autoria assistida), **Mapa de impacto**, **Cobertura** e **Mudanças** (fusão de
+Versões & diffs + Fila de reprocessamento, sub-abas na mesma tela). As ex-abas **Visão
+geral/Desenvolvimento/Usabilidade morreram**: KPIs e briefing migraram para o hub; Pipeline e
+Usabilidade migram para o detalhe do produto no Studio (A1b). Deep-links antigos (`#/overview`,
+`#/dev`, `#/usability`) redirecionam via `LEGACY_HASH` em `assets/app.js`. Servido sob `/reqs`
 (`stripPrefix: false`, `priority: 10`), namespace `apps`.
 
 > **Read-only por design.** A fonte da verdade e a **autoria** dos requisitos continuam no git

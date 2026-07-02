@@ -1,0 +1,43 @@
+{
+  "app": "contaviva-pro",
+  "generatedBy": "make-test-suite.mjs",
+  "minCount": 9,
+  "files": [
+    {
+      "path": "apps/contaviva-pro/tests/locked/_lib.mjs",
+      "sha256": "9eebd2f0af800d1b8af5bd1567781ed802c37201c1b3d2c5a6a37e1af9a29fe8"
+    },
+    {
+      "path": "apps/contaviva-pro/tests/locked/capability/contas-acesso.test.mjs",
+      "sha256": "229151667f3a5fc8dcc2f32db7a8a4e495ecab0bc577b0124876810dff15a555"
+    },
+    {
+      "path": "apps/contaviva-pro/tests/locked/capability/control-ai-por-app.test.mjs",
+      "sha256": "97f54c3b97f32fe3db547afce1e236b6292ed35601fd3d7320f7584cba40a87f"
+    },
+    {
+      "path": "apps/contaviva-pro/tests/locked/capability/design-system.test.mjs",
+      "sha256": "65d03413a0ed6c8794a398b593ebb57f65ac634e1a823df715d5523f4deb22db"
+    },
+    {
+      "path": "apps/contaviva-pro/tests/locked/capability/ia-grafo.test.mjs",
+      "sha256": "82b9e6b0de78906eed8b550ac22a70ed80fae10e57d57e8c2251ecffd9abbd77"
+    },
+    {
+      "path": "apps/contaviva-pro/tests/locked/capability/migrations-versionadas.test.mjs",
+      "sha256": "4ca810d02141072407194ee1a25432e0a59aaa3f793911988a08f5219f5296be"
+    },
+    {
+      "path": "apps/contaviva-pro/tests/locked/capability/observabilidade.test.mjs",
+      "sha256": "b99f0a8920d61caaffe2bf7fe703ce969cd6d1f7cc291561f27c4c603cf63339"
+    },
+    {
+      "path": "apps/contaviva-pro/tests/locked/capability/redis-bullmq.test.mjs",
+      "sha256": "1aac69f375696d4c7d5b6378e35276ce90b5c73752853b517f8742bd568f581f"
+    },
+    {
+      "path": "apps/contaviva-pro/tests/locked/capability/structured-outputs.test.mjs",
+      "sha256": "9c265b6ceb7d6cbe0cdf8b834a9c1d7b0e5f3e9c06ea2f15220dc2d0a0797b99"
+    }
+  ]
+}

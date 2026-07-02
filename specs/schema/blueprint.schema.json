@@ -5,12 +5,14 @@
   "description": "Catálogo de stacks suportados para gerar uma aplicação completa do zero. O scaffold determinístico instancia o blueprint (estrutura + golden path) e o Claude preenche a lógica de negócio dentro de apps/<app>/**.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "version", "name", "stack", "services", "scaffold"],
+  "required": ["id", "version", "name", "stack", "services"],
   "properties": {
     "id": { "type": "string", "pattern": "^[a-z0-9-]+$", "description": "Id estável (= nome da pasta em specs/blueprints/). Referenciado por scope.blueprint dos requisitos." },
     "version": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+){0,2}$" },
     "name": { "type": "string", "minLength": 3 },
     "summary": { "type": "string" },
+    "tier": { "enum": ["t1", "t2", "t3", "t4"], "default": "t3", "description": "PRESET do blueprint (tiers NÃO são um eixo novo — são presets): t1 = portal de conteúdo SEM código (executor = CMS do Console; services vazio e sem scaffold permitidos), t2 = app simples (frontend+api, sem worker/fila), t3 = produto completo (default dos blueprints existentes), t4 = produto completo + superfícies extras (ex.: mobile/PWA)." },
+    "profile": { "type": "object", "description": "Metadados LIVRES do preset (tier) — não validados além de ser objeto; espaço para a UI/Forja anotar características do preset sem mudar o schema." },
     "stack": {
       "type": "object",
       "description": "Tecnologia por camada (ex.: api, web, db, worker).",
@@ -18,9 +20,8 @@
     },
     "services": {
       "type": "array",
-      "minItems": 1,
       "items": { "enum": ["frontend", "api", "api2", "worker"] },
-      "description": "Serviços do devops.yaml que o scaffold cria."
+      "description": "Serviços do devops.yaml que o scaffold cria. minItems 1, EXCETO quando tier=t1 (portal sem código — pode ser vazio; ver allOf)."
     },
     "db": { "type": ["string", "null"], "description": "Banco (ex.: postgres) ou null se sem banco." },
     "reuses": { "type": "array", "items": { "type": "string" }, "description": "Packages/infra reusados (packages/oidc-kit, infra-keycloak, infra-postgres, ...)." },
@@ -36,8 +37,17 @@
     "structure": { "type": "array", "items": { "type": "string" }, "description": "Inventário de pastas/arquivos que o app gerado deve conter (alvo da geração)." },
     "default_adrs": { "type": "array", "items": { "type": "string" }, "description": "ADRs sugeridos para a fase de arquitetura." },
     "seed_nfrs": { "type": "array", "items": { "type": "string" }, "description": "Ids de NFR/SLO do registry a herdar." },
-    "base_stack": { "enum": ["sicat", "gymops"], "description": "Stack-base do blueprint — casa com capability.compatible_stacks. sicat = Vue+Express+Postgres; gymops = Next+Fastify+Prisma+Redis." },
+    "base_stack": { "enum": ["sicat", "gymops", "none"], "description": "Stack-base do blueprint — casa com capability.compatible_stacks. sicat = Vue+Express+Postgres; gymops = Next+Fastify+Prisma+Redis; none = sem stack de código (t1/cms-portal — nenhum bloco de capacidade é compatível, fail-closed)." },
     "default_blocks": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9-]+$" }, "description": "Ids de blocos de capacidade SEMPRE incluídos neste blueprint (validados vs specs/forge/capabilities/blocks/)." },
     "compatible_blocks": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9-]+$" }, "description": "Ids de blocos OPCIONAIS que a IA pode ligar conforme os requisitos (validados + stack-compatível)." }
-  }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "tier": { "const": "t1" } }, "required": ["tier"] },
+      "else": {
+        "required": ["scaffold"],
+        "properties": { "services": { "minItems": 1 } }
+      }
+    }
+  ]
 }

@@ -66,6 +66,12 @@
       "runtimeExecutable": "node",
       "runtimeArgs": [".claude/reqhub-usage-preview.cjs"],
       "port": 5601
+    },
+    {
+      "name": "besc-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "apps/besc/frontend", "--", "--port", "5195", "--strictPort"],
+      "port": 5195
     }
   ]
 }

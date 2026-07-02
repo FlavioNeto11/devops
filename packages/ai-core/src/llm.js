@@ -8,6 +8,7 @@
 
 import { buildChatParams } from '@flavioneto11/ai-kit';
 import { createAnthropicLlm } from './llm-anthropic.js';
+import { createGeminiLlm } from './llm-gemini.js';
 
 function safeJsonParse(s) {
   try { return JSON.parse(s); } catch { return {}; }
@@ -39,7 +40,9 @@ export function openaiifyContent(content) {
  * Mantém o MESMO contrato complete({...}) → { text, toolCalls, usage } p/ o grafo não saber a diferença.
  */
 export function createLlm({ provider, client, defaultModel } = {}) {
-  if (String(provider || '').toLowerCase() === 'anthropic') return createAnthropicLlm(client, defaultModel ? { defaultModel } : {});
+  const p = String(provider || '').toLowerCase();
+  if (p === 'anthropic') return createAnthropicLlm(client, defaultModel ? { defaultModel } : {});
+  if (p === 'google' || p === 'gemini') return createGeminiLlm(client, defaultModel ? { defaultModel } : {});
   return createOpenAiLlm(client, defaultModel ? { defaultModel } : {});
 }
 

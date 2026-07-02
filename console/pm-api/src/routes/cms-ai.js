@@ -13,6 +13,7 @@ import { asyncH, invalid, notFound } from './_util.js';
 import { assertProjectAccess, resolveProjectIdForSection } from '../auth.js';
 import { aiEnabled, generatePortalDraft, aiEditSection, aiEditSite } from '../ai/generate.js';
 import { ingest } from '@flavioneto11/file-ingest-kit';
+import { setSseHeaders, startSseKeepAlive, writeFrame } from '../sse.js';
 
 const r = Router();
 
@@ -256,6 +257,103 @@ r.post('/projects/:projectId/cms/generate-from-files', asyncH(async (req, res) =
   const publish = req.auth?.isAdmin ? 'published' : 'draft';
   const created = await persistGeneratedDraft({ projectId: req.params.projectId, genId, draft, publish });
   res.status(201).json({ data: { generationId: genId, status: 'done', published: publish === 'published', created, manifest: ingested.manifest } });
+}));
+
+// ---------------------------------------------------------------------------
+// Geração AO VIVO (SSE): mesma lógica de /generate(-from-files), porém TRANSMITINDO as etapas
+// (ingest → IA → validação → persistência → publicação) ao cliente em tempo real (fetch-reader no
+// front). O modal não congela e mostra tudo de forma transparente. Body JSON: { prompt?, fileIds?,
+// template?, context? }. Precisa de prompt OU fileIds. Fail-soft: erro vira evento `error` (não 500).
+// IMPORTANTE infra: esta rota NÃO pode passar pelo middleware `compress` do Traefik (ver IngressRoute).
+r.post('/projects/:projectId/cms/generate-stream', asyncH(async (req, res) => {
+  if (!(await assertProjectAccess(req, res, req.params.projectId))) return;       // 403 normal
+  const b = req.body || {};
+  const userPrompt = typeof b.prompt === 'string' ? b.prompt.trim() : '';
+  const fileIds = Array.isArray(b.fileIds) ? b.fileIds.filter((x) => typeof x === 'string' && x).slice(0, 20) : [];
+  if (!userPrompt && !fileIds.length) return invalid(res, 'prompt ou fileIds e obrigatorio');
+  // fileIds vão para `id = ANY($1::uuid[])`; um id não-UUID faria o Postgres lançar erro cru DEPOIS
+  // do SSE aberto. Valida o formato aqui e responde 400 normal (antes de virar stream).
+  if (fileIds.some((x) => !/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(x))) return invalid(res, 'fileIds invalidos (esperado UUID)');
+  if (!aiEnabled()) return aiUnavailable(res);                                    // 503 JSON normal ANTES do SSE
+
+  setSseHeaders(res);
+  const keepAlive = startSseKeepAlive(res);
+  const ctrl = new AbortController();
+  let done = false;
+  let genId = null;
+  // NUNCA rebaixar uma geração já concluída: o `AND status <> 'done'` evita o split-brain quando o
+  // cliente desconecta DURANTE a persistência (a transação pode commitar 'done' enquanto isto corre).
+  const markFailed = (msg) => { if (genId) query(`UPDATE cms_generation_requests SET status='failed', error=$2, updated_at=now() WHERE id=$1 AND status <> 'done'`, [genId, String(msg).slice(0, 500)]).catch(() => {}); };
+  const cleanup = () => { clearInterval(keepAlive); if (!done) { done = true; ctrl.abort(); markFailed('cliente desconectou'); } };
+  req.on('close', cleanup); req.on('aborted', cleanup); res.on('error', cleanup);
+
+  try {
+    const proj = await query('SELECT name, key FROM projects WHERE id = $1', [req.params.projectId]);
+    const siteName = proj.rows[0]?.name;
+    const key = proj.rows[0]?.key;
+    writeFrame(res, 'hello', { at: new Date().toISOString(), siteName });
+
+    // 1) Ingestão (se houver arquivos): mostra os arquivos sendo lidos.
+    let prompt = userPrompt;
+    let blocks = [];
+    const ctx = (b.context && typeof b.context === 'object') ? { ...b.context } : {};
+    if (fileIds.length) {
+      const { rows: files } = await query(
+        `SELECT filename, mime, bytes FROM cms_files WHERE id = ANY($1::uuid[]) AND (project_id = $2 OR scope = 'global')`,
+        [fileIds, req.params.projectId],
+      );
+      if (!files.length) { writeFrame(res, 'error', { stage: 'ingest', code: 'NO_FILES', message: 'nenhum arquivo encontrado para os fileIds informados' }); done = true; return res.end(); }
+      writeFrame(res, 'ingest-start', { count: files.length, files: files.map((f) => ({ name: f.filename, mime: f.mime, size: f.bytes ? f.bytes.length : 0 })) });
+      const ingested = await ingest(files.map((f) => ({ filename: f.filename, mime: f.mime, bytes: f.bytes })));
+      const parts = [];
+      if (userPrompt) parts.push(userPrompt);
+      parts.push('Construa o portal a partir do CONTEÚDO dos arquivos enviados (use estrutura, textos e dados como base do site):');
+      for (const tp of ingested.textParts) parts.push(`### ${tp.name}${tp.truncated ? ' (truncado)' : ''}\n${tp.text}`);
+      if (ingested.notes.length) parts.push(`Notas de ingestão: ${ingested.notes.join(' ')}`);
+      prompt = parts.join('\n\n').slice(0, 60000);
+      blocks = ingested.blocks;
+      const imageCount = ingested.blocks.filter((x) => x.type === 'image').length;
+      ctx.ingest = { manifest: ingested.manifest, notes: ingested.notes, images: imageCount };
+      writeFrame(res, 'ingest-done', { textParts: ingested.textParts.length, images: imageCount, blocks: ingested.blocks.length, notes: ingested.notes });
+    }
+
+    // 2) request de geração (rastreabilidade) — já em 'generating'.
+    const insert = await query(
+      `INSERT INTO cms_generation_requests (project_id, kind, prompt, template, context, status, created_by)
+       VALUES ($1, 'portal', $2, $3, $4::jsonb, 'generating'::cms_generation_status, $5) RETURNING id`,
+      [req.params.projectId, prompt, b.template || null, JSON.stringify(ctx), req.auth?.email || null],
+    );
+    genId = insert.rows[0].id;
+
+    // 3) IA — emite ai-start/ai-done/validate via onProgress; cancelável pelo signal.
+    let draft;
+    try {
+      draft = await generatePortalDraft({
+        prompt, siteName, template: b.template || null, context: b.context || {}, blocks,
+        signal: ctrl.signal,
+        onProgress: (event, data) => writeFrame(res, event, data),
+      });
+    } catch (e) {
+      markFailed(e.message || e);
+      writeFrame(res, 'error', { stage: 'ai', code: 'AI_FAILED', message: String(e.message || e).slice(0, 300) });
+      done = true; return res.end();
+    }
+
+    // 4) persistência + publicação (admin → published; member → draft).
+    const publish = req.auth?.isAdmin ? 'published' : 'draft';
+    const created = await persistGeneratedDraft({ projectId: req.params.projectId, genId, draft, publish });
+    writeFrame(res, 'persist', { created, published: publish === 'published' });
+    writeFrame(res, 'done', { generationId: genId, key, url: key ? `/sites/${key}` : null, published: publish === 'published', created });
+    done = true;
+    res.end();
+  } catch (e) {
+    markFailed(e.message || e);
+    writeFrame(res, 'error', { stage: 'server', code: 'SERVER', message: String(e.message || e).slice(0, 300) });
+    done = true;
+    try { res.end(); } catch { /* já fechado */ }
+  } finally {
+    clearInterval(keepAlive);
+  }
 }));
 
 // ---------------------------------------------------------------------------

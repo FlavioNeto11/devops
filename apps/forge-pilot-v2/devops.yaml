@@ -1,0 +1,100 @@
+# =============================================================================
+# forge-pilot-v2 — FIXTURE do contrato devops.yaml v2 (Forja 4.0 fase B1).
+# NÃO é um app real: sem código, sem imagem, sem Application do Argo, sem deploy.
+# Valida o pipeline schema -> specs/tools/devops-compile.mjs -> k8s/ commitado.
+# Ver README.md ao lado e docs/new-project-contract.md (seção "Contrato v2").
+# =============================================================================
+version: 2
+
+app:
+  name: forge-pilot-v2
+  namespace: apps
+  host: nvit.localhost
+  basePath: /forge-pilot-v2
+  appType: product_software
+
+# Multi-ambiente (Forja 4.0 fase B2 — OPT-IN e EFÊMERO por produto):
+#   * "local" documenta o destino DEFAULT (produção): compile SEM --env
+#     (Host nvit.localhost + dev.nvit.com.br, mesmo comportamento do v1).
+#   * "dev" é o env efêmero de laboratório: compile com --env dev ->
+#     apps/forge-pilot-v2/k8s-dev/ (namespace apps-dev, host NOVO
+#     dev-lab.nvit.localhost — dev.nvit.com.br é produção e NUNCA é
+#     reatribuído). Ciclo criar -> usar -> destruir: docs/multi-env.md.
+environments:
+  local:
+    namespace: apps
+    hosts: [nvit.localhost, dev.nvit.com.br]
+  dev:
+    namespace: apps-dev
+    hosts: [dev-lab.nvit.localhost]
+
+services:
+  frontend:
+    type: frontend
+    path: /
+    image: forge-pilot-v2-frontend
+    port: 80
+    expose: true
+    stripPrefix: false          # HARD: frontend NUNCA faz strip
+    priority: 10
+    env:
+      VITE_BASE_PATH: /forge-pilot-v2/
+    health:
+      path: /
+
+  api:
+    type: api
+    path: /api                  # prefixo efetivo: /forge-pilot-v2/api
+    image: forge-pilot-v2-api
+    port: 8080
+    expose: true
+    stripPrefix: true           # HARD: api SEMPRE faz strip do prefixo COMPLETO
+    priority: 30
+    envFrom:                    # v2: Secrets referenciados (criados fora do git)
+      - forge-pilot-v2-db
+      - forge-pilot-v2-config
+    env:
+      AUTO_MIGRATE: "true"      # migration no boot (sem Job — padrão da plataforma)
+      REDIS_URL: redis://forge-pilot-v2-redis:6379
+    health:
+      path: /health
+
+  worker:
+    type: worker
+    image: forge-pilot-v2-api   # reusa a imagem da api
+    port: 8081
+    expose: false
+    command: ["npm", "run", "worker"]
+    envFrom:
+      - forge-pilot-v2-db
+    env:
+      AUTO_MIGRATE: "false"
+      REDIS_URL: redis://forge-pilot-v2-redis:6379
+    health:
+      path: /health
+
+# v2: dependências TIPADAS — provisionamento real pelo app-template
+# (PVC + Deployment Recreate + Service + probes + resources default por engine).
+dependencies:
+  postgres:
+    engine: postgres
+    flavor: pgvector            # imagem pgvector/pgvector:pg16
+    version: "16"
+    storage: 2Gi
+    database: forge_pilot_v2
+    secretName: forge-pilot-v2-db   # criado imperativamente (forge-deploy) — NUNCA em git
+  redis:
+    engine: redis
+    version: "7"
+    storage: 1Gi
+    resources:                  # override opcional dos defaults do chart
+      requests: { cpu: 25m, memory: 32Mi }
+      limits: { cpu: 250m, memory: 256Mi }
+
+# v2: postura de MLOps (declarativo — consumido pela esteira/telemetria).
+mlops:
+  langfuse: true
+  budget:
+    monthlyUsd: 25
+  evals:
+    goldenSet: evals/golden-set.jsonl

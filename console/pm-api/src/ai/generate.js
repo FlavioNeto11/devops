@@ -17,7 +17,7 @@ const OPENAI_URL = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1/cha
 const MODEL = process.env.CMS_AI_MODEL || 'gpt-5-nano';
 // Modelo p/ entrada com IMAGENS (gpt-5-nano não tem visão). Mesmo contrato gpt-5 (reasoning_effort).
 const VISION_MODEL = process.env.CMS_AI_VISION_MODEL || 'gpt-5';
-const TIMEOUT_MS = Number(process.env.CMS_AI_TIMEOUT_MS || 30_000);
+const TIMEOUT_MS = Number(process.env.CMS_AI_TIMEOUT_MS || 60_000);
 
 // Kinds que a IA pode emitir: os genéricos + hero (todos renderizáveis pelo
 // site-renderer em /sites/<chave>). Nada de kinds específicos de um portal.
@@ -59,12 +59,17 @@ Gere conteúdo honesto e genérico (sem inventar números, clientes ou certifica
 Máximo de 3 páginas e 8 seções por página.`;
 
 /** Chamada JSON única ao modelo (timeout curto; lança em qualquer falha). */
-async function callJSON(messages, modelOverride) {
+async function callJSON(messages, modelOverride, externalSignal) {
   const model = modelOverride || MODEL;
   // reasoning_effort só existe na família gpt-5/o-series; em gpt-4o etc. seria rejeitado.
   const isReasoning = /gpt-5|^o\d/.test(model);
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  // cancelamento externo (ex.: cliente fechou o stream SSE) também aborta a chamada à IA.
+  if (externalSignal) {
+    if (externalSignal.aborted) ctrl.abort();
+    else externalSignal.addEventListener('abort', () => ctrl.abort(), { once: true });
+  }
   try {
     const res = await fetch(OPENAI_URL, {
       method: 'POST',
@@ -100,7 +105,7 @@ async function callJSON(messages, modelOverride) {
  * Lança erro em qualquer falha (timeout/HTTP/JSON inválido) — quem chama marca
  * a request como failed e segue sem IA.
  */
-export async function generatePortalDraft({ prompt, siteName, template, context, blocks }) {
+export async function generatePortalDraft({ prompt, siteName, template, context, blocks, onProgress, signal }) {
   const userText = [
     `Nome do portal: ${siteName || '(sem nome)'}`,
     template ? `Template base escolhido: ${template}` : null,
@@ -112,7 +117,7 @@ export async function generatePortalDraft({ prompt, siteName, template, context,
   // como texto extraído no prompt (OpenAI não tem PDF nativo). Sem imagens → modelo de texto (barato).
   const images = (Array.isArray(blocks) ? blocks : []).filter((b) => b && b.type === 'image');
   let userContent = userText;
-  let model;
+  let model = MODEL;
   if (images.length && supportsVision(VISION_MODEL)) {
     model = VISION_MODEL;
     userContent = [
@@ -121,11 +126,64 @@ export async function generatePortalDraft({ prompt, siteName, template, context,
     ];
   }
 
+  // emite as ETAPAS ao consumidor (SSE) — onProgress é opcional (rotas síncronas não passam).
+  onProgress?.('ai-start', { model, multimodal: model === VISION_MODEL, images: images.length });
+  const t0 = Date.now();
   const parsed = await callJSON([
     { role: 'system', content: SYSTEM_PROMPT },
     { role: 'user', content: userContent },
-  ], model);
-  return sanitizeDraft(parsed);
+  ], model, signal);
+  onProgress?.('ai-done', { elapsedMs: Date.now() - t0, model });
+
+  const draft = sanitizeDraft(parsed);
+  const aiHadHero = homeHasHero(draft);     // o que a IA realmente entregou (antes do reforço)
+  ensureMinimumHome(draft, siteName);       // garante home com hero + >=2 seções (estrutura mínima)
+  const report = draftReport(parsed, draft);
+  report.homeHasHero = aiHadHero;
+  report.reinforced = !aiHadHero;           // tivemos que sintetizar o hero/estrutura
+  onProgress?.('validate', report);
+  return draft;
+}
+
+/** A home (ou 1ª página) já tem um hero? (estrutura mínima de um portal). */
+function homeHasHero(draft) {
+  const h = (draft.pages || []).find((p) => p.slug === 'home') || (draft.pages || [])[0];
+  return !!(h && h.sections.some((s) => s.kind === 'hero'));
+}
+
+/** Reforço de estrutura: garante home com um hero e ao menos 2 seções (o "valide toda a estrutura").
+ *  Se a IA não entregou hero, sintetiza um a partir da identidade/nome — portal nunca nasce sem cara. */
+export function ensureMinimumHome(draft, siteName) {
+  if (!Array.isArray(draft.pages)) draft.pages = [];
+  // Mesma heurística do homeHasHero: a inicial é a 'home' OU a primeira página — assim não criamos
+  // uma 'home' redundante quando a IA nomeou a inicial com outro slug (ex.: 'inicio').
+  let home = draft.pages.find((p) => p.slug === 'home') || draft.pages[0];
+  if (!home) { home = { slug: 'home', title: 'Home', sections: [] }; draft.pages.unshift(home); }
+  if (!Array.isArray(home.sections)) home.sections = [];
+  if (!home.sections.some((s) => s.kind === 'hero')) {
+    const name = (draft.site && draft.site.name) || siteName || 'Bem-vindo';
+    const intro = (draft.site && (draft.site.tagline || draft.site.description)) || 'Edite este conteúdo no editor visual.';
+    home.sections.unshift({ kind: 'hero', data: { title: String(name).slice(0, 120), intro: String(intro).slice(0, 300) } });
+  }
+  if (home.sections.length < 2) {
+    home.sections.push({ kind: 'cta', data: { title: 'Fale com a gente', text: '', buttons: [{ label: 'Entrar em contato', kind: 'proposal', href: '' }] } });
+  }
+  return draft;
+}
+
+/** Relatório de validação: o que a IA produziu vs o que sobreviveu à sanitização (visível ao usuário). */
+export function draftReport(parsed, draft) {
+  const rawPages = Array.isArray(parsed?.pages) ? parsed.pages : [];
+  const rawKinds = rawPages.flatMap((p) => (Array.isArray(p?.sections) ? p.sections : []).map((s) => s && s.kind).filter(Boolean));
+  const keptKinds = new Set(draft.pages.flatMap((p) => p.sections.map((s) => s.kind)));
+  const sectionsKept = draft.pages.reduce((n, p) => n + p.sections.length, 0);
+  return {
+    pagesKept: draft.pages.length,
+    sectionsKept,
+    sectionsDropped: Math.max(0, rawKinds.length - sectionsKept),
+    droppedKinds: [...new Set(rawKinds.filter((k) => !keptKinds.has(k)))],
+    paletteValid: !!(draft.palette && (draft.palette.primary || draft.palette.accent)),
+  };
 }
 
 // ---------------------------------------------------------------------------
