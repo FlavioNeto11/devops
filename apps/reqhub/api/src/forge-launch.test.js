@@ -43,6 +43,35 @@ test('validate: skipPreviewGate (gate de preview) default false; só true se exp
   assert.equal(validateLaunchInput({ product: 'meuapp', mode: 'pr', requirements: [{ title: 'x' }], skipPreviewGate: 'yes' }).value.skipPreviewGate, false);
 });
 
+test('validate: creation_mode (C2) opcional — enum simples|guiado|profissional; fora disso vira ausente', () => {
+  const base = { product: 'meuapp', mode: 'pr', requirements: [{ title: 'x' }] };
+  for (const m of ['simples', 'guiado', 'profissional']) {
+    assert.equal(validateLaunchInput({ ...base, creation_mode: m }).value.creation_mode, m);
+  }
+  // ausente/inválido -> '' (retrocompat: clientes antigos não mandam o campo)
+  assert.equal(validateLaunchInput(base).value.creation_mode, '');
+  assert.equal(validateLaunchInput({ ...base, creation_mode: 'hacker' }).value.creation_mode, '');
+  assert.equal(validateLaunchInput({ ...base, creation_mode: 42 }).value.creation_mode, '');
+});
+
+test('GATE C2: client_payload IDÊNTICO nos 3 modos, exceto creation_mode (informativo)', () => {
+  const base = {
+    product: 'meuapp', mode: 'release', displayName: 'Meu App', blueprint: 'node-api-vue-spa', brief: 'um app',
+    requirements: [{ id: 'REQ-MEUAPP-0001', title: 'a', statement: 'O sistema DEVE a.' }],
+    architecture: { stack: 'sicat', selected_blocks: [{ id: 'oidc-sessao' }], waves: [{ id: 'w0', work_orders: ['REQ-MEUAPP-0001'] }] },
+  };
+  const payloads = ['simples', 'guiado', 'profissional'].map((m) =>
+    buildClientPayload(validateLaunchInput({ ...base, creation_mode: m }).value, 'op@x').payload);
+  payloads.forEach((p, i) => assert.equal(p.creation_mode, ['simples', 'guiado', 'profissional'][i]));
+  const strip = (p) => { const { creation_mode, ...rest } = p; return rest; };
+  assert.deepEqual(strip(payloads[0]), strip(payloads[1]));
+  assert.deepEqual(strip(payloads[1]), strip(payloads[2]));
+  // sem creation_mode o payload NÃO ganha a chave — byte-idêntico ao pré-C2 (retrocompat)
+  const legacy = buildClientPayload(validateLaunchInput(base).value, 'op@x').payload;
+  assert.ok(!('creation_mode' in legacy));
+  assert.deepEqual(legacy, strip(payloads[0]));
+});
+
 test('buildClientPayload: ok + cap', () => {
   const v = validateLaunchInput({ product: 'meuapp', mode: 'pr', displayName: 'P', requirements: [{ id: 'REQ-P-0001', title: 'a', statement: 'b' }] }).value;
   const r = buildClientPayload(v, 'admin@x');

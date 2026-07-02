@@ -7,6 +7,8 @@ import {
   typeLabel, asList, dagFromWaves, businessProductScopes, NON_PRODUCT_SCOPES,
   weightedProgress, wavesFromProgress, STAGE_WEIGHT,
   studioPhaseModel, STUDIO_PHASE_KEYS,
+  FORGE_MODES, FORGE_MODE_LABELS, normalizeForgeMode, modeCopy,
+  projectRequirementCard, forgeReqObject, buildLaunchBody,
 } from './assets/forge-lib.js';
 
 const implStatus = {
@@ -295,5 +297,118 @@ test('studioPhaseModel: sonda liveUrlOk=false rebaixa publicado mesmo com pipeli
   const pub = steps.find((s) => s.key === 'publicado');
   assert.notEqual(pub.status, 'done');
   assert.match(pub.detail, /fora do ar/);
+});
+
+// ---------- (C2) MODOS DE USUÁRIO: projeções puras sobre a MESMA engine ----------
+test('normalizeForgeMode: default guiado + migração dos nomes antigos do wizard', () => {
+  assert.deepEqual(FORGE_MODES, ['simples', 'guiado', 'profissional']);
+  for (const m of FORGE_MODES) assert.equal(normalizeForgeMode(m), m);
+  assert.equal(normalizeForgeMode(null), 'guiado');
+  assert.equal(normalizeForgeMode(''), 'guiado');
+  assert.equal(normalizeForgeMode('xpto'), 'guiado');
+  assert.equal(normalizeForgeMode('guided'), 'guiado');        // pré-C2
+  assert.equal(normalizeForgeMode('advanced'), 'profissional'); // pré-C2
+  for (const m of FORGE_MODES) assert.ok(FORGE_MODE_LABELS[m], 'label de ' + m);
+});
+
+test('modeCopy: texto por modo, fallback no guiado, chave desconhecida vazia', () => {
+  for (const m of FORGE_MODES) assert.ok(modeCopy(m, 'selector.sub').length > 0, 'selector.sub de ' + m);
+  // modos diferentes têm condução diferente onde faz sentido
+  assert.notEqual(modeCopy('simples', 'idea.brief'), modeCopy('profissional', 'idea.brief'));
+  assert.notEqual(modeCopy('guiado', 'idea.q'), modeCopy('profissional', 'idea.q'));
+  // modo inválido cai no guiado (default)
+  assert.equal(modeCopy('xpto', 'idea.q'), modeCopy('guiado', 'idea.q'));
+  // chave desconhecida nunca explode
+  assert.equal(modeCopy('simples', 'nao.existe'), '');
+});
+
+// O MESMO requisito de exemplo usado nos 3 modos (gate de preservação de dados).
+const C2_REQ = Object.freeze({
+  id: 'REQ-LOJA-0002',
+  req: Object.freeze({
+    title: 'Login e controle de acesso',
+    type: 'functional',
+    statement: 'O sistema DEVE permitir login com perfis de acesso por papel.',
+    acceptance_criteria: Object.freeze(['usuário sem papel não acessa', 'admin gerencia papéis']),
+    priority: 'high',
+    capability_blocks: Object.freeze(['oidc-sessao', 'rbac-multitenant']),
+  }),
+});
+
+test('GATE C2: projectRequirementCard preserva os DADOS nos 3 modos (id/title/statement intactos)', () => {
+  const original = { id: C2_REQ.id, title: C2_REQ.req.title, statement: C2_REQ.req.statement };
+  for (const m of FORGE_MODES) {
+    const card = projectRequirementCard(C2_REQ, m); // entrada congelada: projeção não muta (senão lança)
+    assert.deepEqual(card.source, original, 'source intacto no modo ' + m);
+    assert.equal(card.id, C2_REQ.id, 'id presente no modo ' + m);
+    assert.ok(card.title.length > 0 && card.lines.length > 0, 'apresentação não-vazia no modo ' + m);
+  }
+  // e os DADOS por baixo são OS MESMOS entre os modos (só a apresentação muda)
+  const sources = FORGE_MODES.map((m) => projectRequirementCard(C2_REQ, m).source);
+  assert.deepEqual(sources[0], sources[1]);
+  assert.deepEqual(sources[1], sources[2]);
+});
+
+test('projeção SIMPLES: linguagem natural, sem YAML/ids técnicos; tech nunca exposto', () => {
+  const card = projectRequirementCard(C2_REQ, 'simples');
+  assert.equal(card.title, 'Seu sistema terá login e controle de acesso'); // exemplo canônico do escopo
+  assert.equal(card.lines[0], 'Ele vai permitir login com perfis de acesso por papel.');
+  assert.equal(card.tech, null);
+  const shown = card.title + ' ' + card.lines.join(' ');
+  assert.ok(!/REQ-/.test(shown), 'sem REQ-id no simples');
+  assert.ok(!/functional|oidc|rbac|yaml/i.test(shown), 'sem jargão técnico no simples');
+  // sigla no início do título não é decapitalizada
+  assert.match(projectRequirementCard({ id: 'X', req: { title: 'IA assistiva', statement: 'O sistema DEVE sugerir.' } }, 'simples').title, /terá IA assistiva$/);
+  // statement fora da forma canônica passa como está (nunca inventa)
+  assert.equal(projectRequirementCard({ id: 'X', req: { title: 'T', statement: 'Avisar por e-mail.' } }, 'simples').lines[0], 'Avisar por e-mail.');
+});
+
+test('projeção GUIADO: title+statement+aceite resumido; tech p/ o disclosure', () => {
+  const card = projectRequirementCard(C2_REQ, 'guiado');
+  assert.equal(card.title, C2_REQ.req.title);
+  assert.equal(card.lines[0], C2_REQ.req.statement);
+  assert.match(card.lines[1], /^Aceite: usuário sem papel não acessa \(\+1\)$/);
+  assert.equal(card.tech.typeLabel, 'Funcional');
+  assert.deepEqual(card.tech.blocks, ['oidc-sessao', 'rbac-multitenant']);
+  assert.deepEqual(card.tech.acceptance, ['usuário sem papel não acessa', 'admin gerencia papéis']);
+});
+
+test('projeção PROFISSIONAL: tudo aberto (statement + todos os critérios + tech)', () => {
+  const card = projectRequirementCard(C2_REQ, 'profissional');
+  assert.equal(card.title, C2_REQ.req.title);
+  assert.equal(card.lines.length, 3); // statement + 2 critérios
+  assert.match(card.lines[1], /^✓ /);
+  assert.equal(card.tech.priority, 'high');
+});
+
+test('GATE C2: payload de launch IDÊNTICO nos 3 modos, exceto creation_mode', () => {
+  const proposed = [
+    { id: 'REQ-LOJA-0001', req: { title: 'Fundação', statement: 'O sistema DEVE subir com /health.', acceptance_criteria: ['/health 200'] } },
+    { id: 'REQ-LOJA-0002', req: C2_REQ.req },
+  ];
+  const mk = (creationMode) => buildLaunchBody({
+    product: 'loja', displayName: 'Loja', blueprint: 'node-api-vue-spa', brief: 'uma loja', mode: 'release',
+    requirements: proposed.map(({ id, req }) => forgeReqObject(id, 'loja', 'node-api-vue-spa', req)),
+    architecture: { stack: 'sicat', selected_blocks: [{ id: 'oidc-sessao' }], adrs: [], waves: [{ id: 'w0', work_orders: ['REQ-LOJA-0001'] }] },
+    creationMode,
+  });
+  const bodies = FORGE_MODES.map(mk);
+  bodies.forEach((b, i) => assert.equal(b.creation_mode, FORGE_MODES[i]));
+  const strip = (b) => { const { creation_mode, ...rest } = b; return rest; };
+  assert.deepEqual(strip(bodies[0]), strip(bodies[1]), 'simples ≡ guiado (exceto creation_mode)');
+  assert.deepEqual(strip(bodies[1]), strip(bodies[2]), 'guiado ≡ profissional (exceto creation_mode)');
+  // sem creationMode (cliente antigo) o campo NEM EXISTE (retrocompat byte a byte)
+  assert.ok(!('creation_mode' in mk(undefined)));
+  // modo legado normalizado também no payload
+  assert.equal(mk('advanced').creation_mode, 'profissional');
+});
+
+test('forgeReqObject: YAML canônico (mesmo objeto que ia pro export do studio)', () => {
+  const o = forgeReqObject('REQ-X-0001', 'x', 'bp', { title: 'T', statement: 'S', acceptance_criteria: 'um só' });
+  assert.equal(o.id, 'REQ-X-0001');
+  assert.equal(o.status, 'proposed');
+  assert.equal(o.scope.product_scope, 'x');
+  assert.deepEqual(o.acceptance_criteria, ['um só']);
+  assert.deepEqual(o.verification_method, ['test']);
 });
 

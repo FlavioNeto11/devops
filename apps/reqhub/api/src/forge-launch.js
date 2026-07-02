@@ -18,6 +18,10 @@ const PROTECTED = new Set([
 
 const str = (v, max = 200) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
+// (C2) Modos de USO da UI da Forja. INFORMATIVO: vai ao client_payload (e daí ao corpo do PR)
+// como rastreabilidade de UX — NUNCA muda os artefatos (o writer escreve os requisitos verbatim).
+const CREATION_MODES = new Set(['simples', 'guiado', 'profissional']);
+
 /** Valida o corpo do POST /v1/forge/launch. -> { ok, value } | { ok:false, code, message }. */
 export function validateLaunchInput(body) {
   const b = body || {};
@@ -43,6 +47,8 @@ export function validateLaunchInput(body) {
       architecture,
       // opt-out do gate de preview (F3): só p/ fluxos legados que não usam preview. Default: gate ativo.
       skipPreviewGate: b.skipPreviewGate === true,
+      // (C2) modo de uso da UI — opcional; valor fora do enum vira '' (ausente). Retrocompat total.
+      creation_mode: CREATION_MODES.has(b.creation_mode) ? b.creation_mode : '',
     },
   };
 }
@@ -59,6 +65,8 @@ export function buildClientPayload(value, identity) {
     mode: value.mode,
     requirements: value.requirements,
     architecture: value.architecture,
+    // (C2) informativo (rastreabilidade de UX no PR); ausente em clientes antigos -> payload idêntico ao pré-C2.
+    ...(value.creation_mode ? { creation_mode: value.creation_mode } : {}),
   };
   const bytes = Buffer.byteLength(JSON.stringify(payload), 'utf8');
   if (bytes > MAX_PAYLOAD_BYTES) {
