@@ -1,10 +1,83 @@
 {
   "blueprints": [
     {
+      "id": "app-simples",
+      "version": "1.0.0",
+      "name": "App simples (SPA Vue + API Node, sem worker/fila)",
+      "summary": "Preset t2: aplicação de negócio ENXUTA — SPA Vue 3 + API Node/Express (TypeScript) + Postgres, SEM worker nem fila. Para sistemas de cadastro/consulta/relatório que não precisam de processamento assíncrono: nasce com contas & acesso (auth própria + SSO aditivo), migrations versionadas e observabilidade, e entra no golden path da plataforma (Traefik path-routing, GHCR/:local, Argo). Quando o domínio exigir fila/worker, gateway externo pesado ou multi-tenant rico, suba para um preset t3 (node-api-vue-spa ou gymops-style).",
+      "tier": "t2",
+      "profile": {
+        "upgrade_path": "node-api-vue-spa (t3) quando precisar de worker/fila"
+      },
+      "stack": {
+        "web": "Vue 3 + Vite (nginx)",
+        "api": "Node 20 + Express (TypeScript via tsx)",
+        "db": "PostgreSQL 16"
+      },
+      "services": [
+        "frontend",
+        "api"
+      ],
+      "db": "postgres",
+      "reuses": [
+        "packages/oidc-kit",
+        "packages/design-tokens",
+        "infra-postgres",
+        "infra-traefik",
+        "infra-argocd"
+      ],
+      "base_stack": "sicat",
+      "default_blocks": [
+        "contas-acesso",
+        "migrations-versionadas",
+        "observabilidade"
+      ],
+      "compatible_blocks": [
+        "camadas-rigidas",
+        "contract-openapi",
+        "control-ai-por-app",
+        "design-system",
+        "gateway-externo",
+        "ia-grafo",
+        "idempotencia",
+        "oidc-sessao",
+        "rag-pgvector",
+        "structured-outputs"
+      ]
+    },
+    {
+      "id": "cms-portal",
+      "version": "1.0.0",
+      "name": "Portal de conteúdo (CMS da plataforma, sem código)",
+      "summary": "Preset t1: portal/site de conteúdo SEM scaffold de código — o EXECUTOR é o CMS da plataforma. Páginas e seções (19 kinds: hero, rich-text, card-grid, timeline, lead-form, ...) vivem no pm-api do Console (console/pm-api/src/routes/cms.js) e o preview/entrega publicada é o site-renderer em /sites/<chave> (console/site-renderer). Existem DOIS modelos de portal na plataforma: (1) portal do CMS servido pelo site-renderer em /sites/<chave> — este blueprint, zero código no repo do produto; (2) SPA estática PRÓPRIA estilo rmambiental (apps/rmambiental: Vite/React + nginx servida em /<app>) — quando o portal precisa de código próprio, use um blueprint com código (t2+), não este. Produto deste blueprint não recebe blocos de capacidade (bloco é código) nem DEFAULT_BLOCKS — observabilidade/contas do conteúdo são do próprio CMS/Console.",
+      "tier": "t1",
+      "profile": {
+        "executor": "console/pm-api (CMS) + console/site-renderer (entrega)",
+        "delivery_path": "/sites/<chave>",
+        "alternative_model": "SPA estática própria (rmambiental-style) — exige blueprint t2+ com código"
+      },
+      "stack": {
+        "content": "CMS do Console (pm-api, seções por kind validadas server-side)",
+        "delivery": "site-renderer (React, /sites/<chave>, árvore publicada)"
+      },
+      "services": [],
+      "db": null,
+      "reuses": [
+        "console/pm-api",
+        "console/site-renderer",
+        "infra-traefik"
+      ],
+      "base_stack": "none",
+      "default_blocks": [],
+      "compatible_blocks": []
+    },
+    {
       "id": "gymops-style",
       "version": "1.0.0",
       "name": "Monorepo Next.js + Fastify + Prisma (produto multi-tenant com IA)",
       "summary": "Stack-ouro para um sistema operacional multiunidade rico: monorepo pnpm com web Next.js 14 (App Router) + API Fastify 4 (TypeScript) + Prisma (schema-first) sobre Postgres 16 com pgvector + Redis/BullMQ para filas. Espelha a anatomia do GymOps (RBAC multi-tenant Org→Unit→Area, IA assistiva estruturada, notificações multicanal) e entra no golden path da plataforma (Traefik path-routing, GHCR/:local, Argo).",
+      "tier": "t3",
+      "profile": null,
       "stack": {
         "web": "Next.js 14 App Router + React 18 + Tailwind (pnpm)",
         "api": "Fastify 4 + TypeScript (Zod)",
@@ -45,7 +118,8 @@
         "idempotencia",
         "design-system",
         "pagamentos-gateway",
-        "control-ai-por-app"
+        "control-ai-por-app",
+        "mobile-pwa"
       ]
     },
     {
@@ -53,6 +127,8 @@
       "version": "1.0.0",
       "name": "API Node + SPA Vue (produto CRUD com Postgres)",
       "summary": "Stack-ouro para um produto de negócio CRUD completo: SPA Vue 3 + API Node/Express + worker de fila transacional + Postgres. Espelha a anatomia do SICAT (frontend Vue, backend Express com camadas route→service→repository, worker, migrations SQL, seed) e entra no golden path da plataforma (Traefik path-routing, GHCR/:local, Argo).",
+      "tier": "t3",
+      "profile": null,
       "stack": {
         "web": "Vue 3 + Vite (nginx)",
         "api": "Node 20 + Express (TypeScript via tsx)",

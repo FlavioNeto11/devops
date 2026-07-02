@@ -510,6 +510,9 @@ const apiEnvPairs = [];
 if (F.gateway) apiEnvPairs.push('EXTERNAL_BASE_URL: http://@@APP@@-mock-central:8090');
 if (F.redis) apiEnvPairs.push('REDIS_URL: redis://@@APP@@-redis:6379');
 apiEnvPairs.push('METRICS_PORT: "9464"', 'AUTO_MIGRATE: "true"', 'AUTO_SEED: "true"');
+// Langfuse always-on (Forja 4.0 B4): tracing de IA ligado por default; fail-soft — só ativa de
+// fato quando LANGFUSE_PUBLIC_KEY/SECRET_KEY existirem no Secret @@APP@@-ai (passo do operador).
+apiEnvPairs.push('LANGFUSE_ENABLED: "true"', 'LANGFUSE_BASE_URL: http://langfuse.observability.svc.cluster.local:3000');
 const apiEnvFrom = ['@@APP@@-db', '{ name: @@APP@@-ai, optional: true }'];
 if (F.contas) apiEnvFrom.push('{ name: @@APP@@-auth, optional: true }');
 const workerEnvPairs = [];

@@ -11,7 +11,9 @@ import {
   productSummaries, findProduct, blueprintById, studioPhaseModel, buildDag, dagFromWaves, wavesFromProgress,
   weightedProgress, launchPhases, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint,
   typeLabel, asList, planSummary,
-} from './forge-lib.js?v=54';
+  FORGE_MODES, FORGE_MODE_KEY, FORGE_MODE_LABELS, normalizeForgeMode, modeCopy,
+  projectRequirementCard, forgeReqObject, buildLaunchBody,
+} from './forge-lib.js?v=55';
 
 // Navegação do app.js via registry (late-binding) — mesmos nomes do código extraído.
 const switchView = (...a) => nav.switchView(...a);
@@ -47,6 +49,44 @@ function openForgeProduct(name) {
 function openForgeNew() { state.forge.product = null; state.forge.newMode = true; state.forge.newKind = null; switchView('forge'); }
 function backToHub() { state.forge.product = null; state.forge.newMode = false; state.forge.newKind = null; renderForge(); }
 function forgeStep(step) { state.forge.step = step; renderForge(); }
+
+/* ─── (C2) MODOS DE USUÁRIO: estado do FRONTEND (localStorage), projeções em forge-lib ───
+   O modo NUNCA muda os artefatos gerados (requisitos/arquitetura/launch são idênticos) —
+   só o disclosure/condução. Seletor discreto na entrada do Studio (hub e wizard). */
+function forgeMode() {
+  try { return normalizeForgeMode(localStorage.getItem(FORGE_MODE_KEY)); } catch { return 'guiado'; }
+}
+function setForgeMode(m) {
+  try { localStorage.setItem(FORGE_MODE_KEY, normalizeForgeMode(m)); } catch { /* ignore */ }
+  renderForge();
+}
+function forgeModeSelector() {
+  const cur = forgeMode();
+  const group = h('div', { class: 'fw-modes forge-mode-sel', role: 'radiogroup', 'aria-label': 'Modo de uso da Forja' });
+  FORGE_MODES.forEach((m, i) => {
+    const on = m === cur;
+    const onkey = (ev) => {
+      let j = null;
+      if (ev.key === 'ArrowRight' || ev.key === 'ArrowDown') j = (i + 1) % FORGE_MODES.length;
+      else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowUp') j = (i - 1 + FORGE_MODES.length) % FORGE_MODES.length;
+      else if (ev.key === 'Home') j = 0; else if (ev.key === 'End') j = FORGE_MODES.length - 1;
+      if (j != null) {
+        ev.preventDefault();
+        setForgeMode(FORGE_MODES[j]);
+        const el = document.querySelector('#forge-body .forge-mode-sel [aria-checked="true"]');
+        if (el) el.focus();
+      }
+    };
+    group.append(h('button', {
+      class: 'fw-mode' + (on ? ' is-on' : ''), type: 'button', role: 'radio',
+      'aria-checked': on ? 'true' : 'false', tabindex: on ? '0' : '-1',
+      onclick: () => setForgeMode(m), onkeydown: onkey,
+    },
+    h('strong', { text: FORGE_MODE_LABELS[m] }),
+    h('span', { class: 'fw-mode-sub', text: modeCopy(m, 'selector.sub') })));
+  });
+  return group;
+}
 
 // barra de progresso em SVG (largura por ATRIBUTO, cor por classe no stylesheet — CSP-safe)
 function progressBar(pct) {
@@ -167,6 +207,8 @@ function renderForgeHub(body) {
     h('span', { class: 'forge-stat' }, h('b', { text: String(summ.totalDone) }), ' no ar'),
     h('span', { class: 'forge-stat' }, h('b', { text: summ.pct + '%' }), ' concluído')));
   body.append(head);
+  // (C2) seletor de modo de uso — projeção da MESMA engine (não muda o que é gerado)
+  body.append(forgeModeSelector());
 
   const all = productSummaries(DATA.products, DATA.implStatus);
   // Briefing proativo (ex-Visão geral, A1a): anomalias acionáveis na porta de entrada do Studio.
@@ -924,15 +966,17 @@ function forgeDagLegend() {
 }
 
 /* ---- Novo produto: brief → requisitos (IA, fail-closed) → YAML + caminho de PR ---- */
-// ─── WIZARD de criação (duas TRILHAS de UX) ──────────────────────────────────
-// 'guided' (leigo: linguagem comum, sem jargão) e 'advanced' (técnico: requisitos, blocos, YAML).
-// 4 etapas: Ideia → O que será criado → Plano → Revisar. A IA MOSTRA, passo a passo, as
-// capacidades (em linguagem comum), as telas/funções e a documentação. Nada é escrito sem revisão.
+// ─── WIZARD de criação — UM wizard, TRÊS PROJEÇÕES (C2) ─────────────────────
+// O modo global ('simples' | 'guiado' | 'profissional', localStorage) muda SÓ a apresentação:
+// simples = cartões em linguagem natural (✔ aceitar / ✎ ajustar, sem YAML/ids); guiado (default) =
+// cartões + "ver detalhe técnico" por cartão; profissional = tudo aberto + export YAML. Os
+// ARTEFATOS (requisitos/arquitetura/launch) são IDÊNTICOS nos 3 — projeções em forge-lib.js.
+// 5 etapas: Ideia → O que será criado → Plano → Preview → Revisar. Nada é escrito sem revisão.
 function forgeWizardState() {
   const blueprints = (DATA.blueprints && DATA.blueprints.blueprints) || [];
   // preview: estado da etapa "Preview" (telas ui-vue reais + dados fake), persistido no wizard.
   // status: 'idle'|'building'|'ready'|'error'; approved=true libera o launch (gate "Aprovar e construir").
-  if (!state.forge.wizard) state.forge.wizard = { stage: 1, mode: 'guided', name: '', brief: '', slug: '', blueprint: (blueprints[0] && blueprints[0].id) || '', proposed: [], arch: null, reqMeta: null, error: '', preview: null };
+  if (!state.forge.wizard) state.forge.wizard = { stage: 1, mode: forgeMode(), name: '', brief: '', slug: '', blueprint: (blueprints[0] && blueprints[0].id) || '', proposed: [], arch: null, reqMeta: null, error: '', preview: null };
   return state.forge.wizard;
 }
 // Estado inicial do preview (recriado a cada nova proposta de requisitos — ver fwApplyProposed).
@@ -1102,14 +1146,16 @@ function fwStartLaunchPolling(w, els) {
 function renderForgeWizard(body) {
   const w = forgeWizardState();
   if (w.launched) { renderForgeWizardLaunched(body, w); return; } // travado após "Criar/Liberar" — não re-disparar
+  // (C2) o MODO é global (localStorage) e projeta a MESMA engine — sincroniza o estado do wizard
+  // (migra os valores antigos guided/advanced de sessões pré-C2 via normalizeForgeMode).
+  w.mode = forgeMode();
   const blueprints = (DATA.blueprints && DATA.blueprints.blueprints) || [];
   const catalog = (DATA.capabilities && DATA.capabilities.capabilities) || [];
   body.append(forgeCrumbs([{ label: 'Produtos', onclick: () => { state.forge.wizard = null; backToHub(); } }, { label: 'Criar um sistema' }]));
 
-  const mk = (mode, label, sub) => h('button', { class: 'fw-mode' + (w.mode === mode ? ' is-on' : ''), type: 'button', 'aria-pressed': String(w.mode === mode), onclick: () => { w.mode = mode; fwRerender(); } }, h('strong', { text: label }), h('span', { class: 'fw-mode-sub', text: sub }));
   body.append(h('div', { class: 'fw-head' },
     h('div', { class: 'fw-head-t' }, h('h2', { text: 'Criar um sistema novo' }), h('p', { class: 'muted', text: 'Descreva sua ideia — a IA mostra, passo a passo, tudo que será criado. Você revisa e confirma; nada é escrito sem você.' })),
-    h('div', { class: 'fw-modes', role: 'group', 'aria-label': 'Trilha de uso' }, mk('guided', 'Guiado', 'simples, sem termos técnicos'), mk('advanced', 'Avançado', 'requisitos, blocos, YAML'))));
+    forgeModeSelector()));
 
   const stepper = h('ol', { class: 'fw-steps' });
   for (const s of FW_STEPS) {
@@ -1132,14 +1178,15 @@ function renderForgeWizard(body) {
 
 function fwStageIdea(host, w, { blueprints }) {
   const card = h('div', { class: 'fw-card' });
-  card.append(h('h3', { class: 'fw-q', tabindex: '-1', text: w.mode === 'guided' ? 'O que você quer criar?' : 'Defina o produto' }));
-  const name = h('input', { class: 'fw-input', type: 'text', value: w.name, placeholder: w.mode === 'guided' ? 'Ex.: Central de chamados' : 'slug (ex.: helpdesk)', 'aria-label': 'Nome do sistema' });
+  // (C2) textos de condução por modo — projeção pura (modeCopy), dados idênticos por baixo.
+  card.append(h('h3', { class: 'fw-q', tabindex: '-1', text: modeCopy(w.mode, 'idea.q') }));
+  const name = h('input', { class: 'fw-input', type: 'text', value: w.name, placeholder: modeCopy(w.mode, 'idea.namePh'), 'aria-label': 'Nome do sistema' });
   name.addEventListener('input', () => { w.name = name.value; });
-  card.append(h('label', { class: 'fw-fld' }, h('span', { class: 'fw-fld-l', text: w.mode === 'guided' ? 'Nome do sistema' : 'Slug do produto' }), name));
+  card.append(h('label', { class: 'fw-fld' }, h('span', { class: 'fw-fld-l', text: modeCopy(w.mode, 'idea.name') }), name));
   const brief = h('textarea', { class: 'fw-textarea', rows: '6', 'aria-label': 'Descrição', placeholder: 'Descreva como falaria com uma pessoa: o que o sistema faz, para quem, e o que é importante. Ex.: "abrir e acompanhar chamados, atribuir a técnicos, e avisar quando algo atrasa".' });
   brief.value = w.brief;
   brief.addEventListener('input', () => { w.brief = brief.value; });
-  card.append(h('label', { class: 'fw-fld' }, h('span', { class: 'fw-fld-l', text: 'Descreva sua ideia' }), brief));
+  card.append(h('label', { class: 'fw-fld' }, h('span', { class: 'fw-fld-l', text: modeCopy(w.mode, 'idea.brief') }), brief));
   // Anexos (opcional): documentos/planilhas/imagens que descrevem a ideia. A IA lê o conteúdo
   // (multimodal); o picker persiste no estado do wizard para sobreviver às re-renderizações da etapa 1.
   if (!w._filePicker) w._filePicker = filePicker({ label: 'Anexar arquivos sobre a ideia', buttonLabel: 'Anexar arquivos (opcional)' });
@@ -1147,7 +1194,8 @@ function fwStageIdea(host, w, { blueprints }) {
     h('span', { class: 'fw-fld-l', text: 'Anexos (opcional)' }),
     h('p', { class: 'fw-hint', text: 'Tem um documento, planilha ou imagem que descreve a ideia? Anexe — a IA vai considerar o conteúdo.' }),
     w._filePicker.el));
-  if (w.mode === 'guided') {
+  if (w.mode !== 'profissional') {
+    // simples/guiado: a IA infere blueprint/blocos — o usuário nunca escolhe stack nem vê YAML.
     const ex = [
       ['Central de chamados', 'Um sistema para abrir e acompanhar chamados de suporte, atribuir a técnicos e avisar quando algo atrasa.'],
       ['Controle de estoque', 'Controle de produtos e estoque, com alertas de baixa quantidade e relatórios.'],
@@ -1164,13 +1212,13 @@ function fwStageIdea(host, w, { blueprints }) {
     tok.addEventListener('change', () => AI.setToken(tok.value.trim()));
     card.append(h('label', { class: 'fw-fld' }, h('span', { class: 'fw-fld-l', text: 'Blueprint (stack base)' }), bpsel), h('details', { class: 'fw-adv' }, h('summary', { text: 'Token do operador' }), tok));
   }
-  const gen = h('button', { class: 'btn primary fw-cta', type: 'button', text: '✨ Ver o que a IA vai criar' });
+  const gen = h('button', { class: 'btn primary fw-cta', type: 'button', text: modeCopy(w.mode, 'idea.generate') });
   const status = h('p', { class: 'fw-status muted' });
   if (w.error) status.replaceChildren(h('span', { class: 'fw-err', text: w.error }));
   gen.addEventListener('click', () => fwGenerate(w, status, gen));
   card.append(h('div', { class: 'fw-actions' }, gen), status);
   host.append(card);
-  AI.health().then((r) => { if (!r.ok && !w.error) status.textContent = 'Obs.: a IA está indisponível agora — você ainda pode exportar requisitos no modo avançado.'; }).catch(() => {});
+  AI.health().then((r) => { if (!r.ok && !w.error) status.textContent = 'Obs.: a IA está indisponível agora — você ainda pode exportar requisitos no modo profissional.'; }).catch(() => {});
   card.querySelector('.fw-q').focus();
 }
 
@@ -1184,7 +1232,9 @@ async function fwGenerate(w, status, btn) {
   const blueprints = (DATA.blueprints && DATA.blueprints.blueprints) || [];
   // Se o usuário anexou arquivos, envia multipart (a IA lê o conteúdo); senão, mantém o JSON de sempre.
   const files = (w._filePicker && w._filePicker.hasFiles()) ? w._filePicker.files() : [];
-  const reqFields = { product: slug, blueprint: w.blueprint, brief: w.brief.trim(), capabilities: catalog, blueprints };
+  // (C2) tone: no modo simples a IA escreve title/statement em linguagem de negócio clara —
+  // MESMO schema de saída/validação; nos demais modos, o prompt técnico de sempre (retrocompat).
+  const reqFields = { product: slug, blueprint: w.blueprint, brief: w.brief.trim(), capabilities: catalog, blueprints, tone: w.mode === 'simples' ? 'simples' : 'tecnico' };
   try {
     const r = files.length
       ? await AI.postMultipart('/v1/forge/propose-requirements', { fields: reqFields, files })
@@ -1236,7 +1286,7 @@ async function fwAdjust(w, instruction, statusEl) {
   const augmented = (w.brief || '') + '\n\n--- AJUSTE PEDIDO PELO USUÁRIO ---\n' + instr
     + '\n\nRequisitos atuais (revise conforme o ajuste — mantenha os que ainda fazem sentido; edite/adicione/remova o que o ajuste pedir):\n' + current;
   try {
-    const r = await AI.post('/v1/forge/propose-requirements', { product: w.slug, blueprint: w.blueprint, brief: augmented, capabilities: catalog, blueprints });
+    const r = await AI.post('/v1/forge/propose-requirements', { product: w.slug, blueprint: w.blueprint, brief: augmented, capabilities: catalog, blueprints, tone: w.mode === 'simples' ? 'simples' : 'tecnico' });
     if (!r.ok) throw new Error((r.data && r.data.error && r.data.error.message) || ('IA ' + r.status));
     const reqs = (r.data && r.data.requirements) || [];
     if (!reqs.length) throw new Error('A IA não retornou requisitos.');
@@ -1260,31 +1310,113 @@ function fwAdjustBox(w) {
     h('div', { class: 'fw-adjust-row' }, adjInput, adjBtn), adjStatus);
 }
 
+/* ─── (C2) cartões de requisito por MODO — projeções PURAS (projectRequirementCard) ───
+   Os DADOS por baixo são os mesmos nos 3 modos; muda só o disclosure:
+   - simples: linguagem natural, sem YAML/ids; ✔ aceitar / ✎ ajustar (o ajuste edita o
+     statement por baixo — o texto do usuário VAI ao artefato).
+   - guiado: title + statement + aceite resumido + "ver detalhe técnico" (revela tipo/blocos/YAML).
+   - profissional: tudo aberto (id, todos os critérios, tipo, blocos). */
+function fwReqCard(w, p, i) {
+  const card = projectRequirementCard(p, w.mode);
+  const tx = h('div', { class: 'fw-screen-tx' }, h('strong', { text: card.title || ('Função ' + (i + 1)) }));
+  for (const line of card.lines) tx.append(h('p', { class: 'fw-screen-d', text: line }));
+  const el = h('div', { class: 'fw-screen' + (w.mode === 'simples' && p.accepted ? ' is-accepted' : '') },
+    w.mode === 'simples'
+      ? h('span', { class: 'fw-screen-n', 'aria-hidden': 'true', text: p.accepted ? '✔' : String(i + 1) })
+      : h('span', { class: 'fw-screen-n', 'aria-hidden': 'true', text: String(i + 1) }),
+    tx);
+  if (w.mode === 'simples') {
+    // ✔ aceitar (marca de revisão) + ✎ ajustar (texto simples → statement por baixo)
+    const ok = h('button', { class: 'btn fw-accept', type: 'button', 'aria-pressed': p.accepted ? 'true' : 'false', 'aria-label': (p.accepted ? 'Aceito: ' : 'Aceitar: ') + card.title, text: p.accepted ? '✔ Aceito' : '✔ Aceitar' });
+    ok.addEventListener('click', () => { p.accepted = !p.accepted; fwRerender(); });
+    const adj = h('button', { class: 'btn-link', type: 'button', text: '✎ Ajustar', 'aria-expanded': 'false' });
+    const ta = h('textarea', { class: 'fw-textarea', rows: '3', hidden: 'hidden', 'aria-label': 'Ajustar com suas palavras: ' + card.title });
+    const save = h('button', { class: 'btn primary', type: 'button', text: 'Salvar ajuste', hidden: 'hidden' });
+    adj.addEventListener('click', () => {
+      const open = ta.hidden;
+      if (open) ta.value = card.lines[0] || '';
+      ta.hidden = !open; save.hidden = !open;
+      adj.setAttribute('aria-expanded', String(open));
+      if (open) ta.focus();
+    });
+    save.addEventListener('click', () => {
+      const t = ta.value.trim();
+      if (!t) { ta.focus(); return; }
+      // a edição em linguagem simples vira o STATEMENT do requisito (o dado por baixo);
+      // requisito mudou → preview obsoleto (re-gerar e re-aprovar antes de construir).
+      p.req.statement = t;
+      p.accepted = false;
+      w.preview = fwInitPreview();
+      fwRerender();
+    });
+    tx.append(h('div', { class: 'fw-actions fw-card-actions' }, ok, adj), ta, save);
+    return el;
+  }
+  const tech = card.tech || {};
+  const techPanel = () => {
+    const dl = h('dl', { class: 'forge-bp-stack fw-reveal-dl' });
+    dl.append(dt('Enunciado'), dd(card.source.statement || '—'));
+    dl.append(dt('Tipo'), dd(badge(tech.typeLabel || 'Funcional', 'b-fn')));
+    dl.append(dt('Prioridade'), dd(tech.priority || 'medium'));
+    dl.append(dt('Blocos'), dd(tech.blocks && tech.blocks.length
+      ? h('span', {}, ...tech.blocks.map((b) => h('code', { class: 'fw-cap-id', text: b })))
+      : h('span', { class: 'muted', text: '—' })));
+    if (tech.acceptance && tech.acceptance.length) {
+      const ul = h('ul', { class: 'fw-reveal-ac' });
+      for (const c of tech.acceptance) ul.append(h('li', { text: c }));
+      dl.append(dt('Aceite'), dd(ul));
+    }
+    const panel = h('div', { class: 'fw-reveal' }, dl);
+    panel.append(codeBlock(toYaml(forgeReqObject(p.id, w.slug, w.blueprint, p.req)), 'yaml', 'YAML de ' + p.id));
+    return panel;
+  };
+  if (w.mode === 'profissional') {
+    // tudo aberto: id + tipo + blocos inline (a experiência completa)
+    tx.prepend(h('span', { class: 'rid fw-screen-rid', text: p.id }));
+    tx.append(h('div', { class: 'fw-screen-meta' }, badge(tech.typeLabel || 'Funcional', 'b-fn'),
+      ...(tech.blocks || []).map((b) => h('code', { class: 'fw-cap-id', text: b }))));
+    return el;
+  }
+  // guiado: disclosure progressivo por cartão (revela enunciado/tipo/blocos/YAML)
+  const panel = techPanel();
+  panel.hidden = true;
+  const btn = h('button', { class: 'btn-link fw-reveal-btn', type: 'button', text: 'ver detalhe técnico', 'aria-expanded': 'false' });
+  btn.addEventListener('click', () => {
+    const open = panel.hidden;
+    panel.hidden = !open;
+    btn.setAttribute('aria-expanded', String(open));
+    btn.textContent = open ? 'ocultar detalhe técnico' : 'ver detalhe técnico';
+  });
+  tx.append(h('div', { class: 'fw-actions fw-card-actions' }, btn), panel);
+  return el;
+}
+
 function fwStageWhat(host, w, { catalog }) {
   const sum = planSummary(w.proposed.map((p) => p.req), w.arch, catalog);
   const dn = w.name || w.slug;
-  host.append(h('h3', { class: 'fw-q', tabindex: '-1', text: 'Veja o que será criado' }),
-    h('p', { class: 'fw-lead' }, 'Entendi! Vou criar o ', h('strong', { text: dn }), ' — um sistema com ', h('strong', { text: String(sum.counts.capabilities) }), ' capacidades e ', h('strong', { text: String(sum.counts.screens) }), ' telas/funções.'));
+  host.append(h('h3', { class: 'fw-q', tabindex: '-1', text: modeCopy(w.mode, 'what.q') }),
+    w.mode === 'simples'
+      ? h('p', { class: 'fw-lead' }, 'Entendi! O ', h('strong', { text: dn }), ' vai ficar assim — revise cada cartão: aceite o que estiver certo ou ajuste com suas palavras.')
+      : h('p', { class: 'fw-lead' }, 'Entendi! Vou criar o ', h('strong', { text: dn }), ' — um sistema com ', h('strong', { text: String(sum.counts.capabilities) }), ' capacidades e ', h('strong', { text: String(sum.counts.screens) }), ' telas/funções.'));
   const caps = h('div', { class: 'fw-caps' });
-  for (const c of sum.capabilities) caps.append(h('div', { class: 'fw-cap' }, h('span', { class: 'fw-cap-ic', 'aria-hidden': 'true', text: c.icon }), h('div', { class: 'fw-cap-tx' }, h('strong', { class: 'fw-cap-t', text: c.title }), h('p', { class: 'fw-cap-d', text: c.desc }), w.mode === 'advanced' ? h('code', { class: 'fw-cap-id', text: c.id }) : null)));
+  for (const c of sum.capabilities) caps.append(h('div', { class: 'fw-cap' }, h('span', { class: 'fw-cap-ic', 'aria-hidden': 'true', text: c.icon }), h('div', { class: 'fw-cap-tx' }, h('strong', { class: 'fw-cap-t', text: c.title }), h('p', { class: 'fw-cap-d', text: c.desc }), w.mode === 'profissional' ? h('code', { class: 'fw-cap-id', text: c.id }) : null)));
   host.append(h('h4', { class: 'fw-sec', text: 'O que o sistema saberá fazer' }), caps);
   const screens = h('div', { class: 'fw-screens' });
-  w.proposed.forEach((p, i) => screens.append(h('div', { class: 'fw-screen' },
-    h('span', { class: 'fw-screen-n', 'aria-hidden': 'true', text: String(i + 1) }),
-    h('div', { class: 'fw-screen-tx' }, h('strong', { text: p.req.title || ('Tela ' + (i + 1)) }), h('p', { class: 'fw-screen-d', text: p.req.statement || '' }),
-      w.mode === 'advanced' ? h('div', { class: 'fw-screen-meta' }, badge(typeLabel(p.req.type), 'b-fn'), ...((p.req.capability_blocks || []).map((b) => h('code', { class: 'fw-cap-id', text: b })))) : null))));
-  host.append(h('h4', { class: 'fw-sec', text: w.mode === 'guided' ? 'Telas e funções que serão criadas' : 'Requisitos propostos (telas/funções)' }), screens);
+  w.proposed.forEach((p, i) => screens.append(fwReqCard(w, p, i)));
+  host.append(h('h4', { class: 'fw-sec', text: modeCopy(w.mode, 'what.screens') }), screens);
+  const hint = modeCopy(w.mode, 'what.hint');
+  if (hint) host.append(h('p', { class: 'fw-hint', text: hint }));
   host.append(fwAdjustBox(w)); // IA: ajustar capacidades/requisitos por instrução
   host.append(fwNav(1, 3, 'Ver o plano de construção'));
   host.querySelector('.fw-q').focus();
 }
 
 function fwStagePlan(host, w) {
-  host.append(h('h3', { class: 'fw-q', tabindex: '-1', text: 'Plano de construção' }));
+  host.append(h('h3', { class: 'fw-q', tabindex: '-1', text: modeCopy(w.mode, 'plan.q') }));
   if (!w.arch && w.archLoading) { host.append(h('p', { class: 'fw-lead' }, h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' Calculando a ordem de construção…')); host.append(fwNav(2, null, null)); host.querySelector('.fw-q').focus(); return; }
   const waves = (w.arch && Array.isArray(w.arch.waves) && w.arch.waves.length) ? w.arch.waves : null;
   const titleOf = (woId) => { const p = w.proposed.find((x) => x.id === woId || x.req.title === woId); return p ? (p.req.title || p.id) : woId; };
-  if (w.mode === 'guided') {
+  if (w.mode !== 'profissional') {
     host.append(h('p', { class: 'fw-lead', text: waves ? `Será construído em ${waves.length} etapas, na ordem certa (uma parte depende da outra):` : 'Será construído na ordem abaixo:' }));
     const tl = h('ol', { class: 'fw-timeline' });
     if (waves) {
@@ -1568,7 +1700,7 @@ function fwPreviewGate(w) {
 
 function fwStageReview(host, w, { catalog }) {
   const sum = planSummary(w.proposed.map((p) => p.req), w.arch, catalog);
-  host.append(h('h3', { class: 'fw-q', tabindex: '-1', text: 'Revisar e criar' }));
+  host.append(h('h3', { class: 'fw-q', tabindex: '-1', text: modeCopy(w.mode, 'review.q') }));
   const approved = fwPreviewApproved(w);
   // Gate: enquanto o preview não estiver aprovado, o launch fica bloqueado com um aviso claro
   // que leva de volta à etapa Preview. (Aditivo: só afeta o caminho do wizard.)
@@ -1578,10 +1710,11 @@ function fwStageReview(host, w, { catalog }) {
       h('p', { class: 'fw-hint', text: 'Gere o preview, refine o que quiser e clique em "Aprovar e construir". Só então a criação é liberada.' }),
       h('div', { class: 'fw-actions' }, h('button', { class: 'btn primary', type: 'button', text: '← Ver o preview', onclick: () => fwGoto(4) }))));
   }
-  if (w.mode === 'guided') {
-    // Guiado vai DIRETO à construção (como o "Liberar tudo"): o botão lança e trava a tela.
+  if (w.mode !== 'profissional') {
+    // simples/guiado vão DIRETO à construção (como o "Liberar tudo"): o botão lança e trava a
+    // tela. A confirmação humana é o clique (gate de preview aprovado continua obrigatório).
     const status = h('p', { class: 'fw-status muted', role: 'status', 'aria-live': 'polite' });
-    const btn = h('button', { class: 'btn primary fw-cta', type: 'button', text: '🚀 Criar meu sistema', disabled: approved ? null : 'disabled', title: approved ? null : 'Aprove o preview das telas primeiro' });
+    const btn = h('button', { class: 'btn primary fw-cta', type: 'button', text: modeCopy(w.mode, 'review.launch'), disabled: approved ? null : 'disabled', title: approved ? null : 'Aprove o preview das telas primeiro' });
     btn.addEventListener('click', () => { if (!fwPreviewApproved(w)) return; fwLaunch(w, 'release', status, [btn]); });
     host.append(h('div', { class: 'fw-card' },
       h('p', { class: 'fw-lead' }, 'Tudo pronto para criar o ', h('strong', { text: w.name || w.slug }), '.'),
@@ -1788,11 +1921,13 @@ async function forgeLaunch(mode, ctx) {
     o.capability_blocks = Array.isArray(req.capability_blocks) ? req.capability_blocks : []; // preserva os blocos p/ o YAML
     return o;
   });
-  const body = {
-    product: pname, displayName: launchCtx.displayName || pname, blueprint, brief: launchCtx.brief || '', mode, requirements,
-    architecture: { stack: arch.stack, selected_blocks: arch.selected_blocks || [], adrs: arch.adrs || [], waves: arch.waves || [] },
-    ...(ctx.skipPreviewGate ? { skipPreviewGate: true } : {}),
-  };
+  // (C2) buildLaunchBody é PURO (forge-lib): o payload é IDÊNTICO nos 3 modos, exceto o
+  // campo informativo creation_mode (rastreabilidade de UX no client_payload/PR).
+  const body = buildLaunchBody({
+    product: pname, displayName: launchCtx.displayName || pname, blueprint, brief: launchCtx.brief || '',
+    mode, requirements, architecture: arch,
+    creationMode: forgeMode(), skipPreviewGate: !!ctx.skipPreviewGate,
+  });
   btns.forEach((b) => { b.disabled = true; });
   status.textContent = mode === 'release' ? 'Lançando (auto-merge + build)…' : 'Criando os requisitos no git…';
   try {
@@ -1826,22 +1961,7 @@ function renderArchAdrs(out, archData) {
   if (exp) out.insertBefore(card, exp); else out.append(card);
 }
 
-function forgeReqObject(id, pname, blueprint, req) {
-  return {
-    id,
-    title: req.title || '',
-    type: req.type || 'functional',
-    status: 'proposed',
-    owner: 'plataforma-digital',
-    priority: req.priority || 'medium',
-    statement: req.statement || '',
-    scope: { applies_to: 'product', product_scope: pname, blueprint: blueprint || null },
-    source: { source_paths: ['specs/products/' + pname + '/product-brief.md'] },
-    acceptance_criteria: asList(req.acceptance_criteria),
-    verification_method: asList(req.verification_method).length ? asList(req.verification_method) : ['test'],
-    version: { baseline_version: '1.0.0', item_revision: 1, semantic_change: 'none', change_reason: 'proposto pelo Forge' },
-  };
-}
+// forgeReqObject mudou para forge-lib.js (C2) — puro/testável, compartilhado com buildLaunchBody.
 
 /* ===================== Ícones (SVG inline, stroke, CSP-safe) ===================== */
 

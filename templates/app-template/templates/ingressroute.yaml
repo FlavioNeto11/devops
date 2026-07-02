@@ -12,9 +12,14 @@ Convencao de roteamento (critica):
     Middleware StripPrefix (remove o prefixo COMPLETO), com priority MAIOR para
     vencer o frontend no mesmo host (o prefixo mais especifico ganha).
 
-Hosts: incluimos app.host E dev.nvit.com.br (quando diferentes) usando a forma
-Host(`a`, `b`) do Traefik, para que o mesmo layout de paths funcione no host
-local e no dominio real.
+Hosts: por padrao incluimos app.host E dev.nvit.com.br (quando diferentes)
+usando a forma Host(`a`, `b`) do Traefik, para que o mesmo layout de paths
+funcione no host local e no dominio real.
+
+Multi-env opt-in (Forja 4.0 B2): quando .Values.app.hosts (lista) esta setado
+(compile com --env), a clausula Host(...) usa EXATAMENTE esses hosts — sem
+anexar dev.nvit.com.br, que e host de PRODUCAO e nunca e reatribuido a um
+ambiente efemero (ver docs/multi-env.md).
 
 HTTPS/websecure: pendente (certificado self-signed). Por enquanto so web.
 =============================================================================
@@ -24,7 +29,9 @@ HTTPS/websecure: pendente (certificado self-signed). Por enquanto so web.
 {{- $realHost := "dev.nvit.com.br" -}}
 {{- /* Monta a lista de hosts (sem duplicar) para a clausula Host(...) */ -}}
 {{- $hosts := list $appHost -}}
-{{- if ne $appHost $realHost -}}
+{{- if .Values.app.hosts -}}
+{{- $hosts = .Values.app.hosts -}}
+{{- else if ne $appHost $realHost -}}
 {{- $hosts = append $hosts $realHost -}}
 {{- end -}}
 {{- $hostClause := "" -}}

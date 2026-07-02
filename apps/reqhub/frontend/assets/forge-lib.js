@@ -479,6 +479,150 @@ export function capabilityPlain(id, catalog) {
   return { id, icon: '🧩', title: c ? c.title : id, desc: c ? c.description : '' };
 }
 
+// ─── (C2) MODOS DE USUÁRIO da Forja: projeções PURAS sobre a MESMA engine ──────────
+// O modo é estado do FRONTEND (localStorage) e NUNCA muda os ARTEFATOS gerados — os dados
+// por baixo (id/title/statement/aceite) são OS MESMOS nos 3 modos; muda só a APRESENTAÇÃO
+// (disclosure/condução). simples: linguagem do dia a dia, sem YAML/ids técnicos; guiado
+// (default): cartões claros + detalhe técnico opcional; profissional: tudo aberto + export.
+export const FORGE_MODES = ['simples', 'guiado', 'profissional'];
+export const FORGE_MODE_KEY = 'reqhub_forge_mode';
+export const FORGE_MODE_LABELS = { simples: 'Simples', guiado: 'Guiado', profissional: 'Profissional' };
+
+/** Normaliza o modo (default 'guiado'; migra os nomes antigos do wizard guided/advanced). Puro. */
+export function normalizeForgeMode(v) {
+  const m = String(v || '').trim().toLowerCase();
+  if (FORGE_MODES.includes(m)) return m;
+  if (m === 'guided') return 'guiado';           // trilha antiga do wizard (pré-C2)
+  if (m === 'advanced') return 'profissional';   // trilha antiga do wizard (pré-C2)
+  return 'guiado';
+}
+
+// Textos de CONDUÇÃO por modo (copy de UI, não decisão de IA). Chave -> { simples, guiado,
+// profissional }; chave desconhecida -> '' e modo sem texto próprio cai no guiado (default).
+const MODE_COPY = {
+  'selector.sub': {
+    simples: 'converse em linguagem do dia a dia',
+    guiado: 'cartões claros + detalhe opcional',
+    profissional: 'tudo aberto: YAML, blocos, export',
+  },
+  'idea.q': { simples: 'O que você quer criar?', guiado: 'O que você quer criar?', profissional: 'Defina o produto' },
+  'idea.name': { simples: 'Nome do sistema', guiado: 'Nome do sistema', profissional: 'Slug do produto' },
+  'idea.namePh': { simples: 'Ex.: Central de chamados', guiado: 'Ex.: Central de chamados', profissional: 'slug (ex.: helpdesk)' },
+  'idea.brief': { simples: 'Conte, com suas palavras, o que ele precisa fazer', guiado: 'Descreva sua ideia', profissional: 'Descreva sua ideia' },
+  'idea.generate': { simples: '✨ Ver como vai ficar', guiado: '✨ Ver o que a IA vai criar', profissional: '✨ Ver o que a IA vai criar' },
+  'what.q': { simples: 'Veja, em palavras simples, o que seu sistema terá', guiado: 'Veja o que será criado', profissional: 'Requisitos e capacidades propostos' },
+  'what.screens': { simples: 'O que seu sistema vai fazer', guiado: 'Telas e funções que serão criadas', profissional: 'Requisitos propostos (telas/funções)' },
+  'what.hint': {
+    simples: 'Revise cada cartão: ✔ aceite o que estiver certo, ✎ ajuste com suas palavras.',
+    guiado: 'Quer ver o requisito por baixo de um cartão? Abra "ver detalhe técnico".',
+    profissional: '',
+  },
+  'plan.q': { simples: 'Como ele vai ser construído', guiado: 'Plano de construção', profissional: 'Plano de construção' },
+  'review.q': { simples: 'Confirmar e criar', guiado: 'Revisar e criar', profissional: 'Revisar e criar' },
+  'review.launch': { simples: '🚀 Criar meu sistema', guiado: '🚀 Criar meu sistema', profissional: '🚀 Criar PR de requisitos' },
+};
+export function modeCopy(mode, key) {
+  const row = MODE_COPY[key];
+  if (!row) return '';
+  const m = normalizeForgeMode(mode);
+  return row[m] != null ? row[m] : (row.guiado != null ? row.guiado : '');
+}
+
+// Apresentação em linguagem natural (determinística — sem IA): decapitaliza o título
+// (preserva siglas) e troca o prefixo canônico "O sistema DEVE" por voz direta.
+function decap(s) {
+  const t = String(s || '').trim();
+  if (t.length < 2) return t;
+  // segunda letra maiúscula = sigla (IA, API…) — não decapitaliza
+  if (/[A-ZÀ-Ü]/.test(t[1])) return t;
+  return t[0].toLowerCase() + t.slice(1);
+}
+function plainTitle(title) {
+  const t = String(title || '').trim();
+  return t ? 'Seu sistema terá ' + decap(t) : 'Seu sistema terá esta função';
+}
+function plainLine(statement) {
+  const s = String(statement || '').trim();
+  const m = s.match(/^o sistema deve\s+/i);
+  return m ? 'Ele vai ' + s.slice(m[0].length) : s;
+}
+
+/**
+ * (C2) PROJEÇÃO de um requisito para exibição num cartão, conforme o MODO.
+ * Aceita { id, req } (shape do wizard) ou o requisito com id. NUNCA perde/altera os dados:
+ * `source` carrega id/title/statement ORIGINAIS (intactos) em TODOS os modos — só a
+ * apresentação (`title`/`lines`/`tech`) muda. Puro (não muta a entrada). Retorna:
+ *   { id, source:{id,title,statement}, title (exibição), lines[] (exibição),
+ *     tech: null | { typeLabel, type, priority, blocks[], acceptance[] } }
+ * simples: linguagem natural, sem YAML/ids técnicos (tech=null — nunca exibido).
+ * guiado: title + statement + aceite resumido; tech preenchido (disclosure opcional).
+ * profissional: tudo (statement + todos os critérios); tech preenchido (aberto).
+ */
+export function projectRequirementCard(entry, mode) {
+  const e = entry || {};
+  const req = (e.req && typeof e.req === 'object') ? e.req : e;
+  const id = e.id || req.id || '';
+  const m = normalizeForgeMode(mode);
+  const title = req.title || '';
+  const statement = req.statement || '';
+  const ac = asList(req.acceptance_criteria).map(String);
+  const source = { id, title, statement };
+  if (m === 'simples') {
+    return { id, source, title: plainTitle(title), lines: [plainLine(statement)].filter(Boolean), tech: null };
+  }
+  const tech = {
+    type: req.type || 'functional',
+    typeLabel: typeLabel(req.type || 'functional'),
+    priority: req.priority || 'medium',
+    blocks: asList(req.capability_blocks).map(String),
+    acceptance: ac,
+  };
+  if (m === 'profissional') {
+    return { id, source, title, lines: [statement, ...ac.map((c) => '✓ ' + c)].filter(Boolean), tech };
+  }
+  // guiado (default): statement + aceite RESUMIDO (1º critério + contagem)
+  const okLine = ac.length ? 'Aceite: ' + ac[0] + (ac.length > 1 ? ` (+${ac.length - 1})` : '') : '';
+  return { id, source, title, lines: [statement, okLine].filter(Boolean), tech };
+}
+
+/** Objeto YAML canônico de um requisito proposto (era do studio.js; puro/testável). */
+export function forgeReqObject(id, pname, blueprint, req) {
+  return {
+    id,
+    title: req.title || '',
+    type: req.type || 'functional',
+    status: 'proposed',
+    owner: 'plataforma-digital',
+    priority: req.priority || 'medium',
+    statement: req.statement || '',
+    scope: { applies_to: 'product', product_scope: pname, blueprint: blueprint || null },
+    source: { source_paths: ['specs/products/' + pname + '/product-brief.md'] },
+    acceptance_criteria: asList(req.acceptance_criteria),
+    verification_method: asList(req.verification_method).length ? asList(req.verification_method) : ['test'],
+    version: { baseline_version: '1.0.0', item_revision: 1, semantic_change: 'none', change_reason: 'proposto pelo Forge' },
+  };
+}
+
+/**
+ * (C2) Corpo do POST /v1/forge/launch — PURO/testável. O MODO NÃO entra na montagem dos
+ * artefatos: o payload é IDÊNTICO nos 3 modos, exceto o campo informativo `creation_mode`
+ * (validado no backend; vai ao client_payload/PR como rastreabilidade de UX, nunca muda o writer).
+ */
+export function buildLaunchBody({ product, displayName, blueprint, brief, mode, requirements, architecture, creationMode, skipPreviewGate } = {}) {
+  const arch = architecture || {};
+  return {
+    product,
+    displayName: displayName || product,
+    blueprint,
+    brief: brief || '',
+    mode,
+    requirements: Array.isArray(requirements) ? requirements : [],
+    architecture: { stack: arch.stack, selected_blocks: arch.selected_blocks || [], adrs: arch.adrs || [], waves: arch.waves || [] },
+    ...(skipPreviewGate ? { skipPreviewGate: true } : {}),
+    ...(creationMode ? { creation_mode: normalizeForgeMode(creationMode) } : {}),
+  };
+}
+
 // Resumo do que será criado (para a etapa "O que será criado"). Puro/testável.
 // reqs: [{ title, statement, type, capability_blocks }]; arch (opcional): { stack, selected_blocks, waves }.
 export function planSummary(reqs, arch, catalog) {

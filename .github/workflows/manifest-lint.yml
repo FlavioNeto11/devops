@@ -1,10 +1,11 @@
 # =============================================================================
 # manifest-lint — valida o SCHEMA dos manifests Kubernetes dos apps (kubeconform)
 # -----------------------------------------------------------------------------
-# Escopo: apps/*/k8s/*.yaml (Deployments/Services/etc.). CRDs (IngressRoute,
-# Middleware, SealedSecret, Kustomization) sao IGNORADOS via -ignore-missing-schemas
-# (kubeconform nao tem schema deles). Nao valida platform/ (mistura helm-values
-# com manifests) nem os sealed-*.yaml. Runner: ubuntu-latest.
+# Escopo: apps/*/k8s/*.yaml E apps/*/k8s-<env>/*.yaml (multi-env opt-in —
+# docs/multi-env.md). CRDs (IngressRoute, Middleware, SealedSecret,
+# Kustomization) sao IGNORADOS via -ignore-missing-schemas (kubeconform nao tem
+# schema deles). Nao valida platform/ (mistura helm-values com manifests) nem
+# os sealed-*.yaml. Runner: ubuntu-latest.
 # =============================================================================
 name: manifest-lint
 
@@ -18,11 +19,13 @@ on:
   pull_request:
     paths:
       - "apps/**/k8s/**"
+      - "apps/**/k8s-*/**"
       - ".github/workflows/manifest-lint.yml"
   push:
     branches: [main]
     paths:
       - "apps/**/k8s/**"
+      - "apps/**/k8s-*/**"
       - ".github/workflows/manifest-lint.yml"
 
 permissions:
@@ -47,7 +50,8 @@ jobs:
       - name: Validar manifests
         run: |
           set -euo pipefail
-          mapfile -t FILES < <(find apps -path '*/k8s/*.yaml' ! -name 'sealed-*.yaml')
+          # k8s/ (producao) + k8s-<env>/ (multi-env opt-in, ex.: k8s-dev)
+          mapfile -t FILES < <(find apps \( -path '*/k8s/*.yaml' -o -path '*/k8s-*/*.yaml' \) ! -name 'sealed-*.yaml')
           if [ "${#FILES[@]}" -eq 0 ]; then
             echo "Nenhum manifest encontrado."; exit 0
           fi

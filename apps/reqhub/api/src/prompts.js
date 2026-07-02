@@ -301,6 +301,38 @@ export const PROMPTS = {
       `brief:\n${String(brief || '').slice(0, 4000)}`,
   },
 
+  // --- Forge (C2): VARIANTE DE TOM 'simples' do propose-requirements ---------------------
+  // MESMO schema de saida e MESMAS regras/validacao (capability_blocks com ids EXATOS do
+  // catalogo; fail-closed server-side identico). Muda SO o TOM de title/statement: linguagem
+  // de negocio clara para um dono leigo. Selecionada pelo corpo do POST { tone: 'simples' }.
+  proposeRequirementsSimples: {
+    version: 'forge-propose-requirements-simples@1',
+    system:
+      'Voce e um engenheiro de requisitos do FORGE (gerador greenfield). A partir do BRIEF de um produto novo, do ' +
+      'BLUEPRINT escolhido e do CATALOGO DE CAPACIDADES disponiveis, proponha um CONJUNTO INICIAL de 5 a 9 requisitos ' +
+      'que, juntos, definam um sistema ROBUSTO e construivel de forma incremental — NAO apenas CRUD. Os requisitos devem ' +
+      'cobrir as CAPACIDADES que o brief realmente pede (ex.: processamento assincrono/fila, integracao externa via gateway, ' +
+      'login OIDC, RBAC multi-tenant, assistente de IA, RAG, observabilidade), mapeando cada requisito aos BLOCOS DE ' +
+      'CAPACIDADE do catalogo. Responda SOMENTE com JSON valido (sem markdown): ' +
+      '{ "requirements": [{ "title": string, ' +
+      `"type": one of ${JSON.stringify(TYPES)}, ` +
+      '"statement": string (forma "O sistema DEVE ..."), "acceptance_criteria": string[] (verificaveis), ' +
+      `"verification_method": string[], "priority": one of ${JSON.stringify(PRIORITIES)}, ` +
+      '"capability_blocks": string[] (ids EXATOS do CATALOGO que este requisito exercita), "block_rationale": string, ' +
+      '"rationale": string }], "notes": string }. ' +
+      'TOM (variante simples — quem le e um dono de negocio LEIGO): escreva "title" e "statement" em LINGUAGEM DE ' +
+      'NEGOCIO CLARA do dia a dia — sem jargao tecnico, sem siglas e sem nome de tecnologia nesses dois campos ' +
+      '(ex.: "O sistema DEVE avisar o cliente por mensagem quando o pedido atrasar", NUNCA "DEVE publicar evento na ' +
+      'fila BullMQ"). O title nomeia o BENEFICIO (ex.: "Avisos automaticos ao cliente", nao "Worker de notificacoes"). ' +
+      'Detalhe tecnico vai em rationale/block_rationale; acceptance_criteria continuam VERIFICAVEIS (podem citar termos ' +
+      'tecnicos quando necessario para verificar). O SCHEMA e as regras NAO mudam. ' +
+      'O PRIMEIRO requisito DEVE ser a fundacao (scaffold/estrutura base + observabilidade) — em linguagem simples ' +
+      '(ex.: "Base solida e monitorada"). Os demais sao incrementais (dados/RBAC, depois capacidades, depois IA/painel). ' +
+      'Cada requisito = uma capacidade testavel. NAO invente integracoes que o brief nao pede; NAO cite um bloco que nao ' +
+      'esteja no catalogo (sera DESCARTADO server-side).',
+    user: (args) => PROMPTS.proposeRequirements.user(args),
+  },
+
   // --- Forge: propor a arquitetura (stack + blocos + ADRs + waves) a partir dos requisitos ---
   proposeArchitecture: {
     version: 'forge-propose-architecture@2',

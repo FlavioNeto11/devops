@@ -21,6 +21,32 @@ Instrumentação nos apps via [`@flavioneto11/ai-core`](../../../packages/ai-cor
 - O init headless (`LANGFUSE_INIT_*`) cria org `nvit` / projeto `nvit-ai` na primeira subida —
   idempotente (não recria se já existir).
 
+## Always-on para os apps da Forja (Forja 4.0 — B4)
+
+Todo produto novo scaffoldado pela Forja nasce com `LANGFUSE_ENABLED=true` +
+`LANGFUSE_BASE_URL` apontando para este serviço (emitido por
+`specs/forge/scaffold-{gymops,sicat}.mjs`). O tracing só liga de fato quando as chaves
+(`LANGFUSE_PUBLIC_KEY`/`LANGFUSE_SECRET_KEY`) existirem no Secret `<produto>-ai` — fail-soft
+por design (sem chave, o app roda normal sem traces). O Postgres deste kustomize foi
+redimensionado (requests 256Mi / limits 768Mi) para aguentar a ingestão contínua.
+
+**Limitação do Langfuse v2 self-hosted (imagem `langfuse/langfuse:2`):** não há API pública
+de criação de organizações/projetos — o init headless (`LANGFUSE_INIT_*`) só provisiona UM
+org/projeto na primeira subida. Decisão (revisão adversarial B4): **projeto único
+`forge-apps`** para todos os produtos da Forja, segmentado por **tag `app=<produto>`** nos
+traces (o `@flavioneto11/ai-core` já envia `metadata.app`). A checagem de custo por app via
+API do Langfuse fica para quando migrarmos ao **v3** (que tem Metrics API por projeto); até
+lá, custo por app vem do Prometheus (`ai_cost_usd_total{app=...}`, ver job `forge-budget`
+em `.github/workflows/ai-evals.yml`).
+
+**Passo do operador (manual, uma vez — nunca automatizado aqui, são segredos):**
+1. Na UI (`http://langfuse.localhost`), criar o projeto `forge-apps` na org `nvit`
+   (v2 não tem API para isso; alternativa aceitável: reusar o projeto `nvit-ai` do init).
+2. Gerar o par de chaves do projeto (Settings → API Keys).
+3. Colocar as chaves no Secret `<produto>-ai` de cada app da Forja
+   (`kubectl -n apps create secret generic <produto>-ai --from-literal=LANGFUSE_PUBLIC_KEY=... --from-literal=LANGFUSE_SECRET_KEY=... --dry-run=client -o yaml | kubectl apply -f -`)
+   — ou via Sealed Secrets para versionar.
+
 ## Notas
 - LangSmith continua possível por app via env (`LANGCHAIN_TRACING_V2=true` + key) — uso pontual de
   debug; o default da plataforma é o Langfuse.

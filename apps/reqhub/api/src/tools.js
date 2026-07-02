@@ -296,9 +296,12 @@ export function buildForgeTools() {
       execute: async (input, ctx) => {
         const { defaultBlocks, compatibleBlocks } = blueprintBlocks(input, input.blueprint);
         const catalog = summarizeForPrompt(input.capabilities, { defaultBlocks, compatibleBlocks });
+        // (C2) variante de TOM: tone:'simples' => title/statement em linguagem de negocio clara.
+        // MESMO schema de saida e MESMA validacao fail-closed; default 'tecnico' (retrocompat).
+        const prompt = input.tone === 'simples' ? PROMPTS.proposeRequirementsSimples : PROMPTS.proposeRequirements;
         const { parsed, usage } = await llmJson(ctx.llm, {
-          system: PROMPTS.proposeRequirements.system,
-          user: PROMPTS.proposeRequirements.user({ ...input, catalog }),
+          system: prompt.system,
+          user: prompt.user({ ...input, catalog }),
           maxTokens: 12000,
           model: FAST_MODEL(),
         });
@@ -309,7 +312,7 @@ export function buildForgeTools() {
           if (known.size) r.capability_blocks = filterKnownBlocks(r.capability_blocks, known).kept;
           return r;
         });
-        return { prompt_version: PROMPTS.proposeRequirements.version, requirements, notes: parsed.notes || '', usage };
+        return { prompt_version: prompt.version, requirements, notes: parsed.notes || '', usage };
       },
     },
     {

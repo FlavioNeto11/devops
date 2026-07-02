@@ -1,0 +1,43 @@
+{
+  "id": "app-simples",
+  "version": "1.0.0",
+  "name": "App simples (SPA Vue + API Node, sem worker/fila)",
+  "summary": "Preset t2: aplicação de negócio ENXUTA — SPA Vue 3 + API Node/Express (TypeScript) + Postgres, SEM worker nem fila. Para sistemas de cadastro/consulta/relatório que não precisam de processamento assíncrono: nasce com contas & acesso (auth própria + SSO aditivo), migrations versionadas e observabilidade, e entra no golden path da plataforma (Traefik path-routing, GHCR/:local, Argo). Quando o domínio exigir fila/worker, gateway externo pesado ou multi-tenant rico, suba para um preset t3 (node-api-vue-spa ou gymops-style).",
+  "tier": "t2",
+  "profile": {
+    "upgrade_path": "node-api-vue-spa (t3) quando precisar de worker/fila"
+  },
+  "stack": {
+    "web": "Vue 3 + Vite (nginx)",
+    "api": "Node 20 + Express (TypeScript via tsx)",
+    "db": "PostgreSQL 16"
+  },
+  "services": ["frontend", "api"],
+  "db": "postgres",
+  "reuses": ["packages/oidc-kit", "packages/design-tokens", "infra-postgres", "infra-traefik", "infra-argocd"],
+  "scaffold": {
+    "generator": "scripts/scaffold-product.ps1",
+    "args": { "Services": ["frontend", "api"], "Type": "product_software" }
+  },
+  "structure": [
+    "devops.yaml",
+    "CLAUDE.md",
+    "AGENTS.md",
+    "README.md",
+    "frontend/{src/{App.vue,components/,views/,lib/,assets/},package.json,vite.config.ts,index.html,Dockerfile,nginx.conf}",
+    "backend/{src/{server.ts,routes/,services/,repositories/,db/{pool.ts,migrate.ts},sql/,lib/},package.json,tsconfig.json,Dockerfile,.env.example}",
+    "k8s/{backend.yaml,postgres.yaml,ingressroute.yaml,secret.example.yaml,pvc.yaml}",
+    "docs/{architecture.md,api-spec.md,data-model.md}",
+    "test/smoke.mjs"
+  ],
+  "default_adrs": [
+    "Persistência: Postgres 16 com migrations SQL versionadas; sem broker nem fila (preset t2 — assíncrono exige upgrade para t3)",
+    "Camadas do backend: route → service → repository (sem acesso a dados nas rotas)",
+    "Auth: contas & acesso próprias do app via packages/oidc-kit (login local + SSO Keycloak aditivo)",
+    "Frontend Vue buildado com base path /<app>/ (sem stripPrefix); API com stripPrefix"
+  ],
+  "seed_nfrs": [],
+  "base_stack": "sicat",
+  "default_blocks": ["contas-acesso", "migrations-versionadas", "observabilidade"],
+  "compatible_blocks": ["camadas-rigidas", "contract-openapi", "control-ai-por-app", "design-system", "gateway-externo", "ia-grafo", "idempotencia", "oidc-sessao", "rag-pgvector", "structured-outputs"]
+}

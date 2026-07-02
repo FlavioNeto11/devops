@@ -4,6 +4,10 @@
 # e religa os Deployments para o Argo/k8s publicar. Idempotente:
 #   - o Secret só é criado se faltar (não rotaciona a senha do PVC já inicializado);
 #   - imagens :local + IfNotPresent => rebuild + rollout restart pega a nova imagem.
+# Pós-rollout roda o SMOKE-CONTRACT funcional (specs/tools/smoke-contract.mjs, read-only):
+# health JSON + métricas + lista da entidade principal, via port-forward. Falha do smoke
+# => deploy_failed no ConfigMap reqhub-forge-state + job FALHA (requisitos não são
+# marcados 'deployed'). Sucesso => 'deployed' registrado em deploys.json.
 # Disparado pela cadeia autônoma (greenfield-launch após o scaffold; e por
 # forge-autonomous-merge após mesclar PRs de implementação, p/ as features subirem).
 # =============================================================================
@@ -106,6 +110,44 @@ jobs:
           kubectl -n apps rollout restart deployment -l app.kubernetes.io/part-of=$prod
           kubectl -n apps rollout status deployment -l app.kubernetes.io/part-of=$prod --timeout=180s
 
+          # 3a) SMOKE-CONTRACT pós-rollout (read-only) — prova o CONTRATO mínimo do produto
+          #     (GET /health 200 JSON + métricas + lista da entidade principal), não só liveness.
+          #     Via port-forward do Service porque o ingress tem gate OIDC (-> 401). Falha =>
+          #     marca deploy_failed no forge-state (ConfigMap) e o job FALHA — os requisitos
+          #     NÃO são marcados 'deployed' (sem falso sucesso na Forja). CRUD fica de fora por
+          #     decisão de revisão adversarial (poluiria dados reais); é opt-in dev (--crud).
+          $smokeExit = 0
+          $hasApi = (kubectl -n apps get svc "$prod-api" --ignore-not-found -o name 2>$null)
+          if ($hasApi) {
+            $svcPorts = (kubectl -n apps get svc "$prod-api" -o jsonpath='{.spec.ports[*].port}' 2>$null)
+            $pfArgs = @('port-forward', '-n', 'apps', "svc/$prod-api", '18090:8080')
+            $metricsArgs = @()
+            if ("$svcPorts" -match '(^| )9464( |$)') { $pfArgs += '18091:9464'; $metricsArgs = @('--metrics', 'http://localhost:18091/metrics') }
+            else { Write-Host "::warning::smoke ${prod}: service $prod-api sem porta de métricas 9464 — cobertura parcial (health+lista)." }
+            $job = Start-Job {
+              $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+              $env:KUBECONFIG = $using:env:KUBECONFIG
+              $a = $using:pfArgs
+              kubectl @a
+            }
+            Start-Sleep -Seconds 6
+            node specs/tools/smoke-contract.mjs --product $prod --base http://localhost:18090 --app-dir "apps/$prod" --run-id "$env:GITHUB_RUN_ID" @metricsArgs
+            $smokeExit = $LASTEXITCODE
+            # assistente IA (informativo — nunca "ok" falso quando está 503 por falta de chave):
+            try { $a = (Invoke-WebRequest "http://localhost:18090/v1/assistant/health" -TimeoutSec 8 -SkipHttpStatusCheck).StatusCode } catch { $a = -1 }
+            if ($a -eq 200) { Write-Host "smoke ${prod}: assistente OK (200)." }
+            elseif ($a -eq 404) { Write-Host "smoke ${prod}: app sem assistente (404) — ok se não tem o bloco IA." }
+            else { Write-Host "::warning::smoke ${prod}: /v1/assistant/health = $a — assistente provavelmente sem ANTHROPIC_API_KEY (503)." }
+            Stop-Job $job -EA SilentlyContinue; Remove-Job $job -EA SilentlyContinue
+          } else {
+            Write-Host "::warning::smoke ${prod}: service $prod-api não existe — smoke-contract pulado (produto sem API exposta)."
+          }
+          if ($smokeExit -ne 0) {
+            & ./scripts/sync-reqhub-forge-state.ps1 -DeployStatus "$prod=deploy_failed"
+            Write-Host "::error::forge-deploy: smoke-contract de '$prod' FALHOU — o rollout subiu mas o app NÃO honra o contrato mínimo (health/métricas/entidade). Estado deploy_failed registrado no forge-state; requisitos NÃO marcados 'deployed'."
+            exit 1
+          }
+
           # 3b) marca 'deployed' os requisitos MERGED deste produto — o rollout subiu a imagem com o
           #     código deles. Sem isto a esteira parava em 'merged' e o app NO AR aparecia "0 no ar"
           #     na Forge (no ar = deployed+done). Best-effort: se o push falhar, o passo 4 ainda
@@ -124,28 +166,8 @@ jobs:
 
           # 4) ressincroniza o estado VIVO da Forja (ConfigMap) a partir da baseline ATUAL — a tela Build
           #    reflete o progresso real (reqs mesclados) sem reassar a imagem. (reconcile commita o
-          #    impl-status no git; aqui, self-hosted, propagamos pro cluster.)
+          #    impl-status no git; aqui, self-hosted, propagamos pro cluster.) O smoke passou, então
+          #    o resultado do deploy é registrado como 'deployed' em deploys.json.
           git pull --rebase origin main 2>$null
-          & ./scripts/sync-reqhub-forge-state.ps1
-
-          # 5) SMOKE pós-deploy — prova que as rotas RESPONDEM (não confia só no readiness probe). Via
-          #    port-forward porque o ingress tem gate OIDC (-> 401). Crítico (/health) falha = ::error::;
-          #    o assistente é reportado explicitamente (nunca "ok" falso quando está 503).
-          $hasApi = (kubectl -n apps get svc "$prod-api" --ignore-not-found -o name 2>$null)
-          if ($hasApi) {
-            $job = Start-Job {
-              $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
-              $env:KUBECONFIG = $using:env:KUBECONFIG
-              kubectl port-forward -n apps "svc/$using:prod-api" 18090:8080
-            }
-            Start-Sleep -Seconds 6
-            try { $h = (Invoke-WebRequest "http://localhost:18090/health" -TimeoutSec 8 -SkipHttpStatusCheck).StatusCode } catch { $h = -1 }
-            if ($h -ne 200) { Write-Host "::error::smoke ${prod}: /health = $h (esperado 200) — deploy com problema." }
-            else { Write-Host "smoke ${prod}: /health OK (200)." }
-            try { $a = (Invoke-WebRequest "http://localhost:18090/v1/assistant/health" -TimeoutSec 8 -SkipHttpStatusCheck).StatusCode } catch { $a = -1 }
-            if ($a -eq 200) { Write-Host "smoke ${prod}: assistente OK (200)." }
-            elseif ($a -eq 404) { Write-Host "smoke ${prod}: app sem assistente (404) — ok se não tem o bloco IA." }
-            else { Write-Host "::warning::smoke ${prod}: /v1/assistant/health = $a — assistente provavelmente sem ANTHROPIC_API_KEY (503)." }
-            Stop-Job $job -EA SilentlyContinue; Remove-Job $job -EA SilentlyContinue
-          }
-          Write-Host "::notice::forge-deploy: $prod buildado + publicado + Forge atualizada + smoke. Acesse /$prod."
+          & ./scripts/sync-reqhub-forge-state.ps1 -DeployStatus "$prod=deployed"
+          Write-Host "::notice::forge-deploy: $prod buildado + publicado + smoke-contract OK + Forge atualizada. Acesse /$prod."

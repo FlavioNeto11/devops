@@ -18,6 +18,10 @@ data:
   app.namespace: {{ .Values.app.namespace | quote }}
   app.host: {{ .Values.app.host | quote }}
   app.basePath: {{ .Values.app.basePath | quote }}
+  {{- with .Values.app.environment }}
+  # Ambiente logico (multi-env opt-in — compile com --env; ver docs/multi-env.md)
+  app.environment: {{ . | quote }}
+  {{- end }}
   # Informacoes de publicacao (CI/CD)
   publish.commitSha: {{ .Values.publish.commitSha | default "" | quote }}
   publish.branch: {{ .Values.publish.branch | default "" | quote }}

@@ -478,7 +478,7 @@ services:
 | Campo | Onde | O que declara |
 |---|---|---|
 | `version: 2` | raiz | opt-in explicito no contrato v2 (ausente = v1) |
-| `environments` | raiz | mapa ambiente logico -> `{ namespace, hosts[] }`. Pre-requisito de multi-env; o compilador renderiza hoje o default (`nvit.localhost` + `dev.nvit.com.br`, mesmo comportamento do v1) |
+| `environments` | raiz | mapa ambiente logico -> `{ namespace, hosts[] }`. Sem `--env` o compilador renderiza o default (`nvit.localhost` + `dev.nvit.com.br`, mesmo comportamento do v1); com `--env <nome>` renderiza o ambiente declarado (namespace + hosts do env, MESMO basePath) em `apps/<app>/k8s-<nome>/`. Multi-env e **OPT-IN e EFEMERO por produto** — guia completo em [`multi-env.md`](./multi-env.md) |
 | `dependencies` | raiz | mapa nome -> dependencia **TIPADA** `{ engine, flavor, version, storage, database, secretName, resources }` — provisionamento REAL pelo chart (ver 11.3) |
 | `mlops` | raiz | `{ langfuse, budget.monthlyUsd, evals.goldenSet }` — postura de MLOps (declarativo; consumido pela esteira/telemetria, nao gera recurso k8s) |
 | `envFrom` | service | lista de Secrets injetados em massa no container (`envFrom`/`secretRef`). Cada item e o **nome** do Secret (string) ou `{ name, optional: true }` — `optional` gera `secretRef` opcional (o pod sobe sem o Secret; padrao dos Secrets `<app>-ai`/`<app>-auth` da Forja). So a referencia — o Secret e criado FORA do git |
@@ -495,9 +495,16 @@ nada de multi-source `$values` no Argo). O compilador tambem verifica os invaria
 priorities `api2 > api > frontend` (40 > 30 > 10) e StripPrefix do prefixo COMPLETO.
 
 ```powershell
-node specs/tools/devops-compile.mjs apps/<app>/devops.yaml          # compila -> apps/<app>/k8s/
-node specs/tools/devops-compile.mjs apps/<app>/devops.yaml --check  # acusa drift (CI-friendly)
+node specs/tools/devops-compile.mjs apps/<app>/devops.yaml            # compila -> apps/<app>/k8s/
+node specs/tools/devops-compile.mjs apps/<app>/devops.yaml --check    # acusa drift (CI-friendly)
+node specs/tools/devops-compile.mjs apps/<app>/devops.yaml --env dev  # env dev -> apps/<app>/k8s-dev/
 ```
+
+Com `--env <nome>` (multi-env opt-in/efemero — [`multi-env.md`](./multi-env.md)), o compilador
+usa o namespace e os hosts de `environments.<nome>`, mantem o `basePath` e os NOMES dos recursos
+identicos (o namespace isola), adiciona o label `devops.flavioneto/environment: <nome>` a todo
+recurso, e IMPOE fail-closed: namespace do env diferente do default e hosts do env sem
+`dev.nvit.com.br`/`app.host` (hosts de producao NUNCA sao reatribuidos a um env).
 
 > **Forja usa o compilador (B6).** Os scaffolds da Forja (`specs/forge/scaffold-gymops.mjs`,
 > `scaffold-sicat.mjs`, `scaffold-frontend.mjs` — orquestrados por `scripts/scaffold-product.ps1`)
@@ -538,9 +545,12 @@ app:
   appType: product_software
 
 environments:
-  local:
+  local:                          # destino DEFAULT (producao) — compile SEM --env
     namespace: apps
     hosts: [nvit.localhost, dev.nvit.com.br]
+  dev:                            # env efemero opt-in — compile com --env dev (multi-env.md)
+    namespace: apps-dev
+    hosts: [dev-lab.nvit.localhost]
 
 services:
   frontend:

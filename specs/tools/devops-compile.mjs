@@ -17,6 +17,15 @@
 //   node specs/tools/devops-compile.mjs apps/<app>/devops.yaml            # compila
 //   node specs/tools/devops-compile.mjs apps/<app>/devops.yaml --check    # drift
 //   node specs/tools/devops-compile.mjs apps/<app>/devops.yaml --out <f>  # destino
+//   node specs/tools/devops-compile.mjs apps/<app>/devops.yaml --env dev  # multi-env
+//
+// Multi-env OPT-IN e EFÊMERO (Forja 4.0 fase B2): `--env <nome>` compila o
+// ambiente declarado em `environments.<nome>` do contrato v2 — namespace e
+// hosts do env, MESMO basePath, nomes de recursos idênticos (o namespace
+// isola), label extra devops.flavioneto/environment — e escreve em
+// apps/<app>/k8s-<nome>/ (separado do k8s/ de produção). Sem --env o
+// comportamento é o de sempre (produção). HARD: um env efêmero NUNCA usa os
+// hosts de produção (app.host / dev.nvit.com.br). Ver docs/multi-env.md.
 //
 // Requer: helm no PATH (PowerShell: recarregue com
 //   $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' +
@@ -46,6 +55,12 @@ export const RESERVED_ENGINES = ['mongodb', 'nats'];
 // Regra de ouro do roteamento (hard-constraints §2): api2 > api > frontend.
 export const DEFAULT_PRIORITIES = { frontend: 10, api: 30, api2: 40 };
 
+// Hosts de PRODUÇÃO do host único. NUNCA reatribuídos a um ambiente efêmero:
+// dev.nvit.com.br é o host de produção VIVO (IngressRoutes, issuer do Keycloak,
+// URL do Argo e túnel Cloudflare apontam para ele). Um env dev usa host NOVO
+// (ex.: dev-lab.nvit.localhost) — ver docs/multi-env.md.
+export const PROTECTED_PROD_HOSTS = ['dev.nvit.com.br'];
+
 // ---------------------------------------------------------------------------
 // Parse + validação
 // ---------------------------------------------------------------------------
@@ -69,6 +84,61 @@ export function validateContract(contract, schema = loadSchema()) {
   const validate = ajv.compile(schema);
   const valid = validate(contract);
   return { valid: Boolean(valid), errors: validate.errors || [] };
+}
+
+// ---------------------------------------------------------------------------
+// Multi-env (função pura — coberta por testes)
+// ---------------------------------------------------------------------------
+
+// Resolve `environments.<envName>` do contrato v2 e aplica os invariantes HARD
+// do multi-env opt-in/efêmero:
+//   1) exige contrato v2 com o env declarado;
+//   2) o namespace do env deve ser DIFERENTE do namespace default do app —
+//      os nomes dos recursos são idênticos entre envs; o namespace é o
+//      isolamento (nomes iguais no mesmo namespace = conflito no Argo);
+//   3) os hosts do env NUNCA incluem os hosts de produção (app.host e
+//      dev.nvit.com.br) — reatribuí-los sequestraria as rotas vivas.
+// Retorna { name, namespace, hosts } ou lança erro claro.
+export function resolveEnvironment(contract, envName) {
+  if (!envName) return null;
+  if (contractVersion(contract) !== 2) {
+    throw new Error(`--env ${envName}: multi-env exige contrato v2 (version: 2 + campo environments).`);
+  }
+  const envs = contract.environments || {};
+  const env = envs[envName];
+  if (!env) {
+    const declared = Object.keys(envs);
+    throw new Error(
+      `--env ${envName}: ambiente não declarado em environments (declarados: ${declared.length ? declared.join(', ') : 'nenhum'}).`
+    );
+  }
+  if (env.namespace === contract.app.namespace) {
+    throw new Error(
+      `--env ${envName}: o namespace do ambiente (${env.namespace}) é o MESMO namespace default do app — ` +
+        `esse é o destino de produção; compile SEM --env. Um env efêmero exige namespace próprio (ex.: apps-dev), ` +
+        `porque os nomes dos recursos são idênticos e o namespace é o isolamento.`
+    );
+  }
+  const hosts = Array.isArray(env.hosts) ? env.hosts : [];
+  const protectedHosts = new Set([contract.app.host, ...PROTECTED_PROD_HOSTS]);
+  const clash = hosts.find((h) => protectedHosts.has(h));
+  if (clash) {
+    throw new Error(
+      `--env ${envName}: o host "${clash}" é host de PRODUÇÃO (app.host/dev.nvit.com.br) e NUNCA é reatribuído ` +
+        `a um ambiente efêmero — as rotas vivas seriam sequestradas. Use um host novo (ex.: dev-lab.nvit.localhost). ` +
+        `Ver docs/multi-env.md.`
+    );
+  }
+  if (!hosts.length) {
+    throw new Error(`--env ${envName}: environments.${envName}.hosts vazio — declare ao menos um host próprio do ambiente.`);
+  }
+  return { name: envName, namespace: env.namespace, hosts: [...hosts] };
+}
+
+// Normaliza opts.env: aceita o NOME do env (string) ou o objeto já resolvido.
+function normalizeEnv(contract, env) {
+  if (!env) return null;
+  return typeof env === 'string' ? resolveEnvironment(contract, env) : env;
 }
 
 // ---------------------------------------------------------------------------
@@ -98,13 +168,19 @@ export function fullPrefix(basePath, svcPath) {
 export function deriveValues(contract, opts = {}) {
   const version = contractVersion(contract);
   const app = contract.app;
+  // Multi-env opt-in: com env resolvido, o destino físico (namespace + hosts)
+  // vem de environments.<env>; basePath e nomes de recursos NÃO mudam (o
+  // namespace isola). app.hosts vira a cláusula Host(...) exata do chart e
+  // app.environment vira o label devops.flavioneto/environment.
+  const environment = normalizeEnv(contract, opts.env);
   const values = {
     app: {
       name: app.name,
-      namespace: app.namespace,
-      host: app.host,
+      namespace: environment ? environment.namespace : app.namespace,
+      host: environment ? environment.hosts[0] : app.host,
       basePath: app.basePath,
       ...(app.appType ? { appType: app.appType } : {}),
+      ...(environment ? { hosts: environment.hosts, environment: environment.name } : {}),
     },
     registry: opts.registry ?? '',
     defaults: {
@@ -244,10 +320,19 @@ export function stripSecrets(rendered) {
 // ---------------------------------------------------------------------------
 // Verificação dos manifests renderizados (função pura — coberta por testes)
 // ---------------------------------------------------------------------------
-export function checkRendered(rendered, contract) {
+
+// Extrai os hosts da cláusula Host(`a`, `b`) de um match do Traefik.
+export function hostsFromMatch(match) {
+  const m = /Host\(([^)]*)\)/.exec(String(match || ''));
+  if (!m) return [];
+  return [...m[1].matchAll(/`([^`]+)`/g)].map((x) => x[1]);
+}
+
+export function checkRendered(rendered, contract, opts = {}) {
   const issues = [];
   const appName = contract.app.name;
   const basePath = contract.app.basePath;
+  const environment = normalizeEnv(contract, opts.env);
   const docs = parseDocs(rendered).map((d) => d.obj);
   const byKind = (kind) => docs.filter((d) => d.kind === kind);
   const named = (kind, name) => byKind(kind).find((d) => d.metadata && d.metadata.name === name);
@@ -260,6 +345,20 @@ export function checkRendered(rendered, contract) {
     const labels = (d.metadata && d.metadata.labels) || {};
     if (labels['app.kubernetes.io/part-of'] !== appName) {
       issues.push(`${d.kind}/${d.metadata && d.metadata.name}: label app.kubernetes.io/part-of != "${appName}".`);
+    }
+  }
+
+  // 2b) Multi-env: TODO recurso no namespace do env + label de ambiente.
+  if (environment) {
+    for (const d of docs) {
+      const name = `${d.kind}/${d.metadata && d.metadata.name}`;
+      const labels = (d.metadata && d.metadata.labels) || {};
+      if (labels['devops.flavioneto/environment'] !== environment.name) {
+        issues.push(`${name}: label devops.flavioneto/environment != "${environment.name}" (multi-env).`);
+      }
+      if ((d.metadata && d.metadata.namespace) !== environment.namespace) {
+        issues.push(`${name}: namespace != "${environment.namespace}" (env ${environment.name}).`);
+      }
     }
   }
 
@@ -324,6 +423,19 @@ export function checkRendered(rendered, contract) {
         if (!/Host\(/.test(r.match) || !/PathPrefix\(/.test(r.match)) {
           issues.push(`IngressRoute/${appName}: rota sem Host()+PathPrefix combinados: "${r.match}".`);
         }
+        if (environment) {
+          // Multi-env: a cláusula Host(...) usa EXATAMENTE os hosts do env —
+          // em especial, dev.nvit.com.br (produção) NUNCA vaza para o env.
+          const got = hostsFromMatch(r.match);
+          const want = environment.hosts;
+          const missing = want.filter((h) => !got.includes(h));
+          const extra = got.filter((h) => !want.includes(h));
+          if (missing.length || extra.length) {
+            issues.push(
+              `IngressRoute/${appName}: rota "${r.match}" com hosts [${got.join(', ')}] != hosts do env ${environment.name} [${want.join(', ')}].`
+            );
+          }
+        }
       }
       const routeFor = (prefix) => routes.find((r) => r.match.includes(`PathPrefix(\`${prefix}\`)`));
       const priorities = {};
@@ -385,27 +497,37 @@ export function compileContract(contractPath, opts = {}) {
   if (version === 1 && contract.dependencies) {
     console.warn('[devops-compile] AVISO: dependencies no contrato v1 são legadas/informativas — o provisioning real exige version: 2.');
   }
-  const values = deriveValues(contract, opts);
+  const environment = normalizeEnv(contract, opts.env);
+  const values = deriveValues(contract, { ...opts, env: environment });
   const rendered = stripSecrets(renderWithHelm(values, contract.app.name, opts.chartPath));
-  const issues = checkRendered(rendered, contract);
+  const issues = checkRendered(rendered, contract, { env: environment });
   if (issues.length) {
     throw new Error(`manifests renderizados violam invariantes da plataforma:\n${issues.map((i) => `  - ${i}`).join('\n')}`);
   }
   const relContract = path.relative(REPO_ROOT, abs).replaceAll('\\', '/');
+  const envFlag = environment ? ` --env ${environment.name}` : '';
   const header = [
     '# =============================================================================',
     `# GERADO por specs/tools/devops-compile.mjs a partir de ${relContract} — NÃO EDITE À MÃO.`,
-    `# Recompilar:  node specs/tools/devops-compile.mjs ${relContract}`,
+    `# Recompilar:  node specs/tools/devops-compile.mjs ${relContract}${envFlag}`,
     '# Artefato PRIMÁRIO do GitOps (contrato v2): estes manifests commitados.',
     '# Chart: templates/app-template. Segredos: criados FORA do git (hard-constraints §3).',
+    ...(environment
+      ? [
+          `# AMBIENTE: ${environment.name} — namespace ${environment.namespace}, hosts [${environment.hosts.join(', ')}].`,
+          '# Multi-env OPT-IN e EFÊMERO: criar -> usar -> destruir. Ver docs/multi-env.md.',
+        ]
+      : []),
     '# =============================================================================',
     '',
   ].join('\n');
-  return { contract, values, manifests: header + rendered, version };
+  return { contract, values, manifests: header + rendered, version, environment };
 }
 
-export function defaultOutPath(contractPath, contract) {
-  return path.join(path.dirname(path.resolve(contractPath)), 'k8s', `${contract.app.name}.yaml`);
+// Destino default do artefato: k8s/ (produção) ou k8s-<env>/ (multi-env).
+export function defaultOutPath(contractPath, contract, envName = null) {
+  const dir = envName ? `k8s-${envName}` : 'k8s';
+  return path.join(path.dirname(path.resolve(contractPath)), dir, `${contract.app.name}.yaml`);
 }
 
 // ---------------------------------------------------------------------------
@@ -414,11 +536,19 @@ export function defaultOutPath(contractPath, contract) {
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
   const args = process.argv.slice(2);
-  const contractPath = args.find((a) => !a.startsWith('--'));
   const check = args.includes('--check');
   const outFlag = args.indexOf('--out');
+  const envFlag = args.indexOf('--env');
+  const envName = envFlag >= 0 ? args[envFlag + 1] : null;
+  // Valores de flags (--out <f>, --env <e>) não são o caminho do contrato.
+  const flagValues = new Set([outFlag >= 0 ? args[outFlag + 1] : null, envName].filter(Boolean));
+  const contractPath = args.find((a) => !a.startsWith('--') && !flagValues.has(a));
   if (!contractPath) {
-    console.error('uso: node specs/tools/devops-compile.mjs <apps/<app>/devops.yaml> [--out <arquivo>] [--check]');
+    console.error('uso: node specs/tools/devops-compile.mjs <apps/<app>/devops.yaml> [--out <arquivo>] [--check] [--env <nome>]');
+    process.exit(2);
+  }
+  if (envFlag >= 0 && (!envName || envName.startsWith('--'))) {
+    console.error('[devops-compile] --env exige o nome do ambiente (ex.: --env dev).');
     process.exit(2);
   }
   if (!helmAvailable()) {
@@ -426,8 +556,8 @@ if (isMain) {
     process.exit(2);
   }
   try {
-    const { contract, manifests, version } = compileContract(contractPath);
-    const outPath = outFlag >= 0 ? path.resolve(args[outFlag + 1]) : defaultOutPath(contractPath, contract);
+    const { contract, manifests, version, environment } = compileContract(contractPath, { env: envName });
+    const outPath = outFlag >= 0 ? path.resolve(args[outFlag + 1]) : defaultOutPath(contractPath, contract, environment?.name);
     if (check) {
       const current = fs.existsSync(outPath) ? fs.readFileSync(outPath, 'utf8') : '';
       if (current.replaceAll('\r\n', '\n') !== manifests.replaceAll('\r\n', '\n')) {
@@ -438,7 +568,8 @@ if (isMain) {
     } else {
       fs.mkdirSync(path.dirname(outPath), { recursive: true });
       fs.writeFileSync(outPath, manifests, 'utf8');
-      console.log(`[devops-compile] contrato v${version} compilado -> ${path.relative(REPO_ROOT, outPath)}`);
+      const envMsg = environment ? ` (env ${environment.name}: ns ${environment.namespace})` : '';
+      console.log(`[devops-compile] contrato v${version} compilado${envMsg} -> ${path.relative(REPO_ROOT, outPath)}`);
     }
   } catch (e) {
     console.error(`[devops-compile] ERRO: ${e.message}`);
