@@ -259,8 +259,21 @@
         },
         "envFrom": {
           "type": "array",
-          "description": "v2: nomes de Secrets injetados em massa (envFrom/secretRef) no container. Os Secrets são criados FORA do git (imperativos no forge-deploy ou Sealed Secrets) — aqui só a referência (hard-constraints §3).",
-          "items": { "type": "string" }
+          "description": "v2: Secrets injetados em massa (envFrom/secretRef) no container. Cada item é o NOME do Secret (string) ou { name, optional } — optional: true gera secretRef optional (o pod sobe mesmo sem o Secret; padrão dos Secrets <app>-ai/<app>-auth da Forja). Os Secrets são criados FORA do git (imperativos no forge-deploy ou Sealed Secrets) — aqui só a referência (hard-constraints §3).",
+          "items": {
+            "oneOf": [
+              { "type": "string" },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string", "description": "Nome do Secret referenciado." },
+                  "optional": { "type": "boolean", "description": "true => secretRef optional: o container inicia mesmo se o Secret não existir (ex.: chaves de IA adicionadas depois)." }
+                }
+              }
+            ]
+          }
         },
         "build": {
           "type": "object",
