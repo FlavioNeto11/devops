@@ -89,7 +89,8 @@
               "field": { "type": "string" },
               "source": { "type": "string", "description": "Fonte do dado (ex.: REQ-..., svc-..., Unit.address, api:/path)." },
               "format": { "type": "string" },
-              "editable": { "type": "boolean" }
+              "editable": { "type": "boolean" },
+              "contract": { "enum": ["existing", "proposed"], "description": "Ancoragem no contrato REAL da API (openapi do app): existing (default quando ausente) = rota/campo citado em source EXISTE no contrato; proposed = endpoint/campo NOVO a criar, marcado EXPLICITAMENTE (nunca finja que existe). Validado por specs/tools/validate-refinement-contract.mjs." }
             }
           }
         },
@@ -103,7 +104,8 @@
             "properties": {
               "trigger": { "type": "string" },
               "action": { "type": "string" },
-              "result": { "type": "string" }
+              "result": { "type": "string" },
+              "contract": { "enum": ["existing", "proposed"], "description": "Idem behavior.data[].contract: proposed = o endpoint citado na action (ex.: \"PUT /v1/settings\") é NOVO a criar (explícito); ausente/existing = deve existir no openapi do app." }
             }
           }
         },

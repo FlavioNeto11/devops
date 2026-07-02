@@ -8,6 +8,13 @@
 #       e roda os testes LOCKED com BASE_URL setado e SERIAL (--test-concurrency=1, pois compartilham
 #       uma instância) => os testes de integração/aceite RODAM DE VERDADE (antes skipavam sem BASE_URL
 #       e o gate "passava" sem testar nada).
+#   (3a) CONTRATO (F3-prep Forja 4.1) — app contract-first (script validate:openapi no api/package.json)
+#        roda `npm run validate:openapi`: rota implementada fora do openapi (ou vice-versa) FALHA o PR.
+#        Antes NENHUM workflow raiz rodava esse gate (drift passava verde, ex.: PR #136).
+#   (3b) IDENTIDADE DE TESTE (F3-prep) — se existir apps/<app>/tests/test-identity.json (NÃO-locked),
+#        o gate injeta seus headers via FORGE_TEST_HEADERS nos testes locked (o _lib.mjs gerado os usa
+#        como default por chamada). Assim o RBAC pode evoluir por refinamento (ex.: POST /v1/records
+#        passar a exigir X-Role) SEM editar os testes locked: muda-se a identidade no gate.
 # =============================================================================
 name: forge-tests
 
@@ -78,6 +85,23 @@ jobs:
             if [ -f "apps/$name/api/src/server.js" ]; then
               echo "::group::$name — backend LIVE (sobe app + testes LOCKED, serial)"
               ( cd "apps/$name/api" && npmget ) || { echo "::error::$name: install do api falhou"; fail=1; echo "::endgroup::"; continue; }
+
+              # (3a) CONTRATO contract-first: se o api declara validate:openapi, drift de contrato FALHA o PR
+              if node -e "const s=(require('./apps/'+process.argv[1]+'/api/package.json').scripts||{});process.exit(s['validate:openapi']?0:1)" "$name" 2>/dev/null; then
+                echo "--- $name: validate:openapi (gate contract-first) ---"
+                ( cd "apps/$name/api" && npm run validate:openapi ) || { echo "::error::$name: DRIFT DE CONTRATO — validate:openapi reprovou (rota implementada fora do openapi.yaml ou rota documentada sem implementação)"; fail=1; }
+              fi
+
+              # (3b) identidade de teste (NÃO-locked): headers-default p/ os testes locked LIVE
+              IDENT="{}"
+              if [ -f "apps/$name/tests/test-identity.json" ]; then
+                if IDENT="$(node -e "const j=require('./apps/'+process.argv[1]+'/tests/test-identity.json');process.stdout.write(JSON.stringify(j.headers||{}))" "$name")"; then
+                  echo "$name: identidade de teste injetada (FORGE_TEST_HEADERS): $IDENT"
+                else
+                  echo "::error::$name: tests/test-identity.json inválido (esperado {\"headers\":{...}})"; fail=1; IDENT="{}"
+                fi
+              fi
+
               PGPASSWORD=forge psql -h localhost -U forge -d forge -v ON_ERROR_STOP=0 -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" >/dev/null 2>&1 || true
               # envs de auth (bloco contas-acesso): seed cria o admin de bootstrap CONHECIDO p/ os
               # testes locked logarem (admin@local / forge-test-admin); JWT fixo de teste. Apps sem o
@@ -95,7 +119,7 @@ jobs:
               else
                 mapfile -t TFILES < <(find "apps/$name/tests/locked" -name '*.test.mjs' -type f)
                 if [ "${#TFILES[@]}" -eq 0 ]; then echo "::error::$name: nenhum teste LOCKED"; fail=1; fi
-                BASE_URL="http://localhost:8080" node --test --test-concurrency=1 "${TFILES[@]}" || { echo "::error::$name: testes LOCKED LIVE FALHARAM"; fail=1; }
+                BASE_URL="http://localhost:8080" FORGE_TEST_HEADERS="$IDENT" node --test --test-concurrency=1 "${TFILES[@]}" || { echo "::error::$name: testes LOCKED LIVE FALHARAM"; fail=1; }
               fi
               kill "$(cat /tmp/$name-app.pid 2>/dev/null)" >/dev/null 2>&1 || true
               echo "::endgroup::"
