@@ -35,33 +35,10 @@ publish:
   deployedAt: ''
   runId: ''
 
-services:
-  frontend:
-    type: frontend
-    image: aplicacao1-frontend
-    tag: local
-    port: 80
-    expose: true
-    stripPrefix: false
-    env:
-      VITE_BASE_PATH: /aplicacao1/
-
-  api:
-    type: api
-    path: /api
-    image: aplicacao1-api
-    tag: local
-    port: 8080
-    expose: true
-    stripPrefix: true
-    health:
-      path: /health
-
-  worker:
-    type: worker
-    image: aplicacao1-worker
-    tag: local
-    port: 8081
-    expose: false
-    health:
-      path: /health
+# SEM services de exemplo aqui — DELIBERADO. O helm faz DEEP MERGE dos values
+# (-f sobre este arquivo) por CAMPO: qualquer service de exemplo declarado aqui
+# vaza para apps reais com service homônimo (ex.: um frontend real herdava
+# env VITE_BASE_PATH: /aplicacao1/ e um worker real herdava health do exemplo —
+# regressão pega na convergência do contaviva-pro, Forja 4.0). Exemplos completos:
+# values.local.yaml / values.dev.yaml / app.yaml (nunca auto-carregados).
+services: {}

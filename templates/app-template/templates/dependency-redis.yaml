@@ -3,7 +3,8 @@
 dependency-redis.yaml — Provisiona dependencias com engine "redis".
 -----------------------------------------------------------------------------
 Gera, para cada entrada de .Values.dependencies com engine=redis:
-  * PersistentVolumeClaim <app>-<dep>-data (AOF persiste a fila/cache)
+  * PersistentVolumeClaim <app>-<dep> (AOF persiste a fila/cache) — SEM sufixo
+    "-data": convencao VIVA; rename de PVC = perda de dados (contrato §11.5)
   * Deployment <app>-<dep> com strategy Recreate (PVC RWO) e appendonly ligado
   * Service ClusterIP <app>-<dep> na porta 6379
 Padrao generalizado do gymops-redis (apps/gymops/k8s/gymops.yaml) + PVC/AOF
@@ -27,7 +28,7 @@ limits 256Mi/250m. Override via dep.resources.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ $fullname }}-data
+  name: {{ $fullname }}
   namespace: {{ $.Values.app.namespace }}
   labels:
     {{- include "app-template.commonLabels" (dict "root" $ "name" $name "component" "cache") | nindent 4 }}
@@ -96,7 +97,7 @@ spec:
       volumes:
         - name: data
           persistentVolumeClaim:
-            claimName: {{ $fullname }}-data
+            claimName: {{ $fullname }}
 ---
 apiVersion: v1
 kind: Service

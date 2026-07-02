@@ -3,7 +3,9 @@
 dependency-postgres.yaml — Provisiona dependencias com engine "postgres".
 -----------------------------------------------------------------------------
 Gera, para cada entrada de .Values.dependencies com engine=postgres:
-  * PersistentVolumeClaim <app>-<dep>-data (dados persistem entre restarts)
+  * PersistentVolumeClaim <app>-<dep> (dados persistem entre restarts) —
+    SEM sufixo "-data": e a convencao VIVA (buildK8s) e PVC renomeado = perda
+    de dados via prune do Argo (docs/new-project-contract.md §11.5)
   * Deployment <app>-<dep> com strategy Recreate (PVC RWO nao aceita dois pods)
   * Service ClusterIP <app>-<dep> na porta 5432
 Padrao generalizado dos manifests provados de sicat (k8s/postgres.yaml) e
@@ -38,7 +40,7 @@ Postgres e corrompeu o WAL; 1Gi da folga). Override via dep.resources.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ $fullname }}-data
+  name: {{ $fullname }}
   namespace: {{ $.Values.app.namespace }}
   labels:
     {{- include "app-template.commonLabels" (dict "root" $ "name" $name "component" "db") | nindent 4 }}
@@ -105,7 +107,7 @@ spec:
       volumes:
         - name: data
           persistentVolumeClaim:
-            claimName: {{ $fullname }}-data
+            claimName: {{ $fullname }}
 ---
 apiVersion: v1
 kind: Service

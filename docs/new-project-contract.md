@@ -518,8 +518,8 @@ recurso, e IMPOE fail-closed: namespace do env diferente do default e hosts do e
 
 | `engine` | Template do chart | Provisiona | Resources DEFAULT (obrigatorios) |
 |---|---|---|---|
-| `postgres` | `dependency-postgres.yaml` | PVC `<app>-<dep>-data` + Deployment `<app>-<dep>` (**strategy Recreate**) + Service (5432) + probes `pg_isready` (readiness+liveness). `flavor: pgvector` troca a imagem para `pgvector/pgvector:pg<version>`; sem flavor: `postgres:<version>-alpine` (default 16). `secretName` **obrigatorio** (POSTGRES_USER/PASSWORD/DB via `envFrom`) | requests `128Mi`/`50m`, limits **`1Gi`**/`1000m` — licao do incidente OOM do sicat (512Mi corrompeu o WAL) |
-| `redis` | `dependency-redis.yaml` | PVC `<app>-<dep>-data` (AOF `--appendonly yes`) + Deployment (**Recreate**) + Service (6379) + probes `redis-cli ping`. Imagem `redis:<version>-alpine` (default 7) | requests `32Mi`/`25m`, limits `256Mi`/`250m` |
+| `postgres` | `dependency-postgres.yaml` | PVC `<app>-<dep>` (**sem sufixo `-data`** — convencao viva; rename de PVC = perda de dados) + Deployment `<app>-<dep>` (**strategy Recreate**) + Service (5432) + probes `pg_isready` (readiness+liveness). `flavor: pgvector` troca a imagem para `pgvector/pgvector:pg<version>`; sem flavor: `postgres:<version>-alpine` (default 16). `secretName` **obrigatorio** (POSTGRES_USER/PASSWORD/DB via `envFrom`) | requests `128Mi`/`50m`, limits **`1Gi`**/`1000m` — licao do incidente OOM do sicat (512Mi corrompeu o WAL) |
+| `redis` | `dependency-redis.yaml` | PVC `<app>-<dep>` (AOF `--appendonly yes`; **sem sufixo `-data`**) + Deployment (**Recreate**) + Service (6379) + probes `redis-cli ping`. Imagem `redis:<version>-alpine` (default 7) | requests `32Mi`/`25m`, limits `256Mi`/`250m` |
 | `mongodb` / `nats` | — **RESERVADO** | sem template ainda; adicionar quando houver consumidor real (o schema aceita, o compilador falha com erro claro) | — |
 
 Regras herdadas (HARD, ver [`standards/hard-constraints.md`](./standards/hard-constraints.md)):
@@ -626,31 +626,47 @@ de dados**, `spec.selector` de Deployment e **imutavel** (o apiserver rejeita o 
 4. **Diff real contra o cluster** (read-only): recarregue o PATH e rode
    `kubectl diff -f <tmp>/k8s/<app>.yaml`. Exit 1 = so mudancas aplicaveis; **exit >1 com
    `field is immutable` = conversao BLOQUEADA**.
-5. Qualquer **rename/selector-change inevitavel → PARE** (nao force): documente o bloqueio e
-   aguarde o chart ganhar os knobs de compatibilidade (abaixo). Recriacao planejada (delete +
-   apply com downtime/perda de estado) e decisao do **operador**, com aprovacao, fora da esteira.
+5. Qualquer **rename/selector-change inevitavel → PARE** (nao force): documente o bloqueio.
+   Recriacao planejada (delete + apply com downtime/perda de estado) e decisao do **operador**,
+   com aprovacao, fora da esteira.
 6. Se o gate passou: commite `devops.yaml` v2 + `k8s/<app>.yaml` compilado **juntos** (o
    `--check` do compilador vira o guardiao de drift) e acompanhe o sync do Argo.
 
-**Estado atual (2026-07, fase B6): conversao de produtos v1 VIVOS esta BLOQUEADA.** Piloto
-executado no `contaviva-pro` (produto da Forja no ar): o `kubectl diff` do candidato compilado foi
-rejeitado pelo apiserver em **todos os 5 Deployments** (`spec.selector: field is immutable` —
-vivo `{app.kubernetes.io/name: contaviva-pro-api}` vs chart `{app.kubernetes.io/name: api,
-app.kubernetes.io/part-of: contaviva-pro}`), alem de: PVC do Postgres renomeado
-(`contaviva-pro-postgres` com dados → `contaviva-pro-postgres-data` vazio = perda de dados via
-prune), Middleware renomeado (`-api-strip` → `-api-stripprefix`) e consolidacao das IngressRoutes
-(`<app>-frontend` seria podada). O mesmo vale para todos os produtos v1 gerados pelo antigo
-`buildK8s()` (mesmas convencoes).
+**Estado atual (2026-07, pos-B6): a convergencia esta DESBLOQUEADA — o chart ADOTOU a convencao
+viva.** O piloto do B6 no `contaviva-pro` tinha sido reprovado pelo diff-gate (selector imutavel
+≠ vivo, PVC renomeado, Middleware renomeado, IngressRoute `-frontend` podada). Na janela barata
+(nenhum recurso vivo usava as convencoes antigas do chart — `forge-pilot-v2` e fixture, nunca
+deployado), o `templates/app-template` passou a gerar EXATAMENTE a convencao dos produtos vivos
+(antigo `buildK8s()`), e o `checkRendered` do compilador agora **impoe** cada item:
 
-**O que desbloqueia (mudancas no chart `templates/app-template` — fase B2, NAO fazer aqui):**
+| Convencao (agora do chart E dos vivos) | Detalhe |
+|---|---|
+| selector `{ app.kubernetes.io/name: <app>-<svc> }` | **exatamente** isso, sem `part-of` no selector (adicionar chave tambem e mutacao de campo imutavel); label `name` = `<app>-<svc>` em labels/pods (hard-constraints §1) |
+| PVC de dependencia `<app>-<dep>` | **sem** sufixo `-data` (dependencia `postgres` → PVC `<app>-postgres`, identico ao vivo) |
+| Middleware `<app>-<svc>-strip` | identico ao vivo (`contaviva-pro-api-strip`, `besc-api-strip`, ...) |
+| IngressRoutes `<app>` (api/api2) + `<app>-frontend` (frontend) | a rota do frontend tem IngressRoute PROPRIA — nunca e consolidada/podada |
+| ConfigMap `<app>-healthchecks` | por app (o antigo nome fixo `app-healthchecks` era compartilhado no namespace — dois produtos compilados brigariam pelo recurso) |
 
-| Gap do chart | Efeito hoje | Mudanca necessaria |
+**Piloto `contaviva-pro` CONVERTIDO** (devops.yaml v2 + `k8s/contaviva-pro.yaml` compilado +
+suplemento `k8s/contaviva-pro-observability.yaml`): `kubectl diff` limpo — nenhum
+`field is immutable`, PVC/Middleware/IngressRoutes com os MESMOS nomes; deltas aceitos:
+resources/probes adicionados, envs novos (`LANGFUSE_*`), labels do chart, `Host()` na match,
+ConfigMaps `-meta`/`-healthchecks`, PVC novo do redis, Services `*-metrics` (o Service
+`<app>-worker` vivo e substituido por `<app>-worker-metrics`; a porta `metrics` sai do Service
+da api para `<app>-api-metrics`).
+
+**Converter os demais produtos v1 = repetir o checklist acima** (passos 1-6) por produto.
+Gotcha achado no piloto (ja corrigido, mas vale a pena conferir no diff): deep merge dos values
+do helm — services de EXEMPLO no `values.yaml` do chart vazavam campos para services homonimos
+(frontend herdava `env VITE_BASE_PATH: /aplicacao1/`, worker herdava `health`); o `values.yaml`
+ficou sem exemplos e o compilador emite `null` explicito por campo.
+
+**Gaps que continuam suplementares (fase B2):**
+
+| Gap do chart | Suplemento hoje | Mudanca futura |
 |---|---|---|
-| `selectorLabels` = `{ name: <svc>, part-of: <app> }` | selector imutavel ≠ vivo (`{ name: <app>-<svc> }`) → apiserver rejeita | selector **exatamente** `{ app.kubernetes.io/name: <app>-<svc> }` (sem `part-of` no selector — adicionar chave tambem e mutacao imutavel) + label `name` = `<app>-<svc>` (letra do hard-constraints §1) |
-| PVC de dependencia fixo `<app>-<dep>-data` | rename do PVC vivo = perda de dados | knob `dependencies.<dep>.pvcName`/`existingClaim` |
-| Middleware fixo `<svc>-stripprefix` | rename do Middleware vivo (stateless, mas e prune+create) | knob ou migracao aceita com recriacao atomica |
-| Sem ServiceMonitor/PrometheusRule/porta de metricas | suplemento `k8s/<app>-observability.yaml` gerado pelo scaffold | templates dirigidos pelo bloco `observability:` do contrato |
-| Sem `middlewares` extras por service | suplemento `k8s/<app>-sso.yaml` (rota sombra priority+1) | lista `middlewares` por service no contrato/chart |
+| Sem ServiceMonitor/PrometheusRule/porta de metricas | `k8s/<app>-observability.yaml` gerado pelo scaffold | templates dirigidos pelo bloco `observability:` do contrato |
+| Sem `middlewares` extras por service | `k8s/<app>-sso.yaml` (rota sombra priority+1) | lista `middlewares` por service no contrato/chart |
 
 > **sicat e gymops ficam FORA da convergencia de manifests** (decisao da Forja 4.0): a adocao
 > brownfield deles e **por contrato** (A5 — `specs/products/{sicat,gymops}` + `devops.yaml` v1

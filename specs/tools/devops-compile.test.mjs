@@ -246,9 +246,11 @@ test('checkRendered com env: pega dev.nvit.com.br vazando, label e namespace err
     '---',
     'kind: Deployment\nmetadata: { name: demo-api, namespace: apps-dev, labels: { app.kubernetes.io/part-of: demo, devops.flavioneto/environment: dev } }\nspec: { template: { spec: { containers: [ { name: a, resources: { requests: {}, limits: {} } } ] } } }',
     '---',
-    'kind: IngressRoute\nmetadata: { name: demo, namespace: apps-dev, labels: { app.kubernetes.io/part-of: demo, devops.flavioneto/environment: dev } }\nspec: { routes: [ { match: "Host(`dev-lab.nvit.localhost`, `dev.nvit.com.br`) && PathPrefix(`/demo/api`)", priority: 30, middlewares: [ { name: demo-api-stripprefix } ] }, { match: "Host(`dev-lab.nvit.localhost`) && PathPrefix(`/demo`)", priority: 10 } ] }',
+    'kind: IngressRoute\nmetadata: { name: demo, namespace: apps-dev, labels: { app.kubernetes.io/part-of: demo, devops.flavioneto/environment: dev } }\nspec: { routes: [ { match: "Host(`dev-lab.nvit.localhost`, `dev.nvit.com.br`) && PathPrefix(`/demo/api`)", priority: 30, middlewares: [ { name: demo-api-strip } ] } ] }',
     '---',
-    'kind: Middleware\nmetadata: { name: demo-api-stripprefix, namespace: apps-dev, labels: { app.kubernetes.io/part-of: demo, devops.flavioneto/environment: dev } }\nspec: { stripPrefix: { prefixes: ["/demo/api"] } }',
+    'kind: IngressRoute\nmetadata: { name: demo-frontend, namespace: apps-dev, labels: { app.kubernetes.io/part-of: demo, devops.flavioneto/environment: dev } }\nspec: { routes: [ { match: "Host(`dev-lab.nvit.localhost`) && PathPrefix(`/demo`)", priority: 10 } ] }',
+    '---',
+    'kind: Middleware\nmetadata: { name: demo-api-strip, namespace: apps-dev, labels: { app.kubernetes.io/part-of: demo, devops.flavioneto/environment: dev } }\nspec: { stripPrefix: { prefixes: ["/demo/api"] } }',
   ].join('\n');
   const issues = checkRendered(bad, contract, { env: 'dev' });
   assert.ok(issues.some((i) => /dev\.nvit\.com\.br.*!= hosts do env/.test(i)), 'deveria acusar host de produção vazando na rota:\n' + issues.join('\n'));
@@ -264,10 +266,14 @@ test('fixture k8s-dev COMMITADA passa em todos os invariantes (com env)', () => 
   const docs = parseDocs(rendered).map((d) => d.obj);
   assert.equal(docs.filter((d) => d.kind === 'Secret').length, 0, 'NENHUM Secret pode ser commitado');
   // Hosts CERTOS por env: só dev-lab.nvit.localhost — nunca dev.nvit.com.br.
-  const ir = docs.find((d) => d.kind === 'IngressRoute');
-  for (const r of ir.spec.routes) {
-    assert.match(r.match, /Host\(`dev-lab\.nvit\.localhost`\) && PathPrefix\(/);
-    assert.ok(!r.match.includes('dev.nvit.com.br'), 'host de produção NUNCA aparece no env dev');
+  // Convenção viva: DUAS IngressRoutes (api em "<app>", frontend em "<app>-frontend").
+  const irs = docs.filter((d) => d.kind === 'IngressRoute');
+  assert.deepEqual(irs.map((d) => d.metadata.name).sort(), ['forge-pilot-v2', 'forge-pilot-v2-frontend']);
+  for (const ir of irs) {
+    for (const r of ir.spec.routes) {
+      assert.match(r.match, /Host\(`dev-lab\.nvit\.localhost`\) && PathPrefix\(/);
+      assert.ok(!r.match.includes('dev.nvit.com.br'), 'host de produção NUNCA aparece no env dev');
+    }
   }
   // MESMO basePath (strip do prefixo COMPLETO, idêntico ao de produção).
   const mw = docs.find((d) => d.kind === 'Middleware');
@@ -299,12 +305,23 @@ test('fixture commitada: sem Secret, com Host()+PathPrefix e strip completo', ()
   const rendered = read(FIXTURE_RENDERED);
   const docs = parseDocs(rendered).map((d) => d.obj);
   assert.equal(docs.filter((d) => d.kind === 'Secret').length, 0, 'NENHUM Secret pode ser commitado');
-  const ir = docs.find((d) => d.kind === 'IngressRoute');
-  for (const r of ir.spec.routes) {
-    assert.match(r.match, /Host\(`nvit\.localhost`, `dev\.nvit\.com\.br`\) && PathPrefix\(/);
+  // Convenção viva: api/api2 na IngressRoute "<app>", frontend na "<app>-frontend".
+  const irs = docs.filter((d) => d.kind === 'IngressRoute');
+  assert.deepEqual(irs.map((d) => d.metadata.name).sort(), ['forge-pilot-v2', 'forge-pilot-v2-frontend']);
+  for (const ir of irs) {
+    for (const r of ir.spec.routes) {
+      assert.match(r.match, /Host\(`nvit\.localhost`, `dev\.nvit\.com\.br`\) && PathPrefix\(/);
+    }
   }
   const mw = docs.find((d) => d.kind === 'Middleware');
+  assert.equal(mw.metadata.name, 'forge-pilot-v2-api-strip', 'Middleware "<app>-<svc>-strip" (convenção viva)');
   assert.deepEqual(mw.spec.stripPrefix.prefixes, ['/forge-pilot-v2/api']);
+  // selector na convenção viva (campo IMUTÁVEL): { name: <app>-<svc> }, sem part-of
+  const api = docs.find((d) => d.kind === 'Deployment' && d.metadata.name === 'forge-pilot-v2-api');
+  assert.deepEqual(api.spec.selector.matchLabels, { 'app.kubernetes.io/name': 'forge-pilot-v2-api' });
+  // PVC de dependência SEM sufixo -data (idêntico ao vivo)
+  const pvcs = docs.filter((d) => d.kind === 'PersistentVolumeClaim').map((d) => d.metadata.name).sort();
+  assert.deepEqual(pvcs, ['forge-pilot-v2-postgres', 'forge-pilot-v2-redis']);
   // dependências: Recreate + PVC + resources default do incidente OOM
   const pg = docs.find((d) => d.kind === 'Deployment' && d.metadata.name === 'forge-pilot-v2-postgres');
   assert.equal(pg.spec.strategy.type, 'Recreate');
@@ -330,12 +347,18 @@ test('checkRendered: pega container sem resources e strip incompleto', () => {
     'metadata: { name: demo, namespace: apps, labels: { app.kubernetes.io/part-of: demo } }',
     'spec:',
     '  routes:',
-    '    - { kind: Rule, match: "PathPrefix(`/demo/api`)", priority: 30, middlewares: [ { name: demo-api-stripprefix } ] }',
+    '    - { kind: Rule, match: "PathPrefix(`/demo/api`)", priority: 30, middlewares: [ { name: demo-api-strip } ] }',
+    '---',
+    'apiVersion: traefik.io/v1alpha1',
+    'kind: IngressRoute',
+    'metadata: { name: demo-frontend, namespace: apps, labels: { app.kubernetes.io/part-of: demo } }',
+    'spec:',
+    '  routes:',
     '    - { kind: Rule, match: "Host(`nvit.localhost`) && PathPrefix(`/demo`)", priority: 10 }',
     '---',
     'apiVersion: traefik.io/v1alpha1',
     'kind: Middleware',
-    'metadata: { name: demo-api-stripprefix, namespace: apps, labels: { app.kubernetes.io/part-of: demo } }',
+    'metadata: { name: demo-api-strip, namespace: apps, labels: { app.kubernetes.io/part-of: demo } }',
     'spec: { stripPrefix: { prefixes: ["/api"] } }',
   ].join('\n');
   const issues = checkRendered(bad, contract);
@@ -355,9 +378,11 @@ test('checkRendered: pega priority invertida (api <= frontend)', () => {
     '---',
     'kind: Deployment\nmetadata: { name: demo-api, namespace: apps, labels: { app.kubernetes.io/part-of: demo } }\nspec: { template: { spec: { containers: [ { name: a, resources: { requests: {}, limits: {} } } ] } } }',
     '---',
-    'kind: IngressRoute\nmetadata: { name: demo, labels: { app.kubernetes.io/part-of: demo } }\nspec: { routes: [ { match: "Host(`h`) && PathPrefix(`/demo/api`)", priority: 5, middlewares: [ { name: demo-api-stripprefix } ] }, { match: "Host(`h`) && PathPrefix(`/demo`)", priority: 10 } ] }',
+    'kind: IngressRoute\nmetadata: { name: demo, labels: { app.kubernetes.io/part-of: demo } }\nspec: { routes: [ { match: "Host(`h`) && PathPrefix(`/demo/api`)", priority: 5, middlewares: [ { name: demo-api-strip } ] } ] }',
     '---',
-    'kind: Middleware\nmetadata: { name: demo-api-stripprefix, labels: { app.kubernetes.io/part-of: demo } }\nspec: { stripPrefix: { prefixes: ["/demo/api"] } }',
+    'kind: IngressRoute\nmetadata: { name: demo-frontend, labels: { app.kubernetes.io/part-of: demo } }\nspec: { routes: [ { match: "Host(`h`) && PathPrefix(`/demo`)", priority: 10 } ] }',
+    '---',
+    'kind: Middleware\nmetadata: { name: demo-api-strip, labels: { app.kubernetes.io/part-of: demo } }\nspec: { stripPrefix: { prefixes: ["/demo/api"] } }',
   ].join('\n');
   const issues = checkRendered(rendered, contract);
   assert.ok(issues.some((i) => /api deve ser MAIOR que frontend/.test(i)), issues.join('\n'));
