@@ -7,6 +7,15 @@ const PRODUCT_RE = /^[a-z][a-z0-9-]{1,30}$/;
 const MAX_PAYLOAD_BYTES = 60 * 1024; // teto defensivo (repository_dispatch client_payload ~64KB)
 const MAX_REQS = 12;
 
+// Produtos PROTEGIDOS — apps vivos e componentes de plataforma. A Forja NÃO pode scaffoldar/relançar
+// (launch escreveria specs+apps/<p>+Application do Argo por cima de recurso vivo sob selfHeal) nem
+// apagar. Espelha a denylist dos workflows greenfield-launch.yml / forge-delete.yml (defesa em camadas).
+const PROTECTED = new Set([
+  'sicat', 'gymops', 'rmambiental', 'anarabottini',
+  'reqhub', 'console', 'devops-console', 'portal', 'portal-recorder',
+  'keycloak', 'langfuse', 'ai-control-plane', 'devops-platform',
+]);
+
 const str = (v, max = 200) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
 /** Valida o corpo do POST /v1/forge/launch. -> { ok, value } | { ok:false, code, message }. */
@@ -14,6 +23,7 @@ export function validateLaunchInput(body) {
   const b = body || {};
   const product = String(b.product || '').trim().toLowerCase();
   if (!PRODUCT_RE.test(product)) return { ok: false, code: 'INVALID_PRODUCT', message: 'product inválido (slug minúsculo 2-31 chars: ^[a-z][a-z0-9-]{1,30}$)' };
+  if (PROTECTED.has(product)) return { ok: false, code: 'PROTECTED', message: `'${product}' é protegido (app vivo ou componente de plataforma) — a Forja não pode scaffoldar/relançar sobre ele` };
   const mode = b.mode === 'release' ? 'release' : (b.mode === 'pr' ? 'pr' : null);
   if (!mode) return { ok: false, code: 'INVALID_MODE', message: "mode deve ser 'pr' ou 'release'" };
   const requirements = Array.isArray(b.requirements)
@@ -76,13 +86,6 @@ export async function dispatchForgeLaunch({ token, repo, payload, fetchImpl }) {
   try { detail = (await res.text()).slice(0, 300); } catch { /* noop */ }
   return { ok: false, status: res.status, detail };
 }
-
-// Produtos PROTEGIDOS — nunca apagáveis pela Forja (produtos reais + componentes de plataforma).
-const PROTECTED = new Set([
-  'sicat', 'gymops', 'rmambiental', 'anarabottini',
-  'reqhub', 'console', 'devops-console', 'portal', 'portal-recorder',
-  'keycloak', 'langfuse', 'ai-control-plane', 'devops-platform',
-]);
 
 /** Valida o corpo do POST /v1/forge/delete. -> { ok, value } | { ok:false, code, message }. */
 export function validateDeleteInput(body) {

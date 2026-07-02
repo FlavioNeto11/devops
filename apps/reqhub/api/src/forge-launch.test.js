@@ -9,6 +9,20 @@ test('validate: product slug', () => {
   assert.equal(ok.value.product, 'cadastro-de-pacientes');
 });
 
+test('validate: launch PROTEGE apps vivos/plataforma (mesma denylist do delete)', () => {
+  // sem o guard, "lançar" um protegido dispararia scaffold de apps/<p> + Application do Argo
+  // por cima de recurso vivo sob selfHeal (pré-requisito da adoção brownfield no Studio).
+  for (const p of ['sicat', 'gymops', 'reqhub', 'keycloak']) {
+    const r = validateLaunchInput({ product: p, mode: 'pr', requirements: [{ title: 'x' }] });
+    assert.equal(r.ok, false);
+    assert.equal(r.code, 'PROTECTED');
+  }
+  // o slug é normalizado (lowercase) antes do guard — maiúsculas não escapam
+  assert.equal(validateLaunchInput({ product: 'SICAT', mode: 'pr', requirements: [{ title: 'x' }] }).code, 'PROTECTED');
+  // produto comum segue passando
+  assert.equal(validateLaunchInput({ product: 'meuapp', mode: 'pr', requirements: [{ title: 'x' }] }).ok, true);
+});
+
 test('validate: mode obrigatório pr|release', () => {
   assert.equal(validateLaunchInput({ product: 'meuapp', mode: 'nope', requirements: [{ title: 'x' }] }).code, 'INVALID_MODE');
   assert.equal(validateLaunchInput({ product: 'meuapp', mode: 'release', requirements: [{ title: 'x' }] }).value.mode, 'release');
