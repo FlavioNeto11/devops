@@ -8,7 +8,9 @@
    no dark (botões/CTAs com contraste máximo, sem cor de marca gritando).
    Semântica (status/prioridade) fica nos DOTS dos badges — ver badge.tsx.
    A sidebar é grafite escuro nos DOIS modos (identidade do produto).
+   As VARS abaixo são GERADAS de packages/design-tokens (marca gymops).
    ============================================================================= */
+/* @generated-tokens:start (marca: gymops — NÃO EDITAR este bloco; edite packages/design-tokens/tokens.json e rode `node build.mjs`; CI valida com `node build.mjs --check`) */
 @layer base {
   :root {
     --background: 240 5% 97%;
@@ -68,6 +70,7 @@
     --sidebar-border: 240 4% 14%;
   }
 }
+/* @generated-tokens:end */
 
 @layer base {
   * { @apply border-border; }

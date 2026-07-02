@@ -12,6 +12,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { deriveForgeTokensCss, DEFAULT_BRAND } from './forge-brand.mjs';
 import { renderSicatCss, renderSicatVuetifyTheme } from './renderers/sicat.mjs';
+import { renderGymopsHslBlock } from './renderers/gymops.mjs';
 import { renderPlatformTokensBlock } from './renderers/platform.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -108,6 +109,11 @@ function adoptedJobs() {
   if (tokens.brands.sicat) {
     out.push({ label: 'adopted:sicat (css)', rel: 'apps/sicat/frontend/src/styles/tokens.generated.css', content: renderSicatCss(tokens.brands.sicat) });
     out.push({ label: 'adopted:sicat (vuetify)', rel: 'apps/sicat/frontend/src/plugins/vuetify-theme.generated.js', content: renderSicatVuetifyTheme(tokens.brands.sicat) });
+  }
+  if (tokens.brands.gymops) {
+    // alvo é um TRECHO do globals.css do app (as diretivas @tailwind precisam seguir no topo);
+    // o codegen substitui só o bloco entre os marcadores @generated-tokens:start/:end.
+    out.push({ label: 'adopted:gymops (globals.css)', rel: 'apps/gymops/apps/web/src/app/globals.css', content: renderGymopsHslBlock(tokens.brands.gymops), markers: true });
   }
   return out;
 }
