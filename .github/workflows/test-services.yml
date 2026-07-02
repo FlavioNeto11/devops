@@ -25,6 +25,8 @@ permissions:
 jobs:
   # ---------------------------------------------------------------------------
   # GymOps — Postgres (pgvector) + Redis (BullMQ).
+  # NB: a cobertura de PR do gymops foi promovida para ci-gymops-e2e.yml
+  # (integracao + E2E em pull_request). Este job fica como espelho dispatch-only.
   # ---------------------------------------------------------------------------
   gymops:
     runs-on: ubuntu-latest

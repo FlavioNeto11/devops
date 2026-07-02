@@ -134,7 +134,7 @@
 | **BUG-008** | P1 | ✅ | `refreshTokenHash` no schema. Migration aplicada. Lookup e revogação por hash. |
 | **BUG-009** | P1 | ✅ | `docker-compose.public.yml` com healthchecks e `condition: service_healthy`. |
 | **BUG-010** | P1 | ⚠️ Parcial | `ALLOWED_ORIGINS` via env funciona. `localhost:3000`/`7480` ainda hardcoded (aceitável para dev). |
-| **BUG-011 (OPS-001)** | P1 | ✅ | E2E em PR (`pull_request: branches: [main]`). Artifact `if: always()`. |
+| **BUG-011 (OPS-001)** | P1 | ✅ | E2E + integração em PR via workflow **raiz** `ci-gymops-e2e.yml` (Forja 4.1 F5, 2026-07-02). O e2e.yml aninhado nunca executou no monorepo (morto, mantido como histórico). |
 | **BUG-012 (OPS-002)** | P1 | ✅ | `build-gymops` job no CI. |
 
 ---

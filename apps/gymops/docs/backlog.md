@@ -129,15 +129,22 @@
 - **Status**: ✅ Concluído — commit `c7c19a4`. Wizard 4 passos. `bootstrapOrganization()` em `apps/api/src/lib/bootstrap-organization.ts` com 6 áreas canônicas e 24 templates. Seed usa mesma especificação. Typecheck ✅. Build ✅.
 
 ### OPS-001 — E2E em pull_request
-- **Arquivos**: [`.github/workflows/e2e.yml`](../.github/workflows/e2e.yml)
-- **Descrição**: Hoje roda só em `push main` + `workflow_dispatch`. Regressões só aparecem após merge.
+- **Arquivos**: `.github/workflows/ci-gymops-e2e.yml` (**raiz do monorepo** — canônico); [`.github/workflows/e2e.yml`](../.github/workflows/e2e.yml) (aninhado, **morto**)
+- **Descrição**: E2E (Playwright) + integração de API (vitest com Postgres/Redis) precisam bloquear PR antes do merge.
 - **Esforço**: s
 - **Critério de aceite**:
-  - Trigger: `push: branches: [main]` + `pull_request: branches: [main]`. ✅
-  - Report Playwright sempre upload (`if: always()`). ✅
-  - PR bloqueado se E2E falhar.
+  - Trigger: `pull_request` + `push: branches: [main]` com paths `apps/gymops/**`. ✅
+  - Report Playwright sempre upload (`if: always()`) + traces/screenshots no fail. ✅
+  - Integração de API (test-services) no mesmo gate de PR. ✅
+  - PR bloqueado se E2E ou integração falhar.
 - **Testes**: dry-run do workflow em PR.
-- **Status**: ✅ Concluído — commit `c7c19a4` + auditoria 2026-05-18. `pull_request: branches: [main]` adicionado. `if: always()` corrigido no upload artifact.
+- **Status**: ✅ Concluído — **re-aberto e re-fechado na Forja 4.1 F5 (2026-07-02)**. A "conclusão" anterior
+  (commit `c7c19a4`, auditoria 2026-05-18) editava o workflow **aninhado** `apps/gymops/.github/workflows/e2e.yml`,
+  herdado do repo standalone — o GitHub **nunca executa** workflows fora de `.github/workflows` da raiz, então o
+  gate nunca rodou neste monorepo (PRs do gymops passavam só com lint/typecheck do `ci-apps`). Correção real:
+  workflow **raiz** `ci-gymops-e2e.yml` com 2 jobs paralelos em PR (`integration` = vitest da API com
+  Postgres pgvector + Redis; `e2e` = suite Playwright completa em chromium contra api+web buildados), caches
+  (pnpm/ms-playwright/.next) e concurrency por PR. O aninhado foi mantido como histórico, marcado como morto.
 
 ### OPS-002 — Build/test variante `/gymops` no CI
 - **Arquivos**: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
