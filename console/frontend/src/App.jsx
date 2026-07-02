@@ -13,6 +13,8 @@ import UserHome from './components/UserHome.jsx';
 // nunca abre a aba Conteudo nao baixa nada disso.
 const ContentEditor = lazy(() => import('./components/ContentEditor.jsx'));
 import { isPortal } from './lib/appTypes.js';
+import { isEmbedMode } from './lib/embed.js';
+import EmbedSurface from './components/EmbedSurface.jsx';
 import AccessAdmin from './components/AccessAdmin.jsx';
 import SharedResources from './components/SharedResources.jsx';
 import Sidebar from './components/Sidebar.jsx';
@@ -52,7 +54,18 @@ const STREAM_LABEL = {
   error: { text: 'reconectando…', cls: 'badge badge-err' },
 };
 
+// (E4, Forja 4.1) FLAG DE BOOTSTRAP: com ?embed=1 na URL o Console renderiza SÓ a
+// superfície de conteúdo (EmbedSurface, sem casca/sidebar/topbar/platform-shell) —
+// é o editor do CMS embutido no trilho t1 do Product Studio via iframe same-origin.
+// Decidido uma única vez por carga (o search não muda sem reload), fora do corpo
+// com hooks — a casca completa continua sendo o default inalterado.
+const EMBED = isEmbedMode(window.location.search);
+
 export default function App() {
+  return EMBED ? <EmbedSurface /> : <ConsoleShell />;
+}
+
+function ConsoleShell() {
   const [activeTab, setActiveTab] = useState('overview');
   const [me, setMe] = useState(null);
   const [meLoaded, setMeLoaded] = useState(false);

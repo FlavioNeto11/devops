@@ -6,7 +6,8 @@ import {
   validateReqId, nextReqId, forgeStatusCls, hubSummary, blueprintById, DONE_STATUSES,
   typeLabel, asList, dagFromWaves, businessProductScopes, NON_PRODUCT_SCOPES,
   weightedProgress, wavesFromProgress, STAGE_WEIGHT,
-  studioPhaseModel, STUDIO_PHASE_KEYS,
+  studioPhaseModel, STUDIO_PHASE_KEYS, STUDIO_T1_PHASE_KEYS,
+  isT1Product, embedConsoleUrl, publishedSiteUrl, parseEmbedMessage,
   mergeLiveProducts, mergeImplItems, forgeStateSig,
   FORGE_MODES, FORGE_MODE_LABELS, normalizeForgeMode, modeCopy,
   projectRequirementCard, forgeReqObject, buildLaunchBody,
@@ -299,6 +300,70 @@ test('studioPhaseModel: sonda liveUrlOk=false rebaixa publicado mesmo com pipeli
   const pub = steps.find((s) => s.key === 'publicado');
   assert.notEqual(pub.status, 'done');
   assert.match(pub.detail, /fora do ar/);
+});
+
+// ---------- (E4, Forja 4.1) trilho REDUZIDO t1 + embed do CMS ----------
+const t1Prod = { name: 'anarabottini', display_name: 'Ana Rabottini', app_type: 'cms_portal', blueprint: 'cms-portal', base_path: '/sites/anarabottini', vision: 'Portal de palestrante', requirement_ids: [], phases: { requirements: { status: 'adopted' } } };
+
+test('isT1Product: cms_portal é t1; software/ausente não é', () => {
+  assert.equal(isT1Product(t1Prod), true);
+  assert.equal(isT1Product({ app_type: 'product_software' }), false);
+  assert.equal(isT1Product({}), false);
+  assert.equal(isT1Product(null), false);
+});
+
+test('studioPhaseModel t1: trilho reduzido Brief → Conteúdo → Publicação (sem esteira de código)', () => {
+  const steps = studioPhaseModel(t1Prod, null, { items: {} }, { liveUrlOk: true });
+  assert.deepEqual(steps.map((s) => s.key), STUDIO_T1_PHASE_KEYS);
+  assert.deepEqual(STUDIO_T1_PHASE_KEYS, ['brief', 'conteudo', 'publicado']);
+  const by = Object.fromEntries(steps.map((s) => [s.key, s]));
+  assert.equal(by.brief.status, 'done');            // tem visão
+  assert.equal(by.conteudo.status, 'current');      // conteúdo é vivo: nunca 'done'
+  assert.equal(by.publicado.status, 'done');        // sonda confirmou no ar
+  assert.equal(by.publicado.detail, 'no ar');
+});
+
+test('studioPhaseModel t1: exatamente uma fase current; sonda rebaixa/pende publicado', () => {
+  const off = studioPhaseModel(t1Prod, null, { items: {} }, { liveUrlOk: false });
+  assert.equal(off.filter((s) => s.status === 'current').length, 1);
+  assert.match(off.find((s) => s.key === 'publicado').detail, /fora do ar/);
+  const unknown = studioPhaseModel(t1Prod, null, { items: {} }, {});
+  assert.match(unknown.find((s) => s.key === 'publicado').detail, /pendente/);
+  const semBrief = studioPhaseModel({ ...t1Prod, vision: '' }, null, { items: {} }, {});
+  assert.equal(semBrief[0].status, 'current'); // brief vira a primeira pendência
+  assert.equal(semBrief.find((s) => s.key === 'conteudo').status, 'todo');
+});
+
+test('studioPhaseModel: produto t3 NÃO é afetado pelo trilho t1 (regressão)', () => {
+  const prod = { name: 'crm', vision: 'v', app_type: 'product_software', requirement_ids: [], phases: {} };
+  assert.deepEqual(studioPhaseModel(prod, null, { items: {} }, {}).map((s) => s.key), STUDIO_PHASE_KEYS);
+});
+
+test('embedConsoleUrl: URL do modo embed do Console com o projeto codificado', () => {
+  assert.equal(embedConsoleUrl('anarabottini'), '/devops/?embed=1#conteudo?projeto=anarabottini');
+  assert.equal(embedConsoleUrl('a b&c'), '/devops/?embed=1#conteudo?projeto=a%20b%26c');
+  assert.equal(embedConsoleUrl(''), '');
+  assert.equal(embedConsoleUrl(null), '');
+});
+
+test('publishedSiteUrl: base_path com barra final; nunca URL fora do site', () => {
+  assert.equal(publishedSiteUrl({ base_path: '/sites/anarabottini' }), '/sites/anarabottini/');
+  assert.equal(publishedSiteUrl({ base_path: '/rmambiental/' }), '/rmambiental/');
+  assert.equal(publishedSiteUrl({}), '');
+  assert.equal(publishedSiteUrl({ base_path: 'https://evil.example' }), ''); // só path absoluto
+});
+
+test('parseEmbedMessage: aceita só o contrato do console-embed (payload não confiável)', () => {
+  assert.deepEqual(parseEmbedMessage({ source: 'console-embed', type: 'embed:ready' }),
+    { type: 'embed:ready', view: '', projeto: '' });
+  assert.deepEqual(parseEmbedMessage({ source: 'console-embed', type: 'embed:navigate', view: 'conteudo', projeto: 'x' }),
+    { type: 'embed:navigate', view: 'conteudo', projeto: 'x' });
+  // projeto/view não-string são descartados (nunca lança)
+  assert.deepEqual(parseEmbedMessage({ source: 'console-embed', type: 'embed:navigate', projeto: 42 }).projeto, '');
+  assert.equal(parseEmbedMessage({ source: 'outro', type: 'embed:ready' }), null);
+  assert.equal(parseEmbedMessage({ source: 'console-embed', type: 'outro' }), null);
+  assert.equal(parseEmbedMessage('embed:ready'), null);
+  assert.equal(parseEmbedMessage(null), null);
 });
 
 // ---------- (C2) MODOS DE USUÁRIO: projeções puras sobre a MESMA engine ----------

@@ -255,14 +255,42 @@ export function phaseModel(product, buildPlan, implStatus) {
  * Mesma regra do phaseModel: exatamente uma fase 'current' (a primeira não concluída).
  */
 export const STUDIO_PHASE_KEYS = ['brief', 'requisitos', 'arquitetura', 'telas', 'docs', 'pipeline', 'publicado'];
+/* (E4, Forja 4.1) trilho REDUZIDO t1: portal de conteúdo (executor = CMS, sem esteira de código).
+   Brief → Conteúdo → Publicação. A fase Conteúdo embute o editor do CMS do Console e NUNCA fica
+   "done" — conteúdo é vivo por natureza (a fase é o lugar de trabalho, não um gate). */
+export const STUDIO_T1_PHASE_KEYS = ['brief', 'conteudo', 'publicado'];
+export function isT1Product(product) { return !!product && product.app_type === 'cms_portal'; }
+// exatamente uma fase 'current' (a primeira não concluída) — regra compartilhada dos trilhos
+function assignPhaseStatuses(keys, done, meta) {
+  let currentAssigned = false;
+  return keys.map((k) => {
+    let status;
+    if (done[k]) status = 'done';
+    else if (!currentAssigned) { status = 'current'; currentAssigned = true; }
+    else status = 'todo';
+    return { key: k, label: meta[k].label, detail: meta[k].detail, status };
+  });
+}
 export function studioPhaseModel(product, buildPlan, implStatus, extra) {
   const x = extra || {};
+  const hasBrief = !!String((product && (product.vision || product.brief)) || '').trim();
+  // produto t1: sem requisitos/arquitetura/telas/pipeline — o executor é o CMS da plataforma
+  if (isT1Product(product)) {
+    return assignPhaseStatuses(STUDIO_T1_PHASE_KEYS, {
+      brief: hasBrief,
+      conteudo: false, // vivo por natureza: sempre a fase de trabalho (nunca 'done')
+      publicado: x.liveUrlOk === true,
+    }, {
+      brief: { label: 'Brief', detail: hasBrief ? 'visão registrada' : 'sem visão/brief' },
+      conteudo: { label: 'Conteúdo', detail: 'editor do CMS embutido — páginas e seções' },
+      publicado: { label: 'Publicação', detail: x.liveUrlOk === true ? 'no ar' : (x.liveUrlOk === false ? 'URL fora do ar!' : 'sonda pendente…') },
+    });
+  }
   const phases = (product && product.phases) || {};
   const reqIds = (product && product.requirement_ids) || [];
   const prog = weightedProgress(reqIds, implStatus);
   const nWaves = ((buildPlan && buildPlan.waves) || []).length;
   const archApproved = (phases.architecture && phases.architecture.status) === 'approved';
-  const hasBrief = !!String((product && (product.vision || product.brief)) || '').trim();
   const preview = x.previewStatus || null;
   // docs renderizáveis = há o que documentar (visão + requisitos ou arquitetura) — a fase Docs
   // compõe o que JÁ existe (product/build-plan/baseline); não depende de artefato novo.
@@ -292,14 +320,36 @@ export function studioPhaseModel(product, buildPlan, implStatus, extra) {
     pipeline: { label: 'Pipeline', detail: `${prog.live}/${prog.total} no ar · ${prog.pct}%` },
     publicado: { label: 'Publicação', detail: pipelineDone ? (x.liveUrlOk === false ? 'URL fora do ar!' : 'no ar') : 'aguardando o pipeline…' },
   };
-  let currentAssigned = false;
-  return STUDIO_PHASE_KEYS.map((k) => {
-    let status;
-    if (done[k]) status = 'done';
-    else if (!currentAssigned) { status = 'current'; currentAssigned = true; }
-    else status = 'todo';
-    return { key: k, label: meta[k].label, detail: meta[k].detail, status };
-  });
+  return assignPhaseStatuses(STUDIO_PHASE_KEYS, done, meta);
+}
+
+/* ---------- (E4, Forja 4.1) embed do CMS no trilho t1 — helpers puros ----------
+   O editor de conteúdo do Console é embutido por IFRAME same-origin em modo embed
+   (?embed=1). O contrato postMessage é validado aqui (payload); a checagem de ORIGEM
+   (event.origin === location.origin) é responsabilidade do listener que tem o evento. */
+// URL do Console em modo EMBED: renderiza SÓ o editor de conteúdo (sem casca) já
+// focado no projeto <key> (o hash usa a MESMA gramática do deep-link A4/E1).
+export function embedConsoleUrl(projectKey) {
+  const k = String(projectKey || '').trim();
+  return k ? '/devops/?embed=1#conteudo?projeto=' + encodeURIComponent(k) : '';
+}
+// URL pública do portal (site-renderer /sites/<chave> ou app dedicado) — barra final
+// para os assets relativos resolverem dentro do iframe.
+export function publishedSiteUrl(product) {
+  const bp = String((product && product.base_path) || '');
+  return bp.startsWith('/') ? bp.replace(/\/+$/, '') + '/' : '';
+}
+// Mensagens aceitas do embed do Console: { source:'console-embed', type:'embed:ready'|'embed:navigate' }.
+// Qualquer outra coisa => null (nunca lança; dados de postMessage são input não confiável).
+export function parseEmbedMessage(data) {
+  if (!data || typeof data !== 'object' || data.source !== 'console-embed') return null;
+  const type = typeof data.type === 'string' ? data.type : '';
+  if (type !== 'embed:ready' && type !== 'embed:navigate') return null;
+  return {
+    type,
+    view: typeof data.view === 'string' ? data.view : '',
+    projeto: typeof data.projeto === 'string' ? data.projeto : '',
+  };
 }
 
 /**

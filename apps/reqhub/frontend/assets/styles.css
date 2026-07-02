@@ -1240,6 +1240,16 @@ body.cmdk-on { overflow: hidden; }
 /* preview embutido na fase Telas (mesma origem; o site-renderer/preview omite frame-ancestors) */
 .forge-preview-frame { width: 100%; height: 520px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-1); margin-top: 10px; }
 @media (max-width: 640px) { .forge-preview-frame { height: 380px; } }
+/* (E4, Forja 4.1) fase Conteúdo do trilho t1 — editor do CMS embutido × site publicado (tabs) */
+.forge-embed-tabs { display: inline-flex; background: var(--bg-1); border: 1px solid var(--line); border-radius: 12px; padding: 4px; gap: 4px; flex: none; }
+.forge-embed-tab { background: none; border: 0; border-radius: 9px; padding: 7px 16px; cursor: pointer; font: inherit; font-size: 13px; color: var(--muted); }
+.forge-embed-tab:hover { color: var(--fg); }
+.forge-embed-tab.is-on { background: var(--bg-2); color: var(--fg); box-shadow: inset 0 0 0 1px var(--accent); }
+.forge-embed-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.forge-embed-actions { align-items: center; margin-top: 12px; }
+.forge-embed-frame { width: 100%; height: 720px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-1); margin-top: 10px; }
+.forge-embed-frame[hidden] { display: none; }
+@media (max-width: 640px) { .forge-embed-frame { height: 480px; } }
 /* documentação viva do produto */
 .forge-docs h4 { margin: 18px 0 6px; font-size: 13px; letter-spacing: 0.02em; color: var(--fg-1); }
 .forge-doc-reqs { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }

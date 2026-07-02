@@ -241,6 +241,13 @@ code {
   padding: 26px 28px;
 }
 
+/* (E4, Forja 4.1) superfície EMBED (?embed=1): só o editor de conteúdo dentro de um
+   iframe do Studio — gutters menores (o iframe já emoldura) e altura da viewport. */
+.content--embed {
+  min-height: 100vh;
+  padding: 14px 16px;
+}
+
 /* Nenhum scroll horizontal de pagina: rolagens ficam contidas nos componentes
    que precisam (ex.: .board, .table-wrap, .tabs). */
 html,
