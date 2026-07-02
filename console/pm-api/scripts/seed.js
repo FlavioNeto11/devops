@@ -11,12 +11,55 @@ const PROJECTS = [
   { key: 'gymops', name: 'GymOps', app_type: 'product_software', stack: 'Next.js 14 / Fastify / Postgres+pgvector / Redis', repo_url: 'apps/gymops', route: '/gymops', k8s_label_selector: 'gymops', status: 'active', description: 'Gestao operacional multiunidade com IA assistiva.' },
   { key: 'rmambiental', name: 'RM Ambiental', app_type: 'cms_portal', stack: 'React + Vite (estatico)', repo_url: 'apps/rmambiental', route: '/rmambiental', k8s_label_selector: 'rmambiental', status: 'active', description: 'Portal institucional premium.' },
   { key: 'anarabottini', name: 'Ana Rabottini', app_type: 'cms_portal', stack: 'React + Vite (estatico)', repo_url: 'apps/anarabottini', route: '/anarabottini', k8s_label_selector: 'anarabottini', status: 'active', description: 'Portal de palestrante corporativa — saude mental, neurodiversidade e adequacao a NR-1.' },
+  { key: 'imobia', name: 'imobia', app_type: 'product_software', stack: 'Vue 3 / Fastify+Prisma / Postgres+pgvector / Redis+BullMQ', repo_url: 'apps/imobia', route: '/imobia', k8s_label_selector: 'imobia', status: 'active', description: 'Ecossistema imobiliario + fintech orquestrado por multiplas IAs (Cortex/GPT/Claude/Gemini). Captacao, leads, financeiro PJ/PF, agenda, vistorias, documentos, Corbam, ACM/PTAM e WhatsApp — IA fail-soft.' },
 ];
 
 // Itens por projeto, ja "nos conformes": descricao + git (caminho no repo) + tasks
 // (comeco->meio->fim). git_url/pr_url sao derivados de `git`+status no loop.
 // tasks[].status: 'todo' | 'in_progress' | 'done'.
 const ITEMS = {
+  imobia: [
+    {
+      type: 'feature', title: 'Fundacao: skeleton + data plane + auth multi-tenant', status: 'done', priority: 'P1',
+      git: 'apps/imobia',
+      description: 'App no ar em /imobia (Vue 3 + Fastify + Prisma + Postgres/pgvector + Redis/BullMQ). Multi-tenant (org/usuarios/RBAC), login local (oidc-kit JWT) + SSO Keycloak fail-soft.',
+      tasks: [
+        { title: 'Scaffold + roteamento Traefik + Argo', status: 'done' },
+        { title: 'Postgres(pgvector) + Redis + Prisma migrate no boot', status: 'done' },
+        { title: 'Auth local + Keycloak (realm nvit)', status: 'done' },
+      ],
+    },
+    {
+      type: 'feature', title: 'Orquestracao multi-IA + adaptador Gemini (ai-core 0.7.0)', status: 'done', priority: 'P1',
+      git: 'packages/ai-core/src/llm-gemini.js',
+      description: 'Motor Cortex(triagem)->GPT/Claude/Gemini sobre @flavioneto11/ai-core. Adaptador Google Gemini ADITIVO no ai-core (60 testes verdes). SSE sem compress. Tudo fail-soft (dorme sem chaves).',
+      tasks: [
+        { title: 'createGeminiLlm + createLlm branch + pricing', status: 'done' },
+        { title: 'Motor de orquestracao + endpoints /ai/*', status: 'done' },
+        { title: 'SSE de streaming (rota dedicada, sem compress)', status: 'done' },
+      ],
+    },
+    {
+      type: 'feature', title: 'Modulos de dominio (imoveis, leads, financeiro, agenda, vistoria, documentos)', status: 'done', priority: 'P1',
+      git: 'apps/imobia/api/src/modules',
+      description: 'Captacao/Imoveis com busca semantica (pgvector), Clientes/Leads com scoring por IA, Financeiro PJ/PF, Agenda (NL->compromisso), Vistoria (fotos->Gemini->laudo Claude), Documentos (validacao Gemini). Timeline "documentar cada etapa".',
+      tasks: [
+        { title: 'CRUD org-scoped + busca semantica', status: 'done' },
+        { title: 'Uploads (PVC) + validacao multimodal', status: 'done' },
+        { title: 'Trilha de auditoria por ator (IA/humano)', status: 'done' },
+      ],
+    },
+    {
+      type: 'feature', title: 'Fintech + mercado (Corbam/COBAN, ACM, PTAM, WhatsApp)', status: 'done', priority: 'P2',
+      git: 'apps/imobia/api/src/modules/corbam',
+      description: 'Corbam: recuperacao de credito (limpa nome/score/rating), simulacao de parcelas deterministica, cartas por Claude. ACM: m2 medio/mediana + resumo GPT. PTAM: laudo ABNT NBR 14653 por Claude. WhatsApp multi-instancia com triagem Cortex (gateway/scraper dormentes ate credencial).',
+      tasks: [
+        { title: 'Corbam (casos, restricoes, simulacao, cartas)', status: 'done' },
+        { title: 'ACM (comparaveis + m2) + PTAM (Claude)', status: 'done' },
+        { title: 'WhatsApp multi-instancia + triagem Cortex', status: 'done' },
+      ],
+    },
+  ],
   sicat: [
     {
       type: 'feature', title: 'Autenticacao propria + OIDC Keycloak', status: 'done', priority: 'P1',
