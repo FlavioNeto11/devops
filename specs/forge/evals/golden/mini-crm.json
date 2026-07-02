@@ -1,0 +1,35 @@
+{
+  "description": "Golden brief MÍNIMO (stack sicat, nenhum bloco selecionado): valida que os DEFAULT_BLOCKS são forçados na resolução e que um requisito non-functional ganha quality_scenarios sintetizados.",
+  "payload": {
+    "product": "eval-mini-crm",
+    "display_name": "Eval Mini CRM",
+    "blueprint": "node-api-vue-spa",
+    "brief": "CRM simples para acompanhar contatos e oportunidades de venda de uma equipe pequena.",
+    "mode": "pr",
+    "architecture": { "stack": "sicat", "selected_blocks": [] },
+    "requirements": [
+      {
+        "id": "REQ-EVALMINICRM-0001",
+        "title": "Fundação: API de contatos",
+        "type": "functional",
+        "priority": "critical",
+        "statement": "O sistema DEVE expor CRUD de contatos com validação de entrada.",
+        "acceptance_criteria": ["POST /v1/contacts cria contato e GET lista com paginação."]
+      },
+      {
+        "id": "REQ-EVALMINICRM-0002",
+        "title": "Disponibilidade da API",
+        "type": "non-functional",
+        "priority": "high",
+        "statement": "A API DEVE responder /health em menos de 500ms em condições normais.",
+        "acceptance_criteria": ["/health responde 200 em < 500ms no smoke pós-deploy."]
+      }
+    ]
+  },
+  "expect": {
+    "stack": "sicat",
+    "ids": ["REQ-EVALMINICRM-0001", "REQ-EVALMINICRM-0002"],
+    "resolved_blocks_include": ["observabilidade", "contas-acesso"],
+    "resolved_blocks_exclude": ["redis-bullmq"]
+  }
+}
