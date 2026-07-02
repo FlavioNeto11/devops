@@ -220,10 +220,12 @@
 - **Esforço**: s
 - **Critério de aceite**:
   - `ai-metrics.ts` idempotente sob re-avaliação (guard `register.getSingleMetric(...)` ou registry próprio),
-    sem mudar o comportamento em produção.
-  - Job `integration` do `ci-gymops-e2e.yml` (raiz) verde.
+    sem mudar o comportamento em produção. ✅
+  - Job `integration` do `ci-gymops-e2e.yml` (raiz) verde. ✅
 - **Testes**: `pnpm -r test` com Postgres+Redis reais (o próprio job de CI).
-- **Status**: 🔴 Aberto — bloqueia o gate de integração em PR.
+- **Status**: ✅ Resolvido — [PR #195](https://github.com/FlavioNeto11/devops/pull/195). Guard `register.getSingleMetric('process_cpu_user_seconds_total')`
+  antes do `collectDefaultMetrics()` + cache do objeto `aiMetrics` em `globalThis` (factory com cache);
+  runtime de produção inalterado (módulo avaliado 1x). Verificado local (10/10 arquivos, 72/72 testes) e no CI.
 
 ### BUG-014 — E2E: `import.spec.ts` quebra a coleta do Playwright (ESM × CJS)
 - **Arquivos**: [`apps/web/e2e/import.spec.ts`](../apps/web/e2e/import.spec.ts) (linhas 3–5)
@@ -235,10 +237,12 @@
 - **Esforço**: s
 - **Critério de aceite**:
   - `import.spec.ts` sem `import.meta` (em CJS transpilado o `__dirname` global já existe) ou pacote migrado
-    a ESM de forma consciente.
-  - Job `e2e` do `ci-gymops-e2e.yml` (raiz) executa a suite (os resultados dos testes em si são outra história).
+    a ESM de forma consciente. ✅
+  - Job `e2e` do `ci-gymops-e2e.yml` (raiz) executa a suite (os resultados dos testes em si são outra história). ✅
 - **Testes**: o próprio job de CI.
-- **Status**: 🔴 Aberto — bloqueia o gate E2E em PR.
+- **Status**: ✅ Resolvido — [PR #195](https://github.com/FlavioNeto11/devops/pull/195). O `__dirname` derivado de `import.meta.url` era código morto (fixture
+  inline via `Buffer`, sem acesso a filesystem) — removido junto com os imports de `path`/`url`. Coleta
+  verificada local: `playwright test --list` → 50 testes em 12 arquivos (antes: aborto, 0 testes).
 
 ### FEAT-005 — Integrações: health/reconnect/boards/WhatsApp na UI
 - **Arquivos**: [`apps/web/src/app/(app)/settings/integrations/page.tsx`](../apps/web/src/app/(app)/settings/integrations/page.tsx), [`apps/web/src/lib/admin-api.ts`](../apps/web/src/lib/admin-api.ts) (`integrationsExtApi`)
