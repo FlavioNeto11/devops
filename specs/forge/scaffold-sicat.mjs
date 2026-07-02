@@ -7,23 +7,30 @@
 //
 // Reusa os padrões PROVADOS no FieldServe (apps/fieldserve), num recurso genérico "records".
 //
-// Uso:  node scaffold-sicat.mjs --product <name> [--force]
+// Manifests k8s (Forja 4.0 — B6): o scaffold emite devops.yaml **v2** e chama o COMPILADOR
+// specs/tools/devops-compile.mjs (chart templates/app-template) para gerar k8s/<app>.yaml.
+// O antigo string-builder buildK8s() foi APOSENTADO. Suplemento que o chart ainda não renderiza
+// (gap p/ B2): k8s/<app>-observability.yaml (ServiceMonitor/PrometheusRule/Services de métricas).
+//
+// Uso:  node scaffold-sicat.mjs --product <name> [--force] [--products-dir <dir>] [--dest <dir>]
+//       (--products-dir/--dest servem aos TESTES — default specs/products e apps/)
 // =============================================================================
 import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadCatalog, resolveBlocks } from './apply-capabilities.mjs';
+import { compileForScaffold } from './scaffold-compile.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SPECS_DIR = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(SPECS_DIR, '..');
 
-function parseArgs(argv) { const a = {}; for (let i = 0; i < argv.length; i++) { if (argv[i] === '--product') a.product = argv[++i]; else if (argv[i] === '--force') a.force = true; } return a; }
+function parseArgs(argv) { const a = {}; for (let i = 0; i < argv.length; i++) { if (argv[i] === '--product') a.product = argv[++i]; else if (argv[i] === '--force') a.force = true; else if (argv[i] === '--products-dir') a.productsDir = argv[++i]; else if (argv[i] === '--dest') a.dest = argv[++i]; } return a; }
 
 const args = parseArgs(process.argv.slice(2));
-if (!args.product) { console.error('uso: node scaffold-sicat.mjs --product <name> [--force]'); process.exit(2); }
-const pp = path.join(SPECS_DIR, 'products', args.product, 'product.json');
+if (!args.product) { console.error('uso: node scaffold-sicat.mjs --product <name> [--force] [--products-dir <dir>] [--dest <dir>]'); process.exit(2); }
+const pp = path.join(args.productsDir ? path.resolve(args.productsDir) : path.join(SPECS_DIR, 'products'), args.product, 'product.json');
 if (!fs.existsSync(pp)) { console.error(`produto não encontrado: ${pp}`); process.exit(1); }
 const product = JSON.parse(fs.readFileSync(pp, 'utf8'));
 if ((product.stack || 'sicat') !== 'sicat') { console.error(`scaffold-sicat só gera stack sicat (produto é ${product.stack})`); process.exit(1); }
@@ -60,7 +67,7 @@ const PACK_FROM = {
 const APP = product.name;
 const TITLE = product.display_name || APP;
 const BASE = product.base_path || ('/' + APP);
-const APPDIR = path.join(REPO_ROOT, 'apps', APP);
+const APPDIR = path.join(args.dest ? path.resolve(args.dest) : path.join(REPO_ROOT, 'apps'), APP);
 
 // ── builders dos arquivos (sem ${}; tokens @@APP@@/@@TITLE@@/@@BASE@@; código gerado usa concatenação) ──
 const files = {};
@@ -422,24 +429,36 @@ if (F.gateway) {
   add('mock-central/Dockerfile', 'FROM node:20-alpine\nWORKDIR /app\nCOPY server.js ./\nEXPOSE 8090\nUSER node\nCMD ["node", "server.js"]\n');
 }
 
-// devops.yaml — service api (+ env de IA quando o bloco control-ai-por-app está presente: o assistente é
-// fail-closed sem ANTHROPIC_API_KEY; a chave entra como Secret/Sealed Secret, NUNCA em git).
-const apiSvc = F.ai
-  ? '  api: { type: api, image: @@APP@@-api, path: /api, port: 8080, expose: true, stripPrefix: true, priority: 40, health: { path: /health }, env: { ASSISTANT_MODEL: claude-haiku-4-5-20251001 } }'
-  : '  api: { type: api, image: @@APP@@-api, path: /api, port: 8080, expose: true, stripPrefix: true, priority: 40, health: { path: /health } }';
+// devops.yaml v2 (Forja 4.0 — B6): o CONTRATO é a fonte; k8s/@@APP@@.yaml é COMPILADO dele por
+// specs/tools/devops-compile.mjs (nunca editado à mão). IA (control-ai-por-app): o assistente é
+// fail-closed sem ANTHROPIC_API_KEY; a chave entra pelo Secret @@APP@@-ai (envFrom optional —
+// o pod sobe sem ele), NUNCA em git.
+const apiEnvPairs = [];
+if (F.gateway) apiEnvPairs.push('EXTERNAL_BASE_URL: http://@@APP@@-mock-central:8090');
+apiEnvPairs.push('METRICS_PORT: "9464"', 'AUTO_MIGRATE: "true"', 'AUTO_SEED: "true"');
+if (F.ai) apiEnvPairs.push('ASSISTANT_MODEL: claude-haiku-4-5-20251001');
+const workerEnvPairs = [];
+if (F.gateway) workerEnvPairs.push('EXTERNAL_BASE_URL: http://@@APP@@-mock-central:8090');
+workerEnvPairs.push('METRICS_PORT: "9464"', 'AUTO_MIGRATE: "false"');
 add('devops.yaml', [
-  'app: { name: @@APP@@, namespace: apps, host: nvit.localhost, basePath: @@BASE@@ }',
   '# Gerado pela FORGE (SICAT-style). Blocos: ' + blocks.join(', '),
-  (F.ai ? '# IA: assistente em POST @@BASE@@/api/v1/assistant (aceita ARQUIVOS, multimodal). Requer Secret com ANTHROPIC_API_KEY (fail-closed sem ela).' : ''),
+  '# Contrato v2: manifests COMPILADOS em k8s/@@APP@@.yaml por specs/tools/devops-compile.mjs — NÃO edite o k8s à mão.',
+  '# Recompilar após editar este arquivo:  node specs/tools/devops-compile.mjs apps/@@APP@@/devops.yaml',
+  (F.ai ? '# IA: assistente em POST @@BASE@@/api/v1/assistant (aceita ARQUIVOS, multimodal). Requer Secret @@APP@@-ai com ANTHROPIC_API_KEY (fail-closed sem ela).' : ''),
+  'version: 2',
+  'app: { name: @@APP@@, namespace: apps, host: nvit.localhost, basePath: @@BASE@@, appType: product_software }',
   'services:',
-  apiSvc,
-  (F.worker ? '  worker: { type: worker, image: @@APP@@-api, port: 9464, expose: false, command: ["npm", "run", "worker"] }' : ''),
-  'capabilities: [' + blocks.map((b) => b).join(', ') + ']',
+  '  api: { type: api, path: /api, image: @@APP@@-api, port: 8080, expose: true, stripPrefix: true, priority: 40, health: { path: /health }, envFrom: [@@APP@@-db, { name: @@APP@@-ai, optional: true }], env: { ' + apiEnvPairs.join(', ') + ' } }',
+  (F.worker ? '  worker: { type: worker, image: @@APP@@-api, port: 9464, expose: false, command: ["npm", "run", "worker"], envFrom: [@@APP@@-db], env: { ' + workerEnvPairs.join(', ') + ' } }' : ''),
+  (F.gateway ? '  mock-central: { type: api, image: @@APP@@-mock-central, port: 8090, expose: false, health: { path: /health } }' : ''),
+  'dependencies:',
+  '  postgres: { engine: postgres' + (F.pgvector ? ', flavor: pgvector' : '') + ', version: "16", storage: 1Gi, secretName: @@APP@@-db }',
   'observability: { metricsPort: 9464, serviceMonitor: true, prometheusRule: true }', '',
 ].filter((l) => l !== '').join('\n'));
 
-// k8s — gerado conforme blocos (api + postgres + [worker] + [mock] + routing + servicemonitor + prometheusrule)
-add('k8s/@@APP@@.yaml', buildK8s());
+// Suplemento de observabilidade — o chart app-template ainda não renderiza ServiceMonitor/
+// PrometheusRule/porta de métricas (gap p/ B2 em docs/new-project-contract.md §11.5).
+add('k8s/@@APP@@-observability.yaml', buildObservability());
 
 // docs + test + .forge manifest
 add('CLAUDE.md', '---\ntitle: "@@TITLE@@ — Manual para Claude Code"\nstatus: canonical\napplies_to: [@@APP@@]\nupdated: ' + new Date().toISOString().slice(0, 10) + '\nlanguage: pt-BR\n---\n\n# @@TITLE@@ — gerado pela Forge\n\nApp SICAT-style com blocos: ' + blocks.join(', ') + '.\nVer apps/@@APP@@/.forge/applied-capabilities.json.\n\nVerificar: `BASE_URL=http://nvit.localhost@@BASE@@/api node apps/@@APP@@/test/integration.mjs`\n');
@@ -472,74 +491,19 @@ function buildTest() {
   return lines.join('\n');
 }
 
-function buildK8s() {
-  const L = [];
-  L.push('# @@TITLE@@ — k8s gerado pela Forge. Imagens :local (IfNotPresent).');
-  // postgres
-  L.push('---', 'apiVersion: v1', 'kind: PersistentVolumeClaim',
-    'metadata: { name: @@APP@@-postgres, namespace: apps, labels: { app.kubernetes.io/part-of: @@APP@@ } }',
-    'spec: { accessModes: [ReadWriteOnce], resources: { requests: { storage: 1Gi } } }');
-  L.push('---', 'apiVersion: apps/v1', 'kind: Deployment',
-    'metadata: { name: @@APP@@-postgres, namespace: apps, labels: { app.kubernetes.io/name: @@APP@@-postgres, app.kubernetes.io/part-of: @@APP@@ } }',
-    'spec:', '  replicas: 1', '  strategy: { type: Recreate }', '  selector: { matchLabels: { app.kubernetes.io/name: @@APP@@-postgres } }',
-    '  template:', '    metadata: { labels: { app.kubernetes.io/name: @@APP@@-postgres, app.kubernetes.io/part-of: @@APP@@ } }',
-    '    spec:', '      containers:', '        - name: postgres', '          image: ' + (F.pgvector ? 'pgvector/pgvector:pg16' : 'postgres:16-alpine'),
-    '          envFrom: [ { secretRef: { name: @@APP@@-db } } ]', '          ports: [ { containerPort: 5432 } ]',
-    '          volumeMounts: [ { name: data, mountPath: /var/lib/postgresql/data, subPath: pgdata } ]',
-    '      volumes: [ { name: data, persistentVolumeClaim: { claimName: @@APP@@-postgres } } ]');
-  L.push('---', 'apiVersion: v1', 'kind: Service',
-    'metadata: { name: @@APP@@-postgres, namespace: apps, labels: { app.kubernetes.io/part-of: @@APP@@ } }',
-    'spec: { selector: { app.kubernetes.io/name: @@APP@@-postgres }, ports: [ { port: 5432, targetPort: 5432 } ] }');
-  if (F.gateway) {
-    L.push('---', 'apiVersion: apps/v1', 'kind: Deployment',
-      'metadata: { name: @@APP@@-mock-central, namespace: apps, labels: { app.kubernetes.io/name: @@APP@@-mock-central, app.kubernetes.io/part-of: @@APP@@ } }',
-      'spec:', '  replicas: 1', '  selector: { matchLabels: { app.kubernetes.io/name: @@APP@@-mock-central } }',
-      '  template:', '    metadata: { labels: { app.kubernetes.io/name: @@APP@@-mock-central, app.kubernetes.io/part-of: @@APP@@ } }',
-      '    spec: { containers: [ { name: mock, image: @@APP@@-mock-central:local, imagePullPolicy: IfNotPresent, ports: [ { containerPort: 8090 } ], readinessProbe: { httpGet: { path: /health, port: 8090 }, initialDelaySeconds: 3 } } ] }');
-    L.push('---', 'apiVersion: v1', 'kind: Service',
-      'metadata: { name: @@APP@@-mock-central, namespace: apps, labels: { app.kubernetes.io/part-of: @@APP@@ } }',
-      'spec: { selector: { app.kubernetes.io/name: @@APP@@-mock-central }, ports: [ { port: 8090, targetPort: 8090 } ] }');
-  }
-  // api
-  const apiEnv = ['            - { name: METRICS_PORT, value: "9464" }', '            - { name: AUTO_MIGRATE, value: "true" }', '            - { name: AUTO_SEED, value: "true" }'];
-  if (F.gateway) apiEnv.unshift('            - { name: EXTERNAL_BASE_URL, value: "http://@@APP@@-mock-central:8090" }');
-  L.push('---', 'apiVersion: apps/v1', 'kind: Deployment',
-    'metadata:', '  name: @@APP@@-api', '  namespace: apps',
-    '  labels: { app.kubernetes.io/name: @@APP@@-api, app.kubernetes.io/component: api, app.kubernetes.io/part-of: @@APP@@, devops.flavioneto/app-type: product_software }',
-    '  annotations: { devops.flavioneto/app: @@APP@@, devops.flavioneto/metrics-port: "9464" }',
-    'spec:', '  replicas: 1', '  selector: { matchLabels: { app.kubernetes.io/name: @@APP@@-api } }',
-    '  template:', '    metadata: { labels: { app.kubernetes.io/name: @@APP@@-api, app.kubernetes.io/component: api, app.kubernetes.io/part-of: @@APP@@ } }',
-    '    spec:', '      containers:', '        - name: api', '          image: @@APP@@-api:local', '          imagePullPolicy: IfNotPresent',
-    '          command: ["npm", "start"]', '          envFrom: [ { secretRef: { name: @@APP@@-db } }, { secretRef: { name: @@APP@@-ai, optional: true } } ]', '          env:', ...apiEnv,
-    '          ports:', '            - { name: http, containerPort: 8080 }', '            - { name: metrics, containerPort: 9464 }',
-    '          readinessProbe: { httpGet: { path: /health, port: 8080 }, initialDelaySeconds: 8, periodSeconds: 10 }');
-  L.push('---', 'apiVersion: v1', 'kind: Service',
-    'metadata: { name: @@APP@@-api, namespace: apps, labels: { app.kubernetes.io/name: @@APP@@-api, app.kubernetes.io/part-of: @@APP@@ } }',
-    'spec: { selector: { app.kubernetes.io/name: @@APP@@-api }, ports: [ { name: http, port: 8080, targetPort: 8080 }, { name: metrics, port: 9464, targetPort: 9464 } ] }');
-  if (F.worker) {
-    const wEnv = ['            - { name: METRICS_PORT, value: "9464" }', '            - { name: AUTO_MIGRATE, value: "false" }'];
-    if (F.gateway) wEnv.unshift('            - { name: EXTERNAL_BASE_URL, value: "http://@@APP@@-mock-central:8090" }');
-    L.push('---', 'apiVersion: apps/v1', 'kind: Deployment',
-      'metadata:', '  name: @@APP@@-worker', '  namespace: apps',
-      '  labels: { app.kubernetes.io/name: @@APP@@-worker, app.kubernetes.io/component: worker, app.kubernetes.io/part-of: @@APP@@ }',
-      '  annotations: { devops.flavioneto/app: @@APP@@, devops.flavioneto/metrics-port: "9464" }',
-      'spec:', '  replicas: 1', '  selector: { matchLabels: { app.kubernetes.io/name: @@APP@@-worker } }',
-      '  template:', '    metadata: { labels: { app.kubernetes.io/name: @@APP@@-worker, app.kubernetes.io/component: worker, app.kubernetes.io/part-of: @@APP@@ } }',
-      '    spec:', '      containers:', '        - name: worker', '          image: @@APP@@-api:local', '          imagePullPolicy: IfNotPresent',
-      '          command: ["npm", "run", "worker"]', '          envFrom: [ { secretRef: { name: @@APP@@-db } } ]', '          env:', ...wEnv,
-      '          ports: [ { name: metrics, containerPort: 9464 } ]');
-    L.push('---', 'apiVersion: v1', 'kind: Service',
-      'metadata: { name: @@APP@@-worker, namespace: apps, labels: { app.kubernetes.io/name: @@APP@@-worker, app.kubernetes.io/part-of: @@APP@@ } }',
-      'spec: { selector: { app.kubernetes.io/name: @@APP@@-worker }, ports: [ { name: metrics, port: 9464, targetPort: 9464 } ] }');
-  }
-  // routing
-  L.push('---', 'apiVersion: traefik.io/v1alpha1', 'kind: Middleware',
-    'metadata: { name: @@APP@@-api-strip, namespace: apps }', 'spec: { stripPrefix: { prefixes: ["@@BASE@@/api"] } }');
-  L.push('---', 'apiVersion: traefik.io/v1alpha1', 'kind: IngressRoute',
-    'metadata: { name: @@APP@@, namespace: apps, labels: { app.kubernetes.io/part-of: @@APP@@ } }',
-    'spec:', '  entryPoints: [web]', '  routes:', '    - match: PathPrefix(`@@BASE@@/api`)', '      kind: Rule', '      priority: 40',
-    '      services: [ { name: @@APP@@-api, port: 8080 } ]', '      middlewares: [ { name: @@APP@@-api-strip } ]');
-  // observability
+// Suplemento de OBSERVABILIDADE (o chart app-template ainda não renderiza ServiceMonitor/
+// PrometheusRule nem porta de métricas nos Services — gap p/ B2). Services *-metrics apontam
+// para a porta 9464 dos pods via o selector do CHART ({ name: <svc>, part-of: <app> });
+// o ServiceMonitor seleciona por part-of e só gera targets onde existe porta chamada `metrics`.
+function buildObservability() {
+  const L = ['# @@TITLE@@ — observabilidade (SUPLEMENTO ao k8s/@@APP@@.yaml compilado).',
+    '# O chart templates/app-template ainda NÃO renderiza estes recursos (gap documentado em',
+    '# docs/new-project-contract.md §11.5 p/ a fase B2) — quando ganhar, este arquivo morre.'];
+  const metricsSvc = (svc) => ['---', 'apiVersion: v1', 'kind: Service',
+    `metadata: { name: @@APP@@-${svc}-metrics, namespace: apps, labels: { app.kubernetes.io/name: "${svc}", app.kubernetes.io/part-of: @@APP@@, app.kubernetes.io/component: metrics } }`,
+    `spec: { selector: { app.kubernetes.io/name: "${svc}", app.kubernetes.io/part-of: @@APP@@ }, ports: [ { name: metrics, port: 9464, targetPort: 9464 } ] }`].join('\n');
+  L.push(metricsSvc('api'));
+  if (F.worker) L.push(metricsSvc('worker'));
   L.push('---', 'apiVersion: monitoring.coreos.com/v1', 'kind: ServiceMonitor',
     'metadata: { name: @@APP@@, namespace: apps, labels: { app.kubernetes.io/part-of: @@APP@@, release: kube-prometheus-stack } }',
     'spec:', '  selector: { matchLabels: { app.kubernetes.io/part-of: @@APP@@ } }', '  namespaceSelector: { matchNames: [apps] }',
@@ -601,6 +565,9 @@ if (F.ai) {
 const forgeDir = path.join(APPDIR, '.forge');
 fs.mkdirSync(forgeDir, { recursive: true });
 fs.writeFileSync(path.join(forgeDir, 'applied-capabilities.json'), JSON.stringify({ app: APP, stack: 'sicat', blocks, generatedBy: 'scaffold-sicat.mjs' }, null, 2) + '\n');
+
+// ── k8s pelo COMPILADOR (B6): devops.yaml v2 -> helm template (app-template) -> k8s/<app>.yaml ──
+await compileForScaffold({ appDir: APPDIR, app: APP, tag: '[scaffold-sicat]' });
 
 console.log(`[scaffold-sicat] ${APP} (${blocks.length} blocos) — ${written} arquivos gerados em apps/${APP}/`);
 console.log(`  blocos: ${blocks.join(', ')}`);

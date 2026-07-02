@@ -7,22 +7,30 @@
 // (OIDC real exige client no Keycloak — aqui a identidade vem por header X-Tenant-Id/X-Role
 //  como stand-in da sessão; ver nota no CLAUDE.md gerado.)
 //
-// Uso:  node scaffold-gymops.mjs --product <name> [--force]
+// Manifests k8s (Forja 4.0 — B6): o scaffold emite devops.yaml **v2** e chama o COMPILADOR
+// specs/tools/devops-compile.mjs (chart templates/app-template) para gerar k8s/<app>.yaml.
+// O antigo string-builder buildK8s()/dep() foi APOSENTADO. Suplementos que o chart ainda não
+// renderiza (gap documentado p/ B2): k8s/<app>-observability.yaml (ServiceMonitor/PrometheusRule/
+// Services de métricas) e k8s/<app>-sso.yaml (rota com ForwardAuth, bloco oidc-sessao).
+//
+// Uso:  node scaffold-gymops.mjs --product <name> [--force] [--products-dir <dir>] [--dest <dir>]
+//       (--products-dir/--dest servem aos TESTES — default specs/products e apps/)
 // =============================================================================
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadCatalog, resolveBlocks } from './apply-capabilities.mjs';
 import { kitDeps, packKits } from './vendor-kits.mjs';
+import { compileForScaffold } from './scaffold-compile.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SPECS_DIR = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(SPECS_DIR, '..');
 
-function parseArgs(argv) { const a = {}; for (let i = 0; i < argv.length; i++) { if (argv[i] === '--product') a.product = argv[++i]; else if (argv[i] === '--force') a.force = true; } return a; }
+function parseArgs(argv) { const a = {}; for (let i = 0; i < argv.length; i++) { if (argv[i] === '--product') a.product = argv[++i]; else if (argv[i] === '--force') a.force = true; else if (argv[i] === '--products-dir') a.productsDir = argv[++i]; else if (argv[i] === '--dest') a.dest = argv[++i]; } return a; }
 const args = parseArgs(process.argv.slice(2));
-if (!args.product) { console.error('uso: node scaffold-gymops.mjs --product <name> [--force]'); process.exit(2); }
-const pp = path.join(SPECS_DIR, 'products', args.product, 'product.json');
+if (!args.product) { console.error('uso: node scaffold-gymops.mjs --product <name> [--force] [--products-dir <dir>] [--dest <dir>]'); process.exit(2); }
+const pp = path.join(args.productsDir ? path.resolve(args.productsDir) : path.join(SPECS_DIR, 'products'), args.product, 'product.json');
 if (!fs.existsSync(pp)) { console.error(`produto não encontrado: ${pp}`); process.exit(1); }
 const product = JSON.parse(fs.readFileSync(pp, 'utf8'));
 if (product.stack !== 'gymops') { console.error(`scaffold-gymops só gera stack gymops (produto é ${product.stack})`); process.exit(1); }
@@ -35,7 +43,7 @@ const F = { redis: has('redis-bullmq'), gateway: has('gateway-externo'), rbac: h
 const APP = product.name;
 const TITLE = product.display_name || APP;
 const BASE = product.base_path || ('/' + APP);
-const APPDIR = path.join(REPO_ROOT, 'apps', APP);
+const APPDIR = path.join(args.dest ? path.resolve(args.dest) : path.join(REPO_ROOT, 'apps'), APP);
 
 const files = {};
 const add = (rel, content) => { files[rel] = content; };
@@ -495,17 +503,39 @@ if (F.gateway) {
   add('mock-central/Dockerfile', 'FROM node:20-alpine\nWORKDIR /app\nCOPY server.js ./\nEXPOSE 8090\nUSER node\nCMD ["node", "server.js"]\n');
 }
 
+// devops.yaml v2 (Forja 4.0 — B6): o CONTRATO é a fonte; k8s/@@APP@@.yaml é COMPILADO dele
+// por specs/tools/devops-compile.mjs (nunca editado à mão). envFrom com optional: true
+// preserva o comportamento antigo dos Secrets @@APP@@-ai/@@APP@@-auth (pod sobe sem eles).
+const apiEnvPairs = [];
+if (F.gateway) apiEnvPairs.push('EXTERNAL_BASE_URL: http://@@APP@@-mock-central:8090');
+if (F.redis) apiEnvPairs.push('REDIS_URL: redis://@@APP@@-redis:6379');
+apiEnvPairs.push('METRICS_PORT: "9464"', 'AUTO_MIGRATE: "true"', 'AUTO_SEED: "true"');
+const apiEnvFrom = ['@@APP@@-db', '{ name: @@APP@@-ai, optional: true }'];
+if (F.contas) apiEnvFrom.push('{ name: @@APP@@-auth, optional: true }');
+const workerEnvPairs = [];
+if (F.gateway) workerEnvPairs.push('EXTERNAL_BASE_URL: http://@@APP@@-mock-central:8090');
+if (F.redis) workerEnvPairs.push('REDIS_URL: redis://@@APP@@-redis:6379');
+workerEnvPairs.push('METRICS_PORT: "9464"', 'AUTO_MIGRATE: "false"');
 add('devops.yaml', [
-  'app: { name: @@APP@@, namespace: apps, host: nvit.localhost, basePath: @@BASE@@ }',
   '# Gerado pela FORGE (gymops-style: Fastify + Redis/BullMQ + RBAC). Blocos: ' + blocks.join(', '),
+  '# Contrato v2: manifests COMPILADOS em k8s/@@APP@@.yaml por specs/tools/devops-compile.mjs — NÃO edite o k8s à mão.',
+  '# Recompilar após editar este arquivo:  node specs/tools/devops-compile.mjs apps/@@APP@@/devops.yaml',
+  'version: 2',
+  'app: { name: @@APP@@, namespace: apps, host: nvit.localhost, basePath: @@BASE@@, appType: product_software }',
   'services:',
-  '  api: { type: api, image: @@APP@@-api, path: /api, port: 8080, expose: true, stripPrefix: true, priority: 40, health: { path: /health } }',
-  (F.redis ? '  worker: { type: worker, image: @@APP@@-api, port: 9464, expose: false, command: ["npm", "run", "worker"] }' : ''),
-  (F.redis ? 'dependencies: { redis: { image: "redis:7-alpine" } }' : ''),
+  '  api: { type: api, path: /api, image: @@APP@@-api, port: 8080, expose: true, stripPrefix: true, priority: 40, health: { path: /health }, envFrom: [' + apiEnvFrom.join(', ') + '], env: { ' + apiEnvPairs.join(', ') + ' } }',
+  (F.redis ? '  worker: { type: worker, image: @@APP@@-api, port: 9464, expose: false, command: ["npm", "run", "worker"], envFrom: [@@APP@@-db], env: { ' + workerEnvPairs.join(', ') + ' } }' : ''),
+  (F.gateway ? '  mock-central: { type: api, image: @@APP@@-mock-central, port: 8090, expose: false, health: { path: /health } }' : ''),
+  'dependencies:',
+  '  postgres: { engine: postgres' + (F.pgvector ? ', flavor: pgvector' : '') + ', version: "16", storage: 1Gi, secretName: @@APP@@-db }',
+  (F.redis ? '  redis: { engine: redis, version: "7" }' : ''),
   'observability: { metricsPort: 9464, serviceMonitor: true, prometheusRule: true }', '',
 ].filter((l) => l !== '').join('\n'));
 
-add('k8s/@@APP@@.yaml', buildK8s());
+// Suplementos que o chart app-template ainda NÃO renderiza (gap documentado p/ B2 em
+// docs/new-project-contract.md §11.5). Morrem quando o chart ganhar os templates.
+add('k8s/@@APP@@-observability.yaml', buildObservability());
+if (F.oidc) add('k8s/@@APP@@-sso.yaml', buildSsoRoute());
 add('CLAUDE.md', '---\ntitle: "@@TITLE@@ — Manual para Claude Code"\nstatus: canonical\napplies_to: [@@APP@@]\nupdated: ' + new Date().toISOString().slice(0, 10) + '\nlanguage: pt-BR\n---\n\n# @@TITLE@@ — gerado pela Forge (gymops-style)\n\nFastify + Postgres' + (F.redis ? ' + Redis/BullMQ' : '') + (F.rbac ? ' + RBAC multi-tenant' : '') + (F.contas ? ' + Auth própria (contas-acesso)' : '') + '. Blocos: ' + blocks.join(', ') + '.\n\n' + (F.rbac ? '> RBAC por header X-Tenant-Id/X-Role (stand-in da sessão OIDC; login real = client no Keycloak realm nvit).\n\n' : '') + (F.contas ? '> Auth própria (bloco contas-acesso): POST /auth/register|login|refresh|logout, GET/PATCH /me, /v1/users/* (admin), /auth/sso/* (Keycloak ADITIVO/opcional via OIDC_ISSUER). Senha bcrypt; refresh hash sha256; JWT HS256 (JWT_SECRET — FAIL-CLOSED em produção). Registro público SEMPRE cria member; o admin vem só do seed de bootstrap (BOOTSTRAP_ADMIN_EMAIL/PASSWORD obrigatórios — sem senha default). Troca de senha exige currentPassword e revoga sessões; desativar/rebaixar usuário revoga as sessões dele; gerência escopada ao tenant do admin. Rotas de auth com rate-limit. SSO exige email_verified.\n\n' : '') + 'Verificar: `BASE_URL=http://nvit.localhost@@BASE@@/api node apps/@@APP@@/test/integration.mjs`\n');
 add('test/integration.mjs', buildTest());
 
@@ -549,71 +579,43 @@ function buildTest() {
   return L.join('\n');
 }
 
-function dep(name, image, port) {
-  return ['---', 'apiVersion: apps/v1', 'kind: Deployment',
-    `metadata: { name: @@APP@@-${name}, namespace: apps, labels: { app.kubernetes.io/name: @@APP@@-${name}, app.kubernetes.io/part-of: @@APP@@ } }`,
-    'spec:', '  replicas: 1', `  selector: { matchLabels: { app.kubernetes.io/name: @@APP@@-${name} } }`,
-    '  template:', `    metadata: { labels: { app.kubernetes.io/name: @@APP@@-${name}, app.kubernetes.io/part-of: @@APP@@ } }`,
-    `    spec: { containers: [ { name: ${name}, image: ${image}, ports: [ { containerPort: ${port} } ] } ] }`,
-    '---', 'apiVersion: v1', 'kind: Service',
-    `metadata: { name: @@APP@@-${name}, namespace: apps, labels: { app.kubernetes.io/part-of: @@APP@@ } }`,
-    `spec: { selector: { app.kubernetes.io/name: @@APP@@-${name} }, ports: [ { port: ${port}, targetPort: ${port} } ] }`].join('\n');
-}
-
-function buildK8s() {
-  const L = ['# @@TITLE@@ — k8s gerado pela Forge (gymops-style). Imagens :local.'];
-  // postgres
-  L.push('---', 'apiVersion: v1', 'kind: PersistentVolumeClaim', 'metadata: { name: @@APP@@-postgres, namespace: apps, labels: { app.kubernetes.io/part-of: @@APP@@ } }', 'spec: { accessModes: [ReadWriteOnce], resources: { requests: { storage: 1Gi } } }');
-  L.push('---', 'apiVersion: apps/v1', 'kind: Deployment',
-    'metadata: { name: @@APP@@-postgres, namespace: apps, labels: { app.kubernetes.io/name: @@APP@@-postgres, app.kubernetes.io/part-of: @@APP@@ } }',
-    'spec:', '  replicas: 1', '  strategy: { type: Recreate }', '  selector: { matchLabels: { app.kubernetes.io/name: @@APP@@-postgres } }',
-    '  template:', '    metadata: { labels: { app.kubernetes.io/name: @@APP@@-postgres, app.kubernetes.io/part-of: @@APP@@ } }',
-    '    spec:', '      containers:', '        - name: postgres', '          image: ' + (F.pgvector ? 'pgvector/pgvector:pg16' : 'postgres:16-alpine'),
-    '          envFrom: [ { secretRef: { name: @@APP@@-db } } ]', '          ports: [ { containerPort: 5432 } ]',
-    '          volumeMounts: [ { name: data, mountPath: /var/lib/postgresql/data, subPath: pgdata } ]',
-    '      volumes: [ { name: data, persistentVolumeClaim: { claimName: @@APP@@-postgres } } ]');
-  L.push('---', 'apiVersion: v1', 'kind: Service', 'metadata: { name: @@APP@@-postgres, namespace: apps, labels: { app.kubernetes.io/part-of: @@APP@@ } }', 'spec: { selector: { app.kubernetes.io/name: @@APP@@-postgres }, ports: [ { port: 5432, targetPort: 5432 } ] }');
-  if (F.redis) L.push(dep('redis', 'redis:7-alpine', 6379));
-  if (F.gateway) L.push(dep('mock-central', '@@APP@@-mock-central:local', 8090));
-  // api
-  const apiEnv = ['            - { name: METRICS_PORT, value: "9464" }', '            - { name: AUTO_MIGRATE, value: "true" }', '            - { name: AUTO_SEED, value: "true" }'];
-  if (F.redis) apiEnv.unshift('            - { name: REDIS_URL, value: "redis://@@APP@@-redis:6379" }');
-  if (F.gateway) apiEnv.unshift('            - { name: EXTERNAL_BASE_URL, value: "http://@@APP@@-mock-central:8090" }');
-  L.push('---', 'apiVersion: apps/v1', 'kind: Deployment', 'metadata:', '  name: @@APP@@-api', '  namespace: apps',
-    '  labels: { app.kubernetes.io/name: @@APP@@-api, app.kubernetes.io/component: api, app.kubernetes.io/part-of: @@APP@@, devops.flavioneto/app-type: product_software }',
-    '  annotations: { devops.flavioneto/app: @@APP@@, devops.flavioneto/metrics-port: "9464" }',
-    'spec:', '  replicas: 1', '  selector: { matchLabels: { app.kubernetes.io/name: @@APP@@-api } }',
-    '  template:', '    metadata: { labels: { app.kubernetes.io/name: @@APP@@-api, app.kubernetes.io/component: api, app.kubernetes.io/part-of: @@APP@@ } }',
-    '    spec:', '      containers:', '        - name: api', '          image: @@APP@@-api:local', '          imagePullPolicy: IfNotPresent',
-    '          command: ["npm", "start"]', '          envFrom: [ { secretRef: { name: @@APP@@-db } }, { secretRef: { name: @@APP@@-ai, optional: true } }' + (F.contas ? ', { secretRef: { name: @@APP@@-auth, optional: true } }' : '') + ' ]', '          env:', ...apiEnv,
-    '          ports:', '            - { name: http, containerPort: 8080 }', '            - { name: metrics, containerPort: 9464 }',
-    '          readinessProbe: { httpGet: { path: /health, port: 8080 }, initialDelaySeconds: 8, periodSeconds: 10 }');
-  L.push('---', 'apiVersion: v1', 'kind: Service', 'metadata: { name: @@APP@@-api, namespace: apps, labels: { app.kubernetes.io/name: @@APP@@-api, app.kubernetes.io/part-of: @@APP@@ } }', 'spec: { selector: { app.kubernetes.io/name: @@APP@@-api }, ports: [ { name: http, port: 8080, targetPort: 8080 }, { name: metrics, port: 9464, targetPort: 9464 } ] }');
-  if (F.redis) {
-    const wEnv = ['            - { name: REDIS_URL, value: "redis://@@APP@@-redis:6379" }', '            - { name: METRICS_PORT, value: "9464" }', '            - { name: AUTO_MIGRATE, value: "false" }'];
-    if (F.gateway) wEnv.unshift('            - { name: EXTERNAL_BASE_URL, value: "http://@@APP@@-mock-central:8090" }');
-    L.push('---', 'apiVersion: apps/v1', 'kind: Deployment', 'metadata:', '  name: @@APP@@-worker', '  namespace: apps',
-      '  labels: { app.kubernetes.io/name: @@APP@@-worker, app.kubernetes.io/component: worker, app.kubernetes.io/part-of: @@APP@@ }',
-      '  annotations: { devops.flavioneto/app: @@APP@@, devops.flavioneto/metrics-port: "9464" }',
-      'spec:', '  replicas: 1', '  selector: { matchLabels: { app.kubernetes.io/name: @@APP@@-worker } }',
-      '  template:', '    metadata: { labels: { app.kubernetes.io/name: @@APP@@-worker, app.kubernetes.io/component: worker, app.kubernetes.io/part-of: @@APP@@ } }',
-      '    spec:', '      containers:', '        - name: worker', '          image: @@APP@@-api:local', '          imagePullPolicy: IfNotPresent',
-      '          command: ["npm", "run", "worker"]', '          envFrom: [ { secretRef: { name: @@APP@@-db } } ]', '          env:', ...wEnv,
-      '          ports: [ { name: metrics, containerPort: 9464 } ]');
-    L.push('---', 'apiVersion: v1', 'kind: Service', 'metadata: { name: @@APP@@-worker, namespace: apps, labels: { app.kubernetes.io/name: @@APP@@-worker, app.kubernetes.io/part-of: @@APP@@ } }', 'spec: { selector: { app.kubernetes.io/name: @@APP@@-worker }, ports: [ { name: metrics, port: 9464, targetPort: 9464 } ] }');
-  }
-  L.push('---', 'apiVersion: traefik.io/v1alpha1', 'kind: Middleware', 'metadata: { name: @@APP@@-api-strip, namespace: apps }', 'spec: { stripPrefix: { prefixes: ["@@BASE@@/api"] } }');
-  // bloco oidc-sessao: reusa o SSO de borda da plataforma (oauth2-proxy do Console -> Keycloak realm
-  // nvit) via ForwardAuth — SEM client novo no Keycloak. 401 p/ XHR sem sessao; X-Auth-Request-* quando ok.
-  const apiMws = (F.oidc ? '{ name: console-auth-401, namespace: devops-system }, ' : '') + '{ name: @@APP@@-api-strip }';
-  L.push('---', 'apiVersion: traefik.io/v1alpha1', 'kind: IngressRoute', 'metadata: { name: @@APP@@, namespace: apps, labels: { app.kubernetes.io/part-of: @@APP@@ } }',
-    'spec:', '  entryPoints: [web]', '  routes:', '    - match: PathPrefix(`@@BASE@@/api`)', '      kind: Rule', '      priority: 40', '      services: [ { name: @@APP@@-api, port: 8080 } ]', '      middlewares: [ ' + apiMws + ' ]');
+// Suplemento de OBSERVABILIDADE (o chart app-template ainda não renderiza ServiceMonitor/
+// PrometheusRule nem porta de métricas nos Services — gap p/ B2). Services *-metrics apontam
+// para a porta 9464 dos pods via o selector do CHART ({ name: <svc>, part-of: <app> });
+// o ServiceMonitor seleciona por part-of e só gera targets onde existe porta chamada `metrics`.
+function buildObservability() {
+  const L = ['# @@TITLE@@ — observabilidade (SUPLEMENTO ao k8s/@@APP@@.yaml compilado).',
+    '# O chart templates/app-template ainda NÃO renderiza estes recursos (gap documentado em',
+    '# docs/new-project-contract.md §11.5 p/ a fase B2) — quando ganhar, este arquivo morre.'];
+  const metricsSvc = (svc) => ['---', 'apiVersion: v1', 'kind: Service',
+    `metadata: { name: @@APP@@-${svc}-metrics, namespace: apps, labels: { app.kubernetes.io/name: "${svc}", app.kubernetes.io/part-of: @@APP@@, app.kubernetes.io/component: metrics } }`,
+    `spec: { selector: { app.kubernetes.io/name: "${svc}", app.kubernetes.io/part-of: @@APP@@ }, ports: [ { name: metrics, port: 9464, targetPort: 9464 } ] }`].join('\n');
+  L.push(metricsSvc('api'));
+  if (F.redis) L.push(metricsSvc('worker'));
   L.push('---', 'apiVersion: monitoring.coreos.com/v1', 'kind: ServiceMonitor', 'metadata: { name: @@APP@@, namespace: apps, labels: { app.kubernetes.io/part-of: @@APP@@, release: kube-prometheus-stack } }',
     'spec:', '  selector: { matchLabels: { app.kubernetes.io/part-of: @@APP@@ } }', '  namespaceSelector: { matchNames: [apps] }', '  endpoints: [ { port: metrics, path: /metrics, interval: 15s } ]');
   L.push('---', 'apiVersion: monitoring.coreos.com/v1', 'kind: PrometheusRule', 'metadata: { name: @@APP@@-slo, namespace: apps, labels: { app.kubernetes.io/part-of: @@APP@@, release: kube-prometheus-stack } }',
     'spec:', '  groups:', '    - name: @@APP@@.slo', '      rules:',
     '        - alert: @@APP@@ApiDown', '          expr: absent(up{job=~".*@@APP@@-api.*"} == 1)', '          for: 3m', '          labels: { severity: critical, app: @@APP@@ }', '          annotations: { summary: "@@APP@@: API sem target UP" }');
   return L.join('\n') + '\n';
+}
+
+// Suplemento de SSO de borda (bloco oidc-sessao): rota SOMBRA com a MESMA match da rota da API
+// compilada e priority MAIOR (41 > 40) — todo tráfego da API passa pelo ForwardAuth
+// console-auth-401 (oauth2-proxy do Console -> Keycloak realm nvit) ANTES do strip. Necessário
+// porque o chart ainda não aceita middlewares extras por service (gap p/ B2).
+function buildSsoRoute() {
+  return ['# @@TITLE@@ — SSO de borda (SUPLEMENTO; bloco oidc-sessao). Rota sombra: mesma match da',
+    '# rota da API compilada com priority 41 (> 40) => ForwardAuth ANTES do strip. Morre quando o',
+    '# chart app-template aceitar middlewares extras por service (B2).',
+    '---', 'apiVersion: traefik.io/v1alpha1', 'kind: IngressRoute',
+    'metadata: { name: @@APP@@-sso, namespace: apps, labels: { app.kubernetes.io/part-of: @@APP@@ } }',
+    'spec:', '  entryPoints: [web]', '  routes:',
+    '    - match: Host(`nvit.localhost`, `dev.nvit.com.br`) && PathPrefix(`@@BASE@@/api`)',
+    '      kind: Rule', '      priority: 41',
+    '      services: [ { name: @@APP@@-api, port: 8080 } ]',
+    '      middlewares: [ { name: console-auth-401, namespace: devops-system }, { name: @@APP@@-api-stripprefix } ]', '',
+  ].join('\n');
 }
 
 const METRIC = APP.replace(/[^a-zA-Z0-9_:]/g, '_'); // Prometheus exige [a-zA-Z_:][a-zA-Z0-9_:]* — slug com '-' quebra o prom-client no boot
@@ -628,6 +630,8 @@ for (const [rel, content] of Object.entries(files)) {
 }
 fs.mkdirSync(path.join(APPDIR, '.forge'), { recursive: true });
 fs.writeFileSync(path.join(APPDIR, '.forge', 'applied-capabilities.json'), JSON.stringify({ app: APP, stack: 'gymops', blocks, generatedBy: 'scaffold-gymops.mjs' }, null, 2) + '\n');
+// ── k8s pelo COMPILADOR (B6): devops.yaml v2 -> helm template (app-template) -> k8s/<app>.yaml ──
+await compileForScaffold({ appDir: APPDIR, app: APP, tag: '[scaffold-gymops]' });
 // Vendora os kits @flavioneto11 que os blocos reusam (.tgz no api/vendor) — para a imagem da api
 // BUILDAR e RODAR (kits não ficam no contexto do build sem isto). Cadeia transitiva resolvida pelo helper.
 if (kitRefs.length) {
