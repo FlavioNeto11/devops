@@ -13,7 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { loadCatalog, resolveBlocks } from './apply-capabilities.mjs';
+import { loadCatalog, resolveBlocks, catalogSourceSha } from './apply-capabilities.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SPECS_DIR = path.resolve(__dirname, '..');
@@ -501,7 +501,11 @@ function buildK8s() {
       'spec: { selector: { app.kubernetes.io/name: @@APP@@-mock-central }, ports: [ { port: 8090, targetPort: 8090 } ] }');
   }
   // api
-  const apiEnv = ['            - { name: METRICS_PORT, value: "9464" }', '            - { name: AUTO_MIGRATE, value: "true" }', '            - { name: AUTO_SEED, value: "true" }'];
+  const apiEnv = ['            - { name: METRICS_PORT, value: "9464" }', '            - { name: AUTO_MIGRATE, value: "true" }', '            - { name: AUTO_SEED, value: "true" }',
+    // Langfuse always-on (Forja 4.0 B4): tracing de IA ligado por default; fail-soft — só ativa de
+    // fato quando LANGFUSE_PUBLIC_KEY/SECRET_KEY existirem no Secret @@APP@@-ai (passo do operador).
+    '            - { name: LANGFUSE_ENABLED, value: "true" }',
+    '            - { name: LANGFUSE_BASE_URL, value: "http://langfuse.observability.svc.cluster.local:3000" }'];
   if (F.gateway) apiEnv.unshift('            - { name: EXTERNAL_BASE_URL, value: "http://@@APP@@-mock-central:8090" }');
   L.push('---', 'apiVersion: apps/v1', 'kind: Deployment',
     'metadata:', '  name: @@APP@@-api', '  namespace: apps',
@@ -600,7 +604,7 @@ if (F.ai) {
 // manifesto de capacidades
 const forgeDir = path.join(APPDIR, '.forge');
 fs.mkdirSync(forgeDir, { recursive: true });
-fs.writeFileSync(path.join(forgeDir, 'applied-capabilities.json'), JSON.stringify({ app: APP, stack: 'sicat', blocks, generatedBy: 'scaffold-sicat.mjs' }, null, 2) + '\n');
+fs.writeFileSync(path.join(forgeDir, 'applied-capabilities.json'), JSON.stringify({ app: APP, stack: 'sicat', blocks, catalog_source_sha: catalogSourceSha(), generatedBy: 'scaffold-sicat.mjs' }, null, 2) + '\n');
 
 console.log(`[scaffold-sicat] ${APP} (${blocks.length} blocos) — ${written} arquivos gerados em apps/${APP}/`);
 console.log(`  blocos: ${blocks.join(', ')}`);

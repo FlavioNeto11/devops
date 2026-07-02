@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadCatalog, resolveBlocks, buildManifest } from './apply-capabilities.mjs';
+import { loadCatalog, resolveBlocks, buildManifest, catalogSourceSha } from './apply-capabilities.mjs';
 
 const byId = loadCatalog(); // catálogo real (specs/baseline/capabilities.json)
 
@@ -26,6 +26,16 @@ test('resolveBlocks: dropa incompatível com a stack (redis-bullmq em sicat)', (
 test('resolveBlocks: gateway puxa camadas-rigidas (requires)', () => {
   const r = resolveBlocks(['gateway-externo'], 'sicat', byId);
   assert.ok(r.includes('gateway-externo') && r.includes('camadas-rigidas'));
+});
+
+test('provenance: manifesto carrega catalog_source_sha (injetável; default fail-soft nunca vazio)', () => {
+  const blocks = resolveBlocks(['camadas-rigidas'], 'sicat', byId);
+  const m = buildManifest({ app: 'x', stack: 'sicat', blocks, byId, sourceSha: 'abc123' });
+  assert.equal(m.catalog_source_sha, 'abc123');            // injetável em teste (determinístico)
+  const sha = catalogSourceSha();                          // default: GITHUB_SHA | git rev-parse | "unknown"
+  assert.ok(typeof sha === 'string' && sha.length > 0);
+  const m2 = buildManifest({ app: 'x', stack: 'sicat', blocks, byId });
+  assert.ok(typeof m2.catalog_source_sha === 'string' && m2.catalog_source_sha.length > 0);
 });
 
 test('buildManifest: agrega serviços/infra/env e detalha exemplares', () => {

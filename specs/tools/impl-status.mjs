@@ -22,6 +22,9 @@ const OUT = path.join(SPECS_DIR, 'baseline', 'implementation-status.json');
 const CHECK = process.argv.includes('--check');
 // --set <REQ-ID> key=value ...  -> mescla campos no item (usado pela esteira p/
 // marcar status=pr_open/merged/deployed + pr/branch/commit/run_id/deployment).
+// `provenance` (Forja 4.0 B4, OPCIONAL/warn-only): string livre com a origem da geração,
+// ex. "prompt=forge-propose-requirements@3 model=claude-x" — setável via --set; nenhum
+// gate falha pela ausência dela.
 const SET = process.argv.includes('--set');
 let setReq = null;
 const setOverrides = {};
@@ -32,7 +35,7 @@ if (SET) {
 }
 
 const STATUSES = ['not_started', 'in_progress', 'pr_open', 'merged', 'deployed', 'done', 'blocked'];
-const KEEP = ['status', 'req_revision', 'pr', 'branch', 'commit', 'run_id', 'deployment', 'deployed_at', 'notes'];
+const KEEP = ['status', 'req_revision', 'pr', 'branch', 'commit', 'run_id', 'deployment', 'deployed_at', 'provenance', 'notes'];
 const isRef = (id) => /^REF-/.test(id || '');
 
 const baseline = JSON.parse(fs.readFileSync(BASELINE, 'utf8'));
