@@ -1,0 +1,41 @@
+id: REQ-IMOBIA-NFR-0002
+slug: req-imobia-nfr-0002
+title: Confiabilidade do processamento assíncrono (filas BullMQ fail-soft)
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: imobia
+statement: 'O sistema deve atender ao atributo de qualidade "confiabilidade do trabalho assíncrono": todo trabalho pesado (acm-scrape, ptam-render, vistoria-vision, document-validate, whatsapp-inbound, marketing-image, ai-summary) roda em filas BullMQ consumidas por worker dedicado (mesma imagem da API); sem REDIS_URL o enqueue vira no-op documentado e a operação degrada de forma graciosa, sem quebrar a requisição.'
+source:
+  stakeholder: imobia
+  origin: codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)
+  source_paths:
+    - apps/imobia/api/src/lib/queues.ts
+    - apps/imobia/api/src/worker.ts
+priority: high
+criticality: high
+architectural_significance: false
+quality_scenarios:
+  - source: Módulo de domínio disparando trabalho pesado (scraping, render de PDF, visão, webhook)
+    stimulus: Enfileira job de domínio numa das filas BullMQ com Redis disponível ou ausente
+    environment: Cluster ns apps com imobia-redis; cenário degradado sem REDIS_URL
+    artifact: API imobia (lib/queues) + worker (mesma imagem, npm run worker)
+    response: Com Redis, o job é consumido pelo worker com retry do BullMQ; sem Redis, getQueue() devolve null, o enqueue é no-op e a rota responde sem erro (comportamento degradado explícito)
+    response_measure: Nenhuma requisição falha por indisponibilidade do Redis; jobs enfileirados são processados pelo worker; filas registradas nas 7 QUEUE_NAMES
+links:
+  - type: constrains
+    target: REQ-IMOBIA-0007
+  - type: constrains
+    target: REQ-IMOBIA-0008
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: adoção Forja 4.1 D5 — backfill extraído do app real
+allocation:
+  service_refs:
+    - svc-imobia-worker
+  infra_refs:
+    - infra-redis

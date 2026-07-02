@@ -27,6 +27,22 @@
       "product": "gymops"
     },
     {
+      "id": "svc-imobia-api",
+      "name": "imobia API (Fastify + Prisma)",
+      "product": "imobia"
+    },
+    {
+      "id": "svc-imobia-worker",
+      "name": "imobia worker (filas BullMQ",
+      "mesma imagem da api)": null,
+      "product": "imobia"
+    },
+    {
+      "id": "svc-imobia-frontend",
+      "name": "imobia frontend (Vue 3)",
+      "product": "imobia"
+    },
+    {
       "id": "svc-pm-api",
       "name": "DevOps Console pm-api (read-only k8s + CMS)",
       "product": "cms"

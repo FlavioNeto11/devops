@@ -1,10 +1,10 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "97cfd95ed331afee927f8c5c715a7a76051e123057f9fa47727ae07a5623ea96",
+  "baseline_hash": "d5f267861fb22cdf005bf4fee3e85b4ec3dddd1caf1eb85d7e771fe4ac016e00",
   "refinements_hash": "a25683b324c8fed749c9f15916c2978512bf771659f9bf088a473f038db4825c",
   "schema": "specs/schema/requirement.schema.json",
   "counts": {
-    "total": 352,
+    "total": 368,
     "by_product": {
       "ai": 18,
       "argocd": 15,
@@ -13,6 +13,7 @@
       "console": 35,
       "contaviva-360": 9,
       "gymops": 23,
+      "imobia": 16,
       "keycloak": 18,
       "neuroevolui": 9,
       "observability": 17,
@@ -27,11 +28,11 @@
       "traefik": 16
     },
     "by_status": {
-      "approved": 352
+      "approved": 368
     },
     "by_type": {
-      "functional": 248,
-      "non-functional": 104
+      "functional": 260,
+      "non-functional": 108
     },
     "refinements": {
       "total": 63,
@@ -5457,6 +5458,796 @@
       "impact_score": 38,
       "impact_band": "low",
       "file": "requirements/gymops/REQ-GYMOPS-NFR-008.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0001",
+      "slug": "req-imobia-0001",
+      "title": "Contas e acesso multi-tenant (login local + SSO Keycloak aditivo)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "imobia",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve permitir registro com bootstrap de organização + usuário admin e login local (email + senha com hash, access token stateless via oidc-kit), além de login SSO Keycloak (realm nvit) de forma ADITIVA e fail-soft, com multi-tenancy por Membership — todo dado de negócio escopado pela organização do principal.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/modules/auth",
+          "apps/imobia/api/src/lib/auth.ts",
+          "apps/imobia/CLAUDE.md"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": false,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-OIDC-0001"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-KEYCLOAK-0005"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api"
+        ],
+        "infra_refs": [
+          "infra-keycloak"
+        ]
+      },
+      "impact_score": 45,
+      "impact_band": "medium",
+      "file": "requirements/imobia/REQ-IMOBIA-0001.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0002",
+      "slug": "req-imobia-0002",
+      "title": "Orquestração multi-modelo de IA (Cortex roteia; GPT/Claude/Gemini executam)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "imobia",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve orquestrar múltiplas IAs como funcionários especializados: Cortex (modelo rápido/barato) faz a triagem e escolhe o especialista; GPT executa lógica/function-calling, Claude redação/análise avançada e Gemini documentos/visão. Quando o provider ideal do especialista estiver ausente, o motor deve cair para qualquer provider disponível (fallbackProvider) e registrar custo/tokens por chamada via ai-core.",
+      "business_rationale": "Divisão de trabalho fiel ao documento de concepção — cada modelo atua na sua vocação, com triagem barata na frente para conter custo.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/ai",
+          "apps/imobia/docs/CONCEPCAO.md",
+          "apps/imobia/api/src/modules-catalog.ts"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": true,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-AI-0003",
+          "note": "reutiliza o grafo router→especialistas do ai-core (createLlm + adaptador Gemini)"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api"
+        ],
+        "infra_refs": [
+          "infra-pgvector"
+        ]
+      },
+      "impact_score": 65,
+      "impact_band": "medium",
+      "file": "requirements/imobia/REQ-IMOBIA-0002.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0003",
+      "slug": "req-imobia-0003",
+      "title": "Captação de imóveis (venda/locação) com busca semântica",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "imobia",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve permitir a captação de imóveis para venda e locação — proprietário, endereço, características e fotos — com qualificação assistida por IA e busca semântica do acervo por embeddings (pgvector), para encontrar imóveis por descrição em linguagem natural.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/modules/imoveis/routes.ts",
+          "apps/imobia/api/src/ai/embeddings.ts",
+          "apps/imobia/frontend/src/views/app/Imoveis.vue"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "high",
+      "architectural_significance": false,
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api",
+          "svc-imobia-frontend"
+        ],
+        "infra_refs": [
+          "infra-postgres",
+          "infra-pgvector"
+        ]
+      },
+      "impact_score": 38,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-0003.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0004",
+      "slug": "req-imobia-0004",
+      "title": "Clientes/Leads com lead scoring e realimentação do funil",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "imobia",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve gerir clientes/leads (compra e locação) com qualificação por lead scoring (GPT), perfil financeiro e interesse por imóvel; lead reprovado na análise de crédito NÃO sai do funil — é encaminhado à esteira Corbam (limpa nome/score) para retornar como comprador no futuro.",
+      "business_rationale": "Regra central do ecossistema — um módulo alimenta o outro; o cliente que não compra vira cliente de recuperação de crédito.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/modules/leads/routes.ts",
+          "apps/imobia/docs/CONCEPCAO.md"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "high",
+      "architectural_significance": false,
+      "links": [
+        {
+          "type": "relates_to",
+          "target": "REQ-IMOBIA-0010",
+          "note": "lead reprovado no crédito entra na esteira Corbam (mantém no funil)"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api",
+          "svc-imobia-frontend"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 38,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-0004.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0005",
+      "slug": "req-imobia-0005",
+      "title": "Financeiro PJ/PF com categorização automática e fluxo de caixa",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "imobia",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve registrar lançamentos financeiros separando gasto empresarial (PJ) de pessoal (PF), com categorização automática por IA a partir de extratos/PIX/recibos (GPT via function-calling) e relatório com conselhos de fluxo de caixa redigido pela IA de análise (Claude).",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/modules/financeiro/routes.ts",
+          "apps/imobia/docs/CONCEPCAO.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": false,
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 38,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-0005.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0006",
+      "slug": "req-imobia-0006",
+      "title": "Agenda e eventos a partir de linguagem natural",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "imobia",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve agendar visitas, vistorias e renovações a partir de texto livre (\"agendei visita com João amanhã 15h\") convertido em evento estruturado (GPT), com lembretes redigidos pela IA (Claude) e vínculo do compromisso a leads e imóveis.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/modules/agenda/routes.ts",
+          "apps/imobia/docs/CONCEPCAO.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": false,
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 30,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-0006.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0007",
+      "slug": "req-imobia-0007",
+      "title": "WhatsApp multi-instância como eixo central com triagem por IA",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "imobia",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve operar múltiplos canais/números de WhatsApp por segmento (captação, vendas, finanças) com webhook centralizador; toda mensagem entrante passa pela triagem do Cortex (classificação de canal/intenção) e é processada de forma assíncrona (fila whatsapp-inbound), alimentando os demais módulos do ecossistema. A integração é fail-soft — sem provedor configurado (Baileys/Evolution/Z-API), o módulo opera manualmente.",
+      "business_rationale": "O WhatsApp é o coração que conecta todos os módulos (documento de concepção e diagrama).",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/modules/whatsapp/routes.ts",
+          "apps/imobia/docs/CONCEPCAO.md"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": true,
+      "links": [
+        {
+          "type": "relates_to",
+          "target": "REQ-IMOBIA-0002",
+          "note": "a triagem inicial de cada mensagem é o Cortex do motor multi-modelo"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api",
+          "svc-imobia-worker"
+        ],
+        "infra_refs": [
+          "infra-redis"
+        ]
+      },
+      "impact_score": 65,
+      "impact_band": "medium",
+      "file": "requirements/imobia/REQ-IMOBIA-0007.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0008",
+      "slug": "req-imobia-0008",
+      "title": "ACM — análise de mercado comparativa por varredura de portais",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "imobia",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve executar Análise de Mercado Comparativa (ACM) por varredura de portais (ZAP/VivaReal/OLX) com limpeza e deduplicação dos comparáveis (Cortex), cálculo da média do m² (GPT) e relatório preliminar; a varredura roda de forma assíncrona (fila acm-scrape) com cache para não rebuscar o mesmo imóvel várias vezes ao dia, e o scraping é fail-soft/dormente sem credenciais.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/modules/acm/routes.ts",
+          "apps/imobia/docs/CONCEPCAO.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": false,
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api",
+          "svc-imobia-worker"
+        ],
+        "infra_refs": [
+          "infra-redis",
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 30,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-0008.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0009",
+      "slug": "req-imobia-0009",
+      "title": "PTAM — parecer técnico de avaliação (ABNT NBR 14653) em PDF",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "imobia",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve gerar o PTAM (Parecer Técnico de Avaliação Mercadológica) conforme ABNT NBR 14653, com fundamentação técnica/jurídica redigida pela IA de redação (Claude), renderização assíncrona em PDF com papel timbrado (fila ptam-render) e ressalva explícita de que o laudo deve ser assinado por profissional habilitado (CRECI/CNAI) — o sistema não presta aconselhamento jurídico.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/modules/ptam/routes.ts",
+          "apps/imobia/docs/CONCEPCAO.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": false,
+      "risk_tags": [
+        "regulatorio"
+      ],
+      "links": [
+        {
+          "type": "relates_to",
+          "target": "REQ-IMOBIA-0008",
+          "note": "a ACM fornece os comparáveis/média do m² que fundamentam a avaliação"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api",
+          "svc-imobia-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 53,
+      "impact_band": "medium",
+      "file": "requirements/imobia/REQ-IMOBIA-0009.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0010",
+      "slug": "req-imobia-0010",
+      "title": "Corbam/COBAN — recuperação de crédito (limpa nome, score, rating)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "imobia",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve operar a esteira de correspondente bancário (Corbam/COBAN) para recuperação de crédito: casos de limpa nome, aumento de score e rating comercial, com leitura de Serasa/Boa Vista e extratos (Gemini), simulação de parcelas (GPT) e cartas de contestação/acordo redigidas (Claude); recebe leads reprovados na análise de crédito, mantendo-os no funil do ecossistema.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/modules/corbam/routes.ts",
+          "apps/imobia/docs/CONCEPCAO.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": false,
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 38,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-0010.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0011",
+      "slug": "req-imobia-0011",
+      "title": "Vistoria de imóveis com análise de fotos por IA e laudo oficial",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "imobia",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve registrar vistorias de imóveis com upload de fotos pelo vistoriador (armazenadas no PVC imobia-files), descrição do estado físico por visão computacional — fissuras, manchas, conservação — (Gemini, fila vistoria-vision) e laudo oficial redigido pela IA (Claude), anexável ao contrato.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/modules/vistoria/routes.ts",
+          "apps/imobia/api/src/lib/storage.ts"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": false,
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api",
+          "svc-imobia-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 30,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-0011.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0012",
+      "slug": "req-imobia-0012",
+      "title": "Documentos por etapa com validação por IA de visão",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "imobia",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve receber e validar os documentos de cada etapa do negócio (RG/CNH, holerites, certidões, contratos sociais, escrituras) com parecer automático válido / ilegível / vencido pela IA de documentos (Gemini, fila document-validate), armazenamento no PVC e vínculo do documento à etapa/entidade a que pertence.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/modules/documentos/routes.ts",
+          "apps/imobia/docs/CONCEPCAO.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": false,
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api",
+          "svc-imobia-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 38,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-0012.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-NFR-0001",
+      "slug": "req-imobia-nfr-0001",
+      "title": "IA fail-soft — sem chaves, tudo funciona manualmente (dormência)",
+      "type": "non-functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "imobia"
+      },
+      "statement": "O sistema deve atender ao atributo de qualidade \"disponibilidade com IA dormente\": sem OPENAI_API_KEY / ANTHROPIC_API_KEY / GOOGLE_API_KEY, todos os módulos permanecem 100% operáveis manualmente, as rotas de IA respondem fallback claro (dormant) sem 5xx e o pod segue Ready.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/ai/engine.ts",
+          "apps/imobia/CLAUDE.md"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": false,
+      "quality_scenarios": [
+        {
+          "source": "Operador sem chaves de IA configuradas no Secret imobia-config",
+          "stimulus": "Usa qualquer módulo do app e chama rotas /ai/* com o motor dormente",
+          "environment": "Cluster ns apps (Docker Desktop), Secret imobia-config sem nenhuma chave de provider",
+          "artifact": "API imobia (motor de IA + módulos) e worker",
+          "response": "Módulos operam manualmente sem degradação; /ai/* devolve fallback estruturado indicando dormência; health continua OK e o pod Ready",
+          "response_measure": "Zero respostas 5xx causadas por ausência de chave; engineStatus().dormant = true; readiness probe passa"
+        }
+      ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-IMOBIA-0002"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api"
+        ],
+        "slo_refs": [
+          "slo-availability-99"
+        ]
+      },
+      "impact_score": 45,
+      "impact_band": "medium",
+      "file": "requirements/imobia/REQ-IMOBIA-NFR-0001.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-NFR-0002",
+      "slug": "req-imobia-nfr-0002",
+      "title": "Confiabilidade do processamento assíncrono (filas BullMQ fail-soft)",
+      "type": "non-functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "imobia"
+      },
+      "statement": "O sistema deve atender ao atributo de qualidade \"confiabilidade do trabalho assíncrono\": todo trabalho pesado (acm-scrape, ptam-render, vistoria-vision, document-validate, whatsapp-inbound, marketing-image, ai-summary) roda em filas BullMQ consumidas por worker dedicado (mesma imagem da API); sem REDIS_URL o enqueue vira no-op documentado e a operação degrada de forma graciosa, sem quebrar a requisição.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/lib/queues.ts",
+          "apps/imobia/api/src/worker.ts"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": false,
+      "quality_scenarios": [
+        {
+          "source": "Módulo de domínio disparando trabalho pesado (scraping, render de PDF, visão, webhook)",
+          "stimulus": "Enfileira job de domínio numa das filas BullMQ com Redis disponível ou ausente",
+          "environment": "Cluster ns apps com imobia-redis; cenário degradado sem REDIS_URL",
+          "artifact": "API imobia (lib/queues) + worker (mesma imagem, npm run worker)",
+          "response": "Com Redis, o job é consumido pelo worker com retry do BullMQ; sem Redis, getQueue() devolve null, o enqueue é no-op e a rota responde sem erro (comportamento degradado explícito)",
+          "response_measure": "Nenhuma requisição falha por indisponibilidade do Redis; jobs enfileirados são processados pelo worker; filas registradas nas 7 QUEUE_NAMES"
+        }
+      ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-IMOBIA-0007"
+        },
+        {
+          "type": "constrains",
+          "target": "REQ-IMOBIA-0008"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-worker"
+        ],
+        "infra_refs": [
+          "infra-redis"
+        ]
+      },
+      "impact_score": 38,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-NFR-0002.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-NFR-0003",
+      "slug": "req-imobia-nfr-0003",
+      "title": "Auditabilidade — trilha do tempo registra qual IA produziu cada etapa",
+      "type": "non-functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "imobia"
+      },
+      "statement": "O sistema deve atender ao atributo de qualidade \"auditabilidade das decisões de IA\": cada etapa produzida no negócio (triagem, parecer de documento, laudo, categorização, carta) gera entrada polimórfica na linha do tempo com o ator que a produziu (cortex/gpt/claude/gemini, humano ou system) e correlationId; a escrita da trilha é fail-soft e nunca derruba a operação de negócio.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/lib/timeline.ts",
+          "apps/imobia/docs/CONCEPCAO.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": false,
+      "risk_tags": [
+        "auditoria"
+      ],
+      "quality_scenarios": [
+        {
+          "source": "Qualquer módulo (ou IA especialista) produzindo um artefato/etapa do negócio",
+          "stimulus": "Conclui uma etapa (validação de documento, laudo, parecer, categorização) de forma automática ou manual",
+          "environment": "Produção no cluster ns apps, Postgres 16 (tabela TimelineEntry)",
+          "artifact": "API imobia (lib/timeline, appendTimeline) anexada a qualquer entidade",
+          "response": "Entrada criada com entityType/entityId, kind, actorType (qual IA/humano/system) e correlationId; falha na escrita é engolida (fail-soft) sem afetar a operação",
+          "response_measure": "100% das etapas produzidas por IA têm entrada na trilha identificando o ator; zero operações de negócio abortadas por falha da trilha"
+        }
+      ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-IMOBIA-0012"
+        },
+        {
+          "type": "relates_to",
+          "target": "REQ-IMOBIA-0002"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 38,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-NFR-0003.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-NFR-0004",
+      "slug": "req-imobia-nfr-0004",
+      "title": "Segurança: chaves de IA só no backend via Sealed Secrets",
+      "type": "non-functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "imobia"
+      },
+      "statement": "O sistema deve atender ao atributo de qualidade \"segurança de segredos\": as chaves de provider de IA (OPENAI/ANTHROPIC/GOOGLE) e demais credenciais vivem exclusivamente no backend via Secret imobia-config (Sealed Secrets, versionado criptografado), nunca em git plaintext nem expostas ao frontend; o repositório versiona apenas secret.example.yaml com placeholders.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/k8s/secret.example.yaml",
+          "apps/imobia/CLAUDE.md"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": false,
+      "risk_tags": [
+        "seguranca"
+      ],
+      "quality_scenarios": [
+        {
+          "source": "Operador configurando credenciais de IA/integrações do app",
+          "stimulus": "Provisiona ou rotaciona OPENAI_API_KEY / ANTHROPIC_API_KEY / GOOGLE_API_KEY",
+          "environment": "Cluster ns apps sob GitOps (Argo CD) com controller de Sealed Secrets",
+          "artifact": "Secret imobia-config consumido pela API e worker",
+          "response": "Chave entra selada (kubeseal) e versionada criptografada; API/worker leem por env; nenhum bundle de frontend ou resposta HTTP contém a chave",
+          "response_measure": "Zero segredos plaintext no git (gate de gitleaks); chaves ausentes do bundle do frontend; rotação sem mudança de código"
+        }
+      ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-IMOBIA-0002"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api"
+        ],
+        "infra_refs": [
+          "infra-sealed-secrets"
+        ]
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/imobia/REQ-IMOBIA-NFR-0004.yaml"
     },
     {
       "id": "REQ-KEYCLOAK-0001",
@@ -19757,6 +20548,24 @@
       ]
     },
     {
+      "id": "REQ-IMOBIA-0002",
+      "title": "Orquestração multi-modelo de IA (Cortex roteia; GPT/Claude/Gemini executam)",
+      "product": "imobia",
+      "impact_score": 65,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-0007",
+      "title": "WhatsApp multi-instância como eixo central com triagem por IA",
+      "product": "imobia",
+      "impact_score": 65,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
       "id": "REQ-NEUROEVOLUI-0001",
       "title": "Fundação: Arquitetura em camadas + Observabilidade + OIDC",
       "product": "neuroevolui",
@@ -19907,6 +20716,15 @@
       "impact_score": 60,
       "reasons": [
         "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-NFR-0004",
+      "title": "Segurança: chaves de IA só no backend via Sealed Secrets",
+      "product": "imobia",
+      "impact_score": 60,
+      "reasons": [
+        "sem método de verificação"
       ]
     },
     {
@@ -20139,6 +20957,15 @@
       "title": "Middleware StripPrefix para APIs",
       "product": "traefik",
       "impact_score": 55,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-0009",
+      "title": "PTAM — parecer técnico de avaliação (ABNT NBR 14653) em PDF",
+      "product": "imobia",
+      "impact_score": 53,
       "reasons": [
         "sem método de verificação"
       ]
@@ -20381,6 +21208,24 @@
       "id": "REQ-GYMOPS-0006",
       "title": "Comentários, anexos e histórico de eventos em atividades",
       "product": "gymops",
+      "impact_score": 45,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-0001",
+      "title": "Contas e acesso multi-tenant (login local + SSO Keycloak aditivo)",
+      "product": "imobia",
+      "impact_score": 45,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-NFR-0001",
+      "title": "IA fail-soft — sem chaves, tudo funciona manualmente (dormência)",
+      "product": "imobia",
       "impact_score": 45,
       "reasons": [
         "sem método de verificação"
@@ -21452,6 +22297,69 @@
       "id": "REQ-GYMOPS-NFR-008",
       "title": "Compatibilidade de navegadores (Chrome, Firefox, Safari, Edge últimas 2 versões)",
       "product": "gymops",
+      "impact_score": 38,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-0003",
+      "title": "Captação de imóveis (venda/locação) com busca semântica",
+      "product": "imobia",
+      "impact_score": 38,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-0004",
+      "title": "Clientes/Leads com lead scoring e realimentação do funil",
+      "product": "imobia",
+      "impact_score": 38,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-0005",
+      "title": "Financeiro PJ/PF com categorização automática e fluxo de caixa",
+      "product": "imobia",
+      "impact_score": 38,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-0010",
+      "title": "Corbam/COBAN — recuperação de crédito (limpa nome, score, rating)",
+      "product": "imobia",
+      "impact_score": 38,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-0012",
+      "title": "Documentos por etapa com validação por IA de visão",
+      "product": "imobia",
+      "impact_score": 38,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-NFR-0002",
+      "title": "Confiabilidade do processamento assíncrono (filas BullMQ fail-soft)",
+      "product": "imobia",
+      "impact_score": 38,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-NFR-0003",
+      "title": "Auditabilidade — trilha do tempo registra qual IA produziu cada etapa",
+      "product": "imobia",
       "impact_score": 38,
       "reasons": [
         "sem método de verificação"
@@ -22649,6 +23557,33 @@
       "id": "REQ-GYMOPS-0015",
       "title": "PWA instalável com service worker e push notifications",
       "product": "gymops",
+      "impact_score": 30,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-0006",
+      "title": "Agenda e eventos a partir de linguagem natural",
+      "product": "imobia",
+      "impact_score": 30,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-0008",
+      "title": "ACM — análise de mercado comparativa por varredura de portais",
+      "product": "imobia",
+      "impact_score": 30,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-0011",
+      "title": "Vistoria de imóveis com análise de fotos por IA e laudo oficial",
+      "product": "imobia",
       "impact_score": 30,
       "reasons": [
         "sem método de verificação"
