@@ -1,7 +1,7 @@
 // node:test das funções PURAS da casca (sem DOM). Roda: `node --test`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SURFACES, normalizeMe, roleLabel, healthFromStatus, groupSurfaces, activeSurfaceKey } from './shell.js';
+import { SURFACES, normalizeMe, roleLabel, healthFromStatus, groupSurfaces, activeSurfaceKey, surfaceLink, productLinks } from './shell.js';
 
 test('SURFACES: manifesto canônico tem os 7 surfaces e caminhos únicos', () => {
   const keys = SURFACES.map((s) => s.key);
@@ -58,11 +58,48 @@ test('healthFromStatus: 2xx/3xx/401/403 = up; 404/5xx = down; null = unknown', (
   assert.equal(healthFromStatus(null), 'unknown');
 });
 
-test('groupSurfaces: agrupa preservando ordem de aparição', () => {
+test('groupSurfaces: agrupa preservando ordem de aparição (E1: portal-rec vira Ferramenta)', () => {
   const g = groupSurfaces(SURFACES);
   assert.deepEqual(g.map((x) => x.group), ['Plataforma', 'Ferramentas']);
-  assert.deepEqual(g[0].items.map((s) => s.key), ['portal', 'devops', 'reqs', 'portal-rec']);
-  assert.deepEqual(g[1].items.map((s) => s.key), ['grafana', 'argocd', 'auth']);
+  assert.deepEqual(g[0].items.map((s) => s.key), ['portal', 'devops', 'reqs']);
+  assert.deepEqual(g[1].items.map((s) => s.key), ['portal-rec', 'grafana', 'argocd', 'auth']);
+});
+
+test('surfaceLink: tabela canônica de deep-links (contexto viaja por URL)', () => {
+  // formatos casados com os roteadores REAIS: reqhub applyHashRoute (#/forge?product=) e
+  // console App.jsx bloco A4 (#logs?app= / #publications?app= / #conteudo?projeto=[&novo=1]).
+  assert.equal(surfaceLink('studio', 'produto', { product: 'contaviva-pro' }), '/reqs/#/forge?product=contaviva-pro');
+  assert.equal(surfaceLink('studio', 'produto'), '/reqs/#/forge');
+  assert.equal(surfaceLink('console', 'logs', { product: 'shopdesk' }), '/devops/#logs?app=shopdesk');
+  assert.equal(surfaceLink('console', 'logs'), '/devops/#logs');
+  assert.equal(surfaceLink('console', 'pubs', { product: 'shopdesk' }), '/devops/#publications?app=shopdesk');
+  assert.equal(surfaceLink('console', 'conteudo', { product: 'anarabottini' }), '/devops/#conteudo?projeto=anarabottini');
+  assert.equal(surfaceLink('console', 'conteudo', { product: 'anarabottini', novo: true }), '/devops/#conteudo?projeto=anarabottini&novo=1');
+  assert.equal(surfaceLink('console', 'conteudo', { novo: true }), '/devops/#conteudo?novo=1');
+  assert.equal(surfaceLink('rec', 'captura'), '/portal-rec/');
+  // contexto é URL-encoded (produto nunca deve quebrar o hash)
+  assert.equal(surfaceLink('studio', 'produto', { product: 'a b/c&d' }), '/reqs/#/forge?product=a%20b%2Fc%26d');
+  // combinações desconhecidas → null (fail-soft, quem pinta decide esconder)
+  assert.equal(surfaceLink('nope', 'x'), null);
+  assert.equal(surfaceLink('console', 'nope'), null);
+});
+
+test('productLinks: seção "Neste produto" por surface + kind', () => {
+  assert.deepEqual(productLinks('', 'devops'), []);
+  assert.deepEqual(productLinks(null, 'reqs'), []);
+  const onConsole = productLinks('shopdesk', 'devops');
+  assert.deepEqual(onConsole.map((l) => l.key), ['studio', 'logs', 'pubs']);
+  assert.equal(onConsole[0].href, '/reqs/#/forge?product=shopdesk');
+  assert.equal(onConsole[1].href, '/devops/#logs?app=shopdesk');
+  assert.equal(onConsole[2].href, '/devops/#publications?app=shopdesk');
+  // no reqs (Studio) o link para o próprio Studio é omitido
+  const onReqs = productLinks('shopdesk', 'reqs');
+  assert.deepEqual(onReqs.map((l) => l.key), ['logs', 'pubs']);
+  // Conteúdo (CMS) só "quando fizer sentido": produto portal (kind)
+  const portal = productLinks('anarabottini', 'reqs', { kind: 'portal' });
+  assert.deepEqual(portal.map((l) => l.key), ['logs', 'pubs', 'conteudo']);
+  assert.equal(portal[2].href, '/devops/#conteudo?projeto=anarabottini');
+  for (const l of [...onConsole, ...onReqs, ...portal]) { assert.ok(l.href, l.key); assert.ok(l.label, l.key); assert.ok(l.sub, l.key); assert.ok(l.glyph, l.key); }
 });
 
 test('activeSurfaceKey: casa o prefixo mais específico; / só casa exato', () => {
