@@ -59,6 +59,8 @@ Comece aqui ao desenhar/avaliar um app.
 | [`rollback.md`](./runbooks/rollback.md) | Reverter uma publicação (rollout/Argo/flag). |
 | [`portal-operations.md`](./runbooks/portal-operations.md) | Operar o Portal NovaIT (`/`): publicar, validar, rollback, diagnóstico. |
 | [`host-risks-and-readiness.md`](./runbooks/host-risks-and-readiness.md) | Riscos do host (disco, Docker Desktop em Win Server, SPOF, backup, TLS) e prontidão p/ produção. |
+| [`sicat-gcp-key-rotation.md`](./runbooks/sicat-gcp-key-rotation.md) | Revogar a GCP API Key vazada no histórico do repo legado do SICAT e arquivá-lo. |
+| [`imobia-ai-keys.md`](./runbooks/imobia-ai-keys.md) | Acender as chaves de IA do imobia (Secret `imobia-config` via Sealed Secrets). |
 
 ## 🧭 Decisões de arquitetura (`decisions/`)
 ADRs leves (contexto → decisão → consequências). Índice em [`decisions/README.md`](./decisions/README.md).

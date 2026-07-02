@@ -30,7 +30,14 @@ Estrutura **compartilhada** (fontes Sora/Inter, sombras, animação `floaty`, es
 O `tailwind.config.js` continua mapeando `brand.* → rgb(var(--x) / <alpha-value>)` (as vars agora vêm
 do arquivo gerado).
 
+## Marcas ADOTADAS (brownfield: sicat/gymops)
+Apps adotados pela Forja (`origin: adopted` em `specs/products/`) têm frontend pré-Forja com paleta
+artesanal própria — o `discoverForgeApps()` os **pula de propósito** (não sobrescreve com a marca
+default). A adoção dos tokens é **opt-in explícito por marca** no `build.mjs`, com renderer próprio
+em `renderers/<app>.mjs` que **transcreve a paleta atual do app** (zero mudança visual):
+- **sicat** → `apps/sicat/frontend/src/styles/tokens.generated.css` + `src/plugins/vuetify-theme.generated.js`
+  (tema Vuetify importado pelo plugin). Fonte: `tokens.json` (`brands.sicat`).
+
 ## Roadmap das próximas camadas (ver plano de UX/design)
 - **B — `packages/ui-react`**: primitivos React (Button/Card/Input/EmptyState/Skeleton/DataTable/AiPanel…).
 - **C — `ui-vanilla.css`**: `.btn/.card/.table` para Portal/Console/Reqhub/Recorder (CSS puro).
-- **SICAT (Vuetify)** adota só os tokens (CSS vars no tema).
