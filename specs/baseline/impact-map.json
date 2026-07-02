@@ -35,6 +35,321 @@
       "kind": "infra"
     },
     {
+      "id": "REF-CONTAVIVA360-0001",
+      "kind": "refinement",
+      "title": "Painel Principal",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0002",
+      "kind": "refinement",
+      "title": "Pessoas Físicas",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0003",
+      "kind": "refinement",
+      "title": "Nova Pessoa Física",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0004",
+      "kind": "refinement",
+      "title": "Editar Pessoa Física",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0005",
+      "kind": "refinement",
+      "title": "Detalhe da Pessoa Física",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0006",
+      "kind": "refinement",
+      "title": "Pessoas Jurídicas",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0007",
+      "kind": "refinement",
+      "title": "Nova Pessoa Jurídica",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0008",
+      "kind": "refinement",
+      "title": "Editar Pessoa Jurídica",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0009",
+      "kind": "refinement",
+      "title": "Detalhe da Pessoa Jurídica",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0010",
+      "kind": "refinement",
+      "title": "Documentos",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0011",
+      "kind": "refinement",
+      "title": "Enviar Documento",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0012",
+      "kind": "refinement",
+      "title": "Detalhe do Documento",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0013",
+      "kind": "refinement",
+      "title": "Obrigações Fiscais",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0014",
+      "kind": "refinement",
+      "title": "Nova Obrigação Fiscal",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0015",
+      "kind": "refinement",
+      "title": "Editar Obrigação Fiscal",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0016",
+      "kind": "refinement",
+      "title": "Detalhe da Obrigação Fiscal",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0017",
+      "kind": "refinement",
+      "title": "Tarefas",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0018",
+      "kind": "refinement",
+      "title": "Nova Tarefa",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0019",
+      "kind": "refinement",
+      "title": "Editar Tarefa",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0020",
+      "kind": "refinement",
+      "title": "Detalhe da Tarefa",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0021",
+      "kind": "refinement",
+      "title": "Contas a Pagar",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0022",
+      "kind": "refinement",
+      "title": "Nova Conta a Pagar",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0023",
+      "kind": "refinement",
+      "title": "Editar Conta a Pagar",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0024",
+      "kind": "refinement",
+      "title": "Contas a Receber",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0025",
+      "kind": "refinement",
+      "title": "Nova Conta a Receber",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0026",
+      "kind": "refinement",
+      "title": "Editar Conta a Receber",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0027",
+      "kind": "refinement",
+      "title": "Fluxo de Caixa",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0028",
+      "kind": "refinement",
+      "title": "Relatórios Financeiros",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0029",
+      "kind": "refinement",
+      "title": "Clientes NF",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0030",
+      "kind": "refinement",
+      "title": "Novo Cliente NF",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0031",
+      "kind": "refinement",
+      "title": "Editar Cliente NF",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0032",
+      "kind": "refinement",
+      "title": "Detalhe do Cliente NF",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0033",
+      "kind": "refinement",
+      "title": "Produtos / Serviços NF",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0034",
+      "kind": "refinement",
+      "title": "Novo Produto / Serviço",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0035",
+      "kind": "refinement",
+      "title": "Editar Produto / Serviço",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0036",
+      "kind": "refinement",
+      "title": "Notas Fiscais",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0037",
+      "kind": "refinement",
+      "title": "Emitir Nota Fiscal",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0038",
+      "kind": "refinement",
+      "title": "Detalhe da Nota Fiscal",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0039",
+      "kind": "refinement",
+      "title": "Relatório de Notas Fiscais",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0040",
+      "kind": "refinement",
+      "title": "Assistente Contábil IA",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0041",
+      "kind": "refinement",
+      "title": "Receitas e Despesas",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0042",
+      "kind": "refinement",
+      "title": "Novo Lançamento",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0043",
+      "kind": "refinement",
+      "title": "Editar Lançamento",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0044",
+      "kind": "refinement",
+      "title": "Auditoria de Integrações",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0045",
+      "kind": "refinement",
+      "title": "Auditoria do Assistente IA",
+      "refinement_kind": "screen",
+      "product": "contaviva-360"
+    },
+    {
       "id": "REF-GYMOPS-0001",
       "kind": "refinement",
       "title": "Endereço do(s) empreendimento(s) do usuário na tela de perfil",
@@ -4355,6 +4670,360 @@
     }
   ],
   "edges": [
+    {
+      "from": "REF-CONTAVIVA360-0001",
+      "to": "REQ-CONTAVIVA360-0008",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0002",
+      "to": "REQ-CONTAVIVA360-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0003",
+      "to": "REQ-CONTAVIVA360-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0004",
+      "to": "REQ-CONTAVIVA360-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0005",
+      "to": "REQ-CONTAVIVA360-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0005",
+      "to": "REQ-CONTAVIVA360-0003",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0005",
+      "to": "REQ-CONTAVIVA360-0004",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0005",
+      "to": "REQ-CONTAVIVA360-0005",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0006",
+      "to": "REQ-CONTAVIVA360-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0007",
+      "to": "REQ-CONTAVIVA360-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0007",
+      "to": "REQ-CONTAVIVA360-0009",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0008",
+      "to": "REQ-CONTAVIVA360-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0009",
+      "to": "REQ-CONTAVIVA360-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0009",
+      "to": "REQ-CONTAVIVA360-0003",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0009",
+      "to": "REQ-CONTAVIVA360-0005",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0009",
+      "to": "REQ-CONTAVIVA360-0006",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0010",
+      "to": "REQ-CONTAVIVA360-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0011",
+      "to": "REQ-CONTAVIVA360-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0012",
+      "to": "REQ-CONTAVIVA360-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0013",
+      "to": "REQ-CONTAVIVA360-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0014",
+      "to": "REQ-CONTAVIVA360-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0015",
+      "to": "REQ-CONTAVIVA360-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0016",
+      "to": "REQ-CONTAVIVA360-0003",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0017",
+      "to": "REQ-CONTAVIVA360-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0018",
+      "to": "REQ-CONTAVIVA360-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0019",
+      "to": "REQ-CONTAVIVA360-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0020",
+      "to": "REQ-CONTAVIVA360-0004",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0021",
+      "to": "REQ-CONTAVIVA360-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0022",
+      "to": "REQ-CONTAVIVA360-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0023",
+      "to": "REQ-CONTAVIVA360-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0024",
+      "to": "REQ-CONTAVIVA360-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0025",
+      "to": "REQ-CONTAVIVA360-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0026",
+      "to": "REQ-CONTAVIVA360-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0027",
+      "to": "REQ-CONTAVIVA360-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0028",
+      "to": "REQ-CONTAVIVA360-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0029",
+      "to": "REQ-CONTAVIVA360-0006",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0030",
+      "to": "REQ-CONTAVIVA360-0006",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0030",
+      "to": "REQ-CONTAVIVA360-0009",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0031",
+      "to": "REQ-CONTAVIVA360-0006",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0032",
+      "to": "REQ-CONTAVIVA360-0006",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0033",
+      "to": "REQ-CONTAVIVA360-0006",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0034",
+      "to": "REQ-CONTAVIVA360-0006",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0035",
+      "to": "REQ-CONTAVIVA360-0006",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0036",
+      "to": "REQ-CONTAVIVA360-0006",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0037",
+      "to": "REQ-CONTAVIVA360-0006",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0037",
+      "to": "REQ-CONTAVIVA360-0009",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0038",
+      "to": "REQ-CONTAVIVA360-0006",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0038",
+      "to": "REQ-CONTAVIVA360-0009",
+      "type": "relates_to",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0039",
+      "to": "REQ-CONTAVIVA360-0006",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0040",
+      "to": "REQ-CONTAVIVA360-0007",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0041",
+      "to": "REQ-CONTAVIVA360-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0041",
+      "to": "REQ-CONTAVIVA360-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0042",
+      "to": "REQ-CONTAVIVA360-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0042",
+      "to": "REQ-CONTAVIVA360-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0043",
+      "to": "REQ-CONTAVIVA360-0002",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0043",
+      "to": "REQ-CONTAVIVA360-0005",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0044",
+      "to": "REQ-CONTAVIVA360-0009",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0045",
+      "to": "REQ-CONTAVIVA360-0007",
+      "type": "implements",
+      "refinement": true
+    },
+    {
+      "from": "REF-CONTAVIVA360-0045",
+      "to": "REQ-CONTAVIVA360-0009",
+      "type": "relates_to",
+      "refinement": true
+    },
     {
       "from": "REF-GYMOPS-0001",
       "to": "REQ-GYMOPS-0002",

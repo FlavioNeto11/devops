@@ -16,7 +16,7 @@
     "without_source_paths": 0,
     "without_evidence": 381,
     "without_verification_method": 363,
-    "without_refinement": 352,
+    "without_refinement": 344,
     "scopes": 21,
     "coverage_pct": {
       "links": 19.9,
@@ -24,7 +24,7 @@
       "source_paths": 100,
       "evidence": 0,
       "verification_method": 4.7,
-      "refinement": 7.6
+      "refinement": 9.7
     }
   },
   "by_scope": {
@@ -120,14 +120,14 @@
       "without_source_paths": 0,
       "without_evidence": 9,
       "without_verification_method": 0,
-      "without_refinement": 9,
+      "without_refinement": 1,
       "coverage_pct": {
         "links": 0,
         "allocation": 0,
         "source_paths": 100,
         "evidence": 0,
         "verification_method": 100,
-        "refinement": 0
+        "refinement": 88.9
       }
     },
     "gymops": {

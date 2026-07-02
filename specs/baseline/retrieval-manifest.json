@@ -4196,6 +4196,560 @@
   ],
   "refinements": [
     {
+      "id": "REF-CONTAVIVA360-0001",
+      "title": "Painel Principal",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/",
+      "anchors": [
+        "REQ-CONTAVIVA360-0008"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0001.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0002",
+      "title": "Pessoas Físicas",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/pf",
+      "anchors": [
+        "REQ-CONTAVIVA360-0002"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0002.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0003",
+      "title": "Nova Pessoa Física",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/pf/new",
+      "anchors": [
+        "REQ-CONTAVIVA360-0002"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0003.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0004",
+      "title": "Editar Pessoa Física",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/pf/:id/edit",
+      "anchors": [
+        "REQ-CONTAVIVA360-0002"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0004.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0005",
+      "title": "Detalhe da Pessoa Física",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/pf/:id",
+      "anchors": [
+        "REQ-CONTAVIVA360-0002",
+        "REQ-CONTAVIVA360-0003",
+        "REQ-CONTAVIVA360-0004",
+        "REQ-CONTAVIVA360-0005"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0005.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0006",
+      "title": "Pessoas Jurídicas",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/pj",
+      "anchors": [
+        "REQ-CONTAVIVA360-0002"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0006.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0007",
+      "title": "Nova Pessoa Jurídica",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/pj/new",
+      "anchors": [
+        "REQ-CONTAVIVA360-0002",
+        "REQ-CONTAVIVA360-0009"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0007.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0008",
+      "title": "Editar Pessoa Jurídica",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/pj/:id/edit",
+      "anchors": [
+        "REQ-CONTAVIVA360-0002"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0008.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0009",
+      "title": "Detalhe da Pessoa Jurídica",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/pj/:id",
+      "anchors": [
+        "REQ-CONTAVIVA360-0002",
+        "REQ-CONTAVIVA360-0003",
+        "REQ-CONTAVIVA360-0005",
+        "REQ-CONTAVIVA360-0006"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0009.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0010",
+      "title": "Documentos",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/documents",
+      "anchors": [
+        "REQ-CONTAVIVA360-0002"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0010.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0011",
+      "title": "Enviar Documento",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/documents/new",
+      "anchors": [
+        "REQ-CONTAVIVA360-0002"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0011.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0012",
+      "title": "Detalhe do Documento",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/documents/:id",
+      "anchors": [
+        "REQ-CONTAVIVA360-0002"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0012.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0013",
+      "title": "Obrigações Fiscais",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/fiscal-obligations",
+      "anchors": [
+        "REQ-CONTAVIVA360-0003"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0013.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0014",
+      "title": "Nova Obrigação Fiscal",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/fiscal-obligations/new",
+      "anchors": [
+        "REQ-CONTAVIVA360-0003"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0014.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0015",
+      "title": "Editar Obrigação Fiscal",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/fiscal-obligations/:id/edit",
+      "anchors": [
+        "REQ-CONTAVIVA360-0003"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0015.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0016",
+      "title": "Detalhe da Obrigação Fiscal",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/fiscal-obligations/:id",
+      "anchors": [
+        "REQ-CONTAVIVA360-0003"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0016.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0017",
+      "title": "Tarefas",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/tasks",
+      "anchors": [
+        "REQ-CONTAVIVA360-0004"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0017.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0018",
+      "title": "Nova Tarefa",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/tasks/new",
+      "anchors": [
+        "REQ-CONTAVIVA360-0004"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0018.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0019",
+      "title": "Editar Tarefa",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/tasks/:id/edit",
+      "anchors": [
+        "REQ-CONTAVIVA360-0004"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0019.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0020",
+      "title": "Detalhe da Tarefa",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/tasks/:id",
+      "anchors": [
+        "REQ-CONTAVIVA360-0004"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0020.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0021",
+      "title": "Contas a Pagar",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/accounts-payable",
+      "anchors": [
+        "REQ-CONTAVIVA360-0005"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0021.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0022",
+      "title": "Nova Conta a Pagar",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/accounts-payable/new",
+      "anchors": [
+        "REQ-CONTAVIVA360-0005"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0022.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0023",
+      "title": "Editar Conta a Pagar",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/accounts-payable/:id/edit",
+      "anchors": [
+        "REQ-CONTAVIVA360-0005"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0023.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0024",
+      "title": "Contas a Receber",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/accounts-receivable",
+      "anchors": [
+        "REQ-CONTAVIVA360-0005"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0024.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0025",
+      "title": "Nova Conta a Receber",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/accounts-receivable/new",
+      "anchors": [
+        "REQ-CONTAVIVA360-0005"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0025.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0026",
+      "title": "Editar Conta a Receber",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/accounts-receivable/:id/edit",
+      "anchors": [
+        "REQ-CONTAVIVA360-0005"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0026.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0027",
+      "title": "Fluxo de Caixa",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/cash-flow",
+      "anchors": [
+        "REQ-CONTAVIVA360-0005"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0027.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0028",
+      "title": "Relatórios Financeiros",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/reports/financial",
+      "anchors": [
+        "REQ-CONTAVIVA360-0005"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0028.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0029",
+      "title": "Clientes NF",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/nf-clients",
+      "anchors": [
+        "REQ-CONTAVIVA360-0006"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0029.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0030",
+      "title": "Novo Cliente NF",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/nf-clients/new",
+      "anchors": [
+        "REQ-CONTAVIVA360-0006",
+        "REQ-CONTAVIVA360-0009"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0030.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0031",
+      "title": "Editar Cliente NF",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/nf-clients/:id/edit",
+      "anchors": [
+        "REQ-CONTAVIVA360-0006"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0031.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0032",
+      "title": "Detalhe do Cliente NF",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/nf-clients/:id",
+      "anchors": [
+        "REQ-CONTAVIVA360-0006"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0032.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0033",
+      "title": "Produtos / Serviços NF",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/nf-products",
+      "anchors": [
+        "REQ-CONTAVIVA360-0006"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0033.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0034",
+      "title": "Novo Produto / Serviço",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/nf-products/new",
+      "anchors": [
+        "REQ-CONTAVIVA360-0006"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0034.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0035",
+      "title": "Editar Produto / Serviço",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/nf-products/:id/edit",
+      "anchors": [
+        "REQ-CONTAVIVA360-0006"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0035.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0036",
+      "title": "Notas Fiscais",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/nf",
+      "anchors": [
+        "REQ-CONTAVIVA360-0006"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0036.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0037",
+      "title": "Emitir Nota Fiscal",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/nf/new",
+      "anchors": [
+        "REQ-CONTAVIVA360-0006",
+        "REQ-CONTAVIVA360-0009"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0037.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0038",
+      "title": "Detalhe da Nota Fiscal",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/nf/:id",
+      "anchors": [
+        "REQ-CONTAVIVA360-0006",
+        "REQ-CONTAVIVA360-0009"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0038.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0039",
+      "title": "Relatório de Notas Fiscais",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/nf/report",
+      "anchors": [
+        "REQ-CONTAVIVA360-0006"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0039.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0040",
+      "title": "Assistente Contábil IA",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/assistant",
+      "anchors": [
+        "REQ-CONTAVIVA360-0007"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0040.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0041",
+      "title": "Receitas e Despesas",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/income-expenses",
+      "anchors": [
+        "REQ-CONTAVIVA360-0002",
+        "REQ-CONTAVIVA360-0005"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0041.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0042",
+      "title": "Novo Lançamento",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/income-expenses/new",
+      "anchors": [
+        "REQ-CONTAVIVA360-0002",
+        "REQ-CONTAVIVA360-0005"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0042.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0043",
+      "title": "Editar Lançamento",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/income-expenses/:id/edit",
+      "anchors": [
+        "REQ-CONTAVIVA360-0002",
+        "REQ-CONTAVIVA360-0005"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0043.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0044",
+      "title": "Auditoria de Integrações",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/admin/gateways",
+      "anchors": [
+        "REQ-CONTAVIVA360-0009"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0044.yaml"
+    },
+    {
+      "id": "REF-CONTAVIVA360-0045",
+      "title": "Auditoria do Assistente IA",
+      "kind": "screen",
+      "status": "approved",
+      "product": "contaviva-360",
+      "route": "/admin/assistant-audit",
+      "anchors": [
+        "REQ-CONTAVIVA360-0007",
+        "REQ-CONTAVIVA360-0009"
+      ],
+      "file": "refinements/contaviva-360/REF-CONTAVIVA360-0045.yaml"
+    },
+    {
       "id": "REF-GYMOPS-0001",
       "title": "Endereço do(s) empreendimento(s) do usuário na tela de perfil",
       "kind": "screen",
