@@ -261,6 +261,30 @@
 - **Status**: ✅ Resolvido — [PR #195](https://github.com/FlavioNeto11/devops/pull/195). `/entrar/i` → `/^entrar$/i` nos
   6 arquivos (11 ocorrências). Coleta local íntegra pós-fix (50 testes em 12 arquivos).
 
+### BUG-016 — E2E: asserts defasados vs. comportamento real do app (curadoria F5.2)
+- **Arquivos**: `apps/web/e2e/{activity,import,rbac}.spec.ts`, `apps/web/e2e/smoke/{fixtures.ts,area-leader,executor,unit-manager,owner}.smoke.spec.ts`
+- **Descrição**: com coleta e login destravados (BUG-014/015), a primeira execução VÁLIDA da suite
+  (run 28602328374: 38 pass / 10 fail) mostrou que 8 falhas eram asserts escritos contra um app que
+  não existe mais, e 2 eram 429 do rate limit REAL de `POST /auth/login` (10/min por IP, hardcoded em
+  `routes/auth`) amplificado pelos retries dos testes quebrados (cada retry = novo login):
+  1. **Landing pós-login é POR PAPEL** (`resolveRedirect` em `login/page.tsx`): unit_manager/area_leader
+     → `/units/<primaryUnitId>`; executor/viewer → `/me`; owner/org_manager → `/dashboard`. Os specs
+     esperavam `/dashboard` para todos.
+  2. **O CTA "Nova atividade" vive na página da UNIDADE** (`units/[id]`, atrás de `canCreate()`; acesso
+     de escopo-área via `hasUnitRole`/unit_areas — BUG-007). A Central de Atividades (`/activities`) é
+     navegação/filtro/export, sem CTA de criação. Os specs esperavam o botão em `/activities`.
+  3. `/settings/import`: `getByText(/importar|trello/i)` casa 6 elementos (strict violation) e `/análise/`
+     casaria o stepper estático (sempre no DOM).
+- **Fix (specs reescritos para a VERDADE do app; app INALTERADO)**: `loginAs` devolve `LoginContext`
+  (accessToken/role/organizationId/primaryUnitId capturados da resposta do `POST /auth/login`) e absorve
+  429 esperando a janela renovar; landing asserts por papel; testes de criação navegam a
+  `/units/<primaryUnitId>` (owner resolve unidade via `GET /units`); `activity.spec` exercita o fluxo
+  real de criação (dialog: Área* → Título* → "Criar atividade" → item na lista); `import.spec` asserta o
+  heading "Importar do Trello" e o copy único do passo de mapeamento ("Revise o mapeamento...").
+- **Esforço**: s
+- **Testes**: o próprio job `e2e` do `ci-gymops-e2e.yml`.
+- **Status**: ✅ Resolvido — [PR #195](https://github.com/FlavioNeto11/devops/pull/195).
+
 ### FEAT-005 — Integrações: health/reconnect/boards/WhatsApp na UI
 - **Arquivos**: [`apps/web/src/app/(app)/settings/integrations/page.tsx`](../apps/web/src/app/(app)/settings/integrations/page.tsx), [`apps/web/src/lib/admin-api.ts`](../apps/web/src/lib/admin-api.ts) (`integrationsExtApi`)
 - **Esforço**: m

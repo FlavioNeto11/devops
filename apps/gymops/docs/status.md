@@ -134,7 +134,7 @@
 | **BUG-008** | P1 | ✅ | `refreshTokenHash` no schema. Migration aplicada. Lookup e revogação por hash. |
 | **BUG-009** | P1 | ✅ | `docker-compose.public.yml` com healthchecks e `condition: service_healthy`. |
 | **BUG-010** | P1 | ⚠️ Parcial | `ALLOWED_ORIGINS` via env funciona. `localhost:3000`/`7480` ainda hardcoded (aceitável para dev). |
-| **BUG-011 (OPS-001)** | P1 | 🟡 | Gate real em PR via workflow **raiz** `ci-gymops-e2e.yml` (Forja 4.1 F5, 2026-07-02) — o e2e.yml aninhado nunca executou no monorepo (morto, histórico). 1ª execução expôs BUG-013 (vitest × prom-client) e BUG-014 (import.spec.ts ESM×CJS) — ambos ✅ resolvidos (PR #195), assim como o BUG-015 (locator de login ambíguo — 35/50 testes E2E) que a suite revelou em seguida; resta a curadoria de asserts defasados remanescentes que o gate mostrar. |
+| **BUG-011 (OPS-001)** | P1 | 🟡 | Gate real em PR via workflow **raiz** `ci-gymops-e2e.yml` (Forja 4.1 F5, 2026-07-02) — o e2e.yml aninhado nunca executou no monorepo (morto, histórico). 1ª execução expôs BUG-013 (vitest × prom-client) e BUG-014 (import.spec.ts ESM×CJS) — ambos ✅ resolvidos (PR #195), assim como o BUG-015 (locator de login ambíguo — 35/50 testes) e o BUG-016 (asserts defasados: landing por papel, CTA de criação na página da unidade, wizard de import; + resiliência ao rate limit real de /auth/login) que a suite revelou rodando de verdade. |
 | **BUG-012 (OPS-002)** | P1 | ✅ | `build-gymops` job no CI. |
 
 ---

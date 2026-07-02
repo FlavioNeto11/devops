@@ -1,15 +1,20 @@
 import { test, expect } from '@playwright/test';
-import { PROFILES, loginAs } from './fixtures';
+import { PROFILES, loginAs, type LoginContext } from './fixtures';
 
 const P = PROFILES.area_leader;
 
 test.describe('Smoke — area_leader', () => {
+  let ctx: LoginContext;
+
   test.beforeEach(async ({ page }) => {
-    await loginAs(page, P);
+    ctx = await loginAs(page, P);
   });
 
-  test('reaches dashboard after login', async ({ page }) => {
-    await expect(page).toHaveURL(/dashboard/, { timeout: 10_000 });
+  test('lands on own unit page after login', async ({ page }) => {
+    // App truth (resolveRedirect, login/page.tsx): area_leader lands on
+    // /units/<primaryUnitId> — NOT /dashboard (owner/org_manager only).
+    expect(ctx.primaryUnitId, 'login must resolve primaryUnitId via unit_areas (BUG-005)').toBeTruthy();
+    await expect(page).toHaveURL(new RegExp(`/units/${ctx.primaryUnitId}`), { timeout: 10_000 });
   });
 
   test('can see own area activities', async ({ page }) => {
@@ -18,8 +23,11 @@ test.describe('Smoke — area_leader', () => {
     await expect(page.getByRole('heading', { name: /atividades/i })).toBeVisible({ timeout: 10_000 });
   });
 
-  test('create activity button is visible', async ({ page }) => {
-    await page.goto('/activities');
+  test('create activity button is visible on own unit page', async ({ page }) => {
+    // App truth: the "Nova atividade" CTA lives on the UNIT page (units/[id],
+    // behind canCreate()); the Central de Atividades (/activities) is browse-only.
+    expect(ctx.primaryUnitId, 'login must resolve primaryUnitId via unit_areas (BUG-005)').toBeTruthy();
+    await page.goto(`/units/${ctx.primaryUnitId}`);
     await expect(page.getByRole('button', { name: /nova atividade/i })).toBeVisible({ timeout: 10_000 });
   });
 

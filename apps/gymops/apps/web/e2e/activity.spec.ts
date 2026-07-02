@@ -1,36 +1,43 @@
 import { test, expect } from '@playwright/test';
+import { PROFILES, loginAs, type LoginContext } from './smoke/fixtures';
+
+const API_URL = process.env['E2E_API_URL'] ?? 'http://localhost:3001';
 
 test.describe('Activity creation', () => {
+  let ctx: LoginContext;
+
   test.beforeEach(async ({ page }) => {
-    await page.goto('/login');
-    await page.getByLabel(/e-?mail/i).fill('admin@skyfit.com');
-    await page.getByLabel(/senha/i).fill('gymops123');
-    await page.getByRole('button', { name: /^entrar$/i }).click();
-    await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 });
+    ctx = await loginAs(page, PROFILES.owner);
   });
 
-  test('can create an activity and it appears in the list', async ({ page }) => {
-    // Navigate to activities view
-    await page.getByRole('link', { name: /atividade|activit/i }).first().click();
-    await expect(page).toHaveURL(/\/activities|\/unit/, { timeout: 5_000 });
+  test('can create an activity and it appears in the list', async ({ page, request }) => {
+    // App truth: creation lives on the UNIT page (units/[id], behind canCreate());
+    // the Central de Atividades (/activities) is browse/filter-only. Owner is
+    // org-scoped (no primaryUnitId) — resolve a unit via the API.
+    const res = await request.get(`${API_URL}/units?organizationId=${ctx.organizationId}`, {
+      headers: { Authorization: `Bearer ${ctx.accessToken}` },
+    });
+    expect(res.ok()).toBeTruthy();
+    const body = (await res.json()) as { data?: Array<{ id: string }> };
+    const unitId = body.data?.[0]?.id;
+    expect(unitId, 'seed must create at least one unit').toBeTruthy();
 
-    // Open creation form
-    const createBtn = page.getByRole('button', { name: /nova atividade|criar|add/i }).first();
-    await createBtn.click();
+    await page.goto(`/units/${unitId}`);
+
+    // Open creation dialog
+    await page.getByRole('button', { name: /nova atividade/i }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible({ timeout: 5_000 });
+
+    // Área is required (native select) — pick the first real option
+    await dialog.getByLabel(/área/i).selectOption({ index: 1 });
 
     const title = `E2E Test Activity ${Date.now()}`;
-    await page.getByLabel(/título|title/i).fill(title);
+    await dialog.getByLabel(/título/i).fill(title);
 
-    // Select area if picker is present
-    const areaPicker = page.getByLabel(/área|area/i).first();
-    if (await areaPicker.isVisible()) {
-      await areaPicker.click();
-      await page.getByRole('option').first().click();
-    }
+    await dialog.getByRole('button', { name: /^criar atividade$/i }).click();
 
-    await page.getByRole('button', { name: /salvar|criar|confirmar/i }).click();
-
-    // Activity should appear in the list
+    // Activity should appear on the unit page
     await expect(page.getByText(title)).toBeVisible({ timeout: 8_000 });
   });
 });
