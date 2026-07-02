@@ -138,13 +138,16 @@
   - Integração de API (test-services) no mesmo gate de PR. ✅
   - PR bloqueado se E2E ou integração falhar.
 - **Testes**: dry-run do workflow em PR.
-- **Status**: ✅ Concluído — **re-aberto e re-fechado na Forja 4.1 F5 (2026-07-02)**. A "conclusão" anterior
+- **Status**: 🟡 Gate implantado e EXECUTANDO; suíte vermelha (Forja 4.1 F5, 2026-07-02). A "conclusão" anterior
   (commit `c7c19a4`, auditoria 2026-05-18) editava o workflow **aninhado** `apps/gymops/.github/workflows/e2e.yml`,
   herdado do repo standalone — o GitHub **nunca executa** workflows fora de `.github/workflows` da raiz, então o
   gate nunca rodou neste monorepo (PRs do gymops passavam só com lint/typecheck do `ci-apps`). Correção real:
   workflow **raiz** `ci-gymops-e2e.yml` com 2 jobs paralelos em PR (`integration` = vitest da API com
   Postgres pgvector + Redis; `e2e` = suite Playwright completa em chromium contra api+web buildados), caches
   (pnpm/ms-playwright/.next) e concurrency por PR. O aninhado foi mantido como histórico, marcado como morto.
+  A **primeira execução real** (PR #191) expôs 2 bugs pré-existentes do app que deixam o gate vermelho até
+  serem corrigidos: **BUG-013** (integration) e **BUG-014** (e2e). Fail-closed por design: a esteira só deve
+  mexer no app vivo com o gate verde.
 
 ### OPS-002 — Build/test variante `/gymops` no CI
 - **Arquivos**: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
@@ -206,6 +209,36 @@
   - `.env.docker.example` documenta o padrão.
 - **Testes**: vitest `cors.allowlist.test.ts`.
 - **Status**: ⚠️ Parcial — commit `c7c19a4`. `ALLOWED_ORIGINS` env funciona (env.ts + app.ts). IP `38.211.146.161:7480` removido. `localhost` hardcoded mantido por conveniência de dev — não é bloqueador de produção. `.env.docker.example` pendente (OPS-005).
+
+### BUG-013 — vitest da API quebra com métrica prom-client duplicada
+- **Arquivos**: [`apps/api/src/ai/ai-metrics.ts`](../apps/api/src/ai/ai-metrics.ts) (linha 9, `collectDefaultMetrics()`), [`apps/api/vitest.config.ts`](../apps/api/vitest.config.ts)
+- **Descrição**: descoberto na **primeira execução real** da suite em CI (gate raiz `ci-gymops-e2e.yml`, PR #191).
+  9/10 arquivos de teste falham na coleta com `A metric with the name process_cpu_user_seconds_total has
+  already been registered`. Causa: com `pool: forks` + `singleFork: true`, o vitest re-avalia os módulos do
+  app a cada arquivo de teste no MESMO processo, mas `prom-client` (node_modules, não isolado) mantém o
+  registry global — a segunda avaliação de `ai-metrics.ts` re-registra as métricas e explode.
+- **Esforço**: s
+- **Critério de aceite**:
+  - `ai-metrics.ts` idempotente sob re-avaliação (guard `register.getSingleMetric(...)` ou registry próprio),
+    sem mudar o comportamento em produção.
+  - Job `integration` do `ci-gymops-e2e.yml` (raiz) verde.
+- **Testes**: `pnpm -r test` com Postgres+Redis reais (o próprio job de CI).
+- **Status**: 🔴 Aberto — bloqueia o gate de integração em PR.
+
+### BUG-014 — E2E: `import.spec.ts` quebra a coleta do Playwright (ESM × CJS)
+- **Arquivos**: [`apps/web/e2e/import.spec.ts`](../apps/web/e2e/import.spec.ts) (linhas 3–5)
+- **Descrição**: descoberto na **primeira execução real** da suite em CI (gate raiz `ci-gymops-e2e.yml`, PR #191).
+  A coleta aborta com `ReferenceError: require is not defined in ES module scope` — o spec usa
+  `fileURLToPath(import.meta.url)` para derivar `__dirname`, mas `@gymops/web` é CJS (sem `"type": "module"`)
+  e o transpiler do `@playwright/test@1.60.0` gera código incompatível. Nenhum outro spec usa `import.meta`.
+  Enquanto a coleta falha, **zero testes E2E rodam** (a suite inteira aborta antes de executar).
+- **Esforço**: s
+- **Critério de aceite**:
+  - `import.spec.ts` sem `import.meta` (em CJS transpilado o `__dirname` global já existe) ou pacote migrado
+    a ESM de forma consciente.
+  - Job `e2e` do `ci-gymops-e2e.yml` (raiz) executa a suite (os resultados dos testes em si são outra história).
+- **Testes**: o próprio job de CI.
+- **Status**: 🔴 Aberto — bloqueia o gate E2E em PR.
 
 ### FEAT-005 — Integrações: health/reconnect/boards/WhatsApp na UI
 - **Arquivos**: [`apps/web/src/app/(app)/settings/integrations/page.tsx`](../apps/web/src/app/(app)/settings/integrations/page.tsx), [`apps/web/src/lib/admin-api.ts`](../apps/web/src/lib/admin-api.ts) (`integrationsExtApi`)
