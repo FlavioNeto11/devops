@@ -1,0 +1,7 @@
+app: { name: besc, namespace: apps, host: nvit.localhost, basePath: /besc }
+# Plataforma de Levantamento BESC Tokenizacao — sistema SIMPLES, SEM login, sem banco
+# externo (store JSON em PVC), que NAO tokeniza de verdade. Apenas levantamento,
+# checklists, pendencias automaticas, matriz de risco e relatorios. Escopo em ESCOPO-FUNCIONAL.md.
+services:
+  frontend: { type: frontend, image: besc-frontend, path: /, port: 80, expose: true, stripPrefix: false, priority: 10 }
+  api: { type: api, image: besc-api, path: /api, port: 8080, expose: true, stripPrefix: true, priority: 40, health: { path: /health } }

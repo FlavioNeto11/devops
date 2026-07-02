@@ -1,0 +1,29 @@
+id: REQ-CONTAVIVA360-0009
+title: "Emissão e Processamento de Documentos Fiscais (SEFAZ, RFB, Governo): Gateway Centralizado e Auditoria"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: contaviva-360
+  blueprint: gymops-style
+statement: "O sistema DEVE centralizar toda integração com sistemas externos (SEFAZ, RFB, e-Social, Prefeitura, Governo Federal) em uma camada gateway única com timeout, retry com backoff exponencial, redação de segredos no log, trilha de auditoria de todas as trocas HTTP (request/response sanitizado), erros tipados (AppError), e degradação graciosa (falha graceful sem certificado/credencial durante desenvolvimento)."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/contaviva-360/product.json"]
+priority: high
+criticality: medium
+architectural_significance: true
+capability_blocks: ["gateway-externo", "worker-queue-transacional", "observabilidade"]
+acceptance_criteria:
+  - "Gateway para SEFAZ: envio de NF-e, consulta de autorização, cancelamento, inutilização, com certificado digital (arquivo .pfx), assinatura XML, conversão SOAP."
+  - "Gateway para RFB (e-CAC): consulta de dados cadastrais, submissão de documentos, recuperação de downloads (Malha Fina, etc.), com login CNJ."
+  - "Gateway para e-Social: envio de eventos (S-1000 - informações da empresa, S-2000 - folha de pagamento, S-2200 - remuneração, etc.), com certificado ou código de acesso."
+  - "Configuração por environment: DEV = sandbox determinístico (sem certificado, sempre aprova), STAGING = sandbox, PROD = real (credenciais vêm de vault)."
+  - "Auditoria de chamadas: toda requisição HTTP a sistema externo registra timestamp, método, endpoint, payload sanitizado (sem senha/certificado), resposta status, tempo, retries, e quem a solicitou (user_id)."
+  - "Erros tipados: falha em SEFAZ retorna {error: 'gateway_sefaz_timeout', code: 'EXT_TIMEOUT', retry_after: 30} para o cliente, não expõe SOAP fault."
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

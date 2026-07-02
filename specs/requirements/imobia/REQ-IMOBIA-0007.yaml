@@ -1,0 +1,35 @@
+id: REQ-IMOBIA-0007
+slug: req-imobia-0007
+title: WhatsApp multi-instância como eixo central com triagem por IA
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: imobia
+  applies_to: product
+statement: O sistema deve operar múltiplos canais/números de WhatsApp por segmento (captação, vendas, finanças) com webhook centralizador; toda mensagem entrante passa pela triagem do Cortex (classificação de canal/intenção) e é processada de forma assíncrona (fila whatsapp-inbound), alimentando os demais módulos do ecossistema. A integração é fail-soft — sem provedor configurado (Baileys/Evolution/Z-API), o módulo opera manualmente.
+business_rationale: O WhatsApp é o coração que conecta todos os módulos (documento de concepção e diagrama).
+source:
+  stakeholder: imobia
+  origin: codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)
+  source_paths:
+    - apps/imobia/api/src/modules/whatsapp/routes.ts
+    - apps/imobia/docs/CONCEPCAO.md
+priority: critical
+criticality: critical
+architectural_significance: true
+links:
+  - type: relates_to
+    target: REQ-IMOBIA-0002
+    note: a triagem inicial de cada mensagem é o Cortex do motor multi-modelo
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: adoção Forja 4.1 D5 — backfill extraído do app real
+allocation:
+  service_refs:
+    - svc-imobia-api
+    - svc-imobia-worker
+  infra_refs:
+    - infra-redis

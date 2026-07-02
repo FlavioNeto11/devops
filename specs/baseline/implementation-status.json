@@ -1,18 +1,17 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "c673fba7368673eeb123e0671af3b6e8d8fd855c2c79bf90786e87dd1743d7f9",
+  "baseline_hash": "f1d3f82808d016dd57a1d810f851ea9ffccdf38ff80f6131476d23022868249a",
   "counts": {
-    "total": 343,
+    "total": 381,
     "by_status": {
-      "deployed": 282,
-      "done": 52,
-      "merged": 9
+      "deployed": 329,
+      "done": 52
     },
     "refinements": {
       "total": 63,
       "by_status": {
-        "pr_open": 2,
-        "not_started": 49,
+        "not_started": 35,
+        "pr_open": 16,
         "deployed": 12
       }
     }
@@ -643,6 +642,72 @@
       "deployed_at": "2026-06-15",
       "notes": "console — DevOps Console (backend read-only k8s + React) no cluster"
     },
+    "REQ-CONTAVIVA360-0001": {
+      "status": "deployed",
+      "req_revision": 1
+    },
+    "REQ-CONTAVIVA360-0002": {
+      "status": "deployed",
+      "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/156",
+      "branch": "req/REQ-CONTAVIVA360-0002/r1",
+      "commit": "3aacdf8e266a3b4809d2526721fa87f77e2752d5",
+      "run_id": "28197566032"
+    },
+    "REQ-CONTAVIVA360-0003": {
+      "status": "deployed",
+      "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/158",
+      "branch": "req/REQ-CONTAVIVA360-0003/r1",
+      "commit": "eb1f543b2c17910ea0a71eaf7c2ad66bab054eb0",
+      "run_id": "28198916792"
+    },
+    "REQ-CONTAVIVA360-0004": {
+      "status": "deployed",
+      "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/160",
+      "branch": "req/REQ-CONTAVIVA360-0004/r1",
+      "commit": "ef72810017fd04de016a3ed6982ebaf815727214",
+      "run_id": "28200137469"
+    },
+    "REQ-CONTAVIVA360-0005": {
+      "status": "deployed",
+      "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/161",
+      "branch": "req/REQ-CONTAVIVA360-0005/r1",
+      "commit": "2fa82731d7fc561910535dd84f8e8a3bcf6a954a",
+      "run_id": "28200879377"
+    },
+    "REQ-CONTAVIVA360-0006": {
+      "status": "deployed",
+      "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/163",
+      "commit": "be5ae5cf8e644eba84c92c87d22440080e04eae4"
+    },
+    "REQ-CONTAVIVA360-0007": {
+      "status": "deployed",
+      "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/164",
+      "branch": "req/REQ-CONTAVIVA360-0007/r1",
+      "commit": "3f0de9d25caf49149253bd85403a24cc9b954c66",
+      "run_id": "28204232452"
+    },
+    "REQ-CONTAVIVA360-0008": {
+      "status": "deployed",
+      "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/165",
+      "branch": "req/REQ-CONTAVIVA360-0008/r1",
+      "commit": "7ed5a38450d8be2184f832e5522c812bdddd0641",
+      "run_id": "28205517010"
+    },
+    "REQ-CONTAVIVA360-0009": {
+      "status": "deployed",
+      "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/166",
+      "branch": "req/REQ-CONTAVIVA360-0009/r1",
+      "commit": "96a2da878480ea95e9a80b9d734aef3a5c8fa582",
+      "run_id": "28206429142"
+    },
     "REQ-GYMOPS-0001": {
       "status": "deployed",
       "req_revision": 1,
@@ -781,6 +846,102 @@
       "deployed_at": "2026-06-15",
       "notes": "apps/gymops — Next.js+Fastify+Prisma no cluster (ns apps)"
     },
+    "REQ-IMOBIA-0001": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-0002": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-0003": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-0004": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-0005": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-0006": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-0007": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-0008": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-0009": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-0010": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-0011": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-0012": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-NFR-0001": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-NFR-0002": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-NFR-0003": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
+    "REQ-IMOBIA-NFR-0004": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/imobia — Vue+Fastify+Prisma/pgvector+Redis no cluster (ns apps)"
+    },
     "REQ-KEYCLOAK-0001": {
       "status": "deployed",
       "req_revision": 1,
@@ -890,68 +1051,68 @@
       "notes": "platform/keycloak — SSO/OIDC no cluster (ns identity), sob Argo"
     },
     "REQ-NEUROEVOLUI-0001": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1
     },
     "REQ-NEUROEVOLUI-0002": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "pr": "https://github.com/FlavioNeto11/devops/pull/126",
-      "branch": "@{id=REQ-NEUROEVOLUI-0002; branch=req/REQ-NEUROEVOLUI-0002/r1; restricted=false; title=feat(neuroevolui): implementa REQ-NEUROEVOLUI-0002 — Multi-tenant + RBAC: Isolamento por c}.branch",
+      "branch": "req/REQ-NEUROEVOLUI-0002/r1",
       "commit": "105164251711ea8def324a7c562b75298f82bf28",
       "run_id": "28131631587"
     },
     "REQ-NEUROEVOLUI-0003": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "pr": "https://github.com/FlavioNeto11/devops/pull/127",
-      "branch": "@{id=REQ-NEUROEVOLUI-0003; branch=req/REQ-NEUROEVOLUI-0003/r1; restricted=false; title=feat(neuroevolui): implementa REQ-NEUROEVOLUI-0003 — Dados: Filas assíncronas + Idempotênc}.branch",
+      "branch": "req/REQ-NEUROEVOLUI-0003/r1",
       "commit": "ad73daed5d808904fae4a09f8e0eebdd452a2e98",
       "run_id": "28133635910"
     },
     "REQ-NEUROEVOLUI-0004": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "pr": "https://github.com/FlavioNeto11/devops/pull/128",
-      "branch": "@{id=REQ-NEUROEVOLUI-0004; branch=req/REQ-NEUROEVOLUI-0004/r1; restricted=false; title=feat(neuroevolui): implementa REQ-NEUROEVOLUI-0004 — Dados: Registro de evolução + Gestão }.branch",
+      "branch": "req/REQ-NEUROEVOLUI-0004/r1",
       "commit": "6c1379ab363421dff8a0d51c57e9fb62aa7e182c",
       "run_id": "28137731682"
     },
     "REQ-NEUROEVOLUI-0005": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
-      "branch": "@{id=REQ-NEUROEVOLUI-0005; branch=req/REQ-NEUROEVOLUI-0005/r1; restricted=false; title=feat(neuroevolui): implementa REQ-NEUROEVOLUI-0005 — Controle financeiro: Agendamentos + P}.branch",
+      "branch": "req/REQ-NEUROEVOLUI-0005/r1",
       "run_id": "28127034333"
     },
     "REQ-NEUROEVOLUI-0006": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "pr": "https://github.com/FlavioNeto11/devops/pull/129",
-      "branch": "@{id=REQ-NEUROEVOLUI-0006; branch=req/REQ-NEUROEVOLUI-0006/r1; restricted=false; title=feat(neuroevolui): implementa REQ-NEUROEVOLUI-0006 — IA: Assistente de controle para profi}.branch",
+      "branch": "req/REQ-NEUROEVOLUI-0006/r1",
       "commit": "d864fd230f8b1d494dc50c8ffb759d9e55270484",
       "run_id": "28139437545"
     },
     "REQ-NEUROEVOLUI-0007": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "pr": "https://github.com/FlavioNeto11/devops/pull/130",
-      "branch": "@{id=REQ-NEUROEVOLUI-0007; branch=req/REQ-NEUROEVOLUI-0007/r1; restricted=false; title=feat(neuroevolui): implementa REQ-NEUROEVOLUI-0007 — Notificações: E-mail, push e WhatsApp}.branch",
+      "branch": "req/REQ-NEUROEVOLUI-0007/r1",
       "commit": "9aa7b85532a407daf5fda7d398352d4d2eaa8b3b",
       "run_id": "28141146215"
     },
     "REQ-NEUROEVOLUI-0008": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "pr": "https://github.com/FlavioNeto11/devops/pull/131",
-      "branch": "@{id=REQ-NEUROEVOLUI-0008; branch=req/REQ-NEUROEVOLUI-0008/r1; restricted=false; title=feat(neuroevolui): implementa REQ-NEUROEVOLUI-0008 — API estável: Contract-first OpenAPI +}.branch",
+      "branch": "req/REQ-NEUROEVOLUI-0008/r1",
       "commit": "e87ac4ae0cd08e7dfc683656dbe8f5bef0e1e51d",
       "run_id": "28141678291"
     },
     "REQ-NEUROEVOLUI-0009": {
-      "status": "merged",
+      "status": "deployed",
       "req_revision": 1,
       "pr": "https://github.com/FlavioNeto11/devops/pull/132",
-      "branch": "@{id=REQ-NEUROEVOLUI-0009; branch=req/REQ-NEUROEVOLUI-0009/r1; restricted=false; title=feat(neuroevolui): implementa REQ-NEUROEVOLUI-0009 — Frontend: Design system unificado + C}.branch",
+      "branch": "req/REQ-NEUROEVOLUI-0009/r1",
       "commit": "d0f4c595f0aba3dd3f92f045bd1e4e17f7f2c981",
       "run_id": "28145105277"
     },
@@ -2035,13 +2196,91 @@
       "req_revision": 1,
       "deployed_at": "2026-06-15",
       "notes": "platform/traefik — ingress + middlewares no cluster (ns traefik)"
+    },
+    "REQ-ZAPBRIDGE-0001": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/zapbridge — React/Vite + Express/Baileys + SQLite (PVC) no cluster (ns apps, imagens :local)"
+    },
+    "REQ-ZAPBRIDGE-0002": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/zapbridge — React/Vite + Express/Baileys + SQLite (PVC) no cluster (ns apps, imagens :local)"
+    },
+    "REQ-ZAPBRIDGE-0003": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/zapbridge — React/Vite + Express/Baileys + SQLite (PVC) no cluster (ns apps, imagens :local)"
+    },
+    "REQ-ZAPBRIDGE-0004": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/zapbridge — React/Vite + Express/Baileys + SQLite (PVC) no cluster (ns apps, imagens :local)"
+    },
+    "REQ-ZAPBRIDGE-0005": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/zapbridge — React/Vite + Express/Baileys + SQLite (PVC) no cluster (ns apps, imagens :local)"
+    },
+    "REQ-ZAPBRIDGE-0006": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/zapbridge — React/Vite + Express/Baileys + SQLite (PVC) no cluster (ns apps, imagens :local)"
+    },
+    "REQ-ZAPBRIDGE-0007": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/zapbridge — React/Vite + Express/Baileys + SQLite (PVC) no cluster (ns apps, imagens :local)"
+    },
+    "REQ-ZAPBRIDGE-0008": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/zapbridge — camada de IA deployada porém DORMENTE: sem ANTHROPIC_API_KEY/OPENAI_API_KEY no Secret zapbridge-config (fail-soft; acende quando o operador configurar as chaves)"
+    },
+    "REQ-ZAPBRIDGE-0009": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/zapbridge — camada de IA deployada porém DORMENTE: sem ANTHROPIC_API_KEY/OPENAI_API_KEY no Secret zapbridge-config (fail-soft; acende quando o operador configurar as chaves)"
+    },
+    "REQ-ZAPBRIDGE-0010": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/zapbridge — React/Vite + Express/Baileys + SQLite (PVC) no cluster (ns apps, imagens :local)"
+    },
+    "REQ-ZAPBRIDGE-NFR-0001": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/zapbridge — camada de IA deployada porém DORMENTE: sem ANTHROPIC_API_KEY/OPENAI_API_KEY no Secret zapbridge-config (fail-soft; acende quando o operador configurar as chaves)"
+    },
+    "REQ-ZAPBRIDGE-NFR-0002": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/zapbridge — React/Vite + Express/Baileys + SQLite (PVC) no cluster (ns apps, imagens :local)"
+    },
+    "REQ-ZAPBRIDGE-NFR-0003": {
+      "status": "deployed",
+      "req_revision": 1,
+      "deployed_at": "2026-07-02",
+      "notes": "apps/zapbridge — React/Vite + Express/Baileys + SQLite (PVC) no cluster (ns apps, imagens :local)"
     }
   },
   "refinement_items": {
     "REF-GYMOPS-0001": {
-      "status": "pr_open",
+      "status": "not_started",
       "req_revision": 1,
-      "notes": "PR #26 (esteira)"
+      "notes": "PR #26 fechado sem merge em 2026-06-24; reimplementável"
     },
     "REF-NEUROEVOLUI-0001": {
       "status": "not_started",
@@ -2180,70 +2419,116 @@
       "req_revision": 1
     },
     "REF-NEUROEVOLUI-0035": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/134",
+      "branch": "ref/REF-NEUROEVOLUI-0035/r1",
+      "run_id": "28175217291"
     },
     "REF-NEUROEVOLUI-0036": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/135",
+      "branch": "ref/REF-NEUROEVOLUI-0036/r1",
+      "run_id": "28175217291"
     },
     "REF-NEUROEVOLUI-0037": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/136",
+      "branch": "ref/REF-NEUROEVOLUI-0037/r1",
+      "run_id": "28175217291"
     },
     "REF-NEUROEVOLUI-0038": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/137",
+      "branch": "ref/REF-NEUROEVOLUI-0038/r1",
+      "run_id": "28175217291"
     },
     "REF-NEUROEVOLUI-0039": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/138",
+      "branch": "ref/REF-NEUROEVOLUI-0039/r1",
+      "run_id": "28175217291"
     },
     "REF-NEUROEVOLUI-0040": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/139",
+      "branch": "ref/REF-NEUROEVOLUI-0040/r1",
+      "run_id": "28175217291"
     },
     "REF-NEUROEVOLUI-0041": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/140",
+      "branch": "ref/REF-NEUROEVOLUI-0041/r1",
+      "run_id": "28175217291"
     },
     "REF-NEUROEVOLUI-0042": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/141",
+      "branch": "ref/REF-NEUROEVOLUI-0042/r1",
+      "run_id": "28175217291"
     },
     "REF-NEUROEVOLUI-0043": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/142",
+      "branch": "ref/REF-NEUROEVOLUI-0043/r1",
+      "run_id": "28175217291"
     },
     "REF-NEUROEVOLUI-0044": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/143",
+      "branch": "ref/REF-NEUROEVOLUI-0044/r1",
+      "run_id": "28175217291"
     },
     "REF-NEUROEVOLUI-0045": {
       "status": "pr_open",
       "req_revision": 1,
-      "branch": "@{id=REF-NEUROEVOLUI-0045; branch=ref/REF-NEUROEVOLUI-0045/r1; restricted=false; title=feat(neuroevolui): implementa REF-NEUROEVOLUI-0045 — Editar Preferência de Notificação}.branch",
+      "pr": "https://github.com/FlavioNeto11/devops/pull/144",
+      "branch": "ref/REF-NEUROEVOLUI-0045/r1",
       "run_id": "28175217291"
     },
     "REF-NEUROEVOLUI-0046": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/145",
+      "branch": "ref/REF-NEUROEVOLUI-0046/r1",
+      "run_id": "28175217291"
     },
     "REF-NEUROEVOLUI-0047": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/146",
+      "branch": "ref/REF-NEUROEVOLUI-0047/r1",
+      "run_id": "28175217291"
     },
     "REF-NEUROEVOLUI-0048": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/147",
+      "branch": "ref/REF-NEUROEVOLUI-0048/r1",
+      "run_id": "28175217291"
     },
     "REF-NEUROEVOLUI-0049": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/148",
+      "branch": "ref/REF-NEUROEVOLUI-0049/r1",
+      "run_id": "28175217291"
     },
     "REF-NEUROEVOLUI-0050": {
-      "status": "not_started",
-      "req_revision": 1
+      "status": "pr_open",
+      "req_revision": 1,
+      "pr": "https://github.com/FlavioNeto11/devops/pull/149",
+      "branch": "ref/REF-NEUROEVOLUI-0050/r1",
+      "run_id": "28175217291"
     },
     "REF-PORTAL-0001": {
       "status": "deployed",

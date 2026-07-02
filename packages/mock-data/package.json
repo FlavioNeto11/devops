@@ -1,0 +1,14 @@
+{
+  "name": "@flavioneto11/mock-data",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Gerador determinístico de dados FAKE plausíveis em pt-BR para previews da Forja (sem deps, puro, sem Math.random/Date.now). Dados honestos-mas-genéricos por tipo de campo (text/number/currency/date/datetime/enum/email/bool/phone/cpf-cnpj/id/textarea + tipos do inventário ui). Determinismo via hash do nome do campo.",
+  "main": "index.mjs",
+  "exports": {
+    ".": "./index.mjs"
+  },
+  "scripts": {
+    "test": "node --test"
+  }
+}

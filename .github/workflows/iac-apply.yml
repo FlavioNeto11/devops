@@ -1,0 +1,93 @@
+# =============================================================================
+# iac-apply — APLICA a IaC da SUPERFICIE EXTERNA (OpenTofu) — MANUAL
+# -----------------------------------------------------------------------------
+# Exposicao externa (DNS publico/tunnel/GitHub) = operacao COM APROVACAO
+# (AGENTS.md par. 5/6). Por isso este workflow:
+#   - so roda por workflow_dispatch (NUNCA acionado por PR, push ou pela
+#     Forja/esteira — nao referencie este workflow em automacoes);
+#   - exige digitar "apply" no input de confirmacao;
+#   - usa o environment `iac-apply` (o operador pode adicionar required
+#     reviewers nas settings do repo para endurecer ainda mais).
+# Pre-requisitos no runner: OpenTofu instalado, namespace devops-iac criado e
+# secret CLOUDFLARE_API_TOKEN cadastrado no repo (falha DURA se faltarem —
+# diferente do iac-plan, que e fail-soft). Ver platform/iac/README.md.
+# =============================================================================
+name: iac-apply
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Digite "apply" para confirmar (operacao COM APROVACAO — AGENTS.md par. 5/6)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  issues: write # github_issue_label (labels da esteira)
+
+concurrency:
+  group: iac-apply
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    name: tofu plan + apply (superficie externa)
+    runs-on: [self-hosted, windows, docker-desktop, local-k8s, flavio-devops]
+    environment: iac-apply
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Confirmacao explicita do operador
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          if ($env:CONFIRM -cne 'apply') {
+            Write-Host "::error::Confirmacao invalida — digite exatamente 'apply' no input para executar (fronteira COM APROVACAO, AGENTS.md par. 5/6)."
+            exit 1
+          }
+
+      - uses: actions/checkout@v5
+
+      - name: Pre-checks DUROS (tofu + secret + namespace)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+          if (-not (Get-Command tofu -ErrorAction SilentlyContinue)) {
+            Write-Host "::error::OpenTofu nao instalado no runner. Instale: winget install --id OpenTofu.Tofu -e (ver platform/iac/README.md)."
+            exit 1
+          }
+          if ([string]::IsNullOrWhiteSpace($env:CLOUDFLARE_API_TOKEN)) {
+            Write-Host "::error::Secret CLOUDFLARE_API_TOKEN ausente no repo — apply impossivel. Cadastre o secret (Zone.Zone:Read + Zone.DNS:Edit)."
+            exit 1
+          }
+          kubectl get namespace devops-iac 1>$null 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::Namespace devops-iac (backend de estado) nao existe. Crie com: kubectl apply -f platform/namespaces/namespaces.yaml"
+            exit 1
+          }
+          exit 0
+
+      - name: tofu init + plan + apply
+        working-directory: platform/iac
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+          $env:TF_PLUGIN_CACHE_DIR = Join-Path (Split-Path $env:GITHUB_WORKSPACE -Parent) '.tofu-plugin-cache'
+          New-Item -ItemType Directory -Force -Path $env:TF_PLUGIN_CACHE_DIR | Out-Null
+          tofu init -input=false -no-color
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $planBin = Join-Path $env:RUNNER_TEMP 'tfplan'
+          tofu plan -input=false -no-color -lock-timeout=60s -out="$planBin"
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::tofu plan falhou — nada foi aplicado."; exit 1 }
+          Write-Host "==> Aplicando EXATAMENTE o plano acima (superficie externa)."
+          tofu apply -input=false -no-color "$planBin"
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::tofu apply falhou — confira o estado antes de re-rodar."; exit 1 }
+          exit 0

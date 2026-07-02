@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.2.0",
+  "name": "contaviva-pro",
+  "display_name": "ContaViva Pro",
+  "base_path": "/contaviva-pro",
+  "namespace": "apps",
+  "app_type": "product_software",
+  "blueprint": "gymops-style",
+  "stack": "gymops",
+  "interfaces": [
+    "api",
+    "web"
+  ],
+  "capability_blocks": [
+    "observabilidade",
+    "contas-acesso",
+    "migrations-versionadas",
+    "redis-bullmq",
+    "control-ai-por-app",
+    "design-system"
+  ],
+  "vision": "ERP contábil robusto com autenticação própria, criação de usuários, perfis e controle de acesso: o ContaViva Pro centraliza a gestão contábil e fiscal em um único ambiente, permitindo que administradores criem contas, definam perfis (admin, contador, membro) e controlem quem pode ver e operar cada parte do sistema, com sessão segura emitida pela própria aplicação.",
+  "requirement_ids": [],
+  "phases": {
+    "requirements": {
+      "status": "approved"
+    },
+    "architecture": {
+      "status": "approved"
+    },
+    "scaffold": {
+      "status": "not_started"
+    },
+    "build": {
+      "status": "not_started"
+    }
+  },
+  "version": {
+    "revision": 1,
+    "change_reason": "Forja 3.0 — demonstração"
+  }
+}

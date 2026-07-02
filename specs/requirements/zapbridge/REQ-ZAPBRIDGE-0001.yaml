@@ -1,0 +1,28 @@
+id: REQ-ZAPBRIDGE-0001
+slug: req-zapbridge-0001
+title: Contas e autenticação do app (registro + login JWT local)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: zapbridge
+  applies_to: product
+statement: O sistema deve permitir criar conta no app com e-mail único + senha (hash bcrypt) + nome de exibição e autenticar por login que emite JWT stateless; o token dá acesso às rotas protegidas (authGuard) e a /me revalida a sessão persistida no cliente entre aberturas. Não há SSO nem multiusuário avançado — cada usuário enxerga apenas a própria sessão WhatsApp e seus próprios dados.
+business_rationale: Porta de entrada do app — a sessão do usuário do ZapBridge é local e independente da sessão WhatsApp conectada.
+source:
+  stakeholder: zapbridge
+  origin: codebase apps/zapbridge + docs/MVP-FUNCIONAL.md RF001–RF005 (adoção Forja 4.1 D5)
+  source_paths:
+    - apps/zapbridge/server/src/modules/auth
+    - apps/zapbridge/docs/MVP-FUNCIONAL.md
+priority: high
+criticality: high
+architectural_significance: false
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: adoção Forja 4.1 D5 — backfill extraído do app real
+allocation:
+  service_refs:
+    - svc-zapbridge-server

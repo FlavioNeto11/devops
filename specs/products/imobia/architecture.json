@@ -1,0 +1,55 @@
+{
+  "status": "adopted",
+  "note": "Arquitetura ADOTADA (brownfield): descreve o que o app apps/imobia TEM hoje — decisões extraídas de apps/imobia/CLAUDE.md e docs/CONCEPCAO.md. Sem waves/work_orders: nada aqui é plano de geração. Nenhum capability_block declarado: o catálogo não tem exemplar com evidência em apps/imobia (anti-fachada do build-products).",
+  "stack_rationale": "Stack real adotada (não escolhida pela Forja): SPA Vue 3 + Pinia + Vue Router (Vite → nginx, base /imobia/) + API Node 20/Fastify em TypeScript (runtime tsx, ESM) + worker na MESMA imagem (npm run worker) + Postgres 16/pgvector via Prisma (29 tabelas, 7 migrações versionadas) + Redis/BullMQ para filas + PVC imobia-files para uploads/PDFs. Aproximação do blueprint node-api-vue-spa (SPA Vue + API Node + worker + Postgres), diferindo em Fastify/Prisma/Redis.",
+  "adrs": [
+    {
+      "title": "ADR-001: Orquestração 4-modelos — Cortex roteia, GPT/Claude/Gemini executam por vocação",
+      "decision": "O motor de IA usa um roteador rápido/barato (Cortex) para triagem e escolha do especialista; GPT cuida de lógica/function-calling, Claude de redação/análise e Gemini de documentos/visão, com fallback para qualquer provider disponível quando o ideal está ausente, sobre @flavioneto11/ai-core (createLlm + adaptador Gemini + custo/tokens).",
+      "rationale": "Divisão de trabalho fiel ao documento de concepção: cada IA como funcionário especializado, com triagem barata contendo custo.",
+      "cites": ["apps/imobia/api/src/ai/engine.ts", "apps/imobia/api/src/ai/prompts.ts", "apps/imobia/docs/CONCEPCAO.md"]
+    },
+    {
+      "title": "ADR-002: Fail-soft em todas as integrações externas (IA dormente, filas no-op, provedores dormentes)",
+      "decision": "Sem chaves de IA o motor fica dormente e cada módulo opera manualmente (rotas /ai respondem fallback, pod Ready); sem REDIS_URL o enqueue vira no-op; WhatsApp/scraping/geração de imagem ficam dormentes até haver credencial.",
+      "rationale": "O app nunca quebra por ausência de credencial — integrações acendem quando o operador configura o Secret.",
+      "cites": ["apps/imobia/api/src/ai/engine.ts", "apps/imobia/api/src/lib/queues.ts", "apps/imobia/CLAUDE.md"]
+    },
+    {
+      "title": "ADR-003: Postgres 16 + pgvector via Prisma com migrações versionadas",
+      "decision": "Persistência única em Postgres 16 com extensão pgvector (embeddings/busca semântica) modelada schema-first no Prisma; 7 migrações SQL versionadas (0001_init → 0007_ptam) cobrindo os módulos F1–F7.",
+      "rationale": "Fonte transacional única com busca vetorial no mesmo banco — sem serviço de vetor separado.",
+      "cites": ["apps/imobia/api/prisma/schema.prisma", "apps/imobia/api/prisma/migrations"]
+    },
+    {
+      "title": "ADR-004: Trabalho pesado em Redis/BullMQ; worker = mesma imagem da API",
+      "decision": "Sete filas de domínio (acm-scrape, ptam-render, vistoria-vision, document-validate, whatsapp-inbound, marketing-image, ai-summary) processadas por worker dedicado que roda a MESMA imagem da API com comando npm run worker (padrão SICAT/GymOps).",
+      "rationale": "Scraping, render de PDF e visão não podem bloquear a requisição HTTP; imagem única elimina drift entre API e worker.",
+      "cites": ["apps/imobia/api/src/lib/queues.ts", "apps/imobia/api/src/worker.ts", "apps/imobia/k8s/imobia-worker.yaml"]
+    },
+    {
+      "title": "ADR-005: Auth local (JWT stateless via oidc-kit) + SSO Keycloak aditivo, multi-tenant por Membership",
+      "decision": "Registro faz bootstrap de organização + admin; login local emite access token stateless (oidc-kit); login SSO valida token do realm nvit no Keycloak de forma aditiva e fail-soft; todo dado é escopado por organização via Membership.",
+      "rationale": "Padrão de SSO aditivo da plataforma (sem tocar a auth própria) com isolamento multi-tenant desde a origem.",
+      "cites": ["apps/imobia/api/src/modules/auth/service.ts", "apps/imobia/api/src/lib/auth.ts"]
+    },
+    {
+      "title": "ADR-006: Arquivos em PVC com storageKey saneado (uploads e PDFs gerados)",
+      "decision": "Documentos, fotos de vistoria e PDFs (PTAM/laudos) vivem no PVC imobia-files (STORAGE_DIR) com chave <org>/<uuid>-<nome> saneada e leitura protegida contra path traversal; api+worker escrevem como não-root via fsGroup.",
+      "rationale": "Arquivo é dado de negócio local ao cluster — sem dependência de object storage externo no laboratório.",
+      "cites": ["apps/imobia/api/src/lib/storage.ts", "apps/imobia/k8s/imobia-api.yaml"]
+    },
+    {
+      "title": "ADR-007: Trilha do tempo polimórfica registrando qual IA produziu cada etapa",
+      "decision": "Toda etapa produzida (por IA ou humano) gera TimelineEntry polimórfica (entityType/entityId) com actorType (cortex/gpt/claude/gemini/humano/system) e correlationId; a escrita é fail-soft (nunca lança).",
+      "rationale": "O documento de concepção exige documentar cada etapa e qual IA a produziu — auditabilidade nativa do ecossistema.",
+      "cites": ["apps/imobia/api/src/lib/timeline.ts", "apps/imobia/docs/CONCEPCAO.md"]
+    },
+    {
+      "title": "ADR-008: SSE de IA como IngressRoute dedicada sem compress (não api2)",
+      "decision": "O streaming de IA é exposto por IngressRoute dedicada casando Headers(Accept: text/event-stream) SEM middleware de compress, em vez de um serviço api2 separado; frontend sem strip (priority 10) e API com strip (priority 30).",
+      "rationale": "Compress quebra SSE no Traefik; a rota dedicada resolve sem duplicar serviço.",
+      "cites": ["apps/imobia/k8s/imobia-ingress.yaml", "apps/imobia/devops.yaml"]
+    }
+  ]
+}

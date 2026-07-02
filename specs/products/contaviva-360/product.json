@@ -1,0 +1,61 @@
+{
+  "schema_version": "1.2.0",
+  "name": "contaviva-360",
+  "display_name": "ContaViva 360",
+  "base_path": "/contaviva-360",
+  "namespace": "apps",
+  "app_type": "product_software",
+  "blueprint": "gymops-style",
+  "stack": "gymops",
+  "interfaces": [
+    "api",
+    "web"
+  ],
+  "capability_blocks": [
+    "camadas-rigidas",
+    "observabilidade",
+    "oidc-sessao",
+    "rbac-multitenant",
+    "migrations-versionadas",
+    "redis-bullmq",
+    "idempotencia",
+    "notificacoes-multicanal",
+    "ia-grafo",
+    "control-ai-por-app",
+    "rag-pgvector",
+    "structured-outputs",
+    "design-system"
+  ],
+  "vision": "Crie um sistema chamado ContaViva 360, uma plataforma completa de gerenciamento contábil para pessoa física e pessoa jurídica, pensada para organizar, controlar e centralizar toda a vida financeira, fiscal, documental e contábil do usuário em um único ambiente.\n\nO sistema deve permitir o cadastro de diferentes tipos de usuários, como administrador geral, contador, auxiliar contábil, cliente pessoa física, cliente pessoa jurídica, gestor financeiro e usuário convidado com permissões limitadas. Cada perfil deve ter acessos específicos conforme sua função, permitindo controlar quem pode visualiza",
+  "requirement_ids": [
+    "REQ-CONTAVIVA360-0001",
+    "REQ-CONTAVIVA360-0002",
+    "REQ-CONTAVIVA360-0003",
+    "REQ-CONTAVIVA360-0004",
+    "REQ-CONTAVIVA360-0005",
+    "REQ-CONTAVIVA360-0006",
+    "REQ-CONTAVIVA360-0007",
+    "REQ-CONTAVIVA360-0008",
+    "REQ-CONTAVIVA360-0009"
+  ],
+  "phases": {
+    "requirements": {
+      "status": "approved"
+    },
+    "architecture": {
+      "status": "approved"
+    },
+    "scaffold": {
+      "status": "merged",
+      "note": "scaffold mesclado na main — app real em apps/contaviva-360 (base dos 9 REQs implementados)"
+    },
+    "build": {
+      "status": "deployed",
+      "note": "derivado do implementation-status: todos os 9 REQ-CONTAVIVA360-* estão deployed (PRs #156-#166)"
+    }
+  },
+  "version": {
+    "revision": 2,
+    "change_reason": "Forja 4.1 D4 — saneamento: fases scaffold/build reconciliadas com a realidade (scaffold na main; 9/9 REQs deployed)"
+  }
+}

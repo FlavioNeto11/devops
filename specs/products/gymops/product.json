@@ -1,0 +1,73 @@
+{
+  "schema_version": "1.2.0",
+  "name": "gymops",
+  "display_name": "GymOps",
+  "base_path": "/gymops",
+  "namespace": "apps",
+  "app_type": "product_software",
+  "blueprint": "gymops-style",
+  "stack": "gymops",
+  "origin": "adopted",
+  "interfaces": [
+    "api",
+    "web"
+  ],
+  "capability_blocks": [
+    "camadas-rigidas",
+    "contas-acesso",
+    "migrations-versionadas",
+    "notificacoes-multicanal",
+    "observabilidade",
+    "rbac-multitenant",
+    "redis-bullmq",
+    "structured-outputs"
+  ],
+  "vision": "Plataforma de gestão operacional para redes com múltiplas unidades físicas (substitui o Trello; contexto inicial: rede de academias SkyFit), com modelo próprio Organização → Unidade → Área → Atividade e RBAC em cascata. Monorepo pnpm com web Next.js 14 App Router (PWA) + API Fastify em TypeScript + Prisma schema-first sobre Postgres 16 com pgvector, Redis/BullMQ para filas, IA estruturada assistiva (rascunho + confirmação) e notificações multicanal. É o exemplar que origina o blueprint gymops-style — aqui adotado como produto da Forja por contrato, sem regeneração de código.",
+  "requirement_ids": [
+    "REQ-GYMOPS-0001",
+    "REQ-GYMOPS-0002",
+    "REQ-GYMOPS-0003",
+    "REQ-GYMOPS-0004",
+    "REQ-GYMOPS-0005",
+    "REQ-GYMOPS-0006",
+    "REQ-GYMOPS-0007",
+    "REQ-GYMOPS-0008",
+    "REQ-GYMOPS-0009",
+    "REQ-GYMOPS-0010",
+    "REQ-GYMOPS-0011",
+    "REQ-GYMOPS-0012",
+    "REQ-GYMOPS-0013",
+    "REQ-GYMOPS-0014",
+    "REQ-GYMOPS-0015",
+    "REQ-GYMOPS-NFR-001",
+    "REQ-GYMOPS-NFR-002",
+    "REQ-GYMOPS-NFR-003",
+    "REQ-GYMOPS-NFR-004",
+    "REQ-GYMOPS-NFR-005",
+    "REQ-GYMOPS-NFR-006",
+    "REQ-GYMOPS-NFR-007",
+    "REQ-GYMOPS-NFR-008"
+  ],
+  "phases": {
+    "requirements": {
+      "status": "adopted",
+      "note": "requisitos reais pré-existentes em specs/requirements/gymops/ (extraídos do app no bootstrap da base)"
+    },
+    "architecture": {
+      "status": "adopted",
+      "note": "ADRs extraídos das decisões reais do app (apps/gymops/CLAUDE.md e docs/) — ver architecture.json"
+    },
+    "scaffold": {
+      "status": "adopted",
+      "note": "app real pré-existente em apps/gymops — não scaffoldado pela Forja"
+    },
+    "build": {
+      "status": "deployed",
+      "note": "derivado do implementation-status: todos os REQ-GYMOPS-* estão deployed (cluster ns apps)"
+    }
+  },
+  "version": {
+    "revision": 1,
+    "change_reason": "Forja 4.0 A5 — adoção brownfield por contrato (app real apps/gymops vira produto da Forja sem tocar código/k8s)"
+  }
+}

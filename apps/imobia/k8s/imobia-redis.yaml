@@ -1,0 +1,57 @@
+# Redis do imobia — backend do BullMQ (filas do worker). Efemero (sem PVC): filas sao
+# reconstruidas; jobs em voo se perdem no restart (aceitavel no laboratorio).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: imobia-redis
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: imobia-redis
+    app.kubernetes.io/component: cache
+    app.kubernetes.io/part-of: imobia
+    app.kubernetes.io/managed-by: devops-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: imobia-redis
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: imobia-redis
+        app.kubernetes.io/part-of: imobia
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          args: ["redis-server", "--maxmemory", "96mb", "--maxmemory-policy", "noeviction"]
+          ports:
+            - name: redis
+              containerPort: 6379
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "32Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: imobia-redis
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: imobia
+spec:
+  selector:
+    app.kubernetes.io/name: imobia-redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis

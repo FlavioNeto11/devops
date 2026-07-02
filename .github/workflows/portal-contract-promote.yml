@@ -1,0 +1,98 @@
+# =============================================================================
+# portal-contract-promote — o botão "Promover para o repositório" do portal-recorder
+# escreve no git SEM a API escrever git: a portal-rec-api só DISPARA este workflow
+# (repository_dispatch, event_type: portal-contract-promote) com o EXPORT CANÔNICO
+# do contrato (manifest + endpoints SEM samples) no client_payload (teto 60KB,
+# imposto na API). O runner self-hosted valida o payload (slug/versão/hash/sem-samples,
+# fail-closed via write-promoted-contract.mjs), materializa
+# docs/portal-contracts/<slug>/<versão>/ (+ LATEST), roda o validador do formato e
+# abre um PR IDEMPOTENTE (branch portal-contract/<slug>). Clone do padrão
+# greenfield-launch: persist-credentials:false no passo de escrita; GH_TOKEN só no
+# passo do PR. NENHUM merge automático — revisão humana no PR.
+# =============================================================================
+name: portal-contract-promote
+
+on:
+  repository_dispatch:
+    types: [portal-contract-promote]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  promote:
+    name: Promover contrato de portal para o git
+    runs-on: [self-hosted, windows, docker-desktop, local-k8s, flavio-devops]
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false   # escrita dos arquivos sem credencial git
+
+      # PASSO 1 — valida o payload e escreve o contrato canônico. Sem GH_TOKEN.
+      - name: Validar payload + escrever contrato canônico
+        env:
+          PAYLOAD: ${{ toJson(github.event.client_payload) }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $env:PAYLOAD | Set-Content -Encoding utf8 promote-payload.json
+          # payload e artefatos do validador NUNCA entram no commit
+          Set-Content -Encoding ascii .git/info/exclude "promote-payload.json`nartifacts/"
+          $p = Get-Content promote-payload.json -Raw | ConvertFrom-Json
+          $slug = "$($p.portal_slug)"
+          if ($slug -notmatch '^[a-z][a-z0-9-]{1,30}$') { Write-Host "::error::portal_slug inválido: '$slug'"; exit 1 }
+          $version = "$($p.version)"
+          if ($version -notmatch '^\d{4}-\d{2}-\d{2}$') { Write-Host "::error::version inválida: '$version' (esperado yyyy-mm-dd)"; exit 1 }
+          # sanitiza campos que entram no corpo do PR (1 linha, sem crase, truncado)
+          $san = { param($v) $s = ("$v" -replace '[\r\n`]', ' ').Trim(); if ($s) { $s.Substring(0, [Math]::Min(200, $s.Length)) } else { 'n/d' } }
+          "PORTAL_SLUG=$slug"                      | Out-File -FilePath $env:GITHUB_ENV -Append
+          "CONTRACT_VERSION=$version"              | Out-File -FilePath $env:GITHUB_ENV -Append
+          "CONTRACT_ID=$(& $san $p.contract_id)"   | Out-File -FilePath $env:GITHUB_ENV -Append
+          "REQUESTED_BY=$(& $san $p.requested_by)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          # fail-closed: shape/hash/sem-samples validados ANTES de qualquer escrita
+          node scripts/portal-contracts/write-promoted-contract.mjs --payload promote-payload.json
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::write-promoted-contract falhou (payload inválido)"; exit 1 }
+
+      # PASSO 1b — o validador canônico do repo confere a versão promovida (LATEST).
+      - name: Validar formato canônico (validador do repo)
+        run: |
+          $ErrorActionPreference = "Stop"
+          if (Test-Path scripts/portal-contracts/validate-portal-contract.mjs) {
+            node scripts/portal-contracts/validate-portal-contract.mjs --portal $env:PORTAL_SLUG --json-only
+            if ($LASTEXITCODE -ne 0) { Write-Host "::error::contrato promovido reprovado no validador canônico"; exit 1 }
+          } else {
+            Write-Host "validador ausente no repo — pulando (shape/hash já garantidos pelo write-promoted-contract)"
+          }
+
+      # PASSO 2 — publica o PR do contrato (único ponto com GH_TOKEN). Sem merge.
+      - name: Abrir PR do contrato
+        env:
+          GH_TOKEN: ${{ secrets.FORGE_GH_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $slug = $env:PORTAL_SLUG
+          $branch = "portal-contract/$slug"
+          gh auth setup-git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          gh label create portal-contract --color 5319e7 --description "Contrato canônico de portal (portal-recorder)" 2>$null
+          git checkout -B $branch 2>$null
+          git add "docs/portal-contracts/$slug"
+          # commit só se houver algo novo (re-disparo com mesmo conteúdo não falha)
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git commit -m "docs(portal-contracts): promove contrato de '$slug' ($env:CONTRACT_VERSION, run_id=$env:GITHUB_RUN_ID)" | Out-Null
+          } else { Write-Host "nada novo a commitar (re-disparo idempotente)" }
+          git push -u origin $branch --force-with-lease
+          # PR IDEMPOTENTE: reusa o PR aberto se já existir; senão cria.
+          $url = (gh pr list -R $env:GITHUB_REPOSITORY --head $branch --state open --json url --jq '.[0].url' 2>$null)
+          if (-not $url) {
+            $url = gh pr create --base main --head $branch --label portal-contract `
+              --title "docs(portal-contracts): contrato '$slug' $env:CONTRACT_VERSION (promovido do portal-recorder)" `
+              --body "Contrato canônico promovido pelo portal-recorder (event ``portal-contract-promote``).`n`n- portal: **$slug**`n- contrato (banco): $env:CONTRACT_ID`n- versão promovida: $env:CONTRACT_VERSION`n- solicitado por: $env:REQUESTED_BY`n- run_id: $env:GITHUB_RUN_ID`n`nEscrito em ``docs/portal-contracts/$slug/$env:CONTRACT_VERSION/`` (manifest.json + endpoints.jsonl, **sem** sample_request/sample_response) + ``LATEST`` atualizado. Shape/hash validados fail-closed (write-promoted-contract.mjs + validate-portal-contract.mjs).`n`nRevise e mergeie — este workflow **não** faz merge automático."
+          } else { Write-Host "PR já existe, reusando: $url" }
+          Write-Host "PR do contrato: $url"

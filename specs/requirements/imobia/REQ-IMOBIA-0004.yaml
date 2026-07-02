@@ -1,0 +1,35 @@
+id: REQ-IMOBIA-0004
+slug: req-imobia-0004
+title: Clientes/Leads com lead scoring e realimentação do funil
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: imobia
+  applies_to: product
+statement: O sistema deve gerir clientes/leads (compra e locação) com qualificação por lead scoring (GPT), perfil financeiro e interesse por imóvel; lead reprovado na análise de crédito NÃO sai do funil — é encaminhado à esteira Corbam (limpa nome/score) para retornar como comprador no futuro.
+business_rationale: Regra central do ecossistema — um módulo alimenta o outro; o cliente que não compra vira cliente de recuperação de crédito.
+source:
+  stakeholder: imobia
+  origin: codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)
+  source_paths:
+    - apps/imobia/api/src/modules/leads/routes.ts
+    - apps/imobia/docs/CONCEPCAO.md
+priority: critical
+criticality: high
+architectural_significance: false
+links:
+  - type: relates_to
+    target: REQ-IMOBIA-0010
+    note: lead reprovado no crédito entra na esteira Corbam (mantém no funil)
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: adoção Forja 4.1 D5 — backfill extraído do app real
+allocation:
+  service_refs:
+    - svc-imobia-api
+    - svc-imobia-frontend
+  infra_refs:
+    - infra-postgres

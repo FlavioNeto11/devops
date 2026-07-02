@@ -1,0 +1,29 @@
+id: REQ-CONTAVIVA360-0002
+title: "Gestão de Dados Contábeis e Fiscais: Entidades de Pessoa Física, Pessoa Jurídica e Documentos"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: contaviva-360
+  blueprint: gymops-style
+statement: "O sistema DEVE permitir o cadastro completo e isolado por tenant de Pessoa Física (CPF, patrimônio, investimentos, bens, dívidas, contratos, receitas, despesas, categorização, comprovantes) e Pessoa Jurídica (razão social, CNPJ, inscrição estadual/municipal, regime tributário, CNAE, sócios, certificado digital, dados bancários, fornecedores, clientes, contas a pagar/receber), com gestão documental centralizada (upload, classificação por tipo/mês/ano/status, rastreabilidade de versões e aprovações)."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/contaviva-360/product.json"]
+priority: critical
+criticality: medium
+architectural_significance: true
+capability_blocks: ["redis-bullmq", "worker-queue-transacional", "idempotencia"]
+acceptance_criteria:
+  - "Cadastro de PF: CPF, nome, data de nascimento, endereço, patrimônio inicial, bens (carro, imóvel, aplicações), dívidas (financiamento, cartão), contratos (aluguel, pensão), documentos pessoais (RG, CNH, certidão)."
+  - "Cadastro de PJ: razão social, CNPJ, IE, IM, regime tributário (Simples/Lucro Presumido/Lucro Real), CNAE, sócios (nome, CPF, participação %), certificado digital (upload seguro), dados bancários (conta, agência, banco)."
+  - "Receitas e Despesas de PF: classificação por categoria (aluguel, educação, saúde, investimento, etc.), anexação de comprovante, data, valor, periódico ou avulso."
+  - "Receitas e Despesas de PJ: fornecedor/cliente, descrição, valor, categoria, centro de custo, recorrência, anexo, status (pendente, pago, cancelado)."
+  - "Gestão Documental: upload de arquivo (NF, recibo, extrato, contrato, holerite), classificação (tipo, mês, ano, cliente/empresa, status), versioning simples (novo upload cria versão), visualização de histórico de quem fez upload e quando."
+  - "Dashboard por PF: evolução patrimonial (gráfico de patrimônio ao longo do tempo), receitas vs despesas (período selecionado), categorização de despesas (pizza/barra), saldo acumulado."
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

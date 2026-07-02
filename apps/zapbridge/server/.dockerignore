@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+*.log
+storage/auth/*
+storage/media/*
+prisma/dev.db
+prisma/dev.db-journal
+deploy
+README.md

@@ -61,7 +61,7 @@ spec:
           image: neuroevolui-api:local
           imagePullPolicy: IfNotPresent
           command: ["npm", "start"]
-          envFrom: [ { secretRef: { name: neuroevolui-db } } ]
+          envFrom: [ { secretRef: { name: neuroevolui-db } }, { secretRef: { name: neuroevolui-ai, optional: true } } ]
           env:
             - { name: REDIS_URL, value: "redis://neuroevolui-redis:6379" }
             - { name: METRICS_PORT, value: "9464" }

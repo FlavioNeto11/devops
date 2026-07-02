@@ -1,0 +1,29 @@
+# =============================================================================
+# reqhub-preview — PVC do PREVIEW iterativo da Forja (F3).
+# O runner (forge-preview.yml) BUILDA a SPA de preview (vite) e deposita dist/<product>/ + manifest.json
+# aqui; o reqhub-api MONTA este volume read-only e SERVE os bytes (GET /reqs/api/v1/forge/preview/<product>/*).
+#
+# Por que volume (e não um Deployment nginx por produto): o preview é efêmero e iterado muitas vezes
+# (gera/refina/descarta). Servir bytes de um diretório evita o churn de criar/derrubar Deployment+Service+
+# IngressRoute+Application a cada iteração — e o conflito com o Argo selfHeal (armadilha conhecida).
+#
+# RWX num cluster single-node (Docker Desktop): o StorageClass hostpath padrão provisiona um hostPath que
+# o runner (no host) e o pod alcançam. Em multi-node trocar por um provisioner RWX real (NFS/CSI).
+# Entra no Argo UMA vez (kustomization) — sem manifests por produto.
+# =============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: reqhub-preview
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: reqhub-api
+    app.kubernetes.io/component: preview-store
+    app.kubernetes.io/part-of: reqhub
+    app.kubernetes.io/managed-by: devops-platform
+spec:
+  accessModes:
+    - ReadWriteOnce   # single-node (Docker Desktop): runner no host + pod no mesmo nó alcançam o hostPath
+  resources:
+    requests:
+      storage: 1Gi

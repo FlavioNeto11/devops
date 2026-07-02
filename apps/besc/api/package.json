@@ -1,0 +1,17 @@
+{
+  "name": "besc-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "API da Plataforma de Levantamento BESC Tokenizacao (levantamento/checklist, sem login).",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "multer": "^2.0.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

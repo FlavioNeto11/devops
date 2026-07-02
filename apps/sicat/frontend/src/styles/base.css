@@ -1,4 +1,4 @@
-@import './tokens.css';
+@import './tokens.generated.css';
 
 /* Respeita "prefers-reduced-motion": neutraliza transições/animações globalmente. */
 @media (prefers-reduced-motion: reduce) {

@@ -18,6 +18,11 @@ const DEFAULT_PRICES_PER_MTOK = Object.freeze({
   'claude-sonnet-4-6': { in: 3, out: 15 },
   'claude-haiku-4-5-20251001': { in: 1, out: 5 },
   'claude-haiku-4-5': { in: 1, out: 5 },
+  // Google Gemini (USD por 1M tokens) — override por env AI_PRICE_IN_/OUT_<MODEL> se mudar.
+  'gemini-2.0-flash': { in: 0.1, out: 0.4 },
+  'gemini-2.0-flash-lite': { in: 0.075, out: 0.3 },
+  'gemini-1.5-pro': { in: 1.25, out: 5 },
+  'gemini-1.5-flash': { in: 0.075, out: 0.3 },
 });
 
 function envKeyFor(model, direction) {
@@ -47,6 +52,7 @@ export function providerForModel(model) {
   const m = String(model || '').toLowerCase().trim();
   if (!m) return 'unknown';
   if (m.startsWith('claude') || m.startsWith('anthropic') || m.includes('claude')) return 'anthropic';
+  if (m.startsWith('gemini') || m.startsWith('models/gemini') || m.startsWith('google/')) return 'google';
   if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4') || m.startsWith('chatgpt') || m.startsWith('text-') || m.startsWith('davinci') || m.startsWith('babbage')) return 'openai';
   return 'unknown';
 }
