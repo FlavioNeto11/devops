@@ -48,6 +48,14 @@ jobs:
           $mode = if ("$($p.mode)" -eq 'release') { 'release' } else { 'pr' }
           "PRODUCT=$prod"  | Out-File -FilePath $env:GITHUB_ENV -Append
           "MODE=$mode"     | Out-File -FilePath $env:GITHUB_ENV -Append
+          # Provenance (Forja 4.0 B4, warn-only): campos OPCIONAIS do client_payload — payload antigo
+          # sem eles continua funcionando (ausente -> "n/d"). Sanitiza (1 linha, sem crase, truncado)
+          # porque o valor entra no corpo do PR.
+          $san = { param($v) $s = ("$v" -replace '[\r\n`]', ' ').Trim(); if ($s) { $s.Substring(0, [Math]::Min(200, $s.Length)) } else { 'n/d' } }
+          $prov = $p.provenance
+          "PROV_REPO_SHA=$(& $san $prov.repo_sha)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "PROV_MODEL=$(& $san $prov.model)"       | Out-File -FilePath $env:GITHUB_ENV -Append
+          "PROV_PROMPT=$(& $san $prov.prompt)"     | Out-File -FilePath $env:GITHUB_ENV -Append
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           Set-Content -Encoding ascii .git/info/exclude "launch-payload.json"
@@ -85,7 +93,7 @@ jobs:
           if (-not $url) {
             $url = gh pr create --base main --head $branch --label requirement --label forge `
               --title "feat($prod): requisitos da Forja" `
-              --body "Requisitos criados pela UI da Forja (run_id=$env:GITHUB_RUN_ID), mode=$env:MODE.`n`n**GATE G2:** revise e mergeie para destravar a construção — a esteira implementa cada requisito em PR validado."
+              --body "Requisitos criados pela UI da Forja (run_id=$env:GITHUB_RUN_ID), mode=$env:MODE.`n`n### Provenance`n- gerador (repo_sha): $env:PROV_REPO_SHA`n- modelo: $env:PROV_MODEL`n- prompt: $env:PROV_PROMPT`n`n**GATE G2:** revise e mergeie para destravar a construção — a esteira implementa cada requisito em PR validado."
           } else { Write-Host "PR já existe, reusando: $url" }
           "pr_url=$url" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           Write-Host "PR de requisitos: $url"

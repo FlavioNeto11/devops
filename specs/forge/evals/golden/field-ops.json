@@ -1,0 +1,61 @@
+{
+  "description": "Golden brief SICAT com blocos compostos: valida o fecho de `requires` (gateway-externo -> camadas-rigidas; ia-grafo -> structured-outputs) e o drop de bloco incompatível com a stack (redis-bullmq em sicat).",
+  "payload": {
+    "product": "eval-field-ops",
+    "display_name": "Eval Field Ops",
+    "blueprint": "node-api-vue-spa",
+    "brief": "Gestão de ordens de serviço em campo: técnicos recebem ordens, integram com central externa e usam assistente de IA para triagem.",
+    "mode": "pr",
+    "architecture": {
+      "stack": "sicat",
+      "selected_blocks": [
+        { "id": "worker-queue-transacional" },
+        { "id": "gateway-externo" },
+        { "id": "ia-grafo" },
+        { "id": "redis-bullmq" }
+      ]
+    },
+    "requirements": [
+      {
+        "id": "REQ-EVALFIELDOPS-0001",
+        "title": "Fundação: arquitetura em camadas",
+        "type": "functional",
+        "priority": "critical",
+        "statement": "O sistema DEVE implementar camadas rígidas (route -> service -> repository -> worker -> gateway).",
+        "acceptance_criteria": ["Nenhuma rota acessa banco ou rede externa diretamente."],
+        "capability_blocks": ["camadas-rigidas"]
+      },
+      {
+        "id": "REQ-EVALFIELDOPS-0002",
+        "title": "Fila transacional de ordens",
+        "type": "functional",
+        "priority": "high",
+        "statement": "O sistema DEVE processar o envio de ordens à central em worker assíncrono transacional.",
+        "acceptance_criteria": ["Ordem submetida muda para status submitted quando o worker conclui."],
+        "capability_blocks": ["worker-queue-transacional"]
+      },
+      {
+        "id": "REQ-EVALFIELDOPS-0003",
+        "title": "Triagem assistida por IA",
+        "type": "functional",
+        "priority": "medium",
+        "statement": "O sistema DEVE sugerir a prioridade da ordem usando o grafo de IA da plataforma.",
+        "acceptance_criteria": ["Sugestão de prioridade retorna estrutura validada (structured output)."],
+        "capability_blocks": ["ia-grafo"]
+      }
+    ]
+  },
+  "expect": {
+    "stack": "sicat",
+    "ids": ["REQ-EVALFIELDOPS-0001", "REQ-EVALFIELDOPS-0002", "REQ-EVALFIELDOPS-0003"],
+    "resolved_blocks_include": [
+      "observabilidade",
+      "worker-queue-transacional",
+      "gateway-externo",
+      "camadas-rigidas",
+      "ia-grafo",
+      "structured-outputs"
+    ],
+    "resolved_blocks_exclude": ["redis-bullmq"]
+  }
+}

@@ -17,11 +17,22 @@
 // =============================================================================
 import fs from 'node:fs';
 import path from 'node:path';
+import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SPECS_DIR = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(SPECS_DIR, '..');
+
+// Provenance (Forja 4.0 B4, warn-only): sha do commit do catálogo/gerador que produziu o manifesto.
+// GITHUB_SHA no CI; `git rev-parse HEAD` local; FAIL-SOFT "unknown" (nenhum gate falha por ausência).
+export function catalogSourceSha() {
+  if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA;
+  try {
+    const sha = execSync('git rev-parse HEAD', { cwd: REPO_ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    return sha || 'unknown';
+  } catch { return 'unknown'; }
+}
 
 export function loadCatalog(specsDir = SPECS_DIR) {
   const p = path.join(specsDir, 'baseline', 'capabilities.json');
@@ -62,9 +73,11 @@ export function resolveBlocks(selected, stack, byId, { tier = 't3' } = {}) {
   return [...chosen];
 }
 
-// Monta o manifesto a partir do conjunto resolvido (puro). `catalogHash` (opcional)
-// carimba qual versão do catálogo (specs/baseline/capabilities.json) gerou o manifesto.
-export function buildManifest({ app, stack, blocks, byId, catalogHash = null }) {
+// Monta o manifesto a partir do conjunto resolvido (puro dado os inputs). Dois carimbos de
+// proveniência COMPLEMENTARES (ambos warn-only, nunca gateiam): `catalogHash` = qual versão do
+// catálogo (specs/baseline/capabilities.json) gerou o manifesto (C1); `sourceSha` = commit do
+// gerador (B4; injetável em teste, default fail-soft do commit atual).
+export function buildManifest({ app, stack, blocks, byId, catalogHash = null, sourceSha = catalogSourceSha() }) {
   const detail = blocks.map((id) => {
     const b = byId.get(id) || {};
     const ov = b.scaffold_overlay || {};
@@ -76,6 +89,7 @@ export function buildManifest({ app, stack, blocks, byId, catalogHash = null }) 
     stack: stack || null,
     catalog_hash: catalogHash,
     blocks,
+    catalog_source_sha: sourceSha, // provenance warn-only (nunca gateia nada)
     aggregated: {
       services: uniq(detail.flatMap((d) => d.adds_services)),
       infra: uniq(detail.flatMap((d) => d.adds_infra)),
