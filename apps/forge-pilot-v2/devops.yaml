@@ -13,12 +13,20 @@ app:
   basePath: /forge-pilot-v2
   appType: product_software
 
-# Multi-ambiente (pré-requisito futuro): o compilador renderiza hoje o default
-# (Host nvit.localhost + dev.nvit.com.br, mesmo comportamento do v1).
+# Multi-ambiente (Forja 4.0 fase B2 — OPT-IN e EFÊMERO por produto):
+#   * "local" documenta o destino DEFAULT (produção): compile SEM --env
+#     (Host nvit.localhost + dev.nvit.com.br, mesmo comportamento do v1).
+#   * "dev" é o env efêmero de laboratório: compile com --env dev ->
+#     apps/forge-pilot-v2/k8s-dev/ (namespace apps-dev, host NOVO
+#     dev-lab.nvit.localhost — dev.nvit.com.br é produção e NUNCA é
+#     reatribuído). Ciclo criar -> usar -> destruir: docs/multi-env.md.
 environments:
   local:
     namespace: apps
     hosts: [nvit.localhost, dev.nvit.com.br]
+  dev:
+    namespace: apps-dev
+    hosts: [dev-lab.nvit.localhost]
 
 services:
   frontend:
