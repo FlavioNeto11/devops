@@ -49,7 +49,9 @@ export const patientReports = resourceFactory('patient-reports');
 export const paymentTransactions = resourceFactory('payment-transactions');
 export const notificationPreferences = resourceFactory('notification-preferences');
 export const auditLogs = resourceFactory('audit-logs');
-export const asyncJobs = resourceFactory('async-jobs');
+export const asyncJobs = Object.assign(resourceFactory('async-jobs'), {
+  retry: (id) => request('POST', '/v1/async-jobs/' + id + '/retry'),
+});
 // Aliases de nome-de-export com hífen (ES2022 string export names) — as views acessam o
 // recurso por `api['evolution-notes']` / `api['patient-reports']` (espelho do nome da rota
 // /v1/<name>). Mantém o acesso direto (sem cair no fallback resourceFactory) e o build limpo.

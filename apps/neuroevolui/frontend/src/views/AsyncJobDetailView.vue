@@ -29,9 +29,25 @@
   >
     <!-- ── AÇÕES DO CABEÇALHO ────────────────────────────────────────────────── -->
     <template #actions>
-      <UiButton variant="ghost" to="/jobs">← Voltar</UiButton>
+      <UiButton variant="ghost" to="/async-jobs">← Voltar</UiButton>
       <UiButton variant="subtle" :loading="refreshing" @click="loadJob">
         Atualizar
+      </UiButton>
+      <UiButton
+        v-if="canRetry"
+        variant="subtle"
+        :loading="retrying"
+        @click="retryJob"
+      >
+        Reintentar
+      </UiButton>
+      <UiButton
+        v-if="canCancel"
+        variant="danger"
+        :loading="cancelling"
+        @click="cancelJob"
+      >
+        Cancelar job
       </UiButton>
     </template>
 
@@ -95,6 +111,13 @@
           :tone="isDone ? 'success' : 'neutral'"
           hint="duração do job"
         />
+        <UiMetricCard
+          v-if="job.progress != null"
+          label="Progresso"
+          :value="progressLabel"
+          :tone="statusTone"
+          hint="percentual de conclusão"
+        />
       </section>
 
       <!-- ── CABEÇALHO DO JOB ──────────────────────────────────────────── -->
@@ -127,6 +150,10 @@
             </dd>
           </div>
           <div class="ajd-kv-row">
+            <dt>Tipo</dt>
+            <dd>{{ display(job.type) }}</dd>
+          </div>
+          <div class="ajd-kv-row">
             <dt>Status</dt>
             <dd>
               <span aria-hidden="true">
@@ -135,8 +162,16 @@
             </dd>
           </div>
           <div class="ajd-kv-row">
+            <dt>Progresso</dt>
+            <dd>{{ progressLabel }}</dd>
+          </div>
+          <div class="ajd-kv-row">
             <dt>Enfileirado em</dt>
             <dd>{{ fmt.formatDateTime(job.created_at) }}</dd>
+          </div>
+          <div class="ajd-kv-row">
+            <dt>Concluído em</dt>
+            <dd>{{ completedAtLabel }}</dd>
           </div>
           <div class="ajd-kv-row">
             <dt>Criado por</dt>
@@ -182,6 +217,22 @@
             description="Este job não carrega payload de dados ou o campo não foi preenchido."
           />
         </template>
+      </UiCard>
+
+      <!-- ── LOGS DE EXECUÇÃO ─────────────────────────────────────────────── -->
+      <UiCard
+        v-if="hasLogs"
+        title="Logs de execução"
+        subtitle="Registros emitidos pelo worker durante o processamento."
+      >
+        <div
+          class="ajd-logs-viewer"
+          role="region"
+          aria-label="Logs de execução do job"
+          tabindex="0"
+        >
+          <pre class="ajd-logs-pre"><code>{{ logsFormatted }}</code></pre>
+        </div>
       </UiCard>
 
       <!-- ── LINHA DO TEMPO DE STATUS ──────────────────────────────────── -->
@@ -260,6 +311,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import {
   UiPageLayout,
   UiCard,
@@ -268,13 +320,16 @@ import {
   UiButton,
   UiEmptyState,
   useToast,
+  useConfirm,
   format as fmt,
 } from '../ui/index.js';
 import { asyncJobs } from '../api.js';
 
 const props = defineProps({ id: { type: [String, Number], required: true } });
 
+const router = useRouter();
 const toast = useToast();
+const confirm = useConfirm();
 
 // ── Estado ────────────────────────────────────────────────────────────────────
 const job = ref(null);
@@ -283,6 +338,8 @@ const refreshing = ref(false);
 const fatalError = ref(null);
 const now = ref(Date.now());
 const countdown = ref(0);
+const cancelling = ref(false);
+const retrying = ref(false);
 
 // ── Constantes de polling ─────────────────────────────────────────────────────
 const POLL_MS = 4000;
@@ -322,6 +379,14 @@ const isPolling = computed(() =>
 );
 const isDone = computed(() => statusKey.value === 'done' || statusKey.value === 'completed');
 const isFailed = computed(() => statusKey.value === 'failed' || statusKey.value === 'error');
+
+// ── Ações disponíveis ─────────────────────────────────────────────────────────
+const canCancel = computed(() =>
+  job.value && ['queued', 'processing'].includes(statusKey.value)
+);
+const canRetry = computed(() =>
+  job.value && isFailed.value
+);
 
 // ── Filas ─────────────────────────────────────────────────────────────────────
 const QUEUE_LABELS = {
@@ -404,6 +469,21 @@ const countdownLabel = computed(() => {
   return s <= 0 ? 'verificando…' : s + (s === 1 ? ' segundo' : ' segundos');
 });
 
+// ── Progresso ─────────────────────────────────────────────────────────────────
+const progressLabel = computed(() => {
+  if (!job.value || job.value.progress == null) return '—';
+  const n = Number(job.value.progress);
+  if (!isFinite(n)) return display(job.value.progress);
+  return n.toFixed(0) + '%';
+});
+
+// ── Concluído em ──────────────────────────────────────────────────────────────
+const completedAtLabel = computed(() => {
+  if (!job.value) return '—';
+  const ts = job.value.completed_at || job.value.finished_at;
+  return ts ? fmt.formatDateTime(ts) : '—';
+});
+
 // ── Payload ───────────────────────────────────────────────────────────────────
 const rawPayload = computed(() => job.value && job.value.payload);
 const hasPayload = computed(() => {
@@ -432,6 +512,20 @@ const payloadByteSize = computed(() => {
   const bytes = new TextEncoder().encode(s).length;
   if (bytes < 1024) return bytes + ' B';
   return (bytes / 1024).toFixed(1) + ' KB';
+});
+
+// ── Logs de execução ──────────────────────────────────────────────────────────
+const rawLogs = computed(() => job.value && job.value.logs);
+const hasLogs = computed(() => {
+  const l = rawLogs.value;
+  return l !== null && l !== undefined && l !== '' && !(Array.isArray(l) && l.length === 0);
+});
+const logsFormatted = computed(() => {
+  const l = rawLogs.value;
+  if (!hasLogs.value) return '';
+  if (Array.isArray(l)) return l.join('\n');
+  if (typeof l === 'string') return l;
+  try { return JSON.stringify(l, null, 2); } catch { return String(l); }
 });
 
 // ── Mensagem de erro ──────────────────────────────────────────────────────────
@@ -566,6 +660,53 @@ const originatorIcon = computed(() => {
   const cfg = originatorConfig.value;
   return cfg ? cfg.icon : '📦';
 });
+
+// ── Ações do job ──────────────────────────────────────────────────────────────
+async function cancelJob() {
+  if (cancelling.value) return;
+  const jobLabel = display(job.value && (job.value.job_key || job.value.id));
+  const ok = await confirm({
+    title: 'Cancelar este job?',
+    message:
+      'O job "' + jobLabel + '" será cancelado e removido da fila. Esta ação não pode ser desfeita.',
+    confirmLabel: 'Cancelar job',
+    danger: true,
+  });
+  if (!ok) return;
+  cancelling.value = true;
+  try {
+    await asyncJobs.remove(props.id);
+    toast.success('Job cancelado com sucesso.');
+    router.push('/async-jobs');
+  } catch (e) {
+    toast.error('Falha ao cancelar: ' + (e && e.message ? e.message : 'erro desconhecido'));
+  } finally {
+    cancelling.value = false;
+  }
+}
+
+async function retryJob() {
+  if (retrying.value) return;
+  const ok = await confirm({
+    title: 'Reintentar este job?',
+    message: 'O job será reenfileirado para nova tentativa de execução.',
+    confirmLabel: 'Reintentar',
+    danger: false,
+  });
+  if (!ok) return;
+  retrying.value = true;
+  try {
+    await asyncJobs.retry(props.id);
+    toast.success('Job reenfileirado com sucesso.');
+    initialLoading.value = true;
+    job.value = null;
+    await loadJob();
+  } catch (e) {
+    toast.error('Falha ao reintentar: ' + (e && e.message ? e.message : 'erro desconhecido'));
+  } finally {
+    retrying.value = false;
+  }
+}
 
 // ── Carregamento ──────────────────────────────────────────────────────────────
 async function loadJob() {
@@ -820,6 +961,31 @@ onBeforeUnmount(() => {
   line-height: 1.6;
   color: rgb(var(--ui-fg));
   white-space: pre;
+  tab-size: 2;
+}
+
+/* ── Logs viewer ──────────────────────────────────────────────────────────── */
+.ajd-logs-viewer {
+  border: 1px solid rgb(var(--ui-border));
+  border-radius: var(--ui-radius-md);
+  background: rgb(var(--ui-surface-2));
+  overflow: auto;
+  max-height: 360px;
+  outline: none;
+}
+.ajd-logs-viewer:focus-visible {
+  outline: 2px solid rgb(var(--ui-accent));
+  outline-offset: 1px;
+}
+.ajd-logs-pre {
+  margin: 0;
+  padding: var(--ui-space-4) var(--ui-space-5);
+  font-family: var(--ui-font-mono, monospace);
+  font-size: var(--ui-text-sm);
+  line-height: 1.6;
+  color: rgb(var(--ui-fg));
+  white-space: pre-wrap;
+  word-break: break-all;
   tab-size: 2;
 }
 
