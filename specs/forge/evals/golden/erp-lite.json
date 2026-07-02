@@ -1,0 +1,58 @@
+{
+  "description": "Golden brief GYMOPS: valida que blocos próprios da stack (redis-bullmq) permanecem, que contas-acesso/observabilidade entram por default e que o manifesto agrega env/serviços dos blocos.",
+  "payload": {
+    "product": "eval-erp-lite",
+    "display_name": "Eval ERP Lite",
+    "blueprint": "gymops-style",
+    "brief": "ERP enxuto multiunidade com autenticação própria, fila de processamento e assistente de IA de controle.",
+    "mode": "pr",
+    "architecture": {
+      "stack": "gymops",
+      "selected_blocks": [
+        { "id": "redis-bullmq" },
+        { "id": "rbac-multitenant" },
+        { "id": "control-ai-por-app" }
+      ]
+    },
+    "requirements": [
+      {
+        "id": "REQ-EVALERPLITE-0001",
+        "title": "Fundação: API multiunidade",
+        "type": "functional",
+        "priority": "critical",
+        "statement": "O sistema DEVE isolar dados por tenant em todas as consultas.",
+        "acceptance_criteria": ["Registro de um tenant não aparece para outro tenant (404)."],
+        "capability_blocks": ["rbac-multitenant"]
+      },
+      {
+        "id": "REQ-EVALERPLITE-0002",
+        "title": "Processamento assíncrono de lançamentos",
+        "type": "functional",
+        "priority": "high",
+        "statement": "O sistema DEVE processar lançamentos contábeis em fila (worker BullMQ).",
+        "acceptance_criteria": ["Lançamento enfileirado é processado e muda de status."],
+        "capability_blocks": ["redis-bullmq"]
+      },
+      {
+        "id": "REQ-EVALERPLITE-0003",
+        "title": "Latência das listagens",
+        "type": "non-functional",
+        "priority": "medium",
+        "statement": "As listagens paginadas DEVEM responder em menos de 800ms com 10k registros.",
+        "acceptance_criteria": ["p95 < 800ms em carga sintética de 10k registros."]
+      }
+    ]
+  },
+  "expect": {
+    "stack": "gymops",
+    "ids": ["REQ-EVALERPLITE-0001", "REQ-EVALERPLITE-0002", "REQ-EVALERPLITE-0003"],
+    "resolved_blocks_include": [
+      "observabilidade",
+      "contas-acesso",
+      "redis-bullmq",
+      "rbac-multitenant",
+      "control-ai-por-app"
+    ],
+    "resolved_blocks_exclude": []
+  }
+}

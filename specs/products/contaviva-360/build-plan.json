@@ -1,0 +1,46 @@
+{
+  "product": "contaviva-360",
+  "blueprint": "gymops-style",
+  "baseline_hash": "97cfd95ed331afee927f8c5c715a7a76051e123057f9fa47727ae07a5623ea96",
+  "generated_by": "forge.build-plan@1",
+  "status": "proposed",
+  "scaffold_req": "REQ-CONTAVIVA360-0001",
+  "modules": [],
+  "waves": [
+    {
+      "id": "w0-foundation",
+      "gate": "auto",
+      "work_orders": [
+        "REQ-CONTAVIVA360-0001"
+      ]
+    },
+    {
+      "id": "w1",
+      "gate": "auto",
+      "work_orders": [
+        "REQ-CONTAVIVA360-0002",
+        "REQ-CONTAVIVA360-0003",
+        "REQ-CONTAVIVA360-0004",
+        "REQ-CONTAVIVA360-0005",
+        "REQ-CONTAVIVA360-0006",
+        "REQ-CONTAVIVA360-0007",
+        "REQ-CONTAVIVA360-0008",
+        "REQ-CONTAVIVA360-0009"
+      ],
+      "depends_on": [
+        "w0"
+      ]
+    }
+  ],
+  "order": [
+    "REQ-CONTAVIVA360-0001",
+    "REQ-CONTAVIVA360-0002",
+    "REQ-CONTAVIVA360-0003",
+    "REQ-CONTAVIVA360-0004",
+    "REQ-CONTAVIVA360-0005",
+    "REQ-CONTAVIVA360-0006",
+    "REQ-CONTAVIVA360-0007",
+    "REQ-CONTAVIVA360-0008",
+    "REQ-CONTAVIVA360-0009"
+  ]
+}

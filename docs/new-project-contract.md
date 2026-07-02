@@ -2,7 +2,7 @@
 title: "Contrato da Nova Aplicacao — Referencia completa do devops.yaml"
 status: canonical
 applies_to: [platform]
-updated: 2026-06-09
+updated: 2026-07-02
 language: pt-BR
 ---
 
@@ -463,3 +463,212 @@ services:
 - Exemplos no repo: [`templates/app-template/app.yaml`](../templates/app-template/app.yaml)
   (exemplo canonico) e [`apps/sicat/devops.yaml`](../apps/sicat/devops.yaml) (app real, com
   `priority`, `build`, `command`, `dependencies`, `secrets`, `configmaps`).
+
+---
+
+## 11. Contrato v2 (`version: 2`) — ambientes, dependencias tipadas e MLOps
+
+> **Aditivo e retrocompativel.** O schema ([`../schema/devops-schema.json`](../schema/devops-schema.json))
+> aceita, via `oneOf`, o **v1** (tudo acima — INALTERADO, todo `devops.yaml` existente continua
+> valido) OU o **v2**, marcado por `version: 2` explicito. O v2 e um superset do v1 que torna o
+> contrato a fonte real de provisionamento de dependencias (Forja 4.0, fase B1).
+
+### 11.1 O que o v2 adiciona
+
+| Campo | Onde | O que declara |
+|---|---|---|
+| `version: 2` | raiz | opt-in explicito no contrato v2 (ausente = v1) |
+| `environments` | raiz | mapa ambiente logico -> `{ namespace, hosts[] }`. Sem `--env` o compilador renderiza o default (`nvit.localhost` + `dev.nvit.com.br`, mesmo comportamento do v1); com `--env <nome>` renderiza o ambiente declarado (namespace + hosts do env, MESMO basePath) em `apps/<app>/k8s-<nome>/`. Multi-env e **OPT-IN e EFEMERO por produto** — guia completo em [`multi-env.md`](./multi-env.md) |
+| `dependencies` | raiz | mapa nome -> dependencia **TIPADA** `{ engine, flavor, version, storage, database, secretName, resources }` — provisionamento REAL pelo chart (ver 11.3) |
+| `mlops` | raiz | `{ langfuse, budget.monthlyUsd, evals.goldenSet }` — postura de MLOps (declarativo; consumido pela esteira/telemetria, nao gera recurso k8s) |
+| `envFrom` | service | lista de Secrets injetados em massa no container (`envFrom`/`secretRef`). Cada item e o **nome** do Secret (string) ou `{ name, optional: true }` — `optional` gera `secretRef` opcional (o pod sobe sem o Secret; padrao dos Secrets `<app>-ai`/`<app>-auth` da Forja). So a referencia — o Secret e criado FORA do git |
+
+### 11.2 Fluxo de compilacao (manifests renderizados no git)
+
+O contrato v2 NAO vai direto pro Argo. O compilador
+[`specs/tools/devops-compile.mjs`](../specs/tools/devops-compile.mjs) valida o `devops.yaml`
+contra o schema, deriva os values do chart [`templates/app-template`](../templates/app-template/),
+roda `helm template`, **remove qualquer Secret** do render e escreve os **manifests renderizados e
+COMMITADOS** em `apps/<app>/k8s/<app>.yaml` — que sao o artefato **primario** do GitOps (decisao:
+nada de multi-source `$values` no Argo). O compilador tambem verifica os invariantes HARD: labels
+`part-of` em tudo, `resources` em todo container, `Host()` + `PathPrefix()` combinados nas rotas,
+priorities `api2 > api > frontend` (40 > 30 > 10) e StripPrefix do prefixo COMPLETO.
+
+```powershell
+node specs/tools/devops-compile.mjs apps/<app>/devops.yaml            # compila -> apps/<app>/k8s/
+node specs/tools/devops-compile.mjs apps/<app>/devops.yaml --check    # acusa drift (CI-friendly)
+node specs/tools/devops-compile.mjs apps/<app>/devops.yaml --env dev  # env dev -> apps/<app>/k8s-dev/
+```
+
+Com `--env <nome>` (multi-env opt-in/efemero — [`multi-env.md`](./multi-env.md)), o compilador
+usa o namespace e os hosts de `environments.<nome>`, mantem o `basePath` e os NOMES dos recursos
+identicos (o namespace isola), adiciona o label `devops.flavioneto/environment: <nome>` a todo
+recurso, e IMPOE fail-closed: namespace do env diferente do default e hosts do env sem
+`dev.nvit.com.br`/`app.host` (hosts de producao NUNCA sao reatribuidos a um env).
+
+> **Forja usa o compilador (B6).** Os scaffolds da Forja (`specs/forge/scaffold-gymops.mjs`,
+> `scaffold-sicat.mjs`, `scaffold-frontend.mjs` — orquestrados por `scripts/scaffold-product.ps1`)
+> emitem `devops.yaml` **v2** e geram `apps/<app>/k8s/<app>.yaml` chamando este compilador — o
+> antigo string-builder `buildK8s()` foi aposentado. O que o chart ainda **nao** renderiza sai em
+> arquivos SUPLEMENTARES ao lado do compilado (gaps documentados na secao 11.5 para a fase B2):
+> `k8s/<app>-observability.yaml` (ServiceMonitor + PrometheusRule + Services `*-metrics`) e
+> `k8s/<app>-sso.yaml` (rota sombra com ForwardAuth, bloco `oidc-sessao`).
+
+### 11.3 Matriz de provisionamento das `dependencies`
+
+| `engine` | Template do chart | Provisiona | Resources DEFAULT (obrigatorios) |
+|---|---|---|---|
+| `postgres` | `dependency-postgres.yaml` | PVC `<app>-<dep>` (**sem sufixo `-data`** — convencao viva; rename de PVC = perda de dados) + Deployment `<app>-<dep>` (**strategy Recreate**) + Service (5432) + probes `pg_isready` (readiness+liveness). `flavor: pgvector` troca a imagem para `pgvector/pgvector:pg<version>`; sem flavor: `postgres:<version>-alpine` (default 16). `secretName` **obrigatorio** (POSTGRES_USER/PASSWORD/DB via `envFrom`) | requests `128Mi`/`50m`, limits **`1Gi`**/`1000m` — licao do incidente OOM do sicat (512Mi corrompeu o WAL) |
+| `redis` | `dependency-redis.yaml` | PVC `<app>-<dep>` (AOF `--appendonly yes`; **sem sufixo `-data`**) + Deployment (**Recreate**) + Service (6379) + probes `redis-cli ping`. Imagem `redis:<version>-alpine` (default 7) | requests `32Mi`/`25m`, limits `256Mi`/`250m` |
+| `mongodb` / `nats` | — **RESERVADO** | sem template ainda; adicionar quando houver consumidor real (o schema aceita, o compilador falha com erro claro) | — |
+
+Regras herdadas (HARD, ver [`standards/hard-constraints.md`](./standards/hard-constraints.md)):
+o chart **NUNCA renderiza Secret** — `secretName` e so referencia; o Secret real e criado
+imperativamente fora do git (ex.: passo `kubectl create secret generic <app>-db` do
+`forge-deploy.yml`). **Nao ha migration Job**: `AUTO_MIGRATE` no boot permanece o padrao (hook
+PreSync nao dispara no fluxo `:local` + rollout restart desta plataforma). Override de
+`resources` por dependencia e opcional.
+
+### 11.4 Exemplo completo v2 (fixture real do repo)
+
+O app-exemplo [`apps/forge-pilot-v2/`](../apps/forge-pilot-v2/) e a fixture versionada deste
+contrato (sem codigo/deploy — valida o pipeline schema -> compile -> manifests):
+
+```yaml
+version: 2
+
+app:
+  name: forge-pilot-v2
+  namespace: apps
+  host: nvit.localhost
+  basePath: /forge-pilot-v2
+  appType: product_software
+
+environments:
+  local:                          # destino DEFAULT (producao) — compile SEM --env
+    namespace: apps
+    hosts: [nvit.localhost, dev.nvit.com.br]
+  dev:                            # env efemero opt-in — compile com --env dev (multi-env.md)
+    namespace: apps-dev
+    hosts: [dev-lab.nvit.localhost]
+
+services:
+  frontend:
+    type: frontend
+    path: /
+    image: forge-pilot-v2-frontend
+    port: 80
+    expose: true
+    stripPrefix: false          # HARD: frontend NUNCA faz strip
+    priority: 10
+    env: { VITE_BASE_PATH: /forge-pilot-v2/ }
+    health: { path: / }
+  api:
+    type: api
+    path: /api
+    image: forge-pilot-v2-api
+    port: 8080
+    expose: true
+    stripPrefix: true           # HARD: strip do prefixo COMPLETO /forge-pilot-v2/api
+    priority: 30
+    envFrom: [forge-pilot-v2-db, forge-pilot-v2-config]   # Secrets criados fora do git
+    env: { AUTO_MIGRATE: "true", REDIS_URL: redis://forge-pilot-v2-redis:6379 }
+    health: { path: /health }
+  worker:
+    type: worker
+    image: forge-pilot-v2-api   # reusa a imagem da api
+    port: 8081
+    expose: false
+    command: ["npm", "run", "worker"]
+    envFrom: [forge-pilot-v2-db]
+    env: { AUTO_MIGRATE: "false", REDIS_URL: redis://forge-pilot-v2-redis:6379 }
+    health: { path: /health }
+
+dependencies:
+  postgres:
+    engine: postgres
+    flavor: pgvector            # -> pgvector/pgvector:pg16
+    version: "16"
+    storage: 2Gi
+    database: forge_pilot_v2
+    secretName: forge-pilot-v2-db
+  redis:
+    engine: redis
+    version: "7"
+    storage: 1Gi
+    resources:                  # override opcional dos defaults
+      requests: { cpu: 25m, memory: 32Mi }
+      limits: { cpu: 250m, memory: 256Mi }
+
+mlops:
+  langfuse: true
+  budget: { monthlyUsd: 25 }
+  evals: { goldenSet: evals/golden-set.jsonl }
+```
+
+### 11.5 Convergir um produto v1 → v2 (checklist do diff-gate)
+
+Converter um produto **vivo** (manifests manuais/string-builder em `k8s/`) para o contrato v2 +
+manifests compilados so e permitido se **nenhum recurso vivo for renomeado ou tiver selector
+alterado** — o Argo roda com `prune: true` + `selfHeal: true` e "renomear" significa **apagar o
+antigo e criar um novo** (hard-constraints §4): Deployment perde os pods, PVC renomeado = **perda
+de dados**, `spec.selector` de Deployment e **imutavel** (o apiserver rejeita o apply).
+
+**Checklist (diff-gate) — rode ANTES de commitar qualquer conversao:**
+
+1. Escreva o `devops.yaml` v2 candidato **fora** de `apps/<app>/` (ex.: diretorio temporario),
+   espelhando services/env/envFrom/dependencies do k8s vivo.
+2. Compile para um destino temporario:
+   `node specs/tools/devops-compile.mjs <tmp>/devops.yaml --out <tmp>/k8s/<app>.yaml`.
+3. **Diff semantico** contra o vivo (git `apps/<app>/k8s/` + cluster): para cada recurso compare
+   `kind/name`, `spec.selector`, labels `part-of`, portas, `claimName` de PVC, nomes de
+   Middleware/IngressRoute e rotas (match/priority/strip).
+4. **Diff real contra o cluster** (read-only): recarregue o PATH e rode
+   `kubectl diff -f <tmp>/k8s/<app>.yaml`. Exit 1 = so mudancas aplicaveis; **exit >1 com
+   `field is immutable` = conversao BLOQUEADA**.
+5. Qualquer **rename/selector-change inevitavel → PARE** (nao force): documente o bloqueio.
+   Recriacao planejada (delete + apply com downtime/perda de estado) e decisao do **operador**,
+   com aprovacao, fora da esteira.
+6. Se o gate passou: commite `devops.yaml` v2 + `k8s/<app>.yaml` compilado **juntos** (o
+   `--check` do compilador vira o guardiao de drift) e acompanhe o sync do Argo.
+
+**Estado atual (2026-07, pos-B6): a convergencia esta DESBLOQUEADA — o chart ADOTOU a convencao
+viva.** O piloto do B6 no `contaviva-pro` tinha sido reprovado pelo diff-gate (selector imutavel
+≠ vivo, PVC renomeado, Middleware renomeado, IngressRoute `-frontend` podada). Na janela barata
+(nenhum recurso vivo usava as convencoes antigas do chart — `forge-pilot-v2` e fixture, nunca
+deployado), o `templates/app-template` passou a gerar EXATAMENTE a convencao dos produtos vivos
+(antigo `buildK8s()`), e o `checkRendered` do compilador agora **impoe** cada item:
+
+| Convencao (agora do chart E dos vivos) | Detalhe |
+|---|---|
+| selector `{ app.kubernetes.io/name: <app>-<svc> }` | **exatamente** isso, sem `part-of` no selector (adicionar chave tambem e mutacao de campo imutavel); label `name` = `<app>-<svc>` em labels/pods (hard-constraints §1) |
+| PVC de dependencia `<app>-<dep>` | **sem** sufixo `-data` (dependencia `postgres` → PVC `<app>-postgres`, identico ao vivo) |
+| Middleware `<app>-<svc>-strip` | identico ao vivo (`contaviva-pro-api-strip`, `besc-api-strip`, ...) |
+| IngressRoutes `<app>` (api/api2) + `<app>-frontend` (frontend) | a rota do frontend tem IngressRoute PROPRIA — nunca e consolidada/podada |
+| ConfigMap `<app>-healthchecks` | por app (o antigo nome fixo `app-healthchecks` era compartilhado no namespace — dois produtos compilados brigariam pelo recurso) |
+
+**Piloto `contaviva-pro` CONVERTIDO** (devops.yaml v2 + `k8s/contaviva-pro.yaml` compilado +
+suplemento `k8s/contaviva-pro-observability.yaml`): `kubectl diff` limpo — nenhum
+`field is immutable`, PVC/Middleware/IngressRoutes com os MESMOS nomes; deltas aceitos:
+resources/probes adicionados, envs novos (`LANGFUSE_*`), labels do chart, `Host()` na match,
+ConfigMaps `-meta`/`-healthchecks`, PVC novo do redis, Services `*-metrics` (o Service
+`<app>-worker` vivo e substituido por `<app>-worker-metrics`; a porta `metrics` sai do Service
+da api para `<app>-api-metrics`).
+
+**Converter os demais produtos v1 = repetir o checklist acima** (passos 1-6) por produto.
+Gotcha achado no piloto (ja corrigido, mas vale a pena conferir no diff): deep merge dos values
+do helm — services de EXEMPLO no `values.yaml` do chart vazavam campos para services homonimos
+(frontend herdava `env VITE_BASE_PATH: /aplicacao1/`, worker herdava `health`); o `values.yaml`
+ficou sem exemplos e o compilador emite `null` explicito por campo.
+
+**Gaps que continuam suplementares (fase B2):**
+
+| Gap do chart | Suplemento hoje | Mudanca futura |
+|---|---|---|
+| Sem ServiceMonitor/PrometheusRule/porta de metricas | `k8s/<app>-observability.yaml` gerado pelo scaffold | templates dirigidos pelo bloco `observability:` do contrato |
+| Sem `middlewares` extras por service | `k8s/<app>-sso.yaml` (rota sombra priority+1) | lista `middlewares` por service no contrato/chart |
+
+> **sicat e gymops ficam FORA da convergencia de manifests** (decisao da Forja 4.0): a adocao
+> brownfield deles e **por contrato** (A5 — `specs/products/{sicat,gymops}` + `devops.yaml` v1
+> continuam a fonte declarativa) e os **manifests manuais em `apps/{sicat,gymops}/k8s/`
+> permanecem** como estao. Nao recompile nem converta esses dois.

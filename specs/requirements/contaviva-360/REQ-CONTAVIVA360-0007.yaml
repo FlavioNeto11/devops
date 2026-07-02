@@ -1,0 +1,29 @@
+id: REQ-CONTAVIVA360-0007
+title: "Assistente de IA Contábil: Consultas, Rascunhos e Recomendações Baseadas em Dados do Usuário"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: contaviva-360
+  blueprint: gymops-style
+statement: "O sistema DEVE prover um assistente de IA (grafo com especialistas e tools) que consulta dados contábeis do usuário (receitas, despesas, patrimônio, obrigações, notas, tarefas) e responde em linguagem natural: 'qual é meu saldo de caixa hoje?', 'que impostos estou devendo?', 'gere um rascunho de declaração IRPF', permitindo confirmação antes de persistir rascunhos, com cache de contexto, fallback offline e auditoria de consultas."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/contaviva-360/product.json"]
+priority: medium
+criticality: medium
+architectural_significance: true
+capability_blocks: ["ia-grafo", "control-ai-por-app", "rag-pgvector", "structured-outputs"]
+acceptance_criteria:
+  - "Interface de chat: POST /v1/assistant/message com texto, opcionalmente arquivo (PDF, imagem de nota fiscal, recibo). Suporta conversa em thread (conversation_id)."
+  - "Especialistas de tools: 'consulta_dados' (PF/PJ, receitas, despesas, patrimônio, obrigações), 'calcula_impostos' (IRPF, IRPJ, ICMS, ISS), 'gera_rascunho' (declaração, guia de pagamento, analise contábil), 'cita_fonte' (documento ou seção de base de conhecimento)."
+  - "Respostas grounded: IA cita a fonte (ex.: 'segundo sua NF de 01/12, receita foi de R$10k', 'seu patrimônio cresceu 5% em relação a julho')."
+  - "Rascunhos com confirmação: se IA propõe um rascunho (ex.: 'declare IRPF com rendimento tributável de R$50k'), usuário confirma antes de salvar como rascunho_irpf_2024."
+  - "Fallback offline: se controle plane ou API de IA estiver fora, IA usa prompt versionado no repo, fail-closed sem chave (responde com aviso: 'offline, consulte seu contador')."
+  - "Auditoria: toda consulta registra pergunta, resposta, tempo, tools usados, confirmações do usuário."
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

@@ -1,0 +1,654 @@
+# =============================================================================
+# GERADO por specs/tools/devops-compile.mjs a partir de apps/forge-pilot-v2/devops.yaml — NÃO EDITE À MÃO.
+# Recompilar:  node specs/tools/devops-compile.mjs apps/forge-pilot-v2/devops.yaml --env dev
+# Artefato PRIMÁRIO do GitOps (contrato v2): estes manifests commitados.
+# Chart: templates/app-template. Segredos: criados FORA do git (hard-constraints §3).
+# AMBIENTE: dev — namespace apps-dev, hosts [dev-lab.nvit.localhost].
+# Multi-env OPT-IN e EFÊMERO: criar -> usar -> destruir. Ver docs/multi-env.md.
+# =============================================================================
+---
+# Source: app-template/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: forge-pilot-v2-meta
+  namespace: apps-dev
+  labels:
+    app.kubernetes.io/name: "forge-pilot-v2"
+    app.kubernetes.io/part-of: "forge-pilot-v2"
+    app.kubernetes.io/component: "metadata"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "forge-pilot-v2"
+    devops.flavioneto/app-type: "product_software"
+    devops.flavioneto/environment: "dev"
+  annotations:
+    devops.flavioneto/commit-sha: "local"
+    devops.flavioneto/branch: "local"
+    devops.flavioneto/image-tag: "local"
+    devops.flavioneto/deployed-at: ""
+    devops.flavioneto/run-id: ""
+data:
+  # Metadados da aplicacao
+  app.name: "forge-pilot-v2"
+  app.namespace: "apps-dev"
+  app.host: "dev-lab.nvit.localhost"
+  app.basePath: "/forge-pilot-v2"
+  # Ambiente logico (multi-env opt-in — compile com --env; ver docs/multi-env.md)
+  app.environment: "dev"
+  # Informacoes de publicacao (CI/CD)
+  publish.commitSha: "local"
+  publish.branch: "local"
+  publish.imageTag: "local"
+  publish.deployedAt: ""
+  publish.runId: ""
+---
+# Source: app-template/templates/healthchecks.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: forge-pilot-v2-healthchecks
+  namespace: apps-dev
+  labels:
+    app.kubernetes.io/name: "forge-pilot-v2"
+    app.kubernetes.io/part-of: "forge-pilot-v2"
+    app.kubernetes.io/component: "healthchecks"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "forge-pilot-v2"
+    devops.flavioneto/app-type: "product_software"
+    devops.flavioneto/environment: "dev"
+  annotations:
+    devops.flavioneto/app: "forge-pilot-v2"
+data:
+  api: "/health"
+  frontend: "/"
+  worker: "/health"
+---
+# Source: app-template/templates/dependency-postgres.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: forge-pilot-v2-postgres
+  namespace: apps-dev
+  labels:
+    app.kubernetes.io/name: "forge-pilot-v2-postgres"
+    app.kubernetes.io/part-of: "forge-pilot-v2"
+    app.kubernetes.io/component: "db"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "forge-pilot-v2"
+    devops.flavioneto/app-type: "product_software"
+    devops.flavioneto/environment: "dev"
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 2Gi
+---
+# Source: app-template/templates/dependency-redis.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: forge-pilot-v2-redis
+  namespace: apps-dev
+  labels:
+    app.kubernetes.io/name: "forge-pilot-v2-redis"
+    app.kubernetes.io/part-of: "forge-pilot-v2"
+    app.kubernetes.io/component: "cache"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "forge-pilot-v2"
+    devops.flavioneto/app-type: "product_software"
+    devops.flavioneto/environment: "dev"
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+# Source: app-template/templates/api-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: forge-pilot-v2-api
+  namespace: apps-dev
+  labels:
+    app.kubernetes.io/name: "forge-pilot-v2-api"
+    app.kubernetes.io/part-of: "forge-pilot-v2"
+    app.kubernetes.io/component: "api"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "forge-pilot-v2"
+    devops.flavioneto/app-type: "product_software"
+    devops.flavioneto/environment: "dev"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: "forge-pilot-v2-api"
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+---
+# Source: app-template/templates/dependency-postgres.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: forge-pilot-v2-postgres
+  namespace: apps-dev
+  labels:
+    app.kubernetes.io/name: "forge-pilot-v2-postgres"
+    app.kubernetes.io/part-of: "forge-pilot-v2"
+    app.kubernetes.io/component: "db"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "forge-pilot-v2"
+    devops.flavioneto/app-type: "product_software"
+    devops.flavioneto/environment: "dev"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: "forge-pilot-v2-postgres"
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+# Source: app-template/templates/dependency-redis.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: forge-pilot-v2-redis
+  namespace: apps-dev
+  labels:
+    app.kubernetes.io/name: "forge-pilot-v2-redis"
+    app.kubernetes.io/part-of: "forge-pilot-v2"
+    app.kubernetes.io/component: "cache"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "forge-pilot-v2"
+    devops.flavioneto/app-type: "product_software"
+    devops.flavioneto/environment: "dev"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: "forge-pilot-v2-redis"
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+---
+# Source: app-template/templates/frontend-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: forge-pilot-v2-frontend
+  namespace: apps-dev
+  labels:
+    app.kubernetes.io/name: "forge-pilot-v2-frontend"
+    app.kubernetes.io/part-of: "forge-pilot-v2"
+    app.kubernetes.io/component: "frontend"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "forge-pilot-v2"
+    devops.flavioneto/app-type: "product_software"
+    devops.flavioneto/environment: "dev"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: "forge-pilot-v2-frontend"
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP
+---
+# Source: app-template/templates/api-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forge-pilot-v2-api
+  namespace: apps-dev
+  labels:
+    app.kubernetes.io/name: "forge-pilot-v2-api"
+    app.kubernetes.io/part-of: "forge-pilot-v2"
+    app.kubernetes.io/component: "api"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "forge-pilot-v2"
+    devops.flavioneto/app-type: "product_software"
+    devops.flavioneto/environment: "dev"
+  annotations:
+    devops.flavioneto/commit-sha: "local"
+    devops.flavioneto/branch: "local"
+    devops.flavioneto/image-tag: "local"
+    devops.flavioneto/deployed-at: ""
+    devops.flavioneto/run-id: ""
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "forge-pilot-v2-api"
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "forge-pilot-v2-api"
+        app.kubernetes.io/part-of: "forge-pilot-v2"
+        app.kubernetes.io/component: "api"
+        app.kubernetes.io/managed-by: devops-platform
+        helm.sh/chart: "app-template-0.1.0"
+        devops.flavioneto/app: "forge-pilot-v2"
+        devops.flavioneto/app-type: "product_software"
+        devops.flavioneto/environment: "dev"
+      annotations:
+        devops.flavioneto/commit-sha: "local"
+        devops.flavioneto/branch: "local"
+        devops.flavioneto/image-tag: "local"
+        devops.flavioneto/deployed-at: ""
+        devops.flavioneto/run-id: ""
+    spec:
+      containers:
+        - name: api
+          image: forge-pilot-v2-api:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: AUTO_MIGRATE
+              value: "true"
+            - name: REDIS_URL
+              value: "redis://forge-pilot-v2-redis:6379"
+          envFrom:
+            - secretRef:
+                name: forge-pilot-v2-db
+            - secretRef:
+                name: forge-pilot-v2-config
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 2
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            limits:
+              cpu: 250m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
+---
+# Source: app-template/templates/dependency-postgres.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forge-pilot-v2-postgres
+  namespace: apps-dev
+  labels:
+    app.kubernetes.io/name: "forge-pilot-v2-postgres"
+    app.kubernetes.io/part-of: "forge-pilot-v2"
+    app.kubernetes.io/component: "db"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "forge-pilot-v2"
+    devops.flavioneto/app-type: "product_software"
+    devops.flavioneto/environment: "dev"
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "forge-pilot-v2-postgres"
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "forge-pilot-v2-postgres"
+        app.kubernetes.io/part-of: "forge-pilot-v2"
+        app.kubernetes.io/component: "db"
+        app.kubernetes.io/managed-by: devops-platform
+        helm.sh/chart: "app-template-0.1.0"
+        devops.flavioneto/app: "forge-pilot-v2"
+        devops.flavioneto/app-type: "product_software"
+        devops.flavioneto/environment: "dev"
+    spec:
+      containers:
+        - name: postgres
+          image: pgvector/pgvector:pg16
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: forge-pilot-v2-db
+          ports:
+            - name: postgres
+              containerPort: 5432
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+              subPath: pgdata
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: forge-pilot-v2-postgres
+---
+# Source: app-template/templates/dependency-redis.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forge-pilot-v2-redis
+  namespace: apps-dev
+  labels:
+    app.kubernetes.io/name: "forge-pilot-v2-redis"
+    app.kubernetes.io/part-of: "forge-pilot-v2"
+    app.kubernetes.io/component: "cache"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "forge-pilot-v2"
+    devops.flavioneto/app-type: "product_software"
+    devops.flavioneto/environment: "dev"
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "forge-pilot-v2-redis"
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "forge-pilot-v2-redis"
+        app.kubernetes.io/part-of: "forge-pilot-v2"
+        app.kubernetes.io/component: "cache"
+        app.kubernetes.io/managed-by: devops-platform
+        helm.sh/chart: "app-template-0.1.0"
+        devops.flavioneto/app: "forge-pilot-v2"
+        devops.flavioneto/app-type: "product_software"
+        devops.flavioneto/environment: "dev"
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          imagePullPolicy: IfNotPresent
+          args: ["--appendonly", "yes"]
+          ports:
+            - name: redis
+              containerPort: 6379
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            limits:
+              cpu: 250m
+              memory: 256Mi
+            requests:
+              cpu: 25m
+              memory: 32Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: forge-pilot-v2-redis
+---
+# Source: app-template/templates/frontend-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forge-pilot-v2-frontend
+  namespace: apps-dev
+  labels:
+    app.kubernetes.io/name: "forge-pilot-v2-frontend"
+    app.kubernetes.io/part-of: "forge-pilot-v2"
+    app.kubernetes.io/component: "frontend"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "forge-pilot-v2"
+    devops.flavioneto/app-type: "product_software"
+    devops.flavioneto/environment: "dev"
+  annotations:
+    devops.flavioneto/commit-sha: "local"
+    devops.flavioneto/branch: "local"
+    devops.flavioneto/image-tag: "local"
+    devops.flavioneto/deployed-at: ""
+    devops.flavioneto/run-id: ""
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "forge-pilot-v2-frontend"
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "forge-pilot-v2-frontend"
+        app.kubernetes.io/part-of: "forge-pilot-v2"
+        app.kubernetes.io/component: "frontend"
+        app.kubernetes.io/managed-by: devops-platform
+        helm.sh/chart: "app-template-0.1.0"
+        devops.flavioneto/app: "forge-pilot-v2"
+        devops.flavioneto/app-type: "product_software"
+        devops.flavioneto/environment: "dev"
+      annotations:
+        devops.flavioneto/commit-sha: "local"
+        devops.flavioneto/branch: "local"
+        devops.flavioneto/image-tag: "local"
+        devops.flavioneto/deployed-at: ""
+        devops.flavioneto/run-id: ""
+    spec:
+      containers:
+        - name: frontend
+          image: forge-pilot-v2-frontend:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          env:
+            - name: VITE_BASE_PATH
+              value: "/forge-pilot-v2/"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            limits:
+              cpu: 250m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
+---
+# Source: app-template/templates/worker-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forge-pilot-v2-worker
+  namespace: apps-dev
+  labels:
+    app.kubernetes.io/name: "forge-pilot-v2-worker"
+    app.kubernetes.io/part-of: "forge-pilot-v2"
+    app.kubernetes.io/component: "worker"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "forge-pilot-v2"
+    devops.flavioneto/app-type: "product_software"
+    devops.flavioneto/environment: "dev"
+  annotations:
+    devops.flavioneto/commit-sha: "local"
+    devops.flavioneto/branch: "local"
+    devops.flavioneto/image-tag: "local"
+    devops.flavioneto/deployed-at: ""
+    devops.flavioneto/run-id: ""
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "forge-pilot-v2-worker"
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "forge-pilot-v2-worker"
+        app.kubernetes.io/part-of: "forge-pilot-v2"
+        app.kubernetes.io/component: "worker"
+        app.kubernetes.io/managed-by: devops-platform
+        helm.sh/chart: "app-template-0.1.0"
+        devops.flavioneto/app: "forge-pilot-v2"
+        devops.flavioneto/app-type: "product_software"
+        devops.flavioneto/environment: "dev"
+      annotations:
+        devops.flavioneto/commit-sha: "local"
+        devops.flavioneto/branch: "local"
+        devops.flavioneto/image-tag: "local"
+        devops.flavioneto/deployed-at: ""
+        devops.flavioneto/run-id: ""
+    spec:
+      containers:
+        - name: worker
+          image: forge-pilot-v2-api:local
+          imagePullPolicy: IfNotPresent
+          command:
+            - npm
+            - run
+            - worker
+          ports:
+            - name: http
+              containerPort: 8081
+              protocol: TCP
+          env:
+            - name: AUTO_MIGRATE
+              value: "false"
+            - name: REDIS_URL
+              value: "redis://forge-pilot-v2-redis:6379"
+          envFrom:
+            - secretRef:
+                name: forge-pilot-v2-db
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            limits:
+              cpu: 250m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
+---
+# Source: app-template/templates/ingressroute.yaml
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: forge-pilot-v2
+  namespace: apps-dev
+  labels:
+    app.kubernetes.io/name: "forge-pilot-v2"
+    app.kubernetes.io/part-of: "forge-pilot-v2"
+    app.kubernetes.io/component: "ingress"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "forge-pilot-v2"
+    devops.flavioneto/app-type: "product_software"
+    devops.flavioneto/environment: "dev"
+spec:
+  entryPoints:
+    - web
+  routes:
+    - kind: Rule
+      match: Host(`dev-lab.nvit.localhost`) && PathPrefix(`/forge-pilot-v2/api`)
+      priority: 30
+      services:
+        - name: forge-pilot-v2-api
+          port: 8080
+      middlewares:
+        - name: forge-pilot-v2-api-strip
+---
+# Source: app-template/templates/ingressroute.yaml
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: forge-pilot-v2-frontend
+  namespace: apps-dev
+  labels:
+    app.kubernetes.io/name: "forge-pilot-v2"
+    app.kubernetes.io/part-of: "forge-pilot-v2"
+    app.kubernetes.io/component: "ingress"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "forge-pilot-v2"
+    devops.flavioneto/app-type: "product_software"
+    devops.flavioneto/environment: "dev"
+spec:
+  entryPoints:
+    - web
+  routes:
+    - kind: Rule
+      match: Host(`dev-lab.nvit.localhost`) && PathPrefix(`/forge-pilot-v2`)
+      priority: 10
+      services:
+        - name: forge-pilot-v2-frontend
+          port: 80
+---
+# Source: app-template/templates/ingressroute.yaml
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: forge-pilot-v2-api-strip
+  namespace: apps-dev
+  labels:
+    app.kubernetes.io/name: "forge-pilot-v2-api"
+    app.kubernetes.io/part-of: "forge-pilot-v2"
+    app.kubernetes.io/component: "api"
+    app.kubernetes.io/managed-by: devops-platform
+    helm.sh/chart: "app-template-0.1.0"
+    devops.flavioneto/app: "forge-pilot-v2"
+    devops.flavioneto/app-type: "product_software"
+    devops.flavioneto/environment: "dev"
+spec:
+  stripPrefix:
+    prefixes:
+      - "/forge-pilot-v2/api"

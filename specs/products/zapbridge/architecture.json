@@ -1,0 +1,55 @@
+{
+  "status": "adopted",
+  "note": "Arquitetura ADOTADA (brownfield): descreve o que o app apps/zapbridge TEM hoje — decisões extraídas de apps/zapbridge/CLAUDE.md, do código (server/, web/) e dos manifests k8s/. Sem waves/work_orders: nada aqui é plano de geração. Nenhum capability_block declarado: o catálogo não tem exemplar com evidência em apps/zapbridge (anti-fachada do build-products).",
+  "stack_rationale": "Stack real adotada (não escolhida pela Forja): frontend React 18 + Vite + Tailwind + React Router (nginx, base /zapbridge — reescrita que aposentou o app Expo/react-native-web, mantido em apps/zapbridge/app) + backend Node 20/Express em TypeScript CommonJS com Socket.IO no mesmo processo + Baileys 6 (patch-package) para a sessão WhatsApp + Prisma/SQLite em PVC RWO (1 réplica, Recreate) + Postgres 16/pgvector dedicado SÓ para a camada de IA opt-in (@flavioneto11/ai-core). Aproximação do blueprint app-simples (SPA + API Node, sem worker/fila), diferindo em React (não Vue), Express CJS e SQLite como store primário.",
+  "adrs": [
+    {
+      "title": "ADR-001: Baileys 6 (multi-dispositivo via QR/pairing) como integração WhatsApp — uso legítimo apenas",
+      "decision": "A conexão WhatsApp usa WhiskeySockets/Baileys 6 com useMultiFileAuthState por usuário (credenciais em AUTH_DIR no PVC), QR dataURL e pairing code alternativo, reconexão automática em queda recuperável e restore das sessões no boot; patch local aplicado via patch-package no postinstall; imagem node:20-slim (Debian) por causa do Prisma.",
+      "rationale": "Conectar a conta do PRÓPRIO usuário (sem WhatsApp Business API, sem scraping, sem envio em massa) exige a biblioteca de multi-device; o patch e a base Debian são exigências práticas documentadas do stack.",
+      "cites": ["apps/zapbridge/server/src/modules/whatsapp/baileys.manager.ts", "apps/zapbridge/server/patches", "apps/zapbridge/CLAUDE.md"]
+    },
+    {
+      "title": "ADR-002: Prisma + SQLite single-writer em PVC RWO — 1 réplica com strategy Recreate",
+      "decision": "A persistência primária é SQLite (file:/data/zapbridge.db) via Prisma 5 em PVC RWO, com pragmas WAL aplicados no boot e prisma migrate deploy no start do container; o Deployment zapbridge-server roda 1 réplica com strategy Recreate — nunca 2 réplicas (estado Baileys em memória + volume RWO + SQLite single-writer).",
+      "rationale": "Estado simples e local ao cluster para um app de operador único; duas instâncias gravando o mesmo SQLite corrompem o banco, então a topologia trava o single-writer por contrato.",
+      "cites": ["apps/zapbridge/server/prisma/schema.prisma", "apps/zapbridge/k8s/zapbridge.yaml", "apps/zapbridge/CLAUDE.md"]
+    },
+    {
+      "title": "ADR-003: Socket.IO no mesmo processo HTTP com rota IngressRoute dedicada (priority 40, sem strip/compress)",
+      "decision": "O tempo real usa Socket.IO 4 no mesmo servidor HTTP do Express (handshake autenticado por JWT, room user:<id>), atrás do subpath com path /zapbridge/socket.io casado por rota IngressRoute dedicada de priority 40 SEM StripPrefix e SEM compress; o REST usa /zapbridge/api (priority 30, com strip) e o frontend pega o resto (priority 10).",
+      "rationale": "Socket.IO casa o path inteiro (cliente e servidor precisam do mesmo SOCKET_IO_PATH) e o upgrade WebSocket não sobrevive a strip/compress no Traefik — a rota dedicada resolve sem duplicar serviço.",
+      "cites": ["apps/zapbridge/server/src/realtime/io.ts", "apps/zapbridge/k8s/zapbridge.yaml", "apps/zapbridge/devops.yaml"]
+    },
+    {
+      "title": "ADR-004: Frontend web reescrito em React 18 + Vite puro; app Expo aposentado com SW kill-switch",
+      "decision": "O frontend servido em /zapbridge é uma SPA React 18 + Vite + Tailwind + React Router (base /zapbridge, nginx:alpine servindo dist/), substituindo o app Expo/react-native-web anterior (mantido no repo em apps/zapbridge/app, aposentado); um service worker kill-switch (public/sw.js) substitui o SW antigo registrado em navegadores/PWAs instalados: limpa caches, se desregistra e recarrega os clients.",
+      "rationale": "React web puro elimina a camada react-native-web no navegador (bundle e DX melhores); o kill-switch é a única forma de migrar instalações antigas do PWA Expo sem intervenção manual do usuário.",
+      "cites": ["apps/zapbridge/web/vite.config.ts", "apps/zapbridge/web/public/sw.js", "apps/zapbridge/web/Dockerfile.web"]
+    },
+    {
+      "title": "ADR-005: IA opt-in fail-soft sobre ai-core com banco SEPARADO Postgres 16/pgvector",
+      "decision": "A camada de IA (server/src/modules/ai) usa o stack canônico @flavioneto11/ai-core (reasoning Claude + embeddings OpenAI) com banco dedicado zapbridge-postgres (pgvector) para threads/memória/embeddings/KB — o SQLite do WhatsApp NUNCA ganha um segundo writer; tudo é opt-in por consentimento versionado e fail-soft: sem AI_DATABASE_URL/chaves, hooks e rotas /ai/* viram no-op/fallback e o app segue 100% funcional.",
+      "rationale": "Separa o dado volumoso/vetorial da IA do store transacional single-writer e garante que ausência de credencial nunca degrada a mensageria (a IA acende quando o operador configurar o Secret).",
+      "cites": ["apps/zapbridge/server/src/modules/ai/pg.ts", "apps/zapbridge/k8s/zapbridge-postgres.yaml", "apps/zapbridge/devops.yaml"]
+    },
+    {
+      "title": "ADR-006: Server CommonJS × kits ESM-only — carregamento por import() dinâmico (ai-core-loader)",
+      "decision": "O server é CommonJS, mas os kits @flavioneto11/* (ai-core etc.) são ESM-only; a integração é feita por um loader dedicado (ai-core-loader.ts) que os carrega via import() dinâmico, mantendo o restante do backend intocado.",
+      "rationale": "Migrar o server inteiro para ESM só para consumir os kits seria invasivo; o import() dinâmico é o menor ponto de contato e preserva o fail-soft (falha de load = IA off).",
+      "cites": ["apps/zapbridge/server/src/modules/ai/ai-core-loader.ts", "apps/zapbridge/CLAUDE.md"]
+    },
+    {
+      "title": "ADR-007: Mutações da IA nunca silenciosas — dry-run + token HMAC + confirmação humana; auto-resposta com judge-gate",
+      "decision": "Toda tool mutante do agente (send_message/react/mark_read) roda em dry-run durante o turno e só executa quando o usuário confirma (POST /ai/confirm) com token HMAC autocontido (tool + argumentos + dono + validade curta, assinado com JWT_SECRET); a auto-resposta é opt-in POR CHAT, FAQ-grounded, com judge-gate, janela de horário, limite por chat e handoff — nunca em grupos, sempre marcada como automática.",
+      "rationale": "A IA jamais envia mensagem ao WhatsApp do usuário sem um ato humano explícito ou um opt-in estreito com guardrails — espelha o padrão pending-actions do GymOps.",
+      "cites": ["apps/zapbridge/server/src/modules/ai/pending-actions.ts", "apps/zapbridge/server/src/modules/ai/hooks.ts"]
+    },
+    {
+      "title": "ADR-008: Métricas Prometheus em porta dedicada 9464 fora do Traefik + ServiceMonitor",
+      "decision": "As métricas ai_* são expostas num servidor HTTP dedicado na porta 9464 (METRICS_PORT), fora do roteamento do Traefik, e coletadas pelo kube-prometheus-stack via ServiceMonitor que seleciona part-of: zapbridge (Services sem a porta metrics são ignorados).",
+      "rationale": "Métricas não são superfície pública do app — porta dedicada evita expor /metrics no subpath e segue o padrão da plataforma (mesma porta 9464 dos demais apps com IA).",
+      "cites": ["apps/zapbridge/server/src/modules/ai/ai-metrics.ts", "apps/zapbridge/k8s/servicemonitor.yaml"]
+    }
+  ]
+}

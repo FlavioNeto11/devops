@@ -241,6 +241,13 @@ code {
   padding: 26px 28px;
 }
 
+/* (E4, Forja 4.1) superfície EMBED (?embed=1): só o editor de conteúdo dentro de um
+   iframe do Studio — gutters menores (o iframe já emoldura) e altura da viewport. */
+.content--embed {
+  min-height: 100vh;
+  padding: 14px 16px;
+}
+
 /* Nenhum scroll horizontal de pagina: rolagens ficam contidas nos componentes
    que precisam (ex.: .board, .table-wrap, .tabs). */
 html,
@@ -1419,6 +1426,11 @@ body {
 .skel { display: block; background: var(--bg-elev-2); border-radius: 6px; position: relative; overflow: hidden; }
 .skel::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, var(--accent-soft), transparent); animation: shimmer 1.3s infinite; }
 @keyframes shimmer { 100% { transform: translateX(100%); } }
+
+/* ---- Spinner (etapa ativa do criador de portal CMS, etc.) ---- */
+.spin { animation: spin 0.9s linear infinite; transform-origin: center; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
 
 /* ---- Empty state ---- */
 .empty-state { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 44px 20px; color: var(--text-muted); }

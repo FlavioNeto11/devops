@@ -86,6 +86,14 @@ export function ensureContrast(fg, bg, target = 4.5) {
   return best;
 }
 
+// ---- saneamento dos campos de texto que viram CSS/comentário ------------------
+// O `name` aparece num COMENTÁRIO de bloco do CSS (`/* … */`) — `*/` o fecharia e `{`/`}` poderiam
+// abrir uma regra. O `displayFont` vira `--ui-font-display: <font>, …;` — caracteres como `;`/`}`/`{`
+// escapariam a declaração. Saneamos AQUI (ponto de uso) p/ proteger TODO chamador (apps reais + Forja),
+// independentemente de o descritor ter passado por outra validação antes.
+function cssSafeName(s) { return String(s == null ? '' : s).replace(/\*\/|[{}]/g, '').slice(0, 80); }
+function cssSafeFont(s) { return String(s == null ? '' : s).replace(/[^A-Za-z0-9 _-]/g, '').slice(0, 60); }
+
 // ---- normalização -------------------------------------------------------------
 export function normalizeBrand(brand) {
   const b = { ...DEFAULT_BRAND, ...(brand || {}) };
@@ -93,7 +101,8 @@ export function normalizeBrand(brand) {
   if (!RADII[b.radius]) b.radius = 'md';
   b.accent = b.accent || DEFAULT_BRAND.accent;
   hexToRgb(b.accent); // valida cedo
-  b.displayFont = b.displayFont || 'Sora';
+  b.name = cssSafeName(b.name) || DEFAULT_BRAND.name;       // name vira comentário CSS
+  b.displayFont = cssSafeFont(b.displayFont) || 'Sora';      // displayFont vira declaração CSS
   return b;
 }
 

@@ -4,7 +4,7 @@
  * Fonte única consumida por SicatStatusBadge. Cada domínio (manifest, job, cdf, dmr)
  * declara seu próprio mapa de status -> tone e status -> label pt-BR.
  *
- * Tonalidades alinhadas a tokens.css (--color-status-*) e ao tema Vuetify.
+ * Tonalidades alinhadas a tokens.generated.css (--color-status-*) e ao tema Vuetify.
  *
  * Tones disponíveis:
  *   neutral  -> cinza claro    (queued, draft, cancelled)

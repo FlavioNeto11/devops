@@ -1,12 +1,74 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://github.com/FlavioNeto11/devops/schema/devops-schema.json",
-  "title": "devops.yaml — contrato canônico de aplicação da Plataforma DevOps Local",
-  "description": "Schema do descritor declarativo que toda app coloca na raiz do repositório. A plataforma (CI + Helm/kubectl) traduz este contrato em Deployment, Service, IngressRoute e Middleware. Referência humana: docs/new-project-contract.md. Regra de ouro de roteamento: docs/standards/hard-constraints.md.",
-  "type": "object",
-  "additionalProperties": false,
-  "required": ["app", "services"],
-  "properties": {
+  "title": "devops.yaml — contrato canônico de aplicação da Plataforma DevOps Local (v1 | v2)",
+  "description": "Schema do descritor declarativo que toda app coloca na raiz do repositório. Aceita DUAS versões via oneOf: v1 (sem campo 'version' — retrocompat total, todos os devops.yaml existentes continuam válidos) OU v2 ('version: 2' explícito — adiciona environments, dependencies com engine tipada, mlops e envFrom por service). A plataforma (CI + Helm/kubectl + specs/tools/devops-compile.mjs) traduz este contrato em Deployment, Service, IngressRoute e Middleware. Referência humana: docs/new-project-contract.md. Regra de ouro de roteamento: docs/standards/hard-constraints.md.",
+  "oneOf": [
+    { "$ref": "#/definitions/contractV1" },
+    { "$ref": "#/definitions/contractV2" }
+  ],
+  "definitions": {
+    "contractV1": {
+      "type": "object",
+      "description": "Contrato v1 (sem campo 'version'). INALTERADO — é o formato de todos os apps existentes.",
+      "additionalProperties": false,
+      "required": ["app", "services"],
+      "properties": {
+        "app": { "$ref": "#/definitions/app" },
+        "services": {
+          "type": "object",
+          "description": "Mapa serviceName -> definição do serviço. A chave vira sufixo do recurso (<app.name>-<serviceName>) e a entrada da matriz de build do CI (um build por serviço).",
+          "minProperties": 1,
+          "additionalProperties": { "$ref": "#/definitions/service" }
+        },
+        "dependencies": {
+          "type": "object",
+          "description": "Dependências de infraestrutura por nome (ex.: postgres, redis). Provisionadas separadamente do build da app.",
+          "additionalProperties": { "$ref": "#/definitions/dependency" }
+        },
+        "observability": { "$ref": "#/definitions/observability" },
+        "secrets": { "$ref": "#/definitions/secrets" },
+        "configmaps": { "$ref": "#/definitions/configmaps" },
+        "migrations": { "$ref": "#/definitions/migrations" }
+      }
+    },
+    "contractV2": {
+      "type": "object",
+      "description": "Contrato v2 ('version: 2' explícito). Superset do v1: adiciona environments (multi-ambiente), dependencies com engine tipada (provisioning real via templates do app-template), mlops e envFrom por service. Manifests renderizados e COMMITADOS em apps/<app>/k8s/ por specs/tools/devops-compile.mjs são o artefato primário do GitOps.",
+      "additionalProperties": false,
+      "required": ["version", "app", "services"],
+      "properties": {
+        "version": {
+          "const": 2,
+          "description": "Versão do contrato. Ausente = v1 (retrocompat); 2 = este formato."
+        },
+        "app": { "$ref": "#/definitions/app" },
+        "services": {
+          "type": "object",
+          "description": "Mapa serviceName -> definição do serviço (v2: aceita também envFrom).",
+          "minProperties": 1,
+          "additionalProperties": { "$ref": "#/definitions/serviceV2" }
+        },
+        "environments": {
+          "type": "object",
+          "description": "Mapa de ambiente lógico -> destino físico (namespace + hosts). Sem --env, o compilador renderiza o default (nvit.localhost + dev.nvit.com.br, mesmo comportamento do v1); com `devops-compile --env <nome>` renderiza o ambiente declarado em apps/<app>/k8s-<nome>/ (namespace + hosts do env, MESMO basePath, label devops.flavioneto/environment). Multi-env é OPT-IN e EFÊMERO por produto (docs/multi-env.md). HARD (imposto pelo compilador): o namespace do env difere do default e os hosts do env NUNCA incluem dev.nvit.com.br/app.host (produção).",
+          "minProperties": 1,
+          "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
+          "additionalProperties": { "$ref": "#/definitions/environment" }
+        },
+        "dependencies": {
+          "type": "object",
+          "description": "Mapa nome -> dependência de infraestrutura TIPADA (engine). postgres/redis são provisionados pelos templates dependency-*.yaml do app-template (PVC + Deployment Recreate + Service + probes + resources default). O chart NUNCA renderiza Secret — apenas referencia secretName (criação imperativa fora do git; hard-constraints §3).",
+          "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
+          "additionalProperties": { "$ref": "#/definitions/dependencyV2" }
+        },
+        "mlops": { "$ref": "#/definitions/mlops" },
+        "observability": { "$ref": "#/definitions/observability" },
+        "secrets": { "$ref": "#/definitions/secrets" },
+        "configmaps": { "$ref": "#/definitions/configmaps" },
+        "migrations": { "$ref": "#/definitions/migrations" }
+      }
+    },
     "app": {
       "type": "object",
       "description": "Identidade e endereçamento da aplicação no host único.",
@@ -40,17 +102,6 @@
         }
       }
     },
-    "services": {
-      "type": "object",
-      "description": "Mapa serviceName -> definição do serviço. A chave vira sufixo do recurso (<app.name>-<serviceName>) e a entrada da matriz de build do CI (um build por serviço).",
-      "minProperties": 1,
-      "additionalProperties": { "$ref": "#/definitions/service" }
-    },
-    "dependencies": {
-      "type": "object",
-      "description": "Dependências de infraestrutura por nome (ex.: postgres, redis). Provisionadas separadamente do build da app.",
-      "additionalProperties": { "$ref": "#/definitions/dependency" }
-    },
     "observability": {
       "type": "object",
       "description": "Observabilidade declarada pela app (emitida pela Forge no estilo gymops). A porta de métricas Prometheus e se a plataforma deve criar ServiceMonitor/PrometheusRule. Os manifests reais ficam em k8s/.",
@@ -73,14 +124,12 @@
     },
     "migrations": {
       "type": "object",
-      "description": "Estratégia de migrations de banco, rodadas fora do build da imagem (ex.: Prisma após o Postgres subir).",
+      "description": "Estratégia de migrations de banco, rodadas fora do build da imagem (ex.: Prisma após o Postgres subir). NÃO há migration Job: AUTO_MIGRATE no boot permanece o padrão da plataforma.",
       "additionalProperties": true,
       "properties": {
         "tool": { "type": "string", "description": "Ferramenta de migration (ex.: prisma)." }
       }
-    }
-  },
-  "definitions": {
+    },
     "service": {
       "type": "object",
       "additionalProperties": false,
@@ -165,15 +214,220 @@
         }
       }
     },
+    "serviceV2": {
+      "type": "object",
+      "description": "Serviço no contrato v2. Igual ao service v1 + envFrom (lista de secretNames injetados em massa no container). Mantido como definição própria (additionalProperties: false não compõe via allOf).",
+      "additionalProperties": false,
+      "required": ["type", "image"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "frontend (SPA, sem strip) | api (backend principal, com strip) | api2 (backend secundário, com strip) | worker (background, sem ingress).",
+          "enum": ["frontend", "api", "api2", "worker"]
+        },
+        "path": {
+          "type": "string",
+          "description": "Subpath relativo ao basePath onde o serviço responde. Obrigatório para api/api2 (ex.: /api, /api2). Frontend usa / (raiz do basePath).",
+          "pattern": "^/[a-z0-9-/]*$"
+        },
+        "image": {
+          "type": "string",
+          "description": "Nome da imagem. Lab: <name>-<service> (resolve para :local). CI: ghcr.io/flavioneto11/<app>/<service>."
+        },
+        "port": {
+          "type": "integer",
+          "description": "Porta interna do processo/container; também a porta do Service.",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "expose": {
+          "type": "boolean",
+          "description": "true => o serviço ganha IngressRoute no Traefik. false => sem rota (ex.: worker)."
+        },
+        "stripPrefix": {
+          "type": "boolean",
+          "description": "true => Middleware StripPrefix remove o prefixo COMPLETO (basePath+path). HARD: frontend=false; api/api2/worker-health=true."
+        },
+        "priority": {
+          "type": "integer",
+          "description": "Prioridade da IngressRoute. HARD: api2 > api > frontend (ex.: 40 > 30 > 10) porque prefixos mais específicos devem vencer."
+        },
+        "command": {
+          "type": "array",
+          "description": "Override do entrypoint do container (ex.: [\"npm\", \"run\", \"worker\"]).",
+          "items": { "type": "string" }
+        },
+        "envFrom": {
+          "type": "array",
+          "description": "v2: Secrets injetados em massa (envFrom/secretRef) no container. Cada item é o NOME do Secret (string) ou { name, optional } — optional: true gera secretRef optional (o pod sobe mesmo sem o Secret; padrão dos Secrets <app>-ai/<app>-auth da Forja). Os Secrets são criados FORA do git (imperativos no forge-deploy ou Sealed Secrets) — aqui só a referência (hard-constraints §3).",
+          "items": {
+            "oneOf": [
+              { "type": "string" },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string", "description": "Nome do Secret referenciado." },
+                  "optional": { "type": "boolean", "description": "true => secretRef optional: o container inicia mesmo se o Secret não existir (ex.: chaves de IA adicionadas depois)." }
+                }
+              }
+            ]
+          }
+        },
+        "build": {
+          "type": "object",
+          "description": "Parâmetros de build da imagem (quando o CI/local builda a partir do código).",
+          "additionalProperties": false,
+          "properties": {
+            "context": {
+              "type": "string",
+              "description": "Diretório de contexto do build (ex.: frontend, backend, . para monorepo)."
+            },
+            "dockerfile": {
+              "type": "string",
+              "description": "Caminho do Dockerfile relativo ao contexto (ex.: apps/web/Dockerfile)."
+            },
+            "target": {
+              "type": "string",
+              "description": "Stage alvo do build multi-stage (opcional)."
+            },
+            "args": {
+              "type": "object",
+              "description": "Build args passados ao Dockerfile (ex.: VITE_API_BASE_URL).",
+              "additionalProperties": { "type": ["string", "number", "boolean"] }
+            }
+          }
+        },
+        "env": {
+          "type": "object",
+          "description": "Variáveis de ambiente do container (chave -> valor). NUNCA segredos aqui. Frontend: VITE_BASE_PATH=/<basePath>/ (com barra final).",
+          "additionalProperties": { "type": ["string", "number", "boolean"] }
+        },
+        "health": {
+          "type": "object",
+          "description": "Health check usado pelos probes e pela aba Health do Console.",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Caminho como o processo o vê (após o strip), ex.: /health. Frontend: normalmente /."
+            }
+          }
+        }
+      }
+    },
     "dependency": {
       "type": "object",
-      "description": "Dependência de infraestrutura (ex.: banco, cache).",
+      "description": "Dependência de infraestrutura no contrato v1 (ex.: banco, cache). Formato livre/legado — no v2 use dependencyV2 (engine tipada).",
       "additionalProperties": true,
       "properties": {
         "image": { "type": "string", "description": "Imagem da dependência (ex.: postgres:16)." },
         "db": { "type": "string", "description": "Nome do banco a criar (para bancos)." },
         "service": { "type": "string", "description": "Nome do Service Kubernetes da dependência." },
         "port": { "type": "integer", "description": "Porta da dependência.", "minimum": 1, "maximum": 65535 }
+      }
+    },
+    "dependencyV2": {
+      "type": "object",
+      "description": "Dependência de infraestrutura TIPADA (v2). O compilador deriva os values e o app-template renderiza PVC + Deployment (strategy Recreate) + Service + probes + resources default por engine.",
+      "additionalProperties": false,
+      "required": ["engine"],
+      "properties": {
+        "engine": {
+          "type": "string",
+          "description": "Engine da dependência. postgres e redis têm template real no app-template (dependency-postgres.yaml / dependency-redis.yaml). mongodb e nats são RESERVADOS: sem template ainda; adicionar quando houver consumidor real (o compilador falha com erro claro se usados).",
+          "enum": ["postgres", "redis", "mongodb", "nats"]
+        },
+        "flavor": {
+          "type": "string",
+          "description": "Variação da imagem da engine. Ex.: postgres com flavor 'pgvector' usa pgvector/pgvector:pg<version> (extensão vector inclusa)."
+        },
+        "version": {
+          "type": ["string", "number"],
+          "description": "Versão major da engine (ex.: \"16\" para postgres, \"7\" para redis). Default por engine no chart."
+        },
+        "storage": {
+          "type": "string",
+          "description": "Tamanho do PVC de dados (ex.: 2Gi). Default por engine no chart (postgres 2Gi, redis 1Gi).",
+          "pattern": "^[0-9]+(Mi|Gi)$"
+        },
+        "database": {
+          "type": "string",
+          "description": "Nome do banco a criar/usar (engines de banco). Informativo para o secret/DATABASE_URL — o chart não cria banco."
+        },
+        "secretName": {
+          "type": "string",
+          "description": "Nome do Secret com as credenciais (ex.: POSTGRES_USER/PASSWORD/DB). Criado FORA do git (imperativo no forge-deploy) — o chart apenas referencia via envFrom (hard-constraints §3). Obrigatório para engine postgres."
+        },
+        "resources": { "$ref": "#/definitions/resources" }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "description": "Destino físico de um ambiente lógico (v2). Um env compilável com --env exige namespace PRÓPRIO (diferente do app.namespace — os nomes dos recursos são idênticos entre envs; o namespace é o isolamento) e hosts NOVOS (nunca dev.nvit.com.br/app.host — hosts de produção não são reatribuídos). Ver docs/multi-env.md.",
+      "additionalProperties": false,
+      "required": ["namespace", "hosts"],
+      "properties": {
+        "namespace": {
+          "type": "string",
+          "description": "Namespace Kubernetes do ambiente (ex.: apps para o default; apps-dev para o env efêmero dev)."
+        },
+        "hosts": {
+          "type": "array",
+          "description": "Hosts do Traefik atendidos neste ambiente (viram a cláusula Host(...) das IngressRoutes). Env efêmero usa host próprio (ex.: dev-lab.nvit.localhost).",
+          "minItems": 1,
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "mlops": {
+      "type": "object",
+      "description": "Postura de MLOps da app (v2): observabilidade de IA, orçamento e avaliação. Declarativo — consumido pela esteira/telemetria, não gera recurso k8s por si.",
+      "additionalProperties": false,
+      "properties": {
+        "langfuse": {
+          "type": "boolean",
+          "description": "true => a app rastreia chamadas de IA no Langfuse da plataforma (chaves via Secret, nunca aqui)."
+        },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "monthlyUsd": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Orçamento mensal de IA em USD (alvo de alerta/painel de uso)."
+            }
+          }
+        },
+        "evals": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "goldenSet": {
+              "type": "string",
+              "description": "Caminho (relativo à raiz do app) do golden set de avaliação dos fluxos de IA."
+            }
+          }
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "description": "Override de resources do container (requests/limits). Sem override, valem os defaults obrigatórios do chart por engine.",
+      "additionalProperties": false,
+      "properties": {
+        "requests": { "$ref": "#/definitions/resourceQuantities" },
+        "limits": { "$ref": "#/definitions/resourceQuantities" }
+      }
+    },
+    "resourceQuantities": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cpu": { "type": ["string", "number"], "description": "CPU (ex.: 50m, 1)." },
+        "memory": { "type": "string", "description": "Memória (ex.: 128Mi, 1Gi)." }
       }
     }
   }

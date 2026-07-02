@@ -7,13 +7,28 @@ const PRODUCT_RE = /^[a-z][a-z0-9-]{1,30}$/;
 const MAX_PAYLOAD_BYTES = 60 * 1024; // teto defensivo (repository_dispatch client_payload ~64KB)
 const MAX_REQS = 12;
 
+// Produtos PROTEGIDOS — apps vivos e componentes de plataforma. A Forja NÃO pode scaffoldar/relançar
+// (launch escreveria specs+apps/<p>+Application do Argo por cima de recurso vivo sob selfHeal) nem
+// apagar. Espelha a denylist dos workflows greenfield-launch.yml / forge-delete.yml (defesa em camadas).
+const PROTECTED = new Set([
+  'sicat', 'gymops', 'rmambiental', 'anarabottini',
+  'imobia', 'besc', 'zapbridge', // (D2, Forja 4.1) apps vivos com dados que estavam fora de TODAS as denylists
+  'reqhub', 'console', 'devops-console', 'portal', 'portal-recorder',
+  'keycloak', 'langfuse', 'ai-control-plane', 'devops-platform',
+]);
+
 const str = (v, max = 200) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+
+// (C2) Modos de USO da UI da Forja. INFORMATIVO: vai ao client_payload (e daí ao corpo do PR)
+// como rastreabilidade de UX — NUNCA muda os artefatos (o writer escreve os requisitos verbatim).
+const CREATION_MODES = new Set(['simples', 'guiado', 'profissional']);
 
 /** Valida o corpo do POST /v1/forge/launch. -> { ok, value } | { ok:false, code, message }. */
 export function validateLaunchInput(body) {
   const b = body || {};
   const product = String(b.product || '').trim().toLowerCase();
   if (!PRODUCT_RE.test(product)) return { ok: false, code: 'INVALID_PRODUCT', message: 'product inválido (slug minúsculo 2-31 chars: ^[a-z][a-z0-9-]{1,30}$)' };
+  if (PROTECTED.has(product)) return { ok: false, code: 'PROTECTED', message: `'${product}' é protegido (app vivo ou componente de plataforma) — a Forja não pode scaffoldar/relançar sobre ele` };
   const mode = b.mode === 'release' ? 'release' : (b.mode === 'pr' ? 'pr' : null);
   if (!mode) return { ok: false, code: 'INVALID_MODE', message: "mode deve ser 'pr' ou 'release'" };
   const requirements = Array.isArray(b.requirements)
@@ -31,6 +46,10 @@ export function validateLaunchInput(body) {
       brief: str(b.brief, 8000),
       requirements,
       architecture,
+      // opt-out do gate de preview (F3): só p/ fluxos legados que não usam preview. Default: gate ativo.
+      skipPreviewGate: b.skipPreviewGate === true,
+      // (C2) modo de uso da UI — opcional; valor fora do enum vira '' (ausente). Retrocompat total.
+      creation_mode: CREATION_MODES.has(b.creation_mode) ? b.creation_mode : '',
     },
   };
 }
@@ -47,6 +66,8 @@ export function buildClientPayload(value, identity) {
     mode: value.mode,
     requirements: value.requirements,
     architecture: value.architecture,
+    // (C2) informativo (rastreabilidade de UX no PR); ausente em clientes antigos -> payload idêntico ao pré-C2.
+    ...(value.creation_mode ? { creation_mode: value.creation_mode } : {}),
   };
   const bytes = Buffer.byteLength(JSON.stringify(payload), 'utf8');
   if (bytes > MAX_PAYLOAD_BYTES) {
@@ -74,13 +95,6 @@ export async function dispatchForgeLaunch({ token, repo, payload, fetchImpl }) {
   try { detail = (await res.text()).slice(0, 300); } catch { /* noop */ }
   return { ok: false, status: res.status, detail };
 }
-
-// Produtos PROTEGIDOS — nunca apagáveis pela Forja (produtos reais + componentes de plataforma).
-const PROTECTED = new Set([
-  'sicat', 'gymops', 'rmambiental', 'anarabottini',
-  'reqhub', 'console', 'devops-console', 'portal', 'portal-recorder',
-  'keycloak', 'langfuse', 'ai-control-plane', 'devops-platform',
-]);
 
 /** Valida o corpo do POST /v1/forge/delete. -> { ok, value } | { ok:false, code, message }. */
 export function validateDeleteInput(body) {

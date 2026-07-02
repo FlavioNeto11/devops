@@ -1,3 +1,12 @@
+# =============================================================================
+# ⚠️ MORTO / NUNCA EXECUTA NESTE MONOREPO — workflow herdado do repo standalone
+# do GymOps. O GitHub so executa workflows que vivem em .github/workflows da
+# RAIZ do repositorio; este arquivo esta aninhado em apps/gymops/ e portanto e
+# ignorado. Mantido apenas como HISTORICO (nao apagar sem motivo).
+# O gate canonico (integracao + E2E em pull_request) e:
+#   .github/workflows/ci-gymops-e2e.yml  (raiz do monorepo)
+# Ver docs/backlog.md (OPS-001).
+# =============================================================================
 name: e2e
 
 on:

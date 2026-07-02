@@ -1,0 +1,28 @@
+id: REQ-CONTAVIVA360-0003
+title: "Obrigações Fiscais e Alertas: Rastreamento de Vencimentos, Impostos e Pendências"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: contaviva-360
+  blueprint: gymops-style
+statement: "O sistema DEVE rastrear obrigações fiscais (impostos, declarações, guias, pagamentos, documentos pendentes, prazos) por tenant/entidade, calcular datas de vencimento, emitir alertas personalizados por role (cliente vê pendências, contador vê aprovações necessárias), permitir marcar como concluído/aprovado/atrasado e gerar relatório de compliance fiscal."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/contaviva-360/product.json"]
+priority: critical
+criticality: medium
+architectural_significance: true
+capability_blocks: ["notificacoes-multicanal", "redis-bullmq"]
+acceptance_criteria:
+  - "Cadastro de obrigação: tipo (IRPF, IRPJ, ICMS, ISS, DARF, ECF, ECD, e-Social, CAGED, Simples DAS, PER, DIRF, RRA, etc.), data de vencimento, periodicidade (mensal, anual), entidade (PF ou PJ), status (pendente, pago, cancelado, atrasado, aprovação pendente)."
+  - "Alertas automáticos: 30 dias antes do vencimento (amarelo), 7 dias antes (laranja), dia do vencimento (vermelho), após vencimento (crítico). Alertas entregues por e-mail/push/dashboard."
+  - "Dashboard de Obrigações: filtro por status (pendente, pago, atrasado), período, tipo; contador vê botão 'Aprovar' para marcar como concluído; cliente vê apenas informativo com prazos."
+  - "Relatório de Compliance: qual obrigação está em dia, qual está atrasada, qual está para vencer; export para PDF."
+  - "Integração com PJ: obrigações são calculadas com base no regime tributário (Simples paga DAS mensal; Lucro Real paga IRPJ + CSLL trimestral; Lucro Presumido paga IRPJ + CSLL mensal)."
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Manifests do ZapBridge (backend Express/Socket.IO/Baileys + app web Expo).
+# Descoberto pelo Argo (Application `zapbridge`). NAO inclui secret.example.yaml:
+# o Secret real (zapbridge-config, com o JWT_SECRET) e criado no cluster fora do
+# git e nao e gerenciado/prunado pelo Argo. Imagens zapbridge-server:local /
+# zapbridge-web:local sao construidas no no (docker build, IfNotPresent).
+resources:
+  - zapbridge.yaml
+  - zapbridge-web.yaml
+  - zapbridge-postgres.yaml
+  - servicemonitor.yaml

@@ -5,6 +5,7 @@ kind: Kustomization
 resources:
   - reqhub.yaml
   - api.yaml
+  - preview-pvc.yaml  # F3: PVC do preview iterativo da Forja (runner builda dist/, o api serve)
   - postgres.yaml   # F3: Postgres+pgvector da memoria duravel do chat (secret reqhub-db fora do git)
   - usage-config.yaml    # orcamentos (nao-secreto) do painel "Uso da IA"
   - servicemonitor.yaml  # scrape das metricas ai_* do reqhub-api (porta 9464)

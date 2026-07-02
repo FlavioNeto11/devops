@@ -1,6 +1,6 @@
 {
   "name": "@flavioneto11/ai-core",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "description": "Nucleo compartilhado da plataforma de IA: contrato de tools (authz/dry-run/confirmacao), observabilidade (metricas Prometheus + tracing Langfuse/LangSmith plugavel), custo por token, KPIs canonicos e harness de avaliacao (golden sets + LLM-as-judge). Zero dependencias de runtime.",
   "type": "module",
   "main": "src/index.js",
@@ -24,6 +24,7 @@
     "langfuse": ">=3",
     "openai": ">=4",
     "@anthropic-ai/sdk": ">=0.30",
+    "@google/generative-ai": ">=0.21",
     "prom-client": ">=15"
   },
   "peerDependenciesMeta": {
@@ -37,6 +38,9 @@
       "optional": true
     },
     "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "@google/generative-ai": {
       "optional": true
     }
   },

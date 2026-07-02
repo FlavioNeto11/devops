@@ -1,0 +1,63 @@
+# Roteamento Traefik do imobia (REGRA DE OURO):
+#  - /imobia/api -> imobia-api : stripPrefix /imobia/api (app ve /health,/meta,... na raiz), priority MAIOR
+#  - /imobia     -> imobia-frontend : SEM strip (base /imobia/), priority MENOR
+# Em F2 entra uma 3a rota /imobia/api/ai/stream (priority 40, SEM compress) para SSE.
+# Hosts: dev.nvit.com.br (publico) + nvit.localhost (dev local).
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: imobia-api-strip
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: imobia
+spec:
+  stripPrefix:
+    prefixes:
+      - /imobia/api
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: imobia
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: imobia
+spec:
+  entryPoints:
+    - web
+  routes:
+    # SSE do assistente de IA — MESMA api, mas SEM compress (compress bufferiza text/event-stream
+    # e quebra o streaming). Priority 40 > 30 para vencer a rota geral da api.
+    - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/imobia/api/ai/stream`)
+      kind: Rule
+      priority: 40
+      services:
+        - name: imobia-api
+          port: 8080
+      middlewares:
+        - name: imobia-api-strip
+        - name: secure-headers
+          namespace: traefik
+    - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/imobia/api`)
+      kind: Rule
+      priority: 30
+      services:
+        - name: imobia-api
+          port: 8080
+      middlewares:
+        - name: imobia-api-strip
+        - name: compress
+          namespace: traefik
+        - name: secure-headers
+          namespace: traefik
+    - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/imobia`)
+      kind: Rule
+      priority: 10
+      services:
+        - name: imobia-frontend
+          port: 80
+      middlewares:
+        - name: compress
+          namespace: traefik
+        - name: secure-headers
+          namespace: traefik

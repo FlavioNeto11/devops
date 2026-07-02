@@ -26,6 +26,10 @@ paths = [
   # Specs OpenAPI de QUALQUER app (inclui produtos da Forja): contract-first com VALORES DE EXEMPLO
   # fake (ex.: 'auth: <base64>') que o gitleaks confunde com generic-api-key. São contratos, nao segredos.
   '''apps/.*/openapi/.*''',
+  # Código GERADO pela Forja a partir do OpenAPI (ex.: src/generated/operations.js): manifesto de
+  # operações com campos "key":"<operation_id>" (ex.: put_v1_records_id) que o generic-api-key
+  # confunde com segredo. É codegen determinístico do contrato, não há segredo aqui.
+  '''apps/.*/src/generated/.*''',
   '''apps/sicat/tests/.*''',
   '''apps/sicat/examples/.*''',
   '''apps/sicat/openapi/.*''',
@@ -43,4 +47,9 @@ regexes = [
   '''jdbc:postgresql://[^@"'\s]+''',
   # Referencia de servico Postgres interno host:porta/db (sem credencial), ex.: keycloak-postgres:5432/keycloak.
   '''[a-z0-9-]+-postgres:\d{2,5}/[a-z0-9_]+''',
+  # Credenciais de TESTE da Forja: fixtures DETERMINISTICOS no gerador (specs/tools/make-test-suite.mjs)
+  # e no harness de CI (.github/workflows/forge-tests.yml). NAO sao segredos reais — o app em producao
+  # usa JWT_SECRET/admin aleatorios via Secret <prod>-auth. O scanner confunde com generic-api-key.
+  '''forge-pass-\d+''',
+  '''forge-test-(admin|secret)''',
 ]

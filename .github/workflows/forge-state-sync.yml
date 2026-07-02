@@ -1,0 +1,51 @@
+# =============================================================================
+# forge-state-sync — mantém o ConfigMap `reqhub-forge-state` FRESCO quando a fonte muda na main.
+#
+# Problema que resolve (Forja 4.1, D0): o ConfigMap era sincado SÓ pelos workflows da esteira
+# (greenfield-launch/forge-deploy/forge-delete). Uma adoção/backfill mesclada na main (ex.: #176,
+# sicat/gymops) NÃO passava por eles → estado vivo stale → o Studio mostrava só os produtos da
+# última rodada da esteira (o operador via 2 de 5 produtos).
+#
+# Este workflow NÃO commita nada (sem loop de CI). Corrida conhecida e benigna com o
+# `-DeployStatus` do forge-deploy: ambos fazem merge/apply idempotente do ConfigMap; no pior
+# caso um badge de deploy fica stale até o próximo deploy (documentado no header do script).
+# =============================================================================
+name: forge-state-sync
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'specs/baseline/products.json'
+      - 'specs/baseline/implementation-status.json'
+      - 'specs/products/**'
+  workflow_dispatch:
+
+concurrency:
+  group: forge-state-sync
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Sincronizar ConfigMap reqhub-forge-state
+    runs-on: [self-hosted, windows, docker-desktop, local-k8s, flavio-devops]
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      KUBECONFIG: C:\ProgramData\forge-kube\config
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Sync (idempotente)
+        run: |
+          $ErrorActionPreference = "Stop"
+          & ./scripts/sync-reqhub-forge-state.ps1
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::sync do reqhub-forge-state falhou"; exit 1 }
+          Write-Host "::notice::ConfigMap reqhub-forge-state sincronizado com a baseline da main."

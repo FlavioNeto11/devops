@@ -61,6 +61,15 @@ spec:
                   name: portal-recorder-config
                   key: internal_token
                   optional: true
+            # Promoção de contrato p/ o git (E3): PAT que dispara o workflow
+            # portal-contract-promote via repository_dispatch. OPCIONAL no pod —
+            # a app é fail-closed (sem a env, POST /v1/contracts/:id/promote → 503).
+            - name: GITHUB_DISPATCH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: portal-recorder-config
+                  key: github_dispatch_token
+                  optional: true
             - name: STORAGE_DIR
               value: "/data/storage"
           ports:

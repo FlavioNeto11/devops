@@ -1,0 +1,146 @@
+# ContaViva 360 — k8s gerado pela Forge (gymops-style). Imagens :local.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: contaviva-360-postgres, namespace: apps, labels: { app.kubernetes.io/part-of: contaviva-360 } }
+spec: { accessModes: [ReadWriteOnce], resources: { requests: { storage: 1Gi } } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: contaviva-360-postgres, namespace: apps, labels: { app.kubernetes.io/name: contaviva-360-postgres, app.kubernetes.io/part-of: contaviva-360 } }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app.kubernetes.io/name: contaviva-360-postgres } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: contaviva-360-postgres, app.kubernetes.io/part-of: contaviva-360 } }
+    spec:
+      containers:
+        - name: postgres
+          image: pgvector/pgvector:pg16
+          envFrom: [ { secretRef: { name: contaviva-360-db } } ]
+          ports: [ { containerPort: 5432 } ]
+          volumeMounts: [ { name: data, mountPath: /var/lib/postgresql/data, subPath: pgdata } ]
+      volumes: [ { name: data, persistentVolumeClaim: { claimName: contaviva-360-postgres } } ]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: contaviva-360-postgres, namespace: apps, labels: { app.kubernetes.io/part-of: contaviva-360 } }
+spec: { selector: { app.kubernetes.io/name: contaviva-360-postgres }, ports: [ { port: 5432, targetPort: 5432 } ] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: contaviva-360-redis, namespace: apps, labels: { app.kubernetes.io/name: contaviva-360-redis, app.kubernetes.io/part-of: contaviva-360 } }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: contaviva-360-redis } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: contaviva-360-redis, app.kubernetes.io/part-of: contaviva-360 } }
+    spec: { containers: [ { name: redis, image: redis:7-alpine, ports: [ { containerPort: 6379 } ] } ] }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: contaviva-360-redis, namespace: apps, labels: { app.kubernetes.io/part-of: contaviva-360 } }
+spec: { selector: { app.kubernetes.io/name: contaviva-360-redis }, ports: [ { port: 6379, targetPort: 6379 } ] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: contaviva-360-api
+  namespace: apps
+  labels: { app.kubernetes.io/name: contaviva-360-api, app.kubernetes.io/component: api, app.kubernetes.io/part-of: contaviva-360, devops.flavioneto/app-type: product_software }
+  annotations: { devops.flavioneto/app: contaviva-360, devops.flavioneto/metrics-port: "9464" }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: contaviva-360-api } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: contaviva-360-api, app.kubernetes.io/component: api, app.kubernetes.io/part-of: contaviva-360 } }
+    spec:
+      containers:
+        - name: api
+          image: contaviva-360-api:local
+          imagePullPolicy: IfNotPresent
+          command: ["npm", "start"]
+          envFrom: [ { secretRef: { name: contaviva-360-db } }, { secretRef: { name: contaviva-360-ai, optional: true } } ]
+          env:
+            - { name: REDIS_URL, value: "redis://contaviva-360-redis:6379" }
+            - { name: METRICS_PORT, value: "9464" }
+            - { name: AUTO_MIGRATE, value: "true" }
+            - { name: AUTO_SEED, value: "true" }
+          ports:
+            - { name: http, containerPort: 8080 }
+            - { name: metrics, containerPort: 9464 }
+          readinessProbe: { httpGet: { path: /health, port: 8080 }, initialDelaySeconds: 8, periodSeconds: 10 }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: contaviva-360-api, namespace: apps, labels: { app.kubernetes.io/name: contaviva-360-api, app.kubernetes.io/part-of: contaviva-360 } }
+spec: { selector: { app.kubernetes.io/name: contaviva-360-api }, ports: [ { name: http, port: 8080, targetPort: 8080 }, { name: metrics, port: 9464, targetPort: 9464 } ] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: contaviva-360-worker
+  namespace: apps
+  labels: { app.kubernetes.io/name: contaviva-360-worker, app.kubernetes.io/component: worker, app.kubernetes.io/part-of: contaviva-360 }
+  annotations: { devops.flavioneto/app: contaviva-360, devops.flavioneto/metrics-port: "9464" }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: contaviva-360-worker } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: contaviva-360-worker, app.kubernetes.io/component: worker, app.kubernetes.io/part-of: contaviva-360 } }
+    spec:
+      containers:
+        - name: worker
+          image: contaviva-360-api:local
+          imagePullPolicy: IfNotPresent
+          command: ["npm", "run", "worker"]
+          envFrom: [ { secretRef: { name: contaviva-360-db } } ]
+          env:
+            - { name: REDIS_URL, value: "redis://contaviva-360-redis:6379" }
+            - { name: METRICS_PORT, value: "9464" }
+            - { name: AUTO_MIGRATE, value: "false" }
+          ports: [ { name: metrics, containerPort: 9464 } ]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: contaviva-360-worker, namespace: apps, labels: { app.kubernetes.io/name: contaviva-360-worker, app.kubernetes.io/part-of: contaviva-360 } }
+spec: { selector: { app.kubernetes.io/name: contaviva-360-worker }, ports: [ { name: metrics, port: 9464, targetPort: 9464 } ] }
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata: { name: contaviva-360-api-strip, namespace: apps }
+spec: { stripPrefix: { prefixes: ["/contaviva-360/api"] } }
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata: { name: contaviva-360, namespace: apps, labels: { app.kubernetes.io/part-of: contaviva-360 } }
+spec:
+  entryPoints: [web]
+  routes:
+    - match: PathPrefix(`/contaviva-360/api`)
+      kind: Rule
+      priority: 40
+      services: [ { name: contaviva-360-api, port: 8080 } ]
+      middlewares: [ { name: console-auth-401, namespace: devops-system }, { name: contaviva-360-api-strip } ]
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata: { name: contaviva-360, namespace: apps, labels: { app.kubernetes.io/part-of: contaviva-360, release: kube-prometheus-stack } }
+spec:
+  selector: { matchLabels: { app.kubernetes.io/part-of: contaviva-360 } }
+  namespaceSelector: { matchNames: [apps] }
+  endpoints: [ { port: metrics, path: /metrics, interval: 15s } ]
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata: { name: contaviva-360-slo, namespace: apps, labels: { app.kubernetes.io/part-of: contaviva-360, release: kube-prometheus-stack } }
+spec:
+  groups:
+    - name: contaviva-360.slo
+      rules:
+        - alert: contaviva-360ApiDown
+          expr: absent(up{job=~".*contaviva-360-api.*"} == 1)
+          for: 3m
+          labels: { severity: critical, app: contaviva-360 }
+          annotations: { summary: "contaviva-360: API sem target UP" }
