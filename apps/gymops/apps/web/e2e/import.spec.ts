@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// BUG-014: do NOT use `fileURLToPath(import.meta.url)` here — @gymops/web is CJS
+// and the @playwright/test transpiler emits incompatible code, aborting the whole
+// test collection (0 tests run). The derived `__dirname` was dead code anyway
+// (the fixture is inline and uploaded via Buffer, no filesystem access needed).
 
 // Minimal Trello board fixture for E2E
 const TRELLO_BOARD = {
