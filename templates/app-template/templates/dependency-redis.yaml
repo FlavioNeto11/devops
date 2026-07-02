@@ -1,0 +1,117 @@
+{{- /*
+=============================================================================
+dependency-redis.yaml — Provisiona dependencias com engine "redis".
+-----------------------------------------------------------------------------
+Gera, para cada entrada de .Values.dependencies com engine=redis:
+  * PersistentVolumeClaim <app>-<dep>-data (AOF persiste a fila/cache)
+  * Deployment <app>-<dep> com strategy Recreate (PVC RWO) e appendonly ligado
+  * Service ClusterIP <app>-<dep> na porta 6379
+Padrao generalizado do gymops-redis (apps/gymops/k8s/gymops.yaml) + PVC/AOF
+para a fila (BullMQ) sobreviver a restart do pod.
+
+Imagem: redis:<version>-alpine (default version 7).
+
+Segredos (hard-constraints §3): o chart NUNCA renderiza Secret. Se
+dep.secretName for informado (ex.: REDIS_PASSWORD), ele e referenciado via
+envFrom — criado fora do git.
+
+Resources (hard-constraints §6): DEFAULT obrigatorio requests 32Mi/25m e
+limits 256Mi/250m. Override via dep.resources.
+=============================================================================
+*/ -}}
+{{- range $name, $dep := .Values.dependencies }}
+{{- if eq (default "" $dep.engine) "redis" }}
+{{- $fullname := include "app-template.fullname" (dict "root" $ "name" $name) }}
+{{- $version := $dep.version | default "7" | toString }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $fullname }}-data
+  namespace: {{ $.Values.app.namespace }}
+  labels:
+    {{- include "app-template.commonLabels" (dict "root" $ "name" $name "component" "cache") | nindent 4 }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ $dep.storage | default "1Gi" }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}
+  namespace: {{ $.Values.app.namespace }}
+  labels:
+    {{- include "app-template.commonLabels" (dict "root" $ "name" $name "component" "cache") | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "app-template.selectorLabels" (dict "root" $ "name" $name) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "app-template.commonLabels" (dict "root" $ "name" $name "component" "cache") | nindent 8 }}
+    spec:
+      containers:
+        - name: redis
+          image: redis:{{ $version }}-alpine
+          imagePullPolicy: IfNotPresent
+          args: ["--appendonly", "yes"]
+          {{- with $dep.secretName }}
+          envFrom:
+            - secretRef:
+                name: {{ . }}
+          {{- end }}
+          ports:
+            - name: redis
+              containerPort: 6379
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            {{- if $dep.resources }}
+            {{- toYaml $dep.resources | nindent 12 }}
+            {{- else }}
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+            {{- end }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ $fullname }}-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}
+  namespace: {{ $.Values.app.namespace }}
+  labels:
+    {{- include "app-template.commonLabels" (dict "root" $ "name" $name "component" "cache") | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "app-template.selectorLabels" (dict "root" $ "name" $name) | nindent 4 }}
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+{{- end }}
+{{- end }}

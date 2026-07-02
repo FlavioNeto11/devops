@@ -82,6 +82,33 @@ Alem disso, sempre sao gerados:
 - **`secret.example.yaml`** — modelo de Secret (NAO aplicar; copiar para
   `secret.yaml`, que e gitignored, e preencher).
 
+### Dependencias (`dependencies` — contrato v2)
+
+Quando os values trazem `dependencies` (derivados de um `devops.yaml` `version: 2`
+pelo compilador `specs/tools/devops-compile.mjs`), o chart provisiona a
+infraestrutura da app por engine:
+
+| `engine` | Template | Gera | Resources default |
+|---|---|---|---|
+| `postgres` | `dependency-postgres.yaml` | PVC `<app>-<dep>-data` + Deployment `<app>-<dep>` (strategy **Recreate**) + Service 5432 + probes `pg_isready`. `flavor: pgvector` -> `pgvector/pgvector:pg<version>`; sem flavor -> `postgres:<version>-alpine` (default 16). `secretName` OBRIGATORIO (`envFrom`) | requests 128Mi/50m · limits 1Gi/1000m |
+| `redis` | `dependency-redis.yaml` | PVC (AOF) + Deployment (**Recreate**) + Service 6379 + probes `redis-cli ping`. `redis:<version>-alpine` (default 7) | requests 32Mi/25m · limits 256Mi/250m |
+
+O chart **NUNCA renderiza Secret** para dependencias — apenas referencia
+`secretName` (Secret criado fora do git; ver `docs/standards/hard-constraints.md` §3).
+Engines `mongodb`/`nats` sao reservadas no schema, sem template ainda.
+
+```yaml
+dependencies:
+  postgres:
+    engine: postgres
+    flavor: pgvector       # opcional
+    version: "16"
+    storage: 2Gi
+    secretName: meuapp-db  # POSTGRES_USER/PASSWORD/DB — criado fora do git
+  redis:
+    engine: redis
+```
+
 ### Imagem efetiva
 
 A imagem de cada container e computada assim:
@@ -138,6 +165,11 @@ vencer. O Traefik ja prioriza pelo tamanho da regra, mas o chart define
 `priority` explicito por seguranca: **API = 100** (maior) e **frontend = 10**
 (menor). Assim `/aplicacao1/api/health` sempre vai para a API, e qualquer
 outra rota sob `/aplicacao1` vai para o frontend.
+
+A `priority` e **sobrescrevivel por service** (`services.<svc>.priority`). O
+compilador do contrato (`specs/tools/devops-compile.mjs`) aplica a regra de
+ouro da plataforma: frontend 10, api 30, api2 40 (`api2 > api > frontend`).
+Sem override, valem os defaults historicos do chart (100/10).
 
 ---
 
