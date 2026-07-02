@@ -3,14 +3,30 @@
 #   git: apps/<p>, specs/{products,requirements,refinements}/<p>, data/products/<p>,
 #        platform/argocd/apps/<p>.yaml  + baseline regenerada  (PR auto-merge --admin)
 #   cluster: Application do Argo + Deployments/Services/Secrets/PVCs/IngressRoutes do produto.
-# Disparado por repository_dispatch (forge-delete) pela UI da Forja. Self-hosted (tem git/kubectl).
+# Disparado por repository_dispatch (forge-delete) pela UI da Forja — e manualmente via
+# workflow_dispatch (útil p/ dry-run). Self-hosted (tem git/kubectl).
 # PROTEGE produtos reais/plataforma (denylist) — defesa em profundidade além do gate do reqhub-api.
+# dry_run=true (client_payload ou input): LISTA tudo que seria removido (git + Argo + cluster)
+# e sai SEM remover nada. No delete real, uma VERIFICAÇÃO FINAL exige zero recursos com o
+# label part-of e Application inexistente — sobrou algo => o job FALHA com relatório.
+# Idempotente: re-rodar após falha parcial é seguro.
 # =============================================================================
 name: forge-delete
 
 on:
   repository_dispatch:
     types: [forge-delete]
+  workflow_dispatch:
+    inputs:
+      product:
+        description: "Produto da Forja (slug) a apagar"
+        type: string
+        required: true
+      dry_run:
+        description: "true = só LISTA o que seria removido (git + cluster) e sai sem remover"
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: write
@@ -33,16 +49,13 @@ jobs:
           KUBECONFIG: C:\ProgramData\forge-kube\config   # runner-serviço (NETWORK SERVICE) usa este kubeconfig
         run: |
           $ErrorActionPreference = "Stop"
-          $prod = "${{ github.event.client_payload.product }}"
+          $prod = "${{ github.event.client_payload.product || github.event.inputs.product }}"
           if ($prod -notmatch '^[a-z][a-z0-9-]{1,30}$') { Write-Host "::error::product inválido: '$prod'"; exit 1 }
           $protected = @('sicat','gymops','rmambiental','anarabottini','reqhub','console','devops-console','portal','portal-recorder','keycloak','langfuse','ai-control-plane','devops-platform')
           if ($protected -contains $prod) { Write-Host "::error::'$prod' é protegido — recusado."; exit 1 }
+          $dryRun = ("${{ github.event.client_payload.dry_run || github.event.inputs.dry_run }}" -eq 'true')
 
-          gh auth setup-git
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # 1) remove os artefatos do produto (idempotente — git rm -r só remove o que existe).
+          # paths de git que o delete remove (idempotente — git rm -r só remove o que existe).
           $paths = @(
             "apps/$prod",
             "specs/products/$prod",
@@ -51,6 +64,43 @@ jobs:
             "apps/reqhub/frontend/data/products/$prod",
             "platform/argocd/apps/$prod.yaml"
           )
+          # tipos verificáveis por label no cluster (inclui servicemonitor/prometheusrule: o k8s
+          # gerado pela Forja cria ambos com part-of — sem removê-los o alerta <p>ApiDown
+          # (absent(up)) dispararia para sempre após a exclusão).
+          $kinds = 'all,cm,secret,pvc,ingressroute,middleware,servicemonitor,prometheusrule'
+
+          # 0) DRY-RUN — lista TUDO que o delete real removeria e sai sem tocar em nada.
+          if ($dryRun) {
+            $ErrorActionPreference = "Continue"
+            Write-Host "== DRY-RUN de forge-delete '$prod' — nada será removido =="
+            Write-Host "--- git (paths presentes no repo) ---"
+            $gitHits = @($paths | Where-Object { Test-Path $_ })
+            if ($gitHits.Count -eq 0) { Write-Host "  (nenhum — produto já fora do repo)" }
+            foreach ($p in $gitHits) { Write-Host "  - $p" }
+            Write-Host "--- Argo CD: Application ---"
+            $app = kubectl -n argocd get application $prod --ignore-not-found -o name 2>$null
+            if ($app) { Write-Host "  - $app (ns argocd)" } else { Write-Host "  (nenhuma)" }
+            Write-Host "--- cluster: recursos com label app.kubernetes.io/part-of=$prod ---"
+            $labeled = @(kubectl get $kinds -A -l app.kubernetes.io/part-of=$prod -o jsonpath='{range .items[*]}{.kind}/{.metadata.name} -n {.metadata.namespace}{"\n"}{end}' 2>$null | Where-Object { $_ })
+            if ($labeled.Count -eq 0) { Write-Host "  (nenhum)" }
+            foreach ($r in $labeled) { Write-Host "  - $r" }
+            Write-Host "--- cluster: candidatos POR NOME em ns apps (fallback p/ recurso sem o label) ---"
+            $named = @()
+            foreach ($k in @('deploy','svc','secret','pvc')) {
+              $items = kubectl -n apps get $k -o name 2>$null | Select-String "(^|/)$prod(-|$)"
+              foreach ($i in $items) { $named += $i.ToString() }
+            }
+            if ($named.Count -eq 0) { Write-Host "  (nenhum)" }
+            foreach ($r in $named) { Write-Host "  - $r (ns apps)" }
+            Write-Host "::notice::forge-delete DRY-RUN '$prod': $($gitHits.Count) path(s) git, app-argo=$([bool]$app), $($labeled.Count) recurso(s) por label, $($named.Count) por nome. NADA foi removido — rode sem dry_run para executar."
+            exit 0
+          }
+
+          gh auth setup-git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # 1) remove os artefatos do produto (idempotente — git rm -r só remove o que existe).
           foreach ($p in $paths) { if (Test-Path $p) { git rm -r -q $p } }
 
           # 2) regenera a baseline (remove o produto de current-baseline/impl-status/coverage).
@@ -72,11 +122,16 @@ jobs:
             if ($LASTEXITCODE -ne 0) { Write-Host "::warning::auto-merge do PR de exclusão bloqueado — mescle manualmente: $url" }
           } else { Write-Host "git: nada a remover (produto já fora do repo)." }
 
-          # 4) cluster: apaga o Application do Argo + recursos do produto (best-effort).
+          # 4) cluster: apaga o Application do Argo + recursos do produto (best-effort; a
+          #    verificação final no passo 6 é quem garante). Antes de deletar a Application,
+          #    força um refresh do app-of-apps: com o PR de exclusão já mesclado ele nota que
+          #    platform/argocd/apps/$prod.yaml sumiu e NÃO recria a Application (selfHeal).
           $ErrorActionPreference = "Continue"
+          kubectl -n argocd annotate application devops-platform argocd.argoproj.io/refresh=normal --overwrite 2>$null
+          Start-Sleep 6
           kubectl -n argocd delete application $prod --ignore-not-found --wait=false 2>$null
           Start-Sleep 4
-          kubectl -n apps delete all,secret,pvc,configmap,ingressroute,middleware -l app.kubernetes.io/part-of=$prod --ignore-not-found 2>$null
+          kubectl -n apps delete $kinds -l app.kubernetes.io/part-of=$prod --ignore-not-found 2>$null
           # por nome (caso falte o label part-of em algum recurso)
           foreach ($k in @('deploy','svc','secret','pvc')) {
             $items = kubectl -n apps get $k -o name 2>$null | Select-String "(^|/)$prod(-|$)"
@@ -86,4 +141,27 @@ jobs:
           # 5) ressincroniza o estado VIVO da Forja (ConfigMap reqhub-forge-state) — a tela Forge
           #    passa a NÃO listar mais o produto apagado.
           & ./scripts/sync-reqhub-forge-state.ps1
-          Write-Host "::notice::forge-delete: produto '$prod' removido do git, do cluster e do estado vivo da Forja."
+
+          # 6) VERIFICAÇÃO FINAL — o delete é assíncrono (finalizers, cascade do Argo, pods em
+          #    Terminating); espera até ~150s e então EXIGE: zero recursos com o label part-of
+          #    (em TODOS os namespaces) e Application do Argo inexistente. Sobrou algo => o job
+          #    FALHA com um ::error:: por recurso — nunca "sucesso" com lixo no cluster.
+          $leftover = @(); $appLeft = $null
+          foreach ($i in 1..30) {
+            $leftover = @(kubectl get $kinds -A -l app.kubernetes.io/part-of=$prod -o jsonpath='{range .items[*]}{.kind}/{.metadata.name} -n {.metadata.namespace}{"\n"}{end}' 2>$null | Where-Object { $_ })
+            $appLeft = kubectl -n argocd get application $prod --ignore-not-found -o name 2>$null
+            if ($leftover.Count -eq 0 -and -not $appLeft) { break }
+            Start-Sleep -Seconds 5
+          }
+          if ($leftover.Count -gt 0 -or $appLeft) {
+            if ($appLeft) { Write-Host "::error::forge-delete ${prod}: Application do Argo ainda existe: $appLeft (ns argocd). O PR de exclusão mesclou? Enquanto platform/argocd/apps/$prod.yaml existir na main, o app-of-apps a recria." }
+            foreach ($r in $leftover) { Write-Host "::error::forge-delete ${prod}: recurso remanescente: $r" }
+            Write-Host "::error::forge-delete ${prod}: verificação final REPROVOU — sobraram $($leftover.Count) recurso(s) (+appArgo=$([bool]$appLeft)). Investigue (finalizers? PVC preso? PR não mesclado?) e re-rode — o delete é idempotente."
+            exit 1
+          }
+          # defesa extra por NOME (recurso homônimo sem o label não reprova — pode ser de outro app): só avisa.
+          foreach ($k in @('deploy','svc','secret','pvc')) {
+            $items = kubectl -n apps get $k -o name 2>$null | Select-String "(^|/)$prod(-|$)"
+            foreach ($i in $items) { Write-Host "::warning::forge-delete ${prod}: sobrou por NOME (sem label part-of): $($i.ToString()) (ns apps) — confira se é mesmo do produto." }
+          }
+          Write-Host "::notice::forge-delete: produto '$prod' removido do git, do cluster (verificação final: ZERO sobras por label) e do estado vivo da Forja."
