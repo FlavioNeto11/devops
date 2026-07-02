@@ -36,6 +36,9 @@ function discoverForgeApps() {
     if (!fs.existsSync(pj)) continue;
     let product;
     try { product = JSON.parse(fs.readFileSync(pj, 'utf8')); } catch { continue; }
+    // Produtos ADOTADOS (brownfield, ex.: sicat/gymops) têm frontend pré-Forja com tokens
+    // artesanais próprios — o codegen NÃO deve sobrescrevê-los com a marca default da Forja.
+    if (product.origin === 'adopted') continue;
     const interfaces = Array.isArray(product.interfaces) ? product.interfaces : ['api'];
     if (!interfaces.includes('web')) continue;
     const app = product.name || name;
