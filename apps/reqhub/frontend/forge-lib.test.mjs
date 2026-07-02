@@ -7,6 +7,7 @@ import {
   typeLabel, asList, dagFromWaves, businessProductScopes, NON_PRODUCT_SCOPES,
   weightedProgress, wavesFromProgress, STAGE_WEIGHT,
   studioPhaseModel, STUDIO_PHASE_KEYS,
+  mergeLiveProducts, mergeImplItems, forgeStateSig,
   FORGE_MODES, FORGE_MODE_LABELS, normalizeForgeMode, modeCopy,
   projectRequirementCard, forgeReqObject, buildLaunchBody,
 } from './assets/forge-lib.js';
@@ -410,5 +411,51 @@ test('forgeReqObject: YAML canônico (mesmo objeto que ia pro export do studio)'
   assert.equal(o.scope.product_scope, 'x');
   assert.deepEqual(o.acceptance_criteria, ['um só']);
   assert.deepEqual(o.verification_method, ['test']);
+});
+
+
+// ---------- mergeLiveProducts / mergeImplItems / forgeStateSig (D1, Forja 4.1) ----------
+test('mergeLiveProducts: fixture do INCIDENTE real — vivo stale (2) manda na presença; baked preenche campos', () => {
+  // baked pós-#176: 5 produtos (2 adotados); ConfigMap stale: só 2 greenfield, SEM origin.
+  const baked = [
+    { name: 'contaviva-360', display_name: 'ContaViva 360', origin: 'greenfield', vision: 'ERP', phases: { requirements: { status: 'approved' } } },
+    { name: 'neuroevolui', display_name: 'NeuroEvolui', origin: 'greenfield', vision: 'clinica' },
+    { name: 'sicat', display_name: 'SICAT', origin: 'adopted', vision: 'MTR CETESB', architecture_summary: 'Vue+Express' },
+    { name: 'gymops', display_name: 'GymOps', origin: 'adopted' },
+    { name: 'contaviva-pro', display_name: 'ContaViva Pro', origin: 'greenfield' },
+  ];
+  const live = [
+    { name: 'contaviva-360', display_name: 'ContaViva 360', vision: '', reqCount: 9, progress: { done: 9, pct: 100 }, reqs: [{ id: 'REQ-CONTAVIVA360-0001', status: 'deployed' }] },
+    { name: 'neuroevolui', display_name: 'NeuroEvolui', reqCount: 9, progress: { done: 9, pct: 100 }, reqs: [] },
+  ];
+  const m = mergeLiveProducts(baked, live, {});
+  // PRESENÇA = vivo (decisão adversarial: união ressuscitaria produto apagado p/ sempre)
+  assert.deepEqual(m.map((p) => p.name), ['contaviva-360', 'neuroevolui']);
+  // CAMPOS: baked preenche o que o vivo não transporta/manda vazio
+  assert.equal(m[0].origin, 'greenfield');
+  assert.equal(m[0].vision, 'ERP'); // vivo mandou '' -> baked preenche
+  assert.equal(m[0].progress.pct, 100); // progresso vem do vivo
+});
+
+test('mergeLiveProducts: origin do vivo vence quando presente; adotado nunca vira greenfield por default do baked ausente', () => {
+  const m = mergeLiveProducts([], [{ name: 'x', origin: 'adopted', reqs: [] }], {});
+  assert.equal(m[0].origin, 'adopted');
+  const m2 = mergeLiveProducts([{ name: 'y', origin: 'adopted' }], [{ name: 'y', reqs: [] }], {});
+  assert.equal(m2[0].origin, 'adopted'); // vivo sem origin -> baked preserva
+});
+
+test('mergeImplItems: UNIÃO — baked traz escopos de plataforma; vivo vence por id', () => {
+  const baked = { 'REQ-AI-0001': { status: 'deployed' }, 'REQ-CONTAVIVA360-0001': { status: 'merged' } };
+  const live = [{ name: 'contaviva-360', reqs: [{ id: 'REQ-CONTAVIVA360-0001', status: 'deployed' }] }];
+  const items = mergeImplItems(baked, live);
+  assert.equal(items['REQ-AI-0001'].status, 'deployed');       // plataforma NÃO some (o replace antigo zerava)
+  assert.equal(items['REQ-CONTAVIVA360-0001'].status, 'deployed'); // vivo vence
+});
+
+test('forgeStateSig: determinística e sensível a origem/progresso', () => {
+  const a = forgeStateSig([{ name: 'x', reqCount: 2, progress: { done: 1, pct: 50 }, origin: 'greenfield' }]);
+  const b = forgeStateSig([{ name: 'x', reqCount: 2, progress: { done: 2, pct: 100 }, origin: 'greenfield' }]);
+  assert.notEqual(a, b);
+  assert.equal(a, forgeStateSig([{ name: 'x', reqCount: 2, progress: { done: 1, pct: 50 }, origin: 'greenfield' }]));
 });
 

@@ -9,6 +9,54 @@ export const STATUS_ORDER = ['not_started', 'in_progress', 'pr_open', 'merged', 
 
 const PHASE_KEYS = ['definir', 'arquitetura', 'build'];
 
+/* ---------- merge do estado VIVO × BAKED (D1, Forja 4.1) ----------
+   Semântica decidida em revisão adversarial:
+   - PRESENÇA = payload vivo fresco (ConfigMap). União ressuscitaria produto apagado para sempre
+     (a imagem :local nunca rebakeia sozinha) e regrediria o forge-delete verificado do 4.0.
+   - CAMPOS: o baked PREENCHE o que o vivo não transporta ou manda vazio (origin, vision,
+     architecture_summary, phases…) — generalização da regra anti-regressão do architecture_summary.
+   - implStatus = UNIÃO por REQ-id: o baked traz TODOS os escopos (incl. ~350 REQs de plataforma
+     que o payload vivo não carrega — o replace antigo os zerava); o vivo vence por id. */
+export function mergeLiveProducts(bakedProducts, liveProducts, prevArchByName) {
+  const baked = new Map((Array.isArray(bakedProducts) ? bakedProducts : []).filter((p) => p && p.name).map((p) => [p.name, p]));
+  const prev = prevArchByName || {};
+  const fill = (live, bk, key) => {
+    const v = live[key];
+    if (v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length && Array.isArray(bk[key]) && bk[key].length)) return bk[key] !== undefined ? bk[key] : v;
+    return v;
+  };
+  return (Array.isArray(liveProducts) ? liveProducts : []).filter((p) => p && p.name).map((p) => {
+    const bk = baked.get(p.name) || {};
+    return {
+      name: p.name,
+      display_name: fill(p, bk, 'display_name') || p.name,
+      base_path: fill(p, bk, 'base_path'),
+      blueprint: fill(p, bk, 'blueprint'),
+      stack: fill(p, bk, 'stack'),
+      app_type: fill(p, bk, 'app_type'),
+      origin: p.origin || bk.origin || 'greenfield',
+      vision: fill(p, bk, 'vision'),
+      phases: (p.phases && Object.keys(p.phases).length ? p.phases : bk.phases) || {},
+      architecture_summary: p.architecture_summary || bk.architecture_summary || prev[p.name] || '',
+      capability_blocks: fill(p, bk, 'capability_blocks'),
+      requirement_ids: fill(p, bk, 'requirement_ids'),
+      reqCount: p.reqCount,
+      progress: p.progress,
+    };
+  });
+}
+export function mergeImplItems(bakedItems, liveProducts) {
+  const items = { ...(bakedItems || {}) };
+  for (const p of (Array.isArray(liveProducts) ? liveProducts : [])) {
+    for (const r of (p && Array.isArray(p.reqs) ? p.reqs : [])) if (r && r.id) items[r.id] = { ...(items[r.id] || {}), status: r.status };
+  }
+  return items;
+}
+/** Assinatura barata do estado MESCLADO — re-render só quando algo visível muda. */
+export function forgeStateSig(mergedProducts) {
+  return JSON.stringify((mergedProducts || []).map((p) => [p.name, p.reqCount ?? null, p.progress ? p.progress.done : null, p.progress ? p.progress.pct : null, p.origin || null]));
+}
+
 /** Status de implementação de um requisito (default not_started). */
 export function reqStatus(implStatus, id) {
   const it = implStatus && implStatus.items && implStatus.items[id];

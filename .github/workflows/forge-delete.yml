@@ -51,7 +51,7 @@ jobs:
           $ErrorActionPreference = "Stop"
           $prod = "${{ github.event.client_payload.product || github.event.inputs.product }}"
           if ($prod -notmatch '^[a-z][a-z0-9-]{1,30}$') { Write-Host "::error::product inválido: '$prod'"; exit 1 }
-          $protected = @('sicat','gymops','rmambiental','anarabottini','reqhub','console','devops-console','portal','portal-recorder','keycloak','langfuse','ai-control-plane','devops-platform')
+          $protected = @('sicat','gymops','rmambiental','anarabottini','imobia','besc','zapbridge','reqhub','console','devops-console','portal','portal-recorder','keycloak','langfuse','ai-control-plane','devops-platform')
           if ($protected -contains $prod) { Write-Host "::error::'$prod' é protegido — recusado."; exit 1 }
           $dryRun = ("${{ github.event.client_payload.dry_run || github.event.inputs.dry_run }}" -eq 'true')
 
@@ -165,3 +165,4 @@ jobs:
             foreach ($i in $items) { Write-Host "::warning::forge-delete ${prod}: sobrou por NOME (sem label part-of): $($i.ToString()) (ns apps) — confira se é mesmo do produto." }
           }
           Write-Host "::notice::forge-delete: produto '$prod' removido do git, do cluster (verificação final: ZERO sobras por label) e do estado vivo da Forja."
+

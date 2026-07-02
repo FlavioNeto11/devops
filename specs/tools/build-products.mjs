@@ -23,6 +23,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
+import YAML from 'yaml';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SPECS_DIR = path.resolve(__dirname, '..');
@@ -256,11 +257,42 @@ function build() {
       requirement_ids: p.requirement_ids || [], phases: p.phases,
     })),
   };
+  // (D3, Forja 4.1) apps-index.json: TODO app implantável do monorepo (apps/<name> com devops.yaml),
+  // com a flag has_product — o hub do Studio deriva daqui a seção "Apps fora da Forja" (visibilidade
+  // + CTA de adoção) sem fabricar requisitos. Determinístico e ordenado (drift-check como os demais).
+  const appsIndex = { apps: loadAppsIndex(new Set(products.map((p) => p.name))) };
+
   return {
     'blueprints.json': stable(blueprintsIndex),
     'products.json': stable(productsIndex),
     'capabilities.json': stable(capabilitiesIndex),
+    'apps-index.json': stable(appsIndex),
   };
+}
+
+// Varre apps/<name>/devops.yaml (raiz do monorepo) e devolve [{ name, base_path, app_type, has_product }].
+// Fail-soft por app (devops.yaml ilegível -> pulado com warning). `forge-pilot-v2` é fixture do
+// contrato v2 (README dela) — excluída por não ser app implantável de verdade.
+const APPS_INDEX_EXCLUDE = new Set(['forge-pilot-v2']);
+function loadAppsIndex(productNames) {
+  const appsDir = path.join(SPECS_DIR, '..', 'apps');
+  if (!fs.existsSync(appsDir)) return [];
+  const out = [];
+  for (const entry of fs.readdirSync(appsDir, { withFileTypes: true })) {
+    if (!entry.isDirectory() || APPS_INDEX_EXCLUDE.has(entry.name)) continue;
+    const dy = path.join(appsDir, entry.name, 'devops.yaml');
+    if (!fs.existsSync(dy)) continue;
+    let doc = null;
+    try { doc = YAML.parse(fs.readFileSync(dy, 'utf8')); } catch { console.warn(`[products] aviso: devops.yaml ilegível em apps/${entry.name} — pulado do apps-index`); continue; }
+    const app = (doc && doc.app) || {};
+    out.push({
+      name: entry.name,
+      base_path: app.basePath || '/' + entry.name,
+      app_type: app.appType || 'product_software',
+      has_product: productNames.has(entry.name),
+    });
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function main() {
