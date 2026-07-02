@@ -242,7 +242,8 @@ export function toMessageContent(result, { provider = 'anthropic', supportsVisio
   const allowPdf = supportsPdf === undefined ? supportsVision : supportsPdf;
   const textBundle = renderTextBundle(result, userText);
   const blocks = (result && result.blocks) || [];
-  const usable = blocks.filter((b) => (b.type === 'image' && supportsVision) || (b.type === 'document' && allowPdf && provider === 'anthropic'));
+  const pdfNativeProvider = provider === 'anthropic' || provider === 'google' || provider === 'gemini';
+  const usable = blocks.filter((b) => (b.type === 'image' && supportsVision) || (b.type === 'document' && allowPdf && pdfNativeProvider));
   if (!usable.length) return textBundle;
   const content = [{ type: 'text', text: textBundle }];
   for (const b of usable) {
@@ -262,9 +263,9 @@ export function estimateTokens(result) {
   return Math.ceil(chars / 4) + imgs * 800; // heurística
 }
 
-// visão (imagens): família Claude 4.x/3.5 (opus/sonnet/haiku-4) + GPT-4o/4.1/GPT-5 (exceto nano).
-const VISION_MODELS = [/claude-(opus|sonnet)/i, /claude-haiku-4/i, /gpt-4o/i, /gpt-4\.1/i, /gpt-5(?!-nano)/i];
+// visão (imagens): família Claude 4.x/3.5 (opus/sonnet/haiku-4) + GPT-4o/4.1/GPT-5 (exceto nano) + Gemini.
+const VISION_MODELS = [/claude-(opus|sonnet)/i, /claude-haiku-4/i, /gpt-4o/i, /gpt-4\.1/i, /gpt-5(?!-nano)/i, /gemini/i];
 export function supportsVision(model) { const m = String(model || ''); return VISION_MODELS.some((re) => re.test(m)); }
-// PDF nativo (bloco document): só Claude (opus/sonnet/haiku-4). Demais usam o texto extraído.
-const PDF_MODELS = [/claude-(opus|sonnet)/i, /claude-haiku-4/i];
+// PDF nativo (bloco document): Claude (opus/sonnet/haiku-4) e Gemini (lê PDF nativamente). Demais usam o texto extraído.
+const PDF_MODELS = [/claude-(opus|sonnet)/i, /claude-haiku-4/i, /gemini/i];
 export function supportsPdf(model) { const m = String(model || ''); return PDF_MODELS.some((re) => re.test(m)); }

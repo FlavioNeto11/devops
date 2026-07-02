@@ -1,0 +1,49 @@
+# imobia frontend (Vue SPA / nginx) — servido sob /imobia/ (sem strip no Traefik).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: imobia-frontend
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: imobia-frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: imobia
+    app.kubernetes.io/managed-by: devops-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: imobia-frontend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: imobia-frontend
+        app.kubernetes.io/component: frontend
+        app.kubernetes.io/part-of: imobia
+    spec:
+      containers:
+        - name: frontend
+          image: imobia-frontend:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - { name: http, containerPort: 80 }
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            requests: { cpu: "10m", memory: "24Mi" }
+            limits: { cpu: "200m", memory: "96Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: imobia-frontend
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: imobia
+spec:
+  selector:
+    app.kubernetes.io/name: imobia-frontend
+  ports:
+    - { name: http, port: 80, targetPort: http }
