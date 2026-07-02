@@ -8,9 +8,10 @@ test.describe('Smoke — executor', () => {
     await loginAs(page, P);
   });
 
-  test('reaches dashboard after login (BUG-005 regression)', async ({ page }) => {
-    // executor has area-level membership — must resolve primaryUnitId via unit_areas
-    await expect(page).toHaveURL(/dashboard/, { timeout: 10_000 });
+  test('lands on personal view after login (BUG-005: role-based landing)', async ({ page }) => {
+    // resolveRedirect (login/page.tsx): executor/viewer → /me (visao pessoal), por design.
+    // O assert /dashboard universal era defasado — a landing e por papel.
+    await expect(page).toHaveURL(/\/me/, { timeout: 10_000 });
   });
 
   test('sees activities page', async ({ page }) => {

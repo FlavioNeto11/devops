@@ -8,8 +8,10 @@ test.describe('Smoke — area_leader', () => {
     await loginAs(page, P);
   });
 
-  test('reaches dashboard after login', async ({ page }) => {
-    await expect(page).toHaveURL(/dashboard/, { timeout: 10_000 });
+  test('lands on role home after login (area_leader → unit)', async ({ page }) => {
+    // resolveRedirect (login/page.tsx): area_leader → /units/<primaryUnitId> (fallback /dashboard).
+    // O assert /dashboard universal era defasado — a landing e por papel (BUG-005 por design).
+    await expect(page).toHaveURL(/\/(units\/[0-9a-f-]+|dashboard)/i, { timeout: 10_000 });
   });
 
   test('can see own area activities', async ({ page }) => {

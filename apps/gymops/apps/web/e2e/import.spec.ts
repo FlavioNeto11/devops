@@ -27,7 +27,9 @@ test.describe('Trello Import', () => {
 
   test('upload JSON, see preview, and reach mapping step', async ({ page }) => {
     await page.goto('/settings/import');
-    await expect(page.getByText(/importar|trello/i)).toBeVisible({ timeout: 5_000 });
+    // Ancora no h1 real da tela ("Importar do Trello"); getByText(/importar|trello/i)
+    // casava 6 elementos (heading + passos + copy) e violava strict mode.
+    await expect(page.getByRole('heading', { name: /importar do trello/i })).toBeVisible({ timeout: 5_000 });
 
     // Upload the board JSON
     const fileInput = page.locator('input[type="file"]');
