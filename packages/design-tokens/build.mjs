@@ -12,6 +12,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { deriveForgeTokensCss, DEFAULT_BRAND } from './forge-brand.mjs';
 import { renderSicatCss, renderSicatVuetifyTheme } from './renderers/sicat.mjs';
+import { renderGymopsHslBlock } from './renderers/gymops.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(__dirname, '..', '..');
@@ -108,7 +109,28 @@ function adoptedJobs() {
     out.push({ label: 'adopted:sicat (css)', rel: 'apps/sicat/frontend/src/styles/tokens.generated.css', content: renderSicatCss(tokens.brands.sicat) });
     out.push({ label: 'adopted:sicat (vuetify)', rel: 'apps/sicat/frontend/src/plugins/vuetify-theme.generated.js', content: renderSicatVuetifyTheme(tokens.brands.sicat) });
   }
+  if (tokens.brands.gymops) {
+    // alvo é um TRECHO do globals.css do app (as diretivas @tailwind precisam seguir no topo);
+    // o codegen substitui só o bloco entre os marcadores @generated-tokens:start/:end.
+    out.push({ label: 'adopted:gymops (globals.css)', rel: 'apps/gymops/apps/web/src/app/globals.css', content: renderGymopsHslBlock(tokens.brands.gymops), markers: true });
+  }
   return out;
+}
+
+// ---- replace-entre-marcadores ---------------------------------------------------------------
+// Para arquivos que o APP possui (não são 100% gerados), o job com `markers: true` troca apenas
+// o conteúdo entre `/* @generated-tokens:start ... */` (linha única) e `/* @generated-tokens:end */`,
+// preservando o resto do arquivo. Falha alto se os marcadores não existirem.
+const MARKER_START = '/* @generated-tokens:start';
+const MARKER_END = '/* @generated-tokens:end */';
+function spliceMarkers(current, block, rel) {
+  const i = current.indexOf(MARKER_START);
+  if (i === -1) throw new Error(`[design-tokens] marcador "${MARKER_START} ... */" ausente em ${rel}`);
+  const afterStartLine = current.indexOf('\n', i);
+  if (afterStartLine === -1) throw new Error(`[design-tokens] marcador de início sem quebra de linha em ${rel}`);
+  const j = current.indexOf(MARKER_END, afterStartLine);
+  if (j === -1) throw new Error(`[design-tokens] marcador "${MARKER_END}" ausente em ${rel}`);
+  return current.slice(0, afterStartLine + 1) + block + current.slice(j);
 }
 
 // alvos: marcas hand-authored (tokens.json) + marcas adotadas (renderers/) + apps web gerados
@@ -120,8 +142,19 @@ const jobs = [
 ];
 
 let drift = false;
-for (const { label, rel, content } of jobs) {
+for (const { label, rel, content, markers } of jobs) {
   const abs = path.join(REPO, rel);
+  if (markers) {
+    const cur = fs.readFileSync(abs, 'utf8'); // arquivo do app TEM de existir (com marcadores)
+    const next = spliceMarkers(cur, content, rel);
+    if (CHECK) {
+      if (cur !== next) { drift = true; console.error(`\x1b[31m[design-tokens] desatualizado: ${rel} (bloco @generated-tokens) — rode \`node build.mjs\` e commite.\x1b[0m`); }
+    } else {
+      if (cur !== next) fs.writeFileSync(abs, next);
+      console.log(`[design-tokens] ${label} -> ${rel} (entre marcadores)`);
+    }
+    continue;
+  }
   if (CHECK) {
     const cur = fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : null;
     if (cur !== content) { drift = true; console.error(`\x1b[31m[design-tokens] desatualizado: ${rel} — rode \`node build.mjs\` e commite.\x1b[0m`); }
