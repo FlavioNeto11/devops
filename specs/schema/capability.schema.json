@@ -14,6 +14,7 @@
     "requires": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9-]+$" }, "description": "Ids de blocos dos quais este depende (o build valida que existem; vira aresta de dependência → ordem de wave)." },
     "conflicts_with": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9-]+$" }, "description": "Ids de blocos mutuamente exclusivos (ex.: fila transacional Postgres vs Redis/BullMQ)." },
     "compatible_stacks": { "type": "array", "minItems": 1, "items": { "enum": ["sicat", "gymops"] }, "description": "Stacks-base que suportam este bloco." },
+    "tiers": { "type": "array", "items": { "enum": ["t1", "t2", "t3", "t4"] }, "description": "Metadado ADITIVO: tiers (presets de blueprint) onde este bloco tipicamente se aplica. Não afeta a resolução (que continua por compatible_stacks) — orienta a UI/presets. Ausente = todos os tiers com stack de código." },
     "reference": {
       "type": "array",
       "minItems": 1,

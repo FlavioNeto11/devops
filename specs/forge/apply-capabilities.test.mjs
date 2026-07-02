@@ -1,11 +1,57 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadCatalog, resolveBlocks, buildManifest } from './apply-capabilities.mjs';
+import { loadCatalog, loadCatalogHash, loadBlueprintTier, resolveBlocks, buildManifest, DEFAULT_BLOCKS } from './apply-capabilities.mjs';
 
 const byId = loadCatalog(); // catálogo real (specs/baseline/capabilities.json)
 
 test('catálogo real carrega os 15 blocos', () => {
   assert.ok(byId.size >= 15, `esperava >=15 blocos, veio ${byId.size}`);
+});
+
+test('resolveBlocks: stack null NÃO casa com nada (fail-closed — bug da compatibilidade universal)', () => {
+  const r = resolveBlocks(['camadas-rigidas', 'ia-grafo'], null, byId);
+  assert.deepEqual(r, [], `stack null deveria resolver vazio, veio ${JSON.stringify(r)}`);
+});
+
+test('resolveBlocks: stack desconhecida também resolve vazio (nunca "compatível com tudo")', () => {
+  const r = resolveBlocks(['camadas-rigidas'], 'stack-inexistente', byId);
+  assert.deepEqual(r, []);
+});
+
+test('resolveBlocks: tier t1 (cms-portal) NÃO força DEFAULT_BLOCKS', () => {
+  const r = resolveBlocks([], 'sicat', byId, { tier: 't1' });
+  assert.deepEqual(r, [], `t1 deveria resolver vazio, veio ${JSON.stringify(r)}`);
+});
+
+test('resolveBlocks: tiers com código (t2/t3) seguem forçando os DEFAULT_BLOCKS', () => {
+  for (const tier of ['t2', 't3']) {
+    const r = resolveBlocks([], 'sicat', byId, { tier });
+    for (const d of DEFAULT_BLOCKS) assert.ok(r.includes(d), `${tier} deveria incluir default '${d}'`);
+  }
+});
+
+test('loadBlueprintTier: cms-portal=t1; existentes=t3; desconhecido=t3 (fail-soft)', () => {
+  assert.equal(loadBlueprintTier('cms-portal'), 't1');
+  assert.equal(loadBlueprintTier('node-api-vue-spa'), 't3');
+  assert.equal(loadBlueprintTier('gymops-style'), 't3');
+  assert.equal(loadBlueprintTier('blueprint-fantasma'), 't3');
+});
+
+test('buildManifest: carimba o catalog_hash do catálogo', () => {
+  const hash = loadCatalogHash();
+  assert.ok(typeof hash === 'string' && /^[0-9a-f]{64}$/.test(hash), 'capabilities.json deveria expor catalog_hash sha256');
+  const m = buildManifest({ app: 'x', stack: 'sicat', blocks: [], byId, catalogHash: hash });
+  assert.equal(m.catalog_hash, hash);
+});
+
+test('bloco mobile-pwa: no catálogo, gymops-only, exemplar real do push VAPID', () => {
+  const b = byId.get('mobile-pwa');
+  assert.ok(b, 'mobile-pwa deveria estar no catálogo');
+  assert.deepEqual(b.compatible_stacks, ['gymops']);
+  assert.ok(b.reference.some((r) => r.path === 'apps/gymops/apps/api/src/lib/push.ts'));
+  // sicat não recebe o bloco (fail-closed por stack)
+  assert.ok(!resolveBlocks(['mobile-pwa'], 'sicat', byId).includes('mobile-pwa'));
+  assert.ok(resolveBlocks(['mobile-pwa'], 'gymops', byId).includes('mobile-pwa'));
 });
 
 test('resolveBlocks: força observabilidade mesmo sem pedir', () => {

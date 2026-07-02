@@ -10,7 +10,7 @@
     "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
     "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,30}$", "description": "= product_scope = nome da pasta apps/<name> e o subpath /<name>." },
     "display_name": { "type": "string", "minLength": 2 },
-    "base_path": { "type": "string", "pattern": "^/[a-z0-9-]+$" },
+    "base_path": { "type": "string", "pattern": "^/(sites/)?[a-z0-9-]+$", "description": "Subpath do produto. Regra: /<name>; produto cms_portal (blueprint t1) pode ser /sites/<name> — o portal publicado é servido pelo site-renderer (validado pelo build-products)." },
     "namespace": { "type": "string", "default": "apps" },
     "app_type": { "enum": ["product_software", "cms_portal", "platform_tool"], "default": "product_software" },
     "blueprint": { "type": "string", "pattern": "^[a-z0-9-]+$", "description": "Id de um blueprint em specs/blueprints/. Para origin=adopted: o blueprint REAL mais próximo da stack do app existente." },
