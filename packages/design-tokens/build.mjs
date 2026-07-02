@@ -12,6 +12,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { deriveForgeTokensCss, DEFAULT_BRAND } from './forge-brand.mjs';
 import { renderSicatCss, renderSicatVuetifyTheme } from './renderers/sicat.mjs';
+import { renderPlatformTokensBlock } from './renderers/platform.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(__dirname, '..', '..');
@@ -111,17 +112,59 @@ function adoptedJobs() {
   return out;
 }
 
-// alvos: marcas hand-authored (tokens.json) + marcas adotadas (renderers/) + apps web gerados
-// (brand.json -> --ui-*)
+// ---- marca da PLATAFORMA (casca global) ------------------------------------------------------
+// A paleta neutra `--p-*` da casca (packages/platform-shell/platform-tokens.css) também nasce
+// daqui (marca "platform") — elimina a manutenção manual dupla dos mesmos valores. O alvo é o
+// ARQUIVO-FONTE do codegen da casca (não uma cópia dentro de apps/): este build gera o bloco
+// entre marcadores e DEPOIS o platform-shell/build.mjs distribui a cópia p/ os frontends.
+// Só o bloco de vars é gerado (o header de prosa do arquivo continua hand-authored).
+function platformShellJobs() {
+  const out = [];
+  if (tokens.brands.platform) {
+    out.push({ label: 'platform (casca global)', rel: 'packages/platform-shell/platform-tokens.css', content: renderPlatformTokensBlock(tokens.brands.platform), markers: true });
+  }
+  return out;
+}
+
+// ---- replace-entre-marcadores ---------------------------------------------------------------
+// Para arquivos que o dono possui (não são 100% gerados), o job com `markers: true` troca apenas
+// o conteúdo entre `/* @generated-tokens:start ... */` (linha única) e `/* @generated-tokens:end */`,
+// preservando o resto do arquivo. Falha alto se os marcadores não existirem.
+const MARKER_START = '/* @generated-tokens:start';
+const MARKER_END = '/* @generated-tokens:end */';
+function spliceMarkers(current, block, rel) {
+  const i = current.indexOf(MARKER_START);
+  if (i === -1) throw new Error(`[design-tokens] marcador "${MARKER_START} ... */" ausente em ${rel}`);
+  const afterStartLine = current.indexOf('\n', i);
+  if (afterStartLine === -1) throw new Error(`[design-tokens] marcador de início sem quebra de linha em ${rel}`);
+  const j = current.indexOf(MARKER_END, afterStartLine);
+  if (j === -1) throw new Error(`[design-tokens] marcador "${MARKER_END}" ausente em ${rel}`);
+  return current.slice(0, afterStartLine + 1) + block + current.slice(j);
+}
+
+// alvos: marcas hand-authored (tokens.json) + marca da plataforma (casca) + marcas adotadas
+// (renderers/) + apps web gerados (brand.json -> --ui-*)
 const jobs = [
   ...Object.entries(TARGETS).map(([brandKey, rel]) => ({ label: brandKey, rel, content: render(brandKey) })),
+  ...platformShellJobs(),
   ...adoptedJobs(),
   ...discoverForgeApps().map(({ app, brand, rel }) => ({ label: 'forge:' + app, rel, content: deriveForgeTokensCss(brand) })),
 ];
 
 let drift = false;
-for (const { label, rel, content } of jobs) {
+for (const { label, rel, content, markers } of jobs) {
   const abs = path.join(REPO, rel);
+  if (markers) {
+    const cur = fs.readFileSync(abs, 'utf8'); // arquivo-alvo TEM de existir (com marcadores)
+    const next = spliceMarkers(cur, content, rel);
+    if (CHECK) {
+      if (cur !== next) { drift = true; console.error(`\x1b[31m[design-tokens] desatualizado: ${rel} (bloco @generated-tokens) — rode \`node build.mjs\` e commite.\x1b[0m`); }
+    } else {
+      if (cur !== next) fs.writeFileSync(abs, next);
+      console.log(`[design-tokens] ${label} -> ${rel} (entre marcadores)`);
+    }
+    continue;
+  }
   if (CHECK) {
     const cur = fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : null;
     if (cur !== content) { drift = true; console.error(`\x1b[31m[design-tokens] desatualizado: ${rel} — rode \`node build.mjs\` e commite.\x1b[0m`); }

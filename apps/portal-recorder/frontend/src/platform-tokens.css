@@ -7,7 +7,10 @@
    Dark casa as duas convenções: atributo [data-theme=dark] e classe .dark.
    Sincronizado por codegen-sync (packages/platform-shell/build.mjs) — não editar a cópia
    dentro do app; edite packages/platform-shell/platform-tokens.css.
+   Os VALORES entre os marcadores abaixo são GERADOS de packages/design-tokens/tokens.json
+   (marca "platform") por `node packages/design-tokens/build.mjs` — edite lá, não aqui.
    ============================================================================= */
+/* @generated-tokens:start (fonte: packages/design-tokens/tokens.json, marca "platform" — NÃO editar entre os marcadores) */
 :root {
   color-scheme: light;
   --p-bg: 248 250 252;
@@ -92,3 +95,4 @@
     --p-shadow-lg: 0 28px 80px -24px rgb(0 0 0 / 0.62);
   }
 }
+/* @generated-tokens:end */

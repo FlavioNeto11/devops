@@ -30,6 +30,16 @@ Estrutura **compartilhada** (fontes Sora/Inter, sombras, animação `floaty`, es
 O `tailwind.config.js` continua mapeando `brand.* → rgb(var(--x) / <alpha-value>)` (as vars agora vêm
 do arquivo gerado).
 
+## Marca da PLATAFORMA (casca global `--p-*`)
+A paleta neutra da casca (`packages/platform-shell/platform-tokens.css`) também é gerada daqui
+(marca `platform`, renderer `renderers/platform.mjs`) — valores TRANSCRITOS do CSS histórico
+(zero mudança visual). O alvo é o **arquivo-fonte do codegen da casca**: este build regenera só o
+bloco entre `/* @generated-tokens:start */ ... /* @generated-tokens:end */` e depois o
+`packages/platform-shell/build.mjs` distribui a cópia para os 4 frontends (portal, reqhub,
+console, portal-recorder). Mapeamento 1:1 (detalhado no `note` de `brands.platform`):
+`--p-<nome>` ↔ `palette.<modo>.<nome>` · `--p-font-*`/`--p-text-*`/`--p-space-*`/`--p-radius-*`/
+`--p-z-*` ↔ `structural.*` · `--p-shadow-<t>` ↔ `shadows.<modo>.<t>`.
+
 ## Marcas ADOTADAS (brownfield: sicat/gymops)
 Apps adotados pela Forja (`origin: adopted` em `specs/products/`) têm frontend pré-Forja com paleta
 artesanal própria — o `discoverForgeApps()` os **pula de propósito** (não sobrescreve com a marca
