@@ -1,0 +1,39 @@
+id: REQ-IMOBIA-NFR-0001
+slug: req-imobia-nfr-0001
+title: IA fail-soft — sem chaves, tudo funciona manualmente (dormência)
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: imobia
+statement: 'O sistema deve atender ao atributo de qualidade "disponibilidade com IA dormente": sem OPENAI_API_KEY / ANTHROPIC_API_KEY / GOOGLE_API_KEY, todos os módulos permanecem 100% operáveis manualmente, as rotas de IA respondem fallback claro (dormant) sem 5xx e o pod segue Ready.'
+source:
+  stakeholder: imobia
+  origin: codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)
+  source_paths:
+    - apps/imobia/api/src/ai/engine.ts
+    - apps/imobia/CLAUDE.md
+priority: critical
+criticality: critical
+architectural_significance: false
+quality_scenarios:
+  - source: Operador sem chaves de IA configuradas no Secret imobia-config
+    stimulus: Usa qualquer módulo do app e chama rotas /ai/* com o motor dormente
+    environment: Cluster ns apps (Docker Desktop), Secret imobia-config sem nenhuma chave de provider
+    artifact: API imobia (motor de IA + módulos) e worker
+    response: Módulos operam manualmente sem degradação; /ai/* devolve fallback estruturado indicando dormência; health continua OK e o pod Ready
+    response_measure: Zero respostas 5xx causadas por ausência de chave; engineStatus().dormant = true; readiness probe passa
+links:
+  - type: constrains
+    target: REQ-IMOBIA-0002
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: adoção Forja 4.1 D5 — backfill extraído do app real
+allocation:
+  service_refs:
+    - svc-imobia-api
+  slo_refs:
+    - slo-availability-99

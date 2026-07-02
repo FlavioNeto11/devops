@@ -1,4 +1,46 @@
 // routes.js — roteador da IA de autoria do Reqhub.
+//
+// =============================================================================
+// CONTRATO DO PREVIEW DA FORJA (F3) — o frontend (assets/app.js) consome EXATAMENTE isto.
+// Antes de construir, a Forja gera um PREVIEW de TODAS as telas propostas com componentes ui-vue
+// REAIS + dados FAKE; o dono itera (refina tela a tela) e só após aprovar a esteira constrói.
+// O build da SPA roda NO RUNNER (vite; o pod é non-root sem toolchain) via repository_dispatch
+// (forge-preview.yml). O reqhub-api gera o inventário (IA), dispara o build e SERVE os bytes do volume.
+//
+// (1) POST /reqs/api/v1/forge/preview/generate   [SSE; auth admin/Bearer; SEM compress no Ingress]
+//     Body JSON: {
+//       product: string (slug ^[a-z][a-z0-9-]{1,30}$),
+//       requirements: [{ id, title, statement, ... }]  (os requisitos propostos — fonte das âncoras),
+//       architecture?: { stack, selected_blocks:[{id}], ... }  (arquitetura proposta, opcional),
+//       inventory?: { brand, entities, screens }  (PULAR a IA e usar um inventário já pronto — ex.: regerar
+//                    após refino; quando ausente, a IA propõe o inventário via forge.propose_screens)
+//     }
+//     Resposta: stream text/event-stream. Eventos (event: <name>\ndata: <json>\n\n):
+//       event: start     data: { product, mode:'propose'|'inventory' }
+//       event: propose   data: { phase:'propose-screens', model }                 (só quando IA propõe)
+//       event: inventory data: { brand, entities, screens, navGroups, gaps, counts:{screens,entities} }
+//       event: dispatch  data: { jobId, status:'dispatched', actions_url }         (build disparado no runner)
+//       event: building  data: { jobId, status:'building', elapsedMs }            (heartbeat do polling)
+//       event: ready     data: { product, url, screens:[{slug,title,route,kind}], jobId }
+//       event: error     data: { code, message }                                  (encerra o stream)
+//       event: done      data: { ok:true }                                        (último frame — confirma fim)
+//     IMPORTANTE p/ o cliente: tratar fim do stream SEM 'done' como FALHA (não como sucesso).
+//
+// (2) POST /reqs/api/v1/forge/preview/refine     [JSON; auth admin/Bearer]
+//     Body JSON: { product, screenSlug, feedback, screen?, requirements?, inventory? }
+//       - screen: a tela atual (se ausente, é resolvida de inventory.screens por screenSlug).
+//       - requirements: grounding p/ a âncora (recomendado).
+//     Resposta 200: { status:'ok', screen:{...SCREEN revisada}, inventory:{brand,entities,screens}, notes }
+//       A `inventory` retornada JÁ tem a tela trocada — o cliente reusa em /generate { inventory } p/ regerar
+//       o preview (ou o cliente chama /generate logo após, com o inventory atualizado).
+//
+// (3) GET  /reqs/api/v1/forge/preview/status?product=<slug>   [auth admin/Bearer; fail-soft]
+//     Resposta 200: { product, status:'absent'|'building'|'ready'|'error'|'invalid', url?, jobId?,
+//                     generatedAt?, error?, screens:[{slug,title,route,kind}] }
+//
+// (4) GET  /reqs/api/v1/forge/preview/:product/*   [SERVE a SPA estática do volume; público atrás do gate SSO]
+//     dist/ buildado pelo runner. SPA: rotas internas do Vue caem no index.html. 404 fail-soft.
+// =============================================================================
 //   GET  /health                         -> liveness + flag ai (key presente?)
 //   POST /v1/authoring/draft             -> req.authoring.draft        (R1)
 //   POST /v1/authoring/analyze           -> req.authoring.analyze      (R1)
@@ -23,6 +65,12 @@ import { aiEnabled, getLlm } from './llm.js';
 import { runAuthoringChatTurn } from './ai/graph.js';
 import { buildUsageRouter } from './usage/index.js';
 import { forgeState } from './forge-state.js';
+import { createForgeEventsHub } from './forge-events.js';
+import {
+  validateProduct, validateInventory, mergeScreen, buildPreviewPayload, dispatchForgePreview,
+  previewStatus, previewInventory, previewBaseUrl, resolveAsset,
+} from './forge-preview.js';
+import fs from 'node:fs';
 
 // Mapeia erros tipados do contrato AiTool -> HTTP.
 function statusForError(err) {
@@ -92,6 +140,15 @@ export function buildRouter({ registry, llm, memory } = {}) {
     catch (err) { res.status(200).json({ source: 'error', products: [], error: String(err && err.message) }); }
   });
 
+  // SSE do estado vivo (A6): empurra o forgeState quando a assinatura muda — o polling do frontend
+  // vira fallback. Auth pelo SSO de borda (EventSource não envia Authorization), igual ai-usage/stream.
+  // IngressRoute dedicada SEM `compress` em k8s/api.yaml (armadilha conhecida: compress bufferiza SSE).
+  const forgeEvents = createForgeEventsHub();
+  router.get('/v1/forge/events', (req, res) => {
+    try { forgeEvents.addClient(req, res); }
+    catch (err) { console.error('[reqhub-api] forge/events:', err); if (!res.headersSent) res.status(500).end(); }
+  });
+
   const run = (toolName) => async (req, res, next) => {
     try {
       const theLlm = llm || (await getLlm());
@@ -135,6 +192,7 @@ export function buildRouter({ registry, llm, memory } = {}) {
       const out = await runAuthoringChatTurn({
         product: b.product, message: b.message, history: b.history,
         target_req_id: b.target_req_id, grounding: b.grounding,
+        arch_summary: b.arch_summary, // resumo de arquitetura/stack do sistema (o chat passa a conhecer a stack)
         identity: { sub: String(req.identity || 'operator') },
       }, memory);
       res.json({ status: 'ok', ...out });
@@ -152,7 +210,17 @@ export function buildRouter({ registry, llm, memory } = {}) {
     const token = process.env.GITHUB_DISPATCH_TOKEN;
     if (!token) return res.status(503).json({ error: { code: 'DISPATCH_DISABLED', message: 'criação automática desligada — defina GITHUB_DISPATCH_TOKEN no Secret reqhub-api-config (PAT fine-grained, Contents: Read and write).' } });
     const v = validateLaunchInput(req.body);
-    if (!v.ok) return res.status(400).json({ error: { code: v.code, message: v.message } });
+    if (!v.ok) return res.status(v.code === 'PROTECTED' ? 403 : 400).json({ error: { code: v.code, message: v.message } });
+    // GATE (F3, Achado3): o caminho greenfield novo exige um PREVIEW 'ready' aprovado antes de
+    // despachar a esteira. Retrocompatível: { skipPreviewGate: true } no corpo permite fluxos que
+    // não usam preview (ex.: re-lançamentos automáticos). Sem essa flag, sem preview -> 409.
+    if (!v.value.skipPreviewGate) {
+      let pstatus = 'absent';
+      try { pstatus = previewStatus(v.value.product).status; } catch { pstatus = 'absent'; }
+      if (pstatus !== 'ready') {
+        return res.status(409).json({ error: { code: 'PREVIEW_REQUIRED', message: `gere e aprove o preview das telas de '${v.value.product}' antes de construir (status atual do preview: ${pstatus}).` } });
+      }
+    }
     const built = buildClientPayload(v.value, req.identity);
     if (!built.ok) return res.status(413).json({ error: { code: built.code, message: built.message } });
     const repo = process.env.GITHUB_DISPATCH_REPO || 'FlavioNeto11/devops';
@@ -212,6 +280,187 @@ export function buildRouter({ registry, llm, memory } = {}) {
     } catch (e) {
       return res.status(502).json({ error: { code: 'DISPATCH_ERROR', message: String((e && e.message) || e) } });
     }
+  });
+
+  // =========================================================================
+  // FORGE PREVIEW (F3): preview iterativo de telas (ui-vue real + dados fake) ANTES de construir.
+  // Contrato completo documentado no topo deste arquivo.
+  // =========================================================================
+
+  // helper SSE (espelha o padrão do pm-api do Console): cabeçalhos sem-buffer + emit(event,data).
+  const sseStart = (res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // traefik/nginx: não bufferizar o stream
+    if (typeof res.flushHeaders === 'function') res.flushHeaders();
+  };
+  const sseEmit = (res, event, data) => {
+    try { res.write(`event: ${event}\ndata: ${JSON.stringify(data || {})}\n\n`); } catch { /* cliente foi embora */ }
+  };
+
+  // (1) GERAR + BUILDAR o preview (SSE). A IA propõe o inventário (forge.propose_screens) — ou usa o
+  // inventory já pronto (regerar após refino) — depois DISPARA o build no runner e acompanha por polling.
+  router.post('/v1/forge/preview/generate', requireAuthoringAuth, ...withIngest('brief'), async (req, res) => {
+    const b = req.body || {};
+    const vp = validateProduct(b.product);
+    if (!vp.ok) return res.status(400).json({ error: { code: vp.code, message: vp.message } });
+    const token = process.env.GITHUB_DISPATCH_TOKEN;
+    if (!token) return res.status(503).json({ error: { code: 'DISPATCH_DISABLED', message: 'build do preview desligado — defina GITHUB_DISPATCH_TOKEN no Secret reqhub-api-config.' } });
+    const repo = process.env.GITHUB_DISPATCH_REPO || 'FlavioNeto11/devops';
+    const product = vp.product;
+
+    sseStart(res);
+    let closed = false;
+    req.on('close', () => { closed = true; });
+    // keep-alive (atravessa timeouts de proxy durante o build longo)
+    const ka = setInterval(() => { if (!closed) { try { res.write(': keep-alive\n\n'); } catch { /* noop */ } } }, 15000);
+    if (typeof ka.unref === 'function') ka.unref();
+    const finish = () => { clearInterval(ka); try { res.end(); } catch { /* noop */ } };
+
+    try {
+      // MODO: inventory pronto (regerar) OU propor via IA.
+      let inventory;
+      if (b.inventory && typeof b.inventory === 'object') {
+        sseEmit(res, 'start', { product, mode: 'inventory' });
+        const inv = validateInventory(b.inventory);
+        if (!inv.ok) { sseEmit(res, 'error', { code: inv.code, message: inv.message }); return finish(); }
+        inventory = inv.value;
+        sseEmit(res, 'inventory', { ...inventory, navGroups: b.inventory.navGroups || [], gaps: b.inventory.gaps || [], counts: { screens: inventory.screens.length, entities: inventory.entities.length } });
+      } else {
+        sseEmit(res, 'start', { product, mode: 'propose' });
+        const theLlm = llm || (await getLlm());
+        if (!theLlm) { sseEmit(res, 'error', { code: 'AI_DISABLED', message: 'IA desabilitada (sem credencial) — não dá p/ propor as telas' }); return finish(); }
+        sseEmit(res, 'propose', { phase: 'propose-screens' });
+        const result = await dispatchTool(reg.get('forge.propose_screens'),
+          { product, requirements: b.requirements || [], architecture: b.architecture || {} },
+          { llm: theLlm, authenticated: true, identity: req.identity });
+        const out = result.output || {};
+        inventory = { brand: out.brand, entities: out.entities, screens: out.screens };
+        sseEmit(res, 'inventory', { ...inventory, navGroups: out.navGroups || [], gaps: out.gaps || [], counts: { screens: (out.screens || []).length, entities: (out.entities || []).length } });
+      }
+      if (closed) return finish();
+
+      // DISPATCH do build no runner (vite build da SPA autocontida -> dist/ + manifest.json no volume).
+      const jobId = `${product}-${Date.now().toString(36)}`;
+      const built = buildPreviewPayload({ product, inventory, identity: req.identity, jobId });
+      if (!built.ok) { sseEmit(res, 'error', { code: built.code, message: built.message }); return finish(); }
+      const d = await dispatchForgePreview({ token, repo, payload: built.payload });
+      if (!d.ok) { sseEmit(res, 'error', { code: 'DISPATCH_FAILED', message: `GitHub ${d.status}: ${d.detail || 'falha ao disparar o build do preview'}` }); return finish(); }
+      const actionsUrl = `https://github.com/${repo}/actions/workflows/forge-preview.yml`;
+      sseEmit(res, 'dispatch', { jobId, status: 'dispatched', actions_url: actionsUrl });
+
+      // ACOMPANHA o build por polling do manifest.json no volume (fail-soft). Teto defensivo p/ não
+      // segurar a conexão indefinidamente — o cliente sempre pode re-consultar via GET .../status.
+      const t0 = Date.now();
+      const DEADLINE_MS = Number(process.env.FORGE_PREVIEW_DEADLINE_MS || 10 * 60 * 1000);
+      const POLL_MS = Number(process.env.FORGE_PREVIEW_POLL_MS || 4000);
+      const poll = async () => {
+        if (closed) return finish();
+        const st = previewStatus(product);
+        // só considera 'ready'/'error' deste job (ignora um preview antigo do mesmo produto)
+        const sameJob = !st.jobId || st.jobId === jobId;
+        if (st.status === 'ready' && sameJob) {
+          sseEmit(res, 'ready', { product, url: st.url, screens: st.screens, jobId });
+          sseEmit(res, 'done', { ok: true });
+          return finish();
+        }
+        if (st.status === 'error' && sameJob) {
+          sseEmit(res, 'error', { code: 'BUILD_FAILED', message: st.error || 'falha no build do preview' });
+          return finish();
+        }
+        if (Date.now() - t0 > DEADLINE_MS) {
+          sseEmit(res, 'error', { code: 'BUILD_TIMEOUT', message: 'o build do preview demorou demais; consulte o status novamente em instantes', actions_url: actionsUrl });
+          return finish();
+        }
+        sseEmit(res, 'building', { jobId, status: 'building', elapsedMs: Date.now() - t0 });
+        const t = setTimeout(() => { poll().catch(() => finish()); }, POLL_MS);
+        if (typeof t.unref === 'function') t.unref();
+      };
+      poll().catch(() => finish());
+    } catch (err) {
+      // erro tipado do contrato AiTool -> code; senão genérico. Nunca 500 no meio do stream.
+      const code = (err && err.code && String(err.name || '').startsWith('AiTool')) ? err.code : 'PREVIEW_ERROR';
+      sseEmit(res, 'error', { code, message: String((err && err.message) || err) });
+      finish();
+    }
+  });
+
+  // (2) REFINAR UMA tela: a IA re-propõe a tela a partir do feedback; devolve a tela + o inventário
+  // atualizado (mesma tela trocada). O cliente reusa o inventory em /generate { inventory } p/ regerar.
+  router.post('/v1/forge/preview/refine', requireAuthoringAuth, ...withIngest('feedback'), async (req, res, next) => {
+    try {
+      const b = req.body || {};
+      const vp = validateProduct(b.product);
+      if (!vp.ok) return res.status(400).json({ error: { code: vp.code, message: vp.message } });
+      const slug = String(b.screenSlug || '').trim();
+      if (!slug) return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'screenSlug obrigatório' } });
+      if (typeof b.feedback !== 'string' || b.feedback.trim().length < 2) {
+        return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'feedback obrigatório (>=2 chars)' } });
+      }
+      // tela atual: explícita (b.screen) ou resolvida do inventário pelo slug.
+      const invScreens = (b.inventory && Array.isArray(b.inventory.screens)) ? b.inventory.screens : [];
+      const current = (b.screen && typeof b.screen === 'object') ? b.screen : invScreens.find((s) => s && s.slug === slug);
+      if (!current) return res.status(400).json({ error: { code: 'SCREEN_NOT_FOUND', message: `tela '${slug}' não encontrada (passe screen ou inventory)` } });
+
+      const theLlm = llm || (await getLlm());
+      if (!theLlm) return res.status(503).json({ error: { code: 'AI_DISABLED', message: 'IA desabilitada (sem credencial)' } });
+      const result = await dispatchTool(reg.get('forge.refine_screen'),
+        { product: vp.product, screen: { ...current, slug }, feedback: b.feedback, grounding: b.requirements || [] },
+        { llm: theLlm, authenticated: true, identity: req.identity });
+      const screen = result.output && result.output.screen;
+      // atualiza o inventário (se enviado) com a tela revisada — pronto p/ regerar o preview.
+      let inventory = null;
+      if (b.inventory && typeof b.inventory === 'object') {
+        const merged = mergeScreen(b.inventory, screen);
+        if (merged.ok) inventory = merged.value;
+      }
+      return res.json({ status: 'ok', screen, notes: (result.output && result.output.notes) || '', inventory });
+    } catch (err) { next(err); }
+  });
+
+  // (3) STATUS do preview (fail-soft; lê o manifest do volume). Nunca 500.
+  router.get('/v1/forge/preview/status', requireAuthoringAuth, (req, res) => {
+    const vp = validateProduct(req.query.product);
+    if (!vp.ok) return res.status(400).json({ error: { code: vp.code, message: vp.message } });
+    try { return res.json(previewStatus(vp.product)); }
+    catch { return res.json({ product: vp.product, status: 'absent', url: null, screens: [] }); }
+  });
+
+  // (3b) INVENTÁRIO persistido do preview (A2): o runner grava inventory.json junto do manifest;
+  // o Studio lê daqui para REFINAR telas fora do wizard (o preview deixou de ser descartável).
+  router.get('/v1/forge/preview/inventory', requireAuthoringAuth, (req, res) => {
+    const vp = validateProduct(req.query.product);
+    if (!vp.ok) return res.status(400).json({ error: { code: vp.code, message: vp.message } });
+    try {
+      const r = previewInventory(vp.product);
+      if (!r.ok) return res.status(r.code === 'NOT_FOUND' ? 404 : 422).json({ error: { code: r.code, message: r.code === 'NOT_FOUND' ? 'este produto ainda não tem inventário persistido (gere o preview primeiro)' : 'inventário persistido inválido — regenere o preview' } });
+      return res.json({ product: vp.product, inventory: r.inventory });
+    } catch { return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'inventário indisponível' } }); }
+  });
+
+  // (4) SERVIR a SPA estática do preview do volume. PÚBLICO (atrás do gate SSO de borda) — o conteúdo é
+  // fake/efêmero e o iframe carrega da MESMA origem do Reqhub. Anti-traversal + SPA fallback no módulo.
+  router.get('/v1/forge/preview/:product/*', (req, res) => {
+    const r = resolveAsset(req.params.product, req.params[0] || '');
+    if (!r.ok) {
+      const code = r.code === 'FORBIDDEN' ? 403 : (r.code === 'INVALID_PRODUCT' ? 400 : 404);
+      return res.status(code).json({ error: { code: r.code, message: 'preview asset não encontrado' } });
+    }
+    res.setHeader('Content-Type', r.contentType);
+    res.setHeader('Cache-Control', 'no-store'); // preview é efêmero/iterado — nunca cachear
+    // (E0, Forja 4.1) o middleware secure-headers do Traefik põe X-Frame-Options: DENY em TODAS as
+    // rotas do api — o que bloqueava o IFRAME same-origin do Studio (fase Telas). CSP3 frame-ancestors
+    // OBSOLETA o XFO no browser: com este header presente, o DENY do Traefik é ignorado e o framing
+    // continua restrito à MESMA origem (anti-clickjacking preservado).
+    res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
+    return fs.createReadStream(r.file).on('error', () => { try { res.status(404).end(); } catch { /* noop */ } }).pipe(res);
+  });
+  // sem o sufixo: redireciona p/ a barra final (assets relativos da SPA resolvem corretamente).
+  router.get('/v1/forge/preview/:product', (req, res) => {
+    const vp = validateProduct(req.params.product);
+    if (!vp.ok) return res.status(400).json({ error: { code: vp.code, message: vp.message } });
+    return res.redirect(302, `${previewBaseUrl(vp.product)}`);
   });
 
   // Painel "Uso da IA" (/v1/ai-usage/*): leitura admin-only de custo/uso/limites (Claude+OpenAI),

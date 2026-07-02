@@ -654,6 +654,15 @@ select.input {
   color: var(--err);
   border: 1px solid var(--err);
 }
+.alert-ok {
+  background: var(--ok-bg);
+  color: var(--ok);
+  border: 1px solid var(--ok);
+}
+.alert-ok a {
+  color: inherit;
+  font-weight: 600;
+}
 
 .empty {
   padding: 40px 28px;

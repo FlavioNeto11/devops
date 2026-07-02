@@ -1,0 +1,230 @@
+# =============================================================================
+# ci-gymops-e2e — gate de PR do GymOps: integracao (API+DB) + E2E (Playwright)
+# -----------------------------------------------------------------------------
+# Porta para o CI RAIZ os testes que viviam no workflow ANINHADO do repo legado
+# (apps/gymops/.github/workflows/e2e.yml). O GitHub NUNCA executa workflows fora
+# de .github/workflows da raiz — aquele arquivo e MORTO neste monorepo. Antes
+# deste workflow, PR que mexia no gymops passava so com lint/typecheck (ci-apps);
+# integracao (test-services.yml) era workflow_dispatch-only. Backlog: OPS-001.
+#
+# 2 jobs PARALELOS com o mesmo path-filter (apps/gymops/**):
+#   - integration: vitest da API contra Postgres(pgvector)+Redis reais — mesma
+#     receita do job `gymops` do test-services.yml (que permanece dispatch-only
+#     para os demais apps). Mais barato que o E2E e roda em paralelo, entao nao
+#     estende o wall-clock do gate.
+#   - e2e: migra+seed o banco, sobe api+web BUILDADOS e roda a suite Playwright
+#     COMPLETA (chromium). Decisao: suite completa (nao smoke) porque o custo
+#     dominante e o SETUP (pnpm install + next build + browser ~7-9min), nao a
+#     execucao dos testes; cortar para smoke pouparia ~2-3min e perderia a
+#     cobertura de auth/rbac/import/activity. Caches (pnpm store, ms-playwright,
+#     .next/cache) aproximam o run quente do alvo <10min; timeout-minutes guarda
+#     o cold run.
+#
+# Runner: ubuntu-latest com service containers (mesmo caminho do e2e.yml legado).
+# Os valores de JWT_SECRET/ENCRYPTION_KEY abaixo sao FIXTURES de teste (mesmos
+# do workflow legado) — nao sao credenciais reais.
+# =============================================================================
+name: ci-gymops-e2e
+
+# Forca as JS actions (pnpm/*, actions/*, etc.) a rodarem em Node 24, eliminando
+# os avisos de deprecacao do Node 20 antes da troca forcada (~jun/2026).
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "apps/gymops/**"
+      - ".github/workflows/ci-gymops-e2e.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/gymops/**"
+      - ".github/workflows/ci-gymops-e2e.yml"
+
+permissions:
+  contents: read
+
+# 1 run por PR (ou por ref no push): push novo cancela o run anterior.
+concurrency:
+  group: ci-gymops-e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # integration — testes de integracao da API (vitest) com banco/cache reais.
+  # Segredos de app (JWT etc.) vem do vitest.config.ts da API (fixtures).
+  # ---------------------------------------------------------------------------
+  integration:
+    name: API integration (Postgres + Redis)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: gymops
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/gymops
+      REDIS_URL: redis://localhost:6379
+    defaults:
+      run:
+        working-directory: apps/gymops
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: pnpm
+          cache-dependency-path: apps/gymops/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile || pnpm install
+
+      - name: Generate Prisma client
+        run: pnpm --filter @gymops/db run generate
+
+      - name: Build workspace packages
+        run: pnpm --filter "./packages/*" run build
+
+      - name: Run migrations
+        run: pnpm --filter @gymops/db run migrate:deploy
+
+      - name: Run integration tests
+        run: pnpm -r test
+
+  # ---------------------------------------------------------------------------
+  # e2e — Playwright contra api+web reais (porta fiel do e2e.yml legado,
+  # ajustada ao monorepo: working-directory apps/gymops + build dos packages
+  # do workspace antes do build da API + paths de artifact).
+  # ---------------------------------------------------------------------------
+  e2e:
+    name: Playwright E2E (chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: gymops_e2e
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/gymops_e2e
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: e2e-secret-key-minimum-32-characters!!
+      JWT_REFRESH_SECRET: e2e-refresh-secret-minimum-32chars!!
+      FRONTEND_URL: http://localhost:3000
+      ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+      OPENAI_API_KEY: ""
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+    defaults:
+      run:
+        working-directory: apps/gymops
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: pnpm
+          cache-dependency-path: apps/gymops/pnpm-lock.yaml
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('apps/gymops/pnpm-lock.yaml') }}
+
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: apps/gymops/apps/web/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('apps/gymops/pnpm-lock.yaml') }}-${{ hashFiles('apps/gymops/apps/web/**/*.ts', 'apps/gymops/apps/web/**/*.tsx') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('apps/gymops/pnpm-lock.yaml') }}-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile || pnpm install
+
+      - name: Generate Prisma client
+        run: pnpm --filter @gymops/db run generate
+
+      - name: Build workspace packages
+        run: pnpm --filter "./packages/*" run build
+
+      - name: Run migrations
+        run: pnpm --filter @gymops/db run migrate:deploy
+
+      - name: Seed database
+        run: pnpm --filter @gymops/db run seed
+
+      - name: Build API
+        run: pnpm --filter @gymops/api run build
+
+      - name: Start API server
+        run: node apps/api/dist/index.js &
+        env:
+          NODE_ENV: production
+
+      - name: Build web app
+        run: pnpm --filter @gymops/web run build
+
+      - name: Start web server
+        run: pnpm --filter @gymops/web run start &
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @gymops/web exec playwright install chromium --with-deps
+
+      - name: Wait for servers
+        run: npx wait-on http://localhost:3001/health http://localhost:3000 --timeout 60000
+
+      - name: Run E2E tests
+        run: pnpm --filter @gymops/web run test:e2e --project=chromium
+        env:
+          CI: true
+          E2E_BASE_URL: http://localhost:3000
+          E2E_API_URL: http://localhost:3001
+
+      # Report sempre; traces/screenshots so existem em falha (config do app).
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gymops-playwright-report
+          path: |
+            apps/gymops/apps/web/playwright-report/
+            apps/gymops/apps/web/test-results/
+          retention-days: 7
+          if-no-files-found: ignore

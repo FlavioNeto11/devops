@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { openStream, pmMe } from './api.js';
+import { openStream, pmMe, pmProjects } from './api.js';
 import Overview from './components/Overview.jsx';
 import Apps from './components/Apps.jsx';
 import Publications from './components/Publications.jsx';
@@ -13,6 +13,8 @@ import UserHome from './components/UserHome.jsx';
 // nunca abre a aba Conteudo nao baixa nada disso.
 const ContentEditor = lazy(() => import('./components/ContentEditor.jsx'));
 import { isPortal } from './lib/appTypes.js';
+import { isEmbedMode } from './lib/embed.js';
+import EmbedSurface from './components/EmbedSurface.jsx';
 import AccessAdmin from './components/AccessAdmin.jsx';
 import SharedResources from './components/SharedResources.jsx';
 import Sidebar from './components/Sidebar.jsx';
@@ -52,7 +54,18 @@ const STREAM_LABEL = {
   error: { text: 'reconectando…', cls: 'badge badge-err' },
 };
 
+// (E4, Forja 4.1) FLAG DE BOOTSTRAP: com ?embed=1 na URL o Console renderiza SÓ a
+// superfície de conteúdo (EmbedSurface, sem casca/sidebar/topbar/platform-shell) —
+// é o editor do CMS embutido no trilho t1 do Product Studio via iframe same-origin.
+// Decidido uma única vez por carga (o search não muda sem reload), fora do corpo
+// com hooks — a casca completa continua sendo o default inalterado.
+const EMBED = isEmbedMode(window.location.search);
+
 export default function App() {
+  return EMBED ? <EmbedSurface /> : <ConsoleShell />;
+}
+
+function ConsoleShell() {
   const [activeTab, setActiveTab] = useState('overview');
   const [me, setMe] = useState(null);
   const [meLoaded, setMeLoaded] = useState(false);
@@ -106,6 +119,38 @@ export default function App() {
   // Modal informativo do Traefik (dashboard interno, sem rota pública).
   const [traefikInfo, setTraefikInfo] = useState(false);
   const goTo = (tab, projectId = null) => { setFocusProject(projectId); setActiveTab(tab); setMobileNavOpen(false); };
+
+  // (A4, Forja 4.0) deep-link por hash: outros apps apontam para uma seção (#conteudo?novo=1 abre
+  // o assistente de portal — a criação começa na Forja/Studio). Só LEITURA do hash na entrada e em
+  // hashchange; a navegação interna segue por estado (sem virar router).
+  // (E1, Forja 4.1) o CONTEXTO DE PRODUTO viaja por URL: `app=` pré-popula o filtro de
+  // Logs/Publicações; `projeto=` (key do projeto) resolve para o id do CMS — fail-soft:
+  // key desconhecida ou pm-api fora = seção abre sem foco, nada quebra.
+  const [cmsAutoNew, setCmsAutoNew] = useState(false);
+  const [deepApp, setDeepApp] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    const apply = () => {
+      const m = String(window.location.hash || '').replace(/^#\/?/, '').match(/^([a-z]+)(?:\?(.*))?$/);
+      if (!m || !SECTIONS[m[1]]) return;
+      setActiveTab(m[1]);
+      const params = new URLSearchParams(m[2] || '');
+      if (m[1] === 'conteudo' && params.get('novo') === '1') setCmsAutoNew(true);
+      if ((m[1] === 'logs' || m[1] === 'publications') && params.get('app')) setDeepApp(params.get('app'));
+      const projeto = m[1] === 'conteudo' ? params.get('projeto') : null;
+      if (projeto) {
+        pmProjects()
+          .then((list) => {
+            const p = (Array.isArray(list) ? list : []).find((x) => x.key === projeto || String(x.id) === projeto);
+            if (alive && p) setFocusProject(p.id);
+          })
+          .catch(() => { /* fail-soft: sem pm-api, o Conteúdo abre no primeiro portal */ });
+      }
+    };
+    apply();
+    window.addEventListener('hashchange', apply);
+    return () => { alive = false; window.removeEventListener('hashchange', apply); };
+  }, []);
 
   // Mantém a aba ativa válida para o papel.
   useEffect(() => {
@@ -176,7 +221,8 @@ export default function App() {
   }
 
   const streamBadge = STREAM_LABEL[streamStatus] || STREAM_LABEL.connecting;
-  const selectSection = (key) => { setActiveTab(key); setMobileNavOpen(false); };
+  // Navegação interna limpa o contexto de app do deep-link (ele vale para a seção onde se chegou).
+  const selectSection = (key) => { setActiveTab(key); setDeepApp(null); setMobileNavOpen(false); };
   const platformLinks = isMember ? [] : [
     ...QUICK_LINKS,
     { label: 'Traefik', icon: 'info', title: 'Dashboard interno — como acessar', onClick: () => setTraefikInfo(true) },
@@ -215,13 +261,13 @@ export default function App() {
             {isMember && activeTab === 'painel' && <UserHome me={me} onGo={goTo} />}
             {!isMember && activeTab === 'overview' && <Overview streamData={streamData} streamStatus={streamStatus} />}
             {!isMember && activeTab === 'apps' && <Apps />}
-            {!isMember && activeTab === 'publications' && <Publications />}
+            {!isMember && activeTab === 'publications' && <Publications initialApp={deepApp} />}
             {!isMember && activeTab === 'health' && <Health streamData={streamData} streamStatus={streamStatus} />}
-            {!isMember && activeTab === 'logs' && <Logs />}
+            {!isMember && activeTab === 'logs' && <Logs initialApp={deepApp} />}
             {activeTab === 'projects' && <MetaProjects canManageProjects={canManageProjects} initialId={focusProject} />}
             {activeTab === 'conteudo' && (
               <Suspense fallback={<div className="muted" style={{ padding: 24 }}>Carregando editor…</div>}>
-                <ContentEditor initialId={focusProject} me={me} />
+                <ContentEditor initialId={focusProject} me={me} autoNew={cmsAutoNew} />
               </Suspense>
             )}
             {activeTab === 'access' && isAdmin && <AccessAdmin />}

@@ -246,6 +246,63 @@ export const pmCmsReorderSections = (pageId, order) => pmFetch(`/cms/pages/${pag
 export const pmCmsGenerate = (projectId, body) => pmFetch(`/projects/${projectId}/cms/generate`, { method: 'POST', body });
 // Geração a partir de ARQUIVOS já enviados (cms_files) — { fileIds:[...], prompt?, template?, context? }.
 export const pmCmsGenerateFromFiles = (projectId, body) => pmFetch(`/projects/${projectId}/cms/generate-from-files`, { method: 'POST', body });
+
+/**
+ * Geração AO VIVO de portal (SSE sobre POST). Faz POST com Accept:text/event-stream e LÊ o stream
+ * via fetch-reader (EventSource não faz POST nem envia corpo), chamando onEvent(event, data) por
+ * frame (ingest-start/ingest-done/ai-start/ai-done/validate/persist/done/error). Resolve com o
+ * payload de `done`; rejeita em `error`/falha. `signal` cancela (aborta o fetch → o backend aborta a IA).
+ */
+export async function pmCmsGenerateStream(projectId, body, { onEvent, signal } = {}) {
+  let res;
+  try {
+    res = await fetch(`${PM_BASE}/projects/${projectId}/cms/generate-stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+      body: JSON.stringify(body || {}),
+      signal,
+    });
+  } catch (e) {
+    throw new Error(`Falha de rede: ${e && e.message ? e.message : e}`);
+  }
+  if (res.status === 401) { handleAuthExpired(); throw new Error('Sessão expirada — redirecionando para o login…'); }
+  const ct = res.headers.get('content-type') || '';
+  if (!res.ok || !res.body || !ct.includes('text/event-stream')) {
+    const j = await res.json().catch(() => ({}));
+    throw new Error((j && j.error && j.error.message) || `Erro ${res.status} ao iniciar a geração`);
+  }
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  let result = null;
+  let failed = null;
+  for (;;) {
+    // eslint-disable-next-line no-await-in-loop
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let idx;
+    while ((idx = buf.indexOf('\n\n')) >= 0) {
+      const frame = buf.slice(0, idx); buf = buf.slice(idx + 2);
+      let event = 'message'; const dataLines = [];
+      for (const line of frame.split('\n')) {
+        if (!line || line.startsWith(':')) continue;            // keep-alive/comentário
+        if (line.startsWith('event:')) event = line.slice(6).trim();
+        else if (line.startsWith('data:')) dataLines.push(line.slice(5).replace(/^ /, ''));
+      }
+      if (!dataLines.length) continue;
+      let data = {}; try { data = JSON.parse(dataLines.join('\n')); } catch { /* frame não-JSON */ }
+      try { onEvent?.(event, data); } catch { /* handler do consumidor não derruba o stream */ }
+      if (event === 'done') result = data;
+      else if (event === 'error') failed = data;
+    }
+  }
+  if (failed) throw Object.assign(new Error(failed.message || 'geração falhou'), { stage: failed.stage, code: failed.code });
+  // Stream encerrou SEM frame `done` nem `error` (idle-timeout de proxy, restart do pod, queda de rede):
+  // a geração NÃO concluiu — tratar como erro em vez de devolver null (que viraria falso "sucesso").
+  if (!result) throw new Error('A geração foi interrompida antes de concluir (conexão encerrada sem confirmação). Tente de novo.');
+  return result;
+}
 export const pmCmsGenerations = (projectId) => pmFetch(`/projects/${projectId}/cms/generations`);
 // ✨ edição assistida: reescreve UMA seção / o site conforme a instrução (contexto = site inteiro + briefing original)
 export const pmCmsAiSection = (sectionId, instruction) => pmFetch(`/cms/sections/${sectionId}/ai`, { method: 'POST', body: { instruction } });
@@ -257,11 +314,11 @@ export const pmCmsDeleteFile = (fileId) => pmFetch(`/cms/files/${fileId}`, { met
 
 /** Upload de arquivo (multipart) — bypassa o pmFetch JSON. Retorna { id, url, filename, mime, size }.
  *  scope 'global' publica na biblioteca pública da plataforma (somente admin). */
-export async function pmCmsUpload(projectId, file, scope = 'project') {
+export async function pmCmsUpload(projectId, file, scope = 'project', { signal } = {}) {
   const fd = new FormData();
   if (scope === 'global') fd.append('scope', 'global'); // antes do file: multer lê os fields na ordem
   fd.append('file', file);
-  const res = await fetch(`${PM_BASE}/projects/${projectId}/cms/files`, { method: 'POST', body: fd });
+  const res = await fetch(`${PM_BASE}/projects/${projectId}/cms/files`, { method: 'POST', body: fd, signal });
   if (res.status === 401) { handleAuthExpired(); throw new Error('Sessão expirada — redirecionando para o login…'); }
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error((json && json.error && json.error.message) || `Erro ${res.status} no upload`);

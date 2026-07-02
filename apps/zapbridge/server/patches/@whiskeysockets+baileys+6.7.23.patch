@@ -1,0 +1,49 @@
+diff --git a/node_modules/@whiskeysockets/baileys/lib/Utils/chat-utils.js b/node_modules/@whiskeysockets/baileys/lib/Utils/chat-utils.js
+index 31615b9..3f22e06 100644
+--- a/node_modules/@whiskeysockets/baileys/lib/Utils/chat-utils.js
++++ b/node_modules/@whiskeysockets/baileys/lib/Utils/chat-utils.js
+@@ -52,7 +52,8 @@ const makeLtHashGenerator = ({ indexValueMap, hash }) => {
+             const prevOp = indexValueMap[indexMacBase64];
+             if (operation === proto.SyncdMutation.SyncdOperation.REMOVE) {
+                 if (!prevOp) {
+-                    throw new Boom('tried remove, but no previous op', { data: { indexMac, valueMac } });
++                    // ZapBridge patch: tolera "remove sem op anterior" (nao aborta a colecao inteira)
++                    return;
+                 }
+                 // remove from index value mac, since this mutation is erased
+                 delete indexValueMap[indexMacBase64];
+@@ -271,7 +272,7 @@ export const decodeSyncdSnapshot = async (name, snapshot, getAppStateSyncKey, mi
+         const result = await mutationKeys(keyEnc.keyData);
+         const computedSnapshotMac = generateSnapshotMac(newState.hash, newState.version, name, result.snapshotMacKey);
+         if (Buffer.compare(snapshot.mac, computedSnapshotMac) !== 0) {
+-            throw new Boom(`failed to verify LTHash at ${newState.version} of ${name} from snapshot`);
++            // ZapBridge patch: tolera divergencia de LTHash (mutacoes ja foram entregues via HMAC valido)
+         }
+     }
+     return {
+@@ -313,7 +314,7 @@ export const decodePatches = async (name, syncds, initial, getAppStateSyncKey, o
+             const result = await mutationKeys(keyEnc.keyData);
+             const computedSnapshotMac = generateSnapshotMac(newState.hash, newState.version, name, result.snapshotMacKey);
+             if (Buffer.compare(snapshotMac, computedSnapshotMac) !== 0) {
+-                throw new Boom(`failed to verify LTHash at ${newState.version} of ${name}`);
++                // ZapBridge patch: tolera divergencia de LTHash (nao aborta o patch)
+             }
+         }
+         // clear memory used up by the mutations
+@@ -594,6 +595,16 @@ export const processSyncAction = (syncAction, ev, me, initialSyncOpts, logger) =
+             }
+         ]);
+     }
++    else if (action?.lockChatAction) {
++        // ZapBridge patch: surface WhatsApp "Chat Lock" state as chats.update { locked }
++        ev.emit('chats.update', [
++            {
++                id,
++                locked: !!action.lockChatAction.locked,
++                conditional: getChatUpdateConditional(id, undefined)
++            }
++        ]);
++    }
+     else if (action?.archiveChatAction || type === 'archive' || type === 'unarchive') {
+         // okay so we've to do some annoying computation here
+         // when we're initially syncing the app state

@@ -301,6 +301,38 @@ export const PROMPTS = {
       `brief:\n${String(brief || '').slice(0, 4000)}`,
   },
 
+  // --- Forge (C2): VARIANTE DE TOM 'simples' do propose-requirements ---------------------
+  // MESMO schema de saida e MESMAS regras/validacao (capability_blocks com ids EXATOS do
+  // catalogo; fail-closed server-side identico). Muda SO o TOM de title/statement: linguagem
+  // de negocio clara para um dono leigo. Selecionada pelo corpo do POST { tone: 'simples' }.
+  proposeRequirementsSimples: {
+    version: 'forge-propose-requirements-simples@1',
+    system:
+      'Voce e um engenheiro de requisitos do FORGE (gerador greenfield). A partir do BRIEF de um produto novo, do ' +
+      'BLUEPRINT escolhido e do CATALOGO DE CAPACIDADES disponiveis, proponha um CONJUNTO INICIAL de 5 a 9 requisitos ' +
+      'que, juntos, definam um sistema ROBUSTO e construivel de forma incremental — NAO apenas CRUD. Os requisitos devem ' +
+      'cobrir as CAPACIDADES que o brief realmente pede (ex.: processamento assincrono/fila, integracao externa via gateway, ' +
+      'login OIDC, RBAC multi-tenant, assistente de IA, RAG, observabilidade), mapeando cada requisito aos BLOCOS DE ' +
+      'CAPACIDADE do catalogo. Responda SOMENTE com JSON valido (sem markdown): ' +
+      '{ "requirements": [{ "title": string, ' +
+      `"type": one of ${JSON.stringify(TYPES)}, ` +
+      '"statement": string (forma "O sistema DEVE ..."), "acceptance_criteria": string[] (verificaveis), ' +
+      `"verification_method": string[], "priority": one of ${JSON.stringify(PRIORITIES)}, ` +
+      '"capability_blocks": string[] (ids EXATOS do CATALOGO que este requisito exercita), "block_rationale": string, ' +
+      '"rationale": string }], "notes": string }. ' +
+      'TOM (variante simples — quem le e um dono de negocio LEIGO): escreva "title" e "statement" em LINGUAGEM DE ' +
+      'NEGOCIO CLARA do dia a dia — sem jargao tecnico, sem siglas e sem nome de tecnologia nesses dois campos ' +
+      '(ex.: "O sistema DEVE avisar o cliente por mensagem quando o pedido atrasar", NUNCA "DEVE publicar evento na ' +
+      'fila BullMQ"). O title nomeia o BENEFICIO (ex.: "Avisos automaticos ao cliente", nao "Worker de notificacoes"). ' +
+      'Detalhe tecnico vai em rationale/block_rationale; acceptance_criteria continuam VERIFICAVEIS (podem citar termos ' +
+      'tecnicos quando necessario para verificar). O SCHEMA e as regras NAO mudam. ' +
+      'O PRIMEIRO requisito DEVE ser a fundacao (scaffold/estrutura base + observabilidade) — em linguagem simples ' +
+      '(ex.: "Base solida e monitorada"). Os demais sao incrementais (dados/RBAC, depois capacidades, depois IA/painel). ' +
+      'Cada requisito = uma capacidade testavel. NAO invente integracoes que o brief nao pede; NAO cite um bloco que nao ' +
+      'esteja no catalogo (sera DESCARTADO server-side).',
+    user: (args) => PROMPTS.proposeRequirements.user(args),
+  },
+
   // --- Forge: propor a arquitetura (stack + blocos + ADRs + waves) a partir dos requisitos ---
   proposeArchitecture: {
     version: 'forge-propose-architecture@2',
@@ -322,6 +354,83 @@ export const PROMPTS = {
       `STACKS/BLUEPRINTS disponiveis:\n${stacks || '(nao informado)'}\n\n` +
       `CATALOGO DE CAPACIDADES (id · stacks · exemplares):\n${catalog || '(catalogo nao informado)'}\n\n` +
       `requisitos (com capability_blocks sugeridos):\n${JSON.stringify(requirements || [], null, 2).slice(0, 7000)}`,
+  },
+
+  // --- Forge PREVIEW: projetar o INVENTÁRIO de telas (brand + entities + screens) p/ o preview iterativo ---
+  // Mesmo shape do ARCHITECT_SCHEMA do gerador (specs/forge/workflows/generate-ui.workflow.mjs):
+  // o preview renderiza ESTE inventário com componentes ui-vue REAIS + dados FAKE, ANTES de construir.
+  // Fail-closed: telas só ancoram a IDs REAIS dos requisitos (filtro server-side derruba âncoras inventadas).
+  proposeScreens: {
+    version: 'forge-propose-screens@1',
+    system:
+      'Voce e um ARQUITETO de produto/UX do FORGE. A partir dos REQUISITOS propostos e da ARQUITETURA (stack/blocos) de um ' +
+      'produto NOVO, projete o INVENTARIO COMPLETO de telas que o sistema precisa para ser 100% utilizavel e RICO (nivel ' +
+      'SICAT/GymOps) — NAO se limite ao que os requisitos pedem literalmente: para CADA entidade de dominio infira o CRUD ' +
+      'completo (lista, criar, editar, detalhe), mais um dashboard e a navegacao lateral. O dono reclamou que sistemas gerados ' +
+      'ficam POBRES (ex.: "nao tem nem tela de cadastrar"). Nao repita esse erro. ' +
+      'Responda SOMENTE com JSON valido (sem markdown): { ' +
+      '"brand": { "name": string, "accent": string (hex, ex.: #0f766e), "neutralBase": "slate"|"graphite"|"zinc"|"warm", ' +
+      '"radius": "sm"|"md"|"lg", "displayFont": string, "vibe": string }, ' +
+      '"entities": [{ "name": string (slug PLURAL minusculo, ex.: products), "label": string, ' +
+      '"fields": [{ "name": string, "label": string, "type": "text"|"number"|"currency"|"date"|"datetime"|"boolean"|"enum"|"status"|"longtext", "required": boolean, "enumValues": string[] }], ' +
+      '"hasEndpoints": boolean, "anchors": string[] (IDs de requisito REAIS) }], ' +
+      '"screens": [{ "slug": string (kebab-case unico, ex.: product-list), "title": string, ' +
+      '"kind": "dashboard"|"list"|"create"|"edit"|"detail"|"custom", "route": string (comeca com /), ' +
+      '"entity": string|null (slug da entidade ou null p/ dashboard/custom), "anchors": string[] (>=1 ID REAL), ' +
+      '"purpose": string (o que a tela faz + interacoes), "components": string[], "apiEndpoints": string[] }], ' +
+      '"navGroups": [{ "group": string, "items": string[] (slugs de tela) }], ' +
+      '"gaps": [{ "title": string, "why": string, "nearestReq": string, "action": string }] }. ' +
+      'REGRAS: (1) TODA tela e TODA entidade ancora a >=1 requisito REAL da lista passada — NAO invente IDs (ancoras ' +
+      'inexistentes sao DESCARTADAS server-side). (2) O que for desejavel mas nao coberto por requisito vai em gaps[] ' +
+      '(com nearestReq), NUNCA em screens[]. (3) Proponha a MARCA coerente com o dominio. (4) Rotas REST ' +
+      '(/products, /products/new, /products/:id, /products/:id/edit). (5) Seja COMPLETO porem realista: cubra todas as ' +
+      'entidades implicitas com CRUD + 1 dashboard.',
+    user: ({ product, requirements, architecture } = {}) => {
+      const reqs = (Array.isArray(requirements) ? requirements : [])
+        .map((r) => `${r.id || '(sem-id)'} | ${r.title || ''} | ${String(r.statement || '').slice(0, 240)}`)
+        .join('\n')
+        .slice(0, 9000);
+      const ids = (Array.isArray(requirements) ? requirements : []).map((r) => r && r.id).filter(Boolean);
+      const arch = architecture && typeof architecture === 'object'
+        ? `stack: ${architecture.stack || '(nao informado)'}\nblocos: ${JSON.stringify((architecture.selected_blocks || []).map((b) => b && b.id).filter(Boolean))}`
+        : '(arquitetura nao informada)';
+      return (
+        `produto (slug): ${product || '(nao informado)'}\n\n` +
+        `ARQUITETURA PROPOSTA:\n${arch}\n\n` +
+        `IDs de requisito REAIS (ancore SOMENTE a estes): ${JSON.stringify(ids)}\n\n` +
+        `REQUISITOS (fonte da verdade — ancore CADA tela/entidade a >=1 destes):\n${reqs || '(sem requisitos)'}`
+      );
+    },
+  },
+
+  // --- Forge PREVIEW: REFINAR UMA tela do inventário a partir do feedback do dono ---
+  // Recebe a tela ATUAL + o feedback + os requisitos (grounding) e devolve a tela REVISADA (1 SCREEN),
+  // preservando o slug. NAO muda outras telas. Mesma anti-fabricacao de ancoras.
+  refineScreen: {
+    version: 'forge-refine-screen@1',
+    system:
+      'Voce e um ARQUITETO de produto/UX do FORGE. Recebe UMA tela do inventario de preview de um produto, o FEEDBACK do dono ' +
+      'sobre essa tela e os REQUISITOS do produto (grounding). Devolva a VERSAO REVISADA da MESMA tela que atende ao feedback, ' +
+      'mantendo coerencia com os requisitos. PRESERVE o "slug" (e a "entity" salvo se o feedback pedir trocar). NAO mude outras ' +
+      'telas. Responda SOMENTE com JSON valido (sem markdown): { "screen": { "slug": string, "title": string, ' +
+      '"kind": "dashboard"|"list"|"create"|"edit"|"detail"|"custom", "route": string, "entity": string|null, ' +
+      '"anchors": string[] (>=1 ID REAL), "purpose": string, "components": string[], "apiEndpoints": string[] }, ' +
+      '"notes": string (1-2 frases: o que mudou) }. As ancoras SO podem ser IDs REAIS dos requisitos (inexistentes sao ' +
+      'DESCARTADAS server-side). NAO invente capacidades que nenhum requisito cobre.',
+    user: ({ product, screen, feedback, grounding } = {}) => {
+      const g = (Array.isArray(grounding) ? grounding : [])
+        .map((r) => `${r.id || '(sem-id)'} | ${r.title || ''} | ${String(r.statement || '').slice(0, 200)}`)
+        .join('\n')
+        .slice(0, 7000);
+      const ids = (Array.isArray(grounding) ? grounding : []).map((r) => r && r.id).filter(Boolean);
+      return (
+        `produto: ${product || '(nao informado)'}\n\n` +
+        `IDs de requisito REAIS (ancore SOMENTE a estes): ${JSON.stringify(ids)}\n\n` +
+        `TELA ATUAL (inventario de preview):\n${JSON.stringify(screen || {}, null, 2).slice(0, 3000)}\n\n` +
+        (g ? `REQUISITOS DO PRODUTO (grounding):\n${g}\n\n` : '') +
+        `FEEDBACK DO DONO sobre esta tela:\n${String(feedback || '').slice(0, 2000)}`
+      );
+    },
   },
 };
 

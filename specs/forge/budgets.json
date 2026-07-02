@@ -1,0 +1,5 @@
+{
+  "$comment": "Budgets de custo de IA por app (Forja 4.0 — B4). Consumido pelo job nightly forge-budget (ai-evals.yml) contra o Prometheus da plataforma (ai_cost_usd_total{app=...}, janela 30d). Estouro => ISSUE no GitHub; NUNCA derruba app. 'default' vale para todo app com métrica; overrides por app em 'apps'.",
+  "default": { "monthlyUsd": 10 },
+  "apps": {}
+}

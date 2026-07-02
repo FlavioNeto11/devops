@@ -1,0 +1,10 @@
+# =============================================================================
+# ZapBridge — app web (Expo/react-native-web) servido por nginx sob /zapbridge.
+# Build do bundle web ANTES (na máquina): `npx expo export --platform web` gera dist/.
+# Depois: docker build -f Dockerfile.web -t zapbridge-web:local .
+# (baseUrl /zapbridge vem de app.json -> experiments.baseUrl)
+# =============================================================================
+FROM nginx:alpine
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY dist /usr/share/nginx/html
+EXPOSE 80

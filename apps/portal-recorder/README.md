@@ -18,6 +18,20 @@ GET    /v1/sessions/:id
 POST   /v1/sessions/:id/stop     [w]   → finaliza (recorder stop)
 
 # A2+: anotações, screenshots, eventos (timeline), normalização → contrato, export.
+
+# Contratos (A5 + E3 Forja 4.1):
+GET    /v1/contracts?portal=<id|slug>     → lista leve (id, version, created_at, session_id, endpoint_count)
+GET    /v1/contracts/:id                  → contrato completo (endpoints com samples redigidos)
+GET    /v1/contracts/:id/export           → FORMATO CANÔNICO docs/portal-contracts (manifest +
+                                            endpoints SEM sample_request/sample_response)
+POST   /v1/contracts/:id/promote  [w]     → PROMOÇÃO p/ o git (padrão forge-launch): a API NÃO
+                                            escreve git — dispara repository_dispatch
+                                            `portal-contract-promote` com o export no payload
+                                            (teto 60KB). Fail-closed em 2 camadas: Bearer
+                                            PORTAL_REC_TOKEN E GITHUB_DISPATCH_TOKEN no env
+                                            (sem o PAT → 503 claro). O runner valida, escreve
+                                            docs/portal-contracts/<slug>/<yyyy-mm-dd>/ + LATEST
+                                            e abre PR idempotente (branch portal-contract/<slug>).
 ```
 `[w]` = write: exige `Authorization: Bearer ${PORTAL_REC_TOKEN}` (fail-closed: sem token → 503).
 

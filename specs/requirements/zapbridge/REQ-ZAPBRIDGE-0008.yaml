@@ -1,0 +1,34 @@
+id: REQ-ZAPBRIDGE-0008
+slug: req-zapbridge-0008
+title: IA assistiva opt-in (consentimento, smart replies, reescrita, resumo, busca, memória)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: zapbridge
+  applies_to: product
+statement: 'O sistema deve oferecer uma camada de IA estritamente opt-in com consentimento versionado (sem ai_consent nenhuma rota /ai/* processa e nada é enviado a LLM/embeddings): sugestões de resposta (1–3 chips que preenchem sem enviar), reescrita inline do rascunho (melhorar/encurtar/formalizar/traduzir — troca só após escolha do usuário), resumo efêmero de conversa, busca semântica no histórico indexado e memória de estilo/fatos com TTL, revisável e apagável. A indexação usa embeddings em Postgres/pgvector dedicado (zapbridge-postgres), com reindex/backfill sob demanda; grupos ficam fora por padrão e conversa trancada (locked) é excluída da IA.'
+business_rationale: IA como assistente do dono da conta — acelera resposta e busca sem jamais agir sozinha nem vazar dados sem consentimento.
+source:
+  stakeholder: zapbridge
+  origin: codebase apps/zapbridge + docs/MVP-FUNCIONAL.md §19 RF046–RF051 (adoção Forja 4.1 D5)
+  source_paths:
+    - apps/zapbridge/server/src/modules/ai
+    - apps/zapbridge/docs/MVP-FUNCIONAL.md
+    - apps/zapbridge/devops.yaml
+priority: high
+criticality: medium
+architectural_significance: false
+links:
+  - type: depends_on
+    target: REQ-ZAPBRIDGE-0004
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: adoção Forja 4.1 D5 — backfill extraído do app real
+allocation:
+  service_refs:
+    - svc-zapbridge-server
+  infra_refs:
+    - infra-pgvector
