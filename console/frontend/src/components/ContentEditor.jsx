@@ -80,10 +80,13 @@ function SectionDrawer({ section, onClose, onSaved }) {
 }
 
 // ===========================================================================
-export default function ContentEditor({ initialId = null, me = null }) {
+export default function ContentEditor({ initialId = null, me = null, autoNew = false }) {
   const toast = useToast();
   const isAdmin = !!me?.isAdmin;
   const [wizard, setWizard] = useState(false);
+  // (A4, Forja 4.0) deep-link da Forja (/devops/#conteudo?novo=1): abre o assistente direto —
+  // a CRIAÇÃO começa no Studio; o CMS continua sendo o executor/editor dos portais.
+  useEffect(() => { if (autoNew) setWizard(true); }, [autoNew]);
   const [projects, setProjects] = useState([]);
   const [apps, setApps] = useState([]);
   const [selId, setSelId] = useState(null);
@@ -219,7 +222,11 @@ export default function ContentEditor({ initialId = null, me = null }) {
               <Icon name="external" size={15} /> Ver site
             </a>
           )}
-          <button className="btn btn--primary" onClick={() => setWizard(true)}><Icon name="plus" size={16} /> Novo portal</button>
+          {/* (A4) criação unificada: novos portais nascem na Forja (fork "portal de conteúdo" →
+              volta para cá com ?novo=1 abrindo o assistente). NewPortalWizard permanece como executor. */}
+          <a className="btn btn--primary" href="/reqs/#/forge" title="A criação (portal ou sistema) começa na Forja — o trilho de portal volta para este editor">
+            <Icon name="plus" size={16} /> Criar na Forja →
+          </a>
         </>
       )} />
 

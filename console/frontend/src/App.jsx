@@ -107,6 +107,23 @@ export default function App() {
   const [traefikInfo, setTraefikInfo] = useState(false);
   const goTo = (tab, projectId = null) => { setFocusProject(projectId); setActiveTab(tab); setMobileNavOpen(false); };
 
+  // (A4, Forja 4.0) deep-link por hash: outros apps apontam para uma seção (#conteudo?novo=1 abre
+  // o assistente de portal — a criação começa na Forja/Studio). Só LEITURA do hash na entrada e em
+  // hashchange; a navegação interna segue por estado (sem virar router).
+  const [cmsAutoNew, setCmsAutoNew] = useState(false);
+  useEffect(() => {
+    const apply = () => {
+      const m = String(window.location.hash || '').replace(/^#\/?/, '').match(/^([a-z]+)(?:\?(.*))?$/);
+      if (!m || !SECTIONS[m[1]]) return;
+      setActiveTab(m[1]);
+      const params = new URLSearchParams(m[2] || '');
+      if (m[1] === 'conteudo' && params.get('novo') === '1') setCmsAutoNew(true);
+    };
+    apply();
+    window.addEventListener('hashchange', apply);
+    return () => window.removeEventListener('hashchange', apply);
+  }, []);
+
   // Mantém a aba ativa válida para o papel.
   useEffect(() => {
     if (!meLoaded) return;
@@ -221,7 +238,7 @@ export default function App() {
             {activeTab === 'projects' && <MetaProjects canManageProjects={canManageProjects} initialId={focusProject} />}
             {activeTab === 'conteudo' && (
               <Suspense fallback={<div className="muted" style={{ padding: 24 }}>Carregando editor…</div>}>
-                <ContentEditor initialId={focusProject} me={me} />
+                <ContentEditor initialId={focusProject} me={me} autoNew={cmsAutoNew} />
               </Suspense>
             )}
             {activeTab === 'access' && isAdmin && <AccessAdmin />}

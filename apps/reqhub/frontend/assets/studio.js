@@ -44,8 +44,8 @@ function openForgeProduct(name) {
   switchView('forge'); document.getElementById('tab-forge').focus();
   if (name && DATA.buildPlans[name] === undefined) loadBuildPlan(name).then(() => { if (state.view === 'forge' && state.forge.product === name) renderForge(); });
 }
-function openForgeNew() { state.forge.product = null; state.forge.newMode = true; switchView('forge'); }
-function backToHub() { state.forge.product = null; state.forge.newMode = false; renderForge(); }
+function openForgeNew() { state.forge.product = null; state.forge.newMode = true; state.forge.newKind = null; switchView('forge'); }
+function backToHub() { state.forge.product = null; state.forge.newMode = false; state.forge.newKind = null; renderForge(); }
 function forgeStep(step) { state.forge.step = step; renderForge(); }
 
 // barra de progresso em SVG (largura por ATRIBUTO, cor por classe no stylesheet — CSP-safe)
@@ -123,6 +123,9 @@ function renderForge() {
     body.append(h('p', { class: 'empty', text: 'Nenhum produto registrado ainda — gere um com o Forge (brief → requisitos → PR) ou rode build-products.mjs.' }));
     return;
   }
+  // (A4) PONTO ÚNICO de criação: fork na entrada — portal de conteúdo (CMS) ou sistema (greenfield).
+  if (state.forge.newMode && !state.forge.newKind) { setForgeTitle('Criar'); renderForgeKindFork(body); return; }
+  if (state.forge.newMode && state.forge.newKind === 'portal') { setForgeTitle('Criar um portal'); renderForgePortalTrail(body); return; }
   if (state.forge.newMode) { setForgeTitle('Criar um sistema'); renderForgeWizard(body); }
   else if (state.forge.product) { const p = findProduct(DATA.products, state.forge.product); setForgeTitle(p ? p.display_name : state.forge.product); renderForgeDetail(body, state.forge.product); }
   else { setForgeTitle('Produtos'); renderForgeHub(body); }
@@ -176,6 +179,41 @@ function renderForgeHub(body) {
   cards.append(h('button', { class: 'forge-card forge-new', type: 'button', 'aria-label': 'Criar novo produto a partir de um brief', onclick: () => openForgeNew() },
     h('span', { class: 'plus', 'aria-hidden': 'true', text: '+' }), h('strong', { text: 'Novo produto' }), h('span', { class: 'muted', text: 'brief → requisitos (IA) → PR' })));
   body.append(cards);
+}
+
+/* ---------- (A4) fork de criação: portal de conteúdo (CMS) × sistema (greenfield) ----------
+   Um único "Novo produto" para tudo. Portal/onepage NÃO passa pela esteira de código: o executor é
+   o CMS (pm-api + site-renderer) — o Studio encaminha para o editor visual do Console SEM duplicar
+   o wizard (decisão da revisão adversarial: deep-link, não reimplementação). O registro do portal
+   como produto t1 em specs/products chega com o catálogo v2 (C1). */
+function renderForgeKindFork(body) {
+  body.append(forgeCrumbs([{ label: 'Produtos', onclick: backToHub }, { label: 'Criar' }]));
+  body.append(h('div', { class: 'forge-head' }, h('div', {},
+    h('h2', { class: 'forge-title', text: 'O que você quer criar?' }),
+    h('p', { class: 'muted', text: 'Tudo nasce aqui — do onepage de conteúdo ao sistema completo com API, banco e esteira.' }))));
+  const cards = h('div', { class: 'forge-cards' });
+  const card = (title, desc, foot, onclick) => h('button', { class: 'forge-card', type: 'button', onclick },
+    h('div', { class: 'forge-card-top' }, h('span', { class: 'forge-card-name', text: title })),
+    h('p', { class: 'forge-card-vision', text: desc }),
+    h('div', { class: 'forge-card-foot' }, h('span', { class: 'muted', text: foot })));
+  cards.append(
+    card('Portal / onepage de conteúdo', 'Site institucional, landing page ou portal de conteúdo — páginas e seções montadas no editor visual (CMS), com IA para gerar o conteúdo. No ar em minutos, sem código.', 'executor: CMS · sem esteira de código', () => { state.forge.newKind = 'portal'; renderForge(); }),
+    card('Sistema / produto de software', 'Aplicação completa a partir de requisitos: a IA propõe requisitos e arquitetura, você refina o preview das telas e a esteira constrói (frontend + API + banco + k8s + CI).', 'executor: esteira greenfield · requisitos → código', () => { state.forge.newKind = 'sistema'; renderForge(); }));
+  body.append(cards);
+}
+function renderForgePortalTrail(body) {
+  body.append(forgeCrumbs([{ label: 'Produtos', onclick: backToHub }, { label: 'Criar', onclick: () => { state.forge.newKind = null; renderForge(); } }, { label: 'Portal de conteúdo' }]));
+  const sec = h('div', { class: 'forge-section' });
+  sec.append(h('h3', { text: 'Portal / onepage de conteúdo' }),
+    h('p', { class: 'muted', text: 'Portais vivem no CMS da plataforma: páginas e seções persistidas, editor visual com IA e renderização em /sites/<chave>. A criação e a edição acontecem no Console (aba Conteúdo) — este trilho te leva direto para lá com o assistente aberto.' }),
+    h('ol', { class: 'linklist' },
+      h('li', {}, h('span', { class: 'lt', text: '1' }), 'Clique abaixo — o Console abre com o assistente "Novo portal" já aberto.'),
+      h('li', {}, h('span', { class: 'lt', text: '2' }), 'Defina nome/chave e (opcional) deixe a IA gerar o conteúdo inicial a partir de um prompt.'),
+      h('li', {}, h('span', { class: 'lt', text: '3' }), 'Edite visualmente (clique-para-editar, arrastar seções, mídia) e publique — o portal fica em /sites/<chave>.')),
+    h('div', { class: 'fw-actions' },
+      h('a', { class: 'btn primary', href: '/devops/#conteudo?novo=1', target: '_blank', rel: 'noopener', text: '✦ Criar portal no editor visual ↗' })),
+    h('p', { class: 'muted small', text: 'Registro do portal como produto (tier onepage) na base de requisitos chega com o catálogo v2 — aí ele aparece neste hub como os demais.' }));
+  body.append(sec);
 }
 
 function forgeCrumbs(parts) {
