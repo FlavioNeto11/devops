@@ -41,6 +41,10 @@ jobs:
           $p = Get-Content launch-payload.json -Raw | ConvertFrom-Json
           $prod = "$($p.product)"
           if ($prod -notmatch '^[a-z][a-z0-9-]{1,30}$') { Write-Host "::error::product inválido: '$prod'"; exit 1 }
+          # denylist espelhada em forge-delete.yml e apps/reqhub/api/src/forge-launch.js (defesa em camadas):
+          # launch escreveria specs + apps/<p> + Application do Argo por cima de app vivo sob selfHeal.
+          $protected = @('sicat','gymops','rmambiental','anarabottini','reqhub','console','devops-console','portal','portal-recorder','keycloak','langfuse','ai-control-plane','devops-platform')
+          if ($protected -contains $prod) { Write-Host "::error::'$prod' é protegido (app vivo/plataforma) — launch recusado."; exit 1 }
           $mode = if ("$($p.mode)" -eq 'release') { 'release' } else { 'pr' }
           "PRODUCT=$prod"  | Out-File -FilePath $env:GITHUB_ENV -Append
           "MODE=$mode"     | Out-File -FilePath $env:GITHUB_ENV -Append

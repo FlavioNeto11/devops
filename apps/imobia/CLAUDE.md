@@ -1,3 +1,11 @@
+---
+title: "imobia — Ecossistema Imobiliário + IA (Manual para Claude Code)"
+status: canonical
+applies_to: [imobia]
+updated: 2026-07-02
+language: pt-BR
+---
+
 # imobia — Ecossistema Imobiliário + IA (Manual para Claude Code)
 
 > Contexto da plataforma: [`../../CLAUDE.md`](../../CLAUDE.md) · fronteiras: [`../../AGENTS.md`](../../AGENTS.md)
@@ -66,3 +74,4 @@ Público: `https://dev.nvit.com.br/imobia`.
   segue Ready. Chaves entram no Secret `imobia-config` (Sealed Secrets), nunca em git.
 - **pgvector + PVC** (F1+): `CREATE EXTENSION vector` na 1ª migração; Postgres mem ≥1Gi; `fsGroup:1000`
   na api+worker para escrever o PVC como usuário não-root.
+

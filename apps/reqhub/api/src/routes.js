@@ -200,7 +200,7 @@ export function buildRouter({ registry, llm, memory } = {}) {
     const token = process.env.GITHUB_DISPATCH_TOKEN;
     if (!token) return res.status(503).json({ error: { code: 'DISPATCH_DISABLED', message: 'criação automática desligada — defina GITHUB_DISPATCH_TOKEN no Secret reqhub-api-config (PAT fine-grained, Contents: Read and write).' } });
     const v = validateLaunchInput(req.body);
-    if (!v.ok) return res.status(400).json({ error: { code: v.code, message: v.message } });
+    if (!v.ok) return res.status(v.code === 'PROTECTED' ? 403 : 400).json({ error: { code: v.code, message: v.message } });
     // GATE (F3, Achado3): o caminho greenfield novo exige um PREVIEW 'ready' aprovado antes de
     // despachar a esteira. Retrocompatível: { skipPreviewGate: true } no corpo permite fluxos que
     // não usam preview (ex.: re-lançamentos automáticos). Sem essa flag, sem preview -> 409.
