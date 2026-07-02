@@ -1,0 +1,82 @@
+id: REF-CONTAVIVA360-0008
+slug: pj-edit
+title: Editar Pessoa Jurídica
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0002
+    relation: implements
+    note: formulário de edição de pessoa jurídica existente
+
+surface:
+  route: /pj/:id/edit
+  name: Editar Pessoa Jurídica
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: dados carregados para edição
+      ui: campos pré-preenchidos (CNPJ somente leitura, demais editáveis)
+    - name: loading
+      when: carregando dados ou enviando atualização
+      ui: skeleton nos campos; botão "Salvar" com spinner durante envio
+    - name: empty
+      when: ID não encontrado (404)
+      ui: mensagem "Registro não encontrado" com botão "Voltar"
+    - name: error
+      when: erro de validação ou falha de rede
+      ui: mensagens de erro inline; banner de erro geral
+  data:
+    - field: razao_social
+      source: api:/v1/pj/:id
+      format: texto livre
+      editable: true
+    - field: inscricao_estadual
+      source: api:/v1/pj/:id
+      format: texto
+      editable: true
+    - field: inscricao_municipal
+      source: api:/v1/pj/:id
+      format: texto
+      editable: true
+    - field: regime_tributario
+      source: api:/v1/pj/:id
+      format: enum (simples|lucro_presumido|lucro_real)
+      editable: true
+    - field: cnae
+      source: api:/v1/pj/:id
+      format: código CNAE
+      editable: true
+    - field: dados_bancarios
+      source: api:/v1/pj/:id
+      format: objeto JSON
+      editable: true
+    - field: cnpj
+      source: api:/v1/pj/:id
+      format: CNPJ formatado
+      editable: false
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/pj/:id
+      result: pré-preenche os campos com os dados existentes
+    - trigger: submeter formulário
+      action: PUT /v1/pj/:id com razao_social, inscricao_estadual, inscricao_municipal, regime_tributario, cnae, dados_bancarios
+      result: atualiza PJ e redireciona para /pj/:id
+    - trigger: clicar em "Cancelar"
+      action: navega para /pj/:id
+      result: descarta alterações
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

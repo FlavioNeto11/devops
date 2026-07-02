@@ -1,0 +1,88 @@
+id: REF-CONTAVIVA360-0017
+slug: tasks-list
+title: Tarefas
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0004
+    relation: implements
+    note: listagem de tarefas com filtros e indicadores de prazo
+
+surface:
+  route: /tasks
+  name: Tarefas
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: lista carregada com registros
+      ui: tabela com título, responsável, prazo, prioridade, status, nível de alerta e ações
+    - name: loading
+      when: requisição em andamento
+      ui: skeleton de tabela
+    - name: empty
+      when: nenhuma tarefa encontrada
+      ui: mensagem "Nenhuma tarefa encontrada" com botão "Nova Tarefa"
+    - name: error
+      when: falha na requisição
+      ui: mensagem de erro com botão "Tentar novamente"
+  data:
+    - field: id
+      source: api:/v1/tasks
+      format: número
+      editable: false
+    - field: title
+      source: api:/v1/tasks
+      format: texto
+      editable: false
+    - field: assignee
+      source: api:/v1/tasks
+      format: texto (nome do responsável)
+      editable: false
+    - field: due_at
+      source: api:/v1/tasks
+      format: data/hora
+      editable: false
+    - field: priority
+      source: api:/v1/tasks
+      format: enum (baixa|media|alta|critica)
+      editable: false
+    - field: status
+      source: api:/v1/tasks
+      format: enum (aberta|em_progresso|aguardando_cliente|aguardando_contador|concluida|cancelada)
+      editable: false
+    - field: nivel_alerta
+      source: api:/v1/tasks
+      format: enum (critico|vermelho|laranja|amarelo|null)
+      editable: false
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/tasks
+      result: popula tabela com as tarefas do tenant
+    - trigger: filtrar por status
+      action: GET /v1/tasks?status=<valor>
+      result: filtra tarefas pelo status
+    - trigger: filtrar por prioridade
+      action: GET /v1/tasks?priority=<valor>
+      result: filtra tarefas pela prioridade
+    - trigger: clicar em "Nova Tarefa"
+      action: navega para /tasks/new
+      result: abre formulário de criação
+    - trigger: clicar em linha da tabela
+      action: navega para /tasks/:id
+      result: abre detalhe da tarefa
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

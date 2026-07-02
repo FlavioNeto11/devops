@@ -1,0 +1,77 @@
+id: REF-CONTAVIVA360-0006
+slug: pj-list
+title: Pessoas Jurídicas
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0002
+    relation: implements
+    note: listagem de pessoas jurídicas cadastradas
+
+surface:
+  route: /pj
+  name: Pessoas Jurídicas
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: lista carregada com registros
+      ui: tabela com colunas razão social, CNPJ, regime tributário, CNAE, data de cadastro e ações
+    - name: loading
+      when: requisição em andamento
+      ui: skeleton de tabela
+    - name: empty
+      when: nenhuma PJ cadastrada
+      ui: mensagem "Nenhuma empresa cadastrada" com botão "Cadastrar"
+    - name: error
+      when: falha na requisição
+      ui: mensagem de erro com botão "Tentar novamente"
+  data:
+    - field: id
+      source: api:/v1/pj
+      format: número
+      editable: false
+    - field: razao_social
+      source: api:/v1/pj
+      format: texto
+      editable: false
+    - field: cnpj
+      source: api:/v1/pj
+      format: CNPJ formatado (00.000.000/0000-00)
+      editable: false
+    - field: regime_tributario
+      source: api:/v1/pj
+      format: enum (simples|lucro_presumido|lucro_real)
+      editable: false
+    - field: cnae
+      source: api:/v1/pj
+      format: código CNAE
+      editable: false
+  interactions:
+    - trigger: clicar em "Nova Pessoa Jurídica"
+      action: navega para /pj/new
+      result: abre formulário de cadastro
+    - trigger: clicar em linha da tabela
+      action: navega para /pj/:id
+      result: abre detalhe da PJ
+    - trigger: clicar em "Editar"
+      action: navega para /pj/:id/edit
+      result: abre formulário de edição
+    - trigger: carregar página
+      action: GET /v1/pj
+      result: popula a tabela com as PJs do tenant
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

@@ -1,0 +1,82 @@
+id: REF-CONTAVIVA360-0019
+slug: tasks-edit
+title: Editar Tarefa
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0004
+    relation: implements
+    note: formulário de edição de tarefa existente com validação de transições de status
+
+surface:
+  route: /tasks/:id/edit
+  name: Editar Tarefa
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: dados carregados para edição
+      ui: campos pré-preenchidos; seletor de status exibe apenas transições válidas a partir do status atual
+    - name: loading
+      when: carregando dados ou enviando atualização
+      ui: skeleton nos campos; botão "Salvar" com spinner durante envio
+    - name: empty
+      when: ID não encontrado (404)
+      ui: mensagem "Tarefa não encontrada" com botão "Voltar"
+    - name: error
+      when: transição de status inválida ou falha de rede
+      ui: mensagem de erro sobre transição inválida; banner de erro geral
+  data:
+    - field: title
+      source: api:/v1/tasks/:id
+      format: texto
+      editable: true
+    - field: description
+      source: api:/v1/tasks/:id
+      format: texto longo
+      editable: true
+    - field: assignee
+      source: api:/v1/tasks/:id
+      format: texto
+      editable: true
+    - field: assignee_role
+      source: api:/v1/tasks/:id
+      format: texto
+      editable: true
+    - field: due_at
+      source: api:/v1/tasks/:id
+      format: data/hora
+      editable: true
+    - field: priority
+      source: api:/v1/tasks/:id
+      format: enum (baixa|media|alta|critica)
+      editable: true
+    - field: status
+      source: api:/v1/tasks/:id
+      format: enum (aberta|em_progresso|aguardando_cliente|aguardando_contador|concluida|cancelada)
+      editable: true
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/tasks/:id
+      result: pré-preenche os campos com os dados existentes
+    - trigger: submeter formulário
+      action: PATCH /v1/tasks/:id com title, description, assignee, assignee_role, due_at, priority, status
+      result: atualiza tarefa (com validação de transição de status) e redireciona para /tasks/:id
+    - trigger: clicar em "Cancelar"
+      action: navega para /tasks/:id
+      result: descarta alterações
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

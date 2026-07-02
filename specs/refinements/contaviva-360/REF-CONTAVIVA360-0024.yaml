@@ -1,0 +1,85 @@
+id: REF-CONTAVIVA360-0024
+slug: accounts-receivable-list
+title: Contas a Receber
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0005
+    relation: implements
+    note: listagem de contas a receber (receitas pendentes)
+
+surface:
+  route: /accounts-receivable
+  name: Contas a Receber
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: lista carregada com registros
+      ui: tabela com cliente, valor, data, categoria, forma de recebimento, status e ações
+    - name: loading
+      when: requisição em andamento
+      ui: skeleton de tabela
+    - name: empty
+      when: nenhuma conta a receber
+      ui: mensagem "Nenhuma conta a receber" com botão "Nova Conta"
+    - name: error
+      when: falha na requisição
+      ui: mensagem de erro com botão "Tentar novamente"
+  data:
+    - field: id
+      source: api:/v1/accounts-receivable
+      format: número
+      editable: false
+    - field: contraparte
+      source: api:/v1/accounts-receivable
+      format: texto (nome do cliente)
+      editable: false
+    - field: valor
+      source: api:/v1/accounts-receivable
+      format: moeda BRL
+      editable: false
+    - field: data
+      source: api:/v1/accounts-receivable
+      format: data DD/MM/AAAA
+      editable: false
+    - field: categoria
+      source: api:/v1/accounts-receivable
+      format: texto
+      editable: false
+    - field: forma_recebimento
+      source: api:/v1/accounts-receivable
+      format: texto
+      editable: false
+    - field: status
+      source: api:/v1/accounts-receivable
+      format: enum (pendente|recebido|vencido|cancelado)
+      editable: false
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/accounts-receivable
+      result: popula tabela com as receitas pendentes do tenant
+    - trigger: filtrar por status
+      action: GET /v1/accounts-receivable?status=<valor>
+      result: filtra contas pelo status
+    - trigger: clicar em "Nova Conta a Receber"
+      action: navega para /accounts-receivable/new
+      result: abre formulário de criação
+    - trigger: clicar em "Editar"
+      action: navega para /accounts-receivable/:id/edit
+      result: abre formulário de edição
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

@@ -1,0 +1,89 @@
+id: REF-CONTAVIVA360-0045
+slug: assistant-audit
+title: Auditoria do Assistente IA
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0007
+    relation: implements
+    note: log de auditoria das interações com o assistente IA (perguntas, respostas, arquivos, rascunhos confirmados)
+  - requirement_id: REQ-CONTAVIVA360-0009
+    relation: relates_to
+    note: trilha de auditoria centralizada inclui interações do assistente IA
+
+surface:
+  route: /admin/assistant-audit
+  name: Auditoria do Assistente IA
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: log carregado com sucesso
+      ui: tabela com pergunta, resposta resumida, ferramentas usadas, arquivos processados, rascunhos confirmados, duração e data
+    - name: loading
+      when: requisição em andamento
+      ui: skeleton de tabela
+    - name: empty
+      when: nenhuma interação registrada
+      ui: mensagem "Nenhuma interação com o assistente registrada"
+    - name: error
+      when: falha de rede
+      ui: banner de erro com botão "Tentar novamente"
+  data:
+    - field: id
+      source: api:/v1/assistant/health
+      format: número
+      contract: proposed
+      editable: false
+    - field: conversation_id
+      source: api:/v1/assistant
+      format: texto (identificador da conversa)
+      editable: false
+    - field: question
+      source: api:/v1/assistant
+      format: texto (pergunta — truncada em 4000 chars)
+      editable: false
+    - field: answer
+      source: api:/v1/assistant
+      format: texto (resposta — truncada em 4000 chars)
+      editable: false
+    - field: tools_used
+      source: api:/v1/assistant
+      format: lista de ferramentas utilizadas
+      editable: false
+    - field: files_manifest
+      source: api:/v1/assistant
+      format: lista de arquivos processados (path, type, status)
+      editable: false
+    - field: duration_ms
+      source: api:/v1/assistant
+      format: número (milissegundos)
+      editable: false
+    - field: created_at
+      source: api:/v1/assistant/health
+      format: data/hora ISO
+      contract: proposed
+      editable: false
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/assistant/health
+      result: verifica disponibilidade da IA e exibe status
+    - trigger: carregar log de auditoria
+      action: GET /v1/admin/assistant-audit
+      contract: proposed
+      result: lista os registros de auditoria do assistente IA (endpoint a criar)
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

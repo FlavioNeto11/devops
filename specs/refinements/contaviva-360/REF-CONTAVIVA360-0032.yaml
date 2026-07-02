@@ -1,0 +1,89 @@
+id: REF-CONTAVIVA360-0032
+slug: nf-clients-detail
+title: Detalhe do Cliente NF
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0006
+    relation: implements
+    note: visualização completa do cliente NF com histórico de NFs emitidas
+
+surface:
+  route: /nf-clients/:id
+  name: Detalhe do Cliente NF
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: dados carregados com sucesso
+      ui: cabeçalho com razão social/CNPJ/tipo, endereço, contato e lista de NFs emitidas para este cliente
+    - name: loading
+      when: requisição em andamento
+      ui: skeleton no cabeçalho e na lista de NFs
+    - name: empty
+      when: ID não encontrado (404)
+      ui: mensagem "Cliente não encontrado" com botão "Voltar para lista"
+    - name: error
+      when: falha de rede
+      ui: banner de erro com botão "Tentar novamente"
+  data:
+    - field: razao_social
+      source: api:/v1/nf-clients/:id
+      format: texto
+      editable: false
+    - field: cnpj
+      source: api:/v1/nf-clients/:id
+      format: CNPJ formatado
+      editable: false
+    - field: tipo_cliente
+      source: api:/v1/nf-clients/:id
+      format: enum (empresa|consumidor_final|orgao_publico)
+      editable: false
+    - field: inscricao_estadual
+      source: api:/v1/nf-clients/:id
+      format: texto
+      editable: false
+    - field: inscricao_municipal
+      source: api:/v1/nf-clients/:id
+      format: texto
+      editable: false
+    - field: endereco
+      source: api:/v1/nf-clients/:id
+      format: objeto endereço
+      editable: false
+    - field: contato
+      source: api:/v1/nf-clients/:id
+      format: objeto contato (telefone, email)
+      editable: false
+    - field: notas_emitidas
+      source: api:/v1/nf
+      format: lista de NFs (filtradas por nf_client_id)
+      editable: false
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/nf-clients/:id
+      result: exibe dados completos do cliente
+    - trigger: carregar NFs do cliente
+      action: GET /v1/nf?nf_client_id=<id>
+      result: lista as NFs emitidas para este cliente
+    - trigger: clicar em "Editar"
+      action: navega para /nf-clients/:id/edit
+      result: abre formulário de edição
+    - trigger: clicar em "Emitir NF"
+      action: navega para /nf/new com nf_client_id pré-selecionado
+      result: abre formulário de emissão de NF
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

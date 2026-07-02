@@ -1,0 +1,85 @@
+id: REF-CONTAVIVA360-0007
+slug: pj-create
+title: Nova Pessoa Jurídica
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0002
+    relation: implements
+    note: formulário de cadastro de pessoa jurídica
+  - requirement_id: REQ-CONTAVIVA360-0009
+    relation: relates_to
+    note: CNPJ pode ser consultado via gateway RFB para auto-preenchimento
+
+surface:
+  route: /pj/new
+  name: Nova Pessoa Jurídica
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: formulário pronto para preenchimento
+      ui: campos CNPJ, razão social, inscrição estadual, inscrição municipal, regime tributário, CNAE, dados bancários
+    - name: loading
+      when: envio em andamento ou consulta RFB em progresso
+      ui: botão "Salvar" desabilitado com spinner; campos bloqueados durante consulta RFB
+    - name: empty
+      when: formulário recém-aberto
+      ui: campos vazios com placeholders
+    - name: error
+      when: validação falhou ou erro de API
+      ui: mensagens de erro inline; banner de erro geral
+  data:
+    - field: cnpj
+      source: api:/v1/pj
+      format: CNPJ (00.000.000/0000-00)
+      editable: true
+    - field: razao_social
+      source: api:/v1/pj
+      format: texto livre
+      editable: true
+    - field: inscricao_estadual
+      source: api:/v1/pj
+      format: texto
+      editable: true
+    - field: inscricao_municipal
+      source: api:/v1/pj
+      format: texto
+      editable: true
+    - field: regime_tributario
+      source: api:/v1/pj
+      format: enum (simples|lucro_presumido|lucro_real)
+      editable: true
+    - field: cnae
+      source: api:/v1/pj
+      format: código CNAE
+      editable: true
+    - field: dados_bancarios
+      source: api:/v1/pj
+      format: objeto JSON (banco, agencia, conta)
+      editable: true
+  interactions:
+    - trigger: digitar CNPJ e clicar em "Consultar RFB"
+      action: GET /v1/gateways/rfb/cadastral/:cnpj
+      result: auto-preenche razão social e dados cadastrais via gateway RFB
+    - trigger: submeter formulário
+      action: POST /v1/pj com cnpj, razao_social, inscricao_estadual, inscricao_municipal, regime_tributario, cnae, dados_bancarios
+      result: cria PJ e redireciona para /pj/:id
+    - trigger: clicar em "Cancelar"
+      action: navega para /pj
+      result: descarta o formulário
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

@@ -1,0 +1,97 @@
+id: REF-CONTAVIVA360-0009
+slug: pj-detail
+title: Detalhe da Pessoa Jurídica
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0002
+    relation: implements
+    note: visualização completa dos dados da pessoa jurídica
+  - requirement_id: REQ-CONTAVIVA360-0003
+    relation: relates_to
+    note: obrigações fiscais vinculadas à PJ (por regime tributário)
+  - requirement_id: REQ-CONTAVIVA360-0005
+    relation: relates_to
+    note: contas a pagar/receber vinculadas à PJ
+  - requirement_id: REQ-CONTAVIVA360-0006
+    relation: relates_to
+    note: notas fiscais emitidas pela PJ
+
+surface:
+  route: /pj/:id
+  name: Detalhe da Pessoa Jurídica
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: dados carregados com sucesso
+      ui: abas — Dados Cadastrais, Sócios, Obrigações Fiscais, Contas, Notas Fiscais
+    - name: loading
+      when: requisição em andamento
+      ui: skeleton no cabeçalho e nas abas
+    - name: empty
+      when: ID não encontrado (404)
+      ui: mensagem "Empresa não encontrada" com botão "Voltar para lista"
+    - name: error
+      when: falha de rede
+      ui: banner de erro com botão "Tentar novamente"
+  data:
+    - field: razao_social
+      source: api:/v1/pj/:id
+      format: texto
+      editable: false
+    - field: cnpj
+      source: api:/v1/pj/:id
+      format: CNPJ formatado
+      editable: false
+    - field: inscricao_estadual
+      source: api:/v1/pj/:id
+      format: texto
+      editable: false
+    - field: inscricao_municipal
+      source: api:/v1/pj/:id
+      format: texto
+      editable: false
+    - field: regime_tributario
+      source: api:/v1/pj/:id
+      format: enum (simples|lucro_presumido|lucro_real)
+      editable: false
+    - field: cnae
+      source: api:/v1/pj/:id
+      format: código CNAE
+      editable: false
+    - field: socios
+      source: api:/v1/pj/:id
+      format: lista de sócios (nome, cpf, participacao_pct)
+      editable: false
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/pj/:id
+      result: exibe dados completos da PJ com sócios
+    - trigger: clicar em "Editar"
+      action: navega para /pj/:id/edit
+      result: abre formulário de edição
+    - trigger: clicar em "Adicionar Sócio"
+      action: POST /v1/pj/:id/partners com nome, cpf, participacao_pct
+      result: adiciona sócio à lista
+    - trigger: clicar em "Remover Sócio"
+      action: DELETE /v1/pj/:id/partners/:partnerId
+      result: remove sócio da lista
+    - trigger: clicar em "Gerar Obrigações"
+      action: POST /v1/pj/:id/fiscal-obligations/generate
+      result: gera obrigações fiscais pelo regime tributário da PJ
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

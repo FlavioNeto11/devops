@@ -1,0 +1,120 @@
+id: REF-CONTAVIVA360-0038
+slug: nf-detail
+title: Detalhe da Nota Fiscal
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0006
+    relation: implements
+    note: visualização completa da NF com XML, PDF, chave de acesso e protocolo SEFAZ
+  - requirement_id: REQ-CONTAVIVA360-0009
+    relation: relates_to
+    note: rastreamento de status SEFAZ e consulta via gateway
+
+surface:
+  route: /nf/:id
+  name: Detalhe da Nota Fiscal
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: NF carregada com sucesso
+      ui: cabeçalho com número/série/status/chave, itens, totais com impostos discriminados, botões PDF/XML
+    - name: loading
+      when: requisição em andamento
+      ui: skeleton no cabeçalho e nos itens
+    - name: empty
+      when: ID não encontrado (404)
+      ui: mensagem "Nota fiscal não encontrada" com botão "Voltar para lista"
+    - name: error
+      when: falha de rede ou SEFAZ indisponível
+      ui: banner de erro com status da consulta SEFAZ
+  data:
+    - field: numero_nf
+      source: api:/v1/nf/:id
+      format: texto
+      editable: false
+    - field: serie
+      source: api:/v1/nf/:id
+      format: texto
+      editable: false
+    - field: status
+      source: api:/v1/nf/:id
+      format: enum (rascunho|processando|emitida|cancelada|rejeitada)
+      editable: false
+    - field: chave_acesso
+      source: api:/v1/nf/:id
+      format: chave de 44 dígitos
+      editable: false
+    - field: data_emissao
+      source: api:/v1/nf/:id
+      format: data DD/MM/AAAA
+      editable: false
+    - field: data_autorizacao_sefaz
+      source: api:/v1/nf/:id
+      format: data/hora
+      editable: false
+    - field: sefaz_protocolo
+      source: api:/v1/nf/:id
+      format: texto
+      editable: false
+    - field: sefaz_motivo
+      source: api:/v1/nf/:id
+      format: texto (motivo de rejeição/cancelamento)
+      editable: false
+    - field: total_nf
+      source: api:/v1/nf/:id
+      format: moeda BRL
+      editable: false
+    - field: total_impostos
+      source: api:/v1/nf/:id
+      format: moeda BRL
+      editable: false
+    - field: emitente_razao_social
+      source: api:/v1/nf/:id
+      format: texto
+      editable: false
+    - field: destinatario_razao_social
+      source: api:/v1/nf/:id
+      format: texto
+      editable: false
+    - field: itens
+      source: api:/v1/nf/:id
+      format: lista de itens (descricao, quantidade, valor_unitario, valor_total, impostos discriminados)
+      editable: false
+    - field: xml
+      source: api:/v1/nf/:id
+      format: XML da NF-e
+      editable: false
+    - field: pdf_base64
+      source: api:/v1/nf/:id
+      format: PDF em base64
+      editable: false
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/nf/:id
+      result: exibe dados completos da NF com itens e informações SEFAZ
+    - trigger: clicar em "Baixar PDF"
+      action: GET /v1/nf/:id/pdf
+      result: baixa o PDF da NF
+    - trigger: clicar em "Cancelar NF"
+      action: POST /v1/nf/:id/cancel com motivo
+      result: cancela a NF (somente status emitida|processando)
+    - trigger: clicar em "Consultar SEFAZ"
+      action: POST /v1/gateways/sefaz/consultar com chave_acesso
+      result: consulta o status atual da NF na SEFAZ
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

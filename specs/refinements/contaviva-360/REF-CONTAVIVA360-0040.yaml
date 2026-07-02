@@ -1,0 +1,81 @@
+id: REF-CONTAVIVA360-0040
+slug: assistant
+title: Assistente Contábil IA
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0007
+    relation: implements
+    note: interface de chat com o assistente contábil IA com suporte a RAG e upload de arquivos
+
+surface:
+  route: /assistant
+  name: Assistente Contábil IA
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: assistente IA disponível e pronto para uso
+      ui: área de chat com histórico de mensagens, campo de entrada, botão de upload de arquivos e indicador de citações RAG
+    - name: loading
+      when: aguardando resposta do assistente
+      ui: indicador de "digitando..." no chat
+    - name: empty
+      when: sem histórico de conversa
+      ui: mensagem de boas-vindas com sugestões de perguntas frequentes (IRPF, obrigações, patrimônio)
+    - name: error
+      when: IA desabilitada (503) ou falha de rede
+      ui: banner "Assistente temporariamente indisponível — consulte seu contador"
+  data:
+    - field: answer
+      source: api:/v1/assistant
+      format: texto (resposta da IA)
+      editable: false
+    - field: citations
+      source: api:/v1/assistant
+      format: lista de citações RAG (fonte, trecho)
+      editable: false
+    - field: draft
+      source: api:/v1/assistant
+      format: objeto rascunho proposto pela IA (para confirmação)
+      editable: false
+    - field: tools_used
+      source: api:/v1/assistant
+      format: lista de ferramentas utilizadas
+      editable: false
+    - field: conversation_id
+      source: api:/v1/assistant
+      format: texto (identificador da conversa)
+      editable: false
+    - field: ai_status
+      source: api:/v1/assistant/health
+      format: "booleano (ai: true|false)"
+      editable: false
+  interactions:
+    - trigger: enviar mensagem
+      action: POST /v1/assistant com message, conversation_id, history
+      result: retorna resposta da IA com citações e rascunhos opcionais
+    - trigger: enviar arquivo(s)
+      action: POST /v1/assistant com multipart/form-data (message + files[])
+      result: IA analisa os arquivos e responde contextualmente
+    - trigger: confirmar rascunho proposto pela IA
+      action: POST /v1/assistant/confirm-draft com draft_id, draft_type, draft_data
+      result: persiste o rascunho confirmado como documento
+    - trigger: carregar página
+      action: GET /v1/assistant/health
+      result: verifica se a IA está disponível antes de renderizar o chat
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

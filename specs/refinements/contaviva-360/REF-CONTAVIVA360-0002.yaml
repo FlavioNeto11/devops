@@ -1,0 +1,77 @@
+id: REF-CONTAVIVA360-0002
+slug: pf-list
+title: Pessoas Físicas
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0002
+    relation: implements
+    note: listagem de pessoas físicas cadastradas
+
+surface:
+  route: /pf
+  name: Pessoas Físicas
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: lista carregada com registros
+      ui: tabela com colunas nome, CPF, patrimônio inicial, data de cadastro e ações
+    - name: loading
+      when: requisição em andamento
+      ui: skeleton de tabela
+    - name: empty
+      when: nenhuma PF cadastrada
+      ui: mensagem "Nenhuma pessoa física cadastrada" com botão "Cadastrar"
+    - name: error
+      when: falha na requisição
+      ui: mensagem de erro com botão "Tentar novamente"
+  data:
+    - field: id
+      source: api:/v1/pf
+      format: número
+      editable: false
+    - field: nome
+      source: api:/v1/pf
+      format: texto
+      editable: false
+    - field: cpf
+      source: api:/v1/pf
+      format: CPF formatado
+      editable: false
+    - field: patrimonio_inicial
+      source: api:/v1/pf
+      format: moeda BRL
+      editable: false
+    - field: data_nascimento
+      source: api:/v1/pf
+      format: data DD/MM/AAAA
+      editable: false
+  interactions:
+    - trigger: clicar em "Nova Pessoa Física"
+      action: navega para /pf/new
+      result: abre formulário de cadastro
+    - trigger: clicar em linha da tabela
+      action: navega para /pf/:id
+      result: abre detalhe da PF
+    - trigger: clicar em "Editar"
+      action: navega para /pf/:id/edit
+      result: abre formulário de edição
+    - trigger: carregar página
+      action: GET /v1/pf
+      result: popula a tabela com as PFs do tenant
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

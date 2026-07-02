@@ -1,0 +1,82 @@
+id: REF-CONTAVIVA360-0031
+slug: nf-clients-edit
+title: Editar Cliente NF
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0006
+    relation: implements
+    note: formulário de edição de cliente NF existente
+
+surface:
+  route: /nf-clients/:id/edit
+  name: Editar Cliente NF
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: dados carregados para edição
+      ui: campos pré-preenchidos (CNPJ somente leitura, demais editáveis)
+    - name: loading
+      when: carregando dados ou enviando atualização
+      ui: skeleton nos campos; botão "Salvar" com spinner durante envio
+    - name: empty
+      when: ID não encontrado (404)
+      ui: mensagem "Cliente não encontrado" com botão "Voltar"
+    - name: error
+      when: erro de validação ou falha de rede
+      ui: mensagens de erro inline; banner de erro geral
+  data:
+    - field: razao_social
+      source: api:/v1/nf-clients/:id
+      format: texto
+      editable: true
+    - field: inscricao_estadual
+      source: api:/v1/nf-clients/:id
+      format: texto
+      editable: true
+    - field: inscricao_municipal
+      source: api:/v1/nf-clients/:id
+      format: texto
+      editable: true
+    - field: endereco
+      source: api:/v1/nf-clients/:id
+      format: objeto JSON
+      editable: true
+    - field: contato
+      source: api:/v1/nf-clients/:id
+      format: objeto JSON
+      editable: true
+    - field: tipo_cliente
+      source: api:/v1/nf-clients/:id
+      format: enum (empresa|consumidor_final|orgao_publico)
+      editable: true
+    - field: cnpj
+      source: api:/v1/nf-clients/:id
+      format: CNPJ formatado
+      editable: false
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/nf-clients/:id
+      result: pré-preenche campos com dados existentes
+    - trigger: submeter formulário
+      action: PUT /v1/nf-clients/:id com razao_social, inscricao_estadual, inscricao_municipal, endereco, contato, tipo_cliente
+      result: atualiza cliente NF e redireciona para /nf-clients/:id
+    - trigger: clicar em "Cancelar"
+      action: navega para /nf-clients/:id
+      result: descarta alterações
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

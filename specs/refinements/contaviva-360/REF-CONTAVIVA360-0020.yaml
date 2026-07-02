@@ -1,0 +1,96 @@
+id: REF-CONTAVIVA360-0020
+slug: tasks-detail
+title: Detalhe da Tarefa
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0004
+    relation: implements
+    note: visualização completa da tarefa com comentários e anexos
+
+surface:
+  route: /tasks/:id
+  name: Detalhe da Tarefa
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: dados carregados com sucesso
+      ui: cabeçalho com título/status/prazo/alerta, abas — Detalhes, Comentários, Anexos
+    - name: loading
+      when: requisição em andamento
+      ui: skeleton no cabeçalho e nas abas
+    - name: empty
+      when: ID não encontrado (404)
+      ui: mensagem "Tarefa não encontrada" com botão "Voltar para lista"
+    - name: error
+      when: falha de rede
+      ui: banner de erro com botão "Tentar novamente"
+  data:
+    - field: title
+      source: api:/v1/tasks/:id
+      format: texto
+      editable: false
+    - field: description
+      source: api:/v1/tasks/:id
+      format: texto longo
+      editable: false
+    - field: assignee
+      source: api:/v1/tasks/:id
+      format: texto
+      editable: false
+    - field: due_at
+      source: api:/v1/tasks/:id
+      format: data/hora
+      editable: false
+    - field: priority
+      source: api:/v1/tasks/:id
+      format: enum (baixa|media|alta|critica)
+      editable: false
+    - field: status
+      source: api:/v1/tasks/:id
+      format: enum (aberta|em_progresso|aguardando_cliente|aguardando_contador|concluida|cancelada)
+      editable: false
+    - field: nivel_alerta
+      source: api:/v1/tasks/:id
+      format: enum (critico|vermelho|laranja|amarelo|null)
+      editable: false
+    - field: comments
+      source: api:/v1/tasks/:id
+      format: lista de comentários (author, content, created_at, metadata)
+      editable: false
+    - field: attachments
+      source: api:/v1/tasks/:id
+      format: lista de anexos (version, filename, content_type, file_size, uploaded_by)
+      editable: false
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/tasks/:id
+      result: exibe dados completos com comentários e anexos
+    - trigger: adicionar comentário
+      action: POST /v1/tasks/:id/comments com content
+      result: adiciona comentário à thread
+    - trigger: editar comentário próprio
+      action: PATCH /v1/tasks/:id/comments/:cid com content
+      result: atualiza o conteúdo do comentário
+    - trigger: adicionar anexo
+      action: POST /v1/tasks/:id/attachments com filename, content_type, file_size
+      result: adiciona nova versão de anexo
+    - trigger: clicar em "Editar"
+      action: navega para /tasks/:id/edit
+      result: abre formulário de edição
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

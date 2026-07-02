@@ -1,0 +1,83 @@
+id: REF-CONTAVIVA360-0014
+slug: fiscal-obligations-create
+title: Nova Obrigação Fiscal
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0003
+    relation: implements
+    note: formulário de cadastro de nova obrigação fiscal
+
+surface:
+  route: /fiscal-obligations/new
+  name: Nova Obrigação Fiscal
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: formulário pronto para preenchimento
+      ui: campos tipo, data de vencimento, periodicidade, entidade (PF/PJ), status, descrição, valor estimado
+    - name: loading
+      when: envio em andamento
+      ui: botão "Salvar" desabilitado com spinner
+    - name: empty
+      when: formulário recém-aberto
+      ui: campos vazios com valores padrão (status=pendente, periodicidade=mensal)
+    - name: error
+      when: validação falhou ou erro de API
+      ui: mensagens de erro inline; banner de erro geral
+  data:
+    - field: tipo
+      source: api:/v1/fiscal-obligations
+      format: enum (IRPF|IRPJ|ICMS|ISS|DARF|ECF|ECD|e-Social|CAGED|Simples DAS|PER|DIRF|RRA|outro)
+      editable: true
+    - field: data_vencimento
+      source: api:/v1/fiscal-obligations
+      format: data (YYYY-MM-DD)
+      editable: true
+    - field: periodicidade
+      source: api:/v1/fiscal-obligations
+      format: enum (mensal|trimestral|anual)
+      editable: true
+    - field: entidade_tipo
+      source: api:/v1/fiscal-obligations
+      format: enum (PF|PJ)
+      editable: true
+    - field: entidade_id
+      source: api:/v1/fiscal-obligations
+      format: número (ID da PF ou PJ)
+      editable: true
+    - field: status
+      source: api:/v1/fiscal-obligations
+      format: enum (pendente|pago|cancelado|atrasado|aprovacao_pendente)
+      editable: true
+    - field: descricao
+      source: api:/v1/fiscal-obligations
+      format: texto livre
+      editable: true
+    - field: valor_estimado
+      source: api:/v1/fiscal-obligations
+      format: decimal
+      editable: true
+  interactions:
+    - trigger: submeter formulário
+      action: POST /v1/fiscal-obligations com tipo, data_vencimento, periodicidade, entidade_tipo, entidade_id, status, descricao, valor_estimado
+      result: cria obrigação e redireciona para /fiscal-obligations/:id
+    - trigger: clicar em "Cancelar"
+      action: navega para /fiscal-obligations
+      result: descarta o formulário
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

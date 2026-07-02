@@ -1,0 +1,102 @@
+id: REF-CONTAVIVA360-0044
+slug: gateways-audit
+title: Auditoria de Integrações
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0009
+    relation: implements
+    note: trilha de auditoria centralizada de todas as chamadas aos gateways externos (SEFAZ, RFB, e-Social)
+
+surface:
+  route: /admin/gateways
+  name: Auditoria de Integrações
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: dados carregados com sucesso
+      ui: cards de status dos gateways (SEFAZ, RFB, e-Social — modo sandbox/real), tabela de log de auditoria
+    - name: loading
+      when: requisição em andamento
+      ui: skeleton nos cards e na tabela
+    - name: empty
+      when: nenhum registro de auditoria
+      ui: mensagem "Nenhuma chamada de gateway registrada"
+    - name: error
+      when: falha de rede
+      ui: banner de erro com botão "Tentar novamente"
+  data:
+    - field: sefaz_mode
+      source: api:/v1/gateways/health
+      format: enum (sandbox|real)
+      editable: false
+    - field: rfb_mode
+      source: api:/v1/gateways/health
+      format: enum (sandbox|real)
+      editable: false
+    - field: esocial_mode
+      source: api:/v1/gateways/health
+      format: enum (sandbox|real)
+      editable: false
+    - field: id
+      source: api:/v1/gateways/audit
+      format: número
+      editable: false
+    - field: gateway
+      source: api:/v1/gateways/audit
+      format: texto (sefaz|rfb|esocial)
+      editable: false
+    - field: method
+      source: api:/v1/gateways/audit
+      format: texto (HTTP method)
+      editable: false
+    - field: endpoint
+      source: api:/v1/gateways/audit
+      format: texto (URL do gateway externo)
+      editable: false
+    - field: response_status
+      source: api:/v1/gateways/audit
+      format: número (HTTP status)
+      editable: false
+    - field: duration_ms
+      source: api:/v1/gateways/audit
+      format: número (milissegundos)
+      editable: false
+    - field: attempts
+      source: api:/v1/gateways/audit
+      format: número (tentativas com retry)
+      editable: false
+    - field: error_code
+      source: api:/v1/gateways/audit
+      format: texto (código de erro tipado)
+      editable: false
+    - field: logged_at
+      source: api:/v1/gateways/audit
+      format: data/hora ISO
+      editable: false
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/gateways/health
+      result: exibe status dos três gateways (modo e credenciais)
+    - trigger: carregar log de auditoria
+      action: GET /v1/gateways/audit
+      result: exibe as últimas chamadas aos gateways com detalhes
+    - trigger: paginar log
+      action: GET /v1/gateways/audit?limit=<N>
+      result: carrega mais registros do log
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

@@ -1,0 +1,87 @@
+id: REF-CONTAVIVA360-0011
+slug: documents-create
+title: Enviar Documento
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0002
+    relation: implements
+    note: formulário de envio/upload de novo documento
+
+surface:
+  route: /documents/new
+  name: Enviar Documento
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: formulário pronto para preenchimento
+      ui: campos tipo, entidade (PF/PJ), mês, ano, status, arquivo (filename, content_type, file_size)
+    - name: loading
+      when: envio em andamento
+      ui: botão "Enviar" desabilitado com barra de progresso
+    - name: empty
+      when: formulário recém-aberto
+      ui: campos vazios com placeholders
+    - name: error
+      when: validação falhou ou erro de API
+      ui: mensagens de erro inline; banner de erro geral
+  data:
+    - field: tipo
+      source: api:/v1/documents
+      format: texto livre (tipo do documento)
+      editable: true
+    - field: entity_type
+      source: api:/v1/documents
+      format: texto (pf|pj)
+      editable: true
+    - field: entity_id
+      source: api:/v1/documents
+      format: número (ID da entidade vinculada)
+      editable: true
+    - field: mes
+      source: api:/v1/documents
+      format: número (1-12)
+      editable: true
+    - field: ano
+      source: api:/v1/documents
+      format: número (AAAA)
+      editable: true
+    - field: status
+      source: api:/v1/documents
+      format: enum (pendente|aprovado|rejeitado)
+      editable: true
+    - field: filename
+      source: api:/v1/documents
+      format: nome do arquivo
+      editable: true
+    - field: content_type
+      source: api:/v1/documents
+      format: MIME type
+      editable: true
+    - field: file_size
+      source: api:/v1/documents
+      format: número (bytes)
+      editable: true
+  interactions:
+    - trigger: submeter formulário
+      action: POST /v1/documents com tipo, entity_type, entity_id, mes, ano, status, filename, content_type, file_size
+      result: cria documento e redireciona para /documents/:id
+    - trigger: clicar em "Cancelar"
+      action: navega para /documents
+      result: descarta o formulário
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

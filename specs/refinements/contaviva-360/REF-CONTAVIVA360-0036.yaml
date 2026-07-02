@@ -1,0 +1,96 @@
+id: REF-CONTAVIVA360-0036
+slug: nf-list
+title: Notas Fiscais
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0006
+    relation: implements
+    note: listagem de notas fiscais com status SEFAZ e rastreamento
+
+surface:
+  route: /nf
+  name: Notas Fiscais
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: lista carregada com registros
+      ui: tabela com número, série, destinatário, data de emissão, total, status e ações
+    - name: loading
+      when: requisição em andamento
+      ui: skeleton de tabela
+    - name: empty
+      when: nenhuma NF emitida
+      ui: mensagem "Nenhuma nota fiscal emitida" com botão "Emitir NF"
+    - name: error
+      when: falha na requisição
+      ui: mensagem de erro com botão "Tentar novamente"
+  data:
+    - field: id
+      source: api:/v1/nf
+      format: número
+      editable: false
+    - field: numero_nf
+      source: api:/v1/nf
+      format: texto (número padded)
+      editable: false
+    - field: serie
+      source: api:/v1/nf
+      format: texto
+      editable: false
+    - field: destinatario_razao_social
+      source: api:/v1/nf
+      format: texto
+      editable: false
+    - field: destinatario_cnpj
+      source: api:/v1/nf
+      format: CNPJ formatado
+      editable: false
+    - field: data_emissao
+      source: api:/v1/nf
+      format: data DD/MM/AAAA
+      editable: false
+    - field: total_nf
+      source: api:/v1/nf
+      format: moeda BRL
+      editable: false
+    - field: status
+      source: api:/v1/nf
+      format: enum (rascunho|processando|emitida|cancelada|rejeitada)
+      editable: false
+    - field: chave_acesso
+      source: api:/v1/nf
+      format: chave de 44 dígitos
+      editable: false
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/nf
+      result: popula tabela com as NFs do tenant
+    - trigger: filtrar por status
+      action: GET /v1/nf?status=<valor>
+      result: filtra por status
+    - trigger: filtrar por período
+      action: GET /v1/nf?period_start=<data>&period_end=<data>
+      result: filtra por período de emissão
+    - trigger: clicar em "Emitir Nota Fiscal"
+      action: navega para /nf/new
+      result: abre formulário de emissão
+    - trigger: clicar em linha da tabela
+      action: navega para /nf/:id
+      result: abre detalhe da NF
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

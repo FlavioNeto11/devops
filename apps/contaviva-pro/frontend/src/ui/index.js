@@ -20,6 +20,8 @@ export { default as UiToast } from './components/UiToast.vue';
 export { default as UiAppShell } from './components/UiAppShell.vue';
 export { default as UiFileDrop } from './components/UiFileDrop.vue';
 export { default as UiInput } from './components/UiInput.vue';
+export { default as UiSelect } from './components/UiSelect.vue';
+export { default as UiTextarea } from './components/UiTextarea.vue';
 
 export { useToast } from './composables/useToast.js';
 export { useConfirm } from './composables/useConfirm.js';

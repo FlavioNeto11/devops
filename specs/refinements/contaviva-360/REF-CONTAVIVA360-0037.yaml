@@ -1,0 +1,85 @@
+id: REF-CONTAVIVA360-0037
+slug: nf-create
+title: Emitir Nota Fiscal
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0006
+    relation: implements
+    note: formulário de emissão de NF-e com cálculo de impostos
+  - requirement_id: REQ-CONTAVIVA360-0009
+    relation: relates_to
+    note: submissão à SEFAZ via gateway fiscal com auditoria centralizada
+
+surface:
+  route: /nf/new
+  name: Emitir Nota Fiscal
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: formulário pronto para preenchimento
+      ui: seletor de cliente NF, série, data de emissão, observações e tabela de itens com cálculo de impostos em tempo real
+    - name: loading
+      when: envio/submissão em andamento
+      ui: botão "Emitir" desabilitado com spinner; mensagem "Enviando para SEFAZ..."
+    - name: empty
+      when: formulário recém-aberto
+      ui: cliente não selecionado, tabela de itens vazia
+    - name: error
+      when: validação falhou ou gateway SEFAZ retornou erro
+      ui: mensagem de erro tipada (SefazError com código e motivo); campos em erro destacados
+  data:
+    - field: nf_client_id
+      source: api:/v1/nf
+      format: número (obrigatório)
+      editable: true
+    - field: serie
+      source: api:/v1/nf
+      format: texto (padrão "001")
+      editable: true
+    - field: data_emissao
+      source: api:/v1/nf
+      format: data YYYY-MM-DD
+      editable: true
+    - field: observacoes
+      source: api:/v1/nf
+      format: texto
+      editable: true
+    - field: itens
+      source: api:/v1/nf
+      format: lista de itens (nf_product_id, descricao, quantidade, valor_unitario, cfop, aliquotas)
+      editable: true
+    - field: total_nf
+      source: api:/v1/nf
+      format: moeda BRL (calculado no frontend)
+      editable: false
+    - field: total_impostos
+      source: api:/v1/nf
+      format: moeda BRL (calculado no frontend)
+      editable: false
+  interactions:
+    - trigger: selecionar produto nos itens
+      action: GET /v1/nf-products/:id
+      result: preenche automaticamente alíquotas e valor unitário do produto
+    - trigger: submeter formulário
+      action: POST /v1/nf com nf_client_id, serie, data_emissao, observacoes, itens[]
+      result: cria NF (status processando), enfileira submissão SEFAZ, redireciona para /nf/:id
+    - trigger: clicar em "Cancelar"
+      action: navega para /nf
+      result: descarta o formulário
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

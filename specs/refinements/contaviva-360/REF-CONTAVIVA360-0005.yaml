@@ -1,0 +1,107 @@
+id: REF-CONTAVIVA360-0005
+slug: pf-detail
+title: Detalhe da Pessoa Física
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0002
+    relation: implements
+    note: visualização completa dos dados da pessoa física
+  - requirement_id: REQ-CONTAVIVA360-0003
+    relation: relates_to
+    note: obrigações fiscais vinculadas à PF listadas na aba de obrigações
+  - requirement_id: REQ-CONTAVIVA360-0004
+    relation: relates_to
+    note: tarefas vinculadas à PF listadas na aba de tarefas
+  - requirement_id: REQ-CONTAVIVA360-0005
+    relation: relates_to
+    note: receitas/despesas e patrimônio líquido exibidos na aba financeira
+
+surface:
+  route: /pf/:id
+  name: Detalhe da Pessoa Física
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: dados carregados com sucesso
+      ui: abas — Dados Cadastrais, Ativos, Passivos, Documentos, Obrigações Fiscais, Tarefas, Financeiro
+    - name: loading
+      when: requisição em andamento
+      ui: skeleton no cabeçalho e nas abas
+    - name: empty
+      when: ID não encontrado (404)
+      ui: mensagem "Pessoa física não encontrada" com botão "Voltar para lista"
+    - name: error
+      when: falha de rede
+      ui: banner de erro com botão "Tentar novamente"
+  data:
+    - field: nome
+      source: api:/v1/pf/:id
+      format: texto
+      editable: false
+    - field: cpf
+      source: api:/v1/pf/:id
+      format: CPF formatado
+      editable: false
+    - field: data_nascimento
+      source: api:/v1/pf/:id
+      format: data DD/MM/AAAA
+      editable: false
+    - field: endereco
+      source: api:/v1/pf/:id
+      format: endereço formatado
+      editable: false
+    - field: patrimonio_inicial
+      source: api:/v1/pf/:id
+      format: moeda BRL
+      editable: false
+    - field: assets
+      source: api:/v1/pf/:id
+      format: lista de ativos (tipo, descricao, valor)
+      editable: false
+    - field: liabilities
+      source: api:/v1/pf/:id
+      format: lista de passivos (tipo, descricao, valor, recorrente)
+      editable: false
+    - field: patrimonio_liquido
+      source: api:/v1/dashboard/pf/:id
+      format: moeda BRL (calculado)
+      editable: false
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/pf/:id
+      result: exibe dados completos da PF com ativos e passivos
+    - trigger: clicar em "Editar"
+      action: navega para /pf/:id/edit
+      result: abre formulário de edição
+    - trigger: clicar em "Adicionar Ativo"
+      action: POST /v1/pf/:id/assets com tipo, descricao, valor
+      result: adiciona ativo à lista
+    - trigger: clicar em "Remover Ativo"
+      action: DELETE /v1/pf/:id/assets/:assetId
+      result: remove ativo da lista
+    - trigger: clicar em "Adicionar Passivo"
+      action: POST /v1/pf/:id/liabilities com tipo, descricao, valor, recorrente
+      result: adiciona passivo à lista
+    - trigger: clicar em "Remover Passivo"
+      action: DELETE /v1/pf/:id/liabilities/:liabilityId
+      result: remove passivo da lista
+    - trigger: acessar aba "Financeiro"
+      action: GET /v1/dashboard/pf/:id
+      result: exibe patrimônio líquido, receitas/despesas e evolução patrimonial
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

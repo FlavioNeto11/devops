@@ -1,0 +1,86 @@
+id: REF-CONTAVIVA360-0016
+slug: fiscal-obligations-detail
+title: Detalhe da Obrigação Fiscal
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0003
+    relation: implements
+    note: visualização completa da obrigação fiscal com histórico de alertas
+
+surface:
+  route: /fiscal-obligations/:id
+  name: Detalhe da Obrigação Fiscal
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: dados carregados com sucesso
+      ui: cabeçalho com tipo/status/vencimento, nível de alerta em destaque, histórico de alertas
+    - name: loading
+      when: requisição em andamento
+      ui: skeleton no cabeçalho e no histórico
+    - name: empty
+      when: ID não encontrado (404)
+      ui: mensagem "Obrigação não encontrada" com botão "Voltar para lista"
+    - name: error
+      when: falha de rede
+      ui: banner de erro com botão "Tentar novamente"
+  data:
+    - field: tipo
+      source: api:/v1/fiscal-obligations/:id
+      format: enum (IRPF|IRPJ|ICMS|ISS|DARF|...)
+      editable: false
+    - field: data_vencimento
+      source: api:/v1/fiscal-obligations/:id
+      format: data DD/MM/AAAA
+      editable: false
+    - field: periodicidade
+      source: api:/v1/fiscal-obligations/:id
+      format: enum (mensal|trimestral|anual)
+      editable: false
+    - field: status
+      source: api:/v1/fiscal-obligations/:id
+      format: enum (pendente|pago|cancelado|atrasado|aprovacao_pendente)
+      editable: false
+    - field: nivel_alerta
+      source: api:/v1/fiscal-obligations/:id
+      format: enum (critico|vermelho|laranja|amarelo|null)
+      editable: false
+    - field: descricao
+      source: api:/v1/fiscal-obligations/:id
+      format: texto
+      editable: false
+    - field: valor_estimado
+      source: api:/v1/fiscal-obligations/:id
+      format: moeda BRL
+      editable: false
+    - field: historico_alertas
+      source: api:/v1/fiscal-obligations/:id
+      format: lista de alertas (nivel, created_at)
+      editable: false
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/fiscal-obligations/:id
+      result: exibe dados completos da obrigação com histórico de alertas
+    - trigger: clicar em "Editar"
+      action: navega para /fiscal-obligations/:id/edit
+      result: abre formulário de edição
+    - trigger: clicar em "Marcar como Pago"
+      action: PATCH /v1/fiscal-obligations/:id/status com novo_status=pago
+      result: atualiza status para pago
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

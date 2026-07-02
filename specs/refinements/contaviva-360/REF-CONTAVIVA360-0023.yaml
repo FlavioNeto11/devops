@@ -1,0 +1,98 @@
+id: REF-CONTAVIVA360-0023
+slug: accounts-payable-edit
+title: Editar Conta a Pagar
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0005
+    relation: implements
+    note: formulário de edição de conta a pagar existente
+
+surface:
+  route: /accounts-payable/:id/edit
+  name: Editar Conta a Pagar
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: dados carregados para edição
+      ui: campos pré-preenchidos com todos os campos editáveis
+    - name: loading
+      when: carregando dados ou enviando atualização
+      ui: skeleton nos campos; botão "Salvar" com spinner durante envio
+    - name: empty
+      when: ID não encontrado (404)
+      ui: mensagem "Registro não encontrado" com botão "Voltar"
+    - name: error
+      when: erro de validação ou falha de rede
+      ui: mensagens de erro inline; banner de erro geral
+  data:
+    - field: contraparte
+      source: api:/v1/accounts-payable/:id
+      format: texto
+      editable: true
+    - field: valor
+      source: api:/v1/accounts-payable/:id
+      format: decimal
+      editable: true
+    - field: data
+      source: api:/v1/accounts-payable/:id
+      format: data
+      editable: true
+    - field: categoria
+      source: api:/v1/accounts-payable/:id
+      format: texto
+      editable: true
+    - field: descricao
+      source: api:/v1/accounts-payable/:id
+      format: texto longo
+      editable: true
+    - field: centro_custo
+      source: api:/v1/accounts-payable/:id
+      format: texto
+      editable: true
+    - field: forma_pagamento
+      source: api:/v1/accounts-payable/:id
+      format: enum (cheque|TED|cartão|boleto|dinheiro)
+      editable: true
+    - field: recorrente
+      source: api:/v1/accounts-payable/:id
+      format: booleano
+      editable: true
+    - field: status
+      source: api:/v1/accounts-payable/:id
+      format: enum (pendente|pago|vencido|cancelado)
+      editable: true
+    - field: data_pagamento_realizado
+      source: api:/v1/accounts-payable/:id
+      format: data
+      editable: true
+    - field: comprovante_url
+      source: api:/v1/accounts-payable/:id
+      format: URL
+      editable: true
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/accounts-payable/:id
+      result: pré-preenche campos com dados existentes
+    - trigger: submeter formulário
+      action: PUT /v1/accounts-payable/:id com campos atualizados
+      result: atualiza conta a pagar e redireciona para /accounts-payable
+    - trigger: clicar em "Cancelar"
+      action: navega para /accounts-payable
+      result: descarta alterações
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

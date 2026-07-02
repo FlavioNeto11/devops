@@ -1,0 +1,77 @@
+id: REF-CONTAVIVA360-0029
+slug: nf-clients-list
+title: Clientes NF
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0006
+    relation: implements
+    note: listagem de clientes cadastrados para emissão de nota fiscal
+
+surface:
+  route: /nf-clients
+  name: Clientes NF
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: lista carregada com registros
+      ui: tabela com razão social, CNPJ, tipo de cliente, inscrição estadual e ações
+    - name: loading
+      when: requisição em andamento
+      ui: skeleton de tabela
+    - name: empty
+      when: nenhum cliente NF cadastrado
+      ui: mensagem "Nenhum cliente cadastrado" com botão "Novo Cliente"
+    - name: error
+      when: falha na requisição
+      ui: mensagem de erro com botão "Tentar novamente"
+  data:
+    - field: id
+      source: api:/v1/nf-clients
+      format: número
+      editable: false
+    - field: razao_social
+      source: api:/v1/nf-clients
+      format: texto
+      editable: false
+    - field: cnpj
+      source: api:/v1/nf-clients
+      format: CNPJ formatado
+      editable: false
+    - field: tipo_cliente
+      source: api:/v1/nf-clients
+      format: enum (empresa|consumidor_final|orgao_publico)
+      editable: false
+    - field: inscricao_estadual
+      source: api:/v1/nf-clients
+      format: texto
+      editable: false
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/nf-clients
+      result: popula tabela com os clientes NF do tenant
+    - trigger: filtrar por tipo
+      action: GET /v1/nf-clients?tipo_cliente=<valor>
+      result: filtra pelo tipo de cliente
+    - trigger: clicar em "Novo Cliente NF"
+      action: navega para /nf-clients/new
+      result: abre formulário de cadastro
+    - trigger: clicar em cliente
+      action: navega para /nf-clients/:id
+      result: abre detalhe do cliente NF
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

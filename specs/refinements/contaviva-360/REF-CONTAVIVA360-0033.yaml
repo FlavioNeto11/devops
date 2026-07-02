@@ -1,0 +1,86 @@
+id: REF-CONTAVIVA360-0033
+slug: nf-products-list
+title: Produtos / Serviços NF
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0006
+    relation: implements
+    note: listagem de produtos e serviços cadastrados para emissão de NF
+
+surface:
+  route: /nf-products
+  name: Produtos / Serviços NF
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: lista carregada com registros
+      ui: tabela com código, descrição, valor unitário, CFOP, NCM/NBS, alíquotas e ações
+    - name: loading
+      when: requisição em andamento
+      ui: skeleton de tabela
+    - name: empty
+      when: nenhum produto/serviço cadastrado
+      ui: mensagem "Nenhum produto cadastrado" com botão "Novo Produto"
+    - name: error
+      when: falha na requisição
+      ui: mensagem de erro com botão "Tentar novamente"
+  data:
+    - field: id
+      source: api:/v1/nf-products
+      format: número
+      editable: false
+    - field: codigo
+      source: api:/v1/nf-products
+      format: texto
+      editable: false
+    - field: descricao
+      source: api:/v1/nf-products
+      format: texto
+      editable: false
+    - field: valor_unitario
+      source: api:/v1/nf-products
+      format: moeda BRL
+      editable: false
+    - field: cfop
+      source: api:/v1/nf-products
+      format: código CFOP
+      editable: false
+    - field: ncm_nbs
+      source: api:/v1/nf-products
+      format: código NCM/NBS
+      editable: false
+    - field: aliquota_icms
+      source: api:/v1/nf-products
+      format: percentual
+      editable: false
+    - field: aliquota_iss
+      source: api:/v1/nf-products
+      format: percentual
+      editable: false
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/nf-products
+      result: popula tabela com os produtos/serviços do tenant
+    - trigger: clicar em "Novo Produto / Serviço"
+      action: navega para /nf-products/new
+      result: abre formulário de cadastro
+    - trigger: clicar em "Editar"
+      action: navega para /nf-products/:id/edit
+      result: abre formulário de edição
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

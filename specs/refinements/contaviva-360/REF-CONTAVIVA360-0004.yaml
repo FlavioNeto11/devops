@@ -1,0 +1,74 @@
+id: REF-CONTAVIVA360-0004
+slug: pf-edit
+title: Editar Pessoa Física
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0002
+    relation: implements
+    note: formulário de edição de pessoa física existente
+
+surface:
+  route: /pf/:id/edit
+  name: Editar Pessoa Física
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: dados carregados para edição
+      ui: campos pré-preenchidos com nome, data_nascimento, endereço, patrimônio inicial (CPF somente leitura)
+    - name: loading
+      when: carregando dados ou enviando atualização
+      ui: skeleton nos campos; botão "Salvar" com spinner durante envio
+    - name: empty
+      when: ID não encontrado (404)
+      ui: mensagem "Registro não encontrado" com botão "Voltar"
+    - name: error
+      when: erro de validação ou falha de rede
+      ui: mensagens de erro inline; banner de erro geral
+  data:
+    - field: nome
+      source: api:/v1/pf/:id
+      format: texto livre
+      editable: true
+    - field: data_nascimento
+      source: api:/v1/pf/:id
+      format: data (YYYY-MM-DD)
+      editable: true
+    - field: endereco
+      source: api:/v1/pf/:id
+      format: objeto JSON
+      editable: true
+    - field: patrimonio_inicial
+      source: api:/v1/pf/:id
+      format: decimal
+      editable: true
+    - field: cpf
+      source: api:/v1/pf/:id
+      format: CPF formatado
+      editable: false
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/pf/:id
+      result: pré-preenche os campos com os dados existentes
+    - trigger: submeter formulário
+      action: PUT /v1/pf/:id com nome, data_nascimento, endereco, patrimonio_inicial
+      result: atualiza PF e redireciona para /pf/:id
+    - trigger: clicar em "Cancelar"
+      action: navega para /pf/:id
+      result: descarta alterações
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1

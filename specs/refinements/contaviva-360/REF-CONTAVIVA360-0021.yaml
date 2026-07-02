@@ -1,0 +1,89 @@
+id: REF-CONTAVIVA360-0021
+slug: accounts-payable-list
+title: Contas a Pagar
+kind: screen
+status: approved
+
+scope:
+  product_scope: contaviva-360
+  applies_to: screen
+
+anchors:
+  - requirement_id: REQ-CONTAVIVA360-0005
+    relation: implements
+    note: listagem de contas a pagar (despesas pendentes)
+
+surface:
+  route: /accounts-payable
+  name: Contas a Pagar
+  roles: [user]
+
+behavior:
+  states:
+    - name: normal
+      when: lista carregada com registros
+      ui: tabela com fornecedor, valor, data, categoria, centro de custo, forma de pagamento, status e ações
+    - name: loading
+      when: requisição em andamento
+      ui: skeleton de tabela
+    - name: empty
+      when: nenhuma conta a pagar
+      ui: mensagem "Nenhuma conta a pagar" com botão "Nova Conta"
+    - name: error
+      when: falha na requisição
+      ui: mensagem de erro com botão "Tentar novamente"
+  data:
+    - field: id
+      source: api:/v1/accounts-payable
+      format: número
+      editable: false
+    - field: contraparte
+      source: api:/v1/accounts-payable
+      format: texto (nome do fornecedor)
+      editable: false
+    - field: valor
+      source: api:/v1/accounts-payable
+      format: moeda BRL
+      editable: false
+    - field: data
+      source: api:/v1/accounts-payable
+      format: data DD/MM/AAAA
+      editable: false
+    - field: categoria
+      source: api:/v1/accounts-payable
+      format: texto
+      editable: false
+    - field: centro_custo
+      source: api:/v1/accounts-payable
+      format: texto
+      editable: false
+    - field: forma_pagamento
+      source: api:/v1/accounts-payable
+      format: enum (cheque|TED|cartão|boleto|dinheiro)
+      editable: false
+    - field: status
+      source: api:/v1/accounts-payable
+      format: enum (pendente|pago|vencido|cancelado)
+      editable: false
+  interactions:
+    - trigger: carregar página
+      action: GET /v1/accounts-payable
+      result: popula tabela com as despesas do tenant
+    - trigger: filtrar por status
+      action: GET /v1/accounts-payable?status=<valor>
+      result: filtra contas pelo status
+    - trigger: clicar em "Nova Conta a Pagar"
+      action: navega para /accounts-payable/new
+      result: abre formulário de criação
+    - trigger: clicar em "Editar"
+      action: navega para /accounts-payable/:id/edit
+      result: abre formulário de edição
+
+source:
+  source_paths:
+    - specs/products/contaviva-360/product.json
+    - apps/contaviva-360/frontend/src/views
+
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
