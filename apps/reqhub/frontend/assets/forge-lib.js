@@ -568,6 +568,28 @@ const MODE_COPY = {
   'plan.q': { simples: 'Como ele vai ser construído', guiado: 'Plano de construção', profissional: 'Plano de construção' },
   'review.q': { simples: 'Confirmar e criar', guiado: 'Revisar e criar', profissional: 'Revisar e criar' },
   'review.launch': { simples: '🚀 Criar meu sistema', guiado: '🚀 Criar meu sistema', profissional: '🚀 Criar PR de requisitos' },
+  // (E2, Forja 4.1) 3º cartão do fork de criação: portal CAPTURADO como insumo — mesma engine,
+  // projeção por modo (o cartão muda de linguagem; a trilha e os artefatos são idênticos).
+  'fork.capture.title': {
+    simples: 'Copiar de um sistema que você já usa',
+    guiado: 'A partir de um portal capturado',
+    profissional: 'A partir de um contrato capturado',
+  },
+  'fork.capture.desc': {
+    simples: 'Você mostrou um sistema real para a plataforma (captura)? Dá para criar o seu a partir dele: a IA aprende o que aquele sistema faz e propõe um sistema seu com as mesmas funções.',
+    guiado: 'Use a captura de um portal real como insumo: o contrato normalizado (endpoints, entidades, fluxos) vira o brief e o contexto da IA — que propõe requisitos e arquitetura já conhecendo o sistema original.',
+    profissional: 'Deriva o brief do export canônico do portal-recorder (sem samples), anexa o export ao propose-requirements e carimba architecture.external_contract (portal, versão, content_hash) no launch.',
+  },
+  'fork.capture.foot': {
+    simples: 'usa uma captura já feita',
+    guiado: 'insumo: contrato do portal-recorder',
+    profissional: 'GET /portal-rec/api/v1/contracts → export',
+  },
+  'capture.lead': {
+    simples: 'Escolha abaixo qual sistema capturado você quer usar de modelo.',
+    guiado: 'Escolha um contrato capturado — ele vira o ponto de partida do novo sistema (brief + contexto da IA).',
+    profissional: 'Contratos normalizados do portal-recorder (export sem samples). Selecionar deriva o brief client-side e pré-carrega o wizard greenfield.',
+  },
 };
 export function modeCopy(mode, key) {
   const row = MODE_COPY[key];
@@ -656,8 +678,11 @@ export function forgeReqObject(id, pname, blueprint, req) {
  * artefatos: o payload é IDÊNTICO nos 3 modos, exceto o campo informativo `creation_mode`
  * (validado no backend; vai ao client_payload/PR como rastreabilidade de UX, nunca muda o writer).
  */
-export function buildLaunchBody({ product, displayName, blueprint, brief, mode, requirements, architecture, creationMode, skipPreviewGate } = {}) {
+export function buildLaunchBody({ product, displayName, blueprint, brief, mode, requirements, architecture, creationMode, skipPreviewGate, externalContract } = {}) {
   const arch = architecture || {};
+  // (E2) origem = captura de portal: carimba a REFERÊNCIA do contrato (nunca o export inteiro)
+  // dentro de architecture — o forge-launch faz passthrough do objeto architecture verbatim.
+  const ec = (externalContract && typeof externalContract === 'object' && externalContract.portal) ? externalContract : null;
   return {
     product,
     displayName: displayName || product,
@@ -665,10 +690,94 @@ export function buildLaunchBody({ product, displayName, blueprint, brief, mode, 
     brief: brief || '',
     mode,
     requirements: Array.isArray(requirements) ? requirements : [],
-    architecture: { stack: arch.stack, selected_blocks: arch.selected_blocks || [], adrs: arch.adrs || [], waves: arch.waves || [] },
+    architecture: {
+      stack: arch.stack, selected_blocks: arch.selected_blocks || [], adrs: arch.adrs || [], waves: arch.waves || [],
+      ...(ec ? { external_contract: { portal: String(ec.portal), contract_version: String(ec.contract_version || ''), content_hash: String(ec.content_hash || '') } } : {}),
+    },
     ...(skipPreviewGate ? { skipPreviewGate: true } : {}),
     ...(creationMode ? { creation_mode: normalizeForgeMode(creationMode) } : {}),
   };
+}
+
+/* ─── (E2, Forja 4.1) CAPTURA como entrada da Forja — funções PURAS ───────────────────────────
+   O portal-recorder exporta um contrato canônico { manifest, endpoints } SEM samples
+   (GET /portal-rec/api/v1/contracts/:id/export → { data }). Aqui derivamos, client-side:
+   - briefFromPortalContract: brief textual (portal, entidades, fluxos, endpoints) p/ o wizard;
+   - externalContractRef: a referência { portal, contract_version, content_hash } que o launch
+     carimba em architecture.external_contract (rastreabilidade — nunca o export inteiro);
+   - suggestIntegrationBlock: o bloco de integração do catálogo a sugerir (gateway-externo).
+   Sem fetch, sem DOM — testável com node:test como o resto deste módulo. */
+
+// Teto de endpoints listados no brief (o launch trunca brief em 8000 chars no servidor;
+// o export COMPLETO segue como anexo multipart — o brief é resumo, não a fonte).
+export const CAPTURE_BRIEF_MAX_ENDPOINTS = 40;
+
+/**
+ * Deriva um brief textual do export canônico de um contrato capturado. Puro.
+ * exportJson: { manifest: { portal, base_url, version, endpoint_count, ... },
+ *               endpoints: [{ method, path_template, group, auth, requires_captcha, ... }] }
+ * opts.integrationBlock: id de bloco do catálogo a sugerir (ex.: 'gateway-externo').
+ * Retorna '' quando o export não é utilizável (sem manifest.portal ou sem endpoints).
+ */
+export function briefFromPortalContract(exportJson, opts = {}) {
+  const ex = (exportJson && typeof exportJson === 'object') ? exportJson : {};
+  const man = (ex.manifest && typeof ex.manifest === 'object') ? ex.manifest : null;
+  const eps = Array.isArray(ex.endpoints) ? ex.endpoints.filter((e) => e && typeof e === 'object') : [];
+  if (!man || !man.portal || !eps.length) return '';
+  const lines = [];
+  lines.push(`Sistema derivado da captura do portal real "${man.portal}"${man.base_url ? ` (${man.base_url})` : ''}.`);
+  lines.push(`Contrato normalizado${man.version ? ` de ${man.version}` : ''} com ${eps.length} endpoint(s) observado(s) — export sem payloads de exemplo (anexo).`);
+  // Entidades/áreas: os grupos funcionais derivados na normalização.
+  const groups = new Map();
+  for (const e of eps) { const g = String(e.group || 'general'); if (!groups.has(g)) groups.set(g, []); groups.get(g).push(e); }
+  lines.push('', `Entidades/áreas observadas (${groups.size}): ${[...groups.keys()].sort().join(', ')}.`);
+  // Fluxos: leitura × escrita + exigências (auth/captcha) — o desenho do produto parte daqui.
+  const isWrite = (m) => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(String(m || '').toUpperCase());
+  const writes = eps.filter((e) => isWrite(e.method)).length;
+  const auth = eps.filter((e) => e.auth && e.auth.required).length;
+  const captcha = eps.filter((e) => e.requires_captcha).length;
+  lines.push(`Fluxos: ${eps.length - writes} consulta(s) e ${writes} operação(ões) de escrita.`
+    + (auth ? ` ${auth} endpoint(s) exigem autenticação.` : '') + (captcha ? ` ${captcha} exigem captcha.` : ''));
+  lines.push('', 'Endpoints do portal original (referência de integração):');
+  let listed = 0;
+  for (const g of [...groups.keys()].sort()) {
+    if (listed >= CAPTURE_BRIEF_MAX_ENDPOINTS) break;
+    lines.push(`- ${g}:`);
+    for (const e of groups.get(g)) {
+      if (listed >= CAPTURE_BRIEF_MAX_ENDPOINTS) break;
+      lines.push(`  - ${String(e.method || 'GET').toUpperCase()} ${e.path_template || ''}`
+        + (e.auth && e.auth.required ? ' [auth]' : '') + (e.requires_captcha ? ' [captcha]' : ''));
+      listed++;
+    }
+  }
+  if (eps.length > listed) lines.push(`  … e mais ${eps.length - listed} endpoint(s) no contrato anexo.`);
+  lines.push('', 'O produto deve oferecer ao usuário final as funções equivalentes a esses fluxos e, quando precisar submeter/consultar dados reais, integrar-se ao portal original por uma camada de integração dedicada.');
+  const blk = (typeof opts.integrationBlock === 'string' && opts.integrationBlock) ? opts.integrationBlock : '';
+  if (blk) lines.push(`Capacidade sugerida: inclua o bloco "${blk}" — toda integração HTTP com o portal externo passa por um gateway único e resiliente.`);
+  return lines.join('\n');
+}
+
+/**
+ * Referência do contrato para o launch (architecture.external_contract). Puro.
+ * -> { portal, contract_version, content_hash } | null (export sem manifest utilizável).
+ */
+export function externalContractRef(exportJson) {
+  const man = (exportJson && exportJson.manifest && typeof exportJson.manifest === 'object') ? exportJson.manifest : null;
+  if (!man || !man.portal || !man.content_hash) return null;
+  return { portal: String(man.portal), contract_version: String(man.version || ''), content_hash: String(man.content_hash) };
+}
+
+/**
+ * Bloco de integração externa a sugerir quando a origem é captura. Preferência pelo id
+ * canônico 'gateway-externo' (specs/forge/capabilities); fallback DECLARATIVO: o primeiro
+ * bloco de category 'integration' do catálogo (sem mapa de sinônimos). null = catálogo
+ * sem bloco de integração — a UI simplesmente não sugere nada. Puro.
+ */
+export function suggestIntegrationBlock(catalog) {
+  const list = Array.isArray(catalog) ? catalog.filter((b) => b && b.id) : [];
+  if (list.some((b) => b.id === 'gateway-externo')) return 'gateway-externo';
+  const integ = list.find((b) => b.category === 'integration');
+  return integ ? integ.id : null;
 }
 
 // Resumo do que será criado (para a etapa "O que será criado"). Puro/testável.
