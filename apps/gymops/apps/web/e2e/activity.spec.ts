@@ -5,7 +5,7 @@ test.describe('Activity creation', () => {
     await page.goto('/login');
     await page.getByLabel(/e-?mail/i).fill('admin@skyfit.com');
     await page.getByLabel(/senha/i).fill('gymops123');
-    await page.getByRole('button', { name: /entrar/i }).click();
+    await page.getByRole('button', { name: /^entrar$/i }).click();
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 });
   });
 

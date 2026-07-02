@@ -1,6 +1,6 @@
 # GymOps — Status Real do Projeto
 
-**Última atualização**: 2026-07-02 (BUG-013 + BUG-014 corrigidos — gate raiz `ci-gymops-e2e.yml` verde: job `integration` passa 72/72 e a coleta do job `e2e` foi restaurada, 50 testes/12 arquivos)
+**Última atualização**: 2026-07-02 (gate raiz `ci-gymops-e2e.yml`: job `integration` VERDE — BUG-013 72/72; job `e2e` com coleta restaurada (BUG-014) + login destravado (BUG-015, 35→9 falhas), mas ainda vermelho por 9 testes de smoke desatualizados = **BUG-016**, expectativas divergentes do app real, não bugs de app)
 
 > **2026-06-12 — Onboarding novo (full-stack, sem migration):** `/setup`
 > redesenhado como wizard split-screen (painel grafite com trilha de passos;
@@ -134,10 +134,12 @@
 | **BUG-008** | P1 | ✅ | `refreshTokenHash` no schema. Migration aplicada. Lookup e revogação por hash. |
 | **BUG-009** | P1 | ✅ | `docker-compose.public.yml` com healthchecks e `condition: service_healthy`. |
 | **BUG-010** | P1 | ⚠️ Parcial | `ALLOWED_ORIGINS` via env funciona. `localhost:3000`/`7480` ainda hardcoded (aceitável para dev). |
-| **BUG-011 (OPS-001)** | P1 | 🟢 | Gate real em PR via workflow **raiz** `ci-gymops-e2e.yml` (Forja 4.1 F5, 2026-07-02) — o e2e.yml aninhado nunca executou no monorepo (morto, histórico). 1ª execução expôs BUG-013 e BUG-014, **ambos corrigidos**: jobs `integration` e `e2e` (coleta) verdes. |
+| **BUG-011 (OPS-001)** | P1 | 🟡 | Gate real em PR via workflow **raiz** `ci-gymops-e2e.yml` (Forja 4.1 F5, 2026-07-02) — o e2e.yml aninhado nunca executou no monorepo (morto, histórico). Job `integration` **verde** (BUG-013). Job `e2e`: coleta restaurada (BUG-014) e login destravado (BUG-015), mas **ainda vermelho** por 9 testes de smoke desatualizados (**BUG-016**, expectativas divergentes do app real — não são bugs de app). |
 | **BUG-012 (OPS-002)** | P1 | ✅ | `build-gymops` job no CI. |
 | **BUG-013** | P1 | ✅ | `ai-metrics.ts` idempotente sob re-avaliação do vitest (guard em `collectDefaultMetrics` + remove-then-recreate das `ai_*` via `AI_METRIC_NAMES`; no-op em produção). Corrigido 2026-07-02; `pnpm -r test` 72/72 local + job `integration` verde. |
 | **BUG-014** | P1 | ✅ | `import.spec.ts` tinha `import.meta` + imports mortos (`path`/`fileURLToPath`/`__dirname` nunca usados) → transpiler tratava o arquivo como ESM e a coleta do Playwright abortava (zero E2E). Removido o código morto; `playwright test --list` coleta 50 testes/12 arquivos. Corrigido 2026-07-02. |
+| **BUG-015** | P1 | ✅ | Seletor de login `getByRole('button', { name: /entrar/i })` casava 2 botões (`Entrar` + `Entrar com Google`) → strict-mode violation em todo login → 35 E2E falhavam. Ancorado para `/^entrar$/i` em auth/rbac/activity/dashboard/import/fixtures (padrão que `tutorial.spec.ts` já usava). Local: E2E de 35→9 falhas (39 passam). Corrigido 2026-07-02. |
+| **BUG-016** | P1 | 🔴 | 9 testes de smoke E2E com **expectativas desatualizadas** (não são bugs de app): 3 "reaches dashboard" (app roteia unit_manager/area_leader→`/units/<id>`, executor→`/me` por design — `resolveRedirect`); 4 "create button on /activities" (botão "Nova atividade" vive em `/units/[id]`, não na Central global); import (`getByText(/importar|trello/i)` casa 6 elementos — wizard renderiza ok); activity-create (nav link `.first()` pega "Minhas atividades"). Bloqueia o job `e2e`. |
 
 ---
 

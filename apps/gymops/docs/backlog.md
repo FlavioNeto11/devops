@@ -249,6 +249,48 @@
   linhas mortas. Validado local: `playwright test --list` coleta **50 testes em 12 arquivos** (antes
   abortava no load). O pass/fail das asserções é provado pelo job `e2e` do CI (ubuntu).
 
+### BUG-015 — E2E: seletor de login ambíguo (strict mode) derruba todo login
+- **Arquivos**: [`apps/web/e2e/auth.spec.ts`](../apps/web/e2e/auth.spec.ts), [`rbac.spec.ts`](../apps/web/e2e/rbac.spec.ts), [`activity.spec.ts`](../apps/web/e2e/activity.spec.ts), [`dashboard.spec.ts`](../apps/web/e2e/dashboard.spec.ts), [`import.spec.ts`](../apps/web/e2e/import.spec.ts), [`smoke/fixtures.ts`](../apps/web/e2e/smoke/fixtures.ts)
+- **Descrição**: com a coleta destravada (BUG-014), a 1ª execução real do job `e2e` mostrou **35/50 falhas**,
+  quase todas no clique de login. `getByRole('button', { name: /entrar/i })` viola o strict mode do
+  Playwright: a regex casa **dois** botões — `Entrar` (submit) e `Entrar com Google` (SSO, adicionado
+  depois que o teste foi escrito). Como todo login passa por esse clique (auth + `fixtures.ts` usado por
+  todos os smokes + dashboard/activity/import/rbac), 35 testes caem. O login em si funciona (a API loga
+  `/auth/login` 200). `tutorial.spec.ts` já usava `/^entrar$/i` (ancorado) e por isso passava.
+- **Esforço**: s
+- **Critério de aceite**:
+  - Seletor de login ancorado (`/^entrar$/i`) em todos os specs. ✅
+  - Redução drástica das falhas do job `e2e`. ✅ (local: 35→9 falhas, 39 passam)
+- **Testes**: o próprio job de CI + run local completo (Postgres pgvector + Redis + api/web buildados).
+- **Status**: ✅ Corrigido (2026-07-02). Restam 9 falhas independentes (**BUG-016**).
+
+### BUG-016 — E2E: 9 testes de smoke com expectativas desatualizadas (não são bugs de app)
+- **Arquivos**: [`smoke/{owner,unit-manager,area-leader,executor}.smoke.spec.ts`](../apps/web/e2e/smoke/), [`activity.spec.ts`](../apps/web/e2e/activity.spec.ts), [`import.spec.ts`](../apps/web/e2e/import.spec.ts)
+- **Descrição**: com login destravado (BUG-015), sobram **9 falhas** no job `e2e`. **Todas são
+  expectativas de teste divergentes do app real — o app se comporta como projetado** (verificado em
+  código):
+  - **"reaches dashboard" (unit_manager, area_leader, executor)**: `resolveRedirect`
+    ([`login/page.tsx:25`](../apps/web/src/app/(auth)/login/page.tsx)) roteia por papel — owner/org_manager
+    →`/dashboard`, unit_manager/area_leader →`/units/<id>`, executor/viewer →`/me`. Os testes cravam
+    `/dashboard` para todos. É exatamente o comportamento do BUG-005 (login por área).
+  - **"create button on /activities" (owner, unit_manager, area_leader, executor)**: o botão "Nova
+    atividade" fica no dashboard da unidade ([`units/[id]/page.tsx:188`](../apps/web/src/app/(app)/units/[id]/page.tsx)),
+    **não** na Central de Atividades global (`/activities`). Os testes procuram o botão na página errada.
+    ⚠️ **Observação de produto**: se a Central `/activities` DEVE ter um botão de criação, isso é um gap
+    de feature a decidir (não coberto por este item).
+  - **import "see preview"**: o wizard de importação **renderiza corretamente** (heading "Importar do
+    Trello" visível); o teste usa `getByText(/importar|trello/i)` que casa **6 elementos** (strict-mode
+    violation). Bug de seletor.
+  - **activity "can create"**: `getByRole('link', { name: /atividade|activit/i }).first()` casa "Minhas
+    atividades" (→`/me`) em vez de "Central de Atividades". Seletor ambíguo.
+- **Esforço**: m
+- **Critério de aceite**:
+  - Job `e2e` do `ci-gymops-e2e.yml` verde, **sem** mascarar gaps reais de produto (a decisão sobre o
+    botão de criação em `/activities` fica explícita).
+- **Decisão pendente**: corrigir os testes para refletir o app real (recomendado — o app está correto)
+  vs. tratar a Central sem botão de criação como gap de produto a implementar.
+- **Status**: 🔴 Aberto — bloqueia o job `e2e`. Descoberto/classificado 2026-07-02.
+
 ### FEAT-005 — Integrações: health/reconnect/boards/WhatsApp na UI
 - **Arquivos**: [`apps/web/src/app/(app)/settings/integrations/page.tsx`](../apps/web/src/app/(app)/settings/integrations/page.tsx), [`apps/web/src/lib/admin-api.ts`](../apps/web/src/lib/admin-api.ts) (`integrationsExtApi`)
 - **Esforço**: m
