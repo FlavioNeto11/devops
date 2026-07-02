@@ -1,3 +1,11 @@
+---
+title: "BESC — Plataforma de Levantamento BESC Tokenização"
+status: canonical
+applies_to: [besc]
+updated: 2026-07-02
+language: pt-BR
+---
+
 # BESC — Plataforma de Levantamento BESC Tokenização
 
 > Contexto da plataforma: [`../../CLAUDE.md`](../../CLAUDE.md) · fronteiras: [`../../AGENTS.md`](../../AGENTS.md)
@@ -47,3 +55,4 @@ Público: `https://dev.nvit.com.br/besc`.
 - **PVC + `USER node`**: o Deployment usa `securityContext.fsGroup: 1000` para o usuário `node` escrever em `/data`.
 - **`.html` no dev**: o proxy do Vite intercepta `*.html` → `report.html` dá 404 **só no dev**; em produção o Traefik encaminha direto para a API (200).
 - Sem segredos: não há `secret.example.yaml` no path do Argo.
+
