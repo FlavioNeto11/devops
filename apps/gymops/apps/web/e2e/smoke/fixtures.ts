@@ -21,7 +21,7 @@ export async function loginAs(page: import('@playwright/test').Page, profile: (t
   await page.goto('/login');
   await page.getByLabel(/e-?mail/i).fill(profile.email);
   await page.getByLabel(/senha/i).fill(profile.password);
-  await page.getByRole('button', { name: /entrar/i }).click();
+  await page.getByRole('button', { name: /^entrar$/i }).click();
   // Wait for redirect away from /login
   await page.waitForURL((url) => !url.pathname.endsWith('/login'), { timeout: 15_000 });
 }

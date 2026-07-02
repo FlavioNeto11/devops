@@ -8,7 +8,7 @@ test.describe('Authentication', () => {
     await page.goto('/login');
     await page.getByLabel(/e-?mail/i).fill(SEED_EMAIL);
     await page.getByLabel(/senha/i).fill(SEED_PASSWORD);
-    await page.getByRole('button', { name: /entrar/i }).click();
+    await page.getByRole('button', { name: /^entrar$/i }).click();
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 });
   });
 
@@ -16,7 +16,7 @@ test.describe('Authentication', () => {
     await page.goto('/login');
     await page.getByLabel(/e-?mail/i).fill(SEED_EMAIL);
     await page.getByLabel(/senha/i).fill('wrongpassword');
-    await page.getByRole('button', { name: /entrar/i }).click();
+    await page.getByRole('button', { name: /^entrar$/i }).click();
     await expect(page.getByText(/inválid|incorret|senha/i)).toBeVisible({ timeout: 5_000 });
   });
 
@@ -24,7 +24,7 @@ test.describe('Authentication', () => {
     await page.goto('/login');
     await page.getByLabel(/e-?mail/i).fill(SEED_EMAIL);
     await page.getByLabel(/senha/i).fill(SEED_PASSWORD);
-    await page.getByRole('button', { name: /entrar/i }).click();
+    await page.getByRole('button', { name: /^entrar$/i }).click();
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 });
 
     await page.getByRole('button', { name: /sair|logout/i }).click();
