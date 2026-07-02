@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.env
+*.log
+
+# Banco SQLite local
+prisma/dev.db
+prisma/dev.db-journal
+
+# Credenciais Baileys e mídia (NUNCA versionar)
+storage/auth/*
+!storage/auth/.gitkeep
+storage/media/*
+!storage/media/.gitkeep

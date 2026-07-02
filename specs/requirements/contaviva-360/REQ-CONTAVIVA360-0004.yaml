@@ -1,0 +1,29 @@
+id: REQ-CONTAVIVA360-0004
+title: "Controle de Tarefas e Colaboração: Tasks entre Contador e Cliente com Comentários e Anexos"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: contaviva-360
+  blueprint: gymops-style
+statement: "O sistema DEVE permitir criar, atribuir, comentar, anexar documentos e rastrear tarefas entre contador e cliente, com campos de responsável, prazo, prioridade (baixa, média, alta, crítica), status (aberta, em progresso, aguardando cliente, aguardando contador, concluída, cancelada), notificação de atribuição e notificação de vencimento."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/contaviva-360/product.json"]
+priority: high
+criticality: medium
+architectural_significance: true
+capability_blocks: ["notificacoes-multicanal", "redis-bullmq"]
+acceptance_criteria:
+  - "Criar tarefa: título, descrição, responsável (contador ou cliente), prazo, prioridade, vinculação opcional a entidade (PF/PJ) ou obrigação."
+  - "Comentários em thread: usuário adiciona comentário com timestamp, edita próprio comentário, contador marca como 'resposta esperada do cliente' ou 'info fornecida'."
+  - "Anexos na tarefa: upload de arquivo (comprovante, declaração, formulário), versioning, quem fez upload."
+  - "Notificação de atribuição: quando tarefa é atribuída ao usuário, notificação por e-mail/push é enfileirada."
+  - "Alertas de prazo: 3 dias antes do prazo (amarelo), 1 dia (laranja), dia (vermelho), após (crítico)."
+  - "Transição de status: usuário marca 'aguardando cliente' (cliente é notificado), cliente marca 'respondido' ou 'documento enviado' (contador é notificado)."
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

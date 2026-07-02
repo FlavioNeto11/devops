@@ -10,8 +10,8 @@
     <meta name="description" content="Reqhub — a base de requisitos da plataforma como fonte da verdade: explore, analise impacto e cobertura, acompanhe a entrega e construa produtos a partir dos requisitos." />
     <link rel="icon" href="assets/favicon.svg" />
     <link rel="stylesheet" href="assets/platform-tokens.css?v=41" />
-    <link rel="stylesheet" href="assets/platform-shell.css?v=41" />
-    <link rel="stylesheet" href="assets/styles.css?v=60" />
+    <link rel="stylesheet" href="assets/platform-shell.css?v=42" />
+    <link rel="stylesheet" href="assets/styles.css?v=65" />
   </head>
   <body>
     <a class="skip" href="#main">Pular para o conteúdo</a>
@@ -28,10 +28,12 @@
           </span>
         </div>
 
+        <!-- A1a (Forja 4.0): o Studio (Forja) é a porta de entrada; overview/dev/usability saíram da
+             navegação (KPIs no hub; Pipeline/Usabilidade migram p/ o Studio); versions+reprocess = "Mudanças". -->
         <nav class="sidebar-nav" aria-label="Telas do Reqhub">
           <div class="nav-group">
-            <span class="nav-group-l" aria-hidden="true">Visão</span>
-            <button class="nav-item" id="tab-overview" type="button" data-view="overview" data-icon="overview" aria-current="page"><span class="nav-label">Visão geral</span></button>
+            <span class="nav-group-l" aria-hidden="true">Studio</span>
+            <button class="nav-item" id="tab-forge" type="button" data-view="forge" data-icon="forge" aria-current="page"><span class="nav-label">Forja</span></button>
           </div>
           <div class="nav-group">
             <span class="nav-group-l" aria-hidden="true">Requisitos</span>
@@ -43,14 +45,7 @@
             <span class="nav-group-l" aria-hidden="true">Análise</span>
             <button class="nav-item" id="tab-impact" type="button" data-view="impact" data-icon="impact"><span class="nav-label">Mapa de impacto</span></button>
             <button class="nav-item" id="tab-coverage" type="button" data-view="coverage" data-icon="coverage"><span class="nav-label">Cobertura</span></button>
-            <button class="nav-item" id="tab-usability" type="button" data-view="usability" data-icon="usability"><span class="nav-label">Usabilidade</span></button>
-            <button class="nav-item" id="tab-versions" type="button" data-view="versions" data-icon="versions"><span class="nav-label">Versões &amp; mudanças</span></button>
-          </div>
-          <div class="nav-group">
-            <span class="nav-group-l" aria-hidden="true">Entrega</span>
-            <button class="nav-item" id="tab-dev" type="button" data-view="dev" data-icon="dev"><span class="nav-label">Desenvolvimento</span></button>
-            <button class="nav-item" id="tab-forge" type="button" data-view="forge" data-icon="forge"><span class="nav-label">Forge</span></button>
-            <button class="nav-item" id="tab-reprocess" type="button" data-view="reprocess" data-icon="reprocess"><span class="nav-label">Reprocessamento</span></button>
+            <button class="nav-item" id="tab-versions" type="button" data-view="versions" data-icon="versions"><span class="nav-label">Mudanças</span></button>
           </div>
           <!-- Grupo de OPERADOR: revelado pelo app.js só para platform-admins (gating). -->
           <div class="nav-group" id="nav-group-ai" hidden>
@@ -69,8 +64,8 @@
         <header class="topbar" role="banner">
           <button class="icon-btn topbar-burger" id="sidebar-toggle" type="button" aria-label="Abrir menu" aria-expanded="false"></button>
           <div class="topbar-head">
-            <h1 class="page-title" id="page-title">Visão geral</h1>
-            <p class="page-sub" id="page-sub">Panorama da base de requisitos</p>
+            <h1 class="page-title" id="page-title">Forja</h1>
+            <p class="page-sub" id="page-sub">Do brief ao produto publicado — requisitos, telas, documentação e pipeline</p>
           </div>
           <div class="topbar-tools">
             <label class="search" for="q">
@@ -84,10 +79,6 @@
 
         <main id="main" tabindex="-1">
           <p id="status" class="status" role="status" aria-live="polite">Carregando a base de requisitos…</p>
-
-          <section id="view-overview" class="view" role="region" aria-label="Visão geral">
-            <div id="overview-body"></div>
-          </section>
 
           <section id="view-explorer" class="view" role="region" aria-label="Explorador de requisitos" hidden>
             <div class="toolbar" id="explorer-filters"></div>
@@ -149,7 +140,11 @@
       </div>
     </div>
 
-    <script type="module" src="assets/platform-shell.js?v=44"></script>
-    <script type="module" src="assets/app.js?v=64"></script>
+    <script type="module" src="assets/platform-shell.js?v=45"></script>
+    <script type="module" src="assets/app.js?v=77"></script>
   </body>
 </html>
+
+
+
+

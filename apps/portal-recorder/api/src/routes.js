@@ -9,10 +9,11 @@ import {
   validateCreatePortal, validateCreateSession, createPortal, listPortals, getPortal,
   createSession, listSessions, getSession, setSessionStatus,
   validateCreateAnnotation, createAnnotation, listAnnotations, getTimeline, getScreenshot,
-  loadResponseEventsForNormalize, saveContract, getContract,
+  loadResponseEventsForNormalize, saveContract,
   deleteSession, deletePortal, listActiveSessionIds,
 } from './store.js';
 import { normalizeEvents } from './normalize.js';
+import { buildContractsRouter } from './contracts.js';
 
 function sendValidation(res, result) {
   return res.status(result.status).json({ error: { code: result.code, message: result.message } });
@@ -203,13 +204,9 @@ export function buildRouter() {
     } catch (e) { next(e); }
   });
 
-  router.get('/v1/contracts/:id', async (req, res, next) => {
-    try {
-      const contract = await getContract(getPool(), req.params.id);
-      if (!contract) return res.status(404).json({ error: { code: 'CONTRACT_NOT_FOUND', message: 'not found' } });
-      res.json({ data: contract });
-    } catch (e) { next(e); }
-  });
+  // ── Contratos (A5/E3): listagem, leitura, export canônico e promoção p/ git ──
+  // Rotas em contracts.js (sub-router com dependências injetáveis p/ teste).
+  router.use(buildContractsRouter());
 
   return router;
 }

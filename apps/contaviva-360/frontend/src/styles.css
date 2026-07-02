@@ -1,0 +1,2 @@
+/* base do app — a identidade vem de tokens.generated.css (--ui-*) + ui.css do kit. */
+#app { min-height: 100vh; }

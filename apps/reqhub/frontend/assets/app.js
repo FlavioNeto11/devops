@@ -1,109 +1,16 @@
 // Reqhub — camada de DOM/init. Lê a baseline gerada e renderiza as 6 telas.
 // Funções puras vêm de lib.js; aqui só DOM (createElement + textContent, sem innerHTML).
-import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId } from './lib.js?v=41';
-import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, weightedProgress, wavesFromProgress, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes, capabilityPlain, planSummary, CAPABILITY_PLAIN } from './forge-lib.js?v=52';
+import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId, parseMarkdown, systemContext } from './lib.js?v=42';
+import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, weightedProgress, wavesFromProgress, launchPhases, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes, capabilityPlain, planSummary, CAPABILITY_PLAIN } from './forge-lib.js?v=56';
+import { SVGNS, state, DATA, h, svg, byId, badge, AI, dd, dt, filePicker, sameOriginUrl, humanBytes, FILE_ACCEPT, applyTransform, nav } from './core.js?v=2';
+import { renderForge, openForgeNew, interactiveGraph } from './studio.js?v=7';
 
-const SVGNS = 'http://www.w3.org/2000/svg';
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
-const state = { view: 'explorer', filters: {}, q: '', selectedId: null, impactFilter: { type: '', product: '', focus: false }, editId: null, editor: null, devFilter: { status: '', product: '' }, reproFilter: { reason: '' }, forge: { product: null, step: 'definir', filter: 'all' }, me: null, aiUsage: { window: '30d', es: null, liveState: 'off', reconnectMs: 1000, reconnectTimer: null, lastBreakdown: null } };
-const DATA = { baseline: null, impact: null, retrieval: null, history: null, registry: null, embeddings: null, implStatus: null, coverage: null, products: null, blueprints: null, buildPlans: {} };
 
-/* ---------- DOM helpers (seguros) ---------- */
-function h(tag, attrs = {}, ...kids) {
-  const e = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) {
-    if (v == null) continue;
-    if (k === 'class') e.className = v;
-    else if (k === 'text') e.textContent = v;
-    else if (k.startsWith('on') && typeof v === 'function') e.addEventListener(k.slice(2), v);
-    else if (k === 'html') throw new Error('innerHTML proibido');
-    else e.setAttribute(k, v);
-  }
-  for (const kid of kids.flat()) { if (kid == null) continue; e.append(kid.nodeType ? kid : document.createTextNode(String(kid))); }
-  return e;
-}
-function svg(tag, attrs = {}) {
-  const e = document.createElementNS(SVGNS, tag);
-  for (const [k, v] of Object.entries(attrs)) if (v != null) e.setAttribute(k, v);
-  return e;
-}
-const byId = (id) => DATA.baseline.requirements.find((r) => r.id === id);
 const refList = () => (DATA.refinements && Array.isArray(DATA.refinements.items)) ? DATA.refinements.items : ((DATA.baseline && Array.isArray(DATA.baseline.refinements)) ? DATA.baseline.refinements : []);
 const refById = (id) => refList().find((r) => r.id === id);
 const refsForReq = (reqId) => refList().filter((r) => Array.isArray(r.anchors) && r.anchors.some((a) => a.requirement_id === reqId));
-function badge(text, cls) { return h('span', { class: 'b ' + (cls || ''), text }); }
 
-/* ---------- cliente da IA de autoria (reqhub-api, mesmo origin /reqs/api) ----------
-   Opcional e fail-closed: sem servidor/sem key/sem token, a UI degrada com mensagem
-   clara. O token do operador fica no localStorage (ferramenta de operador). A UI
-   NUNCA escreve no git — a IA so preenche/analisa; "salvar" continua sendo abrir o PR. */
-const AI = {
-  BASE: '/reqs/api',
-  tokenKey: 'reqhub_ai_token',
-  getToken() { try { return localStorage.getItem(this.tokenKey) || ''; } catch { return ''; } },
-  setToken(t) { try { localStorage.setItem(this.tokenKey, t); } catch { /* ignore */ } },
-  async health() {
-    const r = await fetch(this.BASE + '/health');
-    const data = await r.json().catch(() => ({}));
-    return { ok: r.ok, status: r.status, data };
-  },
-  async post(path, body) {
-    const tok = this.getToken();
-    const r = await fetch(this.BASE + path, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(tok ? { Authorization: 'Bearer ' + tok } : {}) },
-      body: JSON.stringify(body || {}),
-    });
-    const data = await r.json().catch(() => ({}));
-    return { ok: r.ok, status: r.status, data };
-  },
-  // Variante MULTIPART para quando há ARQUIVOS junto do texto (IA multimodal). Monta um
-  // FormData: campos de texto (objeto `fields`) viram strings; cada File entra no campo `files`.
-  // NÃO definimos Content-Type — o browser põe o boundary do multipart. Mesma lógica de auth e
-  // de tratamento de erro do post() JSON. Use só quando houver arquivos; caso contrário, post().
-  async postMultipart(path, { fields = {}, files = [] } = {}) {
-    const tok = this.getToken();
-    const fd = new FormData();
-    for (const [k, v] of Object.entries(fields || {})) {
-      if (v == null) continue;
-      fd.append(k, typeof v === 'string' ? v : JSON.stringify(v));
-    }
-    for (const file of (files || [])) { if (file) fd.append('files', file, file.name); }
-    const r = await fetch(this.BASE + path, {
-      method: 'POST',
-      headers: { ...(tok ? { Authorization: 'Bearer ' + tok } : {}) }, // sem Content-Type: o browser define o boundary
-      body: fd,
-    });
-    const data = await r.json().catch(() => ({}));
-    return { ok: r.ok, status: r.status, data };
-  },
-  async get(path) {
-    const tok = this.getToken();
-    const r = await fetch(this.BASE + path, { headers: { Accept: 'application/json', ...(tok ? { Authorization: 'Bearer ' + tok } : {}) } });
-    const data = await r.json().catch(() => ({}));
-    return { ok: r.ok, status: r.status, data };
-  },
-  // SSE same-origin (CSP connect-src 'self' permite). EventSource não manda Authorization:
-  // o /stream autentica pelo SSO de borda (X-Auth-Request-*), igual a /v1/me.
-  stream(path) { return new EventSource(this.BASE + path); },
-  assist(body) { return this.post('/v1/authoring/assist', body); },
-  chat(body) { return this.post('/v1/authoring/chat', body); },
-  // Primitiva grounded reutilizável fora do funil do Editor (copiloto, Workspace, etc.).
-  // Pergunta à base no contexto de UM produto (grounding ≤60). Degrada fail-closed.
-  async ask({ question, product, history }) {
-    const reqs = (DATA.baseline && DATA.baseline.requirements) || [];
-    const r = await this.chat({ product: product || null, message: question, history: history || [], grounding: productGrounding(reqs, product) });
-    const d = r.ok ? (r.data || {}) : {};
-    return { ok: r.ok, status: r.status, reply: d.reply || '', citations: filterCitations(d.citations || [], reqs), grounded: d.grounded !== false, intent: d.intent, draft: d.draft || null, next_question: d.next_question || '', error: r.ok ? null : (r.data && r.data.error) };
-  },
-  // health cacheado por sessão (vários pontos do app consultam — Overview, copiloto, ações).
-  _aiUp: null,
-  async aiAvailable() {
-    if (this._aiUp !== null) return this._aiUp;
-    try { const r = await this.health(); this._aiUp = !!(r.ok && r.data && r.data.ai); } catch { this._aiUp = false; }
-    return this._aiUp;
-  },
-};
 /* ---------- recentes (últimos REQs abertos, persistidos no localStorage) ---------- */
 const RECENTS = {
   key: 'reqhub-recent',
@@ -115,46 +22,6 @@ function prioCls(p) { return p === 'critical' ? 'b-crit' : p === 'high' ? 'b-hig
 function bandCls(b) { return b === 'high' ? 'b-high' : b === 'medium' ? 'b-med' : 'b-low'; }
 function setStatus(msg, err) { const s = document.getElementById('status'); s.textContent = msg || ''; s.hidden = !msg; s.className = 'status' + (err ? ' error' : ''); }
 
-/* ---------- seletor de ARQUIVOS (IA multimodal) ----------
-   A IA da plataforma aceita arquivos além de texto (file-ingest-kit no backend). Aqui só a UI:
-   um <input type=file multiple> NATIVO + a lista dos escolhidos, tudo CSP-safe (createElement +
-   addEventListener; sem onclick/onchange inline e sem style inline). Retorna { el, files(), clear,
-   hasFiles }. O chamador decide o transporte: havendo arquivos, usa AI.postMultipart; senão, mantém
-   o caminho JSON (retrocompat). Os tipos aceitos espelham o que o kit extrai (doc/planilha/pdf/zip/imagem). */
-const FILE_ACCEPT = '.md,.txt,.csv,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,image/*';
-function humanBytes(n) { if (!n && n !== 0) return ''; if (n < 1024) return n + ' B'; if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB'; return (n / (1024 * 1024)).toFixed(1) + ' MB'; }
-function filePicker(opts) {
-  const o = opts || {};
-  let files = [];
-  const wrap = h('div', { class: 'file-picker' });
-  const input = h('input', { type: 'file', multiple: 'multiple', accept: FILE_ACCEPT, class: 'file-picker-input', 'aria-label': o.label || 'Anexar arquivos para a IA' });
-  const trigger = h('button', { class: 'btn file-picker-btn', type: 'button' }, '📎 ', o.buttonLabel || 'Anexar arquivos');
-  const list = h('ul', { class: 'file-picker-list', 'aria-label': 'Arquivos selecionados' });
-  function repaint() {
-    list.replaceChildren();
-    for (let i = 0; i < files.length; i++) {
-      const f = files[i];
-      const idx = i;
-      const rm = h('button', { class: 'btn-link file-picker-rm', type: 'button', 'aria-label': 'Remover ' + f.name, text: '✕' });
-      rm.addEventListener('click', () => { files.splice(idx, 1); repaint(); });
-      list.append(h('li', { class: 'file-picker-item' },
-        h('span', { class: 'file-picker-name', text: f.name }),
-        h('span', { class: 'file-picker-size muted', text: humanBytes(f.size) }), rm));
-    }
-    list.hidden = files.length === 0;
-  }
-  trigger.addEventListener('click', () => input.click());
-  input.addEventListener('change', () => {
-    // acumula (não substitui) para o usuário poder anexar em várias etapas; depois zera o input
-    // para permitir re-selecionar o MESMO arquivo se ele o removeu.
-    for (const f of Array.from(input.files || [])) files.push(f);
-    input.value = '';
-    repaint();
-  });
-  repaint();
-  wrap.append(input, trigger, list);
-  return { el: wrap, files: () => files.slice(), clear() { files = []; repaint(); }, hasFiles: () => files.length > 0 };
-}
 
 /* ---------- helpers de UI compartilhados (consistência entre telas) ---------- */
 // ícone de seção (glifo): mesma marca visual em todos os h3 de card detalhado.
@@ -416,8 +283,6 @@ function renderWorkspace() {
   body.append(main, side);
   try { heading.focus({ preventScroll: true }); } catch { /* noop */ }
 }
-function dt(t) { return h('dt', { text: t }); }
-function dd(c) { return h('dd', {}, c); }
 function linkList(edges, dir) {
   if (!edges.length) return h('p', { class: 'empty', text: '— nenhum' });
   const ul = h('ul', { class: 'linklist' });
@@ -435,9 +300,24 @@ function linkList(edges, dir) {
 const SEM_CHANGE_LBL = { major: 'maior', minor: 'menor', patch: 'correção', none: 'sem mudança' };
 const semChangeLabel = (s) => SEM_CHANGE_LBL[s] || s || 'sem mudança';
 const semChangeCls = (s) => s === 'major' ? 'b-crit' : s === 'minor' ? 'b-high' : s === 'patch' ? 'b-med' : 'b-low';
+// "Mudanças" (A1a) = versões/diffs + fila de reprocessamento numa aba só; sub-abas trocam a view
+// interna (o item da sidebar continua aceso via NAV_ALIAS). A fila é consequência das mudanças.
+function changesTabs(active) {
+  const bar = h('div', { class: 'usa-filter changes-tabs', role: 'group', 'aria-label': 'Seções de Mudanças' });
+  const tab = (label, view, badgeN) => {
+    const on = active === view;
+    const b = h('button', { class: 'usa-fchip' + (on ? ' is-on' : ''), type: 'button', 'aria-pressed': on ? 'true' : 'false', onclick: () => { if (!on) switchView(view); } }, label);
+    if (badgeN) b.append(h('span', { class: 'lg-n', text: ' ' + badgeN }));
+    return b;
+  };
+  const qcrit = ((DATA.baseline && DATA.baseline.reprocess_queue) || []).filter((it) => it.impact_score >= 70).length;
+  bar.append(tab('Versões & diffs', 'versions'), tab('Fila de reprocessamento' + (qcrit ? ` · ${qcrit} críticos` : ''), 'reprocess'));
+  return bar;
+}
 function renderVersions() {
   const body = document.getElementById('versions-body');
   body.replaceChildren();
+  body.append(changesTabs('versions'));
 
   // Diff REAL da baseline (vs. versão anterior no git), quando disponível.
   const hist = DATA.history;
@@ -841,10 +721,6 @@ function paintImpact() {
   else hideInspector();
 }
 
-// Estado do viewport do grafo (zoom/pan), aplicado via transform no <g> raiz.
-function applyTransform(root, vp) {
-  root.setAttribute('transform', `translate(${vp.x} ${vp.y}) scale(${vp.k})`);
-}
 function controlsBar(s, root, layout) {
   const vp = s._vp;
   const bar = h('div', { class: 'impact-controls' });
@@ -1001,6 +877,7 @@ function renderReprocess() {
   if (wrap) wrap.replaceChildren();
   const body = document.getElementById('reprocess-body');
   body.replaceChildren();
+  body.append(changesTabs('reprocess'));
   const q = DATA.baseline.reprocess_queue || [];
 
   // Fila vazia = bom sinal (nada pendente) → estado-vazio acionável.
@@ -1317,14 +1194,47 @@ const INTENT_CHIPS = [
   { label: '⚠ Reportar uma lacuna', msg: 'Acho que falta algo no sistema. Me ajude a identificar e a estruturar.' },
 ];
 
-/* bolha de chat CSP-safe (só nós via h(), sem innerHTML; parágrafos por \n\n). */
+/* materializa tokens inline do parseMarkdown em nós DOM (via h()/createTextNode — nunca innerHTML). */
+function renderInline(tokens) {
+  return (tokens || []).map((t) => {
+    if (t.t === 'strong') return h('strong', { text: t.v });
+    if (t.t === 'em') return h('em', { text: t.v });
+    if (t.t === 'code') return h('code', { class: 'chat-ic', text: t.v });
+    if (t.t === 'link') return h('a', { class: 'chat-link', href: t.href, target: '_blank', rel: 'noopener noreferrer nofollow', text: t.v });
+    return document.createTextNode(t.v == null ? '' : String(t.v));
+  });
+}
+/* renderiza markdown (headings/listas/negrito/código) como nós DOM CSP-safe. */
+function renderMarkdown(text) {
+  const out = [];
+  for (const blk of parseMarkdown(text)) {
+    if (blk.type === 'heading') out.push(h('p', { class: 'chat-h' }, ...renderInline(blk.inline)));
+    else if (blk.type === 'ul' || blk.type === 'ol') out.push(h(blk.type, { class: 'chat-list' }, ...blk.items.map((it) => h('li', {}, ...renderInline(it)))));
+    else if (blk.type === 'code') out.push(h('pre', { class: 'chat-code' }, h('code', { text: blk.text })));
+    else { const kids = []; blk.lines.forEach((ln, idx) => { if (idx) kids.push(h('br')); kids.push(...renderInline(ln)); }); out.push(h('p', { class: 'chat-par' }, ...kids)); }
+  }
+  return out;
+}
+
+/* bolha de chat CSP-safe (só nós via h(), sem innerHTML; assistente=markdown, usuário=texto puro). */
 function chatBubble(turn, opts) {
   const onCite = (opts && opts.onCite) || ((id) => { if (state.editor && state.editor.graph) state.editor.graph.focus(id); });
   const who = turn.role === 'user' ? 'is-user' : 'is-ai';
   const b = h('div', { class: 'chat-msg ' + who + (turn.error ? ' is-err' : '') });
-  // "não consta" só faz sentido numa PERGUNTA sobre o sistema (não em criar/refinar/clarify)
-  if (turn.role === 'assistant' && turn.intent === 'question' && turn.grounded === false) b.append(h('div', { class: 'chat-nobase' }, badge('não consta na base', 'b-low')));
-  String(turn.content || '').split(/\n{2,}/).map((p) => p.trim()).filter(Boolean).forEach((p) => b.append(h('p', { class: 'chat-par', text: p })));
+  // "fora da base" só quando é uma AFIRMAÇÃO sobre o sistema sem ancoragem (não em pergunta de volta,
+  // rascunho proposto ou quando houve citações) — evita o selo aparecer em quase toda resposta.
+  if (turn.role === 'assistant' && turn.intent === 'question' && turn.grounded === false && !turn.draft && !turn.next_question && !(turn.citations && turn.citations.length)) {
+    b.append(h('div', { class: 'chat-nobase' }, badge('fora da base de requisitos', 'b-low')));
+  }
+  // Assistente: markdown renderizado (CSP-safe), com fallback p/ texto puro; usuário/erro: texto puro.
+  if (turn.role === 'assistant' && !turn.error) {
+    let nodes = [];
+    try { nodes = renderMarkdown(turn.content || ''); } catch { nodes = []; }
+    if (nodes.length) nodes.forEach((n) => b.append(n));
+    else String(turn.content || '').split(/\n{2,}/).map((p) => p.trim()).filter(Boolean).forEach((p) => b.append(h('p', { class: 'chat-par', text: p })));
+  } else {
+    String(turn.content || '').split(/\n{2,}/).map((p) => p.trim()).filter(Boolean).forEach((p) => b.append(h('p', { class: 'chat-par', text: p })));
+  }
   if (turn.citations && turn.citations.length) {
     const c = h('div', { class: 'chat-cites' }, h('span', { class: 'chat-cites-l', text: 'Requisitos citados:' }));
     for (const id of turn.citations) c.append(h('button', { class: 'btn-link chat-cite', type: 'button', onclick: () => onCite(id), text: id }));
@@ -1408,6 +1318,7 @@ function renderChatStage(body) {
         product, target_req_id: state.editor.target_req_id || undefined, message: text,
         history: state.editor.messages.slice(0, -1).filter((m) => !m.error).map((m) => ({ role: m.role, content: m.content })),
         grounding: productGrounding(DATA.baseline.requirements, product),
+        arch_summary: systemContext(DATA.products, product) || undefined, // o chat passa a CONHECER a stack
       };
       // Com anexos → multipart na MESMA rota /v1/authoring/chat; sem anexos → AI.chat (JSON, retrocompat).
       const r = files.length
@@ -2258,1135 +2169,6 @@ function renderRefineStage(body) {
    Hub de produtos → detalhe com breadcrumb + stepper (Definir → Arquitetura → Build).
    Lê dados estáticos (products/blueprints/build-plan/implementation-status); a IA (opcional,
    fail-closed) propõe requisitos. A UI NUNCA escreve no git — mostra o YAML e o caminho do PR. */
-const DONE_ST = ['deployed', 'done', 'merged'];
-function dStateCls(status) {
-  if (DONE_ST.includes(status)) return 'done';
-  if (status === 'blocked') return 'blocked';
-  if (status === 'in_progress' || status === 'pr_open') return 'active';
-  return 'todo';
-}
-async function loadBuildPlan(name) {
-  if (DATA.buildPlans[name] !== undefined) return DATA.buildPlans[name];
-  try { const r = await fetch('data/products/' + encodeURIComponent(name) + '/build-plan.json'); DATA.buildPlans[name] = r.ok ? await r.json() : null; }
-  catch { DATA.buildPlans[name] = null; }
-  return DATA.buildPlans[name];
-}
-function openForgeProduct(name) {
-  state.forge.product = name; state.forge.newMode = false;
-  // Abre na fase mais RELEVANTE: Build se o produto já está em construção/no ar (algum requisito
-  // além de not_started, ou já há build-plan carregado); senão Definir (produto novo/sem nada).
-  const product = findProduct(DATA.products, name);
-  const reqIds = (product && product.requirement_ids) || [];
-  const items = (DATA.implStatus && DATA.implStatus.items) || {};
-  const started = reqIds.some((id) => items[id] && items[id].status && items[id].status !== 'not_started');
-  state.forge.step = (started || DATA.buildPlans[name]) ? 'build' : 'definir';
-  switchView('forge'); document.getElementById('tab-forge').focus();
-  if (name && DATA.buildPlans[name] === undefined) loadBuildPlan(name).then(() => { if (state.view === 'forge' && state.forge.product === name) renderForge(); });
-}
-function openForgeNew() { state.forge.product = null; state.forge.newMode = true; switchView('forge'); }
-function backToHub() { state.forge.product = null; state.forge.newMode = false; renderForge(); }
-function forgeStep(step) { state.forge.step = step; renderForge(); }
-
-// barra de progresso em SVG (largura por ATRIBUTO, cor por classe no stylesheet — CSP-safe)
-function progressBar(pct) {
-  const p = Math.max(0, Math.min(100, Math.round(pct)));
-  const wrap = h('div', { class: 'forge-bar-wrap' });
-  const s = svg('svg', { class: 'forge-bar', viewBox: '0 0 100 7', preserveAspectRatio: 'none', role: 'img', 'aria-label': p + '% concluído' });
-  s.append(svg('rect', { class: 'forge-bar-track', x: '0', y: '0', width: '100', height: '7', rx: '3' }));
-  s.append(svg('rect', { class: 'forge-bar-fill' + (p >= 100 ? ' is-complete' : ''), x: '0', y: '0', width: String(p), height: '7', rx: '3' }));
-  wrap.append(s, h('span', { class: 'forge-pct', text: p + '%' }));
-  return wrap;
-}
-function svgText(attrs, label) { const t = svg('text', attrs); t.append(document.createTextNode(label)); return t; }
-function setForgeTitle(suffix) { try { document.title = 'Forge' + (suffix ? ' — ' + suffix : '') + ' · Reqhub'; } catch { /* ignore */ } }
-// bloco de código com botão "Copiar" (clipboard API; feedback temporário)
-function codeBlock(text, cls, label) {
-  const wrap = h('div', { class: 'forge-codeblock' });
-  const btn = h('button', { class: 'btn forge-copy', type: 'button', 'aria-label': 'Copiar ' + (label || 'código'), text: 'Copiar' });
-  btn.addEventListener('click', () => {
-    const done = () => { btn.textContent = 'Copiado ✓'; btn.classList.add('copied'); setTimeout(() => { btn.textContent = 'Copiar'; btn.classList.remove('copied'); }, 1600); };
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(() => {});
-    else done();
-  });
-  wrap.append(btn, h('pre', { class: cls }, text));
-  return wrap;
-}
-
-// --- Estado VIVO da Forja (tempo real): polling do endpoint /v1/forge/state; re-renderiza quando
-// o progresso de algum produto muda. Fail-soft: endpoint fora -> mantém os dados baked (data/*.json). ---
-let _forgeStateSig = '';
-let _forgeStateInflight = false;
-let _forgePollTimer = null;
-function applyForgeState(payload) {
-  if (!payload || payload.source === 'empty' || !Array.isArray(payload.products) || !payload.products.length) return false;
-  DATA.products = { products: payload.products.map((p) => ({
-    name: p.name, display_name: p.display_name, base_path: p.base_path, blueprint: p.blueprint,
-    stack: p.stack, app_type: p.app_type, vision: p.vision, phases: p.phases,
-    capability_blocks: p.capability_blocks, requirement_ids: p.requirement_ids,
-  })) };
-  const items = {};
-  for (const p of payload.products) for (const r of (p.reqs || [])) items[r.id] = { status: r.status };
-  DATA.implStatus = { items };
-  // plano de build vivo (waves) -> alimenta o stepper "Arquitetura" (fim do "sem plano de build")
-  for (const p of payload.products) if (p.buildPlan !== undefined) DATA.buildPlans[p.name] = p.buildPlan;
-  return true;
-}
-async function refreshForgeState(forceRender) {
-  if (_forgeStateInflight) return;
-  _forgeStateInflight = true;
-  try {
-    const r = await AI.get('/v1/forge/state');
-    if (r.ok && r.data && applyForgeState(r.data)) {
-      const sig = JSON.stringify((r.data.products || []).map((p) => [p.name, p.reqCount, p.progress && p.progress.done, p.progress && p.progress.pct]));
-      if (forceRender || sig !== _forgeStateSig) { _forgeStateSig = sig; if (String(location.hash || '').indexOf('forge') >= 0) renderForge(); }
-    }
-  } catch { /* fail-soft: mantém o baked */ } finally { _forgeStateInflight = false; }
-}
-function ensureForgePolling() {
-  if (_forgePollTimer) return;
-  _forgePollTimer = setInterval(() => { if (String(location.hash || '').indexOf('forge') >= 0) refreshForgeState(false); }, 15000);
-}
-
-function renderForge() {
-  ensureForgePolling();
-  void refreshForgeState(false);
-  const body = document.getElementById('forge-body');
-  body.replaceChildren();
-  if (!DATA.products || !((DATA.products.products) || []).length) {
-    body.append(forgeIntroHead());
-    body.append(h('p', { class: 'empty', text: 'Nenhum produto registrado ainda — gere um com o Forge (brief → requisitos → PR) ou rode build-products.mjs.' }));
-    return;
-  }
-  if (state.forge.newMode) { setForgeTitle('Criar um sistema'); renderForgeWizard(body); }
-  else if (state.forge.product) { const p = findProduct(DATA.products, state.forge.product); setForgeTitle(p ? p.display_name : state.forge.product); renderForgeDetail(body, state.forge.product); }
-  else { setForgeTitle('Produtos'); renderForgeHub(body); }
-}
-function forgeIntroHead() {
-  return h('div', { class: 'forge-head' }, h('div', {},
-    h('h2', { class: 'forge-title', text: 'Forge — construir um produto a partir de requisitos' }),
-    h('p', { class: 'muted', text: 'Um conjunto de requisitos vira uma aplicação real no repositório (frontend + API + worker + banco + k8s), pela mesma esteira do SICAT e do GymOps. Cada requisito vira código rastreável.' })));
-}
-
-function renderForgeHub(body) {
-  const summ = hubSummary(DATA.products, DATA.implStatus);
-  const head = forgeIntroHead();
-  head.querySelector('div').append(h('div', { class: 'forge-stats' },
-    h('span', { class: 'forge-stat' }, h('b', { text: String(summ.products) }), ' produto(s)'),
-    h('span', { class: 'forge-stat' }, h('b', { text: String(summ.totalReqs) }), ' requisitos'),
-    h('span', { class: 'forge-stat' }, h('b', { text: String(summ.totalDone) }), ' no ar'),
-    h('span', { class: 'forge-stat' }, h('b', { text: summ.pct + '%' }), ' concluído')));
-  body.append(head);
-
-  const all = productSummaries(DATA.products, DATA.implStatus);
-  const cat = (p) => (p.progress.total > 0 && p.progress.pct === 100) ? 'live' : (p.progress.done > 0 || (p.progress.total - (p.progress.by.not_started || 0)) > 0) ? 'building' : 'new';
-  // filtro por status (segmentado) — facilita "navegar tudo que está sendo criado"
-  const filters = [['all', 'Todos'], ['building', 'Em construção'], ['live', 'No ar'], ['new', 'Não iniciados']];
-  const bar = h('div', { class: 'forge-filter', role: 'group', 'aria-label': 'Filtrar produtos por status' });
-  for (const [key, label] of filters) {
-    const n = key === 'all' ? all.length : all.filter((p) => cat(p) === key).length;
-    bar.append(h('button', { class: 'lg-chip', type: 'button', 'aria-pressed': state.forge.filter === key ? 'true' : 'false', onclick: () => { state.forge.filter = key; renderForge(); } },
-      h('span', { class: 'lg-name', text: label }), h('span', { class: 'lg-n', text: String(n) })));
-  }
-  body.append(bar);
-
-  const shown = all.filter((p) => state.forge.filter === 'all' || cat(p) === state.forge.filter);
-  const cards = h('div', { class: 'forge-cards' });
-  for (const p of shown) {
-    const live = p.progress.pct === 100 && p.progress.total > 0;
-    const card = h('button', { class: 'forge-card', type: 'button', 'aria-label': `${p.display_name}: ${p.progress.done} de ${p.reqCount} requisitos no ar (${p.progress.pct}%)`, onclick: () => openForgeProduct(p.name) },
-      h('div', { class: 'forge-card-top' }, h('span', { class: 'forge-card-name', text: p.display_name }), h('span', { class: 'forge-card-path', text: p.base_path })),
-      p.blueprint ? h('span', { class: 'forge-card-bp', text: p.blueprint }) : null,
-      h('p', { class: 'forge-card-vision', text: p.vision || 'Sem descrição.' }),
-      h('div', { class: 'forge-card-foot' }, h('span', { class: 'muted', text: `${p.progress.done}/${p.reqCount} no ar` }), badge(live ? 'no ar' : (cat(p) === 'new' ? 'não iniciado' : 'em construção'), live ? 'b-ok' : (cat(p) === 'new' ? 'b-low' : 'b-high'))),
-      progressBar(p.progress.pct));
-    cards.append(card);
-  }
-  if (!shown.length) cards.append(h('p', { class: 'empty', text: 'Nenhum produto neste filtro.' }));
-  cards.append(h('button', { class: 'forge-card forge-new', type: 'button', 'aria-label': 'Criar novo produto a partir de um brief', onclick: () => openForgeNew() },
-    h('span', { class: 'plus', 'aria-hidden': 'true', text: '+' }), h('strong', { text: 'Novo produto' }), h('span', { class: 'muted', text: 'brief → requisitos (IA) → PR' })));
-  body.append(cards);
-}
-
-function forgeCrumbs(parts) {
-  const nav = h('nav', { class: 'forge-crumbs', 'aria-label': 'Trilha' });
-  parts.forEach((p, i) => {
-    if (i) nav.append(h('span', { class: 'sep', text: '›' }));
-    if (p.onclick) nav.append(h('button', { class: 'btn-link', type: 'button', onclick: p.onclick, text: p.label }));
-    else nav.append(h('span', { class: 'cur', 'aria-current': 'page', text: p.label }));
-  });
-  return nav;
-}
-
-function renderForgeDetail(body, name) {
-  const product = findProduct(DATA.products, name);
-  if (!product) { body.append(forgeCrumbs([{ label: 'Produtos', onclick: backToHub }, { label: name }]), h('p', { class: 'empty', text: 'Produto não encontrado.' })); return; }
-  const buildPlan = DATA.buildPlans[name] || null;
-  const steps = phaseModel(product, buildPlan, DATA.implStatus);
-  const cur = steps.find((s) => s.key === state.forge.step) || steps[0];
-  const labels = { definir: 'Definir', arquitetura: 'Arquitetura', build: 'Build' };
-  body.append(forgeCrumbs([{ label: 'Produtos', onclick: backToHub }, { label: product.display_name || name, onclick: null }, { label: labels[state.forge.step] }]));
-  body.append(h('div', { class: 'forge-detail-head' }, h('h2', { text: product.display_name || name }),
-    product.blueprint ? badge(product.blueprint, 'b-nfr') : null, badge(product.base_path, 'b-low')));
-
-  // stepper de fases (clicável, com estados reais)
-  const stepper = h('div', { class: 'forge-stepper', role: 'tablist', 'aria-label': 'Fases do Forge' });
-  const keys = steps.map((s) => s.key);
-  steps.forEach((s, i) => {
-    if (i) stepper.append(h('span', { class: 'forge-step-conn', 'aria-hidden': 'true' }));
-    const active = s.key === state.forge.step;
-    const onkey = (ev) => {
-      let j = null;
-      if (ev.key === 'ArrowRight' || ev.key === 'ArrowDown') j = (i + 1) % keys.length;
-      else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowUp') j = (i - 1 + keys.length) % keys.length;
-      else if (ev.key === 'Home') j = 0; else if (ev.key === 'End') j = keys.length - 1;
-      if (j != null) { ev.preventDefault(); forgeStep(keys[j]); const el = document.querySelector('#view-forge .forge-step.is-sel'); if (el) el.focus(); }
-    };
-    const btn = h('button', { class: 'forge-step is-' + s.status + (active ? ' is-sel' : ''), type: 'button', role: 'tab', 'aria-selected': active ? 'true' : 'false', tabindex: active ? '0' : '-1', onclick: () => forgeStep(s.key), onkeydown: onkey },
-      h('span', { class: 'forge-step-box' },
-        h('span', { class: 'forge-step-num', 'aria-hidden': 'true', text: s.status === 'done' ? '✓' : String(i + 1) }),
-        h('span', { class: 'forge-step-tx' }, h('span', { class: 'forge-step-label', text: s.label }), h('span', { class: 'forge-step-detail', text: s.detail }))));
-    stepper.append(btn);
-  });
-  body.append(stepper);
-
-  const panel = h('div', { class: 'forge-panel' + (state.forge.step !== 'definir' ? ' two' : '') });
-  if (state.forge.step === 'definir') forgeDefinir(panel, product);
-  else if (state.forge.step === 'arquitetura') forgeArquitetura(panel, product, buildPlan);
-  else forgeBuild(panel, product, buildPlan);
-  body.append(panel);
-
-  // Zona de risco: apagar o projeto (só p/ produtos NÃO protegidos; o backend reforça a denylist).
-  if (!FORGE_PROTECTED.includes(name)) body.append(forgeDangerZone(name));
-}
-
-// Produtos protegidos (não apagáveis pela UI) — espelha a denylist do backend (forge-launch.js).
-const FORGE_PROTECTED = ['sicat', 'gymops', 'rmambiental', 'anarabottini', 'reqhub', 'console', 'portal', 'portal-recorder', 'keycloak', 'langfuse', 'ai-control-plane'];
-
-function forgeDangerZone(name) {
-  const st = h('p', { class: 'fw-status muted', role: 'status', 'aria-live': 'polite' });
-  const btn = h('button', { class: 'btn danger', type: 'button', text: '🗑 Apagar este projeto' });
-  btn.addEventListener('click', () => {
-    const ok = window.confirm('Apagar o projeto "' + name + '"?\n\nIsto remove TUDO relacionado: código (apps/' + name + '), requisitos, baseline, Application do Argo e recursos no cluster. Ação irreversível pela UI.');
-    if (!ok) return;
-    forgeDelete(name, btn, st);
-  });
-  return h('div', { class: 'forge-danger' },
-    h('h4', { text: '⚠ Zona de risco' }),
-    h('p', { class: 'fw-hint', text: 'Apagar remove tudo que depende deste projeto (código, requisitos, baseline, Argo e cluster). Ação irreversível pela UI.' }),
-    h('div', { class: 'fw-actions' }, btn, st));
-}
-
-async function forgeDelete(name, btn, st) {
-  btn.disabled = true;
-  st.replaceChildren(h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' Apagando ' + name + '…');
-  try {
-    const r = await AI.post('/v1/forge/delete', { product: name });
-    if (r.ok) {
-      const d = r.data || {};
-      st.replaceChildren(document.createTextNode('Exclusão disparada — quando concluir, o projeto some daqui. '),
-        h('a', { href: d.actions_url || '#', target: '_blank', rel: 'noopener', text: 'acompanhar ↗' }));
-    } else {
-      const code = r.data && r.data.error ? r.data.error.code : 'HTTP ' + r.status;
-      const msg = r.data && r.data.error ? r.data.error.message : '';
-      st.replaceChildren(h('span', { class: 'fw-err', text: (code === 'DISPATCH_DISABLED' ? 'Exclusão automática desligada (falta token no servidor).' : 'Falha (' + code + ')' + (msg ? ': ' + msg : '')) }));
-      btn.disabled = false;
-    }
-  } catch (e) { st.replaceChildren(h('span', { class: 'fw-err', text: 'Erro de rede: ' + (e && e.message ? e.message : e) })); btn.disabled = false; }
-}
-
-function productReqs(product) {
-  const ids = new Set(product.requirement_ids || []);
-  const reqs = (DATA.baseline.requirements || []).filter((r) => ids.has(r.id) || (r.scope && r.scope.product_scope === product.name));
-  return reqs.sort((a, b) => a.id.localeCompare(b.id));
-}
-
-function forgeDefinir(panel, product) {
-  const left = h('div', { class: 'forge-section' });
-  left.append(h('h3', { text: 'Visão do produto' }), h('p', { class: 'forge-vision', text: product.vision || 'Sem descrição.' }));
-  const reqs = productReqs(product);
-  left.append(h('h3', { text: `Requisitos (${reqs.length})` }));
-  if (!reqs.length) left.append(h('p', { class: 'empty', text: 'Nenhum requisito ainda — use "Propor requisitos (IA)" para começar.' }));
-  else {
-    const ul = h('ul', { class: 'forge-reqlist' });
-    for (const r of reqs) {
-      const st = DATA.implStatus && DATA.implStatus.items && DATA.implStatus.items[r.id] ? DATA.implStatus.items[r.id].status : 'not_started';
-      ul.append(h('li', { class: 'forge-reqitem' },
-        h('button', { class: 'btn-link rid', type: 'button', onclick: () => openReq(r.id), text: r.id }),
-        h('span', { class: 'rt', text: truncateLabel(r.title || '', 72) }),
-        badge(st, forgeStatusCls(st))));
-    }
-    left.append(ul);
-  }
-  panel.append(left);
-  panel.append(h('div', { class: 'forge-note' },
-    h('strong', { text: 'Como adicionar requisitos: ' }),
-    'a autoria é por git/PR (fonte da verdade em ', h('code', { text: 'specs/requirements/' + product.name + '/' }), '). ',
-    'Use ', h('button', { class: 'btn-link', type: 'button', onclick: () => openForgeNew(), text: 'Novo produto / propor requisitos (IA)' }),
-    ' para gerar rascunhos — a UI não escreve no git.'));
-}
-
-function forgeArquitetura(panel, product, buildPlan) {
-  // coluna esquerda: blueprint + ADRs
-  const left = h('div', { class: 'forge-section' });
-  const bp = blueprintById(DATA.blueprints, product.blueprint);
-  left.append(h('h3', { text: 'Blueprint' }));
-  if (!bp) left.append(h('p', { class: 'empty', text: 'Blueprint "' + (product.blueprint || '?') + '" não encontrado.' }));
-  else {
-    left.append(h('div', { class: 'card' },
-      h('strong', { text: bp.name }), h('p', { class: 'muted', text: bp.summary || '' }),
-      h('dl', { class: 'forge-bp-stack' }, ...Object.entries(bp.stack || {}).flatMap(([k, v]) => [h('dt', { text: k }), h('dd', { text: v })])),
-      h('h4', { text: 'Serviços' }), h('div', { class: 'forge-chips' }, ...(bp.services || []).map((s) => h('span', { class: 'chip', text: s })), bp.db ? h('span', { class: 'chip', text: 'db: ' + bp.db }) : null),
-      (bp.reuses || []).length ? h('h4', { text: 'Reusa' }) : null,
-      (bp.reuses || []).length ? h('div', { class: 'forge-chips' }, ...(bp.reuses || []).map((s) => h('span', { class: 'chip', text: s }))) : null));
-  }
-  const adrs = (buildPlan && buildPlan.adrs) || (bp && bp.default_adrs) || [];
-  if (adrs.length) {
-    left.append(h('h3', { text: 'Decisões de arquitetura (ADRs)' }));
-    const ul = h('ul', { class: 'linklist' });
-    for (const a of adrs) ul.append(h('li', {}, h('span', { class: 'lt', text: 'ADR' }), typeof a === 'string' ? a : (a.title || a.decision || JSON.stringify(a))));
-    left.append(ul);
-  }
-  panel.append(left);
-
-  // coluna direita: DAG das waves
-  const right = h('div', { class: 'forge-section' });
-  right.append(h('h3', { text: 'Plano de build (waves)' }));
-  if (!buildPlan) right.append(h('p', { class: 'empty', text: 'Sem build-plan.json para este produto.' }));
-  else { right.append(forgeDagLegend(), buildPlanGraph(buildPlan, true).el, h('p', { class: 'muted small', text: 'Cada nó é um requisito; arraste/role para navegar. Clique realça as dependências e mostra o detalhe; duplo-clique (ou “o”) abre o requisito.' })); }
-  panel.append(right);
-}
-
-// Rótulos pt-BR por estágio (breakdown) e estado de wave.
-const FORGE_STAGE_LABELS = { not_started: 'não iniciado', in_progress: 'em progresso', pr_open: 'em PR', merged: 'mesclado', deployed: 'no ar', done: 'verificado', blocked: 'bloqueado' };
-const FORGE_WAVE_STATE = { done: 'concluída', active: 'em andamento', todo: 'aguardando' };
-
-function forgeBuild(panel, product, buildPlan) {
-  const reqIds = product.requirement_ids || [];
-  const left = h('div', { class: 'forge-section' });
-  const progBox = h('div', { class: 'forge-prog' });   // cabeçalho + barra + breakdown (re-render p/ liveness)
-  const wavesBox = h('div');                            // waves (preenchem com o progresso)
-  const buildStatusEl = h('div', { class: 'forge-build-status', role: 'status', 'aria-live': 'polite' });
-
-  // Renderiza o progresso PONDERADO (honesto): merged != 100%; só no ar (deployed/done OU app vivo) = 100%.
-  // SEMPRE mostra o breakdown por estágio → há o que acompanhar mesmo sem build ativo.
-  const renderProg = (live) => {
-    const prog = weightedProgress(reqIds, DATA.implStatus, { live });
-    progBox.replaceChildren();
-    progBox.append(h('div', { class: 'forge-prog-head' },
-      h('h3', { text: 'Progresso' }),
-      live ? badge('app no ar ✓', 'b-ok')
-        : (prog.delivered === prog.total && prog.total ? badge('deploy/verificação pendente', 'b-high') : null)));
-    progBox.append(progressBar(prog.pct));
-    const chips = h('div', { class: 'forge-breakdown', 'aria-label': 'Distribuição dos requisitos por estágio' });
-    let any = false;
-    for (const st of ['done', 'deployed', 'merged', 'pr_open', 'in_progress', 'blocked', 'not_started']) {
-      const n = prog.by[st] || 0; if (!n) continue; any = true;
-      chips.append(h('span', { class: 'forge-bd ' + forgeStatusCls(st), text: `${n} ${FORGE_STAGE_LABELS[st] || st}` }));
-    }
-    if (any) progBox.append(chips);
-    progBox.append(h('p', { class: 'muted small', text: `${prog.delivered}/${prog.total} requisito(s) com código no main` + (prog.live ? ` · ${prog.live} no ar` : (prog.delivered ? ' · deploy/verificação pendente' : '')) }));
-    // Waves COERENTES com o progresso (work_orders são tarefas finas, não reqs rastreados → preenche por %).
-    wavesBox.replaceChildren();
-    if (buildPlan) {
-      const waves = wavesFromProgress(buildPlan, prog.pct);
-      const list = h('div', { class: 'forge-waves', role: 'list', 'aria-label': `Ondas de construção (${waves.length})` });
-      for (const w of waves) {
-        list.append(h('div', { class: 'forge-wave s-' + w.state, role: 'listitem', 'aria-label': `Wave ${w.id}: ${FORGE_WAVE_STATE[w.state] || w.state}` },
-          h('span', { class: 'forge-wave-dot', 'aria-hidden': 'true' }),
-          h('span', { class: 'forge-wave-id', text: w.id }),
-          h('span', { class: 'forge-wave-reqs' }, ...w.tasks.map((tk) => h('span', { class: 'forge-wave-task', text: truncateLabel(tk, 46) }))),
-          h('span', { class: 'forge-wave-n', text: FORGE_WAVE_STATE[w.state] || w.state })));
-      }
-      wavesBox.append(h('h3', { text: 'Waves' }), list);
-    }
-  };
-  renderProg(false);
-  left.append(progBox, buildStatusEl, wavesBox);
-  if (buildPlan) left.append(h('h3', { text: 'Mapa do build' }), forgeDagLegend(), buildPlanGraph(buildPlan, false).el);
-  forgePollBuildStatus(product.name, buildStatusEl); // indicador VIVO: req-implement rodando + PRs/CI
-  // sonda de liveness same-origin (HEAD /<base_path>/) — 100% só quando o app RESPONDE no ar.
-  (async () => {
-    try {
-      const url = (product.base_path || ('/' + product.name)).replace(/\/$/, '') + '/';
-      const r = await fetch(url, { method: 'HEAD', cache: 'no-store' });
-      if (r.ok && state.view === 'forge' && state.forge.product === product.name && state.forge.step === 'build') renderProg(true);
-    } catch { /* app fora -> mantém "deploy pendente" */ }
-  })();
-  panel.append(left);
-
-  // direita: tabela requisito → status → PR → deploy
-  const right = h('div', { class: 'forge-section' });
-  right.append(h('h3', { text: 'Requisitos → código' }));
-  const t = h('table');
-  t.append(h('thead', {}, h('tr', {}, h('th', { text: 'ID' }), h('th', { text: 'Título' }), h('th', { text: 'Status' }), h('th', { text: 'PR' }))));
-  const tb = h('tbody');
-  for (const id of reqIds) {
-    const row = reqRow(id, DATA.baseline, DATA.implStatus);
-    tb.append(h('tr', { tabindex: '0', role: 'button', onclick: () => openReq(id), onkeydown: (ev) => { if (ev.key === 'Enter') openReq(id); } },
-      h('td', {}, h('span', { class: 'rid', text: id })),
-      h('td', { text: truncateLabel(row.title, 60) }),
-      h('td', {}, badge(row.status, forgeStatusCls(row.status))),
-      h('td', {}, row.pr ? h('a', { class: 'btn-link', href: row.pr, target: '_blank', rel: 'noopener', text: 'PR' }) : h('span', { class: 'empty', text: '—' }))));
-  }
-  const gw = h('div', { class: 'grid-wrap' }); t.append(tb); gw.append(t); right.append(gw);
-  panel.append(right);
-}
-
-// Indicador VIVO do build (tela Build): faz polling de /v1/forge/build-status e mostra se há
-// req-implement rodando + PRs de implementação abertos (e se estão bloqueados por CI). Para sozinho
-// ao sair da aba Build. fail-soft (sem token/IA fora -> "status indisponível", não quebra a tela).
-let _forgeBuildTimer = null;
-function fwStopBuildPoll() { if (_forgeBuildTimer) { clearTimeout(_forgeBuildTimer); _forgeBuildTimer = null; } }
-function renderBuildStatus(el, data) {
-  el.replaceChildren();
-  if (!data || data.ok === false) { el.append(h('p', { class: 'muted', text: 'Status do build indisponível agora.' })); return; }
-  const running = data.running || 0; const prs = data.prs || [];
-  if (!running && !prs.length) {
-    el.append(h('div', { class: 'fbuild-idle' }, h('span', { class: 'fbuild-dot' }), ' Sem processamento ativo no momento (nenhum req-implement rodando nem PR aberto).'));
-    return;
-  }
-  el.append(h('div', { class: 'fbuild-head' }, h('span', { class: 'forge-spin', 'aria-hidden': 'true' }),
-    ' Processando — ', h('strong', { text: String(running) }), ' implementação(ões) rodando · ', h('strong', { text: String(prs.length) }), ' PR(s) aberto(s)'));
-  if (prs.length) {
-    const ul = h('ul', { class: 'fbuild-prs' });
-    for (const p of prs) {
-      const label = p.state === 'blocked' ? ('bloqueado — CI vermelho' + (p.failed ? ` (${p.failed} check${p.failed > 1 ? 's' : ''} falho${p.failed > 1 ? 's' : ''})` : ''))
-        : p.state === 'checking' ? 'verificando CI…' : 'pronto p/ mesclar';
-      ul.append(h('li', { class: 'fbuild-pr s-' + p.state },
-        h('span', { class: 'fbuild-pr-ic', 'aria-hidden': 'true', text: p.state === 'blocked' ? '✕' : p.state === 'checking' ? '●' : '✓' }),
-        h('span', { class: 'fbuild-pr-req', text: p.req || ('PR #' + p.number) }),
-        h('a', { class: 'btn-link', href: p.url, target: '_blank', rel: 'noopener', text: '#' + p.number }),
-        h('span', { class: 'fbuild-pr-st', text: ' — ' + label })));
-    }
-    el.append(ul);
-  }
-}
-function forgePollBuildStatus(name, el) {
-  fwStopBuildPoll();
-  const tick = async () => {
-    if (!(state.view === 'forge' && state.forge.product === name && state.forge.step === 'build')) { fwStopBuildPoll(); return; }
-    let data = null;
-    try { const r = await AI.get('/v1/forge/build-status?product=' + encodeURIComponent(name)); data = r.ok ? r.data : { ok: false }; } catch { data = { ok: false }; }
-    if (!(state.view === 'forge' && state.forge.product === name && state.forge.step === 'build')) { fwStopBuildPoll(); return; }
-    renderBuildStatus(el, data);
-    _forgeBuildTimer = setTimeout(tick, 8000);
-  };
-  tick();
-}
-
-// Zoom (wheel) + pan (drag) local, sem acoplamento ao Mapa de impacto. onBg = clique no fundo.
-function wireZoomPanLocal(s, root, layout, onBg) {
-  const vp = { x: 0, y: 0, k: 1 }; s._vp = vp; applyTransform(root, vp);
-  const pt = (ev) => { const r = s.getBoundingClientRect(); return { x: (ev.clientX - r.left) * (layout.width / (r.width || layout.width)), y: (ev.clientY - r.top) * (layout.height / (r.height || layout.height)) }; };
-  s.addEventListener('wheel', (ev) => {
-    ev.preventDefault(); const p = pt(ev); const nk = Math.min(4, Math.max(0.4, vp.k * (ev.deltaY < 0 ? 1.12 : 1 / 1.12)));
-    vp.x = p.x - (p.x - vp.x) * (nk / vp.k); vp.y = p.y - (p.y - vp.y) * (nk / vp.k); vp.k = nk; applyTransform(root, vp);
-  }, { passive: false });
-  let drag = null;
-  s.addEventListener('pointerdown', (ev) => { if (ev.target.closest('.ig-node')) return; drag = { sx: ev.clientX, sy: ev.clientY, x0: vp.x, y0: vp.y, moved: false }; s.classList.add('panning'); s.setPointerCapture(ev.pointerId); });
-  s.addEventListener('pointermove', (ev) => { if (!drag) return; if (Math.abs(ev.clientX - drag.sx) + Math.abs(ev.clientY - drag.sy) > 4) drag.moved = true; const r = s.getBoundingClientRect(); vp.x = drag.x0 + (ev.clientX - drag.sx) * (layout.width / (r.width || layout.width)); vp.y = drag.y0 + (ev.clientY - drag.sy) * (layout.height / (r.height || layout.height)); applyTransform(root, vp); });
-  s.addEventListener('pointerup', (ev) => { if (drag && !drag.moved && onBg && ev.target && !ev.target.closest('.ig-node')) onBg(); drag = null; s.classList.remove('panning'); });
-  s.addEventListener('pointercancel', () => { drag = null; s.classList.remove('panning'); });
-}
-
-/**
- * Grafo INTERATIVO reutilizável (Novo produto / Arquitetura / Build). forceLayout + SVG;
- * hover/clique → realça vizinhança + painel de detalhe; zoom/pan; posição por transform
- * (anima a "formação" do mapa); cor por classe no nó (CSP-safe). Retorna { el, setData, focus }.
- */
-function interactiveGraph(opts = {}) {
-  const W = 1000, H = 600;
-  const nodeClass = opts.nodeClass || (() => '');
-  const onOpen = opts.onOpen || null;
-  const detailOf = opts.detailOf || null;
-  let nodes = [], edges = [], hoverId = null, sel = null;
-  const els = new Map(); // id -> { g, tx, ttl }
-  const wrap = h('div', { class: 'ig-wrap' });
-  const canvas = h('div', { class: 'ig-canvas' + (opts.tall ? ' tall' : '') });
-  const detail = h('div', { class: 'ig-detail is-hidden', role: 'region', 'aria-label': 'Detalhe do nó' });
-  const s = svg('svg', { viewBox: `0 0 ${W} ${H}`, role: 'group', 'aria-label': opts.label || 'Grafo de requisitos' });
-  const root = svg('g', {}); const gEdges = svg('g', {}); const gNodes = svg('g', {});
-  root.append(gEdges, gNodes); s.append(root); canvas.append(detail, s); wrap.append(canvas);
-
-  const focusId = () => sel || hoverId;
-  function neighbors(id) { const set = new Set([id]); for (const e of edges) { if (e.from === id) set.add(e.to); if (e.to === id) set.add(e.from); } return set; }
-  function paint() {
-    const fc = focusId(); const nb = fc ? neighbors(fc) : null;
-    for (const [id, el] of els) {
-      el.g.classList.toggle('is-focus', fc === id);
-      el.g.classList.toggle('is-neighbor', !!nb && nb.has(id) && id !== fc);
-      el.g.classList.toggle('is-dim', !!fc && !nb.has(id));
-    }
-    for (const e of gEdges.children) { const on = fc && (e._from === fc || e._to === fc); e.classList.toggle('is-active', !!on); e.classList.toggle('is-dim', !!fc && !on); }
-    if (fc && detailOf) showDetail(fc); else hideDetail();
-  }
-  function showDetail(id) {
-    const d = detailOf(nodes.find((n) => n.id === id), id); if (!d) { hideDetail(); return; }
-    const actions = Array.isArray(d.actions) ? d.actions : [];
-    detail.replaceChildren(h('div', { class: 'ig-detail-card' },
-      h('div', { class: 'ig-detail-head' }, h('span', { class: 'ig-detail-id', text: id }),
-        sel === id ? h('button', { class: 'insp-x', type: 'button', 'aria-label': 'Fechar', onclick: () => { sel = null; paint(); } }, '×') : null),
-      d.title ? h('div', { class: 'ig-detail-title', text: d.title }) : null,
-      d.badges && d.badges.length ? h('div', { class: 'insp-badges' }, ...d.badges) : null,
-      d.sub ? h('p', { class: 'muted small', text: d.sub }) : null,
-      actions.length ? h('div', { class: 'ig-detail-actions' }, ...actions.map((a) => h('button', { class: a.cls || 'btn-link', type: 'button', onclick: a.onClick }, a.label))) : null,
-      onOpen && d.openable ? h('button', { class: 'btn-link', type: 'button', onclick: () => onOpen(id), text: 'Abrir requisito →' }) : null));
-    detail.classList.remove('is-hidden');
-  }
-  function hideDetail() { detail.classList.add('is-hidden'); detail.replaceChildren(); }
-  function select(id) { sel = (sel === id) ? null : id; paint(); if (sel) { const x = detail.querySelector('.insp-x'); if (x) x.focus(); } } // foco no fechar ao selecionar (a11y)
-
-  function setData(newNodes, newEdges) {
-    nodes = (newNodes || []).slice(); edges = (newEdges || []).slice();
-    if (!nodes.length) { gEdges.replaceChildren(); for (const [, el] of els) el.g.remove(); els.clear(); return; }
-    const ln = nodes.map((n) => ({ ...n, product: n.group || ('w' + (n.wave || 0)) }));
-    const laid = forceLayout(ln, edges, { width: W, height: H, iterations: nodes.length > 24 ? 260 : 340, minDistX: 150, minDistY: 74 });
-    const by = {}; for (const n of laid.nodes) by[n.id] = n;
-    gEdges.replaceChildren();
-    for (const e of edges) { const a = by[e.from], b = by[e.to]; if (!a || !b) continue; const l = svg('line', { class: 'forge-dedge ig-edge', x1: a.x, y1: a.y, x2: b.x, y2: b.y }); l._from = e.from; l._to = e.to; gEdges.append(l); }
-    const keep = new Set();
-    for (const n of laid.nodes) {
-      keep.add(n.id);
-      let el = els.get(n.id);
-      if (!el) {
-        const g = svg('g', { class: 'forge-dnode ig-node', tabindex: '-1', role: 'button' });
-        const ttl = svg('title'); g.append(ttl);
-        g.append(svg('rect', { class: 'chip', x: '-66', y: '-15', width: '132', height: '30', rx: '9' }));
-        const tx = svgText({ class: 'dlbl', x: '0', y: '4', 'text-anchor': 'middle', 'aria-hidden': 'true' }, '');
-        g.append(tx);
-        g.addEventListener('click', (ev) => { ev.stopPropagation(); select(n.id); });
-        g.addEventListener('dblclick', () => { if (onOpen) onOpen(n.id); });
-        g.addEventListener('keydown', (ev) => {
-          if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); select(n.id); }
-          else if ((ev.key === 'o' || ev.key === 'O') && onOpen) onOpen(n.id);
-          else if (ev.key === 'ArrowRight' || ev.key === 'ArrowDown') { ev.preventDefault(); moveRoving(n.id, 1); }
-          else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowUp') { ev.preventDefault(); moveRoving(n.id, -1); }
-        });
-        g.addEventListener('mouseenter', () => { hoverId = n.id; if (!sel) paint(); });
-        g.addEventListener('mouseleave', () => { if (hoverId === n.id) hoverId = null; if (!sel) paint(); });
-        g.addEventListener('focus', () => { hoverId = n.id; setRoving(n.id); if (!sel) paint(); });
-        el = { g, ttl, tx }; els.set(n.id, el); gNodes.append(g);
-      }
-      el.g.setAttribute('class', 'forge-dnode ig-node' + (nodeClass(n) ? ' ' + nodeClass(n) : ''));
-      el.g.setAttribute('transform', `translate(${n.x},${n.y})`);
-      el.tx.textContent = String(n.label || n.id).replace(/^REQ-/, '');
-      el.ttl.textContent = n.title ? `${n.id} — ${n.title}` : n.id;
-      let aria = n.title ? `${n.id}: ${n.title}` : n.id;
-      if (detailOf) { const dd = detailOf(n, n.id); if (dd && dd.sub) aria += `, ${dd.sub}`; } // anuncia wave/status ao leitor de tela
-      el.g.setAttribute('aria-label', aria);
-    }
-    for (const [id, el] of els) if (!keep.has(id)) { el.g.remove(); els.delete(id); }
-    ensureRoving();
-    paint();
-  }
-
-  // roving tabindex: exatamente UM nó é tabbable; setas movem o foco entre nós (WCAG 2.1.1).
-  function setRoving(id) { for (const [k, el] of els) el.g.setAttribute('tabindex', k === id ? '0' : '-1'); }
-  function ensureRoving() { let has = false; for (const [, el] of els) if (el.g.getAttribute('tabindex') === '0') { has = true; break; } if (!has) { const first = els.keys().next().value; if (first) els.get(first).g.setAttribute('tabindex', '0'); } }
-  function moveRoving(fromId, dir) { const ids = [...els.keys()]; if (ids.length < 2) return; let i = ids.indexOf(fromId); i = (i + dir + ids.length) % ids.length; const el = els.get(ids[i]); if (el) { setRoving(ids[i]); el.g.focus(); } }
-
-  // Esc fecha o painel de detalhe e devolve o foco ao no selecionado (a11y de teclado).
-  canvas.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && sel) { ev.stopPropagation(); const back = els.get(sel); sel = null; paint(); if (back) back.g.focus(); } });
-  wireZoomPanLocal(s, root, { width: W, height: H }, () => { sel = null; paint(); });
-  return { el: wrap, setData, focus: (id) => { sel = id; paint(); } };
-}
-
-// Constrói o grafo interativo de um build-plan (waves + status real) — Arquitetura/Build.
-function buildPlanGraph(buildPlan, tall) {
-  const stLbl = { done: 'concluído', active: 'em andamento', blocked: 'bloqueado', todo: 'não iniciado' };
-  const g = interactiveGraph({
-    tall, label: 'Grafo de dependências do build por waves', onOpen: (id) => openReq(id),
-    nodeClass: (n) => 's-' + dStateCls(n.status),
-    detailOf: (n, id) => { const r = byId(id); return { title: r ? r.title : '', openable: !!r, sub: `wave ${(n ? n.wave : 0) + 1} · ${stLbl[dStateCls(n ? n.status : 'todo')]}`, badges: r ? [badge(r.type === 'non-functional' ? 'NFR' : 'funcional', r.type === 'non-functional' ? 'b-nfr' : 'b-fn'), badge((n && n.status) || 'not_started', forgeStatusCls((n && n.status) || 'not_started'))] : [] }; },
-  });
-  const dag = buildDag(buildPlan, DATA.implStatus);
-  g.setData(dag.nodes, dag.edges);
-  return g;
-}
-function forgeDagLegend() {
-  const items = [['s-done', 'Pronto'], ['s-active', 'Em andamento'], ['s-blocked', 'Bloqueado'], ['s-todo', 'Não iniciado']];
-  const leg = h('div', { class: 'forge-dag-legend', 'aria-hidden': 'true' });
-  for (const [cls, label] of items) leg.append(h('span', {}, h('span', { class: 'legend-dot ' + cls }), label));
-  return leg;
-}
-
-/* ---- Novo produto: brief → requisitos (IA, fail-closed) → YAML + caminho de PR ---- */
-// ─── WIZARD de criação (duas TRILHAS de UX) ──────────────────────────────────
-// 'guided' (leigo: linguagem comum, sem jargão) e 'advanced' (técnico: requisitos, blocos, YAML).
-// 4 etapas: Ideia → O que será criado → Plano → Revisar. A IA MOSTRA, passo a passo, as
-// capacidades (em linguagem comum), as telas/funções e a documentação. Nada é escrito sem revisão.
-function forgeWizardState() {
-  const blueprints = (DATA.blueprints && DATA.blueprints.blueprints) || [];
-  if (!state.forge.wizard) state.forge.wizard = { stage: 1, mode: 'guided', name: '', brief: '', slug: '', blueprint: (blueprints[0] && blueprints[0].id) || '', proposed: [], arch: null, reqMeta: null, error: '' };
-  return state.forge.wizard;
-}
-const FW_STEPS = [
-  { n: 1, label: 'Ideia', sub: 'descreva o que quer' },
-  { n: 2, label: 'O que será criado', sub: 'capacidades e telas' },
-  { n: 3, label: 'Plano de construção', sub: 'ordem das etapas' },
-  { n: 4, label: 'Revisar e criar', sub: 'documentação + pedido' },
-];
-function fwRerender() { renderForge(); }
-function fwMaxStage(w) { return (w.proposed && w.proposed.length) ? 4 : 1; }
-function fwGoto(n) { const w = forgeWizardState(); if (n >= 1 && n <= fwMaxStage(w)) { w.stage = n; fwRerender(); } }
-function fwNav(back, next, nextLabel) {
-  const row = h('div', { class: 'fw-nav' });
-  if (back) row.append(h('button', { class: 'btn', type: 'button', text: '← Voltar', onclick: () => fwGoto(back) }));
-  if (next && nextLabel) row.append(h('button', { class: 'btn primary', type: 'button', onclick: () => fwGoto(next) }, nextLabel + ' →'));
-  return row;
-}
-
-// Dispara o launch a partir do estado do wizard e TRAVA a navegação no sucesso (onLaunched).
-function fwLaunch(w, mode, statusEl, btns) {
-  const ctx = {
-    pname: w.slug, blueprint: w.blueprint, proposed: w.proposed || [],
-    launchCtx: {
-      brief: w.brief || '', displayName: w.name || w.slug,
-      getArch: () => w.arch,
-      onLaunched: (d, m) => { w.launched = true; w.launchInfo = d; w.launchMode = m; fwRerender(); },
-    },
-    status: statusEl, btns,
-  };
-  return forgeLaunch(mode, ctx);
-}
-
-// Tela TRAVADA após o launch — impede voltar e re-gerar/re-disparar; mostra o PROGRESSO AO VIVO
-// (polling do status do GitHub + sonda da URL do app) e revela o link de acesso quando publica.
-function renderForgeWizardLaunched(body, w) {
-  body.append(forgeCrumbs([{ label: 'Produtos', onclick: () => { fwStopPolling(w); state.forge.wizard = null; backToHub(); } }, { label: 'Criar um sistema' }]));
-  const d = w.launchInfo || {};
-  const rel = w.launchMode === 'release';
-  const card = h('div', { class: 'fw-card fw-launched' });
-  const head = h('h2', { text: (rel ? '🚀 ' : '📦 ') + (rel ? 'Construindo o ' : 'Requisitos criados — ') + (w.name || w.slug) });
-  const lead = h('p', { class: 'fw-lead', text: rel
-    ? 'Acompanhe aqui — quando ficar pronto, o link de acesso aparece abaixo.'
-    : 'Os requisitos foram criados no git. Mescle o PR para a esteira construir e publicar.' });
-  const steps = h('ol', { class: 'fw-launch-steps', 'aria-live': 'polite' });
-  const liveBox = h('div', { class: 'fw-live' });
-  const foot = h('div', { class: 'fw-actions' });
-  if (d.actions_url) foot.append(h('a', { class: 'btn', href: d.actions_url, target: '_blank', rel: 'noopener', text: 'Ver no GitHub ↗' }));
-  if (!rel && d.pulls_url) foot.append(h('a', { class: 'btn', href: d.pulls_url, target: '_blank', rel: 'noopener', text: 'Ver o PR ↗' }));
-  foot.append(h('button', { class: 'btn', type: 'button', text: '+ Criar outro sistema', onclick: () => { fwStopPolling(w); state.forge.wizard = null; backToHub(); } }));
-  card.append(head, lead, steps, liveBox, foot);
-  body.append(card);
-  fwStartLaunchPolling(w, { steps, liveBox, lead });
-}
-
-function fwStopPolling(w) { if (w && w._statusTimer) { clearTimeout(w._statusTimer); w._statusTimer = null; } }
-
-// Polling do estado da cadeia + sonda de liveness do app (HEAD same-origin /<slug>/). Idempotente:
-// re-render chama fwStopPolling antes; para sozinho ao publicar ou ao sair do wizard.
-function fwStartLaunchPolling(w, els) {
-  fwStopPolling(w);
-  const slug = w.slug;
-  const appUrl = location.origin + '/' + slug + '/';
-  const icon = (st) => (st === 'done' ? '✓' : st === 'active' ? '●' : st === 'error' ? '✕' : '○');
-  const renderStages = (stages, live) => {
-    const all = (stages || []).slice();
-    all.push({ key: 'publicado', label: 'Publicado', status: live ? 'done' : 'pending', detail: live ? 'no ar' : 'aguardando subir' });
-    els.steps.replaceChildren(...all.map((s) => h('li', { class: 'fw-ls fw-ls-' + s.status },
-      h('span', { class: 'fw-ls-ic', 'aria-hidden': 'true', text: icon(s.status) }),
-      h('span', { class: 'fw-ls-tx' }, h('strong', { text: s.label }), s.detail ? h('span', { class: 'fw-ls-d', text: ' — ' + s.detail }) : null))));
-  };
-  const probeLive = async () => { try { const r = await fetch(appUrl, { method: 'HEAD', cache: 'no-store' }); return r.ok; } catch { return false; } };
-  const tick = async () => {
-    if (state.forge.wizard !== w) { fwStopPolling(w); return; } // navegou para fora
-    let stages = [];
-    try { const r = await AI.get('/v1/forge/launch-status?product=' + encodeURIComponent(slug)); if (r.ok && r.data && Array.isArray(r.data.stages)) stages = r.data.stages; } catch { /* fail-soft */ }
-    const live = await probeLive();
-    renderStages(stages, live);
-    if (live) {
-      els.lead.textContent = 'Pronto! O ' + (w.name || slug) + ' foi construído e publicado.';
-      els.liveBox.replaceChildren(
-        h('p', { class: 'fw-live-t', text: '🎉 Seu sistema está no ar!' }),
-        h('a', { class: 'btn primary fw-cta', href: appUrl, target: '_blank', rel: 'noopener', text: 'Acessar ' + (w.name || slug) + ' ↗' }));
-      fwStopPolling(w);
-      return;
-    }
-    w._statusTimer = setTimeout(tick, 6000);
-  };
-  tick();
-}
-
-function renderForgeWizard(body) {
-  const w = forgeWizardState();
-  if (w.launched) { renderForgeWizardLaunched(body, w); return; } // travado após "Criar/Liberar" — não re-disparar
-  const blueprints = (DATA.blueprints && DATA.blueprints.blueprints) || [];
-  const catalog = (DATA.capabilities && DATA.capabilities.capabilities) || [];
-  body.append(forgeCrumbs([{ label: 'Produtos', onclick: () => { state.forge.wizard = null; backToHub(); } }, { label: 'Criar um sistema' }]));
-
-  const mk = (mode, label, sub) => h('button', { class: 'fw-mode' + (w.mode === mode ? ' is-on' : ''), type: 'button', 'aria-pressed': String(w.mode === mode), onclick: () => { w.mode = mode; fwRerender(); } }, h('strong', { text: label }), h('span', { class: 'fw-mode-sub', text: sub }));
-  body.append(h('div', { class: 'fw-head' },
-    h('div', { class: 'fw-head-t' }, h('h2', { text: 'Criar um sistema novo' }), h('p', { class: 'muted', text: 'Descreva sua ideia — a IA mostra, passo a passo, tudo que será criado. Você revisa e confirma; nada é escrito sem você.' })),
-    h('div', { class: 'fw-modes', role: 'group', 'aria-label': 'Trilha de uso' }, mk('guided', 'Guiado', 'simples, sem termos técnicos'), mk('advanced', 'Avançado', 'requisitos, blocos, YAML'))));
-
-  const stepper = h('ol', { class: 'fw-steps' });
-  for (const s of FW_STEPS) {
-    const cls = w.stage === s.n ? 'is-current' : (s.n < w.stage ? 'is-done' : 'is-todo');
-    const clickable = s.n <= fwMaxStage(w);
-    stepper.append(h('li', { class: 'fw-step ' + cls + (clickable ? ' is-click' : ''), 'aria-current': w.stage === s.n ? 'step' : null, role: clickable ? 'button' : null, tabindex: clickable ? '0' : null, onclick: clickable ? () => fwGoto(s.n) : null, onkeydown: clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fwGoto(s.n); } } : null },
-      h('span', { class: 'fw-step-n', 'aria-hidden': 'true', text: s.n < w.stage ? '✓' : String(s.n) }),
-      h('span', { class: 'fw-step-tx' }, h('span', { class: 'fw-step-l', text: s.label }), h('span', { class: 'fw-step-s', text: s.sub }))));
-  }
-  body.append(stepper);
-
-  const stage = h('div', { class: 'fw-stage', role: 'region', 'aria-live': 'polite' });
-  body.append(stage);
-  if (w.stage === 1) fwStageIdea(stage, w, { blueprints });
-  else if (w.stage === 2) fwStageWhat(stage, w, { catalog });
-  else if (w.stage === 3) fwStagePlan(stage, w);
-  else fwStageReview(stage, w, { catalog });
-}
-
-function fwStageIdea(host, w, { blueprints }) {
-  const card = h('div', { class: 'fw-card' });
-  card.append(h('h3', { class: 'fw-q', tabindex: '-1', text: w.mode === 'guided' ? 'O que você quer criar?' : 'Defina o produto' }));
-  const name = h('input', { class: 'fw-input', type: 'text', value: w.name, placeholder: w.mode === 'guided' ? 'Ex.: Central de chamados' : 'slug (ex.: helpdesk)', 'aria-label': 'Nome do sistema' });
-  name.addEventListener('input', () => { w.name = name.value; });
-  card.append(h('label', { class: 'fw-fld' }, h('span', { class: 'fw-fld-l', text: w.mode === 'guided' ? 'Nome do sistema' : 'Slug do produto' }), name));
-  const brief = h('textarea', { class: 'fw-textarea', rows: '6', 'aria-label': 'Descrição', placeholder: 'Descreva como falaria com uma pessoa: o que o sistema faz, para quem, e o que é importante. Ex.: "abrir e acompanhar chamados, atribuir a técnicos, e avisar quando algo atrasa".' });
-  brief.value = w.brief;
-  brief.addEventListener('input', () => { w.brief = brief.value; });
-  card.append(h('label', { class: 'fw-fld' }, h('span', { class: 'fw-fld-l', text: 'Descreva sua ideia' }), brief));
-  // Anexos (opcional): documentos/planilhas/imagens que descrevem a ideia. A IA lê o conteúdo
-  // (multimodal); o picker persiste no estado do wizard para sobreviver às re-renderizações da etapa 1.
-  if (!w._filePicker) w._filePicker = filePicker({ label: 'Anexar arquivos sobre a ideia', buttonLabel: 'Anexar arquivos (opcional)' });
-  card.append(h('div', { class: 'fw-fld' },
-    h('span', { class: 'fw-fld-l', text: 'Anexos (opcional)' }),
-    h('p', { class: 'fw-hint', text: 'Tem um documento, planilha ou imagem que descreve a ideia? Anexe — a IA vai considerar o conteúdo.' }),
-    w._filePicker.el));
-  if (w.mode === 'guided') {
-    const ex = [
-      ['Central de chamados', 'Um sistema para abrir e acompanhar chamados de suporte, atribuir a técnicos e avisar quando algo atrasa.'],
-      ['Controle de estoque', 'Controle de produtos e estoque, com alertas de baixa quantidade e relatórios.'],
-      ['Agenda de clientes', 'Cadastro de clientes e agendamento de serviços, com lembretes automáticos por mensagem.'],
-    ];
-    const chips = h('div', { class: 'fw-chips' });
-    for (const [t, b] of ex) chips.append(h('button', { class: 'fw-chip', type: 'button', onclick: () => { w.name = t; w.brief = b; fwRerender(); } }, '💡 ' + t));
-    card.append(h('p', { class: 'fw-hint', text: 'Sem ideia? comece por um exemplo:' }), chips);
-  } else {
-    const bpsel = h('select', { class: 'fw-input', 'aria-label': 'Blueprint' });
-    for (const b of blueprints) bpsel.append(h('option', { value: b.id, text: b.name, selected: b.id === w.blueprint }));
-    bpsel.addEventListener('change', () => { w.blueprint = bpsel.value; });
-    const tok = h('input', { class: 'fw-input', type: 'password', value: AI.getToken(), placeholder: 'Bearer token (operador)' });
-    tok.addEventListener('change', () => AI.setToken(tok.value.trim()));
-    card.append(h('label', { class: 'fw-fld' }, h('span', { class: 'fw-fld-l', text: 'Blueprint (stack base)' }), bpsel), h('details', { class: 'fw-adv' }, h('summary', { text: 'Token do operador' }), tok));
-  }
-  const gen = h('button', { class: 'btn primary fw-cta', type: 'button', text: '✨ Ver o que a IA vai criar' });
-  const status = h('p', { class: 'fw-status muted' });
-  if (w.error) status.replaceChildren(h('span', { class: 'fw-err', text: w.error }));
-  gen.addEventListener('click', () => fwGenerate(w, status, gen));
-  card.append(h('div', { class: 'fw-actions' }, gen), status);
-  host.append(card);
-  AI.health().then((r) => { if (!r.ok && !w.error) status.textContent = 'Obs.: a IA está indisponível agora — você ainda pode exportar requisitos no modo avançado.'; }).catch(() => {});
-  card.querySelector('.fw-q').focus();
-}
-
-async function fwGenerate(w, status, btn) {
-  const slug = (w.name || '').trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
-  if (!slug) { w.error = 'Dê um nome ao sistema.'; status.replaceChildren(h('span', { class: 'fw-err', text: w.error })); return; }
-  if ((w.brief || '').trim().length < 10) { w.error = 'Descreva um pouco mais a sua ideia (uma ou duas frases).'; status.replaceChildren(h('span', { class: 'fw-err', text: w.error })); return; }
-  w.slug = slug; w.error = ''; btn.disabled = true;
-  status.replaceChildren(h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' A IA está desenhando o sistema — requisitos e arquitetura…');
-  const catalog = (DATA.capabilities && DATA.capabilities.capabilities) || [];
-  const blueprints = (DATA.blueprints && DATA.blueprints.blueprints) || [];
-  // Se o usuário anexou arquivos, envia multipart (a IA lê o conteúdo); senão, mantém o JSON de sempre.
-  const files = (w._filePicker && w._filePicker.hasFiles()) ? w._filePicker.files() : [];
-  const reqFields = { product: slug, blueprint: w.blueprint, brief: w.brief.trim(), capabilities: catalog, blueprints };
-  try {
-    const r = files.length
-      ? await AI.postMultipart('/v1/forge/propose-requirements', { fields: reqFields, files })
-      : await AI.post('/v1/forge/propose-requirements', reqFields);
-    if (!r.ok) throw new Error((r.data && r.data.error && r.data.error.message) || ('IA ' + r.status));
-    const reqs = (r.data && r.data.requirements) || [];
-    if (!reqs.length) throw new Error('A IA não retornou requisitos. Tente descrever de outra forma.');
-    fwApplyProposed(w, r.data);
-    w.stage = 2; fwRerender(); // mostra a tela 2 já com os requisitos (não espera a arquitetura)
-    fwKickArch(w);             // arquitetura (waves) em SEGUNDO PLANO
-  } catch (e) {
-    w.error = String(e.message || e); btn.disabled = false;
-    status.replaceChildren(h('span', { class: 'fw-err', text: 'Não consegui gerar: ' + w.error }));
-  }
-}
-
-// Aplica a resposta da IA (requisitos propostos) ao estado do wizard (IDs estáveis vs baseline).
-function fwApplyProposed(w, data) {
-  const reqs = (data && data.requirements) || [];
-  const existing = ((DATA.baseline && DATA.baseline.requirements) || []).map((x) => x.id);
-  w.proposed = [];
-  for (const req of reqs) { const id = req.id || nextReqId(w.slug, existing.concat(w.proposed.map((p) => p.id))); w.proposed.push({ id, req }); }
-  w.reqMeta = data;
-}
-
-// Dispara a proposta de arquitetura (ordem das waves) em segundo plano.
-function fwKickArch(w) {
-  const catalog = (DATA.capabilities && DATA.capabilities.capabilities) || [];
-  const blueprints = (DATA.blueprints && DATA.blueprints.blueprints) || [];
-  w.arch = null; w.archLoading = true;
-  AI.post('/v1/forge/propose-architecture', { product: w.slug, blueprint: w.blueprint, requirements: w.proposed.map((p) => ({ id: p.id, title: p.req.title, type: p.req.type, statement: p.req.statement, capability_blocks: p.req.capability_blocks || [] })), capabilities: catalog, blueprints })
-    .then((a) => { w.arch = (a && a.ok) ? a.data : null; })
-    .catch(() => { w.arch = null; })
-    .finally(() => { w.archLoading = false; if (state.forge.wizard === w && w.stage >= 3) fwRerender(); });
-}
-
-// Ajuste por IA (stages 2 e 3): re-propõe capacidades/requisitos a partir do brief + a instrução do
-// usuário + os requisitos ATUAIS (refinamento iterativo), depois recalcula o plano. Atualiza a tela.
-async function fwAdjust(w, instruction, statusEl) {
-  const instr = (instruction || '').trim();
-  if (!instr) { statusEl.replaceChildren(h('span', { class: 'fw-err', text: 'Escreva o que quer ajustar.' })); return; }
-  statusEl.replaceChildren(h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' Ajustando com a IA…');
-  const catalog = (DATA.capabilities && DATA.capabilities.capabilities) || [];
-  const blueprints = (DATA.blueprints && DATA.blueprints.blueprints) || [];
-  const current = (w.proposed || []).map((p) => '- ' + (p.req.title || '') + ': ' + (p.req.statement || '')).join('\n');
-  const augmented = (w.brief || '') + '\n\n--- AJUSTE PEDIDO PELO USUÁRIO ---\n' + instr
-    + '\n\nRequisitos atuais (revise conforme o ajuste — mantenha os que ainda fazem sentido; edite/adicione/remova o que o ajuste pedir):\n' + current;
-  try {
-    const r = await AI.post('/v1/forge/propose-requirements', { product: w.slug, blueprint: w.blueprint, brief: augmented, capabilities: catalog, blueprints });
-    if (!r.ok) throw new Error((r.data && r.data.error && r.data.error.message) || ('IA ' + r.status));
-    const reqs = (r.data && r.data.requirements) || [];
-    if (!reqs.length) throw new Error('A IA não retornou requisitos.');
-    fwApplyProposed(w, r.data);
-    fwKickArch(w);
-    fwRerender();
-  } catch (e) { statusEl.replaceChildren(h('span', { class: 'fw-err', text: 'Não consegui ajustar: ' + String(e.message || e) })); }
-}
-
-// Caixa "Ajustar com a IA" reutilizada nos stages 2 e 3.
-function fwAdjustBox(w) {
-  const adjStatus = h('p', { class: 'fw-status muted', role: 'status', 'aria-live': 'polite' });
-  const adjInput = h('input', { class: 'fw-input', type: 'text', placeholder: 'Ex.: adicione exportação para Excel; remova o cadastro de fornecedores', 'aria-label': 'Ajustar com a IA' });
-  const adjBtn = h('button', { class: 'btn', type: 'button', text: '✨ Ajustar com a IA' });
-  const doAdj = () => fwAdjust(w, adjInput.value, adjStatus);
-  adjBtn.addEventListener('click', doAdj);
-  adjInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doAdj(); } });
-  return h('div', { class: 'fw-adjust' },
-    h('h4', { class: 'fw-sec', text: 'Ajustar com a IA' }),
-    h('p', { class: 'fw-hint', text: 'Quer mudar algo? Descreva em linguagem natural — a IA refaz as capacidades, os requisitos e o plano.' }),
-    h('div', { class: 'fw-adjust-row' }, adjInput, adjBtn), adjStatus);
-}
-
-function fwStageWhat(host, w, { catalog }) {
-  const sum = planSummary(w.proposed.map((p) => p.req), w.arch, catalog);
-  const dn = w.name || w.slug;
-  host.append(h('h3', { class: 'fw-q', tabindex: '-1', text: 'Veja o que será criado' }),
-    h('p', { class: 'fw-lead' }, 'Entendi! Vou criar o ', h('strong', { text: dn }), ' — um sistema com ', h('strong', { text: String(sum.counts.capabilities) }), ' capacidades e ', h('strong', { text: String(sum.counts.screens) }), ' telas/funções.'));
-  const caps = h('div', { class: 'fw-caps' });
-  for (const c of sum.capabilities) caps.append(h('div', { class: 'fw-cap' }, h('span', { class: 'fw-cap-ic', 'aria-hidden': 'true', text: c.icon }), h('div', { class: 'fw-cap-tx' }, h('strong', { class: 'fw-cap-t', text: c.title }), h('p', { class: 'fw-cap-d', text: c.desc }), w.mode === 'advanced' ? h('code', { class: 'fw-cap-id', text: c.id }) : null)));
-  host.append(h('h4', { class: 'fw-sec', text: 'O que o sistema saberá fazer' }), caps);
-  const screens = h('div', { class: 'fw-screens' });
-  w.proposed.forEach((p, i) => screens.append(h('div', { class: 'fw-screen' },
-    h('span', { class: 'fw-screen-n', 'aria-hidden': 'true', text: String(i + 1) }),
-    h('div', { class: 'fw-screen-tx' }, h('strong', { text: p.req.title || ('Tela ' + (i + 1)) }), h('p', { class: 'fw-screen-d', text: p.req.statement || '' }),
-      w.mode === 'advanced' ? h('div', { class: 'fw-screen-meta' }, badge(typeLabel(p.req.type), 'b-fn'), ...((p.req.capability_blocks || []).map((b) => h('code', { class: 'fw-cap-id', text: b })))) : null))));
-  host.append(h('h4', { class: 'fw-sec', text: w.mode === 'guided' ? 'Telas e funções que serão criadas' : 'Requisitos propostos (telas/funções)' }), screens);
-  host.append(fwAdjustBox(w)); // IA: ajustar capacidades/requisitos por instrução
-  host.append(fwNav(1, 3, 'Ver o plano de construção'));
-  host.querySelector('.fw-q').focus();
-}
-
-function fwStagePlan(host, w) {
-  host.append(h('h3', { class: 'fw-q', tabindex: '-1', text: 'Plano de construção' }));
-  if (!w.arch && w.archLoading) { host.append(h('p', { class: 'fw-lead' }, h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' Calculando a ordem de construção…')); host.append(fwNav(2, null, null)); host.querySelector('.fw-q').focus(); return; }
-  const waves = (w.arch && Array.isArray(w.arch.waves) && w.arch.waves.length) ? w.arch.waves : null;
-  const titleOf = (woId) => { const p = w.proposed.find((x) => x.id === woId || x.req.title === woId); return p ? (p.req.title || p.id) : woId; };
-  if (w.mode === 'guided') {
-    host.append(h('p', { class: 'fw-lead', text: waves ? `Será construído em ${waves.length} etapas, na ordem certa (uma parte depende da outra):` : 'Será construído na ordem abaixo:' }));
-    const tl = h('ol', { class: 'fw-timeline' });
-    if (waves) {
-      waves.forEach((wv, i) => tl.append(h('li', { class: 'fw-tl-item' }, h('span', { class: 'fw-tl-n', text: 'Etapa ' + (i + 1) }), h('div', { class: 'fw-tl-tx' }, ...(wv.work_orders || []).map((wo) => h('p', { class: 'fw-tl-t', text: '• ' + titleOf(wo) }))))));
-    } else {
-      // Sem waves (arquitetura ainda não veio ou sem dependências): mostra os requisitos como as partes,
-      // para o Guiado NUNCA ficar vazio.
-      (w.proposed || []).forEach((p, i) => tl.append(h('li', { class: 'fw-tl-item' }, h('span', { class: 'fw-tl-n', text: 'Parte ' + (i + 1) }), h('div', { class: 'fw-tl-tx' }, h('p', { class: 'fw-tl-t', text: '• ' + (p.req.title || p.id) })))));
-    }
-    host.append(tl);
-  } else {
-    if (w.arch && w.arch.stack) host.append(h('p', { class: 'fw-lead' }, 'Stack escolhida: ', badge(w.arch.stack, 'b-fn'), w.arch.blueprint ? h('code', { class: 'fw-cap-id', text: w.arch.blueprint }) : null));
-    // Nós EXTERNOS da plataforma, derivados da CATEGORIA dos blocos (declarativa, sem heurística):
-    // um requisito que usa um bloco categoria 'ai'/'auth'/'observability'/'integration' liga ao
-    // componente compartilhado correspondente (Plataforma de IA, Keycloak, Observabilidade…).
-    const catalog = (DATA.capabilities && DATA.capabilities.capabilities) || [];
-    const catOf = {}; for (const c of catalog) catOf[c.id] = c.category;
-    const PLAT = {
-      ai: { id: 'ext:ai', title: 'Plataforma de IA (compartilhada)', label: 'IA' },
-      auth: { id: 'ext:auth', title: 'Keycloak — SSO/OIDC', label: 'SSO' },
-      observability: { id: 'ext:obs', title: 'Observabilidade (Prometheus/Grafana)', label: 'Métricas' },
-      integration: { id: 'ext:integ', title: 'Integrações externas', label: 'Integrações' },
-    };
-    const platOf = (id) => Object.values(PLAT).find((p) => p.id === id) || { title: id };
-    const extNodes = []; const extEdges = []; const seen = new Set();
-    for (const p of (w.proposed || [])) {
-      const linked = new Set();
-      for (const b of (p.req.capability_blocks || [])) { const plat = PLAT[catOf[b]]; if (plat) linked.add(plat.id); }
-      for (const pid of linked) {
-        if (!seen.has(pid)) { seen.add(pid); const pl = platOf(pid); extNodes.push({ id: pid, title: pl.title, label: pl.label, external: true }); }
-        extEdges.push({ from: p.id, to: pid });
-      }
-    }
-    const nodes = w.proposed.map((p) => ({ id: p.id, title: p.req.title || '' }));
-    const g = interactiveGraph({ tall: true, label: 'Mapa de dependências e integrações', nodeClass: (n) => n.external ? 'ext' : 'wv-' + ((n.wave || 0) % 6), detailOf: (n, id) => { if (String(id).startsWith('ext:')) return { title: platOf(id).title, sub: 'Componente externo da plataforma (compartilhado entre apps)' }; const p = w.proposed.find((x) => x.id === id); return p ? { title: p.req.title || id, sub: p.req.statement ? truncateLabel(p.req.statement, 140) : '' } : { title: id }; } });
-    host.append(g.el); const dag = dagFromWaves(nodes, waves || []); g.setData(dag.nodes.concat(extNodes), dag.edges.concat(extEdges));
-    if (extNodes.length) host.append(h('p', { class: 'fw-hint', text: 'Nós tracejados = componentes externos da plataforma (IA, login, observabilidade) que o sistema vai reusar — não são código novo.' }));
-    const adrs = (w.arch && Array.isArray(w.arch.adrs)) ? w.arch.adrs : [];
-    if (adrs.length) { const ul = h('ul', { class: 'linklist' }); for (const a of adrs) ul.append(h('li', {}, h('span', { class: 'lt', text: 'ADR' }), typeof a === 'string' ? a : (a.title || a.decision || ''))); host.append(h('h4', { class: 'fw-sec', text: 'Decisões de arquitetura' }), ul); }
-  }
-  if (!w.archLoading) host.append(fwAdjustBox(w)); // IA: ajustar requisitos/plano por instrução
-  host.append(fwNav(2, 4, 'Revisar e criar'));
-  host.querySelector('.fw-q').focus();
-}
-
-function fwStageReview(host, w, { catalog }) {
-  const sum = planSummary(w.proposed.map((p) => p.req), w.arch, catalog);
-  host.append(h('h3', { class: 'fw-q', tabindex: '-1', text: 'Revisar e criar' }));
-  if (w.mode === 'guided') {
-    // Guiado vai DIRETO à construção (como o "Liberar tudo"): o botão lança e trava a tela.
-    const status = h('p', { class: 'fw-status muted', role: 'status', 'aria-live': 'polite' });
-    const btn = h('button', { class: 'btn primary fw-cta', type: 'button', text: '🚀 Criar meu sistema' });
-    btn.addEventListener('click', () => fwLaunch(w, 'release', status, [btn]));
-    host.append(h('div', { class: 'fw-card' },
-      h('p', { class: 'fw-lead' }, 'Tudo pronto para criar o ', h('strong', { text: w.name || w.slug }), '.'),
-      h('ul', { class: 'fw-review' },
-        h('li', {}, '✅ ', h('strong', { text: String(sum.counts.capabilities) }), ' capacidades'),
-        h('li', {}, '✅ ', h('strong', { text: String(sum.counts.screens) }), ' telas/funções'),
-        h('li', {}, '✅ ', h('strong', { text: String(sum.counts.waves || 1) }), ' etapas de construção')),
-      h('div', { class: 'fw-next' }, h('h4', { text: 'O que acontece quando você confirmar' }),
-        h('ol', {}, h('li', { text: 'Os requisitos do sistema são criados no git (automático).' }),
-          h('li', { text: 'A esteira constrói cada parte, na ordem do plano.' }),
-          h('li', { text: 'O sistema é publicado e fica disponível em /' + w.slug + '.' }))),
-      h('div', { class: 'fw-actions' }, btn, status)));
-  } else {
-    const out = h('div', { class: 'forge-section' });
-    host.append(out);
-    renderProposedList(out, w.slug, w.blueprint, w.proposed, w.reqMeta || {}, null, { brief: w.brief || '', displayName: w.name || w.slug, getArch: () => w.arch, onLaunched: (d, m) => { w.launched = true; w.launchInfo = d; w.launchMode = m; fwRerender(); } });
-    if (w.arch) renderArchAdrs(out, w.arch);
-  }
-  host.append(fwNav(3, null, null));
-  host.querySelector('.fw-q').focus();
-}
-
-function renderForgeNew(body) {
-  body.append(forgeCrumbs([{ label: 'Produtos', onclick: backToHub }, { label: 'Novo produto' }]));
-  body.append(h('div', { class: 'forge-detail-head' }, h('h2', { text: 'Novo produto' })));
-  body.append(h('p', { class: 'muted', text: 'Descreva o produto; a IA propõe os requisitos e o mapa de dependências se forma ao vivo. Você revisa, ajusta e abre o PR — a UI não escreve no git.' }));
-
-  const grid = h('div', { class: 'forge-panel two' });
-  // esquerda — formulário
-  const left = h('div', { class: 'forge-section' });
-  const name = h('input', { type: 'text', placeholder: 'ex.: helpdesk', 'aria-label': 'Nome do produto (slug)' });
-  const bpsel = h('select', { 'aria-label': 'Blueprint' });
-  for (const b of (DATA.blueprints && DATA.blueprints.blueprints) || []) bpsel.append(h('option', { value: b.id, text: b.name }));
-  if (!bpsel.children.length) bpsel.append(h('option', { value: '', text: '(sem blueprints)' }));
-  const brief = h('textarea', { class: 'ai-sketch', rows: '7', 'aria-label': 'Brief', placeholder: 'Ex.: um helpdesk simples — abrir chamados, atribuir a agentes, acompanhar status num quadro, e um painel com SLAs. Sem complexidade.' });
-  const fp = filePicker({ label: 'Anexar arquivos do brief', buttonLabel: 'Anexar arquivos (opcional)' });
-  const tok = h('input', { type: 'password', value: AI.getToken(), placeholder: 'Bearer token (operador)' });
-  const aiStatus = h('p', { class: 'muted ai-status' }, h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), 'Verificando IA…');
-  const btn = h('button', { class: 'btn primary', type: 'button', text: '✨ Propor requisitos (IA)' });
-  left.append(
-    h('label', { class: 'fld' }, h('span', { class: 'fld-l', text: 'Produto (slug)' }), name),
-    h('label', { class: 'fld' }, h('span', { class: 'fld-l', text: 'Blueprint' }), bpsel),
-    h('label', { class: 'fld' }, h('span', { class: 'fld-l', text: 'Brief' }), brief),
-    h('div', { class: 'fld' }, h('span', { class: 'fld-l', text: 'Anexos (opcional)' }), h('p', { class: 'fw-hint', text: 'Documentos, planilhas ou imagens que descrevem o produto — a IA lê o conteúdo.' }), fp.el),
-    aiStatus, h('div', { class: 'ws-actions' }, btn),
-    h('details', { class: 'asst-token' }, h('summary', { text: 'Token do operador' }), tok));
-  grid.append(left);
-
-  // direita — MAPA AO VIVO
-  const right = h('div', { class: 'forge-section', role: 'region', 'aria-live': 'polite', 'aria-label': 'Mapa de requisitos' });
-  const mapStatus = h('p', { class: 'muted small forge-mapstatus', text: 'O mapa de requisitos se forma aqui ao propor.' });
-  const mapLegend = h('div', { class: 'ig-wv-legend', hidden: 'hidden' });
-  // legenda dinâmica das waves — deixa explícito que a COR agrupa por etapa de construção
-  // e as SETAS indicam a ordem de dependência (não a cor).
-  const showWaveLegend = (nWaves) => {
-    mapLegend.replaceChildren();
-    if (!nWaves || nWaves < 2) { mapLegend.hidden = true; return; }
-    mapLegend.append(h('span', { class: 'ig-wv-cap', text: 'Cor = wave (etapa de construção); as setas indicam a ordem de dependência.' }));
-    for (let i = 0; i < nWaves; i++) mapLegend.append(h('span', { class: 'ig-wv-item' }, h('span', { class: 'ig-wv-dot wv-' + (i % 6), 'aria-hidden': 'true' }), 'Wave ' + (i + 1)));
-    mapLegend.hidden = false;
-  };
-  const graphHost = h('div', {});
-  let proposed = []; let graph = null; let curProduct = ''; let lastArch = null;
-  const byProp = (id) => proposed.find((p) => p.id === id);
-  function ensureGraph() {
-    if (graph) return graph;
-    graph = interactiveGraph({
-      tall: true, label: 'Mapa de requisitos propostos',
-      nodeClass: (n) => 'wv-' + ((n.wave || 0) % 6),
-      detailOf: (n, id) => {
-        const p = byProp(id); if (!p) return { title: id };
-        const sameProduct = ((DATA.baseline && DATA.baseline.requirements) || []).filter((r) => r.scope && r.scope.product_scope === curProduct);
-        const sims = findSimilarReqs({ id, title: p.req.title || '', statement: p.req.statement || '' }, sameProduct, 1);
-        const dup = sims[0] && sims[0].score >= 0.45 ? sims[0] : null;
-        return { title: p.req.title || '(sem título)', sub: p.req.statement ? truncateLabel(p.req.statement, 140) : '', badges: [badge(typeLabel(p.req.type), 'b-fn'), dup ? badge('possível duplicata: ' + dup.id, 'b-crit') : null].filter(Boolean) };
-      },
-    });
-    graphHost.replaceChildren(graph.el);
-    return graph;
-  }
-  right.append(h('h3', { text: 'Mapa de requisitos' }), mapStatus, mapLegend, graphHost);
-  grid.append(right);
-  body.append(grid);
-
-  // abaixo (largura total) — lista + export
-  const out = h('div', { class: 'forge-section', role: 'region', 'aria-live': 'polite', 'aria-label': 'Requisitos propostos' });
-  body.append(out);
-
-  tok.addEventListener('change', () => AI.setToken(tok.value.trim()));
-  const setAi = (t) => aiStatus.replaceChildren(document.createTextNode(t));
-  AI.health().then((r) => setAi(r.ok ? 'IA pronta (gpt-5).' : 'IA indisponível (' + (r.data && r.data.error ? r.data.error.code : r.status) + ') — você ainda pode criar requisitos manualmente via PR.'))
-    .catch(() => setAi('IA indisponível (sem servidor) — crie requisitos manualmente via PR.'));
-
-  const spinTxt = (t) => mapStatus.replaceChildren(h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), t);
-  const errCard = (title, msg) => { mapStatus.textContent = ''; out.replaceChildren(h('div', { class: 'card' }, h('h4', {}, badge('erro', 'b-crit'), ' ' + title), msg ? h('p', { class: 'muted', text: msg }) : null)); };
-
-  btn.addEventListener('click', async () => {
-    AI.setToken(tok.value.trim());
-    const pname = (name.value || '').trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
-    curProduct = pname; // escopo da detecção de duplicata (grafo) ao produto atual
-    if (!pname) { errCard('Informe o slug do produto.'); name.focus(); return; }
-    if ((brief.value || '').trim().length < 10) { errCard('Descreva o produto no brief (mínimo ~10 caracteres).'); brief.focus(); return; }
-    btn.disabled = true; out.replaceChildren(); spinTxt('Propondo requisitos…');
-    try {
-      const forgeCatalog = (DATA.capabilities && DATA.capabilities.capabilities) || [];
-      const forgeBlueprints = (DATA.blueprints && DATA.blueprints.blueprints) || [];
-      const proposeFields = { product: pname, blueprint: bpsel.value, brief: (brief.value || '').trim(), capabilities: forgeCatalog, blueprints: forgeBlueprints };
-      const proposeFiles = fp.hasFiles() ? fp.files() : []; // arquivos opcionais → multipart; senão JSON (retrocompat)
-      const r = proposeFiles.length
-        ? await AI.postMultipart('/v1/forge/propose-requirements', { fields: proposeFields, files: proposeFiles })
-        : await AI.post('/v1/forge/propose-requirements', proposeFields);
-      if (!r.ok) { const code = r.data && r.data.error ? r.data.error.code : 'HTTP ' + r.status; errCard('IA: ' + code, r.data && r.data.error ? r.data.error.message : ''); return; }
-      const reqs = (r.data && r.data.requirements) || [];
-      if (!reqs.length) { mapStatus.textContent = 'A IA não retornou requisitos.'; return; }
-      const existingIds = ((DATA.baseline && DATA.baseline.requirements) || []).map((x) => x.id);
-      proposed = []; for (const req of reqs) { const id = req.id || nextReqId(pname, existingIds.concat(proposed.map((p) => p.id))); proposed.push({ id, req }); }
-      const nodes = proposed.map((p) => ({ id: p.id, title: p.req.title || '' }));
-      showWaveLegend(0);                                                        // ainda sem waves
-      ensureGraph().setData(dagFromWaves(nodes, []).nodes, []);                 // fase 1: nós surgem
-      renderProposedList(out, pname, bpsel.value, proposed, r.data, graph, { brief: (brief.value || '').trim(), displayName: pname, getArch: () => lastArch });
-      spinTxt('Analisando dependências…');
-      try {                                                                     // fase 2: dependências formam o mapa
-        const a = await AI.post('/v1/forge/propose-architecture', { product: pname, blueprint: bpsel.value, requirements: proposed.map((p) => ({ id: p.id, title: p.req.title, type: p.req.type, statement: p.req.statement, capability_blocks: p.req.capability_blocks || [] })), capabilities: forgeCatalog, blueprints: forgeBlueprints });
-        if (a.ok && a.data) lastArch = a.data; // arquitetura p/ o launch (botões "Criar PR"/"Liberar tudo")
-        if (a.ok && a.data && Array.isArray(a.data.waves) && a.data.waves.length) {
-          const dag = dagFromWaves(nodes, a.data.waves);
-          graph.setData(dag.nodes, dag.edges);
-          showWaveLegend(a.data.waves.length);
-          mapStatus.textContent = `Mapa formado · ${dag.nodes.length} requisitos em ${a.data.waves.length} wave(s) — clique num nó para o detalhe.`;
-          renderArchAdrs(out, a.data);
-        } else { mapStatus.textContent = `${proposed.length} requisitos propostos (sem dependências sugeridas).`; }
-      } catch { mapStatus.textContent = `${proposed.length} requisitos propostos (dependências indisponíveis).`; }
-    } catch (e) { errCard('Erro de rede ao chamar a IA', e && e.message ? e.message : String(e)); }
-    finally { btn.disabled = false; }
-  });
-}
-
-// Lista dos requisitos propostos (clique realça o nó no mapa) + AÇÕES (a UI cria no git) + export fallback.
-// launchCtx = { brief, displayName, getArch } habilita os botões "Criar PR" / "Liberar tudo".
-function renderProposedList(out, pname, blueprint, proposed, data, graph, launchCtx) {
-  out.replaceChildren();
-  const head = h('h3', { tabindex: '-1', text: `Requisitos propostos — ${proposed.length} (${data.prompt_version || 'ia'})` });
-  out.append(head);
-  const ul = h('ul', { class: 'forge-reqlist' });
-  for (const { id, req } of proposed) {
-    // Duplicata só faz sentido DENTRO do mesmo produto — fundação/auth/observabilidade são quase
-    // idênticas entre sistemas, então comparar cross-product gerava falso "possível duplicata".
-    const sameProduct = ((DATA.baseline && DATA.baseline.requirements) || []).filter((r) => r.scope && r.scope.product_scope === pname);
-    const sims = findSimilarReqs({ id, title: req.title || '', statement: req.statement || '' }, sameProduct, 1);
-    const dup = sims[0] && sims[0].score >= 0.45 ? sims[0] : null;
-    ul.append(h('li', { class: 'forge-reqitem forge-proposed', tabindex: '0', role: 'button', 'aria-label': 'Realçar ' + id + ' no mapa', onclick: () => graph && graph.focus(id), onkeydown: (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); graph && graph.focus(id); } } },
-      h('span', { class: 'rid', text: id }),
-      h('span', { class: 'rt', text: truncateLabel(req.title || '(sem título)', 64) }),
-      dup
-        ? h('span', { class: 'forge-dup' }, badge('possível duplicata', 'b-crit'), h('button', { class: 'btn-link', type: 'button', onclick: (e) => { e.stopPropagation(); openReq(dup.id); }, text: `${dup.id} · ${Math.round(dup.score * 100)}%` }))
-        : badge(typeLabel(req.type), 'b-fn')));
-  }
-  out.append(ul);
-  if (data.notes) out.append(h('p', { class: 'muted small', text: data.notes }));
-  // A UI CRIA no git (dispara a esteira). O export YAML/comando vira fallback manual recolhido.
-  if (launchCtx) out.append(forgeLaunchControls(pname, blueprint, proposed, launchCtx));
-  const yamlText = proposed.map(({ id, req }) => toYaml(forgeReqObject(id, pname, blueprint, req))).join('\n---\n');
-  out.append(h('details', { class: 'forge-export' }, h('summary', { text: 'Exportar manualmente (YAML + comando de PR)' }),
-    h('p', { class: 'muted small' }, 'alternativa manual — salve cada requisito em ', h('code', { text: 'specs/requirements/' + pname + '/<ID>.yaml' }), ' e abra o PR.'),
-    codeBlock(yamlText, 'yaml', 'YAML'), codeBlock(proposeHint(pname, proposed.length), 'forge-cmd', 'comando')));
-  head.focus();
-}
-
-// Botões "Criar PR" / "Liberar tudo" — a UI cria os requisitos no git via POST /v1/forge/launch
-// (o reqhub-api dispara a esteira; o runner escreve YAMLs + baseline + PR). CSP-safe.
-function forgeLaunchControls(pname, blueprint, proposed, launchCtx) {
-  const wrap = h('div', { class: 'forge-launch' });
-  wrap.append(h('p', { class: 'muted small', text: 'Criar no git pela plataforma — a UI dispara a esteira; nada é mesclado sem a sua revisão do PR (no "Liberar tudo", o PR de requisitos é auto-mesclado e a construção é iniciada; os PRs de implementação ainda passam pela sua validação).' }));
-  const status = h('span', { class: 'muted small forge-launch-st', role: 'status', 'aria-live': 'polite' });
-  const bPr = h('button', { class: 'btn primary', type: 'button', text: '🚀 Criar PR de requisitos' });
-  const bRel = h('button', { class: 'btn', type: 'button', text: '⚡ Liberar tudo' });
-  const btns = [bPr, bRel];
-  const ctx = { pname, blueprint, proposed, launchCtx, status, btns };
-  bPr.addEventListener('click', () => forgeLaunch('pr', ctx));
-  bRel.addEventListener('click', () => { if (window.confirm('Liberar tudo: cria os requisitos, AUTO-MESCLA o PR de requisitos e dispara a esteira de construção. Os PRs de implementação ainda passam pela sua validação. Continuar?')) forgeLaunch('release', ctx); });
-  wrap.append(h('div', { class: 'ws-actions' }, bPr, bRel, status));
-  return wrap;
-}
-
-async function forgeLaunch(mode, ctx) {
-  const { pname, blueprint, proposed, launchCtx, status, btns } = ctx;
-  const arch = (launchCtx.getArch && launchCtx.getArch()) || {};
-  const requirements = proposed.map(({ id, req }) => {
-    const o = forgeReqObject(id, pname, blueprint, req);
-    o.capability_blocks = Array.isArray(req.capability_blocks) ? req.capability_blocks : []; // preserva os blocos p/ o YAML
-    return o;
-  });
-  const body = {
-    product: pname, displayName: launchCtx.displayName || pname, blueprint, brief: launchCtx.brief || '', mode, requirements,
-    architecture: { stack: arch.stack, selected_blocks: arch.selected_blocks || [], adrs: arch.adrs || [], waves: arch.waves || [] },
-  };
-  btns.forEach((b) => { b.disabled = true; });
-  status.textContent = mode === 'release' ? 'Lançando (auto-merge + build)…' : 'Criando os requisitos no git…';
-  try {
-    const r = await AI.post('/v1/forge/launch', body);
-    if (r.ok) {
-      const d = r.data || {};
-      status.replaceChildren(
-        document.createTextNode((mode === 'release' ? 'Lançado (release). ' : 'PR de requisitos disparado. ') + 'Acompanhe: '),
-        h('a', { href: d.actions_url || '#', target: '_blank', rel: 'noopener', text: 'esteira ↗' }),
-        document.createTextNode(' · '),
-        h('a', { href: d.pulls_url || '#', target: '_blank', rel: 'noopener', text: 'PR ↗' }));
-      if (launchCtx.onLaunched) launchCtx.onLaunched(d, mode); // trava a navegação do wizard (evita re-disparo)
-    } else {
-      const code = r.data && r.data.error ? r.data.error.code : 'HTTP ' + r.status;
-      const msg = r.data && r.data.error ? r.data.error.message : '';
-      status.textContent = (code === 'DISPATCH_DISABLED' ? 'Criação automática desligada — falta GITHUB_DISPATCH_TOKEN no servidor.' : 'Falha (' + code + ')' + (msg ? ': ' + msg : ''));
-      btns.forEach((b) => { b.disabled = false; });
-    }
-  } catch (e) { status.textContent = 'Erro de rede: ' + (e && e.message ? e.message : e); btns.forEach((b) => { b.disabled = false; }); }
-}
-
-// ADRs sugeridas pela arquitetura (inseridas antes do export).
-function renderArchAdrs(out, archData) {
-  const adrs = Array.isArray(archData.adrs) ? archData.adrs : [];
-  if (!adrs.length) return;
-  const card = h('div', { class: 'card' }, h('h4', { text: 'Decisões de arquitetura sugeridas (ADRs)' }));
-  const ul = h('ul', { class: 'linklist' });
-  for (const a of adrs) ul.append(h('li', {}, h('span', { class: 'lt', text: 'ADR' }), typeof a === 'string' ? a : (a.title || a.decision || JSON.stringify(a))));
-  card.append(ul);
-  const exp = out.querySelector('details.forge-export');
-  if (exp) out.insertBefore(card, exp); else out.append(card);
-}
-
-function forgeReqObject(id, pname, blueprint, req) {
-  return {
-    id,
-    title: req.title || '',
-    type: req.type || 'functional',
-    status: 'proposed',
-    owner: 'plataforma-digital',
-    priority: req.priority || 'medium',
-    statement: req.statement || '',
-    scope: { applies_to: 'product', product_scope: pname, blueprint: blueprint || null },
-    source: { source_paths: ['specs/products/' + pname + '/product-brief.md'] },
-    acceptance_criteria: asList(req.acceptance_criteria),
-    verification_method: asList(req.verification_method).length ? asList(req.verification_method) : ['test'],
-    version: { baseline_version: '1.0.0', item_revision: 1, semantic_change: 'none', change_reason: 'proposto pelo Forge' },
-  };
-}
 
 /* ===================== Ícones (SVG inline, stroke, CSP-safe) ===================== */
 const ICONS = {
@@ -3430,27 +2212,31 @@ function miniBar(pct, cls) {
 }
 
 const VIEW_META = {
-  overview: { title: 'Visão geral', sub: 'Panorama da base de requisitos' },
   explorer: { title: 'Explorador', sub: 'Navegue e filtre todos os requisitos' },
   workspace: { title: 'Workspace', sub: 'Detalhe do requisito selecionado' },
-  versions: { title: 'Versões & mudanças', sub: 'Histórico e classificação semântica' },
+  versions: { title: 'Mudanças', sub: 'Versões, diffs semânticos e fila de reprocessamento' },
   impact: { title: 'Mapa de impacto', sub: 'Grafo de dependências entre requisitos' },
   coverage: { title: 'Cobertura', sub: 'Requisitos × evidência e alocação' },
   usability: { title: 'Usabilidade', sub: 'Telas e refinamentos — o funcionamento detalhado, ancorado aos requisitos' },
-  reprocess: { title: 'Fila de reprocessamento', sub: 'O que revisar após mudanças na baseline' },
+  reprocess: { title: 'Mudanças', sub: 'Fila de reprocessamento — o que revisar após mudanças na baseline' },
   dev: { title: 'Desenvolvimento', sub: 'Status de entrega por requisito (REQ → PR → deploy)' },
   editor: { title: 'Editor', sub: 'Autoria assistida por IA → PR no git' },
-  forge: { title: 'Forge', sub: 'Construir um produto completo a partir de requisitos' },
+  forge: { title: 'Forja', sub: 'Do brief ao produto publicado — requisitos, telas, documentação e pipeline' },
   aiusage: { title: 'Uso da IA', sub: 'Custo/tokens/limites — Claude (Anthropic) e OpenAI + assinatura Claude Code (5h/semana)' },
 };
 
-const RENDER = { overview: renderOverview, explorer: renderExplorer, workspace: renderWorkspace, versions: renderVersions, impact: renderImpact, coverage: renderCoverage, usability: renderUsability, reprocess: renderReprocess, dev: renderDev, editor: renderEditor, forge: renderForge, aiusage: renderAiUsage };
+// A1a (Forja 4.0): overview morreu (KPIs no hub do Studio); dev/usability saem da navegação e
+// migram para o Studio (A1b). reprocess vive como sub-aba de "Mudanças" (nav-item = versions).
+const RENDER = { explorer: renderExplorer, workspace: renderWorkspace, versions: renderVersions, impact: renderImpact, coverage: renderCoverage, usability: renderUsability, reprocess: renderReprocess, dev: renderDev, editor: renderEditor, forge: renderForge, aiusage: renderAiUsage };
+// Views sem item próprio na sidebar acendem o item "dono" (fusão/migração A1a).
+const NAV_ALIAS = { reprocess: 'versions', usability: 'coverage', dev: 'forge' };
 function switchView(view) {
   if (view === 'impact' && state.view !== 'impact') IMPACT.enterSeed = true; // semeia o "req em foco" só na ENTRADA
   if (state.view === 'aiusage' && view !== 'aiusage') disconnectAiStream(); // fecha o SSE ao sair do painel
   state.view = view;
+  const navView = NAV_ALIAS[view] || view;
   for (const it of document.querySelectorAll('.nav-item')) {
-    const sel = it.dataset.view === view;
+    const sel = it.dataset.view === navView;
     it.classList.toggle('is-active', sel);
     if (sel) it.setAttribute('aria-current', 'page'); else it.removeAttribute('aria-current');
     it.tabIndex = sel ? 0 : -1;
@@ -3472,16 +2258,28 @@ function writeHash() {
     const qp = [];
     if (state.view === 'workspace' && state.selectedId) qp.push('id=' + encodeURIComponent(state.selectedId));
     if (state.filters && state.filters.product && ['explorer', 'coverage'].includes(state.view)) qp.push('product=' + encodeURIComponent(state.filters.product));
+    // (E1, Forja 4.1) detalhe do produto no Studio é linkável: #/forge?product=<slug> —
+    // mesmo formato que a casca global emite (surfaceLink) e que applyHashRoute lê.
+    if (state.view === 'forge' && state.forge && state.forge.product && !state.forge.newMode) qp.push('product=' + encodeURIComponent(state.forge.product));
     if (qp.length) h += '?' + qp.join('&');
     if (location.hash !== h) history.replaceState(null, '', h);
   } catch { /* ignore */ }
 }
+// Hashes de abas mortas na A1a: deep-links antigos (Console, favoritos) continuam funcionando.
+const LEGACY_HASH = { overview: 'forge', dev: 'forge', usability: 'coverage' };
 function applyHashRoute() {
   const m = (location.hash || '').match(/^#\/([a-z-]+)(?:\?(.*))?$/i);
-  if (!m || !RENDER[m[1]]) return false;
-  const view = m[1];
+  if (!m) return false;
+  const view = LEGACY_HASH[m[1]] || m[1];
+  if (!RENDER[view]) return false;
   const params = new URLSearchParams(m[2] || '');
-  if (params.get('product')) state.filters.product = params.get('product');
+  // (E1, Forja 4.1) na Forja, product= é o CONTEXTO DE PRODUTO (abre o detalhe por state);
+  // nos demais views mantém o comportamento antigo (filtro de produto do Explorador/Cobertura).
+  if (view === 'forge') {
+    const p = params.get('product');
+    state.forge.product = p || null;
+    if (p) { state.forge.newMode = false; state.forge.newKind = null; }
+  } else if (params.get('product')) state.filters.product = params.get('product');
   if (params.get('id') && byId(params.get('id'))) state.selectedId = params.get('id');
   if (view === 'workspace' && !state.selectedId) return false; // sem REQ → cai no default
   switchView(view);
@@ -3658,7 +2456,7 @@ function overviewBriefing(reqs, prods) {
   const qcrit = ((DATA.baseline && DATA.baseline.reprocess_queue) || []).filter((it) => it.impact_score >= 70);
   if (qcrit.length) list.append(row('is-warn', `${qcrit.length} requisito(s) de alto impacto a reprocessar`, () => switchView('reprocess')));
   // 3. produtos sem nada no ar ainda
-  const stalled = (prods || []).filter((p) => p.progress && p.progress.done === 0 && p.reqCount > 0);
+  const stalled = (prods || []).filter((p) => p.progress && (p.progress.live || 0) === 0 && p.reqCount > 0);
   if (stalled.length) list.append(row('is-info', `${stalled.length} produto(s) ainda sem nada no ar`, () => switchView('forge')));
   // 4. dimensão de cobertura mais fraca da base
   if (DATA.coverage && DATA.coverage.totals && DATA.coverage.totals.coverage_pct) {
@@ -3673,72 +2471,8 @@ function overviewBriefing(reqs, prods) {
   return card;
 }
 
-/* ===================== Visão geral (Overview — front-door do produto) ===================== */
-function renderOverview() {
-  const body = document.getElementById('overview-body');
-  body.replaceChildren();
-  const reqs = (DATA.baseline && DATA.baseline.requirements) || [];
-  const c = (DATA.baseline && DATA.baseline.counts) || { total: reqs.length, by_product: {} };
-  const prods = productSummaries(DATA.products || {}, DATA.implStatus);
-  const implItems = (DATA.implStatus && DATA.implStatus.items) || {};
-  const implVals = Object.values(implItems);
-  const deployed = implVals.filter((x) => x && ['deployed', 'done', 'merged'].includes(x.status)).length;
-  const implPct = implVals.length ? Math.round((deployed / implVals.length) * 100) : 0;
-  const asr = reqs.filter((r) => r && r.architectural_significance).length;
-
-  body.append(h('div', { class: 'ov-hero' },
-    h('h2', { text: 'Base de requisitos' }),
-    h('p', { text: 'A intenção da plataforma vive aqui como fonte da verdade — versionada em specs/. Explore os requisitos, analise impacto e cobertura, acompanhe a entrega e construa produtos novos a partir deles.' })));
-
-  // Métricas clicáveis → deep-link para a tela que detalha cada número (antes eram becos sem saída).
-  const metric = (ic, val, label, onClick) => h('button', { class: 'ov-metric', type: 'button', 'aria-label': val + ' ' + label + ' — abrir', onclick: onClick }, h('span', { class: 'm-ic' }, icon(ic)), h('div', { class: 'm-v', 'aria-hidden': 'true', text: String(val) }), h('div', { class: 'm-l', 'aria-hidden': 'true', text: label }));
-  body.append(h('div', { class: 'ov-metrics' },
-    metric('layers', c.total, 'requisitos', () => switchView('explorer')),
-    metric('products', prods.length, 'produtos', () => switchView('forge')),
-    metric('rocket', implPct + '%', 'no ar (entrega)', () => switchView('dev')),
-    metric('impact', asr, 'ASR (arquiteturais)', () => { state.filters = { asr: 'yes' }; switchView('explorer'); })));
-
-  // Briefing proativo da base (determinístico, sempre disponível) — anomalias acionáveis + deep-links.
-  body.append(overviewBriefing(reqs, prods));
-
-  // coluna esquerda: entrega por produto
-  const left = h('div', { class: 'ov-card' }, h('h3', {}, 'Entrega por produto', h('button', { class: 'btn-link', type: 'button', onclick: () => switchView('forge'), text: 'Abrir Forge →' })));
-  if (!prods.length) left.append(h('p', { class: 'empty', text: 'Nenhum produto registrado ainda.' }));
-  else {
-    const pl = h('div', { class: 'ov-prodlist' });
-    for (const p of prods) pl.append(h('button', { class: 'ov-prodrow', type: 'button', 'aria-label': `${p.display_name}: ${p.progress.done} de ${p.reqCount} no ar`, onclick: () => openForgeProduct(p.name) },
-      h('span', { class: 'pn', text: p.display_name }), miniBar(p.progress.pct, p.progress.pct === 100 ? 'ok' : ''), h('span', { class: 'pp', text: `${p.progress.done}/${p.reqCount}` })));
-    left.append(pl);
-  }
-
-  // coluna direita: distribuição por status + atalhos
-  const right = h('div', { class: 'ov-col' });
-  const st = DATA.implStatus;
-  const byStatus = (st && st.counts && st.counts.by_status) || (() => { const m = {}; for (const v of implVals) { const k = (v && v.status) || 'not_started'; m[k] = (m[k] || 0) + 1; } return m; })();
-  const totalImpl = Object.values(byStatus).reduce((a, b) => a + b, 0) || 1;
-  const stCard = h('div', { class: 'ov-card' }, h('h3', {}, 'Distribuição por status', h('button', { class: 'btn-link', type: 'button', onclick: () => switchView('dev'), text: 'Desenvolvimento →' })));
-  const bars = h('div', { class: 'ov-bars' });
-  for (const s of DEV_STATUS_ORDER) {
-    const n = byStatus[s] || 0; if (!n) continue;
-    bars.append(h('div', { class: 'ov-statbar' }, h('span', { class: 'sl' }, badge(devStatusLabel(s), devStatusCls(s))), miniBar((n / totalImpl) * 100, ['deployed', 'done', 'merged'].includes(s) ? 'ok' : s === 'blocked' ? 'danger' : ['pr_open', 'in_progress'].includes(s) ? 'warn' : ''), h('span', { class: 'sn', text: String(n) })));
-  }
-  if (!bars.children.length) bars.append(h('p', { class: 'empty', text: 'Sem dados de desenvolvimento.' }));
-  stCard.append(bars);
-
-  const quick = h('div', { class: 'ov-card' }, h('h3', {}, 'Atalhos'));
-  const qgrid = h('div', { class: 'ov-quick' });
-  const qb = (ic, label, view) => h('button', { class: 'ov-qbtn', type: 'button', onclick: () => switchView(view) }, icon(ic), label);
-  qgrid.append(qb('explorer', 'Explorar requisitos', 'explorer'), qb('impact', 'Mapa de impacto', 'impact'), qb('forge', 'Construir produto', 'forge'), qb('editor', 'Novo requisito', 'editor'));
-  quick.append(qgrid);
-  right.append(stCard, quick);
-
-  // Continuar de onde parou (recentes) — retomada na front-door, mesmo componente das outras telas.
-  const recentList = recentsStrip({ variant: 'list' });
-  if (recentList) right.append(h('div', { class: 'ov-card' }, h('h3', {}, 'Continuar de onde parou'), recentList));
-
-  const grid = h('div', { class: 'ov-grid' }, left, right);
-  body.append(grid);
-}
+// (A1a) A Visão geral morreu como aba: o hub da Forja é a front-door — KPIs na linha forge-stats
+// e anomalias no overviewBriefing (reusado lá). Deep-links #/overview redirecionam via LEGACY_HASH.
 
 function wireNav() {
   const items = [...document.querySelectorAll('.nav-item')];
@@ -3768,15 +2502,15 @@ function refreshNavBadges() {
     b.className = 'nav-badge' + (cls ? ' ' + cls : '');
     b.textContent = text;
   };
-  // Reprocessamento: nº de itens de ALTO IMPACTO (a fila inteira é grande; o que importa é o topo).
+  // Mudanças: nº de itens de ALTO IMPACTO na fila de reprocessamento (o topo, não a fila inteira).
   const q = (DATA.baseline && DATA.baseline.reprocess_queue) || [];
   const crit = q.filter((it) => it.impact_score >= 70).length;
-  setBadge('tab-reprocess', crit ? String(crit) : '', 'is-crit');
-  // Desenvolvimento: % no ar (entrega).
+  setBadge('tab-versions', crit ? String(crit) : '', 'is-crit');
+  // Forja: % no ar (entrega) — visão de progresso na porta de entrada.
   const items = (DATA.implStatus && DATA.implStatus.items) ? Object.values(DATA.implStatus.items) : [];
   if (items.length) {
     const deployed = items.filter((x) => x && ['deployed', 'done', 'merged'].includes(x.status)).length;
-    setBadge('tab-dev', Math.round((deployed / items.length) * 100) + '%', 'is-ok');
+    setBadge('tab-forge', Math.round((deployed / items.length) * 100) + '%', 'is-ok');
   }
 }
 function wireIcons() {
@@ -4352,6 +3086,9 @@ async function renderAiUsage() {
 
 async function init() {
   document.documentElement.classList.remove('no-js');
+  // registra a navegação no registry compartilhado ANTES de qualquer render — o Studio (studio.js)
+  // chama nav.switchView/openReq/overviewBriefing sem importar o app.js (sem ciclo ESM, ver core.js).
+  Object.assign(nav, { switchView, openReq, overviewBriefing });
   // tema e identidade agora vivem na casca global (<platform-shell>) — sem wireTheme/wireUserMenu aqui.
   wireIcons(); wireNav(); wireSidebar(); wireSearch(); wireFullscreen();
   // identidade p/ gating do painel de Uso da IA (a casca não reemite o me). Fail-soft: erro => não-admin.
@@ -4366,7 +3103,10 @@ async function init() {
     DATA.baseline = b; DATA.impact = im; DATA.retrieval = rt;
     // opcionais (toleram ausência): diff de baseline, registry de artefatos, embeddings.
     const opt = (u) => fetch(u).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-    [DATA.history, DATA.registry, DATA.embeddings, DATA.implStatus, DATA.coverage, DATA.products, DATA.blueprints, DATA.capabilities] = await Promise.all([opt('data/history.json'), opt('data/registry.json'), opt('data/embeddings.json'), opt('data/implementation-status.json'), opt('data/coverage-report.json'), opt('data/products.json'), opt('data/blueprints.json'), opt('data/capabilities.json')]);
+    [DATA.history, DATA.registry, DATA.embeddings, DATA.implStatus, DATA.coverage, DATA.products, DATA.blueprints, DATA.capabilities, DATA.appsIndex] = await Promise.all([opt('data/history.json'), opt('data/registry.json'), opt('data/embeddings.json'), opt('data/implementation-status.json'), opt('data/coverage-report.json'), opt('data/products.json'), opt('data/blueprints.json'), opt('data/capabilities.json'), opt('data/apps-index.json')]);
+    // (D1, Forja 4.1) snapshot IMUTÁVEL do baked ANTES de qualquer estado vivo: o merge do Studio
+    // preenche campos/implStatus a partir daqui (o replace antigo destruía a referência no 1º apply).
+    DATA.baked = { products: DATA.products, implStatus: DATA.implStatus };
   } catch (err) {
     setStatus('Falha ao carregar a base de requisitos: ' + err.message, true);
     return;
@@ -4377,7 +3117,11 @@ async function init() {
   buildExplorerFilters();
   refreshNavBadges();
   wireCommandPalette();
-  if (!applyHashRoute()) switchView('overview'); // deep-link da URL (ex.: vindo do Console) ou padrão
+  if (!applyHashRoute()) switchView('forge'); // deep-link da URL (ex.: vindo do Console) ou padrão: o Studio
   window.addEventListener('hashchange', () => applyHashRoute()); // deep-link em aba já aberta (idempotente)
 }
 init();
+
+
+
+

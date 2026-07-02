@@ -2,7 +2,7 @@
 title: "Documentação da Plataforma DevOps Local"
 status: reference
 applies_to: [platform]
-updated: 2026-06-09
+updated: 2026-07-02
 language: pt-BR
 ---
 
@@ -42,6 +42,7 @@ Comece aqui ao desenhar/avaliar um app.
 | Guia | Para que serve |
 |---|---|
 | [`new-project-contract.md`](./new-project-contract.md) | Referência completa do `devops.yaml` (schema máquina-legível: [`../schema/devops-schema.json`](../schema/devops-schema.json)). |
+| [`multi-env.md`](./multi-env.md) | Ambiente `dev` opt-in e efêmero por produto (contrato v2 + `devops-compile --env`): criar → usar → destruir, promoção, teto de capacidade. |
 | [`path-routing-pattern.md`](./path-routing-pattern.md) | Roteamento: strip vs base path, prioridade, exemplos. |
 | [`deployment-flow.md`](./deployment-flow.md) | Fluxo fim-a-fim: instalar, publicar, reverter, logs, Argo/Grafana/Console. |
 | [`project-onboarding-checklist.md`](./project-onboarding-checklist.md) | Checklist de uma nova app. |

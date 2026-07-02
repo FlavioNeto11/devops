@@ -18,7 +18,7 @@ metadata:
     devops.flavioneto/commitSha: "local"
     devops.flavioneto/branch: "main"
     devops.flavioneto/imageTag: "local"
-    devops.flavioneto/deployedAt: "2026-06-14T00:00:00Z"
+    devops.flavioneto/deployedAt: "2026-06-25T16:30:00Z"
     devops.flavioneto/runId: "manual-publish-reqhub-api"
     devops.flavioneto/image: "reqhub-api:local"
   labels:
@@ -59,6 +59,11 @@ spec:
               value: "anthropic"
             # sonnet-4-6: liberado pela API key dedicada (limite próprio, sem o 429 da assinatura).
             - name: REQHUB_AI_MODEL
+              value: "claude-sonnet-4-6"
+            # Router num modelo capaz (não o haiku barato): o haiku sub-roteava turnos de AUTORIA
+            # para o fast-path (genérico, sem grounding). Com forceSpecialist ligado isto é defesa
+            # extra; mantém o roteamento de complexidade confiável.
+            - name: REQHUB_AI_ROUTER_MODEL
               value: "claude-sonnet-4-6"
             - name: ANTHROPIC_API_KEY
               valueFrom: { secretKeyRef: { name: reqhub-api-config, key: ANTHROPIC_API_KEY, optional: true } }
@@ -119,6 +124,11 @@ spec:
             # (products.json + implementation-status.json da baseline atual). GET /v1/forge/state lê daqui.
             - name: FORGE_DATA_DIR
               value: "/forge-data"
+            # PREVIEW da Forja (F3): diretório (PVC RWX) onde o runner deposita dist/ + manifest.json
+            # por produto. O reqhub-api SERVE os bytes daqui (GET .../preview/<product>/*) e acompanha o
+            # build lendo manifest.json (fail-soft). O build em si (vite) roda no runner, NÃO no pod.
+            - name: FORGE_PREVIEW_DIR
+              value: "/preview-data"
           # Orçamentos (não-secretos) p/ os alertas do painel — ConfigMap reqhub-usage-config.
           envFrom:
             - configMapRef:
@@ -158,6 +168,11 @@ spec:
             - name: forge-state
               mountPath: /forge-data
               readOnly: true
+            # PREVIEW da Forja (F3): o pod SÓ LÊ (serve dist/ + manifest.json). Quem ESCREVE é o runner
+            # (forge-preview.yml) via kubectl cp/escrita no PVC. readOnly aqui é defesa em profundidade.
+            - name: forge-preview
+              mountPath: /preview-data
+              readOnly: true
       volumes:
         # Estado VIVO da Forja: products.json + implementation-status.json da baseline ATUAL.
         # optional -> o pod sobe mesmo sem o ConfigMap (GET /v1/forge/state cai p/ source:'empty').
@@ -166,6 +181,10 @@ spec:
           configMap:
             name: reqhub-forge-state
             optional: true
+        # PREVIEW da Forja: PVC compartilhado (runner escreve dist/<product>/, o pod serve). Ver preview-pvc.yaml.
+        - name: forge-preview
+          persistentVolumeClaim:
+            claimName: reqhub-preview
 ---
 apiVersion: v1
 kind: Service
@@ -216,6 +235,34 @@ spec:
     # SSE do painel de Uso da IA -> SEM `compress` (que bufferiza o event-stream). priority 40
     # (vence a rota geral /reqs/api de priority 30). Mesma cadeia de auth/strip.
     - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/reqs/api/v1/ai-usage/stream`)
+      kind: Rule
+      priority: 40
+      services:
+        - name: reqhub-api
+          port: 8080
+      middlewares:
+        - name: console-auth-401
+          namespace: devops-system
+        - name: reqhub-api-strip
+        - name: secure-headers
+          namespace: traefik
+    # SSE do PREVIEW da Forja (F3): gerar+buildar o preview com progresso ao vivo -> SEM `compress`
+    # (bufferizaria o event-stream durante o build longo). priority 40 (vence a rota geral priority 30).
+    - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/reqs/api/v1/forge/preview/generate`)
+      kind: Rule
+      priority: 40
+      services:
+        - name: reqhub-api
+          port: 8080
+      middlewares:
+        - name: console-auth-401
+          namespace: devops-system
+        - name: reqhub-api-strip
+        - name: secure-headers
+          namespace: traefik
+    # SSE do ESTADO VIVO da Forja (A6): o Studio troca o polling de 15s por push -> SEM `compress`
+    # (mesma armadilha). priority 40. Mesma cadeia de auth/strip das demais rotas SSE.
+    - match: (Host(`dev.nvit.com.br`) || Host(`nvit.localhost`)) && PathPrefix(`/reqs/api/v1/forge/events`)
       kind: Rule
       priority: 40
       services:

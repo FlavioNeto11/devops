@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "c673fba7368673eeb123e0671af3b6e8d8fd855c2c79bf90786e87dd1743d7f9",
+  "baseline_hash": "d5f267861fb22cdf005bf4fee3e85b4ec3dddd1caf1eb85d7e771fe4ac016e00",
   "dimensions": [
     "links",
     "allocation",
@@ -10,21 +10,21 @@
     "refinement"
   ],
   "totals": {
-    "total": 343,
-    "without_links": 286,
-    "without_allocation": 316,
+    "total": 368,
+    "without_links": 302,
+    "without_allocation": 325,
     "without_source_paths": 0,
-    "without_evidence": 343,
-    "without_verification_method": 334,
-    "without_refinement": 314,
-    "scopes": 18,
+    "without_evidence": 368,
+    "without_verification_method": 350,
+    "without_refinement": 339,
+    "scopes": 20,
     "coverage_pct": {
-      "links": 16.6,
-      "allocation": 7.9,
+      "links": 17.9,
+      "allocation": 11.7,
       "source_paths": 100,
       "evidence": 0,
-      "verification_method": 2.6,
-      "refinement": 8.5
+      "verification_method": 4.9,
+      "refinement": 7.9
     }
   },
   "by_scope": {
@@ -113,6 +113,23 @@
         "refinement": 0
       }
     },
+    "contaviva-360": {
+      "total": 9,
+      "without_links": 9,
+      "without_allocation": 9,
+      "without_source_paths": 0,
+      "without_evidence": 9,
+      "without_verification_method": 0,
+      "without_refinement": 9,
+      "coverage_pct": {
+        "links": 0,
+        "allocation": 0,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 100,
+        "refinement": 0
+      }
+    },
     "gymops": {
       "total": 23,
       "without_links": 7,
@@ -128,6 +145,23 @@
         "evidence": 0,
         "verification_method": 0,
         "refinement": 8.7
+      }
+    },
+    "imobia": {
+      "total": 16,
+      "without_links": 7,
+      "without_allocation": 0,
+      "without_source_paths": 0,
+      "without_evidence": 16,
+      "without_verification_method": 16,
+      "without_refinement": 16,
+      "coverage_pct": {
+        "links": 56.3,
+        "allocation": 100,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 0,
+        "refinement": 0
       }
     },
     "keycloak": {

@@ -1,0 +1,72 @@
+# =============================================================================
+# ZapBridge — app web (Expo/react-native-web) + landing, servido por nginx sob
+# /zapbridge (Traefik SEM strip, priority 10). A rota /zapbridge entra no MESMO
+# IngressRoute `zapbridge` (ver zapbridge.yaml): /zapbridge/api (30) e
+# /zapbridge/socket.io (40) têm priority MAIOR e vão para o backend; o resto de
+# /zapbridge cai aqui (frontend).
+# Imagem local: zapbridge-web:local (build a partir de apps/zapbridge/)
+#   cd apps/zapbridge/app && npm run build:web     (gera apps/zapbridge/app/dist)
+#   docker build -f apps/zapbridge/app/Dockerfile.web -t zapbridge-web:local apps/zapbridge/app
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zapbridge-web
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: zapbridge-web
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: zapbridge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zapbridge-web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: zapbridge-web
+        app.kubernetes.io/component: frontend
+        app.kubernetes.io/part-of: zapbridge
+    spec:
+      containers:
+        - name: web
+          image: zapbridge-web:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 8
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "24Mi"
+            limits:
+              cpu: "150m"
+              memory: "96Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zapbridge-web
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: zapbridge
+spec:
+  selector:
+    app.kubernetes.io/name: zapbridge-web
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

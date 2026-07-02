@@ -1,0 +1,35 @@
+id: REQ-IMOBIA-0002
+slug: req-imobia-0002
+title: Orquestração multi-modelo de IA (Cortex roteia; GPT/Claude/Gemini executam)
+type: functional
+status: approved
+owner: plataforma-digital
+scope:
+  product_scope: imobia
+  applies_to: product
+statement: 'O sistema deve orquestrar múltiplas IAs como funcionários especializados: Cortex (modelo rápido/barato) faz a triagem e escolhe o especialista; GPT executa lógica/function-calling, Claude redação/análise avançada e Gemini documentos/visão. Quando o provider ideal do especialista estiver ausente, o motor deve cair para qualquer provider disponível (fallbackProvider) e registrar custo/tokens por chamada via ai-core.'
+business_rationale: Divisão de trabalho fiel ao documento de concepção — cada modelo atua na sua vocação, com triagem barata na frente para conter custo.
+source:
+  stakeholder: imobia
+  origin: codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)
+  source_paths:
+    - apps/imobia/api/src/ai
+    - apps/imobia/docs/CONCEPCAO.md
+    - apps/imobia/api/src/modules-catalog.ts
+priority: critical
+criticality: critical
+architectural_significance: true
+links:
+  - type: depends_on
+    target: REQ-AI-0003
+    note: reutiliza o grafo router→especialistas do ai-core (createLlm + adaptador Gemini)
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: adoção Forja 4.1 D5 — backfill extraído do app real
+allocation:
+  service_refs:
+    - svc-imobia-api
+  infra_refs:
+    - infra-pgvector

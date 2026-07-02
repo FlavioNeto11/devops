@@ -1,0 +1,43 @@
+id: REQ-IMOBIA-NFR-0003
+slug: req-imobia-nfr-0003
+title: Auditabilidade — trilha do tempo registra qual IA produziu cada etapa
+type: non-functional
+status: approved
+owner: plataforma-digital
+scope:
+  applies_to: product
+  product_scope: imobia
+statement: 'O sistema deve atender ao atributo de qualidade "auditabilidade das decisões de IA": cada etapa produzida no negócio (triagem, parecer de documento, laudo, categorização, carta) gera entrada polimórfica na linha do tempo com o ator que a produziu (cortex/gpt/claude/gemini, humano ou system) e correlationId; a escrita da trilha é fail-soft e nunca derruba a operação de negócio.'
+source:
+  stakeholder: imobia
+  origin: codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)
+  source_paths:
+    - apps/imobia/api/src/lib/timeline.ts
+    - apps/imobia/docs/CONCEPCAO.md
+priority: high
+criticality: high
+architectural_significance: false
+risk_tags:
+  - auditoria
+quality_scenarios:
+  - source: Qualquer módulo (ou IA especialista) produzindo um artefato/etapa do negócio
+    stimulus: Conclui uma etapa (validação de documento, laudo, parecer, categorização) de forma automática ou manual
+    environment: Produção no cluster ns apps, Postgres 16 (tabela TimelineEntry)
+    artifact: API imobia (lib/timeline, appendTimeline) anexada a qualquer entidade
+    response: Entrada criada com entityType/entityId, kind, actorType (qual IA/humano/system) e correlationId; falha na escrita é engolida (fail-soft) sem afetar a operação
+    response_measure: 100% das etapas produzidas por IA têm entrada na trilha identificando o ator; zero operações de negócio abortadas por falha da trilha
+links:
+  - type: constrains
+    target: REQ-IMOBIA-0012
+  - type: relates_to
+    target: REQ-IMOBIA-0002
+version:
+  baseline_version: 1.0.0
+  item_revision: 1
+  semantic_change: none
+  change_reason: adoção Forja 4.1 D5 — backfill extraído do app real
+allocation:
+  service_refs:
+    - svc-imobia-api
+  infra_refs:
+    - infra-postgres

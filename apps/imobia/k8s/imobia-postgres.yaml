@@ -1,0 +1,88 @@
+# Postgres do imobia (db imobia) — pgvector/pgvector:pg16 (extensao vector usada em F2+).
+# Secret imobia-db (POSTGRES_USER/PASSWORD/DB + DATABASE_URL) criado fora do git. PVC persiste.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: imobia-pgdata
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: imobia
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: imobia-postgres
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: imobia-postgres
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: imobia
+    app.kubernetes.io/managed-by: devops-platform
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: imobia-postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: imobia-postgres
+        app.kubernetes.io/part-of: imobia
+    spec:
+      containers:
+        - name: postgres
+          image: pgvector/pgvector:pg16
+          envFrom:
+            - secretRef:
+                name: imobia-db
+          ports:
+            - name: postgres
+              containerPort: 5432
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+              subPath: pgdata
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "256Mi"
+            limits:
+              cpu: "1"
+              # 512Mi OOMKilla o Postgres (pgvector + WAL). 1Gi da folga (ver SICAT).
+              memory: "1Gi"
+      volumes:
+        - name: pgdata
+          persistentVolumeClaim:
+            claimName: imobia-pgdata
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: imobia-postgres
+  namespace: apps
+  labels:
+    app.kubernetes.io/part-of: imobia
+spec:
+  selector:
+    app.kubernetes.io/name: imobia-postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres

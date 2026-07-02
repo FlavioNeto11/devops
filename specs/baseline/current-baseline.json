@@ -1,17 +1,19 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "c673fba7368673eeb123e0671af3b6e8d8fd855c2c79bf90786e87dd1743d7f9",
+  "baseline_hash": "d5f267861fb22cdf005bf4fee3e85b4ec3dddd1caf1eb85d7e771fe4ac016e00",
   "refinements_hash": "a25683b324c8fed749c9f15916c2978512bf771659f9bf088a473f038db4825c",
   "schema": "specs/schema/requirement.schema.json",
   "counts": {
-    "total": 343,
+    "total": 368,
     "by_product": {
       "ai": 18,
       "argocd": 15,
       "cicd": 17,
       "cms": 22,
       "console": 35,
+      "contaviva-360": 9,
       "gymops": 23,
+      "imobia": 16,
       "keycloak": 18,
       "neuroevolui": 9,
       "observability": 17,
@@ -26,11 +28,11 @@
       "traefik": 16
     },
     "by_status": {
-      "approved": 343
+      "approved": 368
     },
     "by_type": {
-      "functional": 239,
-      "non-functional": 104
+      "functional": 260,
+      "non-functional": 108
     },
     "refinements": {
       "total": 63,
@@ -4058,6 +4060,416 @@
       "file": "requirements/console/REQ-CONSOLE-NFR-008.yaml"
     },
     {
+      "id": "REQ-CONTAVIVA360-0001",
+      "title": "Fundação: Arquitetura em camadas + Observabilidade + Multi-tenant + OIDC",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "product-foundation",
+        "product_scope": "contaviva-360",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE estabelecer a arquitetura de camadas rígidas (route → service → repository → worker → gateway), inicializar com observabilidade completa (health, métricas Prometheus, ServiceMonitor, SLO), suportar isolamento por tenant com RBAC em cascata (Admin > Contador > Auxiliar > Cliente) e autenticar usuários via OIDC (Keycloak realm nvit) com sessão própria do app.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/contaviva-360/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "camadas-rigidas",
+        "observabilidade",
+        "oidc-sessao",
+        "rbac-multitenant",
+        "migrations-versionadas"
+      ],
+      "acceptance_criteria": [
+        "Toda rota mapeia apenas HTTP e validação; nenhuma acessa banco ou rede externa diretamente.",
+        "Endpoints /health e /v1/health/{system,workers,jobs} retornam estrutura semântica (status, uptime, componentes).",
+        "Métricas Prometheus exportadas em porta :9464; ServiceMonitor criado e raspa corretamente.",
+        "Dashboard Grafana gerado automaticamente com p95 latência, taxa de erro, saturação de fila.",
+        "Login OIDC via Keycloak dispara fluxo PKCE; backend valida token e emite JWT curto do app.",
+        "Toda query carrega tenant_id; deny por padrão fora do escopo; soft-delete implementado."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 65,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0001.yaml"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0002",
+      "title": "Gestão de Dados Contábeis e Fiscais: Entidades de Pessoa Física, Pessoa Jurídica e Documentos",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "contaviva-360",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE permitir o cadastro completo e isolado por tenant de Pessoa Física (CPF, patrimônio, investimentos, bens, dívidas, contratos, receitas, despesas, categorização, comprovantes) e Pessoa Jurídica (razão social, CNPJ, inscrição estadual/municipal, regime tributário, CNAE, sócios, certificado digital, dados bancários, fornecedores, clientes, contas a pagar/receber), com gestão documental centralizada (upload, classificação por tipo/mês/ano/status, rastreabilidade de versões e aprovações).",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/contaviva-360/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "redis-bullmq",
+        "worker-queue-transacional",
+        "idempotencia"
+      ],
+      "acceptance_criteria": [
+        "Cadastro de PF: CPF, nome, data de nascimento, endereço, patrimônio inicial, bens (carro, imóvel, aplicações), dívidas (financiamento, cartão), contratos (aluguel, pensão), documentos pessoais (RG, CNH, certidão).",
+        "Cadastro de PJ: razão social, CNPJ, IE, IM, regime tributário (Simples/Lucro Presumido/Lucro Real), CNAE, sócios (nome, CPF, participação %), certificado digital (upload seguro), dados bancários (conta, agência, banco).",
+        "Receitas e Despesas de PF: classificação por categoria (aluguel, educação, saúde, investimento, etc.), anexação de comprovante, data, valor, periódico ou avulso.",
+        "Receitas e Despesas de PJ: fornecedor/cliente, descrição, valor, categoria, centro de custo, recorrência, anexo, status (pendente, pago, cancelado).",
+        "Gestão Documental: upload de arquivo (NF, recibo, extrato, contrato, holerite), classificação (tipo, mês, ano, cliente/empresa, status), versioning simples (novo upload cria versão), visualização de histórico de quem fez upload e quando.",
+        "Dashboard por PF: evolução patrimonial (gráfico de patrimônio ao longo do tempo), receitas vs despesas (período selecionado), categorização de despesas (pizza/barra), saldo acumulado."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0002.yaml"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0003",
+      "title": "Obrigações Fiscais e Alertas: Rastreamento de Vencimentos, Impostos e Pendências",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "contaviva-360",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE rastrear obrigações fiscais (impostos, declarações, guias, pagamentos, documentos pendentes, prazos) por tenant/entidade, calcular datas de vencimento, emitir alertas personalizados por role (cliente vê pendências, contador vê aprovações necessárias), permitir marcar como concluído/aprovado/atrasado e gerar relatório de compliance fiscal.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/contaviva-360/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "notificacoes-multicanal",
+        "redis-bullmq"
+      ],
+      "acceptance_criteria": [
+        "Cadastro de obrigação: tipo (IRPF, IRPJ, ICMS, ISS, DARF, ECF, ECD, e-Social, CAGED, Simples DAS, PER, DIRF, RRA, etc.), data de vencimento, periodicidade (mensal, anual), entidade (PF ou PJ), status (pendente, pago, cancelado, atrasado, aprovação pendente).",
+        "Alertas automáticos: 30 dias antes do vencimento (amarelo), 7 dias antes (laranja), dia do vencimento (vermelho), após vencimento (crítico). Alertas entregues por e-mail/push/dashboard.",
+        "Dashboard de Obrigações: filtro por status (pendente, pago, atrasado), período, tipo; contador vê botão 'Aprovar' para marcar como concluído; cliente vê apenas informativo com prazos.",
+        "Relatório de Compliance: qual obrigação está em dia, qual está atrasada, qual está para vencer; export para PDF.",
+        "Integração com PJ: obrigações são calculadas com base no regime tributário (Simples paga DAS mensal; Lucro Real paga IRPJ + CSLL trimestral; Lucro Presumido paga IRPJ + CSLL mensal)."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0003.yaml"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0004",
+      "title": "Controle de Tarefas e Colaboração: Tasks entre Contador e Cliente com Comentários e Anexos",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "contaviva-360",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE permitir criar, atribuir, comentar, anexar documentos e rastrear tarefas entre contador e cliente, com campos de responsável, prazo, prioridade (baixa, média, alta, crítica), status (aberta, em progresso, aguardando cliente, aguardando contador, concluída, cancelada), notificação de atribuição e notificação de vencimento.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/contaviva-360/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "notificacoes-multicanal",
+        "redis-bullmq"
+      ],
+      "acceptance_criteria": [
+        "Criar tarefa: título, descrição, responsável (contador ou cliente), prazo, prioridade, vinculação opcional a entidade (PF/PJ) ou obrigação.",
+        "Comentários em thread: usuário adiciona comentário com timestamp, edita próprio comentário, contador marca como 'resposta esperada do cliente' ou 'info fornecida'.",
+        "Anexos na tarefa: upload de arquivo (comprovante, declaração, formulário), versioning, quem fez upload.",
+        "Notificação de atribuição: quando tarefa é atribuída ao usuário, notificação por e-mail/push é enfileirada.",
+        "Alertas de prazo: 3 dias antes do prazo (amarelo), 1 dia (laranja), dia (vermelho), após (crítico).",
+        "Transição de status: usuário marca 'aguardando cliente' (cliente é notificado), cliente marca 'respondido' ou 'documento enviado' (contador é notificado)."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0004.yaml"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0005",
+      "title": "Controle Financeiro: Contas a Pagar, Contas a Receber e Fluxo de Caixa",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "contaviva-360",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE permitir o cadastro e acompanhamento de contas a pagar (despesas futuras, fornecedores, vencimentos, centros de custo, recorrências, formas de pagamento) e contas a receber (receitas futuras, clientes, vencimentos), visualizar fluxo de caixa (saldo previsto vs realizado), despesas por categoria/centro de custo, receitas por origem, e exportar relatórios financeiros por período.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/contaviva-360/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "redis-bullmq",
+        "worker-queue-transacional"
+      ],
+      "acceptance_criteria": [
+        "Conta a Pagar: fornecedor, descrição, valor, data de vencimento, categoria (aluguel, folha, energia, etc.), centro de custo, forma de pagamento (cheque, TED, cartão, boleto, dinheiro), recorrência (mensal, anual), anexo, status (pendente, pago, vencido, cancelado), data de pagamento realizado.",
+        "Conta a Receber: cliente, descrição, valor, data de vencimento, forma de recebimento, anexo (nota fiscal, contrato), status (pendente, recebido, vencido, cancelado).",
+        "Fluxo de Caixa: view que agrega contas (previsão 30/60/90 dias), calcula saldo dia a dia, mostra saldo em caixa hoje, saldo previsto no final do período.",
+        "Relatório Financeiro: por período (mês, trimestre, ano), por categoria (despesa), por centro de custo; export para PDF/XLSX.",
+        "Dashboard Financeiro: total a receber, total a pagar, saldo líquido, gráfico de fluxo ao longo do período, top 5 fornecedores/clientes por valor."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0005.yaml"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0006",
+      "title": "Gestão de Notas Fiscais (PJ): Cadastro, Emissão, Rastreamento e Integração com Obrigações",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "contaviva-360",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE permitir o cadastro de clientes, produtos/serviços, e emissão de notas fiscais (NF-e/NFCe) com cálculo de impostos, integração com obrigações fiscais (ICMS, ISS, PIS, COFINS), rastreamento de status (rascunho, emitida, cancelada), integração com SEFAZ (em sandbox por padrão, real via config), armazenamento de XML/PDF, e relatório de notas por período.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/contaviva-360/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "gateway-externo",
+        "worker-queue-transacional",
+        "idempotencia"
+      ],
+      "acceptance_criteria": [
+        "Cadastro de Cliente PJ: razão social, CNPJ, inscrição estadual, endereço, contato, tipo de cliente (empresa, consumidor final, órgão público).",
+        "Cadastro de Produto/Serviço: descrição, código, valor unitário, ICMS alíquota, ISS, PIS, COFINS, CFOP, NCM/NBS.",
+        "Emissão de NF: seleção de cliente, adição de itens (produto/serviço, quantidade, valor), cálculo automático de impostos, observações, gerar XML, assinar digitalmente (certificado da empresa), submeter à SEFAZ, armazenar chave de acesso, status 'emitida', PDF para download.",
+        "SEFAZ Sandbox: determinístico, não requer certificado real, sempre aprova. SEFAZ Real: detrás de SEFAZ_PROVIDER env, falha segura (não emite se certificado inválido).",
+        "Rastreamento: GET /v1/nf/{nf_id} retorna XML, PDF, chave, status, data emissão, data autorização SEFAZ.",
+        "Relatório de NFs: por período, por cliente, por série, total emitido, total impostos, export PDF."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0006.yaml"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0007",
+      "title": "Assistente de IA Contábil: Consultas, Rascunhos e Recomendações Baseadas em Dados do Usuário",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "contaviva-360",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE prover um assistente de IA (grafo com especialistas e tools) que consulta dados contábeis do usuário (receitas, despesas, patrimônio, obrigações, notas, tarefas) e responde em linguagem natural: 'qual é meu saldo de caixa hoje?', 'que impostos estou devendo?', 'gere um rascunho de declaração IRPF', permitindo confirmação antes de persistir rascunhos, com cache de contexto, fallback offline e auditoria de consultas.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/contaviva-360/product.json"
+        ]
+      },
+      "priority": "medium",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "ia-grafo",
+        "control-ai-por-app",
+        "rag-pgvector",
+        "structured-outputs"
+      ],
+      "acceptance_criteria": [
+        "Interface de chat: POST /v1/assistant/message com texto, opcionalmente arquivo (PDF, imagem de nota fiscal, recibo). Suporta conversa em thread (conversation_id).",
+        "Especialistas de tools: 'consulta_dados' (PF/PJ, receitas, despesas, patrimônio, obrigações), 'calcula_impostos' (IRPF, IRPJ, ICMS, ISS), 'gera_rascunho' (declaração, guia de pagamento, analise contábil), 'cita_fonte' (documento ou seção de base de conhecimento).",
+        "Respostas grounded: IA cita a fonte (ex.: 'segundo sua NF de 01/12, receita foi de R$10k', 'seu patrimônio cresceu 5% em relação a julho').",
+        "Rascunhos com confirmação: se IA propõe um rascunho (ex.: 'declare IRPF com rendimento tributável de R$50k'), usuário confirma antes de salvar como rascunho_irpf_2024.",
+        "Fallback offline: se controle plane ou API de IA estiver fora, IA usa prompt versionado no repo, fail-closed sem chave (responde com aviso: 'offline, consulte seu contador').",
+        "Auditoria: toda consulta registra pergunta, resposta, tempo, tools usados, confirmações do usuário."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0007.yaml"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0008",
+      "title": "Painel Personalizado por Role: Dashboards com Widgets de Pendências, Vencimentos, Alertas e KPIs Contábeis",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "contaviva-360",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE renderizar dashboards personalizados por role (Cliente PF, Cliente PJ, Contador, Auxiliar, Admin) que exibem widgets de pendências fiscais, documentos aguardando, impostos próximos, receitas/despesas, fluxo de caixa, obrigações mensais, tarefas em aberto, mensagens recentes, alertas contábeis, status geral da saúde financeira/fiscal, com real-time updates via WebSocket e refresh automático.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/contaviva-360/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "design-system"
+      ],
+      "acceptance_criteria": [
+        "Dashboard Cliente PF: patrimônio (evolução), receitas/despesas (últimos 12 meses), imposto de renda (progresso declaração), documentos pendentes para contador, tarefas em aberto, alertas de vencimento, saldo de investimentos.",
+        "Dashboard Cliente PJ: receitas/despesas, fluxo de caixa (próximos 90 dias), contas a pagar/receber, impostos (estimado vs realizado), notas fiscais (emitidas este mês), folha de pagamento (resumo), obrigações vencidas/próximas, tarefas para contador.",
+        "Dashboard Contador: clientes sob responsabilidade (card com nome, entidade, status fiscal), tarefas atribuídas, documentos pendentes de clientes (por cliente), obrigações atrasadas de clientes, alertas críticos (impostos vencidos, declarações pendentes).",
+        "Dashboard Admin: total de usuários, total de clientes (PF/PJ), total de receitas/despesas (todas as entidades), alertas do sistema, jobs falhando, saúde de componentes.",
+        "Widgets interativos: clicar em 'Documentos Pendentes' abre modal com lista; clicar em 'Obrigação Vencida' abre detalhe + opção de marcar concluído.",
+        "Real-time: WebSocket broadcasts quando tarefa é atribuída, obrigação vence, documento é enviado, contador aprova algo. Dashboard atualiza sem refresh manual."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0008.yaml"
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0009",
+      "title": "Emissão e Processamento de Documentos Fiscais (SEFAZ, RFB, Governo): Gateway Centralizado e Auditoria",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "contaviva-360",
+        "blueprint": "gymops-style"
+      },
+      "statement": "O sistema DEVE centralizar toda integração com sistemas externos (SEFAZ, RFB, e-Social, Prefeitura, Governo Federal) em uma camada gateway única com timeout, retry com backoff exponencial, redação de segredos no log, trilha de auditoria de todas as trocas HTTP (request/response sanitizado), erros tipados (AppError), e degradação graciosa (falha graceful sem certificado/credencial durante desenvolvimento).",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/contaviva-360/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "gateway-externo",
+        "worker-queue-transacional",
+        "observabilidade"
+      ],
+      "acceptance_criteria": [
+        "Gateway para SEFAZ: envio de NF-e, consulta de autorização, cancelamento, inutilização, com certificado digital (arquivo .pfx), assinatura XML, conversão SOAP.",
+        "Gateway para RFB (e-CAC): consulta de dados cadastrais, submissão de documentos, recuperação de downloads (Malha Fina, etc.), com login CNJ.",
+        "Gateway para e-Social: envio de eventos (S-1000 - informações da empresa, S-2000 - folha de pagamento, S-2200 - remuneração, etc.), com certificado ou código de acesso.",
+        "Configuração por environment: DEV = sandbox determinístico (sem certificado, sempre aprova), STAGING = sandbox, PROD = real (credenciais vêm de vault).",
+        "Auditoria de chamadas: toda requisição HTTP a sistema externo registra timestamp, método, endpoint, payload sanitizado (sem senha/certificado), resposta status, tempo, retries, e quem a solicitou (user_id).",
+        "Erros tipados: falha em SEFAZ retorna {error: 'gateway_sefaz_timeout', code: 'EXT_TIMEOUT', retry_after: 30} para o cliente, não expõe SOAP fault."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/contaviva-360/REQ-CONTAVIVA360-0009.yaml"
+    },
+    {
       "id": "REQ-GYMOPS-0001",
       "slug": "req-gymops-0001",
       "title": "Autenticação multicanal (email/senha + refresh token + OAuth Google)",
@@ -5046,6 +5458,796 @@
       "impact_score": 38,
       "impact_band": "low",
       "file": "requirements/gymops/REQ-GYMOPS-NFR-008.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0001",
+      "slug": "req-imobia-0001",
+      "title": "Contas e acesso multi-tenant (login local + SSO Keycloak aditivo)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "imobia",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve permitir registro com bootstrap de organização + usuário admin e login local (email + senha com hash, access token stateless via oidc-kit), além de login SSO Keycloak (realm nvit) de forma ADITIVA e fail-soft, com multi-tenancy por Membership — todo dado de negócio escopado pela organização do principal.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/modules/auth",
+          "apps/imobia/api/src/lib/auth.ts",
+          "apps/imobia/CLAUDE.md"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": false,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-OIDC-0001"
+        },
+        {
+          "type": "depends_on",
+          "target": "REQ-KEYCLOAK-0005"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api"
+        ],
+        "infra_refs": [
+          "infra-keycloak"
+        ]
+      },
+      "impact_score": 45,
+      "impact_band": "medium",
+      "file": "requirements/imobia/REQ-IMOBIA-0001.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0002",
+      "slug": "req-imobia-0002",
+      "title": "Orquestração multi-modelo de IA (Cortex roteia; GPT/Claude/Gemini executam)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "imobia",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve orquestrar múltiplas IAs como funcionários especializados: Cortex (modelo rápido/barato) faz a triagem e escolhe o especialista; GPT executa lógica/function-calling, Claude redação/análise avançada e Gemini documentos/visão. Quando o provider ideal do especialista estiver ausente, o motor deve cair para qualquer provider disponível (fallbackProvider) e registrar custo/tokens por chamada via ai-core.",
+      "business_rationale": "Divisão de trabalho fiel ao documento de concepção — cada modelo atua na sua vocação, com triagem barata na frente para conter custo.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/ai",
+          "apps/imobia/docs/CONCEPCAO.md",
+          "apps/imobia/api/src/modules-catalog.ts"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": true,
+      "links": [
+        {
+          "type": "depends_on",
+          "target": "REQ-AI-0003",
+          "note": "reutiliza o grafo router→especialistas do ai-core (createLlm + adaptador Gemini)"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api"
+        ],
+        "infra_refs": [
+          "infra-pgvector"
+        ]
+      },
+      "impact_score": 65,
+      "impact_band": "medium",
+      "file": "requirements/imobia/REQ-IMOBIA-0002.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0003",
+      "slug": "req-imobia-0003",
+      "title": "Captação de imóveis (venda/locação) com busca semântica",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "imobia",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve permitir a captação de imóveis para venda e locação — proprietário, endereço, características e fotos — com qualificação assistida por IA e busca semântica do acervo por embeddings (pgvector), para encontrar imóveis por descrição em linguagem natural.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/modules/imoveis/routes.ts",
+          "apps/imobia/api/src/ai/embeddings.ts",
+          "apps/imobia/frontend/src/views/app/Imoveis.vue"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "high",
+      "architectural_significance": false,
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api",
+          "svc-imobia-frontend"
+        ],
+        "infra_refs": [
+          "infra-postgres",
+          "infra-pgvector"
+        ]
+      },
+      "impact_score": 38,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-0003.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0004",
+      "slug": "req-imobia-0004",
+      "title": "Clientes/Leads com lead scoring e realimentação do funil",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "imobia",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve gerir clientes/leads (compra e locação) com qualificação por lead scoring (GPT), perfil financeiro e interesse por imóvel; lead reprovado na análise de crédito NÃO sai do funil — é encaminhado à esteira Corbam (limpa nome/score) para retornar como comprador no futuro.",
+      "business_rationale": "Regra central do ecossistema — um módulo alimenta o outro; o cliente que não compra vira cliente de recuperação de crédito.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/modules/leads/routes.ts",
+          "apps/imobia/docs/CONCEPCAO.md"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "high",
+      "architectural_significance": false,
+      "links": [
+        {
+          "type": "relates_to",
+          "target": "REQ-IMOBIA-0010",
+          "note": "lead reprovado no crédito entra na esteira Corbam (mantém no funil)"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api",
+          "svc-imobia-frontend"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 38,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-0004.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0005",
+      "slug": "req-imobia-0005",
+      "title": "Financeiro PJ/PF com categorização automática e fluxo de caixa",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "imobia",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve registrar lançamentos financeiros separando gasto empresarial (PJ) de pessoal (PF), com categorização automática por IA a partir de extratos/PIX/recibos (GPT via function-calling) e relatório com conselhos de fluxo de caixa redigido pela IA de análise (Claude).",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/modules/financeiro/routes.ts",
+          "apps/imobia/docs/CONCEPCAO.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": false,
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 38,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-0005.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0006",
+      "slug": "req-imobia-0006",
+      "title": "Agenda e eventos a partir de linguagem natural",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "imobia",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve agendar visitas, vistorias e renovações a partir de texto livre (\"agendei visita com João amanhã 15h\") convertido em evento estruturado (GPT), com lembretes redigidos pela IA (Claude) e vínculo do compromisso a leads e imóveis.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/modules/agenda/routes.ts",
+          "apps/imobia/docs/CONCEPCAO.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": false,
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 30,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-0006.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0007",
+      "slug": "req-imobia-0007",
+      "title": "WhatsApp multi-instância como eixo central com triagem por IA",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "imobia",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve operar múltiplos canais/números de WhatsApp por segmento (captação, vendas, finanças) com webhook centralizador; toda mensagem entrante passa pela triagem do Cortex (classificação de canal/intenção) e é processada de forma assíncrona (fila whatsapp-inbound), alimentando os demais módulos do ecossistema. A integração é fail-soft — sem provedor configurado (Baileys/Evolution/Z-API), o módulo opera manualmente.",
+      "business_rationale": "O WhatsApp é o coração que conecta todos os módulos (documento de concepção e diagrama).",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/modules/whatsapp/routes.ts",
+          "apps/imobia/docs/CONCEPCAO.md"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": true,
+      "links": [
+        {
+          "type": "relates_to",
+          "target": "REQ-IMOBIA-0002",
+          "note": "a triagem inicial de cada mensagem é o Cortex do motor multi-modelo"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api",
+          "svc-imobia-worker"
+        ],
+        "infra_refs": [
+          "infra-redis"
+        ]
+      },
+      "impact_score": 65,
+      "impact_band": "medium",
+      "file": "requirements/imobia/REQ-IMOBIA-0007.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0008",
+      "slug": "req-imobia-0008",
+      "title": "ACM — análise de mercado comparativa por varredura de portais",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "imobia",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve executar Análise de Mercado Comparativa (ACM) por varredura de portais (ZAP/VivaReal/OLX) com limpeza e deduplicação dos comparáveis (Cortex), cálculo da média do m² (GPT) e relatório preliminar; a varredura roda de forma assíncrona (fila acm-scrape) com cache para não rebuscar o mesmo imóvel várias vezes ao dia, e o scraping é fail-soft/dormente sem credenciais.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/modules/acm/routes.ts",
+          "apps/imobia/docs/CONCEPCAO.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": false,
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api",
+          "svc-imobia-worker"
+        ],
+        "infra_refs": [
+          "infra-redis",
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 30,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-0008.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0009",
+      "slug": "req-imobia-0009",
+      "title": "PTAM — parecer técnico de avaliação (ABNT NBR 14653) em PDF",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "imobia",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve gerar o PTAM (Parecer Técnico de Avaliação Mercadológica) conforme ABNT NBR 14653, com fundamentação técnica/jurídica redigida pela IA de redação (Claude), renderização assíncrona em PDF com papel timbrado (fila ptam-render) e ressalva explícita de que o laudo deve ser assinado por profissional habilitado (CRECI/CNAI) — o sistema não presta aconselhamento jurídico.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/modules/ptam/routes.ts",
+          "apps/imobia/docs/CONCEPCAO.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": false,
+      "risk_tags": [
+        "regulatorio"
+      ],
+      "links": [
+        {
+          "type": "relates_to",
+          "target": "REQ-IMOBIA-0008",
+          "note": "a ACM fornece os comparáveis/média do m² que fundamentam a avaliação"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api",
+          "svc-imobia-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 53,
+      "impact_band": "medium",
+      "file": "requirements/imobia/REQ-IMOBIA-0009.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0010",
+      "slug": "req-imobia-0010",
+      "title": "Corbam/COBAN — recuperação de crédito (limpa nome, score, rating)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "imobia",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve operar a esteira de correspondente bancário (Corbam/COBAN) para recuperação de crédito: casos de limpa nome, aumento de score e rating comercial, com leitura de Serasa/Boa Vista e extratos (Gemini), simulação de parcelas (GPT) e cartas de contestação/acordo redigidas (Claude); recebe leads reprovados na análise de crédito, mantendo-os no funil do ecossistema.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/modules/corbam/routes.ts",
+          "apps/imobia/docs/CONCEPCAO.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": false,
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 38,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-0010.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0011",
+      "slug": "req-imobia-0011",
+      "title": "Vistoria de imóveis com análise de fotos por IA e laudo oficial",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "imobia",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve registrar vistorias de imóveis com upload de fotos pelo vistoriador (armazenadas no PVC imobia-files), descrição do estado físico por visão computacional — fissuras, manchas, conservação — (Gemini, fila vistoria-vision) e laudo oficial redigido pela IA (Claude), anexável ao contrato.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/modules/vistoria/routes.ts",
+          "apps/imobia/api/src/lib/storage.ts"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": false,
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api",
+          "svc-imobia-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 30,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-0011.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-0012",
+      "slug": "req-imobia-0012",
+      "title": "Documentos por etapa com validação por IA de visão",
+      "type": "functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "product_scope": "imobia",
+        "applies_to": "product"
+      },
+      "statement": "O sistema deve receber e validar os documentos de cada etapa do negócio (RG/CNH, holerites, certidões, contratos sociais, escrituras) com parecer automático válido / ilegível / vencido pela IA de documentos (Gemini, fila document-validate), armazenamento no PVC e vínculo do documento à etapa/entidade a que pertence.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/modules/documentos/routes.ts",
+          "apps/imobia/docs/CONCEPCAO.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": false,
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api",
+          "svc-imobia-worker"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 38,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-0012.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-NFR-0001",
+      "slug": "req-imobia-nfr-0001",
+      "title": "IA fail-soft — sem chaves, tudo funciona manualmente (dormência)",
+      "type": "non-functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "imobia"
+      },
+      "statement": "O sistema deve atender ao atributo de qualidade \"disponibilidade com IA dormente\": sem OPENAI_API_KEY / ANTHROPIC_API_KEY / GOOGLE_API_KEY, todos os módulos permanecem 100% operáveis manualmente, as rotas de IA respondem fallback claro (dormant) sem 5xx e o pod segue Ready.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/ai/engine.ts",
+          "apps/imobia/CLAUDE.md"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": false,
+      "quality_scenarios": [
+        {
+          "source": "Operador sem chaves de IA configuradas no Secret imobia-config",
+          "stimulus": "Usa qualquer módulo do app e chama rotas /ai/* com o motor dormente",
+          "environment": "Cluster ns apps (Docker Desktop), Secret imobia-config sem nenhuma chave de provider",
+          "artifact": "API imobia (motor de IA + módulos) e worker",
+          "response": "Módulos operam manualmente sem degradação; /ai/* devolve fallback estruturado indicando dormência; health continua OK e o pod Ready",
+          "response_measure": "Zero respostas 5xx causadas por ausência de chave; engineStatus().dormant = true; readiness probe passa"
+        }
+      ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-IMOBIA-0002"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api"
+        ],
+        "slo_refs": [
+          "slo-availability-99"
+        ]
+      },
+      "impact_score": 45,
+      "impact_band": "medium",
+      "file": "requirements/imobia/REQ-IMOBIA-NFR-0001.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-NFR-0002",
+      "slug": "req-imobia-nfr-0002",
+      "title": "Confiabilidade do processamento assíncrono (filas BullMQ fail-soft)",
+      "type": "non-functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "imobia"
+      },
+      "statement": "O sistema deve atender ao atributo de qualidade \"confiabilidade do trabalho assíncrono\": todo trabalho pesado (acm-scrape, ptam-render, vistoria-vision, document-validate, whatsapp-inbound, marketing-image, ai-summary) roda em filas BullMQ consumidas por worker dedicado (mesma imagem da API); sem REDIS_URL o enqueue vira no-op documentado e a operação degrada de forma graciosa, sem quebrar a requisição.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/lib/queues.ts",
+          "apps/imobia/api/src/worker.ts"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": false,
+      "quality_scenarios": [
+        {
+          "source": "Módulo de domínio disparando trabalho pesado (scraping, render de PDF, visão, webhook)",
+          "stimulus": "Enfileira job de domínio numa das filas BullMQ com Redis disponível ou ausente",
+          "environment": "Cluster ns apps com imobia-redis; cenário degradado sem REDIS_URL",
+          "artifact": "API imobia (lib/queues) + worker (mesma imagem, npm run worker)",
+          "response": "Com Redis, o job é consumido pelo worker com retry do BullMQ; sem Redis, getQueue() devolve null, o enqueue é no-op e a rota responde sem erro (comportamento degradado explícito)",
+          "response_measure": "Nenhuma requisição falha por indisponibilidade do Redis; jobs enfileirados são processados pelo worker; filas registradas nas 7 QUEUE_NAMES"
+        }
+      ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-IMOBIA-0007"
+        },
+        {
+          "type": "constrains",
+          "target": "REQ-IMOBIA-0008"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-worker"
+        ],
+        "infra_refs": [
+          "infra-redis"
+        ]
+      },
+      "impact_score": 38,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-NFR-0002.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-NFR-0003",
+      "slug": "req-imobia-nfr-0003",
+      "title": "Auditabilidade — trilha do tempo registra qual IA produziu cada etapa",
+      "type": "non-functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "imobia"
+      },
+      "statement": "O sistema deve atender ao atributo de qualidade \"auditabilidade das decisões de IA\": cada etapa produzida no negócio (triagem, parecer de documento, laudo, categorização, carta) gera entrada polimórfica na linha do tempo com o ator que a produziu (cortex/gpt/claude/gemini, humano ou system) e correlationId; a escrita da trilha é fail-soft e nunca derruba a operação de negócio.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/api/src/lib/timeline.ts",
+          "apps/imobia/docs/CONCEPCAO.md"
+        ]
+      },
+      "priority": "high",
+      "criticality": "high",
+      "architectural_significance": false,
+      "risk_tags": [
+        "auditoria"
+      ],
+      "quality_scenarios": [
+        {
+          "source": "Qualquer módulo (ou IA especialista) produzindo um artefato/etapa do negócio",
+          "stimulus": "Conclui uma etapa (validação de documento, laudo, parecer, categorização) de forma automática ou manual",
+          "environment": "Produção no cluster ns apps, Postgres 16 (tabela TimelineEntry)",
+          "artifact": "API imobia (lib/timeline, appendTimeline) anexada a qualquer entidade",
+          "response": "Entrada criada com entityType/entityId, kind, actorType (qual IA/humano/system) e correlationId; falha na escrita é engolida (fail-soft) sem afetar a operação",
+          "response_measure": "100% das etapas produzidas por IA têm entrada na trilha identificando o ator; zero operações de negócio abortadas por falha da trilha"
+        }
+      ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-IMOBIA-0012"
+        },
+        {
+          "type": "relates_to",
+          "target": "REQ-IMOBIA-0002"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api"
+        ],
+        "infra_refs": [
+          "infra-postgres"
+        ]
+      },
+      "impact_score": 38,
+      "impact_band": "low",
+      "file": "requirements/imobia/REQ-IMOBIA-NFR-0003.yaml"
+    },
+    {
+      "id": "REQ-IMOBIA-NFR-0004",
+      "slug": "req-imobia-nfr-0004",
+      "title": "Segurança: chaves de IA só no backend via Sealed Secrets",
+      "type": "non-functional",
+      "status": "approved",
+      "owner": "plataforma-digital",
+      "scope": {
+        "applies_to": "product",
+        "product_scope": "imobia"
+      },
+      "statement": "O sistema deve atender ao atributo de qualidade \"segurança de segredos\": as chaves de provider de IA (OPENAI/ANTHROPIC/GOOGLE) e demais credenciais vivem exclusivamente no backend via Secret imobia-config (Sealed Secrets, versionado criptografado), nunca em git plaintext nem expostas ao frontend; o repositório versiona apenas secret.example.yaml com placeholders.",
+      "source": {
+        "stakeholder": "imobia",
+        "origin": "codebase apps/imobia + docs/CONCEPCAO.md (adoção Forja 4.1 D5)",
+        "source_paths": [
+          "apps/imobia/k8s/secret.example.yaml",
+          "apps/imobia/CLAUDE.md"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": false,
+      "risk_tags": [
+        "seguranca"
+      ],
+      "quality_scenarios": [
+        {
+          "source": "Operador configurando credenciais de IA/integrações do app",
+          "stimulus": "Provisiona ou rotaciona OPENAI_API_KEY / ANTHROPIC_API_KEY / GOOGLE_API_KEY",
+          "environment": "Cluster ns apps sob GitOps (Argo CD) com controller de Sealed Secrets",
+          "artifact": "Secret imobia-config consumido pela API e worker",
+          "response": "Chave entra selada (kubeseal) e versionada criptografada; API/worker leem por env; nenhum bundle de frontend ou resposta HTTP contém a chave",
+          "response_measure": "Zero segredos plaintext no git (gate de gitleaks); chaves ausentes do bundle do frontend; rotação sem mudança de código"
+        }
+      ],
+      "links": [
+        {
+          "type": "constrains",
+          "target": "REQ-IMOBIA-0002"
+        }
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1,
+        "semantic_change": "none",
+        "change_reason": "adoção Forja 4.1 D5 — backfill extraído do app real"
+      },
+      "allocation": {
+        "service_refs": [
+          "svc-imobia-api"
+        ],
+        "infra_refs": [
+          "infra-sealed-secrets"
+        ]
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/imobia/REQ-IMOBIA-NFR-0004.yaml"
     },
     {
       "id": "REQ-KEYCLOAK-0001",
@@ -19319,6 +20521,15 @@
       ]
     },
     {
+      "id": "REQ-CONTAVIVA360-0001",
+      "title": "Fundação: Arquitetura em camadas + Observabilidade + Multi-tenant + OIDC",
+      "product": "contaviva-360",
+      "impact_score": 65,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
       "id": "REQ-GYMOPS-0002",
       "title": "Modelo hierárquico de escopo (Organização → Unidade → Área → Atividade)",
       "product": "gymops",
@@ -19331,6 +20542,24 @@
       "id": "REQ-GYMOPS-0003",
       "title": "RBAC granular por escopo (6 papéis em 3 escopos)",
       "product": "gymops",
+      "impact_score": 65,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-0002",
+      "title": "Orquestração multi-modelo de IA (Cortex roteia; GPT/Claude/Gemini executam)",
+      "product": "imobia",
+      "impact_score": 65,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-0007",
+      "title": "WhatsApp multi-instância como eixo central com triagem por IA",
+      "product": "imobia",
       "impact_score": 65,
       "reasons": [
         "sem método de verificação"
@@ -19413,6 +20642,87 @@
       "title": "Criação e submissão assíncrona de manifestos MTR",
       "product": "sicat",
       "impact_score": 65,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0002",
+      "title": "Gestão de Dados Contábeis e Fiscais: Entidades de Pessoa Física, Pessoa Jurídica e Documentos",
+      "product": "contaviva-360",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0003",
+      "title": "Obrigações Fiscais e Alertas: Rastreamento de Vencimentos, Impostos e Pendências",
+      "product": "contaviva-360",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0004",
+      "title": "Controle de Tarefas e Colaboração: Tasks entre Contador e Cliente com Comentários e Anexos",
+      "product": "contaviva-360",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0005",
+      "title": "Controle Financeiro: Contas a Pagar, Contas a Receber e Fluxo de Caixa",
+      "product": "contaviva-360",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0006",
+      "title": "Gestão de Notas Fiscais (PJ): Cadastro, Emissão, Rastreamento e Integração com Obrigações",
+      "product": "contaviva-360",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0007",
+      "title": "Assistente de IA Contábil: Consultas, Rascunhos e Recomendações Baseadas em Dados do Usuário",
+      "product": "contaviva-360",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0008",
+      "title": "Painel Personalizado por Role: Dashboards com Widgets de Pendências, Vencimentos, Alertas e KPIs Contábeis",
+      "product": "contaviva-360",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-CONTAVIVA360-0009",
+      "title": "Emissão e Processamento de Documentos Fiscais (SEFAZ, RFB, Governo): Gateway Centralizado e Auditoria",
+      "product": "contaviva-360",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-NFR-0004",
+      "title": "Segurança: chaves de IA só no backend via Sealed Secrets",
+      "product": "imobia",
+      "impact_score": 60,
       "reasons": [
         "sem método de verificação"
       ]
@@ -19647,6 +20957,15 @@
       "title": "Middleware StripPrefix para APIs",
       "product": "traefik",
       "impact_score": 55,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-0009",
+      "title": "PTAM — parecer técnico de avaliação (ABNT NBR 14653) em PDF",
+      "product": "imobia",
+      "impact_score": 53,
       "reasons": [
         "sem método de verificação"
       ]
@@ -19889,6 +21208,24 @@
       "id": "REQ-GYMOPS-0006",
       "title": "Comentários, anexos e histórico de eventos em atividades",
       "product": "gymops",
+      "impact_score": 45,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-0001",
+      "title": "Contas e acesso multi-tenant (login local + SSO Keycloak aditivo)",
+      "product": "imobia",
+      "impact_score": 45,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-NFR-0001",
+      "title": "IA fail-soft — sem chaves, tudo funciona manualmente (dormência)",
+      "product": "imobia",
       "impact_score": 45,
       "reasons": [
         "sem método de verificação"
@@ -20960,6 +22297,69 @@
       "id": "REQ-GYMOPS-NFR-008",
       "title": "Compatibilidade de navegadores (Chrome, Firefox, Safari, Edge últimas 2 versões)",
       "product": "gymops",
+      "impact_score": 38,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-0003",
+      "title": "Captação de imóveis (venda/locação) com busca semântica",
+      "product": "imobia",
+      "impact_score": 38,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-0004",
+      "title": "Clientes/Leads com lead scoring e realimentação do funil",
+      "product": "imobia",
+      "impact_score": 38,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-0005",
+      "title": "Financeiro PJ/PF com categorização automática e fluxo de caixa",
+      "product": "imobia",
+      "impact_score": 38,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-0010",
+      "title": "Corbam/COBAN — recuperação de crédito (limpa nome, score, rating)",
+      "product": "imobia",
+      "impact_score": 38,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-0012",
+      "title": "Documentos por etapa com validação por IA de visão",
+      "product": "imobia",
+      "impact_score": 38,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-NFR-0002",
+      "title": "Confiabilidade do processamento assíncrono (filas BullMQ fail-soft)",
+      "product": "imobia",
+      "impact_score": 38,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-NFR-0003",
+      "title": "Auditabilidade — trilha do tempo registra qual IA produziu cada etapa",
+      "product": "imobia",
       "impact_score": 38,
       "reasons": [
         "sem método de verificação"
@@ -22157,6 +23557,33 @@
       "id": "REQ-GYMOPS-0015",
       "title": "PWA instalável com service worker e push notifications",
       "product": "gymops",
+      "impact_score": 30,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-0006",
+      "title": "Agenda e eventos a partir de linguagem natural",
+      "product": "imobia",
+      "impact_score": 30,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-0008",
+      "title": "ACM — análise de mercado comparativa por varredura de portais",
+      "product": "imobia",
+      "impact_score": 30,
+      "reasons": [
+        "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-IMOBIA-0011",
+      "title": "Vistoria de imóveis com análise de fotos por IA e laudo oficial",
+      "product": "imobia",
       "impact_score": 30,
       "reasons": [
         "sem método de verificação"

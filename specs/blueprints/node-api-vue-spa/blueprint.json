@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "name": "API Node + SPA Vue (produto CRUD com Postgres)",
   "summary": "Stack-ouro para um produto de negócio CRUD completo: SPA Vue 3 + API Node/Express + worker de fila transacional + Postgres. Espelha a anatomia do SICAT (frontend Vue, backend Express com camadas route→service→repository, worker, migrations SQL, seed) e entra no golden path da plataforma (Traefik path-routing, GHCR/:local, Argo).",
+  "tier": "t3",
   "stack": {
     "web": "Vue 3 + Vite (nginx)",
     "api": "Node 20 + Express (TypeScript via tsx)",

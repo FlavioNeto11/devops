@@ -26,10 +26,13 @@ const RE_WARN = /\b(warn(?:ing)?|deprecat)/i;
 // Timestamp inicial (ISO completo ou HH:MM:SS), opcionalmente entre colchetes.
 const RE_TS = /^(\[?\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}[^\s\]]*\]?|\[?\d{2}:\d{2}:\d{2}[^\s\]]*\]?)\s+/;
 
-export default function Logs() {
+export default function Logs({ initialApp = null }) {
   const [namespaces, setNamespaces] = useState([]);
   const [pods, setPods] = useState([]);
   const [ns, setNs] = useState(''); // filtro de namespace ('' = todos)
+  // (E1, Forja 4.1) contexto de produto por deep-link (/devops/#logs?app=<p>): pré-filtra a
+  // lista de pods pelo app (label part-of). Removível pelo chip — não esconde o cluster.
+  const [appFilter, setAppFilter] = useState(initialApp || '');
   const [selected, setSelected] = useState(null); // { ns, name }
 
   const [tail, setTail] = useState(200);
@@ -176,7 +179,7 @@ export default function Logs() {
   // Ao trocar de pod, volta a ancorar no rodapé.
   useEffect(() => { setAtBottom(true); }, [selected]);
 
-  // Pods filtrados por namespace e agrupados por app.
+  // Pods filtrados por namespace (e pelo app do deep-link, se houver) e agrupados por app.
   const groups = useMemo(() => {
     const list = ns ? pods.filter((p) => p.namespace === ns) : pods;
     const map = new Map();
@@ -186,9 +189,10 @@ export default function Logs() {
       map.get(key).push(p);
     }
     return [...map.entries()]
+      .filter(([app]) => !appFilter || app === appFilter)
       .map(([app, items]) => [app, items.sort((a, b) => a.name.localeCompare(b.name))])
       .sort((a, b) => a[0].localeCompare(b[0]));
-  }, [pods, ns]);
+  }, [pods, ns, appFilter]);
 
   // Linhas a exibir (com filtro opcional por busca).
   const allLines = useMemo(() => (logText ? logText.split('\n') : []), [logText]);
@@ -245,6 +249,13 @@ export default function Logs() {
         <label className="check-inline">
           <input type="checkbox" checked={wrap} onChange={(e) => setWrap(e.target.checked)} /> quebrar linha
         </label>
+        {appFilter && (
+          <button type="button" className="btn" onClick={() => setAppFilter('')}
+            title="Filtro de app vindo do link — clique para remover e ver todos os pods"
+            aria-label={`Remover filtro do app ${appFilter}`}>
+            app: {appFilter} ×
+          </button>
+        )}
       </div>
 
       {error && <div className="state state--error" role="alert">Erro ao carregar os logs (tente outro pod ou namespace): {error}</div>}
@@ -257,7 +268,11 @@ export default function Logs() {
               {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} h={34} r={7} />)}
             </div>
           )}
-          {!loadingMeta && !groups.length && <p className="muted" style={{ margin: 4 }}>Nenhum pod encontrado.</p>}
+          {!loadingMeta && !groups.length && (
+            <p className="muted" style={{ margin: 4 }}>
+              {appFilter ? `Nenhum pod encontrado para o app "${appFilter}".` : 'Nenhum pod encontrado.'}
+            </p>
+          )}
           {groups.map(([app, items]) => (
             <div key={app}>
               <div className="logs2__group-label">{app}</div>

@@ -1,12 +1,175 @@
 {
   "products": [
     {
+      "name": "contaviva-360",
+      "display_name": "ContaViva 360",
+      "base_path": "/contaviva-360",
+      "blueprint": "gymops-style",
+      "origin": "greenfield",
+      "vision": "Crie um sistema chamado ContaViva 360, uma plataforma completa de gerenciamento contábil para pessoa física e pessoa jurídica, pensada para organizar, controlar e centralizar toda a vida financeira, fiscal, documental e contábil do usuário em um único ambiente.\n\nO sistema deve permitir o cadastro de diferentes tipos de usuários, como administrador geral, contador, auxiliar contábil, cliente pessoa física, cliente pessoa jurídica, gestor financeiro e usuário convidado com permissões limitadas. Cada perfil deve ter acessos específicos conforme sua função, permitindo controlar quem pode visualiza",
+      "app_type": "product_software",
+      "architecture_summary": "Stack/decisão base: Escolher gymops-style como blueprint arquitetural padrão.\nBlocos de capacidade: camadas-rigidas, control-ai-por-app, design-system, gateway-externo, ia-grafo, idempotencia, migrations-versionadas, notificacoes-multicanal, observabilidade, oidc-sessao, rag-pgvector, rbac-multitenant, redis-bullmq, structured-outputs, worker-queue-transacional.\nDecisões (ADRs): ADR-001: Stack GymOps (Monorepo Next.js + Fastify + Prisma) para ContaViva-360; ADR-002: Filas de Domínio em BullMQ + Worker Transacional para Operações Críticas; ADR-003: Gateway Único para SEFAZ, RFB, e-Social e Governo; ADR-004: Assistente de IA Contábil com Grafo + RAG + Fallback Offline; ADR-005: RBAC em Cascata (Org → Unit → Area) com Soft-Delete; ADR-006: Notificações Multi-Canal (E-mail, Push, WhatsApp) com Degradação Graciosa; ADR-007: Idempotência Obrigatória em Operações Fiscais e Financeiras; ADR-008: Design System Único para Dashboards Personalizados por Role.",
+      "requirement_ids": [
+        "REQ-CONTAVIVA360-0001",
+        "REQ-CONTAVIVA360-0002",
+        "REQ-CONTAVIVA360-0003",
+        "REQ-CONTAVIVA360-0004",
+        "REQ-CONTAVIVA360-0005",
+        "REQ-CONTAVIVA360-0006",
+        "REQ-CONTAVIVA360-0007",
+        "REQ-CONTAVIVA360-0008",
+        "REQ-CONTAVIVA360-0009"
+      ],
+      "phases": {
+        "requirements": {
+          "status": "approved"
+        },
+        "architecture": {
+          "status": "approved"
+        },
+        "scaffold": {
+          "status": "merged",
+          "note": "scaffold mesclado na main — app real em apps/contaviva-360 (base dos 9 REQs implementados)"
+        },
+        "build": {
+          "status": "deployed",
+          "note": "derivado do implementation-status: todos os 9 REQ-CONTAVIVA360-* estão deployed (PRs #156-#166)"
+        }
+      }
+    },
+    {
+      "name": "contaviva-pro",
+      "display_name": "ContaViva Pro",
+      "base_path": "/contaviva-pro",
+      "blueprint": "gymops-style",
+      "origin": "greenfield",
+      "vision": "ERP contábil robusto com autenticação própria, criação de usuários, perfis e controle de acesso: o ContaViva Pro centraliza a gestão contábil e fiscal em um único ambiente, permitindo que administradores criem contas, definam perfis (admin, contador, membro) e controlem quem pode ver e operar cada parte do sistema, com sessão segura emitida pela própria aplicação.",
+      "app_type": "product_software",
+      "architecture_summary": "",
+      "requirement_ids": [],
+      "phases": {
+        "requirements": {
+          "status": "approved"
+        },
+        "architecture": {
+          "status": "approved"
+        },
+        "scaffold": {
+          "status": "not_started"
+        },
+        "build": {
+          "status": "not_started"
+        }
+      }
+    },
+    {
+      "name": "gymops",
+      "display_name": "GymOps",
+      "base_path": "/gymops",
+      "blueprint": "gymops-style",
+      "origin": "adopted",
+      "vision": "Plataforma de gestão operacional para redes com múltiplas unidades físicas (substitui o Trello; contexto inicial: rede de academias SkyFit), com modelo próprio Organização → Unidade → Área → Atividade e RBAC em cascata. Monorepo pnpm com web Next.js 14 App Router (PWA) + API Fastify em TypeScript + Prisma schema-first sobre Postgres 16 com pgvector, Redis/BullMQ para filas, IA estruturada assistiva (rascunho + confirmação) e notificações multicanal. É o exemplar que origina o blueprint gymops-style — aqui adotado como produto da Forja por contrato, sem regeneração de código.",
+      "app_type": "product_software",
+      "architecture_summary": "Stack/decisão base: Stack real adotada (não escolhida pela Forja): monorepo pnpm com web Next.js 14 App Router + React 18 + Tailwind (PWA; basePath /gymops nativo) + API Fastify 4 em TypeScript strict (Zod em todo endpoint) + worker BullMQ na MESMA imagem da api + Prisma schema-first sobre Postgres 16 com pgvector + Redis 7. Corresponde ao blueprint gymops-style (base_stack gymops) — o GymOps é o exemplar que origina esse blueprint.\nBlocos de capacidade: camadas-rigidas, contas-acesso, migrations-versionadas, notificacoes-multicanal, observabilidade, rbac-multitenant, redis-bullmq, structured-outputs.\nDecisões (ADRs): ADR-001: Prisma schema-first com migrations versionadas em packages/db; ADR-002: Filas Redis/BullMQ com degradação graciosa; ADR-003: RBAC multi-tenant em cascata Org → Unit → Area; ADR-004: Autenticação própria (JWT + refresh) com SSO Keycloak aditivo; ADR-005: IA estruturada assistiva — rascunho + confirmação, nunca autônoma; ADR-006: Notificações multicanal com degradação graciosa; ADR-007: API em plugins Fastify por domínio com envelope canônico; ADR-008: Observabilidade com métricas Prometheus e health.",
+      "requirement_ids": [
+        "REQ-GYMOPS-0001",
+        "REQ-GYMOPS-0002",
+        "REQ-GYMOPS-0003",
+        "REQ-GYMOPS-0004",
+        "REQ-GYMOPS-0005",
+        "REQ-GYMOPS-0006",
+        "REQ-GYMOPS-0007",
+        "REQ-GYMOPS-0008",
+        "REQ-GYMOPS-0009",
+        "REQ-GYMOPS-0010",
+        "REQ-GYMOPS-0011",
+        "REQ-GYMOPS-0012",
+        "REQ-GYMOPS-0013",
+        "REQ-GYMOPS-0014",
+        "REQ-GYMOPS-0015",
+        "REQ-GYMOPS-NFR-001",
+        "REQ-GYMOPS-NFR-002",
+        "REQ-GYMOPS-NFR-003",
+        "REQ-GYMOPS-NFR-004",
+        "REQ-GYMOPS-NFR-005",
+        "REQ-GYMOPS-NFR-006",
+        "REQ-GYMOPS-NFR-007",
+        "REQ-GYMOPS-NFR-008"
+      ],
+      "phases": {
+        "requirements": {
+          "status": "adopted",
+          "note": "requisitos reais pré-existentes em specs/requirements/gymops/ (extraídos do app no bootstrap da base)"
+        },
+        "architecture": {
+          "status": "adopted",
+          "note": "ADRs extraídos das decisões reais do app (apps/gymops/CLAUDE.md e docs/) — ver architecture.json"
+        },
+        "scaffold": {
+          "status": "adopted",
+          "note": "app real pré-existente em apps/gymops — não scaffoldado pela Forja"
+        },
+        "build": {
+          "status": "deployed",
+          "note": "derivado do implementation-status: todos os REQ-GYMOPS-* estão deployed (cluster ns apps)"
+        }
+      }
+    },
+    {
+      "name": "imobia",
+      "display_name": "Imobia",
+      "base_path": "/imobia",
+      "blueprint": "node-api-vue-spa",
+      "origin": "adopted",
+      "vision": "Ecossistema imobiliário + fintech onde o WhatsApp é o eixo central e múltiplas IAs atuam como funcionários especializados: Cortex faz a triagem/roteamento barato, GPT executa lógica/function-calling, Claude redação/análise e Gemini documentos/visão — tudo fail-soft (sem chaves, cada módulo opera manualmente e as IAs ficam dormentes). SPA Vue 3 + Vite sobre API Node 20/Fastify (TypeScript) com Prisma sobre Postgres 16/pgvector, Redis/BullMQ para filas e worker na mesma imagem da API. Módulos: Captação/Imóveis (busca semântica), Clientes/Leads (scoring + realimentação do funil), Financeiro PJ/PF, Agenda NL, WhatsApp multi-instância, ACM, PTAM (ABNT NBR 14653), Corbam/COBAN, Vistoria/Laudos e Documentos por etapa com trilha de auditoria de qual IA produziu cada passo. Stack real mais próxima do blueprint node-api-vue-spa (SPA Vue + API Node + worker + Postgres; difere em Fastify/Prisma/Redis) — aqui adotado como produto da Forja por contrato, sem regeneração de código.",
+      "app_type": "product_software",
+      "architecture_summary": "Stack/decisão base: Stack real adotada (não escolhida pela Forja): SPA Vue 3 + Pinia + Vue Router (Vite → nginx, base /imobia/) + API Node 20/Fastify em TypeScript (runtime tsx, ESM) + worker na MESMA imagem (npm run worker) + Postgres 16/pgvector via Prisma (29 tabelas, 7 migrações versionadas) + Redis/BullMQ para filas + PVC imobia-files para uploads/PDFs. Aproximação do blueprint node-api-vue-spa (SPA Vue + API Node + worker + Postgres), diferindo em Fastify/Prisma/Redis.\nDecisões (ADRs): ADR-001: Orquestração 4-modelos — Cortex roteia, GPT/Claude/Gemini executam por vocação; ADR-002: Fail-soft em todas as integrações externas (IA dormente, filas no-op, provedores dormentes); ADR-003: Postgres 16 + pgvector via Prisma com migrações versionadas; ADR-004: Trabalho pesado em Redis/BullMQ; worker = mesma imagem da API; ADR-005: Auth local (JWT stateless via oidc-kit) + SSO Keycloak aditivo, multi-tenant por Membership; ADR-006: Arquivos em PVC com storageKey saneado (uploads e PDFs gerados); ADR-007: Trilha do tempo polimórfica registrando qual IA produziu cada etapa; ADR-008: SSE de IA como IngressRoute dedicada sem compress (não api2).",
+      "requirement_ids": [
+        "REQ-IMOBIA-0001",
+        "REQ-IMOBIA-0002",
+        "REQ-IMOBIA-0003",
+        "REQ-IMOBIA-0004",
+        "REQ-IMOBIA-0005",
+        "REQ-IMOBIA-0006",
+        "REQ-IMOBIA-0007",
+        "REQ-IMOBIA-0008",
+        "REQ-IMOBIA-0009",
+        "REQ-IMOBIA-0010",
+        "REQ-IMOBIA-0011",
+        "REQ-IMOBIA-0012",
+        "REQ-IMOBIA-NFR-0001",
+        "REQ-IMOBIA-NFR-0002",
+        "REQ-IMOBIA-NFR-0003",
+        "REQ-IMOBIA-NFR-0004"
+      ],
+      "phases": {
+        "requirements": {
+          "status": "adopted",
+          "note": "requisitos reais em specs/requirements/imobia/ — backfill D5 (Forja 4.1) extraído de apps/imobia/CLAUDE.md, docs/CONCEPCAO.md e devops.yaml"
+        },
+        "architecture": {
+          "status": "adopted",
+          "note": "ADRs extraídos das decisões reais do app (apps/imobia/CLAUDE.md + docs/CONCEPCAO.md) — ver architecture.json"
+        },
+        "scaffold": {
+          "status": "adopted",
+          "note": "app real pré-existente em apps/imobia — não scaffoldado pela Forja"
+        },
+        "build": {
+          "status": "deployed",
+          "note": "derivado do implementation-status: todos os REQ-IMOBIA-* estão deployed (cluster ns apps, imagens :local, F0–F8 entregues)"
+        }
+      }
+    },
+    {
       "name": "neuroevolui",
       "display_name": "NeuroEvolui",
       "base_path": "/neuroevolui",
       "blueprint": "gymops-style",
+      "origin": "greenfield",
       "vision": "O NeuroEvolui é um sistema completo para clínicas e profissionais de neuropsicopedagogia, desenvolvido para centralizar a gestão de pacientes, registros de evolução, agendamento de consultas, controle financeiro e pagamentos em uma única plataforma. O sistema conta com uma área exclusiva para o profissional, facilitando o acompanhamento clínico e administrativo, e também uma área própria para o paciente, onde ele pode acessar informações, consultas, orientações e interagir com uma inteligência artificial preparada para apoiar dúvidas, orientar processos e auxiliar tanto o operador quanto o pac",
       "app_type": "product_software",
+      "architecture_summary": "Stack/decisão base: Usar gymops-style (monorepo Next.js + Fastify + Prisma) em vez de sicat (Node + Vue).\nBlocos de capacidade: camadas-rigidas, control-ai-por-app, design-system, ia-grafo, idempotencia, migrations-versionadas, notificacoes-multicanal, observabilidade, oidc-sessao, pagamentos-gateway, rag-pgvector, rbac-multitenant, redis-bullmq, structured-outputs.\nDecisões (ADRs): ADR-001: Stack GymOps para Multi-Tenant + IA + Notificações; ADR-002: Filas BullMQ para Evolução, Importação, Notificação e Sumário-IA; ADR-003: RBAC em Cascata (Proprietário > Gestor > Profissional > Paciente); ADR-004: Idempotência em Cobrança e Submissão de Jobs; ADR-005: Assistente IA com Grafo Próprio + RAG + Controle de Plataforma; ADR-006: Notificações Multi-Canal com Degradação Graciosa; ADR-007: Design System Centralizado para Frontend Consistente; ADR-008: Não Implementar contract-openapi (Não-Requisito para GymOps).",
       "requirement_ids": [
         "REQ-NEUROEVOLUI-0001",
         "REQ-NEUROEVOLUI-0002",
@@ -26,10 +189,66 @@
           "status": "approved"
         },
         "scaffold": {
-          "status": "not_started"
+          "status": "merged",
+          "note": "scaffold mesclado na main — app real em apps/neuroevolui (base dos 9 REQs implementados)"
         },
         "build": {
-          "status": "not_started"
+          "status": "deployed",
+          "note": "derivado do implementation-status: todos os 9 REQ-NEUROEVOLUI-* estão deployed (PRs #126-#132)"
+        }
+      }
+    },
+    {
+      "name": "sicat",
+      "display_name": "SICAT",
+      "base_path": "/sicat",
+      "blueprint": "node-api-vue-spa",
+      "origin": "adopted",
+      "vision": "Plataforma operacional de automação MTR/CDF/DMR da CETESB-SP: SPA Vue 3 + Vuetify sobre API Node 20/Express (TypeScript) com worker de fila transacional e Postgres 16 como fonte transacional única. Automatiza emissão, impressão, cancelamento e recebimento de manifestos, CDFs e cadastros contra o portal REAL da CETESB por um gateway resiliente único, com sessão própria do app sobre o login CETESB real e camada de IA assistiva (chat operacional com memória). É o exemplar que origina o blueprint node-api-vue-spa — aqui adotado como produto da Forja por contrato, sem regeneração de código.",
+      "app_type": "product_software",
+      "architecture_summary": "Stack/decisão base: Stack real adotada (não escolhida pela Forja): SPA Vue 3 + Vuetify (Vite → nginx, base /sicat/) + API Node 20/Express em TypeScript (runtime tsx; tsc só para dist/ em prod) + worker na MESMA imagem (npm run worker) + Postgres 16 como fonte transacional única e fila. Corresponde ao blueprint node-api-vue-spa (base_stack sicat) — o SICAT é o exemplar que origina esse blueprint.\nBlocos de capacidade: camadas-rigidas, contas-acesso, contract-openapi, gateway-externo, idempotencia, migrations-versionadas, observabilidade, rag-pgvector, worker-queue-transacional.\nDecisões (ADRs): ADR-001: Contract-first — OpenAPI interno como fonte da superfície HTTP; ADR-002 (DL-022): Fila transacional no Postgres — sem broker externo; ADR-003 (DL-093): Gateway CETESB único, mantido em JS; ADR-004: Camadas rígidas route → service → repository → job → worker → gateway; ADR-005: Sessão própria do app sobre login CETESB real + SSO Keycloak aditivo; ADR-006: Idempotência honrando Idempotency-Key; ADR-007: Migrations versionadas idempotentes no boot; ADR-008: Observabilidade estruturada (health por subsistema + Prometheus); ADR-009: IA assistiva com memória/retrieval vetorial no engine de conversa.",
+      "requirement_ids": [
+        "REQ-SICAT-0001",
+        "REQ-SICAT-0002",
+        "REQ-SICAT-0003",
+        "REQ-SICAT-0004",
+        "REQ-SICAT-0005",
+        "REQ-SICAT-0006",
+        "REQ-SICAT-0007",
+        "REQ-SICAT-0008",
+        "REQ-SICAT-0009",
+        "REQ-SICAT-0010",
+        "REQ-SICAT-0011",
+        "REQ-SICAT-0012",
+        "REQ-SICAT-0013",
+        "REQ-SICAT-0014",
+        "REQ-SICAT-0015",
+        "REQ-SICAT-0016",
+        "REQ-SICAT-NFR-0001",
+        "REQ-SICAT-NFR-0002",
+        "REQ-SICAT-NFR-0003",
+        "REQ-SICAT-NFR-0004",
+        "REQ-SICAT-NFR-0005",
+        "REQ-SICAT-NFR-0006",
+        "REQ-SICAT-NFR-0007",
+        "REQ-SICAT-NFR-0008"
+      ],
+      "phases": {
+        "requirements": {
+          "status": "adopted",
+          "note": "requisitos reais pré-existentes em specs/requirements/sicat/ (extraídos do app no bootstrap da base)"
+        },
+        "architecture": {
+          "status": "adopted",
+          "note": "ADRs extraídos das decisões reais do app (apps/sicat/CLAUDE.md) — ver architecture.json"
+        },
+        "scaffold": {
+          "status": "adopted",
+          "note": "app real pré-existente em apps/sicat — não scaffoldado pela Forja"
+        },
+        "build": {
+          "status": "deployed",
+          "note": "derivado do implementation-status: todos os REQ-SICAT-* estão deployed (cluster ns apps)"
         }
       }
     }

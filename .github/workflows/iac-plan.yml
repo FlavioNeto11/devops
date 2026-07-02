@@ -1,0 +1,151 @@
+# =============================================================================
+# iac-plan — valida (e opcionalmente planeja) a IaC da SUPERFICIE EXTERNA
+# -----------------------------------------------------------------------------
+# Escopo: platform/iac/** (OpenTofu: Cloudflare DNS/tunnel + GitHub repo) e
+# platform/dns/domains.yaml (interface YAML dos registros DNS).
+# - SEM credenciais: tofu fmt -check + init -backend=false + validate.
+#   Fail-soft: se o OpenTofu nao estiver instalado no runner, emite ::warning::
+#   e NAO falha o PR (instale com `winget install --id OpenTofu.Tofu -e`).
+# - COM o secret CLOUDFLARE_API_TOKEN no repo: roda tambem `tofu plan` real
+#   (backend kubernetes via kubeconfig do runner) e comenta o resumo no PR.
+# APPLY NUNCA acontece aqui — somente via iac-apply.yml (workflow_dispatch
+# manual; exposicao externa = operacao COM APROVACAO, AGENTS.md par. 5/6).
+# Runner: self-hosted Windows (mesma maquina do cluster/kubeconfig).
+# =============================================================================
+name: iac-plan
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "platform/iac/**"
+      - "platform/dns/**"
+      - ".github/workflows/iac-plan.yml"
+
+permissions:
+  contents: read
+  issues: read # o provider github le os labels no plan
+  pull-requests: write # comentario com o resumo do plan
+
+concurrency:
+  group: iac-plan-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    name: fmt + validate (+ plan se houver credencial)
+    runs-on: [self-hosted, windows, docker-desktop, local-k8s, flavio-devops]
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Detectar OpenTofu (fail-soft)
+        id: tofu
+        run: |
+          $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+          $cmd = Get-Command tofu -ErrorAction SilentlyContinue
+          if (-not $cmd) {
+            Write-Host "::warning::OpenTofu nao encontrado no runner — fmt/validate/plan PULADOS (fail-soft ate a ferramenta ser instalada). Instale na maquina do runner: winget install --id OpenTofu.Tofu -e (detalhes em platform/iac/README.md) e re-rode o workflow."
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "found=false"
+          }
+          else {
+            Write-Host ("OpenTofu: " + (tofu version | Select-Object -First 1))
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "found=true"
+          }
+          exit 0
+
+      - name: tofu fmt -check
+        if: steps.tofu.outputs.found == 'true'
+        working-directory: platform/iac
+        run: |
+          $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+          tofu fmt -check -diff -recursive
+
+      - name: tofu init -backend=false + validate
+        if: steps.tofu.outputs.found == 'true'
+        working-directory: platform/iac
+        run: |
+          $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+          # cache de providers persistente entre runs (runner self-hosted)
+          $env:TF_PLUGIN_CACHE_DIR = Join-Path (Split-Path $env:GITHUB_WORKSPACE -Parent) '.tofu-plugin-cache'
+          New-Item -ItemType Directory -Force -Path $env:TF_PLUGIN_CACHE_DIR | Out-Null
+          tofu init -backend=false -input=false -no-color
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          tofu validate -no-color
+
+      - name: Checar pre-requisitos do plan real (secret + namespace)
+        id: creds
+        if: steps.tofu.outputs.found == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+          if ([string]::IsNullOrWhiteSpace($env:CLOUDFLARE_API_TOKEN)) {
+            Write-Host "::warning::Secret CLOUDFLARE_API_TOKEN ausente no repo — tofu plan real PULADO (fmt/validate ja rodaram). Cadastre o secret para habilitar o plan em PRs (token com Zone.Zone:Read + Zone.DNS:Edit; ver platform/iac/README.md)."
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "has=false"
+            exit 0
+          }
+          kubectl get namespace devops-iac 1>$null 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::warning::Namespace devops-iac (backend de estado) nao existe no cluster — plan PULADO. Crie com: kubectl apply -f platform/namespaces/namespaces.yaml"
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "has=false"
+            exit 0
+          }
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "has=true"
+          exit 0
+
+      - name: tofu plan (backend kubernetes do runner) — NUNCA aplica
+        id: planrun
+        if: steps.creds.outputs.has == 'true'
+        working-directory: platform/iac
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+          $env:TF_PLUGIN_CACHE_DIR = Join-Path (Split-Path $env:GITHUB_WORKSPACE -Parent) '.tofu-plugin-cache'
+          New-Item -ItemType Directory -Force -Path $env:TF_PLUGIN_CACHE_DIR | Out-Null
+          tofu init -input=false -no-color
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $planFile = Join-Path $env:RUNNER_TEMP 'plan.txt'
+          tofu plan -input=false -no-color -lock-timeout=60s -detailed-exitcode 2>&1 | Tee-Object -FilePath $planFile
+          $code = $LASTEXITCODE
+          if ($code -eq 1) { Write-Host "::error::tofu plan falhou (veja o log acima)."; exit 1 }
+          $changes = if ($code -eq 2) { 'true' } else { 'false' }
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "changes=$changes"
+          exit 0
+
+      - name: Comentar resumo do plan no PR
+        if: steps.planrun.outcome == 'success' && steps.creds.outputs.has == 'true' && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          HAS_CHANGES: ${{ steps.planrun.outputs.changes }}
+        run: |
+          $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+          $planFile = Join-Path $env:RUNNER_TEMP 'plan.txt'
+          $head = if ($env:HAS_CHANGES -eq 'true') { '⚠️ o plan encontrou MUDANCAS pendentes (veja o detalhe abaixo).' } else { '✅ sem mudancas — estado externo alinhado ao declarado.' }
+          $lines = @(
+            '### iac-plan (OpenTofu — superficie externa)',
+            '',
+            $head,
+            '',
+            'Apply e sempre MANUAL via workflow `iac-apply` (operacao com aprovacao — AGENTS.md par. 5/6). Este workflow NUNCA aplica.',
+            '',
+            '<details><summary>tofu plan (ultimas 120 linhas)</summary>',
+            '',
+            '```text'
+          ) + (Get-Content $planFile -Tail 120) + @(
+            '```',
+            '',
+            '</details>'
+          )
+          $commentFile = Join-Path $env:RUNNER_TEMP 'plan-comment.md'
+          Set-Content -Path $commentFile -Value $lines -Encoding utf8
+          gh pr comment $env:PR_NUMBER --repo $env:REPO --body-file $commentFile
