@@ -26,6 +26,7 @@ const REPO_ROOT = path.resolve(SPECS_DIR, '..');
 const SCHEMA_DIR = path.join(SPECS_DIR, 'schema');
 const BLUEPRINTS_DIR = path.join(SPECS_DIR, 'blueprints');
 const PRODUCTS_DIR = path.join(SPECS_DIR, 'products');
+const REQUIREMENTS_DIR = path.join(SPECS_DIR, 'requirements');
 const CAPABILITIES_DIR = path.join(SPECS_DIR, 'forge', 'capabilities', 'blocks');
 const OUT_DIR = path.join(SPECS_DIR, 'baseline');
 const CHECK = process.argv.includes('--check');
@@ -81,8 +82,39 @@ function loadCapabilities() {
   return out;
 }
 
+// --- requisitos existentes (anti-fabricação) -----------------------------------
+// Um arquivo por requisito, nome do arquivo == id (o build-baseline valida isso).
+function loadRequirementIds() {
+  const ids = new Set();
+  for (const scope of listDirs(REQUIREMENTS_DIR)) {
+    for (const f of fs.readdirSync(path.join(REQUIREMENTS_DIR, scope)).filter((f) => f.endsWith('.yaml'))) {
+      ids.add(f.replace(/\.yaml$/, ''));
+    }
+  }
+  return ids;
+}
+
+// --- adoção brownfield (anti-adoção-de-fachada) ---------------------------------
+// Produto com origin=adopted documenta um app REAL em apps/<name>. Cada bloco de
+// capacidade declarado precisa de EVIDÊNCIA no catálogo: pelo menos um
+// reference.path dentro de apps/<name>/. Bloco sem evidência = fachada → build falha.
+function validateAdoptedEvidence(prod, capabilityById) {
+  const prefix = `apps/${prod.name}/`;
+  for (const blockId of prod.capability_blocks || []) {
+    const cap = capabilityById.get(blockId);
+    if (!cap) { fail(`products/${prod.name}: capability_block '${blockId}' não existe em specs/forge/capabilities/blocks/`); continue; }
+    const hasEvidence = (cap.reference || []).some((ref) => {
+      const rel = String(ref.path).replace(/\\/g, '/');
+      return (rel === `apps/${prod.name}` || rel.startsWith(prefix)) && fs.existsSync(path.resolve(REPO_ROOT, rel));
+    });
+    if (!hasEvidence) {
+      fail(`products/${prod.name} (origin=adopted): capability_block '${blockId}' sem evidência — nenhum reference.path do catálogo aponta para dentro de apps/${prod.name}/ (adoção de fachada)`);
+    }
+  }
+}
+
 // --- products + build-plans ---------------------------------------------------
-function loadProducts(blueprintIds) {
+function loadProducts(blueprintIds, requirementIds, capabilityById) {
   const products = [];
   for (const name of listDirs(PRODUCTS_DIR)) {
     const pp = path.join(PRODUCTS_DIR, name, 'product.json');
@@ -93,6 +125,12 @@ function loadProducts(blueprintIds) {
     if (prod.name !== name) fail(`product name '${prod.name}' != pasta '${name}' (specs/products/${name}/)`);
     if (prod.base_path !== `/${prod.name}`) fail(`products/${name}: base_path '${prod.base_path}' deveria ser '/${prod.name}'`);
     if (!blueprintIds.has(prod.blueprint)) fail(`products/${name}: blueprint '${prod.blueprint}' não existe em specs/blueprints/`);
+    // anti-fabricação: todo requirement_id declarado precisa existir em specs/requirements/**
+    for (const id of prod.requirement_ids || []) {
+      if (!requirementIds.has(id)) fail(`products/${name}: requirement_id '${id}' não existe em specs/requirements/** (requisito fantasma)`);
+    }
+    // adoção brownfield: blocos declarados exigem evidência real dentro de apps/<name>/
+    if (prod.origin === 'adopted') validateAdoptedEvidence(prod, capabilityById);
 
     // build-plan.json é opcional até a fase de arquitetura
     const bpPath = path.join(PRODUCTS_DIR, name, 'build-plan.json');
@@ -154,7 +192,9 @@ function build() {
       if (b.base_stack && !cap.compatible_stacks.includes(b.base_stack)) fail(`blueprints/${b.id}: bloco '${id}' não é compatível com a stack '${b.base_stack}'`);
     }
   }
-  const products = loadProducts(blueprintIds).sort((a, b) => a.name.localeCompare(b.name));
+  const capabilityById = new Map(capabilities.map((c) => [c.id, c]));
+  const requirementIds = loadRequirementIds();
+  const products = loadProducts(blueprintIds, requirementIds, capabilityById).sort((a, b) => a.name.localeCompare(b.name));
 
   const blueprintsIndex = {
     blueprints: blueprints.map((b) => ({ id: b.id, version: b.version, name: b.name, summary: b.summary || '', stack: b.stack, services: b.services, db: b.db ?? null, reuses: b.reuses || [], base_stack: b.base_stack ?? null, default_blocks: b.default_blocks || [], compatible_blocks: b.compatible_blocks || [] })),
@@ -165,6 +205,7 @@ function build() {
   const productsIndex = {
     products: products.map((p) => ({
       name: p.name, display_name: p.display_name, base_path: p.base_path, blueprint: p.blueprint,
+      origin: p.origin || 'greenfield',
       vision: p.vision, app_type: p.app_type || 'product_software',
       architecture_summary: architectureSummary(p.name),
       requirement_ids: p.requirement_ids || [], phases: p.phases,

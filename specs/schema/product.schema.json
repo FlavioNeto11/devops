@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://nvit.com.br/devops/specs/product.schema.json",
-  "title": "Produto greenfield — brief + estado das fases do Forge",
-  "description": "Manifesto de um PRODUTO NOVO a ser gerado do zero pelo Forge. Mora em specs/products/<name>/product.json. Fora de specs/requirements/** (não dispara a esteira nem está na DENYLIST). phases.build é DERIVADO do implementation-status (não é fonte concorrente de verdade).",
+  "title": "Produto do Forge — brief + estado das fases (greenfield ou adotado)",
+  "description": "Manifesto de um PRODUTO do Forge. Mora em specs/products/<name>/product.json. Fora de specs/requirements/** (não dispara a esteira nem está na DENYLIST). phases.build é DERIVADO do implementation-status (não é fonte concorrente de verdade). origin=greenfield (default): gerado do zero pelo Forge; origin=adopted: app REAL pré-existente em apps/<name> adotado por CONTRATO — as fases requirements/architecture usam o status 'adopted' e cada capability_block declarado exige evidência no catálogo (reference.path dentro de apps/<name>/, validado pelo build-products).",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "name", "display_name", "base_path", "blueprint", "vision", "phases"],
@@ -13,7 +13,8 @@
     "base_path": { "type": "string", "pattern": "^/[a-z0-9-]+$" },
     "namespace": { "type": "string", "default": "apps" },
     "app_type": { "enum": ["product_software", "cms_portal", "platform_tool"], "default": "product_software" },
-    "blueprint": { "type": "string", "pattern": "^[a-z0-9-]+$", "description": "Id de um blueprint em specs/blueprints/." },
+    "blueprint": { "type": "string", "pattern": "^[a-z0-9-]+$", "description": "Id de um blueprint em specs/blueprints/. Para origin=adopted: o blueprint REAL mais próximo da stack do app existente." },
+    "origin": { "enum": ["greenfield", "adopted"], "default": "greenfield", "description": "greenfield = produto gerado do zero pelo Forge (default). adopted = app real pré-existente em apps/<name> adotado por contrato (brownfield) — o Forge NÃO scaffolda nem reescreve; o produto documenta o que o app TEM." },
     "stack": { "enum": ["sicat", "gymops"], "description": "Stack-base escolhida na fase de arquitetura (= blueprint.base_stack). Define o gerador de scaffold." },
     "interfaces": { "type": "array", "items": { "enum": ["api", "web"] }, "default": ["api"], "description": "Superfícies geradas: 'api' (sempre); 'web' adiciona o frontend SPA Vue (scaffold-frontend.mjs). Só-API quando contém apenas 'api'." },
     "capability_blocks": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9-]+$" }, "description": "Blocos de capacidade selecionados para este produto (ids em specs/forge/capabilities/blocks/). O applier de scaffold aplica os overlays correspondentes." },
@@ -34,7 +35,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["requirements", "architecture", "scaffold", "build"],
-      "description": "Máquina de estados dos gates. requirements/architecture: proposed|approved. scaffold: not_started|merged. build: derivado (agregado dos REQ no implementation-status).",
+      "description": "Máquina de estados dos gates. requirements/architecture: proposed|approved (ou adopted em produto brownfield). scaffold: not_started|merged (ou adopted — o código já existe). build: derivado (agregado dos REQ no implementation-status).",
       "properties": {
         "requirements": { "$ref": "#/$defs/phase" },
         "architecture": { "$ref": "#/$defs/phase" },
@@ -55,7 +56,7 @@
       "additionalProperties": true,
       "required": ["status"],
       "properties": {
-        "status": { "enum": ["not_started", "proposed", "approved", "in_progress", "pr_open", "merged", "deployed", "done", "blocked"] }
+        "status": { "enum": ["not_started", "proposed", "approved", "adopted", "in_progress", "pr_open", "merged", "deployed", "done", "blocked"] }
       }
     }
   }

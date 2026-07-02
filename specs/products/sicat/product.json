@@ -1,0 +1,75 @@
+{
+  "schema_version": "1.2.0",
+  "name": "sicat",
+  "display_name": "SICAT",
+  "base_path": "/sicat",
+  "namespace": "apps",
+  "app_type": "product_software",
+  "blueprint": "node-api-vue-spa",
+  "stack": "sicat",
+  "origin": "adopted",
+  "interfaces": [
+    "api",
+    "web"
+  ],
+  "capability_blocks": [
+    "camadas-rigidas",
+    "contas-acesso",
+    "contract-openapi",
+    "gateway-externo",
+    "idempotencia",
+    "migrations-versionadas",
+    "observabilidade",
+    "rag-pgvector",
+    "worker-queue-transacional"
+  ],
+  "vision": "Plataforma operacional de automação MTR/CDF/DMR da CETESB-SP: SPA Vue 3 + Vuetify sobre API Node 20/Express (TypeScript) com worker de fila transacional e Postgres 16 como fonte transacional única. Automatiza emissão, impressão, cancelamento e recebimento de manifestos, CDFs e cadastros contra o portal REAL da CETESB por um gateway resiliente único, com sessão própria do app sobre o login CETESB real e camada de IA assistiva (chat operacional com memória). É o exemplar que origina o blueprint node-api-vue-spa — aqui adotado como produto da Forja por contrato, sem regeneração de código.",
+  "requirement_ids": [
+    "REQ-SICAT-0001",
+    "REQ-SICAT-0002",
+    "REQ-SICAT-0003",
+    "REQ-SICAT-0004",
+    "REQ-SICAT-0005",
+    "REQ-SICAT-0006",
+    "REQ-SICAT-0007",
+    "REQ-SICAT-0008",
+    "REQ-SICAT-0009",
+    "REQ-SICAT-0010",
+    "REQ-SICAT-0011",
+    "REQ-SICAT-0012",
+    "REQ-SICAT-0013",
+    "REQ-SICAT-0014",
+    "REQ-SICAT-0015",
+    "REQ-SICAT-0016",
+    "REQ-SICAT-NFR-0001",
+    "REQ-SICAT-NFR-0002",
+    "REQ-SICAT-NFR-0003",
+    "REQ-SICAT-NFR-0004",
+    "REQ-SICAT-NFR-0005",
+    "REQ-SICAT-NFR-0006",
+    "REQ-SICAT-NFR-0007",
+    "REQ-SICAT-NFR-0008"
+  ],
+  "phases": {
+    "requirements": {
+      "status": "adopted",
+      "note": "requisitos reais pré-existentes em specs/requirements/sicat/ (extraídos do app no bootstrap da base)"
+    },
+    "architecture": {
+      "status": "adopted",
+      "note": "ADRs extraídos das decisões reais do app (apps/sicat/CLAUDE.md) — ver architecture.json"
+    },
+    "scaffold": {
+      "status": "adopted",
+      "note": "app real pré-existente em apps/sicat — não scaffoldado pela Forja"
+    },
+    "build": {
+      "status": "deployed",
+      "note": "derivado do implementation-status: todos os REQ-SICAT-* estão deployed (cluster ns apps)"
+    }
+  },
+  "version": {
+    "revision": 1,
+    "change_reason": "Forja 4.0 A5 — adoção brownfield por contrato (app real apps/sicat vira produto da Forja sem tocar código/k8s)"
+  }
+}
