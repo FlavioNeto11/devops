@@ -491,9 +491,24 @@ function linkList(edges, dir) {
 const SEM_CHANGE_LBL = { major: 'maior', minor: 'menor', patch: 'correção', none: 'sem mudança' };
 const semChangeLabel = (s) => SEM_CHANGE_LBL[s] || s || 'sem mudança';
 const semChangeCls = (s) => s === 'major' ? 'b-crit' : s === 'minor' ? 'b-high' : s === 'patch' ? 'b-med' : 'b-low';
+// "Mudanças" (A1a) = versões/diffs + fila de reprocessamento numa aba só; sub-abas trocam a view
+// interna (o item da sidebar continua aceso via NAV_ALIAS). A fila é consequência das mudanças.
+function changesTabs(active) {
+  const bar = h('div', { class: 'usa-filter changes-tabs', role: 'group', 'aria-label': 'Seções de Mudanças' });
+  const tab = (label, view, badgeN) => {
+    const on = active === view;
+    const b = h('button', { class: 'usa-fchip' + (on ? ' is-on' : ''), type: 'button', 'aria-pressed': on ? 'true' : 'false', onclick: () => { if (!on) switchView(view); } }, label);
+    if (badgeN) b.append(h('span', { class: 'lg-n', text: ' ' + badgeN }));
+    return b;
+  };
+  const qcrit = ((DATA.baseline && DATA.baseline.reprocess_queue) || []).filter((it) => it.impact_score >= 70).length;
+  bar.append(tab('Versões & diffs', 'versions'), tab('Fila de reprocessamento' + (qcrit ? ` · ${qcrit} críticos` : ''), 'reprocess'));
+  return bar;
+}
 function renderVersions() {
   const body = document.getElementById('versions-body');
   body.replaceChildren();
+  body.append(changesTabs('versions'));
 
   // Diff REAL da baseline (vs. versão anterior no git), quando disponível.
   const hist = DATA.history;
@@ -1057,6 +1072,7 @@ function renderReprocess() {
   if (wrap) wrap.replaceChildren();
   const body = document.getElementById('reprocess-body');
   body.replaceChildren();
+  body.append(changesTabs('reprocess'));
   const q = DATA.baseline.reprocess_queue || [];
 
   // Fila vazia = bom sinal (nada pendente) → estado-vazio acionável.
@@ -2388,7 +2404,7 @@ function progressBar(pct) {
   return wrap;
 }
 function svgText(attrs, label) { const t = svg('text', attrs); t.append(document.createTextNode(label)); return t; }
-function setForgeTitle(suffix) { try { document.title = 'Forge' + (suffix ? ' — ' + suffix : '') + ' · Reqhub'; } catch { /* ignore */ } }
+function setForgeTitle(suffix) { try { document.title = 'Forja' + (suffix ? ' — ' + suffix : '') + ' · Reqhub'; } catch { /* ignore */ } }
 // bloco de código com botão "Copiar" (clipboard API; feedback temporário)
 function codeBlock(text, cls, label) {
   const wrap = h('div', { class: 'forge-codeblock' });
@@ -2458,21 +2474,26 @@ function renderForge() {
 }
 function forgeIntroHead() {
   return h('div', { class: 'forge-head' }, h('div', {},
-    h('h2', { class: 'forge-title', text: 'Forge — construir um produto a partir de requisitos' }),
-    h('p', { class: 'muted', text: 'Um conjunto de requisitos vira uma aplicação real no repositório (frontend + API + worker + banco + k8s), pela mesma esteira do SICAT e do GymOps. Cada requisito vira código rastreável.' })));
+    h('h2', { class: 'forge-title', text: 'Forja — todos os produtos da plataforma' }),
+    h('p', { class: 'muted', text: 'Cada produto nasce de requisitos e é acompanhado daqui: brief → requisitos → arquitetura → telas → documentação → pipeline → no ar. A mesma esteira constrói do onepage ao sistema completo.' })));
 }
 
 function renderForgeHub(body) {
   const summ = hubSummary(DATA.products, DATA.implStatus);
+  const reqs = (DATA.baseline && DATA.baseline.requirements) || [];
+  const asr = reqs.filter((r) => r && r.architectural_significance).length;
   const head = forgeIntroHead();
   head.querySelector('div').append(h('div', { class: 'forge-stats' },
     h('span', { class: 'forge-stat' }, h('b', { text: String(summ.products) }), ' produto(s)'),
     h('span', { class: 'forge-stat' }, h('b', { text: String(summ.totalReqs) }), ' requisitos'),
+    h('span', { class: 'forge-stat' }, h('b', { text: String(asr) }), ' ASR'),
     h('span', { class: 'forge-stat' }, h('b', { text: String(summ.totalDone) }), ' no ar'),
     h('span', { class: 'forge-stat' }, h('b', { text: summ.pct + '%' }), ' concluído')));
   body.append(head);
 
   const all = productSummaries(DATA.products, DATA.implStatus);
+  // Briefing proativo (ex-Visão geral, A1a): anomalias acionáveis na porta de entrada do Studio.
+  body.append(overviewBriefing(reqs, all));
   const cat = (p) => (p.progress.total > 0 && p.progress.pct === 100) ? 'live' : (p.progress.live > 0 || (p.progress.total - (p.progress.by.not_started || 0)) > 0) ? 'building' : 'new';
   // filtro por status (segmentado) — facilita "navegar tudo que está sendo criado"
   const filters = [['all', 'Todos'], ['building', 'Em construção'], ['live', 'No ar'], ['new', 'Não iniciados']];
@@ -3902,27 +3923,31 @@ function miniBar(pct, cls) {
 }
 
 const VIEW_META = {
-  overview: { title: 'Visão geral', sub: 'Panorama da base de requisitos' },
   explorer: { title: 'Explorador', sub: 'Navegue e filtre todos os requisitos' },
   workspace: { title: 'Workspace', sub: 'Detalhe do requisito selecionado' },
-  versions: { title: 'Versões & mudanças', sub: 'Histórico e classificação semântica' },
+  versions: { title: 'Mudanças', sub: 'Versões, diffs semânticos e fila de reprocessamento' },
   impact: { title: 'Mapa de impacto', sub: 'Grafo de dependências entre requisitos' },
   coverage: { title: 'Cobertura', sub: 'Requisitos × evidência e alocação' },
   usability: { title: 'Usabilidade', sub: 'Telas e refinamentos — o funcionamento detalhado, ancorado aos requisitos' },
-  reprocess: { title: 'Fila de reprocessamento', sub: 'O que revisar após mudanças na baseline' },
+  reprocess: { title: 'Mudanças', sub: 'Fila de reprocessamento — o que revisar após mudanças na baseline' },
   dev: { title: 'Desenvolvimento', sub: 'Status de entrega por requisito (REQ → PR → deploy)' },
   editor: { title: 'Editor', sub: 'Autoria assistida por IA → PR no git' },
-  forge: { title: 'Forge', sub: 'Construir um produto completo a partir de requisitos' },
+  forge: { title: 'Forja', sub: 'Do brief ao produto publicado — requisitos, telas, documentação e pipeline' },
   aiusage: { title: 'Uso da IA', sub: 'Custo/tokens/limites — Claude (Anthropic) e OpenAI + assinatura Claude Code (5h/semana)' },
 };
 
-const RENDER = { overview: renderOverview, explorer: renderExplorer, workspace: renderWorkspace, versions: renderVersions, impact: renderImpact, coverage: renderCoverage, usability: renderUsability, reprocess: renderReprocess, dev: renderDev, editor: renderEditor, forge: renderForge, aiusage: renderAiUsage };
+// A1a (Forja 4.0): overview morreu (KPIs no hub do Studio); dev/usability saem da navegação e
+// migram para o Studio (A1b). reprocess vive como sub-aba de "Mudanças" (nav-item = versions).
+const RENDER = { explorer: renderExplorer, workspace: renderWorkspace, versions: renderVersions, impact: renderImpact, coverage: renderCoverage, usability: renderUsability, reprocess: renderReprocess, dev: renderDev, editor: renderEditor, forge: renderForge, aiusage: renderAiUsage };
+// Views sem item próprio na sidebar acendem o item "dono" (fusão/migração A1a).
+const NAV_ALIAS = { reprocess: 'versions', usability: 'coverage', dev: 'forge' };
 function switchView(view) {
   if (view === 'impact' && state.view !== 'impact') IMPACT.enterSeed = true; // semeia o "req em foco" só na ENTRADA
   if (state.view === 'aiusage' && view !== 'aiusage') disconnectAiStream(); // fecha o SSE ao sair do painel
   state.view = view;
+  const navView = NAV_ALIAS[view] || view;
   for (const it of document.querySelectorAll('.nav-item')) {
-    const sel = it.dataset.view === view;
+    const sel = it.dataset.view === navView;
     it.classList.toggle('is-active', sel);
     if (sel) it.setAttribute('aria-current', 'page'); else it.removeAttribute('aria-current');
     it.tabIndex = sel ? 0 : -1;
@@ -3948,10 +3973,13 @@ function writeHash() {
     if (location.hash !== h) history.replaceState(null, '', h);
   } catch { /* ignore */ }
 }
+// Hashes de abas mortas na A1a: deep-links antigos (Console, favoritos) continuam funcionando.
+const LEGACY_HASH = { overview: 'forge', dev: 'forge', usability: 'coverage' };
 function applyHashRoute() {
   const m = (location.hash || '').match(/^#\/([a-z-]+)(?:\?(.*))?$/i);
-  if (!m || !RENDER[m[1]]) return false;
-  const view = m[1];
+  if (!m) return false;
+  const view = LEGACY_HASH[m[1]] || m[1];
+  if (!RENDER[view]) return false;
   const params = new URLSearchParams(m[2] || '');
   if (params.get('product')) state.filters.product = params.get('product');
   if (params.get('id') && byId(params.get('id'))) state.selectedId = params.get('id');
@@ -4145,72 +4173,8 @@ function overviewBriefing(reqs, prods) {
   return card;
 }
 
-/* ===================== Visão geral (Overview — front-door do produto) ===================== */
-function renderOverview() {
-  const body = document.getElementById('overview-body');
-  body.replaceChildren();
-  const reqs = (DATA.baseline && DATA.baseline.requirements) || [];
-  const c = (DATA.baseline && DATA.baseline.counts) || { total: reqs.length, by_product: {} };
-  const prods = productSummaries(DATA.products || {}, DATA.implStatus);
-  const implItems = (DATA.implStatus && DATA.implStatus.items) || {};
-  const implVals = Object.values(implItems);
-  const deployed = implVals.filter((x) => x && ['deployed', 'done', 'merged'].includes(x.status)).length;
-  const implPct = implVals.length ? Math.round((deployed / implVals.length) * 100) : 0;
-  const asr = reqs.filter((r) => r && r.architectural_significance).length;
-
-  body.append(h('div', { class: 'ov-hero' },
-    h('h2', { text: 'Base de requisitos' }),
-    h('p', { text: 'A intenção da plataforma vive aqui como fonte da verdade — versionada em specs/. Explore os requisitos, analise impacto e cobertura, acompanhe a entrega e construa produtos novos a partir deles.' })));
-
-  // Métricas clicáveis → deep-link para a tela que detalha cada número (antes eram becos sem saída).
-  const metric = (ic, val, label, onClick) => h('button', { class: 'ov-metric', type: 'button', 'aria-label': val + ' ' + label + ' — abrir', onclick: onClick }, h('span', { class: 'm-ic' }, icon(ic)), h('div', { class: 'm-v', 'aria-hidden': 'true', text: String(val) }), h('div', { class: 'm-l', 'aria-hidden': 'true', text: label }));
-  body.append(h('div', { class: 'ov-metrics' },
-    metric('layers', c.total, 'requisitos', () => switchView('explorer')),
-    metric('products', prods.length, 'produtos', () => switchView('forge')),
-    metric('rocket', implPct + '%', 'no ar (entrega)', () => switchView('dev')),
-    metric('impact', asr, 'ASR (arquiteturais)', () => { state.filters = { asr: 'yes' }; switchView('explorer'); })));
-
-  // Briefing proativo da base (determinístico, sempre disponível) — anomalias acionáveis + deep-links.
-  body.append(overviewBriefing(reqs, prods));
-
-  // coluna esquerda: entrega por produto
-  const left = h('div', { class: 'ov-card' }, h('h3', {}, 'Entrega por produto', h('button', { class: 'btn-link', type: 'button', onclick: () => switchView('forge'), text: 'Abrir Forge →' })));
-  if (!prods.length) left.append(h('p', { class: 'empty', text: 'Nenhum produto registrado ainda.' }));
-  else {
-    const pl = h('div', { class: 'ov-prodlist' });
-    for (const p of prods) pl.append(h('button', { class: 'ov-prodrow', type: 'button', 'aria-label': `${p.display_name}: ${p.progress.live} de ${p.reqCount} no ar`, onclick: () => openForgeProduct(p.name) },
-      h('span', { class: 'pn', text: p.display_name }), miniBar(p.progress.pct, p.progress.pct === 100 ? 'ok' : ''), h('span', { class: 'pp', text: `${p.progress.live}/${p.reqCount}` })));
-    left.append(pl);
-  }
-
-  // coluna direita: distribuição por status + atalhos
-  const right = h('div', { class: 'ov-col' });
-  const st = DATA.implStatus;
-  const byStatus = (st && st.counts && st.counts.by_status) || (() => { const m = {}; for (const v of implVals) { const k = (v && v.status) || 'not_started'; m[k] = (m[k] || 0) + 1; } return m; })();
-  const totalImpl = Object.values(byStatus).reduce((a, b) => a + b, 0) || 1;
-  const stCard = h('div', { class: 'ov-card' }, h('h3', {}, 'Distribuição por status', h('button', { class: 'btn-link', type: 'button', onclick: () => switchView('dev'), text: 'Desenvolvimento →' })));
-  const bars = h('div', { class: 'ov-bars' });
-  for (const s of DEV_STATUS_ORDER) {
-    const n = byStatus[s] || 0; if (!n) continue;
-    bars.append(h('div', { class: 'ov-statbar' }, h('span', { class: 'sl' }, badge(devStatusLabel(s), devStatusCls(s))), miniBar((n / totalImpl) * 100, ['deployed', 'done', 'merged'].includes(s) ? 'ok' : s === 'blocked' ? 'danger' : ['pr_open', 'in_progress'].includes(s) ? 'warn' : ''), h('span', { class: 'sn', text: String(n) })));
-  }
-  if (!bars.children.length) bars.append(h('p', { class: 'empty', text: 'Sem dados de desenvolvimento.' }));
-  stCard.append(bars);
-
-  const quick = h('div', { class: 'ov-card' }, h('h3', {}, 'Atalhos'));
-  const qgrid = h('div', { class: 'ov-quick' });
-  const qb = (ic, label, view) => h('button', { class: 'ov-qbtn', type: 'button', onclick: () => switchView(view) }, icon(ic), label);
-  qgrid.append(qb('explorer', 'Explorar requisitos', 'explorer'), qb('impact', 'Mapa de impacto', 'impact'), qb('forge', 'Construir produto', 'forge'), qb('editor', 'Novo requisito', 'editor'));
-  quick.append(qgrid);
-  right.append(stCard, quick);
-
-  // Continuar de onde parou (recentes) — retomada na front-door, mesmo componente das outras telas.
-  const recentList = recentsStrip({ variant: 'list' });
-  if (recentList) right.append(h('div', { class: 'ov-card' }, h('h3', {}, 'Continuar de onde parou'), recentList));
-
-  const grid = h('div', { class: 'ov-grid' }, left, right);
-  body.append(grid);
-}
+// (A1a) A Visão geral morreu como aba: o hub da Forja é a front-door — KPIs na linha forge-stats
+// e anomalias no overviewBriefing (reusado lá). Deep-links #/overview redirecionam via LEGACY_HASH.
 
 function wireNav() {
   const items = [...document.querySelectorAll('.nav-item')];
@@ -4240,15 +4204,15 @@ function refreshNavBadges() {
     b.className = 'nav-badge' + (cls ? ' ' + cls : '');
     b.textContent = text;
   };
-  // Reprocessamento: nº de itens de ALTO IMPACTO (a fila inteira é grande; o que importa é o topo).
+  // Mudanças: nº de itens de ALTO IMPACTO na fila de reprocessamento (o topo, não a fila inteira).
   const q = (DATA.baseline && DATA.baseline.reprocess_queue) || [];
   const crit = q.filter((it) => it.impact_score >= 70).length;
-  setBadge('tab-reprocess', crit ? String(crit) : '', 'is-crit');
-  // Desenvolvimento: % no ar (entrega).
+  setBadge('tab-versions', crit ? String(crit) : '', 'is-crit');
+  // Forja: % no ar (entrega) — visão de progresso na porta de entrada.
   const items = (DATA.implStatus && DATA.implStatus.items) ? Object.values(DATA.implStatus.items) : [];
   if (items.length) {
     const deployed = items.filter((x) => x && ['deployed', 'done', 'merged'].includes(x.status)).length;
-    setBadge('tab-dev', Math.round((deployed / items.length) * 100) + '%', 'is-ok');
+    setBadge('tab-forge', Math.round((deployed / items.length) * 100) + '%', 'is-ok');
   }
 }
 function wireIcons() {
@@ -4849,7 +4813,7 @@ async function init() {
   buildExplorerFilters();
   refreshNavBadges();
   wireCommandPalette();
-  if (!applyHashRoute()) switchView('overview'); // deep-link da URL (ex.: vindo do Console) ou padrão
+  if (!applyHashRoute()) switchView('forge'); // deep-link da URL (ex.: vindo do Console) ou padrão: o Studio
   window.addEventListener('hashchange', () => applyHashRoute()); // deep-link em aba já aberta (idempotente)
 }
 init();
