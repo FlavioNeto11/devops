@@ -1,0 +1,33 @@
+# =============================================================================
+# platform/dns/domains.yaml — registros DNS PUBLICOS da plataforma (interface)
+# -----------------------------------------------------------------------------
+# Fonte declarativa dos registros DNS gerenciados por IaC (OpenTofu) em
+# platform/iac/dns.tf (yamldecode + for_each). Edite AQUI; o tofu materializa.
+#
+# Estado ATUAL (capturado em 2026-07-02): apenas o CNAME do Cloudflare Tunnel
+# CLI-managed 'nvit-local' que expoe a plataforma (Traefik em localhost:80)
+# como dev.nvit.com.br. O plan deve tender a ZERO mudancas apos o
+# `tofu import` (comandos em platform/iac/README.md).
+#
+# Convencoes:
+# - A chave de cada item e o FQDN (tambem e a chave do for_each e do import).
+# - content "@tunnel" e uma SENTINELA: o tofu resolve para
+#   "<var.tunnel_id>.cfargotunnel.com" (tunnel EXISTENTE — nunca recriar).
+# - ttl: 1 = automatico (obrigatorio quando proxied: true).
+# - A zona nvit.io (segundo hostname no config.yml do tunnel) NAO e gerenciada
+#   por este modulo (outra zona Cloudflare; declare-a num modulo proprio
+#   quando/se for adotada).
+#
+# AVISO: mudar DNS publico e operacao COM APROVACAO (AGENTS.md par. 5/6).
+# O apply e sempre manual (workflow iac-apply ou operador) — nunca automatico.
+# =============================================================================
+zone: nvit.com.br
+
+records:
+  dev.nvit.com.br:
+    name: dev.nvit.com.br
+    type: CNAME
+    content: "@tunnel" # -> <tunnel_id>.cfargotunnel.com
+    proxied: true
+    ttl: 1
+    comment: "Cloudflare Tunnel nvit-local -> Traefik local (localhost:80)"

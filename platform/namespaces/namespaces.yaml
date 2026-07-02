@@ -1,7 +1,7 @@
 # ============================================================================
 # Namespaces da plataforma DevOps
 # ============================================================================
-# Este arquivo cria os 7 namespaces gerenciados pela plataforma.
+# Este arquivo cria os 8 namespaces gerenciados pela plataforma.
 # Todos os namespaces sao rotulados com:
 #   - app.kubernetes.io/managed-by: devops-platform  (gerenciamento)
 #   - devops-platform/purpose: <proposito>           (proposito do namespace)
@@ -96,3 +96,18 @@ metadata:
     devops-platform/purpose: applications
     devops-platform/environment: prod-local
     kubernetes.io/metadata.name: apps-prod-local
+---
+# devops-iac: backend de estado do OpenTofu (IaC da superficie EXTERNA em
+# platform/iac — ADR 0003). O estado e gravado como Secret
+# (tfstate-default-platform-iac) pelo backend "kubernetes"; namespace dedicado
+# para isolamento/RBAC. NAO e sincronizado pelo Argo e o Secret de estado
+# NUNCA deve ser exportado para o git.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: devops-iac
+  labels:
+    app.kubernetes.io/managed-by: devops-platform
+    app.kubernetes.io/part-of: devops-platform
+    devops-platform/purpose: iac-state
+    kubernetes.io/metadata.name: devops-iac
