@@ -28,10 +28,12 @@
           "status": "approved"
         },
         "scaffold": {
-          "status": "not_started"
+          "status": "merged",
+          "note": "scaffold mesclado na main — app real em apps/contaviva-360 (base dos 9 REQs implementados)"
         },
         "build": {
-          "status": "not_started"
+          "status": "deployed",
+          "note": "derivado do implementation-status: todos os 9 REQ-CONTAVIVA360-* estão deployed (PRs #156-#166)"
         }
       }
     },
@@ -141,10 +143,12 @@
           "status": "approved"
         },
         "scaffold": {
-          "status": "not_started"
+          "status": "merged",
+          "note": "scaffold mesclado na main — app real em apps/neuroevolui (base dos 9 REQs implementados)"
         },
         "build": {
-          "status": "not_started"
+          "status": "deployed",
+          "note": "derivado do implementation-status: todos os 9 REQ-NEUROEVOLUI-* estão deployed (PRs #126-#132)"
         }
       }
     },
