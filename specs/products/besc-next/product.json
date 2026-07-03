@@ -1,0 +1,54 @@
+{
+  "schema_version": "1.2.0",
+  "name": "besc-next",
+  "display_name": "BESC 2.0",
+  "base_path": "/besc-next",
+  "namespace": "apps",
+  "app_type": "product_software",
+  "blueprint": "app-simples",
+  "stack": "sicat",
+  "interfaces": [
+    "api",
+    "web"
+  ],
+  "capability_blocks": [
+    "camadas-rigidas",
+    "observabilidade",
+    "contas-acesso",
+    "migrations-versionadas",
+    "contract-openapi",
+    "ia-grafo",
+    "rag-pgvector",
+    "structured-outputs",
+    "control-ai-por-app"
+  ],
+  "vision": "### besc-next-brief.md\nBESC 2.0 (besc-next) — plataforma de levantamento documental de direitos de ex-acionistas do antigo BESC (Banco do Estado de Santa Catarina, incorporado pelo Banco do Brasil). Sistema de organização e levantamento: cadastra casos e processos, organiza documentos com evidência e grau de confiança, levanta pendências automaticamente, classifica risco e gera checklists e relatórios para que profissionais qualificados avaliem (a) a viabilidade de uma futura tokenização dos direitos e (b) o uso como caução/garantia processual. O sistema NÃO tokeniza de verdade, não integra bl",
+  "requirement_ids": [
+    "REQ-BESCNEXT-0001",
+    "REQ-BESCNEXT-0002",
+    "REQ-BESCNEXT-0003",
+    "REQ-BESCNEXT-0004",
+    "REQ-BESCNEXT-0005",
+    "REQ-BESCNEXT-0006",
+    "REQ-BESCNEXT-0007",
+    "REQ-BESCNEXT-0008"
+  ],
+  "phases": {
+    "requirements": {
+      "status": "approved"
+    },
+    "architecture": {
+      "status": "approved"
+    },
+    "scaffold": {
+      "status": "not_started"
+    },
+    "build": {
+      "status": "not_started"
+    }
+  },
+  "version": {
+    "revision": 1,
+    "change_reason": "FORGE greenfield — concepção+arquitetura pela IA"
+  }
+}

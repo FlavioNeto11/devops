@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "f1d3f82808d016dd57a1d810f851ea9ffccdf38ff80f6131476d23022868249a",
+  "baseline_hash": "5f7f5351f071fa666de3a609dadd24232430b6184e6de6acb1251eb1d0dd4ae5",
   "nodes": [
     {
       "id": "infra-argocd",
@@ -804,6 +804,86 @@
       "asr": false,
       "impact_score": 38,
       "impact_band": "low"
+    },
+    {
+      "id": "REQ-BESCNEXT-0001",
+      "kind": "requirement",
+      "title": "Fundação: Arquitetura em Camadas Rígidas + Observabilidade + Seed de Bootstrap",
+      "type": "non-functional",
+      "product": "besc-next",
+      "asr": true,
+      "impact_score": 65,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-BESCNEXT-0002",
+      "kind": "requirement",
+      "title": "Autenticação e Gestão de Acesso: Contas Locais + Sessão JWT + Perfis de Usuário",
+      "type": "functional",
+      "product": "besc-next",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-BESCNEXT-0003",
+      "kind": "requirement",
+      "title": "Dados de Caso, Titular, Processo e Documento: Schema Base + Validação + Pendências Automáticas",
+      "type": "functional",
+      "product": "besc-next",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-BESCNEXT-0004",
+      "kind": "requirement",
+      "title": "Checklists Estruturados (Documental, Jurídico, Tokenização) + Validações + Grau de Confiança",
+      "type": "functional",
+      "product": "besc-next",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-BESCNEXT-0005",
+      "kind": "requirement",
+      "title": "Avaliação de Caução (CollateralAssessment) + Matriz de Risco Jurídico Indicativa",
+      "type": "functional",
+      "product": "besc-next",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-BESCNEXT-0006",
+      "kind": "requirement",
+      "title": "Fila Transacional + Processamento Assíncrono de Operações Longas (Cálculos, Sínteses, Relatórios)",
+      "type": "functional",
+      "product": "besc-next",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-BESCNEXT-0007",
+      "kind": "requirement",
+      "title": "Contract-First OpenAPI + Tipos Gerados + Validação de Schema",
+      "type": "non-functional",
+      "product": "besc-next",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
+    },
+    {
+      "id": "REQ-BESCNEXT-0008",
+      "kind": "requirement",
+      "title": "Assistente de IA para Análise de Caso (Leitura de Documentos, Síntese, Sugestão de Pendências) com RAG + Grafo + Saídas Estruturadas",
+      "type": "functional",
+      "product": "besc-next",
+      "asr": true,
+      "impact_score": 60,
+      "impact_band": "medium"
     },
     {
       "id": "REQ-CICD-0001",

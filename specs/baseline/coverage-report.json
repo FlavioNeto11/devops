@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "f1d3f82808d016dd57a1d810f851ea9ffccdf38ff80f6131476d23022868249a",
+  "baseline_hash": "5f7f5351f071fa666de3a609dadd24232430b6184e6de6acb1251eb1d0dd4ae5",
   "dimensions": [
     "links",
     "allocation",
@@ -10,21 +10,21 @@
     "refinement"
   ],
   "totals": {
-    "total": 381,
-    "without_links": 305,
-    "without_allocation": 325,
+    "total": 389,
+    "without_links": 313,
+    "without_allocation": 333,
     "without_source_paths": 0,
-    "without_evidence": 381,
+    "without_evidence": 389,
     "without_verification_method": 363,
-    "without_refinement": 352,
-    "scopes": 21,
+    "without_refinement": 360,
+    "scopes": 22,
     "coverage_pct": {
-      "links": 19.9,
-      "allocation": 14.7,
+      "links": 19.5,
+      "allocation": 14.4,
       "source_paths": 100,
       "evidence": 0,
-      "verification_method": 4.7,
-      "refinement": 7.6
+      "verification_method": 6.7,
+      "refinement": 7.5
     }
   },
   "by_scope": {
@@ -59,6 +59,23 @@
         "source_paths": 100,
         "evidence": 0,
         "verification_method": 0,
+        "refinement": 0
+      }
+    },
+    "besc-next": {
+      "total": 8,
+      "without_links": 8,
+      "without_allocation": 8,
+      "without_source_paths": 0,
+      "without_evidence": 8,
+      "without_verification_method": 0,
+      "without_refinement": 8,
+      "coverage_pct": {
+        "links": 0,
+        "allocation": 0,
+        "source_paths": 100,
+        "evidence": 0,
+        "verification_method": 100,
         "refinement": 0
       }
     },

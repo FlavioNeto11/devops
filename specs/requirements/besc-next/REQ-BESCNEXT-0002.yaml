@@ -1,0 +1,29 @@
+id: REQ-BESCNEXT-0002
+title: "Autenticação e Gestão de Acesso: Contas Locais + Sessão JWT + Perfis de Usuário"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: besc-next
+  blueprint: app-simples
+statement: "O sistema DEVE gerenciar contas e acesso: autenticação local com registro/login, sessão via JWT curto com refresh rotacionado, e papéis de usuário (admin/member) para controle de acesso básico."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/besc-next/product.json"]
+priority: critical
+criticality: medium
+architectural_significance: true
+capability_blocks: ["contas-acesso"]
+acceptance_criteria:
+  - "Registro público cria usuário com papel 'member' (nunca 'admin'); admin pode promover/rebaixar/desativar."
+  - "Login local exige email + senha bcrypt; login bem-sucedido retorna JWT curto (HS256) + refresh token (hash persistido)."
+  - "JWT_SECRET é obrigatório em produção (fail-closed sem ele); refresh token rotacionado a cada renovação."
+  - "Troca de senha exige senha atual e revoga todas as sessões do usuário."
+  - "Desativar ou rebaixar usuário revoga suas sessões imediatamente."
+  - "Rotas de auth (registro, login, refresh) possuem rate-limit (ex.: 5 tentativas/minuto por IP)."
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

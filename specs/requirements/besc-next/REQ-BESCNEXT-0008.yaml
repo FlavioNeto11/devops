@@ -1,0 +1,29 @@
+id: REQ-BESCNEXT-0008
+title: "Assistente de IA para Análise de Caso (Leitura de Documentos, Síntese, Sugestão de Pendências) com RAG + Grafo + Saídas Estruturadas"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: besc-next
+  blueprint: app-simples
+statement: "O sistema DEVE oferecer um assistente de IA (integrado ao motor de grafo) que leia documentos (PDF, imagens, texto) anexados ao caso, recupere trechos relevantes por similaridade (RAG com pgvector), raciocine sobre titularidade/liquidez/risco com tools que consultam dados do domínio, proponha síntese/pendências/sugestões em JSON validado, com dry-run e confirmação antes de persistir."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/besc-next/product.json"]
+priority: high
+criticality: medium
+architectural_significance: true
+capability_blocks: ["ia-grafo", "rag-pgvector", "structured-outputs", "control-ai-por-app"]
+acceptance_criteria:
+  - "POST /v1/cases/{caseId}/assistant recebe { prompt, files? } (texto + attachments opcionais via @flavioneto11/file-ingest-kit com fail-soft para upload inválido)."
+  - "Pipeline: (1) ingerir arquivo em anexo → fatiá-lo + embeddar com pgvector; (2) recuperar top-K trechos por similaridade (retrieval grounded); (3) invocar motor de grafo (createAiGraph) com especialistas de domínio (análise-titularidade, análise-liquidez, análise-risco) e tools R1 (buscar-documentos, listar-checklists, consultar-jurisprudência-local); (4) prompts versionados do control plane com cache/fallback; (5) estruturar saída em JSON (ex.: { tipo: 'analise_titularidade', confianca: 'alta', fontes: [{ documento, trecho }], sugestoes: [ { ação, pendencia_afetada } ] })."
+  - "Saída estruturada: JSON validado contra schema; falha de validação = erro estruturado, nunca fallback silencioso."
+  - "Dry-run: resposta retorna com flag 'requer_confirmacao'; POST /v1/cases/{caseId}/assistant/{responseId}/confirm persiste sugestões (ex.: criar pendência, atualizar confidence de campo)."
+  - "Timeout: 30s por default; revert para prompt versionado offline se control plane demora; nunca bloqueia sem chave de IA."
+  - "Logging: cada invocação loga prompt/response/latência/tentativa de tool; nenhum secret (API key, email) no log (redação)."
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

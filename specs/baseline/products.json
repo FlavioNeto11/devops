@@ -30,6 +30,40 @@
       }
     },
     {
+      "name": "besc-next",
+      "display_name": "BESC 2.0",
+      "base_path": "/besc-next",
+      "blueprint": "app-simples",
+      "origin": "greenfield",
+      "vision": "### besc-next-brief.md\nBESC 2.0 (besc-next) — plataforma de levantamento documental de direitos de ex-acionistas do antigo BESC (Banco do Estado de Santa Catarina, incorporado pelo Banco do Brasil). Sistema de organização e levantamento: cadastra casos e processos, organiza documentos com evidência e grau de confiança, levanta pendências automaticamente, classifica risco e gera checklists e relatórios para que profissionais qualificados avaliem (a) a viabilidade de uma futura tokenização dos direitos e (b) o uso como caução/garantia processual. O sistema NÃO tokeniza de verdade, não integra bl",
+      "app_type": "product_software",
+      "architecture_summary": "Stack/decisão base: besc-next é um SPA Vue + API Node sem multi-tenancy, RBAC em cascata ou filas Redis. Precisa de arquitetura sólida em camadas, autenticação local + JWT, contract-first OpenAPI para auditoria de API, assistente de IA com RAG e grafo para análise de casos jurídicos complexos, e fila transacional para operações longas (síntese, relatórios, PDFs). O blueprint app-simples (sicat) encaixa: fornece a fundação (camadas-rigidas, contas-acesso, migrations-versionadas, observabilidade) e admite todos os blocos especializados (contract-openapi, ia-grafo, rag-pgvector, structured-outputs, control-ai-por-app, worker-queue-transacional).\nBlocos de capacidade: camadas-rigidas, contas-acesso, contract-openapi, control-ai-por-app, ia-grafo, migrations-versionadas, observabilidade, rag-pgvector, structured-outputs, worker-queue-transacional.\nDecisões (ADRs): ADR-001: Stack sicat + blueprint app-simples para besc-next; ADR-002: Fila transacional Postgres em vez de Redis BullMQ; ADR-003: Contract-First OpenAPI para superfície HTTP auditável; ADR-004: Assistente de IA com grafo + RAG + estruturação para análise jurídica; ADR-005: Camadas rígidas + observabilidade como fundação.",
+      "requirement_ids": [
+        "REQ-BESCNEXT-0001",
+        "REQ-BESCNEXT-0002",
+        "REQ-BESCNEXT-0003",
+        "REQ-BESCNEXT-0004",
+        "REQ-BESCNEXT-0005",
+        "REQ-BESCNEXT-0006",
+        "REQ-BESCNEXT-0007",
+        "REQ-BESCNEXT-0008"
+      ],
+      "phases": {
+        "requirements": {
+          "status": "approved"
+        },
+        "architecture": {
+          "status": "approved"
+        },
+        "scaffold": {
+          "status": "not_started"
+        },
+        "build": {
+          "status": "not_started"
+        }
+      }
+    },
+    {
       "name": "contaviva-360",
       "display_name": "ContaViva 360",
       "base_path": "/contaviva-360",

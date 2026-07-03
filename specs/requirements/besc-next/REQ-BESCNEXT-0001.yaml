@@ -1,0 +1,36 @@
+id: REQ-BESCNEXT-0001
+title: "Fundação: Arquitetura em Camadas Rígidas + Observabilidade + Seed de Bootstrap"
+type: non-functional
+status: approved
+owner: flavio
+scope:
+  applies_to: product-foundation
+  product_scope: besc-next
+  blueprint: app-simples
+statement: "O sistema DEVE implementar arquitetura em camadas rígidas (route → service → repository → worker → gateway), com observabilidade por padrão (health endpoints, métricas Prometheus, ServiceMonitor, SLO e dashboard Grafana) e bootstrap automático com usuário admin via variáveis de ambiente."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/besc-next/product.json"]
+priority: critical
+criticality: critical
+architectural_significance: true
+capability_blocks: ["camadas-rigidas", "observabilidade", "migrations-versionadas"]
+acceptance_criteria:
+  - "Rotas HTTP validam entrada e mapeiam apenas para services; nenhuma rota acessa banco ou rede externa diretamente."
+  - "Toda regra de negócio vive em services; todo SQL em repositories; trabalho assíncrono em workers; chamadas HTTP externas em gateways."
+  - "Health endpoints estruturados em /health, /v1/health/{system,workers,jobs} retornam JSON com status de componentes."
+  - "Métricas Prometheus expostas em :9464 fora do Traefik; ServiceMonitor gerado para kube-prometheus-stack."
+  - "Dashboard Grafana gerado automaticamente com p95 latência, taxa de erro, saturação de fila."
+  - "SLO alertas (PrometheusRule) configurados para latência, erros e saturação."
+quality_scenarios:
+  - source: "operador/sistema"
+    stimulus: "O sistema DEVE implementar arquitetura em camadas rígidas (route → service → repository → worker → gateway), com observabilidade por padrão "
+    environment: "produção"
+    artifact: "besc-next"
+    response: "atende o atributo de qualidade especificado"
+    response_measure: "Rotas HTTP validam entrada e mapeiam apenas para services; nenhuma rota acessa banco ou rede externa diretamente."
+verification_method: [test-integration, monitoring]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

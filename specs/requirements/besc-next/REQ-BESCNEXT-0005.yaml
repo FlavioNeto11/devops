@@ -1,0 +1,29 @@
+id: REQ-BESCNEXT-0005
+title: "Avaliação de Caução (CollateralAssessment) + Matriz de Risco Jurídico Indicativa"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: besc-next
+  blueprint: app-simples
+statement: "O sistema DEVE registrar avaliações de uso do crédito como caução/garantia por hipótese de processo (execução cível/fiscal/trabalhista/cautelar/acordo) e modalidade (caução real/fidejussória/depósito/seguro-garantia/fiança), capturando certeza/liquidez/exigibilidade, probabilidade de aceitação, deságio, reforço complementar e mitigadores; e derivar matriz de risco jurídico indicativa (~9 fatores ponderados: titularidade, fase processual, prescrição, liquidez, cedibilidade, jurisprudência, materialidade, enquadramento regulatório, evidência)."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/besc-next/product.json"]
+priority: high
+criticality: medium
+architectural_significance: true
+capability_blocks: ["migrations-versionadas"]
+acceptance_criteria:
+  - "Tabela: collateral_assessments (case_id, destination_process_type enum: civel|fiscal|trabalhista|cautelar|acordo, modality enum: real|fidejussoria|deposito|seguro_garantia|fianca, certeza enum: alta|media|baixa, liquidez enum: alta|media|baixa, exigibilidade enum: alta|media|baixa, acceptance_probability decimal 0-1, deságio decimal, reforço_complementar text, mitigadores text)."
+  - "Por case, múltiplas CollateralAssessments (ex.: execução cível com caução real, trabalhista com depósito)."
+  - "Matriz de risco jurídico: ~9 fatores (titularidade_comprovada, fase_processual, prescrição, liquidez, cedibilidade, jurisprudência, materialidade, enquadramento_regulatorio, evidencia_documental), cada fator 0-100; risco_agregado = ponderação; resultado 'baixo|medio|alto|indeterminado' com narrative."
+  - "POST /v1/cases/{caseId}/collateral-assessments cria; PUT atualiza; GET lista todas."
+  - "GET /v1/cases/{caseId}/risk-matrix retorna matriz de risco agregada com scores de cada fator e narrativa."
+  - "Matriz de risco reavalia a cada atualização de case (titularidade, fase processual, documentos, checklists) automaticamente (service de recalc)."
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

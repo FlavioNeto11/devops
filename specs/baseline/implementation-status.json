@@ -1,10 +1,11 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "f1d3f82808d016dd57a1d810f851ea9ffccdf38ff80f6131476d23022868249a",
+  "baseline_hash": "5f7f5351f071fa666de3a609dadd24232430b6184e6de6acb1251eb1d0dd4ae5",
   "counts": {
-    "total": 381,
+    "total": 389,
     "by_status": {
       "deployed": 329,
+      "not_started": 8,
       "done": 52
     },
     "refinements": {
@@ -214,6 +215,38 @@
       "req_revision": 1,
       "deployed_at": "2026-06-15",
       "notes": "platform/argocd — GitOps app-of-apps no cluster (ns argocd)"
+    },
+    "REQ-BESCNEXT-0001": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-BESCNEXT-0002": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-BESCNEXT-0003": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-BESCNEXT-0004": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-BESCNEXT-0005": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-BESCNEXT-0006": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-BESCNEXT-0007": {
+      "status": "not_started",
+      "req_revision": 1
+    },
+    "REQ-BESCNEXT-0008": {
+      "status": "not_started",
+      "req_revision": 1
     },
     "REQ-CICD-0001": {
       "status": "done",
