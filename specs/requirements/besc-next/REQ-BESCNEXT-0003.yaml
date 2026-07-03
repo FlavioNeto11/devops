@@ -1,0 +1,29 @@
+id: REQ-BESCNEXT-0003
+title: "Dados de Caso, Titular, Processo e Documento: Schema Base + Validação + Pendências Automáticas"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: besc-next
+  blueprint: app-simples
+statement: "O sistema DEVE persistir e validar o núcleo de cadastro (Case com titular, classe de ação, cadeia de titularidade, processo judicial, documentos) e reavaliar automaticamente ~12 regras de pendências a cada mudança, derivando transições de estado do caso."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/besc-next/product.json"]
+priority: critical
+criticality: medium
+architectural_significance: true
+capability_blocks: ["migrations-versionadas"]
+acceptance_criteria:
+  - "Tabelas: cases, persons (PF/empresa/espólio/herdeiro/cessionário), case_titles (cadeia de titularidade), case_classes (ON/PNA/PNB/desconhecida), legal_processes (CNJ, fase processual), documents (tipo, status pendente→recebido→análise→validado/rejeitado/necessita complementação, obrigatoriedade)."
+  - "Case carrega: titular, classe, quantidade, tipos de direito (acionário, creditório, litigioso), teses (relação de troca, critério de valor, subscrição, expurgos), escriturador, valor estimado, situação de liquidez."
+  - "Document carrega: tipo, status, obrigatoriedade, anexo (arquivo + referência + datas), document_evidence (link a checklist/campo)."
+  - "Pendências ~12 regras: titularidade não comprovada, processo sem número CNJ, direito litigioso sem fase, falta parecer jurídico, cálculo desatualizado, cessão não verificada, análise regulatória, laudo/caução ausente, campos essenciais sem lastro, documentos obrigatórios pendentes."
+  - "Motor de pendências reavalia a cada: PUT case, POST document, PUT document, PUT checklist_item; severidades informativa/média/alta/bloqueante; abre quando condição verdadeira, desaparece quando satisfeita."
+  - "Máquina de estados: 9 status (new, docs_incomplete, legal_review, awaiting_calculation, awaiting_opinion, ready_for_structuring, ready_with_caveats, not_eligible, archived). Transições automáticas por pendências resolvidas; avanços com efeito decidido exigem confirmação POST /v1/cases/{caseId}/advance-state."
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

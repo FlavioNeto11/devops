@@ -1,0 +1,173 @@
+{
+  "stack_rationale": "besc-next é um SPA Vue + API Node sem multi-tenancy, RBAC em cascata ou filas Redis. Precisa de arquitetura sólida em camadas, autenticação local + JWT, contract-first OpenAPI para auditoria de API, assistente de IA com RAG e grafo para análise de casos jurídicos complexos, e fila transacional para operações longas (síntese, relatórios, PDFs). O blueprint app-simples (sicat) encaixa: fornece a fundação (camadas-rigidas, contas-acesso, migrations-versionadas, observabilidade) e admite todos os blocos especializados (contract-openapi, ia-grafo, rag-pgvector, structured-outputs, control-ai-por-app, worker-queue-transacional).",
+  "adrs": [
+    {
+      "blocks": [
+        "camadas-rigidas",
+        "contas-acesso",
+        "migrations-versionadas",
+        "observabilidade",
+        "worker-queue-transacional",
+        "contract-openapi",
+        "ia-grafo",
+        "rag-pgvector",
+        "structured-outputs",
+        "control-ai-por-app"
+      ],
+      "cites": [
+        "app-simples blueprint (stack sicat): compativel: [camadas-rigidas, contract-openapi, control-ai-por-app, design-system, gateway-externo, ia-grafo, idempotencia, oidc-sessao, rag-pgvector, structured-outputs]",
+        "node-api-vue-spa blueprint (stack sicat): compativel: [worker-queue-transacional, gateway-externo, oidc-sessao, contract-openapi, ia-grafo, structured-outputs, rag-pgvector, idempotencia, ...]"
+      ],
+      "decision": "Adotar stack sicat (SPA Vue + API Node, sem multi-tenancy/RBAC em cascata/Redis BullMQ) com blueprint app-simples",
+      "rationale": "besc-next é um caso jurídico singular (não multi-tenant), com autenticação local simples (admin/member), operações longas enfileiradas (síntese, PDF) via fila transacional Postgres (não Redis), e assistente de IA centralizado. Stack sicat fornece a fundação (camadas-rigidas, contas-acesso, migrations-versionadas, observabilidade) e admite toda especialização necessária (contract-openapi, ia-grafo, rag-pgvector, structured-outputs, control-ai-por-app, worker-queue-transacional). GymOps seria overhead (multi-tenant + RBAC cascata + Redis BullMQ não são requisitos).",
+      "title": "ADR-001: Stack sicat + blueprint app-simples para besc-next"
+    },
+    {
+      "blocks": [
+        "worker-queue-transacional"
+      ],
+      "cites": [
+        "worker-queue-transacional: Processamento assíncrono confiável sem broker externo: comandos longos viram jobs persistidos numa tabela do Postgres, consumidos por um worker (mesma imagem da API) com claim transacional FOR UPDATE SKIP LOCKED, retry com backoff exponencial, dead-letter queue (DLQ), heartbeat de claim, requeue de jobs travados e graceful shutdown. Use quando a operação demora, pode falhar e precisa ser retentada/auditada (ex.: submissão a sistema externo, geração de documento, sincronização de catálogo)."
+      ],
+      "decision": "Usar worker-queue-transacional (Postgres FOR UPDATE SKIP LOCKED) para processamento de síntese, cálculos e PDFs",
+      "rationale": "besc-next não é um sistema de alta concorrência com muitas filas de domínio curtas (GymOps). É um sistema jurídico onde cada operação longa (síntese de caso, cálculo de valor atualizado, geração de PDF) precisa de auditoria + reliability + deadletter; Postgres com advisory-lock no boot garante idempotência e conformidade regulatória sem dependência de Redis. Job state é curta duração (enqueue → process → complete ou DLQ).",
+      "title": "ADR-002: Fila transacional Postgres em vez de Redis BullMQ"
+    },
+    {
+      "blocks": [
+        "contract-openapi"
+      ],
+      "cites": [
+        "contract-openapi (sicat): A superfície HTTP é definida primeiro num OpenAPI canônico; tipos e operações são gerados a partir dele (gen:operations) e a validação roda no CI (validate:openapi). Mudança de rota acontece em lockstep: OpenAPI → exemplos → tipos gerados → rotas → testes de contrato, tudo no mesmo PR. Use quando a API é auditável/integrável por terceiros e a estabilidade do contrato importa (estilo SICAT)."
+      ],
+      "decision": "Definir todas as rotas em OpenAPI canônico; gerar tipos e operações; validar no CI",
+      "rationale": "besc-next precisa de auditoria de API (casos jurídicos sensíveis); parceiros jurídicos/órgãos externos podem integrar; contract-first garante que toda mudança de rota passa por OpenAPI + exemplos + tipos + testes de contrato no mesmo PR, evitando breaking changes silenciosos e facilitando integração com terceiros.",
+      "title": "ADR-003: Contract-First OpenAPI para superfície HTTP auditável"
+    },
+    {
+      "blocks": [
+        "ia-grafo",
+        "rag-pgvector",
+        "structured-outputs",
+        "control-ai-por-app"
+      ],
+      "cites": [
+        "ia-grafo (sicat/gymops): Assistente conversacional/assistivo construído sobre o motor de grafo da plataforma (createAiGraph: router → especialista deep com loop ReAct e tools R1 → judge/verify), com autorização por identidade, dry-run/confirmação em mutações e tools que LEEM o domínio antes de propor. Use quando a IA precisa raciocinar com ferramentas (buscar dados, citar fontes, propor um rascunho ou ação), não apenas completar texto.",
+        "rag-pgvector (sicat/gymops): Base de conhecimento vetorial no Postgres (extensão pgvector): documentos são fatiados, embeddados e indexados; consultas recuperam os top-K trechos por similaridade para fundamentar (ground) as respostas da IA com citações. Use quando o assistente precisa responder citando fontes (manuais, contratos, base de conhecimento) e recusar quando não há fonte.",
+        "structured-outputs (sicat/gymops): Toda chamada de IA que produz dados retorna JSON validado contra um schema declarado (jsonMode + parse estrito); saída inválida vira erro estruturado, nunca um fallback silencioso; rascunhos gerados pela IA exigem confirmação do usuário antes de persistir.",
+        "control-ai-por-app (sicat/gymops): Uma IA de controle PRÓPRIA do app: seu grafo de IA (ai-core) com especialistas e tools de domínio, puxando prompts versionados do control plane da plataforma com timeout + cache + fallback offline para um prompt versionado no repo, fail-closed sem chave de IA. ACEITA ARQUIVOS (multimodal)."
+      ],
+      "decision": "Integrar ia-grafo + rag-pgvector + structured-outputs + control-ai-por-app para assistente de análise de case",
+      "rationale": "REQ-BESC-NEXT-0008 exige assistente que leia documentos, recupere trechos relevantes, raciocine sobre titularidade/liquidez/risco, proponha síntese em JSON validado com dry-run. ia-grafo fornece motor ReAct com tools; rag-pgvector fornece recuperação por similaridade (citar fontes); structured-outputs garante JSON válido (síntese, pendências, matriz de risco); control-ai-por-app garante prompts versionados + fallback offline + multimodal (PDF/imagens).",
+      "title": "ADR-004: Assistente de IA com grafo + RAG + estruturação para análise jurídica"
+    },
+    {
+      "blocks": [
+        "camadas-rigidas",
+        "observabilidade",
+        "migrations-versionadas"
+      ],
+      "cites": [
+        "camadas-rigidas (sicat/gymops): Arquitetura em camadas rígidas (route → service → repository → worker → gateway). Separação estrita de responsabilidades no backend... É a fundação que torna os demais blocos (fila, gateway, idempotência) auditáveis e testáveis, e é pré-requisito de qualquer sistema robusto.",
+        "observabilidade (sicat/gymops): Todo app nasce observável: endpoints de health estruturados (/health + /v1/health/{system,workers,jobs}), métricas Prometheus numa porta dedicada fora do Traefik (:9464, série ai_* via @flavioneto11/ai-core quando há IA + métricas de domínio/fila), ServiceMonitor para o kube-prometheus-stack raspar... alertas de SLO (PrometheusRule: p95 de latência, taxa de erro, saturação de fila) e um dashboard Grafana gerado. É bloco DEFAULT — sempre incluído."
+      ],
+      "decision": "Implementar route → service → repository → worker → gateway como padrão obrigatório; observabilidade desde o boot (/health, métricas Prometheus, ServiceMonitor, SLO, Grafana)",
+      "rationale": "REQ-BESC-NEXT-0001 exige arquitetura auditável. Camadas rígidas garantem que toda lógica jurídica fica em services (testável), toda persistência em repositories, trabalho assíncrono em workers, chamadas externas em gateways (com retry/timeout/auditoria). Observabilidade desde o boot (health, métricas, SLO) permite detectar anomalias em filas (síntese travada), latência de análise IA, taxa de erro de consulta jurisprudencial.",
+      "title": "ADR-005: Camadas rígidas + observabilidade como fundação"
+    }
+  ],
+  "waves": [
+    {
+      "depends_on": [],
+      "id": "w0-foundation",
+      "work_orders": [
+        "init:sicat app-simples blueprint (Vue + Node template)",
+        "migrations:v001_create_users (contas-acesso: id, email, password_hash, is_active, role, created_at)",
+        "migrations:v002_create_case (migrations-versionadas: id, titular_id, classe_acao, cadeia_titularidade, estado, created_at)",
+        "migrations:v003_create_documento (id, case_id, tipo, url, data_upload)",
+        "migrations:v004_create_checklist_documental (case_id, respostas enum, nota, evidencia, validacao_juridica, grau_confianca, fonte)",
+        "migrations:v005_create_collateral_assessment (case_id, hipotese_processo, modalidade, certeza, liquidez, exigibilidade, probabilidade, deságio, mitigadores)",
+        "migrations:v006_create_job_queue (worker-queue-transacional: id, tipo, payload, status, retry_count, next_retry_at, claimed_by, claimed_at, created_at)",
+        "migrations:seed_bootstrap_admin (BOOTSTRAP_ADMIN_EMAIL + BOOTSTRAP_ADMIN_PASSWORD)",
+        "routes:health + observability (observabilidade: /health, /v1/health/{system,workers,jobs}, Prometheus :9464, ServiceMonitor, SLO, Grafana)",
+        "services:auth (contas-acesso: register/login, JWT HS256, refresh rotacionado, session revoke)",
+        "repositories:user (contas-acesso: CRUD com soft-delete is_active)",
+        "repositories:case (migrations-versionadas: CRUD + reavaliar pendências)",
+        "repositories:checklist (migrations-versionadas: CRUD respostas + validacao_juridica)",
+        "repositories:collateral (migrations-versionadas: CRUD avaliações de caução)",
+        "repositories:job_queue (worker-queue-transacional: claim, complete, requeue, deadletter)"
+      ]
+    },
+    {
+      "depends_on": [
+        "w0-foundation"
+      ],
+      "id": "w1-contract-api",
+      "work_orders": [
+        "openapi:canônico + exemplos (contract-openapi: POST /v1/auth/register, POST /v1/auth/login, GET /v1/users/me, PATCH /v1/users/{id}, GET /v1/cases, POST /v1/cases, GET /v1/cases/{id}, PATCH /v1/cases/{id}/checklist-documental, POST /v1/cases/{id}/assess-collateral, GET /v1/cases/{id}/risk-matrix, POST /v1/cases/{id}/synthesize (enqueue job))",
+        "gen:operations (contract-openapi: tipos gerados de OpenAPI)",
+        "routes:auth (contract-openapi: POST /v1/auth/register validado contra OpenAPI, POST /v1/auth/login, POST /v1/auth/refresh, POST /v1/auth/logout)",
+        "routes:users (contract-openapi: GET /v1/users/me, PATCH /v1/users/{id})",
+        "routes:cases (contract-openapi: GET /v1/cases, POST /v1/cases, GET /v1/cases/{id}, PATCH /v1/cases/{id})",
+        "routes:checklists (contract-openapi: PATCH /v1/cases/{id}/checklist-documental, PATCH /v1/cases/{id}/checklist-juridico, PATCH /v1/cases/{id}/checklist-tokenizacao)",
+        "routes:collateral (contract-openapi: POST /v1/cases/{id}/assess-collateral, GET /v1/cases/{id}/collateral-assessments)",
+        "routes:risk-matrix (contract-openapi: GET /v1/cases/{id}/risk-matrix — cálculo derivado de avaliações de caução)",
+        "test:validate:openapi (contract-openapi: CI)"
+      ]
+    },
+    {
+      "depends_on": [
+        "w0-foundation"
+      ],
+      "id": "w2-worker-queue",
+      "work_orders": [
+        "worker:synthesize (worker-queue-transacional: listen job_queue tipo 'synthesize_case', ler case + docs + checklists, chamar IA, salvar síntese)",
+        "worker:export-pdf (worker-queue-transacional: listen job_queue tipo 'export_pdf', gerar relatório PDF, salvar em storage)",
+        "worker:process-collateral (worker-queue-transacional: listen job_queue tipo 'process_collateral', calcular valor atualizado com juros/multa, reeval pendências)",
+        "job-queue:heartbeat + requeue (worker-queue-transacional: heartbeat de claim, requeue de jobs travados, graceful shutdown)",
+        "job-queue:deadletter (worker-queue-transacional: job_queue_deadletter para jobs com retry_count > max_retries)",
+        "routes:job-status (worker-queue-transacional: GET /v1/cases/{id}/jobs — listar status de síntese, PDF, processamento)"
+      ]
+    },
+    {
+      "depends_on": [
+        "w1-contract-api",
+        "w2-worker-queue"
+      ],
+      "id": "w3-ia-assistente",
+      "work_orders": [
+        "setup:pgvector (rag-pgvector: extensão Postgres pgvector)",
+        "embedder:init (rag-pgvector: @flavioneto11/ai-core createEmbedder, fallback local se sem API key IA)",
+        "chunker:documento (rag-pgvector: fatiar PDFs/imagens/texto em trechos, embed, index em tabela documento_embedding)",
+        "reranker:init (rag-pgvector: @flavioneto11/ai-core createReranker, opcional)",
+        "ai-core:graph (ia-grafo + control-ai-por-app: createAiGraph com especialistas 'titularidade', 'liquidez', 'risco', prompts versionados do control plane + fallback repo)",
+        "ai-tools:read-case (ia-grafo: tool que retorna case.{id, titular, classe_acao, estado, ...})",
+        "ai-tools:read-documents (ia-grafo: tool que retorna lista de documentos + URLs)",
+        "ai-tools:read-checklists (ia-grafo: tool que retorna checklists documental/jurídico/tokenizacao)",
+        "ai-tools:read-collateral (ia-grafo: tool que retorna avaliações de caução)",
+        "ai-tools:retrieve-rag (ia-grafo: tool que executa similaridade em pgvector, retorna top-3 trechos com fonte)",
+        "ai-tools:evaluate-pending (ia-grafo: tool que reavalia 12 regras de pendências, retorna lista derivada)",
+        "routes:assistant (control-ai-por-app: POST /v1/assistant/analyze ingere case_id + documentos upload, chama grafo, retorna síntese + pendências + matriz de risco em JSON validado, dry-run + confirmação)",
+        "schema:synthesize-output (structured-outputs: {titulo, corpo, pendencias: [{titulo, prioridade, evidencia}], matriz_risco: {titularidade, fase_processual, prescrição, liquidez, cedibilidade, jurisprudência, materialidade, enquadramento, evidência, score}})",
+        "file-ingest:multimodal (control-ai-por-app: @flavioneto11/file-ingest-kit para PDF + imagens + texto)"
+      ]
+    },
+    {
+      "depends_on": [
+        "w1-contract-api",
+        "w3-ia-assistente"
+      ],
+      "id": "w4-frontend",
+      "work_orders": [
+        "setup:design-system (não requisitado, mas compatível; omitido para escopo mínimo)",
+        "pages:auth (contas-acesso: login, register)",
+        "pages:cases (CRUD de case, ler titular/classe_acao/cadeia)",
+        "pages:checklists (CRUD de respostas, validacao_juridica, grau_confianca)",
+        "pages:collateral-assessment (form de avaliação de caução)",
+        "pages:risk-matrix (exibir matriz derivada)",
+        "pages:assistant (upload de documentos, chat com IA, síntese proposta, dry-run + confirmar)",
+        "pages:job-monitor (listar sínteses/PDFs/processamentos em andamento)"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+id: REQ-BESCNEXT-0006
+title: "Fila Transacional + Processamento Assíncrono de Operações Longas (Cálculos, Sínteses, Relatórios)"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: besc-next
+  blueprint: app-simples
+statement: "O sistema DEVE processar operações longas (cálculos de valor atualizado, síntese de caso para relatório, geração de PDF) de forma assíncrona e confiável: jobs persistidos em Postgres com FOR UPDATE SKIP LOCKED, retry com backoff, dead-letter queue (DLQ), heartbeat e graceful shutdown."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/besc-next/product.json"]
+priority: high
+criticality: medium
+architectural_significance: true
+capability_blocks: ["worker-queue-transacional"]
+acceptance_criteria:
+  - "Tabela: jobs (id UUID, queue_name string, payload JSON, status enum: pending|claimed|processing|completed|failed|dead_letter, claimed_at timestamp, claimed_by worker_id UUID, attempts int, max_attempts=5, error_message text, created_at, updated_at)."
+  - "Worker (mesma imagem da API): inicia com startup(), loop claims jobs com SELECT * FROM jobs WHERE status='pending' AND queue_name=? ORDER BY created_at LIMIT ? FOR UPDATE SKIP LOCKED; processa; UPDATE status=completed ou status=failed + error."
+  - "Retry com backoff: fila 'calculo' → delay exponencial 2s, 4s, 8s, 16s, 32s; fila 'relatorio' → 5s, 10s, 20s, 40s, 80s (configurável por fila)."
+  - "Dead-letter queue (DLQ): job com attempts >= max_attempts → status=dead_letter; rota GET /v1/admin/dead-letter-queue lista DLQ; POST /v1/admin/dead-letter-queue/{jobId}/retry move de volta para pending."
+  - "Heartbeat: worker insere heartbeat a cada 5s; job com heartbeat expirado (>30s sem update) é requeued com status=pending."
+  - "Graceful shutdown: SIGTERM → worker completa job atual, depois encerra (timeout 30s); jobs em voo revertidos a pending."
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

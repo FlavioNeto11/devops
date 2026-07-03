@@ -1,6 +1,6 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "f1d3f82808d016dd57a1d810f851ea9ffccdf38ff80f6131476d23022868249a",
+  "baseline_hash": "5f7f5351f071fa666de3a609dadd24232430b6184e6de6acb1251eb1d0dd4ae5",
   "items": [
     {
       "id": "REQ-AI-0001",
@@ -364,6 +364,94 @@
       "asr": false,
       "impact_band": "low",
       "file": "requirements/argocd/REQ-ARGO-NFR-004.yaml"
+    },
+    {
+      "id": "REQ-BESCNEXT-0001",
+      "title": "Fundação: Arquitetura em Camadas Rígidas + Observabilidade + Seed de Bootstrap",
+      "type": "non-functional",
+      "status": "approved",
+      "product": "besc-next",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/besc-next/REQ-BESCNEXT-0001.yaml"
+    },
+    {
+      "id": "REQ-BESCNEXT-0002",
+      "title": "Autenticação e Gestão de Acesso: Contas Locais + Sessão JWT + Perfis de Usuário",
+      "type": "functional",
+      "status": "approved",
+      "product": "besc-next",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/besc-next/REQ-BESCNEXT-0002.yaml"
+    },
+    {
+      "id": "REQ-BESCNEXT-0003",
+      "title": "Dados de Caso, Titular, Processo e Documento: Schema Base + Validação + Pendências Automáticas",
+      "type": "functional",
+      "status": "approved",
+      "product": "besc-next",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/besc-next/REQ-BESCNEXT-0003.yaml"
+    },
+    {
+      "id": "REQ-BESCNEXT-0004",
+      "title": "Checklists Estruturados (Documental, Jurídico, Tokenização) + Validações + Grau de Confiança",
+      "type": "functional",
+      "status": "approved",
+      "product": "besc-next",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/besc-next/REQ-BESCNEXT-0004.yaml"
+    },
+    {
+      "id": "REQ-BESCNEXT-0005",
+      "title": "Avaliação de Caução (CollateralAssessment) + Matriz de Risco Jurídico Indicativa",
+      "type": "functional",
+      "status": "approved",
+      "product": "besc-next",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/besc-next/REQ-BESCNEXT-0005.yaml"
+    },
+    {
+      "id": "REQ-BESCNEXT-0006",
+      "title": "Fila Transacional + Processamento Assíncrono de Operações Longas (Cálculos, Sínteses, Relatórios)",
+      "type": "functional",
+      "status": "approved",
+      "product": "besc-next",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/besc-next/REQ-BESCNEXT-0006.yaml"
+    },
+    {
+      "id": "REQ-BESCNEXT-0007",
+      "title": "Contract-First OpenAPI + Tipos Gerados + Validação de Schema",
+      "type": "non-functional",
+      "status": "approved",
+      "product": "besc-next",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/besc-next/REQ-BESCNEXT-0007.yaml"
+    },
+    {
+      "id": "REQ-BESCNEXT-0008",
+      "title": "Assistente de IA para Análise de Caso (Leitura de Documentos, Síntese, Sugestão de Pendências) com RAG + Grafo + Saídas Estruturadas",
+      "type": "functional",
+      "status": "approved",
+      "product": "besc-next",
+      "capability": null,
+      "asr": true,
+      "impact_band": "medium",
+      "file": "requirements/besc-next/REQ-BESCNEXT-0008.yaml"
     },
     {
       "id": "REQ-CICD-0001",

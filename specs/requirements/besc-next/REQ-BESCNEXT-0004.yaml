@@ -1,0 +1,29 @@
+id: REQ-BESCNEXT-0004
+title: "Checklists Estruturados (Documental, Jurídico, Tokenização) + Validações + Grau de Confiança"
+type: functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: besc-next
+  blueprint: app-simples
+statement: "O sistema DEVE persistir três checklists por case (documental, jurídico, tokenização) com respostas enum (sim/não/parcial/não avaliado/não se aplica), nota, evidência documental e marca de validação jurídica; todo afirmação carrega grau de confiança (alto/médio/baixo/sem lastro) e fonte de documento."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/besc-next/product.json"]
+priority: high
+criticality: medium
+architectural_significance: true
+capability_blocks: ["migrations-versionadas"]
+acceptance_criteria:
+  - "Tabelas: case_checklists (tipo: documental|jurídico|tokenizacao), checklist_items (enum: sim/nao/parcial/nao_avaliado/nao_se_aplica, nota text, document_evidence UUID, requires_legal_review boolean)."
+  - "Checklist documental: itens como 'extrato escriturador presente', 'inventário presente', 'instrumento cessão presente', 'decisão judicial presente', 'laudo presente'."
+  - "Checklist jurídico: itens para natureza do direito, certeza/liquidez/exigibilidade, cadeia titularidade (com comprovação), mitigadores legais."
+  - "Checklist tokenização: enquadramento CVM/BCB, trilho de oferta, lastro/estrutura, LGPD, PLD-FT, risco litigioso, com itens bloqueantes (sim→bloqueante, não→bloqueia avanço)."
+  - "Cada checklist_item pode linkar a document (document_evidence UUID); PUT atualiza enum + nota + evidência."
+  - "Toda afirmação em campo case (titularidade, valor, tese) carrega confidence (high|medium|low|no_basis) + document_source UUID."
+verification_method: [test-integration]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

@@ -1,0 +1,36 @@
+id: REQ-BESCNEXT-0007
+title: "Contract-First OpenAPI + Tipos Gerados + Validação de Schema"
+type: non-functional
+status: approved
+owner: flavio
+scope:
+  applies_to: capability
+  product_scope: besc-next
+  blueprint: app-simples
+statement: "O sistema DEVE definir sua superfície HTTP em OpenAPI canônico; tipos e operações são gerados a partir do OpenAPI; rotas são tipadas e validadas no CI contra o contrato."
+business_rationale: "Capacidade proposta pela IA da Forja a partir do brief do produto."
+source:
+  origin: "FORGE — concepção pela IA (propose_requirements)"
+  source_paths: ["specs/products/besc-next/product.json"]
+priority: medium
+criticality: medium
+architectural_significance: true
+capability_blocks: ["contract-openapi"]
+acceptance_criteria:
+  - "Arquivo canônico: openapi.yaml na raiz ou docs/ com paths, schemas, respostas, exemplos."
+  - "Gen:operations: script que lê openapi.yaml e gera src/generated/operations.ts com tipos de request/response para cada rota."
+  - "Validação no CI: validate:openapi verifica conformidade da OpenAPI com JSON Schema e exemplos."
+  - "Tipos em sync: rotas importam tipos de src/generated/operations.ts; POST /v1/cases/{caseId}/checklist/{type}/{itemId} exigem body tipado conforme schema."
+  - "Mudança de rota: altera-se OpenAPI → geram-se tipos → rotas usam tipos → testes de contrato no PR."
+  - "Exemplo: OpenAPI define POST /v1/cases com schema `{ title, titular_id, class_type }` → gen cria interface CreateCaseRequest → rota valida."
+quality_scenarios:
+  - source: "operador/sistema"
+    stimulus: "O sistema DEVE definir sua superfície HTTP em OpenAPI canônico; tipos e operações são gerados a partir do OpenAPI; rotas são tipadas e valid"
+    environment: "produção"
+    artifact: "besc-next"
+    response: "atende o atributo de qualidade especificado"
+    response_measure: "Arquivo canônico: openapi.yaml na raiz ou docs/ com paths, schemas, respostas, exemplos."
+verification_method: [test-integration, monitoring]
+version:
+  baseline_version: "1.0.0"
+  item_revision: 1

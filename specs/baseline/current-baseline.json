@@ -1,13 +1,14 @@
 {
   "metamodel_version": "1.1.0",
-  "baseline_hash": "f1d3f82808d016dd57a1d810f851ea9ffccdf38ff80f6131476d23022868249a",
+  "baseline_hash": "5f7f5351f071fa666de3a609dadd24232430b6184e6de6acb1251eb1d0dd4ae5",
   "refinements_hash": "a25683b324c8fed749c9f15916c2978512bf771659f9bf088a473f038db4825c",
   "schema": "specs/schema/requirement.schema.json",
   "counts": {
-    "total": 381,
+    "total": 389,
     "by_product": {
       "ai": 18,
       "argocd": 15,
+      "besc-next": 8,
       "cicd": 17,
       "cms": 22,
       "console": 35,
@@ -29,11 +30,11 @@
       "zapbridge": 13
     },
     "by_status": {
-      "approved": 381
+      "approved": 389
     },
     "by_type": {
-      "functional": 270,
-      "non-functional": 111
+      "functional": 276,
+      "non-functional": 113
     },
     "refinements": {
       "total": 63,
@@ -1261,6 +1262,385 @@
       "impact_score": 38,
       "impact_band": "low",
       "file": "requirements/argocd/REQ-ARGO-NFR-004.yaml"
+    },
+    {
+      "id": "REQ-BESCNEXT-0001",
+      "title": "Fundação: Arquitetura em Camadas Rígidas + Observabilidade + Seed de Bootstrap",
+      "type": "non-functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "product-foundation",
+        "product_scope": "besc-next",
+        "blueprint": "app-simples"
+      },
+      "statement": "O sistema DEVE implementar arquitetura em camadas rígidas (route → service → repository → worker → gateway), com observabilidade por padrão (health endpoints, métricas Prometheus, ServiceMonitor, SLO e dashboard Grafana) e bootstrap automático com usuário admin via variáveis de ambiente.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/besc-next/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "critical",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "camadas-rigidas",
+        "observabilidade",
+        "migrations-versionadas"
+      ],
+      "acceptance_criteria": [
+        "Rotas HTTP validam entrada e mapeiam apenas para services; nenhuma rota acessa banco ou rede externa diretamente.",
+        "Toda regra de negócio vive em services; todo SQL em repositories; trabalho assíncrono em workers; chamadas HTTP externas em gateways.",
+        "Health endpoints estruturados em /health, /v1/health/{system,workers,jobs} retornam JSON com status de componentes.",
+        "Métricas Prometheus expostas em :9464 fora do Traefik; ServiceMonitor gerado para kube-prometheus-stack.",
+        "Dashboard Grafana gerado automaticamente com p95 latência, taxa de erro, saturação de fila.",
+        "SLO alertas (PrometheusRule) configurados para latência, erros e saturação."
+      ],
+      "quality_scenarios": [
+        {
+          "source": "operador/sistema",
+          "stimulus": "O sistema DEVE implementar arquitetura em camadas rígidas (route → service → repository → worker → gateway), com observabilidade por padrão ",
+          "environment": "produção",
+          "artifact": "besc-next",
+          "response": "atende o atributo de qualidade especificado",
+          "response_measure": "Rotas HTTP validam entrada e mapeiam apenas para services; nenhuma rota acessa banco ou rede externa diretamente."
+        }
+      ],
+      "verification_method": [
+        "test-integration",
+        "monitoring"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 65,
+      "impact_band": "medium",
+      "file": "requirements/besc-next/REQ-BESCNEXT-0001.yaml"
+    },
+    {
+      "id": "REQ-BESCNEXT-0002",
+      "title": "Autenticação e Gestão de Acesso: Contas Locais + Sessão JWT + Perfis de Usuário",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "besc-next",
+        "blueprint": "app-simples"
+      },
+      "statement": "O sistema DEVE gerenciar contas e acesso: autenticação local com registro/login, sessão via JWT curto com refresh rotacionado, e papéis de usuário (admin/member) para controle de acesso básico.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/besc-next/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "contas-acesso"
+      ],
+      "acceptance_criteria": [
+        "Registro público cria usuário com papel 'member' (nunca 'admin'); admin pode promover/rebaixar/desativar.",
+        "Login local exige email + senha bcrypt; login bem-sucedido retorna JWT curto (HS256) + refresh token (hash persistido).",
+        "JWT_SECRET é obrigatório em produção (fail-closed sem ele); refresh token rotacionado a cada renovação.",
+        "Troca de senha exige senha atual e revoga todas as sessões do usuário.",
+        "Desativar ou rebaixar usuário revoga suas sessões imediatamente.",
+        "Rotas de auth (registro, login, refresh) possuem rate-limit (ex.: 5 tentativas/minuto por IP)."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/besc-next/REQ-BESCNEXT-0002.yaml"
+    },
+    {
+      "id": "REQ-BESCNEXT-0003",
+      "title": "Dados de Caso, Titular, Processo e Documento: Schema Base + Validação + Pendências Automáticas",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "besc-next",
+        "blueprint": "app-simples"
+      },
+      "statement": "O sistema DEVE persistir e validar o núcleo de cadastro (Case com titular, classe de ação, cadeia de titularidade, processo judicial, documentos) e reavaliar automaticamente ~12 regras de pendências a cada mudança, derivando transições de estado do caso.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/besc-next/product.json"
+        ]
+      },
+      "priority": "critical",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "migrations-versionadas"
+      ],
+      "acceptance_criteria": [
+        "Tabelas: cases, persons (PF/empresa/espólio/herdeiro/cessionário), case_titles (cadeia de titularidade), case_classes (ON/PNA/PNB/desconhecida), legal_processes (CNJ, fase processual), documents (tipo, status pendente→recebido→análise→validado/rejeitado/necessita complementação, obrigatoriedade).",
+        "Case carrega: titular, classe, quantidade, tipos de direito (acionário, creditório, litigioso), teses (relação de troca, critério de valor, subscrição, expurgos), escriturador, valor estimado, situação de liquidez.",
+        "Document carrega: tipo, status, obrigatoriedade, anexo (arquivo + referência + datas), document_evidence (link a checklist/campo).",
+        "Pendências ~12 regras: titularidade não comprovada, processo sem número CNJ, direito litigioso sem fase, falta parecer jurídico, cálculo desatualizado, cessão não verificada, análise regulatória, laudo/caução ausente, campos essenciais sem lastro, documentos obrigatórios pendentes.",
+        "Motor de pendências reavalia a cada: PUT case, POST document, PUT document, PUT checklist_item; severidades informativa/média/alta/bloqueante; abre quando condição verdadeira, desaparece quando satisfeita.",
+        "Máquina de estados: 9 status (new, docs_incomplete, legal_review, awaiting_calculation, awaiting_opinion, ready_for_structuring, ready_with_caveats, not_eligible, archived). Transições automáticas por pendências resolvidas; avanços com efeito decidido exigem confirmação POST /v1/cases/{caseId}/advance-state."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/besc-next/REQ-BESCNEXT-0003.yaml"
+    },
+    {
+      "id": "REQ-BESCNEXT-0004",
+      "title": "Checklists Estruturados (Documental, Jurídico, Tokenização) + Validações + Grau de Confiança",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "besc-next",
+        "blueprint": "app-simples"
+      },
+      "statement": "O sistema DEVE persistir três checklists por case (documental, jurídico, tokenização) com respostas enum (sim/não/parcial/não avaliado/não se aplica), nota, evidência documental e marca de validação jurídica; todo afirmação carrega grau de confiança (alto/médio/baixo/sem lastro) e fonte de documento.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/besc-next/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "migrations-versionadas"
+      ],
+      "acceptance_criteria": [
+        "Tabelas: case_checklists (tipo: documental|jurídico|tokenizacao), checklist_items (enum: sim/nao/parcial/nao_avaliado/nao_se_aplica, nota text, document_evidence UUID, requires_legal_review boolean).",
+        "Checklist documental: itens como 'extrato escriturador presente', 'inventário presente', 'instrumento cessão presente', 'decisão judicial presente', 'laudo presente'.",
+        "Checklist jurídico: itens para natureza do direito, certeza/liquidez/exigibilidade, cadeia titularidade (com comprovação), mitigadores legais.",
+        "Checklist tokenização: enquadramento CVM/BCB, trilho de oferta, lastro/estrutura, LGPD, PLD-FT, risco litigioso, com itens bloqueantes (sim→bloqueante, não→bloqueia avanço).",
+        "Cada checklist_item pode linkar a document (document_evidence UUID); PUT atualiza enum + nota + evidência.",
+        "Toda afirmação em campo case (titularidade, valor, tese) carrega confidence (high|medium|low|no_basis) + document_source UUID."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/besc-next/REQ-BESCNEXT-0004.yaml"
+    },
+    {
+      "id": "REQ-BESCNEXT-0005",
+      "title": "Avaliação de Caução (CollateralAssessment) + Matriz de Risco Jurídico Indicativa",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "besc-next",
+        "blueprint": "app-simples"
+      },
+      "statement": "O sistema DEVE registrar avaliações de uso do crédito como caução/garantia por hipótese de processo (execução cível/fiscal/trabalhista/cautelar/acordo) e modalidade (caução real/fidejussória/depósito/seguro-garantia/fiança), capturando certeza/liquidez/exigibilidade, probabilidade de aceitação, deságio, reforço complementar e mitigadores; e derivar matriz de risco jurídico indicativa (~9 fatores ponderados: titularidade, fase processual, prescrição, liquidez, cedibilidade, jurisprudência, materialidade, enquadramento regulatório, evidência).",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/besc-next/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "migrations-versionadas"
+      ],
+      "acceptance_criteria": [
+        "Tabela: collateral_assessments (case_id, destination_process_type enum: civel|fiscal|trabalhista|cautelar|acordo, modality enum: real|fidejussoria|deposito|seguro_garantia|fianca, certeza enum: alta|media|baixa, liquidez enum: alta|media|baixa, exigibilidade enum: alta|media|baixa, acceptance_probability decimal 0-1, deságio decimal, reforço_complementar text, mitigadores text).",
+        "Por case, múltiplas CollateralAssessments (ex.: execução cível com caução real, trabalhista com depósito).",
+        "Matriz de risco jurídico: ~9 fatores (titularidade_comprovada, fase_processual, prescrição, liquidez, cedibilidade, jurisprudência, materialidade, enquadramento_regulatorio, evidencia_documental), cada fator 0-100; risco_agregado = ponderação; resultado 'baixo|medio|alto|indeterminado' com narrative.",
+        "POST /v1/cases/{caseId}/collateral-assessments cria; PUT atualiza; GET lista todas.",
+        "GET /v1/cases/{caseId}/risk-matrix retorna matriz de risco agregada com scores de cada fator e narrativa.",
+        "Matriz de risco reavalia a cada atualização de case (titularidade, fase processual, documentos, checklists) automaticamente (service de recalc)."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/besc-next/REQ-BESCNEXT-0005.yaml"
+    },
+    {
+      "id": "REQ-BESCNEXT-0006",
+      "title": "Fila Transacional + Processamento Assíncrono de Operações Longas (Cálculos, Sínteses, Relatórios)",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "besc-next",
+        "blueprint": "app-simples"
+      },
+      "statement": "O sistema DEVE processar operações longas (cálculos de valor atualizado, síntese de caso para relatório, geração de PDF) de forma assíncrona e confiável: jobs persistidos em Postgres com FOR UPDATE SKIP LOCKED, retry com backoff, dead-letter queue (DLQ), heartbeat e graceful shutdown.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/besc-next/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "worker-queue-transacional"
+      ],
+      "acceptance_criteria": [
+        "Tabela: jobs (id UUID, queue_name string, payload JSON, status enum: pending|claimed|processing|completed|failed|dead_letter, claimed_at timestamp, claimed_by worker_id UUID, attempts int, max_attempts=5, error_message text, created_at, updated_at).",
+        "Worker (mesma imagem da API): inicia com startup(), loop claims jobs com SELECT * FROM jobs WHERE status='pending' AND queue_name=? ORDER BY created_at LIMIT ? FOR UPDATE SKIP LOCKED; processa; UPDATE status=completed ou status=failed + error.",
+        "Retry com backoff: fila 'calculo' → delay exponencial 2s, 4s, 8s, 16s, 32s; fila 'relatorio' → 5s, 10s, 20s, 40s, 80s (configurável por fila).",
+        "Dead-letter queue (DLQ): job com attempts >= max_attempts → status=dead_letter; rota GET /v1/admin/dead-letter-queue lista DLQ; POST /v1/admin/dead-letter-queue/{jobId}/retry move de volta para pending.",
+        "Heartbeat: worker insere heartbeat a cada 5s; job com heartbeat expirado (>30s sem update) é requeued com status=pending.",
+        "Graceful shutdown: SIGTERM → worker completa job atual, depois encerra (timeout 30s); jobs em voo revertidos a pending."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/besc-next/REQ-BESCNEXT-0006.yaml"
+    },
+    {
+      "id": "REQ-BESCNEXT-0007",
+      "title": "Contract-First OpenAPI + Tipos Gerados + Validação de Schema",
+      "type": "non-functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "besc-next",
+        "blueprint": "app-simples"
+      },
+      "statement": "O sistema DEVE definir sua superfície HTTP em OpenAPI canônico; tipos e operações são gerados a partir do OpenAPI; rotas são tipadas e validadas no CI contra o contrato.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/besc-next/product.json"
+        ]
+      },
+      "priority": "medium",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "contract-openapi"
+      ],
+      "acceptance_criteria": [
+        "Arquivo canônico: openapi.yaml na raiz ou docs/ com paths, schemas, respostas, exemplos.",
+        "Gen:operations: script que lê openapi.yaml e gera src/generated/operations.ts com tipos de request/response para cada rota.",
+        "Validação no CI: validate:openapi verifica conformidade da OpenAPI com JSON Schema e exemplos.",
+        "Tipos em sync: rotas importam tipos de src/generated/operations.ts; POST /v1/cases/{caseId}/checklist/{type}/{itemId} exigem body tipado conforme schema.",
+        "Mudança de rota: altera-se OpenAPI → geram-se tipos → rotas usam tipos → testes de contrato no PR.",
+        "Exemplo: OpenAPI define POST /v1/cases com schema `{ title, titular_id, class_type }` → gen cria interface CreateCaseRequest → rota valida."
+      ],
+      "quality_scenarios": [
+        {
+          "source": "operador/sistema",
+          "stimulus": "O sistema DEVE definir sua superfície HTTP em OpenAPI canônico; tipos e operações são gerados a partir do OpenAPI; rotas são tipadas e valid",
+          "environment": "produção",
+          "artifact": "besc-next",
+          "response": "atende o atributo de qualidade especificado",
+          "response_measure": "Arquivo canônico: openapi.yaml na raiz ou docs/ com paths, schemas, respostas, exemplos."
+        }
+      ],
+      "verification_method": [
+        "test-integration",
+        "monitoring"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/besc-next/REQ-BESCNEXT-0007.yaml"
+    },
+    {
+      "id": "REQ-BESCNEXT-0008",
+      "title": "Assistente de IA para Análise de Caso (Leitura de Documentos, Síntese, Sugestão de Pendências) com RAG + Grafo + Saídas Estruturadas",
+      "type": "functional",
+      "status": "approved",
+      "owner": "flavio",
+      "scope": {
+        "applies_to": "capability",
+        "product_scope": "besc-next",
+        "blueprint": "app-simples"
+      },
+      "statement": "O sistema DEVE oferecer um assistente de IA (integrado ao motor de grafo) que leia documentos (PDF, imagens, texto) anexados ao caso, recupere trechos relevantes por similaridade (RAG com pgvector), raciocine sobre titularidade/liquidez/risco com tools que consultam dados do domínio, proponha síntese/pendências/sugestões em JSON validado, com dry-run e confirmação antes de persistir.",
+      "business_rationale": "Capacidade proposta pela IA da Forja a partir do brief do produto.",
+      "source": {
+        "origin": "FORGE — concepção pela IA (propose_requirements)",
+        "source_paths": [
+          "specs/products/besc-next/product.json"
+        ]
+      },
+      "priority": "high",
+      "criticality": "medium",
+      "architectural_significance": true,
+      "capability_blocks": [
+        "ia-grafo",
+        "rag-pgvector",
+        "structured-outputs",
+        "control-ai-por-app"
+      ],
+      "acceptance_criteria": [
+        "POST /v1/cases/{caseId}/assistant recebe { prompt, files? } (texto + attachments opcionais via @flavioneto11/file-ingest-kit com fail-soft para upload inválido).",
+        "Pipeline: (1) ingerir arquivo em anexo → fatiá-lo + embeddar com pgvector; (2) recuperar top-K trechos por similaridade (retrieval grounded); (3) invocar motor de grafo (createAiGraph) com especialistas de domínio (análise-titularidade, análise-liquidez, análise-risco) e tools R1 (buscar-documentos, listar-checklists, consultar-jurisprudência-local); (4) prompts versionados do control plane com cache/fallback; (5) estruturar saída em JSON (ex.: { tipo: 'analise_titularidade', confianca: 'alta', fontes: [{ documento, trecho }], sugestoes: [ { ação, pendencia_afetada } ] }).",
+        "Saída estruturada: JSON validado contra schema; falha de validação = erro estruturado, nunca fallback silencioso.",
+        "Dry-run: resposta retorna com flag 'requer_confirmacao'; POST /v1/cases/{caseId}/assistant/{responseId}/confirm persiste sugestões (ex.: criar pendência, atualizar confidence de campo).",
+        "Timeout: 30s por default; revert para prompt versionado offline se control plane demora; nunca bloqueia sem chave de IA.",
+        "Logging: cada invocação loga prompt/response/latência/tentativa de tool; nenhum secret (API key, email) no log (redação)."
+      ],
+      "verification_method": [
+        "test-integration"
+      ],
+      "version": {
+        "baseline_version": "1.0.0",
+        "item_revision": 1
+      },
+      "impact_score": 60,
+      "impact_band": "medium",
+      "file": "requirements/besc-next/REQ-BESCNEXT-0008.yaml"
     },
     {
       "id": "REQ-CICD-0001",
@@ -21130,6 +21510,15 @@
       ]
     },
     {
+      "id": "REQ-BESCNEXT-0001",
+      "title": "Fundação: Arquitetura em Camadas Rígidas + Observabilidade + Seed de Bootstrap",
+      "product": "besc-next",
+      "impact_score": 65,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
       "id": "REQ-CMS-0002",
       "title": "Visual editor with live preview and click-to-edit interface",
       "product": "cms",
@@ -21307,6 +21696,69 @@
       "impact_score": 65,
       "reasons": [
         "sem método de verificação"
+      ]
+    },
+    {
+      "id": "REQ-BESCNEXT-0002",
+      "title": "Autenticação e Gestão de Acesso: Contas Locais + Sessão JWT + Perfis de Usuário",
+      "product": "besc-next",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-BESCNEXT-0003",
+      "title": "Dados de Caso, Titular, Processo e Documento: Schema Base + Validação + Pendências Automáticas",
+      "product": "besc-next",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-BESCNEXT-0004",
+      "title": "Checklists Estruturados (Documental, Jurídico, Tokenização) + Validações + Grau de Confiança",
+      "product": "besc-next",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-BESCNEXT-0005",
+      "title": "Avaliação de Caução (CollateralAssessment) + Matriz de Risco Jurídico Indicativa",
+      "product": "besc-next",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-BESCNEXT-0006",
+      "title": "Fila Transacional + Processamento Assíncrono de Operações Longas (Cálculos, Sínteses, Relatórios)",
+      "product": "besc-next",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-BESCNEXT-0007",
+      "title": "Contract-First OpenAPI + Tipos Gerados + Validação de Schema",
+      "product": "besc-next",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
+      ]
+    },
+    {
+      "id": "REQ-BESCNEXT-0008",
+      "title": "Assistente de IA para Análise de Caso (Leitura de Documentos, Síntese, Sugestão de Pendências) com RAG + Grafo + Saídas Estruturadas",
+      "product": "besc-next",
+      "impact_score": 60,
+      "reasons": [
+        "sem evidência de verificação"
       ]
     },
     {
