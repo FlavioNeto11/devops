@@ -232,3 +232,65 @@ test('CLI: REF com campo fabricado -> exit 1 + JSON com errors[]; REF válida ->
   assert.equal(JSON.parse(okOut).ok, true);
   fs.rmSync(tmp, { recursive: true, force: true });
 });
+
+// ---- MODO NÃO-OPENAPI (F4): contrato EXTRAÍDO do backend real ---------------------------------
+test('CLI sem openapi: contrato EXTRAÍDO do backend valida REFs (sem skip cego); rota fabricada reprova', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ref-extracted-'));
+  const src = path.join(tmp, 'api-src');
+  fs.mkdirSync(src, { recursive: true });
+  fs.writeFileSync(path.join(src, 'server.js'), `
+    app.get('/v1/items', async (req) => { const { status } = req.query || {}; return { data: [], total: 0 }; });
+    app.post('/v1/items', async (req, reply) => { const b = req.body || {}; if (!b.title) { reply.code(400); return { error: {} }; } return { id: 1 }; });
+  `);
+  const cli = path.join(__dirname, 'validate-refinement-contract.mjs');
+
+  // REF válida contra a tabela extraída => exit 0, contract_mode extracted
+  const good = ref({ id: 'REF-EXTRACTED-0001' });
+  good.behavior.data = [
+    { field: 'status', source: 'api:/v1/items', editable: false },
+    { field: 'title', source: 'api:/v1/items', editable: true },
+  ];
+  good.behavior.interactions = [{ action: 'POST /v1/items ao salvar' }];
+  const goodPath = path.join(tmp, 'REF-EXTRACTED-0001.yaml');
+  fs.writeFileSync(goodPath, JSON.stringify(good));
+  const okOut = execFileSync(process.execPath, [cli, '--file', goodPath, '--backend-src', src], { encoding: 'utf8' });
+  const okParsed = JSON.parse(okOut);
+  assert.equal(okParsed.ok, true);
+  assert.equal(okParsed.contract_mode, 'extracted');
+
+  // rota fabricada => erro estruturado (o buraco do skip fechou)
+  const bad = ref({ id: 'REF-EXTRACTED-0002' });
+  bad.behavior.data = [{ field: 'x', source: 'api:/v1/settings', editable: false }];
+  const badPath = path.join(tmp, 'REF-EXTRACTED-0002.yaml');
+  fs.writeFileSync(badPath, JSON.stringify(bad));
+  let failed = false; let out = '';
+  try {
+    execFileSync(process.execPath, [cli, '--file', badPath, '--backend-src', src], { encoding: 'utf8' });
+  } catch (e) { failed = true; out = String(e.stdout || ''); assert.equal(e.status, 1); }
+  assert.ok(failed, 'rota fabricada deve REPROVAR também no modo extraído');
+  assert.equal(JSON.parse(out).errors[0].code, 'route-not-in-contract');
+
+  // campo fabricado em rota extraída de shape FECHADO => erro field-not-in-contract
+  const badField = ref({ id: 'REF-EXTRACTED-0003' });
+  badField.behavior.data = [{ field: 'report_type', source: 'api:/v1/items', editable: false }];
+  const badFieldPath = path.join(tmp, 'REF-EXTRACTED-0003.yaml');
+  fs.writeFileSync(badFieldPath, JSON.stringify(badField));
+  failed = false; out = '';
+  try {
+    execFileSync(process.execPath, [cli, '--file', badFieldPath, '--backend-src', src], { encoding: 'utf8' });
+  } catch (e) { failed = true; out = String(e.stdout || ''); }
+  assert.ok(failed);
+  assert.equal(JSON.parse(out).errors[0].code, 'field-not-in-contract');
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+
+test('CLI: skip estruturado SÓ quando nem openapi nem backend extraível existem', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ref-skip-'));
+  const goodPath = path.join(tmp, 'REF-SKIP-0001.yaml');
+  fs.writeFileSync(goodPath, JSON.stringify(ref({ id: 'REF-SKIP-0001', scope: { product_scope: 'produto-sem-backend-xyz' } })));
+  const cli = path.join(__dirname, 'validate-refinement-contract.mjs');
+  const out = JSON.parse(execFileSync(process.execPath, [cli, '--file', goodPath], { encoding: 'utf8' }));
+  assert.equal(out.ok, true);
+  assert.ok(String(out.skipped || '').includes('sem contrato openapi e sem backend extraivel'));
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
