@@ -22,12 +22,19 @@ const REPO_ROOT = path.resolve(SPECS, '..');
 // YAML scalar: aspas duplas SEMPRE (statements têm ':' etc.). Escapa \ e ".
 const q = (s) => '"' + String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
 const ENUM_PRI = new Set(['low', 'medium', 'high', 'critical']);
+// Pattern do requirement.schema.json (ids não aceitam hífen no segmento do produto): slug
+// hifenizado (ex.: besc-next) vira segmento SEM hífens (BESCNEXT) — senão o YAML nasce inválido
+// e o specs-governance reprova o PR (bug do launch do besc-next, PR #212).
+export const REQ_ID_RE = /^REQ-[A-Z0-9]+-(NFR-)?[0-9]{3,4}$/;
+export const reqIdSegment = (name) => String(name || '').toUpperCase().replace(/-/g, '');
 
 /** Serializa UM requisito em YAML schema-válido. Honra r.id se fornecido (caminho "verbatim" da UI);
  *  senão gera REQ-<NAME>-000i por índice (caminho de concepção pela IA). Lê title/type/statement/
  *  priority/acceptance_criteria/capability_blocks do requisito; preenche os campos exigidos pelo schema. */
 export function reqYaml(r, i, { name, blueprint }) {
-  const id = r.id || `REQ-${name.toUpperCase()}-${String(i + 1).padStart(4, '0')}`;
+  const id = r.id || `REQ-${reqIdSegment(name)}-${String(i + 1).padStart(4, '0')}`;
+  // fail-closed: id (derivado OU verbatim da UI) fora do schema não vira YAML inválido no git.
+  if (!REQ_ID_RE.test(id)) throw new Error(`req id inválido vs schema (${REQ_ID_RE}): '${id}'`);
   const isFoundation = i === 0;
   const pri = ENUM_PRI.has(r.priority) ? r.priority : (isFoundation ? 'critical' : 'high');
   const crit = ENUM_PRI.has(r.criticality) ? r.criticality : (isFoundation ? 'critical' : 'medium');
@@ -75,11 +82,13 @@ export function reqYaml(r, i, { name, blueprint }) {
 
 /** Escreve specs/requirements/<name>/<ID>.yaml p/ cada requisito. Retorna os ids. */
 export function emitReqs({ specsDir = SPECS, name, blueprint, requirements }) {
+  // serializa TUDO antes de escrever qualquer arquivo: um id inválido (reqYaml lança) não deixa
+  // emissão parcial no git (fail-closed de verdade — nem o diretório do produto é criado).
+  const emitted = requirements.map((r, i) => reqYaml(r, i, { name, blueprint }));
   const reqDir = path.join(specsDir, 'requirements', name);
   fs.mkdirSync(reqDir, { recursive: true });
-  const ids = [];
-  requirements.forEach((r, i) => { const { id, yaml } = reqYaml(r, i, { name, blueprint }); fs.writeFileSync(path.join(reqDir, id + '.yaml'), yaml); ids.push(id); });
-  return ids;
+  for (const { id, yaml } of emitted) fs.writeFileSync(path.join(reqDir, id + '.yaml'), yaml);
+  return emitted.map((e) => e.id);
 }
 
 /** Escreve product.json + architecture.json (irmão) + build-plan.json (grafo do frontend). */
@@ -145,7 +154,7 @@ async function mainCli() {
   console.log('[forge] ARQUITETURA — IA escolhendo stack + blocos + waves...');
   const ar = await call('/v1/forge/propose-architecture', {
     product: NAME, blueprint: BLUEPRINT,
-    requirements: reqs.map((r, i) => ({ id: `REQ-${NAME.toUpperCase()}-${String(i + 1).padStart(4, '0')}`, title: r.title, type: r.type, statement: r.statement, capability_blocks: r.capability_blocks || [] })),
+    requirements: reqs.map((r, i) => ({ id: `REQ-${reqIdSegment(NAME)}-${String(i + 1).padStart(4, '0')}`, title: r.title, type: r.type, statement: r.statement, capability_blocks: r.capability_blocks || [] })),
     capabilities, blueprints,
   });
   const stack = ar.stack || 'sicat';
