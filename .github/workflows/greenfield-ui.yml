@@ -9,9 +9,16 @@
 # deploya. O fluxo replica o padrão de segurança da esteira req-implement:
 #   1. o motor roda SEM credencial git (persist-credentials:false + nenhum GH_TOKEN no passo) —
 #      mesmo executando código, não consegue autenticar push/PR no remoto;
-#   2. a esteira stage-a SÓ o blast-radius do produto e VALIDA o diff com
-#      specs/tools/guard-worktree.mjs (barreira TÉCNICA: allowed_paths do produto + denylist —
-#      tests/locked/**, segredos, .github/**, platform/**, ...) ANTES de qualquer push;
+#   2. a esteira NEUTRALIZA desvios do motor antes de validar (forense do run 28626996637 /
+#      PR #211): DISSOLVE qualquer commit local que o motor tenha criado (reset --mixed p/ a
+#      base — o motor commitou 180 arquivos como 'forge-bot' e o guard só via os 6 que restavam
+#      staged), DESCARTA toda mudança fora do blast-radius do PR do produto (apps/<prod>/** +
+#      specs/{products,requirements,refinements,baseline}/** — ex.: sync do kit ui-vue p/ OUTROS
+#      apps, trabalho legítimo de fluxo/PR dedicado; descarte listado em ::warning e preservado
+#      no artefato) e VALIDA o DIFF COMPLETO branch-vs-main com specs/tools/guard-worktree.mjs
+#      (barreira TÉCNICA: allowed_paths do produto + denylist — tests/locked/**, segredos,
+#      .github/**, platform/**, specs/requirements/**, ...) ANTES de qualquer push; após o
+#      commit o guard REVALIDA `git diff base..HEAD` (nada não-validado sobe);
 #   3. aprovado → commit em BRANCH `forge-ui/<produto>/r<run_id>` + PR com labels
 #      `claude-generated`+`forge-ui` e corpo rastreável (produto, run_id, nº de telas, inventário);
 #   4. merge = gate híbrido (validação → label `gpt-approved` por aprovador confiável + CI verde).
@@ -114,9 +121,17 @@ jobs:
           claude -p $prompt --dangerously-skip-permissions --output-format json
           if ($LASTEXITCODE -ne 0) { Write-Host "::warning::claude saiu com $LASTEXITCODE — o motor pode ter concluído parcialmente; o guard/PR publicam o que mudou." }
 
-      # PASSO 2 — baseline + BARREIRA TÉCNICA (guard) + commit em branch. Ainda SEM credencial git:
-      # este passo só escreve no repositório LOCAL; nada sobe sem passar pelo guard.
-      - name: Guard de blast-radius + commit em branch (sem credencial git)
+      # PASSO 2 — neutralização de desvios do motor + BARREIRA TÉCNICA (guard) sobre o DIFF
+      # COMPLETO + commit em branch. Ainda SEM credencial git: este passo só escreve no repositório
+      # LOCAL; nada sobe sem passar pelo guard.
+      # Forense do run 28626996637 (PR #211): o motor commitou 180 arquivos como 'forge-bot' ANTES
+      # do guard; o `git add`+`diff --cached` só viam os 6 arquivos que restavam na working tree e
+      # o `checkout -B` herdou o commit NÃO validado — o PR saiu com 186 arquivos "validados" como
+      # 6. Além disso o sync do kit ui-vue p/ OUTROS apps (sicat/imobia/contaviva-pro/neuroevolui)
+      # entrou no PR do produto e derrubou o CI (teste LIVE de outro app). Este passo fecha os dois
+      # furos: (1a) dissolve commits do motor; (2) descarta o fora-de-escopo com transparência;
+      # (1b) guard sobre o diff completo + revalidação pós-commit do range da branch.
+      - name: Guard de blast-radius (diff completo) + commit em branch (sem credencial git)
         id: guard
         run: |
           $ErrorActionPreference = "Stop"
@@ -124,30 +139,71 @@ jobs:
           $prod = "$env:PRODUCT"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Base do run = main como foi checkoutada (o ref local origin/main não se move sozinho
+          # durante o run; github.sha poderia ficar defasado se a main andasse entre dispatch e
+          # checkout).
+          $base = "$(git rev-parse origin/main)".Trim()
+          if ($base -notmatch '^[0-9a-f]{40}$') { Write-Host "::error::base inválida: '$base'"; exit 1 }
+          # ===== FURO 1a — commits locais do motor são DISSOLVIDOS (nunca herdados sem validação).
+          # O reset --mixed devolve TUDO à working tree (nada se perde) e o diff completo passa a
+          # ser visível ao staging/descarte/guard abaixo.
+          $motorCommits = @(git log --format="%h %an: %s" "$base..HEAD" 2>$null)
+          if ($motorCommits.Count -gt 0) {
+            Write-Host "::warning::motor criou $($motorCommits.Count) commit(s) locais (a instrução é NÃO usar git) — dissolvidos p/ o guard validar o DIFF COMPLETO: $($motorCommits -join ' | ')"
+          }
+          git reset -q --mixed $base
           # o motor escreve REFs/brand → regenera a baseline p/ o specs-governance não acusar drift no PR.
           if (Test-Path scripts/specs-baseline-check.ps1) { pwsh -File scripts/specs-baseline-check.ps1 -Fix 2>$null }
-          # stage-a SOMENTE o blast-radius do motor (mudança fora dele NÃO entra no PR — e é avisada).
-          git add "apps/$prod" "specs/products/$prod" "specs/refinements/$prod" specs/baseline packages/ui-vue packages/design-tokens 2>$null
+          # stage-a TUDO: com HEAD == base, o índice passa a conter o DIFF COMPLETO do motor vs
+          # main (o que estava commitado, staged ou solto) — nada escapa da validação por ordem
+          # de staging.
+          git add -A 2>$null
           # NUNCA stage-ar os artefatos EFÊMEROS do próprio pipeline (lição da req-implement: o
           # .git/info/exclude com CRLF no Windows não casa os padrões — reset explícito é robusto).
           git reset -q -- changed.txt forge-ui-order.json forge-ui-diff.patch pr-body.md 2>$null
-          $changed = @(git diff --cached --name-only)
+          $all = @(git -c core.quotepath=false diff --cached --name-only --no-renames)
+          if (-not $all -or $all.Count -eq 0) {
+            Write-Host "::warning::motor não produziu mudança alguma — nada a publicar."
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "has_pr=false"
+            exit 0
+          }
+          # preserva o diff INTEGRAL do motor como artefato ANTES do descarte (o run é caro —
+          # inclusive o sync de kit descartado abaixo fica recuperável p/ o fluxo dedicado).
+          git diff --cached --no-renames | Set-Content -Encoding utf8 forge-ui-diff.patch
+          # ===== FURO 2 — DESCARTA (git restore/checkout) toda mudança FORA do blast-radius do
+          # PR do produto: apps/<prod>/** + specs/{products,requirements,refinements,baseline}/**.
+          # O sync do kit ui-vue p/ outros apps/packages é trabalho legítimo, mas pertence a um
+          # fluxo/PR dedicado — não ao PR do produto (no #211 ele arrastou o teste LIVE do
+          # contaviva-pro e derrubou o CI). O que SOBREVIVE ao descarte (ex.: apps/<prod>/tests/
+          # locked/**, specs/requirements/**) ainda enfrenta a denylist do guard — fail-closed.
+          function Test-InScope([string]$f) {
+            return ($f -like "apps/$prod/*") -or
+                   $f.StartsWith('specs/products/') -or $f.StartsWith('specs/requirements/') -or
+                   $f.StartsWith('specs/refinements/') -or $f.StartsWith('specs/baseline/')
+          }
+          $drop = @($all | Where-Object { $_ -and -not (Test-InScope $_) })
+          foreach ($f in $drop) {
+            git reset -q -- ":(literal)$f" 2>$null
+            git cat-file -e "HEAD:$f" 2>$null
+            if ($LASTEXITCODE -eq 0) { git checkout -q -- ":(literal)$f" }
+            else { Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue }
+          }
+          if ($drop.Count -gt 0) {
+            Write-Host "::warning::DESCARTADAS $($drop.Count) mudança(s) FORA do blast-radius do produto (não entram neste PR; diff integral preservado no artefato forge-ui-diff — sync do kit pertence a fluxo/PR dedicado): $($drop -join ', ')"
+          }
+          # ===== FURO 1b — BARREIRA TÉCNICA sobre o DIFF COMPLETO: com HEAD == base, o staged é
+          # EXATAMENTE o conteúdo que o PR vai ter (allowed_paths do produto + denylist).
+          $changed = @(git -c core.quotepath=false diff --cached --name-only --no-renames)
           if (-not $changed -or $changed.Count -eq 0) {
-            Write-Host "::warning::motor não produziu mudanças no blast-radius — nada a publicar."
+            Write-Host "::warning::motor não produziu mudanças no blast-radius do produto — nada a publicar."
             Add-Content -Path $env:GITHUB_OUTPUT -Value "has_pr=false"
             exit 0
           }
           $changed | Set-Content -Encoding utf8 changed.txt
-          # transparência: o que o motor tocou FORA do blast-radius fica de fora do PR (e avisado).
-          $eph = @('changed.txt', 'forge-ui-order.json', 'forge-ui-diff.patch', 'pr-body.md')
-          $leftover = @(@(git diff --name-only) + @(git ls-files --others --exclude-standard) | Where-Object { $_ -and ($eph -notcontains $_) })
-          if ($leftover.Count -gt 0) { Write-Host "::warning::mudanças FORA do blast-radius (não entram no PR): $($leftover -join ', ')" }
-          # preserva o diff como artefato (o run do motor é caro — se o guard reprovar, nada se perde).
-          git diff --cached | Set-Content -Encoding utf8 forge-ui-diff.patch
-          # ===== BARREIRA TÉCNICA (mesma da req-implement): diff vs allowed_paths/denylist =====
           # ordem sintética no formato que o guard consome (objeto sem `orders` é usado direto);
           # a DENYLIST vale SEMPRE, mesmo dentro do escopo (apps/*/tests/locked/**, .env, segredos,
-          # .github/**, platform/**, specs/requirements/**, ...).
+          # .github/**, platform/**, specs/requirements/**, ...). packages/** NÃO é mais
+          # allowed_path: o sync do kit é descartado acima — se sobreviver por bug, o guard reprova.
           $order = [ordered]@{
             req_id        = "FORGE-UI-" + $prod.ToUpper()
             product_scope = $prod
@@ -156,9 +212,7 @@ jobs:
               "apps/$prod/**",
               "specs/products/$prod/**",
               "specs/refinements/$prod/**",
-              "specs/baseline/**",
-              "packages/ui-vue/**",
-              "packages/design-tokens/**"
+              "specs/baseline/**"
             )
           }
           $order | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 forge-ui-order.json
@@ -171,12 +225,25 @@ jobs:
           $branch = "forge-ui/$prod/r${{ github.run_id }}"
           git checkout -B "$branch"
           git commit -m "feat(${prod}): frontend de domínio gerado pelo motor generate-ui (forge-build-ui)" -m "Telas Vue ricas (CRUD por entidade + dashboard) sobre o kit ui-vue, ancoradas aos requisitos, sobre o backend existente. Gerado via greenfield-ui (run_id=${{ github.run_id }}); merge pelo gate híbrido (gpt-approved, decisão do operador); deploy via forge-deploy APÓS o merge."
+          # ===== REVALIDAÇÃO pós-commit — o guard valida o range REAL da branch vs base (é ISTO
+          # que o push publica). Se qualquer coisa não-validada existir no range, aborta ANTES de
+          # existir credencial git no job.
+          $final = @(git -c core.quotepath=false diff --name-only --no-renames "$base..HEAD")
+          $final | Set-Content -Encoding utf8 changed.txt
+          node specs/tools/guard-worktree.mjs --work-order forge-ui-order.json --changed-file changed.txt
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::REVALIDAÇÃO pós-commit reprovou: o diff da branch vs main contém arquivo não validado — publicação abortada."
+            exit 1
+          }
           Add-Content -Path $env:GITHUB_OUTPUT -Value "has_pr=true"
           Add-Content -Path $env:GITHUB_OUTPUT -Value "branch=$branch"
-          Write-Host "::notice::guard OK — $($changed.Count) arquivo(s) commitados em '$branch'."
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "base_sha=$base"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "dropped=$($drop.Count)"
+          Write-Host "::notice::guard OK sobre o DIFF COMPLETO — $($final.Count) arquivo(s) na branch '$branch' (descartados fora do blast-radius: $($drop.Count))."
 
-      # O diff do motor é preservado SEMPRE (aprovado ou reprovado): o run custa ~1h/milhões de
-      # tokens — se o guard bloquear, o operador analisa o patch sem perder o trabalho.
+      # O diff INTEGRAL do motor é preservado SEMPRE (aprovado, reprovado ou descartado): o run
+      # custa ~1h/milhões de tokens — se o guard bloquear, ou o descarte remover o sync do kit,
+      # o operador recupera o patch completo sem perder o trabalho.
       - name: Preservar diff do motor (artefato)
         if: always()
         uses: actions/upload-artifact@v4
@@ -194,21 +261,28 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.FORGE_GH_PAT || secrets.GITHUB_TOKEN }}
           BRANCH: ${{ steps.guard.outputs.branch }}
+          BASE_SHA: ${{ steps.guard.outputs.base_sha }}
+          DROPPED: ${{ steps.guard.outputs.dropped }}
           RUN_ID: ${{ github.run_id }}
         run: |
           $ErrorActionPreference = "Stop"
           $prod = "$env:PRODUCT"
           $branch = "$env:BRANCH"
-          # defesa: valida o branch name antes de qualquer uso (mesmo padrão da req-implement).
+          # defesa: valida branch name e base antes de qualquer uso (mesmo padrão da req-implement).
           if ($branch -notmatch '^forge-ui/[a-z][a-z0-9-]{1,30}/r[0-9]+$') { Write-Host "::error::branch inválido: '$branch'"; exit 1 }
+          $base = "$env:BASE_SHA"
+          if ($base -notmatch '^[0-9a-f]{40}$') { Write-Host "::error::base_sha inválido: '$base'"; exit 1 }
           gh auth setup-git    # helper de credencial do git p/ usar GH_TOKEN (só neste passo)
           # labels da esteira (gh pr create ABORTA se um label falta).
           gh label create claude-generated --color 1d76db --description "Gerado pela Claude (esteira)" 2>$null
           gh label create forge-ui         --color d93f0b --description "Frontend gerado pelo motor generate-ui (Forja)" 2>$null
           gh label create gpt-approved     --color 5319e7 --description "Validado no ChatGPT (auto-merge)" 2>$null
           git push -u origin "$branch"
-          # corpo rastreável: produto, run, telas e inventário derivados do diff commitado.
-          $changed = @(Get-Content changed.txt)
+          # corpo rastreável: estatísticas do DIFF COMPLETO da branch vs main, RECOMPUTADO do git
+          # (nunca de arquivo intermediário — no run 28626996637 o changed.txt via 6 de 186
+          # arquivos e o corpo do PR reportou estatística falsa).
+          $changed = @(git -c core.quotepath=false diff --name-only --no-renames "$base..HEAD")
+          $dropped = 0; if ("$env:DROPPED" -match '^[0-9]+$') { $dropped = [int]$env:DROPPED }
           $views = @($changed | Where-Object { $_ -match "^apps/$prod/frontend/src/views/.+\.vue$" })
           $refs  = @($changed | Where-Object { $_ -match "^specs/refinements/$prod/.+\.yaml$" })
           $scope = ("$env:SCOPE").Trim(); if (-not $scope) { $scope = "completo (todos os requisitos do produto)" }
@@ -222,7 +296,8 @@ jobs:
           $lines += "- Telas (views Vue) no diff: **$($views.Count)**"
           foreach ($v in $views) { $lines += "  - ``$v``" }
           $lines += "- Refinamentos (REF-*) no diff: **$($refs.Count)**"
-          $lines += "- Arquivos alterados: **$($changed.Count)** — blast-radius validado por ``specs/tools/guard-worktree.mjs`` (allowed_paths do produto + denylist)."
+          $lines += "- Arquivos alterados: **$($changed.Count)** — DIFF COMPLETO da branch vs main (recomputado do git no push), validado por ``specs/tools/guard-worktree.mjs`` (allowed_paths do produto + denylist) + revalidação pós-commit."
+          if ($dropped -gt 0) { $lines += "- Mudanças do motor FORA do blast-radius: **$dropped arquivo(s) descartados** deste PR (ex.: sync do kit ui-vue p/ outros apps — pertence a fluxo/PR dedicado; lista no ::warning do run, diff integral no artefato ``forge-ui-diff``)." }
           $lines += ""
           $lines += "## Gate (decisão do operador)"
           $lines += "- Merge SOMENTE após validação no ChatGPT → label ``gpt-approved`` (aplicado por aprovador confiável) + CI verde."
