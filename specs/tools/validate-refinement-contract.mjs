@@ -21,14 +21,22 @@
 //   node validate-refinement-contract.mjs --product <name>        # todos os REFs do produto
 //   node validate-refinement-contract.mjs --file <ref.yaml>       # um REF (produto vem do scope)
 //   node validate-refinement-contract.mjs --file <ref.yaml> --contract <openapi.yaml>
+//   node validate-refinement-contract.mjs --product <name> --backend-src <dir>  # força a extração
 //
-// Sem contrato openapi no app => exit 0 com {skipped} (produto não é contract-first).
+// MODO NÃO-OPENAPI (Forja 4.1 F4 — lacuna provada pelo PR #211): app sem
+// openapi.yaml NÃO ganha mais skip cego — o contrato é EXTRAÍDO deterministica-
+// mente dos registros de rota do backend real (apps/<app>/api/src/**, ver
+// extract-backend-contract.mjs) e a validação roda igual: rota citada fora da
+// tabela => erro estruturado. Campos: leituras claras do handler são a prova;
+// o não-rastreável rebaixa para warning field-unverifiable (nunca erro
+// fabricado). Só resta skip quando NEM backend extraível existe.
 // Consumidores: motor generate-ui (Forja) na autoria; specs-governance (REFs mudados no PR).
 // =============================================================================
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
+import { extractBackendContract, backendSrcCandidates } from './extract-backend-contract.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SPECS_DIR = path.resolve(__dirname, '..');
@@ -162,10 +170,18 @@ export function checkRefinement(ref, contract) {
   const warnings = [];
   const proposed = [];
   const refId = (ref && ref.id) || '(sem id)';
+  // rota ESTÁTICA prioriza sobre {param} (semântica do router real): /v1/nf/report
+  // casa com /v1/nf/report, não com /v1/nf/{id}.
   const findRoute = (cited) => {
     for (const cand of pathCandidates(cited)) {
-      const hit = contract.paths.find((e) => templateMatch(e.template, cand));
-      if (hit) return hit;
+      let best = null; let bestScore = -1;
+      for (const e of contract.paths) {
+        if (!templateMatch(e.template, cand)) continue;
+        const literals = e.template.split('/').filter((s) => s && !/^\{/.test(s)).length;
+        const score = (e.template === cand ? 1000 : 0) + literals;
+        if (score > bestScore) { best = e; bestScore = score; }
+      }
+      if (best) return best;
     }
     return null;
   };
@@ -182,7 +198,7 @@ export function checkRefinement(ref, contract) {
     if (!hit) {
       errors.push({
         code: 'route-not-in-contract', ref: refId, where: 'behavior.data[' + i + '].source', cited, field: item.field,
-        message: 'rota "' + cited + '" nao existe no contrato openapi',
+        message: 'rota "' + cited + '" nao existe no contrato da API (openapi ou extraido do backend)',
         hint: 'cite uma rota REAL do contrato ou marque o item com contract:"proposed" (endpoint novo a criar)',
         known_routes_sample: contract.paths.slice(0, 12).map((e) => e.template),
       });
@@ -221,7 +237,7 @@ export function checkRefinement(ref, contract) {
       if (!hit) {
         errors.push({
           code: 'interaction-route-not-in-contract', ref: refId, where: 'behavior.interactions[' + i + '].action', method, cited,
-          message: 'rota "' + method + ' ' + cited + '" nao existe no contrato openapi',
+          message: 'rota "' + method + ' ' + cited + '" nao existe no contrato da API (openapi ou extraido do backend)',
           hint: 'cite uma rota REAL do contrato ou marque a interacao com contract:"proposed"',
         });
         continue;
@@ -246,6 +262,7 @@ function parseArgs(argv) {
     if (argv[i] === '--product') a.product = argv[++i];
     else if (argv[i] === '--file') a.files.push(argv[++i]);
     else if (argv[i] === '--contract') a.contract = argv[++i];
+    else if (argv[i] === '--backend-src') a.backendSrc = argv[++i];
   }
   return a;
 }
@@ -277,15 +294,35 @@ function main() {
   // 2) resolve o produto (arg ou scope do REF) e o contrato
   const product = args.product || (refs[0].ref && refs[0].ref.scope && refs[0].ref.scope.product_scope) || null;
   let contractPath = args.contract || null;
-  if (!contractPath && product) {
+  if (!contractPath && product && !args.backendSrc) {
     contractPath = contractLocations(product).map((p) => path.join(REPO_ROOT, p)).find((p) => fs.existsSync(p)) || null;
   }
-  if (!contractPath) {
-    // produto sem contrato openapi não é contract-first — nada a validar aqui (explícito, não silencioso).
-    console.log(JSON.stringify({ ok: true, skipped: 'sem contrato openapi para o produto — nada a validar', product, refs_checked: 0 }, null, 2));
+  let contract = null;
+  let contractLabel = null;
+  let contractMode = null;
+  if (contractPath) {
+    contract = parseContract(fs.readFileSync(contractPath, 'utf8'));
+    contractLabel = path.relative(REPO_ROOT, contractPath).replace(/\\/g, '/');
+    contractMode = 'openapi';
+  } else {
+    // MODO NÃO-OPENAPI: extrai a tabela de rotas do backend real (mesma validação, sem dente perdido).
+    const srcDir = args.backendSrc
+      ? path.resolve(process.cwd(), args.backendSrc)
+      : (product ? backendSrcCandidates(product).map((p) => path.join(REPO_ROOT, p)).find((p) => fs.existsSync(p)) : null);
+    if (srcDir && fs.existsSync(srcDir)) {
+      const extracted = extractBackendContract(srcDir);
+      if (extracted.paths.length > 0) {
+        contract = extracted;
+        contractLabel = 'extracted:' + (path.isAbsolute(srcDir) && srcDir.startsWith(REPO_ROOT) ? path.relative(REPO_ROOT, srcDir).replace(/\\/g, '/') : srcDir.replace(/\\/g, '/')) + ' (' + extracted.stats.routes + ' rotas)';
+        contractMode = 'extracted';
+      }
+    }
+  }
+  if (!contract) {
+    // sem openapi E sem backend extraível — nada a validar aqui (explícito, não silencioso).
+    console.log(JSON.stringify({ ok: true, skipped: 'sem contrato openapi e sem backend extraivel para o produto — nada a validar', product, refs_checked: 0 }, null, 2));
     process.exit(0);
   }
-  const contract = parseContract(fs.readFileSync(contractPath, 'utf8'));
 
   // 3) valida
   const all = { errors: [], warnings: [], proposed: [] };
@@ -301,7 +338,8 @@ function main() {
   const result = {
     ok: all.errors.length === 0,
     product,
-    contract: path.relative(REPO_ROOT, contractPath).replace(/\\/g, '/'),
+    contract: contractLabel,
+    contract_mode: contractMode,
     refs_checked: refs.length,
     errors: all.errors,
     warnings: all.warnings,
