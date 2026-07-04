@@ -265,10 +265,10 @@ function routerJs(screens) {
 function renderView(screen, entity, inv) {
   switch (screen.kind) {
     case 'dashboard': return dashboardView(screen, entity, inv);
-    case 'list': return listView(screen, entity);
-    case 'create': return formView(screen, entity, 'create');
-    case 'edit': return formView(screen, entity, 'edit');
-    case 'detail': return detailView(screen, entity);
+    case 'list': return listView(screen, entity, inv);
+    case 'create': return formView(screen, entity, 'create', inv);
+    case 'edit': return formView(screen, entity, 'edit', inv);
+    case 'detail': return detailView(screen, entity, inv);
     case 'custom':
     default: return customView(screen, entity);
   }
@@ -330,30 +330,32 @@ function emptyObjExpr(title, description) {
 function sq(s) { return "'" + String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'"; }
 
 // ---- LIST ------------------------------------------------------------------
-function listView(screen, entity) {
+function listView(screen, entity, inv) {
   const cols = tableColumns(entity);
-  const detailRoute = guessDetailRoute(screen, entity);
-  const createRoute = guessCreateRoute(screen, entity);
+  const detailRoute = guessDetailRoute(inv, entity);
+  const createRoute = guessCreateRoute(inv, entity);
   const entLabel = entity ? entity.label : screen.title;
   const fieldsForMock = (entity && entity.fields) || cols.map((c) => ({ name: c.key, type: 'text' }));
   return [
     '<template>',
     '  <UiPageLayout ' + attr('title', screen.title) + ' ' + attr('subtitle', screen.purpose || ('Lista de ' + entLabel.toLowerCase() + '.')) + ' eyebrow="Preview" :loading="state===' + "'loading'" + '" :error="state===' + "'error'" + ' ? errorMsg : null" @retry="reload" width="wide">',
-    createRoute ? '    <template #actions><UiButton @click="noop">Novo ' + escapeHtml(singular(entLabel)) + '</UiButton></template>' : '',
+    createRoute ? '    <template #actions><UiButton @click="goCreate">Novo ' + escapeHtml(singular(entLabel)) + '</UiButton></template>' : '',
     '    <template #filters>',
     '      <UiFiltersPanel v-model="filters" :fields="filterFields" @apply="reload" @clear="reload" />',
     '    </template>',
     '    <UiDataTable :columns="columns" :rows="rows" :loading="state===' + "'loading'" + '" row-key="id"',
-    '      clickable-rows @row-click="noop"',
+    '      clickable-rows @row-click="' + (detailRoute ? 'goDetail' : 'noop') + '"',
     '      :empty="' + emptyObjExpr('Nenhum ' + singular(entLabel).toLowerCase() + ' ainda', 'Quando houver dados, eles aparecem aqui.') + '">',
-    createRoute ? '      <template #empty-action><UiButton @click="noop">Cadastrar ' + escapeHtml(singular(entLabel)) + '</UiButton></template>' : '',
+    createRoute ? '      <template #empty-action><UiButton @click="goCreate">Cadastrar ' + escapeHtml(singular(entLabel)) + '</UiButton></template>' : '',
     '    </UiDataTable>',
     '  </UiPageLayout>',
     '</template>',
     '<script setup>',
     "import { ref, computed, onMounted } from 'vue';",
+    "import { useRouter } from 'vue-router';",
     "import { UiPageLayout, UiDataTable, UiButton, UiFiltersPanel } from '../ui/index.js';",
     "import { mockRows } from '../mock-data.js';",
+    'const router = useRouter();',
     'const columns = ' + j(cols) + ';',
     'const fieldDefs = ' + j(fieldsForMock.map((f) => ({ name: f.name, type: f.type, enumValues: f.enumValues }))) + ';',
     "const filterFields = [{ key: 'q', label: 'Buscar', type: 'text' }" + filterEnumFields(entity) + '];',
@@ -363,7 +365,10 @@ function listView(screen, entity) {
     'const allRows = mockRows(fieldDefs, ' + (entity ? entityCountOf(entity) : 14) + ');',
     'const rows = computed(() => (state.value === ' + "'empty'" + ' ? [] : allRows));',
     'function reload() { state.value = ' + "'normal'" + '; }',
-    'function noop() { /* preview: navegação/ações são ilustrativas */ }',
+    // navegação DENTRO do preview (rotas que o router.js já gera) — .catch p/ não estourar promise rejeitada
+    createRoute ? 'function goCreate() { router.push({ name: ' + sq(createRoute) + " }).catch(() => {}); }" : '',
+    detailRoute ? 'function goDetail(row) { router.push({ name: ' + sq(detailRoute) + ', params: { id: encodeURIComponent(String((row && row.id) != null ? row.id : ' + "'1'" + ')) } }).catch(() => {}); }' : '',
+    'function noop() { /* sem tela alvo no inventário: mantém o realce de clicável, mas não navega */ }',
     'onMounted(reload);',
     '</script>', '',
   ].filter(Boolean).join('\n');
@@ -376,7 +381,8 @@ function filterEnumFields(entity) {
 }
 
 // ---- FORM (create/edit) ----------------------------------------------------
-function formView(screen, entity, mode) {
+function formView(screen, entity, mode, inv) {
+  const listRoute = guessListRoute(inv, entity);
   const fields = ((entity && entity.fields) || []).slice(0, 12);
   const ctrls = fields.map((f) => ({ f, c: formControl(f) }));
   const inner = ctrls.map(({ f, c }) => formFieldMarkup(f, c)).join('\n');
@@ -391,7 +397,7 @@ function formView(screen, entity, mode) {
     fields.length ? inner : '          <p class="pv-note">Sem campos definidos para esta entidade.</p>',
     '        </UiFormSection>',
     '        <div class="pv-form-actions">',
-    '          <UiButton variant="ghost" type="button" @click="noop">Cancelar</UiButton>',
+    '          <UiButton variant="ghost" type="button" @click="cancel">Cancelar</UiButton>',
     '          <UiButton type="submit" :loading="saving">' + (mode === 'edit' ? 'Salvar alterações' : 'Criar') + '</UiButton>',
     '        </div>',
     '      </form>',
@@ -400,8 +406,10 @@ function formView(screen, entity, mode) {
     '</template>',
     '<script setup>',
     "import { ref } from 'vue';",
+    "import { useRouter } from 'vue-router';",
     "import { UiPageLayout, UiCard, UiFormSection, UiFormField, UiButton, useToast } from '../ui/index.js';",
     "import { mockValue } from '../mock-data.js';",
+    'const router = useRouter();',
     'const toast = useToast();',
     'const fieldDefs = ' + j(fields.map((f) => ({ name: f.name, type: f.type, enumValues: f.enumValues }))) + ';',
     'function blankForm() { const o = {}; for (const f of fieldDefs) o[f.name] = f.type === ' + "'boolean'" + ' ? false : ' + "''" + '; return o; }',
@@ -409,7 +417,8 @@ function formView(screen, entity, mode) {
     'const formv = ref(' + seedExpr + ');',
     'const saving = ref(false);',
     'function submit() { saving.value = true; setTimeout(() => { saving.value = false; toast.success(' + "'Pré-visualização: nada foi salvo (sem backend).'" + '); }, 350); }',
-    'function noop() {}',
+    // Cancelar: volta p/ a lista da entidade (se existir no inventário) ou p/ a tela anterior.
+    'function cancel() { ' + (listRoute ? 'router.push({ name: ' + sq(listRoute) + " }).catch(() => {});" : 'router.back();') + ' }',
     '</script>',
     '<style scoped>',
     '.pv-form-actions { display: flex; justify-content: flex-end; gap: var(--ui-space-2); margin-top: var(--ui-space-5); }',
@@ -459,13 +468,14 @@ function formFieldMarkup(f, c) {
 }
 
 // ---- DETAIL ----------------------------------------------------------------
-function detailView(screen, entity) {
+function detailView(screen, entity, inv) {
+  const editRoute = guessEditRoute(inv, entity);
   const fields = ((entity && entity.fields) || []).slice(0, 12);
   const entLabel = entity ? entity.label : screen.title;
   return [
     '<template>',
     '  <UiPageLayout ' + attr('title', screen.title) + ' ' + attr('subtitle', screen.purpose || ('Detalhe de ' + singular(entLabel).toLowerCase() + '.')) + ' eyebrow="Preview" :loading="state===' + "'loading'" + '" width="default">',
-    '    <template #actions><UiButton variant="ghost" @click="noop">Editar</UiButton></template>',
+    editRoute ? '    <template #actions><UiButton variant="ghost" @click="goEdit">Editar</UiButton></template>' : '',
     '    <UiCard ' + attr('title', singular(entLabel)) + '>',
     fields.length ? '      <dl class="pv-dl">' : '      <p class="pv-note">Sem campos definidos.</p>',
     fields.length ? fields.map((f) => detailRow(f)).join('\n') : '',
@@ -475,15 +485,18 @@ function detailView(screen, entity) {
     '</template>',
     '<script setup>',
     "import { ref, onMounted } from 'vue';",
+    editRoute ? "import { useRouter, useRoute } from 'vue-router';" : '',
     "import { UiPageLayout, UiCard, UiButton, UiStatusBadge, format } from '../ui/index.js';",
     "import { mockValue } from '../mock-data.js';",
+    editRoute ? 'const router = useRouter(); const route = useRoute();' : '',
     'const fieldDefs = ' + j(fields.map((f) => ({ name: f.name, type: f.type, label: f.label || humanizeLabel(f.name), enumValues: f.enumValues }))) + ';',
     "const state = ref('normal');",
     'const record = ref((function () { const o = {}; for (const f of fieldDefs) o[f.name] = mockValue(f); return o; })());',
     'function load() { state.value = ' + "'normal'" + '; }',
     'function fmt(f) { const v = record.value[f.name]; return format.formatValue(v, ' + "f.type === 'currency' ? 'currency' : f.type === 'date' ? 'date' : f.type === 'datetime' ? 'datetime' : f.type === 'number' ? 'number' : f.type === 'boolean' ? 'boolean' : undefined" + '); }',
     'function isStatus(f) { return f.type === ' + "'status'" + ' || f.type === ' + "'enum'" + '; }',
-    'function noop() {}',
+    // Editar: mantém o mesmo :id da rota de detalhe (fallback '1') ao ir p/ a tela de edição.
+    editRoute ? 'function goEdit() { router.push({ name: ' + sq(editRoute) + ", params: { id: route.params.id || '1' } }).catch(() => {}); }" : '',
     'onMounted(load);',
     '</script>',
     '<style scoped>',
@@ -590,11 +603,23 @@ function glyphFor(s) {
   const map = { dashboard: '◧', list: '▤', create: '＋', edit: '✎', detail: '▣', custom: '✦' };
   return map[s.kind] || '•';
 }
-function guessDetailRoute(screen, entity) {
-  if (!entity) return null;
-  return null; // preview não navega para backend; mantido p/ extensão futura
+// routeNameFor — resolve o NOME de rota (Vue Router) da tela da MESMA entidade com o `kind` pedido,
+// espelhando a nomeação do routerJs: a home (dashboard OU 1ª tela) e qualquer tela com route '/'
+// chamam-se 'home'; as demais usam o próprio slug. Retorna null se não existir tela alvo. Isso liga
+// as ações do preview (Novo/linha/Editar/Cancelar) às rotas que o router.js JÁ gera — sem inventar destino.
+function routeNameFor(inv, entityName, kind) {
+  const screens = (inv && inv.screens) || [];
+  if (!entityName || !screens.length) return null;
+  const home = screens.find((s) => s.kind === 'dashboard') || screens[0];
+  const match = screens.find((s) => s.entity === entityName && s.kind === kind);
+  if (!match) return null;
+  if ((home && match.slug === home.slug) || match.route === '/') return 'home';
+  return match.slug;
 }
-function guessCreateRoute() { return true; } // sempre oferece a CTA "Novo" (ilustrativa)
+function guessDetailRoute(inv, entity) { return entity ? routeNameFor(inv, entity.name, 'detail') : null; }
+function guessCreateRoute(inv, entity) { return entity ? routeNameFor(inv, entity.name, 'create') : null; }
+function guessEditRoute(inv, entity) { return entity ? routeNameFor(inv, entity.name, 'edit') : null; }
+function guessListRoute(inv, entity) { return entity ? routeNameFor(inv, entity.name, 'list') : null; }
 function singular(label) {
   const s = String(label || '').trim();
   // heurística pt-BR leve: remove plural simples
