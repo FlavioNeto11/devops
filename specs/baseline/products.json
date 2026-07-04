@@ -3,10 +3,10 @@
     {
       "name": "anarabottini",
       "display_name": "Ana Rabottini",
-      "base_path": "/sites/anarabottini",
+      "base_path": "/anarabottini",
       "blueprint": "cms-portal",
       "origin": "adopted",
-      "vision": "Portal de palestrante corporativa — saúde mental, neurodiversidade e adequação à NR-1. Primeiro portal t1 REAL da plataforma registrado como produto da Forja: o conteúdo (páginas e seções por kind) vive no CMS do Console (pm-api, projeto 'anarabottini') e a entrega publicada é servida pelo site-renderer em /sites/anarabottini — zero código de produto neste repo para o conteúdo. O app dedicado apps/anarabottini (SPA React/Vite servida em /anarabottini) continua existindo como frontend próprio do mesmo portal e fala o protocolo cmsEdit do editor visual.",
+      "vision": "Portal de palestrante corporativa — saúde mental, neurodiversidade e adequação à NR-1. Portal de conteúdo (tier t1), par do rmambiental: a SPA React/Vite dedicada é servida em /anarabottini (base path embutida no build, nginx estático) e o conteúdo (páginas e seções por kind) é espelhado no CMS do Console (pm-api, projeto 'anarabottini') — editável pelo editor visual (protocolo cmsEdit) sem tocar código. Primeiro portal t1 registrado como produto da Forja (E4), agora par do rmambiental na vitrine.",
       "app_type": "cms_portal",
       "architecture_summary": "",
       "requirement_ids": [],
@@ -17,7 +17,7 @@
         },
         "architecture": {
           "status": "adopted",
-          "note": "blueprint cms-portal (t1): executor = CMS do Console (pm-api) + site-renderer; decisões nas default_adrs do blueprint"
+          "note": "blueprint cms-portal (t1): SPA dedicada em apps/anarabottini (Vite/React) + conteúdo no CMS do Console (pm-api projeto 'anarabottini'); decisões nas default_adrs do blueprint"
         },
         "scaffold": {
           "status": "adopted",
@@ -25,7 +25,7 @@
         },
         "build": {
           "status": "deployed",
-          "note": "conteúdo publicado NO AR: site-renderer responde 200 em /sites/anarabottini (e o frontend dedicado em /anarabottini); projeto approved/active no pm-api"
+          "note": "site publicado NO AR: SPA responde 200 em /anarabottini; projeto CMS seedado/approved no pm-api"
         }
       }
     },
@@ -224,6 +224,35 @@
         "build": {
           "status": "deployed",
           "note": "derivado do implementation-status: todos os 9 REQ-NEUROEVOLUI-* estão deployed (PRs #126-#132)"
+        }
+      }
+    },
+    {
+      "name": "rmambiental",
+      "display_name": "RM Ambiental",
+      "base_path": "/rmambiental",
+      "blueprint": "cms-portal",
+      "origin": "adopted",
+      "vision": "Portal institucional de consultoria ambiental (hero, serviços, galeria, contato). Portal de conteúdo (tier t1), par do anarabottini: a SPA React/Vite dedicada é servida em /rmambiental (base path embutida no build, nginx estático) e o conteúdo (páginas e seções por kind) é espelhado no CMS do Console (pm-api, projeto 'rmambiental') — editável pelo editor visual sem tocar código. Mesma capacidade cms_portal do anarabottini; registrado como produto da Forja para consistência da vitrine.",
+      "app_type": "cms_portal",
+      "architecture_summary": "",
+      "requirement_ids": [],
+      "phases": {
+        "requirements": {
+          "status": "adopted",
+          "note": "portal de conteúdo (tier t1) — o artefato é o CONTEÚDO no CMS, não requisitos de código; nada em specs/requirements/ por design (blueprint cms-portal)"
+        },
+        "architecture": {
+          "status": "adopted",
+          "note": "blueprint cms-portal (t1): SPA dedicada em apps/rmambiental (Vite/React) + conteúdo no CMS do Console (pm-api projeto 'rmambiental'); decisões nas default_adrs do blueprint"
+        },
+        "scaffold": {
+          "status": "adopted",
+          "note": "sem scaffold de código de produto (t1); o frontend dedicado pré-existente em apps/rmambiental é anterior à Forja"
+        },
+        "build": {
+          "status": "deployed",
+          "note": "site publicado NO AR: SPA responde 200 em /rmambiental; projeto CMS seedado no pm-api (cms-seed-rmambiental)"
         }
       }
     },
