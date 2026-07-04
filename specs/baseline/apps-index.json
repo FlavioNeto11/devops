@@ -64,7 +64,7 @@
       "name": "rmambiental",
       "base_path": "/rmambiental",
       "app_type": "cms_portal",
-      "has_product": false
+      "has_product": true
     },
     {
       "name": "sicat",
