@@ -16,8 +16,8 @@ import {
   briefFromPortalContract, externalContractRef, suggestIntegrationBlock,
   isT1Product, embedConsoleUrl, publishedSiteUrl, parseEmbedMessage,
   emptyIdea, normalizeIdea, applyIdeaPatch, ideaReady, ideaMaturityHint, composeBriefFromIdea, IDEA_MATURITY_THRESHOLD,
-  previewErrorMessage,
-} from './forge-lib.js?v=60';
+  previewErrorMessage, businessSummaryFromIdea,
+} from './forge-lib.js?v=61';
 // (E1, Forja 4.1) deep-links canônicos da casca global (mesma cópia codegen-synced que o
 // index.html carrega — manter o ?v= IGUAL ao do <script> para não duplicar o módulo).
 import { surfaceLink } from './platform-shell.js?v=45';
@@ -2288,8 +2288,20 @@ function fwPreviewRenderReady(w, stage) {
   // /reqs), então é seguro compartilhar a origem; mantemos o sandbox (defesa em profundidade) só sem o
   // allow-same-origin era o bug. allow-forms/allow-popups deixam a navegação ilustrativa funcionar.
   frameWrap.append(h('iframe', { src: pv.url, title: 'Preview de ' + (w.name || w.slug), loading: 'lazy', class: 'fw-prev-iframe', sandbox: 'allow-scripts allow-same-origin allow-forms allow-popups' }));
+  // C4 — toggle de viewport (desktop/tablet/mobile): troca a classe do frameWrap SEM recarregar o iframe.
+  // A escolha persiste em pv.viewport (sobrevive às re-renderizações). Puro CSS (larguras 100%/768/375).
+  const viewport = (pv.viewport === 'tablet' || pv.viewport === 'mobile') ? pv.viewport : 'desktop';
+  frameWrap.className = 'fw-prev-frame is-' + viewport;
+  const vpBtns = {};
+  const setVp = (v) => { pv.viewport = v; frameWrap.className = 'fw-prev-frame is-' + v; for (const k in vpBtns) { vpBtns[k].classList.toggle('is-on', k === v); vpBtns[k].setAttribute('aria-pressed', k === v ? 'true' : 'false'); } };
+  const mkVp = (v, label, title) => { const b = h('button', { class: 'fw-vp' + (v === viewport ? ' is-on' : ''), type: 'button', title, 'aria-pressed': v === viewport ? 'true' : 'false', text: label, onclick: () => setVp(v) }); vpBtns[v] = b; return b; };
+  const vpBar = h('div', { class: 'fw-prev-vp', role: 'group', 'aria-label': 'Tamanho da tela do preview' },
+    mkVp('desktop', '🖥️ Desktop', 'Ver em tela cheia (desktop)'),
+    mkVp('tablet', '▭ Tablet', 'Ver em largura de tablet (768px)'),
+    mkVp('mobile', '📱 Mobile', 'Ver em largura de celular (375px)'));
   stage.append(h('div', { class: 'fw-prev-toolbar' },
     h('span', { class: 'muted small', text: 'Preview com dados de exemplo — nada é salvo.' }),
+    vpBar,
     h('a', { class: 'btn-link', href: pv.url, target: '_blank', rel: 'noopener', text: 'Abrir em nova aba ↗' })), frameWrap);
 
   // 2) lista das telas + refino por tela (se o backend reportou as telas).
@@ -2409,6 +2421,38 @@ function fwPreviewGate(w) {
 function fwStageReview(host, w, { catalog }) {
   const sum = planSummary(w.proposed.map((p) => p.req), w.arch, catalog);
   host.append(h('h3', { class: 'fw-q', tabindex: '-1', text: modeCopy(w.mode, 'review.q') }));
+
+  // C3 — Resumo executivo de NEGÓCIO (determinístico, sem IA): o que é / p/ quem / faz / valor. Degrada
+  // com elegância se o copiloto foi pulado (usa o brief livre + as contagens do plano).
+  const exec = businessSummaryFromIdea(w.idea, { brief: w.brief, name: w.name, capsCount: sum.counts.capabilities, screensCount: sum.counts.screens, wavesCount: sum.counts.waves });
+  const execBox = h('div', { class: 'fw-exec' });
+  execBox.append(h('h4', { class: 'fw-exec-t' }, h('span', { 'aria-hidden': 'true', text: '📋 ' }), 'Resumo do que você vai criar'));
+  execBox.append(h('p', { class: 'fw-exec-lead', text: exec.lead }));
+  if (exec.problem === '' && exec.description) execBox.append(h('p', { class: 'fw-exec-desc muted', text: exec.description }));
+  if (exec.forWhom.length) execBox.append(h('p', { class: 'fw-exec-who' }, h('span', { class: 'fw-exec-k', text: 'Para: ' }), exec.forWhom.join(', ')));
+  if (exec.capabilities.length) {
+    const chips = h('div', { class: 'fw-exec-caps' });
+    exec.capabilities.forEach((c) => chips.append(h('span', { class: 'fw-chip', text: c })));
+    execBox.append(h('p', { class: 'fw-exec-k', text: 'O que faz:' }), chips);
+  }
+  if (exec.goal) execBox.append(h('p', { class: 'fw-exec-goal' }, h('span', { class: 'fw-exec-k', text: 'Objetivo: ' }), exec.goal));
+  execBox.append(h('p', { class: 'fw-exec-nums muted', text: exec.counts.capabilities + ' capacidades · ' + exec.counts.screens + ' telas · ' + (exec.counts.waves || 1) + ' etapa(s) de construção' }));
+  host.append(execBox);
+
+  // C5 — Pendências: decisões em aberto do copiloto (persistem no wizard) que valem revisar antes de criar.
+  const oq = (w.idea && Array.isArray(w.idea.openQuestions)) ? w.idea.openQuestions : [];
+  if (oq.length) {
+    const ess = oq.filter((q) => q && q.essential).length;
+    const notice = h('div', { class: 'fw-pending', role: 'note' });
+    notice.append(h('p', { class: 'fw-pending-t' }, h('span', { 'aria-hidden': 'true', text: '⚠️ ' }),
+      oq.length + ' decisão(ões) em aberto' + (ess ? ' (' + ess + ' essencial' + (ess > 1 ? 'is' : '') + ')' : '') + ' — vale revisar antes de construir.'));
+    const list = h('ul', { class: 'fw-pending-l' });
+    oq.slice(0, 4).forEach((q) => list.append(h('li', { class: q && q.essential ? 'is-ess' : null, text: (q && q.text) || '' })));
+    notice.append(list);
+    notice.append(h('div', { class: 'fw-actions' }, h('button', { class: 'btn', type: 'button', text: '← Revisar na Ideia', onclick: () => fwGoto(1) })));
+    host.append(notice);
+  }
+
   const approved = fwPreviewApproved(w);
   // Gate: enquanto o preview não estiver aprovado, o launch fica bloqueado com um aviso claro
   // que leva de volta à etapa Preview. (Aditivo: só afeta o caminho do wizard.)

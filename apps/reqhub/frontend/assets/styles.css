@@ -599,6 +599,31 @@ pre.yaml { background: var(--bg-2); border: 1px solid var(--line); border-radius
 .fw-gatebar { border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--line)); background: color-mix(in srgb, var(--warn) 8%, var(--bg-1)); border-radius: 12px; padding: 14px 16px; margin: 0 0 18px; }
 .fw-gatebar-t { font-size: 14.5px; font-weight: 600; color: var(--fg); margin: 0 0 4px; }
 @media (max-width: 720px) { .fw-prev-iframe { height: 56vh; min-height: 360px; } }
+/* C4 — toggle de viewport (desktop/tablet/mobile) do preview */
+.fw-prev-vp { display: inline-flex; gap: 4px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; padding: 3px; }
+.fw-vp { font: inherit; font-size: 12.5px; line-height: 1.4; padding: 4px 9px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; }
+.fw-vp:hover { color: var(--fg); }
+.fw-vp.is-on { background: var(--bg-1); color: var(--fg); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+.fw-prev-frame.is-tablet, .fw-prev-frame.is-mobile { display: flex; justify-content: center; background: var(--bg-2); padding: 12px; }
+.fw-prev-frame.is-tablet .fw-prev-iframe { width: 768px; max-width: 100%; border: 1px solid var(--line); border-radius: 8px; }
+.fw-prev-frame.is-mobile .fw-prev-iframe { width: 375px; max-width: 100%; border: 1px solid var(--line); border-radius: 12px; }
+/* C3 — resumo executivo de negócio no passo Revisar */
+.fw-exec { border: 1px solid var(--line); background: var(--bg-1); border-radius: 12px; padding: 16px 18px; margin: 0 0 16px; }
+.fw-exec-t { font-size: 14px; margin: 0 0 8px; color: var(--fg); }
+.fw-exec-lead { font-size: 15px; color: var(--fg); margin: 0 0 6px; font-weight: 600; }
+.fw-exec-desc { margin: 0 0 6px; }
+.fw-exec-who { margin: 0 0 6px; font-size: 13.5px; }
+.fw-exec-k { color: var(--muted); font-size: 12.5px; }
+.fw-exec-caps { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.fw-exec-caps .fw-chip { background: var(--bg-2); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 12.5px; color: var(--fg); }
+.fw-exec-goal { margin: 0 0 6px; font-size: 13.5px; }
+.fw-exec-nums { margin: 8px 0 0; font-size: 12.5px; }
+/* C5 — aviso de pendências (decisões em aberto) no passo Revisar */
+.fw-pending { border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--line)); background: color-mix(in srgb, var(--warn) 8%, var(--bg-1)); border-radius: 12px; padding: 14px 16px; margin: 0 0 16px; }
+.fw-pending-t { font-size: 14px; font-weight: 600; color: var(--fg); margin: 0 0 8px; }
+.fw-pending-l { margin: 0 0 10px; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
+.fw-pending-l li { font-size: 13.5px; color: var(--fg); }
+.fw-pending-l li.is-ess { font-weight: 600; }
 
 /* DAG do build (force-directed, contido) */
 .forge-dag { position: relative; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-1);
