@@ -3,7 +3,7 @@
 import { filterReqs, groupByProduct, neighborhood, coverageRow, coverageScore, uniqueValues, graphLayout, matchesQuery, topSimilar, toYaml, validateDraft, coverageSummary, recentList, degreeMap, productPalette, nodeColor, highlightSet, visibleGraph, forceLayout, truncateLabel, findSimilarReqs, productGrounding, filterCitations, refineDecision, validateRefinement, nextRefId, parseMarkdown, systemContext } from './lib.js?v=42';
 import { productSummaries, findProduct, blueprintById, phaseModel, buildDag, waveProgress, weightedProgress, wavesFromProgress, launchPhases, reqRow, forgeStatusCls, hubSummary, nextReqId, proposeHint, typeLabel, asList, dagFromWaves, businessProductScopes, capabilityPlain, planSummary, CAPABILITY_PLAIN } from './forge-lib.js?v=60';
 import { SVGNS, state, DATA, h, svg, byId, badge, AI, dd, dt, filePicker, sameOriginUrl, humanBytes, FILE_ACCEPT, applyTransform, nav } from './core.js?v=3';
-import { renderForge, openForgeNew, interactiveGraph } from './studio.js?v=12';
+import { renderForge, openForgeNew, interactiveGraph } from './studio.js?v=13';
 
 const REPO = 'FlavioNeto11/devops'; // p/ abrir edição/criação via PR no GitHub (auth do usuário)
 
