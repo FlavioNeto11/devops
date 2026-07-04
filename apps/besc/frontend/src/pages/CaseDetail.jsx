@@ -309,6 +309,20 @@ function DocItem({ c, id, doc, patch, statusOptions, REQ }) {
           ))}
         </div>
       )}
+      {(doc.refs || []).length > 0 && (
+        <div className="attach-list">
+          {doc.refs.map((r) => (
+            <div className="attach-item" key={r.jurisprudenceId}>
+              <span className="att-ic"><Icon name="gavel" size={14} /></span>
+              <a className="att-name" href={api.jurisprudenceFileUrl(r.jurisprudenceId)} target="_blank" rel="noreferrer">{r.title || 'Documento judicial vinculado'}</a>
+              <span className="att-meta">documento judicial</span>
+              <span className="att-sp" />
+              <a className="btn ghost sm" href={api.jurisprudenceFileUrl(r.jurisprudenceId)} target="_blank" rel="noreferrer" title="Abrir o PDF"><Icon name="download" size={14} /></a>
+              <a className="btn ghost sm" href={`/besc/jurisprudencia/${r.jurisprudenceId}`} target="_blank" rel="noreferrer" title="Ficha completa">Ficha</a>
+            </div>
+          ))}
+        </div>
+      )}
       <BlurInput textarea className="small" style={{ marginTop: 8 }} rows={1} placeholder="Observações…" value={doc.notes} onSave={(v) => patch(api.updateDocument(id, doc.key, { notes: v }))} />
     </div>
   );
