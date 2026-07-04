@@ -12,6 +12,7 @@ import {
   FORGE_MODES, FORGE_MODE_LABELS, normalizeForgeMode, modeCopy,
   projectRequirementCard, forgeReqObject, buildLaunchBody,
   briefFromPortalContract, externalContractRef, suggestIntegrationBlock, CAPTURE_BRIEF_MAX_ENDPOINTS,
+  emptyIdea, normalizeIdea, applyIdeaPatch, ideaReady, ideaMaturityHint, composeBriefFromIdea, IDEA_MATURITY_THRESHOLD,
 } from './assets/forge-lib.js';
 
 const implStatus = {
@@ -636,4 +637,78 @@ test('modeCopy: cartão de captura projeta pelos 3 modos (copy distinta por modo
   assert.match(modeCopy('profissional', 'fork.capture.foot'), /\/portal-rec\/api\/v1\/contracts/);
   // modo desconhecido cai no guiado (regra geral do MODE_COPY)
   assert.equal(modeCopy('???', 'fork.capture.desc'), modeCopy('guiado', 'fork.capture.desc'));
+});
+
+/* ─── ETAPA IDEIA — copiloto de produto (funções puras) ─────────────────────────────────────── */
+
+test('emptyIdea/normalizeIdea: shape canônico e defensivo (nunca lança)', () => {
+  const e = emptyIdea();
+  assert.deepEqual(e.capabilities, []);
+  assert.equal(e.maturity, 0);
+  assert.equal(e.confirmed, false);
+  // entrada suja: campos ausentes/errados viram defaults; listas coagidas a string[]
+  const n = normalizeIdea({ problem: '  dor  ', capabilities: ['a', { text: 'b' }, '', 42], maturity: 250, actors: 'x' });
+  assert.equal(n.problem, 'dor');
+  assert.deepEqual(n.capabilities, ['a', 'b', '42']);
+  assert.equal(n.maturity, 100, 'maturity clampada a 100');
+  assert.deepEqual(n.actors, [], 'actors não-array vira []');
+  assert.doesNotThrow(() => normalizeIdea(null));
+});
+
+test('applyIdeaPatch: escalares substituem, listas acrescentam com dedupe (nunca apagam)', () => {
+  let idea = emptyIdea();
+  idea = applyIdeaPatch(idea, { patch: { name: 'Chamados', problem: 'suporte caótico', capabilities: ['abrir chamado', 'atribuir a técnico'] }, maturity: 30, open_questions: [{ text: 'qual SLA?', essential: true }] });
+  assert.equal(idea.name, 'Chamados');
+  assert.deepEqual(idea.capabilities, ['abrir chamado', 'atribuir a técnico']);
+  assert.equal(idea.maturity, 30);
+  assert.equal(idea.openQuestions[0].essential, true);
+  // segundo turno: acrescenta 1 capacidade nova + repete uma (dedupe case-insensitive) e sobe maturity
+  idea = applyIdeaPatch(idea, { patch: { capabilities: ['Abrir chamado', 'avisar quando atrasa'] }, maturity: 55, open_questions: [] });
+  assert.deepEqual(idea.capabilities, ['abrir chamado', 'atribuir a técnico', 'avisar quando atrasa'], 'sem duplicata; preserva o que já havia');
+  assert.equal(idea.maturity, 55);
+  assert.deepEqual(idea.openQuestions, [], 'open_questions é snapshot (substitui)');
+  // patch vazio não destrói nada
+  const before = JSON.stringify(idea);
+  idea = applyIdeaPatch(idea, {});
+  assert.equal(JSON.stringify(idea), before);
+});
+
+test('applyIdeaPatch: summary vem do patch.summary OU do payload.summary (fechamento)', () => {
+  let idea = applyIdeaPatch(emptyIdea(), { summary: 'Sistema para gerir chamados.' });
+  assert.equal(idea.summary, 'Sistema para gerir chamados.');
+  idea = applyIdeaPatch(idea, { patch: { summary: 'Gestão de chamados de ponta a ponta.' } });
+  assert.equal(idea.summary, 'Gestão de chamados de ponta a ponta.', 'patch.summary tem prioridade');
+});
+
+test('ideaReady: gate exige maturidade + problema + público + >=2 capacidades e nenhuma pergunta essencial', () => {
+  const closed = { problem: 'p', audience: 'gestores', capabilities: ['a', 'b'], maturity: IDEA_MATURITY_THRESHOLD, openQuestions: [] };
+  assert.equal(ideaReady(closed), true);
+  assert.equal(ideaReady({ ...closed, maturity: 69 }), false, 'abaixo do limiar');
+  assert.equal(ideaReady({ ...closed, capabilities: ['a'] }), false, 'menos de 2 capacidades');
+  assert.equal(ideaReady({ ...closed, problem: '' }), false, 'sem problema');
+  assert.equal(ideaReady({ ...closed, audience: '', actors: [] }), false, 'sem público nem atores');
+  assert.equal(ideaReady({ ...closed, audience: '', actors: ['operador'] }), true, 'atores satisfazem "quem usa"');
+  assert.equal(ideaReady({ ...closed, openQuestions: [{ text: 'x', essential: true }] }), false, 'pergunta essencial bloqueia');
+  assert.equal(ideaReady({ ...closed, openQuestions: [{ text: 'x', essential: false }] }), true, 'pergunta não-essencial não bloqueia');
+});
+
+test('composeBriefFromIdea: monta brief textual rico (>=10 chars) preservando as seções', () => {
+  const brief = composeBriefFromIdea({
+    summary: 'Gestão de chamados.', problem: 'suporte caótico', audience: 'equipe de suporte', actors: ['técnico'],
+    capabilities: ['abrir chamado', 'atribuir'], businessRules: ['SLA de 24h'], goals: ['reduzir atraso'], value: 'clientes satisfeitos', constraints: ['LGPD'],
+  });
+  assert.ok(brief.length >= 10);
+  assert.match(brief, /Problema\/dor que resolve: suporte caótico/);
+  assert.match(brief, /Para quem \/ quem usa: equipe de suporte; técnico/);
+  assert.match(brief, /- abrir chamado/);
+  assert.match(brief, /Regras de negócio:/);
+  assert.match(brief, /Restrições de negócio: LGPD/);
+});
+
+test('ideaMaturityHint: aponta a MAIOR lacuna atual em ordem', () => {
+  assert.match(ideaMaturityHint(emptyIdea()), /qual problema/i);
+  assert.match(ideaMaturityHint({ problem: 'p' }), /para quem/i);
+  assert.match(ideaMaturityHint({ problem: 'p', audience: 'a' }), /o que o sistema/i);
+  assert.match(ideaMaturityHint({ problem: 'p', audience: 'a', capabilities: ['x', 'y'], openQuestions: [{ text: 'falta o SLA', essential: true }] }), /SLA/);
+  assert.match(ideaMaturityHint({ problem: 'p', audience: 'a', capabilities: ['x', 'y'], maturity: 100 }), /pronta/i);
 });

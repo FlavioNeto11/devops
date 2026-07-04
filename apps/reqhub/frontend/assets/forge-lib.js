@@ -847,3 +847,132 @@ export function planSummary(reqs, arch, catalog) {
     stack: (arch && arch.stack) || null,
   };
 }
+
+/* ─── ETAPA IDEIA (copiloto de PRODUTO) — estado ideaDraft e funções PURAS ──────────────────────
+   A etapa 1 do wizard é 100% PRODUTO/NEGÓCIO (nada de tecnologia — isso é a etapa 2). O copiloto
+   conversa e devolve, a cada turno, um PATCH incremental deste estado. Estas funções são PURAS
+   (sem DOM, sem localStorage) e testáveis com node:test; o autosave (localStorage) fica no studio.js. */
+
+// Estado inicial vazio do ideaDraft (só campos de produto). chatHistory/maturity/confirmed são de UI.
+export function emptyIdea() {
+  return {
+    name: '', problem: '', audience: '', actors: [], summary: '',
+    capabilities: [], businessRules: [], goals: [], value: '', constraints: [],
+    openQuestions: [], maturity: 0, chatHistory: [], confirmed: false,
+  };
+}
+
+// Coerção de um valor em lista de strings limpas (tolera item objeto {text}); dedup fica no merge.
+function ideaStrList(v) {
+  return (Array.isArray(v) ? v : [])
+    .map((x) => String(x == null ? '' : (typeof x === 'object' ? (x.text || x.label || '') : x)).trim())
+    .filter(Boolean);
+}
+function clampMaturity(v) { const n = Number(v); return Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : 0; }
+function normalizeOpenQuestions(list) {
+  return (Array.isArray(list) ? list : [])
+    .map((q) => (q && typeof q === 'object')
+      ? { text: String(q.text || '').trim(), essential: q.essential === true }
+      : { text: String(q || '').trim(), essential: false })
+    .filter((q) => q.text);
+}
+// Une duas listas de strings preservando a ordem e removendo duplicatas (case-insensitive).
+// NUNCA descarta o que já existe — o incremental do copiloto só ACRESCENTA (a pessoa remove na UI).
+function mergeUniqueStrings(existing, incoming) {
+  const out = []; const seen = new Set();
+  const push = (x) => {
+    const s = String(x == null ? '' : (typeof x === 'object' ? (x.text || '') : x)).trim();
+    if (!s) return; const key = s.toLowerCase();
+    if (seen.has(key)) return; seen.add(key); out.push(s);
+  };
+  (Array.isArray(existing) ? existing : []).forEach(push);
+  (Array.isArray(incoming) ? incoming : []).forEach(push);
+  return out;
+}
+
+// Normaliza um ideaDraft parcial/sujo para o shape canônico (defensivo — nunca lança).
+export function normalizeIdea(idea) {
+  const d = (idea && typeof idea === 'object') ? idea : {};
+  const str = (v) => (typeof v === 'string' ? v.trim() : (v == null ? '' : String(v)));
+  return {
+    name: str(d.name), problem: str(d.problem), audience: str(d.audience),
+    actors: ideaStrList(d.actors), summary: str(d.summary),
+    capabilities: ideaStrList(d.capabilities), businessRules: ideaStrList(d.businessRules),
+    goals: ideaStrList(d.goals), value: str(d.value), constraints: ideaStrList(d.constraints),
+    openQuestions: normalizeOpenQuestions(d.openQuestions),
+    maturity: clampMaturity(d.maturity),
+    chatHistory: Array.isArray(d.chatHistory) ? d.chatHistory : [],
+    confirmed: d.confirmed === true,
+  };
+}
+
+/**
+ * Aplica o payload do evento SSE `patch` do copiloto ao ideaDraft. PURO (retorna novo objeto).
+ * payload = { patch:{name,problem,audience,actors,summary,capabilities,businessRules,goals,value,constraints},
+ *             maturity, open_questions:[{text,essential}], summary }.
+ * Escalares substituem quando vierem preenchidos; listas ACRESCENTAM com dedupe (nunca apagam o que a
+ * pessoa já tem). open_questions é um SNAPSHOT do modelo (substitui). maturity é clampada 0-100.
+ */
+export function applyIdeaPatch(idea, payload) {
+  const base = normalizeIdea(idea);
+  const p = (payload && typeof payload === 'object') ? payload : {};
+  const patch = (p.patch && typeof p.patch === 'object') ? p.patch : {};
+  const next = { ...base };
+  for (const k of ['name', 'problem', 'audience', 'value']) {
+    if (typeof patch[k] === 'string' && patch[k].trim()) next[k] = patch[k].trim();
+  }
+  const sum = (typeof patch.summary === 'string' && patch.summary.trim()) ? patch.summary.trim()
+    : (typeof p.summary === 'string' && p.summary.trim()) ? p.summary.trim() : '';
+  if (sum) next.summary = sum;
+  for (const k of ['actors', 'capabilities', 'businessRules', 'goals', 'constraints']) {
+    next[k] = mergeUniqueStrings(base[k], patch[k]);
+  }
+  if (p.maturity != null && Number.isFinite(Number(p.maturity))) next.maturity = clampMaturity(p.maturity);
+  if (Array.isArray(p.open_questions)) next.openQuestions = normalizeOpenQuestions(p.open_questions);
+  return next;
+}
+
+/**
+ * Gate de avanço para a etapa 2 (igual nos 3 modos). PURO. "Fechada" = maturidade suficiente,
+ * problema + público (audience OU atores) + >=2 capacidades e NENHUMA pergunta essencial em aberto.
+ */
+export const IDEA_MATURITY_THRESHOLD = 70;
+export function ideaReady(idea) {
+  const d = normalizeIdea(idea);
+  const hasProblem = !!d.problem;
+  const hasAudience = !!(d.audience || d.actors.length);
+  const enoughCaps = d.capabilities.length >= 2;
+  const noEssential = !d.openQuestions.some((q) => q && q.essential);
+  return d.maturity >= IDEA_MATURITY_THRESHOLD && hasProblem && hasAudience && enoughCaps && noEssential;
+}
+
+/** Dica curta de qual é a MAIOR lacuna de produto agora (para o indicador de maturidade). PURO. */
+export function ideaMaturityHint(idea) {
+  const d = normalizeIdea(idea);
+  if (!d.problem) return 'Comece contando qual problema o sistema resolve.';
+  if (!(d.audience || d.actors.length)) return 'Diga para quem é o sistema (quem vai usar).';
+  if (d.capabilities.length < 2) return 'Liste o que o sistema precisa fazer.';
+  const ess = d.openQuestions.filter((q) => q && q.essential);
+  if (ess.length) return ess[0].text;
+  if (d.maturity < IDEA_MATURITY_THRESHOLD) return 'Quase lá — detalhe regras e objetivos.';
+  return 'Ideia pronta para seguir.';
+}
+
+/**
+ * Compõe o `brief` textual (rico) que alimenta /v1/forge/propose-requirements no handoff para a
+ * etapa 2 — SEM mudar o contrato da etapa 2 (ela continua recebendo um brief string). PURO.
+ */
+export function composeBriefFromIdea(idea) {
+  const d = normalizeIdea(idea);
+  const lines = [];
+  if (d.summary) lines.push(d.summary);
+  if (d.problem) lines.push(`Problema/dor que resolve: ${d.problem}`);
+  const who = [d.audience, ...d.actors].filter(Boolean).join('; ');
+  if (who) lines.push(`Para quem / quem usa: ${who}`);
+  if (d.capabilities.length) lines.push(`O que o sistema faz:\n${d.capabilities.map((c) => `- ${c}`).join('\n')}`);
+  if (d.businessRules.length) lines.push(`Regras de negócio:\n${d.businessRules.map((r) => `- ${r}`).join('\n')}`);
+  if (d.goals.length) lines.push(`Objetivos: ${d.goals.join('; ')}`);
+  if (d.value) lines.push(`Valor esperado: ${d.value}`);
+  if (d.constraints.length) lines.push(`Restrições de negócio: ${d.constraints.join('; ')}`);
+  return lines.join('\n\n').trim();
+}

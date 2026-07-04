@@ -15,7 +15,8 @@ import {
   projectRequirementCard, forgeReqObject, buildLaunchBody,
   briefFromPortalContract, externalContractRef, suggestIntegrationBlock,
   isT1Product, embedConsoleUrl, publishedSiteUrl, parseEmbedMessage,
-} from './forge-lib.js?v=58';
+  emptyIdea, normalizeIdea, applyIdeaPatch, ideaReady, ideaMaturityHint, composeBriefFromIdea, IDEA_MATURITY_THRESHOLD,
+} from './forge-lib.js?v=59';
 // (E1, Forja 4.1) deep-links canônicos da casca global (mesma cópia codegen-synced que o
 // index.html carrega — manter o ?v= IGUAL ao do <script> para não duplicar o módulo).
 import { surfaceLink } from './platform-shell.js?v=45';
@@ -1274,7 +1275,8 @@ function forgeWizardState() {
   const blueprints = (DATA.blueprints && DATA.blueprints.blueprints) || [];
   // preview: estado da etapa "Preview" (telas ui-vue reais + dados fake), persistido no wizard.
   // status: 'idle'|'building'|'ready'|'error'; approved=true libera o launch (gate "Aprovar e construir").
-  if (!state.forge.wizard) state.forge.wizard = { stage: 1, mode: forgeMode(), name: '', brief: '', slug: '', blueprint: (blueprints[0] && blueprints[0].id) || '', proposed: [], arch: null, reqMeta: null, error: '', preview: null };
+  if (!state.forge.wizard) state.forge.wizard = { stage: 1, mode: forgeMode(), name: '', brief: '', slug: '', blueprint: (blueprints[0] && blueprints[0].id) || '', proposed: [], arch: null, reqMeta: null, error: '', preview: null, idea: fwLoadIdea() };
+  if (!state.forge.wizard.idea) state.forge.wizard.idea = fwLoadIdea(); // wizard de sessão antiga (pré-copiloto)
   return state.forge.wizard;
 }
 // Estado inicial do preview (recriado a cada nova proposta de requisitos — ver fwApplyProposed).
@@ -1313,7 +1315,7 @@ function fwLaunch(w, mode, statusEl, btns) {
       brief: w.brief || '', displayName: w.name || w.slug,
       getArch: () => w.arch,
       externalContract: (w.capture && w.capture.ref) || null, // (E2) -> architecture.external_contract
-      onLaunched: (d, m) => { w.launched = true; w.launchInfo = d; w.launchMode = m; fwRerender(); },
+      onLaunched: (d, m) => { fwClearIdea(); w.launched = true; w.launchInfo = d; w.launchMode = m; fwRerender(); }, // idea consumida no launch -> limpa o autosave
     },
     status: statusEl, btns,
   };
@@ -1339,7 +1341,7 @@ function renderForgeWizardLaunched(body, w) {
   const foot = h('div', { class: 'fw-actions' });
   if (d.actions_url) foot.append(h('a', { class: 'btn', href: d.actions_url, target: '_blank', rel: 'noopener', text: 'Ver no GitHub ↗' }));
   if (!rel && d.pulls_url) foot.append(h('a', { class: 'btn', href: d.pulls_url, target: '_blank', rel: 'noopener', text: 'Ver o PR ↗' }));
-  foot.append(h('button', { class: 'btn', type: 'button', text: '+ Criar outro sistema', onclick: () => { fwStopPolling(w); state.forge.wizard = null; backToHub(); } }));
+  foot.append(h('button', { class: 'btn', type: 'button', text: '+ Criar outro sistema', onclick: () => { fwStopPolling(w); fwClearIdea(); state.forge.wizard = null; backToHub(); } }));
   card.append(head, lead, h('div', { class: 'fw-meta' }, updated), steps, liveBox, progBox, reqsBox, foot);
   body.append(card);
   fwStartLaunchPolling(w, { steps, progBox, reqsBox, liveBox, lead, updated });
@@ -1475,48 +1477,362 @@ function renderForgeWizard(body) {
   else fwStageReview(stage, w, { catalog });
 }
 
+// ─── ETAPA 1 "IDEIA" — COPILOTO DE PRODUTO (conversacional, 3 visões) ────────────────────────────
+// A aba Ideia é 100% PRODUTO/NEGÓCIO (nada de tecnologia — isso é a etapa 2). A pessoa conversa com um
+// copiloto que faz perguntas para amadurecer a ideia; o entendimento (ideaDraft) aparece ao vivo. O
+// MODO selecionado é a VISÃO da aba (simples/guiado/profissional) — muda a profundidade/apresentação,
+// nunca o nível técnico. As 3 visões compartilham o MESMO estado (w.idea) e o mesmo copiloto; trocar
+// de modo NÃO perde dados (w.idea vive em state.forge.wizard). Streaming SSE (deltas) + patch do estado
+// + autosave. Fail-closed: se a IA estiver fora, cai no formulário manual (fwStageIdeaManual).
 function fwStageIdea(host, w, { blueprints }) {
-  const card = h('div', { class: 'fw-card' });
-  // (C2) textos de condução por modo — projeção pura (modeCopy), dados idênticos por baixo.
+  if (!w.idea) w.idea = fwLoadIdea();
+  const mount = h('div', { class: 'fw-idea-mount' });
+  host.append(mount);
+  fwRenderIdeaCopilot(mount, w, { blueprints });
+  // health: sem IA (sem credencial) o chat não funciona -> degrada para o formulário manual.
+  AI.health().then((r) => {
+    const up = !!(r && r.ok && r.data && r.data.ai);
+    if (!up && state.forge.wizard === w && w.stage === 1) {
+      mount.replaceChildren();
+      fwStageIdeaManual(mount, w, { blueprints }, 'A IA está indisponível agora — descreva sua ideia manualmente (você ainda pode gerar o sistema).');
+    }
+  }).catch(() => { /* health inacessível: mantém o copiloto (o envio mostrará erro claro) */ });
+}
+
+/* ---------- Autosave do ideaDraft (localStorage; efeito colateral fica AQUI, não em forge-lib) ---------- */
+const FW_IDEA_KEY = 'reqhub_forge_idea';
+function fwLoadIdea() {
+  try { const raw = localStorage.getItem(FW_IDEA_KEY); if (raw) return normalizeIdea(JSON.parse(raw)); } catch { /* ignore */ }
+  return emptyIdea();
+}
+function fwSaveIdea(idea) { try { localStorage.setItem(FW_IDEA_KEY, JSON.stringify(idea)); } catch { /* ignore */ } }
+function fwClearIdea() { try { localStorage.removeItem(FW_IDEA_KEY); } catch { /* ignore */ } }
+function fwIdeaPersist(w) { if (w && w.idea) fwSaveIdea(w.idea); }
+function fwSlug(name) { return String(name || '').trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30); }
+// Corpo enviado à IA: o produto do ideaDraft SEM o histórico (vai em `history`) nem flags de UI.
+function fwIdeaForApi(idea) { const d = normalizeIdea(idea); delete d.chatHistory; delete d.confirmed; return d; }
+
+// Monta a etapa: coluna CHAT (compartilhada) + painel da VISÃO por modo (nome + view + gate).
+function fwRenderIdeaCopilot(host, w, { blueprints }) {
+  const idea = w.idea;
+  const card = h('div', { class: 'fw-card fw-idea-card' });
   card.append(h('h3', { class: 'fw-q', tabindex: '-1', text: modeCopy(w.mode, 'idea.q') }));
-  const name = h('input', { class: 'fw-input', type: 'text', value: w.name, placeholder: modeCopy(w.mode, 'idea.namePh'), 'aria-label': 'Nome do sistema' });
+  card.append(h('p', { class: 'muted fw-idea-lead', text: 'Converse com o copiloto de produto — ele pergunta para amadurecer a IDEIA (nada de tecnologia; isso vem no próximo passo). Nada é escrito sem você.' }));
+  if (w.capture) card.append(fwIdeaCaptureNote(w));
+
+  const grid = h('div', { class: 'fw-idea fw-idea-m-' + normalizeForgeMode(w.mode) });
+  const chatCol = h('div', { class: 'fw-idea-chat' });
+  const sideCol = h('div', { class: 'fw-idea-side' });
+  grid.append(chatCol, sideCol);
+  card.append(grid);
+  host.append(card);
+
+  // ----- chat -----
+  const log = h('div', { class: 'fw-idea-log', role: 'log', 'aria-live': 'polite', 'aria-label': 'Conversa com o copiloto de produto' });
+  const typing = h('div', { class: 'chat-typing fw-idea-typing', hidden: 'hidden', 'aria-hidden': 'true' }, h('span', { class: 'dot' }), h('span', { class: 'dot' }), h('span', { class: 'dot' }));
+  const chips = h('div', { class: 'fw-idea-chips', 'aria-label': 'Respostas rápidas' });
+  const errBox = h('p', { class: 'fw-status fw-idea-err', role: 'alert', hidden: 'hidden' });
+  const input = h('textarea', { class: 'fw-textarea fw-idea-input', rows: '2', 'aria-label': 'Escreva para o copiloto', placeholder: 'Escreva sobre a sua ideia…' });
+  const sendBtn = h('button', { class: 'btn primary fw-idea-sendbtn', type: 'button', text: 'Enviar' });
+  chatCol.append(log, typing, chips, errBox, h('div', { class: 'fw-idea-composer' }, input, sendBtn));
+
+  const bubble = (role, text) => { const b = h('div', { class: 'fw-idea-msg is-' + role }); const body = h('div', { class: 'fw-idea-bubble' }); body.textContent = text || ''; b.append(body); return b; };
+
+  // ----- painel: nome + view + gate -----
+  const nameInput = h('input', { class: 'fw-input fw-idea-name-in', type: 'text', 'aria-label': 'Nome do sistema', placeholder: 'ex.: Central de Chamados' });
+  nameInput.value = idea.name || '';
+  nameInput.addEventListener('change', () => { idea.name = nameInput.value.trim(); fwIdeaPersist(w); });
+  const nameField = h('label', { class: 'fw-idea-name' }, h('span', { class: 'fw-fld-l', text: 'Nome do sistema' }), nameInput);
+  const viewHost = h('div', { class: 'fw-idea-viewhost' });
+  const gateHost = h('div', { class: 'fw-idea-gatehost' });
+  sideCol.append(nameField, viewHost, gateHost);
+
+  const ui = {
+    sending: false, input, log,
+    appendBubble: (role, text) => { const b = bubble(role, text); log.append(b); log.scrollTop = log.scrollHeight; return b; },
+    setBubbleText: (b, t) => { const el = b.querySelector('.fw-idea-bubble'); if (el) el.textContent = t; log.scrollTop = log.scrollHeight; },
+    setTyping: (on) => { typing.hidden = !on; log.setAttribute('aria-busy', on ? 'true' : 'false'); },
+    setError: (msg) => { if (msg) { errBox.textContent = msg; errBox.hidden = false; } else { errBox.textContent = ''; errBox.hidden = true; } },
+    setChips: (list) => fwIdeaRenderChips(chips, w, ui, list),
+    refreshName: () => { if (nameInput !== document.activeElement) nameInput.value = w.idea.name || ''; },
+    repaintView: () => { viewHost.replaceChildren(fwIdeaView(w, ui)); ui.refreshName(); },
+    repaintGate: () => { gateHost.replaceChildren(fwIdeaGate(w, ui)); },
+  };
+
+  ui.repaintView();
+  ui.repaintGate();
+
+  // histórico OU boas-vindas + exemplos de partida
+  if (idea.chatHistory && idea.chatHistory.length) {
+    for (const t of idea.chatHistory) ui.appendBubble(t.role === 'user' ? 'user' : 'ai', t.content);
+  } else {
+    ui.appendBubble('ai', 'Oi! Vou te ajudar a amadurecer a ideia do seu sistema. Me conta em poucas palavras: que problema ele resolve — e para quem?');
+    fwIdeaRenderStarters(chips, w, ui);
+  }
+
+  const doSend = () => fwIdeaSend(w, input.value, ui);
+  sendBtn.addEventListener('click', doSend);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); } });
+  input.focus();
+}
+
+// Envia uma mensagem ao copiloto e transmite a resposta em DELTAS (otimista: bolha do usuário +
+// "digitando" na hora). No `patch` aplica ao ideaDraft e repinta a visão/gate ao vivo.
+async function fwIdeaSend(w, text, ui) {
+  const msg = String(text || '').trim();
+  if (!msg || ui.sending) return;
+  ui.sending = true; ui.setError('');
+  const history = (w.idea.chatHistory || []).slice(-16).map((t) => ({ role: t.role, content: t.content }));
+  w.idea.chatHistory.push({ role: 'user', content: msg });
+  ui.appendBubble('user', msg);
+  ui.input.value = '';
+  ui.setChips([]);
+  const live = ui.appendBubble('ai', '');
+  ui.setTyping(true);
+  let acc = '';
+  const body = { product: w.slug || fwSlug(w.idea.name), message: msg, history, draft: fwIdeaForApi(w.idea), mode: w.mode };
+  try {
+    await AI.stream2('/v1/forge/idea/chat', body, {
+      onEvent: (event, data) => {
+        if (event === 'delta') { acc += (data && data.text) || ''; ui.setBubbleText(live, acc); }
+        else if (event === 'patch') {
+          w.idea = applyIdeaPatch(w.idea, data);
+          ui.repaintView(); ui.repaintGate();
+          ui.setChips((data && data.quick_replies) || []);
+        }
+      },
+    });
+    const finalText = acc.trim();
+    if (!finalText) ui.setBubbleText(live, '(sem resposta)');
+    w.idea.chatHistory.push({ role: 'assistant', content: finalText || '(sem resposta)' });
+    fwIdeaPersist(w);
+  } catch (e) {
+    live.remove();
+    ui.setError('Não consegui responder agora (' + String((e && (e.message || e.code)) || e) + '). Tente de novo, ou use “✨ Ver como vai ficar”.');
+  } finally {
+    ui.setTyping(false); ui.sending = false; ui.input.focus();
+  }
+}
+
+// Chips de resposta rápida (do turno) — clicar envia a resposta.
+function fwIdeaRenderChips(chips, w, ui, list) {
+  chips.replaceChildren();
+  const arr = Array.isArray(list) ? list.filter((x) => typeof x === 'string' && x.trim()).slice(0, 4) : [];
+  for (const q of arr) {
+    const c = h('button', { class: 'fw-chip fw-idea-chip', type: 'button', text: q });
+    c.addEventListener('click', () => { chips.replaceChildren(); fwIdeaSend(w, q, ui); });
+    chips.append(c);
+  }
+}
+// Exemplos de partida (mantidos): clicar inicia a conversa com aquele brief.
+function fwIdeaRenderStarters(chips, w, ui) {
+  chips.replaceChildren();
+  const ex = [
+    ['Central de chamados', 'Quero um sistema para abrir e acompanhar chamados de suporte, atribuir a técnicos e avisar quando algo atrasa.'],
+    ['Controle de estoque', 'Quero controlar produtos e estoque, com alertas de baixa quantidade e relatórios.'],
+    ['Agenda de clientes', 'Quero cadastrar clientes e agendar serviços, com lembretes automáticos por mensagem.'],
+  ];
+  for (const [t, b] of ex) {
+    const c = h('button', { class: 'fw-chip fw-idea-chip', type: 'button', text: '💡 ' + t });
+    c.addEventListener('click', () => { chips.replaceChildren(); fwIdeaSend(w, b, ui); });
+    chips.append(c);
+  }
+}
+function fwIdeaCaptureNote(w) {
+  const rm = h('button', { class: 'btn-link', type: 'button', text: 'remover insumo' });
+  rm.addEventListener('click', () => { w.capture = null; fwRerender(); });
+  return h('div', { class: 'fw-fld fw-capture-note' },
+    h('span', { class: 'fw-fld-l', text: 'Insumo de captura' }),
+    h('p', { class: 'fw-hint' }, '📡 Contrato do portal ', h('code', { text: w.capture.portal }),
+      w.capture.ref && w.capture.ref.contract_version ? ' (versão ' + w.capture.ref.contract_version + ')' : '',
+      ' — será considerado ao montar a arquitetura no próximo passo.', ' ', rm));
+}
+
+/* ---------- Visão por MODO (mesmo w.idea) ---------- */
+function fwIdeaView(w, ui) {
+  const m = normalizeForgeMode(w.mode);
+  const onChange = () => { fwIdeaPersist(w); ui.repaintGate(); };
+  if (m === 'simples') return fwIdeaViewSimples(w, onChange);
+  if (m === 'profissional') return fwIdeaViewProfissional(w, onChange);
+  return fwIdeaViewGuiado(w, onChange);
+}
+
+// SIMPLES: resumo amigável — propósito + "o que vai fazer" (lista) + público. Editável/removível.
+function fwIdeaViewSimples(w, onChange) {
+  const idea = w.idea;
+  const box = h('div', { class: 'fw-idea-view is-simples' });
+  box.append(h('h4', { class: 'fw-idea-view-t', text: 'A sua ideia' }));
+  box.append(h('p', { class: 'fw-idea-purpose', text: idea.summary || 'Vá conversando — vou montar aqui um resumo simples da sua ideia.' }));
+  if (idea.audience || idea.actors.length) box.append(h('p', { class: 'fw-idea-who muted', text: 'Para: ' + [idea.audience, ...idea.actors].filter(Boolean).join(', ') }));
+  box.append(h('h5', { class: 'fw-idea-sub', text: 'O que o sistema vai fazer' }));
+  box.append(fwIdeaEditList(idea.capabilities, { label: 'O que o sistema faz', placeholder: 'Adicionar função…', onChange }));
+  return box;
+}
+
+// GUIADO: 5 cartões editáveis (problema / quem usa / o que faz / regras / perguntas) + "detalhe opcional".
+function fwIdeaViewGuiado(w, onChange) {
+  const idea = w.idea;
+  const box = h('div', { class: 'fw-idea-view is-guiado' });
+  const card = (title, primary, detailTitle, detailEl) => {
+    const sec = h('section', { class: 'fw-idea-card2' }, h('h4', { class: 'fw-idea-card-t', text: title }), primary);
+    if (detailEl) sec.append(h('details', { class: 'fw-idea-detail' }, h('summary', { text: detailTitle || 'Detalhe opcional' }), detailEl));
+    return sec;
+  };
+  box.append(card('Que problema resolve', fwIdeaScalar(idea, 'problem', { label: 'Problema', ph: 'A dor que o sistema resolve…', rows: 2, onChange }),
+    'Propósito em uma frase', fwIdeaScalar(idea, 'summary', { label: 'Propósito', ph: 'Em uma frase…', rows: 2, onChange })));
+  box.append(card('Quem usa', fwIdeaScalar(idea, 'audience', { label: 'Público', ph: 'Para quem é…', onChange }),
+    'Perfis/atores', fwIdeaEditList(idea.actors, { label: 'Atores', placeholder: 'Adicionar perfil…', onChange })));
+  box.append(card('O que faz', fwIdeaEditList(idea.capabilities, { label: 'Capacidades', placeholder: 'Adicionar função…', onChange }),
+    'Objetivos', fwIdeaEditList(idea.goals, { label: 'Objetivos', placeholder: 'Adicionar objetivo…', onChange })));
+  box.append(card('Regras de negócio', fwIdeaEditList(idea.businessRules, { label: 'Regras de negócio', placeholder: 'Adicionar regra…', onChange }),
+    'Restrições', fwIdeaEditList(idea.constraints, { label: 'Restrições', placeholder: 'Adicionar restrição…', onChange })));
+  box.append(card('Perguntas em aberto', fwIdeaOpenQuestions(idea, onChange)));
+  return box;
+}
+
+// PROFISSIONAL: tudo aberto e editável (todos os campos de PRODUTO) + reordenar capacidades.
+function fwIdeaViewProfissional(w, onChange) {
+  const idea = w.idea;
+  const box = h('div', { class: 'fw-idea-view is-profissional' });
+  const field = (title, el) => h('section', { class: 'fw-idea-fieldset' }, h('h4', { class: 'fw-idea-card-t', text: title }), el);
+  box.append(field('Problema', fwIdeaScalar(idea, 'problem', { label: 'Problema', rows: 2, onChange })));
+  box.append(field('Propósito (1 frase)', fwIdeaScalar(idea, 'summary', { label: 'Propósito', rows: 2, onChange })));
+  box.append(field('Público', fwIdeaScalar(idea, 'audience', { label: 'Público', onChange })));
+  box.append(field('Atores', fwIdeaEditList(idea.actors, { label: 'Atores', placeholder: 'Adicionar perfil…', onChange })));
+  box.append(field('Capacidades (use ↑/↓ para ordenar)', fwIdeaEditList(idea.capabilities, { label: 'Capacidades', placeholder: 'Adicionar função…', onChange, reorder: true })));
+  box.append(field('Regras de negócio', fwIdeaEditList(idea.businessRules, { label: 'Regras de negócio', placeholder: 'Adicionar regra…', onChange })));
+  box.append(field('Objetivos', fwIdeaEditList(idea.goals, { label: 'Objetivos', placeholder: 'Adicionar objetivo…', onChange })));
+  box.append(field('Valor esperado', fwIdeaScalar(idea, 'value', { label: 'Valor esperado', rows: 2, onChange })));
+  box.append(field('Restrições de negócio', fwIdeaEditList(idea.constraints, { label: 'Restrições', placeholder: 'Adicionar restrição…', onChange })));
+  box.append(field('Perguntas em aberto', fwIdeaOpenQuestions(idea, onChange)));
+  return box;
+}
+
+// Campo escalar editável (input/textarea) ligado a idea[key]; grava no `change`.
+function fwIdeaScalar(idea, key, { label, ph, rows, onChange } = {}) {
+  const el = rows
+    ? h('textarea', { class: 'fw-textarea fw-idea-fin', rows: String(rows), 'aria-label': label, placeholder: ph || '' })
+    : h('input', { class: 'fw-input fw-idea-fin', type: 'text', 'aria-label': label, placeholder: ph || '' });
+  el.value = idea[key] || '';
+  el.addEventListener('change', () => { idea[key] = el.value.trim(); onChange(); });
+  return el;
+}
+
+// Lista editável de strings (adicionar/editar/remover; opcionalmente reordenar). Muta o array in place.
+function fwIdeaEditList(items, { label, placeholder, onChange, reorder } = {}) {
+  const wrap = h('div', { class: 'fw-idea-list' });
+  const ul = h('ul', { class: 'fw-idea-items', 'aria-label': label || 'Itens' });
+  const rebuild = () => {
+    ul.replaceChildren();
+    if (!items.length) { ul.append(h('li', { class: 'fw-idea-empty muted', text: '— nada ainda —' })); return; }
+    items.forEach((it, i) => {
+      const inp = h('input', { class: 'fw-idea-item-in', type: 'text', value: it, 'aria-label': (label || 'item') + ' ' + (i + 1) });
+      inp.addEventListener('change', () => { const v = inp.value.trim(); if (v) { items[i] = v; onChange(); } else { items.splice(i, 1); onChange(); rebuild(); } });
+      const ctl = h('span', { class: 'fw-idea-item-ctl' });
+      if (reorder) {
+        const up = h('button', { class: 'btn-link fw-idea-mv', type: 'button', 'aria-label': 'Mover para cima', text: '↑', disabled: i === 0 ? 'disabled' : null });
+        up.addEventListener('click', () => { const t = items[i - 1]; items[i - 1] = items[i]; items[i] = t; onChange(); rebuild(); });
+        const dn = h('button', { class: 'btn-link fw-idea-mv', type: 'button', 'aria-label': 'Mover para baixo', text: '↓', disabled: i === items.length - 1 ? 'disabled' : null });
+        dn.addEventListener('click', () => { const t = items[i + 1]; items[i + 1] = items[i]; items[i] = t; onChange(); rebuild(); });
+        ctl.append(up, dn);
+      }
+      const rm = h('button', { class: 'btn-link fw-idea-rm', type: 'button', 'aria-label': 'Remover', text: '✕' });
+      rm.addEventListener('click', () => { items.splice(i, 1); onChange(); rebuild(); });
+      ctl.append(rm);
+      ul.append(h('li', { class: 'fw-idea-item' }, inp, ctl));
+    });
+  };
+  rebuild();
+  const add = h('input', { class: 'fw-input fw-idea-add', type: 'text', placeholder: placeholder || 'Adicionar e Enter…', 'aria-label': 'Adicionar em ' + (label || '') });
+  add.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); const v = add.value.trim(); if (v) { items.push(v); add.value = ''; onChange(); rebuild(); } } });
+  wrap.append(ul, add);
+  return wrap;
+}
+
+// Perguntas em aberto do copiloto (essenciais destacadas). A pessoa pode dispensar.
+function fwIdeaOpenQuestions(idea, onChange) {
+  const ul = h('ul', { class: 'fw-idea-oq', 'aria-label': 'Perguntas em aberto' });
+  const rebuild = () => {
+    ul.replaceChildren();
+    const oq = idea.openQuestions || [];
+    if (!oq.length) { ul.append(h('li', { class: 'fw-idea-empty muted', text: 'Nenhuma pergunta em aberto 🎉' })); return; }
+    oq.forEach((q, i) => {
+      const rm = h('button', { class: 'btn-link fw-idea-rm', type: 'button', 'aria-label': 'Dispensar pergunta', text: '✕' });
+      rm.addEventListener('click', () => { oq.splice(i, 1); onChange(); rebuild(); });
+      ul.append(h('li', { class: 'fw-idea-oq-item' + (q.essential ? ' is-essential' : '') },
+        q.essential ? badge('essencial', 'b-high') : h('span', { class: 'fw-idea-oq-dot', 'aria-hidden': 'true' }),
+        h('span', { class: 'fw-idea-oq-t', text: q.text }), rm));
+    });
+  };
+  rebuild();
+  return ul;
+}
+
+// Anel de maturidade (SVG) — reduced-motion safe; is-ready quando cruza o limiar do gate.
+function fwIdeaRing(pct) {
+  const p = Math.max(0, Math.min(100, Math.round(Number(pct) || 0)));
+  const C = 2 * Math.PI * 26;
+  const s = svg('svg', { class: 'fw-ring', viewBox: '0 0 64 64', role: 'img', 'aria-label': 'Maturidade da ideia: ' + p + '%' });
+  s.append(svg('circle', { class: 'fw-ring-track', cx: '32', cy: '32', r: '26', fill: 'none' }));
+  s.append(svg('circle', { class: 'fw-ring-arc' + (p >= IDEA_MATURITY_THRESHOLD ? ' is-ready' : ''), cx: '32', cy: '32', r: '26', fill: 'none', 'stroke-dasharray': C.toFixed(2), 'stroke-dashoffset': (C * (1 - p / 100)).toFixed(2), transform: 'rotate(-90 32 32)' }));
+  s.append(svgText({ class: 'fw-ring-v', x: '32', y: '37', 'text-anchor': 'middle' }, p + '%'));
+  return s;
+}
+
+// Gate + indicador de maturidade + botão de avanço (só habilita quando ideaReady) + atalho avançado.
+function fwIdeaGate(w, ui) {
+  const idea = w.idea;
+  const box = h('div', { class: 'fw-idea-gate' });
+  const ready = ideaReady(idea);
+  const meter = h('div', { class: 'fw-idea-meter' });
+  if (normalizeForgeMode(w.mode) === 'simples') meter.append(h('div', { class: 'fw-idea-bar' }, progressBar(idea.maturity)));
+  else meter.append(fwIdeaRing(idea.maturity));
+  meter.append(h('p', { class: 'fw-idea-hint muted small', text: ideaMaturityHint(idea) }));
+  box.append(meter);
+
+  const status = h('p', { class: 'fw-status muted fw-idea-gate-st', role: 'status', 'aria-live': 'polite' });
+  const advance = h('button', { class: 'btn primary fw-cta fw-idea-advance', type: 'button', text: 'Seguir para “O que será criado” →' });
+  advance.disabled = !ready;
+  advance.setAttribute('aria-disabled', ready ? 'false' : 'true');
+  if (!ready) advance.title = 'Continue a conversa para fechar a ideia (maturidade + perguntas essenciais).';
+  advance.addEventListener('click', () => { if (!ideaReady(w.idea)) return; w.idea.confirmed = true; fwIdeaPersist(w); fwHandoffToWhat(w, status, advance); });
+  box.append(advance);
+  if (ready) box.append(h('p', { class: 'fw-idea-ready muted small', text: '✓ Ideia madura — você pode seguir ou continuar refinando.' }));
+
+  const skip = h('button', { class: 'btn fw-idea-skip', type: 'button', text: '✨ Ver como vai ficar' });
+  skip.addEventListener('click', () => fwHandoffToWhat(w, status, skip));
+  box.append(h('details', { class: 'fw-idea-adv' }, h('summary', { text: 'Atalho avançado' }),
+    h('p', { class: 'fw-hint', text: 'Pular a conversa e gerar direto a partir do que já está aqui.' }), skip), status);
+  return box;
+}
+
+// Handoff para a etapa 2: compõe o brief a partir do ideaDraft (sem mudar o contrato da etapa 2)
+// e dispara fwGenerate (propose-requirements). O aceite explícito é o clique do botão.
+function fwHandoffToWhat(w, statusEl, btn) {
+  w.name = (w.idea.name || w.name || '').trim();
+  if (!w.name) w.name = (w.idea.summary || w.idea.problem || 'meu-sistema').slice(0, 40);
+  w.brief = composeBriefFromIdea(w.idea);
+  fwGenerate(w, statusEl, btn);
+}
+
+// FALLBACK MANUAL (IA fora): o antigo formulário estático (nome + descrição + anexos + gerar).
+function fwStageIdeaManual(host, w, { blueprints }, note) {
+  const card = h('div', { class: 'fw-card' });
+  card.append(h('h3', { class: 'fw-q', tabindex: '-1', text: modeCopy(w.mode, 'idea.q') }));
+  if (note) card.append(h('p', { class: 'fw-status muted', text: note }));
+  const name = h('input', { class: 'fw-input', type: 'text', value: w.name || w.idea.name || '', placeholder: modeCopy(w.mode, 'idea.namePh'), 'aria-label': 'Nome do sistema' });
   name.addEventListener('input', () => { w.name = name.value; });
   card.append(h('label', { class: 'fw-fld' }, h('span', { class: 'fw-fld-l', text: modeCopy(w.mode, 'idea.name') }), name));
-  const brief = h('textarea', { class: 'fw-textarea', rows: '6', 'aria-label': 'Descrição', placeholder: 'Descreva como falaria com uma pessoa: o que o sistema faz, para quem, e o que é importante. Ex.: "abrir e acompanhar chamados, atribuir a técnicos, e avisar quando algo atrasa".' });
-  brief.value = w.brief;
+  const brief = h('textarea', { class: 'fw-textarea', rows: '6', 'aria-label': 'Descrição', placeholder: 'Descreva como falaria com uma pessoa: o que o sistema faz, para quem, e o que é importante.' });
+  brief.value = w.brief || composeBriefFromIdea(w.idea);
   brief.addEventListener('input', () => { w.brief = brief.value; });
   card.append(h('label', { class: 'fw-fld' }, h('span', { class: 'fw-fld-l', text: modeCopy(w.mode, 'idea.brief') }), brief));
-  // (E2) insumo de CAPTURA: o wizard veio da trilha "portal capturado" — o brief acima foi
-  // derivado do contrato e o export (sem samples) irá como anexo da IA + referência no launch.
-  if (w.capture) {
-    const rm = h('button', { class: 'btn-link', type: 'button', text: 'remover insumo' });
-    rm.addEventListener('click', () => { w.capture = null; fwRerender(); });
-    card.append(h('div', { class: 'fw-fld fw-capture-note' },
-      h('span', { class: 'fw-fld-l', text: 'Insumo de captura' }),
-      h('p', { class: 'fw-hint' }, '📡 Contrato do portal ', h('code', { text: w.capture.portal }),
-        w.capture.ref && w.capture.ref.contract_version ? ' (versão ' + w.capture.ref.contract_version + ')' : '',
-        ' — o export (sem samples) será anexado à IA e a referência carimbada na arquitetura do launch.',
-        w.capture.suggestedBlock ? h('span', {}, ' Bloco sugerido: ', h('code', { class: 'fw-cap-id', text: w.capture.suggestedBlock }), '.') : '',
-        ' ', rm)));
-  }
-  // Anexos (opcional): documentos/planilhas/imagens que descrevem a ideia. A IA lê o conteúdo
-  // (multimodal); o picker persiste no estado do wizard para sobreviver às re-renderizações da etapa 1.
   if (!w._filePicker) w._filePicker = filePicker({ label: 'Anexar arquivos sobre a ideia', buttonLabel: 'Anexar arquivos (opcional)' });
   card.append(h('div', { class: 'fw-fld' },
     h('span', { class: 'fw-fld-l', text: 'Anexos (opcional)' }),
     h('p', { class: 'fw-hint', text: 'Tem um documento, planilha ou imagem que descreve a ideia? Anexe — a IA vai considerar o conteúdo.' }),
     w._filePicker.el));
-  if (w.mode !== 'profissional') {
-    // simples/guiado: a IA infere blueprint/blocos — o usuário nunca escolhe stack nem vê YAML.
-    const ex = [
-      ['Central de chamados', 'Um sistema para abrir e acompanhar chamados de suporte, atribuir a técnicos e avisar quando algo atrasa.'],
-      ['Controle de estoque', 'Controle de produtos e estoque, com alertas de baixa quantidade e relatórios.'],
-      ['Agenda de clientes', 'Cadastro de clientes e agendamento de serviços, com lembretes automáticos por mensagem.'],
-    ];
-    const chips = h('div', { class: 'fw-chips' });
-    for (const [t, b] of ex) chips.append(h('button', { class: 'fw-chip', type: 'button', onclick: () => { w.name = t; w.brief = b; fwRerender(); } }, '💡 ' + t));
-    card.append(h('p', { class: 'fw-hint', text: 'Sem ideia? comece por um exemplo:' }), chips);
-  } else {
+  if (w.mode === 'profissional') {
     const bpsel = h('select', { class: 'fw-input', 'aria-label': 'Blueprint' });
     for (const b of blueprints) bpsel.append(h('option', { value: b.id, text: b.name, selected: b.id === w.blueprint }));
     bpsel.addEventListener('change', () => { w.blueprint = bpsel.value; });
@@ -1530,7 +1846,6 @@ function fwStageIdea(host, w, { blueprints }) {
   gen.addEventListener('click', () => fwGenerate(w, status, gen));
   card.append(h('div', { class: 'fw-actions' }, gen), status);
   host.append(card);
-  AI.health().then((r) => { if (!r.ok && !w.error) status.textContent = 'Obs.: a IA está indisponível agora — você ainda pode exportar requisitos no modo profissional.'; }).catch(() => {});
   card.querySelector('.fw-q').focus();
 }
 
@@ -2053,7 +2368,7 @@ function fwStageReview(host, w, { catalog }) {
     const out = h('div', { class: 'forge-section' });
     host.append(out);
     // launchGate=false bloqueia os botões "Criar PR"/"Liberar tudo" até o preview ser aprovado.
-    renderProposedList(out, w.slug, w.blueprint, w.proposed, w.reqMeta || {}, null, { brief: w.brief || '', displayName: w.name || w.slug, getArch: () => w.arch, externalContract: (w.capture && w.capture.ref) || null, launchGate: approved, onLaunched: (d, m) => { w.launched = true; w.launchInfo = d; w.launchMode = m; fwRerender(); } });
+    renderProposedList(out, w.slug, w.blueprint, w.proposed, w.reqMeta || {}, null, { brief: w.brief || '', displayName: w.name || w.slug, getArch: () => w.arch, externalContract: (w.capture && w.capture.ref) || null, launchGate: approved, onLaunched: (d, m) => { fwClearIdea(); w.launched = true; w.launchInfo = d; w.launchMode = m; fwRerender(); } });
     if (w.arch) renderArchAdrs(out, w.arch);
   }
   host.append(fwNav(4, null, null));

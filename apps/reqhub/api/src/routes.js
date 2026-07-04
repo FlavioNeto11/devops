@@ -101,7 +101,7 @@ function withIngest(mergeField) {
       // multipart: multer entrega TODO campo de texto como STRING. Reidrata os que o contrato dos
       // tools espera como JSON (array/objeto) — em JSON puro (ing=null) nada disso roda e o corpo é intacto.
       req.body = req.body || {};
-      for (const k of ['grounding', 'history', 'capabilities', 'blueprints', 'scope', 'context']) {
+      for (const k of ['grounding', 'history', 'capabilities', 'blueprints', 'scope', 'context', 'draft']) {
         if (typeof req.body[k] === 'string' && req.body[k].trim()) {
           try { req.body[k] = JSON.parse(req.body[k]); } catch { /* não-JSON: mantém string */ }
         }
@@ -203,6 +203,67 @@ export function buildRouter({ registry, llm, memory } = {}) {
   // propose-requirements: entrada do usuario = 'brief' (descricao do produto novo).
   router.post('/v1/forge/propose-requirements', requireAuthoringAuth, ...withIngest('brief'), run('forge.propose_requirements'));
   router.post('/v1/forge/propose-architecture', requireAuthoringAuth, run('forge.propose_architecture'));
+
+  // Forge IDEIA (etapa 1): COPILOTO DE PRODUTO conversacional (SSE). Roda a tool forge.idea.copilot e
+  // transmite a resposta em DELTAS (o motor ai-core nao streama tokens — chunkamos a reply p/ cadencia
+  // de digitacao) + um PATCH final do ideaDraft. 100% produto; anexos entram via withIngest('message').
+  // Eventos: status -> delta* -> patch -> done (ou error). IngressRoute dedicada SEM `compress` (k8s/api.yaml).
+  router.post('/v1/forge/idea/chat', requireAuthoringAuth, ...withIngest('message'), async (req, res) => {
+    const b = req.body || {};
+    if (typeof b.message !== 'string' || b.message.trim().length < 1) {
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'message obrigatorio' } });
+    }
+    const theLlm = llm || (await getLlm());
+    if (!theLlm) return res.status(503).json({ error: { code: 'AI_DISABLED', message: 'IA desabilitada (sem credencial) — a etapa Ideia cai no formulario manual' } });
+
+    sseStart(res);
+    let closed = false;
+    req.on('close', () => { closed = true; });
+    const ka = setInterval(() => { if (!closed) { try { res.write(': keep-alive\n\n'); } catch { /* noop */ } } }, 15000);
+    if (typeof ka.unref === 'function') ka.unref();
+    const finish = () => { clearInterval(ka); try { res.end(); } catch { /* noop */ } };
+
+    // Transmite a reply em pedacos (palavras) com micro-cadencia -> streaming REAL na rede + sensacao
+    // de digitacao. Preserva os espacos (split capturando \s+) p/ o cliente reconstruir o texto exato.
+    const streamText = async (text) => {
+      const parts = String(text || '').split(/(\s+)/);
+      let buf = ''; let n = 0;
+      for (const part of parts) {
+        if (closed) return;
+        buf += part; n++;
+        if (n >= 4 && buf.trim()) {
+          sseEmit(res, 'delta', { text: buf }); buf = ''; n = 0;
+          await new Promise((r) => { const t = setTimeout(r, 28); if (typeof t.unref === 'function') t.unref(); });
+        }
+      }
+      if (buf && !closed) sseEmit(res, 'delta', { text: buf });
+    };
+
+    try {
+      sseEmit(res, 'status', { phase: 'thinking' }); // feedback imediato (antes do await do LLM)
+      const result = await dispatchTool(reg.get('forge.idea.copilot'),
+        { product: b.product, message: b.message, history: b.history, draft: b.draft, mode: b.mode },
+        { llm: theLlm, authenticated: true, identity: req.identity });
+      if (closed) return finish();
+      const out = result.output || {};
+      await streamText(out.reply);
+      if (closed) return finish();
+      sseEmit(res, 'patch', {
+        patch: out.patch || {},
+        maturity: out.maturity || 0,
+        open_questions: out.open_questions || [],
+        quick_replies: out.quick_replies || [],
+        ready: out.ready === true,
+        summary: out.summary || '',
+      });
+      sseEmit(res, 'done', { ok: true, usage: out.usage || null });
+      finish();
+    } catch (err) {
+      const code = (err && err.code && String(err.name || '').startsWith('AiTool')) ? err.code : 'IDEA_CHAT_ERROR';
+      sseEmit(res, 'error', { code, message: String((err && err.message) || err) });
+      finish();
+    }
+  });
 
   // Forge LAUNCH: a UI "cria no git" disparando a esteira (repository_dispatch -> greenfield-launch.yml).
   // O reqhub-api NÃO escreve git; só dispara. Fail-closed sem GITHUB_DISPATCH_TOKEN. Admin-only (auth).

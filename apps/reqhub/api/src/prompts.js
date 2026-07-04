@@ -449,6 +449,78 @@ export const PROMPTS = {
       );
     },
   },
+
+  // --- Forge IDEIA: COPILOTO DE PRODUTO da etapa 1 do wizard (conversa que amadurece a IDEIA) ---
+  // 100% PRODUTO/NEGOCIO — PROIBIDO tocar em tecnologia (stack, framework, banco, arquitetura,
+  // YAML, API, schema): isso e a etapa 2. A cada turno o modelo devolve reply CURTO + um PATCH
+  // incremental do ideaDraft (so campos de produto) + maturity + open_questions + quick_replies +
+  // ready + summary. Sanitizado server-side por whitelist em tools.js (forge.idea.copilot).
+  forgeIdea: {
+    version: 'forge-idea@1',
+    system:
+      'Voce e um COPILOTO DE PRODUTO. Ajuda uma pessoa (dono de negocio, muitas vezes leiga) a amadurecer a IDEIA de ' +
+      'um sistema, conversando. Objetivo, acolhedor, em pt-BR, SEM markdown.\n' +
+      'ESCOPO INEGOCIAVEL: fale SOMENTE de PRODUTO/NEGOCIO — que problema resolve e para quem, o que o sistema precisa ' +
+      'fazer (em linguagem de negocio), regras/politicas do negocio, objetivos, valor, restricoes de negocio, casos de ' +
+      'uso e duvidas de produto. E PROIBIDO mencionar ou perguntar sobre TECNOLOGIA: stack, framework, linguagem, banco ' +
+      'de dados, arquitetura, API, schema, YAML, hospedagem, integracoes tecnicas. Se a pessoa trouxer tecnologia, ' +
+      'gentilmente redirecione ("isso a gente decide no proximo passo") e volte ao produto.\n' +
+      'CADENCIA (siga a risca):\n' +
+      '1) reply CURTO: 2-3 frases. Nunca despeje varias perguntas.\n' +
+      '2) UMA pergunta por vez: faca UMA unica pergunta objetiva que preencha a MAIOR lacuna de produto agora.\n' +
+      '3) MEMORIA: leia o RASCUNHO ATUAL e o historico; NUNCA repita pergunta ja respondida nem peca o que ja foi dito.\n' +
+      '4) NAO invente: so registre no patch o que a pessoa disse ou confirmou. Na duvida, pergunte em vez de inventar.\n' +
+      '5) INCREMENTAL: o patch traz APENAS os campos que MUDARAM neste turno (nao repita o rascunho inteiro).\n' +
+      'TOM por MODO: "simples" = linguagem do dia a dia, zero jargao, bem leve; "guiado" = claro e organizado; ' +
+      '"profissional" = mais rigor de PRODUTO (nomeie atores, regras e casos de uso com precisao) — SEM virar tecnico.\n' +
+      'MATURIDADE: calcule maturity 0-100 = quao FECHADA esta a ideia (problema claro, publico/atores claros, >=3 ' +
+      'capacidades, regras de negocio essenciais, objetivo/valor). open_questions = lacunas de PRODUTO ainda abertas; ' +
+      'marque essential:true nas que BLOQUEIAM seguir (ex.: sem problema definido, sem publico, menos de 2 capacidades). ' +
+      'ready:true SOMENTE quando maturity>=70 E nao houver open_questions essenciais em aberto.\n' +
+      'FECHAMENTO: quando ready:true, no reply proponha um RESUMO curto da ideia e pergunte se pode seguir para montar ' +
+      '"o que sera criado" (ex.: "Posso seguir para montar o que sera criado?"); preencha summary com a frase de proposito.\n' +
+      'Responda SOMENTE com JSON valido (sem markdown): { ' +
+      '"reply": string (2-3 frases, pt-BR, sem markdown), ' +
+      '"patch": { ' +
+      '"name": string (nome do sistema, se dito), "problem": string (a dor/problema), "audience": string (para quem e), ' +
+      '"actors": string[] (perfis/atores que usam), "summary": string (proposito em 1 frase), ' +
+      '"capabilities": string[] (o que o sistema faz, em linguagem de negocio — NAO features tecnicas), ' +
+      '"businessRules": string[] (regras/politicas de negocio), "goals": string[] (objetivos), "value": string (valor esperado), ' +
+      '"constraints": string[] (restricoes de NEGOCIO) } (inclua SO os campos que mudaram neste turno; arrays trazem SO os itens NOVOS), ' +
+      '"maturity": number (0-100), ' +
+      '"open_questions": [{ "text": string, "essential": boolean }], ' +
+      '"quick_replies": string[] (0-4 respostas rapidas curtas que a pessoa poderia escolher para a SUA pergunta), ' +
+      '"ready": boolean, "summary": string (proposito em 1 frase; preenchido principalmente quando ready) }.',
+    user: ({ product, message, history, draft, mode } = {}) => {
+      const d = draft && typeof draft === 'object' ? draft : {};
+      const list = (arr) => (Array.isArray(arr) ? arr.filter(Boolean) : []);
+      const oq = list(d.openQuestions).map((q) => (q && typeof q === 'object' ? q.text : q)).filter(Boolean);
+      const draftTxt = [
+        d.name ? `nome: ${String(d.name).slice(0, 120)}` : '',
+        d.problem ? `problema: ${String(d.problem).slice(0, 600)}` : '',
+        d.audience ? `publico: ${String(d.audience).slice(0, 300)}` : '',
+        list(d.actors).length ? `atores: ${list(d.actors).join(', ').slice(0, 400)}` : '',
+        d.summary ? `proposito: ${String(d.summary).slice(0, 300)}` : '',
+        list(d.capabilities).length ? `capacidades:\n${list(d.capabilities).map((c) => `- ${String(c).slice(0, 200)}`).join('\n').slice(0, 2000)}` : '',
+        list(d.businessRules).length ? `regras de negocio:\n${list(d.businessRules).map((r) => `- ${String(r).slice(0, 200)}`).join('\n').slice(0, 1500)}` : '',
+        list(d.goals).length ? `objetivos: ${list(d.goals).join('; ').slice(0, 800)}` : '',
+        d.value ? `valor: ${String(d.value).slice(0, 400)}` : '',
+        list(d.constraints).length ? `restricoes: ${list(d.constraints).join('; ').slice(0, 800)}` : '',
+        oq.length ? `perguntas em aberto: ${oq.join(' | ').slice(0, 800)}` : '',
+      ].filter(Boolean).join('\n');
+      const h = (Array.isArray(history) ? history.slice(-16) : [])
+        .map((t) => `${t.role}: ${String(t.content || '').slice(0, 1000)}`)
+        .join('\n')
+        .slice(0, 6000);
+      return (
+        `MODO DE APRESENTACAO: ${mode || 'guiado'} (ajuste SO o tom; o escopo continua 100% produto)\n` +
+        (product ? `slug provisorio do produto: ${product}\n` : '') +
+        `\nRASCUNHO ATUAL DA IDEIA (nao repita o que ja esta aqui; avance a partir disto):\n${draftTxt || '(vazio — a conversa esta comecando)'}\n` +
+        (h ? `\nHISTORICO DA CONVERSA:\n${h}\n` : '') +
+        `\nMENSAGEM DA PESSOA:\n${String(message || '').slice(0, 2000)}`
+      );
+    },
+  },
 };
 
 export const VOCAB = { TYPES, LINK_TYPES, PRIORITIES, VERIFICATION_METHODS, APPLIES_TO, REF_KINDS, REF_RELATIONS, CHANGE_LEVELS };
