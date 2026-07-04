@@ -269,6 +269,8 @@ function renderView(screen, entity, inv) {
     case 'create': return formView(screen, entity, 'create', inv);
     case 'edit': return formView(screen, entity, 'edit', inv);
     case 'detail': return detailView(screen, entity, inv);
+    case 'calendar': return calendarView(screen, entity, inv);
+    case 'booking': return bookingView(screen, entity, inv);
     case 'custom':
     default: return customView(screen, entity);
   }
@@ -596,11 +598,170 @@ function customView(screen, entity) {
   ].filter(Boolean).join('\n');
 }
 
+// ---- CALENDAR (agenda recurso × horário) -----------------------------------
+// Domínios de agendamento (recurso × tempo) ganham uma grade semanal: colunas = profissionais/recursos,
+// linhas = horários; blocos mockados (serviço + cliente) posicionados deterministicamente por semana.
+// Reusa mockValue (nomes/serviços do MESMO pool do preview). Ilustrativo — nada é salvo.
+function calendarView(screen, entity, inv) {
+  const entLabel = entity ? entity.label : screen.title;
+  const bookingRoute = entity ? routeNameFor(inv, entity.name, 'booking') : null;
+  return [
+    '<template>',
+    '  <UiPageLayout ' + attr('title', screen.title) + ' ' + attr('subtitle', screen.purpose || ('Agenda de ' + entLabel.toLowerCase() + ' — recurso × horário.')) + ' eyebrow="Preview" width="wide">',
+    bookingRoute ? '    <template #actions><UiButton @click="goBook">Nova marcação</UiButton></template>' : '',
+    '    <UiCard>',
+    '      <div class="cal-head">',
+    '        <button class="cal-nav" type="button" @click="week--" aria-label="Semana anterior">‹</button>',
+    '        <strong>{{ weekLabel }}</strong>',
+    '        <button class="cal-nav" type="button" @click="week++" aria-label="Próxima semana">›</button>',
+    '      </div>',
+    '      <div class="cal-scroll">',
+    '        <div class="cal-grid" :style="gridStyle">',
+    '          <div class="cal-cell cal-corner"></div>',
+    '          <div v-for="r in resources" :key="r" class="cal-cell cal-res">{{ r }}</div>',
+    '          <template v-for="slot in slots" :key="slot">',
+    '            <div class="cal-cell cal-time">{{ slot }}</div>',
+    '            <div v-for="r in resources" :key="r + slot" class="cal-cell cal-slot">',
+    "              <button v-if=\"appt(r, slot)\" type=\"button\" class=\"cal-appt\" :class=\"'tone-' + appt(r, slot).tone\" @click=\"pick()\">",
+    '                <span class="cal-appt-svc">{{ appt(r, slot).service }}</span>',
+    '                <span class="cal-appt-cli">{{ appt(r, slot).client }}</span>',
+    '              </button>',
+    '            </div>',
+    '          </template>',
+    '        </div>',
+    '      </div>',
+    '      <p class="cal-note">Agenda de exemplo — clique num horário marcado (nada é salvo).</p>',
+    '    </UiCard>',
+    '  </UiPageLayout>',
+    '</template>',
+    '<script setup>',
+    "import { ref, computed } from 'vue';",
+    bookingRoute ? "import { useRouter } from 'vue-router';" : '',
+    "import { UiPageLayout, UiCard, UiButton, useToast } from '../ui/index.js';",
+    "import { mockValue } from '../mock-data.js';",
+    bookingRoute ? 'const router = useRouter();' : '',
+    'const toast = useToast();',
+    'const week = ref(0);',
+    "const slots = ['09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'];",
+    "const resources = [0, 1, 2, 3].map((i) => mockValue({ name: 'profissional#' + i, type: 'text' }));",
+    "const TONES = ['ok', 'info', 'warn'];",
+    'function h32(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }',
+    'function appt(r, slot) {',
+    "  const seed = h32(r + '|' + slot + '|' + week.value);",
+    '  if (seed % 5 < 2) return null;',
+    "  return { service: mockValue({ name: 'servico#' + (seed % 6), type: 'text' }), client: mockValue({ name: 'cliente#' + (seed % 9), type: 'text' }), tone: TONES[seed % TONES.length] };",
+    '}',
+    "const weekLabel = computed(() => week.value === 0 ? 'Esta semana' : (week.value > 0 ? 'Em ' + week.value + ' semana(s)' : 'Há ' + (-week.value) + ' semana(s)'));",
+    "const gridStyle = computed(() => ({ gridTemplateColumns: '64px repeat(' + resources.length + ', minmax(116px, 1fr))' }));",
+    "function pick() { toast.success('Pré-visualização: agenda de exemplo (nada é salvo).'); }",
+    bookingRoute ? 'function goBook() { router.push({ name: ' + sq(bookingRoute) + " }).catch(() => {}); }" : '',
+    '</script>',
+    '<style scoped>',
+    '.cal-head { display: flex; align-items: center; justify-content: center; gap: var(--ui-space-4); margin-bottom: var(--ui-space-3); }',
+    '.cal-nav { border: 1px solid rgb(var(--ui-border)); background: rgb(var(--ui-surface)); color: rgb(var(--ui-fg)); border-radius: var(--ui-radius-md); width: 30px; height: 30px; cursor: pointer; font-size: 16px; line-height: 1; }',
+    '.cal-scroll { overflow-x: auto; }',
+    '.cal-grid { display: grid; gap: 1px; background: rgb(var(--ui-border)); border: 1px solid rgb(var(--ui-border)); border-radius: var(--ui-radius-md); overflow: hidden; min-width: 560px; }',
+    '.cal-cell { background: rgb(var(--ui-surface)); padding: 6px 8px; min-height: 42px; }',
+    '.cal-corner, .cal-res { background: rgb(var(--ui-surface-2)); }',
+    '.cal-res { font-weight: 600; font-size: var(--ui-text-sm); text-align: center; }',
+    '.cal-time { font-size: var(--ui-text-xs); color: rgb(var(--ui-muted)); display: flex; align-items: center; }',
+    '.cal-slot { padding: 4px; }',
+    '.cal-appt { display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left; border: 0; border-radius: var(--ui-radius-sm); padding: 4px 6px; cursor: pointer; font: inherit; color: rgb(var(--ui-fg)); }',
+    '.cal-appt-svc { font-size: var(--ui-text-xs); font-weight: 700; }',
+    '.cal-appt-cli { font-size: var(--ui-text-xs); opacity: 0.75; }',
+    '.tone-ok { background: rgb(var(--ui-ok) / 0.16); }',
+    '.tone-info { background: rgb(var(--ui-accent) / 0.16); }',
+    '.tone-warn { background: rgb(var(--ui-warn) / 0.18); }',
+    '.cal-note { font-size: var(--ui-text-xs); color: rgb(var(--ui-muted)); margin: var(--ui-space-3) 0 0; }',
+    '</style>', '',
+  ].filter(Boolean).join('\n');
+}
+
+// ---- BOOKING (fluxo guiado de marcação: serviço → horário → confirmar) ------
+function bookingView(screen, entity, inv) {
+  const entLabel = entity ? entity.label : screen.title;
+  const listRoute = entity ? routeNameFor(inv, entity.name, 'list') : null;
+  return [
+    '<template>',
+    '  <UiPageLayout ' + attr('title', screen.title) + ' ' + attr('subtitle', screen.purpose || ('Marcar ' + singular(entLabel).toLowerCase() + ' em 3 passos.')) + ' eyebrow="Preview" width="narrow">',
+    '    <UiCard>',
+    '      <ol class="bk-steps">',
+    "        <li :class=\"{ on: step >= 1, done: step > 1 }\">1 · Serviço</li>",
+    "        <li :class=\"{ on: step >= 2, done: step > 2 }\">2 · Horário</li>",
+    "        <li :class=\"{ on: step >= 3 }\">3 · Confirmar</li>",
+    '      </ol>',
+    '      <div v-if="step === 1" class="bk-body">',
+    '        <p class="bk-q">Escolha o serviço</p>',
+    "        <button v-for=\"s in services\" :key=\"s.name\" type=\"button\" class=\"bk-opt\" :class=\"{ sel: form.service === s.name }\" @click=\"form.service = s.name\">",
+    '          <span class="bk-opt-n">{{ s.name }}</span><span class="bk-opt-m">{{ s.dur }} min · {{ s.price }}</span>',
+    '        </button>',
+    '      </div>',
+    '      <div v-else-if="step === 2" class="bk-body">',
+    '        <p class="bk-q">Escolha o horário — {{ form.pro }}</p>',
+    '        <div class="bk-slots">',
+    "          <button v-for=\"t in slots\" :key=\"t\" type=\"button\" class=\"bk-slot\" :class=\"{ sel: form.time === t }\" @click=\"form.time = t\">{{ t }}</button>",
+    '        </div>',
+    '      </div>',
+    '      <div v-else class="bk-body">',
+    '        <p class="bk-q">Confirme a marcação</p>',
+    '        <dl class="bk-sum">',
+    '          <dt>Serviço</dt><dd>{{ form.service }}</dd>',
+    '          <dt>Horário</dt><dd>{{ form.time }}</dd>',
+    '          <dt>Profissional</dt><dd>{{ form.pro }}</dd>',
+    '        </dl>',
+    '      </div>',
+    '      <div class="bk-actions">',
+    "        <UiButton v-if=\"step > 1\" variant=\"ghost\" type=\"button\" @click=\"step--\">Voltar</UiButton>",
+    "        <UiButton v-if=\"step < 3\" type=\"button\" :disabled=\"!canNext ? 'disabled' : null\" @click=\"next\">Continuar</UiButton>",
+    '        <UiButton v-else type="button" @click="confirm">Confirmar marcação</UiButton>',
+    '      </div>',
+    '    </UiCard>',
+    '  </UiPageLayout>',
+    '</template>',
+    '<script setup>',
+    "import { ref, computed } from 'vue';",
+    listRoute ? "import { useRouter } from 'vue-router';" : '',
+    "import { UiPageLayout, UiCard, UiButton, useToast } from '../ui/index.js';",
+    "import { mockValue } from '../mock-data.js';",
+    listRoute ? 'const router = useRouter();' : '',
+    'const toast = useToast();',
+    'const step = ref(1);',
+    "const slots = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'];",
+    "const PRICES = ['R$ 40', 'R$ 60', 'R$ 90', 'R$ 120'];",
+    // tiers DISTINTOS (evita nomes de serviço repetidos numa lista de 4 — pareceria bug)
+    "const TIERS = ['Básico', 'Padrão', 'Premium', 'Completo'];",
+    "const services = TIERS.map((t, i) => ({ name: 'Serviço ' + t, dur: 20 + i * 15, price: PRICES[i % PRICES.length] }));",
+    "const form = ref({ service: '', time: '', pro: mockValue({ name: 'profissional#0', type: 'text' }) });",
+    "const canNext = computed(() => step.value === 1 ? !!form.value.service : step.value === 2 ? !!form.value.time : true);",
+    'function next() { if (canNext.value && step.value < 3) step.value++; }',
+    "function confirm() { toast.success('Pré-visualização: marcação de exemplo (nada é salvo).'); step.value = 1; form.value = { service: '', time: '', pro: form.value.pro }; " + (listRoute ? "router.push({ name: " + sq(listRoute) + " }).catch(() => {});" : '') + ' }',
+    '</script>',
+    '<style scoped>',
+    '.bk-steps { display: flex; gap: var(--ui-space-2); list-style: none; margin: 0 0 var(--ui-space-4); padding: 0; }',
+    '.bk-steps li { flex: 1; text-align: center; font-size: var(--ui-text-xs); font-weight: 600; color: rgb(var(--ui-muted)); border-bottom: 2px solid rgb(var(--ui-border)); padding-bottom: 6px; }',
+    '.bk-steps li.on { color: rgb(var(--ui-fg)); border-bottom-color: rgb(var(--ui-accent)); }',
+    '.bk-steps li.done { color: rgb(var(--ui-accent-strong, var(--ui-accent))); }',
+    '.bk-q { font-weight: 600; margin: 0 0 var(--ui-space-3); }',
+    '.bk-opt { display: flex; justify-content: space-between; align-items: center; width: 100%; text-align: left; border: 1px solid rgb(var(--ui-border)); background: rgb(var(--ui-surface)); border-radius: var(--ui-radius-md); padding: 10px 12px; margin-bottom: 8px; cursor: pointer; font: inherit; color: rgb(var(--ui-fg)); }',
+    '.bk-opt.sel { border-color: rgb(var(--ui-accent)); background: rgb(var(--ui-accent) / 0.1); }',
+    '.bk-opt-n { font-weight: 600; }',
+    '.bk-opt-m { font-size: var(--ui-text-sm); color: rgb(var(--ui-muted)); }',
+    '.bk-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px; }',
+    '.bk-slot { border: 1px solid rgb(var(--ui-border)); background: rgb(var(--ui-surface)); border-radius: var(--ui-radius-md); padding: 10px; cursor: pointer; font: inherit; color: rgb(var(--ui-fg)); }',
+    '.bk-slot.sel { border-color: rgb(var(--ui-accent)); background: rgb(var(--ui-accent) / 0.1); font-weight: 700; }',
+    '.bk-sum { display: grid; grid-template-columns: 120px 1fr; gap: var(--ui-space-2) var(--ui-space-4); margin: 0; }',
+    '.bk-sum dt { color: rgb(var(--ui-muted)); font-size: var(--ui-text-sm); }',
+    '.bk-sum dd { margin: 0; font-weight: 600; }',
+    '.bk-actions { display: flex; justify-content: flex-end; gap: var(--ui-space-2); margin-top: var(--ui-space-5); }',
+    '</style>', '',
+  ].filter(Boolean).join('\n');
+}
+
 // ===========================================================================
 // helpers de roteamento/rótulo
 // ===========================================================================
 function glyphFor(s) {
-  const map = { dashboard: '◧', list: '▤', create: '＋', edit: '✎', detail: '▣', custom: '✦' };
+  const map = { dashboard: '◧', list: '▤', create: '＋', edit: '✎', detail: '▣', custom: '✦', calendar: '▦', booking: '⧉' };
   return map[s.kind] || '•';
 }
 // routeNameFor — resolve o NOME de rota (Vue Router) da tela da MESMA entidade com o `kind` pedido,
