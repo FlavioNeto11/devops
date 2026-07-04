@@ -392,7 +392,7 @@ export const PROMPTS = {
       '"fields": [{ "name": string, "label": string, "type": "text"|"number"|"currency"|"date"|"datetime"|"boolean"|"enum"|"status"|"longtext", "required": boolean, "enumValues": string[] }], ' +
       '"hasEndpoints": boolean, "anchors": string[] (IDs de requisito REAIS) }], ' +
       '"screens": [{ "slug": string (kebab-case unico, ex.: product-list), "title": string, ' +
-      '"kind": "dashboard"|"list"|"create"|"edit"|"detail"|"custom", "route": string (comeca com /), ' +
+      '"kind": "dashboard"|"list"|"create"|"edit"|"detail"|"custom"|"calendar"|"booking", "route": string (comeca com /), ' +
       '"entity": string|null (slug da entidade ou null p/ dashboard/custom), "anchors": string[] (>=1 ID REAL), ' +
       '"purpose": string (o que a tela faz + interacoes), "components": string[], "apiEndpoints": string[] }], ' +
       '"navGroups": [{ "group": string, "items": string[] (slugs de tela) }], ' +
@@ -401,7 +401,13 @@ export const PROMPTS = {
       'inexistentes sao DESCARTADAS server-side). (2) O que for desejavel mas nao coberto por requisito vai em gaps[] ' +
       '(com nearestReq), NUNCA em screens[]. (3) Proponha a MARCA coerente com o dominio. (4) Rotas REST ' +
       '(/products, /products/new, /products/:id, /products/:id/edit). (5) Seja COMPLETO porem realista: cubra todas as ' +
-      'entidades implicitas com CRUD + 1 dashboard.',
+      'entidades implicitas com CRUD + 1 dashboard. ' +
+      '(6) AGENDAMENTO: se o dominio marca RECURSO x TEMPO (a entidade central tem um campo datetime/date E referencia um ' +
+      'recurso — profissional, sala, mesa, quadra, medico, barbeiro...), ALEM do CRUD proponha DUAS telas extras ancoradas ' +
+      'aos MESMOS requisitos: uma "calendar" (kind:"calendar", entity = a entidade de agendamento; grade recurso x horario ' +
+      'da semana, route ex.: /appointments/agenda) e uma "booking" (kind:"booking", mesma entity; fluxo guiado de marcacao ' +
+      'servico->horario->confirmar, route ex.: /appointments/new-booking). Se NAO for dominio de agendamento, NAO proponha ' +
+      'calendar/booking.',
     user: ({ product, requirements, architecture } = {}) => {
       const reqs = (Array.isArray(requirements) ? requirements : [])
         .map((r) => `${r.id || '(sem-id)'} | ${r.title || ''} | ${String(r.statement || '').slice(0, 240)}`)
@@ -430,7 +436,7 @@ export const PROMPTS = {
       'sobre essa tela e os REQUISITOS do produto (grounding). Devolva a VERSAO REVISADA da MESMA tela que atende ao feedback, ' +
       'mantendo coerencia com os requisitos. PRESERVE o "slug" (e a "entity" salvo se o feedback pedir trocar). NAO mude outras ' +
       'telas. Responda SOMENTE com JSON valido (sem markdown): { "screen": { "slug": string, "title": string, ' +
-      '"kind": "dashboard"|"list"|"create"|"edit"|"detail"|"custom", "route": string, "entity": string|null, ' +
+      '"kind": "dashboard"|"list"|"create"|"edit"|"detail"|"custom"|"calendar"|"booking", "route": string, "entity": string|null, ' +
       '"anchors": string[] (>=1 ID REAL), "purpose": string, "components": string[], "apiEndpoints": string[] }, ' +
       '"notes": string (1-2 frases: o que mudou) }. As ancoras SO podem ser IDs REAIS dos requisitos (inexistentes sao ' +
       'DESCARTADAS server-side). NAO invente capacidades que nenhum requisito cobre.',
