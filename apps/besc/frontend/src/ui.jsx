@@ -23,9 +23,15 @@ export function useMeta() {
 export function useLabel() {
   const { meta } = useMeta();
   return (enumName, value) => {
-    const e = meta && meta.enums && meta.enums[enumName];
+    const e = (meta && meta.enums && meta.enums[enumName]) || (meta && meta.contentEnums && meta.contentEnums[enumName]);
     return (e && e[value]) || value || '—';
   };
+}
+
+// Mapa {valor: rotulo} de um enum (enums ou contentEnums) — p/ facetas/filtros.
+export function useEnum(enumName) {
+  const { meta } = useMeta();
+  return (meta && meta.enums && meta.enums[enumName]) || (meta && meta.contentEnums && meta.contentEnums[enumName]) || {};
 }
 
 // ---- badges ----
@@ -103,7 +109,7 @@ export function HelpCallout({ title, children }) {
 
 export function EnumSelect({ enumName, value, onChange, allowEmpty }) {
   const { meta } = useMeta();
-  const opts = (meta && meta.enums && meta.enums[enumName]) || {};
+  const opts = (meta && meta.enums && meta.enums[enumName]) || (meta && meta.contentEnums && meta.contentEnums[enumName]) || {};
   return (
     <select value={value || ''} onChange={(e) => onChange(e.target.value)}>
       {allowEmpty && <option value="">—</option>}
@@ -146,5 +152,121 @@ export function ConfirmButton({ onConfirm, label, confirmLabel = 'Confirmar?', c
     >
       {armed ? confirmLabel : label}
     </button>
+  );
+}
+
+// ---- Markdown CSP-safe (sem deps, sem dangerouslySetInnerHTML) ----
+function mdInline(text, keyBase) {
+  const out = [];
+  const re = /(\*\*[^*]+\*\*|__[^_]+__|`[^`]+`|\*[^*\n]+\*|_[^_\n]+_|\[[^\]]+\]\([^)\s]+\))/g;
+  let last = 0; let m; let i = 0;
+  while ((m = re.exec(text))) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    const tok = m[0]; const k = `${keyBase}-${i++}`;
+    if (tok.startsWith('**') || tok.startsWith('__')) out.push(<strong key={k}>{tok.slice(2, -2)}</strong>);
+    else if (tok.startsWith('`')) out.push(<code key={k}>{tok.slice(1, -1)}</code>);
+    else if (tok.startsWith('[')) {
+      const mm = /\[([^\]]+)\]\(([^)\s]+)\)/.exec(tok);
+      if (mm) out.push(<a key={k} href={mm[2]} target="_blank" rel="noreferrer">{mm[1]}</a>);
+    } else out.push(<em key={k}>{tok.slice(1, -1)}</em>);
+    last = m.index + tok.length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+
+export function Markdown({ text }) {
+  const lines = String(text || '').split('\n');
+  const blocks = [];
+  let list = null;
+  const flush = (key) => {
+    if (!list) return;
+    const L = list;
+    blocks.push(L.ordered
+      ? <ol key={key}>{L.items.map((it, i) => <li key={i}>{mdInline(it, key + i)}</li>)}</ol>
+      : <ul key={key}>{L.items.map((it, i) => <li key={i}>{mdInline(it, key + i)}</li>)}</ul>);
+    list = null;
+  };
+  lines.forEach((raw, idx) => {
+    const key = 'b' + idx;
+    const line = raw.trimEnd();
+    const h = /^(#{1,3})\s+(.*)$/.exec(line);
+    const ol = /^\s*\d+\.\s+(.*)$/.exec(line);
+    const ul = /^\s*[-*]\s+(.*)$/.exec(line);
+    if (h) { flush(key + 'l'); const T = ['h2', 'h3', 'h4'][h[1].length - 1]; blocks.push(React.createElement(T, { key }, mdInline(h[2], key))); }
+    else if (ol) { if (!list || !list.ordered) { flush(key + 'l'); list = { ordered: true, items: [] }; } list.items.push(ol[1]); }
+    else if (ul) { if (!list || list.ordered) { flush(key + 'l'); list = { ordered: false, items: [] }; } list.items.push(ul[1]); }
+    else if (line.trim() === '') flush(key + 'l');
+    else if (/^(---|\*\*\*)$/.test(line.trim())) { flush(key + 'l'); blocks.push(<hr key={key} />); }
+    else { flush(key + 'l'); blocks.push(<p key={key}>{mdInline(line, key)}</p>); }
+  });
+  flush('bend');
+  return <div className="md-body">{blocks}</div>;
+}
+
+// ---- Chips e badges de conteudo ----
+export function Chip({ enumName, value, tone = 'neutral' }) {
+  const label = useLabel();
+  return <span className={`chip chip-${tone}`}>{enumName ? label(enumName, value) : value}</span>;
+}
+
+const OUTCOME_CLASS = { favoravel: 'b-green', parcial: 'b-amber', desfavoravel: 'b-red', indefinido: 'b-grey' };
+export function OutcomeBadge({ value }) {
+  const label = useLabel();
+  return <span className={`badge ${OUTCOME_CLASS[value] || 'b-grey'}`}>{label('outcome', value)}</span>;
+}
+
+// ---- Faceta multi-selecao (fieldset/checkbox, teclado/SR nativos) ----
+export function FacetGroup({ title, enumName, options, selected, onToggle, counts }) {
+  const label = useLabel();
+  const opts = options || Object.keys(useEnumMap(enumName));
+  const sel = new Set(selected || []);
+  return (
+    <fieldset className="facet-group">
+      <legend>{title}</legend>
+      {opts.map((v) => {
+        const c = counts ? (counts[v] || 0) : null;
+        return (
+          <label key={v} className="facet-opt">
+            <input type="checkbox" checked={sel.has(v)} onChange={() => onToggle(v)} />
+            <span className="facet-lbl">{enumName ? label(enumName, v) : v}</span>
+            {c != null && <span className="facet-count">{c}</span>}
+          </label>
+        );
+      })}
+    </fieldset>
+  );
+}
+function useEnumMap(name) { return useEnum(name); }
+
+// ---- Visualizador de arquivo (mesma origem: pdf/video inline, docx download) ----
+export function FileViewer({ url, mime, title, downloadLabel = 'Baixar / abrir' }) {
+  const isVideo = (mime || '').startsWith('video/');
+  const isPdf = (mime || '').includes('pdf');
+  return (
+    <div className="viewer-wrap">
+      {isVideo && <video className="viewer-frame" controls src={url} title={title || 'Vídeo'} />}
+      {isPdf && <iframe className="viewer-frame" src={url} title={title || 'Documento'} />}
+      {!isVideo && !isPdf && (
+        <div className="viewer-fallback">
+          <p className="muted">Pré-visualização não disponível para este formato.</p>
+        </div>
+      )}
+      <div className="row" style={{ marginTop: 10 }}>
+        <a className="btn sm" href={url} target="_blank" rel="noreferrer">{downloadLabel}</a>
+      </div>
+    </div>
+  );
+}
+
+// ---- Barra de contagem (mapa de facetas na home / resultados) ----
+export function CountBar({ label, count, max }) {
+  const pct = max > 0 ? Math.round((count / max) * 100) : 0;
+  return (
+    <div className="count-bar">
+      <span className="cb-label">{label}</span>
+      <div className="cb-track"><span style={{ width: `${pct}%` }} /></div>
+      <span className="cb-count">{count}</span>
+    </div>
   );
 }

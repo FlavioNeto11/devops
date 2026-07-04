@@ -13,14 +13,35 @@ language: pt-BR
 
 ## O que é
 
-Sistema **simples, SEM login**, focado **exclusivamente em levantamento**: cadastrar casos/processos
-ligados a ações do antigo **BESC** (incorporado pelo Banco do Brasil), organizar documentos, levantar
-pendências, classificar risco e gerar checklists + relatórios para **futura** tokenização e avaliação de
-uso como **caução/garantia processual**. **Não tokeniza de verdade, não consulta tribunais, sem
-blockchain, sem pagamento.** Ferramenta organizacional — **não** presta aconselhamento jurídico.
+**Portal + base de conhecimento SEM login** sobre as ações do antigo **BESC** (incorporado pelo Banco
+do Brasil), que serve de fundamento para uma **futura** tokenização. Duas frentes:
 
-O escopo funcional completo (10 seções: telas, campos, checklists, status, relatórios, MVP) está em
-[`ESCOPO-FUNCIONAL.md`](./ESCOPO-FUNCIONAL.md).
+1. **Portal de conhecimento** — a home (`/`) explica o que são as BESCs; **Biblioteca institucional**
+   (`/biblioteca`, 18 docs: fundamentos, histórico da incorporação, comunicados Bacen, custos de
+   cartório, petições-modelo, vídeos); **Jurisprudência** (`/jurisprudencia`, 100 decisões navegáveis
+   por facetas — tribunal/credor/mecanismo/resultado/instância, com ementas fiéis + PDF do inteiro
+   teor); **Glossário** (`/glossario`) e **Referência** (`/referencia`, mecanismos/base legal/tabela de
+   cartório 2024/padrão jurisprudencial) e **Roadmap** (`/roadmap`).
+2. **Levantamento por caso** (`/casos`) — cadastrar casos/processos, organizar documentos, **perícia /
+   atualização monetária**, **mecanismo + credor-alvo**, pendências, risco, checklist de tokenização e
+   relatórios (incl. `strategy_report`). Vincula precedentes da jurisprudência (link soft por id).
+
+**Não tokeniza de verdade, não consulta tribunais, sem blockchain, sem pagamento.** Ferramenta
+organizacional — **não** presta aconselhamento jurídico (ementas marcadas "requer validação jurídica").
+
+O escopo funcional do levantamento (10 seções) está em [`ESCOPO-FUNCIONAL.md`](./ESCOPO-FUNCIONAL.md).
+
+### Conteúdo (biblioteca + jurisprudência)
+- **Coleções** no mesmo store JSON: `library`, `jurisprudence`, `glossary`, `catalogMeta` (migração
+  aditiva — `besc.json` antigo só com `cases` carrega inalterado). Enums de conteúdo em
+  `api/src/domain-content.js`; conteúdo de referência estático em `api/src/reference/*`.
+- **Catálogo** (metadados) versionado em `api/seed/*.json`, carregado idempotente no boot por
+  `store.seedCatalog()` (version-gated, não sobrescreve edições do operador). Gerado offline por
+  `api/seed/gen-catalog.mjs` (facetas de pasta+nome; ementas curadas em `overrides.json`).
+- **Binários** (~275 MB: PDFs + 4 vídeos) vivem **só no PVC** (`/data/{library,jurisprudence}/<id><ext>`),
+  ingeridos UMA VEZ por `seed/ingest-files.ps1` (`kubectl cp` — usa caminhos **relativos**, pois `C:\`
+  confunde o kubectl cp no Windows). Rotas de arquivo usam `res.sendFile` (Range p/ vídeo); binário
+  ausente → 404 gracioso. Endpoints: `/library*`, `/jurisprudence*`, `/glossary`, `/stats`.
 
 ## Stack & arquitetura
 

@@ -43,7 +43,7 @@ export default function Ajuda() {
 
   return (
     <>
-      <div className="crumbs"><Link to="/">Casos</Link> / Ajuda</div>
+      <div className="crumbs"><Link to="/">Início</Link> / Ajuda</div>
 
       <div className="help-hero">
         <h1>Como usar a Plataforma de Levantamento BESC Tokenização</h1>
@@ -51,7 +51,7 @@ export default function Ajuda() {
         <p><strong>Ele não decide nada por você</strong> — ele organiza e mostra as pendências. Não tokeniza de verdade, não consulta tribunais e não é aconselhamento jurídico.</p>
         <div className="row" style={{ marginTop: 10 }}>
           <Link className="btn primary" to="/cases/new">+ Cadastrar um caso</Link>
-          <Link className="btn" to="/">Ver casos</Link>
+          <Link className="btn" to="/casos">Ver casos</Link>
         </div>
       </div>
 
