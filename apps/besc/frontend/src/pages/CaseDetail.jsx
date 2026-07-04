@@ -322,6 +322,7 @@ function DocumentosTab({ c, id, patch }) {
   const statusOptions = Object.entries((meta && meta.enums.document_status) || {});
   return (
     <div className="stack">
+      <JudicialDocsPanel precedents={c.precedents} title="Documentos judiciais do caso" hint="Peças e decisões judiciais deste caso (das ações do BESC). Abra ou baixe o PDF diretamente aqui." />
       <HelpCallout title={`Documentação ${c.derived.docPct}% concluída (validados ÷ aplicáveis)`}>
         Avance o status conforme o andamento: <strong>Pendente → Recebido → Em análise → Validado</strong>.
         Anexe o arquivo (PDF, imagem, etc.) em cada documento com o botão <strong>Anexar</strong> — ao anexar, o
@@ -351,8 +352,11 @@ function ChecklistAnswer({ value, onChange }) {
   );
 }
 
-function PrecedentsPanel({ precedents }) {
+// Painel de documentos judiciais vinculados ao caso (peças/decisões — os PDFs vivem na
+// coleção de jurisprudência no PVC; aqui damos acesso direto a Ver PDF + Ficha).
+function JudicialDocsPanel({ precedents, title = 'Documentos judiciais do caso', hint }) {
   const [items, setItems] = useState(null);
+  const label = useLabel();
   useEffect(() => {
     let alive = true;
     if (!precedents || precedents.length === 0) { setItems([]); return; }
@@ -363,14 +367,24 @@ function PrecedentsPanel({ precedents }) {
   if (!precedents || precedents.length === 0) return null;
   return (
     <div className="card">
-      <div className="card-head"><h3>Jurisprudência de apoio vinculada ({precedents.length})</h3></div>
+      <div className="card-head"><h3>{title}</h3><span className="tab-count" style={{ marginLeft: 4 }}>{precedents.length}</span></div>
       <div className="card-body">
+        {hint && <p className="small muted" style={{ margin: '-4px 0 12px' }}>{hint}</p>}
         {!items && <span className="small muted">Carregando…</span>}
         {items && items.map((j) => (
-          <div key={j.id} className="between" style={{ padding: '8px 0', borderBottom: '1px solid var(--line-soft)' }}>
+          <div key={j.id} className="between" style={{ padding: '11px 0', borderBottom: '1px solid var(--line-soft)', gap: 12, alignItems: 'flex-start' }}>
             <div style={{ minWidth: 0 }}>
-              <a href={`/besc/jurisprudencia/${j.id}`} target="_blank" rel="noreferrer" style={{ fontWeight: 600 }}>{j.title}</a>
-              <div className="small muted">{[j.tribunal, j.year, (j.mechanism || []).join(', ')].filter(Boolean).join(' · ')}</div>
+              <div style={{ fontWeight: 600 }}>{j.title}</div>
+              <div className="small muted" style={{ marginTop: 3 }}>{[label('tribunal', j.tribunal), j.instancia && label('instancia', j.instancia), j.year, j.processNumber].filter(Boolean).join(' · ')}</div>
+              <div className="chip-row" style={{ marginTop: 7 }}>
+                {(j.mechanism || []).map((m) => <span key={m} className="chip">{label('mechanism', m)}</span>)}
+                {j.outcome && <span className={`badge ${{ favoravel: 'b-green', parcial: 'b-amber', desfavoravel: 'b-red', indefinido: 'b-grey' }[j.outcome] || 'b-grey'}`}>{label('outcome', j.outcome)}</span>}
+              </div>
+            </div>
+            <div className="row" style={{ gap: 6, flexShrink: 0 }}>
+              {j.fileRef && j.fileRef.stored && <a className="btn sm" href={api.jurisprudenceFileUrl(j.id)} target="_blank" rel="noreferrer" title="Abrir o PDF do documento"><Icon name="file" size={13} /> Ver PDF</a>}
+              {j.fileRef && j.fileRef.stored && <a className="btn ghost sm" href={api.jurisprudenceFileUrl(j.id)} download title="Baixar o PDF"><Icon name="download" size={13} /></a>}
+              <a className="btn ghost sm" href={`/besc/jurisprudencia/${j.id}`} target="_blank" rel="noreferrer" title="Abrir a ficha completa (ementa)">Ficha</a>
             </div>
           </div>
         ))}
@@ -385,7 +399,7 @@ function JuridicoTab({ c, id, patch }) {
   const groups = groupBy(c.legal, 'category');
   return (
     <div className="stack">
-      <PrecedentsPanel precedents={c.precedents} />
+      <JudicialDocsPanel precedents={c.precedents} title="Jurisprudência de apoio vinculada" hint="Decisões vinculadas a este caso — servem de fundamento jurídico." />
       <HelpCallout title="Perguntas de levantamento (requerem validação jurídica)">
         Responda o que já se sabe: <strong>Sim / Não / Parcial / Não avaliado / Não se aplica</strong>. Deixar
         “Não avaliado” é honesto e vira pendência para lembrar de resolver. Ex.: em “Pode ser cedido?”, se ainda
