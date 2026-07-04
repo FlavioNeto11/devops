@@ -2397,7 +2397,8 @@ function fwPreviewGate(w) {
   }
   const st = h('p', { class: 'fw-status muted', role: 'status', 'aria-live': 'polite' });
   const btn = h('button', { class: 'btn primary fw-cta', type: 'button', text: '✅ Aprovar e construir' });
-  btn.addEventListener('click', () => { pv.approved = true; st.replaceChildren(document.createTextNode('Aprovado!')); fwRerender(); });
+  // aprovou → já avança p/ o passo Revisar (elimina o vaivém: não precisa clicar "Ir para criar")
+  btn.addEventListener('click', () => { pv.approved = true; fwGoto(5); });
   wrap.append(
     h('h4', { class: 'fw-sec', text: 'Aprovar e construir' }),
     h('p', { class: 'fw-hint', text: 'Quando as telas estiverem como você quer, aprove. Só depois disso a esteira começa a construir o sistema de verdade.' }),
@@ -2412,10 +2413,18 @@ function fwStageReview(host, w, { catalog }) {
   // Gate: enquanto o preview não estiver aprovado, o launch fica bloqueado com um aviso claro
   // que leva de volta à etapa Preview. (Aditivo: só afeta o caminho do wizard.)
   if (!approved) {
+    // Se o preview JÁ foi construído (status ready), dá p/ aprovar AQUI mesmo — sem voltar ao passo 4
+    // (elimina o vaivém). Se ainda não construiu, o único caminho é "Ver o preview" (gerar/refinar lá).
+    const previewReady = !!(w.preview && w.preview.status === 'ready');
+    const actions = h('div', { class: 'fw-actions' },
+      h('button', { class: previewReady ? 'btn' : 'btn primary', type: 'button', text: '← Ver o preview', onclick: () => fwGoto(4) }));
+    if (previewReady) {
+      actions.append(h('button', { class: 'btn primary', type: 'button', text: '✅ Aprovar preview', onclick: () => { w.preview.approved = true; fwRerender(); } }));
+    }
     host.append(h('div', { class: 'fw-gatebar', role: 'status' },
       h('p', { class: 'fw-gatebar-t' }, h('span', { 'aria-hidden': 'true', text: '🔒 ' }), 'Aprove o preview das telas antes de construir.'),
-      h('p', { class: 'fw-hint', text: 'Gere o preview, refine o que quiser e clique em "Aprovar e construir". Só então a criação é liberada.' }),
-      h('div', { class: 'fw-actions' }, h('button', { class: 'btn primary', type: 'button', text: '← Ver o preview', onclick: () => fwGoto(4) }))));
+      h('p', { class: 'fw-hint', text: previewReady ? 'Revise o preview e aprove aqui mesmo — ou volte para refinar mais.' : 'Gere o preview, refine o que quiser e aprove. Só então a criação é liberada.' }),
+      actions));
   }
   if (w.mode !== 'profissional') {
     // simples/guiado vão DIRETO à construção (como o "Liberar tudo"): o botão lança e trava a
