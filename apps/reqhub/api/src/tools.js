@@ -13,6 +13,26 @@ import { validateInventory, sanitizeScreen } from './forge-preview.js';
 // ágil (UX) e a tarefa é extração estruturada — haiku responde em segundos vs ~2min do sonnet.
 const FAST_MODEL = () => (aiProvider() === 'anthropic' ? 'claude-haiku-4-5-20251001' : 'gpt-5-nano');
 
+// Modelo do COPILOTO DA IDEIA (etapa 1): conversa turn-by-turn — prioriza RESPONSIVIDADE (FAST, como
+// as demais tools do Forge). Overridável por env p/ um modelo mais forte quando quiser mais rigor de produto.
+const IDEA_MODEL = () => process.env.REQHUB_FORGE_IDEA_MODEL || FAST_MODEL();
+
+// Whitelist de PRODUTO do ideaDraft — defesa em profundidade do PRINCIPIO da etapa Ideia (100% produto):
+// qualquer chave TECNICA (stack/framework/db/arquitetura/api/schema/yaml) que o modelo devolva no patch
+// e DESCARTADA aqui. Escalares viram string; listas viram string[] (tolera item objeto {text}).
+const IDEA_STR_FIELDS = ['name', 'problem', 'audience', 'summary', 'value'];
+const IDEA_LIST_FIELDS = ['actors', 'capabilities', 'businessRules', 'goals', 'constraints'];
+const asStrList = (v, max = 40) => (Array.isArray(v)
+  ? v.map((x) => String(x == null ? '' : (typeof x === 'object' ? (x.text || x.label || '') : x)).trim()).filter(Boolean).slice(0, max)
+  : []);
+function sanitizeIdeaPatch(patch) {
+  const p = patch && typeof patch === 'object' ? patch : {};
+  const out = {};
+  for (const k of IDEA_STR_FIELDS) if (typeof p[k] === 'string' && p[k].trim()) out[k] = p[k].trim().slice(0, 2000);
+  for (const k of IDEA_LIST_FIELDS) { const l = asStrList(p[k]).map((s) => s.slice(0, 400)); if (l.length) out[k] = l; }
+  return out;
+}
+
 // Resolve os blocos default/compatible de um blueprint a partir do catálogo recebido do frontend.
 function blueprintBlocks(input, blueprintId) {
   const bp = (Array.isArray(input.blueprints) ? input.blueprints : []).find((b) => b && b.id === blueprintId) || {};
@@ -300,6 +320,44 @@ export function buildAuthoringTools() {
 // no git nem disparam a esteira — a UI mostra o YAML/o caminho do PR; o operador decide.
 export function buildForgeTools() {
   return [
+    {
+      // COPILOTO DE PRODUTO da etapa 1 (Ideia). Conversa que AMADURECE a ideia: a cada turno devolve
+      // reply CURTO + PATCH incremental do ideaDraft (SO campos de produto) + maturity + open_questions +
+      // quick_replies + ready + summary. 100% PRODUTO — nada de tecnologia (isso e a etapa 2). R1.
+      name: 'forge.idea.copilot',
+      description: 'Copiloto de PRODUTO da etapa Ideia do Forge: conversa que amadurece a ideia (problema/publico/capacidades/regras/objetivos) e devolve reply + patch incremental do ideaDraft + maturity + perguntas. Nunca toca em tecnologia (isso e a etapa 2). R1.',
+      risk: 'R1',
+      inputSchema: schema((v) => need(typeof v.message === 'string' && v.message.trim().length >= 1, 'message obrigatorio')),
+      authorize: authorizeOperator,
+      execute: async (input, ctx) => {
+        const { parsed, usage } = await llmJson(ctx.llm, {
+          system: PROMPTS.forgeIdea.system,
+          user: PROMPTS.forgeIdea.user(input),
+          reasoningEffort: 'low',
+          maxTokens: 6000,
+          model: IDEA_MODEL(),
+        });
+        const oq = Array.isArray(parsed.open_questions)
+          ? parsed.open_questions
+            .map((q) => (q && typeof q === 'object' ? { text: String(q.text || '').trim(), essential: q.essential === true } : { text: String(q || '').trim(), essential: false }))
+            .filter((q) => q.text)
+            .slice(0, 12)
+          : [];
+        return {
+          prompt_version: PROMPTS.forgeIdea.version,
+          reply: typeof parsed.reply === 'string' ? parsed.reply : '',
+          patch: sanitizeIdeaPatch(parsed.patch),
+          maturity: Math.max(0, Math.min(100, Math.round(Number(parsed.maturity) || 0))),
+          open_questions: oq,
+          quick_replies: Array.isArray(parsed.quick_replies)
+            ? parsed.quick_replies.filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim().slice(0, 80)).slice(0, 4)
+            : [],
+          ready: parsed.ready === true,
+          summary: typeof parsed.summary === 'string' ? parsed.summary.trim() : '',
+          usage,
+        };
+      },
+    },
     {
       name: 'forge.propose_requirements',
       description: 'Propoe um conjunto inicial de requisitos de um produto novo a partir de um brief + blueprint + catalogo de capacidades (sistemas robustos, nao so CRUD).',

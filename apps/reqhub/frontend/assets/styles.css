@@ -1259,3 +1259,87 @@ body.cmdk-on { overflow: hidden; }
 .forge-telas-item { flex-wrap: wrap; }
 .forge-refine-ta { width: 100%; margin-top: 6px; font: inherit; background: var(--bg-1); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
 .fw-skip-gate { display: inline-flex; align-items: center; gap: 6px; margin: 6px 0; }
+
+/* ─── ETAPA "IDEIA" — copiloto de produto (chat + visão por modo) ─────────────────────────────── */
+.fw-idea-card { max-width: 1140px; }
+.fw-idea-lead { font-size: 13.5px; color: var(--fg-1); margin: 0 0 16px; max-width: 78ch; }
+/* layout 2 colunas: chat + painel (empilha em telas estreitas) */
+.fw-idea { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 860px) { .fw-idea { grid-template-columns: 1fr; } }
+.fw-idea-m-simples { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); }
+
+/* --- coluna chat --- */
+.fw-idea-chat { display: flex; flex-direction: column; min-width: 0; }
+.fw-idea-log { display: flex; flex-direction: column; gap: 9px; min-height: 220px; max-height: 46vh; overflow-y: auto; padding: 6px 4px 4px; }
+.fw-idea-msg { max-width: 88%; padding: 9px 13px; border-radius: 13px; font-size: 13.5px; line-height: 1.5; border: 1px solid var(--line); animation: fwfade 0.22s ease; }
+@media (prefers-reduced-motion: reduce) { .fw-idea-msg { animation: none; } }
+.fw-idea-msg.is-user { align-self: flex-end; background: var(--accent-soft); border-color: var(--accent); }
+.fw-idea-msg.is-ai { align-self: flex-start; background: var(--bg-1); }
+.fw-idea-bubble { white-space: pre-wrap; overflow-wrap: anywhere; }
+.fw-idea-typing { margin: 2px 4px 0; }
+.fw-idea-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 2px 0; }
+.fw-idea-chip { animation: fwfade 0.22s ease; }
+@media (prefers-reduced-motion: reduce) { .fw-idea-chip { animation: none; } }
+.fw-idea-err { color: var(--danger); margin: 8px 2px 0; }
+.fw-idea-err[hidden] { display: none; }
+.fw-idea-composer { display: flex; gap: 8px; align-items: flex-end; margin-top: 12px; }
+.fw-idea-input { flex: 1; min-width: 0; }
+.fw-idea-sendbtn { flex: none; align-self: stretch; }
+
+/* --- painel da visão (nome + view + gate) --- */
+.fw-idea-side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.fw-idea-name { display: block; }
+.fw-idea-name .fw-fld-l { margin-bottom: 5px; }
+.fw-idea-view { display: flex; flex-direction: column; gap: 12px; }
+.fw-idea-view-t { font-size: 15px; margin: 0 0 2px; color: var(--fg); }
+.fw-idea-sub { font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); margin: 8px 0 4px; }
+.fw-idea-purpose { font-size: 14.5px; color: var(--fg); line-height: 1.5; margin: 0; }
+.fw-idea-who { font-size: 12.5px; margin: 0; }
+/* cartões (guiado) e fieldsets (profissional) */
+.fw-idea-card2, .fw-idea-fieldset { background: var(--bg-1); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; animation: fwfade 0.22s ease; }
+@media (prefers-reduced-motion: reduce) { .fw-idea-card2, .fw-idea-fieldset { animation: none; } }
+.fw-idea-card-t { font-size: 13px; font-weight: 600; color: var(--fg-1); margin: 0 0 8px; }
+.fw-idea-detail { margin-top: 8px; }
+.fw-idea-detail > summary { cursor: pointer; font-size: 12.5px; color: var(--muted); }
+.fw-idea-detail > summary:hover { color: var(--fg-1); }
+.fw-idea-detail > *:not(summary) { margin-top: 8px; }
+.fw-idea-fin { margin-bottom: 0; }
+/* listas editáveis */
+.fw-idea-list { display: flex; flex-direction: column; gap: 7px; }
+.fw-idea-items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.fw-idea-item { display: flex; gap: 6px; align-items: center; animation: fwfade 0.2s ease; }
+@media (prefers-reduced-motion: reduce) { .fw-idea-item { animation: none; } }
+.fw-idea-item-in { flex: 1; min-width: 0; background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; color: var(--fg); font: inherit; font-size: 13px; padding: 7px 10px; }
+.fw-idea-item-in:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); }
+.fw-idea-item-ctl { display: inline-flex; gap: 2px; flex: none; }
+.fw-idea-mv, .fw-idea-rm { border: none; background: none; color: var(--muted); cursor: pointer; font-size: 13px; padding: 4px 5px; border-radius: 6px; line-height: 1; }
+.fw-idea-mv:hover, .fw-idea-rm:hover { color: var(--fg); background: var(--bg-2); }
+.fw-idea-mv[disabled] { opacity: 0.3; cursor: default; }
+.fw-idea-rm:hover { color: var(--danger); }
+.fw-idea-add { font-size: 13px !important; padding: 7px 10px !important; }
+.fw-idea-empty { font-size: 12.5px; padding: 2px 0; }
+/* perguntas em aberto */
+.fw-idea-oq { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.fw-idea-oq-item { display: flex; gap: 8px; align-items: center; font-size: 13px; animation: fwfade 0.2s ease; }
+@media (prefers-reduced-motion: reduce) { .fw-idea-oq-item { animation: none; } }
+.fw-idea-oq-item.is-essential { font-weight: 500; }
+.fw-idea-oq-t { flex: 1; min-width: 0; }
+.fw-idea-oq-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex: none; }
+
+/* gate: maturidade + avanço + atalho */
+.fw-idea-gate { border-top: 1px solid var(--line); padding-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+.fw-idea-meter { display: flex; align-items: center; gap: 12px; }
+.fw-idea-bar { flex: 1; min-width: 0; }
+.fw-idea-hint { margin: 0; flex: 1; }
+.fw-ring { width: 58px; height: 58px; flex: none; }
+.fw-ring-track { stroke: var(--bg-3); stroke-width: 7; }
+.fw-ring-arc { stroke: var(--accent); stroke-width: 7; stroke-linecap: round; transition: stroke-dashoffset 0.5s ease, stroke 0.3s ease; }
+@media (prefers-reduced-motion: reduce) { .fw-ring-arc { transition: none; } }
+.fw-ring-arc.is-ready { stroke: var(--ok); }
+.fw-ring-v { fill: var(--fg); font-size: 15px; font-weight: 600; font-family: var(--sans); }
+.fw-idea-advance { width: 100%; justify-content: center; }
+.fw-idea-advance[disabled] { opacity: 0.55; cursor: not-allowed; }
+.fw-idea-ready { color: var(--ok) !important; margin: 0; }
+.fw-idea-adv { font-size: 12.5px; color: var(--muted); }
+.fw-idea-adv > summary { cursor: pointer; }
+.fw-idea-skip { margin-top: 8px; }
