@@ -5,7 +5,7 @@
 // import circular. Lógica pura continua em forge-lib.js/lib.js (testáveis com node:test).
 import {
   state, DATA, h, svg, badge, byId, AI, dd, dt, filePicker, sameOriginUrl, applyTransform, nav,
-} from './core.js?v=2';
+} from './core.js?v=3';
 import { findSimilarReqs, forceLayout, toYaml, truncateLabel } from './lib.js?v=42';
 import {
   productSummaries, findProduct, blueprintById, studioPhaseModel, buildDag, dagFromWaves, wavesFromProgress,
@@ -1534,7 +1534,10 @@ function fwRenderIdeaCopilot(host, w, { blueprints }) {
   const errBox = h('p', { class: 'fw-status fw-idea-err', role: 'alert', hidden: 'hidden' });
   const input = h('textarea', { class: 'fw-textarea fw-idea-input', rows: '2', 'aria-label': 'Escreva para o copiloto', placeholder: 'Escreva sobre a sua ideia…' });
   const sendBtn = h('button', { class: 'btn primary fw-idea-sendbtn', type: 'button', text: 'Enviar' });
-  chatCol.append(log, typing, chips, errBox, h('div', { class: 'fw-idea-composer' }, input, sendBtn));
+  // Anexos (opcional, multimodal): a IA lê documento/planilha/imagem sobre a ideia. Persistido no
+  // wizard (w._ideaPicker) p/ sobreviver às re-renderizações (ex.: troca de modo).
+  if (!w._ideaPicker) w._ideaPicker = filePicker({ label: 'Anexar arquivos sobre a ideia', buttonLabel: '📎 Anexar (opcional)' });
+  chatCol.append(log, typing, chips, errBox, h('div', { class: 'fw-idea-composer' }, input, sendBtn), h('div', { class: 'fw-idea-attach' }, w._ideaPicker.el));
 
   const bubble = (role, text) => { const b = h('div', { class: 'fw-idea-msg is-' + role }); const body = h('div', { class: 'fw-idea-bubble' }); body.textContent = text || ''; b.append(body); return b; };
 
@@ -1580,17 +1583,33 @@ function fwRenderIdeaCopilot(host, w, { blueprints }) {
 // "digitando" na hora). No `patch` aplica ao ideaDraft e repinta a visão/gate ao vivo.
 async function fwIdeaSend(w, text, ui) {
   const msg = String(text || '').trim();
-  if (!msg || ui.sending) return;
+  const files = (w._ideaPicker && w._ideaPicker.hasFiles()) ? w._ideaPicker.files() : [];
+  if ((!msg && !files.length) || ui.sending) return;
   ui.sending = true; ui.setError('');
   const history = (w.idea.chatHistory || []).slice(-16).map((t) => ({ role: t.role, content: t.content }));
-  w.idea.chatHistory.push({ role: 'user', content: msg });
-  ui.appendBubble('user', msg);
+  const shown = msg || ('📎 ' + files.length + ' arquivo(s) anexado(s)');
+  w.idea.chatHistory.push({ role: 'user', content: shown });
+  ui.appendBubble('user', shown);
   ui.input.value = '';
   ui.setChips([]);
   const live = ui.appendBubble('ai', '');
   ui.setTyping(true);
   let acc = '';
-  const body = { product: w.slug || fwSlug(w.idea.name), message: msg, history, draft: fwIdeaForApi(w.idea), mode: w.mode };
+  const product = w.slug || fwSlug(w.idea.name);
+  // Com arquivos -> multipart (SSE-over-multipart); o backend (withIngest) funde o texto extraído em
+  // `message` e reidrata history/draft. Sem arquivos -> JSON de sempre (retrocompat).
+  let body;
+  if (files.length) {
+    body = new FormData();
+    body.append('message', msg);
+    body.append('product', product || '');
+    body.append('mode', w.mode);
+    body.append('history', JSON.stringify(history));
+    body.append('draft', JSON.stringify(fwIdeaForApi(w.idea)));
+    for (const f of files) if (f) body.append('files', f, f.name);
+  } else {
+    body = { product, message: msg, history, draft: fwIdeaForApi(w.idea), mode: w.mode };
+  }
   try {
     await AI.stream2('/v1/forge/idea/chat', body, {
       onEvent: (event, data) => {
@@ -1605,6 +1624,7 @@ async function fwIdeaSend(w, text, ui) {
     const finalText = acc.trim();
     if (!finalText) ui.setBubbleText(live, '(sem resposta)');
     w.idea.chatHistory.push({ role: 'assistant', content: finalText || '(sem resposta)' });
+    if (files.length && w._ideaPicker && w._ideaPicker.clear) w._ideaPicker.clear(); // consumidos -> limpa
     fwIdeaPersist(w);
   } catch (e) {
     live.remove();
