@@ -351,12 +351,41 @@ function ChecklistAnswer({ value, onChange }) {
   );
 }
 
+function PrecedentsPanel({ precedents }) {
+  const [items, setItems] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    if (!precedents || precedents.length === 0) { setItems([]); return; }
+    Promise.all(precedents.map((pid) => api.jurisprudenceGet(pid).catch(() => null)))
+      .then((r) => { if (alive) setItems(r.filter(Boolean)); });
+    return () => { alive = false; };
+  }, [precedents]);
+  if (!precedents || precedents.length === 0) return null;
+  return (
+    <div className="card">
+      <div className="card-head"><h3>Jurisprudência de apoio vinculada ({precedents.length})</h3></div>
+      <div className="card-body">
+        {!items && <span className="small muted">Carregando…</span>}
+        {items && items.map((j) => (
+          <div key={j.id} className="between" style={{ padding: '8px 0', borderBottom: '1px solid var(--line-soft)' }}>
+            <div style={{ minWidth: 0 }}>
+              <a href={`/besc/jurisprudencia/${j.id}`} target="_blank" rel="noreferrer" style={{ fontWeight: 600 }}>{j.title}</a>
+              <div className="small muted">{[j.tribunal, j.year, (j.mechanism || []).join(', ')].filter(Boolean).join(' · ')}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function JuridicoTab({ c, id, patch }) {
   const { meta } = useMeta();
   const cats = (meta && meta.catalogs.legalCategories) || {};
   const groups = groupBy(c.legal, 'category');
   return (
     <div className="stack">
+      <PrecedentsPanel precedents={c.precedents} />
       <HelpCallout title="Perguntas de levantamento (requerem validação jurídica)">
         Responda o que já se sabe: <strong>Sim / Não / Parcial / Não avaliado / Não se aplica</strong>. Deixar
         “Não avaliado” é honesto e vira pendência para lembrar de resolver. Ex.: em “Pode ser cedido?”, se ainda
