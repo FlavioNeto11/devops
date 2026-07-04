@@ -1816,7 +1816,10 @@ function fwIdeaGate(w, ui) {
   advance.disabled = !ready;
   advance.setAttribute('aria-disabled', ready ? 'false' : 'true');
   if (!ready) advance.title = 'Continue a conversa para fechar a ideia (maturidade + perguntas essenciais).';
-  advance.addEventListener('click', () => { if (!ideaReady(w.idea)) return; w.idea.confirmed = true; fwIdeaPersist(w); fwHandoffToWhat(w, status, advance); });
+  // Consistência botão = ABA = chat: usa o disabled REAL como gate (não re-avalia ideaReady no clique —
+  // isso evitava o botão "não fazer nada" por um descompasso render↔clique). Se os requisitos JÁ existem,
+  // apenas NAVEGA (fwGoto, idêntico à aba do passo 2); se ainda não, gera (transição instantânea).
+  advance.addEventListener('click', () => { if (advance.disabled) return; w.idea.confirmed = true; fwIdeaPersist(w); fwAdvanceToWhat(w, status, advance); });
   box.append(advance);
   if (ready) box.append(h('p', { class: 'fw-idea-ready muted small', text: '✓ Ideia madura — você pode seguir ou continuar refinando.' }));
 
@@ -1825,6 +1828,13 @@ function fwIdeaGate(w, ui) {
   box.append(h('details', { class: 'fw-idea-adv' }, h('summary', { text: 'Atalho avançado' }),
     h('p', { class: 'fw-hint', text: 'Pular a conversa e gerar direto a partir do que já está aqui.' }), skip), status);
   return box;
+}
+
+// Avança para a etapa 2 de forma IDÊNTICA à aba do passo 2 e ao chat: se os requisitos já existem,
+// apenas navega (fwGoto — a MESMA função que a aba chama); se ainda não, gera (fwHandoffToWhat).
+function fwAdvanceToWhat(w, statusEl, btn) {
+  if (w.proposed && w.proposed.length) fwGoto(2);
+  else fwHandoffToWhat(w, statusEl, btn);
 }
 
 // Handoff para a etapa 2: compõe o brief a partir do ideaDraft (sem mudar o contrato da etapa 2)
