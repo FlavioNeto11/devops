@@ -5,6 +5,7 @@ import { Icon } from '../icons.jsx';
 
 const TABS = [
   { key: 'mecanismos', label: 'Mecanismos', icon: 'layers' },
+  { key: 'conversao', label: 'Relações de substituição', icon: 'coins' },
   { key: 'base_legal', label: 'Base legal', icon: 'scale' },
   { key: 'historia', label: 'Histórico', icon: 'clock' },
   { key: 'custas', label: 'Custas de cartório', icon: 'coins' },
@@ -38,6 +39,25 @@ export default function Referencia() {
                   <div className="small muted" style={{ lineHeight: 1.55 }}>{m.when}</div>
                 </div>
               ))}
+            </div></div>
+          )}
+
+          {tab === 'conversao' && ref.shareConversion && (
+            <div className="card"><div className="card-body">
+              <h2 style={{ fontSize: 17, marginBottom: 4 }}>Relações de substituição (conversão)</h2>
+              <p className="muted" style={{ marginBottom: 12 }}>{ref.shareConversion.summary}</p>
+              <table className="data">
+                <thead><tr><th>Equivale a</th><th>Ações do BESC / BESCRI</th></tr></thead>
+                <tbody>
+                  {ref.shareConversion.ratios.map((r, i) => (
+                    <tr key={i}><td>{r.from}</td><td style={{ fontWeight: 600 }}>{r.to}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+              <ul style={{ marginTop: 12, fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
+                {ref.shareConversion.notes.map((n, i) => <li key={i}>{n}</li>)}
+              </ul>
+              <div className="banner warn" style={{ fontSize: 12.5, marginTop: 8 }}>{ref.shareConversion.disclaimer}</div>
             </div></div>
           )}
 

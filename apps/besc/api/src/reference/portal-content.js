@@ -58,7 +58,26 @@ export const LEGAL_BASIS = [
   { key: 'menor_onerosidade', title: 'Menor onerosidade — CPC art. 805', text: 'A execução deve fazer-se pelo modo menos gravoso ao devedor; fundamento para oferecer as ações como garantia ou pagamento.' },
   { key: 'hierarquia_penhora', title: 'Hierarquia de penhora (CPC)', text: 'As ações do BESC são reconhecidas por tribunais como idôneas e situam-se no 2º grau da ordem de penhora.' },
   { key: 'pericia', title: 'Perícia e atualização monetária', text: 'A atualização é feita pela data e preço de aquisição da cártula, não pelo valor de conversão da AGE do BB (rejeitado pelos acionistas), o que gera o ágio.' },
+  { key: 'lei_4595', title: 'Lei nº 4.595/1964 (arts. 4º e 9º)', text: 'Competência do Banco Central sobre o Sistema Financeiro Nacional — base normativa para a aprovação da incorporação pelo BACEN.' },
+  { key: 'decreto_6380', title: 'Decreto nº 6.380, de 20/02/2008', text: 'Viabilizou a incorporação do BESC e do BESCRI pelo Banco do Brasil (exclusão do PND).' },
+  { key: 'lei_6404_169', title: 'Lei nº 6.404/1976 (art. 169, §3º)', text: 'Tratamento das frações de ações na incorporação da Bescval — agrupamento em números inteiros e venda em bolsa.' },
 ];
+
+// Relacoes de substituicao/conversao fixadas na incorporacao (fonte: peticoes/laudos do material).
+export const SHARE_CONVERSION = {
+  summary: 'Relações de substituição fixadas na incorporação — base para conversão e para a atualização pericial.',
+  disclaimer: 'Valores da incorporação. A perícia atualiza pela data e preço de aquisição da cártula (não pelo valor da AGE do BB). Conferir sempre no laudo/processo.',
+  ratios: [
+    { from: '1 ação ON do Banco do Brasil', to: '12,13308922 ações ON do BESC' },
+    { from: '1 ação ON do Banco do Brasil', to: '12,13308922 ações PNA do BESC' },
+    { from: '1 ação ON do Banco do Brasil', to: '12,13308922 ações PNB do BESC' },
+    { from: '1 ação ON do Banco do Brasil', to: '1.592,261627 ações ON da BESCRI' },
+  ],
+  notes: [
+    'Agrupamentos de ações referidos nas datas de 28/05/1987 e 01/11/2007.',
+    'Antes da incorporação, ~99% do BESC pertencia à União; após, a responsabilidade ficou compartilhada entre Banco do Brasil e União.',
+  ],
+};
 
 // Padrao jurisprudencial observado no acervo.
 export const JURISPRUDENCE_PATTERN = {
