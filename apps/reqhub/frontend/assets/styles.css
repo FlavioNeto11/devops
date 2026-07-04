@@ -572,6 +572,8 @@ pre.yaml { background: var(--bg-2); border: 1px solid var(--line); border-radius
 .fw-prev-step.is-active .fw-prev-dot { background: var(--warn); }
 .fw-prev-step.is-done .fw-prev-dot { background: var(--ok); }
 .fw-prev-step.is-done { color: var(--muted); }
+.fw-prev-step.is-error .fw-prev-dot { background: var(--danger); }
+.fw-prev-step.is-error { color: var(--danger); }
 /* iframe do preview */
 .fw-prev-stage { margin-top: 16px; }
 .fw-prev-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }

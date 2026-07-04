@@ -13,6 +13,7 @@ import {
   projectRequirementCard, forgeReqObject, buildLaunchBody,
   briefFromPortalContract, externalContractRef, suggestIntegrationBlock, CAPTURE_BRIEF_MAX_ENDPOINTS,
   emptyIdea, normalizeIdea, applyIdeaPatch, ideaReady, ideaMaturityHint, composeBriefFromIdea, IDEA_MATURITY_THRESHOLD,
+  previewErrorMessage,
 } from './assets/forge-lib.js';
 
 const implStatus = {
@@ -711,4 +712,19 @@ test('ideaMaturityHint: aponta a MAIOR lacuna atual em ordem', () => {
   assert.match(ideaMaturityHint({ problem: 'p', audience: 'a' }), /o que o sistema/i);
   assert.match(ideaMaturityHint({ problem: 'p', audience: 'a', capabilities: ['x', 'y'], openQuestions: [{ text: 'falta o SLA', essential: true }] }), /SLA/);
   assert.match(ideaMaturityHint({ problem: 'p', audience: 'a', capabilities: ['x', 'y'], maturity: 100 }), /pronta/i);
+});
+
+/* ─── Preview: mensagens de erro amigáveis (nunca o texto cru) ───────────────────────────────── */
+test('previewErrorMessage: mapeia código -> pt-BR amigável; default para desconhecido/ausente', () => {
+  assert.match(previewErrorMessage('DISPATCH_DISABLED'), /configuração/i);
+  assert.match(previewErrorMessage('PREVIEW_UPSTREAM_AUTH'), /autenticação|configuração/i);
+  assert.match(previewErrorMessage('BUILD_TIMEOUT'), /demorou/i);
+  assert.match(previewErrorMessage('AI_DISABLED'), /IA/);
+  // desconhecido e ausente caem no genérico amigável
+  assert.match(previewErrorMessage('HTTP 500'), /Tente novamente/i);
+  assert.match(previewErrorMessage(), /Tente novamente/i);
+  // NUNCA vaza termos técnicos do GitHub
+  for (const c of ['DISPATCH_DISABLED', 'PREVIEW_UPSTREAM_AUTH', 'PREVIEW_UPSTREAM', undefined]) {
+    assert.doesNotMatch(previewErrorMessage(c), /Bad credentials|documentation_url|GitHub \d/i);
+  }
 });
