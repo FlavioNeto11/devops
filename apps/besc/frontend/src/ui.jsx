@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { api } from './api.js';
+import { Icon } from './icons.jsx';
 
 // ---- meta (enums + catalogos) ----
 const MetaCtx = createContext(null);
@@ -98,7 +99,7 @@ export function Field({ label, hint, help, example, children }) {
 export function HelpCallout({ title, children }) {
   return (
     <div className="help-callout">
-      <div className="hc-icon" aria-hidden="true">💡</div>
+      <div className="hc-icon" aria-hidden="true"><Icon name="info" size={18} /></div>
       <div>
         {title && <strong>{title}</strong>}
         <div className="hc-body">{children}</div>
@@ -140,6 +141,22 @@ export function Banner({ kind = 'err', children }) {
 
 export function Loading({ label = 'Carregando…' }) {
   return <div className="center-load"><span className="spinner" /> {label}</div>;
+}
+
+// Skeletons de carregamento (percepção de performance; sem layout shift)
+export function SkeletonList({ count = 6, lines = 2 }) {
+  return (
+    <div aria-busy="true" aria-label="Carregando">
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="skel-card">
+          <div className="skel skel-title" />
+          {Array.from({ length: lines }).map((_, j) => (
+            <div key={j} className="skel skel-line" style={{ width: j === lines - 1 ? '70%' : '100%' }} />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function ConfirmButton({ onConfirm, label, confirmLabel = 'Confirmar?', className = 'btn danger sm' }) {

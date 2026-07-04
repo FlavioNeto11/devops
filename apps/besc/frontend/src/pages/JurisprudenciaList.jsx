@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
-import { useLabel, Loading, Banner, OutcomeBadge, CountBar } from '../ui.jsx';
+import { useLabel, SkeletonList, Banner, OutcomeBadge, CountBar } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
 
 const FACETS = [
@@ -120,7 +120,7 @@ export default function JurisprudenciaList() {
       </div>
 
       <Banner kind="err">{error}</Banner>
-      {!items && !error && <Loading label="Carregando acervo…" />}
+      {!items && !error && <SkeletonList count={6} lines={3} />}
 
       {items && (
         <div className="facet-layout">
