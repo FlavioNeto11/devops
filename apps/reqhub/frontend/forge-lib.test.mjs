@@ -13,7 +13,7 @@ import {
   projectRequirementCard, forgeReqObject, buildLaunchBody,
   briefFromPortalContract, externalContractRef, suggestIntegrationBlock, CAPTURE_BRIEF_MAX_ENDPOINTS,
   emptyIdea, normalizeIdea, applyIdeaPatch, ideaReady, ideaMaturityHint, composeBriefFromIdea, IDEA_MATURITY_THRESHOLD,
-  previewErrorMessage,
+  previewErrorMessage, businessSummaryFromIdea,
 } from './assets/forge-lib.js';
 
 const implStatus = {
@@ -727,4 +727,44 @@ test('previewErrorMessage: mapeia código -> pt-BR amigável; default para desco
   for (const c of ['DISPATCH_DISABLED', 'PREVIEW_UPSTREAM_AUTH', 'PREVIEW_UPSTREAM', undefined]) {
     assert.doesNotMatch(previewErrorMessage(c), /Bad credentials|documentation_url|GitHub \d/i);
   }
+});
+
+test('businessSummaryFromIdea: destila ideaDraft rico (o que é / p/ quem / faz / valor / a decidir)', () => {
+  const s = businessSummaryFromIdea({
+    name: 'BookSantiago', problem: 'Faltas em agendamentos de barbearia.', audience: 'barbearias',
+    actors: ['recepção', 'barbeiro'], capabilities: ['Agendar horário', 'Registrar no-show', 'Gerir serviços'],
+    value: 'Menos faltas e agenda cheia', constraints: ['LGPD'],
+    openQuestions: [{ text: 'Integra com WhatsApp?', essential: true }, { text: 'Cor do tema?', essential: false }],
+  }, { capsCount: 3, screensCount: 12, wavesCount: 2 });
+  assert.equal(s.name, 'BookSantiago');
+  assert.match(s.lead, /BookSantiago é um sistema para/);
+  assert.match(s.lead, /resolve faltas/i); // problema com 1ª minúscula, sem ponto
+  assert.deepEqual(s.forWhom, ['barbearias', 'recepção', 'barbeiro']);
+  assert.equal(s.capabilities.length, 3);
+  assert.equal(s.goal, 'Menos faltas e agenda cheia');
+  assert.deepEqual(s.constraints, ['LGPD']);
+  assert.deepEqual(s.openEssential, ['Integra com WhatsApp?']); // só as essenciais
+  assert.equal(s.openTotal, 2);
+  assert.deepEqual(s.counts, { capabilities: 3, screens: 12, waves: 2 });
+});
+
+test('businessSummaryFromIdea: degrada com copiloto pulado (ideaDraft esparso) usando brief + contagens', () => {
+  const s = businessSummaryFromIdea({ name: 'BookSantiago' }, {
+    brief: 'Sistema de agendamento para uma barbearia. Controla clientes e faltas.', capsCount: 5, screensCount: 9,
+  });
+  assert.equal(s.name, 'BookSantiago');
+  assert.equal(s.lead, 'BookSantiago é um sistema.'); // sem dor real → lead simples (não "resolve <brief>")
+  assert.equal(s.problem, ''); // sem d.problem → problem vazio
+  assert.match(s.description, /agendamento para uma barbearia/i); // 1ª frase do brief como prosa de fallback
+  assert.equal(s.capabilities.length, 0); // sem capacidades no draft…
+  assert.equal(s.counts.capabilities, 5); // …mas as contagens do plano preenchem
+  assert.equal(s.counts.screens, 9);
+});
+
+test('businessSummaryFromIdea: idea vazio não lança e cai em fallback neutro', () => {
+  const s = businessSummaryFromIdea({}, {});
+  assert.equal(s.name, 'O sistema');
+  assert.match(s.lead, /^O sistema é um sistema\.?$/);
+  assert.deepEqual(s.forWhom, []);
+  assert.deepEqual(s.openEssential, []);
 });

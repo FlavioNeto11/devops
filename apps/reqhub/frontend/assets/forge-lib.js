@@ -977,6 +977,47 @@ export function composeBriefFromIdea(idea) {
   return lines.join('\n\n').trim();
 }
 
+// Primeira letra minúscula (p/ encaixar o problema no meio de uma frase) + tira ponto final.
+function lowerFirst(s) { const t = String(s || '').trim().replace(/[.。]\s*$/, ''); return t ? t[0].toLowerCase() + t.slice(1) : ''; }
+function stripDot(s) { return String(s || '').trim().replace(/[.。]\s*$/, ''); }
+
+/**
+ * Resumo EXECUTIVO de negócio para o passo "Revisar e criar" (C3). PURO, DETERMINÍSTICO (sem IA):
+ * destila o ideaDraft + as contagens do plano num objeto renderizável (o que é / para quem / o que faz
+ * / valor / o que ficou a decidir). Degrada com elegância quando o copiloto foi pulado (ideaDraft
+ * esparso): usa o `brief` livre e as contagens do plano como fallback. opts = { brief, name, capsCount,
+ * screensCount, wavesCount }.
+ */
+export function businessSummaryFromIdea(idea, opts = {}) {
+  const d = normalizeIdea(idea);
+  const o = opts && typeof opts === 'object' ? opts : {};
+  const name = d.name || (o.name ? String(o.name).trim() : '') || 'O sistema';
+  const forWhom = [d.audience, ...d.actors].filter(Boolean).slice(0, 4);
+  const problem = stripDot(d.problem).slice(0, 220); // DOR real (só quando o copiloto capturou)
+  // prosa descritiva de fallback (quando não há "problema"): resumo do copiloto > 1ª frase do brief livre
+  const briefLead = String(o.brief || '').trim().split(/\n|(?<=[.!?])\s/)[0] || '';
+  const description = stripDot(d.summary || briefLead).slice(0, 220);
+  const capabilities = d.capabilities.slice(0, 5);
+  const goal = stripDot(d.value || d.goals[0] || '');
+  const constraints = d.constraints.slice(0, 3);
+  const openEssential = d.openQuestions.filter((q) => q && q.essential).map((q) => q.text);
+  const openTotal = d.openQuestions.length;
+  // capacidades: nunca menos que os chips exibidos (idea) — usa o MAIOR entre a contagem do plano e a do
+  // draft, p/ não mostrar "0 capacidades" sob uma lista de capacidades (o plano pode não tê-las mapeado).
+  const counts = {
+    capabilities: Number.isFinite(Number(o.capsCount)) ? Math.max(Number(o.capsCount), d.capabilities.length) : d.capabilities.length,
+    screens: Number.isFinite(Number(o.screensCount)) ? Number(o.screensCount) : 0,
+    waves: Number.isFinite(Number(o.wavesCount)) ? Number(o.wavesCount) : 0,
+  };
+  // Frase-líder: "<Nome> é um sistema [para <quem>] [que resolve <dor>]." Só encaixa "resolve" quando há
+  // DOR real (não a prosa descritiva — "resolve sistema de agendamento" soaria estranho).
+  let lead = `${name} é um sistema`;
+  if (forWhom.length) lead += ` para ${forWhom.join(', ')}`;
+  if (problem) lead += ` que resolve ${lowerFirst(problem)}`;
+  lead += '.';
+  return { name, lead, forWhom, problem, description, capabilities, goal, constraints, openEssential, openTotal, counts };
+}
+
 /* ─── Preview das telas (etapa 4): mensagens de erro amigáveis ────────────────────────────────────
    Mapeia o CÓDIGO de erro (do backend, já sanitizado) para uma frase pt-BR amigável e acionável —
    NUNCA expõe o texto cru do backend/GitHub. Usado no catch de fwPreviewGenerate. PURO/testável. */
