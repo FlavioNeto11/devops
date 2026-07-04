@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { useMeta, useLabel, useEnum, Loading, Banner, formatBytes } from '../ui.jsx';
+import { useMeta, useLabel, useEnum, SkeletonList, Banner, formatBytes } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
 
 const KIND_ICON = { fundamento: 'shield', historia: 'clock', base_legal: 'scale', custos: 'coins', modelo: 'file', comunicado_bacen: 'landmark', laudo: 'report', video: 'video', outro: 'file' };
@@ -43,7 +43,7 @@ export default function BibliotecaList() {
       </p>
 
       <Banner kind="err">{error}</Banner>
-      {!items && !error && <Loading label="Carregando biblioteca…" />}
+      {!items && !error && <SkeletonList count={6} />}
 
       {items && (
         <div className="card" style={{ marginBottom: 18 }}>
