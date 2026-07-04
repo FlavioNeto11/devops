@@ -245,6 +245,12 @@ app.put('/cases/:id/documents/:key', async (req, res) => {
   if (body.status !== undefined && ENUMS.document_status[body.status]) d.status = body.status;
   if (body.notes !== undefined) d.notes = String(body.notes);
   if (body.source !== undefined) d.source = String(body.source);
+  // refs: referências a PDFs já no acervo (jurisprudência) — sem duplicar arquivo
+  if (Array.isArray(body.refs)) {
+    d.refs = body.refs
+      .filter((r) => r && r.jurisprudenceId)
+      .map((r) => ({ jurisprudenceId: String(r.jurisprudenceId), title: r.title ? String(r.title) : '' }));
+  }
   d.updatedAt = now();
   res.json(await saveAndEnrich(c));
 });
