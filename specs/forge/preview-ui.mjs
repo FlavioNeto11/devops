@@ -103,8 +103,8 @@ export function generatePreview(inventoryIn, opts = {}) {
     add('src/ui/' + rel, fs.readFileSync(path.join(KIT_SRC, rel), 'utf8'));
   }
 
-  // --- VENDOR: mock-data -> src/mock-data.js (com fallback embutido se o pacote não existir ainda) ---
-  add('src/mock-data.js', readMockData());
+  // --- VENDOR: mock-data -> src/mock-data.js (injeta REF_KINDS + ENTITY_COUNTS derivados do inventário) ---
+  add('src/mock-data.js', readMockData(inv));
 
   // --- main.js + router + nav + App.vue + banner ---
   const screens = inv.screens;
@@ -360,7 +360,7 @@ function listView(screen, entity) {
     "const filters = ref({ q: '' });",
     "const state = ref('normal'); // preview: dados de exemplo já populados (sem loading fake — nunca eterno)",
     "const errorMsg = ref('Não foi possível carregar (preview).');",
-    'const allRows = mockRows(fieldDefs, 14);',
+    'const allRows = mockRows(fieldDefs, ' + (entity ? entityCountOf(entity) : 14) + ');',
     'const rows = computed(() => (state.value === ' + "'empty'" + ' ? [] : allRows));',
     'function reload() { state.value = ' + "'normal'" + '; }',
     'function noop() { /* preview: navegação/ações são ilustrativas */ }',
@@ -576,7 +576,7 @@ function customView(screen, entity) {
     "const state = ref('normal');",
     cols.length ? 'const columns = ' + j(cols) + ';' : '',
     cols.length ? 'const fieldDefs = ' + j(fieldsForMock) + ';' : '',
-    cols.length ? 'const rows = ref(mockRows(fieldDefs, 10));' : '',
+    cols.length ? 'const rows = ref(mockRows(fieldDefs, ' + (entity ? entityCountOf(entity) : 10) + '));' : '',
     'function load() { state.value = ' + "'normal'" + '; }',
     'onMounted(load);',
     '</script>', '',
@@ -625,8 +625,46 @@ function walk(dir, base = dir) {
 //     que faz Number(value) — uma string "R$ ..." já formatada viraria NaN -> "—".
 // Por isso o preview NÃO vendora packages/mock-data (que devolve strings já formatadas e não injeta id):
 // os contratos divergem de propósito. Determinístico, sem entropia, pt-BR.
-function readMockData() {
+// --- classificação de entidade p/ mock COERENTE (A2/A4) — infere pelo nome/label, SEM receber o brief ---
+const PERSON_RE = /(client|customer|cliente|barber|barbeiro|user|usuario|professional|profissional|staff|employ|funcionario|patient|paciente|doctor|medico|dentist|dentista|tutor|aluno|student|member|membro|atendente|attendant|seller|vendedor|manager|gerente|driver|motorista|prestador|responsavel|contato|contact|guest|host|pessoa|person|people|terapeuta|nutricionista)/;
+const SERVICE_RE = /(servic|service|plano|plan|produto|product|pacote|package|assinatura|subscription|procedimento|tratamento|treatment|aula|class|curso|course)/;
+const TXN_RE = /(agendamento|appointment|pedido|order|venda|sale|transac|pagamento|payment|fatura|invoice|reserva|booking|atendimento|consulta|sessao|session|movimenta|lancamento|ticket|chamado)/;
+function fnv(s) { let h = 0x811c9dc5; const t = String(s || ''); for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; }
+function refKeyJs(s) { return String(s || '').split('#')[0].toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').replace(/_?id$/, '').replace(/[^a-z0-9]/g, '').replace(/s$/, ''); }
+function entityKindOf(e) {
+  const hay = (String(e && e.name || '') + ' ' + String(e && e.label || '')).toLowerCase();
+  if (PERSON_RE.test(hay)) return 'person';
+  if (SERVICE_RE.test(hay)) return 'service';
+  return 'thing';
+}
+// contagem PLAUSÍVEL por entidade (transacional = dezenas; pessoa/recurso e serviço = poucas).
+function entityCountOf(e) {
+  const hay = (String(e && e.name || '') + ' ' + String(e && e.label || '')).toLowerCase();
+  const seed = fnv(refKeyJs(e && e.name));
+  if (TXN_RE.test(hay)) return 12 + (seed % 9);          // 12..20
+  const kind = entityKindOf(e);
+  if (kind === 'person') return 3 + (seed % 7);          // 3..9
+  if (kind === 'service') return 4 + (seed % 7);         // 4..10
+  return 6 + (seed % 9);                                  // 6..14
+}
+// mapas injetados no mock-data.js: REF_KINDS (resolução de referências) + ENTITY_COUNTS (escala coerente).
+function buildEntityMeta(entities) {
+  const refKinds = {}; const counts = {};
+  for (const e of (Array.isArray(entities) ? entities : [])) {
+    if (!e || !e.name) continue;
+    const meta = { kind: entityKindOf(e), label: singular(e.label || e.name) };
+    refKinds[refKeyJs(e.name)] = meta;
+    if (e.label) refKinds[refKeyJs(e.label)] = meta;
+    counts[e.name] = entityCountOf(e);
+  }
+  return { refKinds, counts };
+}
+
+function readMockData(inv) {
+  const { refKinds, counts } = buildEntityMeta(inv && inv.entities);
   return '// VENDORADO p/ o preview — não editar. Contrato próprio do preview (raw values + id por linha).\n'
+    + 'const REF_KINDS = ' + JSON.stringify(refKinds) + ';\n'
+    + 'const ENTITY_COUNTS = ' + JSON.stringify(counts) + ';\n'
     + MOCK_DATA_FALLBACK;
 }
 
@@ -699,11 +737,23 @@ const WORDS = ['relatório', 'cadastro', 'pedido', 'fatura', 'contrato', 'client
 function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 function pad(n, w) { return String(n).padStart(w, '0'); }
 
+// Referência a outra entidade: normaliza o nome do campo (tira #i do mockRows, _id, plural) e resolve pelo
+// REF_KINDS injetado (pessoa -> nome de pessoa; serviço/coisa -> rótulo legível). Corrige colunas de FK
+// que caíam no fallback genérico ("cliente = Pedido Delta").
+function refKey(s) { return String(s || '').split('#')[0].toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/_?id$/, '').replace(/[^a-z0-9]/g, '').replace(/s$/, ''); }
+function refValue(name, seed) {
+  const r = (typeof REF_KINDS !== 'undefined') ? REF_KINDS[refKey(name)] : null;
+  if (!r) return null;
+  if (r.kind === 'person') return pick(FIRST, seed) + ' ' + pick(LAST, seed >>> 4);
+  if (r.kind === 'service') return (r.label || 'Serviço') + ' ' + pick(['Premium', 'Básico', 'Completo', 'Padrão', 'Avulso', 'Mensal'], seed >>> 3);
+  return (r.label || 'Item') + ' ' + pad(1 + (seed % 99), 2);
+}
+
 function fieldNameHints(name) {
   const n = String(name || '').toLowerCase();
   return {
     isEmail: /e?-?mail/.test(n),
-    isName: /(name|nome|cliente|responsavel|respons|titular|contato)/.test(n) && !/(file|arquivo|user_?name)/.test(n),
+    isName: /(name|nome|cliente|client|customer|barbeiro|barber|profissional|professional|atendente|attendant|responsavel|respons|titular|contato|contact|funcionario|employ|staff|vendedor|seller|paciente|patient|medico|doctor|tutor|aluno|student|membro|member|usuario|user)/.test(n) && !/(file|arquivo|user_?name|username)/.test(n),
     isCompany: /(company|empresa|razao|fantasia|fornecedor)/.test(n),
     isCity: /(city|cidade|municipio)/.test(n),
     isPhone: /(phone|tel|celular|fone|whats)/.test(n),
@@ -712,6 +762,8 @@ function fieldNameHints(name) {
     isDoc: /(documento|doc|registro)/.test(n),
     isMoney: /(price|preco|valor|total|amount|salario|custo|receita|despesa)/.test(n),
     isTitle: /(title|titulo|assunto|descricao_curta)/.test(n),
+    // PK/código: SÓ chaves "cruas" (id, code, sku…). *_id de referência é resolvido antes (refValue/isName).
+    isId: /^(id|uuid|guid|codigo|code|sku|matricula|protocolo|numero|num)$|_id$/.test(n),
   };
 }
 
@@ -720,7 +772,7 @@ export function mockValue(field) {
   const name = f.name || 'campo';
   const seed = hash(name + ':' + (f.type || 'text'));
   const type = f.type || 'text';
-  const hints = fieldNameHints(name);
+  const hints = fieldNameHints(String(name).split('#')[0]); // tira o sufixo "#i" de variação de linha antes de casar pistas
 
   switch (type) {
     case 'number': {
@@ -751,6 +803,9 @@ export function mockValue(field) {
       return capitalize(a) + ' referente a ' + b + ' e ' + c + ', registrado para acompanhamento e revisão posterior.';
     }
     default: {
+      // referência a outra entidade -> valor coerente com o tipo dela (pessoa/serviço/coisa)
+      const ref = refValue(name, seed);
+      if (ref != null) return ref;
       // text — usa pistas do nome do campo
       if (hints.isEmail) {
         const fn = pick(FIRST, seed).toLowerCase(); const ln = pick(LAST, seed >>> 4).toLowerCase();
@@ -763,6 +818,7 @@ export function mockValue(field) {
       if (hints.isCpf) return pad(seed % 1000, 3) + '.' + pad((seed >>> 4) % 1000, 3) + '.' + pad((seed >>> 8) % 1000, 3) + '-' + pad((seed >>> 12) % 100, 2);
       if (hints.isCnpj) return pad(seed % 100, 2) + '.' + pad((seed >>> 3) % 1000, 3) + '.' + pad((seed >>> 7) % 1000, 3) + '/0001-' + pad((seed >>> 11) % 100, 2);
       if (hints.isTitle) return capitalize(pick(WORDS, seed)) + ' ' + pad(1 + (seed % 999), 3);
+      if (hints.isId) return '#' + pad(1 + (seed % 9999), 4); // PK/código cru (checado por último)
       // genérico legível
       return capitalize(pick(WORDS, seed)) + ' ' + pick(['Alfa', 'Beta', 'Gama', 'Delta', 'Ômega'], seed >>> 5);
     }
@@ -788,8 +844,9 @@ export function mockRows(fields, n = 10) {
 // Contagem PLAUSÍVEL para cards de métrica (dezenas a poucas centenas — nunca "milhares" num preview
 // de produto pequeno). Determinístico por chave. Substitui o antigo mockValue({type:'number'}) que ia até 9999.
 export function mockCount(key) {
+  if (typeof ENTITY_COUNTS !== 'undefined' && ENTITY_COUNTS[key] != null) return ENTITY_COUNTS[key]; // contagem COERENTE (= nº de linhas)
   const seed = hash(String(key || 'count') + ':count');
-  return 6 + (seed % 174); // 6..179
+  return 6 + (seed % 174); // 6..179 (fallback)
 }
 
 export default { mockValue, mockRows, mockCount };

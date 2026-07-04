@@ -456,7 +456,9 @@ export function buildForgeTools() {
           .map((e) => (e && typeof e === 'object' ? { ...e, anchors: validAnchors(e.anchors) } : e));
         // saneamento estrutural canonico (mesmo do forge-preview) -> contrato auto-suficiente.
         const inv = validateInventory({ brand: parsed.brand, entities: entitiesRaw, screens: screensRaw });
-        if (!inv.ok) throw new AiToolError('LLM_INVALID_JSON', `inventario invalido: ${inv.message}`, { code: inv.code });
+        // NÃO sobrescrever `code` (o AiToolError faz Object.assign(extra) DEPOIS de setar this.code): mantém
+        // 'LLM_INVALID_JSON' (transitório -> re-tentável no route) e leva o motivo real em invCode/sample.
+        if (!inv.ok) throw new AiToolError('LLM_INVALID_JSON', `inventario invalido: ${inv.message}`, { invCode: inv.code, sample: inv.message });
         return {
           prompt_version: PROMPTS.proposeScreens.version,
           brand: inv.value.brand,

@@ -49,9 +49,19 @@ test('status-map: resolveTone por palavra-chave', () => {
   assert.equal(resolveTone('xyz'), 'neutral');
   assert.equal(resolveTone(''), 'neutral');
 });
-test('status-map: statusLabel humaniza ou usa explícito', () => {
-  assert.equal(statusLabel('in_progress'), 'In progress');
-  assert.equal(statusLabel('x', 'Rótulo'), 'Rótulo');
+test('status-map: statusLabel usa dicionário PT (chaves cruas do banco -> rótulo)', () => {
+  assert.equal(statusLabel('no_show'), 'Faltou');
+  assert.equal(statusLabel('cancelled'), 'Cancelado');
+  assert.equal(statusLabel('canceled'), 'Cancelado'); // grafia US
+  assert.equal(statusLabel('completed'), 'Concluído');
+  assert.equal(statusLabel('pending'), 'Pendente');
+  assert.equal(statusLabel('in_progress'), 'Em andamento');
+  assert.equal(statusLabel('No-Show'), 'Faltou'); // normaliza case + separador
+  assert.equal(statusLabel('  ACTIVE '), 'Ativo'); // normaliza trim/case
+});
+test('status-map: statusLabel cai no humanize p/ desconhecido e respeita o explícito', () => {
+  assert.equal(statusLabel('foo_bar'), 'Foo bar'); // fora do dicionário -> humanize
+  assert.equal(statusLabel('x', 'Rótulo'), 'Rótulo'); // explícito vence
 });
 
 test('glyphs: nome canônico vira glifo, emoji passa intacto, nome desconhecido não vaza', () => {

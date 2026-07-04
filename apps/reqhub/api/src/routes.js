@@ -63,6 +63,7 @@ import { validateLaunchInput, buildClientPayload, dispatchForgeLaunch, validateD
 import { buildLaunchStatus, buildProductStatus } from './forge-status.js';
 import { aiEnabled, getLlm } from './llm.js';
 import { classifyDispatchToken, validateDispatchToken, dispatchErrorPayload } from './github.js';
+import { retryLlmTool } from './retry.js';
 import { runAuthoringChatTurn } from './ai/graph.js';
 import { buildUsageRouter } from './usage/index.js';
 import { forgeState } from './forge-state.js';
@@ -152,14 +153,15 @@ export function buildRouter({ registry, llm, memory } = {}) {
     catch (err) { console.error('[reqhub-api] forge/events:', err); if (!res.headersSent) res.status(500).end(); }
   });
 
-  const run = (toolName) => async (req, res, next) => {
+  const run = (toolName, { retry = false } = {}) => async (req, res, next) => {
     try {
       const theLlm = llm || (await getLlm());
       if (!theLlm) {
         return res.status(503).json({ error: { code: 'AI_DISABLED', message: 'OPENAI_API_KEY nao configurado; geracao de IA desabilitada' } });
       }
       const tool = reg.get(toolName);
-      const result = await dispatchTool(tool, req.body || {}, { llm: theLlm, authenticated: true, identity: req.identity });
+      const call = () => dispatchTool(tool, req.body || {}, { llm: theLlm, authenticated: true, identity: req.identity });
+      const result = retry ? await retryLlmTool(toolName, call) : await call(); // retry só p/ tools de geração pesada (fail transitório do LLM)
       res.json({ status: result.status, ...result.output });
     } catch (err) {
       next(err);
@@ -204,7 +206,7 @@ export function buildRouter({ registry, llm, memory } = {}) {
 
   // Forge (greenfield): propor requisitos/arquitetura — geram conteudo, nao escrevem git.
   // propose-requirements: entrada do usuario = 'brief' (descricao do produto novo).
-  router.post('/v1/forge/propose-requirements', requireAuthoringAuth, ...withIngest('brief'), run('forge.propose_requirements'));
+  router.post('/v1/forge/propose-requirements', requireAuthoringAuth, ...withIngest('brief'), run('forge.propose_requirements', { retry: true }));
   router.post('/v1/forge/propose-architecture', requireAuthoringAuth, run('forge.propose_architecture'));
 
   // Forge IDEIA (etapa 1): COPILOTO DE PRODUTO conversacional (SSE). Roda a tool forge.idea.copilot e
@@ -406,9 +408,11 @@ export function buildRouter({ registry, llm, memory } = {}) {
         const theLlm = llm || (await getLlm());
         if (!theLlm) { sseEmit(res, 'error', { code: 'AI_DISABLED', message: 'IA desabilitada (sem credencial) — não dá p/ propor as telas' }); return finish(); }
         sseEmit(res, 'propose', { phase: 'propose-screens' });
-        const result = await dispatchTool(reg.get('forge.propose_screens'),
+        // Retry transparente: gpt-5-nano às vezes devolve inventário inválido (LLM_INVALID_JSON) — re-tenta
+        // 2x antes de mostrar erro. Logado server-side. Só o erro esgotado chega à UI (catch abaixo).
+        const result = await retryLlmTool('propose_screens', () => dispatchTool(reg.get('forge.propose_screens'),
           { product, requirements: b.requirements || [], architecture: b.architecture || {} },
-          { llm: theLlm, authenticated: true, identity: req.identity });
+          { llm: theLlm, authenticated: true, identity: req.identity }));
         const out = result.output || {};
         inventory = { brand: out.brand, entities: out.entities, screens: out.screens };
         sseEmit(res, 'inventory', { ...inventory, navGroups: out.navGroups || [], gaps: out.gaps || [], counts: { screens: (out.screens || []).length, entities: (out.entities || []).length } });
