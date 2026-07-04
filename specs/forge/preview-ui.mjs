@@ -358,11 +358,11 @@ function listView(screen, entity) {
     'const fieldDefs = ' + j(fieldsForMock.map((f) => ({ name: f.name, type: f.type, enumValues: f.enumValues }))) + ';',
     "const filterFields = [{ key: 'q', label: 'Buscar', type: 'text' }" + filterEnumFields(entity) + '];',
     "const filters = ref({ q: '' });",
-    "const state = ref('loading'); // loading -> normal | empty | error",
+    "const state = ref('normal'); // preview: dados de exemplo já populados (sem loading fake — nunca eterno)",
     "const errorMsg = ref('Não foi possível carregar (preview).');",
     'const allRows = mockRows(fieldDefs, 14);',
     'const rows = computed(() => (state.value === ' + "'empty'" + ' ? [] : allRows));',
-    'function reload() { state.value = ' + "'loading'" + '; setTimeout(() => { state.value = ' + "'normal'" + '; }, 280); }',
+    'function reload() { state.value = ' + "'normal'" + '; }',
     'function noop() { /* preview: navegação/ações são ilustrativas */ }',
     'onMounted(reload);',
     '</script>', '',
@@ -478,9 +478,9 @@ function detailView(screen, entity) {
     "import { UiPageLayout, UiCard, UiButton, UiStatusBadge, format } from '../ui/index.js';",
     "import { mockValue } from '../mock-data.js';",
     'const fieldDefs = ' + j(fields.map((f) => ({ name: f.name, type: f.type, label: f.label || humanizeLabel(f.name), enumValues: f.enumValues }))) + ';',
-    "const state = ref('loading');",
-    'const record = ref({});',
-    'function load() { state.value = ' + "'loading'" + '; setTimeout(() => { const o = {}; for (const f of fieldDefs) o[f.name] = mockValue(f); record.value = o; state.value = ' + "'normal'" + '; }, 280); }',
+    "const state = ref('normal');",
+    'const record = ref((function () { const o = {}; for (const f of fieldDefs) o[f.name] = mockValue(f); return o; })());',
+    'function load() { state.value = ' + "'normal'" + '; }',
     'function fmt(f) { const v = record.value[f.name]; return format.formatValue(v, ' + "f.type === 'currency' ? 'currency' : f.type === 'date' ? 'date' : f.type === 'datetime' ? 'datetime' : f.type === 'number' ? 'number' : f.type === 'boolean' ? 'boolean' : undefined" + '); }',
     'function isStatus(f) { return f.type === ' + "'status'" + ' || f.type === ' + "'enum'" + '; }',
     'function noop() {}',
@@ -535,21 +535,15 @@ function dashboardView(screen, entity, inv) {
     '<script setup>',
     "import { ref, onMounted } from 'vue';",
     "import { UiPageLayout, UiMetricCard" + (cols.length ? ', UiCard, UiDataTable' : '') + " } from '../ui/index.js';",
-    "import { mockRows, mockValue } from '../mock-data.js';",
-    "const state = ref('loading');",
+    "import { mockRows, mockCount } from '../mock-data.js';",
+    "const state = ref('normal');",
     'const metricDefs = ' + j(metrics) + ';',
-    'const metrics = ref(metricDefs.map((m) => ({ ...m, value: ' + "'—'" + ', hint: ' + "''" + ' })));',
+    // números plausíveis (dezenas/poucas centenas) já no setup — sem loading fake nem valores "milhares"
+    "const metrics = ref(metricDefs.map((m) => ({ ...m, value: mockCount(m.key), hint: 'total' })));",
     cols.length ? 'const columns = ' + j(cols) + ';' : '',
     cols.length ? 'const fieldDefs = ' + j(fieldsForMock) + ';' : '',
-    cols.length ? 'const rows = ref([]);' : '',
-    'function load() {',
-    '  state.value = ' + "'loading'" + ';',
-    '  setTimeout(() => {',
-    "    metrics.value = metricDefs.map((m) => ({ ...m, value: mockValue({ name: m.key + '_count', type: 'number' }), hint: 'total' }));",
-    cols.length ? '    rows.value = mockRows(fieldDefs, 8);' : '',
-    '    state.value = ' + "'normal'" + ';',
-    '  }, 300);',
-    '}',
+    cols.length ? 'const rows = ref(mockRows(fieldDefs, 8));' : '',
+    'function load() { state.value = ' + "'normal'" + '; }',
     'onMounted(load);',
     '</script>',
     '<style scoped>',
@@ -579,11 +573,11 @@ function customView(screen, entity) {
     "import { ref, onMounted } from 'vue';",
     "import { UiPageLayout" + (cols.length ? ', UiDataTable' : ', UiCard, UiEmptyState') + " } from '../ui/index.js';",
     cols.length ? "import { mockRows } from '../mock-data.js';" : '',
-    "const state = ref('loading');",
+    "const state = ref('normal');",
     cols.length ? 'const columns = ' + j(cols) + ';' : '',
     cols.length ? 'const fieldDefs = ' + j(fieldsForMock) + ';' : '',
-    cols.length ? 'const rows = ref([]);' : '',
-    'function load() { state.value = ' + "'loading'" + '; setTimeout(() => { ' + (cols.length ? 'rows.value = mockRows(fieldDefs, 10); ' : '') + 'state.value = ' + "'normal'" + '; }, 280); }',
+    cols.length ? 'const rows = ref(mockRows(fieldDefs, 10));' : '',
+    'function load() { state.value = ' + "'normal'" + '; }',
     'onMounted(load);',
     '</script>', '',
   ].filter(Boolean).join('\n');
@@ -730,8 +724,8 @@ export function mockValue(field) {
 
   switch (type) {
     case 'number': {
-      // determinístico, faixa plausível
-      return 1 + (seed % 9999);
+      // determinístico, faixa plausível para uma célula de tabela (não milhares)
+      return 1 + (seed % 999);
     }
     case 'currency': {
       const cents = (seed % 900000) + 1000; // 10.00 .. 9010.00
@@ -791,7 +785,14 @@ export function mockRows(fields, n = 10) {
   return rows;
 }
 
-export default { mockValue, mockRows };
+// Contagem PLAUSÍVEL para cards de métrica (dezenas a poucas centenas — nunca "milhares" num preview
+// de produto pequeno). Determinístico por chave. Substitui o antigo mockValue({type:'number'}) que ia até 9999.
+export function mockCount(key) {
+  const seed = hash(String(key || 'count') + ':count');
+  return 6 + (seed % 174); // 6..179
+}
+
+export default { mockValue, mockRows, mockCount };
 `;
 
 // ===========================================================================

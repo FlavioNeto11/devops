@@ -529,6 +529,9 @@ pre.yaml { background: var(--bg-2); border: 1px solid var(--line); border-radius
 .fw-cta { font-size: 14.5px; padding: 11px 20px; }
 .fw-status { margin: 10px 0 0; font-size: 13px; }
 .fw-err { color: var(--danger); }
+.fw-generating { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 44px 20px; text-align: center; }
+.fw-generating .fw-lead { max-width: 46ch; margin: 0; }
+.fw-generating .forge-spin { width: 20px; height: 20px; border-width: 3px; }
 
 .fw-lead { font-size: 16px; color: var(--fg-1); line-height: 1.55; margin: 0 0 18px; max-width: 70ch; }
 .fw-lead strong { color: var(--fg); }

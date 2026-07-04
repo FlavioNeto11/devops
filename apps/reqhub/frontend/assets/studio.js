@@ -1872,10 +1872,14 @@ function fwStageIdeaManual(host, w, { blueprints }, note) {
 
 async function fwGenerate(w, status, btn) {
   const slug = (w.name || '').trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
-  if (!slug) { w.error = 'Dê um nome ao sistema.'; status.replaceChildren(h('span', { class: 'fw-err', text: w.error })); return; }
-  if ((w.brief || '').trim().length < 10) { w.error = 'Descreva um pouco mais a sua ideia (uma ou duas frases).'; status.replaceChildren(h('span', { class: 'fw-err', text: w.error })); return; }
-  w.slug = slug; w.error = ''; btn.disabled = true;
-  status.replaceChildren(h('span', { class: 'forge-spin', 'aria-hidden': 'true' }), ' A IA está desenhando o sistema — requisitos e arquitetura…');
+  // Validação ANTES de transicionar (fica na etapa atual): sem nome/brief não avança.
+  if (!slug) { w.error = 'Dê um nome ao sistema.'; if (status) status.replaceChildren(h('span', { class: 'fw-err', text: w.error })); return; }
+  if ((w.brief || '').trim().length < 10) { w.error = 'Descreva um pouco mais a sua ideia (uma ou duas frases).'; if (status) status.replaceChildren(h('span', { class: 'fw-err', text: w.error })); return; }
+  w.slug = slug; w.error = '';
+  // TRANSIÇÃO INSTANTÂNEA para a etapa 2: propose-requirements leva ~20s; NÃO travamos a etapa Ideia
+  // com um spinner (parecia "não avança"). Vamos JÁ para a etapa 2 mostrando o estado "gerando", e a
+  // resposta da IA preenche/erra ali. (BUG: o clique no botão/aba parecia não fazer nada por 20s.)
+  w.generating = true; w.stage = 2; fwRerender();
   const catalog = (DATA.capabilities && DATA.capabilities.capabilities) || [];
   const blueprints = (DATA.blueprints && DATA.blueprints.blueprints) || [];
   // Se o usuário anexou arquivos, envia multipart (a IA lê o conteúdo); senão, mantém o JSON de sempre.
@@ -1894,11 +1898,12 @@ async function fwGenerate(w, status, btn) {
     const reqs = (r.data && r.data.requirements) || [];
     if (!reqs.length) throw new Error('A IA não retornou requisitos. Tente descrever de outra forma.');
     fwApplyProposed(w, r.data);
-    w.stage = 2; fwRerender(); // mostra a tela 2 já com os requisitos (não espera a arquitetura)
-    fwKickArch(w);             // arquitetura (waves) em SEGUNDO PLANO
+    w.generating = false; w.error = '';
+    if (state.forge.wizard === w) fwRerender(); // mostra a tela 2 já com os requisitos
+    fwKickArch(w);                              // arquitetura (waves) em SEGUNDO PLANO
   } catch (e) {
-    w.error = String(e.message || e); btn.disabled = false;
-    status.replaceChildren(h('span', { class: 'fw-err', text: 'Não consegui gerar: ' + w.error }));
+    w.generating = false; w.error = String(e.message || e);
+    if (state.forge.wizard === w) fwRerender(); // a etapa 2 renderiza o erro + "Tentar de novo"
   }
 }
 
@@ -2049,6 +2054,34 @@ function fwReqCard(w, p, i) {
 }
 
 function fwStageWhat(host, w, { catalog }) {
+  const hasProposed = w.proposed && w.proposed.length;
+  // Estado GERANDO (a IA leva ~20s p/ propor os requisitos) — mostra loading aqui, na etapa 2, em vez
+  // de travar a etapa Ideia. Deixa voltar p/ a Ideia enquanto gera.
+  if (!hasProposed && w.generating) {
+    host.append(h('h3', { class: 'fw-q', tabindex: '-1', text: modeCopy(w.mode, 'what.q') }));
+    host.append(h('div', { class: 'fw-generating' },
+      h('span', { class: 'forge-spin', 'aria-hidden': 'true' }),
+      h('p', { class: 'fw-lead', text: 'A IA está desenhando o ' + (w.name || w.slug) + ' — capacidades, telas e requisitos. Isso leva alguns segundos…' })));
+    host.append(fwNav(1, null, null));
+    host.querySelector('.fw-q').focus();
+    return;
+  }
+  // Erro na geração — mensagem amigável + "Tentar de novo" (não fica preso).
+  if (!hasProposed && w.error) {
+    host.append(h('h3', { class: 'fw-q', tabindex: '-1', text: modeCopy(w.mode, 'what.q') }));
+    host.append(h('p', { class: 'fw-status' }, h('span', { class: 'fw-err', text: 'Não consegui gerar: ' + w.error })));
+    const retry = h('button', { class: 'btn primary fw-cta', type: 'button', text: '↻ Tentar de novo' });
+    retry.addEventListener('click', () => fwGenerate(w));
+    host.append(h('div', { class: 'fw-actions' }, retry), fwNav(1, null, null));
+    host.querySelector('.fw-q').focus();
+    return;
+  }
+  if (!hasProposed) { // sem proposta e sem gerar (ex.: voltou aqui direto) — volta p/ a Ideia
+    host.append(h('h3', { class: 'fw-q', tabindex: '-1', text: modeCopy(w.mode, 'what.q') }),
+      h('p', { class: 'fw-lead', text: 'Ainda não há nada gerado. Volte para a Ideia e siga a partir de lá.' }), fwNav(1, null, null));
+    host.querySelector('.fw-q').focus();
+    return;
+  }
   const sum = planSummary(w.proposed.map((p) => p.req), w.arch, catalog);
   const dn = w.name || w.slug;
   host.append(h('h3', { class: 'fw-q', tabindex: '-1', text: modeCopy(w.mode, 'what.q') }),
@@ -2238,10 +2271,13 @@ function fwPreviewRenderReady(w, stage) {
   // 1) iframe do preview (mesma origem /reqs — CSP default-src 'self' cobre frame-src; o backend
   // serve a SPA em /reqs/api/v1/forge/preview/<product>/, então a URL é same-origin).
   const frameWrap = h('div', { class: 'fw-prev-frame' });
-  // sandbox="allow-scripts" (SEM allow-same-origin): a SPA do preview roda em origem opaca, isolada
-  // da origem do Reqhub (não acessa cookies/localStorage/DOM do pai). Os assets do SPA são URLs
-  // ABSOLUTAS no mesmo servidor (base = /reqs/api/v1/forge/preview/<product>/), então carregam normalmente.
-  frameWrap.append(h('iframe', { src: pv.url, title: 'Preview de ' + (w.name || w.slug), loading: 'lazy', class: 'fw-prev-iframe', sandbox: 'allow-scripts' }));
+  // sandbox COM allow-same-origin: a SPA gerada (Vite/Vue) PRECISA de same-origin para dar boot
+  // (history API, storage, origem própria) e para carregar os assets `crossorigin` (JS/CSS) — sem isso
+  // o iframe roda em origem OPACA e a SPA nem inicializa (preview em branco / sem estilo). O conteúdo é
+  // FIRST-PARTY confiável (gerado pelo nosso template, servido pelo nosso backend no MESMO domínio
+  // /reqs), então é seguro compartilhar a origem; mantemos o sandbox (defesa em profundidade) só sem o
+  // allow-same-origin era o bug. allow-forms/allow-popups deixam a navegação ilustrativa funcionar.
+  frameWrap.append(h('iframe', { src: pv.url, title: 'Preview de ' + (w.name || w.slug), loading: 'lazy', class: 'fw-prev-iframe', sandbox: 'allow-scripts allow-same-origin allow-forms allow-popups' }));
   stage.append(h('div', { class: 'fw-prev-toolbar' },
     h('span', { class: 'muted small', text: 'Preview com dados de exemplo — nada é salvo.' }),
     h('a', { class: 'btn-link', href: pv.url, target: '_blank', rel: 'noopener', text: 'Abrir em nova aba ↗' })), frameWrap);
