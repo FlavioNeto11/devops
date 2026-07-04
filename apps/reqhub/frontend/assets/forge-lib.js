@@ -976,3 +976,21 @@ export function composeBriefFromIdea(idea) {
   if (d.constraints.length) lines.push(`Restrições de negócio: ${d.constraints.join('; ')}`);
   return lines.join('\n\n').trim();
 }
+
+/* ─── Preview das telas (etapa 4): mensagens de erro amigáveis ────────────────────────────────────
+   Mapeia o CÓDIGO de erro (do backend, já sanitizado) para uma frase pt-BR amigável e acionável —
+   NUNCA expõe o texto cru do backend/GitHub. Usado no catch de fwPreviewGenerate. PURO/testável. */
+const PREVIEW_ERROR_MESSAGES = {
+  DISPATCH_DISABLED: 'A geração de preview está desligada por um problema de configuração (token de publicação ausente ou inválido). Avise o suporte para configurar.',
+  PREVIEW_UPSTREAM_AUTH: 'Não foi possível gerar o preview agora: falha de autenticação com o serviço de build (problema de configuração). Avise o suporte.',
+  PREVIEW_UPSTREAM_FORBIDDEN: 'O serviço de build recusou a operação (permissão ou limite). Tente novamente em instantes.',
+  PREVIEW_UPSTREAM_NOTFOUND: 'Não foi possível gerar o preview: recurso de build não encontrado (configuração). Avise o suporte.',
+  PREVIEW_UPSTREAM: 'Não foi possível gerar o preview agora por um problema no serviço de build. Tente novamente; se persistir, avise o suporte.',
+  BUILD_FAILED: 'A construção do preview falhou. Tente novamente; se persistir, avise o suporte.',
+  BUILD_TIMEOUT: 'A construção do preview demorou demais. Tente novamente em instantes.',
+  AI_DISABLED: 'A IA está indisponível agora, então não dá para desenhar as telas. Tente novamente mais tarde.',
+};
+export function previewErrorMessage(code) {
+  return PREVIEW_ERROR_MESSAGES[code]
+    || 'Não foi possível gerar o preview agora por um problema de configuração ou serviço. Tente novamente; se persistir, avise o suporte.';
+}

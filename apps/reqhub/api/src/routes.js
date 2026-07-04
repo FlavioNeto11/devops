@@ -62,6 +62,7 @@ import { requireAuthoringAuth, ssoIdentity } from './auth.js';
 import { validateLaunchInput, buildClientPayload, dispatchForgeLaunch, validateDeleteInput, dispatchForgeDelete } from './forge-launch.js';
 import { buildLaunchStatus, buildProductStatus } from './forge-status.js';
 import { aiEnabled, getLlm } from './llm.js';
+import { classifyDispatchToken, validateDispatchToken, dispatchErrorPayload } from './github.js';
 import { runAuthoringChatTurn } from './ai/graph.js';
 import { buildUsageRouter } from './usage/index.js';
 import { forgeState } from './forge-state.js';
@@ -121,7 +122,9 @@ export function buildRouter({ registry, llm, memory } = {}) {
   const router = express.Router();
 
   router.get('/health', (_req, res) => {
-    res.json({ status: 'ok', service: 'reqhub-api', ai: aiEnabled(), tools: reg.list().map((t) => t.name) });
+    // dispatch: estado do GITHUB_DISPATCH_TOKEN (offline; sem tocar na rede) — o operador vê se o token
+    // do Forge está 'present' | 'placeholder' | 'missing' sem precisar disparar um build.
+    res.json({ status: 'ok', service: 'reqhub-api', ai: aiEnabled(), dispatch: classifyDispatchToken(), tools: reg.list().map((t) => t.name) });
   });
 
   // Quem sou eu (identidade da borda SSO — oauth2-proxy). Publico, mas so e alcancavel
@@ -287,7 +290,7 @@ export function buildRouter({ registry, llm, memory } = {}) {
     const repo = process.env.GITHUB_DISPATCH_REPO || 'FlavioNeto11/devops';
     try {
       const d = await dispatchForgeLaunch({ token, repo, payload: built.payload });
-      if (!d.ok) return res.status(502).json({ error: { code: 'DISPATCH_FAILED', message: `GitHub ${d.status}: ${d.detail || 'falha ao disparar o workflow'}` } });
+      if (!d.ok) { console.error('[reqhub-api] forge/launch dispatch falhou:', d.status, d.detail || ''); return res.status(502).json({ error: dispatchErrorPayload(d.status, 'criar o sistema') }); }
       const branch = `forge/${v.value.product}/requisitos`;
       return res.status(202).json({
         status: 'dispatched', mode: v.value.mode, product: v.value.product, expected_branch: branch,
@@ -333,7 +336,7 @@ export function buildRouter({ registry, llm, memory } = {}) {
     const repo = process.env.GITHUB_DISPATCH_REPO || 'FlavioNeto11/devops';
     try {
       const d = await dispatchForgeDelete({ token, repo, product: v.value.product, identity: req.identity });
-      if (!d.ok) return res.status(502).json({ error: { code: 'DISPATCH_FAILED', message: `GitHub ${d.status}: ${d.detail || 'falha ao disparar a exclusão'}` } });
+      if (!d.ok) { console.error('[reqhub-api] forge/delete dispatch falhou:', d.status, d.detail || ''); return res.status(502).json({ error: dispatchErrorPayload(d.status, 'excluir o sistema') }); }
       return res.status(202).json({
         status: 'deleting', product: v.value.product,
         actions_url: `https://github.com/${repo}/actions/workflows/forge-delete.yml`,
@@ -367,7 +370,17 @@ export function buildRouter({ registry, llm, memory } = {}) {
     const vp = validateProduct(b.product);
     if (!vp.ok) return res.status(400).json({ error: { code: vp.code, message: vp.message } });
     const token = process.env.GITHUB_DISPATCH_TOKEN;
-    if (!token) return res.status(503).json({ error: { code: 'DISPATCH_DISABLED', message: 'build do preview desligado — defina GITHUB_DISPATCH_TOKEN no Secret reqhub-api-config.' } });
+    // PRÉ-FLIGHT do token ANTES de abrir o SSE: depois de sseStart o HTTP já é 200 e não dá para mudar o
+    // status. Token ausente/placeholder -> 503 (config); token inválido/expirado (GitHub 401) -> 502.
+    // Assim o 401 do GitHub nunca estoura no meio do stream nem vaza a mensagem crua para a UI.
+    if (classifyDispatchToken(token) !== 'present') {
+      return res.status(503).json({ error: { code: 'DISPATCH_DISABLED', message: 'Geração de preview desligada: configure um GITHUB_DISPATCH_TOKEN válido no Secret reqhub-api-config (PAT fine-grained com Contents: Read and write).' } });
+    }
+    const tokCheck = await validateDispatchToken({ token });
+    if (!tokCheck.ok) {
+      console.error('[reqhub-api] forge/preview pré-flight do token falhou:', tokCheck.status);
+      return res.status(502).json({ error: dispatchErrorPayload(tokCheck.status, 'gerar o preview') });
+    }
     const repo = process.env.GITHUB_DISPATCH_REPO || 'FlavioNeto11/devops';
     const product = vp.product;
 
@@ -407,7 +420,7 @@ export function buildRouter({ registry, llm, memory } = {}) {
       const built = buildPreviewPayload({ product, inventory, identity: req.identity, jobId });
       if (!built.ok) { sseEmit(res, 'error', { code: built.code, message: built.message }); return finish(); }
       const d = await dispatchForgePreview({ token, repo, payload: built.payload });
-      if (!d.ok) { sseEmit(res, 'error', { code: 'DISPATCH_FAILED', message: `GitHub ${d.status}: ${d.detail || 'falha ao disparar o build do preview'}` }); return finish(); }
+      if (!d.ok) { console.error('[reqhub-api] forge/preview dispatch falhou:', d.status, d.detail || ''); sseEmit(res, 'error', dispatchErrorPayload(d.status, 'gerar o preview')); return finish(); }
       const actionsUrl = `https://github.com/${repo}/actions/workflows/forge-preview.yml`;
       sseEmit(res, 'dispatch', { jobId, status: 'dispatched', actions_url: actionsUrl });
 

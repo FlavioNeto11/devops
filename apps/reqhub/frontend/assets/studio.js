@@ -16,7 +16,8 @@ import {
   briefFromPortalContract, externalContractRef, suggestIntegrationBlock,
   isT1Product, embedConsoleUrl, publishedSiteUrl, parseEmbedMessage,
   emptyIdea, normalizeIdea, applyIdeaPatch, ideaReady, ideaMaturityHint, composeBriefFromIdea, IDEA_MATURITY_THRESHOLD,
-} from './forge-lib.js?v=59';
+  previewErrorMessage,
+} from './forge-lib.js?v=60';
 // (E1, Forja 4.1) deep-links canônicos da casca global (mesma cópia codegen-synced que o
 // index.html carrega — manter o ?v= IGUAL ao do <script> para não duplicar o módulo).
 import { surfaceLink } from './platform-shell.js?v=45';
@@ -2219,7 +2220,11 @@ async function fwPreviewGenerate(w, els) {
     els.genBtn.disabled = false; els.genBtn.textContent = '↻ Regenerar preview';
     fwPreviewRenderReady(w, els.stage);
   } catch (e) {
-    pv.status = 'error'; pv.error = 'Não consegui gerar o preview: ' + String((e && e.message) || e);
+    // Mensagem AMIGÁVEL por código (nunca o texto cru do backend/GitHub). Erros com código vêm do
+    // servidor (já sanitizados) -> mapeia; sem código = throw interno nosso (ex.: "sem endereço") -> seguro.
+    pv.status = 'error';
+    pv.error = (e && e.code) ? previewErrorMessage(e.code) : ((e && e.message) || previewErrorMessage());
+    const act = pv.steps.find((s) => s.state === 'active'); if (act) act.state = 'error'; els.renderSteps(); // não deixa a etapa presa em amarelo
     els.status.replaceChildren(h('span', { class: 'fw-err', text: pv.error }));
     els.genBtn.disabled = false; els.genBtn.textContent = '↻ Tentar de novo';
   }
