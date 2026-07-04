@@ -16,8 +16,14 @@ function BlurInput({ value, onSave, textarea, ...rest }) {
   return <El {...rest} value={v} onChange={(e) => setV(e.target.value)} onBlur={commit} />;
 }
 
-const TAB_FOR_RESOLVE = { case: 'dados', documents: 'documentos', lawsuits: 'processos', legal: 'juridico', tokenization: 'tokenizacao', collateral: 'caucao' };
+const TAB_FOR_RESOLVE = { case: 'dados', documents: 'documentos', lawsuits: 'processos', legal: 'juridico', tokenization: 'tokenizacao', collateral: 'caucao', pericia: 'pericia' };
 const SEV = { blocker: { c: 'b-red', l: 'Bloqueante' }, high: { c: 'b-amber', l: 'Alta' }, medium: { c: 'b-blue', l: 'Média' }, info: { c: 'b-grey', l: 'Informativa' } };
+// tipo de credor-alvo do caso -> categoria da jurisprudencia (p/ deep-link cruzado)
+const CREDITOR_TO_CATEGORY = {
+  banco_do_brasil: 'banco_do_brasil', banco_privado: 'bancos_privados', caixa: 'caixa_economica',
+  empresa_privada: 'empresas_privadas', tributo_federal: 'tributos_federais',
+  tributo_estadual: 'tributos_estaduais', tributo_municipal: 'tributos_municipais',
+};
 
 export default function CaseDetail() {
   const { id } = useParams();
@@ -44,6 +50,7 @@ export default function CaseDetail() {
     { k: 'processos', label: 'Processos', icon: 'briefcase', count: (c.lawsuits || []).length },
     { k: 'documentos', label: 'Documentos', icon: 'file', count: `${d.docPct}%` },
     { k: 'juridico', label: 'Jurídico', icon: 'landmark' },
+    { k: 'pericia', label: 'Perícia', icon: 'scale' },
     { k: 'tokenizacao', label: 'Tokenização', icon: 'coins' },
     { k: 'caucao', label: 'Caução', icon: 'shield' },
     { k: 'pendencias', label: 'Pendências', icon: 'alert', count: d.pendencyCount, warn: d.blockerCount > 0 },
@@ -55,7 +62,7 @@ export default function CaseDetail() {
 
   return (
     <>
-      <div className="crumbs"><Link to="/">Casos</Link> / {name}</div>
+      <div className="crumbs"><Link to="/casos">Casos</Link> / {name}</div>
 
       <div className="case-summary">
         <div className="cs-top">
@@ -70,7 +77,7 @@ export default function CaseDetail() {
               className="btn danger sm"
               label={<><Icon name="trash" /> Excluir</>}
               confirmLabel="Confirmar exclusão?"
-              onConfirm={async () => { setError(null); try { await api.remove(id); navigate('/'); } catch (e) { setError(e.message); } }}
+              onConfirm={async () => { setError(null); try { await api.remove(id); navigate('/casos'); } catch (e) { setError(e.message); } }}
             />
           </div>
         </div>
@@ -78,6 +85,7 @@ export default function CaseDetail() {
           <div className="cs-metric"><span className="m-k">Status</span><span className="m-v"><StatusBadge status={c.status} /></span></div>
           <div className="cs-metric"><span className="m-k">Risco jurídico</span><span className="m-v"><RiskBadge level={d.risk.level} /></span></div>
           <div className="cs-metric"><span className="m-k">Documentação</span><span className="m-v"><Progress pct={d.docPct} /></span></div>
+          <div className="cs-metric"><span className="m-k">Mecanismo</span><span className="m-v" style={{ fontSize: 14 }}>{label('mechanism', c.mechanism)}</span></div>
           <div className="cs-metric"><span className="m-k">Pendências</span><span className="m-v">{d.pendencyCount}{d.blockerCount ? ` · ${d.blockerCount} bloq.` : ''}</span></div>
           <div className="cs-metric"><span className="m-k">Valor estimado</span><span className="m-v">{formatMoney(d.estimatedValue)}</span></div>
         </div>
@@ -101,6 +109,7 @@ export default function CaseDetail() {
           {tab === 'processos' && <ProcessosTab c={c} id={id} patch={patch} />}
           {tab === 'documentos' && <DocumentosTab c={c} id={id} patch={patch} />}
           {tab === 'juridico' && <JuridicoTab c={c} id={id} patch={patch} />}
+          {tab === 'pericia' && <PericiaTab c={c} id={id} patch={patch} />}
           {tab === 'tokenizacao' && <TokenizacaoTab c={c} id={id} patch={patch} />}
           {tab === 'caucao' && <CaucaoTab c={c} id={id} patch={patch} />}
           {tab === 'pendencias' && <PendenciasTab c={c} goResolve={goResolve} />}
@@ -364,6 +373,11 @@ function JuridicoTab({ c, id, patch }) {
                   <div style={{ fontWeight: 600 }}>{it.label}</div>
                   <div className="ci-controls"><ChecklistAnswer value={it.answer} onChange={(v) => patch(api.updateLegal(id, it.key, { answer: v }))} /></div>
                 </div>
+                {it.key === 'favorable_case_law' && (
+                  <Link className="btn ghost sm" style={{ marginTop: 6 }} to={`/jurisprudencia?outcome=favoravel${c.target_creditor_type && c.target_creditor_type !== 'outro' ? `&creditorCategory=${CREDITOR_TO_CATEGORY[c.target_creditor_type] || ''}` : ''}`}>
+                    <Icon name="gavel" size={13} /> Ver jurisprudência favorável no acervo →
+                  </Link>
+                )}
                 <BlurInput textarea className="small" rows={1} style={{ marginTop: 8 }} placeholder="Observações / evidência…" value={it.notes} onSave={(v) => patch(api.updateLegal(id, it.key, { notes: v }))} />
               </div>
             ))}
@@ -371,6 +385,42 @@ function JuridicoTab({ c, id, patch }) {
         </div>
       ))}
     </div>
+  );
+}
+
+function PericiaTab({ c, id, patch }) {
+  const [form, setForm] = useState(c.pericia || {});
+  useEffect(() => { setForm(c.pericia || {}); }, [c]);
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e && e.target ? (e.target.type === 'checkbox' ? e.target.checked : e.target.value) : e }));
+  const save = () => patch(api.updatePericia(id, form));
+  const agio = (() => {
+    const a = parseFloat(String(form.acquisition_price || '').replace(/[^0-9.,-]/g, '').replace(/\./g, '').replace(',', '.'));
+    const u = parseFloat(String(form.updated_value_pericial || '').replace(/[^0-9.,-]/g, '').replace(/\./g, '').replace(',', '.'));
+    if (Number.isNaN(a) || Number.isNaN(u)) return null;
+    return u - a;
+  })();
+  return (
+    <div className="card"><div className="card-body">
+      <HelpCallout title="Perícia e atualização monetária (registro do laudo)">
+        A perícia confirma a <strong>autenticidade da cártula</strong> e apura a <strong>atualização monetária</strong>
+        do valor pago na aquisição até hoje — que gera o <strong>ágio</strong>. O sistema <strong>registra</strong> o
+        laudo informado; não calcula o valor oficial. A atualização baseia-se na data e no preço de aquisição, não no
+        valor de conversão da AGE do Banco do Brasil.
+      </HelpCallout>
+      <label className="row" style={{ gap: 8, marginBottom: 14 }}><input type="checkbox" style={{ width: 'auto' }} checked={!!form.active} onChange={set('active')} /> <strong>Ativar módulo de perícia para este caso</strong></label>
+      <div className="form-grid">
+        <Field label="Preço de aquisição (R$)" help="Valor pago na época da aquisição — base da atualização." example="Comprou por R$ 5.000 em 1998."><input value={form.acquisition_price || ''} onChange={set('acquisition_price')} /></Field>
+        <Field label="Data-base de aquisição" example="1998 ou 03/1998"><input value={form.acquisition_date || ''} onChange={set('acquisition_date')} /></Field>
+        <Field label="Índice de atualização"><EnumSelect enumName="monetary_index" value={form.monetary_index} onChange={set('monetary_index')} allowEmpty /></Field>
+        <Field label="Valor atualizado no laudo (R$)" hint="Informado pelo laudo pericial"><input value={form.updated_value_pericial || ''} onChange={set('updated_value_pericial')} /></Field>
+        <Field label="Ágio (R$)" hint={agio != null ? `sugerido: ${formatMoney(agio)}` : 'valor - aquisição'}><input value={form.agio || ''} onChange={set('agio')} /></Field>
+        <Field label="Perito / entidade"><input value={form.perito || ''} onChange={set('perito')} /></Field>
+        <Field label="Status do laudo"><EnumSelect enumName="laudo_status" value={form.laudo_status} onChange={set('laudo_status')} /></Field>
+        <Field label="Autenticidade da cártula"><EnumSelect enumName="authenticity_status" value={form.authenticity_status} onChange={set('authenticity_status')} /></Field>
+        <div className="full"><Field label="Observações"><textarea value={form.notes || ''} onChange={set('notes')} rows={2} /></Field></div>
+      </div>
+      <div className="row"><button className="btn primary" onClick={save}>Salvar perícia</button></div>
+    </div></div>
   );
 }
 

@@ -1,6 +1,18 @@
 // Cliente da API BESC. Mesmo origin em producao (/besc/api). Em dev, o Vite faz proxy.
 const BASE = '/besc/api';
 
+// querystring: arrays viram params repetidos; ignora vazios.
+function qs(obj) {
+  const p = new URLSearchParams();
+  for (const [k, v] of Object.entries(obj || {})) {
+    if (v === undefined || v === null || v === '') continue;
+    if (Array.isArray(v)) v.forEach((x) => { if (x !== undefined && x !== null && x !== '') p.append(k, x); });
+    else p.append(k, v);
+  }
+  const s = p.toString();
+  return s ? `?${s}` : '';
+}
+
 async function req(method, path, body) {
   const opts = { method, headers: {} };
   if (body !== undefined) {
@@ -43,4 +55,15 @@ export const api = {
   },
   deleteAttachment: (id, key, attId) => req('DELETE', `/cases/${id}/documents/${key}/attachments/${attId}`),
   attachmentDownloadUrl: (id, key, attId) => `${BASE}/cases/${id}/documents/${key}/attachments/${attId}/download`,
+  updatePericia: (id, b) => req('PUT', `/cases/${id}/pericia`, b),
+
+  // --- portal: biblioteca / jurisprudencia / glossario / stats ---
+  stats: () => req('GET', '/stats'),
+  glossary: () => req('GET', '/glossary'),
+  library: (params) => req('GET', '/library' + qs(params)),
+  libraryGet: (id) => req('GET', `/library/${id}`),
+  libraryFileUrl: (id) => `${BASE}/library/${id}/file`,
+  jurisprudence: (params) => req('GET', '/jurisprudence' + qs(params)),
+  jurisprudenceGet: (id) => req('GET', `/jurisprudence/${id}`),
+  jurisprudenceFileUrl: (id) => `${BASE}/jurisprudence/${id}/file`,
 };

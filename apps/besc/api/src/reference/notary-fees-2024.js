@@ -1,0 +1,45 @@
+// Tabela de custas de cartorio 2024 — transcrita FIELMENTE do PDF digitalizado fornecido
+// ("tabela_cartorio2024.pdf" / "Honorarios do Cartorio"). Tabela II — Registro de Imoveis (SP),
+// base Comunicado DICAR-89 de 17/12/2021 (DOE 18/12/2021), UFESP 2024 = R$ 35,36, ISS 2%.
+// AVISO: valores transcritos de imagem escaneada — CONFERIR no original antes de uso oficial;
+// UFESP e emolumentos sao atualizados periodicamente. Nao constitui cobranca.
+export const NOTARY_FEES_2024 = {
+  title: 'Custas de Registro de Imóveis (SP) — 2024',
+  source: 'Comunicado DICAR-89, de 17/12/2021 (DOE 18/12/2021, pág. 23) — Tabela II, Registro de Imóveis',
+  status: 'transcrito_de_pdf_digitalizado',
+  disclaimer: 'Valores transcritos de PDF digitalizado — conferir no original. UFESP/emolumentos mudam periodicamente. Não é cobrança nem aconselhamento.',
+  parameters: { ufesp_2024: 35.36, iss: '2%', jurisdiction: 'SP' },
+  columns: ['Oficial', 'Estado', 'Secretaria da Fazenda', 'Registro Civil', 'Tribunal de Justiça', 'Ministério Público', 'Município', 'Total'],
+  // "Registro com valor declarado" — faixa de valor -> Total (R$). Colunas detalhadas no PDF-fonte.
+  registro_declarado: [
+    { faixa: 'a', de: '0,01', ate: '2.122,00', total: '239,58' },
+    { faixa: 'b', de: '2.122,01', ate: '5.302,00', total: '384,46' },
+    { faixa: 'c', de: '5.302,01', ate: '8.838,00', total: '689,71' },
+    { faixa: 'd', de: '8.838,01', ate: '17.680,00', total: '1.023,36' },
+    { faixa: 'e', de: '17.680,01', ate: '35.360,00', total: '1.244,15' },
+    { faixa: 'f', de: '35.360,01', ate: '106.080,00', total: '1.387,48' },
+    { faixa: 'g', de: '106.080,01', ate: '176.800,00', total: '1.770,92' },
+    { faixa: 'h', de: '176.800,01', ate: '212.160,00', total: '2.153,56' },
+    { faixa: 'i', de: '212.160,01', ate: '247.520,00', total: '2.344,52' },
+    { faixa: 'j', de: '247.520,01', ate: '282.880,00', total: '2.536,55' },
+    { faixa: 'k', de: '282.880,01', ate: '318.240,00', total: '2.674,04' },
+    { faixa: 'l', de: '318.240,01', ate: '353.600,00', total: '2.743,75' },
+    { faixa: 'm', de: '353.600,01', ate: '707.200,00', total: '3.059,28' },
+    { faixa: 'n', de: '707.200,01', ate: '1.060.800,00', total: '3.582,75' },
+    { faixa: 'o', de: '1.060.800,01', ate: '1.414.400,00', total: '4.124,59' },
+    { faixa: 'p', de: '1.414.400,01', ate: '1.768.000,00', total: '4.666,51' },
+    { faixa: 'q', de: '1.768.000,01', ate: '2.121.600,00', total: '4.946,67' },
+    { faixa: 'r', de: '2.121.600,01', ate: '3.536.000,00', total: '6.347,46' },
+    { faixa: 's', de: '3.536.000,01', ate: '5.304.000,00', total: '8.868,87' },
+    { faixa: 't', de: '5.304.000,01', ate: '7.072.000,00', total: '11.670,43' },
+    { faixa: 'u', de: '7.072.000,01', ate: '8.840.000,00', total: '14.472,02' },
+    { faixa: 'v', de: '8.840.000,01', ate: '10.608.000,00', total: '17.273,59' },
+    { faixa: 'w', de: '10.608.000,01', ate: '12.376.000,00', total: '20.075,15' },
+    { faixa: 'x', de: '12.376.000,01', ate: '14.144.000,00', total: '22.876,73' },
+    { faixa: 'y', de: '14.144.000,01', ate: '15.912.000,00', total: '25.678,30' },
+    { faixa: 'z', de: '15.912.000,01', ate: '17.680.000,00', total: '28.479,87' },
+    { faixa: 'z1', de: '17.680.000,01', ate: '21.216.000,00', total: '32.682,23' },
+    { faixa: 'z22', de: 'acima de', ate: '130.832.000,00', total: '215.437,22' },
+  ],
+  note: 'Faixas z2–z21 e as colunas por rateio (Oficial/Estado/Fazenda/Registro Civil/TJ/MP/Município) constam integralmente no PDF-fonte na Biblioteca.',
+};
