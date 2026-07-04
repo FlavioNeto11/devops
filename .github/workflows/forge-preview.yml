@@ -127,10 +127,13 @@ jobs:
         if: steps.build.outputs.ok == 'true'
         run: |
           $ErrorActionPreference = "Stop"
-          # substitui o dist/ antigo (limpa antes p/ não acumular assets órfãos entre iterações)
-          kubectl exec -n $env:NS $env:WRITER -- sh -c "rm -rf /preview-data/$env:PRODUCT/dist && mkdir -p /preview-data/$env:PRODUCT/dist"
-          # kubectl cp do diretório dist/ inteiro
-          kubectl cp "$env:OUTDIR/dist" "$($env:NS)/$($env:WRITER):/preview-data/$($env:PRODUCT)/dist" 2>$null
+          # Publica o dist/ estático. ARMADILHA do kubectl cp: se o destino JÁ EXISTE como diretório,
+          # ele copia a origem PARA DENTRO (-> dist/dist) e o api nunca acha dist/index.html (fica preso
+          # em "building"). Por isso copiamos para um nome NOVO (dist.new, que não existe -> cp cria como
+          # cópia) e trocamos atômico. mkdir só do diretório do PRODUTO (nunca de dist).
+          kubectl exec -n $env:NS $env:WRITER -- sh -c "mkdir -p /preview-data/$env:PRODUCT && rm -rf /preview-data/$env:PRODUCT/dist.new"
+          kubectl cp "$env:OUTDIR/dist" "$($env:NS)/$($env:WRITER):/preview-data/$($env:PRODUCT)/dist.new" 2>$null
+          kubectl exec -n $env:NS $env:WRITER -- sh -c "rm -rf /preview-data/$env:PRODUCT/dist && mv /preview-data/$env:PRODUCT/dist.new /preview-data/$env:PRODUCT/dist"
           # PERSISTE o inventário no PVC (A2, Forja 4.0): o refino por IA fora do wizard lê este
           # arquivo via GET /v1/forge/preview/inventory — o preview deixa de ser descartável.
           kubectl cp preview-inventory.json "$($env:NS)/$($env:WRITER):/preview-data/$($env:PRODUCT)/inventory.json"
