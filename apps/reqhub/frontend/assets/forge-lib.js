@@ -1030,6 +1030,9 @@ const PREVIEW_ERROR_MESSAGES = {
   BUILD_FAILED: 'A construção do preview falhou. Tente novamente; se persistir, avise o suporte.',
   BUILD_TIMEOUT: 'A construção do preview demorou demais. Tente novamente em instantes.',
   AI_DISABLED: 'A IA está indisponível agora, então não dá para desenhar as telas. Tente novamente mais tarde.',
+  // Precondição: sem requisitos não dá p/ a IA desenhar as telas (falha ANTES do build — não é "vite build").
+  NO_REQUIREMENTS: 'Ainda não há requisitos para desenhar as telas. Volte ao passo “O que será criado” e gere (ou aguarde) os requisitos antes de gerar o preview.',
+  TOOL_INVALID_INPUT: 'Faltam dados para desenhar as telas (os requisitos). Volte ao passo “O que será criado” e gere os requisitos antes do preview.',
 };
 export function previewErrorMessage(code) {
   return PREVIEW_ERROR_MESSAGES[code]

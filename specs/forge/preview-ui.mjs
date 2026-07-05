@@ -616,7 +616,7 @@ function calendarView(screen, entity, inv) {
     '        <button class="cal-nav" type="button" @click="week++" aria-label="Próxima semana">›</button>',
     '      </div>',
     '      <div class="cal-scroll">',
-    '        <div class="cal-grid" :style="gridStyle">',
+    '        <div class="cal-grid">',
     '          <div class="cal-cell cal-corner"></div>',
     '          <div v-for="r in resources" :key="r" class="cal-cell cal-res">{{ r }}</div>',
     '          <template v-for="slot in slots" :key="slot">',
@@ -652,7 +652,6 @@ function calendarView(screen, entity, inv) {
     "  return { service: mockValue({ name: 'servico#' + (seed % 6), type: 'text' }), client: mockValue({ name: 'cliente#' + (seed % 9), type: 'text' }), tone: TONES[seed % TONES.length] };",
     '}',
     "const weekLabel = computed(() => week.value === 0 ? 'Esta semana' : (week.value > 0 ? 'Em ' + week.value + ' semana(s)' : 'Há ' + (-week.value) + ' semana(s)'));",
-    "const gridStyle = computed(() => ({ gridTemplateColumns: '64px repeat(' + resources.length + ', minmax(116px, 1fr))' }));",
     "function pick() { toast.success('Pré-visualização: agenda de exemplo (nada é salvo).'); }",
     bookingRoute ? 'function goBook() { router.push({ name: ' + sq(bookingRoute) + " }).catch(() => {}); }" : '',
     '</script>',
@@ -660,7 +659,9 @@ function calendarView(screen, entity, inv) {
     '.cal-head { display: flex; align-items: center; justify-content: center; gap: var(--ui-space-4); margin-bottom: var(--ui-space-3); }',
     '.cal-nav { border: 1px solid rgb(var(--ui-border)); background: rgb(var(--ui-surface)); color: rgb(var(--ui-fg)); border-radius: var(--ui-radius-md); width: 30px; height: 30px; cursor: pointer; font-size: 16px; line-height: 1; }',
     '.cal-scroll { overflow-x: auto; }',
-    '.cal-grid { display: grid; gap: 1px; background: rgb(var(--ui-border)); border: 1px solid rgb(var(--ui-border)); border-radius: var(--ui-radius-md); overflow: hidden; min-width: 560px; }',
+    // colunas FIXAS (1 de horário + 4 de profissionais — resources tem sempre 4): grade no CSS, sem :style
+    // (inline style é proibido pela CSP estrita do preview; ver o teste CSP do gerador).
+    '.cal-grid { display: grid; grid-template-columns: 64px repeat(4, minmax(116px, 1fr)); gap: 1px; background: rgb(var(--ui-border)); border: 1px solid rgb(var(--ui-border)); border-radius: var(--ui-radius-md); overflow: hidden; min-width: 560px; }',
     '.cal-cell { background: rgb(var(--ui-surface)); padding: 6px 8px; min-height: 42px; }',
     '.cal-corner, .cal-res { background: rgb(var(--ui-surface-2)); }',
     '.cal-res { font-weight: 600; font-size: var(--ui-text-sm); text-align: center; }',
