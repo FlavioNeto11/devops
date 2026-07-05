@@ -15,7 +15,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { generatePreview } from './preview-ui.mjs';
-import { normalizeInventory, pascal } from './lib/ui-inventory.mjs';
+import { normalizeInventory, pascal, SCREEN_KINDS } from './lib/ui-inventory.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -52,10 +52,15 @@ const INVENTORY = {
     { slug: 'pedido-detalhe', title: 'Detalhe do pedido', kind: 'detail', route: '/pedidos/:id', entity: 'pedidos', anchors: ['REQ-X-0001'] },
     { slug: 'produtos-lista', title: 'Produtos', kind: 'list', route: '/produtos', entity: 'produtos', anchors: ['REQ-X-0002'] },
     { slug: 'relatorios', title: 'Relatórios', kind: 'custom', route: '/relatorios', entity: null, anchors: ['REQ-X-0002'], purpose: 'Relatórios gerenciais.' },
+    // kinds de AGENDAMENTO (parte C2): a INVENTORY cobre TODOS os SCREEN_KINDS -> os testes de syntax e
+    // CSP (node --check / sem style inline) validam calendar+booking automaticamente. Anti-regressão.
+    { slug: 'pedidos-agenda', title: 'Agenda', kind: 'calendar', route: '/pedidos/agenda', entity: 'pedidos', anchors: ['REQ-X-0001'], purpose: 'Agenda recurso × horário.' },
+    { slug: 'pedido-marcar', title: 'Nova marcação', kind: 'booking', route: '/pedidos/marcar', entity: 'pedidos', anchors: ['REQ-X-0001'], purpose: 'Fluxo de marcação.' },
   ],
   navGroups: [
     { group: '', items: ['painel'] },
     { group: 'Vendas', items: ['pedidos-lista', 'produtos-lista'] },
+    { group: 'Agenda', items: ['pedidos-agenda', 'pedido-marcar'] },
     { group: 'Gestão', items: ['relatorios'] },
   ],
   gaps: [],
@@ -144,6 +149,34 @@ test('CSP: nenhum .vue gerado tem style= inline / :style / v-html', () => {
       assert.ok(!/:style\b/.test(raw), f + ' tem :style');
       assert.ok(!/v-html\b/.test(raw), f + ' tem v-html');
     }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+// CONTRATO gerador <-> kinds (anti-regressão da parte C2): TODO SCREEN_KINDS precisa render uma view SEM
+// cair em 'custom' silenciosamente, e a INVENTORY de teste precisa exercitar todos (senão os gates de
+// syntax/CSP acima não os cobrem). calendar/booking devem sair com a grade / o wizard de 3 passos.
+test('todos os SCREEN_KINDS geram uma view (nenhum kind órfão / coerção silenciosa)', () => {
+  const kindsInInventory = new Set(INVENTORY.screens.map((s) => s.kind));
+  for (const k of SCREEN_KINDS) {
+    assert.ok(kindsInInventory.has(k), `INVENTORY de teste não exercita o kind "${k}" — adicione uma tela desse kind`);
+  }
+  const { dir, r } = genToTmp();
+  try {
+    // cada tela do inventário vira uma view .vue (o gerador não "perde" nenhum kind)
+    for (const s of INVENTORY.screens) {
+      const raw = fs.readFileSync(path.join(dir, 'src/views/' + pascal(s.slug) + 'View.vue'), 'utf8');
+      assert.ok(raw.length > 0, 'view vazia p/ ' + s.slug + ' (' + s.kind + ')');
+      assert.match(raw, /<template>/, s.slug + ' não é um SFC válido');
+    }
+    // calendar -> grade recurso × horário
+    const cal = fs.readFileSync(path.join(dir, 'src/views/PedidosAgendaView.vue'), 'utf8');
+    assert.match(cal, /cal-grid/, 'calendar sem a grade');
+    assert.match(cal, /grid-template-columns/, 'calendar sem colunas fixas (regressão de :style?)');
+    // booking -> wizard de 3 passos
+    const bk = fs.readFileSync(path.join(dir, 'src/views/PedidoMarcarView.vue'), 'utf8');
+    assert.match(bk, /bk-steps/, 'booking sem o passo-a-passo');
+    assert.match(bk, /Confirmar marcação/, 'booking sem o passo de confirmação');
+    assert.equal(r.screens.length, INVENTORY.screens.length);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 

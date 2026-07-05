@@ -407,6 +407,20 @@ export function buildRouter({ registry, llm, memory } = {}) {
         sseEmit(res, 'start', { product, mode: 'propose' });
         const theLlm = llm || (await getLlm());
         if (!theLlm) { sseEmit(res, 'error', { code: 'AI_DISABLED', message: 'IA desabilitada (sem credencial) — não dá p/ propor as telas' }); return finish(); }
+        // GUARD explícito (pré-tool): forge.propose_screens exige requisitos NÃO-VAZIOS (inputSchema). Se
+        // vierem vazios (ex.: preview aberto antes de gerar os requisitos), NÃO chama a IA: loga o input
+        // REJEITADO na íntegra (diagnóstico) e devolve um erro ACIONÁVEL 'NO_REQUIREMENTS' na fase certa —
+        // em vez do 'TOOL_INVALID_INPUT' genérico da tool, que não diz o motivo nem a fase real.
+        const reqList = Array.isArray(b.requirements) ? b.requirements : [];
+        if (reqList.length === 0) {
+          console.error('[reqhub-api] forge/preview: propose SEM requisitos — input rejeitado:', JSON.stringify({
+            product, bodyKeys: Object.keys(b || {}), requirementsType: typeof b.requirements,
+            requirementsLen: reqList.length, hasArchitecture: !!b.architecture, hasInventory: !!b.inventory,
+            brief: String(b.brief || '').slice(0, 120),
+          }));
+          sseEmit(res, 'error', { code: 'NO_REQUIREMENTS', message: 'Não há requisitos para desenhar as telas. Volte ao passo "O que será criado" e gere (ou aguarde) os requisitos antes de gerar o preview.' });
+          return finish();
+        }
         sseEmit(res, 'propose', { phase: 'propose-screens' });
         // Retry transparente: gpt-5-nano às vezes devolve inventário inválido (LLM_INVALID_JSON) — re-tenta
         // 2x antes de mostrar erro. Logado server-side. Só o erro esgotado chega à UI (catch abaixo).
@@ -459,6 +473,11 @@ export function buildRouter({ registry, llm, memory } = {}) {
     } catch (err) {
       // erro tipado do contrato AiTool -> code; senão genérico. Nunca 500 no meio do stream.
       const code = (err && err.code && String(err.name || '').startsWith('AiTool')) ? err.code : 'PREVIEW_ERROR';
+      // Diagnóstico: o AiToolError esconde o motivo real em err.cause (o .message só diz "input invalido
+      // para a tool X"). Loga a causa p/ não voltarmos a depurar às cegas se um input inesperado regredir.
+      if (code === 'TOOL_INVALID_INPUT' || code === 'TOOL_INVALID_OUTPUT') {
+        console.error(`[reqhub-api] forge/preview ${code}:`, String((err && err.cause && (err.cause.message || err.cause)) || err.message || err));
+      }
       sseEmit(res, 'error', { code, message: String((err && err.message) || err) });
       finish();
     }

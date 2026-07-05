@@ -17,7 +17,7 @@ import {
   isT1Product, embedConsoleUrl, publishedSiteUrl, parseEmbedMessage,
   emptyIdea, normalizeIdea, applyIdeaPatch, ideaReady, ideaMaturityHint, composeBriefFromIdea, IDEA_MATURITY_THRESHOLD,
   previewErrorMessage, businessSummaryFromIdea,
-} from './forge-lib.js?v=61';
+} from './forge-lib.js?v=62';
 // (E1, Forja 4.1) deep-links canônicos da casca global (mesma cópia codegen-synced que o
 // index.html carrega — manter o ?v= IGUAL ao do <script> para não duplicar o módulo).
 import { surfaceLink } from './platform-shell.js?v=45';
@@ -619,6 +619,13 @@ async function telasGenerate(product, statusEl, { inventory } = {}) {
   const body = inventory
     ? { product: name, inventory }
     : { product: name, displayName: product.display_name || name, blueprint: product.blueprint || '', brief: product.vision || '', requirements: telasRequirements(product) };
+  // GUARD: sem requisitos (produto ainda sem reqs na baseline) a IA não tem o que desenhar — orienta em
+  // vez de disparar e falhar com TOOL_INVALID_INPUT genérico no servidor.
+  if (!body.inventory && (!Array.isArray(body.requirements) || body.requirements.length === 0)) {
+    say(h('span', { class: 'fw-err', text: previewErrorMessage('NO_REQUIREMENTS') }));
+    _telasBusy[name] = false;
+    return;
+  }
   const LBL = { start: 'começando', propose: 'IA propondo as telas', inventory: 'inventário pronto', dispatch: 'build disparado no runner', building: 'construindo a SPA', ready: 'pronto' };
   try {
     await AI.stream2('/v1/forge/preview/generate', body, {
@@ -2238,6 +2245,14 @@ async function fwPreviewGenerate(w, els) {
         requirements: (w.proposed || []).map((p) => ({ id: p.id, title: p.req.title, type: p.req.type, statement: p.req.statement, capability_blocks: p.req.capability_blocks || [], acceptance_criteria: p.req.acceptance_criteria || [] })),
         architecture: w.arch ? { stack: w.arch.stack, selected_blocks: w.arch.selected_blocks || [], waves: w.arch.waves || [] } : null,
       };
+  // GUARD (raiz): propor telas exige requisitos. Sem eles (e sem inventory pronto), NÃO dispara — evita o
+  // erro no servidor e orienta o usuário de volta ao passo 2 (defesa-em-profundidade além do fwMaxStage).
+  if (!body.inventory && (!Array.isArray(body.requirements) || body.requirements.length === 0)) {
+    pv.status = 'error'; pv.error = previewErrorMessage('NO_REQUIREMENTS');
+    els.genBtn.disabled = false; els.genBtn.textContent = '✨ Gerar preview das telas';
+    els.status.replaceChildren(h('span', { class: 'fw-err', text: pv.error }));
+    return;
+  }
   // marca as etapas anteriores como concluídas conforme o build avança (visual de progresso).
   const ORDER = ['start', 'propose', 'inventory', 'dispatch', 'building', 'ready'];
   const advance = (key) => { const i = ORDER.indexOf(key); for (let j = 0; j < i; j++) upStep(ORDER[j], null, 'done'); upStep(key, null, 'active'); };
