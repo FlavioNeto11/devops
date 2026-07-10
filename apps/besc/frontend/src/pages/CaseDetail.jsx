@@ -4,8 +4,10 @@ import { api } from '../api.js';
 import {
   StatusBadge, RiskBadge, Progress, Field, EnumSelect, Banner, Loading,
   ConfirmButton, formatMoney, formatBytes, useLabel, useMeta, HelpCallout,
+  LegalStatusBadge,
 } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
+import { useAuth } from '../auth.jsx';
 
 // input que salva no blur (evita chamada por tecla)
 function BlurInput({ value, onSave, textarea, ...rest }) {
@@ -91,6 +93,8 @@ export default function CaseDetail() {
         </div>
       </div>
 
+      <MarketplaceBridge caseId={id} c={c} />
+
       <Banner kind="err">{error}</Banner>
 
       <div className="detail-layout">
@@ -117,6 +121,76 @@ export default function CaseDetail() {
         </div>
       </div>
     </>
+  );
+}
+
+// Ponte caso -> marketplace (só para quem tem titles:read, i.e. Gestor). Se o caso já originou um
+// título, linka para o detalhe do título; se é elegível, permite criar; senão, explica o porquê.
+function MarketplaceBridge({ caseId, c }) {
+  const { hasPerm } = useAuth();
+  const navigate = useNavigate();
+  const canManage = hasPerm('titles:read');
+  const [title, setTitle] = useState(undefined); // undefined = carregando · null = nenhum
+  const [err, setErr] = useState(null);
+  const [override, setOverride] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!canManage) { setTitle(null); return undefined; }
+    let alive = true;
+    api.mkt.titles()
+      .then((ts) => { if (alive) setTitle((ts || []).find((t) => t.case_id === caseId) || null); })
+      .catch(() => { if (alive) setTitle(null); });
+    return () => { alive = false; };
+  }, [caseId, canManage]);
+
+  if (!canManage) return null;
+
+  const eligible = c.status === 'ready_for_structuring' || c.status === 'ready_with_caveats';
+  const withCaveats = c.status === 'ready_with_caveats';
+
+  const create = async () => {
+    setBusy(true); setErr(null);
+    try {
+      const t = await api.mkt.createTitle({ caseId, label: c.holder_name || undefined, override });
+      navigate(`/gestao/titulos/${t.id}`);
+    } catch (e) { setErr(e.message); setBusy(false); }
+  };
+
+  return (
+    <div className="card" style={{ marginBottom: 16 }}>
+      <div className="card-head"><h3><Icon name="coins" size={16} /> Tokenização (marketplace)</h3></div>
+      <div className="card-body">
+        {title === undefined && <span className="small muted">Verificando título…</span>}
+        {title && (
+          <div className="between" style={{ gap: 12, flexWrap: 'wrap' }}>
+            <span>Este caso já originou o título <strong>{title.label}</strong> <LegalStatusBadge status={title.legal_status} /></span>
+            <Link className="btn sm primary" to={`/gestao/titulos/${title.id}`}>Abrir título →</Link>
+          </div>
+        )}
+        {title === null && eligible && (
+          <div className="stack">
+            <p className="small muted" style={{ margin: 0 }}>Este caso está apto e ainda não tem título no marketplace.</p>
+            <Banner kind="err">{err}</Banner>
+            {withCaveats && (
+              <label className="row" style={{ gap: 8 }}>
+                <input type="checkbox" style={{ width: 'auto' }} checked={override} onChange={(e) => setOverride(e.target.checked)} />
+                <span>Caso <em>apto com ressalvas</em>: aceito as ressalvas para originar o título.</span>
+              </label>
+            )}
+            <div className="row">
+              <button className="btn primary" disabled={busy || (withCaveats && !override)} onClick={create}>{busy ? <span className="spinner" /> : <Icon name="plus" size={14} />} Criar título do marketplace</button>
+            </div>
+          </div>
+        )}
+        {title === null && !eligible && (
+          <p className="small muted" style={{ margin: 0 }}>
+            Para originar um título, o caso precisa estar <strong>Apto para estruturação</strong> (ou <strong>Apto com ressalvas</strong>).
+            Status atual: <StatusBadge status={c.status} />.
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 

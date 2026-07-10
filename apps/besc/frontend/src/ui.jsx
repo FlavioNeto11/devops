@@ -54,6 +54,40 @@ export function RiskBadge({ level }) {
   return <span className={`badge ${RISK_CLASS[level] || 'b-grey'}`}>Risco {label('legal_risk', level).toLowerCase()}</span>;
 }
 
+// ---- marketplace (títulos): estado jurídico, listing e disponibilidade ----
+// Rótulos e cores fixos (espelham api/src/marketplace/states.js) — favorável/reativado = verde,
+// negado/derrotado = vermelho, recurso = âmbar, não julgado/arquivado = cinza.
+export const LEGAL_STATUS_LABEL = {
+  unjudged: 'Não julgado', ruled_favorable: 'Julgado favorável', ruled_against: 'Julgado desfavorável',
+  under_appeal: 'Em recurso', reinstated: 'Reativado', defeated: 'Definitivamente negado', archived: 'Arquivado',
+};
+const LEGAL_STATUS_CLASS = {
+  unjudged: 'b-grey', ruled_favorable: 'b-green', reinstated: 'b-green',
+  ruled_against: 'b-red', defeated: 'b-red', under_appeal: 'b-amber', archived: 'b-grey',
+};
+export function LegalStatusBadge({ status }) {
+  return <span className={`badge ${LEGAL_STATUS_CLASS[status] || 'b-grey'}`}>{LEGAL_STATUS_LABEL[status] || status || '—'}</span>;
+}
+
+export const LISTING_LABEL = { draft: 'Rascunho', listed: 'Publicado', delisted: 'Despublicado' };
+const LISTING_CLASS = { draft: 'b-grey', listed: 'b-green', delisted: 'b-amber' };
+export function ListingBadge({ status }) {
+  return <span className={`badge ${LISTING_CLASS[status] || 'b-grey'}`}>{LISTING_LABEL[status] || status || '—'}</span>;
+}
+
+export function AvailableBadge({ available }) {
+  return <span className={`badge ${available ? 'b-green' : 'b-grey'}`}>{available ? 'Disponível' : 'Indisponível'}</span>;
+}
+
+// Dinheiro a partir de um NÚMERO (ou string numérica "1234.56", como o Postgres devolve NUMERIC).
+// Diferente de formatMoney(), que faz parse heurístico de texto pt-BR livre (campos do case).
+export function formatBRL(n) {
+  if (n === null || n === undefined || n === '') return '—';
+  const num = Number(n);
+  if (Number.isNaN(num)) return '—';
+  return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
 export function Progress({ pct }) {
   return (
     <div className="row" style={{ gap: 8 }}>

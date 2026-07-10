@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto';
 import * as store from './store.js';
 import { config } from './config.js';
 import { bootFoundation, installFoundation, authorize } from './foundation/index.js';
+import { bootMarketplace, installMarketplace } from './marketplace/index.js';
 import {
   ENUMS,
   DOC_CATEGORY_LABELS,
@@ -44,6 +45,7 @@ app.use((req, res, next) => {
   next();
 });
 installFoundation(app);
+installMarketplace(app);
 
 const now = () => new Date().toISOString();
 
@@ -612,6 +614,7 @@ app.get('/stats', (req, res) => {
 app.use((req, res) => res.status(404).json({ error: 'rota não encontrada' }));
 
 const PORT = process.env.PORT || 8080;
-Promise.all([store.init(), bootFoundation()]).then(() => {
+Promise.all([store.init(), bootFoundation()]).then(([, foundationOn]) => {
+  if (foundationOn) bootMarketplace(); // liga o SimulatedLedgerAdapter ao pool
   app.listen(PORT, () => console.log(`[besc-api] ouvindo em :${PORT} (data em ${process.env.DATA_DIR || 'cwd/data'})`));
 });

@@ -15,6 +15,8 @@ import JurisprudenciaDetail from './pages/JurisprudenciaDetail.jsx';
 import Glossario from './pages/Glossario.jsx';
 import Roadmap from './pages/Roadmap.jsx';
 import Referencia from './pages/Referencia.jsx';
+import GestaoTitulos from './pages/GestaoTitulos.jsx';
+import GestaoTituloDetail from './pages/GestaoTituloDetail.jsx';
 import Entrar, { EntrarCallback } from './pages/Entrar.jsx';
 
 const ROLE_LABELS = { public: 'Público', investor: 'Investidor', lawyer: 'Advogado', judge: 'Juiz', manager: 'Gestor', admin: 'Administrador' };
@@ -85,6 +87,7 @@ export default function App() {
   const { error } = useMeta();
   const { hasPerm } = useAuth();
   const canSeeCases = hasPerm('cases:read');
+  const canManageTitles = hasPerm('titles:read');
   return (
     <>
       <header className="topbar">
@@ -104,6 +107,7 @@ export default function App() {
             <NavLink to="/biblioteca"><Icon name="library" /> Biblioteca</NavLink>
             <NavLink to="/jurisprudencia"><Icon name="gavel" /> Jurisprudência</NavLink>
             {canSeeCases && <NavLink to="/casos"><Icon name="cases" /> Casos</NavLink>}
+            {canManageTitles && <NavLink to="/gestao/titulos"><Icon name="coins" /> Gestão</NavLink>}
             <span className="nav-sep" aria-hidden="true" />
             <NavLink to="/glossario"><Icon name="glossary" /> Glossário</NavLink>
             <NavLink to="/referencia"><Icon name="scale" /> Referência</NavLink>
@@ -130,6 +134,8 @@ export default function App() {
           <Route path="/entrar" element={<Entrar />} />
           <Route path="/entrar/callback" element={<EntrarCallback />} />
           <Route path="/casos" element={<RequireRole perm="cases:read"><Dashboard /></RequireRole>} />
+          <Route path="/gestao/titulos" element={<RequireRole perm="titles:read"><GestaoTitulos /></RequireRole>} />
+          <Route path="/gestao/titulos/:id" element={<RequireRole perm="titles:read"><GestaoTituloDetail /></RequireRole>} />
           <Route path="/ajuda" element={<Ajuda />} />
           <Route path="/cases/new" element={<RequireRole perm="cases:read"><CaseForm /></RequireRole>} />
           <Route path="/cases/:id" element={<RequireRole perm="cases:read"><CaseDetail /></RequireRole>} />

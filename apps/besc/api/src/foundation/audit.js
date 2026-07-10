@@ -18,6 +18,12 @@ export const EVENT_TYPES = new Set([
   'case.created', 'case.updated', 'case.deleted', 'case.status.changed',
   'content.created', 'content.updated', 'content.deleted',
   'audit.access.viewed',
+  // marketplace (Fase 1) — docs/evolution/07 §4
+  'title.registered', 'title.updated', 'title.legal_status.changed',
+  'token.issuance.requested', 'token.issuance.confirmed', 'token.issuance.failed',
+  'token.transfer.requested', 'token.transfer.confirmed', 'token.transfer.failed',
+  'token.freeze.confirmed', 'token.unfreeze.confirmed',
+  'token.substitution.requested', 'token.substitution.confirmed', 'token.substitution.failed',
 ]);
 
 export async function appendAudit({ actorUserId = null, actorRole = 'system', ip = null, eventType, entityType, entityId, payload = {}, occurredAt = null }) {
