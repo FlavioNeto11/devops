@@ -156,4 +156,30 @@ export const api = {
   jurisprudence: (params) => req('GET', '/jurisprudence' + qs(params)),
   jurisprudenceGet: (id) => req('GET', `/jurisprudence/${id}`),
   jurisprudenceFileUrl: (id) => `${BASE}/jurisprudence/${id}/file`,
+
+  // --- marketplace off-chain (Gestor): titulos, valuations, parametros, emissoes,
+  //     contratos e maquina de estado juridico (docs/evolution/03,04,08) ---
+  mkt: {
+    // meta publica: { legalStatuses: {key:label}, transitions: {from:[to...]} }
+    meta: () => req('GET', '/marketplace/meta'),
+    // titulos
+    titles: () => req('GET', '/titles'),
+    createTitle: (b) => req('POST', '/titles', b),                 // {caseId, label, override?}
+    title: (id) => req('GET', `/titles/${id}`),                    // + valuations/parameters/batches/legalHistory
+    // valor de mercado (serie append-only)
+    addValuation: (id, b) => req('POST', `/titles/${id}/valuations`, b), // {valuePerShare, valuationDate?, source?, notes?}
+    // parametros de tokenizacao (versionados; 1 active; fator congela pos-emissao)
+    addParameter: (id, b) => req('POST', `/titles/${id}/parameters`, b), // {tokensPerShare, unitFaceValue, basedOnValuationId?}
+    activateParameter: (paramId) => req('POST', `/parameters/${paramId}/activate`),
+    // publicacao no catalogo
+    setListing: (id, listingStatus) => req('POST', `/titles/${id}/listing`, { listingStatus }), // draft|listed|delisted
+    // maquina de estado juridico (transicao sensivel)
+    transitionLegal: (id, b) => req('POST', `/titles/${id}/legal-status`, b), // {toStatus, reason, evidenceRef?}
+    // emissao / contratos
+    addBatch: (id, b) => req('POST', `/titles/${id}/batches`, b),  // {quantity}
+    addContract: (id, b) => req('POST', `/titles/${id}/contracts`, b), // {quantity, purpose?, holderUserId?}
+    contracts: (titleId) => req('GET', '/contracts' + qs({ titleId })),
+    substituteContract: (contractId, b) => req('POST', `/contracts/${contractId}/substitute`, b), // {toTitleId}
+    writeOffContract: (contractId) => req('POST', `/contracts/${contractId}/write-off`),
+  },
 };

@@ -16,19 +16,29 @@ export const PERMISSION_CATALOG = [
   { key: 'rbac:invite', label: 'Convidar usuários qualificados', category: 'administracao', sensitive: true },
   { key: 'audit:read', label: 'Consultar a trilha de auditoria', category: 'auditoria', sensitive: false },
   { key: 'audit:export', label: 'Exportar a trilha de auditoria', category: 'auditoria', sensitive: false },
+  // marketplace (Fase 1)
+  { key: 'titles:read', label: 'Ver títulos e contratos do marketplace', category: 'marketplace', sensitive: false },
+  { key: 'titles:create', label: 'Cadastrar/publicar títulos', category: 'marketplace', sensitive: true },
+  { key: 'valuations:write', label: 'Registrar valor de mercado', category: 'marketplace', sensitive: false },
+  { key: 'params:write', label: 'Parametrizar tokenização (fator e valor)', category: 'marketplace', sensitive: true },
+  { key: 'tokens:issue', label: 'Emitir tokens e registrar contratos', category: 'marketplace', sensitive: true },
+  { key: 'legal_status:transition', label: 'Transicionar o estado jurídico do título', category: 'marketplace', sensitive: true },
+  { key: 'legal_status:read', label: 'Ler o histórico jurídico do título', category: 'marketplace', sensitive: false },
 ];
 
 // Seeds dos papeis minimos (linhas; insert-if-missing — o admin pode recombinar depois).
 const ROLE_SEEDS = [
   { key: 'public', label: 'Público (anônimo)', perms: [['content:read', 'all']] },
   { key: 'investor', label: 'Investidor', perms: [['content:read', 'all']] },
-  { key: 'lawyer', label: 'Advogado (auditoria)', perms: [['content:read', 'all']] },
-  { key: 'judge', label: 'Juiz (auditoria)', perms: [['content:read', 'all']] },
+  { key: 'lawyer', label: 'Advogado (auditoria)', perms: [['content:read', 'all'], ['titles:read', 'linked'], ['legal_status:read', 'linked'], ['audit:read', 'linked'], ['audit:export', 'linked']] },
+  { key: 'judge', label: 'Juiz (auditoria)', perms: [['content:read', 'all'], ['titles:read', 'linked'], ['legal_status:read', 'linked'], ['audit:read', 'linked'], ['audit:export', 'linked']] },
   {
     key: 'manager', label: 'Gestor', perms: [
       ['content:read', 'all'], ['content:write', 'all'], ['cases:read', 'all'], ['cases:write', 'all'],
       ['users:manage', 'all'], ['rbac:manage', 'all'], ['rbac:invite', 'all'],
       ['audit:read', 'all'], ['audit:export', 'all'],
+      ['titles:read', 'all'], ['titles:create', 'all'], ['valuations:write', 'all'], ['params:write', 'all'],
+      ['tokens:issue', 'all'], ['legal_status:transition', 'all'], ['legal_status:read', 'all'],
     ],
   },
   { key: 'admin', label: 'Administrador da plataforma', perms: [['*', 'all']] },
