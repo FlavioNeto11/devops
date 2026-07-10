@@ -157,6 +157,36 @@ export const api = {
   jurisprudenceGet: (id) => req('GET', `/jurisprudence/${id}`),
   jurisprudenceFileUrl: (id) => `${BASE}/jurisprudence/${id}/file`,
 
+  // --- portal do investidor (Fase 2): catalogo publico, dossie, carteira, termos e
+  //     contratacao de tokens (docs/evolution/08-portais-perfis) ---
+  investor: {
+    // modo demonstracao: enquanto goLive=false, toda a area do investidor leva watermark
+    mode: () => req('GET', '/portal/mode'),                        // publico → {goLive}
+    catalog: () => req('GET', '/marketplace/catalog'),            // publico → titulos listados
+    dossier: (id) => req('GET', `/marketplace/titles/${id}/dossier`), // publico → projecao allowlist
+    wallet: () => req('GET', '/me/wallet'),                        // contracts:read → {contracts,demonstration}
+    terms: (kind) => req('GET', `/terms/${kind}`),                // publico → termos versionados | null
+    acceptTerms: (id) => req('POST', `/terms/${id}/accept`),      // contracts:read → registra aceite
+    // Contratacao: precisa preservar o corpo do 409 (termsId) — o req() padrao so devolve o
+    // error como Error e perderia o termsId, por isso usamos authFetch direto e anexamos os
+    // campos ao erro (status + termsId) para o fluxo de aceite inline decidir.
+    contract: async (id, body) => {
+      const res = await authFetch(`${BASE}/marketplace/titles/${id}/contract`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const err = new Error((data && data.error) || `Erro ${res.status}`);
+        err.status = res.status;
+        if (data && data.termsId) err.termsId = data.termsId;
+        throw err;
+      }
+      return data;
+    },
+  },
+
   // --- marketplace off-chain (Gestor): titulos, valuations, parametros, emissoes,
   //     contratos e maquina de estado juridico (docs/evolution/03,04,08) ---
   mkt: {
@@ -181,5 +211,30 @@ export const api = {
     contracts: (titleId) => req('GET', '/contracts' + qs({ titleId })),
     substituteContract: (contractId, b) => req('POST', `/contracts/${contractId}/substitute`, b), // {toTitleId}
     writeOffContract: (contractId) => req('POST', `/contracts/${contractId}/write-off`),
+  },
+
+  // --- portal de AUDITORIA (advogado/juiz) — read-only; escopo linked concedido pelo Gestor.
+  //     ATENÇÃO: auditor.title(id) REGISTRA o acesso na trilha de auditoria (é esperado). ---
+  auditor: {
+    titles: () => req('GET', '/audit/titles'),                 // gestor vê todos; auditor só os concedidos
+    title: (id) => req('GET', `/audit/titles/${id}`),          // {title, legalHistory, contracts} + registra acesso
+    events: (params) => req('GET', '/audit/events' + qs(params)), // trilha filtrada por entityType/entityId/limit
+  },
+
+  // --- administração do Gestor: usuários/RBAC/convites/concessões de auditoria ---
+  admin: {
+    users: () => req('GET', '/admin/users'),
+    patchUser: (id, b) => req('PATCH', `/admin/users/${id}`, b),      // {isActive?, approvalStatus?}
+    grantRole: (id, roleKey) => req('POST', `/admin/users/${id}/roles`, { roleKey }),
+    revokeRole: (id, roleKey) => req('DELETE', `/admin/users/${id}/roles/${encodeURIComponent(roleKey)}`),
+    permissions: () => req('GET', '/meta/permissions'),              // {catalog, scopes, roles}
+    createRole: (b) => req('POST', '/admin/roles', b),               // {key, label, description?}
+    setRolePerms: (id, perms) => req('PUT', `/admin/roles/${id}/permissions`, { permissions: perms }),
+    deleteRole: (id) => req('DELETE', `/admin/roles/${id}`),
+    invite: (b) => req('POST', '/auth/invitations', b),             // {email, roleKey} -> {token, expiresInDays}
+    // concessão de acesso de auditoria a um título (escopo linked do advogado/juiz)
+    grants: (titleId) => req('GET', `/titles/${titleId}/grants`),
+    grant: (titleId, b) => req('POST', `/titles/${titleId}/grants`, b),      // {userEmail, purpose?}
+    revokeGrant: (titleId, userId) => req('DELETE', `/titles/${titleId}/grants/${userId}`),
   },
 };

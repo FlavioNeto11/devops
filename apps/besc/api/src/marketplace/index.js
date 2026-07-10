@@ -10,6 +10,7 @@ import {
   setListing, transitionLegalStatus,
 } from './titles.js';
 import { issueBatch, contractTokens, substituteContract, writeOffContract, listContracts } from './issuance.js';
+import { installPortals } from './portals.js';
 
 export function bootMarketplace() {
   setLedgerAdapter(new SimulatedLedgerAdapter((text, params) => query(text, params)));
@@ -52,4 +53,7 @@ export function installMarketplace(app) {
     if (!t) return res.status(404).json({ error: 'título não encontrado' });
     res.json(t.legalHistory);
   });
+
+  // portais por perfil (investidor/auditor/gestor-grants) — Fase 2
+  installPortals(app);
 }

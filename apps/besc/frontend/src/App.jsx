@@ -17,6 +17,13 @@ import Roadmap from './pages/Roadmap.jsx';
 import Referencia from './pages/Referencia.jsx';
 import GestaoTitulos from './pages/GestaoTitulos.jsx';
 import GestaoTituloDetail from './pages/GestaoTituloDetail.jsx';
+import Auditoria from './pages/Auditoria.jsx';
+import AuditoriaTitulo from './pages/AuditoriaTitulo.jsx';
+import GestaoUsuarios from './pages/GestaoUsuarios.jsx';
+import GestaoPapeis from './pages/GestaoPapeis.jsx';
+import Marketplace from './pages/Marketplace.jsx';
+import TituloDossie from './pages/TituloDossie.jsx';
+import InvestidorCarteira from './pages/InvestidorCarteira.jsx';
 import Entrar, { EntrarCallback } from './pages/Entrar.jsx';
 
 const ROLE_LABELS = { public: 'Público', investor: 'Investidor', lawyer: 'Advogado', judge: 'Juiz', manager: 'Gestor', admin: 'Administrador' };
@@ -88,6 +95,11 @@ export default function App() {
   const { hasPerm } = useAuth();
   const canSeeCases = hasPerm('cases:read');
   const canManageTitles = hasPerm('titles:read');
+  const canSeeWallet = hasPerm('contracts:read');
+  const canAudit = hasPerm('legal_status:read');
+  const canManageUsers = hasPerm('users:manage');
+  const canManageRoles = hasPerm('rbac:manage');
+  const canAdmin = canManageUsers || canManageRoles;
   return (
     <>
       <header className="topbar">
@@ -104,10 +116,22 @@ export default function App() {
           <div className="spacer" />
           <nav>
             <NavLink to="/" end><Icon name="landmark" /> Início</NavLink>
+            <NavLink to="/marketplace"><Icon name="coins" /> Investir</NavLink>
             <NavLink to="/biblioteca"><Icon name="library" /> Biblioteca</NavLink>
             <NavLink to="/jurisprudencia"><Icon name="gavel" /> Jurisprudência</NavLink>
+            {canSeeWallet && <NavLink to="/investidor/carteira"><Icon name="briefcase" /> Minha carteira</NavLink>}
             {canSeeCases && <NavLink to="/casos"><Icon name="cases" /> Casos</NavLink>}
             {canManageTitles && <NavLink to="/gestao/titulos"><Icon name="coins" /> Gestão</NavLink>}
+            {canAudit && <NavLink to="/auditoria"><Icon name="gavel" /> Auditoria</NavLink>}
+            {canAdmin && (
+              <details className="user-menu nav-admin">
+                <summary><Icon name="shield" size={13} /> <span>Administração</span></summary>
+                <div className="um-pop">
+                  {canManageUsers && <NavLink to="/gestao/usuarios" className="nav-admin-link"><Icon name="user" size={14} /> Usuários</NavLink>}
+                  {canManageRoles && <NavLink to="/gestao/papeis" className="nav-admin-link"><Icon name="shield" size={14} /> Papéis</NavLink>}
+                </div>
+              </details>
+            )}
             <span className="nav-sep" aria-hidden="true" />
             <NavLink to="/glossario"><Icon name="glossary" /> Glossário</NavLink>
             <NavLink to="/referencia"><Icon name="scale" /> Referência</NavLink>
@@ -131,11 +155,18 @@ export default function App() {
           <Route path="/glossario" element={<Glossario />} />
           <Route path="/roadmap" element={<Roadmap />} />
           <Route path="/referencia" element={<Referencia />} />
+          <Route path="/marketplace" element={<Marketplace />} />
+          <Route path="/marketplace/titulos/:id" element={<TituloDossie />} />
+          <Route path="/investidor/carteira" element={<RequireRole perm="contracts:read"><InvestidorCarteira /></RequireRole>} />
           <Route path="/entrar" element={<Entrar />} />
           <Route path="/entrar/callback" element={<EntrarCallback />} />
           <Route path="/casos" element={<RequireRole perm="cases:read"><Dashboard /></RequireRole>} />
           <Route path="/gestao/titulos" element={<RequireRole perm="titles:read"><GestaoTitulos /></RequireRole>} />
           <Route path="/gestao/titulos/:id" element={<RequireRole perm="titles:read"><GestaoTituloDetail /></RequireRole>} />
+          <Route path="/auditoria" element={<RequireRole perm="titles:read"><Auditoria /></RequireRole>} />
+          <Route path="/auditoria/titulos/:id" element={<RequireRole perm="legal_status:read"><AuditoriaTitulo /></RequireRole>} />
+          <Route path="/gestao/usuarios" element={<RequireRole perm="users:manage"><GestaoUsuarios /></RequireRole>} />
+          <Route path="/gestao/papeis" element={<RequireRole perm="rbac:manage"><GestaoPapeis /></RequireRole>} />
           <Route path="/ajuda" element={<Ajuda />} />
           <Route path="/cases/new" element={<RequireRole perm="cases:read"><CaseForm /></RequireRole>} />
           <Route path="/cases/:id" element={<RequireRole perm="cases:read"><CaseDetail /></RequireRole>} />

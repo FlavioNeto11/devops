@@ -24,12 +24,16 @@ export const PERMISSION_CATALOG = [
   { key: 'tokens:issue', label: 'Emitir tokens e registrar contratos', category: 'marketplace', sensitive: true },
   { key: 'legal_status:transition', label: 'Transicionar o estado jurídico do título', category: 'marketplace', sensitive: true },
   { key: 'legal_status:read', label: 'Ler o histórico jurídico do título', category: 'marketplace', sensitive: false },
+  // investidor (Fase 2)
+  { key: 'contracts:read', label: 'Ver a própria carteira e contratos', category: 'investidor', sensitive: false },
+  { key: 'contracts:contract', label: 'Contratar tokens', category: 'investidor', sensitive: false },
+  { key: 'leases:lease', label: 'Alugar títulos', category: 'investidor', sensitive: false },
 ];
 
 // Seeds dos papeis minimos (linhas; insert-if-missing — o admin pode recombinar depois).
 const ROLE_SEEDS = [
   { key: 'public', label: 'Público (anônimo)', perms: [['content:read', 'all']] },
-  { key: 'investor', label: 'Investidor', perms: [['content:read', 'all']] },
+  { key: 'investor', label: 'Investidor', perms: [['content:read', 'all'], ['contracts:read', 'own'], ['contracts:contract', 'own'], ['leases:lease', 'own']] },
   { key: 'lawyer', label: 'Advogado (auditoria)', perms: [['content:read', 'all'], ['titles:read', 'linked'], ['legal_status:read', 'linked'], ['audit:read', 'linked'], ['audit:export', 'linked']] },
   { key: 'judge', label: 'Juiz (auditoria)', perms: [['content:read', 'all'], ['titles:read', 'linked'], ['legal_status:read', 'linked'], ['audit:read', 'linked'], ['audit:export', 'linked']] },
   {

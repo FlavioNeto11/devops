@@ -442,3 +442,38 @@ video.viewer-frame { min-height: auto; max-height: 70vh; background: #000; }
 .um-roles { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 10px; }
 .um-pop .btn { width: 100%; justify-content: center; }
 .empty h3 svg { vertical-align: -2px; margin-right: 4px; color: var(--accent); }
+
+/* ===== PORTAL DO INVESTIDOR (Fase 2) — watermark de demonstração ===== */
+/* Aviso persistente e visualmente óbvio (faixa listrada âmbar) que NÃO bloqueia a navegação:
+   enquanto o gate regulatório não libera (go_live=false), toda a área do investidor o exibe. */
+.demo-watermark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 16px;
+  margin-bottom: 16px;
+  border: 1px solid #e6cf8f;
+  border-left: 4px solid var(--amber);
+  border-radius: var(--radius-sm);
+  color: var(--amber);
+  font-size: 13px;
+  line-height: 1.5;
+  background-color: var(--amber-soft);
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(138, 97, 0, 0.06) 0,
+    rgba(138, 97, 0, 0.06) 10px,
+    transparent 10px,
+    transparent 20px
+  );
+  box-shadow: var(--shadow-xs);
+}
+.demo-watermark .dw-ic { flex-shrink: 0; display: inline-flex; align-items: center; }
+.demo-watermark strong { font-weight: 750; }
+
+/* Menu suspenso "Administração" na topbar (reusa .user-menu / .um-pop) */
+.topbar nav .nav-admin .um-pop { right: auto; left: 0; min-width: 190px; display: flex; flex-direction: column; gap: 2px; }
+.topbar nav .nav-admin .um-pop a.nav-admin-link { color: var(--ink); background: none; font-weight: 600; padding: 8px 10px; border-radius: 8px; }
+.topbar nav .nav-admin .um-pop a.nav-admin-link:hover { color: var(--ink); background: var(--surface-2); }
+.topbar nav .nav-admin .um-pop a.nav-admin-link.active { color: var(--accent-ink); background: var(--accent-soft); }
+.topbar nav .nav-admin .um-pop a.nav-admin-link.active::after { display: none; }
