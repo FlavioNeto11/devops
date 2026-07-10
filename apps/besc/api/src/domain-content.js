@@ -5,13 +5,15 @@
 
 export const CONTENT_ENUMS = {
   // tipos de item da biblioteca institucional
+  // Curadoria 2026-07-10 (docs/evolution/11-curadoria-conteudo.md): kinds `custos` e
+  // `comunicado_bacen` removidos junto com todos os seus itens; `atualizacao_monetaria`
+  // criado para laudos/modelos de atualização (antes classificados como `modelo`).
   library_kind: {
     fundamento: 'Fundamento / proposta de valor',
     historia: 'Histórico da incorporação',
     base_legal: 'Base legal / parecer',
-    custos: 'Custos (cartório / honorários)',
     modelo: 'Modelo de petição',
-    comunicado_bacen: 'Comunicado ao mercado (BACEN/BB)',
+    atualizacao_monetaria: 'Atualização monetária (laudos e modelos)',
     laudo: 'Laudo pericial',
     video: 'Vídeo explicativo',
     outro: 'Outro',

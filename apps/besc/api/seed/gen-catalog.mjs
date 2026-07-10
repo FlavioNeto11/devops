@@ -222,12 +222,27 @@ function applyOverrides(arr) {
 applyOverrides(jurisprudence);
 applyOverrides(library);
 
-// ordena por id p/ diffs estaveis
-jurisprudence.sort((a, b) => a.id.localeCompare(b.id));
-library.sort((a, b) => a.id.localeCompare(b.id));
+// ---------------- curadoria (denylist + patches) ----------------
+// Itens removidos/reclassificados por decisao do operador NUNCA voltam numa regeneracao,
+// mesmo que os arquivos-fonte ainda existam na pasta. Ver docs/evolution/11-curadoria-conteudo.md.
+const curationPath = path.join(OUT, 'curation-denylist.json');
+let curation = { remove: [], patch: {} };
+if (fs.existsSync(curationPath)) { try { curation = JSON.parse(fs.readFileSync(curationPath, 'utf8')); } catch {} }
+const removeSet = new Set(curation.remove || []);
+function applyCuration(arr) {
+  const kept = arr.filter((it) => !removeSet.has(it.id));
+  for (const it of kept) if (curation.patch && curation.patch[it.id]) Object.assign(it, curation.patch[it.id]);
+  return kept;
+}
+const jurisprudenceFinal = applyCuration(jurisprudence);
+const libraryFinal = applyCuration(library);
 
-fs.writeFileSync(path.join(OUT, 'jurisprudence.json'), JSON.stringify(jurisprudence, null, 2), 'utf8');
-fs.writeFileSync(path.join(OUT, 'library.json'), JSON.stringify(library, null, 2), 'utf8');
+// ordena por id p/ diffs estaveis
+jurisprudenceFinal.sort((a, b) => a.id.localeCompare(b.id));
+libraryFinal.sort((a, b) => a.id.localeCompare(b.id));
+
+fs.writeFileSync(path.join(OUT, 'jurisprudence.json'), JSON.stringify(jurisprudenceFinal, null, 2), 'utf8');
+fs.writeFileSync(path.join(OUT, 'library.json'), JSON.stringify(libraryFinal, null, 2), 'utf8');
 
 // version bump automatico
 const verPath = path.join(OUT, 'catalog-version.json');
